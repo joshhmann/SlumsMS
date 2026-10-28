@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "botRebirth", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew");
+            "family", "tutorialIsland", "botRebirth", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -101,6 +101,7 @@ final class Probes160 {
                 case "achievements" -> achievements(p);
                 case "newerAreaCards" -> newerAreaCards();
                 case "playerInvites" -> playerInvites();
+                case "siteInvites" -> siteInvites();
                 case "slumsChan" -> slumsChan(p);
                 case "botTalk" -> botTalk(p);
                 case "botCrew" -> botCrew(p);
@@ -1419,6 +1420,128 @@ final class Probes160 {
             ev.add("cleanup removed " + gone + " rows");
         }
         return verdict(bad, "@invite refuses level 29, gives two codes at level 30, refuses the third, lists them, and a code works exactly once", ev);
+    }
+
+    // ── t-iv-2: the site invite page's routes (ticket 105, "Site invite page", 1.6.1) ──────────────
+
+    /** t-iv-2: made-up accounts (negative ids, never real): a level 40 player, a level 29 one, a banned one, a GM. */
+    static final int SITE_IV_PLAYER = -900_201, SITE_IV_LOW = -900_202, SITE_IV_BANNED = -900_203, SITE_IV_GM = -900_204;
+
+    /**
+     * t-iv-2: {@code /invite/create}, {@code /invite/list} and {@code /invite/cancel} for made-up accounts against
+     * the real invite table: the running API has the routes and refuses an unknown account; a player's code made with
+     * {@code @invite} counts on the site (one more, then WEEKLY_LIMIT); the player list shows only their two codes,
+     * never who used them; a player can't cancel the GM's code (NOT_FOUND) but can cancel their own, which still
+     * counts; level 29 is NOT_ELIGIBLE and a banned account REFUSED; a GM sets the life and a note, sees the codes
+     * with their owner, and cancels the player's other code. Removes every code those ids made in a {@code finally}.
+     */
+    static List<String> siteInvites() throws Exception {
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        int[] ids = {SITE_IV_PLAYER, SITE_IV_LOW, SITE_IV_BANNED, SITE_IV_GM};
+        List<SiteAuthQa.FakeAccount> fakes = List.of(
+                new SiteAuthQa.FakeAccount(SITE_IV_PLAYER, "qaivplayer", 0, 40, false),
+                new SiteAuthQa.FakeAccount(SITE_IV_LOW, "qaivlow", 0, 29, false),
+                new SiteAuthQa.FakeAccount(SITE_IV_BANNED, "qaivbanned", 0, 90, true),
+                new SiteAuthQa.FakeAccount(SITE_IV_GM, "qaivgm", 3, 1, false));
+        try {
+            for (int id : ids) {
+                SiteAuthQa.cleanupInvitesMadeBy(id);   // a crashed earlier run's leftovers would use up the week
+            }
+            long now = System.currentTimeMillis();
+            String off = SiteAuthQa.notListening();
+            if (off != null) {
+                ev.add("running API part skipped: " + off);
+            } else {
+                SiteAuthQa.Answer live = SiteAuthQa.call("/invite/list", Map.of("account_id", SITE_IV_PLAYER));
+                ev.add("running API /invite/list for an unknown account: " + live.status() + " " + live.body());
+                if (!"REFUSED".equals(live.error())) {
+                    bad.add("the running API's /invite/list did not refuse an unknown account (are the routes deployed?): " + live.body());
+                }
+            }
+            List<String> game = client.command.commands.gm3.InviteCommand.runPlayerForQa(new String[0], SITE_IV_PLAYER, 0, "qaivplayer", 40, now);
+            ev.add("@invite in game: " + game);
+            SiteAuthQa.Answer c1 = SiteAuthQa.callInvitesAs(fakes, "/invite/create", Map.of("account_id", SITE_IV_PLAYER, "life", 1, "note", "x"));
+            ev.add("player create on the site: " + c1.body());
+            if (!c1.ok() || c1.body().get("expiresAt") != null || !Integer.valueOf(0).equals(c1.body().get("left"))) {
+                bad.add("the player's site code should never expire and leave 0 this week after one in game: " + c1.body());
+            }
+            String playerCode = c1.ok() ? (String) c1.body().get("code") : null;
+            SiteAuthQa.Answer c2 = SiteAuthQa.callInvitesAs(fakes, "/invite/create", Map.of("account_id", SITE_IV_PLAYER));
+            ev.add("player's third code: " + c2.body());
+            if (!"WEEKLY_LIMIT".equals(c2.error())) {
+                bad.add("the third code in a week (one in game, one on the site) was not WEEKLY_LIMIT: " + c2.body());
+            }
+            SiteAuthQa.Answer low = SiteAuthQa.callInvitesAs(fakes, "/invite/create", Map.of("account_id", SITE_IV_LOW));
+            SiteAuthQa.Answer ban = SiteAuthQa.callInvitesAs(fakes, "/invite/create", Map.of("account_id", SITE_IV_BANNED));
+            ev.add("level 29: " + low.body() + "; banned: " + ban.body());
+            if (!"NOT_ELIGIBLE".equals(low.error())) {
+                bad.add("a level 29 account was not NOT_ELIGIBLE: " + low.body());
+            }
+            if (!"REFUSED".equals(ban.error())) {
+                bad.add("a banned account was not REFUSED: " + ban.body());
+            }
+            SiteAuthQa.Answer g = SiteAuthQa.callInvitesAs(fakes, "/invite/create", Map.of("account_id", SITE_IV_GM, "life", 3, "note", "autoqa t-iv-2"));
+            ev.add("GM create: " + g.body());
+            String gmCode = g.ok() ? (String) g.body().get("code") : null;
+            Object exp = g.body().get("expiresAt");
+            long want = (now + 3 * 86_400_000L) / 1000;
+            if (gmCode == null || !(exp instanceof Number n) || Math.abs(n.longValue() - want) > 120) {
+                bad.add("the GM's 3-day code should expire about 3 days out (unix seconds " + want + "): " + g.body());
+            }
+            SiteAuthQa.Answer pl = SiteAuthQa.callInvitesAs(fakes, "/invite/list", Map.of("account_id", SITE_IV_PLAYER));
+            ev.add("player list: " + pl.body());
+            List<?> rows = pl.ok() ? (List<?>) pl.body().get("codes") : List.of();
+            if (rows.size() != 2 || !Integer.valueOf(0).equals(pl.body().get("left"))
+                    || rows.stream().anyMatch(r -> ((Map<?, ?>) r).containsKey("owner") || ((Map<?, ?>) r).containsKey("note")
+                    || !(((Map<?, ?>) r).get("usedBy") instanceof Boolean))) {
+                bad.add("the player list should show exactly their 2 codes, left 0, no owner/note, usedBy a boolean: " + pl.body());
+            }
+            if (gmCode != null) {
+                SiteAuthQa.Answer steal = SiteAuthQa.callInvitesAs(fakes, "/invite/cancel", Map.of("account_id", SITE_IV_PLAYER, "code", gmCode));
+                ev.add("player cancels the GM's code: " + steal.body());
+                if (!"NOT_FOUND".equals(steal.error())) {
+                    bad.add("a player could see or cancel someone else's code: " + steal.body());
+                }
+            }
+            if (playerCode != null) {
+                SiteAuthQa.Answer cx = SiteAuthQa.callInvitesAs(fakes, "/invite/cancel", Map.of("account_id", SITE_IV_PLAYER, "code", soloMapling.site.auth.InviteCodes.normalize(playerCode)));
+                SiteAuthQa.Answer again = SiteAuthQa.callInvitesAs(fakes, "/invite/create", Map.of("account_id", SITE_IV_PLAYER));
+                ev.add("player cancels own code: " + cx.body() + "; then creates: " + again.body());
+                if (!"CANCELLED".equals(cx.body().get("result"))) {
+                    bad.add("a player could not cancel their own unused code: " + cx.body());
+                }
+                if (!"WEEKLY_LIMIT".equals(again.error())) {
+                    bad.add("a cancelled code stopped counting toward the week: " + again.body());
+                }
+            }
+            SiteAuthQa.Answer gl = SiteAuthQa.callInvitesAs(fakes, "/invite/list", Map.of("account_id", SITE_IV_GM, "page", 1, "limit", 100));
+            List<?> all = gl.ok() ? (List<?>) gl.body().get("codes") : List.of();
+            Map<?, ?> mine = all.stream().map(r -> (Map<?, ?>) r).filter(r -> gmCode != null && gmCode.equals(r.get("code"))).findFirst().orElse(null);
+            ev.add("GM list: total " + gl.body().get("total") + ", pages " + gl.body().get("pages") + ", own row " + mine);
+            if (mine == null || !"qaivgm".equals(mine.get("owner")) || !"autoqa t-iv-2".equals(mine.get("note")) || !"open".equals(mine.get("status"))) {
+                bad.add("the GM list should show the GM's new code open, with owner and note: " + mine);
+            }
+            String gameCode = all.stream().map(r -> (Map<?, ?>) r)
+                    .filter(r -> "qaivplayer".equals(r.get("owner")) && "open".equals(r.get("status")))
+                    .map(r -> (String) r.get("code")).findFirst().orElse(null);
+            if (gameCode == null) {
+                bad.add("the GM list does not show the player's open in-game code");
+            } else {
+                SiteAuthQa.Answer gx = SiteAuthQa.callInvitesAs(fakes, "/invite/cancel", Map.of("account_id", SITE_IV_GM, "code", gameCode));
+                ev.add("GM cancels the player's in-game code: " + gx.body());
+                if (!"CANCELLED".equals(gx.body().get("result"))) {
+                    bad.add("a GM could not cancel a player's unused code: " + gx.body());
+                }
+            }
+        } finally {
+            int gone = 0;
+            for (int id : ids) {
+                gone += SiteAuthQa.cleanupInvitesMadeBy(id);
+            }
+            ev.add("cleanup removed " + gone + " rows");
+        }
+        return verdict(bad, "site invite routes: player and GM rules, the week shared with @invite, list privacy, cancel rules", ev);
     }
 
     /** t-iv-1: the state word(s) after the code on one {@code @invite list} line ("CODE  used" gives "used"). */

@@ -57,6 +57,22 @@ public class MemoryAuthStore implements AuthStore {
     }
 
     @Override
+    public synchronized List<InviteCodes.Invite> invitePage(Integer madeByAccount, int limit, int offset) {
+        List<InviteCodes.Invite> all = new ArrayList<>(invites.values().stream()
+                .filter(i -> madeByAccount == null || i.createdByAccount() == madeByAccount).toList());
+        all.sort(Comparator.comparingLong(InviteCodes.Invite::createdAt).reversed()
+                .thenComparing(InviteCodes.Invite::code));
+        int from = Math.min(offset, all.size());
+        return new ArrayList<>(all.subList(from, Math.min(from + limit, all.size())));
+    }
+
+    @Override
+    public synchronized int countInvites(Integer madeByAccount) {
+        return (int) invites.values().stream()
+                .filter(i -> madeByAccount == null || i.createdByAccount() == madeByAccount).count();
+    }
+
+    @Override
     public synchronized boolean revokeInvite(String code, String by, long now) {
         InviteCodes.Invite i = invites.get(code);
         if (i == null || i.usedAt() > 0 || i.revokedAt() > 0) {
@@ -95,6 +111,11 @@ public class MemoryAuthStore implements AuthStore {
     }
 
     @Override
+    public synchronized Account findAccountById(int accountId) {
+        return accounts.values().stream().filter(a -> a.id() == accountId).findFirst().orElse(null);
+    }
+
+    @Override
     public synchronized void upgradeHash(int accountId, String passhash) {
         upgrades++;
         accounts.replaceAll((k, a) -> a.id() == accountId
@@ -106,7 +127,11 @@ public class MemoryAuthStore implements AuthStore {
         return profiles.getOrDefault(accountId, new Profile(0, List.of()));
     }
 
-    synchronized void put(Account a) {
+    public synchronized void putProfile(int accountId, Profile p) {
+        profiles.put(accountId, p);
+    }
+
+    public synchronized void put(Account a) {
         accounts.put(a.name().toLowerCase(Locale.ROOT), a);
     }
 }

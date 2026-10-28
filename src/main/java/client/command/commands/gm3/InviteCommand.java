@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.site.auth.AuthStore;
 import soloMapling.site.auth.InviteCodes;
+import soloMapling.site.auth.InviteRules;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,7 +30,7 @@ public class InviteCommand extends Command {
     });
     static AuthStore store = new AuthStore.Jdbc();
 
-    static final int GM_LEVEL = 3;
+    static final int GM_LEVEL = InviteRules.GM_LEVEL;
 
     {
         setDescription("Make a sign-up code for a friend (level 30+, 2 a week): @invite, @invite list.");
@@ -75,24 +76,18 @@ public class InviteCommand extends Command {
                 out.add("Syntax: @invite (make a code), @invite list.");
                 return out;
             }
-            int level = Math.max(onlineLevel, store.highestCharacterLevel(accountId));
-            if (level < InviteCodes.PLAYER_MIN_LEVEL) {
+            // The shared rule (the site's invite page uses the same one, so the week is counted across both).
+            InviteRules.Made made = InviteRules.makePlayerCode(store, accountId, charId, by, onlineLevel, now, "@invite");
+            if (made.refusal() == InviteRules.Refusal.NOT_ELIGIBLE) {
                 out.add("You need a level " + InviteCodes.PLAYER_MIN_LEVEL + " character to invite a friend.");
                 return out;
             }
-            long since = now - InviteCodes.PLAYER_WINDOW_MS;
-            int made = store.countSelfServeInvitesSince(accountId, since);
-            if (made >= InviteCodes.PLAYER_CODES_PER_WINDOW) {
+            if (made.refusal() == InviteRules.Refusal.WEEKLY_LIMIT) {
                 out.add("You've made " + InviteCodes.PLAYER_CODES_PER_WINDOW + " invite codes in the last 7 days. Try again later.");
                 return out;
             }
-            String code = InviteCodes.newCode();
-            store.insertInvite(InviteCodes.Invite.selfServe(code, now, accountId, charId, by));
-            log.info("Invite {} made by player {} (account {}, char {}), {} of {} this week", InviteCodes.display(code),
-                    by, accountId, charId, made + 1, InviteCodes.PLAYER_CODES_PER_WINDOW);
-            out.add("Invite code: " + InviteCodes.display(code) + " (one friend, never expires).");
-            out.add("They sign up on the site or in the launcher with it. You have "
-                    + (InviteCodes.PLAYER_CODES_PER_WINDOW - made - 1) + " left this week.");
+            out.add("Invite code: " + InviteCodes.display(made.invite().code()) + " (one friend, never expires).");
+            out.add("They sign up on the site or in the launcher with it. You have " + made.left() + " left this week.");
         } catch (Exception e) {
             log.warn("@invite failed", e);
             out.add("Invite codes aren't available right now.");
@@ -124,7 +119,7 @@ public class InviteCommand extends Command {
                 if (code == null) {
                     out.add("Syntax: !invite revoke <code>");
                 } else if (store.revokeInvite(code, by, now)) {
-                    log.info("Invite {} revoked by {}", InviteCodes.display(code), by);
+                    log.info("Invite {} revoked by {} (account {}) via !invite", InviteCodes.display(code), by, accountId);
                     out.add("Revoked " + InviteCodes.display(code) + ".");
                 } else {
                     out.add("No unused invite " + InviteCodes.display(code) + ".");
@@ -136,12 +131,9 @@ public class InviteCommand extends Command {
             if (validity == null) {
                 validity = InviteCodes.Validity.DEFAULT;
             }
-            String note = InviteCodes.cleanNote(String.join(" ", noteWords));
-            String code = InviteCodes.newCode();
-            store.insertInvite(InviteCodes.Invite.fresh(code, now, accountId, by, note, validity.expiresAt(now))
-                    .withCreatedBy(charId));
-            log.info("Invite {} made by {} ({}){}", InviteCodes.display(code), by, validity.word,
-                    note.isEmpty() ? "" : ": " + note);
+            InviteCodes.Invite invite = InviteRules.makeGmCode(store, accountId, charId, by,
+                    String.join(" ", noteWords), validity, now, "!invite");
+            String code = invite.code();
             out.add("Invite code: " + InviteCodes.display(code) + " (one account, "
                     + (validity == InviteCodes.Validity.FOREVER ? "never expires" : "valid " + validity.word) + ").");
             out.add("Sign up on the site or in the launcher with it.");

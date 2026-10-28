@@ -27,7 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * holding the shared secret every request must send in {@code X-Slums-Auth}. Two small daemon threads serve it, so
  * nothing runs on a game thread; database work goes through the server's connection pool. Request bodies, passwords
  * and the secret are never logged. Ticket 107 adds the GM-approved password reset routes {@code /reset/request},
- * {@code /reset/status} and {@code /reset/complete} ({@link PasswordResets}).
+ * {@code /reset/status} and {@code /reset/complete} ({@link PasswordResets}); the site's invite page adds
+ * {@code /invite/create}, {@code /invite/list} and {@code /invite/cancel} ({@link SiteInvites}).
  */
 public final class SiteAuthApi {
 
@@ -47,6 +48,7 @@ public final class SiteAuthApi {
     private final byte[] secret;
     private final SiteAccounts accounts;
     private final PasswordResets resets;
+    private final SiteInvites invites;
 
     SiteAuthApi(byte[] secret, SiteAccounts accounts) {
         this(secret, accounts, null);
@@ -54,9 +56,15 @@ public final class SiteAuthApi {
 
     /** {@code resets} null: the {@code /reset/*} routes answer UNAVAILABLE. */
     SiteAuthApi(byte[] secret, SiteAccounts accounts, PasswordResets resets) {
+        this(secret, accounts, resets, null);
+    }
+
+    /** {@code invites} null: the {@code /invite/*} routes answer UNAVAILABLE. */
+    SiteAuthApi(byte[] secret, SiteAccounts accounts, PasswordResets resets, SiteInvites invites) {
         this.secret = secret.clone();
         this.accounts = accounts;
         this.resets = resets;
+        this.invites = invites;
     }
 
     /** Called once at server start. */
@@ -72,7 +80,8 @@ public final class SiteAuthApi {
                 return;
             }
             SiteAccounts accounts = SiteAccounts.forGame();
-            SiteAuthApi api = new SiteAuthApi(secret, accounts, PasswordResets.forGame(accounts, secret));
+            SiteAuthApi api = new SiteAuthApi(secret, accounts, PasswordResets.forGame(accounts, secret),
+                    new SiteInvites(new AuthStore.Jdbc(), System::currentTimeMillis, accounts));
             running = start(Integer.parseInt(port.trim()), api);
             runningApi = api;
             log.info("Site auth API listening on 127.0.0.1:{}", running.getAddress().getPort());
@@ -170,7 +179,8 @@ public final class SiteAuthApi {
      * the secret) and auto-QA's in-process check ({@link SiteAuthQa}, which never sees the secret) call it.
      */
     Response route(String method, String path, byte[] body) {
-        if (!"/signup".equals(path) && !"/verify".equals(path) && !RESET_PATHS.contains(path)) {
+        if (!"/signup".equals(path) && !"/verify".equals(path) && !RESET_PATHS.contains(path)
+                && !INVITE_PATHS.contains(path)) {
             return error(404, "NOT_FOUND");
         }
         if (!"POST".equals(method)) {
@@ -188,6 +198,9 @@ public final class SiteAuthApi {
         if (RESET_PATHS.contains(path)) {
             return reset(path, json);
         }
+        if (INVITE_PATHS.contains(path)) {
+            return invite(path, json);
+        }
         SiteAccounts.Result result = "/signup".equals(path)
                 ? accounts.signup(text(json, "code"), text(json, "user"), text(json, "pass"), text(json, "ipHash"))
                 : accounts.verify(text(json, "user"), text(json, "pass"), text(json, "ipHash"));
@@ -195,6 +208,23 @@ public final class SiteAuthApi {
     }
 
     static final java.util.Set<String> RESET_PATHS = java.util.Set.of("/reset/request", "/reset/status", "/reset/complete");
+
+    static final java.util.Set<String> INVITE_PATHS = java.util.Set.of("/invite/create", "/invite/list", "/invite/cancel");
+
+    /** Ticket 105, "Site invite page": the {@code /invite/*} routes ({@link SiteInvites}); errors answer 200. */
+    private Response invite(String path, Map<?, ?> json) {
+        if (invites == null) {
+            return error(200, SiteAccounts.UNAVAILABLE);
+        }
+        Integer account = number(json, "account_id");
+        Map<String, Object> m = switch (path) {
+            case "/invite/create" -> invites.create(account, json.get("life"), text(json, "note"));
+            case "/invite/list" -> invites.list(account, number(json, "limit"), number(json, "page"),
+                    number(json, "offset"));
+            default -> invites.cancel(account, text(json, "code"));
+        };
+        return new Response(200, m);
+    }
 
     /** Ticket 107: the {@code /reset/*} routes (docs/tickets/107-password-reset-requests.md). */
     private Response reset(String path, Map<?, ?> json) {
@@ -269,6 +299,18 @@ public final class SiteAuthApi {
         m.put("ok", false);
         m.put("error", error);
         return new Response(status, m);
+    }
+
+    /** A whole JSON number that fits an int, else null. */
+    private static Integer number(Map<?, ?> json, String key) {
+        Object v = json.get(key);
+        if (v instanceof Integer i) {
+            return i;
+        }
+        if (v instanceof Long l && l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE) {
+            return l.intValue();
+        }
+        return null;
     }
 
     private static String text(Map<?, ?> json, String key) {

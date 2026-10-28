@@ -431,6 +431,15 @@ goals and takes the medals back. Auto-QA: t-ac-1.
   week), `@invite list` showing two unused codes, one code signing an account up through the site auth API (skipped
   when the API is not listening) and reading used, the same code refused a second time. Removes its invite rows and
   the sign-up account in a `finally`; touches no real player's codes.
+- **t-iv-2 (site invite page, ticket 105):** the `/invite/create`, `/invite/list` and `/invite/cancel` routes for
+  made-up accounts (ids -900201 player level 40, -900202 level 29, -900203 banned, -900204 GM level 3; only the QA
+  path accepts negative ids, the real routes refuse them) against the real `invite_codes` table. Wants: the running
+  API answers REFUSED for an unknown account (proves the routes are deployed; skipped when it is not listening); a code
+  from `@invite` plus one from the site, then WEEKLY_LIMIT; level 29 NOT_ELIGIBLE, banned REFUSED; the player list
+  shows exactly their 2 codes with no owner/note and `usedBy` a boolean; the player can't cancel the GM's code
+  (NOT_FOUND), can cancel their own, which still counts; the GM's 3-day code has the right expiry and shows open with
+  owner and note in the GM list; the GM cancels the player's in-game code. Removes every code those ids made, before
+  and after (`finally`); never touches a real account's codes.
 - **t-sn-1 (Slums-chan, NPC 9990000, migration 042):** read-only. Her name is in String.wz, one of her stands on Base of
   Roots (993910000) and one in Henesys (100000000) as loaded from `plife`, and the first-login guide and `@settings`
   use her as the NPC. (`t-sc-1` is the 1.5.0 gambler-bot check, so her id is `t-sn-1`.)

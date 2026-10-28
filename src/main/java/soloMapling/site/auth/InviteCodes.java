@@ -106,11 +106,19 @@ public final class InviteCodes {
     public static final int PLAYER_CODES_PER_WINDOW = 2;
     public static final long PLAYER_WINDOW_MS = TimeUnit.DAYS.toMillis(7);
 
+    /** {@code revoked_by} of a code its own (non-GM) maker cancelled on the site: "{@code <account> (own)}". */
+    public static final String OWN_CANCEL_SUFFIX = " (own)";
+
+    /** True when the code's maker cancelled it themselves (the site's player cancel), not staff. */
+    public static boolean cancelledByMaker(Invite i) {
+        return i.revokedAt() > 0 && i.revokedBy() != null && i.revokedBy().endsWith(OWN_CANCEL_SUFFIX);
+    }
+
     /** One line of {@code @invite list}: the code and used or unused, nothing about who used it. */
     public static String describeForMaker(Invite i, long now) {
         String state = switch (i.status(now)) {
             case USED -> "used";
-            case REVOKED -> "cancelled by staff";
+            case REVOKED -> cancelledByMaker(i) ? "cancelled" : "cancelled by staff";
             case EXPIRED -> "expired";
             case OPEN -> "unused";
         };

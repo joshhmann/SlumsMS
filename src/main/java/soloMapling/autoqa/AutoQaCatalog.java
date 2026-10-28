@@ -1170,6 +1170,10 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-iv-1", "@invite: level 30+, 2 a week, a code works once").minutes(2)
                 .expect(probe("playerInvites"))
                 .build());
+        // Site invite page (ticket 105): /invite/create, list, cancel for made-up accounts; the week shared with @invite
+        c.add(Check.auto("t-iv-2", "Site invites: player and GM rules, week shared with @invite, cancel").minutes(1)
+                .expect(probe("siteInvites"))
+                .build());
         // Slums-chan (NPC 9990000, migration 042): named, standing on Base of Roots and Henesys, frames the first-login guide
         // (t-sc-1 is the 1.5.0 gambler check, so her id is t-sn-1)
         c.add(Check.auto("t-sn-1", "Slums-chan: named, in Base of Roots and Henesys, greets the first login").minutes(1)

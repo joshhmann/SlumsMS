@@ -147,3 +147,110 @@ back-filled for already-used codes (account only). Staff-only: nothing shows the
 Abuse bounds: the level gate, 2 a week per account, ordinary sign-up IP limits; revoke any unused code with
 `!invite revoke`. Tests: InviteCommandTest, InviteCodesTest, InviteRegisteredTest; migration run up twice, down twice
 and up again on a throwaway MySQL 8.0.
+
+## Site invite page (1.6.1, owner 2026-10-28, branch 161-siteinvites)
+
+Source: the owner, 2026-10-28: a GM invite page on the website, and players can list and make their own codes on the
+site under the same rule as `@invite`. Server side only here; the page is slumsms-site-0b's.
+
+Three more routes on the same auth API, **same rules as `/verify` and `/signup`**: 127.0.0.1 only, header
+`X-Slums-Auth: <the secret>` (401 `UNAUTHORIZED` first), `POST`, JSON body up to 4096 bytes (404 / 405 / 400 / 413 as
+above). Every answer below is **HTTP 200**, success or error; errors are `{"ok":false,"error":"<CODE>"}`.
+
+The site sends the **signed-in account's id** (`account_id`, a JSON integer, the one `/verify` returned) and nothing
+about rank: the server decides GM or player from the database every time. **GM** = the account's highest
+`characters.gm` is 3 or more (the same `gm_level` `/verify` returns; `!invite` needs 3 in game). GM levels 1-2 get the
+player rules, as in game. Banned, temp-banned, bot accounts, the bot template, accounts whose site sign-in is revoked
+(`revoked.txt`), unknown ids and a missing or non-integer `account_id` are all `REFUSED` on every route (the same check
+as sign-in). The site should still only call these for a signed-in session and never pass an id the user typed.
+
+Codes come back in display form `ABCDE-FGHJK`; codes sent in may have any case, dashes or spaces (the site sends
+them normalised). **Times are unix seconds (UTC)**; `null` means "not set" (`expiresAt: null` = never expires). Keys
+are camelCase, as the site's pages expect (the older `/verify` routes keep their snake_case).
+
+**Site's error mapping** (slumsms-site-0b): `NOT_ELIGIBLE` / `REFUSED` 403, `WEEKLY_LIMIT` 429, `NOT_FOUND` 404,
+`UNAVAILABLE` 503. Two more errors exist that it should handle: `ALREADY_USED` and `ALREADY_CANCELLED` (cancel; 409
+fits), and `BAD_INPUT` with `rule:"life"` (GM create, 400).
+
+### `POST /invite/create` `{"account_id":123, "life":30, "note":"for Bob"}`
+
+- **GM:** `!invite`'s rules: `life` is a whole number of days **1-90** (a JSON number, or text `"30"` / `"30d"`),
+  or `"forever"`; missing, null or empty means 7 days. `note` is cut to 100 characters (the site sends at most 64;
+  control characters are dropped). No limit, never counts toward anyone's week.
+  `{"ok":true,"code":"ABCDE-FGHJK","expiresAt":1802592000,"gm":true}` (`expiresAt` null for `forever`).
+  Anything else in `life` (0, 91, 1.5, "2y"): `{"ok":false,"error":"BAD_INPUT","rule":"life"}`.
+- **Player:** exactly `@invite` (the same code path, `InviteRules.makePlayerCode`): one-use, never expires, needs a
+  character of level 30+ on the account (the saved level; the site can't see an online character's unsaved level),
+  at most 2 per rolling 7 days counted together with codes made in game (cancelled ones still count). `life` and
+  `note` are ignored. `{"ok":true,"code":"ABCDE-FGHJK","expiresAt":null,"gm":false,"left":1}` (`left`: codes it
+  may still make this week, 0-2).
+- Errors: `NOT_ELIGIBLE` (no level 30+ character), `WEEKLY_LIMIT` (2 in the last 7 days), `REFUSED`, `UNAVAILABLE`
+  (database), `BAD_INPUT` + `rule:"life"` (GM only).
+
+### `POST /invite/list` `{"account_id":123, "page":1, "limit":50}`
+
+Newest first. `limit` is the page size (default 50, at most 100). `page` is 1-based; without it `offset` (default 0)
+is used. Every answer carries `total`, `limit`, `offset`, `page`, `pages` (at least 1), `more` (true when a later page
+has codes) and `next` (the next page number, or null).
+
+- **GM:** every code.
+  ```
+  {"ok":true,"gm":true,"codes":[
+    {"code":"ABCDE-FGHJK","status":"used","createdAt":1800000000,"expiresAt":1800604800,"usedBy":"Newfriend",
+     "usedAt":1800000100,"cancelled":false,"cancelledAt":null,"cancelledBy":null,"owner":"Boss","ownerAccount":1,
+     "playerCode":false,"note":"for Bob"}, ...],
+   "total":37,"limit":50,"offset":0,"page":1,"pages":1,"more":false,"next":null}
+  ```
+  `status`: `open`, `used`, `expired`, `cancelled`. `owner` is the maker's character name for codes made in game and
+  the account name for codes made on the site; `usedBy` is the new account's name (null when unused); `playerCode`
+  is true for `@invite` / player-site codes (the ones that count toward a week); `cancelledBy` is who cancelled it (a
+  player cancelling their own code shows as `<account> (own)`).
+- **Player:** only codes this account made (in game or on the site). No `owner`, no `note`, and `usedBy` is only a
+  boolean (never who used it).
+  ```
+  {"ok":true,"gm":false,"codes":[
+    {"code":"ABCDE-FGHJK","status":"unused","createdAt":1800000000,"expiresAt":null,"usedBy":false,"usedAt":null,"cancelled":false},
+    {"code":"MNPQR-STUVW","status":"used","createdAt":1799900000,"expiresAt":null,"usedBy":true,"usedAt":1799950000,"cancelled":false}],
+   "left":1,"eligible":true,"total":2,"limit":50,"offset":0,"page":1,"pages":1,"more":false,"next":null}
+  ```
+  `status`: `unused`, `used`, `cancelled` (they cancelled it), `cancelled_by_staff`, `expired` (only possible for a
+  code an account made with `!invite` while it was a GM). `left`: codes it may still make this week (0-2);
+  `eligible`: the account has a level 30+ character now (show the create button).
+- Errors: `REFUSED`, `UNAVAILABLE`.
+
+### `POST /invite/cancel` `{"account_id":123, "code":"ABCDEFGHJK"}`
+
+- **GM:** any unused code. **Player:** only a code that account made; anyone else's code (and any code that doesn't
+  exist or isn't a code) answers `NOT_FOUND`, so players can't probe codes.
+- `{"ok":true,"result":"CANCELLED","code":"ABCDE-FGHJK"}`
+- Errors: `NOT_FOUND`, `ALREADY_USED`, `ALREADY_CANCELLED`, `REFUSED`, `UNAVAILABLE`. A cancelled player code still
+  counts toward that account's week (as `!invite revoke` does in game), so cancel-and-remake can't beat the limit.
+
+**Differences from the site's draft shapes:** `left` is also on the create answer; `gm`, `status`, `eligible`,
+`total`, `limit`, `offset`, `ownerAccount`, `playerCode`, `cancelledAt` and `cancelledBy` are extra (ignore what you
+don't need); `cancelled` and player `usedBy` are always present (booleans) rather than omitted; GM `usedBy` is null
+when unused; the cancel errors `ALREADY_USED` / `ALREADY_CANCELLED` need a mapping; `life` above 90 days is
+`BAD_INPUT`, and `"forever"` is accepted although the page doesn't send it.
+
+### Logged and stored
+
+Every create and cancel is logged with the acting account id, never a request body or the secret:
+`Invite ABCDE-FGHJK made by player Pal (account 2, char 0) via site (account 2), 1 of 2 this week`,
+`Invite ABCDE-FGHJK made by GM Boss (account 1, char 0) via site (GM account 1) (30d): for Bob`,
+`Invite ABCDE-FGHJK cancelled on the site by player account 2 (Pal)`. In-game `@invite` / `!invite` log the same
+lines with `via @invite` / `via !invite`, and `!invite revoke` now logs the account id too.
+
+Same `invite_codes` table (migrations 036 and 040), **no new migration**. Site-made codes have `created_by_char` 0
+(no character), so an account that signs up with one gets `invited_by_char` 0 and the right `invited_by_account`.
+`@invite list` in game shows the player's own site cancels as `cancelled` (staff cancels stay `cancelled by staff`).
+
+Turning it on: nothing new. The routes exist wherever the auth API runs (`-Dslums.auth.port`).
+
+Code: `SiteInvites` (routes), `InviteRules` (the one place both the game commands and the site make codes; the week's
+count and the insert share a lock so the game and the site can't both take the last slot), `SiteAuthApi`. Tests:
+`SiteInvitesTest` (secret, GM vs player rules, level gate, weekly limit and rolling, list shapes and paging, cancel
+rules, refused accounts, database down, unix seconds, page/offset paging, life 1-90 days), `InviteCommandTest` (a code made in game counts on the site and the other
+way round; a player's own site cancel reads `cancelled` in game).
+
+Auto-QA **t-iv-2** (nightly with the rest) runs the three routes for made-up negative account ids against the real
+table and cleans up after itself; see docs/ops/qa-suite.md.

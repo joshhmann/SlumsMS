@@ -74,4 +74,24 @@ class SiteAuthQaTest {
         assertEquals(api.handle("POST", "/verify", SECRET, b).body(), api.route("POST", "/verify", b).body());
         assertEquals(401, api.handle("POST", "/verify", null, b).status());
     }
+
+    @Test
+    void tIv2FakeAccountsAreOnlyTheMadeUpOnesAndInvitesGoToTheRealStore() {
+        SiteAuthQa.FakeAccountStore fake = new SiteAuthQa.FakeAccountStore(store, java.util.List.of(
+                new SiteAuthQa.FakeAccount(-5, "qaplayer", 0, 40, false),
+                new SiteAuthQa.FakeAccount(-6, "qagm", 3, 1, false)));
+        store.put(new AuthStore.Account(7, "Real", "h", false, 0));
+        SiteAccounts accounts = new SiteAccounts(fake, clock::get, n -> false, id -> false);
+        SiteInvites si = new SiteInvites(fake, clock::get, accounts, true);
+        assertEquals("REFUSED", new SiteInvites(fake, clock::get, accounts).create(-5, null, null).get("error"),
+                "the real routes never take a negative id");
+        assertEquals("REFUSED", si.create(7, null, null).get("error"), "a real account is unknown to the QA store");
+        assertEquals(true, si.create(-5, null, null).get("ok"));
+        assertEquals(true, si.create(-6, 2, "n").get("gm"));
+        assertEquals(2, store.invites.size(), "codes land in the real invite store");
+        assertThrows(IllegalArgumentException.class, () -> {
+            System.setProperty(soloMapling.autoqa.AutoQa.PROPERTY, "true");
+            SiteAuthQa.callInvitesAs(java.util.List.of(new SiteAuthQa.FakeAccount(3, "x", 0, 0, false)), "/invite/list", Map.of());
+        });
+    }
 }
