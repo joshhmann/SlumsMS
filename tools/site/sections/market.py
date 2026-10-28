@@ -649,14 +649,14 @@ NX is your account's. If you're logged in to the game, use the character you're 
 <p class="small xc-pad">The best 20 prices on each side. Click a price to copy it into your order.</p></section>
 <section class="panel"><h2 class="bar">Last trades</h2><div class="tbl"><table class="t">
 <thead><tr><th>When</th><th class="r">Price</th><th class="r">NX</th></tr></thead>
-<tbody><template x-for="(t, i) in trades.slice().reverse().slice(0, 20)" :key="i"><tr><td x-text="when(t.t)"></td>
+<tbody><template x-for="(t, i) in trades.slice().reverse().slice(0, 12)" :key="i"><tr><td x-text="when(t.t)"></td>
 <td class="r" x-text="fmt(t.price)"></td><td class="r" x-text="fmt(t.nx)"></td></tr></template></tbody></table></div>
 <p class="empty xc-pad" x-show="book && !trades.length" x-cloak>No trades yet.</p></section>
 </div>
 </div>
-<div x-data="xmine">
+<div class="xc" x-data="xmine">
 <p class="samplebar" x-show="state === 'signedOut'" x-cloak>Sign in to trade.</p>
-<form class="panel mkpost xc-form" x-show="data" hidden @submit.prevent="preview()" @xc-price.window="price = $event.detail">
+<form class="panel mkpost xc-form" x-show="data" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
 <h2 class="bar">New order <small x-text="openCount() + ' of 5 open'"></small></h2><div class="in">
 <fieldset class="seg"><legend>I want to</legend>
 <label><input type="radio" value="SELL" x-model="side"> sell NX for mesos</label>

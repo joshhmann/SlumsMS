@@ -698,7 +698,7 @@ table.t { width: 100%; border-collapse: collapse; }
 
 /* NX exchange (market/exchange.html, exchange.js on Alpine). x-cloak hides Alpine's parts until it has started. */
 [x-cloak] { display: none !important; }
-.xc { display: grid; gap: 18px; }
+.xc { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; min-width: 0; }
 .xc-top, .xc-mid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 18px; }
 .xc-top > *, .xc-mid > * { min-width: 0; }
 .xc-big { margin: 0 0 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
@@ -713,7 +713,6 @@ table.t { width: 100%; border-collapse: collapse; }
 .xc-book tr.ask, .xc-book tr.bid { cursor: pointer; }
 .xc-book tr.spread td { text-align: center; font: 600 .78rem var(--f-mono); color: var(--muted); background: var(--surface-2); }
 .xc-pad { padding: 8px 16px; margin: 0; }
-.xc-form { margin-top: 18px; }
 .xc-form input[type=number] { width: 170px; }
 .xc-preview { flex-basis: 100%; border: var(--border) dashed var(--accent); border-radius: 8px; padding: 12px 16px; }
 .xc-preview h3 { margin: 0 0 8px; }
