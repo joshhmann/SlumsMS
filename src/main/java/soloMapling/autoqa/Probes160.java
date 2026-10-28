@@ -61,7 +61,8 @@ final class Probes160 {
 
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
-            "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange");
+            "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
+            "family");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -91,6 +92,7 @@ final class Probes160 {
                 case "starterChairs" -> starterChairs(p);
                 case "slumsStamps" -> slumsStamps(p);
                 case "nxExchange" -> nxExchange(p);
+                case "family" -> family(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1072,6 +1074,74 @@ final class Probes160 {
         }
         return verdict(bad, "a staff claim earned nothing, an earning claim credited the day's stamps once, a Donor "
                 + "cosmetic cost exactly " + STAMP_CAP_PRICE + " and one short was refused", out);
+    }
+
+    // ── t-fy-1: the Family system (ticket 53, 1.6.1) ─────────────────────────────────────────────
+
+    /**
+     * t-fy-1: (1) the pretend player invites an online bot as junior and the bot accepts (its family rules, staged
+     * to say yes); (2) a kill by the junior gives the senior rep; (3) My Drop Rate 1.5x and My EXP 2x spend their rep
+     * and give 1.5x drop / 2x EXP; (4) the same entitlement again is refused, nothing spent; (5) the family is
+     * dissolved again.
+     */
+    static List<String> family(SyntheticPlayer p) {
+        if (!config.YamlConfig.config.server.USE_FAMILY_SYSTEM) {
+            return List.of("SKIP USE_FAMILY_SYSTEM is off on this server");
+        }
+        Character me = p.character();
+        soloMapling.ArtificialPlayer.FamilyQa.Staged st;
+        try {
+            st = soloMapling.ArtificialPlayer.FamilyQa.stage(me);
+        } catch (IllegalStateException e) {
+            return List.of("FAIL " + e.getMessage());
+        }
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        try {
+            client.FamilyEntry mine = me.getFamilyEntry();
+            client.FamilyEntry junior = st.bot().getFamilyEntry();
+            ev.add("junior " + st.bot().getName() + " lv" + st.bot().getLevel() + ", family " + st.familyId());
+            if (mine == null || junior == null || junior.getSenior() != mine) {
+                bad.add("the bot is not linked as the player's junior");
+                return verdict(bad, "", ev);
+            }
+            int r0 = mine.getReputation();
+            junior.giveReputationToSenior(config.YamlConfig.config.server.FAMILY_REP_PER_KILL, true);
+            if (mine.getReputation() <= r0) {
+                bad.add("a junior's kill gave no rep (" + r0 + " -> " + mine.getReputation() + ")");
+            }
+            mine.gainReputation(700 + 1500, false);
+            int r1 = mine.getReputation();
+            long now = System.currentTimeMillis();
+            String a = net.server.channel.handlers.FamilyUseHandler.useBuffEntitlement(me,
+                    client.FamilyEntitlement.SELF_DROP_1_5, now);
+            String b = net.server.channel.handlers.FamilyUseHandler.useBuffEntitlement(me,
+                    client.FamilyEntitlement.SELF_EXP_2, now);
+            double drop = client.FamilyBuffs.dropMultiplier(me.getId(), now + 1000);
+            double exp = client.FamilyBuffs.expMultiplier(me.getId(), now + 1000);
+            ev.add("drop 1.5x: " + (a == null ? "given" : a) + ", exp 2x: " + (b == null ? "given" : b) + "; drop x"
+                    + drop + ", exp x" + exp + ", rep " + r1 + " -> " + mine.getReputation());
+            if (a != null || b != null || drop != 1.5 || exp != 2.0) {
+                bad.add("the buffs were not given as their tooltips say");
+            }
+            if (mine.getReputation() != r1 - 2200) {
+                bad.add("rep spent " + (r1 - mine.getReputation()) + ", expected 2200");
+            }
+            mine.gainReputation(1500, false);
+            int r2 = mine.getReputation();
+            String again = net.server.channel.handlers.FamilyUseHandler.useBuffEntitlement(me,
+                    client.FamilyEntitlement.SELF_EXP_2, now);
+            if (again == null || mine.getReputation() != r2) {
+                bad.add("the same entitlement twice in a day was not refused for free");
+            }
+        } finally {
+            ev.add(soloMapling.ArtificialPlayer.FamilyQa.teardown(me, st));
+        }
+        if (me.getFamily() != null) {
+            bad.add("the QA family was not dissolved");
+        }
+        return verdict(bad, "a bot accepted being the junior, its kill gave rep, 1.5x drop and 2x EXP were given for"
+                + " their rep, a second use was refused, and the family was dissolved", ev);
     }
 
     // ── t-xc-1: the NX exchange in game (ticket 113 round 2) ─────────────────────────────────────

@@ -1118,6 +1118,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-xc-1", "NX exchange: place in game, fill, payout online, cancel refunds").minutes(2)
                 .expect(probe("nxExchange"))
                 .build());
+        // Family (ticket 53, USE_FAMILY_SYSTEM): a bot accepts being the pretend player's junior, its kill gives rep,
+        // the EXP / drop entitlements spend rep and give their buffs, a second use is refused, the family is dissolved
+        c.add(Check.auto("t-fy-1", "Family: a bot junior, rep, the EXP / drop entitlements").minutes(2)
+                .expect(probe("family"))
+                .build());
         return List.copyOf(c);
     }
 

@@ -59,8 +59,19 @@ public final class AcceptFamilyHandler extends AbstractPacketHandler {
         boolean accept = p.readByte() != 0;
         // String inviterName = slea.readMapleAsciiString();
         Character inviter = c.getWorldServer().getPlayerStorage().getCharacterById(inviterId);
+        answer(chr, inviter, accept);
+    }
+
+    /**
+     * {@code chr} answers {@code inviter}'s "be my junior" invite. The packet handler's body, made callable for a bot
+     * junior (1.6.1 ticket 53: BotFamily answers for a bot; its packets go nowhere).
+     */
+    public static void answer(Character chr, Character inviter, boolean accept) {
+        if (!YamlConfig.config.server.USE_FAMILY_SYSTEM || chr == null) {
+            return;
+        }
         if (inviter != null) {
-            InviteResult inviteResult = InviteCoordinator.answerInvite(InviteType.FAMILY, c.getPlayer().getId(), c.getPlayer(), accept);
+            InviteResult inviteResult = InviteCoordinator.answerInvite(InviteType.FAMILY, chr.getId(), chr, accept);
             if (inviteResult.result == InviteResultType.NOT_FOUND) {
                 return; //was never invited. (or expired on server only somehow?)
             }
@@ -97,8 +108,8 @@ public final class AcceptFamilyHandler extends AbstractPacketHandler {
                         chr.sendPacket(PacketCreator.sendFamilyMessage(76, 0));
                         return;
                     }
-                    Family newFamily = new Family(-1, c.getWorld());
-                    c.getWorldServer().addFamily(newFamily.getID(), newFamily);
+                    Family newFamily = new Family(-1, chr.getWorld());
+                    chr.getWorldServer().addFamily(newFamily.getID(), newFamily);
                     FamilyEntry inviterEntry = new FamilyEntry(newFamily, inviter.getId(), inviter.getName(), inviter.getLevel(), inviter.getJob());
                     inviterEntry.setCharacter(inviter);
                     newFamily.setLeader(inviter.getFamilyEntry());
@@ -117,15 +128,15 @@ public final class AcceptFamilyHandler extends AbstractPacketHandler {
                         chr.getFamilyEntry().join(inviterEntry);
                     }
                 }
-                c.getPlayer().getFamily().broadcast(PacketCreator.sendFamilyJoinResponse(true, c.getPlayer().getName()), c.getPlayer().getId());
-                c.sendPacket(PacketCreator.getSeniorMessage(inviter.getName()));
-                c.sendPacket(PacketCreator.getFamilyInfo(chr.getFamilyEntry()));
+                chr.getFamily().broadcast(PacketCreator.sendFamilyJoinResponse(true, chr.getName()), chr.getId());
+                chr.sendPacket(PacketCreator.getSeniorMessage(inviter.getName()));
+                chr.sendPacket(PacketCreator.getFamilyInfo(chr.getFamilyEntry()));
                 chr.getFamilyEntry().updateSeniorFamilyInfo(true);
             } else {
-                inviter.sendPacket(PacketCreator.sendFamilyJoinResponse(false, c.getPlayer().getName()));
+                inviter.sendPacket(PacketCreator.sendFamilyJoinResponse(false, chr.getName()));
             }
         }
-        c.sendPacket(PacketCreator.sendFamilyMessage(0, 0));
+        chr.sendPacket(PacketCreator.sendFamilyMessage(0, 0));
     }
 
     private static void insertNewFamilyRecord(int characterID, int familyID, int seniorID, boolean updateChar) {

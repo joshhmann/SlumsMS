@@ -785,6 +785,7 @@ public class Monster extends AbstractLoadedLife {
                 personalExp *= getStatusExpMultiplier(attacker, hasPartySharers);
                 personalExp *= attacker.getExpRate();
                 personalExp *= soloMapling.worldevents.WorldEvents.expMultiplier(attacker); // ticket 21 hot spot
+                personalExp *= (float) client.FamilyBuffs.expMultiplier(attacker); // ticket 53 Family EXP buff
             } else {
                 personalExp = 0.0f;
             }
@@ -801,6 +802,7 @@ public class Monster extends AbstractLoadedLife {
                 partyExp *= attacker.getExpRate();
                 partyExp *= YamlConfig.config.server.PARTY_BONUS_EXP_RATE;
                 partyExp *= soloMapling.worldevents.WorldEvents.expMultiplier(attacker); // ticket 21 hot spot
+                partyExp *= (float) client.FamilyBuffs.expMultiplier(attacker); // ticket 53 Family EXP buff
             } else {
                 partyExp = 0.0f;
             }

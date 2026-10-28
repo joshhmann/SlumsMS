@@ -23,6 +23,7 @@ package net.server.channel.handlers;
 
 import client.Character;
 import client.Client;
+import client.FamilyBuffs;
 import client.FamilyEntitlement;
 import client.FamilyEntry;
 import config.YamlConfig;
@@ -35,6 +36,10 @@ import server.maps.FieldLimit;
 import server.maps.MapleMap;
 import tools.PacketCreator;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * @author Moogra
  * @author Ubaware
@@ -45,10 +50,14 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
         if (!YamlConfig.config.server.USE_FAMILY_SYSTEM) {
             return;
         }
-        FamilyEntitlement type = FamilyEntitlement.values()[p.readInt()];
+        int index = p.readInt();
+        if (index < 0 || index >= FamilyEntitlement.values().length) {
+            return;
+        }
+        FamilyEntitlement type = FamilyEntitlement.values()[index];
         int cost = type.getRepCost();
         FamilyEntry entry = c.getPlayer().getFamilyEntry();
-        if (entry.getReputation() < cost || entry.isEntitlementUsed(type)) {
+        if (entry == null || entry.getReputation() < cost || entry.isEntitlementUsed(type)) {
             return; // shouldn't even be able to request it
         }
         c.sendPacket(PacketCreator.getFamilyInfo(entry));
@@ -91,46 +100,109 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
                     c.sendPacket(PacketCreator.sendFamilyMessage(67, 0));
                 }
             }
-        } else if (type == FamilyEntitlement.FAMILY_BONDING) {
-            //not implemented
         } else {
-            boolean party = false;
-            boolean isExp = false;
-            float rate = 1.5f;
-            int duration = 15;
-            do {
-                switch (type) {
-                    case PARTY_EXP_2_30MIN:
-                        party = true;
-                        isExp = true;
-                        type = FamilyEntitlement.SELF_EXP_2_30MIN;
-                        continue;
-                    case PARTY_DROP_2_30MIN:
-                        party = true;
-                        type = FamilyEntitlement.SELF_DROP_2_30MIN;
-                        continue;
-                    case SELF_DROP_2_30MIN:
-                        duration = 30;
-                    case SELF_DROP_2:
-                        rate = 2.0f;
-                    case SELF_DROP_1_5:
-                        break;
-                    case SELF_EXP_2_30MIN:
-                        duration = 30;
-                    case SELF_EXP_2:
-                        rate = 2.0f;
-                    case SELF_EXP_1_5:
-                        isExp = true;
-                    default:
-                        break;
-                }
-                break;
-            } while (true);
-            //not implemented
+            String refused = applyBuff(c.getPlayer(), entry, type, System.currentTimeMillis());
+            if (refused != null) {
+                c.getPlayer().dropMessage(5, refused);
+                c.sendPacket(PacketCreator.enableActions());
+                return;
+            }
+            useEntitlement(entry, type);
         }
     }
 
-    private boolean useEntitlement(FamilyEntry entry, FamilyEntitlement entitlement) {
+    /**
+     * Spends {@code type}'s reputation on its buff, as the Family window does (once a day per entitlement; nothing spent
+     * when refused). Returns null when given, or why not. Also what QA drives.
+     */
+    public static String useBuffEntitlement(Character chr, FamilyEntitlement type, long now) {
+        FamilyEntry entry = chr == null ? null : chr.getFamilyEntry();
+        if (entry == null) {
+            return "You are not in a Family.";
+        }
+        if (entry.getReputation() < type.getRepCost()) {
+            return "Not enough reputation (" + entry.getReputation() + " of " + type.getRepCost() + ").";
+        }
+        if (entry.isEntitlementUsed(type)) {
+            return "Already used today.";
+        }
+        String refused = applyBuff(chr, entry, type, now);
+        if (refused == null) {
+            useEntitlement(entry, type);
+        }
+        return refused;
+    }
+
+    /** Family Bonding needs this many online Family members below the user (the tooltip's 6; bot juniors count). */
+    public static int bondingMinimum() {
+        return Math.max(1, Integer.getInteger("slums.family.bondingMin", 6));
+    }
+
+    /**
+     * Ticket 53: gives the EXP / drop buff of {@code type} (stock Cosmic: "not implemented"). Self: the user. Party: the
+     * user and every party member online on the same channel (the user alone outside a party). Bonding: needs
+     * {@link #bondingMinimum()} online members below the user in the pedigree, and gives the user and the players among
+     * them 2x EXP and drop. Bots are never buffed. Returns null when given, or why not (nothing spent then).
+     */
+    public static String applyBuff(Character chr, FamilyEntry entry, FamilyEntitlement type, long now) {
+        FamilyBuffs.Spec spec = FamilyBuffs.specOf(type);
+        if (spec == null || chr == null) {
+            return "That Family entitlement has no effect here.";
+        }
+        List<Character> targets = new ArrayList<>();
+        targets.add(chr);
+        if (spec.target() == FamilyBuffs.Target.PARTY && chr.getParty() != null) {
+            for (Character m : chr.getPartyMembersOnline()) {
+                if (m != chr && m.getClient() != null && chr.getClient() != null
+                        && m.getClient().getChannel() == chr.getClient().getChannel()) {
+                    targets.add(m);
+                }
+            }
+        } else if (spec.target() == FamilyBuffs.Target.BONDING) {
+            List<Character> below = onlineBelow(entry);
+            if (below.size() < bondingMinimum()) {
+                return "Family Bonding needs at least " + bondingMinimum() + " Family members online below you ("
+                        + below.size() + " now).";
+            }
+            targets.addAll(below);
+        }
+        for (Character t : targets) {
+            if (t.isBot()) {
+                continue; // a bot is never buffed (it still counts toward Bonding)
+            }
+            FamilyBuffs.grant(t.getId(), spec, now);
+            t.dropMessage(5, FamilyBuffs.describe(spec) + (t == chr ? "" : " (from " + chr.getName() + ")"));
+        }
+        return null;
+    }
+
+    /** The online characters below {@code entry} in its pedigree (every generation). */
+    static List<Character> onlineBelow(FamilyEntry entry) {
+        List<Character> out = new ArrayList<>();
+        if (entry == null) {
+            return out;
+        }
+        ArrayDeque<FamilyEntry> todo = new ArrayDeque<>();
+        pushJuniors(todo, entry);
+        while (!todo.isEmpty()) {
+            FamilyEntry e = todo.poll();
+            if (e.getChr() != null) {
+                out.add(e.getChr());
+            }
+            pushJuniors(todo, e);
+        }
+        return out;
+    }
+
+    private static void pushJuniors(ArrayDeque<FamilyEntry> todo, FamilyEntry e) {
+        for (FamilyEntry j : e.getJuniors()) {
+            if (j != null) {
+                todo.add(j);
+            }
+        }
+    }
+
+    static boolean useEntitlement(FamilyEntry entry, FamilyEntitlement entitlement) {
         if (entry.useEntitlement(entitlement)) {
             entry.gainReputation(-entitlement.getRepCost(), false);
             entry.getChr().sendPacket(PacketCreator.getFamilyInfo(entry));

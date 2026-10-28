@@ -824,6 +824,27 @@ public class MapleMap {
 
 
 
+    /**
+     * Ticket 53: a drop rate times a Family buff's multiplier. The rate is a whole number, so a fraction is rolled: 1.5x
+     * of a 1x rate is 2x on half the kills and 1x on the rest (1.5x on average).
+     */
+    static int familyDropRate(int chRate, double multiplier) {
+        return familyDropRate(chRate, multiplier, java.util.concurrent.ThreadLocalRandom.current().nextDouble());
+    }
+
+    public static int familyDropRateForTest(int chRate, double multiplier, double roll) {
+        return familyDropRate(chRate, multiplier, roll);
+    }
+
+    static int familyDropRate(int chRate, double multiplier, double roll) {
+        if (multiplier <= 1.0) {
+            return chRate;
+        }
+        double exact = chRate * multiplier;
+        int whole = (int) Math.floor(exact);
+        return Math.max(chRate, whole + (roll < exact - whole ? 1 : 0));
+    }
+
     private void dropFromMonster(final Character chr, final Monster mob, final boolean useBaseRate) {
         if (mob.dropsDisabled() || !dropsOn) {
             return;
@@ -839,6 +860,8 @@ public class MapleMap {
         if (stati != null) {
             chRate *= (stati.getStati().get(MonsterStatus.SHOWDOWN).doubleValue() / 100.0 + 1.0);
         }
+
+        chRate = familyDropRate(chRate, client.FamilyBuffs.dropMultiplier(chr)); // ticket 53 Family drop buff
 
         if (useBaseRate) {
             chRate = 1;
