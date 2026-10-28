@@ -27,9 +27,14 @@ import client.Client;
 import client.command.Command;
 import scripting.npc.NPCScriptManager;
 
+/** {@code @exchange}: the item-exchange NPC. A GM's {@code !exchange status|book|halt|resume} is the NX exchange (ticket 113). */
 public class ExchangeCommand extends Command {
     @Override
     public void execute(Client c, String[] splitted) {
+        if (client.command.commands.gm3.NxExchangeCommand.handles(c.getPlayer(), splitted)) {
+            client.command.commands.gm3.NxExchangeCommand.execute(c.getPlayer(), splitted);
+            return;
+        }
         NPCScriptManager.getInstance().start(c, 1300009, "exchange", c.getPlayer());
     }
 }
