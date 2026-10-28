@@ -373,6 +373,24 @@ public final class JdbcExchangeStore implements ExchangeStore {
     }
 
     @Override
+    public List<CharRef> charactersOf(long account, int world) throws StoreException {
+        return tx(con -> {
+            List<CharRef> out = new ArrayList<>();
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT id, name, world FROM characters WHERE accountid = ? AND world = ?")) {
+                ps.setLong(1, account);
+                ps.setInt(2, world);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        out.add(new CharRef(rs.getLong(1), rs.getString(2), rs.getInt(3)));
+                    }
+                }
+            }
+            return out;
+        });
+    }
+
+    @Override
     public List<OrderRow> ordersOf(long account, int limit) throws StoreException {
         return tx(con -> {
             List<OrderRow> out = new ArrayList<>();

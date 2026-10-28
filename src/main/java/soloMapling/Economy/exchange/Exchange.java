@@ -1049,6 +1049,47 @@ public final class Exchange {
         return out;
     }
 
+    /** The world the exchange serves (the main world; both servers run world id 1). */
+    public static final int MAIN_WORLD = 1;
+
+    /**
+     * Resolves a site request's character within one account: by id, by name (case-insensitive, exact), or both
+     * (which must agree). Returns the character id, 0 when neither was given, or a negative code:
+     * {@link #NOT_OWNER_CHAR} (not on this account / not in the main world) or {@link #MISMATCH_CHAR}.
+     */
+    public static final long NOT_OWNER_CHAR = -1, MISMATCH_CHAR = -2, STORE_ERROR_CHAR = -3;
+
+    public synchronized long resolveCharacter(long account, long id, String name) {
+        boolean named = name != null && !name.isBlank();
+        if (id <= 0 && !named) {
+            return 0;
+        }
+        try {
+            List<ExchangeStore.CharRef> mine = store.charactersOf(account, MAIN_WORLD);
+            Long byId = null, byName = null;
+            for (ExchangeStore.CharRef c : mine) {
+                if (id > 0 && c.id() == id) {
+                    byId = c.id();
+                }
+                if (named && c.name() != null && c.name().equalsIgnoreCase(name.trim())) {
+                    byName = c.id();
+                }
+            }
+            if (named && byName == null) {
+                return NOT_OWNER_CHAR;
+            }
+            if (id > 0 && byId == null) {
+                return NOT_OWNER_CHAR;
+            }
+            if (id > 0 && named && !byId.equals(byName)) {
+                return MISMATCH_CHAR;
+            }
+            return id > 0 ? byId : byName;
+        } catch (StoreException e) {
+            return STORE_ERROR_CHAR;
+        }
+    }
+
     public synchronized List<OrderRow> myOrders(long account, int limit) throws StoreException {
         return store.ordersOf(account, limit);
     }
