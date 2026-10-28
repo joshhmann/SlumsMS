@@ -11,6 +11,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -143,5 +144,125 @@ public final class SiteAuthQa {
             }
         }
         return n;
+    }
+
+    // ── t-iv-2: the site invite routes (ticket 105, "Site invite page") ─────────────────────────
+
+    /** t-iv-2: a made-up account (negative id) the invite routes see as real: its name, GM level, best level, ban. */
+    public record FakeAccount(int id, String name, int gmLevel, int level, boolean banned) {
+    }
+
+    /**
+     * t-iv-2: POST {@code path} through the invite routes as the running server builds them (route parsing,
+     * {@link SiteInvites}, the shared {@link InviteRules}, the real {@code invite_codes} table), except that accounts
+     * with a negative id are looked up in {@code fakes} instead of the database; any other account id is unknown, so
+     * the check can never act as a real account. No secret involved.
+     */
+    public static Answer callInvitesAs(List<FakeAccount> fakes, String path, Map<String, Object> body) throws Exception {
+        requireAutoQa();
+        for (FakeAccount f : fakes) {
+            if (f.id() >= 0) {
+                throw new IllegalArgumentException("only throwaway (negative) account ids");
+            }
+        }
+        AuthStore store = new FakeAccountStore(new AuthStore.Jdbc(), fakes);
+        SiteAccounts accounts = new SiteAccounts(store, System::currentTimeMillis, n -> false, id -> false);
+        SiteAuthApi api = new SiteAuthApi(new byte[16], accounts, null,
+                new SiteInvites(store, System::currentTimeMillis, accounts, true));
+        SiteAuthApi.Response r = api.route("POST", path, MAPPER.writeValueAsBytes(body));
+        return new Answer(r.status(), r.body());
+    }
+
+    /** The database for invite codes; made-up accounts for everything about an account. */
+    static final class FakeAccountStore implements AuthStore {
+        private final AuthStore db;
+        private final List<FakeAccount> fakes;
+
+        FakeAccountStore(AuthStore db, List<FakeAccount> fakes) {
+            this.db = db;
+            this.fakes = List.copyOf(fakes);
+        }
+
+        private FakeAccount fake(int id) {
+            return fakes.stream().filter(f -> f.id() == id).findFirst().orElse(null);
+        }
+
+        @Override
+        public Account findAccountById(int accountId) {
+            FakeAccount f = fake(accountId);
+            return f == null ? null : new Account(f.id(), f.name(), "-", f.banned(), 0);
+        }
+
+        @Override
+        public Profile profile(int accountId) {
+            FakeAccount f = fake(accountId);
+            return new Profile(f == null ? 0 : f.gmLevel(), List.of());
+        }
+
+        @Override
+        public int highestCharacterLevel(int accountId) {
+            FakeAccount f = fake(accountId);
+            return f == null ? 0 : f.level();
+        }
+
+        @Override
+        public Account findAccount(String name) {
+            return null;
+        }
+
+        @Override
+        public void upgradeHash(int accountId, String passhash) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean accountNameTaken(String name) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int createAccountWithInvite(String code, String name, String passhash, String ipHash, long now) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void insertInvite(InviteCodes.Invite invite) throws SQLException {
+            db.insertInvite(invite);
+        }
+
+        @Override
+        public InviteCodes.Invite findInvite(String code) throws SQLException {
+            return db.findInvite(code);
+        }
+
+        @Override
+        public int countSelfServeInvitesSince(int accountId, long since) throws SQLException {
+            return db.countSelfServeInvitesSince(accountId, since);
+        }
+
+        @Override
+        public List<InviteCodes.Invite> invitesMadeBy(int accountId, int limit) throws SQLException {
+            return db.invitesMadeBy(accountId, limit);
+        }
+
+        @Override
+        public List<InviteCodes.Invite> recentInvites(int limit) throws SQLException {
+            return db.recentInvites(limit);
+        }
+
+        @Override
+        public List<InviteCodes.Invite> invitePage(Integer madeByAccount, int limit, int offset) throws SQLException {
+            return db.invitePage(madeByAccount, limit, offset);
+        }
+
+        @Override
+        public int countInvites(Integer madeByAccount) throws SQLException {
+            return db.countInvites(madeByAccount);
+        }
+
+        @Override
+        public boolean revokeInvite(String code, String by, long now) throws SQLException {
+            return db.revokeInvite(code, by, now);
+        }
     }
 }

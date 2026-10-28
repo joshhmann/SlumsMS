@@ -251,3 +251,6 @@ count and the insert share a lock so the game and the site can't both take the l
 `SiteInvitesTest` (secret, GM vs player rules, level gate, weekly limit and rolling, list shapes and paging, cancel
 rules, refused accounts, database down, unix seconds, page/offset paging, life 1-90 days), `InviteCommandTest` (a code made in game counts on the site and the other
 way round; a player's own site cancel reads `cancelled` in game).
+
+Auto-QA **t-iv-2** (nightly with the rest) runs the three routes for made-up negative account ids against the real
+table and cleans up after itself; see docs/ops/qa-suite.md.

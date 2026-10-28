@@ -44,10 +44,18 @@ public final class SiteInvites {
     private final LongSupplier clock;
     private final SiteAccounts accounts;
 
+    /** Auto-QA t-iv-2 only: accept its made-up negative account ids (real accounts are positive). */
+    private final boolean madeUpIds;
+
     public SiteInvites(AuthStore store, LongSupplier clock, SiteAccounts accounts) {
+        this(store, clock, accounts, false);
+    }
+
+    SiteInvites(AuthStore store, LongSupplier clock, SiteAccounts accounts, boolean madeUpIds) {
         this.store = store;
         this.clock = clock;
         this.accounts = accounts;
+        this.madeUpIds = madeUpIds;
     }
 
     /** Who is asking: null when the account is unknown or refused. */
@@ -58,7 +66,7 @@ public final class SiteInvites {
     }
 
     private Actor actor(Integer accountId, long now) throws Exception {
-        if (accountId == null || accountId <= 0) {
+        if (accountId == null || accountId == 0 || (accountId < 0 && !madeUpIds)) {
             return null;
         }
         AuthStore.Account a = store.findAccountById(accountId);
