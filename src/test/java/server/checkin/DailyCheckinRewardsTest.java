@@ -250,12 +250,12 @@ class DailyCheckinRewardsTest {
         String tip = DailyCheckinRewards.tooltip(7, r, id -> id == DailyCheckinRewards.EXP_COUPON_2X
                 ? "1day 2x EXP Special Coupon " : null);
 
-        assertEquals("Day 7\n- 1,000 NX\n- 1day 2x EXP Special Coupon (1 day)\n- +4 Equip slots", tip);
+        assertEquals("Day 7\n- 1,000 NX\n- 6 Slums Stamps\n- 1day 2x EXP Special Coupon (1 day)\n- +4 Equip slots", tip);
     }
 
     @Test
     void aDayWithoutNxHasNoNxLineInItsTooltip() {
-        assertEquals("Day 3\n- Item 2000004 x50",
+        assertEquals("Day 3\n- 1 Slums Stamp\n- Item 2000004 x50",
                 DailyCheckinRewards.tooltip(3, DailyCheckinRewards.DEFAULT_DAYS.get(2), id -> null));
         for (int d = 1; d <= DailyCheckinRewards.DEFAULT_DAYS.size(); d++) {
             String tip = DailyCheckinRewards.tooltip(d, DailyCheckinRewards.DEFAULT_DAYS.get(d - 1), id -> "Thing");

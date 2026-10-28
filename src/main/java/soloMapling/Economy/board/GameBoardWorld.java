@@ -141,6 +141,11 @@ public class GameBoardWorld implements BoardWorld {
     }
 
     @Override
+    public Map<String, Object> stamps(long now) {
+        return server.checkin.SlumsStamps.privateFileFromDb(now);
+    }
+
+    @Override
     public boolean publicCharacter(int characterId) {
         return !hiddenPosters.contains(characterId);
     }

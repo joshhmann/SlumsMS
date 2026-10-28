@@ -67,6 +67,21 @@ class SiteBoardTest {
     }
 
     @Test
+    void slumsStampsGoToThePrivateOutboxEveryCycle() throws Exception {
+        SiteBoard.Engine e = engine();
+        e.cycle();
+        assertFalse(Files.exists(outbox.resolve("stamps.json")), "nothing to write: no file");
+
+        w.stamps = server.checkin.SlumsStamps.privateFile(Map.of("friend", new int[]{3, 18}), w.now);
+        e.cycle();
+        Path f = outbox.resolve("stamps.json");
+        assertEquals("{\"generated\":\"" + java.time.Instant.ofEpochMilli(w.now)
+                + "\",\"accounts\":{\"friend\":{\"id\":3,\"stamps\":18}}}", Files.readString(f));
+        assertEquals("rw-r-----", java.nio.file.attribute.PosixFilePermissions.toString(Files.getPosixFilePermissions(f)));
+        assertFalse(soloMapling.site.PublicSiteExport.FILES.contains("stamps.json"), "never public");
+    }
+
+    @Test
     void tradeRatingsGoToThePrivateOutboxEveryCycle() throws Exception {
         SiteBoard.Engine e = engine();
         e.cycle();

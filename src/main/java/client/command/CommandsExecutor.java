@@ -221,6 +221,7 @@ public class CommandsExecutor {
 
         addCommand(new String[]{"help", "commands"}, HelpCommand.class);
         addCommand(new String[]{"daily", "checkin"}, DailyCommand.class);
+        addCommand("stamps", StampsCommand.class);
         //addCommand(new String[]{"starforce", "sf"}, StarForceCommand.class);
         addCommand("worldchat", WorldChatCommand.class);
         addCommand("bp", BackPackCommand.class);
@@ -437,7 +438,7 @@ public class CommandsExecutor {
         addCommand("togglewhitechat", 3, ChatCommand.class);
         addCommand("fame", 3, FameCommand.class);
         addCommand("givenx", 3, GiveNxCommand.class);
-        addCommand("givevp", 3, GiveVpCommand.class);
+        addCommand(new String[]{"givestamps", "givevp"}, 3, GiveStampsCommand.class);   // vote points became stamps (ticket 111)
         addCommand("givems", 3, GiveMesosCommand.class);
         addCommand("giverp", 3, GiveRpCommand.class);
         addCommand("expeds", 3, ExpedsCommand.class);

@@ -1108,6 +1108,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-sc-3", "New characters own a Relaxer and a Fishing Chair, once").minutes(2)
                 .expect(probe("starterChairs"))
                 .build());
+        // Slums Stamps (ticket 111, DAILY_CHECKIN_ENABLED): staff earn none; a claim credits the day's stamps once;
+        // Rooty's purchase takes exactly 6 for a Donor cosmetic and refuses one short
+        c.add(Check.auto("t-ss-1", "Slums Stamps: claim, earn, buy").minutes(2)
+                .expect(probe("slumsStamps"))
+                .build());
         return List.copyOf(c);
     }
 

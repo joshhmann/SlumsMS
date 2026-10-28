@@ -2,7 +2,7 @@
 
 **Area:** Server / economy / NPCs
 **Kind:** FEATURE, 1.6.1 (owner 2026-10-27)
-**Status:** grilled, ready to build in 1.6.1
+**Status:** built 2026-10-27 (branch 161-stamps, migration 039, auto-QA t-ss-1); see docs/roadmap/1.6.1.md
 
 ## Why
 The donor and vote currencies are dead: the Billion Coin (4001253) has no source in game (GM-given only), so the

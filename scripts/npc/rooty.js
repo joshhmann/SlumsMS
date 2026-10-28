@@ -2,7 +2,8 @@
  * The catalog of the shop behind NPC 9010004's "Rooty" and "Donor Shop" entries (rooty.js). 1.6.0 merged
  * MapleRoot's two near-duplicate shop scripts (rooty.js and donorshop.js) into this one list: every item id appears
  * once. Each section names its currency; a category may override the section's price.
- *   4310000 Root Coin, 4001253 Billion Coin, 4001126 Maple Leaf.
+ *   4310000 Root Coin, 4001126 Maple Leaf, or "stamps": the account's Slums Stamps (1.6.1, ticket 111: they replaced
+ *   the Billion Coin 4001253; Donor NX 6 stamps a cosmetic, the Donor Shop's High-Five Stamps 40).
  * Generated from the two old scripts; edit by hand from here on (RootyShopCatalogTest checks it).
  */
 var CATALOG = [
@@ -276,7 +277,7 @@ var CATALOG = [
                 1802695, 1802696, 1802697, 1802698, 1802708, 1802709, 1802710, 1802711, 1802712, 1802713
             ]}
     ]},
-    {name: "Donor NX", currency: 4001253, price: 1, cosmetic: true, categories: [
+    {name: "Donor NX", currency: "stamps", price: 6, cosmetic: true, categories: [
             {name: "Cap", icon: 1003536, items: [
                 1002414, 1002415, 1002416, 1002417, 1002420, 1002421, 1002422, 1002423, 1002426, 1002427,
                 1002428, 1002429, 1002431, 1002432, 1002433, 1002434, 1002435, 1002437, 1002438, 1002439,
@@ -968,7 +969,7 @@ var CATALOG = [
                 1332114, 1472111, 1372071, 1382093, 1482073, 1492073
             ]}
     ]},
-    {name: "Donor Shop", currency: 4001253, price: 10, cosmetic: false, categories: [
+    {name: "Donor Shop", currency: "stamps", price: 40, cosmetic: false, categories: [
             {name: "QoL items", icon: 5590000, items: [
                 5590000, 5590001
             ]}
@@ -998,7 +999,8 @@ var selectedItem = 0;
 
 function start() {
     state = "menu";
-    var text = (cm.getNpc() == 2616 ? "Welcome to the Donor Shop! It shares Rooty's catalog." : "Hi! My name is Rooty, i have become'th cashshop, take a peek!") + "#e#d#k";
+    var text = (cm.getNpc() == 2616 ? "Welcome to the Donor Shop! It shares Rooty's catalog." : "Hi! My name is Rooty, i have become'th cashshop, take a peek!")
+        + "\r\nYour Slums Stamps: #b" + cm.getStamps() + "#k (1 a day from the Daily Check-In, @stamps)#e#d#k";
     for (var i = 0; i < MENU.length; i++) {
         text += "\r\n#L" + i + "#" + MENU[i].label + "#l";
     }
@@ -1043,7 +1045,7 @@ function chooseMenu(selection) {
         var text = "Please select the " + section.name + " category.#e#d#k\r\n#b";
         for (var i = 0; i < section.categories.length; i++) {
             var c = section.categories[i];
-            text += "#L" + i + "##v" + c.icon + ":#  " + c.name + "  (" + priceOf(c) + " #i" + section.currency + ":#)\r\n";
+            text += "#L" + i + "##v" + c.icon + ":#  " + c.name + "  (" + priceOf(c) + " " + money(section) + ")\r\n";
         }
         state = "section";
         cm.sendSimple(text);
@@ -1073,6 +1075,19 @@ function pageCount() {
     return Math.ceil(category.items.length / PAGE_SIZE);
 }
 
+/* Stamps are an account balance, not an item: the Donor sections are priced in them. */
+function paysStamps(s) {
+    return s.currency === "stamps";
+}
+
+function money(s) {
+    return paysStamps(s) ? "Slums Stamps" : "#i" + s.currency + ":#";
+}
+
+function have(s) {
+    return paysStamps(s) ? cm.getStamps() : cm.getItemQuantity(s.currency);
+}
+
 function priceOf(c) {
     return c.price != null ? c.price : section.price;
 }
@@ -1089,7 +1104,7 @@ function showPage(page) {
     if (pageCount() > 1) {
         text += "#bPage " + page + " of " + pageCount() + "#k\r\n";
     }
-    text += "Each costs " + priceOf(category) + " #i" + section.currency + ":#. Please select the item you want to purchase:\r\n";
+    text += "Each costs " + priceOf(category) + " " + money(section) + ". Please select the item you want to purchase:\r\n";
     for (var i = start; i < end; i++) {
         text += "#L" + category.items[i] + "##v" + category.items[i] + ":#  " + ((i - start + 1) % 5 == 0 ? "\r\n" : "");
     }
@@ -1134,8 +1149,8 @@ function chooseItem(selection) {
         return;
     }
     var price = priceOf(category);
-    if (cm.getItemQuantity(section.currency) < price) {
-        cm.sendOk("You do not have enough #i" + section.currency + "#.");
+    if (have(section) < price) {
+        cm.sendOk("You do not have enough " + money(section) + ".");
         cm.dispose();
         return;
     }
@@ -1146,7 +1161,7 @@ function chooseItem(selection) {
     }
     options += "#L2#No";
     state = "confirm";
-    cm.sendSimple("Are you sure you want to purchase this item #i" + selectedItem + "# for\r\n" + price + " #i" + section.currency + "#?\r\n\r\n" + options);
+    cm.sendSimple("Are you sure you want to purchase this item #i" + selectedItem + "# for\r\n" + price + " " + money(section) + "?\r\n\r\n" + options);
 }
 
 function completePurchase(selection) {
@@ -1156,14 +1171,25 @@ function completePurchase(selection) {
         return;
     }
     var price = priceOf(category);
-    if (selection == BUY) {
+    var isPet = selectedItem >= 5000000 && selectedItem <= 5000999;
+    if (selection == BUY && paysStamps(section)) {
+        // one server call: room checked, stamps taken, item given (stamps handed back if it does not land)
+        var result = String(cm.buyWithStamps(price, selectedItem, isPet ? PET_DAYS * 24 * 60 * 60 * 1000 : -1));
+        if (result == "SHORT") {
+            cm.sendOk("You do not have enough Slums Stamps.");
+        } else if (result == "NO_ROOM") {
+            cm.sendOk("You do not have enough space to hold this item. Please try again after making some space.");
+        } else if (result != "BOUGHT") {
+            cm.sendOk("That purchase could not be made.");
+        }
+    } else if (selection == BUY) {
         if (cm.getItemQuantity(section.currency) < price) {
             cm.sendOk("You do not have enough #i" + section.currency + "#.");
         } else if (!cm.canHold(selectedItem, 1)) {
             cm.sendOk("You do not have enough space to hold this item. Please try again after making some space.");
         } else {
             cm.gainItem(section.currency, -price);
-            if (selectedItem >= 5000000 && selectedItem <= 5000999) {
+            if (isPet) {
                 cm.gainItem(selectedItem, 1, false, true, PET_DAYS * 24 * 60 * 60 * 1000);
             } else {
                 cm.gainItem(selectedItem, 1);

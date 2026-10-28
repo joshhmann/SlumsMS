@@ -61,7 +61,7 @@ final class Probes160 {
 
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
-            "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs");
+            "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -89,6 +89,7 @@ final class Probes160 {
                 case "customNpcCaps" -> customNpcCaps(p);
                 case "dailyCheckin" -> dailyCheckin(p);
                 case "starterChairs" -> starterChairs(p);
+                case "slumsStamps" -> slumsStamps(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -964,6 +965,112 @@ final class Probes160 {
             }
         }
         return verdict(bad, "day " + day + " claimed once, its reward landed, a second claim was refused", out);
+    }
+
+    // ── t-ss-1: Slums Stamps (ticket 111) ────────────────────────────────────────────────────────
+
+    /** t-ss-1: a Donor NX cosmetic (Rooty's first Donor Cap) and its price in stamps. */
+    static final int STAMP_CAP = 1003536, STAMP_CAP_PRICE = 6;
+
+    /**
+     * t-ss-1: claim -> stamp -> buy on the GM's account. (1) A claim as staff lands the day but no stamps. (2) With the
+     * check's own earn override, the next claim (the last one moved back 24 h first, as t-ck-1 does) credits exactly
+     * the day's stamps in the same write. (3) Topped up to the price if needed, Rooty's purchase call buys a Donor
+     * cosmetic for exactly 6 stamps; (4) one stamp short, it is refused and takes nothing. The balance, the claimed
+     * items and the cap are put back afterwards.
+     */
+    static List<String> slumsStamps(SyntheticPlayer p) throws Exception {
+        if (!DailyCheckin.enabled()) {
+            return List.of("SKIP DAILY_CHECKIN_ENABLED is off on this server");
+        }
+        Character gm = p.character();
+        if (!DailyCheckin.eligible(gm)) {
+            return List.of("SKIP " + gm.getName() + " is below DAILY_CHECKIN_MIN_LEVEL");
+        }
+        int acc = gm.getAccountID();
+        List<String> out = new ArrayList<>();
+        List<String> bad = new ArrayList<>();
+        int b0 = server.checkin.SlumsStamps.balance(acc);
+        int caps0 = gm.getItemQuantity(STAMP_CAP, false);
+        Map<Integer, Integer> items0 = new LinkedHashMap<>();
+        for (int d = 1; d <= DailyCheckinStreak.CYCLE_DAYS; d++) {
+            for (DailyCheckinRewards.Grant g : DailyCheckinRewards.of(d).grants()) {
+                items0.putIfAbsent(g.itemId(), gm.getItemQuantity(g.itemId(), false));
+            }
+        }
+        out.add("balance before: " + b0);
+        try {
+            // (1) staff: the day lands, no stamps
+            DailyCheckinStreak s = DailyCheckin.rewindForQa(acc, System.currentTimeMillis());
+            int day = s.claimableDay(System.currentTimeMillis());
+            claim(p, day);
+            DailyCheckinStreak s1 = DailyCheckin.streakForQa(acc);
+            int b1 = server.checkin.SlumsStamps.balance(acc);
+            out.add("staff claim of day " + day + ": streak day " + s1.day() + ", stamps " + b0 + " -> " + b1);
+            if (s1.day() != day) {
+                bad.add("the staff claim of day " + day + " was not recorded (streak day " + s1.day() + ")");
+            }
+            if (b1 != b0) {
+                bad.add("a staff account earned " + (b1 - b0) + " stamps");
+            }
+            // (2) the earn override: exactly the day's stamps
+            server.checkin.SlumsStamps.qaEarnerForCheck(acc, true);
+            s = DailyCheckin.rewindForQa(acc, System.currentTimeMillis());
+            int day2 = s.claimableDay(System.currentTimeMillis());
+            int want = DailyCheckinRewards.of(day2).stamps();
+            claim(p, day2);
+            server.checkin.SlumsStamps.qaEarnerForCheck(acc, false);
+            int b2 = server.checkin.SlumsStamps.balance(acc);
+            out.add("earning claim of day " + day2 + ": stamps " + b1 + " -> " + b2 + " (want +" + want + ")");
+            if (b2 - b1 != want) {
+                bad.add("the claim of day " + day2 + " credited " + (b2 - b1) + " stamps, want " + want);
+            }
+            claim(p, day2);   // again within 24 h: nothing
+            if (server.checkin.SlumsStamps.balance(acc) != b2) {
+                bad.add("a second claim within 24 h credited stamps");
+            }
+            // (3) buy a Donor cosmetic through Rooty's purchase call
+            if (b2 < STAMP_CAP_PRICE) {
+                server.checkin.SlumsStamps.add(acc, STAMP_CAP_PRICE - b2);
+                out.add("topped up " + (STAMP_CAP_PRICE - b2) + " stamps to reach the price");
+            }
+            int b3 = server.checkin.SlumsStamps.balance(acc);
+            scripting.npc.NPCConversationManager cm = new scripting.npc.NPCConversationManager(gm.getClient(), 9010004,
+                    "rooty");
+            String bought = cm.buyWithStamps(STAMP_CAP_PRICE, STAMP_CAP, -1);
+            int b4 = server.checkin.SlumsStamps.balance(acc);
+            int caps1 = gm.getItemQuantity(STAMP_CAP, false);
+            out.add("buy " + STAMP_CAP + " for " + STAMP_CAP_PRICE + ": " + bought + ", stamps " + b3 + " -> " + b4
+                    + ", caps " + caps0 + " -> " + caps1);
+            if (!"BOUGHT".equals(bought) || b3 - b4 != STAMP_CAP_PRICE || caps1 - caps0 != 1) {
+                bad.add("the purchase: " + bought + ", stamps -" + (b3 - b4) + ", caps +" + (caps1 - caps0));
+            }
+            // (4) one short: refused, nothing taken or given
+            server.checkin.SlumsStamps.restoreForQa(acc, STAMP_CAP_PRICE - 1);
+            String refused = cm.buyWithStamps(STAMP_CAP_PRICE, STAMP_CAP, -1);
+            int b5 = server.checkin.SlumsStamps.balance(acc);
+            out.add("one stamp short: " + refused + ", stamps " + b5 + ", caps " + gm.getItemQuantity(STAMP_CAP, false));
+            if (!"SHORT".equals(refused) || b5 != STAMP_CAP_PRICE - 1 || gm.getItemQuantity(STAMP_CAP, false) != caps1) {
+                bad.add("a purchase one stamp short: " + refused + ", stamps " + b5);
+            }
+        } finally {
+            server.checkin.SlumsStamps.qaEarnerForCheck(acc, false);
+            server.checkin.SlumsStamps.restoreForQa(acc, b0);
+            int extraCaps = gm.getItemQuantity(STAMP_CAP, false) - caps0;
+            if (extraCaps > 0) {
+                client.inventory.manipulator.InventoryManipulator.removeById(gm.getClient(),
+                        ItemConstants.getInventoryType(STAMP_CAP), STAMP_CAP, extraCaps, false, false);
+            }
+            for (Map.Entry<Integer, Integer> e : items0.entrySet()) {
+                int extra = gm.getItemQuantity(e.getKey(), false) - e.getValue();
+                if (extra > 0) {
+                    client.inventory.manipulator.InventoryManipulator.removeById(gm.getClient(),
+                            ItemConstants.getInventoryType(e.getKey()), e.getKey(), extra, false, false);
+                }
+            }
+        }
+        return verdict(bad, "a staff claim earned nothing, an earning claim credited the day's stamps once, a Donor "
+                + "cosmetic cost exactly " + STAMP_CAP_PRICE + " and one short was refused", out);
     }
 
     /** The window's claim request (CP 0x3732: action 1, day), after the per-account throttle. */

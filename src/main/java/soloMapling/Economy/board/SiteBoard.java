@@ -28,7 +28,7 @@ import java.util.function.Consumer;
  * <pre>
  *   inbox  (the site writes, the server reads)   posts.json, alerts.json
  *   outbox (the server writes, the site reads)   board.json, rejected.json, removed.json, alerts-fired.json,
- *                                                offers.json, trade-ratings.json (every 15 min; per-player counts
+ *                                                offers.json, trade-ratings.json, stamps.json (every 15 min; per-player counts
  *                                                for the site's "My trades", private: never in the public folder)
  * </pre>
  * Every 30 s the inbox files' modification times are checked; a changed file is read again, its posts are checked
@@ -381,6 +381,7 @@ public final class SiteBoard {
             state.prunePosts(present, world.now());
             writeBoard();
             writeTradeRatings();
+            writeStamps();
             saveState();
         }
 
@@ -393,6 +394,18 @@ public final class SiteBoard {
                 }
             } catch (RuntimeException e) {
                 note("OUTBOX " + soloMapling.site.TradeRatings.PRIVATE_FILE + " not built: " + e);
+            }
+        }
+
+        /** The private stamps.json (every 15 min, with the cycle); kept as it was when it cannot be built. */
+        void writeStamps() {
+            try {
+                java.util.Map<String, Object> stamps = world.stamps(world.now());
+                if (stamps != null) {
+                    write(server.checkin.SlumsStamps.PRIVATE_FILE, stamps);
+                }
+            } catch (RuntimeException e) {
+                note("OUTBOX " + server.checkin.SlumsStamps.PRIVATE_FILE + " not built: " + e);
             }
         }
 
