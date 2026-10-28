@@ -113,6 +113,16 @@ class FakeGameAuth:
         self.url = f"http://127.0.0.1:{self.srv.server_address[1]}"
 
 
+class PasswordLengthTest(unittest.TestCase):
+    """The game's login box takes 23 characters (owner, 2026-10-28): new passwords up to 23; sign-in sends any up to 64."""
+
+    def test_new_passwords_up_to_23(self):
+        self.assertIsNone(ls.rule_broken("goodname", "a" * 23))
+        self.assertEqual(ls.rule_broken("goodname", "a" * 24), "pass_length")
+        self.assertIsNone(ls.sign_in_broken("Sourpatch", "a" * 13), "a 13-character password reaches the game's check")
+        self.assertIn("6 to 23", ls.RULES["pass_length"])
+
+
 class AccountSignInTest(unittest.TestCase):
     """Ticket 105: sign in with the game username and password, or sign up with an invite code."""
 
@@ -198,7 +208,7 @@ class AccountSignInTest(unittest.TestCase):
 
     def test_sign_up_rules_are_checked_before_anything_is_sent(self):
         for user, pw, rule in (("abc", "abc123", "user_length"), ("bad name", "abc123", "user_chars"),
-                               ("goodname", "short", "pass_length"), ("goodname", "a" * 13, "pass_length"),
+                               ("goodname", "short", "pass_length"), ("goodname", "a" * 24, "pass_length"),
                                ("goodname", "has space", "pass_chars")):
             status, body = self.call("POST", "/api/login/signup", {"code": "GOODCODE", "user": user, "pass": pw})
             self.assertEqual((status, body["rule"]), (400, rule), user)

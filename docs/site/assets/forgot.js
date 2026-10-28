@@ -42,7 +42,7 @@
   set.addEventListener("submit", function (e) {
     e.preventDefault();
     var out = set.querySelector(".status"), pass = set.elements.pass.value;
-    if (pass.length < 6 || pass.length > 12 || !/^[\x21-\x7e]+$/.test(pass)) { say(out, "Passwords are 6 to 12 characters, no spaces.", "bad"); return; }
+    if (pass.length < 6 || pass.length > 23 || !/^[\x21-\x7e]+$/.test(pass)) { say(out, "Passwords are 6 to 23 characters, no spaces.", "bad"); return; }
     if (pass !== set.elements.pass2.value) { say(out, "The two passwords don't match.", "bad"); return; }
     say(out, "Setting it...");
     call("complete", { pass: pass }).then(function (r) {
