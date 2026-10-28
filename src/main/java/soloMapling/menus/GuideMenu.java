@@ -67,8 +67,7 @@ public final class GuideMenu {
                     + "#bTRADE#k: warps to #bBase of Roots#k (the hub\r\n"
                     + "   for job advances, storage and FM portal).\r\n"
                     + "#bMENU#k & #bSHORTCUT#k: normal game menus\r\n"
-                    + "   for your windows, keybindings and settings.\r\n"
-                    + "#bCtrl+F11#k moves your HUD; #bCtrl+F10#k resets it.", List.of()),
+                    + "   for your windows, keybindings and settings.", List.of()),
             new GuidePage("Where to find things", ""
                     + "#eWhere to find things (1/3)#n\r\n"
                     + "#bGachapon#k: 12 town machines (#b@gacha <town>#k).\r\n"
