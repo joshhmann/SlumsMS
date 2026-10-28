@@ -489,8 +489,8 @@ public final class AutoQaCatalog {
 
         // 1.6.1 chat split: the intent+con endpoint (:8913) and the tone endpoint (:8910) must both answer, not the rules
         c.add(Check.auto("t-cv-11", "Both chat-model endpoints answer (intent+con and tone)").minutes(2)
-                .step(run("cv-12"), waitFor("SPLIT (PASS|FAIL) ", 30))
-                .expect(has("SPLIT PASS lines=4 "), lacks("SPLIT FAIL"))
+                .step(run("cv-12"), waitFor("SPLIT (PASS|FAIL) lines=", 30))
+                .expect(has("SPLIT PASS lines=4 "), lacks("SPLIT FAIL lines="))
                 .build());
 
         // rc6 inference: the last 24 h of bot chat, scored (ChatQuality): relevance, stiffness, repeats, say-do

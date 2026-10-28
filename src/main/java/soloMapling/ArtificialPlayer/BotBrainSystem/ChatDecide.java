@@ -18,15 +18,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
  * The fast "system one" for chat (ticket 36): small few-label questions to GLiNER2.5-Decide
  * ({@code BOT_DECIDE_URL} + {@code /v1/systemone}) about one player line. Several questions travel in one call.
  *
- * <p>Bounded like the LLM brain, so a bot never waits on it: each call runs on a virtual thread with a tight
- * deadline, answers are cached per normalised line, calls are rate limited, and on a timeout, an error, a full
+ * <p>Bounded like the LLM brain, so a bot never waits on it: each call runs on the client's own small thread pool
+ * with a tight deadline (timed from when it was asked, queueing included), answers are cached per normalised line, calls are rate limited, and on a timeout, an error, a full
  * budget or no endpoint the answer is empty - the caller then uses its rules. Never "pick one of N players": that
  * stays a rule ({@code BotAddressee}).
  *
@@ -60,7 +59,13 @@ public final class ChatDecide {
     private final Transport transport;
     private final long timeoutMs;
     private final int perSecond;
-    private final ExecutorService calls = Executors.newVirtualThreadPerTaskExecutor();
+    /**
+     * The calls run on a few platform threads of their own, not virtual threads (1.6.1 QA round 3): on TEST, under its
+     * 3-CPU quota while bots logged in, virtual threads shared with the rest of the server started seconds late, so a
+     * 60-100 ms call missed the 400 ms deadline before it was even sent ("late" with a 100 ms average, intent+con
+     * timing out ~8 s after the read). Full: the call is skipped (rules answer), like the per-second budget.
+     */
+    private final ExecutorService calls;
     private final Map<String, Cached> cache = new LinkedHashMap<>(256, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, Cached> eldest) {
@@ -92,6 +97,15 @@ public final class ChatDecide {
         this.transport = transport;
         this.timeoutMs = timeoutMs;
         this.perSecond = perSecond;
+        int threads = Math.max(2, Math.min(16, perSecond));
+        java.util.concurrent.ThreadPoolExecutor pool = new java.util.concurrent.ThreadPoolExecutor(threads, threads,
+                30, TimeUnit.SECONDS, new java.util.concurrent.ArrayBlockingQueue<>(Math.max(4, 2 * perSecond)), r -> {
+                    Thread t = new Thread(r, "chat-decide");
+                    t.setDaemon(true);
+                    return t;
+                }, new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
+        pool.allowCoreThreadTimeOut(true);
+        this.calls = pool;
     }
 
     private static volatile ChatDecide shared;
@@ -243,12 +257,22 @@ public final class ChatDecide {
             }
         }
         CompletableFuture<Optional<Map<String, Answer>>> result = new CompletableFuture<>();
-        calls.execute(() -> {
-            long started = System.nanoTime();
+        long submitted = System.nanoTime();
+        Runnable call = () -> {
+            long started = submitted;
+            if (result.isDone()) {
+                // it waited past the caller's deadline before it could start: don't load the endpoint for nothing
+                long waited = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - submitted);
+                log.debug("Decide call to {} started {} ms late: skipped", endpoint, waited);
+                ChatStats.endpointCall(endpoint, waited, ChatStats.Outcome.TIMEOUT, true);
+                return;
+            }
             Optional<Map<String, Answer>> answers;
             ChatStats.Outcome outcome;
+            // what is left of the deadline after any wait for a thread (the HTTP timeout is per request)
+            long left = Math.max(50, timeoutMs + 50 - TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - submitted));
             try {
-                answers = parse(transport.post(Json.write(request(line, questions, model, context)), timeoutMs), questions);
+                answers = parse(transport.post(Json.write(request(line, questions, model, context)), left), questions);
                 outcome = answers.isPresent() ? ChatStats.Outcome.OK : ChatStats.Outcome.EMPTY;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -268,7 +292,13 @@ public final class ChatDecide {
                 }
             });
             result.complete(answers);
-        });
+        };
+        try {
+            calls.execute(call);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            ChatStats.decideSkipped();
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
         return result.completeOnTimeout(Optional.empty(), timeoutMs + 50, TimeUnit.MILLISECONDS);
     }
 

@@ -135,4 +135,52 @@ class ConvoScenariosTest {
         suite.stop(1, "!qa stop");
         assertEquals(1, called("unconvobot"));
     }
+
+    @Test
+    void cv12RunsToItsVerdictAndTheHintNeverReadsLikeTheVerdict() throws Exception {
+        // QA round 3: the hint "..., then SPLIT PASS or SPLIT FAIL." satisfied t-cv-11's wait at once, the check
+        // stopped cv-12 2 s in, and its "lacks SPLIT FAIL" failed on the hint itself
+        var main = new soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide((b, t) -> "{\"answers\":{"
+                + "\"convo_intent\":{\"choice\":\"talk\",\"confidence\":0.9},\"con\":{\"choice\":\"normal\",\"confidence\":0.9}}}",
+                400, 50).named("intent+con@m");
+        var tone = new soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide((b, t) -> "{\"answers\":{"
+                + "\"convo_tone\":{\"choice\":\"neutral\",\"confidence\":0.95}}}", 400, 50).named("tone@t");
+        soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.useForTest(main);
+        soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.useToneForTest(tone);
+        try {
+            start("cv-12", 100000000);
+            Path log = suite.runOf(1).logPath();
+            String text = "";
+            for (int i = 0; i < 200 && !text.contains("SPLIT PASS") && !text.contains("SPLIT FAIL"); i++) {
+                Thread.sleep(25);
+                text = java.nio.file.Files.readString(log);
+            }
+            assertTrue(text.contains("SPLIT PASS lines=4 "), text);
+            var check = soloMapling.autoqa.AutoQaCatalog.find("t-cv-11");
+            List<String> regexes = new java.util.ArrayList<>();
+            check.steps().forEach(st -> regexes.add(st.describe()));
+            check.expects().forEach(e -> regexes.add(e.describe()));
+            int judged = 0;
+            for (String d : regexes) {
+                int a = d.indexOf('/'), z = d.lastIndexOf('/');
+                if (a < 0 || z <= a) {
+                    continue;
+                }
+                var p = java.util.regex.Pattern.compile(d.substring(a + 1, z));
+                for (String line : text.split("\n")) {
+                    if (line.contains("told GM")) {
+                        assertFalse(p.matcher(line).find(), "/" + p + "/ matches the GM hint: " + line);
+                    }
+                }
+                judged++;
+            }
+            assertEquals(3, judged, regexes.toString());
+            assertFalse(text.contains("SPLIT FAIL"), text);
+        } finally {
+            suite.stop(1, "!qa stop");
+            soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.useForTest(null);
+            soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.useToneForTest(null);
+            soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.resetForTest();
+        }
+    }
 }

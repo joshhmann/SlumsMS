@@ -84,10 +84,23 @@ final class ConvoScenarios {
             if (main == null || tone == null) {
                 throw new QaRefusal("The split is not configured here: BOT_DECIDE_URL and BOT_DECIDE_TONE_URL must both be set.");
             }
-            Thread.ofVirtual().start(() -> run(ctx, main, tone));
+            Thread.ofVirtual().start(() -> {
+                try {
+                    run(ctx, main, tone);
+                } catch (RuntimeException e) {
+                    ctx.run().note("SPLIT", "FAIL lines=0 the check itself broke: " + e);
+                }
+            });
             return List.of("Sending " + ConvoSplitLines.LINES.size() + " fresh lines to " + main.endpointName() + " and "
-                    + tone.endpointName() + ".", "Log: SPLIT LINE ..., then SPLIT PASS or SPLIT FAIL.");
+                    + tone.endpointName() + ".", HINT);
         }
+
+        /**
+         * What the GM is told to watch for. It must not read like the verdict line: t-cv-11 waits for
+         * "SPLIT (PASS|FAIL) lines=" and the old hint ("..., then SPLIT PASS or SPLIT FAIL.") matched it, so the check
+         * stopped the scenario 2 s in, before any line was read, and failed on the hint itself (QA round 3).
+         */
+        static final String HINT = "The log gets one split line per chat line, then a verdict with the counts.";
 
         private void run(QaContext ctx, soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide main,
                          soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide tone) {

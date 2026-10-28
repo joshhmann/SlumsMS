@@ -85,4 +85,42 @@ class DecideProvenanceTest {
             assertFalse(r.conSource() == ChatTriage.Source.RULE, "con rule: " + line);
         }
     }
+
+    @Test
+    void callsRunOnTheClientsOwnPlatformThreadsNotTheSharedVirtualScheduler() {
+        // TEST 2026-10-28: virtual threads started seconds late under the CPU quota; a 100 ms call came back "late"
+        java.util.concurrent.atomic.AtomicBoolean virtual = new java.util.concurrent.atomic.AtomicBoolean(true);
+        ChatDecide d = new ChatDecide((b, t) -> {
+            virtual.set(Thread.currentThread().isVirtual());
+            return "{\"answers\":{\"intent\":{\"choice\":\"party\",\"confidence\":0.9}}}";
+        }, 400, 8).named("own@p");
+        assertTrue(d.askNow("six", List.of(ChatTriage.INTENT)).isPresent());
+        assertFalse(virtual.get(), "a platform thread of the client's pool");
+    }
+
+    @Test
+    void aCallThatWaitedPastTheDeadlineForAThreadIsSkippedAndCountedLate() throws Exception {
+        java.util.concurrent.CountDownLatch hold = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger sent = new java.util.concurrent.atomic.AtomicInteger();
+        ChatDecide d = new ChatDecide((b, t) -> {
+            sent.incrementAndGet();
+            hold.await();
+            return "{\"answers\":{\"intent\":{\"choice\":\"party\",\"confidence\":0.9}}}";
+        }, 100, 2).named("busy@q"); // 2 threads
+        d.ask("a", List.of(ChatTriage.INTENT));
+        d.ask("b", List.of(ChatTriage.INTENT));
+        Thread.sleep(1_050); // a new second of budget; both threads still busy
+        assertTrue(d.askNow("c", List.of(ChatTriage.INTENT)).isEmpty(), "the caller is not kept waiting");
+        hold.countDown();
+        for (int i = 0; i < 80 && n2("busy@q", "calls") < 3; i++) {
+            Thread.sleep(25);
+        }
+        assertEquals(2, sent.get(), "the queued call never reached the endpoint");
+        assertEquals(3, n2("busy@q", "late"));
+    }
+
+    private static long n2(String endpoint, String key) {
+        Map<String, Object> m = ChatStats.endpointTotals().get(endpoint);
+        return m == null || !(m.get(key) instanceof Number x) ? 0 : x.longValue();
+    }
 }
