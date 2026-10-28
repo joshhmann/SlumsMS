@@ -35,6 +35,12 @@ ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet $DEST/cache /srv
   # the salt for hashing visitors' addresses before they go to the game server (ticket 105), TEST only
   [ -s /etc/slums-login-test/ip-salt ] || (umask 077; head -c 32 /dev/urandom > /etc/slums-login-test/ip-salt)
   chmod 600 /etc/slums-login-test/ip-salt
+  # ticket 106: a throwaway TEST download-pass key, separate from the session key; never printed
+  [ -s /etc/slums-login-test/pass-key ] || (umask 077; head -c 48 /dev/urandom > /etc/slums-login-test/pass-key)
+  chmod 600 /etc/slums-login-test/pass-key
+  # the file behind /dl-test/ (the download pass check on TEST)
+  install -d -o www-data -g www-data -m 750 /var/lib/slums-site-test-web/dl-test /var/lib/slums-site-test-web/passcache
+  echo 'SlumsMS TEST download: ok' > /var/lib/slums-site-test-web/dl-test/hello.txt
   # the report form's own TEST salt and reports file, never live's /etc/slums-report or /var/lib/slums-feedback
   install -d -m 700 /etc/slums-report-test; install -d -m 750 /var/lib/slums-report-test
   [ -s /etc/slums-report-test/salt ] || (umask 077; head -c 32 /dev/urandom > /etc/slums-report-test/salt)

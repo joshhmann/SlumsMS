@@ -25,6 +25,15 @@ nginx asks GET /api/auth/check (auth_request) before serving the friends-only se
 401 otherwise. POST /api/login/logout ends the session on this server too, not only in the browser that asked.
 GET /api/login/me says who is signed in: {"signed_in", "character", "account"}.
 
+Download pass (launcher 1.6.1, ticket 106): POST /api/login/download-pass (session cookie, "X-Slums: 1") gives
+{"ok": true, "pass", "expiresAt"}, a token the launcher sends as "X-Slums-Pass" on every patch download. It lives 12 h
+(never past the session), 401 when not signed in, 403 when the account is banned or revoked, 503 when this server has
+no pass key. nginx on the patch host asks GET /api/auth/pass (auth_request, internal): 204 plus "X-Slums-Account:
+<account id>" (for the access log) when the pass is good, 401 otherwise. The check is an HMAC and two in-memory lists
+(revoked.txt, and password resets' revoked-before.txt), reloaded when the files change: no database, no game call.
+Passes are signed with their own key (--pass-key-file), separate from the session key and different on Live and TEST,
+so a TEST pass never opens Live downloads. No secret is ever in the launcher.
+
 Listens on 127.0.0.1 only. Sessions are HMAC-SHA256 signed with --key-file (32+ random bytes; the service refuses to
 start without it). An account listed in --revoked (one account id per line, e.g. banned accounts) is signed out.
 
@@ -37,6 +46,7 @@ Settings (argument beats environment beats default):
                                           sign-up answer 503)
     --auth-secret / SLUMS_LOGIN_AUTH_SECRET_FILE   /etc/slums-auth/secret (read by path, never printed)
     --ip-salt / SLUMS_LOGIN_IP_SALT_FILE  /etc/slums-login/ip-salt (32+ random bytes)
+    --pass-key-file / SLUMS_LOGIN_PASS_KEY_FILE   /etc/slums-login/pass-key (32+ random bytes; missing: no passes)
 Signed-out sessions are listed in revoked-sessions.txt next to --revoked, until they would have expired anyway.
 """
 import argparse
@@ -129,6 +139,19 @@ class Sessions:
             return None
         return payload
 
+    def revoked_account(self, token):
+        """True when token is genuine and unexpired but its account is revoked (banned): 403 rather than 401."""
+        if not token or token.count(".") != 1:
+            return False
+        body, mac = token.split(".")
+        if not hmac.compare_digest(mac, b64(hmac.new(self.key, body.encode(), hashlib.sha256).digest())):
+            return False
+        try:
+            payload = json.loads(unb64(body))
+        except (ValueError, json.JSONDecodeError):
+            return False
+        return isinstance(payload, dict) and payload.get("exp", 0) >= self.now() and str(payload.get("a")) in self.revoked()
+
     def before(self):
         if not self.before_file:
             return self.before_mem
@@ -177,6 +200,72 @@ class Sessions:
             with open(tmp, "w", encoding="utf-8") as f:
                 f.writelines(f"{k} {int(v)}\n" for k, v in keep.items())
             os.replace(tmp, self.ended_file)
+
+
+PASS_TTL = 12 * 3600
+PASS_PREFIX = "dp1."  # a pass never parses as a session cookie, and the other way round
+
+
+class Passes:
+    """Download passes: "dp1." + base64(json {a, iat, exp}) + "." + base64(hmac), signed with the pass key. The check
+    is for nginx's auth_request on every patch download (cached there 60 s), so it reads no database: the revoked and
+    reset lists are kept in memory and reloaded only when their files change."""
+
+    def __init__(self, key, sessions, now=time.time):
+        self.key, self.sessions, self.now = key, sessions, now
+        self.cache = {}  # path -> (mtime, value)
+
+    def _load(self, path, read):
+        try:  # mtime alone can miss two writes within one clock tick; size and inode catch most of those
+            st = os.stat(path) if path else None
+            m = st and (st.st_mtime_ns, st.st_size, st.st_ino)
+        except OSError:
+            m = None
+        hit = self.cache.get(path)
+        if hit and hit[0] == m:
+            return hit[1]
+        value = read()
+        self.cache[path] = (m, value)
+        return value
+
+    def revoked(self):
+        return self._load(self.sessions.revoked_file, self.sessions.revoked)
+
+    def before(self):
+        if not self.sessions.before_file:
+            return self.sessions.before()
+        return self._load(self.sessions.before_file, self.sessions.before)
+
+    def mac(self, body):
+        return b64(hmac.new(self.key, (PASS_PREFIX + body).encode(), hashlib.sha256).digest())
+
+    def issue(self, session):
+        t = int(self.now())
+        exp = min(t + PASS_TTL, int(session.get("exp", t + PASS_TTL)))
+        body = b64(json.dumps({"a": int(session["a"]), "iat": t, "exp": exp}, separators=(",", ":"),
+                              sort_keys=True).encode())
+        return f"{PASS_PREFIX}{body}.{self.mac(body)}", exp
+
+    def check(self, token):
+        """token -> the account id, or None if it is forged, expired, revoked or older than a password reset."""
+        if not token or not token.startswith(PASS_PREFIX) or len(token) > 512:
+            return None
+        rest = token[len(PASS_PREFIX):]
+        if rest.count(".") != 1:
+            return None
+        body, mac = rest.split(".")
+        if not hmac.compare_digest(mac, self.mac(body)):
+            return None
+        try:
+            p = json.loads(unb64(body))
+        except (ValueError, json.JSONDecodeError):
+            return None
+        if not isinstance(p, dict) or not isinstance(p.get("a"), int) or p.get("exp", 0) < self.now():
+            return None
+        a = str(p["a"])
+        if a in self.revoked() or p.get("iat", 0) <= self.before().get(a, -1):
+            return None
+        return p["a"]
 
 
 USER_RE = re.compile(r"^[A-Za-z0-9]+$")
@@ -289,7 +378,7 @@ def cookies(header):
     return out
 
 
-def make_handler(sessions, secure, auth=None, limiter=None):
+def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
     flags = "; Path=/; HttpOnly; SameSite=Lax" + ("; Secure" if secure else "")
     auth = auth or GameAuth(None, None, None)
     limiter = limiter or Limiter(AUTH_PER_IP_MIN)
@@ -305,10 +394,12 @@ def make_handler(sessions, secure, auth=None, limiter=None):
             fwd = self.headers.get("X-Forwarded-For", "")
             return fwd.split(",")[0].strip() or self.client_address[0]
 
-        def send(self, status, body=None, set_cookies=()):
+        def send(self, status, body=None, set_cookies=(), headers=None):
             data = b"" if body is None else json.dumps(body).encode()
             self.send_response(status)
             self.send_header("Cache-Control", "no-store")
+            for k, v in (headers or {}).items():
+                self.send_header(k, v)
             for c in set_cookies:
                 self.send_header("Set-Cookie", c)
             if body is not None:
@@ -325,6 +416,9 @@ def make_handler(sessions, secure, auth=None, limiter=None):
             path = urlsplit(self.path).path
             if path == "/api/auth/check":
                 return self.send(204 if self.session() else 401)
+            if path == "/api/auth/pass":
+                a = passes.check(self.headers.get("X-Slums-Pass")) if passes else None
+                return self.send(401) if a is None else self.send(204, headers={"X-Slums-Account": str(a)})
             if path == "/api/login/me":
                 s = self.session()
                 return self.send(200, {"signed_in": bool(s), "character": (s.get("c") or None) if s else None,
@@ -342,6 +436,8 @@ def make_handler(sessions, secure, auth=None, limiter=None):
                 return self.send(200, {"ok": True}, [f"{SESSION_COOKIE}=; Max-Age=0{flags}"])
             if path in ("/api/login/password", "/api/login/signup"):
                 return self.account_sign_in(path.rsplit("/", 1)[1])
+            if path == "/api/login/download-pass":
+                return self.download_pass()
             if path in ("/api/login/reset/request", "/api/login/reset/status", "/api/login/reset/complete"):
                 return self.reset(path.rsplit("/", 1)[1])
             return self.send(404, {"ok": False})
@@ -443,6 +539,24 @@ def make_handler(sessions, secure, auth=None, limiter=None):
             mark = sessions.end_all(got["account_id"])   # every old session of the account, whatever revoke_sessions says
             return self.signed_in(got, got.get("account", ""), [f"{RESET_COOKIE}=; Max-Age=0{flags}"], mark)
 
+        def download_pass(self):
+            if self.headers.get("X-Slums") != "1":
+                return self.send(403, {"ok": False, "error": "Missing header."})
+            origin = self.headers.get("Origin")
+            if origin and urlsplit(origin).netloc != self.headers.get("Host", ""):
+                return self.send(403, {"ok": False, "error": "Wrong origin."})
+            token = cookies(self.headers.get("Cookie")).get(SESSION_COOKIE)
+            s = sessions.check(token)
+            if not s:
+                if sessions.revoked_account(token):
+                    return self.send(403, {"ok": False, "error": "This account can't download right now."})
+                return self.send(401, {"ok": False, "error": "Sign in first."})
+            if not passes:
+                return self.send(*self.err(DOWN))
+            pw, exp = passes.issue(s)
+            return self.send(200, {"ok": True, "pass": pw,
+                                   "expiresAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(exp))})
+
         @staticmethod
         def err(pair):
             return pair[0], {"ok": False, "error": pair[1]}
@@ -464,6 +578,7 @@ def main():
     ap.add_argument("--auth-url")
     ap.add_argument("--auth-secret")
     ap.add_argument("--ip-salt")
+    ap.add_argument("--pass-key-file")
     args = ap.parse_args()
     key_file = setting(args, "key_file", "SLUMS_LOGIN_KEY_FILE", "/etc/slums-login/key")
     revoked = setting(args, "revoked", "SLUMS_LOGIN_REVOKED", "/var/lib/slums-login/revoked.txt")
@@ -479,9 +594,21 @@ def main():
         raise SystemExit(f"no key file at {key_file}; make one with: head -c 48 /dev/urandom > {key_file}")
     if len(key) < 32:
         raise SystemExit(f"{key_file} is too short; use at least 32 random bytes")
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(Sessions(key, revoked), secure, auth))
-    print(f"login service on 127.0.0.1:{port}, game auth API {auth.url or '(not set: sign-in answers 503)'}",
-          file=sys.stderr)
+    sessions = Sessions(key, revoked)
+    passes, pass_file = None, setting(args, "pass_key_file", "SLUMS_LOGIN_PASS_KEY_FILE", "/etc/slums-login/pass-key")
+    try:
+        with open(pass_file, "rb") as f:
+            pass_key = f.read().strip()
+        if len(pass_key) < 32:
+            raise SystemExit(f"{pass_file} is too short; use at least 32 random bytes")
+        if hmac.compare_digest(pass_key, key):
+            raise SystemExit(f"{pass_file} must not be the session key")
+        passes = Passes(pass_key, sessions)
+    except FileNotFoundError:
+        pass  # no pass key yet: download-pass answers 503 and every pass check 401
+    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(sessions, secure, auth, passes=passes))
+    print(f"login service on 127.0.0.1:{port}, game auth API {auth.url or '(not set: sign-in answers 503)'}, "
+          f"download passes {'on' if passes else 'off (no pass key)'}", file=sys.stderr)
     server.serve_forever()
 
 

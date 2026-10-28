@@ -15,6 +15,8 @@ Environment=SLUMS_LOGIN_SECURE=0
 Environment=SLUMS_LOGIN_AUTH_URL=http://127.0.0.1:8196
 Environment=SLUMS_LOGIN_AUTH_SECRET_FILE=/etc/slums-auth-test/secret
 Environment=SLUMS_LOGIN_IP_SALT_FILE=/etc/slums-login-test/ip-salt
+# ticket 106: TEST's own download-pass key (made by install.sh), never Live's
+Environment=SLUMS_LOGIN_PASS_KEY_FILE=/etc/slums-login-test/pass-key
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
