@@ -214,6 +214,16 @@ class SiteAccountsTest {
         assertEquals(List.of("Slum", "Alt"), r.characters());
     }
 
+    /** The game's password box keeps the first 12 characters, so a longer typed password was stored as its prefix. */
+    @Test
+    void aLongPasswordIsCheckedAsTheTwelveCharactersTheGameBoxKept() {
+        account(5, "Josh", "abcdefghijkl", false, 0);   // what the game stored for "abcdefghijklm"
+        assertTrue(accounts.verify("Josh", "abcdefghijklm", "ip").ok(), "same typing as the game login");
+        assertTrue(accounts.verify("Josh", "abcdefghijkl", "ip").ok());
+        assertEquals(SiteAccounts.WRONG_LOGIN, accounts.verify("Josh", "abcdefghijkXm", "ip").error(),
+                "the first 12 still have to match");
+    }
+
     @Test
     void wrongPasswordUnknownNameBannedAndRevokedAreAllWrongLogin() {
         account(5, "Josh", "hunter22", false, 0);

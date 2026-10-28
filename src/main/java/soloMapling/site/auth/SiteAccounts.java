@@ -239,7 +239,9 @@ public final class SiteAccounts {
                 return Result.fail(WRONG_LOGIN);   // banned, bot or revoked: folded into WRONG_LOGIN (generic)
             }
             if (pass.length() > PASS_MAX) {
-                return failed(key, now);   // the game's password box takes 12 at most: nothing longer is compared
+                // The game's password box keeps the first 12 characters typed or pasted, so an account made in game
+                // with a longer password stored a hash of that prefix: compare exactly what the box would send.
+                pass = pass.substring(0, PASS_MAX);
             }
             // Hashes only: a plain-text stored value (the bot template's marker) never matches here.
             AccountPasswords.Match match = AccountPasswords.checkHashedOnly(pass,
