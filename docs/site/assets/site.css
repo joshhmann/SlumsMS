@@ -803,3 +803,7 @@ table.t { width: 100%; border-collapse: collapse; }
 }
 /* the NX ticker in the Megaphone (ticker.js): signed-in players see the exchange's price */
 .rail .xtick b { color: var(--on-rail); } .rail .xtick .up { color: var(--up-fill); } .rail .xtick .down { color: #ff7b7f; }
+
+/* Most hunted (world/rankings/hunted.html): a share bar beside each monster's kills */
+.hunt-bar-h { width: 30%; }
+.hunt-bar span { display: block; height: 10px; border-radius: 5px; background: var(--accent); border: 1.5px solid var(--edge); }

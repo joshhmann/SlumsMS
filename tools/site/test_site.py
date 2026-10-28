@@ -725,13 +725,22 @@ class WorldTest(unittest.TestCase):
         self.assertEqual(len(probs), 1)
         self.assertIn("nope.html", probs[0])
 
+    def test_most_hunted_board(self):
+        """161-hunted: world.json's top_mobs_7d and top_mobs (up to 25 each) get their own board and an overview card."""
+        page = self.read("world/rankings/hunted.html")
+        week, day = page.split("Last 7 days")[1].split("Last 24 hours")
+        self.assertEqual((week.count('<td class="r num">'), day.count('<td class="r num">')), (12 * 2, 10 * 2))
+        self.assertIn('class="hunt-bar"><span style="width:100%"></span>', week)
+        self.assertIn('href="../../world/rankings/hunted"', self.read("world/rankings/index.html"))
+        self.assertNotIn("database/", page, "the public World never links Slums Street")
+
     def test_dojo_board_only_with_rows(self):
         from sections import world
         page = self.read("world/rankings/index.html")
         self.assertEqual(world.load(self.data)["leaderboards"]["dojo"], [])   # the sample has no Dojo rows
         self.assertFalse(os.path.exists(os.path.join(self.out, "world", "rankings", "dojo.html")))
         self.assertNotIn("Dojo", page.split('<main id="main">')[1])   # (the megaphone rail may name a Dojo release)
-        self.assertIn("Level, fame, guild, trader and boss rankings on Bera.", page)
+        self.assertIn("Level, fame, guild, trader, boss and monster rankings on Bera.", page)  # the sample counts kills
         lb = {"dojo": [{"name": "Momo", "floor": 38, "points": 900, "time_s": 754}]}
         shown = world.boards(lb)
         self.assertIn("dojo", [k for k, _, _ in shown])

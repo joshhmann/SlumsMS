@@ -96,7 +96,8 @@ def build_section(name, out, rels, site_root=None):
     if name == "admin":
         return admin.build(out, DASHBOARD_WEB)
     if name == "world":
-        return world.build(out, SITE_DATA, MARKET_DATA, dbdata.load(HS_DATA) if "database" in common.BUILT else None)
+        return world.build(out, SITE_DATA, MARKET_DATA, dbdata.load(HS_DATA) if "database" in common.BUILT else None,
+                           site_root)
     if name == "pages":
         pages.build_home(out, rels)
         pages.build_report(out)
