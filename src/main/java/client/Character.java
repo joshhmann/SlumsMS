@@ -4112,6 +4112,47 @@ public class Character extends AbstractCharacterObject {
         }
     }
 
+    /**
+     * Ticket 113 (NX exchange, placing in game): takes exactly {@code amount} mesos, or nothing when the character has
+     * less. Atomic with {@link #gainMeso} (same lock), so a spend on another thread can never make it go negative.
+     */
+    public boolean takeMesoExact(int amount) {
+        if (amount < 0) {
+            return false;
+        }
+        int now;
+        petLock.lock();
+        try {
+            if (meso.get() < amount) {
+                return false;
+            }
+            now = meso.addAndGet(-amount);
+        } finally {
+            petLock.unlock();
+        }
+        updateSingleStat(Stat.MESO, now, false);
+        return true;
+    }
+
+    /** Ticket 113: adds exactly {@code amount} mesos, or nothing when that would pass 2,147,483,647. */
+    public boolean giveMesoExact(int amount) {
+        if (amount < 0) {
+            return false;
+        }
+        int now;
+        petLock.lock();
+        try {
+            if ((long) meso.get() + amount > Integer.MAX_VALUE) {
+                return false;
+            }
+            now = meso.addAndGet(amount);
+        } finally {
+            petLock.unlock();
+        }
+        updateSingleStat(Stat.MESO, now, false);
+        return true;
+    }
+
     public void genericGuildMessage(int code) {
         this.sendPacket(GuildPackets.genericGuildMessage((byte) code));
     }

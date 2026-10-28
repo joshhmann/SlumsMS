@@ -35,10 +35,13 @@ class OfficialRateTest {
     }
 
     @Test
-    void regularsTradingWithEachOtherNeverCountButWithPlayersDo() {
+    void fillsWithARegularNeverCount() {
+        // owner 2026-10-28: regulars are excluded from the official rate, also when they trade with a player
         List<FillRow> fills = List.of(f(10, 1000, 1_000_000, false, false), f(11, 100_000, 50_000_000, true, true),
-                f(12, 1000, 1_200_000, true, false), f(13, 1000, 1_400_000, false, true));
-        assertEquals(1_200_000L, OfficialRate.vwap(fills, 100, 1000, 3));
+                f(12, 1000, 1_200_000, true, false), f(13, 1000, 1_400_000, false, true),
+                f(14, 1000, 1_100_000, false, false), f(15, 2000, 1_250_000, false, false));
+        assertEquals(1_150_000L, OfficialRate.vwap(fills, 100, 1000, 3));
+        assertNull(OfficialRate.vwap(fills.subList(0, 4), 100, 1000, 2), "one player fill is under the minimum");
         assertNull(OfficialRate.vwap(List.of(f(11, 1000, 5, true, true)), 100, 1000, 1), "regulars alone: no rate");
     }
 }

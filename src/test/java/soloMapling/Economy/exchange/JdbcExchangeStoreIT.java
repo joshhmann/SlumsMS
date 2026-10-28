@@ -219,4 +219,182 @@ class JdbcExchangeStoreIT {
         Exchange again = exchange(() -> DriverManager.getConnection(URL));
         assertEquals(ex.depth(Side.BUY, 5), again.depth(Side.BUY, 5));
     }
+
+    /** A logged-in player's wallet as the game holds it: memory values, saved whole to the database by saveNow. */
+    final class DbWallet implements LiveWallet {
+        final long account, character;
+        long nx, meso;
+        int saves;
+
+        DbWallet(long account, long character) throws SQLException {
+            this.account = account;
+            this.character = character;
+            nx = one("SELECT COALESCE(nxCredit,0) FROM accounts WHERE id=" + account);
+            meso = one("SELECT meso FROM characters WHERE id=" + character);
+        }
+
+        public long account() {
+            return account;
+        }
+
+        public long character() {
+            return character;
+        }
+
+        public <T> T locked(java.util.function.Supplier<T> body) {
+            synchronized (this) {
+                return body.get();
+            }
+        }
+
+        public boolean usable() {
+            return true;
+        }
+
+        public boolean saveNow() {
+            try {
+                exec("UPDATE accounts SET nxCredit = " + nx + " WHERE id = " + account);
+                exec("UPDATE characters SET meso = " + meso + " WHERE id = " + character);
+                saves++;
+                return true;
+            } catch (SQLException e) {
+                return false;
+            }
+        }
+
+        public long have(Ledger.Asset a) {
+            return a == Ledger.Asset.NX ? nx : meso;
+        }
+
+        public boolean take(Ledger.Asset a, long amount) {
+            if (have(a) < amount) {
+                return false;
+            }
+            if (a == Ledger.Asset.NX) {
+                nx -= amount;
+            } else {
+                meso -= amount;
+            }
+            return true;
+        }
+
+        public boolean give(Ledger.Asset a, long amount) {
+            if (a == Ledger.Asset.NX) {
+                nx += amount;
+            } else {
+                meso += amount;
+            }
+            return true;
+        }
+    }
+
+    /**
+     * Round 2: placing while logged in (loggedin = 2) writes the escrow and the wallet's delta in one transaction; a
+     * channel change in flight (loggedin = 1) refuses and memory gets it back; a crash at any write statement of a
+     * live place leaves the database as it was and memory whole; payouts land in memory and the database together;
+     * a staff reversal reads the fill's postings and puts everything back.
+     */
+    @Test
+    void placingWhileLoggedInAndPayingOutOnline() throws Exception {
+        exec("UPDATE accounts SET loggedin = 2 WHERE id = 2");
+        DbWallet w = new DbWallet(2, 12);
+        w.meso += 4_000; // looted since the last save
+        long nx0 = totalNx(), meso0 = totalMeso() + 4_000;
+        ExchangeConfig cfg = ExchangeLiveTest.cfg(100, 0);
+        Exchange ex = new Exchange(new JdbcExchangeStore(() -> DriverManager.getConnection(URL)), cfg,
+                a -> a == 2, a -> a == 2 ? w : null, now::get);
+        assertTrue(ex.recover().isEmpty());
+        Response buy = ex.place(new Place("live-b", 2, 12, Side.BUY, P, 2000));
+        assertTrue(buy.ok(), buy.toString());
+        assertEquals(50_004_000 - 2_020_000, w.meso);
+        assertEquals(w.meso, one("SELECT meso FROM characters WHERE id=12"), "database = memory");
+        assertEquals(1, w.saves);
+        assertEquals(meso0, totalMeso());
+        // a channel change in flight: refused, memory whole
+        exec("UPDATE accounts SET loggedin = 1 WHERE id = 2");
+        long before = w.meso;
+        assertEquals("TRY_AGAIN", ex.place(new Place("live-moved", 2, 12, Side.BUY, P, 100)).code());
+        assertEquals(before, w.meso);
+        exec("UPDATE accounts SET loggedin = 2 WHERE id = 2");
+        // an offline seller fills it; the payout lands in memory and the database at once
+        assertTrue(ex.place(new Place("off-s", 1, 11, Side.SELL, P, 2000)).ok());
+        ex.collectAll();
+        assertEquals(2000, w.nx);
+        assertEquals(2000, one("SELECT nxCredit FROM accounts WHERE id=2"));
+        assertEquals(nx0, totalNx());
+        assertEquals(meso0, totalMeso());
+        assertEquals(40_000, one("SELECT amount FROM exchange_escrow WHERE kind='FEES'"), "1% from each side");
+        long fill = ex.lastTrades(1).get(0).id();
+        // a staff reversal while halted: the payouts were collected, so it draws from the wallets (offline only)
+        ex.halt("test");
+        assertEquals("PLAYER_ONLINE", ex.reverse(fill, "it").code());
+        exec("UPDATE accounts SET loggedin = 0 WHERE id = 2");
+        Exchange offline = new Exchange(new JdbcExchangeStore(() -> DriverManager.getConnection(URL)), cfg,
+                a -> false, now::get);
+        assertTrue(offline.recover().isEmpty());
+        offline.halt("test");
+        Response rev = offline.reverse(fill, "it");
+        assertTrue(rev.ok(), rev.toString());
+        assertEquals("ALREADY_REVERSED", offline.reverse(fill, "it").code());
+        offline.resume();
+        offline.collectAll();
+        assertEquals(0, one("SELECT nxCredit FROM accounts WHERE id=2"));
+        assertEquals(100_000, one("SELECT nxCredit FROM accounts WHERE id=1"));
+        assertEquals(50_004_000, one("SELECT meso FROM characters WHERE id=12"));
+        assertEquals(50_000_000, one("SELECT meso FROM characters WHERE id=11"));
+        assertEquals(nx0, totalNx());
+        assertEquals(meso0, totalMeso());
+        assertTrue(new Exchange(new JdbcExchangeStore(() -> DriverManager.getConnection(URL)), cfg, a -> false,
+                now::get).recover().isEmpty(), "reconciles");
+    }
+
+    @Test
+    void aCrashAtAnyStatementOfALivePlaceLeavesDatabaseAndMemoryWhole() throws Exception {
+        Exchange setup = exchange(() -> DriverManager.getConnection(URL));
+        assertTrue(setup.place(new Place("s1", 1, 11, Side.SELL, 900_000, 300)).ok());
+        exec("UPDATE accounts SET loggedin = 2 WHERE id = 2");
+        DbWallet w = new DbWallet(2, 12);
+        long nx0 = totalNx(), meso0 = totalMeso(), ledger0 = one("SELECT COUNT(*) FROM exchange_ledger");
+        AtomicInteger failAt = new AtomicInteger();
+        AtomicInteger count = new AtomicInteger();
+        JdbcExchangeStore.Connections flaky = () -> {
+            Connection real = DriverManager.getConnection(URL);
+            return (Connection) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{Connection.class},
+                    (proxy, m, args) -> {
+                        if (m.getName().equals("prepareStatement") && args[0] instanceof String sql
+                                && (sql.startsWith("UPDATE") || sql.startsWith("INSERT"))
+                                && count.incrementAndGet() == failAt.get()) {
+                            throw new SQLException("simulated crash");
+                        }
+                        try {
+                            return m.invoke(real, args);
+                        } catch (java.lang.reflect.InvocationTargetException e) {
+                            throw e.getCause();
+                        }
+                    });
+        };
+        Exchange ex = new Exchange(new JdbcExchangeStore(flaky), ExchangeLiveTest.cfg(100, 0), a -> a == 2,
+                a -> a == 2 ? w : null, now::get);
+        failAt.set(-1);
+        assertTrue(ex.recover().isEmpty());
+        int crashes = 0;
+        for (int n = 1; ; n++) {
+            count.set(0);
+            failAt.set(n);
+            Response r = ex.place(new Place("lb" + n, 2, 12, Side.BUY, P, 1000));
+            if (r.ok()) {
+                break;
+            }
+            crashes++;
+            assertEquals(50_000_000, w.meso, "memory given back at statement " + n);
+            assertEquals(50_000_000, one("SELECT meso FROM characters WHERE id=12"));
+            assertEquals(nx0, totalNx());
+            assertEquals(meso0, totalMeso());
+            assertEquals(ledger0, one("SELECT COUNT(*) FROM exchange_ledger"));
+            assertTrue(n < 200);
+        }
+        assertTrue(crashes >= 10, "crashed at " + crashes + " statements");
+        assertEquals(w.meso, one("SELECT meso FROM characters WHERE id=12"));
+        assertEquals(meso0, totalMeso());
+    }
 }

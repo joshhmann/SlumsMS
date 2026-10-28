@@ -420,11 +420,12 @@ class ExchangeTest {
 
     @Test
     void feesGoToTheFeeBucketAndStillConserve() throws Exception {
-        ex = start(cfg(100, 1000, 100_000, 0, 0, 0)); // 1%
+        ex = start(cfg(100, 1000, 100_000, 0, 0, 0)); // 1% from each side (owner 2026-10-28)
         place(1, Side.SELL, P, 1000);
         place(2, Side.BUY, P, 1000);
-        assertEquals(10_000, store.balance(Bucket.fees()));
+        assertEquals(20_000, store.balance(Bucket.fees()), "1% from the seller and 1% from the buyer");
         assertEquals(990_000, store.balance(Bucket.payout(Asset.MESO, 11)));
+        assertEquals(MESO0 - 1_010_000, store.meso(12), "the buyer paid the price plus its 1%");
         conserved();
     }
 
@@ -444,6 +445,17 @@ class ExchangeTest {
     @Test
     void regularsQuoteFromAFundedHouseAndNeverMoveTheRateAlone() throws Exception {
         ex = start(cfg(0, 1000, 100_000, 0, 0, 2));
+        place(1, Side.SELL, 1_100_000, 1000);
+        place(2, Side.BUY, 900_000, 1000);
+        ex = start(cfg(0, 1000, 100_000, 0, 0, 3));
+        assertTrue(ex.fundHouse(3, 9, 19, Asset.NX, 10_000).ok());
+        assertTrue(ex.fundHouse(3, 9, 19, Asset.MESO, 100_000_000).ok());
+        assertEquals(0, ex.tickRegulars(), "owner 2026-10-28: no house account named = regulars idle, even funded");
+        ex.cancel("c1", 1, ex.openIdsOf(1).get(0));
+        ex.cancel("c2", 2, ex.openIdsOf(2).get(0));
+        ex = start(cfg(0, 1000, 100_000, 0, 0, 2).withHouse(9));
+        totalNx = store.totalNx();
+        totalMeso = store.totalMeso();
         assertEquals(0, ex.tickRegulars(), "no reference price yet: no quotes");
         place(1, Side.SELL, 1_100_000, 1000);
         place(2, Side.BUY, 900_000, 1000);
@@ -458,11 +470,11 @@ class ExchangeTest {
         assertEquals(1_000_000 + 30_000, ex.bookForTest().best(Side.SELL));
         assertEquals(1_000_000 - 30_000, ex.bookForTest().best(Side.BUY));
         conserved();
-        // a player taking a regular's ask sets the rate; a fill between two regulars would not count
+        // a player taking a regular's ask trades, but never sets the official rate (owner 2026-10-28)
         Exchange.Response cross = ex.place(new Place("p", 3, 13, Side.BUY, 1_030_000, 500));
         assertTrue(cross.ok());
-        Long rate = ex.officialRate();
-        assertEquals(1_030_000L, rate, "a player-vs-regular fill counts");
+        assertEquals(1, ((Number) cross.data().get("fills")).intValue());
+        assertEquals(null, ex.officialRate(), "a player-vs-regular fill does not count");
         assertEquals(OfficialRate.vwap(List.of(new FillRow(1, now.get(), 1, 2, 500, 5_000_000, 0, true, true)),
                 now.get(), 1000, 1), null);
         conserved();

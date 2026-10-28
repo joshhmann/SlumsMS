@@ -326,7 +326,25 @@ public class CashShop {
         return 0;
     }
 
-    public void gainCash(int type, int cash) {
+    /** Ticket 113: takes exactly {@code amount} NX credit, or nothing (atomic with {@link #gainCash}). */
+    public synchronized boolean takeNxCredit(int amount) {
+        if (amount < 0 || nxCredit < amount) {
+            return false;
+        }
+        nxCredit -= amount;
+        return true;
+    }
+
+    /** Ticket 113: adds exactly {@code amount} NX credit, or nothing when that would pass 2,147,483,647. */
+    public synchronized boolean giveNxCredit(int amount) {
+        if (amount < 0 || (long) nxCredit + amount > Integer.MAX_VALUE) {
+            return false;
+        }
+        nxCredit += amount;
+        return true;
+    }
+
+    public synchronized void gainCash(int type, int cash) {
         if (cash > 0) {
             soloMapling.Economy.stats.EconomyCounters.recordNxEarned(cash);
         } else if (cash < 0) {

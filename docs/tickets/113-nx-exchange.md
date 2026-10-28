@@ -1,7 +1,32 @@
 # Ticket 113: NX ↔ meso exchange ("like forex")
 
-Status: **scaffold** on branch `161-exchange` (from `release-1.6.0`), behind `-Dslums.exchange=false` (default off).
-Not merged, not deployed. The 1.6.1 headline (docs/roadmap/1.6.1.md, row "NX ↔ meso exchange (headline)").
+Status: **round 2 built** (branch `161-exch2`, merged into `release-1.6.1`): placing in game (`@nx`) and from the site
+while logged in, payouts straight to an online character, a preview/confirm step, 1% fee from each side, staff
+reversal, house-funded regulars. Behind `-Dslums.exchange` (default off): **on on TEST**, **off in the 1.6.1 release
+conf** (owner 2026-10-28). Checks: `!qa run xc-1`, auto-QA `t-xc-1`. Round 1 was the scaffold (branch `161-exchange`).
+The 1.6.1 headline (docs/roadmap/1.6.1.md, row "NX ↔ meso exchange (headline)").
+
+## Decisions (owner, 2026-10-28)
+
+1. **Fee: 1% of the mesos side, paid by both sides** (owner 2026-10-27). Built as `feeBps=100` charged to *each*
+   side of a fill: the seller receives the fill's mesos less 1%, the buyer pays the fill's mesos plus 1%. Both go to
+   the FEES bucket, a meso sink that stays on the books (2% of every fill's mesos in total). A buy reserves its own
+   fee when it is placed (FEEHOLD) and gets back what it did not use. If the owner meant 1% *in total* (0.5% each),
+   that is `-Dslums.exchange.feeBps=50`.
+2. **Settlement: fills settle at any time against escrow** (as the scaffold already did).
+3. **Placing in game too.** Built: `@nx` (the item-exchange `@exchange` stays as it is), and the site can place while
+   the player is logged in on the character the order names. The escrow leaves the LIVE character (mesos) and the
+   account's live NX (the CashShop object) under the character's save lock, in the same transaction as the ledger
+   (see "Placing while logged in" below). Payouts to an online player land in the live character at once; offline
+   payouts as before.
+4. **Limits: the defaults.** 100-50,000 NX in lots of 100; 5 open orders, 20 a day, 10 s apart; expiry 72 h.
+5. **Regulars: 3, quoting ±3/6/9% around the rate, 500 NX each, funded only from a staff house wallet**
+   (`-Dslums.exchange.houseAccount`, default 0 = none = the regulars stay idle). They never create money (every
+   order escrows from their HOUSE, which only the house account's wallet funds) and **are excluded from the official
+   rate**: no fill with a regular on either side counts (the scaffold still counted player-vs-regular fills).
+6. **Confirmation: a site confirm step** (the Website session builds the UI; contract below: preview -> confirm with a
+   60 s token). Staff: `!exchange halt`, plus **manual reversal** `!exchange reverse <fillId>` (GM level 4, only while
+   halted, logged), which writes compensating ledger entries.
 
 ## Owner decisions so far (2026-10-27)
 
@@ -43,8 +68,45 @@ append-only `exchange_ledger`.
 2. **Fill**: escrow → payout for both sides in that same transaction: the seller's NX to the buyer, the buyer's mesos
    to the seller (minus any fee). A fill never needs the counterparty to be offline.
 3. **Cancel, expiry or a full fill**: whatever is left in the order's escrow → its owner's payout.
-4. **Collect**: payout → wallet, only while the account is offline. This runs every tick and before each place. A
-   wallet is never filled past 2,147,483,647; anything that doesn't fit stays in payout.
+4. **Collect**: payout → wallet. Offline accounts through the database (every tick and before each place); a logged-in
+   player straight into the live character (every tick, and right after their own place or cancel). A wallet is
+   never filled past 2,147,483,647; anything that doesn't fit stays in payout.
+
+### Placing while logged in (round 2; `LiveWallet`, `GameLiveWallet`)
+The game keeps mesos (`Character.meso`) and NX credit (`CashShop.nxCredit`) in memory and saves them as absolute
+values. A live place therefore runs, for the account's playing character (not a bot, not an owned alt):
+1. take the character's monitor. `Character.saveCharToDB` is `synchronized`, so no save (autosave, the channel
+   change's, the logout's) can run until the place is done;
+2. check it is still the live character: logged in, on its channel's player list, not in transition (channel change
+   or logout), not in the Cash Shop; else `TRY_AGAIN`;
+3. save the character, so the database holds exactly what memory holds;
+4. take the escrow from memory, exactly or nothing (`Character.takeMesoExact` / `CashShop.takeNxCredit`, atomic with
+   `gainMeso` / `gainCash`; a buy also takes its fee reserve);
+5. one transaction: lock the account row and require `loggedin = 2` (a channel change or logout writes that column and
+   so waits for the lock; one already in flight refuses with `TRY_AGAIN`), write the order, escrow, fills, ledger and
+   the wallet's **delta** (`meso = meso - x`, `nxCredit = nxCredit - x`, guarded never negative), commit;
+6. if the transaction failed, give the escrow back in memory; payouts the place earned at once land in memory.
+
+A payout to an online player is the same the other way round: the transaction (payout → wallet delta) first, then the
+same amount into memory; if memory refuses after the commit (a gain raced the cap) a second transaction puts it back in
+payout.
+
+Why no dupe:
+- **Save after escrow**: memory already lacks the escrow, so a later save writes the right value. Spending everything
+  and logging out cannot bring it back (tests `saveAfterEscrowCannotDupe`).
+- **Crash between the memory change and the commit**: the database still holds the saved values and no escrow; memory
+  is gone with the process. A crash after the commit leaves saved values minus the escrow plus the escrow
+  (`aCrashBetweenTheMemoryChangeAndTheCommitLeavesBothConsistent`, `aCrashAfterTheCommitLosesNothing`, and the MySQL IT
+  that fails every write statement of a live place).
+- **Channel change**: in flight it refuses (`loggedin` is 1, or the character is off its channel); right after, the new
+  channel loads the wallet without the escrow, and refunds land there (`channelChangeNeverDupes`).
+- **Logout mid-place**: the logout's save waits for the lock, then saves memory with the change
+  (`logoutMidPlaceWaitsAndSavesTheChange`).
+- **Site and game at once**: every place goes through the one synchronized `Exchange` and the character's lock
+  (`concurrentSiteAndInGamePlacingConserves`: 6 threads, site places, previews and confirms, cancels, payouts,
+  spending in memory; totals in memory and in the database the same, nothing negative).
+- Lock order is always exchange, then character, then database rows; nothing that holds a character's lock calls the
+  exchange.
 
 Every write is all or nothing. The in-memory book changes only after the store has accepted the batch. If the store
 refuses or crashes, the book rolls back to the copy taken before.
@@ -65,8 +127,9 @@ refuses or crashes, the book rolls back to the copy taken before.
   `loggedin = 0`. The game's own view (any character of the account in a world) is checked too. Escrow moves out of
   the wallet **before** the player can log in. So a logged-in player spending all their mesos can never spend the
   escrow, and the save-on-logout cannot bring it back (test `spendingWhileEscrowedCannotDupe`).
-- Consequence: **placing an order needs the player logged out**, and the answer is `LOG_OUT_FIRST`. Fills and
-  cancels work at any time. Payouts arrive at the next tick after logout.
+- Round 1 consequence (replaced in round 2): placing needed the player logged out (`LOG_OUT_FIRST`). Now a logged-in
+  player places through the live character (above); `LOG_OUT_FIRST` remains only when the order names a different
+  character than the one being played, or for the offline path when the game says the account is in a world.
 
 ### Recovery
 At start-up `Exchange.recover()` rebuilds the book from the open orders and reconciles two things:
@@ -77,35 +140,55 @@ Any mismatch **halts** the exchange. It logs an error and fixes nothing automati
 ids continue from the database.
 
 ### Official rate (`OfficialRate`)
-The official rate is the VWAP (price x NX / NX) of the fills in the last 24 h. Fills where **both** sides are
-regulars are left out. A regular trading with a player still counts, because a player chose that price. There is no
+The official rate is the VWAP (price x NX / NX) of the fills in the last 24 h. **Every fill with a regular on either
+side is left out** (owner 2026-10-28). There is no
 rate with fewer than 3 counted fills. It is published in `exchange-book.json`. It does **not** feed `NxRate` yet:
 `NxRate` is unchanged.
 
 ### Regulars (`Regulars`)
 Regular *i* bids at reference x (1 − i x spread) and asks at reference x (1 + i x spread), with a fixed size. The
 reference is the official rate, else the mid of the book, else nothing: regulars never make up a first price. Their
-orders take escrow from HOUSE buckets. **Only a real, offline staff wallet can fund a house**
-(`Exchange.fundHouse`), so regulars never mint NX or mesos. A regular that can't afford a quote doesn't post it. The
-default is 0 regulars.
+orders take escrow from HOUSE buckets. **Only the house account's wallet funds a house**: `!exchange fund <regular>
+<nx|meso> <amount>` from a character logged in on `-Dslums.exchange.houseAccount` (live), or `Exchange.fundHouse` from
+that wallet offline; `!exchange unfund <regular>` cancels its orders and pays its whole house back. So regulars never
+mint NX or mesos. A regular that can't afford a quote doesn't post it. Defaults: 3 regulars, but idle while no house
+account is named.
 
 ### Site interface (`ExchangeSite`): the same file channel as the Buy/Sell board
-- Inbox `exchange-requests.json` (the site writes it). Request types are `place` (character, side, price, nx),
-  `cancel` (orderId), `mine`, `book` and `trades`. Each has an `id`, `account` and `createdAt`.
+- Inbox `exchange-requests.json` (the site writes it). Request types are `preview` (character, side, price, nx),
+  `confirm` (token), `cancel` (orderId), `mine`, `book` and `trades`. Each has an `id`, `account` and `createdAt`.
+  A bare `place` is refused (`BAD_REQUEST`, "use preview then confirm").
+- **Confirm step** (owner 2026-10-28): `preview` checks everything a place checks (size, price, limits, the right
+  character if logged in, funds if logged in), simulates the match against the book as it is, moves nothing, and
+  answers `data = {token, expiresAt, side, price, nx, takes:{asset, amount}, feeBpsEachSide, matchNow:{nx, mesos, fee,
+  youGet:{asset, amount}}, restsNx, cancelledBySelfTrade}`. The site shows that and, on the player's yes, sends
+  `confirm` with the token within 60 s (`-Dslums.exchange.confirmSec`). The token is the order's request id, so the
+  same token confirmed twice returns the same order. An unknown, expired or other account's token is
+  `TOKEN_EXPIRED` (tokens live in memory: a restart expires them). The game's `@nx` uses the same two steps.
 - Outbox `exchange-responses.json` (private) keeps the last 500 answers, matched by id. Outbox `exchange-book.json`
   (public, no names) holds the depth (20 levels a side), the official rate and the last 50 trades.
 - Each request id is answered once. A request older than 10 minutes is answered `STALE` and not acted on. A place is
   idempotent by request id, even across restarts.
 - Error codes: `BAD_REQUEST`, `STALE`, `HALTED`, `UNAVAILABLE`, `LOG_OUT_FIRST`, `INSUFFICIENT_FUNDS`, `NOT_OWNER`,
-  `NOT_FOUND`, `LIMIT_OPEN`, `LIMIT_DAY`, `COOLDOWN`, `DUPLICATE`, `ERROR`.
+  `NOT_FOUND`, `LIMIT_OPEN`, `LIMIT_DAY`, `COOLDOWN`, `DUPLICATE`, `ERROR`, `TOKEN_EXPIRED`, `TRY_AGAIN` (changing
+  channel, logging out or in the Cash Shop).
 - The site is trusted to send the logged-in account id, the same way it is for `posts.json`. The server checks that
   the character belongs to that account.
 
+### Player command: `@nx`
+`@nx` (market summary), `@nx sell|buy <NX> <price>` (preview; prices take `1.2m`/`500k`), `@nx confirm`, `@nx orders`,
+`@nx cancel <id>`, `@nx book`. Text only, so it works anywhere and auto-QA drives it.
+
 ### GM command
-`!exchange status|book|halt [reason]|resume` is for GM level 3 and up. `@exchange` is already the players' item
-exchange NPC. That command now passes these four sub-commands to the NX exchange when a GM types them, and nothing
-else changes. **Halt** is the emergency stop: no new orders, no fills, no expiry and no payouts. Cancels still work,
-because escrow to payout stays inside the exchange.
+`!exchange status|book|halt [reason]|resume|fills [n]|fund <regular> <nx|meso> <amount>|unfund <regular>` is for GM
+level 3 and up; `!exchange reverse <fillId>` needs GM level 4 and a halted exchange. `@exchange` is still the players'
+item exchange NPC; the command passes these sub-commands to the NX exchange when a GM types them. **Halt** is the
+emergency stop: no new orders, no fills, no expiry and no payouts. Cancels still work, because escrow to payout stays
+inside the exchange.
+**Reverse** undoes one fill with compensating ledger postings (`why = REVERSE`; nothing is edited): the NX back to the
+seller, the mesos and both fees back to the buyer, into their payouts (or HOUSE for a regular). Each amount comes from
+where the fill put it: the payout if it is still there, else the wallet it was collected into (that player must be
+logged out: `PLAYER_ONLINE`). Once per fill (`ALREADY_REVERSED`); every halt, resume, fund and reverse is logged.
 
 ### Database: migration `038-nx-exchange` (+ `.rollback.sql`)
 Four new tables and no changes to existing ones: `exchange_orders`, `exchange_fills`, `exchange_escrow` (every
@@ -119,10 +202,12 @@ lost. It is not yet listed in any `docs/release/<version>.conf`: add it to `1.6.
 | `slums.exchange` | false |
 | `slums.exchange.lotNx` / `minNx` / `maxNx` | 100 / 100 / 50,000 |
 | `slums.exchange.minPrice` / `maxPrice` (mesos per 1,000 NX) | 1,000 / 100,000,000 |
-| `slums.exchange.feeBps` | 0 |
+| `slums.exchange.feeBps` (from each side) | 100 |
 | `slums.exchange.maxOpen` / `perDay` / `cooldownSec` | 5 / 20 / 10 |
 | `slums.exchange.expiryHours` | 72 |
-| `slums.exchange.regulars` / `regularSpreadBps` / `regularNx` | 0 / 300 / 500 |
+| `slums.exchange.regulars` / `regularSpreadBps` / `regularNx` | 3 / 300 / 500 |
+| `slums.exchange.houseAccount` (0 = none: regulars idle) | 0 |
+| `slums.exchange.confirmSec` | 60 |
 | `slums.exchange.rateWindowHours` / `rateMinFills` | 24 / 3 |
 | `slums.exchange.pollSec` | 15 |
 
@@ -140,10 +225,15 @@ The inbox and outbox folders are the board's (`-Dslums.board.inbox` / `-Dslums.b
 | `OfficialRate.java`, `Regulars.java` | the VWAP and the regulars' quotes |
 | `ExchangeSite.java`, `ExchangeService.java` | site contract, poll thread, outbox files; started from `Server` when switched on |
 | `client/command/commands/gm3/NxExchangeCommand.java` | `!exchange status/book/halt/resume` (through `gm0/ExchangeCommand`) |
-| `database/migrations/038-nx-exchange(.rollback).sql` | the four tables |
+| `database/migrations/038-nx-exchange(.rollback).sql` | the four tables (round 2 needs no schema change: FEEHOLD and REVERSE are new values in existing VARCHAR columns) |
+| `LiveWallet.java`, `GameLiveWallet.java` | round 2: a logged-in player's wallet, the character's save lock |
+| `ExchangeChat.java`, `client/command/commands/gm0/NxCommand.java` | round 2: `@nx` |
+| `ExchangeQa.java`, `soloMapling/qa/ExchangeScenarios.java`, `Probes160.nxExchange` | round 2: `!qa run xc-1`, auto-QA t-xc-1 |
+| `Character.takeMesoExact/giveMesoExact`, `CashShop.takeNxCredit/giveNxCredit` | round 2: exact, atomic memory changes (`gainCash` is now synchronized) |
 
-Not built yet: any UI (site pages, in-game NPC), confirmation or trade PIN, staff undo, a GM command to fund the
-house, the `NxRate` feed, a `!qa` scenario, and auto-QA checks.
+Not built yet: the site pages (the Website session builds them on the contract above), a trade PIN, the `NxRate`
+feed. Not checked on a real client: the `@nx` lines and the meso/NX display after a live place or payout (the code
+sends the meso stat update; the NX credit shows in the Cash Shop).
 
 ## Tests
 - `OrderBookTest` (23): crossing, price then time priority, partial fills on both sides, self-trade prevention, cancel,
@@ -157,7 +247,20 @@ house, the `NxRate` feed, a `!qa` scenario, and auto-QA checks.
   book unchanged), crashes during cancel and collect, restart recovery with unique ids, a tampered balance halting
   start-up, **spending while escrowed cannot dupe**, fees, the wallet cap, regulars (funding, quotes, the rate), and 6
   threads trading concurrently with conservation.
-- `OfficialRateTest` (4), `RegularsTest` (3), `ExchangeSiteTest` (3), `ExchangeMigrationTest` (3).
+- `OfficialRateTest` (4), `RegularsTest` (3), `ExchangeSiteTest` (3, now through preview + confirm),
+  `ExchangeMigrationTest` (3).
+- Round 2, `ExchangeLiveTest` (18): live buy and sell escrow (database = memory after), not enough in memory,
+  another character / the Cash Shop refuse, fills/cancels/expiry paying an online player into memory, a give refused
+  after the commit going back to payout, the wallet cap online, **save after escrow**, **a crash at every step of a
+  live place** (memory given back, database alone consistent), **a crash after the commit**, **channel change** (in
+  flight, racing the write, and after), **logout mid-place**, **site + game placing concurrently**, preview/confirm
+  (nothing moves, once per token, expiry, another account), `@nx` end to end, a fee raised after placing, reversal
+  (halted only, once, from wallets when collected, `PLAYER_ONLINE`), regulars idle without a house and funded only from
+  it, excluded from the rate. Every test checks NX and meso totals in memory and in the database, the ledger
+  reconciliation and no negative balance. `ExchangeScenarioTest` (xc-1 registered, refuses when off).
+- `JdbcExchangeStoreIT` now 5: plus a live place/payout/reversal on MySQL (`loggedin` 2 vs 1, delta = memory, both
+  fees, reversal from wallets, reconcile) and a crash at every write statement of a live place. Passed on MySQL 8.0 on
+  2026-10-28.
 - `JdbcExchangeStoreIT` (3, opt-in; never part of `mvn test`) runs against a throwaway MySQL 8 schema. It applies 038
   twice; runs place/fill/cancel/collect with exact balances; checks `NOT_OWNER`, `INSUFFICIENT_FUNDS` and a NULL
   `nxCredit`; refuses a logged-in account **and waits for an uncommitted login, then refuses**; crashes at every write
@@ -166,7 +269,7 @@ house, the `NxRate` feed, a `!qa` scenario, and auto-QA checks.
   `mvn -o test -Dtest=JdbcExchangeStoreIT "-DargLine=-Dslums.exchange.it.url=jdbc:mysql://127.0.0.1:PORT/DB?user=..&password=..&allowPublicKeyRetrieval=true&useSSL=false"`.
   It passed on MySQL 8.4 on 2026-10-27.
 
-## Open questions for the owner (recommended defaults in bold; all are config, except where noted)
+## Open questions for the owner (round 1; answered 2026-10-28 in "Decisions" above, except 9 and 10)
 
 1. **Fees**: none, or a sink? **0% at launch** (the fee machinery exists: `feeBps`, paid by whoever receives the
    mesos, into a FEES sink). Consider 1% later as a meso sink once the soak shows volume.

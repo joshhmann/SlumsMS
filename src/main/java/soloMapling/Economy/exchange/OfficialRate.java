@@ -4,8 +4,8 @@ import java.util.List;
 
 /**
  * Ticket 113: the exchange's official NX rate, mesos per 1,000 NX: the volume-weighted average price of the fills in
- * the last window, <b>leaving out fills where both sides were regulars</b>, so the regulars alone can never move it
- * (a regular trading with a player still counts: a player chose that price). Null under the minimum number of counted
+ * the last window, <b>leaving out every fill a regular took part in</b> (owner 2026-10-28: regulars are excluded from the
+ * official rate), so only prices players agreed between themselves count. Null under the minimum number of counted
  * fills. Pure. It will feed {@code NxRate} (the price-board indicator) later; nothing reads it there yet.
  */
 public final class OfficialRate {
@@ -19,7 +19,7 @@ public final class OfficialRate {
         long mesos = 0;
         int n = 0;
         for (ExchangeStore.FillRow f : fills) {
-            if (f.at() > now || f.at() <= now - windowMs || (f.buyerRegular() && f.sellerRegular()) || f.nx() <= 0) {
+            if (f.at() > now || f.at() <= now - windowMs || f.buyerRegular() || f.sellerRegular() || f.nx() <= 0) {
                 continue;
             }
             nx = Math.addExact(nx, f.nx());

@@ -103,6 +103,14 @@ public final class JdbcExchangeStore implements ExchangeStore {
 
     /** Locks each account (id order) and checks it is logged out. */
     private static void lockOffline(Connection con, Iterable<Long> accounts) throws SQLException, StoreException {
+        lock(con, accounts, 0);
+    }
+
+    /**
+     * Locks each account (id order): {@code live} must be fully logged in ({@code loggedin = 2}: not mid channel change
+     * or logout, which write that column and so wait for this lock), every other one logged out.
+     */
+    private static void lock(Connection con, Iterable<Long> accounts, long live) throws SQLException, StoreException {
         for (long account : accounts) {
             try (PreparedStatement ps = con.prepareStatement(LOCK_ACCOUNT)) {
                 ps.setLong(1, account);
@@ -110,13 +118,21 @@ public final class JdbcExchangeStore implements ExchangeStore {
                     if (!rs.next()) {
                         throw new StoreException(Failure.NOT_OWNER, "no account " + account);
                     }
-                    if (rs.getInt(1) != 0) {
+                    int state = rs.getInt(1);
+                    if (account == live) {
+                        if (state != LOGGED_IN) {
+                            throw new StoreException(Failure.MOVED, "account " + account + " loggedin=" + state);
+                        }
+                    } else if (state != 0) {
                         throw new StoreException(Failure.ONLINE, "account " + account);
                     }
                 }
             }
         }
     }
+
+    /** {@code accounts.loggedin} of a fully logged-in account ({@code Client.LOGIN_LOGGEDIN}). */
+    static final int LOGGED_IN = 2;
 
     @Override
     public void apply(Batch batch) throws StoreException {
@@ -127,7 +143,17 @@ public final class JdbcExchangeStore implements ExchangeStore {
                     accounts.add(p.account());
                 }
             }
-            lockOffline(con, accounts);
+            for (Posting p : batch.postings()) {
+                if (batch.liveAccount() > 0 && p.account() == batch.liveAccount()) {
+                    for (Bucket b : new Bucket[]{p.from(), p.to()}) {
+                        if (b.kind() == Kind.WALLET && b.asset() == Asset.MESO && b.id() != batch.liveCharacter()) {
+                            throw new StoreException(Failure.NOT_OWNER, b + " is not the live character "
+                                    + batch.liveCharacter());
+                        }
+                    }
+                }
+            }
+            lock(con, accounts, batch.liveAccount());
             for (Posting p : batch.postings()) {
                 post(con, batch.id(), batch.at(), p);
             }
@@ -357,6 +383,76 @@ public final class JdbcExchangeStore implements ExchangeStore {
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         out.add(order(rs));
+                    }
+                }
+            }
+            return out;
+        });
+    }
+
+    @Override
+    public long balance(Bucket b) throws StoreException {
+        return tx(con -> {
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT amount FROM exchange_escrow WHERE kind = ? AND owner_id = ? AND asset = ?")) {
+                ps.setString(1, b.kind().name());
+                ps.setLong(2, b.id());
+                ps.setString(3, b.asset().name());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? rs.getLong(1) : 0L;
+                }
+            }
+        });
+    }
+
+    @Override
+    public OrderRow order(long id) throws StoreException {
+        return tx(con -> {
+            try (PreparedStatement ps = con.prepareStatement("SELECT " + ORDER_COLUMNS + " FROM exchange_orders WHERE id = ?")) {
+                ps.setLong(1, id);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? order(rs) : null;
+                }
+            }
+        });
+    }
+
+    @Override
+    public FillRow fill(long id) throws StoreException {
+        return tx(con -> {
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT id, at, buy_order, sell_order, nx, price, mesos, buyer_regular, seller_regular FROM exchange_fills WHERE id = ?")) {
+                ps.setLong(1, id);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? new FillRow(rs.getLong(1), rs.getLong(2), rs.getLong(3), rs.getLong(4),
+                            rs.getLong(5), rs.getLong(6), rs.getLong(7), rs.getBoolean(8), rs.getBoolean(9)) : null;
+                }
+            }
+        });
+    }
+
+    @Override
+    public List<Posting> postingsOfFill(long fillId) throws StoreException {
+        FillRow f = fill(fillId);
+        if (f == null) {
+            return List.of();
+        }
+        return tx(con -> {
+            List<Posting> out = new ArrayList<>();
+            // through the order_id index: every posting of a fill carries one of its two orders
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT why, from_kind, from_id, to_kind, to_id, asset, amount, account_id, order_id, fill_id "
+                            + "FROM exchange_ledger WHERE order_id IN (?, ?) AND fill_id = ? ORDER BY id")) {
+                ps.setLong(1, f.buyOrder());
+                ps.setLong(2, f.sellOrder());
+                ps.setLong(3, fillId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Asset a = Asset.valueOf(rs.getString(6));
+                        out.add(new Posting(Ledger.Why.valueOf(rs.getString(1)),
+                                new Bucket(Kind.valueOf(rs.getString(2)), rs.getLong(3), a),
+                                new Bucket(Kind.valueOf(rs.getString(4)), rs.getLong(5), a), rs.getLong(7),
+                                rs.getLong(8), rs.getLong(9), rs.getLong(10)));
                     }
                 }
             }

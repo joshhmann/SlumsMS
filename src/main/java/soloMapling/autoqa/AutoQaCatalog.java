@@ -1113,6 +1113,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-ss-1", "Slums Stamps: claim, earn, buy").minutes(2)
                 .expect(probe("slumsStamps"))
                 .build());
+        // NX exchange (ticket 113 round 2, -Dslums.exchange): place in game with @nx, fill against a test regular
+        // funded from the player's own mesos, the payout lands online, a cancel refunds exactly
+        c.add(Check.auto("t-xc-1", "NX exchange: place in game, fill, payout online, cancel refunds").minutes(2)
+                .expect(probe("nxExchange"))
+                .build());
         return List.copyOf(c);
     }
 
