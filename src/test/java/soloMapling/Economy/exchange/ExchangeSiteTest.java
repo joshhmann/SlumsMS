@@ -136,4 +136,113 @@ class ExchangeSiteTest {
         assertEquals(2, ((List<?>) resp.get("responses")).size());
         assertTrue(java.nio.file.Files.exists(out.resolve(ExchangeSite.BOOK)));
     }
+
+    private static Exchange namedExchange(MemoryExchangeStore store) throws Exception {
+        store.addAccount(1, 10_000);
+        store.addCharacter(11, 1, 10_000_000, "Silvia", 1);
+        store.addCharacter(13, 1, 10_000_000, "Alt", 1);
+        store.addCharacter(14, 1, 10_000_000, "OtherWorld", 2);
+        store.addAccount(2, 10_000);
+        store.addCharacter(12, 2, 10_000_000, "Bob", 1);
+        Exchange ex = new Exchange(store, ExchangeTest.open(), store::online, () -> NOW);
+        ex.recover();
+        return ex;
+    }
+
+    private static Exchange.Response preview(Exchange ex, long account, String charFields) {
+        return ExchangeSite.answer(ex, ExchangeSite.requests("[{\"id\":\"p" + charFields.hashCode() + "\",\"account\":"
+                + account + ",\"type\":\"preview\"," + charFields + ",\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"createdAt\":\""
+                + T + "\"}]").get(0), NOW);
+    }
+
+    @Test
+    void aSiteRequestMayNameTheCharacter() throws Exception {
+        Exchange ex = namedExchange(new MemoryExchangeStore());
+        assertTrue(preview(ex, 1, "\"characterName\":\"silvia\"").ok(), "case-insensitive exact name");
+        assertTrue(preview(ex, 1, "\"character\":11,\"characterName\":\"SILVIA\"").ok(), "both, agreeing");
+        assertTrue(preview(ex, 1, "\"character\":11").ok(), "id alone still works");
+        assertEquals("NOT_OWNER", preview(ex, 1, "\"characterName\":\"Bob\"").code(), "another account's character");
+        assertEquals("NOT_OWNER", preview(ex, 1, "\"characterName\":\"Silv\"").code(), "exact, not a prefix");
+        assertEquals("NOT_OWNER", preview(ex, 1, "\"characterName\":\"OtherWorld\"").code(), "main world only");
+        assertEquals("NOT_OWNER", preview(ex, 1, "\"character\":12").code());
+        assertEquals("NOT_OWNER", preview(ex, 1, "\"character\":14").code(), "id in another world");
+        assertEquals("BAD_INPUT", preview(ex, 1, "\"character\":11,\"characterName\":\"Alt\"").code(), "they disagree");
+        assertEquals("NOT_OWNER", preview(ex, 1, "\"character\":11,\"characterName\":\"Bob\"").code());
+        assertEquals("BAD_REQUEST", preview(ex, 1, "\"x\":1").code(), "neither given");
+    }
+
+    @Test
+    void myOrdersCanBeFilteredByCharacterIdOrName() throws Exception {
+        Exchange ex = namedExchange(new MemoryExchangeStore());
+        assertTrue(viaSite(ex, "o1", 1, 11, "SELL", 1_000_000, 1000).ok());
+        assertTrue(viaSite(ex, "o2", 1, 13, "SELL", 1_100_000, 1000).ok());
+        java.util.function.Function<String, Exchange.Response> mine = fields -> ExchangeSite.answer(ex,
+                ExchangeSite.requests("[{\"id\":\"m" + fields.hashCode() + "\",\"account\":1,\"type\":\"mine\"" + fields
+                        + ",\"createdAt\":\"" + T + "\"}]").get(0), NOW);
+        assertEquals(2, ((List<?>) mine.apply("").data().get("orders")).size());
+        assertEquals(1, ((List<?>) mine.apply(",\"characterName\":\"alt\"").data().get("orders")).size());
+        assertEquals(1, ((List<?>) mine.apply(",\"character\":11").data().get("orders")).size());
+        assertEquals("NOT_OWNER", mine.apply(",\"characterName\":\"Bob\"").code());
+        assertEquals("NOT_OWNER", mine.apply(",\"character\":12").code());
+        assertEquals("BAD_INPUT", mine.apply(",\"character\":11,\"characterName\":\"Alt\"").code());
+    }
+
+    @Test
+    void theQuickCheckOnlyActsWhenTheInboxChangedAndNeverReprocesses(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws Exception {
+        MemoryExchangeStore store = new MemoryExchangeStore();
+        Exchange ex = namedExchange(store);
+        java.nio.file.Path in = dir.resolve("in"), out = dir.resolve("out");
+        java.nio.file.Files.createDirectories(in);
+        java.nio.file.Path req = in.resolve(ExchangeSite.REQUESTS);
+        ExchangeService.Runner r = new ExchangeService.Runner(ex, in, out, () -> NOW);
+        assertFalse(r.inboxChanged(), "no file yet");
+        String preview = "{\"id\":\"p\",\"account\":1,\"type\":\"preview\",\"characterName\":\"Silvia\",\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"createdAt\":\"" + T + "\"}";
+        java.nio.file.Files.writeString(req, "[" + preview + "]");
+        assertTrue(r.inboxChanged());
+        r.quickSafely();
+        assertFalse(r.inboxChanged(), "seen");
+        java.nio.file.Path resp = out.resolve(ExchangeSite.RESPONSES);
+        assertTrue(java.nio.file.Files.exists(resp), "answered by the quick check");
+        String token = (String) ((Map<?, ?>) ((Map<?, ?>) ((List<?>) ((Map<?, ?>) Json.parse(
+                java.nio.file.Files.readString(resp))).get("responses")).get(0)).get("data")).get("token");
+        long before = java.nio.file.Files.getLastModifiedTime(resp).toMillis();
+        r.quickSafely();
+        assertEquals(before, java.nio.file.Files.getLastModifiedTime(resp).toMillis(), "no change, no work");
+
+        String confirm = "{\"id\":\"c\",\"account\":1,\"type\":\"confirm\",\"token\":\"" + token + "\",\"createdAt\":\"" + T + "\"}";
+        java.nio.file.Files.writeString(req, "[" + preview + "," + confirm + "]");
+        r.quickSafely();
+        assertEquals(1, ex.openOrders());
+        // the same file rewritten (even a forced full poll) answers nothing twice
+        java.nio.file.Files.writeString(req, "[" + preview + "," + confirm + "] ");
+        r.quickSafely();
+        r.tick();
+        assertEquals(1, ex.openOrders());
+        assertEquals(9_000, store.nx(1));
+        assertEquals(2, ((List<?>) ((Map<?, ?>) Json.parse(java.nio.file.Files.readString(resp))).get("responses")).size());
+    }
+
+    @Test
+    void theFullPollStillReadsAFileWhoseStampDidNotChange(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws Exception {
+        Exchange ex = namedExchange(new MemoryExchangeStore());
+        java.nio.file.Path in = dir.resolve("in"), out = dir.resolve("out");
+        java.nio.file.Files.createDirectories(in);
+        java.nio.file.Path req = in.resolve(ExchangeSite.REQUESTS);
+        ExchangeService.Runner r = new ExchangeService.Runner(ex, in, out, () -> NOW);
+        String a = "{\"id\":\"a\",\"account\":1,\"type\":\"book\",\"createdAt\":\"" + T + "\"}";
+        String b = "{\"id\":\"b\",\"account\":1,\"type\":\"book\",\"createdAt\":\"" + T + "\"}";
+        java.nio.file.Files.writeString(req, "[" + a + "]");
+        java.nio.file.attribute.FileTime stamp = java.nio.file.attribute.FileTime.fromMillis(NOW);
+        java.nio.file.Files.setLastModifiedTime(req, stamp);
+        r.quickSafely();
+        java.nio.file.Files.writeString(req, "[" + a + "]".replace("a\"", "b\"") + "");
+        java.nio.file.Files.writeString(req, "[" + b + "]"); // same length, same mtime
+        java.nio.file.Files.setLastModifiedTime(req, stamp);
+        assertFalse(r.inboxChanged(), "the cheap check cannot see it");
+        r.tick(); // the fallback poll does
+        assertEquals(2, ((List<?>) ((Map<?, ?>) Json.parse(java.nio.file.Files.readString(
+                out.resolve(ExchangeSite.RESPONSES)))).get("responses")).size());
+    }
 }
