@@ -62,4 +62,20 @@ class GCFollowOwnedAltTest {
         assertFalse(botTrip.noWarp); assertFalse(botTrip.noFares); // population bots unchanged
     }
 
+
+    @Test void anAltThatCannotWalkThereWaitsAndTheOwnerHearsOnce() {
+        Character alt = chr("Alt", 100, mock(MapleMap.class), null);
+        Character owner = chr("Owner", 200, mock(MapleMap.class), null);
+        GCFollow.Session s = new GCFollow.Session(alt, owner);
+        GCFollow.altGaveUp(s, alt, owner, 200).accept(false);
+        assertEquals(200, s.blockedDest, "not retried every poll");
+        verify(owner, times(1)).yellowMessage(org.mockito.ArgumentMatchers.contains("can't walk to where you are"));
+        when(owner.getMapId()).thenReturn(201); // the owner moves on (a boat's next map): no second line
+        GCFollow.altGaveUp(s, alt, owner, 201).accept(false);
+        verify(owner, times(1)).yellowMessage(org.mockito.ArgumentMatchers.anyString());
+        GCFollow.altGaveUp(s, alt, owner, 201).accept(true);
+        assertEquals(201, s.blockedDest);
+        Character bot = chr("Bot", 100, mock(MapleMap.class), null);
+        assertNull(GCFollow.altGaveUp(new GCFollow.Session(bot, owner), bot, owner, 200), "population followers unchanged");
+    }
 }

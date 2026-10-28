@@ -34,12 +34,13 @@ final class GCFollow {
 
     private static final Map<Integer, Session> SESSIONS = new ConcurrentHashMap<>();
 
-    private static final class Session {
+    static final class Session {
         final Character bot;
         final Character target;
         ScheduledFuture<?> task;
         int travelDest = -1; // map the current follow-travel is heading to (-1 = not traveling)
-        volatile int blockedDest = -1; // 1.6.0.4 owned alt: the owner's map it cannot walk to (told once, not retried)
+        volatile int blockedDest = -1; // 1.6.0.4 owned alt: the owner's map it cannot walk to (not retried)
+        volatile boolean toldWaiting;  // 1.6.0.4 owned alt: the owner has heard why it waits (once until it catches up)
 
         Session(Character bot, Character target) {
             this.bot = bot;
@@ -114,11 +115,15 @@ final class GCFollow {
         int dest = target.getMapId();
         if (s.blockedDest != dest) {
             s.blockedDest = dest;
-            tellOwner(target, why);
+            tellOwnerOnce(s, target, why);
         }
     }
 
-    private static void tellOwner(Character owner, String message) {
+    private static void tellOwnerOnce(Session s, Character owner, String message) {
+        if (s.toldWaiting) {
+            return;
+        }
+        s.toldWaiting = true;
         try {
             owner.yellowMessage(message);
         } catch (RuntimeException ignored) {
@@ -154,6 +159,7 @@ final class GCFollow {
             }
             s.travelDest = -1;
             s.blockedDest = -1;
+            s.toldWaiting = false;
             GCMovement.armSameMapFollow(bot, target);
             return;
         }
@@ -166,18 +172,26 @@ final class GCFollow {
         }
         if (!GCMovement.isTraveling(bot)) {
             s.travelDest = destMap;
-            GCTravel.travel(bot, destMap, bot.isOwnedAlt() ? ok -> {
-                if (!ok && target.getMapId() == destMap && s.blockedDest != destMap) {
-                    s.blockedDest = destMap;
-                    tellOwner(target, bot.getName() + " can't walk to where you are and waits here."
-                            + " Use @botme here to bring your alts to you.");
-                }
-            } : null);
+            GCTravel.travel(bot, destMap, altGaveUp(s, bot, target, destMap));
         } else if (s.travelDest != destMap) {
             // Target moved to a different map mid-travel — redirect the chase.
             GCTravel.cancel(bot);
             s.travelDest = destMap;
-            GCTravel.travel(bot, destMap, null);
+            GCTravel.travel(bot, destMap, altGaveUp(s, bot, target, destMap));
         }
+    }
+
+    /* 1.6.0.4: an owned alt's trip that gave up (no walking route) marks that map so it waits instead of retrying. */
+    static java.util.function.Consumer<Boolean> altGaveUp(Session s, Character bot, Character target, int destMap) {
+        if (!bot.isOwnedAlt()) {
+            return null; // population followers unchanged
+        }
+        return ok -> {
+            if (!ok && target.getMapId() == destMap && s.blockedDest != destMap) {
+                s.blockedDest = destMap;
+                tellOwnerOnce(s, target, bot.getName() + " can't walk to where you are and waits here."
+                        + " Use @botme here to bring your alts to you.");
+            }
+        };
     }
 }

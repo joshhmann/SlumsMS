@@ -25,11 +25,13 @@ class OwnedAltSummonSwitchTest {
 
     @Test void summonAndBringHereAreRefusedWithTheRestingMessageWhenOff() {
         OwnedAltServiceTest.Memory db = new OwnedAltServiceTest.Memory(); db.add(2);
-        OwnedAltService s = new OwnedAltService(db, () -> true, () -> false);
+        OwnedAltService s = new OwnedAltService(db, () -> true, () -> false, Runnable::run);
         Character owner = owner(1);
         assertFalse(s.summoningOpen());
         var e = assertThrows(IllegalStateException.class, () -> s.summon(owner, "Alt2"));
         assertEquals(OwnedAltService.RESTING, e.getMessage());
+        assertEquals(OwnedAltService.RESTING,
+                assertThrows(IllegalStateException.class, () -> s.bringHere(owner)).getMessage());
         assertEquals(0, db.loads.get(), "nothing loaded");
         assertTrue(OwnedAltService.RESTING.startsWith("Alts are resting while we finish them"));
     }
@@ -37,7 +39,7 @@ class OwnedAltSummonSwitchTest {
     @Test void anAltSummonedBeforeTheSwitchCanStillBeDismissed() {
         OwnedAltServiceTest.Memory db = new OwnedAltServiceTest.Memory(); db.add(2); db.add(3);
         AtomicBoolean open = new AtomicBoolean(true);
-        OwnedAltService s = new OwnedAltService(db, () -> true, open::get);
+        OwnedAltService s = new OwnedAltService(db, () -> true, open::get, Runnable::run);
         Character owner = owner(1);
         s.summon(owner, "Alt2"); s.summon(owner, "Alt3");
         open.set(false);
@@ -56,8 +58,9 @@ class OwnedAltSummonSwitchTest {
             Character owner = owner(420_001);
             Client c = mock(Client.class); when(c.getPlayer()).thenReturn(owner);
             new BotMeCommand().execute(c, new String[0]);
+            new BotMeCommand().execute(c, new String[]{"here"});
             new BotMeCommand().execute(c, new String[]{"Someone"});
-            verify(owner, times(2)).yellowMessage(OwnedAltService.RESTING);
+            verify(owner, times(3)).yellowMessage(OwnedAltService.RESTING);
             assertFalse(OwnedAltService.getInstance().summoningOpen());
             // @dismiss is not gated by the switch: it still answers (nothing summoned here, so "not with you").
             new DismissCommand().execute(c, new String[]{"usage", "wrong"});
