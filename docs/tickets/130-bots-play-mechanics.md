@@ -3,8 +3,13 @@
 **Area:** Server / bots / party quests / bosses
 **Kind:** FEATURE, 1.7.0 headline (docs/roadmap/1.7.0.md, "Bots play the mechanics"; owner 2026-10-26, scaffolding
 OK'd 2026-10-28: "we can start scaffolding stuff")
-**Status:** phase 0 scaffold built 2026-10-28 (branch `170-mechanics` from `release-1.6.1`, not merged). Switched
-off behind `-Dslums.mechanics` (default `false`); nothing in the running server calls the new code.
+**Status:** phase 0 scaffold built 2026-10-28 (branch `170-mechanics` from `release-1.6.1`). **Phase 1 built
+2026-10-28 on branch `170-mech1`** (from `170-mechanics`, `release-1.6.1` merged in; not merged anywhere): bots clear
+KPQ stage 1 end to end, see "Phase 1 (built)" below. Everything stays behind `-Dslums.mechanics` (default `false`):
+with the flag off no command is registered and nothing calls the package. Unit-tested; **not yet run on TEST or
+watched on a real client**.
+
+Numbering: this ticket was 114 until 2026-10-28; 114 is also bot talk on `161-botchat`, so it is now 130.
 
 ## Why
 
@@ -60,9 +65,10 @@ fields, players/levels sane, stages numbered 1..n, a solver and a clear per stag
 HAND_IN has an NPC, one leader at most, role minimums fit the party, boss phases run down without overlap, tier names
 and positive multipliers, unique ids.
 
-Deploy note for phase 1: the loader lists a directory, which does not work from inside the jar (see HANDOFF's
-jar-only data gap). Before switching on, either name the files in an index read through `soloMapling.DataFiles`, or
-add the folder to `tools/ops/deploy-test` and `tools/release/stage`.
+Jar-only installs (done in phase 1): a folder cannot be listed inside the jar (HANDOFF's jar-only data gap), so
+`content/index.txt` names the files and `StageData.load()` reads the index and each file through
+`soloMapling.DataFiles` (override dir, source tree, then the jar). A new content file must be added to the index
+(`MechanicsDataFilesTest` fails otherwise). `-Dslums.mechanics.dir` still lists a folder on disk.
 
 ## The orchestrator
 
@@ -178,7 +184,7 @@ skills used there verified first.
 row "PQ difficulties"): what scales, entry levels, rewards and EXP per tier (rates rule: no hidden bonus EXP), bot
 behaviour per tier, and a clear-time leaderboard per tier on the site.
 
-## Built in phase 0 (this branch)
+## Built in phase 0 (branch `170-mechanics`)
 
 `src/main/java/soloMapling/mechanics/`:
 - `Mechanics` (flag `slums.mechanics`, data dir), `MechanicsModel` (records above), `StageData` (YAML loader and
@@ -187,14 +193,73 @@ behaviour per tier, and a clear-time leaderboard per tier on the site.
 - `RoleClaims`, `TryPlanner`, `MechanicsPersona`: pure logic, tested.
 - Tests: `src/test/java/soloMapling/mechanics/StageDataTest` (10), `RoleClaimsAndTriesTest` (8).
 
-Nothing is wired in: no bot, script, command or tick calls this package.
+Phase 0 wired nothing in; phase 1 (above) adds the runtime behind the same flag.
+
+## Phase 1 (built 2026-10-28, branch `170-mech1`)
+
+What a run does (KPQ stage 1, "Coupons for Cloto"):
+
+1. **Staging** (`KpqStaging`): fresh level 30-35 bots spawn next to Lakelis on 103000000 of the GM's channel, form a
+   party (a bot leads, or the GM with `me`), and the PQ starts the way Lakelis starts it: `KerningPQ` event, the
+   script's own `getEligibleParty`, `startInstance(party, map, 1)`. The event script warps everyone in.
+2. **Run** (`MechanicsRuns`, 4 Hz on the shared scheduler): per tick a `LiveStageView` snapshot of the event instance
+   (Cloto's grid via `eim.gridCheck`, the `1stageclear` property, inventories, passes on the floor), the
+   `Orchestrator` (pure logic) returns each bot's `SolverStep`, the `StepExecutor` carries it out. While a run holds a
+   bot its own brain is paused and `MechanicsHold` (a `BotCommitments` clause) keeps it from logging out; every end
+   (cleared, budget, too few members, leader gone, event ended, exception, `!mechanics stop`) releases the bots and
+   wakes their brains. Staged bots leave the party (the event script ends the PQ when short) and the world 20 s later.
+3. **Solver** `question-coupons` (`QuestionCouponsSolver`, ids from the stage objectives): an answerer asks Cloto,
+   fights Ligators until it holds the target count (loots only coupons a monster dropped), drops extras, hands in,
+   drops the pass by the leader; the leader walks to Cloto, picks up passes dropped for him and hands in `party-1`.
+4. **NPC talk** (`BotNpcTalk`): a bot has no client of its own, so it clicks Cloto by running **our**
+   `scripts/npc/9020001.js` in a fresh engine with a conversation manager whose player is the bot (items through
+   `BotHoldings`, dialogue recorded for the log). `ClotoScriptForBotsTest` runs the real script against exactly that
+   bot-safe surface, so a script change that reaches for anything else fails a test, not a run.
+5. **Attacks**: `BotAttackDriver.botAttack`, the call FollowerFight already makes in PQs. No new skill or profile.
+6. **Tries** (`TryPlanner`, capped at 2 for this puzzle): once a bot's question is known it plans 0-2 wrong hand-ins
+   below its answer, ascending (another answer from the table, a mixed-up question, or one short, a miscount), by
+   persona (`MechanicsPersona.forCharacter`, a steady per-bot stand-in until phase 4 uses SocialProfile) and tier.
+   The script answers each with "that is not the right answer" and the bot keeps farming. `perfect` turns them off.
+7. **Data**: `content/index.txt` names the content files and each is read through `DataFiles` (the jar-only gap is
+   closed; `MechanicsDataFilesTest` loads kpq.yaml from a packed jar with no source tree).
+
+### Mixed parties: the player gets first claim (design and rule)
+
+- **Rule (built, `RoleClaims`):** claim order is real players first, then bots, each in party order. The party
+  leader keeps the LEADER role whoever he is. So a role with limited room (KPQ 2-4 rope/platform hangers, LPQ boxes)
+  always seats the player first and bots take what is left; a bot never takes a player's job.
+- **Never steered:** the orchestrator asks no solver for a real player's step; bots plan around him.
+- **KPQ stage 1 with a real leader:** bots drop their passes at his feet (`DropFor` to his id, owned by him) and wait;
+  he picks them up and talks to Cloto. A real answerer does his own question; bots only loot coupons a monster
+  dropped and only up to their own count, so they do not vacuum his.
+- Later phases add: callouts naming the player's spot ("u take rope 2"), and bots stepping off a position the player
+  walks onto (a re-claim when a player changes his mind). Open question 4 below stays for the owner.
+
+### Commands and checks
+
+| What | How |
+|---|---|
+| GM | `!mechanics kpq [me] [bots] [perfect]` (alias `!mech`, GM 3, only registered with the flag): 4 bots alone, or you + 3 (2-3 with a count). `!mechanics status`, `!mechanics stop`. Progress lines come to the GM as yellow text and to the server log as `[Mechanics]` |
+| `!qa` | `mx-1 [perfect]`: four bots clear stage 1; `MX1 PASS cleared stage 1 in <s> s (limit 900 s)` or `MX1 FAIL <why>` (docs/ops/qa-suite.md) |
+| Auto-QA | t-mx-1 runs mx-1 and asserts the start, the `RUN stage 1 cleared` line, the PASS within 15 minutes, no FAIL and no script failure. SKIPs when the flag is off |
+
+### Verified vs not
+
+- **Unit-tested** (no server): orchestration on a simulation of Cloto's stage 1 for 40 seeds with 4 bots (all clear,
+  at most 2 wrong tries each, every wrong hand-in a planned one), perfect bots, a real leader, a real answerer,
+  extras dropped, members lost (re-claim, then abandon below 3, leader lost), the time budget, start refusals;
+  the real Cloto script against the bot-safe surface; role claims for mixed parties; the jar-only loader; t-mx-1's
+  patterns; the command's arguments.
+- **Not yet verified:** a run on TEST (staging, Ligator coupon drops for bots under the yield caps, movement in the
+  stage map, the script run for a bot through `BotNpcTalk` on the real server, the clear in time); a watch on a real
+  client (bots look like players, swings visible). TEST needs `-Dslums.mechanics=true` in start-test.sh to try it.
 
 ## Phased plan
 
 | Phase | What | Size |
 |---|---|---|
 | 0 | Scaffold: model, YAML format, KPQ stage 1, interfaces, role claims, try planner (this) | S, done |
-| 1 | Live `StageView` adapter on the event instance; orchestrator core; `question-coupons`; a bot-only party clears KPQ stage 1 on TEST; GM staging command `!mech kpq <n bots>` (owner likes these) and `!mech status`; `!qa` scenario + auto-QA log check | M-L |
+| 1 | Live `StageView` adapter on the event instance; orchestrator core; `question-coupons`; a bot-only party clears KPQ stage 1 on TEST; GM staging command `!mechanics kpq` and `!mechanics status`; `!qa` scenario mx-1 + auto-QA t-mx-1 | M-L, built (TEST run pending) |
 | 2 | `combination`, `kill-all`, KPQ 2-5 and the bonus map: KPQ end to end; OPQ ported onto the orchestrator to parity, OPQBot retired | L |
 | 3 | `collect-hand-in`, `portal-maze`, `jump-puzzle`: LPQ, HPQ, EPQ, PPQ, LMPQ, rest of OPQ (one YAML each, cross-checked with nutnnut) | L |
 | 4 | Step 2: personas from SocialProfile, visible tries, deaths, chatter, slow/AFK, ragequit; hurry mode | M |

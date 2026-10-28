@@ -247,6 +247,18 @@ in the buyer's notes, and invites them to Maple Messenger, where it types the co
 for 30 s and the note window pops instead. Cash Shop > coupon: the code with or without dashes adds 10,000 NX credit
 once; the same code again says it was used. Auto-QA t-nx-1 (messenger) and t-nx-2 (note) drive it with AutoQaTwo.
 
+## mx-1: bots clear Kerning PQ stage 1 on their own (1.7.0, ticket 130)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `mx-1 [perfect]` | Needs `-Dslums.mechanics=true` (refused, and t-mx-1 SKIPs, without it). Spawns four level 30-35 bots next to Lakelis on Kerning City (103000000) of your channel, makes them a party (the first bot leads), starts the Kerning PQ as Lakelis does (same eligibility check; refused while another party is in KPQ on the channel) and runs the mechanics orchestrator on the instance. Stage 1 must clear within 15 minutes. `perfect`: no wrong tries. The bots leave the party (the PQ ends) and the world 20 s after the run, or at stop. Runs 18 minutes | `MX1 START kpq stage 1 with 4 bots`, `RUN <bot id> got answer <n>, will try [...] first`, `NPC <bot> -> 9020001 with <n> x 4001007: "..."` per hand-in (a wrong try gets Cloto's "not the right answer"), `DROP <bot> drops 1 x 4001008 for <leader>`, `RUN stage 1 cleared in <s> s`, `MX1 PASS cleared stage 1 in <s> s (limit 900 s)`; a script that fails for a bot logs `FAILED:` |
+
+Ticket 130 phase 1. The answerers ask Cloto through our own `scripts/npc/9020001.js` (run for the bot with the bot as
+the player), kill Ligators with the attacks FollowerFight already uses, collect exactly their answer in coupons (a
+persona shows 0-2 wrong hand-ins on the way up: a mixed-up answer or one short), trade them for a pass and drop it by
+the leader, who waits by Cloto and hands in one pass per other member. In game: `!mechanics kpq me` puts you in the
+party as leader with three bots: pick up the passes they drop at your feet and talk to Cloto. Auto-QA: t-mx-1.
+
 ## xc-1: the NX exchange in game (1.6.1, ticket 113)
 
 | Test | What it stages | What to look for |

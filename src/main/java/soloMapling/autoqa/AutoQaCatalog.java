@@ -1137,6 +1137,14 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-ac-1", "Achievements: kill and fishing goals hand over one zero-stat medal each, once").minutes(2)
                 .expect(probe("achievements"))
                 .build());
+        // 1.7.0 ticket 130 (bots play the mechanics, phase 1): four fresh bots start Kerning PQ and clear stage 1 on
+        // their own (Cloto's question, Ligator coupons, passes to the leader) within the limit; mx-1 says PASS only
+        // when the stage's clear property was set in time. Off without -Dslums.mechanics=true: the refusal SKIPs.
+        c.add(Check.auto("t-mx-1", "Four bots clear Kerning PQ stage 1 on their own").minutes(18)
+                .step(run("mx-1"), waitFor("MX1 (PASS|FAIL) ", 17 * 60), stop())
+                .expect(has("MX1 START kpq stage 1 with 4 bots"), has("RUN stage 1 cleared in \\d+ s"),
+                        has("MX1 PASS cleared stage 1 in \\d+ s"), lacks("MX1 FAIL "), lacks(" FAILED: "))
+                .build());
         return List.copyOf(c);
     }
 
