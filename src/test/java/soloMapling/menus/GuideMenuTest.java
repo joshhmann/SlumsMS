@@ -228,4 +228,30 @@ class GuideMenuTest {
         GuideMenu.onLogin(me);
         assertEquals(4, opened.size(), "and it shows at the next login");
     }
+
+    @Test
+    void theUiTipShowsOnceAndNeverToBots() {
+        Character me = player(5010);
+        Client c = me.getClient();
+        doReturn(10600).when(c).getClientBuild();
+        GuideMenu.onLoginUiTip(me);
+        org.mockito.Mockito.verify(c, org.mockito.Mockito.times(GuideMenu.UI_TIP.length))
+                .sendPacket(org.mockito.ArgumentMatchers.any());
+        assertEquals(GuideMenu.UI_TIP_INFO, me.getAreaInfo(GuideMenu.UI_TIP_AREA));
+        GuideMenu.onLoginUiTip(me);
+        org.mockito.Mockito.verify(c, org.mockito.Mockito.times(GuideMenu.UI_TIP.length))
+                .sendPacket(org.mockito.ArgumentMatchers.any());
+
+        Character old = player(5011);
+        doReturn(10500).when(old.getClient()).getClientBuild();
+        GuideMenu.onLoginUiTip(old);
+        assertNull(old.getAreaInfo(GuideMenu.UI_TIP_AREA), "old client: nothing");
+
+        BotClient bc = new BotClient(0, 0);
+        Character bot = Character.getDefault(bc);
+        bot.setID(1_000_000_124);
+        bc.setPlayer(bot);
+        GuideMenu.onLoginUiTip(bot);
+        assertNull(bot.getAreaInfo(GuideMenu.UI_TIP_AREA));
+    }
 }

@@ -27,6 +27,16 @@ public final class GuideMenu {
     public static final short SEEN_AREA = 29150;
     static final String SEEN_INFO = "guide=1.5.0";
 
+    /** 1.6.0.2: the area-info slot that remembers the Edit UI tip was shown at login. */
+    public static final short UI_TIP_AREA = 29151;
+    static final String UI_TIP_INFO = "uitip=1.6.0.2";
+    /** The first client build that has the Edit UI (slums.dll). */
+    static final int UI_TIP_MIN_BUILD = 10600;
+    static final String[] UI_TIP = {
+            "Tip: press Ctrl+F11 to move your status bar, quick slots and chat box; press it again to lock.",
+            "Drag the inventory's corner to resize it. Ctrl+F10 > Reset UI layout undoes it all.",
+            "If Ctrl+F11 does nothing, set d3d9host=true under [graphics] in config.ini."};
+
     /** How long after the login the guide opens, so the map and the login windows are up first. */
     static final long FIRST_LOGIN_DELAY_MS = 5_000;
 
@@ -57,7 +67,8 @@ public final class GuideMenu {
                     + "#bTRADE#k: warps to #bBase of Roots#k (the hub\r\n"
                     + "   for job advances, storage and FM portal).\r\n"
                     + "#bMENU#k & #bSHORTCUT#k: normal game menus\r\n"
-                    + "   for your windows, keybindings and settings.", List.of()),
+                    + "   for your windows, keybindings and settings.\r\n"
+                    + "#bCtrl+F11#k moves your HUD; #bCtrl+F10#k resets it.", List.of()),
             new GuidePage("Where to find things", ""
                     + "#eWhere to find things (1/3)#n\r\n"
                     + "#bGachapon#k: 12 town machines (#b@gacha <town>#k).\r\n"
@@ -142,6 +153,18 @@ public final class GuideMenu {
                 open(player);
             }
         }, FIRST_LOGIN_DELAY_MS);
+    }
+
+    /** 1.6.0.2, at login: a real player on a 10600+ client is told once how to move and resize the HUD. */
+    public static void onLoginUiTip(Character player) {
+        if (!isPlayer(player) || player.getClient() == null || player.getAreaInfo(UI_TIP_AREA) != null
+                || player.getClient().getClientBuild() < UI_TIP_MIN_BUILD) {
+            return;
+        }
+        for (String line : UI_TIP) {
+            player.dropMessage(5, line);
+        }
+        player.getAreaInfos().put(UI_TIP_AREA, UI_TIP_INFO);
     }
 
     static boolean isPlayer(Character player) {
