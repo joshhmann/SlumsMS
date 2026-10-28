@@ -1388,13 +1388,13 @@ final class Probes160 {
                     ev.add("redeem part skipped: " + off);
                 } else {
                     String ip = "autoqa-t-iv-1-" + now;
-                    SiteAuthQa.Answer a = SiteAuthQa.call("/signup", Map.of("code", firstCode, "user", user, "pass", "Qa1!" + user, "ipHash", ip));
+                    SiteAuthQa.Answer a = SiteAuthQa.call("/signup", Map.of("code", firstCode, "user", user, "pass", "Qa1!" + user.substring(user.length() - 6), "ipHash", ip));
                     ev.add("sign-up with the code: " + a.status() + " ok=" + a.ok() + (a.ok() ? "" : " " + a.error()));
                     if (!a.ok()) {
                         bad.add("a fresh @invite code did not sign anyone up: " + a.error());
                     } else {
                         signedUp = ((Number) a.body().get("account_id")).intValue();
-                        SiteAuthQa.Answer again = SiteAuthQa.call("/signup", Map.of("code", firstCode, "user", user + "x", "pass", "Qa1!" + user, "ipHash", ip));
+                        SiteAuthQa.Answer again = SiteAuthQa.call("/signup", Map.of("code", firstCode, "user", user + "x", "pass", "Qa1!" + user.substring(user.length() - 6), "ipHash", ip));
                         ev.add("second sign-up with the same code: " + again.status() + " ok=" + again.ok() + (again.ok() ? "" : " " + again.error()));
                         if (again.ok()) {
                             bad.add("the same code signed up a second account");
