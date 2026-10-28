@@ -26,7 +26,7 @@ nginx asks GET /api/auth/check (auth_request) before serving the friends-only se
 GET /api/login/me says who is signed in: {"signed_in", "character", "account"}.
 
 Download pass (launcher 1.6.1, ticket 106): POST /api/login/download-pass (session cookie, "X-Slums: 1") gives
-{"ok": true, "pass", "expiresAt"}, a token the launcher sends as "X-Slums-Pass" on every patch download. It lives 12 h
+{"ok": true, "pass", "expiresAt": <Unix seconds>}, a token the launcher sends as "X-Slums-Pass" on every patch download. It lives 12 h
 (never past the session), 401 when not signed in, 403 when the account is banned or revoked, 503 when this server has
 no pass key. nginx on the patch host asks GET /api/auth/pass (auth_request, internal): 204 plus "X-Slums-Account:
 <account id>" (for the access log) when the pass is good, 401 otherwise. The check is an HMAC and two in-memory lists
@@ -554,8 +554,7 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
             if not passes:
                 return self.send(*self.err(DOWN))
             pw, exp = passes.issue(s)
-            return self.send(200, {"ok": True, "pass": pw,
-                                   "expiresAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(exp))})
+            return self.send(200, {"ok": True, "pass": pw, "expiresAt": exp})   # Unix seconds (the launcher's contract)
 
         @staticmethod
         def err(pair):

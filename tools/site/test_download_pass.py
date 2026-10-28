@@ -1,5 +1,4 @@
 """Download passes for the launcher (ticket 106): python3 -m unittest discover -s tools/site -p 'test_*.py'"""
-import calendar
 import json
 import os
 import shutil
@@ -124,7 +123,9 @@ class HttpTest(unittest.TestCase):
         st, body, _ = self.call("POST", "/api/login/download-pass")
         self.assertEqual((st, body["ok"]), (200, True))
         self.assertTrue(body["pass"].startswith("dp1."))
-        left = calendar.timegm(time.strptime(body["expiresAt"], "%Y-%m-%dT%H:%M:%SZ")) - time.time()
+        self.assertIsInstance(body["expiresAt"], int)
+        self.assertRegex(body["pass"], r"^[\x21-\x7e]{1,1024}$")   # the launcher drops anything else
+        left = body["expiresAt"] - time.time()
         self.assertAlmostEqual(left, 12 * 3600, delta=120)
         st, _, h = self.call("GET", "/api/auth/pass", {"X-Slums-Pass": body["pass"]}, cookie=False)
         self.assertEqual((st, h["X-Slums-Account"]), (204, "7"))
