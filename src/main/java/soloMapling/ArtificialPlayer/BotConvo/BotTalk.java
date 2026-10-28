@@ -193,15 +193,17 @@ public final class BotTalk {
         try {
             ticks.increment();
             writeNotes(now);
-            Map<Long, List<Character>> byMap = new HashMap<>();
-            Set<Integer> seen = new HashSet<>();
-            for (BotSM sm : CharacterStorage.getAllBots().values()) {
+            Map<Long, List<Character>> byMap = new HashMap<>(256);
+            int seen = 0;
+            Map<Integer, BotSM> all = CharacterStorage.getAllBots();
+            for (BotSM sm : all.values()) {
                 Character c = sm == null ? null : sm.getChr();
-                if (c == null || c.getMap() == null || CharacterStorage.checkIfInvisibleBot(c.getId())) {
+                MapleMap m = c == null ? null : c.getMap();
+                if (m == null || CharacterStorage.checkIfInvisibleBot(c.getId())) {
                     continue;
                 }
-                seen.add(c.getId());
-                byMap.computeIfAbsent(key(c.getMap().getChannelId(), c.getMapId()), k -> new ArrayList<>(4)).add(c);
+                seen++;
+                byMap.computeIfAbsent(key(m.getChannelId(), m.getId()), k -> new ArrayList<>(4)).add(c);
             }
             Random rng = ThreadLocalRandom.current();
             List<Map.Entry<Long, List<Character>>> maps = new ArrayList<>(byMap.entrySet());
@@ -209,11 +211,18 @@ public final class BotTalk {
             for (Map.Entry<Long, List<Character>> e : maps) {
                 List<Character> here = e.getValue();
                 long k = e.getKey();
-                List<Character> arrived = new ArrayList<>(2);
-                for (Character c : here) {
-                    Long was = lastMapOf.put(c.getId(), k);
-                    if (was != null && was != k) {
-                        arrived.add(c);
+                List<Character> arrived = null; // allocated only when someone really moved
+                for (int i = 0, n = here.size(); i < n; i++) {
+                    Character c = here.get(i);
+                    Long was = lastMapOf.get(c.getId());
+                    if (was == null || was != k) {
+                        lastMapOf.put(c.getId(), k);
+                        if (was != null) {
+                            if (arrived == null) {
+                                arrived = new ArrayList<>(2);
+                            }
+                            arrived.add(c);
+                        }
                     }
                 }
                 if (here.size() < 2) {
@@ -221,7 +230,7 @@ public final class BotTalk {
                 }
                 Long next = nextTalkAt.get(k);
                 boolean due = next == null || now >= next;
-                if (arrived.isEmpty() && !due) {
+                if (arrived == null && !due) {
                     continue; // nothing to do here this tick: no map read at all
                 }
                 MapleMap map = here.get(0).getMap();
@@ -229,14 +238,24 @@ public final class BotTalk {
                 if (weight <= 0) {
                     continue;
                 }
-                for (Character c : arrived) {
-                    greetOnArrival(c, here, map, now, rng);
+                if (arrived != null) {
+                    for (Character c : arrived) {
+                        greetOnArrival(c, here, map, now, rng);
+                    }
                 }
                 if (due) {
                     maybeChat(k, here, map, weight, now, rng);
                 }
             }
-            lastMapOf.keySet().retainAll(seen);
+            if (lastMapOf.size() > seen) { // someone left the registry: forget them (rare, so no id set per tick)
+                Set<Integer> ids = new HashSet<>(seen * 2);
+                for (List<Character> l : byMap.values()) {
+                    for (Character c : l) {
+                        ids.add(c.getId());
+                    }
+                }
+                lastMapOf.keySet().retainAll(ids);
+            }
             inTalk.entrySet().removeIf(x -> now - x.getValue() > STUCK_MS);
             if (greetedAt.size() > 20_000) {
                 greetedAt.values().removeIf(t -> now - t > GREET_PAIR_GAP_MS);
@@ -1070,6 +1089,14 @@ public final class BotTalk {
         out.put("intents", BotLineIntents.counts());
         out.put("crews", soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews.stats());
         return out;
+    }
+
+    static Long lastMapOfForTest(int botId) {
+        return lastMapOf.get(botId);
+    }
+
+    static Long nextTalkAtForTest(long mapKey) {
+        return nextTalkAt.get(mapKey);
     }
 
     static void resetForTest() {

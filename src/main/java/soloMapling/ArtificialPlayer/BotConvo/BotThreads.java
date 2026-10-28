@@ -299,8 +299,16 @@ public final class BotThreads {
 
     /** Towns and the FM 1, grind maps 0.1, boss and event maps 0. */
     static double mapWeight(MapleMap map) {
-        return mapWeight(map.getId(), map.getEventInstance() != null || map.isEventMap(), map.isTown(),
-                map.getAllMonsters().isEmpty());
+        // lazy: listing a map's monsters (a locked scan and a copy) only when town and the special maps did not decide
+        boolean event = map.getEventInstance() != null || map.isEventMap();
+        int id = map.getId();
+        if (excluded(id, event)) {
+            return 0;
+        }
+        if (id >= 910000000 && id <= 910000022 || map.isTown()) {
+            return 1;
+        }
+        return mapWeight(id, false, false, map.getMonsters().isEmpty());
     }
 
     /**
