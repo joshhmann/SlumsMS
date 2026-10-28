@@ -1,4 +1,4 @@
-# 114: Bots play the mechanics (1.7.0 headline)
+# 130: Bots play the mechanics (1.7.0 headline)
 
 **Area:** Server / bots / party quests / bosses
 **Kind:** FEATURE, 1.7.0 headline (docs/roadmap/1.7.0.md, "Bots play the mechanics"; owner 2026-10-26, scaffolding

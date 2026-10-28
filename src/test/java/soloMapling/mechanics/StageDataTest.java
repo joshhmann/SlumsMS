@@ -185,7 +185,7 @@ class StageDataTest {
 
     @Test
     void switchedOffByDefault() {
-        assertFalse(Mechanics.enabled(), "ticket 114 scaffold must stay off unless -Dslums.mechanics=true");
+        assertFalse(Mechanics.enabled(), "ticket 130 scaffold must stay off unless -Dslums.mechanics=true");
     }
 
     private static void assertHas(List<String> errors, String part) {

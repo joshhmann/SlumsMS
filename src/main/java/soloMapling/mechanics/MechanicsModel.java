@@ -6,7 +6,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 /**
- * The stage model of ticket 114: a piece of content (a PQ, a boss, a jump quest) is a list of stages; a stage has
+ * The stage model of ticket 130: a piece of content (a PQ, a boss, a jump quest) is a list of stages; a stage has
  * roles party members claim, objectives each role works on, positions (platforms, ropes, boxes) to occupy, items to
  * collect and hand in, and the answers to its puzzle. Read from YAML by {@link StageData}; immutable.
  *
@@ -41,7 +41,7 @@ public final class MechanicsModel {
     /** Who an objective or role belongs to. */
     public enum Who { LEADER, NON_LEADER, ANY }
 
-    /** What a party member must do. Each kind has a solver step family (see ticket 114, "Objective kinds"). */
+    /** What a party member must do. Each kind has a solver step family (see ticket 130, "Objective kinds"). */
     public enum ObjectiveKind {
         /** Talk to an NPC (get a question, open a stage, check an answer). */
         TALK_NPC,

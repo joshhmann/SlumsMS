@@ -32,9 +32,9 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Reads and checks ticket 114's stage-data YAML (one file per PQ/boss in {@link Mechanics#dataDir()}). Strict like
+ * Reads and checks ticket 130's stage-data YAML (one file per PQ/boss in {@link Mechanics#dataDir()}). Strict like
  * {@code EventTemplates}: a file with a mistake is skipped and reported, never half-loaded; other files still load.
- * Format: {@code docs/tickets/114-bots-play-mechanics.md}, "Stage data format", and the KPQ example in
+ * Format: {@code docs/tickets/130-bots-play-mechanics.md}, "Stage data format", and the KPQ example in
  * {@code content/kpq.yaml}.
  */
 public final class StageData {
@@ -48,7 +48,67 @@ public final class StageData {
     private StageData() {
     }
 
-    /** Loads every {@code *.yaml} in the folder. Nothing calls this while {@link Mechanics#enabled()} is false. */
+    /** The index file in the content folder: one stage-data file name per line ({@code #} comments allowed). */
+    public static final String INDEX = "index.txt";
+
+    private static final java.util.regex.Pattern FILE_NAME = java.util.regex.Pattern.compile("[a-z0-9][a-z0-9-]*\\.yaml");
+
+    /**
+     * The shipped stage data, wherever this server keeps it: {@code -Dslums.mechanics.dir} (a folder, listed) when it
+     * is set, else the files named in {@value #INDEX}, each read through {@link soloMapling.DataFiles} so a jar-only
+     * install works (a folder cannot be listed inside the jar: HANDOFF's jar-only data gap).
+     */
+    public static Result load() {
+        String override = System.getProperty(Mechanics.DIR_PROPERTY);
+        if (override != null && !override.isBlank()) {
+            return loadDir(Path.of(override.trim()));
+        }
+        return loadIndexed(Mechanics.DEFAULT_DIR, soloMapling.DataFiles::path);
+    }
+
+    /**
+     * Loads the files the folder's {@value #INDEX} names. {@code resolve} turns a {@code src/main/java/...} data path
+     * into a readable file ({@code DataFiles::path} at run time: override dir, source tree, or the jar).
+     */
+    public static Result loadIndexed(String dir, java.util.function.Function<String, Path> resolve) {
+        List<Content> out = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        String base = dir.endsWith("/") ? dir : dir + "/";
+        List<String> names;
+        try {
+            names = indexNames(Files.readAllLines(resolve.apply(base + INDEX)));
+        } catch (IOException | RuntimeException e) {
+            return new Result(List.of(), List.of("cannot read " + base + INDEX + ": " + e.getMessage()));
+        }
+        for (String name : names) {
+            if (!FILE_NAME.matcher(name).matches()) {
+                errors.add(INDEX + ": '" + name + "' is not a stage-data file name like kpq.yaml");
+                continue;
+            }
+            try (Reader in = Files.newBufferedReader(resolve.apply(base + name))) {
+                Result r = parse(in);
+                out.addAll(r.content());
+                r.errors().forEach(e -> errors.add(name + ": " + e));
+            } catch (IOException | RuntimeException e) {
+                errors.add(name + ": cannot read (" + e.getMessage() + ")");
+            }
+        }
+        return dedupe(out, errors);
+    }
+
+    /** The file names an index lists: trimmed, blank lines and {@code #} comments skipped, each once. */
+    static List<String> indexNames(List<String> lines) {
+        List<String> names = new ArrayList<>();
+        for (String line : lines) {
+            String n = line.strip();
+            if (!n.isEmpty() && !n.startsWith("#") && !names.contains(n)) {
+                names.add(n);
+            }
+        }
+        return names;
+    }
+
+    /** Loads every {@code *.yaml} in the folder (a folder on disk; the shipped data goes through {@link #load()}). */
     public static Result loadDir(Path dir) {
         List<Content> out = new ArrayList<>();
         List<String> errors = new ArrayList<>();
@@ -63,6 +123,10 @@ public final class StageData {
         } catch (IOException e) {
             errors.add("cannot read " + dir + ": " + e.getMessage());
         }
+        return dedupe(out, errors);
+    }
+
+    private static Result dedupe(List<Content> out, List<String> errors) {
         Set<String> ids = new HashSet<>();
         out.removeIf(c -> {
             if (!ids.add(c.id())) {

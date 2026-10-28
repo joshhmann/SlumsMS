@@ -1,5 +1,5 @@
-# Ticket 114 stage data: Kerning City Party Quest (KPQ). Scaffold: only stage 1 is filled in.
-# Format: docs/tickets/114-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData,
+# Ticket 130 stage data: Kerning City Party Quest (KPQ). Scaffold: only stage 1 is filled in.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData,
 # only when the server runs with -Dslums.mechanics=true (off by default; nothing reads this file yet).
 #
 # The server's own scripts are the truth: a solver reads the live answer from the event instance at run time. This
@@ -20,7 +20,7 @@ sources:
   - "wz Map.wz 103000800.img: Cloto at (592, 106), 22 Ligator (9300001) spawns, spawn point sp (-1077, 81)"
   - "Cross-checked against nutnnut/cosmic_agents (AGPL-3.0) AgentKpqDefinition: same answers 10/35/20/25/25/30/8"
 # Difficulty tiers (1.7.0 "PQ difficulties"): NORMAL is the stock PQ and needs no entry. Hard, Expert and Master
-# numbers are for the owner to decide (ticket 114, "Difficulty tiers"); the shape is:
+# numbers are for the owner to decide (ticket 130, "Difficulty tiers"); the shape is:
 #   tiers:
 #     HARD: { minLevel: 40, mobLevelBonus: 20, mobHpMultiplier: 4, mobDamageMultiplier: 2.5, timeLimitMinutes: 25, botMistakeFactor: 1.25 }
 stages:
