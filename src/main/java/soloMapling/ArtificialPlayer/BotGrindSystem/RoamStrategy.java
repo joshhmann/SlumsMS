@@ -192,11 +192,21 @@ final class RoamStrategy implements GrindStrategy {
         if (now() < b.attackWalkLockUntil) {
             return; // just swung — hold, then move
         }
-        if (Math.abs(tx - b.lastMoveTargetX) < GrindBrain.ROAM_RETARGET_EPS) {
+        if (alreadyHeading(tx, b.lastMoveTargetX, GCMovement.isMoving(chr))) {
             return; // already heading there
         }
         GCMovement.move(chr, tx, ty);
         b.lastMoveTargetX = tx;
+    }
+
+    /**
+     * Pure: skip re-issuing the walk only while the bot really is still walking to (about) that spot. The movement
+     * driver drops a move that makes no progress for 8 s; a bot whose target then stood still (an invasion's boss)
+     * used to see "same x as last time" forever and never walked again (TEST 2026-10-27: the crowd stood ~4,700 px
+     * from Jr. Balrog for 5 minutes).
+     */
+    static boolean alreadyHeading(int tx, int lastMoveTargetX, boolean moving) {
+        return moving && Math.abs(tx - lastMoveTargetX) < GrindBrain.ROAM_RETARGET_EPS;
     }
 
     private static long now() {
