@@ -80,6 +80,9 @@ public final class AttackCapture {
 
     /* A close-range, ranged, magic or touch attack; route is "close", "ranged", "magic" or "touch". */
     public static void attack(Character chr, String route, AttackInfo attack, InPacket p) {
+        if (attack != null) {
+            server.reports.PlayerTrail.event(chr, "attack", attack.skill, route); // ticket 131: @bug trail (repeats fold)
+        }
         if (attack != null && chr != null && soloMapling.qa.MoveTrace.armed(chr.getId())) { // !qa mv-1
             soloMapling.qa.MoveTrace.attack(chr, route, attack.skill);
         }
@@ -128,6 +131,7 @@ public final class AttackCapture {
 
     /* A buff or other skill cast (SPECIAL_MOVE), with the level the client named. */
     public static void cast(Character chr, int skillId, int skillLevel, InPacket p) {
+        server.reports.PlayerTrail.event(chr, "skill", skillId, null); // ticket 131: @bug trail
         if (!captures(chr)) {
             return;
         }

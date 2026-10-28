@@ -30,6 +30,7 @@ public enum SendOpcode {
     WEAPON_TINT_SYNC(0x372F),// slums.dll Coloring Prism reply to WEAPON_TINT_ACTION 0x372E (ColorPrismPackets)
     MONSTER_BOOK_RESULT(0x3735),// slums.dll Monster Book reply to MONSTER_BOOK_QUERY 0x3734 (MonsterBookPackets)
     BOUNCE_ZONES_SYNC(0x3737),// slums.dll bounce block zones at login / !bounce reload (BounceZonePackets); 0x3736 reserved
+    BUG_LOG_REQUEST(0x373A),// ticket 131: asks a client with stamp caps bit 1 for its log tail after @bug (server.reports.BugClientLogs)
     BOSS_DAMAGE_RANK(0x3739),// slums.dll party damage ranking for the DPS meter (client ticket 118; server.life.DamageRank)
 
     LOGIN_STATUS(0x00),

@@ -122,6 +122,10 @@ public class Trade {
     private void completeTrade() {
         byte result;
         boolean show = YamlConfig.config.server.USE_DEBUG;
+        if (partner != null) { // ticket 131: @bug trail (partner by character name only)
+            server.reports.PlayerTrail.event(chr, "trade", exchangeItems == null ? 0 : exchangeItems.size(), partner.getChr().getName()
+                    + (exchangeMeso > 0 ? ", +" + exchangeMeso + " mesos" : ""));
+        }
         items.clear();
         meso = 0;
 

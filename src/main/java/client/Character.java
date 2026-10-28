@@ -700,6 +700,23 @@ public class Character extends AbstractCharacterObject {
         return client instanceof BotClient && !isOwnedAlt();
     }
 
+    private volatile server.reports.PlayerTrail bugTrail; // ticket 131: @bug "last steps", real players only
+
+    /** Ticket 131: this character's @bug trail, made on first use. Callers go through PlayerTrail.of (skips bots). */
+    public server.reports.PlayerTrail bugTrail() {
+        server.reports.PlayerTrail t = bugTrail;
+        if (t == null) {
+            synchronized (this) {
+                t = bugTrail;
+                if (t == null) {
+                    t = new server.reports.PlayerTrail();
+                    bugTrail = t;
+                }
+            }
+        }
+        return t;
+    }
+
     private volatile Character ownedAltOwner;
     private boolean ownedAltSaveCommitted;
     private boolean ownedAltFinalSave; // guarded by this monitor, like saveCharToDB
@@ -2039,6 +2056,7 @@ public class Character extends AbstractCharacterObject {
             }
             soloMapling.qa.MapEntryMeter.placed(this);
             visitMap(map);
+            server.reports.PlayerTrail.map(this, to.getId(), to.getMapName()); // ticket 131: @bug last maps
             soloMapling.achievements.Achievements.onMap(this, to.getId()); // 1.6.1 ticket 93
 
             prtLock.lock();
@@ -2334,6 +2352,10 @@ public class Character extends AbstractCharacterObject {
 
     public final void pickupItem(MapObject ob, int petIndex) {
         MapItem picking = ob instanceof MapItem mi && petIndex < 0 ? mi : null;
+        if (ob instanceof MapItem pick) { // ticket 131: @bug trail (the attempt; for mesos the id is the amount)
+            server.reports.PlayerTrail.event(this, "pickup", pick.getItemId(),
+                    pick.getMeso() > 0 ? (petIndex >= 0 ? "meso, pet" : "meso") : (petIndex >= 0 ? "pet" : null));
+        }
         if (picking != null) {
             MapleMap.clearPickedOnThisThread();
         }
@@ -8820,6 +8842,7 @@ public class Character extends AbstractCharacterObject {
         cancelAllBuffsOnDeath();
         dispelDebuffs();
         lastDeathtime = Server.getInstance().getCurrentTime();
+        server.reports.PlayerTrail.event(this, "death", getMapId(), null); // ticket 131
         soloMapling.server.MapleRootSolo.runHook("drama death", () ->   // 1.5.0: rivals roast today's deaths
                 soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onPlayerDeath(this));
 

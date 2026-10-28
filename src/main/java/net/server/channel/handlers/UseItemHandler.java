@@ -53,6 +53,7 @@ public final class UseItemHandler extends AbstractPacketHandler {
         int itemId = p.readInt();
         Item toUse = chr.getInventory(InventoryType.USE).getItem(slot);
         if (toUse != null && toUse.getQuantity() > 0 && toUse.getItemId() == itemId) {
+            server.reports.PlayerTrail.event(chr, "use", itemId, null); // ticket 131: @bug trail
             if (itemId == ItemId.ALL_CURE_POTION) {
                 chr.dispelDebuffs();
                 remove(c, slot);

@@ -1188,6 +1188,10 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-bt-2", "Friend crews: the leader picks a town, the crew follows").minutes(6)
                 .expect(probe("botCrew"))
                 .build());
+        // @bug (ticket 131): a filed report gets a ref, a reports.jsonl line and a capped context file; cleanup removes both
+        c.add(Check.auto("t-br-1", "@bug: ref reply, report line, context with versions/trail/log, no secrets").minutes(1)
+                .expect(probe("bugReport"))
+                .build());
         return List.copyOf(c);
     }
 

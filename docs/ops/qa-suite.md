@@ -444,6 +444,13 @@ goals and takes the medals back. Auto-QA: t-ac-1.
   Roots (993910000) and one in Henesys (100000000) as loaded from `plife`, and the first-login guide and `@settings`
   use her as the NPC. (`t-sc-1` is the 1.5.0 gambler-bot check, so her id is `t-sn-1`.)
 
+- **t-br-1 (`@bug` with context, ticket 131):** logs two WARN lines naming the QA character (one says "password"), then
+  the pretend player types `@bug autoqa t-br-1 <marker> ...`. Wants the `Thanks! Bug #B-.. sent.` reply, the line in
+  the reports file (`-Dsolomapling.reportsFile`, TEST `/var/lib/slums-report-test/reports.jsonl`) with source
+  `ingame`, the text and `context.file`, and `context/<ref>.json` under 64 KB with versions, character, trail,
+  surroundings, quests, buffs, the first WARN line and not the password one. Removes exactly that line (under the
+  file lock) and its context file in a `finally`, and resets the QA account's report limit.
+
 ### bt-1: bots talk to bots (1.6.1, ticket 114)
 
 `!qa run bt-1` (needs `-Dslums.bottalk=true`): five fresh bots next to the GM, Ann and Bob friends, Cat, Dan and Eve a

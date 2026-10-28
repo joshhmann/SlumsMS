@@ -128,6 +128,7 @@ public class Shop {
                         soloMapling.Economy.stats.EconomyCounters.recordNpcBuy(item.getPrice());
                     }
                     c.sendPacket(PacketCreator.shopTransaction((byte) 0));
+                    server.reports.PlayerTrail.event(c.getPlayer(), "shop", itemId, "npc " + npcId); // ticket 131: @bug trail
                 } else {
                     c.sendPacket(PacketCreator.shopTransaction((byte) 3));
                 }
@@ -156,6 +157,7 @@ public class Shop {
                         InventoryManipulator.removeById(c, InventoryType.ETC, ItemId.PERFECT_PITCH, amount, false, false);
                     }
                     c.sendPacket(PacketCreator.shopTransaction((byte) 0));
+                    server.reports.PlayerTrail.event(c.getPlayer(), "shop", itemId, "npc " + npcId); // ticket 131: @bug trail
                 } else {
                     c.sendPacket(PacketCreator.shopTransaction((byte) 3));
                 }

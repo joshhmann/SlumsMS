@@ -49,7 +49,7 @@ class SiteScenarioTest {
         write("leaderboards.json", head + "\"level\":[{\"rank\":1,\"name\":\"Bob\"}],\"levelByClass\":" + classes
                 + ",\"fame\":[],\"guilds\":[],\"traders\":[],\"dojo\":[],"
                 + "\"bosses\":{\"Zakum\":[{\"name\":\"Bob\",\"clears\":2}],\"Horntail\":[],\"Pink Bean\":[]}}");
-        write("world.json", head + "\"online\":8,\"channels\":[{\"channel\":1,\"online\":8}],\"busiest_maps\":[],\"top_mobs\":[],\"top_mobs_7d\":[],"
+        write("world.json", head + "\"version\":{\"server\":\"1.6.1\"},\"online\":8,\"channels\":[{\"channel\":1,\"online\":8}],\"busiest_maps\":[],\"top_mobs\":[],\"top_mobs_7d\":[],"
                 + "\"tonight\":null,\"running\":[]}");
     }
 

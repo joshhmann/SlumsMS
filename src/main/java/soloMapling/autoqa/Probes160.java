@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "botRebirth", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew");
+            "family", "tutorialIsland", "botRebirth", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "bugReport");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -105,6 +105,7 @@ final class Probes160 {
                 case "slumsChan" -> slumsChan(p);
                 case "botTalk" -> botTalk(p);
                 case "botCrew" -> botCrew(p);
+                case "bugReport" -> bugReport(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1542,6 +1543,105 @@ final class Probes160 {
             ev.add("cleanup removed " + gone + " rows");
         }
         return verdict(bad, "site invite routes: player and GM rules, the week shared with @invite, list privacy, cancel rules", ev);
+    }
+
+    // ── t-br-1: @bug with its automatic context (ticket 131) ─────────────────────────────────────
+
+    /**
+     * t-br-1: the pretend player files {@code @bug}; the reply carries a ref, the reports file has the line (source
+     * ingame, ref, the text, a context summary pointing at its file), and the context file has the versions, the
+     * character, the trail and the server's WARN line about this character, but not a WARN line that mentions a
+     * password, and fits in 64 KB. The line and the file are removed in a {@code finally} (only that ref).
+     */
+    static List<String> bugReport(SyntheticPlayer p) throws Exception {
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        Character me = p.character();
+        server.reports.ReportStore store = server.reports.ReportStore.getInstance();
+        store.resetLimitsForQa(me.getAccountID());
+        server.reports.WarnLogRing.install();
+        org.slf4j.Logger qaLog = org.slf4j.LoggerFactory.getLogger("soloMapling.autoqa.BugReportQa");
+        String marker = "tbr1-" + System.currentTimeMillis();
+        qaLog.warn("auto-QA t-br-1: staged warning {} for chr {}", marker, me.getName());
+        qaLog.warn("auto-QA t-br-1: {} password check for {} (must never reach a report)", marker, me.getName());
+        String text = "autoqa t-br-1 " + marker + " the door does not open";
+        long since = System.currentTimeMillis();
+        List<AutoQaLine> before = p.heard(since);
+        p.say("@bug " + text);
+        Pattern thanks = Pattern.compile("Thanks! Bug #(B-\\d+) sent");
+        String ref = null;
+        for (long end = since + 15_000; ref == null && System.currentTimeMillis() < end; ) {
+            for (AutoQaLine l : p.heard(since)) {
+                Matcher m = thanks.matcher(l.message());
+                if (!before.contains(l) && m.find()) {
+                    ref = m.group(1);
+                    ev.add("reply: " + l.message());
+                    break;
+                }
+            }
+            if (ref == null) {
+                Thread.sleep(200);
+            }
+        }
+        if (ref == null) {
+            return verdict(List.of("no 'Thanks! Bug #B-.. sent.' reply within 15 s"), "", ev);
+        }
+        try {
+            Map<String, Object> line = store.find(ref);
+            ev.add("reports file " + store.file().toAbsolutePath() + ": " + (line == null ? "no line" : "line " + line.get("id")));
+            if (line == null) {
+                bad.add("no line with ref " + ref + " in " + store.file());
+            } else {
+                if (!"ingame".equals(line.get("source")) || !"bug".equals(line.get("type"))) {
+                    bad.add("source/type are " + line.get("source") + "/" + line.get("type"));
+                }
+                if (!String.valueOf(line.get("details")).equals(text) || !String.valueOf(line.get("title")).startsWith("autoqa t-br-1")) {
+                    bad.add("details/title do not carry the text");
+                }
+                if (!me.getName().equals(line.get("character"))) {
+                    bad.add("character is " + line.get("character"));
+                }
+                if (!(line.get("context") instanceof Map<?, ?> sum) || !("context/" + ref + ".json").equals(sum.get("file"))) {
+                    bad.add("the line has no context summary pointing at context/" + ref + ".json");
+                }
+            }
+            Map<String, Object> ctx = store.readContext(ref);
+            if (ctx == null) {
+                bad.add("no context file " + store.contextDir().resolve(ref + ".json"));
+            } else {
+                int bytes = server.reports.BugContext.bytes(ctx);
+                ev.add("context: " + bytes + " bytes, keys " + ctx.keySet());
+                if (bytes > server.reports.BugContext.MAX_BYTES) {
+                    bad.add("context is " + bytes + " bytes, over the cap");
+                }
+                if (!(ctx.get("versions") instanceof Map<?, ?> v) || !constants.net.ServerConstants.SLUMSMS_VERSION.equals(v.get("server"))) {
+                    bad.add("versions.server is not " + constants.net.ServerConstants.SLUMSMS_VERSION);
+                }
+                if (!(ctx.get("character") instanceof Map<?, ?> ch) || !me.getName().equals(ch.get("name"))) {
+                    bad.add("character section missing or not " + me.getName());
+                }
+                for (String k : List.of("trail", "surroundings", "quests", "buffs")) {
+                    if (!ctx.containsKey(k) || (ctx.get(k) instanceof Map<?, ?> m && m.containsKey("error"))) {
+                        bad.add(k + " section missing or failed: " + ctx.get(k));
+                    }
+                }
+                String logs = String.valueOf(ctx.get("serverLog"));
+                if (!logs.contains("staged warning " + marker)) {
+                    bad.add("the staged WARN line about " + me.getName() + " is not in serverLog");
+                }
+                if (logs.contains("password")) {
+                    bad.add("a WARN line mentioning a password reached the report");
+                }
+            }
+        } finally {
+            int gone = store.removeForQa(ref).get(10, java.util.concurrent.TimeUnit.SECONDS);
+            ev.add("cleanup removed " + gone + " line(s) and the context file");
+            if (store.find(ref) != null || store.readContext(ref) != null) {
+                bad.add("cleanup left " + ref + " behind");
+            }
+            store.resetLimitsForQa(me.getAccountID());
+        }
+        return verdict(bad, "@bug replied " + ref + ", wrote the line and a capped context with versions, trail and the staged warning (no password line), and cleanup removed it", ev);
     }
 
     /** t-iv-1: the state word(s) after the code on one {@code @invite list} line ("CODE  used" gives "used"). */

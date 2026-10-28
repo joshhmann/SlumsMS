@@ -261,6 +261,38 @@
                 </configuration>
             </plugin>
 
+            <!-- Ticket 131 / site export: the build's commit in slums-git.properties (read by constants.net.BuildInfo).
+                 No git (a source tarball, CI without history): the file is skipped and the commit is simply absent. -->
+            <plugin>
+                <groupId>pl.project13.maven</groupId>
+                <artifactId>git-commit-id-plugin</artifactId>
+                <version>2.2.6</version>
+                <executions>
+                    <execution>
+                        <id>slums-git-commit</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                    <useNativeGit>true</useNativeGit>
+                    <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
+                    <failOnUnableToExtractRepoInfo>false</failOnUnableToExtractRepoInfo>
+                    <generateGitPropertiesFile>true</generateGitPropertiesFile>
+                    <generateGitPropertiesFilename>${project.build.outputDirectory}/slums-git.properties</generateGitPropertiesFilename>
+                    <includeOnlyProperties>
+                        <includeOnlyProperty>^git.commit.id.abbrev$</includeOnlyProperty>
+                        <includeOnlyProperty>^git.commit.id$</includeOnlyProperty>
+                        <includeOnlyProperty>^git.dirty$</includeOnlyProperty>
+                    </includeOnlyProperties>
+                    <abbrevLength>9</abbrevLength>
+                    <skipPoms>false</skipPoms>
+                </configuration>
+            </plugin>
+
             <!-- Enable assembling jar that includes all dependencies -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

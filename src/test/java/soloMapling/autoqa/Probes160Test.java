@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.0: the checks added for features that shipped without one; their pure verdicts and their wiring. */
 class Probes160Test {
 
-    static final List<String> NEW = List.of("t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-xc-2", "t-xc-3", "t-xc-4", "t-fy-1", "t-ti-1", "t-rb-1", "t-ac-1", "t-nc-1", "t-iv-1", "t-iv-2", "t-sn-1", "t-bt-1", "t-bt-2");
+    static final List<String> NEW = List.of("t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-xc-2", "t-xc-3", "t-xc-4", "t-fy-1", "t-ti-1", "t-rb-1", "t-ac-1", "t-nc-1", "t-iv-1", "t-iv-2", "t-sn-1", "t-bt-1", "t-bt-2", "t-br-1");
 
     private static Probes160.TownSample sample(long at, int target, int filled, int[] per, List<String> over) {
         return new Probes160.TownSample(at, target, filled, per, over, 200);
