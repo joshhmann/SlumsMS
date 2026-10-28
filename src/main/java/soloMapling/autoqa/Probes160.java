@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family");
+            "family", "botTalk", "botCrew");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -93,6 +93,8 @@ final class Probes160 {
                 case "slumsStamps" -> slumsStamps(p);
                 case "nxExchange" -> nxExchange(p);
                 case "family" -> family(p);
+                case "botTalk" -> botTalk(p);
+                case "botCrew" -> botCrew(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1143,6 +1145,135 @@ final class Probes160 {
         return verdict(bad, "a bot accepted being the junior, its kill gave rep, 1.5x drop and 2x EXP were given for"
                 + " their rep, a second use was refused, and the family was dissolved", ev);
     }
+
+    // ── t-bt-1 / t-bt-2: bot-to-bot talk and friend crews (ticket 114) ───────────────────────────
+
+    /** t-bt-1: the most a tick of the talk engine may cost on average (ms), at TEST's bot count. */
+    static final double TALK_TICK_MS_MAX = 20;
+
+    /**
+     * t-bt-1: five fresh bots next to the pretend player. (1) Ann greets her friend Bob, chats and asks to party; Bob
+     * answers from his goals, mood and bond, every line goes out with its intent, and a yes is a real party (a no is
+     * none). (2) Cat, Dan and Eve talk as a group: three speakers, turns, each answers the ask itself. (3) No bot line
+     * reached the classifier, and the engine's tick stays cheap.
+     */
+    static List<String> botTalk(SyntheticPlayer p) throws InterruptedException {
+        if (!soloMapling.ArtificialPlayer.BotConvo.BotTalk.on()) {
+            return List.of("SKIP bot talk is off (-Dslums.bottalk=true)");
+        }
+        Character me = p.character();
+        List<Character> bots = soloMapling.ArtificialPlayer.BotConvo.TalkQa.spawn(me, 5, false,
+                Math.max(10, Math.min(120, me.getLevel())));
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        try {
+            if (bots.size() < 5) {
+                return List.of("FAIL could not spawn five bots (" + bots.size() + ")");
+            }
+            soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.stage(bots.get(0).getId(), bots.get(1).getId(),
+                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.FRIEND);
+            soloMapling.ArtificialPlayer.BotConvo.TalkQa.friends(bots.subList(2, 5));
+            long classified0 = soloMapling.ArtificialPlayer.BotConvo.BotLineIntents.counts().get("classifiedBotLines");
+            long since = System.currentTimeMillis();
+            var pair = soloMapling.ArtificialPlayer.BotConvo.TalkQa.talk(List.of(bots.get(0), bots.get(1)),
+                    soloMapling.ArtificialPlayer.BotConvo.TalkIntent.Ask.PARTY, "auto-QA t-bt-1 pair");
+            var group = soloMapling.ArtificialPlayer.BotConvo.TalkQa.talk(bots.subList(2, 5), null,
+                    "auto-QA t-bt-1 group");
+            ev.addAll(soloMapling.ArtificialPlayer.BotConvo.TalkQa.describe("pair", pair));
+            ev.addAll(soloMapling.ArtificialPlayer.BotConvo.TalkQa.describe("group", group));
+            if (pair == null || group == null) {
+                bad.add("a talk did not start");
+                return verdict(bad, "", ev);
+            }
+            if (pair.ask == null) {
+                bad.add("the pair asked nothing: " + pair.noAskWhy);
+            }
+            if (pair.decisions.isEmpty()) {
+                bad.add("Bob decided nothing");
+            }
+            if (!group.group || group.who.size() != 3) {
+                bad.add("the group talk was not a group of three");
+            }
+            Thread.sleep(Math.max(soloMapling.ArtificialPlayer.BotConvo.TalkQa.sayMs(pair),
+                    soloMapling.ArtificialPlayer.BotConvo.TalkQa.sayMs(group)) + 3_000);
+            for (String b : soloMapling.ArtificialPlayer.BotConvo.TalkQa.judge(pair, since)) {
+                bad.add("pair: " + b);
+            }
+            for (String b : soloMapling.ArtificialPlayer.BotConvo.TalkQa.judge(group, since)) {
+                bad.add("group: " + b);
+            }
+            long classified = soloMapling.ArtificialPlayer.BotConvo.BotLineIntents.counts().get("classifiedBotLines")
+                    - classified0;
+            if (classified != 0) {
+                bad.add(classified + " bot line(s) went to the classifier");
+            }
+            Map<String, Object> st = soloMapling.ArtificialPlayer.BotConvo.BotTalk.stats();
+            long ticks = ((Number) st.get("ticks")).longValue();
+            double perTick = ticks == 0 ? 0 : ((Number) st.get("cpuNanos")).longValue() / 1e6 / ticks;
+            ev.add(String.format(Locale.ROOT, "engine: %.2f ms a tick over %d ticks, %d online bots; %s", perTick, ticks,
+                    soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getAllBots().size(),
+                    soloMapling.ArtificialPlayer.BotConvo.TalkQa.stats()));
+            if (perTick > TALK_TICK_MS_MAX) {
+                bad.add(String.format(Locale.ROOT, "a talk tick costs %.1f ms on average (max %.0f)", perTick,
+                        TALK_TICK_MS_MAX));
+            }
+        } finally {
+            ev.add(soloMapling.ArtificialPlayer.BotConvo.TalkQa.teardown(bots));
+        }
+        return verdict(bad, "a pair greeted, chatted, asked to party and the answer was acted on as decided; a group"
+                + " of three took turns and each answered; no bot line was classified; the tick is cheap", ev);
+    }
+
+    /**
+     * t-bt-2: three fresh training bots made a crew (mutual friends); the leader (lowest id) picks a town and the
+     * others are nudged and their next hang-out is that town (CREW); then up to {@link #CREW_WAIT_S} s for one of
+     * them to get there (their brains choose when; map caps apply on the way).
+     */
+    static List<String> botCrew(SyntheticPlayer p) throws InterruptedException {
+        if (!soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews.on()) {
+            return List.of("SKIP friend crews are off (-Dslums.crews=true)");
+        }
+        if (!LifeRuntime.enabled()) {
+            return List.of("SKIP the daily-life brain is off (-Dslums.botlife.enabled/execute)");
+        }
+        Character me = p.character();
+        int level = Math.max(15, Math.min(60, me.getLevel()));
+        List<Character> crew = soloMapling.ArtificialPlayer.BotConvo.TalkQa.spawn(me, 3, true, level);
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        try {
+            if (crew.size() < 3) {
+                return List.of("FAIL could not spawn three training bots (" + crew.size() + ")");
+            }
+            soloMapling.ArtificialPlayer.BotConvo.TalkQa.friends(crew);
+            int town = soloMapling.ArtificialPlayer.BotConvo.TalkQa.crewTown(me.getMapId(), level);
+            ev.add("crew " + soloMapling.ArtificialPlayer.BotConvo.TalkQa.where(crew) + " -> town " + town);
+            bad.addAll(soloMapling.ArtificialPlayer.BotConvo.TalkQa.crewFollow(crew, town));
+            long end = System.currentTimeMillis() + CREW_WAIT_S * 1000L;
+            int arrived = 0;
+            while (System.currentTimeMillis() < end) {
+                arrived = 0;
+                for (Character c : crew) {
+                    arrived += c.getMapId() == town ? 1 : 0;
+                }
+                if (arrived >= 1) {
+                    break;
+                }
+                Thread.sleep(5_000);
+            }
+            ev.add("after the wait: " + soloMapling.ArtificialPlayer.BotConvo.TalkQa.where(crew) + "; crews "
+                    + soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews.stats());
+            if (arrived == 0) {
+                bad.add("no crew member reached town " + town + " in " + CREW_WAIT_S + " s");
+            }
+        } finally {
+            ev.add(soloMapling.ArtificialPlayer.BotConvo.TalkQa.teardown(crew));
+        }
+        return verdict(bad, "the leader's town became each follower's next hang-out and the crew headed there", ev);
+    }
+
+    /** t-bt-2: how long the crew gets to start moving. */
+    static final int CREW_WAIT_S = 240;
 
     // ── t-xc-1: the NX exchange in game (ticket 113 round 2) ─────────────────────────────────────
 

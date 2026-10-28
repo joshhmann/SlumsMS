@@ -103,6 +103,7 @@ public final class QaMenuCatalog {
         add("sg-2", v(), steps("check", "taunt", "ks", "roast", "fresh"));
         section("Bot bonds (1.6.0)");
         add("bb-3", v(), steps("fast", "check"), "fast <minutes>");
+        add("bt-1", v(), steps("pair", "rival", "group", "check")); // 1.6.1 ticket 114: bot-to-bot talk
         section("Memory kinds (1.6.0)");
         add("me-1", v(), steps("card", "clear"));
         add("me-2", v(), steps("check", "scam", "fresh"));

@@ -1057,6 +1057,9 @@ public final class BotThreads {
                     }
                     return;
                 }
+                // 1.6.1 (ticket 114): the line carries what the thread meant; no listener runs the classifier on it
+                BotLineIntents.note(who.getId(), styled, "THREAD " + l.topic.name(), who == a ? b.getId() : a.getId(),
+                        System.currentTimeMillis());
                 SayDo.withSource("thread-" + source, () -> BotSpeak(who, styled));
                 if (traced) {
                     soloMapling.autoqa.SocialTrace.threadLine(l.id, who, styled);
@@ -1301,6 +1304,7 @@ public final class BotThreads {
             return null;
         }
         qa(mapId, "JOIN a player jumps into " + l.names + " (" + l.topic.words + "): " + ConvoQuality.anonymise(line, playerName));
+        BotTalk.joined(threadId, playerName); // 1.6.1: a bot-to-bot talk the player joined (trace)
         return l.lastSpeakerId;
     }
 

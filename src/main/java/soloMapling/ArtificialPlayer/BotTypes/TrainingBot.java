@@ -993,6 +993,11 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             enterPhase(getChr().getMapId() == lifeDestination ? Phase.LIFE_DWELL : Phase.LIFE_TRAVEL);
         }
         lifeNote("START activity=" + activity);
+        if ((activity == LifeDecision.Activity.HANG_OUT || activity == LifeDecision.Activity.SHOW_OFF)
+                && soloMapling.ArtificialPlayer.BotLifeSystem.LifeTowns.isTownMap(destination)) {
+            // 1.6.1 (ticket 114): a crew's leader picked the town: its friends follow with small delays
+            soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews.led(getChr(), destination);
+        }
         if (activity == LifeDecision.Activity.PARTY_QUEST) {
             soloMapling.ArtificialPlayer.BotConvo.LfgParty.started(getChr().getId()); // 1.6.0: an LFG pair's trip
         }

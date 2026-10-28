@@ -65,6 +65,12 @@ public final class LifeRuntime {
     private volatile boolean channelForKs;
     /** 1.6.0 towns: the town map a free bot is pulled to at this decision ({@link TownPulse}); -1 = none. */
     private volatile int pullTown = -1;
+    /** 1.6.1 (ticket 114): a town another bot asked this one to come along to (and it said yes); -1 = none. */
+    private volatile int inviteMap = -1;
+    private volatile long inviteUntil;
+    /** 1.6.1 (ticket 114): a bot that asked this one for help training (and it said yes); 0 = none. */
+    private volatile int botHelpId;
+    private volatile long botHelpUntil;
     /** 1.6.0 towns: where the last {@link #townDestination()} came from (bot-life.json). */
     private volatile LifeTowns.Source townSource = LifeTowns.Source.HENESYS;
 
@@ -107,6 +113,12 @@ public final class LifeRuntime {
         long now = System.currentTimeMillis();
         Character friend = friend(now);
         if (friend != null && friend.getMap() != null && friend.getMap().isTown()) return source(friend.getMapId(), LifeTowns.Source.FRIEND);
+        // 1.6.1 (ticket 114): a come-along it agreed to, then its crew's pick (friends move towns together)
+        int invited = invitedTown(now);
+        if (invited > 0) return source(invited, LifeTowns.Source.CREW);
+        Character me = bot.getChr();
+        int crew = me == null ? -1 : safe(() -> soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews.follow(me, now), -1);
+        if (crew > 0) return source(crew, LifeTowns.Source.CREW);
         var next = planNext;
         if (next != null && next.step().activity == Activity.HANG_OUT && planDestination > 0) return source(planDestination, LifeTowns.Source.PLAN);
         if (townDestination != HOME_TOWN) return source(townDestination, LifeTowns.Source.FRIEND);
@@ -198,6 +210,44 @@ public final class LifeRuntime {
         };
     }
 
+    /**
+     * 1.6.1 (ticket 114): this bot agreed to come along to {@code mapId} (a town) with another bot, or its crew is
+     * heading there: its next hang-out goes there, and the decision comes soon. Map caps still apply on the way.
+     */
+    public void invite(int mapId, long until) {
+        if (mapId <= 0) return;
+        inviteMap = mapId;
+        inviteUntil = until;
+        dirty = true;
+    }
+
+    /** The town a come-along this bot agreed to goes to, or -1 (none, expired, or it is already there). */
+    public int invitedTown(long now) {
+        int map = inviteMap;
+        if (map <= 0 || now >= inviteUntil) return -1;
+        Character chr = bot.getChr();
+        return chr != null && chr.getMapId() == map ? -1 : map;
+    }
+
+    /** 1.6.1 (ticket 114): this bot agreed to help {@code askerId} train; HELP_FRIEND goes to it while it lasts. */
+    public void botHelp(int askerId, long until) {
+        botHelpId = askerId;
+        botHelpUntil = until;
+        dirty = true;
+    }
+
+    /** The bot this one agreed to help, online on its channel on a map that fits, or null. */
+    Character botHelpTarget(long now) {
+        int id = botHelpId;
+        if (id == 0 || now >= botHelpUntil) return null;
+        Character chr = bot.getChr();
+        Character other = safe(() -> soloMapling.server.SoloMaplingUtilities.world().getPlayerStorage()
+                .getCharacterById(id), null);
+        return other != null && chr != null && chr.getMap() != null && other.getMap() != null
+                && other.getMap().getChannelId() == chr.getMap().getChannelId()
+                && other.getMapId() != chr.getMapId() && fits(chr, other.getMapId()) ? other : null;
+    }
+
     public boolean friendAsk(Character player, boolean party, long now) {
         if (!enabled() || player == null || !BotAffinity.friend(bot.getChr().getId(), player.getId())) return false;
         friendId = player.getId(); friendUntil = now + 60_000; partyAsk = party; dirty = true;
@@ -223,6 +273,8 @@ public final class LifeRuntime {
     public Character helpTarget(long now) {
         Character asked = friend(now);
         if (asked != null) return asked;
+        Character askedByBot = botHelpTarget(now); // 1.6.1 (ticket 114)
+        if (askedByBot != null) return askedByBot;
         int id = helpId;
         if (id == 0) return null;
         Character chr = bot.getChr();
@@ -313,9 +365,10 @@ public final class LifeRuntime {
             }
             if (channelTarget < 0) eligible.remove(Activity.CHANGE_CHANNEL);
             Character friend = friend(now);
+            boolean botAsked = botHelpTarget(now) != null; // 1.6.1 (ticket 114): a bot it said yes to
             boolean free = bot.freeForAutomaticLifeActivity(now);
             var context = new LifePolicy.Context(new Needs(needs), eligible, original.friends(), original.strangers(),
-                    original.rivals(), friend != null, false, !free, current, memory.goals(), unknown);
+                    original.rivals(), friend != null || botAsked, false, !free, current, memory.goals(), unknown);
             var situation = new LifePolicy.Situation(memory.social(),
                     friend == null && eligible.containsKey(Activity.HELP_FRIEND),
                     friend == null && eligible.containsKey(Activity.PARTY_QUEST), crowd, ksWar,
@@ -328,13 +381,18 @@ public final class LifeRuntime {
             dirty = false; lastNeedSignature = signature;
             var kept = now >= dueAt ? null : current;
             double townBias = townBias(chr.getLevel());
+            // 1.6.1 (ticket 114): a come-along it agreed to, or its crew heading to a town, pulls like a friend's town
+            double crewPull = invitedTown(now) > 0 || townSource == LifeTowns.Source.CREW
+                    && safe(() -> soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews.follow(chr, now), -1) > 0
+                    ? CREW_PULL : 0;
             TownPulse.offer(chr.getId(), pulled); // read by TownPulse.BIAS in the scorer
             List<Option> options;
             try {
                 options = LifePolicy.options(context, memory.profile(), situation).stream().map(o ->
                         o.activity() == Activity.HANG_OUT || o.activity() == Activity.SHOW_OFF
                         ? new Option(o.activity(), o.weights(), o.contextBonus() + townBias
-                                + (townDestination != HOME_TOWN ? .6 : 0), o.personalityBonus(), o.available(), o.reason()) : o).toList();
+                                + (townDestination != HOME_TOWN ? .6 : 0) + crewPull, o.personalityBonus(), o.available(),
+                                o.reason()) : o).toList();
             } finally {
                 TownPulse.offer(chr.getId(), null);
             }
@@ -381,6 +439,9 @@ public final class LifeRuntime {
         if (next == null) return null;
         return bot.townOnly() && next.step().activity == Activity.HANG_OUT ? null : next.step().activity;
     }
+
+    /** 1.6.1 (ticket 114): the hang-out pull of an agreed come-along or the crew's town (a friend's town is .6). */
+    static final double CREW_PULL = .7;
 
     /** Low levels hang around town more (2009 Henesys); 1.6.0 S8 halved the pull (audit finding 4). */
     static double townBias(int level) {
@@ -676,6 +737,7 @@ public final class LifeRuntime {
                 data.put("nameGuard", soloMapling.ArtificialPlayer.BotConvo.NameGuard.counts()); // S4: made-up names caught
                 data.put("learning", LifeLearning.report(now)); // 1.6.0 S9: drift, crossings, fads, trends
                 data.put("towns", TownPulse.report()); // 1.6.0 towns: pull counters, bots vs targets
+                data.put("botTalk", soloMapling.ArtificialPlayer.BotConvo.BotTalk.stats()); // 1.6.1 ticket 114, cpuNanos
                 var file = java.nio.file.Path.of("data/autoqa/bot-life.json");
                 java.nio.file.Files.createDirectories(file.getParent());
                 var temporary = file.resolveSibling("bot-life.json.tmp");

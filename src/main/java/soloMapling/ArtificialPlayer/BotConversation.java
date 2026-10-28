@@ -121,6 +121,9 @@ public final class BotConversation {
      * instead of map chat; null means map chat. Both ways are one conversation with one history and memory.
      */
     public static boolean say(BotSM bot, Character player, String line, Runnable fallback, Consumer<String> deliver) {
+        if (refusesBot(player)) {
+            return false;
+        }
         if (!BotBrains.get().isLive()) {
             // no LLM: the caller answers from its script, but the player is still talking to this bot, so it stays put
             if (bot != null && bot.getChr() != null && player != null) {
@@ -148,6 +151,19 @@ public final class BotConversation {
         return start(bot, player, line, null, deliver, soloMapling.ArtificialPlayer.BotBrainSystem.Priority.PARTNER);
     }
 
+    /**
+     * 1.6.1 (ticket 114): a bot's line to a bot never goes through the classifier or the player chat brain - the
+     * speaker's intent travels with it ({@code BotLineIntents}) and the bot-to-bot talk engine ({@code BotTalk})
+     * answers it. True (and counted) when {@code speaker} is a bot and the talk engine is on.
+     */
+    private static boolean refusesBot(Character speaker) {
+        if (speaker != null && BotHelpers.isBot(speaker) && soloMapling.ArtificialPlayer.BotConvo.BotTalk.on()) {
+            soloMapling.ArtificialPlayer.BotConvo.BotLineIntents.keptFromClassifier();
+            return true;
+        }
+        return false;
+    }
+
     /** How many lines the player has said in their current chat with this bot (0 when they are not talking). */
     public static int playerLines(int botCharId, int playerId) {
         Session session = sessions.get(new Key(botCharId, playerId));
@@ -166,6 +182,9 @@ public final class BotConversation {
     private static boolean start(BotSM bot, Character player, String line, Runnable fallback, Consumer<String> deliver,
                                  soloMapling.ArtificialPlayer.BotBrainSystem.Priority priority) {
         if (bot == null || bot.getChr() == null || player == null) {
+            return false;
+        }
+        if (refusesBot(player)) {
             return false;
         }
         startSweeper();
@@ -447,6 +466,9 @@ public final class BotConversation {
                 && soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()) training.lifeRuntime().memory().talked(asked);
         int slot = bot.getId() - BotStore.BOT_ID_BASE;
         boolean whisper = session.deliver != null;
+        if (BotHelpers.isBot(player)) {
+            soloMapling.ArtificialPlayer.BotConvo.BotLineIntents.classifiedBotLine(); // 1.6.1: only with BotTalk off
+        }
         // Ticket 59: one fast read - rules, then one Decide call for intent, tone and con together
         soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Read read =
                 soloMapling.ArtificialPlayer.BotConvo.ConvoSense.read(line, ChatDecide.get(),

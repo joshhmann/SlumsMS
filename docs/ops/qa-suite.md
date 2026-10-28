@@ -387,6 +387,16 @@ level-up gives the GM rep, and the GM gets 20,000 rep to click every entitlement
 `!qa do check` prints rep and the Family buffs; stop dissolves the family (relog to clear the window). Auto-QA:
 t-fy-1.
 
+### bt-1: bots talk to bots (1.6.1, ticket 114)
+
+`!qa run bt-1` (needs `-Dslums.bottalk=true`): five fresh bots next to the GM, Ann and Bob friends, Cat, Dan and Eve a
+crew, Eve Ann's rival. `!qa do pair`: Ann greets Bob, small talk, asks to party; Bob answers from his goals, mood and
+bond, and a yes is a real party. `!qa do rival`: Ann asks Eve (curt or rude). `!qa do group`: the three take turns
+and each answers the ask itself. Each step prints the plan (every line with its intent, the decisions and why) and a
+`BT1 PASS / FAIL <step>` verdict lands in the QA log once the lines are out. `!qa do check`: the counters (talks,
+lines by source, acts, classified bot lines = 0, tick CPU). Auto-QA: t-bt-1 (pair, group, classifier count, tick
+cost) and t-bt-2 (friend crews: the leader's town becomes the followers' next hang-out and one of them gets there).
+
 ## Adding a scenario
 
 1. Pick the test id from the release notes page. A second test that needs the same staging becomes an alias.

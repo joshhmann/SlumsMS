@@ -54,6 +54,13 @@ public final class LifeMemory {
     private final ArrayDeque<Crossing> crossed = new ArrayDeque<>();
     /** How many crossings a memory keeps (the newest); the count of all of them is {@link #crossings()}. */
     public static final int KEEP_CROSSINGS = 4;
+    /**
+     * 1.6.1 (ticket 114): what the bot remembers of its last chats with other bots ("party for Kerning PQ", "went to
+     * Ellinia together"), newest last, at most {@link #KEEP_MET}; a later greeting or chat can bring it up.
+     */
+    public record Met(int otherId, String name, String what, long at) {}
+    public static final int KEEP_MET = 6;
+    private final ArrayDeque<Met> met = new ArrayDeque<>();
     /** Days of pull-back applied at most in one step (a bot away for months comes back to its seed, not past it). */
     static final int MAX_PULL_DAYS = 60;
 
@@ -84,7 +91,7 @@ public final class LifeMemory {
         } catch (RuntimeException invalid) {
             reset(characterId);
             goals = List.of(); plans = List.of(); soft.clear();
-            lastJob = -1; lastSocial = 0; driftDay = -1; changesToday = 0; eventAt.clear();
+            lastJob = -1; lastSocial = 0; driftDay = -1; changesToday = 0; eventAt.clear(); met.clear();
             savedAt = 0; restored = false; migrated = false; dirty = false;
         }
     }
@@ -195,6 +202,22 @@ public final class LifeMemory {
         if (map.get("events") instanceof Map<?, ?> events) for (Event event : Event.values()) {
             if (events.get(event.name()) instanceof Number n) eventAt.put(event, n.longValue());
         }
+        readMet(map);
+    }
+
+    /** 1.6.1: the bot-chat notes; an unreadable row is skipped, never fatal. */
+    private void readMet(Map<?, ?> map) {
+        met.clear();
+        if (!(map.get("met") instanceof List<?> rows)) return;
+        for (Object row : rows) {
+            if (met.size() >= KEEP_MET) break;
+            try {
+                if (row instanceof Map<?, ?> m && m.get("id") instanceof Number id && m.get("what") instanceof String what) {
+                    met.addLast(new Met(id.intValue(), m.get("name") instanceof String n ? n : "", what,
+                            m.get("at") instanceof Number at ? at.longValue() : 0));
+                }
+            } catch (RuntimeException skipped) { /* next row */ }
+        }
     }
 
     /** 1.6.0 S8: the saved plans (one per goal, dropped if they no longer line up) and soft facts; never fatal. */
@@ -300,6 +323,24 @@ public final class LifeMemory {
     public synchronized void talked(long now) {
         if (now > lastSocial) { lastSocial = now; changed(); }
     }
+
+    /** 1.6.1 (ticket 114): note a chat with another bot; one note per bot (the newest), {@link #KEEP_MET} in all. */
+    public synchronized void noteMet(int otherId, String name, String what, long now) {
+        if (otherId == 0 || what == null || what.isBlank()) return;
+        met.removeIf(m -> m.otherId() == otherId);
+        met.addLast(new Met(otherId, name == null ? "" : name, what.length() > 80 ? what.substring(0, 80) : what, now));
+        while (met.size() > KEEP_MET) met.pollFirst();
+        changed();
+    }
+
+    /** The newest note about a chat with {@code otherId}, or null. */
+    public synchronized Met metWith(int otherId) {
+        for (Met m : met) if (m.otherId() == otherId) return m;
+        return null;
+    }
+
+    /** Every note, oldest first. */
+    public synchronized List<Met> met() { return List.copyOf(met); }
 
     public synchronized void refresh(int level, int job, OptionalInt weaponLevel, long now) {
         refresh(LifeGoals.Facts.basic(level, job, weaponLevel), now);
@@ -577,6 +618,8 @@ public final class LifeMemory {
         learn.put("crossed", crossed.stream().map(c -> Map.of("from", c.from().name(), "to", c.to().name(),
                 "at", c.at())).toList());
         out.put("learn", learn);
+        if (!met.isEmpty()) out.put("met", met.stream().map(m -> Map.of("id", m.otherId(), "name", m.name(),
+                "what", m.what(), "at", m.at())).toList());
         return out;
     }
 

@@ -247,6 +247,40 @@ public final class SocialTrace {
         }
     }
 
+    /**
+     * 1.6.1 (ticket 114): a bot-to-bot talk ({@code BotTalk}) started: recorded as a thread entry (topic GREET, TALK or
+     * TALK_&lt;ask&gt;) with its first two bots; a group's other members show in its lines. {@code why}: what started it.
+     */
+    public static void talkStart(int talkId, MapleMap map, int channel, List<Character> who, String topic, String why,
+                                 String about, long now) {
+        if (!on || who == null || who.size() < 2) {
+            return;
+        }
+        threadStart(talkId, map, channel, who.get(0), who.get(1), topic, false, false, about, null, now);
+        SocialTraceEntry e = byThread.get(talkId);
+        if (e != null) {
+            StringBuilder names = new StringBuilder();
+            for (Character c : who) {
+                names.append(names.length() == 0 ? "" : ", ").append(c.getName());
+            }
+            synchronized (e) {
+                e.trigger = why + (who.size() > 2 ? "; a group of " + who.size() + ": " + names : "");
+            }
+        }
+    }
+
+    /** 1.6.1: each listener's answer and why (goals, bond, mood), kept with the decision. */
+    public static void talkWhy(int talkId, String why) {
+        SocialTraceEntry e = on ? byThread.get(talkId) : null;
+        if (e != null && why != null) {
+            synchronized (e) {
+                if (e.decideWhy == null) {
+                    e.decideWhy = why;
+                }
+            }
+        }
+    }
+
     static String threadWhy(String topic, boolean forced, boolean beefOrDrama, int levelA, int levelB, int mapId) {
         if (forced) {
             return "forced by !qa";
