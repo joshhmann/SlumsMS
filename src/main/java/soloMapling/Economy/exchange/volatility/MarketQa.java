@@ -99,6 +99,9 @@ public final class MarketQa {
         return out;
     }
 
+    /** t-xc-4: the mesos a trader holds for the check (its news buy is 12-22% of them, so a few elixirs' worth). */
+    static final long WAR_MESOS = 100_000;
+
     /**
      * t-xc-4 / {@code !qa run xc-4} (guild war shock, owner 2026-10-28): on a private news desk (no Cody notice, no
      * banner, nothing else sees it) a war is declared for an online trader's guild; the trader's role reads as at war,
@@ -106,21 +109,111 @@ public final class MarketQa {
      * buy as 1 elixir below the best bid (so it rests and never fills), sees it on the book and cancels it.
      */
     public static List<String> warCheck(long now) {
-        List<String> out = new ArrayList<>();
         MarketVolatility mv = MarketVolatility.get();
         Exchange ex = ExchangeService.exchange();
         if (mv == null || ex == null || !mv.config().traders()) {
             return List.of("SKIP trader bots are off (-Dslums.exchange=true -Dslums.exchange.traders=true)");
         }
+        return warCheck(ex, mv.gameRoster(now), now, ms -> {
+            try {
+                Thread.sleep(ms);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+    }
+
+    /**
+     * The check itself, self-sufficient (1.6.1 QA round 3): it takes an online trader that is not inside the 10 s
+     * order cooldown (one that is waits it out once), and a trader short of {@link #WAR_MESOS} is topped up for the
+     * check from QA and the top-up is taken back exactly at the end (nothing minted is left behind).
+     */
+    static List<String> warCheck(Exchange ex, MarketTraders.Roster roster, long now, java.util.function.LongConsumer sleep) {
+        List<String> out = new ArrayList<>();
         if (!ex.open("ELIXIR")) {
             return List.of("SKIP the ELIXIR ticker is closed (-Dslums.exchange.tickers)");
         }
-        MarketTraders.Roster roster = mv.gameRoster(now);
+        long cooldown = ex.config().cooldownMs();
+        record Cand(MarketTraders.Trader t, LiveWallet w, long last, long mesos) {
+        }
+        List<Cand> cands = new ArrayList<>();
         for (MarketTraders.Trader t : roster.traders()) {
             LiveWallet w = roster.walletOf(t);
-            if (w == null || w.have(Asset.MESO) < 100_000) {
+            if (w == null || !w.locked(w::usable)) {
                 continue;
             }
+            long last = 0;
+            try {
+                for (OrderRow o : ex.myOrders(w.account(), 5)) {
+                    last = Math.max(last, o.placedAt());
+                }
+            } catch (Exception e) {
+                // unknown: treat as ready, a COOLDOWN answer is handled below
+            }
+            cands.add(new Cand(t, w, last, w.have(Asset.MESO)));
+        }
+        out.add(rosterLine(roster));
+        if (cands.isEmpty()) {
+            out.add(0, "FAIL no online trader (" + roster.traders().size() + " traders)");
+            return out;
+        }
+        // ready (outside the cooldown) first, then the richest (the least top-up)
+        cands.sort(java.util.Comparator.comparing((Cand c) -> now - c.last() < cooldown)
+                .thenComparing(Cand::mesos, java.util.Comparator.reverseOrder()));
+        for (int i = 0; i < Math.min(3, cands.size()); i++) {
+            Cand c = cands.get(i);
+            String r = warTry(ex, roster, c.t(), c.w(), now, out);
+            if (!"COOLDOWN".equals(r)) {
+                return out;
+            }
+        }
+        // every one tried was inside its cooldown (the traders act on their own): wait it out once and retry the first
+        out.add("all tried traders were in the " + cooldown / 1000 + " s order cooldown: waiting it out once");
+        sleep.accept(cooldown + 1_000);
+        Cand c = cands.get(0);
+        String r = warTry(ex, roster, c.t(), c.w(), now + cooldown + 1_000, out);
+        if ("COOLDOWN".equals(r)) {
+            out.add(0, "FAIL the traders stayed in the order cooldown");
+        }
+        return out;
+    }
+
+    /** Evidence: every trader's archetype and, when online, what it holds (why the books are thin or full). */
+    static String rosterLine(MarketTraders.Roster roster) {
+        StringBuilder sb = new StringBuilder();
+        int online = 0;
+        for (MarketTraders.Trader t : roster.traders()) {
+            LiveWallet w = roster.walletOf(t);
+            sb.append(sb.length() == 0 ? "" : "; ").append(t.id()).append(' ').append(t.archetype());
+            if (w == null) {
+                sb.append(" offline");
+                continue;
+            }
+            online++;
+            sb.append(String.format(" %,d mesos, leaf %d chaos %d ws %d elixir %d", w.have(Asset.MESO),
+                    w.have(Asset.LEAF), w.have(Asset.CHAOS), w.have(Asset.WS), w.have(Asset.ELIXIR)));
+        }
+        return "traders " + roster.traders().size() + ", online " + online + ": " + sb;
+    }
+
+    /**
+     * One trader's go: tops it up to {@link #WAR_MESOS} if short, runs the war news, posts and cancels the bid, and
+     * takes the top-up back. Adds the verdict as line 0 and returns null, or returns "COOLDOWN" (nothing added at 0).
+     */
+    private static String warTry(Exchange ex, MarketTraders.Roster roster, MarketTraders.Trader t, LiveWallet w,
+                                 long now, List<String> out) {
+        long meso0 = w.have(Asset.MESO);
+        long top = Math.max(0, WAR_MESOS - meso0);
+        if (top > 0) {
+            if (!w.locked(() -> w.give(Asset.MESO, top))) {
+                out.add(0, "FAIL could not top up trader " + t.id() + " with " + top + " mesos");
+                return null;
+            }
+            out.add("trader " + t.id() + " had " + meso0 + " mesos: topped up " + top + " for the check (taken back at the end)");
+        }
+        String verdict;
+        boolean cooldown = false;
+        try {
             int guild = roster.guildOf(t) > 0 ? roster.guildOf(t) : 999_999;
             MarketNews desk = MarketNews.forTest(() -> now, s -> { }, false);
             desk.declared(-1, guild, "QaGuildA", guild + 1, "QaGuildB", now + 3_600_000L);
@@ -135,27 +228,43 @@ public final class MarketQa {
                     + ", news action " + acts);
             boolean buys = acts.stream().anyMatch(a -> a instanceof TraderBrain.Place pl && pl.side() == Side.BUY);
             if (role != MarketNews.Role.AT_WAR_FRESH || p <= 0 || !buys) {
-                out.add(0, "FAIL the war news did not turn into an elixir buy");
-                return out;
+                verdict = "FAIL the war news did not turn into an elixir buy";
+            } else {
+                var bids = ex.depth("ELIXIR", Side.BUY, 1);
+                long price = Math.max(1, bids.isEmpty() ? Math.min(v.reference() / 2, 1_000) : bids.get(0).price() / 2);
+                long before = w.have(Asset.MESO);
+                Exchange.Response r = ex.placeBot(new Exchange.Place("qa-xc4-" + t.id() + "-" + now, w.account(),
+                        w.character(), Side.BUY, price, 1, "ELIXIR"), w);
+                if (!r.ok()) {
+                    out.add("trader " + t.id() + " could not post: " + r.code() + " " + r.message());
+                    cooldown = "COOLDOWN".equals(r.code());
+                    verdict = "FAIL the trader's elixir bid was refused: " + r.code();
+                } else {
+                    long id = ((Number) r.data().get("orderId")).longValue();
+                    boolean onBook = ex.openBotOrders(w.account(), "ELIXIR").stream().anyMatch(o -> o.id() == id);
+                    Exchange.Response c = ex.cancelBot("qa-xc4-cancel-" + id, w, id);
+                    long back = w.have(Asset.MESO);
+                    out.add("posted 1 elixir at " + price + " (order " + id + (onBook ? ", on the book" : ", NOT on the book")
+                            + "), cancel " + c.code() + ", mesos " + before + " -> " + back);
+                    verdict = onBook && c.ok() && back == before ? "PASS guild war news drives a trader's elixir buy"
+                            : "FAIL the trader's elixir order did not post, cancel and refund cleanly";
+                }
             }
-            var bids = ex.depth("ELIXIR", Side.BUY, 1);
-            long price = Math.max(1, bids.isEmpty() ? Math.min(v.reference() / 2, 1_000) : bids.get(0).price() / 2);
-            Exchange.Response r = ex.placeBot(new Exchange.Place("qa-xc4-" + t.id() + "-" + now, w.account(),
-                    w.character(), Side.BUY, price, 1, "ELIXIR"), w);
-            if (!r.ok()) {
-                out.add("could not post: " + r.code() + " " + r.message());
-                continue;
+        } finally {
+            if (top > 0) {
+                boolean took = w.locked(() -> w.take(Asset.MESO, top) && w.saveNow());
+                out.add(took ? "took back the " + top + " topped-up mesos (trader at " + w.have(Asset.MESO) + ")"
+                        : "could not take back the " + top + " topped-up mesos");
+                if (!took) {
+                    out.add(0, "FAIL the " + top + " QA mesos could not be taken back from trader " + t.id());
+                    return null;
+                }
             }
-            long id = ((Number) r.data().get("orderId")).longValue();
-            boolean onBook = ex.openBotOrders(w.account(), "ELIXIR").stream().anyMatch(o -> o.id() == id);
-            Exchange.Response c = ex.cancelBot("qa-xc4-cancel-" + id, w, id);
-            out.add("posted 1 elixir at " + price + " (order " + id + (onBook ? ", on the book" : ", NOT on the book")
-                    + "), cancel " + c.code());
-            out.add(0, onBook && c.ok() ? "PASS guild war news drives a trader's elixir buy"
-                    : "FAIL the trader's elixir order did not post and cancel cleanly");
-            return out;
         }
-        out.add(0, "FAIL no online trader with 100,000 mesos (" + roster.traders().size() + " traders)");
-        return out;
+        if (cooldown) {
+            return "COOLDOWN";
+        }
+        out.add(0, verdict);
+        return null;
     }
 }
