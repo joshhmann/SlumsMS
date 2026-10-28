@@ -1,5 +1,7 @@
 #!/bin/bash
-# Call one client-MCP tool on the owner's PC (Silvia) from 187, through the elevated worker's file queue.
+# Call one client-MCP tool on the QA Windows box from 187, through the elevated worker's file queue.
+# CLIENT_MCP_TARGET picks the box: vm (default since 2026-10-28: the Windows test VM 192.168.0.175, ticket 109,
+# client-mcp in C:\SlumsQA\client-mcp, idle wait 30 s) or silvia (the owner's PC, Z:\MSv83\SlumsMS-dev\client-mcp).
 #
 #   tools/ops/client-mcp heartbeat                            # is the worker alive? (reads its heartbeat file only)
 #   tools/ops/client-mcp status                               # heartbeat + the worker's status tool
@@ -7,13 +9,14 @@
 #   tools/ops/client-mcp login '{"channel":1}'
 #   tools/ops/client-mcp command '{"line":"!qa run we-1"}'
 #   tools/ops/client-mcp go_to '{"map_id":100000000}'
-#   tools/ops/client-mcp screenshot '{"label":"henesys"}'     # PNG saved on Silvia under client-mcp\shots\
+#   tools/ops/client-mcp screenshot '{"label":"henesys"}'     # PNG saved on the target under client-mcp\shots\
 #   tools/ops/client-mcp read_logs '{"lines":100}'
 #   tools/ops/client-mcp press_key '{"name":"F5"}'   |  mouse_click '{"x":400,"y":300}'  |  mouse_drag '{...}'
 #   tools/ops/client-mcp stop_client
 #   tools/ops/client-mcp exit_worker                          # stop the worker (refused while its client runs)
 #
-# Needs the owner to have started Start-QA.cmd once in their own desktop (docs/qa/CLIENT-MCP.md). The worker
+# Needs the worker running there: the scheduled task "SlumsMS QA worker" (client-mcp\scripts\qa-task.ps1 start) or
+# Start-QA.cmd (docs/qa/CLIENT-MCP.md). The worker
 # then lives 12 h after the last request (worker-config.json; 0 = until stopped), restarts and logs the client
 # back in after a crash or disconnect, and writes logs\worker-heartbeat.json. While the owner has used the PC in
 # the last 10 minutes (idle_minutes) a request is QUEUED, not refused: this waits for it up to
@@ -24,14 +27,21 @@ NAME="${1:?tool name}"; ARGS="${2:-{\}}"
 [[ "$NAME" =~ ^(heartbeat|status|start_client|login|command|go_to|screenshot|read_logs|stop_client|press_key|mouse_click|mouse_drag|exit_worker)$ ]] \
   || { echo "unknown tool $NAME" >&2; exit 2; }
 WAIT="${CLIENT_MCP_WAIT:-120}"; QUEUE_WAIT="${CLIENT_MCP_QUEUE_WAIT:-3600}"
-SSH=(ssh -o ConnectTimeout=10 -i ~/.ssh/id_rsprox_desktop crims@192.168.0.186)
+TARGET="${CLIENT_MCP_TARGET:-vm}"
+case "$TARGET" in
+  vm)     SSH=(ssh -o ConnectTimeout=10 -o IdentitiesOnly=yes -i ~/.ssh/id_slums_winvm crims@192.168.0.175)
+          QA_ROOT='C:\SlumsQA\client-mcp' ;;
+  silvia) SSH=(ssh -o ConnectTimeout=10 -o IdentitiesOnly=yes -i ~/.ssh/id_rsprox_desktop crims@192.168.0.186)
+          QA_ROOT='Z:\MSv83\SlumsMS-dev\client-mcp' ;;
+  *) echo "CLIENT_MCP_TARGET must be vm or silvia" >&2; exit 2 ;;
+esac
 python3 -c 'import json,sys; json.loads(sys.argv[1])' "$ARGS" || { echo "arguments must be JSON" >&2; exit 2; }
 
 heartbeat() {   # prints a summary; returns 0 when the heartbeat is fresh
   local raw
-  raw=$("${SSH[@]}" "python -B -" <<'PY'
-import json, time, pathlib
-p = pathlib.Path(r'Z:\MSv83\SlumsMS-dev\client-mcp\logs\worker-heartbeat.json')
+  raw=$("${SSH[@]}" "python -B - $QA_ROOT" <<'PY'
+import json, sys, time, pathlib
+p = pathlib.Path(sys.argv[1]) / 'logs' / 'worker-heartbeat.json'
 beat = None
 try:
     beat = json.loads(p.read_text(encoding='utf-8'))
@@ -39,7 +49,7 @@ except (OSError, ValueError):
     pass
 print(json.dumps({'now': time.time(), 'mtime': p.stat().st_mtime if p.exists() else None, 'beat': beat}))
 PY
-) || { echo "heartbeat: cannot reach Silvia"; return 3; }
+) || { echo "heartbeat: cannot reach $TARGET"; return 3; }
   python3 - "$raw" <<'PY'
 import json, sys
 from datetime import datetime, timezone
@@ -79,7 +89,7 @@ fi
 "${SSH[@]}" "python -B - $WAIT $QUEUE_WAIT" <<PY
 import json, sys, time
 from pathlib import Path
-root = Path(r'Z:\MSv83\SlumsMS-dev\client-mcp\logs')
+root = Path(r'$QA_ROOT') / 'logs'
 inbox, outbox = root / 'worker-inbox.jsonl', root / 'worker-outbox.jsonl'
 req = json.loads(r'''$REQ''')
 wait, queue_wait = int(sys.argv[1]), int(sys.argv[2])
@@ -90,12 +100,12 @@ with inbox.open('a', encoding='utf-8') as f:
 deadline, queued = time.monotonic() + wait, False
 while time.monotonic() < deadline:
     if outbox.exists():
-        with outbox.open(encoding='utf-8') as f:
+        with outbox.open('rb') as f:   # bytes: a text-mode offset drifts on CRLF lines
             f.seek(offset)
             for line in f:
-                if not line.endswith('\n'):
+                if not line.endswith(b'\n'):
                     break
-                offset += len(line.encode('utf-8'))
+                offset += len(line)
                 r = json.loads(line)
                 if r.get('id') != req['id']:
                     continue
