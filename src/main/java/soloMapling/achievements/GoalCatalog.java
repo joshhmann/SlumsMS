@@ -18,7 +18,7 @@ import java.util.function.IntPredicate;
 
 /** Reads achievements.yaml strictly: any mistake rejects the whole file. */
 public final class GoalCatalog {
-    public static final String DATA_PATH = "soloMapling/achievements/achievements.yaml";
+    public static final String DATA_PATH = "src/main/java/soloMapling/achievements/achievements.yaml";
     private static final Set<String> KEYS = Set.of("id", "title", "text", "medal", "trigger", "target", "mobs",
             "scripts", "maps");
     private static final int MEDAL_MIN = 1142000, MEDAL_MAX = 1142999;
