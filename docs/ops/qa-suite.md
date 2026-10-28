@@ -387,6 +387,14 @@ level-up gives the GM rep, and the GM gets 20,000 rep to click every entitlement
 `!qa do check` prints rep and the Family buffs; stop dissolves the family (relog to clear the window). Auto-QA:
 t-fy-1.
 
+### ac-1: Achievements and medals (1.6.1, ticket 93)
+
+`!qa run ac-1` (needs `-Dslums.achievements=true`): clears the GM's Mano and Fishing Hobby goals and medals, then
+`!qa do mano` (a credited Mano kill) and `!qa do fish` (ten kept catches) earn them through the real event path, each
+handing over one zero-stat medal with a yellow notice; repeating gives nothing. `!qa do list` prints what `@achievements`
+shows. To see the full-bag notice fill the Equip tab first, then free a slot and type `@achievements`. Stop clears both
+goals and takes the medals back. Auto-QA: t-ac-1.
+
 ## Adding a scenario
 
 1. Pick the test id from the release notes page. A second test that needs the same staging becomes an alias.

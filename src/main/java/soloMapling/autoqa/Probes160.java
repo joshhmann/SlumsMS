@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family");
+            "family", "achievements");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -93,6 +93,7 @@ final class Probes160 {
                 case "slumsStamps" -> slumsStamps(p);
                 case "nxExchange" -> nxExchange(p);
                 case "family" -> family(p);
+                case "achievements" -> achievements(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1142,6 +1143,24 @@ final class Probes160 {
         }
         return verdict(bad, "a bot accepted being the junior, its kill gave rep, 1.5x drop and 2x EXP were given for"
                 + " their rep, a second use was refused, and the family was dissolved", ev);
+    }
+
+    // ── t-ac-1: achievements and medals (ticket 93, 1.6.1) ────────────────────────────────────────
+
+    /**
+     * t-ac-1: through the real event path a Mano kill and ten kept catches each hand the pretend player exactly one
+     * zero-stat medal and record it; an unrelated kill, nine catches and a repeat hand over nothing; @achievements lists
+     * the earned goal; everything is cleaned up.
+     */
+    static List<String> achievements(SyntheticPlayer p) throws Exception {
+        var svc = soloMapling.achievements.Achievements.service();
+        if (svc == null) {
+            return List.of("SKIP achievements are off (-Dslums.achievements=true)");
+        }
+        List<String> ev = new ArrayList<>();
+        List<String> bad = soloMapling.achievements.AchievementsQa.selfCheck(svc, p.character(), ev);
+        return verdict(bad, "a Mano kill and ten catches each gave one zero-stat medal exactly once, nothing else did,"
+                + " and the list shows it", ev);
     }
 
     // ── t-xc-1: the NX exchange in game (ticket 113 round 2) ─────────────────────────────────────

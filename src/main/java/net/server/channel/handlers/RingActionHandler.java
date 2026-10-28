@@ -345,6 +345,8 @@ public final class RingActionHandler extends AbstractPacketHandler {
         if (soloMapling.site.SiteFeed.isPublic(player) && soloMapling.site.SiteFeed.isPublic(partner)) {
             soloMapling.site.SiteFeed.wedding(player.getName(), partner.getName()); // 1.6.0 Track D: the website's feed
         }
+        soloMapling.achievements.Achievements.onWedding(player); // 1.6.1 ticket 93
+        soloMapling.achievements.Achievements.onWedding(partner);
     }
 
     @Override

@@ -1214,6 +1214,7 @@ public class EventInstanceManager {
 
     public final void setEventCleared(ExpeditionType type) {
         eventCleared = true;
+        soloMapling.achievements.Achievements.onClear(getName(), getPlayers()); // 1.6.1 ticket 93
 
         String partyId = java.util.UUID.randomUUID().toString();
         for (Character chr : getPlayers()) {

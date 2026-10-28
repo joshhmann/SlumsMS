@@ -472,6 +472,9 @@ public final class BotBotTrade {
         } catch (RuntimeException | LinkageError e) {
             log.debug("bot-to-bot trade bond", e);
         }
+        soloMapling.achievements.Achievements.onMarketBuy(d.buyer()); // 1.6.1 ticket 93
+        soloMapling.achievements.Achievements.onTrade(d.seller());
+        soloMapling.achievements.Achievements.onTrade(d.buyer());
         qa("BOT TRADE " + d.seller().getName() + " -> " + d.buyer().getName() + " " + d.itemName()
                 + (d.quantity() > 1 ? " x" + d.quantity() : "") + " " + d.price());
     }

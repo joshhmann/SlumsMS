@@ -180,6 +180,7 @@ public final class DailyCheckin {
             chr.yellowMessage(SlumsStamps.claimLine(credited, day));
         }
         log.info("{} claimed Daily Check-In day {} (+{} stamps)", chr.getName(), day, credited);
+        soloMapling.achievements.Achievements.onCheckin(chr, day); // 1.6.1 ticket 93
         return ClaimResult.CLAIMED;
     }
 

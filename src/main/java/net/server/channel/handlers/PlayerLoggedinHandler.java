@@ -416,6 +416,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
             DailyCheckin.onLogin(c);
             soloMapling.menus.GuideMenu.onLogin(player); // 1.5.0: the beginner's guide, once per character
             soloMapling.menus.GuideMenu.onLoginUiTip(player); // 1.6.0.2: one-time Edit UI tip
+            soloMapling.achievements.Achievements.onLogin(player); // 1.6.1 ticket 93: medals owed, facts already true
             soloMapling.fishing.StarterChairs.noticeIfWaiting(player);
             if (newcomer) soloMapling.ArtificialPlayer.SocialInitiative.onPlayerLogin(player); // 1.6.0 S6: friends say hi
 

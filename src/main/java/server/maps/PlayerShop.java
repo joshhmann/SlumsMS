@@ -301,6 +301,7 @@ public class PlayerShop extends AbstractMapObject {
                             owner.gainMeso(price, true);
                             soloMapling.Economy.MesoSinks.onShopSale(newItem, paid, fee, !soloMapling.ArtificialPlayer.BotHelpers.isBot(owner), true, false,
                                     soloMapling.Economy.PriceBook.Party.of(owner), soloMapling.Economy.PriceBook.Party.of(c.getPlayer()));
+                            soloMapling.achievements.Achievements.onMarketBuy(c.getPlayer()); // 1.6.1 ticket 93
                             // A bot can own this shop (FreeMarket stalls); its take must be holdings, not ambient income.
                             BotHoldings.noteMesoEarned(owner, price);
 
@@ -688,6 +689,7 @@ public class PlayerShop extends AbstractMapObject {
                 price -= fee;
                 owner.gainMeso(price, true);
                 soloMapling.Economy.MesoSinks.onShopSale(newItem, paid, fee, !soloMapling.ArtificialPlayer.BotHelpers.isBot(owner), false, false);
+                soloMapling.achievements.Achievements.onMarketBuy(fakechar); // 1.6.1 ticket 93: a bot buying
                 // The owner can be a bot here too (a bot stall bought from by another bot); ledger its take.
                 BotHoldings.noteMesoEarned(owner, price);
 
