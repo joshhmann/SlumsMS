@@ -101,6 +101,102 @@ public final class ChatStats {
         actions.computeIfAbsent(what, k -> new AtomicLong()).incrementAndGet();
     }
 
+    /** How one call to a Decide endpoint ended (1.6.1 chat-split provenance). */
+    public enum Outcome { OK, TIMEOUT, ERROR, EMPTY }
+
+    /** Per-endpoint counters, rolled into one INFO line a minute while there were calls. */
+    public static final class Endpoint {
+        final String name;
+        final AtomicLong calls = new AtomicLong(), ok = new AtomicLong(), timeout = new AtomicLong(),
+                error = new AtomicLong(), empty = new AtomicLong(), late = new AtomicLong(), totalMs = new AtomicLong();
+        long mCalls, mOk, mTimeout, mError, mEmpty, mLate, mMs;
+
+        Endpoint(String name) {
+            this.name = name;
+        }
+
+        Map<String, Object> json() {
+            Map<String, Object> m = new LinkedHashMap<>();
+            long n = calls.get();
+            m.put("calls", n);
+            m.put("ok", ok.get());
+            m.put("timeout", timeout.get());
+            m.put("error", error.get());
+            m.put("empty", empty.get());
+            m.put("late", late.get());
+            m.put("avgMs", n == 0 ? 0 : totalMs.get() / n);
+            return m;
+        }
+    }
+
+    private static final Map<String, Endpoint> endpoints = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, AtomicLong> reads = new java.util.concurrent.ConcurrentHashMap<>();
+    private static volatile long minuteStartedAt = System.currentTimeMillis();
+    static final long MINUTE_MS = TimeUnit.MINUTES.toMillis(1);
+
+    /** One finished call to the named endpoint ("intent+con@host:port"). {@code late}: the caller had given up. */
+    static void endpointCall(String name, long ms, Outcome outcome, boolean late) {
+        Endpoint e = endpoints.computeIfAbsent(name, Endpoint::new);
+        e.calls.incrementAndGet();
+        e.totalMs.addAndGet(Math.max(0, ms));
+        switch (outcome) {
+            case OK -> e.ok.incrementAndGet();
+            case TIMEOUT -> e.timeout.incrementAndGet();
+            case ERROR -> e.error.incrementAndGet();
+            case EMPTY -> e.empty.incrementAndGet();
+        }
+        if (late) {
+            e.late.incrementAndGet();
+        }
+        maybeLogEndpoints(System.currentTimeMillis());
+    }
+
+    /** Who decided one convo read: {@code field} intent/tone/con, {@code source} decide/rule/default. */
+    public static void read(String field, String source) {
+        reads.computeIfAbsent(field + ":" + source.toLowerCase(java.util.Locale.ROOT), k -> new AtomicLong()).incrementAndGet();
+    }
+
+    /** One compact line a minute (only when an endpoint was called): calls, ok, timeout, error, empty, late, avg ms. */
+    static void maybeLogEndpoints(long now) {
+        if (now - minuteStartedAt < MINUTE_MS) {
+            return;
+        }
+        synchronized (endpoints) {
+            if (now - minuteStartedAt < MINUTE_MS) {
+                return;
+            }
+            minuteStartedAt = now;
+            StringBuilder line = new StringBuilder();
+            for (Endpoint e : new java.util.TreeMap<>(endpoints).values()) {
+                long calls = e.calls.get(), ok = e.ok.get(), to = e.timeout.get(), er = e.error.get(),
+                        em = e.empty.get(), la = e.late.get(), ms = e.totalMs.get();
+                long dc = calls - e.mCalls;
+                if (dc > 0) {
+                    line.append(" [").append(e.name).append(" calls=").append(dc).append(" ok=").append(ok - e.mOk)
+                            .append(" timeout=").append(to - e.mTimeout).append(" error=").append(er - e.mError)
+                            .append(" empty=").append(em - e.mEmpty).append(" late=").append(la - e.mLate)
+                            .append(" avg=").append((ms - e.mMs) / dc).append("ms]");
+                }
+                e.mCalls = calls; e.mOk = ok; e.mTimeout = to; e.mError = er; e.mEmpty = em; e.mLate = la; e.mMs = ms;
+            }
+            if (line.length() > 0) {
+                log.info("Decide endpoints last minute:{} reads(total)={}", line, counts(reads));
+            }
+        }
+    }
+
+    /** Per-endpoint totals since start (also in {@link #snapshot()} as {@code decide.endpoints}). */
+    public static Map<String, Map<String, Object>> endpointTotals() {
+        Map<String, Map<String, Object>> m = new java.util.TreeMap<>();
+        endpoints.forEach((k, v) -> m.put(k, v.json()));
+        return m;
+    }
+
+    /** Convo reads by field and source since start, e.g. {@code tone:decide=12}. */
+    public static Map<String, Long> readTotals() {
+        return counts(reads);
+    }
+
     static void decideCall(long ms, boolean ok) {
         decideCalls.incrementAndGet();
         decideTotalMs.addAndGet(ms);
@@ -175,6 +271,8 @@ public final class ChatStats {
         decide.put("failed", decideFailures.get());
         decide.put("cacheHits", decideCacheHits.get());
         decide.put("rateLimited", decideSkipped.get());
+        decide.put("endpoints", endpointTotals());
+        decide.put("reads", counts(reads));
         m.put("decide", decide);
         Map<String, Object> cloud = new LinkedHashMap<>();
         long cc = cloudCalls.get();
@@ -233,6 +331,9 @@ public final class ChatStats {
         decideFailures.set(0);
         decideSkipped.set(0);
         decideTotalMs.set(0);
+        endpoints.clear();
+        reads.clear();
+        minuteStartedAt = System.currentTimeMillis();
         hourStartedAt = System.currentTimeMillis();
         lastHour = Map.of();
     }

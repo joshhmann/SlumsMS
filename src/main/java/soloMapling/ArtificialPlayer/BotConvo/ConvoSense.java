@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotConvo;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.ChatTone;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatScope;
+import soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ContentGuard;
 import soloMapling.ArtificialPlayer.BotBrainSystem.PlayerChatMeaning;
@@ -323,6 +324,9 @@ public final class ConvoSense {
         double intentMin = ConvoSwitches.num("intentMin", 0.4), toneMin = ConvoSwitches.num("toneMin", 0.8);
         double conMin = ConvoSwitches.prop("solomapling.chat.conMin", 0.4);
         Read read = combine(line, byRule, answers.orElse(Map.of()), intentMin, toneMin, conMin);
+        ChatStats.read("intent", read.intentSource().name());
+        ChatStats.read("tone", read.toneSource().name());
+        ChatStats.read("con", read.triage().conSource().name());
         // 1.6.0 shadow run (TEST, -Dslums.decide.shadow): logged only, never waits, never changes this read
         DecideShadow.offer(line, speaker, byRule, answers.orElse(null), ms, read, intentMin, toneMin, conMin);
         return read;
