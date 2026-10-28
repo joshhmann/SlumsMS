@@ -223,6 +223,9 @@ public class CommandsExecutor {
         addCommand(new String[]{"daily", "checkin"}, DailyCommand.class);
         addCommand("stamps", StampsCommand.class);
         addCommand("nx", NxCommand.class);
+        // Ticket 105: site sign-up codes. One command for both prefixes: level 3+ GMs get !invite (any validity, list
+        // everyone's, revoke, unlimited); everyone else makes up to 2 one-use codes a week once a character is level 30.
+        addCommand("invite", client.command.commands.gm3.InviteCommand.class);
         //addCommand(new String[]{"starforce", "sf"}, StarForceCommand.class);
         addCommand("worldchat", WorldChatCommand.class);
         addCommand("bp", BackPackCommand.class);
@@ -460,7 +463,6 @@ public class CommandsExecutor {
         addCommand("online2", 3, OnlineTwoCommand.class);
         addCommand("ban", 3, BanCommand.class);
         addCommand("unban", 3, UnBanCommand.class);
-        addCommand("invite", 3, client.command.commands.gm3.InviteCommand.class); // ticket 105: site sign-up codes
         addCommand("resetpw", 3, client.command.commands.gm3.ResetPwCommand.class); // ticket 107: GM-approved password resets
         addCommand("healmap", 3, HealMapCommand.class);
         addCommand("healperson", 3, HealPersonCommand.class);

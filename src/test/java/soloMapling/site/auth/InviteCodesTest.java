@@ -95,11 +95,31 @@ class InviteCodesTest {
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS invite_codes"));
         assertTrue(sql.contains("mapleroot_integration_migrations(migration_id) VALUES ('" + id + "')"));
         assertTrue(rollback.contains("DROP TABLE IF EXISTS invite_codes") && rollback.contains("migration_id='" + id + "'"));
+        String sql040 = Files.readString(dir.resolve("040-player-invites.sql"));
         for (String col : AuthStore.Jdbc.COLUMNS.split(",\\s*")) {
-            assertTrue(sql.contains(col + " "), col);
+            assertTrue(sql.contains(col + " ") || sql040.contains(col + " "), col);
         }
         // Single use: the consume only matches an unused, unrevoked, unexpired code.
         assertTrue(AuthStore.Jdbc.CONSUME.contains("used_at = 0 AND revoked_at = 0 AND (expires_at = 0 OR expires_at > ?)"));
         assertTrue(AuthStore.Jdbc.REVOKE.contains("used_at = 0 AND revoked_at = 0"));
+    }
+
+    @Test
+    void migration040AddsMakerColumnsInviterAndRollsBack() throws Exception {
+        Path dir = Path.of("database/migrations");
+        String id = "040-player-invites";
+        String sql = Files.readString(dir.resolve(id + ".sql"));
+        String rollback = Files.readString(dir.resolve(id + ".rollback.sql"));
+        for (String col : new String[]{"created_by_char", "self_serve", "invited_by_account", "invited_by_char"}) {
+            assertTrue(sql.contains("COLUMN_NAME = '" + col + "'"), col + " guarded add");
+            assertTrue(rollback.contains("DROP COLUMN " + col), col + " dropped by rollback");
+        }
+        assertTrue(sql.contains("migration_id) VALUES ('" + id + "')"));
+        assertTrue(rollback.contains("migration_id='" + id + "'"));
+        assertTrue(AuthStore.Jdbc.COUNT_SELF_SERVE.contains("self_serve = 1") && AuthStore.Jdbc.COUNT_SELF_SERVE.contains("created_at > ?"));
+        assertTrue(AuthStore.Jdbc.MARK_INVITER.contains("invited_by_account") && AuthStore.Jdbc.MARK_INVITER.contains("invited_by_char"));
+        assertTrue(AuthStore.Jdbc.HIGHEST_LEVEL.contains("id < ?"), "bots are left out of the level gate");
+        assertEquals(30, InviteCodes.PLAYER_MIN_LEVEL);
+        assertEquals(2, InviteCodes.PLAYER_CODES_PER_WINDOW);
     }
 }
