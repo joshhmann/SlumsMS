@@ -236,7 +236,8 @@ public final class BotConversation {
             var lines = soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.recent(
                     soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.channelOf(bot.getMap()), bot.getMapId(),
                     System.currentTimeMillis());
-            return soloMapling.ArtificialPlayer.BotConvo.ConvoSense.earlier(lines, bot.getId(), player.getId(), line);
+            return soloMapling.ArtificialPlayer.BotConvo.ConvoSense.earlier(lines, bot.getId(), player.getId(), line,
+                    bot.getName(), player.getName());
         } catch (RuntimeException e) {
             return List.of();
         }

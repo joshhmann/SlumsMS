@@ -60,9 +60,29 @@ class ChatDecideContextTest {
         var lines = List.of(new MapChatLog.Line(7, "Ann", "hi", 1, false), new MapChatLog.Line(99, "Botty", "hello", 2, true),
                 new MapChatLog.Line(8, "Bob", "wts scroll", 3, false), new MapChatLog.Line(7, "Ann", "Give me mesos", 4, false));
         var earlier = ConvoSense.earlier(lines, 99, 7, "give me mesos");
-        assertEquals(List.of(ChatDecide.Role.PLAYER, ChatDecide.Role.YOU, ChatDecide.Role.NEARBY),
+        // Bob's line is about nobody here: left out (1.6.1, ticket 114)
+        assertEquals(List.of(ChatDecide.Role.PLAYER, ChatDecide.Role.YOU),
                 earlier.stream().map(ChatDecide.Earlier::role).toList());
         assertEquals("hi", earlier.get(0).text());
+    }
+
+    @Test
+    void botToBotTalkAndUnrelatedChatterStayOutOfTheContext() {
+        // Botty (99) is spoken to by Ann (7). Cat and Dan are bots chatting with each other; Bob is another player.
+        var lines = List.of(new MapChatLog.Line(50, "Cat", "hey Dan wanna party", 1, true),
+                new MapChatLog.Line(51, "Dan", "sure Cat lets go", 2, true),
+                new MapChatLog.Line(7, "Ann", "hi botty", 3, false),
+                new MapChatLog.Line(99, "Botty", "hey ann", 4, true),
+                new MapChatLog.Line(52, "Eve", "Botty ur so slow lol", 5, true),
+                new MapChatLog.Line(8, "Bob", "ann are you selling?", 6, false),
+                new MapChatLog.Line(8, "Bob", "wts annoying scroll", 7, false),
+                new MapChatLog.Line(53, "Fay", "cats are cute", 8, true),
+                new MapChatLog.Line(7, "Ann", "give me mesos", 9, false));
+        var earlier = ConvoSense.earlier(lines, 99, 7, "give me mesos", "Botty", "Ann");
+        assertEquals(List.of("hi botty", "hey ann", "Botty ur so slow lol", "ann are you selling?"),
+                earlier.stream().map(ChatDecide.Earlier::text).toList());
+        assertEquals(List.of(ChatDecide.Role.PLAYER, ChatDecide.Role.YOU, ChatDecide.Role.NEARBY, ChatDecide.Role.NEARBY),
+                earlier.stream().map(ChatDecide.Earlier::role).toList());
     }
 
     @Test

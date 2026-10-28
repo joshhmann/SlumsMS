@@ -70,6 +70,11 @@ only when a real player can see them.
   just arrived; a few talks a minute. Its CPU goes to `data/autoqa/bot-life.json` as `botTalk.cpuNanos` (with
   `ticks`), next to the brain's `cpuNanos`; t-bt-1 fails above 20 ms a tick on average.
 
+- **Chat-split context** (161-botchat2): bot talk lines are public, so they reach `MapChatLog`. The earlier lines
+  sent with a player's line to the intent+con model (:8913) now keep only the player's lines, the spoken-to bot's own
+  lines and someone else's line naming that bot or the player (`ConvoSense.earlier`, ChatDecideContextTest), so
+  bot-to-bot chatter cannot push the player's build-up out of the five context lines.
+
 ## Switches
 
 `-Dslums.bottalk=true` (the talk engine and the classifier refusal), `-Dslums.crews=true` (crews). Knobs (code

@@ -303,14 +303,24 @@ public final class ConvoSense {
         return read(line, decide, tone, speaker, List.of());
     }
 
+    /** As below with no names: only the player's and the bot's own lines are kept. */
+    public static List<ChatDecide.Earlier> earlier(
+            List<soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.Line> lines, int botId, int playerId,
+            String current) {
+        return earlier(lines, botId, playerId, current, null, null);
+    }
+
     /**
      * The earlier lines of a map's public chat as the intent+con model sees them: oldest first, up to
      * {@link ChatDecide#MAX_EARLIER}. The speaker of the line being read is "player", the bot "you", anyone else
      * "someone nearby". The line being read (the newest entry, when it is the speaker's and the same text) is left out.
+     * 1.6.1 (ticket 114): only lines of this exchange are kept - the player's, the bot's own, and someone else's line
+     * that names the bot or the player. Other chatter (bot-to-bot talk, unrelated players) would push the player's
+     * own build-up out of the few lines the model sees.
      */
     public static List<ChatDecide.Earlier> earlier(
             List<soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.Line> lines, int botId, int playerId,
-            String current) {
+            String current, String botName, String playerName) {
         List<soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.Line> prior = new java.util.ArrayList<>(
                 lines == null ? List.of() : lines);
         if (!prior.isEmpty() && current != null) {
@@ -321,10 +331,31 @@ public final class ConvoSense {
         }
         List<ChatDecide.Earlier> out = new java.util.ArrayList<>();
         for (var l : prior) {
+            boolean ours = l.speakerId() == botId || l.speakerId() == playerId;
+            if (!ours && !names(l.text(), botName) && !names(l.text(), playerName)) {
+                continue;
+            }
             out.add(new ChatDecide.Earlier(l.speakerId() == botId ? ChatDecide.Role.YOU
                     : l.speakerId() == playerId ? ChatDecide.Role.PLAYER : ChatDecide.Role.NEARBY, l.text()));
         }
         return out.size() <= ChatDecide.MAX_EARLIER ? out : out.subList(out.size() - ChatDecide.MAX_EARLIER, out.size());
+    }
+
+    /** Whether {@code text} names {@code name} as a whole word (case-insensitive; names under 3 letters never match). */
+    static boolean names(String text, String name) {
+        if (text == null || name == null || name.length() < 3) {
+            return false;
+        }
+        String t = text.toLowerCase(java.util.Locale.ROOT), n = name.toLowerCase(java.util.Locale.ROOT);
+        for (int i = t.indexOf(n); i >= 0; i = t.indexOf(n, i + 1)) {
+            boolean before = i == 0 || !Character.isLetterOrDigit(t.charAt(i - 1));
+            int end = i + n.length();
+            boolean after = end == t.length() || !Character.isLetterOrDigit(t.charAt(end));
+            if (before && after) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** As above; {@code earlier} goes to the intent+con call only, never to the tone endpoint. */
