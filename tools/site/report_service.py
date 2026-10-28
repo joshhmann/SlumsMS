@@ -18,6 +18,7 @@ Settings (argument beats environment beats default):
     --proxy-hops / SLUMS_REPORT_PROXY_HOPS  1   proxies in front of nginx (Caddy = 1); see client_ip()
 """
 import argparse
+import fcntl
 import hashlib
 import html
 import json
@@ -38,6 +39,20 @@ HONEYPOT = "website"
 PER_IP_HOUR, PER_IP_DAY, GLOBAL_DAY = 5, 20, 200
 HOUR, DAY = 3600, 86400
 _CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+TAIL = 262144  # the in-game @bug writer (ticket 131) re-reads the same window
+_ID = re.compile(r'^\{\s*"id"\s*:\s*(\d+)')
+
+
+def max_id(fd):
+    """The highest "id" in the file's last 256 KB: the game server appends to the same file (ticket 131)."""
+    size = os.fstat(fd).st_size
+    os.lseek(fd, max(0, size - TAIL), os.SEEK_SET)
+    best = 0
+    for line in os.read(fd, TAIL).decode("utf-8", "replace").splitlines():
+        m = _ID.match(line)
+        if m:
+            best = max(best, int(m.group(1)))
+    return best
 
 
 class Rejected(Exception):
@@ -119,7 +134,7 @@ class Store:
                     t = datetime.fromisoformat(rec["time"]).timestamp()
                 except (ValueError, KeyError, TypeError):
                     continue
-                if now - t < DAY:
+                if now - t < DAY and rec.get("source") not in ("ingame", "game"):  # in-game reports aren't the form's
                     self.hits.setdefault(rec.get("ip_hash", ""), deque()).append(t)
                     self.all_hits.append(t)
 
@@ -148,18 +163,24 @@ class Store:
             if len(mine) >= self.per_day:
                 raise Rejected(429, "That is the daily limit for reports. Please try again tomorrow.",
                                int(DAY - (now - mine[0])) + 1)
-            rid = self.last_id + 1
-            rec = {"id": rid, "time": datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
-                   **report, "ip_hash": ip_hash}
-            line = json.dumps(rec, ensure_ascii=False, separators=(",", ":")) + "\n"
-            fd = os.open(self.path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o640)
+            # The game server's @bug appends to this file too (ticket 131): both take an exclusive POSIX lock for the
+            # write and number the report from the highest id in the file, so the two never hand out the same id.
             try:
+                fd = os.open(self.path, os.O_RDWR | os.O_APPEND | os.O_CREAT, 0o640)
+            except OSError:
+                raise Rejected(503, "Sorry, we could not save your report right now. Please try again later.")
+            try:
+                fcntl.lockf(fd, fcntl.LOCK_EX)
+                rid = max(self.last_id, max_id(fd)) + 1
+                rec = {"id": rid, "time": datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+                       **report, "ip_hash": ip_hash}
+                line = json.dumps(rec, ensure_ascii=False, separators=(",", ":")) + "\n"
                 os.write(fd, line.encode("utf-8"))
                 os.fsync(fd)
             except OSError:
                 raise Rejected(503, "Sorry, we could not save your report right now. Please try again later.")
             finally:
-                os.close(fd)
+                os.close(fd)  # releases the lock
             self.last_id = rid
             mine.append(now)
             self.all_hits.append(now)
