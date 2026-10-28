@@ -103,7 +103,11 @@ public final class BotTalk {
     private static final Map<Integer, Long> lastMapOf = new ConcurrentHashMap<>();
     private static final Map<Long, Long> nextTalkAt = new ConcurrentHashMap<>();
     private static final Map<Long, Long> greetedAt = new ConcurrentHashMap<>();
-    private static final Set<Integer> inTalk = ConcurrentHashMap.newKeySet();
+    /** Bots in a talk now, and since when (a talk whose end never ran frees its bots after {@link #STUCK_MS}). */
+    private static final Map<Integer, Long> inTalk = new ConcurrentHashMap<>();
+    static final long STUCK_MS = TimeUnit.MINUTES.toMillis(3);
+    /** Bots staged by QA: the tick leaves them alone (QA runs their talks itself). */
+    private static final Set<Integer> qaHeld = ConcurrentHashMap.newKeySet();
     private static final Map<Integer, Live> byId = new ConcurrentHashMap<>();
     private static final Deque<Long> talkStarts = new ArrayDeque<>();
     private static final Deque<Long> greetStarts = new ArrayDeque<>();
@@ -232,6 +236,7 @@ public final class BotTalk {
                 }
             }
             lastMapOf.keySet().retainAll(seen);
+            inTalk.entrySet().removeIf(x -> now - x.getValue() > STUCK_MS);
             if (greetedAt.size() > 20_000) {
                 greetedAt.values().removeIf(t -> now - t > GREET_PAIR_GAP_MS);
             }
@@ -398,7 +403,12 @@ public final class BotTalk {
      */
     static boolean free(Character c, boolean idle) {
         int id = c.getId();
-        if (inTalk.contains(id) || BotThreads.busy(id)) {
+        Long since = inTalk.get(id);
+        if (since != null && System.currentTimeMillis() - since > STUCK_MS) {
+            inTalk.remove(id, since); // its talk never finished (a lost timer): free again
+            since = null;
+        }
+        if (since != null || qaHeld.contains(id) || BotThreads.busy(id)) {
             return false;
         }
         try {
@@ -422,7 +432,7 @@ public final class BotTalk {
     public static Plan run(MapleMap map, List<Character> who, boolean greetOnly, Ask forced, boolean bankOnly,
                            String why, long now, Random rng) {
         for (Character c : who) {
-            if (!inTalk.add(c.getId())) {
+            if (inTalk.putIfAbsent(c.getId(), now) != null) {
                 for (Character d : who) {
                     if (d == c) {
                         break;
@@ -1017,6 +1027,15 @@ public final class BotTalk {
         tally.computeIfAbsent(key, k -> new LongAdder()).increment();
     }
 
+    /** QA: the tick leaves these staged bots alone ({@code held} false: back to normal). */
+    public static void qaHold(int botId, boolean held) {
+        if (held) {
+            qaHeld.add(botId);
+        } else {
+            qaHeld.remove(botId);
+        }
+    }
+
     /** Counters for bot-life.json, {@code !bottalk} and the checks (CPU in nanoseconds of the tick). */
     public static Map<String, Object> stats() {
         Map<String, Object> out = new LinkedHashMap<>();
@@ -1051,6 +1070,7 @@ public final class BotTalk {
         nextTalkAt.clear();
         greetedAt.clear();
         inTalk.clear();
+        qaHeld.clear();
         byId.clear();
         talkStarts.clear();
         greetStarts.clear();

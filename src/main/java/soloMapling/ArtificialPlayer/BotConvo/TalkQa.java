@@ -52,6 +52,7 @@ public final class TalkQa {
                 continue;
             }
             BotBonds.forgetBot(id); // a fresh slot: no bonds from an earlier run
+            BotTalk.qaHold(id, true); // the talk tick leaves staged bots to the check
             if (training) {
                 BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
             } else {
@@ -72,6 +73,7 @@ public final class TalkQa {
                     soloMapling.ArtificialPlayer.BotPartySystem.BotPartyCommands.botLeaveParty(c);
                 }
                 StageSpots.unpin(c.getId());
+                BotTalk.qaHold(c.getId(), false);
                 BotBonds.forgetBot(c.getId());
                 BotSM sm = CharacterStorage.getBotById(c.getId());
                 if (sm != null) {
