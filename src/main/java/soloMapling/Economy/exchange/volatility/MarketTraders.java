@@ -126,6 +126,34 @@ public final class MarketTraders {
         return out;
     }
 
+    /**
+     * 1.6.1 QA round 3: the traders among the bots that are in the game now. On TEST the 16 were picked from all 9,000
+     * roster bots, so about one was ever online and the item books stayed empty. Traders from {@code previous} that
+     * are still among {@code online} keep their place and archetype (a trader's style does not churn); the free
+     * places are filled by {@link #select} from the other online candidates.
+     */
+    public static List<Trader> keepAndFill(List<Trader> previous, List<Candidate> online, int count) {
+        java.util.Set<Long> here = new java.util.HashSet<>();
+        for (Candidate c : online) {
+            here.add(c.id());
+        }
+        List<Trader> out = new ArrayList<>();
+        java.util.Set<Long> kept = new java.util.HashSet<>();
+        for (Trader t : previous == null ? List.<Trader>of() : previous) {
+            if (out.size() < count && here.contains(t.id()) && kept.add(t.id())) {
+                out.add(t);
+            }
+        }
+        List<Candidate> rest = new ArrayList<>();
+        for (Candidate c : online) {
+            if (!kept.contains(c.id())) {
+                rest.add(c);
+            }
+        }
+        out.addAll(select(rest, count - out.size()));
+        return out;
+    }
+
     static long mix(long x) {
         x += 0x9E3779B97F4A7C15L;
         x = (x ^ (x >>> 30)) * 0xBF58476D1CE4E5B9L;

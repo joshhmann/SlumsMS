@@ -34,7 +34,8 @@ public final class MarketVolatility {
 
     private static final Logger log = LoggerFactory.getLogger(MarketVolatility.class);
     static final long TICK_MS = 30_000;
-    private static final long ROSTER_REFRESH_MS = 3_600_000L;
+    /** How often the traders are re-picked from the bots in the game (they log in and out on their play windows). */
+    private static final long ROSTER_REFRESH_MS = 600_000L;
 
     private static volatile MarketVolatility running;
 
@@ -220,14 +221,15 @@ public final class MarketVolatility {
 
     // ---------------------------------------------------------------- the game's roster of traders
 
-    /** The traders (refreshed hourly from the roster) with their in-game wallets. */
+    /** The traders (re-picked every 10 minutes from the roster bots in the game) with their in-game wallets. */
     public synchronized MarketTraders.Roster gameRoster(long now) {
         if (now - rosterAt > ROSTER_REFRESH_MS || roster.isEmpty()) {
             rosterAt = now;
             List<MarketTraders.Candidate> cands = new ArrayList<>();
             try {
                 for (BotRoster.Member m : BotRoster.members()) {
-                    if (m.status() == BotRoster.Status.ACTIVE) {
+                    // only bots in the game can trade: picking from the whole roster left ~1 of 16 online on TEST
+                    if (m.status() == BotRoster.Status.ACTIVE && CharacterStorage.botLoggedIn(m.charId())) {
                         cands.add(new MarketTraders.Candidate(m.charId(),
                                 SocialProfile.forCharacter(m.charId()).leading().name()));
                     }
@@ -235,7 +237,7 @@ public final class MarketVolatility {
             } catch (RuntimeException e) {
                 log.warn("Market traders: could not read the roster", e);
             }
-            roster = MarketTraders.select(cands, config.traderCount());
+            roster = MarketTraders.keepAndFill(roster, cands, config.traderCount());
             MarketTraders.setTraderIds(roster.stream().map(MarketTraders.Trader::id).toList());
         }
         List<MarketTraders.Trader> list = roster;
