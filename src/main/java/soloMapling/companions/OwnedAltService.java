@@ -81,6 +81,12 @@ public final class OwnedAltService {
     }
     public synchronized void releaseCompanion(int id) { friendReservations.remove(id); }
 
+    /** Snap the owner's position down onto the foothold below, so the alt stands instead of floating mid-jump. */
+    static java.awt.Point groundedSpawn(server.maps.MapleMap map, java.awt.Point ownerPos) {
+        java.awt.Point ground = map.getGroundBelow(ownerPos);
+        return ground != null ? ground : new java.awt.Point(ownerPos);
+    }
+
     public Character summon(Character owner, String name) {
         requireEnabled();
         if (owner.isOwnedAlt() || owner.isBot())
