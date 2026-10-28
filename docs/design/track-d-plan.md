@@ -613,6 +613,7 @@ class needs all of them; one read of six columns is cheaper than one query per b
 | `online` | int | everyone online (bots and players; not GMs, not auto-QA pretend players) |
 | `channels[]` | array | `{channel, online}` by channel number |
 | `busiest_maps[]` | array | top 10 `{map, name, count}` (map id, map name, characters on it over all channels) |
+| `top_mobs[]`, `top_mobs_7d[]` | array | the 25 most killed mobs of the last 24 h / 7 days, most first: `{mob, name, kills}` (mob id, its String.wz name, kills). Players and bots together, no split; GM, auto-QA and world-event mobs left out. Bots grinding where nobody looks never kill a real mob, so their kills come from the modelled offscreen pace, spread over the map's spawn table. Hourly buckets persist in `site_mob_kills` (migration 047, kept 30 days), so a restart keeps the counts |
 | `tonight` | object or null | the next evening headline (8 PM PT): `{name, start, map?, status}`. `name` null until the day's plan picks it (just after midnight PT); `start` UTC ISO; `map` the planned map's name (left out for a treasure hunt); `status` `scheduled` or `running`. Null when the event director is off |
 | `running[]` | array | running world events, oldest first: `{name, map?, channel?, endsAt, kind, startedAt, headline, map_id?}`. `map` is the map's name (a treasure hunt's region instead, with no `map_id`) |
 
@@ -635,6 +636,7 @@ class needs all of them; one read of six columns is cheaper than one query per b
 // world.json
 {"schema":1,"generated_at":"2026-10-26T07:15:30Z","online":2260,"channels":[{"channel":1,"online":800}],
  "busiest_maps":[{"map":910000000,"name":"Free Market Entrance","count":143}],
+ "top_mobs":[{"mob":100100,"name":"Snail","kills":5120}], "top_mobs_7d":[{"mob":100100,"name":"Snail","kills":31200}],
  "tonight":{"name":"Giant Cake","start":"2026-10-27T03:00:00Z","map":"Henesys","status":"scheduled"},
  "running":[{"name":"Hot Spot","map":"Ant Tunnel I","channel":2,"endsAt":"2026-10-26T07:40:00Z","kind":"hot spot",
    "startedAt":"2026-10-26T07:10:00Z","headline":false,"map_id":105050000}]}
