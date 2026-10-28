@@ -318,3 +318,28 @@ class ReleaseConfigTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class LedgerIdTest(unittest.TestCase):
+    """lib.sh ledger_id reads both ledger INSERT forms; 039-slums-stamps uses the guarded SELECT one."""
+
+    def ledger_id(self, sql):
+        with tempfile.NamedTemporaryFile('w', suffix='.sql', dir=ROOT, delete=False) as f:
+            f.write(sql)
+        self.addCleanup(Path(f.name).unlink)
+        out = subprocess.run(['bash', '-c', f'. "{HERE}/lib.sh"; ledger_id "{f.name}"'],
+                             text=True, capture_output=True)
+        return out.stdout.strip()
+
+    def test_values_form(self):
+        self.assertEqual(self.ledger_id("INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) "
+                                        "VALUES ('040-player-invites');\n"), '040-player-invites')
+
+    def test_guarded_select_form(self):
+        self.assertEqual(self.ledger_id("INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) "
+                                        "SELECT '039-slums-stamps' FROM DUAL WHERE @apply;\n"), '039-slums-stamps')
+
+    def test_every_listed_161_migration_has_an_id(self):
+        for stem in ('039-slums-stamps', '049-penguin-spots-2'):
+            sql = (ROOT / 'database/migrations' / f'{stem}.sql').read_text()
+            self.assertEqual(self.ledger_id(sql), stem)

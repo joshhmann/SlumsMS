@@ -18,8 +18,9 @@ run() { if [ "${DRY_RUN:-0}" = 1 ]; then echo "  [dry-run] $*"; else "$@"; fi; }
 valid_version() { [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9.]+)?$ ]]; }   # 1.6.0.1: a hotfix may add a fourth part
 # The version a jar prints at boot comes from ServerConstants.SLUMSMS_VERSION.
 source_version() { sed -n 's/.*SLUMSMS_VERSION *= *"\([^"]*\)".*/\1/p' "$1/src/main/java/constants/net/ServerConstants.java"; }
-# Ledger id a migration file writes (001-preserve-arcane.sql -> 001-preserve-arcane-for-classic-fm).
-ledger_id() { grep -o "$LEDGER_TABLE($LEDGER_COL) VALUES ('[^']*')" "$1" | sed "s/.*('\(.*\)')/\1/" | head -1; }
+# The ledger id a migration writes: INSERT ... (migration_id) VALUES ('<id>'), or the guarded form
+# INSERT ... (migration_id) SELECT '<id>' FROM DUAL WHERE ... (039-slums-stamps).
+ledger_id() { grep -oE "$LEDGER_TABLE\($LEDGER_COL\) (VALUES \('[^']*'\)|SELECT '[^']*' FROM DUAL)" "$1" | sed -E "s/.*(VALUES \('|SELECT ')([^']*)'.*/\2/" | head -1; }
 on_host() { [ "$(hostname)" = "$HOST_NAME" ]; }
 require_host() { on_host || die "run this on the release host ($HOST_NAME), not $(hostname)"; }
 require_workstation() { on_host && die "run this on the workstation, not on $HOST_NAME"; return 0; }
