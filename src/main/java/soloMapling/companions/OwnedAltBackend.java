@@ -8,6 +8,7 @@ import net.server.world.Party;
 import server.Trade;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotTypes.FollowerBot;
+import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import tools.DatabaseConnection;
 
 import java.sql.*;
@@ -77,6 +78,23 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
         target.addPlayer(alt);
         if (!Party.joinParty(alt, owner.getParty().getId(), true))
             throw new IllegalStateException("Your party has no free place.");
+        // 1.6.0.4 (P0): tail the owner - same map through the 50 ms driver, across maps by walking through portals
+        // (GCFollow/GCTravel; an alt never warps, pays a fare or enters an instance it is not part of).
+        GCMovement.follow(alt, owner);
+    }
+    @Override public void bringHere(Character owner, Character alt) {
+        var target = owner.getMap();
+        if (target == null || target.getEventInstance() != null) return;
+        GCMovement.cancelTravel(alt);
+        if (alt.getMap() != target) alt.changeMap(target, OwnedAltService.groundedSpawn(target, owner.getPosition()));
+        GCMovement.follow(alt, owner);
+    }
+    @Override public boolean botFriendNamed(int ownerId, String name) {
+        for (var bot : CharacterStorage.getAllBots().values()) {
+            if (bot instanceof FollowerBot follower && follower.leaderId() == ownerId && follower.getChr() != null
+                    && follower.getChr().getName().equalsIgnoreCase(name)) return true;
+        }
+        return false;
     }
     @Override public void save(Character alt) {
         // Return any real trade escrow before persisting. Never invoke BotTradeCommands/holdings.
@@ -84,6 +102,7 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
         alt.saveOwnedAltToDB();
     }
     @Override public void detach(Character alt) {
+        GCMovement.disable(alt); // 1.6.0.4: stop following/travelling before the alt leaves its map and channel
         alt.setDisconnectedFromChannelWorld();
         if (alt.getEventInstance() != null) alt.getEventInstance().playerDisconnected(alt);
         if (alt.getParty() != null) alt.leaveParty();

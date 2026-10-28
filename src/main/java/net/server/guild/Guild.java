@@ -786,6 +786,11 @@ public class Guild {
         }
 
         Character sender = c.getPlayer();
+        String altRefusal = soloMapling.companions.OwnedAltService.interactionRefusal(sender, mc, "answer a guild invitation");
+        if (altRefusal != null) { // 1.6.0.4: an owned alt never answers; it is not a population bot either
+            sender.yellowMessage(altRefusal);
+            return null;
+        }
         if (soloMapling.ArtificialPlayer.BotHelpers.isBot(mc)) { // SlumsMS 1.5.0: a bot answers in a while (friends say yes)
             return soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.playerInvitesBot(sender, mc);
         }

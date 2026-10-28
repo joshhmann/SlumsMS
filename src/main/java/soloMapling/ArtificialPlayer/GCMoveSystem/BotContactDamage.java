@@ -70,6 +70,9 @@ final class BotContactDamage {
     // Per bot per tick: if a hostile mob is touching the bot, apply a hit. LOD-gated (skips entirely
     // when no real player shares the bot's map) and i-frame-gated. Called from GCMovementDriver.tick.
     static void tickMobDamage(BotMovementState entry, Character bot) {
+        if (bot.isOwnedAlt()) {
+            return; // 1.6.0.4: an owned alt's HP, potions and life are its own; the movement driver never hurts it
+        }
         if (soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.isDead(bot.getId())) {
             return; // 1.5.0 rc3: lying dead
         }
@@ -126,6 +129,9 @@ final class BotContactDamage {
     // BotPhysicsEngine tracks via entry.fallPeakPhysY. LOD- and threshold-gated. Called from
     // BotPhysicsEngine's landing transition.
     static void applyFallDamage(BotMovementState entry, Character bot, float fallDistancePx) {
+        if (bot.isOwnedAlt()) {
+            return; // 1.6.0.4: as tickMobDamage
+        }
         if (!GCMovement.isMapObserved(bot.getMapId())) {
             return;
         }

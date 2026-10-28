@@ -50,6 +50,7 @@ public class WarpWorldCommand extends Command {
         if (server.getWorld(worldb) != null) {
             try {
                 String[] socket = server.getInetSocket(c, worldb, c.getChannel());
+                soloMapling.companions.OwnedAltService.getInstance().ownerChangingChannel(player); // 1.6.0.4
                 c.getWorldServer().removePlayer(player);
                 player.getMap().removePlayer(player);//LOL FORGOT THIS ><
                 player.setSessionTransitionState();

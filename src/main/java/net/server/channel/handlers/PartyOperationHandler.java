@@ -76,6 +76,11 @@ public final class PartyOperationHandler extends AbstractPacketHandler {
             case 4: { // invite
                 String name = p.readString();
                 Character invited = world.getPlayerStorage().getCharacterByName(name);
+                String altRefusal = soloMapling.companions.OwnedAltService.interactionRefusal(player, invited, "join another party");
+                if (altRefusal != null) { // 1.6.0.4: an owned alt is only ever in its owner's party
+                    player.yellowMessage(altRefusal);
+                    return;
+                }
                 if (invited != null) {
                     if (invited.getLevel() < 10 && (!YamlConfig.config.server.USE_PARTY_FOR_STARTERS || player.getLevel() >= 10)) { //min requirement is level 10
                         c.sendPacket(PacketCreator.serverNotice(5, "The player you have invited does not meet the requirements."));

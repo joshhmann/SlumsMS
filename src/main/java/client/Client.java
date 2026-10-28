@@ -1677,6 +1677,9 @@ public class Client extends ChannelInboundHandlerAdapter {
             return false;
         }
 
+        // 1.6.0.4 (H1): alts live on the channel being left; save them and send them home before the owner goes.
+        soloMapling.companions.OwnedAltService.getInstance().ownerChangingChannel(player);
+
         EventInstanceManager eventInstanceManager = player.getEventInstance();
         if (eventInstanceManager != null) {
             eventInstanceManager.playerDisconnected(player);

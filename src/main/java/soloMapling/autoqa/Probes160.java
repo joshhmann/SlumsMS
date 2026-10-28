@@ -283,6 +283,18 @@ final class Probes160 {
             if (!inParty) {
                 bad.add(ALT_A + " is not in " + gm.getName() + "'s party");
             }
+            // 1.6.0.4: the alt follows its owner, and through a portal when the owner changes map
+            boolean following = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isFollowing(alt)
+                    && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.followTarget(alt) == gm;
+            out.add(ALT_A + " follows " + gm.getName() + "=" + following);
+            if (!following) {
+                bad.add(ALT_A + " is not following " + gm.getName() + " after @botme");
+            } else {
+                String portal = followThroughPortal(gm, alt, out);
+                if (portal != null) {
+                    bad.add(portal);
+                }
+            }
             String dup = sayAndHear(p, "@botme " + ALT_A, "(?i)already online|has joined you", 8000);
             out.add("@botme " + ALT_A + " again: " + dup);
             if (dup == null || !dup.contains("already online")) {
@@ -338,7 +350,9 @@ final class Probes160 {
             if (saved != marker) {
                 bad.add(ALT_A + "'s mesos were not saved (database " + saved + ", want " + marker + ")");
             }
-            out.add("following the owner to another map is not built yet (ticket 13 defers movement): not judged");
+            if (soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isEnabled(alt)) {
+                bad.add(ALT_A + " still has a movement driver after @dismiss");
+            }
         } finally {
             for (int id : reserved) {
                 svc.releaseCompanion(id);
@@ -352,11 +366,52 @@ final class Probes160 {
                 gm.leaveParty();
             }
             if (gm.getMapId() != homeMap) {
-                out.add("owner moved from " + homeMap + " to " + gm.getMapId());
+                out.add("owner moved from " + homeMap + " to " + gm.getMapId() + "; back home");
+                gm.changeMap(homeMap);
             }
         }
-        return verdict(bad, ALT_A + " joins the party on the owner's map, a repeat is refused, the cap of 5 holds,"
-                + " @dismiss saves and removes it", out);
+        return verdict(bad, ALT_A + " joins the party on the owner's map and follows, through a portal too, a repeat is"
+                + " refused, the cap of 5 holds, @dismiss saves and removes it", out);
+    }
+
+    /**
+     * 1.6.0.4 t-oa-1: the owner steps to a neighbouring map (one walkable portal away) and the alt must walk through a
+     * portal after them within 90 s. Null when it did (or no such neighbour exists here: not judged), else the failure.
+     */
+    static String followThroughPortal(Character gm, Character alt, List<String> out) throws InterruptedException {
+        server.maps.MapleMap home = gm.getMap();
+        server.maps.Portal via = null;
+        for (server.maps.Portal pt : home.getPortals()) {
+            int to = pt.getTargetMapId();
+            if (to == 999_999_999 || to == home.getId() || to <= 0) {
+                continue;
+            }
+            List<Integer> r = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.route(alt, to);
+            if (r != null && r.size() == 1 && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.walkable(alt, to)) {
+                via = pt;
+                break;
+            }
+        }
+        if (via == null) {
+            out.add("follow through a portal: no walkable portal out of map " + home.getId() + " - not judged");
+            return null;
+        }
+        server.maps.MapleMap next = gm.getClient().getChannelServer().getMapFactory().getMap(via.getTargetMapId());
+        server.maps.Portal arrival = next.getPortal(via.getTarget());
+        if (arrival != null) {
+            gm.changeMap(next, arrival);
+        } else {
+            gm.changeMap(next);
+        }
+        long start = System.currentTimeMillis();
+        while (System.currentTimeMillis() - start < 90_000 && alt.getMapId() != next.getId()) {
+            Thread.sleep(500);
+        }
+        long took = System.currentTimeMillis() - start;
+        boolean arrived = alt.getMapId() == next.getId();
+        out.add("owner stepped " + home.getId() + " -> " + next.getId() + "; " + ALT_A + " " + (arrived
+                ? "followed through the portal in " + took + " ms" : "is still on map " + alt.getMapId() + " after 90 s"));
+        return arrived ? null : ALT_A + " did not follow its owner through a portal to map " + next.getId() + " in 90 s";
     }
 
     // ── t-tw-1: busy towns ───────────────────────────────────────────────────────────────────────

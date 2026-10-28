@@ -38,10 +38,41 @@ use the reward portal, its reward from `giveEventReward` when its owner claims t
 script and quest EXP stays blocked: quests are per character and an owner turning in a quest never completes it for
 an alt. Offscreen EXP and population AP/SP/job advancement are blocked. Monster kills an alt shares advance the alt's own kill quests (owner 2026-10-26); it never auto-completes, the owner turns it in on the alt.
 
-Following, formations, combat/loot drivers, chat orders, automatic trade acceptance/offers, supplies and PQ worker
-roles are deferred. The normal trade inventory path is ready for those later drivers; this foundation does not
-automatically accept a trade or transfer anything between inventories. An owner channel transition retains the
-session's alts, but cross-channel following is not provided yet: an alt left on the old channel only shares kills made on its own map.
+Formations, combat/loot drivers, chat orders, automatic trade acceptance/offers, supplies and PQ worker roles are
+deferred. The normal trade inventory path is ready for those later drivers; this foundation does not automatically
+accept a trade or transfer anything between inventories.
+
+## 1.6.0.4: following and safety (owner approved the hotfix 2026-10-28)
+
+- **Follow.** A summoned alt follows its owner (`GCMovement.follow` after the party join): same map through the 50 ms
+  driver, across maps by walking through portals (GCFollow ~400 ms poll + GCTravel). An alt's trips never warp, pay a
+  fare or board transit (`GCTravel.Trip.ownedAlt`: noWarp + noFares, boarding refused). Where it cannot walk (the owner
+  used a scroll, the Free Market button, a scripted door) it waits and the owner hears once: "<alt> can't walk to where
+  you are and waits here. Use @botme here ...". `@dismiss`, logout and every removal stop the driver first
+  (`GCMovement.disable` in detach).
+- **Instances.** An alt follows only where it is itself a member: never into an event instance (PQ, boss, event map) it
+  did not enter with the party, nor onto a map an event owns (`GCFollow.altBlockReason`; same map id is not enough,
+  an instance map shares its id with the public map). It waits outside and the owner hears so once. Alts called before
+  a PQ entry are warped in by the event as party members and follow inside it.
+- **No population side effects on the move.** The movement driver never hurts an alt (no contact/fall damage, so no
+  HP, potion or bot-death changes), it has no persona reactions (no lines, drama, affinity or gifts), it never casts
+  movement skills (no MP/potion use) and does not run the idle-safety walk.
+- **Channel change.** Any owner channel (or world) change saves every alt as `@dismiss` does and removes it; on
+  arrival the owner reads "Your alts went home. ...". A summon still loading when the owner changes channel is refused
+  and never attached. Party EXP looks up the live owner by id (`Character.liveOwnedAltOwner`).
+- **Party.** An alt that leaves or is expelled from the party, an owner who leaves the party their alts are in, or a
+  disband sends those alts home (saved), and the owner hears "<alt> is no longer in your party, so it went home
+  (saved)." Runs off the party thread; a dismissal's own party leave is not a second save.
+- **`@botme here`** puts the owner's alts down beside them (same channel; never into an instance; an alt that is
+  itself inside an instance stays) and re-arms the follow.
+- **Invites.** Trade, party, guild and ring invites to an owned alt are refused with a line (an alt is headless and
+  would leave the invite pending).
+- **Threading.** `@botme` (list, summon, here) and `@dismiss` run on the ThreadManager pool and reply when done; the
+  lifecycle reservation still decides races (two summons of one alt load it once).
+- **Messages.** The cap line counts bot friends; `@dismiss` on a bot friend says to expel it from the party; the summon
+  line says a party was created when it was, and that changing channel sends alts home.
+
+EXP split, PQ rewards and every other economy rule are unchanged.
 
 ## TEST checklist (not run during implementation)
 

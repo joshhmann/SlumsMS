@@ -26,3 +26,10 @@ login races; no deployment or real-client validation has been performed.
 This ticket remains open for companion drivers and TEST acceptance. Following, formations, combat/loot,
 automatic normal-trade offers, and PQ roles are later work. See
 [`docs/qa/owned-alts-foundation.md`](../qa/owned-alts-foundation.md) for identity contracts and `!qa run oa-1` checks.
+
+## 1.6.0.4 hotfix (owner 2026-10-28)
+
+Alts now follow their owner (same map and through portals, never into an instance they did not enter, never by
+warp, fare or boat), a channel change or leaving the party sends them home saved, `@botme here` brings them over,
+invites to an alt are refused, and `@botme`/`@dismiss` run off the packet thread. See the 1.6.0.4 section of
+[`docs/qa/owned-alts-foundation.md`](../qa/owned-alts-foundation.md). Formations, combat/loot and PQ roles remain open.

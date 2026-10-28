@@ -27,9 +27,11 @@ class OwnedAltServiceTest {
         Set<Integer> friends = new HashSet<>();
         public List<OwnedAltService.Candidate> list(Character owner) { return candidates; }
         public boolean online(int id) { return online.contains(id); }
+        final List<Character> loaded = new java.util.concurrent.CopyOnWriteArrayList<>();
         public Character load(OwnedAltService.Candidate row, Character owner) {
             loads.incrementAndGet();
             Character alt = mock(Character.class);
+            loaded.add(alt);
             when(alt.getId()).thenReturn(row.id());
             when(alt.getName()).thenReturn(row.name());
             when(alt.getAccountID()).thenReturn(row.accountId());

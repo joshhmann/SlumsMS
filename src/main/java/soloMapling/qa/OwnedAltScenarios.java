@@ -22,7 +22,9 @@ final class OwnedAltScenarios {
                     "@dismiss <name> must log one 'save committed' then 'removed'. Log into the alt and compare its progress.",
                     "Repeat summon, owner logout and immediate alt login 50 times. A pending save may refuse login; retry from character selection.",
                     "Summon again, then @dismiss all. No progress after owner logout. Check the log for one final save per dismissal.",
-                    "Movement, combat, formations and automatic trade offers are deferred; this check covers the lifecycle foundation.");
+                    "1.6.0.4: walk through a portal - the alt follows. Enter a PQ without it - it waits outside. @botme here brings it back.",
+                    "1.6.0.4: change channel - 'Your alts went home.' on arrival. Expel the alt from the party - it goes home saved.",
+                    "Combat, formations and automatic trade offers are deferred.");
         }
     }
 }

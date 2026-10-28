@@ -113,6 +113,7 @@ final class GCTravel {
         final int rebirths;     // rebirth gates the route may pass (BotMapGates)
         boolean noFares;        // couldn't pay a fare: replan over free hops only
         final boolean noWarp;   // ticket 59: a chat-asked walk - give up rather than warp anywhere
+        final boolean ownedAlt; // 1.6.0.4: an owned alt walks portals only (see the constructor)
         boolean sellerVisited;  // walked past the ticket seller on this map already
         volatile boolean awaitingBoarding; // standing at a boarding NPC until the event opens entry
         volatile boolean aboard;           // on a waiting room / deck / ride map
@@ -126,7 +127,11 @@ final class GCTravel {
             this.destMapId = destMapId;
             this.callback = callback;
             this.rebirths = soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.rebirthsOf(bot);
-            this.noWarp = warpsForbidden(bot.getId());
+            // 1.6.0.4: an owned alt is a real character following its owner: it walks portals only - no warp (a warp
+            // could set it down in an event map's public copy), no paid or boarded transit (its own mesos), no free ride.
+            this.ownedAlt = bot.isOwnedAlt();
+            this.noWarp = warpsForbidden(bot.getId()) || ownedAlt;
+            this.noFares = ownedAlt;
         }
     }
 
@@ -326,6 +331,10 @@ final class GCTravel {
         }
         BotTransit.Edge transit = BotTransit.edge(cur, nextHop);
         if (transit != null && transit.isBoard()) {
+            if (trip.ownedAlt) {
+                giveUpNoWarp(trip, "an owned alt does not board '" + transit.name() + "' to " + nextHop);
+                return;
+            }
             board(trip, bot, transit);
             return;
         }

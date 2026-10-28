@@ -3834,9 +3834,27 @@ public class Character extends AbstractCharacterObject {
      * already decides who shares a kill (members on the map, inside the level-gap interval), as for anyone.
      */
     public boolean canGainOwnedAltPartyExp() {
-        Character owner = ownedAltOwner;
+        Character owner = liveOwnedAltOwner();
         return !ownedAltClosing && owner != null && owner.isLoggedinWorld() && owner.getClient() != null
                 && owner.getClient().getPlayer() == owner;
+    }
+
+    /**
+     * 1.6.0.4 (H1): the owner as the world holds them now, looked up by id, not the object stored at summon time - a
+     * stale object must not keep an alt earning. Null when the owner is not in the world. Without a running world
+     * (unit tests) the stored object answers.
+     */
+    Character liveOwnedAltOwner() {
+        Character stored = ownedAltOwner;
+        if (stored == null) return null;
+        net.server.world.World w;
+        try {
+            w = Server.getInstance().getWorld(stored.getWorld());
+        } catch (RuntimeException e) {
+            w = null;
+        }
+        if (w == null || w.getPlayerStorage() == null) return stored;
+        return w.getPlayerStorage().getCharacterById(stored.getId());
     }
 
     /** The monster EXP path (solo or party share): an alt gains it like any member while its owner is online. */

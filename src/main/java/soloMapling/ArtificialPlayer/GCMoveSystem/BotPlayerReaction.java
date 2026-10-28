@@ -55,6 +55,9 @@ final class BotPlayerReaction {
 
     // Throttled scan for a nearby real player; roll a reaction for the first one off cooldown.
     static void maybeReact(BotMovementState entry, Character bot) {
+        if (bot.isOwnedAlt()) {
+            return; // 1.6.0.4: an owned alt has no population persona (no lines, drama, affinity or gifts from its bag)
+        }
         long nowMs = System.currentTimeMillis();
         if (nowMs < entry.nextPlayerScanMs || entry.reactingUntilMs > nowMs) {
             return;
