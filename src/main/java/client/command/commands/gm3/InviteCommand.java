@@ -152,6 +152,11 @@ public class InviteCommand extends Command {
         return out;
     }
 
+    /** Auto-QA t-iv-1: the player path ({@code @invite}) for a throwaway account, whatever the caller's own GM level. */
+    public static List<String> runPlayerForQa(String[] params, int accountId, int charId, String by, int level, long now) {
+        return runPlayer(params, accountId, charId, by, level, now);
+    }
+
     /** Test seam. */
     static void useStoreForTest(AuthStore s) {
         store = s == null ? new AuthStore.Jdbc() : s;

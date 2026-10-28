@@ -377,7 +377,8 @@ public final class BotWatch {
                     used(chr, InventoryType.ETC), used(chr, InventoryType.EQUIP), t.chat, t.chatAt,
                     chr.getParty() != null, chr.getChair() > 0, map.isTown(), mobMap(map.getId()),
                     watchedHere(chr), jump,
-                    jumpWatched, soloMapling.Economy.BotShops.hasShop(chr.getId()));
+                    jumpWatched, soloMapling.Economy.BotShops.hasShop(chr.getId()),
+                    soloMapling.ArtificialPlayer.BotWealth.upkeepPaid(chr.getId()));
         } catch (RuntimeException | LinkageError e) {
             AutoQa.log.debug("Bot watch could not sample {}: {}", t.name, e.toString());
             return BotWatchJudge.Sample.offline(now);

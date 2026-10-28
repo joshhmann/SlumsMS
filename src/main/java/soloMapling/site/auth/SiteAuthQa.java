@@ -98,6 +98,19 @@ public final class SiteAuthQa {
         return store.find(requestId) != null;
     }
 
+    /** t-iv-1: removes the codes a throwaway account id made (and nothing else). Returns how many rows went. */
+    public static int cleanupInvitesMadeBy(int accountId) throws SQLException {
+        requireAutoQa();
+        if (accountId >= 0) {
+            throw new IllegalArgumentException("only a throwaway (negative) account id");
+        }
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("DELETE FROM invite_codes WHERE created_by_account = ?")) {
+            ps.setInt(1, accountId);
+            return ps.executeUpdate();
+        }
+    }
+
     /**
      * Removes what the check made: its reset requests, the invite and the account (only one with no characters, by id
      * and name). Returns how many rows went.

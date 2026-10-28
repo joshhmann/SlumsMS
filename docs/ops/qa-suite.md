@@ -415,6 +415,17 @@ handing over one zero-stat medal with a yellow notice; repeating gives nothing. 
 shows. To see the full-bag notice fill the Equip tab first, then free a slot and type `@achievements`. Stop clears both
 goals and takes the medals back. Auto-QA: t-ac-1.
 
+### Auto-QA probes with no `!qa` scenario (1.6.1)
+
+- **t-iv-1 (`@invite`, ticket 105 part 2):** calls the command's player path for a made-up account (id -900101, never a
+  real account) with level 29, then level 30 three times. Wants: level 29 refused, two codes, the third refused (2 a
+  week), `@invite list` showing two unused codes, one code signing an account up through the site auth API (skipped
+  when the API is not listening) and reading used, the same code refused a second time. Removes its invite rows and
+  the sign-up account in a `finally`; touches no real player's codes.
+- **t-sn-1 (Slums-chan, NPC 9990000, migration 042):** read-only. Her name is in String.wz, one of her stands on Base of
+  Roots (993910000) and one in Henesys (100000000) as loaded from `plife`, and the first-login guide and `@settings`
+  use her as the NPC. (`t-sc-1` is the 1.5.0 gambler-bot check, so her id is `t-sn-1`.)
+
 ## Adding a scenario
 
 1. Pick the test id from the release notes page. A second test that needs the same staging becomes an alias.
@@ -517,6 +528,9 @@ Output:
   and to the server log (info when OK, warn otherwise).
 
 ### Bot watch: bots do what they decided (1.6.0)
+
+1.6.1: wealth upkeep (a bot over its ceiling burns mesos at a town stop) is netted out of the watch's meso reading
+(`BotWealth.upkeepPaid`), so it no longer counts as "spent mesos after a town visit" or hides a real sale.
 
 `data/autoqa/bot-life.json` counts what the bots decide; the bot watch follows a few of them to see a decision turn
 into action. `!botwatch start [bots] [minutes]` (GM 3, test server; default 40 bots for 30 min), `!botwatch status`,

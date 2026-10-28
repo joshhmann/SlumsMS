@@ -30,10 +30,11 @@ class BotWatchJudgeTest {
         long exp = 1000, meso = 50_000, chatAt;
         boolean party, sit, town, mob = true, watched, jumpWatched, shop;
         int jump;
+        long upkeep;
 
         Sample build() {
             return online ? new Sample(t, true, ch, map, x, y, act, target, phase, level, exp, meso, kills, pots, etc,
-                    equip, chat, chatAt, party, sit, town, mob, watched, jump, jumpWatched, shop) : Sample.offline(t);
+                    equip, chat, chatAt, party, sit, town, mob, watched, jump, jumpWatched, shop, upkeep) : Sample.offline(t);
         }
     }
 
@@ -186,6 +187,17 @@ class BotWatchJudgeTest {
         }));
         assertEquals(Verdict.OK, j.verdict(), j.reason());
         assertEquals("potions 3 -> 200 after a town visit", j.segments().get(0).reason());
+    }
+
+    @Test
+    void restockWhoseOnlyMesoLossIsWealthUpkeepIsNotASpend() {
+        // 1.6.1 QA: upkeep burns mesos at a town stop; that is not "spent mesos after a town visit"
+        var j = judge(track(26, (k, s) -> {
+            town(x -> x).apply(s); s.act = "RESTOCK"; s.x = (k % 2) * 50; s.watched = true;
+            if (k >= 3) { s.upkeep = 10_000; s.meso = 40_000; }
+        }));
+        assertEquals(Verdict.MISMATCH, j.verdict(), j.reason());
+        assertTrue(j.reason().contains("bought nothing"), j.reason());
     }
 
     @Test
