@@ -65,11 +65,11 @@ class ChatTriageTest {
     /** Death wishes are harassment by rule until the model learns them (deathwish.tsv); game talk about dying is not. */
     @org.junit.jupiter.api.Test
     void deathWishesAreHarassmentButBossTalkIsNot() {
-        for (String line : new String[] {"go die", "kys", "drop dead noob", "go die noob", "hope u die", "just go die lol"}) {
+        for (String line : new String[] {"go die", "kys", "drop dead noob", "go die noob", "hope u die", "just go die lol", "go die in a fire", "go die irl"}) {
             assertEquals(ChatTriage.Con.HARASSMENT, ChatTriage.rules(line).con(), line);
         }
         for (String line : new String[] {"go back to henny noob", "lets go die to horntail lol", "kill that slime for me",
-                "i always go die in zakum", "we gonna go die at pap"}) {
+                "i always go die in zakum", "we gonna go die at pap", "i hope u die less in kpq lol"}) {
             assertEquals(ChatTriage.Con.NORMAL, ChatTriage.rules(line).con(), line);
         }
     }

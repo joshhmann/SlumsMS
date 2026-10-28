@@ -155,7 +155,7 @@ public final class ChatTriage {
     private static final Pattern HARASSMENT = Pattern.compile("(\\bkys\\b|kill (ur|your)self|\\bstfu\\b|nobody likes (u|you)"
             + "|(ur|you'?re|u r) (so )?(ugly|stupid|dumb|trash|retarded|worthless)|\\bretard|\\bfag"
             // death wishes; "go die to/in/at <boss>" is game talk, not a wish
-            + "|\\bgo die\\b(?! (to|in|at|on|vs|with|from)\\b)|\\bdrop dead\\b|hope (u|you|ya) die)");
+            + "|\\bgo die\\b(?! (to|in|at|on|vs|with|from)\\b)|\\bgo die (in a (fire|hole|ditch)|irl)\\b|\\bdrop dead\\b|hope (u|you|ya) die\\b(?! less| fewer| to))");
 
     private ChatTriage() {
     }
