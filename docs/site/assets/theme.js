@@ -400,6 +400,12 @@
     sep.className = "sep"; sep.textContent = " · ";  // shown as one line where there's room, two in the header
     line.append("Signed in as ", name);
     who.append(line, sep, out);
+    if (j.admin) {  // GM level 3+ (the login service decides; nginx checks again at /admin/)
+      var adm = document.createElement("a"), sep2 = document.createElement("span");
+      adm.href = a.getAttribute("href") + "../admin/"; adm.className = "linkbtn"; adm.textContent = "Admin";
+      sep2.className = "sep"; sep2.textContent = " · ";
+      who.append(sep2, adm);
+    }
     out.style.justifySelf = "start";
     out.addEventListener("click", function () {
       fetch(api + "logout", { method: "POST", credentials: "same-origin" }).then(function () { location.reload(); });

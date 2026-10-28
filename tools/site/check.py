@@ -57,6 +57,9 @@ WORD_OK = {
     "assets/forgot.js": {"password"},
     # ticket 105: how to join and the getting-started guide explain the sign-up rules
     "join/index.html": {"password"},
+    # the staff dashboard (admin/, GM level 3+ only): its "Password resets" panel lists GM-approved reset requests
+    "admin/index.html": {"password"},
+    "admin/app.js": {"password"},
     "guide/getting-started.html": {"password"},
     # the 1.6.0 notes announce sign-up and password resets on the website (owner-approved text)
     "patch-notes/1.6.0/index.html": {"password"},
@@ -214,7 +217,7 @@ def check_links(root):
 
 
 # Sections that stay private until 1.6.0 is live. A public build must not contain them or link to them.
-PRIVATE_SECTIONS = ["database", "market", "secret"]
+PRIVATE_SECTIONS = ["database", "market", "secret", "admin"]
 
 
 def check_private(root):

@@ -59,7 +59,8 @@ ssh "$HOST" "echo $(git rev-parse --short HEAD) > $DEST/DEPLOYED_COMMIT
   cd $DEST && flock -w 300 /run/lock/slums-site-test-build.lock nice -n 19 python3 tools/site/build.py --private --world \
     --out /srv/slums-site-test --no-tar --hs-data $DEST/hiddenstreet \
     --site-data /opt/mapleroot-dev/persistence-test/Server/data/site \
-    --market-data /opt/mapleroot-dev/persistence-test/Server/data/market | tail -1
+    --market-data /opt/mapleroot-dev/persistence-test/Server/data/market \
+    --dashboard-web /srv/slums-dashboard-test/web | tail -1
   systemctl enable -q slums-login-test slums-market-test slums-report-test slums-site-test-web slums-site-test-world.timer slums-site-test-market.timer
   systemctl restart slums-login-test slums-market-test slums-report-test slums-site-test-web
   systemctl restart slums-site-test-world.timer slums-site-test-market.timer

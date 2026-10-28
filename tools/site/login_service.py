@@ -23,7 +23,13 @@ auth API is unreachable, not set up, or can't reach its database).
 
 nginx asks GET /api/auth/check (auth_request) before serving the friends-only sections: 204 when the session is good,
 401 otherwise. POST /api/login/logout ends the session on this server too, not only in the browser that asked.
-GET /api/login/me says who is signed in: {"signed_in", "character", "account"}.
+GET /api/login/me says who is signed in: {"signed_in", "character", "account", "admin"}.
+
+Admin (the staff dashboard at /admin/, owner 2026-10-28): GM level 3 and up, and only within 12 h of signing in (a
+stolen old cookie opens nothing; an admin signs in again after that). The session carries the GM level the game sent
+at sign-in ("gl"). nginx asks GET /api/auth/admin (auth_request) before /admin/ and its data: 204 for an admin, 401
+when not signed in, 403 for anyone else or an admin session older than 12 h. "admin" in /api/login/me is the same
+check, for the header's Admin link.
 
 Download pass (launcher 1.6.1, ticket 106): POST /api/login/download-pass (session cookie, "X-Slums: 1") gives
 {"ok": true, "pass", "expiresAt": <Unix seconds>}, a token the launcher sends as "X-Slums-Pass" on every patch download. It lives 12 h
@@ -69,6 +75,7 @@ SESSION_TTL = 30 * 86400
 AUTH_PER_IP_MIN = 10  # sign-ins and sign-ups per address a minute (the game server also locks accounts)
 MAX_BODY = 1024
 SESSION_COOKIE, RESET_COOKIE = "slums_session", "slums_reset"
+ADMIN_LEVEL, ADMIN_TTL = 3, 12 * 3600  # the staff dashboard: GM level 3+, a sign-in at most 12 h old
 RESET_TTL = 7 * 86400  # the cookie's life; the server decides when a request expires
 
 
@@ -109,6 +116,7 @@ class Sessions:
             payload["cs"] = [str(c)[:13] for c in cs if isinstance(c, str) and c][:30]
         if str(approval.get("gm", "0")).isdigit() and int(approval.get("gm", 0)) > 0:
             payload["g"] = 1
+            payload["gl"] = min(int(approval["gm"]), 99)
         return self.sign(payload)
 
     def revoked(self):
@@ -116,6 +124,11 @@ class Sessions:
             return set()
         with open(self.revoked_file, encoding="utf-8") as f:
             return {line.strip() for line in f if line.strip().isdigit()}
+
+    def admin(self, s):
+        """Is this checked session an admin's: GM level ADMIN_LEVEL or up, signed in at most ADMIN_TTL ago?"""
+        return bool(s) and isinstance(s.get("gl"), int) and s["gl"] >= ADMIN_LEVEL and \
+            int(self.now()) - int(s.get("iat", 0)) <= ADMIN_TTL
 
     def check(self, token):
         """token -> payload dict, or None if it is forged, expired or revoked."""
@@ -416,13 +429,16 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
             path = urlsplit(self.path).path
             if path == "/api/auth/check":
                 return self.send(204 if self.session() else 401)
+            if path == "/api/auth/admin":
+                s = self.session()
+                return self.send(401 if not s else 204 if sessions.admin(s) else 403)
             if path == "/api/auth/pass":
                 a = passes.check(self.headers.get("X-Slums-Pass")) if passes else None
                 return self.send(401) if a is None else self.send(204, headers={"X-Slums-Account": str(a)})
             if path == "/api/login/me":
                 s = self.session()
                 return self.send(200, {"signed_in": bool(s), "character": (s.get("c") or None) if s else None,
-                                       "account": s.get("n") if s else None})
+                                       "account": s.get("n") if s else None, "admin": sessions.admin(s)})
             if path == "/api/login/health":
                 return self.send(200, {"ok": True})
             return self.send(404, {"ok": False})

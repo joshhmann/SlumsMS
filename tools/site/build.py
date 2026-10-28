@@ -49,7 +49,7 @@ sys.path.insert(0, HERE)
 import check  # noqa: E402
 import common  # noqa: E402
 from common import REPO, SRC, esc  # noqa: E402
-from sections import database, dbdata, guide, market, notes, pages, world  # noqa: E402
+from sections import admin, database, dbdata, guide, market, notes, pages, world  # noqa: E402
 
 # kept here so older callers and the tests can keep using build.<name>
 from common import inline, layout, meta_comment, slug  # noqa: E402,F401
@@ -57,9 +57,10 @@ from sections.guide import clean_wiki, wiki_body, wiki_nav  # noqa: E402,F401
 from sections.notes import TAGS, parse_release, render_release  # noqa: E402,F401
 
 PUBLIC = ["notes", "guide", "pages"]
-PRIVATE = ["database", "market"]  # behind the sign-in (LOGIN.md)
+PRIVATE = ["database", "market", "admin"]  # behind the sign-in (LOGIN.md); admin/ for GM level 3+ only
 LIVE = ["world"]  # public, but only with --world: it needs the server's site export (or its samples)
 HS_DATA = None  # --hs-data: the build_data.py output for the database (default: sections/dbdata.py DEFAULT_DIR)
+DASHBOARD_WEB = None  # --dashboard-web: the staff dashboard to put in admin/ (default: tools/dashboard/web)
 MARKET_DATA = None  # --market-data: the server's market export (default: sections/market.py DEFAULT_DIR, the samples)
 SITE_DATA = None  # --site-data: the server's site export, Server/data/site (default: sections/world.py DEFAULT_DIR)
 
@@ -92,6 +93,8 @@ def build_section(name, out, rels, site_root=None):
         return database.build(out, HS_DATA)
     if name == "market":
         return market.build(out, dbdata.load(HS_DATA), MARKET_DATA, site_root)
+    if name == "admin":
+        return admin.build(out, DASHBOARD_WEB)
     if name == "world":
         return world.build(out, SITE_DATA, MARKET_DATA, dbdata.load(HS_DATA) if "database" in common.BUILT else None)
     if name == "pages":
@@ -139,7 +142,7 @@ def rebuild_section(name, out, private=False, live=False):
     set_context(rels, sections_for(private, live or name == "world"))
     copy_assets(out, private)
     folder = {"notes": "patch-notes", "guide": "guide", "database": "database", "market": "market",
-              "world": "world"}.get(name)
+              "world": "world", "admin": "admin"}.get(name)
     if not folder:  # pages: a few single files, written in place
         build_section(name, out, rels)
         finish(out, None, private)
@@ -192,11 +195,13 @@ def main():
     ap.add_argument("--section", help="rebuild only this section inside an existing --out")
     ap.add_argument("--hs-data", help="Hidden Street dataset folder for the database section")
     ap.add_argument("--market-data", help="market export folder (default: the samples from tools/site/market_sample.py)")
+    ap.add_argument("--dashboard-web", help="the staff dashboard copied into admin/ (default: tools/dashboard/web)")
     ap.add_argument("--world", action="store_true", help="include World (live world, feed, rankings, economy)")
     ap.add_argument("--site-data", help="site export folder, Server/data/site (default: tools/site/site_sample.py's)")
     args = ap.parse_args()
-    global HS_DATA, MARKET_DATA, SITE_DATA
+    global HS_DATA, MARKET_DATA, SITE_DATA, DASHBOARD_WEB
     HS_DATA, MARKET_DATA, SITE_DATA = args.hs_data, args.market_data, args.site_data
+    DASHBOARD_WEB = args.dashboard_web
     out = args.out or os.path.join(REPO, "dist", "site-private" if args.private else "site")
     if args.section:
         rebuild_section(args.section, out, args.private, args.world)

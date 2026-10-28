@@ -113,6 +113,49 @@ class FakeGameAuth:
         self.url = f"http://127.0.0.1:{self.srv.server_address[1]}"
 
 
+class AdminTest(unittest.TestCase):
+    """The staff dashboard (/admin/): GM level 3 and up, within 12 h of signing in; nginx asks /api/auth/admin."""
+
+    def setUp(self):
+        self.t = [1_000_000]
+        self.sessions = ls.Sessions(KEY, now=lambda: self.t[0])
+        self.srv = ThreadingHTTPServer(("127.0.0.1", 0), ls.make_handler(self.sessions, secure=False))
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.base = f"http://127.0.0.1:{self.srv.server_address[1]}"
+
+    def tearDown(self):
+        self.srv.shutdown()
+
+    def get(self, path, gm=None):
+        req = urllib.request.Request(self.base + path)
+        if gm is not None:
+            req.add_header("Cookie", ls.SESSION_COOKIE + "=" + self.sessions.issue(
+                {"account_id": 7, "account": "momo", "character": "Momo", "gm": gm}))
+        try:
+            r = urllib.request.urlopen(req)
+        except urllib.error.HTTPError as e:
+            r = e
+        data = r.read()
+        return r.status, (json.loads(data) if data else None)
+
+    def test_only_gm_level_3_and_up(self):
+        self.assertEqual(self.get("/api/auth/admin")[0], 401)
+        for gm, want in ((0, 403), (1, 403), (2, 403), (3, 204), (6, 204)):
+            self.assertEqual(self.get("/api/auth/admin", gm)[0], want, gm)
+        self.assertEqual((self.get("/api/login/me", 3)[1]["admin"], self.get("/api/login/me", 2)[1]["admin"],
+                          self.get("/api/login/me")[1]["admin"]), (True, False, False))
+
+    def test_an_admin_session_older_than_12_hours_is_refused(self):
+        token = self.sessions.issue({"account_id": 7, "account": "momo", "character": "Momo", "gm": 4})
+        s = self.sessions.check(token)
+        self.t[0] += ls.ADMIN_TTL
+        self.assertTrue(self.sessions.admin(self.sessions.check(token)))
+        self.t[0] += 1
+        self.assertFalse(self.sessions.admin(self.sessions.check(token)))
+        self.assertIsNotNone(self.sessions.check(token), "still signed in as a player")
+        self.assertEqual(s["gl"], 4)
+
+
 class AccountSignInTest(unittest.TestCase):
     """Ticket 105: sign in with the game username and password, or sign up with an invite code."""
 
