@@ -87,6 +87,11 @@ public final class OwnedAltService {
         return ground != null ? ground : new java.awt.Point(ownerPos);
     }
 
+    /** v83 stance is (pose << 1) | facing and pose 2 is standing (0 is no pose): stand, facing like the owner. */
+    static int standingStance(int ownerStance) {
+        return 4 | (ownerStance & 1);
+    }
+
     public Character summon(Character owner, String name) {
         requireEnabled();
         if (owner.isOwnedAlt() || owner.isBot())
