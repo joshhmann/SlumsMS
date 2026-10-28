@@ -23,7 +23,7 @@
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd); . "$here/lib.sh"; . "$here/publish-lib.sh"
 CV=${1:-}; shift || true
-[[ "$CV" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$ ]] || die "usage: stage-client <client-version> --build-dir 'Z:\\...\\Release' [--wz PATH] [--from-layer V] [--dry-run] [--no-verify]"
+[[ "$CV" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9.]+)?$ ]] || die "usage: stage-client <client-version> --build-dir 'Z:\\...\\Release' [--wz PATH] [--from-layer V] [--dry-run] [--no-verify]"
 BUILD_DIR="" WZ="" FROM_LAYER="" DRY_RUN=0 VERIFY=1 DATA_WIN=() DATA_REL=()
 while [ $# -gt 0 ]; do case $1 in
   --build-dir) BUILD_DIR=$2; shift;; --wz) WZ=$2; shift;; --from-layer) FROM_LAYER=$2; shift;;

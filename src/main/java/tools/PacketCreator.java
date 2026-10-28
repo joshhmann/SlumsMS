@@ -1970,21 +1970,11 @@ public class PacketCreator {
         p.writeInt(chr.getItemEffect());
         p.writeInt(ItemConstants.getInventoryType(chr.getChair()) == InventoryType.SETUP ? chr.getChair() : 0);
 
-        if (enteringField) {
-            Point spawnPos = new Point(chr.getPosition());
-            spawnPos.y -= 42;
-            p.writePos(spawnPos);
-            p.writeByte(6);
-            if (soloMapling.autoqa.SentPositions.on()) { // auto-QA "foothold (sent)": what the viewer was told
-                soloMapling.autoqa.SentPositions.spawned(chr.getId(), sentMap(target, chr), spawnPos.x, spawnPos.y, 6);
-            }
-        } else {
-            Point pos = chr.getPosition();
-            p.writePos(pos);
-            p.writeByte(chr.getStance());
-            if (soloMapling.autoqa.SentPositions.on()) {
-                soloMapling.autoqa.SentPositions.spawned(chr.getId(), sentMap(target, chr), pos.x, pos.y, chr.getStance());
-            }
+        int[] pose = spawnPose(chr, enteringField);
+        p.writePos(new Point(pose[0], pose[1]));
+        p.writeByte(pose[2]);
+        if (soloMapling.autoqa.SentPositions.on()) { // auto-QA "foothold (sent)": what the viewer was told
+            soloMapling.autoqa.SentPositions.spawned(chr.getId(), sentMap(target, chr), pose[0], pose[1], pose[2]);
         }
 
         p.writeShort(0);//chr.getFh()
@@ -2280,6 +2270,20 @@ public class PacketCreator {
             soloMapling.autoqa.SentPositions.moved(chrId, p.getBytes());
         }
         return p;
+    }
+
+    /**
+     * Where and how a spawn packet shows {@code chr}: {x, y, stance}. A character entering the field is shown 42 px up
+     * in the jump stance until its client's first move lands it. 1.6.1: an owned alt is headless and never sends a
+     * move, so that was all a viewer ever saw (the alt hung in the air); it is shown standing where the server put it
+     * (OwnedAltBackend grounds it on the foothold below its owner).
+     */
+    public static int[] spawnPose(Character chr, boolean enteringField) {
+        Point pos = chr.getPosition();
+        if (enteringField && !chr.isOwnedAlt()) {
+            return new int[]{pos.x, pos.y - 42, 6};
+        }
+        return new int[]{pos.x, pos.y, chr.getStance()};
     }
 
     /** The map a spawn packet describes: the receiving player's, else the character's own. */
