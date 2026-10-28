@@ -15,6 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,6 +41,7 @@ class SlumsChanNpcMigrationTest {
         assertTrue(rollback.contains("migration_id = '" + ID + "' AND table_name = 'plife'"));
         assertTrue(rollback.contains("DELETE FROM mapleroot_integration_migrations WHERE migration_id = '" + ID + "'"));
         assertTrue(Files.readString(Path.of("docs/release/1.6.1.conf")).contains(ID), "listed in 1.6.1.conf MIGRATIONS");
+        assertTrue(Files.readString(Path.of("docs/release/1.6.1.conf")).contains("048-custom-npc-spots"));
     }
 
     @Test
@@ -134,5 +136,16 @@ class SlumsChanNpcMigrationTest {
             }
         }
         return null;
+    }
+
+    /** Migration 048 moves her Henesys spot (1215 behind hay bales) to x 1040 on foothold 91; nothing draws over it. */
+    @Test
+    void migration048MovesHerHenesysSpotToOpenStreet() throws Exception {
+        String sql = Files.readString(DIR.resolve("048-custom-npc-spots.sql"));
+        assertTrue(sql.contains("SELECT 100000000 AS map, 9990000 AS life, 1215 AS ox, 334 AS oy, 102 AS ofh, 1040 AS nx, 334 AS ny, 91 AS nfh"));
+        assertTrue(Files.readString(DIR.resolve("048-custom-npc-spots.rollback.sql")).contains("1040 AS ox, 334 AS oy, 91 AS ofh, 1215 AS nx, 334 AS ny, 102 AS nfh"));
+        WzTestData.assumePresent("Map.wz");
+        assertEquals(List.of(), FrontObjects.covering(WzTestData.dir(), 100000000, 1040, 334, 91, 25));
+        assertFalse(FrontObjects.covering(WzTestData.dir(), 100000000, 1215, 334, 102, 25).isEmpty(), "the old spot was covered");
     }
 }
