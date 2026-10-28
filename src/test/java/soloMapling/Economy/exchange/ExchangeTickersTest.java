@@ -182,8 +182,10 @@ class ExchangeTickersTest {
     void quantitiesPricesAndTickersAreChecked() throws Exception {
         store.login(1, 11);
         assertEquals("BAD_REQUEST", place(1, "LEAF", Side.SELL, P, 0).code());
-        assertEquals("BAD_REQUEST", place(1, "LEAF", Side.BUY, P, 1001).code(), "LEAF max 1,000");
-        assertEquals("BAD_REQUEST", place(1, "CHAOS", Side.BUY, 1_000, 101).code(), "CHAOS max 100");
+        assertEquals("BAD_REQUEST", place(1, "LEAF", Side.BUY, P, 10_001).code(), "LEAF max 10,000");
+        assertEquals("BAD_REQUEST", place(1, "CHAOS", Side.BUY, 1_000, 1_001).code(), "CHAOS max 1,000");
+        assertEquals("BAD_REQUEST", place(1, "WS", Side.BUY, 1_000, 1_001).code(), "WS max 1,000");
+        assertEquals("BAD_REQUEST", place(1, "ELIXIR", Side.BUY, 1, 10_001).code(), "ELIXIR max 10,000");
         assertEquals("BAD_REQUEST", place(1, "LEAF", Side.BUY, 1_000_000_001L, 1).code(), "price per item max 1b");
         assertEquals("BAD_REQUEST", place(1, "GOLD", Side.BUY, P, 1).code(), "unknown ticker");
         assertEquals("BAD_REQUEST", place(1, "LEAF", Side.BUY, 300_000_000, 10).code(), "more than a wallet holds");
@@ -215,7 +217,9 @@ class ExchangeTickersTest {
         ExchangeConfig two = new ExchangeConfig(true, d.lotNx(), d.minNx(), d.maxNx(), d.minPrice(), d.maxPrice(), 100,
                 1, 100_000, 0, d.expiryMs(), 0, d.regularSpreadBps(), d.regularNx(), d.rateWindowMs(), 1,
                 d.pollSeconds(), 0, 60_000);
-        Exchange lim = new Exchange(store, two, store::online, store.finder(), now::get);
+        // each item ticker has its own limits now (owner 2026-10-28); here every ticker allows one open order
+        List<Ticker> one = Ticker.defaults(two).stream().map(t -> t.withLimits(1, 100_000, t.expiryMs())).toList();
+        Exchange lim = new Exchange(store, two, store::online, store.finder(), now::get, one);
         assertTrue(lim.recover().isEmpty());
         assertEquals("LIMIT_OPEN", lim.place(new Place("l1", 1, 11, Side.SELL, 1_000, 1, "LEAF")).code());
         assertEquals(0, s1.item(Asset.WS));
@@ -223,6 +227,76 @@ class ExchangeTickersTest {
                 "no white scrolls to sell: refused for funds, not by the LEAF limit");
         assertTrue(lim.place(new Place("l3", 1, 11, Side.BUY, 50_000, 1, "WS")).ok(), "WS has its own limit");
         conserved();
+    }
+
+    /**
+     * Owner 2026-10-28: the item tickers' limits went up: 10 open orders and 20 orders a day PER TICKER, orders live
+     * 7 days; NX keeps its own (here the test config's). Fails before: 5 open and 20 a day across all tickers, 72 h.
+     */
+    @Test
+    void itemTickersHaveTenOpenTwentyADayEachAndSevenDayOrders() throws Exception {
+        ExchangeConfig d = ExchangeConfig.defaults();
+        ExchangeConfig c = new ExchangeConfig(true, d.lotNx(), d.minNx(), d.maxNx(), d.minPrice(), d.maxPrice(), 100,
+                d.maxOpen(), d.perDay(), 0, d.expiryMs(), 0, d.regularSpreadBps(), d.regularNx(), d.rateWindowMs(), 1,
+                d.pollSeconds(), 0, 60_000);
+        Exchange e = new Exchange(store, c, store::online, store.finder(), now::get, Ticker.defaults(c));
+        assertTrue(e.recover().isEmpty());
+        Ticker leaf = e.ticker("LEAF");
+        assertEquals(10, leaf.maxOpen());
+        assertEquals(20, leaf.perDay());
+        assertEquals(168L * 3_600_000L, leaf.expiryMs());
+        assertEquals(5, e.ticker("NX").maxOpen(), "NX unchanged");
+        store.login(1, 11);
+        int n = 0;
+        for (int i = 0; i < 10; i++) {
+            Response r = e.place(new Place("o" + (n++), 1, 11, Side.SELL, 2_000_000 + i, 1, "LEAF"));
+            assertTrue(r.ok(), r.toString());
+            if (i == 0) {
+                long exp = java.time.Instant.parse((String) r.data().get("expiresAt")).toEpochMilli();
+                assertEquals(now.get() + 168L * 3_600_000L, exp, "7 days");
+            }
+        }
+        assertEquals("LIMIT_OPEN", e.place(new Place("o" + (n++), 1, 11, Side.SELL, 3_000_000, 1, "LEAF")).code());
+        // cancel them all and place again: the day's count is 20 on LEAF
+        for (long id : e.openIdsOf(1)) {
+            assertTrue(e.cancel("c" + id, 1, id).ok());
+        }
+        for (int i = 0; i < 10; i++) {
+            assertTrue(e.place(new Place("o" + (n++), 1, 11, Side.SELL, 2_000_000 + i, 1, "LEAF")).ok());
+        }
+        for (long id : e.openIdsOf(1)) {
+            e.cancel("c" + id, 1, id);
+        }
+        assertEquals("LIMIT_DAY", e.place(new Place("o" + (n++), 1, 11, Side.SELL, 2_000_000, 1, "LEAF")).code(),
+                "20 LEAF orders today");
+        // ... but each ticker counts its own day: ELIXIR and NX still take orders
+        assertTrue(e.place(new Place("o" + (n++), 1, 11, Side.BUY, 1_000, 1, "ELIXIR")).ok(), "per ticker, not all");
+        assertTrue(e.place(new Place("o" + (n++), 1, 11, Side.BUY, 100_000, 100, "NX")).ok());
+        now.addAndGet(86_400_001L);
+        assertTrue(e.place(new Place("o" + (n++), 1, 11, Side.SELL, 2_000_000, 1, "LEAF")).ok(), "a new day");
+    }
+
+    @Test
+    void theTickersExportCarriesTheLimits() {
+        Map<String, Object> j = ExchangeSite.tickers(ex, now.get());
+        assertEquals(10L, j.get("max_open_per_ticker"));
+        assertEquals(20L, j.get("per_day"));
+        assertEquals("ticker", j.get("per_day_scope"));
+        assertEquals(0L, j.get("cooldown_sec"), "the test config has no cooldown");
+        assertEquals(168L, j.get("expiry_hours"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> ts = (List<Map<String, Object>>) j.get("tickers");
+        Map<String, Object> nx = ts.get(0), leaf = ts.get(1);
+        assertEquals("NX", nx.get("id"));
+        assertEquals(1000, nx.get("max_open"), "NX keeps the exchange config's (the test's 1,000)");
+        assertEquals(72L, nx.get("expiry_hours"));
+        assertEquals(10, leaf.get("max_open"));
+        assertEquals(20, leaf.get("per_day"));
+        assertEquals(10_000L, leaf.get("max_qty"));
+        // 1.6.1 volatility: the banner's announced events (none here) and each item ticker's fair value (null until
+        // the volatility thread computed one)
+        assertEquals(List.of(), j.get("events"));
+        assertTrue(leaf.containsKey("fair"));
     }
 
     @Test

@@ -588,6 +588,9 @@ public final class MemoryExchangeStore implements ExchangeStore {
     }
 
     private void debit(State s, Bucket b, long amount, long account) throws StoreException {
+        if (b.kind() == Kind.BOT) {
+            return; // outside the books, like the MySQL store: the bot's own memory moved it
+        }
         if (b.kind() == Kind.WALLET && b.asset().item()) {
             walletGuard(s, b, account);
             ItemKey k = new ItemKey(b.id(), b.asset());
@@ -620,6 +623,9 @@ public final class MemoryExchangeStore implements ExchangeStore {
     }
 
     private void credit(State s, Bucket b, long amount, long account) throws StoreException {
+        if (b.kind() == Kind.BOT) {
+            return;
+        }
         if (b.kind() == Kind.WALLET && b.asset().item()) {
             walletGuard(s, b, account);
             s.items.merge(new ItemKey(b.id(), b.asset()), amount, Long::sum);

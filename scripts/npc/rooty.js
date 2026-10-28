@@ -1041,7 +1041,7 @@ function chooseMenu(selection) {
         cm.dispose();
         cm.openNpc(9010004, entry.script);
     } else {
-        section = CATALOG[entry.section];
+        section = withRootyBonus(CATALOG[entry.section]);
         var text = "Please select the " + section.name + " category.#e#d#k\r\n#b";
         for (var i = 0; i < section.categories.length; i++) {
             var c = section.categories[i];
@@ -1073,6 +1073,48 @@ function chooseCategory(selection) {
 
 function pageCount() {
     return Math.ceil(category.items.length / PAGE_SIZE);
+}
+
+/*
+ * 1.6.1 volatility, market event "Rooty's Bonus" (-Dslums.market.events, !market event rooty): while it runs, the
+ * Maple Weapons section also offers a Chaos Scroll 60% for Maple Leaves (MarketEvents.rootyBonusLeaves(), default 40):
+ * a new leaf sink, so demand for leaves spikes. Off (or any error) = the section exactly as it is. Owner 2026-10-28:
+ * capped per character per bonus event (-Dslums.market.rooty.cap, default 2), counted in the character's area info so
+ * a relog or channel change keeps the count.
+ */
+function marketEvents() {
+    try {
+        return Java.type("soloMapling.Economy.exchange.volatility.MarketEvents");
+    } catch (e) {
+        return null;
+    }
+}
+
+function bonusLeft() {
+    var m = marketEvents();
+    try {
+        return m == null ? 0 : Number(m.rootyBonusLeft(cm.getPlayer()));
+    } catch (e) {
+        return 0;
+    }
+}
+
+function withRootyBonus(s) {
+    if (s == null || s.currency !== 4001126) {
+        return s;
+    }
+    var leaves = 0;
+    try {
+        leaves = Number(Java.type("soloMapling.Economy.exchange.volatility.MarketEvents").rootyBonusLeaves());
+    } catch (e) {
+        leaves = 0;
+    }
+    if (!(leaves > 0)) {
+        return s;
+    }
+    var cats = s.categories.slice();
+    cats.push({name: "Rooty's Bonus (event)", icon: 2049100, price: leaves, items: [2049100], bonus: true});
+    return {name: s.name, currency: s.currency, price: s.price, cosmetic: s.cosmetic, categories: cats};
 }
 
 /* Stamps are an account balance, not an item: the Donor sections are priced in them. */
@@ -1149,6 +1191,11 @@ function chooseItem(selection) {
         return;
     }
     var price = priceOf(category);
+    if (category.bonus && bonusLeft() <= 0) {
+        cm.sendOk("You already took your Chaos Scrolls from Rooty's Bonus this time. Come back for the next one!");
+        cm.dispose();
+        return;
+    }
     if (have(section) < price) {
         cm.sendOk("You do not have enough " + money(section) + ".");
         cm.dispose();
@@ -1183,12 +1230,17 @@ function completePurchase(selection) {
             cm.sendOk("That purchase could not be made.");
         }
     } else if (selection == BUY) {
-        if (cm.getItemQuantity(section.currency) < price) {
+        if (category.bonus && bonusLeft() <= 0) {
+            cm.sendOk("You already took your Chaos Scrolls from Rooty's Bonus this time.");
+        } else if (cm.getItemQuantity(section.currency) < price) {
             cm.sendOk("You do not have enough #i" + section.currency + "#.");
         } else if (!cm.canHold(selectedItem, 1)) {
             cm.sendOk("You do not have enough space to hold this item. Please try again after making some space.");
         } else {
             cm.gainItem(section.currency, -price);
+            if (category.bonus) {
+                marketEvents().rootyBonusBought(cm.getPlayer());
+            }
             if (isPet) {
                 cm.gainItem(selectedItem, 1, false, true, PET_DAYS * 24 * 60 * 60 * 1000);
             } else {

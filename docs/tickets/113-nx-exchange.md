@@ -324,15 +324,22 @@ no house price and nothing minted.
 | Ticker | Asset | Price unit | Order size | Price range |
 |---|---|---|---|---|
 | `NX` | NX credit | mesos per 1,000 NX | 100..50,000 in lots of 100 (unchanged) | 1,000..100,000,000 (unchanged) |
-| `LEAF` | Maple Leaf 4001126 | mesos per item | 1..1,000 | 1..1,000,000,000 |
-| `CHAOS` | Chaos Scroll 60% 2049100 | mesos per item | 1..100 | 1..1,000,000,000 |
-| `WS` | White Scroll 2340000 | mesos per item | 1..100 | 1..1,000,000,000 |
-| `ELIXIR` | Power Elixir 2000005 | mesos per item | 1..1,000 | 1..1,000,000,000 |
+| `LEAF` | Maple Leaf 4001126 | mesos per item | 1..10,000 | 1..1,000,000,000 |
+| `CHAOS` | Chaos Scroll 60% 2049100 | mesos per item | 1..1,000 | 1..1,000,000,000 |
+| `WS` | White Scroll 2340000 | mesos per item | 1..1,000 | 1..1,000,000,000 |
+| `ELIXIR` | Power Elixir 2000005 | mesos per item | 1..10,000 | 1..1,000,000,000 |
 
-A buy's total (price plus its 1% fee reserve) must still fit a character's 2,147,483,647 mesos. Limits: **5 open
-orders per ticker**; the 20 a day and the 10 s cooldown are per account across all tickers. Knobs (JVM, all
-optional): `-Dslums.exchange.tickers=NX,LEAF,CHAOS,WS,ELIXIR` (which are open for new orders; NX always; a closed
-ticker's resting orders still load and can be cancelled), `-Dslums.exchange.<ticker>.maxQty|minPrice|maxPrice`.
+A buy's total (price plus its 1% fee reserve) must still fit a character's 2,147,483,647 mesos.
+
+**Limits** (raised for the item tickers, owner 2026-10-28 via the Website session; defaults pending the owner's
+confirmation of the exact numbers): every ticker has its own **open-order limit** and its own **day count** (orders
+placed in 24 h, counted per ticker, not across all) and its own **order life**. Item tickers: **10 open, 20 a day per
+ticker, 168 h (7 days)**, order size up to 10,000 (LEAF, ELIXIR) or 1,000 (CHAOS, WS). NX is unchanged: 5 open, 20 a
+day (now counted on NX alone), 72 h, 100..50,000 NX. The **10 s cooldown** stays per account across every ticker.
+Knobs (JVM, all optional): `-Dslums.exchange.tickers=NX,LEAF,CHAOS,WS,ELIXIR` (which are open for new orders; NX
+always; a closed ticker's resting orders still load and can be cancelled), `-Dslums.exchange.items.maxOpen|perDay|
+expiryHours` (every item ticker), `-Dslums.exchange.<ticker>.maxQty|minPrice|maxPrice|maxOpen|perDay|expiryHours`
+(one ticker); NX's come from `-Dslums.exchange.maxOpen|perDay|expiryHours` as before.
 The shops buying Maple Leaves at 500,000 is a natural floor for LEAF; nothing in the exchange enforces it.
 
 **Item escrow and settlement** (same shape as NX):
@@ -381,6 +388,12 @@ ticker:
 - every order object (`mine`, confirm) adds `"ticker"`, `"qty"` and `"qtyLeft"` (= `nx` / `nxLeft`).
 - new error code: `LOG_IN_FIRST` (selling items needs the character in game).
 
+**Limits in the export** (Website ask, 2026-10-28): `exchange-tickers.json` has top-level `max_open_per_ticker`,
+`per_day`, `per_day_scope` (`"ticker"`: each ticker counts its own day), `cooldown_sec` (per account, across all
+tickers) and `expiry_hours`. The top-level `max_open_per_ticker`, `per_day` and `expiry_hours` are the item tickers'
+(null if the item tickers ever differ); NX differs, so **every ticker object** also carries its own `max_open`,
+`per_day` and `expiry_hours` (with `max_qty` as before). Read the per-ticker ones when they matter.
+
 `exchange-book.json` (NX) keeps its shape and adds `"ticker":"NX","unit":"1000nx","unit_label":"mesos per 1,000 NX"`.
 
 **Units** (Website session, 2026-10-28): every ticker in the exports has `unit` and `unit_label` so the page never
@@ -427,8 +440,170 @@ UTC hours, **only hours that traded** (a gap means no trade):
 History is rebuilt from `exchange_fills` at every start; a staff reversal does not rewrite candles already built.
 
 ### Open economy questions (tickers)
-1. Limits: 5 open orders per ticker (25 across all) but 20 orders a day across all tickers: OK, or per ticker?
-2. Item order sizes (1..1,000 leaves and elixirs, 1..100 chaos and white scrolls) and the 1b-per-item price cap.
-3. Should LEAF have a floor at the shop's 500,000 (refuse asks below it), or leave it to players?
+1. Limits: answered 2026-10-28 (raise all four for items; per ticker per day). The exact numbers above (10 open, 20 a
+   day per ticker, 7 days, 10,000/1,000 per order) are defaults the coordinator confirms with the owner.
+2. The 1b-per-item price cap.
+3. LEAF floor: answered 2026-10-28: no floor, players decide.
 4. Regulars on item tickers would need an item float from a staff account: left out (NX-only), as asked.
 5. Items bought from the site wait until the character logs in; is a mail/Duey delivery wanted later?
+
+## Volatility (owner 2026-10-28: "how do we make this shit volatile as fuck", then "base it off guild wars"; branch `161-volatility`)
+
+Prices on the item tickers swing through real supply and demand, driven by real news. Each part has its own JVM flag,
+**all off by default (live)**, on in TEST's start script once the branch is on TEST. No price floor (players decide).
+**The exchange still mints and burns nothing**: bots trade only their own leaves, elixirs, scrolls and mesos; the fee
+of each side is the only sink; the regulars' house-funded NX role is untouched.
+
+After the owner saw the first simulation ("Holy shit that's a volatile market"): random events are off, the traders
+are toned down by about half, prices anchor to a **fair value** from real drops and sinks, and the big moves come from
+**guild news**: bot guild wars and guilds gearing up for boss runs.
+
+### 1. Trader bots (`-Dslums.exchange.traders=true`, needs `-Dslums.exchange=true`)
+
+- **Who**: `-Dslums.exchange.traders.count=16` ACTIVE roster bots, Killers and Achievers by their Bartle seed
+  (`SocialProfile.forCharacter(id).leading()`), in a fixed hash order (same bots every boot). Killers take momentum,
+  panic, whale, momentum, panic ...; Achievers value, maker, momentum, maker, value ...
+- **Archetypes** (`TraderBrain`, pure; toned down 2026-10-28):
+  - **momentum** buys 1-3% through the ask with 6-14% of its mesos (more when the move is hot) when the last hour rose
+    more than 3% (plus 4% per unit of news pressure), and sells 20-40% of its stack 1-3% under the bid when it fell;
+  - **panic** sells 30-50% of its stack 3-7% under the bid after a 12% drop from the 2 h high (6% with bad news);
+    otherwise restocks under fair value;
+  - **whale** acts on 6% of its turns: 20-35% of its mesos (or 25-45% of its stack) 4-10% through the book;
+  - **value** is anchored to the fair value: buys asks under 97% of it, bids 3-7% under it, sells bids over 115% of it,
+    asks 8-15% over it;
+  - **maker** quotes both sides 1.5-4% (wider when the market moves) around the middle **pulled halfway to the fair
+    value**, re-pricing quotes older than 20 min or more than 6% off.
+  Momentum and panic deviate from the fair value; value and maker pull the price back to it (mean reversion).
+- **Guild news first**: a trader whose guild is in the news acts on it (80% of its turns), on the ticker it concerns
+  (`TraderBrain.newsActions`): at war (first 2 h), gearing up for a boss run, or after a wipe it buys ELIXIR with
+  12-22% of its mesos 2-5% through the ask; while a war runs it adds small elixir bids; a war's winner buys LEAF; a
+  loser sells 30-50% of its leaves (or elixirs); after a clear it sells scrolls it holds. Every other trader reads the
+  same news as pressure.
+- **When**: every 4-12 minutes per bot, only while it is logged in. LEAF on 70% of the other turns.
+- **Money**: a bot's order comes out of its own holdings through `BotHoldings` into a **BOT** ledger bucket (outside
+  the books like WALLET; `kind` is VARCHAR(8), no migration). The bot is saved (`BotStore`) **before** the escrow is
+  written: a crash in between loses the escrow, never duplicates it. Payouts go back into the bot while it is in the
+  game (else they wait in its PAYOUT; the volatility thread collects for online bots even with traders off). A bot's
+  orders use its character id as the account (bots share one game account), so every player limit applies per bot:
+  10 open and 20 a day per ticker, the 10 s cooldown, the 1% fee. Bots never trade NX. No granting, ever.
+- **Leaves for traders**: the bots' off-screen loot left out the global drop table, so bots never found Maple Leaves.
+  Trader bots find them at the leaf's own global chance (the real `drop_data_global` row) x 30 kills/min while
+  hunting off screen, through `BotYieldCaps` and `BotHoldings`. Global rates are untouched.
+- **Guard** (bugs only): never beyond its holdings (fee included), never price 0, never 10x off the reference in one
+  order (dropped, not clamped), never more places than its open slots and day's count.
+
+### 2. Fair value (computed whenever the volatility thread runs; owner 2026-10-28)
+
+`FairValue`, per item ticker, recomputed hourly from real game data:
+
+| Input | What |
+|---|---|
+| floor | the NPC shop's buy price: LEAF 500,000; CHAOS, WS, ELIXIR their item's shop price |
+| ceiling | what the item buys at its sinks: LEAF = the best of Rooty's Maple Weapons (price board value of a tier's weapon / leaves: 5, 10, 15, 20) and, while Rooty's Bonus runs, CHAOS's fair value / 40; CHAOS, WS, ELIXIR = 1.5 x their price board value (`PriceBook.fairValue`). Never under 1.2 x the floor |
+| supply (24 h) | monster drops (players' per-mob and global rolls, bots' off-screen loot and leaf finds), script prizes, exchange taker sells |
+| demand (24 h) | scripts taking the item (Rooty, mastery books, Root shop, Coco), NPC shop sells, exchange taker buys |
+
+`raw = clamp(floor x (1 + k x (demand - supply) / max(supply, 1)), floor, ceiling)`, `k = 0.5`
+(`-Dslums.market.fair.k`); `fair = fair + alpha x (raw - fair)` each hour, `alpha = 0.3` (`-Dslums.market.fair.alpha`).
+Counters: `MarketFlows` (hourly buckets, cheap adds at the drop, script, shop and exchange hooks). Not counted: players
+drinking elixirs and bots using items (no cheap hook yet; it would only raise ELIXIR's demand). Shown in `!exchange
+status` ("fair ...") and `!market`, and as **`fair`** per item ticker in `exchange-tickers.json` (null for NX and until
+the first hourly computation).
+
+### 3. Guild news (part of the traders; Cody needs `-Dslums.market.events`)
+
+`MarketNews`, fed by the game's own plans, never random:
+
+| News | Source | Effect |
+|---|---|---|
+| war declared | `GuildWars.declare` / `declareOnPlayers` | both guilds' traders stock up on ELIXIR; everyone's ELIXIR pressure +1 fading over 2 h |
+| war running | the war | ELIXIR pressure +0.3 per war; guild traders add small elixir bids |
+| war ended | `GuildWars.end` (time: the score's winner; peace or betrayal: no winner) | winners' traders buy LEAF, losers' sell LEAF/ELIXIR; ELIXIR pressure -0.6 fading |
+| guild gearing up | `GuildBossRuns.start` (not the QA staging) | ELIXIR shock sized by content (Horntail 1.5, Zakum 1, Papulatus 0.8, Guild PQ 0.4) x crew/6; crew's traders buy elixirs |
+| run cleared | `GuildBossRuns.results` | CHAOS and WS pressure -0.4 x weight (the scroll market floods); crew traders sell scrolls they hold |
+| run wiped | `GuildBossRuns.results` | ELIXIR +0.5 x weight for the retry; crew traders buy elixirs again |
+
+Real players' parties are not read (no cheap, reliable signal). Cody announces war declarations, war results and
+guilds gearing up in game (blue notice, never Discord), at most one market notice per 10 minutes, e.g. `[Cody] War!
+Hawks declared war on Owls. Both guilds are stocking up: Power Elixirs are in demand.` In memory: a restart forgets
+the running news (GuildWars keeps the wars themselves).
+
+### 4. Market events (`-Dslums.market.events=true`): GM tools
+
+| Event | Lasts | What changes |
+|---|---|---|
+| Leaf Rush | 2 h | Maple Leaf global drop chance x3 (`-Dslums.market.leafRushMultiplier`) |
+| Leaf Blight | 24 h | Maple Leaves stop dropping from monsters |
+| Rooty's Bonus | 24 h | Rooty's Maple Weapons menu adds a Chaos Scroll 60% for 40 Maple Leaves (`-Dslums.market.rootyBonusLeaves`) |
+
+- **Random scheduling is off** (owner 2026-10-28): `-Dslums.market.events.random=false` by default; with it on, about
+  `perWeek=2` a week, `announcePct=60`% announced. Otherwise GM only: `!market event <rush|blight|rooty> [leaf]
+  [minutes] [secret]`, `!market end <name>`, `!market events`.
+- **Rooty's Bonus (the demand lever)**: a sale would lower demand, so the event adds a leaf sink in existing content
+  (Rooty's catalog, already priced in leaves): a Chaos Scroll 60%, which leaves cannot otherwise buy (Coco's chaos
+  craft is off). **Capped at 2 per character per bonus event** (owner 2026-10-28, `-Dslums.market.rooty.cap`),
+  counted in the character's area info 29160 as `"<event id>:<count>"`, so a relog or channel change keeps it (it
+  saves with the character; no migration). A new bonus event starts a fresh count.
+- Hooks: `MapleMap.dropGlobalItemsFromMonsterOnMap` asks `MarketEvents.globalDropChance` (the leaf only); rooty.js
+  asks `MarketEvents.rootyBonusLeaves()` / `rootyBonusLeft(player)`.
+- CHAOS, WS and ELIXIR have no event lever (Rooty's Bonus moves CHAOS a little; guild news moves ELIXIR and scrolls).
+
+### 5. Rumours (`-Dslums.market.rumours=true`, needs the exchange)
+
+At most one per `gapMinutes=20` world-wide (then by chance: about every 30-40 min), said by a bot on a map with a real
+player (a trader first), in map chat (ambient budget) or a megaphone (`megaphonePct=30`, the shared gate). True
+rumours: a 24 h move of 8%+, a whale-sized order on the book, running events (secret ones leak), and the **guild
+news with the guild names** ("Hawks is stocking up for zakum, elixirs are gonna spike", "Owls lost the war and they
+are dumping their leaves"); fresh guild news is picked first. `fakePct=35`% are made up, never guild news (that needs
+real names). Lines: `MarketRumourDialogue.yaml`, PG-13 (ContentGuard), never about bots, AI or the game's name.
+Traders act on a heard rumour 40% of the time (`actPct`), its pull fading over 2 h.
+
+### 6. Site: `exchange-tickers.json`
+
+- Per item ticker: **`fair`** (mesos, or null).
+- Top level: **`events`**: `[{"id","name","ticker","ends_at"}]`, **announced only** (secret events never appear):
+  running announced market events (`"rooty_bonus-<start ms>"`, `"Rooty's Bonus"`, `"LEAF"`, ends_at) and announced guild
+  news (`"war-<id>"`, `"Guild war: Hawks vs Owls"`, `"ELIXIR"`, ends_at = the war's scheduled end; `"prep-<guild>-<ms>"`,
+  `"Hawks gearing up for zakum"`, `"ELIXIR"`, null). `ends_at` is unix seconds, null when open-ended. Guild news counts
+  as announced when `-Dslums.market.events` is on.
+
+### Simulation (offline, `MarketSimTest`)
+
+The real exchange (memory store, real limits and fees) with 16 trader bots (30-150m mesos, 0-60 leaves, 0-300
+elixirs each; 5 in guild Hawks, 5 in Owls), their leaf finds, world flows (400 leaves dropped and 300 spent a day;
+2,000 elixirs each way, 3,000 used while busy) feeding the hourly fair value (sim floors/ceilings: LEAF 500k/1.2m,
+ELIXIR 3k/12k), **war declared at hour 12, Hawks win at hour 36, Owls gear up for Zakum at hour 50 and wipe at 52**,
+rumours, no random events. 72 simulated hours:
+
+| Seed | LEAF min - max | LEAF max/min | ELIXIR min - max | ELIXIR max/min |
+|---|---|---|---|---|
+| 7 | 348k - 864k | 2.48x | 3,120 - 6,180 | 1.98x |
+| 101 | 424k - 1.13m | 2.67x | 3,090 - 7,770 | 2.51x |
+| 202 | 369k - 920k | 2.49x | 3,040 - 5,440 | 1.79x |
+| 303 | 425k - 628k | 1.48x | 3,040 - 5,320 | 1.75x |
+
+(Before the tone-down: LEAF 2.9x-8.5x.) Seed 7's ELIXIR went 4,440 -> 6,180 in the 3 h after the war was declared,
+eased to about 5,200 after it ended and climbed back to 6,100 with the Zakum prep. LEAF's biggest swing in most seeds
+is the first hours' price discovery on an empty book (seed 7: 527k -> 864k by hour 3, back to 482k by hour 7), then it
+oscillates around the fair value. Mesos and leaves were exactly conserved in every run.
+
+### Checks
+
+- `!qa run xc-3` and auto-QA **`t-xc-3`** (the request said `t-mk-1`; `mk-1`/`t-mk-1` belong to the 1.6.0 Market
+  export): a secret 2-minute Leaf Rush (leaf chance 500 -> 1,500 -> 500), then an online trader posts a resting 1-leaf
+  bid from its own mesos and cancels it.
+- Auto-QA **`t-xc-4`**: war news on a private desk (no notice, no banner) for an online trader's guild: its role reads
+  at war, ELIXIR pressure rises, its news action is an elixir buy; posted as a resting 1-elixir bid and cancelled.
+- Tests: `ExchangeBotTradersTest`, `TraderBrainTest`, `FairValueTest` (formula, clamps, EMA, window), `MarketNewsTest`
+  (roles, pressure, Cody, banner without secrets), `MarketEventsTest` (random off by default, cap counting),
+  `MarketRumoursTest`, `MarketSimTest`, `RootyShopSelectionTest` (Rooty's Bonus and its cap across a relog),
+  `ExchangeTickersTest` (limits, `events`, `fair` in the export).
+
+### Open questions (volatility)
+
+1. Trader count (16) and turn interval (4-12 min).
+2. Rooty's Bonus: Chaos Scroll 60% for 40 leaves, 2 per character per event (defaults pending your OK).
+3. Fair value: k = 0.5 and alpha = 0.3; the ceilings for CHAOS/WS/ELIXIR (1.5x their price board value) are a
+   stand-in for "what they buy" (scrolling has no simple sink value); players' elixir use is not counted yet.
+4. Guild-war Cody notices: one per 10 min; fine, or only for wars between bot guilds and players?
+5. Rumours are heard world-wide by traders; OK?

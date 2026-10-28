@@ -35,4 +35,15 @@ class ExchangeScenarioTest {
         assertTrue(r.getMessage().contains("exchange is off"), r.getMessage());
         assertTrue(QaScenarios.all().stream().anyMatch(s -> s.id().equals("xc-2")), "registered in !qa");
     }
+
+    @Test
+    void xc3MarketVolatilityRefusesWhileItsFlagsAreOff() {
+        QaWorld world = mock(QaWorld.class);
+        Character gm = QaTestSupport.gm(1, "Admin", 100000000);
+        QaSuite suite = QaTestSupport.suite(ExchangeScenarios.all(), world, directory,
+                new QaTestSupport.ManualScheduler());
+        QaRefusal r = assertThrows(QaRefusal.class, () -> suite.start(gm, "xc-3", new String[0]));
+        assertTrue(r.getMessage().contains("off"), r.getMessage());
+        assertTrue(QaScenarios.all().stream().anyMatch(s -> s.id().equals("xc-3")), "registered in !qa");
+    }
 }

@@ -257,6 +257,9 @@ public final class JdbcExchangeStore implements ExchangeStore {
 
     private static void move(Connection con, long at, Bucket b, long amount, long account, boolean debit)
             throws SQLException, StoreException {
+        if (b.kind() == Kind.BOT) {
+            return; // a trader bot's own holdings: the bot took or got them in memory and saves through BotStore
+        }
         if (b.kind() == Kind.WALLET && b.asset().item()) {
             return; // the live character's inventory is written whole by the batch (checked in apply)
         }
@@ -548,7 +551,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
             }
             Map<Bucket, Long> sums = new HashMap<>();
             try (PreparedStatement ps = con.prepareStatement(
-                    "SELECT to_kind, to_id, asset, SUM(amount) FROM exchange_ledger WHERE to_kind <> 'WALLET' GROUP BY to_kind, to_id, asset");
+                    "SELECT to_kind, to_id, asset, SUM(amount) FROM exchange_ledger WHERE to_kind NOT IN ('WALLET', 'BOT') GROUP BY to_kind, to_id, asset");
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     sums.merge(new Bucket(Kind.valueOf(rs.getString(1)), rs.getLong(2), Asset.valueOf(rs.getString(3))),
@@ -556,7 +559,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
                 }
             }
             try (PreparedStatement ps = con.prepareStatement(
-                    "SELECT from_kind, from_id, asset, SUM(amount) FROM exchange_ledger WHERE from_kind <> 'WALLET' GROUP BY from_kind, from_id, asset");
+                    "SELECT from_kind, from_id, asset, SUM(amount) FROM exchange_ledger WHERE from_kind NOT IN ('WALLET', 'BOT') GROUP BY from_kind, from_id, asset");
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     sums.merge(new Bucket(Kind.valueOf(rs.getString(1)), rs.getLong(2), Asset.valueOf(rs.getString(3))),

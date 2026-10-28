@@ -18,6 +18,9 @@ import java.util.Map;
  *   FEES     mesos taken as fees (id 0); a meso sink that stays on the books.
  *   FEEHOLD  a buy order's reserve for the buyer's own fee (id = order id, mesos only): taken at place with the escrow,
  *            paid into FEES fill by fill, and what is left goes back with the escrow when the order closes.
+ *   BOT      a trader bot's own bags and mesos (id = the bot's character id; 1.6.1 volatility): like WALLET, outside
+ *            the exchange's books (not summed, no database row). Bots live in memory and save through BotStore, so
+ *            the exchange only ever moves what {@code BotTraderWallet} took out of (or gives into) the bot itself.
  * </pre>
  */
 public final class Ledger {
@@ -55,7 +58,12 @@ public final class Ledger {
     }
 
     public enum Kind {
-        WALLET, ESCROW, PAYOUT, HOUSE, FEES, FEEHOLD
+        WALLET, ESCROW, PAYOUT, HOUSE, FEES, FEEHOLD, BOT;
+
+        /** Outside the exchange's books: a player's wallet or a trader bot's own holdings. */
+        public boolean external() {
+            return this == WALLET || this == BOT;
+        }
     }
 
     public record Bucket(Kind kind, long id, Asset asset) {
@@ -73,6 +81,11 @@ public final class Ledger {
 
         public static Bucket house(Asset a, long regularId) {
             return new Bucket(Kind.HOUSE, regularId, a);
+        }
+
+        /** A trader bot's own holdings (outside the books; see {@link Kind#BOT}). */
+        public static Bucket bot(Asset a, long characterId) {
+            return new Bucket(Kind.BOT, characterId, a);
         }
 
         public static Bucket feeHold(long orderId) {
@@ -127,10 +140,10 @@ public final class Ledger {
     public static Map<Bucket, Long> balances(List<Posting> postings) {
         Map<Bucket, Long> out = new HashMap<>();
         for (Posting p : postings) {
-            if (p.from().kind() != Kind.WALLET) {
+            if (!p.from().kind().external()) {
                 out.merge(p.from(), -p.amount(), Long::sum);
             }
-            if (p.to().kind() != Kind.WALLET) {
+            if (!p.to().kind().external()) {
                 out.merge(p.to(), p.amount(), Long::sum);
             }
         }

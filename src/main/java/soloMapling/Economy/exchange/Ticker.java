@@ -22,22 +22,38 @@ import java.util.Map;
  * Item tickers: prices 1..1,000,000,000 mesos per item (and a buy's total, fee included, must fit a character's
  * 2,147,483,647 mesos). JVM knobs, all optional: {@code -Dslums.exchange.tickers=NX,LEAF,CHAOS,WS,ELIXIR} (which are
  * open; NX always is), {@code -Dslums.exchange.<ticker>.maxQty}, {@code .minPrice}, {@code .maxPrice}.
+ * <p>
+ * Limits per ticker (owner 2026-10-28, raised for the item tickers; NX keeps {@link ExchangeConfig}'s): open orders
+ * per account on this ticker, orders per account per 24 h on this ticker, and an order's life. Item tickers default to
+ * 10 open, 20 a day each, 168 h (7 days), LEAF and ELIXIR orders up to 10,000 items, CHAOS and WS up to 1,000. Knobs:
+ * {@code -Dslums.exchange.items.maxOpen|perDay|expiryHours} (every item ticker) and
+ * {@code -Dslums.exchange.<ticker>.maxOpen|perDay|expiryHours} (one). The 10 s cooldown stays per account across
+ * every ticker.
  *
- * @param per   prices are mesos per this many units (1,000 for NX, 1 for items)
- * @param unit  the export's unit key: "1000nx" or "item"
+ * @param per      prices are mesos per this many units (1,000 for NX, 1 for items)
+ * @param unit     the export's unit key: "1000nx" or "item"
+ * @param maxOpen  open orders an account may have on this ticker
+ * @param perDay   orders an account may place on this ticker in 24 h
+ * @param expiryMs an order's life (0 = good till cancelled)
  */
 public record Ticker(String id, Asset asset, String name, long per, long lot, long minQty, long maxQty, long minPrice,
-                     long maxPrice, String unit, String unitLabel) {
+                     long maxPrice, String unit, String unitLabel, int maxOpen, int perDay, long expiryMs) {
 
     public static final String NX = "NX";
     /** The item tickers' default largest order, by ticker. */
-    static final Map<String, Long> ITEM_MAX = Map.of("LEAF", 1_000L, "CHAOS", 100L, "WS", 100L, "ELIXIR", 1_000L);
+    static final Map<String, Long> ITEM_MAX = Map.of("LEAF", 10_000L, "CHAOS", 1_000L, "WS", 1_000L,
+            "ELIXIR", 10_000L);
+    /** The item tickers' default limits (owner 2026-10-28): 10 open, 20 a day per ticker, 7 days. */
+    static final int ITEM_MAX_OPEN = 10;
+    static final int ITEM_PER_DAY = 20;
+    static final long ITEM_EXPIRY_MS = 168L * 3_600_000L;
     static final Map<String, String> ITEM_NAME = Map.of("LEAF", "Maple Leaf", "CHAOS", "Chaos Scroll 60%",
             "WS", "White Scroll", "ELIXIR", "Power Elixir");
     static final long ITEM_MAX_PRICE = 1_000_000_000L;
 
     public Ticker {
-        if (per <= 0 || lot <= 0 || minQty <= 0 || maxQty < minQty || minPrice <= 0 || maxPrice < minPrice) {
+        if (per <= 0 || lot <= 0 || minQty <= 0 || maxQty < minQty || minPrice <= 0 || maxPrice < minPrice
+                || maxOpen <= 0 || perDay <= 0 || expiryMs < 0) {
             throw new IllegalArgumentException("bad ticker " + id);
         }
         Math.multiplyExact(maxQty, maxPrice);
@@ -71,7 +87,7 @@ public record Ticker(String id, Asset asset, String name, long per, long lot, lo
     /** The NX ticker, from the exchange's own config (its limits are the owner's 2026-10-27 decisions). */
     public static Ticker nx(ExchangeConfig c) {
         return new Ticker(NX, Asset.NX, "NX", OrderBook.PER, c.lotNx(), c.minNx(), c.maxNx(), c.minPrice(),
-                c.maxPrice(), "1000nx", "mesos per 1,000 NX");
+                c.maxPrice(), "1000nx", "mesos per 1,000 NX", c.maxOpen(), c.perDay(), c.expiryMs());
     }
 
     /** An item ticker with its defaults (no JVM properties). */
@@ -81,7 +97,7 @@ public record Ticker(String id, Asset asset, String name, long per, long lot, lo
         }
         String name = ITEM_NAME.get(a.name());
         return new Ticker(a.name(), a, name, 1, 1, 1, ITEM_MAX.get(a.name()), 1, ITEM_MAX_PRICE, "item",
-                "mesos per " + name);
+                "mesos per " + name, ITEM_MAX_OPEN, ITEM_PER_DAY, ITEM_EXPIRY_MS);
     }
 
     /** Every ticker with defaults: NX first, then the items in {@link Asset} order. */
@@ -117,9 +133,12 @@ public record Ticker(String id, Asset asset, String name, long per, long lot, lo
             }
             String k = "slums.exchange." + t.id().toLowerCase(Locale.ROOT) + ".";
             try {
+                String g = "slums.exchange.items.";
+                long expiryH = l(k + "expiryHours", l(g + "expiryHours", t.expiryMs() / 3_600_000L));
                 out.add(new Ticker(t.id(), t.asset(), t.name(), t.per(), t.lot(), t.minQty(),
                         l(k + "maxQty", t.maxQty()), l(k + "minPrice", t.minPrice()), l(k + "maxPrice", t.maxPrice()),
-                        t.unit(), t.unitLabel()));
+                        t.unit(), t.unitLabel(), (int) l(k + "maxOpen", l(g + "maxOpen", t.maxOpen())),
+                        (int) l(k + "perDay", l(g + "perDay", t.perDay())), Math.multiplyExact(expiryH, 3_600_000L)));
             } catch (IllegalArgumentException | ArithmeticException e) {
                 out.add(t);
             }
@@ -134,6 +153,12 @@ public record Ticker(String id, Asset asset, String name, long per, long lot, lo
             m.put(t.id(), t);
         }
         return m;
+    }
+
+    /** The same ticker with other limits (tests, the QA staging). */
+    public Ticker withLimits(int maxOpen, int perDay, long expiryMs) {
+        return new Ticker(id, asset, name, per, lot, minQty, maxQty, minPrice, maxPrice, unit, unitLabel, maxOpen,
+                perDay, expiryMs);
     }
 
     /** "leaf", "Leaf", "LEAF" -> "LEAF"; null for blank. */
