@@ -145,6 +145,7 @@ public class EnvironmentManager {
         SocialHotPotatoManager.getInstance().start();
         ConversationManager.getInstance().start();
         soloMapling.ArtificialPlayer.BotConvo.BotThreads.start(); // ticket 59: bot-to-bot threads near real players
+        soloMapling.ArtificialPlayer.BotConvo.BotTalk.start(); // 1.6.1 ticket 114: greetings, chats, groups (-Dslums.bottalk)
         soloMapling.ArtificialPlayer.BotConvo.ConvoEntities.warmUp(); // ticket 59: String.wz names for chat
         soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.boot(); // ticket 59: !rate weights, daily score
         soloMapling.autoqa.AutoQa.boot(); // auto-QA health sweeps + nightly checks (test server, off by default)

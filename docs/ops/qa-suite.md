@@ -435,6 +435,16 @@ goals and takes the medals back. Auto-QA: t-ac-1.
   Roots (993910000) and one in Henesys (100000000) as loaded from `plife`, and the first-login guide and `@settings`
   use her as the NPC. (`t-sc-1` is the 1.5.0 gambler-bot check, so her id is `t-sn-1`.)
 
+### bt-1: bots talk to bots (1.6.1, ticket 114)
+
+`!qa run bt-1` (needs `-Dslums.bottalk=true`): five fresh bots next to the GM, Ann and Bob friends, Cat, Dan and Eve a
+crew, Eve Ann's rival. `!qa do pair`: Ann greets Bob, small talk, asks to party; Bob answers from his goals, mood and
+bond, and a yes is a real party. `!qa do rival`: Ann asks Eve (curt or rude). `!qa do group`: the three take turns
+and each answers the ask itself. Each step prints the plan (every line with its intent, the decisions and why) and a
+`BT1 PASS / FAIL <step>` verdict lands in the QA log once the lines are out. `!qa do check`: the counters (talks,
+lines by source, acts, classified bot lines = 0, tick CPU). Auto-QA: t-bt-1 (pair, group, classifier count, tick
+cost, and the tick starting talks by itself after 5 min with 20+ bots online) and t-bt-2 (friend crews: the leader's town becomes the followers' next hang-out and one of them gets there).
+
 ## Adding a scenario
 
 1. Pick the test id from the release notes page. A second test that needs the same staging becomes an alias.

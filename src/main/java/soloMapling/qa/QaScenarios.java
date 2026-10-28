@@ -107,6 +107,7 @@ public final class QaScenarios {
         all.addAll(FamilyScenarios.all()); // 1.6.1 ticket 53: the Family system (fy-1)
         all.addAll(RebirthScenarios.all()); // 1.6.1 ticket 30: a regular earns a rebirth (rb-1)
         all.addAll(AchievementScenarios.all()); // 1.6.1 ticket 93: achievements and medals (ac-1)
+        all.addAll(TalkScenarios.all()); // 1.6.1 ticket 114: bot-to-bot talk as a decision tree, groups (bt-1)
         all.addAll(BoardScenarios.all()); // 1.6.0 site board: a post gets a bot's offer, an alert fires once (bd-1)
         all.addAll(BotWatchScenarios.all()); // 1.6.0 bot watch: bots do what they decided (bw-1)
         all.addAll(SocialTraceScenarios.all()); // 1.6.0 social trace: a short trace records a bot thread (st-1)

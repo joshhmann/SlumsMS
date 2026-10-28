@@ -1175,6 +1175,15 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-sn-1", "Slums-chan: named, in Base of Roots and Henesys, greets the first login").minutes(1)
                 .expect(probe("slumsChan"))
                 .build());
+        // Bot-to-bot talk (ticket 114, -Dslums.bottalk): a pair greets, chats, asks, answers from its goals and acts;
+        // a group of three takes turns; no bot line goes to the classifier; the engine's tick is cheap
+        c.add(Check.auto("t-bt-1", "Bot talk: greet, ask, answer by goals, act; a group of three; no classifier").minutes(2)
+                .expect(probe("botTalk"))
+                .build());
+        // Friend crews (ticket 114, -Dslums.crews): a crew's leader picks a town and the friends head there
+        c.add(Check.auto("t-bt-2", "Friend crews: the leader picks a town, the crew follows").minutes(6)
+                .expect(probe("botCrew"))
+                .build());
         return List.copyOf(c);
     }
 

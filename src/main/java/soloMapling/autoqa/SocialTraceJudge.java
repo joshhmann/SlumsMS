@@ -99,7 +99,7 @@ public final class SocialTraceJudge {
         d.put("map", e.mapId);
         d.put("channel", e.channel);
         d.put("watchers", e.watchers);
-        if ("thread".equals(e.kind) && e.watchers.isEmpty()) {
+        if ("thread".equals(e.kind) && e.watchers.isEmpty() && !talk(e)) { // 1.6.1: bot talks happen anywhere
             return new Verdict(Status.FAIL, "no real player on the map (threads only start in front of one)", d);
         }
         if (e.trigger == null || e.trigger.isBlank()) {
@@ -376,7 +376,18 @@ public final class SocialTraceJudge {
             "GOSSIP", Set.of("kept"),
             "RIVALRY", Set.of("escalate"),
             "TRAINING", Set.of("arrive"),
-            "TRADE", Set.of("trade"));
+            "TRADE", Set.of("trade"),
+            // 1.6.1 (ticket 114): bot-to-bot talks (BotTalk) and the act each yes leads to
+            "TALK_PARTY", Set.of("party", "lfg"),
+            "TALK_COME_ALONG", Set.of("trip"),
+            "TALK_HELP", Set.of("help"),
+            "TALK_TRADE", Set.of("trade"),
+            "TALK_GOSSIP", Set.of("kept"));
+
+    /** 1.6.1: an entry of a bot-to-bot talk (BotTalk), not a 1.6.0 thread. */
+    static boolean talk(SocialTraceEntry e) {
+        return e.topic != null && (e.topic.startsWith("TALK") || "GREET".equals(e.topic));
+    }
 
     /** What an episode decided: a thread's ({@link #threadDecision}) or a drama's ({@link #DRAMA_DECISIONS}). */
     static Decision decision(SocialTraceEntry e) {

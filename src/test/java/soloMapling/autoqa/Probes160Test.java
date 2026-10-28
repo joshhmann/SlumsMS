@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.0: the checks added for features that shipped without one; their pure verdicts and their wiring. */
 class Probes160Test {
 
-    static final List<String> NEW = List.of("t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-xc-2", "t-xc-3", "t-xc-4", "t-fy-1", "t-ti-1", "t-rb-1", "t-ac-1", "t-nc-1", "t-iv-1", "t-sn-1");
+    static final List<String> NEW = List.of("t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-xc-2", "t-xc-3", "t-xc-4", "t-fy-1", "t-ti-1", "t-rb-1", "t-ac-1", "t-nc-1", "t-iv-1", "t-sn-1", "t-bt-1", "t-bt-2");
 
     private static Probes160.TownSample sample(long at, int target, int filled, int[] per, List<String> over) {
         return new Probes160.TownSample(at, target, filled, per, over, 200);
@@ -176,5 +176,13 @@ class Probes160Test {
         assertNotNull(Probes160.inviteListUsedProblem(List.of("5843M-PDKEJ  used", "WRTJE-QU3RS  used"), "WRTJE-QU3RS"));
         assertEquals("unused", Probes160.inviteListState("5843M-PDKEJ  unused"));
         assertEquals("cancelled by staff", Probes160.inviteListState("5843M-PDKEJ  cancelled by staff"));
+    }
+
+    @Test
+    void organicBotTalkNeedsATalkAfterFiveMinutesOnAPopulatedServer() {
+        assertNull(Probes160.organicTalkProblem(29, 500, 0));  // too young to judge
+        assertNull(Probes160.organicTalkProblem(300, 5, 0));   // too few bots online
+        assertNull(Probes160.organicTalkProblem(30, 500, 1));
+        assertNotNull(Probes160.organicTalkProblem(30, 500, 0));
     }
 }

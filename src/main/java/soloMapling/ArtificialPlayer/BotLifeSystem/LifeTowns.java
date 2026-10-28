@@ -78,7 +78,7 @@ public final class LifeTowns {
     public static boolean isTownMap(int mapId) { return townOf(mapId) != null; }
 
     /** Where a hang-out came from (telemetry). */
-    public enum Source { FRIEND, PLAN, PULL, FAD, NEAR, HOME, HENESYS }
+    public enum Source { FRIEND, PLAN, PULL, FAD, NEAR, HOME, HENESYS, CREW }
 
     /** {@code BOT_LIFE_TOWN_WEIGHTS} as near, home, henesys; a blank or broken spec is today's "henesys:100". */
     public static double[] weights(String spec) {
