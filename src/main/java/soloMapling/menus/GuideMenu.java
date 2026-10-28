@@ -28,7 +28,7 @@ public final class GuideMenu {
     static final String SEEN_INFO = "guide=1.5.0";
 
     /** 1.6.0.2: the area-info slot that remembers the Edit UI tip was shown at login. */
-    public static final short UI_TIP_AREA = 29151;
+    public static final short UI_TIP_AREA = 29153; // 29151 is StarterChairs.GIVEN_AREA (live since 1.6.0)
     static final String UI_TIP_INFO = "uitip=1.6.0.2";
     /** The first client build that has the Edit UI (slums.dll). */
     static final int UI_TIP_MIN_BUILD = 10600;

@@ -25,7 +25,7 @@ public final class TutorialIslandMenu {
     public static final int ISLAND_START = MapId.MUSHROOM_TOWN;
 
     /** The area-info slot that remembers the question was asked (not a quest id, so the client shows nothing). */
-    public static final short ASKED_AREA = 29152;
+    public static final short ASKED_AREA = 29154; // 29152 is StarterChairs.NOTICED_AREA (live since 1.6.0)
     static final String INFO = "island=1.6.1";
 
     static final long FIRST_LOGIN_DELAY_MS = 3_000;
