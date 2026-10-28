@@ -87,7 +87,12 @@ def main():
     channels = [{"channel": c, "online": rnd.randint(380, 720)} for c in range(1, 6)]
     busiest = sorted(({"map": m, "name": n, "count": rnd.randint(20, 260)} for m, n in MAPS),
                      key=lambda r: -r["count"])[:8]
+    mobs = [(1210100, "Pig"), (1110100, "Green Mushroom"), (2230100, "Evil Eye"), (3210100, "Fire Boar"),
+            (100100, "Snail"), (1120100, "Octopus"), (2130100, "Dark Axe Stump"), (4230102, "Wraith"),
+            (5130102, "Dark Stone Golem"), (6130101, "Mushmom"), (1140100, "Ghost Stump"), (3230100, "Curse Eye")]
+    hunted = sorted(({"mob": i, "name": n, "kills": rnd.randint(200, 9000)} for i, n in mobs), key=lambda r: -r["kills"])
     dump("world.json", {"online": sum(c["online"] for c in channels), "channels": channels, "busiest_maps": busiest,
+                        "top_mobs": [dict(r, kills=r["kills"] // 7) for r in hunted[:10]], "top_mobs_7d": hunted,
                         "tonight": {"name": "Giant Cake", "start": eight_pm_pt.isoformat(), "map": "Henesys",
                                     "status": "scheduled"},
                         "running": [{"name": "Boar Stampede", "map": "Perion", "map_id": 102000000, "channel": 3,

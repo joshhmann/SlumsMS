@@ -198,9 +198,22 @@ def clock(iso):
 # ── pieces ──────────────────────────────────────────────────────────────────────────────────────
 
 class World:
-    def __init__(self, w, m, out, db=None):
+    def __init__(self, w, m, out, db=None, site_root=None):
         self.w, self.m, self.out, self.db = w, m, out, db
+        self.site_root = site_root or out  # a section rebuild writes to a stage folder; the icons are in the site
         self.links_db = db is not None and "database" in common.BUILT
+
+    def mob(self, mob_id, fallback, root):
+        """A monster: its Slums Street icon and page when this build has them, else its name."""
+        rec = (self.db or {}).get("mobs", {}).get(mob_id) if _is(mob_id, int) else None
+        name = (rec or {}).get("name") or (fallback if isinstance(fallback, str) and fallback else f"Monster {mob_id}")
+        if not (self.links_db and rec):
+            return f"<b>{esc(name)}</b>"
+        pic = ""
+        if os.path.isfile(os.path.join(self.site_root, "database", "icons", "mobs", f"{mob_id}.png")):
+            pic = (f'<span class="slotc"><img class="px" src="{root}database/icons/mobs/{mob_id}.png" alt="" '
+                   f'loading="lazy" decoding="async"></span>')
+        return f'{pic}<a href="{root}database/mobs/{mob_id}.html"><b>{esc(name)}</b></a>'
 
     def map_name(self, map_id, fallback, root):
         """A map's name, linked to its Slums Street page when this build has the database."""
@@ -409,8 +422,8 @@ def boards(lb):
     return [b for b in BOARDS if b[0] not in OPTIONAL_BOARDS or board_rows(lb, b[0])]
 
 
-def boards_description(shown):
-    words = [BOARD_WORDS[k] for k, _, _ in shown]
+def boards_description(shown, extra=()):
+    words = [BOARD_WORDS[k] for k, _, _ in shown] + list(extra)
     text = ", ".join(words[:-1]) + " and " + words[-1] if len(words) > 1 else "".join(words)
     return text[:1].upper() + text[1:] + " rankings on Bera."
 
@@ -484,6 +497,31 @@ def board_rows(lb, kind):
     return rows
 
 
+HUNTED = ("hunted", "Most hunted", "The monsters Bera hunts most: every kill by players and bots on the server.")
+
+
+def hunted_rows(wo, key):
+    """world.json's top_mobs (24 h) or top_mobs_7d: [{mob, name, kills}], up to 25 (161-hunted)."""
+    return [r for r in (wo.w["world"].get(key) or []) if isinstance(r, dict) and _is(r.get("kills"), int)][:25]
+
+
+def hunted_table(wo, rows, limit=None):
+    rows = rows[:limit]
+    if not rows:
+        return '<p class="empty" style="padding:12px 16px;margin:0">No kills counted yet.</p>'
+    top = max(r["kills"] for r in rows) or 1
+    lv = lambda r: ((wo.db or {}).get("mobs", {}).get(r.get("mob")) or {}).get("level")
+    show_lv = any(lv(r) for r in rows)
+    head = ('<th class="r">#</th><th>Monster</th>' + ('<th class="r">Level</th>' if show_lv else "")
+            + '<th class="r">Kills</th><th class="hunt-bar-h"><span class="vh">Share</span></th>')
+    body = "".join(
+        f'<tr{" class=podium" if i <= 3 else ""}><td class="r num">{i}</td><td class="who-cell">{wo.mob(r.get("mob"), r.get("name"), "{root}")}</td>'
+        + (f'<td class="r num">{lv(r) or "-"}</td>' if show_lv else "")
+        + f'<td class="r num">{r["kills"]:,}</td><td class="hunt-bar"><span style="width:{max(2, round(100 * r["kills"] / top))}%"></span></td></tr>'
+        for i, r in enumerate(rows, 1))
+    return f'<div class="tbl"><table class="t rank"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
+
+
 def build_rankings(wo):
     lb = wo.w["leaderboards"]
     # ranking pictures: only the ranked names' files are copied in; cell() shows them
@@ -507,7 +545,15 @@ def build_rankings(wo):
         for f in set(AVATARS.values()):
             shutil.copyfile(os.path.join(av["dir"], f), os.path.join(wo.out, WORLD, "avatars", f))
     shown = boards(lb)
-    tabs = "".join(f'<a href="{{root}}{WORLD}/rankings/{k}.html" class="chip">{esc(t)}</a>' for k, t, _ in shown)
+    week, day = hunted_rows(wo, "top_mobs_7d"), hunted_rows(wo, "top_mobs")
+    hunted = bool(week or day)  # a board once the server counts kills
+    tabs = "".join(f'<a href="{{root}}{WORLD}/rankings/{k}.html" class="chip">{esc(t)}</a>'
+                   for k, t, _ in shown + ([HUNTED] if hunted else []))
+    if hunted:
+        body = (f'<h1>{HUNTED[1]}</h1><p class="id">{esc(HUNTED[2])}</p><p class="chips">{tabs}</p>'
+                f'<section class="panel"><h2 class="bar">Last 7 days</h2>{hunted_table(wo, week)}</section>'
+                f'<section class="panel"><h2 class="bar">Last 24 hours</h2>{hunted_table(wo, day)}</section>')
+        wo.page(f"{WORLD}/rankings/hunted.html", "Most hunted monsters", body, "rankings")
     for kind, title, intro in shown:
         rows, limit = board_rows(lb, kind), 100
         body = (f'<h1>{esc(title)}</h1><p class="id">{esc(intro)}</p><p class="chips">{tabs}</p>'
@@ -527,12 +573,16 @@ def build_rankings(wo):
     # the overview: the top five of each
     cards = "".join(f'<section class="panel"><h2 class="bar">{esc(t)} <a href="{{root}}{WORLD}/rankings/{k}.html">All &raquo;</a></h2>'
                     f'{table(k, board_rows(lb, k), 5)}</section>' for k, t, _ in shown)
+    if hunted:
+        cards += (f'<section class="panel"><h2 class="bar">{HUNTED[1]} <small>7 days</small> '
+                  f'<a href="{{root}}{WORLD}/rankings/hunted.html">All &raquo;</a></h2>{hunted_table(wo, week or day, 5)}</section>')
     as_of = f' &middot; as of {esc(when(lb["generated_at"]))}' if lb.get("generated_at") else ""
     body = (f'<div class="headfig"><div><h1>Rankings</h1><p class="id">Everyone on Bera on one board, like it should be{as_of} &middot; '
             f'refreshes every 15 minutes</p></div>'
             f'</div>'
             f'<div class="rankgrid">{cards}</div>')
-    wo.page(f"{WORLD}/rankings/index.html", "Rankings", body, "rankings", boards_description(shown))
+    wo.page(f"{WORLD}/rankings/index.html", "Rankings", body, "rankings",
+            boards_description(shown, ["monster"] if hunted else []))
 
 
 def build_economy(wo):
@@ -615,7 +665,7 @@ def build_hot(wo):
                          "page": r.get("map") in db.get("maps", {})})
     mobs = [{"id": r.get("mob"), "name": name("mobs", r.get("mob"), r.get("name")), "count": r.get("kills"),
              "page": r.get("mob") in db.get("mobs", {})}
-            for r in (wd.get("top_mobs") or [])[:5] if isinstance(r, dict) and _is(r.get("kills"), int)]
+            for r in (wd.get("top_mobs") or wd.get("top_mobs_7d") or [])[:5] if isinstance(r, dict) and _is(r.get("kills"), int)]
     sold = []
     for i in market.traded_items(wo.m):
         n = sum((r or {}).get("count", 0) for _, r in market.item_history(wo.m, i)[-7:])
@@ -634,7 +684,7 @@ def build_traders(wo):
     write(wo.out, f"{WORLD}/traders.json", json.dumps(rows))
 
 
-def build(out, data_dir=None, market_dir=None, db=None):
+def build(out, data_dir=None, market_dir=None, db=None, site_root=None):
     w = load(data_dir)
     problems = validate(w)
     if problems:
@@ -644,7 +694,7 @@ def build(out, data_dir=None, market_dir=None, db=None):
     if problems:
         raise SystemExit("market data refused (World economy page):\n  " + "\n  ".join(problems))
     shutil.rmtree(os.path.join(out, WORLD), ignore_errors=True)
-    wo = World(w, m, out, db)
+    wo = World(w, m, out, db, site_root)
     online = build_live(wo)
     n = build_feed(wo)
     build_rankings(wo)
