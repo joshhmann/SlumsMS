@@ -173,6 +173,7 @@ public final class QaMenuCatalog {
         add("vb-7", v(), steps("storage", "duey", "trade"));
         add("ti-1", v(), steps("ask", "back")); // 1.6.1 ticket 29: the Maple Island question
         add("fy-1", v(), steps("check")); // 1.6.1 ticket 53: Family, a bot junior and the entitlements
+        add("rb-1", v(), steps("check")); // 1.6.1 ticket 30: a regular earns a rebirth
         section("Bot attack timing");
         add("bk-1", v("4th", "pirates", "pacing"), steps());
         section("Idle bots, slide, bounces");

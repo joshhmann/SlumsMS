@@ -1,5 +1,7 @@
 package soloMapling.ArtificialPlayer.BotTypes;
 
+import soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth;
+
 import soloMapling.ArtificialPlayer.BotChatTuning;
 import soloMapling.ArtificialPlayer.BotRoster;
 
@@ -292,7 +294,10 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
 
     // ── Macro brain state ────────────────────────────────────────────────────
     enum Phase { INIT, IN_TOWN, SHOP_TRAVEL, SHOP_DWELL, SHOP_RETURN, DECIDE, GO_TRAIN, GRIND, GO_TOWN,
-        BREAK_TRAVEL, BREAK_REST, LIFE_TRAVEL, LIFE_DWELL }
+        BREAK_TRAVEL, BREAK_REST, LIFE_TRAVEL, LIFE_DWELL, REBIRTH_TRAVEL }
+
+    /** 1.6.1 ticket 30: set while the bot is on its way to Wyatt to be reborn; read by the next DECIDE. */
+    private boolean rebirthTrip = false;
 
     private volatile Phase phase = Phase.INIT;
     /** Read-only telemetry for the daily-life shadow inspector; not another owner of the FSM. */
@@ -560,6 +565,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             case DECIDE -> doDecide();
             case GO_TRAIN -> doTravel(currentTrainMapId, Phase.GRIND, Phase.DECIDE);
             case LIFE_TRAVEL -> doTravel(lifeDestination, Phase.LIFE_DWELL, Phase.DECIDE);
+            case REBIRTH_TRAVEL -> doTravel(BotRebirth.NPC_MAP, Phase.DECIDE, Phase.DECIDE);
             case LIFE_DWELL -> doLifeDwell();
             case GRIND -> doGrind();
             case GO_TOWN -> doTravel(homeMapId >= 0 ? homeMapId : MapId.HENESYS,
@@ -1242,6 +1248,37 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
 
     // Drop the current outing and re-decide, which goes to the event map (WorldEventSteer). A bot with a player
     // (party, live recruit) stays; a trip, shop visit or rest break finishes first and the next DECIDE goes.
+    /** True when the bot set off for Wyatt (the decision is made); a rebirth here falls through to a normal pick. */
+    private boolean decideRebirth(Character chr) {
+        boolean wasTrip = rebirthTrip;
+        rebirthTrip = false;
+        if (!BotRebirth.enabled()) {
+            return false;
+        }
+        long t = System.currentTimeMillis();
+        if (wasTrip && chr.getMapId() != BotRebirth.NPC_MAP) {
+            BotRebirth.tripFailed(chr.getId(), t);
+            return false;
+        }
+        int target = BotRebirth.tripMap(chr, t);
+        if (target < 0) {
+            return false;
+        }
+        if (chr.getMapId() == target) {
+            BotRebirth.Result r = BotRebirth.rebirthHere(chr, t, true);
+            debugChat("DECIDE: rebirth -> " + r.text());
+            if (r.done()) {
+                clearTrainTarget();  // its old map is far above level 1 now
+                firstTrip = true;    // like a player taking the Base of Roots warper out: maybe straight to the map
+            }
+            return false;
+        }
+        debugChat("DECIDE: rebirth trip -> map " + target);
+        rebirthTrip = true;
+        enterPhase(Phase.REBIRTH_TRAVEL);
+        return true;
+    }
+
     private void answerEventCall(Character chr) {
         int target = soloMapling.worldevents.WorldEventSteer.mapFor(chr.getId());
         if (target < 0 || recruitingNow() || partyTargetMapId() != null) {
@@ -1685,6 +1722,11 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             setTrainTarget(eventMap, Math.max(1, MapMobIndex.level(eventMap)));
             firstTrip = false;
             enterPhase(chr.getMapId() == eventMap ? Phase.GRIND : Phase.GO_TRAIN);
+            return;
+        }
+        // 1.6.1 ticket 30: a max-level bot that wants its rebirth gathers the key's boss drops, crafts the key, then
+        // walks to Wyatt and is reborn there (BotRebirth: same rules as rebirth.js, a server-wide daily pace)
+        if (decideRebirth(chr)) {
             return;
         }
         // 1.6.0 tune: a tip from a TRAINING thread ("try ant tunnel tbh") - the spot is a real grind map for this

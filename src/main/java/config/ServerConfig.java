@@ -409,6 +409,10 @@ public class ServerConfig {
     public int REBIRTH_RESET_LEVEL;
 
     public int REBIRTH_FINAL_RATE;
+    // 1.6.1 ticket 30: regulars (bots) earn rebirths like players (BotRebirth). Off by default; at most
+    // BOT_REBIRTH_PER_DAY bot rebirths a UTC day across the server, so rebirth-2/3 residents appear over weeks.
+    public boolean BOT_REBIRTH_ENABLED = false;
+    public int BOT_REBIRTH_PER_DAY = 2;
     public int AUTOLOOT_ITEM_ID;
     public int JUMPQUEST_CUSTOM_EXP_MESOS_REWARD;
     public int JUMPQUEST_BASE_EXP_REWARD;

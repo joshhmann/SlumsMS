@@ -392,6 +392,13 @@ t-fy-1.
 `!qa run ti-1` opens the "Start on Maple Island?" question for the GM (the real one only asks a brand-new Explorer).
 Yes lands in Mushroom Town (map 10000); `!qa do ask` asks again, `!qa do back` returns to Base of Roots. Auto-QA: t-ti-1.
 
+### rb-1: Bot rebirth (1.6.1, ticket 30)
+
+`!qa run rb-1` (needs `BOT_REBIRTH_ENABLED` and `USE_REBIRTH_SYSTEM`): an online bot (lv 30-199, a build job, no
+party) is raised to 200 on its build, then walks its earned path with the pace forced (two boss runs, the key crafted,
+the trip granted, the rebirth on rebirth.js's rules). The answer lists what changed and what must not have (gear,
+mesos, cash items, past skills). `!qa do check` prints the bot; stop puts it back exactly as it was. Auto-QA: t-rb-1.
+
 ## Adding a scenario
 
 1. Pick the test id from the release notes page. A second test that needs the same staging becomes an alias.

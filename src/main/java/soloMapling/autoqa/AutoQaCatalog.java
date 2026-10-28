@@ -1127,6 +1127,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-ti-1", "Maple Island opt-in: the question, Yes lands on the island, No stays").minutes(2)
                 .expect(probe("tutorialIsland"))
                 .build());
+        // Bot rebirth (ticket 30, BOT_REBIRTH_ENABLED): a bot raised to 200 gathers its key's boss drops, crafts the
+        // key and is reborn with the pace forced; gear, mesos and cash items untouched; the bot is put back after
+        c.add(Check.auto("t-rb-1", "Bot rebirth: a level 200 regular earns its key and is reborn").minutes(2)
+                .expect(probe("botRebirth"))
+                .build());
         return List.copyOf(c);
     }
 

@@ -2,7 +2,8 @@
 
 **Area:** Real bots
 **Depends on:** 06 (builds), the MapleRoot skill rework on `real-stats`
-**Status:** open, target 1.6.0. Owner decision 2026-10-25: earned path for all bots.
+**Status:** earned path done in 1.6.1 (branch 161-botreb; see "Built" at the end). Owner decision 2026-10-25: earned
+path for all bots; 2026-10-28: "Earned, slowly". Veterans and World's Engine for bots: not built.
 
 ## How MapleRoot does it (for players)
 
@@ -49,3 +50,22 @@ bot that only earns it will reach the 5th tier after weeks or months, and only i
 ## Decision (Owner decision 2026-10-25)
 
 Earned path for all bots: any bot that reaches level 200 and meets its goals can rebirth like a player does. No veteran-only slice, and rebirth-3 content is not players-only. Target: 1.6.0 (a goal for the bot brain, ticket 60).
+
+## Built (1.6.1, owner 2026-10-28 "Earned, slowly")
+
+`BotRebirth` (BotProgressionSystem), hooked into TrainingBot's DECIDE (after party and world-event picks):
+- A bot at level 200, fully advanced (rebirth.js's list), under 3 rebirths, holding no key, and that *bothers* this
+  week (`botherChance` from its Bartle blend: .05 + .75 Achiever + .5 Killer + .3 Explorer + .1 Socializer, capped
+  .05-.9; re-rolled weekly) rolls an offscreen boss run at most every 6 h with 35% (`-Dslums.botRebirth.gatherHours`,
+  `.gatherChance`); a win adds one missing boss drop of craft.js's recipe through BotHoldings (one of each at most).
+- Both drops -> the key is crafted (drops taken). Key held + a pace slot left today -> the trip to Wyatt (993910000,
+  GCTravel; a failed trip waits 1 h). At Wyatt rebirth.js's checks run again, a pace slot is taken, the key is taken,
+  and the bot is reborn: rebirths +1, Beginner/Noblesse/Legend (6/3/1 in 10 by id), level 1, EXP 0, the level-1 build
+  (fresh base stats), every skill it had kept, the past job in characters_rebirth, the REBIRTH_*_RATE EXP rate, gear
+  left on (BotGear reviews as always). Website feed line as for players.
+- Pace: `BOT_REBIRTH_PER_DAY` (default 2) rebirths a UTC day, server-wide, memory-only (a restart resets the day).
+- Persistence: rebirths read back from characters_rebirth on load (BotRebirth.restore, one query per boot); no
+  migration. Keys and boss drops are never sold as junk.
+- Switch `BOT_REBIRTH_ENABLED` (default false; needs USE_REBIRTH_SYSTEM). Checks: `!qa run rb-1`, auto-QA `t-rb-1`
+  (raise a bot to 200, force the pace, walk the path, judge, put the bot back). Tests: BotRebirthTest.
+- Not built: the veteran slice, World's Engine / x13 skills for bots, a LifePolicy activity or goal of its own.
