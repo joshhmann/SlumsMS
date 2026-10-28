@@ -15,8 +15,11 @@ import java.util.Map;
  * <pre>
  * inbox  exchange-requests.json   (site writes; the server reads every poll)
  *   {"schema":1,"requests":[
- *     {"id":"r-1","account":12,"type":"place","character":345,"side":"BUY"|"SELL","price":1200000,"nx":1000,
- *      "createdAt":"2026-10-27T18:00:00Z"},
+ *     {"id":"r-0","account":12,"type":"preview","character":345,"side":"BUY"|"SELL","price":1200000,"nx":1000,
+ *      "createdAt":"2026-10-27T18:00:00Z"},       step 1: checks + what would match now; returns data.token
+ *     {"id":"r-1","account":12,"type":"confirm","token":"9f2c...","createdAt":...},   step 2: places it (within
+ *      confirmSec, default 60 s; the same token twice returns the same order; TOKEN_EXPIRED after)
+ *     ("place" is no longer accepted from the site: BAD_REQUEST "use preview then confirm")
  *     {"id":"r-2","account":12,"type":"cancel","orderId":77,"createdAt":...},
  *     {"id":"r-3","account":12,"type":"mine","createdAt":...},        my orders (open and recent)
  *     {"id":"r-4","account":12,"type":"book","createdAt":...},        book depth (also public in exchange-book.json)
@@ -31,7 +34,12 @@ import java.util.Map;
  * Each request id is answered once. A request older than {@link #MAX_AGE_MS} is answered STALE and not acted on,
  * so a backlog after downtime never places orders the player gave up on. Places are idempotent by request id even
  * across restarts (the id is stored on the order). Error codes: BAD_REQUEST, STALE, HALTED, UNAVAILABLE,
- * LOG_OUT_FIRST, INSUFFICIENT_FUNDS, NOT_OWNER, NOT_FOUND, LIMIT_OPEN, LIMIT_DAY, COOLDOWN, DUPLICATE, ERROR.
+ * LOG_OUT_FIRST, INSUFFICIENT_FUNDS, NOT_OWNER, NOT_FOUND, LIMIT_OPEN, LIMIT_DAY, COOLDOWN, DUPLICATE, ERROR,
+ * TOKEN_EXPIRED and TRY_AGAIN (the player is changing channel or in the Cash Shop). A player who is logged in can
+ * place from the site too, as long as the order names the character they are playing (else LOG_OUT_FIRST).
+ * <p>
+ * Preview data: {@code token, expiresAt, side, price, nx, takes:{asset,amount} (escrow, plus a buy's fee reserve),
+ * feeBpsEachSide, matchNow:{nx,mesos,fee,youGet:{asset,amount}}, restsNx, cancelledBySelfTrade}.
  */
 public final class ExchangeSite {
 
@@ -46,7 +54,7 @@ public final class ExchangeSite {
     }
 
     public enum Type {
-        PLACE, CANCEL, MINE, BOOK, TRADES;
+        PLACE, PREVIEW, CONFIRM, CANCEL, MINE, BOOK, TRADES;
 
         static Type parse(Object o) {
             if (!(o instanceof String s)) {
@@ -62,7 +70,11 @@ public final class ExchangeSite {
 
     /** One parsed request; {@code error} non-null when it could not be read (answered BAD_REQUEST). */
     public record Request(String id, long account, Type type, long character, OrderBook.Side side, long price,
-                          long nx, long orderId, long createdAt, String error) {
+                          long nx, long orderId, long createdAt, String error, String token) {
+        public Request(String id, long account, Type type, long character, OrderBook.Side side, long price, long nx,
+                       long orderId, long createdAt, String error) {
+            this(id, account, type, character, side, price, nx, orderId, createdAt, error, null);
+        }
     }
 
     /** Parses exchange-requests.json ({@code {"requests":[...]}} or a bare array). Throws on a broken document. */
@@ -88,7 +100,12 @@ public final class ExchangeSite {
                     : created == null ? "createdAt" : null;
             long character = 0, price = 0, nx = 0, orderId = 0;
             OrderBook.Side side = null;
-            if (err == null && type == Type.PLACE) {
+            String token = null;
+            if (err == null && type == Type.CONFIRM) {
+                token = r.get("token") instanceof String t && t.matches("[0-9a-f]{8,64}") ? t : null;
+                err = token == null ? "token" : null;
+            }
+            if (err == null && (type == Type.PLACE || type == Type.PREVIEW)) {
                 Long c = num(r.get("character")), p = num(r.get("price")), n = num(r.get("nx"));
                 side = OrderBook.Side.parse(r.get("side"));
                 err = c == null || c <= 0 ? "character" : side == null ? "side" : p == null || p <= 0 ? "price"
@@ -102,7 +119,7 @@ public final class ExchangeSite {
                 orderId = o == null ? 0 : o;
             }
             out.add(new Request(id, account == null ? 0 : account, type, character, side, price, nx, orderId,
-                    created == null ? 0 : created, err));
+                    created == null ? 0 : created, err, token));
         }
         return out;
     }
@@ -116,7 +133,10 @@ public final class ExchangeSite {
             return new Exchange.Response(r.id(), false, "STALE", "request too old; send it again", Map.of());
         }
         return switch (r.type()) {
-            case PLACE -> ex.place(new Exchange.Place(r.id(), r.account(), r.character(), r.side(), r.price(), r.nx()));
+            case PLACE -> new Exchange.Response(r.id(), false, "BAD_REQUEST", "use preview then confirm", Map.of());
+            case PREVIEW -> ex.preview(new Exchange.Place(r.id(), r.account(), r.character(), r.side(), r.price(),
+                    r.nx()));
+            case CONFIRM -> ex.confirm(r.id(), r.account(), r.token());
             case CANCEL -> ex.cancel(r.id(), r.account(), r.orderId());
             case MINE -> {
                 try {

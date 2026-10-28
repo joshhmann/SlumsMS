@@ -14,7 +14,9 @@ import java.util.Map;
  *   ESCROW   what an open order holds (id = order id): NX for a sell, mesos for a buy. Not spendable.
  *   PAYOUT   settled money waiting to reach a wallet (NX: id = account id; MESO: id = character id).
  *   HOUSE    a regular's float (id = regular id); see {@link Regulars}. Funded only from a real (staff) wallet.
- *   FEES     mesos taken as fees (id 0); a meso sink that stays on the books. 0 while the fee is 0 (the default).
+ *   FEES     mesos taken as fees (id 0); a meso sink that stays on the books.
+ *   FEEHOLD  a buy order's reserve for the buyer's own fee (id = order id, mesos only): taken at place with the escrow,
+ *            paid into FEES fill by fill, and what is left goes back with the escrow when the order closes.
  * </pre>
  */
 public final class Ledger {
@@ -27,7 +29,7 @@ public final class Ledger {
     }
 
     public enum Kind {
-        WALLET, ESCROW, PAYOUT, HOUSE, FEES
+        WALLET, ESCROW, PAYOUT, HOUSE, FEES, FEEHOLD
     }
 
     public record Bucket(Kind kind, long id, Asset asset) {
@@ -47,6 +49,10 @@ public final class Ledger {
             return new Bucket(Kind.HOUSE, regularId, a);
         }
 
+        public static Bucket feeHold(long orderId) {
+            return new Bucket(Kind.FEEHOLD, orderId, Asset.MESO);
+        }
+
         public static Bucket fees() {
             return new Bucket(Kind.FEES, 0, Asset.MESO);
         }
@@ -57,9 +63,9 @@ public final class Ledger {
         }
     }
 
-    /** Why a posting happened. */
+    /** Why a posting happened. REVERSE: a staff reversal of one fill (a compensating posting; nothing is edited). */
     public enum Why {
-        PLACE, FILL, RELEASE, COLLECT, FUND
+        PLACE, FILL, RELEASE, COLLECT, FUND, REVERSE
     }
 
     /**

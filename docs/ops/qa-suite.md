@@ -247,6 +247,14 @@ in the buyer's notes, and invites them to Maple Messenger, where it types the co
 for 30 s and the note window pops instead. Cash Shop > coupon: the code with or without dashes adds 10,000 NX credit
 once; the same code again says it was used. Auto-QA t-nx-1 (messenger) and t-nx-2 (note) drive it with AutoQaTwo.
 
+## xc-1: the NX exchange in game (1.6.1, ticket 113)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `xc-1` | Needs `-Dslums.exchange=true` and 100 NX credit on your account. Funds a test regular (regular 9) from your own mesos (nothing minted) and rests its bid for 100 NX just above the book's best bid. Stop cancels it and pays its whole house back to you. `!qa do check` logs `XC1 CHECK nx a -> b, meso c -> d, open orders n` | `@nx sell 100 <bid>` + `@nx confirm`: `Order N placed ... status FILLED`, then `NX exchange: <mesos> arrived.` at once (no logout), 100 NX gone. Wait 10 s, `@nx buy 100 1000` + `@nx confirm`: it rests and holds 101 mesos; `@nx cancel N` gives them back. After stop: the same NX, mesos down by exactly the two 1% fees |
+
+Auto-QA t-xc-1 runs the same with AutoQaOne through the real `@nx` command (an NX top-up for the sale is taken back).
+
 ## pq-2: OPQ bots (1.5.2)
 
 | Test | What it stages | What to look for |
@@ -587,6 +595,7 @@ line (`nothing could be judged here: SKIP OWNED_ALTS_ENABLED is off ...`). All r
 | t-ck-1 Daily Check-In | if AutoQaOne's account claimed within 24 h its last claim is moved back past the cooldown (day and mask kept); claims the claimable day with the window's packet, then that day and the next again; the day's items are taken back (NX, mesos and slots stay) | the claim is recorded and its items, NX (plus 500 per slot past 96), mesos and slots land; the second claims change nothing. Prints the loaded table (which days give NX); asserts against whatever table is loaded | `DAILY_CHECKIN_ENABLED` off, or AutoQaOne under the minimum level |
 | t-sc-3 starter chairs | makes a throwaway `QaChair<5 digits>` on AutoQaOne's account the normal way (BeginnerCreator), loads it from the database onto a plain client, runs the login grant on that copy, deletes it | it owns exactly one Relaxer (3010000) and one Fishing Chair (3011000); two logins add nothing and mark it; with both chairs and the mark taken away (a pre-1.6.0 character) the grant adds both once | never |
 | t-ss-1 Slums Stamps | AutoQaOne's account (staff) claims the claimable day (its last claim moved back past the cooldown first), then with the check's own earn override claims the next day and again; topped up to 6 if needed, Rooty's purchase call (`cm.buyWithStamps`) buys the first Donor Cap, then again with 5 stamps; balance, claimed items and the cap are put back | the staff claim lands with no stamps; the earning claim credits exactly that day's `stamps` (1, or 6 on days 7/14/21/28) once; the purchase takes exactly 6 and gives one cap; one short is SHORT and takes nothing | `DAILY_CHECKIN_ENABLED` off, or AutoQaOne under the minimum level |
+| t-xc-1 NX exchange | AutoQaOne (topped up to 100 NX if short, taken back): a test regular funded from its own mesos bids for 100 NX; `@nx sell 100 <bid>` + `@nx confirm`; after the 10 s cooldown `@nx buy 100 1000` + confirm, then `@nx cancel`; the regular is taken out | the sale fills, its mesos less 1% land on the live character at once and 100 NX leave; the resting buy holds exactly 101 mesos and the cancel gives them back; at the end the same NX and exactly the two fees fewer mesos; the exchange never halts | `-Dslums.exchange` off |
 
 Not automated: companions following the owner to another map (ticket 13 defers movement; t-oa-1 notes it),
 the real login handler's chair grant for a pretend player (pretend players are excluded from it like bots, so t-sc-3

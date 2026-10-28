@@ -61,7 +61,7 @@ final class Probes160 {
 
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
-            "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps");
+            "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -90,6 +90,7 @@ final class Probes160 {
                 case "dailyCheckin" -> dailyCheckin(p);
                 case "starterChairs" -> starterChairs(p);
                 case "slumsStamps" -> slumsStamps(p);
+                case "nxExchange" -> nxExchange(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1071,6 +1072,119 @@ final class Probes160 {
         }
         return verdict(bad, "a staff claim earned nothing, an earning claim credited the day's stamps once, a Donor "
                 + "cosmetic cost exactly " + STAMP_CAP_PRICE + " and one short was refused", out);
+    }
+
+    // ── t-xc-1: the NX exchange in game (ticket 113 round 2) ─────────────────────────────────────
+
+    /**
+     * t-xc-1, while logged in: (1) a test regular funded from the pretend player's own mesos bids for 100 NX; (2)
+     * {@code @nx sell 100 <bid>} + {@code @nx confirm} fills against it, and the mesos (less the 1% fee) land on the
+     * live character at once, no logout; the 100 NX left the live account; (3) {@code @nx buy 100 1000} + confirm
+     * rests and holds its mesos, {@code @nx cancel} gives them back exactly; (4) the regular is taken out, its house
+     * paid back. Net: NX unchanged, mesos down by exactly the two fees. An NX top-up for the sale is taken back.
+     */
+    static List<String> nxExchange(SyntheticPlayer p) throws Exception {
+        soloMapling.Economy.exchange.Exchange ex = soloMapling.Economy.exchange.ExchangeService.exchange();
+        if (ex == null) {
+            return List.of("SKIP the NX exchange is off (-Dslums.exchange=true)");
+        }
+        if (ex.halted()) {
+            return List.of("FAIL the NX exchange is halted: " + ex.haltReason());
+        }
+        Character me = p.character();
+        soloMapling.Economy.exchange.LiveWallet w = soloMapling.Economy.exchange.GameLiveWallet.of(me);
+        if (w == null || !w.locked(w::usable)) {
+            return List.of("FAIL the pretend player has no usable live wallet");
+        }
+        var cfg = ex.config();
+        long nxTop = 0;
+        List<String> out = new ArrayList<>();
+        List<String> bad = new ArrayList<>();
+        long nx0 = w.have(soloMapling.Economy.exchange.Ledger.Asset.NX);
+        if (nx0 < soloMapling.Economy.exchange.ExchangeQa.NX) {
+            nxTop = soloMapling.Economy.exchange.ExchangeQa.NX - nx0;
+            me.getCashShop().gainCash(1, (int) nxTop);
+            out.add("topped up " + nxTop + " NX for the sale (taken back at the end)");
+            nx0 += nxTop;
+        }
+        long meso0 = me.getMeso();
+        out.add("before: " + nx0 + " NX, " + meso0 + " mesos");
+        soloMapling.Economy.exchange.ExchangeQa.Staged st;
+        try {
+            st = soloMapling.Economy.exchange.ExchangeQa.stage(ex, w);
+        } catch (IllegalStateException e) {
+            if (nxTop > 0) {
+                me.getCashShop().takeNxCredit((int) nxTop);
+            }
+            return List.of("FAIL staging: " + e.getMessage());
+        }
+        long bid = st.bidPrice();
+        out.add("test regular bids " + bid + " for 100 NX (order " + st.bidOrder() + "), funded " + st.funded());
+        try {
+            // (2) sell in game: fills against the regular, mesos land online
+            String pv = sayAndHear(p, "@nx sell 100 " + bid, "^Preview: sell|\\([A-Z_]+\\)$", 8_000);
+            out.add("@nx sell: " + pv);
+            long mesoBefore = me.getMeso();
+            String placed = sayAndHear(p, "@nx confirm", "^Order \\d+ placed|\\([A-Z_]+\\)$", 8_000);
+            out.add("@nx confirm: " + placed);
+            long gets = soloMapling.Economy.exchange.ExchangeQa.sellerGets(cfg, 100, bid);
+            long deadline = System.currentTimeMillis() + 5_000;
+            while (me.getMeso() - mesoBefore < gets && System.currentTimeMillis() < deadline) {
+                Thread.sleep(200);
+            }
+            long nx1 = w.have(soloMapling.Economy.exchange.Ledger.Asset.NX);
+            out.add("after the sale: " + nx1 + " NX, mesos +" + (me.getMeso() - mesoBefore) + " (want +" + gets + ")");
+            if (placed == null || !placed.startsWith("Order ")) {
+                bad.add("the sale was not placed: " + placed);
+            }
+            if (me.getMeso() - mesoBefore != gets) {
+                bad.add("the payout did not land online: mesos +" + (me.getMeso() - mesoBefore) + ", want +" + gets);
+            }
+            if (nx0 - nx1 != 100) {
+                bad.add("the sale took " + (nx0 - nx1) + " NX from the live account, want 100");
+            }
+            // (3) a resting buy, then cancel: refunded exactly (the cooldown between orders first)
+            Thread.sleep(cfg.cooldownMs() + 1_000);
+            long m2 = me.getMeso();
+            sayAndHear(p, "@nx buy 100 " + cfg.minPrice(), "^Preview: buy|\\([A-Z_]+\\)$", 8_000);
+            String rest = sayAndHear(p, "@nx confirm", "^Order \\d+ placed|\\([A-Z_]+\\)$", 8_000);
+            out.add("@nx buy confirm: " + rest);
+            long held = m2 - me.getMeso();
+            java.util.regex.Matcher om = rest == null ? null
+                    : java.util.regex.Pattern.compile("^Order (\\d+) placed").matcher(rest);
+            if (om == null || !om.find()) {
+                bad.add("the resting buy was not placed: " + rest);
+            } else {
+                if (held != cfg.buyTotal(100, cfg.minPrice())) {
+                    bad.add("the resting buy held " + held + " mesos, want " + cfg.buyTotal(100, cfg.minPrice()));
+                }
+                String c = sayAndHear(p, "@nx cancel " + om.group(1), "cancelled|\\([A-Z_]+\\)$", 8_000);
+                out.add("@nx cancel: " + c + "; mesos back " + (me.getMeso() - (m2 - held)));
+                if (me.getMeso() != m2) {
+                    bad.add("the cancel refunded " + (me.getMeso() - (m2 - held)) + " of " + held + " mesos");
+                }
+            }
+        } finally {
+            Map<String, Object> td = soloMapling.Economy.exchange.ExchangeQa.teardown(ex, w);
+            out.add("test regular taken out: " + td);
+            if (nxTop > 0) {
+                me.getCashShop().takeNxCredit((int) nxTop);
+            }
+        }
+        long fee = cfg.fee(soloMapling.Economy.exchange.OrderBook.cost(100, bid));
+        long nxEnd = w.have(soloMapling.Economy.exchange.Ledger.Asset.NX) + nxTop;
+        out.add("after: " + (nxEnd - nxTop) + " NX, " + me.getMeso() + " mesos; fees paid " + (2 * fee));
+        if (nxEnd != nx0) {
+            bad.add("NX not conserved: " + nx0 + " -> " + nxEnd);
+        }
+        if (me.getMeso() != meso0 - 2 * fee) {
+            bad.add("mesos: " + meso0 + " -> " + me.getMeso() + ", want exactly the two fees (" + (2 * fee) + ") less");
+        }
+        if (ex.halted()) {
+            bad.add("the exchange halted during the check: " + ex.haltReason());
+        }
+        return verdict(bad, "placed in game, filled against a regular, the payout landed online, a cancel refunded "
+                + "exactly, and only the two fees left", out);
     }
 
     /** The window's claim request (CP 0x3732: action 1, day), after the per-account throttle. */

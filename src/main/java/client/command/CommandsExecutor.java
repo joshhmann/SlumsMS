@@ -222,6 +222,7 @@ public class CommandsExecutor {
         addCommand(new String[]{"help", "commands"}, HelpCommand.class);
         addCommand(new String[]{"daily", "checkin"}, DailyCommand.class);
         addCommand("stamps", StampsCommand.class);
+        addCommand("nx", NxCommand.class);
         //addCommand(new String[]{"starforce", "sf"}, StarForceCommand.class);
         addCommand("worldchat", WorldChatCommand.class);
         addCommand("bp", BackPackCommand.class);

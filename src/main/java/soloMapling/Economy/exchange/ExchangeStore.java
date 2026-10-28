@@ -20,6 +20,11 @@ public interface ExchangeStore {
         NOT_OWNER,
         /** A request id that was already used for a different order. */
         DUPLICATE,
+        /**
+         * The live (logged-in) wallet a batch was written for is no longer the live one: the account is changing
+         * channel, logging out, or no longer logged in. Nothing was written; the caller gives memory back.
+         */
+        MOVED,
         /** Anything else: SQL error, lost connection, a simulated crash. */
         ERROR
     }
@@ -52,8 +57,18 @@ public interface ExchangeStore {
                    boolean buyerRegular, boolean sellerRegular) {
     }
 
-    /** One atomic unit of work. */
-    record Batch(long id, long at, List<Ledger.Posting> postings, List<OrderRow> orders, List<FillRow> fills) {
+    /**
+     * One atomic unit of work. {@code liveAccount} (0 = none) is an account that is logged in and whose live character
+     * {@code liveCharacter} the exchange holds locked (its save lock) while this batch is written: that account's wallet
+     * legs are written as deltas although it is online, and only while the account is still fully logged in
+     * ({@code loggedin = 2}; a channel change or logout in flight refuses with {@link Failure#MOVED}). Its meso legs may
+     * only touch {@code liveCharacter}. Every other wallet leg still needs its account logged out.
+     */
+    record Batch(long id, long at, List<Ledger.Posting> postings, List<OrderRow> orders, List<FillRow> fills,
+                 long liveAccount, long liveCharacter) {
+        public Batch(long id, long at, List<Ledger.Posting> postings, List<OrderRow> orders, List<FillRow> fills) {
+            this(id, at, postings, orders, fills, 0, 0);
+        }
     }
 
     /** What {@link #load} returns at start-up: everything recovery needs. */
@@ -82,4 +97,16 @@ public interface ExchangeStore {
 
     /** An account's orders (open and recent closed), newest first, at most {@code limit}. */
     List<OrderRow> ordersOf(long account, int limit) throws StoreException;
+
+    /** One stored exchange balance (0 when none). */
+    long balance(Ledger.Bucket bucket) throws StoreException;
+
+    /** One order (open or closed), or null. */
+    OrderRow order(long id) throws StoreException;
+
+    /** One fill, or null. */
+    FillRow fill(long id) throws StoreException;
+
+    /** Every ledger posting made for this fill (FILL rows, and REVERSE rows once a staff reversal ran). */
+    List<Ledger.Posting> postingsOfFill(long fillId) throws StoreException;
 }

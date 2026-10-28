@@ -139,6 +139,7 @@ public final class QaMenuCatalog {
         add("tr-6", v(), steps(), "line <text>");
         add("tr-8", v(), steps(), "smega <text>", "react <text>");
         add("nx-1", v(), steps("wallet"), "run: <non-GM buyer name>"); // 1.6.0: buy a 10k NX code for 50m
+        add("xc-1", v(), steps("check")); // 1.6.1: the NX exchange in game (@nx), against a test regular
         section("Gifts and prices");
         add("tr-4", v(), steps("gift", "gift potions", "gift scroll", "gift mesos"));
         add("tr-5", v(), steps("price", "tax"), "price <item id>", "tax <price>");

@@ -54,27 +54,140 @@ public final class MemoryExchangeStore implements ExchangeStore {
     /** A logged-in account: the wallet values the game loaded, which it changes in memory and saves back whole. */
     public final class Session {
         public final long account;
+        /** The character playing (its LiveWallet's meso); 0 = none (the scaffold's model). */
+        public final long live;
         public long nx;
         public final Map<Long, Long> meso = new HashMap<>();
+        /** The Cash Shop is open (a live place refuses). */
+        public volatile boolean inCashShop;
 
-        Session(long account) {
+        Session(long account, long live) {
             this.account = account;
+            this.live = live;
+        }
+
+        /** Gains mesos like the game (another thread may do this while the exchange holds the lock). */
+        public void gainMeso(long character, long amount) {
+            synchronized (MemoryExchangeStore.this) {
+                meso.merge(character, amount, Long::sum);
+            }
         }
 
         /** Spends mesos like the game does: only what the session holds. */
         public boolean spendMeso(long character, long amount) {
-            long have = meso.getOrDefault(character, 0L);
-            if (amount > have) {
-                return false;
+            synchronized (MemoryExchangeStore.this) {
+                long have = meso.getOrDefault(character, 0L);
+                if (amount > have) {
+                    return false;
+                }
+                meso.put(character, have - amount);
+                return true;
             }
-            meso.put(character, have - amount);
-            return true;
+        }
+
+        public boolean spendNx(long amount) {
+            synchronized (MemoryExchangeStore.this) {
+                if (amount > nx) {
+                    return false;
+                }
+                nx -= amount;
+                return true;
+            }
+        }
+    }
+
+    /** The game's live wallet over a {@link Session} (the session object is the character's save lock). */
+    private final class SessionWallet implements LiveWallet {
+        final Session s;
+
+        SessionWallet(Session s) {
+            this.s = s;
+        }
+
+        @Override
+        public long account() {
+            return s.account;
+        }
+
+        @Override
+        public long character() {
+            return s.live;
+        }
+
+        @Override
+        public <T> T locked(java.util.function.Supplier<T> body) {
+            synchronized (s) {
+                return body.get();
+            }
+        }
+
+        @Override
+        public boolean usable() {
+            synchronized (MemoryExchangeStore.this) {
+                return sessions.get(s.account) == s && !transition.contains(s.account) && !s.inCashShop;
+            }
+        }
+
+        @Override
+        public boolean saveNow() {
+            synchronized (MemoryExchangeStore.this) {
+                if (sessions.get(s.account) != s) {
+                    return false;
+                }
+                save(s);
+                saves++;
+                return true;
+            }
+        }
+
+        @Override
+        public long have(Asset a) {
+            synchronized (MemoryExchangeStore.this) {
+                return a == Asset.NX ? s.nx : s.meso.getOrDefault(s.live, 0L);
+            }
+        }
+
+        @Override
+        public boolean take(Asset a, long amount) {
+            synchronized (MemoryExchangeStore.this) {
+                if (takeRefuses) {
+                    return false;
+                }
+                return a == Asset.NX ? s.spendNx(amount) : s.spendMeso(s.live, amount);
+            }
+        }
+
+        @Override
+        public boolean give(Asset a, long amount) {
+            synchronized (MemoryExchangeStore.this) {
+                if (giveRefuses > 0) {
+                    giveRefuses--;
+                    return false;
+                }
+                long have = have(a);
+                if (have + amount > Integer.MAX_VALUE) {
+                    return false;
+                }
+                if (a == Asset.NX) {
+                    s.nx += amount;
+                } else {
+                    s.meso.put(s.live, have + amount);
+                }
+                return true;
+            }
         }
     }
 
     private State state = new State();
     private final Set<Long> online = new HashSet<>();
+    /** Accounts mid channel change or logout ({@code loggedin} is no longer 2). */
+    private final Set<Long> transition = new HashSet<>();
     private final Map<Long, Session> sessions = new HashMap<>();
+    /** Test hooks: memory refuses the next N gives / every take. */
+    private int giveRefuses;
+    private boolean takeRefuses;
+    /** Character saves made by the live wallets. */
+    public int saves;
     private int crashAfter = -1;
     private long ledgerSeq;
 
@@ -95,6 +208,7 @@ public final class MemoryExchangeStore implements ExchangeStore {
         return state.meso.getOrDefault(character, 0L);
     }
 
+    @Override
     public synchronized long balance(Bucket b) {
         return state.balances.getOrDefault(b, 0L);
     }
@@ -111,6 +225,7 @@ public final class MemoryExchangeStore implements ExchangeStore {
         return new ArrayList<>(state.fills);
     }
 
+    @Override
     public synchronized OrderRow order(long id) {
         return state.orders.get(id);
     }
@@ -152,8 +267,14 @@ public final class MemoryExchangeStore implements ExchangeStore {
     }
 
     public synchronized Session login(long account) {
+        return login(account, 0);
+    }
+
+    /** Logs in as {@code character}: the session has a {@link LiveWallet} ({@link #finder}). */
+    public synchronized Session login(long account, long character) {
         online.add(account);
-        Session s = new Session(account);
+        transition.remove(account);
+        Session s = new Session(account, character);
         s.nx = state.nx.getOrDefault(account, 0L);
         for (var e : state.charAccount.entrySet()) {
             if (e.getValue() == account) {
@@ -164,14 +285,90 @@ public final class MemoryExchangeStore implements ExchangeStore {
         return s;
     }
 
-    /** Saves the session's values back (absolute, as the game's character save does), then marks the account offline. */
-    public synchronized void logout(long account) {
-        Session s = sessions.remove(account);
-        if (s != null) {
-            state.nx.put(account, s.nx);
-            state.meso.putAll(s.meso);
+    /**
+     * Saves the session's values back (absolute, as the game's character save does), then marks the account offline.
+     * Like the game's logout, the save waits for the character's lock (the session object).
+     */
+    public void logout(long account) {
+        Session s;
+        synchronized (this) {
+            s = sessions.get(account);
         }
+        if (s == null) {
+            synchronized (this) {
+                online.remove(account);
+            }
+            return;
+        }
+        synchronized (s) {
+            synchronized (this) {
+                save(s);
+                sessions.remove(account);
+                online.remove(account);
+                transition.remove(account);
+            }
+        }
+    }
+
+    private void save(Session s) {
+        state.nx.put(s.account, s.nx);
+        state.meso.putAll(s.meso);
+    }
+
+    /** The server died: the session is gone without a save (memory lost), the account reads as offline again. */
+    public synchronized void crash(long account) {
+        sessions.remove(account);
         online.remove(account);
+        transition.remove(account);
+    }
+
+    /** A channel change or logout in flight: {@code loggedin} is no longer 2, the session is not live. */
+    public synchronized void beginTransition(long account) {
+        transition.add(account);
+    }
+
+    /**
+     * A whole channel change: the old character saves (waiting for its lock), the account is in transition, the new
+     * channel loads a fresh session from the database.
+     */
+    public Session changeChannel(long account) {
+        Session old;
+        synchronized (this) {
+            old = sessions.get(account);
+        }
+        synchronized (old) {
+            synchronized (this) {
+                save(old);
+                transition.add(account);
+                sessions.remove(account);
+            }
+        }
+        synchronized (this) {
+            return login(account, old.live);
+        }
+    }
+
+    /** The live wallets of logged-in sessions (those logged in with a character). */
+    public LiveWallet.Finder finder() {
+        return account -> {
+            synchronized (MemoryExchangeStore.this) {
+                Session s = sessions.get(account);
+                return s == null || s.live == 0 ? null : new SessionWallet(s);
+            }
+        };
+    }
+
+    /** A live wallet over this session even if it is no longer the live one (a stale reference, as a race would hold). */
+    public synchronized LiveWallet walletOf(Session s) {
+        return new SessionWallet(s);
+    }
+
+    public synchronized void refuseGives(int n) {
+        giveRefuses = n;
+    }
+
+    public synchronized void refuseTakes(boolean on) {
+        takeRefuses = on;
     }
 
     /** The next write fails (as a crash would) after this many steps; -1 = never. One-shot. */
@@ -223,6 +420,8 @@ public final class MemoryExchangeStore implements ExchangeStore {
     public synchronized void apply(Batch batch) throws StoreException {
         steps = 0;
         State s = state.copy();
+        live = batch.liveAccount();
+        liveCharacter = batch.liveCharacter();
         for (Posting p : batch.postings()) {
             post(s, p);
             s.ledger.add(new Ledger.Row(++ledgerSeq, batch.at(), batch.id(), p));
@@ -255,8 +454,17 @@ public final class MemoryExchangeStore implements ExchangeStore {
         credit(s, p.to(), p.amount(), p.account());
     }
 
+    private long live, liveCharacter;
+
     private void walletGuard(State s, Bucket b, long account) throws StoreException {
-        if (online.contains(account)) {
+        if (live > 0 && account == live) {
+            if (!online.contains(account) || transition.contains(account)) {
+                throw new StoreException(Failure.MOVED, "account " + account + " is not fully logged in");
+            }
+            if (b.asset() == Asset.MESO && b.id() != liveCharacter) {
+                throw new StoreException(Failure.NOT_OWNER, b + " is not the live character " + liveCharacter);
+            }
+        } else if (online.contains(account)) {
             throw new StoreException(Failure.ONLINE, "account " + account);
         }
         if (b.asset() == Asset.NX ? b.id() != account || !s.nx.containsKey(account)
@@ -303,6 +511,7 @@ public final class MemoryExchangeStore implements ExchangeStore {
 
     @Override
     public synchronized List<Posting> collect(long batchId, long at, long account) throws StoreException {
+        live = 0;
         if (online.contains(account)) {
             throw new StoreException(Failure.ONLINE, "account " + account);
         }
@@ -370,6 +579,41 @@ public final class MemoryExchangeStore implements ExchangeStore {
         }
         out.sort(Comparator.comparingLong(OrderRow::id).reversed());
         return out.size() > limit ? new ArrayList<>(out.subList(0, limit)) : out;
+    }
+
+    @Override
+    public synchronized FillRow fill(long id) {
+        for (FillRow f : state.fills) {
+            if (f.id() == id) {
+                return f;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public synchronized List<Posting> postingsOfFill(long fillId) {
+        List<Posting> out = new ArrayList<>();
+        for (Ledger.Row r : state.ledger) {
+            if (r.posting().fillId() == fillId) {
+                out.add(r.posting());
+            }
+        }
+        return out;
+    }
+
+    /** The database view only (what a crash would leave): wallets as saved plus exchange balances. */
+    public synchronized long persistedTotal(Asset a) {
+        long t = 0;
+        for (long v : (a == Asset.NX ? state.nx : state.meso).values()) {
+            t += v;
+        }
+        for (var e : state.balances.entrySet()) {
+            if (e.getKey().asset() == a) {
+                t += e.getValue();
+            }
+        }
+        return t;
     }
 
     /** Test hook: corrupts a stored balance without a ledger row, as a bad manual edit would. */
