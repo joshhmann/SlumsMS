@@ -1131,6 +1131,7 @@ public final class AutoQaCatalog {
         // key and is reborn with the pace forced; gear, mesos and cash items untouched; the bot is put back after
         c.add(Check.auto("t-rb-1", "Bot rebirth: a level 200 regular earns its key and is reborn").minutes(2)
                 .expect(probe("botRebirth"))
+                .build());
         // Achievements and medals (ticket 93, -Dslums.achievements): a Mano kill and ten catches through the real event
         // path hand over one zero-stat medal each, exactly once; nothing else does
         c.add(Check.auto("t-ac-1", "Achievements: kill and fishing goals hand over one zero-stat medal each, once").minutes(2)

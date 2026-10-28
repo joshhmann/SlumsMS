@@ -1262,6 +1262,8 @@ final class Probes160 {
         }
         return verdict(bad, "a level 200 bot gathered both boss drops, crafted its key and was reborn at level 1 as a"
                 + " beginner with the rebirth EXP rate, keeping its gear, mesos and skills; then put back", ev);
+    }
+
     // ── t-ac-1: achievements and medals (ticket 93, 1.6.1) ────────────────────────────────────────
 
     /**
