@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland");
+            "family", "tutorialIsland", "leafExchange");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -92,6 +92,7 @@ final class Probes160 {
                 case "starterChairs" -> starterChairs(p);
                 case "slumsStamps" -> slumsStamps(p);
                 case "nxExchange" -> nxExchange(p);
+                case "leafExchange" -> leafExchange(p);
                 case "family" -> family(p);
                 case "tutorialIsland" -> tutorialIsland(p);
                 default -> null;
@@ -1329,6 +1330,126 @@ final class Probes160 {
         }
         return verdict(bad, "placed in game, filled against a regular, the payout landed online, a cancel refunded "
                 + "exactly, and only the two fees left", out);
+    }
+
+    // ── t-xc-2: the LEAF ticker in game (ticket 113, tickers) ────────────────────────────────────
+
+    /**
+     * t-xc-2, while logged in: (1) the test regular, funded from the pretend player's own mesos, bids for 10 Maple
+     * Leaves; (2) {@code @nx leaf sell 10 <bid>} + confirm escrows 10 leaves out of the bags and fills: the mesos (less
+     * the 1% fee) land at once; (3) {@code @nx leaf sell 10 <max>} + confirm rests and takes 10 more leaves, and
+     * {@code @nx cancel} gives exactly those back; (4) the regular is taken out: the 10 leaves it bought come back.
+     * Net: leaves unchanged, mesos down by exactly the two fees (1% each side). Leaves topped up for the check are
+     * taken back.
+     */
+    static List<String> leafExchange(SyntheticPlayer p) throws Exception {
+        var ex = soloMapling.Economy.exchange.ExchangeService.exchange();
+        if (ex == null) {
+            return List.of("SKIP the NX exchange is off (-Dslums.exchange=true)");
+        }
+        String tk = soloMapling.Economy.exchange.ExchangeQa.ITEM_TICKER;
+        if (!ex.open(tk)) {
+            return List.of("SKIP the " + tk + " ticker is closed (-Dslums.exchange.tickers)");
+        }
+        if (ex.halted()) {
+            return List.of("FAIL the exchange is halted: " + ex.haltReason());
+        }
+        Character me = p.character();
+        var w = soloMapling.Economy.exchange.GameLiveWallet.of(me);
+        if (w == null || !w.locked(w::usable)) {
+            return List.of("FAIL the pretend player has no usable live wallet");
+        }
+        var cfg = ex.config();
+        var t = ex.ticker(tk);
+        var leaf = t.asset();
+        long n = soloMapling.Economy.exchange.ExchangeQa.ITEMS;
+        List<String> out = new ArrayList<>();
+        List<String> bad = new ArrayList<>();
+        long top = Math.max(0, 2 * n - w.have(leaf));
+        if (top > 0) {
+            if (!w.locked(() -> w.give(leaf, top))) {
+                return List.of("FAIL could not top up " + top + " Maple Leaves (bags full?)");
+            }
+            out.add("topped up " + top + " Maple Leaves for the check (taken back at the end)");
+        }
+        long l0 = w.have(leaf), meso0 = me.getMeso();
+        out.add("before: " + l0 + " tradeable leaves, " + meso0 + " mesos");
+        soloMapling.Economy.exchange.ExchangeQa.StagedItem st;
+        try {
+            st = soloMapling.Economy.exchange.ExchangeQa.stageItem(ex, w, tk, n);
+        } catch (IllegalStateException e) {
+            if (top > 0) {
+                w.locked(() -> w.take(leaf, top));
+            }
+            return List.of("FAIL staging: " + e.getMessage());
+        }
+        long bid = st.bidPrice();
+        out.add("test regular bids " + bid + " per leaf for " + n + " (order " + st.bidOrder() + "), funded "
+                + st.funded());
+        long gets = soloMapling.Economy.exchange.ExchangeQa.sellerGets(cfg, t, n, bid);
+        try {
+            // (2) sell into the regular: leaves escrowed, mesos land online
+            String pv = sayAndHear(p, "@nx leaf sell " + n + " " + bid, "^Preview: sell|\\([A-Z_]+\\)$", 8_000);
+            out.add("@nx leaf sell: " + pv);
+            long mesoBefore = me.getMeso();
+            String placed = sayAndHear(p, "@nx confirm", "^Order \\d+ placed|\\([A-Z_]+\\)$", 8_000);
+            out.add("@nx confirm: " + placed);
+            long deadline = System.currentTimeMillis() + 5_000;
+            while (me.getMeso() - mesoBefore < gets && System.currentTimeMillis() < deadline) {
+                Thread.sleep(200);
+            }
+            long l1 = w.have(leaf);
+            out.add("after the sale: " + l1 + " leaves, mesos +" + (me.getMeso() - mesoBefore) + " (want +" + gets + ")");
+            if (placed == null || !placed.startsWith("Order ")) {
+                bad.add("the leaf sale was not placed: " + placed);
+            }
+            if (l0 - l1 != n) {
+                bad.add("the sale took " + (l0 - l1) + " leaves from the bags, want " + n);
+            }
+            if (me.getMeso() - mesoBefore != gets) {
+                bad.add("the payout did not land online: mesos +" + (me.getMeso() - mesoBefore) + ", want +" + gets);
+            }
+            // (3) a resting sell at the top price takes 10 more leaves; a cancel gives exactly those back
+            Thread.sleep(cfg.cooldownMs() + 1_000);
+            sayAndHear(p, "@nx leaf sell " + n + " " + t.maxPrice(), "^Preview: sell|\\([A-Z_]+\\)$", 8_000);
+            String rest = sayAndHear(p, "@nx confirm", "^Order \\d+ placed|\\([A-Z_]+\\)$", 8_000);
+            out.add("@nx leaf resting sell: " + rest);
+            long l2 = w.have(leaf);
+            java.util.regex.Matcher om = rest == null ? null
+                    : java.util.regex.Pattern.compile("^Order (\\d+) placed").matcher(rest);
+            if (om == null || !om.find()) {
+                bad.add("the resting leaf sell was not placed: " + rest);
+            } else {
+                if (l1 - l2 != n) {
+                    bad.add("the resting sell escrowed " + (l1 - l2) + " leaves, want " + n);
+                }
+                String c = sayAndHear(p, "@nx cancel " + om.group(1), "cancelled|\\([A-Z_]+\\)$", 8_000);
+                out.add("@nx cancel: " + c + "; leaves " + l2 + " -> " + w.have(leaf));
+                if (w.have(leaf) != l1) {
+                    bad.add("the cancel returned " + (w.have(leaf) - l2) + " of " + n + " leaves");
+                }
+            }
+        } finally {
+            Map<String, Object> td = soloMapling.Economy.exchange.ExchangeQa.teardown(ex, w);
+            out.add("test regular taken out: " + td);
+        }
+        long fee = cfg.fee(t.cost(n, bid));
+        long lEnd = w.have(leaf);
+        out.add("after: " + lEnd + " leaves, " + me.getMeso() + " mesos; fees paid " + (2 * fee));
+        if (lEnd != l0) {
+            bad.add("leaves not conserved: " + l0 + " -> " + lEnd + " (the regular's bought leaves come back)");
+        }
+        if (me.getMeso() != meso0 - 2 * fee) {
+            bad.add("mesos: " + meso0 + " -> " + me.getMeso() + ", want exactly the two fees (" + (2 * fee) + ") less");
+        }
+        if (top > 0 && !w.locked(() -> w.take(leaf, top))) {
+            out.add("could not take back the " + top + " topped-up leaves");
+        }
+        if (ex.halted()) {
+            bad.add("the exchange halted during the check: " + ex.haltReason());
+        }
+        return verdict(bad, "leaves escrowed on a sell, the fill paid mesos online, a cancel returned the leaves, the "
+                + "bought leaves came back and only the two 1% fees left", out);
     }
 
     /** The window's claim request (CP 0x3732: action 1, day), after the per-account throttle. */

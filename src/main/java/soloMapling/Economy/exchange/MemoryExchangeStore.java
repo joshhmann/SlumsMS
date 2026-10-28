@@ -25,10 +25,15 @@ import java.util.TreeSet;
  */
 public final class MemoryExchangeStore implements ExchangeStore {
 
+    /** One character's count of one item asset (the item tickers' wallet). */
+    public record ItemKey(long character, Asset asset) {
+    }
+
     private static final class State {
         final Map<Long, Long> nx = new HashMap<>();              // account -> nxCredit
         final Map<Long, Long> meso = new HashMap<>();            // character -> meso
         final Map<Long, Long> charAccount = new HashMap<>();     // character -> account
+        final Map<ItemKey, Long> items = new HashMap<>();        // (character, item asset) -> count in its bags
         final Map<Bucket, Long> balances = new HashMap<>();
         final List<Ledger.Row> ledger = new ArrayList<>();
         final Map<Long, OrderRow> orders = new LinkedHashMap<>();
@@ -41,6 +46,7 @@ public final class MemoryExchangeStore implements ExchangeStore {
             s.nx.putAll(nx);
             s.meso.putAll(meso);
             s.charAccount.putAll(charAccount);
+            s.items.putAll(items);
             s.balances.putAll(balances);
             s.ledger.addAll(ledger);
             s.orders.putAll(orders);
@@ -58,6 +64,10 @@ public final class MemoryExchangeStore implements ExchangeStore {
         public final long live;
         public long nx;
         public final Map<Long, Long> meso = new HashMap<>();
+        /** The bags' counts of the item tickers' items (the game's inventory, saved whole). */
+        public final Map<ItemKey, Long> items = new HashMap<>();
+        /** How many more items the bags take (tests: a full inventory). */
+        public volatile long bagRoom = Long.MAX_VALUE;
         /** The Cash Shop is open (a live place refuses). */
         public volatile boolean inCashShop;
 
@@ -82,6 +92,25 @@ public final class MemoryExchangeStore implements ExchangeStore {
                 }
                 meso.put(character, have - amount);
                 return true;
+            }
+        }
+
+        /** Uses up items like the game (drinking an elixir, dropping a leaf). */
+        public boolean spendItem(long character, Asset a, long amount) {
+            synchronized (MemoryExchangeStore.this) {
+                ItemKey k = new ItemKey(character, a);
+                long have = items.getOrDefault(k, 0L);
+                if (amount > have) {
+                    return false;
+                }
+                items.put(k, have - amount);
+                return true;
+            }
+        }
+
+        public long item(Asset a) {
+            synchronized (MemoryExchangeStore.this) {
+                return items.getOrDefault(new ItemKey(live, a), 0L);
             }
         }
 
@@ -143,8 +172,22 @@ public final class MemoryExchangeStore implements ExchangeStore {
         @Override
         public long have(Asset a) {
             synchronized (MemoryExchangeStore.this) {
-                return a == Asset.NX ? s.nx : s.meso.getOrDefault(s.live, 0L);
+                return a == Asset.NX ? s.nx : a.item() ? s.items.getOrDefault(new ItemKey(s.live, a), 0L)
+                        : s.meso.getOrDefault(s.live, 0L);
             }
+        }
+
+        @Override
+        public long room(Asset a, long want) {
+            synchronized (MemoryExchangeStore.this) {
+                return a.item() ? Math.max(0, Math.min(want, s.bagRoom)) : LiveWallet.super.room(a, want);
+            }
+        }
+
+        @Override
+        public ExchangeStore.InventoryWriter inventoryWriter() {
+            return con -> {
+            };
         }
 
         @Override
@@ -153,7 +196,8 @@ public final class MemoryExchangeStore implements ExchangeStore {
                 if (takeRefuses) {
                     return false;
                 }
-                return a == Asset.NX ? s.spendNx(amount) : s.spendMeso(s.live, amount);
+                return a == Asset.NX ? s.spendNx(amount) : a.item() ? s.spendItem(s.live, a, amount)
+                        : s.spendMeso(s.live, amount);
             }
         }
 
@@ -165,6 +209,16 @@ public final class MemoryExchangeStore implements ExchangeStore {
                     return false;
                 }
                 long have = have(a);
+                if (a.item()) {
+                    if (amount > s.bagRoom) {
+                        return false;
+                    }
+                    s.items.put(new ItemKey(s.live, a), have + amount);
+                    if (s.bagRoom != Long.MAX_VALUE) {
+                        s.bagRoom -= amount;
+                    }
+                    return true;
+                }
                 if (have + amount > Integer.MAX_VALUE) {
                     return false;
                 }
@@ -198,6 +252,16 @@ public final class MemoryExchangeStore implements ExchangeStore {
     public synchronized void addCharacter(long character, long account, long meso) {
         state.charAccount.put(character, account);
         state.meso.put(character, meso);
+    }
+
+    /** Puts {@code count} of an item asset in a character's (saved) bags. */
+    public synchronized void addItems(long character, Asset a, long count) {
+        state.items.merge(new ItemKey(character, a), count, Long::sum);
+    }
+
+    /** A character's saved count of an item asset (what the database holds). */
+    public synchronized long items(long character, Asset a) {
+        return state.items.getOrDefault(new ItemKey(character, a), 0L);
     }
 
     public synchronized long nx(long account) {
@@ -239,14 +303,27 @@ public final class MemoryExchangeStore implements ExchangeStore {
         return total(Asset.MESO);
     }
 
-    private long total(Asset a) {
+    /** Every unit of {@code a} anywhere: saved wallets (or the live session's copy), and exchange buckets. */
+    public synchronized long total(Asset a) {
         long t = 0;
-        for (long v : (a == Asset.NX ? state.nx : state.meso).values()) {
-            t += v;
+        if (a.item()) {
+            for (var e : state.items.entrySet()) {
+                t += e.getKey().asset() == a ? e.getValue() : 0;
+            }
+        } else {
+            for (long v : (a == Asset.NX ? state.nx : state.meso).values()) {
+                t += v;
+            }
         }
         for (Session s : sessions.values()) {
             // a session's copy replaces the stored value while logged in
-            if (a == Asset.NX) {
+            if (a.item()) {
+                for (var e : s.items.entrySet()) {
+                    if (e.getKey().asset() == a) {
+                        t += e.getValue() - state.items.getOrDefault(e.getKey(), 0L);
+                    }
+                }
+            } else if (a == Asset.NX) {
                 t += s.nx - state.nx.getOrDefault(s.account, 0L);
             } else {
                 for (var e : s.meso.entrySet()) {
@@ -281,6 +358,11 @@ public final class MemoryExchangeStore implements ExchangeStore {
                 s.meso.put(e.getKey(), state.meso.getOrDefault(e.getKey(), 0L));
             }
         }
+        for (var e : state.items.entrySet()) {
+            if (Long.valueOf(account).equals(state.charAccount.get(e.getKey().character()))) {
+                s.items.put(e.getKey(), e.getValue());
+            }
+        }
         sessions.put(account, s);
         return s;
     }
@@ -313,6 +395,7 @@ public final class MemoryExchangeStore implements ExchangeStore {
     private void save(Session s) {
         state.nx.put(s.account, s.nx);
         state.meso.putAll(s.meso);
+        state.items.putAll(s.items);
     }
 
     /** The server died: the session is gone without a save (memory lost), the account reads as offline again. */
@@ -422,6 +505,7 @@ public final class MemoryExchangeStore implements ExchangeStore {
         State s = state.copy();
         live = batch.liveAccount();
         liveCharacter = batch.liveCharacter();
+        liveInventory = batch.inventory() != null;
         for (Posting p : batch.postings()) {
             post(s, p);
             s.ledger.add(new Ledger.Row(++ledgerSeq, batch.at(), batch.id(), p));
@@ -455,13 +539,20 @@ public final class MemoryExchangeStore implements ExchangeStore {
     }
 
     private long live, liveCharacter;
+    private boolean liveInventory;
 
     private void walletGuard(State s, Bucket b, long account) throws StoreException {
+        if (b.asset().item()) {
+            // like the MySQL store: an item wallet is the live character's bags, written with its inventory
+            if (live <= 0 || account != live || b.id() != liveCharacter || !liveInventory) {
+                throw new StoreException(Failure.NOT_OWNER, b + ": items move only through the live character");
+            }
+        }
         if (live > 0 && account == live) {
             if (!online.contains(account) || transition.contains(account)) {
                 throw new StoreException(Failure.MOVED, "account " + account + " is not fully logged in");
             }
-            if (b.asset() == Asset.MESO && b.id() != liveCharacter) {
+            if (b.asset().perCharacter() && b.id() != liveCharacter) {
                 throw new StoreException(Failure.NOT_OWNER, b + " is not the live character " + liveCharacter);
             }
         } else if (online.contains(account)) {
@@ -474,6 +565,16 @@ public final class MemoryExchangeStore implements ExchangeStore {
     }
 
     private void debit(State s, Bucket b, long amount, long account) throws StoreException {
+        if (b.kind() == Kind.WALLET && b.asset().item()) {
+            walletGuard(s, b, account);
+            ItemKey k = new ItemKey(b.id(), b.asset());
+            long have = s.items.getOrDefault(k, 0L);
+            if (have < amount) {
+                throw new StoreException(Failure.INSUFFICIENT, b + " has " + have + ", needs " + amount);
+            }
+            s.items.put(k, have - amount);
+            return;
+        }
         if (b.kind() == Kind.WALLET) {
             walletGuard(s, b, account);
             Map<Long, Long> w = b.asset() == Asset.NX ? s.nx : s.meso;
@@ -496,6 +597,11 @@ public final class MemoryExchangeStore implements ExchangeStore {
     }
 
     private void credit(State s, Bucket b, long amount, long account) throws StoreException {
+        if (b.kind() == Kind.WALLET && b.asset().item()) {
+            walletGuard(s, b, account);
+            s.items.merge(new ItemKey(b.id(), b.asset()), amount, Long::sum);
+            return;
+        }
         if (b.kind() == Kind.WALLET) {
             walletGuard(s, b, account);
             Map<Long, Long> w = b.asset() == Asset.NX ? s.nx : s.meso;
@@ -555,7 +661,7 @@ public final class MemoryExchangeStore implements ExchangeStore {
             if (b.kind() != Kind.PAYOUT || e.getValue() <= 0) {
                 continue;
             }
-            Long acc = b.asset() == Asset.NX ? Long.valueOf(b.id()) : state.charAccount.get(b.id());
+            Long acc = b.asset().perCharacter() ? state.charAccount.get(b.id()) : Long.valueOf(b.id());
             if (acc != null) {
                 out.add(acc);
             }
@@ -582,6 +688,18 @@ public final class MemoryExchangeStore implements ExchangeStore {
     }
 
     @Override
+    public synchronized List<FillRow> fillsSince(long since) {
+        List<FillRow> out = new ArrayList<>();
+        for (FillRow f : state.fills) {
+            if (f.at() >= since) {
+                out.add(f);
+            }
+        }
+        out.sort(Comparator.comparingLong(FillRow::at).thenComparingLong(FillRow::id));
+        return out;
+    }
+
+    @Override
     public synchronized FillRow fill(long id) {
         for (FillRow f : state.fills) {
             if (f.id() == id) {
@@ -605,8 +723,14 @@ public final class MemoryExchangeStore implements ExchangeStore {
     /** The database view only (what a crash would leave): wallets as saved plus exchange balances. */
     public synchronized long persistedTotal(Asset a) {
         long t = 0;
-        for (long v : (a == Asset.NX ? state.nx : state.meso).values()) {
-            t += v;
+        if (a.item()) {
+            for (var e : state.items.entrySet()) {
+                t += e.getKey().asset() == a ? e.getValue() : 0;
+            }
+        } else {
+            for (long v : (a == Asset.NX ? state.nx : state.meso).values()) {
+                t += v;
+            }
         }
         for (var e : state.balances.entrySet()) {
             if (e.getKey().asset() == a) {

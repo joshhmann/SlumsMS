@@ -44,14 +44,30 @@ public interface LiveWallet {
     /** Under the lock: saves the character (memory to database). False when the save could not run. */
     boolean saveNow();
 
-    /** What memory holds now. */
+    /** What memory holds now. For an item asset: the copies the exchange may take (tradeable, not cash, no expiry). */
     long have(Ledger.Asset asset);
 
-    /** Takes exactly {@code amount} from memory, or nothing (false). */
+    /**
+     * Takes exactly {@code amount} from memory, or nothing (false). An item asset takes only tradeable copies
+     * (no untradeable or lock flag, no expiry date, not a cash item).
+     */
     boolean take(Ledger.Asset asset, long amount);
 
-    /** Adds exactly {@code amount} in memory, or nothing (false: it would pass 2,147,483,647). */
+    /** Adds exactly {@code amount} in memory, or nothing (false: it would pass 2,147,483,647, or the bag is full). */
     boolean give(Ledger.Asset asset, long amount);
+
+    /** How much of {@code want} memory can take now (the wallet cap; for an item, the free bag room). */
+    default long room(Ledger.Asset asset, long want) {
+        return Math.max(0, Math.min(want, Integer.MAX_VALUE - have(asset)));
+    }
+
+    /**
+     * Writes the character's inventory as memory holds it, inside the store's transaction (item tickers). Null when
+     * this wallet has no database inventory (tests: the memory store models the inventory itself).
+     */
+    default ExchangeStore.InventoryWriter inventoryWriter() {
+        return null;
+    }
 
     /** A line to the player (yellow text in game); nothing in tests. */
     default void tell(String line) {

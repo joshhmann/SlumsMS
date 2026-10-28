@@ -43,18 +43,52 @@ public interface ExchangeStore {
         }
     }
 
-    /** One order row (insert or update by id). {@code status} OPEN or a {@link OrderBook.Reason} name. */
+    /**
+     * One order row (insert or update by id). {@code status} OPEN or a {@link OrderBook.Reason} name. {@code ticker}
+     * is the book ({@link Ticker}; "NX" for the NX exchange); for an item ticker {@code nxTotal}/{@code nxLeft} count
+     * items and {@code price} is mesos per item.
+     */
     record OrderRow(long id, String requestId, long account, long character, long regular, OrderBook.Side side,
                     long price, long nxTotal, long nxLeft, long mesosHeld, long placedAt, long expiresAt, long seq,
-                    String status, long closedAt) {
+                    String status, long closedAt, String ticker) {
+        public OrderRow {
+            ticker = ticker == null || ticker.isBlank() ? Ticker.NX : ticker;
+        }
+
+        /** An NX order (the shape before tickers). */
+        public OrderRow(long id, String requestId, long account, long character, long regular, OrderBook.Side side,
+                        long price, long nxTotal, long nxLeft, long mesosHeld, long placedAt, long expiresAt, long seq,
+                        String status, long closedAt) {
+            this(id, requestId, account, character, regular, side, price, nxTotal, nxLeft, mesosHeld, placedAt,
+                    expiresAt, seq, status, closedAt, Ticker.NX);
+        }
+
         public boolean open() {
             return "OPEN".equals(status);
         }
     }
 
-    /** One fill row. */
+    /** One fill row; {@code nx} is the quantity in the ticker's units (NX or items). */
     record FillRow(long id, long at, long buyOrder, long sellOrder, long nx, long price, long mesos,
-                   boolean buyerRegular, boolean sellerRegular) {
+                   boolean buyerRegular, boolean sellerRegular, String ticker) {
+        public FillRow {
+            ticker = ticker == null || ticker.isBlank() ? Ticker.NX : ticker;
+        }
+
+        /** An NX fill (the shape before tickers). */
+        public FillRow(long id, long at, long buyOrder, long sellOrder, long nx, long price, long mesos,
+                       boolean buyerRegular, boolean sellerRegular) {
+            this(id, at, buyOrder, sellOrder, nx, price, mesos, buyerRegular, sellerRegular, Ticker.NX);
+        }
+    }
+
+    /**
+     * Writes the live character's inventory, as memory holds it now, inside the batch's transaction (the
+     * {@link JdbcExchangeStore}). An item wallet leg is only accepted with one: the game saves inventories whole, so
+     * the database's copy changes in the same transaction as the escrow or payout it moved to or from.
+     */
+    interface InventoryWriter {
+        void write(java.sql.Connection con) throws java.sql.SQLException;
     }
 
     /**
@@ -65,9 +99,14 @@ public interface ExchangeStore {
      * only touch {@code liveCharacter}. Every other wallet leg still needs its account logged out.
      */
     record Batch(long id, long at, List<Ledger.Posting> postings, List<OrderRow> orders, List<FillRow> fills,
-                 long liveAccount, long liveCharacter) {
+                 long liveAccount, long liveCharacter, InventoryWriter inventory) {
         public Batch(long id, long at, List<Ledger.Posting> postings, List<OrderRow> orders, List<FillRow> fills) {
-            this(id, at, postings, orders, fills, 0, 0);
+            this(id, at, postings, orders, fills, 0, 0, null);
+        }
+
+        public Batch(long id, long at, List<Ledger.Posting> postings, List<OrderRow> orders, List<FillRow> fills,
+                     long liveAccount, long liveCharacter) {
+            this(id, at, postings, orders, fills, liveAccount, liveCharacter, null);
         }
     }
 
@@ -84,7 +123,8 @@ public interface ExchangeStore {
     /**
      * Moves an account's PAYOUT balances into its wallets (NX into accounts.nxCredit, mesos into each character's
      * meso), in one transaction, only while the account is offline. A wallet is never filled past
-     * {@link Integer#MAX_VALUE}; what does not fit stays in PAYOUT. Returns the postings it made (empty when nothing
+     * {@link Integer#MAX_VALUE}; what does not fit stays in PAYOUT. Item payouts are never collected here (they wait
+     * for the character to be in game). Returns the postings it made (empty when nothing
      * was waiting). Throws {@link Failure#ONLINE} when the account is logged in.
      */
     List<Ledger.Posting> collect(long batchId, long at, long account) throws StoreException;
@@ -106,6 +146,9 @@ public interface ExchangeStore {
 
     /** One fill, or null. */
     FillRow fill(long id) throws StoreException;
+
+    /** Every fill at or after {@code since} (epoch ms), oldest first: the tickers' price history at start-up. */
+    List<FillRow> fillsSince(long since) throws StoreException;
 
     /** Every ledger posting made for this fill (FILL rows, and REVERSE rows once a staff reversal ran). */
     List<Ledger.Posting> postingsOfFill(long fillId) throws StoreException;

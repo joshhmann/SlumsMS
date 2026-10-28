@@ -52,6 +52,12 @@ import java.util.function.LongSupplier;
  * token; fees are taken from both sides (a buy reserves its own fee in FEEHOLD); staff can reverse a fill while halted.
  * {@link #halt} is the emergency stop: no new orders, no fills, no expiry, no collection; cancels still work (escrow
  * to payout stays inside the exchange). Start-up runs {@link #recover}, which halts on any ledger mismatch.
+ * <p>
+ * Tickers (owner 2026-10-28): one {@link OrderBook} per {@link Ticker} (NX, LEAF, CHAOS, WS, ELIXIR), all priced in
+ * mesos, sharing order ids, batches, the ledger and the limits' day count. An item ticker escrows the item itself:
+ * it leaves the live character's bags on a sell (never offline), and fills, cancels and expiries pay it into the
+ * owning character's PAYOUT, which {@link #collectLive} empties into the bags as far as they have room. Regulars quote
+ * NX only. Every NX method without a ticker works as before.
  */
 public final class Exchange {
 
@@ -72,8 +78,20 @@ public final class Exchange {
         }
     }
 
-    /** A place request: {@code character} is the account's character whose mesos pay (buy) or receive (sell). */
-    public record Place(String requestId, long account, long character, Side side, long price, long nx) {
+    /**
+     * A place request: {@code character} is the account's character whose mesos pay (buy) or receive (sell).
+     * {@code ticker} is the book ({@link Ticker}, "NX" when omitted); for an item ticker {@code nx} is the number of
+     * items and {@code price} is mesos per item, and the items leave (sell) or reach (buy) this character's bags.
+     */
+    public record Place(String requestId, long account, long character, Side side, long price, long nx,
+                        String ticker) {
+        public Place {
+            ticker = Ticker.norm(ticker) == null ? Ticker.NX : Ticker.norm(ticker);
+        }
+
+        public Place(String requestId, long account, long character, Side side, long price, long nx) {
+            this(requestId, account, character, side, price, nx, Ticker.NX);
+        }
     }
 
     private static final int RECENT_FILLS = 2000;
@@ -92,9 +110,15 @@ public final class Exchange {
     private final Map<String, Pending> pending = new HashMap<>();
     private final Map<Long, String> latestToken = new HashMap<>();
     private final SecureRandom random = new SecureRandom();
-    private OrderBook book = new OrderBook();
+    /** Every ticker the exchange knows (a book each, so recovery always finds one), and the ones open for orders. */
+    private final Map<String, Ticker> tickers;
+    private final java.util.Set<String> openTickers;
+    private Map<String, OrderBook> books = new LinkedHashMap<>();
     private final Map<Long, OrderRow> rows = new HashMap<>();
-    private final Deque<FillRow> recent = new ArrayDeque<>();
+    private final Map<String, Deque<FillRow>> recent = new HashMap<>();
+    private final Map<String, TickerHistory> history = new HashMap<>();
+    /** Character id -> when it was last told its bags are too full for an item payout. */
+    private final Map<Long, Long> roomNagged = new HashMap<>();
     private long nextOrder = 1, nextFill = 1, nextSeq = 1, nextBatch = 1;
     private volatile boolean halted;
     private volatile String haltReason = "";
@@ -108,11 +132,45 @@ public final class Exchange {
 
     public Exchange(ExchangeStore store, ExchangeConfig config, Presence presence, LiveWallet.Finder live,
                     LongSupplier clock) {
+        this(store, config, presence, live, clock, Ticker.defaults(config));
+    }
+
+    /** With the open tickers (NX is always open; every known ticker still gets a book for recovery). */
+    public Exchange(ExchangeStore store, ExchangeConfig config, Presence presence, LiveWallet.Finder live,
+                    LongSupplier clock, List<Ticker> open) {
         this.store = store;
         this.config = config;
         this.presence = presence;
         this.live = live == null ? LiveWallet.Finder.NONE : live;
         this.clock = clock;
+        Map<String, Ticker> all = Ticker.byId(Ticker.defaults(config));
+        java.util.Set<String> on = new java.util.LinkedHashSet<>();
+        on.add(Ticker.NX);
+        for (Ticker t : open == null ? List.<Ticker>of() : open) {
+            all.put(t.id(), t);
+            on.add(t.id());
+        }
+        this.tickers = java.util.Collections.unmodifiableMap(all);
+        this.openTickers = java.util.Collections.unmodifiableSet(on);
+        this.books = newBooks();
+    }
+
+    private Map<String, OrderBook> newBooks() {
+        Map<String, OrderBook> m = new LinkedHashMap<>();
+        for (Ticker t : tickers.values()) {
+            m.put(t.id(), new OrderBook(t.per()));
+        }
+        return m;
+    }
+
+    private Map<String, OrderBook> copyBooks() {
+        Map<String, OrderBook> m = new LinkedHashMap<>();
+        books.forEach((k, v) -> m.put(k, v.copy()));
+        return m;
+    }
+
+    private OrderBook nxBook() {
+        return books.get(Ticker.NX);
     }
 
     // ---------------------------------------------------------------- recovery
@@ -124,28 +182,41 @@ public final class Exchange {
      */
     public synchronized List<String> recover() throws StoreException {
         ExchangeStore.Loaded l = store.load(RECENT_FILLS);
-        book = new OrderBook();
+        List<FillRow> past = store.fillsSince(clock.getAsLong() - TickerHistory.KEEP_MS);
+        books = newBooks();
         rows.clear();
         recent.clear();
-        List<OrderBook.Order> open = new ArrayList<>();
+        history.clear();
+        Map<String, List<OrderBook.Order>> open = new HashMap<>();
+        List<String> unknown = new ArrayList<>();
         for (OrderRow r : l.openOrders()) {
+            if (!books.containsKey(r.ticker())) {
+                unknown.add("order " + r.id() + " is on an unknown ticker " + r.ticker());
+                continue;
+            }
             rows.put(r.id(), r);
-            open.add(toOrder(r));
+            open.computeIfAbsent(r.ticker(), k -> new ArrayList<>()).add(toOrder(r));
         }
-        book.restoreAll(open);
+        open.forEach((t, os) -> books.get(t).restoreAll(os));
+        for (FillRow f : past) {
+            history.computeIfAbsent(f.ticker(), k -> new TickerHistory()).add(f);
+        }
         feeHold.clear();
         for (Map.Entry<Bucket, Long> e : l.balances().entrySet()) {
             if (e.getKey().kind() == Kind.FEEHOLD && e.getValue() > 0) {
                 feeHold.put(e.getKey().id(), e.getValue());
             }
         }
-        recent.addAll(l.recentFills());
+        for (FillRow f : l.recentFills()) {
+            recent.computeIfAbsent(f.ticker(), k -> new ArrayDeque<>()).addLast(f);
+        }
         nextOrder = l.maxOrderId() + 1;
         nextFill = l.maxFillId() + 1;
         nextSeq = l.maxSeq() + 1;
         nextBatch = l.maxBatch() + 1;
         recovered = true;
-        List<String> problems = reconcile(l);
+        List<String> problems = new ArrayList<>(unknown);
+        problems.addAll(reconcile(l));
         if (!problems.isEmpty()) {
             halt("reconcile: " + problems.size() + " mismatch(es), first: " + problems.get(0));
         }
@@ -168,12 +239,17 @@ public final class Exchange {
         Map<Long, OrderRow> open = new HashMap<>();
         for (OrderRow r : l.openOrders()) {
             open.put(r.id(), r);
-            Bucket e = escrowOf(r.side(), r.id());
+            if (assetOf(r.ticker()) == null || assetOf(r.ticker()) == Asset.MESO) {
+                out.add("order " + r.id() + " has an unknown ticker " + r.ticker());
+                continue;
+            }
+            Bucket e = escrowOf(r.ticker(), r.side(), r.id());
             long held = r.side() == Side.SELL ? r.nxLeft() : r.mesosHeld();
             if (have.getOrDefault(e, 0L) != held) {
                 out.add("order " + r.id() + " holds " + held + " but " + e + " is " + have.getOrDefault(e, 0L));
             }
-            if (r.nxLeft() <= 0 || (r.side() == Side.BUY && r.mesosHeld() < OrderBook.cost(r.nxLeft(), r.price()))) {
+            if (r.nxLeft() <= 0 || (r.side() == Side.BUY
+                    && r.mesosHeld() < Math.multiplyExact(r.nxLeft(), r.price()) / perOf(r.ticker()))) {
                 out.add("order " + r.id() + " is open with a bad remainder");
             }
         }
@@ -222,7 +298,8 @@ public final class Exchange {
             return storeError(rid, e);
         }
         long now = clock.getAsLong();
-        String limit = limits(p.account(), now);
+        Ticker t = tickers.get(p.ticker());
+        String limit = limits(p.account(), t, now);
         if (limit != null) {
             return Response.error(rid, limit, limitMessage(limit));
         }
@@ -232,13 +309,33 @@ public final class Exchange {
                 return Response.error(rid, "LOG_OUT_FIRST",
                         "you are logged in as another character: use that one, or log out");
             }
-            return placeLive(p, w, now);
+            return placeLive(p, t, w, now);
+        }
+        if (t.item() && p.side() == Side.SELL) {
+            return Response.error(rid, "LOG_IN_FIRST", itemsInGame(t));
         }
         if (presence.test(p.account())) {
             return Response.error(rid, "LOG_OUT_FIRST", "log out of the game to place an order");
         }
         collectQuietly(p.account());
-        return placeOrder(rid, p.account(), p.character(), 0, p.side(), p.price(), p.nx(), now, null);
+        return placeOrder(rid, p.account(), p.character(), 0, t, p.side(), p.price(), p.nx(), now, null);
+    }
+
+    private static String itemsInGame(Ticker t) {
+        return t.name() + " is sold from your bags: log in and use @nx " + t.id().toLowerCase(java.util.Locale.ROOT)
+                + " sell";
+    }
+
+    /** "NX" / "mesos" / the item's name. */
+    private String unitName(Asset a) {
+        if (a == Asset.NX) {
+            return "NX";
+        }
+        if (a == Asset.MESO) {
+            return "mesos";
+        }
+        Ticker t = tickers.get(a.name());
+        return "tradeable " + (t == null ? a.name() : t.name());
     }
 
     /**
@@ -246,10 +343,10 @@ public final class Exchange {
      * (and a buy's fee reserve) out of memory, then write order, escrow, ledger, fills and the wallet's delta in one
      * transaction; give it back in memory if that fails. Payouts from fills made at once land in memory straight away.
      */
-    private Response placeLive(Place p, LiveWallet w, long now) {
+    private Response placeLive(Place p, Ticker t, LiveWallet w, long now) {
         String rid = p.requestId();
-        Asset a = p.side() == Side.SELL ? Asset.NX : Asset.MESO;
-        long amount = p.side() == Side.SELL ? p.nx() : config.buyTotal(p.nx(), p.price());
+        Asset a = p.side() == Side.SELL ? t.asset() : Asset.MESO;
+        long amount = p.side() == Side.SELL ? p.nx() : t.buyTotal(config, p.nx(), p.price());
         return w.locked(() -> {
             if (!w.usable()) {
                 return Response.error(rid, "TRY_AGAIN",
@@ -259,13 +356,13 @@ public final class Exchange {
                 return Response.error(rid, "ERROR", "could not save your character first; try again later");
             }
             if (!w.take(a, amount)) {
-                return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + amount + (a == Asset.NX ? " NX"
-                        : " mesos") + " on " + (a == Asset.NX ? "your account" : "this character"));
+                return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + amount + " " + unitName(a) + " on "
+                        + (a == Asset.NX ? "your account" : "this character"));
             }
             Response placed;
             committed = false;
             try {
-                placed = placeOrder(rid, p.account(), p.character(), 0, p.side(), p.price(), p.nx(), now, w);
+                placed = placeOrder(rid, p.account(), p.character(), 0, t, p.side(), p.price(), p.nx(), now, w);
             } catch (RuntimeException e) {
                 if (!committed) {
                     giveBack(w, a, amount, "a failed place " + rid);
@@ -312,7 +409,8 @@ public final class Exchange {
             return Response.error(rid, "BAD_REQUEST", bad);
         }
         long now = clock.getAsLong();
-        String limit = limits(p.account(), now);
+        Ticker tk = tickers.get(p.ticker());
+        String limit = limits(p.account(), tk, now);
         if (limit != null) {
             return Response.error(rid, limit, limitMessage(limit));
         }
@@ -320,16 +418,19 @@ public final class Exchange {
         if (w != null && w.character() != p.character()) {
             return Response.error(rid, "LOG_OUT_FIRST", "you are logged in as another character: use that one, or log out");
         }
+        if (w == null && tk.item() && p.side() == Side.SELL) {
+            return Response.error(rid, "LOG_IN_FIRST", itemsInGame(tk));
+        }
         if (w == null && presence.test(p.account())) {
             return Response.error(rid, "LOG_OUT_FIRST", "log out of the game to place an order");
         }
-        Asset a = p.side() == Side.SELL ? Asset.NX : Asset.MESO;
-        long takes = p.side() == Side.SELL ? p.nx() : config.buyTotal(p.nx(), p.price());
+        Asset a = p.side() == Side.SELL ? tk.asset() : Asset.MESO;
+        long takes = p.side() == Side.SELL ? p.nx() : tk.buyTotal(config, p.nx(), p.price());
         if (w != null && w.have(a) < takes) {
-            return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + takes + (a == Asset.NX ? " NX" : " mesos"));
+            return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + takes + " " + unitName(a));
         }
-        long hold = p.side() == Side.BUY ? OrderBook.cost(p.nx(), p.price()) : 0;
-        OrderBook sim = book.copy();
+        long hold = p.side() == Side.BUY ? tk.cost(p.nx(), p.price()) : 0;
+        OrderBook sim = books.get(tk.id()).copy();
         OrderBook.Result r = sim.place(new OrderBook.Order(nextOrder, p.account(), false, p.side(), p.price(), p.nx(),
                 p.nx(), hold, now, 0, nextSeq), now);
         long nx = 0, mesos = 0, fees = 0;
@@ -351,23 +452,27 @@ public final class Exchange {
         }
         String t = token.toString();
         long expires = now + config.confirmMs();
-        pending.put(t, new Pending(new Place("t-" + t, p.account(), p.character(), p.side(), p.price(), p.nx()),
-                expires));
+        pending.put(t, new Pending(new Place("t-" + t, p.account(), p.character(), p.side(), p.price(), p.nx(),
+                tk.id()), expires));
         latestToken.put(p.account(), t);
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("token", t);
         data.put("expiresAt", iso(expires));
+        data.put("ticker", tk.id());
+        data.put("unit", tk.unit());
         data.put("side", p.side().name());
         data.put("price", p.price());
         data.put("nx", p.nx());
+        data.put("qty", p.nx());
         data.put("takes", Map.of("asset", a.name(), "amount", takes));
         data.put("feeBpsEachSide", config.feeBps());
         Map<String, Object> match = new LinkedHashMap<>();
         match.put("nx", nx);
+        match.put("qty", nx);
         match.put("mesos", mesos);
         match.put("fee", fees);
         match.put("youGet", p.side() == Side.SELL ? Map.of("asset", "MESO", "amount", mesos - fees)
-                : Map.of("asset", "NX", "amount", nx));
+                : Map.of("asset", tk.asset().name(), "amount", nx));
         data.put("matchNow", match);
         data.put("restsNx", p.nx() - nx);
         data.put("cancelledBySelfTrade", r.closed().stream().anyMatch(c -> c.orderId() == nextOrder
@@ -419,20 +524,26 @@ public final class Exchange {
         if (p.side() == null) {
             return "side";
         }
-        if (p.nx() < config.minNx() || p.nx() > config.maxNx() || p.nx() % config.lotNx() != 0) {
-            return "nx must be " + config.minNx() + ".." + config.maxNx() + " in steps of " + config.lotNx();
+        Ticker t = tickers.get(p.ticker());
+        if (t == null || !openTickers.contains(t.id())) {
+            return "ticker must be one of " + String.join(", ", openTickers);
         }
-        if (p.price() < config.minPrice() || p.price() > config.maxPrice()) {
-            return "price must be " + config.minPrice() + ".." + config.maxPrice() + " mesos per 1,000 NX";
+        if (p.nx() < t.minQty() || p.nx() > t.maxQty() || p.nx() % t.lot() != 0) {
+            return t.item() ? "quantity must be " + t.minQty() + ".." + t.maxQty()
+                    : "nx must be " + t.minQty() + ".." + t.maxQty() + " in steps of " + t.lot();
         }
-        if (p.side() == Side.BUY && config.buyTotal(p.nx(), p.price()) > Integer.MAX_VALUE) {
+        if (p.price() < t.minPrice() || p.price() > t.maxPrice()) {
+            return "price must be " + t.minPrice() + ".." + t.maxPrice() + " " + t.priceUnit();
+        }
+        if (p.side() == Side.BUY && t.buyTotal(config, p.nx(), p.price()) > Integer.MAX_VALUE) {
             return "costs more mesos than a character can hold";
         }
         return null;
     }
 
-    private String limits(long account, long now) {
-        if (book.ordersOf(account).size() >= config.maxOpen()) {
+    /** Open orders count per ticker; the day's count and the cooldown are the account's across every ticker. */
+    private String limits(long account, Ticker t, long now) {
+        if (books.get(t.id()).ordersOf(account).size() >= config.maxOpen()) {
             return "LIMIT_OPEN";
         }
         try {
@@ -466,25 +577,29 @@ public final class Exchange {
     }
 
     /** Places an order (player or regular) and settles what it matches, all in one batch. */
-    private Response placeOrder(String rid, long account, long character, int regular, Side side, long price, long nx,
-                                long now, LiveWallet w) {
+    private Response placeOrder(String rid, long account, long character, int regular, Ticker t, Side side, long price,
+                                long nx, long now, LiveWallet w) {
         long id = nextOrder;
         long seq = nextSeq;
         long owner = regular > 0 ? Regulars.owner(regular) : account;
-        long hold = side == Side.BUY ? OrderBook.cost(nx, price) : 0;
+        long hold = side == Side.BUY ? t.cost(nx, price) : 0;
         long expires = config.expiryMs() > 0 ? now + config.expiryMs() : 0;
         OrderBook.Order o = new OrderBook.Order(id, owner, regular > 0, side, price, nx, nx, hold, now, expires, seq);
         OrderRow row = new OrderRow(id, rid, account, character, regular, side, price, nx, nx, hold, now, expires, seq,
-                "OPEN", 0);
+                "OPEN", 0, t.id());
+        OrderBook book = books.get(t.id());
         OrderBook before = book.copy();
         Map<Long, OrderRow> rowsBefore = new HashMap<>(rows);
         rows.put(id, row);
         OrderBook.Result r = book.place(o, now);
         List<Posting> postings = new ArrayList<>();
-        Bucket source = regular > 0 ? Bucket.house(side == Side.SELL ? Asset.NX : Asset.MESO, regular)
-                : side == Side.SELL ? Bucket.wallet(Asset.NX, account) : Bucket.wallet(Asset.MESO, character);
+        Asset sold = t.asset();
+        Bucket source = regular > 0 ? Bucket.house(side == Side.SELL ? sold : Asset.MESO, regular)
+                : side == Side.BUY ? Bucket.wallet(Asset.MESO, character)
+                : sold.perCharacter() ? Bucket.wallet(sold, character) : Bucket.wallet(Asset.NX, account);
         long escrowIn = side == Side.SELL ? nx : hold;
-        postings.add(new Posting(Why.PLACE, source, escrowOf(side, id), escrowIn, regular > 0 ? 0 : account, id, 0));
+        postings.add(new Posting(Why.PLACE, source, escrowOf(t.id(), side, id), escrowIn, regular > 0 ? 0 : account,
+                id, 0));
         Map<Long, Long> holds = new HashMap<>(feeHold);
         long reserve = side == Side.BUY ? config.fee(hold) : 0;
         if (reserve > 0) {
@@ -494,18 +609,19 @@ public final class Exchange {
         List<FillRow> fills = new ArrayList<>();
         long fillId = nextFill;
         for (OrderBook.Fill f : r.fills()) {
-            fills.add(settle(f, fillId++, postings, holds));
+            fills.add(settle(f, fillId++, postings, holds, t));
         }
         for (OrderBook.Closed c : r.closed()) {
             release(c, postings, holds);
         }
-        List<OrderRow> touched = touchedRows(r, now);
+        List<OrderRow> touched = touchedRows(r, now, book);
         Batch batch = w == null ? new Batch(nextBatch, now, postings, touched, fills)
-                : new Batch(nextBatch, now, postings, touched, fills, w.account(), w.character());
+                : new Batch(nextBatch, now, postings, touched, fills, w.account(), w.character(),
+                w.inventoryWriter());
         try {
             store.apply(batch);
         } catch (StoreException e) {
-            book = before;
+            books.put(t.id(), before);
             rows.clear();
             rows.putAll(rowsBefore);
             return storeError(rid, e);
@@ -517,11 +633,11 @@ public final class Exchange {
         nextSeq++;
         nextFill = fillId;
         nextBatch++;
-        for (OrderRow t : touched) {
-            if (t.open()) {
-                rows.put(t.id(), t);
+        for (OrderRow o2 : touched) {
+            if (o2.open()) {
+                rows.put(o2.id(), o2);
             } else {
-                rows.remove(t.id());
+                rows.remove(o2.id());
             }
         }
         remember(fills);
@@ -532,11 +648,13 @@ public final class Exchange {
     }
 
     /** Postings for one fill (both sides' fees: the seller's from the mesos, the buyer's from its FEEHOLD); its row. */
-    private FillRow settle(OrderBook.Fill f, long fillId, List<Posting> postings, Map<Long, Long> holds) {
+    private FillRow settle(OrderBook.Fill f, long fillId, List<Posting> postings, Map<Long, Long> holds, Ticker t) {
         OrderRow buy = rows.get(f.buyOrder());
         OrderRow sell = rows.get(f.sellOrder());
-        Bucket nxTo = buy.regular() > 0 ? Bucket.house(Asset.NX, buy.regular()) : Bucket.payout(Asset.NX, buy.account());
-        postings.add(new Posting(Why.FILL, escrowOf(Side.SELL, sell.id()), nxTo, f.nx(), 0, sell.id(), fillId));
+        // what was sold goes to the buyer: NX to its account's payout, items to the buying character's payout
+        Bucket qtyTo = ownerBucket(buy, t.asset());
+        postings.add(new Posting(Why.FILL, escrowOf(t.id(), Side.SELL, sell.id()), qtyTo, f.nx(), 0, sell.id(),
+                fillId));
         long fee = config.fee(f.mesos());
         long toSeller = f.mesos() - fee;
         Bucket mesoTo = sell.regular() > 0 ? Bucket.house(Asset.MESO, sell.regular())
@@ -554,17 +672,18 @@ public final class Exchange {
             holds.merge(buy.id(), -buyerFee, Long::sum);
         }
         return new FillRow(fillId, f.at(), f.buyOrder(), f.sellOrder(), f.nx(), f.price(), f.mesos(), f.buyerRegular(),
-                f.sellerRegular());
+                f.sellerRegular(), t.id());
     }
 
     /** The postings returning a closing order's escrow (and a buy's fee reserve) to its owner's payout (or house). */
     private void release(OrderBook.Closed c, List<Posting> postings, Map<Long, Long> holds) {
         OrderRow r = rows.get(c.orderId());
         long amount = c.side() == Side.SELL ? c.nxReleased() : c.mesosReleased();
-        Asset a = c.side() == Side.SELL ? Asset.NX : Asset.MESO;
+        Asset a = c.side() == Side.SELL ? assetOf(r.ticker()) : Asset.MESO;
         Bucket to = ownerBucket(r, a);
         if (amount > 0) {
-            postings.add(new Posting(Why.RELEASE, escrowOf(c.side(), c.orderId()), to, amount, 0, c.orderId(), 0));
+            postings.add(new Posting(Why.RELEASE, escrowOf(r.ticker(), c.side(), c.orderId()), to, amount, 0,
+                    c.orderId(), 0));
         }
         Long rest = holds.remove(c.orderId());
         if (rest != null && rest > 0) {
@@ -572,14 +691,17 @@ public final class Exchange {
         }
     }
 
-    /** Where an order's own money goes back to: its owner's PAYOUT (NX by account, mesos by character) or HOUSE. */
+    /**
+     * Where an order's owner receives {@code a}: its PAYOUT (NX by account; mesos and items by the order's character)
+     * or a regular's HOUSE.
+     */
     private static Bucket ownerBucket(OrderRow r, Asset a) {
         return r.regular() > 0 ? Bucket.house(a, r.regular())
-                : a == Asset.NX ? Bucket.payout(a, r.account()) : Bucket.payout(a, r.character());
+                : a.perCharacter() ? Bucket.payout(a, r.character()) : Bucket.payout(a, r.account());
     }
 
     /** New rows for the placed order (first) and every order the match changed. */
-    private List<OrderRow> touchedRows(OrderBook.Result r, long now) {
+    private List<OrderRow> touchedRows(OrderBook.Result r, long now, OrderBook book) {
         Map<Long, OrderRow> out = new LinkedHashMap<>();
         out.put(r.order().id, rowAfter(rows.get(r.order().id), r.order(), null, now));
         for (OrderBook.Fill f : r.fills()) {
@@ -601,7 +723,7 @@ public final class Exchange {
             // nxLeft on a closed row: the NX it never traded
             out.put(c.orderId(), new OrderRow(base.id(), base.requestId(), base.account(), base.character(),
                     base.regular(), base.side(), base.price(), base.nxTotal(), base.nxLeft() - filled, 0,
-                    base.placedAt(), base.expiresAt(), base.seq(), c.reason().name(), now));
+                    base.placedAt(), base.expiresAt(), base.seq(), c.reason().name(), now, base.ticker()));
         }
         out.values().removeIf(java.util.Objects::isNull);
         return new ArrayList<>(out.values());
@@ -610,7 +732,7 @@ public final class Exchange {
     private static OrderRow rowAfter(OrderRow base, OrderBook.Order live, String status, long now) {
         return new OrderRow(base.id(), base.requestId(), base.account(), base.character(), base.regular(), base.side(),
                 base.price(), base.nxTotal(), live.nxLeft(), live.mesosHeld(), base.placedAt(), base.expiresAt(),
-                base.seq(), status == null ? "OPEN" : status, status == null ? 0 : now);
+                base.seq(), status == null ? "OPEN" : status, status == null ? 0 : now, base.ticker());
     }
 
     public synchronized Response cancel(String rid, long account, long orderId) {
@@ -638,20 +760,20 @@ public final class Exchange {
 
     private Response closeOrders(String rid, List<Long> ids, long owner, OrderBook.Reason why) {
         long now = clock.getAsLong();
-        OrderBook before = book.copy();
+        Map<String, OrderBook> before = copyBooks();
         List<Posting> postings = new ArrayList<>();
         List<OrderRow> touched = new ArrayList<>();
         Map<Long, Long> holds = new HashMap<>(feeHold);
         for (long id : ids) {
-            OrderBook.Closed c = book.cancel(id, owner, why);
+            OrderRow b = rows.get(id);
+            OrderBook.Closed c = b == null ? null : books.get(b.ticker()).cancel(id, owner, why);
             if (c == null) {
                 continue;
             }
             release(c, postings, holds);
-            OrderRow b = rows.get(id);
             touched.add(new OrderRow(b.id(), b.requestId(), b.account(), b.character(), b.regular(), b.side(),
                     b.price(), b.nxTotal(), b.nxLeft(), 0, b.placedAt(), b.expiresAt(),
-                    b.seq(), why.name(), now));
+                    b.seq(), why.name(), now, b.ticker()));
         }
         if (touched.isEmpty()) {
             return Response.error(rid, "NOT_FOUND", "no open order");
@@ -659,7 +781,7 @@ public final class Exchange {
         try {
             store.apply(new Batch(nextBatch, now, postings, touched, List.of()));
         } catch (StoreException e) {
-            book = before;
+            books = before;
             return storeError(rid, e);
         }
         nextBatch++;
@@ -677,8 +799,11 @@ public final class Exchange {
             return 0;
         }
         long now = clock.getAsLong();
-        OrderBook before = book.copy();
-        List<OrderBook.Closed> closed = book.expire(now);
+        Map<String, OrderBook> before = copyBooks();
+        List<OrderBook.Closed> closed = new ArrayList<>();
+        for (OrderBook b : books.values()) {
+            closed.addAll(b.expire(now));
+        }
         if (closed.isEmpty()) {
             return 0;
         }
@@ -689,12 +814,13 @@ public final class Exchange {
             release(c, postings, holds);
             OrderRow b = rows.get(c.orderId());
             touched.add(new OrderRow(b.id(), b.requestId(), b.account(), b.character(), b.regular(), b.side(),
-                    b.price(), b.nxTotal(), b.nxLeft(), 0, b.placedAt(), b.expiresAt(), b.seq(), "EXPIRED", now));
+                    b.price(), b.nxTotal(), b.nxLeft(), 0, b.placedAt(), b.expiresAt(), b.seq(), "EXPIRED", now,
+                    b.ticker()));
         }
         try {
             store.apply(new Batch(nextBatch, now, postings, touched, List.of()));
         } catch (StoreException e) {
-            book = before;
+            books = before;
             return 0;
         }
         nextBatch++;
@@ -770,13 +896,14 @@ public final class Exchange {
         } catch (StoreException e) {
             return false;
         }
+        boolean items = collectItemsLocked(w);
         if (postings.isEmpty()) {
-            return false;
+            return items;
         }
         try {
             store.apply(new Batch(nextBatch, now, postings, List.of(), List.of(), w.account(), w.character()));
         } catch (StoreException e) {
-            return false;
+            return items;
         }
         nextBatch++;
         List<String> got = new ArrayList<>();
@@ -799,7 +926,63 @@ public final class Exchange {
         if (!got.isEmpty()) {
             w.tell("NX exchange: " + String.join(" and ", got) + " arrived.");
         }
-        return !got.isEmpty();
+        return items || !got.isEmpty();
+    }
+
+    /**
+     * Under the character's lock: each item payout of this character into its bags, as much as fits. The bag changes
+     * in memory first, then one transaction moves PAYOUT to the wallet and writes the inventory as memory now holds it
+     * ({@link LiveWallet#inventoryWriter}); if that fails the items are taken back out of memory. What does not fit
+     * waits (the player is told, at most every 10 minutes).
+     */
+    private boolean collectItemsLocked(LiveWallet w) {
+        boolean any = false;
+        for (Ticker t : tickers.values()) {
+            if (!t.item()) {
+                continue;
+            }
+            Asset a = t.asset();
+            Bucket pay = Bucket.payout(a, w.character());
+            long waiting;
+            try {
+                waiting = store.balance(pay);
+            } catch (StoreException e) {
+                return any;
+            }
+            if (waiting <= 0) {
+                continue;
+            }
+            long n = Math.min(waiting, w.room(a, waiting));
+            if (n <= 0) {
+                long now = clock.getAsLong();
+                Long last = roomNagged.get(w.character());
+                if (last == null || now - last > 600_000L) {
+                    roomNagged.put(w.character(), now);
+                    w.tell("NX exchange: " + t.amount(waiting) + " wait for you; make room in your bags.");
+                }
+                continue;
+            }
+            if (!w.give(a, n)) {
+                continue;
+            }
+            try {
+                store.apply(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.COLLECT, pay,
+                        Bucket.wallet(a, w.character()), n, w.account(), 0, 0)), List.of(), List.of(), w.account(),
+                        w.character(), w.inventoryWriter()));
+                nextBatch++;
+            } catch (StoreException e) {
+                if (!w.take(a, n)) {
+                    log.error("NX exchange: {} {} given to character {} in memory but not in the database; halting",
+                            n, a, w.character(), e);
+                    halt("item payout to character " + w.character() + " half done: " + n + " " + a);
+                }
+                continue;
+            }
+            any = true;
+            w.tell("NX exchange: " + t.amount(n) + " arrived" + (n < waiting ? " (" + (waiting - n)
+                    + " more wait: make room in your bags)" : "") + ".");
+        }
+        return any;
     }
 
     /**
@@ -807,7 +990,7 @@ public final class Exchange {
      * only way money reaches a regular: nothing is minted.
      */
     public synchronized Response fundHouse(int regular, long account, long character, Asset asset, long amount) {
-        if (regular <= 0 || amount <= 0) {
+        if (regular <= 0 || amount <= 0 || asset.item()) {
             return Response.error("fund", "BAD_REQUEST", "regular and amount");
         }
         if (presence.test(account)) {
@@ -831,7 +1014,7 @@ public final class Exchange {
      * regular from the GM's own staff account and takes it all back). Nothing is minted.
      */
     public synchronized Response fundHouseLive(int regular, LiveWallet w, Asset asset, long amount, boolean qa) {
-        if (regular <= 0 || amount <= 0 || amount > Integer.MAX_VALUE) {
+        if (regular <= 0 || amount <= 0 || amount > Integer.MAX_VALUE || asset.item()) {
             return Response.error("fund", "BAD_REQUEST", "regular and amount");
         }
         if (!qa && (config.houseAccount() <= 0 || w.account() != config.houseAccount())) {
@@ -889,8 +1072,8 @@ public final class Exchange {
                 long have = store.balance(Bucket.house(a, regular));
                 data.put(a.name().toLowerCase(java.util.Locale.ROOT), have);
                 if (have > 0) {
-                    postings.add(new Posting(Why.FUND, Bucket.house(a, regular), a == Asset.NX
-                            ? Bucket.payout(a, w.account()) : Bucket.payout(a, w.character()), have, 0, 0, 0));
+                    postings.add(new Posting(Why.FUND, Bucket.house(a, regular), a.perCharacter()
+                            ? Bucket.payout(a, w.character()) : Bucket.payout(a, w.account()), have, 0, 0, 0));
                 }
             }
             if (!postings.isEmpty()) {
@@ -906,10 +1089,22 @@ public final class Exchange {
 
     /** The auto-QA check's own regular quote (placed from its HOUSE, which the check funded). */
     public synchronized Response placeRegularForQa(int regular, Side side, long price, long nx) {
+        return placeRegularForQa(regular, Ticker.NX, side, price, nx);
+    }
+
+    /**
+     * The same on any ticker. On an item ticker the test regular only ever bids (mesos from its HOUSE); it never
+     * sells items, so nothing is minted: what it buys comes from the tester and goes back at teardown.
+     */
+    public synchronized Response placeRegularForQa(int regular, String ticker, Side side, long price, long nx) {
         if (!recovered || halted) {
             return Response.error("qa", "HALTED", "not running");
         }
-        return placeOrder("qa-regular-" + regular + "-" + nextOrder, 0, 0, regular, side, price, nx,
+        Ticker t = tickers.get(Ticker.norm(ticker));
+        if (t == null || (t.item() && side == Side.SELL)) {
+            return Response.error("qa", "BAD_REQUEST", "ticker/side");
+        }
+        return placeOrder("qa-regular-" + regular + "-" + nextOrder, 0, 0, regular, t, side, price, nx,
                 clock.getAsLong(), null);
     }
 
@@ -946,8 +1141,8 @@ public final class Exchange {
                 if (p.why() != Why.FILL) {
                     continue;
                 }
-                Bucket back = p.from().kind() == Kind.ESCROW && p.asset() == Asset.NX ? ownerBucket(sell, Asset.NX)
-                        : ownerBucket(buy, Asset.MESO);
+                Bucket back = p.from().kind() == Kind.ESCROW && p.asset() != Asset.MESO
+                        ? ownerBucket(sell, p.asset()) : ownerBucket(buy, Asset.MESO);
                 Bucket src = p.to();
                 long need = p.amount();
                 if (src.kind() == Kind.PAYOUT) {
@@ -965,7 +1160,8 @@ public final class Exchange {
                     }
                     long rest = need - fromPayout;
                     if (rest > 0) {
-                        long account = src.asset() == Asset.NX ? src.id() : sell.account();
+                        long account = src.asset() == Asset.NX ? src.id()
+                                : src.asset() == Asset.MESO ? sell.account() : buy.account();
                         out.add(new Posting(Why.REVERSE, Bucket.wallet(src.asset(), src.id()), back, rest, account,
                                 p.orderId(), fillId));
                     }
@@ -978,7 +1174,10 @@ public final class Exchange {
             }
             store.apply(new Batch(nextBatch, clock.getAsLong(), out, List.of(), List.of()));
             nextBatch++;
-            recent.removeIf(r -> r.id() == fillId);
+            Deque<FillRow> rec = recent.get(f.ticker());
+            if (rec != null) {
+                rec.removeIf(r -> r.id() == fillId);
+            }
             log.warn("NX exchange: fill {} REVERSED by {} ({} NX at {}; {} postings)", fillId, by, f.nx(), f.price(),
                     out.size());
             Map<String, Object> data = new LinkedHashMap<>();
@@ -1008,19 +1207,19 @@ public final class Exchange {
         }
         Long ref = officialRate();
         if (ref == null) {
-            long bid = book.best(Side.BUY), ask = book.best(Side.SELL);
+            long bid = nxBook().best(Side.BUY), ask = nxBook().best(Side.SELL);
             ref = bid > 0 && ask > 0 ? (bid + ask) / 2 : null;
         }
         int placed = 0;
         long now = clock.getAsLong();
         for (Regulars.Quote q : Regulars.quotes(ref, config.regulars(), config.regularSpreadBps(), config.regularNx(),
                 config.minPrice(), config.maxPrice())) {
-            boolean has = book.ordersOf(Regulars.owner(q.regular())).stream().anyMatch(o -> o.side == q.side());
+            boolean has = nxBook().ordersOf(Regulars.owner(q.regular())).stream().anyMatch(o -> o.side == q.side());
             if (has) {
                 continue;
             }
-            Response r = placeOrder("regular-" + q.regular() + "-" + nextOrder, 0, 0, q.regular(), q.side(), q.price(),
-                    q.nx(), now, null);
+            Response r = placeOrder("regular-" + q.regular() + "-" + nextOrder, 0, 0, q.regular(),
+                    tickers.get(Ticker.NX), q.side(), q.price(), q.nx(), now, null);
             if (r.ok()) {
                 placed++;
             }
@@ -1030,31 +1229,86 @@ public final class Exchange {
 
     // ---------------------------------------------------------------- reads
 
+    /** The NX official rate (mesos per 1,000 NX). */
     public synchronized Long officialRate() {
-        return OfficialRate.vwap(new ArrayList<>(recent), clock.getAsLong(), config.rateWindowMs(),
+        return officialRate(Ticker.NX);
+    }
+
+    /** A ticker's official rate: the VWAP of its player-to-player fills (see {@link OfficialRate}), or null. */
+    public synchronized Long officialRate(String ticker) {
+        Deque<FillRow> r = recent.get(ticker);
+        return OfficialRate.vwap(r == null ? List.of() : new ArrayList<>(r), clock.getAsLong(), config.rateWindowMs(),
                 config.rateMinFills());
     }
 
     public synchronized List<OrderBook.Level> depth(Side side, int levels) {
-        return book.depth(side, levels);
+        return depth(Ticker.NX, side, levels);
     }
 
-    /** The newest fills first. */
+    public synchronized List<OrderBook.Level> depth(String ticker, Side side, int levels) {
+        OrderBook b = books.get(ticker);
+        return b == null ? List.of() : b.depth(side, levels);
+    }
+
+    /** The newest NX fills first. */
     public synchronized List<FillRow> lastTrades(int n) {
+        return lastTrades(Ticker.NX, n);
+    }
+
+    /** A ticker's newest fills first. */
+    public synchronized List<FillRow> lastTrades(String ticker, int n) {
         List<FillRow> out = new ArrayList<>();
-        var it = recent.descendingIterator();
+        Deque<FillRow> r = recent.get(ticker);
+        if (r == null) {
+            return out;
+        }
+        var it = r.descendingIterator();
         while (it.hasNext() && out.size() < n) {
             out.add(it.next());
         }
         return out;
     }
 
+    /** A ticker's rolling 24 h numbers (last, change, high, low, volume). */
+    public synchronized TickerHistory.Stats stats(String ticker) {
+        return history.computeIfAbsent(ticker, k -> new TickerHistory()).stats(clock.getAsLong());
+    }
+
+    /** A ticker's hourly candles, the last 30 days, oldest first (only hours that traded). */
+    public synchronized List<TickerHistory.Candle> candles(String ticker) {
+        return history.computeIfAbsent(ticker, k -> new TickerHistory()).candles(clock.getAsLong());
+    }
+
+    /** The open tickers, NX first. */
+    public List<Ticker> tickers() {
+        List<Ticker> out = new ArrayList<>();
+        for (String id : openTickers) {
+            out.add(tickers.get(id));
+        }
+        return out;
+    }
+
+    /** A ticker by id ("leaf" works), open or not; null when unknown. */
+    public Ticker ticker(String id) {
+        String n = Ticker.norm(id);
+        return n == null ? null : tickers.get(n);
+    }
+
+    public boolean open(String ticker) {
+        return openTickers.contains(Ticker.norm(ticker));
+    }
+
     public synchronized List<OrderRow> myOrders(long account, int limit) throws StoreException {
         return store.ordersOf(account, limit);
     }
 
+    /** Open orders on every book. */
     public synchronized int openOrders() {
-        return book.size();
+        int n = 0;
+        for (OrderBook b : books.values()) {
+            n += b.size();
+        }
+        return n;
     }
 
     public synchronized void halt(String reason) {
@@ -1079,24 +1333,35 @@ public final class Exchange {
         return config;
     }
 
-    /** Open order ids of an owner (account id; {@link Regulars#owner} for a regular), oldest first. */
+    /** Open order ids of an owner (account id; {@link Regulars#owner} for a regular) on every book, oldest first. */
     public synchronized List<Long> openIdsOf(long owner) {
-        return book.ordersOf(owner).stream().map(o -> o.id).toList();
+        List<OrderBook.Order> all = new ArrayList<>();
+        for (OrderBook b : books.values()) {
+            all.addAll(b.ordersOf(owner));
+        }
+        all.sort(java.util.Comparator.comparingLong(o -> o.seq));
+        return all.stream().map(o -> o.id).toList();
     }
 
-    /** Test access: the book's invariants and held totals. */
+    /** Test access: the NX book's invariants and held totals. */
     synchronized OrderBook bookForTest() {
-        return book;
+        return nxBook();
+    }
+
+    synchronized OrderBook bookForTest(String ticker) {
+        return books.get(ticker);
     }
 
     // ---------------------------------------------------------------- helpers
 
     private void remember(List<FillRow> fills) {
         for (FillRow f : fills) {
-            recent.addLast(f);
-            if (recent.size() > RECENT_FILLS) {
-                recent.removeFirst();
+            Deque<FillRow> r = recent.computeIfAbsent(f.ticker(), k -> new ArrayDeque<>());
+            r.addLast(f);
+            if (r.size() > RECENT_FILLS) {
+                r.removeFirst();
             }
+            history.computeIfAbsent(f.ticker(), k -> new TickerHistory()).add(f);
         }
     }
 
@@ -1104,8 +1369,28 @@ public final class Exchange {
         return java.time.Instant.ofEpochMilli(ms).toString();
     }
 
+    /** An NX order's escrow bucket (NX for a sell, mesos for a buy). */
     static Bucket escrowOf(Side side, long orderId) {
-        return Bucket.escrow(side == Side.SELL ? Asset.NX : Asset.MESO, orderId);
+        return escrowOf(Ticker.NX, side, orderId);
+    }
+
+    /** An order's escrow bucket: the ticker's asset for a sell, mesos for a buy. */
+    static Bucket escrowOf(String ticker, Side side, long orderId) {
+        return Bucket.escrow(side == Side.SELL ? assetOf(ticker) : Asset.MESO, orderId);
+    }
+
+    /** The asset a ticker trades (a ticker id is its asset's name); null when unknown. */
+    static Asset assetOf(String ticker) {
+        try {
+            return Asset.valueOf(ticker);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return null;
+        }
+    }
+
+    /** Prices of a ticker are mesos per this many units. */
+    static long perOf(String ticker) {
+        return Ticker.NX.equals(ticker) ? OrderBook.PER : 1;
     }
 
     private static OrderBook.Order toOrder(OrderRow r) {
@@ -1117,10 +1402,13 @@ public final class Exchange {
     static Map<String, Object> orderJson(OrderRow r) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("orderId", r.id());
+        m.put("ticker", r.ticker());
         m.put("side", r.side().name());
         m.put("price", r.price());
         m.put("nx", r.nxTotal());
         m.put("nxLeft", r.nxLeft());
+        m.put("qty", r.nxTotal());
+        m.put("qtyLeft", r.nxLeft());
         m.put("mesosHeld", r.mesosHeld());
         m.put("status", r.status());
         m.put("placedAt", iso(r.placedAt()));
@@ -1132,40 +1420,70 @@ public final class Exchange {
         return switch (e.failure) {
             case ONLINE -> Response.error(rid, "LOG_OUT_FIRST", "log out of the game to place an order");
             case MOVED -> Response.error(rid, "TRY_AGAIN", "you are changing channel or logging out; try again");
-            case INSUFFICIENT -> Response.error(rid, "INSUFFICIENT_FUNDS", "not enough NX or mesos");
+            case INSUFFICIENT -> Response.error(rid, "INSUFFICIENT_FUNDS", "not enough NX, mesos or items");
             case NOT_OWNER -> Response.error(rid, "NOT_OWNER", "that character is not on this account");
             case DUPLICATE -> Response.error(rid, "DUPLICATE", "request id already used");
             case ERROR -> Response.error(rid, "ERROR", "try again later");
         };
     }
 
-    /** Status lines for {@code !exchange status}. */
+    /** Status lines for {@code !exchange status}: the whole exchange, then one line per item ticker. */
     public synchronized List<String> status() {
         List<String> out = new ArrayList<>();
-        long[] held = book.heldTotals();
+        long[] held = nxBook().heldTotals();
         Long rate = officialRate();
-        out.add("Exchange: " + (halted ? "HALTED (" + haltReason + ")" : "running") + ", " + book.size()
-                + " open orders, escrow " + held[0] + " NX / " + held[1] + " mesos");
-        out.add("Best bid " + book.best(Side.BUY) + ", best ask " + book.best(Side.SELL) + " (mesos per 1,000 NX); "
-                + "official rate " + (rate == null ? "none yet" : rate) + "; fills in memory " + recent.size());
+        Deque<FillRow> nxRecent = recent.get(Ticker.NX);
+        out.add("Exchange: " + (halted ? "HALTED (" + haltReason + ")" : "running") + ", " + openOrders()
+                + " open orders, NX escrow " + held[0] + " NX / " + held[1] + " mesos");
+        out.add("Best bid " + nxBook().best(Side.BUY) + ", best ask " + nxBook().best(Side.SELL)
+                + " (mesos per 1,000 NX); official rate " + (rate == null ? "none yet" : rate) + "; fills in memory "
+                + (nxRecent == null ? 0 : nxRecent.size()));
         out.add("Fee " + config.feeBps() + " bps from each side, orders " + config.minNx() + ".." + config.maxNx()
                 + " NX by " + config.lotNx() + ", " + config.maxOpen() + " open / " + config.perDay() + " a day, regulars "
                 + config.regulars() + (config.houseAccount() > 0 ? " (house account " + config.houseAccount() + ")"
                 : " (idle: no house account)"));
+        for (String id : openTickers) {
+            Ticker t = tickers.get(id);
+            if (t.item()) {
+                out.add(tickerLine(t));
+            }
+        }
         return out;
+    }
+
+    /** One ticker's status line ({@code !exchange status <ticker>}). */
+    public synchronized String tickerLine(Ticker t) {
+        OrderBook b = books.get(t.id());
+        long[] held = b.heldTotals();
+        TickerHistory.Stats st = stats(t.id());
+        return String.format("%s (%s): %d open, bid %,d / ask %,d %s; escrow %,d / %,d mesos; 24h last %s, vol %,d%s",
+                t.id(), t.name(), b.size(), b.best(Side.BUY), b.best(Side.SELL), t.priceUnit(), held[0], held[1],
+                st.last() == null ? "none" : String.format("%,d", st.last()), st.qty(),
+                openTickers.contains(t.id()) ? "" : " (closed for new orders)");
     }
 
     /** Lines for {@code !exchange book}. */
     public synchronized List<String> bookLines(int levels) {
+        return bookLines(Ticker.NX, levels);
+    }
+
+    /** A ticker's book lines. */
+    public synchronized List<String> bookLines(String ticker, int levels) {
         List<String> out = new ArrayList<>();
-        List<OrderBook.Level> asks = book.depth(Side.SELL, levels);
+        Ticker t = tickers.get(ticker);
+        OrderBook b = books.get(ticker);
+        if (t == null || b == null) {
+            return out;
+        }
+        String u = t.item() ? " " + t.name() : " NX";
+        List<OrderBook.Level> asks = b.depth(Side.SELL, levels);
         for (int i = asks.size() - 1; i >= 0; i--) {
             OrderBook.Level l = asks.get(i);
-            out.add("  ask " + l.price() + "  " + l.nx() + " NX (" + l.orders() + ")");
+            out.add("  ask " + l.price() + "  " + l.nx() + u + " (" + l.orders() + ")");
         }
         out.add("  ----");
-        for (OrderBook.Level l : book.depth(Side.BUY, levels)) {
-            out.add("  bid " + l.price() + "  " + l.nx() + " NX (" + l.orders() + ")");
+        for (OrderBook.Level l : b.depth(Side.BUY, levels)) {
+            out.add("  bid " + l.price() + "  " + l.nx() + u + " (" + l.orders() + ")");
         }
         return out;
     }

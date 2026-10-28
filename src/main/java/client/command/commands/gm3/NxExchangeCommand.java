@@ -12,8 +12,10 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Ticket 113: the NX exchange's staff controls, {@code !exchange status|book|halt [reason]|resume|fills [n]|
- * fund <regular> <nx|meso> <amount>|unfund <regular>|reverse <fillId>}. The name
+ * Ticket 113: the NX exchange's staff controls, {@code !exchange status [ticker]|book [ticker]|halt [reason]|resume|
+ * fills [ticker] [n]|fund <regular> <nx|meso> <amount>|unfund <regular>|reverse <fillId>}. A ticker (nx, leaf, chaos,
+ * ws, elixir; NX when left out) picks the book for status/book/fills; halt/resume/reverse act on the whole exchange,
+ * and the regulars are NX-only (fund takes NX or mesos, never items). The name
  * "exchange" already belongs to the players' {@code @exchange} (the item-exchange NPC), so that command hands these
  * sub-commands here when a GM of level 3 or more types one ({@link #handles}); everything else is unchanged.
  * {@code halt} is the emergency stop: no new orders, no fills, no expiry, no payouts; cancels still work.
@@ -43,8 +45,21 @@ public final class NxExchangeCommand {
             gm.yellowMessage("The NX exchange is off (-Dslums.exchange=true to run it).");
             return;
         }
+        boolean takesTicker = Set.of("status", "book", "fills").contains(params[0].toLowerCase(Locale.ROOT));
+        String tk = takesTicker && params.length > 1 && ex.ticker(params[1]) != null ? ex.ticker(params[1]).id()
+                : null;
+        if (tk != null) { // the optional ticker: drop it so the rest reads as before
+            String[] rest = new String[params.length - 1];
+            rest[0] = params[0];
+            System.arraycopy(params, 2, rest, 1, params.length - 2);
+            params = rest;
+        }
+        String ticker = tk == null ? "NX" : tk;
         switch (params[0].toLowerCase(Locale.ROOT)) {
-            case "book" -> ex.bookLines(8).forEach(gm::yellowMessage);
+            case "book" -> {
+                gm.yellowMessage(ticker + " book (" + ex.ticker(ticker).priceUnit() + "):");
+                ex.bookLines(ticker, 8).forEach(gm::yellowMessage);
+            }
             case "halt" -> {
                 String reason = params.length > 1 ? String.join(" ", Arrays.copyOfRange(params, 1, params.length))
                         : "halted by " + gm.getName();
@@ -59,8 +74,9 @@ public final class NxExchangeCommand {
             }
             case "fills" -> {
                 int n = params.length > 1 ? parse(params[1], 10) : 10;
-                for (var f : ex.lastTrades(Math.max(1, Math.min(30, n)))) {
-                    gm.yellowMessage(String.format("fill %d: %,d NX at %,d (buy #%d%s, sell #%d%s) %s", f.id(), f.nx(),
+                String unit = "NX".equals(ticker) ? "NX" : ex.ticker(ticker).name();
+                for (var f : ex.lastTrades(ticker, Math.max(1, Math.min(30, n)))) {
+                    gm.yellowMessage(String.format("fill %d: %,d %s at %,d (buy #%d%s, sell #%d%s) %s", f.id(), f.nx(), unit,
                             f.price(), f.buyOrder(), f.buyerRegular() ? " regular" : "", f.sellOrder(),
                             f.sellerRegular() ? " regular" : "", java.time.Instant.ofEpochMilli(f.at())));
                 }
@@ -109,7 +125,13 @@ public final class NxExchangeCommand {
                         + " compensating postings); the money waits in payouts until you resume."
                         : "Not reversed: " + r.message() + " (" + r.code() + ")");
             }
-            default -> ex.status().forEach(gm::yellowMessage);
+            default -> {
+                if (tk != null && !"NX".equals(tk)) {
+                    gm.yellowMessage(ex.tickerLine(ex.ticker(tk)));
+                } else {
+                    ex.status().forEach(gm::yellowMessage);
+                }
+            }
         }
     }
 

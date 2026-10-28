@@ -43,18 +43,25 @@ class JdbcExchangeStoreIT {
     void setUp() throws Exception {
         Assumptions.assumeTrue(URL != null && !URL.isBlank(), "no scratch MySQL given");
         admin = DriverManager.getConnection(URL);
-        exec("DROP TABLE IF EXISTS exchange_ledger, exchange_escrow, exchange_fills, exchange_orders, accounts, characters, mapleroot_integration_migrations");
+        exec("DROP TABLE IF EXISTS exchange_ledger, exchange_escrow, exchange_fills, exchange_orders, accounts, characters, mapleroot_integration_migrations, inv_snapshot");
+        exec("CREATE TABLE inv_snapshot (character_id INT PRIMARY KEY, leaves INT NOT NULL) ENGINE=InnoDB");
         exec("CREATE TABLE accounts (id INT PRIMARY KEY, loggedin TINYINT NOT NULL DEFAULT 0, nxCredit INT DEFAULT NULL) ENGINE=InnoDB");
         exec("CREATE TABLE characters (id INT PRIMARY KEY, accountid INT NOT NULL, meso INT NOT NULL DEFAULT 0) ENGINE=InnoDB");
         exec("INSERT INTO accounts VALUES (1, 0, 100000), (2, 0, NULL), (3, 0, 5000)");
         exec("INSERT INTO characters VALUES (11, 1, 50000000), (12, 2, 50000000), (13, 3, 1000)");
         runFile("038-nx-exchange.sql");
         runFile("038-nx-exchange.sql"); // twice: no change
+        runFile("042-exchange-tickers.sql");
+        runFile("042-exchange-tickers.sql"); // twice: no change
     }
 
     @AfterEach
     void tearDown() throws Exception {
         if (admin != null) {
+            runFile("042-exchange-tickers.rollback.sql");
+            runFile("042-exchange-tickers.rollback.sql");
+            assertEquals(0, one("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() "
+                    + "AND column_name = 'ticker' AND table_name LIKE 'exchange_%'"), "042 rollback drops ticker");
             runFile("038-nx-exchange.rollback.sql");
             runFile("038-nx-exchange.rollback.sql");
             try (ResultSet rs = admin.createStatement().executeQuery(
@@ -263,14 +270,16 @@ class JdbcExchangeStoreIT {
         }
 
         public long have(Ledger.Asset a) {
-            return a == Ledger.Asset.NX ? nx : meso;
+            return a == Ledger.Asset.NX ? nx : a.item() ? leaves : meso;
         }
 
         public boolean take(Ledger.Asset a, long amount) {
             if (have(a) < amount) {
                 return false;
             }
-            if (a == Ledger.Asset.NX) {
+            if (a.item()) {
+                leaves -= amount;
+            } else if (a == Ledger.Asset.NX) {
                 nx -= amount;
             } else {
                 meso -= amount;
@@ -281,10 +290,91 @@ class JdbcExchangeStoreIT {
         public boolean give(Ledger.Asset a, long amount) {
             if (a == Ledger.Asset.NX) {
                 nx += amount;
+            } else if (a.item()) {
+                leaves += amount;
             } else {
                 meso += amount;
             }
             return true;
+        }
+
+        /** The bag's Maple Leaves (tickers); the "inventory" is the inv_snapshot row, written whole. */
+        long leaves = 100;
+        boolean noWriter;
+
+        @Override
+        public ExchangeStore.InventoryWriter inventoryWriter() {
+            if (noWriter) {
+                return null;
+            }
+            return con -> {
+                try (var ps = con.prepareStatement("REPLACE INTO inv_snapshot (character_id, leaves) VALUES (?, ?)")) {
+                    ps.setLong(1, character);
+                    ps.setLong(2, leaves);
+                    ps.executeUpdate();
+                }
+            };
+        }
+    }
+
+    /**
+     * Tickers: a live seller's leaves go to escrow in the same transaction as its inventory write; an offline buyer
+     * fills; the seller's mesos land live; the buyer's leaves wait in PAYOUT (items never move offline) and land when
+     * the buyer is live; an item wallet leg without the inventory write is refused; it all reconciles and the history
+     * comes back from exchange_fills.ticker.
+     */
+    @Test
+    void itemTickerEscrowsTheLiveBagAndDeliversLive() throws Exception {
+        exec("UPDATE accounts SET loggedin = 2 WHERE id = 2");
+        DbWallet seller = new DbWallet(2, 12);
+        ExchangeConfig cfg = ExchangeLiveTest.cfg(100, 0);
+        java.util.Map<Long, LiveWallet> liveW = new java.util.HashMap<>();
+        liveW.put(2L, seller);
+        Exchange ex = new Exchange(new JdbcExchangeStore(() -> DriverManager.getConnection(URL)), cfg,
+                liveW::containsKey, liveW::get, now::get);
+        assertTrue(ex.recover().isEmpty());
+        seller.noWriter = true;
+        assertEquals("NOT_OWNER", ex.place(new Place("lw", 2, 12, Side.SELL, 600_000, 10, "LEAF")).code());
+        assertEquals(100, seller.leaves, "memory given back");
+        seller.noWriter = false;
+        Response sell = ex.place(new Place("ls", 2, 12, Side.SELL, 600_000, 10, "LEAF"));
+        assertTrue(sell.ok(), sell.toString());
+        assertEquals(90, seller.leaves);
+        assertEquals(90, one("SELECT leaves FROM inv_snapshot WHERE character_id=12"), "inventory written in the tx");
+        assertEquals(10, one("SELECT amount FROM exchange_escrow WHERE kind='ESCROW' AND asset='LEAF'"));
+        assertEquals("LEAF", oneString("SELECT ticker FROM exchange_orders WHERE request_id='ls'"));
+        long sellerMeso = seller.meso;
+        Response buy = ex.place(new Place("lb", 1, 11, Side.BUY, 600_000, 10, "LEAF"));
+        assertTrue(buy.ok(), buy.toString());
+        assertEquals(1, ((Number) buy.data().get("fills")).intValue());
+        ex.collectAll();
+        assertEquals(sellerMeso + 6_000_000 - 60_000, seller.meso, "1% from the seller");
+        assertEquals(50_000_000 - 6_060_000, one("SELECT meso FROM characters WHERE id=11"), "1% from the buyer");
+        assertEquals(10, one("SELECT amount FROM exchange_escrow WHERE kind='PAYOUT' AND asset='LEAF' AND owner_id=11"),
+                "items wait for the buyer to be in game");
+        assertEquals(120_000, one("SELECT amount FROM exchange_escrow WHERE kind='FEES'"));
+        assertEquals("LEAF", oneString("SELECT ticker FROM exchange_fills ORDER BY id DESC LIMIT 1"));
+        // the buyer logs in: the leaves land live
+        exec("UPDATE accounts SET loggedin = 2 WHERE id = 1");
+        DbWallet buyer = new DbWallet(1, 11);
+        buyer.leaves = 0;
+        liveW.put(1L, buyer);
+        ex.collectAll();
+        assertEquals(10, buyer.leaves);
+        assertEquals(10, one("SELECT leaves FROM inv_snapshot WHERE character_id=11"));
+        assertEquals(0, one("SELECT COALESCE(SUM(amount),0) FROM exchange_escrow WHERE asset='LEAF'"));
+        Exchange again = new Exchange(new JdbcExchangeStore(() -> DriverManager.getConnection(URL)), cfg, a -> false,
+                now::get);
+        assertTrue(again.recover().isEmpty(), "reconciles");
+        assertEquals(1, again.lastTrades("LEAF", 5).size());
+        assertEquals(0, again.lastTrades(5).size(), "NX has no trades");
+        assertEquals(600_000L, again.stats("LEAF").last());
+    }
+
+    String oneString(String sql) throws SQLException {
+        try (ResultSet rs = admin.createStatement().executeQuery(sql)) {
+            rs.next();
+            return rs.getString(1);
         }
     }
 
