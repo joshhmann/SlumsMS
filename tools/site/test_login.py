@@ -228,7 +228,10 @@ class AccountSignInTest(unittest.TestCase):
         self.call("POST", "/api/login/invites/cancel", {"code": "abcd-1234"})
         self.assertEqual(self.game.calls[-1][2]["code"], "ABCD1234")
         self.assertEqual(self.call("POST", "/api/login/invites/cancel", {"code": "x"})[0], 400)
-        for err, want in (("NOT_ELIGIBLE", 403), ("WEEKLY_LIMIT", 429), ("REFUSED", 403), ("UNAVAILABLE", 503), ("ODD", 503)):
+        self.game.invite["cancel"] = (200, {"ok": False, "error": "ALREADY_USED"})
+        self.assertEqual(self.call("POST", "/api/login/invites/cancel", {"code": "ABCD1234"})[0], 409)
+        for err, want in (("NOT_ELIGIBLE", 403), ("WEEKLY_LIMIT", 429), ("REFUSED", 403), ("UNAVAILABLE", 503), ("ODD", 503),
+                          ("BAD_INPUT", 400)):
             self.game.invite["create"] = (200, {"ok": False, "error": err})
             st, body = self.call("POST", "/api/login/invites/create", {})
             self.assertEqual((st, body["code"]), (want, err), err)
@@ -238,6 +241,10 @@ class AccountSignInTest(unittest.TestCase):
         self.call("POST", "/api/login/invites/create", {"life": 30, "note": " for Bob "})
         self.assertEqual({k: v for k, v in self.game.calls[-1][2].items() if k != "ipHash"},
                          {"account_id": 7, "life": 30, "note": "for Bob"})
+        self.call("POST", "/api/login/invites/create", {"life": "forever"})
+        self.assertEqual(self.game.calls[-1][2]["life"], "forever")
+        self.call("POST", "/api/login/invites/create", {"life": True})
+        self.assertNotIn("life", self.game.calls[-1][2])
 
     def test_password_sign_in_gives_the_same_session(self):
         status, body = self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})

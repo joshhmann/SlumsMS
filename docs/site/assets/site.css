@@ -820,3 +820,4 @@ table.t { width: 100%; border-collapse: collapse; }
 .inv-staff { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
 .inv-staff label { display: grid; gap: 4px; font-size: .82rem; font-weight: 600; color: var(--muted); }
 .inv-staff input { font: inherit; padding: 8px 10px; border: var(--border) solid var(--edge); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.inv-staff label.inv-check { display: flex; align-items: center; gap: 6px; padding-bottom: 10px; }

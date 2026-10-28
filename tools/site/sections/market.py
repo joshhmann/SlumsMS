@@ -738,12 +738,12 @@ it to a friend. Each code works once.</p>
 <div class="inv-new" x-show="made" x-cloak><b class="inv-code" x-text="made && made.code"></b>
 <button class="btn" type="button" @click="copy(made.code)">Copy</button>
 <p class="small">Your friend types it on the site's sign-in page, under "New here?" (or the launcher's New account
-tab). <span x-show="made && made.expiresAt" x-text="'It works until ' + when(made && made.expiresAt) + '.'"></span></p></div>
+tab). <span x-show="made" x-text="made && made.expiresAt === null ? 'It never expires.' : 'It works until ' + when(made && made.expiresAt) + '.'"></span></p></div>
 <p class="status" :class="msgClass" role="status" aria-live="polite" x-text="msg"></p></div></section>
 <section class="panel" x-show="state === 'ok'" x-cloak><h2 class="bar">Your codes</h2>
 <div class="tbl"><table class="t"><thead><tr><th>Code</th><th>Made</th><th>Works until</th><th>Status</th><th></th></tr></thead>
 <tbody><template x-for="c in codes" :key="c.code"><tr><td><b class="inv-code" x-text="c.code"></b></td>
-<td x-text="when(c.createdAt)"></td><td x-text="when(c.expiresAt)"></td><td x-text="status(c)"></td>
+<td x-text="when(c.createdAt)"></td><td x-text="until(c)"></td><td x-text="status(c)"></td>
 <td><button class="btn" type="button" x-show="open(c)" @click="copy(c.code)">Copy</button>
 <button class="btn" type="button" x-show="open(c)" @click="cancel(c)" :disabled="busy">Cancel</button></td></tr></template></tbody></table></div>
 <p class="empty" x-show="!codes.length" style="padding:12px 16px;margin:0">No codes yet.</p></section>

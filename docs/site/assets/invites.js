@@ -25,7 +25,7 @@
   function xinvites(staff) {
     return {
       staff: !!staff, codes: [], left: null, page: 0, more: false, state: "loading", msg: "", msgClass: "", busy: false,
-      made: null, life: 14, note: "", when: when,
+      made: null, life: 14, forever: false, note: "", when: when,
       init: function () { this.load(); },
       say: function (t, ok) { this.msg = t; this.msgClass = ok === true ? "ok" : ok === false ? "bad" : ""; },
       load: function () {
@@ -39,21 +39,32 @@
           self.more = !!(j.next || j.more || (typeof j.pages === "number" && self.page + 1 < j.pages));
         });
       },
-      status: function (c) {
-        if (c.usedBy || c.usedAt) return "Used" + (c.usedBy ? " by " + c.usedBy : "") + (c.usedAt ? ", " + when(c.usedAt) : "");
-        if (c.cancelled || c.cancelledAt) return "Cancelled";
+      // the game's status (open/unused, used, expired, cancelled, cancelled_by_staff); worked out when it's missing
+      kind: function (c) {
+        var st = typeof c.status === "string" ? c.status : "";
+        if (st === "open") st = "unused";
+        if (st) return st;
+        if (c.usedBy || c.usedAt) return "used";
+        if (c.cancelled === true || c.cancelledAt) return "cancelled";
         var end = ms(c.expiresAt);
-        if (!isNaN(end) && end < Date.now()) return "Expired";
-        return "Unused";
+        return !isNaN(end) && end < Date.now() ? "expired" : "unused";
       },
-      open: function (c) { return this.status(c) === "Unused"; },
+      status: function (c) {
+        var k = this.kind(c);
+        if (k === "used") return "Used" + (typeof c.usedBy === "string" && c.usedBy ? " by " + c.usedBy : "")
+          + (c.usedAt ? ", " + when(c.usedAt) : "");
+        return { unused: "Unused", expired: "Expired", cancelled: "Cancelled", cancelled_by_staff: "Cancelled by staff" }[k] || k;
+      },
+      until: function (c) { return c.expiresAt === null ? "Never expires" : when(c.expiresAt); },
+      open: function (c) { return this.kind(c) === "unused"; },
       make: function () {
-        var self = this, body = this.staff ? { life: this.life, note: this.note } : {};
+        var self = this, body = this.staff ? { life: this.forever ? "forever" : this.life, note: this.note } : {};
         this.busy = true; this.say("Making a code...");
         post("create", body).then(function (j) {
           self.busy = false;
           if (!j.ok) { self.say(j.error || "That didn't work.", false); return; }
           self.made = { code: j.code, expiresAt: j.expiresAt };
+          if (typeof j.left === "number") self.left = j.left;
           self.say("Done. Send it to your friend: it works once.", true);
           self.note = "";
           self.load();

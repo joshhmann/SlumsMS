@@ -81,6 +81,7 @@ from urllib.parse import urlsplit
 
 SESSION_TTL = 30 * 86400
 AUTH_PER_IP_MIN = 10  # sign-ins and sign-ups per address a minute (the game server also locks accounts)
+INVITES_PER_MIN = 30  # invite-page calls per account a minute (the game also limits making codes)
 MAX_BODY = 1024
 SESSION_COOKIE, RESET_COOKIE = "slums_session", "slums_reset"
 ADMIN_LEVEL, ADMIN_TTL = 3, 12 * 3600  # the staff dashboard: GM level 3+, a sign-in at most 12 h old
@@ -314,6 +315,9 @@ INVITE_ERRORS = {"NOT_ELIGIBLE": (403, "Invite codes need a character at level 3
                  "WEEKLY_LIMIT": (429, "That's your 2 invite codes for this week. More next week."),
                  "REFUSED": (403, "This account can't make invite codes."),
                  "NOT_FOUND": (404, "No such unused code."),
+                 "ALREADY_USED": (409, "That code was already used."),
+                 "ALREADY_CANCELLED": (409, "That code was already cancelled."),
+                 "BAD_INPUT": (400, "A code can last 1 to 90 days, or forever."),
                  "BAD_REQUEST": (400, "That didn't look right. Try again."),
                  "RATE_LIMITED": (429, "Too many tries. Wait a minute and try again."),
                  "UNAVAILABLE": INVITES_DOWN}
@@ -413,6 +417,7 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
     flags = "; Path=/; HttpOnly; SameSite=Lax" + ("; Secure" if secure else "")
     auth = auth or GameAuth(None, None, None)
     limiter = limiter or Limiter(AUTH_PER_IP_MIN)
+    invite_limiter = Limiter(INVITES_PER_MIN)
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "slums-login"
@@ -599,7 +604,7 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
             s = self.session()
             if not s:
                 return self.send(401, {"ok": False, "error": "Sign in first."})
-            if not limiter.allow(self.client()):
+            if not invite_limiter.allow(s["a"]):
                 return self.send(*self.err(ERRORS["RATE_LIMITED"]))
             ask = {"account_id": s["a"]}
             if action == "list" and isinstance(body.get("page"), int) and 0 <= body["page"] <= 1000:
@@ -610,8 +615,9 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
                     return self.send(400, {"ok": False, "error": "That isn't an invite code."})
                 ask["code"] = code
             if action == "create" and sessions.admin(s):  # staff may set how long it lasts and a note
-                if isinstance(body.get("life"), int) and 1 <= body["life"] <= 90:
-                    ask["life"] = body["life"]
+                life = body.get("life")
+                if life == "forever" or (isinstance(life, int) and not isinstance(life, bool) and 1 <= life <= 90):
+                    ask["life"] = life
                 if isinstance(body.get("note"), str) and body["note"].strip():
                     ask["note"] = body["note"].strip()[:64]
             got = auth.call("/invite/" + action, ask, self.client()) if auth else None
