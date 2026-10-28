@@ -220,6 +220,12 @@ public class ServerConfig {
 
     //SoloMapling: who a chat line is aimed at, when it carries no usable name (bot-persistence ticket 19).
     public String BOT_DECIDE_URL = "";
+    /** Second Decide endpoint for the tone question only (1.6.1 split); empty = one call with all questions. */
+    public String BOT_DECIDE_TONE_URL = "";
+    /** Wire model id sent to BOT_DECIDE_URL ("decide" = GLiNER on :8900; the trained model wants "jev-latest"). */
+    public String BOT_DECIDE_MODEL = "decide";
+    /** Wire model id sent to BOT_DECIDE_TONE_URL. */
+    public String BOT_DECIDE_TONE_MODEL = "decide";
     public int BOT_DECIDE_TIMEOUT_MS = 600;
     public double BOT_DECIDE_ASK = 0.55;
 
