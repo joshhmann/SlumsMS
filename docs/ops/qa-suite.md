@@ -387,6 +387,11 @@ level-up gives the GM rep, and the GM gets 20,000 rep to click every entitlement
 `!qa do check` prints rep and the Family buffs; stop dissolves the family (relog to clear the window). Auto-QA:
 t-fy-1.
 
+### ti-1: Maple Island opt-in (1.6.1, ticket 29)
+
+`!qa run ti-1` opens the "Start on Maple Island?" question for the GM (the real one only asks a brand-new Explorer).
+Yes lands in Mushroom Town (map 10000); `!qa do ask` asks again, `!qa do back` returns to Base of Roots. Auto-QA: t-ti-1.
+
 ## Adding a scenario
 
 1. Pick the test id from the release notes page. A second test that needs the same staging becomes an alias.

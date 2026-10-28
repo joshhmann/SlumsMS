@@ -2,7 +2,7 @@
 
 **Area:** Gameplay
 **Depends on:** -
-**Status:** open, target 1.6.0. Owner decision 2026-10-25: yes, opt-in for new characters.
+**Status:** done in 1.6.1 (branch 161-tutor). Owner 2026-10-25: opt-in for new characters; 2026-10-28: ask at creation, yes/no.
 
 ## What
 
@@ -22,3 +22,11 @@ A new character can choose the tutorial or skip it, finishes the island without 
 ## Decision (Owner decision 2026-10-25)
 
 Yes: an opt-in Maple Island tutorial for new characters (never forced). Target: 1.6.0.
+
+## Built (1.6.1)
+
+A new real Beginner (level 1-9, on the start map, never asked) gets a yes/no in Cody's NPC window at the first login:
+`TutorialIslandMenu`. Yes warps to Mushroom Town (10000); the island's own portals lead to Southperry (2000000), where
+Shanks (npc 22000, level 7, 150 mesos) ships them to Lith Harbor. No keeps the Base of Roots start. Once per character
+(area info 29152); Cygnus/Aran/bots never; switch `TUTORIAL_ISLAND_PROMPT` (default on). Island quests 1000-1049 are not
+hidden. Checks: auto-QA `t-ti-1`, `!qa run ti-1`. Not yet seen in a real client.

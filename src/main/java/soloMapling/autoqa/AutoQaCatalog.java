@@ -1123,6 +1123,10 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-fy-1", "Family: a bot junior, rep, the EXP / drop entitlements").minutes(2)
                 .expect(probe("family"))
                 .build());
+        // Maple Island opt-in (ticket 29): the rule, No stays, Yes lands on the island, quests visible, Shanks stands
+        c.add(Check.auto("t-ti-1", "Maple Island opt-in: the question, Yes lands on the island, No stays").minutes(2)
+                .expect(probe("tutorialIsland"))
+                .build());
         return List.copyOf(c);
     }
 
