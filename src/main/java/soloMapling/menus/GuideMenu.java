@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 1.5.0 {@code @guide} / {@code @tutorial}: a short beginner's tour in the NPC window, framed by Cody. Pages turn with
+ * 1.5.0 {@code @guide} / {@code @tutorial}: a short beginner's tour in the NPC window, framed by Slums-chan (1.6.1; Cody before). Pages turn with
  * Next / Back, and a topic list jumps between them. It opens by itself once per character, a few seconds after the
  * first login on 1.5.0 (remembered in the character's area info, saved with the character, no migration).
  * "Take me there" lines go through the {@code @goto} rules ({@link GotoCommand#warp}): towns only, never from an event,
@@ -20,7 +20,7 @@ import java.util.List;
  */
 public final class GuideMenu {
 
-    /** Cody frames the window, as for {@code @settings}. */
+    /** Slums-chan frames the window, as for {@code @settings}. */
     public static final int NPC = SettingsMenu.NPC;
 
     /** The area-info slot that remembers the guide was shown (not a quest id, so the client shows nothing for it). */
@@ -55,7 +55,7 @@ public final class GuideMenu {
 
     static final List<GuidePage> PAGES = List.of(
             new GuidePage("Welcome", ""
-                    + "#eWelcome to SlumsMS!#n\r\n"
+                    + "#eHi, I'm Slums-chan! Welcome to SlumsMS!#n\r\n"
                     + "A small v83 server for friends. Towns are\r\n"
                     + "full of #bplayer bots#k: they train, trade,\r\n"
                     + "chat, make friends, and #bremember you#k.\r\n"
@@ -89,8 +89,8 @@ public final class GuideMenu {
                     + "In #bBase of Roots#k (click TRADE):\r\n"
                     + "#bJob Master#k (advances), #bGerrard#k (storage),\r\n"
                     + "#bCotton Warper#k (bosses), #bWyatt#k (rebirth 200).\r\n"
-                    + "#bCody#k: that's me! I run this guide and\r\n"
-                    + "#b@settings#k, and post news on Discord.", List.of()),
+                    + "#bSlums-chan#k: that's me! I run this guide and\r\n"
+                    + "#b@settings#k. #bCody#k posts news on Discord.", List.of()),
             new GuidePage("Bots", ""
                     + "#eBots (1/2): talking and friends#n\r\n"
                     + "Chat in plain words: name a bot, face it, or\r\n"

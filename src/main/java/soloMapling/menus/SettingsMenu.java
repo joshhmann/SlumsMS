@@ -22,8 +22,11 @@ import java.util.function.Function;
  */
 public final class SettingsMenu {
 
-    /** Cody frames the window (any v83 client has his head; he needn't stand on the map). */
-    public static final int NPC = 9200000;
+    /**
+     * Slums-chan frames the window (1.6.1; Cody did before). The 1.6.1 client has her head and she stands in Base of
+     * Roots and Henesys (migration 042); an older client shows no head, which the window survives.
+     */
+    public static final int NPC = SlumsChanMenu.NPC;
 
     /** What the window shows. */
     public record State(boolean dramaOn, boolean romanceOn, boolean hideMegaphones, boolean hideBots) {

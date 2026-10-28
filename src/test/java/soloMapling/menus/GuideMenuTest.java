@@ -107,7 +107,7 @@ class GuideMenuTest {
             all.append(GuideMenu.page(i).render());
         }
         for (String must : List.of("SHOP", "TRADE", "MENU", "SHORTCUT", "Hanako", "Gachapon", "@price", "Heracle",
-                "Honorable Rock", "Moony", "Amoria", "@daily", "Cody", "@botdrama off", "@romance on", "@settings",
+                "Honorable Rock", "Moony", "Amoria", "@daily", "Slums-chan", "Cody", "@botdrama off", "@romance on", "@settings",
                 "@goto <town>", "@gacha", "@guildwar", "@dispose", "@commands", "haggle", "3% tax", "@guide")) {
             assertTrue(all.toString().toLowerCase().contains(must.toLowerCase()), "the guide never mentions " + must);
         }

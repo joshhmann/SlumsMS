@@ -137,6 +137,14 @@ public final class MenuWindow {
         return true;
     }
 
+    /**
+     * Starts a menu in an NPC window that is already open (an NPC script talking to the player): no window is opened,
+     * {@code slumsmenu.js}'s show/select/closed protocol takes over from the script. 1.6.1, for Slums-chan.
+     */
+    public static void attach(Character player, int npc, Menu menu) {
+        sessions.put(player.getId(), new Session(npc, menu, null));
+    }
+
     /** The window's text for the player's open menu; null when none is open. Called by {@code slumsmenu.js}. */
     public static String text(Character player) {
         Session s = sessions.get(player.getId());
