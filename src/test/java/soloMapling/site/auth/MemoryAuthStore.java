@@ -13,12 +13,35 @@ public class MemoryAuthStore implements AuthStore {
     public final Map<String, InviteCodes.Invite> invites = new HashMap<>();
     final Map<String, Account> accounts = new HashMap<>();
     final Map<Integer, Profile> profiles = new HashMap<>();
+    /** account id to its highest character level. */
+    public final Map<Integer, Integer> levels = new HashMap<>();
+    /** new account id to {inviting account, inviting character}. */
+    public final Map<Integer, int[]> invitedBy = new HashMap<>();
     int nextId = 100;
     int upgrades;
 
     @Override
     public synchronized void insertInvite(InviteCodes.Invite invite) {
         invites.put(invite.code(), invite);
+    }
+
+    @Override
+    public synchronized int countSelfServeInvitesSince(int accountId, long since) {
+        return (int) invites.values().stream()
+                .filter(i -> i.createdByAccount() == accountId && i.selfServe() && i.createdAt() > since).count();
+    }
+
+    @Override
+    public synchronized int highestCharacterLevel(int accountId) {
+        return levels.getOrDefault(accountId, 0);
+    }
+
+    @Override
+    public synchronized List<InviteCodes.Invite> invitesMadeBy(int accountId, int limit) {
+        List<InviteCodes.Invite> all = new ArrayList<>(invites.values().stream()
+                .filter(i -> i.createdByAccount() == accountId).toList());
+        all.sort(Comparator.comparingLong(InviteCodes.Invite::createdAt).reversed());
+        return all.subList(0, Math.min(limit, all.size()));
     }
 
     @Override
@@ -40,7 +63,7 @@ public class MemoryAuthStore implements AuthStore {
             return false;
         }
         invites.put(code, new InviteCodes.Invite(i.code(), i.createdAt(), i.createdByAccount(), i.createdByName(),
-                i.note(), i.expiresAt(), 0, "", 0, now, by));
+                i.note(), i.expiresAt(), 0, "", 0, now, by, i.createdByChar(), i.selfServe()));
         return true;
     }
 
@@ -61,7 +84,8 @@ public class MemoryAuthStore implements AuthStore {
         int id = nextId++;
         accounts.put(name.toLowerCase(Locale.ROOT), new Account(id, name, passhash, false, 0));
         invites.put(code, new InviteCodes.Invite(i.code(), i.createdAt(), i.createdByAccount(), i.createdByName(),
-                i.note(), i.expiresAt(), id, name, now, 0, ""));
+                i.note(), i.expiresAt(), id, name, now, 0, "", i.createdByChar(), i.selfServe()));
+        invitedBy.put(id, new int[]{i.createdByAccount(), i.createdByChar()});
         return id;
     }
 

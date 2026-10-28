@@ -47,6 +47,21 @@ public interface AuthStore {
     /** Null when no such code. */
     InviteCodes.Invite findInvite(String code) throws SQLException;
 
+    /** Codes made with {@code @invite} by this account after {@code since} (epoch ms), revoked ones included. */
+    default int countSelfServeInvitesSince(int accountId, long since) throws SQLException {
+        return 0;
+    }
+
+    /** The highest level among the account's own (non-bot) characters, 0 when none. */
+    default int highestCharacterLevel(int accountId) throws SQLException {
+        return 0;
+    }
+
+    /** Every code the account made, newest first, whichever command made it. */
+    default List<InviteCodes.Invite> invitesMadeBy(int accountId, int limit) throws SQLException {
+        return List.of();
+    }
+
     /** The newest codes first. */
     List<InviteCodes.Invite> recentInvites(int limit) throws SQLException;
 
@@ -81,9 +96,16 @@ public interface AuthStore {
     final class Jdbc implements AuthStore {
 
         static final String COLUMNS = "code, created_at, created_by_account, created_by_name, note, expires_at,"
-                + " used_by_account, used_by_name, used_at, used_ip_hash, revoked_at, revoked_by";
+                + " used_by_account, used_by_name, used_at, used_ip_hash, revoked_at, revoked_by, created_by_char, self_serve";
         static final String INSERT = "INSERT INTO invite_codes (code, created_at, created_by_account, created_by_name,"
-                + " note, expires_at) VALUES (?, ?, ?, ?, ?, ?)";
+                + " note, expires_at, created_by_char, self_serve) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        static final String COUNT_SELF_SERVE = "SELECT COUNT(*) FROM invite_codes WHERE created_by_account = ?"
+                + " AND self_serve = 1 AND created_at > ?";
+        static final String HIGHEST_LEVEL = "SELECT COALESCE(MAX(level), 0) FROM characters WHERE accountid = ?"
+                + " AND id < ?";
+        // Who invited the new account: copied from the code in the sign-up transaction (staff only).
+        static final String MARK_INVITER = "UPDATE accounts a JOIN invite_codes i ON i.code = ? SET"
+                + " a.invited_by_account = i.created_by_account, a.invited_by_char = i.created_by_char WHERE a.id = ?";
         static final String CONSUME = "UPDATE invite_codes SET used_at = ?, used_ip_hash = ? WHERE code = ?"
                 + " AND used_at = 0 AND revoked_at = 0 AND (expires_at = 0 OR expires_at > ?)";
         static final String MARK_USER = "UPDATE invite_codes SET used_by_account = ?, used_by_name = ? WHERE code = ?";
@@ -105,8 +127,51 @@ public interface AuthStore {
                 ps.setString(4, i.createdByName());
                 ps.setString(5, i.note());
                 ps.setLong(6, i.expiresAt());
+                ps.setInt(7, i.createdByChar());
+                ps.setBoolean(8, i.selfServe());
                 ps.executeUpdate();
             }
+        }
+
+        @Override
+        public int countSelfServeInvitesSince(int accountId, long since) throws SQLException {
+            try (Connection con = DatabaseConnection.getConnection();
+                 PreparedStatement ps = con.prepareStatement(COUNT_SELF_SERVE)) {
+                ps.setInt(1, accountId);
+                ps.setLong(2, since);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? rs.getInt(1) : 0;
+                }
+            }
+        }
+
+        @Override
+        public int highestCharacterLevel(int accountId) throws SQLException {
+            try (Connection con = DatabaseConnection.getConnection();
+                 PreparedStatement ps = con.prepareStatement(HIGHEST_LEVEL)) {
+                ps.setInt(1, accountId);
+                ps.setInt(2, BotStore.BOT_ID_BASE);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? rs.getInt(1) : 0;
+                }
+            }
+        }
+
+        @Override
+        public List<InviteCodes.Invite> invitesMadeBy(int accountId, int limit) throws SQLException {
+            List<InviteCodes.Invite> out = new ArrayList<>();
+            try (Connection con = DatabaseConnection.getConnection();
+                 PreparedStatement ps = con.prepareStatement("SELECT " + COLUMNS
+                         + " FROM invite_codes WHERE created_by_account = ? ORDER BY created_at DESC LIMIT ?")) {
+                ps.setInt(1, accountId);
+                ps.setInt(2, limit);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        out.add(read(rs));
+                    }
+                }
+            }
+            return out;
         }
 
         @Override
@@ -140,7 +205,8 @@ public interface AuthStore {
             return new InviteCodes.Invite(rs.getString("code"), rs.getLong("created_at"),
                     rs.getInt("created_by_account"), rs.getString("created_by_name"), rs.getString("note"),
                     rs.getLong("expires_at"), rs.getInt("used_by_account"), rs.getString("used_by_name"),
-                    rs.getLong("used_at"), rs.getLong("revoked_at"), rs.getString("revoked_by"));
+                    rs.getLong("used_at"), rs.getLong("revoked_at"), rs.getString("revoked_by"),
+                    rs.getInt("created_by_char"), rs.getBoolean("self_serve"));
         }
 
         @Override
@@ -209,6 +275,11 @@ public interface AuthStore {
                         ps.setInt(1, id);
                         ps.setString(2, name);
                         ps.setString(3, code);
+                        ps.executeUpdate();
+                    }
+                    try (PreparedStatement ps = con.prepareStatement(MARK_INVITER)) {
+                        ps.setString(1, code);
+                        ps.setInt(2, id);
                         ps.executeUpdate();
                     }
                     con.commit();

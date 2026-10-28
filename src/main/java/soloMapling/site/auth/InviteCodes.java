@@ -63,10 +63,28 @@ public final class InviteCodes {
      */
     public record Invite(String code, long createdAt, int createdByAccount, String createdByName, String note,
                          long expiresAt, int usedByAccount, String usedByName, long usedAt, long revokedAt,
-                         String revokedBy) {
+                         String revokedBy, int createdByChar, boolean selfServe) {
+
+        /** A code with no maker character and not made by a player (a GM's {@code !invite}, or one from before 040). */
+        public Invite(String code, long createdAt, int createdByAccount, String createdByName, String note,
+                      long expiresAt, int usedByAccount, String usedByName, long usedAt, long revokedAt,
+                      String revokedBy) {
+            this(code, createdAt, createdByAccount, createdByName, note, expiresAt, usedByAccount, usedByName, usedAt,
+                    revokedAt, revokedBy, 0, false);
+        }
+
+        /** A code made with the player command {@code @invite}: never expires, counts toward the weekly limit. */
+        public static Invite selfServe(String code, long now, int byAccount, int byChar, String byName) {
+            return new Invite(code, now, byAccount, byName, "", 0, 0, "", 0, 0, "", byChar, true);
+        }
 
         public static Invite fresh(String code, long now, int byAccount, String byName, String note, long expiresAt) {
             return new Invite(code, now, byAccount, byName, note, expiresAt, 0, "", 0, 0, "");
+        }
+
+        public Invite withCreatedBy(int byChar) {
+            return new Invite(code, createdAt, createdByAccount, createdByName, note, expiresAt, usedByAccount,
+                    usedByName, usedAt, revokedAt, revokedBy, byChar, selfServe);
         }
 
         public Status status(long now) {
@@ -81,6 +99,22 @@ public final class InviteCodes {
             }
             return Status.OPEN;
         }
+    }
+
+    /** @invite: the character level an account needs (any one character), codes per window, and the window. */
+    public static final int PLAYER_MIN_LEVEL = 30;
+    public static final int PLAYER_CODES_PER_WINDOW = 2;
+    public static final long PLAYER_WINDOW_MS = TimeUnit.DAYS.toMillis(7);
+
+    /** One line of {@code @invite list}: the code and used or unused, nothing about who used it. */
+    public static String describeForMaker(Invite i, long now) {
+        String state = switch (i.status(now)) {
+            case USED -> "used";
+            case REVOKED -> "cancelled by staff";
+            case EXPIRED -> "expired";
+            case OPEN -> "unused";
+        };
+        return display(i.code()) + "  " + state;
     }
 
     private InviteCodes() {

@@ -2,7 +2,7 @@
 
 **Area:** Server / Site / Launcher
 **Kind:** FEATURE, 1.6.0 (owner 2026-10-26)
-**Status:** in progress
+**Status:** in progress (player `@invite` added in 1.6.1, see the end)
 **Related:** 104 (launcher login), docs/site/LOGIN.md in SlumsMS-site (`@weblogin`), 107 (password resets)
 
 Source: the owner, 2026-10-26: "So our main source for login creation is only in the client login screen. Is that
@@ -128,3 +128,20 @@ and the failed sign-in count; never a password, the secret, or a request body.
 
 **Login screen auto-register:** `AUTOMATIC_REGISTER` in config.yaml (already there). Live sets it to `false` with
 1.6.0; existing accounts log in as before.
+
+## Player invites (1.6.1, owner 2026-10-28, branch 161-invite)
+
+`@invite` lets players bring friends. Any account with a character of level 30 or more (the typing character's level
+or the highest saved level on the account; bots never count) makes a one-use code that never expires, up to **2 per
+rolling 7 days** (a code stops counting 7 days after it was made; cancelled codes still count). `@invite list` shows
+the account's own codes as `ABCDE-FGHJK  unused` / `used` / `cancelled by staff`, never who used them. GMs of level 3+
+keep `!invite` (durations, notes, list of everyone's, revoke) and are unlimited; their codes don't use a player's week.
+Gm levels 1-2 get the player rules.
+
+Storage: migration `040-player-invites` (with rollback). `invite_codes.created_by_char` (the character; `!invite`
+records it too), `invite_codes.self_serve` (1 for `@invite`, the weekly count), index `(created_by_account,
+created_at)`. `accounts.invited_by_account` / `invited_by_char` are set in the sign-up transaction from the code, and
+back-filled for already-used codes (account only). Staff-only: nothing shows the inviter to players or the site.
+Abuse bounds: the level gate, 2 a week per account, ordinary sign-up IP limits; revoke any unused code with
+`!invite revoke`. Tests: InviteCommandTest, InviteCodesTest, InviteRegisteredTest; migration run up twice, down twice
+and up again on a throwaway MySQL 8.0.

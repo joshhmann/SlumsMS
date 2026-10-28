@@ -29,8 +29,10 @@ public class InviteCommand extends Command {
     });
     static AuthStore store = new AuthStore.Jdbc();
 
+    static final int GM_LEVEL = 3;
+
     {
-        setDescription("Make a site sign-up code: !invite [1d|7d|30d|forever] [note], !invite list, !invite revoke <code>.");
+        setDescription("Make a sign-up code for a friend (level 30+, 2 a week): @invite, @invite list.");
     }
 
     @Override
@@ -38,15 +40,72 @@ public class InviteCommand extends Command {
         Character player = c.getPlayer();
         int accountId = c.getAccID();
         String by = player.getName();
+        int charId = player.getId();
+        int level = player.getLevel();
+        boolean gm = player.gmLevel() >= GM_LEVEL;
         WORKER.execute(() -> {
-            for (String line : run(params, accountId, by, System.currentTimeMillis())) {
+            long now = System.currentTimeMillis();
+            List<String> lines = gm ? run(params, accountId, charId, by, now) : runPlayer(params, accountId, charId, by, level, now);
+            for (String line : lines) {
                 player.yellowMessage(line);
             }
         });
     }
 
+    /**
+     * {@code @invite}: a one-use code that never expires, for an account with a character of level 30+, at most
+     * {@link InviteCodes#PLAYER_CODES_PER_WINDOW} per rolling 7 days (counted from when each was made, cancelled ones
+     * included). {@code @invite list}: your codes, used or unused, nothing about who used them. Never throws.
+     * onlineLevel: the level of the character typing (the saved row can lag).
+     */
+    static List<String> runPlayer(String[] params, int accountId, int charId, String by, int onlineLevel, long now) {
+        List<String> out = new ArrayList<>();
+        try {
+            if (params.length > 0 && params[0].equalsIgnoreCase("list")) {
+                List<InviteCodes.Invite> mine = store.invitesMadeBy(accountId, LIST_LIMIT);
+                if (mine.isEmpty()) {
+                    out.add("You haven't made any invite codes. @invite makes one.");
+                }
+                for (InviteCodes.Invite i : mine) {
+                    out.add(InviteCodes.describeForMaker(i, now));
+                }
+                return out;
+            }
+            if (params.length > 0) {
+                out.add("Syntax: @invite (make a code), @invite list.");
+                return out;
+            }
+            int level = Math.max(onlineLevel, store.highestCharacterLevel(accountId));
+            if (level < InviteCodes.PLAYER_MIN_LEVEL) {
+                out.add("You need a level " + InviteCodes.PLAYER_MIN_LEVEL + " character to invite a friend.");
+                return out;
+            }
+            long since = now - InviteCodes.PLAYER_WINDOW_MS;
+            int made = store.countSelfServeInvitesSince(accountId, since);
+            if (made >= InviteCodes.PLAYER_CODES_PER_WINDOW) {
+                out.add("You've made " + InviteCodes.PLAYER_CODES_PER_WINDOW + " invite codes in the last 7 days. Try again later.");
+                return out;
+            }
+            String code = InviteCodes.newCode();
+            store.insertInvite(InviteCodes.Invite.selfServe(code, now, accountId, charId, by));
+            log.info("Invite {} made by player {} (account {}, char {}), {} of {} this week", InviteCodes.display(code),
+                    by, accountId, charId, made + 1, InviteCodes.PLAYER_CODES_PER_WINDOW);
+            out.add("Invite code: " + InviteCodes.display(code) + " (one friend, never expires).");
+            out.add("They sign up on the site or in the launcher with it. You have "
+                    + (InviteCodes.PLAYER_CODES_PER_WINDOW - made - 1) + " left this week.");
+        } catch (Exception e) {
+            log.warn("@invite failed", e);
+            out.add("Invite codes aren't available right now.");
+        }
+        return out;
+    }
+
     /** The reply lines for one use. Never throws. */
     static List<String> run(String[] params, int accountId, String by, long now) {
+        return run(params, accountId, 0, by, now);
+    }
+
+    static List<String> run(String[] params, int accountId, int charId, String by, long now) {
         List<String> out = new ArrayList<>();
         try {
             String first = params.length > 0 ? params[0] : "";
@@ -79,7 +138,8 @@ public class InviteCommand extends Command {
             }
             String note = InviteCodes.cleanNote(String.join(" ", noteWords));
             String code = InviteCodes.newCode();
-            store.insertInvite(InviteCodes.Invite.fresh(code, now, accountId, by, note, validity.expiresAt(now)));
+            store.insertInvite(InviteCodes.Invite.fresh(code, now, accountId, by, note, validity.expiresAt(now))
+                    .withCreatedBy(charId));
             log.info("Invite {} made by {} ({}){}", InviteCodes.display(code), by, validity.word,
                     note.isEmpty() ? "" : ": " + note);
             out.add("Invite code: " + InviteCodes.display(code) + " (one account, "
