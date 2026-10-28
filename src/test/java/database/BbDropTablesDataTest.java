@@ -60,6 +60,7 @@ class BbDropTablesDataTest {
         Set<Integer> mobs = new HashSet<>();
         for (Row r : rows) {
             mobs.add(r.mob);
+            assertFalse(r.mob >= 2600000 && r.mob < 2700000, "Mirror World stays out for now (owner 2026-10-28): " + r);
             assertTrue(pairs.add(((long) r.mob << 32) | r.item), "duplicate " + r);
             assertFalse(r.item >= 2380000 && r.item < 2390000, "a Monster Book card is 045's, not 050's: " + r);
             assertFalse(r.item / 1000000 == 5, "cash item " + r);
@@ -137,6 +138,32 @@ class BbDropTablesDataTest {
         }
         for (int id : mobs) {
             assertNotNull(mob.getData(String.format("%07d.img", id)), "Mob.wz has no " + id);
+        }
+    }
+
+    @Test
+    void everyEtcItemHasAUseHereOrAnNpcPrice() throws Exception {
+        WzTestData.assumePresent("Item.wz");
+        DataProvider item = DataProviderFactory.getDataProvider(WZFiles.ITEM);
+        Set<Integer> inScripts = new HashSet<>();
+        try (var files = Files.walk(Path.of("scripts"))) {
+            for (Path f : (Iterable<Path>) files.filter(Files::isRegularFile)::iterator) {
+                Matcher m = Pattern.compile("(?<!\\d)(4\\d{6})(?!\\d)").matcher(Files.readString(f,
+                        java.nio.charset.StandardCharsets.ISO_8859_1));
+                while (m.find()) {
+                    inScripts.add(Integer.parseInt(m.group(1)));
+                }
+            }
+        }
+        Set<Integer> ores = Set.of(4004, 4010, 4020, 4006, 4007, 4130);
+        for (Row r : rows()) {
+            if (r.item / 1000000 != 4 || ores.contains(r.item / 1000)) {
+                continue;
+            }
+            Data d = item.getData("Etc/" + String.format("%04d", r.item / 10000) + ".img")
+                    .getChildByPath(String.format("%08d", r.item));
+            assertTrue(inScripts.contains(r.item) || DataTool.getIntConvert("info/price", d, 0) > 0,
+                    "ETC " + r.item + " has no use in scripts/ and no NPC price");
         }
     }
 }

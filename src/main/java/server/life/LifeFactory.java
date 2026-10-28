@@ -185,6 +185,7 @@ public class LifeFactory {
         } else {
             stats.setHp(DataTool.getIntConvert("maxHP", monsterInfoData));
         }
+        stats.setHp(MobHpOverrides.maxHp(mid, stats.getHp())); // ticket 81: classic-curve HP for post-Big-Bang mobs
 
     Data special = monsterInfoData.getChildByPath("coolDamage");
         if(special !=null)
