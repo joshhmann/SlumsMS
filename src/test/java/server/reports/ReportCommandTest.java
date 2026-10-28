@@ -12,11 +12,14 @@ import java.awt.Point;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.util.Map;
+import soloMapling.server.Json;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.*;
 
 class ReportCommandTest {
@@ -51,16 +54,49 @@ class ReportCommandTest {
         Character p = player("the door is stuck");
         ReportBugCommand.report(client(p), new String[]{"the"}, "bug", "Bug", "bug", store, gm);
         waitFor(() -> worlds.size() >= 2);
-        verify(p).dropMessage(5, "Thanks! Your bug was logged as #1.");
+        verify(p).dropMessage(5, "Thanks! Bug #B-1 sent.");
         assertEquals(java.util.List.of(1, 1), worlds); // yellow tip + popup
 
         Character q = player("make a bigger bag");
         ReportBugCommand.report(client(q), new String[]{"x"}, "feature", "Idea", "idea", store, gm);
         waitFor(() -> worlds.size() >= 3);
-        verify(q).dropMessage(5, "Thanks! Your idea was logged as #2.");
+        verify(q).dropMessage(5, "Thanks! Idea #I-2 sent.");
         assertEquals(3, worlds.size()); // ideas: yellow tip only
         String line = Files.readAllLines(dir.resolve("reports.jsonl")).get(0);
         assertTrue(line.contains("\"where\":\"Lith Harbor (104000000) ch3\""), line);
+        assertTrue(line.contains("\"ref\":\"B-1\""), line);
+        // a bug carries a context file (sections that cannot be read on a mock still come out as {"error": ...})
+        Map<?, ?> ctx = (Map<?, ?>) Json.parse(Files.readString(dir.resolve("context/B-1.json")));
+        assertEquals("B-1", ctx.get("ref"));
+        assertTrue(ctx.containsKey("versions") && ctx.containsKey("character") && ctx.containsKey("trail"), ctx.keySet().toString());
+        assertFalse(Files.exists(dir.resolve("context/I-2.json")), "ideas carry no context");
+    }
+
+    @Test
+    void bareBugShowsUsage() {
+        ReportStore store = new ReportStore(dir.resolve("reports.jsonl"), Clock.systemUTC());
+        Character p = player("");
+        ReportBugCommand.report(client(p), new String[]{}, "bug", "Bug", "bug", store, (w, pk) -> { });
+        verify(p).dropMessage(eq(5), contains("Usage: @bug <what went wrong> (up to 500 characters)"));
+    }
+
+    @Test
+    void aClientWithLogUploadIsAskedAfterABug() throws Exception {
+        ReportStore store = new ReportStore(dir.resolve("reports.jsonl"), Clock.systemUTC());
+        Character p = player("the door is stuck");
+        when(p.getId()).thenReturn(77);
+        Client c = client(p);
+        when(c.getClientStampFormat()).thenReturn(2);
+        when(c.getClientCaps()).thenReturn(BugClientLogs.CAPS_LOG_UPLOAD | 1);
+        ReportBugCommand.report(c, new String[]{"the"}, "bug", "Bug", "bug", store, (w, pk) -> { });
+        verify(c, timeout(3000)).sendPacket(any(net.packet.Packet.class));
+
+        Client old = client(player("an old client bug"));
+        when(old.getClientStampFormat()).thenReturn(2);
+        when(old.getClientCaps()).thenReturn(1);
+        ReportBugCommand.report(old, new String[]{"x"}, "bug", "Bug", "bug", store, (w, pk) -> { });
+        verify(old.getPlayer(), timeout(3000)).dropMessage(eq(5), startsWith("Thanks! Bug #B-"));
+        verify(old, never()).sendPacket(any(net.packet.Packet.class));
     }
 
     @Test

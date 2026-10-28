@@ -95,8 +95,9 @@ public final class SiteFileShape {
                 if (!(m.get("online") instanceof Number) || list(m.get("channels")) == null
                         || !within(m.get("busiest_maps"), SiteWorld.BUSIEST) || list(m.get("running")) == null
                         || !m.containsKey("tonight") || !within(m.get("top_mobs"), SiteMobKills.TOP)
-                        || !within(m.get("top_mobs_7d"), SiteMobKills.TOP)) {
-                    out.add("online/channels/busiest_maps/top_mobs/top_mobs_7d/tonight/running missing or over limits");
+                        || !within(m.get("top_mobs_7d"), SiteMobKills.TOP)
+                        || !(m.get("version") instanceof Map<?, ?> v && v.get("server") instanceof String)) {
+                    out.add("online/channels/busiest_maps/top_mobs/top_mobs_7d/tonight/running/version missing or over limits");
                 }
             }
             default -> {

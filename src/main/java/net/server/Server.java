@@ -923,6 +923,8 @@ public class Server {
     public void init() {
         Instant beforeInit = Instant.now();
         log.info("SlumsMS v{} (MapleStory v{}) starting up.", ServerConstants.SLUMSMS_VERSION, ServerConstants.VERSION);
+        server.reports.WarnLogRing.install(); // ticket 131: last 500 WARN/ERROR lines for @bug reports
+        constants.net.BuildInfo.jarSha256(); // ticket 131: starts hashing the jar in the background, once
 
         //HairsAndFacesHandler.createHairAndFaceListsFile();
 

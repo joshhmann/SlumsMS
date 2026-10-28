@@ -316,6 +316,7 @@ public class CommandsExecutor {
         levelCommandsCursor = new Pair<>(new ArrayList<String>(), new ArrayList<String>());
 
         addCommand("recharge", 2, RechargeCommand.class);
+        addCommand("bugs", 2, BugsCommand.class);   // ticket 131: newest in-game reports (!bug <ref> for one)
         addCommand("whereami", 2, WhereaMiCommand.class);
         addCommand("hide", 2, HideCommand.class);
         addCommand("unhide", 2, UnHideCommand.class);

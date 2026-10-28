@@ -192,6 +192,7 @@ public final class PacketProcessor {
         registerHandler(RecvOpcode.DAILY_CHECKIN, new DailyCheckinHandler());
         registerHandler(RecvOpcode.SET_ITEM_ACTION, new SetItemHandler());
         registerHandler(RecvOpcode.MONSTER_BOOK_QUERY, new net.server.channel.handlers.MonsterBookQueryHandler());
+        registerHandler(RecvOpcode.BUG_LOG_UPLOAD, new net.server.channel.handlers.BugLogUploadHandler()); // ticket 131
         registerHandler(RecvOpcode.WEAPON_TINT_ACTION, new WeaponTintHandler());
         registerHandler(RecvOpcode.DAMAGE_SUMMON, new DamageSummonHandler());
         registerHandler(RecvOpcode.MOVE_SUMMON, new MoveSummonHandler());

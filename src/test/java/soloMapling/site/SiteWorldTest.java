@@ -85,4 +85,24 @@ class SiteWorldTest {
         assertEquals(new SiteWorld.Headline(null, today, "scheduled"),
                 SiteWorld.nextHeadline(false, null, 0, "", false, today, tomorrow, grace, NOW));
     }
+
+    @Test
+    void versionSaysTheServerAndCommitAndTheShapeNeedsIt() {
+        Map<?, ?> f = (Map<?, ?>) Json.parse(Json.write(SiteWorld.file(
+                new SiteWorld.Online(Map.of(), Map.of(), Map.of()), null, List.of(), NOW)));
+        Map<?, ?> v = (Map<?, ?>) f.get("version");
+        assertEquals(constants.net.ServerConstants.SLUMSMS_VERSION, v.get("server"));
+        String commit = constants.net.BuildInfo.commit();
+        if (commit == null) {
+            assertFalse(v.containsKey("commit"), "no recorded commit: the key is left out");
+        } else {
+            assertEquals(commit, v.get("commit"));
+        }
+        assertEquals(List.of(), SiteFileShape.shape("world.json", f));
+        assertEquals(Map.of("server", "1.6.1", "commit", "5e21fd275"), SiteWorld.version("1.6.1", "5e21fd275"));
+        assertEquals(Map.of("server", "1.6.1"), SiteWorld.version("1.6.1", null));
+        Map<Object, Object> without = new java.util.LinkedHashMap<>(f);
+        without.remove("version");
+        assertFalse(SiteFileShape.shape("world.json", without).isEmpty(), "world.json without version is refused");
+    }
 }

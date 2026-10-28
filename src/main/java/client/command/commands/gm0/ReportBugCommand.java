@@ -30,19 +30,35 @@ import net.server.Server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.maps.MapleMap;
+import server.reports.BugClientLogs;
+import server.reports.BugContext;
 import server.reports.ReportStore;
+import client.command.commands.gm2.BugsCommand;
 import tools.PacketCreator;
 
-/** @bug / @reportbug and (via {@link Idea}) @idea: durable report plus a GM heads-up. */
+/**
+ * @bug / @reportbug and (via {@link Idea}) @idea: a durable report plus a GM heads-up. Ticket 131: a bug carries an
+ * automatic context (versions, the character, last maps / NPC talks / events, surroundings, the server's WARN/ERROR
+ * lines about the reporter; {@link BugContext}) and gets a ref like "B-12"; a client that can (stamp caps bit 1) is
+ * then asked for its log tail ({@link BugClientLogs}). A GM typing {@code !bug B-12} (or {@code @bug B-12}) sees that
+ * report's summary instead (see also {@code !bugs}).
+ */
 public class ReportBugCommand extends Command {
     {
-        setDescription("Report a bug: @bug <what went wrong>.");
+        setDescription("Report a bug: @bug <what went wrong>. Your version, map and recent steps are attached.");
     }
 
     private static final Logger log = LoggerFactory.getLogger(ReportBugCommand.class);
 
     @Override
     public void execute(Client c, String[] params) {
+        Character player = c.getPlayer();
+        if (player.isGM() && params.length == 1 && ReportStore.normalizeRef(params[0]) != null) {
+            for (String line : BugsCommand.describe(ReportStore.getInstance(), params[0])) {
+                player.yellowMessage(line);
+            }
+            return;
+        }
         report(c, params, "bug", "Bug", "bug");
     }
 
@@ -60,37 +76,56 @@ public class ReportBugCommand extends Command {
 
     static void report(Client c, String[] params, String type, String label, String noun) {
         report(c, params, type, label, noun, ReportStore.getInstance(),
-                (world, packet) -> Server.getInstance().broadcastGMMessage(world, packet));
+                (world, packet) -> Server.getInstance().broadcastGMMessage(world, packet), BugContext.Names.GAME);
     }
 
     public static void report(Client c, String[] params, String type, String label, String noun, ReportStore store,
                               java.util.function.BiConsumer<Integer, net.packet.Packet> gmNotifier) {
+        report(c, params, type, label, noun, store, gmNotifier, BugContext.Names.NONE);
+    }
+
+    public static void report(Client c, String[] params, String type, String label, String noun, ReportStore store,
+                              java.util.function.BiConsumer<Integer, net.packet.Packet> gmNotifier, BugContext.Names names) {
         Character player = c.getPlayer();
+        int max = "bug".equals(type) ? ReportStore.BUG_MAX_LENGTH : ReportStore.MAX_LENGTH;
         if (params.length < 1) {
-            player.dropMessage(5, "Please say what it is: @" + noun + " <text>");
+            player.dropMessage(5, "Usage: @" + noun + " <" + ("bug".equals(type) ? "what went wrong" : "your idea")
+                    + "> (up to " + max + " characters)."
+                    + ("bug".equals(type) ? " Your version, map and recent steps are attached automatically." : ""));
             return;
         }
         String message = player.getLastCommandMessage();
         MapleMap map = player.getMap();
+        String build = c.getClientBuild() > 0 ? c.getClientBuild() + (c.getClientRelease() == null || c.getClientRelease().isEmpty()
+                ? "" : " (" + c.getClientRelease() + ")") : null;
         ReportStore.Context ctx = new ReportStore.Context(player.getName(), c.getAccID(), c.getWorld(), c.getChannel(),
-                map.getId(), map.getMapName(), player.getPosition().x, player.getPosition().y, null);
-        store.submit(type, message, ctx).thenAccept(r -> {
+                map.getId(), map.getMapName(), player.getPosition().x, player.getPosition().y, build,
+                ReportStore.versions(constants.net.ServerConstants.SLUMSMS_VERSION, constants.net.BuildInfo.commit(),
+                        c.getClientRelease(), c.getClientBuild()));
+        long now = System.currentTimeMillis();
+        java.util.function.Supplier<java.util.Map<String, Object>> context = "bug".equals(type)
+                ? () -> BugContext.cap(BugContext.capture(c, player, now, names), BugContext.MAX_BYTES) : null;
+        store.submit(type, message, ctx, context).thenAccept(r -> {
             switch (r.status()) {
                 case TOO_SHORT -> player.dropMessage(5, "That is too short (at least " + ReportStore.MIN_LENGTH
                         + " characters). Please say a bit more: @" + noun + " <text>");
-                case TOO_LONG -> player.dropMessage(5, "That is too long (at most " + ReportStore.MAX_LENGTH
+                case TOO_LONG -> player.dropMessage(5, "That is too long (at most " + max
                         + " characters). Please shorten it.");
-                case RATE_LIMITED -> player.dropMessage(5, "You have sent a lot of reports lately. Please wait a while and try again.");
+                case RATE_LIMITED -> player.dropMessage(5, "You can send " + ReportStore.PER_ACCOUNT_WINDOW
+                        + " reports every 10 minutes. Please wait a little and try again.");
                 case WRITE_FAILED -> player.dropMessage(5, "Sorry, your " + noun + " could not be saved. Please try again in a moment.");
                 case OK -> {
                     String name = Character.makeMapleReadable(player.getName());
                     gmNotifier.accept(c.getWorld(),
-                            PacketCreator.sendYellowTip("[" + label + " #" + r.id() + "]: " + name + ": " + message));
+                            PacketCreator.sendYellowTip("[" + label + " #" + r.ref() + "]: " + name + ": " + message));
                     if (type.equals("bug")) {
                         gmNotifier.accept(c.getWorld(), PacketCreator.serverNotice(1, message));
                     }
-                    log.info("{} #{} from {}: {}", label, r.id(), name, message);
-                    player.dropMessage(5, "Thanks! Your " + noun + " was logged as #" + r.id() + ".");
+                    log.info("{} {} filed by {} ({})", label, r.ref(), name, store.file()); // the text lives only in the report
+                    player.dropMessage(5, "Thanks! " + label + " #" + r.ref() + " sent.");
+                    if (type.equals("bug")) {
+                        BugClientLogs.get().request(c, player, r.ref(), System.currentTimeMillis());
+                    }
                 }
             }
         });

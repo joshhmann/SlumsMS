@@ -1,5 +1,8 @@
 package soloMapling.site;
 
+import constants.net.BuildInfo;
+import constants.net.ServerConstants;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -76,6 +79,7 @@ public final class SiteWorld {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("schema", PublicSiteExport.SCHEMA);
         m.put("generated_at", Instant.ofEpochMilli(now).toString());
+        m.put("version", version(ServerConstants.SLUMSMS_VERSION, BuildInfo.commit()));
         int total = 0;
         List<Object> channels = new ArrayList<>();
         for (Map.Entry<Integer, Integer> e : new TreeMap<>(online.perChannel()).entrySet()) {
@@ -139,6 +143,19 @@ public final class SiteWorld {
         }
         m.put("running", events);
         return m;
+    }
+
+    /**
+     * The server build (ticket 131 / site report service: stamped into every site report): {@code {"server": "1.6.1",
+     * "commit": "5e21fd275"}}; "commit" is left out when the jar did not record one.
+     */
+    static Map<String, Object> version(String server, String commit) {
+        Map<String, Object> v = new LinkedHashMap<>();
+        v.put("server", server);
+        if (commit != null && !commit.isBlank()) {
+            v.put("commit", commit);
+        }
+        return v;
     }
 
     private static List<Object> mobRows(List<SiteMobKills.Row> rows) {
