@@ -68,6 +68,36 @@ class ServiceTest(unittest.TestCase):
         d.update(kw)
         return d
 
+    def test_ids_follow_the_games_appends(self):
+        """Ticket 131: the game server appends @bug lines to the same file; the next site report takes the next id."""
+        self.post(self.good())
+        with open(self.path, "a", encoding="utf-8") as f:   # what the game writes, under its own lock
+            f.write(json.dumps({"id": 2, "time": "2026-10-28T20:41:07+00:00", "type": "bug", "title": "in game",
+                                "source": "ingame", "ref": "B-2"}, separators=(",", ":")) + "\n")
+            f.write(json.dumps({"id": 3, "time": "2026-10-28T20:42:07+00:00", "type": "bug", "title": "in game 2",
+                                "source": "ingame", "ref": "B-3"}, separators=(",", ":")) + "\n")
+        st, body, _ = self.post(self.good(title="after the game's"))
+        self.assertEqual(json.loads(body)["id"], 4)
+        self.assertEqual([r["id"] for r in self.lines()], [1, 2, 3, 4])
+
+    def test_the_write_waits_for_the_games_lock(self):
+        """POSIX locks are per process, so the game is played by another process: it holds the lock, appends id 7."""
+        import subprocess
+        import sys as _sys
+        game = subprocess.Popen([_sys.executable, "-c", (
+            "import fcntl, os, sys, time\n"
+            "fd = os.open(sys.argv[1], os.O_RDWR | os.O_APPEND | os.O_CREAT, 0o640)\n"
+            "fcntl.lockf(fd, fcntl.LOCK_EX)\n"
+            "print('locked', flush=True)\n"
+            "time.sleep(1.0)\n"
+            "os.write(fd, b'{\"id\":7,\"source\":\"ingame\",\"ref\":\"B-7\"}\\n')\n"
+            "os.close(fd)\n"), self.path], stdout=subprocess.PIPE, text=True)
+        self.assertEqual(game.stdout.readline().strip(), "locked")
+        st, body, _ = self.post(self.good())   # blocks until the game lets go, then numbers after its line
+        game.wait(5)
+        self.assertEqual(json.loads(body)["id"], 8)
+        self.assertEqual([r["id"] for r in self.lines()], [7, 8])
+
     def test_versions_are_stamped_by_the_service(self):
         """Owner 2026-10-28: a report carries the server and site versions as they were when it was sent."""
         world, build = os.path.join(self.tmp, "world.json"), os.path.join(self.tmp, "build.json")
