@@ -3,8 +3,9 @@
 -- cards whose info/mob is that mob (checked for all 254).
 -- Also adds each card's monstercarddata row (cardid, mobid): ItemInformationProvider.getCardMobId (the book cover
 -- packet) unboxes null for a card with no row, and the card-set sizes (MonsterBook.getCardTierSize) count the table.
+-- (Its ledger table is still called cards_043_rows: the migration was first applied on TEST as 043.)
 -- Only rows this migration really inserts are recorded in cards_043_rows, so the rollback never deletes a pair that
--- was already there. Applying it twice changes nothing (existing pairs are skipped; ledger id '043-newer-area-cards').
+-- was already there. Applying it twice changes nothing (existing pairs are skipped; ledger id '045-newer-area-cards').
 -- A running server reads drop_data on boot or on !reloaddrops, and monstercarddata on boot only.
 CREATE TABLE IF NOT EXISTS mapleroot_integration_migrations (
   migration_id varchar(100) PRIMARY KEY,
@@ -291,4 +292,4 @@ SELECT r.itemid, r.dropperid FROM cards_043_rows r
    AND NOT EXISTS (SELECT 1 FROM monstercarddata m WHERE m.cardid = r.itemid);
 
 DROP TEMPORARY TABLE cards_043_pairs;
-INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('043-newer-area-cards');
+INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('045-newer-area-cards');

@@ -154,12 +154,12 @@ class Probes160Test {
     }
 
     @Test
-    void newerAreaCardsVerdictAndSamplesAreInMigration043() throws Exception {
+    void newerAreaCardsVerdictAndSamplesAreInMigration045() throws Exception {
         assertNull(Probes160.cardVerdict(20000, 8210000, 8210000));
-        assertTrue(Probes160.cardVerdict(0, 8210000, 8210000).contains("043"));
+        assertTrue(Probes160.cardVerdict(0, 8210000, 8210000).contains("045"));
         assertTrue(Probes160.cardVerdict(-1, 1, 1).contains("20000"));
         assertTrue(Probes160.cardVerdict(20000, -1, 8210000).contains("monstercarddata"));
-        String sql = java.nio.file.Files.readString(java.nio.file.Path.of("database/migrations/043-newer-area-cards.sql"));
+        String sql = java.nio.file.Files.readString(java.nio.file.Path.of("database/migrations/045-newer-area-cards.sql"));
         for (int[] pair : Probes160.NEWER_AREA_CARDS) {
             assertTrue(sql.contains("(" + pair[0] + ", " + pair[1] + ")"), pair[0] + "/" + pair[1]);
         }

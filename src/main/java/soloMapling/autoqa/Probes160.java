@@ -1219,14 +1219,14 @@ final class Probes160 {
                 + " start, the island quests are not hidden and Southperry has Shanks", ev);
     }
 
-    // ── t-nc-1: Monster Book cards on the Arcane River / Grandis mobs (migration 043, 1.6.1) ────────
+    // ── t-nc-1: Monster Book cards on the Arcane River / Grandis mobs (migration 045, 1.6.1) ────────
 
-    /** t-nc-1: (mob, card) samples from migration 043's list: first, a middle one, the last. */
+    /** t-nc-1: (mob, card) samples from migration 045's list: first, a middle one, the last. */
     static final int[][] NEWER_AREA_CARDS = {{2400000, 2386030}, {8641004, 2387154}, {8210000, 2387082}};
 
     /**
      * t-nc-1: each sampled mob rolls its card at 2% (chance 20000, qty 1) and the card maps back to the mob in
-     * monstercarddata (the book cover packet needs it). FAIL before migration 043 is applied, and until !reloaddrops
+     * monstercarddata (the book cover packet needs it). FAIL before migration 045 is applied, and until !reloaddrops
      * or a restart after it.
      */
     static List<String> newerAreaCards() {
@@ -1257,10 +1257,10 @@ final class Probes160 {
     /** Pure: null when the drop chance is 20000 and the card maps to the mob. */
     static String cardVerdict(int chance, int cardMob, int mob) {
         if (chance != 20000) {
-            return "drop chance is " + chance + ", want 20000 (migration 043 not applied, or !reloaddrops not run)";
+            return "drop chance is " + chance + ", want 20000 (migration 045 not applied, or !reloaddrops not run)";
         }
         if (cardMob != mob) {
-            return "monstercarddata maps the card to " + cardMob + ", want " + mob + " (needs a restart after 043)";
+            return "monstercarddata maps the card to " + cardMob + ", want " + mob + " (needs a restart after 045)";
         }
         return null;
     }
