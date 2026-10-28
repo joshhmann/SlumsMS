@@ -69,7 +69,8 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
         alt.setParty(null);
         alt.setMPC(null);
         alt.setMap(target);
-        alt.setPosition(owner.getPosition());
+        alt.setPosition(OwnedAltService.groundedSpawn(target, owner.getPosition()));
+        alt.setStance(0); // standing, never a saved jump/fly stance
         alt.getClient().getChannelServer().addPlayer(alt);
         alt.getWorldServer().addPlayer(alt);
         alt.setEnteredChannelWorld();
