@@ -115,7 +115,9 @@ any existing account name (up to 64 characters), since older accounts may break 
 login screen still does, for old accounts; the bot template's "no login" marker is plain text). Banned and bot
 accounts (`SMBotBase`, any account owning the template character `-Dsolomapling.template-id` or a character at or
 above the bot id base, any account id in the bot range) are refused before any password comparison; a password over
-12 characters is never compared. A legacy (SHA) match is upgraded to bcrypt when `BCRYPT_MIGRATION` is on, as the
+64 characters (`VERIFY_PASS_MAX`) is never compared. Anything shorter is compared in full, as the game login does: the
+game's password box takes more than 12 (a 13-character account signs in there; its first 12 are refused), so sign-in
+never truncates, even though sign-up and reset cap new passwords at 12 (`PASS_MAX`). A legacy (SHA) match is upgraded to bcrypt when `BCRYPT_MIGRATION` is on, as the
 login screen does.
 
 **IP:** the service sends only `ipHash` (salted on its side); the server never sees a raw IP. It is stored on the used
