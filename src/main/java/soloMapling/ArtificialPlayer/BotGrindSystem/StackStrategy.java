@@ -479,7 +479,7 @@ final class StackStrategy implements GrindStrategy {
         if (now() < b.attackWalkLockUntil) {
             return;
         }
-        if (Math.abs(tx - b.lastMoveTargetX) < GrindBrain.ROAM_RETARGET_EPS) {
+        if (RoamStrategy.alreadyHeading(tx, b.lastMoveTargetX, GCMovement.isMoving(chr))) {
             return;
         }
         GCMovement.move(chr, tx, ty);
