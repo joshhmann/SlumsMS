@@ -42,7 +42,7 @@ class ConvoScenariosTest {
     @Test
     void everyChatScenarioIsRegistered() {
         List<String> ids = QaScenarios.all().stream().map(QaScenario::id).toList();
-        for (String id : List.of("cv-1", "cv-2", "cv-3", "cv-4", "cv-5", "cv-6", "cv-7", "cv-8", "cv-9", "cv-10", "cv-11")) {
+        for (String id : List.of("cv-1", "cv-2", "cv-3", "cv-4", "cv-5", "cv-6", "cv-7", "cv-8", "cv-9", "cv-10", "cv-11", "cv-12")) {
             assertTrue(ids.contains(id), id);
         }
     }

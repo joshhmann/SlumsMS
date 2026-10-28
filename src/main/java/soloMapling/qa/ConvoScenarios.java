@@ -30,7 +30,7 @@ final class ConvoScenarios {
 
     static List<QaScenario> all() {
         return List.of(new Cv1Actions(), new Cv2Haggle(), new Cv3Mood(), new Cv4Voices(), new Cv5Thread(), new Cv6Rate(),
-                new Cv7Bank(), new Cv8FollowUp(), new Cv9Hold(), new Cv10Meaning(), new Cv11PartyChat());
+                new Cv7Bank(), new Cv8FollowUp(), new Cv9Hold(), new Cv10Meaning(), new Cv11PartyChat(), new Cv12DecideSplit());
     }
 
     /** Replays the real classifier with confident wrong model answers; no player holdings or bot actors change. */
@@ -66,6 +66,64 @@ final class ConvoScenarios {
             ctx.run().note("MEANING", "PASS refusals-stories=" + requests + " warnings=" + warnings + " positive-follow=true");
             return List.of("Refusals, stories, scam warnings and a positive request passed in this jar.",
                     "This checks interpretation, not actual bot movement or a model endpoint.");
+        }
+    }
+
+    /**
+     * cv-12 (1.6.1 chat split): sends fresh lines through the real {@code ConvoSense.read} with the server's two
+     * Decide clients and checks that the intent+con endpoint and the tone endpoint both answered (not the rules).
+     */
+    static final class Cv12DecideSplit implements QaScenario {
+        public String id() { return "cv-12"; }
+        public String title() { return "Chat split: both Decide endpoints answer (intent+con and tone)"; }
+        public Set<QaLog.Topic> topics() { return Set.of(CONVO); }
+        public int minutes(String[] args) { return 2; }
+        public List<String> stage(QaContext ctx) {
+            var main = soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.get();
+            var tone = soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.getTone();
+            if (main == null || tone == null) {
+                throw new QaRefusal("The split is not configured here: BOT_DECIDE_URL and BOT_DECIDE_TONE_URL must both be set.");
+            }
+            Thread.ofVirtual().start(() -> run(ctx, main, tone));
+            return List.of("Sending " + ConvoSplitLines.LINES.size() + " fresh lines to " + main.endpointName() + " and "
+                    + tone.endpointName() + ".", "Log: SPLIT LINE ..., then SPLIT PASS or SPLIT FAIL.");
+        }
+
+        private void run(QaContext ctx, soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide main,
+                         soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide tone) {
+            var before = soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.endpointTotals();
+            int n = 0, intent = 0, toneN = 0, con = 0, complete = 0;
+            String nonce = Long.toString(System.nanoTime(), 36).replaceAll("[0-9]", "q");
+            for (String base : ConvoSplitLines.LINES) {
+                String line = base + " " + nonce + (char) ('a' + n);
+                var read = soloMapling.ArtificialPlayer.BotConvo.ConvoSense.read(line, main, tone, null);
+                n++;
+                boolean i = read.intentSource() == soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Source.DECIDE;
+                boolean t = read.toneSource() == soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Source.DECIDE;
+                boolean c = read.triage().conSource() == soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage.Source.DECIDE;
+                intent += i ? 1 : 0;
+                toneN += t ? 1 : 0;
+                con += c ? 1 : 0;
+                complete += read.intent() != null && read.tone() != null && read.triage().con() != null ? 1 : 0;
+                ctx.run().note("SPLIT", "LINE \"" + base + "\" -> " + read.describe() + " con="
+                        + read.triage().con().name().toLowerCase() + "/" + read.triage().conSource().name().toLowerCase());
+            }
+            var after = soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.endpointTotals();
+            long mainOk = okDelta(before, after, main.endpointName()), toneOk = okDelta(before, after, tone.endpointName());
+            String summary = "lines=" + n + " " + main.endpointName() + "_ok=" + mainOk + " " + tone.endpointName() + "_ok=" + toneOk
+                    + " intent_decide=" + intent + " con_decide=" + con + " tone_decide=" + toneN + " complete=" + complete;
+            // an endpoint "answered" = its call came back usable for every line; whether a confident label beat the
+            // thresholds is shown too, but one low-confidence line must not fail the split
+            boolean pass = mainOk >= n && toneOk >= n && complete == n && intent + con > 0 && toneN > 0;
+            ctx.run().note("SPLIT", (pass ? "PASS " : "FAIL ") + summary);
+        }
+
+        private static long okDelta(Map<String, Map<String, Object>> before, Map<String, Map<String, Object>> after, String name) {
+            return num(after.get(name), "ok") - num(before.get(name), "ok");
+        }
+
+        private static long num(Map<String, Object> m, String key) {
+            return m == null || !(m.get(key) instanceof Number x) ? 0 : x.longValue();
         }
     }
 

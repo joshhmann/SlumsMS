@@ -71,6 +71,17 @@ public final class ChatDecide {
     private int windowCalls;
 
     private final String model;
+    private volatile String endpoint = "decide";
+
+    /** Names this client in the per-minute endpoint line ("intent+con@host:port"). */
+    public ChatDecide named(String name) {
+        this.endpoint = name;
+        return this;
+    }
+
+    public String endpointName() {
+        return endpoint;
+    }
 
     public ChatDecide(Transport transport, long timeoutMs, int perSecond) {
         this(transport, timeoutMs, perSecond, "decide");
@@ -130,7 +141,8 @@ public final class ChatDecide {
             return null;
         }
         return forUrl(server.BOT_DECIDE_TONE_URL.trim(), Long.getLong("solomapling.chat.decideTimeoutMs", 400),
-                Integer.getInteger("solomapling.chat.decidePerSecond", 8), server.BOT_DECIDE_TONE_MODEL);
+                Integer.getInteger("solomapling.chat.decidePerSecond", 8), server.BOT_DECIDE_TONE_MODEL)
+                .named("tone@" + hostPort(server.BOT_DECIDE_TONE_URL));
     }
 
     /** Test seam: a stand-in client (null = none). */
@@ -145,7 +157,21 @@ public final class ChatDecide {
             return null;
         }
         return forUrl(server.BOT_DECIDE_URL.trim(), Long.getLong("solomapling.chat.decideTimeoutMs", 400),
-                Integer.getInteger("solomapling.chat.decidePerSecond", 8), server.BOT_DECIDE_MODEL);
+                Integer.getInteger("solomapling.chat.decidePerSecond", 8), server.BOT_DECIDE_MODEL)
+                .named((toneSplit(server) ? "intent+con@" : "all@") + hostPort(server.BOT_DECIDE_URL));
+    }
+
+    private static boolean toneSplit(ServerConfig server) {
+        return server.BOT_DECIDE_TONE_URL != null && !server.BOT_DECIDE_TONE_URL.isBlank();
+    }
+
+    private static String hostPort(String url) {
+        try {
+            URI u = URI.create(url.trim());
+            return u.getHost() + (u.getPort() > 0 ? ":" + u.getPort() : "");
+        } catch (RuntimeException e) {
+            return "?";
+        }
     }
 
     /** A client for a Decide base URL (the evaluation tool uses this directly). */
@@ -192,16 +218,22 @@ public final class ChatDecide {
         calls.execute(() -> {
             long started = System.nanoTime();
             Optional<Map<String, Answer>> answers;
+            ChatStats.Outcome outcome;
             try {
                 answers = parse(transport.post(Json.write(request(line, questions, model)), timeoutMs), questions);
+                outcome = answers.isPresent() ? ChatStats.Outcome.OK : ChatStats.Outcome.EMPTY;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 answers = Optional.empty();
+                outcome = ChatStats.Outcome.ERROR;
             } catch (Exception e) {
                 log.debug("Decide unavailable: {}", e.toString());
                 answers = Optional.empty();
+                outcome = e instanceof java.net.http.HttpTimeoutException ? ChatStats.Outcome.TIMEOUT : ChatStats.Outcome.ERROR;
             }
-            ChatStats.decideCall(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started), answers.isPresent());
+            long took = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+            ChatStats.decideCall(took, answers.isPresent());
+            ChatStats.endpointCall(endpoint, took, outcome, result.isDone());
             answers.ifPresent(a -> {
                 synchronized (cache) {
                     cache.put(key, new Cached(a, System.currentTimeMillis()));
