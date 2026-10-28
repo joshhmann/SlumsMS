@@ -426,10 +426,17 @@ class ChatPairGenTest {
         seed(dir, new ChatPairGen.Row("party", "kind", "normal", "ask", "-"), 10, 21);
         ChatPairGen g = new ChatPairGen(dir, null);
         Random rng = new Random(4);
+        int manipulation = 0;
         for (int i = 0; i < 50; i++) {
             ChatPairGen.Cell c = g.pickCell(ChatPairGen.cells(), plan, 10, rng);
-            assertFalse("talk".equals(c.intent()), "talk is at its 20% cap: " + c.key());
+            assertFalse("talk".equals(c.intent()) && "normal".equals(c.con()), "talk is at its 20% cap: " + c.key());
+            if ("manipulation".equals(c.con())) {
+                manipulation++;
+                g.countForTest(c);
+            }
         }
+        // round 6 leg 3: with talk at its cap, the manipulation rows (all talk) still fill their con floor
+        assertTrue(manipulation > 0, "manipulation is held back by the talk cap");
         assertFalse(plan.talkOpen(20, 30), "at the cap");
         assertFalse(plan.talkOpen(10, 30), "over its share so far");
         assertTrue(plan.talkOpen(5, 30));

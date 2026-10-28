@@ -761,7 +761,7 @@ public final class ChatPairGen {
         boolean talkOpen = plan.talkOpen(counts.getOrDefault("intent:talk", 0), pairs.size());
         Map<String, Row> open = new LinkedHashMap<>();
         for (Cell c : cells) {
-            if (load(c) < perCellTarget && (talkOpen || !"talk".equals(c.intent()))) {
+            if (load(c) < perCellTarget && (talkOpen || !cappedTalk(c.row()))) {
                 open.putIfAbsent(c.row().key(), c.row());
             }
         }
@@ -816,6 +816,14 @@ public final class ChatPairGen {
             }
         }
         return least.get(rng.nextInt(least.size()));
+    }
+
+    /**
+     * Whether the talk cap holds this row back. Manipulation and harassment rows are talk too, but they are the only way
+     * to their con floors (round 6 leg 3: warnings and greetings filled talk past its cap and leg 3 made no manipulation).
+     */
+    static boolean cappedTalk(Row r) {
+        return "talk".equals(r.intent()) && "normal".equals(r.con());
     }
 
     /** Test seam: count a pair of this cell as if accepted (the planner's view only; nothing is written). */
