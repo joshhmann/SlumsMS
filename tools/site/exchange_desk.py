@@ -47,7 +47,7 @@ DEFAULT_LIMITS = {"fee_bps_each_side": 100, "max_open_per_ticker": 5, "per_day":
 # NX as a game without tickers has it (exchange-book.json): the same keys as a ticker in exchange-tickers.json
 NX = {"id": "NX", "name": "NX", "item_id": None, "unit": "1000nx", "unit_label": "mesos per 1,000 NX", "per": 1000,
       "qty_label": "NX", "min_qty": 100, "max_qty": 50_000, "lot": 100, "min_price": 1_000, "max_price": 100_000_000}
-META = tuple(NX) + ("max_open", "per_day", "expiry_hours", "bid", "ask", "last", "change_24h", "change_24h_pct", "high_24h", "low_24h", "volume_24h",
+META = tuple(NX) + ("max_open", "per_day", "expiry_hours", "fair", "bid", "ask", "last", "change_24h", "change_24h_pct", "high_24h", "low_24h", "volume_24h",
                     "turnover_24h", "fills_24h", "rate", "bids", "asks", "trades")
 
 SCHEMA = """

@@ -178,7 +178,9 @@
       },
       get events() { return (this.data && this.data.events) || []; },
       eventText: function (e) {
-        var left = e.ends_at ? Math.max(0, Math.round((new Date(e.ends_at).getTime() - Date.now()) / 60000)) : null;
+        // ends_at: Unix seconds (an ISO time works too); null for news with no end
+        var end = typeof e.ends_at === "number" ? e.ends_at * 1000 : e.ends_at ? new Date(e.ends_at).getTime() : NaN;
+        var left = isNaN(end) ? null : Math.max(0, Math.round((end - Date.now()) / 60000));
         return e.name + (e.ticker ? " on " + e.ticker : "") + (left === null ? "" : left >= 60 ? ": about " + Math.round(left / 60) + " h left" : ": " + left + " min left");
       },
       usePrice: function (price) { window.dispatchEvent(new CustomEvent("xc-price", { detail: price })); },
@@ -191,7 +193,7 @@
         var cs = (this.candlesFor === store().tk ? this.candles : []).map(function (c) {
           return { at: new Date(c.t).getTime(), o: c.o, h: c.h, l: c.l, c: c.c, v: c.v, n: c.n, t: c.t };
         }).filter(function (c) { return c.at >= x0 - HOUR && !isNaN(c.at); });
-        var rate = this.cur && this.cur.rate;
+        var rate = this.cur && this.cur.rate, fair = this.cur && this.cur.fair;
         var line = cs.length ? [] : this.trades.filter(function (t) { return t.at >= x0; });
         if (!cs.length && !line.length)
           return '<text class="xc-ax" x="' + (W - R) / 2 + '" y="' + H / 2 + '" text-anchor="middle">No trades in this range yet</text>';
@@ -199,6 +201,7 @@
         cs.forEach(function (c) { ps.push(c.h, c.l); });
         line.forEach(function (t) { ps.push(t.price); });
         if (rate) ps.push(rate);
+        if (fair) ps.push(fair);
         var lo = Math.min.apply(null, ps), hi = Math.max.apply(null, ps), pad = (hi - lo) * 0.1 || hi * 0.03 || 1;
         lo = Math.max(0, lo - pad); hi += pad;
         var top = H - B - VOL - 6;
@@ -235,6 +238,8 @@
           last = line[line.length - 1].price;
         }
         if (rate) out += '<line class="xc-rateline" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(rate).toFixed(1) + '" y2="' + Y(rate).toFixed(1) + '"/>';
+        if (fair) out += '<line class="xc-fairline" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(fair).toFixed(1) + '" y2="' + Y(fair).toFixed(1) + '"><title>Fair value '
+          + fmt(fair) + '</title></line><text class="xc-ax xc-fairt" x="' + (L + 4) + '" y="' + (Y(fair) - 4).toFixed(1) + '">fair ' + short(fair) + '</text>';
         var ly = Y(last);
         out += '<line class="xc-lastline ' + this.dir + '" x1="' + L + '" x2="' + (W - R) + '" y1="' + ly.toFixed(1) + '" y2="' + ly.toFixed(1) + '"/>'
           + '<rect class="xc-tag ' + this.dir + '" x="' + (W - R + 2) + '" y="' + (ly - 9).toFixed(1) + '" width="' + (R - 4) + '" height="18" rx="3"/>'

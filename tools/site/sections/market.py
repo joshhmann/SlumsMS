@@ -635,6 +635,7 @@ here is one a player paid.</p>
 <div><dt>24h low</dt><dd x-text="fmt(cur && cur.low_24h)"></dd></div>
 <div><dt>24h volume</dt><dd x-text="fmt(cur && cur.volume_24h) + ' ' + qtyLabel"></dd></div>
 <div><dt>Official rate</dt><dd x-text="cur && cur.rate ? fmt(cur.rate) : 'not yet'"></dd></div>
+<div x-show="cur && cur.fair"><dt>Fair value</dt><dd class="xc-fairv" x-text="fmt(cur && cur.fair)"></dd></div>
 </dl>
 <small class="xc-upd" x-show="data" x-text="'updated ' + ago"></small>
 </header>
@@ -644,7 +645,8 @@ here is one a player paid.</p>
 <svg class="xc-chart" viewBox="0 0 640 280" preserveAspectRatio="none" role="img" :aria-label="'Price of ' + (cur && cur.name)" x-html="chart()"></svg>
 <p class="xc-note">Each candle is an hour that traded: <span class="up">green</span> closed higher than it opened,
 <span class="down">red</span> lower; the bars underneath are how much traded. The dashed yellow line is the official
-rate, the size-weighted average of player trades in the last 24 hours (once there are at least 3).</p></section>
+rate, the size-weighted average of player trades in the last 24 hours (once there are at least 3). The dotted blue line
+is the fair value: what the game's own drops and sinks say it's worth. It's a guide; players set the price.</p></section>
 <section class="xc-p" style="grid-area: depth"><h2>Market depth</h2>
 <svg class="xc-depth" viewBox="0 0 640 150" preserveAspectRatio="none" role="img" aria-label="Buy and sell depth" x-html="depth()"></svg>
 <p class="xc-note"><span class="up">Green</span>: wanted at that price or higher. <span class="down">Red</span>: for sale at that price or lower.</p></section>
