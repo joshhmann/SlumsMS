@@ -208,6 +208,21 @@ public final class BotConversation {
     /** How long after a bot's public line the player's next line counts as answering it. */
     static final long JUST_SAID_MS = soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.QUESTION_MS;
 
+    /** The map's last few public lines (this map and channel, last minutes) for the intent+con model's context. */
+    static List<ChatDecide.Earlier> earlierLines(Character bot, Character player, String line) {
+        if (bot == null || player == null) {
+            return List.of();
+        }
+        try {
+            var lines = soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.recent(
+                    soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.channelOf(bot.getMap()), bot.getMapId(),
+                    System.currentTimeMillis());
+            return soloMapling.ArtificialPlayer.BotConvo.ConvoSense.earlier(lines, bot.getId(), player.getId(), line);
+        } catch (RuntimeException e) {
+            return List.of();
+        }
+    }
+
     static Heard heard(Character bot, Character player, long now) {
         if (bot == null || player == null) {
             return Heard.NONE;
@@ -450,7 +465,8 @@ public final class BotConversation {
         // Ticket 59: one fast read - rules, then one Decide call for intent, tone and con together
         soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Read read =
                 soloMapling.ArtificialPlayer.BotConvo.ConvoSense.read(line, ChatDecide.get(),
-                        player == null ? null : player.getName());
+                        ChatDecide.get() == null ? null : ChatDecide.getTone(), player == null ? null : player.getName(),
+                        whisper ? List.of() : earlierLines(bot, player, line));
         ChatTriage.Result triage = read.triage();
         // Ticket 58: a kind line warms the bot to the player, a rude one cools it (the tone read above, no extra call).
         soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.judgeTone(bot, player, read.affinityTone(),

@@ -300,6 +300,36 @@ public final class ConvoSense {
      * call is skipped when a rule already gave the tone; the intent/con call when a rule gave the intent and con.
      */
     public static Read read(String line, ChatDecide decide, ChatDecide tone, String speaker) {
+        return read(line, decide, tone, speaker, List.of());
+    }
+
+    /**
+     * The earlier lines of a map's public chat as the intent+con model sees them: oldest first, up to
+     * {@link ChatDecide#MAX_EARLIER}. The speaker of the line being read is "player", the bot "you", anyone else
+     * "someone nearby". The line being read (the newest entry, when it is the speaker's and the same text) is left out.
+     */
+    public static List<ChatDecide.Earlier> earlier(
+            List<soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.Line> lines, int botId, int playerId,
+            String current) {
+        List<soloMapling.ArtificialPlayer.BotMessagingSystem.MapChatLog.Line> prior = new java.util.ArrayList<>(
+                lines == null ? List.of() : lines);
+        if (!prior.isEmpty() && current != null) {
+            var last = prior.get(prior.size() - 1);
+            if (last.speakerId() == playerId && last.text().trim().equalsIgnoreCase(current.trim())) {
+                prior.remove(prior.size() - 1);
+            }
+        }
+        List<ChatDecide.Earlier> out = new java.util.ArrayList<>();
+        for (var l : prior) {
+            out.add(new ChatDecide.Earlier(l.speakerId() == botId ? ChatDecide.Role.YOU
+                    : l.speakerId() == playerId ? ChatDecide.Role.PLAYER : ChatDecide.Role.NEARBY, l.text()));
+        }
+        return out.size() <= ChatDecide.MAX_EARLIER ? out : out.subList(out.size() - ChatDecide.MAX_EARLIER, out.size());
+    }
+
+    /** As above; {@code earlier} goes to the intent+con call only, never to the tone endpoint. */
+    public static Read read(String line, ChatDecide decide, ChatDecide tone, String speaker,
+                            List<ChatDecide.Earlier> earlier) {
         ChatTriage.Result byRule = ChatTriage.rules(line);
         Optional<ConvoIntent> intent = intentRule(line);
         Optional<Tone> toneByRule = toneRule(line, byRule);
@@ -311,9 +341,9 @@ public final class ConvoSense {
         long started = System.nanoTime();
         Optional<Map<String, ChatDecide.Answer>> answers;
         if (tone == null) {
-            answers = decide.askNow(line, ASKED);
+            answers = decide.askNow(line, ASKED, earlier);
         } else {
-            var main = needIntentCon ? decide.ask(line, List.of(INTENT, ChatTriage.CON)) : null;
+            var main = needIntentCon ? decide.ask(line, List.of(INTENT, ChatTriage.CON), earlier) : null;
             var toneCall = toneByRule.isEmpty() ? tone.ask(line, List.of(TONE)) : null;
             Map<String, ChatDecide.Answer> merged = new java.util.LinkedHashMap<>();
             merged.putAll(await(main));

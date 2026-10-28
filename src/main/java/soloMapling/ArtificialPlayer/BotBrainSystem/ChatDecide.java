@@ -201,7 +201,35 @@ public final class ChatDecide {
      * failure; never exceptionally.
      */
     public CompletableFuture<Optional<Map<String, Answer>>> ask(String line, List<Question> questions) {
-        String key = cacheKey(line, questions);
+        return ask(line, questions, List.of());
+    }
+
+    /** Who said an earlier line, from the point of view of the bot being asked. */
+    public enum Role {
+        PLAYER("player"), YOU("you"), NEARBY("someone nearby");
+
+        final String label;
+
+        Role(String label) {
+            this.label = label;
+        }
+    }
+
+    /** One earlier line of the chat, oldest first in a list, for {@link #ask(String, List, List)}. */
+    public record Earlier(Role role, String text) {
+    }
+
+    /** Most earlier lines sent with a question. */
+    public static final int MAX_EARLIER = 5;
+
+    /**
+     * As {@link #ask(String, List)} with up to {@link #MAX_EARLIER} earlier lines of the chat (oldest first) in the
+     * state; they are part of the cache key. Empty = the state is exactly what it was without them.
+     */
+    public CompletableFuture<Optional<Map<String, Answer>>> ask(String line, List<Question> questions,
+                                                                List<Earlier> earlier) {
+        String context = contextBlock(earlier);
+        String key = cacheKey(line, questions, context);
         long now = System.currentTimeMillis();
         synchronized (cache) {
             Cached hit = cache.get(key);
@@ -220,7 +248,7 @@ public final class ChatDecide {
             Optional<Map<String, Answer>> answers;
             ChatStats.Outcome outcome;
             try {
-                answers = parse(transport.post(Json.write(request(line, questions, model)), timeoutMs), questions);
+                answers = parse(transport.post(Json.write(request(line, questions, model, context)), timeoutMs), questions);
                 outcome = answers.isPresent() ? ChatStats.Outcome.OK : ChatStats.Outcome.EMPTY;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -251,8 +279,12 @@ public final class ChatDecide {
 
     /** As {@link #ask}, waiting for the answer on the caller's thread (never longer than the deadline). */
     public Optional<Map<String, Answer>> askNow(String line, List<Question> questions) {
+        return askNow(line, questions, List.of());
+    }
+
+    public Optional<Map<String, Answer>> askNow(String line, List<Question> questions, List<Earlier> earlier) {
         try {
-            return ask(line, questions).get(timeoutMs + 100, TimeUnit.MILLISECONDS);
+            return ask(line, questions, earlier).get(timeoutMs + 100, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return Optional.empty();
@@ -279,6 +311,36 @@ public final class ChatDecide {
 
     /** The request body with another wire model id (OneJev and Jev need their own; the shadow run uses this). */
     public static Map<String, Object> request(String line, List<Question> questions, String model) {
+        return request(line, questions, model, "");
+    }
+
+    /**
+     * "Earlier in this chat:\nplayer: ...\nyou: ...\nsomeone nearby: ..." (one per line, oldest first, the last
+     * {@value #MAX_EARLIER}); empty when there is nothing earlier.
+     */
+    public static String contextBlock(List<Earlier> earlier) {
+        if (earlier == null || earlier.isEmpty()) {
+            return "";
+        }
+        List<Earlier> kept = new java.util.ArrayList<>();
+        for (Earlier e : earlier) {
+            if (e != null && !clean(e.text()).isEmpty()) {
+                kept.add(e);
+            }
+        }
+        if (kept.isEmpty()) {
+            return "";
+        }
+        kept = kept.subList(Math.max(0, kept.size() - MAX_EARLIER), kept.size());
+        StringBuilder b = new StringBuilder("Earlier in this chat:");
+        for (Earlier e : kept) {
+            b.append('\n').append(e.role().label).append(": ").append(clean(e.text()));
+        }
+        return b.toString();
+    }
+
+    /** As above with the context block ({@link #contextBlock}, "" for none) ahead of the player's line. */
+    public static Map<String, Object> request(String line, List<Question> questions, String model, String context) {
         Map<String, Object> qs = new LinkedHashMap<>();
         for (Question q : questions) {
             Map<String, Object> question = new LinkedHashMap<>();
@@ -289,7 +351,8 @@ public final class ChatDecide {
         }
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
-        body.put("state", "A MapleStory player typed this to you in chat: " + clean(line));
+        body.put("state", (context == null || context.isEmpty() ? "" : context + "\n")
+                + "A MapleStory player typed this to you in chat: " + clean(line));
         body.put("questions", qs);
         return body;
     }
@@ -320,8 +383,11 @@ public final class ChatDecide {
                 .trim();
     }
 
-    private static String cacheKey(String line, List<Question> questions) {
+    private static String cacheKey(String line, List<Question> questions, String context) {
         StringBuilder key = new StringBuilder(normalise(line));
+        if (!context.isEmpty()) {
+            key.append("|ctx:").append(normalise(context));
+        }
         for (Question q : questions) {
             key.append('|').append(q.name());
         }
