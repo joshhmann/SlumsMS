@@ -25,7 +25,8 @@ import java.util.function.LongSupplier;
  * </pre>
  * Only the leaf class has events for now: CHAOS, WS and ELIXIR have no clean lever in existing content (Coco's chaos
  * craft is switched off on every server; the scrolls come from gachapon and boss prizes). Rush and Blight end each
- * other. Random events come about {@code perWeek} times a week; {@code announcePct} of them Cody announces in game (a
+ * other. Owner 2026-10-28: these are GM tools; random scheduling is off unless {@code -Dslums.market.events.random}.
+ * With it on, random events come about {@code perWeek} times a week; {@code announcePct} of them Cody announces in game (a
  * blue server notice, never Discord), the rest are secret: traders learn of them only from prices and rumours. Events
  * live in memory only: a restart ends them. {@code !market event|events|end} triggers and lists them.
  */
@@ -155,6 +156,59 @@ public final class MarketEvents {
         }
     }
 
+    /** Area info key of a character's Chaos Scrolls bought in the current Rooty's Bonus ("eventId:count"). */
+    public static final short ROOTY_AREA = 29160;
+
+    /** The running Rooty's Bonus's id (its start time), 0 when none. */
+    public static long rootyBonusEventId() {
+        MarketEvents m = instance;
+        if (m == null) {
+            return 0;
+        }
+        Active a = m.activeOf(Kind.ROOTY_BONUS, m.clock.getAsLong());
+        return a == null ? 0 : a.startedAt();
+    }
+
+    /** How many more Chaos Scrolls this character may buy in this bonus event (area info {@code "id:count"}). */
+    static int rootyLeft(String info, long eventId, int cap) {
+        return Math.max(0, cap - rootyBought(info, eventId));
+    }
+
+    static int rootyBought(String info, long eventId) {
+        if (info == null || eventId <= 0) {
+            return 0;
+        }
+        int i = info.indexOf(':');
+        try {
+            return i > 0 && Long.parseLong(info.substring(0, i)) == eventId ? Integer.parseInt(info.substring(i + 1)) : 0;
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Rooty's Bonus purchases left for {@code chr} in the running event (the per-character cap,
+     * {@code -Dslums.market.rooty.cap}, default 2), counted in the character's area info so a relog or a channel
+     * change keeps it (it saves with the character). 0 when no bonus runs.
+     */
+    public static int rootyBonusLeft(client.Character chr) {
+        MarketEvents m = instance;
+        long id = rootyBonusEventId();
+        if (m == null || id <= 0 || chr == null) {
+            return 0;
+        }
+        return rootyLeft(chr.getAreaInfo(ROOTY_AREA), id, m.config.rootyCap());
+    }
+
+    /** Counts one Rooty's Bonus purchase for {@code chr} in the running event. */
+    public static void rootyBonusBought(client.Character chr) {
+        long id = rootyBonusEventId();
+        if (id <= 0 || chr == null) {
+            return;
+        }
+        chr.updateAreaInfo(ROOTY_AREA, id + ":" + (rootyBought(chr.getAreaInfo(ROOTY_AREA), id) + 1));
+    }
+
     /** Minutes of Rooty's Bonus left (rooty.js's line), 0 when none. */
     public static long rootyBonusMinutesLeft() {
         MarketEvents m = instance;
@@ -198,6 +252,35 @@ public final class MarketEvents {
         prune(now);
         List<Active> out = new ArrayList<>(active.values());
         out.sort(java.util.Comparator.comparingLong(Active::endsAt));
+        return out;
+    }
+
+    /**
+     * The announced running events for the site's banner ({@code exchange-tickers.json} {@code events}): secret ones
+     * never appear. {@code ends_at} in unix seconds.
+     */
+    /** The server's announced events (empty when events never started). */
+    public static List<Map<String, Object>> announcedNow(long now) {
+        MarketEvents m = instance;
+        return m == null ? List.of() : m.announcedEvents(now);
+    }
+
+    public synchronized List<Map<String, Object>> announcedEvents(long now) {
+        prune(now);
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (!config.events()) {
+            return out;
+        }
+        for (Active a : active.values()) {
+            if (a.announced()) {
+                Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("id", a.kind().name().toLowerCase(Locale.ROOT) + "-" + a.startedAt());
+                m.put("name", a.kind().label);
+                m.put("ticker", a.kind().ticker);
+                m.put("ends_at", a.endsAt() / 1000);
+                out.add(m);
+            }
+        }
         return out;
     }
 
@@ -266,7 +349,7 @@ public final class MarketEvents {
      * weight, not one already running) starts, announced {@code announcePct}% of the time. Returns it, or null.
      */
     public synchronized Active maybeRandom(long now, long tickMs, Random rng) {
-        if (!config.events() || config.eventsPerWeek() <= 0) {
+        if (!config.events() || !config.randomEvents() || config.eventsPerWeek() <= 0) {
             return null;
         }
         prune(now);

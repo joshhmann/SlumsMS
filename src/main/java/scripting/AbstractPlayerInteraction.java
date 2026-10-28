@@ -682,6 +682,11 @@ public class AbstractPlayerInteraction {
         } else {
             InventoryManipulator.removeById(c, ItemConstants.getInventoryType(id), id, -quantity, true, false);
         }
+        if (quantity > 0) { // 1.6.1 fair value: script prizes are supply, script takes (Rooty, Coco, ...) are sinks
+            soloMapling.Economy.exchange.volatility.MarketFlows.supplied(id, quantity);
+        } else if (quantity < 0) {
+            soloMapling.Economy.exchange.volatility.MarketFlows.consumed(id, -quantity);
+        }
         if (id == 4001126) {
             if (quantity > 0) {
                 soloMapling.Economy.stats.EconomyCounters.recordMapleLeafGained(quantity);

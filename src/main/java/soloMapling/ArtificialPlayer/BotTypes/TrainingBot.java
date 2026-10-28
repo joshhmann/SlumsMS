@@ -2553,9 +2553,13 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             if (!BotYieldCaps.takeItem(chr, item)) {
                 continue;
             }
+            int itemId = item.getItemId(), qty = item.getQuantity();
             if (!BotHoldings.grantItem(chr, item)) {
                 BotYieldCaps.returnItem(chr, item);
-            } else if (item.getInventoryType() == InventoryType.EQUIP) {
+                continue;
+            }
+            soloMapling.Economy.exchange.volatility.MarketFlows.supplied(itemId, qty); // 1.6.1 fair value
+            if (item.getInventoryType() == InventoryType.EQUIP) {
                 equip = item;
             }
         }

@@ -40,6 +40,13 @@ class RootyShopSelectionTest {
             return npc;
         }
 
+        /** The player (a mock carrying area info, for Rooty's Bonus cap); null unless a test sets it. */
+        public client.Character player;
+
+        public client.Character getPlayer() {
+            return player;
+        }
+
         public int getItemQuantity(int id) {
             return count(id);
         }
@@ -183,7 +190,9 @@ class RootyShopSelectionTest {
             pick(npc, MAPLE_WEAPONS);
             assertFalse(off.simple.contains("Rooty's Bonus"), "no event: no bonus category");
             ev.start(soloMapling.Economy.exchange.volatility.MarketEvents.Kind.ROOTY_BONUS, 0, false, now.get());
+            client.Character me = playerWithAreaInfo();
             ShopCm cm = new ShopCm();
+            cm.player = me;
             cm.inventory.put(MAPLE_LEAF, 100);
             npc = shop(cm);
             pick(npc, MAPLE_WEAPONS);
@@ -194,6 +203,24 @@ class RootyShopSelectionTest {
             pick(npc, 0);                 // Yes
             assertEquals(1, cm.count(FORGED));
             assertEquals(60, cm.count(MAPLE_LEAF));
+            // owner 2026-10-28: 2 per character per bonus event, kept across a relog (area info saves with the character)
+            assertEquals(1, buyBonus(me, 60), "the second");
+            assertEquals(0, buyBonus(me, 60), "the third is refused");
+            ShopCm relog = new ShopCm();
+            relog.player = me;
+            relog.inventory.put(MAPLE_LEAF, 100);
+            npc = shop(relog);
+            pick(npc, MAPLE_WEAPONS);
+            pick(npc, 4);
+            pick(npc, FORGED);
+            assertTrue(relog.ok != null && relog.ok.contains("already took"), String.valueOf(relog.ok));
+            assertEquals(100, relog.count(MAPLE_LEAF), "no leaves taken");
+            assertEquals(1, buyBonus(playerWithAreaInfo(), 60), "another character has its own 2");
+            // the next bonus event starts a fresh count
+            ev.end(soloMapling.Economy.exchange.volatility.MarketEvents.Kind.ROOTY_BONUS, now.get());
+            now.addAndGet(60_000);
+            ev.start(soloMapling.Economy.exchange.volatility.MarketEvents.Kind.ROOTY_BONUS, 0, false, now.get());
+            assertEquals(1, buyBonus(me, 60), "a new event, a new cap");
             now.addAndGet(24 * 3_600_000L + 1);
             ShopCm after = new ShopCm();
             npc = shop(after);
@@ -202,6 +229,34 @@ class RootyShopSelectionTest {
         } finally {
             soloMapling.Economy.exchange.volatility.MarketEvents.useForTest(null);
         }
+    }
+
+    /** A mock player whose area info lives in a map (what the character saves). */
+    static client.Character playerWithAreaInfo() {
+        client.Character c = org.mockito.Mockito.mock(client.Character.class);
+        java.util.Map<Integer, String> area = new java.util.HashMap<>();
+        org.mockito.Mockito.when(c.getAreaInfo(org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(i -> area.get((Integer) i.getArgument(0)));
+        org.mockito.Mockito.doAnswer(i -> {
+            area.put(i.getArgument(0), i.getArgument(1));
+            return null;
+        }).when(c).updateAreaInfo(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyString());
+        return c;
+    }
+
+    /** One Rooty's Bonus purchase attempt; returns the Chaos Scrolls gained (0 or 1). */
+    private static int buyBonus(client.Character me, int leaves) throws Exception {
+        ShopCm cm = new ShopCm();
+        cm.player = me;
+        cm.inventory.put(MAPLE_LEAF, leaves);
+        Invocable npc = shop(cm);
+        pick(npc, MAPLE_WEAPONS);
+        pick(npc, 4);
+        pick(npc, FORGED);
+        if (!cm.disposed) {
+            pick(npc, 0);
+        }
+        return cm.count(FORGED);
     }
 
     @Test

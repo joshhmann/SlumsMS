@@ -5,7 +5,9 @@ import client.Client;
 import client.command.Command;
 import soloMapling.Economy.exchange.Exchange;
 import soloMapling.Economy.exchange.ExchangeService;
+import soloMapling.Economy.exchange.volatility.FairValue;
 import soloMapling.Economy.exchange.volatility.MarketEvents;
+import soloMapling.Economy.exchange.volatility.MarketNews;
 import soloMapling.Economy.exchange.volatility.MarketRumours;
 import soloMapling.Economy.exchange.volatility.MarketTraders;
 import soloMapling.Economy.exchange.volatility.MarketVolatility;
@@ -49,6 +51,8 @@ public class MarketCommand extends Command {
                                 + onOff(cfg.events()) + " (" + cfg.eventsPerWeek() + "/week), rumours " + onOff(cfg.rumours())
                                 + (ex == null ? "; the exchange is off (-Dslums.exchange=true)" : ""),
                         "Running events: " + describe(ev.active(now), now),
+                        "Guild news: " + news(now),
+                        "Fair values: " + fairs(),
                         "Last rumour: " + (r == null ? "none" : r.claim() + (r.fake() ? " (made up) " : " ")
                                 + r.ticker() + ": " + r.line()));
             }
@@ -120,7 +124,8 @@ public class MarketCommand extends Command {
                     var w = roster.walletOf(t);
                     if (w != null && (want == 0 || t.id() == want)) {
                         ex.collectBot(w);
-                        int n = mv.traders().act(ex, t, w, now, mv.config(), mv.events(), mv.rumours());
+                        int n = mv.traders().act(ex, t, w, now, mv.config(), mv.events(), mv.rumours(),
+                                roster.guildOf(t));
                         return List.of("Trader " + t.id() + " (" + t.archetype() + ") acted: " + n + " action(s). "
                                 + "!market traders shows them.");
                     }
@@ -132,6 +137,42 @@ public class MarketCommand extends Command {
                         + "traders|act [botId]|rumour [ticker]]");
             }
         }
+    }
+
+    private static String news(long now) {
+        MarketNews n = MarketNews.get();
+        StringBuilder sb = new StringBuilder();
+        for (MarketNews.War w : n.wars(now)) {
+            sb.append(sb.length() == 0 ? "" : "; ").append("war ").append(w.aName()).append(" vs ").append(w.bName());
+        }
+        for (MarketNews.Prep p : n.preps(now)) {
+            sb.append(sb.length() == 0 ? "" : "; ").append(p.guildName()).append(" gearing up for ").append(p.content());
+        }
+        for (MarketNews.End e : n.recentEnds(now)) {
+            sb.append(sb.length() == 0 ? "" : "; ").append(e.draw() ? "war ended: draw " + e.winnerName() + "/"
+                    + e.loserName() : e.winnerName() + " beat " + e.loserName());
+        }
+        for (MarketNews.Run r : n.recentRuns(now)) {
+            sb.append(sb.length() == 0 ? "" : "; ").append(r.guildName()).append(r.cleared() ? " cleared " : " wiped on ")
+                    .append(r.content());
+        }
+        return sb.length() == 0 ? "none" : sb.toString();
+    }
+
+    private static String fairs() {
+        FairValue f = FairValue.current();
+        if (f == null) {
+            return "not computed yet (hourly, with the volatility thread on)";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String t : FairValue.TICKERS) {
+            FairValue.Point p = f.point(t);
+            if (p != null) {
+                sb.append(sb.length() == 0 ? "" : "; ").append(String.format("%s %,d (floor %,d, ceiling %,d, 24h supply "
+                        + "%.0f / demand %.0f)", t, p.fair(), p.floor(), p.ceiling(), p.supply(), p.demand()));
+            }
+        }
+        return sb.length() == 0 ? "none yet" : sb.toString();
     }
 
     private static String onOff(boolean b) {

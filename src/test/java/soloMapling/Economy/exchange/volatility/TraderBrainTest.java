@@ -77,7 +77,8 @@ class TraderBrainTest {
         List<Place> ps = many(Archetype.PANIC, view(500_000, 490_000, 510_000, 600_000, 620_000, 0),
                 holds(10_000_000, 100));
         assertFalse(ps.isEmpty());
-        assertTrue(ps.stream().allMatch(p -> p.side() == Side.SELL && p.qty() >= 60 && p.price() < 490_000), ps.toString());
+        assertTrue(ps.stream().allMatch(p -> p.side() == Side.SELL && p.qty() >= 30 && p.qty() <= 50
+                && p.price() < 490_000), "toned down: 30-50% of the stack " + ps);
         // calm market under fair value: it only restocks, never dumps
         List<Place> calm = many(Archetype.PANIC, view(560_000, 555_000, 565_000, 560_000, 565_000, 0),
                 holds(10_000_000, 100));
@@ -85,23 +86,24 @@ class TraderBrainTest {
     }
 
     @Test
-    void theWhaleIsRareButWalksTheBook() {
+    void theWhaleIsRareAndMilderButStillWalksTheBook() {
         List<Place> ws = many(Archetype.WHALE, view(600_000, 595_000, 605_000, 580_000, 600_000, 0),
                 holds(1_000_000_000L, 0));
-        assertTrue(ws.size() > 5 && ws.size() < 60, "about 12% of turns: " + ws.size());
+        assertTrue(ws.size() > 3 && ws.size() < 25, "about 6% of turns: " + ws.size());
         for (Place p : ws) {
             assertEquals(Side.BUY, p.side());
-            assertTrue(p.price() >= 605_000 * 1.10 - 1000, "10%+ through the ask: " + p);
-            assertTrue(p.qty() >= 500, "a big order: " + p);
+            assertTrue(p.price() >= 605_000 * 1.04 - 1000 && p.price() <= 605_000 * 1.10 + 1000, "4-10% through: " + p);
+            assertTrue(p.qty() >= 250 && p.qty() <= 600, "a big but not huge order: " + p);
         }
     }
 
     @Test
-    void valueBuysUnderFairAndAsksWellAbove() {
+    void valueAnchorsToFairValue() {
         List<Place> ps = many(Archetype.VALUE, view(480_000, 470_000, 480_000, 500_000, 520_000, 0),
                 holds(50_000_000, 30));
         assertTrue(ps.stream().anyMatch(p -> p.side() == Side.BUY && p.price() <= 490_000));
-        assertTrue(ps.stream().filter(p -> p.side() == Side.SELL).allMatch(p -> p.price() >= 550_000 * 1.35));
+        assertTrue(ps.stream().filter(p -> p.side() == Side.SELL).allMatch(p -> p.price() >= 550_000 * 1.08
+                && p.price() <= 550_000 * 1.16), "asks 8-15% over fair: " + ps);
     }
 
     @Test
@@ -111,8 +113,9 @@ class TraderBrainTest {
                 holds(50_000_000, 30, stale), NOW, new Random(1));
         assertTrue(as.contains(new Cancel(7)), as.toString());
         List<Place> ps = places(as);
-        assertTrue(ps.stream().anyMatch(p -> p.side() == Side.BUY && p.price() < 600_000));
-        assertTrue(ps.stream().anyMatch(p -> p.side() == Side.SELL && p.price() > 600_000));
+        // quotes around the middle pulled halfway to fair (600k mid, 550k fair -> 575k)
+        assertTrue(ps.stream().anyMatch(p -> p.side() == Side.BUY && p.price() < 575_000));
+        assertTrue(ps.stream().anyMatch(p -> p.side() == Side.SELL && p.price() > 575_000 && p.price() < 610_000));
     }
 
     @Test
@@ -145,6 +148,26 @@ class TraderBrainTest {
         // a 40% crash order is allowed: the guard is not a circuit breaker
         List<Action> crash = TraderBrain.guard(List.of(new Place(Side.SELL, 360_000, 5)), v, h);
         assertEquals(List.of(new Place(Side.SELL, 360_000, 5)), crash);
+    }
+
+    @Test
+    void guildNewsDrivesTheGuildsOwnTraders() {
+        View elixir = new View("ELIXIR", 6_000, 5_900, 6_100, 6_000, 6_000, 6_000, 0, 1, 1_000_000_000L, 10_000, 100);
+        Holdings h = new Holdings(10_000_000, 50, List.of(), 20, 10);
+        for (MarketNews.Role r : List.of(MarketNews.Role.AT_WAR_FRESH, MarketNews.Role.PREP, MarketNews.Role.WIPED)) {
+            List<Place> ps = places(TraderBrain.newsActions(r, elixir, h, new Random(3)));
+            assertEquals(1, ps.size(), r.toString());
+            assertTrue(ps.get(0).side() == Side.BUY && ps.get(0).price() > 6_100, r + " stocks up through the ask");
+            assertTrue(ps.get(0).qty() * ps.get(0).price() <= 10_000_000 * 0.23, "12-22% of its mesos");
+        }
+        List<Place> lose = places(TraderBrain.newsActions(MarketNews.Role.LOSER, elixir, h, new Random(3)));
+        assertTrue(lose.get(0).side() == Side.SELL && lose.get(0).price() < 5_900 && lose.get(0).qty() <= 25);
+        assertTrue(TraderBrain.newsActions(MarketNews.Role.LOSER, elixir, new Holdings(10_000_000, 0, List.of(), 20, 10),
+                new Random(3)).isEmpty(), "nothing to sell: nothing (no granting)");
+        View leaf = view(600_000, 590_000, 610_000, 600_000, 600_000, 0);
+        List<Place> win = places(TraderBrain.newsActions(MarketNews.Role.WINNER, leaf, h, new Random(3)));
+        assertTrue(win.get(0).side() == Side.BUY && win.get(0).price() > 610_000, "winners buy leaves");
+        assertTrue(TraderBrain.newsActions(MarketNews.Role.NONE, leaf, h, new Random(3)).isEmpty());
     }
 
     @Test

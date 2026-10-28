@@ -683,6 +683,11 @@ public final class Exchange {
         }
         remember(fills);
         noteBotPayouts(postings);
+        if (t.item()) {
+            for (OrderBook.Fill f : r.fills()) { // 1.6.1 fair value: a taker buy is demand, a taker sell supply
+                soloMapling.Economy.exchange.volatility.MarketFlows.exchangeFill(t.id(), side == Side.BUY, f.nx(), now);
+            }
+        }
         Map<String, Object> data = orderJson(touched.get(0));
         data.put("fills", fills.size());
         data.put("filledNx", r.fills().stream().mapToLong(OrderBook.Fill::nx).sum());
@@ -1709,11 +1714,17 @@ public final class Exchange {
         long[] held = b.heldTotals();
         TickerHistory.Stats st = stats(t.id());
         return String.format("%s (%s): %d open, bid %,d / ask %,d %s; escrow %,d / %,d mesos; 24h last %s, vol %,d; "
-                        + "limits %d open / %d a day / %d h / %,d per order%s",
+                        + "limits %d open / %d a day / %d h / %,d per order; fair %s%s",
                 t.id(), t.name(), b.size(), b.best(Side.BUY), b.best(Side.SELL), t.priceUnit(), held[0], held[1],
                 st.last() == null ? "none" : String.format("%,d", st.last()), st.qty(), t.maxOpen(), t.perDay(),
-                t.expiryMs() / 3_600_000L, t.maxQty(),
+                t.expiryMs() / 3_600_000L, t.maxQty(), fairText(t.id()),
                 openTickers.contains(t.id()) ? "" : " (closed for new orders)");
+    }
+
+    /** A ticker's fair value (1.6.1 volatility, {@code FairValue}) for the status line. */
+    private static String fairText(String ticker) {
+        Long f = soloMapling.Economy.exchange.volatility.FairValue.of(ticker);
+        return f == null ? "none yet" : String.format("%,d", f);
     }
 
     /** Lines for {@code !exchange book}. */

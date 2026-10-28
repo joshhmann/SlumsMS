@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "leafExchange", "marketVolatility");
+            "family", "tutorialIsland", "leafExchange", "marketVolatility", "marketWar");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -94,6 +94,7 @@ final class Probes160 {
                 case "nxExchange" -> nxExchange(p);
                 case "leafExchange" -> leafExchange(p);
                 case "marketVolatility" -> soloMapling.Economy.exchange.volatility.MarketQa.check(System.currentTimeMillis());
+                case "marketWar" -> soloMapling.Economy.exchange.volatility.MarketQa.warCheck(System.currentTimeMillis());
                 case "family" -> family(p);
                 case "tutorialIsland" -> tutorialIsland(p);
                 default -> null;

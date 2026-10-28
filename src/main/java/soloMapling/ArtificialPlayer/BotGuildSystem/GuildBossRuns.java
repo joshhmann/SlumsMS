@@ -281,6 +281,10 @@ public final class GuildBossRuns {
         }
         current = run;
         lastRunAt = now;
+        if (!fast) { // 1.6.1 volatility: a guild gearing up is market news (elixir demand); not the QA staging
+            soloMapling.Economy.exchange.volatility.MarketNews.prepStarted(g.guildId(), g.name(), boss.key(),
+                    boss.name(), crew.size());
+        }
         lastGuildRun.put(g.guildId(), now);
         Character caller = crew.get(0);
         Map<String, String> tokens = Map.of("BOSS", boss.name(), "GUILD", g.name(), "CH", Integer.toString(channel));
@@ -453,6 +457,7 @@ public final class GuildBossRuns {
         }
         if (here.isEmpty()) {
             BotGuilds.qa(0, "RESULT " + run.guildName + ": nobody came back online (the director may log them in later)");
+            soloMapling.Economy.exchange.volatility.MarketNews.prepFinished(run.guildId, null);
             finish(run);
             return;
         }
@@ -476,6 +481,7 @@ public final class GuildBossRuns {
                 log.debug("guild gp", e);
             }
         }
+        soloMapling.Economy.exchange.volatility.MarketNews.prepFinished(run.guildId, run.cleared); // 1.6.1 volatility
         BotGuilds.qa(speaker.getMapId(), "RESULT " + run.guildName + " " + run.boss.name() + ": "
                 + (run.cleared ? "CLEARED, " + looter.getName() + " got " + loot + " (named only, no item)" : "WIPED")
                 + ", avg lv " + avg);
@@ -504,6 +510,7 @@ public final class GuildBossRuns {
             comeBack(run, System.currentTimeMillis());
         }
         finish(run);
+        soloMapling.Economy.exchange.volatility.MarketNews.prepFinished(run.guildId, null); // no result: no news
         BotGuilds.qa(0, "BOSS RUN " + run.guildName + " stopped by " + by);
         return 1;
     }

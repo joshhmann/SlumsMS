@@ -231,6 +231,7 @@ public class Shop {
         if (canSell(item, quantity)) {
             quantity = getSellingQuantity(item, quantity);
             InventoryManipulator.removeFromSlot(c, type, (byte) slot, quantity, false);
+            soloMapling.Economy.exchange.volatility.MarketFlows.consumed(item.getItemId(), quantity); // 1.6.1 fair value: a shop sink
 
             ItemInformationProvider ii = ItemInformationProvider.getInstance();
             int recvMesos = ii.getPrice(item.getItemId(), quantity);

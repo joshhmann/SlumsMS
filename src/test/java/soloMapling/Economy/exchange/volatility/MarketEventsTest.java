@@ -35,7 +35,7 @@ class MarketEventsTest {
         MarketConfig d = MarketConfig.allOn();
         return new MarketConfig(false, d.traderCount(), d.minActMs(), d.maxActMs(), false, d.eventsPerWeek(),
                 d.announcePct(), d.leafRushMultiplier(), d.rootyBonusLeaves(), false, d.rumourGapMs(), d.fakePct(),
-                d.megaphonePct(), d.actOnRumourPct());
+                d.megaphonePct(), d.actOnRumourPct(), false, d.rootyCap());
     }
 
     @Test
@@ -104,8 +104,14 @@ class MarketEventsTest {
     }
 
     @Test
-    void randomEventsComeAboutTwiceAWeek() {
-        MarketEvents m = events(MarketConfig.allOn());
+    void randomEventsAreOffByDefaultAndComeAboutTwiceAWeekWhenOn() {
+        assertFalse(MarketConfig.fromSystem().randomEvents(), "owner 2026-10-28: GM tools only by default");
+        MarketEvents quiet = events(MarketConfig.allOn());
+        Random r0 = new Random(42);
+        for (long t = 0; t < 4 * MarketEvents.WEEK_MS; t += 30_000) {
+            assertNull(quiet.maybeRandom(now.addAndGet(30_000), 30_000, r0));
+        }
+        MarketEvents m = events(MarketConfig.allOn().withRandom(true));
         Random rng = new Random(42);
         int started = 0, announced = 0;
         long tick = 30_000, weeks = 52;
@@ -121,6 +127,15 @@ class MarketEventsTest {
         assertTrue(perWeek > 1.4 && perWeek < 2.6, "about 2 a week: " + perWeek);
         double pct = 100.0 * announced / started;
         assertTrue(pct > 40 && pct < 80, "about 60% announced: " + pct);
+    }
+
+    @Test
+    void rootysCapCountsPerEvent() {
+        assertEquals(2, MarketEvents.rootyLeft(null, 5, 2));
+        assertEquals(1, MarketEvents.rootyLeft("5:1", 5, 2));
+        assertEquals(0, MarketEvents.rootyLeft("5:2", 5, 2));
+        assertEquals(2, MarketEvents.rootyLeft("4:2", 5, 2), "an older event's count does not carry over");
+        assertEquals(2, MarketEvents.rootyLeft("garbage", 5, 2));
     }
 
     @Test

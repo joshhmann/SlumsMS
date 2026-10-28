@@ -302,6 +302,8 @@ public final class ExchangeSite {
         m.put("turnover_24h", s.mesos());
         m.put("fills_24h", s.fills());
         m.put("rate", ex.officialRate(t.id()));
+        // 1.6.1 volatility: the fair value from real drops and sinks (FairValue); null for NX and until computed
+        m.put("fair", t.item() ? soloMapling.Economy.exchange.volatility.FairValue.of(t.id()) : null);
         m.put("bids", qtyLevels(bids));
         m.put("asks", qtyLevels(asks));
         m.put("trades", trades(ex, t.id(), trades));
@@ -323,12 +325,28 @@ public final class ExchangeSite {
         m.put("per_day_scope", "ticker");
         m.put("cooldown_sec", ex.config().cooldownMs() / 1000);
         m.put("expiry_hours", itemCommon(ex, t -> t.expiryMs() / 3_600_000L));
+        m.put("events", announcedEvents(now));
         List<Map<String, Object>> list = new ArrayList<>();
         for (Ticker t : ex.tickers()) {
             list.add(tickerJson(ex, t, 10, 20));
         }
         m.put("tickers", list);
         return m;
+    }
+
+    /**
+     * The site banner's market events (1.6.1 volatility): ANNOUNCED market events and guild news only, never a secret
+     * one: {@code [{id, name, ticker, ends_at}]}, {@code ends_at} unix seconds or null when open-ended.
+     */
+    static List<Map<String, Object>> announcedEvents(long now) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        try {
+            out.addAll(soloMapling.Economy.exchange.volatility.MarketEvents.announcedNow(now));
+            out.addAll(soloMapling.Economy.exchange.volatility.MarketNews.announcedNow(now));
+        } catch (RuntimeException e) {
+            // the banner is optional; the export never fails for it
+        }
+        return out;
     }
 
     /** The value every open item ticker shares, or null when they differ (or none is open). */

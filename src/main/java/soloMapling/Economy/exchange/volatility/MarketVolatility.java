@@ -42,6 +42,8 @@ public final class MarketVolatility {
     private final MarketEvents events;
     private final MarketTraders traders;
     private final MarketRumours rumours;
+    private final MarketNews news;
+    private final FairValue fair;
     private final Random rng = new Random();
     private volatile List<MarketTraders.Trader> roster = List.of();
     private long rosterAt;
@@ -54,6 +56,18 @@ public final class MarketVolatility {
         this.events = MarketEvents.get();
         this.traders = new MarketTraders(new Random());
         this.rumours = new MarketRumours(MarketRumours.yaml());
+        this.news = MarketNews.get();
+        this.fair = FairValue.fromSystem();
+        FairValue.setCurrent(fair);
+        this.traders.use(fair, news);
+    }
+
+    public MarketNews news() {
+        return news;
+    }
+
+    public FairValue fair() {
+        return fair;
     }
 
     /** The running instance, or null when every part is off. */
@@ -129,6 +143,7 @@ public final class MarketVolatility {
             return;
         }
         collectBotPayouts(ex);
+        fair.maybeUpdate(now, MarketFlows.get(), FairValue.game(events));
         if (config.traders()) {
             traders.tick(ex, now, gameRoster(now), config, events, rumours);
         }
@@ -191,9 +206,12 @@ public final class MarketVolatility {
             }
             client.inventory.Item item = new client.inventory.Item(MarketEvents.MAPLE_LEAF, (short) 0,
                     (short) Math.min(n, 100));
-            if (soloMapling.ArtificialPlayer.BotYieldCaps.takeItem(bot, item)
-                    && !soloMapling.ArtificialPlayer.BotHoldings.grantItem(bot, item)) {
-                soloMapling.ArtificialPlayer.BotYieldCaps.returnItem(bot, item);
+            if (soloMapling.ArtificialPlayer.BotYieldCaps.takeItem(bot, item)) {
+                if (soloMapling.ArtificialPlayer.BotHoldings.grantItem(bot, item)) {
+                    MarketFlows.supplied(MarketEvents.MAPLE_LEAF, item.getQuantity());
+                } else {
+                    soloMapling.ArtificialPlayer.BotYieldCaps.returnItem(bot, item);
+                }
             }
         } catch (RuntimeException e) {
             // a lost find, never a broken hunt
@@ -230,6 +248,11 @@ public final class MarketVolatility {
                 BotTraderWallet w = walletOfBot(t.id());
                 return w != null && w.usable() ? w : null;
             }
+
+            public int guildOf(MarketTraders.Trader t) {
+                BotTraderWallet w = walletOfBot(t.id());
+                return w == null ? 0 : w.character0().getGuildId();
+            }
         };
     }
 
@@ -258,11 +281,20 @@ public final class MarketVolatility {
             return null;
         }
         Ticker tk = ticker == null ? null : ex.ticker(ticker);
+        if ((tk == null || !tk.item()) && rng.nextInt(100) < 70) { // fresh guild news first
+            List<Ticker> withNews = new ArrayList<>();
+            for (Ticker t : items) {
+                if (!facts(ex, t, now, events, news).news().isEmpty()) {
+                    withNews.add(t);
+                }
+            }
+            tk = withNews.isEmpty() ? null : withNews.get(rng.nextInt(withNews.size()));
+        }
         if (tk == null || !tk.item()) {
             tk = rng.nextInt(100) < 70 && ex.ticker("LEAF") != null && ex.open("LEAF") ? ex.ticker("LEAF")
                     : items.get(rng.nextInt(items.size()));
         }
-        MarketRumours.Rumour r = rumours.make(facts(ex, tk, now, events), now, gap, config.fakePct(), rng);
+        MarketRumours.Rumour r = rumours.make(facts(ex, tk, now, events, news), now, gap, config.fakePct(), rng);
         if (r == null || !soloMapling.ArtificialPlayer.BotBrainSystem.ContentGuard.ok(r.line())) {
             return null;
         }
@@ -284,8 +316,16 @@ public final class MarketVolatility {
         return r;
     }
 
-    /** What is really going on with a ticker: the 24 h move, whale-sized orders on the book, every running event. */
     static MarketRumours.Facts facts(Exchange ex, Ticker tk, long now, MarketEvents events) {
+        return facts(ex, tk, now, events, null);
+    }
+
+    /**
+     * What is really going on with a ticker: the 24 h move, whale-sized orders on the book, every running event, and
+     * the guild news about it (ELIXIR: wars, guilds gearing up, wipes and war losers; LEAF: war winners and losers;
+     * CHAOS and WS: clears).
+     */
+    static MarketRumours.Facts facts(Exchange ex, Ticker tk, long now, MarketEvents events, MarketNews news) {
         TickerHistory.Stats s = ex.stats(tk.id());
         double move = s.change() == null || s.reference() == null || s.reference() == 0 ? 0
                 : (double) s.change() / s.reference();
@@ -298,7 +338,45 @@ public final class MarketVolatility {
                 ks.add(a.kind());
             }
         }
-        return new MarketRumours.Facts(tk.id(), move, bigBid, bigAsk, ks);
+        return new MarketRumours.Facts(tk.id(), move, bigBid, bigAsk, ks, newsFor(tk.id(), now, news));
+    }
+
+    static List<MarketRumours.News> newsFor(String ticker, long now, MarketNews news) {
+        List<MarketRumours.News> out = new ArrayList<>();
+        if (news == null) {
+            return out;
+        }
+        if ("ELIXIR".equals(ticker)) {
+            for (MarketNews.War w : news.wars(now)) {
+                out.add(new MarketRumours.News(MarketRumours.Claim.WAR_STOCKUP,
+                        java.util.Map.of("GUILD", w.aName(), "RIVAL", w.bName())));
+            }
+            for (MarketNews.Prep p : news.preps(now)) {
+                out.add(new MarketRumours.News(MarketRumours.Claim.PREP,
+                        java.util.Map.of("GUILD", p.guildName(), "BOSS", p.content())));
+            }
+        }
+        for (MarketNews.Run r : news.recentRuns(now)) {
+            if (r.cleared() && ("CHAOS".equals(ticker) || "WS".equals(ticker))) {
+                out.add(new MarketRumours.News(MarketRumours.Claim.RUN_CLEAR,
+                        java.util.Map.of("GUILD", r.guildName(), "BOSS", r.content())));
+            } else if (!r.cleared() && "ELIXIR".equals(ticker)) {
+                out.add(new MarketRumours.News(MarketRumours.Claim.RUN_WIPE,
+                        java.util.Map.of("GUILD", r.guildName(), "BOSS", r.content())));
+            }
+        }
+        for (MarketNews.End e : news.recentEnds(now)) {
+            if (e.draw()) {
+                continue;
+            }
+            if ("LEAF".equals(ticker)) {
+                out.add(new MarketRumours.News(MarketRumours.Claim.WAR_WON, java.util.Map.of("GUILD", e.winnerName())));
+            }
+            if ("LEAF".equals(ticker) || "ELIXIR".equals(ticker)) {
+                out.add(new MarketRumours.News(MarketRumours.Claim.WAR_LOST, java.util.Map.of("GUILD", e.loserName())));
+            }
+        }
+        return out;
     }
 
     /** A bot standing on a map with a real player (a trader first), or null. */

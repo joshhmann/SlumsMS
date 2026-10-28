@@ -98,4 +98,64 @@ public final class MarketQa {
         out.add(0, bad.isEmpty() ? "PASS market event and trader bot order" : "FAIL " + String.join("; ", bad));
         return out;
     }
+
+    /**
+     * t-xc-4 / {@code !qa run xc-4} (guild war shock, owner 2026-10-28): on a private news desk (no Cody notice, no
+     * banner, nothing else sees it) a war is declared for an online trader's guild; the trader's role reads as at war,
+     * ELIXIR's pressure goes up, and its news action is an ELIXIR buy from its own mesos. The check then posts that
+     * buy as 1 elixir below the best bid (so it rests and never fills), sees it on the book and cancels it.
+     */
+    public static List<String> warCheck(long now) {
+        List<String> out = new ArrayList<>();
+        MarketVolatility mv = MarketVolatility.get();
+        Exchange ex = ExchangeService.exchange();
+        if (mv == null || ex == null || !mv.config().traders()) {
+            return List.of("SKIP trader bots are off (-Dslums.exchange=true -Dslums.exchange.traders=true)");
+        }
+        if (!ex.open("ELIXIR")) {
+            return List.of("SKIP the ELIXIR ticker is closed (-Dslums.exchange.tickers)");
+        }
+        MarketTraders.Roster roster = mv.gameRoster(now);
+        for (MarketTraders.Trader t : roster.traders()) {
+            LiveWallet w = roster.walletOf(t);
+            if (w == null || w.have(Asset.MESO) < 100_000) {
+                continue;
+            }
+            int guild = roster.guildOf(t) > 0 ? roster.guildOf(t) : 999_999;
+            MarketNews desk = MarketNews.forTest(() -> now, s -> { }, false);
+            desk.declared(-1, guild, "QaGuildA", guild + 1, "QaGuildB", now + 3_600_000L);
+            MarketNews.Role role = desk.role(guild, now);
+            double p = desk.pressure("ELIXIR", now);
+            var tk = ex.ticker("ELIXIR");
+            TraderBrain.View v = MarketTraders.view(ex, tk, now, p, FairValue.of("ELIXIR"));
+            TraderBrain.Holdings h = new TraderBrain.Holdings(w.have(Asset.MESO), w.have(Asset.ELIXIR), List.of(),
+                    Math.max(0, tk.perDay() - ex.placedToday(w.account(), "ELIXIR")), tk.maxOpen());
+            List<TraderBrain.Action> acts = TraderBrain.newsActions(role, v, h, new java.util.Random(now));
+            out.add("trader " + t.id() + " (guild " + guild + "): role " + role + ", ELIXIR pressure " + p
+                    + ", news action " + acts);
+            boolean buys = acts.stream().anyMatch(a -> a instanceof TraderBrain.Place pl && pl.side() == Side.BUY);
+            if (role != MarketNews.Role.AT_WAR_FRESH || p <= 0 || !buys) {
+                out.add(0, "FAIL the war news did not turn into an elixir buy");
+                return out;
+            }
+            var bids = ex.depth("ELIXIR", Side.BUY, 1);
+            long price = Math.max(1, bids.isEmpty() ? Math.min(v.reference() / 2, 1_000) : bids.get(0).price() / 2);
+            Exchange.Response r = ex.placeBot(new Exchange.Place("qa-xc4-" + t.id() + "-" + now, w.account(),
+                    w.character(), Side.BUY, price, 1, "ELIXIR"), w);
+            if (!r.ok()) {
+                out.add("could not post: " + r.code() + " " + r.message());
+                continue;
+            }
+            long id = ((Number) r.data().get("orderId")).longValue();
+            boolean onBook = ex.openBotOrders(w.account(), "ELIXIR").stream().anyMatch(o -> o.id() == id);
+            Exchange.Response c = ex.cancelBot("qa-xc4-cancel-" + id, w, id);
+            out.add("posted 1 elixir at " + price + " (order " + id + (onBook ? ", on the book" : ", NOT on the book")
+                    + "), cancel " + c.code());
+            out.add(0, onBook && c.ok() ? "PASS guild war news drives a trader's elixir buy"
+                    : "FAIL the trader's elixir order did not post and cancel cleanly");
+            return out;
+        }
+        out.add(0, "FAIL no online trader with 100,000 mesos (" + roster.traders().size() + " traders)");
+        return out;
+    }
 }

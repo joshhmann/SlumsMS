@@ -223,6 +223,10 @@ public final class GuildWars {
             soloMapling.site.SiteFeed.guildDrama("guild_war", a.name() + " declared war on " + b.name() + ".",
                     new String[]{a.name(), b.name()}, BotGuilds.isBotGuild(a.guildId()) && BotGuilds.isBotGuild(b.guildId()));
         }
+        if (!w.staged()) { // 1.6.1 volatility: market news (elixir demand); never throws
+            soloMapling.Economy.exchange.volatility.MarketNews.warDeclared(w.id(), a.guildId(), a.name(), b.guildId(),
+                    b.name(), w.endsAt());
+        }
         qa(0, "WAR DECLARED " + a.name() + " vs " + b.name() + " (#" + w.id() + ", " + by + ") for "
                 + TimeUnit.MILLISECONDS.toDays(GuildWarRules.warMs()) + " days; " + mega);
         return w;
@@ -252,6 +256,8 @@ public final class GuildWars {
             p.dropMessage(6, "[Guild War] " + a.name() + " declared war on " + target + "! It lasts a week: hold the grind"
                     + " maps with your guildmates. @guildwar shows the score; @guildwar peace (master or jr. master) offers peace.");
         }
+        soloMapling.Economy.exchange.volatility.MarketNews.warDeclared(w.id(), a.guildId(), a.name(), playerGuildId,
+                target, w.endsAt()); // 1.6.1 volatility: market news
         qa(0, "WAR DECLARED " + a.name() + " on player guild " + target + " (#" + w.id() + ", " + by + "); " + mega);
         return w;
     }
@@ -263,6 +269,10 @@ public final class GuildWars {
         }
         War done = w.ended(how, now());
         save(done);
+        if (w.kind() == Kind.WAR) { // 1.6.1 volatility: market news (winners buy, losers sell); peace/betrayal = no winner
+            soloMapling.Economy.exchange.volatility.MarketNews.warEnded(w.id(), how == State.ENDED
+                    ? GuildWarRules.winner(w.a(), w.scoreA(), w.b(), w.scoreB()) : 0);
+        }
         held.remove(w.id());
         String an = BotGuilds.guildName(w.a());
         String bn = BotGuilds.guildName(w.b());

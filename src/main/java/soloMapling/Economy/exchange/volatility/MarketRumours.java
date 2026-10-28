@@ -26,7 +26,10 @@ public final class MarketRumours {
 
     public enum Claim {
         RISE("Rise", 1), CRASH("Crash", -1), WHALE_BUY("WhaleBuy", 1), WHALE_SELL("WhaleSell", -1),
-        DROUGHT("Drought", 1), FLOOD("Flood", -1), ROOTY("Rooty", 1);
+        DROUGHT("Drought", 1), FLOOD("Flood", -1), ROOTY("Rooty", 1),
+        // guild news (owner 2026-10-28): only ever true, with the guild names ({GUILD}, {RIVAL}, {BOSS})
+        WAR_STOCKUP("WarStockUp", 1), WAR_WON("WarWon", 1), WAR_LOST("WarLost", -1), PREP("Prep", 1),
+        RUN_CLEAR("RunClear", -1), RUN_WIPE("RunWipe", 1);
 
         public final String node;
         public final int direction;
@@ -40,11 +43,25 @@ public final class MarketRumours {
         boolean leafOnly() {
             return this == DROUGHT || this == FLOOD || this == ROOTY;
         }
+
+        /** Guild news: never made up (it needs real names). */
+        boolean news() {
+            return ordinal() >= WAR_STOCKUP.ordinal();
+        }
+    }
+
+    /** One piece of guild news about a ticker, with its names. */
+    public record News(Claim claim, Map<String, String> tokens) {
     }
 
     /** What is really going on with a ticker (what a true rumour may say). */
     public record Facts(String ticker, double move24h, boolean whaleBuy, boolean whaleSell,
-                        List<MarketEvents.Kind> events) {
+                        List<MarketEvents.Kind> events, List<News> news) {
+        public Facts(String ticker, double move24h, boolean whaleBuy, boolean whaleSell,
+                     List<MarketEvents.Kind> events) {
+            this(ticker, move24h, whaleBuy, whaleSell, events, List.of());
+        }
+
         List<Claim> trueClaims() {
             List<Claim> out = new ArrayList<>();
             if (move24h >= BIG_MOVE) {
@@ -129,12 +146,14 @@ public final class MarketRumours {
             return null;
         }
         List<Claim> truth = f.trueClaims();
-        boolean fake = truth.isEmpty() || rng.nextInt(100) < fakePct;
+        List<News> news = f.news() == null ? List.of() : f.news();
+        boolean fake = (truth.isEmpty() && news.isEmpty()) || rng.nextInt(100) < fakePct;
         Claim c;
+        Map<String, String> tokens = Map.of();
         if (fake) {
             List<Claim> pool = new ArrayList<>();
             for (Claim x : Claim.values()) {
-                if (!truth.contains(x) && (!x.leafOnly() || "LEAF".equals(f.ticker()))) {
+                if (!x.news() && !truth.contains(x) && (!x.leafOnly() || "LEAF".equals(f.ticker()))) {
                     pool.add(x);
                 }
             }
@@ -143,20 +162,35 @@ public final class MarketRumours {
             }
             c = pool.get(rng.nextInt(pool.size()));
         } else {
-            c = truth.get(rng.nextInt(truth.size()));
+            int pick = rng.nextInt(truth.size() + news.size());
+            if (pick < truth.size()) {
+                c = truth.get(pick);
+            } else {
+                News n = news.get(pick - truth.size());
+                c = n.claim();
+                tokens = n.tokens();
+            }
         }
-        String line = line(c, f.ticker(), rng);
+        String line = line(c, f.ticker(), rng, tokens);
         return line == null ? null : new Rumour(f.ticker(), c, fake, now, line);
     }
 
     /** A filled line for a claim, or null when the bank has none. */
     String line(Claim c, String ticker, Random rng) {
+        return line(c, ticker, rng, Map.of());
+    }
+
+    /** A filled line ({ITEM} and the news' names), or null when the bank has none or a token stays unfilled. */
+    String line(Claim c, String ticker, Random rng, Map<String, String> tokens) {
         List<String> ls = lines.of(c);
         if (ls == null || ls.isEmpty()) {
             return null;
         }
-        String l = ls.get(rng.nextInt(ls.size()));
-        return l.replace("{ITEM}", itemWords(ticker));
+        String l = ls.get(rng.nextInt(ls.size())).replace("{ITEM}", itemWords(ticker));
+        for (Map.Entry<String, String> e : tokens.entrySet()) {
+            l = l.replace("{" + e.getKey() + "}", e.getValue());
+        }
+        return l.matches(".*\\{[A-Z_]+}.*") ? null : l;
     }
 
     /** Records that a rumour went out (starts the gap; traders may now have heard it). */
@@ -181,7 +215,7 @@ public final class MarketRumours {
     public synchronized double pressure(String ticker, long now, int actPct, long traderSeed) {
         double p = 0;
         for (Rumour r : recent(now)) {
-            if (r.ticker().equals(ticker) && Math.floorMod(java.util.Objects.hash(traderSeed, r.at(), r.claim()), 100)
+            if (r.ticker().equals(ticker) && Math.floorMod(java.util.Objects.hash(traderSeed, r.at(), r.claim().ordinal()), 100)
                     < actPct) {
                 p += r.pressure(now);
             }

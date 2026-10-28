@@ -293,6 +293,10 @@ class ExchangeTickersTest {
         assertEquals(10, leaf.get("max_open"));
         assertEquals(20, leaf.get("per_day"));
         assertEquals(10_000L, leaf.get("max_qty"));
+        // 1.6.1 volatility: the banner's announced events (none here) and each item ticker's fair value (null until
+        // the volatility thread computed one)
+        assertEquals(List.of(), j.get("events"));
+        assertTrue(leaf.containsKey("fair"));
     }
 
     @Test

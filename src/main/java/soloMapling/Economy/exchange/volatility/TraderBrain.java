@@ -9,8 +9,9 @@ import java.util.Random;
 /**
  * 1.6.1 volatility: what one trader bot does on one ticker when its turn comes. Pure (no game, no exchange): the
  * runtime ({@link MarketTraders}) builds the {@link View} and the bot's {@link Holdings}, and places what this returns
- * through the exchange's normal limits. Five archetypes; momentum and panic herd, the whale moves the book several
- * levels at once, value and the maker pull it back, so prices overshoot both ways. Volatility is the point: the only
+ * through the exchange's normal limits. Five archetypes; momentum and panic herd and deviate, the whale moves the book
+ * a few levels at once, value and the maker anchor to the fair value ({@link FairValue}) and pull it back. Toned down
+ * (owner 2026-10-28, "about half"): big moves come from real news (guild wars, guild prep: {@link #newsActions}). Volatility is the point: the only
  * guard ({@link #guard}) is against obvious bugs (no price 0, nothing beyond the bot's own holdings, prices within 10x
  * of the reference in one order).
  */
@@ -90,20 +91,20 @@ public final class TraderBrain {
 
     private static void momentum(View v, Holdings h, long now, Random rng, List<Action> out) {
         cancelStale(h, now, STALE_MS, out);
-        double signal = v.trend() + 0.03 * v.pressure();
-        if (signal > 0.02) {
-            double heat = Math.min(2, signal * 5);
-            long price = up(v.bestAsk() > 0 ? v.bestAsk() : v.reference(), 0.02 + 0.04 * rng.nextDouble());
-            out.add(new Place(Side.BUY, price, afford(h.mesos() * (0.15 + 0.2 * rng.nextDouble()) * (1 + heat),
+        double signal = v.trend() + 0.04 * v.pressure();
+        if (signal > 0.03) {
+            double heat = Math.min(1, signal * 4);
+            long price = up(v.bestAsk() > 0 ? v.bestAsk() : v.reference(), 0.01 + 0.02 * rng.nextDouble());
+            out.add(new Place(Side.BUY, price, afford(h.mesos() * (0.06 + 0.08 * rng.nextDouble()) * (1 + heat),
                     price, v)));
-        } else if (signal < -0.02 && h.items() > 0) {
-            long price = down(v.bestBid() > 0 ? v.bestBid() : v.reference(), 0.02 + 0.04 * rng.nextDouble());
-            out.add(new Place(Side.SELL, price, part(h.items(), 0.3 + 0.4 * rng.nextDouble())));
+        } else if (signal < -0.03 && h.items() > 0) {
+            long price = down(v.bestBid() > 0 ? v.bestBid() : v.reference(), 0.01 + 0.02 * rng.nextDouble());
+            out.add(new Place(Side.SELL, price, part(h.items(), 0.2 + 0.2 * rng.nextDouble())));
         } else if (rng.nextInt(5) == 0) {
             // drifting: a small passive order leaning with the last move
             if (signal >= 0) {
                 long price = down(v.mid(), 0.01 * rng.nextDouble());
-                out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.05, price, v)));
+                out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.04, price, v)));
             } else if (h.items() > 0) {
                 out.add(new Place(Side.SELL, up(v.mid(), 0.01 * rng.nextDouble()), part(h.items(), 0.1)));
             }
@@ -113,57 +114,59 @@ public final class TraderBrain {
     private static void panic(View v, Holdings h, long now, Random rng, List<Action> out) {
         cancelStale(h, now, STALE_MS, out);
         double drop = v.high2h() > 0 ? (double) (v.high2h() - v.reference()) / v.high2h() : 0;
-        boolean scared = drop > 0.08 || (drop > 0.04 && v.pressure() < -0.5) || v.pressure() < -1.5;
+        boolean scared = drop > 0.12 || (drop > 0.06 && v.pressure() < -0.5) || v.pressure() < -1.5;
         if (scared && h.items() > 0) {
-            long price = down(v.bestBid() > 0 ? v.bestBid() : v.reference(), 0.05 + 0.10 * rng.nextDouble());
-            out.add(new Place(Side.SELL, price, part(h.items(), 0.6 + 0.4 * rng.nextDouble())));
+            long price = down(v.bestBid() > 0 ? v.bestBid() : v.reference(), 0.03 + 0.04 * rng.nextDouble());
+            out.add(new Place(Side.SELL, price, part(h.items(), 0.3 + 0.2 * rng.nextDouble())));
         } else if (!scared && v.reference() <= v.fair() * 1.05 && rng.nextInt(10) < 3) {
             long price = down(v.mid(), 0.03 * rng.nextDouble());
-            out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.15, price, v)));
+            out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.10, price, v)));
         }
     }
 
     private static void whale(View v, Holdings h, Random rng, List<Action> out) {
-        if (rng.nextInt(100) >= 12) {
+        if (rng.nextInt(100) >= 6) {
             return;
         }
         double lean = v.trend() + 0.05 * v.pressure();
         boolean buy = lean > 0.01 || (Math.abs(lean) <= 0.01 && rng.nextBoolean()) || h.items() <= 0;
         if (buy) {
-            long price = up(v.bestAsk() > 0 ? v.bestAsk() : v.reference(), 0.10 + 0.15 * rng.nextDouble());
-            out.add(new Place(Side.BUY, price, afford(h.mesos() * (0.5 + 0.3 * rng.nextDouble()), price, v)));
+            long price = up(v.bestAsk() > 0 ? v.bestAsk() : v.reference(), 0.04 + 0.06 * rng.nextDouble());
+            out.add(new Place(Side.BUY, price, afford(h.mesos() * (0.2 + 0.15 * rng.nextDouble()), price, v)));
         } else {
-            long price = down(v.bestBid() > 0 ? v.bestBid() : v.reference(), 0.10 + 0.15 * rng.nextDouble());
-            out.add(new Place(Side.SELL, price, part(h.items(), 0.6 + 0.4 * rng.nextDouble())));
+            long price = down(v.bestBid() > 0 ? v.bestBid() : v.reference(), 0.04 + 0.06 * rng.nextDouble());
+            out.add(new Place(Side.SELL, price, part(h.items(), 0.25 + 0.2 * rng.nextDouble())));
         }
     }
 
+    /** Value: anchored to the fair value (mean reversion): buys just under it, sells just over it. */
     private static void value(View v, Holdings h, long now, Random rng, List<Action> out) {
         cancelStale(h, now, 4 * STALE_MS, out);
         long fair = v.fair();
         boolean hasBuy = h.open().stream().anyMatch(o -> o.side() == Side.BUY);
         boolean hasSell = h.open().stream().anyMatch(o -> o.side() == Side.SELL);
-        if (v.bestAsk() > 0 && v.bestAsk() < fair * 0.92) {
-            long price = up(v.bestAsk(), 0.01);
-            out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.3, price, v)));
+        if (v.bestAsk() > 0 && v.bestAsk() < fair * 0.97) {
+            long price = up(v.bestAsk(), 0.005);
+            out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.35, price, v)));
         } else if (!hasBuy && rng.nextInt(2) == 0) {
-            long price = down(fair, 0.10 + 0.05 * rng.nextDouble());
-            out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.2, price, v)));
+            long price = down(fair, 0.03 + 0.04 * rng.nextDouble());
+            out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.25, price, v)));
         }
         if (h.items() > 0) {
-            if (v.bestBid() > fair * 1.35) {
+            if (v.bestBid() > fair * 1.15) {
                 out.add(new Place(Side.SELL, v.bestBid(), part(h.items(), 0.5)));
             } else if (!hasSell && rng.nextInt(2) == 0) {
-                out.add(new Place(Side.SELL, up(fair, 0.4 + 0.2 * rng.nextDouble()), part(h.items(), 0.3)));
+                out.add(new Place(Side.SELL, up(fair, 0.08 + 0.07 * rng.nextDouble()), part(h.items(), 0.3)));
             }
         }
     }
 
+    /** Maker: quotes both sides around the middle pulled halfway to the fair value; re-prices stale quotes. */
     private static void maker(View v, Holdings h, long now, Random rng, List<Action> out) {
-        long mid = v.mid();
+        long center = Math.round(0.5 * v.mid() + 0.5 * v.fair());
         boolean hasBuy = false, hasSell = false;
         for (Open o : h.open()) {
-            boolean stale = now - o.placedAt() > 20 * 60_000L || Math.abs(o.price() - mid) > mid * 0.10;
+            boolean stale = now - o.placedAt() > 20 * 60_000L || Math.abs(o.price() - center) > center * 0.06;
             if (stale) {
                 out.add(new Cancel(o.id()));
             } else if (o.side() == Side.BUY) {
@@ -172,17 +175,56 @@ public final class TraderBrain {
                 hasSell = true;
             }
         }
-        double spread = 0.02 + 0.04 * rng.nextDouble() + Math.min(0.08, Math.abs(v.trend()) / 2);
+        double spread = 0.015 + 0.025 * rng.nextDouble() + Math.min(0.05, Math.abs(v.trend()) / 3);
         // inventory skew: few items -> quote higher (wants to buy), many -> lower
-        double skew = h.items() < 5 ? 0.01 : h.items() > 50 ? -0.01 : 0;
+        double skew = h.items() < 5 ? 0.005 : h.items() > 50 ? -0.005 : 0;
         if (!hasBuy) {
-            long price = Math.round(mid * (1 - spread + skew));
-            out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.1, price, v)));
+            long price = Math.round(center * (1 - spread + skew));
+            out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.2, price, v)));
         }
         if (!hasSell && h.items() > 0) {
-            out.add(new Place(Side.SELL, Math.round(mid * (1 + spread + skew)), part(h.items(), 0.2 + 0.2
+            out.add(new Place(Side.SELL, Math.round(center * (1 + spread + skew)), part(h.items(), 0.25 + 0.15
                     * rng.nextDouble())));
         }
+    }
+
+    /**
+     * A trader whose guild is in the news acts on it first (owner 2026-10-28, guild wars and guild prep): at war or
+     * gearing up for a boss run, or after a wipe, it stocks up on elixirs (on {@code v}'s ticker, ELIXIR); a war's
+     * winner buys leaves; a loser sells part of its leaves or elixirs; after a clear it sells scrolls it holds. Its own
+     * mesos and items only, through {@link #guard}. Empty when the role has nothing to do here.
+     */
+    public static List<Action> newsActions(MarketNews.Role role, View v, Holdings h, Random rng) {
+        List<Action> out = new ArrayList<>();
+        if (v.reference() <= 0) {
+            return out;
+        }
+        long ask = v.bestAsk() > 0 ? v.bestAsk() : v.reference(), bid = v.bestBid() > 0 ? v.bestBid() : v.reference();
+        switch (role) {
+            case AT_WAR_FRESH, PREP, WIPED -> {
+                long price = up(ask, 0.02 + 0.03 * rng.nextDouble());
+                out.add(new Place(Side.BUY, price, afford(h.mesos() * (0.12 + 0.10 * rng.nextDouble()), price, v)));
+            }
+            case AT_WAR -> {
+                if (rng.nextBoolean()) {
+                    long price = up(v.mid(), 0.02 * rng.nextDouble());
+                    out.add(new Place(Side.BUY, price, afford(h.mesos() * (0.04 + 0.04 * rng.nextDouble()), price, v)));
+                }
+            }
+            case WINNER -> {
+                long price = up(ask, 0.01 + 0.03 * rng.nextDouble());
+                out.add(new Place(Side.BUY, price, afford(h.mesos() * (0.12 + 0.10 * rng.nextDouble()), price, v)));
+            }
+            case LOSER, CLEARED -> {
+                if (h.items() > 0) {
+                    out.add(new Place(Side.SELL, down(bid, 0.02 + 0.03 * rng.nextDouble()),
+                            part(h.items(), 0.3 + 0.2 * rng.nextDouble())));
+                }
+            }
+            case NONE -> {
+            }
+        }
+        return guard(out, v, h);
     }
 
     private static void cancelStale(Holdings h, long now, long age, List<Action> out) {

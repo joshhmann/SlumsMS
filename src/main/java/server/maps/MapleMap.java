@@ -690,6 +690,7 @@ public class MapleMap {
                         idrop = new Item(de.itemId, (short) 0, (short) (de.Maximum != 1 ? (de.Maximum - de.Minimum > 0 ? Randomizer.nextInt(de.Maximum - de.Minimum) + de.Minimum : 1) : 1));
                     }
                     spawnDrop(idrop, calcDropPos(pos, mob.getPosition()), mob, chr, droptype, de.questid);
+                    soloMapling.Economy.exchange.volatility.MarketFlows.supplied(de.itemId, idrop.getQuantity()); // 1.6.1 fair value
                     if (soloMapling.ArtificialPlayer.BotMegaphoneSystem.WorldEventMegaphones.isRareDrop(
                             de.itemId, de.chance, mob.isBoss(), de.questid)) {
                         final Item rare = idrop;
@@ -806,6 +807,7 @@ public class MapleMap {
                 } else if (de.itemId == 4310000) {
                     quantity = Math.min(quantity, 3);  // Limit quantity to 3 for item ID 4310000
                 }
+                soloMapling.Economy.exchange.volatility.MarketFlows.supplied(de.itemId, quantity); // 1.6.1 fair value
 
                 // Create item drop
                 if (ItemConstants.getInventoryType(de.itemId) == InventoryType.EQUIP) {

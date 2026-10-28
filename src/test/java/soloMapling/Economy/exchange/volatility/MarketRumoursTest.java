@@ -84,6 +84,28 @@ class MarketRumoursTest {
     }
 
     @Test
+    void guildNewsRumoursNameTheGuildsAndAreNeverMadeUp() {
+        MarketRumours r = rumours();
+        Facts f = new Facts("ELIXIR", 0, false, false, List.of(), List.of(new MarketRumours.News(Claim.WAR_STOCKUP,
+                Map.of("GUILD", "Hawks", "RIVAL", "Owls"))));
+        Map<Claim, List<String>> m = new java.util.EnumMap<>(Claim.class);
+        for (Claim c : Claim.values()) {
+            m.put(c, List.of(c.node + " {ITEM} {GUILD} {RIVAL}"));
+        }
+        MarketRumours named = new MarketRumours(MarketRumours.fixed(m));
+        int war = 0;
+        for (int s = 0; s < 200; s++) {
+            Rumour x = named.make(f, NOW, 0, 0, new Random(s));
+            assertEquals(Claim.WAR_STOCKUP, x.claim());
+            assertEquals("WarStockUp elixirs Hawks Owls", x.line());
+            Rumour y = r.make(flat("ELIXIR"), NOW, 0, 100, new Random(s));
+            assertFalse(y.claim().news(), "a made-up rumour never invents guild news: " + y);
+            war++;
+        }
+        assertEquals(200, war);
+    }
+
+    @Test
     void heardRumoursPushTradersAndFadeInTwoHours() {
         MarketRumours r = rumours();
         r.said(new Rumour("LEAF", Claim.CRASH, true, NOW, "x"));
@@ -107,7 +129,8 @@ class MarketRumoursTest {
             List<String> lines = yaml.of(c);
             assertFalse(lines.isEmpty(), c + " has lines");
             for (String l : lines) {
-                String filled = l.replace("{ITEM}", "leaves");
+                String filled = l.replace("{ITEM}", "leaves").replace("{GUILD}", "Hawks").replace("{RIVAL}", "Owls")
+                        .replace("{BOSS}", "zakum");
                 assertFalse(filled.contains("{"), "unfilled token: " + l);
                 assertNull(ContentGuard.problem(filled), filled);
                 assertFalse(ContentGuard.aiTalk(filled), filled);

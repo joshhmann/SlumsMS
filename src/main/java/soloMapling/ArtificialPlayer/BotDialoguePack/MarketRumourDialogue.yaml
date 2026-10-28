@@ -46,3 +46,30 @@ MarketRumour:
       - "rooty is taking {ITEM} for chaos scrolls, everyone is buying"
       - "heard rooty wants {ITEM} again, price is gonna jump"
       - "go check rooty, {ITEM} are worth more now"
+  # guild news (owner 2026-10-28: guild wars and guild prep drive the market); {GUILD}, {RIVAL}, {BOSS} are in-game names
+  WarStockUp:
+    text:
+      - "{GUILD} and {RIVAL} are at war, everyone is buying {ITEM}"
+      - "heard {GUILD} is stocking up on {ITEM} for the war with {RIVAL}"
+      - "{ITEM} going up, {GUILD} vs {RIVAL} is getting serious"
+  WarWon:
+    text:
+      - "{GUILD} won the war and they are buying up {ITEM}"
+      - "{GUILD} is rich after that war, watch {ITEM} climb"
+  WarLost:
+    text:
+      - "{GUILD} lost the war and they are dumping their {ITEM}"
+      - "heard {GUILD} is selling everything after losing, {ITEM} are cheap"
+  Prep:
+    text:
+      - "{GUILD} is stocking up for {BOSS}, {ITEM} are gonna spike"
+      - "heard {GUILD} is gearing up for {BOSS}, buy {ITEM} before they do"
+      - "{GUILD} is going to {BOSS} soon, everyone needs {ITEM}"
+  RunClear:
+    text:
+      - "{GUILD} just cleared {BOSS}, {ITEM} are about to flood the market"
+      - "gg {GUILD} on {BOSS}, expect cheap {ITEM}"
+  RunWipe:
+    text:
+      - "{GUILD} wiped on {BOSS}, they need more {ITEM} for the retry"
+      - "heard {GUILD} failed {BOSS}, {ITEM} are going up again"
