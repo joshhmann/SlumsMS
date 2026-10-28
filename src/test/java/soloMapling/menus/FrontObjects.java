@@ -47,6 +47,45 @@ final class FrontObjects {
         return out;
     }
 
+    /**
+     * Reachability heuristic: the foothold is part of a connected chain (prev/next links) at least {@code minWidth} px
+     * wide, and a portal or spawn point lies within 150 px above or below the spot. Returns the problem, or null.
+     */
+    static String unreachable(Path wz, int map, int y, int fh, int minWidth) throws Exception {
+        Element root = parse(wz.resolve("Map.wz/Map/Map" + map / 100000000 + "/" + map + ".img.xml"));
+        Map<Integer, Map<String, String>> all = new HashMap<>();
+        for (Element layer : kids(child(root, "foothold"))) {
+            for (Element group : kids(layer)) {
+                for (Element f : kids(group)) {
+                    all.put(Integer.parseInt(f.getAttribute("name")), props(f));
+                }
+            }
+        }
+        java.util.Set<Integer> seen = new java.util.HashSet<>();
+        java.util.Deque<Integer> todo = new java.util.ArrayDeque<>(List.of(fh));
+        seen.add(fh);
+        int width = 0;
+        while (!todo.isEmpty()) {
+            Map<String, String> f = all.get(todo.pop());
+            width += Math.abs(Integer.parseInt(f.get("x2")) - Integer.parseInt(f.get("x1")));
+            for (String link : new String[]{"prev", "next"}) {
+                int n = Integer.parseInt(f.getOrDefault(link, "0"));
+                if (n != 0 && all.containsKey(n) && seen.add(n)) {
+                    todo.push(n);
+                }
+            }
+        }
+        if (width < minWidth) {
+            return "foothold chain only " + width + " px wide";
+        }
+        for (Element p : kids(child(root, "portal"))) {
+            if (Math.abs(Integer.parseInt(props(p).get("y")) - y) <= 150) {
+                return null;
+            }
+        }
+        return "no portal or spawn within 150 px vertically";
+    }
+
     private static final Map<String, Element> CACHE = new HashMap<>();
 
     private static int[] canvas(Path wz, String oS, String l0, String l1, String l2) throws Exception {
