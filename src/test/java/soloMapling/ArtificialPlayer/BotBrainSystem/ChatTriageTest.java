@@ -62,6 +62,18 @@ class ChatTriageTest {
         assertEquals(ChatTriage.Con.NORMAL, ChatTriage.rules("lol noob").con(), "banter is not harassment by rule");
     }
 
+    /** Death wishes are harassment by rule until the model learns them (deathwish.tsv); game talk about dying is not. */
+    @org.junit.jupiter.api.Test
+    void deathWishesAreHarassmentButBossTalkIsNot() {
+        for (String line : new String[] {"go die", "kys", "drop dead noob", "go die noob", "hope u die", "just go die lol"}) {
+            assertEquals(ChatTriage.Con.HARASSMENT, ChatTriage.rules(line).con(), line);
+        }
+        for (String line : new String[] {"go back to henny noob", "lets go die to horntail lol", "kill that slime for me",
+                "i always go die in zakum", "we gonna go die at pap"}) {
+            assertEquals(ChatTriage.Con.NORMAL, ChatTriage.rules(line).con(), line);
+        }
+    }
+
     /** Owner 2026-10-27: begging and password/login phishing are scam; rwt is only real money and selling accounts. */
     @org.junit.jupiter.api.Test
     void phishingIsScamAndRwtIsMoneyOrAccounts() {
