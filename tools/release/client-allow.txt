@@ -38,6 +38,7 @@ different Data/Map/Map/Map9/910000021.img
 different Data/Map/Map/Map9/910000022.img
 different Data/Map/Obj/login.img
 different Data/String/Map.img
+different Data/String/Npc.img
 different Data/UI/Basic.img
 different Data/UI/CashShop.img
 different Data/UI/MapleTV.img
@@ -98,6 +99,7 @@ extra Data/Map/Tile/ClassicFM_dryRock.img
 extra Data/Map/Tile/ClassicFM_snowyLightrock.img
 extra Data/Map/Tile/ClassicFM_woodMarble.img
 extra Data/Map/Tile/ClassicFM_yellowToyCastle.img
+extra Data/Npc/9990000.img
 extra Data/Sound/Weather.img
 extra MapleStory.exe
 extra SlumsMS.exe
