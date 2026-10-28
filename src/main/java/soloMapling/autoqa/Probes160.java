@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland");
+            "family", "tutorialIsland", "newerAreaCards");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -94,6 +94,7 @@ final class Probes160 {
                 case "nxExchange" -> nxExchange(p);
                 case "family" -> family(p);
                 case "tutorialIsland" -> tutorialIsland(p);
+                case "newerAreaCards" -> newerAreaCards();
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1216,6 +1217,52 @@ final class Probes160 {
         }
         return verdict(bad, "only a new real Beginner at the start map is asked, No stayed put, Yes landed on the island"
                 + " start, the island quests are not hidden and Southperry has Shanks", ev);
+    }
+
+    // ── t-nc-1: Monster Book cards on the Arcane River / Grandis mobs (migration 043, 1.6.1) ────────
+
+    /** t-nc-1: (mob, card) samples from migration 043's list: first, a middle one, the last. */
+    static final int[][] NEWER_AREA_CARDS = {{2400000, 2386030}, {8641004, 2387154}, {8210000, 2387082}};
+
+    /**
+     * t-nc-1: each sampled mob rolls its card at 2% (chance 20000, qty 1) and the card maps back to the mob in
+     * monstercarddata (the book cover packet needs it). FAIL before migration 043 is applied, and until !reloaddrops
+     * or a restart after it.
+     */
+    static List<String> newerAreaCards() {
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        for (int[] pair : NEWER_AREA_CARDS) {
+            int chance = -1;
+            for (server.life.MonsterDropEntry d : server.life.MonsterInformationProvider.getInstance().retrieveDrop(pair[0])) {
+                if (d.itemId == pair[1]) {
+                    chance = d.chance;
+                }
+            }
+            int mob = -1;
+            try {
+                mob = server.ItemInformationProvider.getInstance().getCardMobId(pair[1]);
+            } catch (NullPointerException e) {
+                // no monstercarddata row
+            }
+            ev.add("mob " + pair[0] + " card " + pair[1] + " chance=" + chance + " cardMob=" + mob);
+            String why = cardVerdict(chance, mob, pair[0]);
+            if (why != null) {
+                bad.add("mob " + pair[0] + " card " + pair[1] + ": " + why);
+            }
+        }
+        return verdict(bad, "the sampled Arcane River / Grandis mobs drop their card at 2% and the card maps back to the mob", ev);
+    }
+
+    /** Pure: null when the drop chance is 20000 and the card maps to the mob. */
+    static String cardVerdict(int chance, int cardMob, int mob) {
+        if (chance != 20000) {
+            return "drop chance is " + chance + ", want 20000 (migration 043 not applied, or !reloaddrops not run)";
+        }
+        if (cardMob != mob) {
+            return "monstercarddata maps the card to " + cardMob + ", want " + mob + " (needs a restart after 043)";
+        }
+        return null;
     }
 
     // ── t-xc-1: the NX exchange in game (ticket 113 round 2) ─────────────────────────────────────

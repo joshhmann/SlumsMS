@@ -1127,6 +1127,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-ti-1", "Maple Island opt-in: the question, Yes lands on the island, No stays").minutes(2)
                 .expect(probe("tutorialIsland"))
                 .build());
+        // Monster Book cards on the Arcane River / Grandis mobs (migration 043): sampled mobs roll their card at 2%,
+        // and monstercarddata maps the card back to the mob
+        c.add(Check.auto("t-nc-1", "Newer-area Monster Book cards drop at 2%").minutes(1)
+                .expect(probe("newerAreaCards"))
+                .build());
         return List.copyOf(c);
     }
 
