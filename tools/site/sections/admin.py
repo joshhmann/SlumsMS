@@ -38,8 +38,33 @@ header.top [role=tab] { border-color: transparent; background: transparent; colo
 header.top [role=tab][aria-selected=true] { background: var(--surface); color: var(--ink); border-color: var(--edge); }
 h2, h3 { font-family: var(--f-display); }
 """
+# the staff pages: the dashboard and the invite codes
+ADMIN_TABS = (("./", "Dashboard", "index"), ("invites", "Invite codes", "invites"))
+INVITES = """<h1>Invite codes</h1><p class="id">Every code on the server: made here, with <code>!invite</code> or by players with
+<code>@invite</code>.</p>
+<div class="inv" x-data="xinvites(true)" data-root="../">
+<section class="panel"><h2 class="bar">Make a code</h2><div class="in inv-make">
+<div class="inv-staff"><label>Works for (days) <input type="number" min="1" max="90" x-model.number="life"></label>
+<label>Note (who it's for) <input type="text" maxlength="64" x-model="note" placeholder="e.g. Bob from work"></label>
+<button class="btn primary" type="button" @click="make()" :disabled="busy">Make a code</button></div>
+<div class="inv-new" x-show="made" x-cloak><b class="inv-code" x-text="made && made.code"></b>
+<button class="btn" type="button" @click="copy(made.code)">Copy</button>
+<p class="small" x-show="made && made.expiresAt" x-text="'Works until ' + when(made && made.expiresAt) + '.'"></p></div>
+<p class="status" :class="msgClass" role="status" aria-live="polite" x-text="msg"></p></div></section>
+<section class="panel"><h2 class="bar">All codes <small x-show="page" x-text="'page ' + (page + 1)"></small></h2>
+<div class="tbl"><table class="t"><thead><tr><th>Code</th><th>Made by</th><th>Note</th><th>Made</th><th>Works until</th><th>Status</th><th></th></tr></thead>
+<tbody><template x-for="c in codes" :key="c.code"><tr><td><b class="inv-code" x-text="c.code"></b></td>
+<td x-text="c.owner || c.createdBy || ''"></td><td x-text="c.note || ''"></td><td x-text="when(c.createdAt)"></td>
+<td x-text="when(c.expiresAt)"></td><td x-text="status(c)"></td>
+<td><button class="btn" type="button" x-show="open(c)" @click="copy(c.code)">Copy</button>
+<button class="btn" type="button" x-show="open(c)" @click="cancel(c)" :disabled="busy">Cancel</button></td></tr></template></tbody></table></div>
+<p class="empty" x-show="state === 'ok' && !codes.length" style="padding:12px 16px;margin:0">No codes yet.</p>
+<p class="small" style="padding:8px 16px;margin:0"><button class="btn" type="button" x-show="page" @click="go(-1)">Newer</button>
+<button class="btn" type="button" x-show="more" @click="go(1)">Older</button></p></section>
+</div>
+<script src="../assets/invites.js"></script><script defer src="../assets/vendor/alpine-3.14.1.min.js"></script>"""
 FRAME_CSS = """<style>
-.adminframe { display: block; width: 100%; height: calc(100vh - 150px); min-height: 640px; background: var(--surface);
+.adminframe { display: block; width: 100%; height: calc(100vh - 200px); min-height: 640px; background: var(--surface);
   border: var(--border) solid var(--edge); border-radius: var(--radius); box-shadow: 6px 6px 0 var(--drop); }
 </style>"""
 # in app.html: follow the framing page's light/dark and accent, now and whenever its switches change them
@@ -62,6 +87,11 @@ def drop_followed(css):
     return re.sub(r"--d-(" + "|".join(map(re.escape, FOLLOW)) + r")\s*:[^;}]*;?", "", css)
 
 
+def tabs(here):
+    return '<p class="chips">' + "".join(
+        f'<a class="chip" href="{h}"{" aria-current=page" if k == here else ""}>{t}</a>' for h, t, k in ADMIN_TABS) + "</p>"
+
+
 def build(out, web=None):
     web = web or DEFAULT_WEB
     with open(os.path.join(web, "index.html"), encoding="utf-8") as f:
@@ -81,7 +111,9 @@ def build(out, web=None):
     app = page.replace('href="style.css"', 'href="../assets/tokens.css"><link rel="stylesheet" href="dashboard.css"')
     app = app.replace("</title>", '</title><meta name="robots" content="noindex, nofollow">' + FOLLOW_JS, 1).replace("<title>SlumsMS Admin</title>", "<title>Admin</title>")
     write(out, f"{ADMIN}/app.html", app)
-    html = (f'{FRAME_CSS}<h1 class="vh">Admin</h1>'
+    html = (f'{FRAME_CSS}<h1 class="vh">Admin</h1>{tabs("index")}'
             f'<iframe class="adminframe" src="app.html" title="Staff dashboard"></iframe>')
     write(out, f"{ADMIN}/index.html", layout("Admin", html, "../", "admin", "The staff dashboard."))
+    write(out, f"{ADMIN}/invites.html", layout("Invite codes", tabs("invites") + INVITES, "../", "admin",
+                                                "Every invite code on the server."))
     return {"web": web, "scripts": len(SCRIPTS), "colours": len(vs)}

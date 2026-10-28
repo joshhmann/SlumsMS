@@ -1,0 +1,86 @@
+/* Invite codes (1.6.1, ticket 105): "My invites" (market/invites) for players and the staff page (admin/invites).
+   Alpine component xinvites(staff): list, make and cancel through the login service (/api/login/invites/*), which
+   asks the game. The game decides who may do what (players: level 30+, 2 a week, the same count as @invite in game;
+   staff: every code, with a life and a note). Times may come as Unix seconds or ISO text. */
+(function () {
+  var ROOT = (document.querySelector("[data-root]") || { dataset: { root: "../" } }).dataset.root;
+  var API = ROOT + "api/login/invites/";
+
+  function when(t) {
+    if (t === null || t === undefined || t === "") return "";
+    var d = new Date(typeof t === "number" ? t * 1000 : t);
+    return isNaN(d) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+  function ms(t) { return t === null || t === undefined ? NaN : new Date(typeof t === "number" ? t * 1000 : t).getTime(); }
+
+  function post(path, body) {
+    return fetch(API + path, { method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-Slums": "1" }, body: JSON.stringify(body || {}) })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) { j.status = r.status; return j; });
+      })
+      .catch(function () { return { ok: false, error: "Can't reach the server right now.", status: 0 }; });
+  }
+
+  function xinvites(staff) {
+    return {
+      staff: !!staff, codes: [], left: null, page: 0, more: false, state: "loading", msg: "", msgClass: "", busy: false,
+      made: null, life: 14, note: "", when: when,
+      init: function () { this.load(); },
+      say: function (t, ok) { this.msg = t; this.msgClass = ok === true ? "ok" : ok === false ? "bad" : ""; },
+      load: function () {
+        var self = this;
+        return post("list", this.staff ? { page: this.page } : {}).then(function (j) {
+          if (j.status === 401) { self.state = "signedOut"; return; }
+          if (!j.ok) { self.state = "error"; self.say(j.error || "That didn't work.", false); return; }
+          self.state = "ok";
+          self.codes = Array.isArray(j.codes) ? j.codes : [];
+          self.left = typeof j.left === "number" ? j.left : null;
+          self.more = !!(j.next || j.more || (typeof j.pages === "number" && self.page + 1 < j.pages));
+        });
+      },
+      status: function (c) {
+        if (c.usedBy || c.usedAt) return "Used" + (c.usedBy ? " by " + c.usedBy : "") + (c.usedAt ? ", " + when(c.usedAt) : "");
+        if (c.cancelled || c.cancelledAt) return "Cancelled";
+        var end = ms(c.expiresAt);
+        if (!isNaN(end) && end < Date.now()) return "Expired";
+        return "Unused";
+      },
+      open: function (c) { return this.status(c) === "Unused"; },
+      make: function () {
+        var self = this, body = this.staff ? { life: this.life, note: this.note } : {};
+        this.busy = true; this.say("Making a code...");
+        post("create", body).then(function (j) {
+          self.busy = false;
+          if (!j.ok) { self.say(j.error || "That didn't work.", false); return; }
+          self.made = { code: j.code, expiresAt: j.expiresAt };
+          self.say("Done. Send it to your friend: it works once.", true);
+          self.note = "";
+          self.load();
+        });
+      },
+      cancel: function (c) {
+        var self = this;
+        this.busy = true;
+        post("cancel", { code: c.code }).then(function (j) {
+          self.busy = false;
+          if (!j.ok) { self.say(j.error || "That didn't work.", false); return; }
+          self.say("Cancelled " + c.code + ".", true);
+          if (self.made && self.made.code === c.code) self.made = null;
+          self.load();
+        });
+      },
+      copy: function (text) {
+        var self = this;
+        try {
+          navigator.clipboard.writeText(text).then(function () { self.say("Copied " + text + ".", true); },
+            function () { self.say("Couldn't copy: select it and copy by hand.", false); });
+        } catch (e) { this.say("Couldn't copy: select it and copy by hand.", false); }
+      },
+      go: function (d) { this.page = Math.max(0, this.page + d); this.load(); }
+    };
+  }
+
+  window.xinvites = xinvites;
+  document.addEventListener("alpine:init", function () { window.Alpine.data("xinvites", xinvites); });
+})();

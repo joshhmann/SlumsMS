@@ -40,6 +40,14 @@ no pass key. nginx on the patch host asks GET /api/auth/pass (auth_request, inte
 Passes are signed with their own key (--pass-key-file), separate from the session key and different on Live and TEST,
 so a TEST pass never opens Live downloads. No secret is ever in the launcher.
 
+Invite codes (1.6.1, ticket 105; owner 2026-10-28: GMs and players): POST /api/login/invites/list {page?},
+/invites/create {life?, note?} and /invites/cancel {code} (session cookie, "X-Slums: 1"), each passed to the game's auth
+API (/invite/list, /invite/create, /invite/cancel) with the session's account id. The game decides who may do what:
+a player sees and makes only their own codes under the in-game @invite rule (level 30+, 2 a week, the same count as
+@invite), a GM sees every code. A life or note is only passed on for a staff session (GM level 3+, as /admin/).
+Answers: 200 {"ok": true, ...the game's answer}; 401 signed out; 403 not eligible or refused; 429 the weekly limit or
+too many tries; 503 the game unreachable. Every make or cancel is logged with the account id (never the code).
+
 Listens on 127.0.0.1 only. Sessions are HMAC-SHA256 signed with --key-file (32+ random bytes; the service refuses to
 start without it). An account listed in --revoked (one account id per line, e.g. banned accounts) is signed out.
 
@@ -300,6 +308,15 @@ ERRORS = {"BAD_CODE": (403, "That invite code doesn't work."),
           "LOCKED": (423, "Too many wrong tries. Try again in 15 minutes."),
           "RATE_LIMITED": (429, "Too many tries. Wait a minute and try again.")}
 DOWN = (503, "Sign-in is down right now. Try again in a bit.")
+# the game's /invite/* answers (ticket 105) -> the site's status and message
+INVITES_DOWN = (503, "Invite codes aren't available right now. Try again later.")
+INVITE_ERRORS = {"NOT_ELIGIBLE": (403, "Invite codes need a character at level 30 or higher."),
+                 "WEEKLY_LIMIT": (429, "That's your 2 invite codes for this week. More next week."),
+                 "REFUSED": (403, "This account can't make invite codes."),
+                 "NOT_FOUND": (404, "No such unused code."),
+                 "BAD_REQUEST": (400, "That didn't look right. Try again."),
+                 "RATE_LIMITED": (429, "Too many tries. Wait a minute and try again."),
+                 "UNAVAILABLE": INVITES_DOWN}
 
 
 def sign_in_broken(user, pw):
@@ -455,6 +472,8 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
                 return self.account_sign_in(path.rsplit("/", 1)[1])
             if path == "/api/login/download-pass":
                 return self.download_pass()
+            if path in ("/api/login/invites/list", "/api/login/invites/create", "/api/login/invites/cancel"):
+                return self.invites(path.rsplit("/", 1)[1])
             if path in ("/api/login/reset/request", "/api/login/reset/status", "/api/login/reset/complete"):
                 return self.reset(path.rsplit("/", 1)[1])
             return self.send(404, {"ok": False})
@@ -572,6 +591,38 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
                 return self.send(*self.err(DOWN))
             pw, exp = passes.issue(s)
             return self.send(200, {"ok": True, "pass": pw, "expiresAt": exp})   # Unix seconds (the launcher's contract)
+
+        def invites(self, action):
+            body = self.json_body()
+            if body is None:
+                return self.send(403, {"ok": False, "error": "Refused."})
+            s = self.session()
+            if not s:
+                return self.send(401, {"ok": False, "error": "Sign in first."})
+            if not limiter.allow(self.client()):
+                return self.send(*self.err(ERRORS["RATE_LIMITED"]))
+            ask = {"account_id": s["a"]}
+            if action == "list" and isinstance(body.get("page"), int) and 0 <= body["page"] <= 1000:
+                ask["page"] = body["page"]
+            if action == "cancel":
+                code = clean_code(body.get("code"))
+                if not 4 <= len(code) <= 32:
+                    return self.send(400, {"ok": False, "error": "That isn't an invite code."})
+                ask["code"] = code
+            if action == "create" and sessions.admin(s):  # staff may set how long it lasts and a note
+                if isinstance(body.get("life"), int) and 1 <= body["life"] <= 90:
+                    ask["life"] = body["life"]
+                if isinstance(body.get("note"), str) and body["note"].strip():
+                    ask["note"] = body["note"].strip()[:64]
+            got = auth.call("/invite/" + action, ask, self.client()) if auth else None
+            if not got:
+                return self.send(*self.err(INVITES_DOWN))
+            if not got.get("ok"):
+                status, msg = INVITE_ERRORS.get(got.get("error"), INVITES_DOWN)
+                return self.send(status, {"ok": False, "error": msg, "code": got.get("error")})
+            if action != "list":
+                sys.stderr.write(f"invite {action} by account {s['a']}\n")  # never the code
+            return self.send(200, dict({k: v for k, v in got.items() if k != "ok"}, ok=True))
 
         @staticmethod
         def err(pair):

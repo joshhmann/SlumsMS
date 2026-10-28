@@ -368,7 +368,7 @@ class Market:
     def sidebar(self, root, here):
         groups = [(None, [("index.html", "Market home", "index")]),
                   ("My stuff", [("mine.html", "My market", "mine"), ("mine.html#trades", "My trades", "trades"),
-                                ("cards.html", "My cards", "cards")]),
+                                ("cards.html", "My cards", "cards"), ("invites.html", "My invites", "invites")]),
                   ("Market", [("sales.html", "Recent sales", "sales"), ("listings.html", "FM now", "listings"),
                               ("board.html", "Buy/Sell board", "board"),
                               ("exchange.html", "Slums Exchange", "exchange"), ("prices/index.html", "Price check", "prices"),
@@ -724,6 +724,38 @@ logged in to the game. Items you buy go into its bags the next time it's in game
 <script defer src="{root}assets/vendor/alpine-3.14.1.min.js"></script>"""
 
 
+INVITES = """<h1>My invites</h1>
+<p class="lede">SlumsMS is friends only: a new player needs an invite code to make an account. Make one here and send
+it to a friend. Each code works once.</p>
+<noscript><p class="small">Your invites need JavaScript turned on.</p></noscript>
+<div class="inv" x-data="xinvites(false)" data-root="{root}">
+<p class="samplebar" x-show="state === 'signedOut'" x-cloak>Sign in to see your invites.</p>
+<section class="panel" x-show="state !== 'signedOut'" x-cloak><h2 class="bar">Make a code
+<small x-show="left !== null" x-text="left + ' left this week'"></small></h2><div class="in inv-make">
+<p class="small">You need a character at level 30 or higher. You can make 2 codes a week: the same 2 as
+<code>@invite</code> in game.</p>
+<button class="btn primary" type="button" @click="make()" :disabled="busy">Make an invite code</button>
+<div class="inv-new" x-show="made" x-cloak><b class="inv-code" x-text="made && made.code"></b>
+<button class="btn" type="button" @click="copy(made.code)">Copy</button>
+<p class="small">Your friend types it on the site's sign-in page, under "New here?" (or the launcher's New account
+tab). <span x-show="made && made.expiresAt" x-text="'It works until ' + when(made && made.expiresAt) + '.'"></span></p></div>
+<p class="status" :class="msgClass" role="status" aria-live="polite" x-text="msg"></p></div></section>
+<section class="panel" x-show="state === 'ok'" x-cloak><h2 class="bar">Your codes</h2>
+<div class="tbl"><table class="t"><thead><tr><th>Code</th><th>Made</th><th>Works until</th><th>Status</th><th></th></tr></thead>
+<tbody><template x-for="c in codes" :key="c.code"><tr><td><b class="inv-code" x-text="c.code"></b></td>
+<td x-text="when(c.createdAt)"></td><td x-text="when(c.expiresAt)"></td><td x-text="status(c)"></td>
+<td><button class="btn" type="button" x-show="open(c)" @click="copy(c.code)">Copy</button>
+<button class="btn" type="button" x-show="open(c)" @click="cancel(c)" :disabled="busy">Cancel</button></td></tr></template></tbody></table></div>
+<p class="empty" x-show="!codes.length" style="padding:12px 16px;margin:0">No codes yet.</p></section>
+</div>
+<script src="{root}assets/invites.js"></script><script defer src="{root}assets/vendor/alpine-3.14.1.min.js"></script>"""
+
+
+def build_invites(mk):
+    """My invites: a player's own invite codes (made on the site or with @invite in game), from the login service."""
+    mk.page(f"{MARKET}/invites.html", "My invites", INVITES, "invites", "Your invite codes for friends.")
+
+
 def build_exchange(mk):
     """The NX-meso exchange: a static shell that exchange.js (Alpine) fills from /api/market/exchange/."""
     mk.page(f"{MARKET}/exchange.html", "Slums Exchange", EXCHANGE, "exchange",
@@ -776,6 +808,7 @@ def build(out, db, data_dir=None, site_root=None):
     build_home(mk, priced, econ)
     build_board(mk)
     build_exchange(mk)
+    build_invites(mk)
     write_summary(mk, priced)
     write_untradeable(mk)
     return {"priced": len(priced), "listings": len(m["listings"]["listings"]), "sample": m["sample"]}

@@ -81,6 +81,7 @@ SLOTS = {
     "market/nx": ("chan-money", "Mesos for NX, NX for mesos."),
     "market/economy": ("chan-money", "Money makes Bera go round."),
     "market/exchange": ("chan-point", ["Buy low, sell high!", "Check the fee before you confirm.", "LEAF to the moon!"]),
+    "market/invites": ("chan-envelope", ["Bring a friend!", "Henesys is full again!"]),
     "market/mine": ("chan-envelope", "All your stuff in one place."),
     "market/cards": ("chan-lookback", "Gotta find them all!"),
     # World

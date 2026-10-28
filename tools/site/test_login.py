@@ -64,6 +64,7 @@ class FakeGameAuth:
         from http.server import BaseHTTPRequestHandler
         self.calls, fake = [], self
         self.reset_state = "pending"  # what /reset/status says; the test plays the admin
+        self.invite = {}  # what /invite/<action> says, by action (ticket 105 invites)
 
         class H(BaseHTTPRequestHandler):
             def log_message(self, *a):
@@ -84,6 +85,8 @@ class FakeGameAuth:
                            (200, {"ok": False, "error": "UNAVAILABLE"}) if body["user"] == "dbdown" else
                            (429, {"ok": False, "error": "RATE_LIMITED"}) if body["user"] == "busy" else
                            (200, {"ok": False, "error": "WRONG_LOGIN"}))
+                elif self.path.startswith("/invite/"):
+                    ans = fake.invite.get(self.path.rsplit("/", 1)[1], (200, {"ok": True}))
                 elif self.path == "/reset/request":   # the same answer for any name
                     ans = (200, {"ok": True, "request_id": "r123", "secret": "s" * 32})
                 elif self.path == "/reset/status":
@@ -210,6 +213,31 @@ class AccountSignInTest(unittest.TestCase):
                 self.jar.pop(k, None)
         data = r.read()
         return r.status, (json.loads(data) if data else None)
+
+    def test_invites_go_to_the_game_with_the_sessions_account(self):
+        self.assertEqual(self.call("POST", "/api/login/invites/list", {})[0], 401)
+        self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})
+        self.assertEqual(self.call("POST", "/api/login/invites/list", {}, headers={})[0], 403)
+        self.game.invite["list"] = (200, {"ok": True, "codes": [{"code": "ABCD1234", "usedBy": None}], "left": 1})
+        st, body = self.call("POST", "/api/login/invites/list", {"page": 2, "account_id": 1})
+        self.assertEqual((st, body), (200, {"codes": [{"code": "ABCD1234", "usedBy": None}], "left": 1, "ok": True}))
+        self.assertEqual(self.game.calls[-1][2], {"account_id": 42, "page": 2, "ipHash": self.game.calls[-1][2]["ipHash"]},
+                         "the session's account, never one from the body")
+        self.call("POST", "/api/login/invites/create", {"life": 30, "note": "for Bob"})
+        self.assertEqual(set(self.game.calls[-1][2]), {"account_id", "ipHash"}, "a player can't set life or note")
+        self.call("POST", "/api/login/invites/cancel", {"code": "abcd-1234"})
+        self.assertEqual(self.game.calls[-1][2]["code"], "ABCD1234")
+        self.assertEqual(self.call("POST", "/api/login/invites/cancel", {"code": "x"})[0], 400)
+        for err, want in (("NOT_ELIGIBLE", 403), ("WEEKLY_LIMIT", 429), ("REFUSED", 403), ("UNAVAILABLE", 503), ("ODD", 503)):
+            self.game.invite["create"] = (200, {"ok": False, "error": err})
+            st, body = self.call("POST", "/api/login/invites/create", {})
+            self.assertEqual((st, body["code"]), (want, err), err)
+
+    def test_staff_may_set_an_invites_life_and_note(self):
+        self.call("POST", "/api/login/password", {"user": "gm", "pass": "pw"})   # GM level 3
+        self.call("POST", "/api/login/invites/create", {"life": 30, "note": " for Bob "})
+        self.assertEqual({k: v for k, v in self.game.calls[-1][2].items() if k != "ipHash"},
+                         {"account_id": 7, "life": 30, "note": "for Bob"})
 
     def test_password_sign_in_gives_the_same_session(self):
         status, body = self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})

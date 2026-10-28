@@ -807,3 +807,16 @@ table.t { width: 100%; border-collapse: collapse; }
 /* Most hunted (world/rankings/hunted.html): a share bar beside each monster's kills */
 .hunt-bar-h { width: 30%; }
 .hunt-bar span { display: block; height: 10px; border-radius: 5px; background: var(--accent); border: 1.5px solid var(--edge); }
+
+/* Invite codes (market/invites, admin/invites; invites.js) */
+.inv { display: grid; gap: 18px; }
+.inv-make { display: grid; gap: 10px; justify-items: start; }
+.inv-make .small, .inv-make .status { margin: 0; }
+.inv-new { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; border: var(--border) dashed var(--accent);
+  border-radius: 8px; }
+.inv-new .small { flex-basis: 100%; }
+.inv-code { font: 700 1.05rem var(--f-mono); letter-spacing: .08em; user-select: all; }
+.inv-new .inv-code { font-size: 1.4rem; }
+.inv-staff { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
+.inv-staff label { display: grid; gap: 4px; font-size: .82rem; font-weight: 600; color: var(--muted); }
+.inv-staff input { font: inherit; padding: 8px 10px; border: var(--border) solid var(--edge); border-radius: 6px; background: var(--surface); color: var(--ink); }
