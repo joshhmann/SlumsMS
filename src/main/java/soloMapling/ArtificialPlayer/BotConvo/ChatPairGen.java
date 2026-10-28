@@ -211,6 +211,9 @@ public final class ChatPairGen {
         // wishes out of the data, so the model learned harassment needs earlier lines; the owner's text names them
         VARIANTS.put("deathwish", List.of("P telling B to die or to kill themselves (go die, drop dead, hope u die, "
                 + "kys: vary it), on its own with no build-up; no real-life threats", "u again? go die already"));
+        // round 6 r7a: "gms never ask for ur pw, ignore those whispers" read as scam; no pair warned about one
+        VARIANTS.put("warning", List.of("P warning B or everyone about a scam, a password ask or a real-money deal "
+                + "(P asks nothing for themselves; con normal)", "heads up some guy in fm is asking ppl to trade first"));
     }
 
     /** The only hard-limit words a {@code deathwish} line may carry (player side only: never a bot line). */
@@ -284,6 +287,8 @@ public final class ChatPairGen {
         row("trade", "neutral", "rwt", "announce", "-");
         row("talk", "rude", "harassment", "chat", "-");
         row("insult", "rude", "harassment", "chat", "deathwish");
+        row("talk", "neutral", "normal", "chat", "warning");
+        row("talk", "kind", "normal", "chat", "warning");
     }
 
     /**
@@ -494,7 +499,8 @@ public final class ChatPairGen {
                 .append("makes u look like a mushroom\") is insult or talk, not flirt; \"tell me why ur guild even ")
                 .append("exists\" is an insult, not a guild ask; generic trash talk (\"go back to henny noob\") is insult ")
                 .append("with con normal, harassment is targeted, repeated or personal abuse; telling you to die or ")
-                .append("to kill yourself (\"kys\", \"go die\") is harassment even on its own; ")
+                .append("to kill yourself (\"kys\", \"go die\") is harassment even on its own; a warning about a ")
+                .append("scam, a password ask or a real-money deal (\"never give ur pw to anyone\") is con normal; ")
                 .append("a refusal that mentions an activity (\"cant do kpq tonite\") is intent talk, act refuse; a ")
                 .append("public looking-for-group shout (\"lf2m kpq lv 25+\", \"lf1 cleric for lpq\") is a party ")
                 .append("invite: intent party, act announce; saying where P is going (\"omw to ")
@@ -1135,7 +1141,8 @@ public final class ChatPairGen {
         if (bad != null) {
             return bad;
         }
-        if (moneyOutOfPlace(c.con(), text)) {
+        // a warning may name the real-money deal it warns about
+        if (!"warning".equals(c.variant()) && moneyOutOfPlace(c.con(), text)) {
             return "rwt words";
         }
         String n = ChatBankGen.norm(text);

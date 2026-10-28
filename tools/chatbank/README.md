@@ -67,7 +67,8 @@ negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank
   manipulation with talk, harassment with talk or insult; an honest "priest buff plz" is never scam); and the **hard negatives**, all con `normal`: talk that reads like a request
   (`omw`, `refusal` "sorry cant do kpq tonite", `hello`, `bye`, `story` "i helped kill balrog
   yesterday", `denial` "im saving for a weapon, not asking u for mesos") and near-misses that read like a con
-  (`payback` between friends, `wts` "wts 10k nx code 50m", `priced` fair trades and haggles). A public looking-for-group shout (`lfg`, "lf2m kpq lv 25+") is a party invite (owner
+  (`warning` others about a scam, a password ask or a real-money deal, which may name the real-money deal (round 6:
+  r7a flagged "gms never ask for ur pw" as scam), `payback` between friends, `wts` "wts 10k nx code 50m", `priced` fair trades and haggles). A public looking-for-group shout (`lfg`, "lf2m kpq lv 25+") is a party invite (owner
   2026-10-27; holdout-70 labels "lf1 for opq im a cleric" party): intent party, act announce.
 - **Earlier lines** (round 5, owner 2026-10-27): every pair has `context`, a list of 0 to 5 earlier lines of the same
   conversation (`{"who": "P"|"B"|"O", "text": ...}`; O = someone nearby); the labels describe `player_line` given

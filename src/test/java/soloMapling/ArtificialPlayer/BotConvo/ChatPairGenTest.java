@@ -369,7 +369,8 @@ class ChatPairGenTest {
                 + "for it, is intent talk"), sys.substring(hard));
         assertTrue(sys.contains("teasing") && sys.contains("tell me why ur guild even exists")
                 && sys.contains("harassment is targeted, repeated or personal abuse")
-                && sys.contains("is harassment even on its own"));
+                && sys.contains("is harassment even on its own")
+                && sys.contains("never give ur pw to anyone\") is con normal"));
         assertTrue(ChatPairGen.CON_WORDS.get("harassment").contains("not generic trash talk"));
         assertTrue(ChatPairGen.ROWS.contains(new ChatPairGen.Row("insult", "rude", "normal", "chat", "-")),
                 "trash talk has its own insult/normal row");
@@ -590,6 +591,11 @@ class ChatPairGenTest {
         assertEquals("harm", g.playerProblem(wish, "go die, i know where u live"));
         assertEquals("harm", g.playerProblem(wish, "ill find u irl"));
         assertEquals("slur", g.playerProblem(wish, "kys f4ggot"));
+        // a warning may name what it warns about; other normal lines still may not
+        ChatPairGen.Cell warn = new ChatPairGen.Cell("talk", "neutral", "normal", "chat", "warning", "talk", "lower", "-");
+        assertNull(g.playerProblem(warn, "dont buy mesos for paypal, they never send"));
+        assertEquals("rwt words", g.playerProblem(cell("talk", "neutral", "normal", "chat", "talk"),
+                "dont buy mesos for paypal, they never send"));
         ChatPairGen.Cell come = cell("come", "neutral", "normal", "ask", "come_yes");
         assertEquals("placeholder", g.playerProblem(come, "come to {map}"));
         assertEquals("too long", g.playerProblem(come, "come to ellinia ".repeat(5)));
