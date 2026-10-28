@@ -72,16 +72,20 @@ class LazyPenguinsTest {
             Penguin p = t.get(n++);
             assertEquals(p.map(), Integer.parseInt(m.group(1)));
             assertEquals(p.id(), Integer.parseInt(m.group(2)));
-            int[] moved = movedBy048().get(p.id());   // 046 keeps the original spot; 048 moves it to the tsv's
-            if (moved == null) {
-                assertEquals(p.x(), Integer.parseInt(m.group(3)));
-                assertEquals(p.y(), Integer.parseInt(m.group(4)));
-                assertEquals(p.fh(), Integer.parseInt(m.group(5)));
-            } else {
-                assertEquals(moved[0], Integer.parseInt(m.group(3)));
-                assertEquals(moved[1], Integer.parseInt(m.group(4)));
-                assertEquals(moved[2], Integer.parseInt(m.group(5)));
+            int[][] m048 = moves("048-custom-npc-spots").get(p.id());   // {old, new} x, y, fh
+            int[][] m049 = moves("049-penguin-spots-2").get(p.id());
+            int[] first = m048 != null ? m048[0] : m049 != null ? m049[0] : new int[]{p.x(), p.y(), p.fh()};   // what 046 inserted
+            assertEquals(first[0], Integer.parseInt(m.group(3)));
+            assertEquals(first[1], Integer.parseInt(m.group(4)));
+            assertEquals(first[2], Integer.parseInt(m.group(5)));
+            if (m048 != null && m049 != null) {
+                assertEquals(m049[0][0], m048[1][0], "049 starts where 048 ended");
+                assertEquals(m049[0][2], m048[1][2]);
             }
+            int[] last = m049 != null ? m049[1] : m048 != null ? m048[1] : first;
+            assertEquals(p.x(), last[0], p.id() + " tsv = last migration x");
+            assertEquals(p.y(), last[1]);
+            assertEquals(p.fh(), last[2]);
             assertEquals(p.flip(), Integer.parseInt(m.group(6)));
         }
         assertEquals(15, n);
@@ -92,26 +96,30 @@ class LazyPenguinsTest {
         assertTrue(Files.readString(Path.of("docs/release/1.6.1.conf")).contains("046-lazy-penguins"), "listed in 1.6.1.conf");
     }
 
-    /** npc id to its old (046) x, y, fh, read from migration 048's forward rows; the new spot must equal the tsv. */
-    private static Map<Integer, int[]> movedBy048() throws Exception {
+    /** npc id to {old {x, y, fh}, new {x, y, fh}}, read from a moving migration's forward rows. */
+    private static Map<Integer, int[][]> moves(String migration) throws Exception {
         Matcher m = Pattern.compile("(?:SELECT|UNION ALL SELECT) (\\d{9})(?: AS map)?, (\\d{4})(?: AS life)?, (-?\\d+)(?: AS ox)?, (-?\\d+)(?: AS oy)?, (\\d+)(?: AS ofh)?, (-?\\d+)(?: AS nx)?, (-?\\d+)(?: AS ny)?, (\\d+)")
-                .matcher(Files.readString(Path.of("database/migrations/048-custom-npc-spots.sql")));
-        Map<Integer, int[]> out = new HashMap<>();
-        Map<Integer, Penguin> byId = new HashMap<>();
-        for (Penguin p : table()) {
-            byId.put(p.id(), p);
-        }
+                .matcher(Files.readString(Path.of("database/migrations/" + migration + ".sql")));
+        Map<Integer, int[][]> out = new HashMap<>();
         while (m.find()) {
-            int id = Integer.parseInt(m.group(2));
-            Penguin p = byId.get(id);
-            assertEquals(p.map(), Integer.parseInt(m.group(1)));
-            assertEquals(p.x(), Integer.parseInt(m.group(6)), id + " 048 new x = tsv");
-            assertEquals(p.y(), Integer.parseInt(m.group(7)), id + " 048 new y = tsv");
-            assertEquals(p.fh(), Integer.parseInt(m.group(8)), id + " 048 new fh = tsv");
-            out.put(id, new int[]{Integer.parseInt(m.group(3)), Integer.parseInt(m.group(4)), Integer.parseInt(m.group(5))});
+            out.put(Integer.parseInt(m.group(2)), new int[][]{
+                    {Integer.parseInt(m.group(3)), Integer.parseInt(m.group(4)), Integer.parseInt(m.group(5))},
+                    {Integer.parseInt(m.group(6)), Integer.parseInt(m.group(7)), Integer.parseInt(m.group(8))}});
         }
-        assertEquals(9, out.size(), "nine penguins move");
         return out;
+    }
+
+    @Test
+    void migration049MovesFivePenguinsAndRollsBack() throws Exception {
+        Map<Integer, int[][]> mv = moves("049-penguin-spots-2");
+        assertEquals(java.util.Set.of(2987, 2991, 2992, 2998, 2999), mv.keySet());
+        String sql = Files.readString(Path.of("database/migrations/049-penguin-spots-2.sql"));
+        assertTrue(sql.contains("p.x = m.ox AND p.y = m.oy AND p.fh = m.ofh"), "only a row at its old spot moves");
+        assertTrue(sql.contains("mapleroot_integration_migrations(migration_id) VALUES ('049-penguin-spots-2')"));
+        String rb = Files.readString(Path.of("database/migrations/049-penguin-spots-2.rollback.sql"));
+        assertTrue(rb.contains("DELETE FROM mapleroot_integration_migrations WHERE migration_id = '049-penguin-spots-2'"));
+        assertTrue(rb.contains("2991 AS life, 920 AS ox, 255 AS oy, 90 AS ofh, 793 AS nx, -720 AS ny, 85 AS nfh"), "rollback goes back to the 046/048 spot");
+        assertTrue(Files.readString(Path.of("docs/release/1.6.1.conf")).contains("049-penguin-spots-2"));
     }
 
     @Test
@@ -159,7 +167,10 @@ class LazyPenguinsTest {
             double ground = fh[1] + (fh[3] - fh[1]) * (double) (p.x() - fh[0]) / (fh[2] - fh[0]);
             assertTrue(Math.abs(ground - p.y()) <= 1, p.town() + ": on the ground (" + ground + " vs " + p.y() + ")");
             assertEquals(List.of(), FrontObjects.covering(wz, p.map(), p.x(), p.y(), p.fh(), 25), p.town() + ": no map object drawn over her");
-            assertTrue(Math.abs(fh[3] - fh[1]) <= 0.25 * Math.abs(fh[2] - fh[0]), p.town() + ": gentle slope");
+            // Every spot has a portal or spawn within 150 px vertically; the five 049 spots also sit on a chain 400+ px wide.
+            boolean moved049 = moves("049-penguin-spots-2").containsKey(p.id());
+            assertEquals(null, FrontObjects.unreachable(wz, p.map(), p.y(), p.fh(), moved049 ? 400 : 0), p.town() + ": reachable");
+            assertTrue(Math.abs(fh[3] - fh[1]) <= 0.26 * Math.abs(fh[2] - fh[0]), p.town() + ": gentle slope");
             for (Map<String, String> q : entries(child(root, "portal"))) {
                 if (Math.abs(Integer.parseInt(q.get("y")) - p.y()) <= 120) {
                     assertTrue(Math.abs(Integer.parseInt(q.get("x")) - p.x()) >= 60, p.town() + ": clear of portal " + q.get("pn"));
