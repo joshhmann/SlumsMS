@@ -96,6 +96,13 @@ class GoalCatalogTest {
 
     @Test
     void theFileIsInTheKnownDataFiles() throws Exception {
-        assertTrue(Files.readString(Path.of("src/main/java/soloMapling/DataFiles.java")).contains(GoalCatalog.DATA_PATH));
+        assertTrue(Files.readString(Path.of("src/main/java/soloMapling/DataFiles.java")).contains(GoalCatalog.DATA_PATH.substring("src/main/java/".length())));
+    }
+
+    @Test
+    void theLoaderFindsTheFileWhereTheServerLooks() throws Exception {
+        java.io.File f = soloMapling.DataFiles.optional(GoalCatalog.DATA_PATH);
+        assertTrue(f.isFile(), "DataFiles.optional(" + GoalCatalog.DATA_PATH + ") -> " + f);
+        assertTrue(GoalCatalog.read(f.toPath(), id -> true).goals().size() >= 30);
     }
 }
