@@ -708,8 +708,10 @@ table.t { width: 100%; border-collapse: collapse; }
   grid-template-areas: "alert alert" "tabs tabs" "tick tick" "chart book" "depth book" "form trades" "orders orders" "rules rules"; }
 .xc-c { display: contents; }
 .xc-term .up { color: var(--xc-up); } .xc-term .down { color: var(--xc-down); } .xc-term .flat { color: var(--xc-muted); }
-.xc-alert { grid-area: alert; margin: 0; padding: 8px 12px; border: 1.5px dashed var(--xc-sun); border-radius: 6px;
+.xc-alerts { display: grid; gap: 8px; } .xc-alerts:empty { display: none; }
+.xc-alert { margin: 0; padding: 8px 12px; border: 1.5px dashed var(--xc-sun); border-radius: 6px;
   color: var(--xc-sun); font-weight: 600; font-size: .88rem; }
+.xc-event { border-style: solid; background: rgba(246, 201, 76, .1); cursor: pointer; }
 .xc-p { background: var(--xc-panel); border: 1px solid var(--xc-line); border-radius: 8px; padding: 12px 14px; min-width: 0; margin: 0; }
 .xc-p h2 { margin: 0 0 10px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
   font: 700 .74rem var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--xc-muted); }

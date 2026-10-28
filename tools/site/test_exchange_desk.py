@@ -51,7 +51,9 @@ class Game:
         return True, "OK", {"orderId": 77}
 
 
-TICKERS = {"schema": 1, "halted": False, "max_open_per_ticker": 10, "per_day_scope": "ticker", "tickers": [
+TICKERS = {"schema": 1, "halted": False, "max_open_per_ticker": 10, "per_day_scope": "ticker",
+           "events": [{"id": "rush-1", "name": "Leaf Rush", "ticker": "LEAF", "ends_at": "2026-10-29T01:00:00Z",
+                       "secret_effect": "dropped"}], "tickers": [
     dict(xd.NX, bid=None, ask=None, last=None, bids=[], asks=[], trades=[]),
     {"id": "LEAF", "name": "Maple Leaf", "item_id": 4001126, "unit": "item", "unit_label": "mesos per Maple Leaf",
      "per": 1, "qty_label": "items", "min_qty": 1, "max_qty": 1000, "lot": 1, "min_price": 1,
@@ -163,6 +165,8 @@ class DeskTest(old.Base):
         self.assertNotIn("secret", b["tickers"][1])
         self.assertEqual(b["limits"], dict(xd.DEFAULT_LIMITS, max_open_per_ticker=10, per_day_scope="ticker"),
                          "the game's limits win, the rest stay the defaults")
+        self.assertEqual(b["events"], [{"id": "rush-1", "name": "Leaf Rush", "ticker": "LEAF",
+                                        "ends_at": "2026-10-29T01:00:00Z"}], "announced events, the four fields only")
 
     def test_item_tickers_use_their_own_rules(self):
         ms.write_atomic(os.path.join(self.outbox, xd.TICKERS), TICKERS)

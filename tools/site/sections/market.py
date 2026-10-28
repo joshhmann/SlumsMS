@@ -614,9 +614,11 @@ here is one a player paid.</p>
 <noscript><p class="small">The exchange needs JavaScript turned on.</p></noscript>
 <div class="xc-term">
 <div class="xc-c" x-data="xbook">
-<p class="xc-alert" x-show="state === 'error'" x-text="error" x-cloak></p>
+<div class="xc-alerts" style="grid-area: alert"><p class="xc-alert" x-show="state === 'error'" x-text="error" x-cloak></p>
 <p class="xc-alert" x-show="halted" x-cloak>Trading paused by a GM: no new orders or trades for now. You can still cancel.</p>
 <p class="xc-alert" x-show="state === 'ok' && !list.length" x-cloak>The exchange isn't open on this server yet.</p>
+<template x-for="e in events" :key="e.id"><p class="xc-alert xc-event" @click="e.ticker && pick(e.ticker)"><b>Market event:</b>
+<span x-text="eventText(e)"></span></p></template></div>
 <nav class="xc-tabsbar" style="grid-area: tabs" aria-label="Tickers"><template x-for="t in list" :key="t.id">
 <button type="button" class="xc-tk" :class="cur && cur.id === t.id && 'on'" @click="pick(t.id)" :aria-pressed="cur && cur.id === t.id">
 <img :src="icon(t)" alt="" width="22" height="22" loading="lazy"><b x-text="t.id"></b>
@@ -667,16 +669,15 @@ a buyer pays the mesos plus the fee (set aside when the order is placed; what is
 <li x-show="list.some(function (t) { return t.unit === 'item'; })">Only tradeable copies of an item can be sold: not
 untradeable, locked, expiring or cash items.</li>
 <li><b>Limits:</b> <span x-text="limitRule()"></span></li>
-<li><b>Expiry:</b> an order that hasn't fully traded closes after <span x-text="expiryText()"></span>, and whatever is
-left comes back.</li>
+<li><b>Expiry:</b> an order that hasn't fully traded by its time closes, and whatever is left comes back.</li>
 <li><b>Which character:</b> every order names one of your characters. Mesos and items come from (and go to) that
 character; NX is your account's. If you're logged in to the game, use the character you're playing (or log out first).</li>
 </ul></section>
 </div>
 <div class="xc-c" x-data="xmine">
-<p class="xc-alert" x-show="state === 'signedOut'" x-cloak>Sign in to trade.</p>
+<p class="xc-alert" style="grid-area: form" x-show="state === 'signedOut'" x-cloak>Sign in to trade.</p>
 <form class="xc-p xc-form" style="grid-area: form" x-show="data" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
-<h2><span x-text="'New ' + meta.id + ' order'"></span> <small x-text="openCount() + ' of ' + lim().max_open_per_ticker + ' open'"></small></h2>
+<h2><span x-text="'New ' + meta.id + ' order'"></span> <small x-text="openCount() + ' of ' + lim(meta).max_open_per_ticker + ' open'"></small></h2>
 <div class="xc-side"><button type="button" class="buy" :class="side === 'BUY' && 'on'" @click="side = 'BUY'" x-text="'Buy ' + meta.id"></button>
 <button type="button" class="sell" :class="side === 'SELL' && 'on'" @click="side = 'SELL'" x-text="'Sell ' + meta.id"></button></div>
 <label><span x-text="'Amount (' + meta.qty_label + ')'"></span>
@@ -697,7 +698,7 @@ logged in to the game. Items you buy go into its bags the next time it's in game
 <dt>Trades right away</dt><dd x-text="pv && ((pv.matchNow.qty || pv.matchNow.nx) ? fmt(pv.matchNow.qty || pv.matchNow.nx) + ' for ' + fmt(pv.matchNow.mesos) + ' mesos' : 'nothing yet')"></dd>
 <dt x-show="pv && (pv.matchNow.qty || pv.matchNow.nx)">You get now</dt><dd x-show="pv && (pv.matchNow.qty || pv.matchNow.nx)" x-text="pv && (fmt(pv.matchNow.youGet.amount) + ' ' + asset(pv.matchNow.youGet.asset))"></dd>
 <dt x-show="pv && pv.matchNow.fee">Your fee now</dt><dd x-show="pv && pv.matchNow.fee" x-text="pv && (fmt(pv.matchNow.fee) + ' mesos')"></dd>
-<dt>Waits in the book</dt><dd x-text="pv && (pv.restsNx ? fmt(pv.restsNx) + ', up to ' + lim().expiry_hours + ' h' : 'nothing')"></dd>
+<dt>Waits in the book</dt><dd x-text="pv && (pv.restsNx ? fmt(pv.restsNx) + ', up to ' + lim(meta).expiry_hours + ' h' : 'nothing')"></dd>
 </dl>
 <p class="xc-msg bad" x-show="pv && pv.cancelledBySelfTrade">This would meet one of your own orders, so it would be closed instead of trading.</p>
 <p class="xc-note" x-text="left > 0 ? 'Confirm within ' + left + ' s.' : 'This preview expired. Preview it again.'"></p>

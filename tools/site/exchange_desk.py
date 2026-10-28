@@ -47,7 +47,7 @@ DEFAULT_LIMITS = {"fee_bps_each_side": 100, "max_open_per_ticker": 5, "per_day":
 # NX as a game without tickers has it (exchange-book.json): the same keys as a ticker in exchange-tickers.json
 NX = {"id": "NX", "name": "NX", "item_id": None, "unit": "1000nx", "unit_label": "mesos per 1,000 NX", "per": 1000,
       "qty_label": "NX", "min_qty": 100, "max_qty": 50_000, "lot": 100, "min_price": 1_000, "max_price": 100_000_000}
-META = tuple(NX) + ("bid", "ask", "last", "change_24h", "change_24h_pct", "high_24h", "low_24h", "volume_24h",
+META = tuple(NX) + ("max_open", "per_day", "expiry_hours", "bid", "ask", "last", "change_24h", "change_24h_pct", "high_24h", "low_24h", "volume_24h",
                     "turnover_24h", "fills_24h", "rate", "bids", "asks", "trades")
 
 SCHEMA = """
@@ -73,7 +73,7 @@ class Desk:
         self.store = store
         store.db.executescript(SCHEMA)
         self.seen = None  # (mtime_ns, size) of the last exchange-responses.json read
-        self.limits = {}
+        self.limits, self.events = {}, []
 
     def q(self, sql, *args):
         return self.store.db.execute(sql, args).fetchall()
@@ -158,8 +158,11 @@ class Desk:
             rows = [{k: x.get(k) for k in META} for x in t["tickers"]
                     if isinstance(x, dict) and isinstance(x.get("id"), str)]
             self.limits = {k: t[k] for k in LIMITS if isinstance(t.get(k), (int, str))}
+            # announced market events only (Leaf Rush ...; the secret ones never reach the export)
+            self.events = [{k: e.get(k) for k in ("id", "name", "ticker", "ends_at")} for e in t.get("events") or []
+                           if isinstance(e, dict) and isinstance(e.get("name"), str)]
             return rows, bool(t.get("halted")), t.get("generated_at")
-        self.limits = {}
+        self.limits, self.events = {}, []
         b = self._read(BOOK)
         if not isinstance(b, dict):
             return [], False, None
@@ -185,7 +188,8 @@ class Desk:
         rows, halted, at = self.tickers()
         # the game's limits when it publishes them, else the defaults (the owner may raise them: 2026-10-28)
         limits = dict(DEFAULT_LIMITS, **self.limits)
-        return {"tickers": rows, "halted": halted, "generated_at": at, "limits": limits, "rules": RULES}
+        return {"tickers": rows, "halted": halted, "generated_at": at, "limits": limits, "events": self.events,
+                "rules": RULES}
 
     def history(self, raw):
         t = self.ticker(raw)

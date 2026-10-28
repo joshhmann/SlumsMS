@@ -39,8 +39,8 @@
     INSUFFICIENT_FUNDS: "Not enough to cover it: mesos on that character, NX on your account, or tradeable items in its bags.",
     NOT_OWNER: "That character isn't on your account.",
     NOT_FOUND: "That order wasn't found (it may have already closed).",
-    LIMIT_OPEN: function () { return "You already have " + lim().max_open_per_ticker + " open orders on this ticker. Cancel one first."; },
-    LIMIT_DAY: function () { return "That's " + lim().per_day + " orders today. Try again tomorrow."; },
+    LIMIT_OPEN: function () { return "You already have " + lim(store().meta).max_open_per_ticker + " open orders on this ticker. Cancel one first."; },
+    LIMIT_DAY: function () { return "That's " + lim(store().meta).per_day + " orders today. Try again tomorrow."; },
     COOLDOWN: function () { return "Wait " + lim().cooldown_sec + " seconds between orders."; },
     DUPLICATE: "That order was already sent.",
     TOKEN_EXPIRED: "That preview expired. Preview the order again.",
@@ -81,7 +81,16 @@
 
   function store() { return window.Alpine.store("xc"); }
   var LIM = { fee_bps_each_side: 100, max_open_per_ticker: 5, per_day: 20, per_day_scope: "all", cooldown_sec: 10, expiry_hours: 72 };
-  function lim() { return store().limits || LIM; }
+  // the exchange's limits, with a ticker's own where it has them (NX: 5 open, 20 a day, 72 h; items: their own)
+  function lim(t) {
+    var l = Object.assign({}, LIM, store().limits || {});
+    if (t) ["max_open", "per_day", "expiry_hours"].forEach(function (k) {
+      var top = k === "max_open" ? "max_open_per_ticker" : k;
+      if (typeof t[k] === "number") l[top] = t[k];
+    });
+    return l;
+  }
+  function hours(h) { return h % 24 === 0 && h > 48 ? h / 24 + " days" : h + " hours"; }
 
   function xbook() {
     var base = window.live(API + "book", 10);
@@ -157,15 +166,21 @@
       lim: lim,
       feePct: function () { return (lim().fee_bps_each_side / 100) + "%"; },
       sizeRule: function (t) {
-        var q = t.unit === "item" ? " per order" : " per order, in lots of " + fmt(t.lot);
-        return "priced in " + t.unit_label + "; " + fmt(t.min_qty) + " to " + fmt(t.max_qty) + " " + t.qty_label + q + ".";
+        var q = t.unit === "item" ? " per order" : " per order, in lots of " + fmt(t.lot), l = lim(t);
+        return "priced in " + t.unit_label + "; " + fmt(t.min_qty) + " to " + fmt(t.max_qty) + " " + t.qty_label + q
+          + "; up to " + l.max_open_per_ticker + " open orders and " + l.per_day + " new ones a day"
+          + "; an order lasts " + hours(l.expiry_hours) + ".";
       },
       limitRule: function () {
         var l = lim();
-        return l.max_open_per_ticker + " open orders per ticker, " + l.per_day + " new orders a day"
-          + (l.per_day_scope === "ticker" ? " per ticker" : " across all tickers") + ", " + l.cooldown_sec + " seconds apart.";
+        return "the daily count is " + (l.per_day_scope === "ticker" ? "per ticker" : "across all tickers")
+          + ", and orders are at least " + l.cooldown_sec + " seconds apart.";
       },
-      expiryText: function () { var h = lim().expiry_hours; return h % 24 === 0 && h > 48 ? h / 24 + " days" : h + " hours"; },
+      get events() { return (this.data && this.data.events) || []; },
+      eventText: function (e) {
+        var left = e.ends_at ? Math.max(0, Math.round((new Date(e.ends_at).getTime() - Date.now()) / 60000)) : null;
+        return e.name + (e.ticker ? " on " + e.ticker : "") + (left === null ? "" : left >= 60 ? ": about " + Math.round(left / 60) + " h left" : ": " + left + " min left");
+      },
       usePrice: function (price) { window.dispatchEvent(new CustomEvent("xc-price", { detail: price })); },
 
       // candles: the game's hours that traded; with none yet, the last trades as a line
