@@ -37,7 +37,7 @@ No medal item or gameplay value was changed.
   Daily Check-In has). Every medal id was checked in the server's `Character.wz/Accessory` and in the client's
   `Data` (tools/clientcheck scan of 2026-10-21, same ids).
 - Medals are zero-stat copies made from the real item (`GameHands.zeroStats`); the ordinary item is untouched.
-- Storage: `character_achievements` (migration 042 + rollback, tested apply-twice / rollback-twice on MySQL 8.0 by
+- Storage: `character_achievements` (migration 043 + rollback, tested apply-twice / rollback-twice on MySQL 8.0 by
   `JdbcAchievementStoreIT`). State 0 progress, 1 earned (medal owed), 2 granted. The claim is a conditional write,
   so two claims cannot both win; the item is added and the character saved before the receipt; a crash in between
   is repaired from the bag (a medal already held only gets its receipt).

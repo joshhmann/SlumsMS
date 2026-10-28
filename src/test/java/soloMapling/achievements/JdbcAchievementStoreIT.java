@@ -17,9 +17,9 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Ticket 93: the SQL store and migration 042 against a throwaway MySQL 8. Skipped unless
+ * Ticket 93: the SQL store and migration 043 against a throwaway MySQL 8. Skipped unless
  * {@code -Dslums.achievements.it.url=jdbc:mysql://127.0.0.1:PORT/DB?user=..&password=..} names an empty scratch schema
- * (never a game database). Applies 042 twice, runs the claim rules and a service round trip, rolls 042 back twice.
+ * (never a game database). Applies 043 twice, runs the claim rules and a service round trip, rolls 042 back twice.
  */
 class JdbcAchievementStoreIT {
     static final String URL = System.getProperty("slums.achievements.it.url");
@@ -30,19 +30,19 @@ class JdbcAchievementStoreIT {
         Assumptions.assumeTrue(URL != null && !URL.isBlank(), "no scratch MySQL given");
         admin = DriverManager.getConnection(URL);
         exec("DROP TABLE IF EXISTS character_achievements, mapleroot_integration_migrations");
-        runFile("042-achievements.sql");
-        runFile("042-achievements.sql"); // twice: no change
-        assertEquals(1, one("SELECT COUNT(*) FROM mapleroot_integration_migrations WHERE migration_id = '042-achievements'"));
+        runFile("043-achievements.sql");
+        runFile("043-achievements.sql"); // twice: no change
+        assertEquals(1, one("SELECT COUNT(*) FROM mapleroot_integration_migrations WHERE migration_id = '043-achievements'"));
     }
 
     @AfterEach
     void tearDown() throws Exception {
         if (admin != null) {
-            runFile("042-achievements.rollback.sql");
-            runFile("042-achievements.rollback.sql");
+            runFile("043-achievements.rollback.sql");
+            runFile("043-achievements.rollback.sql");
             assertEquals(0, one("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()"
                     + " AND table_name = 'character_achievements'"), "rollback removed the table");
-            assertEquals(0, one("SELECT COUNT(*) FROM mapleroot_integration_migrations WHERE migration_id = '042-achievements'"));
+            assertEquals(0, one("SELECT COUNT(*) FROM mapleroot_integration_migrations WHERE migration_id = '043-achievements'"));
             admin.close();
         }
     }

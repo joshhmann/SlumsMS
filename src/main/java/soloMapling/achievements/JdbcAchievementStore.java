@@ -9,7 +9,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Table {@code character_achievements} (migration 042). */
+/** Table {@code character_achievements} (migration 043). */
 public final class JdbcAchievementStore implements AchievementStore {
 
     /** Where connections come from (the game's pool; a scratch database in the integration test). */
