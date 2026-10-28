@@ -3,6 +3,8 @@
 
     python3 -m unittest discover -s tools/data-align -p 'test_slums_chan.py'
 """
+import datetime
+import importlib.util
 import os
 import subprocess
 import sys
@@ -54,6 +56,27 @@ class SlumsChanTool(unittest.TestCase):
             self.assertEqual(STRINGS, f.read())
         self.assertIn('nothing to do', run(self.wz, '--apply'))
         self.assertEqual(1, len([d for d in os.listdir(self.tmp.name) if d.startswith('wz-backup-')]))
+
+    def test_back_to_back_with_the_penguin_tool_keeps_the_pristine_backup(self):
+        run(self.wz, '--apply')
+        subprocess.run([sys.executable, os.path.join(HERE, 'add_lazy_penguins.py'), '--wz', self.wz, '--apply'],
+                       capture_output=True, text=True, check=True)
+        backups = sorted(d for d in os.listdir(self.tmp.name) if d.startswith('wz-backup-'))
+        self.assertEqual(2, len(backups), backups)
+        mine = [d for d in backups if '-slums-chan-' in d]
+        self.assertEqual(1, len(mine), backups)
+        with open(os.path.join(self.tmp.name, mine[0], 'String.wz', 'Npc.img.xml'), encoding='utf-8') as f:
+            self.assertEqual(STRINGS, f.read(), 'the first backup is the untouched file')
+
+    def test_backup_folder_is_never_reused(self):
+        spec = importlib.util.spec_from_file_location('add_slums_chan', TOOL)
+        tool = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tool)
+        now = datetime.datetime(2026, 10, 28, 12, 0, 0, 123456, tzinfo=datetime.timezone.utc)
+        path = tool.new_backup_dir(self.tmp.name, 'slums-chan', now=now, pid=42)
+        self.assertEqual('wz-backup-20261028T120000.123456Z-slums-chan-42', os.path.basename(path))
+        with self.assertRaises(FileExistsError):
+            tool.new_backup_dir(self.tmp.name, 'slums-chan', now=now, pid=42)
 
 
 if __name__ == '__main__':

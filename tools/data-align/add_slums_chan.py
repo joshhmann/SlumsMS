@@ -9,7 +9,9 @@ Two edits, both skipped when already there (a re-run changes nothing):
   2. String.wz/Npc.img.xml gets the entry `9990000 {name "Slums-chan", func "SlumsMS Guide"}` right after the opening
      <imgdir name="Npc.img"> line (slums-chan/String.wz-Npc-entry.xml). The host file holds its NPC list twice; the
      entry is added once, at the top, which is where a first-match lookup finds it.
-With --apply, String.wz/Npc.img.xml is first copied to <wz>/../wz-backup-<UTC stamp>/String.wz/Npc.img.xml (the new
+With --apply, String.wz/Npc.img.xml is first copied to
+<wz>/../wz-backup-<UTC stamp, microseconds>-slums-chan-<pid>/String.wz/Npc.img.xml, a new folder each run (the
+tool stops, writing nothing, rather than overwrite an existing backup; the new
 Npc.wz file has nothing to back up). The server reads the WZ at startup: restart it afterwards. Without --apply
 nothing is written. Rolling back: copy the backed-up file over String.wz/Npc.img.xml and delete Npc.wz/9990000.img.xml.
 """
@@ -53,6 +55,19 @@ def plan(wz):
     return todo
 
 
+def new_backup_dir(parent, tool, now=None, pid=None):
+    """Create and return a fresh backup folder <parent>/wz-backup-<UTC stamp to the microsecond>-<tool>-<pid>.
+
+    The name is unique per run (two tools run in the same second, or the same tool twice, get different folders),
+    and the folder is created with exist_ok=False: if it is somehow there already, this raises FileExistsError and
+    the caller stops before writing anything, so an earlier backup is never overwritten."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    name = 'wz-backup-%s-%s-%d' % (now.strftime('%Y%m%dT%H%M%S.%fZ'), tool, os.getpid() if pid is None else pid)
+    path = os.path.join(parent, name)
+    os.makedirs(path, exist_ok=False)
+    return path
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--wz', required=True)
@@ -63,14 +78,21 @@ def main():
     if not todo:
         print('Slums-chan is already in %s: nothing to do' % wz)
         return
-    stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    backup_root = None
+    if args.apply and any(os.path.exists(path) for _, path, _ in todo):
+        try:
+            backup_root = new_backup_dir(os.path.dirname(wz), 'slums-chan')
+        except FileExistsError as e:
+            sys.exit('refusing to overwrite an existing backup folder %s: nothing written' % e.filename)
     for what, path, new_text in todo:
         print(('' if args.apply else '[dry run] ') + what)
         if not args.apply:
             continue
         if os.path.exists(path):
             rel = os.path.relpath(path, wz)
-            backup = os.path.join(os.path.dirname(wz), 'wz-backup-' + stamp, rel)
+            backup = os.path.join(backup_root, rel)
+            if os.path.exists(backup):
+                sys.exit('refusing to overwrite the backup ' + backup)
             os.makedirs(os.path.dirname(backup), exist_ok=True)
             shutil.copy2(path, backup)
             print('  backup: ' + backup)

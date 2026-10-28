@@ -9,7 +9,9 @@ Two kinds of edit, each skipped when already there (a re-run changes nothing):
      only the name from String.wz, the file keeps the Npc.wz listing complete for tools that walk it.
   2. String.wz/Npc.img.xml gets `<id> {name "Lazy Penguin", func "<variant>"}` entries right after the opening
      <imgdir name="Npc.img"> line (the host file holds its NPC list twice; first match wins, so the top it is).
-With --apply, String.wz/Npc.img.xml is first copied to <wz>/../wz-backup-<UTC stamp>/String.wz/Npc.img.xml. The server
+With --apply, String.wz/Npc.img.xml is first copied to
+<wz>/../wz-backup-<UTC stamp, microseconds>-lazy-penguins-<pid>/String.wz/Npc.img.xml, a new folder each run (the
+tool stops, writing nothing, rather than overwrite an existing backup). The server
 reads the WZ at startup: restart it afterwards. Rolling back: copy the backup over String.wz/Npc.img.xml and delete
 the 15 Npc.wz/29xx.img.xml files.
 """
@@ -77,6 +79,19 @@ def plan(wz):
     return todo
 
 
+def new_backup_dir(parent, tool, now=None, pid=None):
+    """Create and return a fresh backup folder <parent>/wz-backup-<UTC stamp to the microsecond>-<tool>-<pid>.
+
+    The name is unique per run (two tools run in the same second, or the same tool twice, get different folders),
+    and the folder is created with exist_ok=False: if it is somehow there already, this raises FileExistsError and
+    the caller stops before writing anything, so an earlier backup is never overwritten."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    name = 'wz-backup-%s-%s-%d' % (now.strftime('%Y%m%dT%H%M%S.%fZ'), tool, os.getpid() if pid is None else pid)
+    path = os.path.join(parent, name)
+    os.makedirs(path, exist_ok=False)
+    return path
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--wz', required=True)
@@ -87,13 +102,20 @@ def main():
     if not todo:
         print('The Lazy Penguins are already in %s: nothing to do' % wz)
         return
-    stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    backup_root = None
+    if args.apply and any(os.path.exists(path) for _, path, _ in todo):
+        try:
+            backup_root = new_backup_dir(os.path.dirname(wz), 'lazy-penguins')
+        except FileExistsError as e:
+            sys.exit('refusing to overwrite an existing backup folder %s: nothing written' % e.filename)
     for what, path, new_text in todo:
         print(('' if args.apply else '[dry run] ') + what)
         if not args.apply:
             continue
         if os.path.exists(path):
-            backup = os.path.join(os.path.dirname(wz), 'wz-backup-' + stamp, os.path.relpath(path, wz))
+            backup = os.path.join(backup_root, os.path.relpath(path, wz))
+            if os.path.exists(backup):
+                sys.exit('refusing to overwrite the backup ' + backup)
             os.makedirs(os.path.dirname(backup), exist_ok=True)
             shutil.copy2(path, backup)
             print('  backup: ' + backup)

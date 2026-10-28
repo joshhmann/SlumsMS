@@ -3,6 +3,8 @@
 
     python3 -m unittest discover -s tools/data-align -p 'test_lazy_penguins.py'
 """
+import datetime
+import importlib.util
 import os
 import subprocess
 import sys
@@ -55,6 +57,24 @@ class LazyPenguinsTool(unittest.TestCase):
         before = open(self.strings, encoding='utf-8').read()
         self.assertIn('nothing to do', run(self.wz, '--apply'))
         self.assertEqual(before, open(self.strings, encoding='utf-8').read())
+
+    def test_backup_folder_is_never_reused(self):
+        spec = importlib.util.spec_from_file_location('add_lazy_penguins', TOOL)
+        tool = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tool)
+        now = datetime.datetime(2026, 10, 28, 12, 0, 0, 123456, tzinfo=datetime.timezone.utc)
+        path = tool.new_backup_dir(self.tmp.name, 'lazy-penguins', now=now, pid=42)
+        self.assertEqual('wz-backup-20261028T120000.123456Z-lazy-penguins-42', os.path.basename(path))
+        with self.assertRaises(FileExistsError):
+            tool.new_backup_dir(self.tmp.name, 'lazy-penguins', now=now, pid=42)
+
+    def test_apply_backs_up_the_untouched_strings_file(self):
+        run(self.wz, '--apply')
+        backups = [d for d in os.listdir(self.tmp.name) if d.startswith('wz-backup-')]
+        self.assertEqual(1, len(backups))
+        self.assertIn('-lazy-penguins-', backups[0])
+        with open(os.path.join(self.tmp.name, backups[0], 'String.wz', 'Npc.img.xml'), encoding='utf-8') as f:
+            self.assertEqual(STRINGS, f.read())
 
 
 if __name__ == '__main__':
