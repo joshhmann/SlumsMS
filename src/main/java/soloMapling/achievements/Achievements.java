@@ -218,6 +218,10 @@ public final class Achievements {
                     s.handle(who, new Event(Trigger.JOB, jobTier(chr.getJob().getId())), true);
                     s.handle(who, new Event(Trigger.LEVEL, chr.getLevel()), true);
                     s.handle(who, new Event(Trigger.LEVEL_CAP, chr.getLevel() >= chr.getMaxLevel() ? 1 : 0), true);
+                    // 1.6.1 promise audit: a guild, a marriage and rebirths from before achievements count too.
+                    for (Event fact : loginFacts(chr)) {
+                        s.handle(who, fact, true);
+                    }
                     s.settle(who);
                 } catch (RuntimeException | LinkageError ex) {
                     log.warn("achievement login for {} failed", who.id(), ex);
@@ -226,6 +230,30 @@ public final class Achievements {
         } catch (RuntimeException | LinkageError ex) {
             log.warn("achievement login hook failed", ex);
         }
+    }
+
+    /**
+     * What a character already is that a goal rewards, read from its loaded state (no database): in a guild, married,
+     * and its rebirth count. Facts, so a later login never counts them twice.
+     */
+    static java.util.List<Event> loginFacts(Character chr) {
+        java.util.List<Event> out = new java.util.ArrayList<>();
+        if (chr.getGuildId() > 0) {
+            out.add(Event.fact(Trigger.GUILD, 1));
+        }
+        if (chr.isMarried()) {
+            out.add(Event.fact(Trigger.WEDDING, 1));
+        }
+        int reborns = 0;
+        try {
+            reborns = config.YamlConfig.config.server.USE_REBIRTH_SYSTEM ? chr.getReborns() : 0;
+        } catch (RuntimeException ignored) {
+            // rebirths switched off on this server
+        }
+        if (reborns > 0) {
+            out.add(Event.fact(Trigger.REBIRTH, reborns));
+        }
+        return out;
     }
 
     public static void onLogout(Character chr) {

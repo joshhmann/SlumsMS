@@ -37,7 +37,7 @@ public final class GameHands implements Hands {
     @Override
     public void tell(Character chr, String text) {
         if (chr != null && !soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
-            chr.dropMessage(6, text);
+            chr.yellowMessage(text); // the yellow tip line, as the Slums Stamps claim line (dropMessage 6 is light blue)
         }
     }
 

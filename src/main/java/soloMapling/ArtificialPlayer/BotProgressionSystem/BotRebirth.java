@@ -359,6 +359,7 @@ public final class BotRebirth {
             nextRoll.remove(bot.getId());
             record(bot, pastJob);
             if (announce) soloMapling.site.SiteFeed.rebirth(bot, bot.getReborns());
+            if (announce) soloMapling.achievements.Achievements.onRebirth(bot); // 1.6.1 audit: bots' rebirths earn it too
             String text = bot.getName() + " was reborn as " + bot.getJob().name() + " (rebirth " + bot.getReborns()
                     + ", was job " + pastJob + "; EXP rate " + bot.getExpRate() + ")";
             log.info("[Rebirth] {}", text);
