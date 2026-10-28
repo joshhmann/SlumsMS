@@ -616,7 +616,9 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
                 ask["code"] = code
             if action == "create" and sessions.admin(s):  # staff may set how long it lasts and a note
                 life = body.get("life")
-                if life == "forever" or (isinstance(life, int) and not isinstance(life, bool) and 1 <= life <= 90):
+                if life is not None:  # a bad life is refused, never quietly replaced by the default
+                    if not (life == "forever" or (isinstance(life, int) and not isinstance(life, bool) and 1 <= life <= 90)):
+                        return self.send(400, {"ok": False, "error": INVITE_ERRORS["BAD_INPUT"][1], "code": "BAD_INPUT"})
                     ask["life"] = life
                 if isinstance(body.get("note"), str) and body["note"].strip():
                     ask["note"] = body["note"].strip()[:64]

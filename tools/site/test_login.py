@@ -243,8 +243,10 @@ class AccountSignInTest(unittest.TestCase):
                          {"account_id": 7, "life": 30, "note": "for Bob"})
         self.call("POST", "/api/login/invites/create", {"life": "forever"})
         self.assertEqual(self.game.calls[-1][2]["life"], "forever")
-        self.call("POST", "/api/login/invites/create", {"life": True})
-        self.assertNotIn("life", self.game.calls[-1][2])
+        n = len(self.game.calls)
+        for bad in (True, 0, 91, 999, "never"):
+            self.assertEqual(self.call("POST", "/api/login/invites/create", {"life": bad})[0], 400, bad)
+        self.assertEqual(len(self.game.calls), n, "a bad life never reaches the game (no default-life code)")
 
     def test_password_sign_in_gives_the_same_session(self):
         status, body = self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})
