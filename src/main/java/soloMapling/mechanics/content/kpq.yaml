@@ -1,0 +1,96 @@
+# Ticket 114 stage data: Kerning City Party Quest (KPQ). Scaffold: only stage 1 is filled in.
+# Format: docs/tickets/114-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData,
+# only when the server runs with -Dslums.mechanics=true (off by default; nothing reads this file yet).
+#
+# The server's own scripts are the truth: a solver reads the live answer from the event instance at run time. This
+# file mirrors them for validation, QA and planning, and a unit test checks it still matches scripts/npc/9020001.js.
+id: kpq
+name: Kerning City Party Quest
+kind: PQ
+eventScript: KerningPQ
+recruitMap: 103000000
+exitMap: 103000890
+minPlayers: 3
+maxPlayers: 4
+minLevel: 21
+maxLevel: 255
+timeLimitMinutes: 30
+sources:
+  - "scripts/event/KerningPQ.js and scripts/npc/9020001.js (Cloto): ours, the truth"
+  - "wz Map.wz 103000800.img: Cloto at (592, 106), 22 Ligator (9300001) spawns, spawn point sp (-1077, 81)"
+  - "Cross-checked against nutnnut/cosmic_agents (AGPL-3.0) AgentKpqDefinition: same answers 10/35/20/25/25/30/8"
+# Difficulty tiers (1.7.0 "PQ difficulties"): NORMAL is the stock PQ and needs no entry. Hard, Expert and Master
+# numbers are for the owner to decide (ticket 114, "Difficulty tiers"); the shape is:
+#   tiers:
+#     HARD: { minLevel: 40, mobLevelBonus: 20, mobHpMultiplier: 4, mobDamageMultiplier: 2.5, timeLimitMinutes: 25, botMistakeFactor: 1.25 }
+stages:
+  - stage: 1
+    map: 103000800
+    name: Coupons for Cloto
+    npc: 9020001
+    solver: question-coupons
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: collects one pass from each member and hands them to Cloto
+      - id: answerer
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: gets a question from Cloto, collects that many coupons, trades them for a pass
+    items:
+      - id: 4001007
+        name: Coupon
+        cleanup: true
+      - id: 4001008
+        name: Pass
+        cleanup: true
+    objectives:
+      - id: ask
+        kind: TALK_NPC
+        role: answerer
+        npc: 9020001
+        note: Cloto gives a random question (eim.gridInsert); the answer is a coupon count
+      - id: farm
+        kind: KILL_FOR_ITEM
+        role: answerer
+        mob: 9300001
+        item: 4001007
+        count: answer
+        note: Ligators drop coupons; collect exactly the answer (extra coupons must be dropped first)
+      - id: hand-coupons
+        kind: HAND_IN
+        role: answerer
+        npc: 9020001
+        item: 4001007
+        count: answer
+        note: a wrong count is a visible try ("that is not the right answer"); the right one gives a pass
+      - id: give-pass
+        kind: GIVE_TO_LEADER
+        role: answerer
+        item: 4001008
+        count: 1
+        note: drop the pass next to the leader, the leader loots it
+      - id: hand-passes
+        kind: HAND_IN
+        role: leader
+        npc: 9020001
+        item: 4001008
+        count: party-1
+        note: Cloto clears the stage when the leader holds one pass per other member
+      - id: next
+        kind: ENTER_PORTAL
+        role: all
+        note: portal opens on clear (eim.linkToNextStage)
+    answers:
+      - { id: 1, answer: 10, question: "min level for the warrior 1st job" }
+      - { id: 2, answer: 35, question: "min STR for the warrior 1st job" }
+      - { id: 3, answer: 20, question: "min INT for the magician 1st job" }
+      - { id: 4, answer: 25, question: "min DEX for the bowman 1st job" }
+      - { id: 5, answer: 25, question: "min DEX for the thief 1st job" }
+      - { id: 6, answer: 30, question: "min level for the 2nd job" }
+      - { id: 7, answer: 8, question: "min level for the magician 1st job" }
+    clear:
+      eventProperty: 1stageclear
