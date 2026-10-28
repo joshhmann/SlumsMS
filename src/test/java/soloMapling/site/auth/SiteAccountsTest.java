@@ -89,6 +89,20 @@ class SiteAccountsTest {
         assertFalse(store.revokeInvite("CCCCCCCCCC", "Gm", NOW), "nothing to revoke");
     }
 
+    /** The game's password box takes 23 characters at most (owner, 2026-10-28): the site allows 6 to 23. */
+    @Test
+    void aTwentyThreeCharacterPasswordSignsUpAndSignsIn() {
+        invite(CODE, 0);
+        String p23 = "abcdefghijklmnopqrstuvw";
+        assertEquals(23, p23.length());
+        assertTrue(accounts.signup(CODE, "Newfriend", p23, "ip").ok());
+        assertTrue(accounts.verify("Newfriend", p23, "ip").ok());
+        assertNull(SiteAccounts.passRule(p23));
+        assertEquals("pass_length", SiteAccounts.passRule(p23 + "x"));
+        assertEquals("pass_length", SiteAccounts.passRule("five5"), "the minimum stays AUTO_REGISTER_MIN_PASSWORD_LENGTH (6)");
+        assertNull(SiteAccounts.passRule("six666"));
+    }
+
     @Test
     void theSignUpRulesMatchTheGame() {
         invite(CODE, 0);
@@ -96,7 +110,7 @@ class SiteAccountsTest {
         assertEquals("user_length", accounts.signup(CODE, "abcdefghijklm", "hunter22", "ip").rule());
         assertEquals("user_chars", accounts.signup(CODE, "bad_name", "hunter22", "ip").rule());
         assertEquals("pass_length", accounts.signup(CODE, "Newfriend", "short", "ip").rule());
-        assertEquals("pass_length", accounts.signup(CODE, "Newfriend", "thirteenchars", "ip").rule());
+        assertEquals("pass_length", accounts.signup(CODE, "Newfriend", "a".repeat(24), "ip").rule(), "the game box takes 23");
         assertEquals("pass_chars", accounts.signup(CODE, "Newfriend", "has space", "ip").rule());
         assertEquals("reserved", accounts.signup(CODE, "Admin01", "hunter22", "ip").rule(), "the login screen's staff-name rule");
         assertEquals("bot_name", accounts.signup(CODE, "BottyBoy", "hunter22", "ip").rule());
