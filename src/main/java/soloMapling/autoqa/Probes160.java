@@ -1716,6 +1716,18 @@ final class Probes160 {
      */
     static final int ORGANIC_TICKS = 30, ORGANIC_MIN_BOTS = 20;
 
+    /**
+     * t-bt-1: the tick's average cost (ms). The tick thread's CPU time when measured (wall time includes waiting for a
+     * CPU under a throttled cgroup, which is not our code's cost; TEST 2026-10-28: 24.8 ms wall on 3 loaded CPUs);
+     * the wall time when the CPU time was not available (0 CPU ns with ticks run).
+     */
+    static double tickCostMs(long ticks, long threadCpuNanos, long wallNanos) {
+        if (ticks <= 0) {
+            return 0;
+        }
+        return (threadCpuNanos > 0 ? threadCpuNanos : wallNanos) / 1e6 / ticks;
+    }
+
     /** t-bt-1 (4): the organic verdict, or null when it passes or it is too early to judge (pure, unit-tested). */
     static String organicTalkProblem(long ticks, int onlineBots, long organicTalks) {
         if (ticks < ORGANIC_TICKS || onlineBots < ORGANIC_MIN_BOTS || organicTalks > 0) {
@@ -1786,8 +1798,11 @@ final class Probes160 {
             }
             Map<String, Object> st = soloMapling.ArtificialPlayer.BotConvo.BotTalk.stats();
             long ticks = ((Number) st.get("ticks")).longValue();
-            double perTick = ticks == 0 ? 0 : ((Number) st.get("cpuNanos")).longValue() / 1e6 / ticks;
-            ev.add(String.format(Locale.ROOT, "engine: %.2f ms a tick over %d ticks, %d online bots; %s", perTick, ticks,
+            double wallPerTick = ticks == 0 ? 0 : ((Number) st.get("cpuNanos")).longValue() / 1e6 / ticks;
+            double perTick = tickCostMs(ticks, ((Number) st.get("threadCpuNanos")).longValue(),
+                    ((Number) st.get("cpuNanos")).longValue());
+            ev.add(String.format(Locale.ROOT, "engine: %.2f ms CPU a tick (%.2f ms wall) over %d ticks, %d online bots; %s",
+                    perTick, wallPerTick, ticks,
                     soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getAllBots().size(),
                     soloMapling.ArtificialPlayer.BotConvo.TalkQa.stats()));
             if (perTick > TALK_TICK_MS_MAX) {

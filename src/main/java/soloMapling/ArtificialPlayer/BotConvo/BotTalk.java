@@ -115,7 +115,7 @@ public final class BotTalk {
     private static final Deque<Long> plainParties = new ArrayDeque<>();
     private static final ConcurrentLinkedQueue<Note> notes = new ConcurrentLinkedQueue<>();
 
-    private static final LongAdder ticks = new LongAdder(), cpuNanos = new LongAdder(), talks = new LongAdder(),
+    private static final LongAdder ticks = new LongAdder(), cpuNanos = new LongAdder(), threadCpuNanos = new LongAdder(), talks = new LongAdder(),
             greets = new LongAdder(), groups = new LongAdder(), lines = new LongAdder(), bankLines = new LongAdder(),
             builtInLines = new LongAdder(), llmLines = new LongAdder(), llmCalls = new LongAdder(),
             llmRejected = new LongAdder(), actsOk = new LongAdder(), actsFailed = new LongAdder(),
@@ -190,6 +190,7 @@ public final class BotTalk {
             return;
         }
         long began = System.nanoTime();
+        long cpuBegan = threadCpuNow();
         try {
             ticks.increment();
             writeNotes(now);
@@ -262,6 +263,19 @@ public final class BotTalk {
             }
         } finally {
             cpuNanos.add(System.nanoTime() - began);
+            if (cpuBegan >= 0) {
+                threadCpuNanos.add(Math.max(0, threadCpuNow() - cpuBegan));
+            }
+        }
+    }
+
+    /** CPU time of the calling thread (ns), or -1 when the JVM does not measure it: the tick's own cost, not waits. */
+    private static long threadCpuNow() {
+        try {
+            java.lang.management.ThreadMXBean t = java.lang.management.ManagementFactory.getThreadMXBean();
+            return t.isCurrentThreadCpuTimeSupported() ? t.getCurrentThreadCpuTime() : -1;
+        } catch (RuntimeException | LinkageError e) {
+            return -1;
         }
     }
 
@@ -467,7 +481,7 @@ public final class BotTalk {
             }
         }
         try {
-            WorldSense sense = new WorldSense();
+            WorldSense sense = new WorldSense(forced != null && bankOnly);
             Plan plan = TalkPlanner.plan(who, greetOnly, forced, sense, true, now, rng);
             int id = SEQ.incrementAndGet();
             int channel = BotThreads.channelOf(map);
@@ -1066,7 +1080,8 @@ public final class BotTalk {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("on", on());
         out.put("ticks", ticks.sum());
-        out.put("cpuNanos", cpuNanos.sum());
+        out.put("cpuNanos", cpuNanos.sum()); // wall time of the ticks (includes waits under CPU throttling)
+        out.put("threadCpuNanos", threadCpuNanos.sum()); // CPU time the tick thread burned (the cost of our code)
         out.put("talks", talks.sum());
         out.put("organicTalks", organic.sum());
         out.put("greets", greets.sum());
@@ -1120,6 +1135,22 @@ public final class BotTalk {
 
     /** The planner's view of the real game (memory reads only; never blocks). */
     static final class WorldSense implements TalkPlanner.Sense {
+
+        /**
+         * A QA-forced talk (!qa bt-1, auto-QA t-bt-1) asks about the rule, not about whether the fresh staged bots
+         * are free right now: their starter-supplies trip or log-off guard (busy) and the shared duo-party budget
+         * (other bots' parties on a busy TEST) must not decide whether the ask exists (TEST 2026-10-28: "the game does
+         * not allow PARTY here"). A bot already in a party, a shop, afk or owned still refuses.
+         */
+        private final boolean qaForced;
+
+        WorldSense() {
+            this(false);
+        }
+
+        WorldSense(boolean qaForced) {
+            this.qaForced = qaForced;
+        }
 
         @Override
         public Mind mind(Character c, long now) {
@@ -1211,7 +1242,7 @@ public final class BotTalk {
                     LfgParty.Why why = LfgParty.fit(lobby, safeState(b, now));
                     out.put(Ask.PARTY, new Offer(Ask.PARTY, lobby.label(), Map.of("pq", lobby.name()), lobby,
                             why == LfgParty.Why.YES ? Feasible.YES : Feasible.no(b.getName() + " " + why.words)));
-                } else if (budget(plainParties, now, TimeUnit.MINUTES.toMillis(10), (int) num("partiesPer10Min", 6))) {
+                } else if (qaForced || budget(plainParties, now, TimeUnit.MINUTES.toMillis(10), (int) num("partiesPer10Min", 6))) {
                     out.put(Ask.PARTY, new Offer(Ask.PARTY, "a duo", Map.of(), null, null));
                 }
             }
@@ -1302,9 +1333,12 @@ public final class BotTalk {
             return s;
         }
 
-        private static LfgParty.State safeState(Character c, long now) {
+        private LfgParty.State safeState(Character c, long now) {
             try {
-                return LfgParty.stateOf(c, now);
+                LfgParty.State s = LfgParty.stateOf(c, now);
+                return qaForced && s.busy()
+                        ? new LfgParty.State(s.level(), s.partied(), false, s.afk(), s.shop(), s.owned(), s.canTrip())
+                        : s;
             } catch (RuntimeException | LinkageError e) {
                 return new LfgParty.State(c.getLevel(), c.getParty() != null, true, false, false, false, false);
             }
