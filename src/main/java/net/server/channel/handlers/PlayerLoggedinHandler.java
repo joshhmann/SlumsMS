@@ -143,6 +143,8 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
                 c.disconnect(true, false);
                 return;
             }
+            // The build stamp came on the login (or previous channel) session; this one needs it before any spawn.
+            net.server.coordinator.session.ClientStampCarry.restore(cid, c);
 
             try {
                 altLogin = soloMapling.companions.OwnedAltService.getInstance().beginLogin(cid);

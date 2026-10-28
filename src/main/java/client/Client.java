@@ -126,6 +126,9 @@ public class Client extends ChannelInboundHandlerAdapter {
     // slums.dll build stamp (CP CLIENT_BUILD_STAMP before the password packet); 0 / "" = no stamp (1.4.1 and older).
     private volatile int clientBuild = 0;
     private volatile String clientRelease = "";
+    // The stamp's format (0 = none) and, from format 2, its caps bits (bit 0: custom NPC data; server.life.CustomNpcGate).
+    private volatile int clientStampFormat = 0;
+    private volatile int clientCaps = 0;
     private int visibleWorlds;
     private long lastNpcClick;
     private long lastPacket = System.currentTimeMillis();
@@ -160,6 +163,11 @@ public class Client extends ChannelInboundHandlerAdapter {
     public static Client createChannelClient(long sessionId, String remoteAddress, PacketProcessor packetProcessor,
                                              int world, int channel) {
         return new Client(Type.CHANNEL, sessionId, remoteAddress, packetProcessor, world, channel);
+    }
+
+    /** Tests: the channel packets go to (an EmbeddedChannel). */
+    void useChannelForTest(io.netty.channel.Channel channel) {
+        this.ioChannel = channel;
     }
 
     public static Client createMock() {
@@ -1172,6 +1180,7 @@ public class Client extends ChannelInboundHandlerAdapter {
         this.updateLoginState(Client.LOGIN_SERVER_TRANSITION);
         this.inTransition = true;
         Server.getInstance().setCharacteridInTransition(this, cid);
+        net.server.coordinator.session.ClientStampCarry.remember(cid, this);
     }
 
     public int getChannel() {
@@ -1268,8 +1277,30 @@ public class Client extends ChannelInboundHandlerAdapter {
     }
 
     public void setClientBuild(int build, String release) {
+        setClientStamp(1, build, release, 0);
+    }
+
+    /** The slums.dll build stamp (CP CLIENT_BUILD_STAMP); a channel session gets it carried over from the login one. */
+    public void setClientStamp(int format, int build, String release, int caps) {
+        clientStampFormat = Math.max(0, format);
         clientBuild = build;
         clientRelease = release == null ? "" : release;
+        clientCaps = clientStampFormat >= 2 ? caps : 0;
+    }
+
+    public int getClientStampFormat() {
+        return clientStampFormat;
+    }
+
+    public int getClientCaps() {
+        return clientCaps;
+    }
+
+    /** Copies another session's build stamp onto this one (login -> channel, channel -> channel, cash shop). */
+    public void copyClientStampFrom(Client other) {
+        if (other != null && other != this) {
+            setClientStamp(other.clientStampFormat, other.clientBuild, other.clientRelease, other.clientCaps);
+        }
     }
 
     public int getGMLevel() {
@@ -1598,6 +1629,13 @@ public class Client extends ChannelInboundHandlerAdapter {
     }
 
     public void sendPacket(Packet packet) {
+        if (packet instanceof net.packet.NpcOutPacket) {
+            // 1.6.1: a client without a custom NPC's data must never be sent it (it disconnects): drop or stand in.
+            packet = server.life.CustomNpcGate.filter(packet, clientStampFormat, clientBuild, clientCaps);
+            if (packet == null) {
+                return;
+            }
+        }
         PacketMeter meter = packetMeter;
         if (meter != null) {
             meter.sent(packet);
