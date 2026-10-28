@@ -660,11 +660,23 @@ rate, the size-weighted average of player trades in the last 24 hours (once ther
 <tbody><template x-for="(t, i) in recent()" :key="i"><tr :class="t.dir"><td x-text="clock(t.t)"></td>
 <td x-text="fmt(t.price)"></td><td x-text="fmt(t.qty)"></td></tr></template></tbody></table>
 <p class="xc-note" x-show="cur && !trades.length">No trades yet.</p></section>
+<section class="xc-p xc-rules" style="grid-area: rules"><h2>Fees and limits</h2><ul>
+<li><b>Fee:</b> <span x-text="feePct()"></span> of the mesos, paid by each side. A seller gets the mesos less the fee;
+a buyer pays the mesos plus the fee (set aside when the order is placed; what isn't used comes back).</li>
+<template x-for="t in list" :key="t.id"><li><b x-text="t.name + ':'"></b> <span x-text="sizeRule(t)"></span></li></template>
+<li x-show="list.some(function (t) { return t.unit === 'item'; })">Only tradeable copies of an item can be sold: not
+untradeable, locked, expiring or cash items.</li>
+<li><b>Limits:</b> <span x-text="limitRule()"></span></li>
+<li><b>Expiry:</b> an order that hasn't fully traded closes after <span x-text="expiryText()"></span>, and whatever is
+left comes back.</li>
+<li><b>Which character:</b> every order names one of your characters. Mesos and items come from (and go to) that
+character; NX is your account's. If you're logged in to the game, use the character you're playing (or log out first).</li>
+</ul></section>
 </div>
 <div class="xc-c" x-data="xmine">
 <p class="xc-alert" x-show="state === 'signedOut'" x-cloak>Sign in to trade.</p>
 <form class="xc-p xc-form" style="grid-area: form" x-show="data" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
-<h2><span x-text="'New ' + meta.id + ' order'"></span> <small x-text="openCount() + ' of 5 open'"></small></h2>
+<h2><span x-text="'New ' + meta.id + ' order'"></span> <small x-text="openCount() + ' of ' + lim().max_open_per_ticker + ' open'"></small></h2>
 <div class="xc-side"><button type="button" class="buy" :class="side === 'BUY' && 'on'" @click="side = 'BUY'" x-text="'Buy ' + meta.id"></button>
 <button type="button" class="sell" :class="side === 'SELL' && 'on'" @click="side = 'SELL'" x-text="'Sell ' + meta.id"></button></div>
 <label><span x-text="'Amount (' + meta.qty_label + ')'"></span>
@@ -685,7 +697,7 @@ logged in to the game. Items you buy go into its bags the next time it's in game
 <dt>Trades right away</dt><dd x-text="pv && ((pv.matchNow.qty || pv.matchNow.nx) ? fmt(pv.matchNow.qty || pv.matchNow.nx) + ' for ' + fmt(pv.matchNow.mesos) + ' mesos' : 'nothing yet')"></dd>
 <dt x-show="pv && (pv.matchNow.qty || pv.matchNow.nx)">You get now</dt><dd x-show="pv && (pv.matchNow.qty || pv.matchNow.nx)" x-text="pv && (fmt(pv.matchNow.youGet.amount) + ' ' + asset(pv.matchNow.youGet.asset))"></dd>
 <dt x-show="pv && pv.matchNow.fee">Your fee now</dt><dd x-show="pv && pv.matchNow.fee" x-text="pv && (fmt(pv.matchNow.fee) + ' mesos')"></dd>
-<dt>Waits in the book</dt><dd x-text="pv && (pv.restsNx ? fmt(pv.restsNx) + ', up to 72 h' : 'nothing')"></dd>
+<dt>Waits in the book</dt><dd x-text="pv && (pv.restsNx ? fmt(pv.restsNx) + ', up to ' + lim().expiry_hours + ' h' : 'nothing')"></dd>
 </dl>
 <p class="xc-msg bad" x-show="pv && pv.cancelledBySelfTrade">This would meet one of your own orders, so it would be closed instead of trading.</p>
 <p class="xc-note" x-text="left > 0 ? 'Confirm within ' + left + ' s.' : 'This preview expired. Preview it again.'"></p>
@@ -704,17 +716,6 @@ logged in to the game. Items you buy go into its bags the next time it's in game
 <p class="xc-note">Trades pay out to the character on the order: straight away if you're online, else when you next log in.</p>
 </section>
 </div>
-<section class="xc-p xc-rules" style="grid-area: rules"><h2>Fees and limits</h2><ul>
-<li><b>Fee:</b> 1% of the mesos, paid by each side. A seller gets the mesos less 1%; a buyer pays the mesos plus 1%
-(set aside when the order is placed; what isn't used comes back).</li>
-<li><b>NX:</b> priced in mesos per 1,000 NX; 100 to 50,000 NX per order, in lots of 100.</li>
-<li><b>Items</b> (Maple Leaf, Chaos Scroll 60%, White Scroll, Power Elixir): priced in mesos per item; up to 1,000 per
-order (100 for the scrolls). Only tradeable copies can be sold: not untradeable, locked, expiring or cash items.</li>
-<li><b>Limits:</b> 5 open orders per ticker, 20 orders a day across all of them, 10 seconds apart.</li>
-<li><b>Expiry:</b> an order that hasn't fully traded closes after 72 hours, and whatever is left comes back.</li>
-<li><b>Which character:</b> every order names one of your characters. Mesos and items come from (and go to) that
-character; NX is your account's. If you're logged in to the game, use the character you're playing (or log out first).</li>
-</ul></section>
 </div>
 <script src="{root}assets/live.js"></script><script src="{root}assets/exchange.js"></script>
 <script defer src="{root}assets/vendor/alpine-3.14.1.min.js"></script>"""

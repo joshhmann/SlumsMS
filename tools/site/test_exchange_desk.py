@@ -51,7 +51,7 @@ class Game:
         return True, "OK", {"orderId": 77}
 
 
-TICKERS = {"schema": 1, "halted": False, "tickers": [
+TICKERS = {"schema": 1, "halted": False, "max_open_per_ticker": 10, "per_day_scope": "ticker", "tickers": [
     dict(xd.NX, bid=None, ask=None, last=None, bids=[], asks=[], trades=[]),
     {"id": "LEAF", "name": "Maple Leaf", "item_id": 4001126, "unit": "item", "unit_label": "mesos per Maple Leaf",
      "per": 1, "qty_label": "items", "min_qty": 1, "max_qty": 1000, "lot": 1, "min_price": 1,
@@ -161,6 +161,8 @@ class DeskTest(old.Base):
         b = self.desk.book()
         self.assertEqual([t["id"] for t in b["tickers"]], ["NX", "LEAF"])
         self.assertNotIn("secret", b["tickers"][1])
+        self.assertEqual(b["limits"], dict(xd.DEFAULT_LIMITS, max_open_per_ticker=10, per_day_scope="ticker"),
+                         "the game's limits win, the rest stay the defaults")
 
     def test_item_tickers_use_their_own_rules(self):
         ms.write_atomic(os.path.join(self.outbox, xd.TICKERS), TICKERS)

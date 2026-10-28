@@ -39,9 +39,9 @@
     INSUFFICIENT_FUNDS: "Not enough to cover it: mesos on that character, NX on your account, or tradeable items in its bags.",
     NOT_OWNER: "That character isn't on your account.",
     NOT_FOUND: "That order wasn't found (it may have already closed).",
-    LIMIT_OPEN: "You already have 5 open orders on this ticker. Cancel one first.",
-    LIMIT_DAY: "That's 20 orders today. Try again tomorrow.",
-    COOLDOWN: "Wait 10 seconds between orders.",
+    LIMIT_OPEN: function () { return "You already have " + lim().max_open_per_ticker + " open orders on this ticker. Cancel one first."; },
+    LIMIT_DAY: function () { return "That's " + lim().per_day + " orders today. Try again tomorrow."; },
+    COOLDOWN: function () { return "Wait " + lim().cooldown_sec + " seconds between orders."; },
     DUPLICATE: "That order was already sent.",
     TOKEN_EXPIRED: "That preview expired. Preview the order again.",
     TRY_AGAIN: "You're changing channel, logging out or in the Cash Shop. Try again in a moment.",
@@ -49,7 +49,8 @@
     ERROR: "Something went wrong in the game. Try again later."
   };
   function said(a) {
-    if (CODES[a.code]) return CODES[a.code];
+    var c = CODES[a.code];
+    if (c) return typeof c === "function" ? c() : c;
     return a.message ? "The game said: " + a.message + "." : "That didn't work.";
   }
 
@@ -79,6 +80,8 @@
   }
 
   function store() { return window.Alpine.store("xc"); }
+  var LIM = { fee_bps_each_side: 100, max_open_per_ticker: 5, per_day: 20, per_day_scope: "all", cooldown_sec: 10, expiry_hours: 72 };
+  function lim() { return store().limits || LIM; }
 
   function xbook() {
     var base = window.live(API + "book", 10);
@@ -105,7 +108,8 @@
         store().tk = id;
         try { history.replaceState(null, "", id === "NX" ? location.pathname : "#" + id.toLowerCase()); } catch (e) { /* fine */ }
       },
-      sync: function () {  // share the picked ticker's rules with the order form
+      sync: function () {  // share the picked ticker's rules and the limits with the order form
+        if (this.data && this.data.limits) store().limits = this.data.limits;
         if (this.list.length && !this.list.some(function (x) { return x.id === store().tk; })) store().tk = this.list[0].id;
         store().meta = this.cur;
       },
@@ -150,6 +154,18 @@
         return t.map(function (x, i) { return { t: x.t, price: x.price, qty: x.qty, dir: i && x.price > t[i - 1].price ? "up" : i && x.price < t[i - 1].price ? "down" : "" }; })
           .reverse().slice(0, 14);
       },
+      lim: lim,
+      feePct: function () { return (lim().fee_bps_each_side / 100) + "%"; },
+      sizeRule: function (t) {
+        var q = t.unit === "item" ? " per order" : " per order, in lots of " + fmt(t.lot);
+        return "priced in " + t.unit_label + "; " + fmt(t.min_qty) + " to " + fmt(t.max_qty) + " " + t.qty_label + q + ".";
+      },
+      limitRule: function () {
+        var l = lim();
+        return l.max_open_per_ticker + " open orders per ticker, " + l.per_day + " new orders a day"
+          + (l.per_day_scope === "ticker" ? " per ticker" : " across all tickers") + ", " + l.cooldown_sec + " seconds apart.";
+      },
+      expiryText: function () { var h = lim().expiry_hours; return h % 24 === 0 && h > 48 ? h / 24 + " days" : h + " hours"; },
       usePrice: function (price) { window.dispatchEvent(new CustomEvent("xc-price", { detail: price })); },
 
       // candles: the game's hours that traded; with none yet, the last trades as a line
@@ -243,7 +259,7 @@
     var base = window.live(API + "me", 20);
     var init = base.init;
     return extend(base, {
-      fmt: fmt, when: when,
+      fmt: fmt, when: when, lim: lim,
       side: "BUY", qty: null, price: null, character: "", busy: false, msg: "", msgClass: "", pv: null, left: 0, clock: null,
       init: function () {
         var self = this;
@@ -333,7 +349,7 @@
   }
 
   document.addEventListener("alpine:init", function () {
-    window.Alpine.store("xc", { tk: "NX", meta: null });
+    window.Alpine.store("xc", { tk: "NX", meta: null, limits: null });
     window.Alpine.data("xbook", xbook);
     window.Alpine.data("xmine", xmine);
   });
