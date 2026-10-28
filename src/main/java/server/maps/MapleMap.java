@@ -1774,6 +1774,7 @@ public class MapleMap {
                                                 killer, monster.getName(), monster.getStats().getLevel())));
                     }
                     final Character eventKiller = dropOwner != null ? dropOwner : chr;
+                    soloMapling.achievements.Achievements.onMobKill(eventKiller, monster.getId()); // 1.6.1 ticket 93: the credited kill
                     if (soloMapling.site.SiteMobKills.recording() && chr.gmLevel() == 0                      // site: most hunted
                             && !(chr.getClient() instanceof client.SyntheticClient)
                             && !soloMapling.worldevents.WorldEvents.getInstance().isEventMob(this, monster)) {

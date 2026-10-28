@@ -418,6 +418,8 @@ public final class BotCouples {
         lastWeddingAt = now;
         if (!c.staged()) {
             soloMapling.site.SiteFeed.wedding(BotCrushes.name(c.charA()), BotCrushes.name(c.charB())); // Track D feed
+            soloMapling.achievements.Achievements.onBotWedding(c.charA()); // 1.6.1 ticket 93
+            soloMapling.achievements.Achievements.onBotWedding(c.charB());
         }
         return m;
     }

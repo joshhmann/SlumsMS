@@ -110,6 +110,7 @@ public final class GameFishing {
         public void fullBag() { chr.dropMessage(5, "Make room in your inventory to keep your next catch."); }
         public void caught(FishingSessions.Reward reward, long sequence) {
             (BotHelpers.isBot(chr) ? BOT_CATCHES : PLAYER_CATCHES).increment();
+            soloMapling.achievements.Achievements.onFish(chr); // 1.6.1 ticket 93
             String effect = "Effect/BasicEff.img/Catch/Success";
             chr.sendPacket(PacketCreator.showInfo(effect));
             chr.getMap().broadcastMessage(chr, PacketCreator.showForeignInfo(chr.getId(), effect), false);

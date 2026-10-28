@@ -95,6 +95,13 @@ public interface ExchangeStore {
     /** The order placed with this request id, if any (idempotent places). */
     OrderRow byRequest(String requestId) throws StoreException;
 
+    /** One character of an account (site requests may name it instead of giving the id). */
+    record CharRef(long id, String name, int world) {
+    }
+
+    /** The characters of this account in this world (names as stored). */
+    List<CharRef> charactersOf(long account, int world) throws StoreException;
+
     /** An account's orders (open and recent closed), newest first, at most {@code limit}. */
     List<OrderRow> ordersOf(long account, int limit) throws StoreException;
 

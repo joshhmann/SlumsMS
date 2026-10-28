@@ -70,6 +70,7 @@ public final class ExchangeService {
                 return th;
             });
             s.scheduleWithFixedDelay(r::tickSafely, 30, config.pollSeconds(), TimeUnit.SECONDS);
+            s.scheduleWithFixedDelay(r::quickSafely, 30, QUICK_SECONDS, TimeUnit.SECONDS);
             exchange = ex;
             runner = r;
             executor = s;
@@ -104,6 +105,9 @@ public final class ExchangeService {
         }
     }
 
+    /** How often the inbox file is stat'ed for a change (the full poll stays as the fallback). */
+    static final long QUICK_SECONDS = 2;
+
     /** The poll loop, separate from the thread so tests can drive it. */
     static final class Runner {
         private final Exchange ex;
@@ -111,6 +115,7 @@ public final class ExchangeService {
         private final Path outbox;
         private final LongSupplier clock;
         private long lastModified = -1;
+        private long lastSize = -1;
         private final Set<String> answered = new HashSet<>();
         private final Deque<Map<String, Object>> responses = new ArrayDeque<>();
         private long lastWarn;
@@ -134,9 +139,34 @@ public final class ExchangeService {
             }
         }
 
+        /** The cheap check every {@link #QUICK_SECONDS}: a stat, and a full tick only when the inbox file changed. */
+        void quickSafely() {
+            try {
+                if (inboxChanged()) {
+                    tickSafely();
+                }
+            } catch (Exception e) {
+                // the full poll will try again
+            }
+        }
+
+        boolean inboxChanged() throws IOException {
+            Path f = inbox.resolve(ExchangeSite.REQUESTS);
+            try {
+                return Files.getLastModifiedTime(f).toMillis() != lastModified || Files.size(f) != lastSize;
+            } catch (NoSuchFileException e) {
+                return false;
+            }
+        }
+
+        /** The full poll (the fallback): reads the inbox even if its mtime looks unchanged. */
         void tick() throws IOException {
+            tick(true);
+        }
+
+        void tick(boolean force) throws IOException {
             long now = clock.getAsLong();
-            boolean answeredAny = readRequests(now);
+            boolean answeredAny = readRequests(now, force);
             ex.expire();
             ex.collectAll();
             ex.tickRegulars();
@@ -147,18 +177,20 @@ public final class ExchangeService {
             BoardFiles.writeJson(outbox.resolve(ExchangeSite.BOOK), ExchangeSite.book(ex, now));
         }
 
-        private boolean readRequests(long now) throws IOException {
+        private boolean readRequests(long now, boolean force) throws IOException {
             Path f = inbox.resolve(ExchangeSite.REQUESTS);
-            long mtime;
+            long mtime, size;
             try {
                 mtime = Files.getLastModifiedTime(f).toMillis();
+                size = Files.size(f);
             } catch (NoSuchFileException e) {
                 return false;
             }
-            if (mtime == lastModified) {
+            if (!force && mtime == lastModified && size == lastSize) {
                 return false;
             }
             lastModified = mtime;
+            lastSize = size;
             boolean any = false;
             for (ExchangeSite.Request r : ExchangeSite.requests(Files.readString(f, StandardCharsets.UTF_8))) {
                 if (!answered.add(r.id())) {

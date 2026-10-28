@@ -29,6 +29,8 @@ public final class MemoryExchangeStore implements ExchangeStore {
         final Map<Long, Long> nx = new HashMap<>();              // account -> nxCredit
         final Map<Long, Long> meso = new HashMap<>();            // character -> meso
         final Map<Long, Long> charAccount = new HashMap<>();     // character -> account
+        final Map<Long, String> charName = new HashMap<>();
+        final Map<Long, Integer> charWorld = new HashMap<>();
         final Map<Bucket, Long> balances = new HashMap<>();
         final List<Ledger.Row> ledger = new ArrayList<>();
         final Map<Long, OrderRow> orders = new LinkedHashMap<>();
@@ -41,6 +43,8 @@ public final class MemoryExchangeStore implements ExchangeStore {
             s.nx.putAll(nx);
             s.meso.putAll(meso);
             s.charAccount.putAll(charAccount);
+            s.charName.putAll(charName);
+            s.charWorld.putAll(charWorld);
             s.balances.putAll(balances);
             s.ledger.addAll(ledger);
             s.orders.putAll(orders);
@@ -198,6 +202,25 @@ public final class MemoryExchangeStore implements ExchangeStore {
     public synchronized void addCharacter(long character, long account, long meso) {
         state.charAccount.put(character, account);
         state.meso.put(character, meso);
+    }
+
+    /** A character with a name and world (the others default to no name, world 1). */
+    public synchronized void addCharacter(long character, long account, long meso, String name, int world) {
+        addCharacter(character, account, meso);
+        state.charName.put(character, name);
+        state.charWorld.put(character, world);
+    }
+
+    @Override
+    public synchronized List<CharRef> charactersOf(long account, int world) {
+        List<CharRef> out = new ArrayList<>();
+        for (Map.Entry<Long, Long> e : state.charAccount.entrySet()) {
+            int w = state.charWorld.getOrDefault(e.getKey(), 1);
+            if (e.getValue() == account && w == world) {
+                out.add(new CharRef(e.getKey(), state.charName.getOrDefault(e.getKey(), ""), w));
+            }
+        }
+        return out;
     }
 
     public synchronized long nx(long account) {

@@ -15,7 +15,7 @@ import java.util.Map;
  * <pre>
  * inbox  exchange-requests.json   (site writes; the server reads every poll)
  *   {"schema":1,"requests":[
- *     {"id":"r-0","account":12,"type":"preview","character":345,"side":"BUY"|"SELL","price":1200000,"nx":1000,
+ *     {"id":"r-0","account":12,"type":"preview","character":345,"characterName":"Name" (either or both),"side":"BUY"|"SELL","price":1200000,"nx":1000,
  *      "createdAt":"2026-10-27T18:00:00Z"},       step 1: checks + what would match now; returns data.token
  *     {"id":"r-1","account":12,"type":"confirm","token":"9f2c...","createdAt":...},   step 2: places it (within
  *      confirmSec, default 60 s; the same token twice returns the same order; TOKEN_EXPIRED after)
@@ -35,7 +35,7 @@ import java.util.Map;
  * so a backlog after downtime never places orders the player gave up on. Places are idempotent by request id even
  * across restarts (the id is stored on the order). Error codes: BAD_REQUEST, STALE, HALTED, UNAVAILABLE,
  * LOG_OUT_FIRST, INSUFFICIENT_FUNDS, NOT_OWNER, NOT_FOUND, LIMIT_OPEN, LIMIT_DAY, COOLDOWN, DUPLICATE, ERROR,
- * TOKEN_EXPIRED and TRY_AGAIN (the player is changing channel or in the Cash Shop). A player who is logged in can
+ * BAD_INPUT (character and characterName name different characters), TOKEN_EXPIRED and TRY_AGAIN (the player is changing channel or in the Cash Shop). A player who is logged in can
  * place from the site too, as long as the order names the character they are playing (else LOG_OUT_FIRST).
  * <p>
  * Preview data: {@code token, expiresAt, side, price, nx, takes:{asset,amount} (escrow, plus a buy's fee reserve),
@@ -70,10 +70,15 @@ public final class ExchangeSite {
 
     /** One parsed request; {@code error} non-null when it could not be read (answered BAD_REQUEST). */
     public record Request(String id, long account, Type type, long character, OrderBook.Side side, long price,
-                          long nx, long orderId, long createdAt, String error, String token) {
+                          long nx, long orderId, long createdAt, String error, String token, String characterName) {
         public Request(String id, long account, Type type, long character, OrderBook.Side side, long price, long nx,
                        long orderId, long createdAt, String error) {
-            this(id, account, type, character, side, price, nx, orderId, createdAt, error, null);
+            this(id, account, type, character, side, price, nx, orderId, createdAt, error, null, null);
+        }
+
+        public Request(String id, long account, Type type, long character, OrderBook.Side side, long price, long nx,
+                       long orderId, long createdAt, String error, String token) {
+            this(id, account, type, character, side, price, nx, orderId, createdAt, error, token, null);
         }
     }
 
@@ -101,6 +106,21 @@ public final class ExchangeSite {
             long character = 0, price = 0, nx = 0, orderId = 0;
             OrderBook.Side side = null;
             String token = null;
+            String charName = null;
+            if (err == null && (type == Type.PLACE || type == Type.PREVIEW || type == Type.MINE)) {
+                Object cn = r.get("characterName");
+                if (cn != null && !(cn instanceof String)) {
+                    err = "characterName";
+                } else if (cn instanceof String cs && !cs.isBlank()) {
+                    charName = cs.trim();
+                    err = charName.length() > 32 ? "characterName" : null;
+                }
+                Long c0 = num(r.get("character"));
+                if (err == null && type == Type.MINE && r.get("character") != null && (c0 == null || c0 <= 0)) {
+                    err = "character";
+                }
+                character = c0 == null ? 0 : c0;
+            }
             if (err == null && type == Type.CONFIRM) {
                 token = r.get("token") instanceof String t && t.matches("[0-9a-f]{8,64}") ? t : null;
                 err = token == null ? "token" : null;
@@ -108,9 +128,10 @@ public final class ExchangeSite {
             if (err == null && (type == Type.PLACE || type == Type.PREVIEW)) {
                 Long c = num(r.get("character")), p = num(r.get("price")), n = num(r.get("nx"));
                 side = OrderBook.Side.parse(r.get("side"));
-                err = c == null || c <= 0 ? "character" : side == null ? "side" : p == null || p <= 0 ? "price"
+                boolean haveChar = (c != null && c > 0) || charName != null;
+                err = !haveChar ? "character" : side == null ? "side" : p == null || p <= 0 ? "price"
                         : n == null || n <= 0 ? "nx" : null;
-                character = c == null ? 0 : c;
+                character = c == null || c < 0 ? 0 : c;
                 price = p == null ? 0 : p;
                 nx = n == null ? 0 : n;
             } else if (err == null && type == Type.CANCEL) {
@@ -119,7 +140,7 @@ public final class ExchangeSite {
                 orderId = o == null ? 0 : o;
             }
             out.add(new Request(id, account == null ? 0 : account, type, character, side, price, nx, orderId,
-                    created == null ? 0 : created, err, token));
+                    created == null ? 0 : created, err, token, charName));
         }
         return out;
     }
@@ -132,9 +153,24 @@ public final class ExchangeSite {
         if (now - r.createdAt() > MAX_AGE_MS) {
             return new Exchange.Response(r.id(), false, "STALE", "request too old; send it again", Map.of());
         }
+        long character = r.character();
+        if (r.type() == Type.PREVIEW || r.type() == Type.PLACE || r.type() == Type.MINE) {
+            long c = ex.resolveCharacter(r.account(), r.character(), r.characterName());
+            if (c == Exchange.NOT_OWNER_CHAR) {
+                return new Exchange.Response(r.id(), false, "NOT_OWNER", "that character is not on this account", Map.of());
+            }
+            if (c == Exchange.MISMATCH_CHAR) {
+                return new Exchange.Response(r.id(), false, "BAD_INPUT", "character and characterName are different characters", Map.of());
+            }
+            if (c == Exchange.STORE_ERROR_CHAR) {
+                return new Exchange.Response(r.id(), false, "ERROR", "try again later", Map.of());
+            }
+            character = c;
+        }
+        final long resolved = character;
         return switch (r.type()) {
             case PLACE -> new Exchange.Response(r.id(), false, "BAD_REQUEST", "use preview then confirm", Map.of());
-            case PREVIEW -> ex.preview(new Exchange.Place(r.id(), r.account(), r.character(), r.side(), r.price(),
+            case PREVIEW -> ex.preview(new Exchange.Place(r.id(), r.account(), resolved, r.side(), r.price(),
                     r.nx()));
             case CONFIRM -> ex.confirm(r.id(), r.account(), r.token());
             case CANCEL -> ex.cancel(r.id(), r.account(), r.orderId());
@@ -142,6 +178,9 @@ public final class ExchangeSite {
                 try {
                     List<Map<String, Object>> rows = new ArrayList<>();
                     for (ExchangeStore.OrderRow o : ex.myOrders(r.account(), 50)) {
+                        if (resolved > 0 && o.character() != resolved) {
+                            continue;
+                        }
                         rows.add(Exchange.orderJson(o));
                     }
                     Map<String, Object> data = new LinkedHashMap<>();

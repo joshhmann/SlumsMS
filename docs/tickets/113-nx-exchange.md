@@ -158,6 +158,16 @@ account is named.
 - Inbox `exchange-requests.json` (the site writes it). Request types are `preview` (character, side, price, nx),
   `confirm` (token), `cancel` (orderId), `mine`, `book` and `trades`. Each has an `id`, `account` and `createdAt`.
   A bare `place` is refused (`BAD_REQUEST`, "use preview then confirm").
+- **Character by name (1.6.1)**: `preview` and `mine` take `characterName` instead of, or together with, the numeric
+  `character`. The name is resolved inside the request's account (case-insensitive, exact, main world 1 only); a name
+  or id that is not on that account or not in the main world answers `NOT_OWNER`; both given but different characters
+  answers `BAD_INPUT`; neither on a preview is `BAD_REQUEST`. On `mine` the character (either form) is an optional
+  filter, so only that character's orders are returned (no filter = all of the account's, as before).
+- **Pickup speed (1.6.1)**: the server stats `exchange-requests.json` every 2 s (mtime and size) and processes it when
+  it changed; the full 15 s poll (`pollSec`) remains as a fallback and re-reads the file even if the stamp looks the
+  same. Every request id is still answered once, so neither path reprocesses. Worst case from the site writing a
+  request to the server answering it is about 2 s (the outbox is written in the same tick), so a 60 s confirm token
+  has the whole window for the player's click plus the site's own polling.
 - **Confirm step** (owner 2026-10-28): `preview` checks everything a place checks (size, price, limits, the right
   character if logged in, funds if logged in), simulates the match against the book as it is, moves nothing, and
   answers `data = {token, expiresAt, side, price, nx, takes:{asset, amount}, feeBpsEachSide, matchNow:{nx, mesos, fee,

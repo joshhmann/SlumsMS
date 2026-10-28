@@ -1,0 +1,209 @@
+# Achievements and medals (SlumsMS 1.6.1, ticket 93). Read once at server start (restart to apply an edit; no rebuild).
+#
+# Strict: any unknown key, duplicate id or medal, bad number, or a medal that is not an item in the server's data
+# rejects the whole file (the server logs an error and runs with no achievements until it is fixed).
+# Each goal is one-time per character and awards one cosmetic medal (a zero-stat copy of the v83 item: no stats,
+# no set bonus). Every medal below exists in the server's Character.wz and in the client's Data (checked with
+# tools/clientcheck, 2026-10-28). The comment after each medal id is the item's name.
+#
+# trigger / what counts (progress is stored per character, bots included):
+#   job        target = job tier reached (1..4); Evan counts as one line
+#   level      target = level reached
+#   level_cap  reaching the class's real maximum level (Character.getMaxLevel)
+#   mob_kill   mobs: [ids] the credited killer of one of them
+#   clear      scripts: [event script names] a cleared PQ or boss instance (everyone inside); name before the first _
+#   fish       target = kept fishing catches
+#   guild      joining or founding a guild      wedding  getting married      rebirth  a rebirth
+#   quest      target = completed quests        trade    target = completed trades with another character
+#   market     target = purchases from player shops and hired merchants (bots' deals included)
+#   checkin    target = the Daily Check-In day claimed (players only; the cycle is 28 days)
+#   visit      maps: [ids] every listed map visited once
+goals:
+  - id: job-1
+    title: First Steps
+    text: Make your first job advance.
+    medal: 1142107   # Beginner Adventurer
+    trigger: job
+    target: 1
+  - id: job-2
+    title: Second Job
+    text: Make your second job advance.
+    medal: 1142108   # Junior Adventurer
+    trigger: job
+    target: 2
+  - id: job-3
+    title: Third Job
+    text: Make your third job advance.
+    medal: 1142109   # Veteran Adventurer
+    trigger: job
+    target: 3
+  - id: job-4
+    title: Fourth Job
+    text: Make your fourth job advance.
+    medal: 1142110   # Master Adventurer
+    trigger: job
+    target: 4
+  - id: level-30
+    title: Level 30
+    text: Reach level 30.
+    medal: 1142000   # Diligent Explorer
+    trigger: level
+    target: 30
+  - id: level-70
+    title: Level 70
+    text: Reach level 70.
+    medal: 1142004   # Veteran Hunter
+    trigger: level
+    target: 70
+  - id: level-120
+    title: Level 120
+    text: Reach level 120.
+    medal: 1142005   # Legendary Hunter
+    trigger: level
+    target: 120
+  - id: level-cap
+    title: Top of the Class
+    text: Reach your class's maximum level.
+    medal: 1142079   # Tristan's Successor
+    trigger: level_cap
+  - id: kill-mano
+    title: Mano Down
+    text: Land the kill on Mano.
+    medal: 1142033   # Mano Vanquisher
+    trigger: mob_kill
+    mobs: [2220000]
+  - id: kill-stumpy
+    title: Stumpy Down
+    text: Land the kill on Stumpy.
+    medal: 1142034   # Stumpy Vanquisher
+    trigger: mob_kill
+    mobs: [3220000]
+  - id: kill-mushmom
+    title: Mushmom Down
+    text: Land the kill on Mushmom.
+    medal: 1142040   # Mushmom Vanquisher
+    trigger: mob_kill
+    mobs: [6130101]
+  - id: kill-jrbalrog
+    title: Jr. Balrog Down
+    text: Land the kill on Jr. Balrog.
+    medal: 1142052   # Jr. Balrog Vanquisher
+    trigger: mob_kill
+    mobs: [8130100]
+  - id: clear-papulatus
+    title: Clock Stopped
+    text: Clear the Papulatus expedition.
+    medal: 1142063   # Papulatus Vanquisher
+    trigger: clear
+    scripts: [PapulatusBattle]
+  - id: clear-zakum
+    title: Zakum Falls
+    text: Clear the Zakum expedition.
+    medal: 1142083   # Monster Expert
+    trigger: clear
+    scripts: [ZakumBattle]
+  - id: clear-horntail
+    title: Tail Cut
+    text: Clear the Horntail expedition.
+    medal: 1142007   # Horned Tail Slayer
+    trigger: clear
+    scripts: [HorntailBattle]
+  - id: fish-10
+    title: Fishing Hobby
+    text: Keep 10 catches while fishing.
+    medal: 1142196   # Fishing Master
+    trigger: fish
+    target: 10
+  - id: fish-100
+    title: Fishing Obsession
+    text: Keep 100 catches while fishing.
+    medal: 1142146   # Fishing King
+    trigger: fish
+    target: 100
+  - id: pq-kerning
+    title: Kerning PQ
+    text: Clear the Kerning City Party Quest.
+    medal: 1142036   # King Slime Vanquisher
+    trigger: clear
+    scripts: [KerningPQ]
+  - id: pq-ludibrium
+    title: Ludibrium PQ
+    text: Clear the Ludibrium Party Quest.
+    medal: 1142041   # Alishar Vanquisher
+    trigger: clear
+    scripts: [LudiPQ]
+  - id: pq-orbis
+    title: Orbis PQ
+    text: Clear the Orbis Party Quest.
+    medal: 1142044   # Papa Pixie Vanquisher
+    trigger: clear
+    scripts: [OrbisPQ]
+  - id: pq-pirate
+    title: Pirate PQ
+    text: Clear the Pirate Party Quest.
+    medal: 1142047   # Lord Pirate Vanquisher
+    trigger: clear
+    scripts: [PiratePQ]
+  - id: wedding
+    title: Tied the Knot
+    text: Get married.
+    medal: 1142100   # Maple Lover
+    trigger: wedding
+  - id: quests-50
+    title: Odd Jobs
+    text: Complete 50 quests.
+    medal: 1142002   # Quest Specialist
+    trigger: quest
+    target: 50
+  - id: guild
+    title: Guild Member
+    text: Join a guild.
+    medal: 1142081   # Outstanding Citizen
+    trigger: guild
+  - id: checkin-7
+    title: Week One
+    text: Claim day 7 of the Daily Check-In.
+    medal: 1142091   # 7-Day Dreamer
+    trigger: checkin
+    target: 7
+  - id: checkin-28
+    title: Full Cycle
+    text: Claim day 28 of the Daily Check-In.
+    medal: 1142084   # Persevering Challenger
+    trigger: checkin
+    target: 28
+  - id: visit-victoria
+    title: Victoria Island Tour
+    text: Visit Henesys, Ellinia, Perion, Kerning City and Lith Harbor.
+    medal: 1142112   # Victoria Explorer
+    trigger: visit
+    maps: [100000000, 101000000, 102000000, 103000000, 104000000]
+  - id: visit-ossyria
+    title: Ossyria Tour
+    text: Visit Orbis, El Nath, Ludibrium and Leafre.
+    medal: 1142119   # Ossyria Explorer
+    trigger: visit
+    maps: [200000000, 211000000, 220000000, 240000000]
+  - id: visit-aquarium
+    title: Under the Sea
+    text: Visit Aquarium.
+    medal: 1142115   # Undersea Explorer
+    trigger: visit
+    maps: [230000000]
+  - id: trades-10
+    title: Fair Trader
+    text: Finish 10 trades with other characters.
+    medal: 1142160   # Midas Touch
+    trigger: trade
+    target: 10
+  - id: market-5
+    title: Window Shopper
+    text: Buy 5 times from player shops and merchants.
+    medal: 1142161   # Richie Rich
+    trigger: market
+    target: 5
+  - id: rebirth-1
+    title: Reborn
+    text: Be reborn for the first time.
+    medal: 1142111   # The One Who's Touched the Sky
+    trigger: rebirth

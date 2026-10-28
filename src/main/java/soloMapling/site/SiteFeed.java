@@ -291,6 +291,19 @@ public final class SiteFeed {
         }
     }
 
+    /** A character (player or bot) earned an achievement and its medal. */
+    public static void achievement(Character chr, String title, String medal) {
+        if (!recording || blank(title) || !isPublic(chr)) {
+            return;
+        }
+        try {
+            add(Kind.MILESTONE, "achievement", chr.getName() + " earned the achievement \"" + title + "\""
+                    + (blank(medal) ? "." : " (" + medal.trim() + ")."), List.of(chr.getName()), null, null);
+        } catch (RuntimeException e) {
+            // never into the game
+        }
+    }
+
     /** A guild was founded. {@code leader} null or not public: the item names the guild only. */
     public static void guildFounded(String guildName, Character leader) {
         if (!recording || blank(guildName) || isQaName(guildName)) {

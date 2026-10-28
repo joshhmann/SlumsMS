@@ -222,6 +222,7 @@ public class CommandsExecutor {
         addCommand(new String[]{"help", "commands"}, HelpCommand.class);
         addCommand(new String[]{"daily", "checkin"}, DailyCommand.class);
         addCommand("stamps", StampsCommand.class);
+        addCommand("achievements", AchievementsCommand.class); // 1.6.1 ticket 93
         addCommand("nx", NxCommand.class);
         // Ticket 105: site sign-up codes. One command for both prefixes: level 3+ GMs get !invite (any validity, list
         // everyone's, revoke, unlimited); everyone else makes up to 2 one-use codes a week once a character is level 30.
@@ -426,6 +427,7 @@ public class CommandsExecutor {
         addCommand("reloaddrops", 3, ReloadDropsCommand.class);
         addCommand("reloadportals", 3, ReloadPortalsCommand.class);
         addCommand("reloadmap", 3, ReloadMapCommand.class);
+        addCommand("achievement", 3, client.command.commands.gm3.AchievementCommand.class); // 1.6.1 ticket 93
         addCommand("bounce", 3, client.command.commands.gm3.BounceCommand.class); // bounce block zones (bounce-zones.yaml)
         addCommand("reloadshops", 3, ReloadShopsCommand.class);
         addCommand("reloadcashshop", 3, ReloadCashShopCommand.class);
