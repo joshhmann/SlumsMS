@@ -55,12 +55,14 @@ class ChatPairGenTest {
         assertEquals(ChatPairGen.ACTS.keySet(), ChatPairGen.ROWS.stream().map(ChatPairGen.Row::act).collect(Collectors.toSet()));
         assertEquals(ChatPairGen.VARIANTS.keySet(), ChatPairGen.ROWS.stream().map(ChatPairGen.Row::variant)
                 .filter(v -> !"-".equals(v)).collect(Collectors.toSet()), "every hard negative is planned");
-        // the hard negatives are talk (or a fair trade) with con normal; the slow pair: scam and its honest twin
+        // the hard negatives are talk (or a fair trade) with con normal; the slow pair: scam and its honest twin; a death wish is harassment
         for (ChatPairGen.Row r : ChatPairGen.ROWS) {
             if ("slow".equals(r.variant())) {
                 assertEquals("scam", r.con(), r.key());
             } else if ("slow_ok".equals(r.variant())) {
                 assertEquals("normal", r.con(), r.key());
+            } else if ("deathwish".equals(r.variant())) {
+                assertEquals("harassment", r.con(), r.key());
             } else if (!"-".equals(r.variant())) {
                 assertEquals("normal", r.con(), r.key());
                 // lfg is the one request among them: a public shout is a party invite (owner 2026-10-27)
@@ -306,6 +308,8 @@ class ChatPairGenTest {
                 new ChatPairGen.Row("trade", "neutral", "rwt", "ask", "-"), rng)));
         assertTrue(java.util.Arrays.equals(new int[]{2, 4}, ChatPairGen.contextRange(
                 new ChatPairGen.Row("insult", "rude", "harassment", "chat", "-"), rng)), "harassment keeps at it");
+        assertTrue(java.util.Arrays.equals(new int[]{0, 0}, ChatPairGen.contextRange(
+                new ChatPairGen.Row("insult", "rude", "harassment", "chat", "deathwish"), rng)), "a death wish stands alone");
         assertTrue(java.util.Arrays.equals(new int[]{1, 3}, ChatPairGen.contextRange(
                 new ChatPairGen.Row("haggle", "neutral", "normal", "ask", "priced"), rng)), "a haggle follows a price");
         // the floors pull the planner to the slow pair; the report shows them
@@ -357,7 +361,8 @@ class ChatPairGenTest {
         assertTrue(sys.substring(hard, hard + 220).contains("a refusal, or a line that names an activity without asking "
                 + "for it, is intent talk"), sys.substring(hard));
         assertTrue(sys.contains("teasing") && sys.contains("tell me why ur guild even exists")
-                && sys.contains("harassment is targeted, repeated or personal abuse"));
+                && sys.contains("harassment is targeted, repeated or personal abuse")
+                && sys.contains("is harassment even on its own"));
         assertTrue(ChatPairGen.CON_WORDS.get("harassment").contains("not generic trash talk"));
         assertTrue(ChatPairGen.ROWS.contains(new ChatPairGen.Row("insult", "rude", "normal", "chat", "-")),
                 "trash talk has its own insult/normal row");
@@ -570,6 +575,14 @@ class ChatPairGenTest {
         assertEquals("explicit", g.playerProblem(cell("flirt", "flirty", "normal", "chat", "flirt_back"), "send nudes"));
         assertEquals("harm", g.playerProblem(harass, "just kys already"));
         assertNull(g.playerProblem(harass, "quit the game noob nobody wants u here"));
+        // round 6: a death wish is allowed only on the deathwish row; threats, doxxing and slurs still fail there
+        ChatPairGen.Cell wish = new ChatPairGen.Cell("insult", "rude", "harassment", "chat", "deathwish",
+                "brush_harassment", "lower", "-");
+        assertNull(g.playerProblem(wish, "just kys already"));
+        assertNull(g.playerProblem(wish, "Go die in a ditch noob"));
+        assertEquals("harm", g.playerProblem(wish, "go die, i know where u live"));
+        assertEquals("harm", g.playerProblem(wish, "ill find u irl"));
+        assertEquals("slur", g.playerProblem(wish, "kys f4ggot"));
         ChatPairGen.Cell come = cell("come", "neutral", "normal", "ask", "come_yes");
         assertEquals("placeholder", g.playerProblem(come, "come to {map}"));
         assertEquals("too long", g.playerProblem(come, "come to ellinia ".repeat(5)));

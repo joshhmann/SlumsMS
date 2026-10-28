@@ -207,7 +207,15 @@ public final class ChatPairGen {
                 + "ill pay u back +10m"));
         VARIANTS.put("slow_ok", List.of("the honest end of the same kind of friendly build-up: a fair ask or plain chat, "
                 + "no scam", "wanna duo lpq again tmrw"));
+        // round 6 (r6 read "go die" as normal): every harassment row had build-up, and the hard limits kept death
+        // wishes out of the data, so the model learned harassment needs earlier lines; the owner's text names them
+        VARIANTS.put("deathwish", List.of("P telling B to die or to kill themselves (go die, drop dead, hope u die, "
+                + "kys: vary it), on its own with no build-up; no real-life threats", "u again? go die already"));
     }
+
+    /** The only hard-limit words a {@code deathwish} line may carry (player side only: never a bot line). */
+    static final Pattern DEATH_WISH = Pattern.compile("\\b(kys|kill (ur|your) ?self|kill yourself|hope (u|you) die"
+            + "|go die|drop dead)\\b");
 
     /** A few example player lines where the words alone were unclear; never accepted as lines themselves. */
     static final Map<String, List<String>> EXAMPLES = Map.of(
@@ -275,6 +283,7 @@ public final class ChatPairGen {
         row("trade", "neutral", "rwt", "ask", "-");
         row("trade", "neutral", "rwt", "announce", "-");
         row("talk", "rude", "harassment", "chat", "-");
+        row("insult", "rude", "harassment", "chat", "deathwish");
     }
 
     /**
@@ -389,6 +398,10 @@ public final class ChatPairGen {
         if (SLOW.contains(r.variant())) {
             return new int[]{3, 5};
         }
+        // a death wish is harassment on its own
+        if ("deathwish".equals(r.variant())) {
+            return new int[]{0, 0};
+        }
         // round 5 sample: a lone jab reads as trash talk; harassment is P keeping at it after the earlier lines
         if ("harassment".equals(r.con())) {
             return new int[]{2, 4};
@@ -473,7 +486,8 @@ public final class ChatPairGen {
                 .append("denial (\"nah i dont need a buff im good\") is talk/chat with con normal; teasing (\"that hat ")
                 .append("makes u look like a mushroom\") is insult or talk, not flirt; \"tell me why ur guild even ")
                 .append("exists\" is an insult, not a guild ask; generic trash talk (\"go back to henny noob\") is insult ")
-                .append("with con normal, harassment is targeted, repeated or personal abuse; ")
+                .append("with con normal, harassment is targeted, repeated or personal abuse; telling you to die or ")
+                .append("to kill yourself (\"kys\", \"go die\") is harassment even on its own; ")
                 .append("a refusal that mentions an activity (\"cant do kpq tonite\") is intent talk, act refuse; a ")
                 .append("public looking-for-group shout (\"lf2m kpq lv 25+\", \"lf1 cleric for lpq\") is a party ")
                 .append("invite: intent party, act announce; saying where P is going (\"omw to ")
@@ -1103,6 +1117,11 @@ public final class ChatPairGen {
             return "self-describing";
         }
         String bad = ContentGuard.hardProblem(text);
+        String lower = text.toLowerCase(Locale.ROOT);
+        if ("harm".equals(bad) && "deathwish".equals(c.variant()) && DEATH_WISH.matcher(lower).find()) {
+            // the death wish is the point here; anything else the guard catches (a threat, doxxing) still fails
+            bad = ContentGuard.hardProblem(DEATH_WISH.matcher(lower).replaceAll(" "));
+        }
         if (bad != null) {
             return bad;
         }

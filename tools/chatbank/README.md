@@ -76,6 +76,10 @@ negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank
   count toward the hard-negative share; about 30% of calls for other normal rows ask for 1 to 3 ordinary earlier lines. Harassment rows always come
   with 2 to 4 earlier lines in which P is already going after B (a lone jab reads as trash talk), and haggles with 1 to 3
   that name the item and its asking price (without them a haggle reads as a trade offer).
+  A `deathwish` row (round 6, insult/rude/harassment) is the exception: a lone "go die" or "kys" is harassment with no
+  earlier lines (the r6 model, trained only on harassment with build-up, read "go die" as normal). Its player lines may
+  carry those death-wish words, which the hard limits otherwise refuse; threats, doxxing, slurs and sexual content still
+  fail. Player lines only: they never reach `lines.tsv` or a bot.
   The model writes them as `CP:` / `CB:` / `CO:` before `P:` and `B:`. Every earlier line passes the player line's
   realism, length, brace, hard-limit, money and frozen-set checks, may not repeat the player line, and their number must
   be in the asked range. The label check sees them and labels the P line given them. Backfill pairs have none.
