@@ -54,6 +54,8 @@ public final class SiteAccounts {
     static final int PASS_MAX = 12;
     /** Longest name or password sign-in will even look up (existing accounts may predate the sign-up rules). */
     static final int VERIFY_MAX = 64;
+    /** Longest password sign-in compares (the site's sign-in limit); longer is a wrong password, never hashed. */
+    static final int VERIFY_PASS_MAX = 64;
     /** The bot template's account (RankingLoginTask): never signs in, whatever its password column holds. */
     static final String BOT_TEMPLATE_ACCOUNT = "SMBotBase";
 
@@ -238,11 +240,12 @@ public final class SiteAccounts {
                 AccountPasswords.checkHashedOnly("-", dummyHash());   // about the time of a real check; nothing compared
                 return Result.fail(WRONG_LOGIN);   // banned, bot or revoked: folded into WRONG_LOGIN (generic)
             }
-            if (pass.length() > PASS_MAX) {
-                // The game's password box keeps the first 12 characters typed or pasted, so an account made in game
-                // with a longer password stored a hash of that prefix: compare exactly what the box would send.
-                pass = pass.substring(0, PASS_MAX);
+            if (pass.length() > VERIFY_PASS_MAX) {
+                return failed(key, now);   // anti-abuse bound only; bcrypt reads 72 bytes anyway
             }
+            // The FULL password, as Client.login compares it: the game client's box takes more than 12 characters
+            // (a 13-character account signs in there with all 13 and is refused with the first 12), and the stored
+            // hash is of everything typed. Sign-up and reset still cap new passwords at PASS_MAX.
             // Hashes only: a plain-text stored value (the bot template's marker) never matches here.
             AccountPasswords.Match match = AccountPasswords.checkHashedOnly(pass,
                     account == null ? dummyHash() : account.passhash());
