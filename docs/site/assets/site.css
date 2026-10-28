@@ -695,3 +695,29 @@ table.t { width: 100%; border-collapse: collapse; }
   .t.rank tr.podium .who-cell .ava { width: 96px; height: 96px; }
   .rankgrid .t.rank tr .who-cell .ava { width: 48px; height: 48px; }
 }
+
+/* NX exchange (market/exchange.html, exchange.js on Alpine). x-cloak hides Alpine's parts until it has started. */
+[x-cloak] { display: none !important; }
+.xc { display: grid; gap: 18px; }
+.xc-top, .xc-mid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 18px; }
+.xc-top > *, .xc-mid > * { min-width: 0; }
+.xc-big { margin: 0 0 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.xc-big b { font: 800 2rem/1.1 var(--f-display); color: var(--accent-ink); }
+.xc-rules ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.xc-chart { width: 100%; max-width: 100%; height: auto; display: block; }
+.xc-chart .xc-dot { fill: var(--accent); fill-opacity: .7; stroke: var(--ink); stroke-width: 1; }
+.xc-chart .xc-rateline { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 6 5; }
+.xc-chart .xc-ax { font: 500 11px var(--f-mono); fill: var(--muted); }
+.xc-book tr.ask td:first-child { color: var(--down); font-weight: 700; }
+.xc-book tr.bid td:first-child { color: var(--up); font-weight: 700; }
+.xc-book tr.ask, .xc-book tr.bid { cursor: pointer; }
+.xc-book tr.spread td { text-align: center; font: 600 .78rem var(--f-mono); color: var(--muted); background: var(--surface-2); }
+.xc-pad { padding: 8px 16px; margin: 0; }
+.xc-form { margin-top: 18px; }
+.xc-form input[type=number] { width: 170px; }
+.xc-preview { flex-basis: 100%; border: var(--border) dashed var(--accent); border-radius: 8px; padding: 12px 16px; }
+.xc-preview h3 { margin: 0 0 8px; }
+.xc-preview dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0 0 8px; }
+.xc-preview dt { color: var(--muted); font-size: .88rem; }
+.xc-preview dd { margin: 0; font: 600 .95rem var(--f-mono); }
+.xc-preview .btn { margin-right: 8px; }

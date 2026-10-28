@@ -10,8 +10,8 @@ they are; this file only replaces the HTTP layer, so rolling back means starting
 Layout, so the next areas slot in the same way:
 - create_app(sessions, store) builds the app: the session check, the write checks and the error shape, shared by
   every area.
-- each area is a Blueprint with its own URLs: market_routes() here; the NX-meso exchange (1.6.1, ticket 113) adds
-  its own next to it.
+- each area is a Blueprint with its own URLs: market_routes() and the NX-meso exchange's exchange_routes() (1.6.1,
+  ticket 113; the rules are in exchange_desk.py).
 - a route reads the signed-in session from g.session and, for a write, its body from write_body(); a Refused becomes
   {"ok": false, "error": ...} with its status.
 """
@@ -27,7 +27,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from login_service import SESSION_COOKIE, Sessions, cookies  # noqa: E402
 import market_service as ms  # noqa: E402
-from market_service import MAX_BODY, Refused  # noqa: E402
+from exchange_desk import Desk  # noqa: E402
+from market_service import MAX_BODY, Refused, characters  # noqa: E402
 
 
 def reply(status, body):
@@ -88,6 +89,36 @@ def market_routes(store):
     return bp
 
 
+def exchange_routes(store, desk):
+    """The NX-meso exchange (exchange_desk.py): requests to the game through the board's folders."""
+    bp = Blueprint("exchange", __name__, url_prefix="/api/market/exchange")
+
+    def read(fn):
+        with store.lock:
+            desk.sync()
+            return reply(200, dict(fn(), ok=True))
+
+    def write(fn):
+        body = write_body()
+        with store.lock:
+            desk.sync()
+            store.rate(g.session["a"])
+            return reply(200, dict(fn(g.session, body), ok=True))
+
+    bp.add_url_rule("/book", "book", lambda: read(desk.book), methods=["GET"])
+    bp.add_url_rule("/me", "me", lambda: read(lambda: desk.me(g.session, characters(g.session))), methods=["GET"])
+    bp.add_url_rule("/answer/<rid>", "answer", lambda rid: read(lambda: desk.answer(g.session, rid)), methods=["GET"])
+    posts = {
+        "preview": lambda s, b: desk.preview(s, b, characters(s)),
+        "confirm": desk.confirm,
+        "cancel": desk.cancel,
+        "refresh": lambda s, b: desk.refresh(s),
+    }
+    for path, fn in posts.items():
+        bp.add_url_rule("/" + path, "post_" + path, lambda fn=fn: write(fn), methods=["POST"])
+    return bp
+
+
 # URLs anyone may call: no session needed
 OPEN = {"/api/market/health"}
 
@@ -119,6 +150,7 @@ def create_app(sessions, store):
 
     app.add_url_rule("/api/market/health", "health", lambda: reply(200, {"ok": True}), methods=["GET"])
     app.register_blueprint(market_routes(store))
+    app.register_blueprint(exchange_routes(store, Desk(store)))
     return app
 
 

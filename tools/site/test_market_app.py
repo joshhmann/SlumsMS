@@ -44,11 +44,12 @@ class FlaskHttpTest(old.HttpTest):
         return r.status_code, json.loads(r.get_data() or b"null")
 
     def test_the_same_urls_as_the_old_service(self):
-        """Every endpoint in market_service.py's docstring, and nothing else under /api/market/."""
-        doc = {tuple(line.split()[:2]) for line in ms.__doc__.splitlines()
+        """Every endpoint in market_service.py's and exchange_desk.py's docstrings, and nothing else under /api/."""
+        import exchange_desk
+        doc = {tuple(line.split()[:2]) for line in (ms.__doc__ + exchange_desk.__doc__).splitlines()
                if line.strip().startswith(("GET  /api/", "POST /api/"))}
         app = self.client.application
-        have = {(m, r.rule) for r in app.url_map.iter_rules() if r.rule.startswith("/api/")
+        have = {(m, r.rule.replace("<rid>", "<id>")) for r in app.url_map.iter_rules() if r.rule.startswith("/api/")
                 for m in r.methods - {"HEAD", "OPTIONS"}}
         self.assertEqual(have, doc)
 
