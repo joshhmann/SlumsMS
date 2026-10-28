@@ -65,6 +65,15 @@ public interface AuthStore {
     /** The newest codes first. */
     List<InviteCodes.Invite> recentInvites(int limit) throws SQLException;
 
+    /**
+     * A page of codes, newest first: every code when {@code madeByAccount} is null (the site's GM list), else only the
+     * ones that account made (the site's player list), whichever command or page made them.
+     */
+    List<InviteCodes.Invite> invitePage(Integer madeByAccount, int limit, int offset) throws SQLException;
+
+    /** How many codes {@link #invitePage} pages through. */
+    int countInvites(Integer madeByAccount) throws SQLException;
+
     /** Revokes an unused, unrevoked code; false when there is no such open (or expired) code. */
     boolean revokeInvite(String code, String by, long now) throws SQLException;
 
@@ -79,6 +88,9 @@ public interface AuthStore {
 
     /** Null when no such account. */
     Account findAccount(String name) throws SQLException;
+
+    /** Null when no such account (the site's invite page, which knows the signed-in account by id). */
+    Account findAccountById(int accountId) throws SQLException;
 
     /** Stores an upgraded (bcrypt) hash, as the login screen does after a legacy match. */
     void upgradeHash(int accountId, String passhash) throws SQLException;
@@ -111,9 +123,11 @@ public interface AuthStore {
         static final String MARK_USER = "UPDATE invite_codes SET used_by_account = ?, used_by_name = ? WHERE code = ?";
         static final String REVOKE = "UPDATE invite_codes SET revoked_at = ?, revoked_by = ? WHERE code = ?"
                 + " AND used_at = 0 AND revoked_at = 0";
-        static final String FIND_ACCOUNT = "SELECT a.id, a.name, a.password, a.banned, a.tempban, EXISTS (SELECT 1"
-                + " FROM characters c WHERE c.accountid = a.id AND (c.id >= ? OR c.id = ?)) AS bot"
-                + " FROM accounts a WHERE a.name = ?";
+        static final String FIND_ACCOUNT_COLUMNS = "SELECT a.id, a.name, a.password, a.banned, a.tempban, EXISTS"
+                + " (SELECT 1 FROM characters c WHERE c.accountid = a.id AND (c.id >= ? OR c.id = ?)) AS bot"
+                + " FROM accounts a";
+        static final String FIND_ACCOUNT = FIND_ACCOUNT_COLUMNS + " WHERE a.name = ?";
+        static final String FIND_ACCOUNT_BY_ID = FIND_ACCOUNT_COLUMNS + " WHERE a.id = ?";
         // The same insert as LoginPasswordHandler's automatic registration.
         static final String INSERT_ACCOUNT = "INSERT INTO accounts (name, password, birthday, tempban) VALUES (?, ?, ?, ?)";
 
@@ -199,6 +213,42 @@ public interface AuthStore {
                 }
             }
             return out;
+        }
+
+        @Override
+        public List<InviteCodes.Invite> invitePage(Integer madeByAccount, int limit, int offset) throws SQLException {
+            List<InviteCodes.Invite> out = new ArrayList<>();
+            String where = madeByAccount == null ? "" : " WHERE created_by_account = ?";
+            try (Connection con = DatabaseConnection.getConnection();
+                 PreparedStatement ps = con.prepareStatement("SELECT " + COLUMNS + " FROM invite_codes" + where
+                         + " ORDER BY created_at DESC, code LIMIT ? OFFSET ?")) {
+                int n = 1;
+                if (madeByAccount != null) {
+                    ps.setInt(n++, madeByAccount);
+                }
+                ps.setInt(n++, limit);
+                ps.setInt(n, offset);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        out.add(read(rs));
+                    }
+                }
+            }
+            return out;
+        }
+
+        @Override
+        public int countInvites(Integer madeByAccount) throws SQLException {
+            try (Connection con = DatabaseConnection.getConnection();
+                 PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) FROM invite_codes"
+                         + (madeByAccount == null ? "" : " WHERE created_by_account = ?"))) {
+                if (madeByAccount != null) {
+                    ps.setInt(1, madeByAccount);
+                }
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? rs.getInt(1) : 0;
+                }
+            }
         }
 
         private static InviteCodes.Invite read(ResultSet rs) throws SQLException {
@@ -295,12 +345,24 @@ public interface AuthStore {
 
         @Override
         public Account findAccount(String name) throws SQLException {
+            return findAccountWhere(FIND_ACCOUNT, ps -> ps.setString(3, name));
+        }
+
+        @Override
+        public Account findAccountById(int accountId) throws SQLException {
+            return findAccountWhere(FIND_ACCOUNT_BY_ID, ps -> ps.setInt(3, accountId));
+        }
+
+        private interface Binder {
+            void bind(PreparedStatement ps) throws SQLException;
+        }
+
+        private static Account findAccountWhere(String sql, Binder key) throws SQLException {
             try (Connection con = DatabaseConnection.getConnection();
-                 PreparedStatement ps = con.prepareStatement(
-                         FIND_ACCOUNT)) {
+                 PreparedStatement ps = con.prepareStatement(sql)) {
                 ps.setInt(1, BotStore.BOT_ID_BASE);
                 ps.setInt(2, Integer.getInteger("solomapling.template-id", 0));
-                ps.setString(3, name);
+                key.bind(ps);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) {
                         return null;

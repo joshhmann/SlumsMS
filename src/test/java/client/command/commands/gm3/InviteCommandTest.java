@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import soloMapling.site.auth.AuthStore;
 import soloMapling.site.auth.InviteCodes;
 import soloMapling.site.auth.MemoryAuthStore;
+import soloMapling.site.auth.SiteAccounts;
+import soloMapling.site.auth.SiteInvites;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -190,5 +192,44 @@ class InviteCommandTest {
     void unknownWordsGetSyntaxHelp() {
         assertTrue(player(NOW, "forever").get(0).startsWith("Syntax"));
         assertTrue(store.invites.isEmpty());
+    }
+
+    // Site invite page: the site and @invite share one rule and one weekly count.
+
+    SiteInvites site() {
+        store.put(new AuthStore.Account(7, "PalAcct", "h", false, 0));
+        store.levels.put(7, 40);   // the site reads the saved level
+        SiteAccounts accounts = new SiteAccounts(store, () -> NOW, n -> false, id -> false);
+        return new SiteInvites(store, () -> NOW + 5000, accounts);
+    }
+
+    @Test
+    void aCodeMadeInGameCountsOnTheSite() {
+        SiteInvites site = site();
+        player(NOW);
+        player(NOW + 1000);
+        assertEquals("WEEKLY_LIMIT", site.create(7, null, null).get("error"));
+        assertEquals(0, site.list(7, null, null, null).get("left"));
+        assertEquals(2, store.invites.size());
+    }
+
+    @Test
+    void aCodeMadeOnTheSiteCountsInGameAndShowsInTheGameList() {
+        SiteInvites site = site();
+        assertEquals(true, site.create(7, null, null).get("ok"));
+        assertEquals(true, site.create(7, null, null).get("ok"));
+        assertTrue(player(NOW + 6000).get(0).contains("last 7 days"));
+        assertEquals(2, store.invites.size());
+        assertEquals(2, player(NOW + 6000, "list").size());
+        assertTrue(store.invites.values().stream().allMatch(i -> i.selfServe() && i.createdByAccount() == 7));
+    }
+
+    @Test
+    void aPlayersOwnSiteCancelShowsAsCancelledNotStaffInGame() {
+        SiteInvites site = site();
+        player(NOW);
+        String code = only().code();
+        assertEquals("CANCELLED", site.cancel(7, code).get("result"));
+        assertEquals(List.of(InviteCodes.display(code) + "  cancelled"), player(NOW + 6000, "list"));
     }
 }
