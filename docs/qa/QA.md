@@ -28,6 +28,8 @@ ssh root@192.168.0.164 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa
 A Codex-built driver (`Z:\MSv83\SlumsMS-dev\client-mcp\`, ticket 61) runs a COPY of the RC client against the test
 server as `AqClient` (account `autoqaclient`, GM 3, test only; the password is only in its `secrets\` file, never
 read or print it). It can start the client, log in, type commands, warp, screenshot and read client logs.
+To frame a spot on the current map (NPC screenshots), type `!tp <x> <y>` (GM 3, 1.6.1): a same-map warp to the
+point, snapped onto the foothold below it when there is one; `!pos` shows where you stand.
 
 **Limits that make it fail if ignored:** it only works in the owner's logged-in desktop, as admin, with the
 controller window in front, the PC idle for 10 minutes, and the real monitor as main display (Parsec as main display
