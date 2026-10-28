@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.0: the checks added for features that shipped without one; their pure verdicts and their wiring. */
 class Probes160Test {
 
-    static final List<String> NEW = List.of("t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-fy-1", "t-ti-1", "t-rb-1", "t-ac-1");
+    static final List<String> NEW = List.of("t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-fy-1", "t-ti-1", "t-rb-1", "t-ac-1", "t-nc-1");
 
     private static Probes160.TownSample sample(long at, int target, int filled, int[] per, List<String> over) {
         return new Probes160.TownSample(at, target, filled, per, over, 200);
@@ -151,5 +151,17 @@ class Probes160Test {
         assertTrue(Probes160.mergeCapProblems().isEmpty(), Probes160.mergeCapProblems().toString());
         assertTrue(client.Character.meetsMergeGate(160, false) && client.Character.meetsMergeGate(110, true));
         assertFalse(client.Character.meetsMergeGate(159, false) || client.Character.meetsMergeGate(109, true));
+    }
+
+    @Test
+    void newerAreaCardsVerdictAndSamplesAreInMigration045() throws Exception {
+        assertNull(Probes160.cardVerdict(20000, 8210000, 8210000));
+        assertTrue(Probes160.cardVerdict(0, 8210000, 8210000).contains("045"));
+        assertTrue(Probes160.cardVerdict(-1, 1, 1).contains("20000"));
+        assertTrue(Probes160.cardVerdict(20000, -1, 8210000).contains("monstercarddata"));
+        String sql = java.nio.file.Files.readString(java.nio.file.Path.of("database/migrations/045-newer-area-cards.sql"));
+        for (int[] pair : Probes160.NEWER_AREA_CARDS) {
+            assertTrue(sql.contains("(" + pair[0] + ", " + pair[1] + ")"), pair[0] + "/" + pair[1]);
+        }
     }
 }

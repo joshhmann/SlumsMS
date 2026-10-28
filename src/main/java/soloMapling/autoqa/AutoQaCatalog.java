@@ -1137,6 +1137,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-ac-1", "Achievements: kill and fishing goals hand over one zero-stat medal each, once").minutes(2)
                 .expect(probe("achievements"))
                 .build());
+        // Monster Book cards on the Arcane River / Grandis mobs (migration 045): sampled mobs roll their card at 2%,
+        // and monstercarddata maps the card back to the mob
+        c.add(Check.auto("t-nc-1", "Newer-area Monster Book cards drop at 2%").minutes(1)
+                .expect(probe("newerAreaCards"))
+                .build());
         return List.copyOf(c);
     }
 
