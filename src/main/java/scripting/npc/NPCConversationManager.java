@@ -2397,7 +2397,6 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
     }*/
 
     public List<Map.Entry<Integer, Integer>>getStoredItemsWithAmount() {
-        getPlayer().getInfinityFromDB();
         return getPlayer().getInfinityStorageAsList();
     }
 
@@ -2577,23 +2576,27 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         }
     }*/
 
-    public void updateStoredItem(int itemId, int amount, boolean clear) {
-        Character player = getPlayer();
-        int playerId = player.getId();
-        int currentAmount = player.getInfinityStorageEntry(itemId);
-        int delta = currentAmount - amount;
-
-        if (clear) {
-            player.retrieveFromInfinityStorage(itemId, currentAmount);
-        } else if (amount <= currentAmount) {
-            player.retrieveFromInfinityStorage(itemId, delta);
-        } else {
-            player.storeInInfinityStorage(itemId, -delta);
-        }
-    }
-
+    // Adventurer's Bag (3004039). 1.6.1: deposits and withdraws are single atomic moves in AdventurerBag; the old
+    // updateStoredItem(id, absoluteAmount) let the script overwrite the bag with a number read a dialog step earlier
+    // and credit it whether or not gainItem had handed the item over. Results are AdventurerBag.Result names.
     public int getStoredItemAmount(int charId, int itemId) {
         return getPlayer().getInfinityStorageEntry(itemId);
+    }
+
+    public int bagDepositable(int itemId) {
+        return AdventurerBag.depositable(getPlayer(), itemId);
+    }
+
+    public String bagDeposit(int itemId, int quantity) {
+        return getPlayer().getInfinityBag().deposit(getPlayer(), itemId, quantity, AdventurerBag.wzRules()).name();
+    }
+
+    public String bagWithdraw(int itemId, int quantity) {
+        return getPlayer().getInfinityBag().withdraw(getPlayer(), itemId, quantity, AdventurerBag.wzRules()).name();
+    }
+
+    public int bagWithdrawUpTo(int itemId, int max) {
+        return getPlayer().getInfinityBag().withdrawUpTo(getPlayer(), itemId, max, AdventurerBag.wzRules());
     }
 
     // Method to get the current stored amount from the database
