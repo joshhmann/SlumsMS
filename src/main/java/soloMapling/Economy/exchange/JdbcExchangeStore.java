@@ -28,7 +28,7 @@ import java.util.TreeSet;
  *   {@code exchange_ledger} row (the ledger is only ever INSERTed);</li>
  *   <li>order and fill rows are written; then COMMIT. Any failure rolls the whole thing back.</li>
  * </ol>
- * Ticker items (migration 042): an item WALLET leg is only accepted for the batch's live character together with its
+ * Ticker items (migration 044): an item WALLET leg is only accepted for the batch's live character together with its
  * {@link ExchangeStore.InventoryWriter}, which writes that character's whole inventory in this same transaction.
  */
 public final class JdbcExchangeStore implements ExchangeStore {

@@ -343,7 +343,7 @@ The shops buying Maple Leaves at 500,000 is a natural floor for LEAF; nothing in
 - **Staff reversal** works on item fills too while the items are still in PAYOUT; items already delivered to bags
   cannot be pulled back automatically (the reversal is refused; move them by hand).
 
-**Migration 042-exchange-tickers** (+ rollback): `exchange_orders.ticker` and `exchange_fills.ticker` VARCHAR(8) NOT
+**Migration 044-exchange-tickers** (+ rollback): `exchange_orders.ticker` and `exchange_fills.ticker` VARCHAR(8) NOT
 NULL DEFAULT 'NX' (every existing row is NX), keys `exchange_orders.ticker (ticker, status, seq)` and
 `exchange_fills.ticker_at (ticker, at)`, and `exchange_escrow.asset` / `exchange_ledger.asset` widened to VARCHAR(8).
 Without the 038 tables it changes nothing. Like 038 it is **not** in `docs/release/1.6.1.conf` (TEST only until the

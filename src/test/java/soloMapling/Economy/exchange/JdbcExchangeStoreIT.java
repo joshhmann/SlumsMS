@@ -51,17 +51,17 @@ class JdbcExchangeStoreIT {
         exec("INSERT INTO characters VALUES (11, 1, 50000000), (12, 2, 50000000), (13, 3, 1000)");
         runFile("038-nx-exchange.sql");
         runFile("038-nx-exchange.sql"); // twice: no change
-        runFile("042-exchange-tickers.sql");
-        runFile("042-exchange-tickers.sql"); // twice: no change
+        runFile("044-exchange-tickers.sql");
+        runFile("044-exchange-tickers.sql"); // twice: no change
     }
 
     @AfterEach
     void tearDown() throws Exception {
         if (admin != null) {
-            runFile("042-exchange-tickers.rollback.sql");
-            runFile("042-exchange-tickers.rollback.sql");
+            runFile("044-exchange-tickers.rollback.sql");
+            runFile("044-exchange-tickers.rollback.sql");
             assertEquals(0, one("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() "
-                    + "AND column_name = 'ticker' AND table_name LIKE 'exchange_%'"), "042 rollback drops ticker");
+                    + "AND column_name = 'ticker' AND table_name LIKE 'exchange_%'"), "044 rollback drops ticker");
             runFile("038-nx-exchange.rollback.sql");
             runFile("038-nx-exchange.rollback.sql");
             try (ResultSet rs = admin.createStatement().executeQuery(

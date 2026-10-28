@@ -8,7 +8,7 @@
 --   exchange_escrow.asset / exchange_ledger.asset widen VARCHAR(4) -> VARCHAR(8) (asset names CHAOS and ELIXIR).
 -- An older jar runs fine on a migrated database (it never writes the new column, whose default is NX, and never sees
 -- an item asset unless item orders were placed). Stop the game and take a backup first, as for every migration here.
--- Applying it twice changes nothing (ledger id '042-exchange-tickers').
+-- Applying it twice changes nothing (ledger id '044-exchange-tickers').
 CREATE TABLE IF NOT EXISTS mapleroot_integration_migrations (
   migration_id varchar(100) PRIMARY KEY,
   applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -64,4 +64,4 @@ PREPARE s FROM @ddl;
 EXECUTE s;
 DEALLOCATE PREPARE s;
 
-INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('042-exchange-tickers');
+INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('044-exchange-tickers');

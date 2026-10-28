@@ -31,7 +31,7 @@ class ExchangeMigrationTest {
     @Test
     void everyColumnTheStoreWritesExists() throws Exception {
         String sql = Files.readString(DIR.resolve("038-nx-exchange.sql"));
-        String tickers = Files.readString(DIR.resolve("042-exchange-tickers.sql"));
+        String tickers = Files.readString(DIR.resolve("044-exchange-tickers.sql"));
         for (String insert : List.of(JdbcExchangeStore.ORDER_INSERT, JdbcExchangeStore.FILL_INSERT,
                 JdbcExchangeStore.LEDGER, JdbcExchangeStore.CREDIT_BUCKET)) {
             Matcher m = Pattern.compile("INSERT INTO (\\w+) \\(([^)]*)\\)").matcher(insert);
@@ -40,18 +40,18 @@ class ExchangeMigrationTest {
             table = table.substring(0, table.indexOf(") ENGINE"));
             for (String col : m.group(2).split(",\\s*")) {
                 boolean in038 = Pattern.compile("\\n\\s+" + col.trim() + "\\s").matcher(table).find();
-                boolean in042 = tickers.contains("ALTER TABLE " + m.group(1) + " ADD COLUMN " + col.trim() + " ");
-                assertTrue(in038 || in042, col + " is a column of " + m.group(1));
+                boolean in044 = tickers.contains("ALTER TABLE " + m.group(1) + " ADD COLUMN " + col.trim() + " ");
+                assertTrue(in038 || in044, col + " is a column of " + m.group(1));
             }
         }
     }
 
     @Test
     void tickerMigrationIsAdditiveWithItsLedgerIdAndRollback() throws Exception {
-        String sql = Files.readString(DIR.resolve("042-exchange-tickers.sql"));
-        String rollback = Files.readString(DIR.resolve("042-exchange-tickers.rollback.sql"));
-        assertTrue(sql.contains("mapleroot_integration_migrations(migration_id) VALUES ('042-exchange-tickers')"));
-        assertTrue(rollback.contains("migration_id='042-exchange-tickers'"));
+        String sql = Files.readString(DIR.resolve("044-exchange-tickers.sql"));
+        String rollback = Files.readString(DIR.resolve("044-exchange-tickers.rollback.sql"));
+        assertTrue(sql.contains("mapleroot_integration_migrations(migration_id) VALUES ('044-exchange-tickers')"));
+        assertTrue(rollback.contains("migration_id='044-exchange-tickers'"));
         for (String t : List.of("exchange_orders", "exchange_fills")) {
             assertTrue(sql.contains("ALTER TABLE " + t + " ADD COLUMN ticker VARCHAR(8) NOT NULL DEFAULT ''NX''"), t);
             assertTrue(rollback.contains("ALTER TABLE " + t + " DROP COLUMN ticker"), t);

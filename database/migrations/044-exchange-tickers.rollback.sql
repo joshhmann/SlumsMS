@@ -1,4 +1,4 @@
--- Stop the game first and take a backup. Removes what 042 added: the ticker columns and their keys.
+-- Stop the game first and take a backup. Removes what 044 added: the ticker columns and their keys.
 -- DANGER once an item ticker has traded: item orders and fills would read as NX after this, and rows in exchange_escrow
 -- with an item asset (LEAF, CHAOS, WS, ELIXIR) are players' items held by the exchange. Cancel every item order and let
 -- every item payout reach its character (no exchange_escrow row with an item asset above zero) before rolling back.
@@ -32,4 +32,4 @@ PREPARE s FROM @ddl;
 EXECUTE s;
 DEALLOCATE PREPARE s;
 
-DELETE FROM mapleroot_integration_migrations WHERE migration_id='042-exchange-tickers';
+DELETE FROM mapleroot_integration_migrations WHERE migration_id='044-exchange-tickers';
