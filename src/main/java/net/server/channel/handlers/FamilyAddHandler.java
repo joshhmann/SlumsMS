@@ -61,7 +61,12 @@ public final class FamilyAddHandler extends AbstractPacketHandler {
             c.sendPacket(PacketCreator.sendFamilyMessage(76, 0));
         } else {
             InviteCoordinator.createInvite(InviteType.FAMILY, chr, addChr, addChr.getId());
-            addChr.getClient().sendPacket(PacketCreator.sendFamilyInvite(chr.getId(), chr.getName()));
+            if (addChr.isBot()) {
+                // 1.6.1 ticket 53: a bot has no client to show the invite; it answers by its social rules
+                soloMapling.ArtificialPlayer.BotFamily.onInvite(addChr, chr);
+            } else {
+                addChr.getClient().sendPacket(PacketCreator.sendFamilyInvite(chr.getId(), chr.getName()));
+            }
             chr.dropMessage("The invite has been sent.");
             c.sendPacket(PacketCreator.enableActions());
         }

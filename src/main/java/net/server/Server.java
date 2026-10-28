@@ -986,6 +986,14 @@ public class Server {
 
             loadPlayerNpcMapStepFromDb();
 
+            // Ticket 53: stock Cosmic loads the families here; without it a restart forgot every family (players kept
+            // their familyId and logged "invalid family ID"). Off while USE_FAMILY_SYSTEM is off, as before.
+            if (YamlConfig.config.server.USE_FAMILY_SYSTEM) {
+                try (Connection con = DatabaseConnection.getConnection()) {
+                    client.Family.loadAllFamilies(con);
+                }
+            }
+
 //
 
         } catch (Exception e) {

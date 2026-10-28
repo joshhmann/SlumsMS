@@ -549,6 +549,11 @@ public final class BotBuddies {
         log.info("Bot {} accepted {}'s buddy request ({})", bot.getName(), name, f);
     }
 
+    /** How well {@code bot} knows the player, as the buddy rules judge it (1.6.1: BotFamily reuses it). */
+    static Familiarity familiarityOf(Character bot, int playerId, Character player) {
+        return judge.of(bot, playerId, player);
+    }
+
     private static Familiarity familiarity(Character bot, int playerId, Character player) {
         int slot = bot.getId() - BotStore.BOT_ID_BASE;
         boolean known = BotRecognition.knows(slot, playerId);

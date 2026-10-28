@@ -152,6 +152,11 @@ public class Family {
         }
     }
 
+    /** Every member (a copy), for QA teardown (1.6.1). */
+    public java.util.List<FamilyEntry> getMembers() {
+        return new java.util.ArrayList<>(members.values());
+    }
+
     public FamilyEntry getEntryByID(int cid) {
         return members.get(cid);
     }
@@ -189,6 +194,9 @@ public class Family {
         }
     }
 
+    /** Character ids from here up are bots (BotStore.BOT_ID_BASE). */
+    static final int BOT_ID_BASE = 1_000_000_000;
+
     public static void loadAllFamilies(Connection con) {
         List<Pair<Pair<Integer, Integer>, FamilyEntry>> unmatchedJuniors = new ArrayList<>(200); // <<world, seniorid> familyEntry>
         try (PreparedStatement psEntries = con.prepareStatement("SELECT * FROM family_character")) {
@@ -199,8 +207,16 @@ public class Family {
                 int level = -1;
                 int jobID = -1;
                 int world = -1;
-                try (PreparedStatement ps = con.prepareStatement("SELECT world, name, level, job FROM characters WHERE id = ?")) {
-                    ps.setInt(1, cid);
+                boolean bot = cid >= BOT_ID_BASE; // 1.6.1 ticket 53: a bot junior has a botstore row, no characters row
+                try (PreparedStatement ps = con.prepareStatement(bot
+                        ? "SELECT ? AS world, Name AS name, Level AS level, Job AS job FROM botstore WHERE BotId = ?"
+                        : "SELECT world, name, level, job FROM characters WHERE id = ?")) {
+                    if (bot) {
+                        ps.setInt(1, soloMapling.server.SoloMaplingConstants.GameConstants.homeWorld());
+                        ps.setInt(2, cid - BOT_ID_BASE);
+                    } else {
+                        ps.setInt(1, cid);
+                    }
                     ResultSet rs = ps.executeQuery();
                     if (rs.next()) {
                         world = rs.getInt("world");

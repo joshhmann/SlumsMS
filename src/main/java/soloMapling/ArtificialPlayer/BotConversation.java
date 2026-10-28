@@ -417,8 +417,9 @@ public final class BotConversation {
         if (!transcript.isEmpty()) {
             BotMemory.writeConversationNotes(session.bot.getChr(), session.player, transcript);
             // Ticket 49: after a real chat with a player it already knew, a bot may (rarely) ask to be buddies.
-            BotBuddies.afterChat(session.bot.getChr(), session.player,
-                    (int) transcript.stream().filter(t -> t.role() == BotBrain.Role.USER).count());
+            int playerLines = (int) transcript.stream().filter(t -> t.role() == BotBrain.Role.USER).count();
+            BotBuddies.afterChat(session.bot.getChr(), session.player, playerLines);
+            BotFamily.afterChat(session.bot.getChr(), session.player, playerLines); // 1.6.1 ticket 53, rarely
         }
     }
 

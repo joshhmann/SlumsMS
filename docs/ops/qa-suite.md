@@ -380,6 +380,13 @@ ssh root@192.168.0.164 'cat /opt/mapleroot-dev/persistence-test/Server/logs/qa/f
 - `QaScenarios`: the scenarios.
 - `client.command.commands.gm3.QaCommand`: the command.
 
+### fy-1: Family (1.6.1, ticket 53)
+
+`!qa run fy-1` (needs `USE_FAMILY_SYSTEM`, the GM in no family): an online bot accepts being the GM's junior, its
+level-up gives the GM rep, and the GM gets 20,000 rep to click every entitlement once in the Family window.
+`!qa do check` prints rep and the Family buffs; stop dissolves the family (relog to clear the window). Auto-QA:
+t-fy-1.
+
 ## Adding a scenario
 
 1. Pick the test id from the release notes page. A second test that needs the same staging becomes an alias.

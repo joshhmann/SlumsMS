@@ -75,7 +75,7 @@ public class FamilyEntry {
 
     public void setCharacter(Character newCharacter) {
         if (newCharacter == null) {
-            cacheOffline(newCharacter);
+            cacheOffline(this.character); // stock passed the null, so an offline entry kept its login-time level
         } else {
             newCharacter.setFamilyEntry(this);
         }
@@ -314,6 +314,12 @@ public class FamilyEntry {
         if (senior != null && senior.getLevel() < getLevel() && gain > 0) {
             actualGain /= 2; //don't halve negative values
         }
+        if (actualGain > 0 && characterID >= Family.BOT_ID_BASE) {
+            actualGain = Math.min(actualGain, Math.max(0, botJuniorDailyRep() - repsToSenior));
+            if (actualGain == 0) {
+                return; // 1.6.1: a bot junior grinds all day; it gives its senior at most this much a day
+            }
+        }
         if (senior != null) {
             senior.gainReputation(actualGain, true, this);
             if (actualGain > 0) {
@@ -327,6 +333,14 @@ public class FamilyEntry {
                 }
             }
         }
+    }
+
+    /**
+     * 1.6.1 ticket 53: the most reputation a bot junior gives its senior a day ({@code -Dslums.family.botJuniorDailyRep},
+     * default 300: about two level-ups or 75 kills). Without it a grinding bot would buy its senior every perk daily.
+     */
+    public static int botJuniorDailyRep() {
+        return Math.max(0, Integer.getInteger("slums.family.botJuniorDailyRep", 300));
     }
 
     public int getTotalReputation() {

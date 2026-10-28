@@ -186,6 +186,7 @@ public class BotGeneration {
         BotBuddies.onBotLogin(bot); // ticket 49: its player buddies see it online; requests made while away are answered
         soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onBotLogin(bot); // 1.5.0: its guild, before it shows on the map
         soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onBotLogin(bot); // 1.5.0: a bot engaged or married to a player
+        BotFamily.onBotLogin(bot); // 1.6.1 ticket 53: a player's family junior
         placeBotOnMap(bot, placePos, placeMap);
         placedBots.incrementAndGet();
         if (adopted) {
@@ -323,6 +324,7 @@ public class BotGeneration {
         BotConversation.endAllOf(fakechar.getId()); // a bot leaving mid-chat still writes down what it heard
         BotBuddies.onBotLogout(fakechar); // ticket 49: its player buddies see it go offline
         soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onBotLogout(fakechar); // 1.5.0: offline on its guild's list
+        BotFamily.onBotLogout(fakechar); // 1.6.1 ticket 53: save its family rep, offline in the pedigree
         if (fakechar.getMap() != null) fakechar.getMap().removePlayer(fakechar);
         removeFromChannels(fakechar);
         world().getPlayerStorage().removePlayer(fakechar.getId());
