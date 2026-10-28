@@ -24,7 +24,7 @@
 
   function xinvites(staff) {
     return {
-      staff: !!staff, codes: [], left: null, page: 0, more: false, state: "loading", msg: "", msgClass: "", busy: false,
+      staff: !!staff, codes: [], left: null, page: 1, more: false, state: "loading", msg: "", msgClass: "", busy: false,
       made: null, life: 14, forever: false, note: "", when: when,
       init: function () { this.load(); },
       say: function (t, ok) { this.msg = t; this.msgClass = ok === true ? "ok" : ok === false ? "bad" : ""; },
@@ -36,7 +36,7 @@
           self.state = "ok";
           self.codes = Array.isArray(j.codes) ? j.codes : [];
           self.left = typeof j.left === "number" ? j.left : null;
-          self.more = !!(j.next || j.more || (typeof j.pages === "number" && self.page + 1 < j.pages));
+          self.more = !!(j.more || j.next);  // pages are 1-based (ticket 105)
         });
       },
       // the game's status (open/unused, used, expired, cancelled, cancelled_by_staff); worked out when it's missing
@@ -88,7 +88,7 @@
             function () { self.say("Couldn't copy: select it and copy by hand.", false); });
         } catch (e) { this.say("Couldn't copy: select it and copy by hand.", false); }
       },
-      go: function (d) { this.page = Math.max(0, this.page + d); this.load(); }
+      go: function (d) { this.page = Math.max(1, this.page + d); this.load(); }
     };
   }
 

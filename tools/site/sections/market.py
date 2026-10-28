@@ -733,7 +733,7 @@ it to a friend. Each code works once.</p>
 <section class="panel" x-show="state !== 'signedOut'" x-cloak><h2 class="bar">Make a code
 <small x-show="left !== null" x-text="left + ' left this week'"></small></h2><div class="in inv-make">
 <p class="small">You need a character at level 30 or higher. You can make 2 codes a week: the same 2 as
-<code>@invite</code> in game.</p>
+<code>@invite</code> in game. A code you cancel still counts for that week.</p>
 <button class="btn primary" type="button" @click="make()" :disabled="busy">Make an invite code</button>
 <div class="inv-new" x-show="made" x-cloak><b class="inv-code" x-text="made && made.code"></b>
 <button class="btn" type="button" @click="copy(made.code)">Copy</button>

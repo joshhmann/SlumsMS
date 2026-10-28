@@ -607,7 +607,7 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
             if not invite_limiter.allow(s["a"]):
                 return self.send(*self.err(ERRORS["RATE_LIMITED"]))
             ask = {"account_id": s["a"]}
-            if action == "list" and isinstance(body.get("page"), int) and 0 <= body["page"] <= 1000:
+            if action == "list" and isinstance(body.get("page"), int) and 1 <= body["page"] <= 1000:
                 ask["page"] = body["page"]
             if action == "cancel":
                 code = clean_code(body.get("code"))

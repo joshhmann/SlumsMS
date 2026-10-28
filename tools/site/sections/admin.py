@@ -52,15 +52,15 @@ INVITES = """<h1>Invite codes</h1><p class="id">Every code on the server: made h
 <button class="btn" type="button" @click="copy(made.code)">Copy</button>
 <p class="small" x-show="made" x-text="made && made.expiresAt === null ? 'Never expires.' : 'Works until ' + when(made && made.expiresAt) + '.'"></p></div>
 <p class="status" :class="msgClass" role="status" aria-live="polite" x-text="msg"></p></div></section>
-<section class="panel"><h2 class="bar">All codes <small x-show="page" x-text="'page ' + (page + 1)"></small></h2>
+<section class="panel"><h2 class="bar">All codes <small x-show="page > 1" x-text="'page ' + page"></small></h2>
 <div class="tbl"><table class="t"><thead><tr><th>Code</th><th>Made by</th><th>Note</th><th>Made</th><th>Works until</th><th>Status</th><th></th></tr></thead>
 <tbody><template x-for="c in codes" :key="c.code"><tr><td><b class="inv-code" x-text="c.code"></b></td>
-<td x-text="c.ownerAccount || c.owner || ''"></td><td x-text="c.note || ''"></td><td x-text="when(c.createdAt)"></td>
+<td x-text="c.owner || (c.ownerAccount ? 'account ' + c.ownerAccount : '')"></td><td x-text="c.note || ''"></td><td x-text="when(c.createdAt)"></td>
 <td x-text="until(c)"></td><td x-text="status(c)"></td>
 <td><button class="btn" type="button" x-show="open(c)" @click="copy(c.code)">Copy</button>
 <button class="btn" type="button" x-show="open(c)" @click="cancel(c)" :disabled="busy">Cancel</button></td></tr></template></tbody></table></div>
 <p class="empty" x-show="state === 'ok' && !codes.length" style="padding:12px 16px;margin:0">No codes yet.</p>
-<p class="small" style="padding:8px 16px;margin:0"><button class="btn" type="button" x-show="page" @click="go(-1)">Newer</button>
+<p class="small" style="padding:8px 16px;margin:0"><button class="btn" type="button" x-show="page > 1" @click="go(-1)">Newer</button>
 <button class="btn" type="button" x-show="more" @click="go(1)">Older</button></p></section>
 </div>
 <script src="../assets/invites.js"></script><script defer src="../assets/vendor/alpine-3.14.1.min.js"></script>"""
