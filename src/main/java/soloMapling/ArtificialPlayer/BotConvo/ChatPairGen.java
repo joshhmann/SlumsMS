@@ -393,6 +393,9 @@ public final class ChatPairGen {
     /** The share of calls for other normal rows that ask for 1 to 3 ordinary earlier lines. */
     static final double CONTEXT_SHARE = 0.3;
 
+    /** The share of manipulation calls that ask for 1 to 3 ordinary earlier lines. */
+    static final double MANIPULATION_CONTEXT_SHARE = 0.5;
+
     /** The earlier lines a call asks for: {min, max}. */
     static int[] contextRange(Row r, Random rng) {
         if (SLOW.contains(r.variant())) {
@@ -409,6 +412,10 @@ public final class ChatPairGen {
         // a haggle without the asking price before it reads as a trade offer
         if ("haggle".equals(r.intent())) {
             return new int[]{1, 3};
+        }
+        // round 6 leg 1: 14 manipulation pairs in 7,808; "r u a bot" alone has few wordings, mid-chat it has many
+        if ("manipulation".equals(r.con())) {
+            return rng.nextDouble() < MANIPULATION_CONTEXT_SHARE ? new int[]{1, 3} : new int[]{0, 0};
         }
         return "normal".equals(r.con()) && rng.nextDouble() < CONTEXT_SHARE ? new int[]{1, 3} : new int[]{0, 0};
     }
@@ -874,6 +881,9 @@ public final class ChatPairGen {
                         .append("quit) while B ignores it or asks P to stop; P's last line keeps at it. ");
             } else if ("haggle".equals(c.intent())) {
                 s.append("The earlier lines name the item and its asking price; P's last line bargains it down. ");
+            } else if ("manipulation".equals(c.con())) {
+                s.append("The earlier lines are ordinary chat (grinding, gear, a quest); P's last line then turns to ")
+                        .append("poking at B as described above. ");
             } else {
                 s.append("The earlier lines are ordinary chat that leads to P's line. ");
             }

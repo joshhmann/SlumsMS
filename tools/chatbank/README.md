@@ -80,6 +80,8 @@ negative it is, or `-`), `source` (`gen` or `backfill`) and, for backfill, `bank
   earlier lines (the r6 model, trained only on harassment with build-up, read "go die" as normal). Its player lines may
   carry those death-wish words, which the hard limits otherwise refuse; threats, doxxing, slurs and sexual content still
   fail. Player lines only: they never reach `lines.tsv` or a bot.
+  Manipulation rows get 1 to 3 ordinary earlier lines on about half their calls (round 6: alone, "r u a bot" has
+  too few wordings and leg 1 kept 14 manipulation pairs in 7,808).
   The model writes them as `CP:` / `CB:` / `CO:` before `P:` and `B:`. Every earlier line passes the player line's
   realism, length, brace, hard-limit, money and frozen-set checks, may not repeat the player line, and their number must
   be in the asked range. The label check sees them and labels the P line given them. Backfill pairs have none.

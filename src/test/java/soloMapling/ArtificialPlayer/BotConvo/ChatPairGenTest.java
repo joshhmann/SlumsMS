@@ -310,6 +310,13 @@ class ChatPairGenTest {
                 new ChatPairGen.Row("insult", "rude", "harassment", "chat", "-"), rng)), "harassment keeps at it");
         assertTrue(java.util.Arrays.equals(new int[]{0, 0}, ChatPairGen.contextRange(
                 new ChatPairGen.Row("insult", "rude", "harassment", "chat", "deathwish"), rng)), "a death wish stands alone");
+        int manip = 0;
+        for (int i = 0; i < 1000; i++) {
+            int[] r = ChatPairGen.contextRange(new ChatPairGen.Row("talk", "neutral", "manipulation", "ask", "-"), rng);
+            manip += r[1] > 0 ? 1 : 0;
+            assertTrue(r[1] == 0 || r[0] == 1 && r[1] == 3);
+        }
+        assertTrue(manip > 430 && manip < 570, "about half of manipulation calls come mid-chat: " + manip);
         assertTrue(java.util.Arrays.equals(new int[]{1, 3}, ChatPairGen.contextRange(
                 new ChatPairGen.Row("haggle", "neutral", "normal", "ask", "priced"), rng)), "a haggle follows a price");
         // the floors pull the planner to the slow pair; the report shows them
