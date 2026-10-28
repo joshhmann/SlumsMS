@@ -62,7 +62,8 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "botRebirth", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "bugReport");
+            "family", "tutorialIsland", "botRebirth", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "bugReport",
+            "achievementClear", "lazyPenguins");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -99,6 +100,8 @@ final class Probes160 {
                 case "tutorialIsland" -> tutorialIsland(p);
                 case "botRebirth" -> botRebirth(p);
                 case "achievements" -> achievements(p);
+                case "achievementClear" -> achievementClear(p);
+                case "lazyPenguins" -> lazyPenguins(p);
                 case "newerAreaCards" -> newerAreaCards();
                 case "playerInvites" -> playerInvites();
                 case "siteInvites" -> siteInvites();
@@ -1295,6 +1298,70 @@ final class Probes160 {
                 + " and the list shows it", ev);
     }
 
+    /**
+     * t-ac-2 (1.6.1 promise audit): a real, named Kerning PQ instance on the pretend player's channel is cleared through
+     * the event's own completion path (EventInstanceManager.clearPQ); the pq-kerning goal must be earned and its medal
+     * handed over. t-ac-1 fed events straight to the service and could not see that clears keyed on the instance name.
+     */
+    static List<String> achievementClear(SyntheticPlayer p) throws Exception {
+        var svc = soloMapling.achievements.Achievements.service();
+        if (svc == null) {
+            return List.of("SKIP achievements are off (-Dslums.achievements=true)");
+        }
+        Character me = p.character();
+        var em = me.getClient().getChannelServer().getEventSM()
+                .getEventManager(soloMapling.achievements.AchievementsQa.CLEAR_SCRIPT);
+        List<String> ev = new ArrayList<>();
+        List<String> bad = soloMapling.achievements.AchievementsQa.realClear(svc, me, em, 15_000, ev);
+        return verdict(bad, "clearing a named Kerning PQ instance through clearPQ earned pq-kerning and handed over its medal",
+                ev);
+    }
+
+    // ── t-pg-1: Lazy Penguins (migrations 046/048/049/051, 1.6.1) ─────────────────────────────────
+
+    /** t-pg-1: {npc, map} for the 15 Lazy Penguins, as tools/data-align/lazy-penguins/penguins.tsv (a test keeps them equal). */
+    static final int[][] PENGUINS = {{2985, 209000000}, {2986, 100000000}, {2987, 101000000}, {2988, 102000000},
+            {2989, 103000000}, {2990, 104000000}, {2991, 105040300}, {2992, 120000000}, {2993, 200000000},
+            {2994, 220000000}, {2995, 230000000}, {2996, 240000000}, {2997, 250000000}, {2998, 801000000},
+            {2999, 600000000}};
+
+    /**
+     * t-pg-1: each penguin stands once on its town map on the pretend player's channel, is named "Lazy Penguin" (the
+     * host WZ step), and a click on it opens its one lazy line. Mushroom Shrine (800000000) has none (051 moved it).
+     */
+    static List<String> lazyPenguins(SyntheticPlayer p) throws InterruptedException {
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        var maps = p.character().getClient().getChannelServer().getMapFactory();
+        for (int[] pg : PENGUINS) {
+            int id = pg[0];
+            var map = maps.getMap(pg[1]);
+            long here = map == null ? 0 : penguinsOn(map, id);
+            String name = server.life.LifeFactory.getNPC(id).getName();
+            List<String> said = talk(p, id, null, new int[0][]);
+            ev.add(id + " @ " + pg[1] + ": " + here + " here, name " + name + ", click " + said);
+            if (here != 1) {
+                bad.add("penguin " + id + ": " + here + " on map " + pg[1] + ", want 1 (plife rows, 046/048/049/051)");
+            }
+            if (!"Lazy Penguin".equals(name)) {
+                bad.add("penguin " + id + " is named '" + name + "' (host step: tools/data-align/add_lazy_penguins.py)");
+            }
+            if (said.stream().noneMatch(l -> l.startsWith("NPC_TALK"))) {
+                bad.add("penguin " + id + ": a click showed no line " + said);
+            }
+        }
+        var shrine = maps.getMap(800000000);
+        if (shrine != null && penguinsOn(shrine, 2998) != 0) {
+            bad.add("the Mint penguin still stands in Mushroom Shrine (800000000): migration 051 not applied");
+        }
+        return verdict(bad, "all 15 Lazy Penguins stand on their towns, are named and answer a click", ev);
+    }
+
+    private static long penguinsOn(server.maps.MapleMap map, int id) {
+        return map.getMapObjects().stream()
+                .filter(o -> o.getType() == server.maps.MapObjectType.NPC && ((server.life.NPC) o).getId() == id).count();
+    }
+
     // ── t-nc-1: Monster Book cards on the Arcane River / Grandis mobs (migration 045, 1.6.1) ────────
 
     /** t-nc-1: (mob, card) samples from migration 045's list: first, a middle one, the last. */
@@ -1764,7 +1831,8 @@ final class Probes160 {
             soloMapling.ArtificialPlayer.BotConvo.TalkQa.friends(bots.subList(2, 5));
             long classified0 = soloMapling.ArtificialPlayer.BotConvo.BotLineIntents.counts().get("classifiedBotLines");
             long since = System.currentTimeMillis();
-            var pair = soloMapling.ArtificialPlayer.BotConvo.TalkQa.talk(List.of(bots.get(0), bots.get(1)),
+            // 1.6.1 audit: Bob's yes is forced (when the game allows one), so the party itself is proven every run
+            var pair = soloMapling.ArtificialPlayer.BotConvo.TalkQa.talkYes(List.of(bots.get(0), bots.get(1)),
                     soloMapling.ArtificialPlayer.BotConvo.TalkIntent.Ask.PARTY, "auto-QA t-bt-1 pair");
             var group = soloMapling.ArtificialPlayer.BotConvo.TalkQa.talk(bots.subList(2, 5), null,
                     "auto-QA t-bt-1 group");
@@ -1790,6 +1858,13 @@ final class Probes160 {
             }
             for (String b : soloMapling.ArtificialPlayer.BotConvo.TalkQa.judge(pair, since)) {
                 bad.add("pair: " + b);
+            }
+            for (String b : soloMapling.ArtificialPlayer.BotConvo.TalkQa.partyFormed(pair)) {
+                bad.add("pair party: " + b);
+            }
+            if (bots.get(0).getParty() != null) {
+                ev.add("pair party " + bots.get(0).getParty().getId() + ": " + bots.get(0).getParty().getMembers().size()
+                        + " members");
             }
             for (String b : soloMapling.ArtificialPlayer.BotConvo.TalkQa.judge(group, since)) {
                 bad.add("group: " + b);
@@ -1825,7 +1900,7 @@ final class Probes160 {
         } finally {
             ev.add(soloMapling.ArtificialPlayer.BotConvo.TalkQa.teardown(bots));
         }
-        return verdict(bad, "a pair greeted, chatted, asked to party and the answer was acted on as decided; a group"
+        return verdict(bad, "a pair greeted, chatted, asked to party, Bob's (forced) yes formed a real party; a group"
                 + " of three took turns and each answered; no bot line was classified; the tick is cheap and starts"
                 + " talks by itself", ev);
     }
@@ -1855,13 +1930,12 @@ final class Probes160 {
             int town = soloMapling.ArtificialPlayer.BotConvo.TalkQa.crewTown(me.getMapId(), level);
             ev.add("crew " + soloMapling.ArtificialPlayer.BotConvo.TalkQa.where(crew) + " -> town " + town);
             bad.addAll(soloMapling.ArtificialPlayer.BotConvo.TalkQa.crewFollow(crew, town));
+            Character leader = crewLeader(crew);
+            ev.add("leader " + leader.getName());
             long end = System.currentTimeMillis() + CREW_WAIT_S * 1000L;
             int arrived = 0;
             while (System.currentTimeMillis() < end) {
-                arrived = 0;
-                for (Character c : crew) {
-                    arrived += c.getMapId() == town ? 1 : 0;
-                }
+                arrived = followersIn(crew, leader, town);
                 if (arrived >= 1) {
                     break;
                 }
@@ -1869,13 +1943,35 @@ final class Probes160 {
             }
             ev.add("after the wait: " + soloMapling.ArtificialPlayer.BotConvo.TalkQa.where(crew) + "; crews "
                     + soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews.stats());
-            if (arrived == 0) {
-                bad.add("no crew member reached town " + town + " in " + CREW_WAIT_S + " s");
+            if (arrived == 0) { // 1.6.1 audit: the leader getting there alone is not "the crew follows"
+                bad.add("no follower (only the leader counts as leading) reached town " + town + " in " + CREW_WAIT_S + " s");
             }
         } finally {
             ev.add(soloMapling.ArtificialPlayer.BotConvo.TalkQa.teardown(crew));
         }
-        return verdict(bad, "the leader's town became each follower's next hang-out and the crew headed there", ev);
+        return verdict(bad, "the leader's town became each follower's next hang-out and a follower arrived there", ev);
+    }
+
+    /** t-bt-2: the crew's leader, as BotCrews picks it (the lowest id). */
+    static Character crewLeader(List<Character> crew) {
+        Character leader = crew.get(0);
+        for (Character c : crew) {
+            if (c.getId() < leader.getId()) {
+                leader = c;
+            }
+        }
+        return leader;
+    }
+
+    /** t-bt-2: followers (not the leader) standing in {@code town} (pure, unit-tested). */
+    static int followersIn(List<Character> crew, Character leader, int town) {
+        int n = 0;
+        for (Character c : crew) {
+            if (c != leader && c.getMapId() == town) {
+                n++;
+            }
+        }
+        return n;
     }
 
     /** t-bt-2: how long the crew gets to start moving. */

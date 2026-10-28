@@ -422,7 +422,7 @@ mesos, cash items, past skills). `!qa do check` prints the bot; stop puts it bac
 `!qa do mano` (a credited Mano kill) and `!qa do fish` (ten kept catches) earn them through the real event path, each
 handing over one zero-stat medal with a yellow notice; repeating gives nothing. `!qa do list` prints what `@achievements`
 shows. To see the full-bag notice fill the Equip tab first, then free a slot and type `@achievements`. Stop clears both
-goals and takes the medals back. Auto-QA: t-ac-1.
+goals and takes the medals back. Auto-QA: t-ac-1, and t-ac-2 (below) for a clear through the real event path.
 
 ### Auto-QA probes with no `!qa` scenario (1.6.1)
 
@@ -444,6 +444,17 @@ goals and takes the medals back. Auto-QA: t-ac-1.
   Roots (993910000) and one in Henesys (100000000) as loaded from `plife`, and the first-login guide and `@settings`
   use her as the NPC. (`t-sc-1` is the 1.5.0 gambler-bot check, so her id is `t-sn-1`.)
 
+- **t-ac-2 (achievements, a real PQ clear; 1.6.1 promise audit):** on the pretend player's channel, a real
+  `KerningPQ` instance named as the script names them (`Kerning9xx`), the player registered without the entry warp, and
+  `EventInstanceManager.clearPQ` (the script's `clearPQ`, then `setEventCleared` and the achievement hook). Wants
+  `pq-kerning` earned and its medal handed over within 15 s. Resets the goal, takes the medal back and disposes the
+  instance in a `finally`. (t-ac-1 feeds events straight to the service, so it could not see that clears were keyed on
+  the instance name.) Side effects: a few quest points for the QA character and a PQ_CLEAR on the event bus.
+- **t-pg-1 (Lazy Penguins, migrations 046/048/049/051):** read-only apart from opening each NPC's chat. Each of the 15
+  penguins stands once on its town map on the player's channel, is named "Lazy Penguin" (host WZ step), and a click
+  shows its line; none is left in Mushroom Shrine (800000000). The town table is `Probes160.PENGUINS`, kept equal to
+  `tools/data-align/lazy-penguins/penguins.tsv` by a test.
+
 - **t-br-1 (`@bug` with context, ticket 131):** logs two WARN lines naming the QA character (one says "password"), then
   the pretend player types `@bug autoqa t-br-1 <marker> ...`. Wants the `Thanks! Bug #B-.. sent.` reply, the line in
   the reports file (`-Dsolomapling.reportsFile`, TEST `/var/lib/slums-report-test/reports.jsonl`) with source
@@ -459,7 +470,9 @@ bond, and a yes is a real party. `!qa do rival`: Ann asks Eve (curt or rude). `!
 and each answers the ask itself. Each step prints the plan (every line with its intent, the decisions and why) and a
 `BT1 PASS / FAIL <step>` verdict lands in the QA log once the lines are out. `!qa do check`: the counters (talks,
 lines by source, acts, classified bot lines = 0, tick CPU). Auto-QA: t-bt-1 (pair, group, classifier count, tick
-cost, and the tick starting talks by itself after 5 min with 20+ bots online) and t-bt-2 (friend crews: the leader's town becomes the followers' next hang-out and one of them gets there).
+cost, and the tick starting talks by itself after 5 min with 20+ bots online; since the 1.6.1 audit Bob's answer is a
+forced yes whenever the game allows one, and the check fails unless Ann and Bob end up in one real party) and t-bt-2
+(friend crews: the leader's town becomes the followers' next hang-out and a follower, not the leader, gets there).
 
 ## Adding a scenario
 

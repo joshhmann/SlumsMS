@@ -16,7 +16,42 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.0: the checks added for features that shipped without one; their pure verdicts and their wiring. */
 class Probes160Test {
 
-    static final List<String> NEW = List.of("t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-xc-2", "t-xc-3", "t-xc-4", "t-fy-1", "t-ti-1", "t-rb-1", "t-ac-1", "t-nc-1", "t-iv-1", "t-iv-2", "t-sn-1", "t-bt-1", "t-bt-2", "t-br-1");
+    static final List<String> NEW = List.of("t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-xc-2", "t-xc-3", "t-xc-4", "t-fy-1", "t-ti-1", "t-rb-1", "t-ac-1", "t-nc-1", "t-iv-1", "t-iv-2", "t-sn-1", "t-bt-1", "t-bt-2", "t-br-1", "t-ac-2", "t-pg-1");
+
+    /** t-pg-1's table is the placement table (penguins.tsv), map for map. */
+    @Test
+    void thePenguinCheckLooksWhereThePenguinsStand() throws Exception {
+        java.util.Map<Integer, Integer> tsv = new java.util.HashMap<>();
+        for (String line : java.nio.file.Files.readAllLines(java.nio.file.Path.of("tools/data-align/lazy-penguins/penguins.tsv"))) {
+            if (!line.startsWith("#") && !line.isBlank()) {
+                String[] c = line.split("\t");
+                tsv.put(Integer.parseInt(c[0]), Integer.parseInt(c[6]));
+            }
+        }
+        assertEquals(15, Probes160.PENGUINS.length);
+        for (int[] pg : Probes160.PENGUINS) {
+            assertEquals(tsv.get(pg[0]), pg[1], "penguin " + pg[0]);
+        }
+    }
+
+    /** t-bt-2 (1.6.1 audit): only a follower arriving counts; the leader getting there alone is not "the crew follows". */
+    @Test
+    void theCrewCheckCountsFollowersNotTheLeader() {
+        client.Character lead = org.mockito.Mockito.mock(client.Character.class);
+        client.Character f1 = org.mockito.Mockito.mock(client.Character.class);
+        client.Character f2 = org.mockito.Mockito.mock(client.Character.class);
+        org.mockito.Mockito.when(lead.getId()).thenReturn(1_000_000_010);
+        org.mockito.Mockito.when(f1.getId()).thenReturn(1_000_000_011);
+        org.mockito.Mockito.when(f2.getId()).thenReturn(1_000_000_012);
+        org.mockito.Mockito.when(lead.getMapId()).thenReturn(100000000);
+        org.mockito.Mockito.when(f1.getMapId()).thenReturn(104000000);
+        org.mockito.Mockito.when(f2.getMapId()).thenReturn(104000000);
+        List<client.Character> crew = List.of(f2, lead, f1);
+        assertTrue(Probes160.crewLeader(crew) == lead);
+        assertEquals(0, Probes160.followersIn(crew, lead, 100000000), "the leader alone in town");
+        org.mockito.Mockito.when(f1.getMapId()).thenReturn(100000000);
+        assertEquals(1, Probes160.followersIn(crew, lead, 100000000));
+    }
 
     private static Probes160.TownSample sample(long at, int target, int filled, int[] per, List<String> over) {
         return new Probes160.TownSample(at, target, filled, per, over, 200);
