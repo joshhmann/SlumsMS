@@ -284,6 +284,9 @@ public final class ExchangeSite {
         m.put("lot", t.lot());
         m.put("min_price", t.minPrice());
         m.put("max_price", t.maxPrice());
+        m.put("max_open", t.maxOpen());
+        m.put("per_day", t.perDay());
+        m.put("expiry_hours", t.expiryMs() / 3_600_000L);
         List<OrderBook.Level> bids = ex.depth(t.id(), OrderBook.Side.BUY, levels);
         List<OrderBook.Level> asks = ex.depth(t.id(), OrderBook.Side.SELL, levels);
         m.put("bid", bids.isEmpty() ? null : bids.get(0).price());
@@ -312,12 +315,36 @@ public final class ExchangeSite {
         m.put("fee_bps_each_side", ex.config().feeBps());
         m.put("rate_window_hours", ex.config().rateWindowMs() / 3_600_000L);
         m.put("rate_min_fills", ex.config().rateMinFills());
+        // limits (owner 2026-10-28): the item tickers' (null when they differ between item tickers; every ticker
+        // also carries its own max_open / per_day / expiry_hours, so NX's are there too); the day's count is per
+        // ticker, the cooldown per account across every ticker
+        m.put("max_open_per_ticker", itemCommon(ex, t -> (long) t.maxOpen()));
+        m.put("per_day", itemCommon(ex, t -> (long) t.perDay()));
+        m.put("per_day_scope", "ticker");
+        m.put("cooldown_sec", ex.config().cooldownMs() / 1000);
+        m.put("expiry_hours", itemCommon(ex, t -> t.expiryMs() / 3_600_000L));
         List<Map<String, Object>> list = new ArrayList<>();
         for (Ticker t : ex.tickers()) {
             list.add(tickerJson(ex, t, 10, 20));
         }
         m.put("tickers", list);
         return m;
+    }
+
+    /** The value every open item ticker shares, or null when they differ (or none is open). */
+    private static Long itemCommon(Exchange ex, java.util.function.ToLongFunction<Ticker> f) {
+        Long v = null;
+        for (Ticker t : ex.tickers()) {
+            if (!t.item()) {
+                continue;
+            }
+            long x = f.applyAsLong(t);
+            if (v != null && v != x) {
+                return null;
+            }
+            v = x;
+        }
+        return v;
     }
 
     /** exchange-history.json: hourly OHLC candles per open ticker, the last 30 days, only hours that traded. */

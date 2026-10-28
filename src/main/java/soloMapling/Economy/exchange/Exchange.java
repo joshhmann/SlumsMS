@@ -96,6 +96,17 @@ public final class Exchange {
 
     private static final int RECENT_FILLS = 2000;
 
+    /**
+     * 1.6.1 volatility: a trader bot's orders carry the bot's character id as their account (bots share one game
+     * account, and real account ids are far below this), so limits, self-trade and cancels are per bot.
+     */
+    public static final long BOT_ACCOUNT_BASE = 1_000_000_000L;
+
+    /** Is this order account a trader bot (its character id)? */
+    public static boolean botAccount(long account) {
+        return account >= BOT_ACCOUNT_BASE;
+    }
+
     /** A previewed place waiting for its confirm. */
     private record Pending(Place place, long expiresAt) {
     }
@@ -119,6 +130,8 @@ public final class Exchange {
     private final Map<String, TickerHistory> history = new HashMap<>();
     /** Character id -> when it was last told its bags are too full for an item payout. */
     private final Map<Long, Long> roomNagged = new HashMap<>();
+    /** Trader bots (character ids) with something waiting in a PAYOUT ({@link #collectBot}). */
+    private final java.util.Set<Long> botPayouts = new java.util.TreeSet<>();
     private long nextOrder = 1, nextFill = 1, nextSeq = 1, nextBatch = 1;
     private volatile boolean halted;
     private volatile String haltReason = "";
@@ -202,9 +215,13 @@ public final class Exchange {
             history.computeIfAbsent(f.ticker(), k -> new TickerHistory()).add(f);
         }
         feeHold.clear();
+        botPayouts.clear();
         for (Map.Entry<Bucket, Long> e : l.balances().entrySet()) {
             if (e.getKey().kind() == Kind.FEEHOLD && e.getValue() > 0) {
                 feeHold.put(e.getKey().id(), e.getValue());
+            }
+            if (e.getKey().kind() == Kind.PAYOUT && botAccount(e.getKey().id()) && e.getValue() > 0) {
+                botPayouts.add(e.getKey().id());
             }
         }
         for (FillRow f : l.recentFills()) {
@@ -279,6 +296,9 @@ public final class Exchange {
         if (!recovered) {
             return Response.error(rid, "UNAVAILABLE", "exchange not started");
         }
+        if (botAccount(p.account())) {
+            return Response.error(rid, "BAD_REQUEST", "account/character");
+        }
         if (halted) {
             return Response.error(rid, "HALTED", "the exchange is stopped: " + haltReason);
         }
@@ -301,7 +321,7 @@ public final class Exchange {
         Ticker t = tickers.get(p.ticker());
         String limit = limits(p.account(), t, now);
         if (limit != null) {
-            return Response.error(rid, limit, limitMessage(limit));
+            return Response.error(rid, limit, limitMessage(limit, t));
         }
         LiveWallet w = live.find(p.account());
         if (w != null) {
@@ -401,6 +421,9 @@ public final class Exchange {
         if (!recovered) {
             return Response.error(rid, "UNAVAILABLE", "exchange not started");
         }
+        if (botAccount(p.account())) {
+            return Response.error(rid, "BAD_REQUEST", "account/character");
+        }
         if (halted) {
             return Response.error(rid, "HALTED", "the exchange is stopped: " + haltReason);
         }
@@ -412,7 +435,7 @@ public final class Exchange {
         Ticker tk = tickers.get(p.ticker());
         String limit = limits(p.account(), tk, now);
         if (limit != null) {
-            return Response.error(rid, limit, limitMessage(limit));
+            return Response.error(rid, limit, limitMessage(limit, tk));
         }
         LiveWallet w = live.find(p.account());
         if (w != null && w.character() != p.character()) {
@@ -518,6 +541,10 @@ public final class Exchange {
         if (p.requestId() == null || p.requestId().isBlank() || p.requestId().length() > 64) {
             return "requestId";
         }
+        if (botAccount(p.account()) != botAccount(p.character()) || (botAccount(p.account())
+                && p.account() != p.character())) {
+            return "account/character";
+        }
         if (p.account() <= 0 || p.character() <= 0) {
             return "account/character";
         }
@@ -541,21 +568,24 @@ public final class Exchange {
         return null;
     }
 
-    /** Open orders count per ticker; the day's count and the cooldown are the account's across every ticker. */
+    /**
+     * Open orders and the day's count are per ticker (owner 2026-10-28: 20 a day PER TICKER, each ticker its own open
+     * limit, {@link Ticker#maxOpen}/{@link Ticker#perDay}); the cooldown is the account's across every ticker.
+     */
     private String limits(long account, Ticker t, long now) {
-        if (books.get(t.id()).ordersOf(account).size() >= config.maxOpen()) {
+        if (books.get(t.id()).ordersOf(account).size() >= t.maxOpen()) {
             return "LIMIT_OPEN";
         }
         try {
             int today = 0;
             long last = 0;
-            for (OrderRow r : store.ordersOf(account, config.perDay() + 1)) {
-                if (r.placedAt() > now - 86_400_000L) {
+            for (OrderRow r : store.ordersOf(account, dayWindow())) {
+                if (r.placedAt() > now - 86_400_000L && t.id().equals(r.ticker())) {
                     today++;
                 }
                 last = Math.max(last, r.placedAt());
             }
-            if (today >= config.perDay()) {
+            if (today >= t.perDay()) {
                 return "LIMIT_DAY";
             }
             if (last > 0 && now - last < config.cooldownMs()) {
@@ -567,10 +597,19 @@ public final class Exchange {
         return null;
     }
 
-    private String limitMessage(String code) {
+    /** How many of an account's newest orders cover every ticker's day (the sum of their day limits, capped). */
+    private int dayWindow() {
+        long n = 1;
+        for (Ticker t : tickers.values()) {
+            n += t.perDay();
+        }
+        return (int) Math.min(5_000, n);
+    }
+
+    private String limitMessage(String code, Ticker t) {
         return switch (code) {
-            case "LIMIT_OPEN" -> "at most " + config.maxOpen() + " open orders";
-            case "LIMIT_DAY" -> "at most " + config.perDay() + " orders a day";
+            case "LIMIT_OPEN" -> "at most " + t.maxOpen() + " open " + t.id() + " orders";
+            case "LIMIT_DAY" -> "at most " + t.perDay() + " " + t.id() + " orders a day";
             case "COOLDOWN" -> "wait " + config.cooldownMs() / 1000 + " s between orders";
             default -> "try again later";
         };
@@ -583,7 +622,7 @@ public final class Exchange {
         long seq = nextSeq;
         long owner = regular > 0 ? Regulars.owner(regular) : account;
         long hold = side == Side.BUY ? t.cost(nx, price) : 0;
-        long expires = config.expiryMs() > 0 ? now + config.expiryMs() : 0;
+        long expires = t.expiryMs() > 0 ? now + t.expiryMs() : 0;
         OrderBook.Order o = new OrderBook.Order(id, owner, regular > 0, side, price, nx, nx, hold, now, expires, seq);
         OrderRow row = new OrderRow(id, rid, account, character, regular, side, price, nx, nx, hold, now, expires, seq,
                 "OPEN", 0, t.id());
@@ -594,16 +633,18 @@ public final class Exchange {
         OrderBook.Result r = book.place(o, now);
         List<Posting> postings = new ArrayList<>();
         Asset sold = t.asset();
+        boolean bot = regular == 0 && botAccount(account);
         Bucket source = regular > 0 ? Bucket.house(side == Side.SELL ? sold : Asset.MESO, regular)
+                : bot ? Bucket.bot(side == Side.SELL ? sold : Asset.MESO, character)
                 : side == Side.BUY ? Bucket.wallet(Asset.MESO, character)
                 : sold.perCharacter() ? Bucket.wallet(sold, character) : Bucket.wallet(Asset.NX, account);
         long escrowIn = side == Side.SELL ? nx : hold;
-        postings.add(new Posting(Why.PLACE, source, escrowOf(t.id(), side, id), escrowIn, regular > 0 ? 0 : account,
-                id, 0));
+        long legAccount = regular > 0 || bot ? 0 : account;
+        postings.add(new Posting(Why.PLACE, source, escrowOf(t.id(), side, id), escrowIn, legAccount, id, 0));
         Map<Long, Long> holds = new HashMap<>(feeHold);
         long reserve = side == Side.BUY ? config.fee(hold) : 0;
         if (reserve > 0) {
-            postings.add(new Posting(Why.PLACE, source, Bucket.feeHold(id), reserve, regular > 0 ? 0 : account, id, 0));
+            postings.add(new Posting(Why.PLACE, source, Bucket.feeHold(id), reserve, legAccount, id, 0));
             holds.put(id, reserve);
         }
         List<FillRow> fills = new ArrayList<>();
@@ -641,6 +682,7 @@ public final class Exchange {
             }
         }
         remember(fills);
+        noteBotPayouts(postings);
         Map<String, Object> data = orderJson(touched.get(0));
         data.put("fills", fills.size());
         data.put("filledNx", r.fills().stream().mapToLong(OrderBook.Fill::nx).sum());
@@ -788,6 +830,7 @@ public final class Exchange {
         feeHold.clear();
         feeHold.putAll(holds);
         touched.forEach(t -> rows.remove(t.id()));
+        noteBotPayouts(postings);
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("closed", touched.stream().map(OrderRow::id).toList());
         return Response.ok(rid, data);
@@ -827,6 +870,7 @@ public final class Exchange {
         feeHold.clear();
         feeHold.putAll(holds);
         touched.forEach(t -> rows.remove(t.id()));
+        noteBotPayouts(postings);
         return touched.size();
     }
 
@@ -1195,6 +1239,213 @@ public final class Exchange {
         }
     }
 
+    // ---------------------------------------------------------------- trader bots (1.6.1 volatility)
+
+    private void noteBotPayouts(List<Posting> postings) {
+        for (Posting p : postings) {
+            if (p.to().kind() == Kind.PAYOUT && botAccount(p.to().id())) {
+                botPayouts.add(p.to().id());
+            }
+        }
+    }
+
+    /** Trader bots (character ids) with mesos or items waiting in their PAYOUT. */
+    public synchronized List<Long> botsWithPayout() {
+        return new ArrayList<>(botPayouts);
+    }
+
+    /**
+     * A trader bot's order, from its own bags and mesos ({@code w} is the bot's {@code BotTraderWallet}; the order's
+     * account and character are both the bot's character id). Item tickers only, every player limit applies (5 open
+     * per ticker, the day's count, the cooldown, the fee). Under the bot's lock: take the escrow out of the bot, save
+     * the bot (so a crash from here on loses the escrow rather than duplicating it), then write the order; a refused
+     * order gives it back. Nothing is minted: what a bot cannot pay it does not post.
+     */
+    public synchronized Response placeBot(Place p, LiveWallet w) {
+        String rid = p.requestId();
+        if (!recovered) {
+            return Response.error(rid, "UNAVAILABLE", "exchange not started");
+        }
+        if (halted) {
+            return Response.error(rid, "HALTED", "the exchange is stopped: " + haltReason);
+        }
+        if (w == null || !botAccount(p.account()) || w.account() != p.account() || w.character() != p.character()) {
+            return Response.error(rid, "BAD_REQUEST", "not a trader bot's own wallet");
+        }
+        String bad = validate(p);
+        if (bad != null) {
+            return Response.error(rid, "BAD_REQUEST", bad);
+        }
+        Ticker t = tickers.get(p.ticker());
+        if (!t.item()) {
+            return Response.error(rid, "BAD_REQUEST", "trader bots trade item tickers only");
+        }
+        long now = clock.getAsLong();
+        String limit = limits(p.account(), t, now);
+        if (limit != null) {
+            return Response.error(rid, limit, limitMessage(limit, t));
+        }
+        Asset a = p.side() == Side.SELL ? t.asset() : Asset.MESO;
+        long amount = p.side() == Side.SELL ? p.nx() : t.buyTotal(config, p.nx(), p.price());
+        return w.locked(() -> {
+            if (!w.usable()) {
+                return Response.error(rid, "TRY_AGAIN", "the bot is not in the game");
+            }
+            if (w.have(a) < amount || !w.take(a, amount)) {
+                return Response.error(rid, "INSUFFICIENT_FUNDS", "the bot has fewer than " + amount + " " + unitName(a));
+            }
+            if (!w.saveNow()) {
+                giveBack(w, a, amount, "an unsaved bot place " + rid);
+                return Response.error(rid, "ERROR", "could not save the bot first");
+            }
+            Response placed;
+            committed = false;
+            try {
+                placed = placeOrder(rid, p.account(), p.character(), 0, t, p.side(), p.price(), p.nx(), now, null);
+            } catch (RuntimeException e) {
+                if (!committed) {
+                    giveBack(w, a, amount, "a failed bot place " + rid);
+                    w.saveNow();
+                } else {
+                    halt("bot place " + rid + " failed after its commit: " + e);
+                }
+                log.error("NX exchange: bot place {} failed", rid, e);
+                return Response.error(rid, "ERROR", "try again later");
+            }
+            if (!placed.ok()) {
+                giveBack(w, a, amount, "a refused bot place " + rid);
+                w.saveNow();
+            } else {
+                collectBotLocked(w);
+            }
+            return placed;
+        });
+    }
+
+    /** Cancels one of a trader bot's open orders and pays what it held back into the bot (if it is in game). */
+    public synchronized Response cancelBot(String rid, LiveWallet w, long orderId) {
+        if (!recovered) {
+            return Response.error(rid, "UNAVAILABLE", "exchange not started");
+        }
+        OrderRow base = rows.get(orderId);
+        if (w == null || base == null || !botAccount(w.account()) || base.account() != w.account()
+                || base.regular() != 0) {
+            return Response.error(rid, "NOT_FOUND", "no open order " + orderId);
+        }
+        Response r = closeOrders(rid, List.of(orderId), w.account(), OrderBook.Reason.CANCELLED);
+        if (r.ok() && !halted) {
+            collectBot(w);
+        }
+        return r;
+    }
+
+    /** A trader bot's open orders on a ticker (newest last). */
+    public synchronized List<OrderRow> openBotOrders(long botCharacter, String ticker) {
+        List<OrderRow> out = new ArrayList<>();
+        OrderBook b = books.get(Ticker.norm(ticker));
+        if (b == null) {
+            return out;
+        }
+        for (OrderBook.Order o : b.ordersOf(botCharacter)) {
+            OrderRow r = rows.get(o.id);
+            if (r != null) {
+                out.add(rowAfter(r, o, null, r.placedAt()));
+            }
+        }
+        out.sort(java.util.Comparator.comparingLong(OrderRow::seq));
+        return out;
+    }
+
+    /** How many orders this account placed on a ticker in the last 24 h (trader bots pace themselves with it). */
+    public synchronized int placedToday(long account, String ticker) {
+        long now = clock.getAsLong();
+        Ticker t = tickers.get(Ticker.norm(ticker));
+        if (t == null) {
+            return Integer.MAX_VALUE;
+        }
+        try {
+            int n = 0;
+            for (OrderRow r : store.ordersOf(account, dayWindow())) {
+                n += r.placedAt() > now - 86_400_000L && t.id().equals(r.ticker()) ? 1 : 0;
+            }
+            return n;
+        } catch (StoreException e) {
+            return t.perDay();
+        }
+    }
+
+    /** Pays a trader bot's waiting mesos and items into the bot (as far as its bags take them). */
+    public synchronized boolean collectBot(LiveWallet w) {
+        return w.locked(() -> collectBotLocked(w));
+    }
+
+    /**
+     * Under the bot's lock: PAYOUT -> the bot, one asset at a time: the transaction first, then memory; if memory
+     * refuses (bags full, the meso cap), a second transaction puts it back into PAYOUT. The bot is saved afterwards.
+     * A crash between the commit and the save loses the payout to the bot; it never duplicates it.
+     */
+    private boolean collectBotLocked(LiveWallet w) {
+        if (halted || !recovered || !botAccount(w.account()) || !w.usable()) {
+            return false;
+        }
+        boolean any = false, left = false;
+        List<Asset> assets = new ArrayList<>();
+        assets.add(Asset.MESO);
+        for (Ticker t : tickers.values()) {
+            if (t.item()) {
+                assets.add(t.asset());
+            }
+        }
+        for (Asset a : assets) {
+            Bucket pay = Bucket.payout(a, w.character());
+            long waiting;
+            try {
+                waiting = store.balance(pay);
+            } catch (StoreException e) {
+                return any;
+            }
+            if (waiting <= 0) {
+                continue;
+            }
+            long n = Math.min(waiting, w.room(a, waiting));
+            if (n < waiting) {
+                left = true;
+            }
+            if (n <= 0) {
+                continue;
+            }
+            Posting out = new Posting(Why.COLLECT, pay, Bucket.bot(a, w.character()), n, 0, 0, 0);
+            try {
+                store.apply(new Batch(nextBatch, clock.getAsLong(), List.of(out), List.of(), List.of()));
+                nextBatch++;
+            } catch (StoreException e) {
+                left = true;
+                continue;
+            }
+            if (w.give(a, n)) {
+                any = true;
+                continue;
+            }
+            left = true;
+            try {
+                store.apply(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.COLLECT,
+                        Bucket.bot(a, w.character()), pay, n, 0, 0, 0)), List.of(), List.of()));
+                nextBatch++;
+            } catch (StoreException e) {
+                log.error("NX exchange: {} {} left PAYOUT for bot {} but did not reach it; halting", n, a,
+                        w.character(), e);
+                halt("bot payout to " + w.character() + " half done: " + n + " " + a);
+            }
+        }
+        if (!left) {
+            botPayouts.remove(w.character());
+        }
+        if (any) {
+            w.saveNow();
+        }
+        return any;
+    }
+
     // ---------------------------------------------------------------- regulars
 
     /**
@@ -1439,7 +1690,8 @@ public final class Exchange {
                 + " (mesos per 1,000 NX); official rate " + (rate == null ? "none yet" : rate) + "; fills in memory "
                 + (nxRecent == null ? 0 : nxRecent.size()));
         out.add("Fee " + config.feeBps() + " bps from each side, orders " + config.minNx() + ".." + config.maxNx()
-                + " NX by " + config.lotNx() + ", " + config.maxOpen() + " open / " + config.perDay() + " a day, regulars "
+                + " NX by " + config.lotNx() + ", NX " + config.maxOpen() + " open / " + config.perDay()
+                + " a day per ticker, " + config.cooldownMs() / 1000 + " s apart, regulars "
                 + config.regulars() + (config.houseAccount() > 0 ? " (house account " + config.houseAccount() + ")"
                 : " (idle: no house account)"));
         for (String id : openTickers) {
@@ -1456,9 +1708,11 @@ public final class Exchange {
         OrderBook b = books.get(t.id());
         long[] held = b.heldTotals();
         TickerHistory.Stats st = stats(t.id());
-        return String.format("%s (%s): %d open, bid %,d / ask %,d %s; escrow %,d / %,d mesos; 24h last %s, vol %,d%s",
+        return String.format("%s (%s): %d open, bid %,d / ask %,d %s; escrow %,d / %,d mesos; 24h last %s, vol %,d; "
+                        + "limits %d open / %d a day / %d h / %,d per order%s",
                 t.id(), t.name(), b.size(), b.best(Side.BUY), b.best(Side.SELL), t.priceUnit(), held[0], held[1],
-                st.last() == null ? "none" : String.format("%,d", st.last()), st.qty(),
+                st.last() == null ? "none" : String.format("%,d", st.last()), st.qty(), t.maxOpen(), t.perDay(),
+                t.expiryMs() / 3_600_000L, t.maxQty(),
                 openTickers.contains(t.id()) ? "" : " (closed for new orders)");
     }
 

@@ -314,15 +314,22 @@ no house price and nothing minted.
 | Ticker | Asset | Price unit | Order size | Price range |
 |---|---|---|---|---|
 | `NX` | NX credit | mesos per 1,000 NX | 100..50,000 in lots of 100 (unchanged) | 1,000..100,000,000 (unchanged) |
-| `LEAF` | Maple Leaf 4001126 | mesos per item | 1..1,000 | 1..1,000,000,000 |
-| `CHAOS` | Chaos Scroll 60% 2049100 | mesos per item | 1..100 | 1..1,000,000,000 |
-| `WS` | White Scroll 2340000 | mesos per item | 1..100 | 1..1,000,000,000 |
-| `ELIXIR` | Power Elixir 2000005 | mesos per item | 1..1,000 | 1..1,000,000,000 |
+| `LEAF` | Maple Leaf 4001126 | mesos per item | 1..10,000 | 1..1,000,000,000 |
+| `CHAOS` | Chaos Scroll 60% 2049100 | mesos per item | 1..1,000 | 1..1,000,000,000 |
+| `WS` | White Scroll 2340000 | mesos per item | 1..1,000 | 1..1,000,000,000 |
+| `ELIXIR` | Power Elixir 2000005 | mesos per item | 1..10,000 | 1..1,000,000,000 |
 
-A buy's total (price plus its 1% fee reserve) must still fit a character's 2,147,483,647 mesos. Limits: **5 open
-orders per ticker**; the 20 a day and the 10 s cooldown are per account across all tickers. Knobs (JVM, all
-optional): `-Dslums.exchange.tickers=NX,LEAF,CHAOS,WS,ELIXIR` (which are open for new orders; NX always; a closed
-ticker's resting orders still load and can be cancelled), `-Dslums.exchange.<ticker>.maxQty|minPrice|maxPrice`.
+A buy's total (price plus its 1% fee reserve) must still fit a character's 2,147,483,647 mesos.
+
+**Limits** (raised for the item tickers, owner 2026-10-28 via the Website session; defaults pending the owner's
+confirmation of the exact numbers): every ticker has its own **open-order limit** and its own **day count** (orders
+placed in 24 h, counted per ticker, not across all) and its own **order life**. Item tickers: **10 open, 20 a day per
+ticker, 168 h (7 days)**, order size up to 10,000 (LEAF, ELIXIR) or 1,000 (CHAOS, WS). NX is unchanged: 5 open, 20 a
+day (now counted on NX alone), 72 h, 100..50,000 NX. The **10 s cooldown** stays per account across every ticker.
+Knobs (JVM, all optional): `-Dslums.exchange.tickers=NX,LEAF,CHAOS,WS,ELIXIR` (which are open for new orders; NX
+always; a closed ticker's resting orders still load and can be cancelled), `-Dslums.exchange.items.maxOpen|perDay|
+expiryHours` (every item ticker), `-Dslums.exchange.<ticker>.maxQty|minPrice|maxPrice|maxOpen|perDay|expiryHours`
+(one ticker); NX's come from `-Dslums.exchange.maxOpen|perDay|expiryHours` as before.
 The shops buying Maple Leaves at 500,000 is a natural floor for LEAF; nothing in the exchange enforces it.
 
 **Item escrow and settlement** (same shape as NX):
@@ -371,6 +378,12 @@ ticker:
 - every order object (`mine`, confirm) adds `"ticker"`, `"qty"` and `"qtyLeft"` (= `nx` / `nxLeft`).
 - new error code: `LOG_IN_FIRST` (selling items needs the character in game).
 
+**Limits in the export** (Website ask, 2026-10-28): `exchange-tickers.json` has top-level `max_open_per_ticker`,
+`per_day`, `per_day_scope` (`"ticker"`: each ticker counts its own day), `cooldown_sec` (per account, across all
+tickers) and `expiry_hours`. The top-level `max_open_per_ticker`, `per_day` and `expiry_hours` are the item tickers'
+(null if the item tickers ever differ); NX differs, so **every ticker object** also carries its own `max_open`,
+`per_day` and `expiry_hours` (with `max_qty` as before). Read the per-ticker ones when they matter.
+
 `exchange-book.json` (NX) keeps its shape and adds `"ticker":"NX","unit":"1000nx","unit_label":"mesos per 1,000 NX"`.
 
 **Units** (Website session, 2026-10-28): every ticker in the exports has `unit` and `unit_label` so the page never
@@ -417,8 +430,9 @@ UTC hours, **only hours that traded** (a gap means no trade):
 History is rebuilt from `exchange_fills` at every start; a staff reversal does not rewrite candles already built.
 
 ### Open economy questions (tickers)
-1. Limits: 5 open orders per ticker (25 across all) but 20 orders a day across all tickers: OK, or per ticker?
-2. Item order sizes (1..1,000 leaves and elixirs, 1..100 chaos and white scrolls) and the 1b-per-item price cap.
-3. Should LEAF have a floor at the shop's 500,000 (refuse asks below it), or leave it to players?
+1. Limits: answered 2026-10-28 (raise all four for items; per ticker per day). The exact numbers above (10 open, 20 a
+   day per ticker, 7 days, 10,000/1,000 per order) are defaults the coordinator confirms with the owner.
+2. The 1b-per-item price cap.
+3. LEAF floor: answered 2026-10-28: no floor, players decide.
 4. Regulars on item tickers would need an item float from a staff account: left out (NX-only), as asked.
 5. Items bought from the site wait until the character logs in; is a mail/Duey delivery wanted later?
