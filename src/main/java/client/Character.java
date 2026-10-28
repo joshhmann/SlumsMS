@@ -2631,9 +2631,13 @@ public class Character extends AbstractCharacterObject {
                                     sendPacket(PacketCreator.enableActions());
                                     return;
                                 }
-                            } else {
-                                // Store the item in infinity storage
-                                storeInInfinityStorage(itemId, amount);
+                            } else if (!infinityBag.storePickup(mItem, AdventurerBag.wzRules())) {
+                                // Flagged, expiring, owner-tagged, quest/PQ items (or a full bag) keep their stack
+                                // in the inventory: the bag stores counts only and would wash them clean.
+                                if (!InventoryManipulator.addFromDrop(client, mItem, true)) {
+                                    sendPacket(PacketCreator.enableActions());
+                                    return;
+                                }
                             }
 
                             this.getMap().pickItemDrop(pickupPacket, mapitem);
@@ -2718,117 +2722,38 @@ public class Character extends AbstractCharacterObject {
         }
     }*/
 
-    // Cache: key = itemId, value = amount
-    private Map<Integer, Integer> infinityStorageCache = new ConcurrentHashMap<>();
+    // Adventurer's Bag (@bp, infinitystorage). See AdventurerBag: loaded once per session, written by the save.
+    private final AdventurerBag infinityBag = new AdventurerBag(this::loadInfinityBagRows);
 
-    // Cache implementation: Only updates the cache, no SQL
-    public int getInfinityStorageEntry(int itemId) {
-        int currentAmount = 0;
-        if (infinityStorageCache.containsKey(itemId)) {
-            currentAmount = infinityStorageCache.get(itemId);
-        } else {
-            try (Connection con = DatabaseConnection.getConnection()) {
-                try (PreparedStatement ps = con.prepareStatement("SELECT amount FROM infinitystorage WHERE charid = ? AND itemid = ?")) {
-                    ps.setInt(1, this.id);
-                    ps.setInt(2, itemId);
-
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) {
-                            currentAmount = rs.getInt("amount");
-                        }
-                    }
+    private Map<Integer, Integer> loadInfinityBagRows() {
+        Map<Integer, Integer> rows = new HashMap<>();
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT itemid, amount FROM infinitystorage WHERE charid = ? ORDER BY id")) {
+            ps.setInt(1, this.id);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    rows.putIfAbsent(rs.getInt("itemid"), rs.getInt("amount"));
                 }
             }
-            catch (SQLException sqle) {
-                sqle.printStackTrace();
-                currentAmount = 0;
-            }
-        }
-        return currentAmount;
-    }
-
-    public void storeInInfinityStorage(int itemId, int amount) {
-        int currentAmount = getInfinityStorageEntry(itemId);
-
-        infinityStorageCache.put(itemId, currentAmount + amount);
-    }
-
-    public boolean retrieveFromInfinityStorage(int itemId, int amount) {
-        int currentAmount = getInfinityStorageEntry(itemId);
-        if (amount > currentAmount) {
-            return false;
-        }
-
-        infinityStorageCache.put(itemId, currentAmount - amount);
-        return true;
-    }
-
-
-    // Method to flush the cache to the database (to be called explicitly elsewhere)
-    public void flushInfinityStorageCache() {
-        int charId = this.id;
-        try (Connection con = DatabaseConnection.getConnection()) {
-            for (Map.Entry<Integer, Integer> entry : infinityStorageCache.entrySet()) {
-                int itemId = entry.getKey();
-                int amount = entry.getValue();
-
-                // Check if item exists in DB
-                PreparedStatement ps = con.prepareStatement(
-                        "SELECT amount FROM infinitystorage WHERE charid = ? AND itemid = ?");
-                ps.setInt(1, charId);
-                ps.setInt(2, itemId);
-
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) {
-                    // Update existing entry in the DB
-                    int currentAmount = rs.getInt("amount");
-                    PreparedStatement updatePs = con.prepareStatement(
-                            "UPDATE infinitystorage SET amount = ? WHERE charid = ? AND itemid = ?");
-                    updatePs.setInt(1, amount);
-                    updatePs.setInt(2, charId);
-                    updatePs.setInt(3, itemId);
-                    updatePs.executeUpdate();
-                } else {
-                    // Insert a new row if it doesn't exist
-                    PreparedStatement insertPs = con.prepareStatement(
-                            "INSERT INTO infinitystorage (charid, itemid, amount, type, position) VALUES (?, ?, ?, NULL, NULL)");
-                    insertPs.setInt(1, charId);
-                    insertPs.setInt(2, itemId);
-                    insertPs.setInt(3, amount);
-                    insertPs.executeUpdate();
-                }
-            }
-            // Clear the cache after flushing
-            infinityStorageCache.clear();
         } catch (SQLException e) {
-            log.error("Failed to flush cache to infinitystorage: {}", e.getMessage());
+            // Fail closed: an empty bag here would be written over the real one at the next save.
+            throw new IllegalStateException("Could not load the Adventurer's Bag of chr " + this.id, e);
         }
+        return rows;
+    }
+
+    public AdventurerBag getInfinityBag() {
+        return infinityBag;
+    }
+
+    public int getInfinityStorageEntry(int itemId) {
+        return infinityBag.amount(itemId);
     }
 
     public List<Map.Entry<Integer, Integer>> getInfinityStorageAsList() {
-
-        return infinityStorageCache.entrySet().stream().filter(e -> e.getValue() != 0).sorted(Comparator.comparingInt(Entry::getKey)).collect(Collectors.toList());
-
+        return infinityBag.list();
     }
 
-    public void getInfinityFromDB() {
-        try (Connection con = DatabaseConnection.getConnection()) {
-            try (PreparedStatement ps = con.prepareStatement("SELECT * FROM infinitystorage WHERE amount <> 0 AND charId = ?")) {
-                ps.setInt(1, this.id);
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        int itemId = rs.getInt("itemId");
-                        int amount = rs.getInt("amount");
-                        if (!infinityStorageCache.containsKey(itemId)) {
-                            infinityStorageCache.put(itemId, amount);
-                        }
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
     public int countItem(int itemid) {
         return inventory[ItemConstants.getInventoryType(itemid).ordinal()].countById(itemid);
     }
@@ -9909,8 +9834,6 @@ public class Character extends AbstractCharacterObject {
                     }
                 }
 
-                flushInfinityStorageCache();
-
                 List<Pet> petList = new LinkedList<>();
                 petLock.lock();
                 try {
@@ -9990,15 +9913,22 @@ public class Character extends AbstractCharacterObject {
                     psMacro.executeBatch();
                 }
 
-                List<Pair<Item, InventoryType>> itemsWithType = new ArrayList<>();
-                for (Inventory iv : inventory) {
-                    for (Item item : iv.list()) {
-                        itemsWithType.add(new Pair<>(item, iv.getType()));
+                // Items, and the Adventurer's Bag in the same transaction and under the bag's lock: a deposit or
+                // withdraw moves both sides under that lock, so the save never writes one side of a move.
+                infinityBag.lock();
+                try {
+                    List<Pair<Item, InventoryType>> itemsWithType = new ArrayList<>();
+                    for (Inventory iv : inventory) {
+                        for (Item item : iv.list()) {
+                            itemsWithType.add(new Pair<>(item, iv.getType()));
+                        }
                     }
-                }
 
-                // Items
-                ItemFactory.INVENTORY.saveItems(itemsWithType, id, con);
+                    ItemFactory.INVENTORY.saveItems(itemsWithType, id, con);
+                    infinityBag.save(con, id);
+                } finally {
+                    infinityBag.unlock();
+                }
 
                 // Skills
                 try (PreparedStatement psSkill = con.prepareStatement("REPLACE INTO skills (characterid, skillid, skilllevel, masterlevel, expiration) VALUES (?, ?, ?, ?, ?)")) {

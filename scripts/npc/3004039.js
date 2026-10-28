@@ -73,14 +73,9 @@ function noItemStored(m, t, s) {
                 let id = autoStoreItems[i];
                 if (restrictedItems.includes(id)) continue;
 
-                let quantity = cm.itemQuantity(id);
-                if (quantity > 0) {
-                    cm.gainItem(id, -quantity);
-
-                    let currentStoredAmount = cm.getStoredItemAmount(cm.getPlayer().getId(), id);
-                    let newAmount = currentStoredAmount + quantity;
-                    cm.updateStoredItem(id, newAmount, false);
-
+                // Plain stacks only: bound, expiring or tagged stacks stay in the inventory.
+                let quantity = cm.bagDepositable(id);
+                if (quantity > 0 && cm.bagDeposit(id, quantity) == "OK") {
                     msg += "#i" + id + ":# #b#t" + id + "##k x" + quantity + "\r\n";
                     storedAny = true;
                 }
@@ -101,21 +96,9 @@ function noItemStored(m, t, s) {
                 let storedAmount = cm.getStoredItemAmount(cm.getPlayer().getId(), id);
 
                 if (storedAmount > 0) {
-                    let maxPerSlot = cm.getMIIP().getSlotMax(cm.getPlayer(), id);
-                    let slotsAvailable = cm.getFreeSlots(id);
-                    let maxWithdraw = slotsAvailable * maxPerSlot;
-
-                    let amountToWithdraw = Math.min(maxWithdraw, storedAmount);
+                    // As much as fits, moved in one step (the bag and the inventory change together).
+                    let amountToWithdraw = cm.bagWithdrawUpTo(id, storedAmount);
                     if (amountToWithdraw <= 0) continue;
-
-                    cm.gainItem(id, amountToWithdraw);
-
-                    let newAmount = storedAmount - amountToWithdraw;
-                    if (newAmount > 0) {
-                        cm.updateStoredItem(id, newAmount, false);
-                    } else {
-                        cm.updateStoredItem(id, amountToWithdraw, true);
-                    }
 
                     msg += "#i" + id + ":# #b#t" + id + "##k x" + amountToWithdraw + "\r\n";
                     withdrawnAny = true;
@@ -167,7 +150,12 @@ function noItemStored(m, t, s) {
                     return;
                 }
 
-                let max = cm.itemQuantity(selectedItem);
+                let max = Math.min(cm.bagDepositable(selectedItem), 32000);
+                if (max <= 0) {
+                    cm.sendOk("That item can't go in the bag: it is bound, expiring, tagged or a quest item.");
+                    restart = true;
+                    return;
+                }
                 cm.sendGetNumber("How much of #i" + selectedItem + ":# #b#t" + selectedItem + "##k do you wish to store?\r\n(max: #r" + max + "#k)", max, 1, max);
             } else {
                 cm.sendOk("Item not found. Please try again.");
@@ -190,36 +178,30 @@ function noItemStored(m, t, s) {
                 return;
             }
             if (antiCheatCheck(selectedItem, s, cm.itemQuantity(selectedItem))) {
-                cm.gainItem(selectedItem, -s);
-
-                let currentStoredAmount = cm.getStoredItemAmount(cm.getPlayer().getId(), selectedItem);
-                let newAmount = currentStoredAmount + s;
-
-                cm.updateStoredItem(selectedItem, newAmount, false);
-                cm.sendOk("I've stored #r" + s + "#k #t" + selectedItem + "#" + (s === 1 ? "" : "s") + ".");
+                let result = cm.bagDeposit(selectedItem, s);
+                if (result == "OK") {
+                    cm.sendOk("I've stored #r" + s + "#k #t" + selectedItem + "#" + (s === 1 ? "" : "s") + ".");
+                } else {
+                    cm.sendOk(bagRefusal(result));
+                }
                 restart = true;
             }
         } else {
             if (antiCheatCheck(item, s, amount)) {
-                let slotsNeeded = Math.ceil(s / cm.getMIIP().getSlotMax(cm.getPlayer(), item));
-                if (cm.getFreeSlots(item) >= slotsNeeded) {
-                    cm.gainItem(item, s);
-                    let newAmount = amount - s;
-                    if (newAmount !== 0) {
-                        cm.updateStoredItem(item, newAmount, false);
-                        amount = newAmount;
-                    } else {
-                        cm.updateStoredItem(item, s, true);
-                    }
-                    cm.sendOk("Your item has been retrieved.");
-                    restart = true;
-                } else {
-                    cm.sendOk("You do not have enough inventory space available.");
-                    restart = true;
-                }
+                let result = cm.bagWithdraw(item, s);
+                cm.sendOk(result == "OK" ? "Your item has been retrieved." : bagRefusal(result));
+                restart = true;
             }
         }
     }
+}
+
+function bagRefusal(result) {
+    if (result == "NO_SPACE") return "You do not have enough inventory space available.";
+    if (result == "NOT_ALLOWED") return "That item can't go in or out of the bag like that: it is bound, expiring, tagged, a quest item or one-of-a-kind.";
+    if (result == "BAG_FULL") return "The bag can't hold any more of that item.";
+    if (result == "NOT_ENOUGH") return "You don't have that many.";
+    return "That amount doesn't work.";
 }
 
 function antiCheatCheck(item, amount, max) {

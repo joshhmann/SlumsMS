@@ -275,7 +275,7 @@ All use the stock Cosmic expedition-recruiter template (list members, start figh
 | 9270043 | Gachapon | not placed anywhere | none (not placed in Cosmic) | gachapon.js logic | Singapore CBD gachapon (one 5220000 ticket = one roll of the Singapore pool). | Gachapon Ticket | DEAD for walking players: not placed (plife machines cover six towns; Singapore has none); reachable only through Remote Gachapon Tickets |
 | 2143000 | Informant | 271030200 Knight District 2 | none (not placed in Cosmic) | 2143000.js | Informant (Knight District 2): free warp to five Hallowed Ground maps. | free | EXPLOIT (low): no gate; the Hallowed Grounds normally need Cygnus Garden progress |
 | 3002015 | Fox God | 410000002 Fox Tree | none (not placed in Cosmic) | 3002015.js | Fox God (Fox Tree, Fox Point Village): pay to go up the tree (410000100). | 1,000 mesos (10% for Beginners) | OK |
-| 3004039 | Adventurer's Bag | 402000222 Sketchy Back-Alley 1 | none (not placed in Cosmic) | 3004039.js | Adventurer's Bag ("infinity storage") for Use, Etc, Set-up and auto-stored ores; also opened by @backpack. | free; 32,000 per move | NOTE: stores only item id and count, so item flags (expiry, owner tag) are lost on withdrawal |
+| 3004039 | Adventurer's Bag | 402000222 Sketchy Back-Alley 1 | none (not placed in Cosmic) | 3004039.js | Adventurer's Bag ("infinity storage") for Use, Etc, Set-up and auto-stored ores; also opened by @backpack. | free; 32,000 per move | NOTE: stores only item id and count; since 1.6.1 (161-bag) only plain stacks go in (flagged, expiring, tagged, quest/PQ items are refused), see AdventurerBag |
 
 
 ## 7. Helper and command scripts added or changed (no NPC placement)
