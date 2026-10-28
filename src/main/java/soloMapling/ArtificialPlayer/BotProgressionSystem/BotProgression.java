@@ -153,6 +153,7 @@ public final class BotProgression {
         int jobBefore = bot.getJob().getId();
         progress(bot, levelBefore);
         soloMapling.site.SiteFeed.jobChanged(bot, jobBefore, bot.getJob().getId()); // 1.6.0 Track D: website feed
+        if (bot.getJob().getId() != jobBefore) soloMapling.achievements.Achievements.onJob(bot, bot.getJob().getId()); // 1.6.1 ticket 93
         BotGear.afterProgress(bot);   // real bots 10: gear it can wear now
     }
 
@@ -161,6 +162,7 @@ public final class BotProgression {
         int jobBefore = bot.getJob().getId();
         progress(bot, bot.getLevel());
         soloMapling.site.SiteFeed.jobChanged(bot, jobBefore, bot.getJob().getId()); // 1.6.0 Track D: website feed
+        if (bot.getJob().getId() != jobBefore) soloMapling.achievements.Achievements.onJob(bot, bot.getJob().getId()); // 1.6.1 ticket 93
         BotGear.afterProgress(bot);
     }
 

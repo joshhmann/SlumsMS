@@ -310,6 +310,7 @@ public class Quest {
                 }
             }
             forceComplete(chr, npc);
+            soloMapling.achievements.Achievements.onQuestDone(chr); // 1.6.1 ticket 93
             for (AbstractQuestAction a : acts) {
                 a.run(chr, selection);
             }

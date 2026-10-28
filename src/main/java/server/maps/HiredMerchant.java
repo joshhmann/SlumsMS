@@ -359,6 +359,7 @@ public class HiredMerchant extends AbstractMapObject {
                     price -= fee;
                     soloMapling.Economy.MesoSinks.onShopSale(newItem, paid, fee, isPersistent(), true, !isPersistent(),
                             isPersistent() ? ownerParty() : null, soloMapling.Economy.PriceBook.Party.of(c.getPlayer()));
+                    soloMapling.achievements.Achievements.onMarketBuy(c.getPlayer()); // 1.6.1 ticket 93
 
                     synchronized (sold) {
                         sold.add(new SoldItem(c.getPlayer().getName(), pItem.getItem().getItemId(), newItem.getQuantity(), price));
@@ -953,6 +954,7 @@ public class HiredMerchant extends AbstractMapObject {
             int fee = soloMapling.Economy.MesoSinks.shopFee(price);   // 1.5.0 rc3: FM shop tax
             price -= fee;
             soloMapling.Economy.MesoSinks.onShopSale(newItem, paid, fee, isPersistent(), false, !isPersistent());
+            soloMapling.achievements.Achievements.onMarketBuy(fakechar); // 1.6.1 ticket 93: a bot buying
 
             synchronized (sold) {
                 sold.add(new SoldItem(fakechar.getName(), pItem.getItem().getItemId(), quantity, price));

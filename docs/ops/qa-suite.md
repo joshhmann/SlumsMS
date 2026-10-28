@@ -399,6 +399,14 @@ party) is raised to 200 on its build, then walks its earned path with the pace f
 the trip granted, the rebirth on rebirth.js's rules). The answer lists what changed and what must not have (gear,
 mesos, cash items, past skills). `!qa do check` prints the bot; stop puts it back exactly as it was. Auto-QA: t-rb-1.
 
+### ac-1: Achievements and medals (1.6.1, ticket 93)
+
+`!qa run ac-1` (needs `-Dslums.achievements=true`): clears the GM's Mano and Fishing Hobby goals and medals, then
+`!qa do mano` (a credited Mano kill) and `!qa do fish` (ten kept catches) earn them through the real event path, each
+handing over one zero-stat medal with a yellow notice; repeating gives nothing. `!qa do list` prints what `@achievements`
+shows. To see the full-bag notice fill the Equip tab first, then free a slot and type `@achievements`. Stop clears both
+goals and takes the medals back. Auto-QA: t-ac-1.
+
 ## Adding a scenario
 
 1. Pick the test id from the release notes page. A second test that needs the same staging becomes an alias.

@@ -453,6 +453,8 @@ public class Trade {
                             partner.getChr(), partner.getItems(), partner.getExchangeMesos()));
             logTrade(local, partner);
             soloMapling.site.TradeRatings.completed(local.getChr(), partner.getChr()); // 1.6.0 Track D: trade ratings
+            soloMapling.achievements.Achievements.onTrade(local.getChr()); // 1.6.1 ticket 93
+            soloMapling.achievements.Achievements.onTrade(partner.getChr());
             local.completeTrade();
             partner.completeTrade();
             local.setCallbackSuccessfulTrade();

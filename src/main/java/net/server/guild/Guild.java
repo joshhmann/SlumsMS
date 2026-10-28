@@ -513,6 +513,7 @@ public class Guild {
             }
 
             this.broadcast(GuildPackets.newGuildMember(mgc));
+            soloMapling.achievements.Achievements.onGuildJoin(chr); // 1.6.1 ticket 93
             return 1;
         } finally {
             membersLock.unlock();
