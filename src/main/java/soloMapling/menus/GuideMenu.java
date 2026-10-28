@@ -144,8 +144,8 @@ public final class GuideMenu {
      * opened, so a player who was busy in another NPC window gets it at their next login.
      */
     public static void onLogin(Character player) {
-        if (!isPlayer(player) || seen(player)) {
-            return;
+        if (!isPlayer(player) || seen(player) || TutorialIslandMenu.eligible(player)) {
+            return; // 1.6.1: a new Explorer is asked about Maple Island first; the guide follows the answer
         }
         MenuWindow.later(() -> {
             if (player.isLoggedinWorld() && !seen(player)) {

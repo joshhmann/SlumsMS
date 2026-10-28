@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "achievements");
+            "family", "tutorialIsland", "botRebirth", "achievements");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -93,6 +93,8 @@ final class Probes160 {
                 case "slumsStamps" -> slumsStamps(p);
                 case "nxExchange" -> nxExchange(p);
                 case "family" -> family(p);
+                case "tutorialIsland" -> tutorialIsland(p);
+                case "botRebirth" -> botRebirth(p);
                 case "achievements" -> achievements(p);
                 default -> null;
             };
@@ -1145,6 +1147,121 @@ final class Probes160 {
                 + " their rep, a second use was refused, and the family was dissolved", ev);
     }
 
+    // ── t-ti-1: "Start on Maple Island?" (ticket 29, 1.6.1) ─────────────────────────────────────
+
+    /**
+     * t-ti-1: (1) the rule asks a new real Beginner at the start map and nobody else (Cygnus, Aran, a bot, a second
+     * time, the switch off); (2) the question's Yes warps the pretend player to the island start (map 10000), where
+     * the Maple Road quests are not hidden and Southperry has Shanks; (3) coming back, No leaves the player where
+     * they were. The player is put back on the map they started on.
+     */
+    static List<String> tutorialIsland(SyntheticPlayer p) throws InterruptedException {
+        if (!config.YamlConfig.config.server.TUTORIAL_ISLAND_PROMPT) {
+            return List.of("SKIP TUTORIAL_ISLAND_PROMPT is off on this server");
+        }
+        Character me = p.character();
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        int hub = constants.id.MapId.MAPLEROOT_HUB;
+        if (!soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 0, 1, hub, false, true)
+                || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 1000, 1, hub, false, true)
+                || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 2000, 1, hub, false, true)
+                || soloMapling.menus.TutorialIslandMenu.shouldAsk(false, 0, 1, hub, false, true)
+                || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 0, 1, hub, true, true)
+                || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 0, 1, hub, false, false)) {
+            bad.add("the rule does not ask exactly a new real Beginner at the start map");
+        }
+        for (int q = 1000; q <= 1049; q++) {
+            if (server.quest.HiddenQuests.isHidden(q, 0)) {
+                bad.add("Maple Island quest " + q + " is hidden");
+            }
+        }
+        var maps = me.getClient().getChannelServer().getMapFactory();
+        var island = maps.getMap(soloMapling.menus.TutorialIslandMenu.ISLAND_START);
+        var southperry = maps.getMap(constants.id.MapId.SOUTHPERRY);
+        if (island == null || island.getPortals().isEmpty()) {
+            bad.add("the island start map is missing or has no portals");
+        }
+        if (southperry == null || southperry.getMapObjects().stream().noneMatch(o -> o instanceof server.maps.MapObject
+                && o.getType() == server.maps.MapObjectType.NPC
+                && ((server.life.NPC) o).getId() == 22000)) {
+            bad.add("Southperry has no Shanks (npc 22000) for the boat to Victoria");
+        }
+        int home = me.getMapId();
+        boolean guideSeen = soloMapling.menus.GuideMenu.seen(me);
+        if (!guideSeen) {
+            me.getAreaInfos().put(soloMapling.menus.GuideMenu.SEEN_AREA, "autoqa"); // so no guide window opens over the run
+        }
+        try {
+            var page = soloMapling.menus.TutorialIslandMenu.pageForQa(me);
+            page.find("No").pick().apply(me);
+            if (me.getMapId() != home) {
+                bad.add("No moved the player (" + home + " -> " + me.getMapId() + ")");
+            }
+            ev.add("No: stayed on map " + me.getMapId());
+            page.find("Yes").pick().apply(me);
+            long end = System.currentTimeMillis() + 5000;
+            while (me.getMapId() != soloMapling.menus.TutorialIslandMenu.ISLAND_START && System.currentTimeMillis() < end) {
+                Thread.sleep(100);
+            }
+            ev.add("Yes: now on map " + me.getMapId());
+            if (me.getMapId() != soloMapling.menus.TutorialIslandMenu.ISLAND_START) {
+                bad.add("Yes did not land on the island start");
+            }
+        } finally {
+            if (me.getMapId() != home) {
+                me.changeMap(home);
+            }
+            if (!guideSeen) {
+                soloMapling.menus.GuideMenu.forget(me);
+            }
+        }
+        return verdict(bad, "only a new real Beginner at the start map is asked, No stayed put, Yes landed on the island"
+                + " start, the island quests are not hidden and Southperry has Shanks", ev);
+    }
+
+    // ── t-rb-1: a regular earns a rebirth (ticket 30, 1.6.1) ──────────────────────────────────────
+
+    /**
+     * t-rb-1: (1) an online bot is raised to 200 on its build (4th job); (2) with the pace forced it gathers both boss
+     * drops, crafts the key and is granted the trip; (3) the rebirth at Wyatt's rules: rebirths +1, level 1 beginner,
+     * key and drops gone, the rebirth EXP rate, same worn gear, same mesos, no cash items, past skills kept, no second
+     * rebirth at level 1; (4) the bot is put back as it was.
+     */
+    static List<String> botRebirth(SyntheticPlayer p) {
+        if (!soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.enabled()) {
+            return List.of("SKIP bot rebirths are off (BOT_REBIRTH_ENABLED / USE_REBIRTH_SYSTEM)");
+        }
+        if (config.YamlConfig.config.server.BOT_REBIRTH_PER_DAY <= 0) {
+            return List.of("SKIP BOT_REBIRTH_PER_DAY is 0");
+        }
+        soloMapling.ArtificialPlayer.BotRebirthQa.Before b;
+        try {
+            b = soloMapling.ArtificialPlayer.BotRebirthQa.pick(p.character());
+        } catch (IllegalStateException e) {
+            return List.of("FAIL " + e.getMessage());
+        }
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        ev.add("bot " + b.bot().getName() + " lv " + b.level() + " job " + b.job() + " rebirths " + b.reborns());
+        try {
+            if (!soloMapling.ArtificialPlayer.BotRebirthQa.raise(b)) {
+                bad.add("the bot did not reach a 4th job at 200: " + soloMapling.ArtificialPlayer.BotRebirthQa.describe(b));
+                return verdict(bad, "", ev);
+            }
+            List<String> walk = soloMapling.ArtificialPlayer.BotRebirthQa.walk(b);
+            ev.addAll(walk);
+            bad.addAll(soloMapling.ArtificialPlayer.BotRebirthQa.check(b));
+            ev.add("after: " + soloMapling.ArtificialPlayer.BotRebirthQa.describe(b));
+        } finally {
+            ev.add(soloMapling.ArtificialPlayer.BotRebirthQa.restore(b));
+        }
+        if (b.bot().getLevel() != b.level() || b.bot().getReborns() != b.reborns()
+                || b.bot().getJob().getId() != b.job()) {
+            bad.add("the bot was not put back");
+        }
+        return verdict(bad, "a level 200 bot gathered both boss drops, crafted its key and was reborn at level 1 as a"
+                + " beginner with the rebirth EXP rate, keeping its gear, mesos and skills; then put back", ev);
     // ── t-ac-1: achievements and medals (ticket 93, 1.6.1) ────────────────────────────────────────
 
     /**
