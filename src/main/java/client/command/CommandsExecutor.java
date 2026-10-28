@@ -390,6 +390,7 @@ public class CommandsExecutor {
         addCommand("make", 3, MakeCommand.class);
         addCommand("fly", 3, FlyCommand.class);
         addCommand("spy", 3, SpyPlayerCommand.class);
+        addCommand("market", 3, client.command.commands.gm3.MarketCommand.class);   // 1.6.1 volatility
         if (soloMapling.server.MapleRootSolo.isEnabled()) {
             addCommand("bot", 4, client.command.commands.gm4.ArtificialPlayerCommand.class);
             addCommand("opq", 4, client.command.commands.gm4.OPQCommands.class);

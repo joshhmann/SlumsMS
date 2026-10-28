@@ -739,7 +739,8 @@ public class MapleMap {
 
         // Loop through the global entries and check drop chance
         for (final MonsterGlobalDropEntry de : globalEntry) {
-            if (Randomizer.nextInt(999999) < de.chance) {
+            // 1.6.1 volatility: Leaf Rush / Leaf Blight change the Maple Leaf's chance (nothing else; off = unchanged)
+            if (Randomizer.nextInt(999999) < soloMapling.Economy.exchange.volatility.MarketEvents.globalDropChance(de.itemId, de.chance)) {
                 reward.add(de);
             }
         }

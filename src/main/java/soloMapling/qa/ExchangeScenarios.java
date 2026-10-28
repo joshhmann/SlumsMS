@@ -23,7 +23,40 @@ final class ExchangeScenarios {
     }
 
     static List<QaScenario> all() {
-        return List.of(new InGame(), new Leaf());
+        return List.of(new InGame(), new Leaf(), new Volatility());
+    }
+
+    /**
+     * xc-3 (1.6.1 volatility): a secret 2-minute Leaf Rush changes the Maple Leaf's drop chance and ends; an online
+     * trader bot posts a small LEAF bid from its own mesos and cancels it. {@code !qa do check} runs it again. Then
+     * watch {@code !market traders}, {@code !market events} and {@code !market event rush} for the real thing.
+     */
+    static final class Volatility implements QaScenario {
+        public String id() { return "xc-3"; }
+        public String title() { return "Market volatility: Leaf Rush changes the leaf rate, a trader bot posts an order"; }
+        public Set<QaLog.Topic> topics() { return Set.of(); }
+        public int minutes(String[] args) { return 10; }
+
+        public List<String> stage(QaContext ctx) {
+            List<String> r = soloMapling.Economy.exchange.volatility.MarketQa.check(System.currentTimeMillis());
+            if (r.get(0).startsWith("SKIP")) {
+                throw new QaRefusal(r.get(0).substring(5));
+            }
+            r.forEach(l -> ctx.log("XC3 " + l));
+            List<String> out = new java.util.ArrayList<>(r);
+            out.add("Next: !market event rush 10 (announced) and watch the notice; !market traders shows the traders "
+                    + "and their last orders; !market act makes one act now; !market rumour says one rumour.");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"check".equals(name)) {
+                throw new QaRefusal("xc-3 steps: check");
+            }
+            List<String> r = soloMapling.Economy.exchange.volatility.MarketQa.check(System.currentTimeMillis());
+            ctx.run().note("XC3", String.join(" | ", r));
+            return r;
+        }
     }
 
     /**

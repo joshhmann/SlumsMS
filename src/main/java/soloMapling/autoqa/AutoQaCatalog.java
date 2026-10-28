@@ -1124,6 +1124,13 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-xc-2", "LEAF ticker: sell escrows leaves, fill pays mesos, cancel returns leaves").minutes(2)
                 .expect(probe("leafExchange"))
                 .build());
+        // 1.6.1 volatility (t-mk-1 in the request; mk-1 was already the Market export's id): a secret 2-minute Leaf
+        // Rush changes the Maple Leaf's drop chance and ends; an online trader bot posts a LEAF bid from its own
+        // mesos, the order is on the book as the bot's, and the cancel gives the mesos back
+        c.add(Check.auto("t-xc-3", "Market volatility: a Leaf Rush changes the leaf rate; a trader bot posts an order")
+                .minutes(1)
+                .expect(probe("marketVolatility"))
+                .build());
         // Family (ticket 53, USE_FAMILY_SYSTEM): a bot accepts being the pretend player's junior, its kill gives rep,
         // the EXP / drop entitlements spend rep and give their buffs, a second use is refused, the family is dissolved
         c.add(Check.auto("t-fy-1", "Family: a bot junior, rep, the EXP / drop entitlements").minutes(2)

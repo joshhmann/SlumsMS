@@ -166,6 +166,44 @@ class RootyShopSelectionTest {
         assertEquals(2, cm.count(MAPLE_LEAF));
     }
 
+    /**
+     * 1.6.1 volatility, "Rooty's Bonus": while the market event runs, Maple Weapons also offers a Chaos Scroll 60% for
+     * 40 Maple Leaves (a new leaf sink); without the event the section is unchanged.
+     */
+    @Test
+    void rootysBonusSellsAChaosScrollForLeavesOnlyWhileTheEventRuns() throws Exception {
+        java.util.concurrent.atomic.AtomicLong now = new java.util.concurrent.atomic.AtomicLong(1_800_000_000_000L);
+        var ev = soloMapling.Economy.exchange.volatility.MarketEvents.forTest(
+                soloMapling.Economy.exchange.volatility.MarketConfig.allOn(), now::get, s -> { });
+        soloMapling.Economy.exchange.volatility.MarketEvents.useForTest(ev);
+        try {
+            ShopCm off = new ShopCm();
+            off.inventory.put(MAPLE_LEAF, 100);
+            Invocable npc = shop(off);
+            pick(npc, MAPLE_WEAPONS);
+            assertFalse(off.simple.contains("Rooty's Bonus"), "no event: no bonus category");
+            ev.start(soloMapling.Economy.exchange.volatility.MarketEvents.Kind.ROOTY_BONUS, 0, false, now.get());
+            ShopCm cm = new ShopCm();
+            cm.inventory.put(MAPLE_LEAF, 100);
+            npc = shop(cm);
+            pick(npc, MAPLE_WEAPONS);
+            assertTrue(cm.simple.contains("Rooty's Bonus") && cm.simple.contains("(40 "), cm.simple);
+            pick(npc, 4);                 // the bonus category, after the four weapon levels
+            pick(npc, FORGED);            // 2049100, the Chaos Scroll 60%
+            assertTrue(cm.simple.contains("40 #i" + MAPLE_LEAF), cm.simple);
+            pick(npc, 0);                 // Yes
+            assertEquals(1, cm.count(FORGED));
+            assertEquals(60, cm.count(MAPLE_LEAF));
+            now.addAndGet(24 * 3_600_000L + 1);
+            ShopCm after = new ShopCm();
+            npc = shop(after);
+            pick(npc, MAPLE_WEAPONS);
+            assertFalse(after.simple.contains("Rooty's Bonus"), "the event expired");
+        } finally {
+            soloMapling.Economy.exchange.volatility.MarketEvents.useForTest(null);
+        }
+    }
+
     @Test
     void aForgedSelectionBuysNothing() throws Exception {
         ShopCm cm = new ShopCm();

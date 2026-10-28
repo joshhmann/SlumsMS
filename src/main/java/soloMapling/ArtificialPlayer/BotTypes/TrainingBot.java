@@ -2533,6 +2533,8 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     private void accrueAbstractLoot(Character chr, long nowMs, long elapsedMs) {
         OffscreenRewardBudget.Reward reward = OffscreenRewardBudget.draw(chr.getMapId(),
                 chr.getMap().getCharacters().size(), elapsedMs, nowMs, chr.getWorldServer());
+        // 1.6.1 volatility: trader bots also find Maple Leaves at the leaf's global drop chance (traders on only)
+        soloMapling.Economy.exchange.volatility.MarketVolatility.offscreenLeafFinds(chr, elapsedMs);
         if (reward.isEmpty()) {
             return;
         }

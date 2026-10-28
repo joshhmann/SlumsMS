@@ -1,0 +1,48 @@
+# 1.6.1 volatility: market rumours bots say in map chat or megaphones (MarketRumours). Some are true (read from the
+# exchange's book, prices and events), some are made up. {ITEM} is the ticker's item in plain words ("leaves",
+# "chaos scrolls", "white scrolls", "elixirs"). PG-13, game talk only; never mention bots, AI or the game's name.
+# Lines are written plainly: MessyChat gives each bot its own typing voice when it speaks.
+MarketRumour:
+  Rise:
+    text:
+      - "heard {ITEM} are about to go way up"
+      - "buy {ITEM} now, trust me, price is climbing"
+      - "everyone is hoarding {ITEM} again"
+      - "my guildie says {ITEM} will double on the exchange"
+      - "{ITEM} keep getting more expensive every hour"
+      - "if you have spare {ITEM} dont sell them yet"
+  Crash:
+    text:
+      - "heard {ITEM} are about to crash"
+      - "sell your {ITEM} before they tank lol"
+      - "{ITEM} price is falling hard on the exchange"
+      - "nobody wants {ITEM} anymore, price is dropping"
+      - "{ITEM} are dumping right now, glad i sold"
+      - "dont buy {ITEM} yet, they are only getting cheaper"
+  WhaleBuy:
+    text:
+      - "some whale is buying up all the {ITEM}"
+      - "someone just bought a mountain of {ITEM} on the exchange"
+      - "who is buying every {ITEM}?? the book got eaten"
+      - "big buyer on {ITEM} right now, wild"
+  WhaleSell:
+    text:
+      - "someone just dumped a ton of {ITEM}"
+      - "a huge sell wall on {ITEM} just showed up"
+      - "some rich guy is unloading all his {ITEM}"
+      - "the {ITEM} book got flooded with asks"
+  Drought:
+    text:
+      - "heard {ITEM} stopped dropping from mobs"
+      - "been hunting all day and not one of my {ITEM} dropped"
+      - "{ITEM} are getting rare, mobs barely drop them now"
+  Flood:
+    text:
+      - "mobs are raining {ITEM} right now"
+      - "i keep getting {ITEM} every few kills today"
+      - "{ITEM} are dropping like crazy, go farm"
+  Rooty:
+    text:
+      - "rooty is taking {ITEM} for chaos scrolls, everyone is buying"
+      - "heard rooty wants {ITEM} again, price is gonna jump"
+      - "go check rooty, {ITEM} are worth more now"

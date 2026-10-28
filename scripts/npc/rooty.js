@@ -1041,7 +1041,7 @@ function chooseMenu(selection) {
         cm.dispose();
         cm.openNpc(9010004, entry.script);
     } else {
-        section = CATALOG[entry.section];
+        section = withRootyBonus(CATALOG[entry.section]);
         var text = "Please select the " + section.name + " category.#e#d#k\r\n#b";
         for (var i = 0; i < section.categories.length; i++) {
             var c = section.categories[i];
@@ -1073,6 +1073,29 @@ function chooseCategory(selection) {
 
 function pageCount() {
     return Math.ceil(category.items.length / PAGE_SIZE);
+}
+
+/*
+ * 1.6.1 volatility, market event "Rooty's Bonus" (-Dslums.market.events, !market event rooty): while it runs, the
+ * Maple Weapons section also offers a Chaos Scroll 60% for Maple Leaves (MarketEvents.rootyBonusLeaves(), default 40):
+ * a new leaf sink, so demand for leaves spikes. Off (or any error) = the section exactly as it is.
+ */
+function withRootyBonus(s) {
+    if (s == null || s.currency !== 4001126) {
+        return s;
+    }
+    var leaves = 0;
+    try {
+        leaves = Number(Java.type("soloMapling.Economy.exchange.volatility.MarketEvents").rootyBonusLeaves());
+    } catch (e) {
+        leaves = 0;
+    }
+    if (!(leaves > 0)) {
+        return s;
+    }
+    var cats = s.categories.slice();
+    cats.push({name: "Rooty's Bonus (event)", icon: 2049100, price: leaves, items: [2049100]});
+    return {name: s.name, currency: s.currency, price: s.price, cosmetic: s.cosmetic, categories: cats};
 }
 
 /* Stamps are an account balance, not an item: the Donor sections are priced in them. */

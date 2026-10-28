@@ -240,7 +240,7 @@ public final class Exchange {
         return problems;
     }
 
-    static List<String> reconcile(ExchangeStore.Loaded l) {
+    public static List<String> reconcile(ExchangeStore.Loaded l) {
         List<String> out = new ArrayList<>();
         Map<Bucket, Long> want = new HashMap<>(l.ledgerSums());
         Map<Bucket, Long> have = new HashMap<>(l.balances());

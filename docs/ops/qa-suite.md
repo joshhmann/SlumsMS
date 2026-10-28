@@ -263,6 +263,15 @@ Auto-QA t-xc-1 runs the same with AutoQaOne through the real `@nx` command (an N
 
 Auto-QA t-xc-2 runs the same with AutoQaOne through the real `@nx leaf` command (leaves topped up for the check are taken back).
 
+## xc-3: market volatility (1.6.1, ticket 113 "Volatility")
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `xc-3` | Needs `-Dslums.exchange=true`, `-Dslums.exchange.traders=true`, `-Dslums.market.events=true` and a trader bot online. Starts a secret 2-minute Leaf Rush and ends it; an online trader bot bids 1 leaf from its own mesos below the LEAF best bid, then cancels. Logs `XC3 PASS|FAIL ...`; `!qa do check` runs it again | the leaf chance reads 500 -> 1,500 -> 500 per million; the bot's order is on the book as the bot's, its mesos go down by the bid plus 1% and come back exactly on the cancel. Then `!market event rush 10`: a blue `[Cody] Leaf Rush!` notice (and `... is over.` after); `!market traders` lists the traders and their last orders; `!market act` makes one act; `!market rumour` has a bot near you say a rumour |
+
+Auto-QA t-xc-3 runs the same check (no player needed). The request named it t-mk-1, but mk-1 / t-mk-1 already belong
+to the 1.6.0 Market export.
+
 ## pq-2: OPQ bots (1.5.2)
 
 | Test | What it stages | What to look for |
@@ -617,6 +626,7 @@ line (`nothing could be judged here: SKIP OWNED_ALTS_ENABLED is off ...`). All r
 | t-ss-1 Slums Stamps | AutoQaOne's account (staff) claims the claimable day (its last claim moved back past the cooldown first), then with the check's own earn override claims the next day and again; topped up to 6 if needed, Rooty's purchase call (`cm.buyWithStamps`) buys the first Donor Cap, then again with 5 stamps; balance, claimed items and the cap are put back | the staff claim lands with no stamps; the earning claim credits exactly that day's `stamps` (1, or 6 on days 7/14/21/28) once; the purchase takes exactly 6 and gives one cap; one short is SHORT and takes nothing | `DAILY_CHECKIN_ENABLED` off, or AutoQaOne under the minimum level |
 | t-xc-1 NX exchange | AutoQaOne (topped up to 100 NX if short, taken back): a test regular funded from its own mesos bids for 100 NX; `@nx sell 100 <bid>` + `@nx confirm`; after the 10 s cooldown `@nx buy 100 1000` + confirm, then `@nx cancel`; the regular is taken out | the sale fills, its mesos less 1% land on the live character at once and 100 NX leave; the resting buy holds exactly 101 mesos and the cancel gives them back; at the end the same NX and exactly the two fees fewer mesos; the exchange never halts | `-Dslums.exchange` off |
 | t-xc-2 LEAF ticker | AutoQaOne (topped up to 20 tradeable Maple Leaves if short, taken back): the test regular, funded from its own mesos, bids for 10 leaves; `@nx leaf sell 10 <bid>` + confirm; after the cooldown `@nx leaf sell 10 <max>` + confirm, then `@nx cancel`; the regular is taken out | the sale takes exactly 10 leaves and fills, its mesos less 1% land at once; the resting sell takes 10 more and the cancel returns exactly those; the regular's 10 leaves come back; at the end the same leaves and exactly the two 1% fees fewer mesos; the exchange never halts | `-Dslums.exchange` off or LEAF closed |
+| t-xc-3 Market volatility | a secret 2-minute Leaf Rush, then an online trader bot's 1-leaf LEAF bid from its own mesos, cancelled | the leaf chance x3 during the Rush and back after; the bot's order rests on the book as the bot's; its mesos come back exactly | `-Dslums.market.events`, `-Dslums.exchange.traders` or `-Dslums.exchange` off |
 
 Not automated: companions following the owner to another map (ticket 13 defers movement; t-oa-1 notes it),
 the real login handler's chair grant for a pretend player (pretend players are excluded from it like bots, so t-sc-3
