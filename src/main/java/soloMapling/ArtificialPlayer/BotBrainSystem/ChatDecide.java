@@ -70,7 +70,14 @@ public final class ChatDecide {
     private long windowStart;
     private int windowCalls;
 
+    private final String model;
+
     public ChatDecide(Transport transport, long timeoutMs, int perSecond) {
+        this(transport, timeoutMs, perSecond, "decide");
+    }
+
+    public ChatDecide(Transport transport, long timeoutMs, int perSecond, String model) {
+        this.model = model == null || model.isBlank() ? "decide" : model.trim();
         this.transport = transport;
         this.timeoutMs = timeoutMs;
         this.perSecond = perSecond;
@@ -92,6 +99,40 @@ public final class ChatDecide {
         return shared;
     }
 
+    private static volatile ChatDecide sharedTone;
+    private static volatile boolean sharedToneBuilt;
+
+    /**
+     * The tone-only client ({@code BOT_DECIDE_TONE_URL}, 1.6.1 split) with the same timeout and per-second budget as
+     * {@link #get()} and its own cache, or null when unset (then one call carries every question).
+     */
+    public static ChatDecide getTone() {
+        if (!sharedToneBuilt) {
+            synchronized (ChatDecide.class) {
+                if (!sharedToneBuilt) {
+                    sharedTone = toneFromConfig(YamlConfig.config == null ? null : YamlConfig.config.server);
+                    sharedToneBuilt = true;
+                }
+            }
+        }
+        return sharedTone;
+    }
+
+    /** Test seam: a stand-in tone client (null = none). */
+    public static void useToneForTest(ChatDecide client) {
+        sharedTone = client;
+        sharedToneBuilt = true;
+    }
+
+    static ChatDecide toneFromConfig(ServerConfig server) {
+        if (server == null || server.BOT_DECIDE_TONE_URL == null || server.BOT_DECIDE_TONE_URL.isBlank()
+                || "false".equalsIgnoreCase(System.getProperty("solomapling.chat.decide", "true"))) {
+            return null;
+        }
+        return forUrl(server.BOT_DECIDE_TONE_URL.trim(), Long.getLong("solomapling.chat.decideTimeoutMs", 400),
+                Integer.getInteger("solomapling.chat.decidePerSecond", 8), server.BOT_DECIDE_TONE_MODEL);
+    }
+
     /** Test seam: a stand-in client (null = none). */
     public static void useForTest(ChatDecide client) {
         shared = client;
@@ -104,11 +145,16 @@ public final class ChatDecide {
             return null;
         }
         return forUrl(server.BOT_DECIDE_URL.trim(), Long.getLong("solomapling.chat.decideTimeoutMs", 400),
-                Integer.getInteger("solomapling.chat.decidePerSecond", 8));
+                Integer.getInteger("solomapling.chat.decidePerSecond", 8), server.BOT_DECIDE_MODEL);
     }
 
     /** A client for a Decide base URL (the evaluation tool uses this directly). */
     public static ChatDecide forUrl(String baseUrl, long timeoutMs, int perSecond) {
+        return forUrl(baseUrl, timeoutMs, perSecond, "decide");
+    }
+
+    /** As above, sending this wire model id with every request. */
+    public static ChatDecide forUrl(String baseUrl, long timeoutMs, int perSecond, String model) {
         String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         URI endpoint = URI.create(base + "/v1/systemone");
         HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofMillis(Math.max(200, timeoutMs))).build();
@@ -121,7 +167,7 @@ public final class ChatDecide {
                 throw new IllegalStateException("HTTP " + response.statusCode());
             }
             return response.body();
-        }, timeoutMs, perSecond);
+        }, timeoutMs, perSecond, model);
     }
 
     /**
@@ -147,7 +193,7 @@ public final class ChatDecide {
             long started = System.nanoTime();
             Optional<Map<String, Answer>> answers;
             try {
-                answers = parse(transport.post(Json.write(request(line, questions)), timeoutMs), questions);
+                answers = parse(transport.post(Json.write(request(line, questions, model)), timeoutMs), questions);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 answers = Optional.empty();
@@ -164,6 +210,11 @@ public final class ChatDecide {
             result.complete(answers);
         });
         return result.completeOnTimeout(Optional.empty(), timeoutMs + 50, TimeUnit.MILLISECONDS);
+    }
+
+    /** The wire model id this client sends. */
+    public String model() {
+        return model;
     }
 
     /** As {@link #ask}, waiting for the answer on the caller's thread (never longer than the deadline). */

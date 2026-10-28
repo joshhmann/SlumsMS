@@ -290,15 +290,35 @@ public final class ConvoSense {
      * {@link DecideShadow} log as a hash. A line the model judged is offered to the shadow run after the decision.
      */
     public static Read read(String line, ChatDecide decide, String speaker) {
+        return read(line, decide, decide == null ? null : ChatDecide.getTone(), speaker);
+    }
+
+    /**
+     * As above with an explicit tone client (1.6.1 split). With one, intent + con go to {@code decide} and tone to
+     * {@code tone} in parallel and the answers are merged; a failed half leaves its fields to the rules. The tone
+     * call is skipped when a rule already gave the tone; the intent/con call when a rule gave the intent and con.
+     */
+    public static Read read(String line, ChatDecide decide, ChatDecide tone, String speaker) {
         ChatTriage.Result byRule = ChatTriage.rules(line);
         Optional<ConvoIntent> intent = intentRule(line);
-        Optional<Tone> tone = toneRule(line, byRule);
-        boolean need = intent.isEmpty() || tone.isEmpty() || byRule.conSource() != ChatTriage.Source.RULE;
+        Optional<Tone> toneByRule = toneRule(line, byRule);
+        boolean needIntentCon = intent.isEmpty() || byRule.conSource() != ChatTriage.Source.RULE;
+        boolean need = needIntentCon || toneByRule.isEmpty();
         if (decide == null || !ConvoSwitches.on("sense") || byRule.kind() != ChatTriage.Kind.TALK || !need) {
             return combine(line, byRule, Map.of(), 1, 1, 1);
         }
         long started = System.nanoTime();
-        Optional<Map<String, ChatDecide.Answer>> answers = decide.askNow(line, ASKED);
+        Optional<Map<String, ChatDecide.Answer>> answers;
+        if (tone == null) {
+            answers = decide.askNow(line, ASKED);
+        } else {
+            var main = needIntentCon ? decide.ask(line, List.of(INTENT, ChatTriage.CON)) : null;
+            var toneCall = toneByRule.isEmpty() ? tone.ask(line, List.of(TONE)) : null;
+            Map<String, ChatDecide.Answer> merged = new java.util.LinkedHashMap<>();
+            merged.putAll(await(main));
+            merged.putAll(await(toneCall));
+            answers = merged.isEmpty() ? Optional.empty() : Optional.of(merged);
+        }
         long ms = (System.nanoTime() - started) / 1_000_000;
         double intentMin = ConvoSwitches.num("intentMin", 0.4), toneMin = ConvoSwitches.num("toneMin", 0.8);
         double conMin = ConvoSwitches.prop("solomapling.chat.conMin", 0.4);
@@ -306,6 +326,21 @@ public final class ConvoSense {
         // 1.6.0 shadow run (TEST, -Dslums.decide.shadow): logged only, never waits, never changes this read
         DecideShadow.offer(line, speaker, byRule, answers.orElse(null), ms, read, intentMin, toneMin, conMin);
         return read;
+    }
+
+    private static Map<String, ChatDecide.Answer> await(
+            java.util.concurrent.CompletableFuture<Optional<Map<String, ChatDecide.Answer>>> call) {
+        if (call == null) {
+            return Map.of();
+        }
+        try {
+            return call.get(1000, java.util.concurrent.TimeUnit.MILLISECONDS).orElse(Map.of());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Map.of();
+        } catch (Exception e) {
+            return Map.of();
+        }
     }
 
     /** Rules first, the model's confident answers for the rest. Public for the offline evaluation. */
