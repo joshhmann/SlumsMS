@@ -41,6 +41,15 @@ public final class TryPlanner {
      */
     public static List<Integer> tries(int correct, int optionCount, MechanicsPersona persona, double mistakeFactor,
                                       Random rnd) {
+        return tries(correct, optionCount, persona, mistakeFactor, rnd, MAX_WRONG_TRIES);
+    }
+
+    /**
+     * As above with a tighter cap for one puzzle (KPQ stage 1: at most {@code maxWrong} = 2 wrong hand-ins, each one
+     * is a walk back to Cloto).
+     */
+    public static List<Integer> tries(int correct, int optionCount, MechanicsPersona persona, double mistakeFactor,
+                                      Random rnd, int maxWrong) {
         if (optionCount < 1 || correct < 0 || correct >= optionCount) {
             throw new IllegalArgumentException("correct " + correct + " not in 0.." + (optionCount - 1));
         }
@@ -49,7 +58,7 @@ public final class TryPlanner {
         if (rnd.nextDouble() < expected - wrong) {
             wrong++;
         }
-        wrong = Math.min(wrong, Math.min(MAX_WRONG_TRIES, optionCount - 1));
+        wrong = Math.min(wrong, Math.min(Math.min(MAX_WRONG_TRIES, Math.max(0, maxWrong)), optionCount - 1));
         List<Integer> pool = new ArrayList<>();
         for (int i = 0; i < optionCount; i++) {
             if (i != correct) {

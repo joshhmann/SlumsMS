@@ -11,15 +11,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Who does what on a stage (ticket 114, "Roles"). Deterministic so every bot in the party computes the same answer
+ * Who does what on a stage (ticket 130, "Roles"). Deterministic so every bot in the party computes the same answer
  * from the same inputs (the OPQ bots' "closest unclaimed" handout, made general):
  * <ol>
  *   <li>the party leader takes the stage's LEADER role, if it has one;</li>
- *   <li>each other role, in file order, gets its minimum from the free members it allows, in party order;</li>
+ *   <li>each other role, in file order, gets its minimum from the free members it allows, in claim order;</li>
  *   <li>free members then fill roles that still have room, in file order;</li>
  *   <li>anyone left is {@value #SUPPORT}: follow, fight, loot, cheer.</li>
  * </ol>
- * A role left below its minimum is reported, and the orchestrator waits, re-claims or abandons.
+ * Claim order is real players first, then bots, each in party order: in a mixed party the player gets the first claim
+ * on every job and bots never take one from him (ticket 130, "Mixed parties"). Bots plan around a player's role, they
+ * never steer him. A role left below its minimum is reported, and the orchestrator waits, re-claims or abandons.
  */
 public final class RoleClaims {
 
@@ -49,14 +51,15 @@ public final class RoleClaims {
                 }
             }
         }
+        List<RunMember> order = claimOrder(members);
         for (Role r : stage.roles()) {
             if (r.who() != Who.LEADER) {
-                fill(r, members, roleOf, filled, r.minFor(party));
+                fill(r, order, roleOf, filled, r.minFor(party));
             }
         }
         for (Role r : stage.roles()) {
             if (r.who() != Who.LEADER) {
-                fill(r, members, roleOf, filled, r.maxFor(party));
+                fill(r, order, roleOf, filled, r.maxFor(party));
             }
         }
         for (RunMember m : members) {
@@ -70,6 +73,22 @@ public final class RoleClaims {
             }
         }
         return new Claims(Map.copyOf(roleOf), List.copyOf(unfilled));
+    }
+
+    /** Real players first, then bots, each group in party order. */
+    static List<RunMember> claimOrder(List<RunMember> members) {
+        List<RunMember> order = new ArrayList<>(members.size());
+        for (RunMember m : members) {
+            if (!m.bot()) {
+                order.add(m);
+            }
+        }
+        for (RunMember m : members) {
+            if (m.bot()) {
+                order.add(m);
+            }
+        }
+        return order;
     }
 
     private static void fill(Role r, List<RunMember> members, Map<Integer, String> roleOf, Map<String, Integer> filled,
