@@ -40,6 +40,12 @@ no pass key. nginx on the patch host asks GET /api/auth/pass (auth_request, inte
 Passes are signed with their own key (--pass-key-file), separate from the session key and different on Live and TEST,
 so a TEST pass never opens Live downloads. No secret is ever in the launcher.
 
+Game pass (launcher auto-login, 1.7.0, ticket 104 level 3): POST /api/login/game-pass (session cookie, "X-Slums: 1")
+asks the game's auth API (/game-pass) for a one-use pass the launcher types as the password: 200 {"ok": true, "pass",
+"account", "expiresAt": <Unix seconds, about 60 s out>}; 401 when not signed in (a revoked session too, unlike the
+download pass) or the game refuses the account; 403 banned; 429 too many; 503 when the game won't issue passes (off,
+or unreachable): the launcher then just shows the normal login. The pass is never logged.
+
 Listens on 127.0.0.1 only. Sessions are HMAC-SHA256 signed with --key-file (32+ random bytes; the service refuses to
 start without it). An account listed in --revoked (one account id per line, e.g. banned accounts) is signed out.
 
@@ -299,6 +305,12 @@ ERRORS = {"BAD_CODE": (403, "That invite code doesn't work."),
           "LOCKED": (423, "Too many wrong tries. Try again in 15 minutes."),
           "RATE_LIMITED": (429, "Too many tries. Wait a minute and try again.")}
 DOWN = (503, "Sign-in is down right now. Try again in a bit.")
+# the game's /game-pass answers (ticket 104 level 3) -> the launcher's status and message
+GAME_PASS_DOWN = (503, "Auto-login isn't available right now. Log in as usual.")
+GAME_PASS_ERRORS = {"BANNED": (403, "This account can't play right now."),
+                    "RATE_LIMITED": (429, "Too many tries. Wait a minute."),
+                    "NO_ACCOUNT": (401, "Sign in again."), "REFUSED": (401, "Sign in again."),
+                    "UNAVAILABLE": GAME_PASS_DOWN}
 
 
 def sign_in_broken(user, pw):
@@ -454,6 +466,8 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
                 return self.account_sign_in(path.rsplit("/", 1)[1])
             if path == "/api/login/download-pass":
                 return self.download_pass()
+            if path == "/api/login/game-pass":
+                return self.game_pass()
             if path in ("/api/login/reset/request", "/api/login/reset/status", "/api/login/reset/complete"):
                 return self.reset(path.rsplit("/", 1)[1])
             return self.send(404, {"ok": False})
@@ -571,6 +585,25 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
                 return self.send(*self.err(DOWN))
             pw, exp = passes.issue(s)
             return self.send(200, {"ok": True, "pass": pw, "expiresAt": exp})   # Unix seconds (the launcher's contract)
+
+        def game_pass(self):
+            if self.headers.get("X-Slums") != "1":
+                return self.send(403, {"ok": False, "error": "Missing header."})
+            origin = self.headers.get("Origin")
+            if origin and urlsplit(origin).netloc != self.headers.get("Host", ""):
+                return self.send(403, {"ok": False, "error": "Wrong origin."})
+            s = self.session()
+            if not s:  # signed out or revoked: 401 either way (ticket 104's contract)
+                return self.send(401, {"ok": False, "error": "Sign in first."})
+            got = auth.call("/game-pass", {"account_id": s["a"]}, self.client()) if auth else None
+            if not got:
+                return self.send(*self.err(GAME_PASS_DOWN))
+            if got.get("ok") is True and isinstance(got.get("pass"), str) and isinstance(got.get("expiresAt"), int):
+                sys.stderr.write(f"game pass for account {s['a']}\n")  # never the pass or the answer
+                return self.send(200, {"ok": True, "pass": got["pass"], "account": got.get("account") or s.get("n"),
+                                       "expiresAt": got["expiresAt"]})
+            status, msg = GAME_PASS_ERRORS.get(got.get("error"), GAME_PASS_DOWN)
+            return self.send(status, {"ok": False, "error": msg})
 
         @staticmethod
         def err(pair):

@@ -64,6 +64,8 @@ class FakeGameAuth:
         from http.server import BaseHTTPRequestHandler
         self.calls, fake = [], self
         self.reset_state = "pending"  # what /reset/status says; the test plays the admin
+        self.game_pass = (200, {"ok": True, "pass": "gp1." + "A" * 26, "account": "momo", "account_id": 42,
+                                "expiresAt": 1_900_000_060})  # what /game-pass says (ticket 104 level 3)
 
         class H(BaseHTTPRequestHandler):
             def log_message(self, *a):
@@ -84,6 +86,8 @@ class FakeGameAuth:
                            (200, {"ok": False, "error": "UNAVAILABLE"}) if body["user"] == "dbdown" else
                            (429, {"ok": False, "error": "RATE_LIMITED"}) if body["user"] == "busy" else
                            (200, {"ok": False, "error": "WRONG_LOGIN"}))
+                elif self.path == "/game-pass":
+                    ans = fake.game_pass
                 elif self.path == "/reset/request":   # the same answer for any name
                     ans = (200, {"ok": True, "request_id": "r123", "secret": "s" * 32})
                 elif self.path == "/reset/status":
@@ -200,6 +204,37 @@ class AccountSignInTest(unittest.TestCase):
                 self.jar.pop(k, None)
         data = r.read()
         return r.status, (json.loads(data) if data else None)
+
+    def test_game_pass_for_the_launcher(self):
+        """Ticket 104 level 3: a signed-in launcher asks for a one-use game pass; the game's answers mapped."""
+        self.assertEqual(self.call("POST", "/api/login/game-pass")[0], 401)
+        self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})
+        self.assertEqual(self.call("POST", "/api/login/game-pass", headers={})[0], 403)
+        self.assertEqual(self.call("POST", "/api/login/game-pass",
+                                   headers={"X-Slums": "1", "Origin": "http://evil.example"})[0], 403)
+        st, body = self.call("POST", "/api/login/game-pass")
+        self.assertEqual((st, body), (200, {"ok": True, "pass": "gp1." + "A" * 26, "account": "momo",
+                                            "expiresAt": 1_900_000_060}))
+        path, _secret, sent = self.game.calls[-1]
+        self.assertEqual((path, sent["account_id"], set(sent)), ("/game-pass", 42, {"account_id", "ipHash"}))
+        for answer, want in (((200, {"ok": False, "error": "BANNED"}), 403),
+                             ((429, {"ok": False, "error": "RATE_LIMITED"}), 429),
+                             ((200, {"ok": False, "error": "NO_ACCOUNT"}), 401),
+                             ((200, {"ok": False, "error": "REFUSED"}), 401),
+                             ((200, {"ok": False, "error": "UNAVAILABLE"}), 503),
+                             ((500, {"ok": False, "error": "WHATEVER"}), 503),
+                             ((200, {"ok": True}), 503)):  # an ok without a pass is no pass
+            self.game.game_pass = answer
+            self.assertEqual(self.call("POST", "/api/login/game-pass")[0], want, answer)
+        self.game.srv.shutdown()
+        self.game.srv.server_close()
+        self.assertEqual(self.call("POST", "/api/login/game-pass")[0], 503, "the game unreachable")
+
+    def test_game_pass_is_401_for_a_revoked_session(self):
+        self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})
+        with open(self.revoked, "w") as f:
+            f.write("42\n")
+        self.assertEqual(self.call("POST", "/api/login/game-pass")[0], 401)
 
     def test_password_sign_in_gives_the_same_session(self):
         status, body = self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})
