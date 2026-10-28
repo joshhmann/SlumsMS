@@ -179,6 +179,15 @@ class Probes160Test {
     }
 
     @Test
+    void talkTickCostIsCpuTimeWhenMeasured() {
+        assertEquals(0, Probes160.tickCostMs(0, 5, 5), 1e-9);
+        // 24.8 ms of wall time per tick under a throttled cgroup, 3 ms of it burned on a CPU
+        assertEquals(3.0, Probes160.tickCostMs(100, 300_000_000L, 2_480_000_000L), 1e-9);
+        // no CPU measurement: the wall time stands
+        assertEquals(24.8, Probes160.tickCostMs(100, 0, 2_480_000_000L), 1e-9);
+    }
+
+    @Test
     void organicBotTalkNeedsATalkAfterFiveMinutesOnAPopulatedServer() {
         assertNull(Probes160.organicTalkProblem(29, 500, 0));  // too young to judge
         assertNull(Probes160.organicTalkProblem(300, 5, 0));   // too few bots online
