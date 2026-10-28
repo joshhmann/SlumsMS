@@ -11,7 +11,7 @@
   function next() {
     // only a path on this site, never another site
     var n = new URLSearchParams(location.search).get("next") || "";
-    return /^\/(?!\/)[\w\-./]*$/.test(n) ? n : "../database/index.html";
+    return /^\/(?!\/)[\w\-./]*$/.test(n) ? n : "../database/";
   }
   function signedIn(who, el) { say("Signed in as " + (who || "you") + ". Taking you there...", "ok", el); location.href = next(); }
   function asJson(r) { return r.json().then(function (j) { return { status: r.status, body: j }; }, function () { return { status: r.status, body: {} }; }); }

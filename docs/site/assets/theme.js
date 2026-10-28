@@ -184,7 +184,7 @@
       card('<p class="secret-note"><b>There&rsquo;s a secret theme here.</b> Slums-chan has hidden ' + IDS.length +
         ' secrets around the site. Find three to unlock her theme. You&rsquo;ve found ' + n + " of " + IDS.length +
         '. <span class="muted">Hint: try a classic code, and say where you are.</span> Signed-in players only: ' +
-        'see them in <a href="' + base + 'market/cards.html">My cards</a>.</p>');
+        'see them in <a href="' + base + 'market/cards">My cards</a>.</p>');
     });
   }
   function reveal(id, quiet) {  // quiet: no sign-in hint, and nothing if it's already found
@@ -207,7 +207,7 @@
       if (!was && unlocked()) note += " <b>The Slums-chan theme is unlocked:</b> pick it next to the colour dots up top.";
       var c = card('<img src="' + base + "secret/" + s.src + '" alt="" width="' + s.w + '" height="820">' +
         '<p class="secret-note"><b>You found a card: ' + s.name + (/[!?.]$/.test(s.name) ? "" : ".") + "</b> " + note +
-        ' <a href="' + base + 'market/cards.html">My cards</a></p>');
+        ' <a href="' + base + 'market/cards">My cards</a></p>');
       c.querySelector("img").alt = s.alt;
       if (unlocked()) showUnlock();
     });
@@ -446,7 +446,7 @@
             return { t: o.t, isNew: o.new, text: o.from + " offered " + Number(o.price).toLocaleString("en-US") +
               " mesos on your " + (o.kind === "WTB" ? "WTB" : "WTS") + " " + o.name }; }))
           .sort(function (x, y) { return String(y.t).localeCompare(String(x.t)); }).slice(0, 8);
-        var mine = a.getAttribute("href") + "../market/mine.html";
+        var mine = a.getAttribute("href") + "../market/mine";
         card.innerHTML = "<b>Notifications</b>" + (fired.length ? "" : '<p class="muted">Nothing yet. Price alerts going off and offers on your Buy/Sell posts show up here.</p>');
         var ul = document.createElement("ul");
         fired.forEach(function (x) {
@@ -527,7 +527,7 @@
       rows.forEach(function (r) {
         var li = document.createElement("li"), label = document.createElement(g[0] === "items" || r.page ? "a" : "span");
         label.textContent = r.name;
-        if (label.tagName === "A") label.href = root + g[3] + r.id + ".html";
+        if (label.tagName === "A") label.href = root + g[3] + r.id;
         var n = document.createElement("small");
         n.textContent = " " + Number(r.count || 0).toLocaleString("en-US") + " " + g[2];
         li.append(label, n);

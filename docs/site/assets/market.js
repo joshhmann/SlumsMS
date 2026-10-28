@@ -48,7 +48,7 @@
   }
   function priceLink(id, name) {
     var a = el("a", null, name);
-    a.href = root + "market/prices/" + id + ".html";
+    a.href = root + "market/prices/" + id;
     return summary && summary[id] ? a : el("span", null, name);
   }
   function btn(text, cls, fn) {
@@ -125,7 +125,7 @@
       act("watch", { itemId: id, on: !watching }, status);
     }));
     var post = el("a", "btn", "Post WTB / WTS");
-    post.href = root + "market/board.html?item=" + id + "#post";
+    post.href = root + "market/board?item=" + id + "#post";
     row.appendChild(post);
     box.appendChild(row);
     var form = el("form", "mkform");

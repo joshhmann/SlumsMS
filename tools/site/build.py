@@ -130,6 +130,7 @@ def build(out, tar_path=None, private=False, live=False):
     rels = notes.releases()
     set_context(rels, sections)
     results = {name: build_section(name, out, rels) for name in sections}
+    common.clean_links(out)
     finish(out, tar_path, private)
     return results["notes"], results["guide"]
 
@@ -145,6 +146,7 @@ def rebuild_section(name, out, private=False, live=False):
               "world": "world", "admin": "admin"}.get(name)
     if not folder:  # pages: a few single files, written in place
         build_section(name, out, rels)
+        common.clean_links(out)
         finish(out, None, private)
         return
     # build beside the live folder, swap it in with two renames, check, and swap back if the check fails,
@@ -153,6 +155,7 @@ def rebuild_section(name, out, private=False, live=False):
     shutil.rmtree(stage, ignore_errors=True)
     os.makedirs(stage)
     build_section(name, stage, rels, site_root=out)
+    common.clean_links(stage, folder)
     live, old = os.path.join(out, folder), os.path.join(out, f".old-{folder}")
     shutil.rmtree(old, ignore_errors=True)
     if os.path.isdir(live):

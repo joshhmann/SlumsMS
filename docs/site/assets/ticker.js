@@ -12,7 +12,7 @@
     var c = t.change, cls = c === null || c === undefined ? "" : c > 0.005 ? "up" : c < -0.005 ? "down" : "";
     var a = document.createElement("a");
     a.className = "xtick";
-    a.href = root + "market/exchange.html" + (t.id === "NX" ? "" : "#" + t.id.toLowerCase());
+    a.href = root + "market/exchange" + (t.id === "NX" ? "" : "#" + t.id.toLowerCase());
     if (copy) { a.setAttribute("aria-hidden", "true"); a.tabIndex = -1; }
     a.innerHTML = "<em></em> <b></b> <span></span>";
     a.querySelector("em").textContent = t.id;

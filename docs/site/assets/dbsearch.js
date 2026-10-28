@@ -24,7 +24,7 @@
     hits.sort(function (a, b) { return (a[3].indexOf(q) === 0 ? 0 : 1) - (b[3].indexOf(q) === 0 ? 0 : 1) || a[3].length - b[3].length; });
     hits.slice(0, 30).forEach(function (h) {
       var k = KIND[h[0]], li = document.createElement("li"), a = document.createElement("a"), s = document.createElement("small");
-      a.href = root + k[0] + "/" + h[1] + ".html";
+      a.href = root + k[0] + "/" + h[1];
       var n = document.createElement("span");
       n.textContent = h[2];
       s.textContent = h[4] || k[1];  // a Market row shows its median price instead of the kind

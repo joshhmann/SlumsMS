@@ -47,7 +47,7 @@
     say(out, "Setting it...");
     call("complete", { pass: pass }).then(function (r) {
       if (r.body.ok) { say(out, "Done. You're signed in as " + (r.body.character || r.body.account) + ". Use the new password in the game too.", "ok");
-        setTimeout(function () { location.href = "../database/index.html"; }, 2500); return; }
+        setTimeout(function () { location.href = "../database/"; }, 2500); return; }
       if (r.status === 410) { show("none"); say(ask.querySelector(".status"), r.body.error, "bad"); return; }
       say(out, r.body.error || "Something went wrong. Try again in a bit.", "bad");
     }).catch(function () { say(out, "Couldn't reach the login service. Try again in a bit.", "bad"); });

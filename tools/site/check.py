@@ -200,8 +200,10 @@ def check_links(root):
                 continue
             if parts.path:
                 target = os.path.normpath(os.path.join(os.path.dirname(path), unquote(parts.path)))
-                if parts.path.endswith("/") or os.path.isdir(target):
+                if parts.path.endswith("/") or (os.path.isdir(target) and not os.path.isfile(target + ".html")):
                     target = os.path.join(target, "index.html")
+                elif not os.path.isfile(target) and os.path.isfile(target + ".html"):
+                    target += ".html"  # a clean URL (common.clean_links): nginx serves x.html for x
             else:
                 target = path
             if not os.path.abspath(target).startswith(os.path.abspath(root) + os.sep):

@@ -163,3 +163,29 @@ def inline(s):
 
 def slug(s):
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-") or "section"
+
+
+# Clean URLs (owner, 2026-10-28: "the urls show html"): links say market/exchange, not market/exchange.html, and
+# guide/ for guide/index.html. nginx serves x.html for x (try_files) and sends old .html links to the clean URL.
+_HTML_LINK = re.compile(r'(\b(?:href|src)=")((?:\.\./|\./)*(?:[\w.~-]+/)*)([\w.~-]+)\.html([#?][^"]*)?"')
+
+
+def clean_href(m):
+    attr, folder, name, rest = m.group(1), m.group(2), m.group(3), m.group(4) or ""
+    if name == "index":
+        return f'{attr}{folder or "./"}{rest}"'
+    return f'{attr}{folder}{name}{rest}"'
+
+
+def clean_links(out, folder=""):
+    """Rewrite every relative .html link in the built pages under out/folder (the files keep their names)."""
+    for dirpath, _dirs, files in os.walk(os.path.join(out, folder)):
+        for name in files:
+            if name.endswith(".html"):
+                path = os.path.join(dirpath, name)
+                with open(path, encoding="utf-8") as f:
+                    text = f.read()
+                new = _HTML_LINK.sub(clean_href, text)
+                if new != text:
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(new)

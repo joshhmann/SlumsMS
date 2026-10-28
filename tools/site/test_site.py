@@ -629,7 +629,7 @@ class WorldTest(unittest.TestCase):
 
     def test_public_world_never_links_the_signed_in_sections(self):
         self.assertEqual([p for p in check.check_all(self.out) if "private" in p], [])
-        self.assertIn("login/index.html?next=/market/", self.read("world/economy.html"))
+        self.assertIn("login/?next=/market/", self.read("world/economy.html"))
 
     def test_no_richest_board_and_traders_show_counts_and_percent(self):
         self.assertFalse(os.path.exists(os.path.join(self.out, "world", "rankings", "richest.html")))
@@ -760,7 +760,7 @@ class WorldTest(unittest.TestCase):
         from sections import market, world
         page = self.read("world/economy.html")
         self.assertIn('<th class="r">4 days</th>', page)          # the contract example has 4 days of prices
-        self.assertIn("login/index.html?next=/market/economy.html", page)
+        self.assertIn("login/?next=/market/economy", page)
         self.assertIn("Slums Market economy page", page)
         m = market.load(self.market)
         m["economy-public"]["as_of"] = "2026-10-27T13:00:00Z"

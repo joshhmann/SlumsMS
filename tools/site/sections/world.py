@@ -576,7 +576,7 @@ def build_economy(wo):
     nxpts = [(d["date"], d.get("mesos_per_1000nx"), d.get("mesos_per_1000nx"), d.get("mesos_per_1000nx")) for d in nx]
     rate = next((d.get("mesos_per_1000nx") for d in reversed(nx) if d.get("mesos_per_1000nx")), None)
     market_link = ("market/index.html" if "market" in common.BUILT else "login/index.html?next=/market/")
-    econ_link = "market/economy.html" if "market" in common.BUILT else "login/index.html?next=/market/economy.html"
+    econ_link = "market/economy.html" if "market" in common.BUILT else "login/index.html?next=/market/economy"
     other = (f'<p class="small mknote">Today&rsquo;s numbers on their own (trades in the last 24 hours, FM shops open now, '
              f'mesos removed by tax and fees) are on the <a href="{{root}}{econ_link}">'
              f'Slums Market economy page</a>{"" if "market" in common.BUILT else " (sign in)"}.</p>')
