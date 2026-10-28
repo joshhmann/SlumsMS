@@ -1123,6 +1123,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-fy-1", "Family: a bot junior, rep, the EXP / drop entitlements").minutes(2)
                 .expect(probe("family"))
                 .build());
+        // Bot rebirth (ticket 30, BOT_REBIRTH_ENABLED): a bot raised to 200 gathers its key's boss drops, crafts the
+        // key and is reborn with the pace forced; gear, mesos and cash items untouched; the bot is put back after
+        c.add(Check.auto("t-rb-1", "Bot rebirth: a level 200 regular earns its key and is reborn").minutes(2)
+                .expect(probe("botRebirth"))
+                .build());
         return List.copyOf(c);
     }
 

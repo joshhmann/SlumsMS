@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family");
+            "family", "botRebirth");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -93,6 +93,7 @@ final class Probes160 {
                 case "slumsStamps" -> slumsStamps(p);
                 case "nxExchange" -> nxExchange(p);
                 case "family" -> family(p);
+                case "botRebirth" -> botRebirth(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1142,6 +1143,50 @@ final class Probes160 {
         }
         return verdict(bad, "a bot accepted being the junior, its kill gave rep, 1.5x drop and 2x EXP were given for"
                 + " their rep, a second use was refused, and the family was dissolved", ev);
+    }
+
+    // ── t-rb-1: a regular earns a rebirth (ticket 30, 1.6.1) ──────────────────────────────────────
+
+    /**
+     * t-rb-1: (1) an online bot is raised to 200 on its build (4th job); (2) with the pace forced it gathers both boss
+     * drops, crafts the key and is granted the trip; (3) the rebirth at Wyatt's rules: rebirths +1, level 1 beginner,
+     * key and drops gone, the rebirth EXP rate, same worn gear, same mesos, no cash items, past skills kept, no second
+     * rebirth at level 1; (4) the bot is put back as it was.
+     */
+    static List<String> botRebirth(SyntheticPlayer p) {
+        if (!soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.enabled()) {
+            return List.of("SKIP bot rebirths are off (BOT_REBIRTH_ENABLED / USE_REBIRTH_SYSTEM)");
+        }
+        if (config.YamlConfig.config.server.BOT_REBIRTH_PER_DAY <= 0) {
+            return List.of("SKIP BOT_REBIRTH_PER_DAY is 0");
+        }
+        soloMapling.ArtificialPlayer.BotRebirthQa.Before b;
+        try {
+            b = soloMapling.ArtificialPlayer.BotRebirthQa.pick(p.character());
+        } catch (IllegalStateException e) {
+            return List.of("FAIL " + e.getMessage());
+        }
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        ev.add("bot " + b.bot().getName() + " lv " + b.level() + " job " + b.job() + " rebirths " + b.reborns());
+        try {
+            if (!soloMapling.ArtificialPlayer.BotRebirthQa.raise(b)) {
+                bad.add("the bot did not reach a 4th job at 200: " + soloMapling.ArtificialPlayer.BotRebirthQa.describe(b));
+                return verdict(bad, "", ev);
+            }
+            List<String> walk = soloMapling.ArtificialPlayer.BotRebirthQa.walk(b);
+            ev.addAll(walk);
+            bad.addAll(soloMapling.ArtificialPlayer.BotRebirthQa.check(b));
+            ev.add("after: " + soloMapling.ArtificialPlayer.BotRebirthQa.describe(b));
+        } finally {
+            ev.add(soloMapling.ArtificialPlayer.BotRebirthQa.restore(b));
+        }
+        if (b.bot().getLevel() != b.level() || b.bot().getReborns() != b.reborns()
+                || b.bot().getJob().getId() != b.job()) {
+            bad.add("the bot was not put back");
+        }
+        return verdict(bad, "a level 200 bot gathered both boss drops, crafted its key and was reborn at level 1 as a"
+                + " beginner with the rebirth EXP rate, keeping its gear, mesos and skills; then put back", ev);
     }
 
     // ── t-xc-1: the NX exchange in game (ticket 113 round 2) ─────────────────────────────────────

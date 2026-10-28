@@ -41,7 +41,7 @@ public final class LifeObservation {
         OptionalInt weaponLevel = weaponLevel(chr);
         if (weaponLevel.isEmpty()) unknown.add("weapon requirements");
         List<LifeGoals.Goal> goals = memory != null && !memory.goals().isEmpty() ? memory.goals()
-                : LifeGoals.seed(chr.getLevel(), chr.getJob().getId(), weaponLevel);
+                : LifeGoals.seed(Math.max(1, Math.min(200, chr.getLevel())), chr.getJob().getId(), weaponLevel); // 1.6.1: rebirth 3 goes to 255
         Map<Need, Double> needs = new EnumMap<>(Need.class);
         needs.putAll(observed.previewNeeds().values());
         needs.put(Need.PROGRESS, goals.stream().mapToDouble(LifeGoals.Goal::pressure).max().orElse(0));

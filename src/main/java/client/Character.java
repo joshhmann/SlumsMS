@@ -12853,6 +12853,14 @@ public class Character extends AbstractCharacterObject {
         return reborns;
     }
 
+    /**
+     * 1.6.1 ticket 30: a bot's rebirth count, set in memory only. A bot has no characters row (setReborns' UPDATE
+     * finds nothing); its count lives in characters_rebirth and is put back by BotRebirth.restore.
+     */
+    public void setBotReborns(int value) {
+        reborns = Math.max(0, value);
+    }
+
     public String getAllRebornDataCerezeth() {
         if (!YamlConfig.config.server.USE_REBIRTH_SYSTEM) {
             yellowMessage("Rebirth system is not enabled!");

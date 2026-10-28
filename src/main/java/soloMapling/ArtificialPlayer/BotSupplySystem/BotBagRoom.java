@@ -138,7 +138,8 @@ public final class BotBagRoom {
         try {
             ItemInformationProvider ii = ItemInformationProvider.getInstance();
             Sale sale = sellJunk(chr, item -> ii.getPrice(item.getItemId(), item.getQuantity()),
-                    item -> ii.isQuestItem(item.getItemId()) || ii.isCash(item.getItemId()));
+                    item -> ii.isQuestItem(item.getItemId()) || ii.isCash(item.getItemId())
+                            || soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.keeps(item.getItemId()));
             if (sale.items() > 0) {
                 log.info("[Bag] {} (lv {}) sold {} junk item(s) at the store on map {} for {} mesos ({} credited)",
                         chr.getName(), chr.getLevel(), sale.items(), chr.getMapId(), sale.mesosOffered(),

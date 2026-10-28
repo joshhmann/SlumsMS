@@ -387,6 +387,13 @@ level-up gives the GM rep, and the GM gets 20,000 rep to click every entitlement
 `!qa do check` prints rep and the Family buffs; stop dissolves the family (relog to clear the window). Auto-QA:
 t-fy-1.
 
+### rb-1: Bot rebirth (1.6.1, ticket 30)
+
+`!qa run rb-1` (needs `BOT_REBIRTH_ENABLED` and `USE_REBIRTH_SYSTEM`): an online bot (lv 30-199, a build job, no
+party) is raised to 200 on its build, then walks its earned path with the pace forced (two boss runs, the key crafted,
+the trip granted, the rebirth on rebirth.js's rules). The answer lists what changed and what must not have (gear,
+mesos, cash items, past skills). `!qa do check` prints the bot; stop puts it back exactly as it was. Auto-QA: t-rb-1.
+
 ## Adding a scenario
 
 1. Pick the test id from the release notes page. A second test that needs the same staging becomes an alias.

@@ -434,6 +434,12 @@ public final class BotStore {
             return false;
         }
         stored.applyTo(bot);
+        // 1.6.1 ticket 30: its rebirths (characters_rebirth; a bot has no characters row) and their EXP rate
+        try {
+            soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.restore(bot);
+        } catch (RuntimeException e) {
+            log.warn("Could not restore the rebirths of bot {} ({})", bot.getId(), bot.getName(), e);
+        }
         adoptedThisRun.add(bot.getId());
         try {
             // The item load takes its own connections, so it waits for room in the bots' share like any other.
