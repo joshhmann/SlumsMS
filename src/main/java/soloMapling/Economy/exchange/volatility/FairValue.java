@@ -7,7 +7,9 @@ import java.util.Map;
 /**
  * 1.6.1 volatility (owner 2026-10-28): a fair value per item ticker, from real game data, recomputed hourly.
  * <pre>
- *   floor    the NPC shop's buy price (LEAF 500,000; the others their item's shop price)
+ *   floor    the NPC shop's buy price (LEAF 500,000; the others their item's shop price); a token shop price
+ *            (under 1,000: Chaos and White Scrolls sell for 1) is replaced by the anchor, the price board's value
+ *            or else the starting price (CHAOS 20m, WS 10m); with neither the ticker has no fair value (null)
  *   ceiling  what the item buys at its sinks (LEAF: the best of Rooty's Maple Weapons per leaf, and while Rooty's
  *            Bonus runs a Chaos Scroll's fair value / 40; the scrolls and elixirs: 1.5x their price board value),
  *            never under 1.2x the floor
@@ -27,7 +29,21 @@ public final class FairValue {
 
         /** The ceiling, given the other tickers' current fair values (LEAF's Rooty's Bonus leg reads CHAOS). */
         long ceiling(String ticker, Map<String, Long> fairs);
+
+        /**
+         * The reference price that stands in for a token shop price (under {@link #TOKEN_FLOOR}): the price board's
+         * value, else the starting price. 0: none (the ticker then has no fair value yet).
+         */
+        default long anchor(String ticker) {
+            return 0;
+        }
     }
+
+    /**
+     * A shop price under this is a token (Chaos and White Scrolls sell to NPCs for 1 meso), not a floor: the
+     * {@link Sources#anchor} is used instead, and with no anchor there is no fair value (null, not a 1-meso line).
+     */
+    public static final long TOKEN_FLOOR = 1_000;
 
     /** One ticker's last computation, for status and tests. */
     public record Point(long floor, long ceiling, double supply, double demand, long raw, long fair) {
@@ -83,6 +99,14 @@ public final class FairValue {
         points.forEach((t, p) -> fairs.put(t, p.fair()));
         for (String t : List.of("CHAOS", "WS", "ELIXIR", "LEAF")) {
             long floor = src.floor(t);
+            if (floor < TOKEN_FLOOR) {
+                floor = src.anchor(t);
+                if (floor < TOKEN_FLOOR) {
+                    points.remove(t);
+                    fairs.remove(t);
+                    continue;
+                }
+            }
             long ceiling = Math.max(Math.round(Math.max(1, floor) * 1.2), src.ceiling(t, fairs));
             double[] w = flows.window(t, now);
             long r = raw(floor, ceiling, w[0], w[1], k);
@@ -140,6 +164,16 @@ public final class FairValue {
                 } catch (RuntimeException e) {
                     return 1;
                 }
+            }
+
+            public long anchor(String t) {
+                long board = 0;
+                try {
+                    board = value(ITEM.get(t));
+                } catch (RuntimeException e) {
+                    // no price board: the starting price
+                }
+                return board >= TOKEN_FLOOR ? board : MarketTraders.FALLBACK.getOrDefault(t, 0L);
             }
 
             public long ceiling(String t, Map<String, Long> fairs) {

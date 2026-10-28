@@ -69,4 +69,36 @@ class FairValueTest {
         assertEquals(3, w[0]);
         assertEquals(0, w[1]);
     }
+
+    @Test
+    void aTokenShopPriceIsReplacedByTheAnchorAndNoAnchorMeansNoFairValue() {
+        // TEST 2026-10-28: CHAOS and WS sell to NPCs for 1 meso and had no price board value: fair read 1 meso
+        MarketFlows flows = new MarketFlows();
+        Map<String, Long> anchors = Map.of("CHAOS", 20_000_000L, "WS", 0L);
+        FairValue.Sources src = new FairValue.Sources() {
+            public long floor(String t) {
+                return switch (t) {
+                    case "LEAF" -> 500_000;
+                    case "ELIXIR" -> 2_500;
+                    default -> 1;
+                };
+            }
+
+            public long ceiling(String t, Map<String, Long> fairs) {
+                return 0;
+            }
+
+            public long anchor(String t) {
+                return anchors.getOrDefault(t, 0L);
+            }
+        };
+        FairValue f = new FairValue(0.5, 0.3);
+        f.update(NOW, flows, src);
+        assertEquals(20_000_000L, f.fair("CHAOS"), "the anchor stands in for the 1-meso shop price");
+        assertEquals(20_000_000L, f.point("CHAOS").floor());
+        assertNull(f.fair("WS"), "no anchor: no fair value, never 1 meso");
+        assertNull(f.point("WS"));
+        assertEquals(2_500L, f.fair("ELIXIR"), "a real shop price is kept");
+        assertEquals(500_000L, f.fair("LEAF"));
+    }
 }
