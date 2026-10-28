@@ -123,7 +123,7 @@ Errors:
 
 | error | when |
 |---|---|
-| `BAD_INPUT` + `rule` | `pass_length`, `pass_chars` (the sign-up rules: `AUTO_REGISTER_MIN_PASSWORD_LENGTH` (6) to 12 printable ASCII, no spaces). Checked first; the request stays usable. |
+| `BAD_INPUT` + `rule` | `pass_length`, `pass_chars` (the sign-up rules: `AUTO_REGISTER_MIN_PASSWORD_LENGTH` (6) to 23 printable ASCII, no spaces). Checked first; the request stays usable. |
 | `NOT_APPROVED` | still pending (wait), or denied |
 | `USED` | this request already set a password (the right secret is needed to learn this) |
 | `EXPIRED` | the request is past 24 h, the approval past its 2 h, replaced by a newer request, the account banned since, an unknown id, or a wrong secret |

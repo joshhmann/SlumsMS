@@ -282,7 +282,7 @@ class PasswordResetsTest {
         PasswordResets.Ticket t = ask("Forgetful");
         PasswordResets.approve(store, "Forgetful", "Gm", NOW);
         assertEquals("pass_length", resets.complete(t.requestId(), t.secret(), "short", "ip").rule());
-        assertEquals("pass_length", resets.complete(t.requestId(), t.secret(), "thirteenchars", "ip").rule());
+        assertEquals("pass_length", resets.complete(t.requestId(), t.secret(), "a".repeat(24), "ip").rule(), "the game box takes 23");
         assertEquals("pass_chars", resets.complete(t.requestId(), t.secret(), "has space", "ip").rule());
         assertEquals(SiteAccounts.BAD_INPUT, resets.complete(t.requestId(), t.secret(), null, "ip").error());
         assertTrue(resets.complete(t.requestId(), t.secret(), "!Pass~word1", "ip").ok(), "still usable");

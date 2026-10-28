@@ -106,9 +106,9 @@ characters on the main world, Bera, world id 1 (not bots), oldest first, as `@we
 | `RATE_LIMITED` | over 10 requests a minute from one ipHash, 120 a minute overall, 10 bad codes an hour from one ipHash, or a second sign-up from one ipHash within `AUTO_REGISTER_IP_COOLDOWN_MINUTES` (1) |
 | `UNAVAILABLE` | the server could not reach the database (or migration 036 is missing) |
 
-**Rules** (sign-up): user 4-12 letters/digits; password `AUTO_REGISTER_MIN_PASSWORD_LENGTH` (6) to 12 printable ASCII
+**Rules** (sign-up): user 4-12 letters/digits; password `AUTO_REGISTER_MIN_PASSWORD_LENGTH` (6) to 23 printable ASCII
 characters, no spaces. The server's login screen itself checks no length or characters (only the staff-name rule and
-the minimum password length), so these are the site's proposal; 12 is the v83 client's password box. Sign-in looks up
+the minimum password length), so these are the site's proposal; 23 is the v83 client's password box (measured by the owner 2026-10-28; earlier notes said 12, which was wrong). Sign-in looks up
 any existing account name (up to 64 characters), since older accounts may break the sign-up rules.
 
 **Sign-in safety:** sign-in compares hashes only (bcrypt, SHA-1, SHA-512) and never a plain-text stored value (the
@@ -116,8 +116,8 @@ login screen still does, for old accounts; the bot template's "no login" marker 
 accounts (`SMBotBase`, any account owning the template character `-Dsolomapling.template-id` or a character at or
 above the bot id base, any account id in the bot range) are refused before any password comparison; a password over
 64 characters (`VERIFY_PASS_MAX`) is never compared. Anything shorter is compared in full, as the game login does: the
-game's password box takes more than 12 (a 13-character account signs in there; its first 12 are refused), so sign-in
-never truncates, even though sign-up and reset cap new passwords at 12 (`PASS_MAX`). A legacy (SHA) match is upgraded to bcrypt when `BCRYPT_MIGRATION` is on, as the
+game's password box takes up to 23 (a 13-character account signs in there; its first 12 are refused), so sign-in
+never truncates; sign-up and reset cap new passwords at 23 (`PASS_MAX`). A legacy (SHA) match is upgraded to bcrypt when `BCRYPT_MIGRATION` is on, as the
 login screen does.
 
 **IP:** the service sends only `ipHash` (salted on its side); the server never sees a raw IP. It is stored on the used

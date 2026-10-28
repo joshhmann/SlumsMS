@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
  * <p>
  * Errors are generic: every unusable code is {@code BAD_CODE}; a wrong name, wrong password, banned account, bot
  * account or revoked site sign-in is {@code WRONG_LOGIN}. Sign-in compares hashes only (bcrypt, SHA-1, SHA-512), never
- * plain text, and refuses banned and bot accounts and passwords over 12 characters before comparing anything. Limits: per ipHash and overall request rates, a failed-code cap per
+ * plain text, and refuses banned and bot accounts and passwords over 64 characters before comparing anything. Limits: per ipHash and overall request rates, a failed-code cap per
  * ipHash, the login screen's sign-up cooldown per ipHash, and 5 failed sign-ins per account name in 15 minutes lock
  * that name's sign-in for 15 minutes (names that don't exist are counted too, so a lock reveals nothing).
  * Never logs a password; sign-ups are logged with code, account and ipHash, failed sign-ins as a count only.
@@ -49,9 +49,10 @@ public final class SiteAccounts {
     /** Account name: 4-12 letters or digits. */
     static final Pattern USER_CHARS = Pattern.compile("[A-Za-z0-9]+");
     static final int USER_MIN = 4, USER_MAX = 12;
-    /** Password: AUTO_REGISTER_MIN_PASSWORD_LENGTH (6) to 12 printable ASCII characters, no spaces. */
+    /** Password: AUTO_REGISTER_MIN_PASSWORD_LENGTH (6) to 23 printable ASCII characters, no spaces (the game's password
+     *  box takes 23 at most, measured by the owner 2026-10-28). */
     static final Pattern PASS_CHARS = Pattern.compile("[\\x21-\\x7E]+");
-    static final int PASS_MAX = 12;
+    static final int PASS_MAX = 23;
     /** Longest name or password sign-in will even look up (existing accounts may predate the sign-up rules). */
     static final int VERIFY_MAX = 64;
     /** Longest password sign-in compares (the site's sign-in limit); longer is a wrong password, never hashed. */
@@ -243,9 +244,9 @@ public final class SiteAccounts {
             if (pass.length() > VERIFY_PASS_MAX) {
                 return failed(key, now);   // anti-abuse bound only; bcrypt reads 72 bytes anyway
             }
-            // The FULL password, as Client.login compares it: the game client's box takes more than 12 characters
+            // The FULL password, as Client.login compares it: the game client's box takes up to 23 characters
             // (a 13-character account signs in there with all 13 and is refused with the first 12), and the stored
-            // hash is of everything typed. Sign-up and reset still cap new passwords at PASS_MAX.
+            // hash is of everything typed. Sign-up and reset cap new passwords at PASS_MAX (23).
             // Hashes only: a plain-text stored value (the bot template's marker) never matches here.
             AccountPasswords.Match match = AccountPasswords.checkHashedOnly(pass,
                     account == null ? dummyHash() : account.passhash());
