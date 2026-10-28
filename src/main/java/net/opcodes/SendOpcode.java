@@ -30,6 +30,7 @@ public enum SendOpcode {
     WEAPON_TINT_SYNC(0x372F),// slums.dll Coloring Prism reply to WEAPON_TINT_ACTION 0x372E (ColorPrismPackets)
     MONSTER_BOOK_RESULT(0x3735),// slums.dll Monster Book reply to MONSTER_BOOK_QUERY 0x3734 (MonsterBookPackets)
     BOUNCE_ZONES_SYNC(0x3737),// slums.dll bounce block zones at login / !bounce reload (BounceZonePackets); 0x3736 reserved
+    BOSS_DAMAGE_RANK(0x3739),// slums.dll party damage ranking for the DPS meter (client ticket 118; server.life.DamageRank)
 
     LOGIN_STATUS(0x00),
     GUEST_ID_LOGIN(0x01),

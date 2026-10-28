@@ -90,6 +90,8 @@ public class Monster extends AbstractLoadedLife {
     private int team;
     private int parentMobOid = 0;
     private int spawnEffect = 0;
+    /** 1.6.1: when DamageRank last sent this mob's party ranking (epoch ms). */
+    volatile long dmgRankAt;
     private final HashMap<Integer, AtomicLong> takenDamage = new HashMap<>();
     /** SoloMapling (1.5.0): when each attacker last landed damage (epoch ms), guarded like takenDamage. */
     private final HashMap<Integer, Long> lastHitAt = new HashMap<>();
@@ -456,6 +458,7 @@ public class Monster extends AbstractLoadedLife {
         lastHitAt.put(from.getId(), System.currentTimeMillis());
 
         broadcastMobHpBar(from);
+        DamageRank.onHit(this, from);
     }
 
     public void applyFakeDamage(Character from, int damage, boolean stayAlive) {

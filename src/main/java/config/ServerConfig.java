@@ -42,6 +42,11 @@ public class ServerConfig {
     //1.6.1 (ticket 29, owner 2026-10-28): a new Explorer is asked at the first login "Start on Maple Island?". Yes = the
     //classic island and its quests (Shanks at Southperry takes them on to Lith Harbor); No = the usual start. Off = no question.
     public boolean TUTORIAL_ISLAND_PROMPT = true;
+    //1.6.1 (client ticket 118, DPS meter): LP 0x3739 party damage ranking on bosses and mobs of at least DAMAGE_RANK_MIN_MOB_HP max HP,
+    //once a second per mob, to real party members on a client of build DAMAGE_RANK_MIN_BUILD or newer. Also -Dslums.dmgrank=true.
+    public boolean DAMAGE_RANK_ENABLED = false;
+    public int DAMAGE_RANK_MIN_BUILD = 10690;
+    public long DAMAGE_RANK_MIN_MOB_HP = 5000000;
     public int DAILY_CHECKIN_MIN_LEVEL = 10;
     //Coloring Prism (needs migration 010 and a slums.dll built with MAPLEROOT_COLOR_PRISM). Off until both are deployed.
     public boolean COLOR_PRISM_ENABLED = false;
