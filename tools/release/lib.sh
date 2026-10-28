@@ -15,7 +15,7 @@ warn() { echo "WARN: $*" >&2; }
 # run: print the command; in dry-run mode only print it.
 run() { if [ "${DRY_RUN:-0}" = 1 ]; then echo "  [dry-run] $*"; else "$@"; fi; }
 
-valid_version() { [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$ ]]; }
+valid_version() { [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?(-[A-Za-z0-9.]+)?$ ]]; }   # 1.6.0.1: a hotfix may add a fourth part
 # The version a jar prints at boot comes from ServerConstants.SLUMSMS_VERSION.
 source_version() { sed -n 's/.*SLUMSMS_VERSION *= *"\([^"]*\)".*/\1/p' "$1/src/main/java/constants/net/ServerConstants.java"; }
 # Ledger id a migration file writes (001-preserve-arcane.sql -> 001-preserve-arcane-for-classic-fm).
