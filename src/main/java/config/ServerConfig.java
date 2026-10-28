@@ -52,6 +52,12 @@ public class ServerConfig {
     public String CLIENT_UPDATE_MESSAGE = "Your game is out of date: open the SlumsMS launcher to update.";
     //GM accounts (gm level >= 1) may log in with an older client, e.g. to check something on the old build.
     public boolean MIN_CLIENT_BUILD_GM_BYPASS = false;
+    //1.6.1: custom NPCs whose data only newer clients carry (loose Data/Npc files). Their spawn/controller packets are
+    //held back from a client without the data (a v83 client disconnects on an unknown NPC template), and a talk
+    //window they frame is framed by Cody instead. Who has the data: build stamp format 2+ caps bit 0; a format 1 stamp
+    //or none falls back to build >= CUSTOM_NPC_MIN_BUILD. Ids and inclusive ranges, comma separated; "" = gate nothing.
+    public String CUSTOM_NPC_IDS = "9990000,2985-2999";
+    public int CUSTOM_NPC_MIN_BUILD = 10610;
     public boolean BCRYPT_MIGRATION;
     public boolean COLLECTIVE_CHARSLOT;
     public boolean DETERRED_MULTICLIENT;

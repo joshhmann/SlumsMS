@@ -81,7 +81,8 @@ class ClientVersionGateTest {
 
     @Test
     void malformedOrUnknownStampsAreIgnored() {
-        assertNull(ClientBuildStampHandler.parse(stamp(2, 10402, "1.4.2")));                    // unknown format
+        assertNull(ClientBuildStampHandler.parse(stamp(3, 10402, "1.4.2")));                    // unknown format
+        assertNull(ClientBuildStampHandler.parse(stamp(2, 10402, "1.4.2")));                    // format 2 without its caps
         assertNull(ClientBuildStampHandler.parse(stamp(1, -5, "1.4.2")));                       // negative build
         assertNull(ClientBuildStampHandler.parse(stamp(1, 10402, "x".repeat(41))));             // release too long
         assertNull(ClientBuildStampHandler.parse(new ByteBufInPacket(Unpooled.wrappedBuffer(new byte[]{1, 0, 2}))));
@@ -90,5 +91,26 @@ class ClientVersionGateTest {
         assertNull(ClientBuildStampHandler.parse(new ByteBufInPacket(Unpooled.wrappedBuffer(cut))));
         // Control characters never reach the log.
         assertEquals("1.4.2", ClientBuildStampHandler.parse(stamp(1, 10402, "1.4.2\n")).release());
+    }
+
+    @Test
+    void formatTwoCarriesCaps() {
+        // slums.dll 1.6.1-rc5 (10650): short 2, int build, short len + ASCII release, int caps (bit 0: custom NPC data)
+        byte[] golden = java.util.HexFormat.of().parseHex("0200a22800000500312e342e3201000000");
+        ClientBuildStampHandler.Stamp s = ClientBuildStampHandler.parse(new ByteBufInPacket(Unpooled.wrappedBuffer(golden)));
+        assertEquals(2, s.format());
+        assertEquals(10402, s.build());
+        assertEquals("1.4.2", s.release());
+        assertEquals(1, s.caps());
+
+        byte[] noCaps = java.util.HexFormat.of().parseHex("0200a22800000500312e342e3200000000");
+        assertEquals(0, ClientBuildStampHandler.parse(new ByteBufInPacket(Unpooled.wrappedBuffer(noCaps))).caps());
+    }
+
+    @Test
+    void formatOneStillParsesWithNoCaps() {
+        ClientBuildStampHandler.Stamp s = ClientBuildStampHandler.parse(stamp(1, 10601, "1.6.0.2"));
+        assertEquals(1, s.format());
+        assertEquals(0, s.caps());
     }
 }

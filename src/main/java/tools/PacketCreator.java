@@ -44,6 +44,7 @@ import net.encryption.InitializationVector;
 import net.opcodes.SendOpcode;
 import net.packet.ByteBufOutPacket;
 import net.packet.InPacket;
+import net.packet.NpcOutPacket;
 import net.packet.OutPacket;
 import net.packet.Packet;
 import net.server.PlayerCoolDownValueHolder;
@@ -1336,7 +1337,7 @@ public class PacketCreator {
     }
 
     public static Packet spawnNPC(NPC life) {
-        OutPacket p = OutPacket.create(SendOpcode.SPAWN_NPC);
+        OutPacket p = new NpcOutPacket(SendOpcode.SPAWN_NPC, life.getId(), NpcOutPacket.NO_SUBSTITUTE);
         p.writeInt(life.getObjectId());
         p.writeInt(life.getId());
         p.writeShort(life.getPosition().x);
@@ -1350,7 +1351,7 @@ public class PacketCreator {
     }
 
     public static Packet spawnNPCRequestController(NPC life, boolean miniMap) {
-        OutPacket p = OutPacket.create(SendOpcode.SPAWN_NPC_REQUEST_CONTROLLER);
+        OutPacket p = new NpcOutPacket(SendOpcode.SPAWN_NPC_REQUEST_CONTROLLER, life.getId(), NpcOutPacket.NO_SUBSTITUTE);
         p.writeByte(1);
         p.writeInt(life.getObjectId());
         p.writeInt(life.getId());
@@ -3366,7 +3367,7 @@ public class PacketCreator {
      * @return
      */
     public static Packet getNPCTalk(int npc, byte msgType, String talk, String endBytes, byte speaker) {
-        final OutPacket p = OutPacket.create(SendOpcode.NPC_TALK);
+        final OutPacket p = new NpcOutPacket(SendOpcode.NPC_TALK, npc, 3);
         p.writeByte(4); // ?
         p.writeInt(npc);
         p.writeByte(msgType);
@@ -3388,7 +3389,7 @@ public class PacketCreator {
     }
 
     public static Packet getNPCTalkStyle(int npc, String talk, int[] styles) {
-        final OutPacket p = OutPacket.create(SendOpcode.NPC_TALK);
+        final OutPacket p = new NpcOutPacket(SendOpcode.NPC_TALK, npc, 3);
         p.writeByte(4); // ?
         p.writeInt(npc);
         p.writeByte(7);
@@ -3402,7 +3403,7 @@ public class PacketCreator {
     }
 
     public static Packet getNPCTalkNum(int npc, String talk, int def, int min, int max) {
-        final OutPacket p = OutPacket.create(SendOpcode.NPC_TALK);
+        final OutPacket p = new NpcOutPacket(SendOpcode.NPC_TALK, npc, 3);
         p.writeByte(4); // ?
         p.writeInt(npc);
         p.writeByte(3);
@@ -3416,7 +3417,7 @@ public class PacketCreator {
     }
 
     public static Packet getNPCTalkText(int npc, String talk, String def) {
-        final OutPacket p = OutPacket.create(SendOpcode.NPC_TALK);
+        final OutPacket p = new NpcOutPacket(SendOpcode.NPC_TALK, npc, 3);
         p.writeByte(4); // Doesn't matter
         p.writeInt(npc);
         p.writeByte(2);
@@ -3429,7 +3430,7 @@ public class PacketCreator {
 
     // NPC Quiz packets thanks to Eric
     public static Packet OnAskQuiz(int nSpeakerTypeID, int nSpeakerTemplateID, int nResCode, String sTitle, String sProblemText, String sHintText, int nMinInput, int nMaxInput, int tRemainInitialQuiz) {
-        OutPacket p = OutPacket.create(SendOpcode.NPC_TALK);
+        OutPacket p = new NpcOutPacket(SendOpcode.NPC_TALK, nSpeakerTemplateID, 3);
         p.writeByte(nSpeakerTypeID);
         p.writeInt(nSpeakerTemplateID);
         p.writeByte(0x6);
@@ -3447,7 +3448,7 @@ public class PacketCreator {
     }
 
     public static Packet OnAskSpeedQuiz(int nSpeakerTypeID, int nSpeakerTemplateID, int nResCode, int nType, int dwAnswer, int nCorrect, int nRemain, int tRemainInitialQuiz) {
-        OutPacket p = OutPacket.create(SendOpcode.NPC_TALK);
+        OutPacket p = new NpcOutPacket(SendOpcode.NPC_TALK, nSpeakerTemplateID, 3);
         p.writeByte(nSpeakerTypeID);
         p.writeInt(nSpeakerTemplateID);
         p.writeByte(0x7);
