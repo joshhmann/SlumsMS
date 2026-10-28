@@ -131,6 +131,22 @@ public final class TalkQa {
         return String.valueOf(id);
     }
 
+    /** Waits (up to {@code maxMs}) until every plan has said its last line and done its act; true when they all did. */
+    public static boolean awaitDone(List<Plan> plans, long maxMs) throws InterruptedException {
+        long end = System.currentTimeMillis() + maxMs;
+        while (System.currentTimeMillis() < end) {
+            boolean all = true;
+            for (Plan p : plans) {
+                all &= p == null || p.done;
+            }
+            if (all) {
+                return true;
+            }
+            Thread.sleep(500);
+        }
+        return false;
+    }
+
     /** How long a planned talk takes to say (typing time per line), with a margin. */
     public static long sayMs(Plan p) {
         return p == null ? 0 : 4_000L + 3_200L * p.steps.size();
