@@ -23,7 +23,7 @@ auth API is unreachable, not set up, or can't reach its database).
 
 nginx asks GET /api/auth/check (auth_request) before serving the friends-only sections: 204 when the session is good,
 401 otherwise. POST /api/login/logout ends the session on this server too, not only in the browser that asked.
-GET /api/login/me says who is signed in: {"signed_in", "character", "account", "admin"}.
+GET /api/login/me says who is signed in: {"signed_in", "character", "account", "admin", "characters"}.
 
 Admin (the staff dashboard at /admin/, owner 2026-10-28): GM level 3 and up, and only within 12 h of signing in (a
 stolen old cookie opens nothing; an admin signs in again after that). The session carries the GM level the game sent
@@ -461,7 +461,8 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
             if path == "/api/login/me":
                 s = self.session()
                 return self.send(200, {"signed_in": bool(s), "character": (s.get("c") or None) if s else None,
-                                       "account": s.get("n") if s else None, "admin": sessions.admin(s)})
+                                       "account": s.get("n") if s else None, "admin": sessions.admin(s),
+                                       "characters": (s.get("cs") or []) if s else []})
             if path == "/api/login/health":
                 return self.send(200, {"ok": True})
             return self.send(404, {"ok": False})

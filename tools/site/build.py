@@ -39,8 +39,10 @@ To add a release: write docs/site/releases/<version>.md, run this script, publis
 The build fails if the output has a forbidden string or a broken link (tools/site/check.py).
 """
 import argparse
+import json
 import os
 import shutil
+import subprocess
 import sys
 import tarfile
 
@@ -65,8 +67,27 @@ MARKET_DATA = None  # --market-data: the server's market export (default: sectio
 SITE_DATA = None  # --site-data: the server's site export, Server/data/site (default: sections/world.py DEFAULT_DIR)
 
 
+def site_version():
+    """This build's commit: DEPLOYED_COMMIT where an install wrote it (164 has no git checkout), else git's."""
+    try:
+        with open(os.path.join(REPO, "DEPLOYED_COMMIT"), encoding="utf-8") as f:
+            v = f.read().strip()
+        if v:
+            return v
+    except OSError:
+        pass
+    try:
+        return subprocess.run(["git", "-C", REPO, "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
+                              timeout=10).stdout.strip() or None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
 def copy_assets(out, private=False):
     shutil.copytree(os.path.join(SRC, "assets"), os.path.join(out, "assets"), dirs_exist_ok=True)
+    # the site's version, which the report service stamps on every bug report (report_service.py --site-build-file)
+    with open(os.path.join(out, "assets", "build.json"), "w", encoding="utf-8") as f:
+        json.dump({"site": site_version()}, f)
     if private:  # the secret stickers: signed-in players only (nginx asks the login service, like database/)
         shutil.copytree(os.path.join(SRC, "secret"), os.path.join(out, "secret"), dirs_exist_ok=True)
     # friends only: search engines are asked to stay out (owner, 2026-10-26); every page also says noindex

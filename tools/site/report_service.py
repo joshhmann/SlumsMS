@@ -7,7 +7,12 @@ Listens on 127.0.0.1 only (never any other address). nginx proxies POST /api/rep
 Endpoints: POST /api/report (JSON or form-encoded) and GET /api/report/health. Nothing else.
 
 Each accepted report is one JSON line appended to the reports file:
-    {"id", "time" (UTC, ISO 8601), "type" ("bug"|"feature"), "title", "details", "character", "where", "ip_hash"}
+    {"id", "time" (UTC, ISO 8601), "type" ("bug"|"feature"), "title", "details", "character", "where", "ip_hash",
+     "source": "site", "versions": {...}}
+"versions" is stamped here at submit time, not taken from the browser (owner, 2026-10-28: reports carry versions):
+"server" (and "server_commit") from the game's site export (world.json "version", --world-file), "site" from the
+build's assets/build.json (--site-build-file). "launcher" and "client" are what the page was opened with (the
+launcher adds ?launcher=&client= to the address), checked as short version strings and kept only then.
 The raw IP is never stored or logged: only sha256(salt + ip). Submitted text is only stored, or echoed back
 HTML-escaped; it is never executed, rendered or used as a path or command.
 
@@ -16,6 +21,8 @@ Settings (argument beats environment beats default):
     --salt-file / SLUMS_REPORT_SALT_FILE  /etc/slums-report/salt   (required; the service will not start without it)
     --port / SLUMS_REPORT_PORT            8093
     --proxy-hops / SLUMS_REPORT_PROXY_HOPS  1   proxies in front of nginx (Caddy = 1); see client_ip()
+    --world-file / SLUMS_REPORT_WORLD_FILE        the game's site export world.json (for the server version)
+    --site-build-file / SLUMS_REPORT_SITE_BUILD   the site's assets/build.json (for the site version)
 """
 import argparse
 import hashlib
@@ -38,6 +45,43 @@ HONEYPOT = "website"
 PER_IP_HOUR, PER_IP_DAY, GLOBAL_DAY = 5, 20, 200
 HOUR, DAY = 3600, 86400
 _CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+VERSION = re.compile(r"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,31}$")
+
+
+def short_version(v):
+    v = clean(v) if isinstance(v, str) else ""
+    return v if VERSION.match(v) else None
+
+
+class Versions:
+    """The server's and the site's versions, read from their files when a report comes in (small files, rare reports)."""
+
+    def __init__(self, world_file=None, site_build_file=None):
+        self.world_file, self.site_build_file = world_file, site_build_file
+
+    @staticmethod
+    def _read(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else {}
+        except (OSError, ValueError, TypeError):
+            return {}
+
+    def now(self):
+        out = {}
+        v = self._read(self.world_file).get("version") if self.world_file else None
+        if isinstance(v, dict):  # {"server": "1.6.1", "commit": "2fab9f9b0"}
+            if short_version(v.get("server")):
+                out["server"] = v["server"]
+            if short_version(v.get("commit")):
+                out["server_commit"] = v["commit"]
+        elif short_version(v):
+            out["server"] = v
+        site = self._read(self.site_build_file).get("site") if self.site_build_file else None
+        if short_version(site):
+            out["site"] = site
+        return out
 
 
 class Rejected(Exception):
@@ -84,7 +128,8 @@ def validate(data):
         raise Rejected(400, "Please pick Bug or Feature request.")
     out = {"type": rtype, "title": clean(data.get("title")),
            "details": clean(data.get("details"), keep_newlines=True),
-           "character": clean(data.get("character")), "where": clean(data.get("where"))}
+           "character": clean(data.get("character")), "where": clean(data.get("where")),
+           "reported": {k: short_version(data.get(k)) for k in ("launcher", "client") if short_version(data.get(k))}}
     if not out["title"]:
         raise Rejected(400, "Please give your report a short title.")
     names = {"title": "The title", "details": "The details", "character": "The character name",
@@ -199,7 +244,7 @@ def error_page(message):
     return PAGE.format(title="Could not send your report", body=f"<p>{html.escape(message)}</p>")
 
 
-def make_handler(store, hops=1):
+def make_handler(store, hops=1, versions=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "slums-report"
         sys_version = ""
@@ -253,6 +298,8 @@ def make_handler(store, hops=1):
                     rid, report = 0, {"title": clean(data.get("title"))[:140]}
                 else:
                     ip = client_ip(self.headers.get("X-Forwarded-For"), self.client_address[0], hops)
+                    reported = report.pop("reported", {})
+                    report = dict(report, source="site", versions=dict(versions.now() if versions else {}, **reported))
                     rid = store.add(ip, report)
             except Rejected as e:
                 extra = {"Retry-After": e.retry_after} if e.retry_after else None
@@ -274,9 +321,9 @@ def read_salt(path):
     return salt
 
 
-def make_server(store, port=8093, hops=1):
+def make_server(store, port=8093, hops=1, versions=None):
     ThreadingHTTPServer.daemon_threads = True
-    srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(store, hops))
+    srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(store, hops, versions))
     srv.timeout = 10
     return srv
 
@@ -288,9 +335,11 @@ def main(argv=None):
     ap.add_argument("--salt-file", default=env("SLUMS_REPORT_SALT_FILE", "/etc/slums-report/salt"))
     ap.add_argument("--port", type=int, default=int(env("SLUMS_REPORT_PORT", "8093")))
     ap.add_argument("--proxy-hops", type=int, default=int(env("SLUMS_REPORT_PROXY_HOPS", "1")))
+    ap.add_argument("--world-file", default=env("SLUMS_REPORT_WORLD_FILE", ""))
+    ap.add_argument("--site-build-file", default=env("SLUMS_REPORT_SITE_BUILD", ""))
     args = ap.parse_args(argv)
     store = Store(args.file, read_salt(args.salt_file))
-    srv = make_server(store, args.port, args.proxy_hops)
+    srv = make_server(store, args.port, args.proxy_hops, Versions(args.world_file or None, args.site_build_file or None))
     print(f"slums-report listening on 127.0.0.1:{args.port}, writing {args.file}", flush=True)
     try:
         srv.serve_forever()

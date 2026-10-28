@@ -34,9 +34,9 @@ class ServiceTest(unittest.TestCase):
         self.clock = Clock()
         self.start()
 
-    def start(self, limits=(5, 20, 200)):
+    def start(self, limits=(5, 20, 200), versions=None):
         self.store = rs.Store(self.path, SALT, limits, self.clock)
-        self.srv = rs.make_server(self.store, 0)
+        self.srv = rs.make_server(self.store, 0, versions=versions)
         self.port = self.srv.server_address[1]
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
 
@@ -67,6 +67,28 @@ class ServiceTest(unittest.TestCase):
         d = {"type": "bug", "title": "Maya is stuck", "details": "line1\nline2", "character": "Bob", "where": "Henesys"}
         d.update(kw)
         return d
+
+    def test_versions_are_stamped_by_the_service(self):
+        """Owner 2026-10-28: a report carries the server and site versions as they were when it was sent."""
+        world, build = os.path.join(self.tmp, "world.json"), os.path.join(self.tmp, "build.json")
+        with open(world, "w") as f:
+            json.dump({"online": 3, "version": {"server": "1.6.1", "commit": "2fab9f9b0"}}, f)
+        with open(build, "w") as f:
+            json.dump({"site": "914e7067f"}, f)
+        self.srv.shutdown(); self.srv.server_close()
+        self.start(versions=rs.Versions(world, build))
+        self.post(self.good(launcher="1.6.1", client="1.5.0-fixes3", server="9.9.9"))   # a sent "server" is ignored
+        self.post(self.good(launcher="<script>", client="x" * 40))                     # not versions: dropped
+        a, b = self.lines()
+        self.assertEqual((a["source"], a["versions"]), ("site", {"server": "1.6.1", "server_commit": "2fab9f9b0",
+                                                                "site": "914e7067f", "launcher": "1.6.1",
+                                                                "client": "1.5.0-fixes3"}))
+        self.assertEqual(b["versions"], {"server": "1.6.1", "server_commit": "2fab9f9b0", "site": "914e7067f"})
+        self.assertNotIn("reported", a)
+
+    def test_no_version_files_still_records_the_report(self):
+        self.post(self.good())
+        self.assertEqual((self.lines()[0]["source"], self.lines()[0]["versions"]), ("site", {}))
 
     def test_accepts_and_trims(self):
         st, body, _ = self.post(self.good(title="  Hello  ", character=" Bob "))

@@ -23,13 +23,15 @@
     </div>
     <div class="field">
       <label for="f-char">Your character name <span class="opt">(optional)</span></label>
-      <input id="f-char" name="character" type="text" maxlength="13" autocomplete="off">
+      <input id="f-char" name="character" type="text" maxlength="13" autocomplete="off" list="f-chars">
+      <datalist id="f-chars"></datalist>
     </div>
     <div class="field">
       <label for="f-where">Where did it happen? <span class="opt">(optional)</span></label>
       <input id="f-where" name="where" type="text" maxlength="200" autocomplete="off">
       <span class="hint">A map, an NPC or a quest, for example "Henesys Market" or "Maya".</span>
     </div>
+    <input type="hidden" name="launcher"><input type="hidden" name="client">
     <div class="hp" aria-hidden="true">
       <label for="f-site">Leave this empty</label>
       <input id="f-site" name="website" type="text" tabindex="-1" autocomplete="off">
@@ -44,7 +46,8 @@
     <p>Your report goes to the developers' list and gets a ticket number, which you will see right after you send it.
     We read every report. We cannot answer each one, but fixes and new things show up in the
     <a href="../patch-notes/">patch notes</a>.</p>
-    <p class="small">We keep what you type, plus a scrambled form of your IP for spam limits. Please do not put anything private in a report.</p>
+    <p class="small">We keep what you type, the game's and the site's versions at the time (and the launcher's,
+    when you open this page from it), plus a scrambled form of your IP for spam limits. Please do not put anything private in a report.</p>
   </div>
 </section>
 <script src="../assets/report.js" defer></script>

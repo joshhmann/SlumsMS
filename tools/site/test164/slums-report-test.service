@@ -11,6 +11,9 @@ Environment=SLUMS_REPORT_SALT_FILE=/etc/slums-report-test/salt
 Environment=SLUMS_REPORT_PORT=8193
 # no Caddy in front: the TEST nginx sets X-Forwarded-For to the visitor itself
 Environment=SLUMS_REPORT_PROXY_HOPS=0
+# versions stamped on each report: the TEST server's site export and the TEST site's build (read only)
+Environment=SLUMS_REPORT_WORLD_FILE=/opt/mapleroot-dev/persistence-test/Server/data/site/world.json
+Environment=SLUMS_REPORT_SITE_BUILD=/srv/slums-site-test/assets/build.json
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
