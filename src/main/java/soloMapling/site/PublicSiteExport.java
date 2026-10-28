@@ -68,6 +68,7 @@ public final class PublicSiteExport {
 
     private static volatile ScheduledExecutorService executor;
     private static volatile Runner runner;
+    private static final SiteMobKillsStore MOB_STORE = new SiteMobKillsStore();
 
     private PublicSiteExport() {
     }
@@ -95,6 +96,11 @@ public final class PublicSiteExport {
             ScheduledExecutorService ex = newExecutor("site-export");
             SiteFeed.setRecording(true);
             SiteMobKills.setRecording(true);
+            if (!Boolean.getBoolean("slums.site.mobKills.noDb")) {
+                ex.execute(() -> SiteMobKills.restore(MOB_STORE, System.currentTimeMillis()));
+                ex.scheduleWithFixedDelay(() -> SiteMobKills.flush(MOB_STORE, System.currentTimeMillis()), 300, 300,
+                        TimeUnit.SECONDS);
+            }
             ex.execute(r::seedSafely); // the last feed.json back into memory before the first write
             ex.scheduleWithFixedDelay(r::worldSafely, 30, WORLD_SECONDS, TimeUnit.SECONDS);
             ex.scheduleWithFixedDelay(r::feedSafely, 45, FEED_SECONDS, TimeUnit.SECONDS);
@@ -111,6 +117,9 @@ public final class PublicSiteExport {
     public static synchronized void stop() {
         if (executor != null) {
             executor.shutdownNow();
+            if (!Boolean.getBoolean("slums.site.mobKills.noDb")) {
+                SiteMobKills.flush(MOB_STORE, System.currentTimeMillis());
+            }
             SiteMobKills.setRecording(false);
             executor = null;
             runner = null;

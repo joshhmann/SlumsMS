@@ -38,18 +38,18 @@ class SiteMobKillsTest {
     }
 
     @Test
-    void topTenByKillsWithNamesAndTiesByLowerId() {
-        for (int mob = 1; mob <= 12; mob++) {
+    void top25ByKillsWithNamesAndTiesByLowerId() {
+        for (int mob = 1; mob <= 30; mob++) {
             for (int i = 0; i < mob; i++) {
                 SiteMobKills.kill(mob);
             }
         }
-        SiteMobKills.kill(11); // 11 and 12 now tie on 12 kills? 11 has 12, 12 has 12
+        SiteMobKills.kill(29); // 29 and 30 now tie on 30 kills
         List<SiteMobKills.Row> top = SiteMobKills.top(24, now.get(), id -> "Mob " + id);
         assertEquals(SiteMobKills.TOP, top.size());
-        assertEquals(new SiteMobKills.Row(11, "Mob 11", 12), top.get(0));
-        assertEquals(12, top.get(1).mob());
-        assertEquals(10, top.get(2).mob());
+        assertEquals(new SiteMobKills.Row(29, "Mob 29", 30), top.get(0));
+        assertEquals(30, top.get(1).mob());
+        assertEquals(28, top.get(2).mob());
     }
 
     @Test
@@ -87,5 +87,97 @@ class SiteMobKillsTest {
         assertEquals(3L, ((Number) row.get("kills")).longValue());
         assertEquals("Snail", row.get("name"));
         assertNotNull(((Map<?, ?>) doc).get("top_mobs_7d"));
+    }
+
+    /** In-memory stand-in for the table. */
+    static final class FakeStore implements SiteMobKills.Store {
+        final Map<Long, Map<Integer, Integer>> rows = new java.util.TreeMap<>();
+        boolean broken;
+
+        public void write(Map<Long, Map<Integer, Integer>> c) throws Exception {
+            if (broken) {
+                throw new java.sql.SQLException("no table");
+            }
+            c.forEach((h, m) -> rows.computeIfAbsent(h, k -> new java.util.HashMap<>()).putAll(m));
+        }
+
+        public Map<Long, Map<Integer, Integer>> read(long from) throws Exception {
+            if (broken) {
+                throw new java.sql.SQLException("no table");
+            }
+            Map<Long, Map<Integer, Integer>> out = new java.util.HashMap<>();
+            rows.forEach((h, m) -> {
+                if (h >= from) {
+                    out.put(h, new java.util.HashMap<>(m));
+                }
+            });
+            return out;
+        }
+
+        public void prune(long before) {
+            rows.keySet().removeIf(h -> h < before);
+        }
+    }
+
+    @Test
+    void flushWritesRunningTotalsAndARestartReadsThemBack() {
+        FakeStore store = new FakeStore();
+        SiteMobKills.kill(5);
+        SiteMobKills.kill(5);
+        assertTrue(SiteMobKills.flush(store, now.get()));
+        SiteMobKills.kill(5); // flushed again later: the total is set, not added twice
+        assertTrue(SiteMobKills.flush(store, now.get()));
+        assertEquals(3, store.rows.get(now.get() / HOUR).get(5));
+
+        SiteMobKills.reset(now::get); // restart
+        SiteMobKills.restore(store, now.get());
+        SiteMobKills.kill(5);
+        assertEquals(4, SiteMobKills.top(24, now.get(), id -> "").getFirst().kills());
+    }
+
+    @Test
+    void flushPrunesPastThirtyDaysAndSkipsOldHours() {
+        FakeStore store = new FakeStore();
+        long hourNow = now.get() / HOUR;
+        store.rows.put(hourNow - 31 * 24, Map.of(1, 9));
+        store.rows.put(hourNow - 29 * 24, Map.of(2, 9));
+        SiteMobKills.flush(store, now.get());
+        assertFalse(store.rows.containsKey(hourNow - 31 * 24));
+        assertTrue(store.rows.containsKey(hourNow - 29 * 24), "kept for 30 days");
+        SiteMobKills.restore(store, now.get());
+        assertEquals(List.of(), SiteMobKills.top(SiteMobKills.HOURS, now.get(), id -> ""), "only the last 7 days are read back");
+    }
+
+    @Test
+    void aMissingTableNeverHurts() {
+        FakeStore store = new FakeStore();
+        store.broken = true;
+        SiteMobKills.kill(1);
+        assertFalse(SiteMobKills.flush(store, now.get()));
+        SiteMobKills.restore(store, now.get());
+        assertEquals(1, SiteMobKills.top(24, now.get(), id -> "").getFirst().kills());
+    }
+
+    @Test
+    void migration047HasItsLedgerAndRollback() throws Exception {
+        java.nio.file.Path d = java.nio.file.Path.of("database/migrations");
+        String sql = java.nio.file.Files.readString(d.resolve("047-mob-kills.sql"));
+        String rb = java.nio.file.Files.readString(d.resolve("047-mob-kills.rollback.sql"));
+        assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS site_mob_kills"));
+        assertTrue(sql.contains("VALUES ('047-mob-kills')"));
+        assertTrue(rb.contains("DROP TABLE IF EXISTS site_mob_kills"));
+        assertTrue(rb.contains("migration_id = '047-mob-kills'"));
+    }
+
+    @Test
+    void offscreenKillsSpreadOverTheSpawnTableAndCarryTheRemainder() {
+        double left = SiteMobKills.offscreen(List.of(1, 1, 1, 2), 400.5);
+        assertEquals(200.5, left, 1e-9, "capped per call, the rest carries");
+        List<SiteMobKills.Row> top = SiteMobKills.top(24, now.get(), id -> "");
+        assertEquals(200, top.stream().mapToInt(SiteMobKills.Row::kills).sum());
+        assertEquals(0.4, SiteMobKills.offscreen(List.of(1), 0.4), 1e-9, "under one kill: nothing yet");
+        SiteMobKills.setRecording(false);
+        assertEquals(0, SiteMobKills.offscreen(List.of(1), 5), 1e-9);
+        assertEquals(200, SiteMobKills.top(24, now.get(), id -> "").stream().mapToInt(SiteMobKills.Row::kills).sum());
     }
 }

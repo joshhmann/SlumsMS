@@ -1926,6 +1926,11 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             double fought = elapsedSec * OffscreenSupplies.accrue(chr, rate, elapsedSec);
             if (fought > 0) {
                 accrueAbstractExp(rate, currentMobLevel, fought);
+                if (rate != null && soloMapling.site.SiteMobKills.recording()) {   // site: most hunted (offscreen kills)
+                    siteKillRemainder = soloMapling.site.SiteMobKills.offscreen(
+                            soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex.mobIds(chr.getMapId()),
+                            rate.killsPerMinute() / 60.0 * fought + siteKillRemainder);
+                }
                 accrueAbstractLoot(chr, nowMs, (long) (fought * 1000));
             }
         } else if (elapsedSec > 0) {
@@ -2608,6 +2613,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     // Applied through the character's own offscreen path so it serializes with observed gains and
     // re-derives stats; nothing is sent to the map (ticket 07 rule 2).
     private double abstractExpRemainder;
+    private double siteKillRemainder;   // fractional offscreen kills for the site's most-hunted counter
 
     private void accrueAbstractExp(OffscreenCombat.Rate rate, int mobLevel, double elapsedSec) {
         double perSecond = rate != null ? rate.expPerSecond() : (KILLS_PER_MIN / 60.0) * Math.max(1, mobLevel);
