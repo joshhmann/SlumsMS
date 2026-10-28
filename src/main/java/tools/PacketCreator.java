@@ -89,6 +89,10 @@ public class PacketCreator {
     private final static long PERMANENT = 150841440000000000L; // 00 C0 9B 90 7D E5 17 02
 
     public static long getTime(long utcTimestamp) {
+        // Long.MAX_VALUE (a "permanent" pet/item) times 10000 overflows to a 1970 FILETIME; send the no-expiry value.
+        if (utcTimestamp >= (Long.MAX_VALUE - FT_UT_OFFSET) / 10000L) {
+            return DEFAULT_TIME;
+        }
         if (utcTimestamp < 0 && utcTimestamp >= -3) {
             if (utcTimestamp == -1) {
                 return DEFAULT_TIME;    //high number ll

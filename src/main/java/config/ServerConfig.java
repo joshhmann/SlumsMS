@@ -39,6 +39,9 @@ public class ServerConfig {
     public int AUTO_REGISTER_IP_COOLDOWN_MINUTES = 1;
     //Daily Check-In window (needs migration 004 and a client with the window). Off until both are deployed.
     public boolean DAILY_CHECKIN_ENABLED = false;
+    //1.6.1 (ticket 29, owner 2026-10-28): a new Explorer is asked at the first login "Start on Maple Island?". Yes = the
+    //classic island and its quests (Shanks at Southperry takes them on to Lith Harbor); No = the usual start. Off = no question.
+    public boolean TUTORIAL_ISLAND_PROMPT = true;
     public int DAILY_CHECKIN_MIN_LEVEL = 10;
     //Coloring Prism (needs migration 010 and a slums.dll built with MAPLEROOT_COLOR_PRISM). Off until both are deployed.
     public boolean COLOR_PRISM_ENABLED = false;

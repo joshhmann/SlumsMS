@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "botRebirth");
+            "family", "tutorialIsland", "botRebirth");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -93,6 +93,7 @@ final class Probes160 {
                 case "slumsStamps" -> slumsStamps(p);
                 case "nxExchange" -> nxExchange(p);
                 case "family" -> family(p);
+                case "tutorialIsland" -> tutorialIsland(p);
                 case "botRebirth" -> botRebirth(p);
                 default -> null;
             };
@@ -1143,6 +1144,79 @@ final class Probes160 {
         }
         return verdict(bad, "a bot accepted being the junior, its kill gave rep, 1.5x drop and 2x EXP were given for"
                 + " their rep, a second use was refused, and the family was dissolved", ev);
+    }
+
+    // ── t-ti-1: "Start on Maple Island?" (ticket 29, 1.6.1) ─────────────────────────────────────
+
+    /**
+     * t-ti-1: (1) the rule asks a new real Beginner at the start map and nobody else (Cygnus, Aran, a bot, a second
+     * time, the switch off); (2) the question's Yes warps the pretend player to the island start (map 10000), where
+     * the Maple Road quests are not hidden and Southperry has Shanks; (3) coming back, No leaves the player where
+     * they were. The player is put back on the map they started on.
+     */
+    static List<String> tutorialIsland(SyntheticPlayer p) throws InterruptedException {
+        if (!config.YamlConfig.config.server.TUTORIAL_ISLAND_PROMPT) {
+            return List.of("SKIP TUTORIAL_ISLAND_PROMPT is off on this server");
+        }
+        Character me = p.character();
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        int hub = constants.id.MapId.MAPLEROOT_HUB;
+        if (!soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 0, 1, hub, false, true)
+                || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 1000, 1, hub, false, true)
+                || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 2000, 1, hub, false, true)
+                || soloMapling.menus.TutorialIslandMenu.shouldAsk(false, 0, 1, hub, false, true)
+                || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 0, 1, hub, true, true)
+                || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 0, 1, hub, false, false)) {
+            bad.add("the rule does not ask exactly a new real Beginner at the start map");
+        }
+        for (int q = 1000; q <= 1049; q++) {
+            if (server.quest.HiddenQuests.isHidden(q, 0)) {
+                bad.add("Maple Island quest " + q + " is hidden");
+            }
+        }
+        var maps = me.getClient().getChannelServer().getMapFactory();
+        var island = maps.getMap(soloMapling.menus.TutorialIslandMenu.ISLAND_START);
+        var southperry = maps.getMap(constants.id.MapId.SOUTHPERRY);
+        if (island == null || island.getPortals().isEmpty()) {
+            bad.add("the island start map is missing or has no portals");
+        }
+        if (southperry == null || southperry.getMapObjects().stream().noneMatch(o -> o instanceof server.maps.MapObject
+                && o.getType() == server.maps.MapObjectType.NPC
+                && ((server.life.NPC) o).getId() == 22000)) {
+            bad.add("Southperry has no Shanks (npc 22000) for the boat to Victoria");
+        }
+        int home = me.getMapId();
+        boolean guideSeen = soloMapling.menus.GuideMenu.seen(me);
+        if (!guideSeen) {
+            me.getAreaInfos().put(soloMapling.menus.GuideMenu.SEEN_AREA, "autoqa"); // so no guide window opens over the run
+        }
+        try {
+            var page = soloMapling.menus.TutorialIslandMenu.pageForQa(me);
+            page.find("No").pick().apply(me);
+            if (me.getMapId() != home) {
+                bad.add("No moved the player (" + home + " -> " + me.getMapId() + ")");
+            }
+            ev.add("No: stayed on map " + me.getMapId());
+            page.find("Yes").pick().apply(me);
+            long end = System.currentTimeMillis() + 5000;
+            while (me.getMapId() != soloMapling.menus.TutorialIslandMenu.ISLAND_START && System.currentTimeMillis() < end) {
+                Thread.sleep(100);
+            }
+            ev.add("Yes: now on map " + me.getMapId());
+            if (me.getMapId() != soloMapling.menus.TutorialIslandMenu.ISLAND_START) {
+                bad.add("Yes did not land on the island start");
+            }
+        } finally {
+            if (me.getMapId() != home) {
+                me.changeMap(home);
+            }
+            if (!guideSeen) {
+                soloMapling.menus.GuideMenu.forget(me);
+            }
+        }
+        return verdict(bad, "only a new real Beginner at the start map is asked, No stayed put, Yes landed on the island"
+                + " start, the island quests are not hidden and Southperry has Shanks", ev);
     }
 
     // ── t-rb-1: a regular earns a rebirth (ticket 30, 1.6.1) ──────────────────────────────────────

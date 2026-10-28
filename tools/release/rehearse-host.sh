@@ -78,7 +78,7 @@ cleanup() {
   echo "[cleanup] stopping $UNIT, dropping $SCHEMA and $DBUSER, deleting the copy"
   systemctl stop "$UNIT" 2>/dev/null || true; systemctl reset-failed "$UNIT" 2>/dev/null || true
   mysql "${TESTDB[@]}" -e "DROP DATABASE IF EXISTS \`$SCHEMA\`; DROP USER IF EXISTS '$DBUSER'@'%';" || true
-  rm -rf "$R/Server" "$R/backup" "$R/source.sql.gz" "$R/db.cnf" "$R/slumsms.service" "$R/start.sh"
+  rm -rf "$R/Server" "$R/backup" "$R/source.sql.gz" "$R/db.cnf" "$R/slumsms.service" "$R/start.sh" "$R/scratch"
   echo "[cleanup] done (exit $rc); kept $RC"
 }
 trap cleanup EXIT
@@ -139,7 +139,9 @@ cat > "$R/start.sh" <<S
 set -euo pipefail
 cmd=\$(sed -n 's/^ExecStart=//p' "$R/slumsms.service" | tail -1)
 echo "\$cmd" | grep -q -- '-Dmapleroot.login-port=' && echo "\$cmd" | grep -q -- '-Dmapleroot.channel-base-port=' || { echo "ExecStart lacks the port flags"; exit 1; }
-cmd=\$(echo "\$cmd" | sed -E 's/-Dmapleroot.login-port=[0-9]+/-Dmapleroot.login-port=$LOGIN_PORT/; s/-Dmapleroot.channel-base-port=[0-9]+/-Dmapleroot.channel-base-port=$CHANNEL_BASE/; s/ -Dslums.attackcapture=[a-z]+//')
+. "$here/lib.sh"
+cmd=\$(rehearsal_cmd "\$cmd" $LOGIN_PORT $CHANNEL_BASE "$R")
+mkdir -p "$R/scratch"
 systemctl reset-failed $UNIT 2>/dev/null || true
 echo "start: \$cmd"
 systemd-run --unit=$UNIT -p CPUQuota=200% -p Nice=19 -p MemoryMax=6G -p SuccessExitStatus=143 -p TimeoutStopSec=5min \\
