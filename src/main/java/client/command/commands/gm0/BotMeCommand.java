@@ -9,6 +9,10 @@ public class BotMeCommand extends Command {
     @Override public void execute(Client c, String[] params) {
         try {
             OwnedAltService alts = OwnedAltService.getInstance();
+            if (!alts.summoningOpen()) { // 1.6.0.4: summoning switched off (OWNED_ALTS_SUMMON_ENABLED); @dismiss still works
+                c.getPlayer().yellowMessage(OwnedAltService.RESTING);
+                return;
+            }
             if (params.length == 0) {
                 var eligible = alts.list(c.getPlayer());
                 c.getPlayer().yellowMessage(eligible.isEmpty() ? "No eligible offline characters on this account and world."

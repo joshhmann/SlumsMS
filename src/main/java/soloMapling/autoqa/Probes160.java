@@ -223,6 +223,9 @@ final class Probes160 {
         if (!YamlConfig.config.server.OWNED_ALTS_ENABLED) {
             return List.of("SKIP OWNED_ALTS_ENABLED is off on this server (companions are switched off)");
         }
+        if (!YamlConfig.config.server.OWNED_ALTS_SUMMON_ENABLED) {
+            return List.of("SKIP OWNED_ALTS_SUMMON_ENABLED is off on this server (@botme summoning is resting)");
+        }
         Character gm = p.character();
         OwnedAltService svc = OwnedAltService.getInstance();
         List<String> out = new ArrayList<>();

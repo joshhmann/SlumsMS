@@ -15,6 +15,8 @@ final class OwnedAltScenarios {
         public List<String> stage(QaContext ctx) {
             if (!YamlConfig.config.server.OWNED_ALTS_ENABLED)
                 throw new QaRefusal("Enable OWNED_ALTS_ENABLED on an isolated TEST build first.");
+            if (!YamlConfig.config.server.OWNED_ALTS_SUMMON_ENABLED)
+                throw new QaRefusal("@botme summoning is resting here (OWNED_ALTS_SUMMON_ENABLED off). Turn it on on TEST first.");
             return List.of("Use an account with a second character in this world. Record that character's EXP, mesos, items and quests.",
                     "Type @botme, then @botme <name>. The alt joins your channel, map and party. Repeat: it must refuse a duplicate.",
                     "@dismiss <name> must log one 'save committed' then 'removed'. Log into the alt and compare its progress.",
