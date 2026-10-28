@@ -805,6 +805,7 @@ public final class BotTalk {
                 inTalk.remove(c.getId());
             }
             byId.remove(live.id);
+            plan.done = true;
         }
     }
 

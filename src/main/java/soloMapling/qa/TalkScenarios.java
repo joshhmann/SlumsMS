@@ -106,7 +106,13 @@ final class TalkScenarios {
             }
             long since = System.currentTimeMillis();
             long wait = TalkQa.sayMs(p);
-            soloMapling.server.BotTiming.after(wait, () -> {
+            soloMapling.server.ExecutorServiceManager.runAsync(() -> {
+                try {
+                    TalkQa.awaitDone(List.of(p), 120_000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
                 List<String> bad = TalkQa.judge(p, since);
                 ctx.run().note("BT1", "BT1 " + (bad.isEmpty() ? "PASS " : "FAIL ") + name + (bad.isEmpty()
                         ? ": every line said with its intent, the act matches the answers" : ": " + String.join("; ", bad)));

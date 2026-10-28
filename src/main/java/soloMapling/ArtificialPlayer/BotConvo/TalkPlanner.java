@@ -96,6 +96,8 @@ public final class TalkPlanner {
         public Decision counterTaken;
         /** Why the talk asked nothing (rivals, nothing allowed, a greeting only). */
         public String noAskWhy;
+        /** Set once its last line and act are done (BotTalk.finished): QA judges only then. */
+        public volatile boolean done;
 
         Plan(List<Character> who, boolean group, boolean greetOnly) {
             this.who = List.copyOf(who);

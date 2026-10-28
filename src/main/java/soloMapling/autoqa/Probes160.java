@@ -1545,8 +1545,11 @@ final class Probes160 {
             if (!group.group || group.who.size() != 3) {
                 bad.add("the group talk was not a group of three");
             }
-            Thread.sleep(Math.max(soloMapling.ArtificialPlayer.BotConvo.TalkQa.sayMs(pair),
-                    soloMapling.ArtificialPlayer.BotConvo.TalkQa.sayMs(group)) + 3_000);
+            // judged once both talks said their last line and did their act (TEST 2026-10-28: a fixed wait judged the
+            // group's party before it was formed)
+            if (!soloMapling.ArtificialPlayer.BotConvo.TalkQa.awaitDone(List.of(pair, group), 120_000)) {
+                bad.add("a talk did not finish within 120 s");
+            }
             for (String b : soloMapling.ArtificialPlayer.BotConvo.TalkQa.judge(pair, since)) {
                 bad.add("pair: " + b);
             }
