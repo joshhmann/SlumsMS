@@ -1378,7 +1378,7 @@ final class Probes160 {
             }
             List<String> list = client.command.commands.gm3.InviteCommand.runPlayerForQa(new String[]{"list"}, acct, 0, "AutoQaInvite", 30, now + 4);
             ev.add("@invite list: " + list);
-            if (list.size() != 2 || list.stream().anyMatch(l -> !l.endsWith("unused"))) {
+            if (list.size() != 2 || list.stream().anyMatch(l -> !"unused".equals(inviteListState(l)))) {
                 bad.add("@invite list should show exactly two unused codes: " + list);
             }
             if (codes.size() == 2) {
@@ -1402,8 +1402,9 @@ final class Probes160 {
                         }
                         List<String> after = client.command.commands.gm3.InviteCommand.runPlayerForQa(new String[]{"list"}, acct, 0, "AutoQaInvite", 30, now + 5);
                         ev.add("@invite list after use: " + after);
-                        if (after.stream().filter(l -> l.endsWith("used")).count() != 1) {
-                            bad.add("@invite list should show the used code as used: " + after);
+                        String usedProblem = inviteListUsedProblem(after, firstCode);
+                        if (usedProblem != null) {
+                            bad.add(usedProblem + ": " + after);
                         }
                     }
                 }
@@ -1416,6 +1417,28 @@ final class Probes160 {
             ev.add("cleanup removed " + gone + " rows");
         }
         return verdict(bad, "@invite refuses level 29, gives two codes at level 30, refuses the third, lists them, and a code works exactly once", ev);
+    }
+
+    /** t-iv-1: the state word(s) after the code on one {@code @invite list} line ("CODE  used" gives "used"). */
+    static String inviteListState(String line) {
+        int gap = line.indexOf("  ");
+        return gap < 0 ? "" : line.substring(gap).trim();
+    }
+
+    /**
+     * t-iv-1: null when exactly one line of an {@code @invite list} reads "used" and it is {@code usedCode}, in any
+     * order (the list is newest first, so the used first code is usually last). Matches the state word exactly:
+     * "unused" also ends in "used", which is what made the old suffix check fail.
+     */
+    static String inviteListUsedProblem(List<String> lines, String usedCode) {
+        List<String> used = lines.stream().filter(l -> "used".equals(inviteListState(l))).toList();
+        if (used.size() != 1) {
+            return "@invite list should show exactly one code as used, saw " + used.size();
+        }
+        if (usedCode != null && !used.get(0).startsWith(usedCode + "  ")) {
+            return "@invite list shows " + used.get(0) + " as used, expected " + usedCode;
+        }
+        return null;
     }
 
     // ── t-sn-1: Slums-chan (1.6.1, migration 042) ─────────────────────────────────────────────────

@@ -164,4 +164,17 @@ class Probes160Test {
             assertTrue(sql.contains("(" + pair[0] + ", " + pair[1] + ")"), pair[0] + "/" + pair[1]);
         }
     }
+
+    @Test
+    void inviteListUsedCheckIsExactAndOrderIndependent() {
+        // newest first, as @invite list prints it: the used first code is last; "unused" must not count as "used"
+        List<String> newestFirst = List.of("5843M-PDKEJ  unused", "WRTJE-QU3RS  used");
+        assertNull(Probes160.inviteListUsedProblem(newestFirst, "WRTJE-QU3RS"));
+        assertNull(Probes160.inviteListUsedProblem(List.of("WRTJE-QU3RS  used", "5843M-PDKEJ  unused"), "WRTJE-QU3RS"));
+        assertNotNull(Probes160.inviteListUsedProblem(List.of("5843M-PDKEJ  unused", "WRTJE-QU3RS  unused"), "WRTJE-QU3RS"));
+        assertNotNull(Probes160.inviteListUsedProblem(List.of("5843M-PDKEJ  used", "WRTJE-QU3RS  unused"), "WRTJE-QU3RS"));
+        assertNotNull(Probes160.inviteListUsedProblem(List.of("5843M-PDKEJ  used", "WRTJE-QU3RS  used"), "WRTJE-QU3RS"));
+        assertEquals("unused", Probes160.inviteListState("5843M-PDKEJ  unused"));
+        assertEquals("cancelled by staff", Probes160.inviteListState("5843M-PDKEJ  cancelled by staff"));
+    }
 }
