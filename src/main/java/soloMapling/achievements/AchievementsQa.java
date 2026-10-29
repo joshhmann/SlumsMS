@@ -23,7 +23,23 @@ public final class AchievementsQa {
 
     /** Forgets both goals for the character and takes their medals out of the bag. */
     public static void clear(AchievementService s, Character me) throws SQLException {
-        clear(s, me, KILL_GOAL, FISH_GOAL);
+        clear(s, me, touchedGoals(s.catalog()));
+    }
+
+    /**
+     * Every goal the check's events move: the two it asserts on and any other goal that counts the same fish catches
+     * or Mano's kill (fish-100 gained 15 catches per run and, after seven runs, awarded its medal inside the "nine
+     * catches" step: TEST 2026-10-29 t-ac-1). All of them are reset before and after, so the check owns its counters.
+     */
+    public static String[] touchedGoals(GoalCatalog catalog) {
+        List<String> ids = new ArrayList<>(List.of(KILL_GOAL, FISH_GOAL));
+        for (Goal g : catalog.goals()) {
+            if (!ids.contains(g.id()) && (g.concerns(Event.of(Trigger.FISH)) || g.concerns(new Event(Trigger.MOB_KILL, MANO))
+                    || g.concerns(new Event(Trigger.MOB_KILL, 100100)))) {
+                ids.add(g.id());
+            }
+        }
+        return ids.toArray(new String[0]);
     }
 
     /** Forgets these goals for the character and takes their medals out of the bag. */

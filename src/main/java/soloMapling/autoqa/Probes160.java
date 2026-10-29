@@ -1229,6 +1229,56 @@ final class Probes160 {
             if (me.getMapId() != soloMapling.menus.TutorialIslandMenu.ISLAND_START) {
                 bad.add("Yes did not land on the island start");
             }
+            // b036: the other starter jobs, and a starter who is not on the start map (Lith Harbour), the same way
+            var homeJob = me.getJob();
+            int[][] cases = {{client.Job.BEGINNER.getId(), constants.id.MapId.LITH_HARBOUR},
+                    {client.Job.NOBLESSE.getId(), home}, {client.Job.NOBLESSE.getId(), constants.id.MapId.LITH_HARBOUR},
+                    {client.Job.LEGEND.getId(), home}, {client.Job.LEGEND.getId(), constants.id.MapId.LITH_HARBOUR}};
+            for (int[] c : cases) {
+                String label = client.Job.getById(c[0]).name() + " on map " + c[1];
+                if (!soloMapling.menus.TutorialIslandMenu.shouldAsk(true, c[0], 1, c[1], false, true)) {
+                    bad.add("the rule skips " + label);
+                }
+                me.setJob(client.Job.getById(c[0]));
+                try {
+                    toMap(me, c[1]);
+                    me.getAreaInfos().remove(soloMapling.menus.TutorialIslandMenu.TRIP_AREA);
+                    soloMapling.menus.TutorialIslandMenu.pageForQa(me).find("No").pick().apply(me);
+                    if (me.getMapId() != c[1]) {
+                        bad.add("No moved " + label + " to " + me.getMapId());
+                    }
+                    soloMapling.menus.TutorialIslandMenu.pageForQa(me).find("Yes").pick().apply(me);
+                    long until = System.currentTimeMillis() + 5000;
+                    while (me.getMapId() != soloMapling.menus.TutorialIslandMenu.ISLAND_START
+                            && System.currentTimeMillis() < until) {
+                        Thread.sleep(100);
+                    }
+                    boolean landed = me.getMapId() == soloMapling.menus.TutorialIslandMenu.ISLAND_START;
+                    boolean trip = soloMapling.menus.TutorialIslandMenu.freeTrip(me);
+                    ev.add(label + ": No stayed, Yes -> " + me.getMapId() + (trip ? ", free trip marked" : ", NO free trip"));
+                    if (!landed) {
+                        bad.add("Yes did not land " + label + " on the island");
+                    }
+                    if (!trip) {
+                        bad.add("Yes did not mark the free trip for " + label);
+                    }
+                } finally {
+                    me.setJob(homeJob);
+                    me.getAreaInfos().remove(soloMapling.menus.TutorialIslandMenu.TRIP_AREA);
+                }
+            }
+            for (int[] c : new int[][]{{client.Job.NOBLESSE.getId(), constants.id.MapId.MUSHROOM_TOWN},
+                    {client.Job.LEGEND.getId(), constants.id.MapId.ARAN_TUTORIAL_START},
+                    {client.Job.EVAN.getId(), constants.id.MapId.LITH_HARBOUR}, {client.Job.BEGINNER.getId(), 104000000}}) {
+                boolean ask = soloMapling.menus.TutorialIslandMenu.shouldAsk(true, c[0], 1, c[1], false, true);
+                boolean want = c[1] == 104000000 || c[1] == constants.id.MapId.LITH_HARBOUR;
+                if (ask != want) {
+                    bad.add("the rule " + (ask ? "asks" : "skips") + " job " + c[0] + " on map " + c[1]);
+                }
+            }
+            if (soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 0, 10, hub, false, true)) {
+                bad.add("the rule asks a level 10 character");
+            }
         } finally {
             if (me.getMapId() != home) {
                 me.changeMap(home);
@@ -1237,8 +1287,20 @@ final class Probes160 {
                 soloMapling.menus.GuideMenu.forget(me);
             }
         }
-        return verdict(bad, "only a new real Beginner at the start map is asked, No stayed put, Yes landed on the island"
+        return verdict(bad, "only a new real starter (Beginner, Noblesse, Legend, Evan) below level 10 off the island is asked, on the start map or another, No stayed put, Yes landed on the island"
                 + " start, the island quests are not hidden and Southperry has Shanks", ev);
+    }
+
+    /** Moves the pretend player to a map and waits for it (up to 5 s). */
+    private static void toMap(Character me, int mapId) throws InterruptedException {
+        if (me.getMapId() == mapId) {
+            return;
+        }
+        me.changeMap(mapId);
+        long until = System.currentTimeMillis() + 5000;
+        while (me.getMapId() != mapId && System.currentTimeMillis() < until) {
+            Thread.sleep(100);
+        }
     }
 
     // ── t-rb-1: a regular earns a rebirth (ticket 30, 1.6.1) ──────────────────────────────────────
@@ -2480,6 +2542,27 @@ final class Probes160 {
             }
             out.add("topped up " + top + " Maple Leaves for the check (taken back at the end)");
         }
+        // the test regular's bid is funded from the tester's own mesos; bot traders bid high, so top up what is short
+        // (taken back at the end) instead of failing with INSUFFICIENT_FUNDS
+        long needM = soloMapling.Economy.exchange.ExchangeQa.itemFundingNeed(ex, tk, n);
+        long mesoTop = 0;
+        if (needM > 0) {
+            long want = needM + needM / 5 + 50_000;
+            if (me.getMeso() < want) {
+                mesoTop = want - me.getMeso();
+            }
+        }
+        if (mesoTop > 0) {
+            if ((long) me.getMeso() + mesoTop > Integer.MAX_VALUE) {
+                if (top > 0) {
+                    w.locked(() -> w.take(leaf, top));
+                }
+                return List.of("FAIL the book's best LEAF bid needs " + needM + " mesos, more than a character holds");
+            }
+            me.gainMeso((int) mesoTop, false);
+            out.add("topped up " + mesoTop + " mesos to fund the test regular (taken back at the end)");
+        }
+        final long mesoTopF = mesoTop;
         long l0 = w.have(leaf), meso0 = me.getMeso();
         out.add("before: " + l0 + " tradeable leaves, " + meso0 + " mesos");
         soloMapling.Economy.exchange.ExchangeQa.StagedItem st;
@@ -2488,6 +2571,9 @@ final class Probes160 {
         } catch (IllegalStateException e) {
             if (top > 0) {
                 w.locked(() -> w.take(leaf, top));
+            }
+            if (mesoTopF > 0) {
+                me.gainMeso((int) -Math.min(mesoTopF, me.getMeso()), false);
             }
             return List.of("FAIL staging: " + e.getMessage());
         }
@@ -2552,6 +2638,9 @@ final class Probes160 {
         }
         if (top > 0 && !w.locked(() -> w.take(leaf, top))) {
             out.add("could not take back the " + top + " topped-up leaves");
+        }
+        if (mesoTopF > 0) {
+            me.gainMeso((int) -Math.min(mesoTopF, me.getMeso()), false);
         }
         if (ex.halted()) {
             bad.add("the exchange halted during the check: " + ex.haltReason());

@@ -466,7 +466,19 @@ public final class GuildWars {
 
     /** A war megaphone: who holds what, the score. */
     static String taunt(War w, Random rng) {
-        boolean bSpeaks = !w.bPlayer() && rng.nextBoolean();
+        return taunt(w, !w.bPlayer() && rng.nextBoolean());
+    }
+
+    /**
+     * The sides a GM's / auto-QA "taunt" speaks for: the declarer, and the defender too when it is a bot guild
+     * (TEST t-gw-1 2026-10-29: one random side taunted, so the defender sometimes never said a word).
+     */
+    static List<Boolean> qaTauntSides(War w) {
+        return w.bPlayer() ? List.of(false) : List.of(false, true);
+    }
+
+    /** A war megaphone from side A, or from side B when {@code bSpeaks}. */
+    static String taunt(War w, boolean bSpeaks) {
         int us = bSpeaks ? w.b() : w.a();
         int them = bSpeaks ? w.a() : w.b();
         Character speaker = speaker(us);
@@ -1173,7 +1185,9 @@ public final class GuildWars {
             out.add("no war");
             return out;
         }
-        out.add(taunt(w, ThreadLocalRandom.current()));
+        for (boolean bSpeaks : qaTauntSides(w)) {
+            out.add(taunt(w, bSpeaks));
+        }
         String turf = turfFight(w, w.a(), ThreadLocalRandom.current());
         out.add(turf);
         if (turf.startsWith("no ") && !w.bPlayer()) { // rc6 triage (t-gw-1): the other side may have a fit grinder

@@ -102,6 +102,19 @@ public final class ExchangeQa {
         return new StagedItem(t.id(), price, ((Number) bid.data().get("orderId")).longValue(), need);
     }
 
+    /**
+     * The mesos {@link #stageItem} will take from the tester's wallet for {@code qty} of {@code ticker} right now (the
+     * book's best bid moves with the bot traders, so this is read at staging time), or -1 when the ticker is unknown.
+     */
+    public static long itemFundingNeed(Exchange ex, String ticker, long qty) {
+        Ticker t = ex.ticker(ticker);
+        if (t == null || !t.item()) {
+            return -1;
+        }
+        long bestBid = ex.depth(t.id(), Side.BUY, 1).isEmpty() ? 0 : ex.depth(t.id(), Side.BUY, 1).get(0).price();
+        return t.buyTotal(ex.config(), qty, Math.max(ITEM_BASE_PRICE, bestBid + 1));
+    }
+
     /** What a seller gets for {@code qty} of an item ticker at {@code price} each, after its fee. */
     public static long sellerGets(ExchangeConfig c, Ticker t, long qty, long price) {
         long m = t.cost(qty, price);
