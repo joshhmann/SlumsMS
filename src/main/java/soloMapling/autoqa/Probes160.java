@@ -2168,6 +2168,8 @@ final class Probes160 {
     /** t-bs-2: the tiers a Free Market room draws (FMEconomyManager). */
     static final List<String> BS2_TIERS = List.of("S", "A", "B", "C");
     private static final int ZAKUM_HELMET = 1002357;
+    /** t-bs-2: items no bot shop may ever list, named so a rules change that frees one is caught: Zakum Helmets 1-3, Chaos, White. */
+    static final int[] BS2_NEVER = {1002357, 1002390, 1002430, 2049100, 2340000};
 
     /**
      * t-bs-2 (owner 2026-10-29, "bot shops sold Zakum Helmets"): walks every bot Free Market shop on every channel
@@ -2218,6 +2220,13 @@ final class Probes160 {
                 }
             }
         }
+        for (int id : BS2_NEVER) {
+            String why = soloMapling.Economy.SaleRules.whyNotId(id);
+            ev.add("never-list item " + id + ": " + (why == null ? "ALLOWED" : "refused (" + why + ")"));
+            if (why == null) {
+                bad.add("SaleRules no longer refuses item " + id);
+            }
+        }
         ev.add("walked " + shops + " bot shops, " + items + " listed items, " + bad.size() + " refused");
         int made = 0, madeBad = 0;
         boolean desirable = soloMapling.itemPool.DesirableEquipList.isDesirable(ZAKUM_HELMET);
@@ -2234,6 +2243,10 @@ final class Probes160 {
                     for (soloMapling.FreeMarket.FMEquip fe : got) {
                         made++;
                         String line = refusal("generator tier " + tier + " " + job, "forced", fe.getEquip());
+                        if (line == null && soloMapling.FreeMarket.EquipListGenerator.excludesGodly()
+                                && soloMapling.Economy.SaleRules.isGodlyGear(fe.getEquip())) {
+                            line = "generator tier " + tier + " " + job + " (forced) made godly gear " + fe.getEquip().getItemId();
+                        }
                         if (line != null) {
                             madeBad++;
                             bad.add(line);
@@ -2242,6 +2255,27 @@ final class Probes160 {
                 }
             }
         }
+        int scrolls = 0;
+        for (String tier : BS2_TIERS) {
+            for (int i = 0; i < BS2_ROUNDS; i++) {
+                List<soloMapling.FreeMarket.FMItem> both = new ArrayList<>(
+                        soloMapling.FreeMarket.ArtificialShopGenerator.generateScrollsList(tier));
+                List<soloMapling.FreeMarket.FMItem> dark = soloMapling.FreeMarket.ArtificialShopGenerator.generateDarkScrollsList(tier);
+                if (dark != null) {
+                    both.addAll(dark);
+                }
+                for (soloMapling.FreeMarket.FMItem fi : both) {
+                    scrolls++;
+                    String why = soloMapling.Economy.SaleRules.whyNotId(fi.getItemId());
+                    if (why != null) {
+                        madeBad++;
+                        bad.add("generator tier " + tier + " (forced) made scroll " + fi.getItemId() + ": " + why);
+                    }
+                }
+            }
+        }
+        made += scrolls;
+        ev.add("forced scroll generation: " + scrolls + " scrolls");
         ev.add("forced generation: " + made + " equips over " + BS2_TIERS.size() + " tiers x 5 classes x " + BS2_ROUNDS
                 + " rounds, " + madeBad + " refused");
         if (!cached) {
@@ -2252,7 +2286,7 @@ final class Probes160 {
 
     /** t-bs-2: one refused listing as evidence text (owner, map or room, item id, reason), or null when allowed. */
     static String refusal(String owner, String where, client.inventory.Item item) {
-        String why = soloMapling.Economy.SaleRules.whyNot(item);
+        String why = soloMapling.Economy.SaleRules.whyNotListOwn(item); // a bot may list its own godly gear
         return why == null ? null : owner + " (" + where + ") lists item " + item.getItemId() + ": " + why;
     }
 
