@@ -373,9 +373,11 @@ class Market:
                               ("board.html", "Buy/Sell board", "board"),
                               ("exchange.html", "Slums Exchange", "exchange"), ("prices/index.html", "Price check", "prices"),
                               ("nx.html", "NX rate", "nx"), ("economy.html", "Economy", "economy")])]
-        # market.js fills the badge: alerts that fired since the player last looked
+        # market.js fills the badge: alerts that fired since the player last looked, and shows the exchange's link only
+        # once the exchange says it's open (owner, 2026-10-29: hidden on live until it opens)
         def lis(links):
-            return "".join(f'<li><a href="{root}{MARKET}/{h}"{" aria-current=page" if k == here else ""}>{esc(t)}'
+            return "".join(f'<li{" data-xc-nav hidden" if k == "exchange" else ""}><a href="{root}{MARKET}/{h}"'
+                           f'{" aria-current=page" if k == here else ""}>{esc(t)}'
                            + (' <span class="mkbadge" data-mk-badge hidden></span>' if k == "mine" else "") + '</a></li>'
                            for h, t, k in links)
         nav = "".join((f'<h3>{esc(g)}</h3>' if g else "") + f'<ul class="mk">{lis(links)}</ul>' for g, links in groups)

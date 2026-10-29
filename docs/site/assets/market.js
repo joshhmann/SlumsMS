@@ -5,6 +5,13 @@
   var host = document.querySelector("[data-mk-root]");
   if (!host || !window.fetch) return;
   var root = host.getAttribute("data-mk-root");
+  // the Slums Exchange's link: only once the exchange is open (open: true, or 401 for a visitor not signed in)
+  var xcNav = document.querySelector("[data-xc-nav]");
+  if (xcNav) fetch(root + "api/market/exchange/book", { credentials: "same-origin", cache: "no-store" })
+    .then(function (r) {
+      if (r.status === 401) return { open: true };
+      return r.ok ? r.json() : {};
+    }).then(function (j) { if (j && j.open === true) xcNav.hidden = false; }).catch(function () { /* stays hidden */ });
   var me = null, summary = null, items = null, blocked = {};
 
   function api(path, body) {

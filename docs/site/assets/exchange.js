@@ -105,6 +105,16 @@
   }
   function hours(h) { return h % 24 === 0 && h > 48 ? h / 24 + " days" : h + " hours"; }
 
+  // Slums-chan's trading lines, once the exchange says it's open (sections/buddy.py OPEN_LINES; b067)
+  function openLines() {
+    var b = document.querySelector(".bubble[data-open-lines]");
+    if (!b) return;
+    var open = b.getAttribute("data-open-lines");
+    b.removeAttribute("data-open-lines");
+    b.setAttribute("data-lines", open);
+    try { b.textContent = JSON.parse(open)[0]; } catch (e) { /* keep the old line */ }
+  }
+
   function xbook() {
     var base = window.live(API + "book", 10);
     var init = base.init;
@@ -132,6 +142,7 @@
       },
       sync: function () {  // share the picked ticker's rules and the limits with the order form
         store().closed = !!(this.data && this.data.open === false);  // switched off on this server (b063)
+        if (this.data && this.data.open === true) openLines();
         if (this.data && this.data.limits) store().limits = this.data.limits;
         if (this.list.length && !this.list.some(function (x) { return x.id === store().tk; })) store().tk = this.list[0].id;
         store().meta = this.cur;

@@ -1,4 +1,5 @@
 """Tests for the public site build: python3 -m unittest discover -s tools/site -p 'test_*.py'"""
+import html
 import json
 import re
 import os
@@ -655,6 +656,28 @@ class WorldTest(unittest.TestCase):
         rewards = js[js.index("var REWARDS = {"):]
         self.assertEqual(re.findall(r"^    (\w+): \{ src", rewards[:rewards.index("};")], re.M),
                          list(market_service.REWARD_CARDS))
+
+    def test_exchange_hidden_until_open(self):
+        # owner, 2026-10-29: the exchange's link stays hidden and Slums-chan keeps to neutral lines until it opens (b067)
+        from sections import market
+        tmp = tempfile.mkdtemp()
+        try:
+            mk = market.Market(market.load(self.market), {}, tmp)
+            self.assertIn('<li data-xc-nav hidden><a href="../market/exchange.html">Slums Exchange',
+                          mk.sidebar("../", "board"))
+            market.build_exchange(mk)
+            with open(os.path.join(tmp, "market", "exchange.html"), encoding="utf-8") as f:
+                page = f.read()
+        finally:
+            shutil.rmtree(tmp)
+        bubble = re.search(r'<p class="bubble" data-lines="([^"]*)" data-open-lines="([^"]*)">', page)
+        self.assertTrue(bubble)
+        closed, opened = (html.unescape(x) for x in bubble.groups())
+        self.assertNotIn("LEAF", closed)
+        self.assertNotIn("sell", closed.lower())
+        self.assertIn("LEAF to the moon!", opened)
+        with open(os.path.join(build.REPO, "docs", "site", "assets", "market.js"), encoding="utf-8") as f:
+            self.assertIn("[data-xc-nav]", f.read())
 
     def test_market_sidebar_groups_and_my_trades(self):
         from sections import market

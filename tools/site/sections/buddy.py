@@ -80,7 +80,8 @@ SLOTS = {
                                          "Don't overpay. I'm watching."]),
     "market/nx": ("chan-money", "Mesos for NX, NX for mesos."),
     "market/economy": ("chan-money", "Money makes Bera go round."),
-    "market/exchange": ("chan-point", ["Buy low, sell high!", "Check the fee before you confirm.", "LEAF to the moon!"]),
+    "market/exchange": ("chan-point", ["Not open yet. Soon!", "Saving my mesos for opening day.",
+                                         "Nothing to trade yet. Just looking!"]),
     "market/invites": ("chan-envelope", ["Bring a friend!", "Henesys is full again!"]),
     "market/mine": ("chan-envelope", "All your stuff in one place."),
     "market/cards": ("chan-lookback", "Gotta find them all!"),
@@ -97,6 +98,12 @@ SLOTS = {
 }
 
 
+# Lines that replace a page's own once its feature turns out to be on (exchange.js, when the exchange is open; owner,
+# 2026-10-29, b067: neutral lines while it's closed, the trading ones when it opens)
+OPEN_LINES = {
+    "market/exchange": ["Buy low, sell high!", "Check the fee before you confirm.", "LEAF to the moon!"],
+}
+
 # After a page's own lines, the bubble also cycles through these (theme.js, every few seconds)
 EVERYWHERE = ["Henesys is full again!", "Bustin' chat since 2006!", "See you in game!"]
 
@@ -111,7 +118,8 @@ def figure(root, slot, page=""):
     line = lines[0]
     w, h = PICTURES[pic]
     src = f"{root}assets/brand/{pic}"
-    return (f'<figure class="buddy"><p class="bubble" data-lines="{esc(json.dumps(lines))}">{esc(line)}</p>'
+    opened = f' data-open-lines="{esc(json.dumps(OPEN_LINES[slot] + EVERYWHERE))}"' if slot in OPEN_LINES else ""
+    return (f'<figure class="buddy"><p class="bubble" data-lines="{esc(json.dumps(lines))}"{opened}>{esc(line)}</p>'
             f'<img class="sidekick" src="{src}-360.webp" srcset="{src}-360.webp 360w, {src}-560.webp 560w" sizes="200px" '
             f'alt="{esc(ALT[pic])}" width="{w}" height="{h}" loading="lazy"></figure>')
 

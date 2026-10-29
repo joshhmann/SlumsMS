@@ -366,16 +366,20 @@
 })();
 
 /* Slums-chan's speech bubbles (sections/buddy.py) circle through their lines: the page's own, then a few for every
-   page. A fade, unless the visitor asked for less motion; nothing while the tab is hidden. */
+   page. A fade, unless the visitor asked for less motion; nothing while the tab is hidden. The lines are read again
+   every time, so a page can change them (exchange.js, once the exchange is open). */
 (function () {
+  function read(b) {
+    try { var l = JSON.parse(b.getAttribute("data-lines")); return Array.isArray(l) ? l : []; } catch (err) { return []; }
+  }
   document.querySelectorAll(".bubble[data-lines]").forEach(function (b) {
-    var lines;
-    try { lines = JSON.parse(b.getAttribute("data-lines")); } catch (err) { return; }
-    if (!lines || lines.length < 2) return;
+    if (read(b).length < 2) return;
     var i = 0, calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     b.setAttribute("aria-live", "off");
     setInterval(function () {
       if (document.hidden) return;
+      var lines = read(b);
+      if (!lines.length) return;
       i = (i + 1) % lines.length;
       if (calm) { b.textContent = lines[i]; return; }
       b.classList.add("swap");
