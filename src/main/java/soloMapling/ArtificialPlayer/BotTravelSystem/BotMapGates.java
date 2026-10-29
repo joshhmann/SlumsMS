@@ -9,14 +9,15 @@ import server.maps.AreaGates;
 // Teleport Rock, but a bot treats the same id ranges as a hard rule even where a portal would let it walk in:
 //   Von Leon's wing         rebirth 1 (1.6.1 b040: the castle's walls and towers and the Rose Garden are open
 //                           training, as for players; HyperTPHandler.isLionKingBossWing)
-//   Twilight Perion range   rebirth 2 (also covers Gate to the Future, Dark Ereve, Leafre of Past)
-//   Grandis / Arcane        owner 2026-10-29: deeper Grandis rebirth 1, Arcane River rebirth 2, lower Grandis 3
+//   Twilight Perion range   rebirth 1 or level 120 (owner 2026-10-29, was 2; also covers Gate to the Future, Dark
+//                           Ereve, Leafre of Past)
+//   Grandis / Arcane        owner 2026-10-29: deeper Grandis rebirth 1, Arcane River rebirth 2, lower Grandis 1
 //                           (or level 120); server.maps.AreaGates.requiredRebirths
 // Ticket 81 (round 4): with the bot's level known (mayEnter(map, rebirths, level)), the players' rule applies
 // (server.maps.AreaGates): the Future and lower Grandis also open at level 120.
 //   HyperTP-restricted      never (Knight Stronghold, 401053002)
 // Plus one hole the research found (docs/real-bots/leveling-path-research.md, finding 4): Warrior Grounds
-// 273060300 sits just past the Twilight Perion range but is the same area, so it needs rebirth 2 too.
+// 273060300 sits just past the Twilight Perion range but is the same area, so it has the same gate.
 // Ticket 30/31 own the rebirth path itself; this is only the "never enter" rule. Our own creation.
 public final class BotMapGates {
 
@@ -36,7 +37,7 @@ public final class BotMapGates {
             return AreaGates.requiredRebirths(mapId);
         }
         if (HyperTPHandler.isTwilightPerion(mapId) || mapId == WARRIOR_GROUNDS) {
-            return 2;
+            return AreaGates.FUTURE_REBIRTHS; // owner 2026-10-29: level 120 or the 1st rebirth (was 2)
         }
         if (HyperTPHandler.isLionKingBossWing(mapId)) {
             return 1;

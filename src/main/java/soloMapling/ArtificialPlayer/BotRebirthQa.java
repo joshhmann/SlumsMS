@@ -287,7 +287,9 @@ public final class BotRebirthQa {
         int job = bot.getJob().getId();
         if (job != 0 && job != 1000 && job != 2000) bad.add("job " + job + " is not a beginner");
         if (count(bot, BotRebirth.keyItemFor(fromReborns)) != 0) bad.add("the key item was not taken");
-        if (!held(bot, BotRebirth.ingredientsFor(fromReborns)).equals("0/0")) bad.add("boss items left over");
+        for (int id : BotRebirth.consumedFor(fromReborns)) {   // the Cygnus Knight Emblem is a pass the bot keeps
+            if (count(bot, id) != 0) bad.add("boss item " + id + " left over");
+        }
         int rate = BotRebirth.rateFor(r, 1);
         if (rate > 0 && bot.getExpRate() != rate) bad.add("EXP rate " + bot.getExpRate() + ", expected " + rate);
         // REPORT item 2: it wears only what a level 1 can, and keeps every piece it wore (on, or in its bag)

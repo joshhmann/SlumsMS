@@ -34,8 +34,8 @@ SEEDS = [400000000, 402000000, 402000500, 402000600, 410000000, 410000200, 41000
 LOWER_MAX = 142
 # player notes (1.6.1, "Training after 120"): "The deeper parts of Grandis (Heliseum, the Fox Tree, Cernium and the
 # rougher back streets of Savage Terminal) and Arcane River still need 3 rebirths." Owner 2026-10-29: the maps this list
-# leaves out (deeper Grandis) open at the 1st rebirth and Arcane River at the 2nd (server.maps.AreaGates); the split is
-# unchanged.
+# leaves out (deeper Grandis) open at the 1st rebirth and Arcane River at the 2nd, and lower Grandis at level 120 or the
+# 1st rebirth (server.maps.AreaGates); the split is unchanged.
 DEEPER_NAMES = ("heliseum", "fox tree", "cernium")
 DEEPER_IDS = {402000400, 402000401, 402000402}   # Back Alley, Desolate Black Market, Desolate Scrapyard
 OUT = Path("src/main/resources/soloMapling/lower-grandis-maps.txt")

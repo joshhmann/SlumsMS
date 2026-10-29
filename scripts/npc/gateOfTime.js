@@ -1,5 +1,5 @@
 // The Gate of Time's menu (opened by scripts/portal/270000000.10.js; NPC 2140000 is the Temple of Time's keeper).
-// 1.6.1 b040: the Future, or lower Grandis (Pantheon), both behind server.maps.AreaGates: level 120 (or 2 rebirths
+// 1.6.1 b040: the Future, or lower Grandis (Pantheon), both behind server.maps.AreaGates: level 120 (or 1 rebirth; was 2
 // for the Future, 3 for Grandis). Owner 2026-10-29: Leafre of the Past (Crack in Time, the Future's lv 124 maps) is the
 // third choice, behind the same gate. Bots take the Grandis and Leafre of the Past sides through BotTransit.yaml's
 // "Gate of Time" rows.

@@ -16,9 +16,10 @@ import java.util.List;
  *
  * <p>The recipes are craft.js's, the same ones the bots use ({@link BotRebirth#keyItemFor}/{@link
  * BotRebirth#ingredientsFor}): Blue Essence Stone (4033446) = Zakum Diamond (4032133) + Nine Spirit's Egg (4001094);
- * Red (4033442) = Rock of Time (4021010) + Von Leon's Seal (4001693); Black (4033450) = Cygnus Circlet (4000659) +
- * Cygnus Knight Emblem (4032922). Wyatt makes the stone the player's next rebirth needs, once: both items taken, the
- * stone given, only with room for it, never a second one while one is held. Bots keep their own path.
+ * Red (4033442) = Rock of Time (4021010) + Von Leon's Seal (4001693); Black (4033450) = Cygnus Circlet (4000659),
+ * made while you hold a Cygnus Knight Emblem (4032922): owner 2026-10-29, the emblem is a pass and is not used up
+ * ({@link BotRebirth#isPass}). Wyatt makes the stone the player's next rebirth needs, once: the used-up items taken,
+ * the stone given, only with room for it, never a second one while one is held. Bots keep their own path.
  */
 public final class EssenceStones {
 
@@ -73,25 +74,35 @@ public final class EssenceStones {
             if (haveA <= 0) missing.add("#r#t" + a + "##k (from " + source(a) + ")");
             if (haveB <= 0) missing.add("#r#t" + b + "##k (from " + source(b) + ")");
             return new Result(false, "Your next rebirth needs a #b#t" + stone + "##k #i" + stone + "#. I make it "
-                    + "from one #b#t" + a + "##k and one #b#t" + b + "##k.\r\n\r\nYou have:\r\n#i" + a + "# #t" + a
+                    + "from one #b#t" + a + "##k" + (BotRebirth.isPass(b) ? ", while you hold one #b#t" + b
+                    + "##k (I only need to see it)" : " and one #b#t" + b + "##k") + ".\r\n\r\nYou have:\r\n#i" + a + "# #t" + a
                     + "#: " + haveA + "\r\n#i" + b + "# #t" + b + "#: " + haveB + "\r\n\r\nStill missing: "
                     + String.join(" and ", missing) + ".");
         }
         if (!hands.canHold(stone)) {
             return new Result(false, "Make room for one item in your Etc inventory first, then talk to me again.");
         }
-        hands.take(a);
-        hands.take(b);
+        List<String> taken = new ArrayList<>();
+        for (int id : BotRebirth.consumedFor(reborns)) {
+            hands.take(id);
+            taken.add("#t" + id + "#");
+        }
         hands.give(stone);
-        return new Result(true, "Here is your #b#t" + stone + "##k #i" + stone + "#. I took your #t" + a
-                + "# and #t" + b + "#. Bring the stone to me at level 200 to be reborn.");
+        String kept = BotRebirth.isPass(b) ? " Keep your #t" + b + "#: I only needed to see it." : "";
+        return new Result(true, "Here is your #b#t" + stone + "##k #i" + stone + "#. I took your "
+                + String.join(" and ", taken) + "." + kept + " Bring the stone to me at level 200 to be reborn.");
     }
 
     /** rebirth.js's line: the player talking to Wyatt, through the conversation's own item moves. */
     public static Result make(AbstractPlayerInteraction cm) {
+        return make(cm.getPlayer().getReborns(), cm);
+    }
+
+    /** The same for a given rebirth count (auto-QA t-rb-3 makes a Black stone for a character of any rebirths). */
+    public static Result make(int reborns, AbstractPlayerInteraction cm) {
         Character chr = cm.getPlayer();
         synchronized (chr) {
-            return make(chr.getReborns(), new Hands() {
+            return make(reborns, new Hands() {
                 public int count(int itemId) {
                     return chr.getInventory(InventoryType.ETC).countById(itemId);
                 }

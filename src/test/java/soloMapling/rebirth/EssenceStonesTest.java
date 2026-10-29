@@ -38,6 +38,9 @@ class EssenceStonesTest {
         for (int[] r : recipes) {
             assertTrue(craft.contains("cm.haveItem(" + r[2] + ") && cm.haveItem(" + r[3] + ")"), "craft.js recipe " + r[1]);
             assertTrue(craft.contains("cm.gainItem(" + r[1] + ", 1)"));
+            if (r[0] == 2) {
+                continue; // the Black stone keeps its emblem: blackKeepsTheEmblemAsAPass
+            }
             Bag bag = new Bag().with(r[2]).with(r[3]);
             EssenceStones.Result res = EssenceStones.make(r[0], bag);
             assertTrue(res.made(), res.text());
@@ -45,6 +48,35 @@ class EssenceStonesTest {
             assertEquals(0, bag.count(r[2]) + bag.count(r[3]), "both items taken");
             assertTrue(res.text().contains("#t" + r[1] + "#"));
         }
+    }
+
+    /**
+     * Owner 2026-10-29: the Black Essence Stone still needs the Cygnus Knight Emblem (4032922) in the bag, but uses up
+     * only the Cygnus Circlet (4000659); the emblem is a pass. Same for Wyatt, the bots (BotRebirth.consumedFor) and
+     * craft.js.
+     */
+    @Test
+    void blackKeepsTheEmblemAsAPass() throws Exception {
+        Bag bag = new Bag().with(4000659).with(4032922);
+        EssenceStones.Result res = EssenceStones.make(2, bag);
+        assertTrue(res.made(), res.text());
+        assertEquals(1, bag.count(4033450), "the Black stone");
+        assertEquals(0, bag.count(4000659), "the circlet is used up");
+        assertEquals(1, bag.count(4032922), "the emblem is kept");
+        assertTrue(res.text().contains("Keep your #t4032922#"), res.text());
+
+        Bag noEmblem = new Bag().with(4000659);
+        EssenceStones.Result refused = EssenceStones.make(2, noEmblem);
+        assertFalse(refused.made(), "the emblem is still required");
+        assertEquals(1, noEmblem.count(4000659), "nothing taken without the emblem");
+        assertTrue(refused.text().contains("while you hold one #b#t4032922#"), refused.text());
+
+        assertArrayEquals(new int[]{4000659},
+                soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.consumedFor(2), "bots use up only the circlet");
+        assertArrayEquals(new int[]{4032133, 4001094},
+                soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.consumedFor(0));
+        String craft = Files.readString(Path.of("scripts/npc/craft.js"));
+        assertFalse(craft.contains("cm.gainItem(4032922, -1)"), "craft.js keeps the emblem too");
     }
 
     @Test

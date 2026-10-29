@@ -46,7 +46,8 @@ import java.util.concurrent.ThreadLocalRandom;
  *       run at most every {@link #gatherEveryMs} on the players' rules ({@link OffscreenBossRun}: the daily clear
  *       limit, the group's real damage against the boss's real HP inside its time limit, the drop rows, the clear
  *       reward). Never more than one of each.</li>
- *   <li><b>Craft</b> the key from them, as craft.js does: both drops taken, one key given.</li>
+ *   <li><b>Craft</b> the key from them, as craft.js does: both drops taken (for the Black stone only the Cygnus
+ *       Circlet: the Cygnus Knight Emblem is a pass the bot keeps, owner 2026-10-29), one key given.</li>
  *   <li><b>Trip</b>: walk (or ride) to Wyatt; only while the server-wide pace has a slot left today
  *       ({@code BOT_REBIRTH_PER_DAY}, UTC days).</li>
  *   <li><b>Rebirth</b> at Wyatt ({@link #rebirthHere}): every check again, the pace slot taken, the key taken, then the
@@ -142,6 +143,19 @@ public final class BotRebirth {
             case 2 -> new int[]{4000659, 4032922};
             default -> new int[0];
         };
+    }
+
+    /**
+     * Owner 2026-10-29: an ingredient that must be held but is not used up. The Black Essence Stone needs the Cygnus
+     * Knight Emblem (4032922) in the bag as a pass; only the Cygnus Circlet (4000659) is consumed.
+     */
+    public static boolean isPass(int itemId) {
+        return itemId == 4032922;
+    }
+
+    /** The ingredients making the key for {@code reborns} actually uses up (ingredientsFor minus the passes). */
+    public static int[] consumedFor(int reborns) {
+        return java.util.Arrays.stream(ingredientsFor(reborns)).filter(i -> !isPass(i)).toArray();
     }
 
     /** Items a bot keeps out of its junk sales: the keys and their boss drops. */
@@ -348,7 +362,7 @@ public final class BotRebirth {
         return lastOutcome.get(botId);
     }
 
-    /** craft.js: one of each boss drop for one key. */
+    /** craft.js: one of each boss drop for one key (the Black stone's emblem is only shown, not taken). */
     static boolean craft(Character bot) {
         int reborns = bot.getReborns();
         int[] ing = ingredientsFor(reborns);
@@ -358,7 +372,7 @@ public final class BotRebirth {
             for (int id : ing) if (count(bot, id) <= 0) return false;
             Item keyItem = new Item(key, (short) 0, (short) 1);
             if (!BotHoldings.canHold(bot, keyItem)) return false;
-            for (int id : ing) {
+            for (int id : consumedFor(reborns)) {   // the Cygnus Knight Emblem is held, not taken (owner 2026-10-29)
                 Item held = bot.getInventory(InventoryType.ETC).findById(id);
                 if (held == null || BotHoldings.consumeHeld(bot, held, 1) != 1) return false;
             }

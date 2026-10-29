@@ -30,21 +30,28 @@ class AreaGatesTest {
     private static final int CERNIUM = 410000500;            // Cernium Square
 
     @Test
-    void theFutureOpensAtLevel120OrTwoRebirths() {
-        assertNotNull(AreaGates.denyReason(FUTURE_TOWN, 119, 0));
-        assertNull(AreaGates.denyReason(FUTURE_TOWN, 120, 0));
-        assertNull(AreaGates.denyReason(TWILIGHT_PERION, 150, 0));
-        assertNull(AreaGates.denyReason(TWILIGHT_PERION, 30, 2), "two rebirths still let a low level in, as before");
+    void theFutureAndTwilightPerionOpenAtLevel120OrTheFirstRebirth() {
+        // owner 2026-10-29: like lower Grandis, level 120 or any rebirth (was 120 or 2 rebirths)
+        for (int map : new int[]{FUTURE_TOWN, TWILIGHT_PERION, 273060300}) {
+            assertNotNull(AreaGates.denyReason(map, 119, 0), "closed at 119 with no rebirth: " + map);
+            assertNull(AreaGates.denyReason(map, 120, 0));
+            assertNull(AreaGates.denyReason(map, 30, 1), "one rebirth lets a low level in: " + map);
+            assertEquals(1, AreaGates.requiredRebirths(map));
+        }
+        assertTrue(AreaGates.denyReason(FUTURE_TOWN, 119, 0).contains("(or Rebirth level 1)"), "the message says 1");
     }
 
     @Test
-    void lowerGrandisOpensAtLevel120OrThreeRebirths() {
+    void lowerGrandisOpensAtLevel120OrTheFirstRebirth() {
+        // owner 2026-10-29: level 120, or the 1st rebirth at any level (was 3 rebirths)
         for (int map : new int[]{PANTHEON, FOX_RIDGE, SANCTUARY_FOREST}) {
             assertTrue(AreaGates.isLowerGrandis(map), "lower Grandis: " + map);
-            assertNotNull(AreaGates.denyReason(map, 119, 2));
+            assertNotNull(AreaGates.denyReason(map, 119, 0));
             assertNull(AreaGates.denyReason(map, 120, 0));
-            assertNull(AreaGates.denyReason(map, 10, 3));
+            assertNull(AreaGates.denyReason(map, 10, 1), "one rebirth opens " + map + " at a low level");
+            assertEquals(1, AreaGates.requiredRebirths(map));
         }
+        assertTrue(AreaGates.denyReason(PANTHEON, 119, 0).contains("(or Rebirth level 1)"), "the message says 1");
     }
 
     /** Owner 2026-10-29: deeper Grandis opens at the 1st rebirth, at any level (was 3). */
@@ -68,11 +75,8 @@ class AreaGatesTest {
         assertNull(AreaGates.denyReason(ARCANE, 1, 2));
         assertEquals(2, AreaGates.requiredRebirths(ARCANE));
         assertTrue(AreaGates.denyReason(ARCANE, 200, 1).contains("Rebirth level 2"), "the message says 2");
-        // lower Grandis and the Future are unchanged
-        assertEquals(3, AreaGates.requiredRebirths(PANTHEON));
-        assertNotNull(AreaGates.denyReason(PANTHEON, 119, 2));
-        assertNull(AreaGates.denyReason(PANTHEON, 119, 3));
-        assertEquals(2, AreaGates.requiredRebirths(FUTURE_TOWN));
+        // the Future: level 120 or the 1st rebirth (owner 2026-10-29)
+        assertEquals(1, AreaGates.requiredRebirths(FUTURE_TOWN));
     }
 
     @Test

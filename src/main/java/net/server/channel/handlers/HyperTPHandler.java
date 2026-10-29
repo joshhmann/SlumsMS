@@ -116,7 +116,7 @@ public class HyperTPHandler extends AbstractPacketHandler {
     /**
      * 1.6.1 (owner 2026-10-29, "oversold = implement"): the notes promise the Hyper Teleport Rock reaches lower Grandis,
      * but Fox Ridge's 14 maps carry the no-rock field limit (0x40, the original story-area setting). They are let
-     * through; the level-120 gate above still applies. The Fox Tree (410000002) stays closed (rebirth 3 anyway).
+     * through; the level-120 gate above still applies. The Fox Tree (410000002) stays closed (deeper Grandis: a rebirth anyway).
      */
     static boolean isFoxRidgeRockOpen(int mapId) {
         return switch (mapId) {
