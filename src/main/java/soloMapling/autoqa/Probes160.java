@@ -2681,7 +2681,7 @@ final class Probes160 {
         out.add("test regular bids " + bid + " for 100 NX (order " + st.bidOrder() + "), funded " + st.funded());
         try {
             // (2) sell in game: fills against the regular, mesos land online
-            String pv = sayAndHear(p, "@nx sell 100 " + bid, "^Preview: sell|\\([A-Z_]+\\)$", 8_000);
+            String pv = sayAndHear(p, "@nx sell 100 " + soloMapling.Economy.exchange.ExchangeChat.typedNx(bid), "^Preview: sell|\\([A-Z_]+\\)$", 8_000);
             out.add("@nx sell: " + pv);
             long mesoBefore = me.getMeso();
             String placed = sayAndHear(p, "@nx confirm", "^Order \\d+ placed|\\([A-Z_]+\\)$", 8_000);
@@ -2705,7 +2705,7 @@ final class Probes160 {
             // (3) a resting buy, then cancel: refunded exactly (the cooldown between orders first)
             Thread.sleep(cfg.cooldownMs() + 1_000);
             long m2 = me.getMeso();
-            sayAndHear(p, "@nx buy 100 " + cfg.minPrice(), "^Preview: buy|\\([A-Z_]+\\)$", 8_000);
+            sayAndHear(p, "@nx buy 100 " + soloMapling.Economy.exchange.ExchangeChat.typedNx(cfg.minPrice()), "^Preview: buy|\\([A-Z_]+\\)$", 8_000);
             String rest = sayAndHear(p, "@nx confirm", "^Order \\d+ placed|\\([A-Z_]+\\)$", 8_000);
             out.add("@nx buy confirm: " + rest);
             long held = m2 - me.getMeso();

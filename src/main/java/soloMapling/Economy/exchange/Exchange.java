@@ -128,11 +128,20 @@ public final class Exchange {
 
     /**
      * The NX limit prices a player may use now: {lowest sell, highest buy} in mesos per 1,000 NX ({@link NxGuard}):
-     * 50% and 200% of the official rate, else the fixed floor (100,000) and ceiling (10,000,000).
+     * 50% and 200% of the official rate, else of NX's starting price (5,000,000: sells from 2,500,000, buys up to
+     * 10,000,000).
      */
     public synchronized long[] nxBand() {
         Ticker t = tickers.get(Ticker.NX);
         return guard.band(officialRate(Ticker.NX), t.minPrice(), t.maxPrice());
+    }
+
+    /**
+     * A price per 1,000 NX as players read it (owner 2026-10-29): whole mesos per 1 NX with thousands separators,
+     * rounded half up for display only ("5,000,000" -> "5,000"; "1,234,567" -> "1,235").
+     */
+    public static String perNx(long per1000) {
+        return String.format("%,d", Math.floorDiv(per1000 + 500, 1_000));
     }
 
     /** PRICE_BAND for an NX order outside {@link #nxBand}, else null. */
@@ -151,9 +160,12 @@ public final class Exchange {
         d.put("minPrice", b[0]);
         d.put("maxPrice", b[1]);
         d.put("rate", rate);
-        String basis = rate == null ? "(no official rate yet)" : String.format("(the official rate is %,d)", rate);
-        String msg = low ? String.format("an NX sell must ask at least %,d mesos per 1,000 NX %s", b[0], basis)
-                : String.format("an NX buy may bid at most %,d mesos per 1,000 NX %s", b[1], basis);
+        // player text per 1 NX (owner 2026-10-29); the data stays per 1,000 NX
+        String basis = rate == null
+                ? String.format("(no official rate yet: NX counts as %s mesos per NX)", perNx(guard.startPrice()))
+                : String.format("(the official rate is %s mesos per NX)", perNx(rate));
+        String msg = low ? String.format("an NX sell must ask at least %s mesos per NX %s", perNx(b[0]), basis)
+                : String.format("an NX buy may bid at most %s mesos per NX %s", perNx(b[1]), basis);
         return new Response(rid, false, "PRICE_BAND", msg, d);
     }
 
@@ -288,9 +300,22 @@ public final class Exchange {
                 botPayouts.add(e.getKey().id());
             }
         }
+        // the newest fills overall, and every ticker's own fills of the last 30 days: the official rate's 7-day window
+        // must not lose NX's fills behind the item tickers' (bots trade those far more often)
+        Map<String, java.util.TreeMap<Long, FillRow>> byTicker = new HashMap<>();
         for (FillRow f : l.recentFills()) {
-            recent.computeIfAbsent(f.ticker(), k -> new ArrayDeque<>()).addLast(f);
+            byTicker.computeIfAbsent(f.ticker(), k -> new java.util.TreeMap<>()).put(f.id(), f);
         }
+        for (FillRow f : past) {
+            byTicker.computeIfAbsent(f.ticker(), k -> new java.util.TreeMap<>()).put(f.id(), f);
+        }
+        byTicker.forEach((t, m) -> {
+            ArrayDeque<FillRow> d = new ArrayDeque<>(m.values());
+            while (d.size() > RECENT_FILLS) {
+                d.removeFirst();
+            }
+            recent.put(t, d);
+        });
         nextOrder = l.maxOrderId() + 1;
         nextFill = l.maxFillId() + 1;
         nextSeq = l.maxSeq() + 1;
@@ -637,7 +662,8 @@ public final class Exchange {
                     : "nx must be " + t.minQty() + ".." + t.maxQty() + " in steps of " + t.lot();
         }
         if (p.price() < t.minPrice() || p.price() > t.maxPrice()) {
-            return "price must be " + t.minPrice() + ".." + t.maxPrice() + " " + t.priceUnit();
+            return t.item() ? "price must be " + t.minPrice() + ".." + t.maxPrice() + " " + t.priceUnit()
+                    : "price must be " + perNx(t.minPrice()) + ".." + perNx(t.maxPrice()) + " mesos per NX";
         }
         if (p.side() == Side.BUY && t.buyTotal(config, p.nx(), p.price()) > Integer.MAX_VALUE) {
             return "costs more mesos than a character can hold";

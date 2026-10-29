@@ -12,8 +12,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * item-exchange NPC). Text only, so it works anywhere and auto-QA can drive it:
  * <pre>
  *   @nx                         the market: best bid/ask, the official rate, your open orders
- *   @nx sell 1000 1.2m          preview selling 1,000 NX at 1.2m mesos per 1,000 NX (what fills now, fees)
- *   @nx buy 500 1150000         preview buying 500 NX at 1,150,000 per 1,000 NX
+ *   @nx sell 1000 5000          preview selling 1,000 NX at 5,000 mesos per NX (what fills now, fees)
+ *   @nx buy 500 4.5k            preview buying 500 NX at 4,500 mesos per NX
  *   @nx confirm                 place the last preview (within 60 s)
  *   @nx orders                  your orders
  *   @nx cancel 42               cancel order 42 (what it held comes straight back)
@@ -25,6 +25,10 @@ import java.util.concurrent.atomic.AtomicLong;
  *   @nx leaf book               that ticker's book
  * </pre>
  * {@code confirm}, {@code orders} and {@code cancel} work for every ticker (order ids are shared).
+ * <p>
+ * NX prices are typed and shown per 1 NX (owner 2026-10-29: "5,000 mesos per NX"); the exchange, the database and the
+ * site's JSON keep them per 1,000 NX, so a typed price becomes x1,000 (up to 3 decimals: 4.5k, 1234.567) and a shown
+ * one is rounded to whole mesos per NX ({@link Exchange#perNx}).
  * Placing and payouts use the character's {@link LiveWallet}: the escrow leaves this character (mesos) or the
  * account's NX at once, and fills, cancels and expiries pay back into memory while the player is online.
  */
@@ -62,11 +66,11 @@ public final class ExchangeChat {
         switch (sub) {
             case "buy", "sell" -> {
                 Long nx = params.length > 1 ? amount(params[1]) : null;
-                Long price = params.length > 2 ? amount(params[2]) : null;
+                Long price = params.length > 2 ? (t.item() ? amount(params[2]) : priceNx(params[2])) : null;
                 if (nx == null || price == null) {
                     out.add(t.item() ? "Use: @nx " + tk + sub + " <how many> <mesos per " + t.name() + ">, e.g. @nx "
                             + tk + sub + " 10 500k"
-                            : "Use: @nx " + sub + " <NX> <mesos per 1,000 NX>, e.g. @nx " + sub + " 1000 1.2m");
+                            : "Use: @nx " + sub + " <NX> <mesos per NX>, e.g. @nx " + sub + " 1000 5000");
                     return out;
                 }
                 Exchange.Response r = ex.preview(new Exchange.Place(rid(w), w.account(), w.character(),
@@ -85,9 +89,10 @@ public final class ExchangeChat {
                 }
                 Ticker ot = ex.ticker(String.valueOf(r.data().get("ticker")));
                 if (ot == null || !ot.item()) {
-                    out.add(String.format("Order %s placed: %s %,d NX at %,d. %s NX traded now; status %s.",
+                    out.add(String.format("Order %s placed: %s %,d NX at %s mesos per NX. %s NX traded now; status %s.",
                             r.data().get("orderId"), String.valueOf(r.data().get("side")).toLowerCase(Locale.ROOT),
-                            num(r.data().get("nx")), num(r.data().get("price")), fmt(num(r.data().get("filledNx"))),
+                            num(r.data().get("nx")), Exchange.perNx(num(r.data().get("price"))),
+                            fmt(num(r.data().get("filledNx"))),
                             r.data().get("status")));
                 } else {
                     out.add(String.format("Order %s placed: %s %s at %,d each. %s traded now; status %s.",
@@ -114,9 +119,11 @@ public final class ExchangeChat {
                     }
                     for (ExchangeStore.OrderRow o : mine) {
                         Ticker ot = ex.ticker(o.ticker());
-                        out.add(String.format("#%d %s %s at %,d: %s%s", o.id(),
+                        boolean nxOrder = ot == null || !ot.item();
+                        out.add(String.format("#%d %s %s at %s%s: %s%s", o.id(),
                                 o.side().name().toLowerCase(Locale.ROOT),
-                                ot == null ? o.nxTotal() + " " + o.ticker() : ot.amount(o.nxTotal()), o.price(),
+                                ot == null ? o.nxTotal() + " " + o.ticker() : ot.amount(o.nxTotal()),
+                                nxOrder ? Exchange.perNx(o.price()) : fmt(o.price()), nxOrder ? " per NX" : " each",
                                 o.status(), o.open() ? String.format(" (%,d left)", o.nxLeft()) : ""));
                     }
                 } catch (ExchangeStore.StoreException e) {
@@ -124,17 +131,31 @@ public final class ExchangeChat {
                 }
             }
             case "book" -> {
-                out.add(t.item() ? t.id() + " book (" + t.priceUnit() + "):" : "NX exchange book (mesos per 1,000 NX):");
-                out.addAll(ex.bookLines(t.id(), 5));
+                if (t.item()) {
+                    out.add(t.id() + " book (" + t.priceUnit() + "):");
+                    out.addAll(ex.bookLines(t.id(), 5));
+                } else {
+                    out.add("NX exchange book (mesos per NX):");
+                    List<OrderBook.Level> asks = ex.depth(Side.SELL, 5);
+                    for (int i = asks.size() - 1; i >= 0; i--) {
+                        out.add(String.format("  ask %s  %,d NX (%d)", Exchange.perNx(asks.get(i).price()),
+                                asks.get(i).nx(), asks.get(i).orders()));
+                    }
+                    out.add("  ----");
+                    for (OrderBook.Level l : ex.depth(Side.BUY, 5)) {
+                        out.add(String.format("  bid %s  %,d NX (%d)", Exchange.perNx(l.price()), l.nx(), l.orders()));
+                    }
+                }
             }
             case "tickers" -> {
                 for (Ticker x : ex.tickers()) {
                     long bid = ex.depth(x.id(), Side.BUY, 1).isEmpty() ? 0 : ex.depth(x.id(), Side.BUY, 1).get(0).price();
                     long ask = ex.depth(x.id(), Side.SELL, 1).isEmpty() ? 0 : ex.depth(x.id(), Side.SELL, 1).get(0).price();
                     Long last = ex.stats(x.id()).last();
+                    java.util.function.LongFunction<String> f = x.item() ? ExchangeChat::fmt : Exchange::perNx;
                     out.add(String.format("%s (%s): bid %s, ask %s, last %s (%s)", x.id(), x.name(),
-                            bid > 0 ? fmt(bid) : "none", ask > 0 ? fmt(ask) : "none",
-                            last == null ? "none" : fmt(last), x.unitLabel()));
+                            bid > 0 ? f.apply(bid) : "none", ask > 0 ? f.apply(ask) : "none",
+                            last == null ? "none" : f.apply(last), x.item() ? x.unitLabel() : "mesos per NX"));
                 }
                 out.add("@nx <ticker> to trade one, e.g. @nx leaf sell 10 500k");
             }
@@ -155,9 +176,14 @@ public final class ExchangeChat {
                 Long rate = ex.officialRate();
                 long bid = ex.depth(Side.BUY, 1).isEmpty() ? 0 : ex.depth(Side.BUY, 1).get(0).price();
                 long ask = ex.depth(Side.SELL, 1).isEmpty() ? 0 : ex.depth(Side.SELL, 1).get(0).price();
-                out.add(String.format("NX exchange%s: best bid %s, best ask %s, rate %s (mesos per 1,000 NX).",
-                        ex.halted() ? " (STOPPED)" : "", bid > 0 ? fmt(bid) : "none", ask > 0 ? fmt(ask) : "none",
-                        rate == null ? "none yet" : fmt(rate)));
+                out.add(String.format("NX exchange%s: best bid %s, best ask %s, rate %s (mesos per NX).",
+                        ex.halted() ? " (STOPPED)" : "", bid > 0 ? Exchange.perNx(bid) : "none",
+                        ask > 0 ? Exchange.perNx(ask) : "none", rate == null ? "none yet (NX counts as "
+                                + Exchange.perNx(ex.guard().startPrice() > 0 ? ex.guard().startPrice()
+                                : NxGuard.START_PRICE) + " until players set one)" : Exchange.perNx(rate)));
+                long[] band = ex.nxBand();
+                out.add("Sell from " + Exchange.perNx(band[0]) + ", buy up to " + Exchange.perNx(band[1])
+                        + " mesos per NX; orders of 100 to 50,000 NX in steps of 100.");
                 out.add("You have " + ex.openIdsOf(w.account()).size() + " open order(s). Fee "
                         + pct(ex.config().feeBps()) + " of the mesos from each side.");
                 out.add("@nx sell <NX> <price> | @nx buy <NX> <price> | @nx confirm | @nx orders | @nx cancel <id>"
@@ -194,8 +220,8 @@ public final class ExchangeChat {
         var match = (java.util.Map<String, Object>) d.get("matchNow");
         @SuppressWarnings("unchecked")
         var get = (java.util.Map<String, Object>) match.get("youGet");
-        out.add(String.format("Preview: %s %,d NX at %,d mesos per 1,000 NX.", sell ? "sell" : "buy", num(d.get("nx")),
-                num(d.get("price"))));
+        out.add(String.format("Preview: %s %,d NX at %s mesos per NX.", sell ? "sell" : "buy", num(d.get("nx")),
+                Exchange.perNx(num(d.get("price")))));
         out.add(String.format("It holds %,d %s now%s.", num(takes.get("amount")),
                 "NX".equals(takes.get("asset")) ? "NX" : "mesos",
                 sell ? "" : " (the price plus up to " + pct(c.feeBps()) + " fee; unused mesos come back)"));
@@ -242,6 +268,39 @@ public final class ExchangeChat {
         }
         out.add("Type @nx confirm within " + c.confirmMs() / 1000 + " s to place it.");
         return out;
+    }
+
+    /**
+     * An NX price typed per 1 NX ("5000", "5k", "4.5k", "1234.567") as the exchange's price per 1,000 NX; null when it
+     * is not positive or finer than a thousandth of a meso.
+     */
+    static Long priceNx(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim().toLowerCase(Locale.ROOT).replace(",", "");
+        long mult = 1_000;
+        if (t.endsWith("k")) {
+            mult = 1_000_000;
+            t = t.substring(0, t.length() - 1);
+        } else if (t.endsWith("m")) {
+            mult = 1_000_000_000L;
+            t = t.substring(0, t.length() - 1);
+        }
+        try {
+            java.math.BigDecimal v = new java.math.BigDecimal(t).multiply(java.math.BigDecimal.valueOf(mult));
+            if (v.signum() <= 0 || v.stripTrailingZeros().scale() > 0) {
+                return null;
+            }
+            return v.longValueExact();
+        } catch (NumberFormatException | ArithmeticException e) {
+            return null;
+        }
+    }
+
+    /** A price per 1,000 NX as {@code @nx} takes it (per 1 NX, exact): 5,000,000 -> "5000", 1,234,567 -> "1234.567". */
+    public static String typedNx(long per1000) {
+        return java.math.BigDecimal.valueOf(per1000).movePointLeft(3).stripTrailingZeros().toPlainString();
     }
 
     /** 1000, 1,000, 1.2m, 500k; null when it is not a whole positive number. */

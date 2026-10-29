@@ -183,12 +183,12 @@ final class ExchangeScenarios {
             });
             long cfgMin = ex.config().minPrice();
             return List.of(
-                    "A test regular (paid from your mesos: " + st.funded() + ") bids " + st.bidPrice()
-                            + " mesos per 1,000 NX for 100 NX.",
-                    "1) @nx sell 100 " + st.bidPrice() + "   then   @nx confirm   -> it fills; "
+                    "A test regular (paid from your mesos: " + st.funded() + ") bids "
+                            + soloMapling.Economy.exchange.Exchange.perNx(st.bidPrice()) + " mesos per NX for 100 NX.",
+                    "1) @nx sell 100 " + soloMapling.Economy.exchange.ExchangeChat.typedNx(st.bidPrice()) + "   then   @nx confirm   -> it fills; "
                             + ExchangeQa.sellerGets(ex.config(), 100, st.bidPrice())
                             + " mesos arrive at once (no logout), 100 NX leave.",
-                    "2) wait 10 s, @nx buy 100 " + cfgMin + "   then   @nx confirm   -> it rests and holds "
+                    "2) wait 10 s, @nx buy 100 " + soloMapling.Economy.exchange.ExchangeChat.typedNx(cfgMin) + "   then   @nx confirm   -> it rests and holds "
                             + ex.config().buyTotal(100, cfgMin) + " mesos.",
                     "3) @nx orders, then @nx cancel <that order id>   -> the mesos come straight back.",
                     "!qa do check shows what moved. !qa stop takes the regular out: you end with the same NX and "

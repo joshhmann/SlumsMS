@@ -111,6 +111,7 @@ class JdbcExchangeStoreIT {
 
     Exchange exchange(JdbcExchangeStore.Connections c) throws Exception {
         Exchange ex = new Exchange(new JdbcExchangeStore(c), ExchangeTest.open(), a -> false, now::get);
+        ex.guard(ExchangeTest.engineGuard());
         assertTrue(ex.recover().isEmpty());
         return ex;
     }
@@ -145,6 +146,7 @@ class JdbcExchangeStoreIT {
         exec("INSERT INTO exchange_escrow (kind, owner_id, asset, account_id, amount) VALUES ('PAYOUT', 1, 'NX', 1, 7) ON DUPLICATE KEY UPDATE amount = amount + 7");
         Exchange tampered = new Exchange(new JdbcExchangeStore(() -> DriverManager.getConnection(URL)),
                 ExchangeTest.open(), a -> false, now::get);
+        tampered.guard(ExchangeTest.engineGuard());
         assertFalse(tampered.recover().isEmpty());
         assertTrue(tampered.halted());
     }
@@ -332,6 +334,7 @@ class JdbcExchangeStoreIT {
         liveW.put(2L, seller);
         Exchange ex = new Exchange(new JdbcExchangeStore(() -> DriverManager.getConnection(URL)), cfg,
                 liveW::containsKey, liveW::get, now::get);
+        ex.guard(ExchangeTest.engineGuard());
         assertTrue(ex.recover().isEmpty());
         seller.noWriter = true;
         assertEquals("NOT_OWNER", ex.place(new Place("lw", 2, 12, Side.SELL, 600_000, 10, "LEAF")).code());
@@ -365,6 +368,7 @@ class JdbcExchangeStoreIT {
         assertEquals(0, one("SELECT COALESCE(SUM(amount),0) FROM exchange_escrow WHERE asset='LEAF'"));
         Exchange again = new Exchange(new JdbcExchangeStore(() -> DriverManager.getConnection(URL)), cfg, a -> false,
                 now::get);
+        again.guard(ExchangeTest.engineGuard());
         assertTrue(again.recover().isEmpty(), "reconciles");
         assertEquals(1, again.lastTrades("LEAF", 5).size());
         assertEquals(0, again.lastTrades(5).size(), "NX has no trades");
@@ -393,6 +397,7 @@ class JdbcExchangeStoreIT {
         ExchangeConfig cfg = ExchangeLiveTest.cfg(100, 0);
         Exchange ex = new Exchange(new JdbcExchangeStore(() -> DriverManager.getConnection(URL)), cfg,
                 a -> a == 2, a -> a == 2 ? w : null, now::get);
+        ex.guard(ExchangeTest.engineGuard());
         assertTrue(ex.recover().isEmpty());
         Response buy = ex.place(new Place("live-b", 2, 12, Side.BUY, P, 2000));
         assertTrue(buy.ok(), buy.toString());
@@ -421,6 +426,7 @@ class JdbcExchangeStoreIT {
         exec("UPDATE accounts SET loggedin = 0 WHERE id = 2");
         Exchange offline = new Exchange(new JdbcExchangeStore(() -> DriverManager.getConnection(URL)), cfg,
                 a -> false, now::get);
+        offline.guard(ExchangeTest.engineGuard());
         assertTrue(offline.recover().isEmpty());
         offline.halt("test");
         Response rev = offline.reverse(fill, "it");
@@ -465,6 +471,7 @@ class JdbcExchangeStoreIT {
         };
         Exchange ex = new Exchange(new JdbcExchangeStore(flaky), ExchangeLiveTest.cfg(100, 0), a -> a == 2,
                 a -> a == 2 ? w : null, now::get);
+        ex.guard(ExchangeTest.engineGuard());
         failAt.set(-1);
         assertTrue(ex.recover().isEmpty());
         int crashes = 0;

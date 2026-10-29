@@ -70,6 +70,7 @@ class ExchangeLiveTest {
 
     Exchange start(ExchangeConfig c) throws Exception {
         Exchange e = new Exchange(store, c, store::online, store.finder(), now::get);
+        e.guard(ExchangeTest.engineGuard());
         assertTrue(e.recover().isEmpty());
         return e;
     }
@@ -281,6 +282,7 @@ class ExchangeLiveTest {
         Session s2 = store.login(2, 12);
         Exchange racy = new Exchange(store, cfg(100, 0), store::online, a -> flipsBeforeWrite(store.walletOf(s2)),
                 now::get);
+        racy.guard(ExchangeTest.engineGuard());
         racy.recover();
         assertEquals("TRY_AGAIN", racy.place(new Place("race", 2, 12, Side.BUY, P, 1000)).code());
         assertEquals(MESO0, s2.meso.get(12L), "memory given back");
@@ -382,6 +384,7 @@ class ExchangeLiveTest {
             }
         };
         Exchange slowEx = new Exchange(store, cfg(100, 0), store::online, a -> a == 2 ? slow : null, now::get);
+        slowEx.guard(ExchangeTest.engineGuard());
         slowEx.recover();
         ExecutorService pool = Executors.newFixedThreadPool(2);
         Future<Response> placing = pool.submit(() -> slowEx.place(new Place("slow", 2, 12, Side.BUY, P, 1000)));
@@ -488,8 +491,9 @@ class ExchangeLiveTest {
     void theInGameCommandPreviewsConfirmsListsAndCancels() throws Exception {
         Session s = store.login(2, 12);
         LiveWallet w = store.finder().find(2);
-        List<String> pv = ExchangeChat.handle(ex, w, new String[]{"buy", "1,000", "1.2m"});
-        assertTrue(pv.get(0).startsWith("Preview: buy 1,000 NX at 1,200,000"), pv.toString());
+        // owner 2026-10-29: typed and shown per 1 NX (1,200 per NX = 1,200,000 per 1,000 NX underneath)
+        List<String> pv = ExchangeChat.handle(ex, w, new String[]{"buy", "1,000", "1.2k"});
+        assertTrue(pv.get(0).startsWith("Preview: buy 1,000 NX at 1,200 mesos per NX"), pv.toString());
         assertTrue(pv.get(pv.size() - 1).contains("@nx confirm"));
         assertEquals(MESO0, s.meso.get(12L));
         List<String> ok = ExchangeChat.handle(ex, w, new String[]{"confirm"});
@@ -502,7 +506,7 @@ class ExchangeLiveTest {
         assertTrue(ExchangeChat.handle(ex, w, new String[]{"cancel", String.valueOf(orderId)}).get(0)
                 .contains("cancelled"));
         assertEquals(MESO0, s.meso.get(12L), "the refund came straight back");
-        assertTrue(ExchangeChat.handle(ex, w, new String[]{"buy", "150", "1m"}).get(0).contains("BAD_REQUEST"));
+        assertTrue(ExchangeChat.handle(ex, w, new String[]{"buy", "150", "1000"}).get(0).contains("BAD_REQUEST"));
         assertTrue(ExchangeChat.handle(ex, w, new String[]{}).get(0).startsWith("NX exchange: best bid"));
         assertEquals("The NX exchange is not open.", ExchangeChat.handle(null, w, new String[]{}).get(0));
         assertEquals(1_200_000L, ExchangeChat.amount("1.2m"));
