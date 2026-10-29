@@ -122,7 +122,9 @@ class BotTransitHighLevelTest {
     @Test
     void theHenesysTeleporterOffersExactlyItsGrandisAndArcaneMenusAtThreeRebirths() throws Exception {
         String js = npcScript(9010002);
-        assertTrue(js.contains("getReborns() < 3"), "the Grandis/Arcane menus need 3 rebirths");
+        // ticket 81 round 3: the script asks server.maps.AreaGates per destination (level 120 for the Future and lower
+        // Grandis, 3 rebirths elsewhere); bots keep the stricter 3-rebirth rows below
+        assertTrue(js.contains("AreaGates.denyReason"), "the Grandis/Arcane menus are gated by AreaGates");
         Matcher m = Pattern.compile("\\[([0-9, ]+)\\][^\\[]*// (Grandis|Arcane River)").matcher(js);
         List<Integer> offered = new ArrayList<>();
         while (m.find()) {

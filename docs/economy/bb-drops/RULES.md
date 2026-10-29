@@ -1,8 +1,10 @@
-# Post-Big-Bang drop tables and HP: rules (draft, ticket 81)
+# Post-Big-Bang drops, HP, EXP and gates: rules (draft, ticket 81)
 
 On 2026-10-28 the owner decided to build drop tables for the post-Big-Bang mobs that have none. After round 1 he
-added more: mesos stay level-based, mob HP goes onto a classic curve with EXP kept, Mirror World is left out, and
-three new item kinds are added (the region's own ETC, mastery books and post-Big-Bang gear). This file is the rule
+added more: mesos stay level-based, mob HP goes onto a classic curve, Mirror World is left out, and three new item
+kinds are added (the region's own ETC, mastery books and post-Big-Bang gear). Round 3 aims at good 120-200 training:
+new-area EXP at about 2x a classic spot, the Future and lower Grandis opened at level 120, and the classic 120+ spots
+buffed. This file is the rule
 set that `tools/economy/gen_bb_drops.py` implements. If you change a rule, change it here and in the generator
 together, then regenerate. The review summary is in `REVIEW.md`.
 
@@ -50,24 +52,70 @@ migration skips any (mob, item) pair that is already in drop_data.
 - Within one region and level, the midpoint is multiplied by sqrt(EXP / median EXP), clamped to 0.8-1.25.
 - Elite mobs get 4x. Bosses get 90 x level at chance 700000 (Zakum, lv 140, pays 10,000-15,000 base).
 
-## HP (owner 2026-10-28: a classic-like curve, EXP kept)
+## HP and EXP (stat overrides)
 
-- **Where the server's HP comes from.** `LifeFactory.getMonsterStats` reads Mob.wz `info/maxHP`. It halves it for
-  non-boss mobs of level 160+ with more than 30M HP, and it hard-codes some bosses (Magnus 8880002 = 200,000,000,000,
-  for example). Before this change there was no data-driven override.
-- **The override.** `src/main/resources/soloMapling/mob-hp-overrides.tsv` lists mob id and max HP. It is a jar
-  resource, so it deploys with the jar. `server.life.MobHpOverrides` loads it, and LifeFactory applies it after its
-  own HP, so a row wins over the WZ value, the halving and the hard-coded numbers. Only max HP changes. Turn it off
-  with `-Dslums.mobHpOverrides=false`. The server's WZ files are never touched.
+- **Where the server's values come from.** `LifeFactory.getMonsterStats` reads Mob.wz `info/maxHP` and `info/exp`.
+  It halves the HP of non-boss mobs of level 160+ with more than 30M HP, and it hard-codes some bosses (Magnus 8880002
+  = 200,000,000,000, for example). Before this change there was no data-driven override.
+- **The override.** `src/main/resources/soloMapling/mob-stat-overrides.tsv` has the columns mob id, max HP, EXP and a
+  comment; `-` in a column keeps the mob's own value. It is a jar resource, so it deploys with the jar.
+  `server.life.MobStatOverrides` loads it, and LifeFactory applies it after its own values, so a row wins over the WZ
+  value, the halving and the hard-coded numbers. Turn it off with `-Dslums.mobStatOverrides=false`. The server's WZ
+  files are never touched. `stats.csv` lists every row with before and after values.
+
+### HP (owner 2026-10-28: a classic-like curve)
+
 - **Normal mobs:** the classic curve is HP = 0.0064595 x level^3.4309. This is a power fit on classic non-boss mobs,
   lv 30-131: lv 113 = 71k, lv 131 = 118k, lv 200 = 507k. It is multiplied by sqrt(server HP / median server HP of
   the same region and level), clamped to 0.75-1.5, so tougher mobs stay tougher. The result is rounded to 3
   significant figures.
 - **Elite:** 30x the curve (Manon is about 55x a normal mob of its level).
 - **Boss:** log-interpolated between Zakum's body (lv 140, 110M) and Pink Bean (lv 180, 2.1B), capped at 2.1B.
-- **Only clearly off-curve mobs change:** a mob gets a row only when its current server HP is more than 1.25x the new
-  value. Classic-like mobs (Twilight Perion's Corrupted Wyverns, for example) and the Singularity Maker keep their HP.
-- EXP, level, attack, defence and everything else stay as they are.
+- **Only clearly off-curve mobs change:** a mob gets an HP value only when its current server HP is more than 1.25x
+  the new value.
+
+### EXP (owner 2026-10-28, round 3: about 2x a classic spot per hour, smooth by level)
+
+- **Model.** The model character deals the damage it takes to kill 1,000 Chief Oblivion Guardians an hour
+  (141,000 HP each), which is 141M damage an hour. A map can feed at most 1,500 kills an hour. At 3x EXP that
+  classic spot pays 21.18M EXP an hour.
+- **Target.** For a mob of level L, the target is 2 x 21.18M x classicEXP(L) / classicEXP(131). classicEXP is the
+  classic non-boss EXP curve, 0.00107394 x L^3.08225, a power fit on classic mobs from lv 30 to lv 131. So EXP per
+  hour grows with level the way classic EXP per kill does: lv 120 = 32M, lv 150 = 64M, lv 170 = 95M, lv 200 = 156M.
+  That is about 0.7 hours per level at lv 120, 1.8 at lv 150 and 10.5 at lv 199.
+- **EXP per kill** = target / (3 x kills per hour at the mob's new HP), but never below classicEXP(L), and rounded to
+  3 significant figures. Only normal mobs change; elite and boss EXP stay as they are.
+
+### Classic 120+ spots (round 3: moderately up, below the new areas)
+
+- The non-boss mobs of level 95+ (excluding event mobs 9300000-9399999) placed in these areas get EXP x1.4:
+  - Leafre / Minar Forest, 240010000-240049999
+  - Temple of Time, 270010000-270039999
+  - Lion King's Castle, 211060000-211069999
+  - Rose Garden, 211080000-211089999
+  - Ulu City, 541020000-541029999
+- That is 39 mobs. The override is per mob, so a mob placed in other maps too gets the same EXP there.
+- **Density:** the server has no per-map spawn override, only an integer multiplier that nothing sets, and
+  `createMobInterval` is WZ data. So this draft buffs EXP only.
+
+## Area gates (round 3: good 120-200 training)
+
+- `server.maps.AreaGates` holds the rule.
+- **Future / Twilight Perion** (271000000-273999999): level 120, or 2 rebirths as before.
+- **Lower Grandis**: level 120, or 3 rebirths. This is the lv 109-142 band: Pantheon, the low streets of Savage
+  Terminal, Sanctuary, Caravan Refuge, Fox Ridge, Cheong-woon Valley, Ristonia and Toolen City, 187 map ids in
+  `src/main/resources/soloMapling/lower-grandis-maps.txt`. `tools/economy/gen_area_gates.py` generates the list from
+  Map.wz:
+  - it starts at the lower towns and walks the portals;
+  - a map with mobs is lower when its strongest mob is lv 142 or less (Grandis has no mobs between lv 143 and 174);
+  - a map with no mobs (town, interior, door) is lower unless it sits next to an upper mob map and next to no lower
+    one.
+- **The rest of Grandis and Arcane River** (400000000-460000000): 3 rebirths, as before.
+- **Where the rule is checked:** the Hyper Rock (`HyperTPHandler`), the Henesys teleporter (`scripts/npc/9010002.js`,
+  per destination), the Temple of Time's Gate of Time (`scripts/portal/270000000.10.js`) and every unscripted portal
+  (`GenericPortal`). The unscripted portals catch walking between lower and upper Grandis; all four boundary portals
+  are unscripted. The Arcane River portal (`arcaneriver.js`) is unchanged. GMs pass.
+- **Bots** keep their rebirth-only rule (`BotMapGates`), so they do not use the newly opened maps yet.
 
 ## Items (only what classic mobs drop, plus the three owner-approved extras)
 
@@ -121,8 +169,10 @@ so regenerating gives the same tables.
   (`BbDropTablesDataTest`).
 - Migration 050 applies twice and rolls back twice, leaving card rows and older rows alone
   (`BbDropTablesMigrationIT`, which needs `-Dslums.family.it.url`).
-- LifeFactory applies the HP table and keeps EXP and level. The table matches `hp.csv`. Bad rows are refused
-  (`MobHpOverridesTest`).
+- LifeFactory applies the HP and EXP table (Sun Spirit: both; Skelegon: EXP x1.4 only). The table matches
+  `stats.csv`. Bad rows are refused (`MobStatOverridesTest`).
+- The gates: level 120 opens the Future and lower Grandis, upper Grandis and Arcane still need 3 rebirths, the Hyper
+  Rock agrees, and the teleporter and the Gate of Time ask AreaGates (`AreaGatesTest`).
 
 ## Regenerating
 
@@ -130,7 +180,8 @@ so regenerating gives the same tables.
 # 1. export drop_data from TEST (SELECT only) to a TSV, then
 python3 tools/economy/bb_inventory.py --drops drop_data.tsv          # docs/economy/bb-drops/mobs.csv
 python3 tools/economy/gen_bb_drops.py pool --drops drop_data.tsv     # docs/economy/bb-drops/classic-pool.csv
-python3 tools/economy/gen_bb_drops.py gen [--regions all]            # rows.csv, hp.csv, migration 050, HP table
+python3 tools/economy/gen_bb_drops.py gen [--regions all]            # rows.csv, stats.csv, migration 050, stat table
+python3 tools/economy/gen_area_gates.py                              # lower-grandis-maps.txt
 # the client Monster Book can print the new HP (needs a Custom.wz rebuild):
-python3 tools/monsterbook/build_book.py ... --hp-overrides src/main/resources/soloMapling/mob-hp-overrides.tsv
+python3 tools/monsterbook/build_book.py ... --hp-overrides src/main/resources/soloMapling/mob-stat-overrides.tsv
 ```

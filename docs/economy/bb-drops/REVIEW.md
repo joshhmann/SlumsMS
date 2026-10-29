@@ -1,40 +1,98 @@
-# Post-Big-Bang drop tables and HP: review for the owner (draft, round 2, ticket 81)
+# Post-Big-Bang drops, HP, EXP and the 120+ ladder: review for the owner (draft, round 3, ticket 81)
 
-This is the second draft, after the owner's answers on 2026-10-28. Mesos stay by level. HP comes down to a classic
-curve with EXP kept. Mirror World is left out. Three new item kinds are added: each mob's own ETC, mastery books and
-post-Big-Bang gear. The 0-EXP copies stay an open question. ETC items only go in when they have a use here or an NPC
-price (coordinator's rule; exclusions listed below). **Nothing is applied anywhere**: migration
-`050-bb-drop-tables` (a placeholder number) is not on TEST, not in a release conf and not merged. The HP table only
-takes effect when a build with it is deployed. Rules: `RULES.md`. Every drop row: `rows.csv`. Every HP change:
-`hp.csv`. Inventory: `mobs.csv`.
+This is the third draft. The goal is good 120-200 training for friends at 120+. Compared with round 2:
+- The new areas' EXP is set to about 2x a classic spot per hour, on a smooth curve by level.
+- The Future and lower Grandis open at level 120 without rebirths.
+- The classic 120+ spots get EXP x1.4.
+
+The drop tables and rare gear are as in round 2, and Mirror World stays out. **Nothing is applied anywhere**:
+- Migration `050-bb-drop-tables` (a placeholder number) is not on TEST, not in a release conf and not merged.
+- The stat table, the gates and the script changes take effect only when a build with them is deployed.
+
+Files: rules in `RULES.md`, drop rows in `rows.csv`, HP and EXP changes in `stats.csv`, lower Grandis map list in
+`src/main/resources/soloMapling/lower-grandis-maps.txt`, inventory in `mobs.csv`.
 
 ## In one paragraph
 
 335 mobs in Arcane River, Grandis and Future/Twilight Perion get a drop table, 7,699 rows in all. Each normal mob
-gets:
-- classic level-scaled mesos on every kill
-- 3 potions and 5 ores
-- its own ETC item where Item.wz has one (the Droplet Stone in Arcane)
-- 4 scrolls and 2 mastery books at classic rates
-- 5 classic equips
-- 2 post-Big-Bang pieces on par with classic gear (Eclectic, Muspell)
-- 1 rare outclassing piece (Pensalir, Jaihin, Utgard, AbsoLab)
+gets classic level-scaled mesos, 3 potions, 5 ores, its own ETC where it has a use, 4 scrolls, 2 mastery books,
+5 classic equips, 2 on-par post-Big-Bang pieces and 1 rare outclassing piece.
 
-325 of these mobs get a new max HP on a classic curve for their level. Arcane River comes down 59-446x (median
-261x) and Grandis and Future about 25x. Cygnus and Magnus come down to Zakum and Pink Bean scale. The 246 Monster
-Book card rows are untouched. The 24 mobs with 0 EXP get nothing. With the same damage output as a classic Temple of
-Time grinder, these maps now pay 4-13M mesos an hour (classic spot: 9.15M). The new risk is EXP: these mobs keep
-their post-Big-Bang EXP on classic HP, so EXP per hour is 2-70x a classic spot.
+HP and EXP:
+- 325 of these mobs get classic-curve HP.
+- 326 normal mobs get new EXP: EXP per hour is about 2x the classic Temple of Time spot at lv 131 and grows with
+  level (lv 120 = 32M an hour, lv 150 = 64M, lv 200 = 156M).
+- 39 classic mobs (Leafre/Minar, Temple of Time, Lion King's Castle, Rose Garden, Ulu City) get EXP x1.4.
+
+Access:
+- The Future and 187 lower Grandis maps (lv 109-142) open at level 120.
+- Upper Grandis and Arcane River stay rebirth 3.
+
+For the same character (the damage it takes to kill 1,000 Chief Oblivion Guardians an hour):
+- the classic spots pay 20-28M EXP an hour (was 14-20M);
+- lower Grandis pays 34M;
+- the Future pays 100M;
+- upper Grandis and Arcane pay 156M.
+
+## The 120+ training ladder
+
+Model:
+- The same character everywhere: 141M damage an hour, the damage it takes to kill 1,000 Chief Oblivion Guardians an
+  hour.
+- Maps capped at 1,500 kills an hour.
+- World rates applied (EXP 3x, mesos 10x).
+- Per area, the median over its training maps, each map averaged over its mob placements.
+
+A stronger character earns more everywhere; the model is for comparing areas.
+
+| Area | Mob levels | EXP/hour before -> after | Mesos/hour before -> after | Gate | Maps |
+|---|---|---|---|---|---|
+| Ulu City (Singapore) | 95-115 | 19.9M -> 27.9M | 10.9M | none | 6 |
+| Leafre / Minar Forest | 93-113 | 14.2M -> 19.8M | 13.6M | none | 22 |
+| Temple of Time, Road of Regrets | 106-116 | 17.6M -> 24.3M | 11.6M | none | 5 |
+| Temple of Time, Road to Oblivion | 121-131 | 18.7M -> 25.9M | 9.2M | none | 5 |
+| Lion King's Castle | 117-127 | 10.1M -> 14.1M | 0 (card-only mobs) | none on foot; Hyper Rock needs rebirth 1 | 13 |
+| Rose Garden | 128-134 | 2.8M -> 4.0M | 0 (no drop table) | none | 6 |
+| **Lower Grandis** (Pantheon, Sanctuary, Refuge, Fox Ridge, Cheong-woon, Ristonia, Toolen) | 109-142 | 2.1M -> **34.0M** | 0.6M -> 13.7M | **level 120** (or rebirth 3) | 110 |
+| **Future / Twilight Perion** | 124-198 (plus a few low event mobs) | 2.0M -> **99.8M** | 0.3M -> 6.0M | **level 120** (or rebirth 2) | 60 |
+| Upper Grandis (Heliseum, Savage Terminal back streets, Fox Tree, Cernium) | 175-200 | 2.1M -> 153.4M | 0.2M -> 4.7M | rebirth 3 | 113 |
+| Arcane River | 200 | 1.3M -> 155.8M | 0 -> 4.4M | rebirth 3 | 272 |
+
+The "before" column for the new areas is with today's HP and EXP. The ToT rows include its 7 Eyes of Time (lv 80)
+per map.
+
+Reading it:
+- A lv 120 friend can go to lower Grandis (34M an hour, about 1.4x the buffed Temple of Time).
+- From about lv 160 the Future pays 100M.
+- With 3 rebirths, upper Grandis and Arcane pay 156M.
+
+Hours per level at the curve's target:
+
+| Level | Hours |
+|---|---|
+| 120 | 0.7 |
+| 130 | 1.0 |
+| 140 | 1.3 |
+| 150 | 1.8 |
+| 160 | 2.6 |
+| 170 | 3.6 |
+| 180 | 5.2 |
+| 190 | 7.5 |
+| 199 | 10.5 |
+
+Mesos are lower than classic per hour in the lv 160+ areas: their mesos per kill are by level, as you chose, and
+their kill rate is lower.
 
 ## Totals
 
-| Region | Target mobs | Tables | Normal / elite / boss / low | 0 EXP (nothing) | Drop rows | HP rows | Mesos per kill, in game (normal) |
-|---|---|---|---|---|---|---|---|
-| Arcane River 450-459 | 160 | 146 | 145 / 0 / 1 / 0 | 14 | 3,511 | 145 | 10,240-24,000 |
-| Grandis 400-419 | 145 | 140 | 135 / 1 / 2 / 2 | 5 | 3,103 | 138 | 6,980-23,880 |
-| Future / Twilight Perion 271-273 | 54 | 49 | 46 / 0 / 0 / 3 | 5 | 1,085 | 42 | 7,940-20,690 |
-| **Total** | **359** | **335** | 326 / 1 / 3 / 5 | **24** | **7,699** | **325** | |
-| Mirror World 321-328 (left out) | 178 | 0 | `--regions all` adds 176 tables | 2 | 0 | 0 | |
+| Region | Target mobs | Tables | Normal / elite / boss / low | 0 EXP (nothing) | Drop rows | HP rows | EXP rows | Mesos per kill, in game (normal) |
+|---|---|---|---|---|---|---|---|---|
+| Arcane River 450-459 | 160 | 146 | 145 / 0 / 1 / 0 | 14 | 3,511 | 145 | 145 | 10,240-24,000 |
+| Grandis 400-419 | 145 | 140 | 135 / 1 / 2 / 2 | 5 | 3,103 | 138 | 135 | 6,980-23,880 |
+| Future / Twilight Perion 271-273 | 54 | 49 | 46 / 0 / 0 / 3 | 5 | 1,085 | 42 | 46 | 7,940-20,690 |
+| **Total** | **359** | **335** | 326 / 1 / 3 / 5 | **24** | **7,699** | **325** | **326** | |
+| Classic 120+ spots | | | | | 0 | 0 | 39 (x1.4) | unchanged |
+| Mirror World 321-328 (left out) | 178 | 0 | `--regions all` adds 176 tables | 2 | 0 | 0 | 0 | |
 
 Of the 335, 246 keep their card row and 89 had no rows at all (today they drop nothing, not even global drops).
 
@@ -72,54 +130,107 @@ hard-coded boss HP.
 | Magnus (lv 190) | 200,000,000,000 (hard-coded in LifeFactory) | 2,100,000,000 (Pink Bean) |
 | Singularity Maker (lv 200) | 2,147,483,647 | unchanged (already Pink Bean scale) |
 
-### How it is done, and what the client sees
+## EXP: before and after (round 3)
 
-- **Server.** LifeFactory reads Mob.wz `info/maxHP`, halves it for non-boss lv 160+ mobs over 30M, and hard-codes some
-  bosses. There was no data override. The new `server.life.MobHpOverrides` reads
-  `src/main/resources/soloMapling/mob-hp-overrides.tsv` (mob id, HP, comment). The file ships inside the jar, so
-  deploys need no extra data file. LifeFactory applies it last, after its own HP. The WZ files are not patched and
-  nothing else changes (EXP, level, attack, defence). `-Dslums.mobHpOverrides=false` turns it off. 325 rows.
-- **Client: no change needed for play.**
-  - A normal mob's HP bar is the percentage the server sends (`Monster.broadcastMobHpBar`, SHOW_MONSTER_HP).
-  - A boss bar is the server's current and max HP (`showBossHP`).
-  - Kills are the server's. Damage numbers are worked out from the player's own stats.
-- **Client: the Monster Book still shows the old HP.** The book (monsterbook.json baked into Custom.wz) prints
-  Mob.wz `maxHP` unless the entry has a `defaultHp` string. `tools/monsterbook/build_book.py` now takes
-  `--hp-overrides <tsv>` and writes the new HP as `defaultHp` (checked: Sun Spirit prints 507000). It only shows in
-  game after a Custom.wz rebuild and a client release. Not tested in a real client.
+How EXP per kill is set (normal mobs only; elite and boss EXP unchanged):
+- The target is 2 x 21.18M x classicEXP(level) / classicEXP(131) EXP an hour.
+- EXP per kill = target / (3 x kills per hour at the new HP).
+- It is never below the classic EXP curve for that level (0.00107394 x level^3.08225).
 
-## Mesos and EXP per hour
-
-Assumption: the same character as at a classic spot. Reference: **Chief Oblivion Guardian** (Temple of Time,
-lv 131, 141,000 HP), 1,000 kills an hour = 141M damage an hour. That pays **9.15M mesos and 21.2M EXP an hour**.
-Below, the same 141M damage an hour on each mob, capped at 1,500 kills an hour for spawns.
-
-| Mob (region, level) | HP before -> after | Mesos per kill | Kills/hour before -> after | Mesos/hour before -> after | EXP/hour after (classic 21.2M) |
+| Region | Normal mobs | EXP per kill before (min / median / max) | After | EXP/hour before (median) | After (min / median / max) |
 |---|---|---|---|---|---|
-| Happy Erda (Arcane, 200) | 22.3M -> 380k | 12,800 | 6.3 -> 371 | 81k -> 4.75M | 110M |
-| Sun Spirit (Arcane, 200, median) | 132M -> 507k | 16,000 | 1.1 -> 278 | 17k -> 4.45M | 335M |
-| Embrion (Arcane, 200, toughest) | 339M -> 760k | 20,000 | 0.4 -> 186 | 8k -> 3.71M | 401M |
-| Green Grossular (Grandis, 109) | 2.18M -> 63k | 8,720 | 65 -> 1,500 | 0.56M -> 13.1M | 49M |
-| Specter Stray Dog (Grandis, 130, median) | 2.6M -> 116k | 10,400 | 54 -> 1,216 | 0.56M -> 12.6M | 47M |
-| Ebonstar Magician (Grandis, 200) | 1.07B -> 507k | 16,470 | 0.1 -> 278 | 2k -> 4.58M | 1,525M |
-| Official Knight D (Future, 174, median) | 5.70M -> 236k | 11,135 | 25 -> 597 | 0.28M -> 6.65M | 42M |
-| Ancient Mixed Golem (Future, 198) | 14.0M -> 490k | 15,840 | 10 -> 288 | 0.16M -> 4.56M | 56M |
-| Corrupted Wyvern (Twilight Perion, 124) | 113k (unchanged) | 9,920 | 1,248 | 12.4M | 7.7M |
+| Arcane River | 145 | 98,708 / 401,055 / 721,247 | 140,000 / 187,000 / 280,000 | 1.3M | 156M / 156M / 157M |
+| Grandis | 135 | 10,900 / 13,000 / 1,828,409 | 5,340 / 11,300 / 254,000 | 2.1M | 24M / 41M / 156M |
+| Future / Twilight Perion | 46 | 2,051 / 25,550 / 74,577 | 9,550 / 83,800 / 175,000 | 2.0M | 36M / 102M / 151M |
 
-Reading it:
-- **Mesos** now sit at about half a classic spot in Arcane for a classic-strength character. A level-200 character
-  hits harder, so it will be higher.
-- **Grandis lv 109-130** pays about what a classic spot of the same level pays.
-- **EXP** is the side effect. Keeping post-Big-Bang EXP on classic HP gives 2-70x the classic EXP per hour (Ebonstar
-  Magician: 1.8M EXP a kill at 507k HP). See open question 1.
+| Mob (region, level) | HP before -> after | EXP per kill before -> after | Kills/hour after | EXP/hour before -> after | Mesos/hour after |
+|---|---|---|---|---|---|
+| Happy Erda (Arcane, 200) | 22.3M -> 380k | 98,708 -> 140,000 | 371 | 1.9M -> 156M | 4.75M |
+| Sun Spirit (Arcane, 200, median) | 132M -> 507k | 401,055 -> 187,000 | 278 | 1.3M -> 156M | 4.45M |
+| Embrion (Arcane, 200, toughest) | 339M -> 760k | 721,247 -> 280,000 | 186 | 0.9M -> 156M | 3.71M |
+| Green Grossular (Grandis, 109) | 2.18M -> 63k | 10,900 -> 5,340 | 1,500 | 2.1M -> 24M | 13.1M |
+| Specter Stray Dog (Grandis, 130, median) | 2.6M -> 116k | 13,000 -> 11,300 | 1,216 | 2.1M -> 41M | 12.6M |
+| Ebonstar Magician (Grandis, 200) | 1.07B -> 507k | 1,828,409 -> 187,000 | 278 | 0.7M -> 156M | 4.58M |
+| Corrupted Wyvern (Twilight Perion, 124) | 113k (unchanged) | 2,051 -> 9,550 | 1,248 | 7.7M -> 36M | 12.4M |
+| Official Knight D (Future, 174, median) | 5.70M -> 236k | 23,495 -> 56,700 | 597 | 1.7M -> 102M | 6.65M |
+| Ancient Mixed Golem (Future, 198) | 14.0M -> 490k | 64,640 -> 175,000 | 288 | 2.0M -> 151M | 4.56M |
 
-Items add about 0.5 drops a kill on top (median), mostly potions and ores. The 38 mobs with their own ETC drop up to 2.3
-items a kill.
+Classic spots, EXP x1.4 (39 mobs, `stats.csv`):
+- Temple of Time Memory Guardian to Chief Oblivion Guardian (lv 98-131, 10 mobs).
+- Leafre and Minar Wyverns, Cornians, Rexton/Brexton, Newties, Skelegons, Skelosaurus, Nest Golem (lv 95-113,
+  11 mobs).
+- Lion King's Castle mobs (lv 117-127, 8).
+- Rose Garden (lv 128-134, 6).
+- Ulu City (lv 95-115, 4).
+
+Chief Oblivion Guardian goes 7,060 -> 9,884, so the reference spot itself now pays 29.7M an hour. The new areas'
+targets are still set from the old 21.2M, and they stay above it: lower Grandis 34M at lv 120-140.
+
+The server has no per-map spawn override (only an integer multiplier nothing sets), so density is not changed. The
+Lion King's Castle and Rose Garden mobs have very high HP for their level (250k-4M), no meso drops (LKC: card only;
+Rose Garden: nothing). They stay weak spots even after the buff; see the open questions.
+
+## Area gates (round 3)
+
+| Area | Before | Now |
+|---|---|---|
+| Future / Twilight Perion 271000000-273999999 | rebirth 2 (Hyper Rock, Gate of Time); rebirth 3 (Henesys teleporter) | **level 120**, or rebirth 2 |
+| Lower Grandis (187 maps below) | rebirth 3 | **level 120**, or rebirth 3 |
+| Upper Grandis and Arcane River | rebirth 3 | rebirth 3 (unchanged) |
+
+- **The rule** lives in `server.maps.AreaGates`.
+- **Where it is checked:**
+  - the Hyper Rock (`HyperTPHandler`);
+  - the Henesys teleporter, per destination now instead of per section (`scripts/npc/9010002.js:31`);
+  - the Temple of Time's Gate of Time (`scripts/portal/270000000.10.js`, was rebirth 2 only);
+  - **every unscripted portal** (`GenericPortal`). There was no server-side map-entry check before. This is what
+    stops a level-120 player walking from lower into upper Grandis. The 4 boundary portals are all unscripted:
+    - Transitional Dimensional Door -> Heliseum HQ
+    - Mountain of Trash -> Seedy Scrapyard (lv 175)
+    - Nutria Gutter 2 -> Sketchy Back-Alley (lv 178)
+    - Brawl 'n' Bash Club Entrance -> Dingy Brawl 'n' Bash Club (lv 181)
+- **Unchanged:** the Arcane River portal (`arcaneriver.js`, rebirth 3) and the boss-entry portals.
+- **GMs** pass every gate.
+- **Bots** keep their rebirth-only rule (`BotMapGates`), so for now bots do not train in the newly opened maps. A
+  follow-up can give them the level rule.
+- **Lower Grandis map ids** (generated from Map.wz by `tools/economy/gen_area_gates.py`, 187 maps):
+  400000000-400000001, 400010000, 400010100, 400010300, 400010400, 400020000, 400020100, 400020200, 400020300,
+  400030100, 400030300, 400030400, 400030500, 400040000, 400040100, 400040200, 400040300, 401000002,
+  402000000-402000003, 402000100, 402000110-402000112, 402000120-402000123, 402000200, 402000210,
+  402000220-402000221, 402000300-402000302, 402000310-402000311, 402000320-402000323, 402000400-402000402,
+  402000500-402000530, 402000600, 402000610-402000618, 402000620-402000622, 402000630-402000635,
+  402000640-402000648, 410000000-410000002, 410000010-410000012, 410000020-410000022, 410000030-410000031,
+  410000040-410000041, 410000050-410000051, 410000200-410000201, 410000210-410000213, 410000220-410000222,
+  410000230, 410000240-410000244, 410000250-410000251, 410000300, 410000310-410000314, 410000320-410000325,
+  410000330-410000333, 410000340-410000345, 410000350-410000352, 410000355-410000357, 410000401-410000412,
+  410000415-410000423.
+- **How the list is built:** lower = maps whose strongest mob is lv 142 or less (Grandis has no mobs between 143 and
+  174), plus towns and interiors that do not sit only next to upper maps. The Heretic Temple (400030600-603) has no
+  plain portal from the lower maps, so it stays rebirth 3.
+
+### What the client sees (stats and gates)
+
+- **Server.** `server.life.MobStatOverrides` reads `src/main/resources/soloMapling/mob-stat-overrides.tsv` (mob id,
+  HP or `-`, EXP or `-`, comment; 368 rows). It ships inside the jar. LifeFactory applies it last. The WZ files are
+  not patched. `-Dslums.mobStatOverrides=false` turns it off.
+- **Client: no change needed for play.**
+  - A normal mob's HP bar is the percentage the server sends (SHOW_MONSTER_HP).
+  - A boss bar is the server's HP (`showBossHP`).
+  - EXP and kills are the server's.
+  - A refused portal shows a message and the player stays put.
+- **Client: the Monster Book still shows the old HP.** `tools/monsterbook/build_book.py --hp-overrides <tsv>`
+  writes the new HP into the book. It only shows after a Custom.wz rebuild and client release.
+- **Not tested in a real client.** In particular, the portal refusal has not been seen in game; it should get a TEST
+  check with a level-119 and a level-120 character.
+
+Items add about 0.5 drops a kill on top (median), mostly potions and ores. The 38 mobs with their own ETC drop up to
+2.3 items a kill.
 
 ## Sample tables
 
 Chances are drop_data values (out of 1,000,000). The percentage is the in-game chance after the 4x drop rate (3x for
-bosses). Every mob also keeps the global drops.
+bosses). Every mob also keeps the global drops. The EXP in each header is the Mob.wz value; the new EXP is in
+`stats.csv` and the tables above.
 
 ### Arcane River
 **Happy Erda** (8641000, lv 200, HP 22,320,000 -> 380,000, EXP 98,708, normal, card row kept: yes)
@@ -292,36 +403,51 @@ Boss:
 
 ## Open questions for you
 
-1. **EXP with the new HP.** You asked to keep EXP. With classic HP, Arcane gives 5-19x and the worst Grandis lv 200
-   mobs about 70x the classic EXP per hour, for a 3-rebirth character climbing back up. Options: keep it (rebirth-3
-   reward), or scale EXP down with HP (for example to 3x classic EXP per HP), which is the same override mechanism
-   for EXP.
-2. **The 0-EXP copies.** Ascendion, Foreberion and Embrion (8645040-42) fill 450012301-303 with 7,441 placements.
-   They have 0 EXP in Mob.wz, so they give nothing, and they keep their 655-678M WZ HP (no HP row, no drop table).
-   Only Embrion has an EXP-giving twin placed (8645022, in this draft). Also left alone at 0 EXP: the Erda variants and
-   Arma's Follower on 450001400/450001500, the Cygnus and Resistance soldiers, Belle, Brighton, Corrupt Spirit of
-   Harmony, ??? (8642091), the Cygnus Knights (Grandis 400000003) and Ariel, Solomon, Rex, Hugin, Munin (270050100).
-   Give them EXP, HP and tables, despawn them, or leave them as scenery?
-3. **Outclassing gear rates**: 60 (0.024%) for Jaihin/Utgard/Pensalir and 15 for AbsoLab. Keep, lower, or keep
-   AbsoLab boss-only?
-4. **Bosses**: are Cygnus (400000003), Magnus (401060101) and the Singularity Maker (450014250) meant to be
-   farmable? Cygnus at 110M HP and Magnus at 2.1B with Zakum-sized tables.
-5. **Monster Book HP**: rebuild Custom.wz with `build_book.py --hp-overrides` in the next client release, or leave
-   the old HP showing?
-6. **Release**: 050 is a placeholder and not in `docs/release/1.6.1.conf`. The HP table goes live with the jar, so
-   when you say go, the jar and the migration should ship together (the HP table without the drops makes these
-   mobs easy kills that drop little).
+1. **The 0-EXP copies.** Ascendion, Foreberion and Embrion (8645040-42) fill 450012301-303 with 7,441 placements.
+   They have 0 EXP in Mob.wz, so they give nothing, and they keep their 655-678M WZ HP (no stat row, no drop
+   table). Only Embrion has an EXP-giving twin placed (8645022, in this draft). Also left alone at 0 EXP: the Erda
+   variants and Arma's Follower on 450001400/450001500, the Cygnus and Resistance soldiers, Belle, Brighton,
+   Corrupt Spirit of Harmony, ??? (8642091), the Cygnus Knights (Grandis 400000003) and Ariel, Solomon, Rex, Hugin,
+   Munin (270050100). Give them EXP, HP and tables, despawn them, or leave them as scenery?
+2. **Lion King's Castle and Rose Garden** have very high HP for their level and no meso drops (card only, or
+   nothing). Even with EXP x1.4 they pay 4-14M EXP an hour and no mesos. Put them through the same HP curve and
+   drop-table generator in a later round?
+3. **Bots and the new gates.** Bots still need rebirths for the Future and Grandis (BotMapGates). Give them the
+   level-120 rule too, so lv 120+ bots train there?
+4. **Spawn density** has no per-map override on the server. If the classic spots should be busier rather than
+   richer, that needs a small code change (a per-map spawn multiplier table).
+5. **Outclassing gear rates**: 60 (0.024%) for Jaihin/Utgard/Pensalir and 15 for AbsoLab. With the new EXP these
+   maps will be busier, so a lv 130 Grandis grinder finds one about every 3-4 hours. Keep, lower, or keep AbsoLab
+   boss-only?
+6. **Bosses**: are Cygnus (400000003), Magnus (401060101) and the Singularity Maker (450014250) meant to be
+   farmable? Cygnus is at 110M HP and Magnus at 2.1B, with Zakum-sized tables.
+7. **Monster Book HP**: rebuild Custom.wz with `build_book.py --hp-overrides` in the next client release?
+8. **Release (you want it in 1.6.1 after a TEST pass).** The jar (stat table, gates, scripts) and migration 050
+   must ship together: the stat table without the drops makes these mobs easy kills that drop little. When you say
+   go:
+   - give 050 its real number and add it to `docs/release/1.6.1.conf`;
+   - deploy to TEST;
+   - QA: a level-119 and a level-120 character at the teleporter, the Gate of Time, the Hyper Rock and the four
+     boundary portals; EXP and HP on a lower Grandis mob and an Arcane mob; drops on both;
+   - write the notes.
 
 ## What was run
 
-- `tools/economy/bb_inventory.py` and `gen_bb_drops.py` against the server WZ (`/root/work/bake/wz`) and a SELECT
-  export of TEST `drop_data` (2026-10-28). Regenerating gives byte-identical files.
+- `tools/economy/bb_inventory.py`, `gen_bb_drops.py` and `gen_area_gates.py` against the server WZ
+  (`/root/work/bake/wz`) and a SELECT export of TEST `drop_data` (2026-10-28). Regenerating gives byte-identical
+  files.
 - `BbDropTablesDataTest`: every item exists in Item.wz or Character.wz, has a name, and is not cash, quest,
   untradeable, account-bound or one-of-a-kind; every ETC item has a use in `scripts/` or an NPC price; no card
   items; every mob is in Mob.wz; one meso row per mob; no Mirror World mob.
-- `BbDropTablesMigrationIT` on a throwaway MySQL 8.4 container: apply twice, roll back twice, apply again. Card rows,
-  an older row and an unrelated mob are unchanged.
-- `MobHpOverridesTest`: LifeFactory gives Sun Spirit its table HP (507,000 instead of 132,308,000) with EXP and level
-  kept; a mob with no row keeps its WZ HP; the table matches `hp.csv`; bad rows are refused.
+- `BbDropTablesMigrationIT` on throwaway MySQL 8.0 and 8.4 containers: apply twice, roll back twice, apply again.
+  Card rows, an older row and an unrelated mob are unchanged.
+- `MobStatOverridesTest`: LifeFactory gives Sun Spirit its table HP and EXP (instead of 132,308,000 HP and 401,055
+  EXP) and Skelegon EXP x1.4 with its HP kept; a mob with no row keeps its WZ values; the table matches
+  `stats.csv`; bad rows are refused.
+- `AreaGatesTest` and `HyperTPRefusalTest`:
+  - level 120 opens the Future and lower Grandis;
+  - upper Grandis, the Scrapyard, the Fox Tree Top and Arcane still need 3 rebirths;
+  - the Hyper Rock agrees;
+  - the teleporter and the Gate of Time ask AreaGates.
 - The full suite, `mvn -q -o test`.
 - Not tested on TEST or in a real client.

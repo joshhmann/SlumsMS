@@ -175,6 +175,11 @@ public class GenericPortal implements Portal {
     }
 
     private boolean attemptTeleportForUnscriptedPortal(Client c, Character chr, boolean changed) {
+        String gate = AreaGates.denyReason(chr, getTargetMapId()); // ticket 81 round 3: level / rebirth areas
+        if (gate != null) {
+            chr.dropMessage(5, gate);
+            return changed;
+        }
         if (!(chr.getChalkboard() != null && GameConstants.isFreeMarketRoom(getTargetMapId()))) {
             MapleMap to = chr.getEventInstance() == null ? c.getChannelServer().getMapFactory().getMap(getTargetMapId()) : chr.getEventInstance().getMapInstance(getTargetMapId());
             Portal pto = to.getPortal(getTarget());

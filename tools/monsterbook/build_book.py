@@ -136,7 +136,7 @@ def book_hp(own):
 
 
 def read_hp_overrides(path):
-    """mob id -> max HP from the server's override table (comment lines start with #)."""
+    """mob id -> max HP from the server's stat override table (comment lines start with #)."""
     out = {}
     if not path:
         return out
@@ -144,7 +144,8 @@ def read_hp_overrides(path):
         for line in fh:
             if line.strip() and not line.startswith("#"):
                 f = line.rstrip("\n").split("\t")
-                out[int(f[0])] = int(f[1])
+                if f[1].strip() != "-":   # '-' keeps the mob's own HP (an EXP-only row)
+                    out[int(f[0])] = int(f[1])
     return out
 
 
@@ -240,8 +241,8 @@ def main(argv=None):
     src.add_argument("--drops-tsv", help="TSV of dropperid, itemid, chance")
     src.add_argument("--mysql", help="mysql client arguments ending with the database name")
     ap.add_argument("-o", "--out", default="monsterbook.json")
-    ap.add_argument("--hp-overrides", help="server max HP overrides (src/main/resources/soloMapling/"
-                    "mob-hp-overrides.tsv, ticket 81): the book prints these instead of Mob.wz maxHP")
+    ap.add_argument("--hp-overrides", help="server stat overrides (src/main/resources/soloMapling/"
+                    "mob-stat-overrides.tsv, ticket 81): the book prints their HP instead of Mob.wz maxHP")
     args = ap.parse_args(argv)
 
     drops, rows = read_drops(args)

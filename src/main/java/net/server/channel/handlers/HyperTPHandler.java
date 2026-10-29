@@ -50,7 +50,8 @@ public class HyperTPHandler extends AbstractPacketHandler {
                 }
 
                 String refusal = refusal(player.getMapId(), player.getEventInstance() != null, player.isAlive(),
-                        map_id, target.getFieldLimit(), target.getForcedReturnId(), player.getReborns());
+                        map_id, target.getFieldLimit(), target.getForcedReturnId(), player.getReborns(),
+                        player.getLevel());
                 if (refusal != null) {
                     player.dropMessage(1, refusal);
                     return;
@@ -78,6 +79,11 @@ public class HyperTPHandler extends AbstractPacketHandler {
      */
     static String refusal(int fromMapId, boolean inEvent, boolean alive, int toMapId, int toFieldLimit,
                           int toForcedReturn, int reborns) {
+        return refusal(fromMapId, inEvent, alive, toMapId, toFieldLimit, toForcedReturn, reborns, 0);
+    }
+
+    static String refusal(int fromMapId, boolean inEvent, boolean alive, int toMapId, int toFieldLimit,
+                          int toForcedReturn, int reborns, int level) {
         if (!alive) {
             return "You can't teleport while dead.";
         }
@@ -93,11 +99,11 @@ public class HyperTPHandler extends AbstractPacketHandler {
         if (reborns < 1 && isLionKingMap(toMapId)) {
             return "You need to be Rebirth level 1 or higher.";
         }
-        if (reborns < 2 && isTwilightPerion(toMapId)) {
-            return "You need to be Rebirth level 2 or higher.";
-        }
-        if (reborns < 3 && isGrandisandArcane(toMapId)) {
-            return "You need to be Rebirth level 3 or higher.";
+        // ticket 81 round 3: the Future and lower Grandis open at level 120; the rest of Grandis and Arcane stay
+        // rebirth 3 (server.maps.AreaGates)
+        String gate = server.maps.AreaGates.denyReason(toMapId, level, reborns);
+        if (gate != null) {
+            return gate;
         }
         if (FieldLimit.CANNOTVIPROCK.check(toFieldLimit)
                 || (toForcedReturn != MapId.NONE && toForcedReturn != toMapId)) {
