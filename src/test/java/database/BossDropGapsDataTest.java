@@ -17,17 +17,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Owner 2026-10-29: migration 055 gives drop tables to the boss-fight mobs 050 missed because they sit outside its
- * regions, by 050's rules: one BOSS table per clear on the form that dies (Cygnus 8850012), ELITE tables for the other
- * fighting forms (her knights 8850006-8850009, Castellan 9400408 and Castellan Toad 9400409), the Arcane Lantern Erda
- * 8641008 as a normal mob; the phase/form stubs stay dropless. The checks 050's rows pass (BbDropTablesDataTest) hold.
+ * regions, by 050's rules: one BOSS table per clear on the form that dies (Cygnus 8850012), ELITE tables for the guards
+ * the Cygnus fight really spawns (8850000-8850004) and for Castellan Toad 9400409 (the one Castellan table), the Arcane
+ * Lantern Erda 8641008 as a normal mob; the phase/form stubs, 8850006-8850009 and Castellan 9400408 get nothing. The checks 050's rows pass (BbDropTablesDataTest) hold.
  */
 class BossDropGapsDataTest {
 
     static final Path SQL = Path.of("database/migrations/055-boss-drop-gaps.sql");
     static final Path ROLLBACK = Path.of("database/migrations/055-boss-drop-gaps.rollback.sql");
-    static final Set<Integer> KNIGHTS = Set.of(8850006, 8850007, 8850008, 8850009);
+    /** Cygnus' guards the fight really spawns (Mihile, Oz, Irena, Eckhart, Hawkeye). */
+    static final Set<Integer> KNIGHTS = Set.of(8850000, 8850001, 8850002, 8850003, 8850004);
+    /** Owner's third pass: the never-spawned knight ids and Castellan (the Toad holds the one table) get nothing. */
+    static final List<Integer> NO_TABLE = List.of(8850006, 8850007, 8850008, 8850009, 9400408);
     static final int CYGNUS = 8850012;
-    static final int CASTELLAN = 9400408;
     static final int TOAD = 9400409;
     static final int LANTERN_ERDA = 8641008;
     static final List<Integer> STUBS = List.of(8850005, 8850011, 8880150, 8880302, 8880415, 8645009, 8641009);
@@ -40,7 +42,10 @@ class BossDropGapsDataTest {
     void exactlyTheSixMobsGetTablesAndTheStubsNone() throws Exception {
         List<BbDropTablesDataTest.Row> rows = rows();
         Set<Integer> mobs = rows.stream().map(BbDropTablesDataTest.Row::mob).collect(Collectors.toCollection(TreeSet::new));
-        assertEquals(new TreeSet<>(List.of(8641008, 8850006, 8850007, 8850008, 8850009, 8850012, 9400408, 9400409)), mobs);
+        assertEquals(new TreeSet<>(List.of(8641008, 8850000, 8850001, 8850002, 8850003, 8850004, 8850012, 9400409)), mobs);
+        for (int none : NO_TABLE) {
+            assertFalse(mobs.contains(none), none + " gets no table");
+        }
         for (int stub : STUBS) {
             assertFalse(mobs.contains(stub), "stub " + stub + " stays dropless");
         }
@@ -65,7 +70,7 @@ class BossDropGapsDataTest {
         assertEquals(30, cygnus.size());
         for (int knight : KNIGHTS) {
             List<BbDropTablesDataTest.Row> t = byMob.get(knight);
-            // an elite: 4x a classic lv 188 meso midpoint at the normal 400000, no boss-tier rows (no 999999 potions,
+            // a guard is an elite: 4x a classic lv 188 meso midpoint at the normal 400000, no boss-tier rows (no 999999 potions,
             // no 22500 equips), the rare piece at twice the normal 60 (or 15)
             assertTrue(t.stream().anyMatch(r -> r.item() == 0 && r.chance() == 400000 && r.min() == 4813), "elite mesos " + knight);
             assertTrue(t.stream().noneMatch(r -> r.chance() == 999999 || (r.item() / 1000000 == 1 && r.chance() >= 22500)),
@@ -75,9 +80,9 @@ class BossDropGapsDataTest {
             assertEquals(32, t.size(), "elite table size for " + knight);
         }
         // Castellan: boss flag but under 1B HP, so an elite; Ninja Castle is classic, so no post-Big-Bang gear
-        // Castellan Toad (the form that dies, the kill CastellanBattle counts) and Castellan, which also dies with drops
-        // before it revives as the Toad: elite, classic pool only
-        for (int mob : List.of(CASTELLAN, TOAD)) {
+        // one table per Castellan clear, on Castellan Toad (the form that dies, the kill CastellanBattle counts): elite,
+        // classic pool only
+        for (int mob : List.of(TOAD)) {
             List<BbDropTablesDataTest.Row> t = byMob.get(mob);
             assertTrue(t.stream().anyMatch(r -> r.item() == 0 && r.chance() == 400000 && r.min() == 4608),
                     "elite mesos: 4x the classic lv 180 midpoint, " + mob);
