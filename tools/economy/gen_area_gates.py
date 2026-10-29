@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lower Grandis: the Grandis maps a level-120 character may enter without 3 rebirths (ticket 81 round 3, owner
+"""Lower Grandis: the Grandis maps a level-120 character may enter without rebirths (ticket 81 round 3, owner
 2026-10-28). Deterministic, from Map.wz alone:
 
   - start from the lower-band towns (SEEDS);
@@ -33,7 +33,9 @@ from gen_bb_drops import info_text  # noqa: E402  (the info node without its ski
 SEEDS = [400000000, 402000000, 402000500, 402000600, 410000000, 410000200, 410000300, 410000416]
 LOWER_MAX = 142
 # player notes (1.6.1, "Training after 120"): "The deeper parts of Grandis (Heliseum, the Fox Tree, Cernium and the
-# rougher back streets of Savage Terminal) and Arcane River still need 3 rebirths."
+# rougher back streets of Savage Terminal) and Arcane River still need 3 rebirths." Owner 2026-10-29: the maps this list
+# leaves out (deeper Grandis) open at the 1st rebirth and Arcane River at the 2nd (server.maps.AreaGates); the split is
+# unchanged.
 DEEPER_NAMES = ("heliseum", "fox tree", "cernium")
 DEEPER_IDS = {402000400, 402000401, 402000402}   # Back Alley, Desolate Black Market, Desolate Scrapyard
 OUT = Path("src/main/resources/soloMapling/lower-grandis-maps.txt")

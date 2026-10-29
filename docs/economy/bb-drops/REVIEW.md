@@ -16,6 +16,13 @@ The drop tables and rare gear are as in round 2, and Mirror World stays out. **N
 
 Player notes text: `PLAYER-NOTES.md`.
 
+## Rebirth gates (owner 2026-10-29, branch 161-gates)
+
+Deeper Grandis (every Grandis map outside `lower-grandis-maps.txt`: Heliseum, Tyrant's Castle, the Fox Tree, Cernium,
+the rougher back streets of Savage Terminal) now opens at the 1st rebirth and Arcane River at the 2nd, at any level
+(both were 3). Lower Grandis (level 120 or 3 rebirths) and the Future (level 120 or 2 rebirths) are unchanged. The
+tables and maps below that say "rebirth 3" for these areas describe the earlier rule.
+
 ## Migration 055: boss drop gaps (owner 2026-10-29, branch 161-bossdrops)
 
 050 only looked at mobs placed on maps in its regions, so the boss-fight mobs got no table. 055 adds 242 rows by the

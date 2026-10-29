@@ -1963,10 +1963,12 @@ final class Probes160 {
 
     /** t-ld-1: maps a level-120 character may enter without rebirths (two Future, two lower Grandis). */
     static final int[] LADDER_OPEN = {271010000, 273000000, 400000000, 410000010};
-    /** t-ld-1: maps that stay rebirth 3 whatever the level (Heliseum HQ, Arcane River). */
-    static final int[] LADDER_CLOSED = {401000000, 450001000};
+    /** t-ld-1 (owner 2026-10-29): deeper Grandis maps, open at the 1st rebirth at any level (Heliseum HQ, Tyrant's Castle). */
+    static final int[] LADDER_CLOSED = {401000000, 401060000};
+    /** t-ld-1 (owner 2026-10-29): Arcane River maps, open at the 2nd rebirth at any level. */
+    static final int[] LADDER_ARCANE = {450001000, 450001003};
     /**
-     * t-ld-1 (1.6.1 b039): the deeper Grandis maps the notes keep at 3 rebirths that the first list opened: the Fox
+     * t-ld-1 (1.6.1 b039): the deeper Grandis maps (1 rebirth since 2026-10-29) that the first list opened: the Fox
      * Tree, the Heliseum Hideout, Heliseum's Transitional Dimensional Door and Savage Terminal's hidden back streets.
      */
     static final int[] LADDER_DEEPER = {410000002, 400020300, 401000002, 402000400, 402000401, 402000402};
@@ -1986,8 +1988,9 @@ final class Probes160 {
 
     /**
      * t-ld-1: a level-119 character (no rebirths) is refused at the Future and lower Grandis and a level-120 one is let
-     * in, by the players' rule (AreaGates: Hyper Rock, teleporter, portals) and the bots' (BotMapGates); upper Grandis,
-     * the deeper Grandis maps (Fox Tree, Heliseum, the back streets) and Arcane stay closed at level 200; Lion King's
+     * in, by the players' rule (AreaGates: Hyper Rock, teleporter, portals) and the bots' (BotMapGates); deeper Grandis
+     * (Heliseum, Tyrant's Castle, the Fox Tree, the back streets) is closed below the 1st rebirth and open at it, and
+     * Arcane River the same at the 2nd, at any level; Lion King's
      * Castle and the Rose Garden let a rebirth-0 character in (Von Leon's wing keeps rebirth 1) and the Rose Garden's
      * walk-in portal has its script; the Gate of Time offers lower Grandis and Leafre of the Past behind the same gate; each sampled mob loads with its mob-stat-overrides HP and EXP; the
      * sampled newer-area mobs carry migration 050's meso row and the ledger table has rows.
@@ -2036,9 +2039,23 @@ final class Probes160 {
             bad.add("bb_drops_050_rows unreadable (migration 050 not applied?): " + e.getMessage());
         }
         return verdict(bad, "lv119 refused and lv120 let in at the Future and lower Grandis (players and bots), upper "
-                + "and deeper Grandis and Arcane still rebirth 3, Lion King's Castle open at rebirth 0, the Gate of Time "
+                + "deeper Grandis at rebirth 1 and Arcane at rebirth 2, Lion King's Castle open at rebirth 0, the Gate of Time "
                 + "offers lower Grandis and Leafre of the Past, the Rose Garden walk-in works, sampled mobs carry their "
                 + "HP/EXP rows and 050's drops", ev);
+    }
+
+    /** One map's rebirth gate at level 200: refused one rebirth short, let in at the count, for players and bots. */
+    private static void gate(List<String> bad, int map, String area, int rebirths) {
+        if (server.maps.AreaGates.denyReason(map, 200, rebirths - 1) == null) {
+            bad.add(area + " map " + map + " lets a level-200, " + (rebirths - 1) + "-rebirth character in (wants " + rebirths + ")");
+        }
+        if (soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, rebirths - 1, 200)) {
+            bad.add(area + " map " + map + " lets a level-200, " + (rebirths - 1) + "-rebirth bot in (wants " + rebirths + ")");
+        }
+        if (server.maps.AreaGates.denyReason(map, 1, rebirths) != null
+                || !soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, rebirths, 1)) {
+            bad.add(area + " map " + map + " refuses a level-1, " + rebirths + "-rebirth character or bot");
+        }
     }
 
     /** t-ld-1's gate half: no database or WZ needed (unit-tested); scripts is the server's scripts folder. */
@@ -2056,20 +2073,19 @@ final class Probes160 {
                 bad.add("map " + map + ": bots disagree with players at 119/120");
             }
         }
+        // owner 2026-10-29: deeper Grandis closed below the 1st rebirth and open at it, at any level; Arcane River the same
+        // at the 2nd rebirth; players and bots agree
         for (int[] list : new int[][]{LADDER_CLOSED, LADDER_DEEPER}) {
             for (int map : list) {
-                if (server.maps.AreaGates.denyReason(map, 200, 2) == null) {
-                    bad.add("map " + map + " lets a level-200, 2-rebirth character in (wants rebirth 3)");
-                }
-                if (soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 2, 200)) {
-                    bad.add("map " + map + " lets a level-200, 2-rebirth bot in (wants rebirth 3)");
-                }
-                if (server.maps.AreaGates.denyReason(map, 1, 3) != null) {
-                    bad.add("map " + map + " refuses a 3-rebirth character");
-                }
+                gate(bad, map, "deeper Grandis", server.maps.AreaGates.DEEPER_GRANDIS_REBIRTHS);
             }
         }
-        ev.add("deeper Grandis closed below rebirth 3: " + java.util.Arrays.toString(LADDER_DEEPER));
+        for (int map : LADDER_ARCANE) {
+            gate(bad, map, "Arcane River", server.maps.AreaGates.ARCANE_REBIRTHS);
+        }
+        ev.add("deeper Grandis opens at rebirth " + server.maps.AreaGates.DEEPER_GRANDIS_REBIRTHS + ", Arcane River at rebirth "
+                + server.maps.AreaGates.ARCANE_REBIRTHS + ": " + java.util.Arrays.toString(LADDER_DEEPER)
+                + java.util.Arrays.toString(LADDER_ARCANE));
         for (int map : LADDER_LKC_OPEN) {
             String rock = net.server.channel.handlers.HyperTPHandler.gateRefusal(map, 0, 117);
             if (rock != null) {

@@ -10,7 +10,8 @@ import server.maps.AreaGates;
 //   Von Leon's wing         rebirth 1 (1.6.1 b040: the castle's walls and towers and the Rose Garden are open
 //                           training, as for players; HyperTPHandler.isLionKingBossWing)
 //   Twilight Perion range   rebirth 2 (also covers Gate to the Future, Dark Ereve, Leafre of Past)
-//   Grandis / Arcane        rebirth 3
+//   Grandis / Arcane        owner 2026-10-29: deeper Grandis rebirth 1, Arcane River rebirth 2, lower Grandis 3
+//                           (or level 120); server.maps.AreaGates.requiredRebirths
 // Ticket 81 (round 4): with the bot's level known (mayEnter(map, rebirths, level)), the players' rule applies
 // (server.maps.AreaGates): the Future and lower Grandis also open at level 120.
 //   HyperTP-restricted      never (Knight Stronghold, 401053002)
@@ -32,7 +33,7 @@ public final class BotMapGates {
             return NEVER;
         }
         if (HyperTPHandler.isGrandisandArcane(mapId)) {
-            return 3;
+            return AreaGates.requiredRebirths(mapId);
         }
         if (HyperTPHandler.isTwilightPerion(mapId) || mapId == WARRIOR_GROUNDS) {
             return 2;
@@ -58,7 +59,8 @@ public final class BotMapGates {
     }
 
     // Ticket 81 round 3/4: the players' rule (server.maps.AreaGates). The Future and lower Grandis also open at level
-    // 120; the rest of Grandis and Arcane stay rebirth 3; Von Leon's wing rebirth 1; restricted maps never.
+    // 120; deeper Grandis opens at rebirth 1 and Arcane River at rebirth 2 (owner 2026-10-29); Von Leon's wing rebirth 1;
+    // restricted maps never.
     public static boolean mayEnter(int mapId, int rebirths, int level) {
         if (HyperTPHandler.isRestrictedMap(mapId)) {
             return false;

@@ -84,7 +84,8 @@ class TrainingRegionsTest {
         assertTrue(TrainingRegions.isAllowed(400010300, 0, 120));
         assertFalse(TrainingRegions.isAllowed(400010300, 0, 119));
         assertTrue(TrainingRegions.isAllowed(271010200, 0, 120));
-        assertFalse(TrainingRegions.isAllowed(402000124, 0, 200), "the Scrapyard stays rebirth 3");
+        assertFalse(TrainingRegions.isAllowed(402000124, 0, 200), "the Scrapyard is deeper Grandis: 1 rebirth");
+        assertTrue(TrainingRegions.isAllowed(402000124, 1, 1), "open at the 1st rebirth (owner 2026-10-29)");
         assertFalse(TrainingRegions.isAllowed(410000002, 0, 200), "so does the Fox Tree");
         assertNull(TrainingRegions.regionOf(401000000), "Heliseum is no region");
         assertTrue(future.hubs().contains(272000000), "Crack in Time, for Leafre of the Past");

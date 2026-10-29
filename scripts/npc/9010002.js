@@ -7,8 +7,8 @@ var maps = [
     // Towns and Monster Maps are omitted from menu, but can be kept in the array if needed
 ];
 var chosenMap = -1;
-// ticket 81 round 3: the Future and lower Grandis open at level 120, the rest of Grandis and Arcane River stay
-// rebirth 3; the rule lives in server.maps.AreaGates so the Hyper Rock and portals agree
+// ticket 81 round 3: the Future and lower Grandis open at level 120; owner 2026-10-29: the rest of Grandis opens at
+// rebirth 1 and Arcane River at rebirth 2. The rule lives in server.maps.AreaGates so the Hyper Rock and portals agree
 const AreaGates = Java.type('server.maps.AreaGates');
 var chosenSection = -1;
 
