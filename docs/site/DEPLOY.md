@@ -133,10 +133,18 @@ In this order; each step has its check, and stop at the first one that fails.
 
 1. Back up: `cp -a /srv/slums-site /srv/slums-site.bak-<UTC stamp>` and the nginx site file
    (`cp -p /etc/nginx/sites-available/slums-site{,.pre-161}`).
-2. Build on 164 with `tools/site/deploy-build-164.sh` (it now copies `cache/site-icons`), then compare before the
-   copy: `ls <build>/database/icons/items | wc -l` matches `ls /srv/slums-site/database/icons/items | wc -l` (about
+2. Build. On 187, `tools/site/deploy-build-164.sh` copies the 1.6.1 code, data and icon cache (`cache/site-icons`)
+   to `/opt/slums-site-build` on 164; the market and World timers rebuild from there too. Then on 164 build into a
+   new folder (`<build>`, e.g. `/var/tmp/slums-site-161`):
+   `cd /opt/slums-site-build && python3 tools/site/build.py --private --world --no-tar --out <build>
+   --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" --site-data "/opt/mapleroot/MapleRoot Full
+   Repack/Server/data/site" --hs-data /opt/slums-site-build/hiddenstreet` (it ends with "check passed"). Compare before
+   the copy: `ls <build>/database/icons/items | wc -l` matches `ls /srv/slums-site/database/icons/items | wc -l` (about
    4,971), and the same for `mobs` and `npcs`.
-3. Copy the site: `rsync -a --delete --exclude market/ --exclude world/ <build>/ /srv/slums-site/`.
+3. Copy the site: `rsync -a --delete --exclude market/ --exclude world/ <build>/ /srv/slums-site/`. Market and World
+   are left to their timers, which now run the 1.6.1 code; run both once now instead of waiting up to 15 minutes:
+   `systemctl start slums-site-market.service slums-site-world.service`. Check: `grep -c data-xc-nav
+   /srv/slums-site/market/board.html` gives 1 (the 1.6.1 market pages, with the exchange's menu link hidden).
 4. Services (unit files in `tools/site/`):
    - The Flask market app. Flask comes from Ubuntu, no pip or venv: `dpkg -l python3-flask` shows `ii ... 3.0.2`
      (installed on 164 for TEST, checked 2026-10-29); if not, `apt install python3-flask`. Then `cp -p
@@ -164,7 +172,8 @@ In this order; each step has its check, and stop at the first one that fails.
    - signed out: `curl -sI $B/admin/` gives 302 to `/login/?again=1&next=/admin/`; `curl -s -o /dev/null -w
      '%{http_code}' $B/api/report/staff/list` gives 404.
    - signed in as a player: `/admin/` gives 404; `/api/market/exchange/book` gives `"open": false`; the page
-     `/market/exchange` shows only "The Slums Exchange isn't open yet".
+     `/market/exchange` shows only "The Slums Exchange isn't open yet", with Slums-chan's neutral lines (no "LEAF to
+     the moon!"); the Market menu on any market page has no Slums Exchange link.
    - signed in as a GM 3+ (the owner): `/admin/`, `/admin/invites` and `/admin/reports` open.
    - a database page shows its icons.
 Undo: the backups from step 1, the old ExecStart (market_service.py) and `systemctl reload nginx`.
