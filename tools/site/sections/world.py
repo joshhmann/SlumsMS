@@ -635,8 +635,8 @@ def build_economy(wo):
                    f'<td class="r">{change(st["first"], st["median"])}</td><td class="r num">{st["sold"]:,}</td></tr>'
                    for i, st in priced[:20])
     nx = m["nx-rate"].get("days") or []
-    nxpts = [(d["date"], d.get("mesos_per_1000nx"), d.get("mesos_per_1000nx"), d.get("mesos_per_1000nx")) for d in nx]
-    rate = next((d.get("mesos_per_1000nx") for d in reversed(nx) if d.get("mesos_per_1000nx")), None)
+    nxpts = [(d["date"], market.nx_rate(d), market.nx_rate(d), market.nx_rate(d)) for d in nx]  # per NX, like the market (owner, 2026-10-29)
+    rate = next((market.nx_rate(d) for d in reversed(nx) if market.nx_rate(d)), None)
     market_link = ("market/index.html" if "market" in common.BUILT else "login/index.html?next=/market/")
     econ_link = "market/economy.html" if "market" in common.BUILT else "login/index.html?next=/market/economy"
     other = (f'<p class="small mknote">Today&rsquo;s numbers on their own (trades in the last 24 hours, FM shops open now, '
@@ -646,8 +646,8 @@ def build_economy(wo):
             f'{esc(when(e["as_of"]))}</p>{other}{tiles}'
             f'<section class="panel"><h2 class="bar">Mesos in the game <small>per day</small></h2><div class="in">{trend}</div></section>'
             f'<section class="panel"><h2 class="bar">Made vs spent <small>per UTC day</small></h2><div class="in">{flow}</div></section>'
-            f'<section class="panel"><h2 class="bar">NX rate <small>{"1,000 NX = " + mesos(rate) + " mesos" if rate else "not enough trades yet"}</small></h2>'
-            f'<div class="in">{area_chart(nxpts, "NX rate per day", "Mesos per 1,000 NX", "not enough trades")}</div></section>'
+            f'<section class="panel"><h2 class="bar">NX rate <small>{"1 NX = " + mesos(rate) + " mesos" if rate else "not enough trades yet"}</small></h2>'
+            f'<div class="in">{area_chart(nxpts, "NX rate per day", "Mesos per NX", "not enough trades")}</div></section>'
             f'<section class="panel"><h2 class="bar">Prices <a href="{{root}}{market_link}">Slums Market &raquo;</a></h2>'
             f'<div class="tbl"><table class="t"><thead><tr><th>Item</th><th class="r">Median</th><th class="r">{market.span(m)}</th>'
             f'<th class="r">Sold</th></tr></thead><tbody>{prow}</tbody></table></div>'

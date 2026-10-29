@@ -72,7 +72,7 @@ class DeskTest(old.Base):
             self.desk.sync()
 
     def preview(self, **kw):
-        body = {k: v for k, v in (dict(character="Momo", side="SELL", price=1_200_000, nx=1000) | kw).items()
+        body = {k: v for k, v in (dict(character="Momo", side="SELL", price=1_200, nx=1000) | kw).items()
                 if v is not None}
         return self.desk.preview(self.me, body, ms.characters(self.me))
 
@@ -113,11 +113,41 @@ class DeskTest(old.Base):
         with self.assertRaises(ms.Refused):
             self.preview()
 
+    def test_nx_prices_are_per_nx_on_the_site_and_per_1000_in_the_game(self):
+        # owner, 2026-10-29: players see and type NX prices per 1 NX; the game keeps them per 1,000 NX
+        rid = self.preview(price=5_000)["id"]
+        (r,) = self.game.requests()
+        self.assertEqual(r["price"], 5_000_000)
+        self.game.poll()
+        self.step()
+        self.assertEqual(self.desk.answer(self.me, rid)["answer"]["data"]["price"], 5_000)
+        rid = self.preview(price=1)["id"]
+        self.game.poll(lambda req: (False, "PRICE_BAND", {"minPrice": 2_500_000, "maxPrice": 10_000_000, "rate": None}))
+        self.step()
+        self.assertEqual(self.desk.answer(self.me, rid)["answer"]["data"],
+                         {"minPrice": 2_500, "maxPrice": 10_000, "rate": None})
+        ms.write_atomic(os.path.join(self.outbox, xd.TICKERS), dict(TICKERS, tickers=[dict(TICKERS["tickers"][0],
+            rate=5_001_400, bids=[{"price": 4_999_600, "qty": 100, "orders": 1}, {"price": 5_000_400, "qty": 200,
+            "orders": 2}], trades=[{"t": "x", "price": 5_000_000, "qty": 100}]), TICKERS["tickers"][1]]))
+        nx, leaf = self.desk.book()["tickers"]
+        self.assertEqual((nx["unit"], nx["unit_label"], nx["per"], nx["rate"], nx["min_price"], nx["max_price"]),
+                         ("nx", "mesos per NX", 1, 5_001, 1, 100_000))
+        self.assertEqual(nx["bids"], [{"price": 5_000, "qty": 300, "orders": 3}], "levels that round together merge")
+        self.assertEqual(nx["trades"][0]["price"], 5_000)
+        self.assertEqual((leaf["unit"], leaf["max_price"]), ("item", 1_000_000_000), "items stay per item")
+        ms.write_atomic(os.path.join(self.outbox, xd.HISTORY), {"interval": "1h", "tickers": {
+            "NX": {"candles": [{"t": "x", "o": 5_000_000, "h": 5_200_000, "l": 4_900_000, "c": 5_100_000, "v": 300,
+                               "m": 1_530_000_000}]},
+            "LEAF": {"candles": [{"t": "x", "o": 500_000, "h": 500_000, "l": 500_000, "c": 500_000, "v": 1, "m": 1}]}}})
+        (c,) = self.desk.history("NX")["candles"]
+        self.assertEqual((c["o"], c["h"], c["l"], c["c"], c["v"], c["m"]), (5_000, 5_200, 4_900, 5_100, 300, 1_530_000_000))
+        self.assertEqual(self.desk.history("LEAF")["candles"][0]["c"], 500_000)
+
     def test_the_rules_are_checked_before_the_game_is_asked(self):
         for kw, msg in ((dict(character="Rival"), "your characters"), (dict(side="HOLD"), "buy or sell"),
                         (dict(nx=150), "steps of 100"), (dict(nx=50_100), "50,000"), (dict(nx="1000"), "NX"),
-                        (dict(price=999), "1,000"), (dict(price=True), "price"),
-                        (dict(side="BUY", nx=50_000, price=100_000_000), "can hold")):
+                        (dict(price=0), "from 1 to 100,000"), (dict(price=100_001), "100,000"),
+                        (dict(price=True), "price"), (dict(side="BUY", nx=50_000, price=100_000), "can hold")):
             with self.assertRaises(ms.Refused, msg=kw) as e:
                 self.preview(**kw)
             self.assertIn(msg, str(e.exception))
@@ -177,12 +207,12 @@ class DeskTest(old.Base):
         ms.write_atomic(os.path.join(self.outbox, xd.BOOK), {"schema": 1, "generated_at": "x", "halted": True,
                                                               "rate": {"mesos_per_1000nx": 1_180_000},
                                                               "bids": [{"price": 1_150_000, "nx": 300, "orders": 1}],
-                                                              "asks": [], "trades": [{"t": "x", "price": 9, "nx": 100}]})
+                                                              "asks": [], "trades": [{"t": "x", "price": 9_000, "nx": 100}]})
         b = self.desk.book()
         (nx,) = b["tickers"]
         self.assertEqual((b["halted"], nx["id"], nx["unit"], nx["rate"], nx["bid"], nx["ask"], nx["last"]),
-                         (True, "NX", "1000nx", 1_180_000, 1_150_000, None, 9), "a game without tickers: NX alone")
-        self.assertEqual(nx["bids"], [{"price": 1_150_000, "qty": 300, "orders": 1}])
+                         (True, "NX", "nx", 1_180, 1_150, None, 9), "a game without tickers: NX alone, per NX")
+        self.assertEqual(nx["bids"], [{"price": 1_150, "qty": 300, "orders": 1}])
         ms.write_atomic(os.path.join(self.outbox, xd.TICKERS), TICKERS)
         b = self.desk.book()
         self.assertEqual([t["id"] for t in b["tickers"]], ["NX", "LEAF"])
@@ -242,7 +272,7 @@ class ExchangeHttpTest(old.Base):
         return r.status_code, r.get_json()
 
     def test_preview_then_confirm_end_to_end(self):
-        st, got = self.call("POST", "preview", {"character": "MomoAlt", "side": "BUY", "price": 1_000_000, "nx": 500})
+        st, got = self.call("POST", "preview", {"character": "MomoAlt", "side": "BUY", "price": 1_000, "nx": 500})
         self.assertEqual(st, 200)
         self.assertEqual(self.call("GET", "answer/" + got["id"]), (200, {"pending": True, "ok": True}))
         self.game.poll()
@@ -255,14 +285,14 @@ class ExchangeHttpTest(old.Base):
 
     def test_writes_need_the_header_and_a_session(self):
         self.assertEqual(self.call("POST", "refresh", {}, headers={})[0], 403)
-        self.assertEqual(self.call("POST", "preview", {"character": "Momo", "side": "SELL", "price": 1, "nx": 100})[1]
-                         ["error"], "The price must be a whole number from 1,000 to 100,000,000.")
+        self.assertEqual(self.call("POST", "preview", {"character": "Momo", "side": "SELL", "price": 0, "nx": 100})[1]
+                         ["error"], "The price must be a whole number from 1 to 100,000.")
         self.client.delete_cookie(ls.SESSION_COOKIE)
         self.assertEqual(self.call("GET", "book")[0], 401)
 
     def test_an_old_sign_in_gets_reauth(self):
         self.clock.t += xd.SIGN_IN_TTL + 1
-        st, got = self.call("POST", "preview", {"character": "Momo", "side": "SELL", "price": 1_000_000, "nx": 500})
+        st, got = self.call("POST", "preview", {"character": "Momo", "side": "SELL", "price": 1_000, "nx": 500})
         self.assertEqual((st, got["code"], got["ok"]), (403, "REAUTH", False))
         self.assertIn("Sign in again", got["error"])
         self.assertTrue(self.call("GET", "me")[1]["reauth"])

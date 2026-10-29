@@ -178,6 +178,12 @@ def count(v):
     return f"{v:,}" if isinstance(v, int) else "-"
 
 
+def nx_rate(d):
+    """A day's NX rate per NX (the export has mesos_per_1000nx; owner, 2026-10-29: NX prices show per 1 NX), or None."""
+    v = (d or {}).get("mesos_per_1000nx")
+    return round(v / 1000) if isinstance(v, (int, float)) and not isinstance(v, bool) and v else None
+
+
 def mesos(v):
     if v is None:
         return "-"
@@ -348,19 +354,19 @@ class Market:
     def nx_card(self, root, wide=False):
         nx = self.m["nx-rate"]
         days = nx.get("days") or []
-        vals = [d.get("mesos_per_1000nx") for d in days]
+        vals = [nx_rate(d) for d in days]
         today = nx.get("today") or (days[-1] if days else {})
         row, when_ = today, "today"
-        if not today.get("mesos_per_1000nx"):  # too few trades today so far: the newest day that had a rate
-            last = next((d for d in reversed(days) if d.get("mesos_per_1000nx")), None)
+        if not nx_rate(today):  # too few trades today so far: the newest day that had a rate
+            last = next((d for d in reversed(days) if nx_rate(d)), None)
             if last:
                 row, when_ = last, strf(dt.date.fromisoformat(last["date"]), "%b %-d")
-        rate = row.get("mesos_per_1000nx")
+        rate = nx_rate(row)
         first = next((v for v in vals if v), None)
         note = ""
         value = mesos(rate) if rate else "not enough trades"
         return (f'<a class="nxcard{" wide" if wide else ""}" href="{root}{MARKET}/nx.html"><span class="k">NX rate</span>'
-                f'<b{"" if rate else " class=none"}>{value}</b><span class="u">mesos per 1,000 NX {when_}{note}</span>'
+                f'<b{"" if rate else " class=none"}>{value}</b><span class="u">mesos per NX {when_}{note}</span>'
                 + (sparkline(vals, "NX rate over recent days") if wide else "")  # the sidebar card is just the numbers
                 + (f'<span class="k">{len(days)} days {change(first, rate)}</span>' if first and rate else '<span class="k"></span>')
                 + '</a>')
@@ -503,18 +509,18 @@ def build_lists(mk, priced):
 
     nx = m["nx-rate"]
     days = nx.get("days") or []
-    pts = [(d["date"], d.get("mesos_per_1000nx"), d.get("mesos_per_1000nx"), d.get("mesos_per_1000nx")) for d in days]
-    rows = "".join(f'<tr><td class="num">{esc(d["date"])}</td><td class="r num">{mesos(d["mesos_per_1000nx"]) if d.get("mesos_per_1000nx") else "not enough trades"}</td>'
+    pts = [(d["date"], nx_rate(d), nx_rate(d), nx_rate(d)) for d in days]
+    rows = "".join(f'<tr><td class="num">{esc(d["date"])}</td><td class="r num">{mesos(nx_rate(d)) if nx_rate(d) else "not enough trades"}</td>'
                    f'<td class="r num">{d.get("n_trades", 0)}</td><td class="r num">{d.get("n_cash_resales", 0)}</td>'
                    f'<td class="r num">{d.get("n_code_trades", 0)}</td></tr>'
                    for d in reversed(days))
-    body = (f'<h1>NX rate</h1><p class="id">Mesos per 1,000 NX, from resales of cash-shop items and NX code trades. '
+    body = (f'<h1>NX rate</h1><p class="id">Mesos per NX, from resales of cash-shop items and NX code trades. '
             f'A day with under 5 trades shows no rate.</p>'
-            f'<p class="small mknote">For reference: some regulars sell a 10,000 NX code for 50m mesos.</p>'
+            f'<p class="small mknote">For reference: some regulars sell a 10,000 NX code for 50m mesos (5,000 mesos per NX).</p>'
             f'{mk.nx_card("{root}", wide=True)}'
-            f'<section class="panel"><h2 class="bar">History</h2><div class="in">{ranged_chart(pts, "NX rate per day", "Mesos per 1,000 NX", "not enough trades")}</div></section>'
+            f'<section class="panel"><h2 class="bar">History</h2><div class="in">{ranged_chart(pts, "NX rate per day", "Mesos per NX", "not enough trades")}</div></section>'
             f'<section class="panel"><h2 class="bar">By day</h2><div class="tbl"><table class="t"><thead><tr><th>Day (UTC)</th>'
-            f'<th class="r">Mesos per 1,000 NX</th><th class="r">Trades</th><th class="r">Cash resales</th><th class="r">NX codes</th>'
+            f'<th class="r">Mesos per NX</th><th class="r">Trades</th><th class="r">Cash resales</th><th class="r">NX codes</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div></section>')
     mk.page(f"{MARKET}/nx.html", "NX rate", body, "nx")
 
@@ -678,7 +684,8 @@ untradeable, locked, expiring or cash items.</li>
 <li><b>Expiry:</b> an order that hasn't fully traded by its time closes, and whatever is left comes back.</li>
 <li><b>Safety:</b> placing or cancelling an order needs a sign-in from the last 12 hours, so a copied cookie can't
 empty your account. NX prices stay near the official rate: sells at half of it or more, buys at twice it or less.
-Until NX has an official rate, sells start at 100,000 and buys stop at 10,000,000 mesos per 1,000 NX.</li>
+Prices are per NX. Until players have set an official rate, NX counts as 5,000 mesos per NX (the NX merchants'
+price), so sells start at 2,500 and buys stop at 10,000 mesos per NX.</li>
 <li><b>Which character:</b> every order names one of your characters. Mesos and items come from (and go to) that
 character; NX is your account's. If you're logged in to the game, use the character you're playing (or log out first).</li>
 </ul></section>
@@ -792,9 +799,9 @@ def write_summary(mk, priced):
 def rail_lines(m, db, count=4):
     """A few megaphone-rail lines from the market: the NX rate and the latest sales."""
     out = []
-    today = (m["nx-rate"].get("today") or {}).get("mesos_per_1000nx")
+    today = nx_rate(m["nx-rate"].get("today"))
     if today:
-        out.append((f"<em>NX RATE</em> 1,000 NX = {mesos(today)} mesos", f"{MARKET}/nx.html"))
+        out.append((f"<em>NX RATE</em> 1 NX = {mesos(today)} mesos", f"{MARKET}/nx.html"))
     priced = traded_items(m)
     for x in m["sales"]["sales"][:count]:
         it = db["items"].get(x["item_id"])

@@ -4,7 +4,8 @@
      and the last trades (api/market/exchange/book every 10 s).
    - xmine: the order form (preview, then confirm with the 60 s token) and my orders with cancel (.../me).
    A write is a request to the game (exchange_desk.py): POST it, get {id}, then ask answer/<id> until the game answers.
-   Units come from the game (unit, unit_label, per): NX is priced per 1,000 NX, items per item. */
+   Units come from the desk (unit, unit_label, per): NX is priced per NX (the game's per 1,000 NX, converted by
+   exchange_desk.py), items per item. */
 (function () {
   var ROOT = (document.querySelector("[data-mk-root]") || { dataset: { mkRoot: "../" } }).dataset.mkRoot;
   var API = ROOT + "api/market/exchange/";
@@ -51,8 +52,8 @@
     // rate exists, a fixed floor for sells and a fixed ceiling for buys (the other end is then the ticker's own cap)
     PRICE_BAND: function (a, side) {
       var d = a.data || {}, lo = typeof d.minPrice === "number", hi = typeof d.maxPrice === "number";
-      if (!d.rate && side === "SELL" && lo) return "NX has no official rate yet, so a sell starts at " + fmt(d.minPrice) + " mesos per 1,000 NX.";
-      if (!d.rate && side === "BUY" && hi) return "NX has no official rate yet, so a buy can offer at most " + fmt(d.maxPrice) + " mesos per 1,000 NX.";
+      if (!d.rate && side === "SELL" && lo) return "NX has no official rate yet, so a sell starts at " + fmt(d.minPrice) + " mesos per NX.";
+      if (!d.rate && side === "BUY" && hi) return "NX has no official rate yet, so a buy can offer at most " + fmt(d.maxPrice) + " mesos per NX.";
       var range = lo && hi ? "from " + fmt(d.minPrice) + " to " + fmt(d.maxPrice) : lo ? "of at least " + fmt(d.minPrice)
         : hi ? "of at most " + fmt(d.maxPrice) : "closer to it";
       return "NX trades near the official rate" + (d.rate ? " (" + fmt(d.rate) + ")" : "") + ": pick a price " + range + ".";
@@ -319,8 +320,8 @@
         });
         this.qty = this.lot();
       },
-      get meta() { return store().meta || { id: "NX", unit: "1000nx", unit_label: "mesos per 1,000 NX", per: 1000, qty_label: "NX",
-                                             min_qty: 100, max_qty: 50000, lot: 100, min_price: 1000, max_price: 100000000 }; },
+      get meta() { return store().meta || { id: "NX", unit: "nx", unit_label: "mesos per NX", per: 1, qty_label: "NX",
+                                             min_qty: 100, max_qty: 50000, lot: 100, min_price: 1, max_price: 100000 }; },
       get isItem() { return this.meta.unit === "item"; },
       // a sign-in over 12 h old can't trade (b005): the site or the game says REAUTH
       get reauth() { return this.stale || !!(this.data && this.data.reauth); },

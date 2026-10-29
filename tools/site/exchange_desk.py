@@ -53,6 +53,59 @@ DEFAULT_LIMITS = {"fee_bps_each_side": 100, "max_open_per_ticker": 5, "per_day":
 # NX as a game without tickers has it (exchange-book.json): the same keys as a ticker in exchange-tickers.json
 NX = {"id": "NX", "name": "NX", "item_id": None, "unit": "1000nx", "unit_label": "mesos per 1,000 NX", "per": 1000,
       "qty_label": "NX", "min_qty": 100, "max_qty": 50_000, "lot": 100, "min_price": 1_000, "max_price": 100_000_000}
+# Players see and type NX prices per 1 NX (owner, 2026-10-29: "show prices per 1 NX"); the game keeps them per 1,000 NX
+# (unit "1000nx"), so the desk converts at its edge: every NX price to the browser is divided by PER_NX (rounded to a
+# whole meso), and a price from the browser is multiplied by it before it goes to the game. Totals stay as they are.
+PER_NX = 1000
+NX_VIEW = {"unit": "nx", "unit_label": "mesos per NX", "per": 1}
+# price fields, per 1,000 NX from the game: in a ticker, a book level or trade, a candle, an order and an answer
+PRICE_KEYS = ("min_price", "max_price", "fair", "bid", "ask", "last", "change_24h", "high_24h", "low_24h", "rate",
+              "price", "minPrice", "maxPrice", "o", "h", "l", "c")
+
+
+def per_nx(v):
+    """One NX price per 1,000 NX as players see it: per NX, a whole meso (bools and non-numbers pass through)."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return v
+    return int(round(v / PER_NX))
+
+
+def nx_prices(d):
+    """A copy of one row (ticker, level, trade, candle, order or answer data) with its NX prices per NX."""
+    return {k: per_nx(v) if k in PRICE_KEYS else v for k, v in d.items()}
+
+
+def nx_levels(rows):
+    """Book levels per NX: two game prices that round to the same meso become one level (qty and orders added)."""
+    out = []
+    for r in rows or []:
+        r = nx_prices(r)
+        if out and out[-1].get("price") == r.get("price"):
+            prev = out[-1]
+            for k in ("qty", "orders"):
+                if isinstance(prev.get(k), int) and isinstance(r.get(k), int):
+                    prev[k] += r[k]
+            continue
+        out.append(r)
+    return out
+
+
+def nx_view(t):
+    """A ticker as the browser gets it: NX per NX (book, trades and every price), other tickers as they are."""
+    if t.get("id") != "NX" or t.get("unit") != "1000nx":
+        return t
+    v = dict(nx_prices(t), **NX_VIEW)
+    for k in ("bids", "asks"):
+        if isinstance(t.get(k), list):
+            v[k] = nx_levels([r for r in t[k] if isinstance(r, dict)])
+    if isinstance(t.get("trades"), list):
+        v["trades"] = [nx_prices(r) for r in t["trades"] if isinstance(r, dict)]
+    return v
+
+
+def nx_order(o):
+    """An order (the game's "mine" answer, or a confirm answer) with its price per NX when it's an NX order."""
+    return nx_prices(o) if isinstance(o, dict) and (o.get("ticker") or "NX") == "NX" else o
 META = tuple(NX) + ("max_open", "per_day", "expiry_hours", "fair", "bid", "ask", "last", "change_24h", "change_24h_pct", "high_24h", "low_24h", "volume_24h",
                     "turnover_24h", "fills_24h", "rate", "bids", "asks", "trades")
 
@@ -174,7 +227,7 @@ class Desk:
         """(tickers, halted, generated_at) from exchange-tickers.json, else NX alone from exchange-book.json."""
         t = self._read(TICKERS)
         if isinstance(t, dict) and isinstance(t.get("tickers"), list):
-            rows = [{k: x.get(k) for k in META} for x in t["tickers"]
+            rows = [nx_view({k: x.get(k) for k in META}) for x in t["tickers"]
                     if isinstance(x, dict) and isinstance(x.get("id"), str)]
             self.limits = {k: t[k] for k in LIMITS if isinstance(t.get(k), (int, str))}
             # announced market events only (Leaf Rush ...; the secret ones never reach the export)
@@ -193,10 +246,10 @@ class Desk:
         nx = dict(NX, bids=bids, asks=asks, trades=trades, rate=(b.get("rate") or {}).get("mesos_per_1000nx"),
                   bid=bids[0]["price"] if bids else None, ask=asks[0]["price"] if asks else None,
                   last=trades[-1]["price"] if trades else None)
-        return [nx], bool(b.get("halted")), b.get("generated_at")
+        return [nx_view(nx)], bool(b.get("halted")), b.get("generated_at")
 
     def ticker(self, raw):
-        rows = self.tickers()[0] or [NX]
+        rows = self.tickers()[0] or [nx_view(NX)]
         want = raw.strip().upper() if isinstance(raw, str) else "NX"
         for t in rows:
             if t["id"] == want:
@@ -214,9 +267,11 @@ class Desk:
         t = self.ticker(raw)
         h = self._read(HISTORY)
         got = (h.get("tickers") or {}).get(t["id"]) if isinstance(h, dict) else None
-        candles = got.get("candles") if isinstance(got, dict) else None
+        candles = [c for c in (got.get("candles") if isinstance(got, dict) else None) or [] if isinstance(c, dict)]
+        if t["id"] == "NX":
+            candles = [nx_prices(c) for c in candles]
         return {"ticker": t["id"], "interval": (h or {}).get("interval", "1h") if isinstance(h, dict) else "1h",
-                "candles": [c for c in candles or [] if isinstance(c, dict)]}
+                "candles": candles}
 
     def me(self, s, names):
         a, fresh = s["a"], self.fresh(s)
@@ -226,7 +281,7 @@ class Desk:
         waiting = [{"id": i, "type": k, "createdAt": iso(c)} for i, k, c in self.q(
             "SELECT id, type, created FROM xreq WHERE account=? AND answered IS NULL ORDER BY created", a)]
         orders = json.loads(mine[0][1]).get("orders") if mine else None
-        return {"characters": names, "orders": orders if isinstance(orders, list) else None,
+        return {"characters": names, "orders": [nx_order(o) for o in orders] if isinstance(orders, list) else None,
                 "ordersAt": iso(mine[0][0]) if mine else None, "waiting": waiting, "rules": RULES,
                 "reauth": not fresh, "signedInAt": iso(self.signed_in_at(s)),
                 "tradeUntil": iso(self.signed_in_at(s) + SIGN_IN_TTL)}
@@ -235,7 +290,18 @@ class Desk:
         row = self.q("SELECT answered, answer FROM xreq WHERE id=? AND account=?", rid, s["a"])
         if not row:
             raise Refused("No such request.", 404)
-        return {"pending": True} if row[0][0] is None else {"pending": False, "answer": json.loads(row[0][1])}
+        if row[0][0] is None:
+            return {"pending": True}
+        a = json.loads(row[0][1])
+        # NX prices in the answer per NX too: a preview's or an order's price, PRICE_BAND's range (NX only)
+        d = a.get("data") if isinstance(a, dict) else None
+        if isinstance(d, dict):
+            if isinstance(d.get("orders"), list):  # a "mine" answer
+                d = dict(d, orders=[nx_order(o) for o in d["orders"]])
+            elif (d.get("ticker") or "NX") == "NX":
+                d = nx_prices(d)
+            a = dict(a, data=d)
+        return {"pending": False, "answer": a}
 
     def preview(self, s, body, names):
         self.need_fresh(s)
@@ -247,14 +313,15 @@ class Desk:
         if side not in SIDES:
             raise Refused("Pick buy or sell.")
         qty = body.get("qty", body.get("nx"))
-        num = lambda k, d: t.get(k) if isinstance(t.get(k), int) else NX[k] if t["id"] == "NX" else d
-        what = "NX" if t["unit"] == "1000nx" else "The number of items"
+        num = lambda k, d: t.get(k) if isinstance(t.get(k), int) else nx_view(NX)[k] if t["id"] == "NX" else d
+        what = "NX" if t["id"] == "NX" else "The number of items"
         qty = whole(qty, what, num("min_qty", 1), num("max_qty", 1), num("lot", 1))
         price = whole(body.get("price"), "The price", num("min_price", 1), num("max_price", 1))
         cost = qty * price // (t.get("per") or 1)
         if side == "BUY" and cost + cost * RULES["feeBpsEachSide"] // 10_000 > RULES["maxMesos"]:
             raise Refused("That costs more mesos than a character can hold.")
-        fields = dict(characterName=name, side=side, price=price)
+        # the browser's NX price is per NX (nx_view); the game's is per 1,000 NX
+        fields = dict(characterName=name, side=side, price=price * PER_NX if t.get("unit") == "nx" else price)
         if t["id"] == "NX":
             fields["nx"] = qty  # a game without tickers reads only this
         else:
