@@ -293,9 +293,34 @@ public class Family {
 
         for (World world : Server.getInstance().getWorlds()) {
             for (Family family : world.getFamilies()) {
+                if (family.getLeader() == null && !repairMissingLeader(family)) {
+                    continue;
+                }
                 family.getLeader().doFullCount();
             }
         }
+    }
+
+    /**
+     * 1.6.1: a family whose leader row is gone (its senior chain ends in a missing character) must not stop the boot.
+     * The member with no senior and the lowest id becomes the leader in memory; nothing is written, so a staff fix in
+     * the database still wins at the next boot. Returns false for an empty family, which is skipped.
+     */
+    static boolean repairMissingLeader(Family family) {
+        FamilyEntry pick = null;
+        for (FamilyEntry entry : family.members.values()) {
+            if (entry.getSenior() == null && (pick == null || entry.getChrId() < pick.getChrId())) {
+                pick = entry;
+            }
+        }
+        if (pick == null) {
+            log.error("Family {} has no leader and no member without a senior; skipped", family.getID());
+            return false;
+        }
+        log.error("Family {} has no leader row; {} (id {}) leads it until staff fix the data", family.getID(),
+                pick.getName(), pick.getChrId());
+        family.setLeader(pick);
+        return true;
     }
 
     public void saveAllMembersRep() { //was used for autosave task, but character autosave should be enough
