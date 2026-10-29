@@ -322,4 +322,27 @@ class TalkPlannerTest {
         LifeMemory reloaded = new LifeMemory(a.getId(), mems.get(a.getId()).save(2_000));
         assertEquals("partied up", reloaded.metWith(b.getId()).what());
     }
+
+    /** TEST 2026-10-29 (t-bt-1): both bots said "Free Market Entrance is so packed today lol" back to back. */
+    @Test
+    void aBotNeverRepeatsALineTheTalkJustHad() {
+        Character a = chr(21, "Ann", 30);
+        Character b = chr(22, "Bob", 32);
+        FakeSense s = new FakeSense().mind(a, 0.9, 0.1, 0.4, Goal.COMPANY, 0.9, -1).mind(b, 0.9, 0.1, 0.5, Goal.COMPANY, 0.8, -1)
+                .bond(a, b, new Relation("friend", 0.7, true));
+        s.offers.put(Ask.PARTY, party());
+        for (int seed = 0; seed < 400; seed++) {
+            Plan p = TalkPlanner.plan(List.of(a, b), false, null, s, false, 0, new Random(seed));
+            for (int i = 1; i < p.steps.size(); i++) {
+                Step x = p.steps.get(i);
+                if (x.intent.move() != Move.SMALL_TALK) {
+                    continue;
+                }
+                for (int j = Math.max(0, i - 4); j < i; j++) {
+                    assertFalse(p.steps.get(j).text.equalsIgnoreCase(x.text),
+                            "seed " + seed + ": '" + x.text + "' echoes line " + j);
+                }
+            }
+        }
+    }
 }

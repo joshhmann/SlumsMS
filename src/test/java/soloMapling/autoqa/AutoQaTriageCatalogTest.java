@@ -44,7 +44,7 @@ class AutoQaTriageCatalogTest {
 
     @Test
     void rv4AndPb1StartFromHenesysHuntingGroundOne() {
-        for (String id : List.of("t-rv-4", "t-pb-1")) {
+        for (String id : List.of("t-rv-4", "t-pb-1", "t-af-2")) {
             List<String> s = steps(id);
             int warp = index(s, "!warp " + AutoQaCatalog.HHG1), run = index(s, "!qa run");
             assertTrue(warp >= 0 && warp < run, id + " warps first");

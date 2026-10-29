@@ -209,8 +209,13 @@ class ExchangeTest {
     void limitsOpenOrdersPerDayAndCooldown() throws Exception {
         ex = start(cfg(0, 2, 3, 10_000, 0, 0));
         assertTrue(place(1, Side.SELL, 2_000_000, 100).ok());
-        assertEquals("COOLDOWN", place(1, Side.SELL, 2_000_000, 100).code());
-        now.addAndGet(10_000);
+        var cd = place(1, Side.SELL, 2_000_000, 100);
+        assertEquals("COOLDOWN", cd.code());
+        assertTrue(cd.message().contains("wait 10 s before"), cd.message());
+        now.addAndGet(4_000);
+        cd = place(1, Side.SELL, 2_000_000, 100);
+        assertTrue(cd.message().contains("wait 6 s before"), "says how long is left: " + cd.message());
+        now.addAndGet(6_000);
         assertTrue(place(1, Side.SELL, 2_000_000, 100).ok());
         now.addAndGet(10_000);
         assertEquals("LIMIT_OPEN", place(1, Side.SELL, 2_000_000, 100).code());

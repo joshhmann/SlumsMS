@@ -2481,7 +2481,7 @@ final class Probes160 {
         long gets = soloMapling.Economy.exchange.ExchangeQa.sellerGets(cfg, t, n, bid);
         try {
             // (2) sell into the regular: leaves escrowed, mesos land online
-            String pv = sayAndHear(p, "@nx leaf sell " + n + " " + bid, "^Preview: sell|\\([A-Z_]+\\)$", 8_000);
+            String pv = sellPreview(p, "@nx leaf sell " + n + " " + bid);
             out.add("@nx leaf sell: " + pv);
             long mesoBefore = me.getMeso();
             String placed = sayAndHear(p, "@nx confirm", "^Order \\d+ placed|\\([A-Z_]+\\)$", 8_000);
@@ -2503,7 +2503,7 @@ final class Probes160 {
             }
             // (3) a resting sell at the top price takes 10 more leaves; a cancel gives exactly those back
             Thread.sleep(cfg.cooldownMs() + 1_000);
-            sayAndHear(p, "@nx leaf sell " + n + " " + t.maxPrice(), "^Preview: sell|\\([A-Z_]+\\)$", 8_000);
+            sellPreview(p, "@nx leaf sell " + n + " " + t.maxPrice());
             String rest = sayAndHear(p, "@nx confirm", "^Order \\d+ placed|\\([A-Z_]+\\)$", 8_000);
             out.add("@nx leaf resting sell: " + rest);
             long l2 = w.have(leaf);
@@ -2542,6 +2542,24 @@ final class Probes160 {
         }
         return verdict(bad, "leaves escrowed on a sell, the fill paid mesos online, a cancel returned the leaves, the "
                 + "bought leaves came back and only the two 1% fees left", out);
+    }
+
+    /**
+     * Previews an order, waiting out the account's order cooldown first (an earlier step or check may have placed
+     * one): on a COOLDOWN answer it sleeps the seconds the answer names (bounded, 3 tries, at most about 35 s).
+     */
+    static String sellPreview(SyntheticPlayer p, String cmd) throws Exception {
+        String pv = null;
+        for (int i = 0; i < 3; i++) {
+            pv = sayAndHear(p, cmd, "^Preview: sell|\\([A-Z_]+\\)$", 8_000);
+            if (pv == null || !pv.contains("(COOLDOWN)")) {
+                return pv;
+            }
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("wait (\\d+) s").matcher(pv);
+            long secs = m.find() ? Long.parseLong(m.group(1)) : 10;
+            Thread.sleep(Math.min(secs, 15) * 1_000 + 1_000);
+        }
+        return pv;
     }
 
     /** The window's claim request (CP 0x3732: action 1, day), after the per-account throttle. */
