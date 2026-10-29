@@ -152,8 +152,16 @@ public final class ChatTriage {
             + "|some |a few |\\d+ ?[kmb]? ?)?(mesos?|money|items?|stuff|nx|\\d+ ?[kmb]\\b)|double (it|ur|your|mesos)"
             + "|free (mesos|stuff|items|nx|money)|trust trade|(u|you) give first|pay (u|you) back|im (so )?(poor|broke)"
             + "|can i (have|get) (some |ur |your )?(mesos|money|stuff))");
-    private static final Pattern HARASSMENT = Pattern.compile("(\\bkys\\b|kill (ur|your)self|\\bstfu\\b|nobody likes (u|you)"
-            + "|(ur|you'?re|u r) (so )?(ugly|stupid|dumb|trash|retarded|worthless)|\\bretard|\\bfag"
+    /**
+     * Death wishes, slurs and real-life threats only (owner 2026-10-29). Trash talk ("stfu", "ur so trash", "nobody likes
+     * u") is left to the model, which reads generic trash talk as normal and targeted abuse as harassment.
+     */
+    private static final Pattern HARASSMENT = Pattern.compile("(\\bkys\\b|kill (ur|your)self"
+            // slurs
+            + "|\\bretard|\\bf[a4]gg?(ot)?s?\\b|\\bn[i1]gg|\\btr[a4]nn(y|ie)"
+            // real-life threats
+            + "|i know where (u|you) live|(find|hunt|kill|hurt|beat|stab|shoot) (u|you) (irl|in real life)"
+            + "|\\bdoxx?(ing|ed)?\\b|(got|have|know|found) (ur|your) (ip|home address)\\b"
             // death wishes; "go die to/in/at <boss>" is game talk, not a wish
             + "|\\bgo die\\b(?! (to|in|at|on|vs|with|from)\\b)|\\bgo die (in a (fire|hole|ditch)|irl)\\b|\\bdrop dead\\b|hope (u|you|ya) die\\b(?! less| fewer| to))");
 

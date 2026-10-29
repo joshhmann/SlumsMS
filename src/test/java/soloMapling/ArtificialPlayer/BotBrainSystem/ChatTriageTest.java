@@ -74,6 +74,24 @@ class ChatTriageTest {
         }
     }
 
+    /** Owner 2026-10-29: the rule flags death wishes, slurs and real-life threats only; trash talk is the model's call. */
+    @org.junit.jupiter.api.Test
+    void trashTalkIsNotHarassmentByRuleButSlursAndThreatsAre() {
+        for (String line : new String[] {"stfu", "stfu noob", "ur so trash", "ur so stupid lol", "u r so dumb",
+                "nobody likes u", "ur worthless at this game", "ur ugly char lol", "ur so trash at bossing"}) {
+            assertEquals(ChatTriage.Con.NORMAL, ChatTriage.rules(line).con(), line);
+        }
+        for (String line : new String[] {"ur so retarded", "shut up f4g", "i know where u live", "ill find u irl",
+                "gonna dox u", "i have ur ip", "i will hurt you in real life"}) {
+            assertEquals(ChatTriage.Con.HARASSMENT, ChatTriage.rules(line).con(), line);
+        }
+        // game talk that shares words with the threats
+        for (String line : new String[] {"ill kill u in the boss race lol",
+                "i know where u level, ant tunnel right", "i found ur address book quest item"}) {
+            assertEquals(ChatTriage.Con.NORMAL, ChatTriage.rules(line).con(), line);
+        }
+    }
+
     /** Owner 2026-10-27: begging and password/login phishing are scam; rwt is only real money and selling accounts. */
     @org.junit.jupiter.api.Test
     void phishingIsScamAndRwtIsMoneyOrAccounts() {
