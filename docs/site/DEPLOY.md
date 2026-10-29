@@ -117,7 +117,10 @@ No reload is needed: the web server serves the new files right away.
 
 **Once the market and World are live** (docs/site/LAUNCH.md steps 5 and 6), timers on 164 own
 `/srv/slums-site/market/` and `/srv/slums-site/world/`. Every publish from 187 must then be a `--private --world` build
-and keep its hands off both: `rsync -a --delete --exclude market/ --exclude world/ ...`. Without rsync, copy the tarball instead:
+and keep its hands off both: `rsync -a --delete --exclude market/ --exclude world/ ...`. Before that copy, check the
+build has the icons (`ls <build>/database/icons/items | wc -l` is in the thousands, not 0): a build made without
+`cache/site-icons` has empty icon slots, and the `--delete` removes the live icons (it happened on 2026-10-28 at
+21:50 UTC; restored from the backup at 02:53 UTC). Without rsync, copy the tarball instead:
 
 ```
 scp dist/slums-site.tar.gz root@<lxc-address>:/tmp/
