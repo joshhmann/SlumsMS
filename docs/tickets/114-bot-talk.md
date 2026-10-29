@@ -36,6 +36,11 @@ help: partied; deal/story: the act went through): `botTalk.promises` in bot-life
 daily chat-quality line now shows bot talk's own say-do ("bot talk 69% of 314") next to the ad-heavy overall rate, and
 t-cq-1 fails it under 80%.
 
+b042 (same branch): any crew member's hang-out trip to a town is the crew's pick (keyed by the leader, at most 4 move,
+2-6 s apart, a fresh pick another member made under 2 min ago is not pulled elsewhere), not only the leader's; and
+when a bot arrives next to one it knows, either may say hi first (`BotTalk.greetOpener`; the one standing there opens
+40% of the time, and greets when the arrival does not), under the same pair gap and world cap.
+
 ## The owner's shape (2026-10-27)
 
 "playerbot says hi to another playerbot -> casual convo -> asks to party -> other bot decides to say yes or no and in a

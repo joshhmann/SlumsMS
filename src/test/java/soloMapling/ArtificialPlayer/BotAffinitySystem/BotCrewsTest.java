@@ -84,18 +84,46 @@ class BotCrewsTest {
         assertEquals(-1, BotCrews.follow(at(B, 2, FIELD), now), "another channel's crew has its own leader");
     }
 
+    /**
+     * 1.6.1 b042 ("when one heads to a town, its friends follow"): before, only the lowest id's trip pulled the crew, so
+     * a non-leader's trip went alone. Any member's trip now does; the crew is still keyed by its leader.
+     */
     @Test
-    void onlyTheLowestIdOnTheChannelLeadsAndThePickExpires() {
-        crew(A, B);
+    void anyMembersTripPullsItsFriendsAndThePickExpires() {
+        crew(A, B, C);
         where.put(A, new int[]{1, FIELD});
         where.put(B, new int[]{1, FIELD});
+        where.put(C, new int[]{1, FIELD});
         BotCrews.led(at(B, 1, FIELD), ELLINIA);
-        assertTrue(nudges.isEmpty(), "B is not the leader while A is online on its channel");
-        BotCrews.led(at(A, 1, FIELD), HENESYS);
-        assertEquals(HENESYS, BotCrews.follow(at(B, 1, FIELD), clock.get()));
+        assertEquals(2, nudges.size(), "B is not the leader, but its friends follow it");
+        assertEquals(java.util.Set.of((long) A, (long) C), java.util.Set.of(nudges.get(0)[0], nudges.get(1)[0]));
+        assertTrue(nudges.get(0)[1] >= 2_000 && nudges.get(0)[1] < 6_000, "2-6 s");
+        assertTrue(nudges.get(1)[1] >= nudges.get(0)[1] + 3_000, "a few seconds apart");
+        long now = clock.get();
+        assertEquals(ELLINIA, BotCrews.follow(at(A, 1, FIELD), now), "the leader follows a friend too");
+        assertEquals(ELLINIA, BotCrews.follow(at(C, 1, FIELD), now));
+        assertEquals(-1, BotCrews.follow(at(B, 1, FIELD), now), "the one who set off follows nobody");
+        nudges.clear();
+        BotCrews.led(at(A, 1, FIELD), ELLINIA);
+        assertTrue(nudges.isEmpty(), "a friend following the pick to the same town is no new pick");
         clock.addAndGet(BotCrews.PICK_TTL_MS + 1);
-        where.put(A, new int[]{1, FIELD});
-        assertEquals(-1, BotCrews.follow(at(B, 1, FIELD), clock.get()), "a stale pick leads nowhere");
+        assertEquals(-1, BotCrews.follow(at(C, 1, FIELD), clock.get()), "a stale pick leads nowhere");
+    }
+
+    @Test
+    void aFreshPickIsNotPulledElsewhereByAnotherMember() {
+        crew(A, B, C);
+        for (int id : new int[]{A, B, C}) {
+            where.put(id, new int[]{1, FIELD});
+        }
+        BotCrews.led(at(B, 1, FIELD), ELLINIA);
+        nudges.clear();
+        BotCrews.led(at(C, 1, FIELD), HENESYS);
+        assertTrue(nudges.isEmpty(), "the friends just left for Ellinia: C goes to Henesys alone");
+        assertEquals(ELLINIA, BotCrews.follow(at(A, 1, FIELD), clock.get()));
+        clock.addAndGet(BotCrews.HOLD_PICK_MS + 1);
+        BotCrews.led(at(C, 1, FIELD), HENESYS);
+        assertEquals(2, nudges.size(), "later, C's trip is the crew's new pick");
     }
 
     @Test

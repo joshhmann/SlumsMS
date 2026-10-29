@@ -301,7 +301,10 @@ public final class BotTalk {
         return ((long) Math.min(a, b) << 32) | (Math.max(a, b) & 0xffffffffL);
     }
 
-    /** A bot that just arrived greets one bot here it knows (its strongest bond first), maybe into a chat. */
+    /**
+     * A bot just arrived next to one it knows (its strongest bond first): one of the two says hi, the arriving one or
+     * the one already standing there ({@link #greetOpener}), maybe into a chat.
+     */
     static void greetOnArrival(Character c, List<Character> here, MapleMap map, long now, Random rng) {
         if (!free(c, false) || !budget(greetStarts, now, TimeUnit.MINUTES.toMillis(1), (int) num("greetsPerMin", 20))) {
             return;
@@ -343,19 +346,44 @@ public final class BotTalk {
         }
         WorldSense sense = new WorldSense();
         Mind mc = sense.mind(c, now);
+        Mind mk = sense.mind(known, now);
         Relation rel = sense.relation(c, known);
-        if (!TalkBrain.greets(mc, rel, rng)) {
+        Relation back = sense.relation(known, c);
+        int opener = greetOpener(mc, rel, mk, back, rng);
+        if (opener < 0) {
             return;
         }
+        Character first = opener == 0 ? c : known, second = opener == 0 ? known : c;
         greetedAt.put(pair(c.getId(), known.getId()), now);
         took(greetStarts, now);
         boolean chat = BotThreads.talker(CharacterStorage.getBotById(c.getId()))
                 && BotThreads.talker(CharacterStorage.getBotById(known.getId()))
-                && TalkBrain.chats(mc, sense.mind(known, now), rel, rng);
-        if (run(map, List.of(c, known), !chat, null, false, chat ? "met a friend, stopped to chat"
-                : "met someone it knows", now, rng) != null) {
+                && TalkBrain.chats(opener == 0 ? mc : mk, opener == 0 ? mk : mc, opener == 0 ? rel : back, rng);
+        if (run(map, List.of(first, second), !chat, null, false, (opener == 0 ? "" : "saw a bot it knows arrive, ")
+                + (chat ? "met a friend, stopped to chat" : "met someone it knows"), now, rng) != null) {
             organic.increment();
         }
+    }
+
+    /** The share of meetings where the bot already standing there is the one who speaks up first. */
+    static final double STANDING_FIRST = 0.4;
+
+    /**
+     * 1.6.1 b042 ("bots greet the bots they know when they run into each other"): who says hi when a bot arrives next
+     * to one it knows: 0 the one arriving, 1 the one already standing there, -1 neither. Before only the arriving bot
+     * could, so a busy or shy arrival met nobody even when the friend standing there would have waved. Either may go
+     * first; if the first does not feel like it, the other may. The pair gap and the world cap are the caller's, as
+     * before. Pure.
+     */
+    static int greetOpener(Mind arrived, Relation fromArrived, Mind standing, Relation fromStanding, Random rng) {
+        boolean standingFirst = rng.nextDouble() < STANDING_FIRST;
+        for (int k = 0; k < 2; k++) {
+            boolean s = standingFirst == (k == 0);
+            if (s ? TalkBrain.greets(standing, fromStanding, rng) : TalkBrain.greets(arrived, fromArrived, rng)) {
+                return s ? 1 : 0;
+            }
+        }
+        return -1;
     }
 
     /** Now and then two idle bots here talk, or a group of 3-4 standing together. */
