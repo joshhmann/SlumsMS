@@ -37,7 +37,7 @@ class ReplyEmoteTest {
     @Test
     void consGetAnAngryOrPuzzledFace() {
         assertEquals(ANGRY, face("lend me 10m", Outcome.NONE, "nah"));
-        assertEquals(ANGRY, face("ur so stupid", Outcome.NONE, "ok"));
+        assertEquals(ANGRY, face("go die noob", Outcome.NONE, "ok"), "harassment by rule (a death wish)");
         assertEquals(TROUBLED, face("ill pay u 5 dollars for ur account", Outcome.NONE, "no thx"));
         assertEquals(SURPRISED, face("are you a bot", Outcome.NONE, "lol what"));
     }
