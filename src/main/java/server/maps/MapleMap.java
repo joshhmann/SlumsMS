@@ -2179,9 +2179,13 @@ public class MapleMap {
 
     public void spawnMonsterOnGroundBelow(Monster mob, Point pos) {
         Point spos = new Point(pos.x, pos.y - 1);
+        Foothold below = footholds.findBelow(spos);
         spos = calcPointBelow(spos);
         spos.y--;
         mob.setPosition(spos);
+        if (below != null && mob.getFh() == 0) {
+            mob.setFh(below.getId());   // 1.6.1: a GM/script spawn used to go out with foothold 0 (revive spawns set it)
+        }
         spawnMonster(mob);
     }
 

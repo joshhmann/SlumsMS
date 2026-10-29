@@ -42,8 +42,17 @@ public class SpawnCommand extends Command {
             return;
         }
 
-        Monster monster = LifeFactory.getMonster(Integer.parseInt(params[0]));
+        int mobId;
+        try {
+            mobId = Integer.parseInt(params[0]);
+        } catch (NumberFormatException e) {
+            player.yellowMessage("Syntax: !spawn <mobid> [<mobqty>]");
+            return;
+        }
+        Monster monster = LifeFactory.getMonster(mobId);
         if (monster == null) {
+            // 1.6.1: this used to return without a word, so a mob that failed to load looked like a spawn that did nothing
+            player.yellowMessage("Mob " + mobId + " could not be loaded (see the server log).");
             return;
         }
         if (params.length == 2) {
