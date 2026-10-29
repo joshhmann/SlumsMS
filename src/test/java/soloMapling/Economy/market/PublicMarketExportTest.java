@@ -100,6 +100,8 @@ class PublicMarketExportTest {
         assertNull(econ.get("detail"), "no nightly snapshot yet");
         assertNull(econ.get("mesos_total"));
         assertEquals(2L, econ.get("trades_24h"), "the samples of the last 24 h");
+        assertNotNull(econ.get("player_trades_24h"), "player-side count sits next to trades_24h");
+        assertTrue(((Number) econ.get("player_trades_24h")).longValue() <= 2L);
         assertEquals(0L, econ.get("shops_open"));
         assertEquals(42L, econ.get("bots_online_peak"));
         assertNull(econ.get("mesos_removed_7d"));
@@ -211,7 +213,7 @@ class PublicMarketExportTest {
         runner.quarter();
         Map<String, Object> e = read(dir.resolve("economy-public.json"));
         assertEquals(List.of("schema", "as_of", "generated_at", "snapshot_date", "mesos_total", "players_share",
-                "trades_24h", "shops_open", "mesos_removed_7d", "bots_online_peak", "days", "detail"),
+                "trades_24h", "player_trades_24h", "shops_open", "mesos_removed_7d", "bots_online_peak", "days", "detail"),
                 new ArrayList<>(e.keySet()));
         assertEquals(1L, e.get("schema"));
         assertEquals("2026-10-26T01:15:00Z", e.get("as_of"));
@@ -246,6 +248,7 @@ class PublicMarketExportTest {
         assertTrue(Files.exists(dir.resolve("listings.json")), "listings need no database");
         assertTrue(Files.exists(dir.resolve("economy-public.json")));
         assertNull(read(dir.resolve("economy-public.json")).get("trades_24h"), "unknown, not 0");
+        assertNull(read(dir.resolve("economy-public.json")).get("player_trades_24h"), "unknown, not 0");
         assertFalse(Files.exists(dir.resolve("sales.json")));
         assertTrue(r.failed().stream().anyMatch(s -> s.startsWith("sales.json")), r.failed().toString());
         assertDoesNotThrow(runner::quarterSafely);

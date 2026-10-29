@@ -435,6 +435,7 @@ sale. On TEST there are no cash-item samples yet, so the rate is null until play
 | `mesos_total` | int or null | all mesos held by characters and bots (nightly snapshot); null before the first snapshot |
 | `players_share` | number or null | real players' share of `mesos_total`; null when fewer than 5 players (privacy floor) or no snapshot |
 | `trades_24h` | int or null | price-board samples in the last 24 h (all sources, bot seeds included); null if the DB could not be read |
+| `player_trades_24h` | int or null | the same samples with a real player on a side (bot-to-bot seeds excluded); null if the DB could not be read |
 | `shops_open` | int | FM shops with at least one listing now |
 | `mesos_removed_7d` | int or null | sum of `flows.totalSinks` over the nightly snapshots of the 7 days before today; null when there are none |
 | `bots_online_peak` | int or null | most bots online at any 15-minute run in the last 24 h (since the server started) |

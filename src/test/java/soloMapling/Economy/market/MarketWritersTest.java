@@ -163,6 +163,14 @@ class MarketWritersTest {
         assertEquals(4, red.get("count"));
         assertEquals(0.5, red.get("player_share"));
         assertEquals(2, red.get("player_count"), "half of the 4 sales had a real player on a side");
+        assertEquals(45L, red.get("player_median"), "player side only: 40 and 50");
+        assertEquals(40L, red.get("player_low"));
+        assertEquals(50L, red.get("player_high"));
+        Map<String, Object> blue = (Map<String, Object>) ((Map<String, Object>) day.get("items")).get("4000000");
+        assertEquals(0, blue.get("player_count"));
+        assertNull(blue.get("player_median"), "no player-side sale: null");
+        assertNull(blue.get("player_low"));
+        assertNull(blue.get("player_high"));
         assertEquals(Map.of("x", 1), day.get("nx_rate"));
         Map<String, Object> one = (Map<String, Object>) ((Map<String, Object>) day.get("items")).get("4000000");
         assertEquals(7L, one.get("median"));

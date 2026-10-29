@@ -26,7 +26,12 @@ public final class PublicEconomy {
      * sinks of the last 7 nightly snapshots (null when there are none) and the most bots online in the last 24 h
      * (null before the first count).
      */
-    public record Live(Integer trades24h, int shopsOpen, Long mesosRemoved7d, Integer botsOnlinePeak) {
+    public record Live(Integer trades24h, int shopsOpen, Long mesosRemoved7d, Integer botsOnlinePeak,
+                       Integer playerTrades24h) {
+        /** Without the player-side count (null in the file). */
+        public Live(Integer trades24h, int shopsOpen, Long mesosRemoved7d, Integer botsOnlinePeak) {
+            this(trades24h, shopsOpen, mesosRemoved7d, botsOnlinePeak, null);
+        }
     }
 
     /** The headline plus the floored snapshot; {@code latestPublic} may be null (no nightly snapshot yet). */
@@ -98,7 +103,8 @@ public final class PublicEconomy {
         out.put("snapshot_date", detail == null ? null : detail.get("date"));
         out.put("mesos_total", total);
         out.put("players_share", share);
-        out.put("trades_24h", live.trades24h());
+        out.put("trades_24h", live.trades24h()); // every price-board sample, bot-to-bot seeds included
+        out.put("player_trades_24h", live.playerTrades24h()); // only sales with a real player on a side
         out.put("shops_open", live.shopsOpen());
         out.put("mesos_removed_7d", live.mesosRemoved7d());
         out.put("bots_online_peak", live.botsOnlinePeak());
