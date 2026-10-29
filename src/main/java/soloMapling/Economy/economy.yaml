@@ -44,6 +44,7 @@ botShops:
   lootMarkup: 1.00          # own drops and scrolls: fair value
   resaleMarkup: 1.15        # bought from players: 15% over the higher of what was paid and fair value
   resalePoolMax: 200
+  generatedStockExcludesGodly: true   # generated FM shop stock leaves out godly gear (boss-only/cash/untradeable are always out)
   channels: 3               # bot shops open in FM rooms 1-12 of channels 1..this
   channelTargets: "4,2,2"   # soft share of maxShops per channel (channel 1 first); a bot has one shop, on one channel
 
@@ -132,4 +133,6 @@ cosmeticShop:
 saleRules:
   bossOnly:
     1002357: 1              # Zakum Helmet
+    1002390: 1              # Zakum Helmet 2
+    1002430: 1              # Zakum Helmet 3
     1122000: 1              # Horntail Necklace

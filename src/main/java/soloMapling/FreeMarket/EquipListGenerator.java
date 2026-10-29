@@ -74,7 +74,16 @@ public class EquipListGenerator {
      * Before, the desirable-equip list let bot shops mint Zakum Helmets and sell them for ~600k.
      */
     static boolean stockable(Equip item) {
-        return item != null && SaleRules.botMaySell(item);
+        return item != null && SaleRules.whyNotListOwn(item) == null
+                && !(excludesGodly() && SaleRules.isGodlyGear(item));
+    }
+
+    /**
+     * Owner 2026-10-29: whether generated stock also leaves out godly gear ({@code botShops.generatedStockExcludesGodly}
+     * in economy.yaml, default true). Separate from the always-on boss-only / untradeable / cash filter.
+     */
+    public static boolean excludesGodly() {
+        return soloMapling.Economy.EconomyConfig.getBool("botShops.generatedStockExcludesGodly", true);
     }
 
     public static List<FMEquip> generateEquipListIIPU(String tier, Job jobStyle) {

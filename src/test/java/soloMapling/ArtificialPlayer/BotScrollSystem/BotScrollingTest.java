@@ -363,7 +363,8 @@ class BotScrollingTest {
             godly.setLevel((byte) 7);
             godly.setWatk((short) (17 + 35));   // seven 10% passes: +35
             assertNull(BotConsignment.whyNotList(fair), "an average or good piece may be listed");
-            assertEquals("godly gear", BotConsignment.whyNotList(godly));
+            assertNull(BotConsignment.whyNotList(godly), "owner 2026-10-29: a bot may consign its own godly piece");
+            assertEquals("godly gear", soloMapling.Economy.SaleRules.whyNot(godly), "gifts, Mega Buy, bot-to-bot still refuse it");
         } finally {
             soloMapling.Economy.SaleRules.useForTest(null, null, null);
         }
