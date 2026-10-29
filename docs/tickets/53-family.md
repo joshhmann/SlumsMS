@@ -62,7 +62,7 @@ Turn the family system on (USE_FAMILY_SYSTEM) and implement the six stubbed enti
   drop rate (`MapleMap.dropFromMonster`; a fraction such as 1.5x of 1x is rolled per kill). They stack with coupons
   and world rates as a coupon does (`USE_STACK_COUPON_RATES` is about coupons only); Family buffs don't stack with
   each other: the higher rate wins, never above 2x (the ticket's cap risk). They last through a relog, not a restart.
-  Bots are never given one. The "nullified during an EXP event" line in the tooltips is not enforced.
+  Bots are never given one. The tooltips' stock "nullified during an EXP event" line was replaced by "Stacks with ... events and coupons" (owner 2026-10-29).
 - **Family Bonding:** 2x EXP and drop for 30 minutes to the user and every player below them in the pedigree, when
   at least 6 (`-Dslums.family.bondingMin`) members below are online; bot juniors count. Refused (nothing spent) if not.
 - **Costs and cooldowns:** stock v83 / Cosmic: Reunion 300, Summon 500, Drop 1.5x 700, EXP 1.5x 800, Bonding 1,000,
@@ -105,12 +105,12 @@ The notes promised "every perk works" and regular juniors; the audit found gaps.
   copies with "not implemented"); the tooltip has no map or channel limit, so none is applied.
 - **Persistence:** `family_buffs` (migration 053): written on each grant, deleted on clear, ended rows dropped and the
   rest read back at boot. The clock runs while the server is down (as a coupon's).
-- **"Nullified during an EXP/drop event":** the tooltips are not client data: the server sends them
-  (`FamilyEntitlement` descriptions, packet FAMILY_PRIVILEGE_LIST 0x64), and they are the original game's own text.
-  So the server now matches them: while an EXP event applies (a world-event hot spot on the character's map, or a GM
-  EXP rate above the world's configured rate) the Family EXP buff gives 1x, and the drop buff during a GM drop-rate
-  event; the buff's time keeps running; coupons still stack. Bonding's EXP and drop halves follow their own event. No
-  client change is needed.
+- **Events (owner 2026-10-29, branch 161-family3):** Family perks keep stacking with EXP / drop events (world-event hot
+  spots, GM rate events) and with coupons, as on live. The stock GMS tooltips said a perk "will be nullified" while an
+  event runs; they are not client data (the server sends them: `FamilyEntitlement` descriptions, packet
+  FAMILY_PRIVILEGE_LIST 0x64), so the text now ends "* Stacks with EXP events and coupons." (Drop Rate perks: "...Drop
+  Rate events...", Bonding: "...EXP and Drop Rate events..."). The 161-family2 rule that gave 1x during an event is
+  gone. No client change is needed.
 - **"Now and then one asks to be yours":** the offer whisper came 30-120 s after the chat, by when the bot had often left
   the map, so the stock "must be in the same map" (and a channel-only lookup) blocked the Add Junior it asked for, and
   even then the bot said no one time in five. Now a bot only offers while still on the player's map, the offer stands

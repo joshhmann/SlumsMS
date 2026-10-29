@@ -183,7 +183,7 @@ final class FamilyProbes {
             checkBuff(p, me, mine, FamilyEntitlement.PARTY_DROP_2_30MIN, pal, bad, ev);
             checkBuff(p, me, mine, FamilyEntitlement.PARTY_EXP_2_30MIN, pal, bad, ev);
 
-            // a real kill pays the buffed EXP (1x while an EXP event nullifies it, as the tooltip says)
+            // a real kill pays the buffed EXP (it stacks with any EXP event on, owner 2026-10-29)
             long buffed = realKill(me), buffedPal = realKill(pal);
             double want = FamilyBuffs.expMultiplier(me), wantPal = FamilyBuffs.expMultiplier(pal);
             ev.add("buffed real kills: " + me.getName() + " +" + buffed + " (x" + want + " expected), " + pal.getName()

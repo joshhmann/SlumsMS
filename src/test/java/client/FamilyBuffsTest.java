@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,7 +53,6 @@ class FamilyBuffsTest {
     @BeforeEach
     void noEvents() {
         FamilyBuffs.useStore(new MemStore());
-        FamilyBuffs.useEventRules(c -> false, c -> false);
     }
 
     @AfterEach
@@ -61,7 +61,6 @@ class FamilyBuffsTest {
             FamilyBuffs.clear(id);
         }
         FamilyBuffs.useStore(null);
-        FamilyBuffs.useEventRules(null, null);
         System.clearProperty("slums.family.bondingMin");
     }
 
@@ -232,24 +231,22 @@ class FamilyBuffsTest {
     }
 
     @Test
-    void anEventNullifiesTheMatchingBuffAsTheTooltipSays() {
+    void aBuffKeepsStackingDuringAnEventAndTheTooltipSaysSo() {
+        // Owner 2026-10-29: as on live, Family perks stack with EXP / drop events. A world whose every yes/no question
+        // answers yes stands in for one with a GM EXP and drop rate event on (it answers "is an event on?" with yes).
+        net.server.world.World eventWorld = mock(net.server.world.World.class,
+                inv -> inv.getMethod().getReturnType() == boolean.class ? Boolean.TRUE
+                        : org.mockito.Mockito.RETURNS_DEFAULTS.answer(inv));
         Character me = chr(ME, 1);
+        when(me.getWorldServer()).thenReturn(eventWorld);
         FamilyBuffs.grant(ME, FamilyBuffs.specOf(FamilyEntitlement.FAMILY_BONDING), System.currentTimeMillis());
-        assertEquals(2.0, FamilyBuffs.expMultiplier(me));
-        assertEquals(2.0, FamilyBuffs.dropMultiplier(me));
-        FamilyBuffs.useEventRules(c -> true, c -> false); // an EXP event (hot spot / GM EXP rate) is on
-        assertEquals(1.0, FamilyBuffs.expMultiplier(me), "nullified during the EXP event");
-        assertEquals(2.0, FamilyBuffs.dropMultiplier(me), "no drop event: the drop half still works");
-        assertNotNull(FamilyBuffs.eventNote(me, FamilyBuffs.specOf(FamilyEntitlement.SELF_EXP_2)));
-        assertNull(FamilyBuffs.eventNote(me, FamilyBuffs.specOf(FamilyEntitlement.SELF_DROP_2)));
-        FamilyBuffs.useEventRules(c -> false, c -> true);
-        assertEquals(2.0, FamilyBuffs.expMultiplier(me));
-        assertEquals(1.0, FamilyBuffs.dropMultiplier(me), "nullified during the drop event");
-        FamilyBuffs.useEventRules(c -> false, c -> false);
-        assertEquals(2.0, FamilyBuffs.expMultiplier(me), "back when the event ends (its time kept running)");
+        assertEquals(2.0, FamilyBuffs.expMultiplier(me), "the EXP buff stacks with the EXP event");
+        assertEquals(2.0, FamilyBuffs.dropMultiplier(me), "the drop buff stacks with the drop event");
         for (FamilyEntitlement e : FamilyEntitlement.values()) {
+            String tip = e.getDescription();
+            assertFalse(tip.contains("nullified"), e + ": the server-sent tooltip must not promise nullifying");
             if (FamilyBuffs.specOf(e) != null) {
-                assertTrue(e.getDescription().contains("nullified"), e + ": the server-sent tooltip promises it");
+                assertTrue(tip.contains("Stacks with") && tip.contains("coupons"), e + ": says it stacks: " + tip);
             }
         }
     }
