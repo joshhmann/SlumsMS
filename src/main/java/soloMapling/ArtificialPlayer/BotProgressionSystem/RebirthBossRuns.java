@@ -477,12 +477,18 @@ public final class RebirthBossRuns {
 
     static void step(Run r, long now) {
         if (r.phase == Phase.DONE) return;
-        r.crew.removeIf(c -> !c.isLoggedinWorld() || c.getMap() == null);
+        for (Character c : r.crew) {
+            if (!c.isLoggedinWorld() || c.getMap() == null) {
+                r.note(c.getName() + " is gone");
+                drop(r, c);   // out of the run and out of the hold
+            }
+        }
         if (r.crew.isEmpty()) {
             finish(r, "the crew is gone");
             return;
         }
-        if (now - r.createdAt > Duration.ofMinutes(runMinutes()).toMillis() && r.phase != Phase.LOOT) {
+        long limit = r.botLed ? runMinutes() : r.boss.timeLimitMinutes + 10L; // a player's run keeps its own clock
+        if (now - r.createdAt > Duration.ofMinutes(limit).toMillis() && r.phase != Phase.LOOT) {
             finish(r, "out of time");
             return;
         }
@@ -571,9 +577,11 @@ public final class RebirthBossRuns {
             }
         }
         Channel ch = r.leader.getClient() == null ? null : r.leader.getClient().getChannelServer();
-        boolean open = ex != null && ex.isRegistering() && ch != null && ch.getExpedition(r.boss.type) == ex;
-        if (!open || now - r.phaseAt > Duration.ofMinutes(r.boss.type.getRegistrationMinutes() + 1L).toMillis()) {
-            finish(r, "the expedition broke up before it started");
+        boolean alive = ex != null && ch != null && ch.getExpedition(r.boss.type) == ex;
+        if (!alive) {
+            finish(r, "the expedition broke up before it took the bots in");
+        } else if (now - r.phaseAt > Duration.ofMinutes(r.boss.type.getRegistrationMinutes() + 1L).toMillis()) {
+            finish(r, "the expedition did not take the bots in");
         }
     }
 
