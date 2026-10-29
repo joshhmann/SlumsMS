@@ -131,6 +131,7 @@
         try { history.replaceState(null, "", id === "NX" ? location.pathname : "#" + id.toLowerCase()); } catch (e) { /* fine */ }
       },
       sync: function () {  // share the picked ticker's rules and the limits with the order form
+        store().closed = !!(this.data && this.data.open === false);  // switched off on this server (b063)
         if (this.data && this.data.limits) store().limits = this.data.limits;
         if (this.list.length && !this.list.some(function (x) { return x.id === store().tk; })) store().tk = this.list[0].id;
         store().meta = this.cur;
@@ -299,6 +300,7 @@
         var self = this;
         init.call(this);
         this.$watch("data", function (d) {
+          if (d && d.open === false) store().closed = true;
           if (d && d.characters && d.characters.indexOf(self.character) < 0) self.character = d.characters[0] || "";
           if (d && d.waiting && d.waiting.some(function (w) { return w.type === "mine"; })) setTimeout(function () { self.refresh(); }, 2500);
         });
@@ -391,7 +393,7 @@
   }
 
   document.addEventListener("alpine:init", function () {
-    window.Alpine.store("xc", { tk: "NX", meta: null, limits: null });
+    window.Alpine.store("xc", { tk: "NX", meta: null, limits: null, closed: false });
     window.Alpine.data("xbook", xbook);
     window.Alpine.data("xmine", xmine);
   });

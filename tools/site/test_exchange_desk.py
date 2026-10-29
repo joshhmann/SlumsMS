@@ -230,7 +230,7 @@ class ExchangeHttpTest(old.Base):
     def setUp(self):
         super().setUp()
         self.sessions = ls.Sessions(old.KEY, now=self.clock)
-        self.client = market_app.create_app(self.sessions, self.store).test_client()
+        self.client = market_app.create_app(self.sessions, self.store, exchange=True).test_client()
         self.client.set_cookie(ls.SESSION_COOKIE, self.sessions.issue(
             {"account_id": 7, "character": "Momo", "characters": ["Momo", "MomoAlt"]}))
         self.game = Game(self)
@@ -267,6 +267,21 @@ class ExchangeHttpTest(old.Base):
         self.assertIn("Sign in again", got["error"])
         self.assertTrue(self.call("GET", "me")[1]["reauth"])
         self.assertEqual(self.game.requests(), [])
+
+    def test_switched_off_it_shows_nothing_and_asks_the_game_nothing(self):
+        client = market_app.create_app(self.sessions, self.store).test_client()  # off unless asked: live (b063)
+        client.set_cookie(ls.SESSION_COOKIE, self.sessions.issue({"account_id": 7, "character": "Momo"}))
+        ms.write_atomic(os.path.join(self.outbox, xd.TICKERS), TICKERS)  # even with the game's files there
+        book = client.get("/api/market/exchange/book").get_json()
+        self.assertEqual((book["open"], book["tickers"]), (False, []))
+        self.assertEqual(client.get("/api/market/exchange/me").get_json(), {"ok": True, "open": False})
+        for path in ("preview", "confirm", "cancel", "refresh"):
+            r = client.post("/api/market/exchange/" + path, json={}, headers={"X-Slums": "1"})
+            self.assertEqual((r.status_code, r.get_json()["code"]), (503, "CLOSED"), path)
+        self.assertEqual(client.get("/api/market/exchange/history?ticker=NX").status_code, 503)
+        self.assertEqual(self.game.requests(), [])
+        client.delete_cookie(ls.SESSION_COOKIE)
+        self.assertEqual(client.get("/api/market/exchange/book").status_code, 401, "the session check still runs")
 
     def test_me_and_book(self):
         st, me = self.call("GET", "me")

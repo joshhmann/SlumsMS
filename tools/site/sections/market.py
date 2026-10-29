@@ -612,7 +612,9 @@ EXCHANGE = """<h1>Slums Exchange</h1>
 buyer's price meets a seller's, they trade straight away, and the game pays both sides. No house price: every price
 here is one a player paid.</p>
 <noscript><p class="small">The exchange needs JavaScript turned on.</p></noscript>
-<div class="xc-term">
+<p class="xc-alert" x-data x-show="$store.xc.closed" x-cloak>The Slums Exchange isn't open yet. It opens in a later
+update: the patch notes will say when.</p>
+<div class="xc-term" x-data x-show="!$store.xc.closed">
 <div class="xc-c" x-data="xbook">
 <div class="xc-alerts" style="grid-area: alert"><p class="xc-alert" x-show="state === 'error'" x-text="error" x-cloak></p>
 <p class="xc-alert" x-show="halted" x-cloak>Trading paused by a GM: no new orders or trades for now. You can still cancel.</p>

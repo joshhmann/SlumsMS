@@ -14,6 +14,8 @@ Environment=SLUMS_MARKET_OUTBOX=/opt/mapleroot-dev/persistence-test/site-board/o
 Environment=SLUMS_MARKET_ITEMS=/srv/slums-site-test/database/search-index.json
 Environment=SLUMS_MARKET_UNTRADEABLE=/srv/slums-site-test/market/untradeable.json
 Environment=SLUMS_MARKET_PORT=8195
+# the exchange is off unless switched on (live keeps it closed, b063); TEST runs it
+Environment=SLUMS_MARKET_EXCHANGE=on
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

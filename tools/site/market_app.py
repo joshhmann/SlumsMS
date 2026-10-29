@@ -2,6 +2,12 @@
 """Slums Market on Flask: the same service as market_service.py, the same URLs, cookie, JSON and status codes.
 
     python3 tools/site/market_app.py [--db PATH] [--inbox DIR] [--outbox DIR] [--items FILE] [--port 8095]
+                                     [--exchange on|off]
+
+The Slums Exchange is off unless --exchange on (SLUMS_MARKET_EXCHANGE=on): the owner keeps it closed on live until
+both b005 guards are in (2026-10-29). Off, /api/market/exchange/book answers {"open": false} with no tickers, me
+answers {"open": false}, every other exchange URL 503 {"code": "CLOSED"}, nothing reaches the game, and the page shows
+only "not open yet" (b063).
 
 The first step of the 1.6.1 framework move (docs/site/STACK-PROPOSAL.md): Flask 3 from Ubuntu's python3-flask, no pip.
 The rules and the store (Store, Items, the limits, the game's inbox and outbox) are market_service.py's, imported as
@@ -89,6 +95,28 @@ def market_routes(store):
     return bp
 
 
+CLOSED = "The Slums Exchange isn't open yet."
+
+
+def closed_routes():
+    """The exchange switched off: the same URLs, no tickers, no orders, nothing sent to the game."""
+    bp = Blueprint("exchange", __name__, url_prefix="/api/market/exchange")
+    import exchange_desk as xd
+
+    def closed(**_kw):
+        return reply(503, {"ok": False, "code": "CLOSED", "error": CLOSED})
+
+    bp.add_url_rule("/book", "book", lambda: reply(200, {
+        "ok": True, "open": False, "tickers": [], "halted": False, "generated_at": None, "limits": xd.DEFAULT_LIMITS,
+        "events": [], "rules": xd.RULES}), methods=["GET"])
+    bp.add_url_rule("/me", "me", lambda: reply(200, {"ok": True, "open": False}), methods=["GET"])
+    bp.add_url_rule("/history", "history", closed, methods=["GET"])
+    bp.add_url_rule("/answer/<rid>", "answer", closed, methods=["GET"])
+    for path in ("preview", "confirm", "cancel", "refresh"):
+        bp.add_url_rule("/" + path, "post_" + path, closed, methods=["POST"])
+    return bp
+
+
 def exchange_routes(store, desk):
     """The NX-meso exchange (exchange_desk.py): requests to the game through the board's folders."""
     bp = Blueprint("exchange", __name__, url_prefix="/api/market/exchange")
@@ -105,7 +133,7 @@ def exchange_routes(store, desk):
             store.rate(g.session["a"])
             return reply(200, dict(fn(g.session, body), ok=True))
 
-    bp.add_url_rule("/book", "book", lambda: read(desk.book), methods=["GET"])
+    bp.add_url_rule("/book", "book", lambda: read(lambda: dict(desk.book(), open=True)), methods=["GET"])
     bp.add_url_rule("/me", "me", lambda: read(lambda: desk.me(g.session, characters(g.session))), methods=["GET"])
     bp.add_url_rule("/history", "history", lambda: read(lambda: desk.history(request.args.get("ticker"))),
                     methods=["GET"])
@@ -125,7 +153,7 @@ def exchange_routes(store, desk):
 OPEN = {"/api/market/health"}
 
 
-def create_app(sessions, store):
+def create_app(sessions, store, exchange=False):
     app = Flask(__name__)
     app.json.sort_keys = False
 
@@ -152,7 +180,7 @@ def create_app(sessions, store):
 
     app.add_url_rule("/api/market/health", "health", lambda: reply(200, {"ok": True}), methods=["GET"])
     app.register_blueprint(market_routes(store))
-    app.register_blueprint(exchange_routes(store, Desk(store)))
+    app.register_blueprint(exchange_routes(store, Desk(store)) if exchange else closed_routes())
     return app
 
 
@@ -161,6 +189,7 @@ def main():
     for a in ("--key-file", "--revoked", "--db", "--inbox", "--outbox", "--items", "--untradeable"):
         ap.add_argument(a)
     ap.add_argument("--port", type=int)
+    ap.add_argument("--exchange", choices=("on", "off"))
     args = ap.parse_args()
     setting = ms.setting
     key_file = setting(args, "key_file", "SLUMS_LOGIN_KEY_FILE", "/etc/slums-login/key")
@@ -178,6 +207,7 @@ def main():
     items = setting(args, "items", "SLUMS_MARKET_ITEMS", "/srv/slums-site/database/search-index.json")
     untradeable = setting(args, "untradeable", "SLUMS_MARKET_UNTRADEABLE", "/srv/slums-site/market/untradeable.json")
     port = int(setting(args, "port", "SLUMS_MARKET_PORT", 8095))
+    exchange = setting(args, "exchange", "SLUMS_MARKET_EXCHANGE", "off") == "on"
     store = ms.Store(db, inbox, outbox, ms.Items(items, untradeable))
     with store.lock:
         store.sync()
@@ -190,9 +220,10 @@ def main():
         def log_request(self, code="-", size="-"):  # no addresses or cookies in the log
             sys.stderr.write(f"{self.command} {urlsplit(self.path).path} {code}\n")
 
-    server = make_server("127.0.0.1", port, create_app(Sessions(key, revoked), store), threaded=True,
+    server = make_server("127.0.0.1", port, create_app(Sessions(key, revoked), store, exchange), threaded=True,
                          request_handler=Quiet)
-    print(f"market service (Flask) on 127.0.0.1:{port}, inbox {inbox}, outbox {outbox}", file=sys.stderr)
+    print(f"market service (Flask) on 127.0.0.1:{port}, inbox {inbox}, outbox {outbox}, "
+          f"exchange {'on' if exchange else 'off'}", file=sys.stderr)
     server.serve_forever()
 
 
