@@ -12,7 +12,8 @@ Environment=SLUMS_REPORT_PORT=8193
 # no Caddy in front: the TEST nginx sets X-Forwarded-For to the visitor itself
 Environment=SLUMS_REPORT_PROXY_HOPS=0
 # versions stamped on each report: the TEST server's site export and the TEST site's build (read only)
-Environment=SLUMS_REPORT_WORLD_FILE=/opt/mapleroot-dev/persistence-test/Server/data/site/world.json
+# the World build's copy, the same file live reads (b064): the version only, no commit
+Environment=SLUMS_REPORT_WORLD_FILE=/srv/slums-site-test/world/online.json
 Environment=SLUMS_REPORT_SITE_BUILD=/srv/slums-site-test/assets/build.json
 # the staff Reports tab's reader (admin/reports), reached only through nginx's GM-3 guard
 Environment=SLUMS_REPORT_STAFF_PORT=8197

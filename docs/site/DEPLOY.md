@@ -144,7 +144,10 @@ In this order; each step has its check, and stop at the first one that fails.
      `market_app.py` (same port 8095, URLs, cookie and database as `market_service.py`), and it has no
      `SLUMS_MARKET_EXCHANGE` line, so the exchange stays off.
    - `slums-login`: the new login_service.py (a GM signed in over 12 h ago gets 401, so `/admin/` asks again).
-   - `slums-report`: copy the new report_service.py to `/opt/slums-report/`, plus the two new Environment lines.
+   - `slums-report`: copy the new report_service.py to `/opt/slums-report/`, plus the three new Environment lines
+     (the server version from `/srv/slums-site/world/online.json`, the site's `build.json`, the staff port 8097).
+     Check, after the World timer's next run: `grep -o '"version": "[^"]*"' /srv/slums-site/world/online.json` shows
+     the server version, and a test report sent from `/report/` shows it in the staff Reports tab.
    - `systemctl daemon-reload`, restart the three, then `curl -s 127.0.0.1:8094/api/login/health`,
      `127.0.0.1:8095/api/market/health` and `127.0.0.1:8093/api/report/health` all give `{"ok": true}`;
      `journalctl -u slums-market -n 3` says `market service (Flask) ... exchange off`; `ss -ltn | grep 8097` shows the

@@ -713,6 +713,35 @@ class WorldTest(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(self.out, "world", "index.html")))
         self.assertEqual([n for n in os.listdir(self.out) if n.startswith(".")], [])
 
+    def test_online_json_carries_the_server_version_but_not_the_commit(self):
+        """b064: the report form reads the server version from world/online.json (live's world.json is root-only)."""
+        import shutil
+        import tempfile
+        data, out = tempfile.mkdtemp(), tempfile.mkdtemp()
+        try:
+            shutil.copytree(self.data, data, dirs_exist_ok=True)
+            shutil.copytree(self.out, out, dirs_exist_ok=True)  # a section rebuild needs a full build under it
+            with open(os.path.join(data, "world.json"), encoding="utf-8") as f:
+                w = json.load(f)
+            w["version"] = {"server": "1.6.1", "commit": "b48dd3b95"}
+            with open(os.path.join(data, "world.json"), "w", encoding="utf-8") as f:
+                json.dump(w, f)
+            build.SITE_DATA, build.MARKET_DATA = data, self.market
+            try:
+                build.rebuild_section("world", out)
+            finally:
+                build.SITE_DATA = build.MARKET_DATA = None
+                build.common.BUILT.clear()
+            with open(os.path.join(out, "world", "online.json"), encoding="utf-8") as f:
+                online = json.load(f)
+            self.assertEqual(online["version"], "1.6.1")
+            self.assertNotIn("b48dd3b95", json.dumps(online))
+            import report_service
+            self.assertEqual(report_service.Versions(os.path.join(out, "world", "online.json")).now(), {"server": "1.6.1"})
+        finally:
+            shutil.rmtree(data)
+            shutil.rmtree(out)
+
     def test_link_check_ignores_query_strings(self):
         page = os.path.join(self.out, "world", "q.html")
         with open(page, "w", encoding="utf-8") as f:

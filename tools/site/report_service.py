@@ -21,7 +21,8 @@ Settings (argument beats environment beats default):
     --salt-file / SLUMS_REPORT_SALT_FILE  /etc/slums-report/salt   (required; the service will not start without it)
     --port / SLUMS_REPORT_PORT            8093
     --proxy-hops / SLUMS_REPORT_PROXY_HOPS  1   proxies in front of nginx (Caddy = 1); see client_ip()
-    --world-file / SLUMS_REPORT_WORLD_FILE        the game's site export world.json (for the server version)
+    --world-file / SLUMS_REPORT_WORLD_FILE        a file with the server's "version": the site's world/online.json (the
+                                                  World build copies it from the game's export), or world.json itself
     --site-build-file / SLUMS_REPORT_SITE_BUILD   the site's assets/build.json (for the site version)
     --staff-port / SLUMS_REPORT_STAFF_PORT  0 (off)  the staff reader (below)
 

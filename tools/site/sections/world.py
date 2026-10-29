@@ -362,7 +362,14 @@ def build_live(wo):
                '<span>Quiet so far. Events, milestones and megaphones show up here as they happen.</span></p>') + '</section>')
     wo.page(f"{WORLD}/index.html", "Live world", body, "index", "Who's online on Bera, the busiest maps and tonight's event.")
     # the home page's "Online now" reads this (theme.js); it's rebuilt with World every couple of minutes
-    write(wo.out, f"{WORLD}/online.json", json.dumps({"online": total, "generated_at": as_of}))
+    # and the report form stamps the server version from it (SLUMS_REPORT_WORLD_FILE, b064): live's world.json is in the
+    # root-only Server/ folder. The version only: the commit stays private.
+    ver = wd.get("version")
+    ver = ver.get("server") if isinstance(ver, dict) else ver
+    online = {"online": total, "generated_at": as_of}
+    if isinstance(ver, str) and re.fullmatch(r"[0-9A-Za-z.+-]{1,32}", ver):
+        online["version"] = ver
+    write(wo.out, f"{WORLD}/online.json", json.dumps(online))
     return total
 
 
