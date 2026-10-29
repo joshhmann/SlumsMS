@@ -477,7 +477,10 @@ and each answers the ask itself. Each step prints the plan (every line with its 
 lines by source, acts, classified bot lines = 0, tick CPU). Auto-QA: t-bt-1 (pair, group, classifier count, tick
 cost, and the tick starting talks by itself after 5 min with 20+ bots online; since the 1.6.1 audit Bob's answer is a
 forced yes whenever the game allows one, and the check fails unless Ann and Bob end up in one real party) and t-bt-2
-(friend crews: the leader's town becomes the followers' next hang-out and a follower, not the leader, gets there).
+(friend crews: the leader starts its hang-out through its own life, the town becomes the followers' next hang-out,
+and since 161-saydo every member, leader and followers, must stand in the town within 240 s) and t-bt-3 (say-do for
+bot talk: two fresh training bots, a forced come-along yes, both must reach the town within 240 s; and of the yeses
+bots gave each other since boot, `botTalk.promises` in bot-life.json, at least 80% carried out once 10 are judged).
 
 ## Adding a scenario
 

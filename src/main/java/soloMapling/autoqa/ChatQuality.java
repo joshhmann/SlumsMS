@@ -56,6 +56,12 @@ public final class ChatQuality {
     /** FAIL below this share of strong claims backed (with at least {@link #MIN_CLAIMS} claims). */
     public static final double SAYDO_MIN = 0.50;
     public static final int MIN_CLAIMS = 20;
+    /**
+     * 1.6.1 say-do: the claims bots make talking to each other (sources "talk-*": "going henesys, coming?", "omw")
+     * on their own. The overall rate is mostly shop ads (TEST 2026-10-28: 100% of 144,172, while bot talk was 69% of
+     * 314), so it hid them; FAIL below this with at least {@link #MIN_CLAIMS} of them.
+     */
+    public static final double TALK_SAYDO_MIN = 0.80;
     static final int MAX_JUDGE_CALLS = 5;
     static final int WORST = 15;
 
@@ -257,6 +263,7 @@ public final class ChatQuality {
         Map<String, long[]> byKind = new TreeMap<>();
         Map<String, List<String>> unbackedExamples = new TreeMap<>();
         long claims = 0, backed = 0, weak = 0;
+        long[] talk = new long[2];
         for (Map<String, Object> r : rows) {
             if (Boolean.TRUE.equals(r.get("weak"))) {
                 weak++;
@@ -267,6 +274,10 @@ public final class ChatQuality {
             String kind = String.valueOf(r.get("kind"));
             claims++;
             backed += b ? 1 : 0;
+            if (src.startsWith("talk-")) {
+                talk[0]++;
+                talk[1] += b ? 1 : 0;
+            }
             long[] s = bySource.computeIfAbsent(src, k -> new long[2]);
             s[0]++;
             s[1] += b ? 1 : 0;
@@ -286,6 +297,7 @@ public final class ChatQuality {
         m.put("backed", backed);
         m.put("rate", claims == 0 ? null : round3((double) backed / claims));
         m.put("weakClaims", weak);
+        m.put("talk", rate(talk));
         Map<String, Object> src = new LinkedHashMap<>();
         bySource.forEach((k, v) -> src.put(k, rate(v)));
         m.put("bySource", src);
@@ -508,7 +520,17 @@ public final class ChatQuality {
         return "chat 24h: " + r.get("lines") + " lines; relevance " + pct(rel.get("score")) + " (" + rel.get("judged")
                 + " judged); stiff " + pct(st.get("score")) + "; repeats " + pct(re.get("score")) + "; unanswered "
                 + q.get("unanswered") + "/" + q.get("questions") + " questions; say-do " + pct(sd.get("rate")) + " backed ("
-                + sd.get("claims") + " claims)";
+                + sd.get("claims") + " claims" + talkPart(sd) + ")";
+    }
+
+    /** "; bot talk 69% of 314" when bots made claims talking to each other. */
+    @SuppressWarnings("unchecked")
+    private static String talkPart(Map<String, Object> sd) {
+        if (!(sd.get("talk") instanceof Map<?, ?> t) || ((Number) ((Map<String, Object>) t).get("claims")).longValue() == 0) {
+            return "";
+        }
+        Map<String, Object> m = (Map<String, Object>) t;
+        return "; bot talk " + pct(m.get("rate")) + " of " + m.get("claims");
     }
 
     private static String pct(Object o) {
@@ -537,6 +559,11 @@ public final class ChatQuality {
         if (sd.get("rate") instanceof Number s && ((Number) sd.get("claims")).intValue() >= MIN_CLAIMS
                 && s.doubleValue() < SAYDO_MIN) {
             out.add("say-do " + pct(s) + " backed < " + pct(SAYDO_MIN));
+        }
+        if (sd.get("talk") instanceof Map<?, ?> t && ((Map<String, Object>) t).get("rate") instanceof Number s
+                && ((Number) ((Map<String, Object>) t).get("claims")).intValue() >= MIN_CLAIMS
+                && s.doubleValue() < TALK_SAYDO_MIN) {
+            out.add("bot talk say-do " + pct(s) + " backed < " + pct(TALK_SAYDO_MIN));
         }
         return out;
     }
@@ -626,7 +653,7 @@ public final class ChatQuality {
     @SuppressWarnings("unchecked")
     static Check.Expect expectation() {
         return Expects.of("chat quality: relevance >= " + pct(RELEVANCE_MIN) + ", stiffness <= " + pct(STIFFNESS_MAX)
-                + ", say-do >= " + pct(SAYDO_MIN), r -> {
+                + ", say-do >= " + pct(SAYDO_MIN) + ", bot talk say-do >= " + pct(TALK_SAYDO_MIN), r -> {
             Map<String, Object> q = r.world.chatQuality();
             if (q == null) {
                 return Check.Verdict.skip("no chat-quality summary here");

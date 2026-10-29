@@ -29,9 +29,12 @@ import java.util.concurrent.atomic.LongAdder;
 public final class BotCrews {
 
     static final long PICK_TTL_MS = TimeUnit.MINUTES.toMillis(10);
+    /** A pick another member made this recently is not replaced by a trip elsewhere (the friends are on their way). */
+    static final long HOLD_PICK_MS = TimeUnit.MINUTES.toMillis(2);
 
     /** A leader's pick. */
-    record Pick(int mapId, int channel, long at) {
+    /** A crew's pick: the town, the channel, when, and the member whose trip made it (it follows nobody). */
+    record Pick(int mapId, int channel, long at, int by) {
     }
 
     private static final Map<Integer, Pick> picks = new ConcurrentHashMap<>();
@@ -62,8 +65,11 @@ public final class BotCrews {
     }
 
     /**
-     * The leader started a hang-out in {@code mapId}: the crew's pick, and the followers are nudged. No-op unless
-     * {@code bot} leads a crew with someone else online on its channel.
+     * A crew member started a hang-out in {@code mapId}: the crew's pick, and its friends among the movers are nudged
+     * and handed the trip 2-6 s apart. 1.6.1 b042 ("when one heads to a town, its friends follow"): any member's trip,
+     * not only the leader's; the crew is still keyed by its leader (lowest id online here) and still at most
+     * {@link #maxMovers()} move. No-op unless {@code bot} is among its crew's movers with someone else online on its
+     * channel, or when it is only following the crew's fresh pick to that same town (no echo of the same trip).
      */
     public static void led(Character bot, int mapId) {
         if (!on() || bot == null || bot.getMap() == null || mapId <= 0) {
@@ -71,18 +77,29 @@ public final class BotCrews {
         }
         int channel = bot.getMap().getChannelId();
         List<Integer> movers = movers(bot.getId(), channel);
-        if (movers.size() < 2 || movers.get(0) != bot.getId()) {
+        if (movers.size() < 2 || !movers.contains(bot.getId())) {
             return;
         }
         long now = BotBonds.now();
-        picks.put(bot.getId(), new Pick(mapId, channel, now));
+        Pick fresh = picks.get(movers.get(0));
+        if (fresh != null && fresh.mapId() == mapId && fresh.channel() == channel && now - fresh.at() <= PICK_TTL_MS) {
+            return; // it is following the crew's own pick there
+        }
+        if (fresh != null && fresh.by() != bot.getId() && fresh.channel() == channel && now - fresh.at() < HOLD_PICK_MS) {
+            return; // the friends just set off elsewhere with another member: no tug of war, this one goes alone
+        }
+        picks.put(movers.get(0), new Pick(mapId, channel, now, bot.getId()));
         led.increment();
         long delay = 2_000 + ThreadLocalRandom.current().nextInt(4_000);
-        for (int i = 1; i < movers.size(); i++) {
+        for (int i = 0; i < movers.size(); i++) {
             int id = movers.get(i);
+            if (id == bot.getId()) {
+                continue;
+            }
             int[] at = where.of(id);
             if (at != null && at[1] != mapId) {
                 nudge.accept(id, delay);
+                later.accept(delay, () -> handOff(id, 1)); // 1.6.1 say-do: and the trip itself, after the delay
                 nudged.increment();
                 delay += 3_000 + ThreadLocalRandom.current().nextInt(2_000);
             }
@@ -102,11 +119,17 @@ public final class BotCrews {
         }
         int channel = bot.getMap().getChannelId();
         List<Integer> movers = movers(bot.getId(), channel);
-        if (movers.size() < 2 || movers.get(0) == bot.getId() || !movers.contains(bot.getId())) {
+        if (movers.size() < 2 || !movers.contains(bot.getId())) {
             return -1;
         }
         Pick p = picks.get(movers.get(0));
+        if (p != null && p.by() == bot.getId() && now - p.at() <= PICK_TTL_MS) {
+            return -1; // its own trip made the pick: it follows nobody
+        }
         int target = p != null && p.channel() == channel && now - p.at() <= PICK_TTL_MS ? p.mapId() : -1;
+        if (target <= 0 && movers.get(0) == bot.getId()) {
+            return -1; // no fresh pick: the leader is not pulled by where the others stand
+        }
         if (target <= 0) {
             target = BotBonds.crewTownMap(bot.getId(), channel);
         }
@@ -166,9 +189,75 @@ public final class BotCrews {
         }
     }
 
+    /*
+     * 1.6.1 say-do: a follower's hang-out in the crew's town is handed to its life queue after its delay (before, it
+     * was only nudged to decide, and the brain often kept grinding: auto-QA t-bt-2 saw 1 of 2 followers arrive). A
+     * follower held a moment (a line, its own decision) is tried again RETRY_MS later, up to TRIES times; one that
+     * cannot go keeps the pull.
+     */
+    static final int TRIES = 6;
+    static final long RETRY_MS = 10_000;
+    private static final LongAdder handedOff = new LongAdder();
+    private static final LongAdder notHanded = new LongAdder();
+
+    /** When a follower's hand-off runs (a seam for tests: delay in ms, the work). */
+    static volatile java.util.function.BiConsumer<Long, Runnable> later =
+            (ms, r) -> soloMapling.server.BotTiming.after(ms, r);
+    /** How a follower is sent (a seam for tests): id, town, until; true when its trip was handed over. */
+    static volatile Mover mover = BotCrews::moveBot;
+
+    @FunctionalInterface
+    interface Mover {
+        /** {@code null}: the follower is gone (offline, no brain); else whether it was handed the trip. */
+        Boolean go(int id, int town, long until, long now);
+    }
+
+    /** One try at sending a follower to its crew's pick; again later while it is held. */
+    static void handOff(int id, int attempt) {
+        int[] at = where.of(id);
+        if (at == null) {
+            return;
+        }
+        long now = BotBonds.now();
+        int town = pickFollowed(id, at[0], now);
+        if (town <= 0 || town == at[1]) {
+            return; // no fresh pick any more, or it is there
+        }
+        Boolean sent = mover.go(id, town, now + PICK_TTL_MS, now);
+        if (sent == null) {
+            return;
+        }
+        if (sent) {
+            handedOff.increment();
+        } else if (attempt < TRIES) {
+            later.accept(RETRY_MS, () -> handOff(id, attempt + 1));
+        } else {
+            notHanded.increment();
+        }
+    }
+
+    /** The fresh pick of this member's leader on its channel, or -1 (it leads, or there is none). */
+    static int pickFollowed(int id, int channel, long now) {
+        List<Integer> movers = movers(id, channel);
+        if (movers.size() < 2 || !movers.contains(id)) {
+            return -1;
+        }
+        Pick p = picks.get(movers.get(0));
+        return p != null && p.by() != id && p.channel() == channel && now - p.at() <= PICK_TTL_MS ? p.mapId() : -1;
+    }
+
+    private static Boolean moveBot(int id, int town, long until, long now) {
+        BotSM sm = CharacterStorage.getBotById(id);
+        if (!(sm instanceof LifeHost host) || host.lifeRuntime() == null) {
+            return null;
+        }
+        return host.lifeRuntime().goTogether(town, until, now);
+    }
+
     /** Counters for bot-life.json and the checks. */
     public static Map<String, Long> stats() {
-        return Map.of("led", led.sum(), "nudged", nudged.sum(), "followed", followed.sum(), "picks", (long) picks.size());
+        return Map.of("led", led.sum(), "nudged", nudged.sum(), "followed", followed.sum(), "picks", (long) picks.size(),
+                "handedOff", handedOff.sum(), "notHanded", notHanded.sum());
     }
 
     /** QA: the leader's current pick for a crew member, or -1. */
@@ -183,7 +272,11 @@ public final class BotCrews {
         led.reset();
         nudged.reset();
         followed.reset();
+        handedOff.reset();
+        notHanded.reset();
         where = BotCrews::worldWhere;
         nudge = BotCrews::nudgeBot;
+        later = (ms, r) -> soloMapling.server.BotTiming.after(ms, r);
+        mover = BotCrews::moveBot;
     }
 }

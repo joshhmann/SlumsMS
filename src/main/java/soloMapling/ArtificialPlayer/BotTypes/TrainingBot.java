@@ -1001,7 +1001,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         lifeNote("START activity=" + activity);
         if ((activity == LifeDecision.Activity.HANG_OUT || activity == LifeDecision.Activity.SHOW_OFF)
                 && soloMapling.ArtificialPlayer.BotLifeSystem.LifeTowns.isTownMap(destination)) {
-            // 1.6.1 (ticket 114): a crew's leader picked the town: its friends follow with small delays
+            // 1.6.1 (ticket 114, b042): a crew member picked the town: its friends follow with small delays
             soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews.led(getChr(), destination);
         }
         if (activity == LifeDecision.Activity.PARTY_QUEST) {

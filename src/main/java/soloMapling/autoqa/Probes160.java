@@ -62,8 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "botRebirth", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "bugReport",
-            "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer");
+            "family", "tutorialIsland", "botRebirth", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -112,6 +111,7 @@ final class Probes160 {
                 case "slumsChan" -> slumsChan(p);
                 case "botTalk" -> botTalk(p);
                 case "botCrew" -> botCrew(p);
+                case "botSayDo" -> botSayDo(p);
                 case "bugReport" -> bugReport(p);
                 default -> null;
             };
@@ -1991,9 +1991,11 @@ final class Probes160 {
     }
 
     /**
-     * t-bt-2: three fresh training bots made a crew (mutual friends); the leader (lowest id) picks a town and the
-     * others are nudged and their next hang-out is that town (CREW); then up to {@link #CREW_WAIT_S} s for one of
-     * them to get there (their brains choose when; map caps apply on the way).
+     * t-bt-2: three fresh training bots made a crew (mutual friends). Once their lives are free to move (up to
+     * {@link #FREE_WAIT_S} s), the leader (lowest id) starts a hang-out in a town through its own life, as its brain
+     * does: that town is the crew's pick, each follower's next hang-out, and each follower is handed the trip a few
+     * seconds apart. 1.6.1 say-do: every member (not one, not the leader alone) must stand in the town within
+     * {@link #CREW_WAIT_S} s (TEST 2026-10-29: 1 of 2 followers arrived and the check passed).
      */
     static List<String> botCrew(SyntheticPlayer p) throws InterruptedException {
         if (!soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews.on()) {
@@ -2013,28 +2015,137 @@ final class Probes160 {
             }
             soloMapling.ArtificialPlayer.BotConvo.TalkQa.friends(crew);
             int town = soloMapling.ArtificialPlayer.BotConvo.TalkQa.crewTown(me.getMapId(), level);
-            ev.add("crew " + soloMapling.ArtificialPlayer.BotConvo.TalkQa.where(crew) + " -> town " + town);
-            bad.addAll(soloMapling.ArtificialPlayer.BotConvo.TalkQa.crewFollow(crew, town));
             Character leader = crewLeader(crew);
-            ev.add("leader " + leader.getName());
-            long end = System.currentTimeMillis() + CREW_WAIT_S * 1000L;
-            int arrived = 0;
-            while (System.currentTimeMillis() < end) {
-                arrived = followersIn(crew, leader, town);
-                if (arrived >= 1) {
-                    break;
-                }
-                Thread.sleep(5_000);
+            List<String> held = soloMapling.ArtificialPlayer.BotConvo.TalkQa.awaitFree(crew, FREE_WAIT_S * 1000L);
+            ev.add("crew " + soloMapling.ArtificialPlayer.BotConvo.TalkQa.where(crew) + " -> town " + town
+                    + ", leader " + leader.getName() + (held.isEmpty() ? "" : "; still held: " + held));
+            if (!held.isEmpty()) {
+                bad.add("the crew was never free to move in " + FREE_WAIT_S + " s: " + held);
+                return verdict(bad, "", ev);
             }
+            if (!soloMapling.ArtificialPlayer.BotConvo.TalkQa.crewLeads(leader, town)) {
+                bad.add("the leader's hang-out in " + town + " was not handed to its life");
+            }
+            // the pick is made when the leader's trip starts (its next update); then each follower heads there
+            long pickBy = System.currentTimeMillis() + 30_000;
+            while (System.currentTimeMillis() < pickBy && soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews
+                    .pickFor(leader.getId(), leader.getMap() == null ? 1 : leader.getMap().getChannelId(),
+                            System.currentTimeMillis()) != town) {
+                Thread.sleep(1_000);
+            }
+            for (Character c : crew) {
+                if (c == leader) {
+                    continue;
+                }
+                LifeRuntime life = soloMapling.ArtificialPlayer.BotConvo.TalkQa.lifeOf(c);
+                int dest = life == null ? -1 : life.townDestination();
+                if (dest != town && c.getMapId() != town) {
+                    bad.add(c.getName() + "'s next hang-out is " + dest + ", not the crew's " + town);
+                }
+            }
+            List<Character> missing = soloMapling.ArtificialPlayer.BotConvo.TalkQa.awaitIn(crew, town,
+                    CREW_WAIT_S * 1000L);
             ev.add("after the wait: " + soloMapling.ArtificialPlayer.BotConvo.TalkQa.where(crew) + "; crews "
                     + soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews.stats());
-            if (arrived == 0) { // 1.6.1 audit: the leader getting there alone is not "the crew follows"
-                bad.add("no follower (only the leader counts as leading) reached town " + town + " in " + CREW_WAIT_S + " s");
+            for (Character c : missing) {
+                bad.add((c == leader ? "the leader " : "follower ") + c.getName() + " never reached town " + town
+                        + " in " + CREW_WAIT_S + " s (on " + c.getMapId() + ")");
             }
         } finally {
             ev.add(soloMapling.ArtificialPlayer.BotConvo.TalkQa.teardown(crew));
         }
-        return verdict(bad, "the leader's town became each follower's next hang-out and a follower arrived there", ev);
+        return verdict(bad, "the leader started its hang-out, the town became the crew's pick and every follower"
+                + " arrived there", ev);
+    }
+
+    /** t-bt-2 / t-bt-3: how long fresh training bots get to settle (out of their first trip) before the check. */
+    static final int FREE_WAIT_S = 90;
+
+    /**
+     * t-bt-3 (1.6.1 say-do: "then they really do it"): (1) two fresh training bots, once free to move, talk; the opener
+     * asks the other to come along to a town and the other's yes is forced (where the game allows one): both must
+     * stand in that town within {@link #SAYDO_TRIP_S} s. (2) The talk ledger since boot: of the yeses bots gave each
+     * other (party, come-along, help, trade, story), at least {@link soloMapling.ArtificialPlayer.BotConvo.TalkPromises#MIN_RATE}
+     * were carried out in their window, once {@link #SAYDO_MIN_YES} are judged.
+     */
+    static List<String> botSayDo(SyntheticPlayer p) throws InterruptedException {
+        if (!soloMapling.ArtificialPlayer.BotConvo.BotTalk.on()) {
+            return List.of("SKIP bot talk is off (-Dslums.bottalk=true)");
+        }
+        if (!LifeRuntime.enabled()) {
+            return List.of("SKIP the daily-life brain is off (-Dslums.botlife.enabled/execute)");
+        }
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        // (2) first, so a slow staging run cannot hide it
+        Map<String, Object> promises = soloMapling.ArtificialPlayer.BotConvo.TalkPromises.stats();
+        String ledger = sayDoLedgerProblem(promises);
+        ev.add("ledger since boot: " + promises);
+        if (ledger != null) {
+            bad.add(ledger);
+        }
+        Character me = p.character();
+        int level = Math.max(15, Math.min(60, me.getLevel()));
+        List<Character> two = soloMapling.ArtificialPlayer.BotConvo.TalkQa.spawn(me, 2, true, level);
+        try {
+            if (two.size() < 2) {
+                return List.of("FAIL could not spawn two training bots (" + two.size() + ")");
+            }
+            soloMapling.ArtificialPlayer.BotConvo.TalkQa.friends(two);
+            List<String> held = soloMapling.ArtificialPlayer.BotConvo.TalkQa.awaitFree(two, FREE_WAIT_S * 1000L);
+            if (!held.isEmpty()) {
+                bad.add("the two were never free to move in " + FREE_WAIT_S + " s: " + held);
+                return verdict(bad, "", ev);
+            }
+            int town = soloMapling.ArtificialPlayer.BotConvo.TalkQa.crewTown(two.get(0).getMapId(), level);
+            if (!soloMapling.ArtificialPlayer.BotConvo.TalkQa.aimAt(two.get(0), town)) {
+                bad.add("could not point " + two.get(0).getName() + "'s hang-out at " + town);
+                return verdict(bad, "", ev);
+            }
+            var talk = soloMapling.ArtificialPlayer.BotConvo.TalkQa.talkYes(two,
+                    soloMapling.ArtificialPlayer.BotConvo.TalkIntent.Ask.COME_ALONG, "auto-QA t-bt-3 come-along");
+            ev.addAll(soloMapling.ArtificialPlayer.BotConvo.TalkQa.describe("talk", talk));
+            if (talk == null || talk.ask != soloMapling.ArtificialPlayer.BotConvo.TalkIntent.Ask.COME_ALONG) {
+                bad.add("no come-along was asked (" + (talk == null ? "no talk" : talk.noAskWhy) + ")");
+                return verdict(bad, "", ev);
+            }
+            var d = talk.decisions.get(two.get(1).getId());
+            if (d == null || !d.yes()) {
+                bad.add(two.get(1).getName() + " did not say yes (" + (d == null ? "no decision" : d.why()) + ")");
+                return verdict(bad, "", ev);
+            }
+            if (!soloMapling.ArtificialPlayer.BotConvo.TalkQa.awaitDone(List.of(talk), 120_000)) {
+                bad.add("the talk did not finish within 120 s");
+            }
+            List<Character> missing = soloMapling.ArtificialPlayer.BotConvo.TalkQa.awaitIn(two, town,
+                    SAYDO_TRIP_S * 1000L);
+            ev.add("after the wait: " + soloMapling.ArtificialPlayer.BotConvo.TalkQa.where(two) + "; "
+                    + soloMapling.ArtificialPlayer.BotConvo.BotTalk.stats().get("promises"));
+            for (Character c : missing) {
+                bad.add(c.getName() + (c == two.get(0) ? " asked" : " said yes") + " but never reached town " + town
+                        + " in " + SAYDO_TRIP_S + " s (on " + c.getMapId() + ")");
+            }
+        } finally {
+            ev.add(soloMapling.ArtificialPlayer.BotConvo.TalkQa.teardown(two));
+        }
+        return verdict(bad, "a forced come-along yes took both bots to the town, and the talk ledger's yeses are"
+                + " carried out", ev);
+    }
+
+    static final int SAYDO_TRIP_S = 240, SAYDO_MIN_YES = 10;
+
+    /** t-bt-3 (2): the ledger's verdict, or null when it passes or too few yeses are judged yet (pure, unit-tested). */
+    @SuppressWarnings("unchecked")
+    static String sayDoLedgerProblem(Map<String, Object> promises) {
+        long yes = ((Number) promises.getOrDefault("yes", 0L)).longValue();
+        Object rate = promises.get("rate");
+        if (yes < SAYDO_MIN_YES || !(rate instanceof Number r)
+                || r.doubleValue() >= soloMapling.ArtificialPlayer.BotConvo.TalkPromises.MIN_RATE) {
+            return null;
+        }
+        return String.format(Locale.ROOT, "only %.0f%% of %d yeses were carried out (min %.0f%%): %s; latest misses %s",
+                r.doubleValue() * 100, yes, soloMapling.ArtificialPlayer.BotConvo.TalkPromises.MIN_RATE * 100,
+                promises.get("byAsk"), promises.get("unbacked"));
     }
 
     /** t-bt-2: the crew's leader, as BotCrews picks it (the lowest id). */

@@ -120,7 +120,8 @@ public final class BotTalk {
             builtInLines = new LongAdder(), llmLines = new LongAdder(), llmCalls = new LongAdder(),
             llmRejected = new LongAdder(), actsOk = new LongAdder(), actsFailed = new LongAdder(),
             notesWritten = new LongAdder(), playerJoins = new LongAdder(), dropped = new LongAdder(),
-            organic = new LongAdder(); // talks the tick started by itself (not QA's), for t-bt-1
+            organic = new LongAdder(), // talks the tick started by itself (not QA's), for t-bt-1
+            tripsStarted = new LongAdder(), tripsHeld = new LongAdder(); // come-along trips handed over / never
     private static final Map<String, LongAdder> tally = new ConcurrentHashMap<>();
 
     /** A note for a bot's life memory, written in the next tick's batch. */
@@ -270,6 +271,7 @@ public final class BotTalk {
                 lastMapOf.keySet().retainAll(ids);
             }
             inTalk.entrySet().removeIf(x -> now - x.getValue() > STUCK_MS);
+            TalkPromises.resolveDue(now); // a few dozen open yeses at most: one map read each
             if (greetedAt.size() > 20_000) {
                 greetedAt.values().removeIf(t -> now - t > GREET_PAIR_GAP_MS);
             }
@@ -299,7 +301,10 @@ public final class BotTalk {
         return ((long) Math.min(a, b) << 32) | (Math.max(a, b) & 0xffffffffL);
     }
 
-    /** A bot that just arrived greets one bot here it knows (its strongest bond first), maybe into a chat. */
+    /**
+     * A bot just arrived next to one it knows (its strongest bond first): one of the two says hi, the arriving one or
+     * the one already standing there ({@link #greetOpener}), maybe into a chat.
+     */
     static void greetOnArrival(Character c, List<Character> here, MapleMap map, long now, Random rng) {
         if (!free(c, false) || !budget(greetStarts, now, TimeUnit.MINUTES.toMillis(1), (int) num("greetsPerMin", 20))) {
             return;
@@ -341,19 +346,44 @@ public final class BotTalk {
         }
         WorldSense sense = new WorldSense();
         Mind mc = sense.mind(c, now);
+        Mind mk = sense.mind(known, now);
         Relation rel = sense.relation(c, known);
-        if (!TalkBrain.greets(mc, rel, rng)) {
+        Relation back = sense.relation(known, c);
+        int opener = greetOpener(mc, rel, mk, back, rng);
+        if (opener < 0) {
             return;
         }
+        Character first = opener == 0 ? c : known, second = opener == 0 ? known : c;
         greetedAt.put(pair(c.getId(), known.getId()), now);
         took(greetStarts, now);
         boolean chat = BotThreads.talker(CharacterStorage.getBotById(c.getId()))
                 && BotThreads.talker(CharacterStorage.getBotById(known.getId()))
-                && TalkBrain.chats(mc, sense.mind(known, now), rel, rng);
-        if (run(map, List.of(c, known), !chat, null, false, chat ? "met a friend, stopped to chat"
-                : "met someone it knows", now, rng) != null) {
+                && TalkBrain.chats(opener == 0 ? mc : mk, opener == 0 ? mk : mc, opener == 0 ? rel : back, rng);
+        if (run(map, List.of(first, second), !chat, null, false, (opener == 0 ? "" : "saw a bot it knows arrive, ")
+                + (chat ? "met a friend, stopped to chat" : "met someone it knows"), now, rng) != null) {
             organic.increment();
         }
+    }
+
+    /** The share of meetings where the bot already standing there is the one who speaks up first. */
+    static final double STANDING_FIRST = 0.4;
+
+    /**
+     * 1.6.1 b042 ("bots greet the bots they know when they run into each other"): who says hi when a bot arrives next
+     * to one it knows: 0 the one arriving, 1 the one already standing there, -1 neither. Before only the arriving bot
+     * could, so a busy or shy arrival met nobody even when the friend standing there would have waved. Either may go
+     * first; if the first does not feel like it, the other may. The pair gap and the world cap are the caller's, as
+     * before. Pure.
+     */
+    static int greetOpener(Mind arrived, Relation fromArrived, Mind standing, Relation fromStanding, Random rng) {
+        boolean standingFirst = rng.nextDouble() < STANDING_FIRST;
+        for (int k = 0; k < 2; k++) {
+            boolean s = standingFirst == (k == 0);
+            if (s ? TalkBrain.greets(standing, fromStanding, rng) : TalkBrain.greets(arrived, fromArrived, rng)) {
+                return s ? 1 : 0;
+            }
+        }
+        return -1;
     }
 
     /** Now and then two idle bots here talk, or a group of 3-4 standing together. */
@@ -494,8 +524,18 @@ public final class BotTalk {
         }
         try {
             WorldSense sense = new WorldSense(forced != null && bankOnly);
-            Plan plan = TalkPlanner.plan(who, greetOnly, forced, sense, true, now, rng);
+            Plan plan;
+            try {
+                plan = TalkPlanner.plan(who, greetOnly, forced, sense, true, now, rng);
+            } catch (RuntimeException | LinkageError e) {
+                LfgParty.release(sense.reserved);
+                throw e;
+            }
+            if (sense.reserved != null && !usesReservation(plan, sense.reserved)) {
+                LfgParty.release(sense.reserved); // the PQ was not asked, or not taken: its cap slot goes back
+            }
             int id = SEQ.incrementAndGet();
+            promises(id, plan, now);
             int channel = BotThreads.channelOf(map);
             String topic = topicOf(plan);
             BotThreads.Live thread = register(id, map, channel, plan, now);
@@ -546,6 +586,55 @@ public final class BotTalk {
             log.debug("Bot talk failed for {}", names(who), e);
             return null;
         }
+    }
+
+    /**
+     * 1.6.1 say-do: a PQ party ask from the LFG rules' plan, made when the ask is: the other's answer is the rules' own
+     * and a yes holds its slot of the cap until the act (TEST 2026-10-28: the slot was only taken at the act, so 20
+     * yeses broke there on "LFG rules now say no"). Null with no PQ, or with the cap used up (then a plain duo is asked).
+     */
+    static Offer pqOffer(LfgParty.Plan lfg) {
+        if (lfg == null || lfg.lobby() == null || lfg.why() == LfgParty.Why.BUDGET) {
+            return null;
+        }
+        return new Offer(Ask.PARTY, lfg.lobby().label(), Map.of("pq", lfg.lobby().name()), lfg,
+                lfg.yes() ? Feasible.YES : Feasible.no(lfg.decline()));
+    }
+
+    /** Whether a talk uses the LFG plan offers() reserved: the PQ was asked and someone said yes. */
+    static boolean usesReservation(Plan plan, LfgParty.Plan reserved) {
+        return reserved != null && plan.offer != null && plan.offer.payload() == reserved
+                && plan.decisions.values().stream().anyMatch(TalkBrain.Decision::yes);
+    }
+
+    /** 1.6.1 say-do: each yes in the plan is a promise the ledger judges by what the bot then does. */
+    static void promises(int talkId, Plan plan, long now) {
+        if (plan.ask == null) {
+            return;
+        }
+        Character a = plan.who.get(0);
+        int town = plan.offer != null && plan.offer.payload() instanceof Integer t ? t : -1;
+        plan.decisions.forEach((id, d) -> {
+            if (d.yes()) {
+                TalkPromises.promised(talkId, plan.ask, byId(plan, id), a, town, now);
+            }
+        });
+        if (plan.counterTaken != null && plan.counterTaken.yes()) {
+            for (Step s : plan.steps) {
+                if (s.act != null && s.act.ask() == Ask.COME_ALONG && s.act.offer().payload() instanceof Integer t) {
+                    TalkPromises.promised(talkId, Ask.COME_ALONG, a, s.act.yes().get(0), t, now);
+                }
+            }
+        }
+    }
+
+    private static Character byId(Plan plan, int id) {
+        for (Character c : plan.who) {
+            if (c.getId() == id) {
+                return c;
+            }
+        }
+        return null;
     }
 
     /** The trace topic: TALK_PARTY, TALK_COME_ALONG...; TALK for small talk with no ask, GREET for a hello. */
@@ -656,6 +745,7 @@ public final class BotTalk {
         }
         (ok ? actsOk : actsFailed).increment();
         count("act:" + kind);
+        TalkPromises.acted(live.id, act.ask(), ok, text);
         qa(live.mapId, "TALK ACT " + live.id + " " + act.ask() + " " + (ok ? "done: " : "not done: ") + text);
         if (soloMapling.autoqa.SocialTrace.on()) {
             soloMapling.autoqa.SocialTrace.threadActed(live.id, act.asker().getId(), kind, text);
@@ -685,20 +775,21 @@ public final class BotTalk {
         return doer.apply(live, act);
     }
 
-    private static Result realAct(Live live, Act act) {
+    static Result realAct(Live live, Act act) {
         Character a = act.asker();
         Offer o = act.offer();
         long now = System.currentTimeMillis();
         switch (act.ask()) {
             case PARTY -> {
-                if (o.payload() instanceof soloMapling.ArtificialPlayer.BotLifeSystem.LifePq.Lobby) {
-                    LfgParty.Plan lfg = LfgParty.plan(a, act.yes().get(0), now); // takes a slot of the LFG cap
+                if (o.payload() instanceof LfgParty.Plan lfg) {
+                    // 1.6.1 say-do: the plan (and its slot of the LFG cap) was taken when the ask was made, so the yes
+                    // was the LFG rules' own (TEST 2026-10-28: 20 yeses broke on "LFG rules now say no" at the act)
                     if (!lfg.yes()) {
-                        return new Result(false, "lfg-drop", "LFG rules now say no: " + lfg.decline());
+                        return new Result(false, "lfg-drop", "LFG rules said no: " + lfg.decline());
                     }
-                    LfgParty.form(lfg, live.mapId, live.id);
-                    return new Result(true, "lfg", "PQ party for " + o.about() + " (formed and the trip handed over,"
-                            + " unless the LFG rules' last check refuses)");
+                    boolean formed = LfgParty.form(lfg, live.mapId, live.id);
+                    return new Result(formed, formed ? "lfg" : "lfg-drop", formed ? "PQ party for " + o.about()
+                            + " formed and both trips handed over" : "the LFG party did not form (LFG FAIL says why)");
                 }
                 return plainParty(a, act.yes(), live.mapId);
             }
@@ -710,15 +801,19 @@ public final class BotTalk {
                 return new Result(r.ok(), r.ok() ? "trade" : "trade_failed", r.why());
             }
             case HELP -> {
+                // 1.6.1 say-do: help is real now: the helper parties with the asker (shared exp) and keeps grinding
+                // this map with it; before, it only marked the asker for a HELP_FRIEND that never applies to a bot on
+                // the same map
                 Character helper = act.yes().get(0);
                 LifeRuntime life = lifeOf(helper.getId());
                 if (life == null) {
-                    return new Result(false, "help-drop", helper.getName() + " has no daily life to go help with");
+                    return new Result(false, "help-drop", helper.getName() + " has no daily life to help with");
                 }
-                life.botHelp(a.getId(), now + HELP_MS);
-                nudge(helper.getId(), 1_000 + ThreadLocalRandom.current().nextInt(3_000));
-                return new Result(true, "help", helper.getName() + " will go help " + a.getName() + " at " + o.about()
-                        + " when its brain is free");
+                boolean stays = life.helpHere(a.getId(), now + HELP_MS, now);
+                Result party = plainParty(a, List.of(helper), live.mapId);
+                return new Result(party.ok(), party.ok() ? "help" : "help-drop", helper.getName() + " helps "
+                        + a.getName() + " at " + o.about() + ": " + party.text() + (stays ? ", keeps grinding here"
+                        : ", not grinding here"));
             }
             case COME_ALONG -> {
                 int town = act.counterTown() != null && o.payload() instanceof Integer t ? t
@@ -726,20 +821,18 @@ public final class BotTalk {
                 if (town <= 0) {
                     return new Result(false, "trip-drop", "no town");
                 }
+                // 1.6.1 say-do: each one's trip is handed to its life queue (the asker first, then each yes a few
+                // seconds apart, so they trickle out together); before, a yes only tilted the next decision and 7 of
+                // 178 come-alongs on TEST arrived. The asker goes even when nobody comes: it said it was going.
                 List<String> going = new ArrayList<>();
-                long delay = 1_000;
+                long delay = 500;
                 for (Character c : with(a, act.yes())) {
-                    LifeRuntime life = lifeOf(c.getId());
-                    if (life != null) {
-                        life.invite(town, now + COME_ALONG_MS);
-                        nudge(c.getId(), delay);
-                        delay += 2_000 + ThreadLocalRandom.current().nextInt(4_000);
-                        going.add(c.getName());
-                    }
+                    trips.go(c.getId(), town, now + COME_ALONG_MS, delay);
+                    delay += 2_000 + ThreadLocalRandom.current().nextInt(4_000);
+                    going.add(c.getName());
                 }
-                return going.isEmpty() ? new Result(false, "trip-drop", "nobody here has a daily life to travel with")
-                        : new Result(true, "trip", String.join(", ", going) + " head to " + TalkPlanner.townName(town)
-                        + " (map caps checked on the way)");
+                return new Result(true, "trip", String.join(", ", going) + " head to " + TalkPlanner.townName(town)
+                        + (act.yes().isEmpty() ? " (alone: nobody came)" : ""));
             }
             case GOSSIP -> {
                 if (!(o.payload() instanceof soloMapling.ArtificialPlayer.BotGossip.Fact fact)) {
@@ -758,6 +851,42 @@ public final class BotTalk {
         return new Result(false, "act-drop", "unknown ask");
     }
 
+    /** Starts a bot's trip to a town it agreed to (a seam for tests: id, town, until, delay ms). */
+    interface TripStarter {
+        void go(int charId, int town, long until, long delayMs);
+    }
+
+    static volatile TripStarter trips = BotTalk::goLater;
+
+    /** Tries this many times, {@link #TRIP_RETRY_MS} apart, when the bot is held a moment (a line, a decision). */
+    static final int TRIP_TRIES = 4;
+    static final long TRIP_RETRY_MS = 10_000;
+
+    private static void goLater(int id, int town, long until, long delayMs) {
+        soloMapling.server.BotTiming.after(delayMs, () -> goNow(id, town, until, 1));
+    }
+
+    private static void goNow(int id, int town, long until, int attempt) {
+        LifeRuntime life = lifeOf(id);
+        long now = System.currentTimeMillis();
+        if (life == null || now >= until) {
+            return;
+        }
+        try {
+            if (life.goTogether(town, until, now)) {
+                tripsStarted.increment();
+                return;
+            }
+        } catch (RuntimeException | LinkageError e) {
+            log.debug("Bot talk trip for {} failed", id, e);
+        }
+        if (attempt < TRIP_TRIES) {
+            soloMapling.server.BotTiming.after(TRIP_RETRY_MS, () -> goNow(id, town, until, attempt + 1));
+        } else {
+            tripsHeld.increment();
+        }
+    }
+
     private static List<Character> with(Character a, List<Character> others) {
         List<Character> out = new ArrayList<>(others.size() + 1);
         out.add(a);
@@ -767,8 +896,11 @@ public final class BotTalk {
 
     /** A plain party: the asker leads, the yes-sayers join; it breaks up after {@link #PLAIN_PARTY_MS}. */
     static Result plainParty(Character a, List<Character> yes, int mapId) {
-        if (a.getMapId() != mapId) {
-            return new Result(false, "party-drop", a.getName() + " left the map");
+        // 1.6.1 say-do: a party needs both online on one channel, not on one map (TEST 2026-10-28: yeses were dropped
+        // as "left the map" when the asker stepped through a portal between the yes and the invite)
+        int channel = a.getMap() == null ? -1 : a.getMap().getChannelId();
+        if (channel < 0) {
+            return new Result(false, "party-drop", a.getName() + " went offline");
         }
         if (a.getParty() == null && !net.server.world.Party.createParty(a, true) || a.getParty() == null) {
             return new Result(false, "party-drop", "the party system refused " + a.getName() + "'s party");
@@ -776,7 +908,8 @@ public final class BotTalk {
         int partyId = a.getParty().getId();
         List<Character> joined = new ArrayList<>(List.of(a));
         for (Character c : yes) {
-            if (c.getParty() == null && c.getMapId() == mapId && net.server.world.Party.joinParty(c, partyId, true)) {
+            if (c.getParty() == null && c.getMap() != null && c.getMap().getChannelId() == channel
+                    && net.server.world.Party.joinParty(c, partyId, true)) {
                 joined.add(c);
             }
         }
@@ -785,6 +918,9 @@ public final class BotTalk {
             return new Result(false, "party-drop", "nobody could join");
         }
         took(plainParties, System.currentTimeMillis());
+        for (Character c : joined) {
+            SayDo.event(c, SayDo.Ev.PARTY, c.getMapId()); // "duo? ill send inv" / "ok send" are backed by this
+        }
         soloMapling.server.BotTiming.after(PLAIN_PARTY_MS, () -> breakUp(joined, partyId));
         return new Result(true, "party", "party " + partyId + ": " + names(joined));
     }
@@ -810,16 +946,15 @@ public final class BotTalk {
     }
 
     static LifeRuntime lifeOf(int id) {
-        BotSM sm = CharacterStorage.getBotById(id);
-        return sm instanceof TrainingBot tb && LifeRuntime.enabled() ? tb.lifeRuntime() : null;
+        return lives.apply(id);
     }
 
-    private static void nudge(int id, long delayMs) {
+    /** Test seam: a bot's daily life (the training bot's brain by default). */
+    static volatile java.util.function.IntFunction<LifeRuntime> lives = BotTalk::gameLife;
+
+    private static LifeRuntime gameLife(int id) {
         BotSM sm = CharacterStorage.getBotById(id);
-        if (sm instanceof TrainingBot tb && tb.lifeRuntime() != null) {
-            tb.lifeRuntime().changed();
-            tb.nudgeSoon(delayMs);
-        }
+        return sm instanceof TrainingBot tb && LifeRuntime.enabled() ? tb.lifeRuntime() : null;
     }
 
     /** After the last line: bonds, a memory note for each pair, and the bots are free again. */
@@ -1115,6 +1250,9 @@ public final class BotTalk {
         out.put("tally", t);
         out.put("intents", BotLineIntents.counts());
         out.put("crews", soloMapling.ArtificialPlayer.BotAffinitySystem.BotCrews.stats());
+        out.put("tripsStarted", tripsStarted.sum());
+        out.put("tripsHeld", tripsHeld.sum());
+        out.put("promises", TalkPromises.stats()); // 1.6.1 say-do: the yeses carried out (auto-QA t-bt-3)
         return out;
     }
 
@@ -1140,6 +1278,9 @@ public final class BotTalk {
         notes.clear();
         tally.clear();
         doer = BotTalk::realAct;
+        trips = BotTalk::goLater;
+        lives = BotTalk::gameLife;
+        TalkPromises.resetForTest();
         memories = id -> LifeRuntime.enabled() ? LifeMemoryStore.of(id) : null;
     }
 
@@ -1155,6 +1296,8 @@ public final class BotTalk {
          * not allow PARTY here"). A bot already in a party, a shop, afk or owned still refuses.
          */
         private final boolean qaForced;
+        /** The LFG plan offers() made (a slot of the cap held for it), given back by run() when it is not used. */
+        LfgParty.Plan reserved;
 
         WorldSense() {
             this(false);
@@ -1249,11 +1392,11 @@ public final class BotTalk {
             // PARTY: a PQ party when both fit a lobby (the LFG rules decide the other's answer), else a plain party
             if (!sa.partied() && !sa.busy() && !sa.afk() && !sa.shop() && !sa.owned()) {
                 soloMapling.ArtificialPlayer.BotLifeSystem.LifePq.Lobby lobby = LfgParty.lobbyFor(a.getLevel());
-                if (!group && sa.canTrip() && lobby != null) {
-                    // the LFG rules decide whether the other can come (no cap slot is taken until a yes is acted on)
-                    LfgParty.Why why = LfgParty.fit(lobby, safeState(b, now));
-                    out.put(Ask.PARTY, new Offer(Ask.PARTY, lobby.label(), Map.of("pq", lobby.name()), lobby,
-                            why == LfgParty.Why.YES ? Feasible.YES : Feasible.no(b.getName() + " " + why.words)));
+                LfgParty.Plan lfg = !group && sa.canTrip() && lobby != null ? LfgParty.plan(a, b, now) : null;
+                Offer pq = pqOffer(lfg);
+                if (pq != null) {
+                    reserved = lfg;
+                    out.put(Ask.PARTY, pq);
                 } else if (qaForced || budget(plainParties, now, TimeUnit.MINUTES.toMillis(10), (int) num("partiesPer10Min", 6))) {
                     out.put(Ask.PARTY, new Offer(Ask.PARTY, "a duo", Map.of(), null, null));
                 }
@@ -1262,7 +1405,8 @@ public final class BotTalk {
             LifeRuntime la = lifeOf(a.getId());
             if (la != null && lifeOf(b.getId()) != null) {
                 int town = la.townDestination();
-                if (town > 0 && town != a.getMapId() && LifeTowns.isTownMap(town)
+                // 1.6.1 say-do: only a bot that can go now asks ("going henesys, coming?" is a claim it keeps)
+                if (town > 0 && town != a.getMapId() && LifeTowns.isTownMap(town) && la.commitBlocker(now) == null
                         && soloMapling.ArtificialPlayer.BotMapCap.hasRoomOn(a.getMap().getChannelId(), town)) {
                     String name = TalkPlanner.townName(town);
                     out.put(Ask.COME_ALONG, new Offer(Ask.COME_ALONG, name, Map.of("town", name), town, null));
@@ -1295,7 +1439,8 @@ public final class BotTalk {
             try {
                 soloMapling.ArtificialPlayer.BotGossip.Fact fact = soloMapling.ArtificialPlayer.BotGossip.factFor(a, b,
                         a.getMap() == null ? List.of() : a.getMap().getAllPlayers(), now, rng);
-                if (fact != null && fact.person()) {
+                if (fact != null && fact.person()
+                        && soloMapling.ArtificialPlayer.BotGossip.wouldKeep(b.getId(), a.getId(), fact, now)) {
                     out.put(Ask.GOSSIP, new Offer(Ask.GOSSIP, fact.about(), Map.of("about", fact.about()), fact,
                             Feasible.YES));
                 }
@@ -1314,15 +1459,29 @@ public final class BotTalk {
                         : s.shop() ? Feasible.no(LfgParty.Why.SHOP.words) : s.busy()
                         ? Feasible.no(LfgParty.Why.BUSY.words) : Feasible.YES;
                 case COME_ALONG -> {
+                    // 1.6.1 say-do: a yes only from a bot that can go now; one that cannot says no (its reason)
                     int town = offer.payload() instanceof Integer t ? t : -1;
                     LifeTowns.Town t = LifeTowns.townOf(town);
-                    yield lifeOf(listener.getId()) == null ? Feasible.no("has no daily life to travel with")
+                    LifeRuntime life = lifeOf(listener.getId());
+                    String blocked = life == null ? null : life.commitBlocker(now);
+                    yield life == null ? Feasible.no("has no daily life to travel with")
+                            : blocked != null ? Feasible.no(blocked)
                             : s.busy() ? Feasible.no(LfgParty.Why.BUSY.words)
                             : t != null && !t.fits(listener.getLevel()) ? Feasible.no("the town is not for its level")
+                            : listener.getMap() != null && !soloMapling.ArtificialPlayer.BotMapCap.hasRoomOn(
+                                    listener.getMap().getChannelId(), town) ? Feasible.no("the town is full")
                             : Feasible.YES;
                 }
-                case HELP -> lifeOf(listener.getId()) == null ? Feasible.no("has no daily life to go help with")
-                        : s.busy() ? Feasible.no(LfgParty.Why.BUSY.words) : Feasible.YES;
+                case HELP -> {
+                    // 1.6.1 say-do: help is grinding this map with the asker, partied: only a grinder here can
+                    LifeRuntime life = lifeOf(listener.getId());
+                    String blocked = life == null ? null : life.commitBlocker(now);
+                    yield life == null ? Feasible.no("has no daily life to help with")
+                            : blocked != null ? Feasible.no(blocked)
+                            : !"GRIND".equals(life.phase()) || listener.getMapId() != asker.getMapId()
+                            ? Feasible.no("not training here")
+                            : s.busy() ? Feasible.no(LfgParty.Why.BUSY.words) : Feasible.YES;
+                }
                 case TRADE, GOSSIP -> offer.decided() != null ? offer.decided() : Feasible.YES;
             };
         }

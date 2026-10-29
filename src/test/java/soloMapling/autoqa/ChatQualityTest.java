@@ -87,6 +87,40 @@ class ChatQualityTest {
         assertEquals(2, ((List<?>) top.get("examples")).size());
     }
 
+    /**
+     * 1.6.1 say-do: the claims bots make talking to each other are counted on their own. TEST 2026-10-28 read "say-do
+     * 100% backed (144172 claims)" from shop ads while bot talk was 69% of 314: the headline says both, and bot talk
+     * under 80% (20+ claims) is a problem of its own.
+     */
+    @Test
+    void botTalkSayDoIsShownAndJudgedApartFromTheAds() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (int i = 0; i < 200; i++) {
+            rows.add(Map.of("bot", "m" + i, "source", "ad", "kind", "sell", "line", "S> ilbis", "backed", true, "why",
+                    "has the item", "weak", false));
+        }
+        for (int i = 0; i < 30; i++) {
+            rows.add(Map.of("bot", "t" + i, "source", i % 2 == 0 ? "talk-lines" : "talk-bank", "kind", "go_to",
+                    "line", "going henesys, coming?", "backed", i < 18, "why", i < 18 ? "travel" : "never went",
+                    "weak", false));
+        }
+        Map<String, Object> sd = ChatQuality.sayDo(rows);
+        Map<?, ?> talk = (Map<?, ?>) sd.get("talk");
+        assertEquals(30L, talk.get("claims"));
+        assertEquals(0.6, talk.get("rate"));
+        Map<String, Object> report = new java.util.LinkedHashMap<>();
+        report.put("lines", 10);
+        report.put("relevance", Map.of("score", 0.9, "judged", 0));
+        report.put("stiffness", Map.of("score", 0.0));
+        report.put("repetition", Map.of("score", 0.0));
+        report.put("unanswered", Map.of("unanswered", 0, "questions", 0));
+        report.put("sayDo", sd);
+        String head = ChatQuality.headline(report);
+        assertTrue(head.contains("say-do 95% backed (230 claims; bot talk 60% of 30)"), head);
+        assertTrue(ChatQuality.problems(report).contains("bot talk say-do 60% backed < 80%"),
+                String.valueOf(ChatQuality.problems(report)));
+    }
+
     @Test
     void theReportJudgesInBatchesAndFailsOverTheThresholds() throws Exception {
         List<ChatQuality.Line> lines = new ArrayList<>();

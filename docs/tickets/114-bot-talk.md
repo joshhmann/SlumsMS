@@ -9,6 +9,38 @@ mechanics" on 170-mechanics, which was renamed to 130 there, so 114 stays bot ta
 Roadmap rows (docs/roadmap/1.6.1.md): "Bot-to-bot chat skips the classifier", "Bots greet each other", "Friend crews";
 and "multi-person chat" from 1.7.0's "The brain learns".
 
+## Say-do: a yes is carried out (161-saydo, 2026-10-29)
+
+TEST 2026-10-28 showed the talk acts mostly did not happen: 7 of 178 come-alongs reached the town, crews sent 1 of 2
+followers, 20 PQ yeses broke at the act on "LFG rules now say no", duo parties were dropped as "left the map" and never
+told the say-do ledger, help never applied to a helper on the asker's map, and 17 story yeses kept nothing. Per kind:
+
+- **Come-along / crews:** a yes only set a pull on the next life decision; a bot hanging out kept its stay
+  (KEEP_CURRENT), a grinder kept grinding. Now `LifeRuntime.goTogether` hands the hang-out in that town to the bot's
+  own life queue, ending a plain hang-out stay first (`handOff`); the asker goes first, each yes 2-6 s later, and the
+  asker goes even when nobody comes (its line said it was going). Crew followers get the same hand-off after their
+  delay (`BotCrews.handOff`, retried while held). A bot that cannot drop what it is doing (`commitBlocker`: on a trip,
+  restocking, in a PQ lobby, at an event, held by a trade, chat or log-off, about to start something) says no with
+  that reason, and a bot that cannot go never asks.
+- **PQ party:** the LFG plan (and its slot of the 3-per-10-min cap) is taken when the ask is made, so the other's
+  answer is the rules' own; the act forms that plan. LFG trips end a hang-out stay too (the queue started nothing while
+  an activity was active, so the pair's second bot often never left). `LfgParty.form` tells the say-do ledger (PARTY).
+- **Duo party:** both online on one channel is enough (no same-map check); the ledger hears it.
+- **Help:** the helper must be grinding the asker's map; the yes parties the two and keeps the helper grinding there.
+- **Story:** told only to a bot that would keep it (`BotGossip.wouldKeep`).
+- **Words:** a bank line is re-checked against this build's claim rules, so a refusal never says "hold on" and a help
+  yes never says "omw".
+
+`TalkPromises` judges every yes (party: one party; come-along: reached the town, or on its way when 5 min are up;
+help: partied; deal/story: the act went through): `botTalk.promises` in bot-life.json, auto-QA t-bt-3 (>= 80%). The
+daily chat-quality line now shows bot talk's own say-do ("bot talk 69% of 314") next to the ad-heavy overall rate, and
+t-cq-1 fails it under 80%.
+
+b042 (same branch): any crew member's hang-out trip to a town is the crew's pick (keyed by the leader, at most 4 move,
+2-6 s apart, a fresh pick another member made under 2 min ago is not pulled elsewhere), not only the leader's; and
+when a bot arrives next to one it knows, either may say hi first (`BotTalk.greetOpener`; the one standing there opens
+40% of the time, and greets when the arrival does not), under the same pair gap and world cap.
+
 ## The owner's shape (2026-10-27)
 
 "playerbot says hi to another playerbot -> casual convo -> asks to party -> other bot decides to say yes or no and in a
