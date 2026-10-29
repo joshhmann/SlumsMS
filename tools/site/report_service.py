@@ -23,6 +23,14 @@ Settings (argument beats environment beats default):
     --proxy-hops / SLUMS_REPORT_PROXY_HOPS  1   proxies in front of nginx (Caddy = 1); see client_ip()
     --world-file / SLUMS_REPORT_WORLD_FILE        the game's site export world.json (for the server version)
     --site-build-file / SLUMS_REPORT_SITE_BUILD   the site's assets/build.json (for the site version)
+    --staff-port / SLUMS_REPORT_STAFF_PORT  0 (off)  the staff reader (below)
+
+The staff reader (admin/reports; owner, 2026-10-29): a second listener on 127.0.0.1:--staff-port, which only nginx's
+GM-level-3 location (/api/report/staff/, behind /api/auth/admin) proxies to; the public port has no staff routes, so
+a missing guard can't open them. GET only, read only:
+    GET /api/report/staff/list?type=bug|feature&source=site|ingame&q=text&before=ID&limit=N   newest first
+    GET /api/report/staff/ID   one report and its in-game context file (context.file, under the reports folder)
+Both send only the report's own fields (STAFF_FIELDS): never ip_hash, and no IP, e-mail or user agent at any depth.
 """
 import argparse
 import fcntl
@@ -99,6 +107,110 @@ class Versions:
         if short_version(site):
             out["site"] = site
         return out
+
+
+STAFF_FIELDS = ("id", "ref", "time", "type", "source", "title", "details", "character", "where", "versions", "world",
+                "channel", "mapId", "mapName", "x", "y", "clientBuild", "context")
+HIDDEN = re.compile(r"^(ip|ips|ip_?hash|ip_?address|remote_?addr(ess)?|e-?mails?|ua|user_?agent)$", re.I)
+CONTEXT_FILE = re.compile(r"^context/[A-Z]-[0-9]{1,9}\.json$")
+CONTEXT_MAX = 256 * 1024
+READ_MAX = 16 * 1024 * 1024  # the newest 16 MB of the reports file (years of reports)
+STAFF_PAGE, STAFF_PAGE_MAX = 50, 200
+
+
+def scrub(v):
+    """Drop IP, e-mail and user-agent keys at any depth (the game scrubs its context too; this is the second net)."""
+    if isinstance(v, dict):
+        return {k: scrub(x) for k, x in v.items() if not HIDDEN.match(str(k))}
+    if isinstance(v, list):
+        return [scrub(x) for x in v]
+    return v
+
+
+class Reader:
+    """Staff reads of the reports file: list, filter, one report with its context. Never writes."""
+
+    def __init__(self, path):
+        self.path = path
+        self.folder = os.path.realpath(os.path.dirname(path) or ".")
+
+    def rows(self):
+        try:
+            with open(self.path, "rb") as f:
+                size = os.fstat(f.fileno()).st_size
+                f.seek(max(0, size - READ_MAX))
+                lines = f.read().decode("utf-8", "replace").splitlines()
+        except FileNotFoundError:
+            return []
+        if size > READ_MAX:
+            lines = lines[1:]  # the first line may be cut
+        out = {}
+        for line in lines:
+            try:
+                rec = json.loads(line)
+                rid = int(rec["id"])
+            except (ValueError, KeyError, TypeError):
+                continue
+            if not isinstance(rec, dict):
+                continue
+            row = scrub({k: rec[k] for k in STAFF_FIELDS if k in rec})
+            row["id"] = rid
+            src = rec.get("source")
+            row["source"] = "ingame" if src in ("ingame", "game") else "site"
+            out[rid] = row  # a QA cleanup that rewrote a line keeps its last copy
+        return sorted(out.values(), key=lambda r: r["id"], reverse=True)
+
+    @staticmethod
+    def _text(r):
+        return " ".join(str(r.get(k) or "") for k in ("ref", "title", "details", "character", "where")).casefold()
+
+    def list(self, args):
+        rows = self.rows()
+        total = len(rows)
+        kind, source, q = args.get("type", ""), args.get("source", ""), args.get("q", "").strip().casefold()[:100]
+        if kind in TYPES:
+            rows = [r for r in rows if r.get("type") == kind]
+        if source in ("site", "ingame"):
+            rows = [r for r in rows if r["source"] == source]
+        if q:
+            rows = [r for r in rows if q in self._text(r)]
+        found = len(rows)
+        before = args.get("before", "")
+        if before.isdigit():
+            rows = [r for r in rows if r["id"] < int(before)]
+        limit = args.get("limit", "")
+        limit = min(int(limit), STAFF_PAGE_MAX) if limit.isdigit() and int(limit) > 0 else STAFF_PAGE
+        page = rows[:limit]
+        for r in page:  # the list shows the start of the text; the report itself has it all
+            r["details"] = (r.get("details") or "")[:200]
+        return {"ok": True, "total": total, "found": found, "reports": page,
+                "more": len(rows) > limit, "next": page[-1]["id"] if len(rows) > limit else None}
+
+    def context(self, row):
+        c = row.get("context")
+        name = c.get("file") if isinstance(c, dict) else None
+        if not isinstance(name, str) or not CONTEXT_FILE.match(name):
+            return None
+        full = os.path.realpath(os.path.join(self.folder, name))
+        if not full.startswith(os.path.join(self.folder, "context") + os.sep):
+            return None
+        try:
+            with open(full, "rb") as f:
+                data = f.read(CONTEXT_MAX + 1)
+        except OSError:
+            return {"missing": True}
+        if len(data) > CONTEXT_MAX:
+            return {"tooBig": True}
+        try:
+            return scrub(json.loads(data.decode("utf-8", "replace")))
+        except ValueError:
+            return {"unreadable": True}
+
+    def one(self, rid):
+        for r in self.rows():
+            if r["id"] == rid:
+                return {"ok": True, "report": r, "contextFile": self.context(r)}
+        return None
 
 
 class Rejected(Exception):
@@ -344,6 +456,53 @@ def read_salt(path):
     return salt
 
 
+def make_staff_handler(reader):
+    class Staff(BaseHTTPRequestHandler):
+        server_version = "slums-report"
+        sys_version = ""
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, fmt, *args):
+            pass
+
+        def _json(self, status, obj):
+            data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "private, no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(data)
+
+        def do_GET(self):
+            path, _, query = self.path.partition("?")
+            args = {k: v[0] for k, v in parse_qs(query).items()}
+            if path == "/api/report/staff/list":
+                return self._json(200, reader.list(args))
+            tail = path[len("/api/report/staff/"):] if path.startswith("/api/report/staff/") else ""
+            if tail.isdigit() and len(tail) < 10:
+                found = reader.one(int(tail))
+                return self._json(200, found) if found else self._json(404, {"ok": False, "error": "No such report."})
+            self._json(404, {"ok": False, "error": "Not found."})
+
+        def do_POST(self):
+            self.close_connection = True
+            self._json(405, {"ok": False, "error": "Read only."})
+
+        do_HEAD = do_GET
+        do_PUT = do_DELETE = do_PATCH = do_OPTIONS = do_POST
+
+    return Staff
+
+
+def make_staff_server(reader, port):
+    ThreadingHTTPServer.daemon_threads = True
+    srv = ThreadingHTTPServer(("127.0.0.1", port), make_staff_handler(reader))
+    srv.timeout = 10
+    return srv
+
+
 def make_server(store, port=8093, hops=1, versions=None):
     ThreadingHTTPServer.daemon_threads = True
     srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(store, hops, versions))
@@ -360,10 +519,15 @@ def main(argv=None):
     ap.add_argument("--proxy-hops", type=int, default=int(env("SLUMS_REPORT_PROXY_HOPS", "1")))
     ap.add_argument("--world-file", default=env("SLUMS_REPORT_WORLD_FILE", ""))
     ap.add_argument("--site-build-file", default=env("SLUMS_REPORT_SITE_BUILD", ""))
+    ap.add_argument("--staff-port", type=int, default=int(env("SLUMS_REPORT_STAFF_PORT", "0")))
     args = ap.parse_args(argv)
     store = Store(args.file, read_salt(args.salt_file))
     srv = make_server(store, args.port, args.proxy_hops, Versions(args.world_file or None, args.site_build_file or None))
     print(f"slums-report listening on 127.0.0.1:{args.port}, writing {args.file}", flush=True)
+    if args.staff_port:
+        staff = make_staff_server(Reader(args.file), args.staff_port)
+        threading.Thread(target=staff.serve_forever, daemon=True).start()
+        print(f"slums-report staff reader on 127.0.0.1:{args.staff_port}", flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

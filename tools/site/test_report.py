@@ -273,6 +273,111 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(report_export.export(self.path, 3), [])
 
 
+class StaffReaderTest(unittest.TestCase):
+    """The staff reader (admin/reports): its own port, read only, never an IP hash, e-mail or user agent."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="slums-report-staff-")
+        self.path = os.path.join(self.tmp, "reports.jsonl")
+        os.mkdir(os.path.join(self.tmp, "context"))
+        site = {"id": 1, "time": "2026-10-28T20:00:00+00:00", "type": "bug", "title": "Maya is stuck",
+                "details": "x" * 500, "character": "Bob", "where": "Henesys", "ip_hash": "f" * 64}
+        idea = dict(site, id=2, type="feature", title="More hats", source="site", versions={"site": "abc123"},
+                    ip_hash="e" * 64)
+        game = {"id": 3, "time": "2026-10-28T20:41:07+00:00", "type": "bug", "title": "Cab won't talk",
+                "details": "the cab", "character": "Tester", "where": "Henesys (100000000) ch3", "source": "ingame",
+                "versions": {"server": "1.6.1"}, "ref": "B-3", "accountId": 42, "email": "a@b.c",
+                "context": {"server": "1.6.1", "file": "context/B-3.json"}}
+        old = dict(game, id=4, source="game", ref="B-4", title="Old line", context={"file": "../salt"})
+        with open(self.path, "w", encoding="utf-8") as f:
+            for r in (site, idea, game, old):
+                f.write(json.dumps(r) + "\n")
+            f.write("not json\n")
+        with open(os.path.join(self.tmp, "context", "B-3.json"), "w") as f:
+            json.dump({"ref": "B-3", "character": {"name": "Tester", "ip": "10.0.0.9"},
+                       "surroundings": {"players": [{"name": "Friend", "userAgent": "x", "bot": False}]},
+                       "serverLog": ["a line"]}, f)
+        with open(os.path.join(self.tmp, "salt"), "w") as f:
+            f.write("secret-salt-value")
+        self.srv = rs.make_staff_server(rs.Reader(self.path), 0)
+        self.base = f"http://127.0.0.1:{self.srv.server_address[1]}/api/report/staff/"
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+
+    def tearDown(self):
+        self.srv.shutdown()
+        self.srv.server_close()
+        shutil.rmtree(self.tmp)
+
+    def get(self, path):
+        try:
+            with urllib.request.urlopen(self.base + path) as r:
+                return r.status, json.loads(r.read()), r.headers
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read()), e.headers
+
+    def test_list_newest_first_without_private_fields(self):
+        st, j, h = self.get("list")
+        self.assertEqual(st, 200)
+        self.assertEqual([r["id"] for r in j["reports"]], [4, 3, 2, 1])
+        self.assertEqual(j["total"], 4)
+        self.assertEqual([r["source"] for r in j["reports"]], ["ingame", "ingame", "site", "site"])
+        text = json.dumps(j)
+        for bad in ("ip_hash", "ffff", "eeee", "a@b.c", "email", "accountId"):
+            self.assertNotIn(bad, text)
+        self.assertEqual(len(j["reports"][3]["details"]), 200)
+        self.assertIn("no-store", h["Cache-Control"])
+
+    def test_filters_and_paging(self):
+        self.assertEqual([r["id"] for r in self.get("list?type=feature")[1]["reports"]], [2])
+        self.assertEqual([r["id"] for r in self.get("list?source=ingame")[1]["reports"]], [4, 3])
+        self.assertEqual([r["id"] for r in self.get("list?source=site&type=bug")[1]["reports"]], [1])
+        self.assertEqual([r["id"] for r in self.get("list?q=MAYA")[1]["reports"]], [1])
+        self.assertEqual([r["id"] for r in self.get("list?q=b-3")[1]["reports"]], [3])
+        st, j, _ = self.get("list?limit=2")
+        self.assertEqual(([r["id"] for r in j["reports"]], j["more"], j["next"], j["found"]), ([4, 3], True, 3, 4))
+        st, j, _ = self.get("list?limit=2&before=3")
+        self.assertEqual(([r["id"] for r in j["reports"]], j["more"]), ([2, 1], False))
+        self.assertEqual(self.get("list?type=nonsense&limit=abc")[1]["found"], 4)
+
+    def test_one_report_with_its_scrubbed_context(self):
+        st, j, _ = self.get("3")
+        self.assertEqual(st, 200)
+        self.assertEqual(j["report"]["ref"], "B-3")
+        self.assertEqual(len(j["report"]["details"]), 7)
+        self.assertEqual(j["contextFile"]["serverLog"], ["a line"])
+        self.assertNotIn("ip", j["contextFile"]["character"])
+        self.assertNotIn("userAgent", json.dumps(j))
+        self.assertEqual(self.get("1")[1]["report"]["details"], "x" * 500)
+        self.assertIsNone(self.get("1")[1]["contextFile"])
+
+    def test_context_stays_in_its_folder(self):
+        st, j, _ = self.get("4")
+        self.assertEqual(st, 200)
+        self.assertIsNone(j["contextFile"])
+        self.assertNotIn("secret-salt", json.dumps(j))
+
+    def test_unknown_paths_and_writes(self):
+        for path in ("99", "abc", "../x", "", "list/../3", "-1"):
+            self.assertEqual(self.get(path)[0], 404, path)
+        req = urllib.request.Request(self.base + "list", data=b"{}", method="POST")
+        with self.assertRaises(urllib.error.HTTPError) as c:
+            urllib.request.urlopen(req)
+        self.assertEqual(c.exception.code, 405)
+        self.assertEqual(self.srv.server_address[0], "127.0.0.1")
+
+    def test_public_port_has_no_staff_routes(self):
+        store = rs.Store(self.path, SALT)
+        pub = rs.make_server(store, 0)
+        threading.Thread(target=pub.serve_forever, daemon=True).start()
+        try:
+            with self.assertRaises(urllib.error.HTTPError) as c:
+                urllib.request.urlopen(f"http://127.0.0.1:{pub.server_address[1]}/api/report/staff/list")
+            self.assertEqual(c.exception.code, 404)
+        finally:
+            pub.shutdown()
+            pub.server_close()
+
+
 class ReportPageTest(unittest.TestCase):
     def test_page_builds_and_checks(self):
         tmp = tempfile.mkdtemp(prefix="slums-report-site-")

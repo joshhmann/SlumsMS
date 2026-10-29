@@ -1,5 +1,5 @@
 [Unit]
-Description=SlumsMS TEST website report form receiver, 127.0.0.1:8193
+Description=SlumsMS TEST website report form receiver, 127.0.0.1:8193 (staff reader 8197)
 After=network.target
 
 [Service]
@@ -14,6 +14,8 @@ Environment=SLUMS_REPORT_PROXY_HOPS=0
 # versions stamped on each report: the TEST server's site export and the TEST site's build (read only)
 Environment=SLUMS_REPORT_WORLD_FILE=/opt/mapleroot-dev/persistence-test/Server/data/site/world.json
 Environment=SLUMS_REPORT_SITE_BUILD=/srv/slums-site-test/assets/build.json
+# the staff Reports tab's reader (admin/reports), reached only through nginx's GM-3 guard
+Environment=SLUMS_REPORT_STAFF_PORT=8197
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

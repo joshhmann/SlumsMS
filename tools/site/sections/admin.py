@@ -38,8 +38,8 @@ header.top [role=tab] { border-color: transparent; background: transparent; colo
 header.top [role=tab][aria-selected=true] { background: var(--surface); color: var(--ink); border-color: var(--edge); }
 h2, h3 { font-family: var(--f-display); }
 """
-# the staff pages: the dashboard and the invite codes
-ADMIN_TABS = (("./", "Dashboard", "index"), ("invites", "Invite codes", "invites"))
+# the staff pages: the dashboard, the invite codes and the bug reports
+ADMIN_TABS = (("./", "Dashboard", "index"), ("invites", "Invite codes", "invites"), ("reports", "Reports", "reports"))
 INVITES = """<h1>Invite codes</h1><p class="id">Every code on the server: made here, with <code>!invite</code> or by players with
 <code>@invite</code>.</p>
 <div class="inv" x-data="xinvites(true)" data-root="../">
@@ -64,6 +64,46 @@ INVITES = """<h1>Invite codes</h1><p class="id">Every code on the server: made h
 <button class="btn" type="button" x-show="more" @click="go(1)">Older</button></p></section>
 </div>
 <script src="../assets/invites.js"></script><script defer src="../assets/vendor/alpine-3.14.1.min.js"></script>"""
+# every report and idea (report_service.py's staff reader); all text goes in with x-text, never as HTML
+REPORTS = """<h1>Reports</h1><p class="id">Bug reports and ideas from the website's Report page and from <code>@bug</code> /
+<code>@idea</code> in game. Read only. No IP hashes, e-mails or browser details are shown here.</p>
+<div class="rp" x-data="xreports" data-root="../">
+<section class="panel"><h2 class="bar">Find <small x-show="state === 'ok'" x-text="found + ' of ' + total"></small></h2>
+<form class="in rp-find" @submit.prevent="load()">
+<label>Kind <select x-model="type" @change="load()"><option value="">All</option><option value="bug">Bugs</option><option value="feature">Ideas</option></select></label>
+<label>From <select x-model="source" @change="load()"><option value="">Anywhere</option><option value="site">Website</option><option value="ingame">In game</option></select></label>
+<label>Search <input type="search" maxlength="100" x-model="q" placeholder="title, text, character, B-12"></label>
+<button class="btn" type="submit">Search</button></form>
+<p class="status bad" style="padding:0 16px 12px" x-show="state === 'error' || msg" x-cloak x-text="msg"></p></section>
+<section class="panel rp-read" id="rp-read" x-show="cur" x-cloak><h2 class="bar"><span x-text="cur && (label(cur) + ' · ' + kind(cur) + ' · ' + from(cur))"></span>
+<button class="btn" type="button" @click="close()">Close</button></h2><div class="in" x-show="cur">
+<h3 class="rp-title" x-text="cur && cur.title"></h3>
+<dl class="rp-meta"><dt>Sent</dt><dd x-text="cur && (when(cur.time) + ' (' + cur.time + ')')"></dd>
+<dt>Character</dt><dd x-text="cur && (cur.character || 'not given')"></dd>
+<dt>Where</dt><dd x-text="cur && (cur.where || 'not given')"></dd>
+<dt>Versions</dt><dd x-text="vers(cur)"></dd></dl>
+<pre class="rp-text" x-text="cur && (cur.details || '(no details)')"></pre>
+<template x-if="ctx && !ctx.missing && !ctx.tooBig && !ctx.unreadable"><div class="rp-ctx">
+<h3>Captured in game</h3><p x-show="who(ctx)" x-text="who(ctx)"></p>
+<details x-show="events(ctx).length"><summary x-text="'Last ' + events(ctx).length + ' things they did'"></summary>
+<div class="tbl"><table class="t"><thead><tr><th>Time</th><th>What</th><th>Id</th><th>Name</th><th>Note</th></tr></thead><tbody>
+<template x-for="(e, i) in events(ctx)" :key="i"><tr><td x-text="e.t"></td><td x-text="e.kind"></td><td x-text="e.id"></td>
+<td x-text="e.name || ''"></td><td x-text="(e.note || '') + (e.count > 1 ? ' x' + e.count : '')"></td></tr></template></tbody></table></div></details>
+<details x-show="ctx.serverLog && ctx.serverLog.length"><summary>Server log</summary><pre class="rp-text" x-text="(ctx.serverLog || []).join('\\n')"></pre></details>
+<template x-for="k in logs(ctx)" :key="k"><details><summary x-text="'Client log: ' + k"></summary><pre class="rp-text" x-text="ctx.clientLogs.sections[k]"></pre></details></template>
+<details><summary>Everything captured (raw)</summary><pre class="rp-text" x-text="pretty(ctx)"></pre></details></div></template>
+<p class="small" x-show="ctx && (ctx.missing || ctx.tooBig || ctx.unreadable)" x-text="ctx && (ctx.missing ? 'The in-game context file is gone.' : ctx.tooBig ? 'The in-game context file is too big to show here.' : 'The in-game context file could not be read.')"></p>
+</div></section>
+<section class="panel"><h2 class="bar">Reports</h2>
+<div class="tbl"><table class="t rp-list"><thead><tr><th>Ref</th><th>Sent</th><th>Kind</th><th>From</th><th>Character</th><th>Title</th><th>Versions</th></tr></thead>
+<tbody><template x-for="r in rows" :key="r.id"><tr :aria-current="cur && cur.id === r.id ? 'true' : null">
+<td><a :href="'#r' + r.id" x-text="label(r)"></a></td><td x-text="when(r.time)"></td><td x-text="kind(r)"></td><td x-text="from(r)"></td>
+<td x-text="r.character || ''"></td><td><a :href="'#r' + r.id" x-text="r.title || '(no title)'"></a></td><td class="small" x-text="vers(r)"></td></tr></template></tbody></table></div>
+<p class="empty" x-show="state === 'ok' && !rows.length" style="padding:12px 16px;margin:0">No reports match.</p>
+<p class="empty" x-show="state === 'loading'" style="padding:12px 16px;margin:0">Loading...</p>
+<p class="small" style="padding:8px 16px;margin:0" x-show="more"><button class="btn" type="button" @click="load(true)">Older</button></p></section>
+</div>
+<script src="../assets/reports.js"></script><script defer src="../assets/vendor/alpine-3.14.1.min.js"></script>"""
 FRAME_CSS = """<style>
 .adminframe { display: block; width: 100%; height: calc(100vh - 200px); min-height: 640px; background: var(--surface);
   border: var(--border) solid var(--edge); border-radius: var(--radius); box-shadow: 6px 6px 0 var(--drop); }
@@ -117,4 +157,6 @@ def build(out, web=None):
     write(out, f"{ADMIN}/index.html", layout("Admin", html, "../", "admin", "The staff dashboard."))
     write(out, f"{ADMIN}/invites.html", layout("Invite codes", tabs("invites") + INVITES, "../", "admin",
                                                 "Every invite code on the server."))
+    write(out, f"{ADMIN}/reports.html", layout("Reports", tabs("reports") + REPORTS, "../", "admin",
+                                                "Every bug report and idea, from the website and from in game."))
     return {"web": web, "scripts": len(SCRIPTS), "colours": len(vs)}

@@ -52,5 +52,13 @@ class AdminTest(unittest.TestCase):
         self.assertIn("attributeFilter", app, "it follows the framing page's light/dark and accent")
 
 
+    def test_reports_page_is_a_staff_tab_and_never_renders_html(self):
+        page = self.read("reports.html")
+        self.assertIn('x-data="xreports"', page)
+        self.assertIn('href="reports" aria-current=page>Reports</a>', page)
+        self.assertIn('../assets/reports.js', page)
+        self.assertNotIn("x-html", page, "report text is the players' own: shown as text only")
+        self.assertIn('href="reports">Reports</a>', self.read("index.html"))
+
 if __name__ == "__main__":
     unittest.main()

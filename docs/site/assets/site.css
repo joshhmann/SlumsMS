@@ -821,3 +821,19 @@ table.t { width: 100%; border-collapse: collapse; }
 .inv-staff label { display: grid; gap: 4px; font-size: .82rem; font-weight: 600; color: var(--muted); }
 .inv-staff input { font: inherit; padding: 8px 10px; border: var(--border) solid var(--edge); border-radius: 6px; background: var(--surface); color: var(--ink); }
 .inv-staff label.inv-check { display: flex; align-items: center; gap: 6px; padding-bottom: 10px; }
+
+/* staff Reports (admin/reports) */
+.rp { display: grid; gap: 18px; }
+.rp-find { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
+.rp-find label { display: grid; gap: 4px; font-size: .82rem; font-weight: 600; color: var(--muted); }
+.rp-find input, .rp-find select { font: inherit; padding: 8px 10px; border: var(--border) solid var(--edge); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.rp-read h2.bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.rp-title { margin: 0 0 8px; text-wrap: balance; }
+.rp-meta { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 0 0 12px; }
+.rp-meta dt { font-weight: 600; color: var(--muted); }
+.rp-meta dd { margin: 0; overflow-wrap: anywhere; }
+.rp-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 28rem; overflow: auto; margin: 0 0 10px; padding: 10px 12px;
+  background: var(--surface-2); border: 1.5px solid var(--hair); border-radius: 6px; font: .85rem/1.45 var(--f-mono); }
+.rp-ctx details { margin: 0 0 8px; }
+.rp-ctx summary { cursor: pointer; font-weight: 600; }
+.rp-list tr[aria-current] td { background: var(--surface-2); }
