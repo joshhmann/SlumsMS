@@ -40,6 +40,21 @@ What each tab must say:
 6. **Release night**: numbered steps in deploy order, then the rollback per piece.
 7. **Sources**: older pages it replaces and the repo files (docs/release/<v>-notes.md, <v>.conf).
 
+## Change inventory (nothing ships undocumented)
+
+1.6.1 shipped a whole Slums Market overhaul on the website that no page mentioned, so nobody tested it. The fix:
+every change in every lane is a row before the release, not just the features someone remembers.
+
+- Keep a `changes` collection in the book (and a Changes tab): `{lane, feature, commits, sees: player|staff|owner,
+  state: live|ships|test-only|off, in_notes: yes|no|n/a, coverage: <auto-QA id / unit class / client screenshot /
+  site test / click-through stop / NONE>, gap}`.
+- Rebuild it from the git logs of all four repos (server, site, client on Silvia, launcher) since the last release
+  tag, grouped into features: at the start of release prep, after every merge batch, and on release night.
+- Release gate: no row may be player-visible + ships + coverage NONE. Each such row becomes a click-through stop, a
+  QA-client step or an auto-QA check, or the owner explicitly accepts it untested.
+- Every lane session adds its own rows when it merges something (same rule as filing bugs). The server session
+  checks the git logs against the rows, because sessions forget.
+
 ## Rules that make it honest
 
 - **Done means seen working where players see it.** Merged or unit-tested is "fixing"/"check". Server features
