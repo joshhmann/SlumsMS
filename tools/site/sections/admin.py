@@ -2,7 +2,8 @@
 ticket 35) in the site's own look, for GM level 3 and up only.
 
 Private builds only. nginx serves admin/ and admin/data/ (the server's dashboard snapshots) only after the login
-service says yes (GET /api/auth/admin: GM level 3+, a sign-in at most 12 h old); everyone else gets the 404 page.
+service says yes (GET /api/auth/admin: GM level 3+, a sign-in at most 12 h old). A GM signed in longer ago is sent to
+sign in again (/login/?again=1&next=..., b055); everyone else gets the 404 page.
 Nothing on the public site links here: the header's Admin link is added by theme.js when /api/login/me says admin.
 
 The dashboard is a separate app that shares many class names with the site (.card, .tile, .pill, .status ...), so it

@@ -28,7 +28,8 @@ GET /api/login/me says who is signed in: {"signed_in", "character", "account", "
 Admin (the staff dashboard at /admin/, owner 2026-10-28): GM level 3 and up, and only within 12 h of signing in (a
 stolen old cookie opens nothing; an admin signs in again after that). The session carries the GM level the game sent
 at sign-in ("gl"). nginx asks GET /api/auth/admin (auth_request) before /admin/ and its data: 204 for an admin, 401
-when not signed in, 403 for anyone else or an admin session older than 12 h. "admin" in /api/login/me is the same
+when not signed in or an admin's sign-in is older than 12 h (nginx sends both to /login/?again=1, b055), 403 for
+anyone else. "admin" in /api/login/me is the same
 check, for the header's Admin link.
 
 Download pass (launcher 1.6.1, ticket 106): POST /api/login/download-pass (session cookie, "X-Slums: 1") gives
@@ -133,6 +134,10 @@ class Sessions:
             return set()
         with open(self.revoked_file, encoding="utf-8") as f:
             return {line.strip() for line in f if line.strip().isdigit()}
+
+    def stale_admin(self, s):
+        """GM level ADMIN_LEVEL or up, but signed in more than ADMIN_TTL ago: needs a fresh sign-in, not a refusal."""
+        return bool(s) and isinstance(s.get("gl"), int) and s["gl"] >= ADMIN_LEVEL and not self.admin(s)
 
     def admin(self, s):
         """Is this checked session an admin's: GM level ADMIN_LEVEL or up, signed in at most ADMIN_TTL ago?"""
@@ -454,7 +459,7 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
                 return self.send(204 if self.session() else 401)
             if path == "/api/auth/admin":
                 s = self.session()
-                return self.send(401 if not s else 204 if sessions.admin(s) else 403)
+                return self.send(204 if sessions.admin(s) else 401 if not s or sessions.stale_admin(s) else 403)
             if path == "/api/auth/pass":
                 a = passes.check(self.headers.get("X-Slums-Pass")) if passes else None
                 return self.send(401) if a is None else self.send(204, headers={"X-Slums-Account": str(a)})

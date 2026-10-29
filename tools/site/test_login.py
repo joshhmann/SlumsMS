@@ -168,6 +168,18 @@ class AdminTest(unittest.TestCase):
         self.assertIsNotNone(self.sessions.check(token), "still signed in as a player")
         self.assertEqual(s["gl"], 4)
 
+    def test_an_old_admin_sign_in_asks_for_a_new_one_and_a_player_still_gets_403(self):
+        old_gm = ls.SESSION_COOKIE + "=" + self.sessions.issue({"account_id": 7, "character": "Momo", "gm": 3})
+        old_player = ls.SESSION_COOKIE + "=" + self.sessions.issue({"account_id": 8, "character": "Rival", "gm": 0})
+        self.t[0] += ls.ADMIN_TTL + 1
+        for cookie, want in ((old_gm, 401), (old_player, 403)):
+            req = urllib.request.Request(self.base + "/api/auth/admin", headers={"Cookie": cookie})
+            try:
+                st = urllib.request.urlopen(req).status
+            except urllib.error.HTTPError as e:
+                st = e.code
+            self.assertEqual(st, want)
+
 
 class AccountSignInTest(unittest.TestCase):
     """Ticket 105: sign in with the game username and password, or sign up with an invite code."""
