@@ -43,7 +43,7 @@ public final class BotRebirthQa {
     public record Before(Character bot, int level, long exp, int job, int reborns, BotRealStats build, int expRate,
                          long meso, int cashItems, Map<Short, Integer> worn, Map<Integer, Integer> skills,
                          Map<BossLogEntry, Integer> bossLog, int starterWeapons, Set<String> marks,
-                         Map<Integer, Integer> helperLogs) {
+                         Map<Integer, Integer> helperLogs, java.util.concurrent.atomic.AtomicLong walletAtWalk) {
     }
 
     private BotRebirthQa() {
@@ -51,6 +51,11 @@ public final class BotRebirthQa {
 
     /** Picks an online bot (a build job, level 30+, no rebirths) near {@code player}'s level; throws if none. */
     public static Before pick(Character player) {
+        return pick(player, Set.of());
+    }
+
+    /** As {@link #pick(Character)}, never one of {@code skip}. */
+    public static Before pick(Character player, Set<Integer> skip) {
         if (!BotRebirth.enabled()) {
             throw new IllegalStateException("bot rebirths are off (BOT_REBIRTH_ENABLED and USE_REBIRTH_SYSTEM)");
         }
@@ -60,7 +65,7 @@ public final class BotRebirthQa {
             if (c != null && c.isBot() && c.getMap() != null && c.getWorld() == player.getWorld() && c.getLevel() >= 30
                     && c.getLevel() < 200 && c.getParty() == null && BotBuild.isBuildJob(c.getJob().getId())
                     && BotProgression.isReal(c.getId()) && c.getReborns() == 0 && c.getEventInstance() == null
-                    && !RebirthBossRuns.holds(c.getId()) && sm instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot) {
+                    && !RebirthBossRuns.holds(c.getId()) && !skip.contains(c.getId()) && sm instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot) {
                 bots.add(c);
             }
         }
@@ -82,7 +87,8 @@ public final class BotRebirthQa {
             return new Before(bot, bot.getLevel(), bot.getExp(), bot.getJob().getId(), bot.getReborns(),
                     BotProgression.snapshot(bot), bot.getExpRate(), bot.getMeso(),
                     bot.getInventory(InventoryType.CASH).list().size(), worn, skills, logs, starters(bot),
-                    ConcurrentHashMap.newKeySet(), new ConcurrentHashMap<>());
+                    ConcurrentHashMap.newKeySet(), new ConcurrentHashMap<>(),
+                    new java.util.concurrent.atomic.AtomicLong(bot.getMeso()));
         }
     }
 
@@ -92,6 +98,7 @@ public final class BotRebirthQa {
         synchronized (bot) {
             bot.setLevel(BotRebirth.REBIRTH_LEVEL);
             BotProgression.afterOffscreenLevels(bot, b.level());
+            b.walletAtWalk().set(bot.getMeso()); // the 4th-job package (10m, NPC 2084000) is the raise's, not the rebirth's
             return bot.getLevel() == BotRebirth.REBIRTH_LEVEL && BotRebirth.fullyAdvanced(bot.getJob().getId());
         }
     }
@@ -168,6 +175,48 @@ public final class BotRebirthQa {
 
     /** rb-2/t-rb-2: Von Leon starts at this share of his HP so the check fits in minutes; the fight stays real. */
     public static final double QA_BOSS_HP = 0.01;
+    /** rb-2/t-rb-2: the staged Von Leon dies in about this long to the bot alone (no helper has a rebirth on TEST). */
+    static final double QA_KILL_SECONDS = 120;
+
+    /**
+     * The share of Von Leon's HP the staged fight starts at: {@link #QA_BOSS_HP}, or less so that the bot alone kills
+     * him in about {@link #QA_KILL_SECONDS} (b034 run 3: a lv 200 Dark Knight at 51,681 a second needed 24 minutes
+     * for 1%, past the check's wait).
+     */
+    public static double qaBossHp(Character bot) {
+        return qaBossHp(soloMapling.ArtificialPlayer.BotProgressionSystem.OffscreenBossRun.dpsAgainst(bot, Boss.VONLEON),
+                soloMapling.ArtificialPlayer.BotProgressionSystem.OffscreenBossRun.hpOf(Boss.VONLEON));
+    }
+
+    /** Tests: {@link #qaBossHp} from a damage a second and an HP. */
+    public static double qaBossHpForTest(double dps, long hp) {
+        return qaBossHp(dps, hp);
+    }
+
+    static double qaBossHp(double dps, long hp) {
+        if (!(dps > 0) || hp <= 0) return QA_BOSS_HP;
+        return Math.max(1e-6, Math.min(QA_BOSS_HP, dps * QA_KILL_SECONDS / hp));
+    }
+
+    /**
+     * t-rb-1: a group of six of this bot clears Zakum and Horntail nine runs in ten (inside half their time limit), so
+     * its walk can earn the 1st key; with the line that says why (its damage a second and the kill times).
+     */
+    public static boolean strongEnough(Before b, List<String> ev) {
+        Character bot = b.bot();
+        boolean ok = true;
+        StringBuilder line = new StringBuilder(bot.getName() + " (job " + bot.getJob().getId() + " lv "
+                + bot.getLevel() + "):");
+        for (Boss boss : new Boss[]{Boss.ZAKUM, Boss.HORNTAIL}) {
+            double dps = soloMapling.ArtificialPlayer.BotProgressionSystem.OffscreenBossRun.dpsAgainst(bot, boss);
+            double min = soloMapling.ArtificialPlayer.BotProgressionSystem.OffscreenBossRun.groupMinutes(bot, boss);
+            line.append(String.format(" %s %,.0f dmg/s, a group of 6 in %.1f min of %d;", boss, dps, min,
+                    boss.timeLimitMinutes));
+            if (!(min <= boss.timeLimitMinutes / 2.0)) ok = false;
+        }
+        ev.add((ok ? "strong enough: " : "too weak, next bot: ") + line);
+        return ok;
+    }
 
     /**
      * rb-2: the bot's next item must be Von Leon's, a boss bots run themselves (its own decision would form this run);
@@ -181,7 +230,7 @@ public final class BotRebirthQa {
             why[0] = "its next item is " + next + " (" + boss + "), not Von Leon's";
             return null;
         }
-        RebirthBossRuns.Run run = RebirthBossRuns.startForQa(bot, Boss.VONLEON, QA_BOSS_HP, why);
+        RebirthBossRuns.Run run = RebirthBossRuns.startForQa(bot, Boss.VONLEON, qaBossHp(bot), why);
         if (run != null) b.marks().add("ran");
         return run;
     }
@@ -254,7 +303,9 @@ public final class BotRebirthQa {
         for (int id : b.worn().values()) {
             if (!owned.remove((Integer) id)) bad.add("gear " + id + " was lost");
         }
-        if (bot.getMeso() != b.meso()) bad.add("mesos " + b.meso() + " -> " + bot.getMeso());
+        if (bot.getMeso() != b.walletAtWalk().get()) {
+            bad.add("the rebirth path moved mesos: " + b.walletAtWalk().get() + " -> " + bot.getMeso());
+        }
         if (bot.getInventory(InventoryType.CASH).list().size() != b.cashItems()) bad.add("cash items changed");
         long lost = b.skills().keySet().stream().filter(id -> bot.getSkills().keySet().stream()
                 .noneMatch(s -> s != null && s.getId() == id)).count();
@@ -302,6 +353,12 @@ public final class BotRebirthQa {
             bot.setPlayerExpRatesCerezeth(b.expRate());
             did.add(regear(bot, b));
             bot.refreshStatsAfterProgression();
+            long back = b.meso() - bot.getMeso();   // the raise's 4th-job package, paid back
+            if (back > 0 && back <= Integer.MAX_VALUE && BotHoldings.grantMeso(bot, (int) back)) {
+                did.add("paid back " + back + " mesos (the raise's 4th-job package)");
+            } else if (back < 0 && -back <= Integer.MAX_VALUE) {
+                BotHoldings.spendMeso(bot, (int) -back);
+            }
         }
         // the QA's boss clears out of bosslog_daily: its own, and one Von Leon clear per helper of a cleared run
         b.bossLog().forEach((entry, was) -> {

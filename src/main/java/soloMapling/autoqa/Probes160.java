@@ -1547,20 +1547,34 @@ final class Probes160 {
         if (config.YamlConfig.config.server.BOT_REBIRTH_PER_DAY <= 0) {
             return List.of("SKIP BOT_REBIRTH_PER_DAY is 0");
         }
-        soloMapling.ArtificialPlayer.BotRebirthQa.Before b;
-        try {
-            b = soloMapling.ArtificialPlayer.BotRebirthQa.pick(p.character());
-        } catch (IllegalStateException e) {
-            return List.of("FAIL " + e.getMessage());
-        }
         List<String> bad = new ArrayList<>();
         List<String> ev = new ArrayList<>();
+        // b034 run 3: a bot too weak for Horntail (a Dark Knight at 49,940 a second: 153 min of 120) can never earn its
+        // key, which is right for it but proves nothing here: raise candidates until one's group clears both bosses
+        // nine runs in ten, putting each weaker one back exactly as it was
+        soloMapling.ArtificialPlayer.BotRebirthQa.Before b = null;
+        java.util.Set<Integer> tried = new java.util.HashSet<>();
+        for (int i = 0; i < RB1_CANDIDATES && b == null; i++) {
+            soloMapling.ArtificialPlayer.BotRebirthQa.Before c;
+            try {
+                c = soloMapling.ArtificialPlayer.BotRebirthQa.pick(p.character(), tried);
+            } catch (IllegalStateException e) {
+                break;
+            }
+            tried.add(c.bot().getId());
+            if (soloMapling.ArtificialPlayer.BotRebirthQa.raise(c)
+                    && soloMapling.ArtificialPlayer.BotRebirthQa.strongEnough(c, ev)) {
+                b = c;
+            } else {
+                ev.add(soloMapling.ArtificialPlayer.BotRebirthQa.restore(c));
+            }
+        }
+        if (b == null) {
+            bad.add("no online bot of " + tried.size() + " tried is strong enough at 200 for Zakum and Horntail");
+            return verdict(bad, "", ev);
+        }
         ev.add("bot " + b.bot().getName() + " lv " + b.level() + " job " + b.job() + " rebirths " + b.reborns());
         try {
-            if (!soloMapling.ArtificialPlayer.BotRebirthQa.raise(b)) {
-                bad.add("the bot did not reach a 4th job at 200: " + soloMapling.ArtificialPlayer.BotRebirthQa.describe(b));
-                return verdict(bad, "", ev);
-            }
             List<String> walk = soloMapling.ArtificialPlayer.BotRebirthQa.walk(b);
             ev.addAll(walk);
             bad.addAll(soloMapling.ArtificialPlayer.BotRebirthQa.check(b));
@@ -1578,6 +1592,9 @@ final class Probes160 {
     }
 
     // ── t-rb-2: a regular earns its key item from a real boss kill (ticket 30 promise audit, 1.6.1) ──────────────
+
+    /** t-rb-1: how many online bots it raises at most looking for one strong enough. */
+    static final int RB1_CANDIDATES = 6;
 
     /** t-rb-2: how long the Von Leon run may take before the check gives up (the catalog allows 20 minutes). */
     static final long RB2_RUN_MS = 17 * 60_000L;

@@ -98,6 +98,23 @@ public final class OffscreenBossRun {
         return BEST_CLEAR * (limitMinutes - minutesToKill) / half;
     }
 
+    /** QA: this bot's single-target damage a second against this boss (the live model). */
+    public static double dpsAgainst(Character bot, Boss boss) {
+        return live.botDps(bot, boss);
+    }
+
+    /** QA: every mob of this boss's fight's HP. */
+    public static long hpOf(Boss boss) {
+        return live.bossHp(boss);
+    }
+
+    /** QA: minutes a pickup group of this bot's strength needs for this boss (infinite when it does no damage). */
+    public static double groupMinutes(Character bot, Boss boss) {
+        double dps = live.botDps(bot, boss) * boss.partySize();
+        long hp = live.bossHp(boss);
+        return dps > 0 && hp > 0 ? hp / dps / 60.0 : Double.POSITIVE_INFINITY;
+    }
+
     /** One run at this boss for its item. */
     static Outcome bossRun(Character bot, Boss boss, DoubleSupplier rng) {
         if (bot.getLevel() < boss.minLevel()) {

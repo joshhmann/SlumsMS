@@ -285,8 +285,11 @@ public final class RebirthBossRuns {
         r.hpFraction = hpFraction;
         runs.add(r);
         double full = hpFraction < 1 ? minutesToKill(crew, boss, 1.0) : minutes;
-        add(r, bot, "forms a run (" + crew.size() + " of them, about " + estimate + " to kill"
-                + (hpFraction < 1 ? ", QA: the boss starts at " + Math.round(hpFraction * 100) + "% HP; the real fight"
+        double dps = 0;
+        for (Character c : crew) dps += OffscreenBossRun.live.botDps(c, boss);
+        add(r, bot, "forms a run (" + crew.size() + " of them at " + String.format("%,.0f", dps) + " dmg/s, about "
+                + estimate + " to kill"
+                + (hpFraction < 1 ? ", QA: the boss starts at " + String.format("%.3f", hpFraction * 100) + "% HP; the real fight"
                 + " would take about " + String.format("%.0f", full) + " min of " + boss.timeLimitMinutes : "") + ")");
         for (Character helper : crew) {
             if (helper != bot) add(r, helper, helper.getName() + " (lv " + helper.getLevel() + ") comes along");
@@ -612,7 +615,7 @@ public final class RebirthBossRuns {
                 }
             }
             r.note("summoned " + r.boss.summonMob + " in " + r.boss.roomMap
-                    + (r.hpFraction < 1 ? " at " + Math.round(r.hpFraction * 100) + "% HP (QA)" : ""));
+                    + (r.hpFraction < 1 ? " at " + String.format("%.3f", r.hpFraction * 100) + "% HP (QA)" : ""));
         }
         if (r.botLed && r.summoned && now - r.phaseAt > SUMMON_GRACE_MS) {
             boolean any = false;
