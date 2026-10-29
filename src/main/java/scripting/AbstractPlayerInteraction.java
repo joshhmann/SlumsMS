@@ -1159,6 +1159,9 @@ public class AbstractPlayerInteraction {
             // 1.6.0: the bots in his party join with him (they never talk to the recruiter themselves)
             soloMapling.server.MapleRootSolo.runHook("expedition party bots",
                     () -> soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots.autoJoin(player, exped));
+            // 1.6.1 ticket 30: regulars at 200 waiting on this boss's rebirth item come and register too
+            soloMapling.server.MapleRootSolo.runHook("rebirth seekers join",
+                    () -> soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.onPlayerExpedition(player, exped));
             return 0;
         } else {
             return -1;

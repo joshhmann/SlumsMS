@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.IntFunction;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -166,5 +167,53 @@ class BotGearTest {
 
         assertFalse(BotGear.apply(bot, Map.of((short) -11, wornSword), Map.of((short) -11, stale)));
         assertSame(held, bot.getInventory(InventoryType.EQUIPPED).getItem((short) -11));
+    }
+
+    // 1.6.1 ticket 30 (REPORT item 2): a reborn level 1 wears what a level 1 can and keeps the rest, then re-gears.
+    @Test
+    void aRebornLevelOneWearsWhatItCanKeepsTheRestAndRegearsAsItLevels() {
+        Character bot = bot(Job.BEGINNER, 1);
+        int bigSword = 1302056;
+        int bigTop = 1040111;
+        data.put(bigSword, new Known((short) -11, 150, 0, 300, 0, 0, 0, 0));   // a level 150 sword
+        data.put(bigTop, new Known((short) -5, 150, 0, 0, 0, 0, 0, 0));
+        know(SWORD, (short) -11, 0);
+        Equip wornSword = equip(bigSword, (short) -11, 120, 10);
+        Equip wornTop = equip(bigTop, (short) -5, 0, 8);
+        Equip oldSword = equip(SWORD, (short) 4, 17, 0);
+        put(bot, InventoryType.EQUIPPED, wornSword);
+        put(bot, InventoryType.EQUIPPED, wornTop);
+        put(bot, InventoryType.EQUIP, oldSword);
+
+        assertTrue(BotGear.afterRebirth(bot, facts, worn -> ATTACK) == 2, "both level 150 pieces came off");
+        Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+        Inventory bag = bot.getInventory(InventoryType.EQUIP);
+        assertSame(oldSword, body.getItem((short) -11), "the sword a level 1 can hold went on");
+        assertNull(body.getItem((short) -5));
+        assertTrue(bag.list().contains(wornSword) && bag.list().contains(wornTop), "kept in its bag");
+
+        // it levels: once its level and stats allow, the old pieces go back on
+        bot.setLevel(150);
+        assertTrue(review(bot));
+        assertSame(wornTop, body.getItem((short) -5), "the top fits at 150");
+        assertSame(oldSword, body.getItem((short) -11), "STR 300 not met yet: the big sword waits");
+        bot.applyBotBuild(400, bot.getDex(), bot.getInt(), bot.getLuk(), 0, bot.getRemainingSps(), bot.getMaxHp(), bot.getMaxMp());
+        assertTrue(review(bot));
+        assertSame(wornSword, body.getItem((short) -11));
+        assertSame(wornTop, body.getItem((short) -5));
+    }
+
+    @Test
+    void aRebornBotKeepsOnWhatItStillFitsAndWhatTheDataDoesNotKnow() {
+        Character bot = bot(Job.BEGINNER, 1);
+        int custom = 1002999;   // a MapleRoot custom the item data has no entry for
+        know(SWORD, (short) -11, 0);
+        Equip sword = equip(SWORD, (short) -11, 17, 0);
+        Equip hat = equip(custom, (short) -1, 0, 0);
+        put(bot, InventoryType.EQUIPPED, sword);
+        put(bot, InventoryType.EQUIPPED, hat);
+        assertEquals(0, BotGear.afterRebirth(bot, facts, worn -> ATTACK));
+        assertSame(sword, bot.getInventory(InventoryType.EQUIPPED).getItem((short) -11));
+        assertSame(hat, bot.getInventory(InventoryType.EQUIPPED).getItem((short) -1));
     }
 }

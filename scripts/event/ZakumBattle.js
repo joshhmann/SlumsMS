@@ -207,8 +207,10 @@ function monsterKilled(mob, eim) {
         eim.showClearEffect(mob.getMap().getId());
         eim.clearPQ();
         party = eim.getPlayers()
-        for (var i = 0; i < party.size(); i++)
-        eim.getPlayers().get(i).getClient().getAbstractPlayerInteraction().gainItem(4001126, 20);
+        for (var i = 0; i < party.size(); i++) {
+            if (party.get(i).isBot()) continue; // 1.6.1: a bot has no client to hand leaves to (it threw and stopped the loop)
+            party.get(i).getClient().getAbstractPlayerInteraction().gainItem(4001126, 20);
+        }
         
     
       //  mob.getMap().broadcastZakumVictory();

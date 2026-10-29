@@ -1156,6 +1156,12 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-rb-1", "Bot rebirth: a level 200 regular earns its key and is reborn").minutes(2)
                 .expect(probe("botRebirth"))
                 .build());
+        // Rebirth keys from real boss kills (ticket 30 promise audit): a staged level 200 regular forms a real Von
+        // Leon run (real expedition, event and summon, bot attacks through the map's boss rules), the kill clears the
+        // event, it comes out with Von Leon's item and is reborn; bot, items and boss-log rows put back after
+        c.add(Check.auto("t-rb-2", "Bot rebirth: a level 200 regular earns its key item from a real Von Leon kill").minutes(20)
+                .expect(probe("botRebirthBoss"))
+                .build());
         // Achievements and medals (ticket 93, -Dslums.achievements): a Mano kill and ten catches through the real event
         // path hand over one zero-stat medal each, exactly once; nothing else does
         c.add(Check.auto("t-ac-1", "Achievements: kill and fishing goals hand over one zero-stat medal each, once").minutes(2)

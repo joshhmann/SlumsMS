@@ -245,6 +245,7 @@ function monsterKilled(mob, eim) {
         eim.clearPQ();
         party = eim.getPlayers()
         for (var i = 0; i < party.size(); i++) {
+            if (party.get(i).isBot()) continue; // 1.6.1: a bot has no client to hand leaves to (it threw and stopped the loop)
             party.get(i).getClient().getAbstractPlayerInteraction().gainItem(4001126, 60);
             party.get(i).gainExp(884000, true, true, true); // Grant 884,000 exp to each player
         }

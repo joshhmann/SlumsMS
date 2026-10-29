@@ -411,10 +411,23 @@ Yes lands in Mushroom Town (map 10000); `!qa do ask` asks again, `!qa do back` r
 
 ### rb-1: Bot rebirth (1.6.1, ticket 30)
 
-`!qa run rb-1` (needs `BOT_REBIRTH_ENABLED` and `USE_REBIRTH_SYSTEM`): an online bot (lv 30-199, a build job, no
-party) is raised to 200 on its build, then walks its earned path with the pace forced (two boss runs, the key crafted,
-the trip granted, the rebirth on rebirth.js's rules). The answer lists what changed and what must not have (gear,
-mesos, cash items, past skills). `!qa do check` prints the bot; stop puts it back exactly as it was. Auto-QA: t-rb-1.
+`!qa run rb-1` (needs `BOT_REBIRTH_ENABLED` and `USE_REBIRTH_SYSTEM`): an online trainer bot (lv 30-199, a build
+job, no party, no rebirths) is raised to 200 on its build, then walks its earned path with the pace forced: Zakum and
+Horntail run off screen on the players' rules (their daily clear limits, its real damage against their real HP inside
+the time limit; each outcome is real, so some decisions do not clear), the key crafted, the trip granted, the rebirth on
+rebirth.js's rules. The answer lists what changed and what must not have (only level-1 gear worn and every old piece
+kept, mesos, cash items, past skills). `!qa do check` prints the bot; stop puts it back exactly as it was, its boss-log
+rows included. Auto-QA: t-rb-1.
+
+### rb-2: Bot rebirth key from a real boss kill (1.6.1, ticket 30 promise audit)
+
+`!qa run rb-2` (as rb-1, and `-Dslums.botRebirth.liveRuns` not false): the same kind of bot, raised to 200 and staged at
+rebirth 1 holding Pink Bean's item (bots cannot run Pink Bean's statue stage on their own), goes into a real Von Leon
+run: a real expedition with up to five free strong regulars on its channel, the event started as the recruiter does,
+Von Leon summoned as his NPC does (at 1% of his HP so it ends in minutes; the run's first note gives the real fight's
+expected length), fought with the bot attack driver through the map's boss rules. `!warpto` the bot to watch the
+recruit map (211070000) before they go in. `!qa do check` shows the run; once it is DONE it crafts the 2nd key and is
+reborn. Stop puts the bot back (items, rebirths, the run's Von Leon clears in bosslog_daily). Auto-QA: t-rb-2.
 
 ### ac-1: Achievements and medals (1.6.1, ticket 93)
 

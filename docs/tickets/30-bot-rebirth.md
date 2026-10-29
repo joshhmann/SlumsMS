@@ -56,8 +56,9 @@ Earned path for all bots: any bot that reaches level 200 and meets its goals can
 `BotRebirth` (BotProgressionSystem), hooked into TrainingBot's DECIDE (after party and world-event picks):
 - A bot at level 200, fully advanced (rebirth.js's list), under 3 rebirths, holding no key, and that *bothers* this
   week (`botherChance` from its Bartle blend: .05 + .75 Achiever + .5 Killer + .3 Explorer + .1 Socializer, capped
-  .05-.9; re-rolled weekly) rolls an offscreen boss run at most every 6 h with 35% (`-Dslums.botRebirth.gatherHours`,
-  `.gatherChance`); a win adds one missing boss drop of craft.js's recipe through BotHoldings (one of each at most).
+  .05-.9; re-rolled weekly) rolled an offscreen boss run at most every 6 h with 35% (`-Dslums.botRebirth.gatherHours`,
+  `.gatherChance`); a win added one missing boss drop of craft.js's recipe through BotHoldings (one of each at most).
+  **Replaced by the promise audit below: real boss runs and off-screen runs on the players' rules.**
 - Both drops -> the key is crafted (drops taken). Key held + a pace slot left today -> the trip to Wyatt (993910000,
   GCTravel; a failed trip waits 1 h). At Wyatt rebirth.js's checks run again, a pace slot is taken, the key is taken,
   and the bot is reborn: rebirths +1, Beginner/Noblesse/Legend (6/3/1 in 10 by id), level 1, EXP 0, the level-1 build
@@ -69,3 +70,68 @@ Earned path for all bots: any bot that reaches level 200 and meets its goals can
 - Switch `BOT_REBIRTH_ENABLED` (default false; needs USE_REBIRTH_SYSTEM). Checks: `!qa run rb-1`, auto-QA `t-rb-1`
   (raise a bot to 200, force the pace, walk the path, judge, put the bot back). Tests: BotRebirthTest.
 - Not built: the veteran slice, World's Engine / x13 skills for bots, a LifePolicy activity or goal of its own.
+
+## Promise audit (1.6.1, branch 161-rebirthkeys, 2026-10-28)
+
+The notes say regulars "earn the key item from boss drops". The first build gave a bot that bothered one boss item on
+a flat 35% roll every 6 h, with no boss, no clear limit and no check that it could kill anything; and a reborn bot
+stayed in its level-200 gear. Owner rule: implement it, don't reword it.
+
+**Where the items come from (RebirthBosses, read off the scripts):**
+
+| Key | Item | Source (player path) | Entry rules |
+|---|---|---|---|
+| 1st 4033446 | 4032133 | Zakum clear: Plunk (3004006) hands every member one; drop_data rows of the boss if any | lv 50, 6-30, 25 clears a day, 120 min |
+| | 4001094 | Horntail clear: Plunk | lv 100, 6-30, 20 a day, 120 min |
+| 2nd 4033442 | 4021010 | Pink Bean clear: the exit NPC 2141002 | lv 120, 6-30, 20 a day, 140 min |
+| | 4001693 | Von Leon clear: Plunk | lv 120, 1-6, 18 a day, 120 min, Lion King's Castle (rebirth 1) |
+| 3rd 4033450 | 4000659 | Cygnus clear: Plunk | lv 120, 1-6, 16 a day, 120 min, the stronghold (emblem) |
+| | 4032922 | Cygnus Knight Emblem: no boss item; the stronghold guards drop it (quest 31125), Chief Alex gives one for quest 31126 (20 each of 8600000-8600003, lv 165) | - |
+
+**How a regular earns them now:**
+- Von Leon and Cygnus (one room, summoned by the room's NPC): the seeker forms a real run (RebirthBossRuns): it and
+  up to five free strong regulars on its channel (other seekers first; lv 150+, no party, nothing in flight, the map's
+  gate open, a clear left today) go to the recruiter; a real Expedition (the recruiter's quota check, members via
+  addMember), `EventManager.startInstance` as "Start the fight!" does, the boss summoned as 2161008/3003903 do; the
+  crew fights with the bot attack driver; the kill runs the event's own monsterKilled/clearPQ (and logs the clear in
+  bosslog_daily); each bot is handed the clear item (RebirthBossRuns.onClear, from setEventCleared: a bot cannot talk
+  to Plunk) and loots key items off the floor; then everyone leaves. A run is only formed when the group's expected
+  kill time (OffscreenCombat's swing against the boss's real HP) fits 75% of the limit; at most 2 bot-formed runs at
+  once; 40 minutes at most; a failed run waits 30 minutes. Cygnus also needs the emblem first (the door takes it).
+- Any key boss: a seeker waits up to 2 hours to join a real player's expedition for its boss; when a player opens one,
+  up to three seekers on that channel come to the recruiter, register (their quota), fight in the instance next to the
+  players (following the leader between rooms) and leave after the clear with the item.
+- Zakum, Horntail, Pink Bean (their stages need a player's hand: the Eye of Fire altar, two head rooms, the statue
+  stage; ticket 130) and the emblem: an off-screen run at most every 6 h (OffscreenBossRun): the level floor, the
+  daily clear limit from bosslog_daily, a pickup group of 6 at the bot's own single-target damage a second against
+  every mob of the fight's HP inside the time limit (9 in 10 when it fits in half the limit, falling to 0 at the
+  limit); a clear writes the bosslog row; the item from the boss's drop_data rows if one rolls, else the clear reward.
+  The emblem: 30 minutes at its droppers' kill rate rolling their real rows, or quest 31126's 80 kills.
+- Bot hits on Zakum (arms first), Von Leon (his last form), Cygnus (guards, second form) and Magnus now go through the
+  map's boss rules (MapleMap.bossDamageBlocked / beforeBossDamage / afterBossKilled, split out of damageMonster): a
+  bot's killing blow used to kill Von Leon or Cygnus outright, so the event never cleared, including for 1.6.0's
+  party bots in a player's expedition. The boss reward loops (Plunk, the five battle scripts' leaf hand-outs) skip bots:
+  they called gainItem through a bot's client, which has no player, and threw, stopping the loop for players after it.
+- After the rebirth, BotGear.afterRebirth takes off every piece a level 1 of its new job cannot wear into its bag,
+  wears the best it owns that fits (a starter sword if it has no weapon at all) and keeps the rest; the usual review
+  on each level-up puts the pieces back on as level, job and stats allow.
+
+**Cost at ~3,000 bots:** only seekers (level 200, under 3 rebirths, bothered this week, missing an item) do any of
+this, from their own DECIDE (the existing hook; a bot below 200 now returns at once). A run beats every 250 ms while
+it lives (at most 2 bot-formed runs, 6 bots each); picking helpers scans the online bots once per run formed; the
+player-expedition hook reads only the waiting seekers; `holds()` is one map read on each trainer tick. Off-screen runs
+are one bosslog count and one cached drop_data read per run.
+
+**Checks:** RebirthKeysEarnedTest, BotRebirthTest (noBossItemFromARollAlone fails on the old build), BotGearTest
+(rebirth gear), BotBossMechanicsTest. `!qa run rb-1`/`rb-2`, auto-QA t-rb-1 (off-screen Zakum/Horntail) and t-rb-2 (a
+real Von Leon run, Von Leon staged at 1% of his HP so the check fits in minutes; the run's first note gives the real
+fight's expected length).
+
+**Not verified:** the real damage regulars do to these bosses. If a 6-bot group cannot kill Von Leon (7.5B HP) or
+Cygnus (2 x 15B) in time, no run is formed and those keys come only from players' runs; the logs say so ("can kill
+... in N min of 120: not tried").
+
+**Gaps left for the owner:** Von Leon's recruiter asks whoever talks to it for quest 3171 (the end of the Lion King's
+Castle story, 3163-3170); bots play no quest chains, so their runs and joins are not held to it (1.6.0's party-bot
+joins are). The walk into the Cygnus stronghold is taken as made once the bot holds the emblem. Pink Bean, Zakum and
+Horntail are run on screen only with a player.
