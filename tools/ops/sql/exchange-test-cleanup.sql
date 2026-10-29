@@ -9,6 +9,9 @@
 -- xc-1 check's 100 NX at 100,000 and 1,001,000) and 3, 4 (LEAF: the xc-2 check's 10 leaves at 1,000). The other side
 -- of each is the tester's own order (account 42, request_id 't-<token>').
 --
+-- Since the follow-up fix (QA fills flagged at start from their order, see Exchange.isQaFill), a build with it keeps
+-- these fills off every public number and chart without this script; the script only tidies the table itself.
+--
 -- What it does: copies those fills into a backup table, then deletes them from exchange_fills. That is all.
 --   * exchange_orders, exchange_escrow and exchange_ledger are NOT touched: the ledger is the money trail and the
 --     exchange halts at start if balances and ledger sums disagree. The ledger rows keep their fill_id (24 rows for

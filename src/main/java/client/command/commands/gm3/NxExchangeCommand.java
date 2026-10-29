@@ -75,10 +75,11 @@ public final class NxExchangeCommand {
             case "fills" -> {
                 int n = params.length > 1 ? parse(params[1], 10) : 10;
                 String unit = "NX".equals(ticker) ? "NX" : ex.ticker(ticker).name();
-                for (var f : ex.lastTrades(ticker, Math.max(1, Math.min(30, n)))) {
-                    gm.yellowMessage(String.format("fill %d: %,d %s at %,d (buy #%d%s, sell #%d%s) %s", f.id(), f.nx(), unit,
-                            f.price(), f.buyOrder(), f.buyerRegular() ? " regular" : "", f.sellOrder(),
-                            f.sellerRegular() ? " regular" : "", java.time.Instant.ofEpochMilli(f.at())));
+                for (var f : ex.lastTrades(ticker, Math.max(1, Math.min(30, n)), true)) {
+                    gm.yellowMessage(String.format("fill %d: %,d %s at %,d (buy #%d%s, sell #%d%s) %s%s", f.id(), f.nx(),
+                            unit, f.price(), f.buyOrder(), f.buyerRegular() ? " regular" : "", f.sellOrder(),
+                            f.sellerRegular() ? " regular" : "", java.time.Instant.ofEpochMilli(f.at()),
+                            ex.isQaFill(f.id()) ? " (QA check, off the charts)" : ""));
                 }
             }
             case "fund" -> {

@@ -412,6 +412,93 @@ class ExchangeTickersTest {
         conserved();
     }
 
+    // ---------------------------------------------------------------- QA fills stay off the charts (TEST 2026-10-29)
+
+    /** Everything public about a ticker: the export's last/high/low/volume/trades and the history's candles. */
+    @SuppressWarnings("unchecked")
+    Map<String, Object> publicOf(String ticker) {
+        Map<String, Object> doc = (Map<String, Object>) Json.parse(Json.write(ExchangeSite.tickers(ex, now.get())));
+        return ((List<Map<String, Object>>) doc.get("tickers")).stream().filter(m -> ticker.equals(m.get("id")))
+                .findFirst().orElseThrow();
+    }
+
+    @SuppressWarnings("unchecked")
+    List<Object> candlesOf(String ticker) {
+        Map<String, Object> hist = (Map<String, Object>) Json.parse(Json.write(ExchangeSite.history(ex, now.get())));
+        return (List<Object>) ((Map<String, Map<String, Object>>) hist.get("tickers")).get(ticker).get("candles");
+    }
+
+    void assertOffTheCharts(String ticker) {
+        Map<String, Object> t = publicOf(ticker);
+        assertNull(t.get("last"), ticker + " last");
+        assertNull(t.get("high_24h"), ticker + " high");
+        assertEquals(0L, ((Number) t.get("volume_24h")).longValue(), ticker + " volume");
+        assertTrue(((List<?>) t.get("trades")).isEmpty(), ticker + " trades");
+        assertTrue(candlesOf(ticker).isEmpty(), ticker + " candles");
+        assertTrue(ex.lastTrades(ticker, 10).isEmpty(), ticker + " lastTrades (the bots' view)");
+    }
+
+    @Test
+    void theQaChecksFillsSettleButNeverReachTheChartsEvenAfterARestart() throws Exception {
+        soloMapling.Economy.exchange.volatility.MarketFlows.get().clear();
+        store.login(1, 11);
+        LiveWallet w = store.finder().find(1);
+        // xc-2: 10 leaves at 1,000
+        ExchangeQa.StagedItem st = ExchangeQa.stageItem(ex, w, "LEAF", ExchangeQa.ITEMS);
+        assertTrue(ex.preview(new Place("q1", 1, 11, Side.SELL, st.bidPrice(), 10, "LEAF")).ok());
+        assertTrue(ex.confirmLatest("q1c", 1).ok());
+        assertEquals("OK", ExchangeQa.teardown(ex, w).get("code"));
+        // xc-1: 100 NX at the best bid + 1,000 (TEST printed 1,001,000)
+        now.addAndGet(20_000);
+        ExchangeQa.Staged nx = ExchangeQa.stage(ex, w);
+        assertTrue(ex.preview(new Place("q2", 1, 11, Side.SELL, nx.bidPrice(), ExchangeQa.NX, "NX")).ok());
+        Response sold = ex.confirmLatest("q2c", 1);
+        assertTrue(sold.ok(), sold.toString());
+        assertEquals("OK", ExchangeQa.teardown(ex, w).get("code"));
+        // they settled and the staff still see them
+        List<ExchangeStore.FillRow> staff = ex.lastTrades("LEAF", 10, true);
+        assertEquals(1, staff.size());
+        assertTrue(ex.isQaFill(staff.get(0).id()));
+        assertEquals(1, ex.lastTrades("NX", 10, true).size());
+        conserved();
+        // nothing public
+        assertOffTheCharts("LEAF");
+        assertOffTheCharts("NX");
+        assertTrue(soloMapling.Economy.exchange.volatility.MarketFlows.get().window("LEAF", now.get())[0] == 0,
+                "the QA sell is no supply for the fair value");
+        // a restart rebuilds the history from the store: still nothing public
+        ex = start();
+        assertTrue(ex.isQaFill(staff.get(0).id()), "flagged again from the orders at start");
+        assertOffTheCharts("LEAF");
+        assertOffTheCharts("NX");
+    }
+
+    @Test
+    void aRealRegularsFillAndAPlayersFillStillShow() throws Exception {
+        store.login(1, 11);
+        LiveWallet w = store.finder().find(1);
+        // regular 1 (a configured one, not the QA test regular) bids, a player sells into it
+        assertTrue(ex.fundHouseLive(1, w, Asset.MESO, 1_000_000, true).ok());
+        assertTrue(ex.placeRegularForQa(1, Side.BUY, 1_000_000, 100).ok());
+        now.addAndGet(20_000);
+        assertTrue(ex.preview(new Place("r1", 1, 11, Side.SELL, 1_000_000, 100, "NX")).ok());
+        assertTrue(ex.confirmLatest("r1c", 1).ok());
+        Map<String, Object> t = publicOf("NX");
+        assertEquals(1_000_000L, ((Number) t.get("last")).longValue());
+        assertEquals(1, candlesOf("NX").size());
+        assertFalse(ex.isQaFill(ex.lastTrades("NX", 1).get(0).id()));
+        // and a plain player-to-player leaf trade
+        now.addAndGet(20_000);
+        assertTrue(place(2, "LEAF", Side.BUY, P, 2).ok());
+        now.addAndGet(20_000);
+        assertTrue(ex.preview(new Place("r2", 1, 11, Side.SELL, P, 2, "LEAF")).ok());
+        assertTrue(ex.confirmLatest("r2c", 1).ok());
+        assertEquals(P, ((Number) publicOf("LEAF").get("last")).longValue());
+        ex = start();
+        assertEquals(1_000_000L, ((Number) publicOf("NX").get("last")).longValue(), "after a restart too");
+        assertEquals(P, ((Number) publicOf("LEAF").get("last")).longValue());
+    }
+
     // ---------------------------------------------------------------- history and the site's export
 
     @Test
