@@ -655,7 +655,7 @@ update: the patch notes will say when.</p>
 <svg class="xc-chart" viewBox="0 0 640 280" preserveAspectRatio="none" role="img" :aria-label="'Price of ' + (cur && cur.name)" x-html="chart()"></svg>
 <p class="xc-note">Each candle is an hour that traded: <span class="up">green</span> closed higher than it opened,
 <span class="down">red</span> lower; the bars underneath are how much traded. The dashed yellow line is the official
-rate, the size-weighted average of player trades in the last 24 hours (once there are at least 3). The dotted blue line
+rate, the size-weighted average of player trades in the last 7 days (once there are at least 3). The dotted blue line
 is the fair value: what the game's own drops and sinks say it's worth. It's a guide; players set the price.</p></section>
 <section class="xc-p" style="grid-area: depth"><h2>Market depth</h2>
 <svg class="xc-depth" viewBox="0 0 640 150" preserveAspectRatio="none" role="img" aria-label="Buy and sell depth" x-html="depth()"></svg>
