@@ -56,9 +56,6 @@ public final class BotConversation {
     /** History and idle expiry are shared across channels; pending replies keep their own destination. */
     private static final class ConversationState {
         final List<BotBrain.Turn> history = new ArrayList<>();
-        /** 1.6.1: this pair's recent whisper lines only, for the decision model's context. */
-        final soloMapling.ArtificialPlayer.BotConvo.WhisperTrail whispers =
-                new soloMapling.ArtificialPlayer.BotConvo.WhisperTrail();
         volatile long lastAt;
 
         ConversationState(long now) {
@@ -201,10 +198,7 @@ public final class BotConversation {
         Heard heard = deliver == null ? heard(bot.getChr(), player, now) : Heard.NONE;
         List<BotBrain.Turn> history;
         // 1.6.1: a whisper is read with the earlier whispers of this bot and this player (not the line itself)
-        List<ChatDecide.Earlier> whisperContext = deliver == null ? List.of() : session.state.whispers.earlier(now);
-        if (deliver != null) {
-            session.state.whispers.add(true, line, now);
-        }
+        List<ChatDecide.Earlier> whisperContext = deliver == null ? List.of() : noteWhisper(bot, player, line, now);
         synchronized (session.history) {
             if (heard.justSaid() != null && !alreadyInHistory(session.history, heard.justSaid())) {
                 // the bot's public line (scripted or not) is a real turn of this chat: the player is answering it
@@ -225,6 +219,14 @@ public final class BotConversation {
             }
         });
         return true;
+    }
+
+    /** The pair's earlier whispers (read before this line is added to the trail). */
+    private static List<ChatDecide.Earlier> noteWhisper(BotSM bot, Character player, String line, long now) {
+        var trail = soloMapling.ArtificialPlayer.BotConvo.WhisperTrail.of(bot.getChr().getId(), player.getId(), now);
+        List<ChatDecide.Earlier> before = trail.earlier(now);
+        trail.add(true, line, now);
+        return before;
     }
 
     /** The map's public chat for this bot's prompt, and its own line the player's line answers (or null). */
@@ -466,8 +468,14 @@ public final class BotConversation {
         }
     }
 
+    /** A player logged out: their whisper trails with every bot go. */
+    public static void playerLoggedOut(int playerId) {
+        soloMapling.ArtificialPlayer.BotConvo.WhisperTrail.dropPlayer(playerId);
+    }
+
     /** Ends every chat of a bot that is leaving the world. */
     public static void endAllOf(int botCharId) {
+        soloMapling.ArtificialPlayer.BotConvo.WhisperTrail.dropBot(botCharId);
         holds.remove(botCharId); // a bot leaving the world keeps no hold for the next one that gets its id
         for (Key key : new ArrayList<>(sessions.keySet())) {
             if (key.botId() == botCharId) {
@@ -935,7 +943,8 @@ public final class BotConversation {
         }
         Consumer<String> deliver = session.deliver;
         if (deliver != null) {
-            session.state.whispers.add(false, line, System.currentTimeMillis());
+            long sentAt = System.currentTimeMillis();
+            soloMapling.ArtificialPlayer.BotConvo.WhisperTrail.of(bot.getId(), player.getId(), sentAt).add(false, line, sentAt);
         }
         boolean firstLine;
         synchronized (session.history) {

@@ -52,4 +52,39 @@ class WhisperTrailTest {
         assertEquals("l7", out.get(4).text());
         assertTrue(trail.earlier(2 * WhisperTrail.EXPIRY_MS + 100).isEmpty());
     }
+
+    @org.junit.jupiter.api.BeforeEach
+    @org.junit.jupiter.api.AfterEach
+    void clean() {
+        WhisperTrail.clearForTest();
+    }
+
+    @Test
+    void aWhisperThreeMinutesLaterStillCarriesTheEarlierLines() {
+        long t0 = 1_000_000;
+        WhisperTrail.of(1, 2, t0).add(true, "hi, new here", t0);
+        WhisperTrail.of(1, 2, t0 + 1000).add(false, "welcome", t0 + 1000);
+        long later = t0 + 3 * 60_000;
+        var out = WhisperTrail.of(1, 2, later).earlier(later);
+        assertEquals(2, out.size());
+        assertEquals("hi, new here", out.get(0).text());
+        assertTrue(WhisperTrail.of(1, 3, later).earlier(later).isEmpty());
+    }
+
+    @Test
+    void staleTrailsAreSweptAndLogoutDropsTheirs() {
+        long t0 = 1_000_000;
+        WhisperTrail.of(1, 2, t0).add(true, "a", t0);
+        WhisperTrail.of(1, 3, t0).add(true, "b", t0);
+        WhisperTrail.of(4, 3, t0).add(true, "c", t0);
+        assertEquals(3, WhisperTrail.size());
+        WhisperTrail.dropPlayer(3);
+        assertEquals(1, WhisperTrail.size());
+        WhisperTrail.dropBot(1);
+        assertEquals(0, WhisperTrail.size());
+        WhisperTrail.of(5, 6, t0).add(true, "d", t0);
+        long late = t0 + WhisperTrail.EXPIRY_MS + WhisperTrail.SWEEP_MS + 1;
+        WhisperTrail.sweep(late);
+        assertEquals(0, WhisperTrail.size());
+    }
 }

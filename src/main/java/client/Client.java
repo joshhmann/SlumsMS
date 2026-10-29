@@ -1080,6 +1080,7 @@ public class Client extends ChannelInboundHandlerAdapter {
             getMostRecentAccountFromIP(remoteAddress);
             player.cancelMagicDoor();
             player.clearSummons();
+            soloMapling.ArtificialPlayer.BotConversation.playerLoggedOut(player.getId()); // 1.6.1: whisper trails
             final World wserv = getWorldServer();   // obviously wserv is NOT null if this player was online on it
             try {
                 removePlayer(wserv, this.serverTransition);
