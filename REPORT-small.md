@@ -9,9 +9,11 @@ closed by the commit on this branch.
 1. Regulars rebirth: "they earn the key item from boss drops".
    Code: no bot kills a boss for it. `BotRebirth.gather()` (src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotRebirth.java ~255) is a simulated "offscreen boss run": at most once per 6 h (`slums.botRebirth.gatherHours`) a 35% roll (`gatherChance`) drops one of the two boss items straight into the bag (`BotHoldings.grantItem`), then `craft()` makes the key. A weekly "bothers" roll (5-90%, Bartle-weighted) gates it. Only `TrainingBot` runs the step.
    Work: make bots really fight the key bosses (expedition bots already exist, `ExpeditionBots.java`) and take the drop from the real kill, or have the simulated run go through the real boss drop table with the real boss-attempt limits.
+   **Fixed on 161-rebirthkeys:** real Von Leon/Cygnus runs formed by bots, joins of players' expeditions for every key boss, off-screen Zakum/Horntail/Pink Bean runs on the players' clear limits, real HP vs real damage, drop rows and clear reward (docs/tickets/30-bot-rebirth.md, "Promise audit"). Checks t-rb-1, t-rb-2.
 2. Regulars rebirth: "Regulars who reach level 200 can now be reborn" / "start again at level 1 ... keeping their gear".
    Code: true for rebirths 0-2. `BotRebirth.stage()` uses level >= 200, `rebirthHere()` uses level == getMaxClassLevel(); gear is kept in the bag but `BotGear.afterProgress` cannot wear level-gated gear at level 1.
    Work: none beyond making a level-1 bot wear what it can; or accept.
+   **Fixed on 161-rebirthkeys:** `BotGear.afterRebirth` takes off what a level 1 cannot wear, wears the best it can, keeps the rest; reviews on level-up put it back on.
 3. Family: "earn reputation when your juniors hunt and level" (bot juniors).
    Code: real kills (`Monster.java:1030`) and normal level-ups (`Character.java:7758`) pay the senior. Bots levelling off-screen (`Character.applyOffscreenExp` ~3892) never call levelUp and never kill a real mob, so a bot junior gives nothing while it trains. Bot juniors are also capped at 300 rep/day (`FamilyEntry.java:317`).
    Work: call the family rep hook from the off-screen level-up path (and from simulated kills), keep or document the cap.
@@ -79,7 +81,7 @@ closed by the commit on this branch.
 
 ## B. Items the owner named
 - Medal "yellow line": FIXED on this branch. `GameHands.tell` (soloMapling/achievements/GameHands.java:41) now uses `chr.yellowMessage` (a real yellow tip), not type 6 (light blue). The notes claim is true now.
-- Regulars "earning" rebirth keys: see 1 (simulated off-screen boss runs).
+- Regulars "earning" rebirth keys: see 1 (fixed on 161-rebirthkeys).
 - "Regulars understand chat better": not in docs/release/1.6.1-notes.md, roadmap/1.6.1.md or HANDOFF at this commit (grep for "understand"); nothing to verify against. If it is in the Discord/site text, the work is the chat-model split (BOT_DECIDE_URL, 1.6.1.conf SERVER_SET) and that is a config change, not code.
 - Edit UI login tip: not in the 1.6.1 notes file. State: `GuideMenu.onLoginUiTip` (GuideMenu.java:158) shows it once, only to a real player whose client build stamp is >= UI_TIP_MIN_BUILD (10600), as `dropMessage(5, ...)` (notice colour, not yellow). It needed `ClientStampCarry` to work on the channel (before it the build read 0 and it never showed); untested on a real client.
 - Adventurer's Bag claims: all verified except the ACCOUNT_SHARING caveat (23). Withdraw-all-ores, no-space and open-dialog loot paths are in the code.

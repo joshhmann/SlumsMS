@@ -1225,6 +1225,9 @@ public class EventInstanceManager {
     public final void setEventCleared(ExpeditionType type) {
         eventCleared = true;
         soloMapling.achievements.Achievements.onClear(scriptName(), getPlayers()); // 1.6.1 ticket 93
+        // 1.6.1 ticket 30: the bots in the room are handed the boss's item, as Plunk hands every member theirs
+        soloMapling.server.MapleRootSolo.runHook("bot boss clear", () ->
+                soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.onClear(scriptName(), getPlayers()));
 
         String partyId = java.util.UUID.randomUUID().toString();
         for (Character chr : getPlayers()) {

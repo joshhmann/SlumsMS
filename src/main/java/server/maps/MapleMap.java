@@ -1513,17 +1513,33 @@ public class MapleMap {
         }
     }
 
-    public boolean damageMonster(final Character chr, final Monster monster, final long damage) {
-        // Handle Zakum arms check
+    /**
+     * 1.6.1 ticket 30: mobs whose damage or death this map handles itself (Zakum's arms first, Cygnus' and Magnus'
+     * thresholds, Von Leon's and Cygnus' phases). A bot's hit on one goes through {@link #bossDamageBlocked},
+     * {@link #beforeBossDamage} and {@link #afterBossKilled} as a player's does through {@link #damageMonster}; before
+     * this a bot's killing blow on Von Leon or Cygnus skipped the next phase, so the event never cleared.
+     */
+    public static boolean hasBossMechanics(int mobId) {
+        return mobId == MobId.ZAKUM_1 || mobId == 8850011 || mobId == 8880002 || mobId == 8840000
+                || mobId >= 8880000 && mobId <= 8880010 || mobId == 8240098 || mobId == 8240099
+                || mobId >= 8850000 && mobId <= 8850004;
+    }
+
+    /** Zakum's body takes no damage while an arm is up (true: this hit does nothing). */
+    public boolean bossDamageBlocked(final Monster monster) {
         if (monster.getId() == MobId.ZAKUM_1) {
-            for (MapObject object : chr.getMap().getMapObjects()) {
-                Monster mons = chr.getMap().getMonsterByOid(object.getObjectId());
+            for (MapObject object : getMapObjects()) {
+                Monster mons = getMonsterByOid(object.getObjectId());
                 if (mons != null && mons.getId() >= MobId.ZAKUM_ARM_1 && mons.getId() <= MobId.ZAKUM_ARM_8) {
                     return true;
                 }
             }
         }
+        return false;
+    }
 
+    /** The HP thresholds a hit may cross: Cygnus' guards, Magnus' orbs. */
+    public void beforeBossDamage(final Character chr, final Monster monster) {
         // Handle Cygnus mechanics
         if (monster.getId() == 8850011) {
             double hpRatio = (double) monster.getHp() / monster.getMaxHp();
@@ -1562,6 +1578,57 @@ public class MapleMap {
                 MagnusHpTreshold++;
             }
         }
+    }
+
+    /**
+     * A boss with a next phase just died: this map kills it and brings the next phase on (Von Leon's last form,
+     * Cygnus back after her guards, Magnus' room, ...). True when it did; false for an ordinary death.
+     */
+    public boolean afterBossKilled(final Character chr, final Monster monster) {
+        if (monster.getId() >= 8880000 && monster.getId() <= 8880010) {
+            killMonster(monster, chr, true);
+            killAllMonsters();
+            return true;
+        } else if (monster.getId() == 8840000) {
+            Point npos = monster.getPosition();
+            killMonster(monster, chr, false, false);
+            Monster fakevl = LifeFactory.getMonster(8847777);
+            spawnArielMonster(fakevl, npos);
+            damageMonster(chr, fakevl, fakevl.getMaxHp());
+            return true;
+        } else if (monster.getId() == 8240098 || monster.getId() == 8240099) {
+            killMonster(monster, chr, true);
+            killAllMonsters();
+            StatEffect sfe = new StatEffect();
+            Rectangle bounds = new Rectangle(-415, 218, 890, 600);
+            Mist mist = new Mist(bounds, chr, sfe);
+            spawnMist(mist, 1000000, false, true, false, true);
+            return true;
+        } else if (monster.getId() >= 8850000 && monster.getId() <= 8850003) {
+            Monster cygnus = LifeFactory.getMonster(8850011);
+            killAllMonsters();
+            spawnMonster(cygnus);
+            damageMonster(chr, cygnus, (long) (cygnus.getMaxHp() * (0.15 * cygnusSpawnCounter)));
+            spawningcygnus = false;
+            return true;
+        } else if (monster.getId() == 8850004) {
+            Monster cygnus = LifeFactory.getMonster(8850012);
+            killAllMonsters();
+            spawnMonster(cygnus);
+            damageMonster(chr, cygnus, (long) (cygnus.getMaxHp() * (0.15 * cygnusSpawnCounter)));
+            spawningcygnus = false;
+            return true;
+        }
+        return false;
+    }
+
+    public boolean damageMonster(final Character chr, final Monster monster, final long damage) {
+        // Handle Zakum arms check
+        if (bossDamageBlocked(monster)) {
+            return true;
+        }
+
+        beforeBossDamage(chr, monster);
 
         // Generic monster damage handling
         if (monster.isAlive()) {
@@ -1581,38 +1648,7 @@ public class MapleMap {
 
             if (killed) {
                 // Handle various special monster deaths
-                if (monster.getId() >= 8880000 && monster.getId() <= 8880010) {
-                    killMonster(monster, chr, true);
-                    killAllMonsters();
-                    return true;
-                } else if (monster.getId() == 8840000) {
-                    Point npos = monster.getPosition();
-                    killMonster(monster, chr, false, false);
-                    Monster fakevl = LifeFactory.getMonster(8847777);
-                    spawnArielMonster(fakevl, npos);
-                    damageMonster(chr, fakevl, fakevl.getMaxHp());
-                    return true;
-                } else if (monster.getId() == 8240098 || monster.getId() == 8240099) {
-                    killMonster(monster, chr, true);
-                    killAllMonsters();
-                    StatEffect sfe = new StatEffect();
-                    Rectangle bounds = new Rectangle(-415, 218, 890, 600);
-                    Mist mist = new Mist(bounds, chr, sfe);
-                    spawnMist(mist, 1000000, false, true, false, true);
-                    return true;
-                } else if (monster.getId() >= 8850000 && monster.getId() <= 8850003) {
-                    Monster cygnus = LifeFactory.getMonster(8850011);
-                    killAllMonsters();
-                    spawnMonster(cygnus);
-                    damageMonster(chr, cygnus, (long) (cygnus.getMaxHp() * (0.15 * cygnusSpawnCounter)));
-                    spawningcygnus = false;
-                    return true;
-                } else if (monster.getId() == 8850004) {
-                    Monster cygnus = LifeFactory.getMonster(8850012);
-                    killAllMonsters();
-                    spawnMonster(cygnus);
-                    damageMonster(chr, cygnus, (long) (cygnus.getMaxHp() * (0.15 * cygnusSpawnCounter)));
-                    spawningcygnus = false;
+                if (afterBossKilled(chr, monster)) {
                     return true;
                 }
 

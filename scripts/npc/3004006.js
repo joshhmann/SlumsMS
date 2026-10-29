@@ -63,6 +63,7 @@ function action(mode, type, selection) {
                     case 280030000: //ZAKUM
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.ZAKUM, chr.getId());
 
@@ -76,6 +77,7 @@ function action(mode, type, selection) {
                     case 240060200: //HORNTAIL
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.HORNTAIL, chr.getId());
 
@@ -90,6 +92,7 @@ function action(mode, type, selection) {
                     case 211070100:  //VON LEON
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.VONLEON, chr.getId());
 
@@ -127,6 +130,7 @@ function action(mode, type, selection) {
                     case 271040100: //CYGNUS
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.CYGNUS, chr.getId());
 
@@ -164,6 +168,7 @@ function action(mode, type, selection) {
                     case 450007440: //WILL HARD
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.WILLSPIDER, chr.getId());
 
@@ -199,6 +204,7 @@ function action(mode, type, selection) {
                     case 450010100: //VERUS HARD
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.VERUS, chr.getId());
                                 
@@ -233,6 +239,7 @@ function action(mode, type, selection) {
                     case 450012210: //DARKNELL HARD
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.DARKNELL, chr.getId());
 
@@ -266,6 +273,7 @@ function action(mode, type, selection) {
                     case 450004750: //LUCID HARD
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.LUCID, chr.getId());
 
@@ -302,6 +310,7 @@ function action(mode, type, selection) {
                         case 401060100: //MAGNUS
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.MAGNUS, chr.getId());
 
@@ -343,6 +352,7 @@ function action(mode, type, selection) {
                     case 450007441: //WILL NORMAL
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.NWILLSPIDER, chr.getId());
 
@@ -375,6 +385,7 @@ function action(mode, type, selection) {
                     case 450010101: //VERUS NORMAL
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.NVERUS, chr.getId());
 
@@ -407,6 +418,7 @@ function action(mode, type, selection) {
                     case 450012211: //DARKNELL NORMAL
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.NDARKNELL, chr.getId());
 
@@ -439,6 +451,7 @@ function action(mode, type, selection) {
                     case 450004751: //LUCID NORMAL
                         if (!rewarded) {
                             players.forEach((chr, index) => {
+                                if (chr.isBot()) return; // 1.6.1: a bot was handed its boss item at the clear (RebirthBossRuns.onClear); it has no client to give the rest to
                                 const playerInteraction = chr.getAbstractPlayerInteraction();
                                 chr.getClient().getWorldServer().removeUnclaimed(ExpeditionBossLog.BossLogEntry.NLUCID, chr.getId());
 

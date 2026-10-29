@@ -225,7 +225,9 @@ function monsterKilled(mob, eim) {
             }
 
             // Grant item reward
-            player.getClient().getAbstractPlayerInteraction().gainItem(4001126, 40);
+            if (!player.isBot()) { // 1.6.1: a bot has no client to hand leaves to (it threw and stopped the loop)
+                player.getClient().getAbstractPlayerInteraction().gainItem(4001126, 40);
+            }
         }
 
         eim.dispatchRaiseQuestMobCount(8810018, 240060200);

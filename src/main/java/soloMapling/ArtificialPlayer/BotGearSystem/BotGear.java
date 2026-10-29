@@ -76,6 +76,67 @@ public final class BotGear {
         review(bot);
     }
 
+    /*
+     * 1.6.1 ticket 30 (promise audit, REPORT item 2): a reborn bot stands at level 1 in its level-200 gear. It takes
+     * off every piece a level 1 of its new job cannot wear (level, job, fame, or a stat its fresh base cannot meet)
+     * into its equip bag, puts on the best it owns that does fit, and keeps the rest: afterProgress puts each piece
+     * back on once its level, job and stats allow, as it levels. Left with no weapon it could fight with, it takes up
+     * a starter weapon as a new beginner bot does. A piece the item data does not know stays on (nothing to judge it
+     * by), and so does whatever a full bag has no room for. Returns how many pieces came off; never throws.
+     */
+    public static int afterRebirth(Character bot) {
+        if (!ENABLED || bot == null || !BotHelpers.isBot(bot) || !EquipMetadataCache.isInitialized()) {
+            return 0;
+        }
+        try {
+            int off = afterRebirth(bot, liveFacts(bot), worn -> liveValuer(bot, worn));
+            if (bot.getInventory(InventoryType.EQUIPPED).getItem(BotGearPlanner.WEAPON) == null && bot.getMap() != null) {
+                soloMapling.ArtificialPlayer.BotCustomization.EquipBot(bot, STARTER_WEAPON); // a beginner's sword
+            }
+            return off;
+        } catch (RuntimeException e) {
+            log.warn("Rebirth gear of bot {} ({}) failed", bot.getId(), bot.getName(), e);
+            return 0;
+        }
+    }
+
+    /* The plain sword a new beginner bot is dressed in (BeginnerEquip): level 0, any job. */
+    public static final int STARTER_WEAPON = 1302000;
+
+    /* afterRebirth with its item data and yardstick handed in (tests). */
+    static int afterRebirth(Character bot, IntFunction<Known> facts, Function<Map<Short, Piece>, Valuer> valuers) {
+        int off = 0;
+        synchronized (bot) {
+            Inventory carried = bot.getInventory(InventoryType.EQUIP);
+            Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+            Wearer wearer = new Wearer(bot.getJob().getJobNiche(), bot.getLevel(), bot.getFame(), bot.getStr(),
+                    bot.getDex(), bot.getInt(), bot.getLuk(), carried.getNumFreeSlot());
+            for (short slot : BotGearPlanner.SLOTS) {
+                if (!(body.getItem(slot) instanceof Equip equip)) {
+                    continue;
+                }
+                Known known = facts.apply(equip.getItemId());
+                if (known == null || BotGearPlanner.fitsAlone(wearer, known)) {
+                    continue;
+                }
+                short free = carried.getNextFreeSlot();
+                if (free < 0) {
+                    break;   // a full bag: what is left stays on
+                }
+                body.removeSlot(slot);
+                bot.unequippedItem(equip);
+                equip.setPosition(free);
+                carried.addItemFromDB(equip);
+                off++;
+            }
+            if (off > 0 && bot.getMap() != null) {
+                bot.equipChanged();
+            }
+        }
+        review(bot, facts, valuers);
+        return off;
+    }
+
     /* Dresses the bot in the best gear it owns. Returns whether anything moved; never throws. */
     public static boolean review(Character bot) {
         if (!ENABLED || bot == null || bot.getMap() == null || !BotHelpers.isBot(bot)

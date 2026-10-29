@@ -238,6 +238,18 @@ public class ExpeditionBossLog {
         return true;
     }
 
+    /**
+     * 1.6.1 ticket 30: the same daily limit {@link #attemptBoss} holds a player to, for a regular's off-screen boss
+     * run (no expedition object, no channel range: these bosses have none).
+     */
+    public static boolean hasEntryLeft(int cid, BossLogEntry boss) {
+        if (!YamlConfig.config.server.USE_ENABLE_DAILY_EXPEDITIONS || boss == null) {
+            return true;
+        }
+        int used = countPlayerEntries(cid, boss);
+        return used >= 0 && used < boss.entries;
+    }
+
     public static Map<BossLogEntry, BossLogData> getWeeklyBossEntries(int cid, boolean showZeros) {
         return getBossEntries(cid, showZeros, true);
     }

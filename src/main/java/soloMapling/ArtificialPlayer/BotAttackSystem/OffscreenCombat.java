@@ -168,6 +168,48 @@ public final class OffscreenCombat {
         return BotAttackDriver.packetLevel(bot, profile);
     }
 
+    /*
+     * 1.6.1 ticket 30: what the bot takes off one boss a second with its single-target attack (its AoE when it has no
+     * single one), from the same averaged swing the grind uses: one swing's damage over the attack's cooldown. A
+     * regular's off-screen boss run (OffscreenBossRun) adds its group's up against the boss's real HP. 0 when it has
+     * no attack that fits.
+     */
+    public static double bossDamagePerSecond(Character bot, MonsterStats boss) {
+        if (bot == null || boss == null) {
+            return 0;
+        }
+        WeaponType weapon = BotAttack.resolveEquippedWeaponType(bot);
+        BotAttackConfig.JobAttacks attacks = BotAttackConfig.resolve(bot.getJob(), weapon,
+                BotAttackDriver.ownedSkills(bot));
+        BotAttackProfile profile = attacks.single() != null ? attacks.single() : attacks.aoe();
+        if (profile == null) {
+            return 0;
+        }
+        profile = withAmmo(bot, profile, weapon);
+        double perSwing = swingOn(bot, profile, weapon, boss, 1).perMob();
+        return perSwing <= 0 ? 0 : perSwing * 1000.0 / Math.max(1, profile.cooldownMs);
+    }
+
+    private record SwingOn(double perMob, int skillId, int skillLevel, BotAttackProfile.Route route) {
+    }
+
+    // One averaged swing of this attack at one of mobsPerSwing mobs (the driver's weapon fallback included).
+    private static SwingOn swingOn(Character bot, BotAttackProfile profile, WeaponType weapon, MonsterStats mob,
+                                   int mobsPerSwing) {
+        int skillId = profile.skillId;
+        int skillLevel = BotAttackDriver.packetLevel(bot, profile);
+        BotAttackProfile.Route route = profile.route;
+        if (!BotSkillActions.weaponFits(skillId, BotAttackDriver.equippedWeaponId(bot))) {
+            skillId = 0;   // what the driver draws instead
+            skillLevel = 0;
+            route = BotAttackProfile.Route.CLOSE;
+        }
+        int lines = BotAttackDriver.shadowDoubled(bot, profile.numDamage);
+        BotDamage.Swing swing = BotDamage.swing(bot, skillId, skillLevel, route, weapon, mobsPerSwing + 1,
+                lines != profile.numDamage);
+        return new SwingOn(swing.expectedPerMob(mob, lines), skillId, skillLevel, route);
+    }
+
     private static Pace pace(Character bot, BotAttackProfile profile, WeaponType weapon,
                              MonsterStats mob, long hp, int mobsPerSwing) {
         int skillId = profile.skillId;

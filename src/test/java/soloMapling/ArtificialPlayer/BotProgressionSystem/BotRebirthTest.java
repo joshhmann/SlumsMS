@@ -171,21 +171,22 @@ class BotRebirthTest {
     @Test
     void aMaxLevelBotGathersCraftsTravelsAndIsRebornLikeAPlayer() {
         Character bot = bot(BOT_ID, 412, 200);
-        Equip worn = org.mockito.Mockito.mock(Equip.class); // a real Equip needs the item data
-        org.mockito.Mockito.when(worn.getPosition()).thenReturn((short) -11);
-        org.mockito.Mockito.when(worn.getItemId()).thenReturn(1472068);
-        bot.getInventory(InventoryType.EQUIPPED).addItemFromDB(worn);
         Map<Integer, Integer> pastSkills = new HashMap<>();
         bot.getSkills().forEach((s, e) -> pastSkills.put(s.getId(), (int) e.skillevel));
         assertFalse(pastSkills.isEmpty());
         BotRebirth.certainFor(60_000);
         long now = System.currentTimeMillis();
-
-        assertEquals(-1, BotRebirth.tripMap(bot, now), "1st boss drop");
-        assertEquals(1, etc(bot, 4032133));
-        assertEquals(-1, BotRebirth.tripMap(bot, now), "2nd boss drop");
-        assertEquals(1, etc(bot, 4001094));
-        assertEquals(BotRebirth.NPC_MAP, BotRebirth.tripMap(bot, now), "crafted, off to Wyatt");
+        OffscreenBossRun.Live real = OffscreenBossRun.live;
+        OffscreenBossRun.live = new RebirthKeysEarnedTest.FakeLive(); // a group that kills Zakum and Horntail fast
+        try {
+            for (int i = 0; i < 40 && etc(bot, 4032133) == 0; i++) BotRebirth.tripMap(bot, now);
+            assertEquals(1, etc(bot, 4032133), "Zakum's item, from a clear");
+            int trip = -1;
+            for (int i = 0; i < 40 && trip < 0; i++) trip = BotRebirth.tripMap(bot, now);
+            assertEquals(BotRebirth.NPC_MAP, trip, "Horntail's item, crafted, off to Wyatt");
+        } finally {
+            OffscreenBossRun.live = real;
+        }
         assertEquals(0, etc(bot, 4032133) + etc(bot, 4001094), "the drops went into the key");
         assertEquals(1, etc(bot, 4033446));
         assertEquals(BotRebirth.NPC_MAP, BotRebirth.tripMap(bot, now));
@@ -209,7 +210,6 @@ class BotRebirthTest {
         Map<Integer, Integer> now2 = new HashMap<>();
         bot.getSkills().forEach((s, e) -> now2.put(s.getId(), (int) e.skillevel));
         pastSkills.forEach((id, lv) -> assertEquals(lv, now2.get(id), "past skill " + id + " kept"));
-        assertSame(worn, bot.getInventory(InventoryType.EQUIPPED).getItem((short) -11), "its gear stays on");
 
         // it levels again: the build keeps its past-life skills
         bot.setLevel(35);
@@ -218,6 +218,27 @@ class BotRebirthTest {
         bot.getSkills().forEach((s, e) -> later.put(s.getId(), (int) e.skillevel));
         pastSkills.forEach((id, lv) -> assertTrue(later.getOrDefault(id, 0) >= lv, "past skill " + id + " still"));
         assertTrue(bot.getJob().getId() != 0 || bot.getJob().getId() == 0 && bot.getLevel() < 10);
+    }
+
+    /**
+     * 1.6.1 promise audit ("they earn the key item from boss drops"): before, a bot that bothered was handed a boss
+     * item by a roll (certain under QA) with no boss run behind it. Now an item needs a run on the players' rules; with
+     * no boss log to read (no database here) no run is allowed, so no item comes, however often it decides.
+     */
+    @Test
+    void noBossItemFromARollAlone() {
+        Character bot = bot(BOT_ID, 412, 200);
+        BotRebirth.certainFor(60_000);
+        long now = System.currentTimeMillis();
+        for (int i = 0; i < 10; i++) {
+            try {
+                BotRebirth.tripMap(bot, now);
+            } catch (Throwable noData) {
+                // no item data here for the boss's HP: no run either way
+            }
+        }
+        assertEquals(0, etc(bot, 4032133) + etc(bot, 4001094), "no boss run, no boss item");
+        assertEquals(0, etc(bot, 4033446));
     }
 
     /** 1.6.1 promise audit: a regular's real rebirth fires the achievement event (QA's forced ones don't). */

@@ -520,6 +520,18 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         if (chr == null || chr.getMap() == null) {
             return;
         }
+        // 1.6.1 ticket 30: in a rebirth boss run, the run moves and fights for it; its own life waits
+        if (soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.holds(chr.getId())) {
+            if (!inBossRun) {
+                inBossRun = true;
+                leaveGrind(); // its spot, its grind loop and its trip are given up
+            }
+            return;
+        }
+        if (inBossRun) {
+            inBossRun = false;
+            enterPhase(Phase.DECIDE); // out of the boss room: decide again from where it stands
+        }
         getDebugger().debugLoggingFull(
                 String.format("%s TrainingBot phase: %s", chr.getName(), phase), String.format("%s", phase));
 
@@ -1251,6 +1263,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         eventCall = true;
     }
 
+    /** 1.6.1 ticket 30: true while a rebirth boss run holds this bot (RebirthBossRuns); its next free tick decides. */
+    private boolean inBossRun;
+
     // Drop the current outing and re-decide, which goes to the event map (WorldEventSteer). A bot with a player
     // (party, live recruit) stays; a trip, shop visit or rest break finishes first and the next DECIDE goes.
     /** True when the bot set off for Wyatt (the decision is made); a rebirth here falls through to a normal pick. */
@@ -1267,7 +1282,8 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         }
         int target = BotRebirth.tripMap(chr, t);
         if (target < 0) {
-            return false;
+            // a boss run took it (RebirthBossRuns): stay in DECIDE, the run moves it from here
+            return soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.holds(chr.getId());
         }
         if (chr.getMapId() == target) {
             BotRebirth.Result r = BotRebirth.rebirthHere(chr, t, true);

@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "botRebirth", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer");
+            "family", "tutorialIsland", "botRebirth", "botRebirthBoss", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -101,6 +101,7 @@ final class Probes160 {
                 case "familyOffer" -> FamilyProbes.offer(p);
                 case "tutorialIsland" -> tutorialIsland(p);
                 case "botRebirth" -> botRebirth(p);
+                case "botRebirthBoss" -> botRebirthBoss(p);
                 case "achievements" -> achievements(p);
                 case "achievementClear" -> achievementClear(p);
                 case "lazyPenguins" -> lazyPenguins(p);
@@ -1243,10 +1244,12 @@ final class Probes160 {
     // ── t-rb-1: a regular earns a rebirth (ticket 30, 1.6.1) ──────────────────────────────────────
 
     /**
-     * t-rb-1: (1) an online bot is raised to 200 on its build (4th job); (2) with the pace forced it gathers both boss
-     * drops, crafts the key and is granted the trip; (3) the rebirth at Wyatt's rules: rebirths +1, level 1 beginner,
-     * key and drops gone, the rebirth EXP rate, same worn gear, same mesos, no cash items, past skills kept, no second
-     * rebirth at level 1; (4) the bot is put back as it was.
+     * t-rb-1: (1) an online bot without rebirths is raised to 200 on its build (4th job); (2) with the pace forced its
+     * decisions run Zakum and Horntail off screen on the players' rules (clear limits, its real damage against their
+     * real HP; each outcome is real) until it holds both items, craft the key and grant the trip; (3) the rebirth at
+     * Wyatt's rules: rebirths +1, level 1 beginner, key and items gone, the rebirth EXP rate, only level-1 gear worn
+     * and every old piece kept, same mesos, no cash items, past skills kept, no second rebirth at level 1; (4) the bot
+     * (and its boss-log rows) put back as they were.
      */
     static List<String> botRebirth(SyntheticPlayer p) {
         if (!soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.enabled()) {
@@ -1280,8 +1283,81 @@ final class Probes160 {
                 || b.bot().getJob().getId() != b.job()) {
             bad.add("the bot was not put back");
         }
-        return verdict(bad, "a level 200 bot gathered both boss drops, crafted its key and was reborn at level 1 as a"
-                + " beginner with the rebirth EXP rate, keeping its gear, mesos and skills; then put back", ev);
+        return verdict(bad, "a level 200 bot earned Zakum's and Horntail's items in off-screen runs on the players'"
+                + " rules, crafted its key and was reborn at level 1 as a beginner with the rebirth EXP rate, wearing"
+                + " only level-1 gear with the rest kept, and its mesos and skills; then put back", ev);
+    }
+
+    // ── t-rb-2: a regular earns its key item from a real boss kill (ticket 30 promise audit, 1.6.1) ──────────────
+
+    /** t-rb-2: how long the Von Leon run may take before the check gives up (the catalog allows 20 minutes). */
+    static final long RB2_RUN_MS = 17 * 60_000L;
+
+    /**
+     * t-rb-2: (1) an online bot without rebirths is raised to 200 (4th job) and staged at rebirth 1 holding Pink Bean's
+     * item (bots cannot run Pink Bean's statue stage alone; staged and said so); (2) its next item must be Von Leon's,
+     * which bots run themselves, and a real Von Leon run is formed for it: a real expedition with up to five free
+     * regulars, the event started as the recruiter does, Von Leon summoned as his NPC does (staged at 1% of his HP so
+     * the check fits in minutes; the run's notes give the real fight's expected length), fought with the bot attack
+     * driver through the map's boss rules; (3) the run must clear (the event's own
+     * monsterKilled / clearPQ) and the bot must hold Von Leon's item afterwards, earned in that run (the clear reward
+     * or the floor), never before it; (4) its decisions craft the 2nd key, it is reborn (rebirth 2) at level 1 with
+     * the rebirth checks of t-rb-1; (5) the bot, its items and the run's boss-log rows are put back.
+     */
+    static List<String> botRebirthBoss(SyntheticPlayer p) throws InterruptedException {
+        if (!soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.enabled()) {
+            return List.of("SKIP bot rebirths are off (BOT_REBIRTH_ENABLED / USE_REBIRTH_SYSTEM)");
+        }
+        if (config.YamlConfig.config.server.BOT_REBIRTH_PER_DAY <= 0) {
+            return List.of("SKIP BOT_REBIRTH_PER_DAY is 0");
+        }
+        if (!soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.liveRuns()) {
+            return List.of("SKIP -Dslums.botRebirth.liveRuns=false (every boss off screen)");
+        }
+        soloMapling.ArtificialPlayer.BotRebirthQa.Before b;
+        try {
+            b = soloMapling.ArtificialPlayer.BotRebirthQa.pick(p.character());
+        } catch (IllegalStateException e) {
+            return List.of("FAIL " + e.getMessage());
+        }
+        int vlItem = soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBosses.Boss.VONLEON.clearItem;
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        ev.add("bot " + b.bot().getName() + " lv " + b.level() + " job " + b.job() + " rebirths " + b.reborns());
+        try {
+            if (!soloMapling.ArtificialPlayer.BotRebirthQa.raise(b)) {
+                bad.add("the bot did not reach a 4th job at 200: " + soloMapling.ArtificialPlayer.BotRebirthQa.describe(b));
+                return verdict(bad, "", ev);
+            }
+            ev.add(soloMapling.ArtificialPlayer.BotRebirthQa.stageVonLeon(b));
+            int before = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
+            if (before != 0) bad.add("held Von Leon's item before the run");
+            var run = soloMapling.ArtificialPlayer.BotRebirthQa.runVonLeon(b, RB2_RUN_MS);
+            ev.add("run: started " + run.started() + ", cleared " + run.cleared() + ", item by " + run.gotBy()
+                    + ", " + run.result());
+            ev.addAll(run.notes());
+            if (!run.started()) bad.add("no Von Leon run formed: " + run.result());
+            else if (!run.cleared()) bad.add("the Von Leon run did not clear: " + run.result());
+            int after = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
+            if (after != 1 || run.gotBy() == null) {
+                bad.add("Von Leon's item " + vlItem + ": " + after + " held, earned by " + run.gotBy());
+            }
+            if (bad.isEmpty()) {
+                List<String> fin = soloMapling.ArtificialPlayer.BotRebirthQa.finishRebirth(b);
+                ev.addAll(fin);
+                bad.addAll(soloMapling.ArtificialPlayer.BotRebirthQa.check(b, 1));
+                ev.add("after: " + soloMapling.ArtificialPlayer.BotRebirthQa.describe(b));
+            }
+        } finally {
+            ev.add(soloMapling.ArtificialPlayer.BotRebirthQa.restore(b));
+        }
+        if (b.bot().getLevel() != b.level() || b.bot().getReborns() != b.reborns()
+                || b.bot().getJob().getId() != b.job()) {
+            bad.add("the bot was not put back");
+        }
+        return verdict(bad, "a level 200 regular went into a real Von Leon run (boss staged at 1% HP), the kill cleared"
+                + " the event, it came out with Von Leon's item from that kill, crafted its 2nd key and was reborn; then"
+                + " put back", ev);
     }
 
     // ── t-ac-1: achievements and medals (ticket 93, 1.6.1) ────────────────────────────────────────

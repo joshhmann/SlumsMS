@@ -178,6 +178,7 @@ public final class QaMenuCatalog {
         add("ti-1", v(), steps("ask", "back")); // 1.6.1 ticket 29: the Maple Island question
         add("fy-1", v(), steps("check")); // 1.6.1 ticket 53: Family, a bot junior and the entitlements
         add("rb-1", v(), steps("check")); // 1.6.1 ticket 30: a regular earns a rebirth
+        add("rb-2", v(), steps("check")); // 1.6.1 ticket 30 promise audit: the key item from a real Von Leon kill
         add("ac-1", v(), steps("mano", "fish", "list")); // 1.6.1 ticket 93: achievements and medals
         section("Bot attack timing");
         add("bk-1", v("4th", "pirates", "pacing"), steps());

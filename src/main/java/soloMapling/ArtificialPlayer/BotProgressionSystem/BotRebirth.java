@@ -40,9 +40,12 @@ import java.util.concurrent.ThreadLocalRandom;
  * <ol>
  *   <li><b>Bothers?</b> Not every max-level bot wants to start over: its Bartle blend decides ({@link #botherChance},
  *       Achievers most, then Killers), re-rolled once a week, so the rest may decide later.</li>
- *   <li><b>Gather</b> the two boss drops: an offscreen boss run is rolled at most every {@link #gatherEveryMs} with
- *       {@link #gatherChance} (ticket 30's "roll a clear chance"); a win puts that one drop in its bag through
- *       {@link BotHoldings#grantItem} (the ledger, saved with its holdings). Never more than one of each.</li>
+ *   <li><b>Gather</b> the two items where a player gets them ({@link RebirthBosses}, promise audit): a real boss run
+ *       on screen that bots form for Von Leon and Cygnus ({@link RebirthBossRuns}), a real player's expedition it
+ *       joins for any of the bosses, and otherwise, for Zakum, Horntail, Pink Bean and the emblem's hunt, an off-screen
+ *       run at most every {@link #gatherEveryMs} on the players' rules ({@link OffscreenBossRun}: the daily clear
+ *       limit, the group's real damage against the boss's real HP inside its time limit, the drop rows, the clear
+ *       reward). Never more than one of each.</li>
  *   <li><b>Craft</b> the key from them, as craft.js does: both drops taken, one key given.</li>
  *   <li><b>Trip</b>: walk (or ride) to Wyatt; only while the server-wide pace has a slot left today
  *       ({@code BOT_REBIRTH_PER_DAY}, UTC days).</li>
@@ -50,11 +53,13 @@ import java.util.concurrent.ThreadLocalRandom;
  *       rebirth itself ({@link #perform}).</li>
  * </ol>
  * Nothing here costs or grants real currency (no NX, no cash items, no Slums Stamps); the only items made are the
- * boss drops and the key the player path also makes, and the gear the bot wears is left as it is (as a player's is),
- * its normal gear rules ({@link BotGear}) still choosing what it can wear.
+ * boss items and the key the player path also makes (a bot takes only the key's item from a clear, not the elixirs
+ * and leaves Plunk hands players). After the rebirth it wears what a level 1 can and keeps the rest in its bag,
+ * putting it back on as it levels ({@link BotGear#afterRebirth}).
  *
  * <p>Switches: {@code BOT_REBIRTH_ENABLED} (needs {@code USE_REBIRTH_SYSTEM}), {@code BOT_REBIRTH_PER_DAY} (default 2).
- * Knobs: {@code -Dslums.botRebirth.gatherHours} (6), {@code -Dslums.botRebirth.gatherChance} (0.35). The day's pace
+ * Knobs: {@code -Dslums.botRebirth.gatherHours} (6, between off-screen runs), the run knobs in
+ * {@link RebirthBossRuns}. The day's pace
  * count is memory-only: a restart starts the day's count again.
  */
 public final class BotRebirth {
@@ -81,12 +86,13 @@ public final class BotRebirth {
     /** Per bot: when its next boss-run roll may happen, and when a failed trip may be tried again. */
     private static final Map<Integer, Long> nextRoll = new ConcurrentHashMap<>();
     private static final Map<Integer, Long> tripRetry = new ConcurrentHashMap<>();
+    private static final Map<Integer, String> lastOutcome = new ConcurrentHashMap<>();
     private static final Pace pace = new Pace();
     /** Bot id -> rebirths, read from characters_rebirth once per boot (null until then). */
     private static volatile Map<Integer, Integer> stored;
     /** Test seam: off in unit tests (no database). */
     private static volatile boolean dbWrites = true;
-    /** QA: when set, bothering and the boss-run roll always say yes. */
+    /** QA: when set, every max-level bot bothers and an off-screen run need not wait its turn (its outcome stays real). */
     private static volatile long certainUntil;
 
     private BotRebirth() {
@@ -105,10 +111,6 @@ public final class BotRebirth {
 
     static long gatherEveryMs() {
         return (long) (Math.max(0.01, doubleProp("slums.botRebirth.gatherHours", 6)) * 3_600_000L);
-    }
-
-    static double gatherChance() {
-        return Math.max(0, Math.min(1, doubleProp("slums.botRebirth.gatherChance", .35)));
     }
 
     private static double doubleProp(String key, double fallback) {
@@ -269,6 +271,7 @@ public final class BotRebirth {
      */
     public static int tripMap(Character bot, long nowMs) {
         if (!enabled() || bot == null || !bot.isBot()) return -1;
+        if (bot.getLevel() < REBIRTH_LEVEL) return -1; // the cheap answer for every bot below 200 (stage: NOT_READY)
         try {
             Stage stage = stageOf(bot, nowMs);
             switch (stage) {
@@ -291,22 +294,58 @@ public final class BotRebirth {
         tripRetry.put(botId, nowMs + TRIP_RETRY_MS);
     }
 
-    /** One offscreen boss run: at most one roll per {@link #gatherEveryMs}; a win adds the first missing drop. */
+    /**
+     * The next missing item, earned where a player earns it ({@link RebirthBosses}): the emblem first (the
+     * stronghold's door takes it before Cygnus), then the bosses in recipe order.
+     */
+    static int nextMissing(Character bot) {
+        int[] ing = ingredientsFor(bot.getReborns());
+        for (int id : ing) if (RebirthBosses.Boss.byItem(id) == null && count(bot, id) <= 0) return id;
+        for (int id : ing) if (count(bot, id) <= 0) return id;
+        return -1;
+    }
+
+    /**
+     * Goes after the next missing item. A boss bots run themselves (Von Leon, Cygnus): a real run on screen
+     * ({@link RebirthBossRuns#request}). Every boss: it also waits to join a real player's expedition for it
+     * ({@link RebirthBossRuns#waitFor}). Zakum, Horntail and Pink Bean, and the emblem's hunt, otherwise: an off-screen
+     * run at most every {@link #gatherEveryMs} on the players' rules ({@link OffscreenBossRun}): the daily clear limit,
+     * the group's real damage against the boss's real HP in its time limit, the drop rows, the clear reward.
+     * True when the item came (or a run took the bot).
+     */
     static boolean gather(Character bot, long nowMs) {
+        int missing = nextMissing(bot);
+        if (missing < 0) return false;
+        RebirthBosses.Boss boss = RebirthBosses.Boss.byItem(missing);
+        if (boss != null) {
+            RebirthBossRuns.waitFor(bot, boss, nowMs);
+            if (boss.botsRunIt && RebirthBossRuns.liveRuns()) {
+                return RebirthBossRuns.request(bot, boss, nowMs);
+            }
+        }
         boolean certain = nowMs < certainUntil;
         Long next = nextRoll.get(bot.getId());
         if (!certain && next != null && nowMs < next) return false;
         nextRoll.put(bot.getId(), nowMs + gatherEveryMs());
         if (next == null && !certain) return false; // the first look only starts the clock: no run on arrival at 200
-        if (!certain && ThreadLocalRandom.current().nextDouble() >= gatherChance()) return false;
-        for (int id : ingredientsFor(bot.getReborns())) {
-            if (count(bot, id) > 0) continue;
-            boolean got = BotHoldings.grantItem(bot, new Item(id, (short) 0, (short) 1));
-            if (got) log.info("[Rebirth] {} (lv {}) got boss drop {} toward rebirth {}", bot.getName(), bot.getLevel(),
-                    id, bot.getReborns() + 1);
-            return got;
-        }
-        return false;
+        OffscreenBossRun.Outcome o = boss != null
+                ? OffscreenBossRun.bossRun(bot, boss, ThreadLocalRandom.current()::nextDouble)
+                : OffscreenBossRun.emblemHunt(bot, ThreadLocalRandom.current()::nextDouble);
+        lastOutcome.put(bot.getId(), o.text());
+        log.info("[Rebirth] {} (lv {}) off screen toward rebirth {}: {}", bot.getName(), bot.getLevel(),
+                bot.getReborns() + 1, o.text());
+        if (!o.gotItem()) return false;
+        return BotHoldings.grantItem(bot, new Item(missing, (short) 0, (short) 1));
+    }
+
+    /** The item this bot goes after next (-1: none), for QA. */
+    public static int nextItem(Character bot) {
+        return nextMissing(bot);
+    }
+
+    /** The last off-screen run's account for this bot (QA and !botwhy-style checks), or null. */
+    public static String lastOutcome(int botId) {
+        return lastOutcome.get(botId);
     }
 
     /** craft.js: one of each boss drop for one key. */
@@ -384,7 +423,7 @@ public final class BotRebirth {
         bot.replaceBotSkills(merged);
         bot.refreshStatsAfterProgression();
         applyRates(bot);
-        BotGear.afterProgress(bot);
+        BotGear.afterRebirth(bot);
     }
 
     /** The rebirth EXP rate for a bot with rebirths (bots without keep theirs). */
@@ -448,7 +487,7 @@ public final class BotRebirth {
 
     // ---------------------------------------------------------------- QA and tests
 
-    /** QA: for this long, every max-level bot bothers and every boss run drops. */
+    /** QA: for this long, every max-level bot bothers and off-screen runs do not wait (their outcome stays real). */
     public static void certainFor(long ms) {
         certainUntil = ms <= 0 ? 0 : System.currentTimeMillis() + ms;
     }
@@ -481,6 +520,7 @@ public final class BotRebirth {
         pace.reset();
         nextRoll.clear();
         tripRetry.clear();
+        lastOutcome.clear();
         certainUntil = 0;
         stored = new ConcurrentHashMap<>();
         dbWrites = false;

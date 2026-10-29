@@ -99,6 +99,16 @@ public final class BotGearPlanner {
         return new Plan(best, before.damage, bestScore.damage);
     }
 
+    /*
+     * 1.6.1 ticket 30: whether this wearer may wear the piece on its own: its level, job and fame, and each stat need
+     * met by its base stats alone (a reborn level 1 checking the gear it still has on).
+     */
+    static boolean fitsAlone(Wearer w, Known k) {
+        return k.reqLevel() <= w.level() && jobMayWear(w.jobNiche(), k.reqJob())
+                && (k.reqFame() <= 0 || k.reqFame() <= w.fame()) && k.reqStr() <= w.str() && k.reqDex() <= w.dex()
+                && k.reqInt() <= w.int_() && k.reqLuk() <= w.luk();
+    }
+
     /* A two-handed weapon (by weapon class): no shield with it. */
     static boolean twoHanded(int itemId) {
         int cat = itemId / 10000 % 100;

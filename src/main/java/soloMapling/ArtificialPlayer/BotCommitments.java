@@ -66,6 +66,10 @@ public final class BotCommitments {
         if (soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionHold.committed(chr)) {
             return true;
         }
+        // 1.6.1 ticket 30: in a rebirth boss run (bot-formed, or a player's it joined) until the run lets it go.
+        if (soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.holds(chr.getId())) {
+            return true;
+        }
         // The bot said "invite me": the invite can land inside the armed window, so the bot keeps
         // draining the incoming invite promptly instead of on the slow wheel.
         return BotRecruitManager.isArmed(chr.getId());

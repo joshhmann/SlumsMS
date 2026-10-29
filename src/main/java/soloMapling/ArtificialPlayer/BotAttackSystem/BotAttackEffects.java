@@ -212,12 +212,25 @@ public final class BotAttackEffects {
     }
 
     /* Apply HP damage; on death, credit EXP + the death broadcast (no vanilla drops) and spawn our own loot. */
-    private static boolean applyDamageAndLoot(Character bot, Monster target, int damage, short hitDelay) {
+    static boolean applyDamageAndLoot(Character bot, Monster target, int damage, short hitDelay) {
         MapleMap map = bot.getMap();
 
+        // 1.6.1 ticket 30: a boss whose map runs its phases (Zakum's arms, Von Leon's last form, Cygnus' guards and
+        // second form, Magnus) takes a bot's hit by the same rules as a player's (MapleMap.damageMonster). Before this
+        // a bot's killing blow on Von Leon or Cygnus ended the fight without the next phase: the event never cleared.
+        boolean mechanics = MapleMap.hasBossMechanics(target.getId());
+        if (mechanics) {
+            if (map.bossDamageBlocked(target)) {
+                return false;
+            }
+            map.beforeBossDamage(bot, target);
+        }
         soloMapling.server.MapleRootSolo.runHook("bond ks", () ->   // 1.6.0 S2: a bot took another bot's mob
                 soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.beforeBotHit(bot, target));
         boolean killed = target.damage(bot, damage, false); // register damage; false = allow death
+        if (killed && mechanics && map.afterBossKilled(bot, target)) {
+            return true;   // the map killed it and brought the next phase on
+        }
         if (killed) {
             // withDrops=false: keep the EXP distribution + death broadcast, skip the
             // vanilla drop step (which yields nothing for a bot-only kill). We spawn the
