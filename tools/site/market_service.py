@@ -3,7 +3,8 @@
 
     python3 tools/site/market_service.py [--db PATH] [--inbox DIR] [--outbox DIR] [--items FILE] [--port 8095]
 
-Owner, 2026-10-26: nothing on the site moves items or mesos. Per game account: 20 watched items, 10 alerts (each fires
+Owner, 2026-10-26: the board, watchlist and alerts never move items or mesos (the Slums Exchange, exchange_desk.py,
+is the one part of the site that does, and only by asking the game). Per game account: 20 watched items, 10 alerts (each fires
 once, then the player re-arms it by hand) and 5 open board posts (WTB or WTS, posted as one of the account's
 characters with the IGN shown, 3-day expiry, a take-down button; GMs can take down anything).
 

@@ -556,7 +556,7 @@ def build_board(mk):
                  '<noscript><p class="small">The board, watchlist and alerts need JavaScript turned on.</p></noscript>')
     body = ('<h1>Buy/Sell board</h1><p class="lede">Post what you want to buy or sell, as one of your characters. Posts '
             'also show on the board NPC at the FM entrance, and bots that have the item (or the mesos) may answer with '
-            'an offer by whisper or note. Then trade in the FM as usual: nothing on this site moves items or mesos.</p>'
+            'an offer by whisper or note. Then trade in the FM as usual: the board never moves items or mesos.</p>'
             f'{signedout}'
             '<form class="panel mkpost" id="post" hidden><h2 class="bar">New post <small id="mk-posts-n"></small></h2><div class="in">'
             '<fieldset class="seg"><legend>I want to</legend><label><input type="radio" name="kind" value="WTB" checked> buy (WTB)</label>'

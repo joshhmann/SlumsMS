@@ -62,7 +62,7 @@ nginx server block, `nginx -t && systemctl reload nginx`, and publish the privat
 keeps its own store in `/var/lib/slums-market/market.db`. It talks to the game server only through files: it writes
 `/var/lib/slums-market/inbox/{posts,alerts}.json` and reads `/var/lib/slums-market/outbox/` (board, fired alerts,
 rejected and removed posts), which the game server writes. Both folders sit outside the live server folder because
-`Server/` on 164 is root-only (mode 700), and so the site never writes inside it. Nothing on the site moves items or mesos. Limits per account: 20 watched items, 10 alerts, 5 open
+`Server/` on 164 is root-only (mode 700), and so the site never writes inside it. The board, watchlist and alerts never move items or mesos. Limits per account: 20 watched items, 10 alerts, 5 open
 posts (3 days each), 30 changes a minute. Writes need a JSON body and the header `X-Slums: 1`, and a browser Origin
 must match the Host, so another website can't post for a signed-in player.
 
@@ -81,7 +81,8 @@ docs/design/track-d-plan.md). The nginx snippet already routes `/api/market/`.
 - Password guessing: 10 tries a minute per address here, and the game server locks a name for 15 minutes after 5
   wrong tries (names that don't exist lock the same way, so a lock reveals nothing).
 - A stolen session cookie works until it expires, the player signs out, or the account goes in `revoked.txt`.
-  Nothing on the site can move items or mesos; the game checks every board post, and the player or a GM can take a
-  post down.
+  The board can't move items or mesos; the game checks every board post, and the player or a GM can take a post
+  down. The Slums Exchange (1.6.1) can: a stolen cookie can place and cancel exchange orders for that account's
+  characters and NX, with the game doing the moving (items only from a character that is logged in).
 - The service listens on 127.0.0.1 only, logs only the method and path (no addresses or cookies), and answers
   nothing but the endpoints above.
