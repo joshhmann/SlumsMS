@@ -71,8 +71,7 @@ function action(mode, type, selection) {
             } 
             if (selection == 2) {
                 if (cm.haveItem(4000659) && cm.haveItem(4032922)) {
-                    cm.gainItem(4000659, -1);
-                    cm.gainItem(4032922, -1);
+                    cm.gainItem(4000659, -1);   // 1.6.1 (owner 2026-10-29): the emblem 4032922 is a pass, not used up
                     cm.gainItem(4033450, 1);
                     cm.sendOk("Fair trade adventurer..");
                     return

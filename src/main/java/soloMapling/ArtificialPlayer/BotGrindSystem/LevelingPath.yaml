@@ -43,7 +43,8 @@
 #
 # Owner 2026-10-29: deeper Grandis (everything outside lower-grandis-maps.txt) opens at the 1st rebirth and Arcane River
 # at the 2nd, at any level (both were 3); their entries say `rebirths: 1` / `rebirths: 2`. Lower Grandis keeps level 120
-# or 3 rebirths (the `rebirths: 3` entries at 110-120 are lower Grandis for 3-rebirth bots under 120).
+# or the 1st rebirth (owner 2026-10-29, was 3; the `rebirths: 1` entries at 110-120 are lower Grandis for reborn bots
+# under 120).
 version: 1
 job_groups:
   # bot job id ranges -> group; a group with no entry in a band falls back to "general".
@@ -600,10 +601,10 @@ bands:
         # - {map: 321130000, w: 2, mode: solo, mob_levels: [106, 106], name: "Twilight Forest: Twilight Forest <1>"}
         # UNREACHABLE (Mirror World / Kritias field: CANNOTVIPROCK and no portal or script leads in):
         # - {map: 321145000, w: 2, mode: solo, mob_levels: [108, 108], name: "Wyvern Gorge: Wyvern Gorge <6>"}
-        - {map: 402000610, w: 3, mode: solo, rebirths: 3, mob_levels: [110, 110], name: "Refuge Outskirts: Refuge South 1"}
-        - {map: 402000518, w: 3, mode: solo, rebirths: 3, mob_levels: [117, 117], name: "Sanctuary: Eastern Crystal Forest 2"}
-        - {map: 410000321, w: 3, mode: solo, rebirths: 3, mob_levels: [113, 113], name: "Ristonia: Art Street 1"}
-        - {map: 410000210, w: 2, mode: solo, rebirths: 3, mob_levels: [112, 112], name: "Cheong-woon Valley: Chaotic Crock Territory 1"}
+        - {map: 402000610, w: 3, mode: solo, rebirths: 1, mob_levels: [110, 110], name: "Refuge Outskirts: Refuge South 1"}
+        - {map: 402000518, w: 3, mode: solo, rebirths: 1, mob_levels: [117, 117], name: "Sanctuary: Eastern Crystal Forest 2"}
+        - {map: 410000321, w: 3, mode: solo, rebirths: 1, mob_levels: [113, 113], name: "Ristonia: Art Street 1"}
+        - {map: 410000210, w: 2, mode: solo, rebirths: 1, mob_levels: [112, 112], name: "Cheong-woon Valley: Chaotic Crock Territory 1"}
       warrior:
         - {map: 800020130, w: 5, mode: both, mob_levels: [100, 100], name: "Zipangu: Encounter with the Buddha"}
         - {map: 240040520, w: 4, mode: solo, mob_levels: [105, 105], name: "Leafre: Destroyed Dragon Nest"}
@@ -681,7 +682,7 @@ bands:
         # - {map: 211060700, w: 4, mode: solo, rebirths: 1, mob_levels: [122, 122], name: "Lion King's Castle: Under the Castle Walls 4"}
         # UNREACHABLE (LKC past Walls 1: the tower portals want key items 4032832-4 or quests 3165-3167):
         # - {map: 211060900, w: 3, mode: solo, rebirths: 1, mob_levels: [122, 122], name: "Lion King's Castle: Under the Castle Walls 5"}
-        # Lower Grandis (1.6.1 b041): open at level 120 or 3 rebirths (AreaGates via BotMapGates), the main 120-140 spot.
+        # Lower Grandis (1.6.1 b041): open at level 120 or 1 rebirth (AreaGates via BotMapGates), the main 120-140 spot.
         - {map: 400010300, w: 3, mode: solo, level: 120, mob_levels: [124, 124], name: "East Pantheon: East Pantheon Forest"}
         - {map: 400030100, w: 3, mode: solo, level: 120, mob_levels: [120, 120], name: "South Pantheon: South Pantheon Plains"}
         - {map: 410000022, w: 3, mode: solo, level: 120, mob_levels: [118, 118], name: "Fox Ridge: Tear Rock Hill 3"}

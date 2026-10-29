@@ -120,7 +120,7 @@ migration skips any (mob, item) pair that is already in drop_data.
 
 - `server.maps.AreaGates` holds the rule.
 - **Future / Twilight Perion** (271000000-273999999): level 120, or 2 rebirths as before.
-- **Lower Grandis**: level 120, or 3 rebirths. This is the lv 109-142 band: Pantheon, the low streets of Savage
+- **Lower Grandis**: level 120, or the 1st rebirth at any level (owner 2026-10-29; was 3 rebirths). This is the lv 109-142 band: Pantheon, the low streets of Savage
   Terminal, Sanctuary, Caravan Refuge, Fox Ridge, Cheong-woon Valley, Ristonia and Toolen City, 181 map ids in
   `src/main/resources/soloMapling/lower-grandis-maps.txt`. `tools/economy/gen_area_gates.py` generates the list from
   Map.wz:
@@ -153,7 +153,8 @@ migration skips any (mob, item) pair that is already in drop_data.
 - **Bots** (round 4) follow the same rule. `BotMapGates.mayEnter(map, rebirths, level)` asks AreaGates. It is used for
   bot map choice, routing (with the transit level tier), the bots' Hyper Rock, world events and TrainingBot.
   Callers with no level keep the strict rebirth rule. The Henesys teleporter rows in `BotTransit.yaml` for the
-  Future and lower Grandis towns need level 120 instead of 3 rebirths; the Heliseum row needs 1 rebirth and the Arcane
+  Future and lower Grandis towns need level 120 (a reborn bot under 120 goes by the Heliseum row and walks to
+  Pantheon); the Heliseum row needs 1 rebirth and the Arcane
   River rows 2 (owner 2026-10-29).
 
 ## Items (only what classic mobs drop, plus the three owner-approved extras)

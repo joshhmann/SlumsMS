@@ -207,7 +207,8 @@ edges:
   - {name: Gate of Time, from: 270000000, to: 272000000, via: portal, portal: portal1, script: "270000000.10", fare: 0, to_portal: 0, min_level: 120, sec: 20}
 
   # ── Henesys: MapleRoot's teleporter (9010002), free. Ticket 81: the Future and lower Grandis towns open at level 120
-  # (server.maps.AreaGates; a row is AND-only, so a low-level 3-rebirth bot walks instead); owner 2026-10-29: the upper
+  # (server.maps.AreaGates; a row is AND-only, so a reborn bot under 120 - lower Grandis opens at the 1st rebirth too,
+  # owner 2026-10-29 - goes by the Heliseum row and walks through the Dimensional Door to Pantheon); owner 2026-10-29: the upper
   # Grandis town (Heliseum) needs 1 rebirth and Arcane River 2, at any level ──
   # The Knight Stronghold entry (271030000) is left out: no bot may enter it (HyperTP-restricted). Its boss menu
   # (Papulatus, Balrog, Spooky World, Krexel, Castellan, Zakum, Horntail) is left out too: those are free jumps
@@ -281,7 +282,7 @@ edges:
 
 # ── The Hyper Teleport Rock (HyperTPHandler), as bots may use it ──
 # A player can teleport from the world map to any map except the restricted ones (Knight Stronghold), those its
-# rebirth gates close (Von Leon's wing 1, the Future 2 or level 120, lower Grandis 3 or level 120, deeper Grandis 1,
+# rebirth gates close (Von Leon's wing 1, the Future 2 or level 120, lower Grandis 1 or level 120, deeper Grandis 1,
 # Arcane River 2) and fields with the CANNOTVIPROCK limit; a player
 # without the rock (5590001) may do it once every 5 minutes. Bots get a narrow version so they keep riding the
 # boats everywhere else:

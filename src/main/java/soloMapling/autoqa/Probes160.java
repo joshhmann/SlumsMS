@@ -1704,7 +1704,9 @@ final class Probes160 {
         }
         int stone = soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.keyItemFor(reborns);
         int[] ing = soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.ingredientsFor(reborns);
-        int[] watched = {stone, ing[0], ing[1]};
+        // owner 2026-10-29: the Black stone (4033450) is made from a Cygnus Circlet (4000659) while holding the Cygnus
+        // Knight Emblem (4032922), which is not used up; t-rb-3 makes one too, so those items are watched and put back
+        int[] watched = java.util.stream.IntStream.of(stone, ing[0], ing[1], 4033450, 4000659, 4032922).distinct().toArray();
         Map<Integer, Integer> held = new java.util.LinkedHashMap<>();
         for (int id : watched) held.put(id, me.getItemQuantity(id, false));
         int medal = 1142111;
@@ -1738,14 +1740,34 @@ final class Probes160 {
             for (int id : ing) me.getAbstractPlayerInteraction().gainItem(id, (short) 1, false, false);
             List<String> made = talk(p, WYATT, WYATT_SCRIPT, make);
             ev.add("both items: " + tail(made, 1));
-            if (count(me, stone) != 1 || count(me, ing[0]) != 0 || count(me, ing[1]) != 0) {
+            int[] used = soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.consumedFor(reborns);
+            boolean usedUp = java.util.Arrays.stream(used).allMatch(id -> count(me, id) == 0);
+            boolean passKept = java.util.Arrays.stream(ing).filter(id -> !java.util.Arrays.stream(used).anyMatch(u -> u == id))
+                    .allMatch(id -> count(me, id) == 1);
+            if (count(me, stone) != 1 || !usedUp || !passKept) {
                 bad.add("crafting left stone " + count(me, stone) + ", items " + count(me, ing[0]) + "/"
-                        + count(me, ing[1]) + " (want 1, 0/0)");
+                        + count(me, ing[1]) + " (want 1, the used-up items gone, a pass kept)");
             }
 
             List<String> again = talk(p, WYATT, WYATT_SCRIPT, make);
             ev.add("again: " + tail(again, 1));
             if (count(me, stone) != 1) bad.add("a second stone was made");
+
+            // the Black stone keeps the emblem as a pass: made with both held, the circlet is gone, the emblem stays
+            if (reborns != 2) {
+                me.getAbstractPlayerInteraction().gainItem(4000659, (short) 1, false, false);
+                me.getAbstractPlayerInteraction().gainItem(4032922, (short) 1, false, false);
+                soloMapling.rebirth.EssenceStones.Result black =
+                        soloMapling.rebirth.EssenceStones.make(2, me.getAbstractPlayerInteraction());
+                ev.add("Black: " + black.made() + ", stone " + count(me, 4033450) + ", circlet " + count(me, 4000659)
+                        + ", emblem " + count(me, 4032922));
+                if (!black.made() || count(me, 4033450) != 1 || count(me, 4000659) != 0 || count(me, 4032922) != 1) {
+                    bad.add("Black stone: want stone 1, circlet 0, emblem 1; got " + count(me, 4033450) + "/"
+                            + count(me, 4000659) + "/" + count(me, 4032922));
+                }
+                takeAll(me, 4033450);
+                takeAll(me, 4032922);
+            }
 
             int[][] rebirth = {{1, 0, 0}, {1, 0, 0}, {1, 0, 0}, {1, 1, 0}}; // greeting, reborn, Explorer, yes
             List<String> reborn = talk(p, WYATT, WYATT_SCRIPT, rebirth);
@@ -1816,8 +1838,8 @@ final class Probes160 {
         for (int id : watched) {
             if (me.getItemQuantity(id, false) != held.get(id)) bad.add("item " + id + " not put back");
         }
-        return verdict(bad, "Wyatt said what was missing, made the stone from its two items once, and the rebirth took"
-                + " it; the QA character was put back", ev);
+        return verdict(bad, "Wyatt said what was missing, made the stone from its two items once (the Black stone keeps"
+                + " the Cygnus Knight Emblem), and the rebirth took it; the QA character was put back", ev);
     }
 
     private static int count(Character chr, int itemId) {
@@ -2071,6 +2093,19 @@ final class Probes160 {
             if (soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 0, 119)
                     || !soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 0, 120)) {
                 bad.add("map " + map + ": bots disagree with players at 119/120");
+            }
+        }
+        // owner 2026-10-29: lower Grandis also opens at the 1st rebirth below level 120 (players and bots)
+        for (int map : new int[]{400000000, 410000010}) {
+            String r0 = server.maps.AreaGates.denyReason(map, 50, 0);
+            String r1 = server.maps.AreaGates.denyReason(map, 50, server.maps.AreaGates.LOWER_GRANDIS_REBIRTHS);
+            ev.add("lower Grandis " + map + " lv50 r0=" + (r0 == null ? "in" : "refused") + " r1=" + (r1 == null ? "in" : "refused"));
+            if (r0 == null || r1 != null || server.maps.AreaGates.LOWER_GRANDIS_REBIRTHS != 1) {
+                bad.add("lower Grandis " + map + ": want a level-50 character refused at 0 rebirths and let in at 1");
+            }
+            if (soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 0, 50)
+                    || !soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 1, 50)) {
+                bad.add("lower Grandis " + map + ": bots disagree with players at 0/1 rebirths below 120");
             }
         }
         // owner 2026-10-29: deeper Grandis closed below the 1st rebirth and open at it, at any level; Arcane River the same

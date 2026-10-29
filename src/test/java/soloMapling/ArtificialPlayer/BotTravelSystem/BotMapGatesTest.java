@@ -17,7 +17,7 @@ class BotMapGatesTest {
         assertEquals(2, BotMapGates.requiredRebirths(273020300)); // Twilight Perion
         assertEquals(2, BotMapGates.requiredRebirths(450001010)); // Arcane River (owner 2026-10-29; was 3)
         assertEquals(1, BotMapGates.requiredRebirths(401000000)); // Heliseum, deeper Grandis (owner 2026-10-29; was 3)
-        assertEquals(3, BotMapGates.requiredRebirths(400000000)); // Pantheon, lower Grandis: level 120 or 3 rebirths
+        assertEquals(1, BotMapGates.requiredRebirths(400000000)); // Pantheon, lower Grandis: level 120 or 1 rebirth (was 3)
         assertEquals(BotMapGates.NEVER, BotMapGates.requiredRebirths(271030100)); // Knight Stronghold
     }
 
@@ -44,6 +44,7 @@ class BotMapGatesTest {
         assertTrue(BotMapGates.mayEnter(273060300, 0, 120)); // Warrior Grounds goes with the rest
         assertFalse(BotMapGates.mayEnter(410000010, 0, 119)); // Fox Ridge, lower Grandis
         assertTrue(BotMapGates.mayEnter(410000010, 0, 120));
+        assertTrue(BotMapGates.mayEnter(410000010, 1, 50), "owner 2026-10-29: one rebirth opens lower Grandis below 120");
         assertFalse(BotMapGates.mayEnter(401010000, 0, 200), "deeper Grandis needs a rebirth");
         assertTrue(BotMapGates.mayEnter(401010000, 1, 1), "one rebirth opens deeper Grandis at any level");
         assertFalse(BotMapGates.mayEnter(450001010, 1, 200), "Arcane River needs 2 rebirths");

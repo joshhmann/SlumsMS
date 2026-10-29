@@ -1,7 +1,7 @@
 ## Training after 120
 
 - **New areas open at level 120.** The Future and Twilight Perion, plus the lower half of Grandis, no longer need
-  rebirths. The lower half of Grandis is Pantheon, Savage Terminal's streets, Sanctuary, the Caravan Refuge, Fox Ridge,
+  rebirths; the lower half of Grandis also opens at your 1st rebirth, at any level. The lower half of Grandis is Pantheon, Savage Terminal's streets, Sanctuary, the Caravan Refuge, Fox Ridge,
   Cheong-woon Valley, Ristonia and Toolen City, with monsters from level 109 to 142. Reach them with the Henesys
   teleporter, the Gate of Time in the Temple of Time, or the Hyper Teleport Rock. The Gate of Time also takes you to
   Leafre of the Past, the Future's burning Leafre, where Corrupted monsters of level 124 wait. The deeper parts of Grandis

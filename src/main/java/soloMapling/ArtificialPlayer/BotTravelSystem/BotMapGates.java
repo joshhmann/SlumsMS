@@ -10,7 +10,7 @@ import server.maps.AreaGates;
 //   Von Leon's wing         rebirth 1 (1.6.1 b040: the castle's walls and towers and the Rose Garden are open
 //                           training, as for players; HyperTPHandler.isLionKingBossWing)
 //   Twilight Perion range   rebirth 2 (also covers Gate to the Future, Dark Ereve, Leafre of Past)
-//   Grandis / Arcane        owner 2026-10-29: deeper Grandis rebirth 1, Arcane River rebirth 2, lower Grandis 3
+//   Grandis / Arcane        owner 2026-10-29: deeper Grandis rebirth 1, Arcane River rebirth 2, lower Grandis 1
 //                           (or level 120); server.maps.AreaGates.requiredRebirths
 // Ticket 81 (round 4): with the bot's level known (mayEnter(map, rebirths, level)), the players' rule applies
 // (server.maps.AreaGates): the Future and lower Grandis also open at level 120.
