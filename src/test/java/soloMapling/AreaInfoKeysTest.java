@@ -18,7 +18,8 @@ class AreaInfoKeysTest {
     @Test
     void everyAreaInfoKeyIsUnique() {
         List<Short> keys = List.of(GuideMenu.SEEN_AREA, GuideMenu.UI_TIP_AREA, TutorialIslandMenu.ASKED_AREA,
-                StarterChairs.GIVEN_AREA, StarterChairs.NOTICED_AREA);
+                StarterChairs.GIVEN_AREA, StarterChairs.NOTICED_AREA, soloMapling.menus.SlumsChanMenu.WELCOMED_AREA,
+                TutorialIslandMenu.TRIP_AREA);
         Set<Short> unique = new HashSet<>(keys);
         assertEquals(keys.size(), unique.size(), "area-info keys collide: " + keys);
     }

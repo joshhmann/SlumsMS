@@ -1184,12 +1184,12 @@ final class Probes160 {
         List<String> ev = new ArrayList<>();
         int hub = constants.id.MapId.MAPLEROOT_HUB;
         if (!soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 0, 1, hub, false, true)
-                || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 1000, 1, hub, false, true)
-                || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 2000, 1, hub, false, true)
+                || !soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 1000, 1, hub, false, true)
+                || !soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 2000, 1, hub, false, true)
                 || soloMapling.menus.TutorialIslandMenu.shouldAsk(false, 0, 1, hub, false, true)
                 || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 0, 1, hub, true, true)
                 || soloMapling.menus.TutorialIslandMenu.shouldAsk(true, 0, 1, hub, false, false)) {
-            bad.add("the rule does not ask exactly a new real Beginner at the start map");
+            bad.add("the rule does not ask exactly a new real starter-job character");
         }
         for (int q = 1000; q <= 1049; q++) {
             if (server.quest.HiddenQuests.isHidden(q, 0)) {

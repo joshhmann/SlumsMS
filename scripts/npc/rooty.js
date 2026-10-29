@@ -970,8 +970,11 @@ var CATALOG = [
             ]}
     ]},
     {name: "Donor Shop", currency: "stamps", price: 40, cosmetic: false, categories: [
-            {name: "QoL items", icon: 5590000, items: [
-                5590000, 5590001
+            {name: "High-Five Stamp", icon: 5590000, items: [
+                5590000
+            ]},
+            {name: "Hyper Teleport Rock", icon: 5590001, items: [
+                5590001
             ]}
     ]}
 ];

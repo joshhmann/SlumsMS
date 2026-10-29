@@ -364,6 +364,25 @@ class RootyShopSelectionTest {
     }
 
     @Test
+    void theDonorShopSellsTheHighFiveStampAndTheHyperRockAsTwoNamedLines() throws Exception {
+        ScriptEngine engine = new Loader().load("npc/rooty.js");
+        assertEquals("High-Five Stamp|5590000;Hyper Teleport Rock|5590001", engine.eval(
+                "CATALOG[3].categories.map(c => c.name + '|' + c.items.join(',')).join(';')"));
+        assertEquals(40, ((Number) engine.eval("CATALOG[3].price")).intValue());
+        ShopCm cm = new ShopCm();
+        cm.stamps = 40;
+        Invocable npc = shop(cm);
+        pick(npc, DONOR_SHOP);
+        assertTrue(cm.simple.contains("High-Five Stamp") && cm.simple.contains("Hyper Teleport Rock"), cm.simple);
+        pick(npc, 1);
+        pick(npc, 5590001);
+        pick(npc, 0);
+        assertEquals(1, cm.count(5590001));
+        assertEquals(0, cm.count(HIGH_FIVE_STAMP), "the stamp's line does not hand out the rock");
+        assertEquals(0, cm.stamps);
+    }
+
+    @Test
     void aStampPurchaseWithoutRoomTakesNothing() throws Exception {
         ShopCm cm = new ShopCm();
         cm.stamps = 50;

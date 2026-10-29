@@ -52,6 +52,15 @@ public final class AdventurerBag {
         /** WZ "only": at most one in the inventory. */
         boolean oneOfAKind(int itemId);
 
+        /**
+         * Whether every stack of this item id carries ACCOUNT_SHARING by itself (WZ account-bound ids). Only for those
+         * is the flag put back on withdraw, so only those stacks are plain; for any other id it is real information
+         * the bag cannot give back.
+         */
+        default boolean accountBound(int itemId) {
+            return false;
+        }
+
         /** Gives a freshly made withdrawn stack the flags its item id always carries (account-bound ids). */
         void stampNew(Item fresh);
 
@@ -75,6 +84,11 @@ public final class AdventurerBag {
             @Override
             public boolean oneOfAKind(int itemId) {
                 return ItemInformationProvider.getInstance().isPickupRestricted(itemId);
+            }
+
+            @Override
+            public boolean accountBound(int itemId) {
+                return ItemInformationProvider.getInstance().isAccountRestricted(itemId);
             }
 
             @Override
@@ -127,12 +141,17 @@ public final class AdventurerBag {
 
     /**
      * A stack the bag can hold without losing anything: no flag, no expiry, no owner tag, not a pet.
-     * ACCOUNT_SHARING alone doesn't count: {@code Item.setFlag} stamps it on every stack of an account-bound id
-     * (some ores and crystals), it restricts nothing by itself, and {@link Rules#stampNew} puts it back on withdraw.
+     * ACCOUNT_SHARING alone counts only for an id that is account-bound anyway ({@code Item.setFlag} stamps it on every
+     * stack of such an id, some ores and crystals, and {@link Rules#stampNew} puts it back on withdraw). On any other
+     * id it is a real account-share mark the bag could not give back, so that stack stays in the inventory.
      */
-    public static boolean isPlain(Item item) {
-        return (item.getFlag() & ~ItemConstants.ACCOUNT_SHARING) == 0 && item.getExpiration() <= 0 && item.getPetId() < 0
-                && (item.getOwner() == null || item.getOwner().isEmpty());
+    public static boolean isPlain(Item item, Rules rules) {
+        int flag = item.getFlag();
+        if ((flag & ~ItemConstants.ACCOUNT_SHARING) != 0 || item.getExpiration() > 0 || item.getPetId() >= 0
+                || (item.getOwner() != null && !item.getOwner().isEmpty())) {
+            return false;
+        }
+        return (flag & ItemConstants.ACCOUNT_SHARING) == 0 || rules.accountBound(item.getItemId());
     }
 
     public int amount(int itemId) {
@@ -197,12 +216,16 @@ public final class AdventurerBag {
 
     /** How many of this item the player could deposit right now: plain stacks only. */
     public static int depositable(Character chr, int itemId) {
+        return depositable(chr, itemId, wzRules());
+    }
+
+    public static int depositable(Character chr, int itemId, Rules rules) {
         if (!isBagType(itemId)) {
             return 0;
         }
         int n = 0;
         for (Item it : chr.getInventory(ItemConstants.getInventoryType(itemId)).listById(itemId)) {
-            if (isPlain(it)) {
+            if (isPlain(it, rules)) {
                 n += it.getQuantity();
             }
         }
@@ -228,7 +251,7 @@ public final class AdventurerBag {
                 int anyCount = 0;
                 for (Item it : inv.listById(itemId)) {
                     anyCount += it.getQuantity();
-                    if (isPlain(it)) {
+                    if (isPlain(it, rules)) {
                         plain.add(it);
                         plainCount += it.getQuantity();
                     }
@@ -282,7 +305,7 @@ public final class AdventurerBag {
                 if (rules.oneOfAKind(itemId) && (qty > 1 || !inv.listById(itemId).isEmpty())) {
                     return Result.NOT_ALLOWED;
                 }
-                if (qty > room(inv, itemId, rules.slotMax(chr, itemId))) {
+                if (qty > room(inv, itemId, rules.slotMax(chr, itemId), rules)) {
                     return Result.NO_SPACE;
                 }
                 amounts.put(itemId, cur - qty);
@@ -311,7 +334,7 @@ public final class AdventurerBag {
             ensureLoaded();
             inv.lockInventory();
             try {
-                long fits = room(inv, itemId, rules.slotMax(chr, itemId));
+                long fits = room(inv, itemId, rules.slotMax(chr, itemId), rules);
                 int qty = (int) Math.min(Math.min(max, amounts.getOrDefault(itemId, 0)), fits);
                 if (qty <= 0) {
                     return 0;
@@ -331,20 +354,20 @@ public final class AdventurerBag {
      */
     public boolean storePickup(Item drop, Rules rules) {
         int itemId = drop.getItemId();
-        if (!isBagType(itemId) || !isPlain(drop) || drop.getQuantity() <= 0
+        if (!isBagType(itemId) || !isPlain(drop, rules) || drop.getQuantity() <= 0
                 || rules.refused(itemId) || rules.oneOfAKind(itemId)) {
             return false;
         }
         return add(itemId, drop.getQuantity());
     }
 
-    private static long room(Inventory inv, int itemId, short slotMax) {
+    private static long room(Inventory inv, int itemId, short slotMax, Rules rules) {
         if (slotMax <= 0) {
             return 0;
         }
         long room = 0;
         for (Item it : inv.listById(itemId)) {
-            if (isPlain(it) && it.getQuantity() < slotMax) {
+            if (isPlain(it, rules) && it.getQuantity() < slotMax) {
                 room += slotMax - it.getQuantity();
             }
         }
@@ -358,7 +381,7 @@ public final class AdventurerBag {
             if (left == 0) {
                 break;
             }
-            if (isPlain(it) && it.getQuantity() < slotMax) {
+            if (isPlain(it, rules) && it.getQuantity() < slotMax) {
                 int put = Math.min(left, slotMax - it.getQuantity());
                 it.setQuantity((short) (it.getQuantity() + put));
                 left -= put;

@@ -39,6 +39,16 @@ class AdventurerBagTest {
         @Override public void announce(Character chr, int mode, Item item) { }
     };
 
+    /** RULES, but ORE is an account-bound id (WZ), so it always carries ACCOUNT_SHARING by itself. */
+    static final AdventurerBag.Rules BOUND_ORE_RULES = new AdventurerBag.Rules() {
+        @Override public short slotMax(Character chr, int itemId) { return RULES.slotMax(chr, itemId); }
+        @Override public boolean refused(int itemId) { return RULES.refused(itemId); }
+        @Override public boolean oneOfAKind(int itemId) { return RULES.oneOfAKind(itemId); }
+        @Override public boolean accountBound(int itemId) { return itemId == ORE; }
+        @Override public void stampNew(Item fresh) { flag(fresh, ItemConstants.ACCOUNT_SHARING); }
+        @Override public void announce(Character chr, int mode, Item item) { }
+    };
+
     /** Item.setFlag asks the WZ provider about account-bound ids; tests set the raw field instead. */
     static void flag(Item it, int flag) {
         try {
@@ -105,8 +115,24 @@ class AdventurerBagTest {
         AdventurerBag bag = bag(Map.of());
         Item it = stack(chr, ORE, 10);
         flag(it, ItemConstants.ACCOUNT_SHARING);    // what Item.setFlag adds to every stack of an accountSharable id
-        assertEquals(AdventurerBag.Result.OK, bag.deposit(chr, ORE, 10, RULES));
+        assertEquals(AdventurerBag.Result.OK, bag.deposit(chr, ORE, 10, BOUND_ORE_RULES));
         assertEquals(10, bag.amount(ORE));
+        assertEquals(AdventurerBag.Result.OK, bag.withdraw(chr, ORE, 10, BOUND_ORE_RULES));
+        assertEquals(ItemConstants.ACCOUNT_SHARING, stacks(chr, ORE).get(0).getFlag(), "the flag comes back exactly");
+    }
+
+    @Test
+    void anAccountSharedStackOfAnOrdinaryItemStaysOutBecauseItCouldNotComeBackExactly() {
+        Character chr = newChar();
+        AdventurerBag bag = bag(Map.of());
+        Item it = stack(chr, ORE, 10);
+        flag(it, ItemConstants.ACCOUNT_SHARING);    // a share mark on an id that is not account-bound by itself
+        assertFalse(AdventurerBag.isPlain(it, RULES));
+        assertEquals(AdventurerBag.Result.NOT_ALLOWED, bag.deposit(chr, ORE, 10, RULES));
+        assertEquals(0, bag.amount(ORE));
+        assertEquals(0, AdventurerBag.depositable(chr, ORE, RULES));
+        assertFalse(bag.storePickup(it, RULES), "auto-pickup leaves it for the inventory");
+        assertSame(it, stacks(chr, ORE).get(0), "the stack is untouched");
     }
 
     @Test
@@ -144,7 +170,7 @@ class AdventurerBagTest {
         assertEquals(5, bound.getQuantity());
         assertEquals(5, expiring.getQuantity());
         assertEquals(exp, expiring.getExpiration(), "an existing expiry is not wiped by the top-up");
-        Item fresh = stacks(chr, ORE).stream().filter(AdventurerBag::isPlain).findFirst().orElseThrow();
+        Item fresh = stacks(chr, ORE).stream().filter(x -> AdventurerBag.isPlain(x, RULES)).findFirst().orElseThrow();
         assertEquals(30, fresh.getQuantity());
         assertEquals(0, bag.amount(ORE));
     }
