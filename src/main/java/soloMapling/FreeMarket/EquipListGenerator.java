@@ -7,6 +7,7 @@ import client.inventory.Item;
 import constants.inventory.EquipType;
 import constants.inventory.ItemConstants;
 import server.ItemInformationProvider;
+import soloMapling.Economy.SaleRules;
 import soloMapling.itemPool.DesirableEquipList;
 import soloMapling.itemPool.EquipMetadataCache;
 import soloMapling.itemPool.ItemNode;
@@ -55,15 +56,26 @@ public class EquipListGenerator {
             if (checkIfEquipIsScrollable(sellItem)) {
                 Equip scrolledItem = ScrollGivenItem(sellItem);
                 price = getEquipMarketValue(scrolledItem);
-                equipList.add(new FMEquip(scrolledItem, price));
+                if (stockable(scrolledItem)) {
+                    equipList.add(new FMEquip(scrolledItem, price));
+                }
 //                }
-            } else {
+            } else if (stockable(sellItem)) {
                 equipList.add(new FMEquip(sellItem, price));
             }
         }
         return equipList;
     }
 
+
+    /**
+     * 1.6.1 (owner 2026-10-29): generated bot-shop stock follows the same rules as what a bot may sell
+     * ({@link SaleRules}): no boss-only drops (Zakum Helmet, Horntail Necklace...), no godly gear, nothing untradeable.
+     * Before, the desirable-equip list let bot shops mint Zakum Helmets and sell them for ~600k.
+     */
+    static boolean stockable(Equip item) {
+        return item != null && SaleRules.botMaySell(item);
+    }
 
     public static List<FMEquip> generateEquipListIIPU(String tier, Job jobStyle) {
         return generateEquipListIIPU(tier, jobStyle, false);
@@ -82,7 +94,7 @@ public class EquipListGenerator {
             Integer itemId = getRandomEquipCached(eqType, maxLevel, jobStyle, tier);
             if (itemId != null) {
                 FMEquip equip = processItemIdToFMEquip(itemId, scrollThisItem);
-                if (equip != null) {
+                if (equip != null && stockable(equip.getEquip())) {
                     equipList.add(equip);
                 }
             }
@@ -117,6 +129,7 @@ public class EquipListGenerator {
         List<Integer> valid = new ArrayList<>();
         for (EquipMetadataCache.EquipEntry e : candidates) {
             if (e.untradeable || e.quest || e.cash) continue;
+            if (SaleRules.bossOnly().contains(e.id)) continue; // 1.6.1: boss-only drops come only from bosses
             if (e.reqJob != 0 && e.reqJob != reqJob) continue;
             if (reqJob == 0 && e.reqJob != 0) continue;
             if (e.gender != 2 && e.gender != gender) continue;
