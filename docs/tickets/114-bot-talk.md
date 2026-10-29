@@ -46,6 +46,13 @@ b068 (161-saydo2, 2026-10-29): t-cq-1 failed at 67% bot-talk say-do 51 min after
 ledger 232/239). t-cq-1 now judges the bot-talk rate on the claims since boot (the day's rate stays in the report as
 `talk24h`), and a thread speaker already in a party may no longer say "lf party" (7 such lines on 2026-10-28).
 
+t-bt-3 (161-saydo3, QA run 3 on TEST 2026-10-29 15:36 UTC): SilentLuv said yes to a come-along at 15:32:40, but its
+own brain had chosen GRIND at 15:32:25, during the talk's lines, so the trip at 15:32:41 was refused ("on its way
+somewhere") and it stayed on 910000000; pepee travelled from the same map to Henesys in 12 s, so it was neither the
+staging nor travel from the FM. A bot whose yes ends in a trip or a stay of its own (a come-along's asker and each
+yes, a helper, an LFG pair) now holds its brain and its current stay/grind until the act (`LifeRuntime.promise`, 90 s,
+cleared when the act is queued).
+
 ## The owner's shape (2026-10-27)
 
 "playerbot says hi to another playerbot -> casual convo -> asks to party -> other bot decides to say yes or no and in a

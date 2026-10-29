@@ -1122,6 +1122,12 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         else phaseDeadlineMs = until;
     }
 
+    @Override
+    public void holdLifeActivity(long until) {
+        if (phase == Phase.GRIND) grindUntilMs = Math.max(grindUntilMs, until);
+        else if (phase == Phase.LIFE_DWELL || phase == Phase.IN_TOWN) phaseDeadlineMs = Math.max(phaseDeadlineMs, until);
+    }
+
     public LifeDecision.Activity currentLifeVisit() { return lifeVisit; }
 
     /**

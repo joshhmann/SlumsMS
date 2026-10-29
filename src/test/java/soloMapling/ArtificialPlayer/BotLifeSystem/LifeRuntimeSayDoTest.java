@@ -118,6 +118,30 @@ class LifeRuntimeSayDoTest {
         }
     }
 
+    /**
+     * t-bt-3 on TEST 2026-10-29: SilentLuv said yes to a come-along, then its own brain chose GRIND during the lines,
+     * and the trip 15 s later was refused ("on its way somewhere"). A yes holds the brain until the act.
+     */
+    @Test
+    void aBotThatSaidYesMakesNoOtherChoiceUntilTheActAndIsStillFreeForIt() {
+        try (var roster = mockStatic(BotRoster.class); var fads = mockStatic(Fads.class)) {
+            fads.when(() -> Fads.spotFor(anyInt(), anyInt())).thenReturn(0);
+            var life = new LifeRuntime(bot);
+            life.phase("GRIND", NOW);
+            life.promise(NOW + 90_000);
+            verify(bot).holdLifeActivity(NOW + 90_000);
+            assertTrue(life.promised(NOW + 1_000));
+            org.mockito.Mockito.clearInvocations(bot);
+            life.tick(NOW + 1_000);
+            verify(bot, never()).lifeActivityState();
+            verify(bot, never()).prepareLifeActivity(any());
+            assertNull(life.commitBlocker(NOW + 15_000), "still free when the act comes");
+            assertTrue(life.goTogether(HENESYS, NOW + 480_000, NOW + 15_000));
+            assertFalse(life.promised(NOW + 16_000), "the act is queued: the brain is free to decide after it");
+            assertFalse(new LifeRuntime(bot).promised(NOW), "nothing promised by default");
+        }
+    }
+
     @Test
     void aGrinderTakesTheTripFromItsGrind() {
         try (var roster = mockStatic(BotRoster.class)) {

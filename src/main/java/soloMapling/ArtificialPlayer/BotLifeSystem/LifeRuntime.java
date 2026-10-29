@@ -276,6 +276,24 @@ public final class LifeRuntime {
         return handOff(Activity.HANG_OUT);
     }
 
+    /** Until when this bot keeps itself free for something it said yes to (0: nothing promised). */
+    private volatile long promisedUntil;
+
+    /**
+     * 1.6.1 say-do (b-t-bt-3, TEST 2026-10-29: SilentLuv said yes to a come-along, then its own brain chose GRIND 15 s
+     * before the act, so the trip was refused as "on its way somewhere"): this bot just said yes to a friend's ask
+     * that its act will carry out in a few seconds (a trip, help, a PQ). Until {@code until} its brain makes no new
+     * choice and its stay or grind does not run out ({@link LifeHost#holdLifeActivity}), so it is still free when the
+     * act comes. The act clears it; it lapses by itself.
+     */
+    public void promise(long until) {
+        promisedUntil = Math.max(promisedUntil, until);
+        bot.holdLifeActivity(until);
+    }
+
+    /** Whether a promise holds this bot's brain now. */
+    public boolean promised(long now) { return now < promisedUntil; }
+
     /**
      * 1.6.1 say-do: starts {@code activity} because another bot was promised it (a come-along, an LFG party's PQ trip):
      * a plain hang-out stay is ended first, since the queue starts nothing while an activity is active (TEST
@@ -285,7 +303,9 @@ public final class LifeRuntime {
         var state = bot.lifeActivityState();
         if (state.active() != 0 && !(phase.equals("LIFE_DWELL") && DROPPABLE.contains(state.activity())
                 && bot.interruptLifeDwell(state.active()))) return false;
-        return submit(activity);
+        boolean handed = submit(activity);
+        if (handed) promisedUntil = 0; // the promised act is queued: the brain may decide again after it
+        return handed;
     }
 
     /**
@@ -299,6 +319,7 @@ public final class LifeRuntime {
             dueAt = Math.max(dueAt, until);
         }
         bot.keepLifeActivity(Activity.GRIND, until);
+        promisedUntil = 0;
         return true;
     }
 
@@ -375,6 +396,7 @@ public final class LifeRuntime {
 
     public void tick(long now) {
         if (!enabled() || !bot.getRunning()) return;
+        if (now < promisedUntil) return; // 1.6.1 say-do: it said yes to a friend; that act decides what is next
         if (!dirty && now < nextCheck && now < dueAt) return;
         nextCheck = now + 30_000;
         if (!Set.of("GRIND", "IN_TOWN", "LIFE_DWELL").contains(phase)) { dirty = false; return; }
