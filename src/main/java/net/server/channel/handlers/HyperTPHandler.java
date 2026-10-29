@@ -106,11 +106,24 @@ public class HyperTPHandler extends AbstractPacketHandler {
         if (gate != null) {
             return gate;
         }
-        if (FieldLimit.CANNOTVIPROCK.check(toFieldLimit)
+        if ((FieldLimit.CANNOTVIPROCK.check(toFieldLimit) && !isFoxRidgeRockOpen(toMapId))
                 || (toForcedReturn != MapId.NONE && toForcedReturn != toMapId)) {
             return "Unable to approach due to the force of the ground.";
         }
         return null;
+    }
+
+    /**
+     * 1.6.1 (owner 2026-10-29, "oversold = implement"): the notes promise the Hyper Teleport Rock reaches lower Grandis,
+     * but Fox Ridge's 14 maps carry the no-rock field limit (0x40, the original story-area setting). They are let
+     * through; the level-120 gate above still applies. The Fox Tree (410000002) stays closed (rebirth 3 anyway).
+     */
+    static boolean isFoxRidgeRockOpen(int mapId) {
+        return switch (mapId) {
+            case 410000000, 410000001, 410000010, 410000011, 410000012, 410000020, 410000021, 410000022,
+                 410000030, 410000031, 410000040, 410000041, 410000050, 410000051 -> true;
+            default -> false;
+        };
     }
 
     /** The level / rebirth part of the rule for a plain hop from Henesys (auto-QA t-ld-1 asks it). */

@@ -66,4 +66,19 @@ class HyperTPRefusalTest {
         assertTrue(java.nio.file.Files.readString(java.nio.file.Path.of("scripts/portal/gotoNext1.js"))
                 .contains("haveItem(4032832) || pi.isQuestCompleted(3165)"));
     }
+
+    /** 1.6.1: Fox Ridge (lower Grandis) is reachable by rock at level 120 despite its no-rock field limit 324. */
+    @Test void foxRidgeIsReachableByRockAtLevel120ButTheFoxTreeIsNot() {
+        int noRock = 324; // 0x40 CANNOTVIPROCK among others, as in the map data
+        for (int map : new int[]{410000000, 410000001, 410000010, 410000022, 410000051}) {
+            assertNull(HyperTPHandler.refusal(MapId.HENESYS, false, true, map, noRock, MapId.NONE, 0, 120),
+                    map + " is open to the rock at lv 120");
+            assertNotNull(HyperTPHandler.refusal(MapId.HENESYS, false, true, map, noRock, MapId.NONE, 0, 119),
+                    map + " still needs level 120");
+        }
+        assertNotNull(HyperTPHandler.refusal(MapId.HENESYS, false, true, 410000002, 271356, MapId.NONE, 0, 200),
+                "the Fox Tree stays closed");
+        assertNotNull(HyperTPHandler.refusal(MapId.HENESYS, false, true, 100000001, noRock, MapId.NONE, 0, 200),
+                "any other map with the no-rock limit stays closed");
+    }
 }
