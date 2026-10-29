@@ -129,45 +129,61 @@ ssh root@<lxc-address> 'rm -rf /srv/slums-site/* && tar -xzf /tmp/slums-site.tar
 
 ## 3b. Release night for the 1.6.1 site (owner's go for each step)
 
-In this order; each step has its check, and stop at the first one that fails.
+In this order; each step has its check, and stop at the first one that fails. `S=<UTC stamp>` for the backups. The
+market and World rebuild timers, and the market service, run the code in `/opt/slums-site-build`, so the timers stay
+stopped from step 1 until nginx knows the 1.6.1 URLs (step 6). World shows numbers a few minutes old meanwhile.
 
-1. Back up: `cp -a /srv/slums-site /srv/slums-site.bak-<UTC stamp>` and the nginx site file
-   (`cp -p /etc/nginx/sites-available/slums-site{,.pre-161}`).
-2. Build. On 187, `tools/site/deploy-build-164.sh` copies the 1.6.1 code, data and icon cache (`cache/site-icons`)
-   to `/opt/slums-site-build` on 164; the market and World timers rebuild from there too. Then on 164 build into a
-   new folder (`<build>`, e.g. `/var/tmp/slums-site-161`):
-   `cd /opt/slums-site-build && python3 tools/site/build.py --private --world --no-tar --out <build>
-   --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" --site-data "/opt/mapleroot/MapleRoot Full
-   Repack/Server/data/site" --hs-data /opt/slums-site-build/hiddenstreet` (it ends with "check passed"). Compare before
-   the copy: `ls <build>/database/icons/items | wc -l` matches `ls /srv/slums-site/database/icons/items | wc -l` (about
-   4,971), and the same for `mobs` and `npcs`.
-3. Copy the site: `rsync -a --delete --exclude market/ --exclude world/ <build>/ /srv/slums-site/`. Market and World
-   are left to their timers, which now run the 1.6.1 code; run both once now instead of waiting up to 15 minutes:
-   `systemctl start slums-site-market.service slums-site-world.service`. Check: `grep -c data-xc-nav
-   /srv/slums-site/market/board.html` gives 1 (the 1.6.1 market pages, with the exchange's menu link hidden).
-4. Services (unit files in `tools/site/`):
+1. Stop the rebuilds and back up everything the night changes:
+   ```
+   systemctl stop slums-site-market.timer slums-site-world.timer
+   cp -a /srv/slums-site /srv/slums-site.bak-$S
+   cp -a /opt/slums-site-build /opt/slums-site-build.pre-161
+   cp -p /opt/slums-login/login_service.py{,.pre-161}
+   for f in report_service.py report_export.py; do cp -p /opt/slums-report/$f{,.pre-161}; done
+   for u in slums-market slums-login slums-report; do cp -p /etc/systemd/system/$u.service{,.pre-161}; done
+   cp -p /etc/nginx/sites-available/slums-site{,.pre-161}
+   ```
+   Check: `systemctl is-active slums-site-market.timer slums-site-world.timer` says `inactive` twice.
+2. Code and build. On 187, `tools/site/deploy-build-164.sh` copies the 1.6.1 code, data and icon cache
+   (`cache/site-icons`) to `/opt/slums-site-build` on 164 (it builds nothing). Then on 164, check the staff dashboard
+   is there (`ls /srv/slums-dashboard/web/index.html`; admin/ is built from the installed dashboard, like TEST's
+   `/srv/slums-dashboard-test/web`) and build into a new folder:
+   ```
+   cd /opt/slums-site-build && python3 tools/site/build.py --private --world --no-tar --out /var/tmp/slums-site-161 \
+     --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" \
+     --site-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/site" \
+     --hs-data /opt/slums-site-build/hiddenstreet --dashboard-web /srv/slums-dashboard/web
+   ```
+   It ends with "check passed". Compare before the copy: `ls /var/tmp/slums-site-161/database/icons/items | wc -l`
+   matches `ls /srv/slums-site/database/icons/items | wc -l` (about 4,971), and the same for `mobs` and `npcs`.
+3. Copy the site: `rsync -a --delete /var/tmp/slums-site-161/ /srv/slums-site/` (market/ and World too: the build has
+   them fresh).
+4. Services (unit files in `/opt/slums-site-build/tools/site/`). Before installing a unit, `diff` it against the
+   installed one: only the lines named here may differ.
    - The Flask market app. Flask comes from Ubuntu, no pip or venv: `dpkg -l python3-flask` shows `ii ... 3.0.2`
-     (installed on 164 for TEST, checked 2026-10-29); if not, `apt install python3-flask`. Then `cp -p
-     /etc/systemd/system/slums-market.service{,.pre-161}` and install the new unit: its ExecStart is
-     `market_app.py` (same port 8095, URLs, cookie and database as `market_service.py`), and it has no
-     `SLUMS_MARKET_EXCHANGE` line, so the exchange stays off.
-   - `slums-login`: the new login_service.py (a GM signed in over 12 h ago gets 401, so `/admin/` asks again).
-   - `slums-report`: copy the new report_service.py to `/opt/slums-report/`, plus the three new Environment lines
-     (the server version from `/srv/slums-site/world/online.json`, the site's `build.json`, the staff port 8097).
-     Check, after the World timer's next run: `grep -o '"version": "[^"]*"' /srv/slums-site/world/online.json` shows
-     the server version, and a test report sent from `/report/` shows it in the staff Reports tab.
+     (installed on 164 for TEST, checked 2026-10-29); if not, `apt install python3-flask`. Install the new unit
+     (`install -m 0644 tools/site/slums-market.service /etc/systemd/system/`): its ExecStart is `market_app.py` (same
+     port 8095, URLs, cookie and database as `market_service.py`), and it has no `SLUMS_MARKET_EXCHANGE` line, so the
+     exchange stays off.
+   - `slums-login`: `install -m 0644 tools/site/login_service.py /opt/slums-login/` (a GM signed in over 12 h ago
+     gets 401, so `/admin/` asks again).
+   - `slums-report`: `install -m 0644 tools/site/report_service.py tools/site/report_export.py /opt/slums-report/`
+     and `install -m 0644 tools/site/slums-report.service /etc/systemd/system/` (three new Environment lines: the
+     server version from `/srv/slums-site/world/online.json`, the site's `build.json`, the staff port 8097).
    - `systemctl daemon-reload`, restart the three, then `curl -s 127.0.0.1:8094/api/login/health`,
      `127.0.0.1:8095/api/market/health` and `127.0.0.1:8093/api/report/health` all give `{"ok": true}`;
      `journalctl -u slums-market -n 3` says `market service (Flask) ... exchange off`; `ss -ltn | grep 8097` shows the
      staff reader. Signed in, a watch added on a database page shows on `/market/mine` (the watchlist survived).
-   - Roll back the market alone: `mv /etc/systemd/system/slums-market.service{.pre-161,}`, `systemctl
-     daemon-reload && systemctl restart slums-market` (market_service.py on the same database; watchlists, alerts,
-     posts and cards are kept). The exchange page then shows an error instead of "not open yet".
 5. nginx: add part 3 of `tools/site/slums-login.nginx.conf` (clean URLs, `/admin/`, `/admin/data/`,
    `/api/report/staff/`, `@signagain`) and the `try_files` line in `/database/` and `/market/`; `nginx -t && systemctl
    reload nginx`. The download-pass part (`slums-pass.nginx.conf`, ticket 106, `satisfy any`) belongs to the patch
    host's server block and is its own step in the launcher release.
-6. Checks through nginx (`B=http://127.0.0.1:8092`):
+6. Start the rebuilds again: `systemctl start slums-site-market.service slums-site-world.service` (one run each, now),
+   then `systemctl start slums-site-market.timer slums-site-world.timer` (every 2 minutes). Checks:
+   `systemctl is-failed slums-site-market.service slums-site-world.service` says `inactive` twice (not `failed`);
+   `grep -c data-xc-nav /srv/slums-site/market/board.html` gives 1; `grep -o '"version": "[^"]*"'
+   /srv/slums-site/world/online.json` shows the server version.
+7. Checks through nginx (`B=http://127.0.0.1:8092`):
    - `curl -sI $B/market/exchange.html` gives 301 to `/market/exchange`; `curl -sI $B/guide/` gives 200.
    - signed out: `curl -sI $B/admin/` gives 302 to `/login/?again=1&next=/admin/`; `curl -s -o /dev/null -w
      '%{http_code}' $B/api/report/staff/list` gives 404.
@@ -175,8 +191,31 @@ In this order; each step has its check, and stop at the first one that fails.
      `/market/exchange` shows only "The Slums Exchange isn't open yet", with Slums-chan's neutral lines (no "LEAF to
      the moon!"); the Market menu on any market page has no Slums Exchange link.
    - signed in as a GM 3+ (the owner): `/admin/`, `/admin/invites` and `/admin/reports` open.
-   - a database page shows its icons.
-Undo: the backups from step 1, the old ExecStart (market_service.py) and `systemctl reload nginx`.
+   - a database page shows its icons; a test report sent from `/report/` shows server 1.6.1 in the staff Reports tab.
+
+### Website rollback (all of it, or the market alone)
+
+Not rehearsed on a copy; every step is a restore of a step-1 backup. In this order:
+```
+systemctl stop slums-site-market.timer slums-site-world.timer
+mv /opt/slums-site-build /opt/slums-site-build.161-failed && cp -a /opt/slums-site-build.pre-161 /opt/slums-site-build
+mv /srv/slums-site /srv/slums-site.161-failed && cp -a /srv/slums-site.bak-$S /srv/slums-site
+cp -p /opt/slums-login/login_service.py.pre-161 /opt/slums-login/login_service.py
+for f in report_service.py report_export.py; do cp -p /opt/slums-report/$f.pre-161 /opt/slums-report/$f; done
+for u in slums-market slums-login slums-report; do cp -p /etc/systemd/system/$u.service.pre-161 /etc/systemd/system/$u.service; done
+systemctl daemon-reload && systemctl restart slums-login slums-report slums-market
+cp -p /etc/nginx/sites-available/slums-site.pre-161 /etc/nginx/sites-available/slums-site && nginx -t && systemctl reload nginx
+systemctl start slums-site-market.timer slums-site-world.timer
+```
+Checks: the three /health URLs give `{"ok": true}`; `/market/exchange.html` gives 200 again (the 1.6.0 page); after
+2 minutes `systemctl is-failed slums-site-market.service` says `inactive` and `grep -c data-xc-nav
+/srv/slums-site/market/board.html` gives 0 (the 1.6.0 code rebuilt it). Sign-ins survive (same key and cookie);
+reports sent in between stay in the reports file. Keep the `.161-failed` folders until the cause is known.
+
+The market alone: `cp -p /etc/systemd/system/slums-market.service.pre-161 /etc/systemd/system/slums-market.service`,
+`systemctl daemon-reload && systemctl restart slums-market`. That runs market_service.py on the same database
+(watchlists, alerts, posts and cards are kept), from the 1.6.1 code in `/opt/slums-site-build`, which still has it.
+The exchange page then shows an error instead of "not open yet".
 
 ## 4. Add a release's patch notes
 
