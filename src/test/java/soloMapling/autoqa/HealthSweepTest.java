@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static soloMapling.autoqa.FootholdCheck.Pose.AIRBORNE;
 import static soloMapling.autoqa.FootholdCheck.Pose.GROUNDED;
@@ -33,6 +34,39 @@ class HealthSweepTest {
     @SuppressWarnings("unchecked")
     static Map<String, Object> check(Map<String, Object> result, String name) {
         return (Map<String, Object>) ((Map<String, Object>) result.get("checks")).get(name);
+    }
+
+    /** 1.6.1 (h): a chat-model endpoint that got calls and answered none since the last sweep is down (#66 / ch-06). */
+    @Test
+    void aDownChatModelEndpointFailsTheSweep() {
+        HealthSweep s = new HealthSweep(HealthSweep.Limits.defaults());
+        List<HealthSweep.BotSample> bots = List.of(bot(1, 1, 0, 274, GROUNDED, false));
+        int[] ch = {350, 300, 175, 105, 70};
+        String main = "intent+con@192.168.0.17:8913", tone = "tone@192.168.0.17:8910";
+        Map<String, HealthSweep.DecideTotals> t = new java.util.LinkedHashMap<>();
+        assertEquals("OK", check(s.run(snap(0, bots, ch, 0), m -> GROUND, t), "chatModel").get("status"), "no calls yet");
+        t.put(main, new HealthSweep.DecideTotals(20, 20, 0, 0, 0));
+        t.put(tone, new HealthSweep.DecideTotals(20, 19, 1, 0, 0));
+        assertEquals("OK", check(s.run(snap(60_000, bots, ch, 0), m -> GROUND, t), "chatModel").get("status"));
+        // :8913 stops answering: 6 more calls, all failed fast
+        t.put(main, new HealthSweep.DecideTotals(26, 20, 0, 6, 0));
+        t.put(tone, new HealthSweep.DecideTotals(26, 25, 1, 0, 0));
+        Map<String, Object> r = s.run(snap(120_000, bots, ch, 0), m -> GROUND, t);
+        Map<String, Object> c = check(r, "chatModel");
+        assertEquals("FAIL", c.get("status"));
+        assertTrue(String.valueOf(c.get("summary")).contains(main) && String.valueOf(c.get("summary")).contains("rules only"),
+                String.valueOf(c.get("summary")));
+        assertFalse(String.valueOf(c.get("summary")).contains(tone), "the tone endpoint still answers");
+        assertEquals("FAIL", r.get("status"));
+        // back up: judged on the calls since the last sweep only
+        t.put(main, new HealthSweep.DecideTotals(36, 30, 0, 6, 0));
+        assertEquals("OK", check(s.run(snap(180_000, bots, ch, 0), m -> GROUND, t), "chatModel").get("status"));
+        // slow: under half answered in time
+        t.put(main, new HealthSweep.DecideTotals(46, 33, 7, 6, 0));
+        assertEquals("WARN", check(s.run(snap(240_000, bots, ch, 0), m -> GROUND, t), "chatModel").get("status"));
+        // the old two-argument run has no chat-model check
+        assertEquals(null, check(new HealthSweep(HealthSweep.Limits.defaults()).run(snap(0, bots, ch, 0), m -> GROUND),
+                "chatModel"));
     }
 
     @Test

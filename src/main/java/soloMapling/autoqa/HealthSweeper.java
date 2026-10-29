@@ -77,7 +77,11 @@ public final class HealthSweeper {
         }
         long t0 = System.currentTimeMillis();
         HealthSweep.Snapshot snap = source.take(Math.max(100, cfg.AUTOQA_SWEEP_MAX_BOTS));
-        Map<String, Object> result = sweep.run(snap, source::footholds);
+        Map<String, HealthSweep.DecideTotals> decide = new LinkedHashMap<>();
+        soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.endpointTotals().forEach((name, t) ->
+                decide.put(name, new HealthSweep.DecideTotals(n(t, "calls"), n(t, "ok"), n(t, "timeout"), n(t, "error"),
+                        n(t, "empty"))));
+        Map<String, Object> result = sweep.run(snap, source::footholds, decide);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("time", Instant.ofEpochMilli(t0).toString());
         out.put("build", ServerConstants.SLUMSMS_VERSION);
@@ -96,6 +100,10 @@ public final class HealthSweeper {
             AutoQa.log.warn(line);
         }
         return out;
+    }
+
+    private static long n(Map<String, Object> m, String key) {
+        return m.get(key) instanceof Number v ? v.longValue() : 0;
     }
 
     /** The last sweep's result, or null before the first. */
