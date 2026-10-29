@@ -16,6 +16,30 @@ The drop tables and rare gear are as in round 2, and Mirror World stays out. **N
 
 Player notes text: `PLAYER-NOTES.md`.
 
+## Migration 055: boss drop gaps (owner 2026-10-29, branch 161-bossdrops)
+
+050 only looked at mobs placed on maps in its regions, so the boss-fight mobs got no table. 055 adds 242 rows by the
+same rules (`gen_bb_drops.py gaps`, `gap-rows.csv`), one BOSS table per clear on the form that dies and ELITE tables
+for the other fighting forms (owner's second and third passes):
+
+| Mob | Level, tier | Rows | Mesos (base) | Rare outclassing piece |
+|---|---|---|---|---|
+| Cygnus 8850012 (the form that dies) | 190, boss | 30 | 13,680-20,520 at 70% | Utgard Crossbow 3000 (0.9%) |
+| Guards Mihile, Oz, Irena, Eckhart, Hawkeye 8850000-8850004 | 188, elite | 32 each | 4,813-7,219 at 40% | one each at 120 (30 for AbsoLab) |
+| Castellan Toad 9400409 (the form that dies) | 180, elite (450M HP) | 28 (27 new: its meso row stays) | 4,608-6,912 (kept: 10,000-20,000) | none (classic pool) |
+| Lantern Erda 8641008 | 200, normal | 24 | 1,024-1,536 | Pensalir Mage Gloves 60 |
+
+Checked in the server code, and changed:
+- **Cygnus 8850012 is the kill:** CygnusBattle.isCygnus is 8850012, and it dies through `killMonster(..., true)`.
+  8850011 is a stub: `spawnCygnusMobs` kills it with `withDrops=false` each time a guard comes in.
+- **The guards that fight are 8850000-8850004** (`8850000 + cygnusSpawnCounter`). Their deaths went through
+  `afterBossKilled` straight to `killAllMonsters()` (`withDrops=false`), so they dropped nothing. Since 1.6.1 the guard
+  first dies through `killMonster(guard, chr, true)` (its drops, its EXP, the event's monsterKilled), then the
+  drop-free field-clear and Cygnus' return run as before (`CygnusGuardDropsTest`). A full Cygnus clear rolls five elite
+  tables and one boss table. 8850006-8850009 are never spawned and get no table.
+- **Castellan:** one table per clear, on the Toad. Castellan 9400408 does die with drops before the Toad comes, but
+  has no rows (owner's choice).
+
 ## Round 6 (owner 2026-10-29, branch 161-ladder3)
 
 The owner's decisions on round 5:

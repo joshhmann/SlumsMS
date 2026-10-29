@@ -228,3 +228,25 @@ python3 tools/economy/ladder_table.py                                # the 120+ 
 # the client Monster Book can print the new HP (needs a Custom.wz rebuild):
 python3 tools/monsterbook/build_book.py ... --hp-overrides src/main/resources/soloMapling/mob-stat-overrides.tsv
 ```
+
+## 055: the boss-fight mobs outside 050's regions (owner 2026-10-29)
+
+- `gen_bb_drops.py gaps` builds tables for `GAP_MOBS` by the same rules (`build_rows`, priced against 050's own mobs
+  for the meso medians) and writes `database/migrations/055-boss-drop-gaps.sql` (ledger `boss_drops_055_rows`) and
+  `docs/economy/bb-drops/gap-rows.csv`. Regenerating 050 is unchanged by it.
+- **One boss table per clear (owner, second and third passes):** the BOSS table goes on the form that dies and that the
+  event counts as the kill; the other fighting forms get ELITE tables (mesos x4, every chance x2, no boss-tier rolls).
+  `GAP_MOBS` sets the tier per mob.
+  - Cygnus: 8850012 (CygnusBattle.isCygnus; MapleMap kills it with drops) gets the boss table. The guards the fight
+    really spawns, Mihile, Oz, Irena, Eckhart and Hawkeye (8850000-8850004, `8850000 + cygnusSpawnCounter`), get elite
+    tables, and since 1.6.1 a guard dies through `MapleMap.killMonster(guard, chr, true)` in `afterBossKilled` before
+    the drop-free field-clear, so its table drops. 8850006-8850009 (never spawned) get nothing.
+  - Castellan: one table per clear, an elite table on Castellan Toad 9400409 (CastellanBattle.isCastellan; boss flag but
+    450M HP; its existing meso row stays). Castellan 9400408 gets none.
+  - Ninja Castle is a classic area ("zipangu"): classic pool only, no post-Big-Bang gear.
+  - The Arcane Lantern Erda (8641008, revived from 8641007) is a normal mob by the rules.
+- The phase/form stubs 8850005, 8850011, 8880150, 8880302, 8880415, 8645009 and 8641009 stay dropless. 8850011 is
+  killed with `withDrops=false` each time a guard comes in (`spawnCygnusMobs`), so it never drops.
+- Checks: `BossDropGapsDataTest` (the mobs, the 050 row rules, tiers, own ledger, listed after 054),
+  `BossDropGapsMigrationIT` (apply twice, rollback twice, the card row, the Toad's meso row and 050's rows untouched),
+  `CygnusGuardDropsTest` (a guard's death kills it with drops, then the field-clear and Cygnus' return run as before).

@@ -40,8 +40,13 @@ class BbDropTablesDataTest {
     }
 
     static List<Row> rows() throws Exception {
+        return rows(SQL);
+    }
+
+    /** The VALUES rows of a generated drop migration (050, 055). */
+    static List<Row> rows(Path sql) throws Exception {
         List<Row> out = new ArrayList<>();
-        for (String line : Files.readAllLines(SQL)) {
+        for (String line : Files.readAllLines(sql)) {
             Matcher m = ROW.matcher(line.strip());
             if (m.matches()) {
                 out.add(new Row(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3)),
@@ -55,6 +60,11 @@ class BbDropTablesDataTest {
     void rowsAreWellFormed() throws Exception {
         List<Row> rows = rows();
         assertTrue(rows.size() > 5000, "rows parsed: " + rows.size());
+        assertWellFormed(rows);
+    }
+
+    /** The 050 rules every generated drop migration keeps (055 too). */
+    static void assertWellFormed(List<Row> rows) {
         Set<Long> pairs = new HashSet<>();
         Map<Integer, Integer> mesoRows = new HashMap<>();
         Set<Integer> mobs = new HashSet<>();
@@ -100,6 +110,10 @@ class BbDropTablesDataTest {
         WzTestData.assumePresent("Item.wz");
         WzTestData.assumePresent("Character.wz");
         WzTestData.assumePresent("Mob.wz");
+        assertItemsReal(rows());
+    }
+
+    static void assertItemsReal(List<Row> rows) throws Exception {
         DataProvider item = DataProviderFactory.getDataProvider(WZFiles.ITEM);
         DataProvider equip = DataProviderFactory.getDataProvider(WZFiles.CHARACTER);
         DataProvider mob = DataProviderFactory.getDataProvider(WZFiles.MOB);
@@ -111,7 +125,7 @@ class BbDropTablesDataTest {
         }
         Set<Integer> items = new HashSet<>();
         Set<Integer> mobs = new HashSet<>();
-        for (Row r : rows()) {
+        for (Row r : rows) {
             mobs.add(r.mob);
             if (r.item != 0) {
                 items.add(r.item);
@@ -147,6 +161,10 @@ class BbDropTablesDataTest {
     @Test
     void everyEtcItemHasAUseHereOrAnNpcPrice() throws Exception {
         WzTestData.assumePresent("Item.wz");
+        assertEtcUseful(rows());
+    }
+
+    static void assertEtcUseful(List<Row> rows) throws Exception {
         DataProvider item = DataProviderFactory.getDataProvider(WZFiles.ITEM);
         Set<Integer> inScripts = new HashSet<>();
         try (var files = Files.walk(Path.of("scripts"))) {
@@ -159,7 +177,7 @@ class BbDropTablesDataTest {
             }
         }
         Set<Integer> ores = Set.of(4004, 4010, 4020, 4006, 4007, 4130);
-        for (Row r : rows()) {
+        for (Row r : rows) {
             if (r.item / 1000000 != 4 || ores.contains(r.item / 1000)) {
                 continue;
             }

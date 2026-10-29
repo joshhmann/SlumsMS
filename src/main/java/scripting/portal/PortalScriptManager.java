@@ -84,15 +84,47 @@ public class PortalScriptManager extends AbstractScriptManager {
     }
 
     public boolean executePortalScript(Portal portal, Client c) {
+        return runPortalScript(portal, c) == Outcome.RAN;
+    }
+
+    /** What a portal script did: moved the player (RAN), said no, had no file, or threw. */
+    public enum Outcome {
+        RAN("ran"),
+        REFUSED("refused: the script did not move the player"),
+        NO_SCRIPT("refused: no script file"),
+        ERROR("refused: script error");
+
+        public final String text;
+
+        Outcome(String text) {
+            this.text = text;
+        }
+    }
+
+    /**
+     * Runs the portal's script. 1.6.1 (Rose Garden walk-in did nothing and nothing was logged): a missing script file
+     * used to fail silently; callers now log the outcome (GenericPortal.enterPortal).
+     */
+    public Outcome runPortalScript(Portal portal, Client c) {
         try {
             PortalScript script = getPortalScript(portal.getScriptName());
-            if (script != null) {
-                return script.enter(new PortalPlayerInteraction(c, portal));
+            if (script == null) {
+                return Outcome.NO_SCRIPT;
             }
+            return script.enter(new PortalPlayerInteraction(c, portal)) ? Outcome.RAN : Outcome.REFUSED;
         } catch (Exception e) {
             log.warn("Portal script error in: {}", portal.getScriptName(), e);
+            return Outcome.ERROR;
         }
-        return false;
+    }
+
+    /** True when scripts/portal/<name>.js loads and implements enter(pi). */
+    public boolean hasPortalScript(String scriptName) {
+        try {
+            return getPortalScript(scriptName) != null;
+        } catch (ScriptException e) {
+            return false;
+        }
     }
 
     public void reloadPortalScripts() {

@@ -1605,6 +1605,9 @@ public class MapleMap {
             spawnMist(mist, 1000000, false, true, false, true);
             return true;
         } else if (monster.getId() >= 8850000 && monster.getId() <= 8850003) {
+            // 1.6.1 (owner 2026-10-29): the guard dies through the normal kill, with its drops (migration 055's elite
+            // table); the field-clear that follows stays drop-free as before
+            killMonster(monster, chr, true);
             Monster cygnus = LifeFactory.getMonster(8850011);
             killAllMonsters();
             spawnMonster(cygnus);
@@ -1612,6 +1615,7 @@ public class MapleMap {
             spawningcygnus = false;
             return true;
         } else if (monster.getId() == 8850004) {
+            killMonster(monster, chr, true); // the last guard drops too (1.6.1)
             Monster cygnus = LifeFactory.getMonster(8850012);
             killAllMonsters();
             spawnMonster(cygnus);

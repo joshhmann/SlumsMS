@@ -25,6 +25,8 @@ import client.Character;
 import client.Client;
 import constants.game.GameConstants;
 import constants.id.MapId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scripting.portal.PortalScriptManager;
 import tools.PacketCreator;
 
@@ -33,6 +35,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class GenericPortal implements Portal {
+    private static final Logger log = LoggerFactory.getLogger(GenericPortal.class);
     private String name;
     private String target;
     private Point position;
@@ -141,7 +144,7 @@ public class GenericPortal implements Portal {
                 try {
                     scriptLock.lock();
                     try {
-                        changed = PortalScriptManager.getInstance().executePortalScript(this, c);
+                        changed = runScript(c, chr, fromMapId);
                     } finally {
                         scriptLock.unlock();
                     }
@@ -153,7 +156,7 @@ public class GenericPortal implements Portal {
             try {
                 scriptLock.lock();
                 try {
-                    changed = PortalScriptManager.getInstance().executePortalScript(this, c);
+                    changed = runScript(c, chr, fromMapId);
                 } finally {
                     scriptLock.unlock();
                 }
@@ -172,6 +175,20 @@ public class GenericPortal implements Portal {
             soloMapling.server.MapleRootSolo.runHook("portal learning", () -> soloMapling.ArtificialPlayer.GCMoveSystem
                     .NavPlayerLearning.onPortal(chr, fromMapId, getName(), chr.getMapId()));
         }
+    }
+
+    /** Runs the script and logs what happened (1.6.1: a missing or refusing script used to leave no trace). */
+    private boolean runScript(Client c, Character chr, int fromMapId) {
+        PortalScriptManager.Outcome outcome = PortalScriptManager.getInstance().runPortalScript(this, c);
+        String text = outcome == PortalScriptManager.Outcome.NO_SCRIPT
+                ? outcome.text + " portal/" + getScriptName() + ".js" : outcome.text;
+        log.info(scriptLogLine(getScriptName(), chr.getName(), fromMapId, text));
+        return outcome == PortalScriptManager.Outcome.RAN;
+    }
+
+    /** "portal script <name> by <chr> on <map>: <ran|refused: reason>" (the line ops grep for). */
+    public static String scriptLogLine(String script, String chr, int mapId, String outcome) {
+        return "portal script " + script + " by " + chr + " on " + mapId + ": " + outcome;
     }
 
     private boolean attemptTeleportForUnscriptedPortal(Client c, Character chr, boolean changed) {
