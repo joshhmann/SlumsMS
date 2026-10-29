@@ -425,7 +425,9 @@ class ExchangeTickersTest {
         long now = t0 + TickerHistory.HOUR_MS + 10;
         TickerHistory.Stats s = h.stats(now);
         assertEquals(540L, s.last());
-        assertEquals(40L, s.change(), "last minus the last price before the 24 h window");
+        // 1.6.1 fix: one fill before the window is too thin a reference; the window's own VWAP (513) is used
+        assertEquals(513L, s.reference());
+        assertEquals(27L, s.change(), "last minus the window's volume-weighted price");
         assertEquals(540L, s.high());
         assertEquals(480L, s.low());
         assertEquals(30, s.qty());
@@ -450,6 +452,43 @@ class ExchangeTickersTest {
 
     static ExchangeStore.FillRow fill(long id, long at, long price) {
         return new ExchangeStore.FillRow(id, at, 1, 2, 10, price, price * 10, false, false, "LEAF");
+    }
+
+    static ExchangeStore.FillRow nxFill(long id, long at, long nx, long price, boolean regular) {
+        return new ExchangeStore.FillRow(id, at, 1, 2, nx, price, nx * price / 1_000, regular, false, "NX");
+    }
+
+    @Test
+    void theChangeIgnoresTheQaRegularsFillsAndThinTrading() {
+        // TEST 2026-10-29 03:03 UTC: NX's 24 h was 100,000 (05:14) then the QA check's 1,001,000 fills, each 100 NX
+        // with the test regular on the buy side: +901%
+        long h = TickerHistory.HOUR_MS;
+        long t0 = 1_800_000_000_000L;
+        TickerHistory nx = new TickerHistory();
+        nx.add(nxFill(1, t0, 100, 100_000, true));
+        nx.add(nxFill(2, t0 + 6 * h, 100, 1_001_000, true));
+        nx.add(nxFill(8, t0 + 17 * h, 100, 1_001_000, true));
+        nx.add(nxFill(13, t0 + 19 * h, 100, 1_001_000, true));
+        TickerHistory.Stats s = nx.stats(t0 + 22 * h, 3);
+        assertEquals(1_001_000L, s.last(), "the last print is still shown");
+        assertNull(s.change(), "QA regular fills never make a change");
+        assertNull(s.reference());
+        // one odd lot between players: too thin to say
+        TickerHistory one = new TickerHistory();
+        one.add(nxFill(1, t0, 100, 1_001_000, false));
+        assertNull(one.stats(t0 + h, 3).change());
+        // a real day: the reference is yesterday's VWAP, so one odd-lot print yesterday cannot set it
+        TickerHistory real = new TickerHistory();
+        real.add(nxFill(1, t0, 100, 100_000, false));              // the odd lot, 30 h ago
+        real.add(nxFill(2, t0 + h, 5_000, 1_000_000, false));
+        real.add(nxFill(3, t0 + 2 * h, 5_000, 1_000_000, false));
+        real.add(nxFill(4, t0 + 26 * h, 2_000, 1_050_000, false));
+        real.add(nxFill(5, t0 + 27 * h, 2_000, 1_050_000, false));
+        real.add(nxFill(6, t0 + 28 * h, 2_000, 1_100_000, false));
+        TickerHistory.Stats r = real.stats(t0 + 30 * h, 3);
+        assertEquals(991_089L, r.reference(), "yesterday's three fills, volume weighted");
+        assertEquals(108_911L, r.change());
+        assertTrue(r.change() * 100.0 / r.reference() < 11, "about +11%, not +1,000%");
     }
 
     @Test

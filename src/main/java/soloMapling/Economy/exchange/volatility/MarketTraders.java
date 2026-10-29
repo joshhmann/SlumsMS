@@ -324,11 +324,36 @@ public final class MarketTraders {
      * What a trader sees of a ticker right now (see {@link TraderBrain.View}); {@code fairValue} is the ticker's
      * {@link FairValue} (null: the 7-day median, LEAF leaning on the shop's 500k). A ticker that never traded starts
      * from its fair value.
+     * <p>
+     * 1.6.1 exchange fix (TEST 2026-10-29): the bots only see market information inside the {@link TraderBrain#BAND}
+     * around the ticker's anchor (its fair value, else its starting price). Fills a regular took part in (the QA
+     * checks' test regular; the official rate leaves them out too) and fills, bids and asks outside the band are left
+     * out. Before, the QA check's two 10-leaf fills at 1,000 mesos became every trader's "last", the guard (10x of the
+     * reference) then dropped the value and maker quotes near 500,000, and the LEAF book locked in at 1,000 to 1,110.
      */
     public static TraderBrain.View view(Exchange ex, Ticker tk, long now, double pressure, Long fairValue) {
-        List<OrderBook.Level> bids = ex.depth(tk.id(), Side.BUY, 1), asks = ex.depth(tk.id(), Side.SELL, 1);
-        long bid = bids.isEmpty() ? 0 : bids.get(0).price(), ask = asks.isEmpty() ? 0 : asks.get(0).price();
-        List<FillRow> trades = ex.lastTrades(tk.id(), 500);
+        long anchor = fairValue != null && fairValue > 0 ? fairValue : FALLBACK.getOrDefault(tk.id(), 0L);
+        long[] band = TraderBrain.band(anchor);
+        java.util.function.LongPredicate in = p -> band[1] <= 0 || (p >= band[0] && p <= band[1]);
+        long bid = 0, ask = 0;
+        for (OrderBook.Level l : ex.depth(tk.id(), Side.BUY, BOOK_LEVELS)) {
+            if (in.test(l.price())) {
+                bid = l.price();
+                break;
+            }
+        }
+        for (OrderBook.Level l : ex.depth(tk.id(), Side.SELL, BOOK_LEVELS)) {
+            if (in.test(l.price())) {
+                ask = l.price();
+                break;
+            }
+        }
+        List<FillRow> trades = new ArrayList<>();
+        for (FillRow f : ex.lastTrades(tk.id(), 500)) {
+            if (!f.buyerRegular() && !f.sellerRegular() && in.test(f.price())) {
+                trades.add(f);
+            }
+        }
         long last = trades.isEmpty() ? 0 : trades.get(0).price();
         long hourAgo = 0, high2h = 0;
         for (FillRow f : trades) {
@@ -344,16 +369,23 @@ public final class MarketTraders {
         if (hourAgo == 0 && !trades.isEmpty()) {
             hourAgo = trades.get(trades.size() - 1).price(); // younger than an hour: from the oldest we have
         }
-        long fair = fairValue != null && fairValue > 0 ? fairValue : fair(ex, tk, now, fallback);
+        long fair = fairValue != null && fairValue > 0 ? fairValue : fair(ex, tk, now, fallback, in);
         return new TraderBrain.View(tk.id(), ref, bid, ask, hourAgo, high2h, fair, pressure, tk.minPrice(),
-                tk.maxPrice(), tk.maxQty(), ex.config().feeBps());
+                tk.maxPrice(), tk.maxQty(), ex.config().feeBps(), band[0], band[1]);
+    }
+
+    /** How deep a trader looks for the best in-band bid and ask. */
+    static final int BOOK_LEVELS = 50;
+
+    static long fair(Exchange ex, Ticker tk, long now, long fallback) {
+        return fair(ex, tk, now, fallback, p -> true);
     }
 
     /** Fair value: the median hourly close of the last 7 days (else the fallback); LEAF leans on the shop's 500k. */
-    static long fair(Exchange ex, Ticker tk, long now, long fallback) {
+    static long fair(Exchange ex, Ticker tk, long now, long fallback, java.util.function.LongPredicate inBand) {
         List<Long> closes = new ArrayList<>();
         for (TickerHistory.Candle c : ex.candles(tk.id())) {
-            if (c.hour() > now - 7 * TickerHistory.DAY_MS) {
+            if (c.hour() > now - 7 * TickerHistory.DAY_MS && inBand.test(c.close())) {
                 closes.add(c.close());
             }
         }

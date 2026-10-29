@@ -41,9 +41,24 @@ public final class TraderBrain {
      * @param high2h      the highest trade of the last 2 hours (0: none)
      * @param fair        the bot's notion of fair value
      * @param pressure    where the events and rumours the bot knows push the price (+ up, - down; about -2..2)
+     * @param bandLo      the lowest price a bot may quote ({@link #BAND} under the anchor; 0 with no band)
+     * @param bandHi      the highest ({@link #BAND} over the anchor; 0: no band)
      */
     public record View(String ticker, long reference, long bestBid, long bestAsk, long hourAgo, long high2h,
-                       long fair, double pressure, long minPrice, long maxPrice, long maxQty, int feeBps) {
+                       long fair, double pressure, long minPrice, long maxPrice, long maxQty, int feeBps,
+                       long bandLo, long bandHi) {
+        /** Without a fair-value band (tests, a ticker with no anchor). */
+        public View(String ticker, long reference, long bestBid, long bestAsk, long hourAgo, long high2h, long fair,
+                    double pressure, long minPrice, long maxPrice, long maxQty, int feeBps) {
+            this(ticker, reference, bestBid, bestAsk, hourAgo, high2h, fair, pressure, minPrice, maxPrice, maxQty,
+                    feeBps, 0, 0);
+        }
+
+        /** Is {@code price} inside the band (always, without one)? */
+        boolean inBand(long price) {
+            return bandHi <= 0 || (price >= bandLo && price <= bandHi);
+        }
+
         long mid() {
             return bestBid > 0 && bestAsk > 0 ? (bestBid + bestAsk) / 2 : reference;
         }
@@ -73,20 +88,56 @@ public final class TraderBrain {
 
     static final long STALE_MS = 30 * 60_000L;
 
+    /**
+     * 1.6.1 exchange fix (TEST 2026-10-29: LEAF bid and last 1,110 against a fair 500,000): how far from the ticker's
+     * anchor (its {@link FairValue}, else its starting price) a bot may quote: 3x either way. The designed swings
+     * (ticket 113's simulation: LEAF 348k..1.13m around 500k, at most 2.7x max/min) sit inside it. Trades and quotes
+     * outside it (the QA checks' 1,000-mesos leaves, a player's typo) are not market information for the bots: they
+     * neither anchor on them nor quote next to them. This is no price floor for players: a player may still post and
+     * trade at any price the ticker allows.
+     */
+    public static final double BAND = 3.0;
+
+    /** The band around {@code anchor}: {lo, hi}; {0, 0} (no band) without an anchor. */
+    public static long[] band(long anchor) {
+        if (anchor <= 0) {
+            return new long[]{0, 0};
+        }
+        return new long[]{Math.max(1, (long) Math.ceil(anchor / BAND)), (long) Math.floor(anchor * BAND)};
+    }
+
     /** The actions for one turn, already through {@link #guard}. */
     public static List<Action> decide(Archetype a, View v, Holdings h, long now, Random rng) {
         List<Action> out = new ArrayList<>();
         if (v.reference() <= 0) {
             return out;
         }
+        Holdings in = withoutOffBand(v, h, out);
         switch (a) {
-            case MOMENTUM -> momentum(v, h, now, rng, out);
-            case PANIC -> panic(v, h, now, rng, out);
-            case WHALE -> whale(v, h, rng, out);
-            case VALUE -> value(v, h, now, rng, out);
-            case MAKER -> maker(v, h, now, rng, out);
+            case MOMENTUM -> momentum(v, in, now, rng, out);
+            case PANIC -> panic(v, in, now, rng, out);
+            case WHALE -> whale(v, in, rng, out);
+            case VALUE -> value(v, in, now, rng, out);
+            case MAKER -> maker(v, in, now, rng, out);
         }
         return guard(out, v, h);
+    }
+
+    /**
+     * Cancels the bot's own resting orders outside the band (quotes made before the fix, or before the fair value
+     * moved) and returns the holdings the archetype should see: without those orders.
+     */
+    static Holdings withoutOffBand(View v, Holdings h, List<Action> out) {
+        List<Open> keep = new ArrayList<>();
+        for (Open o : h.open()) {
+            if (v.inBand(o.price())) {
+                keep.add(o);
+            } else {
+                out.add(new Cancel(o.id()));
+            }
+        }
+        return keep.size() == h.open().size() ? h
+                : new Holdings(h.mesos(), h.items(), keep, h.placesLeft(), h.openLimit());
     }
 
     private static void momentum(View v, Holdings h, long now, Random rng, List<Action> out) {
@@ -199,6 +250,7 @@ public final class TraderBrain {
         if (v.reference() <= 0) {
             return out;
         }
+        withoutOffBand(v, h, out);
         long ask = v.bestAsk() > 0 ? v.bestAsk() : v.reference(), bid = v.bestBid() > 0 ? v.bestBid() : v.reference();
         switch (role) {
             case AT_WAR_FRESH, PREP, WIPED -> {
@@ -238,8 +290,8 @@ public final class TraderBrain {
     // ---------------------------------------------------------------- the guard (bugs only, not volatility)
 
     /**
-     * Keeps only sane actions: cancels of the bot's own orders; places with a price inside the ticker's range and
-     * within 10x of the reference (others are dropped, not clamped), a positive quantity within the ticker's largest order, sells covered by the
+     * Keeps only sane actions: cancels of the bot's own orders; places with a price inside the ticker's range,
+     * within 10x of the reference and inside the {@link #BAND} around the anchor (others are dropped, not clamped), a positive quantity within the ticker's largest order, sells covered by the
      * items the bot holds (all its sells this turn together), buys covered by its mesos with the fee (together), and
      * no more places than its open slots and day's count allow. Prices are rounded to a tidy number.
      */
@@ -260,14 +312,21 @@ public final class TraderBrain {
         long items = h.items(), mesos = h.mesos();
         long lo = Math.max(v.minPrice(), Math.max(1, v.reference() / 10));
         long hi = Math.min(v.maxPrice(), Math.multiplyHigh(v.reference(), 10) == 0 ? v.reference() * 10 : v.maxPrice());
+        if (v.bandHi() > 0) {
+            lo = Math.max(lo, v.bandLo());
+            hi = Math.min(hi, v.bandHi());
+        }
         for (Action a : in) {
             if (!(a instanceof Place p) || slots <= 0) {
                 continue;
             }
             if (p.price() < lo || p.price() > hi) {
-                continue; // price 0, or 10x off the reference in one order: a bug, not a trade
+                continue; // price 0, 10x off the reference or outside the fair band: a bug, not a trade
             }
             long price = tidy(p.price());
+            if (price < lo || price > hi) {
+                continue; // tidied over the edge
+            }
             long qty = Math.min(p.qty(), v.maxQty());
             if (price <= 0 || qty <= 0) {
                 continue;
