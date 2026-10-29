@@ -635,7 +635,7 @@ class ExchangeTickersTest {
         assertTrue(place(1, "LEAF", Side.SELL, P, 10).ok());
         String created = java.time.Instant.ofEpochMilli(now.get() - 1000).toString();
         List<ExchangeSite.Request> rs = ExchangeSite.requests("[{\"id\":\"s1\",\"account\":2,\"type\":\"preview\","
-                + "\"character\":12,\"side\":\"BUY\",\"price\":600000,\"qty\":5,\"ticker\":\"leaf\",\"createdAt\":\""
+                + "\"character\":12,\"side\":\"BUY\",\"price\":600000,\"qty\":5,\"ticker\":\"leaf\",\"siteAuthAt\":\"" + created + "\",\"createdAt\":\""
                 + created + "\"},{\"id\":\"s2\",\"account\":2,\"type\":\"book\",\"ticker\":\"LEAF\",\"createdAt\":\""
                 + created + "\"},{\"id\":\"s3\",\"account\":2,\"type\":\"book\",\"ticker\":\"le af\",\"createdAt\":\""
                 + created + "\"}]");

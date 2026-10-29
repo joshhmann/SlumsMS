@@ -21,14 +21,14 @@ class ExchangeSiteTest {
     @Test
     void parsesEveryRequestTypeAndFlagsBadRows() {
         String json = "{\"schema\":1,\"requests\":["
-                + "{\"id\":\"a\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"createdAt\":\"" + T + "\"},"
-                + "{\"id\":\"b\",\"account\":\"1\",\"type\":\"cancel\",\"orderId\":7,\"createdAt\":" + NOW + "},"
-                + "{\"id\":\"c\",\"account\":1,\"type\":\"mine\",\"createdAt\":\"" + T + "\"},"
-                + "{\"id\":\"d\",\"account\":1,\"type\":\"book\",\"createdAt\":\"" + T + "\"},"
-                + "{\"id\":\"e\",\"account\":1,\"type\":\"trades\",\"createdAt\":\"" + T + "\"},"
-                + "{\"id\":\"f\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"HOLD\",\"price\":1,\"nx\":1,\"createdAt\":\"" + T + "\"},"
-                + "{\"id\":\"g\",\"account\":1,\"type\":\"launder\",\"createdAt\":\"" + T + "\"},"
-                + "{\"id\":\"h\",\"type\":\"book\",\"createdAt\":\"" + T + "\"},"
+                + "{\"id\":\"a\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
+                + "{\"id\":\"b\",\"account\":\"1\",\"type\":\"cancel\",\"orderId\":7,\"siteAuthAt\":" + NOW + ",\"createdAt\":" + NOW + "},"
+                + "{\"id\":\"c\",\"account\":1,\"type\":\"mine\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
+                + "{\"id\":\"d\",\"account\":1,\"type\":\"book\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
+                + "{\"id\":\"e\",\"account\":1,\"type\":\"trades\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
+                + "{\"id\":\"f\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"HOLD\",\"price\":1,\"nx\":1,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
+                + "{\"id\":\"g\",\"account\":1,\"type\":\"launder\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
+                + "{\"id\":\"h\",\"type\":\"book\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
                 + "{\"account\":1,\"type\":\"book\"}, 5]}";
         List<ExchangeSite.Request> r = ExchangeSite.requests(json);
         assertEquals(8, r.size(), "rows without an id cannot be answered and are skipped");
@@ -52,7 +52,7 @@ class ExchangeSiteTest {
         store.addCharacter(12, 2, 10_000_000);
         Exchange ex = new Exchange(store, ExchangeTest.open(), store::online, () -> NOW);
         ex.recover();
-        String json = "[{\"id\":\"a\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"createdAt\":\"" + T + "\"},"
+        String json = "[{\"id\":\"a\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
                 + "{\"id\":\"old\",\"account\":2,\"type\":\"preview\",\"character\":12,\"side\":\"BUY\",\"price\":1000000,\"nx\":500,\"createdAt\":\"2020-01-01T00:00:00Z\"}]";
         List<ExchangeSite.Request> reqs = ExchangeSite.requests(json);
         assertEquals("BAD_REQUEST", ExchangeSite.answer(ex, reqs.get(0), NOW).code(), "a bare place needs a confirm now");
@@ -63,14 +63,15 @@ class ExchangeSiteTest {
         assertEquals("STALE", old.code());
         assertEquals(1, ex.lastTrades(10).size(), "the stale order was not placed");
 
-        ExchangeSite.Request mine = new ExchangeSite.Request("m", 1, ExchangeSite.Type.MINE, 0, null, 0, 0, 0, NOW, null);
+        ExchangeSite.Request mine = new ExchangeSite.Request("m", 1, ExchangeSite.Type.MINE, 0, null, 0, 0, 0, NOW, null)
+                .signedInAt(NOW);
         Exchange.Response m = ExchangeSite.answer(ex, mine, NOW);
         List<?> orders = (List<?>) m.data().get("orders");
         assertEquals(1, orders.size());
         assertEquals(500L, ((Map<?, ?>) orders.get(0)).get("nxLeft"));
 
         ExchangeSite.Request cancel = new ExchangeSite.Request("c", 1, ExchangeSite.Type.CANCEL, 0, null, 0, 0,
-                ((Number) a.data().get("orderId")).longValue(), NOW, null);
+                ((Number) a.data().get("orderId")).longValue(), NOW, null).signedInAt(NOW);
         assertTrue(ExchangeSite.answer(ex, cancel, NOW).ok());
         assertEquals("NOT_FOUND", ExchangeSite.answer(ex, cancel, NOW).code());
 
@@ -87,7 +88,7 @@ class ExchangeSiteTest {
         assertEquals(1, resp.get("schema"));
 
         Exchange.Response bad = ExchangeSite.answer(ex, ExchangeSite.requests(
-                "[{\"id\":\"z\",\"account\":1,\"type\":\"cancel\",\"createdAt\":\"" + T + "\"}]").get(0), NOW);
+                "[{\"id\":\"z\",\"account\":1,\"type\":\"cancel\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}]").get(0), NOW);
         assertEquals("BAD_REQUEST", bad.code());
     }
 
@@ -96,12 +97,12 @@ class ExchangeSiteTest {
                                      long nx) {
         Exchange.Response p = ExchangeSite.answer(ex, ExchangeSite.requests("[{\"id\":\"" + id + "-p\",\"account\":"
                 + account + ",\"type\":\"preview\",\"character\":" + character + ",\"side\":\"" + side
-                + "\",\"price\":" + price + ",\"nx\":" + nx + ",\"createdAt\":\"" + T + "\"}]").get(0), NOW);
+                + "\",\"price\":" + price + ",\"nx\":" + nx + ",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}]").get(0), NOW);
         if (!p.ok()) {
             return p;
         }
         return ExchangeSite.answer(ex, ExchangeSite.requests("[{\"id\":\"" + id + "\",\"account\":" + account
-                + ",\"type\":\"confirm\",\"token\":\"" + p.data().get("token") + "\",\"createdAt\":\"" + T
+                + ",\"type\":\"confirm\",\"token\":\"" + p.data().get("token") + "\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T
                 + "\"}]").get(0), NOW);
     }
 
@@ -115,14 +116,14 @@ class ExchangeSiteTest {
         ex.recover();
         java.nio.file.Path in = dir.resolve("in"), out = dir.resolve("out");
         java.nio.file.Files.createDirectories(in);
-        String preview = "{\"id\":\"p\",\"account\":1,\"type\":\"preview\",\"character\":11,\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"createdAt\":\"" + T + "\"}";
+        String preview = "{\"id\":\"p\",\"account\":1,\"type\":\"preview\",\"character\":11,\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}";
         java.nio.file.Files.writeString(in.resolve(ExchangeSite.REQUESTS), "[" + preview + "]");
         ExchangeService.Runner r = new ExchangeService.Runner(ex, in, out, () -> NOW);
         r.tick();
         assertEquals(0, ex.openOrders(), "a preview places nothing");
         Map<?, ?> resp = (Map<?, ?>) Json.parse(java.nio.file.Files.readString(out.resolve(ExchangeSite.RESPONSES)));
         String token = (String) ((Map<?, ?>) ((Map<?, ?>) ((List<?>) resp.get("responses")).get(0)).get("data")).get("token");
-        String confirm = "{\"id\":\"a\",\"account\":1,\"type\":\"confirm\",\"token\":\"" + token + "\",\"createdAt\":\"" + T + "\"}";
+        String confirm = "{\"id\":\"a\",\"account\":1,\"type\":\"confirm\",\"token\":\"" + token + "\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}";
         java.nio.file.Files.writeString(in.resolve(ExchangeSite.REQUESTS), "[" + preview + "," + confirm + "]");
         java.nio.file.Files.setLastModifiedTime(in.resolve(ExchangeSite.REQUESTS),
                 java.nio.file.attribute.FileTime.fromMillis(NOW + 1));
@@ -151,7 +152,7 @@ class ExchangeSiteTest {
 
     private static Exchange.Response preview(Exchange ex, long account, String charFields) {
         return ExchangeSite.answer(ex, ExchangeSite.requests("[{\"id\":\"p" + charFields.hashCode() + "\",\"account\":"
-                + account + ",\"type\":\"preview\"," + charFields + ",\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"createdAt\":\""
+                + account + ",\"type\":\"preview\"," + charFields + ",\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\""
                 + T + "\"}]").get(0), NOW);
     }
 
@@ -178,7 +179,7 @@ class ExchangeSiteTest {
         assertTrue(viaSite(ex, "o2", 1, 13, "SELL", 1_100_000, 1000).ok());
         java.util.function.Function<String, Exchange.Response> mine = fields -> ExchangeSite.answer(ex,
                 ExchangeSite.requests("[{\"id\":\"m" + fields.hashCode() + "\",\"account\":1,\"type\":\"mine\"" + fields
-                        + ",\"createdAt\":\"" + T + "\"}]").get(0), NOW);
+                        + ",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}]").get(0), NOW);
         assertEquals(2, ((List<?>) mine.apply("").data().get("orders")).size());
         assertEquals(1, ((List<?>) mine.apply(",\"characterName\":\"alt\"").data().get("orders")).size());
         assertEquals(1, ((List<?>) mine.apply(",\"character\":11").data().get("orders")).size());
@@ -197,7 +198,7 @@ class ExchangeSiteTest {
         java.nio.file.Path req = in.resolve(ExchangeSite.REQUESTS);
         ExchangeService.Runner r = new ExchangeService.Runner(ex, in, out, () -> NOW);
         assertFalse(r.inboxChanged(), "no file yet");
-        String preview = "{\"id\":\"p\",\"account\":1,\"type\":\"preview\",\"characterName\":\"Silvia\",\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"createdAt\":\"" + T + "\"}";
+        String preview = "{\"id\":\"p\",\"account\":1,\"type\":\"preview\",\"characterName\":\"Silvia\",\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}";
         java.nio.file.Files.writeString(req, "[" + preview + "]");
         assertTrue(r.inboxChanged());
         r.quickSafely();
@@ -210,7 +211,7 @@ class ExchangeSiteTest {
         r.quickSafely();
         assertEquals(before, java.nio.file.Files.getLastModifiedTime(resp).toMillis(), "no change, no work");
 
-        String confirm = "{\"id\":\"c\",\"account\":1,\"type\":\"confirm\",\"token\":\"" + token + "\",\"createdAt\":\"" + T + "\"}";
+        String confirm = "{\"id\":\"c\",\"account\":1,\"type\":\"confirm\",\"token\":\"" + token + "\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}";
         java.nio.file.Files.writeString(req, "[" + preview + "," + confirm + "]");
         r.quickSafely();
         assertEquals(1, ex.openOrders());
@@ -231,8 +232,8 @@ class ExchangeSiteTest {
         java.nio.file.Files.createDirectories(in);
         java.nio.file.Path req = in.resolve(ExchangeSite.REQUESTS);
         ExchangeService.Runner r = new ExchangeService.Runner(ex, in, out, () -> NOW);
-        String a = "{\"id\":\"a\",\"account\":1,\"type\":\"book\",\"createdAt\":\"" + T + "\"}";
-        String b = "{\"id\":\"b\",\"account\":1,\"type\":\"book\",\"createdAt\":\"" + T + "\"}";
+        String a = "{\"id\":\"a\",\"account\":1,\"type\":\"book\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}";
+        String b = "{\"id\":\"b\",\"account\":1,\"type\":\"book\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}";
         java.nio.file.Files.writeString(req, "[" + a + "]");
         java.nio.file.attribute.FileTime stamp = java.nio.file.attribute.FileTime.fromMillis(NOW);
         java.nio.file.Files.setLastModifiedTime(req, stamp);

@@ -31,6 +31,11 @@ import java.util.Map;
  *   {"schema":1,"generated_at":...,"halted":false,"rate":{"mesos_per_1000nx":1180000|null,"window_hours":24,
  *     "min_fills":3},"bids":[{"price":..,"nx":..,"orders":..}],"asks":[...],"trades":[{"t":..,"price":..,"nx":..}]}
  * </pre>
+ * Stolen-cookie guard (1.6.1, owner 2026-10-29; {@link NxGuard}): preview, confirm, cancel and mine carry
+ * {@code "siteAuthAt"} (epoch ms of the player's last real site sign-in), refused REAUTH when missing, over 12 h old
+ * or in the future; NX orders outside the band around the official rate are refused PRICE_BAND (data minPrice,
+ * maxPrice, rate); NX sold through the site is capped per account per 24 h, LIMIT_NX_DAY (data capNx, usedNx, leftNx).
+ * <p>
  * Each request id is answered once. A request older than {@link #MAX_AGE_MS} is answered STALE and not acted on,
  * so a backlog after downtime never places orders the player gave up on. Places are idempotent by request id even
  * across restarts (the id is stored on the order). Error codes: BAD_REQUEST, STALE, HALTED, UNAVAILABLE,
@@ -80,9 +85,22 @@ public final class ExchangeSite {
     /** One parsed request; {@code error} non-null when it could not be read (answered BAD_REQUEST). */
     public record Request(String id, long account, Type type, long character, OrderBook.Side side, long price,
                           long nx, long orderId, long createdAt, String error, String token, String characterName,
-                          String ticker) {
+                          String ticker, Long siteAuthAt) {
         public Request {
             ticker = Ticker.norm(ticker) == null ? Ticker.NX : Ticker.norm(ticker);
+        }
+
+        /** Without a site sign-in time (refused REAUTH where one is needed, unless the check is off). */
+        public Request(String id, long account, Type type, long character, OrderBook.Side side, long price, long nx,
+                       long orderId, long createdAt, String error, String token, String characterName, String ticker) {
+            this(id, account, type, character, side, price, nx, orderId, createdAt, error, token, characterName, ticker,
+                    null);
+        }
+
+        /** The same request signed in at {@code at} (tests). */
+        public Request signedInAt(Long at) {
+            return new Request(id, account, type, character, side, price, nx, orderId, createdAt, error, token,
+                    characterName, ticker, at);
         }
 
         public Request(String id, long account, Type type, long character, OrderBook.Side side, long price, long nx,
@@ -120,6 +138,7 @@ public final class ExchangeSite {
             Long account = num(r.get("account"));
             Type type = Type.parse(r.get("type"));
             Long created = time(r.get("createdAt"));
+            Long authAt = r.get("siteAuthAt") == null ? null : time(r.get("siteAuthAt"));
             String ticker = r.get("ticker") == null ? Ticker.NX
                     : r.get("ticker") instanceof String s && s.matches("[A-Za-z]{1,8}") ? s : null;
             String err = account == null || account <= 0 ? "account" : type == null ? "type"
@@ -162,9 +181,30 @@ public final class ExchangeSite {
                 orderId = o == null ? 0 : o;
             }
             out.add(new Request(id, account == null ? 0 : account, type, character, side, price, nx, orderId,
-                    created == null ? 0 : created, err, token, charName, ticker));
+                    created == null ? 0 : created, err, token, charName, ticker, authAt));
         }
         return out;
+    }
+
+    /**
+     * 1.6.1 stolen-cookie guard (owner 2026-10-29): a request that acts for the account (preview, confirm, cancel,
+     * mine; also the retired place) must carry {@code siteAuthAt}, the player's last real sign-in on the site (epoch ms
+     * or ISO-8601), no older than {@link NxGuard#siteAuthMaxMs} (12 h) and not more than {@link NxGuard#SKEW_MS} in the
+     * future; else REAUTH. Book and trades are public and need none. Off with {@code siteAuthMaxHours=0}.
+     */
+    static Exchange.Response reauth(Exchange ex, Request r, long now) {
+        long max = ex.guard().siteAuthMaxMs();
+        if (max <= 0 || r.type() == Type.BOOK || r.type() == Type.TRADES) {
+            return null;
+        }
+        Long at = r.siteAuthAt();
+        if (at != null && at <= now + NxGuard.SKEW_MS && now - at <= max) {
+            return null;
+        }
+        long hours = max / 3_600_000L;
+        return new Exchange.Response(r.id(), false, "REAUTH", "sign in again on the site (your last sign-in was "
+                + (at == null ? "not sent" : at > now ? "in the future" : "over " + hours + " hours ago") + ")",
+                Map.of("maxAgeHours", hours));
     }
 
     /** Answers one request against the exchange. */
@@ -174,6 +214,10 @@ public final class ExchangeSite {
         }
         if (now - r.createdAt() > MAX_AGE_MS) {
             return new Exchange.Response(r.id(), false, "STALE", "request too old; send it again", Map.of());
+        }
+        Exchange.Response reauth = reauth(ex, r, now);
+        if (reauth != null) {
+            return reauth;
         }
         long character = r.character();
         if (r.type() == Type.PREVIEW || r.type() == Type.PLACE || r.type() == Type.MINE) {
@@ -193,7 +237,7 @@ public final class ExchangeSite {
         return switch (r.type()) {
             case PLACE -> new Exchange.Response(r.id(), false, "BAD_REQUEST", "use preview then confirm", Map.of());
             case PREVIEW -> ex.preview(new Exchange.Place(r.id(), r.account(), resolved, r.side(), r.price(),
-                    r.nx(), r.ticker()));
+                    r.nx(), r.ticker()), true);
             case CONFIRM -> ex.confirm(r.id(), r.account(), r.token());
             case CANCEL -> ex.cancel(r.id(), r.account(), r.orderId());
             case MINE -> {
