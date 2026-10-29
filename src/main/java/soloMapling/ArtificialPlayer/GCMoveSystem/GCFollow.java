@@ -189,8 +189,9 @@ final class GCFollow {
         return ok -> {
             if (!ok && target.getMapId() == destMap && s.blockedDest != destMap) {
                 s.blockedDest = destMap;
-                tellOwnerOnce(s, target, bot.getName() + " can't walk to where you are and waits here."
-                        + " Use @botme here to bring your alts to you.");
+                // 1.6.1 ticket 13: OwnedAltCompanion catches it up a few seconds later (boats, dead ends)
+                tellOwnerOnce(s, target, bot.getName() + " can't walk to where you are and catches up with you"
+                        + " in a few seconds.");
             }
         };
     }

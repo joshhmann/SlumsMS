@@ -16,7 +16,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 // Makes a bot visibly take damage from mobs - contact/touch damage and fall damage - with organic
 // knockback and a broadcast hurt packet. Since real bots 08 the hit comes off the bot's HP (BotVitals,
-// which pots), but never below 1: bots still do not die. Extracted and trimmed from GreenCatMS's BotCombatManager (HP loss,
+// which pots), but never below 1: bots still do not die (rare BotDeaths aside; an owned alt dies like a player, 1.6.1). Extracted and trimmed from GreenCatMS's BotCombatManager (HP loss,
 // death/revive, danger-assessment, and the STANCE knockback roll all removed) and rebound from the
 // donor's BotEntry onto this package's BotMovementState. Credit: NutNNut.
 //
@@ -70,9 +70,8 @@ final class BotContactDamage {
     // Per bot per tick: if a hostile mob is touching the bot, apply a hit. LOD-gated (skips entirely
     // when no real player shares the bot's map) and i-frame-gated. Called from GCMovementDriver.tick.
     static void tickMobDamage(BotMovementState entry, Character bot) {
-        if (bot.isOwnedAlt()) {
-            return; // 1.6.0.4: an owned alt's HP, potions and life are its own; the movement driver never hurts it
-        }
+        // 1.6.1 ticket 13: an owned alt is hit like any bot on screen - off its own HP, its own potions, and a lethal hit
+        // kills it (BotVitals.hurt). (1.6.0.4 had it untouchable while alts could not fight back.)
         if (soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.isDead(bot.getId())) {
             return; // 1.5.0 rc3: lying dead
         }
@@ -115,7 +114,10 @@ final class BotContactDamage {
     private static void applyMobHit(BotMovementState entry, Character bot, Monster mob) {
         int dmg = MobContactDamage.roll(bot, mob.getPADamage());
         MobHitKnockback kb = resolveMobHitKnockback(bot.getPosition(), mob.getPosition());
-        if (dmg > 0) {
+        if (bot.isOwnedAlt()) {
+            // 1.6.1 ticket 13: counted, and the mob becomes its party's fight (no idle relocation, no bot affinity)
+            soloMapling.companions.OwnedAltCompanion.tookHit(bot, mob, dmg);
+        } else if (dmg > 0) {
             entry.lastContactHitFromX = mob.getPosition() != null ? mob.getPosition().x : bot.getPosition().x;
             entry.lastContactHitMs = System.currentTimeMillis(); // 1.5.0 rc3: the grind steps back after a knockback
             IdleSafety.onHit(entry, bot, mob); // idle and hit: relocate as soon as it lands (1.4.2)
@@ -130,7 +132,7 @@ final class BotContactDamage {
     // BotPhysicsEngine's landing transition.
     static void applyFallDamage(BotMovementState entry, Character bot, float fallDistancePx) {
         if (bot.isOwnedAlt()) {
-            return; // 1.6.0.4: as tickMobDamage
+            return; // 1.6.0.4: an owned alt takes no fall damage from the movement engine's physics (mobs only)
         }
         if (!GCMovement.isMapObserved(bot.getMapId())) {
             return;

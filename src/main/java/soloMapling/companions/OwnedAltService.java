@@ -37,6 +37,8 @@ public final class OwnedAltService {
         default void bringHere(Character owner, Character alt) {}
         /** 1.6.0.4: whether this owner's bot friend (a recruited follower, not an alt) has this name. */
         default boolean botFriendNamed(int ownerId, String name) { return false; }
+        /** 1.6.1 ticket 13: the alt is out: its companion driver takes it (fight, loot, death, the activity gate). */
+        default void started(Character owner, Character alt) {}
     }
     private enum State { LOADING, ACTIVE, SAVING, FAILED, LOGIN }
     private static final class Entry {
@@ -163,6 +165,7 @@ public final class OwnedAltService {
                 backend.attach(owner, alt);
                 entry.state = State.ACTIVE;
                 audit(entry, "loaded alt=" + row.id);
+                backend.started(owner, alt); // 1.6.1 ticket 13: the companion driver (fight, loot, death, gate)
             }
             return alt;
         } catch (RuntimeException e) {
@@ -385,6 +388,62 @@ public final class OwnedAltService {
             moved.add(alt.getName());
         }
         return moved;
+    }
+
+    /** 1.6.1 ticket 13: an alt out in the world with its owner (the companion driver's view). */
+    public record Active(Character owner, Character alt) {}
+
+    /** 1.6.1 ticket 13: every alt that is out and not being loaded or saved, with its owner. */
+    public synchronized List<Active> active() {
+        List<Active> out = new ArrayList<>();
+        entries.values().forEach(e -> {
+            if (e.state == State.ACTIVE && e.owner != null && e.alt != null) out.add(new Active(e.owner, e.alt));
+        });
+        return out;
+    }
+
+    /** 1.6.1 ticket 13: true while this alt is out and not being saved. */
+    public synchronized boolean isActive(Character alt) {
+        Entry e = alt == null ? null : entries.get(alt.getId());
+        return e != null && e.alt == alt && e.state == State.ACTIVE;
+    }
+
+    /**
+     * 1.6.1 ticket 13: the alt died (and respawned in town): save it and send it home, as @dismiss does, off the
+     * calling thread; the owner hears {@code line}. It waits there until it is called again.
+     */
+    public void sendHomeAfterDeath(Character alt, String line) {
+        runAsync(() -> {
+            Entry entry;
+            synchronized (this) {
+                entry = entries.get(alt.getId());
+                if (entry == null || entry.alt != alt || entry.state != State.ACTIVE) return;
+            }
+            try {
+                finish(alt.getId(), false);
+                entry.owner.yellowMessage(line);
+            } catch (RuntimeException e) {
+                entry.owner.yellowMessage(e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * 1.6.1 ticket 13: an alt left behind (a boat, a dead end) is put down beside its owner, as @botme here does.
+     * Same channel, never into or out of an instance. True when it moved.
+     */
+    public boolean catchUp(Character owner, Character alt) {
+        if (owner == null || alt == null || owner.getMap() == null) return false;
+        if (owner.getEventInstance() != null || owner.getMap().getEventInstance() != null || alt.getEventInstance() != null)
+            return false;
+        if (alt.getClient() == null || owner.getClient() == null
+                || alt.getClient().getChannel() != owner.getClient().getChannel()) return false;
+        synchronized (this) {
+            Entry e = entries.get(alt.getId());
+            if (e == null || e.alt != alt || e.state != State.ACTIVE || !ownedBy(e, owner)) return false;
+            backend.bringHere(owner, alt);
+        }
+        return true;
     }
 
     public final class LoginLease implements AutoCloseable {

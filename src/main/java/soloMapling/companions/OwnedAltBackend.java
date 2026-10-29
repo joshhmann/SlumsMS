@@ -101,7 +101,11 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
         Trade.cancelTrade(alt, Trade.TradeResult.PARTNER_CANCEL);
         alt.saveOwnedAltToDB();
     }
+    @Override public void started(Character owner, Character alt) {
+        OwnedAltCompanion.start();
+    }
     @Override public void detach(Character alt) {
+        OwnedAltCompanion.forget(alt); // 1.6.1 ticket 13: the driver lets go first (no move after the disable below)
         GCMovement.disable(alt); // 1.6.0.4: stop following/travelling before the alt leaves its map and channel
         alt.setDisconnectedFromChannelWorld();
         if (alt.getEventInstance() != null) alt.getEventInstance().playerDisconnected(alt);

@@ -91,6 +91,8 @@ public final class TakeDamageHandler extends AbstractPacketHandler {
                     if (attacker.isBuffed(MonsterStatus.NEUTRALISE)) {
                         return;
                     }
+                    // 1.6.1 ticket 13: a mob that hits a player with alts out becomes their party's fight
+                    soloMapling.companions.OwnedAltCombat.noteHit(chr, attacker, System.currentTimeMillis());
 
                     List<loseItem> loseItems;
                     if (damage > 0) {

@@ -123,8 +123,8 @@ public final class BotWeapons {
      * a shield the new weapon cannot be held with. Returns whether it changed the weapon.
      */
     public static boolean ensureFittingWeapon(Character bot) {
-        if (bot == null) {
-            return false;
+        if (bot == null || bot.isOwnedAlt()) {
+            return false; // 1.6.1 ticket 13: an owned alt fights with the weapon its player gave it (no item appears)
         }
         Item held = bot.getInventory(InventoryType.EQUIPPED).getItem(WEAPON_SLOT);
         if (fits(bot.getJob(), held != null ? held.getItemId() : 0)) {

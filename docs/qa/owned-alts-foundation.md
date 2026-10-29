@@ -98,3 +98,10 @@ failure/retry, cleanup retry without another save, the actual character SQL tran
 commands, population exclusions, friend capacity and real-inventory trade receipt/cancellation. They do not
 replace MySQL integration, the 50-cycle TEST exercise, or a real-client look. Trade acceptance/offer and PQ play
 need the subsequent companion drivers before end-to-end testing is possible.
+
+## 1.6.1: full alts (ticket 13, branch 161-alts)
+
+Fighting, looting, damage and death and the activity gate are built: `OwnedAltCompanion` (the 200 ms driver),
+`OwnedAltCombat` (targets, KS rules), `OwnedAltLoot` (loot rules, own bag), `OwnedAltGate` (the gate). The rules,
+the auto-QA additions to t-oa-1 and the player notes are in [`docs/tickets/13-owned-alt-bots.md`](../tickets/13-owned-alt-bots.md).
+Alts still do not trade automatically, take formations or play PQ worker roles.

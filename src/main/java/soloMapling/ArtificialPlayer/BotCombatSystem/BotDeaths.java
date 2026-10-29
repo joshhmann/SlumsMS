@@ -158,11 +158,14 @@ public final class BotDeaths {
             // the pose is presentation only
         }
         // One line per death so a soak can count them (the world cap is WORLD_PER_10_MIN).
-        log.info("[BotDeaths] {} (lv {}) died on map {}", bot.getName(), bot.getLevel(), bot.getMapId());
-        try {
-            soloMapling.worldevents.WorldEvents.getInstance().onBotDied(bot); // 1.6.0: counted at a world event
-        } catch (RuntimeException ignored) {
-            // flavor only
+        log.info("[BotDeaths] {}{} (lv {}) died on map {}", bot.getName(), bot.isOwnedAlt() ? " (owned alt)" : "",
+                bot.getLevel(), bot.getMapId());
+        if (!bot.isOwnedAlt()) { // 1.6.1 ticket 13: an owned alt's death is its player's, not a population count
+            try {
+                soloMapling.worldevents.WorldEvents.getInstance().onBotDied(bot); // 1.6.0: counted at a world event
+            } catch (RuntimeException ignored) {
+                // flavor only
+            }
         }
         if (QaLog.on(QaLog.Topic.HABITS)) {
             QaLog.map(QaLog.Topic.HABITS, bot.getMapId(), "DEATH " + bot.getName() + " (lv " + bot.getLevel()
