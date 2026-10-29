@@ -108,6 +108,9 @@ public final class NavSkillCast {
      * cannot: the caller walks instead.
      */
     static boolean pay(Character bot, BotNavigationGraph.EdgeType type) {
+        if (bot.isOwnedAlt()) {
+            return false; // 1.6.0.4: an owned alt walks; it never spends its own MP or potions on movement skills
+        }
         if (!affordable(bot, type)) {
             refused.incrementAndGet();
             return false;

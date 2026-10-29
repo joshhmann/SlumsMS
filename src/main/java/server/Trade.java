@@ -571,6 +571,12 @@ public class Trade {
     }
 
     public static void inviteTrade(Character c1, Character c2) {
+        String altRefusal = soloMapling.companions.OwnedAltService.interactionRefusal(c1, c2, "trade");
+        if (altRefusal != null) { // 1.6.0.4: an owned alt never answers, so the invite would stay pending on it
+            c1.message(altRefusal);
+            cancelTrade(c1, TradeResult.NO_RESPONSE);
+            return;
+        }
         if (client.GmGiving.blocksTrade(c1.isGM(), c2.isGM())) { // ticket 43
             c1.message(c1.isGM() ? "GM characters cannot trade with players." : "You cannot trade with a GM character.");
             log.info("Blocked a trade between {} and {}: GM and non-GM (-D{}=true allows it)", c1.getName(),

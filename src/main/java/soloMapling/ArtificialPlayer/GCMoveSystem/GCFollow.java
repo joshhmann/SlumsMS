@@ -34,11 +34,13 @@ final class GCFollow {
 
     private static final Map<Integer, Session> SESSIONS = new ConcurrentHashMap<>();
 
-    private static final class Session {
+    static final class Session {
         final Character bot;
         final Character target;
         ScheduledFuture<?> task;
         int travelDest = -1; // map the current follow-travel is heading to (-1 = not traveling)
+        volatile int blockedDest = -1; // 1.6.0.4 owned alt: the owner's map it cannot walk to (not retried)
+        volatile boolean toldWaiting;  // 1.6.0.4 owned alt: the owner has heard why it waits (once until it catches up)
 
         Session(Character bot, Character target) {
             this.bot = bot;
@@ -83,6 +85,52 @@ final class GCFollow {
         return s == null ? null : s.target;
     }
 
+    /*
+     * 1.6.0.4 (P0): where an owned alt may not follow its owner. An alt goes only where it is itself a member: never
+     * into an event instance (PQ, boss, event map) it was not entered into with the party, and never onto a map the
+     * owner reached through one. Same map id is not enough there - an instance map shares its id with the public map.
+     * Null = free to follow.
+     */
+    static String altBlockReason(Character alt, Character owner) {
+        var altEim = alt.getEventInstance();
+        var ownerEim = owner.getEventInstance();
+        var ownerMap = owner.getMap();
+        var mapEim = ownerMap == null ? null : ownerMap.getEventInstance();
+        if (ownerEim != altEim || (mapEim != null && mapEim != altEim)) {
+            return alt.getName() + " waits outside: alts can't follow you into an instance they did not enter with you.";
+        }
+        if (alt.getMapId() == owner.getMapId() && alt.getMap() != ownerMap) {
+            return alt.getName() + " waits outside: alts can't follow you into an instance they did not enter with you.";
+        }
+        return null;
+    }
+
+    /* The alt stands where it is (no travel, no same-map tailing) and the owner hears why, once per map. */
+    private static void waitHere(Session s, Character bot, Character target, String why) {
+        if (GCMovement.isTraveling(bot)) {
+            GCTravel.cancel(bot);
+        }
+        s.travelDest = -1;
+        GCMovement.pauseFollowForTravel(bot);
+        int dest = target.getMapId();
+        if (s.blockedDest != dest) {
+            s.blockedDest = dest;
+            tellOwnerOnce(s, target, why);
+        }
+    }
+
+    private static void tellOwnerOnce(Session s, Character owner, String message) {
+        if (s.toldWaiting) {
+            return;
+        }
+        s.toldWaiting = true;
+        try {
+            owner.yellowMessage(message);
+        } catch (RuntimeException ignored) {
+            // the owner is mid logout; the alt is about to be saved and removed anyway
+        }
+    }
+
     private static void tick(Session s) {
         if (BotShutdown.isQuiesced()) {
             cancel(s.bot); // Ticket 09: a follower must not travel after the gate has closed
@@ -96,12 +144,22 @@ final class GCFollow {
             return;
         }
 
+        if (bot.isOwnedAlt()) {
+            String blocked = altBlockReason(bot, target);
+            if (blocked != null) {
+                waitHere(s, bot, target, blocked);
+                return;
+            }
+        }
+
         if (bot.getMapId() == target.getMapId()) {
             // Same map: cancel any in-flight travel and let the 50 ms driver tail the target.
             if (GCMovement.isTraveling(bot)) {
                 GCTravel.cancel(bot);
             }
             s.travelDest = -1;
+            s.blockedDest = -1;
+            s.toldWaiting = false;
             GCMovement.armSameMapFollow(bot, target);
             return;
         }
@@ -109,14 +167,32 @@ final class GCFollow {
         // Different map: pause same-map follow and travel to the target's map.
         GCMovement.pauseFollowForTravel(bot);
         int destMap = target.getMapId();
+        if (bot.isOwnedAlt() && s.blockedDest == destMap) {
+            return; // 1.6.0.4: told once already; wait here until the owner moves somewhere it can walk to
+        }
         if (!GCMovement.isTraveling(bot)) {
             s.travelDest = destMap;
-            GCTravel.travel(bot, destMap, null);
+            GCTravel.travel(bot, destMap, altGaveUp(s, bot, target, destMap));
         } else if (s.travelDest != destMap) {
             // Target moved to a different map mid-travel — redirect the chase.
             GCTravel.cancel(bot);
             s.travelDest = destMap;
-            GCTravel.travel(bot, destMap, null);
+            GCTravel.travel(bot, destMap, altGaveUp(s, bot, target, destMap));
         }
+    }
+
+    /* 1.6.0.4: an owned alt's trip that gave up (no walking route) marks that map so it waits instead of retrying. */
+    static java.util.function.Consumer<Boolean> altGaveUp(Session s, Character bot, Character target, int destMap) {
+        if (!bot.isOwnedAlt()) {
+            return null; // population followers unchanged
+        }
+        return ok -> {
+            if (!ok && target.getMapId() == destMap && s.blockedDest != destMap) {
+                s.blockedDest = destMap;
+                // 1.6.1 ticket 13: OwnedAltCompanion catches it up a few seconds later (boats, dead ends)
+                tellOwnerOnce(s, target, bot.getName() + " can't walk to where you are and catches up with you"
+                        + " in a few seconds.");
+            }
+        };
     }
 }

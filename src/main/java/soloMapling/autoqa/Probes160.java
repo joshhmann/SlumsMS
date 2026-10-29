@@ -283,6 +283,21 @@ final class Probes160 {
             if (!inParty) {
                 bad.add(ALT_A + " is not in " + gm.getName() + "'s party");
             }
+            // 1.6.0.4: the alt follows its owner, and through a portal when the owner changes map
+            boolean following = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isFollowing(alt)
+                    && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.followTarget(alt) == gm;
+            out.add(ALT_A + " follows " + gm.getName() + "=" + following);
+            if (!following) {
+                bad.add(ALT_A + " is not following " + gm.getName() + " after @botme");
+            } else {
+                String portal = followThroughPortal(gm, alt, out);
+                if (portal != null) {
+                    bad.add(portal);
+                }
+            }
+            // 1.6.1 ticket 13 (full alts): the core promise, not just the setup - a mob hits the alt, the alt fights
+            // what its owner hits and damages it, loots a party drop into its own bag, and stops when its owner idles
+            bad.addAll(altFightsLootsAndStops(p, gm, alt, out));
             String dup = sayAndHear(p, "@botme " + ALT_A, "(?i)already online|has joined you", 8000);
             out.add("@botme " + ALT_A + " again: " + dup);
             if (dup == null || !dup.contains("already online")) {
@@ -338,7 +353,9 @@ final class Probes160 {
             if (saved != marker) {
                 bad.add(ALT_A + "'s mesos were not saved (database " + saved + ", want " + marker + ")");
             }
-            out.add("following the owner to another map is not built yet (ticket 13 defers movement): not judged");
+            if (soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isEnabled(alt)) {
+                bad.add(ALT_A + " still has a movement driver after @dismiss");
+            }
         } finally {
             for (int id : reserved) {
                 svc.releaseCompanion(id);
@@ -352,11 +369,221 @@ final class Probes160 {
                 gm.leaveParty();
             }
             if (gm.getMapId() != homeMap) {
-                out.add("owner moved from " + homeMap + " to " + gm.getMapId());
+                out.add("owner moved from " + homeMap + " to " + gm.getMapId() + "; back home");
+                gm.changeMap(homeMap);
             }
         }
-        return verdict(bad, ALT_A + " joins the party on the owner's map, a repeat is refused, the cap of 5 holds,"
-                + " @dismiss saves and removes it", out);
+        return verdict(bad, ALT_A + " joins the party on the owner's map and follows, through a portal too; on a field a"
+                + " mob hits it, it damages the mob its owner hits, loots a party drop into its own bag and stops while its"
+                + " owner idles; a repeat is refused, the cap of 5 holds, @dismiss saves and removes it", out);
+    }
+
+    /** t-oa-1 (1.6.1): the field the fight checks run on (Henesys Hunting Ground I: a field, not a town). */
+    static final int ALT_FIELD = 104_040_000;
+    /** A Blue Snail: weak, and slow enough to land a touch before the alt kills it. */
+    static final int ALT_MOB = 100_101;
+    /** Snail Shell: the staged party drop the alt must pick up. */
+    static final int ALT_LOOT = 4_000_019;
+    /** A beginner's Sword, given to the QA alt once if it holds no weapon (an alt without one cannot fight). */
+    static final int ALT_SWORD = 1_302_000;
+
+    /**
+     * 1.6.1 ticket 13, t-oa-1: on {@link #ALT_FIELD} with its owner, (1) a mob spawned on the alt hits it (HP or the
+     * driver's hit count), (2) a mob the owner hits is attacked and damaged by the alt through the bots' attack system,
+     * (3) a party drop beside it ends up in the alt's own bag, (4) with its owner idle (the gate's QA switch) it does not
+     * swing at a mob its owner hits, and swings again once its owner is active. Failures, evidence in {@code out}.
+     */
+    static List<String> altFightsLootsAndStops(SyntheticPlayer p, Character gm, Character alt, List<String> out)
+            throws InterruptedException {
+        List<String> bad = new ArrayList<>();
+        server.maps.MapleMap field = gm.getClient().getChannelServer().getMapFactory().getMap(ALT_FIELD);
+        if (field == null || field.isTown()) {
+            out.add("fight checks: map " + ALT_FIELD + " missing or a town - not judged");
+            return bad;
+        }
+        gm.changeMap(field, field.getRandomPlayerSpawnpoint());
+        try {
+            OwnedAltService.getInstance().bringHere(gm);
+        } catch (IllegalStateException e) {
+            bad.add("@botme here onto the field failed: " + e.getMessage());
+            return bad;
+        }
+        if (alt.getMap() != gm.getMap()) {
+            bad.add(ALT_A + " is not on the field " + ALT_FIELD + " with its owner");
+            return bad;
+        }
+        if (alt.getInventory(InventoryType.EQUIPPED).getItem((short) -11) == null) {
+            Item sword = ItemInformationProvider.getInstance().getEquipById(ALT_SWORD);
+            sword.setPosition((short) -11);
+            alt.getInventory(InventoryType.EQUIPPED).addItemFromDB(sword);
+            out.add("staging: gave " + ALT_A + " a Sword (" + ALT_SWORD + "), it held no weapon");
+        }
+        alt.updateHp(alt.getCurrentMaxHp());
+        List<server.life.Monster> staged = new ArrayList<>();
+        try {
+            // (1) a mob damages the alt
+            ownerActs(p);
+            long hitsBefore = soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).hitsTaken();
+            int hpBefore = alt.getHp();
+            boolean hurt = false;
+            long start = System.currentTimeMillis();
+            while (!hurt && System.currentTimeMillis() - start < 25_000) {
+                server.life.Monster m = server.life.LifeFactory.getMonster(ALT_MOB);
+                field.spawnMonsterOnGroundBelow(m, new java.awt.Point(alt.getPosition()));
+                staged.add(m);
+                long until = System.currentTimeMillis() + 5_000;
+                while (System.currentTimeMillis() < until && !hurt) {
+                    Thread.sleep(250);
+                    hurt = soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).hitsTaken() > hitsBefore
+                            || alt.getHp() < hpBefore;
+                }
+            }
+            var st = soloMapling.companions.OwnedAltCompanion.stats(alt.getId());
+            out.add("mob on the alt: hits taken " + (st.hitsTaken() - hitsBefore) + ", damage " + st.damageTaken()
+                    + ", HP " + hpBefore + " -> " + alt.getHp());
+            if (!hurt) {
+                bad.add("no mob damaged " + ALT_A + " in 25 s (mobs spawned on it: " + staged.size() + ")");
+            }
+
+            // (2) the alt attacks the mob its owner hits, and damages it
+            ownerActs(p);
+            long swingsBefore = soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).swings();
+            boolean struck = altDamagesOwnersMob(field, gm, alt, staged, 80, 20_000);
+            st = soloMapling.companions.OwnedAltCompanion.stats(alt.getId());
+            out.add("owner hit a mob: " + ALT_A + " damaged it=" + struck + ", swings " + (st.swings() - swingsBefore)
+                    + ", gate " + st.gate());
+            if (!struck) {
+                bad.add(ALT_A + " did not damage the mob its owner hit within 20 s (gate " + st.gate() + ")");
+            }
+
+            // (3) a party drop beside the alt goes into its own bag
+            ownerActs(p);
+            int shellsBefore = alt.getInventory(InventoryType.ETC).countById(ALT_LOOT);
+            long lootsBefore = soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).loots();
+            field.spawnItemDrop(gm, gm, new Item(ALT_LOOT, (short) 0, (short) 1),
+                    new java.awt.Point(alt.getPosition().x + 30, alt.getPosition().y), (byte) 1, false);
+            boolean looted = false;
+            start = System.currentTimeMillis();
+            while (!looted && System.currentTimeMillis() - start < 15_000) {
+                Thread.sleep(250);
+                looted = alt.getInventory(InventoryType.ETC).countById(ALT_LOOT) > shellsBefore;
+            }
+            out.add("party drop: " + ALT_A + " Snail Shells " + shellsBefore + " -> "
+                    + alt.getInventory(InventoryType.ETC).countById(ALT_LOOT) + ", pickups "
+                    + (soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).loots() - lootsBefore));
+            if (!looted) {
+                bad.add(ALT_A + " did not pick up the party drop into its own bag within 15 s");
+            }
+
+            // (4) the activity gate: its owner idle, it does not fight; active again, it does
+            server.life.Monster idleMob = server.life.LifeFactory.getMonster(ALT_MOB);
+            field.spawnMonsterOnGroundBelow(idleMob, new java.awt.Point(gm.getPosition().x - 80, gm.getPosition().y));
+            staged.add(idleMob);
+            soloMapling.companions.OwnedAltGate.forceIdleForQa(gm.getId(), true);
+            try {
+                Thread.sleep(600); // a driver tick sees the idle owner and stands down
+                long idleSwings = soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).swings();
+                field.damageMonster(gm, idleMob, 1);
+                Thread.sleep(5_000);
+                st = soloMapling.companions.OwnedAltCompanion.stats(alt.getId());
+                Long onIdleMob = idleMob.damageSnapshot().get(alt.getId());
+                out.add("owner idle: gate " + st.gate() + ", swings in 5 s " + (st.swings() - idleSwings)
+                        + ", damage on the owner's mob " + (onIdleMob == null ? 0 : onIdleMob));
+                if (!"OWNER_IDLE".equals(st.gate())) {
+                    bad.add("the gate did not close for an idle owner (gate " + st.gate() + ")");
+                }
+                if (st.swings() > idleSwings || onIdleMob != null && onIdleMob > 0) {
+                    bad.add(ALT_A + " kept fighting while its owner was idle");
+                }
+            } finally {
+                soloMapling.companions.OwnedAltGate.forceIdleForQa(gm.getId(), false);
+            }
+            ownerActs(p);
+            boolean resumed = altDamagesOwnersMob(field, gm, alt, staged, -80, 20_000);
+            out.add("owner active again: " + ALT_A + " fights again=" + resumed);
+            if (!resumed) {
+                bad.add(ALT_A + " did not fight again once its owner was active");
+            }
+        } finally {
+            for (server.life.Monster m : staged) {
+                if (m.isAlive() && field.getMonsterByOid(m.getObjectId()) != null) {
+                    field.killMonster(m, gm, false);
+                }
+            }
+        }
+        return bad;
+    }
+
+    /**
+     * t-oa-1: a mob is spawned {@code dx} px beside the owner and the owner hits it; true once the alt has damaged it
+     * within {@code maxMs}. A population bot may kill the staged mob first: then another one is staged.
+     */
+    private static boolean altDamagesOwnersMob(server.maps.MapleMap field, Character gm, Character alt,
+                                               List<server.life.Monster> staged, int dx, long maxMs)
+            throws InterruptedException {
+        long start = System.currentTimeMillis();
+        server.life.Monster m = null;
+        while (System.currentTimeMillis() - start < maxMs) {
+            if (m == null || !m.isAlive()) {
+                if (m != null && m.damageSnapshot().getOrDefault(alt.getId(), 0L) > 0) {
+                    return true;
+                }
+                m = server.life.LifeFactory.getMonster(ALT_MOB);
+                field.spawnMonsterOnGroundBelow(m, new java.awt.Point(gm.getPosition().x + dx, gm.getPosition().y));
+                staged.add(m);
+                field.damageMonster(gm, m, 1);
+            }
+            Thread.sleep(250);
+            if (m.damageSnapshot().getOrDefault(alt.getId(), 0L) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The pretend owner "moves": its last player action is now (the gate's idle rule reads it). */
+    private static void ownerActs(SyntheticPlayer p) {
+        SyntheticPlayers.noteReceived(p.client(), RecvOpcode.MOVE_PLAYER);
+    }
+
+    /**
+     * 1.6.0.4 t-oa-1: the owner steps to a neighbouring map (one walkable portal away) and the alt must walk through a
+     * portal after them within 90 s. Null when it did (or no such neighbour exists here: not judged), else the failure.
+     */
+    static String followThroughPortal(Character gm, Character alt, List<String> out) throws InterruptedException {
+        server.maps.MapleMap home = gm.getMap();
+        server.maps.Portal via = null;
+        for (server.maps.Portal pt : home.getPortals()) {
+            int to = pt.getTargetMapId();
+            if (to == 999_999_999 || to == home.getId() || to <= 0) {
+                continue;
+            }
+            List<Integer> r = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.route(alt, to);
+            if (r != null && r.size() == 1 && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.walkable(alt, to)) {
+                via = pt;
+                break;
+            }
+        }
+        if (via == null) {
+            out.add("follow through a portal: no walkable portal out of map " + home.getId() + " - not judged");
+            return null;
+        }
+        server.maps.MapleMap next = gm.getClient().getChannelServer().getMapFactory().getMap(via.getTargetMapId());
+        server.maps.Portal arrival = next.getPortal(via.getTarget());
+        if (arrival != null) {
+            gm.changeMap(next, arrival);
+        } else {
+            gm.changeMap(next);
+        }
+        long start = System.currentTimeMillis();
+        while (System.currentTimeMillis() - start < 90_000 && alt.getMapId() != next.getId()) {
+            Thread.sleep(500);
+        }
+        long took = System.currentTimeMillis() - start;
+        boolean arrived = alt.getMapId() == next.getId();
+        out.add("owner stepped " + home.getId() + " -> " + next.getId() + "; " + ALT_A + " " + (arrived
+                ? "followed through the portal in " + took + " ms" : "is still on map " + alt.getMapId() + " after 90 s"));
+        return arrived ? null : ALT_A + " did not follow its owner through a portal to map " + next.getId() + " in 90 s";
     }
 
     // ── t-tw-1: busy towns ───────────────────────────────────────────────────────────────────────

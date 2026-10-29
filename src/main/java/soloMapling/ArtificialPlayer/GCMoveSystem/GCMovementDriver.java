@@ -217,7 +217,7 @@ final class GCMovementDriver {
         // Idle safety (1.4.2): a bot about to stand idle - or idling - with live mobs in reach, or hit while idle,
         // walks to a safe spot first. Observed maps only (no contact damage elsewhere); sets a move target that the
         // branches below walk like any other.
-        if (GCMovement.isMapObserved(bot.getMapId())) {
+        if (!bot.isOwnedAlt() && GCMovement.isMapObserved(bot.getMapId())) { // 1.6.0.4: an alt stays by its owner
             IdleSafety.tick(entry, bot);
         }
 

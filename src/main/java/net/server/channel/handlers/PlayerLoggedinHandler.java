@@ -422,6 +422,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
             soloMapling.menus.GuideMenu.onLoginUiTip(player); // 1.6.0.2: one-time Edit UI tip
             soloMapling.achievements.Achievements.onLogin(player); // 1.6.1 ticket 93: medals owed, facts already true
             soloMapling.fishing.StarterChairs.noticeIfWaiting(player);
+            soloMapling.companions.OwnedAltService.getInstance().ownerArrived(player); // 1.6.0.4: "Your alts went home."
             if (newcomer) soloMapling.ArtificialPlayer.SocialInitiative.onPlayerLogin(player); // 1.6.0 S6: friends say hi
 
             player.resetPlayerRates();

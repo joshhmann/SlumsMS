@@ -1023,6 +1023,10 @@ public class World {
             return false;
         }
         boolean changed = true;
+        // 1.6.0.4 (M2): who was in the party before a leave/expel/disband, for the owned-alt check below
+        java.util.List<Integer> memberIdsBefore = operation == PartyOperation.LEAVE || operation == PartyOperation.EXPEL
+                || operation == PartyOperation.DISBAND
+                ? party.getMembers().stream().map(PartyCharacter::getId).toList() : java.util.List.of();
         switch (operation) {
             case JOIN:
                 // The 6-man cap is enforced inside addMember, while the party lock is held: the
@@ -1069,6 +1073,10 @@ public class World {
         }
         if (changed) {
             updateParty(party, operation, target);
+            if (!memberIdsBefore.isEmpty() && target != null) {
+                // an alt out of its owner's party (or an owner out of their alts' party) goes home, saved
+                soloMapling.companions.OwnedAltService.getInstance().onPartyChange(operation, target.getId(), memberIdsBefore);
+            }
         }
         return changed;
     }

@@ -99,6 +99,10 @@ public final class RingActionHandler extends AbstractPacketHandler {
             source.dropMessage(1, "You can't engage yourself.");
             source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
             return;
+        } else if (target.isOwnedAlt()) { // 1.6.0.4: an owned alt never answers, and is no population bot either
+            source.dropMessage(1, soloMapling.companions.OwnedAltService.interactionRefusal(source, target, "answer a proposal"));
+            source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));
+            return;
         } else if (target.getLevel() < 50) {
             source.dropMessage(1, "You can only propose to someone level 50 or higher.");
             source.sendPacket(WeddingPackets.OnMarriageResult((byte) 0));

@@ -22,7 +22,16 @@ final class OwnedAltScenarios {
                     "@dismiss <name> must log one 'save committed' then 'removed'. Log into the alt and compare its progress.",
                     "Repeat summon, owner logout and immediate alt login 50 times. A pending save may refuse login; retry from character selection.",
                     "Summon again, then @dismiss all. No progress after owner logout. Check the log for one final save per dismissal.",
-                    "Movement, combat, formations and automatic trade offers are deferred; this check covers the lifecycle foundation.");
+                    "1.6.0.4: walk through a portal - the alt follows. Enter a PQ without it - it waits outside. @botme here brings it back.",
+                    "1.6.0.4: change channel - 'Your alts went home.' on arrival. Expel the alt from the party - it goes home saved.",
+                    "1.6.1: on a field, hit a mob - your alt walks over and fights it with its own skills (you see its attacks)."
+                            + " It never touches a mob a stranger is fighting, and never fights in town.",
+                    "1.6.1: mobs hit your alt (its HP drops, it drinks its own potions). Let it die once: it loses EXP like a"
+                            + " player, gets up in town and goes home; you are told. Its drops and the party's go into its bag;"
+                            + " a full bag is said once in party chat.",
+                    "1.6.1: stand still 3 minutes - 'Your alts stopped fighting'; move and it joins in again. Take a boat -"
+                            + " it catches up on arrival.",
+                    "Formations and automatic trade offers are deferred.");
         }
     }
 }

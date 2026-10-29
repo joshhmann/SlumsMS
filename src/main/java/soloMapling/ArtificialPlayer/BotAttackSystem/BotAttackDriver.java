@@ -68,6 +68,12 @@ public final class BotAttackDriver {
     // botId -> epoch-ms of its last swing, kept only while the !qa attack log is on (its "gap" field: the cadence a
     // viewer sees, swing to swing).
     private static final Map<Integer, Long> lastSwingAtByBot = new ConcurrentHashMap<>();
+    /*
+     * 1.6.1 ticket 13 (owned alts): mobs a bot may swing at, per bot. An owned alt fights only mobs that are not a
+     * stranger's (OwnedAltCombat), and that holds for every mob an AoE catches, not only the one it walked to. Empty for
+     * every population bot (one map lookup a swing).
+     */
+    private static final Map<Integer, java.util.function.Predicate<Monster>> targetFilters = new ConcurrentHashMap<>();
 
     // Candidate pre-filter radius (px); the per-profile reach box is the hard gate.
     private static final int SEEK_RANGE = 700;
@@ -175,6 +181,7 @@ public final class BotAttackDriver {
         skillReadyByBot.remove(botId);
         extraUsedByBot.remove(botId);
         lastSwingAtByBot.remove(botId);
+        targetFilters.remove(botId);
         BotAranCombo.clearBot(botId);
         BotAttackStats.clear(botId);
         BotComboOrbs.clearBot(botId);
@@ -575,7 +582,7 @@ public final class BotAttackDriver {
         List<Monster> found = new ArrayList<>();
         for (MapObject mo : bot.getMap().getMapObjectsInRange(botPos, SEEK_RANGE_SQ, List.of(MapObjectType.MONSTER))) {
             Monster m = (Monster) mo;
-            if (!m.isAlive() || !botMayTarget(m)) {
+            if (!m.isAlive() || !mayTarget(bot, m)) {
                 continue;
             }
             Point mp = m.getPosition();
@@ -744,6 +751,24 @@ public final class BotAttackDriver {
      *
      * <p>1.6.0: nor a friendly mob (Mob.wz {@code friendly}, e.g. HPQ's Moon Bunny 9300061): the PQ needs it alive.
      */
+    /** 1.6.1 ticket 13: only these mobs may this bot face or hit (null clears it). */
+    public static void setTargetFilter(int botId, java.util.function.Predicate<Monster> filter) {
+        if (filter == null) {
+            targetFilters.remove(botId);
+        } else {
+            targetFilters.put(botId, filter);
+        }
+    }
+
+    /** botMayTarget, and this bot's own filter (an owned alt never touches a stranger's mob). */
+    static boolean mayTarget(Character bot, Monster m) {
+        if (!botMayTarget(m)) {
+            return false;
+        }
+        java.util.function.Predicate<Monster> f = targetFilters.get(bot.getId());
+        return f == null || f.test(m);
+    }
+
     public static boolean botMayTarget(Monster m) {
         return m != null && m.getId() != constants.id.MobId.TRANSPARENT_ITEM
                 && (m.getStats() == null || !m.getStats().isFriendly());
@@ -758,7 +783,7 @@ public final class BotAttackDriver {
         double bestSq = Double.MAX_VALUE;
         for (MapObject mo : bot.getMap().getMapObjectsInRange(botPos, SEEK_RANGE_SQ, List.of(MapObjectType.MONSTER))) {
             Monster m = (Monster) mo;
-            if (!m.isAlive() || m.getPosition() == null || !botMayTarget(m)) {
+            if (!m.isAlive() || m.getPosition() == null || !mayTarget(bot, m)) {
                 continue;
             }
             // Skip mobs on a separate ledge so the bot faces (and later swings at) a mob it can
