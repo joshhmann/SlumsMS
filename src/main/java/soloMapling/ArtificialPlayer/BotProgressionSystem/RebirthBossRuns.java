@@ -478,7 +478,7 @@ public final class RebirthBossRuns {
     static void step(Run r, long now) {
         if (r.phase == Phase.DONE) return;
         for (Character c : r.crew) {
-            if (!c.isLoggedinWorld() || c.getMap() == null) {
+            if (!c.isPresentInWorld()) { // a bot never logs in: isLoggedinWorld dropped every crew at once (b034)
                 r.note(c.getName() + " is gone");
                 drop(r, c);   // out of the run and out of the hold
             }

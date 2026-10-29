@@ -306,7 +306,7 @@ public class EventInstanceManager {
     }
 
     public synchronized void registerPlayer(final Character chr, boolean runEntryScript) {
-        if (chr == null || !chr.isLoggedinWorld() || disposed) {
+        if (chr == null || !chr.isLoggedinWorld() && !chr.isPresentInWorld() || disposed) { // 161-rebirth2: a bot in the world counts
             return;
         }
 
@@ -332,7 +332,7 @@ public class EventInstanceManager {
     }
 
     public void exitPlayer(final Character chr) {
-        if (chr == null || !chr.isLoggedin()) {
+        if (chr == null || !chr.isLoggedin() && !chr.isPresentInWorld()) { // 161-rebirth2: a bot never logs in
             return;
         }
 
