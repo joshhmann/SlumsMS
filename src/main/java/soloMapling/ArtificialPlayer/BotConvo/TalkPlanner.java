@@ -333,11 +333,32 @@ public final class TalkPlanner {
         if (to != null) {
             s.putIfAbsent("name", to.getName());
         }
-        TalkLines.Worded w = TalkLines.line(speaker, to, intent, s, group && intent.move() != Move.ANSWER, pq, met,
-                answering, bankFirst, rng);
+        TalkLines.Worded w = null;
+        for (int tries = 0; tries < ECHO_TRIES; tries++) {
+            w = TalkLines.line(speaker, to, intent, s, group && intent.move() != Move.ANSWER, pq, met,
+                    answering, bankFirst, rng);
+            if (!echoes(p, w.text())) {
+                break;
+            }
+        }
         Step step = new Step(speaker, to, intent, w);
         p.steps.add(step);
         return step;
+    }
+
+    /** Rerolls a line that repeats a recent one (the pools are small, so a few tries nearly always find another). */
+    static final int ECHO_TRIES = 8;
+    /** How many of the talk's latest lines a new line must differ from. */
+    static final int ECHO_WINDOW = 4;
+
+    /** Whether {@code text} says what one of the talk's last {@link #ECHO_WINDOW} lines already said. */
+    static boolean echoes(Plan p, String text) {
+        for (int i = Math.max(0, p.steps.size() - ECHO_WINDOW); i < p.steps.size(); i++) {
+            if (p.steps.get(i).text != null && p.steps.get(i).text.equalsIgnoreCase(text)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** A town's name for the lines ("Ellinia"), or "town". */

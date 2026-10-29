@@ -339,7 +339,7 @@ public final class Exchange {
         Ticker t = tickers.get(p.ticker());
         String limit = limits(p.account(), t, now);
         if (limit != null) {
-            return Response.error(rid, limit, limitMessage(limit, t));
+            return Response.error(rid, limit, limitMessage(limit, t, p.account(), now));
         }
         LiveWallet w = live.find(p.account());
         if (w != null) {
@@ -453,7 +453,7 @@ public final class Exchange {
         Ticker tk = tickers.get(p.ticker());
         String limit = limits(p.account(), tk, now);
         if (limit != null) {
-            return Response.error(rid, limit, limitMessage(limit, tk));
+            return Response.error(rid, limit, limitMessage(limit, tk, p.account(), now));
         }
         LiveWallet w = live.find(p.account());
         if (w != null && w.character() != p.character()) {
@@ -624,11 +624,27 @@ public final class Exchange {
         return (int) Math.min(5_000, n);
     }
 
-    private String limitMessage(String code, Ticker t) {
+    /** Milliseconds until the account may place again (0 when it may). */
+    long cooldownLeftMs(long account, long now) {
+        try {
+            long last = 0;
+            for (OrderRow r : store.ordersOf(account, dayWindow())) {
+                last = Math.max(last, r.placedAt());
+            }
+            return last > 0 ? Math.max(0, config.cooldownMs() - (now - last)) : 0;
+        } catch (StoreException e) {
+            return 0;
+        }
+    }
+
+    private String limitMessage(String code, Ticker t, long account, long now) {
         return switch (code) {
             case "LIMIT_OPEN" -> "at most " + t.maxOpen() + " open " + t.id() + " orders";
             case "LIMIT_DAY" -> "at most " + t.perDay() + " " + t.id() + " orders a day";
-            case "COOLDOWN" -> "wait " + config.cooldownMs() / 1000 + " s between orders";
+            case "COOLDOWN" -> {
+                long left = Math.max(1, (cooldownLeftMs(account, now) + 999) / 1000);
+                yield "wait " + left + " s before your next order (" + config.cooldownMs() / 1000 + " s between orders)";
+            }
             default -> "try again later";
         };
     }
@@ -1314,7 +1330,7 @@ public final class Exchange {
         long now = clock.getAsLong();
         String limit = limits(p.account(), t, now);
         if (limit != null) {
-            return Response.error(rid, limit, limitMessage(limit, t));
+            return Response.error(rid, limit, limitMessage(limit, t, p.account(), now));
         }
         Asset a = p.side() == Side.SELL ? t.asset() : Asset.MESO;
         long amount = p.side() == Side.SELL ? p.nx() : t.buyTotal(config, p.nx(), p.price());

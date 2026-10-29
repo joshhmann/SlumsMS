@@ -93,7 +93,9 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.auto("t-af-2", "A rival bot holds a grudge").minutes(6)
                 // rc6 triage: a KS spree takes only mobs the player has hit; the pretend player fights from here on
-                .step(run("af-2"), qaDo("fight"), qaDo("grudge"), waitFor("AFFINITY (ACT taunt|KS \\S+ takes)", 120),
+                // 2026-10-29: the player was already on HHG2 (an earlier check ended there), so the later warp to it was a
+                // no-op and the rival rightly stayed with the player: start on HHG1 so the warp really changes map
+                .step(say("!warp " + HHG1), waitSeconds(3), run("af-2"), qaDo("fight"), qaDo("grudge"), waitFor("AFFINITY (ACT taunt|KS \\S+ takes)", 120),
                         partyInvite("{bot}"), waitSeconds(10), mark("moved"), say("!warp " + HHG2), waitSeconds(20))
                 .expect(has("AFFINITY (ACT taunt|KS \\S+ takes)"),
                         probe("partyLacks", "{bot}"),
