@@ -31,7 +31,7 @@ pages:
 
   - id: what
     heading: "#e1. What is SlumsMS?#n"
-    body: "SlumsMS is a v83 world built on #bMapleRoot#k: custom jobs and skills, rebirths, the Arcane River and Grandis maps, a 5th tier for every class.\n\nOn top of that the towns are alive. Hundreds of #bregulars#k train, trade, chat, run party quests and come and go through the day."
+    body: "SlumsMS is a custom world: custom jobs and skills, rebirths, the Arcane River and Grandis maps, a 5th tier for every class.\n\nOn top of that the towns are alive. Hundreds of #bregulars#k train, trade, chat, run party quests and come and go through the day."
 
   - id: what2
     heading: ""
@@ -67,7 +67,7 @@ pages:
 
   - id: jobs2
     heading: ""
-    body: "MapleRoot changed many skills: new 4th job attacks, more lines and targets, and some old skills removed (boosters, Steal, Big Bang and others).\n\nWarriors are sword or spear only.\n\n#L{{page:toc}}##bBack to Contents#k#l"
+    body: "Many skills are changed here: new 4th job attacks, more lines and targets, and some old skills removed (boosters, Steal, Big Bang and others).\n\nWarriors are sword or spear only.\n\n#L{{page:toc}}##bBack to Contents#k#l"
 
   - id: rebirth
     heading: "#e6. Rebirths#n"
