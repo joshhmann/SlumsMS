@@ -14,8 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 1.6.1 stolen-cookie guard, the game's side (owner 2026-10-29: both guards): NX orders inside a band around the
- * official rate (a fixed floor before there is one), a cap on NX sold through the site per account per day, and site
- * requests refused unless the player signed in on the site within 12 h.
+ * official rate (a fixed floor and ceiling before there is one) and site
+ * requests refused unless the player signed in on the site within 12 h. No daily caps (owner 2026-10-29).
  */
 class NxGuardTest {
 
@@ -90,7 +90,15 @@ class NxGuardTest {
         assertEquals(100_000, ex.nxBand()[0]);
         assertEquals("PRICE_BAND", place(3, Side.SELL, 1_000, 50_000).code(), "a 1-meso-per-NX dump");
         assertTrue(place(3, Side.SELL, 100_000, 100).ok());
-        assertTrue(place(4, Side.BUY, 50_000_000, 100).ok(), "no rate: buys keep the ticker's range");
+        // TEST 2026-10-29: before a rate a site buy had no ceiling (the ticker's 100m): a stolen session could buy
+        // a thief's NX at any price. Now 2x the NX merchants' 5m per 1,000 NX
+        assertEquals(10_000_000, ex.nxBand()[1]);
+        Response drain = place(4, Side.BUY, 50_000_000, 100);
+        assertEquals("PRICE_BAND", drain.code());
+        assertEquals(10_000_000L, drain.data().get("maxPrice"));
+        assertTrue(drain.message().contains("10,000,000") && drain.message().contains("no official rate"),
+                drain.message());
+        assertTrue(place(4, Side.BUY, 10_000_000, 100).ok());
     }
 
     @Test
@@ -114,13 +122,21 @@ class NxGuardTest {
         assertEquals("OK", ExchangeQa.teardown(ex, w).get("code"));
     }
 
-    // ---------------------------------------------------------------- the site's NX sell cap
+    // ---------------------------------------------------------------- no daily caps (owner 2026-10-29)
 
     Response siteSell(long account, long price, long nx) {
+        return siteOrder(account, "SELL", price, nx);
+    }
+
+    Response siteBuy(long account, long price, long nx) {
+        return siteOrder(account, "BUY", price, nx);
+    }
+
+    Response siteOrder(long account, String side, long price, long nx) {
         now.addAndGet(11_000);
         String created = java.time.Instant.ofEpochMilli(now.get()).toString();
         ExchangeSite.Request pv = ExchangeSite.requests("[{\"id\":\"sp" + (++req) + "\",\"account\":" + account
-                + ",\"type\":\"preview\",\"character\":" + (10 + account) + ",\"side\":\"SELL\",\"price\":" + price
+                + ",\"type\":\"preview\",\"character\":" + (10 + account) + ",\"side\":\"" + side + "\",\"price\":" + price
                 + ",\"nx\":" + nx + ",\"siteAuthAt\":" + (now.get() - H) + ",\"createdAt\":\"" + created + "\"}]")
                 .get(0);
         Response p = ExchangeSite.answer(ex, pv, now.get());
@@ -134,33 +150,15 @@ class NxGuardTest {
     }
 
     @Test
-    void theSiteSellsAtMostTheDaysCapOfNxPerAccount() {
-        Response a = siteSell(3, 1_000_000, 6_000);
-        assertTrue(a.ok(), a.toString());
-        Response b = siteSell(3, 1_000_000, 4_000);
-        assertTrue(b.ok(), b.toString());
-        Response over = siteSell(3, 1_000_000, 100);
-        assertEquals("LIMIT_NX_DAY", over.code());
-        assertEquals(10_000L, over.data().get("capNx"));
-        assertEquals(10_000L, over.data().get("usedNx"));
-        // another account has its own cap; the game's @nx is not counted
-        assertTrue(siteSell(4, 1_000_000, 10_000).ok());
-        now.addAndGet(11_000);
-        Response game = ex.preview(new Place("ig", 3, 13, Side.SELL, 1_000_000, 100, "NX"));
-        assertTrue(game.ok(), game.toString());
-        assertTrue(ex.confirmLatest("igc", 3).ok(), "@nx (a \"t-\" preview) is not counted");
-        // a day later the cap is fresh
-        now.addAndGet(25 * H);
-        assertTrue(siteSell(3, 1_000_000, 100).ok());
-    }
-
-    @Test
-    void aCancelledUnfilledSiteSellGivesItsNxBackToTheCap() {
-        Response a = siteSell(3, 1_000_000, 10_000);
-        assertTrue(a.ok(), a.toString());
-        long id = ((Number) a.data().get("orderId")).longValue();
-        assertTrue(ex.cancel("x", 3, id).ok());
-        assertTrue(siteSell(3, 1_000_000, 10_000).ok());
+    void theSiteHasNoDailyCapsOnlyTheBand() {
+        // owner 2026-10-29: no daily caps; a stolen session is held by the band and the 12 h sign-in instead
+        for (int i = 0; i < 3; i++) {
+            assertTrue(siteSell(3, 1_000_000, 10_000).ok(), "sell " + i);
+            assertTrue(siteBuy(4, 1_500_000, 20_000).ok(), "buy " + i + " (30m each; 90m in all)");
+        }
+        long rate = ex.officialRate();
+        assertEquals(rate * 2, ex.nxBand()[1]);
+        assertEquals("PRICE_BAND", siteBuy(4, rate * 2 + 1_000, 100).code(), "but never over 200% of the rate");
     }
 
     // ---------------------------------------------------------------- the site sign-in age
@@ -204,17 +202,21 @@ class NxGuardTest {
         assertEquals(50, d.minPct());
         assertEquals(200, d.maxPct());
         assertEquals(100_000, d.floorPrice());
-        assertEquals(10_000, d.siteSellNxPerDay());
+        assertEquals(10_000_000, d.ceilingPrice());
         assertEquals(12 * H, d.siteAuthMaxMs());
         System.setProperty("slums.exchange.nxBand.minPct", "60");
         System.setProperty("slums.exchange.siteAuthMaxHours", "0");
+        System.setProperty("slums.exchange.nxBand.ceiling", "8000000");
         try {
             NxGuard s = NxGuard.fromSystem();
             assertEquals(60, s.minPct());
             assertEquals(0, s.siteAuthMaxMs());
+            assertEquals(8_000_000, s.ceilingPrice());
         } finally {
             System.clearProperty("slums.exchange.nxBand.minPct");
             System.clearProperty("slums.exchange.siteAuthMaxHours");
+            System.clearProperty("slums.exchange.nxBand.ceiling");
         }
     }
+
 }

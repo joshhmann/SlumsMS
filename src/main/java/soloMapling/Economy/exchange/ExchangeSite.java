@@ -33,8 +33,8 @@ import java.util.Map;
  * </pre>
  * Stolen-cookie guard (1.6.1, owner 2026-10-29; {@link NxGuard}): preview, confirm, cancel and mine carry
  * {@code "siteAuthAt"} (epoch ms of the player's last real site sign-in), refused REAUTH when missing, over 12 h old
- * or in the future; NX orders outside the band around the official rate are refused PRICE_BAND (data minPrice,
- * maxPrice, rate); NX sold through the site is capped per account per 24 h, LIMIT_NX_DAY (data capNx, usedNx, leftNx).
+ * or in the future; NX orders outside the band around the official rate (before one: sells from 100,000, buys up to
+ * 10,000,000 per 1,000 NX) are refused PRICE_BAND (data minPrice, maxPrice, rate). No daily caps (owner 2026-10-29).
  * <p>
  * Each request id is answered once. A request older than {@link #MAX_AGE_MS} is answered STALE and not acted on,
  * so a backlog after downtime never places orders the player gave up on. Places are idempotent by request id even
