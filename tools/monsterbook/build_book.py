@@ -135,6 +135,20 @@ def book_hp(own):
     return out
 
 
+def read_hp_overrides(path):
+    """mob id -> max HP from the server's stat override table (comment lines start with #)."""
+    out = {}
+    if not path:
+        return out
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            if line.strip() and not line.startswith("#"):
+                f = line.rstrip("\n").split("\t")
+                if f[1].strip() != "-":   # '-' keeps the mob's own HP (an EXP-only row)
+                    out[int(f[0])] = int(f[1])
+    return out
+
+
 def card_mobs(wz):
     cards = {}
     for card in parse(os.path.join(wz, "Item.wz", "Consume", "0238.img.xml")):
@@ -227,12 +241,15 @@ def main(argv=None):
     src.add_argument("--drops-tsv", help="TSV of dropperid, itemid, chance")
     src.add_argument("--mysql", help="mysql client arguments ending with the database name")
     ap.add_argument("-o", "--out", default="monsterbook.json")
+    ap.add_argument("--hp-overrides", help="server stat overrides (src/main/resources/soloMapling/"
+                    "mob-stat-overrides.tsv, ticket 81): the book prints their HP instead of Mob.wz maxHP")
     args = ap.parse_args(argv)
 
     drops, rows = read_drops(args)
     if not rows:
         sys.exit("drop_data came back empty; refusing to export an empty book")
     cards = card_mobs(args.wz)
+    hp_over = read_hp_overrides(args.hp_overrides)
     mob_names = names(os.path.join(args.wz, "String.wz", "Mob.img.xml"))
     maps_named = named_maps(args.wz)
     mob_maps = spawns(args.wz, args.scripts)
@@ -250,6 +267,8 @@ def main(argv=None):
                  "boss": bool(as_int(merged, "boss")), "stats": stat_lines(merged),
                  "map": maps, "reward": reward}
         hp = book_hp(info.own(mob))
+        if mob in hp_over:
+            hp["hp"] = str(hp_over[mob])
         if hp:
             entry["defaultHp"] = hp
         mobs[str(mob)] = entry

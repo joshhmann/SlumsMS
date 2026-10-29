@@ -153,7 +153,7 @@ public final class LevelingPathChooser {
             if (r.excluded() != null && r.excluded().contains(map)) {
                 continue;
             }
-            if (!BotMapGates.mayEnter(map, r.rebirths()) || w.isDungeon(map) || w.regionDisabled(map)) {
+            if (!BotMapGates.mayEnter(map, r.rebirths(), r.level()) || w.isDungeon(map) || w.regionDisabled(map)) {
                 continue;
             }
             int mob = w.mobLevel(map);
@@ -285,7 +285,7 @@ public final class LevelingPathChooser {
                         unusable.add(map);
                         continue;
                     }
-                    if (!BotMapGates.mayEnter(map, rebirths)) {
+                    if (!BotMapGates.mayEnter(map, rebirths, band.lo())) {
                         continue;
                     }
                     if (map != fromMapId && w.routeFare(fromMapId, map, rebirths, 0, band.lo()) < 0) {

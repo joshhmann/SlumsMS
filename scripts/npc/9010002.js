@@ -7,6 +7,9 @@ var maps = [
     // Towns and Monster Maps are omitted from menu, but can be kept in the array if needed
 ];
 var chosenMap = -1;
+// ticket 81 round 3: the Future and lower Grandis open at level 120, the rest of Grandis and Arcane River stay
+// rebirth 3; the rule lives in server.maps.AreaGates so the Hyper Rock and portals agree
+const AreaGates = Java.type('server.maps.AreaGates');
 var chosenSection = -1;
 
 function start() {
@@ -28,16 +31,16 @@ function action(mode, type, selection) {
         menu += "#b#L2#  #fMap/MapHelper.img/mark/Lacheln#  Arcane River & Future Towns#l";
         cm.sendSimple(menu);
     } else if (status == 1) {
-        // Grandis and Arcane River require 3 rebirths
-        if ((selection === 1 || selection === 2) && cm.getChar().getReborns() < 3) {
-            cm.sendOk("#r                                            #fMap/MapHelper.img/mark/Lacheln# \r\n\r\nYou need to have at least 3 rebirths to access Grandis/Arcane River.");
-            cm.dispose();
-            return;
-        }
         chosenSection = selection;
         showMapMenu(chosenSection);
     } else if (status == 2) {
         chosenMap = selection;
+        var gate = AreaGates.denyReason(cm.getChar(), maps[chosenSection][chosenMap]);
+        if (gate != null) {
+            cm.sendOk("#r" + gate);
+            cm.dispose();
+            return;
+        }
         cm.sendYesNo("Do you want to go to #m" + maps[chosenSection][chosenMap] + "#?");
     } else if (status == 3) {
         cm.warp(maps[chosenSection][chosenMap]);

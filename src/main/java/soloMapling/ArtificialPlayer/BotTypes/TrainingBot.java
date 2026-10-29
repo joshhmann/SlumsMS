@@ -1721,7 +1721,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         }
         // Ticket 21: answering a world event - train on the event map instead of our own pick.
         int eventMap = soloMapling.worldevents.WorldEventSteer.decide(chr.getId());
-        if (eventMap > 0 && BotMapGates.mayEnter(eventMap, BotMapGates.rebirthsOf(chr))
+        if (eventMap > 0 && BotMapGates.mayEnter(eventMap, chr)
                 && soloMapling.ArtificialPlayer.BotMapCap.admit(chr, eventMap)) { // 1.5.0: full -> a normal pick
             debugChat("DECIDE: world event -> map " + eventMap);
             setTrainTarget(eventMap, Math.max(1, MapMobIndex.level(eventMap)));
@@ -1737,7 +1737,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         // 1.6.0 tune: a tip from a TRAINING thread ("try ant tunnel tbh") - the spot is a real grind map for this
         // level (BotThreads.decideTip checked it), taken through the normal trip
         int tip = soloMapling.ArtificialPlayer.BotConvo.TrainingTips.take(chr.getId(), now());
-        if (tip > 0 && MapMobIndex.level(tip) >= 0 && BotMapGates.mayEnter(tip, BotMapGates.rebirthsOf(chr))
+        if (tip > 0 && MapMobIndex.level(tip) >= 0 && BotMapGates.mayEnter(tip, chr)
                 && soloMapling.ArtificialPlayer.BotMapCap.admit(chr, tip)) {
             debugChat("DECIDE: a tip -> map " + tip);
             if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CONVO)) {
@@ -1752,7 +1752,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         // 1.5.0 rc3: back from a death in town - walk back to the map it died on, as a player does
         int back = walkBackMapId;
         walkBackMapId = -1;
-        if (back > 0 && MapMobIndex.level(back) >= 0 && BotMapGates.mayEnter(back, BotMapGates.rebirthsOf(chr))
+        if (back > 0 && MapMobIndex.level(back) >= 0 && BotMapGates.mayEnter(back, chr)
                 && soloMapling.ArtificialPlayer.BotMapCap.admit(chr, back)) { // 1.5.0: full -> a normal pick
             debugChat("DECIDE: walking back to map " + back + " after a death");
             if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {

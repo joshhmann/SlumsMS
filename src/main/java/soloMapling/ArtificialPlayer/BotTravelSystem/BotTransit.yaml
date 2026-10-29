@@ -199,21 +199,23 @@ edges:
   # (portal1, a plain portal, already leads on to Gate to the Future and so to Twilight Perion, rebirth 2.)
   - {name: Arcane River gate, from: 270000000, to: 450001003, via: portal, portal: portal2, script: arcaneriver, fare: 0, to_portal: 0, sec: 20}
 
-  # ── Henesys: MapleRoot's teleporter (9010002), free; its Grandis and Arcane menus need 3 rebirths ──
+  # ── Henesys: MapleRoot's teleporter (9010002), free. Ticket 81: the Future and lower Grandis towns open at level 120
+  # (server.maps.AreaGates; a row is AND-only, so a low-level 3-rebirth bot walks instead); the upper Grandis town
+  # (Heliseum) and Arcane River need 3 rebirths ──
   # The Knight Stronghold entry (271030000) is left out: no bot may enter it (HyperTP-restricted). Its boss menu
   # (Papulatus, Balrog, Spooky World, Krexel, Castellan, Zakum, Horntail) is left out too: those are free jumps
   # past the boats that no leveling-path map needs.
-  - {name: teleporter, from: 100000000, to: 400000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 400000000, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
   - {name: teleporter, from: 100000000, to: 401000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 402000600, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 410000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 402000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 410000416, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 402000500, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 410000200, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 410000300, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 271010000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 273000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 402000600, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000000, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 402000000, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000416, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 402000500, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000200, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000300, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 271010000, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 273000000, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
   - {name: teleporter, from: 100000000, to: 450001000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
   - {name: teleporter, from: 100000000, to: 450002000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
   - {name: teleporter, from: 100000000, to: 450015060, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}

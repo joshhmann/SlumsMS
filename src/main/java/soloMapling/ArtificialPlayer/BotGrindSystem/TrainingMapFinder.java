@@ -65,14 +65,14 @@ public final class TrainingMapFinder {
         Map<Integer, Integer> nearby = GCMovement.mapsWithinHopsByDepth(fromMapId, maxHops);
         List<TrainingMap> reachable = new ArrayList<>();
         for (Map.Entry<Integer, Integer> e : nearby.entrySet()) {
-            TrainingMap m = grindable(e.getKey(), e.getValue(), excluded, rebirths);
+            TrainingMap m = grindable(e.getKey(), e.getValue(), excluded, rebirths, level);
             if (m != null) {
                 reachable.add(m);
             }
         }
         // The origin (hops=0) is always scored: as a normal candidate with includeOrigin, else only for the
         // fallback, so a bot standing on a mob field with nothing in-band anywhere can fight what's around it.
-        TrainingMap origin = nearby.containsKey(fromMapId) ? null : grindable(fromMapId, 0, excluded, rebirths);
+        TrainingMap origin = nearby.containsKey(fromMapId) ? null : grindable(fromMapId, 0, excluded, rebirths, level);
         return select(reachable, origin, includeOrigin, level, minMob, maxMob, hardMinMob);
     }
 
@@ -81,12 +81,12 @@ public final class TrainingMapFinder {
     // has anything in a bot's band before sending it across the sea.
     static List<TrainingMap> grindableAround(int hubMapId, int maxHops) {
         List<TrainingMap> out = new ArrayList<>();
-        TrainingMap self = grindable(hubMapId, 0, null, Integer.MAX_VALUE);
+        TrainingMap self = grindable(hubMapId, 0, null, Integer.MAX_VALUE, Integer.MAX_VALUE);
         if (self != null) {
             out.add(self);
         }
         for (Map.Entry<Integer, Integer> e : GCMovement.mapsWithinHopsByDepth(hubMapId, maxHops).entrySet()) {
-            TrainingMap m = grindable(e.getKey(), e.getValue(), null, Integer.MAX_VALUE);
+            TrainingMap m = grindable(e.getKey(), e.getValue(), null, Integer.MAX_VALUE, Integer.MAX_VALUE);
             if (m != null) {
                 out.add(m);
             }
@@ -97,14 +97,14 @@ public final class TrainingMapFinder {
     // The map as a training candidate at `hops`, or null when it can't be one: excluded by the caller,
     // a mini-dungeon, outside the allowed regions, behind a rebirth gate, or without enough mobs (towns,
     // quest-mob maps).
-    private static TrainingMap grindable(int mapId, int hops, Set<Integer> excluded, int rebirths) {
+    private static TrainingMap grindable(int mapId, int hops, Set<Integer> excluded, int rebirths, int level) {
         if (excluded != null && excluded.contains(mapId)) {
             return null; // caller is steering away from this map (crowd cooldown)
         }
         if (MiniDungeonInfo.isDungeonMap(mapId)) {
             return null; // single-person mini-dungeon instance — bots must never grind/warp here
         }
-        if (!TrainingRegions.isAllowed(mapId, rebirths)) {
+        if (!TrainingRegions.isAllowed(mapId, rebirths, level)) {
             return null; // outside the enabled regions (TrainingRegions.yaml), or behind a rebirth gate
         }
         MapMobIndex.MapMobInfo info = MapMobIndex.info(mapId);
