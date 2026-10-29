@@ -497,7 +497,11 @@ def board_rows(lb, kind):
     return rows
 
 
-HUNTED = ("hunted", "Most hunted", "The monsters Bera hunts most: every kill by players and bots on the server.")
+HUNTED = ("hunted", "Most hunted", "The monsters Bera hunts most: kills by players and bots on the server.")
+# bots that grind off-screen kill no real monster: the server counts their kills from their modelled pace (SiteMobKills
+# .offscreen), mixed into the same numbers, so every count here is labelled an estimate (squash board, 2026-10-29)
+HUNTED_EST = ("Kill counts are estimates: bots hunting off-screen are counted from their usual kill pace, not one by one, "
+              "so the numbers are close but not exact.")
 
 
 def hunted_rows(wo, key):
@@ -513,7 +517,7 @@ def hunted_table(wo, rows, limit=None):
     lv = lambda r: ((wo.db or {}).get("mobs", {}).get(r.get("mob")) or {}).get("level")
     show_lv = any(lv(r) for r in rows)
     head = ('<th class="r">#</th><th>Monster</th>' + ('<th class="r">Level</th>' if show_lv else "")
-            + '<th class="r">Kills</th><th class="hunt-bar-h"><span class="vh">Share</span></th>')
+            + '<th class="r">Kills <small>(est.)</small></th><th class="hunt-bar-h"><span class="vh">Share</span></th>')
     body = "".join(
         f'<tr{" class=podium" if i <= 3 else ""}><td class="r num">{i}</td><td class="who-cell">{wo.mob(r.get("mob"), r.get("name"), "{root}")}</td>'
         + (f'<td class="r num">{lv(r) or "-"}</td>' if show_lv else "")
@@ -552,7 +556,8 @@ def build_rankings(wo):
     if hunted:
         body = (f'<h1>{HUNTED[1]}</h1><p class="id">{esc(HUNTED[2])}</p><p class="chips">{tabs}</p>'
                 f'<section class="panel"><h2 class="bar">Last 7 days</h2>{hunted_table(wo, week)}</section>'
-                f'<section class="panel"><h2 class="bar">Last 24 hours</h2>{hunted_table(wo, day)}</section>')
+                f'<section class="panel"><h2 class="bar">Last 24 hours</h2>{hunted_table(wo, day)}</section>'
+                f'<p class="small">{esc(HUNTED_EST)}</p>')
         wo.page(f"{WORLD}/rankings/hunted.html", "Most hunted monsters", body, "rankings")
     for kind, title, intro in shown:
         rows, limit = board_rows(lb, kind), 100
@@ -574,7 +579,7 @@ def build_rankings(wo):
     cards = "".join(f'<section class="panel"><h2 class="bar">{esc(t)} <a href="{{root}}{WORLD}/rankings/{k}.html">All &raquo;</a></h2>'
                     f'{table(k, board_rows(lb, k), 5)}</section>' for k, t, _ in shown)
     if hunted:
-        cards += (f'<section class="panel"><h2 class="bar">{HUNTED[1]} <small>7 days</small> '
+        cards += (f'<section class="panel"><h2 class="bar">{HUNTED[1]} <small>{"7 days" if week else "24 hours"}, estimated</small> '
                   f'<a href="{{root}}{WORLD}/rankings/hunted.html">All &raquo;</a></h2>{hunted_table(wo, week or day, 5)}</section>')
     as_of = f' &middot; as of {esc(when(lb["generated_at"]))}' if lb.get("generated_at") else ""
     body = (f'<div class="headfig"><div><h1>Rankings</h1><p class="id">Everyone on Bera on one board, like it should be{as_of} &middot; '
@@ -663,6 +668,7 @@ def build_hot(wo):
         else:
             maps.append({"id": r.get("map"), "name": name("maps", r.get("map"), r.get("name")), "count": r.get("count"),
                          "page": r.get("map") in db.get("maps", {})})
+    mobs_window = "24 h" if wd.get("top_mobs") else "7 days"
     mobs = [{"id": r.get("mob"), "name": name("mobs", r.get("mob"), r.get("name")), "count": r.get("kills"),
              "page": r.get("mob") in db.get("mobs", {})}
             for r in (wd.get("top_mobs") or wd.get("top_mobs_7d") or [])[:5] if isinstance(r, dict) and _is(r.get("kills"), int)]
@@ -672,7 +678,7 @@ def build_hot(wo):
         if n:
             sold.append((n, i))
     items = [{"id": i, "name": name("items", i), "count": n} for n, i in sorted(sold, reverse=True)[:5]]
-    write(wo.out, f"{WORLD}/hot.json", json.dumps({"generated_at": wd.get("generated_at"), "maps": maps, "mobs": mobs,
+    write(wo.out, f"{WORLD}/hot.json", json.dumps({"generated_at": wd.get("generated_at"), "maps": maps, "mobs": mobs, "mobs_window": mobs_window,
                                                      "items": items}))
 
 

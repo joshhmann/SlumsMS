@@ -733,6 +733,10 @@ class WorldTest(unittest.TestCase):
         self.assertIn('class="hunt-bar"><span style="width:100%"></span>', week)
         self.assertIn('href="../../world/rankings/hunted"', self.read("world/rankings/index.html"))
         self.assertNotIn("database/", page, "the public World never links Slums Street")
+        # off-screen bot kills are modelled, so every count says it is an estimate (squash board, 2026-10-29)
+        self.assertEqual(page.count("Kills <small>(est.)</small>"), 2)
+        self.assertIn("Kill counts are estimates", page)
+        self.assertIn("7 days, estimated</small>", self.read("world/rankings/index.html"))
 
     def test_dojo_board_only_with_rows(self):
         from sections import world

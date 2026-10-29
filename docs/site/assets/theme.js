@@ -515,7 +515,7 @@
   var root = box.getAttribute("data-root") || "";
   fetch(box.getAttribute("data-hot"), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
     if (!j) return;
-    var groups = [["maps", "Busiest maps", "here now", "database/maps/"], ["mobs", "Most hunted (24 h)", "kills", "database/mobs/"],
+    var groups = [["maps", "Busiest maps", "here now", "database/maps/"], ["mobs", "Most hunted (" + (j.mobs_window || "24 h") + ")", "kills (est.)", "database/mobs/"],
                   ["items", "Most sold (7 days)", "sold", "market/prices/"]];
     var grid = box.querySelector(".hotgrid"), any = false;
     groups.forEach(function (g) {
