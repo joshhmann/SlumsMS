@@ -25,7 +25,7 @@ reach; vote points (accounts.votepoints, @points, !givevp) have no voting site a
 - **Played:** 10 minutes online that day, summed across the account's characters; AFK counts.
 - **Streak:** +5 on every 7th day (repeats weekly); one missed day a week is forgiven, two reset the streak (stamps
   are never lost).
-- **Prices:** Donor NX cosmetics 6 stamps; Donor Shop (High-Five Stamps 5590000/5590001) 40 stamps. A full week is 12.
+- **Prices:** Donor NX cosmetics 6 stamps; Donor Shop (Rose Vac 5590000 and Hyper Teleport Rock 5590001; earlier docs called these "High-Five Stamps") 40 stamps. A full week is 12.
 - **Conversion:** each Billion Coin (4001253) held and each vote point converts to 6 stamps (what it bought before:
   one cosmetic). Billion Coins in inventories and storage are removed in the migration.
 - **Shown:** `@stamps` (balance, streak, next bonus; replaces the vote line in @points), Rooty's menu header, the

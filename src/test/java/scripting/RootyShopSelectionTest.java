@@ -88,7 +88,7 @@ class RootyShopSelectionTest {
 
     private static final int ROOT_COIN = 4310000, MAPLE_LEAF = 4001126, BILLION_COIN = 4001253;
     private static final int FIRST_ROOTY_CAP = 1000000, FIRST_DONOR_CAP = 1003536;   // first of each old Cap list
-    private static final int MAPLE_SWORD_LV35 = 1302020, HIGH_FIVE_STAMP = 5590000, FORGED = 2049100;
+    private static final int MAPLE_SWORD_LV35 = 1302020, ROSE_VAC = 5590000, FORGED = 2049100;
     // MENU indexes in rooty.js
     private static final int NX_GOODIES = 0, MAPLE_WEAPONS = 2, DONOR_NX = 4, DONOR_SHOP = 5;
 
@@ -126,8 +126,8 @@ class RootyShopSelectionTest {
             }
         }
         assertEquals(List.of(), dups, "item ids listed twice in rooty.js CATALOG");
-        // both old shops' stock is in it: 2,300 Nx Goodies, 6,381 Donor NX, 52 Maple weapons, 2 High-Five Stamps
-        assertTrue(seen.containsAll(Arrays.asList(FIRST_ROOTY_CAP, FIRST_DONOR_CAP, MAPLE_SWORD_LV35, HIGH_FIVE_STAMP)));
+        // both old shops' stock is in it: 2,300 Nx Goodies, 6,381 Donor NX, 52 Maple weapons, Rose Vac and Hyper Teleport Rock
+        assertTrue(seen.containsAll(Arrays.asList(FIRST_ROOTY_CAP, FIRST_DONOR_CAP, MAPLE_SWORD_LV35, ROSE_VAC)));
         assertEquals(2300 + 6381 + 52 + 2, ids.size());
     }
 
@@ -325,27 +325,27 @@ class RootyShopSelectionTest {
         pick(npc, DONOR_SHOP);
         assertTrue(cm.simple.contains("(40 Slums Stamps)"), cm.simple);
         pick(npc, 0);
-        pick(npc, HIGH_FIVE_STAMP);
+        pick(npc, ROSE_VAC);
         assertTrue(cm.ok.contains("not have enough Slums Stamps"), "39 stamps cannot buy a 40-stamp item: " + cm.ok);
-        assertEquals(0, cm.count(HIGH_FIVE_STAMP));
+        assertEquals(0, cm.count(ROSE_VAC));
         assertEquals(39, cm.stamps);
 
         cm.stamps = 40;
         npc = shop(cm);
         pick(npc, DONOR_SHOP);
         pick(npc, 0);
-        pick(npc, HIGH_FIVE_STAMP);
+        pick(npc, ROSE_VAC);
         assertFalse(cm.simple.contains("Try this item first"), "only cosmetics can be tried on");
         pick(npc, 1);                 // a forged "try" on a non-cosmetic
-        assertEquals(0, cm.count(HIGH_FIVE_STAMP));
+        assertEquals(0, cm.count(ROSE_VAC));
         assertEquals(40, cm.stamps);
 
         npc = shop(cm);
         pick(npc, DONOR_SHOP);
         pick(npc, 0);
-        pick(npc, HIGH_FIVE_STAMP);
+        pick(npc, ROSE_VAC);
         pick(npc, 0);
-        assertEquals(1, cm.count(HIGH_FIVE_STAMP));
+        assertEquals(1, cm.count(ROSE_VAC));
         assertEquals(0, cm.stamps, "exactly 40 taken");
 
         cm.stamps = 7;
@@ -366,19 +366,19 @@ class RootyShopSelectionTest {
     @Test
     void theDonorShopSellsTheHighFiveStampAndTheHyperRockAsTwoNamedLines() throws Exception {
         ScriptEngine engine = new Loader().load("npc/rooty.js");
-        assertEquals("High-Five Stamp|5590000;Hyper Teleport Rock|5590001", engine.eval(
+        assertEquals("Rose Vac|5590000;Hyper Teleport Rock|5590001", engine.eval(
                 "CATALOG[3].categories.map(c => c.name + '|' + c.items.join(',')).join(';')"));
         assertEquals(40, ((Number) engine.eval("CATALOG[3].price")).intValue());
         ShopCm cm = new ShopCm();
         cm.stamps = 40;
         Invocable npc = shop(cm);
         pick(npc, DONOR_SHOP);
-        assertTrue(cm.simple.contains("High-Five Stamp") && cm.simple.contains("Hyper Teleport Rock"), cm.simple);
+        assertTrue(cm.simple.contains("Rose Vac") && cm.simple.contains("Hyper Teleport Rock"), cm.simple);
         pick(npc, 1);
         pick(npc, 5590001);
         pick(npc, 0);
         assertEquals(1, cm.count(5590001));
-        assertEquals(0, cm.count(HIGH_FIVE_STAMP), "the stamp's line does not hand out the rock");
+        assertEquals(0, cm.count(ROSE_VAC), "the stamp's line does not hand out the rock");
         assertEquals(0, cm.stamps);
     }
 
@@ -389,12 +389,12 @@ class RootyShopSelectionTest {
         Invocable npc = shop(cm);
         pick(npc, DONOR_SHOP);
         pick(npc, 0);
-        pick(npc, HIGH_FIVE_STAMP);
+        pick(npc, ROSE_VAC);
         cm.roomForEverything = false;
         pick(npc, 0);
         assertTrue(cm.ok.contains("enough space"), cm.ok);
         assertEquals(50, cm.stamps);
-        assertEquals(0, cm.count(HIGH_FIVE_STAMP));
+        assertEquals(0, cm.count(ROSE_VAC));
     }
 
     @Test

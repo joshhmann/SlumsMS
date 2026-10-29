@@ -3,7 +3,7 @@
  * MapleRoot's two near-duplicate shop scripts (rooty.js and donorshop.js) into this one list: every item id appears
  * once. Each section names its currency; a category may override the section's price.
  *   4310000 Root Coin, 4001126 Maple Leaf, or "stamps": the account's Slums Stamps (1.6.1, ticket 111: they replaced
- *   the Billion Coin 4001253; Donor NX 6 stamps a cosmetic, the Donor Shop's High-Five Stamps 40).
+ *   the Billion Coin 4001253; Donor NX 6 stamps a cosmetic, the Donor Shop's Rose Vac and Hyper Teleport Rock 40 each).
  * Generated from the two old scripts; edit by hand from here on (RootyShopCatalogTest checks it).
  */
 var CATALOG = [
@@ -970,7 +970,7 @@ var CATALOG = [
             ]}
     ]},
     {name: "Donor Shop", currency: "stamps", price: 40, cosmetic: false, categories: [
-            {name: "High-Five Stamp", icon: 5590000, items: [
+            {name: "Rose Vac", icon: 5590000, items: [
                 5590000
             ]},
             {name: "Hyper Teleport Rock", icon: 5590001, items: [
