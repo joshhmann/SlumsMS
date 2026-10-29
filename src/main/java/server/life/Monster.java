@@ -647,9 +647,31 @@ public class Monster extends AbstractLoadedLife {
         float partyBonusMod = hasPartySharers ? 0.05f * membersSize : 0.0f;
 
         for (Character mc : expMembers) {
+            // distributePlayerExperience gives the family rep (stock called giveFamilyRep here too: twice a kill)
             distributePlayerExperience(mc, participationExp, partyBonusMod, totalPartyLevel, mc == participationMvp, isWhiteExpGain(mc, personalRatio, sdevRatio), hasPartySharers);
+        }
+        for (Character mc : repWithoutExp(partyParticipation.keySet(), expMembers, underleveled)) {
             giveFamilyRep(mc.getFamilyEntry());
         }
+    }
+
+    /**
+     * Auto-QA t-fy-2, TEST 2026-10-29: a bot junior's real kill gave its senior no rep when the bot was in a party,
+     * because the party EXP list ({@code getPartyMembersOnSameMap}) keeps only members "logged in to the world", which a
+     * bot never is, so it got neither EXP nor the rep that rides on it. The bots who hit the mob but were left off that
+     * list still give their senior the kill's rep. (Their EXP is untouched here: sharing party EXP with bots changes
+     * what players earn in a party with bots, which is the owner's call.)
+     */
+    static List<Character> repWithoutExp(java.util.Collection<Character> participants, List<Character> expMembers,
+                                         Set<Character> underleveled) {
+        List<Character> out = new ArrayList<>();
+        for (Character p : participants) {
+            if (p != null && p.getClient() instanceof client.BotClient && !expMembers.contains(p)
+                    && !underleveled.contains(p)) {
+                out.add(p);
+            }
+        }
+        return out;
     }
 
     private void distributeExperience(int killerId) {

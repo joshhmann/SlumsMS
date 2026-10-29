@@ -136,3 +136,21 @@ The notes promised "every perk works" and regular juniors; the audit found gaps.
 - **Tests:** FamilyOffscreenRepTest, FamilyBuffsTest (off-screen rep and cap; Bonding reaches a bot junior),
   BotFamilyTest (no roll for known players). Not unit-tested: the TrainingBot call site (kills per tick).
 
+
+## TEST auto-QA run 2 (2026-10-29), branch 161-family4
+
+- **t-fy-2 "a bot junior's real kill gave +0 rep" (code):** the kill path gives family rep inside the EXP share, and the
+  party share (`Monster.distributePartyExperience`) lists members through `getPartyMembersOnSameMap`, which keeps only
+  characters logged in to the world. A regular never is, so a regular in a party (boss-run and grind parties are
+  common) got no EXP and gave no rep for its real kills; a solo one was fine. Now the bots who hit the mob but were
+  left off that list still give their senior the kill's rep. Stock also gave every party member's senior the rep
+  twice a kill; now once. **Not changed, owner's call:** a partied regular still gets no EXP from real kills, and a
+  player partied with regulars doesn't share EXP with them (sharing would change what players earn). The probe now
+  logs the bot's party, its EXP and whether the mob spawned. Test: MonsterFamilyRepTest (real killBy path; fails on
+  the old code: 0 instead of 4, and 8 instead of 4).
+- **t-fy-3 Reunion / Summon refused (staging):** the pretend player stood in the Free Market entrance (910000000,
+  fieldLimit 8428) and the junior near Papulatus (220080000, fieldLimit 72); both refuse Family teleports
+  (CANNOTVIPROCK), as in the original, so both perks were refused for free. The check now stands in Henesys and takes a
+  junior on a map the rule allows (`FamilyUseHandler.travelAllowed`, extracted). Test: FamilyTravelFieldsTest.
+- **t-fy-4 passed, with an NPE in the log:** the probe dissolved the family while the bot's answer was still
+  broadcasting; it now waits for the answer to finish.

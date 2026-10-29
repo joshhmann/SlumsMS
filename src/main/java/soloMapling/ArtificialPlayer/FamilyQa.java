@@ -32,13 +32,18 @@ public final class FamilyQa {
 
     /** Forms a family with {@code player} as senior and an online bot as junior; throws with the reason if it cannot. */
     public static Staged stage(Character player) {
+        return stage(player, c -> true);
+    }
+
+    /** {@link #stage(Character)} with a junior {@code ok} accepts. */
+    public static Staged stage(Character player, java.util.function.Predicate<Character> ok) {
         if (!YamlConfig.config.server.USE_FAMILY_SYSTEM) {
             throw new IllegalStateException("USE_FAMILY_SYSTEM is off on this server");
         }
         if (player.getFamily() != null) {
             throw new IllegalStateException(player.getName() + " is already in a family (leave it first)");
         }
-        Character bot = addBotJunior(player, java.util.Set.of());
+        Character bot = addBotJunior(player, java.util.Set.of(), ok);
         return new Staged(bot, player.getFamily().getID());
     }
 
@@ -48,13 +53,19 @@ public final class FamilyQa {
      * with the reason when none took it.
      */
     public static Character addBotJunior(Character senior, java.util.Set<Integer> exclude) {
+        return addBotJunior(senior, exclude, c -> true);
+    }
+
+    /** {@link #addBotJunior(Character, java.util.Set)} among the bots {@code ok} accepts. */
+    public static Character addBotJunior(Character senior, java.util.Set<Integer> exclude,
+                                         java.util.function.Predicate<Character> ok) {
         int ch = senior.getClient().getChannel();
         List<Character> bots = new ArrayList<>();
         // The active bots (a bot is never "logged in" the way a player is: TEST 2026-10-28 found 0 candidates)
         for (BotSM sm : soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getAllBots().values()) {
             Character c = sm == null ? null : sm.getChr();
             if (c != null && c.isBot() && c.getMap() != null && c.getFamily() == null && c.getLevel() > 10
-                    && c.getWorld() == senior.getWorld() && !exclude.contains(c.getId())) {
+                    && c.getWorld() == senior.getWorld() && !exclude.contains(c.getId()) && ok.test(c)) {
                 bots.add(c);
             }
         }
