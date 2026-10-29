@@ -128,6 +128,14 @@ public final class Exchange {
     private final Map<Long, OrderRow> rows = new HashMap<>();
     private final Map<String, Deque<FillRow>> recent = new HashMap<>();
     private final Map<String, TickerHistory> history = new HashMap<>();
+    /**
+     * Fills the QA checks' test regular ({@link ExchangeQa#REGULAR}) took part in (1.6.1 fix, TEST 2026-10-29: the
+     * xc-1/xc-2 checks printed NX at 1,001,000 and LEAF at 1,000 onto the public charts). They settle like any fill and
+     * stay in the store, the ledger and the staff's {@code !exchange fills}, but they are not market activity: they
+     * never reach the public trades, {@code last}, high/low/volume, the candles, the official rate or the fair value's
+     * flows ({@link #lastTrades}, {@link #isQaFill}).
+     */
+    private final java.util.Set<Long> qaFills = new java.util.HashSet<>();
     /** Character id -> when it was last told its bags are too full for an item payout. */
     private final Map<Long, Long> roomNagged = new HashMap<>();
     /** Trader bots (character ids) with something waiting in a PAYOUT ({@link #collectBot}). */
@@ -211,8 +219,18 @@ public final class Exchange {
             open.computeIfAbsent(r.ticker(), k -> new ArrayList<>()).add(toOrder(r));
         }
         open.forEach((t, os) -> books.get(t).restoreAll(os));
+        qaFills.clear();
+        Map<Long, Long> regularOf = new HashMap<>();
         for (FillRow f : past) {
-            history.computeIfAbsent(f.ticker(), k -> new TickerHistory()).add(f);
+            markQa(f, regularOf);
+        }
+        for (FillRow f : l.recentFills()) {
+            markQa(f, regularOf);
+        }
+        for (FillRow f : past) {
+            if (!qaFills.contains(f.id())) {
+                history.computeIfAbsent(f.ticker(), k -> new TickerHistory()).add(f);
+            }
         }
         feeHold.clear();
         botPayouts.clear();
@@ -648,8 +666,12 @@ public final class Exchange {
             holds.put(id, reserve);
         }
         List<FillRow> fills = new ArrayList<>();
+        java.util.Set<Long> qa = new java.util.HashSet<>();
         long fillId = nextFill;
         for (OrderBook.Fill f : r.fills()) {
+            if (qaOrder(rows.get(f.buyOrder())) || qaOrder(rows.get(f.sellOrder()))) {
+                qa.add(fillId);
+            }
             fills.add(settle(f, fillId++, postings, holds, t));
         }
         for (OrderBook.Closed c : r.closed()) {
@@ -681,11 +703,15 @@ public final class Exchange {
                 rows.remove(o2.id());
             }
         }
+        qaFills.addAll(qa); // only once committed: a failed batch's fill ids are used again
         remember(fills);
         noteBotPayouts(postings);
         if (t.item()) {
-            for (OrderBook.Fill f : r.fills()) { // 1.6.1 fair value: a taker buy is demand, a taker sell supply
-                soloMapling.Economy.exchange.volatility.MarketFlows.exchangeFill(t.id(), side == Side.BUY, f.nx(), now);
+            for (FillRow f : fills) { // 1.6.1 fair value: a taker buy is demand, a taker sell supply (QA checks: not)
+                if (!qaFills.contains(f.id())) {
+                    soloMapling.Economy.exchange.volatility.MarketFlows.exchangeFill(t.id(), side == Side.BUY, f.nx(),
+                            now);
+                }
             }
         }
         Map<String, Object> data = orderJson(touched.get(0));
@@ -1511,8 +1537,13 @@ public final class Exchange {
         return lastTrades(Ticker.NX, n);
     }
 
-    /** A ticker's newest fills first. */
+    /** A ticker's newest market fills first (never the QA checks': see {@link #isQaFill}). */
     public synchronized List<FillRow> lastTrades(String ticker, int n) {
+        return lastTrades(ticker, n, false);
+    }
+
+    /** A ticker's newest fills first; {@code withQa}: the QA checks' too (the staff's {@code !exchange fills}). */
+    public synchronized List<FillRow> lastTrades(String ticker, int n, boolean withQa) {
         List<FillRow> out = new ArrayList<>();
         Deque<FillRow> r = recent.get(ticker);
         if (r == null) {
@@ -1520,7 +1551,10 @@ public final class Exchange {
         }
         var it = r.descendingIterator();
         while (it.hasNext() && out.size() < n) {
-            out.add(it.next());
+            FillRow f = it.next();
+            if (withQa || !qaFills.contains(f.id())) {
+                out.add(f);
+            }
         }
         return out;
     }
@@ -1659,8 +1693,44 @@ public final class Exchange {
             if (r.size() > RECENT_FILLS) {
                 r.removeFirst();
             }
-            history.computeIfAbsent(f.ticker(), k -> new TickerHistory()).add(f);
+            if (!qaFills.contains(f.id())) {
+                history.computeIfAbsent(f.ticker(), k -> new TickerHistory()).add(f);
+            }
         }
+    }
+
+    /** Is this order the QA checks' test regular's? */
+    private static boolean qaOrder(OrderRow o) {
+        return o != null && o.regular() == ExchangeQa.REGULAR;
+    }
+
+    /** At start: notes a stored fill as a QA fill when one of its orders was the test regular's. */
+    private void markQa(FillRow f, Map<Long, Long> regularOf) {
+        if (!f.buyerRegular() && !f.sellerRegular()) {
+            return;
+        }
+        for (long id : new long[]{f.buyOrder(), f.sellOrder()}) {
+            Long reg = regularOf.get(id);
+            if (reg == null) {
+                OrderRow o = rows.get(id);
+                try {
+                    o = o != null ? o : store.order(id);
+                } catch (StoreException e) {
+                    o = null;
+                }
+                reg = o == null ? 0L : o.regular();
+                regularOf.put(id, reg);
+            }
+            if (reg == ExchangeQa.REGULAR) {
+                qaFills.add(f.id());
+                return;
+            }
+        }
+    }
+
+    /** Was this fill one of the QA checks' (the test regular took part)? */
+    public synchronized boolean isQaFill(long fillId) {
+        return qaFills.contains(fillId);
     }
 
     static String iso(long ms) {

@@ -426,7 +426,7 @@ single 100 NX fills) counts **player-to-player fills only** (no regular, so neve
 rate's rule) and is **null unless the window has at least `rate_min_fills` (3) of them**: the last counted price minus
 the reference, the VWAP of the counted fills of the 24 h before the window (when those are at least 3), else of the
 window's own counted fills. `change_24h_pct` rounded to 2 decimals (null with the change); `last`, high, low and volume
-still count every fill; `high_24h`/`low_24h` null with no trade in 24 h,
+still count every market fill. **QA check fills are off the charts** (fix 2026-10-29): a fill the QA checks' test regular (`ExchangeQa.REGULAR` 9: xc-1/t-xc-1 NX, xc-2/t-xc-2 LEAF) took part in settles normally and stays in the store, the ledger and `!exchange fills` (marked "QA check"), but never reaches `last`, high/low/volume, `trades`, the candles in `exchange-history.json`, the bots' view or the fair value's flows; it is recognised again from its order at every start; `high_24h`/`low_24h` null with no trade in 24 h,
 `volume_24h` in the ticker's quantity unit, `turnover_24h` in mesos. `rate` is the ticker's official rate (VWAP of
 player-to-player fills, regulars excluded, same window and minimum as NX) or null. 10 levels a side, last 20 trades.
 
