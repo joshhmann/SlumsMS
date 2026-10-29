@@ -197,7 +197,7 @@ edges:
   - {name: castle gate, from: 211060000, to: 211060010, via: portal, portal: east00, script: in_lkc, fare: 0, to_portal: west00, sec: 20}
 
   # ── Temple of Time: Three Doors' portal2 runs arcaneriver.js - rebirth 2 (owner 2026-10-29) - to Vanishing Journey ──
-  # (portal1, a plain portal, already leads on to Gate to the Future and so to Twilight Perion, rebirth 2.)
+  # (portal1, a plain portal, already leads on to Gate to the Future and so to Twilight Perion: level 120 or 1 rebirth.)
   - {name: Arcane River gate, from: 270000000, to: 450001003, via: portal, portal: portal2, script: arcaneriver, fare: 0, to_portal: 0, sec: 20}
 
   # ── Temple of Time: the Gate of Time (portal1, 270000000.10.js) opens a menu (npc/gateOfTime.js): the Future, as the
@@ -282,7 +282,7 @@ edges:
 
 # ── The Hyper Teleport Rock (HyperTPHandler), as bots may use it ──
 # A player can teleport from the world map to any map except the restricted ones (Knight Stronghold), those its
-# rebirth gates close (Von Leon's wing 1, the Future 2 or level 120, lower Grandis 1 or level 120, deeper Grandis 1,
+# rebirth gates close (Von Leon's wing 1, the Future 1 or level 120, lower Grandis 1 or level 120, deeper Grandis 1,
 # Arcane River 2) and fields with the CANNOTVIPROCK limit; a player
 # without the rock (5590001) may do it once every 5 minutes. Bots get a narrow version so they keep riding the
 # boats everywhere else:

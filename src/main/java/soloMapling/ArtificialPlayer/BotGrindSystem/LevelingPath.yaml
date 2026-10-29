@@ -42,7 +42,8 @@
 # there (6 entries at 120-140, 2 at 140-160); its other maps have lv 162+ mobs and come in from about lv 147.
 #
 # Owner 2026-10-29: deeper Grandis (everything outside lower-grandis-maps.txt) opens at the 1st rebirth and Arcane River
-# at the 2nd, at any level (both were 3); their entries say `rebirths: 1` / `rebirths: 2`. Lower Grandis keeps level 120
+# at the 2nd, at any level (both were 3); their entries say `rebirths: 1` / `rebirths: 2`. The Future and Twilight
+# Perion open at level 120 or the 1st rebirth (owner 2026-10-29, was 2); their entries say `level: 120`. Lower Grandis keeps level 120
 # or the 1st rebirth (owner 2026-10-29, was 3; the `rebirths: 1` entries at 110-120 are lower Grandis for reborn bots
 # under 120).
 version: 1
@@ -796,7 +797,7 @@ bands:
     groups:
       general:
         # Reachable replacements (2026-10-20): rebirth 0-1 bots keep to Ulu until the Scrapyard opens to them at 185
-        # (hyper rock); more Twilight Perion for rebirth 2.
+        # (hyper rock); more Twilight Perion (level 120 or 1 rebirth since 2026-10-29).
         - {map: 541020600, w: 1, mode: solo, mob_levels: [115, 115], name: "Singapore: Destroyed Park I"}
         - {map: 541020610, w: 1, mode: solo, mob_levels: [115, 115], name: "Singapore: Destroyed Park II"}
         - {map: 310070110, w: 3, mode: solo, mob_levels: [200, 200], name: "Scrapyard: Scrapyard Hill 1"}

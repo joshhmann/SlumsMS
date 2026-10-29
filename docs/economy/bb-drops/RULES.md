@@ -119,7 +119,8 @@ migration skips any (mob, item) pair that is already in drop_data.
 ## Area gates (round 3: good 120-200 training)
 
 - `server.maps.AreaGates` holds the rule.
-- **Future / Twilight Perion** (271000000-273999999): level 120, or 2 rebirths as before.
+- **Future / Twilight Perion** (271000000-273999999): level 120, or the 1st rebirth at any level (owner 2026-10-29;
+  was 2 rebirths). Every 120 area opens the same way.
 - **Lower Grandis**: level 120, or the 1st rebirth at any level (owner 2026-10-29; was 3 rebirths). This is the lv 109-142 band: Pantheon, the low streets of Savage
   Terminal, Sanctuary, Caravan Refuge, Fox Ridge, Cheong-woon Valley, Ristonia and Toolen City, 181 map ids in
   `src/main/resources/soloMapling/lower-grandis-maps.txt`. `tools/economy/gen_area_gates.py` generates the list from
@@ -211,7 +212,7 @@ so regenerating gives the same tables.
   (`BbDropTablesMigrationIT`, which needs `-Dslums.family.it.url`).
 - LifeFactory applies the HP and EXP table (Sun Spirit: both; Skelegon: EXP x1.4 only). The table matches
   `stats.csv`. Bad rows are refused (`MobStatOverridesTest`).
-- The gates: level 120 opens the Future and lower Grandis, deeper Grandis needs 1 rebirth and Arcane 2, the Hyper
+- The gates: level 120 or 1 rebirth opens the Future and lower Grandis, deeper Grandis needs 1 rebirth and Arcane 2, the Hyper
   Rock agrees, and the teleporter and the Gate of Time ask AreaGates (`AreaGatesTest`).
 - Bots follow the gates: `BotMapGatesTest`, `BotTransitHighLevelTest` (teleporter rows) and `GCTravelHighLevelTest`
   (a level-119 bot is turned away at the teleporter's lower Grandis row, a level-120 one goes).

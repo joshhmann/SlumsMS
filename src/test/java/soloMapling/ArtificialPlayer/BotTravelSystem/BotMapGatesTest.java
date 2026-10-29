@@ -14,7 +14,7 @@ class BotMapGatesTest {
         assertEquals(0, BotMapGates.requiredRebirths(100000000));
         assertEquals(0, BotMapGates.requiredRebirths(211060100)); // Lion King's Castle walls: open since 1.6.1 b040
         assertEquals(1, BotMapGates.requiredRebirths(211070100)); // Von Leon's wing
-        assertEquals(2, BotMapGates.requiredRebirths(273020300)); // Twilight Perion
+        assertEquals(1, BotMapGates.requiredRebirths(273020300)); // Twilight Perion (owner 2026-10-29; was 2)
         assertEquals(2, BotMapGates.requiredRebirths(450001010)); // Arcane River (owner 2026-10-29; was 3)
         assertEquals(1, BotMapGates.requiredRebirths(401000000)); // Heliseum, deeper Grandis (owner 2026-10-29; was 3)
         assertEquals(1, BotMapGates.requiredRebirths(400000000)); // Pantheon, lower Grandis: level 120 or 1 rebirth (was 3)
@@ -23,9 +23,10 @@ class BotMapGatesTest {
 
     @Test
     void warriorGroundsIsGatedWithTheRestOfTwilightPerion() {
-        assertEquals(2, BotMapGates.requiredRebirths(273060300));
-        assertFalse(BotMapGates.mayEnter(273060300, 1));
-        assertTrue(BotMapGates.mayEnter(273060300, 2));
+        assertEquals(1, BotMapGates.requiredRebirths(273060300));
+        assertFalse(BotMapGates.mayEnter(273060300, 0));
+        assertTrue(BotMapGates.mayEnter(273060300, 1));
+        assertTrue(BotMapGates.mayEnter(271010000, 1, 30), "one rebirth opens the Future below 120");
     }
 
     @Test

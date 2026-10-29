@@ -2095,17 +2095,18 @@ final class Probes160 {
                 bad.add("map " + map + ": bots disagree with players at 119/120");
             }
         }
-        // owner 2026-10-29: lower Grandis also opens at the 1st rebirth below level 120 (players and bots)
-        for (int map : new int[]{400000000, 410000010}) {
+        // owner 2026-10-29: every 120 area (lower Grandis, the Future, Twilight Perion) also opens at the 1st rebirth
+        // below level 120 (players and bots)
+        for (int map : new int[]{400000000, 410000010, 271010000, 273000000}) {
             String r0 = server.maps.AreaGates.denyReason(map, 50, 0);
-            String r1 = server.maps.AreaGates.denyReason(map, 50, server.maps.AreaGates.LOWER_GRANDIS_REBIRTHS);
-            ev.add("lower Grandis " + map + " lv50 r0=" + (r0 == null ? "in" : "refused") + " r1=" + (r1 == null ? "in" : "refused"));
-            if (r0 == null || r1 != null || server.maps.AreaGates.LOWER_GRANDIS_REBIRTHS != 1) {
-                bad.add("lower Grandis " + map + ": want a level-50 character refused at 0 rebirths and let in at 1");
+            String r1 = server.maps.AreaGates.denyReason(map, 50, 1);
+            ev.add("120 area " + map + " lv50 r0=" + (r0 == null ? "in" : "refused") + " r1=" + (r1 == null ? "in" : "refused"));
+            if (r0 == null || r1 != null) {
+                bad.add("120 area " + map + ": want a level-50 character refused at 0 rebirths and let in at 1");
             }
             if (soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 0, 50)
                     || !soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 1, 50)) {
-                bad.add("lower Grandis " + map + ": bots disagree with players at 0/1 rebirths below 120");
+                bad.add("120 area " + map + ": bots disagree with players at 0/1 rebirths below 120");
             }
         }
         // owner 2026-10-29: deeper Grandis closed below the 1st rebirth and open at it, at any level; Arcane River the same
