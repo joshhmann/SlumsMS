@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -12,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Ticket 81 round 3 (owner 2026-10-28, draft): the Future and lower Grandis open at level 120 without rebirths; the
- * rest of Grandis and Arcane River stay rebirth 3.
+ * rest of Grandis opens at the 1st rebirth and Arcane River at the 2nd, at any level (owner 2026-10-29; both were 3).
  */
 class AreaGatesTest {
 
@@ -25,6 +26,8 @@ class AreaGatesTest {
     private static final int FOX_TREE_TOP = 410000100;
     private static final int SCRAPYARD = 402000124;          // lv 175, next to the lower Garbage Dump
     private static final int ARCANE = 450001000;
+    private static final int TYRANTS_CASTLE = 401060000;     // Heliseum Heights Entry
+    private static final int CERNIUM = 410000500;            // Cernium Square
 
     @Test
     void theFutureOpensAtLevel120OrTwoRebirths() {
@@ -44,24 +47,32 @@ class AreaGatesTest {
         }
     }
 
+    /** Owner 2026-10-29: deeper Grandis opens at the 1st rebirth, at any level (was 3). */
     @Test
-    void theRestOfGrandisAndArcaneStayRebirthThree() {
-        for (int map : new int[]{HELISEUM_HQ, FOX_TREE_TOP, SCRAPYARD, ARCANE}) {
-            assertFalse(AreaGates.isLowerGrandis(map), "upper: " + map);
-            assertNotNull(AreaGates.denyReason(map, 200, 2), "level alone is not enough for " + map);
-            assertNull(AreaGates.denyReason(map, 1, 3));
+    void deeperGrandisOpensAtTheFirstRebirth() {
+        for (int map : new int[]{HELISEUM_HQ, TYRANTS_CASTLE, FOX_TREE_TOP, SCRAPYARD, CERNIUM,
+                410000002, 400020300, 401000002, 402000400, 402000401, 402000402}) {
+            assertFalse(AreaGates.isLowerGrandis(map), "deeper: " + map);
+            assertTrue(AreaGates.isDeeperGrandis(map), "deeper: " + map);
+            assertNotNull(AreaGates.denyReason(map, 200, 0), "level alone is not enough for " + map);
+            assertNull(AreaGates.denyReason(map, 1, 1), "one rebirth opens " + map + " at any level");
+            assertEquals(1, AreaGates.requiredRebirths(map));
         }
+        assertTrue(AreaGates.denyReason(HELISEUM_HQ, 200, 0).contains("Rebirth level 1"), "the message says 1");
     }
 
-    /** 1.6.1 b039: the notes keep "Heliseum, the Fox Tree, Cernium and the rougher back streets of Savage Terminal"
-     * at 3 rebirths; the first list opened six of those maps at level 120. */
+    /** Owner 2026-10-29: Arcane River opens at the 2nd rebirth, at any level (was 3). */
     @Test
-    void theDeeperPartsOfGrandisStayRebirthThree() {
-        for (int map : new int[]{410000002, 400020300, 401000002, 402000400, 402000401, 402000402}) {
-            assertFalse(AreaGates.isLowerGrandis(map), "deeper Grandis: " + map);
-            assertNotNull(AreaGates.denyReason(map, 200, 2), "level alone is not enough for " + map);
-            assertNull(AreaGates.denyReason(map, 1, 3));
-        }
+    void arcaneRiverOpensAtTheSecondRebirth() {
+        assertNotNull(AreaGates.denyReason(ARCANE, 200, 1));
+        assertNull(AreaGates.denyReason(ARCANE, 1, 2));
+        assertEquals(2, AreaGates.requiredRebirths(ARCANE));
+        assertTrue(AreaGates.denyReason(ARCANE, 200, 1).contains("Rebirth level 2"), "the message says 2");
+        // lower Grandis and the Future are unchanged
+        assertEquals(3, AreaGates.requiredRebirths(PANTHEON));
+        assertNotNull(AreaGates.denyReason(PANTHEON, 119, 2));
+        assertNull(AreaGates.denyReason(PANTHEON, 119, 3));
+        assertEquals(2, AreaGates.requiredRebirths(FUTURE_TOWN));
     }
 
     @Test
@@ -83,12 +94,17 @@ class AreaGatesTest {
         assertNull(net.server.channel.handlers.HyperTPRefusalTestAccess.refusal(FUTURE_TOWN, 0, 120));
         assertNotNull(net.server.channel.handlers.HyperTPRefusalTestAccess.refusal(FUTURE_TOWN, 0, 119));
         assertNull(net.server.channel.handlers.HyperTPRefusalTestAccess.refusal(PANTHEON, 0, 120));
-        assertNotNull(net.server.channel.handlers.HyperTPRefusalTestAccess.refusal(HELISEUM_HQ, 2, 200));
+        assertNotNull(net.server.channel.handlers.HyperTPRefusalTestAccess.refusal(HELISEUM_HQ, 0, 200));
+        assertNull(net.server.channel.handlers.HyperTPRefusalTestAccess.refusal(HELISEUM_HQ, 1, 30));
+        assertNotNull(net.server.channel.handlers.HyperTPRefusalTestAccess.refusal(ARCANE, 1, 200));
+        assertTrue(net.server.channel.handlers.HyperTPRefusalTestAccess.refusal(ARCANE, 1, 200).contains("Rebirth level 2"));
     }
 
     @Test
     void theTeleporterAndTheGateOfTimeAskAreaGates() throws Exception {
         assertTrue(Files.readString(Path.of("scripts/npc/9010002.js")).contains("AreaGates.denyReason"));
+        // owner 2026-10-29: the Temple of Time's Arcane River portal asks AreaGates too (it hard-coded 3 rebirths)
+        assertTrue(Files.readString(Path.of("scripts/portal/arcaneriver.js")).contains("AreaGates').denyReason(pi.getPlayer(), 450001003)"));
         // 1.6.1 b040: the Gate of Time opens a menu (the Future or lower Grandis), which asks AreaGates
         assertTrue(Files.readString(Path.of("scripts/portal/270000000.10.js")).contains("openNpc(2140000, \"gateOfTime\")"));
         assertTrue(Files.readString(Path.of("scripts/npc/gateOfTime.js")).contains("AreaGates.denyReason(cm.getPlayer(), to)"));

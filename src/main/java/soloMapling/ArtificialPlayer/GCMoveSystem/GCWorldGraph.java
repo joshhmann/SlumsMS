@@ -279,7 +279,7 @@ final class GCWorldGraph {
                 continue;
             }
             if (e.minRebirths() > rebirths || e.minLevel() > level) {
-                continue; // the script turns this bot away (the teleporter's Grandis menu, rebirth 3; Jeff, level 50)
+                continue; // the script turns this bot away (the teleporter's Heliseum / Arcane rows, rebirth 1 / 2; Jeff, level 50)
             }
             if (e.returnToSaved() != null && e.toMapId() != savedReturn) {
                 continue; // the World Tour only takes a bot back where it came from

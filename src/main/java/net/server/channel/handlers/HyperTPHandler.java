@@ -100,8 +100,8 @@ public class HyperTPHandler extends AbstractPacketHandler {
         if (reborns < 1 && isLionKingBossWing(toMapId)) {
             return "You need to be Rebirth level 1 or higher.";
         }
-        // ticket 81 round 3: the Future and lower Grandis open at level 120; the rest of Grandis and Arcane stay
-        // rebirth 3 (server.maps.AreaGates)
+        // ticket 81 round 3: the Future and lower Grandis open at level 120; owner 2026-10-29: deeper Grandis at
+        // rebirth 1, Arcane River at rebirth 2 (server.maps.AreaGates says which, and the refusal text)
         String gate = server.maps.AreaGates.denyReason(toMapId, level, reborns);
         if (gate != null) {
             return gate;

@@ -126,10 +126,11 @@ class BotTransitHighLevelTest {
     }
 
     @Test
-    void theHenesysTeleporterOffersExactlyItsGrandisAndArcaneMenusAtThreeRebirths() throws Exception {
+    void theHenesysTeleporterOffersExactlyItsGrandisAndArcaneMenusAtTheirRebirths() throws Exception {
         String js = npcScript(9010002);
         // ticket 81: the script asks server.maps.AreaGates per destination (level 120 for the Future and lower
-        // Grandis, 3 rebirths elsewhere), and the bots' rows below carry the same checks
+        // Grandis; owner 2026-10-29: 1 rebirth for deeper Grandis, 2 for Arcane River), and the bots' rows below carry
+        // the same checks
         assertTrue(js.contains("AreaGates.denyReason"), "the Grandis/Arcane menus are gated by AreaGates");
         Matcher m = Pattern.compile("\\[([0-9, ]+)\\][^\\[]*// (Grandis|Arcane River)").matcher(js);
         List<Integer> offered = new ArrayList<>();
@@ -149,7 +150,9 @@ class BotTransitHighLevelTest {
                     assertEquals(120, e.minLevel(), e.toMapId() + " opens at level 120");
                     assertEquals(0, e.minRebirths(), e.toMapId());
                 } else {
-                    assertEquals(3, e.minRebirths(), e.toMapId() + " needs the script's 3 rebirths");
+                    assertEquals(server.maps.AreaGates.requiredRebirths(e.toMapId()), e.minRebirths(),
+                            e.toMapId() + " needs the rebirths AreaGates asks for");
+                    assertTrue(e.minRebirths() == 1 || e.minRebirths() == 2, e.toMapId() + ": deeper Grandis 1, Arcane 2");
                 }
                 assertEquals(0, e.fare());
                 rows.add(e.toMapId());

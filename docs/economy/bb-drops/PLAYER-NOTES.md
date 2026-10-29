@@ -5,8 +5,8 @@
   Cheong-woon Valley, Ristonia and Toolen City, with monsters from level 109 to 142. Reach them with the Henesys
   teleporter, the Gate of Time in the Temple of Time, or the Hyper Teleport Rock. The Gate of Time also takes you to
   Leafre of the Past, the Future's burning Leafre, where Corrupted monsters of level 124 wait. The deeper parts of Grandis
-  (Heliseum, the Fox Tree, Cernium and the rougher back streets of Savage Terminal) and Arcane River still need 3
-  rebirths.
+  (Heliseum, the Fox Tree, Cernium and the rougher back streets of Savage Terminal) open at your 1st rebirth and
+  Arcane River at your 2nd, at any level.
 - **These monsters are worth fighting now.** Monsters in the Future, Grandis and Arcane River used to take forever to
   kill and give almost nothing. They now have health that fits their level. Their EXP is set so that training there
   pays roughly twice what the Temple of Time does, and it climbs as the areas get higher.

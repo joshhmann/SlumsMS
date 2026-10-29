@@ -77,7 +77,7 @@ class LowerGrandisPortalsWzTest {
         for (int map : AreaGates.lowerGrandis()) {
             String name = names.getOrDefault(map, "").toLowerCase();
             assertFalse(name.contains("heliseum") || name.contains("fox tree") || name.contains("cernium"),
-                    map + " " + name + " is deeper Grandis (3 rebirths in the notes)");
+                    map + " " + name + " is deeper Grandis (closed below the 1st rebirth)");
         }
         for (int alley = 402000400; alley <= 402000402; alley++) {
             assertFalse(AreaGates.isLowerGrandis(alley), "Savage Terminal back street " + alley);
@@ -91,7 +91,7 @@ class LowerGrandisPortalsWzTest {
         for (int map : AreaGates.lowerGrandis()) {
             for (String[] portal : portals(map)) {
                 int to = Integer.parseInt(portal[1]);
-                if (!AreaGates.isRebirth3Area(to)) {
+                if (!AreaGates.isDeeperGrandis(to) && !AreaGates.isArcaneRiver(to)) {
                     continue;
                 }
                 boundary++;

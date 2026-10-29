@@ -128,13 +128,17 @@ migration skips any (mob, item) pair that is already in drop_data.
   - a map with mobs is lower when its strongest mob is lv 142 or less (Grandis has no mobs between lv 143 and 174);
   - a map with no mobs (town, interior, door) is lower unless it sits next to an upper mob map and next to no lower
     one.
-  - (1.6.1 b039) the deeper parts the notes keep at 3 rebirths stay out even where the walk reaches them: every map
+  - (1.6.1 b039) the deeper parts the notes keep behind rebirths stay out even where the walk reaches them: every map
     whose name says Heliseum, the Fox Tree or Cernium, and Savage Terminal's hidden back streets (Back Alley,
     Desolate Black Market, Desolate Scrapyard, 402000400-402000402). Round 3 had opened six of them (the Fox Tree,
     the Heliseum Hideout, the Transitional Dimensional Door and the three back streets).
   - It prints every portal from a lower map into a closed one and flags a scripted one; all 9 are unscripted, so
     GenericPortal checks them.
-- **The rest of Grandis and Arcane River** (400000000-460000000): 3 rebirths, as before.
+- **Deeper Grandis** (every Grandis map outside the lower list: Heliseum, Tyrant's Castle, the Fox Tree, Cernium, the
+  rougher back streets of Savage Terminal and the rest of the lv 175+ band): the 1st rebirth, at any level (owner
+  2026-10-29; was 3). **Arcane River** (450000000-460000000): the 2nd rebirth, at any level (was 3). No level floor.
+  `AreaGates.requiredRebirths` holds the counts; the refusal text names them, and the Temple of Time's Arcane River
+  portal (`arcaneriver.js`) asks AreaGates instead of its own 3.
 - **Lion King's Castle and the Rose Garden** (1.6.1 b040): no rebirth gate. `in_lkc.js`, `211060000.4.js`,
   `out_VLRoof4.js`, the Hyper Rock and the bots' gate no longer ask for 1 rebirth. Still gated: the towers past
   Walls 1 (key items 4032832-4032834 / 4032858 or quests 3165-3167, as before) and Von Leon's wing 211070000-211070550
@@ -149,7 +153,8 @@ migration skips any (mob, item) pair that is already in drop_data.
 - **Bots** (round 4) follow the same rule. `BotMapGates.mayEnter(map, rebirths, level)` asks AreaGates. It is used for
   bot map choice, routing (with the transit level tier), the bots' Hyper Rock, world events and TrainingBot.
   Callers with no level keep the strict rebirth rule. The Henesys teleporter rows in `BotTransit.yaml` for the
-  Future and lower Grandis towns need level 120 instead of 3 rebirths.
+  Future and lower Grandis towns need level 120 instead of 3 rebirths; the Heliseum row needs 1 rebirth and the Arcane
+  River rows 2 (owner 2026-10-29).
 
 ## Items (only what classic mobs drop, plus the three owner-approved extras)
 
@@ -205,7 +210,7 @@ so regenerating gives the same tables.
   (`BbDropTablesMigrationIT`, which needs `-Dslums.family.it.url`).
 - LifeFactory applies the HP and EXP table (Sun Spirit: both; Skelegon: EXP x1.4 only). The table matches
   `stats.csv`. Bad rows are refused (`MobStatOverridesTest`).
-- The gates: level 120 opens the Future and lower Grandis, upper Grandis and Arcane still need 3 rebirths, the Hyper
+- The gates: level 120 opens the Future and lower Grandis, deeper Grandis needs 1 rebirth and Arcane 2, the Hyper
   Rock agrees, and the teleporter and the Gate of Time ask AreaGates (`AreaGatesTest`).
 - Bots follow the gates: `BotMapGatesTest`, `BotTransitHighLevelTest` (teleporter rows) and `GCTravelHighLevelTest`
   (a level-119 bot is turned away at the teleporter's lower Grandis row, a level-120 one goes).

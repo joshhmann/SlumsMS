@@ -40,6 +40,10 @@
 # `rebirths:`). Bots of 120-140 now train mostly in lower Grandis (15 entries). Owner 2026-10-29: Leafre of the Past
 # (272000100-600, the Future's lv 124 maps) opens as the Gate of Time's third choice, so the Future starts at level 120
 # there (6 entries at 120-140, 2 at 140-160); its other maps have lv 162+ mobs and come in from about lv 147.
+#
+# Owner 2026-10-29: deeper Grandis (everything outside lower-grandis-maps.txt) opens at the 1st rebirth and Arcane River
+# at the 2nd, at any level (both were 3); their entries say `rebirths: 1` / `rebirths: 2`. Lower Grandis keeps level 120
+# or 3 rebirths (the `rebirths: 3` entries at 110-120 are lower Grandis for 3-rebirth bots under 120).
 version: 1
 job_groups:
   # bot job id ranges -> group; a group with no entry in a band falls back to "general".
@@ -784,8 +788,8 @@ bands:
         # - {map: 271030102, w: 4, mode: solo, level: 120, mob_levels: [168, 170], name: "Knight Stronghold: Second Drill Hall"}
         # INVALID (Knight Stronghold is HyperTP-restricted (BotMapGates NEVER): no bot may enter):
         # - {map: 271030320, w: 3, mode: solo, level: 120, mob_levels: [174, 176], name: "Knight Stronghold: Armory 2"}
-        - {map: 402000125, w: 3, mode: solo, rebirths: 3, mob_levels: [175, 176], name: "Scrapyard: Seedy Scrapyard 2"}
-        - {map: 402000312, w: 3, mode: solo, rebirths: 3, mob_levels: [181, 181], name: "Brawl 'n' Bash Club: Dingy Brawl 'n' Bash Club 1"}
+        - {map: 402000125, w: 3, mode: solo, rebirths: 1, mob_levels: [175, 176], name: "Scrapyard: Seedy Scrapyard 2"}
+        - {map: 402000312, w: 3, mode: solo, rebirths: 1, mob_levels: [181, 181], name: "Brawl 'n' Bash Club: Dingy Brawl 'n' Bash Club 1"}
   - levels: [180, 200]
     label: "Twilight Perion (level 120), Kritias, Umbra, Scrapyard"
     groups:
@@ -813,13 +817,13 @@ bands:
         - {map: 273040100, w: 5, mode: solo, level: 120, mob_levels: [195, 195], name: "Twilight Perion: Forsaken Excavation Site 2"}
         - {map: 273040300, w: 4, mode: solo, level: 120, mob_levels: [196, 196], name: "Twilight Perion: Forsaken Excavation Site 4"}
         - {map: 273060300, w: 5, mode: party, level: 120, mob_levels: [198, 198], name: "Twilight Perion: Warrior Grounds"}
-        - {map: 402000453, w: 3, mode: solo, rebirths: 3, mob_levels: [184, 184], name: "Polluted Sewer: Foul Glooger Habitat 3"}
-        - {map: 401010000, w: 3, mode: solo, rebirths: 3, mob_levels: [195, 195], name: "Twisted Forest: Savage Dog Forest"}
-        - {map: 401020200, w: 3, mode: solo, rebirths: 3, mob_levels: [198, 198], name: "Forbidden Forest: Yellow Speeyor's Pasture"}
-        - {map: 410000112, w: 3, mode: solo, rebirths: 3, mob_levels: [191, 192], name: "Fox Valley: Fox Tree Top Path 2"}
-        - {map: 410000123, w: 3, mode: solo, rebirths: 3, mob_levels: [199, 199], name: "Beyond the Clouds: Guardian Walkway 3"}
+        - {map: 402000453, w: 3, mode: solo, rebirths: 1, mob_levels: [184, 184], name: "Polluted Sewer: Foul Glooger Habitat 3"}
+        - {map: 401010000, w: 3, mode: solo, rebirths: 1, mob_levels: [195, 195], name: "Twisted Forest: Savage Dog Forest"}
+        - {map: 401020200, w: 3, mode: solo, rebirths: 1, mob_levels: [198, 198], name: "Forbidden Forest: Yellow Speeyor's Pasture"}
+        - {map: 410000112, w: 3, mode: solo, rebirths: 1, mob_levels: [191, 192], name: "Fox Valley: Fox Tree Top Path 2"}
+        - {map: 410000123, w: 3, mode: solo, rebirths: 1, mob_levels: [199, 199], name: "Beyond the Clouds: Guardian Walkway 3"}
   - levels: [200, 255]
-    label: "Black Heaven (open), Arcane River / Grandis endgame (rebirth 3)"
+    label: "Black Heaven (open), Arcane River (rebirth 2) / deeper Grandis endgame (rebirth 1)"
     groups:
       general:
         - {map: 310070120, w: 4, mode: solo, mob_levels: [202, 202], name: "Scrapyard: Scrapyard Hill 2"}
@@ -829,18 +833,18 @@ bands:
         - {map: 310070310, w: 3, mode: solo, mob_levels: [213, 215], name: "Black Heaven Decks: Black Heaven Entrance"}
         - {map: 310070480, w: 4, mode: solo, mob_levels: [219, 219], name: "Black Heaven: Black Heaven Maze 6"}
         - {map: 273060300, w: 3, mode: party, level: 120, mob_levels: [198, 198], name: "Twilight Perion: Warrior Grounds"}
-        - {map: 450001011, w: 4, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Lake of Oblivion: Weathered Land of Happiness and Rage"}
-        - {map: 450001112, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Extinction Zone: Fire Zone"}
-        - {map: 450001230, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Cave of Repose: Arma's Hideout"}
-        - {map: 450002007, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Slurpy Forest: Dealie-Bobber Forest 2"}
-        - {map: 450003320, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Lachelein Night Market: Chicken Festival 3"}
-        - {map: 450003530, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Lachelein Clocktower: Nightmare Clocktower 4F"}
-        - {map: 450005130, w: 3, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Arcana: The Forest of Earth"}
-        - {map: 450006010, w: 2, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Morass: Path to the Coral Forest 2"}
-        - {map: 450007010, w: 2, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Esfera: Living Spring 2"}
-        - {map: 450009110, w: 2, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Moonbridge: Last Horizon 1"}
-        - {map: 450011410, w: 1, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Tenebris: Labyrinth of Suffering Interior 2"}
-        - {map: 450012020, w: 1, mode: solo, rebirths: 3, mob_levels: [200, 200], name: "Limina: World's Sorrow Depths 1"}
-        - {map: 410000114, w: 3, mode: solo, rebirths: 3, mob_levels: [193, 193], name: "Fox Valley: Fox Tree Side Path"}
-        - {map: 410000102, w: 3, mode: solo, rebirths: 3, mob_levels: [196, 197], name: "Fox Point Village: Fox Tree Midway 2"}
-        - {map: 401040700, w: 3, mode: solo, rebirths: 3, mob_levels: [195, 200], name: "Heliseum Downtown: East Downtown Walkway"}
+        - {map: 450001011, w: 4, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Lake of Oblivion: Weathered Land of Happiness and Rage"}
+        - {map: 450001112, w: 3, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Extinction Zone: Fire Zone"}
+        - {map: 450001230, w: 3, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Cave of Repose: Arma's Hideout"}
+        - {map: 450002007, w: 3, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Slurpy Forest: Dealie-Bobber Forest 2"}
+        - {map: 450003320, w: 3, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Lachelein Night Market: Chicken Festival 3"}
+        - {map: 450003530, w: 3, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Lachelein Clocktower: Nightmare Clocktower 4F"}
+        - {map: 450005130, w: 3, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Arcana: The Forest of Earth"}
+        - {map: 450006010, w: 2, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Morass: Path to the Coral Forest 2"}
+        - {map: 450007010, w: 2, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Esfera: Living Spring 2"}
+        - {map: 450009110, w: 2, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Moonbridge: Last Horizon 1"}
+        - {map: 450011410, w: 1, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Tenebris: Labyrinth of Suffering Interior 2"}
+        - {map: 450012020, w: 1, mode: solo, rebirths: 2, mob_levels: [200, 200], name: "Limina: World's Sorrow Depths 1"}
+        - {map: 410000114, w: 3, mode: solo, rebirths: 1, mob_levels: [193, 193], name: "Fox Valley: Fox Tree Side Path"}
+        - {map: 410000102, w: 3, mode: solo, rebirths: 1, mob_levels: [196, 197], name: "Fox Point Village: Fox Tree Midway 2"}
+        - {map: 401040700, w: 3, mode: solo, rebirths: 1, mob_levels: [195, 200], name: "Heliseum Downtown: East Downtown Walkway"}

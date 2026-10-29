@@ -92,7 +92,7 @@ regions:
   # same rule through BotMapGates). Their towns are reached by the Henesys teleporter (BotTransit.yaml, level 120) and
   # the Gate of Time. Lower Grandis: Pantheon, Savage Terminal, Sanctuary, the Caravan Refuge, Fox Ridge, Cheong-woon,
   # Ristonia and Toolen City. The windows also hold a few upper maps (the Scrapyard, the back-alleys, the Fox Tree);
-  # those stay closed below 3 rebirths whatever this file says. The Future: Gate to the Future, Henesys Ruins, Dark
+  # those stay closed below 1 rebirth (owner 2026-10-29; was 3) whatever this file says. The Future: Gate to the Future, Henesys Ruins, Dark
   # Ereve and Twilight Perion (the Knight Stronghold is closed to bots).
   - name: Lower Grandis
     windows: [{min: 400000000, max: 400050000}, {min: 402000000, max: 402000700}, {min: 410000000, max: 410000500}]
