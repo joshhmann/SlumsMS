@@ -16,6 +16,27 @@ The drop tables and rare gear are as in round 2, and Mirror World stays out. **N
 
 Player notes text: `PLAYER-NOTES.md`.
 
+## Migration 055: boss drop gaps (owner 2026-10-29, branch 161-bossdrops)
+
+050 only looked at mobs placed on maps in its regions, so six mobs that are fought and killed got no table. 055 adds
+172 rows by the same rules (`gen_bb_drops.py gaps`, `gap-rows.csv`):
+
+| Mob | Level, tier | Rows | Mesos (base) | Rare outclassing piece |
+|---|---|---|---|---|
+| Oz 8850006 | 188, boss | 30 | 13,536-20,304 at 70% | Utgard Saber 3000 (0.9%) |
+| Irena 8850007 | 188, boss | 30 | same | Jaihin Guards 3000 |
+| Eckhart 8850008 | 188, boss | 30 | same | AbsoLab Broad Axe 1000 (0.3%) |
+| Hawkeye 8850009 | 188, boss | 30 | same | Jaihin Crossbow 3000 |
+| Castellan 9400408 | 180, elite (620M HP) | 28 | 4,608-6,912 | none (Ninja Castle is classic: classic pool only) |
+| Lantern Erda 8641008 | 200, normal | 24 | 1,024-1,536 | Pensalir Mage Gloves 60 |
+
+- A boss table is Zakum-shaped (6 scrolls, 8 classic equips, 4 mastery books, 3 par and 1 rare post-Big-Bang piece).
+  The four knights are four separate boss tables in one Cygnus fight, so a full clear rolls four of them.
+- **The killing forms today** (TEST drop_data, export 2026-10-29): Cygnus' final form 8850012 (the one CygnusBattle
+  counts as the kill) has **no rows at all**; 8850011 (the stub) none either. Castellan Toad 9400409 (what Castellan
+  revives into, the kill CastellanBattle counts) has only a meso row (10,000-20,000 at 40%). 055 does not change
+  either; that is the owner's call.
+
 ## Round 6 (owner 2026-10-29, branch 161-ladder3)
 
 The owner's decisions on round 5:

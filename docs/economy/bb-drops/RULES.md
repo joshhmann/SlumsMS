@@ -228,3 +228,17 @@ python3 tools/economy/ladder_table.py                                # the 120+ 
 # the client Monster Book can print the new HP (needs a Custom.wz rebuild):
 python3 tools/monsterbook/build_book.py ... --hp-overrides src/main/resources/soloMapling/mob-stat-overrides.tsv
 ```
+
+## 055: the boss-fight mobs outside 050's regions (owner 2026-10-29)
+
+- `gen_bb_drops.py gaps` builds tables for `GAP_MOBS` by the same rules (`build_rows`, priced against 050's own mobs
+  for the meso medians) and writes `database/migrations/055-boss-drop-gaps.sql` (ledger `boss_drops_055_rows`) and
+  `docs/economy/bb-drops/gap-rows.csv`. Regenerating 050 is unchanged by it.
+- The mobs: Cygnus' knights Oz, Irena, Eckhart and Hawkeye (8850006-8850009, lv 188, boss flag, 2.1B HP: boss tier,
+  region "future"), Castellan (9400408, lv 180, boss flag, 620M HP: elite tier, region "zipangu", a classic area so
+  classic pool only) and the Arcane Lantern Erda (8641008, lv 200, normal, region "arcane"). None is placed on a map:
+  the knights fight in CygnusBattle, Castellan in CastellanBattle (it revives into Castellan Toad 9400409), the Lantern
+  Erda is revived from 8641007.
+- The phase/form stubs 8850005, 8850011, 8880150, 8880302, 8880415, 8645009 and 8641009 stay dropless.
+- Checks: `BossDropGapsDataTest` (the six mobs only, the 050 row rules, tiers, own ledger, listed after 054),
+  `BossDropGapsMigrationIT` (apply twice, rollback twice, the card row and 050's rows untouched).

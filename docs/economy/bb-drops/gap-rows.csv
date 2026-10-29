@@ -1,0 +1,173 @@
+dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_quantity,questid,chance
+8641008,Lantern Erda,arcane,normal,200,0,mesos,meso,1024,1536,0,400000
+8641008,Lantern Erda,arcane,normal,200,4001878,Arcane River Droplet Stone,etc,1,1,0,10000
+8641008,Lantern Erda,arcane,normal,200,2000005,Power Elixir,potion,1,1,0,20000
+8641008,Lantern Erda,arcane,normal,200,2020013,Reindeer Milk,potion,1,1,0,20000
+8641008,Lantern Erda,arcane,normal,200,2020015,Sunset Dew,potion,1,1,0,20000
+8641008,Lantern Erda,arcane,normal,200,4004004,Dark Crystal Ore,crystal,1,1,0,10000
+8641008,Lantern Erda,arcane,normal,200,4010000,Bronze Ore,mineral,1,1,0,9000
+8641008,Lantern Erda,arcane,normal,200,4020001,Amethyst Ore,mineral,1,1,0,9000
+8641008,Lantern Erda,arcane,normal,200,4007002,Magic Powder (Blue),rock,1,1,0,10000
+8641008,Lantern Erda,arcane,normal,200,4130017,Gun Production Stimulator,stimulator,1,1,0,6000
+8641008,Lantern Erda,arcane,normal,200,2040003,Scroll for Helmet for HP 100%,scroll,1,1,0,300
+8641008,Lantern Erda,arcane,normal,200,2040301,Scroll for Earring for INT 60%,scroll,1,1,0,300
+8641008,Lantern Erda,arcane,normal,200,2044001,Scroll for Two-handed Sword for ATT 60%,scroll,1,1,0,300
+8641008,Lantern Erda,arcane,normal,200,2044414,Scroll for Pole Arm for Accuracy 10%,scroll,1,1,0,300
+8641008,Lantern Erda,arcane,normal,200,1002528,Green Grace Helmet,equip,1,1,0,1287
+8641008,Lantern Erda,arcane,normal,200,1050103,Blue Varuna,equip,1,1,0,700
+8641008,Lantern Erda,arcane,normal,200,1051091,Blue Katte,equip,1,1,0,700
+8641008,Lantern Erda,arcane,normal,200,1072227,Red Arnah Shoes,equip,1,1,0,800
+8641008,Lantern Erda,arcane,normal,200,1482011,White Fangz,equip,1,1,0,500
+8641008,Lantern Erda,arcane,normal,200,2290016,[Mastery Book] Enrage 20,book,1,1,0,500
+8641008,Lantern Erda,arcane,normal,200,2290050,[Mastery Book] Angel Ray 20,book,1,1,0,500
+8641008,Lantern Erda,arcane,normal,200,1052798,Muspell Pirate Suit,bbgear,1,1,0,800
+8641008,Lantern Erda,arcane,normal,200,1082603,Muspell Warrior Gloves,bbgear,1,1,0,800
+8641008,Lantern Erda,arcane,normal,200,1082609,Pensalir Mage Gloves,bbrare,1,1,0,60
+8850006,Oz,future,boss,188,0,mesos,meso,13536,20304,0,700000
+8850006,Oz,future,boss,188,2000004,Elixir,potion,1,1,0,999999
+8850006,Oz,future,boss,188,2000005,Power Elixir,potion,1,1,0,999999
+8850006,Oz,future,boss,188,2020013,Reindeer Milk,potion,1,1,0,999999
+8850006,Oz,future,boss,188,2020015,Sunset Dew,potion,1,1,0,999999
+8850006,Oz,future,boss,188,2000006,Mana Elixir,potion,1,4,0,40000
+8850006,Oz,future,boss,188,4006000,The Magic Rock,rock,1,1,0,7000
+8850006,Oz,future,boss,188,4006001,The Summoning Rock,rock,1,1,0,7000
+8850006,Oz,future,boss,188,2040205,Scroll for Eye Accessory for INT 10%,scroll,1,1,0,13500
+8850006,Oz,future,boss,188,2040322,Scroll for Earring for LUK 30%,scroll,1,1,0,13500
+8850006,Oz,future,boss,188,2040602,Scroll for Bottomwear for DEF 10%,scroll,1,1,0,13500
+8850006,Oz,future,boss,188,2040923,Scroll for Shield for LUK 100%,scroll,1,1,0,13500
+8850006,Oz,future,boss,188,2044801,Scroll for Knuckle for ATT 60%,scroll,1,1,0,13500
+8850006,Oz,future,boss,188,2048005,Scroll for Pet Equip. for Jump 10%,scroll,1,1,0,13500
+8850006,Oz,future,boss,188,1040111,Green Commodore,equip,1,1,0,22500
+8850006,Oz,future,boss,188,1040115,Green Osfa Suit,equip,1,1,0,22500
+8850006,Oz,future,boss,188,1040117,Purple Osfa Suit,equip,1,1,0,22500
+8850006,Oz,future,boss,188,1050103,Blue Varuna,equip,1,1,0,22500
+8850006,Oz,future,boss,188,1072223,Green Varr Shoes,equip,1,1,0,22500
+8850006,Oz,future,boss,188,1082126,Green Focus,equip,1,1,0,22500
+8850006,Oz,future,boss,188,1092036,Green Hoflon,equip,1,1,0,22500
+8850006,Oz,future,boss,188,1312015,Vifennis,equip,1,1,0,22500
+8850006,Oz,future,boss,188,2290012,[Mastery Book] Blast 20,book,1,1,0,20000
+8850006,Oz,future,boss,188,2290042,[Mastery Book] Ice Demon 20,book,1,1,0,20000
+8850006,Oz,future,boss,188,2290121,[Mastery Book] Battleship Torpedo 20,book,1,1,0,20000
+8850006,Oz,future,boss,188,2290130,[Mastery Book] Freeze Standing 20,book,1,1,0,20000
+8850006,Oz,future,boss,188,1052794,Muspell Warrior Suit,bbgear,1,1,0,22500
+8850006,Oz,future,boss,188,1052797,Muspell Thief Suit,bbgear,1,1,0,22500
+8850006,Oz,future,boss,188,1072965,Muspell Thief Shoes,bbgear,1,1,0,22500
+8850006,Oz,future,boss,188,1302315,Utgard Saber,bbrare,1,1,0,3000
+8850007,Irena,future,boss,188,0,mesos,meso,13536,20304,0,700000
+8850007,Irena,future,boss,188,2000004,Elixir,potion,1,1,0,999999
+8850007,Irena,future,boss,188,2000005,Power Elixir,potion,1,1,0,999999
+8850007,Irena,future,boss,188,2020013,Reindeer Milk,potion,1,1,0,999999
+8850007,Irena,future,boss,188,2020015,Sunset Dew,potion,1,1,0,999999
+8850007,Irena,future,boss,188,2000006,Mana Elixir,potion,1,4,0,40000
+8850007,Irena,future,boss,188,4006000,The Magic Rock,rock,1,1,0,7000
+8850007,Irena,future,boss,188,4006001,The Summoning Rock,rock,1,1,0,7000
+8850007,Irena,future,boss,188,2040400,Scroll for Topwear for DEF 100%,scroll,1,1,0,13500
+8850007,Irena,future,boss,188,2040502,Scroll for Overall Armor for DEX 10%,scroll,1,1,0,13500
+8850007,Irena,future,boss,188,2040601,Scroll for Bottomwear for DEF 60%,scroll,1,1,0,13500
+8850007,Irena,future,boss,188,2040801,Scroll for Gloves for DEX 60%,scroll,1,1,0,13500
+8850007,Irena,future,boss,188,2044501,Scroll for Bow for ATT 60%,scroll,1,1,0,13500
+8850007,Irena,future,boss,188,2044803,Scroll for Knuckle for ATT 70%,scroll,1,1,0,13500
+8850007,Irena,future,boss,188,1002379,Dark Valhalla Helmet,equip,1,1,0,22500
+8850007,Irena,future,boss,188,1002402,Red Arlic Helmet,equip,1,1,0,22500
+8850007,Irena,future,boss,188,1050093,Blue Oriental Fury Coat,equip,1,1,0,22500
+8850007,Irena,future,boss,188,1050099,Dark Katinas,equip,1,1,0,22500
+8850007,Irena,future,boss,188,1051082,Red Anes,equip,1,1,0,22500
+8850007,Irena,future,boss,188,1051096,Red Oriental Fury Coat,equip,1,1,0,22500
+8850007,Irena,future,boss,188,1082131,Blue Sage,equip,1,1,0,22500
+8850007,Irena,future,boss,188,1082140,Blue Korben,equip,1,1,0,22500
+8850007,Irena,future,boss,188,2290029,[Mastery Book] Infinity 30,book,1,1,0,20000
+8850007,Irena,future,boss,188,2290054,[Mastery Book] Dragon's Breath 20,book,1,1,0,20000
+8850007,Irena,future,boss,188,2290070,[Mastery Book] Piercing Arrow 20,book,1,1,0,20000
+8850007,Irena,future,boss,188,2290077,[Mastery Book] Shadow Shifter 30,book,1,1,0,20000
+8850007,Irena,future,boss,188,1004224,Muspell Warrior Hat,bbgear,1,1,0,22500
+8850007,Irena,future,boss,188,1004228,Muspell Pirate Hat,bbgear,1,1,0,22500
+8850007,Irena,future,boss,188,1072965,Muspell Thief Shoes,bbgear,1,1,0,22500
+8850007,Irena,future,boss,188,1472246,Jaihin Guards,bbrare,1,1,0,3000
+8850008,Eckhart,future,boss,188,0,mesos,meso,13536,20304,0,700000
+8850008,Eckhart,future,boss,188,2000004,Elixir,potion,1,1,0,999999
+8850008,Eckhart,future,boss,188,2000005,Power Elixir,potion,1,1,0,999999
+8850008,Eckhart,future,boss,188,2020013,Reindeer Milk,potion,1,1,0,999999
+8850008,Eckhart,future,boss,188,2020015,Sunset Dew,potion,1,1,0,999999
+8850008,Eckhart,future,boss,188,2000006,Mana Elixir,potion,1,4,0,40000
+8850008,Eckhart,future,boss,188,4006000,The Magic Rock,rock,1,1,0,7000
+8850008,Eckhart,future,boss,188,4006001,The Summoning Rock,rock,1,1,0,7000
+8850008,Eckhart,future,boss,188,2040326,Scroll for Earring for HP 60%,scroll,1,1,0,13500
+8850008,Eckhart,future,boss,188,2040412,Scroll for Topwear for LUK 10%,scroll,1,1,0,13500
+8850008,Eckhart,future,boss,188,2040612,Scroll for Bottomwear for DEX 10%,scroll,1,1,0,13500
+8850008,Eckhart,future,boss,188,2041023,Scroll for Cape for LUK 10%,scroll,1,1,0,13500
+8850008,Eckhart,future,boss,188,2043202,Scroll for One-Handed BW for ATT 10%,scroll,1,1,0,13500
+8850008,Eckhart,future,boss,188,2044014,Scroll for Two-Handed Sword for Accuracy 10%,scroll,1,1,0,13500
+8850008,Eckhart,future,boss,188,1002400,Red Varr Hat,equip,1,1,0,22500
+8850008,Eckhart,future,boss,188,1002531,Silver Grace Helmet,equip,1,1,0,22500
+8850008,Eckhart,future,boss,188,1050094,Red Oriental Fury Coat,equip,1,1,0,22500
+8850008,Eckhart,future,boss,188,1072213,Green Katina Boots,equip,1,1,0,22500
+8850008,Eckhart,future,boss,188,1082140,Blue Korben,equip,1,1,0,22500
+8850008,Eckhart,future,boss,188,1082142,Green Mystra,equip,1,1,0,22500
+8850008,Eckhart,future,boss,188,1082151,Green Ciara,equip,1,1,0,22500
+8850008,Eckhart,future,boss,188,1332026,Cursayer,equip,1,1,0,22500
+8850008,Eckhart,future,boss,188,2290039,[Mastery Book] Ifrit 30,book,1,1,0,20000
+8850008,Eckhart,future,boss,188,2290088,[Mastery Book] Shadow Stars 20,book,1,1,0,20000
+8850008,Eckhart,future,boss,188,2290090,[Mastery Book] Boomerang Step 20,book,1,1,0,20000
+8850008,Eckhart,future,boss,188,2290119,[Mastery Book] Battleship Cannon 20,book,1,1,0,20000
+8850008,Eckhart,future,boss,188,1004225,Muspell Magician Hat,bbgear,1,1,0,22500
+8850008,Eckhart,future,boss,188,1072965,Muspell Thief Shoes,bbgear,1,1,0,22500
+8850008,Eckhart,future,boss,188,1082605,Muspell Bowman Gloves,bbgear,1,1,0,22500
+8850008,Eckhart,future,boss,188,1412182,AbsoLab Broad Axe,bbrare,1,1,0,1000
+8850009,Hawkeye,future,boss,188,0,mesos,meso,13536,20304,0,700000
+8850009,Hawkeye,future,boss,188,2000004,Elixir,potion,1,1,0,999999
+8850009,Hawkeye,future,boss,188,2000005,Power Elixir,potion,1,1,0,999999
+8850009,Hawkeye,future,boss,188,2020013,Reindeer Milk,potion,1,1,0,999999
+8850009,Hawkeye,future,boss,188,2020015,Sunset Dew,potion,1,1,0,999999
+8850009,Hawkeye,future,boss,188,2000006,Mana Elixir,potion,1,4,0,40000
+8850009,Hawkeye,future,boss,188,4006000,The Magic Rock,rock,1,1,0,7000
+8850009,Hawkeye,future,boss,188,4006001,The Summoning Rock,rock,1,1,0,7000
+8850009,Hawkeye,future,boss,188,2040318,Scroll for Earring for DEX 10%,scroll,1,1,0,13500
+8850009,Hawkeye,future,boss,188,2040422,Scroll for Topwear for HP 10%,scroll,1,1,0,13500
+8850009,Hawkeye,future,boss,188,2040427,Scroll for Topwear for LUK 10%,scroll,1,1,0,13500
+8850009,Hawkeye,future,boss,188,2040824,Scroll for Gloves for HP 60%,scroll,1,1,0,13500
+8850009,Hawkeye,future,boss,188,2040924,Scroll for Shield for LUK 60%,scroll,1,1,0,13500
+8850009,Hawkeye,future,boss,188,2044804,Scroll for Knuckle for ATT 30%,scroll,1,1,0,13500
+8850009,Hawkeye,future,boss,188,1002325,Purple Osfa Hat,equip,1,1,0,22500
+8850009,Hawkeye,future,boss,188,1002531,Silver Grace Helmet,equip,1,1,0,22500
+8850009,Hawkeye,future,boss,188,1041118,Red Osfa Suit,equip,1,1,0,22500
+8850009,Hawkeye,future,boss,188,1050095,Black Oriental Fury Coat,equip,1,1,0,22500
+8850009,Hawkeye,future,boss,188,1052131,Red Belly Duke,equip,1,1,0,22500
+8850009,Hawkeye,future,boss,188,1061120,Blood Valkyrie Skirt,equip,1,1,0,22500
+8850009,Hawkeye,future,boss,188,1072213,Green Katina Boots,equip,1,1,0,22500
+8850009,Hawkeye,future,boss,188,1462017,Dark Neschere,equip,1,1,0,22500
+8850009,Hawkeye,future,boss,188,2290007,[Mastery Book] Power Stance 30,book,1,1,0,20000
+8850009,Hawkeye,future,boss,188,2290051,[Mastery Book] Angel Ray 30,book,1,1,0,20000
+8850009,Hawkeye,future,boss,188,2290115,[Mastery Book] Air Strike 20,book,1,1,0,20000
+8850009,Hawkeye,future,boss,188,2290138,[Mastery Book] Combo Barrier 20,book,1,1,0,20000
+8850009,Hawkeye,future,boss,188,1072965,Muspell Thief Shoes,bbgear,1,1,0,22500
+8850009,Hawkeye,future,boss,188,1082605,Muspell Bowman Gloves,bbgear,1,1,0,22500
+8850009,Hawkeye,future,boss,188,1082606,Muspell Thief Gloves,bbgear,1,1,0,22500
+8850009,Hawkeye,future,boss,188,1462224,Jaihin Crossbow,bbrare,1,1,0,3000
+9400408,Castellan,zipangu,elite,180,0,mesos,meso,4608,6912,0,400000
+9400408,Castellan,zipangu,elite,180,2020013,Reindeer Milk,potion,1,1,0,40000
+9400408,Castellan,zipangu,elite,180,2020015,Sunset Dew,potion,1,1,0,40000
+9400408,Castellan,zipangu,elite,180,2022003,Unagi,potion,1,1,0,40000
+9400408,Castellan,zipangu,elite,180,4004001,Wisdom Crystal Ore,crystal,1,1,0,20000
+9400408,Castellan,zipangu,elite,180,4004003,LUK Crystal Ore,crystal,1,1,0,20000
+9400408,Castellan,zipangu,elite,180,4020001,Amethyst Ore,mineral,1,1,0,18000
+9400408,Castellan,zipangu,elite,180,4020006,Topaz Ore,mineral,1,1,0,18000
+9400408,Castellan,zipangu,elite,180,4020007,Diamond Ore,mineral,1,1,0,18000
+9400408,Castellan,zipangu,elite,180,4007005,Magic Powder (Purple),rock,1,1,0,20000
+9400408,Castellan,zipangu,elite,180,4007007,Magic Powder (Black),rock,1,1,0,20000
+9400408,Castellan,zipangu,elite,180,4130009,Pole Arm Forging Stimulator,stimulator,1,1,0,12000
+9400408,Castellan,zipangu,elite,180,4130010,Wand Production Stimulator,stimulator,1,1,0,12000
+9400408,Castellan,zipangu,elite,180,2040107,Scroll for Face Accessory for Avoidability 100%,scroll,1,1,0,600
+9400408,Castellan,zipangu,elite,180,2040530,Scroll for Overall Armor for STR 100%,scroll,1,1,0,600
+9400408,Castellan,zipangu,elite,180,2043002,Scroll for One-Handed Sword for ATT 10%,scroll,1,1,0,600
+9400408,Castellan,zipangu,elite,180,2043210,Scroll for One-Handed BW for Accuracy 100%,scroll,1,1,0,600
+9400408,Castellan,zipangu,elite,180,2044313,Scroll for Spear for Accuracy 30%,scroll,1,1,0,1500
+9400408,Castellan,zipangu,elite,180,2044801,Scroll for Knuckle for ATT 60%,scroll,1,1,0,600
+9400408,Castellan,zipangu,elite,180,1002406,Red Arnah Cap,equip,1,1,0,1986
+9400408,Castellan,zipangu,elite,180,1051085,Dark Anes,equip,1,1,0,1400
+9400408,Castellan,zipangu,elite,180,1072213,Green Katina Boots,equip,1,1,0,1400
+9400408,Castellan,zipangu,elite,180,1402035,The Beheader,equip,1,1,0,1400
+9400408,Castellan,zipangu,elite,180,1442044,Zedbug,equip,1,1,0,1400
+9400408,Castellan,zipangu,elite,180,1492011,The Peacemaker,equip,1,1,0,1000
+9400408,Castellan,zipangu,elite,180,2290050,[Mastery Book] Angel Ray 20,book,1,1,0,1000
+9400408,Castellan,zipangu,elite,180,2290067,[Mastery Book] Marksman Boost 30,book,1,1,0,1000
+9400408,Castellan,zipangu,elite,180,2290125,[Mastery Book] Maple Warrior 30,book,1,1,0,1000
