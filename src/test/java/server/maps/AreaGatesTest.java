@@ -53,6 +53,17 @@ class AreaGatesTest {
         }
     }
 
+    /** 1.6.1 b039: the notes keep "Heliseum, the Fox Tree, Cernium and the rougher back streets of Savage Terminal"
+     * at 3 rebirths; the first list opened six of those maps at level 120. */
+    @Test
+    void theDeeperPartsOfGrandisStayRebirthThree() {
+        for (int map : new int[]{410000002, 400020300, 401000002, 402000400, 402000401, 402000402}) {
+            assertFalse(AreaGates.isLowerGrandis(map), "deeper Grandis: " + map);
+            assertNotNull(AreaGates.denyReason(map, 200, 2), "level alone is not enough for " + map);
+            assertNull(AreaGates.denyReason(map, 1, 3));
+        }
+    }
+
     @Test
     void otherMapsAreOpen() {
         assertNull(AreaGates.denyReason(100000000, 1, 0));
@@ -78,6 +89,8 @@ class AreaGatesTest {
     @Test
     void theTeleporterAndTheGateOfTimeAskAreaGates() throws Exception {
         assertTrue(Files.readString(Path.of("scripts/npc/9010002.js")).contains("AreaGates.denyReason"));
-        assertTrue(Files.readString(Path.of("scripts/portal/270000000.10.js")).contains("denyReason(player, 271000000)"));
+        // 1.6.1 b040: the Gate of Time opens a menu (the Future or lower Grandis), which asks AreaGates
+        assertTrue(Files.readString(Path.of("scripts/portal/270000000.10.js")).contains("openNpc(2140000, \"gateOfTime\")"));
+        assertTrue(Files.readString(Path.of("scripts/npc/gateOfTime.js")).contains("AreaGates.denyReason(cm.getPlayer(), to)"));
     }
 }

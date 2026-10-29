@@ -32,7 +32,7 @@ class LevelingPathChooserTest {
     private static final int PIG = 104010001;        // Victoria, mob 14 (warriors)
     private static final int TERRACE = 220000300;    // Ludibrium, mob 35
     private static final int TOY = 220010500;        // Ludibrium, mob 38
-    private static final int LKC = 211060100;        // Lion King's Castle, rebirth 1, mob 120
+    private static final int LKC = 211070000;        // Von Leon's wing of Lion King's Castle, rebirth 1, mob 120
     private static final int SKELE = 240040511;      // Leafre, mob 125
     private static final int BH = 310070100;         // Black Heaven, mob 200, no region hub
 
@@ -57,7 +57,7 @@ class LevelingPathChooserTest {
               - levels: [60, 255]
                 groups:
                   general:
-                    - {map: 211060100, w: 3}
+                    - {map: 211070000, w: 3}
                     - {map: 240040511, w: 3}
                     - {map: 310070100, w: 3}
             """;

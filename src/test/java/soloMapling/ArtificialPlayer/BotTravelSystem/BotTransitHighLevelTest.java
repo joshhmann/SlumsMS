@@ -77,6 +77,12 @@ class BotTransitHighLevelTest {
             String toPortal = r.get("to_portal") == null ? null : r.get("to_portal").toString();
             boolean warps = js.contains("warp(" + to + ", " + toPortal + ")")
                     || js.contains("warp(" + to + ", \"" + toPortal + "\")");
+            java.util.regex.Matcher menu = java.util.regex.Pattern.compile("openNpc\\(\\d+, \"(\\w+)\"\\)").matcher(js);
+            if (!warps && menu.find()) {
+                // a portal that opens a menu (the Gate of Time): the menu script lists the map and warps to it
+                String npc = Files.readString(Path.of("scripts/npc/" + menu.group(1) + ".js"));
+                warps = npc.contains("[" + to + ",") && npc.contains("warp(to, " + toPortal + ")");
+            }
             assertTrue(warps, script + ".js does not warp to " + to + " portal " + toPortal);
             checked++;
         }

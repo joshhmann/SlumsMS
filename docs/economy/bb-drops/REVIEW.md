@@ -16,6 +16,60 @@ The drop tables and rare gear are as in round 2, and Mirror World stays out. **N
 
 Player notes text: `PLAYER-NOTES.md`.
 
+## Round 5 (1.6.1 b039-b041, branch 161-ladder2): the notes are now true
+
+The 1.6.1 audit (REPORT-small items 14-19) found five places where the player notes promised more than the build
+did. The owner's rule is to build what the notes say, so:
+- **Deeper Grandis stays rebirth 3.** Six maps the notes call deeper were open at level 120: the Fox Tree (410000002),
+  the Heliseum Hideout (400020300), Heliseum's Transitional Dimensional Door (401000002) and Savage Terminal's hidden
+  back streets (402000400-402000402). `gen_area_gates.py` now keeps every Heliseum / Fox Tree / Cernium map and the
+  back streets out; lower Grandis is 181 maps. The 9 portals from lower Grandis into closed maps are all unscripted, so
+  `GenericPortal` checks each one (`LowerGrandisPortalsWzTest`).
+- **The Gate of Time reaches Grandis.** It opens a menu: the Future, or lower Grandis at Pantheon (400000000), both
+  behind the level-120 gate. Bots get a "Gate of Time" row to Pantheon.
+- **Leafre/Minar, the Temple of Time and Ulu City give 40% more EXP for every mob**, not only the 25 of lv 95+: 53
+  mobs now, Beetles, Harps, Kentauruses, Eyes of Time, Manon/Griffey, Dodo/Lilynouch/Lyka and Ulu's Berserkie and
+  Veetron included.
+- **Lower Grandis pays about 2x the buffed Temple of Time.** Its EXP target is x1.55 (78 mobs, lv 109-142).
+- **Lion King's Castle needs no rebirth.** Only Von Leon's wing (211070000-211070550) keeps rebirth 1 by Hyper Rock and
+  for bots; the towers past Walls 1 keep their keys and quests.
+- **Bots:** TrainingRegions has "Lower Grandis" and "The Future" (from level 120); the path has 15 lower-Grandis maps
+  at 120-140 and 8 more (plus 5 Future maps) at 140-160.
+
+The ladder now (same model as below: 141M damage an hour, at most 1,500 kills an hour, EXP 3x; per area the median of
+its training maps, a map being the mean of its mob placements; `tools/economy/ladder_table.py`; "before" is release
+1.6.1 as merged):
+
+| Area | Strongest mob per map | Maps | EXP/hour before -> after | x buffed Temple of Time (Road to Oblivion) |
+|---|---|---|---|---|
+| Ulu City (Singapore) | 90-115 | 8 | 27.1M -> 27.1M | 1.04x -> 1.04x |
+| Leafre / Minar Forest | 93-113 | 24 | 18.7M -> 18.7M | 0.72x -> 0.71x |
+| Temple of Time, Road of Regrets | 106-116 | 5 | 24.3M -> 24.6M | 0.94x -> 0.94x |
+| Temple of Time, Road to Oblivion | 121-131 | 5 | 25.9M -> 26.1M | 1.00x -> 1.00x |
+| Lion King's Castle | 117-127 | 13 | 34.0M -> 34.0M | 1.31x -> 1.30x |
+| Rose Garden | 128-134 | 6 | 42.4M -> 42.4M | 1.64x -> 1.62x |
+| Lower Grandis | 109-142 | 109 | 34.0M -> 52.6M | 1.31x -> 2.01x |
+| Future / Twilight Perion | 109-198 | 46 | 105.4M -> 105.4M | 4.07x -> 4.03x |
+| Upper Grandis | 114-200 | 108 | 151.8M -> 151.8M | 5.86x -> 5.81x |
+| Arcane River | 200-200 | 272 | 155.8M -> 155.8M | 6.01x -> 5.96x |
+
+Notes on the table:
+- The Temple of Time moves a little (24.3 -> 24.6M, 25.9 -> 26.1M) because its Eyes of Time (lv 80) now get x1.4 too.
+  Ulu and Leafre's medians do not move: their median maps were already all lv 95+ mobs.
+- The Future / Twilight Perion figure is 105.4M here (round 4 said 99.8M over 60 maps); the tool counts only maps
+  whose strongest mob is lv 90+, which drops 14 filler and event maps. Its EXP is unchanged (the owner is deciding).
+- **The four Corrupted mobs** (Wyvern, Cornian, Skelegon, Kentaurus, 8220016-8220019, lv 124, EXP 2,051 -> 9,550 =
+  x4.66) are not a mistake of the rule: they are Future-region mobs, so they get the new-area target for lv 124 (36M an
+  hour), and Nexon gave them a very low base EXP (2,051 against a classic lv-124 mob's ~3,000), which makes the
+  multiplier look large. They live only on Leafre of the Past (272000100-272000300), which no portal or script reaches
+  and the Hyper Rock cannot land on (CANNOTVIPROCK), so today nobody, player or bot, can fight them. Round 4 labelled
+  them Twilight Perion; they are not. They are left as they are.
+- **The Future from about lv 124 for bots is not possible as things stand:** the Future's weakest maps a player or bot
+  can reach have lv 162+ mobs (Henesys Ruins, Dark Ereve); the lv 124 ones are Leafre of the Past above. Bots take the
+  Future from about lv 147 (the path's maxAbove of 15). Opening Leafre of the Past (for example as a third Gate of Time
+  destination) would give the Future a lv 124 entry; that is the owner's call, since the Future is on hold.
+
+
 Files: rules in `RULES.md`, drop rows in `rows.csv`, HP and EXP changes in `stats.csv`, lower Grandis map list in
 `src/main/resources/soloMapling/lower-grandis-maps.txt`, inventory in `mobs.csv`.
 
@@ -207,8 +261,13 @@ Red Crocky (lv 115, boss flag) is an elite: 2.28M HP, its EXP is kept.
   - the Henesys teleporter, per destination now instead of per section (`scripts/npc/9010002.js:31`);
   - the Temple of Time's Gate of Time (`scripts/portal/270000000.10.js`, was rebirth 2 only);
   - **every unscripted portal** (`GenericPortal`). There was no server-side map-entry check before. This is what
-    stops a level-120 player walking from lower into upper Grandis. The 4 boundary portals are all unscripted:
-    - Transitional Dimensional Door -> Heliseum HQ
+    stops a level-120 player walking from lower into upper Grandis. The 9 boundary portals (round 5) are all
+    unscripted:
+    - Pantheon -> Transitional Dimensional Door (Heliseum)
+    - West Pantheon Plains -> Heliseum Hideout
+    - Fox Point Village -> Fox Tree
+    - Brigand's Row -> Back Alley; Waste Treatment Plant 3 -> Desolate Scrapyard; Shaded Black Market -> Desolate
+      Black Market (hidden portals)
     - Mountain of Trash -> Seedy Scrapyard (lv 175)
     - Nutria Gutter 2 -> Sketchy Back-Alley (lv 178)
     - Brawl 'n' Bash Club Entrance -> Dingy Brawl 'n' Bash Club (lv 181)
@@ -458,12 +517,14 @@ Boss:
   - Heliseum HQ and Arcane stay closed to a level-200, 2-rebirth character;
   - Sun Spirit, Sleepy Grobbler, Official Knight D, Crocky and Skelegon load with their table HP and EXP;
   - the four newer-area samples have a meso row, and `bb_drops_050_rows` has its rows.
-  - It checks the gate rule directly; walking a real lv 119/120 character through the four boundary portals is a
+  - (round 5) the six deeper maps stay closed, the Gate of Time offers lower Grandis behind AreaGates, and Lion King's
+    Castle / Rose Garden let a rebirth-0 character in while Von Leon's wing does not.
+  - It checks the gate rule directly; walking a real lv 119/120 character through the nine boundary portals is a
     manual QA step.
 - **Manual QA on TEST:**
-  - with a level-119 and a level-120 character: the teleporter, the Gate of Time, the Hyper Rock and the four
-    boundary portals (Dimensional Door -> Heliseum HQ, Mountain of Trash -> Scrapyard, Nutria Gutter 2 -> Sketchy
-    Back-Alley, Brawl club entrance -> Dingy club);
+  - with a level-119 and a level-120 character: the teleporter, the Gate of Time (both choices), the Hyper Rock
+    and the nine boundary portals listed under "Area gates";
+  - with a rebirth-0 character: Desolate Moor -> Lion King's Castle, and the Hyper Rock to a castle wall;
   - kill a mob in lower Grandis, Lion King's Castle and Arcane, and check the HP bar, the EXP and the drops;
   - `!botyield` after an hour, to see bots training in the newly opened maps.
 - **Player notes:** `PLAYER-NOTES.md` ("Training after 120").

@@ -18,6 +18,22 @@ class Probes160Test {
 
     static final List<String> NEW = List.of("t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-xc-2", "t-xc-3", "t-xc-4", "t-fy-1", "t-ti-1", "t-rb-1", "t-ac-1", "t-nc-1", "t-iv-1", "t-iv-2", "t-sn-1", "t-bt-1", "t-bt-2", "t-br-1", "t-ac-2", "t-pg-1");
 
+    /**
+     * t-ld-1 (1.6.1 b039/b040): the gate half passes on this build and covers the deeper Grandis maps, the Gate of
+     * Time's Grandis option and Lion King's Castle without rebirths.
+     */
+    @Test
+    void theLadderCheckCoversTheDeeperMapsTheGateOfTimeAndTheCastle() {
+        List<String> ev = new java.util.ArrayList<>();
+        List<String> bad = Probes160.ladderGates(ev, java.nio.file.Path.of("scripts"));
+        assertTrue(bad.isEmpty(), bad.toString());
+        assertTrue(ev.contains("Gate of Time: Future + lower Grandis menu=true"), ev.toString());
+        for (int map : new int[]{410000002, 400020300, 401000002, 402000400, 402000401, 402000402}) {
+            assertTrue(java.util.Arrays.stream(Probes160.LADDER_DEEPER).anyMatch(m -> m == map), "deeper " + map);
+        }
+        assertTrue(java.util.Arrays.stream(Probes160.LADDER_LKC_OPEN).anyMatch(m -> m == 211060100));
+    }
+
     /** t-pg-1's table is the placement table (penguins.tsv), map for map. */
     @Test
     void thePenguinCheckLooksWhereThePenguinsStand() throws Exception {

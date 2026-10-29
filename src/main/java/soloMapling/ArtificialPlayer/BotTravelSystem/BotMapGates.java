@@ -7,7 +7,8 @@ import server.maps.AreaGates;
 
 // MapleRoot's rebirth gates, as bots must respect them (ticket 03). HyperTPHandler only stops the Hyper
 // Teleport Rock, but a bot treats the same id ranges as a hard rule even where a portal would let it walk in:
-//   Lion King's Castle      rebirth 1
+//   Von Leon's wing         rebirth 1 (1.6.1 b040: the castle's walls and towers and the Rose Garden are open
+//                           training, as for players; HyperTPHandler.isLionKingBossWing)
 //   Twilight Perion range   rebirth 2 (also covers Gate to the Future, Dark Ereve, Leafre of Past)
 //   Grandis / Arcane        rebirth 3
 // Ticket 81 (round 4): with the bot's level known (mayEnter(map, rebirths, level)), the players' rule applies
@@ -36,7 +37,7 @@ public final class BotMapGates {
         if (HyperTPHandler.isTwilightPerion(mapId) || mapId == WARRIOR_GROUNDS) {
             return 2;
         }
-        if (HyperTPHandler.isLionKingMap(mapId)) {
+        if (HyperTPHandler.isLionKingBossWing(mapId)) {
             return 1;
         }
         return 0;
@@ -57,12 +58,12 @@ public final class BotMapGates {
     }
 
     // Ticket 81 round 3/4: the players' rule (server.maps.AreaGates). The Future and lower Grandis also open at level
-    // 120; the rest of Grandis and Arcane stay rebirth 3; Lion King's Castle rebirth 1; restricted maps never.
+    // 120; the rest of Grandis and Arcane stay rebirth 3; Von Leon's wing rebirth 1; restricted maps never.
     public static boolean mayEnter(int mapId, int rebirths, int level) {
         if (HyperTPHandler.isRestrictedMap(mapId)) {
             return false;
         }
-        if (HyperTPHandler.isLionKingMap(mapId) && rebirths < 1) {
+        if (HyperTPHandler.isLionKingBossWing(mapId) && rebirths < 1) {
             return false;
         }
         return AreaGates.denyReason(mapId, level, rebirths) == null;

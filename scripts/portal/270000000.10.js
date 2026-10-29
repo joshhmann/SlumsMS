@@ -1,13 +1,7 @@
-// The Gate of Time (Temple of Time -> the Future). Ticket 81 round 3: level 120 or 2 rebirths (server.maps.AreaGates).
+// The Gate of Time (Temple of Time, portal1). Ticket 81 round 3: the Future opens at level 120 (or 2 rebirths).
+// 1.6.1 b040: the player notes say the Gate of Time also reaches lower Grandis, so the portal now asks where to go
+// (scripts/npc/gateOfTime.js); both destinations are checked by server.maps.AreaGates there.
 function enter(pi) {
-    const player = pi.getPlayer();
-    const gate = Java.type('server.maps.AreaGates').denyReason(player, 271000000);
-
-    if (gate == null) {
-        pi.playPortalSound();
-        pi.warp(271000000, 0);
-        return true;
-    }
-    pi.playerMessage(5, gate);
+    pi.openNpc(2140000, "gateOfTime");
     return false;
 }

@@ -9,7 +9,6 @@
 400020000	# Pantheon Sanctum : West Sanctum
 400020100	# West Pantheon : West Pantheon Plains (mobs up to lv 113)
 400020200	# West Pantheon : West Pantheon Border
-400020300	# West Pantheon : Heliseum Hideout
 400030100	# South Pantheon : South Pantheon Plains (mobs up to lv 120)
 400030300	# South Pantheon : Orange Forest (mobs up to lv 115)
 400030400	# South Pantheon : Anti-Magic Forest (mobs up to lv 140)
@@ -18,7 +17,6 @@
 400040100	# North Pantheon : North Pantheon Plains (mobs up to lv 121)
 400040200	# North Pantheon : North Pantheon Border
 400040300	# North Pantheon : Grumpy Grobbler Habitat (mobs up to lv 123)
-401000002	# Heliseum : Transitional Dimensional Door
 402000000	# Savage Terminal : Brigand's Row
 402000001	# Savage Terminal : Gen's Hideout
 402000002	# Savage Terminal : Old Storage Room
@@ -44,9 +42,6 @@
 402000321	# Abandoned Offices : Mr. Hazard's Lair 2 (mobs up to lv 142)
 402000322	# Abandoned Offices : Mr. Hazard's Lair 3 (mobs up to lv 142)
 402000323	# Mr. Hazard's Hideout : Mr. Hazard's Hideout
-402000400	# Savage Terminal : Back Alley
-402000401	# Black Market : Desolate Black Market
-402000402	# Hidden Street : Desolate Scrapyard
 402000500	# Sanctuary : Town of Sanctuary
 402000501	# Sanctuary : Sanctuary Entrance
 402000502	# Sanctuary : Outskirts of Town (mobs up to lv 124)
@@ -108,7 +103,6 @@
 402000648	# Ravaged Base Remnants : Outside the Desert Cavern
 410000000	# Vulpes : Fox Point Village
 410000001	# Fox Point Village : Shade's House
-410000002	# Fox Point Village : Fox Tree
 410000010	# Fox Ridge : Eclipse Hill 1 (mobs up to lv 113)
 410000011	# Fox Ridge : Eclipse Hill 2 (mobs up to lv 114)
 410000012	# Fox Ridge : Eclipse Hill 3 (mobs up to lv 114)

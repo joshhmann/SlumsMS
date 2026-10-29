@@ -74,8 +74,8 @@ class TransitRoutingTest {
 
     @Test
     void routesNeverPassThroughARebirthGate() {
-        // 211060100 is Lion King's Castle (rebirth 1): the short way through it is closed to a fresh bot.
-        int lkc = 211060100;
+        // 211070000 is Von Leon's wing of Lion King's Castle (rebirth 1): the short way through it is closed to a fresh bot.
+        int lkc = 211070000;
         Map<Integer, int[]> world = Map.of(1, new int[]{lkc, 6}, lkc, new int[]{5}, 6, new int[]{7}, 7, new int[]{5});
         BotTransit.install(List.of());
 
@@ -87,7 +87,7 @@ class TransitRoutingTest {
 
     @Test
     void aBotInsideAGateMayWalkOut() {
-        int lkcA = 211060100;
+        int lkcA = 211070000;
         int lkcB = 211060200;
         Map<Integer, int[]> world = Map.of(lkcA, new int[]{lkcB}, lkcB, new int[]{5});
         BotTransit.install(List.of());

@@ -87,3 +87,18 @@ regions:
     hubs: [130000000]
     travel_min_level: 1
     travel_max_level: 30
+
+  # 1.6.1 b041 (ticket 81): the areas that open at level 120 without rebirths (server.maps.AreaGates; bots follow the
+  # same rule through BotMapGates). Their towns are reached by the Henesys teleporter (BotTransit.yaml, level 120) and
+  # the Gate of Time. Lower Grandis: Pantheon, Savage Terminal, Sanctuary, the Caravan Refuge, Fox Ridge, Cheong-woon,
+  # Ristonia and Toolen City. The windows also hold a few upper maps (the Scrapyard, the back-alleys, the Fox Tree);
+  # those stay closed below 3 rebirths whatever this file says. The Future: Gate to the Future, Henesys Ruins, Dark
+  # Ereve and Twilight Perion (the Knight Stronghold is closed to bots).
+  - name: Lower Grandis
+    windows: [{min: 400000000, max: 400050000}, {min: 402000000, max: 402000700}, {min: 410000000, max: 410000500}]
+    hubs: [400000000, 402000000, 402000500, 402000600, 410000000, 410000200, 410000300, 410000416]
+    travel_min_level: 120
+  - name: The Future
+    windows: [{min: 271000000, max: 274000000}]
+    hubs: [271010000, 273000000]
+    travel_min_level: 120

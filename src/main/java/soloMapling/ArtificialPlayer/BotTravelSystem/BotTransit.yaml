@@ -192,12 +192,17 @@ edges:
   # Sharp Cliff, Wolf Territory, the Forest of Dead Trees and the Lion King's Castle moor.
   - {name: Jeff's gate, from: 211040200, to: 211040300, via: npc, npc: 2030000, fare: 0, to_portal: 5, min_level: 50, sec: 20}
 
-  # ── Lion King's Castle: Desolate Moor's east00 runs in_lkc.js - rebirth 1 (BotMapGates gates the castle) ──
+  # ── Lion King's Castle: Desolate Moor's east00 runs in_lkc.js - open since 1.6.1 b040 (only Von Leon's wing keeps
+  # rebirth 1, BotMapGates) ──
   - {name: castle gate, from: 211060000, to: 211060010, via: portal, portal: east00, script: in_lkc, fare: 0, to_portal: west00, sec: 20}
 
   # ── Temple of Time: Three Doors' portal2 runs arcaneriver.js - rebirth 3 - to Vanishing Journey ──
   # (portal1, a plain portal, already leads on to Gate to the Future and so to Twilight Perion, rebirth 2.)
   - {name: Arcane River gate, from: 270000000, to: 450001003, via: portal, portal: portal2, script: arcaneriver, fare: 0, to_portal: 0, sec: 20}
+
+  # ── Temple of Time: the Gate of Time (portal1, 270000000.10.js) opens a menu (npc/gateOfTime.js): the Future, as the
+  # plain portal already leads, or lower Grandis at Pantheon - level 120 (1.6.1 b040, server.maps.AreaGates) ──
+  - {name: Gate of Time, from: 270000000, to: 400000000, via: portal, portal: portal1, script: "270000000.10", fare: 0, to_portal: 0, min_level: 120, sec: 20}
 
   # ── Henesys: MapleRoot's teleporter (9010002), free. Ticket 81: the Future and lower Grandis towns open at level 120
   # (server.maps.AreaGates; a row is AND-only, so a low-level 3-rebirth bot walks instead); the upper Grandis town
@@ -274,7 +279,7 @@ edges:
 
 # ── The Hyper Teleport Rock (HyperTPHandler), as bots may use it ──
 # A player can teleport from the world map to any map except the restricted ones (Knight Stronghold), those its
-# rebirth gates close (LKC 1, Twilight Perion 2, Grandis/Arcane 3) and fields with the CANNOTVIPROCK limit; a player
+# rebirth gates close (Von Leon's wing 1, the Future 2 or level 120, Grandis/Arcane 3 or level 120 for lower Grandis) and fields with the CANNOTVIPROCK limit; a player
 # without the rock (5590001) may do it once every 5 minutes. Bots get a narrow version so they keep riding the
 # boats everywhere else:
 #   into:   maps a bot may teleport to from anywhere - only areas no script or portal reaches: Black Heaven.
