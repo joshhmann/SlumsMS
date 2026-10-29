@@ -33,6 +33,8 @@ class CygnusGuardDropsTest {
     }
 
     private static void guardDies(int guardId, int nextCygnus) {
+        // mockStatic(LifeFactory) runs its static init, which reads Mob.wz (the HP-bar boss list)
+        soloMapling.WzTestData.assumePresent("Mob.wz");
         MapleMap map = mock(MapleMap.class);
         doCallRealMethod().when(map).afterBossKilled(any(), any());
         Character chr = mock(Character.class);
