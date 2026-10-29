@@ -3,7 +3,8 @@
 - **New areas open at level 120.** The Future and Twilight Perion, plus the lower half of Grandis, no longer need
   rebirths. The lower half of Grandis is Pantheon, Savage Terminal's streets, Sanctuary, the Caravan Refuge, Fox Ridge,
   Cheong-woon Valley, Ristonia and Toolen City, with monsters from level 109 to 142. Reach them with the Henesys
-  teleporter, the Gate of Time in the Temple of Time, or the Hyper Teleport Rock. The deeper parts of Grandis
+  teleporter, the Gate of Time in the Temple of Time, or the Hyper Teleport Rock. The Gate of Time also takes you to
+  Leafre of the Past, the Future's burning Leafre, where Corrupted monsters of level 124 wait. The deeper parts of Grandis
   (Heliseum, the Fox Tree, Cernium and the rougher back streets of Savage Terminal) and Arcane River still need 3
   rebirths.
 - **These monsters are worth fighting now.** Monsters in the Future, Grandis and Arcane River used to take forever to
@@ -14,6 +15,7 @@
   a long while Pensalir armour or a Jaihin, Utgard or AbsoLab weapon. Their Monster Book cards still drop as before.
 - **Classic spots pay more too.** Leafre and Minar Forest, the Temple of Time and Ulu City give 40% more EXP.
 - **Lion King's Castle and the Rose Garden got a rework.** Their monsters had far too much health and dropped
-  nothing. They now fight like level 117-134 monsters should, pay good EXP and drop mesos and loot.
+  nothing. They now fight like level 117-134 monsters should, pay good EXP and drop mesos and loot. The castle no
+  longer needs a rebirth, and you can walk from the Fifth Tower's roof into the Rose Garden.
 - **Regulars use these areas too.** Bots of level 120 and up can now train in the Future and lower Grandis, the same
   as you.

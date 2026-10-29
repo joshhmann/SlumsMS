@@ -35,8 +35,9 @@ class LevelingPathTest {
         LevelingPath.Path p = shipped();
         assertEquals(15, p.bands().size());
         // 509 drafted, 5 disabled as # INVALID, 43 as # UNREACHABLE (no player can get there), 28 reachable added;
-        // 1.6.1 b041: 10 lower Grandis maps in 120-140, 6 more and 2 Future maps in 140-160.
-        assertEquals(507, p.entryCount());
+        // 1.6.1 b041: 10 lower Grandis maps in 120-140, 6 more and 2 Future maps in 140-160; owner 2026-10-29: Leafre
+        // of the Past, 6 at 120-140 and 2 at 140-160.
+        assertEquals(515, p.entryCount());
         assertEquals(1, p.bands().get(0).lo());
         assertEquals(255, p.bands().get(p.bands().size() - 1).hi());
     }
@@ -76,6 +77,9 @@ class LevelingPathTest {
         List<LevelingPath.Entry> at120 = p.bands().get(p.bandIndex(120)).group(LevelingPath.GENERAL);
         long lower120 = at120.stream().filter(e -> server.maps.AreaGates.isLowerGrandis(e.mapId())).count();
         assertTrue(lower120 >= 15, "lower Grandis entries at 120-140: " + lower120);
+        // owner 2026-10-29: the Future from level 120 on its weaker maps (Leafre of the Past, lv 124)
+        long future120 = at120.stream().filter(e -> server.maps.AreaGates.isFuture(e.mapId())).count();
+        assertTrue(future120 >= 6, "Future entries at 120-140: " + future120);
         List<LevelingPath.Entry> at140 = p.bands().get(p.bandIndex(140)).group(LevelingPath.GENERAL);
         assertTrue(at140.stream().filter(e -> server.maps.AreaGates.isLowerGrandis(e.mapId())).count() >= 8);
         assertTrue(at140.stream().filter(e -> server.maps.AreaGates.isFuture(e.mapId())).count() >= 5);

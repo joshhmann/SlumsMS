@@ -116,6 +116,29 @@ LIFEFACTORY_HP = {8840000: 7_500_000_000, 8850011: 15_000_000_000, 8850012: 15_0
                   9990150: 50_000_000_000}
 
 
+_TAG = re.compile(r'<imgdir\b[^>]*?(/?)>|</imgdir>')
+
+
+def info_text(t):
+    """The Mob.wz info node's own fields, without its nested attack/skill/... blocks, so a skill's `level` is never
+    read as the mob's (Corrupted Skelegon's skill is level 4, the mob 124)."""
+    start = t.find('<imgdir name="info">')
+    if start < 0:
+        return t
+    pos, depth, out = start + len('<imgdir name="info">'), 0, []
+    for m in _TAG.finditer(t, pos):
+        if depth == 0:
+            out.append(t[pos:m.start()])
+        if m.group(0) == "</imgdir>":
+            if depth == 0:
+                break
+            depth -= 1
+        elif not m.group(1):
+            depth += 1
+        pos = m.end()
+    return "".join(out)
+
+
 def seeded(*parts):
     h = hashlib.sha256("|".join(str(p) for p in parts).encode()).hexdigest()
     return random.Random(int(h[:16], 16))
@@ -130,7 +153,7 @@ def mob_info(wz, mobid, depth=0):
     f = wz / "Mob.wz" / f"{mobid:07d}.img.xml"
     if not f.exists():
         return None
-    t = f.read_text(errors="ignore")[:8000]
+    t = info_text(f.read_text(errors="ignore"))
 
     def g(k):
         m = re.search(r'name="%s" value="([^"]*)"' % k, t)
@@ -397,6 +420,14 @@ CLASSIC_BUFF_BOSSES = True
 # Arcane River, Lion King's Castle and Rose Garden keep the round-3 target.
 LOWER_GRANDIS_EXP_X = 1.55
 LOWER_GRANDIS_MAPS = Path("src/main/resources/soloMapling/lower-grandis-maps.txt")
+# owner 2026-10-29: the Future / Twilight Perion paid ~3.9x the buffed Temple of Time; trim it to about 3x. The
+# Future's normal mobs get their target x FUTURE_EXP_X, chosen so the area's median training map pays 3.0x the buffed
+# Road to Oblivion (tools/economy/ladder_table.py).
+FUTURE_EXP_X = 0.75
+# owner 2026-10-29: Leafre of the Past (272000100-272000600, the Future's lv 124 Corrupted mobs) opens as a third Gate
+# of Time choice, a 120-140 spot. Its mobs are paid like lower Grandis at their level (x LOWER_GRANDIS_EXP_X), not
+# the trimmed Future rate: a lv 124 map should pay what a lv 124 lower-Grandis map does.
+LEAFRE_OF_THE_PAST = (272000100, 272000600)
 STAT_TSV = Path("src/main/resources/soloMapling/mob-stat-overrides.tsv")
 
 
@@ -439,6 +470,32 @@ def lower_grandis_mobs(wz):
     return out
 
 
+def mobs_on_maps(wz, lo, hi):
+    """Mob ids placed on Map.wz maps lo..hi."""
+    import xml.etree.ElementTree as ET
+    out = set()
+    for f in sorted((wz / "Map.wz" / "Map" / f"Map{lo // 100000000}").glob("*.img.xml")):
+        stem = f.name.split(".")[0]
+        if not stem.isdigit() or not lo <= int(stem) <= hi:
+            continue
+        for node in ET.parse(f).getroot():
+            if node.get("name") == "life":
+                for e in node:
+                    v = {c.get("name"): c.get("value") for c in e}
+                    if v.get("type") == "m":
+                        out.add(int(v["id"]))
+    return out
+
+
+def exp_x(m, lower, past):
+    """The EXP-target multiplier for one target mob (round 3 = 1.0)."""
+    if m["region"] == "grandis" and m["mobid"] in lower:
+        return LOWER_GRANDIS_EXP_X
+    if m["region"] == "future":
+        return LOWER_GRANDIS_EXP_X if m["mobid"] in past else FUTURE_EXP_X
+    return 1.0
+
+
 def classic_buff_mobs(wz, targets):
     """{mob id: (level, maxHP, exp, area label)} for every EXP-giving mob placed in CLASSIC_BUFF_AREAS (event mobs
     9300000-9399999 and the target mobs aside)."""
@@ -471,7 +528,7 @@ def full_mob_info(wz, mobid, depth=0):
     f = wz / "Mob.wz" / f"{mobid:07d}.img.xml"
     if not f.exists():
         return None
-    t = f.read_text(errors="ignore")[:8000]
+    t = info_text(f.read_text(errors="ignore"))
 
     def g(k):
         m = re.search(r'name="%s" value="([^"]*)"' % k, t)
@@ -494,13 +551,14 @@ def stat_overrides(wz, mobs, all_targets):
     """Rows (mob id, name, area, tier, level, hp before, hp after or None, exp before, exp after or None)."""
     hp = {m["mobid"]: (before, after) for m, before, after in hp_overrides(mobs)}
     lower = lower_grandis_mobs(wz)
+    past = mobs_on_maps(wz, *LEAFRE_OF_THE_PAST)
     rows = []
     for m in sorted(mobs, key=lambda x: x["mobid"]):
         before = server_hp(m)
         hp_after = hp.get(m["mobid"], (before, None))[1]
         exp_after = None
         if m["tier"] == "normal":
-            x = LOWER_GRANDIS_EXP_X if m["region"] == "grandis" and m["mobid"] in lower else 1.0
+            x = exp_x(m, lower, past)
             exp_after = new_exp(m["level"], hp_after or before, x)
             if exp_after == m["exp"]:
                 exp_after = None
@@ -514,7 +572,8 @@ def stat_overrides(wz, mobs, all_targets):
 def write_stats(rows):
     lines = ["# SlumsMS ticket 81 (owner 2026-10-28): mob max HP and EXP overrides. The post-Big-Bang mobs and the Lion",
              "# King's Castle / Rose Garden mobs get a classic-like HP for their level and EXP for about 2x a classic",
-             "# spot's EXP per hour (lower Grandis: about 2x the buffed Temple of Time); every mob of Leafre/Minar,",
+             "# spot's EXP per hour (lower Grandis and Leafre of the Past: about 2x the buffed Temple of Time, the Future:",
+             "# about 3x); every mob of Leafre/Minar,",
              "# the Temple of Time and Ulu City gets EXP x1.4.",
              "# Read by server.life.MobStatOverrides, applied in LifeFactory after its own values. Generated by",
              "# tools/economy/gen_bb_drops.py (rules: docs/economy/bb-drops/RULES.md). Off: -Dslums.mobStatOverrides=false.",

@@ -87,6 +87,9 @@ class TrainingRegionsTest {
         assertFalse(TrainingRegions.isAllowed(402000124, 0, 200), "the Scrapyard stays rebirth 3");
         assertFalse(TrainingRegions.isAllowed(410000002, 0, 200), "so does the Fox Tree");
         assertNull(TrainingRegions.regionOf(401000000), "Heliseum is no region");
+        assertTrue(future.hubs().contains(272000000), "Crack in Time, for Leafre of the Past");
+        assertTrue(TrainingRegions.isAllowed(272000100, 0, 120));
+        assertFalse(TrainingRegions.isAllowed(272000100, 0, 119));
         for (int hub : grandis.hubs()) {
             assertTrue(server.maps.AreaGates.isLowerGrandis(hub), "hub " + hub);
         }

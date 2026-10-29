@@ -201,8 +201,10 @@ edges:
   - {name: Arcane River gate, from: 270000000, to: 450001003, via: portal, portal: portal2, script: arcaneriver, fare: 0, to_portal: 0, sec: 20}
 
   # ── Temple of Time: the Gate of Time (portal1, 270000000.10.js) opens a menu (npc/gateOfTime.js): the Future, as the
-  # plain portal already leads, or lower Grandis at Pantheon - level 120 (1.6.1 b040, server.maps.AreaGates) ──
+  # plain portal already leads, lower Grandis at Pantheon or Leafre of the Past - level 120 (server.maps.AreaGates) ──
   - {name: Gate of Time, from: 270000000, to: 400000000, via: portal, portal: portal1, script: "270000000.10", fare: 0, to_portal: 0, min_level: 120, sec: 20}
+  # owner 2026-10-29: the third choice, Leafre of the Past (Crack in Time; its fields are the Future's lv 124 maps)
+  - {name: Gate of Time, from: 270000000, to: 272000000, via: portal, portal: portal1, script: "270000000.10", fare: 0, to_portal: 0, min_level: 120, sec: 20}
 
   # ── Henesys: MapleRoot's teleporter (9010002), free. Ticket 81: the Future and lower Grandis towns open at level 120
   # (server.maps.AreaGates; a row is AND-only, so a low-level 3-rebirth bot walks instead); the upper Grandis town

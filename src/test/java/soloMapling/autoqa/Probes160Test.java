@@ -27,7 +27,7 @@ class Probes160Test {
         List<String> ev = new java.util.ArrayList<>();
         List<String> bad = Probes160.ladderGates(ev, java.nio.file.Path.of("scripts"));
         assertTrue(bad.isEmpty(), bad.toString());
-        assertTrue(ev.contains("Gate of Time: Future + lower Grandis menu=true"), ev.toString());
+        assertTrue(ev.contains("Gate of Time: Future + lower Grandis + Leafre of the Past menu=true"), ev.toString());
         for (int map : new int[]{410000002, 400020300, 401000002, 402000400, 402000401, 402000402}) {
             assertTrue(java.util.Arrays.stream(Probes160.LADDER_DEEPER).anyMatch(m -> m == map), "deeper " + map);
         }

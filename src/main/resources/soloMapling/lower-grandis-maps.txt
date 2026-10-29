@@ -98,8 +98,8 @@
 402000643	# Ravaged Base Remnants : Ravaged Western Base 3 (mobs up to lv 132)
 402000644	# Ravaged Base Remnants : Ravaged Base Remnants
 402000645	# Ravaged Base Remnants : Ravaged Eastern Base 1 (mobs up to lv 128)
-402000646	# Ravaged Base Remnants : Ravaged Eastern Base 2 (mobs up to lv 128)
-402000647	# Ravaged Base Remnants : Ravaged Eastern Base 3 (mobs up to lv 5)
+402000646	# Ravaged Base Remnants : Ravaged Eastern Base 2 (mobs up to lv 130)
+402000647	# Ravaged Base Remnants : Ravaged Eastern Base 3 (mobs up to lv 130)
 402000648	# Ravaged Base Remnants : Outside the Desert Cavern
 410000000	# Vulpes : Fox Point Village
 410000001	# Fox Point Village : Shade's House
