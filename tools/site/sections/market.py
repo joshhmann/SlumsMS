@@ -27,7 +27,7 @@ from sections.database import fallback_icon, scrub
 MARKET = "market"
 DEFAULT_DIR = os.environ.get("SLUMS_MARKET_DATA", os.path.join(REPO, "cache", "market-sample"))
 MIN_SAMPLES = 3
-NO_SALES = "No sales between players yet. Sell something in the FM and it shows up here within the hour."
+NO_SALES = "No sales between players yet. Sell something in the FM and it shows up here."
 SEEDS = {"bot_seed"}  # PriceBook.Source.BOT_SEED: restocks between the town's own shops, not trades
 NX_CARDS = {4031865: "NX Card (100 NX)", 4031866: "NX Card (250 NX)"}
 HISTORY_DAYS = 30
