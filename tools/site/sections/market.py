@@ -677,7 +677,9 @@ untradeable, locked, expiring or cash items.</li>
 <li><b>Limits:</b> <span x-text="limitRule()"></span></li>
 <li><b>Expiry:</b> an order that hasn't fully traded by its time closes, and whatever is left comes back.</li>
 <li><b>Safety:</b> placing or cancelling an order needs a sign-in from the last 12 hours, so a copied cookie can't
-empty your account.</li>
+empty your account. NX prices stay near the official rate (sells at half of it or more, buys at twice it or less). From
+the site you can sell up to 10,000 NX and put up to 50,000,000 mesos into NX buys in any 24 hours (these site limits
+don't apply to @nx in game).</li>
 <li><b>Which character:</b> every order names one of your characters. Mesos and items come from (and go to) that
 character; NX is your account's. If you're logged in to the game, use the character you're playing (or log out first).</li>
 </ul></section>

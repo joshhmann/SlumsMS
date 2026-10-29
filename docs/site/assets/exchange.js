@@ -60,13 +60,13 @@
     LIMIT_NX_DAY: function (a) {
       var d = a.data || {};
       return "You can sell " + fmt(d.capNx) + " NX here in 24 hours: " + fmt(d.usedNx) + " sold"
-        + (typeof d.leftNx === "number" ? ", " + fmt(d.leftNx) + " left" : "") + ".";
+        + (typeof d.leftNx === "number" ? ", " + fmt(d.leftNx) + " left" : "") + ". Sell more in game with @nx.";
     },
     // the site's daily meso cap on NX buys, per account (b005, the mirror of LIMIT_NX_DAY)
     LIMIT_MESO_DAY: function (a) {
       var d = a.data || {};
       return "You can spend " + fmt(d.capMesos) + " mesos on NX here in 24 hours: " + fmt(d.usedMesos) + " spent"
-        + (typeof d.leftMesos === "number" ? ", " + fmt(d.leftMesos) + " left" : "") + ".";
+        + (typeof d.leftMesos === "number" ? ", " + fmt(d.leftMesos) + " left" : "") + ". Buy more in game with @nx.";
     },
     ERROR: "Something went wrong in the game. Try again later."
   };
