@@ -3,6 +3,7 @@ var jobId = 0;
 var jobChangeChecker = 0;
 const YamlConfig = Java.type('config.YamlConfig');
 const GameConstants = Java.type('constants.game.GameConstants');
+const EssenceStones = Java.type('soloMapling.rebirth.EssenceStones'); // 1.6.1: players make their Essence Stone here
 let rebornDataString = ""
 let rebornData;
 let rebornChoice = 0;
@@ -46,8 +47,14 @@ function action(mode, type, selection) {
     if (status === 0) {
         cm.sendNext("Come to me when you want to be reborn again. You currently have a total of #r" + cm.getChar().getReborns() + " #krebirths.");
     } else if (status === 1) {
-        cm.sendSimple("What do you want me to do today: \r\n \r\n #L0##bI want to be reborn!#l \r\n #L1##bNothing for now...#k#l");
+        cm.sendSimple("What do you want me to do today: \r\n \r\n #L0##bI want to be reborn!#l \r\n #L2##bMake an Essence Stone#l \r\n #L1##bNothing for now...#k#l");
     } else if (status === 2) {
+        // 1.6.1: the Essence Stone the next rebirth needs, from craft.js's two items (soloMapling.rebirth.EssenceStones)
+        if (selection === 2) {
+            cm.sendOk(EssenceStones.make(cm).text());
+            cm.dispose();
+            return;
+        }
         // Check if the player is at the maximum rebirth level
         if (cm.getChar().getReborns() >= 3) {
             cm.sendOk("You have reached the maximum rebirth level and cannot rebirth further.");

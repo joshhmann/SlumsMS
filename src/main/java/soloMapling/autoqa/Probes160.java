@@ -9,6 +9,7 @@ import client.inventory.Equip;
 import client.inventory.Inventory;
 import client.inventory.InventoryType;
 import client.inventory.Item;
+import client.inventory.manipulator.InventoryManipulator;
 import config.YamlConfig;
 import constants.inventory.ItemConstants;
 import net.packet.ByteBufOutPacket;
@@ -62,7 +63,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "botRebirth", "botRebirthBoss", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer");
+            "family", "tutorialIsland", "botRebirth", "botRebirthBoss", "essenceStone", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -102,6 +103,7 @@ final class Probes160 {
                 case "tutorialIsland" -> tutorialIsland(p);
                 case "botRebirth" -> botRebirth(p);
                 case "botRebirthBoss" -> botRebirthBoss(p);
+                case "essenceStone" -> essenceStone(p);
                 case "achievements" -> achievements(p);
                 case "achievementClear" -> achievementClear(p);
                 case "lazyPenguins" -> lazyPenguins(p);
@@ -1674,6 +1676,159 @@ final class Probes160 {
         return verdict(bad, "a level 200 regular went into a real Von Leon run (boss staged at 1% HP), the kill cleared"
                 + " the event, it came out with Von Leon's item from that kill, crafted its 2nd key and was reborn; then"
                 + " put back", ev);
+    }
+
+    // ── t-rb-3: a player makes an Essence Stone at Wyatt and is reborn with it (1.6.1, owner 2026-10-29) ─────────
+
+    /** Wyatt the Reborn (Base of Roots) and his script. */
+    static final int WYATT = 1300009;
+    static final String WYATT_SCRIPT = "rebirth";
+
+    /**
+     * t-rb-3: the pretend player, staged as a level 200 Hero with its rebirth count kept: (1) "Make an Essence Stone"
+     * with neither item says what is missing and makes nothing; (2) with both of its next stone's items it takes them
+     * and gives the stone; (3) asked again it makes no second one; (4) "I want to be reborn" with the stone, as an
+     * Explorer: one more rebirth, level 1, the stone gone; (5) everything put back: job, level, EXP, stats, AP/SP,
+     * skills, rebirths (characters.reborns and its characters_rebirth row), EXP rate, items, the Reborn medal.
+     */
+    static List<String> essenceStone(SyntheticPlayer p) throws InterruptedException {
+        if (!config.YamlConfig.config.server.USE_REBIRTH_SYSTEM) {
+            return List.of("SKIP USE_REBIRTH_SYSTEM is off");
+        }
+        Character me = p.character();
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        int reborns = me.getReborns();
+        if (reborns >= 3) {
+            return List.of("SKIP the QA character has 3 rebirths already");
+        }
+        int stone = soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.keyItemFor(reborns);
+        int[] ing = soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.ingredientsFor(reborns);
+        int[] watched = {stone, ing[0], ing[1]};
+        Map<Integer, Integer> held = new java.util.LinkedHashMap<>();
+        for (int id : watched) held.put(id, me.getItemQuantity(id, false));
+        int medal = 1142111;
+        int medalsBefore = me.getItemQuantity(medal, false);
+        var svc = soloMapling.achievements.Achievements.service();
+        var goal = svc == null ? null : svc.catalog().get("rebirth-1");
+        boolean hadGoal = goal != null && svc.row(me.getId(), "rebirth-1") != null;
+        int level = me.getLevel();
+        long exp = me.getExp();
+        Job job = me.getJob();
+        int str = me.getStr(), dex = me.getDex(), int_ = me.getInt(), luk = me.getLuk(), ap = me.getRemainingAp();
+        int[] sp = me.getRemainingSps().clone();
+        int maxHp = me.getMaxHp(), maxMp = me.getMaxMp(), hp = me.getHp(), mp = me.getMp();
+        int expRate = me.getExpRate();
+        Map<Integer, Character.SkillEntry> skills = new java.util.LinkedHashMap<>();
+        me.getSkills().forEach((sk, e) -> skills.put(sk.getId(), new Character.SkillEntry(e.skillevel, e.masterlevel,
+                e.expiration)));
+        ev.add("QA character " + me.getName() + " lv " + level + " job " + job.getId() + " rebirths " + reborns
+                + "; next stone " + stone + " from " + ing[0] + " + " + ing[1] + "; held " + held);
+        try {
+            me.setJob(Job.HERO);
+            me.setLevel(200);
+            for (int id : watched) takeAll(me, id);
+            int[][] make = {{1, 0, 0}, {1, 0, 2}};   // Wyatt's greeting, then "Make an Essence Stone"
+
+            List<String> none = talk(p, WYATT, WYATT_SCRIPT, make);
+            ev.add("no items: " + tail(none, 1));
+            if (count(me, stone) != 0) bad.add("a stone was made from nothing");
+            if (none.stream().noneMatch(l -> l.contains("Still missing"))) bad.add("Wyatt did not say what is missing");
+
+            for (int id : ing) me.getAbstractPlayerInteraction().gainItem(id, (short) 1, false, false);
+            List<String> made = talk(p, WYATT, WYATT_SCRIPT, make);
+            ev.add("both items: " + tail(made, 1));
+            if (count(me, stone) != 1 || count(me, ing[0]) != 0 || count(me, ing[1]) != 0) {
+                bad.add("crafting left stone " + count(me, stone) + ", items " + count(me, ing[0]) + "/"
+                        + count(me, ing[1]) + " (want 1, 0/0)");
+            }
+
+            List<String> again = talk(p, WYATT, WYATT_SCRIPT, make);
+            ev.add("again: " + tail(again, 1));
+            if (count(me, stone) != 1) bad.add("a second stone was made");
+
+            int[][] rebirth = {{1, 0, 0}, {1, 0, 0}, {1, 0, 0}, {1, 1, 0}}; // greeting, reborn, Explorer, yes
+            List<String> reborn = talk(p, WYATT, WYATT_SCRIPT, rebirth);
+            ev.add("rebirth: " + tail(reborn, 1) + " -> lv " + me.getLevel() + " job " + me.getJob().getId()
+                    + " rebirths " + me.getReborns());
+            if (me.getReborns() != reborns + 1 || me.getLevel() != 1 || count(me, stone) != 0) {
+                bad.add("the rebirth with the stone did not happen: rebirths " + me.getReborns() + ", lv "
+                        + me.getLevel() + ", stone " + count(me, stone));
+            }
+        } finally {
+            List<String> put = new ArrayList<>();
+            try {
+                if (me.getReborns() != reborns) {
+                    me.setReborns(reborns);
+                    try (Connection con = DatabaseConnection.getConnection();
+                         PreparedStatement ps = con.prepareStatement(
+                                 "DELETE FROM characters_rebirth WHERE characterid = ? AND reborns > ?")) {
+                        ps.setInt(1, me.getId());
+                        ps.setInt(2, reborns);
+                        put.add("characters_rebirth rows removed: " + ps.executeUpdate());
+                    } catch (Exception e) {
+                        put.add("characters_rebirth cleanup failed: " + e);
+                    }
+                }
+                me.setJob(job);
+                me.setLevel(level);
+                me.setExp(exp);
+                me.applyBotBuild(str, dex, int_, luk, ap, sp, maxHp, maxMp); // the stat writer; this QA char only
+                me.updateHpMp(hp, mp);
+                me.setPlayerExpRatesCerezeth(expRate);
+                Map<Integer, Character.SkillEntry> now = new java.util.HashMap<>();
+                me.getSkills().forEach((sk, e) -> now.put(sk.getId(), e));
+                for (Map.Entry<Integer, Character.SkillEntry> e : now.entrySet()) {
+                    if (!skills.containsKey(e.getKey())) {
+                        me.changeSkillLevel(client.SkillFactory.getSkill(e.getKey()), (byte) 0, 0, -1);
+                    }
+                }
+                skills.forEach((id, e) -> {
+                    Character.SkillEntry cur = now.get(id);
+                    if (cur == null || cur.skillevel != e.skillevel || cur.masterlevel != e.masterlevel) {
+                        me.changeSkillLevel(client.SkillFactory.getSkill(id), e.skillevel, e.masterlevel, e.expiration);
+                    }
+                });
+                for (int id : watched) {
+                    takeAll(me, id);
+                    if (held.get(id) > 0) me.getAbstractPlayerInteraction().gainItem(id, held.get(id).shortValue(),
+                            false, false);
+                }
+                int medals = me.getItemQuantity(medal, false) - medalsBefore;
+                if (medals > 0) {
+                    InventoryManipulator.removeById(me.getClient(), InventoryType.EQUIP, medal, medals, true, false);
+                    put.add("Reborn medal taken back");
+                }
+                if (goal != null && !hadGoal && svc.row(me.getId(), "rebirth-1") != null) {
+                    svc.reset(me.getId(), goal);
+                    put.add("rebirth-1 goal reset");
+                }
+            } catch (Exception e) {
+                bad.add("restore failed: " + e);
+            }
+            ev.add("restored: lv " + me.getLevel() + " job " + me.getJob().getId() + " rebirths " + me.getReborns()
+                    + " EXP rate " + me.getExpRate() + "; " + String.join("; ", put));
+        }
+        if (me.getLevel() != level || me.getJob() != job || me.getReborns() != reborns || me.getExpRate() != expRate
+                || me.getStr() != str || me.getRemainingAp() != ap) {
+            bad.add("the QA character was not put back");
+        }
+        for (int id : watched) {
+            if (me.getItemQuantity(id, false) != held.get(id)) bad.add("item " + id + " not put back");
+        }
+        return verdict(bad, "Wyatt said what was missing, made the stone from its two items once, and the rebirth took"
+                + " it; the QA character was put back", ev);
+    }
+
+    private static int count(Character chr, int itemId) {
+        return chr.getItemQuantity(itemId, false);
+    }
+
+    private static void takeAll(Character chr, int itemId) {
+        int n = chr.getItemQuantity(itemId, false);
+        if (n > 0) {
+            InventoryManipulator.removeById(chr.getClient(), InventoryType.ETC, itemId, n, true, false);
+        }
     }
 
     // ── t-ac-1: achievements and medals (ticket 93, 1.6.1) ────────────────────────────────────────
