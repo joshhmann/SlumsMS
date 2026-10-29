@@ -9,6 +9,11 @@ Group=slums-report
 ExecStart=/usr/bin/python3 /opt/slums-report/report_service.py
 Environment=SLUMS_REPORT_FILE=/var/lib/slums-feedback/reports.jsonl
 Environment=SLUMS_REPORT_SALT_FILE=/etc/slums-report/salt
+# 1.6.1: the site's version on each report, and the staff Reports reader on 127.0.0.1:8097 (nginx /api/report/staff/,
+# GM 3+). No SLUMS_REPORT_WORLD_FILE: live's world.json is in the root-only Server/ folder, and @bug reports from the
+# game carry the server version themselves.
+Environment=SLUMS_REPORT_SITE_BUILD=/srv/slums-site/assets/build.json
+Environment=SLUMS_REPORT_STAFF_PORT=8097
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

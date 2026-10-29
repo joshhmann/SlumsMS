@@ -8,7 +8,9 @@ User=slums-market
 Group=slums-market
 # reads the sign-in key (group slums-login), never writes it
 SupplementaryGroups=slums-login
-ExecStart=/usr/bin/python3 /opt/slums-site-build/tools/site/market_service.py
+# 1.6.1: the Flask app (python3-flask, already on 164 for TEST); same URLs, cookie and port as market_service.py,
+# which stays the rollback. The exchange is off: no SLUMS_MARKET_EXCHANGE line until the owner opens it (b063).
+ExecStart=/usr/bin/python3 /opt/slums-site-build/tools/site/market_app.py
 Environment=SLUMS_LOGIN_KEY_FILE=/etc/slums-login/key
 Environment=SLUMS_LOGIN_REVOKED=/var/lib/slums-login/revoked.txt
 Environment=SLUMS_MARKET_DB=/var/lib/slums-market/market.db

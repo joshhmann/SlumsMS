@@ -127,6 +127,35 @@ scp dist/slums-site.tar.gz root@<lxc-address>:/tmp/
 ssh root@<lxc-address> 'rm -rf /srv/slums-site/* && tar -xzf /tmp/slums-site.tar.gz -C /srv/slums-site --strip-components=1'
 ```
 
+## 3b. Release night for the 1.6.1 site (owner's go for each step)
+
+In this order; each step has its check, and stop at the first one that fails.
+
+1. Back up: `cp -a /srv/slums-site /srv/slums-site.bak-<UTC stamp>` and the nginx site file
+   (`cp -p /etc/nginx/sites-available/slums-site{,.pre-161}`).
+2. Build on 164 with `tools/site/deploy-build-164.sh` (it now copies `cache/site-icons`), then compare before the
+   copy: `ls <build>/database/icons/items | wc -l` matches `ls /srv/slums-site/database/icons/items | wc -l` (about
+   4,971), and the same for `mobs` and `npcs`.
+3. Copy the site: `rsync -a --delete --exclude market/ --exclude world/ <build>/ /srv/slums-site/`.
+4. Services (unit files in `tools/site/`): `slums-login` (login_service.py: stale-GM 401, `again`), `slums-market`
+   (ExecStart becomes market_app.py; the exchange stays off), `slums-report` (copy the new report_service.py to
+   `/opt/slums-report/`, plus the two new Environment lines). `systemctl daemon-reload`, restart the three, then
+   `curl -s 127.0.0.1:8094/api/login/health`, `127.0.0.1:8095/api/market/health`, `127.0.0.1:8093/api/report/health`
+   all give `{"ok": true}`, and `ss -ltn | grep 8097` shows the staff reader.
+5. nginx: add part 3 of `tools/site/slums-login.nginx.conf` (clean URLs, `/admin/`, `/admin/data/`,
+   `/api/report/staff/`, `@signagain`) and the `try_files` line in `/database/` and `/market/`; `nginx -t && systemctl
+   reload nginx`. The download-pass part (`slums-pass.nginx.conf`, ticket 106, `satisfy any`) belongs to the patch
+   host's server block and is its own step in the launcher release.
+6. Checks through nginx (`B=http://127.0.0.1:8092`):
+   - `curl -sI $B/market/exchange.html` gives 301 to `/market/exchange`; `curl -sI $B/guide/` gives 200.
+   - signed out: `curl -sI $B/admin/` gives 302 to `/login/?again=1&next=/admin/`; `curl -s -o /dev/null -w
+     '%{http_code}' $B/api/report/staff/list` gives 404.
+   - signed in as a player: `/admin/` gives 404; `/api/market/exchange/book` gives `"open": false`; the page
+     `/market/exchange` shows only "The Slums Exchange isn't open yet".
+   - signed in as a GM 3+ (the owner): `/admin/`, `/admin/invites` and `/admin/reports` open.
+   - a database page shows its icons.
+Undo: the backups from step 1, the old ExecStart (market_service.py) and `systemctl reload nginx`.
+
 ## 4. Add a release's patch notes
 
 1. Write `docs/site/releases/<version>.md` (copy the last one for the format: front matter with `version`,
