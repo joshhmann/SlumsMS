@@ -33,7 +33,7 @@ public record Goal(String id, String title, String text, int medal, Trigger trig
                 break;
         }
         return switch (trigger.mode()) {
-            case ADD -> progress + Math.max(0, e.value());
+            case ADD -> e.fact() ? Math.max(progress, e.value()) : progress + Math.max(0, e.value());
             case MAX -> Math.max(progress, e.value());
             case MASK -> progress;
         };

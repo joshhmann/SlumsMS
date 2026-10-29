@@ -15,6 +15,12 @@ public class NxCommand extends Command {
         setDescription("Trade NX and items (@nx tickers) for mesos on the exchange (@nx for help).");
     }
 
+    /** 1.6.1: held on live: @help leaves it out while the exchange is not open here (it still answers "not open"). */
+    @Override
+    public boolean listed() {
+        return ExchangeService.exchange() != null;
+    }
+
     @Override
     public void execute(Client c, String[] params) {
         for (String line : ExchangeChat.handle(ExchangeService.exchange(), GameLiveWallet.of(c.getPlayer()), params)) {

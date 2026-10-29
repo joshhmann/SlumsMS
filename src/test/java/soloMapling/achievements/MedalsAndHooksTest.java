@@ -43,6 +43,17 @@ class MedalsAndHooksTest {
         org.mockito.Mockito.verify(e).setUpgradeSlots((byte) 0);
     }
 
+    /** 1.6.1 notes promise "a yellow line": the yellow tip (as the Slums Stamps claim), not light-blue type 6. */
+    @Test
+    void theEarnedLineIsTheYellowTip() {
+        Character chr = mock(Character.class);
+        org.mockito.Mockito.when(chr.getId()).thenReturn(4_321);
+        new GameHands().tell(chr, "Achievement: Fishing Hobby - Keep 10 catches while fishing.");
+        org.mockito.Mockito.verify(chr).yellowMessage("Achievement: Fishing Hobby - Keep 10 catches while fishing.");
+        org.mockito.Mockito.verify(chr, org.mockito.Mockito.never()).dropMessage(org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
     @Test
     void withTheSwitchOffEveryHookDoesNothingAndNeverThrows() {
         Achievements.setEnabledForTest(false);

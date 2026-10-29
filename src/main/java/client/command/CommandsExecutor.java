@@ -95,8 +95,21 @@ public class CommandsExecutor {
         return new CommandsExecutor();
     }
 
+    /** What @help lists, per rank: every command but those that hide while their feature is off ({@link Command#listed}). */
     public List<Pair<List<String>, List<String>>> getGmCommands() {
-        return commandsNameDesc;
+        List<Pair<List<String>, List<String>>> out = new ArrayList<>(commandsNameDesc.size());
+        for (Pair<List<String>, List<String>> level : commandsNameDesc) {
+            List<String> names = new ArrayList<>(), descs = new ArrayList<>();
+            for (int i = 0; i < level.getLeft().size(); i++) {
+                Command cmd = registeredCommands.get(level.getLeft().get(i));
+                if (cmd == null || cmd.listed()) {
+                    names.add(level.getLeft().get(i));
+                    descs.add(level.getRight().get(i));
+                }
+            }
+            out.add(new Pair<>(names, descs));
+        }
+        return out;
     }
 
     public void handle(Client client, String message) {

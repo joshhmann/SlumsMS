@@ -96,6 +96,10 @@ public class ServerConfig {
     public boolean BOT_DIRECTOR_ENABLED = true;
     // Ticket 13: real same-account characters as companions (foundation; opt in).
     public boolean OWNED_ALTS_ENABLED = false;
+    // 1.6.0.4 (owner 2026-10-28): @botme summoning and @botme here, apart from OWNED_ALTS_ENABLED (which also sets
+    // the per-owner bot-friend capacity in BotRecruitManager and must stay as it is). false = "Alts are resting";
+    // @dismiss still works. Code default true keeps TEST/dev as they were; live sets it false in SERVER_SET.
+    public boolean OWNED_ALTS_SUMMON_ENABLED = true;
     //1.4.2 (perf): a player entering a map gets what is in view first; bots and drops outside the view follow
     //over the next ~1.5 s (server.maps.MapEntryPlacement). false = everything in one burst, as before.
     public boolean MAP_ENTRY_TRICKLE = true;

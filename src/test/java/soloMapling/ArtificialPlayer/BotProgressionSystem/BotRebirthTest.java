@@ -220,6 +220,17 @@ class BotRebirthTest {
         assertTrue(bot.getJob().getId() != 0 || bot.getJob().getId() == 0 && bot.getLevel() < 10);
     }
 
+    /** 1.6.1 promise audit: a regular's real rebirth fires the achievement event (QA's forced ones don't). */
+    @Test
+    void aRealBotRebirthFiresTheAchievementHook() {
+        Character bot = bot(BOT_ID + 2, 412, 200);
+        assertTrue(BotHoldings.grantItem(bot, new Item(4033446, (short) 0, (short) 1)));
+        try (var ach = org.mockito.Mockito.mockStatic(soloMapling.achievements.Achievements.class)) {
+            assertTrue(BotRebirth.rebirthHere(bot, System.currentTimeMillis(), true).done());
+            ach.verify(() -> soloMapling.achievements.Achievements.onRebirth(bot));
+        }
+    }
+
     @Test
     void theDailyPaceStopsTheNextBotAndItKeepsItsKey() {
         Character first = bot(BOT_ID, 412, 200);

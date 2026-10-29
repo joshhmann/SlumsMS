@@ -1161,6 +1161,15 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-ac-1", "Achievements: kill and fishing goals hand over one zero-stat medal each, once").minutes(2)
                 .expect(probe("achievements"))
                 .build());
+        // 1.6.1 promise audit: a real, named Kerning PQ instance cleared through clearPQ earns pq-kerning (the clear goals
+        // keyed on the instance name, "Kerning3", and could never fire; t-ac-1 fed events past the real hook)
+        c.add(Check.auto("t-ac-2", "Achievements: clearing a named PQ instance through the real path earns its medal").minutes(1)
+                .expect(probe("achievementClear"))
+                .build());
+        // Lazy Penguins (migrations 046/048/049/051): 15 on their towns, named, a click answers; none left in Mushroom Shrine
+        c.add(Check.auto("t-pg-1", "Lazy Penguins: one on each town, named, a click shows its line").minutes(1)
+                .expect(probe("lazyPenguins"))
+                .build());
         // Monster Book cards on the Arcane River / Grandis mobs (migration 045): sampled mobs roll their card at 2%,
         // and monstercarddata maps the card back to the mob
         c.add(Check.auto("t-nc-1", "Newer-area Monster Book cards drop at 2%").minutes(1)

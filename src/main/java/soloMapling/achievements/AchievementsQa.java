@@ -18,9 +18,17 @@ public final class AchievementsQa {
     private AchievementsQa() {
     }
 
+    /** t-ac-2: the PQ the real-clear check stages, its goal, and the instance-name prefix the script uses. */
+    public static final String CLEAR_SCRIPT = "KerningPQ", CLEAR_GOAL = "pq-kerning", CLEAR_INSTANCE = "Kerning";
+
     /** Forgets both goals for the character and takes their medals out of the bag. */
     public static void clear(AchievementService s, Character me) throws SQLException {
-        for (String id : new String[]{KILL_GOAL, FISH_GOAL}) {
+        clear(s, me, KILL_GOAL, FISH_GOAL);
+    }
+
+    /** Forgets these goals for the character and takes their medals out of the bag. */
+    public static void clear(AchievementService s, Character me, String... goals) throws SQLException {
+        for (String id : goals) {
             Goal g = s.catalog().get(id);
             s.reset(me.getId(), g);
             int n = me.getItemQuantity(g.medal(), true);
@@ -115,6 +123,76 @@ public final class AchievementsQa {
         if (me.getItemQuantity(kill.medal(), true) + me.getItemQuantity(fish.medal(), true) != 0
                 || s.row(me.getId(), kill.id()) != null) {
             bad.add("cleanup left a medal or a row behind");
+        }
+        return bad;
+    }
+
+    /**
+     * t-ac-2 (1.6.1 promise audit): a real Kerning PQ instance, named as the script names them ("Kerning" + a number),
+     * on the player's channel; the player is registered without the entry warp, and the instance is cleared through
+     * EventInstanceManager.clearPQ, the path a real clear takes (the script's clearPQ, then setEventCleared and the
+     * achievement hook). The goal must be earned and its medal handed over within {@code waitMs}. Cleans up the goal,
+     * the medal and the instance. Returns the problems found (empty = pass).
+     */
+    public static List<String> realClear(AchievementService s, Character me, scripting.event.EventManager em,
+                                         long waitMs, List<String> evidence) throws Exception {
+        List<String> bad = new ArrayList<>();
+        Goal goal = s.catalog().get(CLEAR_GOAL);
+        if (goal == null) {
+            return List.of("achievements.yaml has no " + CLEAR_GOAL);
+        }
+        if (em == null) {
+            return List.of("no " + CLEAR_SCRIPT + " event on this channel");
+        }
+        if (me.getEventInstance() != null) {
+            return List.of("the pretend player is already in an event instance");
+        }
+        if (me.getInventory(InventoryType.EQUIP).isFull(1)) {
+            return List.of("the pretend player's Equip inventory is full (needs room for a medal)");
+        }
+        clear(s, me, CLEAR_GOAL);
+        String name = CLEAR_INSTANCE + (900 + java.util.concurrent.ThreadLocalRandom.current().nextInt(99));
+        scripting.event.EventInstanceManager eim = em.newInstance(name);
+        try {
+            eim.registerPlayer(me, false);
+            evidence.add("instance " + name + " of " + em.getName() + " (script name " + eim.scriptName() + "), players "
+                    + eim.getPlayers().size());
+            if (eim.getPlayers().size() != 1) {
+                bad.add("the pretend player could not be registered in " + name);
+                return bad;
+            }
+            eim.clearPQ();
+            long end = System.currentTimeMillis() + waitMs;
+            AchievementStore.Row row = null;
+            while (System.currentTimeMillis() < end) {
+                row = s.row(me.getId(), CLEAR_GOAL);
+                if (row != null && row.state() == AchievementStore.GRANTED) {
+                    break;
+                }
+                Thread.sleep(250);
+            }
+            evidence.add("cleared: " + eim.isEventCleared() + "; " + CLEAR_GOAL + " row " + row + "; medal " + goal.medal()
+                    + " x" + me.getItemQuantity(goal.medal(), true));
+            if (!eim.isEventCleared()) {
+                bad.add("clearPQ did not mark " + name + " cleared");
+            }
+            if (row == null || row.state() < AchievementStore.EARNED) {
+                bad.add("clearing " + name + " (" + em.getName() + ") did not earn " + CLEAR_GOAL);
+            } else if (me.getItemQuantity(goal.medal(), true) != 1) {
+                bad.add("the " + CLEAR_GOAL + " medal " + goal.medal() + " was not handed over exactly once");
+            }
+        } finally {
+            if (me.getEventInstance() == eim) {
+                eim.unregisterPlayer(me);
+            }
+            if (!eim.isEventDisposed()) {
+                eim.dispose();
+            }
+            em.disposeInstance(name);
+            clear(s, me, CLEAR_GOAL);
+        }
+        if (me.getItemQuantity(goal.medal(), true) != 0 || s.row(me.getId(), CLEAR_GOAL) != null) {
+            bad.add("cleanup left the " + CLEAR_GOAL + " medal or row behind");
         }
         return bad;
     }

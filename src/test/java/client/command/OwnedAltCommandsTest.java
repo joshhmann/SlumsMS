@@ -17,6 +17,7 @@ class OwnedAltCommandsTest {
         assertEquals(0, executor.rankForTest("botme")); assertEquals(0, executor.rankForTest("dismiss"));
         Client c = mock(Client.class); Character owner = mock(Character.class); when(c.getPlayer()).thenReturn(owner);
         var service = mock(OwnedAltService.class);
+        when(service.summoningOpen()).thenReturn(true); // 1.6.0.4: OWNED_ALTS_SUMMON_ENABLED on
         when(service.list(owner)).thenReturn(List.of(new OwnedAltService.Candidate(2,7,1,"Second")));
         try (MockedStatic<OwnedAltService> services = mockStatic(OwnedAltService.class)) {
             services.when(OwnedAltService::getInstance).thenReturn(service);
@@ -30,6 +31,7 @@ class OwnedAltCommandsTest {
         Client c = mock(Client.class); Character owner = mock(Character.class), alt = mock(Character.class);
         when(c.getPlayer()).thenReturn(owner); when(alt.getName()).thenReturn("Second");
         var service = mock(OwnedAltService.class); when(service.summon(owner,"Second")).thenReturn(alt);
+        when(service.summoningOpen()).thenReturn(true);
         when(service.dismiss(owner,"Second")).thenReturn(true);
         try (MockedStatic<OwnedAltService> services = mockStatic(OwnedAltService.class)) {
             services.when(OwnedAltService::getInstance).thenReturn(service);

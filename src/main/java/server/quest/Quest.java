@@ -309,8 +309,7 @@ public class Quest {
                     return;
                 }
             }
-            forceComplete(chr, npc);
-            soloMapling.achievements.Achievements.onQuestDone(chr); // 1.6.1 ticket 93
+            forceComplete(chr, npc); // counts toward the quest achievements (1.6.1 ticket 93)
             for (AbstractQuestAction a : acts) {
                 a.run(chr, selection);
             }
@@ -380,6 +379,11 @@ public class Quest {
     }
 
     public boolean forceComplete(Character chr, int npc) {
+        // 1.6.1 promise audit: the quest achievements count here, so the ~240 quests that scripts complete
+        // (qm.forceCompleteQuest, cm.forceCompleteQuest) count as well as the normal path. Re-completing a quest
+        // that is already done counts only when it is repeatable, as before.
+        QuestStatus before = chr.getQuest(this);
+        boolean counts = repeatable || before == null || before.getStatus() != Status.COMPLETED;
         if (timeLimit > 0) {
             chr.sendPacket(PacketCreator.removeQuestTimeLimit(id));
         }
@@ -392,6 +396,9 @@ public class Quest {
 
         chr.sendPacket(PacketCreator.showSpecialEffect(9)); // Quest completion
         chr.getMap().broadcastMessage(chr, PacketCreator.showForeignEffect(chr.getId(), 9), false); //use 9 instead of 12 for both
+        if (counts) {
+            soloMapling.achievements.Achievements.onQuestDone(chr); // 1.6.1 ticket 93
+        }
         return true;
     }
 

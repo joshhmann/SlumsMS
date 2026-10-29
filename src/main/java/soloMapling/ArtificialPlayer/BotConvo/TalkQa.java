@@ -105,6 +105,41 @@ public final class TalkQa {
                 ThreadLocalRandom.current());
     }
 
+    /**
+     * As {@link #talk}, but every listener says yes when the game's rule allows it (auto-QA t-bt-1: the act on a yes
+     * is what is checked, so the answer is not left to chance).
+     */
+    public static Plan talkYes(List<Character> who, Ask forced, String why) {
+        TalkBrain.QA_YES.set(true);
+        try {
+            return talk(who, forced, why);
+        } finally {
+            TalkBrain.QA_YES.remove();
+        }
+    }
+
+    /**
+     * t-bt-1: after a forced yes to a party ask, the problems (empty: all good): every listener decided yes, and the
+     * asker and each of them are in one party.
+     */
+    public static List<String> partyFormed(Plan p) {
+        List<String> bad = new ArrayList<>();
+        if (p == null || p.ask != Ask.PARTY) {
+            bad.add("the pair did not ask to party (" + (p == null ? "no talk" : p.ask + ", " + p.noAskWhy) + ")");
+            return bad;
+        }
+        Character a = p.who.get(0);
+        for (Character c : p.who.subList(1, p.who.size())) {
+            TalkBrain.Decision d = p.decisions.get(c.getId());
+            if (d == null || !d.yes()) {
+                bad.add(c.getName() + " did not say yes (" + (d == null ? "no decision" : d.answer() + ": " + d.why()) + ")");
+            } else if (a.getParty() == null || c.getParty() == null || a.getParty().getId() != c.getParty().getId()) {
+                bad.add(c.getName() + " said yes but no party with " + a.getName() + " was formed");
+            }
+        }
+        return bad;
+    }
+
     /** The plan as QA lines: one per step, with the decisions. */
     public static List<String> describe(String tag, Plan p) {
         List<String> out = new ArrayList<>();

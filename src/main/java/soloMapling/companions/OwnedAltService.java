@@ -15,7 +15,9 @@ import java.util.function.BooleanSupplier;
 public final class OwnedAltService {
     public static final int CAP = 5;
     private static final OwnedAltService INSTANCE = new OwnedAltService(new OwnedAltBackend(),
-            () -> YamlConfig.config.server.OWNED_ALTS_ENABLED);
+            () -> YamlConfig.config.server.OWNED_ALTS_ENABLED, () -> YamlConfig.config.server.OWNED_ALTS_SUMMON_ENABLED);
+    /** 1.6.0.4: what @botme says while OWNED_ALTS_SUMMON_ENABLED is off (alts are half-built: no fighting yet). */
+    public static final String RESTING = "Alts are resting while we finish them - they'll be back soon.";
     public static OwnedAltService getInstance() { return INSTANCE; }
 
     public record Candidate(int id, int accountId, int world, String name) {}
@@ -41,10 +43,21 @@ public final class OwnedAltService {
     private final Map<Integer, Integer> friendReservations = new HashMap<>();
     private final Backend backend;
     private final BooleanSupplier enabled;
+    private final BooleanSupplier summonEnabled;
 
     OwnedAltService(Backend backend, BooleanSupplier enabled) {
+        this(backend, enabled, () -> true);
+    }
+    OwnedAltService(Backend backend, BooleanSupplier enabled, BooleanSupplier summonEnabled) {
         this.backend = backend;
         this.enabled = enabled;
+        this.summonEnabled = summonEnabled;
+    }
+    /** 1.6.0.4: false while OWNED_ALTS_SUMMON_ENABLED is off - @botme answers {@link #RESTING}; @dismiss still works. */
+    public boolean summoningOpen() { return summonEnabled.getAsBoolean(); }
+    private void requireSummoning() {
+        requireEnabled();
+        if (!summonEnabled.getAsBoolean()) throw new IllegalStateException(RESTING);
     }
     private void requireEnabled() {
         if (!enabled.getAsBoolean()) throw new IllegalStateException("Alt companions are not available yet.");
@@ -93,7 +106,7 @@ public final class OwnedAltService {
     }
 
     public Character summon(Character owner, String name) {
-        requireEnabled();
+        requireSummoning();
         if (owner.isOwnedAlt() || owner.isBot())
             throw new IllegalStateException("Only your logged-in character can call an alt.");
         Candidate row = backend.list(owner).stream().filter(c -> c.name.equalsIgnoreCase(name))

@@ -36,6 +36,11 @@ public abstract class Command {
         return description;
     }
 
+    /** Whether @help lists it right now (a command for a feature that is off on this server can hide; it still runs). */
+    public boolean listed() {
+        return true;
+    }
+
     protected void setDescription(String description) {
         this.description = description;
     }

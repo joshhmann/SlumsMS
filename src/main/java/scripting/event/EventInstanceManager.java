@@ -767,6 +767,16 @@ public class EventInstanceManager {
         return name;
     }
 
+    /**
+     * The event script's name ("ZakumBattle", "KerningPQ"), which the achievement goals and the social PQ hook key on.
+     * {@link #getName()} is the instance name the script picked ("Zakum1", "Kerning3"), which never matches them
+     * (1.6.1 promise audit).
+     */
+    public String scriptName() {
+        EventManager m = em;
+        return m != null && m.getName() != null ? m.getName() : name;
+    }
+
     public MapleMap getMapInstance(int mapId) {
         MapleMap map = mapManager.getMap(mapId);
         map.setEventInstance(this);
@@ -866,7 +876,7 @@ public class EventInstanceManager {
         try {
             logBossClear(this.expedition);
             soloMapling.server.MapleRootSolo.runHook("social pq clear", () ->   // 1.6.0 S3: "did KPQ together"
-                    soloMapling.ArtificialPlayer.SocialHooks.onPqClear(getName(), getPlayers()));
+                    soloMapling.ArtificialPlayer.SocialHooks.onPqClear(scriptName(), getPlayers()));
             invokeScriptFunction("clearPQ", EventInstanceManager.this);
         } catch (ScriptException | NoSuchMethodException ex) {
             ex.printStackTrace();
@@ -1214,7 +1224,7 @@ public class EventInstanceManager {
 
     public final void setEventCleared(ExpeditionType type) {
         eventCleared = true;
-        soloMapling.achievements.Achievements.onClear(getName(), getPlayers()); // 1.6.1 ticket 93
+        soloMapling.achievements.Achievements.onClear(scriptName(), getPlayers()); // 1.6.1 ticket 93
 
         String partyId = java.util.UUID.randomUUID().toString();
         for (Character chr : getPlayers()) {

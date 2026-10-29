@@ -168,6 +168,12 @@ public final class TalkBrain {
      * at all; then the bot's own will: its bond, Bartle point, mood, and whether the ask fits its goal and plan. A
      * come-along it does not want may be countered with the town it means to go to ({@code me.town}).
      */
+    /**
+     * Auto-QA t-bt-1 only: while set on the planning thread, a listener says yes to any ask the game's rule allows, so
+     * the check can prove the yes is acted on (a random no proved nothing). Set and cleared by TalkQa.talkYes.
+     */
+    static final ThreadLocal<Boolean> QA_YES = ThreadLocal.withInitial(() -> false);
+
     public static Decision answer(Mind me, Mind asker, Relation rel, Ask ask, Feasible feasible, int askedTown,
                                   Random rng) {
         Manner manner = manner(me, rel);
@@ -175,6 +181,9 @@ public final class TalkBrain {
             return new Decision(Answer.NO, manner, feasible.why());
         }
         double w = willingness(me, asker, rel, ask);
+        if (QA_YES.get()) { // auto-QA t-bt-1: a forced yes (the game's rule above still decides whether one is possible)
+            return new Decision(Answer.YES, manner, String.format(java.util.Locale.ROOT, "QA forced yes (willing %.2f)", w));
+        }
         boolean yes = rng.nextDouble() < w;
         String why = String.format(java.util.Locale.ROOT, "willing %.2f (%s)", w, reasons(me, rel, ask));
         if (yes) {

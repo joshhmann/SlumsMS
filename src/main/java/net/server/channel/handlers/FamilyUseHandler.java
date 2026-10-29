@@ -83,6 +83,12 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
                             if (!FieldLimit.CANNOTMIGRATE.check(targetMap.getFieldLimit()) && !FieldLimit.CANNOTVIPROCK.check(ownMap.getFieldLimit())
                                     && (ownMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(ownMap.getId())) && ownMap.getEventInstance() == null) {
 
+                                String refused = summonRefusal(victim);
+                                if (refused != null) { // before anything is spent: nobody can answer it
+                                    c.getPlayer().dropMessage(5, refused);
+                                    c.sendPacket(PacketCreator.enableActions());
+                                    return;
+                                }
                                 if (InviteCoordinator.hasInvite(InviteType.FAMILY_SUMMON, victim.getId())) {
                                     c.sendPacket(PacketCreator.sendFamilyMessage(74, 0));
                                     return;
@@ -131,6 +137,18 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
             useEntitlement(entry, type);
         }
         return refused;
+    }
+
+    /**
+     * 1.6.1 promise audit: Summon Family sends a request the junior must answer, and a regular (or an alt traveling with
+     * its owner) has no client to answer it, so the reputation was spent and nothing happened. Refused before it costs
+     * anything. Null when {@code victim} can answer.
+     */
+    public static String summonRefusal(Character victim) {
+        if (victim != null && victim.getClient() instanceof client.BotClient) {
+            return victim.getName() + " can't answer a Family summon. Use Family Reunion to go to them instead.";
+        }
+        return null;
     }
 
     /** Family Bonding needs this many online Family members below the user (the tooltip's 6; bot juniors count). */

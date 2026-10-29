@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -68,9 +69,11 @@ class LazyPenguinsTest {
         Matcher m = ROW.matcher(sql);
         List<Penguin> t = table();
         int n = 0;
+        Map<Integer, int[]> relocated = relocations();
         while (m.find()) {
             Penguin p = t.get(n++);
-            assertEquals(p.map(), Integer.parseInt(m.group(1)));
+            int[] r051 = relocated.get(p.id());   // {old map, x, y, fh, new map, x, y, fh}
+            assertEquals(r051 != null ? r051[0] : p.map(), Integer.parseInt(m.group(1)));
             assertEquals(p.id(), Integer.parseInt(m.group(2)));
             int[][] m048 = moves("048-custom-npc-spots").get(p.id());   // {old, new} x, y, fh
             int[][] m049 = moves("049-penguin-spots-2").get(p.id());
@@ -83,6 +86,11 @@ class LazyPenguinsTest {
                 assertEquals(m049[0][2], m048[1][2]);
             }
             int[] last = m049 != null ? m049[1] : m048 != null ? m048[1] : first;
+            if (r051 != null) {
+                assertArrayEquals(last, new int[]{r051[1], r051[2], r051[3]}, p.id() + ": 051 starts where 049 ended");
+                assertEquals(p.map(), r051[4], p.id() + " tsv map = 051's new map");
+                last = new int[]{r051[5], r051[6], r051[7]};
+            }
             assertEquals(p.x(), last[0], p.id() + " tsv = last migration x");
             assertEquals(p.y(), last[1]);
             assertEquals(p.fh(), last[2]);
@@ -107,6 +115,44 @@ class LazyPenguinsTest {
                     {Integer.parseInt(m.group(6)), Integer.parseInt(m.group(7)), Integer.parseInt(m.group(8))}});
         }
         return out;
+    }
+
+    /** npc id to {old map, x, y, fh, new map, x, y, fh}, read from 051 (the one that changes a penguin's map). */
+    private static Map<Integer, int[]> relocations() throws Exception {
+        Matcher m = Pattern.compile("SELECT (\\d{9}) AS omap, (\\d{4}) AS life, (-?\\d+) AS ox, (-?\\d+) AS oy, (\\d+) AS ofh, "
+                + "(\\d{9}) AS nmap, (-?\\d+) AS nx, (-?\\d+) AS ny, (\\d+) AS nfh")
+                .matcher(Files.readString(Path.of("database/migrations/051-penguin-showa.sql")));
+        Map<Integer, int[]> out = new HashMap<>();
+        while (m.find()) {
+            int[] v = new int[8];
+            v[0] = Integer.parseInt(m.group(1));
+            for (int i = 1; i < 8; i++) {
+                v[i] = Integer.parseInt(m.group(i + 2));
+            }
+            out.put(Integer.parseInt(m.group(2)), v);
+        }
+        return out;
+    }
+
+    /** 1.6.1 promise audit: the "Showa" penguin stood in Mushroom Shrine (800000000); 051 moves her to Showa Town. */
+    @Test
+    void migration051MovesTheShowaPenguinIntoShowaTownAndRollsBack() throws Exception {
+        Map<Integer, int[]> r = relocations();
+        assertEquals(java.util.Set.of(2998), r.keySet());
+        assertEquals(800000000, r.get(2998)[0]);
+        assertEquals(801000000, r.get(2998)[4]);
+        assertTrue(table().stream().noneMatch(p -> p.map() == 800000000), "no penguin left in Mushroom Shrine");
+        String sql = Files.readString(Path.of("database/migrations/051-penguin-showa.sql"));
+        assertTrue(sql.contains("p.map = m.omap AND p.life = m.life AND p.x = m.ox AND p.y = m.oy AND p.fh = m.ofh"),
+                "only the row at its 049 spot moves");
+        assertTrue(sql.contains("WHERE @apply AND p.world IN (0, 1) AND p.type = 'n'"));
+        assertTrue(sql.contains("mapleroot_integration_migrations(migration_id) VALUES ('051-penguin-showa')"));
+        String rb = Files.readString(Path.of("database/migrations/051-penguin-showa.rollback.sql"));
+        int[] f = r.get(2998);
+        assertTrue(rb.contains("SELECT 801000000 AS omap, 2998 AS life, " + f[5] + " AS ox, " + f[6] + " AS oy, " + f[7]
+                + " AS ofh, 800000000 AS nmap, " + f[1] + " AS nx, " + f[2] + " AS ny, " + f[3] + " AS nfh"), "rollback reverses it");
+        assertTrue(rb.contains("DELETE FROM mapleroot_integration_migrations WHERE migration_id = '051-penguin-showa'"));
+        assertTrue(Files.readString(Path.of("docs/release/1.6.1.conf")).contains("051-penguin-showa"), "listed in 1.6.1.conf");
     }
 
     @Test
