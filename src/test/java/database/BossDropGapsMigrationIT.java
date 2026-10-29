@@ -31,13 +31,14 @@ class BossDropGapsMigrationIT {
                     + " DEFAULT 0, minimum_quantity int NOT NULL DEFAULT 1, maximum_quantity int NOT NULL DEFAULT 1,"
                     + " questid int NOT NULL DEFAULT 0, chance int NOT NULL DEFAULT 0, UNIQUE KEY (dropperid, itemid))"
                     + " ENGINE=MyISAM");
-            // the Lantern Erda's card (045), the Castellan Toad's meso row, a row 055 would also add (kept at its own
-            // chance) and an unrelated mob
+            // the Lantern Erda's card (045), Castellan Toad's meso row (055 also generates one: the old one stays), a row
+            // 055 would also add for Cygnus (kept at its own chance) and an unrelated mob
             exec(db, "INSERT INTO drop_data (dropperid, itemid, minimum_quantity, maximum_quantity, chance) VALUES"
                     + " (8641008, 2387158, 1, 1, 20000), (9400409, 0, 10000, 20000, 400000),"
-                    + " (8850006, 2000004, 1, 1, 50000), (100100, 4000000, 1, 1, 600000)");
+                    + " (8850012, 2000004, 1, 1, 50000), (100100, 4000000, 1, 1, 600000)");
             String snapshot = "SELECT COUNT(*) FROM drop_data WHERE (dropperid, itemid, chance) IN ((8641008, 2387158, 20000),"
-                    + " (9400409, 0, 400000), (8850006, 2000004, 50000), (100100, 4000000, 600000))";
+                    + " (8850012, 2000004, 50000), (100100, 4000000, 600000))"
+                    + " OR (dropperid, itemid, minimum_quantity, maximum_quantity) = (9400409, 0, 10000, 20000)";
             script(db, "050-bb-drop-tables.sql");
             int after050 = count(db, "SELECT COUNT(*) FROM drop_data");
             assertEquals(4 + with050, after050);
@@ -45,8 +46,10 @@ class BossDropGapsMigrationIT {
             for (int i = 0; i < 2; i++) {
                 script(db, "055-boss-drop-gaps.sql");
             }
-            assertEquals(after050 + generated - 1, count(db, "SELECT COUNT(*) FROM drop_data"), "the 8850006 Elixir pair is skipped");
-            assertEquals(generated - 1, count(db, "SELECT COUNT(*) FROM boss_drops_055_rows"));
+            assertEquals(after050 + generated - 2, count(db, "SELECT COUNT(*) FROM drop_data"),
+                    "the Toad's meso pair and Cygnus' Elixir pair are skipped");
+            assertEquals(generated - 2, count(db, "SELECT COUNT(*) FROM boss_drops_055_rows"));
+            assertEquals(1, count(db, "SELECT COUNT(*) FROM drop_data WHERE dropperid = 9400409 AND itemid = 0"), "one Toad meso row");
             assertEquals(4, count(db, snapshot), "card, older and unrelated rows unchanged");
             assertEquals(1, count(db, "SELECT COUNT(*) FROM drop_data WHERE dropperid = 8641008 AND itemid BETWEEN 2380000 AND 2389999"));
             for (int stub : BossDropGapsDataTest.STUBS) {
@@ -64,7 +67,7 @@ class BossDropGapsMigrationIT {
             assertEquals(0, count(db, "SELECT COUNT(*) FROM mapleroot_integration_migrations WHERE migration_id = '055-boss-drop-gaps'"));
 
             script(db, "055-boss-drop-gaps.sql");
-            assertEquals(after050 + generated - 1, count(db, "SELECT COUNT(*) FROM drop_data"), "applies again after a rollback");
+            assertEquals(after050 + generated - 2, count(db, "SELECT COUNT(*) FROM drop_data"), "applies again after a rollback");
         }
     }
 }

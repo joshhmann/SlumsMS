@@ -18,24 +18,34 @@ Player notes text: `PLAYER-NOTES.md`.
 
 ## Migration 055: boss drop gaps (owner 2026-10-29, branch 161-bossdrops)
 
-050 only looked at mobs placed on maps in its regions, so six mobs that are fought and killed got no table. 055 adds
-172 rows by the same rules (`gen_bb_drops.py gaps`, `gap-rows.csv`):
+050 only looked at mobs placed on maps in its regions, so the boss-fight mobs got no table. 055 adds 238 rows by the
+same rules (`gen_bb_drops.py gaps`, `gap-rows.csv`), one BOSS table per clear on the form that dies and ELITE tables
+for the other fighting forms (owner's second pass):
 
 | Mob | Level, tier | Rows | Mesos (base) | Rare outclassing piece |
 |---|---|---|---|---|
-| Oz 8850006 | 188, boss | 30 | 13,536-20,304 at 70% | Utgard Saber 3000 (0.9%) |
-| Irena 8850007 | 188, boss | 30 | same | Jaihin Guards 3000 |
-| Eckhart 8850008 | 188, boss | 30 | same | AbsoLab Broad Axe 1000 (0.3%) |
-| Hawkeye 8850009 | 188, boss | 30 | same | Jaihin Crossbow 3000 |
-| Castellan 9400408 | 180, elite (620M HP) | 28 | 4,608-6,912 | none (Ninja Castle is classic: classic pool only) |
+| Cygnus 8850012 (the form that dies) | 190, boss | 30 | 13,680-20,520 at 70% | Utgard Crossbow 3000 (0.9%) |
+| Oz 8850006 | 188, elite | 32 | 4,813-7,219 at 40% | Utgard Saber 120 |
+| Irena 8850007 | 188, elite | 32 | same | Jaihin Guards 120 |
+| Eckhart 8850008 | 188, elite | 32 | same | AbsoLab Broad Axe 30 |
+| Hawkeye 8850009 | 188, elite | 32 | same | Jaihin Crossbow 120 |
+| Castellan Toad 9400409 (the form that dies) | 180, elite (450M HP) | 28 (27 new: its meso row stays) | 4,608-6,912 (kept: 10,000-20,000) | none (classic pool) |
+| Castellan 9400408 | 180, elite (620M HP) | 28 | 4,608-6,912 | none (classic pool) |
 | Lantern Erda 8641008 | 200, normal | 24 | 1,024-1,536 | Pensalir Mage Gloves 60 |
 
-- A boss table is Zakum-shaped (6 scrolls, 8 classic equips, 4 mastery books, 3 par and 1 rare post-Big-Bang piece).
-  The four knights are four separate boss tables in one Cygnus fight, so a full clear rolls four of them.
-- **The killing forms today** (TEST drop_data, export 2026-10-29): Cygnus' final form 8850012 (the one CygnusBattle
-  counts as the kill) has **no rows at all**; 8850011 (the stub) none either. Castellan Toad 9400409 (what Castellan
-  revives into, the kill CastellanBattle counts) has only a meso row (10,000-20,000 at 40%). 055 does not change
-  either; that is the owner's call.
+Checked in the server code:
+- **Cygnus 8850012 is the kill:** CygnusBattle.isCygnus is 8850012, and MapleMap.afterBossKilled has no special case
+  for it, so it dies through `killMonster(..., true)` with drops. 8850011 is a stub: `spawnCygnusMobs` kills it with
+  `withDrops=false` each time a guard comes in, and the last guard brings 8850012. 8850011 stays dropless.
+- **The knights 8850006-8850009 never appear in this server's Cygnus fight.** The guards it spawns are 8850000-8850004
+  (Mihile, Oz, Irena, Eckhart, Hawkeye; `8850000 + cygnusSpawnCounter`), and each guard's death goes through
+  `afterBossKilled`, which ends with `killAllMonsters()` (`withDrops=false`), so the guards never drop either. Nothing
+  in scripts or code spawns 8850006-8850009. Their elite tables are in as decided, but nobody can earn them today.
+  Giving the guards drops would need a code change in afterBossKilled (owner's call).
+- **Castellan 9400408 does die with drops:** it dies through the generic `killMonster(..., true)`, which drops
+  before its revive (the Toad) spawns. Per the owner's rule ("dropless unless it can actually die with drops") it keeps
+  an elite table, so a Castellan clear rolls two elite tables (Castellan, then the Toad). Dropping 9400408 from
+  `GAP_MOBS` makes it one.
 
 ## Round 6 (owner 2026-10-29, branch 161-ladder3)
 

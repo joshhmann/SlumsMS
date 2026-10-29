@@ -234,11 +234,17 @@ python3 tools/monsterbook/build_book.py ... --hp-overrides src/main/resources/so
 - `gen_bb_drops.py gaps` builds tables for `GAP_MOBS` by the same rules (`build_rows`, priced against 050's own mobs
   for the meso medians) and writes `database/migrations/055-boss-drop-gaps.sql` (ledger `boss_drops_055_rows`) and
   `docs/economy/bb-drops/gap-rows.csv`. Regenerating 050 is unchanged by it.
-- The mobs: Cygnus' knights Oz, Irena, Eckhart and Hawkeye (8850006-8850009, lv 188, boss flag, 2.1B HP: boss tier,
-  region "future"), Castellan (9400408, lv 180, boss flag, 620M HP: elite tier, region "zipangu", a classic area so
-  classic pool only) and the Arcane Lantern Erda (8641008, lv 200, normal, region "arcane"). None is placed on a map:
-  the knights fight in CygnusBattle, Castellan in CastellanBattle (it revives into Castellan Toad 9400409), the Lantern
-  Erda is revived from 8641007.
-- The phase/form stubs 8850005, 8850011, 8880150, 8880302, 8880415, 8645009 and 8641009 stay dropless.
-- Checks: `BossDropGapsDataTest` (the six mobs only, the 050 row rules, tiers, own ledger, listed after 054),
-  `BossDropGapsMigrationIT` (apply twice, rollback twice, the card row and 050's rows untouched).
+- **One boss table per clear (owner, second pass):** the BOSS table goes on the form that dies and that the event
+  counts as the kill; the other fighting forms get ELITE tables (mesos x4, every chance x2, no boss-tier rolls).
+  `GAP_MOBS` sets the tier per mob.
+  - Cygnus: 8850012 (CygnusBattle.isCygnus; MapleMap kills it with drops) gets the boss table. Her knights Oz, Irena,
+    Eckhart and Hawkeye (8850006-8850009) get elite tables.
+  - Castellan: Castellan Toad 9400409 (CastellanBattle.isCastellan) gets an elite table (boss flag but 450M HP; its
+    existing meso row stays). Castellan 9400408 keeps an elite table too, because it does die with drops:
+    `MapleMap.killMonster(..., withDrops=true)` drops before the Toad revives in its place.
+  - Ninja Castle is a classic area ("zipangu"): classic pool only, no post-Big-Bang gear.
+  - The Arcane Lantern Erda (8641008, revived from 8641007) is a normal mob by the rules.
+- The phase/form stubs 8850005, 8850011, 8880150, 8880302, 8880415, 8645009 and 8641009 stay dropless. 8850011 is
+  killed with `withDrops=false` each time a guard comes in (`spawnCygnusMobs`), so it never drops.
+- Checks: `BossDropGapsDataTest` (the mobs, the 050 row rules, tiers, own ledger, listed after 054),
+  `BossDropGapsMigrationIT` (apply twice, rollback twice, the card row, the Toad's meso row and 050's rows untouched).
