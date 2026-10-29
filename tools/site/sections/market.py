@@ -27,6 +27,7 @@ from sections.database import fallback_icon, scrub
 MARKET = "market"
 DEFAULT_DIR = os.environ.get("SLUMS_MARKET_DATA", os.path.join(REPO, "cache", "market-sample"))
 MIN_SAMPLES = 3
+NO_SALES = "No sales between players yet. Sell something in the FM and it shows up here within the hour."
 SEEDS = {"bot_seed"}  # PriceBook.Source.BOT_SEED: restocks between the town's own shops, not trades
 NX_CARDS = {4031865: "NX Card (100 NX)", 4031866: "NX Card (250 NX)"}
 HISTORY_DAYS = 30
@@ -500,7 +501,7 @@ def build_prices(mk):
     rows = "".join(f'<tr><td>{mk.icon(i, "{root}")}</td><td>{mk.price_link(i, "{root}")}</td>'
                    f'<td class="r num">{mesos(st["median"]) if st["median"] else "-"}</td><td class="r">{change(st["first"], st["median"])}</td>'
                    f'<td class="r num">{st["sold"]:,}</td></tr>' for i, st in sold)
-    body = (f'<h1>Price check</h1><p class="id">{len(sold)} items sold in the last {span(m)}, most traded first</p>'
+    body = (f'<h1>Price check</h1><p class="id">{len(sold)} item{"" if len(sold) == 1 else "s"} sold in the last {span(m)}, most traded first</p>'
             f'<section class="panel"><h2 class="bar">All prices</h2><div class="tbl"><table class="t icons"><thead><tr><th></th><th>Item</th>'
             f'<th class="r">Median</th><th class="r">{span(m)}</th><th class="r">Sold</th></tr></thead><tbody>{rows}</tbody></table></div></section>')
     mk.page(f"{MARKET}/prices/index.html", "Price check", body, "prices")
@@ -526,9 +527,13 @@ def build_lists(mk, priced):
     rows = "".join(f'<tr><td>{mk.icon(x["item_id"], "{root}")}</td><td>{mk.price_link(x["item_id"], "{root}") if x["item_id"] in priced_ids else esc(mk.name(x["item_id"]))}</td>'
                    f'<td class="r num">{x["price"]:,}</td><td class="r num">{x["qty"]}</td><td>{esc(SOURCES.get(x["source"], x["source"]))}</td>'
                    f'<td class="muted">{esc(when(x["hour"]))}</td></tr>' for x in sales)
-    body = (f'<h1>Recent sales</h1><p class="id">The last {len(sales)} sales, newest first, rounded to the hour</p>'
-            f'{sales_note(sales)}<section class="panel"><h2 class="bar">Sales</h2><div class="tbl"><table class="t icons"><thead><tr><th></th><th>Item</th>'
-            f'<th class="r">Price</th><th class="r">Qty</th><th>How</th><th>When</th></tr></thead><tbody>{rows}</tbody></table></div></section>')
+    table = (f'<div class="tbl"><table class="t icons"><thead><tr><th></th><th>Item</th><th class="r">Price</th>'
+             f'<th class="r">Qty</th><th>How</th><th>When</th></tr></thead><tbody>{rows}</tbody></table></div>' if rows
+             else f'<p class="empty">{NO_SALES}</p>')
+    body = (f'<h1>Recent sales</h1><p class="id">'
+            + (f'The last {len(sales)} sale{"" if len(sales) == 1 else "s"}, newest first, rounded to the hour' if sales
+               else "Sales between players, newest first") + '</p>'
+            f'{sales_note(sales)}<section class="panel"><h2 class="bar">Sales</h2>{table}</section>')
     mk.page(f"{MARKET}/sales.html", "Recent sales", body, "sales")
 
     nx = m["nx-rate"]
@@ -574,9 +579,10 @@ def build_home(mk, priced, econ):
             'sales, the shops open right now, and the NX rate. Deals happen in game; whisper the seller or visit their shop.</p>'
             f'{mk.nx_card("{root}", wide=True)}'
             f'<div class="mkhome"><section class="panel"><h2 class="bar">Most traded <a href="{{root}}{MARKET}/prices/index.html">All prices &raquo;</a></h2>'
-            f'<ul class="mklist">{rows}</ul></section>'
-            f'<section class="panel"><h2 class="bar">Just sold <a href="{{root}}{MARKET}/sales.html">More &raquo;</a></h2><ul class="mklist">{srows}</ul>'
-            f'{sales_note(sales, PAD)}</section></div>'
+            + (f'<ul class="mklist">{rows}</ul>' if rows else f'<p class="empty" style="padding:6px 16px">{NO_SALES}</p>') + '</section>'
+            f'<section class="panel"><h2 class="bar">Just sold <a href="{{root}}{MARKET}/sales.html">More &raquo;</a></h2>'
+            + (f'<ul class="mklist">{srows}</ul>' if srows else f'<p class="empty" style="padding:6px 16px">{NO_SALES}</p>')
+            + f'{sales_note(sales, PAD)}</section></div>'
             f'<section class="panel"><h2 class="bar">Bera economy <a href="{{root}}{MARKET}/economy.html">More &raquo;</a></h2><dl class="stats">{econ}</dl></section>')
     mk.page(f"{MARKET}/index.html", "Slums Market", body, "index", "Prices, FM shops and the NX rate on SlumsMS.")
 
