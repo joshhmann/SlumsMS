@@ -7,3 +7,10 @@ f5fd66c11 5804ad9f8 (melee close-case test)
 62eaa5ba6 ported by hand (DojoScenarios, !qa dj-1 in QaMenuCatalog)
 a651170b0 version bump only (1.5.5.conf added for history); the dojo fix itself is 481c613af, already in
 c7922a774 version bump only (1.5.6.conf added for history); the guard is 31a8911db, already in
+# release-1.6.0.4 into release-1.6.1 (owner 2026-10-28: alts off until fully built). Alt follow deferred; only the
+# OWNED_ALTS_SUMMON_ENABLED switch is ported (via 161-auditfix ec48d5153).
+bc24b883a not ported: alt follow deferred; only the OWNED_ALTS_SUMMON_ENABLED switch is ported (via 161-auditfix ec48d5153)
+45a2b6824 not ported: 1.6.0.4 version bump/conf/QA list; alt follow deferred; only the OWNED_ALTS_SUMMON_ENABLED switch is ported (via 161-auditfix ec48d5153)
+3249e906e not ported: 1.6.0.4 QA doc (boat no-warp follow check); alt follow deferred; only the OWNED_ALTS_SUMMON_ENABLED switch is ported (via 161-auditfix ec48d5153)
+f28ed7b3b not ported: alt follow deferred; only the OWNED_ALTS_SUMMON_ENABLED switch is ported (via 161-auditfix ec48d5153)
+ba975384b ported by hand as ec48d5153 (OWNED_ALTS_SUMMON_ENABLED, @botme resting, 1.6.1.conf SERVER_SET false; 1.6.0.4 docs left out); alt follow deferred
