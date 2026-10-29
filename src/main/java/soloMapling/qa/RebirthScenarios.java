@@ -79,7 +79,7 @@ final class RebirthScenarios {
         public String id() { return "rb-2"; }
         public String title() { return "Bot rebirth: a regular earns its key item from a real Von Leon kill"; }
         public Set<QaLog.Topic> topics() { return Set.of(); }
-        public int minutes(String[] args) { return 40; }
+        public int minutes(String[] args) { return 30; }
 
         private volatile BotRebirthQa.Before before;
         private volatile soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.Run run;
@@ -98,7 +98,7 @@ final class RebirthScenarios {
                 throw new QaRefusal(b.bot().getName() + " did not reach a 4th job at level 200 on its build");
             }
             ctx.log("RB2 STAGED " + BotRebirthQa.stageVonLeon(b));
-            soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.certainFor(40 * 60_000L);
+            soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.certainFor(30 * 60_000L);
             ctx.onStop("bothering back to normal", () ->
                     soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.certainFor(0));
             String[] why = {"?"};
