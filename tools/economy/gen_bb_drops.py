@@ -386,7 +386,17 @@ CLASSIC_BUFF_AREAS = [                  # (label, first map id, last map id)
     ("Temple of Time", 270010000, 270039999),
     ("Ulu City", 541020000, 541029999),
 ]
-CLASSIC_BUFF_MIN_LEVEL = 95
+# 1.6.1 b040: the notes promise "Leafre and Minar Forest, the Temple of Time and Ulu City give 40% more EXP", so every
+# mob placed on those maps that gives EXP gets x1.4 (round 3 only took non-boss mobs of lv 95+: 25 of them)
+CLASSIC_BUFF_MIN_LEVEL = 0
+CLASSIC_BUFF_BOSSES = True
+# 1.6.1 b040: the notes promise lower Grandis "pays roughly twice what the Temple of Time does". With the old target
+# it paid ~1.3x the BUFFED Temple (34M against 26M an hour), so the lower-Grandis mobs (the normal mobs placed on a
+# map in lower-grandis-maps.txt) get their EXP-an-hour target x LOWER_GRANDIS_EXP_X, chosen so the area's median map
+# pays 2.0x the buffed Temple of Time's Road to Oblivion (tools/economy/ladder_table.py). The Future, upper Grandis,
+# Arcane River, Lion King's Castle and Rose Garden keep the round-3 target.
+LOWER_GRANDIS_EXP_X = 1.55
+LOWER_GRANDIS_MAPS = Path("src/main/resources/soloMapling/lower-grandis-maps.txt")
 STAT_TSV = Path("src/main/resources/soloMapling/mob-stat-overrides.tsv")
 
 
@@ -403,12 +413,35 @@ def target_exp_per_hour(level):
     return EXP_TARGET_X * REF_EXP_PER_HOUR * classic_exp(level) / classic_exp(131)
 
 
-def new_exp(level, hp):
-    return round3(max(classic_exp(level), target_exp_per_hour(level) / (3 * kills_per_hour(hp))))
+def new_exp(level, hp, x=1.0):
+    return round3(max(classic_exp(level), x * target_exp_per_hour(level) / (3 * kills_per_hour(hp))))
+
+
+def lower_grandis_mobs(wz):
+    """Mob ids placed on a lower-Grandis map (the list AreaGates reads)."""
+    import xml.etree.ElementTree as ET
+    maps = set()
+    for line in LOWER_GRANDIS_MAPS.read_text().splitlines():
+        i = line.split("#", 1)[0].strip()
+        if i:
+            maps.add(int(i))
+    out = set()
+    for m in sorted(maps):
+        f = wz / "Map.wz" / "Map" / f"Map{m // 100000000}" / f"{m:09d}.img.xml"
+        if not f.exists():
+            continue
+        for node in ET.parse(f).getroot():
+            if node.get("name") == "life":
+                for e in node:
+                    v = {c.get("name"): c.get("value") for c in e}
+                    if v.get("type") == "m":
+                        out.add(int(v["id"]))
+    return out
 
 
 def classic_buff_mobs(wz, targets):
-    """{mob id: (level, maxHP, exp, area label)} for the non-boss mobs of lv 95+ placed in CLASSIC_BUFF_AREAS."""
+    """{mob id: (level, maxHP, exp, area label)} for every EXP-giving mob placed in CLASSIC_BUFF_AREAS (event mobs
+    9300000-9399999 and the target mobs aside)."""
     import xml.etree.ElementTree as ET
     out = {}
     for label, lo, hi in CLASSIC_BUFF_AREAS:
@@ -428,7 +461,8 @@ def classic_buff_mobs(wz, targets):
                     if mob in targets or mob in out or 9300000 <= mob < 9400000:
                         continue
                     info = full_mob_info(wz, mob)
-                    if info and not info["boss"] and info["exp"] > 0 and info["level"] >= CLASSIC_BUFF_MIN_LEVEL:
+                    if info and (CLASSIC_BUFF_BOSSES or not info["boss"]) and info["exp"] > 0 \
+                            and info["level"] >= CLASSIC_BUFF_MIN_LEVEL:
                         out[mob] = (info["level"], info["maxHP"], info["exp"], label, info["name"])
     return out
 
@@ -459,13 +493,15 @@ MOB_NAMES = {}
 def stat_overrides(wz, mobs, all_targets):
     """Rows (mob id, name, area, tier, level, hp before, hp after or None, exp before, exp after or None)."""
     hp = {m["mobid"]: (before, after) for m, before, after in hp_overrides(mobs)}
+    lower = lower_grandis_mobs(wz)
     rows = []
     for m in sorted(mobs, key=lambda x: x["mobid"]):
         before = server_hp(m)
         hp_after = hp.get(m["mobid"], (before, None))[1]
         exp_after = None
         if m["tier"] == "normal":
-            exp_after = new_exp(m["level"], hp_after or before)
+            x = LOWER_GRANDIS_EXP_X if m["region"] == "grandis" and m["mobid"] in lower else 1.0
+            exp_after = new_exp(m["level"], hp_after or before, x)
             if exp_after == m["exp"]:
                 exp_after = None
         if hp_after is not None or exp_after is not None:
@@ -478,7 +514,8 @@ def stat_overrides(wz, mobs, all_targets):
 def write_stats(rows):
     lines = ["# SlumsMS ticket 81 (owner 2026-10-28): mob max HP and EXP overrides. The post-Big-Bang mobs and the Lion",
              "# King's Castle / Rose Garden mobs get a classic-like HP for their level and EXP for about 2x a classic",
-             "# spot's EXP per hour; the classic lv 95+ mobs of Leafre/Minar, Temple of Time and Ulu City get EXP x1.4.",
+             "# spot's EXP per hour (lower Grandis: about 2x the buffed Temple of Time); every mob of Leafre/Minar,",
+             "# the Temple of Time and Ulu City gets EXP x1.4.",
              "# Read by server.life.MobStatOverrides, applied in LifeFactory after its own values. Generated by",
              "# tools/economy/gen_bb_drops.py (rules: docs/economy/bb-drops/RULES.md). Off: -Dslums.mobStatOverrides=false.",
              "# Columns: mob id, max HP ('-' = keep), EXP ('-' = keep), comment.",

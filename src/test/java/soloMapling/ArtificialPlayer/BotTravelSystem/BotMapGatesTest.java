@@ -12,7 +12,8 @@ class BotMapGatesTest {
     @Test
     void theGatesFollowHyperTeleportRockRanges() {
         assertEquals(0, BotMapGates.requiredRebirths(100000000));
-        assertEquals(1, BotMapGates.requiredRebirths(211060100)); // Lion King's Castle
+        assertEquals(0, BotMapGates.requiredRebirths(211060100)); // Lion King's Castle walls: open since 1.6.1 b040
+        assertEquals(1, BotMapGates.requiredRebirths(211070100)); // Von Leon's wing
         assertEquals(2, BotMapGates.requiredRebirths(273020300)); // Twilight Perion
         assertEquals(3, BotMapGates.requiredRebirths(450001010)); // Arcane River
         assertEquals(BotMapGates.NEVER, BotMapGates.requiredRebirths(271030100)); // Knight Stronghold
@@ -29,7 +30,8 @@ class BotMapGatesTest {
     void elNathItselfStaysOpen() {
         assertTrue(BotMapGates.mayEnter(211000000, 0));
         assertTrue(BotMapGates.mayEnter(211040100, 0));
-        assertFalse(BotMapGates.mayEnter(211060100, 0));
+        assertTrue(BotMapGates.mayEnter(211060100, 0), "Lion King's Castle is open training (1.6.1 b040)");
+        assertFalse(BotMapGates.mayEnter(211070000, 0), "Von Leon's wing keeps rebirth 1");
     }
 
     // Ticket 81 round 4: bots get the players' level-120 rule for the Future and lower Grandis.
@@ -44,7 +46,8 @@ class BotMapGatesTest {
         assertFalse(BotMapGates.mayEnter(450001010, 0, 200), "Arcane River stays rebirth 3");
         assertTrue(BotMapGates.mayEnter(450001010, 3, 1));
         assertFalse(BotMapGates.mayEnter(271030100, 3, 200), "the Knight Stronghold stays closed");
-        assertFalse(BotMapGates.mayEnter(211060100, 0, 200), "Lion King's Castle stays rebirth 1");
+        assertFalse(BotMapGates.mayEnter(211070000, 0, 200), "Von Leon's wing stays rebirth 1");
+        assertFalse(BotMapGates.mayEnter(410000002, 0, 200), "the Fox Tree is deeper Grandis (1.6.1 b039)");
         assertFalse(BotMapGates.mayEnter(410000010, 0), "no level known: the rebirth rule");
     }
 }

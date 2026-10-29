@@ -22,11 +22,11 @@ class TrainingTravelTest {
     private static final int LEAFRE = 240000000;
     private static final int EL_NATH = 211000000;
 
-    // Maps around each hub: Orbis ~40, Leafre ~80, El Nath only a Lion King's Castle wall (rebirth 1) at 80.
+    // Maps around each hub: Orbis ~40, Leafre ~80, El Nath only a map of Von Leon's wing (rebirth 1) at 80.
     private static final Map<Integer, List<TrainingMap>> AROUND = Map.of(
             ORBIS, List.of(new TrainingMap(200010000, 40, 2), new TrainingMap(200010100, 42, 3)),
             LEAFRE, List.of(new TrainingMap(240010200, 80, 3), new TrainingMap(240020100, 82, 4)),
-            EL_NATH, List.of(new TrainingMap(211060100, 80, 5)),
+            EL_NATH, List.of(new TrainingMap(211070000, 80, 5)),
             HENESYS, List.of(new TrainingMap(100020000, 10, 1)));
 
     private final AtomicLong clock = new AtomicLong(1_000_000L);
@@ -119,7 +119,7 @@ class TrainingTravelTest {
 
     @Test
     void gatedMapsDoNotMakeARegionFit() {
-        // Level 80 with Leafre removed: El Nath's only in-band map is a Lion King's Castle wall.
+        // Level 80 with Leafre removed: El Nath's only in-band map is in Von Leon's wing (rebirth 1).
         TrainingRegions.install(new TrainingRegions.Config(List.of(
                 region("Victoria Island", 100000000, 110000000, HENESYS, 1),
                 region("El Nath", 211000000, 212000000, EL_NATH, 45)),

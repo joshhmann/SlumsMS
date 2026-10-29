@@ -88,15 +88,23 @@ migration skips any (mob, item) pair that is already in drop_data.
   That is about 0.7 hours per level at lv 120, 1.8 at lv 150 and 10.5 at lv 199.
 - **EXP per kill** = target / (3 x kills per hour at the mob's new HP), but never below classicEXP(L), and rounded to
   3 significant figures. Only normal mobs change; elite and boss EXP stay as they are.
+- **Lower Grandis (1.6.1 b040).** The notes promise lower Grandis "pays roughly twice what the Temple of Time does".
+  Against the BUFFED Temple (the same release gives it x1.4) round 3's target gave only 1.3x (34M against 26M an
+  hour). The normal Grandis mobs placed on a lower-Grandis map get the target x LOWER_GRANDIS_EXP_X = 1.55, which
+  puts the area's median training map at 2.0x the buffed Temple of Time's Road to Oblivion (52.6M against 26.1M;
+  `tools/economy/ladder_table.py`). The Future, upper Grandis, Arcane River, Lion King's Castle and Rose Garden keep
+  the round-3 target.
 
-### Classic 120+ spots (round 3: moderately up, below the new areas)
+### Classic 120+ spots (round 3: moderately up, below the new areas; 1.6.1 b040: every mob)
 
-- The non-boss mobs of level 95+ (excluding event mobs 9300000-9399999) placed in these areas get EXP x1.4:
+- Every mob placed in these areas that gives EXP gets EXP x1.4, field bosses included (excluding event mobs
+  9300000-9399999 and the ticket-81 target mobs, which have their own rows). The player notes say these areas "give
+  40% more EXP"; round 3 only took the non-boss mobs of level 95+ (25 mobs), 1.6.1 b040 takes all of them (53):
   - Leafre / Minar Forest, 240010000-240049999
   - Temple of Time, 270010000-270039999
   - Ulu City, 541020000-541029999
-- That is 25 mobs. The override is per mob, so a mob placed in other maps too gets the same EXP there. Lion King's
-  Castle and Rose Garden were on this list in round 3; round 4 gives them the full treatment instead.
+- The override is per mob, so a mob placed in other maps too gets the same EXP there. Lion King's Castle and Rose
+  Garden were on this list in round 3; round 4 gives them the full treatment instead.
 - **Density:** the server has no per-map spawn override, only an integer multiplier that nothing sets, and
   `createMobInterval` is WZ data. So this draft buffs EXP only.
 
@@ -105,17 +113,28 @@ migration skips any (mob, item) pair that is already in drop_data.
 - `server.maps.AreaGates` holds the rule.
 - **Future / Twilight Perion** (271000000-273999999): level 120, or 2 rebirths as before.
 - **Lower Grandis**: level 120, or 3 rebirths. This is the lv 109-142 band: Pantheon, the low streets of Savage
-  Terminal, Sanctuary, Caravan Refuge, Fox Ridge, Cheong-woon Valley, Ristonia and Toolen City, 187 map ids in
+  Terminal, Sanctuary, Caravan Refuge, Fox Ridge, Cheong-woon Valley, Ristonia and Toolen City, 181 map ids in
   `src/main/resources/soloMapling/lower-grandis-maps.txt`. `tools/economy/gen_area_gates.py` generates the list from
   Map.wz:
   - it starts at the lower towns and walks the portals;
   - a map with mobs is lower when its strongest mob is lv 142 or less (Grandis has no mobs between lv 143 and 174);
   - a map with no mobs (town, interior, door) is lower unless it sits next to an upper mob map and next to no lower
     one.
+  - (1.6.1 b039) the deeper parts the notes keep at 3 rebirths stay out even where the walk reaches them: every map
+    whose name says Heliseum, the Fox Tree or Cernium, and Savage Terminal's hidden back streets (Back Alley,
+    Desolate Black Market, Desolate Scrapyard, 402000400-402000402). Round 3 had opened six of them (the Fox Tree,
+    the Heliseum Hideout, the Transitional Dimensional Door and the three back streets).
+  - It prints every portal from a lower map into a closed one and flags a scripted one; all 9 are unscripted, so
+    GenericPortal checks them.
 - **The rest of Grandis and Arcane River** (400000000-460000000): 3 rebirths, as before.
+- **Lion King's Castle and the Rose Garden** (1.6.1 b040): no rebirth gate. `in_lkc.js`, `211060000.4.js`,
+  `out_VLRoof4.js`, the Hyper Rock and the bots' gate no longer ask for 1 rebirth. Still gated: the towers past
+  Walls 1 (key items 4032832-4032834 / 4032858 or quests 3165-3167, as before) and Von Leon's wing 211070000-211070550
+  (rebirth 1 by Hyper Rock and for bots; on foot it is reached through the towers).
 - **Where the rule is checked:** the Hyper Rock (`HyperTPHandler`), the Henesys teleporter (`scripts/npc/9010002.js`,
-  per destination), the Temple of Time's Gate of Time (`scripts/portal/270000000.10.js`) and every unscripted portal
-  (`GenericPortal`). The unscripted portals catch walking between lower and upper Grandis; all four boundary portals
+  per destination), the Temple of Time's Gate of Time (`scripts/portal/270000000.10.js` opens the menu
+  `scripts/npc/gateOfTime.js`: the Future or lower Grandis at Pantheon, since 1.6.1 b040) and every unscripted portal
+  (`GenericPortal`). The unscripted portals catch walking between lower and upper Grandis; all nine boundary portals
   are unscripted. The Arcane River portal (`arcaneriver.js`) is unchanged. GMs pass.
 - **Bots** (round 4) follow the same rule. `BotMapGates.mayEnter(map, rebirths, level)` asks AreaGates. It is used for
   bot map choice, routing (with the transit level tier), the bots' Hyper Rock, world events and TrainingBot.
@@ -180,7 +199,12 @@ so regenerating gives the same tables.
   Rock agrees, and the teleporter and the Gate of Time ask AreaGates (`AreaGatesTest`).
 - Bots follow the gates: `BotMapGatesTest`, `BotTransitHighLevelTest` (teleporter rows) and `GCTravelHighLevelTest`
   (a level-119 bot is turned away at the teleporter's lower Grandis row, a level-120 one goes).
-- On TEST, auto-QA `t-ld-1` checks the gates at levels 119 and 120, the sampled mobs' HP and EXP, and 050's rows.
+- 1.6.1 b039-b041: `LowerGrandisPortalsWzTest` (no Heliseum / Fox Tree / Cernium / back-street map is lower, every
+  way out of lower Grandis into a closed map is checked), `GateOfTimeScriptTest`, `TrainingLadderWzTest` (every mob
+  of the buffed spots has x1.4; lower Grandis is 1.9-2.2x the buffed Temple), `HyperTPRefusalTest` (the castle without
+  rebirths), `TrainingRegionsTest` and `LevelingPathTest` (bots' regions and path from level 120).
+- On TEST, auto-QA `t-ld-1` checks the gates at levels 119 and 120, the deeper Grandis maps, the Gate of Time's
+  Grandis option, Lion King's Castle at rebirth 0, the sampled mobs' HP and EXP, and 050's rows.
 
 ## Regenerating
 
@@ -188,8 +212,9 @@ so regenerating gives the same tables.
 # 1. export drop_data from TEST (SELECT only) to a TSV, then
 python3 tools/economy/bb_inventory.py --drops drop_data.tsv          # docs/economy/bb-drops/mobs.csv
 python3 tools/economy/gen_bb_drops.py pool --drops drop_data.tsv     # docs/economy/bb-drops/classic-pool.csv
+python3 tools/economy/gen_area_gates.py                              # lower-grandis-maps.txt (run before gen)
 python3 tools/economy/gen_bb_drops.py gen [--regions all]            # rows.csv, stats.csv, migration 050, stat table
-python3 tools/economy/gen_area_gates.py                              # lower-grandis-maps.txt
+python3 tools/economy/ladder_table.py                                # the 120+ ladder (EXP an hour per area)
 # the client Monster Book can print the new HP (needs a Custom.wz rebuild):
 python3 tools/monsterbook/build_book.py ... --hp-overrides src/main/resources/soloMapling/mob-stat-overrides.tsv
 ```

@@ -96,7 +96,8 @@ public class HyperTPHandler extends AbstractPacketHandler {
         if (isRestrictedMap(toMapId)) {
             return "You are not allowed to teleport to this map.";
         }
-        if (reborns < 1 && isLionKingMap(toMapId)) {
+        // 1.6.1 b040: Lion King's Castle and the Rose Garden are open training; only Von Leon's wing keeps rebirth 1
+        if (reborns < 1 && isLionKingBossWing(toMapId)) {
             return "You need to be Rebirth level 1 or higher.";
         }
         // ticket 81 round 3: the Future and lower Grandis open at level 120; the rest of Grandis and Arcane stay
@@ -112,6 +113,11 @@ public class HyperTPHandler extends AbstractPacketHandler {
         return null;
     }
 
+    /** The level / rebirth part of the rule for a plain hop from Henesys (auto-QA t-ld-1 asks it). */
+    public static String gateRefusal(int toMapId, int reborns, int level) {
+        return refusal(MapId.HENESYS, false, true, toMapId, 0, MapId.NONE, reborns, level);
+    }
+
     // Helper method to check if the player has the required item in their inventory
     private boolean hasRequiredItem(Character player) {
         Item item = player.getInventory(InventoryType.CASH).findById(REQUIRED_ITEM_ID);
@@ -120,6 +126,11 @@ public class HyperTPHandler extends AbstractPacketHandler {
 
     public static boolean isLionKingMap(int mapid) {
         return mapid >= 211060000 && mapid <= 211070550;
+    }
+
+    /** Von Leon's wing (Audience Room corridor, the fight, the Aerial Prison): still rebirth 1 by Hyper Rock. */
+    public static boolean isLionKingBossWing(int mapid) {
+        return mapid >= 211070000 && mapid <= 211070550;
     }
 
     public static boolean isTwilightPerion(int mapid) {

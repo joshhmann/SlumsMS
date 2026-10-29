@@ -1,7 +1,7 @@
 function enter(pi) {
 const player = pi.getPlayer();
 
-    if (player.gmLevel() >= 2 || player.getReborns() >= 1 && pi.isQuestStarted(3167) || pi.isQuestCompleted(3167)) {
+    if (player.gmLevel() >= 2 || pi.isQuestStarted(3167) || pi.isQuestCompleted(3167)) {
         pi.playPortalSound();
         pi.warp(211060700, "west00");
         return true;

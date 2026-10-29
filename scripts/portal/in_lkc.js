@@ -1,11 +1,8 @@
+// Desolate Moor -> Lion King's Castle. 1.6.1 b040: the castle is open training for lv 117-134 (the player notes), so
+// the old 1 rebirth gate is gone; the towers past Walls 1 keep their key items / quests, and Von Leon's wing keeps
+// its own entry.
 function enter(pi) {
-const player = pi.getPlayer();
-
-    if (player.gmLevel() >= 2 || player.getReborns() >= 1) {
-        pi.playPortalSound();
-        pi.warp(211060010, "west00");
-        return true;
-    }
-    pi.playerMessage(5, "You need at least 1 rebirth to enter Lion King's Castle.");
-    return false;
+    pi.playPortalSound();
+    pi.warp(211060010, "west00");
+    return true;
 }

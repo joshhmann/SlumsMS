@@ -7,7 +7,13 @@
   - a map with mobs is lower when its strongest placed mob is level LOWER_MAX or less (Grandis has no mobs between
     lv 143 and lv 174, so the split is clean); a map with no mobs (town, interior, door) is lower unless it sits
     next to an upper mob map and next to no lower mob map or seed, so the upper towns (Heliseum HQ, Fox Tree Top,
-    the Glooger Habitat) stay closed.
+    the Glooger Habitat) stay closed;
+  - the deeper parts the player notes name stay closed even where the walk reaches them (1.6.1 b039): any map whose
+    name says Heliseum, the Fox Tree or Cernium, and the rougher back streets of Savage Terminal (the hidden Back
+    Alley, Desolate Black Market and Desolate Scrapyard, DEEPER_IDS). The walk does not go through them.
+
+The boundary portals it prints must all be unscripted (GenericPortal checks AreaGates); a scripted one is reported
+as UNCHECKED so the review can add the check to its script.
 
 Writes src/main/resources/soloMapling/lower-grandis-maps.txt (one map id per line, with its name and mob levels as a
 comment) and prints the boundary portals (lower -> not lower) so the review can list them.
@@ -22,6 +28,10 @@ from pathlib import Path
 
 SEEDS = [400000000, 402000000, 402000500, 402000600, 410000000, 410000200, 410000300, 410000416]
 LOWER_MAX = 142
+# player notes (1.6.1, "Training after 120"): "The deeper parts of Grandis (Heliseum, the Fox Tree, Cernium and the
+# rougher back streets of Savage Terminal) and Arcane River still need 3 rebirths."
+DEEPER_NAMES = ("heliseum", "fox tree", "cernium")
+DEEPER_IDS = {402000400, 402000401, 402000402}   # Back Alley, Desolate Black Market, Desolate Scrapyard
 OUT = Path("src/main/resources/soloMapling/lower-grandis-maps.txt")
 
 
@@ -80,8 +90,15 @@ def main():
                         v = {c.get("name"): c.get("value") for c in e}
                         tm = int(v.get("tm") or 999999999)
                         if tm != 999999999:
-                            portals.append((v.get("pn", ""), tm, v.get("script", "")))
+                            script = (v.get("script") or "").strip()
+                            # PortalFactory's fallback: scripts/portal/<map>.<portal index>.js
+                            if not script and Path(f"scripts/portal/{s}.{e.get('name')}.js").exists():
+                                script = f"{s}.{e.get('name')}"
+                            portals.append((v.get("pn", ""), tm, script))
             maps[int(s)] = (max(levels) if levels else None, portals)
+
+    def deeper(m):
+        return m in DEEPER_IDS or any(w in names.get(m, "").lower() for w in DEEPER_NAMES)
 
     def mob_lower(m):
         return m in maps and maps[m][0] is not None and maps[m][0] <= LOWER_MAX
@@ -91,7 +108,7 @@ def main():
     while queue:
         m = queue.popleft()
         for _, tm, _ in maps[m][1]:
-            if tm in lower or tm not in maps:
+            if tm in lower or tm not in maps or deeper(tm):
                 continue
             top = maps[tm][0]
             if top is not None:
@@ -114,7 +131,8 @@ def main():
     for m in sorted(lower):
         for pn, tm, script in maps[m][1]:
             if tm in maps and tm not in lower:
-                print(f"boundary {m} -> {tm} portal {pn} script={script or '-'}: {names.get(tm, '?')} (lv {maps[tm][0]})")
+                print(f"boundary {m} -> {tm} portal {pn} script={script or '-'}: {names.get(tm, '?')} (lv {maps[tm][0]})"
+                      + (" UNCHECKED: scripted portal" if script else ""))
 
 
 if __name__ == "__main__":
