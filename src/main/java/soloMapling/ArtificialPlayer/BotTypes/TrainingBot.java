@@ -1931,6 +1931,10 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             double fought = elapsedSec * OffscreenSupplies.accrue(chr, rate, elapsedSec);
             if (fought > 0) {
                 accrueAbstractExp(rate, currentMobLevel, fought);
+                client.FamilyEntry family = chr.getFamilyEntry();
+                if (family != null) { // b035: a family junior's off-screen kills give its senior rep (capped a day)
+                    family.giveOffscreenRep((rate != null ? rate.killsPerMinute() : KILLS_PER_MIN) / 60.0 * fought, 0);
+                }
                 if (rate != null && soloMapling.site.SiteMobKills.recording()) {   // site: most hunted (offscreen kills)
                     siteKillRemainder = soloMapling.site.SiteMobKills.offscreen(
                             soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex.mobIds(chr.getMapId()),
@@ -2583,8 +2587,10 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     // with every other bot grinding there, and credited through the same holdings a real drop would use. A
     // bot whose inventory cannot take its share forfeits it rather than banking it.
     private void accrueAbstractLoot(Character chr, long nowMs, long elapsedMs) {
+        // b035: a Family drop buff (Bonding) draws that much more of the map's own budget, never past it
+        long drawMs = (long) (elapsedMs * client.FamilyBuffs.dropMultiplier(chr));
         OffscreenRewardBudget.Reward reward = OffscreenRewardBudget.draw(chr.getMapId(),
-                chr.getMap().getCharacters().size(), elapsedMs, nowMs, chr.getWorldServer());
+                chr.getMap().getCharacters().size(), drawMs, nowMs, chr.getWorldServer());
         // 1.6.1 volatility: trader bots also find Maple Leaves at the leaf's global drop chance (traders on only)
         soloMapling.Economy.exchange.volatility.MarketVolatility.offscreenLeafFinds(chr, elapsedMs);
         if (reward.isEmpty()) {
@@ -2628,6 +2634,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
 
     private void accrueAbstractExp(OffscreenCombat.Rate rate, int mobLevel, double elapsedSec) {
         double perSecond = rate != null ? rate.expPerSecond() : (KILLS_PER_MIN / 60.0) * Math.max(1, mobLevel);
+        perSecond *= client.FamilyBuffs.expMultiplier(getChr()); // b035: Family Bonding reaches a bot junior
         double owed = perSecond * elapsedSec + abstractExpRemainder;   // a short tick's fraction carries over
         long gain = (long) Math.floor(owed);
         abstractExpRemainder = owed - gain;

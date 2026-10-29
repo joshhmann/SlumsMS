@@ -139,9 +139,18 @@ class FamilyBuffsTest {
         assertEquals(1.0, FamilyBuffs.expMultiplier(ME, NOW));
         Character third = chr(103, 1);
         when(j2.getChr()).thenReturn(third);
+        Character botJr = chr(BOT, 2);
+        when(botJr.isBot()).thenReturn(true);
+        when(j2.getChr()).thenReturn(botJr); // b035: a bot junior counts toward Bonding, so it is buffed too
         assertNull(FamilyUseHandler.applyBuff(me, mine, FamilyEntitlement.FAMILY_BONDING, NOW));
         assertEquals(2.0, FamilyBuffs.expMultiplier(ME, NOW));
         assertEquals(2.0, FamilyBuffs.dropMultiplier(PAL, NOW));
+        assertEquals(2.0, FamilyBuffs.expMultiplier(BOT, NOW), "the bot junior it counted gets Bonding");
+        assertEquals(2.0, FamilyBuffs.dropMultiplier(BOT, NOW));
+        verify(botJr, never()).dropMessage(anyInt(), anyString());
+        when(j2.getChr()).thenReturn(third);
+        FamilyBuffs.clear(BOT);
+        assertNull(FamilyUseHandler.applyBuff(me, mine, FamilyEntitlement.FAMILY_BONDING, NOW + 1));
         assertEquals(2.0, FamilyBuffs.expMultiplier(103, NOW));
         FamilyBuffs.clear(103);
     }
@@ -163,6 +172,34 @@ class FamilyBuffsTest {
             human.giveReputationToSenior(4, true);
         }
         assertEquals(800, senior2.getReputation(), "a player junior is not capped (stock)");
+    }
+
+    @Test
+    void aBotJuniorsOffscreenGrindGivesItsSeniorRepUpToTheCap() {
+        Family fam = mock(Family.class);
+        FamilyEntry senior = new FamilyEntry(fam, ME, "Senior", 50, null);
+        FamilyEntry bot = new FamilyEntry(fam, BOT, "BotJr", 40, null);
+        assertTrue(bot.setSenior(senior, false));
+        var cfg = config.YamlConfig.config.server;
+        int killWas = cfg.FAMILY_REP_PER_KILL, levelWas = cfg.FAMILY_REP_PER_LEVELUP;
+        cfg.FAMILY_REP_PER_KILL = 4; // live's tuning (the test config has none)
+        cfg.FAMILY_REP_PER_LEVELUP = 200;
+        try {
+        int perKill = 4, perLevel = 200;
+        bot.giveOffscreenRep(2.5, 0); // b035: off-screen kills used to give nothing
+        assertEquals(2 * perKill, senior.getReputation());
+        bot.giveOffscreenRep(0.5, 0); // the half kill carried over
+        assertEquals(3 * perKill, senior.getReputation());
+        bot.giveOffscreenRep(0, 1);
+        assertEquals(Math.min(FamilyEntry.botJuniorDailyRep(), 3 * perKill + perLevel), senior.getReputation());
+        for (int i = 0; i < 100; i++) {
+            bot.giveOffscreenRep(10, 1);
+        }
+        assertEquals(FamilyEntry.botJuniorDailyRep(), senior.getReputation(), "the bot junior's daily cap holds");
+        } finally {
+            cfg.FAMILY_REP_PER_KILL = killWas;
+            cfg.FAMILY_REP_PER_LEVELUP = levelWas;
+        }
     }
 
     @Test

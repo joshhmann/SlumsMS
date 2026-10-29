@@ -32,8 +32,8 @@ import java.util.function.BiPredicate;
  * <ul>
  *   <li><b>Accepting:</b> a player's "Add Junior" on a bot is answered after a human delay (10-60 s). The bot says yes
  *   only to a player it has interacted with: one it knows ({@link BotRecognition#knows}, a friend), one in its party,
- *   or one who just talked with it (3+ lines); never when wary of them or already in a family. Then a roll
- *   ({@code slums.family.acceptChance}, 0.8).</li>
+ *   or one who just talked with it (3+ lines), and then always; never a stranger, and never when wary of them or
+ *   already in a family (b035: the old 80% roll is gone).</li>
  *   <li><b>Offering:</b> v83 has no "be my senior" request, so after a real chat with a player it already knew, a bot
  *   may rarely whisper that it would like to be their junior. Once per bot and player a week, once per player a day
  *   across all bots, at most {@code slums.family.offersPerHour} (3) a world an hour, a 10% roll, only when the
@@ -123,7 +123,9 @@ public final class BotFamily {
         if (!(f.known() || f.sameParty() || f.playerLines() >= 3)) {
             return Verdict.STRANGER; // only players it has interacted with
         }
-        return roll < setting("acceptChance", 0.8) ? Verdict.ACCEPT : Verdict.ROLL;
+        // b035 (1.6.1 notes: regulars "say yes to people they know"): someone it knows, is partied with or just
+        // chatted with gets a yes, every time. There was a 80% roll here (slums.family.acceptChance), now gone.
+        return Verdict.ACCEPT;
     }
 
     /** Whether a bot may whisper this player an offer to be their junior, and if not, why not. */

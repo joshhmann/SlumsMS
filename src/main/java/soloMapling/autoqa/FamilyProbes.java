@@ -31,7 +31,7 @@ import java.util.Set;
  * <ul>
  *   <li>t-fy-2 ({@link #perks}): every buff perk (1.5x / 2x, 15 / 30 min, party, Bonding) spends its rep and gives
  *   its rate and minutes; party reaches the second pretend player; Bonding is refused below its minimum and then
- *   reaches the players below and no bot; a real kill pays the buffed EXP; the buff is saved for a restart; a bot
+ *   reaches everyone below, bot juniors too (b035); a real kill pays the buffed EXP; the buff is saved for a restart; a bot
  *   junior's real kills give rep up to the 300 a day cap; the daily reset frees every perk and the cap.</li>
  *   <li>t-fy-3 ({@link #travel}): Family Reunion to a regular junior takes the player to it; Summon Family on it
  *   brings it over and the rep stays spent.</li>
@@ -174,8 +174,8 @@ final class FamilyProbes {
             if (FamilyBuffs.expMultiplier(pal.getId(), now) != 2.0 || FamilyBuffs.dropMultiplier(pal.getId(), now) != 2.0) {
                 bad.add("Bonding did not reach " + pal.getName() + " below");
             }
-            if (FamilyBuffs.expMultiplier(bot.getId(), now) != 1.0 || FamilyBuffs.expMultiplier(bot2.getId(), now) != 1.0) {
-                bad.add("Bonding buffed a bot");
+            if (FamilyBuffs.expMultiplier(bot.getId(), now) != 2.0 || FamilyBuffs.dropMultiplier(bot2.getId(), now) != 2.0) {
+                bad.add("Bonding did not reach the bot juniors it counted (b035)");
             }
             FamilyBuffs.clear(pal.getId());
 

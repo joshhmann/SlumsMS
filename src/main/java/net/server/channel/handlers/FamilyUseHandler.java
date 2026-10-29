@@ -238,7 +238,8 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
      * user and every party member online when it is used, on any channel ("[Target] My party"; 1.6.1 promise audit:
      * it was the user's channel only); the user alone outside a party. Bonding: needs
      * {@link #bondingMinimum()} online members below the user in the pedigree, and gives the user and the players among
-     * them 2x EXP and drop. Bots are never buffed. Returns null when given, or why not (nothing spent then).
+     * them 2x EXP and drop; Bonding buffs the bot juniors it counted too (b035). Party perks skip bots. Returns null when
+     * given, or why not (nothing spent then).
      */
     public static String applyBuff(Character chr, FamilyEntry entry, FamilyEntitlement type, long now) {
         FamilyBuffs.Spec spec = FamilyBuffs.specOf(type);
@@ -263,7 +264,12 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
         }
         for (Character t : targets) {
             if (t.isBot()) {
-                continue; // a bot is never buffed (it still counts toward Bonding)
+                if (spec.target() == FamilyBuffs.Target.BONDING) {
+                    // b035: it counted toward the 6 online, so it gets the buff too; its on-screen kills read it in
+                    // Monster / MapleMap, and the off-screen grind (TrainingBot) multiplies its EXP and loot share
+                    FamilyBuffs.grant(t.getId(), spec, now);
+                }
+                continue; // no message (nobody reads a bot's), and self / party perks stay players only
             }
             FamilyBuffs.grant(t.getId(), spec, now);
             t.dropMessage(5, FamilyBuffs.describe(spec) + (t == chr ? "" : " (from " + chr.getName() + ")"));

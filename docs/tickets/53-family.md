@@ -120,3 +120,19 @@ The notes promised "every perk works" and regular juniors; the audit found gaps.
 - **Auto-QA:** t-fy-2, t-fy-3, t-fy-4 (`soloMapling.autoqa.FamilyProbes`).
 - **Not verified on a real client:** cross-channel Reunion / Summon (the reconnect), the summoned regular's walk-in.
 
+## b035 (owner's board, 2026-10-28, same branch)
+
+- **Off-screen rep:** a bot junior grinding unobserved never made a real kill, so `Monster`'s rep hook never ran and its
+  senior got nothing while it trained. `FamilyEntry.giveOffscreenRep(kills, levels)` takes the off-screen stretch once
+  per grind tick (TrainingBot: kills = the stretch's kill rate x time fought, fractions carried; `applyOffscreenExp`:
+  levels gained), at FAMILY_REP_PER_KILL / PER_LEVELUP, through `giveReputationToSenior` so the halving and the
+  300-a-day bot cap hold.
+- **Bonding buffs bot juniors:** they counted toward the 6 online but got nothing. Now they get the buff; on screen the
+  existing Monster / MapleMap hooks read it, off screen TrainingBot multiplies the bot's EXP and the share of the map's
+  loot budget it draws (never past the map's budget). Party perks still skip bots.
+- **Accepting:** a bot now always says yes to a player it knows, is partied with or just chatted with (3+ lines),
+  unless wary or already in a family; strangers are still refused (the code never rolled for strangers: the 80%
+  `slums.family.acceptChance` roll was on known players and is gone).
+- **Tests:** FamilyOffscreenRepTest, FamilyBuffsTest (off-screen rep and cap; Bonding reaches a bot junior),
+  BotFamilyTest (no roll for known players). Not unit-tested: the TrainingBot call site (kills per tick).
+

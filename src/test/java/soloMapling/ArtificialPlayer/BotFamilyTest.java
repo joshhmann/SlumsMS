@@ -25,7 +25,11 @@ class BotFamilyTest {
         assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(true, false, 0, false), false, 0.1));
         assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(false, false, 0, true), false, 0.1), "party");
         assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(false, false, 3, false), false, 0.1), "talked");
-        assertEquals(Verdict.ROLL, BotFamily.accepts(true, false, f(true, false, 5, true), false, 0.95));
+        // b035: someone it knows always gets a yes (the notes' promise); no 80% roll any more
+        assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(true, false, 5, true), false, 0.95));
+        assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(false, false, 3, false), false, 0.999), "chatted");
+        assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(false, false, 0, true), false, 0.999), "partied");
+        assertEquals(Verdict.STRANGER, BotFamily.accepts(true, false, f(false, false, 2, false), false, 0.0));
         assertEquals(Verdict.WARY, BotFamily.accepts(true, false, f(true, true, 5, true), true, 0.0), "even staged");
         assertEquals(Verdict.IN_FAMILY, BotFamily.accepts(true, true, f(true, false, 5, true), true, 0.0));
         assertEquals(Verdict.OFF, BotFamily.accepts(false, false, f(true, false, 5, true), true, 0.0));

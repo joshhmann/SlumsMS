@@ -335,6 +335,27 @@ public class FamilyEntry {
         }
     }
 
+    private double offscreenKillRemainder; // b035: fractional off-screen kills carried to the next tick
+
+    /**
+     * b035: a bot junior grinding off screen kills nothing real, so {@code Monster}'s rep hook never ran and its senior
+     * got nothing while it trained. The off-screen path reports its stretch here instead: {@code kills} (fractional,
+     * carried over) at {@code FAMILY_REP_PER_KILL} and {@code levels} at {@code FAMILY_REP_PER_LEVELUP}, given as one
+     * batch through {@link #giveReputationToSenior}, so the senior-lower halving and a bot's daily cap
+     * ({@link #botJuniorDailyRep}) hold. Returns the rep handed up (before halving and the cap).
+     */
+    public synchronized int giveOffscreenRep(double kills, int levels) {
+        double owed = Math.max(0, kills) + offscreenKillRemainder;
+        int whole = (int) Math.floor(owed);
+        offscreenKillRemainder = owed - whole;
+        int gain = whole * config.YamlConfig.config.server.FAMILY_REP_PER_KILL
+                + Math.max(0, levels) * config.YamlConfig.config.server.FAMILY_REP_PER_LEVELUP;
+        if (gain > 0 && getSenior() != null) {
+            giveReputationToSenior(gain, true);
+        }
+        return gain;
+    }
+
     /**
      * 1.6.1 ticket 53: the most reputation a bot junior gives its senior a day ({@code -Dslums.family.botJuniorDailyRep},
      * default 300: about two level-ups or 75 kills). Without it a grinding bot would buy its senior every perk daily.

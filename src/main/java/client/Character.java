@@ -3914,6 +3914,10 @@ public class Character extends AbstractCharacterObject {
             // These levels came without the AP/SP a level-up grants; the bot build grants and spends them.
             soloMapling.server.MapleRootSolo.runHook("bot progression", () ->
                     soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression.afterOffscreenLevels(this, levelBefore));
+            FamilyEntry fe = familyEntry; // b035: a bot junior's off-screen levels give its senior rep, as levelUp does
+            if (fe != null) {
+                fe.giveOffscreenRep(0, progressed.levelsGained());
+            }
         }
         return progressed.levelsGained();
     }

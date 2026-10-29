@@ -24,7 +24,8 @@ import java.util.function.Predicate;
  * <p>Family buffs never stack with each other: a second one of the same kind keeps the higher rate, and the later
  * end when the rates are equal. Every multiplier is capped at {@link #MAX_RATE}. Kept by character id, so a buff
  * survives a relog or channel change, and saved to {@code family_buffs} (migration 052) with its end time, so it
- * survives a restart too (the clock runs while the server is down, as a coupon's does). Bots are never given one.
+ * survives a restart too (the clock runs while the server is down, as a coupon's does). A bot gets one only from
+ * Family Bonding (b035); its off-screen grind honours it in TrainingBot.
  *
  * <p>1.6.1 promise audit: the tooltips (sent by this server, {@link FamilyEntitlement}) say a perk "will be nullified"
  * while an EXP (drop) event is in progress, and that is what the original game did, so it is enforced: while an EXP
