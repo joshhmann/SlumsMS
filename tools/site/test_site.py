@@ -424,6 +424,7 @@ class MarketTest(unittest.TestCase):
             self.assertNotIn("30 days", read("prices/index.html"))
             home = read("index.html")
             self.assertIn("11:00 PM PT (06:00 UTC), Oct 25", home)       # Just sold keeps the UTC (the 07:00 restock is left out)
+            self.assertIn("<dt>Trades, last 24 hours</dt><dd>240</dd>", home)   # real trades, not the 3,610 samples
             self.assertNotIn("regulars&rsquo; shops and trades", home)  # the restock row is gone, so no "mostly the town" note
             self.assertNotIn("regulars&rsquo; shops and trades", read("sales.html"))
             self.assertIn("some regulars sell a 10,000 NX code for 50m mesos", read("nx.html"))

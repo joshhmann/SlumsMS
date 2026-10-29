@@ -130,7 +130,7 @@ def main():
         total += made - spent
         eco_days.append({"date": day.isoformat(), "mesos_total": total, "mesos_made": made, "mesos_spent": spent})
     dump("economy-public.json", {"sample": True, "as_of": now.isoformat(), "mesos_total": total, "days": eco_days,
-                                 "players_share": 0.07, "trades_24h": 1284, "shops_open": len({(l["channel"], l["room"]) for l in listings}),
+                                 "players_share": 0.07, "trades_24h": 1284, "player_trades_24h": 96, "shops_open": len({(l["channel"], l["room"]) for l in listings}),
                                  "mesos_removed_7d": 2_100_000_000, "bots_online_peak": 2947})
     print(f"sample market data for {len(items)} items, {args.days} days -> {args.out}")
 

@@ -547,8 +547,10 @@ def build_lists(mk, priced):
     mk.page(f"{MARKET}/nx.html", "NX rate", body, "nx")
 
     e = m["economy-public"]
+    # trades with a real player on a side (player_trades_24h, 161-bossstock); trades_24h counts the restocks too, so an
+    # export without the new field shows a dash (owner, 2026-10-29: counts are real trades)
     facts = [("Mesos in the game", mesos(e.get("mesos_total"))),
-             ("Trades, last 24 hours", count(e.get("trades_24h"))), ("FM shops open now", count(e.get("shops_open"))),
+             ("Trades, last 24 hours", count(e.get("player_trades_24h"))), ("FM shops open now", count(e.get("shops_open"))),
              ("Mesos removed, last 7 days (tax, fees)", mesos(e.get("mesos_removed_7d"))),
              ]
     econ = "".join(f"<div><dt>{esc(k)}</dt><dd>{v}</dd></div>" for k, v in facts)
