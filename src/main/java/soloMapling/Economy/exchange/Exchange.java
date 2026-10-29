@@ -111,6 +111,87 @@ public final class Exchange {
     private record Pending(Place place, long expiresAt) {
     }
 
+    /** A site preview's token prefix on the order's request id ({@code @nx} in game: "t-"): the site's NX sell cap. */
+    static final String SITE_RID = "s-";
+
+    /** The stolen-cookie guard (1.6.1, owner 2026-10-29): NX price band, site sell cap, site sign-in age. */
+    private volatile NxGuard guard = NxGuard.fromSystem();
+
+    public NxGuard guard() {
+        return guard;
+    }
+
+    /** Another guard (tests, the QA staging). */
+    public void guard(NxGuard g) {
+        guard = g == null ? NxGuard.OFF : g;
+    }
+
+    /**
+     * The NX limit prices a player may use now: {lowest sell, highest buy} in mesos per 1,000 NX ({@link NxGuard}):
+     * 50% and 200% of the official rate, else the fixed floor and the ticker's max.
+     */
+    public synchronized long[] nxBand() {
+        Ticker t = tickers.get(Ticker.NX);
+        return guard.band(officialRate(Ticker.NX), t.minPrice(), t.maxPrice());
+    }
+
+    /** PRICE_BAND for an NX order outside {@link #nxBand}, else null. */
+    private Response priceBand(String rid, Place p) {
+        if (!Ticker.NX.equals(p.ticker())) {
+            return null;
+        }
+        long[] b = nxBand();
+        boolean low = p.side() == Side.SELL && p.price() < b[0];
+        boolean high = p.side() == Side.BUY && p.price() > b[1];
+        if (!low && !high) {
+            return null;
+        }
+        Long rate = officialRate(Ticker.NX);
+        Map<String, Object> d = new LinkedHashMap<>();
+        d.put("minPrice", b[0]);
+        d.put("maxPrice", b[1]);
+        d.put("rate", rate);
+        String basis = rate == null ? "(no official rate yet)" : String.format("(the official rate is %,d)", rate);
+        String msg = low ? String.format("an NX sell must ask at least %,d mesos per 1,000 NX %s", b[0], basis)
+                : String.format("an NX buy may bid at most %,d mesos per 1,000 NX %s", b[1], basis);
+        return new Response(rid, false, "PRICE_BAND", msg, d);
+    }
+
+    /** NX this account sold (or still offers) through the site in the last 24 h (cancelled: only what filled). */
+    long siteNxSoldToday(long account, long now) throws StoreException {
+        long n = 0;
+        for (OrderRow r : store.ordersOf(account, dayWindow())) {
+            if (r.placedAt() > now - 86_400_000L && Ticker.NX.equals(r.ticker()) && r.side() == Side.SELL
+                    && r.requestId() != null && r.requestId().startsWith(SITE_RID)) {
+                n += r.open() || "FILLED".equals(r.status()) ? r.nxTotal() : r.nxTotal() - r.nxLeft();
+            }
+        }
+        return n;
+    }
+
+    /** LIMIT_NX_DAY when a site NX sell would go over the day's cap, else null. */
+    private Response siteSellCap(String rid, Place p, boolean site, long now) {
+        long cap = guard.siteSellNxPerDay();
+        if (!site || cap <= 0 || !Ticker.NX.equals(p.ticker()) || p.side() != Side.SELL) {
+            return null;
+        }
+        long used;
+        try {
+            used = siteNxSoldToday(p.account(), now);
+        } catch (StoreException e) {
+            return storeError(rid, e);
+        }
+        if (used + p.nx() <= cap) {
+            return null;
+        }
+        Map<String, Object> d = new LinkedHashMap<>();
+        d.put("capNx", cap);
+        d.put("usedNx", used);
+        d.put("leftNx", Math.max(0, cap - used));
+        return new Response(rid, false, "LIMIT_NX_DAY", String.format("at most %,d NX a day can be sold from the site "
+                + "(%,d left today); sell more in game with @nx", cap, Math.max(0, cap - used)), d);
+    }
+
     private final ExchangeStore store;
     private final ExchangeConfig config;
     private final Presence presence;
@@ -337,6 +418,13 @@ public final class Exchange {
         }
         long now = clock.getAsLong();
         Ticker t = tickers.get(p.ticker());
+        Response guarded = priceBand(rid, p);
+        if (guarded == null) {
+            guarded = siteSellCap(rid, p, rid.startsWith(SITE_RID), now);
+        }
+        if (guarded != null) {
+            return guarded;
+        }
         String limit = limits(p.account(), t, now);
         if (limit != null) {
             return Response.error(rid, limit, limitMessage(limit, t, p.account(), now));
@@ -435,6 +523,11 @@ public final class Exchange {
      * returns a token the player confirms within {@link ExchangeConfig#confirmMs()}. Nothing moves.
      */
     public synchronized Response preview(Place p) {
+        return preview(p, false);
+    }
+
+    /** {@code site}: from the site (its confirm counts toward the site's NX sell cap). */
+    public synchronized Response preview(Place p, boolean site) {
         String rid = p.requestId();
         if (!recovered) {
             return Response.error(rid, "UNAVAILABLE", "exchange not started");
@@ -451,6 +544,13 @@ public final class Exchange {
         }
         long now = clock.getAsLong();
         Ticker tk = tickers.get(p.ticker());
+        Response guarded = priceBand(rid, p);
+        if (guarded == null) {
+            guarded = siteSellCap(rid, p, site, now);
+        }
+        if (guarded != null) {
+            return guarded;
+        }
         String limit = limits(p.account(), tk, now);
         if (limit != null) {
             return Response.error(rid, limit, limitMessage(limit, tk, p.account(), now));
@@ -493,7 +593,7 @@ public final class Exchange {
         }
         String t = token.toString();
         long expires = now + config.confirmMs();
-        pending.put(t, new Pending(new Place("t-" + t, p.account(), p.character(), p.side(), p.price(), p.nx(),
+        pending.put(t, new Pending(new Place((site ? SITE_RID : "t-") + t, p.account(), p.character(), p.side(), p.price(), p.nx(),
                 tk.id()), expires));
         latestToken.put(p.account(), t);
         Map<String, Object> data = new LinkedHashMap<>();

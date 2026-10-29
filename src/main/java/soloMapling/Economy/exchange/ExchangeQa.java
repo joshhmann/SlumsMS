@@ -36,7 +36,8 @@ public final class ExchangeQa {
             teardown(ex, w); // a run that died half way
         }
         long bestBid = ex.depth(Side.BUY, 1).isEmpty() ? 0 : ex.depth(Side.BUY, 1).get(0).price();
-        long price = Math.max(BASE_PRICE, bestBid + 1_000);
+        // 1.6.1 NX band: the tester's sell must ask at least the band's lowest sell price
+        long price = Math.max(Math.max(BASE_PRICE, bestBid + 1_000), ex.nxBand()[0]);
         long need = ex.config().buyTotal(NX, price);
         Exchange.Response f = ex.fundHouseLive(REGULAR, w, Asset.MESO, need, true);
         if (!f.ok()) {
