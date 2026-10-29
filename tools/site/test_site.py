@@ -292,21 +292,19 @@ class GuideLinksTest(unittest.TestCase):
 class MarketTest(unittest.TestCase):
     def test_item_stats_follow_the_public_rules(self):
         from sections import market
-        p = lambda n, med, lo, hi, **kw: dict(kw, player_count=n, player_median=med, player_low=lo, player_high=hi)
-        hist = [("2026-10-01", p(5, 100, 90, 110, median=1, count=50)),
+        # owner, 2026-10-29: "counts real, prices keep bots": the price uses every sample, "sold" only real trades
+        hist = [("2026-10-01", {"median": 100, "low": 90, "high": 110, "count": 50, "player_count": 5}),
                 ("2026-10-02", None),
-                ("2026-10-03", p(2, 999, 1, 2000, count=2)),
-                ("2026-10-04", p(4, 120, 100, 130, count=40))]
+                ("2026-10-03", {"median": 999, "low": 1, "high": 2000, "count": 2, "player_count": 2}),
+                ("2026-10-04", {"median": 120, "low": 100, "high": 130, "count": 40, "player_count": 4,
+                                "player_median": 7})]
         st = market.item_stats(hist)
-        self.assertEqual(st["median"], 120)           # the 2-sale day is too thin to show
-        self.assertEqual(st["first"], 100)            # real trades only, not the day's restocks (median 1)
-        self.assertEqual(st["sold"], 11)              # owner, 2026-10-29: sold counts real trades, not 92 samples
+        self.assertEqual(st["median"], 120)           # the 2-sale day is too thin to show; player_median isn't used
+        self.assertEqual(st["first"], 100)
+        self.assertEqual(st["sold"], 11)              # not the 92 samples
         self.assertIsNone(market.item_stats([("2026-10-01", None)]))
-        # an export without the player_* fields: the real-trade count, and a price only when every sample was real
-        old = market.item_stats([("2026-10-01", {"median": 500_000, "low": 1, "high": 9, "count": 10, "player_share": 0.3})])
-        self.assertEqual((old["sold"], old["median"]), (3, None))
-        old = market.item_stats([("2026-10-01", {"median": 50, "low": 40, "high": 60, "count": 4, "player_share": 1})])
-        self.assertEqual((old["sold"], old["median"]), (4, 50))
+        old = market.item_stats([("2026-10-01", {"median": 500, "low": 1, "high": 9, "count": 10, "player_share": 0.3})])
+        self.assertEqual((old["sold"], old["median"]), (3, 500))   # an export without player_count
 
     def test_restocks_never_show_as_sales(self):
         from sections import market
