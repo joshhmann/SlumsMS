@@ -1180,6 +1180,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-rb-2", "Bot rebirth: a level 200 regular earns its key item from a real Von Leon kill").minutes(20)
                 .expect(probe("botRebirthBoss"))
                 .build());
+        // Essence Stones for players (owner 2026-10-29): staged as a level 200 Hero, the pretend player is told what is
+        // missing, makes its next stone at Wyatt from the two items once, is reborn with it; everything put back after
+        c.add(Check.auto("t-rb-3", "Rebirth: a player makes an Essence Stone at Wyatt and is reborn with it").minutes(2)
+                .expect(probe("essenceStone"))
+                .build());
         // Achievements and medals (ticket 93, -Dslums.achievements): a Mano kill and ten catches through the real event
         // path hand over one zero-stat medal each, exactly once; nothing else does
         c.add(Check.auto("t-ac-1", "Achievements: kill and fishing goals hand over one zero-stat medal each, once").minutes(2)
