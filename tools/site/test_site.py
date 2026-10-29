@@ -292,16 +292,26 @@ class GuideLinksTest(unittest.TestCase):
 class MarketTest(unittest.TestCase):
     def test_item_stats_follow_the_public_rules(self):
         from sections import market
-        hist = [("2026-10-01", {"median": 100, "low": 90, "high": 110, "count": 5, "player_share": 0}),
+        p = lambda n, med, lo, hi, **kw: dict(kw, player_count=n, player_median=med, player_low=lo, player_high=hi)
+        hist = [("2026-10-01", p(5, 100, 90, 110, median=1, count=50)),
                 ("2026-10-02", None),
-                ("2026-10-03", {"median": 999, "low": 1, "high": 2000, "count": 2, "player_share": 1}),
-                ("2026-10-04", {"median": 120, "low": 100, "high": 130, "count": 4, "player_share": 0.5})]
+                ("2026-10-03", p(2, 999, 1, 2000, count=2)),
+                ("2026-10-04", p(4, 120, 100, 130, count=40))]
         st = market.item_stats(hist)
         self.assertEqual(st["median"], 120)           # the 2-sale day is too thin to show
-        self.assertEqual(st["first"], 100)
-        self.assertEqual(st["sold"], 11)
-        self.assertLess(st["player_share"], 0.5)      # -> "mostly bot-made"
+        self.assertEqual(st["first"], 100)            # real trades only, not the day's restocks (median 1)
+        self.assertEqual(st["sold"], 11)              # owner, 2026-10-29: sold counts real trades, not 92 samples
         self.assertIsNone(market.item_stats([("2026-10-01", None)]))
+        # an export without the player_* fields: the real-trade count, and a price only when every sample was real
+        old = market.item_stats([("2026-10-01", {"median": 500_000, "low": 1, "high": 9, "count": 10, "player_share": 0.3})])
+        self.assertEqual((old["sold"], old["median"]), (3, None))
+        old = market.item_stats([("2026-10-01", {"median": 50, "low": 40, "high": 60, "count": 4, "player_share": 1})])
+        self.assertEqual((old["sold"], old["median"]), (4, 50))
+
+    def test_restocks_never_show_as_sales(self):
+        from sections import market
+        m = market.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata", "market-contract"))
+        self.assertEqual({x["source"] for x in m["sales"]["sales"]}, {"merchant"})   # the bot_seed row is gone
 
     def test_chart_breaks_at_missing_days_and_scales(self):
         from sections import market
@@ -359,8 +369,10 @@ class MarketTest(unittest.TestCase):
         hist = [("2026-10-24", {"median": 100, "low": 90, "high": 110, "count": 5}),
                 ("2026-10-25", {"median": 120, "low": 100, "high": 130, "count": 4}),
                 ("2026-10-26", {"median": 999, "low": 1, "high": 2000, "count": 2})]
-        self.assertEqual(market.item_stats(hist)["date"], "2026-10-25")   # the last day with 3+ sales, not today
-        self.assertIsNone(market.item_stats([("2026-10-26", {"median": 9, "count": 1})])["date"])
+        real = [(d, dict(r, player_count=r["count"], player_median=r["median"], player_low=r["low"],
+                         player_high=r["high"])) for d, r in hist]
+        self.assertEqual(market.item_stats(real)["date"], "2026-10-25")   # the last day with 3+ sales, not today
+        self.assertIsNone(market.item_stats([("2026-10-26", {"median": 9, "player_count": 1, "player_median": 9})])["date"])
         svg = market.area_chart([(d, r["median"], r["low"], r["high"]) for d, r in hist], "x")
         self.assertIn("Lowest and highest sale that day", svg)
         self.assertNotIn("Low to high", svg)
@@ -413,9 +425,9 @@ class MarketTest(unittest.TestCase):
             self.assertIn("last 4 days", read("prices/index.html"))
             self.assertNotIn("30 days", read("prices/index.html"))
             home = read("index.html")
-            self.assertIn("12:00 AM PT (07:00 UTC), Oct 26", home)       # Just sold keeps the UTC
-            self.assertIn("regulars&rsquo; shops and trades", home)
-            self.assertIn("regulars&rsquo; shops and trades", read("sales.html"))
+            self.assertIn("11:00 PM PT (06:00 UTC), Oct 25", home)       # Just sold keeps the UTC (the 07:00 restock is left out)
+            self.assertNotIn("regulars&rsquo; shops and trades", home)  # the restock row is gone, so no "mostly the town" note
+            self.assertNotIn("regulars&rsquo; shops and trades", read("sales.html"))
             self.assertIn("some regulars sell a 10,000 NX code for 50m mesos", read("nx.html"))
             self.assertIn('href="../world/economy.html"', read("economy.html"))
         finally:

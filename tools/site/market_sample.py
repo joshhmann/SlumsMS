@@ -85,6 +85,8 @@ def main():
             hi, lo = int(max(prev, level[i]) * rnd.uniform(1.02, 1.12)), int(min(prev, level[i]) * rnd.uniform(0.88, 0.98))
             rows[str(i)] = {"open": prev, "close": level[i], "high": hi, "low": max(1, lo),
                             "median": (prev + level[i]) // 2, "count": n, "player_share": round(rnd.choice([0, 0, 0, 0.1, 0.3, 0.6]), 2)}
+            # the real trades among them (no restocks), which the pages show: here simply all of them
+            rows[str(i)]["player_count"] = n
         dump(f"prices/{day.isoformat()}.json", {"sample": True, "date": day.isoformat(), "items": rows})
 
     # listings now

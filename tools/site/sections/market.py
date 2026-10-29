@@ -27,6 +27,7 @@ from sections.database import fallback_icon, scrub
 MARKET = "market"
 DEFAULT_DIR = os.environ.get("SLUMS_MARKET_DATA", os.path.join(REPO, "cache", "market-sample"))
 MIN_SAMPLES = 3
+SEEDS = {"bot_seed"}  # PriceBook.Source.BOT_SEED: restocks between the town's own shops, not trades
 NX_CARDS = {4031865: "NX Card (100 NX)", 4031866: "NX Card (250 NX)"}
 HISTORY_DAYS = 30
 
@@ -56,7 +57,13 @@ def load(data_dir=None):
                   if re.fullmatch(r"\d{4}-\d\d-\d\d\.json", os.path.basename(p)))[-HISTORY_DAYS:]  # not index.json
     m["prices"] = [_read(p) for p in days]
     m["sample"] = any(isinstance(v, dict) and v.get("sample") for v in m.values()) or any(p.get("sample") for p in m["prices"])
-    return check.scrub(m)
+    m = check.scrub(m)
+    # Sold figures are real trades only (owner, 2026-10-29): a row with a real player on a side (player_side), so
+    # the town's restocks (a bot shopper buying from a bot shop, source bot_seed) never show as a sale, in a list,
+    # a count or the megaphone. An export without player_side drops the bot_seed rows.
+    m["sales"]["sales"] = [x for x in m["sales"]["sales"]
+                           if (x["player_side"] is True if "player_side" in x else x.get("source") not in SEEDS)]
+    return m
 
 
 SCHEMA = 1
@@ -406,19 +413,33 @@ class Market:
         write(self.out, rel, layout(title, html, root, "market", description))
 
 
+def real(r):
+    """One day's rollup for one item, real trades only (owner, 2026-10-29): {count, median, low, high} or None.
+    player_count is the samples with a real player on a side (no bot_seed; 161-bossstock), else count x player_share.
+    Prices come from player_median/player_low/player_high when the export has them, else only from a day whose every
+    sample was a real trade."""
+    if not r:
+        return None
+    n = r["player_count"] if isinstance(r.get("player_count"), int) else round((r.get("count") or 0) * (r.get("player_share") or 0))
+    if "player_median" in r:
+        return {"count": n, "median": r.get("player_median"), "low": r.get("player_low"), "high": r.get("player_high")}
+    if n and n == r.get("count"):  # every sample that day was a real trade: the day's prices are theirs
+        return {"count": n, "median": r.get("median"), "low": r.get("low"), "high": r.get("high")}
+    return {"count": n, "median": None, "low": None, "high": None}
+
+
 def item_stats(hist):
     """30 days of one item's rollups -> the numbers its price page shows."""
-    rows = [(d, r) for d, r in hist if r]
+    rows = [(d, real(r)) for d, r in hist if r]
     if not rows:
         return None
-    shown = [(d, r) for d, r in rows if r.get("count", 0) >= MIN_SAMPLES]
+    shown = [(d, r) for d, r in rows if r["count"] >= MIN_SAMPLES and r["median"]]
     last = shown[-1][1] if shown else None
     last_date = shown[-1][0] if shown else None  # the newest day with enough sales, not necessarily today
-    sold = sum(r.get("count", 0) for _, r in rows)
-    share = sum(r.get("player_share", 0) * r.get("count", 0) for _, r in rows) / (sold or 1)
+    sold = sum(r["count"] for _, r in rows)
     first = shown[0][1]["median"] if shown else None
     return {"median": last and last["median"], "low": last and last["low"], "high": last and last["high"],
-            "first": first, "sold": sold, "player_share": share, "days": len(rows), "date": last_date}
+            "first": first, "sold": sold, "days": len(rows), "date": last_date}
 
 
 def build_prices(mk):
@@ -429,8 +450,9 @@ def build_prices(mk):
         if not st:
             continue
         out.append((item_id, st))
-        pts = [(d, r["median"] if r and r.get("count", 0) >= MIN_SAMPLES else None,
-                (r or {}).get("low"), (r or {}).get("high")) for d, r in hist]
+        rs = [(d, real(r)) for d, r in hist]
+        pts = [(d, r["median"] if r and r["count"] >= MIN_SAMPLES else None,
+                (r or {}).get("low"), (r or {}).get("high")) for d, r in rs]
         name = mk.name(item_id)
         listings = sorted((l for l in m["listings"]["listings"] if l["item_id"] == item_id), key=lambda l: l["price"])
         more = len(listings) - 15
@@ -473,10 +495,12 @@ def build_prices(mk):
     # the sidebar search (dbsearch.js) looks through these: every item with a price page and its median, most traded first
     write(mk.out, f"{MARKET}/search-index.json",
           json.dumps([["$", i, mk.name(i), mesos(st["median"]) if st["median"] else ""] for i, st in out], separators=(",", ":"), ensure_ascii=False))
+    # the list has only items players really traded (so does the home page's Most traded); every item keeps its page
+    sold = [(i, st) for i, st in out if st["sold"]]
     rows = "".join(f'<tr><td>{mk.icon(i, "{root}")}</td><td>{mk.price_link(i, "{root}")}</td>'
                    f'<td class="r num">{mesos(st["median"]) if st["median"] else "-"}</td><td class="r">{change(st["first"], st["median"])}</td>'
-                   f'<td class="r num">{st["sold"]:,}</td></tr>' for i, st in out)
-    body = (f'<h1>Price check</h1><p class="id">{len(out)} items sold in the last {span(m)}, most traded first</p>'
+                   f'<td class="r num">{st["sold"]:,}</td></tr>' for i, st in sold)
+    body = (f'<h1>Price check</h1><p class="id">{len(sold)} items sold in the last {span(m)}, most traded first</p>'
             f'<section class="panel"><h2 class="bar">All prices</h2><div class="tbl"><table class="t icons"><thead><tr><th></th><th>Item</th>'
             f'<th class="r">Median</th><th class="r">{span(m)}</th><th class="r">Sold</th></tr></thead><tbody>{rows}</tbody></table></div></section>')
     mk.page(f"{MARKET}/prices/index.html", "Price check", body, "prices")
@@ -540,7 +564,7 @@ def build_lists(mk, priced):
 
 def build_home(mk, priced, econ):
     m = mk.m
-    top = priced[:8]
+    top = [x for x in priced if x[1]["sold"]][:8]  # items players really traded
     rows = "".join(f'<li>{mk.icon(i, "{root}")}<span>{mk.price_link(i, "{root}")}</span>'
                    f'<b class="num">{mesos(st["median"]) if st["median"] else "-"}</b>{change(st["first"], st["median"])}</li>' for i, st in top)
     sales = m["sales"]["sales"][:10]
