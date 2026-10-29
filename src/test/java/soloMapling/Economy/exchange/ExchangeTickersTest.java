@@ -58,6 +58,7 @@ class ExchangeTickersTest {
 
     Exchange start() throws Exception {
         Exchange e = new Exchange(store, ExchangeLiveTest.cfg(100, 0), store::online, store.finder(), now::get);
+        e.guard(ExchangeTest.engineGuard());
         assertTrue(e.recover().isEmpty());
         return e;
     }
@@ -193,6 +194,7 @@ class ExchangeTickersTest {
         // a closed ticker
         Exchange nxOnly = new Exchange(store, ExchangeLiveTest.cfg(100, 0), store::online, store.finder(), now::get,
                 List.of(Ticker.nx(ExchangeLiveTest.cfg(100, 0))));
+        nxOnly.guard(ExchangeTest.engineGuard());
         assertTrue(nxOnly.recover().isEmpty(), "a closed ticker's open orders still load");
         assertFalse(nxOnly.open("LEAF"));
         assertEquals("BAD_REQUEST", nxOnly.place(new Place("z", 1, 11, Side.BUY, P, 1, "LEAF")).code());
@@ -220,6 +222,7 @@ class ExchangeTickersTest {
         // each item ticker has its own limits now (owner 2026-10-28); here every ticker allows one open order
         List<Ticker> one = Ticker.defaults(two).stream().map(t -> t.withLimits(1, 100_000, t.expiryMs())).toList();
         Exchange lim = new Exchange(store, two, store::online, store.finder(), now::get, one);
+        lim.guard(ExchangeTest.engineGuard());
         assertTrue(lim.recover().isEmpty());
         assertEquals("LIMIT_OPEN", lim.place(new Place("l1", 1, 11, Side.SELL, 1_000, 1, "LEAF")).code());
         assertEquals(0, s1.item(Asset.WS));
@@ -240,6 +243,7 @@ class ExchangeTickersTest {
                 d.maxOpen(), d.perDay(), 0, d.expiryMs(), 0, d.regularSpreadBps(), d.regularNx(), d.rateWindowMs(), 1,
                 d.pollSeconds(), 0, 60_000);
         Exchange e = new Exchange(store, c, store::online, store.finder(), now::get, Ticker.defaults(c));
+        e.guard(ExchangeTest.engineGuard());
         assertTrue(e.recover().isEmpty());
         Ticker leaf = e.ticker("LEAF");
         assertEquals(10, leaf.maxOpen());
@@ -373,6 +377,7 @@ class ExchangeTickersTest {
         store.addCharacter(19, 9, 1_000_000_000);
         store.addItems(19, Asset.LEAF, 50);
         Exchange e = new Exchange(store, c, store::online, store.finder(), now::get);
+        e.guard(ExchangeTest.engineGuard());
         assertTrue(e.recover().isEmpty());
         assertEquals("BAD_REQUEST", e.fundHouse(1, 9, 19, Asset.LEAF, 10).code(), "never items into a house");
         Session house = store.login(9, 19);

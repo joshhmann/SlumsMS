@@ -29,6 +29,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Ticket 113: escrow, settlement, recovery, races and dupes, against the in-memory store (same rules as MySQL). */
 class ExchangeTest {
 
+    /**
+     * The guard for the engine's own tests: no NX price band (these tests trade around 1,000,000 per 1,000 NX, under
+     * the band of the 5,000,000 starting price; {@code NxGuardTest} covers the band), the site sign-in age on.
+     */
+    static NxGuard engineGuard() {
+        return new NxGuard(0, 0, 0, NxGuard.defaults().siteAuthMaxMs());
+    }
+
+
     static final long P = 1_000_000; // 1m mesos per 1,000 NX
     static final long NX0 = 100_000;
     static final long MESO0 = 50_000_000;
@@ -68,6 +77,7 @@ class ExchangeTest {
 
     Exchange start(ExchangeConfig c) throws Exception {
         Exchange e = new Exchange(store, c, store::online, now::get);
+        e.guard(ExchangeTest.engineGuard());
         assertTrue(e.recover().isEmpty());
         return e;
     }
@@ -162,6 +172,7 @@ class ExchangeTest {
     void theStoreRefusesALoginThatRacedTheGameCheck() throws Exception {
         // the game said offline, but the account logged in before the transaction: the DB lock check refuses
         Exchange racy = new Exchange(store, open(), a -> false, now::get);
+        racy.guard(ExchangeTest.engineGuard());
         racy.recover();
         store.login(1);
         Response r = racy.place(new Place("race", 1, 11, Side.SELL, P, 1000));
@@ -390,6 +401,7 @@ class ExchangeTest {
         long id = orderId(place(1, Side.SELL, P, 1000));
         store.tamper(Bucket.escrow(Asset.NX, id), 5000);
         Exchange again = new Exchange(store, open(), store::online, now::get);
+        again.guard(ExchangeTest.engineGuard());
         List<String> problems = again.recover();
         assertFalse(problems.isEmpty());
         assertTrue(again.halted());

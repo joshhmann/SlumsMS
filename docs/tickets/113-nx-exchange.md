@@ -218,7 +218,7 @@ lost. It is not yet listed in any `docs/release/<version>.conf`: add it to `1.6.
 | `slums.exchange.regulars` / `regularSpreadBps` / `regularNx` | 3 / 300 / 500 |
 | `slums.exchange.houseAccount` (0 = none: regulars idle) | 0 |
 | `slums.exchange.confirmSec` | 60 |
-| `slums.exchange.rateWindowHours` / `rateMinFills` | 24 / 3 |
+| `slums.exchange.rateWindowHours` / `rateMinFills` | 168 / 3 (owner 2026-10-29: 7 days, was 24 h) |
 | `slums.exchange.pollSec` | 15 |
 
 The inbox and outbox folders are the board's (`-Dslums.board.inbox` / `-Dslums.board.outbox`).
@@ -404,7 +404,7 @@ item; quantities are items). `unit_label` is the human text (`"mesos per 1,000 N
 New public outbox file **`exchange-tickers.json`** (every poll; no names, no ids):
 ```json
 {"schema":1,"generated_at":"2026-10-28T18:00:00Z","halted":false,"fee_bps_each_side":100,
- "rate_window_hours":24,"rate_min_fills":3,
+ "rate_window_hours":168,"rate_min_fills":3,
  "tickers":[
   {"id":"NX","name":"NX","item_id":null,"unit":"1000nx","unit_label":"mesos per 1,000 NX","per":1000,
    "qty_label":"NX","min_qty":100,"max_qty":50000,"lot":100,"min_price":1000,"max_price":100000000,
@@ -628,8 +628,21 @@ Site orders still carry request id `s-<token>` (`@nx`: `t-`), so staff can tell 
 
 | Guard | Rule | Code (data) | Knob, default |
 |---|---|---|---|
-| NX price band | every player NX order, site or `@nx`: a SELL may not ask under 50% of the official NX rate, a BUY may not bid over 200%; with no official rate yet, sells need at least 100,000 per 1,000 NX (100 mesos per NX) and buys may bid at most 10,000,000 per 1,000 NX (2x the NX merchant bots' 10k NX for 50m; fix 2026-10-29: before, a stolen session could buy a thief's NX at the ticker's 100m and drain the account's mesos). Checked at preview and again at place. Regulars and the QA test regular quote through their own path; the NX QA check prices its bid at the band's lowest sell or above | `PRICE_BAND` (`minPrice`, `maxPrice`, `rate`) | `-Dslums.exchange.nxBand.minPct=50`, `.maxPct=200`, `.floor=100000`, `.ceiling=10000000` |
+| NX price band | every player NX order, site or `@nx`: a SELL may not ask under 50% of the official NX rate, a BUY may not bid over 200%; with no official rate yet the band is around NX's **starting price, 5,000,000 per 1,000 NX (5,000 mesos per NX, the NX merchant bots' 10k NX for 50m; owner 2026-10-29)**: sells from 2,500,000, buys up to 10,000,000 (before, a stolen session could buy a thief's NX at the ticker's 100m and drain the account's mesos). The message reads per 1 NX ("an NX sell must ask at least 2,500 mesos per NX (no official rate yet: NX counts as 5,000 mesos per NX)"); `minPrice`/`maxPrice`/`rate` stay per 1,000 NX. Checked at preview and again at place. Regulars and the QA test regular quote through their own path; the NX QA check prices its bid at the band's lowest sell or above | `PRICE_BAND` (`minPrice`, `maxPrice`, `rate`) | `-Dslums.exchange.nxBand.minPct=50`, `.maxPct=200`, `-Dslums.exchange.nxStartPrice=5000000` (the ceiling follows it) |
 | Site sign-in age | preview, confirm, cancel and mine must carry `siteAuthAt` (epoch ms, or ISO-8601, of the player's last real sign-in on the site, not a cookie refresh); refused when missing, older than 12 h or more than 5 min in the future. Book and trades need none | `REAUTH` (`maxAgeHours`) | `-Dslums.exchange.siteAuthMaxHours=12` |
 
 Rollout: the site must send `siteAuthAt` before a server with this build answers its requests, or every account
 action gets REAUTH (or start that server with `siteAuthMaxHours=0` until it does).
+
+### NX rate and display (owner 2026-10-29 ~18:40 UTC, branch `161-nxrate`)
+
+- **Starting price**: until players set an official rate, NX counts as 5,000 mesos per NX (5,000,000 per 1,000 NX);
+  the band is 50%..200% of it. One knob, `-Dslums.exchange.nxStartPrice`; it replaced `nxBand.floor`/`.ceiling`.
+- **Official rate window: 7 days** (`rateWindowHours=168`), at least 3 counted player-to-player fills (`rateMinFills=3`).
+  The exports' `rate_window_hours` / `window_hours` now say 168. `change_24h` stays a 24 h figure (its own window;
+  it borrows only the 3-fill minimum); the charts are unchanged. At start the rate's fills are rebuilt per ticker from
+  the last 30 days, so busy item tickers cannot push NX's week out of memory.
+- **Per 1 NX in player text**: `@nx` takes and shows NX prices per 1 NX (`@nx sell 1000 5000`, `4.5k`, up to 3
+  decimals; shown rounded to whole mesos per NX); PRICE_BAND and the price-range BAD_REQUEST read per NX. Stored prices,
+  the site JSON (`unit` "1000nx"), `minPrice`/`maxPrice`/`rate` and the staff commands stay per 1,000 NX.
+- Orders 100..50,000 NX in lots of 100 and the 1% fee a side are unchanged.

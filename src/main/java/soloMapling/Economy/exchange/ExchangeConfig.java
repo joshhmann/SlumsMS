@@ -23,7 +23,8 @@ import java.util.concurrent.TimeUnit;
  *   -Dslums.exchange.houseAccount=0            the staff account whose wallet funds the regulars (0 = none: idle)
  *   -Dslums.exchange.regularSpreadBps=300      each regular quotes this far either side of the reference rate
  *   -Dslums.exchange.regularNx=500             NX per regular order
- *   -Dslums.exchange.rateWindowHours=24        official rate: VWAP window
+ *   -Dslums.exchange.rateWindowHours=168       official rate: VWAP window (owner 2026-10-29: 7 days, was 24 h; the
+ *                                              24 h change and the charts do not use it)
  *   -Dslums.exchange.rateMinFills=3            official rate: fewest counted fills to publish one
  *   -Dslums.exchange.pollSec=15                site inbox poll
  *   -Dslums.exchange.confirmSec=60             how long a preview's confirm token lives
@@ -57,7 +58,7 @@ public record ExchangeConfig(boolean enabled, long lotNx, long minNx, long maxNx
 
     public static ExchangeConfig defaults() {
         return new ExchangeConfig(false, 100, 100, 50_000, 1_000, 100_000_000, 100, 5, 20,
-                TimeUnit.SECONDS.toMillis(10), TimeUnit.HOURS.toMillis(72), 3, 300, 500, TimeUnit.HOURS.toMillis(24),
+                TimeUnit.SECONDS.toMillis(10), TimeUnit.HOURS.toMillis(72), 3, 300, 500, TimeUnit.HOURS.toMillis(168),
                 3, 15, 0, 60_000);
     }
 
