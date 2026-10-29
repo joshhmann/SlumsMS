@@ -147,3 +147,14 @@ Zakum, Horntail and Von Leon; Von Leon alone 341 min (limit 120); Zakum as a gro
 Cygnus' fight (2 x 15B + 5 guards x 0.6B = 33B HP) at that rate: about 250 min for six, so no bot-formed Cygnus run
 until each bot does about 1.0M a second (6 bots inside 75% of 120 min). No helper joined: the Von Leon helpers need a
 rebirth (Lion King's Castle), and TEST's regulars have none.
+
+**TEST QA run 3 (3c09a2606, 2026-10-29 15:14 UTC) — fixed on 161-rebirth3.** t-rb-1 picked hennybandit (lv 83 Dragon
+Knight), raised to 200 as a Dark Knight: 51,681 dmg/s against Zakum, 49,940 against Horntail. A group of six of that
+needs 153 min for Horntail (limit 120), so its walk could never earn the 1st key: right for that bot, useless as a check.
+The "10m mesos taken" was NPC 2084000's 4th-job skill package (10,000,000), bought by the QA's raise from 3rd to 4th
+job; the rebirth path never touches mesos (the reborn bot keeps its package skills, so it is not charged again), but
+the QA's restore did not pay the package back, so each run cost its bot 10m. t-rb-2 staged Von Leon at 1% (75M HP);
+the same bot alone needed 24 minutes, past the check's 17. Fixes: t-rb-1 raises up to 6 candidates and keeps the first
+whose group clears Zakum and Horntail inside half their limits (the others are put back), logging each one's damage;
+the restore pays the raise's mesos back and the check compares mesos from after the raise; the staged Von Leon starts
+at whatever share the bot alone kills in about 2 minutes (at most 1%). Tests: RebirthQaWalletTest.
