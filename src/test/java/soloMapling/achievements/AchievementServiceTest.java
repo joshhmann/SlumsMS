@@ -233,4 +233,22 @@ class AchievementServiceTest {
             return out;
         }
     }
+
+    /** TEST 2026-10-29 t-ac-1: fish-100 kept the check's catches between runs and awarded inside the nine-catch step. */
+    @Test
+    void theQaCheckResetsEveryGoalItsCatchesCount() throws Exception {
+        AchievementService s = service();
+        Subject me = here(PLAYER, false);
+        for (int i = 0; i < 95; i++) {
+            s.handle(me, Event.of(Trigger.FISH), true);
+        }
+        assertEquals(95, store.of(PLAYER).get("fish-100").progress());
+        assertTrue(java.util.Arrays.asList(AchievementsQa.touchedGoals(catalog)).contains("fish-100"));
+        client.Character chr = org.mockito.Mockito.mock(client.Character.class);
+        org.mockito.Mockito.when(chr.getId()).thenReturn(PLAYER);
+        AchievementsQa.clear(s, chr);
+        assertNull(store.of(PLAYER).get("fish-100"), "the leftover count is gone");
+        assertTrue(s.handle(me, Event.of(Trigger.FISH), true).isEmpty());
+        assertEquals(1, store.of(PLAYER).get("fish-100").progress());
+    }
 }

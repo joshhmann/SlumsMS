@@ -48,7 +48,11 @@ final class BeefScenarios {
         List<Integer> ids = w.spawnIdleBots(gm, gm.getPosition(), n);
         for (int id : ids) {
             BotBonds.forgetBot(id);
+            // TEST t-cr-1 2026-10-29: unpinned, the staged bots drifted and personal space pushed the rival off the
+            // crush, so the walk-up never got within 150 px (the other staging pins its bots next to the GM too)
+            soloMapling.ArtificialPlayer.StageSpots.pin(id);
             ctx.onStop("despawn bot " + id + " and forget its bonds", () -> {
+                soloMapling.ArtificialPlayer.StageSpots.unpin(id);
                 BotBonds.forgetBot(id);
                 SocialGate.forgetBot(id);
                 BotCrushes.forgetBot(id);
@@ -313,7 +317,17 @@ final class BeefScenarios {
                     // the jealousy check once the walk is over, without the sign gap (TEST: the 30 s gap and the walk
                     // made the next sign tick miss it); a second look in case the walk was slow
                     int admirer = ids[0];
-                    for (long wait : new long[]{4_000, 10_000}) {
+                    for (long wait : new long[]{4_000, 10_000, 17_000, 24_000}) {
+                        // a slow walk (or a nudge) gets another walk-up before each look
+                        soloMapling.server.BotTiming.after(wait - 500, () -> {
+                            Character rb = bot(ids[2]);
+                            Character tb = bot(ids[1]);
+                            if (rb != null && tb != null && tb.getPosition() != null && rb.getPosition() != null
+                                    && rb.getPosition().distance(tb.getPosition()) > 100) {
+                                soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.move(rb, tb.getPosition().x + 30,
+                                        tb.getPosition().y);
+                            }
+                        });
                         soloMapling.server.BotTiming.after(wait, () -> {
                             if (BotCouples.coupleOf(admirer) == null && BotCrushes.crushOf(admirer) != null
                                     && !jealousSeen.contains(admirer)) {
@@ -326,7 +340,7 @@ final class BeefScenarios {
                         });
                     }
                     yield List.of("CR1 RIVAL " + c.getName() + " walks up to " + b.getName()
-                            + " (jealousy is checked in 4 s and 10 s)");
+                            + " (jealousy is checked from 4 s on, up to 24 s)");
                 }
                 case "ripen" -> {
                     BotCrushes.ripenNow(ids[0]);

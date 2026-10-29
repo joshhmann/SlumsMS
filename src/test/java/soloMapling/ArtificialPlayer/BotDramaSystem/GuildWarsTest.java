@@ -127,4 +127,14 @@ class GuildWarsTest {
         assertFalse(n.isBlank());
         assertFalse(n.matches(".*\\d{6,}.*"), n);
     }
+
+    @Test
+    void aQaTauntSpeaksForBothBotSidesButOnlyTheDeclarerAgainstAPlayerGuild() {
+        GuildWarStore.War bots = new GuildWarStore.War(1, GuildWarStore.Kind.WAR, 7, 9, false,
+                GuildWarStore.State.ACTIVE, 0, 1, 0, 0, 0, true);
+        assertEquals(java.util.List.of(false, true), GuildWars.qaTauntSides(bots), "t-gw-1: the defender talks too");
+        GuildWarStore.War vsPlayers = new GuildWarStore.War(2, GuildWarStore.Kind.WAR, 7, 9, true,
+                GuildWarStore.State.ACTIVE, 0, 1, 0, 0, 0, true);
+        assertEquals(java.util.List.of(false), GuildWars.qaTauntSides(vsPlayers));
+    }
 }

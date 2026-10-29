@@ -1241,12 +1241,18 @@ public final class BotGuilds {
 
     /** One jab where both guilds have someone on a map a real player sees; false when they never meet. */
     static boolean mapJab(GuildRow g, List<Character> mine, GuildRow r, List<Character> theirs, Random rng) {
+        return mapJab(g, mine, r, theirs, rng, null);
+    }
+
+    /** As above; {@code speakerIsR} true / false forces which guild speaks first (a QA skirmish), null = random. */
+    static boolean mapJab(GuildRow g, List<Character> mine, GuildRow r, List<Character> theirs, Random rng,
+                          Boolean speakerIsR) {
         long now = System.currentTimeMillis();
         for (Character a : mine) {
             for (Character b : theirs) {
                 if (a.getMapId() == b.getMapId() && channelOf(a) == channelOf(b) && realPlayerSees(a)) {
-                    boolean flip = rng.nextBoolean();
-                    if (!jabCooled(flip ? b.getId() : a.getId(), now)) {
+                    boolean flip = speakerIsR != null ? speakerIsR : rng.nextBoolean();
+                    if (speakerIsR == null && !jabCooled(flip ? b.getId() : a.getId(), now)) {
                         flip = !flip; // 1.6.0 tune: that one jabbed lately, the other may
                     }
                     Character speaker = flip ? b : a;
@@ -1828,7 +1834,9 @@ public final class BotGuilds {
         if (a == null || b == null) {
             return "skirmish: both sides must be bot guilds";
         }
-        boolean met = mapJab(a, onlineMembers(guildA), b, onlineMembers(guildB), ThreadLocalRandom.current());
+        // both sides speak, one jab each (TEST t-gw-1 2026-10-29: a random speaker left the defender silent)
+        boolean met = mapJab(a, onlineMembers(guildA), b, onlineMembers(guildB), ThreadLocalRandom.current(), false);
+        met |= mapJab(a, onlineMembers(guildA), b, onlineMembers(guildB), ThreadLocalRandom.current(), true);
         return met ? "skirmish: " + a.name() + " and " + b.name() + " trade jabs on the map"
                 : "skirmish: no member of " + a.name() + " and " + b.name() + " share a map a player sees";
     }
