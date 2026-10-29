@@ -17,7 +17,7 @@ Decide, `POST /v1/systemone` on a `flide serve` endpoint on 192.168.0.17.
 | Live (1.6.0.4) | the 1.6.0 Decide shadow: the base model scores lines, nothing acts on it. No split, no trained model. |
 | TEST (1.6.1) | the split: intent and con from `:8913` (trained), tone from `:8910` (base). `config.yaml`: `BOT_DECIDE_URL`, `BOT_DECIDE_TONE_URL`, `BOT_DECIDE_MODEL` and `BOT_DECIDE_TONE_MODEL` = `jev-latest`. The server sends the earlier chat lines to `:8913`. |
 | `.17 :8910` | `decide-8910`: base `OneJev1.6-0.8B`, on the A4000 (GPU-5db843be...) |
-| `.17 :8913` | `decide-8913`: **r5**, `/root/models/jev-small/OneJev1.6-0.8B-chat-r5` (SHA256SUMS in the folder), on the 5060 Ti (GPU-e22a7e7d...) |
+| `.17 :8913` | `decide-8913`: **r7** since 2026-10-29 05:42 UTC (10:42 PM PT Oct 28), `/root/models/jev-small/OneJev1.6-0.8B-chat-r7` (SHA256SUMS in the folder), on the 5060 Ti (GPU-e22a7e7d...). r5 before that. |
 
 Both units restart on a crash and do **not** start at boot (no `[Install]`, per `/root/MODEL_DOCTRINE.md` on .17). The
 unit files and the install script are in `/root/slumsms-decide-benchmark/units/`. `flide serve` answers to the model
@@ -34,7 +34,8 @@ Never seen in a real client: everything above was checked by scores and config o
 2. In `/etc/systemd/system/decide-8913.service` (and the copy in `units/`), point `--model` and `Description` at
    the new folder; `systemctl daemon-reload; systemctl restart decide-8913`.
 3. Check: `curl -s localhost:8913/v1/models`, one `/v1/systemone` call per question, `journalctl -u decide-8913`.
-4. Going back is the same with the r5 folder.
+4. Going back to r5: `cp -p /root/slumsms-decide-benchmark/units/decide-8913.service.r5 /etc/systemd/system/decide-8913.service && systemctl daemon-reload && systemctl restart decide-8913`.
+5. Smoke: `python3 chat-classifier-2026-10-27/smoke_8913.py` (death-wish and bench-96 con against the live endpoint; r7 15/16 and 94/96, r5 11/16 and 87/96).
 
 ## The data
 
@@ -93,11 +94,12 @@ death-wish checks right.
 
 ## Open
 
-- **Which model goes on `:8913`.** Recommended: **r7** (`OneJev1.6-0.8B-chat-r7`, staged on .17 with SHA256SUMS,
+- **On `:8913`: r7** (owner accepted its one death-wish false flag, 2026-10-29; swapped for TEST). Was recommended as **r7** (`OneJev1.6-0.8B-chat-r7`, staged on .17 with SHA256SUMS,
   not served). Against r5 it is better on every frozen set (holdout-70 intent 78.6% vs 68.6%, bench-96 con 97.9% vs
   90.6%) and catches every real death wish, but it gets 15/16 death-wish checks, not the 16/16 bar: it flags "lets go
   die to horntail lol" as harassment. Taking it needs the owner to accept that miss. Without that, r5 stays; r7a meets
   the death-wish bar but regresses bench-96 con (89.6% vs 90.6%). TEST first, live only with 1.6.1 and the owner's go.
-- The `ChatTriage` harassment rule still flags "stfu" and "ur so trash", against the trash-talk ruling (Server Dev).
+- The `ChatTriage` harassment rule flagged "stfu" and "ur so trash"; narrowed to death wishes, slurs and real-life threats on `161-triage` (b54960d2a), not yet merged.
+- Whispers reach `:8913` without earlier lines (`BotConversation.java:492` in 1.6.1); r7 is weakest there (noctx intent 75.3%).
 - Tone was never trained; the base model handles it (bench-96 tone 67.7%).
 - No new data or training rounds after r7 (owner, 2026-10-28).
