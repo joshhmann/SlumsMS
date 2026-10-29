@@ -65,6 +65,7 @@ public final class PriceRollup {
         m.put("count", byTime.size());
         m.put("units", units);
         m.put("player_share", ratio(player, byTime.size()));
+        m.put("player_count", player); // 1.6.1: sales with a real player on a side (bot-to-bot seeds excluded)
         return m;
     }
 

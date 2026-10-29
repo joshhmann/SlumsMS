@@ -162,10 +162,12 @@ class MarketWritersTest {
         assertEquals(55L, red.get("median"), "median of 40 50 60 90 = (50+60)/2");
         assertEquals(4, red.get("count"));
         assertEquals(0.5, red.get("player_share"));
+        assertEquals(2, red.get("player_count"), "half of the 4 sales had a real player on a side");
         assertEquals(Map.of("x", 1), day.get("nx_rate"));
         Map<String, Object> one = (Map<String, Object>) ((Map<String, Object>) day.get("items")).get("4000000");
         assertEquals(7L, one.get("median"));
         assertEquals(0.0, one.get("player_share"));
+        assertEquals(0, one.get("player_count"));
     }
 
     @Test
