@@ -21,11 +21,13 @@
 */
 package net.server.channel.handlers;
 
+import client.BotClient;
 import client.Character;
 import client.Client;
 import client.FamilyBuffs;
 import client.FamilyEntitlement;
 import client.FamilyEntry;
+import client.FamilyTravel;
 import config.YamlConfig;
 import constants.id.MapId;
 import net.AbstractPacketHandler;
@@ -61,50 +63,12 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
             return; // shouldn't even be able to request it
         }
         c.sendPacket(PacketCreator.getFamilyInfo(entry));
-        Character victim;
         if (type == FamilyEntitlement.FAMILY_REUINION || type == FamilyEntitlement.SUMMON_FAMILY) {
-            victim = c.getChannelServer().getPlayerStorage().getCharacterByName(p.readString());
-            if (victim != null && victim != c.getPlayer()) {
-                if (victim.getFamily() == c.getPlayer().getFamily()) {
-                    MapleMap targetMap = victim.getMap();
-                    MapleMap ownMap = c.getPlayer().getMap();
-                    if (targetMap != null) {
-                        if (type == FamilyEntitlement.FAMILY_REUINION) {
-                            if (!FieldLimit.CANNOTMIGRATE.check(ownMap.getFieldLimit()) && !FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit())
-                                    && (targetMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(targetMap.getId())) && targetMap.getEventInstance() == null) {
-
-                                c.getPlayer().changeMap(victim.getMap(), victim.getMap().getPortal(0));
-                                useEntitlement(entry, type);
-                            } else {
-                                c.sendPacket(PacketCreator.sendFamilyMessage(75, 0)); // wrong message, but close enough. (client should check this first anyway)
-                                return;
-                            }
-                        } else {
-                            if (!FieldLimit.CANNOTMIGRATE.check(targetMap.getFieldLimit()) && !FieldLimit.CANNOTVIPROCK.check(ownMap.getFieldLimit())
-                                    && (ownMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(ownMap.getId())) && ownMap.getEventInstance() == null) {
-
-                                String refused = summonRefusal(victim);
-                                if (refused != null) { // before anything is spent: nobody can answer it
-                                    c.getPlayer().dropMessage(5, refused);
-                                    c.sendPacket(PacketCreator.enableActions());
-                                    return;
-                                }
-                                if (InviteCoordinator.hasInvite(InviteType.FAMILY_SUMMON, victim.getId())) {
-                                    c.sendPacket(PacketCreator.sendFamilyMessage(74, 0));
-                                    return;
-                                }
-                                InviteCoordinator.createInvite(InviteType.FAMILY_SUMMON, c.getPlayer(), victim, victim.getId(), c.getPlayer().getMap());
-                                victim.sendPacket(PacketCreator.sendFamilySummonRequest(c.getPlayer().getFamily().getName(), c.getPlayer().getName()));
-                                useEntitlement(entry, type);
-                            } else {
-                                c.sendPacket(PacketCreator.sendFamilyMessage(75, 0));
-                                return;
-                            }
-                        }
-                    }
-                } else {
-                    c.sendPacket(PacketCreator.sendFamilyMessage(67, 0));
-                }
+            String name = p.readString();
+            String refused = useTravel(c, entry, type, name, System.currentTimeMillis());
+            if (refused != null) {
+                c.getPlayer().dropMessage(5, refused);
+                c.sendPacket(PacketCreator.enableActions());
             }
         } else {
             String refused = applyBuff(c.getPlayer(), entry, type, System.currentTimeMillis());
@@ -114,6 +78,119 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
                 return;
             }
             useEntitlement(entry, type);
+        }
+    }
+
+    /**
+     * Family Reunion / Summon Family on the member called {@code name}, anywhere in the world (1.6.1 promise audit: it
+     * looked only on the user's channel, and a regular junior could never answer a summon). Reunion goes to them, across
+     * channels too ({@link client.FamilyTravel}); Summon asks them to come, and a regular or an owned alt answers like
+     * a player who clicks Yes ({@link soloMapling.ArtificialPlayer.BotFamily#onSummon}) unless it is in something it
+     * cannot drop, which is refused here before anything is spent. Returns null when done or asked (or when the client
+     * already got a Family result message), else the line to show; nothing is spent then.
+     */
+    static String useTravel(Client c, FamilyEntry entry, FamilyEntitlement type, String name, long now) {
+        Character me = c.getPlayer();
+        Character victim = findMember(c, name);
+        if (victim == null || victim == me) {
+            c.sendPacket(PacketCreator.sendFamilyMessage(65, 0)); // the name could not be found or is not online
+            return null;
+        }
+        if (victim.getFamily() != me.getFamily()) {
+            c.sendPacket(PacketCreator.sendFamilyMessage(67, 0));
+            return null;
+        }
+        MapleMap targetMap = victim.getMap();
+        MapleMap ownMap = me.getMap();
+        if (targetMap == null || ownMap == null) {
+            return victim.getName() + " can't be reached right now.";
+        }
+        int myCh = c.getChannel(), theirCh = victim.getClient().getChannel();
+        if (type == FamilyEntitlement.FAMILY_REUINION) {
+            if (FieldLimit.CANNOTMIGRATE.check(ownMap.getFieldLimit()) || FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit())
+                    || !(targetMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(targetMap.getId()))
+                    || targetMap.getEventInstance() != null) {
+                c.sendPacket(PacketCreator.sendFamilyMessage(75, 0)); // wrong message, but close enough
+                return null;
+            }
+            if (theirCh == myCh) {
+                me.changeMap(targetMap, targetMap.getPortal(0));
+                useEntitlement(entry, type);
+                return null;
+            }
+            String why = channelChangeRefusal(c);
+            if (why != null) {
+                return why;
+            }
+            // Across channels: spend first (the packet still reaches this client), then change channel; the new
+            // channel lands the player on the member's map. A refused change gives it all back.
+            useEntitlement(entry, type);
+            FamilyTravel.expect(me.getId(), theirCh, targetMap.getId(), victim.getPosition(), now);
+            if (!c.changeChannel(theirCh)) {
+                FamilyTravel.cancel(me.getId());
+                refund(entry, type);
+                return "Family Reunion could not change your channel. Nothing was spent.";
+            }
+            return null;
+        }
+        // Summon Family
+        if (FieldLimit.CANNOTMIGRATE.check(targetMap.getFieldLimit()) || FieldLimit.CANNOTVIPROCK.check(ownMap.getFieldLimit())
+                || !(ownMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(ownMap.getId()))
+                || ownMap.getEventInstance() != null) {
+            c.sendPacket(PacketCreator.sendFamilyMessage(75, 0));
+            return null;
+        }
+        String refused = summonRefusal(victim, me);
+        if (refused != null) { // before anything is spent
+            return refused;
+        }
+        if (InviteCoordinator.hasInvite(InviteType.FAMILY_SUMMON, victim.getId())) {
+            c.sendPacket(PacketCreator.sendFamilyMessage(74, 0));
+            return null;
+        }
+        InviteCoordinator.createInvite(InviteType.FAMILY_SUMMON, me, victim, victim.getId(), ownMap);
+        useEntitlement(entry, type);
+        if (victim.getClient() instanceof BotClient) {
+            soloMapling.ArtificialPlayer.BotFamily.onSummon(victim, me);
+        } else {
+            victim.sendPacket(PacketCreator.sendFamilySummonRequest(me.getFamily().getName(), me.getName()));
+        }
+        return null;
+    }
+
+    /** The online family member called {@code name} on any channel of the world: a player, a regular or an alt. */
+    static Character findMember(Client c, String name) {
+        Character found = c.getChannelServer().getPlayerStorage().getCharacterByName(name);
+        if (found == null && c.getWorldServer() != null) {
+            found = c.getWorldServer().getPlayerStorage().getCharacterByName(name);
+        }
+        if (found == null || found.getClient() == null) {
+            return null;
+        }
+        boolean bot = found.getClient() instanceof BotClient;
+        return bot || found.isLoggedinWorld() ? found : null; // a bot is online without being "logged in"
+    }
+
+    /** Why this client cannot change channel for a Family perk now (null: it can), checked before anything is spent. */
+    static String channelChangeRefusal(Client c) {
+        Character me = c.getPlayer();
+        if (c instanceof client.SyntheticClient) {
+            return "An auto-QA player can't change channel."; // it has no socket to reconnect
+        }
+        if (!me.isAlive() || FieldLimit.CANNOTMIGRATE.check(me.getMap().getFieldLimit())
+                || server.maps.MiniDungeonInfo.isDungeonMap(me.getMapId())) {
+            return "You can't change channel from here, so Family Reunion can't take you. Nothing was spent.";
+        }
+        return null;
+    }
+
+    /** Gives back an entitlement just used (its daily use and its reputation), as a declined summon does. */
+    public static void refund(FamilyEntry entry, FamilyEntitlement type) {
+        entry.refundEntitlement(type);
+        entry.gainReputation(type.getRepCost(), false);
+        Character chr = entry.getChr();
+        if (chr != null) {
+            chr.sendPacket(PacketCreator.getFamilyInfo(entry));
         }
     }
 
@@ -140,13 +217,13 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
     }
 
     /**
-     * 1.6.1 promise audit: Summon Family sends a request the junior must answer, and a regular (or an alt traveling with
-     * its owner) has no client to answer it, so the reputation was spent and nothing happened. Refused before it costs
-     * anything. Null when {@code victim} can answer.
+     * Whether {@code victim} can be summoned by {@code summoner}: null when it will be asked (a player answers in their
+     * client; a regular or an owned alt answers by itself, {@link soloMapling.ArtificialPlayer.BotFamily#summonRefusal}),
+     * else the line the summoner gets. Checked before anything is spent.
      */
-    public static String summonRefusal(Character victim) {
-        if (victim != null && victim.getClient() instanceof client.BotClient) {
-            return victim.getName() + " can't answer a Family summon. Use Family Reunion to go to them instead.";
+    public static String summonRefusal(Character victim, Character summoner) {
+        if (victim != null && victim.getClient() instanceof BotClient) {
+            return soloMapling.ArtificialPlayer.BotFamily.summonRefusal(victim, summoner);
         }
         return null;
     }
@@ -158,7 +235,8 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
 
     /**
      * Ticket 53: gives the EXP / drop buff of {@code type} (stock Cosmic: "not implemented"). Self: the user. Party: the
-     * user and every party member online on the same channel (the user alone outside a party). Bonding: needs
+     * user and every party member online when it is used, on any channel ("[Target] My party"; 1.6.1 promise audit:
+     * it was the user's channel only); the user alone outside a party. Bonding: needs
      * {@link #bondingMinimum()} online members below the user in the pedigree, and gives the user and the players among
      * them 2x EXP and drop. Bots are never buffed. Returns null when given, or why not (nothing spent then).
      */
@@ -171,8 +249,7 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
         targets.add(chr);
         if (spec.target() == FamilyBuffs.Target.PARTY && chr.getParty() != null) {
             for (Character m : chr.getPartyMembersOnline()) {
-                if (m != chr && m.getClient() != null && chr.getClient() != null
-                        && m.getClient().getChannel() == chr.getClient().getChannel()) {
+                if (m != chr && m.getClient() != null) { // 1.6.1 promise audit: every member online, any channel
                     targets.add(m);
                 }
             }
@@ -190,6 +267,10 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
             }
             FamilyBuffs.grant(t.getId(), spec, now);
             t.dropMessage(5, FamilyBuffs.describe(spec) + (t == chr ? "" : " (from " + chr.getName() + ")"));
+            String paused = FamilyBuffs.eventNote(t, spec);
+            if (paused != null) {
+                t.dropMessage(5, paused);
+            }
         }
         return null;
     }

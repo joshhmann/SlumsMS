@@ -61,4 +61,13 @@ class BotFamilyTest {
         assertEquals(Gate.WARY, BotFamily.offerGate(new OfferCheck(true, true, false, true, true, 3, 30, 40, 0, 0, 0,
                 0, 0.0, NOW)));
     }
+
+    @Test
+    void aBotOnlyOffersWhileStillBesideThePlayer() {
+        client.Character bot = org.mockito.Mockito.mock(client.Character.class);
+        client.Character player = org.mockito.Mockito.mock(client.Character.class);
+        org.mockito.Mockito.when(bot.getMap()).thenReturn(org.mockito.Mockito.mock(server.maps.MapleMap.class));
+        org.mockito.Mockito.when(player.getMap()).thenReturn(org.mockito.Mockito.mock(server.maps.MapleMap.class));
+        assertEquals(Gate.AWAY, BotFamily.maybeOffer(bot, player, 5, false), "it left: no 'add me' to nobody");
+    }
 }

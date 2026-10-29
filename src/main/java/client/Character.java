@@ -1009,7 +1009,19 @@ public class Character extends AbstractCharacterObject {
         c.setAccountName(this.client.getAccountName());//No null's for accountName
         this.setClient(c);
         this.map = c.getChannelServer().getMapFactory().getMap(getMapId());
-        Portal portal = map.findClosestPlayerSpawnpoint(getPosition());
+        Point near = getPosition();
+        // 1.6.1 ticket 53: a Family Reunion / Summon across channels lands on the family member's map
+        FamilyTravel.Arrival arrival = FamilyTravel.take(getId(), c.getChannel(), System.currentTimeMillis());
+        if (arrival != null) {
+            MapleMap there = c.getChannelServer().getMapFactory().getMap(arrival.mapId());
+            if (there != null) {
+                this.map = there;
+                if (arrival.at() != null) {
+                    near = arrival.at();
+                }
+            }
+        }
+        Portal portal = map.findClosestPlayerSpawnpoint(near);
         if (portal == null) {
             portal = map.getPortal(0);
         }

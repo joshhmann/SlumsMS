@@ -994,6 +994,8 @@ public class Server {
                 try (Connection con = DatabaseConnection.getConnection()) {
                     client.Family.loadAllFamilies(con);
                 }
+                // 1.6.1 promise audit: Family EXP / drop perks still running come back after a restart
+                log.info("Family buffs restored for {} characters", client.FamilyBuffs.load(System.currentTimeMillis()));
             }
 
 //

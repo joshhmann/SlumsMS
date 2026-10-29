@@ -1147,6 +1147,22 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-fy-1", "Family: a bot junior, rep, the EXP / drop entitlements").minutes(2)
                 .expect(probe("family"))
                 .build());
+        // 1.6.1 promise audit ("every perk works"): every buff perk through the Family window packet (1.5x / 2x, 15 / 30
+        // min, party to the second pretend player, Bonding refused below its minimum then to the players below), real
+        // kills paying the buffed EXP, the buff saved for a restart (052), a bot junior's real kills capped at 300 rep
+        // a day, and the daily reset freeing every perk and the cap
+        c.add(Check.auto("t-fy-2", "Family perks: party, Bonding, 2x / 30 min, real kills, the cap, the reset")
+                .minutes(3)
+                .expect(probe("familyPerks"))
+                .build());
+        // Family Reunion to a regular junior takes the player there; Summon Family on it brings it over
+        c.add(Check.auto("t-fy-3", "Family Reunion and Summon with a regular junior").minutes(2)
+                .expect(probe("familyTravel"))
+                .build());
+        // a regular whispers its offer to be the player's junior; Add Junior from another map makes it so
+        c.add(Check.auto("t-fy-4", "A regular asks to be your junior, and Add Junior works").minutes(2)
+                .expect(probe("familyOffer"))
+                .build());
         // Maple Island opt-in (ticket 29): the rule, No stays, Yes lands on the island, quests visible, Shanks stands
         c.add(Check.auto("t-ti-1", "Maple Island opt-in: the question, Yes lands on the island, No stays").minutes(2)
                 .expect(probe("tutorialIsland"))

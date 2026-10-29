@@ -38,25 +38,42 @@ public final class FamilyQa {
         if (player.getFamily() != null) {
             throw new IllegalStateException(player.getName() + " is already in a family (leave it first)");
         }
-        World world = player.getWorldServer();
+        Character bot = addBotJunior(player, java.util.Set.of());
+        return new Staged(bot, player.getFamily().getID());
+    }
+
+    /**
+     * Makes an online regular {@code senior}'s junior through its real answer ({@link BotFamily#decide}, staged to say
+     * yes). Prefers a bot within 20 levels, on the senior's channel and map, and free to come when summoned. Throws
+     * with the reason when none took it.
+     */
+    public static Character addBotJunior(Character senior, java.util.Set<Integer> exclude) {
+        int ch = senior.getClient().getChannel();
         List<Character> bots = new ArrayList<>();
         // The active bots (a bot is never "logged in" the way a player is: TEST 2026-10-28 found 0 candidates)
         for (BotSM sm : soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getAllBots().values()) {
             Character c = sm == null ? null : sm.getChr();
             if (c != null && c.isBot() && c.getMap() != null && c.getFamily() == null && c.getLevel() > 10
-                    && c.getWorld() == player.getWorld()) {
+                    && c.getWorld() == senior.getWorld() && !exclude.contains(c.getId())) {
                 bots.add(c);
             }
         }
-        bots.sort(Comparator.comparingInt((Character c) -> Math.abs(c.getLevel() - player.getLevel()) > 20 ? 1 : 0)
-                .thenComparingInt(c -> c.getMapId() == player.getMapId() ? 0 : 1));
+        bots.sort(Comparator.comparingInt((Character c) -> Math.abs(c.getLevel() - senior.getLevel()) > 20 ? 1 : 0)
+                .thenComparingInt(c -> c.getClient() != null && c.getClient().getChannel() == ch ? 0 : 1)
+                .thenComparingInt(c -> c.getMapId() == senior.getMapId() ? 0 : 1));
+        // among the first few, one free to come when summoned first (the check is not cheap: not for every bot)
+        List<Character> head = new ArrayList<>(bots.subList(0, Math.min(40, bots.size())));
+        head.sort(Comparator.comparingInt(c -> BotFamily.summonRefusal(c, senior) == null ? 0 : 1));
+        for (int i = 0; i < head.size(); i++) {
+            bots.set(i, head.get(i));
+        }
         BotFamily.certainFor(60_000);
         try {
             for (Character bot : bots.subList(0, Math.min(5, bots.size()))) {
-                InviteCoordinator.createInvite(InviteCoordinator.InviteType.FAMILY, player, bot, bot.getId());
-                BotFamily.Verdict v = BotFamily.decide(bot, player);
-                if (v == BotFamily.Verdict.ACCEPT && bot.getFamily() != null && bot.getFamily() == player.getFamily()) {
-                    return new Staged(bot, player.getFamily().getID());
+                InviteCoordinator.createInvite(InviteCoordinator.InviteType.FAMILY, senior, bot, bot.getId());
+                BotFamily.Verdict v = BotFamily.decide(bot, senior);
+                if (v == BotFamily.Verdict.ACCEPT && bot.getFamily() != null && bot.getFamily() == senior.getFamily()) {
+                    return bot;
                 }
                 InviteCoordinator.removeInvite(InviteCoordinator.InviteType.FAMILY, bot.getId());
             }
@@ -65,6 +82,18 @@ public final class FamilyQa {
         }
         throw new IllegalStateException("no online bot (level 11+, not in a family) took the junior invite ("
                 + bots.size() + " candidates)");
+    }
+
+    /** Makes player {@code junior} (no family) {@code senior}'s junior, as its Accept click does. */
+    public static void addPlayerJunior(Character senior, Character junior) {
+        if (junior.getFamily() != null) {
+            throw new IllegalStateException(junior.getName() + " is already in a family");
+        }
+        InviteCoordinator.createInvite(InviteCoordinator.InviteType.FAMILY, senior, junior, junior.getId());
+        net.server.channel.handlers.AcceptFamilyHandler.answer(junior, senior, true);
+        if (junior.getFamily() == null || junior.getFamily() != senior.getFamily()) {
+            throw new IllegalStateException(junior.getName() + " did not join " + senior.getName() + "'s family");
+        }
     }
 
     /** Dissolves the staged family: rows, familyid, the world's copy and {@code player}'s Family buffs. */
@@ -76,6 +105,7 @@ public final class FamilyQa {
         if (f != null) {
             for (FamilyEntry e : f.getMembers()) {
                 ids.add(e.getChrId());
+                FamilyBuffs.clear(e.getChrId()); // 1.6.1: a second pretend player in the family had buffs too
                 Character c = e.getChr();
                 if (c != null) {
                     e.setCharacter(null);

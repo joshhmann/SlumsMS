@@ -43,11 +43,22 @@ public final class FamilyAddHandler extends AbstractPacketHandler {
         String toAdd = p.readString();
         Character addChr = c.getChannelServer().getPlayerStorage().getCharacterByName(toAdd);
         Character chr = c.getPlayer();
+        // 1.6.1 promise audit: a regular that just whispered "add me as your junior" may have walked off (or changed
+        // channel) by the time the player opens the Family window; its offer still stands, from anywhere in the world.
+        boolean asked = false;
+        if ((addChr == null || addChr.getMap() != chr.getMap()) && c.getWorldServer() != null) {
+            Character anywhere = c.getWorldServer().getPlayerStorage().getCharacterByName(toAdd);
+            if (anywhere != null && anywhere.isBot() && soloMapling.ArtificialPlayer.BotFamily.offeredRecently(
+                    anywhere.getId(), chr.getId(), System.currentTimeMillis())) {
+                addChr = anywhere;
+                asked = true;
+            }
+        }
         if (addChr == null) {
             c.sendPacket(PacketCreator.sendFamilyMessage(65, 0));
         } else if (addChr == chr) { //only possible through packet editing/client editing i think?
             c.sendPacket(PacketCreator.enableActions());
-        } else if (addChr.getMap() != chr.getMap() || (addChr.isHidden()) && chr.gmLevel() < addChr.gmLevel()) {
+        } else if (!asked && (addChr.getMap() != chr.getMap() || (addChr.isHidden()) && chr.gmLevel() < addChr.gmLevel())) {
             c.sendPacket(PacketCreator.sendFamilyMessage(69, 0));
         } else if (addChr.getLevel() <= 10) {
             c.sendPacket(PacketCreator.sendFamilyMessage(77, 0));

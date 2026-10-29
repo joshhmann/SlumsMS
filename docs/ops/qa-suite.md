@@ -402,7 +402,12 @@ ssh root@192.168.0.164 'cat /opt/mapleroot-dev/persistence-test/Server/logs/qa/f
 `!qa run fy-1` (needs `USE_FAMILY_SYSTEM`, the GM in no family): an online bot accepts being the GM's junior, its
 level-up gives the GM rep, and the GM gets 20,000 rep to click every entitlement once in the Family window.
 `!qa do check` prints rep and the Family buffs; stop dissolves the family (relog to clear the window). Auto-QA:
-t-fy-1.
+t-fy-1 (a bot junior, rep, two perks), t-fy-2 (every buff perk through the Family window packet, party to the second
+pretend player, Bonding refused below its minimum then given with the minimum lowered to 3 for the check, real kills
+paying the buffed EXP, the family_buffs row, a bot junior's real kills stopping at the 300 a day cap, the daily reset in
+memory for the QA family), t-fy-3 (Reunion to a regular junior on the pretend player's channel, Summon brings it; a
+pretend player can't change channel, so cross-channel is unit-tested only) and t-fy-4 (a regular's offer whisper, then
+Add Junior from another map).
 
 ### ti-1: Maple Island opt-in (1.6.1, ticket 29)
 

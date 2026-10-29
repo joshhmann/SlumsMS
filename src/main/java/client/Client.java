@@ -1653,26 +1653,27 @@ public class Client extends ChannelInboundHandlerAdapter {
         sendPacket(PacketCreator.enableActions());
     }
 
-    public void changeChannel(int channel) {
+    /** Moves the player to {@code channel} (the client reconnects). False when refused here (nothing changed). */
+    public boolean changeChannel(int channel) {
         Server server = Server.getInstance();
         if (player.isBanned()) {
             disconnect(false, false);
-            return;
+            return false;
         }
         if (!player.isAlive() || FieldLimit.CANNOTMIGRATE.check(player.getMap().getFieldLimit())) {
             sendPacket(PacketCreator.enableActions());
-            return;
+            return false;
         } else if (MiniDungeonInfo.isDungeonMap(player.getMapId())) {
             sendPacket(PacketCreator.serverNotice(5, "Changing channels or entering Cash Shop or MTS are disabled when inside a Mini-Dungeon."));
             sendPacket(PacketCreator.enableActions());
-            return;
+            return false;
         }
 
         String[] socket = Server.getInstance().getInetSocket(this, getWorld(), channel);
         if (socket == null) {
             sendPacket(PacketCreator.serverNotice(1, "Channel " + channel + " is currently disabled. Try another channel."));
             sendPacket(PacketCreator.enableActions());
-            return;
+            return false;
         }
 
         EventInstanceManager eventInstanceManager = player.getEventInstance();
@@ -1712,6 +1713,7 @@ public class Client extends ChannelInboundHandlerAdapter {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return true;
     }
 
     public long getSessionId() {
