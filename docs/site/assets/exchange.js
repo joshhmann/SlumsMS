@@ -57,18 +57,6 @@
         : hi ? "of at most " + fmt(d.maxPrice) : "closer to it";
       return "NX trades near the official rate" + (d.rate ? " (" + fmt(d.rate) + ")" : "") + ": pick a price " + range + ".";
     },
-    // dormant: the owner dropped the daily NX sell cap (2026-10-29 13:25 UTC); kept so an older game still reads well
-    LIMIT_NX_DAY: function (a) {
-      var d = a.data || {};
-      return "You can sell " + fmt(d.capNx) + " NX here in 24 hours: " + fmt(d.usedNx) + " sold"
-        + (typeof d.leftNx === "number" ? ", " + fmt(d.leftNx) + " left" : "") + ". Sell more in game with @nx.";
-    },
-    // dormant: the owner dropped the daily meso cap on NX buys before it shipped (2026-10-29); the game doesn't send it
-    LIMIT_MESO_DAY: function (a) {
-      var d = a.data || {};
-      return "You can spend " + fmt(d.capMesos) + " mesos on NX here in 24 hours: " + fmt(d.usedMesos) + " spent"
-        + (typeof d.leftMesos === "number" ? ", " + fmt(d.leftMesos) + " left" : "") + ". Buy more in game with @nx.";
-    },
     ERROR: "Something went wrong in the game. Try again later."
   };
   function said(a, side) {
