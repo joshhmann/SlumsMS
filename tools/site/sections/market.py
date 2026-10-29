@@ -494,7 +494,7 @@ def build_prices(mk):
     rows = "".join(f'<tr><td>{mk.icon(i, "{root}")}</td><td>{mk.price_link(i, "{root}")}</td>'
                    f'<td class="r num">{mesos(st["median"]) if st["median"] else "-"}</td><td class="r">{change(st["first"], st["median"])}</td>'
                    f'<td class="r num">{st["sold"]:,}</td></tr>' for i, st in out)
-    body = (f'<h1>Price check</h1><p class="id">{len(out)} item{"" if len(out) == 1 else "s"} with a price in the last {span(m)}, most traded first</p>'
+    body = (f'<h1>Price check</h1><p class="id">{len(out):,} item{"" if len(out) == 1 else "s"} with a price in the last {span(m)}, most traded first</p>'
             f'<section class="panel"><h2 class="bar">All prices</h2><div class="tbl"><table class="t icons"><thead><tr><th></th><th>Item</th>'
             f'<th class="r">Median</th><th class="r">{span(m)}</th><th class="r">Sold</th></tr></thead><tbody>{rows}</tbody></table></div></section>')
     mk.page(f"{MARKET}/prices/index.html", "Price check", body, "prices")
