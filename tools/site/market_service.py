@@ -87,9 +87,9 @@ CREATE TABLE IF NOT EXISTS cards (account INTEGER, card TEXT, found INTEGER, PRI
 class Refused(Exception):
     """A request the player can fix: shown to them as is (status 400, or 409 at a limit)."""
 
-    def __init__(self, msg, status=400):
+    def __init__(self, msg, status=400, code=None):
         super().__init__(msg)
-        self.status = status
+        self.status, self.code = status, code
 
 
 def iso(t):

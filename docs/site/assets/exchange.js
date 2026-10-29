@@ -46,11 +46,20 @@
     TOKEN_EXPIRED: "That preview expired. Preview the order again.",
     TRY_AGAIN: "You're changing channel, logging out or in the Cash Shop. Try again in a moment.",
     NO_ANSWER: "The game didn't answer. Try again later.",
+    REAUTH: "For safety, trading needs a sign-in from the last 12 hours. Sign in again.",
+    PRICE_BAND: function (a) {
+      var d = a.data || {};
+      return "NX trades near the official rate: pick a price from " + fmt(d.minPrice) + " to " + fmt(d.maxPrice) + ".";
+    },
+    LIMIT_NX_DAY: function (a) {
+      var d = a.data || {};
+      return "That's over the NX you can sell here in 24 hours (" + fmt(d.usedNx) + " of " + fmt(d.capNx) + " used).";
+    },
     ERROR: "Something went wrong in the game. Try again later."
   };
   function said(a) {
     var c = CODES[a.code];
-    if (c) return typeof c === "function" ? c() : c;
+    if (c) return typeof c === "function" ? c(a) : c;
     return a.message ? "The game said: " + a.message + "." : "That didn't work.";
   }
 
@@ -281,6 +290,7 @@
     return extend(base, {
       fmt: fmt, when: when, lim: lim,
       side: "BUY", qty: null, price: null, character: "", busy: false, msg: "", msgClass: "", pv: null, left: 0, clock: null,
+      stale: false,
       init: function () {
         var self = this;
         init.call(this);
@@ -297,6 +307,9 @@
       get meta() { return store().meta || { id: "NX", unit: "1000nx", unit_label: "mesos per 1,000 NX", per: 1000, qty_label: "NX",
                                              min_qty: 100, max_qty: 50000, lot: 100, min_price: 1000, max_price: 100000000 }; },
       get isItem() { return this.meta.unit === "item"; },
+      // a sign-in over 12 h old can't trade (b005): the site or the game says REAUTH
+      get reauth() { return this.stale || !!(this.data && this.data.reauth); },
+      againUrl: function () { return ROOT + "login/?again=1&next=" + encodeURIComponent(location.pathname); },
       lot: function () { var m = this.meta; return m.unit === "item" ? Math.max(1, m.min_qty || 1) : 1000; },
       orders: function () { return (this.data && this.data.orders) || []; },
       openCount: function () {
@@ -319,10 +332,15 @@
         this.busy = true;
         this.say(waiting);
         return post(path, body).then(function (j) {
-          if (!j.ok) { self.busy = false; self.say(j.error || "That didn't work.", false); return null; }
+          if (!j.ok) {
+            self.busy = false;
+            if (j.code === "REAUTH") { self.stale = true; self.pv = null; }
+            self.say(j.error || "That didn't work.", false);
+            return null;
+          }
           return answer(j.id, function () { self.say("Still waiting for the game..."); }).then(function (a) {
             self.busy = false;
-            if (!a.ok) { self.say(said(a), false); return null; }
+            if (!a.ok) { if (a.code === "REAUTH") { self.stale = true; self.pv = null; } self.say(said(a), false); return null; }
             self.say("");
             return a.data;
           });

@@ -65,6 +65,7 @@ class DeskTest(old.Base):
         super().setUp()
         self.desk = xd.Desk(self.store)
         self.game = Game(self)
+        self.me["iat"] = self.other["iat"] = int(self.clock.t)  # signed in just now
 
     def step(self):
         with self.store.lock:
@@ -88,6 +89,29 @@ class DeskTest(old.Base):
         got = self.desk.answer(self.me, rid)
         self.assertEqual((got["pending"], got["answer"]["ok"], got["answer"]["data"]["token"]), (False, True, "ab" * 12))
         self.assertEqual(self.game.requests(), [], "an answered request leaves the inbox")
+
+    def test_every_request_says_when_the_player_signed_in(self):
+        self.me["iat"] -= 3600
+        self.preview()
+        self.desk.refresh(self.me)
+        self.assertEqual([r["siteAuthAt"] for r in self.game.requests()], [(int(self.clock.t) - 3600) * 1000] * 2)
+
+    def test_a_sign_in_over_12_hours_old_cannot_trade(self):
+        self.me["iat"] = int(self.clock.t) - xd.SIGN_IN_TTL  # exactly 12 h: still fine
+        self.preview()
+        self.me["iat"] -= 1
+        for call in (self.preview, lambda: self.desk.confirm(self.me, {"token": "ab" * 12}),
+                     lambda: self.desk.cancel(self.me, {"orderId": 77}), lambda: self.desk.refresh(self.me)):
+            with self.assertRaises(ms.Refused) as e:
+                call()
+            self.assertEqual((e.exception.status, e.exception.code), (403, "REAUTH"))
+        self.assertEqual(len(self.game.requests()), 1, "nothing more reached the game")
+        me = self.desk.me(self.me, ["Momo"])
+        self.assertTrue(me["reauth"])
+        self.assertEqual(len(self.game.requests()), 1, "a stale session doesn't ask for its orders either")
+        del self.me["iat"]  # an old cookie with no sign-in time
+        with self.assertRaises(ms.Refused):
+            self.preview()
 
     def test_the_rules_are_checked_before_the_game_is_asked(self):
         for kw, msg in ((dict(character="Rival"), "your characters"), (dict(side="HOLD"), "buy or sell"),
@@ -205,7 +229,7 @@ class DeskTest(old.Base):
 class ExchangeHttpTest(old.Base):
     def setUp(self):
         super().setUp()
-        self.sessions = ls.Sessions(old.KEY)
+        self.sessions = ls.Sessions(old.KEY, now=self.clock)
         self.client = market_app.create_app(self.sessions, self.store).test_client()
         self.client.set_cookie(ls.SESSION_COOKIE, self.sessions.issue(
             {"account_id": 7, "character": "Momo", "characters": ["Momo", "MomoAlt"]}))
@@ -236,9 +260,19 @@ class ExchangeHttpTest(old.Base):
         self.client.delete_cookie(ls.SESSION_COOKIE)
         self.assertEqual(self.call("GET", "book")[0], 401)
 
+    def test_an_old_sign_in_gets_reauth(self):
+        self.clock.t += xd.SIGN_IN_TTL + 1
+        st, got = self.call("POST", "preview", {"character": "Momo", "side": "SELL", "price": 1_000_000, "nx": 500})
+        self.assertEqual((st, got["code"], got["ok"]), (403, "REAUTH", False))
+        self.assertIn("Sign in again", got["error"])
+        self.assertTrue(self.call("GET", "me")[1]["reauth"])
+        self.assertEqual(self.game.requests(), [])
+
     def test_me_and_book(self):
         st, me = self.call("GET", "me")
         self.assertEqual((st, me["characters"], me["rules"]["maxOpen"]), (200, ["Momo", "MomoAlt"], 5))
+        self.assertFalse(me["reauth"])
+        self.assertEqual(me["tradeUntil"], ms.iso(int(self.clock.t) + xd.SIGN_IN_TTL))
         self.assertEqual(self.call("GET", "book")[1]["tickers"], [])
         self.assertEqual(self.call("GET", "history?ticker=NX")[1]["candles"], [])
 

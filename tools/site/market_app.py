@@ -143,7 +143,7 @@ def create_app(sessions, store):
 
     @app.errorhandler(Refused)
     def refused(e):
-        return reply(e.status, {"ok": False, "error": str(e)})
+        return reply(e.status, dict({"ok": False, "error": str(e)}, **({"code": e.code} if e.code else {})))
 
     @app.errorhandler(404)
     @app.errorhandler(405)

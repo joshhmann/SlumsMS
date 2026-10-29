@@ -51,10 +51,15 @@
       (form.elements.pass.value === form.elements.pass2.value ? null : "The two passwords don't match.");
   });
 
-  // signed in already: no forms, just where to go and the sign-out line; signing out brings the forms back
+  // signed in already: no forms, just where to go and the sign-out line; signing out brings the forms back.
+  // ?again=1 (the exchange, when the sign-in is over 12 h old) keeps the forms: a fresh sign-in is the point.
   var go = document.getElementById("login-go");
+  var again = new URLSearchParams(location.search).get("again") === "1";
   fetch("../api/login/me", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (j) {
-    if (j.signed_in) {
+    if (j.signed_in && again) {
+      say("You're signed in as " + (j.character || j.account || "a player")
+        + ", but trading needs a sign-in from the last 12 hours. Sign in again below.", "");
+    } else if (j.signed_in) {
       say("You're signed in as " + (j.character || j.account || "a player") + ".", "ok");
       // the links are added here: a public page never links to the signed-in sections (check.py)
       go.innerHTML = '<a class="btn primary" href="../database/">Slums Street</a><a class="btn" href="../market/">Slums Market</a>';

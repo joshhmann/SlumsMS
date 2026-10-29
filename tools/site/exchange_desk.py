@@ -14,6 +14,10 @@ has answered (a couple of seconds, at most one poll of the game's, 15 s). Placin
 preview's token within 60 s. The game checks everything (funds, limits, the character); the checks here only save a
 round trip.
 
+A stolen cookie must not empty an account (owner, 2026-10-29, b005): placing, confirming, cancelling and asking for my
+orders need a sign-in at most 12 h old, like /admin/. Older, the site answers 403 {"code": "REAUTH"} and asks nothing;
+every request also carries "siteAuthAt", the session's sign-in time in epoch ms, so the game refuses it too (REAUTH).
+
     GET  /api/market/exchange/book          every ticker: its rules, book, rate, 24 h numbers and last trades
     GET  /api/market/exchange/history       ?ticker=LEAF  that ticker's hourly candles (30 days)
     GET  /api/market/exchange/me            my characters, my orders (the game's last "mine" answer), my open requests
@@ -35,6 +39,8 @@ TICKERS, HISTORY = "exchange-tickers.json", "exchange-history.json"
 MAX_AGE = 10 * 60          # the game answers older requests STALE, so they leave the inbox then
 MINE_FRESH = 60            # a "mine" answer older than this is asked for again
 MAX_WAITING = 5            # requests per account the game hasn't answered yet
+SIGN_IN_TTL = 12 * 3600   # a sign-in older than this can't trade (the same 12 h as login_service.ADMIN_TTL)
+REAUTH = "For safety, trading needs a sign-in from the last 12 hours. Sign in again."
 # The game's defaults (ExchangeConfig; the owner's decisions of 2026-10-28). The game is the authority.
 RULES = {"lotNx": 100, "minNx": 100, "maxNx": 50_000, "minPrice": 1_000, "maxPrice": 100_000_000,
          "feeBpsEachSide": 100, "maxOpen": 5, "perDay": 20, "cooldownSec": 10, "expiryHours": 72, "confirmSec": 60,
@@ -134,8 +140,20 @@ class Desk:
         write_atomic(os.path.join(self.store.inbox, REQUESTS),
                      {"schema": 1, "requests": [json.loads(b) for (b,) in rows]})
 
-    def ask(self, account, kind, **fields):
-        """Queue one request for the game; its id."""
+    def signed_in_at(self, s):
+        iat = s.get("iat")
+        return iat if isinstance(iat, int) and not isinstance(iat, bool) else 0
+
+    def fresh(self, s):
+        return int(self.store.now()) - self.signed_in_at(s) <= SIGN_IN_TTL
+
+    def need_fresh(self, s):
+        if not self.fresh(s):
+            raise Refused(REAUTH, 403, "REAUTH")
+
+    def ask(self, s, kind, **fields):
+        """Queue one request for the game; its id. The session must be fresh (need_fresh)."""
+        account = s["a"]
         waiting = self.q("SELECT type FROM xreq WHERE account=? AND answered IS NULL AND created>=?",
                          account, int(self.store.now()) - MAX_AGE)
         if kind == "mine" and ("mine",) in waiting:
@@ -144,7 +162,8 @@ class Desk:
             raise Refused("The game hasn't answered your last few requests yet. Wait a moment.", 429)
         rid = "w" + secrets.token_hex(12)
         t = int(self.store.now())
-        body = dict(id=rid, account=account, type=kind, createdAt=iso(t), **fields)
+        body = dict(id=rid, account=account, type=kind, createdAt=iso(t), siteAuthAt=self.signed_in_at(s) * 1000,
+                    **fields)
         self.q("INSERT INTO xreq (id, account, type, body, created) VALUES (?, ?, ?, ?, ?)",
                rid, account, kind, json.dumps(body, separators=(",", ":")), t)
         self.export()
@@ -200,15 +219,17 @@ class Desk:
                 "candles": [c for c in candles or [] if isinstance(c, dict)]}
 
     def me(self, s, names):
-        a = s["a"]
+        a, fresh = s["a"], self.fresh(s)
         mine = self.q("SELECT at, data, stale FROM xmine WHERE account=?", a)
-        if not mine or mine[0][2] or mine[0][0] < int(self.store.now()) - MINE_FRESH:
-            self.ask(a, "mine")
+        if fresh and (not mine or mine[0][2] or mine[0][0] < int(self.store.now()) - MINE_FRESH):
+            self.ask(s, "mine")
         waiting = [{"id": i, "type": k, "createdAt": iso(c)} for i, k, c in self.q(
             "SELECT id, type, created FROM xreq WHERE account=? AND answered IS NULL ORDER BY created", a)]
         orders = json.loads(mine[0][1]).get("orders") if mine else None
         return {"characters": names, "orders": orders if isinstance(orders, list) else None,
-                "ordersAt": iso(mine[0][0]) if mine else None, "waiting": waiting, "rules": RULES}
+                "ordersAt": iso(mine[0][0]) if mine else None, "waiting": waiting, "rules": RULES,
+                "reauth": not fresh, "signedInAt": iso(self.signed_in_at(s)),
+                "tradeUntil": iso(self.signed_in_at(s) + SIGN_IN_TTL)}
 
     def answer(self, s, rid):
         row = self.q("SELECT answered, answer FROM xreq WHERE id=? AND account=?", rid, s["a"])
@@ -217,6 +238,7 @@ class Desk:
         return {"pending": True} if row[0][0] is None else {"pending": False, "answer": json.loads(row[0][1])}
 
     def preview(self, s, body, names):
+        self.need_fresh(s)
         t = self.ticker(body.get("ticker"))
         name = body.get("character")
         if name not in names:
@@ -237,19 +259,22 @@ class Desk:
             fields["nx"] = qty  # a game without tickers reads only this
         else:
             fields.update(ticker=t["id"], qty=qty)
-        return {"id": self.ask(s["a"], "preview", **fields)}
+        return {"id": self.ask(s, "preview", **fields)}
 
     def confirm(self, s, body):
+        self.need_fresh(s)
         token = body.get("token")
         if not isinstance(token, str) or not 8 <= len(token) <= 64 or any(c not in "0123456789abcdef" for c in token):
             raise Refused("That preview expired. Preview the order again.")
-        return {"id": self.ask(s["a"], "confirm", token=token)}
+        return {"id": self.ask(s, "confirm", token=token)}
 
     def cancel(self, s, body):
+        self.need_fresh(s)
         order = body.get("orderId")
         if not isinstance(order, int) or isinstance(order, bool) or order <= 0:
             raise Refused("No such order.")
-        return {"id": self.ask(s["a"], "cancel", orderId=order)}
+        return {"id": self.ask(s, "cancel", orderId=order)}
 
     def refresh(self, s):
-        return {"id": self.ask(s["a"], "mine")}
+        self.need_fresh(s)
+        return {"id": self.ask(s, "mine")}

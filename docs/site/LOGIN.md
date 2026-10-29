@@ -83,6 +83,10 @@ docs/design/track-d-plan.md). The nginx snippet already routes `/api/market/`.
 - A stolen session cookie works until it expires, the player signs out, or the account goes in `revoked.txt`.
   The board can't move items or mesos; the game checks every board post, and the player or a GM can take a post
   down. The Slums Exchange (1.6.1) can: a stolen cookie can place and cancel exchange orders for that account's
-  characters and NX, with the game doing the moving (items only from a character that is logged in).
+  characters and NX, with the game doing the moving (items only from a character that is logged in). So exchange
+  actions need a sign-in at most 12 h old (owner, 2026-10-29, b005): older, the market app answers 403 `REAUTH` and
+  the page links to `/login/?again=1&next=...`, which shows the forms even when signed in. Every exchange request
+  also carries `siteAuthAt` (the cookie's `iat` in epoch ms) and the game refuses a stale one too. The game also
+  keeps NX orders in a band around the official rate (`PRICE_BAND`) and caps NX sold per account a day.
 - The service listens on 127.0.0.1 only, logs only the method and path (no addresses or cookies), and answers
   nothing but the endpoints above.

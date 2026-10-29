@@ -672,13 +672,17 @@ a buyer pays the mesos plus the fee (set aside when the order is placed; what is
 untradeable, locked, expiring or cash items.</li>
 <li><b>Limits:</b> <span x-text="limitRule()"></span></li>
 <li><b>Expiry:</b> an order that hasn't fully traded by its time closes, and whatever is left comes back.</li>
+<li><b>Safety:</b> placing or cancelling an order needs a sign-in from the last 12 hours, so a copied cookie can't
+empty your account.</li>
 <li><b>Which character:</b> every order names one of your characters. Mesos and items come from (and go to) that
 character; NX is your account's. If you're logged in to the game, use the character you're playing (or log out first).</li>
 </ul></section>
 </div>
 <div class="xc-c" x-data="xmine">
 <p class="xc-alert" style="grid-area: form" x-show="state === 'signedOut'" x-cloak>Sign in to trade.</p>
-<form class="xc-p xc-form" style="grid-area: form" x-show="data" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
+<p class="xc-alert" style="grid-area: form" x-show="reauth" x-cloak>For safety, trading needs a sign-in from the last
+12 hours, so a copied cookie can't empty your account. <a :href="againUrl()">Sign in again</a> to trade.</p>
+<form class="xc-p xc-form" style="grid-area: form" x-show="data && !reauth" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
 <h2><span x-text="'New ' + meta.id + ' order'"></span> <small x-text="openCount() + ' of ' + lim(meta).max_open_per_ticker + ' open'"></small></h2>
 <div class="xc-side"><button type="button" class="buy" :class="side === 'BUY' && 'on'" @click="side = 'BUY'" x-text="'Buy ' + meta.id"></button>
 <button type="button" class="sell" :class="side === 'SELL' && 'on'" @click="side = 'SELL'" x-text="'Sell ' + meta.id"></button></div>
@@ -713,7 +717,7 @@ logged in to the game. Items you buy go into its bags the next time it's in game
 <tbody><template x-for="o in orders()" :key="o.orderId"><tr><td x-text="o.orderId"></td><td x-text="o.ticker || 'NX'"></td>
 <td :class="o.side === 'SELL' ? 'down' : 'up'" x-text="o.side === 'SELL' ? 'Sell' : 'Buy'"></td><td x-text="fmt(o.price)"></td><td x-text="fmt(q(o))"></td>
 <td x-text="fmt(qLeft(o))"></td><td x-text="status(o.status)"></td><td x-text="o.status === 'OPEN' ? when(o.expiresAt) : ''"></td>
-<td><button class="xc-ghost" type="button" x-show="o.status === 'OPEN'" @click="cancel(o)" :disabled="busy">Cancel</button></td></tr></template></tbody></table></div>
+<td><button class="xc-ghost" type="button" x-show="o.status === 'OPEN'" @click="cancel(o)" :disabled="busy || reauth">Cancel</button></td></tr></template></tbody></table></div>
 <p class="xc-note" x-show="data && data.orders && !data.orders.length">No orders yet.</p>
 <p class="xc-note" x-show="data && !data.orders">Asking the game for your orders...</p>
 <p class="xc-note">Trades pay out to the character on the order: straight away if you're online, else when you next log in.</p>
