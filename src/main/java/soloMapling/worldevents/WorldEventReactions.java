@@ -297,7 +297,12 @@ public final class WorldEventReactions {
         }
     }
 
-    /** What a bot says as it heads off to an event its brain picked ("omw to the cake!!"); null to stay quiet. */
+    /**
+     * What a bot says as it heads off to an event its brain picked ("omw to the cake!!"); null to stay quiet. b068
+     * follow-up (TEST 2026-10-29, since the say-do build: 9 of 18 "omw" lines and 7 "brb getting cake" unbacked): a
+     * bot already standing on the event's map walks nowhere, so it does not say "omw"; and no line says "brb" (it is
+     * going to the event, not away). Every line is checked against the claim rules ({@link #eventLine}).
+     */
     public static String omwLine(Character chr) {
         if (chr == null) {
             return null;
@@ -309,20 +314,58 @@ public final class WorldEventReactions {
                 e = a;
             }
         }
+        boolean here = map > 0 && chr.getMapId() == map;
         if (e == null) {
-            return "omw";
+            return here ? null : "omw";
         }
-        String[] lines = switch (e.template.kind()) {
-            case GIANT_CAKE -> new String[]{"omw to the cake!!", "cake in " + e.mapName.toLowerCase() + "?? omw",
-                    "brb getting cake"};
-            case INVASION -> new String[]{"omw to " + e.mapName.toLowerCase() + ", invasion", "brb gotta defend "
-                    + e.mapName.toLowerCase(), "invasion?? omw"};
-            case BOSS_SIGHTING -> new String[]{"going for " + e.subject.toLowerCase(), "omw to " + e.subject.toLowerCase()};
-            case TREASURE_HUNT -> new String[]{"gonna look for the treasure", "brb treasure hunting"};
+        return eventLine(e.template.kind(), e.mapName, e.subject, here, java.util.concurrent.ThreadLocalRandom.current());
+    }
+
+    /** What a line about joining an event may claim: a trip there when the bot travels, nothing when it is there. */
+    static java.util.Set<soloMapling.ArtificialPlayer.BotConvo.ClaimRules.Kind> eventClaims(boolean here) {
+        return here ? java.util.EnumSet.noneOf(soloMapling.ArtificialPlayer.BotConvo.ClaimRules.Kind.class)
+                : java.util.EnumSet.of(soloMapling.ArtificialPlayer.BotConvo.ClaimRules.Kind.COME,
+                soloMapling.ArtificialPlayer.BotConvo.ClaimRules.Kind.GO_TO,
+                soloMapling.ArtificialPlayer.BotConvo.ClaimRules.Kind.TRAIN_AT);
+    }
+
+    /**
+     * The line for joining an event of {@code kind} on {@code mapName} ({@code subject}: a boss's name); {@code here}:
+     * the bot already stands on the event's map. Only a line whose claims the act backs ({@link #eventClaims}); null
+     * when none does. Pure.
+     */
+    static String eventLine(EventTemplate.Kind kind, String mapName, String subject, boolean here, java.util.Random rng) {
+        String town = mapName == null ? "town" : mapName.toLowerCase(java.util.Locale.ROOT);
+        String boss = subject == null ? "the boss" : subject.toLowerCase(java.util.Locale.ROOT);
+        String[] lines = here ? switch (kind) {
+            case GIANT_CAKE -> new String[]{"cake!! finally", "ooh the cake is up", "cake time lol"};
+            case INVASION -> new String[]{"invasion here?? lets fight", "they're attacking " + town + "!!", "defend " + town + "!!"};
+            case BOSS_SIGHTING -> new String[]{boss + " is here!!", "get " + boss + " lol"};
+            case TREASURE_HUNT -> new String[]{"treasure hunt time", "where's the treasure"};
+            case HOT_SPOT -> new String[]{"bonus exp here nice", "hot spot here lol"};
+            default -> new String[]{"oh nice"};
+        } : switch (kind) {
+            case GIANT_CAKE -> new String[]{"omw to the cake!!", "cake in " + town + "?? omw", "heading to " + town + " for cake"};
+            case INVASION -> new String[]{"omw to " + town + ", invasion", "heading to " + town + " to defend it",
+                    "invasion?? omw"};
+            case BOSS_SIGHTING -> new String[]{"going for " + boss, "omw to " + boss};
+            case TREASURE_HUNT -> new String[]{"gonna look for the treasure", "treasure hunt? omw"};
             case HOT_SPOT -> new String[]{"bonus exp? omw", "omw to the hot spot"};
             default -> new String[]{"omw"};
         };
-        return lines[java.util.concurrent.ThreadLocalRandom.current().nextInt(lines.length)];
+        var allowed = eventClaims(here);
+        int start = rng.nextInt(lines.length);
+        for (int k = 0; k < lines.length; k++) {
+            String line = lines[(start + k) % lines.length];
+            boolean fits = true;
+            for (var c : soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify(line)) {
+                fits &= allowed.contains(c.kind());
+            }
+            if (fits) {
+                return line;
+            }
+        }
+        return null;
     }
 
     /** A map's name, or its id. */

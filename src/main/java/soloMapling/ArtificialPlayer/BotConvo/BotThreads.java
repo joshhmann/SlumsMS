@@ -1039,7 +1039,7 @@ public final class BotThreads {
         for (String[] line : lines) {
             Character who = line[0].equals(a.getName()) ? a : b;
             int slot = who.getId() - BotStore.BOT_ID_BASE;
-            String honest = ClaimActions.guardReply(line[1], mayClaim);
+            String honest = ClaimActions.guardReply(line[1], forSpeaker(mayClaim, who.getParty() != null));
             if (honest == null) {
                 if (traced) {
                     soloMapling.autoqa.SocialTrace.threadDropped(l.id, line[0], line[1], "say-do guard: a promise nobody keeps");
@@ -1273,6 +1273,21 @@ public final class BotThreads {
             out.add(ClaimRules.Kind.TRADE);
             out.add(ClaimRules.Kind.TRADE_ASK);
         }
+        return out;
+    }
+
+    /**
+     * b068 (TEST 2026-10-28): "lf party for kpq r u in" from a bot already in a party is a claim nobody backs (7 of
+     * them, "asks for a party while in one"). A speaker in a party may not ask for one; the rest of what the thread
+     * allows stays. Pure.
+     */
+    static java.util.Set<ClaimRules.Kind> forSpeaker(java.util.Set<ClaimRules.Kind> mayClaim, boolean partied) {
+        if (!partied || !mayClaim.contains(ClaimRules.Kind.PARTY_ASK)) {
+            return mayClaim;
+        }
+        java.util.Set<ClaimRules.Kind> out = java.util.EnumSet.noneOf(ClaimRules.Kind.class);
+        out.addAll(mayClaim);
+        out.remove(ClaimRules.Kind.PARTY_ASK);
         return out;
     }
 

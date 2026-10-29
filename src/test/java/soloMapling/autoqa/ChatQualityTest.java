@@ -121,6 +121,45 @@ class ChatQualityTest {
                 String.valueOf(ChatQuality.problems(report)));
     }
 
+    /**
+     * b068 (TEST 2026-10-29): t-cq-1 failed 51 min after the say-do build went on, judging 909 bot-talk claims of the
+     * build before it; the running build's own were 83 of 83 backed. The threshold judges the claims since boot; the
+     * day's rate stays in the report.
+     */
+    @Test
+    void botTalkSayDoIsJudgedOnTheRunningBuildsClaims() {
+        long boot = 10_000_000L;
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (int i = 0; i < 100; i++) { // the old build: 30% backed
+            rows.add(Map.of("at", boot - 1_000_000 + i, "bot", "o" + i, "source", "talk-lines", "kind", "go_to", "line",
+                    "going henesys, coming?", "backed", i < 30, "why", "x", "weak", false));
+        }
+        for (int i = 0; i < 200; i++) { // the day's shop ads, all backed
+            rows.add(Map.of("at", boot - 500 + i, "bot", "m" + i, "source", "ad", "kind", "sell", "line", "S> ilbis",
+                    "backed", true, "why", "has the item", "weak", false));
+        }
+        for (int i = 0; i < 25; i++) { // this build: all backed
+            rows.add(Map.of("at", boot + i, "bot", "n" + i, "source", "talk-bank", "kind", "come", "line", "omw",
+                    "backed", true, "why", "travel", "weak", false));
+        }
+        Map<String, Object> sd = ChatQuality.sayDo(rows, boot);
+        assertEquals(25L, ((Map<?, ?>) sd.get("talk")).get("claims"));
+        assertEquals(1.0, ((Map<?, ?>) sd.get("talk")).get("rate"));
+        assertEquals(125L, ((Map<?, ?>) sd.get("talk24h")).get("claims"));
+        Map<String, Object> report = new java.util.LinkedHashMap<>();
+        report.put("lines", 10);
+        report.put("relevance", Map.of("score", 0.9, "judged", 0));
+        report.put("stiffness", Map.of("score", 0.0));
+        report.put("repetition", Map.of("score", 0.0));
+        report.put("unanswered", Map.of("unanswered", 0, "questions", 0));
+        report.put("sayDo", sd);
+        assertTrue(ChatQuality.problems(report).isEmpty(), String.valueOf(ChatQuality.problems(report)));
+        assertTrue(ChatQuality.headline(report).contains("bot talk 100% of 25 since boot (24h: 44% of 125)"),
+                ChatQuality.headline(report));
+        assertFalse(ChatQuality.problems(Map.of("relevance", Map.of("judged", 0), "stiffness", Map.of(), "lines", 0,
+                "sayDo", ChatQuality.sayDo(rows, 0))).isEmpty(), "judged over the whole day it fails, as on TEST");
+    }
+
     @Test
     void theReportJudgesInBatchesAndFailsOverTheThresholds() throws Exception {
         List<ChatQuality.Line> lines = new ArrayList<>();

@@ -41,6 +41,11 @@ b042 (same branch): any crew member's hang-out trip to a town is the crew's pick
 when a bot arrives next to one it knows, either may say hi first (`BotTalk.greetOpener`; the one standing there opens
 40% of the time, and greets when the arrival does not), under the same pair gap and world cap.
 
+b068 (161-saydo2, 2026-10-29): t-cq-1 failed at 67% bot-talk say-do 51 min after the say-do build went on TEST, but its
+24 h window was almost all the old build (since boot: talk-bank 33/33, talk-lines 50/50, thread-llm 15/15; the yes
+ledger 232/239). t-cq-1 now judges the bot-talk rate on the claims since boot (the day's rate stays in the report as
+`talk24h`), and a thread speaker already in a party may no longer say "lf party" (7 such lines on 2026-10-28).
+
 ## The owner's shape (2026-10-27)
 
 "playerbot says hi to another playerbot -> casual convo -> asks to party -> other bot decides to say yes or no and in a

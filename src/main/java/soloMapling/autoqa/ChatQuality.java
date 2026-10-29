@@ -259,11 +259,21 @@ public final class ChatQuality {
 
     /** The say-do part: strong claims per source and kind, overall rate, the top unbacked kinds with examples. */
     static Map<String, Object> sayDo(List<Map<String, Object>> rows) {
+        return sayDo(rows, 0);
+    }
+
+    /**
+     * As {@link #sayDo(List)}; the bot-talk rate ({@code talk}, the one t-cq-1 judges) counts only the claims made
+     * since {@code talkSinceMs}, the running build's boot: b068 (TEST 2026-10-29) failed t-cq-1 51 minutes after the
+     * say-do build went on, on 909 bot-talk claims of the build before it (the new build's own: 83 of 83 backed). The
+     * whole day's bot-talk rate stays in the report as {@code talk24h}.
+     */
+    static Map<String, Object> sayDo(List<Map<String, Object>> rows, long talkSinceMs) {
         Map<String, long[]> bySource = new TreeMap<>();
         Map<String, long[]> byKind = new TreeMap<>();
         Map<String, List<String>> unbackedExamples = new TreeMap<>();
         long claims = 0, backed = 0, weak = 0;
-        long[] talk = new long[2];
+        long[] talk = new long[2], talkDay = new long[2];
         for (Map<String, Object> r : rows) {
             if (Boolean.TRUE.equals(r.get("weak"))) {
                 weak++;
@@ -275,8 +285,12 @@ public final class ChatQuality {
             claims++;
             backed += b ? 1 : 0;
             if (src.startsWith("talk-")) {
-                talk[0]++;
-                talk[1] += b ? 1 : 0;
+                talkDay[0]++;
+                talkDay[1] += b ? 1 : 0;
+                if (!(r.get("at") instanceof Number at) || at.longValue() >= talkSinceMs) {
+                    talk[0]++;
+                    talk[1] += b ? 1 : 0;
+                }
             }
             long[] s = bySource.computeIfAbsent(src, k -> new long[2]);
             s[0]++;
@@ -298,6 +312,8 @@ public final class ChatQuality {
         m.put("rate", claims == 0 ? null : round3((double) backed / claims));
         m.put("weakClaims", weak);
         m.put("talk", rate(talk));
+        m.put("talkSince", talkSinceMs);
+        m.put("talk24h", rate(talkDay));
         Map<String, Object> src = new LinkedHashMap<>();
         bySource.forEach((k, v) -> src.put(k, rate(v)));
         m.put("bySource", src);
@@ -503,10 +519,19 @@ public final class ChatQuality {
         q.put("unanswered", unanswered);
         q.put("score", questions == 0 ? null : round3((double) unanswered / questions));
         out.put("unanswered", q);
-        out.put("sayDo", sayDo(sayDoRows));
+        out.put("sayDo", sayDo(sayDoRows, bootMs()));
         out.put("worst", top);
         out.put("headline", headline(out));
         return out;
+    }
+
+    /** When this server started (0 when unknown: every row counts). */
+    static long bootMs() {
+        try {
+            return java.lang.management.ManagementFactory.getRuntimeMXBean().getStartTime();
+        } catch (RuntimeException | LinkageError e) {
+            return 0;
+        }
     }
 
     /** One line for test-status and {@code !autoqa report}. */
@@ -530,7 +555,13 @@ public final class ChatQuality {
             return "";
         }
         Map<String, Object> m = (Map<String, Object>) t;
-        return "; bot talk " + pct(m.get("rate")) + " of " + m.get("claims");
+        String out = "; bot talk " + pct(m.get("rate")) + " of " + m.get("claims");
+        if (sd.get("talkSince") instanceof Number since && since.longValue() > 0
+                && sd.get("talk24h") instanceof Map<?, ?> day) {
+            Map<String, Object> d = (Map<String, Object>) day;
+            out += " since boot (24h: " + pct(d.get("rate")) + " of " + d.get("claims") + ")";
+        }
+        return out;
     }
 
     private static String pct(Object o) {
