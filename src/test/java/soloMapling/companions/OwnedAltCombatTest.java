@@ -63,6 +63,7 @@ class OwnedAltCombatTest {
         Map<Integer, Long> dealt = new HashMap<>();
         for (int id : damagedBy) {
             dealt.put(id, 10L);
+            when(m.lastHitBy(id)).thenReturn(NOW - 1_000);
         }
         when(m.damageSnapshot()).thenReturn(dealt);
         return m;
@@ -149,6 +150,34 @@ class OwnedAltCombatTest {
         Character elsewhere = at(map(List.of(mob(5, OWNER))), OWNER, 0, false);
         assertNull(OwnedAltCombat.target(elsewhere, alt, OwnedAltCombat.partyIds(alt, elsewhere), NOW),
                 "its owner is on another map: it follows");
+    }
+
+    @Test
+    void anOldHitOfTheOwnersIsNotTheirFightAnyMore() {
+        // QA run 3 (TEST 2026-10-29): a mob the owner hit in an earlier fight stayed "engaged" for good
+        Monster old = mob(40, OWNER);
+        when(old.lastHitBy(OWNER)).thenReturn(NOW - OwnedAltCombat.ENGAGED_MS - 1);
+        MapleMap f = map(List.of(old));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
+        assertNull(OwnedAltCombat.target(owner, alt, OwnedAltCombat.partyIds(alt, owner), NOW));
+    }
+
+    @Test
+    void notAMobOnAnotherLedgeNorOneItGaveUpOn() {
+        Monster above = mob(40, OWNER);
+        when(above.getPosition()).thenReturn(new Point(40, -240));
+        Monster level = mob(200, OWNER);
+        MapleMap f = map(List.of(above, level));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
+        Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
+        OwnedAltCombat.Ledge before = OwnedAltCombat.ledge;
+        try {
+            OwnedAltCombat.ledge = (map, a, b) -> Math.abs(a.y - b.y) > 90;
+            assertSame(level, OwnedAltCombat.target(owner, alt, party, NOW), "the nearer one is up on a platform");
+            assertNull(OwnedAltCombat.target(owner, alt, party, NOW, m -> m == level), "left alone after a stall");
+        } finally {
+            OwnedAltCombat.ledge = before;
+        }
     }
 
     @Test

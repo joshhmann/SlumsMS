@@ -371,7 +371,12 @@ final class DramaScenarios {
 
         public List<String> action(QaContext ctx, String name, String[] args) {
             if ("kswar".equals(name)) {
-                return act(ctx, "kswar", args.length > 0 ? args[0] : "3");
+                // 1.6.1 QA run 3 (t-rv-2 FAIL 13:29 UTC): rv-1's rival had started a KS war on the GM on its own
+                // 11 s before rv-2 began, so "kswar" answered "a KS war on AutoQaOne is already on" and no call
+                // line was logged. A war left from before the step is ended first, then the forced one starts.
+                List<String> out = new ArrayList<>(act(ctx, "endwar"));
+                out.addAll(act(ctx, "kswar", args.length > 0 ? args[0] : "3"));
+                return out;
             }
             if ("fight".equals(name)) {
                 // rc6 auto-QA triage (t-rv-2: 0 of 3 called bots took a mob): a helper takes only a mob the player

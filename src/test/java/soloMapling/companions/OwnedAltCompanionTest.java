@@ -136,6 +136,7 @@ class OwnedAltCompanionTest {
         Map<Integer, Long> dealt = new HashMap<>();
         if (damagedBy > 0) {
             dealt.put(damagedBy, 5L);
+            when(m.lastHitBy(damagedBy)).thenReturn(NOW - 1_000);
         }
         when(m.damageSnapshot()).thenReturn(dealt);
         mobs.add(m);
@@ -168,6 +169,35 @@ class OwnedAltCompanionTest {
         OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
         movement.verify(() -> GCMovement.move(eq(alt), eq(400 - 40), anyInt()));
         attacks.verify(() -> BotAttackDriver.botAttack(alt), never());
+    }
+
+    @Test
+    void aMobItCannotLandAHitOnIsLeftAloneAndItLootsInstead() {
+        // QA run 3 (TEST 2026-10-29): the alt kept at a mob it never hit, so it neither looted nor took a new fight
+        attacks.when(() -> BotAttackDriver.botAttack(any())).thenReturn(
+                new BotAttackDriver.AttackResult(false, null, 0, false, "no targetable mobs", 0));
+        Character owner = owner(NOW + 60_000);
+        Character alt = alt(owner, 1302000);
+        Monster m = mob(50, OWNER);
+        when(m.lastHitBy(OWNER)).thenReturn(NOW + 59_000);
+        MapItem drop = mock(MapItem.class);
+        when(drop.getOwnerId()).thenReturn(OWNER);
+        when(drop.getPosition()).thenReturn(new Point(30, 0));
+        when(drop.getDropTime()).thenReturn(NOW - 5_000);
+        when(drop.getItem()).thenReturn(new Item(4000000, (short) 0, (short) 1));
+        when(field.getMapObjectsInRange(any(Point.class), anyDouble(), anyList())).thenReturn(new ArrayList<>(List.of(drop)));
+        OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+        OwnedAltCompanion.tick(owner, alt, s, NOW + 60_000, 0);
+        assertTrue(s.fighting);
+        verify(alt, never()).pickupItem(any());
+        OwnedAltCompanion.tick(owner, alt, s, NOW + 60_000 + OwnedAltCompanion.STALL_MS + 1, 0);
+        assertTrue(s.skip.containsKey(m.getObjectId()), s.doing + " gate " + s.gate);
+        assertTrue(s.doing.startsWith("gave up on"), s.doing);
+        OwnedAltCompanion.tick(owner, alt, s, NOW + 60_000 + OwnedAltCompanion.STALL_MS + 300, 0);
+        verify(alt).pickupItem(drop);
+        OwnedAltCompanion.tick(owner, alt, s,
+                NOW + 60_000 + OwnedAltCompanion.STALL_MS + OwnedAltCompanion.GIVE_UP_MS + 1_000, 0);
+        assertFalse(s.skip.containsKey(m.getObjectId()), "it tries again later");
     }
 
     @Test

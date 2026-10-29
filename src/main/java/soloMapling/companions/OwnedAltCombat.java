@@ -125,18 +125,35 @@ public final class OwnedAltCombat {
         return false;
     }
 
-    /** The party is fighting this mob: a member damaged it, or it touched the owner or the alt just now. */
+    /**
+     * The party is fighting this mob now: a member hit it in the last {@link #ENGAGED_MS} ms, or it touched the owner
+     * or the alt just now. (QA run 3, 2026-10-29: "ever damaged by the owner" kept a mob the owner hit in an earlier
+     * fight engaged forever, and the alt went for it instead of the owner's new fight.)
+     */
     static boolean engaged(Monster m, Character owner, Character alt, Set<Integer> party, long now) {
         if (recentlyHit(owner.getId(), m, now) || recentlyHit(alt.getId(), m, now)) {
             return true;
         }
-        for (Integer id : m.damageSnapshot().keySet()) {
-            if (party.contains(id)) {
+        for (Integer id : party) {
+            long at = m.lastHitBy(id);
+            if (at > 0 && now - at <= ENGAGED_MS) {
                 return true;
             }
         }
         return false;
     }
+
+    /** How long a party member's hit keeps a mob the party's fight. */
+    static final long ENGAGED_MS = 20_000;
+
+    /** A mob on another ledge than the alt (a platform above or below): not a target, the alt follows instead. */
+    interface Ledge {
+        boolean different(MapleMap map, Point a, Point b);
+    }
+
+    static final Ledge NAV_LEDGE = (map, a, b) -> Math.abs(a.y - b.y) > SAME_LEDGE_DY
+            && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.onDifferentLedge(map, a.x, a.y, b.x, b.y);
+    static volatile Ledge ledge = NAV_LEDGE;
 
     /** May the alt's swing touch this mob at all (the per-bot attack filter): never a stranger's. */
     static boolean mayHit(Monster m, MapleMap map, Set<Integer> party) {
@@ -145,6 +162,15 @@ public final class OwnedAltCombat {
 
     /** The mob the alt goes for now: the nearest engaged one by its owner, or null (it follows instead). */
     static Monster target(Character owner, Character alt, Set<Integer> party, long now) {
+        return target(owner, alt, party, now, m -> false);
+    }
+
+    /**
+     * As {@link #target(Character, Character, Set, long)}, skipping the mobs {@code skip} names (ones it could not
+     * land a hit on lately) and mobs on another ledge than the alt.
+     */
+    static Monster target(Character owner, Character alt, Set<Integer> party, long now,
+                          java.util.function.Predicate<Monster> skip) {
         MapleMap map = alt.getMap();
         Point at = alt.getPosition();
         Point op = owner.getPosition();
@@ -161,7 +187,8 @@ public final class OwnedAltCombat {
             if (Math.abs(mp.x - op.x) > LEASH_X_PX || Math.abs(mp.y - op.y) > LEASH_Y_PX) {
                 continue;
             }
-            if (!engaged(m, owner, alt, party, now) || strangers(m, map, party)) {
+            if (!engaged(m, owner, alt, party, now) || skip.test(m) || ledge.different(map, at, mp)
+                    || strangers(m, map, party)) {
                 continue;
             }
             double d = at.distanceSq(mp);

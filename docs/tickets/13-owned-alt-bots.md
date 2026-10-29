@@ -53,8 +53,10 @@ Switches: none new. TEST runs it with `OWNED_ALTS_SUMMON_ENABLED` at its code de
    into an instance it did not enter with the party, never pays a fare or boards. New: an alt **left behind** (a boat,
    a dead end) is put down beside its owner after 8 s of not walking or 45 s in all (as `@botme here`; same channel,
    never into or out of an instance). A channel change or leaving the party sends it home (saved).
-2. **Fight** (`OwnedAltCompanion`, `OwnedAltCombat`): it attacks a mob its owner or party (itself included) damaged,
-   or a mob that just touched its owner or itself, within 650 px of its owner; it walks into reach and swings through
+2. **Fight** (`OwnedAltCompanion`, `OwnedAltCombat`): it attacks a mob its owner or party (itself included) hit in
+   the last 20 s, or a mob that just touched its owner or itself, within 650 px of its owner and on its own ledge (a
+   mob on a platform above or below: it follows instead); a mob it lands no hit on for 10 s is left alone for 15 s
+   (QA run 3, 2026-10-29: it kept at an old or unreachable mob and never looted or took the owner's new fight); it walks into reach and swings through
    the same attack system and packets the on-screen bots use (`BotAttackDriver`: its class skills at its skill
    levels, its real stats and gear, its MP and ammo, the skill-vs-weapon pose rules the client checks). It keeps its
    own weapon (`BotWeapons.ensureFittingWeapon` never hands an alt one); with no weapon, or one the client cannot

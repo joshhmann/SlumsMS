@@ -453,15 +453,16 @@ final class Probes160 {
             out.add("owner hit a mob: " + ALT_A + " damaged it=" + struck + ", swings " + (st.swings() - swingsBefore)
                     + ", gate " + st.gate());
             if (!struck) {
-                bad.add(ALT_A + " did not damage the mob its owner hit within 20 s (gate " + st.gate() + ")");
+                bad.add(ALT_A + " did not damage the mob its owner hit within 20 s (gate " + st.gate() + ", doing: "
+                        + st.doing() + ")");
             }
 
             // (3) a party drop beside the alt goes into its own bag
             ownerActs(p);
             int shellsBefore = alt.getInventory(InventoryType.ETC).countById(ALT_LOOT);
             long lootsBefore = soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).loots();
-            field.spawnItemDrop(gm, gm, new Item(ALT_LOOT, (short) 0, (short) 1),
-                    new java.awt.Point(alt.getPosition().x + 30, alt.getPosition().y), (byte) 1, false);
+            server.maps.MapItem shell = field.spawnItemDrop(gm, gm, new Item(ALT_LOOT, (short) 0, (short) 1),
+                    new java.awt.Point(alt.getPosition().x + 30, alt.getPosition().y), (byte) 1, false, false);
             boolean looted = false;
             start = System.currentTimeMillis();
             while (!looted && System.currentTimeMillis() - start < 15_000) {
@@ -472,7 +473,13 @@ final class Probes160 {
                     + alt.getInventory(InventoryType.ETC).countById(ALT_LOOT) + ", pickups "
                     + (soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).loots() - lootsBefore));
             if (!looted) {
-                bad.add(ALT_A + " did not pick up the party drop into its own bag within 15 s");
+                // the auto-QA summary keeps only the first lines of evidence: say why in the failure itself
+                st = soloMapling.companions.OwnedAltCompanion.stats(alt.getId());
+                bad.add(ALT_A + " did not pick up the party drop into its own bag within 15 s (drop "
+                        + (shell == null ? "not spawned" : shell.isPickedUp() ? "taken by someone else"
+                        : "still at " + shell.getPosition().x + "," + shell.getPosition().y) + ", alt at "
+                        + alt.getPosition().x + "," + alt.getPosition().y + ", gate " + st.gate() + ", doing: "
+                        + st.doing() + ", ETC slots free " + alt.getInventory(InventoryType.ETC).getNumFreeSlot() + ")");
             }
 
             // (4) the activity gate: its owner idle, it does not fight; active again, it does
@@ -502,7 +509,10 @@ final class Probes160 {
             boolean resumed = altDamagesOwnersMob(field, gm, alt, staged, -80, 20_000);
             out.add("owner active again: " + ALT_A + " fights again=" + resumed);
             if (!resumed) {
-                bad.add(ALT_A + " did not fight again once its owner was active");
+                st = soloMapling.companions.OwnedAltCompanion.stats(alt.getId());
+                bad.add(ALT_A + " did not fight again once its owner was active (gate " + st.gate() + ", doing: "
+                        + st.doing() + ", HP " + alt.getHp() + ", alt at " + alt.getPosition().x + ","
+                        + alt.getPosition().y + ", owner at " + gm.getPosition().x + "," + gm.getPosition().y + ")");
             }
         } finally {
             for (server.life.Monster m : staged) {
