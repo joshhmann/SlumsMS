@@ -64,6 +64,9 @@ public final class OwnedAltCompanion {
     private static final double REACH_FRAC = 0.8;
     private static final int SWING_DY = 100;
     private static final long LOOT_GAP_MS = 250;
+    /** A target it walked to or swung at this long without landing a hit is left alone for {@link #GIVE_UP_MS}. */
+    static final long STALL_MS = 10_000; // a 650 px walk at a slow walk speed fits in it
+    static final long GIVE_UP_MS = 15_000;
 
     /** Per alt: what the driver remembers between ticks, and what QA reads. */
     static final class State {
@@ -78,6 +81,11 @@ public final class OwnedAltCompanion {
         long lastTickMs;
         long nextLootMs;
         int lastMoveX = Integer.MIN_VALUE;
+        int targetOid = -1;
+        long targetSince;
+        long lastLandedMs;
+        final Map<Integer, Long> skip = new HashMap<>(); // mob oid -> until when it is left alone (stalled on it)
+        volatile String doing = "nothing yet";
         // QA counters (t-oa-1)
         final AtomicLong swings = new AtomicLong();
         final AtomicLong damageDealt = new AtomicLong();
@@ -137,16 +145,16 @@ public final class OwnedAltCompanion {
 
     /** What one alt has done since it came out: swings that landed, damage dealt, pickups, hits taken. */
     public record Stats(long swings, long damageDealt, long loots, long hitsTaken, long damageTaken, boolean fighting,
-                        String gate) {
+                        String gate, String doing) {
     }
 
     public static Stats stats(int altId) {
         State s = states.get(altId);
         if (s == null) {
-            return new Stats(0, 0, 0, 0, 0, false, "none");
+            return new Stats(0, 0, 0, 0, 0, false, "none", "not driven");
         }
         return new Stats(s.swings.get(), s.damageDealt.get(), s.loots.get(), s.hitsTaken.get(), s.damageTaken.get(),
-                s.fighting, s.gate.name());
+                s.fighting, s.gate.name(), s.doing);
     }
 
     /** A mob's touch landed on an alt (BotContactDamage): counted, and that mob becomes the party's fight. */
@@ -231,6 +239,7 @@ public final class OwnedAltCompanion {
                 }
                 s.told = why.tell != null ? why : s.told;
                 keepFollowing(owner, alt);
+                s.doing = "following (gate " + why + ")";
                 return;
             }
             s.told = OwnedAltGate.Why.OPEN;
@@ -239,16 +248,19 @@ public final class OwnedAltCompanion {
             BotAttackDriver.setTargetFilter(alt.getId(), m -> OwnedAltCombat.mayHit(m, map, party));
 
             String weapon = weaponProblem(alt);
-            Monster target = weapon == null ? OwnedAltCombat.target(owner, alt, party, now) : null;
+            s.skip.values().removeIf(until -> until <= now);
+            Monster target = weapon == null
+                    ? OwnedAltCombat.target(owner, alt, party, now, m -> s.skip.containsKey(m.getObjectId())) : null;
             if (target == null && weapon != null && !s.toldWeapon
                     && OwnedAltCombat.target(owner, alt, party, now) != null) {
                 s.toldWeapon = true;
                 say(owner, alt, weapon);
             }
             if (target != null) {
-                fight(alt, target, s);
+                fight(alt, target, s, now);
                 return;
             }
+            s.targetOid = -1;
             if (s.fighting) {
                 s.fighting = false;
                 s.lastMoveX = Integer.MIN_VALUE;
@@ -257,6 +269,7 @@ public final class OwnedAltCompanion {
                 return;
             }
             keepFollowing(owner, alt);
+            s.doing = "following";
         }
     }
 
@@ -285,7 +298,20 @@ public final class OwnedAltCompanion {
         return null;
     }
 
-    private static void fight(Character alt, Monster target, State s) {
+    private static void fight(Character alt, Monster target, State s, long now) {
+        if (target.getObjectId() != s.targetOid) {
+            s.targetOid = target.getObjectId();
+            s.targetSince = now;
+        }
+        if (now - Math.max(s.targetSince, s.lastLandedMs) > STALL_MS) {
+            // QA run 3: it could walk at (or swing past) a mob it never reached, and nothing else got done (no loot,
+            // no new fight). Leave that one a while; the next tick picks another, loots or follows.
+            s.skip.put(target.getObjectId(), now + GIVE_UP_MS);
+            s.targetOid = -1;
+            s.doing = "gave up on " + target.getName() + " (no hit in " + STALL_MS / 1000 + " s)";
+            audit(alt.getOwnedAltOwner(), alt.getName() + " " + s.doing);
+            return;
+        }
         if (!s.fighting) {
             s.fighting = true;
             audit(alt.getOwnedAltOwner(), alt.getName() + " fights " + target.getName());
@@ -303,11 +329,14 @@ public final class OwnedAltCompanion {
                 GCMovement.move(alt, tx, mob.y);
                 s.lastMoveX = tx;
             }
+            s.doing = "walking to " + target.getName() + " (dx " + dx + ")";
             return;
         }
         s.lastMoveX = Integer.MIN_VALUE;
         BotAttackDriver.AttackResult r = BotAttackDriver.botAttack(alt);
+        s.doing = "swinging at " + target.getName() + (r == null || r.hit() ? "" : " (" + r.reason() + ")");
         if (r != null && r.hit()) {
+            s.lastLandedMs = now;
             s.swings.incrementAndGet();
             s.damageDealt.addAndGet(Math.max(0, r.damage()));
             if (QaLog.on(QaLog.Topic.OWNED_ALT) && QaLog.every("owned-alt-hit:" + alt.getId(), 3_000)) {
@@ -336,6 +365,7 @@ public final class OwnedAltCompanion {
         if (drop == null) {
             return false;
         }
+        s.doing = "looting " + drop.getItemId();
         if (OwnedAltLoot.inReach(alt, drop)) {
             InventoryType bag = OwnedAltLoot.bagOf(drop);
             alt.pickupItem(drop); // the player path: loot rules, party meso split, its own bag

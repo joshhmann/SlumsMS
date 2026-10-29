@@ -163,8 +163,11 @@ class DramaScenariosTest {
         assertTrue(world.drama.contains("rival stage nemesis"));
         suite.action(world.online, "kswar", new String[]{"4"});
         assertTrue(world.drama.contains("rival kswar 4"));
+        // QA run 3: a war another check left on the GM is ended before the forced call, or the call is refused
+        int ended = world.drama.indexOf("rival endwar");
+        assertTrue(ended >= 0 && ended < world.drama.indexOf("rival kswar 4"), world.drama.toString());
         suite.stop(1, "!qa stop");
-        assertTrue(world.drama.contains("rival endwar"));
+        assertTrue(world.drama.lastIndexOf("rival endwar") > world.drama.indexOf("rival kswar 4"));
         start("rv-4", 10);
         assertTrue(world.drama.contains("rival revenge"));
         start("rv-3", 10);
