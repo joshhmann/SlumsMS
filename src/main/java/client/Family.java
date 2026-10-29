@@ -46,6 +46,70 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class Family {
     private static final Logger log = LoggerFactory.getLogger(Family.class);
+
+    /**
+     * 1.6.1 (TEST 2026-10-29: boot stopped on families 4 and 8 with no leader row): joining a family makes the junior
+     * visible in memory before its row is written, and the auto-QA teardown deleted the family's rows in that window,
+     * so the junior's row landed after the delete, pointing at a senior row that was gone. A join's in-memory and
+     * database writes and a dissolve now run one at a time under this lock.
+     */
+    private static final java.util.concurrent.locks.ReentrantLock MEMBERSHIP_LOCK = new java.util.concurrent.locks.ReentrantLock();
+
+    /** Runs {@code work} holding the family membership lock (a join, or a dissolve). */
+    public static <T> T underMembershipLock(java.util.function.Supplier<T> work) {
+        MEMBERSHIP_LOCK.lock();
+        try {
+            return work.get();
+        } finally {
+            MEMBERSHIP_LOCK.unlock();
+        }
+    }
+
+    /** Tests: whether a join or a dissolve holds the lock now. */
+    static boolean membershipLocked() {
+        return MEMBERSHIP_LOCK.isLocked();
+    }
+
+    /** A family_character row: the character, its family and its senior (0 = none). */
+    public record Row(int cid, int familyId, int seniorId) {
+    }
+
+    /**
+     * The rows of family {@code familyId} that may be deleted, juniors before their seniors, never a row another row
+     * still names as its senior unless that junior is deleted first. {@code rows} are the family's rows plus any row
+     * naming one of them as senior (another family's junior keeps its senior's row, and so its whole chain up).
+     */
+    public static List<Integer> safeDeletionOrder(int familyId, List<Row> rows) {
+        java.util.Set<Integer> mine = new java.util.HashSet<>();
+        for (Row r : rows) {
+            if (r.familyId() == familyId) {
+                mine.add(r.cid());
+            }
+        }
+        List<Integer> order = new ArrayList<>();
+        java.util.Set<Integer> deleted = new java.util.HashSet<>();
+        java.util.Set<Integer> left = new java.util.HashSet<>(mine);
+        boolean progress = true;
+        while (progress && !left.isEmpty()) {
+            progress = false;
+            for (Integer cid : new ArrayList<>(left)) {
+                boolean namedBySomeoneStaying = false;
+                for (Row r : rows) {
+                    if (r.seniorId() == cid && r.cid() != cid && !deleted.contains(r.cid())) {
+                        namedBySomeoneStaying = true;
+                        break;
+                    }
+                }
+                if (!namedBySomeoneStaying) {
+                    order.add(cid);
+                    deleted.add(cid);
+                    left.remove(cid);
+                    progress = true;
+                }
+            }
+        }
+        return order; // anything still in "left" is in a cycle: never deleted
+    }
     private static final AtomicInteger familyIDCounter = new AtomicInteger();
 
     private final int id, world;

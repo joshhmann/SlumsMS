@@ -70,6 +70,14 @@ public final class AcceptFamilyHandler extends AbstractPacketHandler {
         if (!YamlConfig.config.server.USE_FAMILY_SYSTEM || chr == null) {
             return;
         }
+        // 1.6.1: the junior is visible in memory before its row is written; a dissolve waits until both are done
+        Family.underMembershipLock(() -> {
+            answerLocked(chr, inviter, accept);
+            return null;
+        });
+    }
+
+    private static void answerLocked(Character chr, Character inviter, boolean accept) {
         if (inviter != null) {
             InviteResult inviteResult = InviteCoordinator.answerInvite(InviteType.FAMILY, chr.getId(), chr, accept);
             if (inviteResult.result == InviteResultType.NOT_FOUND) {

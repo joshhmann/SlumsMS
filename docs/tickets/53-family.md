@@ -154,3 +154,16 @@ The notes promised "every perk works" and regular juniors; the audit found gaps.
   junior on a map the rule allows (`FamilyUseHandler.travelAllowed`, extracted). Test: FamilyTravelFieldsTest.
 - **t-fy-4 passed, with an NPE in the log:** the probe dissolved the family while the bot's answer was still
   broadcasting; it now waits for the answer to finish.
+
+## TEST boot stop (2026-10-29 13:05 UTC), branch 161-family5
+
+Families 4 and 8 had only a bot junior's row (ShadowLuv 1004268480, N1ghtPanda 1004268507) naming senior 44
+(AutoQaOne), whose row was gone. Both came from auto-QA t-fy-4 (08:02:03 and 11:39:57 UTC): the journal logs "PASS
+t-fy-4" in the same millisecond as "Bot ... could not answer AutoQaOne's family invite" (NPE in
+AcceptFamilyHandler.answer). Joining makes the junior visible in memory before its row is written; the probe saw the
+join, dissolved the family (`DELETE FROM family_character WHERE familyid = ?`) and the bot's still-running answer then
+inserted its row after the delete. Fix: a join (`AcceptFamilyHandler.answer`) and the QA dissolve (`FamilyQa.teardown`)
+take one lock (`Family.underMembershipLock`), and the dissolve deletes rows one by one, juniors first, never a row
+another row still names as its senior (`Family.safeDeletionOrder`); any row it must keep is named in its result.
+Character deletion was already safe (DeleteCharHandler refuses a character in a family of 2+). Boot repair of such data:
+3c09a2606. Test: FamilyDissolveSafetyTest (the TEST rows, a straggler naming a member, the lock: fails without it).

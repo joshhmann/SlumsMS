@@ -107,12 +107,21 @@ public final class FamilyQa {
         }
     }
 
-    /** Dissolves the staged family: rows, familyid, the world's copy and {@code player}'s Family buffs. */
+    /**
+     * Dissolves the staged family: rows, familyid, the world's copy and its members' Family buffs. Runs under the family
+     * membership lock, so a bot's join still being written finishes first (TEST 2026-10-29: a junior row written after
+     * the delete pointed at a deleted senior and stopped the next boot). Rows go juniors first, and a row another row
+     * still names as its senior is never deleted ({@link Family#safeDeletionOrder}); what stays is named in the result.
+     */
     public static String teardown(Character player, Staged st) {
+        return Family.underMembershipLock(() -> teardownLocked(player, st));
+    }
+
+    private static String teardownLocked(Character player, Staged st) {
         FamilyBuffs.clear(player.getId());
         World world = player.getWorldServer();
         Family f = world.getFamily(st.familyId());
-        List<Integer> ids = new ArrayList<>();
+        java.util.Set<Integer> ids = new java.util.LinkedHashSet<>();
         if (f != null) {
             for (FamilyEntry e : f.getMembers()) {
                 ids.add(e.getChrId());
@@ -126,24 +135,52 @@ public final class FamilyQa {
             }
             world.removeFamily(st.familyId());
         }
+        List<Integer> deleted;
+        List<Integer> kept = new ArrayList<>();
         try (Connection con = DatabaseConnection.getConnection()) {
+            List<Family.Row> rows = new ArrayList<>();
+            StringBuilder in = new StringBuilder();
             for (int id : ids) {
+                in.append(in.length() == 0 ? "" : ",").append(id);
+            }
+            String sql = "SELECT cid, familyid, seniorid FROM family_character WHERE familyid = ?"
+                    + (in.length() == 0 ? "" : " OR seniorid IN (" + in + ") OR cid IN (" + in + ")");
+            try (PreparedStatement ps = con.prepareStatement(sql)) {
+                ps.setInt(1, st.familyId());
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        rows.add(new Family.Row(rs.getInt(1), rs.getInt(2), rs.getInt(3)));
+                    }
+                }
+            }
+            deleted = Family.safeDeletionOrder(st.familyId(), rows);
+            for (Family.Row r : rows) {
+                if (r.familyId() == st.familyId() && !deleted.contains(r.cid())) {
+                    kept.add(r.cid());
+                }
+            }
+            for (int id : deleted) {
                 try (PreparedStatement ps = con.prepareStatement("DELETE FROM family_entitlement WHERE charid = ?")) {
                     ps.setInt(1, id);
                     ps.executeUpdate();
                 }
+                try (PreparedStatement ps = con.prepareStatement(
+                        "DELETE FROM family_character WHERE cid = ? AND familyid = ?")) {
+                    ps.setInt(1, id);
+                    ps.setInt(2, st.familyId());
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = con.prepareStatement(
+                        "UPDATE characters SET familyid = 0 WHERE id = ? AND familyid = ?")) {
+                    ps.setInt(1, id);
+                    ps.setInt(2, st.familyId());
+                    ps.executeUpdate();
+                }
             }
-            try (PreparedStatement ps = con.prepareStatement("DELETE FROM family_character WHERE familyid = ?")) {
-                ps.setInt(1, st.familyId());
-                ps.executeUpdate();
-            }
-            try (PreparedStatement ps = con.prepareStatement("UPDATE characters SET familyid = 0 WHERE familyid = ?")) {
-                ps.setInt(1, st.familyId());
-                ps.executeUpdate();
-            }
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
             return "family " + st.familyId() + " left in the database: " + e.getMessage();
         }
-        return "family " + st.familyId() + " dissolved (" + ids.size() + " members)";
+        return "family " + st.familyId() + " dissolved (" + ids.size() + " members, " + deleted.size() + " rows)"
+                + (kept.isEmpty() ? "" : "; rows kept because a junior still names them: " + kept);
     }
 }
