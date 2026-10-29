@@ -197,6 +197,8 @@ public final class BotConversation {
         // Owner report 2026-10-22: what was said in public on the map, and the bot's own line the player answers
         Heard heard = deliver == null ? heard(bot.getChr(), player, now) : Heard.NONE;
         List<BotBrain.Turn> history;
+        // 1.6.1: a whisper is read with the earlier whispers of this bot and this player (not the line itself)
+        List<ChatDecide.Earlier> whisperContext = deliver == null ? List.of() : noteWhisper(bot, player, line, now);
         synchronized (session.history) {
             if (heard.justSaid() != null && !alreadyInHistory(session.history, heard.justSaid())) {
                 // the bot's public line (scripted or not) is a real turn of this chat: the player is answering it
@@ -211,12 +213,20 @@ public final class BotConversation {
         // Off the caller's thread: the first recall of a pair reads the database.
         ExecutorServiceManager.runAsync(() -> {
             try {
-                ask(session, history, line, now, fallback, heard);
+                ask(session, history, line, now, fallback, heard, whisperContext);
             } catch (RuntimeException | LinkageError e) {
                 log.warn("Bot chat failed for {}", bot.getChr().getName(), e);
             }
         });
         return true;
+    }
+
+    /** The pair's earlier whispers (read before this line is added to the trail). */
+    private static List<ChatDecide.Earlier> noteWhisper(BotSM bot, Character player, String line, long now) {
+        var trail = soloMapling.ArtificialPlayer.BotConvo.WhisperTrail.of(bot.getChr().getId(), player.getId(), now);
+        List<ChatDecide.Earlier> before = trail.earlier(now);
+        trail.add(true, line, now);
+        return before;
     }
 
     /** The map's public chat for this bot's prompt, and its own line the player's line answers (or null). */
@@ -458,8 +468,14 @@ public final class BotConversation {
         }
     }
 
+    /** A player logged out: their whisper trails with every bot go. */
+    public static void playerLoggedOut(int playerId) {
+        soloMapling.ArtificialPlayer.BotConvo.WhisperTrail.dropPlayer(playerId);
+    }
+
     /** Ends every chat of a bot that is leaving the world. */
     public static void endAllOf(int botCharId) {
+        soloMapling.ArtificialPlayer.BotConvo.WhisperTrail.dropBot(botCharId);
         holds.remove(botCharId); // a bot leaving the world keeps no hold for the next one that gets its id
         for (Key key : new ArrayList<>(sessions.keySet())) {
             if (key.botId() == botCharId) {
@@ -475,7 +491,7 @@ public final class BotConversation {
      * narrate) takes an LLM slot. Every line's tier and latency go to {@link ChatStats}.
      */
     private static void ask(Session session, List<BotBrain.Turn> history, String line, long asked, Runnable fallback,
-                            Heard heard) {
+                            Heard heard, List<ChatDecide.Earlier> whisperContext) {
         Character bot = session.bot.getChr();
         Character player = session.player;
         if (session.bot instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot training
@@ -489,7 +505,7 @@ public final class BotConversation {
         soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Read read =
                 soloMapling.ArtificialPlayer.BotConvo.ConvoSense.read(line, ChatDecide.get(),
                         ChatDecide.get() == null ? null : ChatDecide.getTone(), player == null ? null : player.getName(),
-                        whisper ? List.of() : earlierLines(bot, player, line));
+                        whisper ? whisperContext : earlierLines(bot, player, line));
         ChatTriage.Result triage = read.triage();
         // Ticket 58: a kind line warms the bot to the player, a rude one cools it (the tone read above, no extra call).
         soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.judgeTone(bot, player, read.affinityTone(),
@@ -926,6 +942,10 @@ public final class BotConversation {
             session.history.add(BotBrain.Turn.assistant(line));
         }
         Consumer<String> deliver = session.deliver;
+        if (deliver != null) {
+            long sentAt = System.currentTimeMillis();
+            soloMapling.ArtificialPlayer.BotConvo.WhisperTrail.of(bot.getId(), player.getId(), sentAt).add(false, line, sentAt);
+        }
         boolean firstLine;
         synchronized (session.history) {
             firstLine = session.history.stream().filter(t -> t.role() == BotBrain.Role.ASSISTANT).count() <= 1;
