@@ -56,7 +56,7 @@ public final class GuideMenu {
     static final List<GuidePage> PAGES = List.of(
             new GuidePage("Welcome", ""
                     + "#eHi, I'm Slums-chan! Welcome to SlumsMS!#n\r\n"
-                    + "A small server for friends. Towns are\r\n"
+                    + "A small v83 server for friends. Towns are\r\n"
                     + "full of #bplayer bots#k: they train, trade,\r\n"
                     + "chat, make friends, and #bremember you#k.\r\n"
                     + "Play with them or ignore them: both are fine!\r\n"

@@ -23,7 +23,7 @@
 <string name="text" value="#e1. What is SlumsMS?#n"/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="SlumsMS is a custom world: custom jobs and skills, rebirths, the Arcane River and Grandis maps, a 5th tier for every class.\n\nOn top of that the towns are alive. Hundreds of #bregulars#k train, trade, chat, run party quests and come and go through the day."/>
+<string name="text" value="SlumsMS is a v83 world built on #bMapleRoot#k: custom jobs and skills, rebirths, the Arcane River and Grandis maps, a 5th tier for every class.\n\nOn top of that the towns are alive. Hundreds of #bregulars#k train, trade, chat, run party quests and come and go through the day."/>
 </imgdir>
 </imgdir>
 <imgdir name="3">
@@ -95,7 +95,7 @@
 <string name="text" value=""/>
 </imgdir>
 <imgdir name="1">
-<string name="text" value="Many skills are changed here: new 4th job attacks, more lines and targets, and some old skills removed (boosters, Steal, Big Bang and others).\n\nWarriors are sword or spear only.\n\n#L0##bBack to Contents#k#l"/>
+<string name="text" value="MapleRoot changed many skills: new 4th job attacks, more lines and targets, and some old skills removed (boosters, Steal, Big Bang and others).\n\nWarriors are sword or spear only.\n\n#L0##bBack to Contents#k#l"/>
 </imgdir>
 </imgdir>
 <imgdir name="12">
