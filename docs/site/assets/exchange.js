@@ -50,6 +50,8 @@
     // the game keeps NX near the official rate: sells at 50% of it or more, buys at 200% or less (b005)
     PRICE_BAND: function (a) {
       var d = a.data || {}, lo = typeof d.minPrice === "number", hi = typeof d.maxPrice === "number";
+      // before NX has an official rate the game only has a floor for sells (its maxPrice is then the ticker's own cap)
+      if (!d.rate && lo) return "NX has no official rate yet, so a sell starts at " + fmt(d.minPrice) + " mesos per 1,000 NX.";
       var range = lo && hi ? "from " + fmt(d.minPrice) + " to " + fmt(d.maxPrice) : lo ? "of at least " + fmt(d.minPrice)
         : hi ? "of at most " + fmt(d.maxPrice) : "closer to it";
       return "NX trades near the official rate" + (d.rate ? " (" + fmt(d.rate) + ")" : "") + ": pick a price " + range + ".";
