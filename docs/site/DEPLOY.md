@@ -137,11 +137,21 @@ In this order; each step has its check, and stop at the first one that fails.
    copy: `ls <build>/database/icons/items | wc -l` matches `ls /srv/slums-site/database/icons/items | wc -l` (about
    4,971), and the same for `mobs` and `npcs`.
 3. Copy the site: `rsync -a --delete --exclude market/ --exclude world/ <build>/ /srv/slums-site/`.
-4. Services (unit files in `tools/site/`): `slums-login` (login_service.py: stale-GM 401, `again`), `slums-market`
-   (ExecStart becomes market_app.py; the exchange stays off), `slums-report` (copy the new report_service.py to
-   `/opt/slums-report/`, plus the two new Environment lines). `systemctl daemon-reload`, restart the three, then
-   `curl -s 127.0.0.1:8094/api/login/health`, `127.0.0.1:8095/api/market/health`, `127.0.0.1:8093/api/report/health`
-   all give `{"ok": true}`, and `ss -ltn | grep 8097` shows the staff reader.
+4. Services (unit files in `tools/site/`):
+   - The Flask market app. Flask comes from Ubuntu, no pip or venv: `dpkg -l python3-flask` shows `ii ... 3.0.2`
+     (installed on 164 for TEST, checked 2026-10-29); if not, `apt install python3-flask`. Then `cp -p
+     /etc/systemd/system/slums-market.service{,.pre-161}` and install the new unit: its ExecStart is
+     `market_app.py` (same port 8095, URLs, cookie and database as `market_service.py`), and it has no
+     `SLUMS_MARKET_EXCHANGE` line, so the exchange stays off.
+   - `slums-login`: the new login_service.py (a GM signed in over 12 h ago gets 401, so `/admin/` asks again).
+   - `slums-report`: copy the new report_service.py to `/opt/slums-report/`, plus the two new Environment lines.
+   - `systemctl daemon-reload`, restart the three, then `curl -s 127.0.0.1:8094/api/login/health`,
+     `127.0.0.1:8095/api/market/health` and `127.0.0.1:8093/api/report/health` all give `{"ok": true}`;
+     `journalctl -u slums-market -n 3` says `market service (Flask) ... exchange off`; `ss -ltn | grep 8097` shows the
+     staff reader. Signed in, a watch added on a database page shows on `/market/mine` (the watchlist survived).
+   - Roll back the market alone: `mv /etc/systemd/system/slums-market.service{.pre-161,}`, `systemctl
+     daemon-reload && systemctl restart slums-market` (market_service.py on the same database; watchlists, alerts,
+     posts and cards are kept). The exchange page then shows an error instead of "not open yet".
 5. nginx: add part 3 of `tools/site/slums-login.nginx.conf` (clean URLs, `/admin/`, `/admin/data/`,
    `/api/report/staff/`, `@signagain`) and the `try_files` line in `/database/` and `/market/`; `nginx -t && systemctl
    reload nginx`. The download-pass part (`slums-pass.nginx.conf`, ticket 106, `satisfy any`) belongs to the patch
