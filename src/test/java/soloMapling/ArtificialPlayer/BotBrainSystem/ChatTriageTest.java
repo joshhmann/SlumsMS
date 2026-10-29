@@ -74,6 +74,43 @@ class ChatTriageTest {
         }
     }
 
+    /**
+     * #66: r7 read most of these as harassment. Dying at a boss or in a PQ is normal by RULE (the source says so, not
+     * just the default); the boat line names no boss, so it stays the model's call, but never harassment by rule.
+     */
+    @org.junit.jupiter.api.Test
+    void dyingAtABossOrInAPqIsNormalByRule() {
+        for (String line : new String[] {"lets go die to horntail lol", "wanna go die at zakum with us",
+                "we gonna die to pap again lol", "lets go die in ht tonight", "go die to the boss with me lol",
+                "im gonna go die to jr balrog brb", "lets all die together at zak xD", "u wanna go die in kpq lol",
+                "come go die at krexel with us", "lets go die in lpq"}) {
+            ChatTriage.Result r = ChatTriage.rules(line);
+            assertEquals(ChatTriage.Con.NORMAL, r.con(), line);
+            assertEquals(ChatTriage.Source.RULE, r.conSource(), "normal by rule: " + line);
+        }
+        ChatTriage.Result boat = ChatTriage.rules("i always die at the boat lol");
+        assertEquals(ChatTriage.Con.NORMAL, boat.con());
+        assertEquals(ChatTriage.Source.DEFAULT, boat.conSource(), "no boss named: the model decides");
+        // a real death wish next to a boss name is still one
+        for (String line : new String[] {"kys, go die at zakum", "go die in a fire", "go die noob", "drop dead noob",
+                "just go die already lol", "hope u die bro"}) {
+            assertEquals(ChatTriage.Con.HARASSMENT, ChatTriage.rules(line).con(), line);
+        }
+    }
+
+    /** The boss names come from the server's expeditions (krexel, scarga) and the chat topics (ht, zak, pap, kpq). */
+    @org.junit.jupiter.api.Test
+    void bossAndPqNamesComeFromTheServersData() {
+        List<String> names = ChatTriage.bossAndPqNames();
+        for (server.expeditions.ExpeditionType type : server.expeditions.ExpeditionType.values()) {
+            String word = type.name().toLowerCase(java.util.Locale.ROOT).replaceAll("^(easy|normal|hard|chaos)_|_(easy|normal|hard|chaos)$", "");
+            assertTrue(word.contains("_") || names.contains(java.util.regex.Pattern.quote(word)), type + " in " + names);
+        }
+        assertTrue(ChatTriage.BOSS_DEATH.matcher("die at ht").find());
+        assertTrue(ChatTriage.BOSS_DEATH.matcher("die in kpq").find());
+        assertFalse(ChatTriage.BOSS_DEATH.matcher("die in a fire").find());
+    }
+
     /** Owner 2026-10-29: the rule flags death wishes, slurs and real-life threats only; trash talk is the model's call. */
     @org.junit.jupiter.api.Test
     void trashTalkIsNotHarassmentByRuleButSlursAndThreatsAre() {

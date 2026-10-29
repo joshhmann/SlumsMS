@@ -1,0 +1,29 @@
+# Starts at boot (owner 2026-10-29, an exception to /root/MODEL_DOCTRINE.md's no-autostart rule): bots read chat by
+# rules alone while it is down. Pinned to one GPU by UUID and capped in memory, so it cannot take the other cards.
+# Install with enable-at-boot.sh; the repo copy is tools/chatbank/units/decide-8910.service.
+[Unit]
+Description=OneJev1.6-0.8B Decide, base model (tone) (:8910)
+After=network-online.target
+Wants=network-online.target
+# wait up to 5 min for the GPU at boot instead of crash-looping before the driver is up
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/OneJev
+# pinned by GPU UUID: CUDA index order differs from nvidia-smi; cuda:0 is then the only visible card
+Environment=CUDA_VISIBLE_DEVICES=GPU-5db843be-d1a3-c845-2cd5-6116c37f995b
+ExecStartPre=/bin/sh -c 'for i in $$(seq 150); do nvidia-smi -L | grep -q GPU-5db843be-d1a3-c845-2cd5-6116c37f995b && exit 0; sleep 2; done; exit 1'
+ExecStart=/root/venvs/decide/bin/flide serve --model /root/models/jev-small/OneJev1.6-0.8B --device cuda:0 --host 0.0.0.0 --port 8910 \
+    --dtype bfloat16 --session-cache-gb 0.1 --no-cuda-graphs --max-request-tokens 1024
+Restart=on-failure
+RestartSec=5
+OOMScoreAdjust=-400
+MemoryMax=6G
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=decide-8910
+
+[Install]
+WantedBy=multi-user.target

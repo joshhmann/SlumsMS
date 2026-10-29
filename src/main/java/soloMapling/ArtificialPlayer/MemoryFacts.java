@@ -94,6 +94,11 @@ public final class MemoryFacts {
             t("guilds?", "guilds", Cat.ACTIVITY));
 
     /** "lvl 70", "level 120": a level goal. */
+    /** The regexes of one kind of topic, for other chat rules (ChatTriage's boss and PQ talk, #66). */
+    public static List<String> patternsOf(Cat cat) {
+        return TERMS.stream().filter(t -> t.cat() == cat).map(t -> t.pattern().pattern()).toList();
+    }
+
     private static final Pattern LEVEL = Pattern.compile("\\b(?:lv|lvl|level)\\s?(\\d{2,3})\\b");
     /** The player says they are after something; the thing is in the words that follow. */
     private static final Pattern WANT = Pattern.compile("\\b(?:want(?:s|ing)?|wanna|need(?:s)?|saving(?: up)? for|"

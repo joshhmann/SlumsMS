@@ -115,6 +115,12 @@ public final class HealthSweep {
      * map has none loaded). Returns the result as a JSON-ready map ({@code soloMapling.server.Json}).
      */
     public synchronized Map<String, Object> run(Snapshot s, Function<Integer, List<FootholdCheck.Seg>> footholds) {
+        return run(s, footholds, null);
+    }
+
+    /** As above, plus the chat-model check on the Decide endpoints' running totals ({@code null}: not checked). */
+    public synchronized Map<String, Object> run(Snapshot s, Function<Integer, List<FootholdCheck.Seg>> footholds,
+                                                Map<String, DecideTotals> decide) {
         Map<String, Object> checks = new LinkedHashMap<>();
         checks.put("foothold", footholdCheck(s, footholds));
         checks.put(SENT_CHECK, footholdSentCheck(s, footholds));
@@ -125,6 +131,9 @@ public final class HealthSweep {
         checks.put("invalidMaps", invalidMapCheck(s));
         checks.put("errors", errorCheck(s));
         checks.put("mapCap", mapCapCheck(s));
+        if (decide != null) {
+            checks.put("chatModel", chatModelCheck(decide));
+        }
 
         Status worst = Status.OK;
         List<String> problems = new ArrayList<>();
@@ -551,6 +560,52 @@ public final class HealthSweep {
     /** True for the Free Market entrance and rooms, where shop bots stand packed on purpose. */
     static boolean isFreeMarket(int mapId) {
         return mapId >= 910000000 && mapId <= 910000099;
+    }
+
+    /** One chat-model endpoint's running totals ({@code ChatStats.endpointTotals}): calls and how they ended. */
+    public record DecideTotals(long calls, long ok, long timeout, long error, long empty) {
+    }
+
+    /** Fewest calls since the last sweep before an endpoint that answered none counts as down. */
+    static final int DECIDE_DOWN_MIN_CALLS = 3;
+
+    private final Map<String, DecideTotals> lastDecide = new LinkedHashMap<>();
+
+    /*
+     * (h) 1.6.1: the chat-model endpoints (.17 :8913 intent+con, :8910 tone) since the last sweep. They do not start
+     * at boot; when one is down every call fails and bots read chat by rules alone, which nothing else reports. FAIL
+     * when an endpoint got calls and answered none, WARN when it answered under half.
+     */
+    private Map<String, Object> chatModelCheck(Map<String, DecideTotals> now) {
+        List<String> down = new ArrayList<>();
+        List<String> shaky = new ArrayList<>();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map.Entry<String, DecideTotals> e : new java.util.TreeMap<>(now).entrySet()) {
+            DecideTotals t = e.getValue(), was = lastDecide.getOrDefault(e.getKey(), new DecideTotals(0, 0, 0, 0, 0));
+            long calls = t.calls() - was.calls(), ok = t.ok() - was.ok(), timeout = t.timeout() - was.timeout(),
+                    error = t.error() - was.error();
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("endpoint", e.getKey());
+            m.put("calls", calls);
+            m.put("ok", ok);
+            m.put("timeout", timeout);
+            m.put("error", error);
+            rows.add(m);
+            if (calls >= DECIDE_DOWN_MIN_CALLS && ok == 0) {
+                down.add(e.getKey() + " " + calls + " calls, none answered (" + timeout + " timed out, " + error
+                        + " failed)");
+            } else if (calls >= DECIDE_DOWN_MIN_CALLS && ok * 2 < calls) {
+                shaky.add(e.getKey() + " answered " + ok + " of " + calls);
+            }
+        }
+        lastDecide.clear();
+        lastDecide.putAll(now);
+        String summary = !down.isEmpty() ? "down, bots read chat by rules only: " + String.join(", ", down)
+                : !shaky.isEmpty() ? "answering under half: " + String.join(", ", shaky)
+                : now.isEmpty() ? "no chat-model calls yet" : rows.size() + " endpoints answering";
+        Map<String, Object> c = check(!down.isEmpty() ? Status.FAIL : !shaky.isEmpty() ? Status.WARN : Status.OK, summary);
+        c.put("endpoints", rows);
+        return c;
     }
 
     private Map<String, Object> check(Status st, String summary) {

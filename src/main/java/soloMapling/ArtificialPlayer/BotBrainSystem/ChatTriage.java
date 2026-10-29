@@ -165,6 +165,32 @@ public final class ChatTriage {
             // death wishes; "go die to/in/at <boss>" is game talk, not a wish
             + "|\\bgo die\\b(?! (to|in|at|on|vs|with|from)\\b)|\\bgo die (in a (fire|hole|ditch)|irl)\\b|\\bdrop dead\\b|hope (u|you|ya) die\\b(?! less| fewer| to))");
 
+    /**
+     * #66: dying at a boss or in a PQ is game talk, con normal by rule ("wanna go die at zakum with us", "lets all die
+     * together at zak", "go die to the boss with me"); the trained model read most of these as harassment. Checked after
+     * {@link #HARASSMENT}, so "kys, go die at zakum" stays harassment. The names come from the server's expeditions and
+     * the boss and PQ names players type ({@link soloMapling.ArtificialPlayer.MemoryFacts}), not a list kept here.
+     */
+    static final Pattern BOSS_DEATH = Pattern.compile("\\bdie (?:together |again |first |there )?(?:to|in|at|vs|on|with) "
+            + "(?:the |a |jr |some )?(?:" + String.join("|", bossAndPqNames()) + ")\\b");
+
+    /** Every expedition boss (words of its name, without easy/normal/hard/chaos), the chat topics' bosses and PQs, boss, pq. */
+    static List<String> bossAndPqNames() {
+        java.util.Set<String> out = new java.util.LinkedHashSet<>();
+        for (server.expeditions.ExpeditionType type : server.expeditions.ExpeditionType.values()) {
+            for (String word : type.name().toLowerCase(Locale.ROOT).split("_")) {
+                if (!word.matches("easy|normal|hard|chaos")) {
+                    out.add(Pattern.quote(word));
+                }
+            }
+        }
+        out.addAll(soloMapling.ArtificialPlayer.MemoryFacts.patternsOf(soloMapling.ArtificialPlayer.MemoryFacts.Cat.BOSS));
+        out.addAll(soloMapling.ArtificialPlayer.MemoryFacts.patternsOf(soloMapling.ArtificialPlayer.MemoryFacts.Cat.PQ));
+        out.add("boss(?:es)?");
+        out.add("pqs?");
+        return List.copyOf(out);
+    }
+
     private ChatTriage() {
     }
 
@@ -275,6 +301,9 @@ public final class ChatTriage {
         }
         if (HARASSMENT.matcher(text).find()) {
             return Optional.of(Con.HARASSMENT);
+        }
+        if (BOSS_DEATH.matcher(text).find()) {
+            return Optional.of(Con.NORMAL);
         }
         return meaning.filtered() && text.isBlank() || ChatPriceTalk.fair(text) ? Optional.of(Con.NORMAL) : Optional.empty();
     }
