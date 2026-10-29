@@ -1,6 +1,6 @@
 ---
 name: release-book
-description: Build and keep one "release book" per SlumsMS version - a single Claude Doc with where the version stands, the true player patch notes, the promise audit, bug squashing, who owns what, the owner's decisions and the release-night checklist - plus the db-backed squash board (board items and bugs, each with a notes box for the owner). Use at the start of every version, whenever the owner asks for a sitrep, "one doc", "where are we", "what's left before live", an audit of promises, or a bug/board update, and again on release night. Also use when lanes report in, so the book and board stay current.
+description: Build and keep one "release book" per SlumsMS version - a single tabbed artifact with where the version stands, the true player patch notes, the promise audit, bug squashing, who owns what, the owner's decisions and the release-night checklist - including the live board, bugs and the owner's TEST click-through, each card with a notes box for the owner. Use at the start of every version, whenever the owner asks for a sitrep, "one doc", "where are we", "what's left before live", an audit of promises, or a bug/board update, and again on release night. Also use when lanes report in, so the book and board stay current.
 ---
 
 # Release book (one per version)
@@ -8,31 +8,37 @@ description: Build and keep one "release book" per SlumsMS version - a single Cl
 1.6.1 taught this: notes, an audit, a sitrep, two boards and a click-through list lived on six pages, the notes
 over-promised, and features "merged" were mistaken for "working". One book plus one live board fixes that.
 
-## The two artifacts
+## One artifact per version
 
-1. **Squash board** (live tracker, an HTML artifact with the `db` capability). Copy the 1.6.1 one
-   (https://claude.ai/artifact/MyhfTPAtE1oAvDmpz6FTcG, scratchpad file `squash-board.html`) for a new version.
-   - Collection `items` (board): `{lane, ord, kind: fix|verify|decide|process, status: open|doing|check|done,
-     title, done (the "done when" test), note}`. doc_id `s01` server, `c01` client, `l01` launcher, `w01` website,
-     `m01` chat model, `o01` ops, `p01` process.
-   - Collection `bugs`: `{num, lane, sev: S1-S4, status: new|triaged|fixing|fixed|wontfix, title, repro,
-     found_by, found_at (UTC), fix, note}`; doc_id `b` + 3 digits. S1 breaks live or loses data, S2 a feature
-     doesn't work, S3 wrong with a workaround, S4 polish.
-   - Every card has a **My notes** box; the owner's text is in `owner_note` (+ `owner_note_at`). Read those notes
-     whenever you update the board and act on them.
-   - Lane sessions file their own bugs with ArtifactData: list or query the highest `num` right before writing
-     (concurrent filers collide), then `set` the next id. Updates always carry `if_version`.
-2. **Release book** (a Claude Doc, one tab). Sections, in this order:
-   1. **Where it stands**: a table per piece (server, client, launcher, website, chat model) with live vs
-      TEST/RC version and time, the QA run tally, and the release gate as a `- [ ]` checklist.
-   2. **Patch notes (players)**: only what ships switched on and works; nothing that is off for live.
-   3. **Promise audit**: feature, promise (the notes' words), state, proof so far (auto-QA id, real-client
-      screenshot), still needs.
-   4. **Bug squashing**: counts per lane and status, the open list, a link to the board.
-   5. **Who owns what**: lane, owner session (ListAgents names), what it owns, what it needs from the owner.
-   6. **Owner decisions**: date, decision, newest first. Mirror them into memory (`decisions-<date>.md`).
-   7. **Release night**: numbered steps in deploy order, then the rollback per piece.
-   8. **Sources**: older pages it replaces and the repo files (docs/release/<v>-notes.md, <v>.conf).
+The book is ONE HTML artifact with the `db` capability (1.6.1: https://claude.ai/artifact/MyhfTPAtE1oAvDmpz6FTcG,
+scratchpad file `squash-board.html`; copy it for a new version and change the title). It holds every other page as a
+tab: Overview, Patch notes, Promise audit, Board, Bugs, Click-through, Owners, Decisions, Release night, Sources.
+Deep links: the artifact URL plus `#board`, `#bugs`, `#click`, etc. Never make separate pages for these again.
+
+Its database (write with ArtifactData; every update carries `if_version`):
+- `book`: the written tabs, one doc per section `{tab, ord, md, updated, by}`. `tab` is overview | notes | audit |
+  owners | decisions | release | sources | click (intro). `md` is GitHub markdown (tables, `- [ ]` lists); the page
+  renders it. Update a section by rewriting its `md` and `updated` (UTC + PT). No republish needed.
+- `items`: board cards `{lane, ord, kind: fix|verify|decide|process, status: open|doing|check|done, title, done (the
+  "done when" test), note}`; doc_id `s01` server, `c01` client, `l01` launcher, `w01` website, `m01` chat model,
+  `o01` ops, `p01` process.
+- `bugs`: `{num, lane, sev: S1-S4, status: new|triaged|fixing|fixed|wontfix, title, repro, found_by, found_at (UTC),
+  fix, note}`; doc_id `b` + 3 digits. S1 breaks live or loses data, S2 a feature doesn't work, S3 wrong with a
+  workaround, S4 polish. Lane sessions file their own: query the highest `num` right before writing, then `set`.
+- `stops`: the owner's TEST click-through `{ord, title, url, mins, checks[], done}`.
+- Every card, section and stop has a **My notes** box: the owner's text is `owner_note` (+ `owner_note_at`). Read
+  them on every update and act on them.
+
+What each tab must say:
+1. **Overview**: a table per piece (server, client, launcher, website, chat model) with live vs TEST/RC version and
+   time; the QA run tally; the release gate as `- [ ]`; a "Waiting on you" list.
+2. **Patch notes**: only what ships switched on and works; nothing that is off for live.
+3. **Promise audit**: feature, promise (the notes' words), state, proof so far (auto-QA id, real-client
+   screenshot), still needs.
+4. **Owners**: lane, owner session (ListAgents names), what it owns, what it needs from the owner.
+5. **Decisions**: date, decision, newest first. Mirror them into memory (`decisions-<date>.md`).
+6. **Release night**: numbered steps in deploy order, then the rollback per piece.
+7. **Sources**: older pages it replaces and the repo files (docs/release/<v>-notes.md, <v>.conf).
 
 ## Rules that make it honest
 
@@ -49,10 +55,10 @@ over-promised, and features "merged" were mistaken for "working". One book plus 
 
 ## Cadence
 
-- Start of a version: copy the board, seed items from the roadmap and the notes, create the book.
-- After each merge batch, TEST deploy or lane report: update the board (statuses, notes, new bugs) and the book's
-  sections 1, 3 and 4. Read the owner's notes boxes first.
-- Before release night: rerun the notes audit, a full auto-QA run and the QA-client pass; fill section 7.
+- Start of a version: copy the artifact, seed `book`, `items` and `stops` from the roadmap and the notes.
+- After each merge batch, TEST deploy or lane report: update `items`/`bugs` and the Overview and Promise audit
+  sections. Read the owner's notes boxes first.
+- Before release night: rerun the notes audit, a full auto-QA run and the QA-client pass; fill Release night.
 - After the release: mark the book released, carry open bugs to the next version's board.
 
 Related skills: `release-readiness` (switches, hotfix parity, QA coverage), `notes-review` (site release page),
