@@ -57,6 +57,7 @@
         : hi ? "of at most " + fmt(d.maxPrice) : "closer to it";
       return "NX trades near the official rate" + (d.rate ? " (" + fmt(d.rate) + ")" : "") + ": pick a price " + range + ".";
     },
+    // dormant: the owner dropped the daily NX sell cap (2026-10-29 13:25 UTC); kept so an older game still reads well
     LIMIT_NX_DAY: function (a) {
       var d = a.data || {};
       return "You can sell " + fmt(d.capNx) + " NX here in 24 hours: " + fmt(d.usedNx) + " sold"
