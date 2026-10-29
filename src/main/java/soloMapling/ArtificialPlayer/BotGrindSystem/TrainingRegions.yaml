@@ -100,5 +100,5 @@ regions:
     travel_min_level: 120
   - name: The Future
     windows: [{min: 271000000, max: 274000000}]
-    hubs: [271010000, 273000000]
+    hubs: [271010000, 273000000, 272000000]   # 272000000: Crack in Time, for Leafre of the Past (owner 2026-10-29)
     travel_min_level: 120

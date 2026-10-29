@@ -106,6 +106,11 @@ class GateOfTimeScriptTest {
         assertTrue(cm.menu.contains("Future") && cm.menu.contains("Grandis"), cm.menu);
         assertEquals(271000000, cm.warpedTo);
 
+        assertTrue(cm.menu.contains("Leafre of the Past"), cm.menu);
+        FakeCm past = pick(120, 2);
+        assertEquals(272000000, past.warpedTo, "level 120 goes to Leafre of the Past (owner 2026-10-29)");
+        assertTrue(server.maps.AreaGates.isFuture(past.warpedTo), "behind the Future's level-120 gate");
+
         FakeCm grandis = pick(120, 1);
         assertEquals(400000000, grandis.warpedTo, "level 120 goes to Pantheon");
         assertTrue(server.maps.AreaGates.isLowerGrandis(grandis.warpedTo));
@@ -115,7 +120,7 @@ class GateOfTimeScriptTest {
 
     @Test
     void level119IsTurnedAwayFromBoth() throws Exception {
-        for (int selection = 0; selection <= 1; selection++) {
+        for (int selection = 0; selection <= 2; selection++) {
             FakeCm cm = pick(119, selection);
             assertEquals(-1, cm.warpedTo, "no warp for option " + selection);
             assertTrue(cm.ok != null && cm.ok.contains("level 120"), cm.ok);

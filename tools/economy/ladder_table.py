@@ -42,6 +42,7 @@ def areas(lower):
         ("Lion King's Castle", rng(211060000, 211061999)),
         ("Rose Garden", rng(211080000, 211080999)),
         ("Lower Grandis", lambda m: m in lower),
+        ("Leafre of the Past (Future, Gate of Time)", rng(272000100, 272000600)),
         ("Future / Twilight Perion", lambda m: 271000000 <= m <= 273999999),
         ("Upper Grandis", lambda m: 400000000 <= m < 420000000 and m not in lower
             and not (400050000 <= m < 400060000 or 401070000 <= m < 401080000)),

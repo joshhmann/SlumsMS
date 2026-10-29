@@ -37,9 +37,9 @@
 #
 # 1.6.1 (tickets 81/b041): the Future and lower Grandis open at level 120 without rebirths (server.maps.AreaGates,
 # BotMapGates), Lion King's Castle needs no rebirth (b040). `level: 120` marks those entries (documentation, like
-# `rebirths:`). Bots of 120-140 now train mostly in lower Grandis (20 entries); the Future's weakest reachable maps
-# have lv 162+ mobs, so bots take them from about lv 147 (maxAbove 15). Leafre of the Past (lv 124, inside the
-# Future's id range) has no way in for players or bots and is not on the path.
+# `rebirths:`). Bots of 120-140 now train mostly in lower Grandis (15 entries). Owner 2026-10-29: Leafre of the Past
+# (272000100-600, the Future's lv 124 maps) opens as the Gate of Time's third choice, so the Future starts at level 120
+# there (6 entries at 120-140, 2 at 140-160); its other maps have lv 162+ mobs and come in from about lv 147.
 version: 1
 job_groups:
   # bot job id ranges -> group; a group with no entry in a band falls back to "general".
@@ -693,6 +693,13 @@ bands:
         - {map: 402000122, w: 3, mode: solo, level: 120, mob_levels: [129, 129], name: "Garbage Dump: Waste Treatment Plant 3"}
         - {map: 402000310, w: 3, mode: solo, level: 120, mob_levels: [130, 130], name: "Brawl 'n' Bash Club: Stray Dog Alley 1"}
         - {map: 402000641, w: 3, mode: solo, level: 120, mob_levels: [130, 130], name: "Ravaged Base Remnants: Ravaged Western Base 1"}
+        # Leafre of the Past (owner 2026-10-29): the Future's lv 124 maps, by the Gate of Time's third choice.
+        - {map: 272000100, w: 2, mode: solo, level: 120, mob_levels: [124, 124], name: "Leafre of Past: Leafre in Flames 1"}
+        - {map: 272000200, w: 2, mode: solo, level: 120, mob_levels: [124, 124], name: "Leafre of Past: Leafre in Flames 2"}
+        - {map: 272000300, w: 2, mode: solo, level: 120, mob_levels: [124, 124], name: "Leafre of Past: Leafre in Flames 3"}
+        - {map: 272000400, w: 2, mode: solo, level: 120, mob_levels: [124, 124], name: "Leafre of Past: Leafre in Flames 4"}
+        - {map: 272000500, w: 2, mode: solo, level: 120, mob_levels: [124, 124], name: "Leafre of Past: Leafre in Flames 5"}
+        - {map: 272000600, w: 2, mode: solo, level: 120, mob_levels: [124, 124], name: "Leafre of Past: Leafre in Flames 6"}
       mage_cleric:
         - {map: 240040511, w: 5, mode: party, mob_levels: [110, 113], name: "Leafre: The Dragon Nest Left Behind"}
         - {map: 240040510, w: 5, mode: party, mob_levels: [110, 113], name: "Leafre: Nest of a Dead Dragon"}
@@ -731,14 +738,16 @@ bands:
         # - {map: 211060620, w: 3, mode: solo, rebirths: 1, mob_levels: [127, 127], name: "Lion King's Castle: Tall Castle Walls 1"}
         # UNREACHABLE (LKC past Walls 1: the tower portals want key items 4032832-4 or quests 3165-3167):
         # - {map: 211060830, w: 3, mode: solo, rebirths: 1, mob_levels: [127, 127], name: "Lion King's Castle: Very Tall Castle Walls"}
-        # Lower Grandis's top end and more of the Future (1.6.1 b041): both open at level 120 (AreaGates). The Future's
-        # weakest maps a player or bot can reach have lv 162+ mobs, so maxAbove (15) brings them in from about lv 147.
+        # Lower Grandis's top end and more of the Future (1.6.1 b041): both open at level 120 (AreaGates). Apart from
+        # Leafre of the Past (lv 124) the Future has lv 162+ mobs, so maxAbove (15) brings those in from about lv 147.
         - {map: 402000321, w: 3, mode: solo, level: 120, mob_levels: [140, 142], name: "Abandoned Offices: Mr. Hazard's Lair 2"}
         - {map: 400010400, w: 3, mode: solo, level: 120, mob_levels: [141, 141], name: "East Pantheon: Enchanted Forest"}
         - {map: 402000221, w: 3, mode: solo, level: 120, mob_levels: [133, 133], name: "Black Market: Nutria Gutter 2"}
         - {map: 402000643, w: 3, mode: solo, level: 120, mob_levels: [132, 132], name: "Ravaged Base Remnants: Ravaged Western Base 3"}
         - {map: 402000123, w: 3, mode: solo, level: 120, mob_levels: [135, 135], name: "Garbage Dump: Shaded Dump Site"}
         - {map: 402000311, w: 3, mode: solo, level: 120, mob_levels: [137, 137], name: "Brawl 'n' Bash Club: Stray Dog Alley 2"}
+        - {map: 272000200, w: 1, mode: solo, level: 120, mob_levels: [124, 124], name: "Leafre of Past: Leafre in Flames 2"}
+        - {map: 272000500, w: 1, mode: solo, level: 120, mob_levels: [124, 124], name: "Leafre of Past: Leafre in Flames 5"}
         - {map: 400030400, w: 3, mode: solo, level: 120, mob_levels: [140, 140], name: "South Pantheon: Anti-Magic Forest"}
         - {map: 402000322, w: 3, mode: solo, level: 120, mob_levels: [142, 142], name: "Abandoned Offices: Mr. Hazard's Lair 3"}
         - {map: 271000200, w: 3, mode: solo, level: 120, mob_levels: [165, 165], name: "Dark Ereve: Mutant Tiru Forest"}

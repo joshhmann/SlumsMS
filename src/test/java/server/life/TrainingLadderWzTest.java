@@ -55,7 +55,7 @@ class TrainingLadderWzTest {
         MobInfo info = null;
         if (Files.exists(f)) {
             String xml = Files.readString(f);
-            String head = xml.substring(0, Math.min(xml.length(), 8000));
+            String head = infoText(xml);
             String link = field(head, "link");
             Integer ownExp = field(head, "exp") == null ? null : Integer.parseInt(field(head, "exp"));
             if (link != null) {
@@ -70,6 +70,36 @@ class TrainingLadderWzTest {
         }
         MOBS.put(id, info);
         return info;
+    }
+
+    private static final Pattern TAG = Pattern.compile("<imgdir\\b[^>]*?(/?)>|</imgdir>");
+
+    /** The info node's own fields, without its attack/skill blocks (a skill's level is not the mob's). */
+    static String infoText(String xml) {
+        int start = xml.indexOf("<imgdir name=\"info\">");
+        if (start < 0) {
+            return xml;
+        }
+        int pos = start + "<imgdir name=\"info\">".length();
+        int depth = 0;
+        StringBuilder out = new StringBuilder();
+        Matcher m = TAG.matcher(xml);
+        m.region(pos, xml.length());
+        while (m.find()) {
+            if (depth == 0) {
+                out.append(xml, pos, m.start());
+            }
+            if (m.group().equals("</imgdir>")) {
+                if (depth == 0) {
+                    break;
+                }
+                depth--;
+            } else if (m.group(1).isEmpty()) {
+                depth++;
+            }
+            pos = m.end();
+        }
+        return out.toString();
     }
 
     private static String field(String xml, String name) {
@@ -184,6 +214,36 @@ class TrainingLadderWzTest {
         assertTrue(checked.size() >= 50, "mobs checked: " + checked.size());
         assertTrue(checked.contains(7130002) && checked.contains(8200000) && checked.contains(9420514),
                 "Beetle, Eye of Time and Berserkie are among them");
+    }
+
+    /** Owner 2026-10-29: the Future / Twilight Perion (Leafre of the Past aside) trimmed to about 3x the buffed Temple. */
+    @Test
+    void theFuturePaysAboutThreeTimesTheBuffedTempleOfTime() throws IOException {
+        WzTestData.assumePresent("Map.wz");
+        WzTestData.assumePresent("Mob.wz");
+        double temple = areaMedian(placements("Map2", m -> m >= 270030000 && m <= 270039999));
+        double future = areaMedian(placements("Map2", m -> AreaGates.isFuture(m) && !(m >= 272000100 && m <= 272000600)));
+        double ratio = future / temple;
+        assertTrue(ratio >= 2.85 && ratio <= 3.15, String.format("the Future %.1fM an hour = %.2fx the buffed Temple",
+                future / 1e6, ratio));
+    }
+
+    /**
+     * Owner 2026-10-29: Leafre of the Past opens (Gate of Time) as a lv 124 spot; its Corrupted mobs pay what lower
+     * Grandis pays, not the trimmed Future rate (nor round 4's 36M, which was below lower Grandis at the same level).
+     */
+    @Test
+    void leafreOfThePastPaysLikeLowerGrandis() throws IOException {
+        WzTestData.assumePresent("Map.wz");
+        WzTestData.assumePresent("Mob.wz");
+        double past = areaMedian(placements("Map2", m -> m >= 272000100 && m <= 272000600));
+        double lower = areaMedian(placements("Map4", AreaGates::isLowerGrandis));
+        double ratio = past / lower;
+        assertTrue(ratio >= 0.9 && ratio <= 1.2, String.format("Leafre of the Past %.1fM an hour = %.2fx lower Grandis",
+                past / 1e6, ratio));
+        for (int corrupted = 8220016; corrupted <= 8220019; corrupted++) {
+            assertEquals(124, mob(corrupted).level(), "the Corrupted mob's info level, not its skill's");
+        }
     }
 
     @Test

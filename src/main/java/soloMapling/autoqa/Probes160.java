@@ -1505,6 +1505,9 @@ final class Probes160 {
     static final int LADDER_LKC_BOSS_WING = 211070000;
     /** t-ld-1 (1.6.1 b040): the Gate of Time's lower-Grandis destination. */
     static final int LADDER_GATE_GRANDIS = 400000000;
+    /** t-ld-1 (owner 2026-10-29): the Gate of Time's third choice, Leafre of the Past (Crack in Time), and a field. */
+    static final int LADDER_GATE_PAST = 272000000;
+    static final int LADDER_PAST_FIELD = 272000100;
     /** t-ld-1: one mob per region with a stat row (Arcane, Grandis, Future, Lion King's Castle) and a buffed classic one. */
     static final int[] LADDER_MOBS = {8644001, 2400000, 8610008, 8210000, 8190003};
     /** t-ld-1: mobs that must carry a migration-050 meso row (Arcane, Grandis, Future, Lion King's Castle). */
@@ -1514,8 +1517,8 @@ final class Probes160 {
      * t-ld-1: a level-119 character (no rebirths) is refused at the Future and lower Grandis and a level-120 one is let
      * in, by the players' rule (AreaGates: Hyper Rock, teleporter, portals) and the bots' (BotMapGates); upper Grandis,
      * the deeper Grandis maps (Fox Tree, Heliseum, the back streets) and Arcane stay closed at level 200; Lion King's
-     * Castle and the Rose Garden let a rebirth-0 character in (Von Leon's wing keeps rebirth 1); the Gate of Time
-     * offers lower Grandis behind the same gate; each sampled mob loads with its mob-stat-overrides HP and EXP; the
+     * Castle and the Rose Garden let a rebirth-0 character in (Von Leon's wing keeps rebirth 1) and the Rose Garden's
+     * walk-in portal has its script; the Gate of Time offers lower Grandis and Leafre of the Past behind the same gate; each sampled mob loads with its mob-stat-overrides HP and EXP; the
      * sampled newer-area mobs carry migration 050's meso row and the ledger table has rows.
      */
     static List<String> trainingLadder() {
@@ -1563,7 +1566,8 @@ final class Probes160 {
         }
         return verdict(bad, "lv119 refused and lv120 let in at the Future and lower Grandis (players and bots), upper "
                 + "and deeper Grandis and Arcane still rebirth 3, Lion King's Castle open at rebirth 0, the Gate of Time "
-                + "offers lower Grandis, sampled mobs carry their HP/EXP rows and 050's drops", ev);
+                + "offers lower Grandis and Leafre of the Past, the Rose Garden walk-in works, sampled mobs carry their "
+                + "HP/EXP rows and 050's drops", ev);
     }
 
     /** t-ld-1's gate half: no database or WZ needed (unit-tested); scripts is the server's scripts folder. */
@@ -1617,13 +1621,25 @@ final class Probes160 {
             String portal = java.nio.file.Files.readString(scripts.resolve("portal/270000000.10.js"));
             String menu = java.nio.file.Files.readString(scripts.resolve("npc/gateOfTime.js"));
             boolean offers = portal.contains("\"gateOfTime\"") && menu.contains("[" + LADDER_GATE_GRANDIS + ",")
-                    && menu.contains("[271000000,") && menu.contains("AreaGates.denyReason");
-            ev.add("Gate of Time: Future + lower Grandis menu=" + offers);
+                    && menu.contains("[271000000,") && menu.contains("[" + LADDER_GATE_PAST + ",")
+                    && menu.contains("AreaGates.denyReason");
+            ev.add("Gate of Time: Future + lower Grandis + Leafre of the Past menu=" + offers);
             if (!offers) {
-                bad.add("the Gate of Time does not offer the Future and lower Grandis behind AreaGates");
+                bad.add("the Gate of Time does not offer the Future, lower Grandis and Leafre of the Past behind AreaGates");
+            }
+            String rose = java.nio.file.Files.readString(scripts.resolve("portal/pt_rosegarden.js"));
+            if (!rose.contains("warp(211080000")) {
+                bad.add("pt_rosegarden.js does not walk into the Rose Garden");
             }
         } catch (java.io.IOException e) {
             bad.add("scripts unreadable: " + e.getMessage());
+        }
+        for (int map : new int[]{LADDER_GATE_PAST, LADDER_PAST_FIELD}) {
+            if (server.maps.AreaGates.denyReason(map, 119, 0) == null || server.maps.AreaGates.denyReason(map, 120, 0) != null
+                    || soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 0, 119)
+                    || !soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 0, 120)) {
+                bad.add("Leafre of the Past " + map + ": want lv119 refused and lv120 in, for players and bots");
+            }
         }
         if (!server.maps.AreaGates.isLowerGrandis(LADDER_GATE_GRANDIS)) {
             bad.add("the Gate of Time's Grandis destination " + LADDER_GATE_GRANDIS + " is not lower Grandis");

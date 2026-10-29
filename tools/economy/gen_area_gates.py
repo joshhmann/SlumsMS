@@ -25,6 +25,10 @@ import re
 import xml.etree.ElementTree as ET
 from collections import deque
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gen_bb_drops import info_text  # noqa: E402  (the info node without its skill/attack blocks)
 
 SEEDS = [400000000, 402000000, 402000500, 402000600, 410000000, 410000200, 410000300, 410000416]
 LOWER_MAX = 142
@@ -45,7 +49,7 @@ def mob_level(wz, mobid, cache, depth=0):
     f = wz / "Mob.wz" / f"{mobid:07d}.img.xml"
     lv = None
     if f.exists():
-        t = f.read_text(errors="ignore")[:6000]
+        t = info_text(f.read_text(errors="ignore"))
         link = re.search(r'name="link" value="(\d+)"', t)
         if link and depth < 3:
             lv = mob_level(wz, int(link.group(1)), cache, depth + 1)

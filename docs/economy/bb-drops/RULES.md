@@ -92,8 +92,16 @@ migration skips any (mob, item) pair that is already in drop_data.
   Against the BUFFED Temple (the same release gives it x1.4) round 3's target gave only 1.3x (34M against 26M an
   hour). The normal Grandis mobs placed on a lower-Grandis map get the target x LOWER_GRANDIS_EXP_X = 1.55, which
   puts the area's median training map at 2.0x the buffed Temple of Time's Road to Oblivion (52.6M against 26.1M;
-  `tools/economy/ladder_table.py`). The Future, upper Grandis, Arcane River, Lion King's Castle and Rose Garden keep
-  the round-3 target.
+  `tools/economy/ladder_table.py`). Upper Grandis, Arcane River, Lion King's Castle and Rose Garden keep the
+  round-3 target.
+- **The Future (owner 2026-10-29).** It paid ~3.9x the buffed Temple; its normal mobs now get the target x
+  FUTURE_EXP_X = 0.75, so its median training map pays 3.0x the buffed Road to Oblivion (78.4M against 26.1M).
+- **Leafre of the Past (owner 2026-10-29)** (272000100-272000600, the Future's lv 124 Corrupted Wyvern, Cornian,
+  Skelegon and Kentaurus) opens as a Gate of Time choice. Its mobs get the lower-Grandis multiplier (x1.55), not the
+  Future trim, so a lv 124 map pays what lower Grandis pays at that level: 14,800 EXP a kill, 55.4M an hour.
+- The generators read a mob's level from its Mob.wz `info` node only (`info_text`): the first `level` in the file was
+  sometimes a skill's (Corrupted Skelegon's skill 4, the mob 124). That changed no gate and no row, only two comments
+  in lower-grandis-maps.txt and the ladder tool's map filter.
 
 ### Classic 120+ spots (round 3: moderately up, below the new areas; 1.6.1 b040: every mob)
 
@@ -130,10 +138,12 @@ migration skips any (mob, item) pair that is already in drop_data.
 - **Lion King's Castle and the Rose Garden** (1.6.1 b040): no rebirth gate. `in_lkc.js`, `211060000.4.js`,
   `out_VLRoof4.js`, the Hyper Rock and the bots' gate no longer ask for 1 rebirth. Still gated: the towers past
   Walls 1 (key items 4032832-4032834 / 4032858 or quests 3165-3167, as before) and Von Leon's wing 211070000-211070550
-  (rebirth 1 by Hyper Rock and for bots; on foot it is reached through the towers).
+  (rebirth 1 by Hyper Rock and for bots; on foot it is reached through the towers). The Fifth Tower roof's portal into the Rose
+  Garden (`pt_rosegarden.js`) and its way back (`pt_rosegardenout.js`) were missing and now exist (owner 2026-10-29).
 - **Where the rule is checked:** the Hyper Rock (`HyperTPHandler`), the Henesys teleporter (`scripts/npc/9010002.js`,
   per destination), the Temple of Time's Gate of Time (`scripts/portal/270000000.10.js` opens the menu
-  `scripts/npc/gateOfTime.js`: the Future or lower Grandis at Pantheon, since 1.6.1 b040) and every unscripted portal
+  `scripts/npc/gateOfTime.js`: the Future, lower Grandis at Pantheon (1.6.1 b040) or Leafre of the Past at the Crack
+  in Time (272000000, owner 2026-10-29), all level 120) and every unscripted portal
   (`GenericPortal`). The unscripted portals catch walking between lower and upper Grandis; all nine boundary portals
   are unscripted. The Arcane River portal (`arcaneriver.js`) is unchanged. GMs pass.
 - **Bots** (round 4) follow the same rule. `BotMapGates.mayEnter(map, rebirths, level)` asks AreaGates. It is used for

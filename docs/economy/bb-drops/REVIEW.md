@@ -16,6 +16,46 @@ The drop tables and rare gear are as in round 2, and Mirror World stays out. **N
 
 Player notes text: `PLAYER-NOTES.md`.
 
+## Round 6 (owner 2026-10-29, branch 161-ladder3)
+
+The owner's decisions on round 5:
+- **The Future is trimmed to about 3x the buffed Temple of Time** (it was ~3.9x): its EXP target is x0.75. Example:
+  Official Knight D (lv 174) 56,700 -> 42,500 EXP a kill.
+- **Leafre of the Past opens** as the Gate of Time's third choice (Crack in Time, 272000000), behind the same level-120
+  gate, so the Future starts at level 120 there. Bots: a "Gate of Time" transit row to it, Crack in Time as a hub of
+  "The Future" region, and 6 path entries at 120-140 (2 at 140-160); all 30 maps of the 120-140 band are reachable for a
+  rebirth-0 bot at level 120 (LevelPathSweepCheck).
+- **The Corrupted mobs at their right EXP:** now that people can reach them they are paid like lower Grandis at
+  lv 124 (x1.55 instead of the Future trim): 14,800 EXP a kill (Mob.wz 2,051), 55.4M an hour, 1.05x the lower-Grandis
+  median. Round 4's 9,550 (36M) would have been well below lower Grandis at the same level; with the Future trim alone
+  it would have been ~27M, the Temple's rate.
+- **Rose Garden walk-in fixed:** `pt_rosegarden.js` (Fifth Tower roof -> Gardener's Spot) and `pt_rosegardenout.js`
+  (back) existed in the WZ portals only. The Fifth Tower is still behind the tower keys; the Hyper Rock also goes in.
+- Also fixed: the generators read the first `level` in a Mob.wz file, which for mobs with skills was the skill's
+  level (Corrupted Skelegon and Cornian read as lv 4 and 5). No gate or stat row changed; the ladder's Future row now
+  counts 56 maps instead of 46 (its 100.7M before the trim, not 105.4M).
+
+The ladder now (`tools/economy/ladder_table.py`, same model as round 5; Leafre of the Past is shown on its own and left
+out of the Future row):
+
+| Area | Strongest mob per map | Maps | EXP/hour | x buffed Temple of Time (Road to Oblivion) |
+|---|---|---|---|---|
+| Ulu City (Singapore) | 90-115 | 8 | 27.1M | 1.04x |
+| Leafre / Minar Forest | 93-113 | 24 | 18.7M | 0.71x |
+| Temple of Time, Road of Regrets | 106-116 | 5 | 24.6M | 0.94x |
+| Temple of Time, Road to Oblivion | 121-131 | 5 | 26.1M | 1.00x |
+| Lion King's Castle | 117-127 | 13 | 34.0M | 1.30x |
+| Rose Garden | 128-134 | 6 | 42.4M | 1.62x |
+| Lower Grandis | 109-142 | 110 | 52.6M | 2.01x |
+| Leafre of the Past (Future, Gate of Time) | 124-124 | 6 | 55.4M | 2.12x |
+| Future / Twilight Perion | 109-198 | 50 | 78.4M | 3.00x |
+| Upper Grandis | 114-200 | 113 | 153.4M | 5.87x |
+| Arcane River | 200-200 | 272 | 155.8M | 5.96x |
+
+Before this round the Future row read 100.7M (3.85x) with the corrected levels, Leafre of the Past 35.7M (0.68x lower
+Grandis), and every other row as above. Lower Grandis 2.0x < Future 3.0x < upper Grandis/Arcane 5.9-6.0x: it still
+climbs as the areas get higher.
+
 ## Round 5 (1.6.1 b039-b041, branch 161-ladder2): the notes are now true
 
 The 1.6.1 audit (REPORT-small items 14-19) found five places where the player notes promised more than the build
