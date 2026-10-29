@@ -135,3 +135,15 @@ Cygnus (2 x 15B) in time, no run is formed and those keys come only from players
 Castle story, 3163-3170); bots play no quest chains, so their runs and joins are not held to it (1.6.0's party-bot
 joins are). The walk into the Cygnus stronghold is taken as made once the bot holds the emblem. Pink Bean, Zakum and
 Horntail are run on screen only with a player.
+
+**TEST b034 (2026-10-29), t-rb-2 FAIL "the crew is gone" — fixed on 161-rebirth2.** A bot never logs in, so
+`Character.isLoggedinWorld()` is false for every bot. The run's crew check dropped the crew on its first beat (250 ms);
+behind it, the event and expedition code asked the same and would have left the bots out too:
+`EventInstanceManager.registerPlayer` (no bot could enter an instance, which also kept 1.6.0's party bots out of their
+player's expedition), `exitPlayer`, and `Expedition.getActiveMembers` (the start's registration and the boss log's
+clear rows). They now ask `Character.isPresentInWorld()`: logged in, or a bot standing on a map. Test:
+RebirthRunCrewTest. Measured on TEST (ImNinja, Marksman 322 raised to 200): about 367,000 damage a second against
+Zakum, Horntail and Von Leon; Von Leon alone 341 min (limit 120); Zakum as a group of 6 3.6 min, Horntail 20.8 min.
+Cygnus' fight (2 x 15B + 5 guards x 0.6B = 33B HP) at that rate: about 250 min for six, so no bot-formed Cygnus run
+until each bot does about 1.0M a second (6 bots inside 75% of 120 min). No helper joined: the Von Leon helpers need a
+rebirth (Lion King's Castle), and TEST's regulars have none.

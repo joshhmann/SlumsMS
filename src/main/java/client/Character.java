@@ -519,6 +519,16 @@ public class Character extends AbstractCharacterObject {
         return this.isLoggedin() && !this.isAwayFromWorld();
     }
 
+    /**
+     * 1.6.1 (161-rebirth2): in the world now: a logged-in player, or a bot standing on a map. A bot never logs in
+     * ({@link #isLoggedinWorld} is false for it), so the event and expedition code that asked only that left every bot
+     * out: a bot could not be registered into an event instance, was no active expedition member and was never
+     * written to the boss log.
+     */
+    public boolean isPresentInWorld() {
+        return isLoggedinWorld() || client instanceof BotClient && getMap() != null; // a bot is never "back from the cash shop" either
+    }
+
     public boolean isAwayFromWorld() {
         return awayFromWorld.get();
     }
