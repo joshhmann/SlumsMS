@@ -621,12 +621,14 @@ oscillates around the fair value. Mesos and leaves were exactly conserved in eve
 
 ## Stolen-cookie guard, game side (owner 2026-10-29: "both guards"; branch `161-nxguard`)
 
-The website does a fresh sign-in on its side; the game enforces three things (`NxGuard`, JVM knobs, 0 = off):
+The website does a fresh sign-in on its side; the game enforces two things (`NxGuard`, JVM knobs, 0 = off). **No
+daily caps** (owner 2026-10-29 13:25 UTC): the site NX sell cap (LIMIT_NX_DAY, 10,000 NX a day) that `161-nxguard`
+added and the proposed mesos cap on site NX buys (LIMIT_MESO_DAY) are gone; NX keeps its 5 open / 20 a day / 72 h.
+Site orders still carry request id `s-<token>` (`@nx`: `t-`), so staff can tell where an order came from.
 
 | Guard | Rule | Code (data) | Knob, default |
 |---|---|---|---|
-| NX price band | every player NX order, site or `@nx`: a SELL may not ask under 50% of the official NX rate, a BUY may not bid over 200%; with no official rate yet, sells need at least 100,000 per 1,000 NX (100 mesos per NX) and buys keep the ticker's range. Checked at preview and again at place. Regulars and the QA test regular quote through their own path; the NX QA check prices its bid at the band's lowest sell or above | `PRICE_BAND` (`minPrice`, `maxPrice`, `rate`) | `-Dslums.exchange.nxBand.minPct=50`, `.maxPct=200`, `.floor=100000` |
-| Site NX sell cap | NX an account sells through the site in 24 h (site previews' orders carry request id `s-<token>`; `@nx`'s keep `t-`): open and filled orders count in full, cancelled or expired ones only what filled | `LIMIT_NX_DAY` (`capNx`, `usedNx`, `leftNx`) | `-Dslums.exchange.siteNxSellPerDay=10000` (proposal; the owner kept 5 open / 20 a day / 72 h) |
+| NX price band | every player NX order, site or `@nx`: a SELL may not ask under 50% of the official NX rate, a BUY may not bid over 200%; with no official rate yet, sells need at least 100,000 per 1,000 NX (100 mesos per NX) and buys may bid at most 10,000,000 per 1,000 NX (2x the NX merchant bots' 10k NX for 50m; fix 2026-10-29: before, a stolen session could buy a thief's NX at the ticker's 100m and drain the account's mesos). Checked at preview and again at place. Regulars and the QA test regular quote through their own path; the NX QA check prices its bid at the band's lowest sell or above | `PRICE_BAND` (`minPrice`, `maxPrice`, `rate`) | `-Dslums.exchange.nxBand.minPct=50`, `.maxPct=200`, `.floor=100000`, `.ceiling=10000000` |
 | Site sign-in age | preview, confirm, cancel and mine must carry `siteAuthAt` (epoch ms, or ISO-8601, of the player's last real sign-in on the site, not a cookie refresh); refused when missing, older than 12 h or more than 5 min in the future. Book and trades need none | `REAUTH` (`maxAgeHours`) | `-Dslums.exchange.siteAuthMaxHours=12` |
 
 Rollout: the site must send `siteAuthAt` before a server with this build answers its requests, or every account
