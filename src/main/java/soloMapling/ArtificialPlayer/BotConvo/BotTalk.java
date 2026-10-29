@@ -167,19 +167,31 @@ public final class BotTalk {
         }
     }
 
+    /**
+     * The tick's own platform thread. A virtual thread (what runAsync gives) reports -1 CPU time, so t-bt-1 judged the
+     * wall time under a throttled cgroup (TEST 2026-10-29: 240 ms wall, threadCpuNanos 0).
+     */
+    static java.util.concurrent.ScheduledExecutorService newTickExecutor() {
+        return java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "bot-talk-tick");
+            t.setDaemon(true);
+            return t;
+        });
+    }
+
     /** Starts the tick (EnvironmentManager, with the threads). */
     public static synchronized void start() {
         if (running || !on()) {
             return;
         }
         running = true;
-        ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(() -> ExecutorServiceManager.runAsync(() -> {
+        newTickExecutor().scheduleAtFixedRate(() -> {
             try {
                 tick(System.currentTimeMillis());
             } catch (RuntimeException | LinkageError e) {
                 log.warn("Bot talk tick failed", e);
             }
-        }), 60, TICK_S, TimeUnit.SECONDS);
+        }, 60, TICK_S, TimeUnit.SECONDS);
         log.info("Bot talk: on (greetings, chats, groups; tick {} s)", TICK_S);
     }
 
@@ -270,7 +282,7 @@ public final class BotTalk {
     }
 
     /** CPU time of the calling thread (ns), or -1 when the JVM does not measure it: the tick's own cost, not waits. */
-    private static long threadCpuNow() {
+    static long threadCpuNow() {
         try {
             java.lang.management.ThreadMXBean t = java.lang.management.ManagementFactory.getThreadMXBean();
             return t.isCurrentThreadCpuTimeSupported() ? t.getCurrentThreadCpuTime() : -1;
