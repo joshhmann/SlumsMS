@@ -536,6 +536,12 @@ public final class BotTalk {
             }
             int id = SEQ.incrementAndGet();
             promises(id, plan, now);
+            for (Character c : promisers(plan)) { // they stay free for the act after the lines
+                LifeRuntime life = lifeOf(c.getId());
+                if (life != null) {
+                    life.promise(now + PROMISE_HOLD_MS);
+                }
+            }
             int channel = BotThreads.channelOf(map);
             String topic = topicOf(plan);
             BotThreads.Live thread = register(id, map, channel, plan, now);
@@ -605,6 +611,42 @@ public final class BotTalk {
     static boolean usesReservation(Plan plan, LfgParty.Plan reserved) {
         return reserved != null && plan.offer != null && plan.offer.payload() == reserved
                 && plan.decisions.values().stream().anyMatch(TalkBrain.Decision::yes);
+    }
+
+    /** How long a bot that said yes keeps itself free for the act (the lines take 15-40 s, the trips trickle out). */
+    static final long PROMISE_HOLD_MS = TimeUnit.SECONDS.toMillis(90);
+
+    /**
+     * 1.6.1 say-do (TEST 2026-10-29, t-bt-3: SilentLuv said yes to a come-along, then its own brain chose GRIND during
+     * the lines and the trip was refused): the bots whose plan ends in a trip or a stay of their own, so their brains
+     * hold until the act: a come-along's asker (it goes even alone) and each yes, both sides of a taken counter, a
+     * helper, and both of an LFG pair. A plain duo or a deal needs nobody to stay put. Pure.
+     */
+    static List<Character> promisers(Plan plan) {
+        List<Character> out = new ArrayList<>();
+        if (plan.ask == null) {
+            return out;
+        }
+        for (Step s : plan.steps) {
+            Act act = s.act;
+            if (act == null) {
+                continue;
+            }
+            boolean holds = act.ask() == Ask.COME_ALONG || act.ask() == Ask.HELP
+                    || act.ask() == Ask.PARTY && act.offer().payload() instanceof LfgParty.Plan;
+            if (!holds) {
+                continue;
+            }
+            if (act.ask() != Ask.HELP && !out.contains(act.asker())) {
+                out.add(act.asker());
+            }
+            for (Character c : act.yes()) {
+                if (!out.contains(c)) {
+                    out.add(c);
+                }
+            }
+        }
+        return out;
     }
 
     /** 1.6.1 say-do: each yes in the plan is a promise the ledger judges by what the bot then does. */

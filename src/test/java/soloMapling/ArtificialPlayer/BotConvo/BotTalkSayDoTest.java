@@ -131,6 +131,39 @@ class BotTalkSayDoTest {
         assertEquals("on its way somewhere (life_travel)", f.why(), "the true reason, so the no says it");
     }
 
+    @Test
+    void theBotsWhoseYesIsATripOrAStayHoldUntilTheAct() {
+        Character a = chr(21, "Ann", 30), b = chr(22, "Bob", 31), c = chr(23, "Cat", 31);
+        Plan come = new Plan(List.of(a, b, c), true, false);
+        come.ask = Ask.COME_ALONG;
+        come.steps.add(stepWith(a, new Act(Ask.COME_ALONG, a, List.of(b), TalkPlannerTest.comeAlong(HENESYS), null)));
+        assertEquals(List.of(a, b), BotTalk.promisers(come), "the asker and the yes; Cat said no");
+
+        Plan duo = new Plan(List.of(a, b), false, false);
+        duo.ask = Ask.PARTY;
+        duo.steps.add(stepWith(b, new Act(Ask.PARTY, a, List.of(b), new Offer(Ask.PARTY, "a duo", Map.of(), null, null), null)));
+        assertTrue(BotTalk.promisers(duo).isEmpty(), "a duo party needs nobody to stay put");
+
+        Plan pq = new Plan(List.of(a, b), false, false);
+        pq.ask = Ask.PARTY;
+        pq.steps.add(stepWith(b, new Act(Ask.PARTY, a, List.of(b), BotTalk.pqOffer(lfg(LfgParty.Why.YES)), null)));
+        assertEquals(List.of(a, b), BotTalk.promisers(pq), "both of an LFG pair take the trip");
+
+        Plan help = new Plan(List.of(a, b), false, false);
+        help.ask = Ask.HELP;
+        help.steps.add(stepWith(b, new Act(Ask.HELP, a, List.of(b), new Offer(Ask.HELP, "x", Map.of(), 1, null), null)));
+        assertEquals(List.of(b), BotTalk.promisers(help), "the helper");
+    }
+
+    private static Step stepWith(Character speaker, Act act) {
+        TalkPlannerTest.FakeSense s = new TalkPlannerTest.FakeSense().mind(speaker, 0.5, 0.1, 0.5, Goal.NONE, 0, -1);
+        Plan p = TalkPlanner.plan(List.of(speaker, chr(99, "Zed", 30)), true, null,
+                s.mind(chr(99, "Zed", 30), 0.5, 0.1, 0.5, Goal.NONE, 0, -1), false, 0, new Random(1));
+        Step st = p.steps.get(0);
+        st.act = act;
+        return st;
+    }
+
     // ── help ──
 
     @Test

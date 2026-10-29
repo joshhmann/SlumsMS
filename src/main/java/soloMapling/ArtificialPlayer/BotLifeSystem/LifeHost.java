@@ -38,6 +38,13 @@ public interface LifeHost {
 
     void nudgeSoon(long delayMs);
 
+    /**
+     * 1.6.1 say-do: the current stay or grind lasts at least until {@code until} (never shortened): the bot said yes to
+     * something its act starts in a few seconds. Hosts without timed stays ignore it.
+     */
+    default void holdLifeActivity(long until) {
+    }
+
     /** A town or social bot: every activity it has keeps it in town, so a town plan step needs no extra pull. */
     default boolean townOnly() {
         return false;
