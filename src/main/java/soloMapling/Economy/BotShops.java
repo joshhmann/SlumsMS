@@ -226,7 +226,7 @@ public final class BotShops {
             while (stock.size() < maxItems && !resale.isEmpty()) {
                 Resale r = resale.pollFirst();
                 long ask = askFor(r.item(), Kind.RESALE, r.paid());
-                if (ask <= 0 || !SaleRules.botMaySell(r.item())) {
+                if (ask <= 0 || SaleRules.whyNotListOwn(r.item()) != null) {
                     continue;
                 }
                 stock.add(new PlayerShopItem(r.item(), (short) 1, (int) Math.min(Integer.MAX_VALUE, ask)));
@@ -309,7 +309,7 @@ public final class BotShops {
                 if (t == InventoryType.USE && item.getItemId() / 10000 != 204) {
                     continue;   // potions and ammo are the bot's own kit; scrolls only
                 }
-                String why = SaleRules.whyNot(item);
+                String why = SaleRules.whyNotListOwn(item);
                 if (why != null) {
                     refused.add(nameOf(item.getItemId()) + " (" + why + ")");
                     continue;
@@ -531,7 +531,7 @@ public final class BotShops {
 
     /** A bot bought this from a player: it goes to the pool a bot shop restocks from. False when the pool is full. */
     public static boolean offerResale(Item item, long paid) {
-        if (item == null || !enabled() || !SaleRules.botMaySell(item)) {
+        if (item == null || !enabled() || SaleRules.whyNotListOwn(item) != null) {
             return false;
         }
         synchronized (resale) {

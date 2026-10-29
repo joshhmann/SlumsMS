@@ -98,10 +98,11 @@ public final class BotConsignment {
 
     /**
      * 1.5.0 rc3 review: why a bot may not put this equip on sale, or null when it may. What bots never sell
-     * ({@link soloMapling.Economy.SaleRules}: godly gear above all) stays with the bot here too; it used to be listed.
+     * ({@link soloMapling.Economy.SaleRules#whyNotListOwn}) stays with the bot here too. Owner 2026-10-29: a bot may
+     * list its own scrolled godly gear, so the godly rule no longer applies here.
      */
     static String whyNotList(Equip equip) {
-        return soloMapling.Economy.SaleRules.whyNot(equip);
+        return soloMapling.Economy.SaleRules.whyNotListOwn(equip);
     }
 
     private static HiredMerchant pickShop(Character bot) {

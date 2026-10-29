@@ -403,14 +403,17 @@ public final class PublicMarketExport {
             }
             step(written, failed, "nx-rate.json", () -> writeNxRate(today, nx, now));
             step(written, failed, "economy-public.json", () -> {
-                Integer trades;
+                Integer trades, playerTrades;
                 try {
-                    trades = sources.samplesBetween(now - TimeUnit.DAYS.toMillis(1), now + 1).size();
+                    List<PriceBook.Sample> last24h = sources.samplesBetween(now - TimeUnit.DAYS.toMillis(1), now + 1);
+                    trades = last24h.size();
+                    playerTrades = (int) last24h.stream().filter(PriceBook.Sample::playerSide).count();
                 } catch (RuntimeException e) {
                     trades = null; // the database is busy: the rest of the headline still goes out
+                    playerTrades = null;
                 }
                 PublicEconomy.Live live = new PublicEconomy.Live(trades, shopsOpen[0], sinks7d(today),
-                        botsPeak(now));
+                        botsPeak(now), playerTrades);
                 Map<LocalDate, Map<String, Long>> counters;
                 try {
                     counters = sources.counterDays(today.minusDays(PublicEconomy.DAYS - 1));

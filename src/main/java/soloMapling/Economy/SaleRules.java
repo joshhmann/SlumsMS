@@ -49,6 +49,29 @@ public final class SaleRules {
 
     /** Why a bot may not sell this item, or null when it may. */
     public static String whyNot(Item item) {
+        return refusal(item, true);
+    }
+
+    /**
+     * Why a bot may not list gear it owns in its own shop or consignment, or null when it may: {@link #whyNot} minus
+     * the godly-gear rule (owner 2026-10-29: a bot may list its own scrolled godly gear). Everything else (gifts,
+     * Mega Buy, bot-to-bot trades, buying) keeps {@link #whyNot}.
+     */
+    public static String whyNotListOwn(Item item) {
+        return refusal(item, false);
+    }
+
+    /** True for godly scrolled gear ({@link GearGrade}). */
+    public static boolean isGodlyGear(Item item) {
+        return item instanceof Equip eq && GearGrade.godly(eq);
+    }
+
+    /** {@link #whyNot} for a bare item id (generated stock that has no item yet), or null when allowed. */
+    public static String whyNotId(int itemId) {
+        return whyNot(new Item(itemId, (short) 0, (short) 1));
+    }
+
+    private static String refusal(Item item, boolean godlyRule) {
         if (item == null) {
             return "no item";
         }
@@ -74,7 +97,7 @@ public final class SaleRules {
         if (bossOnly().contains(id)) {
             return "boss-only drop";
         }
-        if (item instanceof Equip eq && GearGrade.godly(eq)) {
+        if (godlyRule && isGodlyGear(item)) {
             return "godly gear";
         }
         return null;

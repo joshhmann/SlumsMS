@@ -42,12 +42,14 @@ public final class PriceRollup {
         List<Long> prices = new ArrayList<>(byTime.size());
         List<Long> norm = new ArrayList<>(byTime.size());
         int player = 0;
+        List<Long> playerPrices = new ArrayList<>();
         long units = 0;
         for (PriceBook.Sample s : byTime) {
             prices.add(s.unitPrice());
             norm.add(s.normPrice());
             if (s.playerSide()) {
                 player++;
+                playerPrices.add(s.unitPrice());
             }
             units += Math.max(0, s.quantity());
         }
@@ -65,6 +67,14 @@ public final class PriceRollup {
         m.put("count", byTime.size());
         m.put("units", units);
         m.put("player_share", ratio(player, byTime.size()));
+        m.put("player_count", player); // 1.6.1: sales with a real player on a side (bot-to-bot seeds excluded)
+        // the same three over the player-side samples only, so a day that mixes bot seeds with real trades keeps its
+        // real price; null when no sale had a real player on a side
+        playerPrices.sort(Long::compare);
+        boolean any = !playerPrices.isEmpty();
+        m.put("player_median", any ? median(playerPrices) : null);
+        m.put("player_low", any ? playerPrices.get(0) : null);
+        m.put("player_high", any ? playerPrices.get(playerPrices.size() - 1) : null);
         return m;
     }
 

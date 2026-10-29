@@ -221,6 +221,11 @@ public class ArtificialShopGenerator {
         return null;
     }
 
+    /** Generated scroll stock follows SaleRules at item-id level (Chaos, White, cash, boss-only never come out). */
+    static boolean scrollStockable(int itemId) {
+        return soloMapling.Economy.SaleRules.whyNotId(itemId) == null;
+    }
+
     private static List<FMItem> generateScrollsList(List<String> items, String scrollList, String tier) {
         List<FMItem> itemList = new ArrayList<>() {
         };
@@ -230,6 +235,9 @@ public class ArtificialShopGenerator {
             ItemNode item = getRandomItemFull(scrollList, randomItem, tier);
             if (item != null) {
                 int itemId = pickRandomVariantId(item.getVariantId());
+                if (!scrollStockable(itemId)) {
+                    continue;   // owner 2026-10-29: no minted Chaos / White Scrolls, even if a yaml entry lists them
+                }
                 int price = item.getCurrentPrice();
                 int qty = quantitySelector("Scroll", tier); // getRandomIntInRange(5, 13);
                 itemList.add(new FMItem(itemId, price, qty));
