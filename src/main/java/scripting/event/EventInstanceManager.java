@@ -306,7 +306,7 @@ public class EventInstanceManager {
     }
 
     public synchronized void registerPlayer(final Character chr, boolean runEntryScript) {
-        if (chr == null || !chr.isPresentInWorld() || disposed) { // 161-rebirth2: a bot in the world counts
+        if (chr == null || !chr.isLoggedinWorld() && !chr.isPresentInWorld() || disposed) { // 161-rebirth2: a bot in the world counts
             return;
         }
 

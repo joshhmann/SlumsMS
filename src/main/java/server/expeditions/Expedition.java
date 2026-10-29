@@ -334,7 +334,7 @@ public class Expedition {
         List<Character> activeMembers = new LinkedList<>();
         for (Integer chrid : getMembers().keySet()) {
             Character chr = ps.getCharacterById(chrid);
-            if (chr != null && chr.isPresentInWorld()) { // 161-rebirth2: bot members are active members too
+            if (chr != null && (chr.isLoggedinWorld() || chr.isPresentInWorld())) { // 161-rebirth2: bot members are active members too
                 activeMembers.add(chr);
             }
         }
