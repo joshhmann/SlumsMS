@@ -107,9 +107,7 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
         }
         int myCh = c.getChannel(), theirCh = victim.getClient().getChannel();
         if (type == FamilyEntitlement.FAMILY_REUINION) {
-            if (FieldLimit.CANNOTMIGRATE.check(ownMap.getFieldLimit()) || FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit())
-                    || !(targetMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(targetMap.getId()))
-                    || targetMap.getEventInstance() != null) {
+            if (!travelAllowed(ownMap, targetMap)) {
                 c.sendPacket(PacketCreator.sendFamilyMessage(75, 0)); // wrong message, but close enough
                 return null;
             }
@@ -134,9 +132,7 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
             return null;
         }
         // Summon Family
-        if (FieldLimit.CANNOTMIGRATE.check(targetMap.getFieldLimit()) || FieldLimit.CANNOTVIPROCK.check(ownMap.getFieldLimit())
-                || !(ownMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(ownMap.getId()))
-                || ownMap.getEventInstance() != null) {
+        if (!travelAllowed(targetMap, ownMap)) {
             c.sendPacket(PacketCreator.sendFamilyMessage(75, 0));
             return null;
         }
@@ -156,6 +152,19 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
             victim.sendPacket(PacketCreator.sendFamilySummonRequest(me.getFamily().getName(), me.getName()));
         }
         return null;
+    }
+
+    /**
+     * Whether a Family Reunion / Summon may move someone from {@code from} to {@code to} (stock rules): {@code from}
+     * lets you leave (no CANNOTMIGRATE), {@code to} takes teleports in (no CANNOTVIPROCK, no forced return except
+     * Maple Island, not an event map). The Free Market and some boss lobbies refuse both ways (auto-QA t-fy-3,
+     * 2026-10-29: the pretend player stood in the FM entrance and its junior near Papulatus).
+     */
+    public static boolean travelAllowed(MapleMap from, MapleMap to) {
+        return from != null && to != null && !FieldLimit.CANNOTMIGRATE.check(from.getFieldLimit())
+                && !FieldLimit.CANNOTVIPROCK.check(to.getFieldLimit())
+                && (to.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(to.getId()))
+                && to.getEventInstance() == null;
     }
 
     /** The online family member called {@code name} on any channel of the world: a player, a regular or an alt. */

@@ -67,6 +67,9 @@ final class FamilyProbes {
         }
         Point at = who.getPosition() == null ? new Point(0, 0) : new Point(who.getPosition());
         map.spawnMonsterOnGroundBelow(mob, at);
+        if (mob.getMap() != map || map.getMonsterByOid(mob.getObjectId()) == null) {
+            return -2; // the map did not take the mob (its mob cap): no kill happened
+        }
         long before = who.getExp();
         int level = who.getLevel();
         map.damageMonster(who, mob, mob.getMaxHp());
@@ -129,9 +132,11 @@ final class FamilyProbes {
 
             // a bot junior's real kills give rep, capped at 300 a day
             int r0 = mine.getReputation();
-            realKill(bot);
+            long botExp = realKill(bot);
             int perKill = mine.getReputation() - r0;
-            ev.add("bot junior's real kill: rep +" + perKill);
+            ev.add("bot junior's real kill on map " + bot.getMapId() + (bot.getParty() == null ? " (solo)"
+                    : " (in a party of " + bot.getParty().getMembers().size() + ")") + ": rep +" + perKill
+                    + ", bot EXP " + (botExp == -2 ? "n/a (the mob did not spawn)" : "+" + botExp));
             if (perKill <= 0) {
                 bad.add("a bot junior's real kill gave its senior no rep");
             }
@@ -310,15 +315,27 @@ final class FamilyProbes {
             return List.of("SKIP USE_FAMILY_SYSTEM is off on this server");
         }
         Character me = p.character();
+        MapleMap home = me.getMap();
+        // TEST 2026-10-29: the pretend player was left in the Free Market entrance by an earlier check and its junior
+        // stood near Papulatus; both maps refuse Family teleports (CANNOTVIPROCK), so Reunion and Summon were refused
+        // for free and the check failed. Stand in Henesys, and take a junior on a map Family teleports reach.
+        MapleMap henesys = me.getClient().getChannelServer().getMapFactory().getMap(100000000);
+        if (me.getMap() != henesys) {
+            me.changeMap(henesys, henesys.getPortal(0));
+        }
         FamilyQa.Staged st;
         try {
-            st = FamilyQa.stage(me);
+            st = FamilyQa.stage(me, c -> net.server.channel.handlers.FamilyUseHandler.travelAllowed(me.getMap(), c.getMap())
+                    && net.server.channel.handlers.FamilyUseHandler.travelAllowed(c.getMap(), me.getMap()));
         } catch (IllegalStateException e) {
+            if (me.getMap() != home) {
+                me.changeMap(home, home.getPortal(0));
+            }
             return List.of("FAIL " + e.getMessage());
         }
         List<String> bad = new ArrayList<>();
         List<String> ev = new ArrayList<>();
-        MapleMap home = me.getMap();
+        MapleMap stand = me.getMap();
         try {
             Character bot = st.bot();
             FamilyEntry mine = me.getFamilyEntry();
@@ -343,8 +360,8 @@ final class FamilyProbes {
                 ev.add("(the regular is on another channel: a pretend player can't reconnect, so only the free refusal"
                         + " is checked here; the channel change is unit-tested)");
             }
-            if (me.getMap() != home) {
-                me.changeMap(home, home.getPortal(0));
+            if (me.getMap() != stand) {
+                me.changeMap(stand, stand.getPortal(0));
             }
             Thread.sleep(500);
 
@@ -449,6 +466,9 @@ final class FamilyProbes {
                 Thread.sleep(250);
             }
             boolean joined = bot.getFamily() != null && bot.getFamily() == me.getFamily();
+            // TEST 2026-10-29: the family shows up mid-answer; dissolving it then broke the bot's answer (NPE in
+            // AcceptFamilyHandler.answer). Let the answer finish first.
+            Thread.sleep(1_500);
             ev.add("Add Junior from map " + me.getMapId() + ": " + (joined ? "accepted" : "no answer / declined"));
             if (!joined) {
                 bad.add("the regular that asked did not accept the player's Add Junior");
