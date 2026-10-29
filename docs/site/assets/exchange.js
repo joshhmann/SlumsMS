@@ -47,11 +47,12 @@
     TRY_AGAIN: "You're changing channel, logging out or in the Cash Shop. Try again in a moment.",
     NO_ANSWER: "The game didn't answer. Try again later.",
     REAUTH: "For safety, trading needs a sign-in from the last 12 hours. Sign in again.",
-    // the game keeps NX near the official rate: sells at 50% of it or more, buys at 200% or less (b005)
-    PRICE_BAND: function (a) {
+    // the game keeps NX near the official rate: sells at 50% of it or more, buys at 200% or less (b005); before a
+    // rate exists, a fixed floor for sells and a fixed ceiling for buys (the other end is then the ticker's own cap)
+    PRICE_BAND: function (a, side) {
       var d = a.data || {}, lo = typeof d.minPrice === "number", hi = typeof d.maxPrice === "number";
-      // before NX has an official rate the game only has a floor for sells (its maxPrice is then the ticker's own cap)
-      if (!d.rate && lo) return "NX has no official rate yet, so a sell starts at " + fmt(d.minPrice) + " mesos per 1,000 NX.";
+      if (!d.rate && side === "SELL" && lo) return "NX has no official rate yet, so a sell starts at " + fmt(d.minPrice) + " mesos per 1,000 NX.";
+      if (!d.rate && side === "BUY" && hi) return "NX has no official rate yet, so a buy can offer at most " + fmt(d.maxPrice) + " mesos per 1,000 NX.";
       var range = lo && hi ? "from " + fmt(d.minPrice) + " to " + fmt(d.maxPrice) : lo ? "of at least " + fmt(d.minPrice)
         : hi ? "of at most " + fmt(d.maxPrice) : "closer to it";
       return "NX trades near the official rate" + (d.rate ? " (" + fmt(d.rate) + ")" : "") + ": pick a price " + range + ".";
@@ -61,11 +62,17 @@
       return "You can sell " + fmt(d.capNx) + " NX here in 24 hours: " + fmt(d.usedNx) + " sold"
         + (typeof d.leftNx === "number" ? ", " + fmt(d.leftNx) + " left" : "") + ".";
     },
+    // the site's daily meso cap on NX buys, per account (b005, the mirror of LIMIT_NX_DAY)
+    LIMIT_MESO_DAY: function (a) {
+      var d = a.data || {};
+      return "You can spend " + fmt(d.capMesos) + " mesos on NX here in 24 hours: " + fmt(d.usedMesos) + " spent"
+        + (typeof d.leftMesos === "number" ? ", " + fmt(d.leftMesos) + " left" : "") + ".";
+    },
     ERROR: "Something went wrong in the game. Try again later."
   };
-  function said(a) {
+  function said(a, side) {
     var c = CODES[a.code];
-    if (c) return typeof c === "function" ? c(a) : c;
+    if (c) return typeof c === "function" ? c(a, side) : c;
     return a.message ? "The game said: " + a.message + "." : "That didn't work.";
   }
 
@@ -359,7 +366,7 @@
           }
           return answer(j.id, function () { self.say("Still waiting for the game..."); }).then(function (a) {
             self.busy = false;
-            if (!a.ok) { if (a.code === "REAUTH") { self.stale = true; self.pv = null; } self.say(said(a), false); return null; }
+            if (!a.ok) { if (a.code === "REAUTH") { self.stale = true; self.pv = null; } self.say(said(a, body && body.side), false); return null; }
             self.say("");
             return a.data;
           });
