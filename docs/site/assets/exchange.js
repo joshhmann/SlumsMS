@@ -47,13 +47,17 @@
     TRY_AGAIN: "You're changing channel, logging out or in the Cash Shop. Try again in a moment.",
     NO_ANSWER: "The game didn't answer. Try again later.",
     REAUTH: "For safety, trading needs a sign-in from the last 12 hours. Sign in again.",
+    // the game keeps NX near the official rate: sells at 50% of it or more, buys at 200% or less (b005)
     PRICE_BAND: function (a) {
-      var d = a.data || {};
-      return "NX trades near the official rate: pick a price from " + fmt(d.minPrice) + " to " + fmt(d.maxPrice) + ".";
+      var d = a.data || {}, lo = typeof d.minPrice === "number", hi = typeof d.maxPrice === "number";
+      var range = lo && hi ? "from " + fmt(d.minPrice) + " to " + fmt(d.maxPrice) : lo ? "of at least " + fmt(d.minPrice)
+        : hi ? "of at most " + fmt(d.maxPrice) : "closer to it";
+      return "NX trades near the official rate" + (d.rate ? " (" + fmt(d.rate) + ")" : "") + ": pick a price " + range + ".";
     },
     LIMIT_NX_DAY: function (a) {
       var d = a.data || {};
-      return "That's over the NX you can sell here in 24 hours (" + fmt(d.usedNx) + " of " + fmt(d.capNx) + " used).";
+      return "You can sell " + fmt(d.capNx) + " NX here in 24 hours: " + fmt(d.usedNx) + " sold"
+        + (typeof d.leftNx === "number" ? ", " + fmt(d.leftNx) + " left" : "") + ".";
     },
     ERROR: "Something went wrong in the game. Try again later."
   };
