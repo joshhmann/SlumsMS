@@ -416,6 +416,7 @@ public final class PlayerLoggedinHandler extends AbstractPacketHandler {
             player.commitExcludedItems();
             showDueyNotification(c, player);
             DailyCheckin.onLogin(c);
+            soloMapling.menus.SlumsChanMenu.onLogin(player); // 1.6.1: Slums-chan welcomes a new account, once
             soloMapling.menus.TutorialIslandMenu.onLogin(player); // 1.6.1 ticket 29: "Start on Maple Island?", once
             soloMapling.menus.GuideMenu.onLogin(player); // 1.5.0: the beginner's guide, once per character
             soloMapling.menus.GuideMenu.onLoginUiTip(player); // 1.6.0.2: one-time Edit UI tip

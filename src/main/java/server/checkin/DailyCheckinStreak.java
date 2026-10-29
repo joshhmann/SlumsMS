@@ -29,6 +29,11 @@ public record DailyCheckinStreak(int day, int claimedMask, long lastClaim) {
         return this;
     }
 
+    /** Whether a running streak (at least day 1) was lost to a gap of 48 hours or more since the last claim. */
+    public boolean lostToGap(long now) {
+        return lastClaim > 0 && day > 0 && now - lastClaim >= 2 * PERIOD_MS;
+    }
+
     /** The day that can be claimed at {@code now} (1..28), or 0 while the 24-hour cooldown runs. */
     public int claimableDay(long now) {
         if (lastClaim > 0 && now - lastClaim < PERIOD_MS) {

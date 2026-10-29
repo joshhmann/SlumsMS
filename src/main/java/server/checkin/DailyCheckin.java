@@ -74,6 +74,28 @@ public final class DailyCheckin {
                 && chr.getId() != SoloMaplingConstants.GameConstants.CONSOLE_BOT_ID;
     }
 
+    /** The two rules, shown where players claim ({@code @daily}). */
+    public static java.util.List<String> ruleLines() {
+        return java.util.List.of(
+                "Daily Check-In rules: you need to be level " + YamlConfig.config.server.DAILY_CHECKIN_MIN_LEVEL
+                        + " or higher, and you can claim once every 24 hours.",
+                "Claim again within 48 hours of your last claim to keep your streak; wait longer and it restarts at day 1.");
+    }
+
+    /** Why a claim for {@code day} was refused at {@code now}, in the player's words. */
+    static String refusal(DailyCheckinStreak streak, int day, long now) {
+        long secs = streak.cooldownSeconds(now);
+        if (secs > 0) {
+            return "Daily Check-In: you already claimed today. The next reward unlocks in " + secs / 3600 + "h "
+                    + secs % 3600 / 60 + "m.";
+        }
+        int claimable = streak.claimableDay(now);
+        if (day != claimable) {
+            return "Daily Check-In: today's reward is day " + claimable + ", not day " + day + ".";
+        }
+        return "Daily Check-In: that reward was just claimed. Open @daily to see where you are.";
+    }
+
     /** Pushes the window at login when a reward is waiting. */
     public static void onLogin(Client c) {
         Character chr = c.getPlayer();
@@ -102,13 +124,14 @@ public final class DailyCheckin {
             return;
         }
         if (!eligible(chr)) {
-            chr.dropMessage(6, "Daily Check-In unlocks at Level " + YamlConfig.config.server.DAILY_CHECKIN_MIN_LEVEL + ".");
+            chr.dropMessage(6, notEligibleLine(chr));
             return;
         }
         try {
             DailyCheckinStreak streak = store.load(c.getAccID());
             long now = System.currentTimeMillis();
             c.sendPacket(snapshot(streak, now, 0));
+            notes(chr, streak, now);
             long secs = streak.cooldownSeconds(now);
             if (secs > 0) {
                 chr.dropMessage(6, "Daily Check-In: your next reward unlocks in " + secs / 3600 + "h " + secs % 3600 / 60 + "m.");
@@ -118,10 +141,28 @@ public final class DailyCheckin {
         }
     }
 
+    /** What {@code @daily} says besides the window: the two rules, and why a lost streak is back at day 1. */
+    static void notes(Character chr, DailyCheckinStreak streak, long now) {
+        for (String rule : ruleLines()) {
+            chr.dropMessage(6, rule);
+        }
+        if (streak.lostToGap(now)) {
+            chr.dropMessage(6, "Daily Check-In: more than 48 hours passed since your last claim, so your streak restarts at day 1.");
+        }
+    }
+
+    static String notEligibleLine(Character chr) {
+        return "Daily Check-In unlocks at Level " + YamlConfig.config.server.DAILY_CHECKIN_MIN_LEVEL + " (you are Level "
+                + chr.getLevel() + ").";
+    }
+
     /** A request from the window: {@code claimDay} 0 = just show it. Throttled per account. */
     public static void handleRequest(Client c, int claimDay) {
         Character chr = c.getPlayer();
         if (!eligible(chr)) {
+            if (claimDay > 0 && isPlayer(chr)) {
+                chr.dropMessage(6, enabled() ? notEligibleLine(chr) : "Daily Check-In is not available right now.");
+            }
             return;
         }
         long now = System.currentTimeMillis();
@@ -139,6 +180,8 @@ public final class DailyCheckin {
                     if (result == ClaimResult.CLAIMED) {
                         streak = streak.claimed(claimDay, now);
                         justClaimed = claimDay;
+                    } else if (result == ClaimResult.NOT_SAVED) {
+                        chr.dropMessage(6, "Daily Check-In: your claim could not be saved. Nothing was taken; try again in a moment.");
                     } else if (result == ClaimResult.NO_ROOM) {
                         chr.dropMessage(1, "Make room in your inventory to claim today's reward.");
                     }
@@ -156,6 +199,7 @@ public final class DailyCheckin {
         }
         if (day < 1 || day != streak.claimableDay(now)) {
             log.info("Check-in claim refused for {}: day {} (claimable {})", chr.getName(), day, streak.claimableDay(now));
+            chr.dropMessage(6, refusal(streak, day, now));
             return ClaimResult.NOT_CLAIMABLE;
         }
         if (!DailyCheckinRewards.canReceive(chr, day)) {
@@ -173,6 +217,7 @@ public final class DailyCheckin {
         }
         if (credited < 0) {
             log.info("Check-in claim refused for {}: day {} was claimed elsewhere first", chr.getName(), day);
+            chr.dropMessage(6, "Daily Check-In: that reward was just claimed (on another character?). Open @daily to see where you are.");
             return ClaimResult.NOT_CLAIMABLE;
         }
         DailyCheckinRewards.grant(chr, day);

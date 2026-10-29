@@ -71,16 +71,21 @@ class TutorialIslandMenuTest {
         YamlConfig.config.server.TUTORIAL_ISLAND_PROMPT = true;
 
         assertFalse(TutorialIslandMenu.eligible(null));
-        assertFalse(TutorialIslandMenu.shouldAsk(true, Job.NOBLESSE.getId(), 1, MapId.MAPLEROOT_HUB, false, true),
-                "Cygnus keeps its own start");
-        assertFalse(TutorialIslandMenu.shouldAsk(true, Job.LEGEND.getId(), 1, MapId.MAPLEROOT_HUB, false, true),
-                "Aran keeps its own start");
+        assertTrue(TutorialIslandMenu.shouldAsk(true, Job.NOBLESSE.getId(), 1, MapId.MAPLEROOT_HUB, false, true),
+                "Cygnus starters are asked too");
+        assertTrue(TutorialIslandMenu.shouldAsk(true, Job.LEGEND.getId(), 1, MapId.MAPLEROOT_HUB, false, true),
+                "Aran starters are asked too");
+        assertTrue(TutorialIslandMenu.shouldAsk(true, Job.EVAN.getId(), 1, MapId.MAPLEROOT_HUB, false, true));
         assertFalse(TutorialIslandMenu.shouldAsk(true, Job.WARRIOR.getId(), 1, MapId.MAPLEROOT_HUB, false, true),
                 "only a Beginner");
         assertFalse(TutorialIslandMenu.shouldAsk(true, Job.BEGINNER.getId(), 10, MapId.MAPLEROOT_HUB, false, true),
                 "the island is for level 1 to 9");
-        assertFalse(TutorialIslandMenu.shouldAsk(true, Job.BEGINNER.getId(), 1, 100000000, false, true),
-                "only at the start map");
+        assertTrue(TutorialIslandMenu.shouldAsk(true, Job.BEGINNER.getId(), 1, 100000000, false, true),
+                "wherever the first login lands");
+        assertFalse(TutorialIslandMenu.shouldAsk(true, Job.BEGINNER.getId(), 1, TutorialIslandMenu.ISLAND_START, false, true),
+                "already on the island");
+        assertFalse(TutorialIslandMenu.shouldAsk(true, Job.LEGEND.getId(), 1, MapId.ARAN_TUTORIAL_START, false, true),
+                "not over the Aran opening");
         assertFalse(TutorialIslandMenu.shouldAsk(true, Job.BEGINNER.getId(), 1, MapId.MAPLEROOT_HUB, true, true),
                 "already asked");
         assertFalse(TutorialIslandMenu.shouldAsk(false, Job.BEGINNER.getId(), 1, MapId.MAPLEROOT_HUB, false, true),
@@ -112,6 +117,41 @@ class TutorialIslandMenuTest {
 
         TutorialIslandMenu.onLogin(me);
         assertEquals(2, opened.size(), "asked once per character");
+    }
+
+    @Test
+    void yesMakesShanksTripFreeAndNoDoesNot() {
+        MenuWindow.useForTest((p, npc) -> true, (task, delay) -> task.run());
+        TutorialIslandMenu.useForTest((p, map) -> null);
+        Character no = newbie(6010);
+        TutorialIslandMenu.page(no).find("No").pick().apply(no);
+        assertFalse(TutorialIslandMenu.freeTrip(no));
+        Character yes = newbie(6011);
+        assertFalse(TutorialIslandMenu.freeTrip(yes));
+        TutorialIslandMenu.page(yes).find("Yes").pick().apply(yes);
+        assertTrue(TutorialIslandMenu.freeTrip(yes), "came through the island option");
+        TutorialIslandMenu.tripUsed(yes);
+        assertFalse(TutorialIslandMenu.freeTrip(yes), "used up when they sail");
+    }
+
+    @Test
+    void aRefusedWarpDoesNotGrantTheFreeTrip() {
+        MenuWindow.useForTest((p, npc) -> true, (task, delay) -> task.run());
+        TutorialIslandMenu.useForTest((p, map) -> "no");
+        Character me = newbie(6012);
+        TutorialIslandMenu.page(me).find("Yes").pick().apply(me);
+        assertFalse(TutorialIslandMenu.freeTrip(me));
+    }
+
+    @Test
+    void aCygnusStarterOnAnyMapGetsTheQuestionAtLogin() {
+        List<Integer> opened = new ArrayList<>();
+        MenuWindow.useForTest((p, npc) -> opened.add(npc), (task, delay) -> task.run());
+        Character me = newbie(6013);
+        me.setJob(Job.NOBLESSE);
+        doReturn(100000000).when(me).getMapId();
+        TutorialIslandMenu.onLogin(me);
+        assertEquals(List.of(TutorialIslandMenu.NPC), opened);
     }
 
     @Test
