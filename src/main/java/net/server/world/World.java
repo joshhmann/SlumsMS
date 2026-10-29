@@ -172,8 +172,6 @@ public class World {
         this.eventmsg = eventmsg;
         this.exprate = exprate;
         this.droprate = droprate;
-        this.baseExpRate = exprate;
-        this.baseDropRate = droprate;
         this.bossdroprate = bossdroprate;
         this.mesorate = mesorate;
         this.questrate = questrate;
@@ -332,21 +330,6 @@ public class World {
         return exprate;
     }
 
-    /** The EXP / drop rates the world booted with (its config); a GM rate change above them is an event. */
-    private int baseExpRate, baseDropRate;
-
-    /**
-     * 1.6.1 ticket 53: an EXP event is in progress when a GM raised the world EXP rate above the configured one (the
-     * Family EXP perks' tooltips: "If the EXP event is in progress, this will be nullified").
-     */
-    public boolean isExpRateEvent() {
-        return exprate > baseExpRate;
-    }
-
-    /** As {@link #isExpRateEvent()} for the drop rate. */
-    public boolean isDropRateEvent() {
-        return droprate > baseDropRate;
-    }
 
     public void setExpRate(int exp) {
         Collection<Character> list = getPlayerStorage().getAllCharacters();

@@ -273,10 +273,6 @@ public final class FamilyUseHandler extends AbstractPacketHandler {
             }
             FamilyBuffs.grant(t.getId(), spec, now);
             t.dropMessage(5, FamilyBuffs.describe(spec) + (t == chr ? "" : " (from " + chr.getName() + ")"));
-            String paused = FamilyBuffs.eventNote(t, spec);
-            if (paused != null) {
-                t.dropMessage(5, paused);
-            }
         }
         return null;
     }

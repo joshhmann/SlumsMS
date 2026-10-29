@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 
 /**
  * Ticket 53 (1.6.1): the timed EXP and drop multipliers the Family entitlements give. Stock Cosmic left these
@@ -27,11 +26,9 @@ import java.util.function.Predicate;
  * survives a restart too (the clock runs while the server is down, as a coupon's does). A bot gets one only from
  * Family Bonding (b035); its off-screen grind honours it in TrainingBot.
  *
- * <p>1.6.1 promise audit: the tooltips (sent by this server, {@link FamilyEntitlement}) say a perk "will be nullified"
- * while an EXP (drop) event is in progress, and that is what the original game did, so it is enforced: while an EXP
- * event applies to the character (a world-event hot spot on its map, or a GM EXP rate above the world's configured
- * rate) its Family EXP buff gives 1x; the same for the drop buff and a GM drop-rate event. The buff's time still runs.
- * Coupons are not events and still stack.
+ * <p>Owner 2026-10-29: Family buffs stack with EXP / drop events (world-event hot spots, GM rate events) and with
+ * coupons, as on live. The stock GMS tooltips said a perk "will be nullified" during an event; the server sends those
+ * tooltips ({@link FamilyEntitlement}, FAMILY_PRIVILEGE_LIST), so they now say the perks stack instead.
  */
 public final class FamilyBuffs {
 
@@ -68,23 +65,12 @@ public final class FamilyBuffs {
 
     private static volatile Store store = new DbStore();
 
-    /** Whether an EXP event applies to the character now (the tooltips' "nullified"). Tests replace it. */
-    static volatile Predicate<Character> expEvent = FamilyBuffs::expEventOn;
-    /** Whether a drop event applies to the character now. Tests replace it. */
-    static volatile Predicate<Character> dropEvent = FamilyBuffs::dropEventOn;
-
     private FamilyBuffs() {
     }
 
     /** Tests: keep the buffs somewhere else (null: the database again). */
     public static void useStore(Store s) {
         store = s == null ? new DbStore() : s;
-    }
-
-    /** Tests: decide what counts as an EXP / drop event (null: the real rules again). */
-    public static void useEventRules(Predicate<Character> exp, Predicate<Character> drop) {
-        expEvent = exp == null ? FamilyBuffs::expEventOn : exp;
-        dropEvent = drop == null ? FamilyBuffs::dropEventOn : drop;
     }
 
     /** Boot (Server, with the families): reads the buffs still running back. Returns how many characters have one. */
@@ -177,58 +163,14 @@ public final class FamilyBuffs {
         return a == null || a.drop() <= 0 || a.dropEnds() <= now ? 1.0 : a.drop();
     }
 
-    /** What a mob kill multiplies EXP by: the buff, or 1 while an EXP event applies to {@code chr} ("nullified"). */
+    /** What a mob kill multiplies EXP by (1 when none). Stacks with events and coupons (owner 2026-10-29). */
     public static double expMultiplier(Character chr) {
-        if (chr == null || active.isEmpty()) {
-            return 1.0;
-        }
-        double m = expMultiplier(chr.getId(), System.currentTimeMillis());
-        return m > 1.0 && expEvent.test(chr) ? 1.0 : m;
+        return chr == null || active.isEmpty() ? 1.0 : expMultiplier(chr.getId(), System.currentTimeMillis());
     }
 
-    /** What the drop rate is multiplied by: the buff, or 1 while a drop event applies to {@code chr}. */
+    /** What the drop rate is multiplied by (1 when none). Stacks with events and coupons. */
     public static double dropMultiplier(Character chr) {
-        if (chr == null || active.isEmpty()) {
-            return 1.0;
-        }
-        double m = dropMultiplier(chr.getId(), System.currentTimeMillis());
-        return m > 1.0 && dropEvent.test(chr) ? 1.0 : m;
-    }
-
-    /** An EXP event for this character: a world-event hot spot on its map, or a GM EXP rate event on its world. */
-    static boolean expEventOn(Character chr) {
-        try {
-            if (soloMapling.worldevents.WorldEvents.expMultiplier(chr) > 1f) {
-                return true;
-            }
-            net.server.world.World w = chr.getWorldServer();
-            return w != null && w.isExpRateEvent();
-        } catch (RuntimeException e) {
-            return false;
-        }
-    }
-
-    /** A drop event for this character: a GM drop rate event on its world. */
-    static boolean dropEventOn(Character chr) {
-        try {
-            net.server.world.World w = chr.getWorldServer();
-            return w != null && w.isDropRateEvent();
-        } catch (RuntimeException e) {
-            return false;
-        }
-    }
-
-    /** The line a player gets when a perk is used while an event nullifies it (null when none does). */
-    public static String eventNote(Character chr, Spec spec) {
-        if (chr == null || spec == null) {
-            return null;
-        }
-        boolean exp = spec.exp() && expEvent.test(chr), drop = spec.drop() && dropEvent.test(chr);
-        if (!exp && !drop) {
-            return null;
-        }
-        return "[Family] " + (exp && drop ? "An EXP and drop event is" : exp ? "An EXP event is" : "A drop event is")
-                + " on: this perk gives nothing extra while it runs (its time still counts down).";
+        return chr == null || active.isEmpty() ? 1.0 : dropMultiplier(chr.getId(), System.currentTimeMillis());
     }
 
     /** Minutes left on the EXP / drop buff (0 when none), for messages and QA. */
