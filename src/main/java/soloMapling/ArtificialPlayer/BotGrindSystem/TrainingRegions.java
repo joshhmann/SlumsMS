@@ -116,6 +116,11 @@ public final class TrainingRegions {
         return isAllowed(mapId) && BotMapGates.mayEnter(mapId, rebirths);
     }
 
+    // The same for a bot of this level (ticket 81: the Future and lower Grandis open at level 120).
+    public static boolean isAllowed(int mapId, int rebirths, int level) {
+        return isAllowed(mapId) && BotMapGates.mayEnter(mapId, rebirths, level);
+    }
+
     // The first region whose windows hold mapId (enabled or not), or null.
     public static Region regionOf(int mapId) {
         for (Region r : regions()) {

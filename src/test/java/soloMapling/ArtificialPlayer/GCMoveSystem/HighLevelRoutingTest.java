@@ -106,6 +106,9 @@ class HighLevelRoutingTest {
 
         assertNull(GCWorldGraph.dijkstra(world, 1, 9, 60, 0, true, -1));
         assertEquals(List.of(gated, 9), GCWorldGraph.dijkstra(world, 1, 9, 60, 2, true, -1));
+        // ticket 81: level 120 opens the Future to a bot with no rebirths; 119 does not
+        assertEquals(List.of(gated, 9), GCWorldGraph.dijkstra(world, 1, 9, 60, 0, true, -1, 120));
+        assertNull(GCWorldGraph.dijkstra(world, 1, 9, 60, 0, true, -1, 119));
     }
 
     @Test

@@ -31,4 +31,20 @@ class BotMapGatesTest {
         assertTrue(BotMapGates.mayEnter(211040100, 0));
         assertFalse(BotMapGates.mayEnter(211060100, 0));
     }
+
+    // Ticket 81 round 4: bots get the players' level-120 rule for the Future and lower Grandis.
+    @Test
+    void levelOneTwentyOpensTheFutureAndLowerGrandisForBotsToo() {
+        assertFalse(BotMapGates.mayEnter(273020300, 0, 119));
+        assertTrue(BotMapGates.mayEnter(273020300, 0, 120));
+        assertTrue(BotMapGates.mayEnter(273060300, 0, 120)); // Warrior Grounds goes with the rest
+        assertFalse(BotMapGates.mayEnter(410000010, 0, 119)); // Fox Ridge, lower Grandis
+        assertTrue(BotMapGates.mayEnter(410000010, 0, 120));
+        assertFalse(BotMapGates.mayEnter(401010000, 2, 200), "upper Grandis stays rebirth 3");
+        assertFalse(BotMapGates.mayEnter(450001010, 0, 200), "Arcane River stays rebirth 3");
+        assertTrue(BotMapGates.mayEnter(450001010, 3, 1));
+        assertFalse(BotMapGates.mayEnter(271030100, 3, 200), "the Knight Stronghold stays closed");
+        assertFalse(BotMapGates.mayEnter(211060100, 0, 200), "Lion King's Castle stays rebirth 1");
+        assertFalse(BotMapGates.mayEnter(410000010, 0), "no level known: the rebirth rule");
+    }
 }

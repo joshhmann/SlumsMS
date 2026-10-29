@@ -2766,6 +2766,290 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 2400658,Adept Drakas,grandis,normal,130,1004226,Muspell Bowman Hat,bbgear,1,1,0,800
 2400658,Adept Drakas,grandis,normal,130,1072958,Eclectic Cabatina,bbgear,1,1,0,800
 2400658,Adept Drakas,grandis,normal,130,1372206,Jaihin Wand,bbrare,1,1,0,60
+8210000,Crocky the Gatekeeper,elnath,normal,117,0,mesos,meso,608,912,0,400000
+8210000,Crocky the Gatekeeper,elnath,normal,117,2020013,Reindeer Milk,potion,1,1,0,20000
+8210000,Crocky the Gatekeeper,elnath,normal,117,2020015,Sunset Dew,potion,1,1,0,20000
+8210000,Crocky the Gatekeeper,elnath,normal,117,2022003,Unagi,potion,1,1,0,20000
+8210000,Crocky the Gatekeeper,elnath,normal,117,4004000,Power Crystal Ore,crystal,1,1,0,10000
+8210000,Crocky the Gatekeeper,elnath,normal,117,4010000,Bronze Ore,mineral,1,1,0,9000
+8210000,Crocky the Gatekeeper,elnath,normal,117,4010001,Steel Ore,mineral,1,1,0,9000
+8210000,Crocky the Gatekeeper,elnath,normal,117,4007006,Magic Powder (Red),rock,1,1,0,10000
+8210000,Crocky the Gatekeeper,elnath,normal,117,4130001,Shoes Production Stimulator,stimulator,1,1,0,6000
+8210000,Crocky the Gatekeeper,elnath,normal,117,2040328,Scroll for Earring for HP 10%,scroll,1,1,0,300
+8210000,Crocky the Gatekeeper,elnath,normal,117,2040702,Scroll for Shoes for DEX 10%,scroll,1,1,0,300
+8210000,Crocky the Gatekeeper,elnath,normal,117,2040704,Scroll for Shoes for Jump 60%,scroll,1,1,0,300
+8210000,Crocky the Gatekeeper,elnath,normal,117,2040929,Scroll for Shield for STR 100%,scroll,1,1,0,300
+8210000,Crocky the Gatekeeper,elnath,normal,117,1041116,Brown Osfa Suit,equip,1,1,0,800
+8210000,Crocky the Gatekeeper,elnath,normal,117,1050091,Dark Ades,equip,1,1,0,700
+8210000,Crocky the Gatekeeper,elnath,normal,117,1051092,Red Katte,equip,1,1,0,700
+8210000,Crocky the Gatekeeper,elnath,normal,117,1060107,Red Osfa Pants,equip,1,1,0,800
+8210000,Crocky the Gatekeeper,elnath,normal,117,1072206,Blue Neli Shoes,equip,1,1,0,750
+8210000,Crocky the Gatekeeper,elnath,normal,117,2290077,[Mastery Book] Shadow Shifter 30,book,1,1,0,500
+8210000,Crocky the Gatekeeper,elnath,normal,117,2290131,[Mastery Book] Freeze Standing 30,book,1,1,0,1500
+8210001,Reindeer,elnath,normal,119,0,mesos,meso,762,1142,0,400000
+8210001,Reindeer,elnath,normal,119,4000626,Reindeer's Spear,etc,1,1,0,400000
+8210001,Reindeer,elnath,normal,119,2000004,Elixir,potion,1,1,0,20000
+8210001,Reindeer,elnath,normal,119,2000005,Power Elixir,potion,1,1,0,20000
+8210001,Reindeer,elnath,normal,119,2020013,Reindeer Milk,potion,1,1,0,20000
+8210001,Reindeer,elnath,normal,119,4004003,LUK Crystal Ore,crystal,1,1,0,10000
+8210001,Reindeer,elnath,normal,119,4010004,Silver Ore,mineral,1,1,0,9000
+8210001,Reindeer,elnath,normal,119,4020006,Topaz Ore,mineral,1,1,0,9000
+8210001,Reindeer,elnath,normal,119,4006000,The Magic Rock,rock,1,1,0,10000
+8210001,Reindeer,elnath,normal,119,4130018,Armor Production Stimulator,stimulator,1,1,0,6000
+8210001,Reindeer,elnath,normal,119,2040515,Scroll for Overall Armor for LUK 100%,scroll,1,1,0,300
+8210001,Reindeer,elnath,normal,119,2040624,Scroll for Bottomwear for DEX 70%,scroll,1,1,0,750
+8210001,Reindeer,elnath,normal,119,2044809,Scroll for Knuckle for Accuracy 10%,scroll,1,1,0,300
+8210001,Reindeer,elnath,normal,119,2048012,Scroll for Pet Equip. for DEX 60%,scroll,1,1,0,300
+8210001,Reindeer,elnath,normal,119,1002530,Red Grace Helmet,equip,1,1,0,1287
+8210001,Reindeer,elnath,normal,119,1041117,Purple Osfa Suit,equip,1,1,0,800
+8210001,Reindeer,elnath,normal,119,1060104,Green Osfa Pants,equip,1,1,0,700
+8210001,Reindeer,elnath,normal,119,1060105,Brown Osfa Pants,equip,1,1,0,750
+8210001,Reindeer,elnath,normal,119,1092026,Bronze Kalkan,equip,1,1,0,700
+8210001,Reindeer,elnath,normal,119,2290060,[Mastery Book] Hurricane 20,book,1,1,0,500
+8210001,Reindeer,elnath,normal,119,2290126,[Mastery Book] Overswing 20,book,1,1,0,1500
+8210002,Blood Reindeer,elnath,normal,120,0,mesos,meso,768,1152,0,400000
+8210002,Blood Reindeer,elnath,normal,120,2000005,Power Elixir,potion,1,1,0,20000
+8210002,Blood Reindeer,elnath,normal,120,2020013,Reindeer Milk,potion,1,1,0,20000
+8210002,Blood Reindeer,elnath,normal,120,2022003,Unagi,potion,1,1,0,20000
+8210002,Blood Reindeer,elnath,normal,120,4004000,Power Crystal Ore,crystal,1,1,0,10000
+8210002,Blood Reindeer,elnath,normal,120,4010002,Mithril Ore,mineral,1,1,0,9000
+8210002,Blood Reindeer,elnath,normal,120,4020003,Emerald Ore,mineral,1,1,0,9000
+8210002,Blood Reindeer,elnath,normal,120,4006000,The Magic Rock,rock,1,1,0,10000
+8210002,Blood Reindeer,elnath,normal,120,4130013,Crossbow Production Stimulator,stimulator,1,1,0,6000
+8210002,Blood Reindeer,elnath,normal,120,2040029,Scroll for Helmet for DEX 60%,scroll,1,1,0,300
+8210002,Blood Reindeer,elnath,normal,120,2040104,Dark Scroll for Face Accessory for HP 70%,scroll,1,1,0,750
+8210002,Blood Reindeer,elnath,normal,120,2040412,Scroll for Topwear for LUK 10%,scroll,1,1,0,300
+8210002,Blood Reindeer,elnath,normal,120,2040612,Scroll for Bottomwear for DEX 10%,scroll,1,1,0,300
+8210002,Blood Reindeer,elnath,normal,120,1050091,Dark Ades,equip,1,1,0,700
+8210002,Blood Reindeer,elnath,normal,120,1072223,Green Varr Shoes,equip,1,1,0,800
+8210002,Blood Reindeer,elnath,normal,120,1082132,Green Sage,equip,1,1,0,1000
+8210002,Blood Reindeer,elnath,normal,120,1082138,Dark Anelin,equip,1,1,0,1000
+8210002,Blood Reindeer,elnath,normal,120,1082159,Blue Arcina,equip,1,1,0,1000
+8210002,Blood Reindeer,elnath,normal,120,2290063,[Mastery Book] Phoenix 30,book,1,1,0,500
+8210002,Blood Reindeer,elnath,normal,120,2290099,[Mastery Book] Energy Orb 20,book,1,1,0,500
+8210003,Bearwolf,elnath,normal,122,0,mesos,meso,781,1171,0,400000
+8210003,Bearwolf,elnath,normal,122,4000627,Bearwolf's Morning Star,etc,1,1,0,400000
+8210003,Bearwolf,elnath,normal,122,2000005,Power Elixir,potion,1,1,0,20000
+8210003,Bearwolf,elnath,normal,122,2020013,Reindeer Milk,potion,1,1,0,20000
+8210003,Bearwolf,elnath,normal,122,2022003,Unagi,potion,1,1,0,20000
+8210003,Bearwolf,elnath,normal,122,4004001,Wisdom Crystal Ore,crystal,1,1,0,10000
+8210003,Bearwolf,elnath,normal,122,4010000,Bronze Ore,mineral,1,1,0,9000
+8210003,Bearwolf,elnath,normal,122,4010003,Adamantium Ore,mineral,1,1,0,9000
+8210003,Bearwolf,elnath,normal,122,4006001,The Summoning Rock,rock,1,1,0,10000
+8210003,Bearwolf,elnath,normal,122,4130002,One-Handed Sword Forging Stimulator,stimulator,1,1,0,6000
+8210003,Bearwolf,elnath,normal,122,2040326,Scroll for Earring for HP 60%,scroll,1,1,0,300
+8210003,Bearwolf,elnath,normal,122,2040400,Scroll for Topwear for DEF 100%,scroll,1,1,0,300
+8210003,Bearwolf,elnath,normal,122,2040932,Scroll for Shield for STR 30%,scroll,1,1,0,750
+8210003,Bearwolf,elnath,normal,122,2044002,Scroll for Two-handed Sword for ATT 10%,scroll,1,1,0,300
+8210003,Bearwolf,elnath,normal,122,1051083,Blue Anes,equip,1,1,0,700
+8210003,Bearwolf,elnath,normal,122,1051084,Green Anes,equip,1,1,0,700
+8210003,Bearwolf,elnath,normal,122,1051085,Dark Anes,equip,1,1,0,700
+8210003,Bearwolf,elnath,normal,122,1061114,Green Osfa Pants,equip,1,1,0,800
+8210003,Bearwolf,elnath,normal,122,1072228,Blue Arnah Shoes,equip,1,1,0,800
+8210003,Bearwolf,elnath,normal,122,2290008,[Mastery Book] Advanced Combo Attack 20,book,1,1,0,500
+8210003,Bearwolf,elnath,normal,122,2290012,[Mastery Book] Blast 20,book,1,1,0,500
+8210004,Grey Vulture,elnath,normal,125,0,mesos,meso,800,1200,0,400000
+8210004,Grey Vulture,elnath,normal,125,4000628,Vulture's Shoulder Accessory,etc,1,1,0,400000
+8210004,Grey Vulture,elnath,normal,125,2000005,Power Elixir,potion,1,1,0,20000
+8210004,Grey Vulture,elnath,normal,125,2000006,Mana Elixir,potion,1,1,0,20000
+8210004,Grey Vulture,elnath,normal,125,2020015,Sunset Dew,potion,1,1,0,20000
+8210004,Grey Vulture,elnath,normal,125,4004000,Power Crystal Ore,crystal,1,1,0,10000
+8210004,Grey Vulture,elnath,normal,125,4020000,Garnet Ore,mineral,1,1,0,9000
+8210004,Grey Vulture,elnath,normal,125,4020003,Emerald Ore,mineral,1,1,0,9000
+8210004,Grey Vulture,elnath,normal,125,4006000,The Magic Rock,rock,1,1,0,10000
+8210004,Grey Vulture,elnath,normal,125,4130007,Two-Handed Mace Forging Stimulator,stimulator,1,1,0,6000
+8210004,Grey Vulture,elnath,normal,125,2040930,Scroll for Shield for STR 70%,scroll,1,1,0,750
+8210004,Grey Vulture,elnath,normal,125,2041008,Scroll for Cape for HP 10%,scroll,1,1,0,300
+8210004,Grey Vulture,elnath,normal,125,2043202,Scroll for One-Handed BW for ATT 10%,scroll,1,1,0,300
+8210004,Grey Vulture,elnath,normal,125,2044313,Scroll for Spear for Accuracy 30%,scroll,1,1,0,750
+8210004,Grey Vulture,elnath,normal,125,1002378,Blue Valhalla Helmet,equip,1,1,0,1287
+8210004,Grey Vulture,elnath,normal,125,1040122,Black Neos,equip,1,1,0,750
+8210004,Grey Vulture,elnath,normal,125,1050106,Green Arzuna,equip,1,1,0,700
+8210004,Grey Vulture,elnath,normal,125,1051091,Blue Katte,equip,1,1,0,700
+8210004,Grey Vulture,elnath,normal,125,1462018,Casa Crow,equip,1,1,0,500
+8210004,Grey Vulture,elnath,normal,125,2290050,[Mastery Book] Angel Ray 20,book,1,1,0,500
+8210004,Grey Vulture,elnath,normal,125,2290062,[Mastery Book] Phoenix 20,book,1,1,0,500
+8210005,Castle Golem,elnath,normal,127,0,mesos,meso,813,1219,0,400000
+8210005,Castle Golem,elnath,normal,127,4000629,Castle Golem Brick,etc,1,1,0,400000
+8210005,Castle Golem,elnath,normal,127,2000005,Power Elixir,potion,1,1,0,20000
+8210005,Castle Golem,elnath,normal,127,2000006,Mana Elixir,potion,1,1,0,20000
+8210005,Castle Golem,elnath,normal,127,2020015,Sunset Dew,potion,1,1,0,20000
+8210005,Castle Golem,elnath,normal,127,4004004,Dark Crystal Ore,crystal,1,1,0,10000
+8210005,Castle Golem,elnath,normal,127,4010003,Adamantium Ore,mineral,1,1,0,9000
+8210005,Castle Golem,elnath,normal,127,4020005,Sapphire Ore,mineral,1,1,0,9000
+8210005,Castle Golem,elnath,normal,127,4007001,Magic Powder (White),rock,1,1,0,10000
+8210005,Castle Golem,elnath,normal,127,4130015,Claw Production Stimulator,stimulator,1,1,0,6000
+8210005,Castle Golem,elnath,normal,127,2040534,Scroll for Overall Armor for STR 10%,scroll,1,1,0,300
+8210005,Castle Golem,elnath,normal,127,2040619,Scroll for Bottomwear for Jump 10%,scroll,1,1,0,300
+8210005,Castle Golem,elnath,normal,127,2041011,Scroll for Cape for MP 10%,scroll,1,1,0,300
+8210005,Castle Golem,elnath,normal,127,2043017,Scroll for One-Handed Sword for Accuracy 60%,scroll,1,1,0,300
+8210005,Castle Golem,elnath,normal,127,1002380,Green Canal Hood,equip,1,1,0,1287
+8210005,Castle Golem,elnath,normal,127,1060106,Purple Osfa Pants,equip,1,1,0,700
+8210005,Castle Golem,elnath,normal,127,1072220,Green Crescent Boots,equip,1,1,0,800
+8210005,Castle Golem,elnath,normal,127,1082144,Dark Mystra,equip,1,1,0,1000
+8210005,Castle Golem,elnath,normal,127,1482011,White Fangz,equip,1,1,0,500
+8210005,Castle Golem,elnath,normal,127,2290032,[Mastery Book] Chain Lightning 20,book,1,1,0,500
+8210005,Castle Golem,elnath,normal,127,2290039,[Mastery Book] Ifrit 30,book,1,1,0,500
+8210006,Prison Guard Boar,elnath,normal,117,0,mesos,meso,749,1123,0,400000
+8210006,Prison Guard Boar,elnath,normal,117,2000006,Mana Elixir,potion,1,1,0,20000
+8210006,Prison Guard Boar,elnath,normal,117,2020013,Reindeer Milk,potion,1,1,0,20000
+8210006,Prison Guard Boar,elnath,normal,117,2020015,Sunset Dew,potion,1,1,0,20000
+8210006,Prison Guard Boar,elnath,normal,117,4004001,Wisdom Crystal Ore,crystal,1,1,0,10000
+8210006,Prison Guard Boar,elnath,normal,117,4010006,Gold Ore,mineral,1,1,0,9000
+8210006,Prison Guard Boar,elnath,normal,117,4020002,AquaMarine Ore,mineral,1,1,0,9000
+8210006,Prison Guard Boar,elnath,normal,117,4007000,Magic Powder (Brown),rock,1,1,0,10000
+8210006,Prison Guard Boar,elnath,normal,117,4130018,Armor Production Stimulator,stimulator,1,1,0,6000
+8210006,Prison Guard Boar,elnath,normal,117,2040419,Scroll for Topwear for STR 10%,scroll,1,1,0,300
+8210006,Prison Guard Boar,elnath,normal,117,2040420,Scroll for Topwear for HP 100%,scroll,1,1,0,300
+8210006,Prison Guard Boar,elnath,normal,117,2040704,Scroll for Shoes for Jump 60%,scroll,1,1,0,300
+8210006,Prison Guard Boar,elnath,normal,117,2048005,Scroll for Pet Equip. for Jump 10%,scroll,1,1,0,300
+8210006,Prison Guard Boar,elnath,normal,117,1072227,Red Arnah Shoes,equip,1,1,0,800
+8210006,Prison Guard Boar,elnath,normal,117,1082135,Blue Anelin,equip,1,1,0,1000
+8210006,Prison Guard Boar,elnath,normal,117,1082138,Dark Anelin,equip,1,1,0,1000
+8210006,Prison Guard Boar,elnath,normal,117,1082153,Red Ciara,equip,1,1,0,1000
+8210006,Prison Guard Boar,elnath,normal,117,1472053,Red Craven,equip,1,1,0,500
+8210006,Prison Guard Boar,elnath,normal,117,2290069,[Mastery Book] Blind 30,book,1,1,0,500
+8210006,Prison Guard Boar,elnath,normal,117,2290077,[Mastery Book] Shadow Shifter 30,book,1,1,0,500
+8210007,Prison Guard Rhino,elnath,normal,117,0,mesos,meso,749,1123,0,400000
+8210007,Prison Guard Rhino,elnath,normal,117,2000004,Elixir,potion,1,1,0,20000
+8210007,Prison Guard Rhino,elnath,normal,117,2020013,Reindeer Milk,potion,1,1,0,20000
+8210007,Prison Guard Rhino,elnath,normal,117,2022003,Unagi,potion,1,1,0,20000
+8210007,Prison Guard Rhino,elnath,normal,117,4004004,Dark Crystal Ore,crystal,1,1,0,10000
+8210007,Prison Guard Rhino,elnath,normal,117,4010001,Steel Ore,mineral,1,1,0,9000
+8210007,Prison Guard Rhino,elnath,normal,117,4010005,Orihalcon Ore,mineral,1,1,0,9000
+8210007,Prison Guard Rhino,elnath,normal,117,4007004,Magic Powder (Yellow),rock,1,1,0,10000
+8210007,Prison Guard Rhino,elnath,normal,117,4130018,Armor Production Stimulator,stimulator,1,1,0,6000
+8210007,Prison Guard Rhino,elnath,normal,117,2040412,Scroll for Topwear for LUK 10%,scroll,1,1,0,300
+8210007,Prison Guard Rhino,elnath,normal,117,2040500,Scroll for Overall Armor for DEX 100%,scroll,1,1,0,300
+8210007,Prison Guard Rhino,elnath,normal,117,2040823,Scroll for Gloves for HP 100%,scroll,1,1,0,300
+8210007,Prison Guard Rhino,elnath,normal,117,2043019,Scroll for One-Handed Sword for Accuracy 10%,scroll,1,1,0,300
+8210007,Prison Guard Rhino,elnath,normal,117,1002404,Green Arlic Helmet,equip,1,1,0,1287
+8210007,Prison Guard Rhino,elnath,normal,117,1040116,Brown Osfa Suit,equip,1,1,0,800
+8210007,Prison Guard Rhino,elnath,normal,117,1051082,Red Anes,equip,1,1,0,700
+8210007,Prison Guard Rhino,elnath,normal,117,1060104,Green Osfa Pants,equip,1,1,0,700
+8210007,Prison Guard Rhino,elnath,normal,117,1422027,Golden Smith Hammer,equip,1,1,0,700
+8210007,Prison Guard Rhino,elnath,normal,117,2290041,[Mastery Book] Meteor Shower 30,book,1,1,0,625
+8210007,Prison Guard Rhino,elnath,normal,117,2290072,[Mastery Book] Frostprey 20,book,1,1,0,500
+8211000,Frozen Rose,elnath,normal,128,0,mesos,meso,819,1229,0,400000
+8211000,Frozen Rose,elnath,normal,128,2000004,Elixir,potion,1,1,0,20000
+8211000,Frozen Rose,elnath,normal,128,2000005,Power Elixir,potion,1,1,0,20000
+8211000,Frozen Rose,elnath,normal,128,2022003,Unagi,potion,1,1,0,20000
+8211000,Frozen Rose,elnath,normal,128,4004000,Power Crystal Ore,crystal,1,1,0,10000
+8211000,Frozen Rose,elnath,normal,128,4010007,Lidium Ore,mineral,1,1,0,9000
+8211000,Frozen Rose,elnath,normal,128,4020001,Amethyst Ore,mineral,1,1,0,9000
+8211000,Frozen Rose,elnath,normal,128,4007002,Magic Powder (Blue),rock,1,1,0,10000
+8211000,Frozen Rose,elnath,normal,128,4130001,Shoes Production Stimulator,stimulator,1,1,0,6000
+8211000,Frozen Rose,elnath,normal,128,2040024,Scroll for Helmet for INT 100%,scroll,1,1,0,300
+8211000,Frozen Rose,elnath,normal,128,2040031,Scroll for Helmet for DEX 10%,scroll,1,1,0,300
+8211000,Frozen Rose,elnath,normal,128,2044013,Dark Scroll for Two-Handed Sword for Accuracy 30%,scroll,1,1,0,750
+8211000,Frozen Rose,elnath,normal,128,2044414,Scroll for Pole Arm for Accuracy 10%,scroll,1,1,0,300
+8211000,Frozen Rose,elnath,normal,128,1072194,Purple Osfa Boots,equip,1,1,0,800
+8211000,Frozen Rose,elnath,normal,128,1082135,Blue Anelin,equip,1,1,0,1000
+8211000,Frozen Rose,elnath,normal,128,1082152,Blue Ciara,equip,1,1,0,850
+8211000,Frozen Rose,elnath,normal,128,1422013,Leomite,equip,1,1,0,700
+8211000,Frozen Rose,elnath,normal,128,1442026,Red Surfboard,equip,1,1,0,700
+8211000,Frozen Rose,elnath,normal,128,2290044,[Mastery Book] Elquines 20,book,1,1,0,500
+8211000,Frozen Rose,elnath,normal,128,2290127,[Mastery Book] Overswing 30,book,1,1,0,1500
+8211001,Keymaster Rousseau,elnath,normal,130,0,mesos,meso,666,998,0,400000
+8211001,Keymaster Rousseau,elnath,normal,130,2020013,Reindeer Milk,potion,1,1,0,20000
+8211001,Keymaster Rousseau,elnath,normal,130,2020015,Sunset Dew,potion,1,1,0,20000
+8211001,Keymaster Rousseau,elnath,normal,130,2022003,Unagi,potion,1,1,0,20000
+8211001,Keymaster Rousseau,elnath,normal,130,4004001,Wisdom Crystal Ore,crystal,1,1,0,10000
+8211001,Keymaster Rousseau,elnath,normal,130,4020002,AquaMarine Ore,mineral,1,1,0,9000
+8211001,Keymaster Rousseau,elnath,normal,130,4020004,Opal Ore,mineral,1,1,0,9000
+8211001,Keymaster Rousseau,elnath,normal,130,4007003,Magic Powder (Green),rock,1,1,0,10000
+8211001,Keymaster Rousseau,elnath,normal,130,4130017,Gun Production Stimulator,stimulator,1,1,0,6000
+8211001,Keymaster Rousseau,elnath,normal,130,2040402,Scroll for Topwear for DEF 10%,scroll,1,1,0,300
+8211001,Keymaster Rousseau,elnath,normal,130,2040618,Scroll for Bottomwear for Jump 60%,scroll,1,1,0,300
+8211001,Keymaster Rousseau,elnath,normal,130,2044110,Scroll for Two-Handed Axe for Accuracy 100%,scroll,1,1,0,300
+8211001,Keymaster Rousseau,elnath,normal,130,2044702,Scroll for Claw for ATT 10%,scroll,1,1,0,300
+8211001,Keymaster Rousseau,elnath,normal,130,1002325,Purple Osfa Hat,equip,1,1,0,1287
+8211001,Keymaster Rousseau,elnath,normal,130,1002365,Red Oriental Fury Hat,equip,1,1,0,1287
+8211001,Keymaster Rousseau,elnath,normal,130,1050089,Blue Ades,equip,1,1,0,700
+8211001,Keymaster Rousseau,elnath,normal,130,1051107,Red Armis,equip,1,1,0,700
+8211001,Keymaster Rousseau,elnath,normal,130,1082125,Red Focus,equip,1,1,0,1000
+8211001,Keymaster Rousseau,elnath,normal,130,2290063,[Mastery Book] Phoenix 30,book,1,1,0,500
+8211001,Keymaster Rousseau,elnath,normal,130,2290065,[Mastery Book] Concentrate 30,book,1,1,0,500
+8211002,Garden Golem,elnath,normal,132,0,mesos,meso,676,1014,0,400000
+8211002,Garden Golem,elnath,normal,132,2000004,Elixir,potion,1,1,0,20000
+8211002,Garden Golem,elnath,normal,132,2020013,Reindeer Milk,potion,1,1,0,20000
+8211002,Garden Golem,elnath,normal,132,2022003,Unagi,potion,1,1,0,20000
+8211002,Garden Golem,elnath,normal,132,4004001,Wisdom Crystal Ore,crystal,1,1,0,10000
+8211002,Garden Golem,elnath,normal,132,4010001,Steel Ore,mineral,1,1,0,9000
+8211002,Garden Golem,elnath,normal,132,4010006,Gold Ore,mineral,1,1,0,9000
+8211002,Garden Golem,elnath,normal,132,4007007,Magic Powder (Black),rock,1,1,0,10000
+8211002,Garden Golem,elnath,normal,132,4130005,Two-Handed Sword Forging Stimulator,stimulator,1,1,0,6000
+8211002,Garden Golem,elnath,normal,132,2040104,Dark Scroll for Face Accessory for HP 70%,scroll,1,1,0,750
+8211002,Garden Golem,elnath,normal,132,2040534,Scroll for Overall Armor for STR 10%,scroll,1,1,0,300
+8211002,Garden Golem,elnath,normal,132,2040933,Scroll for Shield for STR 10%,scroll,1,1,0,300
+8211002,Garden Golem,elnath,normal,132,2044902,Scroll for Gun for ATT 10%,scroll,1,1,0,300
+8211002,Garden Golem,elnath,normal,132,1040117,Purple Osfa Suit,equip,1,1,0,700
+8211002,Garden Golem,elnath,normal,132,1040118,Red Osfa Suit,equip,1,1,0,700
+8211002,Garden Golem,elnath,normal,132,1050099,Dark Katinas,equip,1,1,0,700
+8211002,Garden Golem,elnath,normal,132,1061115,Brown Osfa Pants,equip,1,1,0,800
+8211002,Garden Golem,elnath,normal,132,1072220,Green Crescent Boots,equip,1,1,0,800
+8211002,Garden Golem,elnath,normal,132,2290067,[Mastery Book] Marksman Boost 30,book,1,1,0,500
+8211002,Garden Golem,elnath,normal,132,2290130,[Mastery Book] Freeze Standing 20,book,1,1,0,1500
+8211005,[*] Frozen Rose,elnath,normal,130,0,mesos,meso,1040,1560,0,400000
+8211005,[*] Frozen Rose,elnath,normal,130,2000005,Power Elixir,potion,1,1,0,20000
+8211005,[*] Frozen Rose,elnath,normal,130,2000006,Mana Elixir,potion,1,1,0,20000
+8211005,[*] Frozen Rose,elnath,normal,130,2022003,Unagi,potion,1,1,0,20000
+8211005,[*] Frozen Rose,elnath,normal,130,4004001,Wisdom Crystal Ore,crystal,1,1,0,10000
+8211005,[*] Frozen Rose,elnath,normal,130,4020001,Amethyst Ore,mineral,1,1,0,9000
+8211005,[*] Frozen Rose,elnath,normal,130,4020005,Sapphire Ore,mineral,1,1,0,9000
+8211005,[*] Frozen Rose,elnath,normal,130,4006000,The Magic Rock,rock,1,1,0,10000
+8211005,[*] Frozen Rose,elnath,normal,130,4130010,Wand Production Stimulator,stimulator,1,1,0,6000
+8211005,[*] Frozen Rose,elnath,normal,130,2040625,Scroll for Bottomwear for DEX 60%,scroll,1,1,0,300
+8211005,[*] Frozen Rose,elnath,normal,130,2040929,Scroll for Shield for STR 100%,scroll,1,1,0,300
+8211005,[*] Frozen Rose,elnath,normal,130,2041010,Scroll for Cape for MP 60%,scroll,1,1,0,300
+8211005,[*] Frozen Rose,elnath,normal,130,2043102,Scroll for One-Handed Axe for ATT 10%,scroll,1,1,0,300
+8211005,[*] Frozen Rose,elnath,normal,130,1002646,Black Polax Hat,equip,1,1,0,1287
+8211005,[*] Frozen Rose,elnath,normal,130,1040112,Blue Commodore,equip,1,1,0,800
+8211005,[*] Frozen Rose,elnath,normal,130,1051082,Red Anes,equip,1,1,0,700
+8211005,[*] Frozen Rose,elnath,normal,130,1072318,Black Duke Barkin Shoes,equip,1,1,0,800
+8211005,[*] Frozen Rose,elnath,normal,130,1332052,Blood Dagger,equip,1,1,0,500
+8211005,[*] Frozen Rose,elnath,normal,130,2290089,[Mastery Book] Shadow Stars 30,book,1,1,0,500
+8211005,[*] Frozen Rose,elnath,normal,130,2290127,[Mastery Book] Overswing 30,book,1,1,0,1500
+8211006,[*] Keymaster Rousseau,elnath,normal,132,0,mesos,meso,1056,1584,0,400000
+8211006,[*] Keymaster Rousseau,elnath,normal,132,2000005,Power Elixir,potion,1,1,0,20000
+8211006,[*] Keymaster Rousseau,elnath,normal,132,2000006,Mana Elixir,potion,1,1,0,20000
+8211006,[*] Keymaster Rousseau,elnath,normal,132,2020013,Reindeer Milk,potion,1,1,0,20000
+8211006,[*] Keymaster Rousseau,elnath,normal,132,4004001,Wisdom Crystal Ore,crystal,1,1,0,10000
+8211006,[*] Keymaster Rousseau,elnath,normal,132,4010002,Mithril Ore,mineral,1,1,0,9000
+8211006,[*] Keymaster Rousseau,elnath,normal,132,4020004,Opal Ore,mineral,1,1,0,9000
+8211006,[*] Keymaster Rousseau,elnath,normal,132,4007002,Magic Powder (Blue),rock,1,1,0,10000
+8211006,[*] Keymaster Rousseau,elnath,normal,132,4130002,One-Handed Sword Forging Stimulator,stimulator,1,1,0,6000
+8211006,[*] Keymaster Rousseau,elnath,normal,132,2040302,Scroll for Earring for INT 10%,scroll,1,1,0,300
+8211006,[*] Keymaster Rousseau,elnath,normal,132,2040319,Scroll for Earring for LUK 100%,scroll,1,1,0,300
+8211006,[*] Keymaster Rousseau,elnath,normal,132,2040927,Scroll for Shield for HP 60%,scroll,1,1,0,300
+8211006,[*] Keymaster Rousseau,elnath,normal,132,2044410,Scroll for Pole Arm for Accuracy 100%,scroll,1,1,0,300
+8211006,[*] Keymaster Rousseau,elnath,normal,132,1002324,Brown Osfa Hat,equip,1,1,0,1287
+8211006,[*] Keymaster Rousseau,elnath,normal,132,1002406,Red Arnah Cap,equip,1,1,0,993
+8211006,[*] Keymaster Rousseau,elnath,normal,132,1040118,Red Osfa Suit,equip,1,1,0,700
+8211006,[*] Keymaster Rousseau,elnath,normal,132,1061114,Green Osfa Pants,equip,1,1,0,800
+8211006,[*] Keymaster Rousseau,elnath,normal,132,1302056,Sparta,equip,1,1,0,700
+8211006,[*] Keymaster Rousseau,elnath,normal,132,2290118,[Mastery Book] Rapid Fire 30,book,1,1,0,500
+8211006,[*] Keymaster Rousseau,elnath,normal,132,2290129,[Mastery Book]High Mastery 30,book,1,1,0,1500
+8211007,[*] Garden Golem,elnath,normal,134,0,mesos,meso,858,1286,0,400000
+8211007,[*] Garden Golem,elnath,normal,134,2000004,Elixir,potion,1,1,0,20000
+8211007,[*] Garden Golem,elnath,normal,134,2020015,Sunset Dew,potion,1,1,0,20000
+8211007,[*] Garden Golem,elnath,normal,134,2022003,Unagi,potion,1,1,0,20000
+8211007,[*] Garden Golem,elnath,normal,134,4004002,DEX Crystal Ore,crystal,1,1,0,10000
+8211007,[*] Garden Golem,elnath,normal,134,4010001,Steel Ore,mineral,1,1,0,9000
+8211007,[*] Garden Golem,elnath,normal,134,4020006,Topaz Ore,mineral,1,1,0,9000
+8211007,[*] Garden Golem,elnath,normal,134,4007004,Magic Powder (Yellow),rock,1,1,0,10000
+8211007,[*] Garden Golem,elnath,normal,134,4130002,One-Handed Sword Forging Stimulator,stimulator,1,1,0,6000
+8211007,[*] Garden Golem,elnath,normal,134,2040104,Dark Scroll for Face Accessory for HP 70%,scroll,1,1,0,750
+8211007,[*] Garden Golem,elnath,normal,134,2040418,Scroll for Topwear for STR 60%,scroll,1,1,0,300
+8211007,[*] Garden Golem,elnath,normal,134,2044210,Scroll for Two-Handed BW for Accuracy 100%,scroll,1,1,0,300
+8211007,[*] Garden Golem,elnath,normal,134,2044401,Scroll for Pole Arm for ATT 60%,scroll,1,1,0,300
+8211007,[*] Garden Golem,elnath,normal,134,1002366,Black Oriental Fury Hat,equip,1,1,0,1287
+8211007,[*] Garden Golem,elnath,normal,134,1002398,Green Varr Hat,equip,1,1,0,1287
+8211007,[*] Garden Golem,elnath,normal,134,1060104,Green Osfa Pants,equip,1,1,0,700
+8211007,[*] Garden Golem,elnath,normal,134,1072198,Dark War Greave,equip,1,1,0,800
+8211007,[*] Garden Golem,elnath,normal,134,1082130,Dark Imperial,equip,1,1,0,1000
+8211007,[*] Garden Golem,elnath,normal,134,2290088,[Mastery Book] Shadow Stars 20,book,1,1,0,500
+8211007,[*] Garden Golem,elnath,normal,134,2290098,[Mastery Book] Dragon Strike 30,book,1,1,0,500
 8220016,Corrupted Wyvern,future,normal,124,0,mesos,meso,794,1190,0,400000
 8220016,Corrupted Wyvern,future,normal,124,2000004,Elixir,potion,1,1,0,20000
 8220016,Corrupted Wyvern,future,normal,124,2000005,Power Elixir,potion,1,1,0,20000
@@ -7632,6 +7916,34 @@ dropperid,mob,region,tier,level,itemid,item,category,minimum_quantity,maximum_qu
 8645134,Flora Heavy Infantry,grandis,normal,200,1004224,Muspell Warrior Hat,bbgear,1,1,0,800
 8645134,Flora Heavy Infantry,grandis,normal,200,1072966,Muspell Pirate Shoes,bbgear,1,1,0,800
 8645134,Flora Heavy Infantry,grandis,normal,200,1432219,AbsoLab Piercing Spear,bbrare,1,1,0,15
+8840002,Red Crocky,elnath,elite,115,0,mesos,meso,2944,4416,0,400000
+8840002,Red Crocky,elnath,elite,115,2000006,Mana Elixir,potion,1,1,0,40000
+8840002,Red Crocky,elnath,elite,115,2020015,Sunset Dew,potion,1,1,0,40000
+8840002,Red Crocky,elnath,elite,115,2022003,Unagi,potion,1,1,0,40000
+8840002,Red Crocky,elnath,elite,115,4004000,Power Crystal Ore,crystal,1,1,0,20000
+8840002,Red Crocky,elnath,elite,115,4004004,Dark Crystal Ore,crystal,1,1,0,20000
+8840002,Red Crocky,elnath,elite,115,4020000,Garnet Ore,mineral,1,1,0,18000
+8840002,Red Crocky,elnath,elite,115,4020004,Opal Ore,mineral,1,1,0,18000
+8840002,Red Crocky,elnath,elite,115,4020006,Topaz Ore,mineral,1,1,0,18000
+8840002,Red Crocky,elnath,elite,115,4007003,Magic Powder (Green),rock,1,1,0,20000
+8840002,Red Crocky,elnath,elite,115,4007005,Magic Powder (Purple),rock,1,1,0,20000
+8840002,Red Crocky,elnath,elite,115,4130014,Dagger Forging Stimulator,stimulator,1,1,0,12000
+8840002,Red Crocky,elnath,elite,115,4130021,Overall Production Stimulator,stimulator,1,1,0,12000
+8840002,Red Crocky,elnath,elite,115,2040534,Scroll for Overall Armor for STR 10%,scroll,1,1,0,600
+8840002,Red Crocky,elnath,elite,115,2040602,Scroll for Bottomwear for DEF 10%,scroll,1,1,0,600
+8840002,Red Crocky,elnath,elite,115,2040923,Scroll for Shield for LUK 100%,scroll,1,1,0,600
+8840002,Red Crocky,elnath,elite,115,2041002,Scroll for Cape for Magic DEF 10%,scroll,1,1,0,600
+8840002,Red Crocky,elnath,elite,115,2044302,Scroll for Spear for ATT 10%,scroll,1,1,0,600
+8840002,Red Crocky,elnath,elite,115,2044401,Scroll for Pole Arm for ATT 60%,scroll,1,1,0,600
+8840002,Red Crocky,elnath,elite,115,1002407,Blue Arnah Cap,equip,1,1,0,2574
+8840002,Red Crocky,elnath,elite,115,1050091,Dark Ades,equip,1,1,0,1400
+8840002,Red Crocky,elnath,elite,115,1051091,Blue Katte,equip,1,1,0,1400
+8840002,Red Crocky,elnath,elite,115,1082130,Dark Imperial,equip,1,1,0,2000
+8840002,Red Crocky,elnath,elite,115,1442020,Hellslayer,equip,1,1,0,1400
+8840002,Red Crocky,elnath,elite,115,1492011,The Peacemaker,equip,1,1,0,1000
+8840002,Red Crocky,elnath,elite,115,2290039,[Mastery Book] Ifrit 30,book,1,1,0,1000
+8840002,Red Crocky,elnath,elite,115,2290072,[Mastery Book] Frostprey 20,book,1,1,0,1000
+8840002,Red Crocky,elnath,elite,115,2290136,[Mastery Book] Combo Tempest 20,book,1,1,0,3000
 8850111,Cygnus,grandis,boss,140,0,mesos,meso,10080,15120,0,700000
 8850111,Cygnus,grandis,boss,140,2000004,Elixir,potion,1,1,0,999999
 8850111,Cygnus,grandis,boss,140,2000005,Power Elixir,potion,1,1,0,999999

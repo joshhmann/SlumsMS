@@ -25,7 +25,8 @@ import java.util.Set;
  * </ul>
  * Before this, Twilight Perion needed 2 rebirths and all of Grandis 3 (HyperTPHandler, the Henesys teleporter, the
  * Temple of Time portal). Players are checked by the Hyper Rock, the teleporter (9010002), the Temple of Time portal
- * and every unscripted portal ({@link GenericPortal}); bots keep their own rebirth-only rule (BotMapGates).
+ * and every unscripted portal ({@link GenericPortal}); bots by BotMapGates.mayEnter(map, rebirths, level), which asks
+ * this class, and by the teleporter rows of BotTransit.yaml (level 120 for the Future and lower Grandis towns).
  */
 public final class AreaGates {
 

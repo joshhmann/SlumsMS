@@ -3,12 +3,15 @@ package soloMapling.ArtificialPlayer.BotTravelSystem;
 import client.Character;
 import config.YamlConfig;
 import net.server.channel.handlers.HyperTPHandler;
+import server.maps.AreaGates;
 
 // MapleRoot's rebirth gates, as bots must respect them (ticket 03). HyperTPHandler only stops the Hyper
 // Teleport Rock, but a bot treats the same id ranges as a hard rule even where a portal would let it walk in:
 //   Lion King's Castle      rebirth 1
 //   Twilight Perion range   rebirth 2 (also covers Gate to the Future, Dark Ereve, Leafre of Past)
 //   Grandis / Arcane        rebirth 3
+// Ticket 81 (round 4): with the bot's level known (mayEnter(map, rebirths, level)), the players' rule applies
+// (server.maps.AreaGates): the Future and lower Grandis also open at level 120.
 //   HyperTP-restricted      never (Knight Stronghold, 401053002)
 // Plus one hole the research found (docs/real-bots/leveling-path-research.md, finding 4): Warrior Grounds
 // 273060300 sits just past the Twilight Perion range but is the same area, so it needs rebirth 2 too.
@@ -48,7 +51,24 @@ public final class BotMapGates {
         return chr.getReborns();
     }
 
+    // With no level known: the rebirth-only rule (the strictest; level 0 opens nothing).
     public static boolean mayEnter(int mapId, int rebirths) {
-        return rebirths >= requiredRebirths(mapId);
+        return mayEnter(mapId, rebirths, 0);
+    }
+
+    // Ticket 81 round 3/4: the players' rule (server.maps.AreaGates). The Future and lower Grandis also open at level
+    // 120; the rest of Grandis and Arcane stay rebirth 3; Lion King's Castle rebirth 1; restricted maps never.
+    public static boolean mayEnter(int mapId, int rebirths, int level) {
+        if (HyperTPHandler.isRestrictedMap(mapId)) {
+            return false;
+        }
+        if (HyperTPHandler.isLionKingMap(mapId) && rebirths < 1) {
+            return false;
+        }
+        return AreaGates.denyReason(mapId, level, rebirths) == null;
+    }
+
+    public static boolean mayEnter(int mapId, Character chr) {
+        return mayEnter(mapId, rebirthsOf(chr), chr == null ? 0 : chr.getLevel());
     }
 }

@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "botRebirth", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew");
+            "family", "tutorialIsland", "botRebirth", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "trainingLadder");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -100,6 +100,7 @@ final class Probes160 {
                 case "botRebirth" -> botRebirth(p);
                 case "achievements" -> achievements(p);
                 case "newerAreaCards" -> newerAreaCards();
+                case "trainingLadder" -> trainingLadder();
                 case "playerInvites" -> playerInvites();
                 case "slumsChan" -> slumsChan(p);
                 case "botTalk" -> botTalk(p);
@@ -1334,6 +1335,87 @@ final class Probes160 {
             return "monstercarddata maps the card to " + cardMob + ", want " + mob + " (needs a restart after 045)";
         }
         return null;
+    }
+
+    // ── t-ld-1: the 120+ training ladder (ticket 81, 1.6.1) ──────────────────────────────────────
+
+    /** t-ld-1: maps a level-120 character may enter without rebirths (two Future, two lower Grandis). */
+    static final int[] LADDER_OPEN = {271010000, 273000000, 400000000, 410000010};
+    /** t-ld-1: maps that stay rebirth 3 whatever the level (Heliseum HQ, Arcane River). */
+    static final int[] LADDER_CLOSED = {401000000, 450001000};
+    /** t-ld-1: one mob per region with a stat row (Arcane, Grandis, Future, Lion King's Castle) and a buffed classic one. */
+    static final int[] LADDER_MOBS = {8644001, 2400000, 8610008, 8210000, 8190003};
+    /** t-ld-1: mobs that must carry a migration-050 meso row (Arcane, Grandis, Future, Lion King's Castle). */
+    static final int[] LADDER_DROP_MOBS = {8644001, 2400000, 8610008, 8210000};
+
+    /**
+     * t-ld-1: a level-119 character (no rebirths) is refused at the Future and lower Grandis and a level-120 one is let
+     * in, by the players' rule (AreaGates: Hyper Rock, teleporter, portals) and the bots' (BotMapGates); upper Grandis
+     * and Arcane stay closed at level 200; each sampled mob loads with its mob-stat-overrides HP and EXP; the sampled
+     * newer-area mobs carry migration 050's meso row and the ledger table has rows.
+     */
+    static List<String> trainingLadder() {
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        for (int map : LADDER_OPEN) {
+            String at119 = server.maps.AreaGates.denyReason(map, 119, 0);
+            String at120 = server.maps.AreaGates.denyReason(map, 120, 0);
+            ev.add("map " + map + " lv119=" + (at119 == null ? "in" : "refused") + " lv120=" + (at120 == null ? "in" : "refused"));
+            if (at119 == null || at120 != null) {
+                bad.add("map " + map + ": want lv119 refused and lv120 in");
+            }
+            if (soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 0, 119)
+                    || !soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, 0, 120)) {
+                bad.add("map " + map + ": bots disagree with players at 119/120");
+            }
+        }
+        for (int map : LADDER_CLOSED) {
+            if (server.maps.AreaGates.denyReason(map, 200, 2) == null) {
+                bad.add("map " + map + " lets a level-200, 2-rebirth character in (wants rebirth 3)");
+            }
+        }
+        for (int mob : LADDER_MOBS) {
+            server.life.Monster m = server.life.LifeFactory.getMonster(mob);
+            long wantHp = server.life.MobStatOverrides.maxHp(mob, -1);
+            int wantExp = server.life.MobStatOverrides.exp(mob, -1);
+            if (m == null) {
+                bad.add("mob " + mob + " does not load");
+                continue;
+            }
+            ev.add("mob " + mob + " hp=" + m.getMaxHp() + " (row " + wantHp + ") exp=" + m.getStats().getExp() + " (row " + wantExp + ")");
+            if (wantHp < 0 && wantExp < 0) {
+                bad.add("mob " + mob + " has no row in mob-stat-overrides.tsv (old jar?)");
+            }
+            if (wantHp >= 0 && m.getMaxHp() != wantHp) {
+                bad.add("mob " + mob + " HP " + m.getMaxHp() + ", want " + wantHp);
+            }
+            if (wantExp >= 0 && m.getStats().getExp() != wantExp) {
+                bad.add("mob " + mob + " EXP " + m.getStats().getExp() + ", want " + wantExp);
+            }
+        }
+        for (int mob : LADDER_DROP_MOBS) {
+            boolean meso = false;
+            for (server.life.MonsterDropEntry d : server.life.MonsterInformationProvider.getInstance().retrieveDrop(mob)) {
+                meso |= d.itemId == 0;
+            }
+            if (!meso) {
+                bad.add("mob " + mob + " has no meso drop (migration 050 not applied, or !reloaddrops not run)");
+            }
+        }
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT COUNT(*) FROM bb_drops_050_rows");
+             java.sql.ResultSet rs = ps.executeQuery()) {
+            rs.next();
+            int rows = rs.getInt(1);
+            ev.add("bb_drops_050_rows=" + rows);
+            if (rows < 5000) {
+                bad.add("bb_drops_050_rows has " + rows + " rows, want the ~8,000 migration 050 inserts");
+            }
+        } catch (java.sql.SQLException e) {
+            bad.add("bb_drops_050_rows unreadable (migration 050 not applied?): " + e.getMessage());
+        }
+        return verdict(bad, "lv119 refused and lv120 let in at the Future and lower Grandis (players and bots), upper "
+                + "Grandis and Arcane still rebirth 3, sampled mobs carry their HP/EXP rows and 050's drops", ev);
     }
 
     // ── t-iv-1: @invite, the player path (ticket 105 part 2, 1.6.1) ───────────────────────────────

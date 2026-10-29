@@ -90,6 +90,8 @@ class BbDropTablesDataTest {
             }
         }
         assertTrue(Files.readString(SQL).contains("INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('050-bb-drop-tables')"));
+        assertTrue(Files.readString(Path.of("docs/release/1.6.1.conf")).contains(" 050-bb-drop-tables)"),
+                "listed in 1.6.1.conf MIGRATIONS");
     }
 
     @Test

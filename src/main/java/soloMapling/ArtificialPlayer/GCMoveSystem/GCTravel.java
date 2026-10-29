@@ -456,8 +456,7 @@ final class GCTravel {
 
     /* HyperTPHandler's own refusals: a restricted map, a rebirth gate, or a field the rock can't reach. */
     private static boolean hyperRockMayLand(Character bot, int mapId) {
-        if (!soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(mapId,
-                soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.rebirthsOf(bot))) {
+        if (!soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(mapId, bot)) {
             return false;
         }
         try {

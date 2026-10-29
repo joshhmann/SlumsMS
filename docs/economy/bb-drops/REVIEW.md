@@ -1,35 +1,44 @@
-# Post-Big-Bang drops, HP, EXP and the 120+ ladder: review for the owner (draft, round 3, ticket 81)
+# Post-Big-Bang drops, HP, EXP and the 120+ ladder: review for the owner (round 4, ticket 81)
 
-This is the third draft. The goal is good 120-200 training for friends at 120+. Compared with round 2:
-- The new areas' EXP is set to about 2x a classic spot per hour, on a smooth curve by level.
-- The Future and lower Grandis open at level 120 without rebirths.
-- The classic 120+ spots get EXP x1.4.
+The owner approved the 120+ ladder for TEST. This is round 4, made merge-ready for 1.6.1. The goal is good 120-200
+training for friends at 120+. Compared with round 2:
+- (round 3) The new areas' EXP is set to about 2x a classic spot per hour, on a smooth curve by level.
+- (round 3) The Future and lower Grandis open at level 120 without rebirths.
+- (round 3) Leafre/Minar, the Temple of Time and Ulu City get EXP x1.4.
+- (round 4) Bots follow the same level-120 rule.
+- (round 4) Lion King's Castle and Rose Garden get the full treatment: HP, EXP and classic-pool drop tables.
+- (round 4) Migration 050 is listed in `docs/release/1.6.1.conf` and auto-QA check `t-ld-1` is added.
 
-The drop tables and rare gear are as in round 2, and Mirror World stays out. **Nothing is applied anywhere**:
-- Migration `050-bb-drop-tables` (a placeholder number) is not on TEST, not in a release conf and not merged.
-- The stat table, the gates and the script changes take effect only when a build with them is deployed.
+The drop tables and rare gear are as in round 2, and Mirror World stays out. **Nothing is applied anywhere yet**:
+- This is not merged and not on TEST.
+- The stat table, the gates and the script changes take effect with the jar; the drops take effect with migration
+  050.
+
+Player notes text: `PLAYER-NOTES.md`.
 
 Files: rules in `RULES.md`, drop rows in `rows.csv`, HP and EXP changes in `stats.csv`, lower Grandis map list in
 `src/main/resources/soloMapling/lower-grandis-maps.txt`, inventory in `mobs.csv`.
 
 ## In one paragraph
 
-335 mobs in Arcane River, Grandis and Future/Twilight Perion get a drop table, 7,699 rows in all. Each normal mob
-gets classic level-scaled mesos, 3 potions, 5 ores, its own ETC where it has a use, 4 scrolls, 2 mastery books,
-5 classic equips, 2 on-par post-Big-Bang pieces and 1 rare outclassing piece.
+350 mobs in Arcane River, Grandis, Future/Twilight Perion, Lion King's Castle and Rose Garden get a drop table,
+8,011 rows in all. Each normal mob in the newer areas gets classic level-scaled mesos, 3 potions, 5 ores, its own ETC
+where it has a use, 4 scrolls, 2 mastery books, 5 classic equips, 2 on-par post-Big-Bang pieces and 1 rare
+outclassing piece. Lion King's Castle and Rose Garden draw from the classic pool only, with no post-Big-Bang gear.
 
 HP and EXP:
-- 325 of these mobs get classic-curve HP.
-- 326 normal mobs get new EXP: EXP per hour is about 2x the classic Temple of Time spot at lv 131 and grows with
+- 340 of these mobs get classic-curve HP.
+- 340 normal mobs get new EXP: EXP per hour is about 2x the classic Temple of Time spot at lv 131 and grows with
   level (lv 120 = 32M an hour, lv 150 = 64M, lv 200 = 156M).
-- 39 classic mobs (Leafre/Minar, Temple of Time, Lion King's Castle, Rose Garden, Ulu City) get EXP x1.4.
+- 25 classic mobs (Leafre/Minar, Temple of Time, Ulu City) get EXP x1.4.
 
 Access:
-- The Future and 187 lower Grandis maps (lv 109-142) open at level 120.
+- The Future and 187 lower Grandis maps (lv 109-142) open at level 120, for players and bots.
 - Upper Grandis and Arcane River stay rebirth 3.
 
 For the same character (the damage it takes to kill 1,000 Chief Oblivion Guardians an hour):
 - the classic spots pay 20-28M EXP an hour (was 14-20M);
+- Lion King's Castle and Rose Garden pay 34-42M (was 3-10M);
 - lower Grandis pays 34M;
 - the Future pays 100M;
 - upper Grandis and Arcane pay 156M.
@@ -51,18 +60,21 @@ A stronger character earns more everywhere; the model is for comparing areas.
 | Leafre / Minar Forest | 93-113 | 14.2M -> 19.8M | 13.6M | none | 22 |
 | Temple of Time, Road of Regrets | 106-116 | 17.6M -> 24.3M | 11.6M | none | 5 |
 | Temple of Time, Road to Oblivion | 121-131 | 18.7M -> 25.9M | 9.2M | none | 5 |
-| Lion King's Castle | 117-127 | 10.1M -> 14.1M | 0 (card-only mobs) | none on foot; Hyper Rock needs rebirth 1 | 13 |
-| Rose Garden | 128-134 | 2.8M -> 4.0M | 0 (no drop table) | none | 6 |
-| **Lower Grandis** (Pantheon, Sanctuary, Refuge, Fox Ridge, Cheong-woon, Ristonia, Toolen) | 109-142 | 2.1M -> **34.0M** | 0.6M -> 13.7M | **level 120** (or rebirth 3) | 110 |
-| **Future / Twilight Perion** | 124-198 (plus a few low event mobs) | 2.0M -> **99.8M** | 0.3M -> 6.0M | **level 120** (or rebirth 2) | 60 |
-| Upper Grandis (Heliseum, Savage Terminal back streets, Fox Tree, Cernium) | 175-200 | 2.1M -> 153.4M | 0.2M -> 4.7M | rebirth 3 | 113 |
+| **Lion King's Castle** | 117-127 | 10.1M -> **34.0M** | 0 -> 14.0M | none on foot; Hyper Rock and bots need rebirth 1 | 13 |
+| **Rose Garden** | 128-134 | 2.8M -> **42.4M** | 0 -> 12.2M | none | 6 |
+| **Lower Grandis** (Pantheon, Sanctuary, Refuge, Fox Ridge, Cheong-woon, Ristonia, Toolen) | 109-142 | 2.1M -> **34.0M** | 0 -> 13.7M | **level 120** (or rebirth 3) | 110 |
+| **Future / Twilight Perion** | 124-198 (plus a few low event mobs) | 2.0M -> **99.8M** | 0 -> 6.0M | **level 120** (or rebirth 2) | 60 |
+| Upper Grandis (Heliseum, Savage Terminal back streets, Fox Tree, Cernium) | 175-200 | 2.1M -> 153.4M | 0 -> 4.7M | rebirth 3 | 113 |
 | Arcane River | 200 | 1.3M -> 155.8M | 0 -> 4.4M | rebirth 3 | 272 |
 
-The "before" column for the new areas is with today's HP and EXP. The ToT rows include its 7 Eyes of Time (lv 80)
+The "before" columns are today's HP, EXP and drop_data. The newer areas and Rose Garden had no meso rows, and the
+Lion King's Castle mobs only their card. (Round 3's table showed non-zero "before" mesos for the new areas; that was
+a calculation slip: it counted the new meso rows.) The ToT rows include its 7 Eyes of Time (lv 80)
 per map.
 
 Reading it:
-- A lv 120 friend can go to lower Grandis (34M an hour, about 1.4x the buffed Temple of Time).
+- A lv 120 friend can go to lower Grandis or Lion King's Castle (34M an hour, about 1.4x the buffed Temple of Time).
+- Rose Garden (lv 128-134) pays 42M.
 - From about lv 160 the Future pays 100M.
 - With 3 rebirths, upper Grandis and Arcane pay 156M.
 
@@ -90,23 +102,24 @@ their kill rate is lower.
 | Arcane River 450-459 | 160 | 146 | 145 / 0 / 1 / 0 | 14 | 3,511 | 145 | 145 | 10,240-24,000 |
 | Grandis 400-419 | 145 | 140 | 135 / 1 / 2 / 2 | 5 | 3,103 | 138 | 135 | 6,980-23,880 |
 | Future / Twilight Perion 271-273 | 54 | 49 | 46 / 0 / 0 / 3 | 5 | 1,085 | 42 | 46 | 7,940-20,690 |
-| **Total** | **359** | **335** | 326 / 1 / 3 / 5 | **24** | **7,699** | **325** | **326** | |
-| Classic 120+ spots | | | | | 0 | 0 | 39 (x1.4) | unchanged |
+| Lion King's Castle 211060xxx / Rose Garden 211080xxx | 15 | 15 | 14 / 1 / 0 / 0 | 0 | 312 | 15 | 14 | 6,080-15,840 |
+| **Total** | **374** | **350** | 340 / 2 / 3 / 5 | **24** | **8,011** | **340** | **340** | |
+| Classic spots (Leafre/Minar, Temple of Time, Ulu) | | | | | 0 | 0 | 25 (x1.4) | unchanged |
 | Mirror World 321-328 (left out) | 178 | 0 | `--regions all` adds 176 tables | 2 | 0 | 0 | 0 | |
 
-Of the 335, 246 keep their card row and 89 had no rows at all (today they drop nothing, not even global drops).
+Of the 350, 252 keep their card row and 98 had no rows at all (today they drop nothing, not even global drops).
 
 Rows by kind:
 
 | Kind | Rows |
 |---|---|
-| Mesos | 335 |
-| Potions | 1,001 |
-| Ores, rocks and stimulators | 1,645 |
-| Own and region ETC | 190 |
-| Scrolls | 1,328 |
-| Mastery books | 667 |
-| Classic equips | 1,660 |
+| Mesos | 350 |
+| Potions | 1,046 |
+| Ores, rocks and stimulators | 1,724 |
+| Own and region ETC | 194 |
+| Scrolls | 1,390 |
+| Mastery books | 698 |
+| Classic equips | 1,736 |
 | Post-Big-Bang gear, par | 614 |
 | Post-Big-Bang gear, rare | 259 |
 
@@ -122,10 +135,12 @@ hard-coded boss HP.
 | Arcane River | 145 | 22.3M / 132M / 339M | 380k / 507k / 760k | 59 / 261 / 446 |
 | Grandis | 135 | 2.18M / 2.6M / 1.07B | 63k / 116k / 722k | 8 / 25 / 2,118 |
 | Future / Twilight Perion | 42 of 46 | 350k / 6.67M / 28.5M | 209k / 346k / 490k | 1.4 / 23 / 70 |
+| Lion King's Castle / Rose Garden | 14 | 252k / 456k / 4.17M | 60k / 93k / 162k | 4 / 5 / 33 |
 
 | Elite and bosses | Before | After |
 |---|---|---|
 | Sky Guardian (Grandis, elite, lv 200) | 446,400,000 | 15,200,000 (30x the curve) |
+| Red Crocky (Lion King's Castle, elite, lv 115) | 9,500,000 | 2,280,000 (30x the curve) |
 | Cygnus (lv 140) | 2,100,000,000 | 110,000,000 (Zakum's body) |
 | Magnus (lv 190) | 200,000,000,000 (hard-coded in LifeFactory) | 2,100,000,000 (Pink Bean) |
 | Singularity Maker (lv 200) | 2,147,483,647 | unchanged (already Pink Bean scale) |
@@ -142,6 +157,7 @@ How EXP per kill is set (normal mobs only; elite and boss EXP unchanged):
 | Arcane River | 145 | 98,708 / 401,055 / 721,247 | 140,000 / 187,000 / 280,000 | 1.3M | 156M / 156M / 157M |
 | Grandis | 135 | 10,900 / 13,000 / 1,828,409 | 5,340 / 11,300 / 254,000 | 2.1M | 24M / 41M / 156M |
 | Future / Twilight Perion | 46 | 2,051 / 25,550 / 74,577 | 9,550 / 83,800 / 175,000 | 2.0M | 36M / 102M / 151M |
+| Lion King's Castle / Rose Garden | 14 | 3,806 / 8,520 / 17,733 | 6,640 / 9,190 / 16,600 | 9.1M | 30M / 39M / 45M |
 
 | Mob (region, level) | HP before -> after | EXP per kill before -> after | Kills/hour after | EXP/hour before -> after | Mesos/hour after |
 |---|---|---|---|---|---|
@@ -155,22 +171,29 @@ How EXP per kill is set (normal mobs only; elite and boss EXP unchanged):
 | Official Knight D (Future, 174, median) | 5.70M -> 236k | 23,495 -> 56,700 | 597 | 1.7M -> 102M | 6.65M |
 | Ancient Mixed Golem (Future, 198) | 14.0M -> 490k | 64,640 -> 175,000 | 288 | 2.0M -> 151M | 4.56M |
 
-Classic spots, EXP x1.4 (39 mobs, `stats.csv`):
+Classic spots, EXP x1.4 (25 mobs, `stats.csv`; round 4 moved Lion King's Castle and Rose Garden out of this list
+and onto the full treatment):
 - Temple of Time Memory Guardian to Chief Oblivion Guardian (lv 98-131, 10 mobs).
 - Leafre and Minar Wyverns, Cornians, Rexton/Brexton, Newties, Skelegons, Skelosaurus, Nest Golem (lv 95-113,
   11 mobs).
-- Lion King's Castle mobs (lv 117-127, 8).
-- Rose Garden (lv 128-134, 6).
 - Ulu City (lv 95-115, 4).
 
 Chief Oblivion Guardian goes 7,060 -> 9,884, so the reference spot itself now pays 29.7M an hour. The new areas'
 targets are still set from the old 21.2M, and they stay above it: lower Grandis 34M at lv 120-140.
 
-The server has no per-map spawn override (only an integer multiplier nothing sets), so density is not changed. The
-Lion King's Castle and Rose Garden mobs have very high HP for their level (250k-4M), no meso drops (LKC: card only;
-Rose Garden: nothing). They stay weak spots even after the buff; see the open questions.
+The server has no per-map spawn override (only an integer multiplier nothing sets), so density is not changed.
 
-## Area gates (round 3)
+Lion King's Castle and Rose Garden (round 4): their mobs had 250k-4M HP at lv 117-134 and no meso drops (LKC: card
+only; Rose Garden: nothing). They now go through the same rules as the newer areas:
+- HP onto the classic curve (60k-162k);
+- EXP for about 2x the classic EXP per hour for their level (30-45M);
+- drop tables from the classic pool: mesos, potions, ores, own ETC where it has a use (Reindeer's Spear, Bearwolf's
+  Morning Star, Vulture's Shoulder Accessory, Castle Golem Brick), scrolls, mastery books and classic equips. No
+  post-Big-Bang gear.
+
+Red Crocky (lv 115, boss flag) is an elite: 2.28M HP, its EXP is kept.
+
+## Area gates (rounds 3 and 4)
 
 | Area | Before | Now |
 |---|---|---|
@@ -191,8 +214,12 @@ Rose Garden: nothing). They stay weak spots even after the buff; see the open qu
     - Brawl 'n' Bash Club Entrance -> Dingy Brawl 'n' Bash Club (lv 181)
 - **Unchanged:** the Arcane River portal (`arcaneriver.js`, rebirth 3) and the boss-entry portals.
 - **GMs** pass every gate.
-- **Bots** keep their rebirth-only rule (`BotMapGates`), so for now bots do not train in the newly opened maps. A
-  follow-up can give them the level rule.
+- **Bots (round 4)** follow the same rule. `BotMapGates.mayEnter(map, rebirths, level)` asks AreaGates; it is used
+  by bot map choice (TrainingMapFinder, TrainingTravel, LevelingPathChooser), routing (GCWorldGraph, with the transit
+  level tier) and the Hyper Rock (GCTravel), world events and TrainingBot. The Henesys teleporter's rows in
+  `BotTransit.yaml` for the Future and lower Grandis towns now need level 120 instead of 3 rebirths. A row is AND-only,
+  so a low-level 3-rebirth bot walks there instead of taking the teleporter. Upper Grandis (Heliseum) and Arcane rows
+  still need 3 rebirths. Callers that do not know a level keep the strict rebirth rule.
 - **Lower Grandis map ids** (generated from Map.wz by `tools/economy/gen_area_gates.py`, 187 maps):
   400000000-400000001, 400010000, 400010100, 400010300, 400010400, 400020000, 400020100, 400020200, 400020300,
   400030100, 400030300, 400030400, 400030500, 400040000, 400040100, 400040200, 400040300, 401000002,
@@ -383,11 +410,11 @@ Boss:
     decision.
   - The Dawn, Blaze, Wind and Night Stones are used by `scripts/item/dreamkey.js` (5 of each). Hedgehog Balls have an
     NPC price (235).
-- **ETC left out** by the use-or-price rule (15 items, `etc-excluded.csv`):
-  - **No use in scripts and no NPC price (14):** Rubble (Amethyst Tokka), Dinogoth Tail, Giant Firewood (Swollen Axe
+- **ETC left out** by the use-or-price rule (16 items, `etc-excluded.csv`):
+  - **No use in scripts and no NPC price (15):** Rubble (Amethyst Tokka), Dinogoth Tail, Giant Firewood (Swollen Axe
     Stump), Mutated Tooth (Pillaging Wild Boar), Heavy Armor Fragment (both Pillaging Boars), Cursed Plank, Slate and
     Plate (the Sinister Masks), Thunder Spear (Thunder), Mouse Tail (Balloon Mouse), Red and Green Frog Legs (the
-    Poison Frogs), Mohawk Feather (Delinquent Chick), Rocker Feather (Punk Chick).
+    Poison Frogs), Mohawk Feather (Delinquent Chick), Rocker Feather (Punk Chick), Frozen Rose Petal (Frozen Rose).
   - **Post-Big-Bang system (1):** Core Blaze Tip (4032358, Blaze).
   - Never candidates (the name and description matching does not reach them, and the system filter would refuse
     them): Spell Trace (4000999/4001832), Arcane Symbols (1712xxx/1713xxx are not in the server's Character.wz at
@@ -409,27 +436,37 @@ Boss:
    variants and Arma's Follower on 450001400/450001500, the Cygnus and Resistance soldiers, Belle, Brighton,
    Corrupt Spirit of Harmony, ??? (8642091), the Cygnus Knights (Grandis 400000003) and Ariel, Solomon, Rex, Hugin,
    Munin (270050100). Give them EXP, HP and tables, despawn them, or leave them as scenery?
-2. **Lion King's Castle and Rose Garden** have very high HP for their level and no meso drops (card only, or
-   nothing). Even with EXP x1.4 they pay 4-14M EXP an hour and no mesos. Put them through the same HP curve and
-   drop-table generator in a later round?
-3. **Bots and the new gates.** Bots still need rebirths for the Future and Grandis (BotMapGates). Give them the
-   level-120 rule too, so lv 120+ bots train there?
-4. **Spawn density** has no per-map override on the server. If the classic spots should be busier rather than
+2. **Spawn density** has no per-map override on the server. If the classic spots should be busier rather than
    richer, that needs a small code change (a per-map spawn multiplier table).
-5. **Outclassing gear rates**: 60 (0.024%) for Jaihin/Utgard/Pensalir and 15 for AbsoLab. With the new EXP these
+3. **Outclassing gear rates**: 60 (0.024%) for Jaihin/Utgard/Pensalir and 15 for AbsoLab. With the new EXP these
    maps will be busier, so a lv 130 Grandis grinder finds one about every 3-4 hours. Keep, lower, or keep AbsoLab
    boss-only?
-6. **Bosses**: are Cygnus (400000003), Magnus (401060101) and the Singularity Maker (450014250) meant to be
+4. **Bosses**: are Cygnus (400000003), Magnus (401060101) and the Singularity Maker (450014250) meant to be
    farmable? Cygnus is at 110M HP and Magnus at 2.1B, with Zakum-sized tables.
-7. **Monster Book HP**: rebuild Custom.wz with `build_book.py --hp-overrides` in the next client release?
-8. **Release (you want it in 1.6.1 after a TEST pass).** The jar (stat table, gates, scripts) and migration 050
-   must ship together: the stat table without the drops makes these mobs easy kills that drop little. When you say
-   go:
-   - give 050 its real number and add it to `docs/release/1.6.1.conf`;
-   - deploy to TEST;
-   - QA: a level-119 and a level-120 character at the teleporter, the Gate of Time, the Hyper Rock and the four
-     boundary portals; EXP and HP on a lower Grandis mob and an Arcane mob; drops on both;
-   - write the notes.
+5. **Monster Book HP**: rebuild Custom.wz with `build_book.py --hp-overrides` in the next client release?
+
+## Release (1.6.1, after a TEST pass)
+
+- **Migration:** `050-bb-drop-tables` is in `docs/release/1.6.1.conf` MIGRATIONS after 049, with a comment. 051 is the
+  penguin move; the two touch different tables, so their order does not matter.
+- **Ship together:** the jar (stat table, AreaGates, the portal check, bot gates, BotTransit rows) and the scripts
+  (`9010002.js`, `270000000.10.js`) must go with migration 050. The stat table without the drops makes these mobs
+  easy kills that drop little.
+- **Auto-QA `t-ld-1`** (probe `trainingLadder`):
+  - level 119 is refused and level 120 let in at two Future and two lower Grandis maps, by the players' rule and the
+    bots';
+  - Heliseum HQ and Arcane stay closed to a level-200, 2-rebirth character;
+  - Sun Spirit, Sleepy Grobbler, Official Knight D, Crocky and Skelegon load with their table HP and EXP;
+  - the four newer-area samples have a meso row, and `bb_drops_050_rows` has its rows.
+  - It checks the gate rule directly; walking a real lv 119/120 character through the four boundary portals is a
+    manual QA step.
+- **Manual QA on TEST:**
+  - with a level-119 and a level-120 character: the teleporter, the Gate of Time, the Hyper Rock and the four
+    boundary portals (Dimensional Door -> Heliseum HQ, Mountain of Trash -> Scrapyard, Nutria Gutter 2 -> Sketchy
+    Back-Alley, Brawl club entrance -> Dingy club);
+  - kill a mob in lower Grandis, Lion King's Castle and Arcane, and check the HP bar, the EXP and the drops;
+  - `!botyield` after an hour, to see bots training in the newly opened maps.
+- **Player notes:** `PLAYER-NOTES.md` ("Training after 120").
 
 ## What was run
 
@@ -438,16 +475,20 @@ Boss:
   files.
 - `BbDropTablesDataTest`: every item exists in Item.wz or Character.wz, has a name, and is not cash, quest,
   untradeable, account-bound or one-of-a-kind; every ETC item has a use in `scripts/` or an NPC price; no card
-  items; every mob is in Mob.wz; one meso row per mob; no Mirror World mob.
+  items; every mob is in Mob.wz; one meso row per mob; no Mirror World mob; 050 is listed in 1.6.1.conf.
 - `BbDropTablesMigrationIT` on throwaway MySQL 8.0 and 8.4 containers: apply twice, roll back twice, apply again.
   Card rows, an older row and an unrelated mob are unchanged.
-- `MobStatOverridesTest`: LifeFactory gives Sun Spirit its table HP and EXP (instead of 132,308,000 HP and 401,055
-  EXP) and Skelegon EXP x1.4 with its HP kept; a mob with no row keeps its WZ values; the table matches
-  `stats.csv`; bad rows are refused.
-- `AreaGatesTest` and `HyperTPRefusalTest`:
+- `MobStatOverridesTest`: LifeFactory gives Sun Spirit its table HP and EXP and Skelegon EXP x1.4 with its HP kept; a
+  mob with no row keeps its WZ values; the table matches `stats.csv`; bad rows are refused.
+- `AreaGatesTest`, `HyperTPRefusalTest`:
   - level 120 opens the Future and lower Grandis;
   - upper Grandis, the Scrapyard, the Fox Tree Top and Arcane still need 3 rebirths;
   - the Hyper Rock agrees;
   - the teleporter and the Gate of Time ask AreaGates.
-- The full suite, `mvn -q -o test`.
+- `BotMapGatesTest`, `BotTransitHighLevelTest`, `GCTravelHighLevelTest`:
+  - bots at level 119/120 at the Future and lower Grandis;
+  - upper Grandis, Arcane and the Knight Stronghold stay closed;
+  - the teleporter rows (level 120 for the Future and lower Grandis towns, 3 rebirths for the rest);
+  - a level-119 bot is turned away at the teleporter's lower Grandis row and a level-120 one is taken.
+- `tools/release` unit tests, and the full suite, `mvn -q -o test`.
 - Not tested on TEST or in a real client.

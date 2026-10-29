@@ -138,7 +138,7 @@ public final class TrainingTravel {
             int n = 0;
             for (TrainingMap m : hubMaps.apply(hub)) {
                 if (region.contains(m.mapId()) && m.mobLevel() >= r.minMob() && m.mobLevel() <= r.maxMob()
-                        && TrainingRegions.isAllowed(m.mapId(), r.rebirths())) {
+                        && TrainingRegions.isAllowed(m.mapId(), r.rebirths(), r.level())) {
                     n++;
                 }
             }

@@ -1166,6 +1166,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-nc-1", "Newer-area Monster Book cards drop at 2%").minutes(1)
                 .expect(probe("newerAreaCards"))
                 .build());
+        // The 120+ training ladder (ticket 81, migration 050): level-120 gates for the Future and lower Grandis (players
+        // and bots), the mob HP/EXP table, and 050's drop rows
+        c.add(Check.auto("t-ld-1", "120+ ladder: lv120 gates, mob HP/EXP rows, new drop tables").minutes(1)
+                .expect(probe("trainingLadder"))
+                .build());
         // @invite (ticket 105 part 2): level 30+, two codes a week, one friend per code; a made-up account, nothing real
         c.add(Check.auto("t-iv-1", "@invite: level 30+, 2 a week, a code works once").minutes(2)
                 .expect(probe("playerInvites"))

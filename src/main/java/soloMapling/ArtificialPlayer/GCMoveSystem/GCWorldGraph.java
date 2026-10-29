@@ -118,7 +118,9 @@ final class GCWorldGraph {
             return null;
         }
         int tier = Math.max(0, Math.min(3, rebirths));
-        int levelTier = BotTransit.levelTier(level); // the highest level check this bot passes: few distinct keys
+        // the highest level check this bot passes: few distinct keys. ANY_LEVEL stays itself: it passes every script's
+        // level check but opens no level gate (ticket 81), so a plan for no particular bot keeps the rebirth rule
+        int levelTier = level == ANY_LEVEL ? ANY_LEVEL : BotTransit.levelTier(level);
         RouteKey key = new RouteKey(fromMapId, toMapId, maxHops, tier, allowFares, savedReturn, levelTier);
         List<Integer> cached = ROUTES.get(key);
         if (cached != null) {
@@ -169,7 +171,10 @@ final class GCWorldGraph {
         java.util.Set<Integer> toured = new java.util.HashSet<>(); // reached through an outbound World Tour
         java.util.Set<Integer> rocked = new java.util.HashSet<>(); // reached through a hyper-rock jump
         // A bot already inside a gated area (put there by a GM, a party warp...) may walk back out through it.
-        boolean escaping = !BotMapGates.mayEnter(fromMapId, rebirths);
+        // level here is the transit level tier (BotTransit.levelTier): 120 for a bot of 120+, which opens the
+        // Future and lower Grandis (ticket 81); ANY_LEVEL (no particular bot) opens no level gate
+        int gateLevel = level == ANY_LEVEL ? 0 : level;
+        boolean escaping = !BotMapGates.mayEnter(fromMapId, rebirths, gateLevel);
         PriorityQueue<long[]> open = new PriorityQueue<>((a, b) -> Long.compare(a[0], b[0]));
         best.put(fromMapId, 0L);
         hops.put(fromMapId, 0);
@@ -191,7 +196,7 @@ final class GCWorldGraph {
             for (long step : steps(g, current, allowFares, savedReturn, rebirths, level)) {
                 int next = (int) (step >>> 32);
                 int sec = (int) step & SEC_MASK;
-                if (!escaping && next != toMapId && !BotMapGates.mayEnter(next, rebirths)) {
+                if (!escaping && next != toMapId && !BotMapGates.mayEnter(next, rebirths, gateLevel)) {
                     continue; // never pass through a map this bot's rebirths don't open
                 }
                 boolean wasToured = toured.contains(current);

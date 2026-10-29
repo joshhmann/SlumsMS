@@ -65,6 +65,30 @@ class GCTravelHighLevelTest {
         verify(bot, never()).changeMap(anyInt(), anyInt());
     }
 
+    // Ticket 81 round 4: the Henesys teleporter's lower Grandis row is a level-120 check for bots, as for players.
+    private static final BotTransit.Edge TO_PANTHEON = new BotTransit.Edge("teleporter", 100000000, 400000000,
+            BotTransit.Via.NPC, 9010002, -1, null, 0, -1, null, true, 30, -1, null, null, null, 120, 0);
+
+    @Test
+    void theTeleporterTurnsAwayALevel119BotFromLowerGrandis() {
+        Character bot = botOn(100000000, 119);
+        boolean[] result = {true};
+
+        assertTrue(GCTravel.tryBoard(new GCTravel.Trip(bot, 400000000, ok -> result[0] = ok), bot, TO_PANTHEON));
+
+        assertFalse(result[0]);
+        verify(bot, never()).changeMap(anyInt());
+        verify(bot, never()).changeMap(anyInt(), anyInt());
+    }
+
+    @Test
+    void theTeleporterTakesALevel120BotToLowerGrandis() {
+        Character bot = botOn(100000000, 120);
+
+        assertTrue(GCTravel.tryBoard(new GCTravel.Trip(bot, 400000000, null), bot, TO_PANTHEON));
+        verify(bot).changeMap(400000000);
+    }
+
     @Test
     void jeffLetsALevelFiftyBotThrough() {
         Character bot = botOn(211040200, 50);

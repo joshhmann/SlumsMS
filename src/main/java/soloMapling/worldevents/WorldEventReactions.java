@@ -169,7 +169,7 @@ public final class WorldEventReactions {
             // standing on an invaded map joins whatever its level
             boolean here = e.template.kind() == EventTemplate.Kind.INVASION && chr.getMapId() == e.mapId();
             if (!here && !levelFits(chr.getLevel(), e.minLevel, e.maxLevel) || !region.equals(regionKey(chr.getMapId()))
-                    || !BotMapGates.mayEnter(e.mapId(), BotMapGates.rebirthsOf(chr))) {
+                    || !BotMapGates.mayEnter(e.mapId(), chr)) {
                 continue;
             }
             if (!BotPopulationDirector.mayLogOut(bot)) {

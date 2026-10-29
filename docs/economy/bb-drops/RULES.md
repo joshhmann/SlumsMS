@@ -17,8 +17,11 @@ together, then regenerate. The review summary is in `REVIEW.md`.
   regions counts in the region where it has the most placements.
 - **Target:** every inventoried mob whose drop_data rows are none or only its Monster Book card. The 16 v83 Temple
   of Time mobs on 270 already have classic tables and are left alone.
-- **Regions:** Arcane, Grandis and Future by default. Mirror World (178 mobs) is left out until it has a way in;
-  `--regions all` adds it back, with the same rules.
+- **Regions:** Arcane, Grandis, Future and (round 4) "elnath", which is Lion King's Castle 211060xxx and Rose Garden
+  211080xxx: classic lv 117-134 spots whose mobs had huge HP and no meso drops. Mirror World (178 mobs) is left out
+  until it has a way in; `--regions all` adds it back, with the same rules.
+- **Classic regions** (elnath) get the same HP, EXP and drop rules, but their tables come from the classic pool only:
+  no post-Big-Bang gear.
 - **Skipped:** mobs with 0 EXP in Mob.wz get no table and no HP change. There are 24 in the three regions:
   scripted soldiers, event Erdas, the Cygnus Knights in the Cygnus fight, the Ascendion/Foreberion/Embrion copies on
   450012301-303, and Ariel, Solomon, Rex, Hugin and Munin. REVIEW.md lists them as an open question.
@@ -91,10 +94,9 @@ migration skips any (mob, item) pair that is already in drop_data.
 - The non-boss mobs of level 95+ (excluding event mobs 9300000-9399999) placed in these areas get EXP x1.4:
   - Leafre / Minar Forest, 240010000-240049999
   - Temple of Time, 270010000-270039999
-  - Lion King's Castle, 211060000-211069999
-  - Rose Garden, 211080000-211089999
   - Ulu City, 541020000-541029999
-- That is 39 mobs. The override is per mob, so a mob placed in other maps too gets the same EXP there.
+- That is 25 mobs. The override is per mob, so a mob placed in other maps too gets the same EXP there. Lion King's
+  Castle and Rose Garden were on this list in round 3; round 4 gives them the full treatment instead.
 - **Density:** the server has no per-map spawn override, only an integer multiplier that nothing sets, and
   `createMobInterval` is WZ data. So this draft buffs EXP only.
 
@@ -115,7 +117,10 @@ migration skips any (mob, item) pair that is already in drop_data.
   per destination), the Temple of Time's Gate of Time (`scripts/portal/270000000.10.js`) and every unscripted portal
   (`GenericPortal`). The unscripted portals catch walking between lower and upper Grandis; all four boundary portals
   are unscripted. The Arcane River portal (`arcaneriver.js`) is unchanged. GMs pass.
-- **Bots** keep their rebirth-only rule (`BotMapGates`), so they do not use the newly opened maps yet.
+- **Bots** (round 4) follow the same rule. `BotMapGates.mayEnter(map, rebirths, level)` asks AreaGates. It is used for
+  bot map choice, routing (with the transit level tier), the bots' Hyper Rock, world events and TrainingBot.
+  Callers with no level keep the strict rebirth rule. The Henesys teleporter rows in `BotTransit.yaml` for the
+  Future and lower Grandis towns need level 120 instead of 3 rebirths.
 
 ## Items (only what classic mobs drop, plus the three owner-approved extras)
 
@@ -173,6 +178,9 @@ so regenerating gives the same tables.
   `stats.csv`. Bad rows are refused (`MobStatOverridesTest`).
 - The gates: level 120 opens the Future and lower Grandis, upper Grandis and Arcane still need 3 rebirths, the Hyper
   Rock agrees, and the teleporter and the Gate of Time ask AreaGates (`AreaGatesTest`).
+- Bots follow the gates: `BotMapGatesTest`, `BotTransitHighLevelTest` (teleporter rows) and `GCTravelHighLevelTest`
+  (a level-119 bot is turned away at the teleporter's lower Grandis row, a level-120 one goes).
+- On TEST, auto-QA `t-ld-1` checks the gates at levels 119 and 120, the sampled mobs' HP and EXP, and 050's rows.
 
 ## Regenerating
 

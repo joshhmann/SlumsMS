@@ -15,19 +15,25 @@ from collections import defaultdict
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-# region key, label, map-id prefixes (first 3 digits)
+# region key, label, map-id prefixes (first 3 digits) or explicit [lo, hi] map-id ranges
 REGIONS = [
     ("arcane", "Arcane River 450-459", range(450, 460)),
     ("grandis", "Grandis 400-419", range(400, 420)),
     ("future", "Temple of Time / Future / Twilight Perion 270-273", range(270, 274)),
     ("mirror", "Mirror World 321-328", range(321, 329)),
+    # round 4 (owner 2026-10-28): the classic lv 117-134 spots whose mobs have huge HP and no meso drops
+    ("elnath", "Lion King's Castle 211060xxx / Rose Garden 211080xxx",
+     [(211060000, 211069999), (211080000, 211089999)]),
 ]
 
 
 def region_of(mapid):
     p = mapid // 1000000
-    for key, _, prefixes in REGIONS:
-        if p in prefixes:
+    for key, _, where in REGIONS:
+        if isinstance(where, range):
+            if p in where:
+                return key
+        elif any(lo <= mapid <= hi for lo, hi in where):
             return key
     return None
 
