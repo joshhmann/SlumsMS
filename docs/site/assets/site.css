@@ -837,3 +837,5 @@ table.t { width: 100%; border-collapse: collapse; }
 .rp-ctx details { margin: 0 0 8px; }
 .rp-ctx summary { cursor: pointer; font-weight: 600; }
 .rp-list tr[aria-current] td { background: var(--surface-2); }
+.rp-list .rp-nw { white-space: nowrap; }
+.rp-list .rp-ti { min-width: 12rem; }

@@ -95,10 +95,10 @@ REPORTS = """<h1>Reports</h1><p class="id">Bug reports and ideas from the websit
 <p class="small" x-show="ctx && (ctx.missing || ctx.tooBig || ctx.unreadable)" x-text="ctx && (ctx.missing ? 'The in-game context file is gone.' : ctx.tooBig ? 'The in-game context file is too big to show here.' : 'The in-game context file could not be read.')"></p>
 </div></section>
 <section class="panel"><h2 class="bar">Reports</h2>
-<div class="tbl"><table class="t rp-list"><thead><tr><th>Ref</th><th>Sent</th><th>Kind</th><th>From</th><th>Character</th><th>Title</th><th>Versions</th></tr></thead>
+<div class="tbl"><table class="t rp-list"><thead><tr><th>Ref</th><th>Title</th><th>Sent</th><th>Kind</th><th>From</th><th>Character</th><th>Versions</th></tr></thead>
 <tbody><template x-for="r in rows" :key="r.id"><tr :aria-current="cur && cur.id === r.id ? 'true' : null">
-<td><a :href="'#r' + r.id" x-text="label(r)"></a></td><td x-text="when(r.time)"></td><td x-text="kind(r)"></td><td x-text="from(r)"></td>
-<td x-text="r.character || ''"></td><td><a :href="'#r' + r.id" x-text="r.title || '(no title)'"></a></td><td class="small" x-text="vers(r)"></td></tr></template></tbody></table></div>
+<td class="rp-nw"><a :href="'#r' + r.id" x-text="label(r)"></a></td><td class="rp-ti"><a :href="'#r' + r.id" x-text="r.title || '(no title)'"></a></td>
+<td class="rp-nw" x-text="when(r.time)"></td><td x-text="kind(r)"></td><td x-text="from(r)"></td><td x-text="r.character || ''"></td><td class="small" x-text="vers(r)"></td></tr></template></tbody></table></div>
 <p class="empty" x-show="state === 'ok' && !rows.length" style="padding:12px 16px;margin:0">No reports match.</p>
 <p class="empty" x-show="state === 'loading'" style="padding:12px 16px;margin:0">Loading...</p>
 <p class="small" style="padding:8px 16px;margin:0" x-show="more"><button class="btn" type="button" @click="load(true)">Older</button></p></section>
