@@ -419,7 +419,9 @@ public final class AutoQaCatalog {
                         // 1.6.0 triage (2026-10-27): the answer to the apology landed after the insult and the judge
                         // read it as the answer to the insult ("water under the bridge" to "ur trash noob")
                         until(SAID, 1, 15),
-                        say("{bot} ur trash noob"), waitFor("AFFINITY EVENT rude_chat", 15), waitSeconds(8),
+                        // owner 2026-10-29: one rude line only gets a brush-off; the second within 10 min counts
+                        say("{bot} ur trash noob"), waitSeconds(8), say("{bot} ur trash noob"),
+                        waitFor("AFFINITY EVENT rude_chat", 15), waitSeconds(8),
                         mark("dramaoff"), say("@botdrama off"), say("{bot} ur trash noob"), waitSeconds(12),
                         mark("romance"), say("@botdrama on"), say("@romance on"), say("{bot} ur cute"), waitSeconds(12),
                         say("@romance off"))
@@ -493,6 +495,15 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-cv-11", "Both chat-model endpoints answer (intent+con and tone)").minutes(2)
                 .step(run("cv-12"), waitFor("SPLIT (PASS|FAIL) lines=", 30))
                 .expect(has("SPLIT PASS lines=4 "), lacks("SPLIT FAIL lines="))
+                .build());
+
+        // owner 2026-10-29: rude to 3 bots on one map within 10 minutes is heard by every bot there (RudeStreak).
+        // "ur trash, uninstall" is the model's harassment at 0.999 on r7 and no rule's, so each line counts
+        c.add(Check.auto("t-cv-12", "Insulting bot after bot: the map hears it").minutes(3)
+                .step(say("@botdrama on"), run("cv-4"), say("{bot} ur trash, uninstall"), waitSeconds(8),
+                        say("{bot2} ur trash, uninstall"), waitSeconds(8), say("{bot3} ur trash, uninstall"),
+                        waitFor("AFFINITY RUDE-SPREAD ", 20))
+                .expect(has("AFFINITY RUDE-SPREAD {me} heard by [1-9]"), noEmoji())
                 .build());
 
         // rc6 inference: the last 24 h of bot chat, scored (ChatQuality): relevance, stiffness, repeats, say-do

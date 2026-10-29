@@ -6,6 +6,7 @@ import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrains;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage;
+import soloMapling.ArtificialPlayer.BotAffinitySystem.RudeStreak;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.BotChatRouting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -507,8 +508,20 @@ public final class BotConversation {
                         ChatDecide.get() == null ? null : ChatDecide.getTone(), player == null ? null : player.getName(),
                         whisper ? whisperContext : earlierLines(bot, player, line));
         ChatTriage.Result triage = read.triage();
+        // owner 2026-10-29: one rude line (the model's harassment, not a rule's death wish, slur or threat) only gets
+        // a brush-off; the bot minds from the second within 10 minutes, and rudeness to 3+ bots on a map is heard there
+        boolean lone = false;
+        if (player != null && !BotHelpers.isBot(player)) {
+            long now = System.currentTimeMillis();
+            RudeStreak.Rude rude = RudeStreak.onLine(bot.getId(), player.getId(), player.getMapId(), triage, line, now);
+            lone = rude != null && rude.step() == RudeStreak.Step.LONE;
+            if (rude != null && rude.spread() && bot.getMap() != null) {
+                RudeStreak.spread(bot.getMap().getAllPlayers(), player, now);
+            }
+        }
         // Ticket 58: a kind line warms the bot to the player, a rude one cools it (the tone read above, no extra call).
-        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.judgeTone(bot, player, read.affinityTone(),
+        soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.judgeTone(bot, player,
+                lone ? soloMapling.ArtificialPlayer.BotAffinitySystem.ChatTone.Tone.PLAIN : read.affinityTone(),
                 read.tone() == soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Tone.FLIRTY, triage);
 
         // 1.5.0 bot drama: asking the bot out, the apology a rival demanded - answered by the drama rules
@@ -521,7 +534,7 @@ public final class BotConversation {
             return;
         }
         if (triage.flagged()) {
-            onFlagged(session, slot, triage, line, asked);
+            onFlagged(session, slot, triage, line, asked, lone);
             return;
         }
         // 1.5.0 bot guilds: "can i join ur guild?" - the leader decides, and a real invite follows on a yes
@@ -714,6 +727,7 @@ public final class BotConversation {
         return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness(), card, voiceLine,
                 worldFacts)
                 + soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.promptLine(bot.getId(), player) // ticket 58: friend or beef
+                + RudeStreak.promptLine(bot.getId(), player, now) // owner 2026-10-29: saw them being rude around here
                 + soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.promptLine(bot.getId()) // ticket 58: a partner
                 + soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.promptLine(bot.getId()) // 1.5.0: its guild
                 + soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.promptLine(bot.getId(), player) // 1.5.0: romance, beef
@@ -829,8 +843,12 @@ public final class BotConversation {
         return s.toString();
     }
 
-    /** A flagged con: no LLM, an in-character brush-off (or silence), and a note so the bot is warier next time. */
-    private static void onFlagged(Session session, int slot, ChatTriage.Result triage, String line, long asked) {
+    /**
+     * A flagged con: no LLM, an in-character brush-off (or silence), and a note so the bot is warier next time. A
+     * lone rude line ({@link RudeStreak}) gets the brush-off without the note or the angry face.
+     */
+    private static void onFlagged(Session session, int slot, ChatTriage.Result triage, String line, long asked,
+                                  boolean lone) {
         Character bot = session.bot.getChr();
         Character player = session.player;
         String kind = triage.con().name().toLowerCase();
@@ -838,7 +856,7 @@ public final class BotConversation {
         // owner 2026-10-27: a password or login phish is a scam, but begging's brush-off ("get ur own mesos") and
         // note do not fit it
         boolean phish = triage.con() == ChatTriage.Con.SCAM && ChatTriage.phishing(line);
-        if (triage.conConfidence() >= flagNoteMin()) {
+        if (!lone && triage.conConfidence() >= flagNoteMin()) {
             String note = phish ? BotChatActions.PHISH_NOTE : BotChatActions.flagNote(triage.con());
             boolean known = BotMemory.about(slot, player.getId()).stream().anyMatch(n -> n.text().equals(note));
             if (!known) {
@@ -847,7 +865,7 @@ public final class BotConversation {
         }
         if (triage.con() == ChatTriage.Con.HARASSMENT && ThreadLocalRandom.current().nextBoolean()) {
             ChatStats.reply(ChatStats.Tier.FLAGGED, System.currentTimeMillis() - asked, bot.getName(),
-                    kind + "/" + triage.conSource().name().toLowerCase() + ", ignored");
+                    kind + "/" + triage.conSource().name().toLowerCase() + (lone ? ", lone" : "") + ", ignored");
             return;
         }
         // review 2026-10-22: with @botdrama off a rude player gets a neutral brush-off, never trash talk back
@@ -857,7 +875,9 @@ public final class BotConversation {
                         "scripted") : phish ? new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(
                         ScriptedReplies.phishingBrushOff(), -1, "scripted") : bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.con()), null,
                         ScriptedReplies.brushOff(triage.con())), asked, ChatStats.Tier.FLAGGED,
-                kind + "/" + triage.conSource().name().toLowerCase(), new Cue(triage, BotChatActions.Outcome.NONE, line));
+                kind + "/" + triage.conSource().name().toLowerCase() + (lone ? ", lone" : ""), new Cue(lone ? new ChatTriage.Result(triage.kind(),
+                        triage.intent(), triage.intentSource(), ChatTriage.Con.NORMAL, triage.conSource(),
+                        triage.conConfidence()) : triage, BotChatActions.Outcome.NONE, line));
     }
 
     private static boolean botHasSpoken(Session session) {

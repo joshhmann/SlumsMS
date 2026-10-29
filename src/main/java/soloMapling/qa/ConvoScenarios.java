@@ -270,7 +270,8 @@ final class ConvoScenarios {
             int id = stage(ctx, state, true, null);
             return List.of(QaScenarios.who(ctx, id) + " counts you as its " + state + ".",
                     "Say 'sorry for ksing u' -> INTENT apology -> makeup: YES and EVENT apology (a rival's grudge eases).",
-                    "Say 'ur trash noob' -> tone rude, EVENT rude_chat, and game-only trash talk back (if @botdrama is on).",
+                    "Say 'ur trash noob' once -> only a brush-off (or nothing): no EVENT, no note, no angry face.",
+                    "Say it again within 10 min -> tone rude, EVENT rude_chat and the 'was rude to me' note.",
                     "Say 'ur cute' -> a flirt back only with @romance on and a bot that may flirt; else it stays friendly.",
                     "No numbers are ever shown to you; the AFFINITY lines carry the score for the log only.");
         }
