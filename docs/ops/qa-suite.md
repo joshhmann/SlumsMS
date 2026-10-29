@@ -473,6 +473,13 @@ goals and takes the medals back. Auto-QA: t-ac-1, and t-ac-2 (below) for a clear
   shows its line; none is left in Mushroom Shrine (800000000). The town table is `Probes160.PENGUINS`, kept equal to
   `tools/data-align/lazy-penguins/penguins.tsv` by a test.
 
+- **t-bs-2 (bot shops never list boss-only drops, 1.6.1):** read-only. Walks every Free Market room (910000001-22) on
+  every channel and checks each item in every bot shop (generated hired merchants, bots' own hired merchants, bots'
+  player shops; real players' shops are skipped) with `SaleRules.whyNot`; FAILs naming shop owner, channel and map,
+  item id and the rule that refuses it. Then forces the equip generator 40 times for each tier (S, A, B, C) and class
+  (the live desirable list holds the Zakum Helmet 1002357) and FAILs if any refused item comes out. PASS says how many
+  shops, listed items and generated equips were checked. (Commit d8f108325: stock used to skip SaleRules.)
+
 - **t-br-1 (`@bug` with context, ticket 131):** logs two WARN lines naming the QA character (one says "password"), then
   the pretend player types `@bug autoqa t-br-1 <marker> ...`. Wants the `Thanks! Bug #B-.. sent.` reply, the line in
   the reports file (`-Dsolomapling.reportsFile`, TEST `/var/lib/slums-report-test/reports.jsonl`) with source

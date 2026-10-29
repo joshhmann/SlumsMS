@@ -257,4 +257,24 @@ class Probes160Test {
         assertNull(Probes160.organicTalkProblem(30, 500, 1));
         assertNotNull(Probes160.organicTalkProblem(30, 500, 0));
     }
+
+    @Test
+    void botShopStockNamesTheRefusedListingAndPassesCleanStock() {
+        soloMapling.Economy.SaleRules.useForTest(java.util.Set.of(1002357), id -> false, id -> false);
+        try {
+            client.inventory.Equip zak = org.mockito.Mockito.mock(client.inventory.Equip.class);
+            org.mockito.Mockito.when(zak.getItemId()).thenReturn(1002357);
+            client.inventory.Equip gloves = org.mockito.Mockito.mock(client.inventory.Equip.class);
+            org.mockito.Mockito.when(gloves.getItemId()).thenReturn(1082002);
+            String line = Probes160.refusal("ShopGuy", "ch1 map 910000003", zak);
+            assertTrue(line.contains("ShopGuy") && line.contains("910000003") && line.contains("1002357")
+                    && line.contains("boss-only drop"), line);
+            assertNull(Probes160.refusal("ShopGuy", "ch1 map 910000003", gloves));
+            assertTrue(Probes160.verdict(List.of(line), Probes160.bossStockPass(3, 9, 40), List.of()).get(0).startsWith("FAIL "));
+            List<String> ok = Probes160.verdict(List.of(), Probes160.bossStockPass(3, 9, 40), List.of());
+            assertEquals("PASS checked 3 bot shops with 9 listed items and 40 forced generated equips, none refused by SaleRules", ok.get(0));
+        } finally {
+            soloMapling.Economy.SaleRules.useForTest(null, null, null);
+        }
+    }
 }

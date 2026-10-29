@@ -20,7 +20,7 @@ class AutoQaCatalogTest {
             "t-bb-2", "t-bg-1", "t-gu-1", "t-gu-3", "t-gu-4", "t-gu-5", "t-gu-8", "t-gu-2", "t-gu-6", "t-gw-1", "t-gw-2",
             "t-gw-3", "t-gw-4", "t-pb-1", "t-cu-1", "t-cu-2", "t-we-1", "t-mr-1", "t-rm-1", "t-rm-2", "t-rm-3", "t-rm-4",
             "t-cv-1", "t-cv-2", "t-cv-3", "t-cv-4", "t-cv-5", "t-cv-6", "t-cv-7", "t-cv-8", "t-cv-9", "t-cv-10", "t-cv-11", "t-cq-1", "t-ga-1", "t-ga-2", "t-ga-3", "t-ga-4",
-            "t-wc-1", "t-bs-1", "t-td-1", "t-td-2", "t-td-3", "t-gf-1", "t-pr-1", "t-sk-1", "t-sk-2", "t-rg-1", "t-rg-2",
+            "t-wc-1", "t-bs-1", "t-bs-2", "t-td-1", "t-td-2", "t-td-3", "t-gf-1", "t-pr-1", "t-sk-1", "t-sk-2", "t-rg-1", "t-rg-2",
             "t-sc-1", "t-sc-2", "t-cb-1", "t-cb-2", "t-cb-3", "t-cb-4", "t-sp-1", "t-sl-1", "t-ps-2", "t-pt-1", "t-bk-1", "t-at-1", "t-bk-3", "t-id-1",
             "t-mv-1", "t-jq-1", "t-cl-1", "t-cl-2", "t-cl-3", "t-cc-1", "t-mr-2", "t-vg-1", "t-ch-1", "t-la-1", "t-vb-1", "t-vb-2", "t-vb-3", "t-vb-4", "t-vb-5", "t-vb-6", "t-vb-7", "t-fh-1", "t-fh-2", "t-mb-1", "t-bl-1", "t-bl-2", "t-bl-3", "t-bl-4", "t-lk-1", "t-sg-1", "t-sg-2", "t-bb-3", "t-bl-11", "t-bc-1", "t-me-1", "t-me-2", "t-gs-1", "t-in-1", "t-in-2", "t-in-3", "t-lr-1", "t-rv-5", "t-dr-6", "t-cr-1", "t-ev-1", "t-ev-2", "t-ev-3", "t-mk-1", "t-sf-1", "t-bd-1", "t-bw-1", "t-st-1", "t-ex-1", "t-nx-1", "t-nx-2",
             "t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-xc-2", "t-xc-3", "t-xc-4", "t-fy-1", "t-fy-2", "t-fy-3", "t-fy-4", "t-ti-1", "t-rb-1", "t-rb-2", "t-ac-1", "t-ac-2", "t-pg-1", "t-nc-1", "t-ld-1", "t-iv-1", "t-iv-2", "t-sn-1", "t-bt-1", "t-bt-2", "t-bt-3", "t-br-1");

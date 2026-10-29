@@ -532,6 +532,10 @@ public final class AutoQaCatalog {
                 .expect(has("TRADE SHOP \\S+ opened"), atLeast(3, "TRADE SHOP (loot|resale) "),
                         lacks("TRADE SHOP (loot|resale) .*(2049100|Chaos Scroll)"), probe("botShops"))
                 .build());
+        // 1.6.1 (owner 2026-10-29): bot shops sold freshly minted Zakum Helmets; stock must follow SaleRules
+        c.add(Check.auto("t-bs-2", "Bot shops never list boss-only drops or anything SaleRules refuses").minutes(1)
+                .expect(probe("botShopStock"))
+                .build());
         c.add(Check.half("t-td-1", "Sell a scroll to a bot",
                 "the trade window itself (non-GM character); the haggle runs headless here").minutes(3)
                 .step(run("tr-2"), qaDo("sim", "1.5m?"), waitSeconds(4))

@@ -62,7 +62,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "botRebirth", "botRebirthBoss", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer");
+            "family", "tutorialIsland", "botRebirth", "botRebirthBoss", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer", "botShopStock");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -114,6 +114,7 @@ final class Probes160 {
                 case "botCrew" -> botCrew(p);
                 case "botSayDo" -> botSayDo(p);
                 case "bugReport" -> bugReport(p);
+                case "botShopStock" -> botShopStock();
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -2158,6 +2159,107 @@ final class Probes160 {
             ev.add("cleanup removed " + gone + " rows");
         }
         return verdict(bad, "site invite routes: player and GM rules, the week shared with @invite, list privacy, cancel rules", ev);
+    }
+
+    // ── t-bs-2: bot shops never list what SaleRules refuses (boss-only drops, 1.6.1) ──────────────────
+
+    /** t-bs-2: generation rounds per tier and class (the pick is random, so one round proves little). */
+    static final int BS2_ROUNDS = 40;
+    /** t-bs-2: the tiers a Free Market room draws (FMEconomyManager). */
+    static final List<String> BS2_TIERS = List.of("S", "A", "B", "C");
+    private static final int ZAKUM_HELMET = 1002357;
+
+    /**
+     * t-bs-2 (owner 2026-10-29, "bot shops sold Zakum Helmets"): walks every bot Free Market shop on every channel
+     * (generated hired merchants, bots' own hired merchants and bots' player shops, in all Free Market rooms) and
+     * fails when a listed item is refused by {@link soloMapling.Economy.SaleRules#whyNot}. Then forces the stock
+     * generator {@link #BS2_ROUNDS} times for each tier and class (the real desirable list holds the Zakum Helmet) and
+     * fails when anything refused comes out. Read-only.
+     */
+    static List<String> botShopStock() {
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+        int shops = 0, items = 0;
+        List<Integer> rooms = new ArrayList<>();
+        for (String region : List.of("henesys", "ludi", "perion", "elnath")) {
+            rooms.addAll(soloMapling.FreeMarket.ArtificialFreeMarket.fmInfo.getRegionFMMapId(region));
+        }
+        for (net.server.channel.Channel ch : Server.getInstance().getAllChannels()) {
+            for (int mapId : rooms) {
+                server.maps.MapleMap map = ch.getMapFactory().getMap(mapId);
+                String where = "ch" + ch.getId() + " map " + mapId;
+                for (server.maps.HiredMerchant hm : map.getAllHiredMerchants()) {
+                    boolean bot = hm instanceof soloMapling.FreeMarket.HiredMerchantArtificial
+                            || soloMapling.Economy.BotShops.isBotShop(hm);
+                    if (!bot) {
+                        continue;
+                    }
+                    shops++;
+                    for (server.maps.PlayerShopItem psi : hm.getItems()) {
+                        items++;
+                        String line = refusal(hm.getOwner(), where, psi.getItem());
+                        if (line != null) {
+                            bad.add(line);
+                        }
+                    }
+                }
+                for (server.maps.PlayerShop ps : map.getAllPlayerShops()) {
+                    if (!soloMapling.ArtificialPlayer.BotHelpers.isBot(ps.getOwner())) {
+                        continue;
+                    }
+                    shops++;
+                    for (server.maps.PlayerShopItem psi : ps.getItems()) {
+                        items++;
+                        String line = refusal(ps.getOwner().getName(), where, psi.getItem());
+                        if (line != null) {
+                            bad.add(line);
+                        }
+                    }
+                }
+            }
+        }
+        ev.add("walked " + shops + " bot shops, " + items + " listed items, " + bad.size() + " refused");
+        int made = 0, madeBad = 0;
+        boolean desirable = soloMapling.itemPool.DesirableEquipList.isDesirable(ZAKUM_HELMET);
+        boolean cached = soloMapling.itemPool.EquipMetadataCache.isInitialized();
+        ev.add("desirable list holds " + ZAKUM_HELMET + ": " + desirable + "; equip cache ready: " + cached);
+        for (String tier : BS2_TIERS) {
+            for (Job job : List.of(Job.BEGINNER, Job.WARRIOR, Job.MAGICIAN, Job.BOWMAN, Job.THIEF)) {
+                for (int i = 0; i < BS2_ROUNDS; i++) {
+                    List<soloMapling.FreeMarket.FMEquip> got = new ArrayList<>(
+                            soloMapling.FreeMarket.EquipListGenerator.generateEquipListIIPU(tier, job));
+                    if (job == Job.BEGINNER) {
+                        got.addAll(soloMapling.FreeMarket.ArtificialShopGenerator.generateCommonEquipList(tier));
+                    }
+                    for (soloMapling.FreeMarket.FMEquip fe : got) {
+                        made++;
+                        String line = refusal("generator tier " + tier + " " + job, "forced", fe.getEquip());
+                        if (line != null) {
+                            madeBad++;
+                            bad.add(line);
+                        }
+                    }
+                }
+            }
+        }
+        ev.add("forced generation: " + made + " equips over " + BS2_TIERS.size() + " tiers x 5 classes x " + BS2_ROUNDS
+                + " rounds, " + madeBad + " refused");
+        if (!cached) {
+            ev.add("(the equip cache is not loaded here, so only the yaml pool generated anything)");
+        }
+        return verdict(bad.size() > 8 ? bad.subList(0, 8) : bad, bossStockPass(shops, items, made), ev);
+    }
+
+    /** t-bs-2: one refused listing as evidence text (owner, map or room, item id, reason), or null when allowed. */
+    static String refusal(String owner, String where, client.inventory.Item item) {
+        String why = soloMapling.Economy.SaleRules.whyNot(item);
+        return why == null ? null : owner + " (" + where + ") lists item " + item.getItemId() + ": " + why;
+    }
+
+    /** t-bs-2: the PASS text, with how much was checked. */
+    static String bossStockPass(int shops, int items, int generated) {
+        return "checked " + shops + " bot shops with " + items + " listed items and " + generated
+                + " forced generated equips, none refused by SaleRules";
     }
 
     // ── t-br-1: @bug with its automatic context (ticket 131) ─────────────────────────────────────
