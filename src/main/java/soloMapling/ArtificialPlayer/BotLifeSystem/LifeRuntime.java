@@ -229,6 +229,88 @@ public final class LifeRuntime {
         return chr != null && chr.getMapId() == map ? -1 : map;
     }
 
+    /** Activities a stay that another bot's ask may end (a plain hang-out); anything else is a commitment. */
+    private static final Set<Activity> DROPPABLE = EnumSet.of(Activity.HANG_OUT, Activity.SHOW_OFF);
+    private static final Set<String> FREE_PHASES = Set.of("GRIND", "IN_TOWN", "LIFE_DWELL");
+
+    /**
+     * 1.6.1 say-do (ticket 114: "then they really do it"): why this bot cannot drop what it is doing for something
+     * another bot asks of it now (a trip to a town, help on this map), or null when it can. Memory reads only (the talk
+     * tick asks it before a bot answers, so a bot that cannot go says no instead of a yes it then breaks): it must be
+     * grinding, in town or hanging out (not on a trip, a restock, a PQ or an event), held by nothing (a trade, a
+     * player's chat, a recruit, a log-off), with nothing else about to start.
+     */
+    public String commitBlocker(long now) {
+        if (!enabled() || !bot.getRunning()) return "no daily life running";
+        Character chr = bot.getChr();
+        if (chr == null || chr.getMap() == null) return "not on a map";
+        String p = phase;
+        if (!FREE_PHASES.contains(p)) return "on its way somewhere (" + p.toLowerCase(Locale.ROOT) + ")";
+        var state = bot.lifeActivityState();
+        if (state.waiting() != 0) return "about to start something else";
+        if (state.active() != 0 && !(p.equals("LIFE_DWELL") && DROPPABLE.contains(state.activity()))) {
+            return "in the middle of " + (state.activity() == null ? "something"
+                    : state.activity().name().toLowerCase(Locale.ROOT));
+        }
+        if (safe(() -> soloMapling.ArtificialPlayer.BotConvo.LfgParty.holds(chr.getId()), false)) return "on a PQ trip";
+        if (safe(() -> soloMapling.worldevents.WorldEventSteer.mapFor(chr.getId()) > 0, false)) return "at an event";
+        if (!bot.freeForAutomaticLifeActivity(now)) return "busy (a commitment, a chat or logging off)";
+        return null;
+    }
+
+    /**
+     * 1.6.1 say-do: this bot said yes to going to {@code town} with another bot (or its crew's leader picked it): the
+     * hang-out there is handed to its own life queue now (its update starts the trip), ending a plain hang-out stay
+     * first. Before this a yes only tilted the next decision toward the town, and a bot already hanging out kept its
+     * stay (TEST 2026-10-28: 7 of 178 come-alongs arrived). False when it cannot go now ({@link #commitBlocker}); the
+     * pull stays either way, so a later decision may still take it there.
+     */
+    public boolean goTogether(int town, long until, long now) {
+        if (town <= 0) return false;
+        invite(town, until);
+        if (commitBlocker(now) != null) return false;
+        Character chr = bot.getChr();
+        if (chr.getMapId() == town) return true; // already there: it stays with them
+        // the host's own start rule (the town has room, the bot may hang out now): checked before the stay is ended
+        if (!bot.canStartLifeActivity(Activity.HANG_OUT, now)) return false;
+        return handOff(Activity.HANG_OUT);
+    }
+
+    /**
+     * 1.6.1 say-do: starts {@code activity} because another bot was promised it (a come-along, an LFG party's PQ trip):
+     * a plain hang-out stay is ended first, since the queue starts nothing while an activity is active (TEST
+     * 2026-10-28: an LFG pair's second bot, hanging out, never took its PQ trip). False when something else holds it.
+     */
+    public boolean handOff(Activity activity) {
+        var state = bot.lifeActivityState();
+        if (state.active() != 0 && !(phase.equals("LIFE_DWELL") && DROPPABLE.contains(state.activity())
+                && bot.interruptLifeDwell(state.active()))) return false;
+        return submit(activity);
+    }
+
+    /**
+     * 1.6.1 say-do: this bot said yes to helping {@code askerId} train on the map they share: it keeps grinding here for
+     * the help's length (HELP_FRIEND follows the asker if it moves on). False when it is not grinding.
+     */
+    public boolean helpHere(int askerId, long until, long now) {
+        botHelp(askerId, until);
+        if (!phase.equals("GRIND") || commitBlocker(now) != null) return false;
+        synchronized (this) {
+            dueAt = Math.max(dueAt, until);
+        }
+        bot.keepLifeActivity(Activity.GRIND, until);
+        return true;
+    }
+
+    /** The phase the host last reported (GRIND, LIFE_DWELL, LIFE_TRAVEL ...). */
+    public String phase() { return phase; }
+
+    private boolean submit(Activity activity) {
+        var choice = new Result(List.of(), Optional.of(activity), Outcome.CHOOSE);
+        var offer = bot.submitLifeActivity(bot.prepareLifeActivity(choice));
+        return offer == LifeActivityQueue.Offer.QUEUED || offer == LifeActivityQueue.Offer.REPLACED;
+    }
+
     /** 1.6.1 (ticket 114): this bot agreed to help {@code askerId} train; HELP_FRIEND goes to it while it lasts. */
     public void botHelp(int askerId, long until) {
         botHelpId = askerId;

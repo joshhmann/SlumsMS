@@ -281,6 +281,74 @@ public final class TalkQa {
         return bad;
     }
 
+    /**
+     * 1.6.1 say-do (t-bt-2, t-bt-3): waits (up to {@code maxMs}) until every bot's daily life could drop what it is
+     * doing for a trip a friend asks for ({@link LifeRuntime#commitBlocker}); returns what still holds each one that
+     * is not free (empty: all free).
+     */
+    public static List<String> awaitFree(List<Character> bots, long maxMs) throws InterruptedException {
+        long end = System.currentTimeMillis() + maxMs;
+        List<String> held = new ArrayList<>();
+        while (true) {
+            held.clear();
+            long now = System.currentTimeMillis();
+            for (Character c : bots) {
+                LifeRuntime life = BotTalk.lifeOf(c.getId());
+                String why = life == null ? "no daily life" : life.commitBlocker(now);
+                if (why != null) {
+                    held.add(c.getName() + ": " + why);
+                }
+            }
+            if (held.isEmpty() || now >= end) {
+                return held;
+            }
+            Thread.sleep(2_000);
+        }
+    }
+
+    /**
+     * t-bt-2: the crew's leader starts its hang-out in {@code town} through its own life (as the brain does), which
+     * makes the pick and hands each follower its trip; false when the leader could not go.
+     */
+    public static boolean crewLeads(Character leader, int town) {
+        LifeRuntime life = BotTalk.lifeOf(leader.getId());
+        long now = System.currentTimeMillis();
+        return life != null && life.goTogether(town, now + BotTalk.COME_ALONG_MS, now);
+    }
+
+    /** t-bt-3: points the asker's next hang-out at {@code town}, so its come-along ask is about that town. */
+    public static boolean aimAt(Character asker, int town) {
+        LifeRuntime life = BotTalk.lifeOf(asker.getId());
+        if (life == null) {
+            return false;
+        }
+        life.invite(town, System.currentTimeMillis() + BotTalk.COME_ALONG_MS);
+        return life.townDestination() == town;
+    }
+
+    /** Waits (up to {@code maxMs}) until every bot stands in {@code town}; returns those that are not there. */
+    public static List<Character> awaitIn(List<Character> bots, int town, long maxMs) throws InterruptedException {
+        long end = System.currentTimeMillis() + maxMs;
+        List<Character> out = new ArrayList<>();
+        while (true) {
+            out.clear();
+            for (Character c : bots) {
+                if (c.getMapId() != town) {
+                    out.add(c);
+                }
+            }
+            if (out.isEmpty() || System.currentTimeMillis() >= end) {
+                return out;
+            }
+            Thread.sleep(5_000);
+        }
+    }
+
+    /** A staged bot's daily life (null without one). */
+    public static LifeRuntime lifeOf(Character c) {
+        return BotTalk.lifeOf(c.getId());
+    }
+
     /** Lines for a GM about who stands where. */
     public static String where(List<Character> bots) {
         StringBuilder b = new StringBuilder();

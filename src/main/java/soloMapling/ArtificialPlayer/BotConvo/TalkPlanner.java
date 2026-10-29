@@ -260,11 +260,15 @@ public final class TalkPlanner {
                     counterBy.getId(), counterOffer.about()), Map.of(), bankFirst, false, false, false, rng);
             if (taken.yes()) {
                 reply.act = new Act(Ask.COME_ALONG, a, List.of(counterBy), counterOffer, counterOffer.about());
+            } else {
+                reply.act = new Act(Ask.COME_ALONG, a, List.copyOf(yes), offer, null); // it goes where it said
             }
             last = 0;
         } else {
             Step settle = p.steps.get(p.steps.size() - 1);
-            if (!yes.isEmpty()) {
+            // 1.6.1 say-do: a come-along's asker said it was going ("going henesys, coming?"): it goes, alone if
+            // nobody comes; every other ask acts only on a yes
+            if (!yes.isEmpty() || ask == Ask.COME_ALONG) {
                 settle.act = new Act(ask, a, List.copyOf(yes), offer, null);
             }
             if (!group && rng.nextDouble() < 0.6 || group && yes.isEmpty() && rng.nextDouble() < 0.5) {

@@ -83,6 +83,7 @@ public final class BotCrews {
             int[] at = where.of(id);
             if (at != null && at[1] != mapId) {
                 nudge.accept(id, delay);
+                later.accept(delay, () -> handOff(id, 1)); // 1.6.1 say-do: and the trip itself, after the delay
                 nudged.increment();
                 delay += 3_000 + ThreadLocalRandom.current().nextInt(2_000);
             }
@@ -166,9 +167,75 @@ public final class BotCrews {
         }
     }
 
+    /*
+     * 1.6.1 say-do: a follower's hang-out in the crew's town is handed to its life queue after its delay (before, it
+     * was only nudged to decide, and the brain often kept grinding: auto-QA t-bt-2 saw 1 of 2 followers arrive). A
+     * follower held a moment (a line, its own decision) is tried again RETRY_MS later, up to TRIES times; one that
+     * cannot go keeps the pull.
+     */
+    static final int TRIES = 6;
+    static final long RETRY_MS = 10_000;
+    private static final LongAdder handedOff = new LongAdder();
+    private static final LongAdder notHanded = new LongAdder();
+
+    /** When a follower's hand-off runs (a seam for tests: delay in ms, the work). */
+    static volatile java.util.function.BiConsumer<Long, Runnable> later =
+            (ms, r) -> soloMapling.server.BotTiming.after(ms, r);
+    /** How a follower is sent (a seam for tests): id, town, until; true when its trip was handed over. */
+    static volatile Mover mover = BotCrews::moveBot;
+
+    @FunctionalInterface
+    interface Mover {
+        /** {@code null}: the follower is gone (offline, no brain); else whether it was handed the trip. */
+        Boolean go(int id, int town, long until, long now);
+    }
+
+    /** One try at sending a follower to its crew's pick; again later while it is held. */
+    static void handOff(int id, int attempt) {
+        int[] at = where.of(id);
+        if (at == null) {
+            return;
+        }
+        long now = BotBonds.now();
+        int town = pickFollowed(id, at[0], now);
+        if (town <= 0 || town == at[1]) {
+            return; // no fresh pick any more, or it is there
+        }
+        Boolean sent = mover.go(id, town, now + PICK_TTL_MS, now);
+        if (sent == null) {
+            return;
+        }
+        if (sent) {
+            handedOff.increment();
+        } else if (attempt < TRIES) {
+            later.accept(RETRY_MS, () -> handOff(id, attempt + 1));
+        } else {
+            notHanded.increment();
+        }
+    }
+
+    /** The fresh pick of this member's leader on its channel, or -1 (it leads, or there is none). */
+    static int pickFollowed(int id, int channel, long now) {
+        List<Integer> movers = movers(id, channel);
+        if (movers.size() < 2 || movers.get(0) == id || !movers.contains(id)) {
+            return -1;
+        }
+        Pick p = picks.get(movers.get(0));
+        return p != null && p.channel() == channel && now - p.at() <= PICK_TTL_MS ? p.mapId() : -1;
+    }
+
+    private static Boolean moveBot(int id, int town, long until, long now) {
+        BotSM sm = CharacterStorage.getBotById(id);
+        if (!(sm instanceof LifeHost host) || host.lifeRuntime() == null) {
+            return null;
+        }
+        return host.lifeRuntime().goTogether(town, until, now);
+    }
+
     /** Counters for bot-life.json and the checks. */
     public static Map<String, Long> stats() {
-        return Map.of("led", led.sum(), "nudged", nudged.sum(), "followed", followed.sum(), "picks", (long) picks.size());
+        return Map.of("led", led.sum(), "nudged", nudged.sum(), "followed", followed.sum(), "picks", (long) picks.size(),
+                "handedOff", handedOff.sum(), "notHanded", notHanded.sum());
     }
 
     /** QA: the leader's current pick for a crew member, or -1. */
@@ -183,7 +250,11 @@ public final class BotCrews {
         led.reset();
         nudged.reset();
         followed.reset();
+        handedOff.reset();
+        notHanded.reset();
         where = BotCrews::worldWhere;
         nudge = BotCrews::nudgeBot;
+        later = (ms, r) -> soloMapling.server.BotTiming.after(ms, r);
+        mover = BotCrews::moveBot;
     }
 }

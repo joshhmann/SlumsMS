@@ -36,6 +36,7 @@ class BotCrewsTest {
         BotCrews.resetForTest();
         BotCrews.where = id -> where.get(id);
         BotCrews.nudge = (id, ms) -> nudges.add(new long[]{id, ms});
+        BotCrews.later = (ms, r) -> { }; // 1.6.1 say-do: the trip hand-off is BotCrewsHandOffTest's
     }
 
     @AfterEach

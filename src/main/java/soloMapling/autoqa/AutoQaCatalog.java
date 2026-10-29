@@ -1198,9 +1198,15 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-bt-1", "Bot talk: greet, ask, answer by goals, act; a group of three; no classifier").minutes(2)
                 .expect(probe("botTalk"))
                 .build());
-        // Friend crews (ticket 114, -Dslums.crews): a crew's leader picks a town and the friends head there
-        c.add(Check.auto("t-bt-2", "Friend crews: the leader picks a town, the crew follows").minutes(6)
+        // Friend crews (ticket 114, -Dslums.crews): a crew's leader picks a town and every friend gets there
+        // (1.6.1 say-do: all of them, not one)
+        c.add(Check.auto("t-bt-2", "Friend crews: the leader picks a town, the whole crew gets there").minutes(8)
                 .expect(probe("botCrew"))
+                .build());
+        // 1.6.1 say-do for bot talk (ticket 114, "then they really do it"): a forced come-along yes takes both bots to
+        // the town, and of the yeses bots gave each other since boot at least 80% were carried out in their window
+        c.add(Check.auto("t-bt-3", "Bot talk say-do: a yes is carried out (trip, party, help, deal)").minutes(8)
+                .expect(probe("botSayDo"))
                 .build());
         // @bug (ticket 131): a filed report gets a ref, a reports.jsonl line and a capped context file; cleanup removes both
         c.add(Check.auto("t-br-1", "@bug: ref reply, report line, context with versions/trail/log, no secrets").minutes(1)

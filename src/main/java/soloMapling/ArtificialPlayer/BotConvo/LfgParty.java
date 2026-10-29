@@ -172,10 +172,18 @@ public final class LfgParty {
 
     /** The plan for two live bots (memory reads only; the thread's compose step calls it once). */
     public static Plan plan(Character a, Character b, long now) {
-        return decide(a.getId(), a.getName(), stateOf(a, now), b.getId(), b.getName(), stateOf(b, now), now);
+        return decide(a.getId(), a.getName(), stateOf(a, now, true), b.getId(), b.getName(), stateOf(b, now, true), now);
     }
 
     static State stateOf(Character c, long now) {
+        return stateOf(c, now, false);
+    }
+
+    /**
+     * {@code forTrip}: the state for a PQ trip, which the bot must be free to start now (1.6.1 say-do: its life can
+     * drop what it is doing); a chat or a plain party needs no more than the plain state.
+     */
+    static State stateOf(Character c, long now, boolean forTrip) {
         int id = c.getId();
         try {
             BotSM sm = CharacterStorage.getBotById(id);
@@ -185,6 +193,12 @@ public final class LfgParty {
                     || soloMapling.ArtificialPlayer.BotLogout.isLeaving(id) || holds(id, now);
             boolean canTrip = sm instanceof TrainingBot tb && tb.lifeRuntime() != null
                     && TrainingBot.lifeExecutionEnabled();
+            // 1.6.1 say-do: a bot on its way somewhere, restocking or mid-activity cannot take a PQ trip now: it says
+            // so, rather than a yes it then breaks (its trip would never start)
+            if (forTrip && !busy && canTrip && soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()
+                    && ((TrainingBot) sm).lifeRuntime().commitBlocker(now) != null) {
+                busy = true;
+            }
             return new State(c.getLevel(), c.getParty() != null, busy,
                     soloMapling.ArtificialPlayer.BotTownSystem.AfkCampers.isCamping(id),
                     soloMapling.Economy.BotShops.hasShop(id), owned, canTrip);
@@ -327,7 +341,7 @@ public final class LfgParty {
      * After the lines: the recruiter makes a party, the other joins, and both take the PQ trip. Checks again first
      * (both online, on the thread's map, still free and in the band); a failure gives the cap slot back.
      */
-    static void form(Plan p, int mapId, int threadId) {
+    static boolean form(Plan p, int mapId, int threadId) {
         long now = System.currentTimeMillis();
         String why = null;
         Character a = chrOf(p.aId());
@@ -338,8 +352,8 @@ public final class LfgParty {
             } else if (a.getMapId() != mapId || b.getMapId() != mapId) {
                 why = "the two are no longer on the thread's map";
             } else {
-                Why wa = fit(p.lobby(), stateOf(a, now));
-                Why wb = fit(p.lobby(), stateOf(b, now));
+                Why wa = fit(p.lobby(), stateOf(a, now, true));
+                Why wb = fit(p.lobby(), stateOf(b, now, true));
                 why = wa != Why.YES ? p.aName() + " " + wa.words : wb != Why.YES ? p.bName() + " " + wb.words : null;
             }
             if (why == null && (!Party.createParty(a, true) || a.getParty() == null)) {
@@ -355,15 +369,19 @@ public final class LfgParty {
         }
         if (why != null) {
             fail(p, mapId, threadId, why);
-            return;
+            return false;
         }
+        // 1.6.1 say-do: the invite went out and was taken ("k sending inv" / "sure inv me" are backed; TEST
+        // 2026-10-28: 1 of 21 such lines was, because this party was made without telling the ledger)
+        SayDo.event(a, SayDo.Ev.PARTY, a.getMapId());
+        SayDo.event(b, SayDo.Ev.PARTY, b.getMapId());
         Trip t = new Trip(p, now + TRIP_MS, threadId, new boolean[3]);
         trips.put(p.aId(), t);
         trips.put(p.bId(), t);
         if (!submit(a) || !submit(b)) {
             end(t);
             fail(p, mapId, threadId, "a PQ trip was not taken (life queue closed)");
-            return;
+            return false;
         }
         BotThreads.qa(mapId, "LFG PARTY " + p.aName() + " + " + p.bName() + " -> " + p.lobby().label()
                 + " (lv " + p.aLevel() + "/" + p.bLevel() + ", band " + p.lobby().minLevel() + "-"
@@ -382,6 +400,7 @@ public final class LfgParty {
         } catch (RuntimeException e) {
             log.debug("LFG: no scheduler for the trip's end", e);
         }
+        return true;
     }
 
     static void fail(Plan p, int mapId, int threadId, String why) {
@@ -402,6 +421,9 @@ public final class LfgParty {
     private static boolean submit(Character c) {
         if (!(CharacterStorage.getBotById(c.getId()) instanceof TrainingBot tb)) {
             return false;
+        }
+        if (tb.lifeRuntime() != null) {
+            return tb.lifeRuntime().handOff(LifeDecision.Activity.PARTY_QUEST); // 1.6.1 say-do: ends a hang-out stay
         }
         var choice = new LifeDecision.Result(List.of(), Optional.of(LifeDecision.Activity.PARTY_QUEST),
                 LifeDecision.Outcome.CHOOSE);

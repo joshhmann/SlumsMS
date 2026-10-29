@@ -213,6 +213,33 @@ public final class TalkLines {
     /** Bank keys whose yes lines may carry a claim (the act follows the line: an invite, a trip). */
     static final Set<String> CLAIMS_ON_YES = Set.of("party_yes", "help_yes", "come_yes");
 
+    /**
+     * 1.6.1 say-do: the claims a bank line for this key may make: what the act after a yes really does. A come-along
+     * yes travels ("omw"); a help yes parties and grinds on the same map, so it may offer the party but never "omw"
+     * (it is already here: TEST 2026-10-28 counted "coming" claims nobody walked for); a no, a greeting or a goodbye
+     * claims nothing ("hold on", "brb" in a refusal are promises nobody keeps).
+     */
+    static java.util.Set<ClaimRules.Kind> allowedClaims(String key, boolean yes) {
+        if (!yes || !CLAIMS_ON_YES.contains(key)) {
+            return java.util.EnumSet.noneOf(ClaimRules.Kind.class);
+        }
+        return "help_yes".equals(key) ? java.util.EnumSet.of(ClaimRules.Kind.PARTY_OFFER, ClaimRules.Kind.PARTY_ASK)
+                : ConvoLines.claimsFor(key);
+    }
+
+    /**
+     * Whether every claim the line makes now (the rules of this build, weak ones too: a refusal's "hold on" is still
+     * read as a brb) is one of {@code allowed}.
+     */
+    static boolean claimsFit(String text, java.util.Set<ClaimRules.Kind> allowed) {
+        for (ClaimRules.Claim c : ClaimRules.classify(text)) {
+            if (!allowed.contains(c.kind())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** A bank line for {@code key} in the manner's column and the bot's voice, or null. */
     static String bank(String key, Character speaker, Character to, Manner manner, boolean yes, Random rng) {
         if (!ConvoSwitches.on("bank") || speaker == null) {
@@ -226,7 +253,8 @@ public final class TalkLines {
             int slot = speaker.getId() - BotStore.BOT_ID_BASE;
             ConvoPersona persona = ConvoPersona.of(slot);
             Map<String, String> slots = ConvoLines.slots(speaker, to);
-            long claims = yes && CLAIMS_ON_YES.contains(key) ? ChatBank.claimMask(ConvoLines.claimsFor(key)) : 0L;
+            java.util.Set<ClaimRules.Kind> allowed = allowedClaims(key, yes);
+            long claims = ChatBank.claimMask(allowed);
             ChatBank.Query q = new ChatBank.Query(key, manner == null ? "neutral" : manner.tone,
                     manner == null ? "neutral" : manner.affinity, persona.voice(), ConvoLines.situation(speaker, false),
                     slots, claims);
@@ -234,6 +262,9 @@ public final class TalkLines {
             ChatBank.Pick pick = bank.pick(q, window, ChatBank.Weights.NONE, rng);
             if (pick == null) {
                 return null;
+            }
+            if (!claimsFit(pick.text(), allowed)) {
+                return null; // the pack's claim tags are older than the rules: the built-in line answers
             }
             RecentLines.used(to == null ? 0 : to.getId(), speaker.getId(), pick.id());
             return pick.text();

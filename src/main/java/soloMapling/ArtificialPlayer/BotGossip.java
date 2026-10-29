@@ -553,6 +553,32 @@ public final class BotGossip {
     }
 
     /**
+     * 1.6.1 say-do: whether {@link #keep} would keep this story for {@code listenerId} (it does not know it yet, it is
+     * not too many hops deep, not its own). A bot talk tells a story only to a bot that would keep it (TEST 2026-10-28:
+     * 17 "no way, really?" yeses kept nothing: they knew it already).
+     */
+    public static boolean wouldKeep(int listenerId, int tellerId, Fact fact, long now) {
+        if (listenerId == tellerId || !keepable(fact) || fact.subjectId() == listenerId) {
+            return false;
+        }
+        synchronized (stories) {
+            Heard known = heardOf(tellerId, fact.about(), now);
+            if ((known == null ? 1 : known.hops() + 1) > BotMemory.MAX_HOPS) {
+                return false;
+            }
+            java.util.ArrayDeque<Heard> mine = stories.get(listenerId);
+            if (mine != null) {
+                for (Heard h : mine) {
+                    if (h.fact().about().equals(fact.about())) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+    }
+
+    /**
      * The GOSSIP thread is over: {@code listener} keeps {@code teller}'s story, word for word (same about, opener and
      * names), one hop deeper than the teller held it. Memory only, bounded per bot and in all. The kept story, or null
      * when it is not one to keep (small talk, a private matter, too many hops, the listener's own, already known).
