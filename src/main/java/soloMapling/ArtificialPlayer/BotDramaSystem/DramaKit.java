@@ -322,6 +322,46 @@ public final class DramaKit {
                 && !inScene(bot.getId()) && !withRealPlayerOtherThan(bot, player.getId());
     }
 
+    /**
+     * 1.6.1 ticket 53 (Summon Family on a regular junior): why {@code bot} cannot drop what it is doing to come to
+     * {@code player}, or null when it can. The same commitments a romance partner's follow respects: an event or party
+     * quest, a drama scene, a party with another real player, a service job (merchant, gacha, ...), or a hold the
+     * population director keeps; and lying dead.
+     */
+    public static String whyNotFreeToCome(Character bot, Character player) {
+        if (bot == null || bot.getMap() == null) {
+            return "not around";
+        }
+        if (soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.isDead(bot.getId())) {
+            return "knocked out";
+        }
+        if (freeForSceneWith(bot, player)) {
+            return null;
+        }
+        return BotRomance.whyNotFree(bot);
+    }
+
+    /**
+     * 1.6.1 ticket 53: the regular comes to {@code player} as a summoned player would (their channel, their map, in at
+     * a portal and walking up), then carries on there: a grinder grinds the map if it has mobs (held there a while),
+     * anyone else stands and socialises. Nothing sends it back: like a player, it leaves when it wants. True when it
+     * arrived.
+     */
+    public static boolean comeWhenCalled(Character bot, Character player) {
+        int map = player.getMapId();
+        boolean grind = CharacterStorage.getBotById(bot.getId()) instanceof TrainingBot
+                && soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex.level(map) >= 0;
+        if (!bringTo(bot, player, 50, grind)) {
+            return false;
+        }
+        if (grind) {
+            int id = bot.getId();
+            soloMapling.server.BotTiming.after(minutes("family.summonHoldMinutes", 10),
+                    () -> soloMapling.worldevents.WorldEventSteer.unhold(id));
+        }
+        return true;
+    }
+
     static boolean withRealPlayerOtherThan(Character bot, int playerId) {
         Party p = bot.getParty();
         if (p == null) {

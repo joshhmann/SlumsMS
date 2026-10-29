@@ -1009,7 +1009,19 @@ public class Character extends AbstractCharacterObject {
         c.setAccountName(this.client.getAccountName());//No null's for accountName
         this.setClient(c);
         this.map = c.getChannelServer().getMapFactory().getMap(getMapId());
-        Portal portal = map.findClosestPlayerSpawnpoint(getPosition());
+        Point near = getPosition();
+        // 1.6.1 ticket 53: a Family Reunion / Summon across channels lands on the family member's map
+        FamilyTravel.Arrival arrival = FamilyTravel.take(getId(), c.getChannel(), System.currentTimeMillis());
+        if (arrival != null) {
+            MapleMap there = c.getChannelServer().getMapFactory().getMap(arrival.mapId());
+            if (there != null) {
+                this.map = there;
+                if (arrival.at() != null) {
+                    near = arrival.at();
+                }
+            }
+        }
+        Portal portal = map.findClosestPlayerSpawnpoint(near);
         if (portal == null) {
             portal = map.getPortal(0);
         }
@@ -3902,6 +3914,10 @@ public class Character extends AbstractCharacterObject {
             // These levels came without the AP/SP a level-up grants; the bot build grants and spends them.
             soloMapling.server.MapleRootSolo.runHook("bot progression", () ->
                     soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression.afterOffscreenLevels(this, levelBefore));
+            FamilyEntry fe = familyEntry; // b035: a bot junior's off-screen levels give its senior rep, as levelUp does
+            if (fe != null) {
+                fe.giveOffscreenRep(0, progressed.levelsGained());
+            }
         }
         return progressed.levelsGained();
     }

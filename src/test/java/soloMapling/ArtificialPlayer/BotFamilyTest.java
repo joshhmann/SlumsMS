@@ -25,7 +25,11 @@ class BotFamilyTest {
         assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(true, false, 0, false), false, 0.1));
         assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(false, false, 0, true), false, 0.1), "party");
         assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(false, false, 3, false), false, 0.1), "talked");
-        assertEquals(Verdict.ROLL, BotFamily.accepts(true, false, f(true, false, 5, true), false, 0.95));
+        // b035: someone it knows always gets a yes (the notes' promise); no 80% roll any more
+        assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(true, false, 5, true), false, 0.95));
+        assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(false, false, 3, false), false, 0.999), "chatted");
+        assertEquals(Verdict.ACCEPT, BotFamily.accepts(true, false, f(false, false, 0, true), false, 0.999), "partied");
+        assertEquals(Verdict.STRANGER, BotFamily.accepts(true, false, f(false, false, 2, false), false, 0.0));
         assertEquals(Verdict.WARY, BotFamily.accepts(true, false, f(true, true, 5, true), true, 0.0), "even staged");
         assertEquals(Verdict.IN_FAMILY, BotFamily.accepts(true, true, f(true, false, 5, true), true, 0.0));
         assertEquals(Verdict.OFF, BotFamily.accepts(false, false, f(true, false, 5, true), true, 0.0));
@@ -60,5 +64,14 @@ class BotFamilyTest {
                 0, 0, 0.0, NOW)));
         assertEquals(Gate.WARY, BotFamily.offerGate(new OfferCheck(true, true, false, true, true, 3, 30, 40, 0, 0, 0,
                 0, 0.0, NOW)));
+    }
+
+    @Test
+    void aBotOnlyOffersWhileStillBesideThePlayer() {
+        client.Character bot = org.mockito.Mockito.mock(client.Character.class);
+        client.Character player = org.mockito.Mockito.mock(client.Character.class);
+        org.mockito.Mockito.when(bot.getMap()).thenReturn(org.mockito.Mockito.mock(server.maps.MapleMap.class));
+        org.mockito.Mockito.when(player.getMap()).thenReturn(org.mockito.Mockito.mock(server.maps.MapleMap.class));
+        assertEquals(Gate.AWAY, BotFamily.maybeOffer(bot, player, 5, false), "it left: no 'add me' to nobody");
     }
 }

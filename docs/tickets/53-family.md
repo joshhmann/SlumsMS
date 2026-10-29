@@ -84,3 +84,55 @@ Turn the family system on (USE_FAMILY_SYSTEM) and implement the six stubbed enti
   use refused, the family dissolved); `!qa run fy-1` stages a bot junior and 20,000 rep so every entitlement can be
   clicked in the client. Not yet checked on a real client: the Family window and the entitlement clicks.
 - **Batch save risk:** rep is saved with the character's save (stock), not per kill; bot juniors save on logout.
+
+## Promise audit fixes (1.6.1, branch 161-family2, 2026-10-28)
+
+The notes promised "every perk works" and regular juniors; the audit found gaps. Built:
+
+- **Summon Family on a regular or owned alt junior:** it answers like a player who clicks Yes, after 2-6 s, and comes
+  (`DramaKit.comeWhenCalled`: its channel, the map, in at a portal and walking up; a grinder grinds there, held 10
+  minutes). Refused before any cost only when it is in a commitment it can't drop (`DramaKit.whyNotFreeToCome`: an
+  event / PQ, a scene, a party with another player, a non-grinding/social job such as a merchant, a director hold,
+  knocked out). If it got busy in the moment before answering it declines and the rep comes back (stock decline path).
+  An owned alt comes to its owner and nobody else. Replaces the refusal of 1c8e03a81.
+- **Reunion and Summon across channels:** the member is found anywhere in the world. Reunion changes the user's channel
+  and lands them on the member's map (`FamilyTravel`, consumed in `Character.newClient`); an accepted Summon does the
+  same for the summoned player (stock warped them onto another channel's map instance). A refused channel change
+  gives everything back. Evidence the original did this: the v83 Family result codes (64-82) have no "different
+  channel" refusal, while add-junior has "must be in the same map"; the pedigree shows each member's channel.
+- **Party perk:** every party member online when it is used, on any channel ("[Target] My party"; it was the user's
+  channel only). No primary source for the original game's rule was found (web search, local sources: only Cosmic
+  copies with "not implemented"); the tooltip has no map or channel limit, so none is applied.
+- **Persistence:** `family_buffs` (migration 053): written on each grant, deleted on clear, ended rows dropped and the
+  rest read back at boot. The clock runs while the server is down (as a coupon's).
+- **"Nullified during an EXP/drop event":** the tooltips are not client data: the server sends them
+  (`FamilyEntitlement` descriptions, packet FAMILY_PRIVILEGE_LIST 0x64), and they are the original game's own text.
+  So the server now matches them: while an EXP event applies (a world-event hot spot on the character's map, or a GM
+  EXP rate above the world's configured rate) the Family EXP buff gives 1x, and the drop buff during a GM drop-rate
+  event; the buff's time keeps running; coupons still stack. Bonding's EXP and drop halves follow their own event. No
+  client change is needed.
+- **"Now and then one asks to be yours":** the offer whisper came 30-120 s after the chat, by when the bot had often left
+  the map, so the stock "must be in the same map" (and a channel-only lookup) blocked the Add Junior it asked for, and
+  even then the bot said no one time in five. Now a bot only offers while still on the player's map, the offer stands
+  30 minutes from anywhere in the world, and the bot that asked says yes (unless wary or already in a family).
+- **Tests:** FamilySummonRegularTest (6), FamilyAcrossChannelsTest (5), FamilyOfferFlowTest (3), FamilyBuffsTest (+2,
+  party changed), BotFamilyTest (+1), FamilyBuffsMigrationIT (apply x2 / upsert / rollback x2 on MySQL 8.0.46).
+- **Auto-QA:** t-fy-2, t-fy-3, t-fy-4 (`soloMapling.autoqa.FamilyProbes`).
+- **Not verified on a real client:** cross-channel Reunion / Summon (the reconnect), the summoned regular's walk-in.
+
+## b035 (owner's board, 2026-10-28, same branch)
+
+- **Off-screen rep:** a bot junior grinding unobserved never made a real kill, so `Monster`'s rep hook never ran and its
+  senior got nothing while it trained. `FamilyEntry.giveOffscreenRep(kills, levels)` takes the off-screen stretch once
+  per grind tick (TrainingBot: kills = the stretch's kill rate x time fought, fractions carried; `applyOffscreenExp`:
+  levels gained), at FAMILY_REP_PER_KILL / PER_LEVELUP, through `giveReputationToSenior` so the halving and the
+  300-a-day bot cap hold.
+- **Bonding buffs bot juniors:** they counted toward the 6 online but got nothing. Now they get the buff; on screen the
+  existing Monster / MapleMap hooks read it, off screen TrainingBot multiplies the bot's EXP and the share of the map's
+  loot budget it draws (never past the map's budget). Party perks still skip bots.
+- **Accepting:** a bot now always says yes to a player it knows, is partied with or just chatted with (3+ lines),
+  unless wary or already in a family; strangers are still refused (the code never rolled for strangers: the 80%
+  `slums.family.acceptChance` roll was on known players and is gone).
+- **Tests:** FamilyOffscreenRepTest, FamilyBuffsTest (off-screen rep and cap; Bonding reaches a bot junior),
+  BotFamilyTest (no roll for known players). Not unit-tested: the TrainingBot call site (kills per tick).
+
