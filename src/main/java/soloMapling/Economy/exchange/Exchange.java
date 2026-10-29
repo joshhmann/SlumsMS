@@ -1568,7 +1568,8 @@ public final class Exchange {
 
     /** A ticker's rolling 24 h numbers (last, change, high, low, volume). */
     public synchronized TickerHistory.Stats stats(String ticker) {
-        return history.computeIfAbsent(ticker, k -> new TickerHistory()).stats(clock.getAsLong());
+        return history.computeIfAbsent(ticker, k -> new TickerHistory()).stats(clock.getAsLong(),
+                config.rateMinFills());
     }
 
     /** A ticker's hourly candles, the last 30 days, oldest first (only hours that traded). */

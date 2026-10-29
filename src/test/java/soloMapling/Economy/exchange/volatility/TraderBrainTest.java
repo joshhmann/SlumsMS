@@ -188,4 +188,60 @@ class TraderBrainTest {
         assertEquals(999, TraderBrain.tidy(999));
         assertEquals(1, TraderBrain.tidy(0));
     }
+
+    // ---------------------------------------------------------------- the fair band (TEST 2026-10-29: LEAF at 1,110)
+
+    /** A LEAF view banded around a 500,000 fair value. */
+    static View banded(long ref, long bid, long ask) {
+        long[] b = TraderBrain.band(500_000);
+        return new View("LEAF", ref, bid, ask, 0, 0, 500_000, 0, 1, 1_000_000_000L, 10_000, 100, b[0], b[1]);
+    }
+
+    @Test
+    void theBandIsThreeTimesEitherWayOfTheAnchorAndNoneWithoutOne() {
+        long[] b = TraderBrain.band(500_000);
+        assertEquals(166_667, b[0]);
+        assertEquals(1_500_000, b[1]);
+        assertEquals(0, TraderBrain.band(0)[1], "no anchor: no band");
+    }
+
+    @Test
+    void noArchetypeQuotesOutsideTheFairBandEvenWhenTheReferenceIsALeftoverLowPrint() {
+        // what TEST's bots saw: last 1,110 and bids around 1,100 against a fair 500,000 (the guard alone let them be)
+        View v = banded(1_110, 1_100, 0);
+        long[] b = TraderBrain.band(500_000);
+        for (Archetype a : Archetype.values()) {
+            List<Place> ps = many(a, v, holds(500_000_000, 40));
+            assertTrue(ps.stream().allMatch(p -> p.price() >= b[0] && p.price() <= b[1]), a + " " + ps);
+        }
+        for (MarketNews.Role r : MarketNews.Role.values()) {
+            for (int s = 0; s < 50; s++) {
+                List<Place> ps = places(TraderBrain.newsActions(r, v, holds(500_000_000, 40), new Random(s)));
+                assertTrue(ps.stream().allMatch(p -> p.price() >= b[0] && p.price() <= b[1]), r + " " + ps);
+            }
+        }
+    }
+
+    @Test
+    void aBotCancelsItsOwnRestingQuotesOutsideTheBand() {
+        View v = banded(500_000, 490_000, 510_000);
+        Open low = new Open(7, Side.BUY, 1_110, 500, NOW - 60_000), fine = new Open(8, Side.BUY, 480_000, 5,
+                NOW - 60_000);
+        for (Archetype a : Archetype.values()) {
+            List<Action> acts = TraderBrain.decide(a, v, holds(500_000_000, 40, low, fine), NOW, new Random(1));
+            assertTrue(acts.contains(new Cancel(7)), a + " keeps its 1,110 bid: " + acts);
+            assertFalse(acts.contains(new Cancel(8)) && a == Archetype.VALUE, "an in-band quote stays: " + acts);
+        }
+        List<Action> news = TraderBrain.newsActions(MarketNews.Role.WINNER, v, holds(500_000_000, 40, low),
+                new Random(1));
+        assertTrue(news.contains(new Cancel(7)), news.toString());
+    }
+
+    @Test
+    void theGuardDropsAPlaceOutsideTheBand() {
+        View v = banded(500_000, 0, 0);
+        List<Action> out = TraderBrain.guard(List.of(new Place(Side.BUY, 1_110, 10), new Place(Side.SELL, 2_000_000,
+                1), new Place(Side.BUY, 470_000, 1)), v, holds(500_000_000, 40));
+        assertEquals(List.of(new Place(Side.BUY, 470_000, 1)), out);
+    }
 }

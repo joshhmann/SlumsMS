@@ -421,8 +421,12 @@ New public outbox file **`exchange-tickers.json`** (every poll; no names, no ids
 ```
 Tickers come NX first, then LEAF, CHAOS, WS, ELIXIR (only the open ones). `bid`/`ask` are null on an empty side,
 `last` null before the first trade ever (it survives a quiet day: the newest fill of the last 30 days, or of this run).
-The 24 h numbers are a rolling window over fills: `change_24h` = last minus the last price before the window (else the
-first price inside it), `change_24h_pct` rounded to 2 decimals, `high_24h`/`low_24h` null with no trade in 24 h,
+The 24 h numbers are a rolling window over fills. `change_24h` (fix 2026-10-29: NX showed +901% from the QA check's
+single 100 NX fills) counts **player-to-player fills only** (no regular, so never the QA test regular; the official
+rate's rule) and is **null unless the window has at least `rate_min_fills` (3) of them**: the last counted price minus
+the reference, the VWAP of the counted fills of the 24 h before the window (when those are at least 3), else of the
+window's own counted fills. `change_24h_pct` rounded to 2 decimals (null with the change); `last`, high, low and volume
+still count every fill; `high_24h`/`low_24h` null with no trade in 24 h,
 `volume_24h` in the ticker's quantity unit, `turnover_24h` in mesos. `rate` is the ticker's official rate (VWAP of
 player-to-player fills, regulars excluded, same window and minimum as NX) or null. 10 levels a side, last 20 trades.
 
@@ -491,6 +495,13 @@ are toned down by about half, prices anchor to a **fair value** from real drops 
   hunting off screen, through `BotYieldCaps` and `BotHoldings`. Global rates are untouched.
 - **Guard** (bugs only): never beyond its holdings (fee included), never price 0, never 10x off the reference in one
   order (dropped, not clamped), never more places than its open slots and day's count.
+- **Fair band** (fix 2026-10-29, branch `161-exfix`; TEST showed LEAF bid and last 1,110 against a fair 500,000): the
+  LEAF QA check (xc-2) fills 10 leaves at 1,000 mesos; that print became every trader's reference, the guard (10x of
+  the reference) then dropped the value and maker quotes near 500k, and momentum/panic kept the book at 1,000-1,110.
+  Now a trader only reads fills, bids and asks inside **3x either way of the ticker's anchor** (its fair value, else its
+  starting price) and never fills a regular took part in (the QA test regular); it never quotes outside that band and
+  cancels its own off-band resting quotes on its next turn (`TraderBrain.BAND`, `MarketTraders.view`). The designed
+  swings (LEAF 348k-1.13m) sit inside it. This is not a price floor: players may still trade at any price.
 
 ### 2. Fair value (computed whenever the volatility thread runs; owner 2026-10-28)
 
