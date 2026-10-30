@@ -1647,6 +1647,9 @@ final class BotNavigationManager {
     }
 
     private static boolean isEdgeUsable(BotNavigationGraph graph, MapleMap map, BotNavigationGraph.Edge edge, int skillMask) {
+        if (NavPits.into(graph, map, edge)) {
+            return false; // ticket 157: never route into a hidden catch floor under the view bounds
+        }
         return switch (edge.type) {
             case WALK, JUMP, DROP, CLIMB -> true;
             case PORTAL -> {
