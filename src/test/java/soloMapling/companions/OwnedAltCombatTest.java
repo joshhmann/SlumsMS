@@ -5,6 +5,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import server.life.Monster;
 import server.maps.MapleMap;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 
 import java.awt.Point;
 import java.util.ArrayList;
@@ -170,14 +171,45 @@ class OwnedAltCombatTest {
         MapleMap f = map(List.of(above, level));
         Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
         Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
-        OwnedAltCombat.Ledge before = OwnedAltCombat.ledge;
+        BotAttackDriver.Ledges before = BotAttackDriver.ledges;
         try {
-            OwnedAltCombat.ledge = (map, a, b) -> Math.abs(a.y - b.y) > 90;
+            BotAttackDriver.ledges = (map, a, b) -> Math.abs(a.y - b.y) > 90;
             assertSame(level, OwnedAltCombat.target(owner, alt, party, NOW), "the nearer one is up on a platform");
             assertNull(OwnedAltCombat.target(owner, alt, party, NOW, m -> m == level), "left alone after a stall");
         } finally {
-            OwnedAltCombat.ledge = before;
+            BotAttackDriver.ledges = before;
         }
+    }
+
+    @Test
+    void aLowLedgeTheDriverWillNotFaceIsNotATargetEither() {
+        // t-oa-1 (TEST 2026-10-29): its own rule called a ledge 50 px below "the same" (only > 90 px counted), the
+        // driver's did not; the alt stood at that mob while the driver found nothing to face, so it never looted
+        Monster below = mob(40, OWNER);
+        when(below.getPosition()).thenReturn(new Point(40, 50));
+        MapleMap f = map(List.of(below));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
+        BotAttackDriver.Ledges before = BotAttackDriver.ledges;
+        try {
+            BotAttackDriver.ledges = (map, a, b) -> a.y != b.y; // the nav graph: another region
+            assertFalse(BotAttackDriver.onAttackableSurface(f, alt.getPosition(), below));
+            assertNull(OwnedAltCombat.target(owner, alt, OwnedAltCombat.partyIds(alt, owner), NOW),
+                    "it follows instead of standing at a mob it cannot swing at");
+        } finally {
+            BotAttackDriver.ledges = before;
+        }
+    }
+
+    @Test
+    void theDriverOnlyFacesThePartysFightNeverAQuietWildMob() {
+        // t-oa-1: the attack driver faced the nearest wild mob (mayHit alone), not the alt's target
+        Monster quiet = mob(20);
+        Monster owners = mob(200, OWNER);
+        MapleMap f = map(List.of(quiet, owners));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
+        Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
+        assertFalse(OwnedAltCombat.driverMayFace(quiet, f, owner, alt, party, NOW));
+        assertTrue(OwnedAltCombat.driverMayFace(owners, f, owner, alt, party, NOW));
     }
 
     @Test

@@ -805,14 +805,26 @@ public final class BotAttackDriver {
      * above or below the bot. Bosses are exempt - large, multi-bodied, with parts on their own
      * footholds (and already handled by the padded reach box). Degrades to "true" (no filtering)
      * when the map's nav graph isn't baked, so it never silently blanks a bot's targets.
+     *
+     * 1.6.1: public so an owned alt picks its mob by this same rule (t-oa-1: it chose by its own, looser one and stood
+     * at a mob this driver would not face).
      */
-    private static boolean onAttackableSurface(MapleMap map, Point botPos, Monster m) {
+    public static boolean onAttackableSurface(MapleMap map, Point botPos, Monster m) {
         if (m.isBoss()) {
             return true;
         }
         Point mp = m.getPosition();
-        return mp == null || !GCMovement.onDifferentLedge(map, botPos.x, botPos.y, mp.x, mp.y);
+        return mp == null || !ledges.different(map, botPos, mp);
     }
+
+    /** Are two points on different walkable ledges (nav-graph regions)? */
+    public interface Ledges {
+        boolean different(MapleMap map, Point a, Point b);
+    }
+
+    public static final Ledges NAV_LEDGES = (map, a, b) -> GCMovement.onDifferentLedge(map, a.x, a.y, b.x, b.y);
+    /** The ledge test {@link #onAttackableSurface} uses; tests stub it (a mocked map has no nav graph). */
+    public static volatile Ledges ledges = NAV_LEDGES;
 
     /* First max of a nearest-first list (the whole list if it's already small enough). */
     private static List<Monster> cap(List<Monster> mobs, int max) {

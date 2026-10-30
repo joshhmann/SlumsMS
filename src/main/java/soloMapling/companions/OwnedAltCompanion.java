@@ -245,7 +245,8 @@ public final class OwnedAltCompanion {
             s.told = OwnedAltGate.Why.OPEN;
             Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
             MapleMap map = alt.getMap();
-            BotAttackDriver.setTargetFilter(alt.getId(), m -> OwnedAltCombat.mayHit(m, map, party));
+            BotAttackDriver.setTargetFilter(alt.getId(),
+                    m -> OwnedAltCombat.driverMayFace(m, map, owner, alt, party, now));
 
             String weapon = weaponProblem(alt);
             s.skip.values().removeIf(until -> until <= now);
