@@ -114,3 +114,10 @@ the adoption ledger (ticket 157 matrix, section 8).
   `BotGearWhy` over our own `BotGearPlanner` plan.
 - Ticket 157, `switches` in the dashboard's live.json: the read-only half of the `/admin` settings view from
   nutnnut/Cosmic dev `77e0c5bc9`. Ours: `EffectiveSwitches` (no writes, secrets and paths left out).
+- Ticket 157, kill calibration: the idea of `BotKillCalibration` and `/api/killcalib` (real kill rates of watched bots
+  against the offscreen model, by job and level band, billed as kills over elapsed time) from nutnnut/Cosmic dev
+  `77e0c5bc9`. Ours: `KillCalibration` against our `OffscreenCombat`, report-only (no auto-tuning, no persistence),
+  `calibration.json` and `!killcalib`, off on live (`-Dslums.killcalib`). No code copied.
+- Ticket 157, live bot inspect: the idea of `/api/botdebug`, `/api/mapinfo` and the world map's bot positions from
+  nutnnut/Cosmic dev `77e0c5bc9`. Ours: `BotInspectApi` / `InspectViews`, loopback-only, secret header, GET-only,
+  cached, off on live (docs/design/inspect-api.md). Their web server is not ported.
