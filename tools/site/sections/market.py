@@ -645,8 +645,8 @@ def build_board(mk):
 
 EXCHANGE = """<h1>Slums Exchange</h1>
 <p class="lede">The stock market for NX and the items everyone wants. Post a buy or a sell at your own price; when a
-buyer's price meets a seller's, they trade straight away, and the game pays both sides. No house price: every price
-here is one a player paid.</p>
+buyer's price meets a seller's, they trade straight away, and the game pays both sides. No set price: every price
+here is one someone actually paid.</p>
 <noscript><p class="small">The exchange needs JavaScript turned on.</p></noscript>
 <p class="xc-alert" x-data x-show="$store.xc.closed" x-cloak>The Slums Exchange isn't open yet. It opens in a later
 update: the patch notes will say when.</p>
