@@ -136,3 +136,12 @@ saleRules:
     1002390: 1              # Zakum Helmet 2
     1002430: 1              # Zakum Helmet 3
     1122000: 1              # Horntail Necklace
+
+# Ticket 112 (owner 2026-10-30): population bots and owned alts batch-make monster crystals from their leftovers and
+# disassemble junk equips through the real Maker path, capped so crafted goods don't flood the market. One operation =
+# one crystal or one disassembly. Off until the owner switches it on (-Dsolomapling.economy.maker.botBatch=true on
+# TEST). The read-only maker plan (@maker plan) is not behind the switch.
+maker:
+  botBatch: false
+  perBotDaily: 10           # per bot or alt per day (kept in memory: a restart gives the day back)
+  worldDaily: 300           # all bots and alts together per day (economy meter "makerbatch", survives a restart)

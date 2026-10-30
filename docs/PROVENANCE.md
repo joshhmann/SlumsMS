@@ -94,3 +94,16 @@ Ours:
 - the card list merged from monstercarddata and Item.wz;
 - `build_book.py` rewritten over parsed XML, because this server's WZ dump is minified. It takes drops from MySQL
   or a TSV and writes the HP strings the client book needs. MapleLib is not used.
+
+## Later ports
+
+### Ticket 112: the Maker plan and batch (branch `162-maker`)
+
+From nutnnut/Cosmic (GreenCatMS), https://github.com/nutnnut/Cosmic, AGPL-3.0, `src/main/java/server/bots/`, branch
+`dev`. Rewritten onto our types and rules (each file's header says what was kept and what is ours). The batch is
+behind economy.yaml `maker.botBatch` (off by default); the plan is read-only.
+
+| Their file @ commit | What was ported | Our files | Switch |
+| --- | --- | --- | --- |
+| `BotMakerPlanner.java` @ `356fbfeb1` | The question and its shape: equips the character can Maker-craft right now (Maker level, materials) that would be upgrades, ranked best first. Ours: one plan for players, alts and bots, valued through `MakerGearScore` (162-gearopt's `GearScoring` plugs in), plain items only (upstream also samples stimulant and gem rolls) | `MakerPlan`, `MakerGearScore`, `AttackGainScore`, `@maker plan` | none (read-only) |
+| `BotMakerManager.java` @ `6fd0512a0`, `MakerProcessor.java` @ `1ff686027` | "Make monster crystals" and "disassemble trash" through the player's Maker path (upstream split `makeLeftoverCrystal` / `disassembleEquip` out of the packet handler). Ours: a `Hands` seam so population bots use the bot ledger, daily per-bot and world caps, monster leftovers only, junk = not an upgrade by the gear score, run at a bot's town stop or on the alt owner's `@maker crystals|scrap` | `BotMaker`, `BotMakerHands`, `MakerService.makeLeftoverCrystal` / `disassemble` | `maker.botBatch` (+ `maker.perBotDaily`, `maker.worldDaily`) |
