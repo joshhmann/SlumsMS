@@ -57,6 +57,12 @@ final class LiveStageView implements StageView {
         }
     }
 
+    @Override
+    public boolean alive(int characterId) {
+        Character c = character(characterId);
+        return c == null || c.getHp() > 0;
+    }
+
     Character character(int id) {
         return chars.get(id);
     }

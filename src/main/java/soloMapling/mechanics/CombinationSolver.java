@@ -128,6 +128,20 @@ public final class CombinationSolver implements StageSolver {
         return off != null ? off : new SolverStep.Wait(1_500, "not on the puzzle this time");
     }
 
+    @Override
+    public java.util.Optional<String> leaderPrompt(StageView view, RunMember leader) {
+        OptionalInt answer = answer(view);
+        int id = leader.characterId();
+        if (answer.isEmpty()) {
+            return java.util.Optional.of("@" + id + " talk to Cloto to start this stage");
+        }
+        Object since = view.stageMemory().get(K_STEADY);
+        if (since instanceof Long t && view.nowMs() - t >= STEADY_MS && formationExact(view, answer.getAsInt())) {
+            return java.util.Optional.of("@" + id + " we're all in place, click Cloto to check");
+        }
+        return java.util.Optional.empty();
+    }
+
     static final List<String> READY_LINES = List.of("ok we're on, check it", "k try now", "ready, talk to cloto",
             "all on, check");
 

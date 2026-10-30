@@ -31,6 +31,16 @@ class MechanicsScenarioTest {
     }
 
     @Test
+    void disposeArguments() {
+        assertEquals(2, MechanicsCommand.parseDispose(new String[]{"dispose", "kpq"}, 2), "this channel");
+        assertEquals(3, MechanicsCommand.parseDispose(new String[]{"dispose", "KPQ", "3"}, 2));
+        assertEquals(-1, MechanicsCommand.parseDispose(new String[]{"dispose"}, 2), "names the PQ");
+        assertEquals(-1, MechanicsCommand.parseDispose(new String[]{"dispose", "lpq"}, 2), "only KPQ has runs");
+        assertEquals(-1, MechanicsCommand.parseDispose(new String[]{"dispose", "kpq", "x"}, 2));
+        assertEquals(-1, MechanicsCommand.parseDispose(new String[]{"dispose", "kpq", "0"}, 2));
+    }
+
+    @Test
     void kpqArguments() {
         assertEquals(new MechanicsCommand.KpqRequest(false, 4, false), MechanicsCommand.parseKpq(new String[]{"kpq"}, 1));
         assertEquals(new MechanicsCommand.KpqRequest(true, 3, false),
@@ -43,7 +53,13 @@ class MechanicsScenarioTest {
         assertNull(MechanicsCommand.parseKpq(new String[]{"kpq", "me", "4"}, 1), "you + 4 is five");
         assertNull(MechanicsCommand.parseKpq(new String[]{"kpq", "lots"}, 1));
         assertEquals(new MechanicsCommand.KpqRequest(false, 4, false, 3),
-                MechanicsCommand.parseKpq(new String[]{"kpq", "stage3"}, 1), "stop after stage 3");
+                MechanicsCommand.parseKpq(new String[]{"kpq", "to3"}, 1), "stop after stage 3");
+        // 1.6.2 (TEST 10-30: "!mechanics kpq 4 stage4" started on stage 1): stageN starts there
+        assertEquals(new MechanicsCommand.KpqRequest(false, 4, false, 0, 4),
+                MechanicsCommand.parseKpq(new String[]{"kpq", "4", "stage4"}, 1), "start on stage 4");
+        assertEquals(new MechanicsCommand.KpqRequest(true, 3, false, 4, 2),
+                MechanicsCommand.parseKpq(new String[]{"kpq", "me", "stage2", "to4"}, 1), "stages 2-4");
+        assertNull(MechanicsCommand.parseKpq(new String[]{"kpq", "stage4", "to2"}, 1), "ends before it starts");
     }
 
     @Test

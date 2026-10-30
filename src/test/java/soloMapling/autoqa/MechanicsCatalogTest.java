@@ -70,4 +70,36 @@ class MechanicsCatalogTest {
         assertEquals(List.of(Check.Status.PASS, Check.Status.FAIL, Check.Status.FAIL, Check.Status.FAIL,
                 Check.Status.FAIL), List.of(statuses(fail)));
     }
+
+    /** 1.6.2: t-mx-3 / t-mx-4 / t-mx-5 against the lines their scenarios write (MechanicsScenarios). */
+    @Test
+    void t_mx_3_to_5_passOnTheirVerdictsAndFailOnAFail() throws Exception {
+        var three = AutoQaCatalogPatternTest.eval("t-mx-3",
+                "MX3 MX3 START kpq with 4 bots in Kerning0 w1 ch 2",
+                "MX3 RUN instance Kerning0 w1 ch 2 ended with the run: 4 member(s) sent out",
+                "MX3 MX3 PASS stopped run left nobody inside: instance disposed, 0 still held, 0 still registered");
+        for (Check.Verdict x : three) {
+            assertEquals(Check.Status.PASS, x.status(), x.toString());
+        }
+        var threeFail = AutoQaCatalogPatternTest.eval("t-mx-3",
+                "MX3 MX3 START kpq with 4 bots in Kerning0 w1 ch 2",
+                "MX3 MX3 FAIL stopped run left: instance ALIVE with 4 inside, 0 still held, 4 still registered");
+        assertEquals(List.of(Check.Status.PASS, Check.Status.FAIL, Check.Status.FAIL), List.of(statuses(threeFail)));
+        var four = AutoQaCatalogPatternTest.eval("t-mx-4",
+                "MX4 MX4 START Kerning0 w1 ch 2 and Kerning0 w1 ch 1",
+                "MX4 MX4 PASS two channels ran KPQ at once (Kerning0 w1 ch 2 / Kerning0 w1 ch 1), both gone after");
+        for (Check.Verdict x : four) {
+            assertEquals(Check.Status.PASS, x.status(), x.toString());
+        }
+        var five = AutoQaCatalogPatternTest.eval("t-mx-5",
+                "MX5 MX5 START kpq led by AqClient with 3 driven (2 alts) in Kerning0 w1 ch 2",
+                "MX5 MX5 PASS alts driven, the leader was reminded, nobody left inside after the stop");
+        for (Check.Verdict x : five) {
+            assertEquals(Check.Status.PASS, x.status(), x.toString());
+        }
+        var fiveFail = AutoQaCatalogPatternTest.eval("t-mx-5",
+                "MX5 MX5 START kpq led by AqClient with 3 driven (2 alts) in Kerning0 w1 ch 2",
+                "MX5 MX5 FAIL AutoQaAlt never got a Cloto question");
+        assertEquals(List.of(Check.Status.PASS, Check.Status.FAIL, Check.Status.FAIL), List.of(statuses(fiveFail)));
+    }
 }

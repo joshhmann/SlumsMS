@@ -42,6 +42,9 @@ public final class Orchestrator implements RunOrchestrator {
     /** How long the members may take after the last clear (prize, bonus, way out) before the run lets them go. */
     public static final long AFTER_CLEAR_BUDGET_MS = 10 * 60_000L;
 
+    /** How long a bot keeps asking the reward NPC for its prize before it gives up (a full bag; bot audit B6). */
+    public static final long PRIZE_GIVE_UP_MS = 60_000; // room for the walk to him and a few clicks
+
     /** The solvers phase 1 has. */
     public static Map<String, StageSolver> phase1Solvers() {
         QuestionCouponsSolver qc = new QuestionCouponsSolver();
@@ -82,6 +85,26 @@ public final class Orchestrator implements RunOrchestrator {
         run.setClaims(RoleClaims.claim(run.stageData(), run.members()));
         run.note(0, "start " + content.id() + " stage 1 with " + describe(run));
         return run;
+    }
+
+    /**
+     * QA staging ({@code !mechanics kpq ... stageN}): the run begins on stage {@code first}; the caller has already
+     * put the event in the state the earlier clears leave (their clear properties set, their portals open), so the
+     * members walk there through those portals as a party would. Returns false (run untouched) when the stage is not
+     * one this run can play.
+     */
+    public boolean startAt(RunState run, int first, long nowMs) {
+        if (run.ended() || first <= 1) {
+            return !run.ended();
+        }
+        if (first > run.lastStage()) {
+            return false;
+        }
+        run.setStage(first, nowMs);
+        run.clearTries();
+        run.setClaims(RoleClaims.claim(run.stageData(), run.members()));
+        run.note(nowMs, "staged at stage " + first + ": " + describe(run));
+        return true;
     }
 
     /** The highest stage (in order from 1) that has a solver, capped by {@code lastStage}; 0 when stage 1 has none. */
@@ -170,16 +193,18 @@ public final class Orchestrator implements RunOrchestrator {
         StageSolver solver = solvers.get(stage.solver());
         double factor = run.content().rules(run.tier()).map(MechanicsModel.TierRules::botMistakeFactor)
                 .orElse(TryPlanner.tierFactor(run.tier()));
-        Stage previous = run.content().stage(run.currentStage() - 1).orElse(null);
         for (RunMember m : run.members()) {
             if (!m.bot()) {
                 continue; // a real player is planned around, never steered
             }
             int on = view.mapOf(m.characterId());
             if (on != stage.mapId()) {
-                // still behind: walk into the portal the last stage opened (its script's gate decides), else wait
-                steps.put(m.characterId(), previous != null && on == previous.mapId() && previous.nextPortal() != null
-                        ? new SolverStep.EnterPortal(previous.nextPortal())
+                // still behind: walk into the portal an earlier stage opened (its script's gate decides), else wait.
+                // Any earlier stage, not just the last: a run staged at a later stage walks through every one
+                Stage behind = run.content().stageOnMap(on).orElse(null);
+                steps.put(m.characterId(), behind != null && behind.index() < stage.index()
+                        && behind.nextPortal() != null
+                        ? new SolverStep.EnterPortal(behind.nextPortal())
                         : new SolverStep.Wait(1_000, "not on stage " + stage.index() + "'s map yet"));
                 continue;
             }
@@ -191,7 +216,59 @@ public final class Orchestrator implements RunOrchestrator {
                 steps.put(m.characterId(), solver.next(view, m));
             }
         }
+        RunMember leader = view.leader().orElse(null);
+        if (leader != null && !leader.bot() && view.mapOf(leader.characterId()) == stage.mapId()) {
+            realLeader(run, view, solver, stage, leader, steps, nowMs);
+        }
         return steps;
+    }
+
+    /** First reminder this long after the leader's turn comes, then one every {@link #LEADER_PROMPT_EVERY_MS}. */
+    static final long LEADER_PROMPT_FIRST_MS = 20_000;
+    static final long LEADER_PROMPT_EVERY_MS = 40_000;
+
+    /**
+     * A real leader (bot audit K4, K5). Only he can do the leader's part (the scripts check {@code isEventLeader}),
+     * and he is never steered: when it is his turn (passes in, formation ready) one bot reminds him in party chat,
+     * 20 s after his turn came and every 40 s after, so a run with a player leader always says what it waits for. When
+     * he is dead the bots stop where they are and one asks him to get up (his revive outside the PQ ends the run).
+     */
+    private void realLeader(RunState run, StageView view, StageSolver solver, Stage stage, RunMember leader,
+                            Map<Integer, SolverStep> steps, long nowMs) {
+        Map<String, Object> mem = run.stageMemory();
+        int lid = leader.characterId();
+        Integer speaker = steps.keySet().stream().filter(id -> view.mapOf(id) == stage.mapId()).findFirst()
+                .orElse(null);
+        if (!view.alive(lid)) {
+            for (Map.Entry<Integer, SolverStep> e : steps.entrySet()) {
+                e.setValue(new SolverStep.Wait(1_000, "the leader is down"));
+            }
+            if (mem.putIfAbsent("leaderDown", nowMs) == null) {
+                run.note(nowMs, lid + " (the leader) died; the bots wait");
+                if (speaker != null) {
+                    steps.put(speaker, new SolverStep.Say("@" + lid + " u died, we wait here for u"));
+                }
+            }
+            return;
+        }
+        if (mem.remove("leaderDown") != null) {
+            run.note(nowMs, lid + " (the leader) is up again");
+        }
+        java.util.Optional<String> prompt = solver.leaderPrompt(view, leader);
+        if (prompt.isEmpty()) {
+            mem.remove("leaderTurnSince");
+            return;
+        }
+        Object since = mem.putIfAbsent("leaderTurnSince", nowMs);
+        long turn = since == null ? nowMs : (Long) since;
+        Object last = mem.get("leaderPromptAt");
+        boolean due = last == null ? nowMs - turn >= LEADER_PROMPT_FIRST_MS
+                : nowMs - (Long) last >= LEADER_PROMPT_EVERY_MS;
+        if (due && speaker != null) {
+            mem.put("leaderPromptAt", nowMs);
+            steps.put(speaker, new SolverStep.Say(prompt.get()));
+            run.note(nowMs, "reminded the leader: " + prompt.get());
+        }
     }
 
     private void planTries(RunState run, StageView view, StageSolver solver, RunMember m, double factor, long nowMs) {
@@ -247,6 +324,12 @@ public final class Orchestrator implements RunOrchestrator {
             run.end("cleared");
             return steps;
         }
+        if (bots.stream().allMatch(m -> run.stageMemory().containsKey("prizeGaveUp:" + m.characterId())
+                && view.mapOf(m.characterId()) == after.rewardMap())) {
+            run.note(nowMs, "every bot left has given up on its prize");
+            run.end("cleared");
+            return steps;
+        }
         if (nowMs - run.afterClearSinceMs() > AFTER_CLEAR_BUDGET_MS) {
             run.note(nowMs, "after-clear time is up: " + bots.size() + " bot(s) let go where they stand");
             run.end("cleared");
@@ -257,6 +340,17 @@ public final class Orchestrator implements RunOrchestrator {
             int id = m.characterId();
             int on = view.mapOf(id);
             if (on == after.rewardMap()) {
+                // B6 (bot audit): Cloto keeps a bot with a full bag on his map; it clicked him every 2.5 s until
+                // the after-clear budget ran out. It gives up after PRIZE_GIVE_UP_MS and waits there.
+                Object since = run.stageMemory().putIfAbsent("prizeSince:" + id, nowMs);
+                long first = since == null ? nowMs : (Long) since;
+                if (nowMs - first > PRIZE_GIVE_UP_MS) {
+                    if (run.stageMemory().putIfAbsent("prizeGaveUp:" + id, true) == null) {
+                        run.note(nowMs, id + " gives up on the prize (no room for it?)");
+                    }
+                    steps.put(id, new SolverStep.Wait(5_000, "no room for the prize"));
+                    continue;
+                }
                 steps.put(id, new SolverStep.Converse(after.rewardNpc(), List.of(0), "claim the prize"));
             } else if (after.bonusMap() > 0 && on == after.bonusMap()) {
                 Long until = run.bonusUntil(id);

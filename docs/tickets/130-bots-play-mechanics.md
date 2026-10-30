@@ -283,7 +283,7 @@ Cloto's script on stages 2-5 against the bot-safe surface and the solver's own s
 whole PQ against a simulation of the scripts (30 seeded 4-bot runs, party of three, chaotic and perfect leaders, real
 leader, real member on the puzzle, the bonus rule, the portals).
 
-GM: `!mechanics kpq [me] [bots] [perfect] [stage1-5]` (default: the whole PQ). QA: `!qa run mx-2` (four bots, whole PQ,
+GM: `!mechanics kpq [me] [bots] [perfect] [stage1-5] [to1-5]` (default: the whole PQ; 1.6.2: `stageN` starts on stage N, `toN` stops after it). QA: `!qa run mx-2` (four bots, whole PQ,
 25-minute limit, every bot reaches the bonus); auto-QA **t-mx-2**. mx-1/t-mx-1 still stop after stage 1.
 
 What needs a real client (Silvia copies against TEST) before the switch goes on: bots hanging still inside the
@@ -298,6 +298,55 @@ talks to Lakelis; the run plays the whole PQ; the party breaks up after. At most
 such runs at a time world-wide. Unit-tested (the pick); not run on TEST.
 
 Not done: OPQ on the orchestrator, other PQs, bosses, PQ tiers.
+
+## 1.6.2 fixes from the first real-client run (branch `162-kpqfix`, TEST ch 2, 2026-10-30 14:09-14:15 UTC)
+
+GM AqClient led three bots (`!mechanics kpq me 3`); evidence in TEST's `BotLog.txt` (`[Mechanics]`) and the journal.
+
+| Finding | Cause | Fix |
+|---|---|---|
+| After `!mechanics stop` and a warp out, Lakelis refused the next party ("the current party to finish"); status said no runs | (1) stopping a run never touched its instance; the staged bots left the party 20 s later. (2) That party-leave ran KerningPQ.js `end()`, which exits each member before `eim.dispose()`; `unregisterPlayer` took the coupons/passes back through the bot's client, and the shared headless bot client has no player: NPE, `end()` stopped half way, instance alive until its timer, whose `end()` threw the same way (also 14:02 on the lobby run) | `EventInstanceManager.takeExclusiveItems`: a bot's event items go through `BotHoldings.takeAll`; a failure is logged and never stops the exit. `MechanicsRuns`: a run staging or the lobby started (`ownsInstance`) that ends short of the clear (stop, leader gone, too few, exception, budget) ends its instance (script `end`, fallback: unregister, warp to `exitMap`, dispose); any run's instance with nobody but bots left ends too; a player's own PQ is never ended under him. New `!mechanics dispose kpq [channel]` (GM 3, behind the flag, logged): ends stuck KPQ instances with no real non-GM player inside |
+| Stage 1 slow with a real leader: two passes after 3 min, the third bot alone on 17 coupons at 5.5 min | each bot only picked up coupons its own kills dropped (`LiveStageView.floorDrops` skipped a fellow bot's party drop even after the ownership window) and a bot whose pass was in stopped fighting. Kill pace on TEST: about 5 coupons a minute per bot. Also the tester waited by the spawn, far left; Cloto is far right | party loot rule (`QuestionCouponsSolver.mayTakeMobCoupon`): own kill, a fellow bot's, a real member's only when he is not farming (leader or pass in), anyone's after 15 s; done members and a bot leader hunt next to whoever misses the most coupons (loot nothing); the first pass dropped for a real leader comes with "<name> dropped my pass by u, take them to Cloto on the right" |
+
+Second run, bot-only `!mechanics kpq 4 stage4` (TEST ch 2, 14:41 UTC): answers 35, 25, 35; passes at 10 and 11 minutes,
+the third bot still hunting at 20 minutes. Drop data: Ligator 9300001 drops coupon 4001007 at 200000/999999 x drop rate
+4 = 80 %, so kills were not the limit; coupons were (each bot kept only its own kills', the bot leader stood still).
+Also "will try [8] first" for 25 cost a full walk across the map with 8 coupons. Fixed with the loot rule and helpers
+above, and stage 1 tries are now one near miss at most (`NEAR_MISS` 5 below the answer, `MAX_WRONG_HAND_INS` 1).
+`stage4` did not start on stage 4 (it meant "stop after 4"): `stageN` now starts there (`KpqStaging.stageEventTo`
+leaves stages 1..N-1 as Cloto's `clearStage` does: clear property, gate, `next00` linked to `kpq<n-1>`, stage 1's
+grid emptied; no stage rewards, nobody moved; members walk through every opened portal), `toN` stops after N.
+
+Bot audit (ticket 163): **b113** runs were kept by instance name, and every channel's event manager names its first
+KPQ "Kerning0" (KerningPQ.js: `"Kerning" + lobbyid`, lobbies per channel), so a second channel's run was refused
+("this event instance already has a run") and `runFor` could return another channel's run; runs and lobby runs are now
+keyed by name + world + channel (`MechanicsRuns.keyOf`). The script's names stay stock. Lakelis itself refuses a party
+only when that channel's one KPQ lobby (`maxLobbies = 1`) is taken, which the orphan instances above did. **b118**: an
+aborted run in a PQ a real player stays in sends out an owned alt whose owner left (alts with their owner stay); with
+no real player left the instance ends (above), alts included.
+
+Bot audit (ticket 163) medium/low items, fixed on the same branch:
+
+| Item | Fix |
+|---|---|
+| K4 a player-led run cannot be finished | the leader's part stays his (only the event leader can hand in or check); every solver now says when it is his turn (`StageSolver.leaderPrompt`) and one bot reminds him 20 s after, then every 40 s (`Orchestrator.realLeader`) |
+| K5 the owner's death is invisible | `StageView.alive`; while a real leader is dead every bot waits and one says so once; they go on when he is up (a revive outside the PQ ends the run, and the instance with it when only bots and alts are left) |
+| K6 party ops tear alts out mid-run | `OwnedAltService.finish` has the alt leave its event through the script's `playerExit` before the save (`Backend.leaveEvent`): saved in town, no `playerDisconnected` that ends the PQ |
+| K7 a throw between party and run leaks | `MechanicsRuns.start`: a throw after the holds (scheduler refusing) aborts and finishes the run (holds released, unregistered); `KpqLobby.start` disbands the party on any throw |
+| K10 a broken stage script floods FAILED | `StepExecutor.scriptOutcome`: a failure is logged once in a row, the third in a row abandons the run |
+| B6 prize re-talk on a full bag | a bot gives up on its prize after `PRIZE_GIVE_UP_MS` (60 s) and waits; the run ends when every bot left gave up. (The bonus guard counting members anywhere is kept: KPQ's own "team lacking" check counts every registered member, so a bot leaving could end the PQ under a player still on stage 5.) |
+| B9 lobby level band 21-30 | `KpqLobby.pickParty` takes the content file's band (kpq.yaml 21-255) |
+| K8 lobby slot race | the slot is taken before the run starts, given back if it does not |
+| K9 / one lobby per channel | a channel whose KPQ has a live instance is skipped; one where Lakelis refused anyway is left alone 10 minutes |
+| B8 a despawning bot stays in the instance | `BotGeneration.removeBotFromServer` calls the event's `playerDisconnected` (bot-safe since the first fix) |
+| doc | `Mechanics.java` says what calls it |
+
+Auto-QA: t-mx-3 (a stopped run leaves nobody inside), t-mx-4 (two channels at once), t-mx-5 (a player leads his two
+alts and a bot; the alts are driven, the idle leader is reminded, the stop leaves nobody inside). See docs/ops/qa-suite.md.
+
+Simulation (`KpqFullRunTest`, Ligator model at TEST's pace): real leader + 3 bots, 40 seeds: mean 375 s / worst 572 s before,
+262 s / 450 s after with the leader standing still, 196 s / 338 s when the leader hunts too. About 66 coupons at three
+hunters' pace is the floor; more needs more damage (not changed).
 
 ## Phased plan
 

@@ -68,6 +68,11 @@ public interface StageView {
         return 0;
     }
 
+    /** Whether a member is alive (1.6.2, bot audit K5: a dead leader stops the run's driving). */
+    default boolean alive(int characterId) {
+        return true;
+    }
+
     /** The run's clock for this tick. */
     default long nowMs() {
         return 0;

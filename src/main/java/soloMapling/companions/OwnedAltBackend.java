@@ -104,6 +104,23 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
     @Override public void started(Character owner, Character alt) {
         OwnedAltCompanion.start();
     }
+    @Override public void leaveEvent(Character alt) {
+        scripting.event.EventInstanceManager eim = alt.getEventInstance();
+        if (eim == null || eim.isEventDisposed()) return;
+        try {
+            eim.invokeScriptFunction("playerExit", eim, alt); // KPQ: unregister, then to the exit map
+        } catch (Exception e) {
+            soloMapling.BotLogger.log("[OwnedAlt] " + alt.getName() + " could not leave " + eim.getName()
+                    + " through its script: " + e);
+        }
+        if (alt.getEventInstance() != null) {
+            eim.unregisterPlayer(alt);
+            server.maps.MapleMap map = alt.getMap();
+            if (map != null && map.getReturnMapId() > 0 && map.getReturnMapId() != 999999999) {
+                alt.changeMap(map.getReturnMapId());
+            }
+        }
+    }
     @Override public void detach(Character alt) {
         OwnedAltCompanion.forget(alt); // 1.6.1 ticket 13: the driver lets go first (no move after the disable below)
         GCMovement.disable(alt); // 1.6.0.4: stop following/travelling before the alt leaves its map and channel

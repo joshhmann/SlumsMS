@@ -28,8 +28,10 @@ import static soloMapling.BotLogger.log;
  * party breaks up and the bots go back to their lives.
  *
  * <p>Caps: at most {@code -Dslums.mechanics.lobbyRuns} (2) bot-only lobby runs at a time world-wide, one start per
- * minute, and KPQ's own one-party-per-channel lobby (Lakelis refuses while another party is in). Free means: a
- * population bot (never an owned alt), level 21-30, no party, no event, no commitment in flight, not logging off.
+ * minute, and KPQ's own one-party-per-channel lobby: a channel whose KPQ already has an instance is skipped, and one
+ * where Lakelis refused anyway is left alone for {@link #REFUSED_BACKOFF_MS} (1.6.2, bot audit K9 and the
+ * one-lobby rule). Free means: a population bot (never an owned alt), in the content file's level band (1.6.2, B9:
+ * was a hardcoded 21-30), no party, no event, no commitment in flight, not logging off.
  *
  * <p>Switch: {@code -Dslums.mechanics.lobby=true} on top of {@code -Dslums.mechanics=true} (both off by default).
  */
@@ -37,9 +39,12 @@ public final class KpqLobby {
 
     public static final String FLAG = "slums.mechanics.lobby";
     static final long TICK_MS = 60_000;
-    static final int MIN_LEVEL = 21, MAX_LEVEL = 30;
+    /** How long a channel is left alone after Lakelis refused its lobby party (K9: was retried every minute). */
+    static final long REFUSED_BACKOFF_MS = 10 * 60_000L;
 
     private static final Set<String> running = ConcurrentHashMap.newKeySet();
+    /** Channel (world * 100 + channel) to when its lobby may try again after a refusal. */
+    private static final java.util.Map<Integer, Long> refusedUntil = new ConcurrentHashMap<>();
     private static volatile boolean started;
 
     private KpqLobby() {
@@ -77,10 +82,10 @@ public final class KpqLobby {
      * The party to form from the lobby: up to four free bots in the band, the highest level first (it leads, as the
      * strongest player in a PUG usually does), ties by id; empty when fewer than three are free.
      */
-    static List<Integer> pickParty(List<Candidate> lobby, int min, int max) {
+    static List<Integer> pickParty(List<Candidate> lobby, int min, int max, int minLevel, int maxLevel) {
         List<Candidate> ok = new ArrayList<>();
         for (Candidate c : lobby) {
-            if (c.free() && c.level() >= MIN_LEVEL && c.level() <= MAX_LEVEL) {
+            if (c.free() && c.level() >= minLevel && c.level() <= maxLevel) {
                 ok.add(c);
             }
         }
@@ -103,8 +108,10 @@ public final class KpqLobby {
         if (content == null) {
             return;
         }
+        long now = System.currentTimeMillis();
         for (Channel ch : soloMapling.ArtificialPlayer.BotChannels.channels()) {
-            if (!ch.getMapFactory().isMapLoaded(KpqStaging.RECRUIT_MAP)) {
+            if (!ch.getMapFactory().isMapLoaded(KpqStaging.RECRUIT_MAP)
+                    || !mayTry(channelKey(ch), now, kpqBusy(ch))) {
                 continue;
             }
             MapleMap lobby = ch.getMapFactory().getMap(KpqStaging.RECRUIT_MAP);
@@ -116,7 +123,8 @@ public final class KpqLobby {
                     candidates.add(new Candidate(c.getId(), c.getLevel(), free(c)));
                 }
             }
-            List<Integer> pick = pickParty(candidates, content.minPlayers(), content.maxPlayers());
+            List<Integer> pick = pickParty(candidates, content.minPlayers(), content.maxPlayers(), content.minLevel(),
+                    content.maxLevel());
             if (pick.isEmpty()) {
                 continue;
             }
@@ -140,7 +148,42 @@ public final class KpqLobby {
         }
     }
 
-    private static boolean start(Content content, List<Character> here, List<Integer> pick) {
+    static int channelKey(Channel ch) {
+        return ch.getWorld() * 100 + ch.getId();
+    }
+
+    /** Whether this channel's KPQ already has a live instance (KPQ runs one party per channel: Lakelis would refuse). */
+    static boolean kpqBusy(Channel ch) {
+        try {
+            scripting.event.EventManager em = ch.getEventSM().getEventManager(KpqStaging.EVENT);
+            return em == null || em.getInstances().stream().anyMatch(e -> !e.isEventDisposed());
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
+    /** Whether the lobby may try a start on a channel now: its KPQ is free and no refusal backoff is running. */
+    static boolean mayTry(int channel, long now, boolean kpqBusy) {
+        Long until = refusedUntil.get(channel);
+        return !kpqBusy && (until == null || now >= until);
+    }
+
+    /** Lakelis refused this channel's party: leave the channel alone for a while (K9). */
+    static void refused(int channel, long now) {
+        refusedUntil.put(channel, now + REFUSED_BACKOFF_MS);
+    }
+
+    static void clearForTest() {
+        refusedUntil.clear();
+        running.clear();
+    }
+
+    /**
+     * Forms the party, has its leader talk to Lakelis and starts the run. 1.6.2 (bot audit K7, K8): anything that
+     * throws on the way disbands the party (a bot left in a half-made party was never free again), and the run's
+     * slot is taken before the run starts (a run that ended on its first tick left its name behind for good).
+     */
+    static boolean start(Content content, List<Character> here, List<Integer> pick) {
         List<Character> members = new ArrayList<>();
         for (int id : pick) {
             for (Character c : here) {
@@ -149,41 +192,63 @@ public final class KpqLobby {
                 }
             }
         }
-        Character leader = members.get(0);
-        if (!Party.createParty(leader, true) || leader.getParty() == null) {
+        if (members.isEmpty()) {
             return false;
         }
-        Party party = leader.getParty();
-        for (Character c : members) {
-            if (c != leader && !Party.joinParty(c, party.getId(), true)) {
+        String[] slot = {null};
+        try {
+            Character leader = members.get(0);
+            if (!Party.createParty(leader, true) || leader.getParty() == null) {
                 disband(members);
                 return false;
             }
-        }
-        // the leader talks to Lakelis ("I want to participate"): his script checks the party and starts the PQ
-        BotNpcTalk.Result r = MechanicsRuns.staging(() -> BotNpcTalk.INSTANCE.converse(leader, KpqStaging.LAKELIS,
-                List.of(0)));
-        EventInstanceManager eim = leader.getEventInstance();
-        if (eim == null) {
-            log("[Mechanics] KPQ lobby: Lakelis did not start a run for " + leader.getName() + "'s party"
-                    + (r.ran() ? ": " + r.lastLine() : ": " + r.error()));
-            disband(members);
-            return false;
-        }
-        String name = eim.getName();
-        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, false, 0, 0,
-                line -> log("[Mechanics] lobby " + name + " " + line), done -> {
-                    running.remove(name);
+            Party party = leader.getParty();
+            for (Character c : members) {
+                if (c != leader && !Party.joinParty(c, party.getId(), true)) {
                     disband(members);
-                });
-        if (a.run().ended()) {
+                    return false;
+                }
+            }
+            // the leader talks to Lakelis ("I want to participate"): his script checks the party and starts the PQ
+            BotNpcTalk.Result r = MechanicsRuns.staging(() -> BotNpcTalk.INSTANCE.converse(leader,
+                    KpqStaging.LAKELIS, List.of(0)));
+            EventInstanceManager eim = leader.getEventInstance();
+            if (eim == null) {
+                log("[Mechanics] KPQ lobby: Lakelis did not start a run for " + leader.getName() + "'s party"
+                        + (r.ran() ? ": " + r.lastLine() : ": " + r.error()) + "; channel left alone for "
+                        + REFUSED_BACKOFF_MS / 60_000 + " min");
+                Channel ch = leader.getClient() == null ? null : leader.getClient().getChannelServer();
+                if (ch != null) {
+                    refused(channelKey(ch), System.currentTimeMillis());
+                }
+                disband(members);
+                return false;
+            }
+            String name = MechanicsRuns.keyOf(eim); // per channel (b113): every channel's first KPQ is "Kerning0"
+            slot[0] = name;
+            running.add(name); // K8: before the run can end
+            MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, false, 0, 1, 0, true,
+                    line -> log("[Mechanics] lobby " + name + " " + line), done -> {
+                        running.remove(name);
+                        disband(members);
+                    });
+            if (a.run().ended()) {
+                running.remove(name);
+                disband(members);
+                return false;
+            }
+            log("[Mechanics] KPQ lobby: " + members.size() + " bots led by " + leader.getName()
+                    + " start Kerning PQ (" + name + ")");
+            return true;
+        } catch (RuntimeException | LinkageError e) {
+            log("[Mechanics] KPQ lobby: starting a run threw, the party breaks up: " + e);
+            if (slot[0] != null && MechanicsRuns.get().active().stream().noneMatch(x -> x.instanceName()
+                    .equals(slot[0]))) {
+                running.remove(slot[0]);
+            }
             disband(members);
             return false;
         }
-        running.add(name);
-        log("[Mechanics] KPQ lobby: " + members.size() + " bots led by " + leader.getName() + " start Kerning PQ ("
-                + name + ")");
-        return true;
     }
 
     /** The lobby party breaks up (each bot leaves; the event script ends a PQ that gets too small). */

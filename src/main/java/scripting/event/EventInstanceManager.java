@@ -1041,8 +1041,11 @@ public class EventInstanceManager {
     }
 
     /*
-     * 162 runfix (TEST 10-30: t-vb-3 "instance DID NOT START" on ch 1 for over an hour): a bot that logged out during a
-     * bot-lobby KPQ has a client whose player is gone, so removeAll's cl.getPlayer() threw an NPE inside the script's
+     * One path for every member leaving (162-kpqfix merged with 162 runfix). 162-kpqfix: a population bot sits on the
+     * shared headless client, whose getPlayer() is not the bot, so the client path threw out of unregisterPlayer and
+     * KerningPQ.js end() (which exits every member before eim.dispose()) left the instance alive; a bot's items go
+     * through its holdings (its ledger follows). 162 runfix (TEST 10-30: t-vb-3 "instance DID NOT START" on ch 1 for
+     * over an hour): a bot that logged out during a bot-lobby KPQ has a client whose player is gone, so removeAll's cl.getPlayer() threw an NPE inside the script's
      * playerExit while the lobby party disbanded (KpqLobby.disband, 13:33 and 14:02 UTC); end() never finished, the
      * instance was never disposed and the channel's only Kerning PQ lobby stayed taken. Such a character loses the
      * items straight from its inventory (no packets: nobody is connected), and nothing here may stop the exit.
@@ -1057,6 +1060,8 @@ public class EventInstanceManager {
             try {
                 if (live) {
                     chr.getAbstractPlayerInteraction().removeAll(item);
+                } else if (chr.isBot()) {
+                    soloMapling.ArtificialPlayer.BotHoldings.takeAll(chr, item);
                 } else {
                     removeOffline(chr, item);
                 }

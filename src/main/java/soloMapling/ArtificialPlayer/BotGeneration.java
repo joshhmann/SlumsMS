@@ -325,6 +325,7 @@ public class BotGeneration {
         BotBuddies.onBotLogout(fakechar); // ticket 49: its player buddies see it go offline
         soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onBotLogout(fakechar); // 1.5.0: offline on its guild's list
         BotFamily.onBotLogout(fakechar); // 1.6.1 ticket 53: save its family rep, offline in the pedigree
+        leaveEventOnDespawn(fakechar);
         if (fakechar.getMap() != null) fakechar.getMap().removePlayer(fakechar);
         removeFromChannels(fakechar);
         world().getPlayerStorage().removePlayer(fakechar.getId());
@@ -333,6 +334,23 @@ public class BotGeneration {
         BotBuffDriver.clearBot(fakechar.getId());   // Phase 3a: release buff recast timers
         BotBuffRequestHandler.clearBot(fakechar.getId());   // release chat-buff-request cooldown
         BotPets.forget(fakechar.getId());   // 1.5.0 rc4: its pet's follow state (the pet left the map with it)
+    }
+
+    /**
+     * 1.6.2 (bot audit): a bot despawning inside a party quest leaves it the way a disconnecting player does (the
+     * event script's {@code playerDisconnected}: unregistered, the PQ ended when too few are left). It used to stay in
+     * the instance's member list, so the instance outlived everyone and held the channel's only KPQ slot.
+     */
+    static void leaveEventOnDespawn(Character bot) {
+        scripting.event.EventInstanceManager eim = bot.getEventInstance();
+        if (eim == null || eim.isEventDisposed()) {
+            return;
+        }
+        try {
+            eim.playerDisconnected(bot);
+        } catch (RuntimeException e) {
+            soloMapling.BotLogger.log("[Despawn] " + bot.getName() + " could not leave " + eim.getName() + ": " + e);
+        }
     }
 
     /**
