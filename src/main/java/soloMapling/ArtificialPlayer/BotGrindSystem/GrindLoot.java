@@ -20,17 +20,17 @@ import java.util.List;
 // bring their own bounds. Extracted verbatim from the pre-split GrindBrain. Ours (SoloMapling).
 final class GrindLoot {
 
-    private static final int LOOT_PICKUP_PX = 60;            // close enough to grab
+    private static final int LOOT_PICKUP_PX = LootPicker.PICKUP_PX; // close enough to grab
     private static final long LOOT_GAP_MIN_MS = 100;         // stagger between at-feet pickups
     private static final long LOOT_GAP_MAX_MS = 350;
     private static final long LOOT_SWEEP_GAP_MIN_MS = 80;    // tighter pacing while drive-by sweeping (walk-over at ~125px/s clears ~60px spacing)
     private static final long LOOT_SWEEP_GAP_MAX_MS = 200;
     private static final int SWEEP_PICKUP_CAP = 2;           // pickups per combat tick while sweeping (keeps the anim readable)
-    static final int LOOT_SAME_LEDGE_Y = 120;                // sweep: only walk to drops near the bot's Y (keep loot on its ledge)
+    static final int LOOT_SAME_LEDGE_Y = LootPicker.SAME_LEDGE_DY; // sweep: only walk to drops near the bot's Y (its ledge)
     // Let a fresh drop finish its fly-out arc and settle on the floor before the bot grabs it — instant
     // pickup looks like the item teleports into the bot mid-air. Aged against MapItem.getDropTime() (the
     // server clock stamp set when the drop spawns), so it's "this drop has been on the ground ≥ this long".
-    private static final long LOOT_SETTLE_MS = 1_500;
+    private static final long LOOT_SETTLE_MS = LootPicker.SETTLE_MS;
     private static final long LOOT_NARRATE_GAP_MS = 6_000;   // throttle loot lines (pickups are frequent)
 
     private final GrindBrain b;
@@ -153,75 +153,26 @@ final class GrindLoot {
         return nearestCollectableDrop(chr, rangePx, x0, x1, yLimit, false);
     }
 
+    // 1.6.2: the drop selection is the shared LootPicker (owned alts pick through it too); what a bot may take is
+    // its own rule on top: the bot loot rules, room in its holdings, its junk habit, and its pet's rules.
     private MapItem nearestCollectableDrop(Character chr, int rangePx, int x0, int x1, int yLimit, boolean byPet) {
-        Point pos = chr.getPosition();
-        if (pos == null) {
-            return null;
-        }
-        double searchSq = (double) rangePx * rangePx;
-        MapItem best = null;
-        double bestSq = Double.MAX_VALUE;
-        for (MapObject mo : chr.getMap().getMapObjectsInRange(pos, searchSq, List.of(MapObjectType.ITEM))) {
-            MapItem mi = (MapItem) mo;
-            if (!DropCommands.botCanLoot(chr, mi)) {
-                continue;
-            }
-            if (!BotHoldings.canCreditDrop(chr, mi)) {
-                continue; // no room for it: don't walk a bot to loot it cannot hold (and never delete uncredited)
-            }
-            if (b.lootStyle == BotHabits.Loot.SKIP_JUNK && isJunk(mi)) {
-                continue; // 1.5.0 rc3: this bot leaves etc. junk on the ground
-            }
-            if (now() - mi.getDropTime() < LOOT_SETTLE_MS) {
-                continue; // too fresh — let it land first; it'll be collected on a later tick
-            }
-            if (byPet && !BotPets.petMayTake(chr, mi, System.currentTimeMillis())) {
-                continue; // 1.5.0 rc4: not the pet's to take (no equip for it, a player's drop, or still owned)
-            }
-            Point ip = mi.getPosition();
-            if (ip.x < x0 || ip.x > x1 || Math.abs(ip.y - pos.y) > yLimit) {
-                continue; // outside the leash, or on a stacked ledge above/below (unreachable)
-            }
-            double dsq = pos.distanceSq(ip);
-            if (dsq < bestSq) {
-                bestSq = dsq;
-                best = mi;
-            }
-        }
-        return best;
+        long now = now();
+        return LootPicker.nearest(chr, new LootPicker.Reach(rangePx, x0, x1, yLimit, LOOT_SETTLE_MS), now,
+                mi -> botMayTake(chr, mi) && (!byPet || BotPets.petMayTake(chr, mi, now)));
     }
 
-    // Every eligible drop in [x0, x1] within rangePx and the same-ledge Y band — the multi-drop counterpart to
-    // nearestCollectableDrop (identical botCanLoot / holdable / settle / leash / ledge filters), used to plan a
-    // whole sweep.
+    // Every eligible drop in [x0, x1] within rangePx and the same-ledge Y band - the multi-drop counterpart to
+    // nearestCollectableDrop (identical filters), used to plan a whole sweep.
     private List<MapItem> collectableDrops(Character chr, int rangePx, int x0, int x1, int yLimit) {
-        Point pos = chr.getPosition();
-        if (pos == null) {
-            return List.of();
-        }
-        double searchSq = (double) rangePx * rangePx;
-        List<MapItem> out = new ArrayList<>();
-        for (MapObject mo : chr.getMap().getMapObjectsInRange(pos, searchSq, List.of(MapObjectType.ITEM))) {
-            MapItem mi = (MapItem) mo;
-            if (!DropCommands.botCanLoot(chr, mi)) {
-                continue;
-            }
-            if (!BotHoldings.canCreditDrop(chr, mi)) {
-                continue; // no room for it: don't plan a walk to loot it cannot hold (and never delete uncredited)
-            }
-            if (b.lootStyle == BotHabits.Loot.SKIP_JUNK && isJunk(mi)) {
-                continue; // 1.5.0 rc3: this bot leaves etc. junk on the ground
-            }
-            if (now() - mi.getDropTime() < LOOT_SETTLE_MS) {
-                continue; // too fresh — let it land first; the pass-over grabs whatever has settled by then
-            }
-            Point ip = mi.getPosition();
-            if (ip.x < x0 || ip.x > x1 || Math.abs(ip.y - pos.y) > yLimit) {
-                continue; // outside the leash, or on a stacked ledge above/below (unreachable)
-            }
-            out.add(mi);
-        }
-        return out;
+        return LootPicker.all(chr, new LootPicker.Reach(rangePx, x0, x1, yLimit, LOOT_SETTLE_MS), now(),
+                mi -> botMayTake(chr, mi));
+    }
+
+    // A population bot's own loot rules: the bot loot rules (ownership), room in its holdings (never walk to loot it
+    // cannot hold, and never delete it uncredited), and a junk-skipping bot leaves etc. junk (1.5.0 rc3).
+    private boolean botMayTake(Character chr, MapItem mi) {
+        return DropCommands.botCanLoot(chr, mi) && BotHoldings.canCreditDrop(chr, mi)
+                && !(b.lootStyle == BotHabits.Loot.SKIP_JUNK && isJunk(mi));
     }
 
     // In-sweep vacuum: while the sweep walk carries the bot across the chain, grab up to SWEEP_PICKUP_CAP drops

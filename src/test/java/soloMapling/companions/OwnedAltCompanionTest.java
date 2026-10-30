@@ -66,6 +66,7 @@ class OwnedAltCompanionTest {
         movement = Mockito.mockStatic(GCMovement.class);
         attacks = Mockito.mockStatic(BotAttackDriver.class, Mockito.CALLS_REAL_METHODS);
         attacks.when(() -> BotAttackDriver.attackReachX(any())).thenReturn(100);
+        attacks.when(() -> BotAttackDriver.attackReachY(any())).thenReturn(60);
         attacks.when(() -> BotAttackDriver.botAttack(any())).thenReturn(
                 new BotAttackDriver.AttackResult(true, "Snail", 37, false, null, 0));
         service = mock(OwnedAltService.class);
@@ -181,10 +182,23 @@ class OwnedAltCompanionTest {
         Character owner = owner(NOW);
         Character alt = alt(owner, 1302000);
         mob(400, OWNER);
+        // flat ground everywhere at y 0
+        movement.when(() -> GCMovement.groundPointBelow(any(), anyInt(), anyInt()))
+                .thenAnswer(inv -> new Point(inv.getArgument(1, Integer.class), 0));
         OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
         OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
-        movement.verify(() -> GCMovement.move(eq(alt), eq(400 - 40), anyInt()));
+        // 1.6.2: the grind brain's approach (Approach): reach 100 x 0.8 = 80, so it walks to its stand band past the
+        // mob's body (20 px half width + 22) and inside that reach - not the old "reach / 2 on the near side"
+        org.mockito.ArgumentCaptor<Integer> x = org.mockito.ArgumentCaptor.forClass(Integer.class);
+        movement.verify(() -> GCMovement.move(eq(alt), x.capture(), eq(0)));
+        int dx = Math.abs(x.getValue() - 400);
+        assertTrue(dx >= 42 && dx <= 72, "stands " + dx + " px off the mob");
+        assertEquals(x.getValue(), s.lastMoveX);
         attacks.verify(() -> BotAttackDriver.botAttack(alt), never());
+        // the shared walk is not re-issued while it is still heading there
+        movement.when(() -> GCMovement.isMoving(alt)).thenReturn(true);
+        OwnedAltCompanion.tick(owner, alt, s, NOW + 200, 0);
+        movement.verify(() -> GCMovement.move(eq(alt), anyInt(), anyInt()), times(1));
     }
 
     @Test

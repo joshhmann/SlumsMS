@@ -38,16 +38,21 @@ public final class KsManners {
         if (bot == null || !BotCombatTuning.ksManners()) {
             return List.of();
         }
-        MapleMap map = bot.getMap();
+        return realPlayersOn(bot.getMap(), c -> c != bot && c.getId() != bot.getId() && respects(bot, c));
+    }
+
+    /**
+     * The visible real players on this map (no bots, no hidden GM) that {@code counts} keeps: who the manners rules
+     * look at. Shared by the population bots ({@link #respectedPlayers}) and owned alts (1.6.2: the players outside
+     * the alt's party), so both read "a player is here" the same way. Empty on almost every map.
+     */
+    public static List<Character> realPlayersOn(MapleMap map, java.util.function.Predicate<Character> counts) {
         if (map == null) {
             return List.of();
         }
         List<Character> out = null;
         for (Character c : map.getCharacters()) {
-            if (c == null || c == bot || c.getId() == bot.getId() || BotHelpers.isBot(c) || c.isHidden()) {
-                continue;
-            }
-            if (!respects(bot, c)) {
+            if (c == null || BotHelpers.isBot(c) || c.isHidden() || !counts.test(c)) {
                 continue;
             }
             if (out == null) {
@@ -93,21 +98,34 @@ public final class KsManners {
 
     /** The respected player this mob belongs to (fighting it, or standing by it on its ledge), or null. */
     static Character ownerOf(Character bot, List<Character> players, Monster m) {
+        return ownerOf(bot.getMap(), players, m);
+    }
+
+    /**
+     * Which of {@code players} this mob belongs to: one who has hit it, or one standing by it ({@link #PLAYER_MOB_PX}
+     * across, on its ledge), or null. The one KS-manners rule: population bots ask it about the players they respect,
+     * owned alts (OwnedAltCombat) about the players outside their party.
+     */
+    public static Character ownerOf(MapleMap map, List<Character> players, Monster m) {
         Point mp = m.getPosition();
         if (mp == null) {
             return null;
         }
-        MapleMap map = bot.getMap();
         for (Character p : players) {
             Point pp = p.getPosition();
             if (pp == null) {
                 continue;
             }
-            if (m.isAttackedBy(p) || (Math.abs(pp.x - mp.x) <= PLAYER_MOB_PX && sameLedge(map, pp, mp))) {
+            if (m.isAttackedBy(p) || standsBy(map, pp, mp)) {
                 return p;
             }
         }
         return null;
+    }
+
+    /** A player at {@code player} is standing by a mob at {@code mob}: close across and on its ledge. */
+    public static boolean standsBy(MapleMap map, Point player, Point mob) {
+        return Math.abs(player.x - mob.x) <= PLAYER_MOB_PX && sameLedge(map, player, mob);
     }
 
     // Same ledge: the nav graph does not put them on different ledges, and they are within a sloped ledge's height.

@@ -193,11 +193,7 @@ final class RoamStrategy implements GrindStrategy {
         if (now() < b.attackWalkLockUntil) {
             return; // just swung — hold, then move
         }
-        if (alreadyHeading(tx, b.lastMoveTargetX, GCMovement.isMoving(chr))) {
-            return; // already heading there
-        }
-        GCMovement.move(chr, tx, ty);
-        b.lastMoveTargetX = tx;
+        b.lastMoveTargetX = Approach.walkTo(chr, tx, ty, b.lastMoveTargetX); // the shared approach walk
     }
 
     /**
@@ -207,7 +203,7 @@ final class RoamStrategy implements GrindStrategy {
      * from Jr. Balrog for 5 minutes).
      */
     static boolean alreadyHeading(int tx, int lastMoveTargetX, boolean moving) {
-        return moving && Math.abs(tx - lastMoveTargetX) < GrindBrain.ROAM_RETARGET_EPS;
+        return Approach.alreadyHeading(tx, lastMoveTargetX, moving);
     }
 
     private static long now() {

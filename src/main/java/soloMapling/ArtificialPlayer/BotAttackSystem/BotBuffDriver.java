@@ -52,6 +52,18 @@ public final class BotBuffDriver {
      * buff the bot holds (it arrives buffed). Returns how many casts were queued.
      */
     public static int maintain(Character bot, long lateMaxMs) {
+        return maintain(bot, lateMaxMs, Pay.PARTY_BUFFS);
+    }
+
+    /*
+     * 1.6.2: who pays a cast's MP. A population bot pays only for its party buffs (161; its self-buffs are shown); an
+     * owned alt is its player's character and pays for every buff out of its own MP (drinking its own MP potions,
+     * BotVitals) - no MP, no cast, tried again on the next look.
+     */
+    public enum Pay { PARTY_BUFFS, ALL }
+
+    /* maintain, with the caster's MP rule. */
+    public static int maintain(Character bot, long lateMaxMs, Pay pay) {
         if (bot == null) return 0;
         List<Integer> buffIds = BotBuffConfig.buffsFor(bot);
         if (buffIds.isEmpty()) return 0;
@@ -72,7 +84,7 @@ public final class BotBuffDriver {
             if (!due) {
                 continue;
             }
-            if (partyBuff && !payForPartyBuff(bot, skillId)) {
+            if ((partyBuff || pay == Pay.ALL) && !payFor(bot, skillId)) {
                 continue;   // 161: a party buff costs the MP it costs a player; no MP, no cast, retry next look
             }
             final int sid = skillId;
@@ -108,8 +120,8 @@ public final class BotBuffDriver {
         return at == null || now - at >= LACK_GAP_MS;
     }
 
-    /* Ticket 161: pays a party buff's MP (drinking MP potions if it must); a skill the bot has no level in is free. */
-    private static boolean payForPartyBuff(Character bot, int skillId) {
+    /* Ticket 161: pays a buff's MP (drinking MP potions if it must); a skill the bot has no level in is free. */
+    private static boolean payFor(Character bot, int skillId) {
         int level = bot.getSkillLevel(skillId);
         int cost = level <= 0 ? 0 : soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.mpCost(bot, skillId, level);
         if (cost <= 0) {
@@ -120,6 +132,34 @@ public final class BotBuffDriver {
         }
         soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.spend(bot, cost, 0);
         return true;
+    }
+
+    // The legacy (non-human) cadence: every class buff re-shown every 90-120 s.
+    private static final long SHOW_MIN_MS = 90_000;
+    private static final long SHOW_MAX_MS = 120_000;
+    // How often the human maintenance looks for a buff that ran out.
+    private static final long LOOK_EVERY_MS = 2_000;
+
+    /*
+     * 1.6.2: the one self-buff loop, for a population grinder (TrainingBot) and an owned alt alike. Only when a player
+     * can see it (the gate holds, so an unobserved bot buffs the moment it is first seen). With BOT_COMBAT_HUMAN on
+     * (or for an alt, which always pays its MP: Pay.ALL) each buff is recast as it runs out, lateMs() late; otherwise
+     * every buff is re-shown on the 90-120 s cadence. Returns when to look next (now: nothing was looked at).
+     */
+    public static long selfBuff(Character bot, long now, long nextLookMs, java.util.function.LongSupplier lateMs,
+                                Pay pay, java.util.Random rng) {
+        if (now < nextLookMs) {
+            return nextLookMs;
+        }
+        if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(bot.getMapId())) {
+            return nextLookMs; // hold the timer until it's worth showing
+        }
+        if (pay == Pay.ALL || soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human()) {
+            maintain(bot, lateMs.getAsLong(), pay);
+            return now + LOOK_EVERY_MS;
+        }
+        forceBuff(bot);
+        return now + SHOW_MIN_MS + (long) (rng.nextDouble() * (SHOW_MAX_MS - SHOW_MIN_MS));
     }
 
     /* When each of the bot's buffs is due again (skill -> epoch ms), for the cb-1 read-out. */

@@ -10,7 +10,10 @@ import server.life.Monster;
 import server.maps.MapItem;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
+import soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning;
 import soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths;
+import soloMapling.ArtificialPlayer.BotGrindSystem.Approach;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
@@ -51,6 +54,8 @@ import java.util.concurrent.atomic.AtomicLong;
  *       use ({@link BotAttackDriver}); it keeps its own weapon (none appears), and does not fight without one it can
  *       draw.</li>
  *   <li><b>Loot</b> ({@link OwnedAltLoot}): its own and its party's drops into its own bag; a full bag is said once.</li>
+ *   <li>Buffs: its learned class buffs, kept up by the population bots' maintenance ({@link BotBuffDriver}), paid
+ *       out of its own MP.</li>
  *   <li>Otherwise it follows its owner (GCFollow, the cherry-picked 1.6.0.4 follow).</li>
  * </ol>
  */
@@ -64,10 +69,6 @@ public final class OwnedAltCompanion {
     static final long TICK_MS = 200;
     static final long CATCHUP_STUCK_MS = 8_000;
     static final long CATCHUP_MAX_MS = 45_000;
-    /** How close (px, across) an alt walks to its target before it plants and swings. */
-    private static final int MIN_REACH_PX = 60;
-    private static final double REACH_FRAC = 0.8;
-    private static final int SWING_DY = 100;
     private static final long LOOT_GAP_MS = 250;
     /** A target it walked to or swung at this long without landing a hit is left alone for {@link #GIVE_UP_MS}. */
     static final long STALL_MS = 10_000; // a 650 px walk at a slow walk speed fits in it
@@ -95,6 +96,7 @@ public final class OwnedAltCompanion {
         int holdX = Integer.MIN_VALUE;
         long holdIssuedMs;
         long nextShareMs;
+        long nextBuffMs; // 1.6.2: the bots' self-buff loop (BotBuffDriver.selfBuff)
         // QA counters (t-oa-1)
         final AtomicLong swings = new AtomicLong();
         final AtomicLong damageDealt = new AtomicLong();
@@ -108,6 +110,7 @@ public final class OwnedAltCompanion {
         }
     }
 
+    private static final java.util.Random BUFF_RNG = new java.util.Random();
     private static final Map<Integer, State> states = new ConcurrentHashMap<>();
     private static final Set<Integer> owners = ConcurrentHashMap.newKeySet();
     private static volatile ScheduledFuture<?> task;
@@ -146,6 +149,7 @@ public final class OwnedAltCompanion {
         }
         BotAttackDriver.setTargetFilter(alt.getId(), null);
         BotAttackDriver.clearBot(alt.getId());
+        BotBuffDriver.clearBot(alt.getId());
         CompanionStance.forget(alt.getId()); // 1.6.2 ticket 99
         BotDeaths.clearBot(alt.getId());
         OwnedAltCombat.forget(alt.getId());
@@ -275,6 +279,9 @@ public final class OwnedAltCompanion {
                 return;
             }
             s.told = OwnedAltGate.Why.OPEN;
+            // 1.6.2: its class buffs, by the population bots' own maintenance (BotBuffDriver), recast on time as they
+            // run out and paid out of its own MP and MP potions (Pay.ALL); only the buffs it has learned
+            s.nextBuffMs = BotBuffDriver.selfBuff(alt, now, s.nextBuffMs, () -> 0L, BotBuffDriver.Pay.ALL, BUFF_RNG);
             Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
             MapleMap map = alt.getMap();
             BotAttackDriver.setTargetFilter(alt.getId(),
@@ -444,20 +451,16 @@ public final class OwnedAltCompanion {
             s.fighting = true;
             audit(alt.getOwnedAltOwner(), alt.getName() + " fights " + target.getName());
         }
-        if (GCMovement.isFollowing(alt) || GCMovement.isTraveling(alt)) {
-            GCMovement.stop(alt); // the follow session would pull it back to its owner every 50 ms
-        }
+        leaveFollow(alt);
+        // 1.6.2: the shared approach step (Approach, as the grind brain's): in reach by the bots' rule, else walk to
+        // the bots' stand spot for this mob (past its body, the class's distance, aside from anyone on that pixel)
         Point at = alt.getPosition();
         Point mob = target.getPosition();
-        int reach = Math.max(MIN_REACH_PX, (int) (BotAttackDriver.attackReachX(alt) * REACH_FRAC));
-        int dx = mob.x - at.x;
-        if (Math.abs(dx) > reach || Math.abs(mob.y - at.y) > SWING_DY) {
-            int tx = mob.x - Integer.signum(dx == 0 ? 1 : dx) * (reach / 2);
-            if (Math.abs(tx - s.lastMoveX) > 20) {
-                GCMovement.move(alt, tx, mob.y);
-                s.lastMoveX = tx;
-            }
-            s.doing = "walking to " + target.getName() + " (dx " + dx + ")";
+        int[] reach = Approach.reach(alt);
+        if (!Approach.inReach(at, mob, reach)) {
+            int[] spot = Approach.fightSpot(alt, target, reach, BotCombatTuning.human());
+            s.lastMoveX = Approach.walkTo(alt, spot[0], spot[1], s.lastMoveX);
+            s.doing = "walking to " + target.getName() + " (dx " + (mob.x - at.x) + ")";
             return;
         }
         s.lastMoveX = Integer.MIN_VALUE;
@@ -495,6 +498,7 @@ public final class OwnedAltCompanion {
         }
         s.doing = "looting " + drop.getItemId();
         if (OwnedAltLoot.inReach(alt, drop)) {
+            s.lastMoveX = Integer.MIN_VALUE;
             InventoryType bag = OwnedAltLoot.bagOf(drop);
             alt.pickupItem(drop); // the player path: loot rules, party meso split, its own bag
             if (drop.isPickedUp()) {
@@ -508,13 +512,17 @@ public final class OwnedAltCompanion {
             s.nextLootMs = now + LOOT_GAP_MS;
             return true;
         }
+        leaveFollow(alt);
+        Point dp = drop.getPosition(); // the shared approach walk: to the ground under the drop, not re-issued per tick
+        s.lastMoveX = Approach.walkTo(alt, dp.x, Approach.groundY(alt, dp), s.lastMoveX);
+        return true;
+    }
+
+    /** Off the follow leash while it walks to a fight or a drop: the follow session would pull it back every 50 ms. */
+    private static void leaveFollow(Character alt) {
         if (GCMovement.isFollowing(alt) || GCMovement.isTraveling(alt)) {
             GCMovement.stop(alt);
         }
-        Point dp = drop.getPosition();
-        Point ground = alt.getMap() == null ? null : GCMovement.groundPointBelow(alt.getMap(), dp.x, dp.y);
-        GCMovement.move(alt, dp.x, ground != null ? ground.y : dp.y);
-        return true;
     }
 
     /** Left on another map: after a while, put it down beside its owner. True when it moved this tick. */
