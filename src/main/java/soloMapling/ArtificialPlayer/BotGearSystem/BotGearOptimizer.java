@@ -428,6 +428,12 @@ public final class BotGearOptimizer {
         List<double[]> keptOkVecs = new ArrayList<>();
         List<Long> keptOkSturdy = new ArrayList<>();
         for (Node node : unique) {
+            if (kept.size() >= MAX_PARETO_STATES) {
+                // Audit 163 #12 (b119): the cap inside the loop. States come most damaging first, so the first
+                // MAX_PARETO_STATES kept are exactly the ones the old after-the-loop trim kept; the rest are never
+                // compared against the whole kept set (that was the quadratic part).
+                break;
+            }
             double[] vec = vector(node, valuer, weaponId, dims);
             boolean dominated = false;
             for (int j = 0; j < keptOkVecs.size() && !dominated; j++) {
@@ -440,10 +446,6 @@ public final class BotGearOptimizer {
                     keptOkSturdy.add(node.sturdiness);
                 }
             }
-        }
-        if (kept.size() > MAX_PARETO_STATES) {
-            kept.sort(Comparator.comparingDouble((Node x) -> x.damage(valuer, weaponId)).reversed());
-            kept = new ArrayList<>(kept.subList(0, MAX_PARETO_STATES));
         }
         return kept;
     }

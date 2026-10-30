@@ -113,6 +113,7 @@ final class GearMemo {
     static synchronized void clear() {
         java.util.Arrays.fill(used, false);
         size = 0;
+        BotGear.clearPlanCache();
     }
 
     private static int find(int botId) {

@@ -327,10 +327,62 @@ public final class BotGear {
         return out;
     }
 
+    /*
+     * Audit 163 #13 (b119): one gear review (BotMaker.junk asks upgradeValue for every carried equip; GearFirstAdvisor
+     * and the companion offers ask for each candidate) used to run one full plan per question - with the Pareto
+     * optimizer and a full bag, seconds of a shared executor thread per town stop. Plans are now cached for a short
+     * while by what the plan reads (GearMemo.signature: level, job, stats, fame, every worn and carried equip) plus
+     * the extra candidates and the optimizer: a candidate the character already carries adds nothing to the plan, so
+     * every carried equip is answered from the one plan of what it owns.
+     */
+    static final long PLAN_CACHE_MS = 60_000;
+    private static final int PLAN_CACHE_SIZE = 4_096;
+    private record PlanKey(int charId, long signature, String optimizer, List<Integer> extras) {
+    }
+    private record Cached(Plan plan, long at) {
+    }
+    private static final Map<PlanKey, Cached> planCache = java.util.Collections.synchronizedMap(
+            new LinkedHashMap<>(256, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<PlanKey, Cached> eldest) {
+                    return size() > PLAN_CACHE_SIZE;
+                }
+            });
+
+    /* Test seam: forget every cached plan (GearMemo.clear calls it too). */
+    static void clearPlanCache() {
+        planCache.clear();
+    }
+
     // What the character's own planner would wear from its gear plus these extras; read only.
     private static Plan planWith(Character chr, java.util.Collection<Equip> extras, IntFunction<Known> facts,
                                  Function<Map<Short, Piece>, Valuer> valuers) {
         synchronized (chr) {
+            // a candidate it already carries is in "owned" already: never planned twice, never a plan of its own
+            Inventory bag = chr.getInventory(InventoryType.EQUIP);
+            List<Equip> fresh = new ArrayList<>(extras.size());
+            List<Integer> freshIds = new ArrayList<>(extras.size());
+            for (Equip e : extras) {
+                if (e != null && bag.getItem(e.getPosition()) != e) {
+                    fresh.add(e);
+                    freshIds.add(System.identityHashCode(e));
+                }
+            }
+            long now = System.currentTimeMillis();
+            PlanKey key = new PlanKey(chr.getId(), GearMemo.signature(chr), optimizer(), freshIds);
+            Cached hit = planCache.get(key);
+            if (hit != null && now - hit.at() < PLAN_CACHE_MS) {
+                return hit.plan();
+            }
+            Plan plan = planNow(chr, fresh, facts, valuers);
+            planCache.put(key, new Cached(plan, now));
+            return plan;
+        }
+    }
+
+    private static Plan planNow(Character chr, java.util.Collection<Equip> extras, IntFunction<Known> facts,
+                                Function<Map<Short, Piece>, Valuer> valuers) {
+        {
             Inventory carried = chr.getInventory(InventoryType.EQUIP);
             Inventory body = chr.getInventory(InventoryType.EQUIPPED);
             List<Piece> owned = new ArrayList<>();
