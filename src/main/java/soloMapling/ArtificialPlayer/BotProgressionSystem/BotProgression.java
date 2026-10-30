@@ -324,7 +324,7 @@ public final class BotProgression {
         }
         int job = bot.getJob().getId();
         return new BotBuild.Choice(base.secondJobHint(), seed,
-                BotBuild.rollVariant(job, BotBuild.alongLineOf(job, base), seed, bot.getReborns()));
+                BotBuild.rollVariant(job, BotBuild.alongLineOf(job, base), seed, rebirths(bot)));
     }
 
     /**
@@ -333,8 +333,18 @@ public final class BotProgression {
      * bot keeps the standard build it was made with, with no stored flag and no migration.
      */
     static boolean variantsFor(Character bot) {
-        return variantsFor(soloMapling.ArtificialPlayer.BotSupportSwitches.apVariants(), bot.getId(), bot.getReborns(),
-                soloMapling.ArtificialPlayer.BotSupportSwitches.apVariantFromSlot());
+        if (!soloMapling.ArtificialPlayer.BotSupportSwitches.apVariants()) {
+            return false;   // off: do not even read the rebirth count (it throws when rebirth is not enabled)
+        }
+        return variantsFor(true, bot.getId(), rebirths(bot), soloMapling.ArtificialPlayer.BotSupportSwitches.apVariantFromSlot());
+    }
+
+    private static int rebirths(Character bot) {
+        try {
+            return bot.getReborns();
+        } catch (RuntimeException e) {
+            return 0;   // rebirth is not enabled on this server
+        }
     }
 
     static boolean variantsFor(boolean on, int botId, int reborns, int fromSlot) {
