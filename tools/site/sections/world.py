@@ -317,11 +317,21 @@ def countdown(iso):
 
 # ── pages ───────────────────────────────────────────────────────────────────────────────────────
 
+def total_online(wd, chans):
+    """How many players the live page says are online (audit W17). The channel list is printed beside the number, so the
+    number has to be that list's sum: a top-level 'online' that disagrees is stale, and '1,204 across 5 channels' over
+    a list adding to 1,240 is a lie the reader can check. Without a channel list, the export's own total is all there is.
+    """
+    if chans:
+        return sum(c["online"] for c in chans)
+    return wd["online"] if _is(wd.get("online"), int) else 0
+
+
 def build_live(wo):
     wd = wo.w["world"]
     chans = sorted(({"ch": c.get("channel", c.get("ch")), "online": c["online"]} for c in wd["channels"]),
                    key=lambda c: c["ch"])
-    total = wd["online"] if _is(wd.get("online"), int) else sum(c["online"] for c in chans)
+    total = total_online(wd, chans)
     busiest = wd.get("busiest_maps", wd.get("busiestMaps")) or []
     peak = max([c["online"] for c in chans] + [1])
     crow = "".join(f'<li><span class="k">Ch {c["ch"]}</span><span class="meter"><i style="width:{c["online"] * 100 / peak:.0f}%"></i></span>'
@@ -482,8 +492,13 @@ def table(kind, rows, limit=None):
         return '<p class="empty" style="padding:12px 16px;margin:0">Nobody yet.</p>'
     cols = [c for c in COLS[kind] if any(r.get(c[0]) not in (None, "") for r in rows)]
     head = '<th class="r">#</th>' + "".join(f'<th{" class=r" if h in ("int", "exact", "time") else ""}>{esc(t)}</th>' for _, t, h in cols)
-    body = "".join(f'<tr{" class=podium" if i <= 3 else ""}><td class="r num">{r.get("rank", i)}</td>'
-                   + "".join(cell(r.get(f), h) for f, _, h in cols) + "</tr>" for i, r in enumerate(rows, 1))
+    # Audit W18: the # cell prints the export's own rank (ties: 1, 1, 3), so the podium has to follow that number,
+    # not the row's position - otherwise a tie pushes a fourth-place row into the highlight.
+    body = ""
+    for i, r in enumerate(rows, 1):
+        rank = r.get("rank") if _is(r.get("rank"), int) else i
+        body += (f'<tr{" class=podium" if rank <= 3 else ""}><td class="r num">{rank}</td>'
+                 + "".join(cell(r.get(f), h) for f, _, h in cols) + "</tr>")
     return f'<div class="tbl"><table class="t rank"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
 
 

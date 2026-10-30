@@ -4,13 +4,52 @@
 website in the same style as tickets 163 (bots) and 164 (playbook) — bugs plus promised-vs-actual for 1.6.1/1.6.2 —
 ending in a ticket.
 
-**Anchors:** site worktree `/root/work/SlumsMS-site-161` @ `d5f2506f4` (branch `site-161-framework`, forked
-`06a724dfc`, 1185 commits behind `release-1.6.2`); server `docs/release/1.6.2.conf`,
+**Anchors:** site worktree `/root/work/SlumsMS-site-161` @ `d5f2506f4` when audited, `a250d5131` when re-checked
+(branch `site-161-framework`, forked `06a724dfc`, 1185 commits behind `release-1.6.2`); server
+`docs/release/1.6.2.conf`,
 `docs/release/1.6.2-deploy-steps.md`; box `192.168.0.164` read-only. Re-grep before editing: the branch moves.
 
 Full evidence: `/root/work/agent-runs/site/site-audit-162/REPORT.md`.
 
-## 0. Bottom line
+## 0. Status (2026-10-30, after the fix round)
+
+18 of the 20 findings are fixed on `site-161-framework` plus the `site-165-w19` branch: three (W1, W6-W14, W20) by
+`96bee8e1e` "Website audit MEDIUM fixes…", one (W19) by `c9eb56b54`, and W15-W18 by `936df84e9` (two new tests, `Ran
+196 tests … OK`). Everything below was re-grepped at `a250d5131` and `936df84e9`.
+
+| W | state | evidence at `a250d5131` (+ `c9eb56b54`) |
+|---|---|---|
+| W1 | fixed | `tools/site/slums-market.service:14-15` `market_app.py` + `Environment=SLUMS_MARKET_EXCHANGE=on`; `docs/site/DEPLOY.md:176`; `test164/slums-market-test.service:18` already had it |
+| W2 | fixed | `tools/site/build.py:154` `.new-<pid>` staging, `:168` `os.rename(out, old)`, failure removes staging and the stale tarball |
+| W3 | **open** | `docs/site/releases/` still ends at `1.6.0.md` |
+| W4 | fixed | `sections/market.py:44-46` "can't be read as JSON" refusal; `sections/world.py:50` same for the site export |
+| W5 | fixed | `sections/market.py:58` `when()` returns `""`; `validate()` checks every printed time |
+| W6 | fixed | `tools/site/check.py:283` `(check_top(root) if private else [] if only else check_private(root))` - a private build now gets a top-level whitelist instead of a skipped check |
+| W7 | fixed | `sections/world.py:522-523` the split is dropped unless `counted + estimated == kills` on every row |
+| W8 | fixed | `sections/world.py:598-601` the hunted board prints `world.json`'s own as-of ("As of …"), the standings keep `leaderboards.json`'s |
+| W9 | fixed | `tools/site/slums-login.nginx.conf:62` `location ~ /\. { deny all; }`, same in `test164/nginx.conf:149-150` |
+| W10 | fixed | `docs/site/DEPLOY.md:163-168` two renames instead of rsync/`rm -rf`; `check.py` no longer writes into the live dir |
+| W11 | **partial** | service half fixed (`login_service.py:497-500` `proxy_hops`, `test164/slums-login-test.service:15` `SLUMS_LOGIN_PROXY_HOPS=0`), `slums-report.nginx.conf:2-6` still keys the zone on the raw `$http_x_forwarded_for` - needs the owner's front-proxy answer |
+| W12 | fixed as a step | `DEPLOY.md:207-213` + `1.6.2-deploy-steps.md:166-170` (uncomment the two `SLUMS_LOGIN_INSPECT_*` lines, owner's go); the live unit stays commented on purpose |
+| W13 | fixed | `market_service.py:63` `GM_FRESH = 12 * 3600`, `:448-450` `gm_fresh()` - a take-down needs a sign-in inside 12 h; test at `test_market_service.py:181-182` |
+| W14 | fixed | `nosniff` + `Referrer-Policy` repeated in the three gated blocks (`slums-login.nginx.conf:57-58` and neighbours) |
+| W15 | fixed | `936df84e9`: `item_stats` carries `span` (the newest and oldest shown day's real distance) and the card prints it; a 4-day history whose shown days are Oct 22-25 reads "3-day change", not "4-day" |
+| W16 | fixed | `936df84e9`: `sales_as_of()` prints `sales.json`'s `generated_at` on the sales page and in every item page's Recent sales panel, and `validate()` now rejects a `generated_at` that isn't a time |
+| W17 | fixed | `936df84e9`: `total_online()` returns the channel sum whenever there is a channel list (the export's own total only stands in when there is none) |
+| W18 | fixed | `936df84e9`: `table()` reads the rank it prints (`r["rank"]`, position only as a fallback) and highlights `rank <= 3`, so 1, 1, 3 highlights three rows and a fourth-place row stays plain |
+| W19 | fixed | `c9eb56b54`: `AvatarTest` makes its own market export and passes `market_dir`; a clean `git archive` run is `Ran 194 tests … OK` (was 1 error) |
+| W20 | fixed | `FRAMEWORK.md:26-28` no longer says "unwired"; `DEPLOY.md` has no "exchange stays off" / "shows server 1.6.1" left; `LOGIN.md:100-101` no daily NX cap |
+
+P1 is delivered too: `a250d5131` adds `/market/stamps` with `GET /api/market/stamps`
+(`market_service.py:349-365`, own account row only, never public) - the server's `stamps.json` finally has a reader.
+P3 (b005 by-hand checklist on the integrated TEST build) still has no artefact; P4 is W3; P6 (FAQ link to My invites)
+is unchanged.
+
+What is left before the 1.6.2 site deploy: W3 (two notes files), W11's proxy decision, W15-W18 (labels and
+cross-checks, none of them a nightly risk), and the live box itself - it still runs the old `market_service.py`
+(checked read-only on 164), so the unit swap from W1 is a deploy step, not a code one.
+
+## 0b. Bottom line (as audited at `d5f2506f4`)
 
 The site code is in good shape (auth, escaping, SQL, the report lock, the feed contract all hold). What will bite
 the 1.6.2 night is **deployment**: the game's exchange goes ON in 1.6.2 but the live market unit runs the old app
@@ -130,13 +169,15 @@ is 3 files / 5 lines; dot-path leakage not observed on 8192.
 ## 6. Re-verify (read-only)
 
 ```bash
-cd /root/work/SlumsMS-site-161
-sed -n '146,152p;196,199p' tools/site/build.py                     # W2 rmtree before build, tar on success only
-sed -n '262,268p' tools/site/check.py                              # W6 check_private skipped
-sed -n '177,191p' tools/site/sections/world.py                     # W5 guarded vs unguarded parse
-sed -n '65,66p' tools/site/sections/market.py                      # W4 subscript before validate
-sed -n '206,212p' tools/site/market_app.py                         # W1 default off
-ls docs/site/releases                                              # W3 stops at 1.6.0.md
+cd /root/work/SlumsMS-site-161                                   # branch site-161-framework (a250d5131)
+git log --oneline -3                                             # W1/W6-W14/W20 and the stamps page
+ls docs/site/releases                                            # W3 open: still stops at 1.6.0.md
+sed -n '500,512p' tools/site/sections/market.py                  # W15 open: "N-day change" vs the sample days
+sed -n '555,565p' tools/site/sections/market.py                  # W16 open: no as-of on Recent sales
+sed -n '318,330p' tools/site/sections/world.py                   # W17 open: online vs the channel sum
+sed -n '480,490p' tools/site/sections/world.py                   # W18 open: export rank vs list position
+git archive HEAD | tar -x -C /tmp/x && cd /tmp/x/tools/site \
+  && python3 -m unittest discover -s . -p 'test_*.py'            # W19 fixed: 194 tests, OK, no cache needed
 ssh root@192.168.0.164 'grep ExecStart /etc/systemd/system/slums-market.service;
   grep -c SLUMS_MARKET_EXCHANGE /etc/systemd/system/slums-market.service'   # W1: old app, no flag
 ```

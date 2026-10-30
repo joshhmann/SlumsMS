@@ -399,6 +399,21 @@ class MarketTest(unittest.TestCase):
         self.assertEqual(market.span({"prices": [{}]}), "1 day")
         self.assertEqual(market.day("2026-10-25"), "Oct 25")
 
+    def test_the_change_names_the_real_span_and_sales_say_as_of(self):
+        from sections import market
+        hist = [("2026-10-01", {"median": 100, "low": 90, "high": 110, "count": 5}),
+                ("2026-10-02", None),
+                ("2026-10-05", {"median": 130, "low": 120, "high": 140, "count": 6})]
+        st = market.item_stats(hist)
+        self.assertEqual((st["first"], st["median"], st["span"]), (100, 130, 4))   # Oct 1 -> Oct 5, not "2 days"
+        self.assertEqual(market.item_stats([("2026-10-05", {"median": 9, "low": 9, "high": 9, "count": 9})])["span"], 1)
+        m = self.good_market()
+        self.assertEqual(market.sales_as_of(m), "")                                # no generated_at: nothing claimed
+        m["sales"]["generated_at"] = "2026-10-01T07:00:00Z"
+        self.assertIn("as of 12:00 AM PT (07:00 UTC), Oct 1", market.sales_as_of(m))
+        m["sales"]["generated_at"] = "yesterday"
+        self.assertTrue(any("generated_at" in p for p in market.validate(m)))
+
     def test_seeded_sales_get_a_neutral_note(self):
         from sections import market
         seeded = [{"source": "bot_seed"}, {"source": "bot_seed"}, {"source": "trade"}]
@@ -661,6 +676,15 @@ class WorldTest(unittest.TestCase):
         page = self.read("world/rankings/traders.html")
         self.assertIn("Fell through", page)
         self.assertRegex(page, r">\d{1,3}%<")
+
+    def test_online_is_the_channel_sum_and_the_podium_follows_the_rank(self):
+        from sections import world
+        chans = [{"ch": 1, "online": 700}, {"ch": 2, "online": 540}]
+        self.assertEqual(world.total_online({"online": 1204}, chans), 1240)   # a stale top-level total loses
+        self.assertEqual(world.total_online({"online": 1204}, []), 1204)      # no channels: the export is all there is
+        self.assertEqual(world.total_online({}, []), 0)
+        rows = [{"name": "A", "rank": 1}, {"name": "B", "rank": 1}, {"name": "C", "rank": 3}, {"name": "D", "rank": 4}]
+        self.assertEqual(world.table("level", rows).count("class=podium"), 3)   # the tie does not promote row four
 
     def test_cards_match_the_service_and_every_picture_exists(self):
         import market_service
@@ -1000,7 +1024,7 @@ class AvatarTest(unittest.TestCase):
 
     def test_ranked_names_get_their_picture_and_others_a_blank(self):
         import json as _json, struct, zlib
-        import site_sample
+        import site_sample, market_sample
         from sections import world
         tmp = tempfile.mkdtemp()
         try:
@@ -1008,6 +1032,14 @@ class AvatarTest(unittest.TestCase):
             argv, sys.argv = sys.argv, ["site_sample.py", "--out", data]
             try:
                 site_sample.main()
+            finally:
+                sys.argv = argv
+            # world.build renders the economy page too, and that needs the market export: generate one here instead of
+            # reading cache/market-sample, which only exists on a machine that ran market_sample.py (audit 165 W19)
+            mkt = os.path.join(tmp, "market")
+            argv, sys.argv = sys.argv, ["market_sample.py", "--out", mkt]
+            try:
+                market_sample.main()
             finally:
                 sys.argv = argv
             lb = _json.load(open(os.path.join(data, "leaderboards.json")))
@@ -1024,7 +1056,7 @@ class AvatarTest(unittest.TestCase):
             self.assertEqual(w["avatars"]["map"], {first: "0123456789abcdef.png"})   # missing file and bad names dropped
             out = os.path.join(tmp, "out")
             build.set_context(build.notes.releases(), ["notes", "guide", "world"])
-            world.build(out, data)
+            world.build(out, data, market_dir=mkt)
             html = open(os.path.join(out, "world", "rankings", "level.html"), encoding="utf-8").read()
             self.assertIn('src="../../world/avatars/0123456789abcdef.png"', html)
             self.assertIn('class="ava none"', html)
