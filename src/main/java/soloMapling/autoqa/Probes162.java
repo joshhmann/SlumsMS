@@ -14,7 +14,14 @@ import soloMapling.ArtificialPlayer.BotConvo.TalkQa;
 import soloMapling.ArtificialPlayer.BotGeneration;
 import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
 import soloMapling.ArtificialPlayer.BotGearSystem.GearScoring;
+import soloMapling.ArtificialPlayer.BotGrindSystem.GearFirstAdvisor;
+import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
+import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMap;
+import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMapChooser;
+import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMapFinder;
+import soloMapling.ArtificialPlayer.BotLifeSystem.LifeGoals;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory;
+import soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression;
 import soloMapling.ArtificialPlayer.GCMoveSystem.LodCounts;
@@ -48,7 +55,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm");
 
     private Probes162() {
     }
@@ -61,6 +68,7 @@ final class Probes162 {
                 case "templeQuest" -> templeQuest(p);
                 case "paretoGear" -> paretoGear(p);
                 case "dexlessAp" -> dexlessAp(p);
+                case "gearFirstFarm" -> gearFirstFarm(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -679,6 +687,124 @@ final class Probes162 {
             return ev;
         } finally {
             ev.add(TalkQa.teardown(spawned));
+        }
+    }
+
+    // ── t-gb-3: grind.gearFirst sends a bot that wants an item where it drops ──────────────────
+
+    /** t-gb-3: the bot's level (under 30: no "chill" trips), the chooser's band and the map search reach. */
+    static final int GB3_LEVEL = 22, GB3_BELOW = 25, GB3_ABOVE = 12, GB3_HOPS = 6, GB3_TRIES = 3;
+
+    /** t-gb-3: the equip that drops on the fewest of these maps (at least one), or 0. Pure, for the tests. */
+    static int rarestDrop(Map<Integer, java.util.Set<Integer>> dropsByMap) {
+        Map<Integer, Integer> maps = new java.util.TreeMap<>();
+        dropsByMap.values().forEach(items -> items.forEach(i -> maps.merge(i, 1, Integer::sum)));
+        int best = 0, fewest = Integer.MAX_VALUE;
+        for (Map.Entry<Integer, Integer> e : maps.entrySet()) {
+            if (e.getValue() < fewest) {
+                fewest = e.getValue();
+                best = e.getKey();
+            }
+        }
+        return best;
+    }
+
+    /** t-gb-3: what is wrong with the pick. Pure, for the tests. */
+    static List<String> farmProblems(TrainingMap chosen, boolean saidFarm, java.util.Set<Integer> dropMaps, int minMob,
+                                     int maxMob) {
+        List<String> bad = new ArrayList<>();
+        if (chosen == null) {
+            bad.add("the chooser picked no map");
+            return bad;
+        }
+        if (!saidFarm) {
+            bad.add("the chooser did not take the farm path (no 'farming its wanted drop' decision)");
+        }
+        if (!dropMaps.contains(chosen.mapId())) {
+            bad.add("map " + chosen.mapId() + " does not drop the wanted item (it drops on " + dropMaps + ")");
+        }
+        if (chosen.mobLevel() < minMob || chosen.mobLevel() > maxMob) {
+            bad.add("map " + chosen.mapId() + " mob level " + chosen.mobLevel() + " is out of the band " + minMob + ".."
+                    + maxMob);
+        }
+        return bad;
+    }
+
+    /**
+     * t-gb-3 ({@code slums.grind.gearFirst}): a fresh level-22 training bot (tick stopped). Among the in-band maps the
+     * finder offers from its spot, the equip that drops on the fewest maps is picked, and the bot is given a FARM_ITEM
+     * goal for it (the {@code !qa bl-11} seam). {@code TrainingMapChooser.choose} must take the farm path to an
+     * in-band map that drops it. The reservation is released and the want forgotten after.
+     */
+    static List<String> gearFirstFarm(SyntheticPlayer p) throws InterruptedException {
+        if (!GearFirstAdvisor.enabled()) {
+            return List.of("SKIP gear-first grinding is off (-Dslums.grind.gearFirst=true)");
+        }
+        List<String> ev = new ArrayList<>();
+        Character bot = spawnTraining(p, GB3_LEVEL);
+        if (bot == null) {
+            return List.of("FAIL could not spawn a training bot");
+        }
+        try {
+            freeze(bot);
+            int level = bot.getLevel();
+            int minMob = Math.max(1, level - GB3_BELOW), maxMob = level + GB3_ABOVE;
+            List<TrainingMap> band = TrainingMapFinder.findTrainingMaps(bot.getMapId(), level, minMob, maxMob, GB3_HOPS,
+                    new java.util.HashSet<>());
+            Map<Integer, java.util.Set<Integer>> drops = new java.util.LinkedHashMap<>();
+            for (TrainingMap m : band) {
+                if (m.mobLevel() < minMob || m.mobLevel() > maxMob) {
+                    continue;
+                }
+                java.util.Set<Integer> items = new java.util.TreeSet<>();
+                for (int mob : new java.util.LinkedHashSet<>(MapMobIndex.mobIds(m.mapId()))) {
+                    var list = server.life.MonsterInformationProvider.getInstance().retrieveEffectiveDrop(mob);
+                    if (list != null) {
+                        for (var d : list) {
+                            if (d.itemId / 1000000 == 1 && d.questid <= 0 && d.chance > 0) {
+                                items.add(d.itemId);
+                            }
+                        }
+                    }
+                }
+                drops.put(m.mapId(), items);
+            }
+            int item = rarestDrop(drops);
+            if (item == 0) {
+                return List.of("FAIL no in-band map (" + minMob + ".." + maxMob + ", " + drops.size() + " maps from "
+                        + bot.getMapId() + ") drops an equip");
+            }
+            java.util.Set<Integer> dropMaps = new java.util.TreeSet<>();
+            drops.forEach((map, items) -> {
+                if (items.contains(item)) {
+                    dropMaps.add(map);
+                }
+            });
+            ev.add("bot " + bot.getName() + " lv " + level + " on " + bot.getMapId() + "; " + drops.size()
+                    + " in-band maps; wants " + item + " (" + ItemInformationProvider.getInstance().getName(item)
+                    + "), which drops on " + dropMaps);
+            LifeMemoryStore.of(bot.getId()).stageGoal(new LifeGoals.Goal(LifeGoals.Kind.FARM_ITEM, level,
+                    "farm " + item, 0.8, item));
+            TrainingMap chosen = null;
+            boolean saidFarm = false;
+            for (int i = 0; i < GB3_TRIES && !saidFarm; i++) {
+                List<String> debug = new ArrayList<>();
+                TrainingMap m = TrainingMapChooser.choose(bot, bot.getMapId(), new java.util.HashSet<>(), debug::add);
+                if (m != null) {
+                    TrainingMapChooser.release(m.mapId());
+                }
+                chosen = m;
+                saidFarm = debug.stream().anyMatch(l -> l.contains("farming its wanted drop"));
+                ev.add("choose " + (i + 1) + ": " + (m == null ? "none" : "map " + m.mapId() + " mob lv " + m.mobLevel())
+                        + "; " + (debug.isEmpty() ? "no decision lines" : String.join(" | ", debug.subList(
+                        Math.max(0, debug.size() - 2), debug.size()))));
+            }
+            return Probes160.verdict(farmProblems(chosen, saidFarm, dropMaps, minMob, maxMob),
+                    "a bot wanting " + item + " picked map " + (chosen == null ? 0 : chosen.mapId())
+                            + ", in its band, which drops it", ev);
+        } finally {
+            GearFirstAdvisor.forget(bot.getId());
+            ev.add(TalkQa.teardown(List.of(bot)));
         }
     }
 

@@ -1320,6 +1320,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-gb-2", "Dexless builds: new AP stops at the secondary cap").minutes(1)
                 .expect(probe("dexlessAp"))
                 .build());
+        // grind.gearFirst: a bot with a FARM_ITEM goal picks an in-band map that drops the item
+        c.add(Check.auto("t-gb-3", "Gear-first grinding: a bot wanting an item picks an in-band map that drops it")
+                .minutes(1)
+                .expect(probe("gearFirstFarm"))
+                .build());
         return List.copyOf(c);
     }
 

@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -98,5 +98,22 @@ class Probes162Test {
         assertTrue(Probes162.dexlessProblems(-1, 29, 4, 4, 29, 0, 25).get(0).contains("no gear cap"));
         assertTrue(Probes162.dexlessProblems(30, 29, 4, 4, 29, 0, 25).get(0).contains("does not bind"));
         assertEquals(12, Probes162.expectedSecondary(12, 29, 4, 10, 25), "AP never lowers a stat");
+    }
+
+    // ── t-gb-3 ──
+
+    @Test
+    void theGearFirstCheckWantsTheRarestDropAndAMapThatDropsIt() {
+        java.util.Map<Integer, java.util.Set<Integer>> drops = new java.util.LinkedHashMap<>();
+        drops.put(1, java.util.Set.of(1040000, 1302000));
+        drops.put(2, java.util.Set.of(1040000));
+        drops.put(3, java.util.Set.of(1040000, 1060000));
+        assertEquals(1060000, Probes162.rarestDrop(drops), "lowest id among those on one map");
+        assertEquals(0, Probes162.rarestDrop(java.util.Map.of(1, java.util.Set.of())));
+        var at3 = new soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMap(3, 20, 2, -1);
+        assertTrue(Probes162.farmProblems(at3, true, java.util.Set.of(3), 1, 34).isEmpty());
+        var at2 = new soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMap(2, 40, 2, -1);
+        assertEquals(3, Probes162.farmProblems(at2, false, java.util.Set.of(3), 1, 34).size());
+        assertEquals(1, Probes162.farmProblems(null, false, java.util.Set.of(3), 1, 34).size());
     }
 }
