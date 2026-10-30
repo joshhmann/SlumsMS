@@ -301,6 +301,70 @@ class BotScrollingTest {
         }
     }
 
+    // 162 runfix (t-sc-1/t-sc-2 on TEST 10-30): the QA kit on a bag sword, priced as the item pool prices them. The
+    // 100% scroll has no market price (the pool does not list it), as 2043000/2043003/2043023 on the real catalog.
+    private BotScrolling.Facts qaKitPrices() {
+        return priced(id -> id == S60 ? Integer.valueOf(1_300_000) : id == S10 ? Integer.valueOf(450_000) : null);
+    }
+
+    private Character qaKitBot() throws Exception {
+        Character bot = newBot(49);
+        sword(bot, (short) 1, 5);
+        give(bot, S60, 4);
+        give(bot, S10, 2);
+        give(bot, DARK70, 1);
+        return bot;
+    }
+
+    @Test
+    void evPlannerDoesNotCountAnUnpricedScrollAsFreeInTheValueCurve() throws Exception {
+        // Fail-before: the unpriced 100% scroll went into the reproduction curve at 0 meso, so every +stat was "free"
+        // to make again, the curve stayed flat at the base and no persona would use any scroll it held.
+        BotScrolling.useForTest(qaKitPrices(), roller, (b, node, tokens, key) -> false, now::get);
+        System.setProperty("slums.scroll.ev", "true");
+        try {
+            Character bot = qaKitBot();
+            for (Appetite a : Appetite.values()) {
+                assertNotNull(BotScrolling.plan(bot, a, new Random(1)), a + " scrolls its sword");
+            }
+        } finally {
+            System.clearProperty("slums.scroll.ev");
+        }
+    }
+
+    @Test
+    void evPlannerKeepsTheCarefulPersonaOffLongShots() throws Exception {
+        // Fail-before: the planner prices the 10% scroll's +60 above the 60%'s +23 and a careful bot took the 10%.
+        BotScrolling.useForTest(qaKitPrices(), roller, (b, node, tokens, key) -> false, now::get);
+        System.setProperty("slums.scroll.ev", "true");
+        try {
+            Character bot = qaKitBot();
+            assertEquals(S60, BotScrolling.plan(bot, Appetite.CAREFUL, new Random(1)).choice().scrollId());
+        } finally {
+            System.clearProperty("slums.scroll.ev");
+        }
+    }
+
+    @Test
+    void evPlannerLetsAGamblerGambleWhenNoPlayIsWorthItsMeso() throws Exception {
+        // Fail-before: one slot and a 5M 100% scroll on a 10k sword: EV stops every persona, the gambler too.
+        Character bot = newBot(50);
+        sword(bot, (short) 1, 1);
+        give(bot, S100, 1);
+        BotScrolling.useForTest(priced(id -> id == S100 ? Integer.valueOf(5_000_000) : id == SWORD ? Integer.valueOf(10_000) : null), roller,
+                (b, node, tokens, key) -> false, now::get);
+        System.setProperty("slums.scroll.ev", "true");
+        try {
+            assertNull(BotScrolling.plan(bot, Appetite.NORMAL, new Random(1)));
+            assertNull(BotScrolling.plan(bot, Appetite.CAREFUL, new Random(1)));
+            BotScrolling.Plan plan = BotScrolling.plan(bot, Appetite.GAMBLER, new Random(1));
+            assertNotNull(plan, "a gambler gambles");
+            assertEquals(S100, plan.choice().scrollId());
+        } finally {
+            System.clearProperty("slums.scroll.ev");
+        }
+    }
+
     @Test
     void aPassChangesTheStatsForRealAndUsesUpTheScroll() throws Exception {
         Character bot = newBot(50);

@@ -102,4 +102,26 @@ class StandOffsetTest {
         int x = StandOffset.standX(9, 560, 0, 2000, band[0], band[1], c -> c >= 545 && c <= 575, c -> false);
         assertTrue(x >= 545 && x <= 575 && Math.abs(x - 560) >= 12, "x " + x);
     }
+
+    // 162 runfix (t-cb-2 on TEST 10-30: a mage fought a Red Snail from inside a Pig): the band spot 120-150 px off the
+    // target can sit inside another mob on a busy ledge; the stand spot skips any spot inside a mob's touch box.
+    @Test
+    void aStandSpotInsideAnotherMobIsSkipped() {
+        int groundY = 0;
+        int[] band = StandOffset.band(20, 360, true, 150);   // a mage or archer against a Red Snail
+        for (int id = 1; id < 200; id++) {
+            // the target Red Snail at SPAWN, and a 60 px Pig standing right on this bot's own band spot
+            int own = StandOffset.standX(id, SPAWN, 0, 2000, band[0], band[1], c -> true, c -> false);
+            java.awt.Rectangle snail = new java.awt.Rectangle(SPAWN - 20, groundY - 30, 40, 30);
+            java.awt.Rectangle pig = new java.awt.Rectangle(own - 30, groundY - 50, 60, 50);
+            java.util.List<java.awt.Rectangle> bodies = java.util.List.of(snail, pig);
+            // before: only other players held a spot, so the bot walked into the Pig
+            assertTrue(Approach.insideBody(bodies, own, groundY), "the old pick is inside the Pig");
+            int x = StandOffset.standX(id, SPAWN, 0, 2000, band[0], band[1], c -> true,
+                    c -> Approach.insideBody(bodies, c, groundY));
+            assertTrue(!Approach.insideBody(bodies, x, groundY), "id " + id + " stands inside a mob at " + x);
+            int dx = Math.abs(x - SPAWN);
+            assertTrue(dx >= band[0] && dx <= band[1], "id " + id + " left its band: dx " + dx);
+        }
+    }
 }

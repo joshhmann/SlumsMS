@@ -148,7 +148,8 @@ public class MakerService {
         /** Removes the equip at this EQUIP slot (disassembly). */
         void removeEquipAt(short pos);
 
-        void payMeso(int amount);
+        /** Takes the fee; false (and nothing taken) when the character cannot pay all of it. */
+        boolean payMeso(int amount);
 
         void send(Packet packet);
     }
@@ -197,8 +198,12 @@ public class MakerService {
         }
 
         @Override
-        public void payMeso(int amount) {
+        public boolean payMeso(int amount) {
+            if (c.getPlayer().getMeso() < amount) {
+                return false;
+            }
             c.getPlayer().gainMeso(-amount, false);
+            return true;
         }
 
         @Override
@@ -220,9 +225,7 @@ public class MakerService {
             return -1;
         }
         MakerItemFactory.MakerItemCreateEntry recipe = MakerItemFactory.generateLeftoverCrystalEntry(fromLeftover, crystal);
-        short status = getCreateStatus(h, recipe);
-        applyMakerResult(h, status, crystal, recipe, -1, (short) -1, -1, new LinkedHashMap<>(), true, 3);
-        return status;
+        return applyMakerResult(h, getCreateStatus(h, recipe), crystal, recipe, -1, (short) -1, -1, new LinkedHashMap<>(), true, 3);
     }
 
     /**
@@ -246,9 +249,7 @@ public class MakerService {
         // the fee the window shows for this very item (it depends on the item's stats)
         int fee = MakerItemFactory.getDisassemblyFee(it);
         MakerItemFactory.MakerItemCreateEntry recipe = MakerItemFactory.generateDisassemblyCrystalEntry(toDisassemble, fee, pair.getRight());
-        short status = getCreateStatus(h, recipe);
-        applyMakerResult(h, status, toDisassemble, recipe, toDisassemble, pos, -1, new LinkedHashMap<>(), true, 4);
-        return status;
+        return applyMakerResult(h, getCreateStatus(h, recipe), toDisassemble, recipe, toDisassemble, pos, -1, new LinkedHashMap<>(), true, 4);
     }
 
     /** True when this equip has a disassembly recipe (it is a Maker-made item). */
@@ -321,7 +322,11 @@ public class MakerService {
         applyMakerResult(of(c), createStatus, toCreate, recipe, toDisassemble, pos, stimulantid, reagentids, makerSucceeded, type);
     }
 
-    public static void applyMakerResult(Hands h, short createStatus, int toCreate, MakerItemFactory.MakerItemCreateEntry recipe, int toDisassemble, short pos, int stimulantid, Map<Integer, Short> reagentids, boolean makerSucceeded, int type) {
+    /**
+     * Carries out the operation for this create status; returns what happened (the status, or 2 when the fee could
+     * not be paid after all: the character's mesos left between the check and now).
+     */
+    public static short applyMakerResult(Hands h, short createStatus, int toCreate, MakerItemFactory.MakerItemCreateEntry recipe, int toDisassemble, short pos, int stimulantid, Map<Integer, Short> reagentids, boolean makerSucceeded, int type) {
         Character chr = h.chr();
         switch (createStatus) {
             case -1:// non-available for Maker itemid has been tried to forge
@@ -356,6 +361,14 @@ public class MakerService {
                 break;
 
             default:
+                // Ticket 112 follow-up: the fee first, so a wallet emptied since the status check (a bot's trade or
+                // shop on another thread) gets nothing and loses nothing.
+                int cost = recipe.getCost();
+                if (cost > 0 && !h.payMeso(cost)) {
+                    h.send(PacketCreator.serverNotice(1, "You don't have enough mesos (" + GameConstants.numberWithCommas(cost) + ") to complete this operation."));
+                    h.send(PacketCreator.makerEnableActions());
+                    return 2;
+                }
                 if (toDisassemble != -1) {
                     h.removeEquipAt(pos);
                 } else {
@@ -364,14 +377,10 @@ public class MakerService {
                     }
                 }
 
-                int cost = recipe.getCost();
                 if (stimulantid == -1 && reagentids.isEmpty()) {
                     // Ticket 112: MapleRoot handed the made items out only inside "cost > 0", so every free recipe
                     // (a monster crystal from leftovers, the Maker 2 test) ate the materials and gave nothing. Stock
                     // Cosmic pays the fee when there is one and always gives the items.
-                    if (cost > 0) {
-                        h.payMeso(cost);
-                    }
                     for (Pair<Integer, Integer> pair : recipe.getGainItems()) {
                         h.give(pair.getLeft() + gemLuck(pair.getLeft()), pair.getRight());
                     }
@@ -387,9 +396,6 @@ public class MakerService {
                         }
                     }
 
-                    if (cost > 0) {
-                        h.payMeso(cost);
-                    }
                     makerSucceeded = MakerService.addBoostedMakerItem(h, toCreate, stimulantid, reagentids);
                 }
 
@@ -411,6 +417,7 @@ public class MakerService {
                     chr.setQuestProgress(6033, 0, "1");
                 }
         }
+        return createStatus;
     }
 
     /**
