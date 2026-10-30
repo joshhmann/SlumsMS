@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -82,5 +82,21 @@ class Probes162Test {
         assertEquals(3, climb.size(), climb.toString());
         List<String> half = Probes162.chainProblems(1, 4, 5, 2, 4, 6, true);
         assertTrue(half.get(1).contains("both are needed"), half.toString());
+    }
+
+    // ── t-gb-2 ──
+
+    @Test
+    void theDexlessCheckWantsTheSecondaryStoppedAtTheCap() {
+        // warrior lv 50: class rule DEX 29, floor 4, a sword needing 10 DEX: 25 AP from DEX 4 -> 6 to DEX, 19 to STR
+        assertEquals(10, Probes162.expectedSecondary(4, 29, 4, 10, 25));
+        assertTrue(Probes162.dexlessProblems(10, 29, 4, 4, 10, 19, 25).isEmpty());
+        List<String> uncapped = Probes162.dexlessProblems(10, 29, 4, 4, 29, 0, 25);
+        assertEquals(1, uncapped.size(), uncapped.toString());
+        assertEquals(2, Probes162.dexlessProblems(10, 29, 4, 4, 29, 25, 25).size(), "AP made up from nowhere");
+        assertTrue(uncapped.get(0).contains("want 10"), uncapped.toString());
+        assertTrue(Probes162.dexlessProblems(-1, 29, 4, 4, 29, 0, 25).get(0).contains("no gear cap"));
+        assertTrue(Probes162.dexlessProblems(30, 29, 4, 4, 29, 0, 25).get(0).contains("does not bind"));
+        assertEquals(12, Probes162.expectedSecondary(12, 29, 4, 10, 25), "AP never lowers a stat");
     }
 }

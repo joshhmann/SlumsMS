@@ -15,6 +15,8 @@ import soloMapling.ArtificialPlayer.BotGeneration;
 import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
 import soloMapling.ArtificialPlayer.BotGearSystem.GearScoring;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory;
+import soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild;
+import soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression;
 import soloMapling.ArtificialPlayer.GCMoveSystem.LodCounts;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifePlanner;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
@@ -46,7 +48,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp");
 
     private Probes162() {
     }
@@ -58,6 +60,7 @@ final class Probes162 {
                 case "botQuest" -> botQuest(p);
                 case "templeQuest" -> templeQuest(p);
                 case "paretoGear" -> paretoGear(p);
+                case "dexlessAp" -> dexlessAp(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -573,6 +576,110 @@ final class Probes162 {
     private static boolean plain(Map<String, Integer> st) {
         return req(st, "reqLevel") <= GB1_LEVEL && req(st, "reqSTR") == 0 && req(st, "reqDEX") == 0
                 && req(st, "reqINT") == 0 && req(st, "reqLUK") == 0 && (req(st, "reqJob") == 0 || req(st, "reqJob") == 1);
+    }
+
+    // ── t-gb-2: gear.dexless stops new AP at the secondary cap ──────────────────────────────────
+
+    /** t-gb-2: the bot's level, the AP handed to it, and how many fresh bots it may try (magicians have no cap). */
+    static final int GB2_LEVEL = 50, GB2_AP = 25, GB2_TRIES = 4;
+
+    static int statOf(Character c, BotBuild.Stat s) {
+        return switch (s) {
+            case STR -> c.getStr();
+            case DEX -> c.getDex();
+            case INT -> c.getInt();
+            case LUK -> c.getLuk();
+        };
+    }
+
+    /**
+     * t-gb-2: the secondary stat a spend of {@code ap} should end at, from {@code before} with the class rule's
+     * {@code target}, the class {@code floor} and the gear {@code cap} (-1 none): AP never lowers a stat.
+     */
+    static int expectedSecondary(int before, int target, int floor, int cap, int ap) {
+        int stop = cap < 0 ? target : Math.min(target, Math.max(floor, cap));
+        return Math.max(before, Math.min(stop, before + ap));
+    }
+
+    /** t-gb-2: what is wrong with the spend. Pure, for the tests. */
+    static List<String> dexlessProblems(int cap, int target, int floor, int secBefore, int secAfter, int primGain,
+                                        int ap) {
+        List<String> bad = new ArrayList<>();
+        if (cap < 0) {
+            bad.add("no gear cap was computed (dexlessSecondaryTarget -1: no weapon it holds qualifies)");
+            return bad;
+        }
+        if (Math.max(floor, cap) >= target) {
+            bad.add("the cap " + cap + " does not bind (class rule " + target + "): nothing to prove");
+            return bad;
+        }
+        int want = expectedSecondary(secBefore, target, floor, cap, ap);
+        if (secAfter != want) {
+            bad.add("secondary went " + secBefore + " -> " + secAfter + ", want " + want + " (cap " + cap
+                    + ", class rule " + target + ")");
+        }
+        int toSecondary = secAfter - secBefore;
+        if (primGain != ap - toSecondary) {
+            bad.add("primary gained " + primGain + ", want " + (ap - toSecondary) + " (the rest of the " + ap + " AP)");
+        }
+        return bad;
+    }
+
+    /**
+     * t-gb-2 ({@code slums.gear.dexless}): a fresh level-50 bot (not a magician: their secondary has no cap) keeps its
+     * job and weapon; its secondary stat is moved down to the class floor (the points into its primary), it is handed
+     * {@link #GB2_AP} AP and settled the way a level-up is ({@code BotProgression.afterLevelUp}). The gear cap
+     * ({@code BotGear.dexlessSecondaryTarget}) must sit under the class rule, the secondary must stop at it and the
+     * rest go to the primary.
+     */
+    static List<String> dexlessAp(SyntheticPlayer p) throws InterruptedException {
+        if (!Boolean.getBoolean("slums.gear.dexless")) {
+            return List.of("SKIP dexless builds are off (-Dslums.gear.dexless=true)");
+        }
+        List<String> ev = new ArrayList<>();
+        List<Character> spawned = new ArrayList<>();
+        try {
+            for (int i = 0; i < GB2_TRIES; i++) {
+                Character bot = spawnTraining(p, GB2_LEVEL);
+                if (bot == null) {
+                    continue;
+                }
+                spawned.add(bot);
+                freeze(bot);
+                int job = bot.getJob().getId();
+                BotBuild.Choice choice = new BotBuild.Choice(job, bot.getId());
+                int floor = BotBuild.secondaryFloor(job, choice);
+                if (!BotBuild.isBuildJob(job) || floor == Integer.MAX_VALUE || !BotProgression.isReal(bot.getId())) {
+                    ev.add("bot " + bot.getName() + " job " + job + " skipped (magician, not a build job or not real)");
+                    continue;
+                }
+                BotBuild.Stat prim = BotBuild.primaryStat(job, choice), sec = BotBuild.secondaryStat(job, choice);
+                int[] st = {bot.getStr(), bot.getDex(), bot.getInt(), bot.getLuk()};
+                int moved = st[sec.ordinal()] - floor;
+                st[prim.ordinal()] += Math.max(0, moved);
+                st[sec.ordinal()] = Math.min(st[sec.ordinal()], floor);
+                setStats(bot, st[0], st[1], st[2], st[3]);
+                bot.changeRemainingAp(GB2_AP, true);
+                int target = BotBuild.secondaryTarget(job, bot.getLevel(), choice);
+                int cap = BotGear.dexlessSecondaryTarget(bot, prim, sec, floor, GB2_AP);
+                int secBefore = statOf(bot, sec), primBefore = statOf(bot, prim);
+                ev.add("bot " + bot.getName() + " job " + job + " lv " + bot.getLevel() + " build "
+                        + BotProgression.apBuildName(bot) + ": " + prim + " " + primBefore + ", " + sec + " " + secBefore
+                        + " (floor " + floor + "), class rule " + target + ", gear cap " + cap + ", AP " + GB2_AP
+                        + ", weapon " + wornId(bot, (short) -11));
+                BotProgression.afterLevelUp(bot, bot.getLevel());
+                int secAfter = statOf(bot, sec), primAfter = statOf(bot, prim);
+                ev.add("after the settle: " + prim + " " + primAfter + ", " + sec + " " + secAfter + ", AP left "
+                        + bot.getRemainingAp());
+                return Probes160.verdict(dexlessProblems(cap, target, floor, secBefore, secAfter,
+                        primAfter - primBefore, GB2_AP), "new AP stopped the " + sec + " at the gear cap " + cap
+                        + " (the class rule wanted " + target + ") and the rest went to " + prim, ev);
+            }
+            ev.add(0, "FAIL none of " + GB2_TRIES + " fresh level-" + GB2_LEVEL + " bots could be staged");
+            return ev;
+        } finally {
+            ev.add(TalkQa.teardown(spawned));
+        }
     }
 
     static long delta(Map<String, Long> a, Map<String, Long> b, String k) {

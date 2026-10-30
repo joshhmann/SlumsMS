@@ -1316,6 +1316,10 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-gb-1", "Pareto gear: a bot with a requirement-chain bag ends up in the better set").minutes(1)
                 .expect(probe("paretoGear"))
                 .build());
+        // gear.dexless: a staged bot's new AP stops its secondary stat at the gear cap, the rest goes to the primary
+        c.add(Check.auto("t-gb-2", "Dexless builds: new AP stops at the secondary cap").minutes(1)
+                .expect(probe("dexlessAp"))
+                .build());
         return List.copyOf(c);
     }
 
