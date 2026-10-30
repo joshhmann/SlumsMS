@@ -231,7 +231,7 @@ almost stock Cosmic.
 
 | ID | What differs (vanilla -> current) | By | Status | Decision + date | Source |
 |---|---|---|---|---|---|
-| NN-011 | Bot movement fixes: ground continuity at overlapping footholds (`235b6aefa`), walk-off graph v68-71 (`8a7e7b3a5` `362926fdf` `26b372e7c`), zMass wall rule (`43b9f06c8`, riskiest), swim wall unfreeze, frozen-air watchdog | nutnnut | tune | Planned for 1.5.x; TEST real-WZ compare first | bots report 3(a) |
+| NN-011 | Bot movement fixes: ground continuity at overlapping footholds (`235b6aefa`), walk-off graph v68-71 (`8a7e7b3a5` `362926fdf` `26b372e7c`), zMass wall rule (`43b9f06c8`, riskiest), swim wall unfreeze, frozen-air watchdog | nutnnut | tune | 1.5.2 ported continuity, walk-off v68-71, swim unfreeze (watchdog came with GC). 1.6.1 branch 162-navfixes adds swim jump-burst (3516aa238), blocked-pos watchdog and teleport guard (43b9f06c8 runtime / v70b) and zMass walls (43b9f06c8 v70a), each behind a `-Dbot.nav.*` switch, off; 20-map graph compare in the branch report | bots report 3(a) |
 | NN-012 | Companion bots (owned alts, ticket 13) and command set (formations, patrol/sentry, supplies, info, gear/trade) | nutnnut | tune | Planned for 1.6.0 | bots report 3(b) |
 | NN-013 | Bot market ideas: market web page, price candles, listings (ticket 79) | nutnnut | undecided | Planned as ideas for ticket 79; economy work deprioritized | bots report 5 |
 | NN-014 | Save-path performance: skip unchanged writes, batched inserts, `rewriteBatchedStatements` | nutnnut | undecided | Later (1.6.x) after the ticket 80 soak | misc report #3 |
