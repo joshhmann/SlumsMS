@@ -27,6 +27,20 @@ class BotFameRequestTest {
     private boolean canGive = true;
     private Character.FameStatus status = Character.FameStatus.OK;
 
+    /**
+     * t-su-2 on TEST 2026-10-30: the friend answered "cant fame rn" every time. A bot is loaded without the
+     * channel-server branch that reads the fame log, so its month list was null, canGiveFame threw and the game's
+     * fame seam read that as "already famed today" (CANNOT_NOW). A bot with no history may fame.
+     */
+    @Test
+    void aBotLoadedWithoutAFameLogMayFame() {
+        Character bot = Character.getDefault(new client.BotClient(0, 0));
+        bot.setID(BOT);
+        Character player = mock(Character.class);
+        when(player.getId()).thenReturn(PLAYER);
+        assertEquals(Character.FameStatus.OK, bot.canGiveFame(player));
+    }
+
     @BeforeEach
     void seam() {
         System.setProperty("slums.bots.famerequest", "true");
