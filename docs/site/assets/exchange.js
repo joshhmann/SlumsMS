@@ -47,7 +47,13 @@
     TOKEN_EXPIRED: "That preview expired. Preview the order again.",
     TRY_AGAIN: "You're changing channel, logging out or in the Cash Shop. Try again in a moment.",
     NO_ANSWER: "The game didn't answer. Try again later.",
-    REAUTH: "For safety, trading needs a sign-in from the last 12 hours. Sign in again.",
+    // data.game: the game has no sign-in of yours since it last restarted (1.6.2 b005); /login/?again=1 records one
+    REAUTH: function (a) {
+      return a.data && a.data.game ? "The game restarted since you signed in. For safety, sign in again to trade."
+        : "For safety, trading needs a sign-in from the last 12 hours. Sign in again.";
+    },
+    HALTED: "The exchange is paused right now. Nothing was placed; try again later.",
+    PASSWORD_REQUIRED: "Type your password to confirm this order.",
     // the game keeps NX near the official rate: sells at 50% of it or more, buys at 200% or less (b005); before a
     // rate exists, a fixed floor for sells and a fixed ceiling for buys (the other end is then the ticker's own cap)
     PRICE_BAND: function (a, side) {
@@ -305,7 +311,7 @@
     return extend(base, {
       fmt: fmt, when: when, lim: lim,
       side: "BUY", qty: null, price: null, character: "", busy: false, msg: "", msgClass: "", pv: null, left: 0, clock: null,
-      stale: false,
+      stale: false, needPw: false, pw: "",
       init: function () {
         var self = this;
         init.call(this);
@@ -356,6 +362,7 @@
           }
           return answer(j.id, function () { self.say("Still waiting for the game..."); }).then(function (a) {
             self.busy = false;
+            if (!a.ok && a.code === "PASSWORD_REQUIRED" && path === "confirm") return { passwordRequired: true, data: a.data || {} };
             if (!a.ok) { if (a.code === "REAUTH") { self.stale = true; self.pv = null; } self.say(said(a, body && body.side), false); return null; }
             self.say("");
             return a.data;
@@ -369,6 +376,8 @@
           "Checking with the game...").then(function (d) {
           if (!d) return;
           self.pv = d;
+          self.needPw = !!d.passwordRequired;
+          self.pw = "";
           var ends = new Date(d.expiresAt).getTime();
           clearInterval(self.clock);
           // stop taking a yes a few seconds early: the confirm still has to reach the game
@@ -379,12 +388,50 @@
       },
       pvQty: function () { var p = this.pv; return p ? (p.qty !== undefined ? p.qty : p.nx) : 0; },
       asset: function (a) { return a === "NX" ? "NX" : a === "MESO" ? "mesos" : (this.meta.qty_label || "items"); },
+      // 1.6.2 b005: every site sell, and site buys past the password-free amount, need the account's password for
+      // that one order. It goes to the sign-in service (/api/login/exchange-approve), which hands it to the game's
+      // sign-in check; then the confirm goes as usual. The box is emptied as soon as the password is sent.
+      approve: function (token) {
+        var self = this, pw = this.pw;
+        this.pw = "";
+        if (!pw) { this.say("Type your password to confirm this order.", false); return Promise.resolve(false); }
+        this.busy = true;
+        this.say("Checking your password...");
+        return fetch(ROOT + "api/login/exchange-approve", { method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json", "X-Slums": "1" }, body: JSON.stringify({ token: token, pass: pw }) })
+          .then(function (r) { return r.json().catch(function () { return { ok: false, error: "The server said no (" + r.status + ")." }; }); })
+          .catch(function () { return { ok: false, error: "Can't reach the server right now." }; })
+          .then(function (j) {
+            self.busy = false;
+            if (j.ok) return true;
+            if (j.code === "TOKEN_EXPIRED" || j.code === "HALTED") { self.pv = null; clearInterval(self.clock); }
+            self.say(j.error || "That didn't work.", false);
+            return false;
+          });
+      },
       confirm: function () {
         var self = this, pv = this.pv;
-        if (!pv || this.left <= 0) return;
+        if (!pv || this.left <= 0 || this.busy) return;
+        (this.needPw ? this.approve(pv.token) : Promise.resolve(true)).then(function (approved) {
+          if (!approved) return;
+          self.place(pv);
+        });
+      },
+      place: function (pv) {
+        var self = this;
         clearInterval(this.clock);
         this.ask("confirm", { token: pv.token }, "Placing your order...").then(function (d) {
-          self.pv = null;
+          if (d && d.passwordRequired) {   // the game wants the password for this one (the token still holds)
+            self.needPw = true;
+            self.say(CODES.PASSWORD_REQUIRED, false);
+            if (d.data.expiresAt) {
+              var ends = new Date(d.data.expiresAt).getTime();
+              var tick = function () { self.left = Math.max(0, Math.floor((ends - Date.now()) / 1000) - 5); if (!self.left) clearInterval(self.clock); };
+              tick(); self.clock = setInterval(tick, 1000);
+            }
+            return;
+          }
+          self.pv = null; self.needPw = false;
           if (!d) return;
           var done = d.filledQty || d.filledNx;
           self.say("Order " + d.orderId + " placed" + (done ? ": " + fmt(done) + " traded right away." : "."), true);

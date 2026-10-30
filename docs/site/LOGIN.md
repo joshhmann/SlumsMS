@@ -82,11 +82,22 @@ docs/design/track-d-plan.md). The nginx snippet already routes `/api/market/`.
   wrong tries (names that don't exist lock the same way, so a lock reveals nothing).
 - A stolen session cookie works until it expires, the player signs out, or the account goes in `revoked.txt`.
   The board can't move items or mesos; the game checks every board post, and the player or a GM can take a post
-  down. The Slums Exchange (1.6.1) can: a stolen cookie can place and cancel exchange orders for that account's
-  characters and NX, with the game doing the moving (items only from a character that is logged in). So exchange
-  actions need a sign-in at most 12 h old (owner, 2026-10-29, b005): older, the market app answers 403 `REAUTH` and
-  the page links to `/login/?again=1&next=...`, which shows the forms even when signed in. Every exchange request
-  also carries `siteAuthAt` (the cookie's `iat` in epoch ms) and the game refuses a stale one too. The game also
-  keeps NX orders in a band around the official rate (`PRICE_BAND`) and caps NX sold per account a day.
+  down. The Slums Exchange (1.6.2) can: a cookie can place and cancel exchange orders for that account's
+  characters and NX, with the game doing the moving (items only from a character that is logged in). So (b005):
+  - Exchange actions need a sign-in at most 12 h old (owner, 2026-10-29): older, the market app answers 403 `REAUTH`
+    and the page links to `/login/?again=1&next=...`, which shows the forms even when signed in. Every exchange
+    request also carries `siteAuthAt` (the cookie's `iat` in epoch ms), and the game refuses a stale one too.
+  - The game keeps its own record of password sign-ins (12 h; a cookie can't make one) and answers `REAUTH` with
+    `data.game: true` when it has none, e.g. after every game restart. The page sends the player to the same
+    `/login/?again=1`, and that sign-in records one.
+  - Password step: every site sell, and site buys once an account's password-free buys pass 10,000,000 mesos in 12
+    h, need the password for that one order. The preview says `passwordRequired`, or the confirm answers
+    `PASSWORD_REQUIRED`. The confirm page then sends `{token, pass}` to `POST /api/login/exchange-approve` here, which
+    passes it with the session's account id and name to the game's `/exchange/approve`. The game checks it like a
+    sign-in (the same rate limit and lockout, and it must be this account's password) and approves that preview
+    token; the confirm then goes through as usual. The password is never logged, kept or written to the exchange
+    inbox. It's not a cap: with the password every order goes through.
+  - The game keeps NX orders in a band around the official rate (`PRICE_BAND`). There is no daily NX cap (owner:
+    no daily caps; the 1% fee each side stays).
 - The service listens on 127.0.0.1 only, logs only the method and path (no addresses or cookies), and answers
   nothing but the endpoints above.

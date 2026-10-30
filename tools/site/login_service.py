@@ -49,6 +49,15 @@ a player sees and makes only their own codes under the in-game @invite rule (lev
 Answers: 200 {"ok": true, ...the game's answer}; 401 signed out; 403 not eligible or refused; 429 the weekly limit or
 too many tries; 503 the game unreachable. Every make or cancel is logged with the account id (never the code).
 
+Exchange password step (1.6.2, b005): POST /api/login/exchange-approve {token, pass} (session cookie, "X-Slums: 1",
+counted with the sign-ins per address) passes the password typed on the exchange's confirm page to the game's
+/exchange/approve with the session's account id and name. The game checks it like a sign-in (its rate limit and
+lockout, and it must be this account's) and approves that one preview token; the confirm then goes through the market
+app as usual. Every site sell and big site buys need it, so a stolen cookie alone can't empty an account. Answers:
+200 {"ok": true, "expiresAt"}; 400 bad input; 401 signed out or wrong password; 410 the preview ran out; 423 locked;
+429 too many tries; 503 the exchange paused or unreachable. The password is never logged, kept or written anywhere;
+only the account id and the answer code are logged.
+
 Listens on 127.0.0.1 only. Sessions are HMAC-SHA256 signed with --key-file (32+ random bytes; the service refuses to
 start without it). An account listed in --revoked (one account id per line, e.g. banned accounts) is signed out.
 
@@ -314,6 +323,15 @@ ERRORS = {"BAD_CODE": (403, "That invite code doesn't work."),
           "LOCKED": (423, "Too many wrong tries. Try again in 15 minutes."),
           "RATE_LIMITED": (429, "Too many tries. Wait a minute and try again.")}
 DOWN = (503, "Sign-in is down right now. Try again in a bit.")
+# 1.6.2 b005: the game's /exchange/approve answers -> the site's status and message (the password step of one order)
+APPROVE_ERRORS = {"WRONG_LOGIN": (401, "Wrong password."),
+                  "LOCKED": ERRORS["LOCKED"],
+                  "RATE_LIMITED": ERRORS["RATE_LIMITED"],
+                  "TOKEN_EXPIRED": (410, "That preview expired. Preview the order again."),
+                  "HALTED": (503, "The exchange is paused right now. Nothing was placed; try again later."),
+                  "BAD_INPUT": (400, "That didn't look right. Preview the order again."),
+                  "UNAVAILABLE": (503, "The exchange can't check passwords right now. Try again in a bit.")}
+TOKEN_RE = re.compile(r"^[0-9a-f]{8,64}$")
 # the game's /invite/* answers (ticket 105) -> the site's status and message
 INVITES_DOWN = (503, "Invite codes aren't available right now. Try again later.")
 INVITE_ERRORS = {"NOT_ELIGIBLE": (403, "Invite codes need a character at level 30 or higher."),
@@ -487,6 +505,8 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
                 return self.invites(path.rsplit("/", 1)[1])
             if path in ("/api/login/reset/request", "/api/login/reset/status", "/api/login/reset/complete"):
                 return self.reset(path.rsplit("/", 1)[1])
+            if path == "/api/login/exchange-approve":
+                return self.exchange_approve()
             return self.send(404, {"ok": False})
 
         def json_body(self):
@@ -637,6 +657,37 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
             if action != "list":
                 sys.stderr.write(f"invite {action} by account {s['a']}\n")  # never the code
             return self.send(200, dict({k: v for k, v in got.items() if k != "ok"}, ok=True))
+
+        def exchange_approve(self):
+            """1.6.2 b005: the password for one previewed exchange order (every site sell, big site buys). The game
+            checks it like a sign-in (its rate limit and lockout) against the session's account and approves that
+            preview token; the confirm then goes through the market app as usual. The password is passed on and
+            dropped: never logged, kept or written anywhere."""
+            body = self.json_body()
+            if body is None:
+                return self.send(403, {"ok": False, "error": "Refused."})
+            s = self.session()
+            if not s:
+                return self.send(401, {"ok": False, "error": "Sign in first."})
+            token, pw = body.get("token"), body.get("pass")
+            if not isinstance(token, str) or not TOKEN_RE.match(token):
+                return self.send(400, {"ok": False, "error": APPROVE_ERRORS["BAD_INPUT"][1], "code": "BAD_INPUT"})
+            if not isinstance(pw, str) or not 1 <= len(pw) <= 64:
+                return self.send(400, {"ok": False, "error": "Type your password.", "code": "BAD_INPUT"})
+            if not limiter.allow(self.client()):   # a password try: counted with the sign-ins from this address
+                return self.send(429, {"ok": False, "error": ERRORS["RATE_LIMITED"][1], "code": "RATE_LIMITED"})
+            got = auth.call("/exchange/approve", {"account_id": s["a"], "user": s.get("n", ""), "pass": pw, "token": token},
+                            self.client()) if auth else None
+            pw = body["pass"] = None
+            if not got:
+                return self.send(*self.err(APPROVE_ERRORS["UNAVAILABLE"]))
+            if not got.get("ok"):
+                code = got.get("error") if got.get("error") in APPROVE_ERRORS else "UNAVAILABLE"
+                status, msg = APPROVE_ERRORS[code]
+                sys.stderr.write(f"exchange approve for account {s['a']}: {code}\n")  # never the password or token
+                return self.send(status, {"ok": False, "error": msg, "code": code})
+            sys.stderr.write(f"exchange approve for account {s['a']}: ok\n")
+            return self.send(200, {"ok": True, "expiresAt": got.get("expires_at")})
 
         @staticmethod
         def err(pair):

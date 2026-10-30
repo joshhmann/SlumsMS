@@ -748,8 +748,12 @@ logged in to the game. Items you buy go into its bags the next time it's in game
 </dl>
 <p class="xc-msg bad" x-show="pv && pv.cancelledBySelfTrade">This would meet one of your own orders, so it would be closed instead of trading.</p>
 <p class="xc-note" x-text="left > 0 ? 'Confirm within ' + left + ' s.' : 'This preview expired. Preview it again.'"></p>
+<div class="xc-pw" x-show="pv && needPw"><label for="xc-pw">Your game password</label>
+<input id="xc-pw" type="password" autocomplete="current-password" maxlength="64" x-model="pw" @keydown.enter.prevent="confirm()">
+<p class="xc-note">Every sell from the website, and big buys, need your password for that one order, so a stolen
+sign-in alone can't trade your NX or items away. It goes straight to the game's sign-in check and isn't kept.</p></div>
 <button class="xc-go" :class="pv && pv.side === 'BUY' ? 'buy' : 'sell'" type="button" @click="confirm()" :disabled="busy || left <= 0">Confirm order</button>
-<button class="xc-ghost" type="button" @click="pv = null; msg = ''">Never mind</button>
+<button class="xc-ghost" type="button" @click="pv = null; pw = ''; needPw = false; msg = ''">Never mind</button>
 </div></form>
 <section class="xc-p" style="grid-area: orders" x-show="data" x-cloak><h2>My orders <small x-show="data && data.ordersAt" x-text="'as of ' + when(data && data.ordersAt)"></small></h2>
 <div class="xc-scroll"><table class="xc-book xc-mine"><thead><tr><th>#</th><th>Ticker</th><th>Side</th><th>Price</th><th>Amount</th>

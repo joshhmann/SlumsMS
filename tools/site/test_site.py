@@ -739,6 +739,25 @@ class WorldTest(unittest.TestCase):
         with open(os.path.join(build.REPO, "docs", "site", "assets", "market.js"), encoding="utf-8") as f:
             self.assertIn("[data-xc-nav]", f.read())
 
+    def test_exchange_confirm_asks_for_the_password_when_the_game_does(self):
+        # 1.6.2 b005: a password box on the confirm step, sent to the sign-in service, never kept in the page
+        from sections import market
+        tmp = tempfile.mkdtemp()
+        try:
+            market.build_exchange(market.Market(market.load(self.market), {}, tmp))
+            with open(os.path.join(tmp, "market", "exchange.html"), encoding="utf-8") as f:
+                page = f.read()
+        finally:
+            shutil.rmtree(tmp)
+        self.assertIn('<div class="xc-pw" x-show="pv && needPw">', page)
+        self.assertIn('<input id="xc-pw" type="password" autocomplete="current-password" maxlength="64" x-model="pw"', page)
+        with open(os.path.join(build.REPO, "docs", "site", "assets", "exchange.js"), encoding="utf-8") as f:
+            js = f.read()
+        self.assertIn('"api/login/exchange-approve"', js)
+        self.assertIn("self.needPw = !!d.passwordRequired;", js)          # the preview says so
+        self.assertIn('a.code === "PASSWORD_REQUIRED" && path === "confirm"', js)   # or the confirm does
+        self.assertIn('var self = this, pw = this.pw;\n        this.pw = "";', js)  # emptied as it's sent
+
     def test_market_sidebar_groups_and_my_trades(self):
         from sections import market
         mk = market.Market(market.load(self.market), {}, self.out)

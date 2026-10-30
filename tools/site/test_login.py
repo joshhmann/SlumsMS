@@ -85,6 +85,12 @@ class FakeGameAuth:
                            (200, {"ok": False, "error": "UNAVAILABLE"}) if body["user"] == "dbdown" else
                            (429, {"ok": False, "error": "RATE_LIMITED"}) if body["user"] == "busy" else
                            (200, {"ok": False, "error": "WRONG_LOGIN"}))
+                elif self.path == "/exchange/approve":   # 1.6.2 b005: like /verify, for the session's account
+                    ans = ((200, {"ok": True, "token": body["token"], "expires_at": "2026-10-30T12:00:00Z"})
+                           if body["pass"] == "hunter22" and body["account_id"] == 42 and body["user"] == "momo" else
+                           (200, {"ok": False, "error": body["pass"]}) if body["pass"] in ("LOCKED", "TOKEN_EXPIRED", "HALTED", "ODD") else
+                           (429, {"ok": False, "error": "RATE_LIMITED"}) if body["pass"] == "busy" else
+                           (200, {"ok": False, "error": "WRONG_LOGIN"}))
                 elif self.path.startswith("/invite/"):
                     ans = fake.invite.get(self.path.rsplit("/", 1)[1], (200, {"ok": True}))
                 elif self.path == "/reset/request":   # the same answer for any name
@@ -247,6 +253,33 @@ class AccountSignInTest(unittest.TestCase):
             self.game.invite["create"] = (200, {"ok": False, "error": err})
             st, body = self.call("POST", "/api/login/invites/create", {})
             self.assertEqual((st, body["code"]), (want, err), err)
+
+    def test_exchange_password_step_goes_to_the_game_for_the_sessions_account(self):
+        tok = "ab12cd34ef56"
+        self.assertEqual(self.call("POST", "/api/login/exchange-approve", {"token": tok, "pass": "hunter22"})[0], 401)
+        self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})
+        self.assertEqual(self.call("POST", "/api/login/exchange-approve", {"token": tok, "pass": "hunter22"}, headers={})[0], 403)
+        st, body = self.call("POST", "/api/login/exchange-approve", {"token": tok, "pass": "hunter22", "account_id": 1})
+        self.assertEqual((st, body), (200, {"ok": True, "expiresAt": "2026-10-30T12:00:00Z"}))
+        path, _, sent = self.game.calls[-1]
+        self.assertEqual(path, "/exchange/approve")
+        self.assertEqual({k: v for k, v in sent.items() if k != "ipHash"},
+                         {"account_id": 42, "user": "momo", "pass": "hunter22", "token": tok}, "the session's account, never the body's")
+        n = len(self.game.calls)
+        for bad in ({"token": "NOT-HEX", "pass": "x"}, {"token": tok}, {"token": tok, "pass": ""}, {"token": tok, "pass": "x" * 65}):
+            self.assertEqual(self.call("POST", "/api/login/exchange-approve", bad)[0], 400, bad)
+        self.assertEqual(len(self.game.calls), n, "bad input never reaches the game")
+        for pw, want in (("wrong12", (401, "WRONG_LOGIN")), ("LOCKED", (423, "LOCKED")), ("TOKEN_EXPIRED", (410, "TOKEN_EXPIRED")),
+                         ("HALTED", (503, "HALTED")), ("busy", (429, "RATE_LIMITED")), ("ODD", (503, "UNAVAILABLE"))):
+            st, body = self.call("POST", "/api/login/exchange-approve", {"token": tok, "pass": pw})
+            self.assertEqual((st, body["code"]), want, pw)
+            self.assertNotIn(pw, body["error"])
+
+    def test_exchange_password_step_counts_with_sign_ins(self):
+        self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})
+        codes = [self.call("POST", "/api/login/exchange-approve", {"token": "ab12cd34", "pass": "wrong12"})[0]
+                 for _ in range(ls.AUTH_PER_IP_MIN)]
+        self.assertEqual(codes[-1], 429)   # the sign-in above plus these: over the per-address limit
 
     def test_staff_may_set_an_invites_life_and_note(self):
         self.call("POST", "/api/login/password", {"user": "gm", "pass": "pw"})   # GM level 3

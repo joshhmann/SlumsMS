@@ -63,6 +63,10 @@ WORD_OK = {
     "guide/getting-started.html": {"password"},
     # the 1.6.0 notes announce sign-up and password resets on the website (owner-approved text)
     "patch-notes/1.6.0/index.html": {"password"},
+    # 1.6.2 b005: the exchange's confirm step asks for the game password for site sells and big buys (it goes to the
+    # login service's exchange-approve, never into a page or the market app)
+    "market/exchange.html": {"password"},
+    "assets/exchange.js": {"password"},
 }
 
 # Game text that contains a forbidden word, allowed on any page because it is the game's own name for something

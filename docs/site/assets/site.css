@@ -785,6 +785,9 @@ table.t { width: 100%; border-collapse: collapse; }
   border: 1px solid var(--xc-line); background: var(--xc-bg); color: var(--xc-ink); }
 .xc-form input:focus, .xc-form select:focus { outline: 2px solid var(--xc-sun); outline-offset: 1px; }
 .xc-form .xc-note, .xc-msg, .xc-preview { flex-basis: 100%; margin: 0; }
+.xc-pw { display: grid; gap: 4px; margin: 8px 0; }
+.xc-pw label { flex: none; }
+.xc-pw .xc-note { margin: 0; }
 .xc-side { flex-basis: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .xc-side button, .xc-go, .xc-ghost { font: 800 .9rem var(--f-body); padding: 10px 14px; border-radius: 6px; cursor: pointer;
   border: 1px solid var(--xc-line); background: transparent; color: var(--xc-muted); }
