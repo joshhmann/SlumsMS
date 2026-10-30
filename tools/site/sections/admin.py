@@ -131,7 +131,7 @@ the game. Real players are counted, never listed.</p>
 <dt>Movement</dt><dd x-text="bot && (bot.nav || '')"></dd>
 <dt>Tick cost</dt><dd x-text="bot && tick(bot.tick)"></dd>
 <dt>Gear pick</dt><dd x-text="bot && (bot.gear || '')"></dd>
-<dt>Remembers</dt><dd x-text="bot && bot.memory ? num(bot.memory.met) + ' met, ' + num(bot.memory.notesCached) + ' notes about ' + num(bot.memory.playersCached) + ' players in memory' : ''"></dd>
+<dt>Remembers</dt><dd x-text="bot && memory(bot.memory)"></dd>
 <dt>Read at</dt><dd x-text="bot && clock(bot.at)"></dd></dl>
 <template x-if="bot && bot.bartle"><div><h3>Personality</h3><dl class="rp-meta">
 <template x-for="r in bartle(bot.bartle)" :key="r[0]"><div class="bt-pair"><dt x-text="r[0]"></dt><dd x-text="r[1]"></dd></div></template></dl></div></template>

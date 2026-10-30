@@ -21,13 +21,27 @@
     var d = new Date(ms);
     return isNaN(d) || !ms ? "" : d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
   }
+  // the game sends the type blend as {"SOCIALIZER": 0.72, ...}; older builds may send one type's name
+  function blend(b) {
+    if (!b || typeof b !== "object") return typeof b === "string" ? b : "";
+    return Object.keys(b).filter(function (k) { return typeof b[k] === "number"; })
+      .sort(function (p, q) { return b[q] - b[p]; })
+      .map(function (k) { return k.charAt(0) + k.slice(1).toLowerCase() + " " + Math.round(100 * b[k]) + "%"; }).join(", ");
+  }
+  function memory(m) {
+    if (!m) return "";
+    var out = [];
+    if (typeof m.met === "number") out.push(num(m.met) + " met");
+    if (typeof m.notesCached === "number") out.push(num(m.notesCached) + " notes about " + num(m.playersCached || 0) + " players in memory");
+    return out.join(", ");
+  }
   function pretty(v) { try { return JSON.stringify(v, null, 2); } catch (e) { return ""; } }
 
   function xbots() {
     return {
       q: "", state: "loading", msg: "", again: false, auto: false, timer: null, names: {},
       pos: null, top: [], map: null, bot: null, view: "", cal: null, calState: "loading",
-      num: num, clock: clock, pretty: pretty,
+      num: num, clock: clock, pretty: pretty, memory: memory,
       init: function () {
         var self = this;
         get("data/nav/names.json").then(function (j) { if (j.status === 200) { delete j.status; self.names = j; } });
@@ -113,11 +127,11 @@
       lines: function (a) { return Array.isArray(a) ? a.filter(function (x) { return typeof x === "string"; }) : []; },
       bartle: function (x) {
         if (!x) return [];
-        return [["Leading", x.leading + (x.flipped ? " (learned its way off its seed)" : "")],
+        return [["Leading", String(x.leading || "").toLowerCase() + (x.flipped ? " (learned its way off its seed)" : "")],
                 ["Position", typeof x.x === "number" ? x.x.toFixed(2) + ", " + (x.y || 0).toFixed(2) : ""],
                 ["Seed", typeof x.seedX === "number" ? x.seedX.toFixed(2) + ", " + (x.seedY || 0).toFixed(2) : ""],
                 ["Plasticity", num(x.plasticity)], ["Rival pull", num(x.rivalPull)], ["Social pull", num(x.socialPull)],
-                ["Blend", x.blend]].filter(function (r) { return r[1] !== "" && r[1] !== null && r[1] !== undefined; });
+                ["Blend", blend(x.blend)]].filter(function (r) { return r[1] !== "" && r[1] !== null && r[1] !== undefined; });
       },
       hp: function (m) { return typeof m.maxHp === "number" && m.maxHp > 0 ? Math.round(100 * m.hp / m.maxHp) + "%" : ""; },
       loadCal: function () {
