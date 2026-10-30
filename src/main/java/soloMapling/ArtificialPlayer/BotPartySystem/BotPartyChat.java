@@ -159,7 +159,7 @@ public final class BotPartyChat {
 
     // ── a bot speaks ──
 
-    /** A bot says a line on its party's channel (every real member sees it). */
+    /** A bot (or an owned alt, 1.6.2) says a line on its party's channel (every real member sees it). */
     public static void sayInParty(Character bot, String line) {
         if (bot == null || line == null || line.isBlank() || bot.getParty() == null) {
             return;
@@ -170,9 +170,12 @@ public final class BotPartyChat {
             return;
         }
         world.partyChat(party, line, bot.getName());
-        PartyState state = states.computeIfAbsent(party.getId(), k -> new PartyState());
-        synchronized (state) {
-            state.last = new PartyChatRoute.Last(bot.getId(), line, System.currentTimeMillis());
+        if (BotHelpers.isArtificial(bot.getId())) {
+            // an owned alt's line (1.6.2) is not one the party bots' routing answers: it keeps the last bot line
+            PartyState state = states.computeIfAbsent(party.getId(), k -> new PartyState());
+            synchronized (state) {
+                state.last = new PartyChatRoute.Last(bot.getId(), line, System.currentTimeMillis());
+            }
         }
         qa(bot.getMapId(), "PARTY SAY " + bot.getName() + ": " + line);
     }
