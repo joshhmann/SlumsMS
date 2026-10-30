@@ -108,3 +108,4 @@ wrong. Run them with `tools/ops/autoqa-run bq,tm,gb,su,jb,nn`.
 | id | switch | what it does | PASS means |
 |---|---|---|---|
 | `t-bq-1` | `slums.botquests.enabled` | a level-20 training bot gets the best stageable mob quest (at most 40 kills) on a Victoria grind map from the real ranking, takes it by the start NPC with the maps pinned as watched, its own hits kill the quest mobs, it turns the quest in by the end NPC | `take: ... visit=STARTED real status STARTED`, `log hunted=true`, `turn-in: ... visit=COMPLETED real status COMPLETED` |
+| `t-tm-1` | `slums.temple.enabled` | a fresh level-126 training bot is asked by `TempleOfTime.consider`, takes and turns in 3500 by the Temple Keeper with the hub pinned as watched, and is asked again | `offer 1: ... active 3500`, `templeDone 1`, `offer 2: ... active 3501 hunt map 270010100, lane registered 270010100`, `270020100 open=false` |

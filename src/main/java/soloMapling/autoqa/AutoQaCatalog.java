@@ -1308,6 +1308,10 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-bq-1", "A watched bot takes, hunts and turns in one mob quest").minutes(3)
                 .expect(probe("botQuest"))
                 .build());
+        // temple: a fresh bot is offered 3500, takes and turns it in for real, then is offered 3501 with its lane entry
+        c.add(Check.auto("t-tm-1", "A bot is offered the next Temple mainline quest and its lane").minutes(2)
+                .expect(probe("templeQuest"))
+                .build());
         return List.copyOf(c);
     }
 

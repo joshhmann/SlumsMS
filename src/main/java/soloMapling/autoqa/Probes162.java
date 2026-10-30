@@ -12,6 +12,9 @@ import soloMapling.ArtificialPlayer.BotLifeSystem.LifePlanner;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog;
 import soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests;
+import soloMapling.ArtificialPlayer.BotQuestSystem.TempleLanes;
+import soloMapling.ArtificialPlayer.BotQuestSystem.TempleOfTime;
+import soloMapling.ArtificialPlayer.BotQuestSystem.TempleRoute;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
@@ -35,7 +38,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest");
 
     private Probes162() {
     }
@@ -45,6 +48,7 @@ final class Probes162 {
         try {
             return switch (what) {
                 case "botQuest" -> botQuest(p);
+                case "templeQuest" -> templeQuest(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -284,6 +288,120 @@ final class Probes162 {
                     + " kills counted, and it turned the quest in through Quest.complete", ev);
         } finally {
             unpin(pinned);
+            ev.add(TalkQa.teardown(List.of(bot)));
+        }
+    }
+
+    // ── t-tm-1: the next Temple mainline quest and its lane ───────────────────────────────────────
+
+    /** t-tm-1: the staged bot's level, above every bot's Temple ambition (90..125) and 3501's level. */
+    static final int TM_LEVEL = 126;
+    /** t-tm-1: a Road of Regrets lane, closed to a bot that has only done 3500 (the corridor gate). */
+    static final int TM_CLOSED_LANE = 270020100;
+
+    /**
+     * t-tm-1: what is wrong with the two offers. {@code first}/{@code second} are the quest ids picked (0 = none);
+     * {@code lane} the lane registered for the second, {@code wantLane} the step's lane; {@code laneOpen} whether the
+     * corridor gate lets the bot onto it, {@code laterOpen} whether it lets it onto a later stretch. Pure, for tests.
+     */
+    static List<String> templeProblems(int first, String took, int second, int lane, int wantLane, boolean laneOpen,
+                                       boolean laterOpen) {
+        List<String> bad = new ArrayList<>();
+        int q0 = TempleRoute.MAINLINE.get(0).questId(), q1 = TempleRoute.MAINLINE.get(1).questId();
+        if (first != q0) {
+            bad.add("a fresh bot was offered " + (first == 0 ? "nothing" : "quest " + first) + ", not " + q0);
+        }
+        if (took != null) {
+            bad.add("the first quest did not go through: " + took);
+        }
+        if (second != q1) {
+            bad.add("after " + q0 + " the bot was offered " + (second == 0 ? "nothing" : "quest " + second)
+                    + ", not " + q1);
+        } else if (lane != wantLane) {
+            bad.add("no lane entry for " + q1 + ": registered map " + lane + ", want " + wantLane);
+        }
+        if (!laneOpen) {
+            bad.add("the corridor gate keeps the bot off its own lane " + wantLane);
+        }
+        if (laterOpen) {
+            bad.add("the corridor gate lets the bot onto " + TM_CLOSED_LANE + " before its quest");
+        }
+        return bad;
+    }
+
+    /**
+     * t-tm-1 ({@code slums.temple.enabled}): a fresh level-126 training bot (tick stopped) is asked by
+     * {@code TempleOfTime.consider}: it must be offered the first mainline quest (3500, a talk). With the hub pinned as
+     * watched it takes and turns it in by the Temple Keeper through {@code BotQuests.atNpc} (the real quest). Asked
+     * again it must be offered 3501 with its lane entry: Memory Lane 1 registered for it in {@code TempleLanes}, the
+     * corridor gate open there and still shut on the Road of Regrets.
+     */
+    static List<String> templeQuest(SyntheticPlayer p) throws InterruptedException {
+        if (!TempleOfTime.enabled()) {
+            return List.of("SKIP the Temple is off (-Dslums.temple.enabled=true, which needs -Dslums.botquests.enabled)");
+        }
+        List<String> ev = new ArrayList<>();
+        Character bot = spawnTraining(p, TM_LEVEL);
+        if (bot == null) {
+            return List.of("FAIL could not spawn a training bot");
+        }
+        List<Integer> pinned = List.of();
+        LifeMemory mem = null;
+        try {
+            freeze(bot);
+            TrainingBot tb = trainingBot(bot);
+            if (tb == null || tb.lifeRuntime() == null) {
+                return List.of("FAIL the staged bot has no life runtime (TrainingBot.lifeRuntime() null)");
+            }
+            mem = tb.lifeRuntime().memory();
+            ev.add("bot " + bot.getName() + " lv " + bot.getLevel() + " ambition " + TempleOfTime.ambition(bot.getId())
+                    + " channel " + bot.getClient().getChannel());
+            pinned = pin(ev, TempleRoute.HUB);
+            place(bot, TempleRoute.HUB, null);
+            Boolean got1 = mem.quests(log -> TempleOfTime.consider(bot, log, System.currentTimeMillis()));
+            int first = mem.quests(log -> log.active() == null ? 0 : log.active().questId);
+            ev.add("offer 1: consider=" + got1 + " active " + first);
+            String took = null;
+            if (first == TempleRoute.MAINLINE.get(0).questId()) {
+                Point keeper = mem.quests(log -> BotQuests.npcSpot(bot, LifePlanner.Step.TAKE_QUEST, log));
+                if (keeper != null) {
+                    place(bot, TempleRoute.HUB, keeper);
+                }
+                boolean watched = GCMovement.isMapObserved(TempleRoute.HUB);
+                BotQuests.Visit take = mem.quests(log -> BotQuests.atNpc(bot, log, LifePlanner.Step.TAKE_QUEST,
+                        watched, System.currentTimeMillis()));
+                BotQuests.Visit in = mem.quests(log -> BotQuests.atNpc(bot, log, LifePlanner.Step.TURN_IN_QUEST,
+                        watched, System.currentTimeMillis()));
+                int done = mem.quests(BotQuestLog::templeDone);
+                ev.add("3500 by the Temple Keeper (there=" + (keeper != null) + ", watched=" + watched + "): take "
+                        + take + ", turn-in " + in + ", real status " + bot.getQuest(first).getStatus()
+                        + ", templeDone " + done);
+                if (done < 1) {
+                    took = "take " + take + ", turn-in " + in;
+                }
+            }
+            Boolean got2 = mem.quests(log -> TempleOfTime.consider(bot, log, System.currentTimeMillis()));
+            int second = mem.quests(log -> log.active() == null ? 0 : log.active().questId);
+            int wantLane = TempleRoute.MAINLINE.get(1).lanes().get(0);
+            int lane = TempleLanes.registeredMap(bot.getId());
+            int hunt = mem.quests(log -> log.active() == null ? -1 : log.active().huntMap);
+            ev.add("offer 2: consider=" + got2 + " active " + second + " hunt map " + hunt + ", lane registered " + lane
+                    + ", wanted channel " + TempleOfTime.wantedChannel(bot));
+            boolean laneOpen = TempleOfTime.mayEnter(wantLane, bot);
+            boolean laterOpen = TempleOfTime.mayEnter(TM_CLOSED_LANE, bot);
+            ev.add("corridor gate: " + wantLane + " open=" + laneOpen + ", " + TM_CLOSED_LANE + " open=" + laterOpen);
+            return Probes160.verdict(templeProblems(first, took, second, lane, wantLane, laneOpen, laterOpen),
+                    "a fresh bot was offered 3500, took and turned it in by the Temple Keeper, then was offered 3501"
+                            + " with its Memory Lane entry; the later corridor stays shut", ev);
+        } finally {
+            unpin(pinned);
+            TempleLanes.unregister(bot.getId());
+            if (mem != null) {
+                mem.quests(log -> {
+                    log.drop();
+                    return null;
+                });
+            }
             ev.add(TalkQa.teardown(List.of(bot)));
         }
     }

@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -55,5 +55,21 @@ class Probes162Test {
         List<String> capped = Probes162.questProblems(BotQuests.Visit.STARTED, QuestStatus.Status.STARTED, true,
                 BotQuests.Visit.DEFERRED, QuestStatus.Status.STARTED);
         assertTrue(capped.get(0).contains("yield caps"), capped.toString());
+    }
+
+    // ── t-tm-1 ──
+
+    @Test
+    void theTempleCheckWantsTheNextQuestItsLaneAndTheGate() {
+        assertTrue(Probes162.templeProblems(3500, null, 3501, 270010100, 270010100, true, false).isEmpty());
+        assertTrue(Probes162.templeProblems(0, null, 0, -1, 270010100, true, false).get(0).contains("nothing"));
+        List<String> noLane = Probes162.templeProblems(3500, null, 3501, -1, 270010100, true, false);
+        assertEquals(1, noLane.size());
+        assertTrue(noLane.get(0).contains("no lane entry"));
+        List<String> leak = Probes162.templeProblems(3500, null, 3501, 270010100, 270010100, true, true);
+        assertTrue(leak.get(0).contains("corridor gate lets"), leak.toString());
+        List<String> loop = Probes162.templeProblems(3500, "take STARTED, turn-in NOT_READY", 3500, -1, 270010100,
+                true, false);
+        assertEquals(2, loop.size(), "the step that could not finish is offered again (audit B2)");
     }
 }
