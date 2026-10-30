@@ -1,0 +1,319 @@
+# Ticket 130 stage data: Kerning City Party Quest (KPQ), all five stages and the bonus (1.6.1, KPQ automation).
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData,
+# only when the server runs with -Dslums.mechanics=true (off by default; nothing reads this file yet).
+#
+# The server's own scripts are the truth: a solver reads the live answer from the event instance at run time. This
+# file mirrors them for validation, QA and planning, and a unit test checks it still matches scripts/npc/9020001.js.
+id: kpq
+name: Kerning City Party Quest
+kind: PQ
+eventScript: KerningPQ
+recruitMap: 103000000
+exitMap: 103000890
+minPlayers: 3
+maxPlayers: 4
+minLevel: 21
+maxLevel: 255
+timeLimitMinutes: 30
+sources:
+  - "scripts/event/KerningPQ.js and scripts/npc/9020001.js (Cloto): ours, the truth"
+  - "wz Map.wz 103000800.img: Cloto at (592, 106), 22 Ligator (9300001) spawns, spawn point sp (-1077, 81)"
+  - "Cross-checked against nutnnut/cosmic_agents (AGPL-3.0) AgentKpqDefinition: same answers 10/35/20/25/25/30/8"
+  - "Stages 2-4: rectangles and combos copied from scripts/npc/9020001.js in its order (cosmic_agents Kiwiism/cosmic_agents 3c7e09435 lists the stage-2 ropes in another order; ours wins); KpqStageDataTest re-reads the script"
+  - "Stage 5 and bonus: wz Map.wz 103000804.img (Cloto (305, -2715), 9300000 x7, 9300002 x3, King Slime 9300003) and drop data (each drops one pass 4001008); 103000805.img (Nella 9020002)"
+afterClear:
+  rewardNpc: 9020001
+  rewardMap: 103000804
+  bonusMap: 103000805
+  exitNpc: 9020002
+  bonusMinSeconds: 60
+  bonusMaxSeconds: 150
+# Difficulty tiers (1.7.0 "PQ difficulties"): NORMAL is the stock PQ and needs no entry. Hard, Expert and Master
+# numbers are for the owner to decide (ticket 130, "Difficulty tiers"); the shape is:
+#   tiers:
+#     HARD: { minLevel: 40, mobLevelBonus: 20, mobHpMultiplier: 4, mobDamageMultiplier: 2.5, timeLimitMinutes: 25, botMistakeFactor: 1.25 }
+stages:
+  - stage: 1
+    map: 103000800
+    name: Coupons for Cloto
+    npc: 9020001
+    solver: question-coupons
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: collects one pass from each member and hands them to Cloto
+      - id: answerer
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: gets a question from Cloto, collects that many coupons, trades them for a pass
+    items:
+      - id: 4001007
+        name: Coupon
+        cleanup: true
+      - id: 4001008
+        name: Pass
+        cleanup: true
+    objectives:
+      - id: ask
+        kind: TALK_NPC
+        role: answerer
+        npc: 9020001
+        note: Cloto gives a random question (eim.gridInsert); the answer is a coupon count
+      - id: farm
+        kind: KILL_FOR_ITEM
+        role: answerer
+        mob: 9300001
+        item: 4001007
+        count: answer
+        note: Ligators drop coupons; collect exactly the answer (extra coupons must be dropped first)
+      - id: hand-coupons
+        kind: HAND_IN
+        role: answerer
+        npc: 9020001
+        item: 4001007
+        count: answer
+        note: a wrong count is a visible try ("that is not the right answer"); the right one gives a pass
+      - id: give-pass
+        kind: GIVE_TO_LEADER
+        role: answerer
+        item: 4001008
+        count: 1
+        note: drop the pass next to the leader, the leader loots it
+      - id: hand-passes
+        kind: HAND_IN
+        role: leader
+        npc: 9020001
+        item: 4001008
+        count: party-1
+        note: Cloto clears the stage when the leader holds one pass per other member
+      - id: next
+        kind: ENTER_PORTAL
+        role: all
+        note: portal opens on clear (eim.linkToNextStage)
+    answers:
+      - { id: 1, answer: 10, question: "min level for the warrior 1st job" }
+      - { id: 2, answer: 35, question: "min STR for the warrior 1st job" }
+      - { id: 3, answer: 20, question: "min INT for the magician 1st job" }
+      - { id: 4, answer: 25, question: "min DEX for the bowman 1st job" }
+      - { id: 5, answer: 25, question: "min DEX for the thief 1st job" }
+      - { id: 6, answer: 30, question: "min level for the 2nd job" }
+      - { id: 7, answer: 8, question: "min level for the magician 1st job" }
+    nextPortal: next00
+    clear:
+      eventProperty: 1stageclear
+  - stage: 2
+    map: 103000801
+    name: Ropes
+    npc: 9020001
+    solver: combination
+    answerProperty: stg2Property
+    nextPortal: next00
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: opens the stage with Cloto, then checks each formation with him (stands on a rope too in a party of 3)
+      - id: mover
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: stands on (or hangs from) the rope the formation needs; exactly 3 members on ropes
+    objectives:
+      - id: open
+        kind: TALK_NPC
+        role: leader
+        npc: 9020001
+        note: the first talk picks the answer (eim stg2Property); every later talk checks the formation
+      - id: stand
+        kind: OCCUPY_POSITION
+        role: mover
+        note: 3 members inside 3 of the rectangles below; nobody else inside any of them
+      - id: check
+        kind: ANSWER
+        role: leader
+        npc: 9020001
+        note: a wrong formation shows the wrong effect (a visible try); the right one sets 2stageclear
+      - id: next
+        kind: ENTER_PORTAL
+        role: all
+    positions:
+      - { id: rope1, x: -755, y: -132, w: 4, h: 218, rope: true }
+      - { id: rope2, x: -721, y: -340, w: 4, h: 166, rope: true }
+      - { id: rope3, x: -586, y: -326, w: 4, h: 150, rope: true }
+      - { id: rope4, x: -483, y: -181, w: 4, h: 222, rope: true }
+    combos:
+      - [0, 1, 1, 1]
+      - [1, 0, 1, 1]
+      - [1, 1, 0, 1]
+      - [1, 1, 1, 0]
+    clear:
+      eventProperty: 2stageclear
+  - stage: 3
+    map: 103000802
+    name: Platforms
+    npc: 9020001
+    solver: combination
+    answerProperty: stg3Property
+    nextPortal: next00
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: opens the stage with Cloto, then checks each formation with him (stands on a platform too in a party of 3)
+      - id: mover
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: stands on (or hangs from) the platform the formation needs; exactly 3 members on platforms
+    objectives:
+      - id: open
+        kind: TALK_NPC
+        role: leader
+        npc: 9020001
+        note: the first talk picks the answer (eim stg3Property); every later talk checks the formation
+      - id: stand
+        kind: OCCUPY_POSITION
+        role: mover
+        note: 3 members inside 3 of the rectangles below; nobody else inside any of them
+      - id: check
+        kind: ANSWER
+        role: leader
+        npc: 9020001
+        note: a wrong formation shows the wrong effect (a visible try); the right one sets 3stageclear
+      - id: next
+        kind: ENTER_PORTAL
+        role: all
+    positions:
+      - { id: platform1, x: 608, y: -180, w: 140, h: 50, rope: false }
+      - { id: platform2, x: 791, y: -117, w: 140, h: 45, rope: false }
+      - { id: platform3, x: 958, y: -180, w: 140, h: 50, rope: false }
+      - { id: platform4, x: 876, y: -238, w: 140, h: 45, rope: false }
+      - { id: platform5, x: 702, y: -238, w: 140, h: 45, rope: false }
+    combos:
+      - [0, 0, 1, 1, 1]
+      - [0, 1, 0, 1, 1]
+      - [0, 1, 1, 0, 1]
+      - [0, 1, 1, 1, 0]
+      - [1, 0, 0, 1, 1]
+      - [1, 0, 1, 0, 1]
+      - [1, 0, 1, 1, 0]
+      - [1, 1, 0, 0, 1]
+      - [1, 1, 0, 1, 0]
+      - [1, 1, 1, 0, 0]
+    clear:
+      eventProperty: 3stageclear
+  - stage: 4
+    map: 103000803
+    name: Barrels
+    npc: 9020001
+    solver: combination
+    answerProperty: stg4Property
+    nextPortal: next00
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: opens the stage with Cloto, then checks each formation with him (stands on a barrel too in a party of 3)
+      - id: mover
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: stands on (or hangs from) the barrel the formation needs; exactly 3 members on barrels
+    objectives:
+      - id: open
+        kind: TALK_NPC
+        role: leader
+        npc: 9020001
+        note: the first talk picks the answer (eim stg4Property); every later talk checks the formation
+      - id: stand
+        kind: OCCUPY_POSITION
+        role: mover
+        note: 3 members inside 3 of the rectangles below; nobody else inside any of them
+      - id: check
+        kind: ANSWER
+        role: leader
+        npc: 9020001
+        note: a wrong formation shows the wrong effect (a visible try); the right one sets 4stageclear
+      - id: next
+        kind: ENTER_PORTAL
+        role: all
+    positions:
+      - { id: barrel1, x: 910, y: -236, w: 35, h: 5, rope: false }
+      - { id: barrel2, x: 877, y: -184, w: 35, h: 5, rope: false }
+      - { id: barrel3, x: 946, y: -184, w: 35, h: 5, rope: false }
+      - { id: barrel4, x: 845, y: -132, w: 35, h: 5, rope: false }
+      - { id: barrel5, x: 910, y: -132, w: 35, h: 5, rope: false }
+      - { id: barrel6, x: 981, y: -132, w: 35, h: 5, rope: false }
+    combos:
+      - [0, 0, 0, 1, 1, 1]
+      - [0, 0, 1, 0, 1, 1]
+      - [0, 0, 1, 1, 0, 1]
+      - [0, 0, 1, 1, 1, 0]
+      - [0, 1, 0, 0, 1, 1]
+      - [0, 1, 0, 1, 0, 1]
+      - [0, 1, 0, 1, 1, 0]
+      - [0, 1, 1, 0, 0, 1]
+      - [0, 1, 1, 0, 1, 0]
+      - [0, 1, 1, 1, 0, 0]
+      - [1, 0, 0, 0, 1, 1]
+      - [1, 0, 0, 1, 0, 1]
+      - [1, 0, 0, 1, 1, 0]
+      - [1, 0, 1, 0, 0, 1]
+      - [1, 0, 1, 0, 1, 0]
+      - [1, 0, 1, 1, 0, 0]
+      - [1, 1, 0, 0, 0, 1]
+      - [1, 1, 0, 0, 1, 0]
+      - [1, 1, 0, 1, 0, 0]
+      - [1, 1, 1, 0, 0, 0]
+    clear:
+      eventProperty: 4stageclear
+  - stage: 5
+    map: 103000804
+    name: Bosses and passes
+    npc: 9020001
+    solver: kill-collect-hand-in
+    mobs: [9300000, 9300002, 9300003]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: fights too, collects the passes and hands 10 to Cloto at the top of the map
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+        note: fights the stage's monsters, loots their passes and drops them by the leader
+    items:
+      - id: 4001008
+        name: Pass
+        cleanup: true
+    objectives:
+      - id: hunt
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300003
+        item: 4001008
+        count: 10
+        note: every monster here (7 x 9300000, 3 x 9300002, King Slime 9300003) drops one pass; they do not respawn
+      - id: give-pass
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001008
+        count: 1
+        note: drop the passes next to the leader, the leader loots them
+      - id: hand-passes
+        kind: HAND_IN
+        role: leader
+        npc: 9020001
+        item: 4001008
+        count: 10
+        note: Cloto takes 10 passes, sets 5stageclear and clears the PQ (eim.clearPQ); then everyone claims the prize
+    clear:
+      eventProperty: 5stageclear

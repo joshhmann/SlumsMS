@@ -249,6 +249,14 @@ public final class OwnedAltCompanion {
             }
             // 161: the shared party-support path (heal, buff pots) - the same call a population grinder makes
             soloMapling.ArtificialPlayer.BotAttackSystem.BotPartySupport.tick(alt);
+            if (soloMapling.mechanics.MechanicsHold.committed(alt)) {
+                // 1.6.1 KPQ automation: a party-quest run drives the alt (the same PQ logic as party bots)
+                if (s.fighting) {
+                    s.fighting = false;
+                }
+                s.doing = "playing the party quest";
+                return;
+            }
             if (catchUp(owner, alt, s, now)) {
                 return;
             }

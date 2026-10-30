@@ -73,6 +73,8 @@ public final class QaMenuCatalog {
         add("pq-2", v(), steps());
         add("dj-1", v("1", "5"), steps("check"));
         add("ex-1", v("1", "5"), steps()); // 1.6.0: party bots join your boss expedition
+        add("mx-1", v("perfect"), steps()); // 1.7.0 ticket 130: four bots clear Kerning PQ stage 1 on their own
+        add("mx-2", v("perfect"), steps()); // 1.6.1 KPQ automation: four bots play all of Kerning PQ on their own
         section("Couples and weddings");
         add("cp-1", v("married", "friends", "married same", "married mixed"), steps("step"));
         add("we-1", v("same", "mixed"), steps());

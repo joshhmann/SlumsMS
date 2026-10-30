@@ -1151,7 +1151,27 @@ public class EventInstanceManager {
         return alts;
     }
 
+    /**
+     * 1.6.1 (KPQ automation): the owned alts that already had this instance's prize, as "id:level". An alt now claims
+     * its own prize at the reward NPC (the PQ logic is shared with population bots) and still gets one through its
+     * owner's claim: whichever comes first gives it, the second gives nothing. Players are not tracked (their scripts
+     * decide how often they are rewarded).
+     */
+    private final Set<String> altsRewarded = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     boolean giveOwnEventReward(Character player, int eventLevel) {
+        String altKey = player.isOwnedAlt() ? player.getId() + ":" + eventLevel : null;
+        if (altKey != null && altsRewarded.contains(altKey)) {
+            return true; // this alt already had its prize here
+        }
+        boolean given = giveOwnEventRewardOnce(player, eventLevel);
+        if (given && altKey != null) {
+            altsRewarded.add(altKey);
+        }
+        return given;
+    }
+
+    boolean giveOwnEventRewardOnce(Character player, int eventLevel) {
         List<Integer> rewardsSet, rewardsQty;
         Integer rewardExp;
 
@@ -1185,10 +1205,19 @@ public class EventInstanceManager {
             return false;
         }
 
-        AbstractPlayerInteraction api = player.getAbstractPlayerInteraction();
         int rnd = (int) Math.floor(Math.random() * rewardsSet.size());
-
-        api.gainItem(rewardsSet.get(rnd), rewardsQty.get(rnd).shortValue());
+        if (player.getClient() == null || player.getClient().getPlayer() != player) {
+            // 1.6.1 (KPQ automation): a population bot shares a headless client with no player, so the
+            // client-side path would give the prize to nobody (or throw): it takes the bot's inventory path
+            client.inventory.Item prize = soloMapling.ArtificialPlayer.BotHoldings.newItem(rewardsSet.get(rnd),
+                    rewardsQty.get(rnd));
+            if (prize == null || !soloMapling.ArtificialPlayer.BotHoldings.grantItem(player, prize)) {
+                return false;
+            }
+        } else {
+            AbstractPlayerInteraction api = player.getAbstractPlayerInteraction();
+            api.gainItem(rewardsSet.get(rnd), rewardsQty.get(rnd).shortValue());
+        }
         if (rewardExp > 0) {
             player.gainExp(rewardExp);
         }

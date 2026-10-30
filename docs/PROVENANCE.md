@@ -113,6 +113,28 @@ count as neither value nor cost in the score; a quest is a BotLife goal with GOA
 in a capped log in their life profile (`BotQuestLog`); rewards go through `BotYieldCaps`; the chat answers come from
 the bot's own log (ticket 156).
 
+#### KPQ automation, 1.6.1 (branch `162-contentruns`, ticket 130)
+
+Ideas only, no code copied: our orchestrator, solvers and stage data are our own, checked against our scripts.
+
+| Source @ commit | What it gave | Our files | Switch |
+| --- | --- | --- | --- |
+| Kiwiism/cosmic_agents (https://github.com/Kiwiism/cosmic_agents, AGPL-3.0) @ `3c7e09435`, `AgentKpqDefinition`, `AgentKpqCombinationOrder` | Cross-check of the KPQ answers, rectangles and combos (theirs list the stage-2 ropes in another order; ours follow `9020001.js`); the "one mover" order for wrong formations (two members stay, one moves), reimplemented as a chain ending one mover from the answer | `content/kpq.yaml`, `CombinationSolver.plannedWrongCombos` | `-Dslums.mechanics=true` |
+| nutnnut/Cosmic (https://github.com/nutnnut/Cosmic, AGPL-3.0) @ `77e0c5bc9` (dev), `pq/BotKpqStage1`, `pq/BotKpqStage5` | Read for the stage flow (coupon target, the stage-5 reward). Not taken: their stage-5 reward without the NPC (`giveEventReward` called directly) and cosmic_agents' missing-pass recovery (sets the clear property / adds passes): our bots claim the prize by talking to Cloto and every pass comes from a monster | `KillCollectHandInSolver`, `Orchestrator.afterClearTick` | `-Dslums.mechanics=true` |
+
+#### Temple of Time driver, 1.6.1 (branch `162-contentruns`, ticket 158 item 5), nutnnut/Cosmic `77e0c5bc9` (branch `dev`)
+
+| From theirs | Our files |
+| --- | --- |
+| `server.bots.BotTempleProgressionManager`: the mainline chain 3500-3521 with its NPCs and lanes, the job sub-quest that unlocks 3507, the Sorcerer's potion, a per-bot "ambition" level to start at, stepping aside when a lane is crowded | `soloMapling/ArtificialPlayer/BotQuestSystem/TempleRoute.java`, `TempleOfTime.java`, `TempleLanes.java` |
+
+Ours: the driver feeds ticket 158's quest path (a BotLife `QUEST` goal, `BotQuestLog`) instead of an autopilot errand;
+lane dispersal is a cap per map and channel with a channel change before stepping aside; the lane exits are bot
+transit edges gated by the exit's quest (`timeQuest.js`, run in a test) and Temple maps are gated by progress; the
+sub-quests, 3507's end and 3514 run through their own quest scripts (`BotQuestScript`), where upstream calls
+`forceStart`/`forceComplete` and grants the potion itself; 3521 is not driven; every number is checked against
+Quest.wz, Map.wz and our scripts (`TempleRouteTest`).
+
 ### Monster Book addon (branch `addon-monsterbook`, ticket 19)
 
 Source: the "MonsterBook Publish" addon package. Its server half (`server-cosmic/`) and its data tool

@@ -1,0 +1,3 @@
+# Ticket 130 stage data: one file per line, read through soloMapling.DataFiles so a jar-only install finds them
+# (a folder cannot be listed inside the jar). Add every new content file here; StageDataTest checks the list.
+kpq.yaml

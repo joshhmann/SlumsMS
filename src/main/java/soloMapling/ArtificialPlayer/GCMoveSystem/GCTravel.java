@@ -420,6 +420,14 @@ final class GCTravel {
             finish(trip, false);
             return true;
         }
+        if (e.questGate() > 0
+                && !soloMapling.ArtificialPlayer.BotQuestSystem.TempleOfTime.passes(bot, e.questGate())) {
+            // timeQuest.js sends anyone without the lane's quest back to the safe lane: no free pass
+            BotLogger.log("[GCTravel] " + bot.getName() + " has not completed quest " + e.questGate() + " for '"
+                    + e.name() + "' on map " + e.fromMapId() + " - trip failed");
+            finish(trip, false);
+            return true;
+        }
         if (e.via() == BotTransit.Via.HYPER_ROCK) {
             long left = BotTransit.hyperCooldownLeftMs(bot);
             if (left > 0) {

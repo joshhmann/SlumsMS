@@ -221,6 +221,19 @@ public final class BotHoldings {
      *
      * @return false when the whole quantity does not fit; nothing is granted and {@code item} is left untouched.
      */
+    /**
+     * 1.6.1 (KPQ prizes, NPC hand-outs): a fresh item as the game makes one for an NPC or event reward: an equip with
+     * its stock stats ({@code ItemInformationProvider.getEquipById}), anything else a plain stack. Null for an equip id
+     * the item data does not know.
+     */
+    public static Item newItem(int itemId, int quantity) {
+        if (constants.inventory.ItemConstants.getInventoryType(itemId) == client.inventory.InventoryType.EQUIP) {
+            Item equip = server.ItemInformationProvider.getInstance().getEquipById(itemId);
+            return equip;
+        }
+        return new Item(itemId, (short) 0, (short) Math.max(1, Math.min(Short.MAX_VALUE, quantity)));
+    }
+
     public static boolean grantItem(Character bot, Item item) {
         Inventory inv = bot.getInventory(item.getInventoryType());
         inv.lockInventory();

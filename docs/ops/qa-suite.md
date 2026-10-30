@@ -247,6 +247,33 @@ in the buyer's notes, and invites them to Maple Messenger, where it types the co
 for 30 s and the note window pops instead. Cash Shop > coupon: the code with or without dashes adds 10,000 NX credit
 once; the same code again says it was used. Auto-QA t-nx-1 (messenger) and t-nx-2 (note) drive it with AutoQaTwo.
 
+## mx-1: bots clear Kerning PQ stage 1 on their own (1.7.0, ticket 130)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `mx-1 [perfect]` | Needs `-Dslums.mechanics=true` (refused, and t-mx-1 SKIPs, without it). Spawns four level 30-35 bots next to Lakelis on Kerning City (103000000) of your channel, makes them a party (the first bot leads), starts the Kerning PQ as Lakelis does (same eligibility check; refused while another party is in KPQ on the channel) and runs the mechanics orchestrator on the instance. Stage 1 must clear within 15 minutes. `perfect`: no wrong tries. The bots leave the party (the PQ ends) and the world 20 s after the run, or at stop. Runs 18 minutes | `MX1 START kpq stage 1 with 4 bots`, `RUN <bot id> got answer <n>, will try [...] first`, `NPC <bot> -> 9020001 with <n> x 4001007: "..."` per hand-in (a wrong try gets Cloto's "not the right answer"), `DROP <bot> drops 1 x 4001008 for <leader>`, `RUN stage 1 cleared in <s> s`, `MX1 PASS cleared stage 1 in <s> s (limit 900 s)`; a script that fails for a bot logs `FAILED:` |
+
+Ticket 130 phase 1. The answerers ask Cloto through our own `scripts/npc/9020001.js` (run for the bot with the bot as
+the player), kill Ligators with the attacks FollowerFight already uses, collect exactly their answer in coupons (a
+persona shows 0-2 wrong hand-ins on the way up: a mixed-up answer or one short), trade them for a pass and drop it by
+the leader, who waits by Cloto and hands in one pass per other member. In game: `!mechanics kpq me` puts you in the
+party as leader with three bots: pick up the passes they drop at your feet and talk to Cloto. Auto-QA: t-mx-1.
+
+## mx-2: bots play all of Kerning PQ on their own (1.6.1, KPQ automation, ticket 130)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `mx-2 [perfect]` | Needs `-Dslums.mechanics=true` (refused, and t-mx-2 SKIPs, without it). Four level 30-35 bots next to Lakelis on Kerning City (103000000) of your channel, a party (the first bot leads); the leader talks to Lakelis through his own script (`scripts/npc/9020000.js`, "I want to participate"). The bots play stages 1-5 (coupons; ropes, platforms and barrels: the leader opens each stage with Cloto and checks every formation; the bosses' passes), walk into each opened `next00` portal, take their prize from Cloto (who sends them to the bonus), hunt the bonus for 60-150 s and leave through Nella. The PQ must clear within 25 minutes (KPQ's timer is 30) and every bot must reach the bonus. Runs 31 minutes | `MX2 START kpq with 4 bots`, `RUN stage <n>: ...` role lines, `RUN <leader id> got answer <n>, will try [...] first` (combination stages), `NPC <bot> -> 9020001 (check <n>)` per check (a wrong formation shows the wrong effect), `RUN stage <n> cleared in <s> s`, `NPC <bot> -> 9020001 (claim the prize)`, `RUN <bot id> hunts the bonus for <s> s`, `NPC <bot> -> 9020002 (leave the bonus)`, `MX2 PASS cleared kpq in <s> s (limit 1500 s) ... 4 prizes taken`; a script that fails for a bot logs `FAILED:`, a shut portal `portal next00 on <map> is still shut` |
+
+In game: `!mechanics kpq me` puts you in the party as leader with three bots for the whole PQ: stage 1 passes and stage 5
+passes are dropped at your feet; on stages 2-4 talk to Cloto once to open the stage, the bots stand on the answer (a
+bot says when it is ready) and you check it. With your owned alts in your party (summon them, go to Lakelis, start
+KPQ), the alts play the stages the same way (one PQ logic for bots and alts); each alt gets one prize whether it
+claims first or you do. `!mechanics kpq stage3` stops a staged run after stage 3. What to watch on a real client:
+the ropes (do the bots hang still inside the rope's middle?), the barrels (5 px tall: do they stand on top?), and
+the attacks on stage 1's Ligators and stage 5's bosses (the client drops remote attacks with a pose it does not
+expect).
+
 ## xc-1: the NX exchange in game (1.6.1, ticket 113)
 
 | Test | What it stages | What to look for |

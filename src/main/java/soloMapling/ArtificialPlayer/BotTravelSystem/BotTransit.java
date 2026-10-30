@@ -43,10 +43,20 @@ public final class BotTransit {
     // (-1/null = the map's default). beginnerFare < 0 means a Beginner pays the normal fare. minLevel and
     // minRebirths are the script's own checks (0 = none): the planner never offers an edge whose rebirth check
     // the bot fails, and boarding refuses a bot under minLevel (the trip fails rather than warping past it).
+    // questGate (ticket 158 item 5): the script lets only a character that completed this quest through (the Temple
+    // of Time's lane exits, timeQuest.js); boarding refuses any other bot, as for minLevel. 0 = none.
     public record Edge(String name, int fromMapId, int toMapId, Via via, int npcId, int sellerNpcId,
                        String portalName, int fare, int beginnerFare, String event, boolean serverDriven,
                        int sec, int toPortalId, String toPortalName, String saveLocation, String returnToSaved,
-                       int minLevel, int minRebirths) {
+                       int minLevel, int minRebirths, int questGate) {
+
+        public Edge(String name, int fromMapId, int toMapId, Via via, int npcId, int sellerNpcId,
+                    String portalName, int fare, int beginnerFare, String event, boolean serverDriven,
+                    int sec, int toPortalId, String toPortalName, String saveLocation, String returnToSaved,
+                    int minLevel, int minRebirths) {
+            this(name, fromMapId, toMapId, via, npcId, sellerNpcId, portalName, fare, beginnerFare, event,
+                    serverDriven, sec, toPortalId, toPortalName, saveLocation, returnToSaved, minLevel, minRebirths, 0);
+        }
 
         public Edge(String name, int fromMapId, int toMapId, Via via, int npcId, int sellerNpcId,
                     String portalName, int fare, int beginnerFare, String event, boolean serverDriven,
@@ -112,7 +122,11 @@ public final class BotTransit {
         if (local == null) {
             synchronized (BotTransit.class) {
                 if (byFrom == null) {
-                    byFrom = index(loadFile(), id -> isPortalinCurrentVersion(id));
+                    List<Edge> edges = new ArrayList<>(loadFile());
+                    if (soloMapling.ArtificialPlayer.BotQuestSystem.TempleOfTime.enabled()) {
+                        edges.addAll(templeExits()); // ticket 158 item 5: only with the Temple driver on
+                    }
+                    byFrom = index(edges, id -> isPortalinCurrentVersion(id));
                 }
                 local = byFrom;
             }
@@ -204,6 +218,19 @@ public final class BotTransit {
             frozen.put(en.getKey(), List.copyOf(en.getValue()));
         }
         return Map.copyOf(frozen);
+    }
+
+    /**
+     * Ticket 158 item 5: the Temple of Time's lane exits ({@code scripts/portal/timeQuest.js}, portal {@code in00}) as
+     * free portal edges a bot may only take once it completed the exit's quest (TempleRoute.EXITS).
+     */
+    public static List<Edge> templeExits() {
+        List<Edge> out = new ArrayList<>();
+        for (var e : soloMapling.ArtificialPlayer.BotQuestSystem.TempleRoute.EXITS) {
+            out.add(new Edge("lane exit", e.fromMap(), e.toMap(), Via.PORTAL, -1, -1, "in00", 0, -1, null, true, 20,
+                    -1, "out00", null, null, 0, 0, e.quest()));
+        }
+        return out;
     }
 
     public static List<Edge> from(int mapId) {
