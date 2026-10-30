@@ -676,6 +676,21 @@ class WorldTest(unittest.TestCase):
         self.assertEqual(re.findall(r"^    (\w+): \{ src", rewards[:rewards.index("};")], re.M),
                          list(market_service.REWARD_CARDS))
 
+    def test_my_market_links_traders_only_with_world(self):
+        # b031: a private build without World linked My market to world/rankings/traders and failed its own check
+        from sections import market
+        for built, linked in ((set(), False), ({"world"}, True)):
+            tmp = tempfile.mkdtemp()
+            saved = set(build.common.BUILT)
+            build.common.BUILT.clear(); build.common.BUILT.update(built)
+            try:
+                market.build_board(market.Market(market.load(self.market), {}, tmp))
+                with open(os.path.join(tmp, "market", "mine.html"), encoding="utf-8") as f:
+                    self.assertEqual(linked, "rankings/traders" in f.read(), built)
+            finally:
+                build.common.BUILT.clear(); build.common.BUILT.update(saved)
+                shutil.rmtree(tmp)
+
     def test_exchange_hidden_until_open(self):
         # owner, 2026-10-29: the exchange's link stays hidden and Slums-chan keeps to neutral lines until it opens (b067)
         from sections import market

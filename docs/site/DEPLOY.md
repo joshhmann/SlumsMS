@@ -127,7 +127,9 @@ scp dist/slums-site.tar.gz root@<lxc-address>:/tmp/
 ssh root@<lxc-address> 'rm -rf /srv/slums-site/* && tar -xzf /tmp/slums-site.tar.gz -C /srv/slums-site --strip-components=1'
 ```
 
-## 3b. Release night for the 1.6.1 site (owner's go for each step)
+## 3b. Release night for the 1.6.2 site (owner's go for each step)
+
+The 1.6.1 site work ships with 1.6.2 (owner, 2026-10-30: no separate 1.6.1); "1.6.1" below means that work.
 
 In this order; each step has its check, and stop at the first one that fails. `S=<UTC stamp>` for the backups. The
 market and World rebuild timers, and the market service, run the code in `/opt/slums-site-build`, so the timers stay

@@ -623,7 +623,9 @@ def build_board(mk):
             '<ul class="mkmine" id="mk-alerts"></ul></section>'
             '<section class="panel"><h2 class="bar">Your posts <a href="{root}market/board.html">Board &raquo;</a></h2>'
             '<ul class="mkmine" id="mk-posts"></ul></section>'
-            '<section class="panel" id="trades"><h2 class="bar">My trades <a href="{root}world/rankings/traders.html">Traders &raquo;</a></h2>'
+            '<section class="panel" id="trades"><h2 class="bar">My trades '
+            # b031: a build without World has no rankings to link to
+            + ('<a href="{root}world/rankings/traders.html">Traders &raquo;</a>' if "world" in common.BUILT else "") + '</h2>'
             '<p class="small" style="padding:8px 16px 0;margin:0">Trades your characters finished and the ones that fell '
             'through, the same counts the Traders ranking uses. The ranking lists characters with at least 5 trades.</p>'
             '<ul class="mkmine" id="mk-trades"></ul></section></div>')
