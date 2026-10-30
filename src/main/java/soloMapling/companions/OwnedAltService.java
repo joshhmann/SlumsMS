@@ -532,6 +532,29 @@ public final class OwnedAltService {
         return moved;
     }
 
+    /**
+     * Audit 163 (report B17): the alts still out when the server shuts down - normally none (each owner's disconnect
+     * in the players' save phase sends theirs home), but an owner whose save failed or timed out, or a FAILED alt not
+     * yet given up on, leaves some. The shutdown saves these explicitly in the players' phase, under its budget, with
+     * each failure logged, instead of leaving them to the channels' teardown after every budgeted phase.
+     */
+    public synchronized List<Character> outForShutdown() {
+        List<Character> out = new ArrayList<>();
+        entries.values().forEach(e -> {
+            if (e.alt != null && (e.state == State.ACTIVE || e.state == State.FAILED && !e.detached)) out.add(e.alt);
+        });
+        return out;
+    }
+
+    /** Audit B17: saves and sends home one alt at shutdown (throws when the save fails, for the shutdown's log). */
+    public void closeForShutdown(Character alt) {
+        synchronized (this) {
+            Entry e = entries.get(alt.getId());
+            if (e == null || e.alt != alt) return;
+        }
+        finish(alt.getId(), false);
+    }
+
     /** 1.6.1 ticket 13: an alt out in the world with its owner (the companion driver's view). */
     public record Active(Character owner, Character alt) {}
 

@@ -223,4 +223,22 @@ class OwnedAltLifecycleAuditTest {
         assertTrue(s.catchUp(owner, alt));
         assertEquals(List.of(2), moved);
     }
+
+    /** Audit B17: the shutdown finds every alt still out and saves it, with a failure it can log. */
+    @Test void theShutdownSavesEveryAltStillOut() {
+        OwnedAltServiceTest.Memory db = new OwnedAltServiceTest.Memory(); db.add(2); db.add(3);
+        OwnedAltService s = new OwnedAltService(db, () -> true);
+        Character a = owner(1), b = owner(9);
+        s.summon(a, "Alt2");
+        s.summon(b, "Alt3");
+        List<Character> out = s.outForShutdown();
+        assertEquals(2, out.size());
+        db.saving = () -> { throw new IllegalStateException("disk full"); };
+        Character first = out.get(0);
+        assertThrows(IllegalStateException.class, () -> s.closeForShutdown(first), "a failure reaches the log");
+        db.saving = () -> {};
+        for (Character alt : s.outForShutdown()) s.closeForShutdown(alt); // the failed one is tried again
+        assertTrue(s.outForShutdown().isEmpty());
+        assertTrue(db.online.isEmpty());
+    }
 }

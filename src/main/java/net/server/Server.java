@@ -2138,6 +2138,7 @@ public class Server {
         ShutdownSaves.run(new ShutdownSaves.Steps() {
             @Override
             public void saveRealPlayers(long budgetMs) {
+                long phaseStart = System.nanoTime();
                 List<Client> clients = new ArrayList<>(connectedClients.values());
                 // A disconnect closes the player's trades and shops (refunding a bot on the other side, which is
                 // written later) and saves the character, straight on the pool: never through the bots' share.
@@ -2153,6 +2154,22 @@ public class Server {
                 for (Client c : result.timedOut()) {
                     String who = c.getPlayer() != null ? c.getPlayer().getName() : "acc:" + c.getAccountName();
                     log.warn("Shutdown: the save of {} was not done after {} ms", who, budgetMs);
+                }
+                // Audit 163 (B17): owned alts still out (an owner's save failed or ran late) are saved here, in the
+                // players' phase and its budget, not left to the channels' teardown.
+                soloMapling.companions.OwnedAltService alts = soloMapling.companions.OwnedAltService.getInstance();
+                List<Character> out = alts.outForShutdown();
+                if (!out.isEmpty()) {
+                    long left = budgetMs - java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - phaseStart);
+                    ShutdownSaves.BatchResult<Character> altResult = ShutdownSaves.forEachWithin(out,
+                            alts::closeForShutdown, ShutdownSaves.PLAYER_SAVERS, Math.max(5_000, left));
+                    log.info("Shutdown: {} owned alt(s) saved and sent home", altResult.succeeded().size());
+                    for (ShutdownSaves.FailedItem<Character> f : altResult.failed()) {
+                        log.error("Shutdown: save of owned alt {} failed: {}", f.item().getName(), f.error().getMessage(), f.error());
+                    }
+                    for (Character a : altResult.timedOut()) {
+                        log.warn("Shutdown: the save of owned alt {} was not done in the players' budget", a.getName());
+                    }
                 }
             }
 
