@@ -178,6 +178,17 @@ class TempleOfTimeTest {
         assertEquals(Map.of(1, cap, 2, cap), perChannel, "never more than the cap on one map of one channel");
     }
 
+    /** Audit 163 (K12): an owned alt obeys the corridor too, by its own quests (it does not take the lane portals). */
+    @Test
+    void anOwnedAltObeysTheCorridor() {
+        Character alt = mock(Character.class);
+        when(alt.getId()).thenReturn(8);
+        when(alt.isBot()).thenReturn(false);
+        when(alt.isOwnedAlt()).thenReturn(true);
+        assertTrue(TempleOfTime.mayEnter(270010100, alt), "the first lane is open to all");
+        assertFalse(TempleOfTime.mayEnter(270020100, alt), "past an exit whose quest it never did");
+    }
+
     @Test
     void theCorridorOpensAsFarAsTheBotGot() {
         Character chr = mock(Character.class);

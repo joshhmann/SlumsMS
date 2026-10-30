@@ -104,6 +104,9 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
     @Override public void started(Character owner, Character alt) {
         OwnedAltCompanion.start();
     }
+    @Override public boolean mayEnter(Character alt, server.maps.MapleMap target) {
+        return target == null || soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(target.getId(), alt);
+    }
     @Override public void closing(Character alt) {
         OwnedAltCompanion.hold(alt); // audit B13: no tick (pickup, swing) inside the save window
     }

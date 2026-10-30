@@ -202,9 +202,13 @@ public final class TempleOfTime {
 
     // ── the corridor gates ──
 
-    /** Whether a bot may be sent to this map (BotMapGates): a Temple map needs the quest that opens its stretch. */
+    /**
+     * Whether a bot may be sent to this map (BotMapGates): a Temple map needs the quest that opens its stretch. Audit
+     * 163 (K12): an owned alt too - by its own real quest record - since it does not go through the lane portals'
+     * scripts either (it follows, or is caught up beside its owner).
+     */
     public static boolean mayEnter(int mapId, Character chr) {
-        if (!enabled() || chr == null || !chr.isBot()) {
+        if (!enabled() || chr == null || !(chr.isBot() || chr.isOwnedAlt())) {
             return true;
         }
         int quest = TempleRoute.questToEnter(mapId);

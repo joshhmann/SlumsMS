@@ -56,6 +56,11 @@ public final class OwnedAltService {
          * nothing it picks up or kills lands after the save reads its bag.
          */
         default void closing(Character alt) {}
+        /**
+         * Audit 163 (K12): whether the alt may be put down on the owner's map - the bots' map gates (rebirth areas,
+         * the Temple of Time corridor by its own quests), which a player's portals enforce and a catch-up skips.
+         */
+        default boolean mayEnter(Character alt, server.maps.MapleMap target) { return true; }
     }
     private enum State { LOADING, ACTIVE, SAVING, FAILED, LOGIN }
     private static final class Entry {
@@ -517,6 +522,10 @@ public final class OwnedAltService {
             synchronized (this) {
                 if (e.state != State.ACTIVE) continue;
             }
+            if (!backend.mayEnter(alt, owner.getMap())) {
+                owner.yellowMessage(alt.getName() + " can't go to this map yet.");
+                continue;
+            }
             backend.bringHere(owner, alt); // audit B14: map moves outside the monitor
             moved.add(alt.getName());
         }
@@ -574,6 +583,9 @@ public final class OwnedAltService {
         synchronized (this) {
             Entry e = entries.get(alt.getId());
             if (e == null || e.alt != alt || e.state != State.ACTIVE || !ownedBy(e, owner)) return false;
+        }
+        if (alt.getMap() != owner.getMap() && !backend.mayEnter(alt, owner.getMap())) {
+            return false; // audit K12: a catch-up never carries it past a gate it could not walk through
         }
         backend.bringHere(owner, alt); // audit B14: map moves outside the monitor
         return true;

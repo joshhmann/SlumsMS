@@ -197,4 +197,30 @@ class OwnedAltLifecycleAuditTest {
         assertNull(OwnedAltService.inviteRefusalByName(world, owner, "Friend", "answer a buddy request"));
         assertNull(OwnedAltService.inviteRefusalByName(world, owner, "Offline", "answer a buddy request"));
     }
+
+    /** Audit K12: a catch-up (or @botme here) never carries an alt onto a map its gates keep it out of. */
+    @Test void aCatchUpRespectsTheMapGates() {
+        List<Integer> moved = new ArrayList<>();
+        boolean[] open = {false};
+        OwnedAltServiceTest.Memory db = new OwnedAltServiceTest.Memory() {
+            @Override public boolean mayEnter(Character alt, server.maps.MapleMap target) { return open[0]; }
+            @Override public void bringHere(Character owner, Character alt) { moved.add(alt.getId()); }
+        };
+        db.add(2);
+        OwnedAltService s = new OwnedAltService(db, () -> true);
+        Character owner = owner(1);
+        Character alt = s.summon(owner, "Alt2");
+        server.maps.MapleMap ownerMap = mock(server.maps.MapleMap.class), altMap = mock(server.maps.MapleMap.class);
+        when(owner.getMap()).thenReturn(ownerMap);
+        when(alt.getMap()).thenReturn(altMap);
+        client.Client oc = owner.getClient(), ac = mock(client.Client.class);
+        when(oc.getChannel()).thenReturn(1);
+        when(ac.getChannel()).thenReturn(1);
+        when(alt.getClient()).thenReturn(ac);
+        assertFalse(s.catchUp(owner, alt), "gated: it stays and follows on foot");
+        assertTrue(moved.isEmpty());
+        open[0] = true;
+        assertTrue(s.catchUp(owner, alt));
+        assertEquals(List.of(2), moved);
+    }
 }
