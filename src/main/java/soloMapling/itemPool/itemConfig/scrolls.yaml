@@ -42,6 +42,204 @@ Dagger:
     stat_bonus: 2
     price: { 1: 1600000 }
 
+# 1.6.1 (owner 2026-10-30): ordinary weapon attack scrolls, so bot shops stock more than claw and dagger.
+# Ids checked against String.wz/Consume.img. Priced near the Claw/Dagger lines.
+OneHandedSword:
+  - item: One-Handed Sword Att 10%
+    variant_id: [ 2043002 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 450000 }
+  - item: One-Handed Sword Att 60%
+    variant_id: [ 2043001 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1300000 }
+
+OneHandedAxe:
+  - item: One-Handed Axe Att 10%
+    variant_id: [ 2043102 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 350000 }
+  - item: One-Handed Axe Att 60%
+    variant_id: [ 2043101 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1000000 }
+
+OneHandedBW:
+  - item: One-Handed BW Att 10%
+    variant_id: [ 2043202 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 350000 }
+  - item: One-Handed BW Att 60%
+    variant_id: [ 2043201 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1000000 }
+
+Wand:
+  - item: Wand Matt 10%
+    variant_id: [ 2043702 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 500000 }
+  - item: Wand Matt 60%
+    variant_id: [ 2043701 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1500000 }
+
+Staff:
+  - item: Staff Matt 10%
+    variant_id: [ 2043802 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 450000 }
+  - item: Staff Matt 60%
+    variant_id: [ 2043801 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1400000 }
+
+TwoHandedSword:
+  - item: Two-Handed Sword Att 10%
+    variant_id: [ 2044002 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 450000 }
+  - item: Two-Handed Sword Att 60%
+    variant_id: [ 2044001 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1300000 }
+
+TwoHandedAxe:
+  - item: Two-Handed Axe Att 10%
+    variant_id: [ 2044102 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 350000 }
+  - item: Two-Handed Axe Att 60%
+    variant_id: [ 2044101 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1000000 }
+
+TwoHandedBW:
+  - item: Two-Handed BW Att 10%
+    variant_id: [ 2044202 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 350000 }
+  - item: Two-Handed BW Att 60%
+    variant_id: [ 2044201 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1000000 }
+
+Spear:
+  - item: Spear Att 10%
+    variant_id: [ 2044302 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 500000 }
+  - item: Spear Att 60%
+    variant_id: [ 2044301 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1500000 }
+
+Polearm:
+  - item: Polearm Att 10%
+    variant_id: [ 2044402 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 450000 }
+  - item: Polearm Att 60%
+    variant_id: [ 2044401 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1300000 }
+
+Bow:
+  - item: Bow Att 10%
+    variant_id: [ 2044502 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 500000 }
+  - item: Bow Att 60%
+    variant_id: [ 2044501 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1500000 }
+
+Crossbow:
+  - item: Crossbow Att 10%
+    variant_id: [ 2044602 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 500000 }
+  - item: Crossbow Att 60%
+    variant_id: [ 2044601 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1500000 }
+
+Knuckle:
+  - item: Knuckle Att 10%
+    variant_id: [ 2044802 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 350000 }
+  - item: Knuckle Att 60%
+    variant_id: [ 2044801 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1000000 }
+
+Gun:
+  - item: Gun Att 10%
+    variant_id: [ 2044902 ]
+    tier: { 1: A }
+    success_rate: 10
+    stat_bonus: 5
+    price: { 1: 350000 }
+  - item: Gun Att 60%
+    variant_id: [ 2044901 ]
+    tier: { 1: A }
+    success_rate: 60
+    stat_bonus: 2
+    price: { 1: 1000000 }
+
 Overall:
   - item: Overall Dex 10%
     variant_id: [ 2040502 ]
