@@ -8,8 +8,8 @@ import client.inventory.Equip;
  * never looks inside the gear code: it calls this.
  *
  * The signature is the one ticket 162's GearScoring.upgradeValue has (branch 162-gearopt, the new gear optimizer):
- * once that branch is merged, LIVE becomes GearScoring.live()::upgradeValue (one line, below) and the plan ranks by
- * the same answer bots dress by. Until then it is AttackGainScore: the bot damage yardstick on a slot-for-slot swap.
+ * since release-1.6.2 merged both, live() is GearScoring.live()::upgradeValue and the plan ranks by the same answer
+ * bots dress by (AttackGainScore, the slot-for-slot stand-in, is no longer the live scorer).
  */
 @FunctionalInterface
 public interface MakerGearScore {
@@ -18,8 +18,8 @@ public interface MakerGearScore {
      * wears there now; 0 when it would not be worn (no gain, cannot wear it, unknown item). Never moves an item. */
     double upgradeValue(Character chr, Equip candidate);
 
-    /* The live scorer. 162-gearopt: replace with GearScoring.live()::upgradeValue. */
+    /* The live scorer: ticket 162's GearScoring, the one scorer bots and alts dress by. */
     static MakerGearScore live() {
-        return AttackGainScore.INSTANCE;
+        return soloMapling.ArtificialPlayer.BotGearSystem.GearScoring.live()::upgradeValue;
     }
 }
