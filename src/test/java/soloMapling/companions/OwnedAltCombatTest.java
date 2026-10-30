@@ -200,6 +200,19 @@ class OwnedAltCombatTest {
         }
     }
 
+    /** Audit (A2): an area swing never catches a party-engaged mob beyond the 650 px owner leash. */
+    @Test
+    void anAreaSwingKeepsToTheOwnerLeash() {
+        Monster near = mob(600, OWNER);
+        Monster far = mob(700, OWNER);   // engaged, 690 px from the alt's... 700 px from the owner
+        MapleMap f = map(List.of(near, far));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 300, true);
+        Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
+        assertTrue(OwnedAltCombat.driverMayFace(near, f, owner, alt, party, NOW));
+        assertFalse(OwnedAltCombat.driverMayFace(far, f, owner, alt, party, NOW),
+                "within the alt's 700 px seek range, but past the owner leash");
+    }
+
     @Test
     void theDriverOnlyFacesThePartysFightNeverAQuietWildMob() {
         // t-oa-1: the attack driver faced the nearest wild mob (mayHit alone), not the alt's target

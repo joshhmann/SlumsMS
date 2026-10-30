@@ -145,7 +145,16 @@ public final class OwnedAltCombat {
      */
     static boolean driverMayFace(Monster m, MapleMap map, Character owner, Character alt, Set<Integer> party,
                                  long now) {
-        return mayHit(m, map, party) && engaged(m, owner, alt, party, now);
+        // audit (report A2): the owner leash holds for every mob a swing catches, area attacks included, not only for
+        // the target it picks
+        return byOwner(m, owner) && mayHit(m, map, party) && engaged(m, owner, alt, party, now);
+    }
+
+    /** The mob is within the owner leash ({@link #LEASH_X_PX} across, {@link #LEASH_Y_PX} up or down). */
+    static boolean byOwner(Monster m, Character owner) {
+        Point mp = m == null ? null : m.getPosition();
+        Point op = owner == null ? null : owner.getPosition();
+        return mp != null && op != null && Math.abs(mp.x - op.x) <= LEASH_X_PX && Math.abs(mp.y - op.y) <= LEASH_Y_PX;
     }
 
     /** The mob the alt goes for now: the nearest engaged one by its owner, or null (it follows instead). */
@@ -173,7 +182,7 @@ public final class OwnedAltCombat {
             if (mp == null || !m.isAlive() || !BotAttackDriver.botMayTarget(m)) {
                 continue;
             }
-            if (Math.abs(mp.x - op.x) > LEASH_X_PX || Math.abs(mp.y - op.y) > LEASH_Y_PX) {
+            if (!byOwner(m, owner)) {
                 continue;
             }
             if (!engaged(m, owner, alt, party, now) || skip.test(m) || !BotAttackDriver.onAttackableSurface(map, at, m)
