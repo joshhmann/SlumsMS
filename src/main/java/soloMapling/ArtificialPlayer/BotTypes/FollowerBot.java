@@ -309,6 +309,27 @@ public class FollowerBot extends BotSM {
                 }
                 nudgeSoon(0L);
             }
+            // 1.6.2 ticket 99 (COMPANION_ORDERS_ENABLED): the companion movement set. A bot friend fights only on a
+            // dojo floor, so a sentry holds like a stay; a patrol trains here as "grind" does.
+            case MOVE_HERE -> {
+                followPhase = FollowPhase.STAY;
+                leaderLostSinceMs = 0;
+                GCMovement.stop(getChr());
+                java.awt.Point at = player.getPosition();
+                if (at != null && player.getMap() == getChr().getMap()) {
+                    GCMovement.move(getChr(), at.x, at.y);
+                }
+                sayNode("Stay", player);
+            }
+            case SENTRY -> {
+                followPhase = FollowPhase.STAY;
+                leaderLostSinceMs = 0;
+                GCMovement.stop(getChr());
+                sayNode("Stay", player);
+            }
+            case PATROL -> onMenuSelect(0, player);
+            default -> {
+            }
         }
         return true;
     }

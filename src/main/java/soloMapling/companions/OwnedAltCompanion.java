@@ -14,6 +14,11 @@ import soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths;
 import soloMapling.ArtificialPlayer.BotDecoratorSystem.BotWeapons;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionItems;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionSwitches;
+import soloMapling.ArtificialPlayer.BotSupplySystem.SupplyShare;
+import soloMapling.ArtificialPlayer.BotTradeSystem.BotGiveTrade;
 import soloMapling.qa.QaLog;
 import tools.PacketCreator;
 
@@ -86,6 +91,10 @@ public final class OwnedAltCompanion {
         long lastLandedMs;
         final Map<Integer, Long> skip = new HashMap<>(); // mob oid -> until when it is left alone (stalled on it)
         volatile String doing = "nothing yet";
+        // 1.6.2 ticket 99: holding a stance spot (CompanionStance), and the sibling supply check
+        int holdX = Integer.MIN_VALUE;
+        long holdIssuedMs;
+        long nextShareMs;
         // QA counters (t-oa-1)
         final AtomicLong swings = new AtomicLong();
         final AtomicLong damageDealt = new AtomicLong();
@@ -137,6 +146,7 @@ public final class OwnedAltCompanion {
         }
         BotAttackDriver.setTargetFilter(alt.getId(), null);
         BotAttackDriver.clearBot(alt.getId());
+        CompanionStance.forget(alt.getId()); // 1.6.2 ticket 99
         BotDeaths.clearBot(alt.getId());
         OwnedAltCombat.forget(alt.getId());
     }
@@ -192,9 +202,21 @@ public final class OwnedAltCompanion {
         owners.addAll(ownerIds);
         states.keySet().removeIf(id -> !altIds.contains(id));
         long now = System.currentTimeMillis();
+        // 1.6.2 ticket 99: each alt's formation place, by its slot among the owner's party companions
+        Map<Integer, List<soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Target>> slotsOf = new HashMap<>();
+        boolean formations = CompanionSwitches.orders();
         for (OwnedAltService.Active a : active) {
             Character alt = a.alt();
             State s = states.computeIfAbsent(alt.getId(), State::new);
+            if (formations) {
+                var slots = slotsOf.computeIfAbsent(a.owner().getId(),
+                        id -> soloMapling.ArtificialPlayer.BotPartySystem.PartyBotOrders.slots(a.owner()));
+                int idx = 0;
+                while (idx < slots.size() && slots.get(idx).id() != alt.getId()) {
+                    idx++;
+                }
+                GCMovement.setFollowOffset(alt, CompanionStance.formation(a.owner().getId()).offsetFor(idx));
+            }
             int others = fightingOn.getOrDefault(alt.getMap(), 0) - (s.fighting ? 1 : 0);
             try {
                 tick(a.owner(), alt, s, now, others);
@@ -252,8 +274,11 @@ public final class OwnedAltCompanion {
 
             String weapon = weaponProblem(alt);
             s.skip.values().removeIf(until -> until <= now);
+            // 1.6.2 ticket 99: a staying alt goes after nothing, a sentry only what comes near its spot
+            CompanionStance.Stance stance = CompanionSwitches.orders() ? CompanionStance.of(alt.getId(), alt.getMapId()) : null;
             Monster target = weapon == null
-                    ? OwnedAltCombat.target(owner, alt, party, now, m -> s.skip.containsKey(m.getObjectId())) : null;
+                    ? OwnedAltCombat.target(owner, alt, party, now, m -> s.skip.containsKey(m.getObjectId())
+                    || !CompanionStance.mayChase(stance, m.getPosition())) : null;
             if (target == null && weapon != null && !s.toldWeapon
                     && OwnedAltCombat.target(owner, alt, party, now) != null) {
                 s.toldWeapon = true;
@@ -271,14 +296,106 @@ public final class OwnedAltCompanion {
             if (loot(owner, alt, party, s, now)) {
                 return;
             }
+            if (now >= s.nextShareMs) {
+                s.nextShareMs = now + SHARE_CHECK_MS;
+                askSiblings(owner, alt);
+            }
             keepFollowing(owner, alt);
             s.doing = "following";
         }
     }
 
     private static void keepFollowing(Character owner, Character alt) {
+        if (holdStance(alt)) {
+            return;
+        }
         if (!GCMovement.isFollowing(alt) && !GCMovement.isTraveling(alt)) {
             GCMovement.follow(alt, owner);
+        }
+    }
+
+    /** How often an alt checks whether it runs low on a supply a sibling could share (1.6.2 ticket 99). */
+    static final long SHARE_CHECK_MS = 15_000;
+    /** A hold move that did not get there is tried again after this long. */
+    static final long HOLD_RETRY_MS = 3_000;
+
+    /**
+     * 1.6.2 ticket 99: an alt told to stay, move here, guard or patrol (CompanionStance) holds its spot instead of
+     * following - only on the map it was told on, and only while its owner keeps it out (the gate still rules its
+     * fighting). True when it holds (it walks to its spot, or stands there).
+     */
+    private static boolean holdStance(Character alt) {
+        if (!CompanionSwitches.orders()) {
+            return false;
+        }
+        CompanionStance.Stance stance = CompanionStance.of(alt.getId(), alt.getMapId());
+        java.awt.Point at = alt.getPosition();
+        java.awt.Point spot = CompanionStance.holdPoint(stance, at);
+        if (spot == null) {
+            return false;
+        }
+        State s = states.get(alt.getId());
+        if (GCMovement.isFollowing(alt) || GCMovement.isTraveling(alt)) {
+            GCMovement.stop(alt);
+        }
+        if (at == null || Math.abs(at.x - spot.x) <= CompanionStance.THERE_PX && Math.abs(at.y - spot.y) <= 60) {
+            if (s != null) {
+                s.holdX = Integer.MIN_VALUE;
+                s.doing = "holding (" + stance.mode + ")";
+            }
+            return true;
+        }
+        long now = System.currentTimeMillis();
+        if (s == null || s.holdX != spot.x || now - s.holdIssuedMs > HOLD_RETRY_MS && !GCMovement.isMoving(alt)) {
+            java.awt.Point ground = alt.getMap() == null ? null : GCMovement.groundPointBelow(alt.getMap(), spot.x, spot.y);
+            GCMovement.move(alt, spot.x, ground != null ? ground.y : spot.y);
+            if (s != null) {
+                s.holdX = spot.x;
+                s.holdIssuedMs = now;
+                s.doing = "walking to its spot (" + stance.mode + ")";
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 1.6.2 ticket 99 (COMPANION_SUPPLIES_ENABLED): an alt low on potions, arrows or rocks it uses gets some from the
+     * sibling alt with the most to spare, in a normal trade between the two (the owner's own characters).
+     */
+    private static void askSiblings(Character owner, Character alt) {
+        if (!CompanionSwitches.supplies() || BotGiveTrade.isBusy(alt) || alt.getTrade() != null) {
+            return;
+        }
+        List<Character> siblings = new java.util.ArrayList<>();
+        for (OwnedAltService.Active a : OwnedAltService.getInstance().active()) {
+            if (a.owner().getId() == owner.getId() && a.alt() != alt) {
+                siblings.add(a.alt());
+            }
+        }
+        if (siblings.isEmpty()) {
+            return;
+        }
+        boolean usesMp;
+        boolean usesAmmo;
+        try {
+            var needs = soloMapling.ArtificialPlayer.BotSupplySystem.BotSupplies.needs(alt);
+            usesMp = needs.usesMp();
+            usesAmmo = needs.ammoItemId() != 0;
+        } catch (RuntimeException | LinkageError noData) {
+            return;
+        }
+        for (SupplyShare.Kind kind : SupplyShare.Kind.values()) {
+            boolean uses = switch (kind) {
+                case HP -> true;
+                case MP -> usesMp;
+                case AMMO -> usesAmmo;
+                case ROCKS -> SupplyShare.count(alt, kind, alt) > 0;
+            };
+            if (SupplyShare.low(alt, kind, uses)
+                    && CompanionItems.shareWithSibling(alt, kind, siblings, OwnedAltOrders::say)) {
+                audit(owner, alt.getName() + " gets " + SupplyShare.said(kind) + " from a sibling");
+                return;
+            }
         }
     }
 

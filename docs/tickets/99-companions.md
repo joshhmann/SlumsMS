@@ -39,3 +39,35 @@ Source: owner grill, 2026-10-25 (`docs/roadmap/1.6.0.md`, section "Owner grill")
 
 A player can recruit up to 5 bot friends and owned alts, run a PQ with them, and dismiss them, on TEST with auto-QA
 coverage and an in-game look from the owner.
+
+## nutnnut adoption (2026-10-30, owner: adopt what we haven't)
+
+Not adopted yet from upstream, for owned alts and companions (ledger NN-012):
+- Trade by category ("trade pots / scrolls / equips / 100k / <item>"), "show me your hat", drop (M).
+- Share upgrades with the owner and sibling alts, compared against the recipient's inventory; "any upgrades?" (M).
+- Pot, ammo and teleport-rock sharing among siblings and to the owner ("need pot") (S-M).
+- Commands: patrol, sentry, move here, targeting by name/prefix/slot; formations (split, spread, stack, tight,
+  loose...) (S-M).
+- Buddy-menu invite summons an alt (upstream 59f9bc091) (S).
+Rules: normal Trade only; no wording that gives a bot away; owner rule of no autopilot for alts stays.
+
+### Status 2026-10-30 (branch `162-companions`, 1.6.2 candidate): built, all switches OFF
+
+Owner, 2026-10-30: "port anything else that would benefit alt bots and playerbots", and "not separate systems for alts
+and playerbots". One shared implementation; an alt differs only in who it obeys (its owner) and how it talks (party
+chat).
+
+| Part | Status | Switch (ServerConfig, default false) | Check |
+|---|---|---|---|
+| Orders: patrol, sentry, move here, stay/follow for alts; targeting by name/prefix/slot (ticket 14 parser) | done (server) | `COMPANION_ORDERS_ENABLED` | `!qa run oa-2`; unit tests |
+| Formations: split, spread, stack, random, left, right, tight, loose, snap (alts and bot friends) | done (server) | `COMPANION_ORDERS_ENABLED` | oa-2 |
+| Trade by category with the owner (pots, hp/mp pots, scrolls, use, etc, equips, ammo, rocks, 100k, item, slot), "show me your hat", drop | done (server), normal window only | `COMPANION_TRADES_ENABLED` | oa-2 |
+| Upgrade sharing ("any upgrades?", "request?", "trade upgrades") to the owner and sibling alts | done (server) | `COMPANION_UPGRADES_ENABLED` | oa-2 |
+| Pot / ammo (arrows, bolts) / rock sharing: "need pot" to the owner, low sibling alts automatically | done (server) | `COMPANION_SUPPLIES_ENABLED` | oa-2 |
+| Party-window invite of your own offline character calls it (59f9bc091) | done (server); buddy-menu invite needs the client to show offline buddies' invite (not ported) | `OWNED_ALTS_INVITE_SUMMON_ENABLED` | oa-2 |
+| Party buffs/heals from alts | covered by 162-buildsupport (`5be4c76d7`: alts tick the shared BotPartySupport) | (theirs) | (theirs) |
+| Bot friends handing items over | not wired: population bots keep their items in BotHoldings, which a window cannot hand over yet, and it is an economy call | - | - |
+
+Player command: `@alts <order>` (the same orders as chat; `@alts` lists them). GM (read-only, audited): `!companions
+[player]`. Needs a real client: formation spacing on slopes and ledges, the trade window as the owner sees it (beats,
+window chat line), "show me your hat" (unequip/re-equip looks), drops. Not yet on TEST.

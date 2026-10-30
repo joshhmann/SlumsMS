@@ -185,3 +185,26 @@ behind economy.yaml `maker.botBatch` (off by default); the plan is read-only.
 
 | `BotMakerPlanner.java` @ `356fbfeb1` | The question and its shape: equips the character can Maker-craft right now (Maker level, materials) that would be upgrades, ranked best first. Ours: one plan for players, alts and bots, valued through `MakerGearScore` (162-gearopt's `GearScoring` plugs in), plain items only (upstream also samples stimulant and gem rolls) | `MakerPlan`, `MakerGearScore`, `AttackGainScore`, `@maker plan` | none (read-only) |
 | `BotMakerManager.java` @ `6fd0512a0`, `MakerProcessor.java` @ `1ff686027` | "Make monster crystals" and "disassemble trash" through the player's Maker path (upstream split `makeLeftoverCrystal` / `disassembleEquip` out of the packet handler). Ours: a `Hands` seam so population bots use the bot ledger, daily per-bot and world caps, monster leftovers only, junk = not an upgrade by the gear score, run at a bot's town stop or on the alt owner's `@maker crystals|scrap` | `BotMaker`, `BotMakerHands`, `MakerService.makeLeftoverCrystal` / `disassemble` | `maker.botBatch` (+ `maker.perBotDaily`, `maker.worldDaily`) |
+
+### Companion command and sharing set (ticket 99 / 162 part 3, 1.6.2, branch `162-companions`)
+
+nutnnut/Cosmic, https://github.com/nutnnut/Cosmic, AGPL-3.0 (the same licence as ours). Each port names the upstream
+commit or file in its commit message.
+
+From `dev` at `77e0c5bc9` (files) and the two commits named. Behind the switches `COMPANION_ORDERS_ENABLED`,
+`COMPANION_TRADES_ENABLED`, `COMPANION_UPGRADES_ENABLED`, `COMPANION_SUPPLIES_ENABLED`, `OWNED_ALTS_INVITE_SUMMON_ENABLED`
+(all off by default).
+
+| From theirs | Our files |
+| --- | --- |
+| `BotChatManager` command words (patrol, sentry/guard/camp, move here, trade/drop category words, "show me your hat", "any upgrades?", "request?", "trade upgrades", "need pot/ammo") and `BotCommandParser` targeting (name, prefix, slot) | `BotCommandParser` (ticket 14's parser, extended; ours already had targeting after cosmic_agents) |
+| `8fd725404` formations (split/stagger, spread, stack, random, left, right; tight/loose presets; px qualifier) | `Formation`, `CompanionStance`, `GCMovement.setFollowOffset`, `GCMovementDriver.formationPlace` |
+| `BotTradePacing` (step 900-2200 ms, confirm 1500-3000 ms) | `TradePacing` |
+| `BotInventoryManager.startTradeSequence/tickTrade/collectItems` (bot-driven window: invite, one item a beat, chat, wait for the partner, confirm) | `BotGiveTrade`, `TradeCategories`, `CompanionItems` |
+| `BotOfferManager` (offer spare gear to the owner and siblings, compared against what they wear and carry) | `GearUpgrades` (scored by our `BotGearPlanner` through a `Scorer` interface ticket 162 can replace) |
+| `BotPotionManager`, `BotAmmoManager`, `BotRockManager` (best donor, keep a reserve, share by trade) | `SupplyShare`, `CompanionItems.need/shareWithSibling` |
+| `59f9bc091` party invite of an offline own character spawns it | `OwnedAltInvite` (party-window invite only; the buddy-list "fake online" half is not ported) |
+
+Ours: one implementation for owned alts and party bot friends; every item moves through the player's own window
+path (`Trade.putFromInventory`, now shared with `PlayerInteractionHandler`) or a normal drop; stances stay inside the
+owned-alt activity gate (no autopilot); wording never gives a companion away.

@@ -100,6 +100,18 @@ public class ServerConfig {
     // the per-owner bot-friend capacity in BotRecruitManager and must stay as it is). false = "Alts are resting";
     // @dismiss still works. Code default true keeps TEST/dev as they were; live sets it false in SERVER_SET.
     public boolean OWNED_ALTS_SUMMON_ENABLED = true;
+    // 1.6.2 ticket 99 (nutnnut adoption, owner 2026-10-30): the companion command and sharing set, one implementation
+    // for owned alts and party bot friends. All off by default; each is its own switch.
+    // Orders: patrol, sentry, move here, formations (split/spread/stack/random/left/right/tight/loose/snap).
+    public boolean COMPANION_ORDERS_ENABLED = false;
+    // Trades by category with the owner ("trade pots", "trade 100k", "show me your hat", "drop etc"): normal window.
+    public boolean COMPANION_TRADES_ENABLED = false;
+    // Upgrade sharing: "any upgrades?", "request?", "trade upgrades" (spare gear vs the owner's and sibling alts').
+    public boolean COMPANION_UPGRADES_ENABLED = false;
+    // Supply sharing: "need pot" / "need ammo" / "need rocks" to the owner, and between sibling alts.
+    public boolean COMPANION_SUPPLIES_ENABLED = false;
+    // A party invite (party window or buddy menu) naming one of your own offline characters calls it as an alt.
+    public boolean OWNED_ALTS_INVITE_SUMMON_ENABLED = false;
     //1.4.2 (perf): a player entering a map gets what is in view first; bots and drops outside the view follow
     //over the next ~1.5 s (server.maps.MapEntryPlacement). false = everything in one burst, as before.
     public boolean MAP_ENTRY_TRICKLE = true;

@@ -79,6 +79,7 @@ public final class GCMovement {
             MovementCommands.releaseMovementLock(bot);
         }
         ARRIVAL_CALLBACKS.remove(bot.getId());
+        FOLLOW_OFFSETS.remove(bot.getId());
     }
 
     /*
@@ -185,6 +186,30 @@ public final class GCMovement {
 
     public static boolean isFollowing(Character bot) {
         return GCFollow.isFollowing(bot);
+    }
+
+    // 1.6.2 ticket 99: formation places - how far beside the followed character each bot stands (px, + right)
+    private static final Map<Integer, Integer> FOLLOW_OFFSETS = new ConcurrentHashMap<>();
+
+    /*
+     * 1.6.2 ticket 99 (nutnnut/Cosmic 8fd725404): a follower's formation place, this many px beside the character it
+     * follows (0 = on them, the old behaviour). Kept per bot until changed or the bot leaves dynamic control.
+     */
+    public static void setFollowOffset(Character bot, int dx) {
+        if (bot == null) {
+            return;
+        }
+        if (dx == 0) {
+            FOLLOW_OFFSETS.remove(bot.getId());
+        } else {
+            FOLLOW_OFFSETS.put(bot.getId(), dx);
+        }
+    }
+
+    /* The formation place of this bot (0 = none). */
+    public static int followOffset(int botId) {
+        Integer dx = FOLLOW_OFFSETS.get(botId);
+        return dx == null ? 0 : dx;
     }
 
     /** The character this bot is following (cross-map follow), or null. */

@@ -507,72 +507,26 @@ public final class PlayerInteractionHandler extends AbstractPacketHandler {
                     return;
                 }
 
-                if (item == null) {
-                    c.sendPacket(PacketCreator.serverNotice(1, "Invalid item description."));
-                    c.sendPacket(PacketCreator.enableActions());
+                // 1.6.2 ticket 99: the checks and the move live in Trade.putFromInventory, shared with companions
+                Trade.PutResult put;
+                try {
+                    put = Trade.putFromInventory(chr, ivType, pos, quantity, targetSlot);
+                } catch (Exception e) {
+                    log.warn("Chr {} tried to add {}x {} in trade (slot {}), then exception occurred", chr,
+                            item == null ? "?" : ii.getName(item.getItemId()), item == null ? 0 : item.getQuantity(), targetSlot, e);
                     return;
                 }
-
-                if (ii.isUnmerchable(item.getItemId())) {
-                    if (ItemConstants.isPet(item.getItemId())) {
-                        c.sendPacket(PacketCreator.serverNotice(1, "Pets are not allowed to be traded."));
-                    } else {
-                        c.sendPacket(PacketCreator.serverNotice(1, "Cash items are not allowed to be traded."));
-                    }
-
+                String notice = switch (put) {
+                    case NO_ITEM, CHANGED -> "Invalid item description.";
+                    case PET -> "Pets are not allowed to be traded.";
+                    case CASH -> "Cash items are not allowed to be traded.";
+                    case BAD_QUANTITY -> "You don't have enough quantity of the item.";
+                    case UNTRADEABLE -> "That item is untradeable.";
+                    default -> null;
+                };
+                if (notice != null) {
+                    c.sendPacket(PacketCreator.serverNotice(1, notice));
                     c.sendPacket(PacketCreator.enableActions());
-                    return;
-                }
-
-                if (quantity < 1 || quantity > item.getQuantity()) {
-                    c.sendPacket(PacketCreator.serverNotice(1, "You don't have enough quantity of the item."));
-                    c.sendPacket(PacketCreator.enableActions());
-                    return;
-                }
-
-                Trade trade = chr.getTrade();
-                if (trade != null) {
-                    if ((quantity <= item.getQuantity() && quantity >= 0) || ItemConstants.isRechargeable(item.getItemId())) {
-                        if (ii.isDropRestricted(item.getItemId())) { // ensure that undroppable items do not make it to the trade window
-                            if (!KarmaManipulator.hasKarmaFlag(item)) {
-                                c.sendPacket(PacketCreator.serverNotice(1, "That item is untradeable."));
-                                c.sendPacket(PacketCreator.enableActions());
-                                return;
-                            }
-                        }
-
-                        Inventory inv = chr.getInventory(ivType);
-                        inv.lockInventory();
-                        try {
-                            Item checkItem = chr.getInventory(ivType).getItem(pos);
-                            if (checkItem != item || checkItem.getPosition() != item.getPosition()) {
-                                c.sendPacket(PacketCreator.serverNotice(1, "Invalid item description."));
-                                c.sendPacket(PacketCreator.enableActions());
-                                return;
-                            }
-
-                            Item tradeItem = item.copy();
-                            if (ItemConstants.isRechargeable(item.getItemId())) {
-                                quantity = item.getQuantity();
-                            }
-
-                            tradeItem.setQuantity(quantity);
-                            tradeItem.setPosition(targetSlot);
-
-                            if (trade.addItem(tradeItem)) {
-                                InventoryManipulator.removeFromSlot(c, ivType, item.getPosition(), quantity, true);
-
-                                trade.getChr().sendPacket(PacketCreator.getTradeItemAdd((byte) 0, tradeItem));
-                                if (trade.getPartner() != null) {
-                                    trade.getPartner().getChr().sendPacket(PacketCreator.getTradeItemAdd((byte) 1, tradeItem));
-                                }
-                            }
-                        } catch (Exception e) {
-                            log.warn("Chr {} tried to add {}x {} in trade (slot {}), then exception occurred", chr, ii.getName(item.getItemId()), item.getQuantity(), targetSlot, e);
-                        } finally {
-                            inv.unlockInventory();
-                        }
-                    }
                 }
             } else if (mode == Action.CONFIRM.getCode()) {
                 Trade.completeTrade(chr);

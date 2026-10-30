@@ -348,6 +348,11 @@ public final class BotVitals {
         return out;
     }
 
+    /* 1.6.2 ticket 99 (SupplyShare): the potion stacks of any character, HP or MP, as the bots drink them. */
+    public static List<Item> potionStacks(Character c, boolean forHp) {
+        return potions(c, forHp);
+    }
+
     /* How many HP (or MP) potions the bot holds. */
     public static int potionCount(Character bot, boolean forHp) {
         int n = 0;

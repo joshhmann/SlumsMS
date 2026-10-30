@@ -267,6 +267,11 @@ public final class OwnedAltService {
     public static String interactionRefusal(Character actor, Character target, String what) {
         if (target == null || !target.isOwnedAlt()) return null;
         Character owner = target.getOwnedAltOwner();
+        // 1.6.2 ticket 99: sibling alts share supplies and gear through a normal trade, both sides driven by the
+        // companion handover (BotGiveTrade presses accept and Trade for the headless one); nothing sits pending.
+        if ("trade".equals(what) && actor != null && actor.isOwnedAlt() && owner != null
+                && actor.getOwnedAltOwner() != null && actor.getOwnedAltOwner().getId() == owner.getId()
+                && soloMapling.ArtificialPlayer.BotTradeSystem.BotGiveTrade.isBusy(actor)) return null;
         if (actor != null && owner != null && owner.getId() == actor.getId())
             return target.getName() + " is your alt and can't " + what + " while it travels with you."
                     + " Use @dismiss " + target.getName() + " and log in on it.";

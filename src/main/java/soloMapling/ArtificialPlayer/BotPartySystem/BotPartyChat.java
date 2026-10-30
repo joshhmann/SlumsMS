@@ -65,6 +65,10 @@ public final class BotPartyChat {
                 || player.getParty() == null || isCommand(line)) {
             return;
         }
+        // 1.6.2 ticket 99: an order to the party's companions (owned alts included) said in party chat
+        if (PartyBotOrders.fromPartyChat(player, line)) {
+            return;
+        }
         Party party = player.getParty();
         List<PartyChatRoute.Member> bots = botsOf(party, player);
         if (bots.isEmpty()) {

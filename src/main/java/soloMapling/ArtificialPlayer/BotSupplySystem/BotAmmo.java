@@ -203,6 +203,11 @@ public final class BotAmmo {
         return out;
     }
 
+    /* 1.6.2 ticket 99 (SupplyShare): every stack of any character the weapon can fire at its level. */
+    public static List<Item> ammoStacks(Character c, WeaponType weapon) {
+        return stacks(c, weapon);
+    }
+
     /* How many the bot holds that the weapon can fire. */
     public static int held(Character bot, WeaponType weapon) {
         int total = 0;
