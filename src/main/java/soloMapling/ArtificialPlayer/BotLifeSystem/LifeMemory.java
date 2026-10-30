@@ -36,6 +36,9 @@ public final class LifeMemory {
     private SocialProfile social;
     private LifeProfile profile;
     private List<LifeGoals.Goal> goals = List.of();
+    /** Ticket 158: the bot's quests (active + capped completed ids), saved under "quests". */
+    private soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog quests =
+            new soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog();
     /** 1.6.0 S8: one plan per goal (same order), and the soft facts the bot made true by finishing steps. */
     private List<LifePlanner.Plan> plans = List.of();
     private final EnumSet<LifePlanner.Fact> soft = EnumSet.noneOf(LifePlanner.Fact.class);
@@ -91,6 +94,7 @@ public final class LifeMemory {
         } catch (RuntimeException invalid) {
             reset(characterId);
             goals = List.of(); plans = List.of(); soft.clear();
+            quests = new soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog();
             lastJob = -1; lastSocial = 0; driftDay = -1; changesToday = 0; eventAt.clear(); met.clear();
             savedAt = 0; restored = false; migrated = false; dirty = false;
         }
@@ -187,7 +191,7 @@ public final class LifeMemory {
         if (map.get("goals") instanceof List<?> rows) {
             List<LifeGoals.Goal> loaded = new ArrayList<>();
             for (Object row : rows) {
-                if (loaded.size() == 2) break;
+                if (loaded.size() == 3) break; // two seeded goals and (ticket 158) a quest
                 if (row instanceof Map<?, ?> g) loaded.add(new LifeGoals.Goal(
                         LifeGoals.Kind.valueOf((String) g.get("kind")), ((Number) g.get("level")).intValue(),
                         (String) g.get("description"), ((Number) g.get("pressure")).doubleValue()));
@@ -195,6 +199,7 @@ public final class LifeMemory {
             goals = List.copyOf(loaded);
         }
         readPlans(map);
+        quests = soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog.read(map.get("quests"));
         lastJob = number(map, "lastJob", -1).intValue();
         lastSocial = Math.max(0, number(map, "lastSocial", 0).longValue());
         driftDay = number(map, "driftDay", -1).longValue();
@@ -225,7 +230,7 @@ public final class LifeMemory {
         try {
             List<LifePlanner.Plan> loaded = new ArrayList<>();
             if (map.get("plans") instanceof List<?> rows) for (Object row : rows) {
-                if (loaded.size() == 2) break;
+                if (loaded.size() == 3) break;
                 if (row instanceof Map<?, ?> p) loaded.add(LifePlanner.read(p));
             }
             boolean aligned = loaded.size() == goals.size();
@@ -310,6 +315,17 @@ public final class LifeMemory {
         return true;
     }
     public synchronized List<LifeGoals.Goal> goals() { return goals; }
+
+    /**
+     * Ticket 158: the bot's quest log. Read and change it only inside {@link #quests(java.util.function.Function)} (this
+     * memory's monitor); a change marks the memory dirty so the roster sweep saves it.
+     */
+    public synchronized <T> T quests(java.util.function.Function<soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog, T> use) {
+        int before = quests.version();
+        T out = use.apply(quests);
+        if (quests.version() != before) changed();
+        return out;
+    }
     public synchronized long lastSocial() { return lastSocial; }
     /** When this memory was last saved (epoch ms, 0 = never or v1); the newer of two copies wins on load. */
     public synchronized long savedAt() { return savedAt; }
@@ -366,11 +382,21 @@ public final class LifeMemory {
                 case LEVEL -> level >= goal.targetLevel();
                 // Aspirations are only judged when the facts are known (the S8 runtime passes them).
                 case MARRIAGE, GUILD, ZHELM, WEALTH -> facts.social() != null && LifeGoals.met(goal, facts);
+                // ticket 158: done (or dropped) when the log no longer runs this quest
+                case QUEST -> quests.active() == null || quests.active().questId != goal.targetLevel();
             };
-            if (!complete) pending.add(goal);
+            if (!complete && goal.kind() != LifeGoals.Kind.QUEST) pending.add(goal);
         }
         for (var goal : seeded) if (pending.size() < 2 && pending.stream().noneMatch(g -> g.kind() == goal.kind())) {
             pending.add(goal);
+        }
+        // ticket 158: the active quest rides on top of the two seeded goals, last (only while questing is switched on)
+        var active = quests.active();
+        if (active != null && soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.enabled()) {
+            var old = goals.stream().filter(g -> g.kind() == LifeGoals.Kind.QUEST && g.targetLevel() == active.questId)
+                    .findFirst().orElse(null);
+            pending.add(old != null ? old : LifeGoals.quest(active.questId,
+                    soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestChat.questName(active.questId)));
         }
         var next = pending.stream().map(g -> new LifeGoals.Goal(g.kind(), g.targetLevel(), g.description(),
                 g.kind() == LifeGoals.Kind.JOB_ADVANCE || g.kind() == LifeGoals.Kind.FOURTH_JOB
@@ -603,6 +629,7 @@ public final class LifeMemory {
                 "description", g.description(), "pressure", g.pressure())).toList());
         out.put("plans", plans.stream().map(LifePlanner::save).toList());
         out.put("soft", soft.stream().map(Enum::name).toList());
+        if (!quests.isEmpty()) out.put("quests", quests.save());
         out.put("lastJob", lastJob); out.put("lastSocial", lastSocial);
         out.put("driftDay", driftDay); out.put("changesToday", changesToday);
         Map<String, Long> events = new LinkedHashMap<>();

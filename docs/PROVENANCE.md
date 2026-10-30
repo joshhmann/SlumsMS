@@ -75,6 +75,26 @@ buffs); wearability as an equip order from the base stats; worn gear always coun
 (`BotWeapons` kinds, the same drawable attacks, 1st jobs and beginners keep their kind); unknown, cash, other-gender,
 omit-list and rebirth-locked equips refused; event triggers (loot, level-up) instead of a sweep.
 
+### Later ports
+
+Ports from nutnnut/Cosmic after the merge above, one entry per port. (The 1.5.2/1.6.x ports listed in
+docs/tickets/157-nutnnut-tools/adoption-matrix.md section 8 still need their entries here.)
+
+#### Bot questing (branch `162-questing`, ticket 158), nutnnut/Cosmic `77e0c5bc9` (branch `dev`)
+
+| From theirs | Our files |
+| --- | --- |
+| `server.bots.BotQuestIndex`: which quests a bot can run, from Quest.wz (unscripted, start and end NPC, complete reqs limited to kills plus gates `canComplete` re-checks) | `soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestIndex.java` |
+| `server.bots.BotQuestScorer`: quest worth as a multiple of the bot's grind EXP per minute (value / forgone EXP over the NPC trip) | `.../BotQuestSystem/BotQuestScorer.java` |
+| `server.bots.BotQuestManager` ideas: piggyback on the grind map, the real `canStart`/`start`/`canComplete`/`complete` gate, NPC map from the current map or its return town, quest chat | `.../BotQuestSystem/BotQuests.java`, `BotQuestChat.java` |
+
+Ours: mob quests only (no talk, fetch or auto quests, no disk cache); quests whose actions a headless bot can't take
+(random or chosen items, items taken back, chained quests, info strings) are left out; required mobs on the grind map
+count as neither value nor cost in the score; a quest is a BotLife goal with GOAP steps (`LifeGoals.Kind.QUEST`,
+`LifePlanner` TAKE_QUEST / HUNT_QUEST / TURN_IN_QUEST), not an autopilot errand; offscreen bots only record the quest
+in a capped log in their life profile (`BotQuestLog`); rewards go through `BotYieldCaps`; the chat answers come from
+the bot's own log (ticket 156).
+
 ### Monster Book addon (branch `addon-monsterbook`, ticket 19)
 
 Source: the "MonsterBook Publish" addon package. Its server half (`server-cosmic/`) and its data tool

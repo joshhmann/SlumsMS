@@ -47,7 +47,9 @@ public final class LifePlanner {
 
     public enum Fact {
         LEVEL_READY, AT_INSTRUCTOR, ADVANCED, WEAPON_OK, HAS_FRIEND, HAS_CRUSH, HAS_RING, MARRIED,
-        GUILD_CONTACT, IN_GUILD, ZAKUM_LEVEL, ZAKUM_READY, ZHELM, LOOT, RICH;
+        GUILD_CONTACT, IN_GUILD, ZAKUM_LEVEL, ZAKUM_READY, ZHELM, LOOT, RICH,
+        /** Ticket 158: the quest is taken, its kills are made, it is turned in (read from the bot's quest log). */
+        QUEST_TAKEN, QUEST_HUNTED, QUEST_DONE;
 
         int bit() { return 1 << ordinal(); }
     }
@@ -74,7 +76,11 @@ public final class LifePlanner {
                 Fact.ZAKUM_READY),
         ZAKUM_RUN(Activity.PARTY_QUEST, "find a Zakum run for the helmet", 2, List.of(Fact.ZAKUM_READY), Fact.ZHELM),
         FARM_LOOT(Activity.GRIND, "farm loot to sell", 1, List.of(), Fact.LOOT),
-        SELL_LOOT(Activity.FREE_MARKET, "sell loot in the FM", 1, List.of(Fact.LOOT), Fact.RICH);
+        SELL_LOOT(Activity.FREE_MARKET, "sell loot in the FM", 1, List.of(Fact.LOOT), Fact.RICH),
+        // Ticket 158: a kill quest is a town stop at its NPC, a grind on its map, and a town stop to turn it in.
+        TAKE_QUEST(Activity.HANG_OUT, "take the quest from its NPC", 1, List.of(), Fact.QUEST_TAKEN),
+        HUNT_QUEST(Activity.GRIND, "hunt the quest's monsters", 1, List.of(Fact.QUEST_TAKEN), Fact.QUEST_HUNTED),
+        TURN_IN_QUEST(Activity.HANG_OUT, "turn the quest in at its NPC", 1, List.of(Fact.QUEST_HUNTED), Fact.QUEST_DONE);
 
         public final Activity activity;
         final String text;
@@ -97,11 +103,20 @@ public final class LifePlanner {
         }
     }
 
-    /** What the planner reads: the goal facts plus the social facts the goal seeding doesn't need. */
-    public record World(LifeGoals.Facts facts, boolean hasFriend, boolean hasCrush, boolean hasRing, Set<Fact> soft) {
+    /**
+     * What the planner reads: the goal facts plus the social facts the goal seeding doesn't need, and (ticket 158) the
+     * quest facts from the bot's quest log.
+     */
+    public record World(LifeGoals.Facts facts, boolean hasFriend, boolean hasCrush, boolean hasRing, Set<Fact> soft,
+                        Set<Fact> quest) {
         public World {
             Objects.requireNonNull(facts);
             soft = soft == null || soft.isEmpty() ? Set.of() : Collections.unmodifiableSet(EnumSet.copyOf(soft));
+            quest = quest == null || quest.isEmpty() ? Set.of() : Collections.unmodifiableSet(EnumSet.copyOf(quest));
+        }
+
+        public World(LifeGoals.Facts facts, boolean hasFriend, boolean hasCrush, boolean hasRing, Set<Fact> soft) {
+            this(facts, hasFriend, hasCrush, hasRing, soft, Set.of());
         }
     }
 
@@ -133,6 +148,7 @@ public final class LifePlanner {
             case GUILD -> Fact.IN_GUILD;
             case ZHELM -> Fact.ZHELM;
             case WEALTH -> Fact.RICH;
+            case QUEST -> Fact.QUEST_DONE;
         };
     }
 
@@ -153,6 +169,7 @@ public final class LifePlanner {
         if (f.hasZhelm()) mask |= Fact.ZHELM.bit();
         if (f.meso() >= LifeGoals.WEALTH_TARGET) mask |= Fact.RICH.bit();
         for (Fact soft : world.soft()) mask |= soft.bit();
+        if (goal.kind() == LifeGoals.Kind.QUEST) for (Fact q : world.quest()) mask |= q.bit();
         return mask;
     }
 

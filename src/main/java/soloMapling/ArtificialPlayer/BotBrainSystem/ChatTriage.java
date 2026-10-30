@@ -30,6 +30,8 @@ public final class ChatTriage {
         PARTY, FOLLOW, COME_WITH_ME, TRADE, WHERE_TRAIN,
         /** Where the bot is right now, or meeting up (ticket 49, buddy chat); by rule only, not a model label. */
         WHERE_AT,
+        /** Ticket 158: "what quests r u doing" and "recommend a quest", by rule only, answered from the bot's log. */
+        QUESTS, RECOMMEND_QUEST,
         NONE
     }
 
@@ -134,6 +136,17 @@ public final class ChatTriage {
             + " (grind|train|hunt|farm|level(?:ing)?)\\b)"
             + "|\\b(grind|train|hunt|farm|level(?:ing)?) (together|with me|with u|with you)\\b");
 
+    /** Ticket 158: asking what quest the bot is on. */
+    static final Pattern QUESTS = Pattern.compile("(\\b(what|wat|which|wut) (quests?|q) (r|are|ru|re|is|were) (u|you|ya|yall)"
+            + " (doing|on|working on|up to)\\b|\\b(r|are) (u|you|ya) (doing|on) (a |any |some )?quests?\\b|\\bwhat quests? (u|you|ya)"
+            + " (doing|on)\\b|\\b(u|you|ya) (doing|on) (a |any |some )?quests?\\b|\\b(r u|are you|u|you) questing\\b"
+            + "|\\bdoing any quests\\b)");
+    /** Ticket 158: asking the bot for a quest to do. */
+    static final Pattern RECOMMEND_QUEST = Pattern.compile("(\\brecommend(ed)? (me )?(a |any |some |good )?quests?\\b"
+            + "|\\b(any|got any|know any|know a|know of any) (good |decent |easy )?quests?( for| to| at|\\?|$)"
+            + "|\\bwhat quests? should i (do|take|try)\\b|\\bgood quests? (for|at|to)\\b"
+            + "|\\bquests? (for|at) (lv|lvl|level) ?\\d+|\\bquest (recs?|recommendations?|ideas?)\\b)");
+
     private static final Pattern WHERE_AT = Pattern.compile("(\\bwhere (r|are|re|ru) (u|you|ya|yall)\\b(?! (from|in real|irl))"
             + "|\\bwhere ru\\b(?! (from|in real|irl))|\\bwhere (u|you|ya) at\\b|\\bwya\\b|\\bwru\\b|\\bmeet ?up\\b|\\bmeet me\\b|\\bwanna meet\\b"
             + "|\\b(can|should|shall) we meet\\b|\\bwhat map (r|are) (u|you)( on| in)?\\b)");
@@ -228,6 +241,12 @@ public final class ChatTriage {
     public static Optional<Intent> intentRule(String line) {
         PlayerChatMeaning.View meaning = PlayerChatMeaning.requests(line);
         String text = normal(meaning.text());
+        if (QUESTS.matcher(text).find()) { // "r u doing any quests" asks about the bot, not for a tip
+            return Optional.of(Intent.QUESTS);
+        }
+        if (RECOMMEND_QUEST.matcher(text).find()) {
+            return Optional.of(Intent.RECOMMEND_QUEST);
+        }
         if (WHERE_TRAIN.matcher(text).find()) {
             return Optional.of(Intent.WHERE_TRAIN);
         }

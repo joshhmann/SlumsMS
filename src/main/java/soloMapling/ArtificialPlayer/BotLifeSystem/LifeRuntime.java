@@ -412,12 +412,12 @@ public final class LifeRuntime {
             scanFriends(chr, now);
             // 1.6.0 S8: goals from game facts (a Bartle aspiration among them), then a plan only if something changed.
             LifeGoals.Facts facts = facts(chr, memory.social());
+            questTick(chr, phase.equals("GRIND"), now); // ticket 158: maybe pick a quest for this grind map
             memory.refresh(facts, now);
-            memory.plan(world(chr, facts, memory.softFacts()));
+            memory.plan(world(chr, facts, memory.softFacts(), questFacts()));
             var next = LifePlanner.next(memory.goals(), memory.plans());
             planNext = next;
-            planDestination = next == null ? -1
-                    : LifePlanner.destination(next.step(), facts, next.plan().target());
+            planDestination = destination(next, facts);
             var report = LifeObservation.capture(botSm, now);
             var original = report.context();
             Map<Need, Double> needs = new EnumMap<>(Need.class);
@@ -635,6 +635,11 @@ public final class LifeRuntime {
     }
 
     static LifePlanner.World world(Character chr, LifeGoals.Facts facts, Set<LifePlanner.Fact> soft) {
+        return world(chr, facts, soft, Set.of());
+    }
+
+    static LifePlanner.World world(Character chr, LifeGoals.Facts facts, Set<LifePlanner.Fact> soft,
+                                   Set<LifePlanner.Fact> quest) {
         boolean friend = safe(() -> chr.getBuddylist() != null && !chr.getBuddylist().getBuddies().isEmpty(), false);
         var couple = safe(() -> soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.coupleOf(chr.getId()), null);
         boolean crush = couple != null && couple.stage().couple() || safe(() -> chr.getPartnerId() > 0, false)
@@ -642,7 +647,7 @@ public final class LifeRuntime {
         boolean ring = couple != null && couple.stage()
                 == soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Stage.MARRIED
                 || safe(() -> chr.getMarriageRing() != null, false);
-        return new LifePlanner.World(facts, friend, crush, ring, soft);
+        return new LifePlanner.World(facts, friend, crush, ring, soft, quest);
     }
 
     private static boolean wears(Character chr, int itemId) {
@@ -692,11 +697,36 @@ public final class LifeRuntime {
         Character chr = bot.getChr();
         LifeGoals.Facts facts = facts(chr, memory.social());
         memory.refresh(facts, now);
-        memory.plan(world(chr, facts, memory.softFacts()));
+        memory.plan(world(chr, facts, memory.softFacts(), questFacts()));
         var next = LifePlanner.next(memory.goals(), memory.plans());
         planNext = next;
-        planDestination = next == null ? -1 : LifePlanner.destination(next.step(), facts, next.plan().target());
+        planDestination = destination(next, facts);
         dirty = true;
+    }
+
+    /** Where the plan's next step goes: a quest step to its NPC's or hunt map (ticket 158), else the planner's town. */
+    private int destination(LifePlanner.Next next, LifeGoals.Facts facts) {
+        if (next == null) return -1;
+        if (soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.questStep(next.step())) {
+            return memory.quests(log -> soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.destination(log, next.step()));
+        }
+        return LifePlanner.destination(next.step(), facts, next.plan().target());
+    }
+
+    /** Ticket 158: the quest facts for the planner (none with the switch off). */
+    private Set<LifePlanner.Fact> questFacts() {
+        if (!soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.enabled()) return Set.of();
+        return memory.quests(soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests::facts);
+    }
+
+    /** Ticket 158: real kill progress into the log, and while grinding maybe a quest for this map. */
+    private void questTick(Character chr, boolean grinding, long now) {
+        if (!bot.runsQuests() || !soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.enabled()) return;
+        safe(() -> memory.quests(log -> {
+            soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.syncReal(chr, log);
+            return soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.consider(chr, log, grinding,
+                    bot.questHomeMap(), now);
+        }), false);
     }
 
     /** The plan's next step, or null (for {@code !botwhy} and the hosts). */
@@ -718,6 +748,8 @@ public final class LifeRuntime {
                 : String.format(Locale.ROOT, "Next step: %s -> %s, bonus %.2f%s", next.step().describe(next.plan().target()),
                 next.step().activity, next.bonus(), planDestination > 0 ? ", destination map " + planDestination : ""));
         if (!memory.softFacts().isEmpty()) lines.add("Done steps the game can't see: " + memory.softFacts());
+        String quest = soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestChat.describe(memory);
+        if (quest != null) lines.add(quest); // ticket 158
         return List.copyOf(lines);
     }
 
@@ -793,7 +825,8 @@ public final class LifeRuntime {
     public synchronized String prompt() {
         return enabled() ? "\nDaily-life facts: " + fact + ". Goals: "
                 + memory.goals().stream().map(LifeGoals.Goal::description).toList()
-                + ". These are goals, not completed achievements. Never claim arrival, buying, selling or rewards without a confirmed event.\n" : "";
+                + ". These are goals, not completed achievements. Never claim arrival, buying, selling or rewards without a confirmed event.\n"
+                + soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestChat.promptFact(memory) : "";
     }
     public static Map<String, Long> metrics() {
         return Map.of("decisions", decisions.sum(), "accepted", accepted.sum(), "cpuNanos", cpuNanos.sum(),
