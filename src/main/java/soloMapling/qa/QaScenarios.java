@@ -90,6 +90,7 @@ public final class QaScenarios {
         all.addAll(DojoScenarios.all());          // 1.5.5: party bots fight the Mu Lung Dojo floors (dj-1)
         all.addAll(PqScenarios.all());            // ticket 75: Amoria PQ for two players (pq-1); OPQ bots in the lobby (pq-2)
         all.addAll(FishingScenarios.all()); // 1.6.0 Life in town: timed fishing (fh-1, fh-2)
+        all.addAll(NavProbeScenarios.all()); // ticket 157: portal and NPC reachability on the town maps (nv-1)
         all.addAll(BotLifeScenarios.all()); // 1.6.0 shadow policy, refusal safeguards, restock trips, profile round trip (bl-1..bl-4)
         all.addAll(LikenessScenarios.all()); // 1.6.0 player likeness: AFK campers, walk when watched, messy chat (lk-1)
         all.addAll(SocialGateScenarios.all()); // 1.6.0 S5 social gate: @quiet stops unasked acts (sg-1), started it (sg-2)

@@ -197,6 +197,7 @@ public final class BotGear {
             if (!apply(bot, worn, plan.wear())) {
                 return false;
             }
+            BotGearWhy.changed(bot.getId(), worn, plan, System.currentTimeMillis()); // ticket 157: !botwhy
             if (log.isDebugEnabled()) {
                 log.debug("Bot {} ({}) lv {} {} changed gear: main attack {} -> {}", bot.getId(), bot.getName(),
                         bot.getLevel(), bot.getJob(), Math.round(plan.before()), Math.round(plan.after()));

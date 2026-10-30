@@ -315,6 +315,8 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     public LifeRuntime lifeRuntime() { return dailyLife; }
 
     public LifePhase lifePhase() { return lifePhase; }
+    /** Ticket 157 (!botstatus): the macro phase by name (INIT, GRIND, GO_TOWN, ...). */
+    public String phaseName() { Phase p = phase; return p == null ? "-" : p.name(); }
     // Ticket 21: a world event called this bot (WorldEventReactions); the macro tick answers it.
     private volatile boolean eventCall = false;
     private volatile boolean restockCall = false; // rc6 say-do: it said "brb pots": go and buy them
@@ -2764,7 +2766,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             int mapId = chr.getMapId();
             trainByMap.merge(mapId, 1, Integer::sum);
             switch (GCMovement.lodTier(mapId)) {
-                case "full" -> full++;
+                case "full", "pinned" -> full++; // ticket 157: a pinned map runs full simulation
                 case "halo" -> halo++;
                 case "dwell" -> dwell++;
                 default -> coarse++;

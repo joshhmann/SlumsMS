@@ -456,6 +456,10 @@ public class CommandsExecutor {
         addCommand("ignore", 3, IgnoreCommand.class);
         addCommand("ignored", 3, IgnoredCommand.class);
         addCommand("pos", 3, PosCommand.class);
+        if (soloMapling.server.DebugTools.isEnabled()) { // ticket 157: TEST-only debug tools (off on live)
+            addCommand("navprobe", 3, client.command.commands.gm3.NavProbeCommand.class);
+            addCommand("botstatus", 3, client.command.commands.gm3.BotStatusCommand.class);
+        }
         addCommand("togglecoupon", 3, ToggleCouponCommand.class);
         addCommand("togglewhitechat", 3, ChatCommand.class);
         addCommand("fame", 3, FameCommand.class);

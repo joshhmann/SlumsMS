@@ -92,6 +92,12 @@ public class EnvironmentCommand extends Command {
             ExecutorServiceManager.getExecutorService().execute(() -> handlePath(params, c));
             return;
         }
+        if (params[0].equalsIgnoreCase("lod")) { // ticket 157: pin maps to full simulation (TEST only)
+            for (String line : lodPinCommand(params, soloMapling.server.DebugTools.isEnabled())) {
+                c.getPlayer().yellowMessage(line);
+            }
+            return;
+        }
         if (params[0].equalsIgnoreCase("travel") || params[0].equalsIgnoreCase("regions")) {
             ExecutorServiceManager.getExecutorService().execute(() -> handleTravel(params, c));
             return;
@@ -136,6 +142,37 @@ public class EnvironmentCommand extends Command {
             });
             return;
         }
+    }
+
+    /**
+     * Ticket 157: {@code !env lod pin <mapId> | unpin <mapId> | list}. Forces chosen maps to full simulation (real
+     * physics, combat and broadcast, as if a player stood there) so auto-QA and BotWatch see real behaviour on them.
+     * TEST only (DebugTools), at most {@link soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement#lodPinCap()} maps,
+     * released by a restart. Returns the lines for the GM; the GM audit logs the command itself.
+     */
+    static java.util.List<String> lodPinCommand(String[] params, boolean enabled) {
+        if (!enabled) {
+            return java.util.List.of("!env lod is a test-server tool (QA or auto-QA on, or -Dslums.debugtools=true).");
+        }
+        String action = params.length >= 2 ? params[1].toLowerCase() : "list";
+        java.util.Set<Integer> pins = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.lodPins();
+        int cap = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.lodPinCap();
+        if (action.equals("list")) {
+            return java.util.List.of("LOD pins (" + pins.size() + "/" + cap + "): "
+                    + (pins.isEmpty() ? "none" : new java.util.TreeSet<>(pins)));
+        }
+        if ((!action.equals("pin") && !action.equals("unpin")) || params.length != 3 || !isInteger(params[2])) {
+            return java.util.List.of("Syntax: !env lod pin <mapId> | unpin <mapId> | list");
+        }
+        int mapId = Integer.parseInt(params[2]);
+        if (action.equals("pin")) {
+            String refused = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.lodPin(mapId);
+            return java.util.List.of(refused != null ? "Not pinned: " + refused
+                    : "Map " + mapId + " runs full simulation until unpinned or a restart ("
+                    + soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.lodPins().size() + "/" + cap + ").");
+        }
+        return java.util.List.of(soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.lodUnpin(mapId)
+                ? "Map " + mapId + " is back on the normal LOD rule." : "Map " + mapId + " was not pinned.");
     }
 
     // !env townpresence (alias tp) — live tuning of the ambient town-presence system (Phase 2 curation

@@ -1256,6 +1256,12 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-br-1", "@bug: ref reply, report line, context with versions/trail/log, no secrets").minutes(1)
                 .expect(probe("bugReport"))
                 .build());
+        // ticket 157: every portal and NPC on the Victoria town maps probed from the spawn point with the bots' planner.
+        // Unreachable spots are logged for the nav lab (leads, not failures); it fails only if a map cannot be probed.
+        c.add(Check.auto("t-nv-1", "Town portals and NPCs are reachable (nav probe)").minutes(5)
+                .step(run("nv-1"), waitFor("NV1 DONE ", 4 * 60))
+                .expect(has("NV1 DONE maps=[1-9]"), lacks("NV1 ERROR "))
+                .build());
         return List.copyOf(c);
     }
 

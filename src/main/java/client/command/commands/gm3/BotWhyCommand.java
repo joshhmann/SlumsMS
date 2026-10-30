@@ -33,6 +33,9 @@ public class BotWhyCommand extends Command {
             lines.addAll(soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.describe(chr.getId()));
             // 1.6.0 S9: what it learned (quadrant, crossings, today's budget), the fads it follows, its band's trends
             lines.addAll(soloMapling.ArtificialPlayer.BotLifeSystem.LifeLearning.describe(chr.getId(), chr.getLevel(), now));
+            // ticket 157: the last gear pick and why (TEST only, DebugTools)
+            String gear = soloMapling.ArtificialPlayer.BotGearSystem.BotGearWhy.describe(chr.getId(), now);
+            if (gear != null) lines.add(gear);
         }
         return java.util.List.copyOf(lines);
     }

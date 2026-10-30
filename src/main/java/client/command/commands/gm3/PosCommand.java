@@ -40,5 +40,8 @@ public class PosCommand extends Command {
         float fh = player.getMap().getFootholds().findBelow(player.getPosition()).getId();
         player.dropMessage(6, "Position: (" + xpos + ", " + ypos + ")");
         player.dropMessage(6, "Foothold ID: " + fh);
+        if (soloMapling.server.DebugTools.isEnabled()) { // ticket 157: the nav region at your feet (TEST only)
+            player.dropMessage(6, soloMapling.ArtificialPlayer.GCMoveSystem.NavProbe.regionAt(player));
+        }
     }
 }
