@@ -65,6 +65,21 @@ public final class Steps {
     }
 
     /**
+     * 1.6.2 (audit 163, KS manners at the swing): player 1 hides ({@code !hide}) for the rest of the check, and the
+     * runner un-hides it at cleanup whatever happens. For checks that stage bots fighting right next to the GM: a
+     * visible player standing by a mob makes it theirs, and neutral bots leave it alone - which is the game's rule,
+     * not something to exempt the auto-QA GM from.
+     */
+    public static Step hiddenGm() {
+        return of("p1 hides (!hide), un-hidden at cleanup", r -> {
+            r.hid(1);
+            r.actor(1).say("!hide");
+            r.world.sleep(SPAM_GAP_MS);
+            return StepResult.OK;
+        });
+    }
+
+    /**
      * {@code !qa run <scenario> [args]} by player 1, then waits for the suite's answer: "QA <id> running" carries on,
      * a precondition refusal SKIPs the check (with the suite's words), any other answer FAILs it.
      */
