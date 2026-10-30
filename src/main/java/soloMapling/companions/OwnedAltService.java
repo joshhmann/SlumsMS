@@ -381,6 +381,17 @@ public final class OwnedAltService {
         return target.getName() + " is an alt traveling with its owner and can't " + what + ".";
     }
 
+    /**
+     * Audit 163 (report B16): a Maple Messenger or buddy invite by name to an owned alt (on any channel of the world)
+     * would sit pending on a headless character that can never answer it. The refusal line, or null when the name is
+     * not an alt that is out.
+     */
+    public static String inviteRefusalByName(net.server.PlayerStorage world, Character actor, String name, String what) {
+        if (world == null || name == null) return null;
+        Character target = world.getCharacterByName(name);
+        return target == null ? null : interactionRefusal(actor, target, what);
+    }
+
     /** 1.6.0.4: @dismiss on a bot friend's name says how a bot friend is sent off instead. */
     public boolean isBotFriend(Character owner, String name) {
         return backend.botFriendNamed(owner.getId(), name);

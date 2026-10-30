@@ -177,4 +177,24 @@ class OwnedAltLifecycleAuditTest {
             assertEquals(1, s.active().size());
         } finally { release.countDown(); pool.shutdownNow(); }
     }
+
+    /** Audit B16: a Messenger or buddy invite by name to an alt that is out (any channel) is refused, not left pending. */
+    @Test void messengerAndBuddyInvitesToAnAltAreRefused() {
+        net.server.PlayerStorage world = mock(net.server.PlayerStorage.class);
+        Character owner = owner(1);
+        Character alt = mock(Character.class);
+        when(alt.isOwnedAlt()).thenReturn(true);
+        when(alt.getName()).thenReturn("Second");
+        when(alt.getOwnedAltOwner()).thenReturn(owner);
+        when(world.getCharacterByName("Second")).thenReturn(alt);
+        Character stranger = owner(5);
+        String mine = OwnedAltService.inviteRefusalByName(world, owner, "Second", "join a Maple Messenger chat");
+        assertTrue(mine.contains("is your alt") && mine.contains("@dismiss Second"), mine);
+        assertTrue(OwnedAltService.inviteRefusalByName(world, stranger, "Second", "answer a buddy request")
+                .contains("can't answer a buddy request"));
+        Character player = mock(Character.class);
+        when(world.getCharacterByName("Friend")).thenReturn(player);
+        assertNull(OwnedAltService.inviteRefusalByName(world, owner, "Friend", "answer a buddy request"));
+        assertNull(OwnedAltService.inviteRefusalByName(world, owner, "Offline", "answer a buddy request"));
+    }
 }
