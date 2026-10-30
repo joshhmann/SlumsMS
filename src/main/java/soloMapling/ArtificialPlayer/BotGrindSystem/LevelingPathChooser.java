@@ -143,11 +143,26 @@ public final class LevelingPathChooser {
                 && r.level() >= path.bands().get(band + 1).lo() - AHEAD_WINDOW) {
             band++;
         }
-        List<LevelingPath.Entry> entries = path.candidates(band, r.jobId(), t.generalMix());
-        Map<Integer, Integer> home = r.homeMapId() > 0 ? w.walkReach(r.homeMapId()) : Map.of();
-
         List<Candidate> local = new ArrayList<>();
         List<Candidate> abroad = new ArrayList<>();
+        candidates(path, t, w, r, band, local, abroad);
+        List<Candidate> all = new ArrayList<>(local);
+        all.addAll(abroad);
+        Candidate pick = draw(all, rolls.next());
+        if (pick == null) {
+            return null;
+        }
+        if (abroad.contains(pick) && !permits.take(TrainingRegions.tuning().relocationsPerMinute())) {
+            pick = draw(local, rolls.next()); // the world-wide trip budget is spent this minute: stay around home
+        }
+        return pick == null ? null : pick.map();
+    }
+
+    /** The maps of this band a bot may pick: around its home (local) and elsewhere (abroad), with their weights. */
+    static void candidates(LevelingPath.Path path, Tuning t, World w, Request r, int band, List<Candidate> local,
+                           List<Candidate> abroad) {
+        List<LevelingPath.Entry> entries = path.candidates(band, r.jobId(), t.generalMix());
+        Map<Integer, Integer> home = r.homeMapId() > 0 ? w.walkReach(r.homeMapId()) : Map.of();
         for (LevelingPath.Entry e : entries) {
             int map = e.mapId();
             if (r.excluded() != null && r.excluded().contains(map)) {
@@ -181,20 +196,51 @@ public final class LevelingPathChooser {
                 continue; // no way there from home, or the bot can't pay the fares
             }
             int newHome = w.homeFor(map);
+            if (newHome > 0 && !BotMapGates.mayEnter(newHome, r.rebirths(), r.level())) {
+                newHome = -1; // 1.6.2 b041: never make a town the bot may not enter its home (a rebirth-gated hub)
+            }
             int newHops = newHome > 0 ? w.walkReach(newHome).getOrDefault(map, 1) : 1;
             TrainingMap m = new TrainingMap(map, mob, Math.max(1, newHops));
             abroad.add(new Candidate(newHome > 0 && newHome != r.homeMapId() ? m.relocatingTo(newHome) : m, weight));
         }
-        List<Candidate> all = new ArrayList<>(local);
-        all.addAll(abroad);
-        Candidate pick = draw(all, rolls.next());
-        if (pick == null) {
-            return null;
+    }
+
+    /**
+     * 1.6.2 b041 (auto-QA t-ld-1): every map and new home the leveling path would offer a bot of this level and
+     * rebirth count from homeMapId, in its band and the bands either side of it (the variety rolls), on the live
+     * world data and ignoring crowding: {map, new home or -1}.
+     */
+    public static List<int[]> offeredForProbe(int level, int rebirths, int jobId, int homeMapId) {
+        LevelingPath.Path path = LevelingPath.path();
+        int band = path.bandIndex(level);
+        List<int[]> out = new ArrayList<>();
+        if (band < 0) {
+            return out;
         }
-        if (abroad.contains(pick) && !permits.take(TrainingRegions.tuning().relocationsPerMinute())) {
-            pick = draw(local, rolls.next()); // the world-wide trip budget is spent this minute: stay around home
+        Request r = new Request(0, level, rebirths, jobId, Integer.MAX_VALUE, homeMapId, null, 1);
+        World uncrowded = new World() {
+            public Map<Integer, Integer> walkReach(int hub) { return LIVE.walkReach(hub); }
+            public int routeFare(int f, int to, int rb, int job, int lv) { return LIVE.routeFare(f, to, rb, job, lv); }
+            public boolean isDungeon(int map) { return LIVE.isDungeon(map); }
+            public boolean regionDisabled(int map) { return LIVE.regionDisabled(map); }
+            public int mobLevel(int map) { return LIVE.mobLevel(map); }
+            public int mobCount(int map) { return LIVE.mobCount(map); }
+            public int capacity(int map) { return 1_000; }
+            public int botsOn(int map) { return 0; }
+            public double yieldSaturation(int map) { return 0; }
+            public int homeFor(int map) { return LIVE.homeFor(map); }
+        };
+        for (int b = Math.max(0, band - 1); b <= Math.min(path.bands().size() - 1, band + 1); b++) {
+            List<Candidate> local = new ArrayList<>();
+            List<Candidate> abroad = new ArrayList<>();
+            candidates(path, tuning, uncrowded, r, b, local, abroad);
+            for (List<Candidate> cs : List.of(local, abroad)) {
+                for (Candidate c : cs) {
+                    out.add(new int[]{c.map().mapId(), c.map().relocates() ? c.map().relocateHomeMapId() : -1});
+                }
+            }
         }
-        return pick == null ? null : pick.map();
+        return out;
     }
 
     record Candidate(TrainingMap map, double weight) {

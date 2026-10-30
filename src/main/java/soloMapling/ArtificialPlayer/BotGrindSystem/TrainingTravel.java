@@ -96,16 +96,35 @@ public final class TrainingTravel {
             if (roll >= chance) {
                 return null;
             }
-            TrainingRegions.Region here = TrainingRegions.regionOf(r.currentMapId());
             List<TrainingRegions.Region> fits = new ArrayList<>();
             List<Integer> hubs = new ArrayList<>();
             List<Double> weights = new ArrayList<>();
+            double total = fits(r, fits, hubs, weights);
+            if (fits.isEmpty() || !takePermit(tuning.relocationsPerMinute())) {
+                return null;
+            }
+            double at = pick * total;
+            for (int i = 0; i < fits.size(); i++) {
+                at -= weights.get(i);
+                if (at < 0 || i == fits.size() - 1) {
+                    return new Destination(fits.get(i).name(), hubs.get(i));
+                }
+            }
+            return null; // not reached
+        }
+
+        /** Every region and hub this bot could be sent to, with its weight; returns the total weight. */
+        double fits(Request r, List<TrainingRegions.Region> fits, List<Integer> hubs, List<Double> weights) {
+            TrainingRegions.Region here = TrainingRegions.regionOf(r.currentMapId());
             double total = 0;
             for (TrainingRegions.Region region : TrainingRegions.regions()) {
                 if (region == here || !region.attracts(r.level())) {
                     continue;
                 }
                 for (int hub : region.hubs()) {
+                    if (!soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(hub, r.rebirths(), r.level())) {
+                        continue; // 1.6.2 b041: never send a bot to a town it may not enter (a level/rebirth gate)
+                    }
                     int inBand = inBandCount(region, hub, r);
                     if (inBand == 0) {
                         continue;
@@ -121,17 +140,7 @@ public final class TrainingTravel {
                     total += w;
                 }
             }
-            if (fits.isEmpty() || !takePermit(tuning.relocationsPerMinute())) {
-                return null;
-            }
-            double at = pick * total;
-            for (int i = 0; i < fits.size(); i++) {
-                at -= weights.get(i);
-                if (at < 0 || i == fits.size() - 1) {
-                    return new Destination(fits.get(i).name(), hubs.get(i));
-                }
-            }
-            return null; // not reached
+            return total;
         }
 
         private int inBandCount(TrainingRegions.Region region, int hub, Request r) {
@@ -158,6 +167,31 @@ public final class TrainingTravel {
             startedInWindow++;
             return true;
         }
+    }
+
+    /**
+     * 1.6.2 b041 (auto-QA t-ld-1): every hub the region picker could send this bot to from currentMapId, and the
+     * in-band maps it would then train on there, as {hub, map}; live world data, no roll and no trip budget.
+     */
+    public static List<int[]> offeredForProbe(int level, int rebirths, int jobId, int currentMapId, int minMob,
+                                              int maxMob) {
+        Request r = new Request(null, level, rebirths, jobId, Integer.MAX_VALUE, currentMapId, currentMapId, false,
+                minMob, maxMob);
+        List<TrainingRegions.Region> fits = new ArrayList<>();
+        List<Integer> hubs = new ArrayList<>();
+        DEFAULT.fits(r, fits, hubs, new ArrayList<>());
+        List<int[]> out = new ArrayList<>();
+        for (int i = 0; i < hubs.size(); i++) {
+            int hub = hubs.get(i);
+            out.add(new int[]{hub, hub});
+            for (TrainingMap m : hubMaps(hub)) {
+                if (fits.get(i).contains(m.mapId()) && m.mobLevel() >= minMob && m.mobLevel() <= maxMob
+                        && TrainingRegions.isAllowed(m.mapId(), rebirths, level)) {
+                    out.add(new int[]{hub, m.mapId()});
+                }
+            }
+        }
+        return out;
     }
 
     // Grindable maps around a hub (walked hops, any level), cached: static WZ data.

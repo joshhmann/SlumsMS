@@ -64,6 +64,34 @@ class TrainingTravelTest {
     }
 
     @Test
+    void aBotIsNeverSentToATownItMayNotEnter() {
+        // 1.6.2 b041: Grandis with a lower town (level 120 or rebirth 1) and a deeper one (rebirth 1), both with
+        // lower-Grandis maps in reach; a level-125 bot without a rebirth only ever goes to the lower one
+        int lower = 400000000, deeper = 401000000;
+        TrainingRegions.install(new TrainingRegions.Config(List.of(
+                region("Victoria Island", 100000000, 110000000, HENESYS, 1),
+                new TrainingRegions.Region("Grandis", List.of(new TrainingRegions.Window(400000000, 402000000)),
+                        List.of(), List.of(lower, deeper), 120, 255, 1.0, true)),
+                new TrainingRegions.Tuning(1.0, 1.0, 100, 20)));
+        TrainingTravel.RegionTravel p = new TrainingTravel.RegionTravel(
+                hub -> hub == lower || hub == deeper ? List.of(new TrainingMap(lower, 125, 1)) : List.of(),
+                (from, to, rebirths, job, level) -> fare, clock::get);
+        for (int i = 0; i < 50; i++) {
+            TrainingTravel.Destination d = p.choose(request(125, 100_000, false, 0), 0.0, i / 50.0);
+            assertNotNull(d);
+            assertEquals(lower, d.hubMapId(), "pick " + i);
+            clock.addAndGet(61_000);
+        }
+        boolean deeperOnce = false;
+        for (int i = 0; i < 50; i++) {
+            TrainingTravel.Destination d = p.choose(request(125, 100_000, false, 1), 0.0, i / 50.0);
+            deeperOnce |= d != null && d.hubMapId() == deeper;
+            clock.addAndGet(61_000);
+        }
+        assertTrue(deeperOnce, "at rebirth 1 the deeper town is open");
+    }
+
+    @Test
     void anOutgrownBotUsuallyMovesToTheRegionThatFits() {
         TrainingTravel.Destination d = policy().choose(request(75, 100_000, false, 0), 0.5, 0.5);
 
