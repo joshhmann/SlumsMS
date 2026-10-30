@@ -41,7 +41,7 @@ bot completes one mob quest legally.
 - **4 Chat** `ChatTriage.Intent.QUESTS` / `RECOMMEND_QUEST` (rules) -> `BotChatActions` -> `BotQuestChat` from the
   bot's log; the model gets the fact, the reply must name the quest, a bot with no quest may not claim one. The
   brain's prompt facts carry the active quest.
-- **Not done:** the auto-QA check (a watched bot completes one mob quest legally), a `!qa` scenario, TEST switch-on
+- **Not done:** a `!qa` scenario (the auto-QA check now exists: `t-bq-1`, `Probes162.botQuest`, see docs/qa/QA.md), TEST switch-on
   and the 24 h row/size check; no real-client check of the quest effect a player sees.
 
 ## Item 5 built (2026-10-30, branch 162-contentruns; nutnnut/Cosmic 77e0c5bc9)
