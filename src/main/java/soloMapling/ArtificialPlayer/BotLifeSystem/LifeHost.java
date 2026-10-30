@@ -50,6 +50,18 @@ public interface LifeHost {
         return false;
     }
 
+    /**
+     * Ticket 158: whether this host runs quests (a grinder: the TrainingBot), and its home town (where a quest NPC may
+     * stand; -1 for none). Light hosts never take quests.
+     */
+    default boolean runsQuests() {
+        return false;
+    }
+
+    default int questHomeMap() {
+        return -1;
+    }
+
     /** The brain this host runs, or null (brain off, or a type without one). */
     default LifeRuntime lifeRuntime() {
         return null;

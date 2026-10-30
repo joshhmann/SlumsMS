@@ -6833,13 +6833,26 @@ public class Character extends AbstractCharacterObject {
         }
     }
 
-    // Bots carry no quest state (ticket 07, rule 1). Bots are cloned without the channel-server quest
+    // Bots carry no quest state (ticket 07, rule 1), unless ticket 158's questing switched it on for one. Bots are cloned without the channel-server quest
     // block and never talk to an NPC or run a quest script, so nothing grants them quest status today -
     // these guards keep that a rule instead of an accident: a future grant cannot create in-memory state
     // that would be dropped at despawn (the bot store has no quest column) while still awarding quest
     // points and broadcasting quest packets. Reads still answer; nothing is ever stored.
     private boolean tracksQuestState() {
-        return !BotHelpers.isArtificial(getId());
+        return !BotHelpers.isArtificial(getId()) || botQuestState;
+    }
+
+    // Ticket 158 (bot questing, -Dslums.botquests.enabled): a bot that runs quests through the real quest path keeps
+    // quest state in memory. Only BotQuests turns it on, after filling the map from the bot's quest log (its life
+    // profile); roster bots are never saved to queststatus, so nothing here reaches the database.
+    private volatile boolean botQuestState;
+
+    public boolean botQuestState() {
+        return botQuestState;
+    }
+
+    public void enableBotQuestState() {
+        botQuestState = true;
     }
 
     public QuestStatus getQuest(final int quest) {

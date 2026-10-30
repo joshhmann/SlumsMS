@@ -64,6 +64,7 @@ public final class ConvoLines {
             case MAKEUP_YES -> "makeup_yes";
             // the outcome's own line names the real map, shop or price: it stands
             case WHERE_TRAIN, WHERE_AT, TRADE_SHOP, TRADE_OFFER, MOOD, MOOD_NO, NONE -> null;
+            case QUESTS, QUESTS_NONE -> null; // ticket 158: the line names the bot's real quest (or none)
         };
     }
 
