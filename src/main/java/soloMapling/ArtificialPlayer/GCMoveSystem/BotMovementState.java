@@ -221,6 +221,8 @@ class BotMovementState {
     int observedOwnerStepX = 0;
     int observedOwnerStepY = 0;
     String lastNavDecision = "-";
+    // Ticket 157: the last nav ticks, kept only while -Dslums.navTrace=true and the bot is on full physics (NavTrace).
+    NavTrace.Ring navTrace = null;
 
     // ── Stuck detection & unstuck ──
     int stuckMs = 0;

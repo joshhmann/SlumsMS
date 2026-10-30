@@ -83,6 +83,11 @@ public final class NavStuckReport {
                 into.count += s.count;
                 into.first = Math.min(into.first, s.first);
                 into.last = Math.max(into.last, s.last);
+                if (s.trace != null && (into.trace == null || s.traceAt > into.traceAt)) {
+                    into.trace = s.trace; // ticket 157: the newest trace of the spot
+                    into.traceAt = s.traceAt;
+                }
+                into.traces += s.traces;
             }
         }
         List<NavStuckLog.Spot> list = new ArrayList<>(merged.values());
@@ -176,6 +181,8 @@ public final class NavStuckReport {
             out.append('\n');
         }
 
+        renderTraces(out, stuck);
+
         out.append("## Edges the planner penalises (nav learning)\n\n");
         if (failing.isEmpty()) {
             out.append("None.\n");
@@ -191,6 +198,31 @@ public final class NavStuckReport {
             }
         }
         return out.toString();
+    }
+
+    /** Traces shown per report, and the newest lines of each (the full trace stays in the day file). */
+    static final int TRACED_SPOTS = 5;
+    static final int TRACE_LINES = 40;
+
+    /** Ticket 157: the nav ticks that led into the worst traced spots (-Dslums.navTrace=true on the server). */
+    static void renderTraces(StringBuilder out, List<NavStuckLog.Spot> stuck) {
+        List<NavStuckLog.Spot> traced = stuck.stream().filter(s -> s.trace != null && !s.trace.isEmpty())
+                .limit(TRACED_SPOTS).toList();
+        if (traced.isEmpty()) {
+            return;
+        }
+        out.append("## Path traces (what led into the spot)\n\n");
+        out.append("The newest traced event of each spot, oldest tick first; time is relative to the event.\n\n");
+        for (NavStuckLog.Spot s : traced) {
+            out.append("### ").append(s.kind).append(" map ").append(s.mapId).append(" (").append(s.x).append(',')
+                    .append(s.y).append(")").append(s.edge.isEmpty() ? "" : " " + s.edge).append(", ")
+                    .append(s.traces).append(s.traces == 1 ? " trace" : " traces").append("\n\n```\n");
+            List<String> lines = s.trace.subList(Math.max(0, s.trace.size() - TRACE_LINES), s.trace.size());
+            for (String line : lines) {
+                out.append(line).append('\n');
+            }
+            out.append("```\n\n");
+        }
     }
 
     /** One edge of a learning book that the planner currently penalises. */

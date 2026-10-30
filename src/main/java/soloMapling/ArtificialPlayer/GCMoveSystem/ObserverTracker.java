@@ -71,6 +71,53 @@ final class ObserverTracker {
     private static final long FORCE_TTL_MS = 2_000;
     private static final Map<Integer, Long> forcedFull = new ConcurrentHashMap<>();
 
+    // Ticket 157 (idea from nutnnut/Cosmic /api/lod, 77e0c5bc9): maps a GM pinned to full simulation with
+    // !env lod pin (TEST only, at most MAX_PINS, gone on restart), so auto-QA and BotWatch see real behaviour there
+    // with nobody standing on them. Empty Set.of() when none: the hot-path check is one contains on an empty set.
+    static final int MAX_PINS = 5;
+    private static volatile Set<Integer> pinned = Set.of();
+
+    /* Pins a map to FULL. Returns null when pinned, else why not. */
+    static synchronized String pin(int mapId) {
+        if (mapId <= 0) {
+            return "not a map id: " + mapId;
+        }
+        if (pinned.contains(mapId)) {
+            return null;
+        }
+        if (pinned.size() >= MAX_PINS) {
+            return "already " + MAX_PINS + " maps pinned (the cap); unpin one first";
+        }
+        Set<Integer> next = new HashSet<>(pinned);
+        next.add(mapId);
+        pinned = Set.copyOf(next);
+        return null;
+    }
+
+    /* Releases a pinned map; false when it was not pinned. */
+    static synchronized boolean unpin(int mapId) {
+        if (!pinned.contains(mapId)) {
+            return false;
+        }
+        Set<Integer> next = new HashSet<>(pinned);
+        next.remove(mapId);
+        pinned = next.isEmpty() ? Set.of() : Set.copyOf(next);
+        return true;
+    }
+
+    static Set<Integer> pinned() {
+        return pinned;
+    }
+
+    static boolean isPinned(int mapId) {
+        return pinned.contains(mapId);
+    }
+
+    /* Test seam: no pins. */
+    static synchronized void clearPinsForTest() {
+        pinned = Set.of();
+    }
+
     // A real (non-bot) player is on this map right now — a live check, not the cached poll.
     static boolean hasRealPlayerNow(MapleMap map) {
         if (map == null) {
@@ -134,7 +181,7 @@ final class ObserverTracker {
 
     /* A real player is on this map (FULL tier). */
     static boolean isFull(int mapId) {
-        return fullMaps.contains(mapId) || forced(mapId);
+        return fullMaps.contains(mapId) || forced(mapId) || pinned.contains(mapId);
     }
 
     /* A real player is standing near the portal leading to this map (HALO tier). */
@@ -147,7 +194,7 @@ final class ObserverTracker {
      * now, OR within the post-observation dwell window. This is the set the driver gates on.
      */
     static boolean isActiveMap(int mapId) {
-        return DWELL.isActive(mapId) || forced(mapId);
+        return DWELL.isActive(mapId) || forced(mapId) || pinned.contains(mapId);
     }
 
     static int fullCount() {

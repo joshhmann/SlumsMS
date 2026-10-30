@@ -376,7 +376,7 @@ final class SwimNavigator {
         if (st.wps.length == 1) {
             st.noDirect = true;
         }
-        NavStuckLog.record(NavStuckLog.Kind.SWIM_STUCK, map.getId(), pos, null, name);
+        NavStuckLog.record(NavStuckLog.Kind.SWIM_STUCK, map.getId(), pos, null, name, NavTrace.capture(entry));
         if (edge != null) {
             NavEdgeLearning.swimFailure(entry, st.graph, edge);
             st.banned.put(SwimNavGraph.key(edge.fromRegionId, edge.toRegionId), System.currentTimeMillis() + BAN_MS);

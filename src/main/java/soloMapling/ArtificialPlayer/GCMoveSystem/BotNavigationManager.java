@@ -159,7 +159,8 @@ final class BotNavigationManager {
                     && entry.navBlockedPosTicks > 0
                     && entry.navBlockedPosTicks >= entry.navBlockedPosGiveUpTicks) {
                 NavEdgeLearning.failure(entry, graph, entry.navEdge); // bot-persistence ticket 16: remember the miss
-                NavStuckLog.record(NavStuckLog.Kind.GAVE_UP, bot.getMap(), botPos, graph, entry.navEdge);
+                NavStuckLog.record(NavStuckLog.Kind.GAVE_UP, bot.getMap(), botPos, graph, entry.navEdge,
+                        NavTrace.capture(entry));
                 clearNavigation(entry);
             }
             // ...and the make: the bot reached the region the committed edge leads to (counted once per edge), or the
@@ -272,7 +273,8 @@ final class BotNavigationManager {
         }
         entry.planFailureLoggedAtMs = now;
         if (startRegionId < 0) {
-            NavStuckLog.record(NavStuckLog.Kind.NO_REGION, bot.getMapId(), bot.getPosition(), graph, "");
+            NavStuckLog.record(NavStuckLog.Kind.NO_REGION, bot.getMapId(), bot.getPosition(), graph, "",
+                    NavTrace.capture(entry));
         } else {
             NavStuckLog.record(NavStuckLog.Kind.NO_PATH, bot.getMapId(), bot.getPosition(), graph,
                     "no route r" + startRegionId + ">r" + targetRegionId);
@@ -1645,6 +1647,9 @@ final class BotNavigationManager {
     }
 
     private static boolean isEdgeUsable(BotNavigationGraph graph, MapleMap map, BotNavigationGraph.Edge edge, int skillMask) {
+        if (NavPits.into(graph, map, edge)) {
+            return false; // ticket 157: never route into a hidden catch floor under the view bounds
+        }
         return switch (edge.type) {
             case WALK, JUMP, DROP, CLIMB -> true;
             case PORTAL -> {

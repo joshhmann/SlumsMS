@@ -124,6 +124,7 @@ final class LiveSnapshot {
         }
         out.put("maps", mapRows);
         out.put("mapsWithBots", maps.size());
+        out.put("mapCounts", mapCounts(maps));
         return out;
     }
 
@@ -131,6 +132,13 @@ final class LiveSnapshot {
      * 1.6.0 towns: per town (its whole map family, every channel; the Free Market with its rooms), residents (boot
      * environment bots) and roster (director) bots: {@code {"Henesys": [residents, roster], ...}}.
      */
+    /** Ticket 157 (the site's world graph): bots now on every map with bots, map id (as text) to count, by id. */
+    static Map<String, Integer> mapCounts(Map<Integer, int[]> maps) {
+        Map<String, Integer> out = new LinkedHashMap<>();
+        new TreeMap<>(maps).forEach((mapId, m) -> out.put(Integer.toString(mapId), m[0]));
+        return out;
+    }
+
     static Map<String, List<Integer>> towns(List<BotSample> bots) {
         Map<String, int[]> counts = new TreeMap<>();
         for (BotSample b : bots) {

@@ -91,6 +91,39 @@ class BotGearTest {
     }
 
     @Test
+    void theLastGearPickIsExplainedOnlyWhileTheDebugToolsAreOn() {
+        String before = System.getProperty("slums.debugtools");
+        try {
+            BotGearWhy.clearForTest();
+            System.setProperty("slums.debugtools", "false");
+            Character quiet = bot(Job.BEGINNER, 8);
+            know(SWORD, (short) -11, 0);
+            know(BETTER_SWORD, (short) -11, 5);
+            put(quiet, InventoryType.EQUIPPED, equip(SWORD, (short) -11, 17, 0));
+            put(quiet, InventoryType.EQUIP, equip(BETTER_SWORD, (short) 3, 25, 0));
+            assertTrue(review(quiet));
+            assertNull(BotGearWhy.describe(quiet.getId(), System.currentTimeMillis()), "off: nothing kept");
+
+            System.setProperty("slums.debugtools", "true");
+            Character bot = bot(Job.BEGINNER, 8);
+            bot.setID(1_000_000_000 + 2020);
+            put(bot, InventoryType.EQUIPPED, equip(SWORD, (short) -11, 17, 0));
+            put(bot, InventoryType.EQUIP, equip(BETTER_SWORD, (short) 3, 25, 0));
+            assertTrue(review(bot));
+            String why = BotGearWhy.describe(bot.getId(), System.currentTimeMillis());
+            assertEquals("Gear pick 0 s ago: slot -11 " + SWORD + " -> " + BETTER_SWORD
+                    + "; loadout score (main attack) 170 -> 250", why);
+        } finally {
+            if (before == null) {
+                System.clearProperty("slums.debugtools");
+            } else {
+                System.setProperty("slums.debugtools", before);
+            }
+            BotGearWhy.clearForTest();
+        }
+    }
+
+    @Test
     void aBeginnerKeepsTheKindOfWeaponItHolds() {
         Character bot = bot(Job.BEGINNER, 8);
         know(SWORD, (short) -11, 0);

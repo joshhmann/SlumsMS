@@ -95,6 +95,9 @@ public final class DashboardMapExport {
         System.exit(0); // WZ loading leaves non-daemon threads behind
     }
 
+    /** The map file's layout; a change rewrites every map once (157: portals gained their target portal, p[5]). */
+    static final String MAP_FORMAT = "f2";
+
     /** Where a map's geometry comes from; tests substitute one. */
     public interface Geometry {
         Map<String, Object> of(int mapId);
@@ -149,7 +152,7 @@ public final class DashboardMapExport {
             }
             List<NavDashboardData.StuckSpot> spots = spotsByMap.getOrDefault(mapId, List.of());
             List<Object> keyRows = new ArrayList<>();
-            StringBuilder mapSig = new StringBuilder("v" + NavDashboardData.graphVersion());
+            StringBuilder mapSig = new StringBuilder("v" + NavDashboardData.graphVersion() + MAP_FORMAT);
             try {
                 for (String key : keys.get(mapId)) {
                     String sig = keySignature(dirs, key, deep.generation(), learned.containsKey(key) ? learnedBucket : 0);

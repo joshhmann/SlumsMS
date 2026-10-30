@@ -113,6 +113,9 @@ class DashboardExporterTest {
         List<?> topMap = (List<?>) ((List<?>) bots.get("maps")).get(0);
         // 1.6.0 towns: residents (boot environment) vs roster (director) bots ride along on each map row
         assertEquals(List.of(100000000L, "Henesys", 2L, 36L, 0L, 2L), deepLongs(topMap));
+        // ticket 157: every map with bots, not only the top 40, for the site's world graph
+        assertEquals(Map.of("100000000", 2L, "104040000", 1L), numbersAsLongs((Map<?, ?>) bots.get("mapCounts")));
+        assertTrue(live.get("switches") instanceof Map<?, ?>, "the effective switches ride along");
 
         Map<?, ?> health = (Map<?, ?>) live.get("health");
         assertEquals(100.0, ((Number) health.get("tickMsPerS")).doubleValue(), 0.01, "6 s over 60 s, the nested phase left out");

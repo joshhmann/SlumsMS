@@ -104,6 +104,17 @@ public final class GCMovement {
         return bot != null && STATES.containsKey(bot.getId());
     }
 
+    /* Ticket 157 (!botstatus): what the planner last decided for this bot ("exec", "no-path", ...), "-" when idle. */
+    public static String navDecision(Character bot) {
+        BotMovementState st = stateOf(bot);
+        return st == null ? "off" : st.lastNavDecision;
+    }
+
+    /* Ticket 157: this bot's movement state, or null when it is not on dynamic movement. */
+    static BotMovementState stateOf(Character bot) {
+        return bot == null ? null : STATES.get(bot.getId());
+    }
+
     /* Package-private snapshot of the enabled dynamic states (for LodMetrics reporting). */
     static java.util.Collection<BotMovementState> enabledStates() {
         return new java.util.ArrayList<>(STATES.values());
@@ -809,6 +820,25 @@ public final class GCMovement {
      * real combat only on observed maps). Wraps the package-private ObserverTracker; never
      * forces the observer poll to start (it is started by .enable).
      */
+    /* Ticket 157: pin a map to full simulation (TEST only, !env lod pin). Null when pinned, else why not. */
+    public static String lodPin(int mapId) {
+        return ObserverTracker.pin(mapId);
+    }
+
+    /* Ticket 157: release a pinned map; false when it was not pinned. */
+    public static boolean lodUnpin(int mapId) {
+        return ObserverTracker.unpin(mapId);
+    }
+
+    /* Ticket 157: the maps pinned to full simulation. */
+    public static java.util.Set<Integer> lodPins() {
+        return ObserverTracker.pinned();
+    }
+
+    public static int lodPinCap() {
+        return ObserverTracker.MAX_PINS;
+    }
+
     public static boolean isMapObserved(int mapId) {
         return ObserverTracker.isFull(mapId);
     }
@@ -828,6 +858,9 @@ public final class GCMovement {
      * window), or "coarse" (unobserved). Diagnostics — see !gcmove lod train.
      */
     public static String lodTier(int mapId) {
+        if (ObserverTracker.isPinned(mapId)) {
+            return "pinned"; // ticket 157: full simulation by a GM's !env lod pin
+        }
         if (ObserverTracker.isFull(mapId)) {
             return "full";
         }

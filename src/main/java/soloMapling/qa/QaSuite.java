@@ -79,7 +79,7 @@ public final class QaSuite {
     }
 
     /** The same rule for a set of -D properties (the unit test reads live's and the test server's command lines). */
-    static boolean enabledFor(Function<String, String> property) {
+    public static boolean enabledFor(Function<String, String> property) {
         return "true".equalsIgnoreCase(property.apply(PROPERTY))
                 || "true".equalsIgnoreCase(property.apply(AttackCapture.PROPERTY));
     }
