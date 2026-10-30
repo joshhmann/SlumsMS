@@ -146,3 +146,20 @@ a switch that is off by default; the upstream commit is the source of the idea o
 | `930ca5a01` | Magic Guard damage split: the share of a hit that comes off MP, the MP shortfall falling back on HP (`slums.bots.magicguard`). Their `CRITICAL_SURVIVAL_BUFFS` recast priority and `effectiveMaxHp` valuation are not ported | `BotVitals` |
 | `67359bdce` | Fame on request ("fame me"); ours is gated by affinity, level 15, the server's own fame rules and once a day per pair (`slums.bots.famerequest`) | `BotFameRequest`, `Dispatcher` |
 | (`BotBuffManager`, no single commit) | Party support: a Cleric line heals the hurt party member for MP on a cooldown, party buffs cost MP and are re-cast on a member who lacks them, held buff pots are drunk in a fight (`slums.bots.partysupport`) | `BotPartySupport`, `BotBuffDriver`, `BotBuffEffects` |
+
+### Ticket 162: nutnnut's gear optimization (branch `162-gearopt`)
+
+From nutnnut/Cosmic (GreenCatMS), https://github.com/nutnnut/Cosmic, AGPL-3.0, `src/main/java/server/bots/`, branch
+`dev`. Rewritten onto our types and rules (each file's header says what was kept and what is ours); every part is
+behind a switch that is off by default.
+
+| Their file @ commit | What was ported | Our files | Switch |
+| --- | --- | --- | --- |
+| `BotEquipManager.java` @ `2771d9ea1` | The per-weapon Pareto DP over body slots (frontier dedup, wearable-only pruning, frontier cap), per-slot dominance pruning with requirement comparison, requirement-relevant and accuracy dimensions, and `chooseSecondaryTarget` (the dexless AP target) | `BotGearOptimizer`, `GearMemo`, `BotGear` (switch, shared `GearScoring`), `BotBuild`/`BotProgression` (secondary cap) | `-Dslums.gear.optimizer=pareto`, `-Dslums.gear.dexless=true` |
+| `BotGrindPlanner.java` @ `ad57bf2c3`, `BotGrindAdvisor.java` @ `2943481dd` | Gear-first map scoring (seek time, kill rate capped by respawns, attainability-discounted DPS gain, gear need blending EXP and gear), farm-an-item pick by expected copies an hour, the dropper-map candidate build | `GearFirstPlanner`, `GearFirstAdvisor`, `TrainingMapChooser`, `OffscreenCombat.rateOn`, `LifeGoals`/`LifePlanner`/`LifeMemory`/`LifeRuntime` (FARM_ITEM aspiration) | `-Dslums.grind.gearFirst=true` |
+| `BotEquipManager.java` @ `2771d9ea1`, `BotInventoryManager.java` @ `f19fed568` | Self-reserve per slot track (relevant stats per job, effective values, Pareto with level need, 3 per track by ceiling) and the valuables shelf (trade value above clean stats, bounded shelf, never-sell score) | `JunkSort`, `BotBagRoom` (town sale keeps them) | `-Dslums.junk.sort=true` |
+| `BotScrollValuer.java` @ `502bb23e2` | The reproduction-cost valuer (restart-on-ruin DP), near-verbatim; ours: the restart fixed point is solved by Newton steps on the optimal policy (upstream's 120 plain iterations capped long-shot values) | `soloMapling.itemPool.ScrollValuer`, `UpgradeSimulator` (price), `BotScrolling` (value curve) | `-Dslums.scroll.ev=true` |
+| `BotScrollPlanner.java` @ `a38171b6f` | The EV scroll planner (stochastic DP over score and slots, boom priced, fallback gate, opportunity margin), near-verbatim | `ScrollPlanner`, `BotScrolling.evPlan` | `-Dslums.scroll.ev=true` |
+
+Tests adapted from theirs: `ScrollValuerTest` (from `BotScrollValuerTest`), `ScrollPlannerTest` (from
+`BotScrollPlannerTest`).

@@ -194,6 +194,12 @@ public final class BotProgression {
                 BotBuild.catchUp(state, settled, choice, catalog);
             }
             state.level = level;
+            if (Boolean.getBoolean("slums.gear.dexless")) {
+                // Ticket 162: the gear-aware ("dexless") secondary target for the AP this settle spends.
+                state.secondaryCap = soloMapling.ArtificialPlayer.BotGearSystem.BotGear.dexlessSecondaryTarget(bot,
+                        BotBuild.primaryStat(job, choice), BotBuild.secondaryStat(job, choice),
+                        BotBuild.secondaryFloor(job, choice), state.remainingAp);
+            }
             BotBuild.settle(state, choice, catalog);
             apply(bot, state, level > settled);
             payForPackages(bot, state);

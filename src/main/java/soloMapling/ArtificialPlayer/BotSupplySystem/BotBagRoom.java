@@ -137,9 +137,12 @@ public final class BotBagRoom {
         }
         try {
             ItemInformationProvider ii = ItemInformationProvider.getInstance();
+            // Ticket 162 part 4 (-Dslums.junk.sort): reserve and valuables-shelf equips stay out of the sale.
+            java.util.Set<Item> sorted = JunkSort.keeps(chr);
             Sale sale = sellJunk(chr, item -> ii.getPrice(item.getItemId(), item.getQuantity()),
                     item -> ii.isQuestItem(item.getItemId()) || ii.isCash(item.getItemId())
-                            || soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.keeps(item.getItemId()));
+                            || soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.keeps(item.getItemId())
+                            || sorted.contains(item));
             if (sale.items() > 0) {
                 log.info("[Bag] {} (lv {}) sold {} junk item(s) at the store on map {} for {} mesos ({} credited)",
                         chr.getName(), chr.getLevel(), sale.items(), chr.getMapId(), sale.mesosOffered(),

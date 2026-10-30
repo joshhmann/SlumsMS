@@ -49,14 +49,16 @@ public final class LifePlanner {
         LEVEL_READY, AT_INSTRUCTOR, ADVANCED, WEAPON_OK, HAS_FRIEND, HAS_CRUSH, HAS_RING, MARRIED,
         GUILD_CONTACT, IN_GUILD, ZAKUM_LEVEL, ZAKUM_READY, ZHELM, LOOT, RICH,
         /** Ticket 158: the quest is taken, its kills are made, it is turned in (read from the bot's quest log). */
-        QUEST_TAKEN, QUEST_HUNTED, QUEST_DONE;
+        QUEST_TAKEN, QUEST_HUNTED, QUEST_DONE,
+        /* Ticket 162: the farmed gear dropped (soft: made true by finishing the farm step). */
+        GEAR_FARMED;
 
         int bit() { return 1 << ordinal(); }
     }
 
     /** Facts the game can't answer: made true by finishing the step that causes them. */
     public static final Set<Fact> SOFT = Collections.unmodifiableSet(EnumSet.of(Fact.AT_INSTRUCTOR,
-            Fact.GUILD_CONTACT, Fact.ZAKUM_READY, Fact.LOOT));
+            Fact.GUILD_CONTACT, Fact.ZAKUM_READY, Fact.LOOT, Fact.GEAR_FARMED));
 
     public enum Step {
         GRIND_TO_LEVEL(Activity.GRIND, "grind to level %d", 2, List.of(), Fact.LEVEL_READY),
@@ -80,7 +82,9 @@ public final class LifePlanner {
         // Ticket 158: a kill quest is a town stop at its NPC, a grind on its map, and a town stop to turn it in.
         TAKE_QUEST(Activity.HANG_OUT, "take the quest from its NPC", 1, List.of(), Fact.QUEST_TAKEN),
         HUNT_QUEST(Activity.GRIND, "hunt the quest's monsters", 1, List.of(Fact.QUEST_TAKEN), Fact.QUEST_HUNTED),
-        TURN_IN_QUEST(Activity.HANG_OUT, "turn the quest in at its NPC", 1, List.of(Fact.QUEST_HUNTED), Fact.QUEST_DONE);
+        TURN_IN_QUEST(Activity.HANG_OUT, "turn the quest in at its NPC", 1, List.of(Fact.QUEST_HUNTED), Fact.QUEST_DONE),
+        /* Ticket 162: grind where the wanted drop falls (GearFirstAdvisor.farmPick picks the map). */
+        FARM_GEAR(Activity.GRIND, "farm the gear drop it wants", 1, List.of(), Fact.GEAR_FARMED);
 
         public final Activity activity;
         final String text;
@@ -149,6 +153,7 @@ public final class LifePlanner {
             case ZHELM -> Fact.ZHELM;
             case WEALTH -> Fact.RICH;
             case QUEST -> Fact.QUEST_DONE;
+            case FARM_ITEM -> Fact.GEAR_FARMED;
         };
     }
 

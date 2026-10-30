@@ -171,10 +171,19 @@ public class UpgradeSimulator {
             return (int) baseItemCost;
         }
 
-        // Define scrolls with [price, successRate, statBonus]
-        // Need to get the list of scrolls associated with the type of equipment
+        ArrayList<Scroll> scrolls2 = scrollsFor(scrollInfo);
 
+        // slots based on clean's number of slots
+        Equip clean = (Equip) generateCleanItemEquip(equip.getItemId());
+        int slots = clean.getUpgradeSlots();
 
+        long item_price = evModel() ? evPrice(scrolls2, baseItemCost, slots, scrolledStatBonus)
+                : naivePrice(scrolls2, baseItemCost, slots, scrolledStatBonus);
+        return limitToIntRange(item_price);
+    }
+
+    /* The item pool's scrolls for this kind of equip: [price, success rate, stat bonus] (10%/60%, and 30%/70%). */
+    static ArrayList<Scroll> scrollsFor(ScrollInfoManager.ScrollInfo scrollInfo) {
         ArrayList<Scroll> scrolls2 = new ArrayList<>();
         if (scrollInfo.hasPercent_10_60()) {
             ScrollNode tenPc = getScrollNodeData(scrollInfo.getPercent_10());
@@ -182,8 +191,6 @@ public class UpgradeSimulator {
             scrolls2.add(new Scroll(tenPc.getCurrentPrice(), tenPc.getSuccessRate(), tenPc.getStatBonus()));
             scrolls2.add(new Scroll(sixtyPc.getCurrentPrice(), sixtyPc.getSuccessRate(), sixtyPc.getStatBonus()));
         }
-
-        // todo add the 30 percent stuff
         if (getItemPoolVersion() > 40) {
             if (scrollInfo.hasPercent_30_70()) {
                 ScrollNode thirtyPc = getScrollNodeData(scrollInfo.getPercent_30());
@@ -192,22 +199,57 @@ public class UpgradeSimulator {
                 scrolls2.add(new Scroll(seventyPc.getCurrentPrice(), seventyPc.getSuccessRate(), seventyPc.getStatBonus()));
             }
         }
+        return scrolls2;
+    }
 
+    /*
+     * Ticket 162 part 5: which model prices a scrolled equip. Off (the default, live): the naive chain below. On
+     * (-Dslums.scroll.ev=true): ScrollValuer's reproduction cost, nutnnut's expected meso to make one this good from
+     * clean bases (a failed scroll burns a slot, a base that runs out of slots below the target is replaced).
+     */
+    public static boolean evModel() {
+        return Boolean.getBoolean("slums.scroll.ev");
+    }
 
-        // slots based on clean's number of slots
-        Equip clean = (Equip) generateCleanItemEquip(equip.getItemId());
-        int slots = clean.getUpgradeSlots();
-
-        // max value of scroll's statBonus's
-        int maxIncrement = getHighestStatBonus(scrolls2);
-
-        // max bonus based on (highest statBonus * slots)
+    /*
+     * The naive model: the cheapest chain of successes reaching exactly this bonus, each step "(cost so far +
+     * scroll) / success rate" (a failure is priced as losing the whole item), smoothed, then the sellables cut.
+     * A bonus the chain cannot reach exactly is priced 1 meso.
+     */
+    static long naivePrice(java.util.List<Scroll> scrolls, long baseItemCost, int slots, int scrolledStatBonus) {
+        ArrayList<Scroll> list = new ArrayList<>(scrolls);
+        int maxIncrement = getHighestStatBonus(list);
         int maxBonus = maxIncrement * slots;
-
-        double[][] minCostArray = minimumCostToCreateEquipCalculator(scrolls2, baseItemCost, slots, maxBonus, maxIncrement);
+        double[][] minCostArray = minimumCostToCreateEquipCalculator(list, baseItemCost, slots, maxBonus, maxIncrement);
         UniqueStatBonusList costList = cleanUpMinCostData(minCostArray, slots, maxBonus);
-        long item_price = getPriceForStatBonus(costList, scrolledStatBonus);
-        return limitToIntRange(item_price);
+        return getPriceForStatBonus(costList, scrolledStatBonus);
+    }
+
+    /*
+     * The reproduction-cost model (ScrollValuer): expected meso to reach at least this bonus, with the naive
+     * model's sellables cut (0.6) on the premium above the clean base.
+     */
+    static long evPrice(java.util.List<Scroll> scrolls, long baseItemCost, int slots, int scrolledStatBonus) {
+        java.util.List<ScrollValuer.ScrollSpec> specs = new ArrayList<>();
+        for (Scroll sc : scrolls) {
+            if (sc.successRate > 0 && sc.statBonus > 0) {
+                specs.add(new ScrollValuer.ScrollSpec(sc.successRate / 100.0, sc.statBonus, Math.max(0, sc.price)));
+            }
+        }
+        int maxGain = 0;
+        for (ScrollValuer.ScrollSpec sp : specs) {
+            maxGain = Math.max(maxGain, (int) sp.statGain());
+        }
+        // A bonus no clean base can reach with these scrolls (chaos, hammers, another source) is priced at the most
+        // the scrolls can make, not at an unbounded restart loop.
+        int target = Math.min(scrolledStatBonus, Math.max(0, slots) * maxGain);
+        double value = ScrollValuer.reproductionValue(0, slots, specs, baseItemCost).applyAsDouble(target);
+        // The sellables cut on the premium over the clean base only (the naive chain cuts the whole price, which
+        // its own "a failure loses the item" overcount more than makes up for; here it would price +2 under clean).
+        if (scrolledStatBonus > 0 && value > baseItemCost) {
+            value = baseItemCost + (value - baseItemCost) * sellables_offset_multiplier;
+        }
+        return Math.max(1, Math.round(Math.min(value, Long.MAX_VALUE / 2.0)));
     }
 
 

@@ -59,6 +59,30 @@ public final class BotGear {
     /* Off switch for the whole optimizer (bots then keep what they wear). */
     public static volatile boolean ENABLED = true;
 
+    /*
+     * Ticket 162 part 1: which optimizer dresses a bot. "climb" (the default, live behaviour): BotGearPlanner's hill
+     * climb for every bot. "pareto": BotGearOptimizer (the port of nutnnut's Pareto DP) for bots on a map a player
+     * can see or is about to (LodCounts.isMapActive, or every bot when the observer poll is not running), and the
+     * climb behind GearMemo's skip-if-unchanged for offscreen bots. -Dslums.gear.optimizer=pareto|climb.
+     */
+    public static String optimizer() {
+        return System.getProperty("slums.gear.optimizer", "climb").trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    static boolean pareto() {
+        return "pareto".equals(optimizer());
+    }
+
+    /* A bot a player can see (or is about to): the full optimizer. Every bot when the observer poll is off. */
+    static boolean fullPass(Character bot) {
+        try {
+            return !soloMapling.ArtificialPlayer.GCMoveSystem.LodCounts.trackerRunning()
+                    || soloMapling.ArtificialPlayer.GCMoveSystem.LodCounts.isMapActive(bot.getMapId());
+        } catch (RuntimeException | LinkageError e) {
+            return true;
+        }
+    }
+
     // Weapons a beginner may pick up and fight with: no bow, claw or gun without the ammo and skills for them.
     private static final Set<EquipType> BEGINNER_WEAPONS = Set.of(EquipType.SWORD, EquipType.AXE, EquipType.MACE,
             EquipType.DAGGER, EquipType.WAND, EquipType.STAFF, EquipType.SWORD_2H, EquipType.AXE_2H, EquipType.MACE_2H,
@@ -154,6 +178,28 @@ public final class BotGear {
     /* The review with its item data and its yardstick (given what the bot wears now) handed in - tests. */
     static boolean review(Character bot, IntFunction<Known> facts, Function<Map<Short, Piece>, Valuer> valuers) {
         synchronized (bot) {
+            boolean pareto = pareto();
+            boolean full = !pareto || fullPass(bot);
+            long signature = 0;
+            if (!full) {
+                // Ticket 162: the cheap pass - an offscreen bot whose gear and stats did not move since its last
+                // review is left alone without reading a single equip.
+                signature = GearMemo.signature(bot);
+                if (GearMemo.unchanged(bot.getId(), signature)) {
+                    return false;
+                }
+            }
+            boolean changed = reviewNow(bot, facts, valuers, pareto && full);
+            if (!full) {
+                GearMemo.remember(bot.getId(), changed ? GearMemo.signature(bot) : signature);
+            }
+            return changed;
+        }
+    }
+
+    private static boolean reviewNow(Character bot, IntFunction<Known> facts,
+                                     Function<Map<Short, Piece>, Valuer> valuers, boolean optimizer) {
+        {
             Inventory carried = bot.getInventory(InventoryType.EQUIP);
             Inventory body = bot.getInventory(InventoryType.EQUIPPED);
             List<Piece> owned = new ArrayList<>();
@@ -190,7 +236,8 @@ public final class BotGear {
             int heldId = held != null ? held.itemId() : 0;
             Rules rules = new Rules(weapon -> weaponAllowed(bot, heldId, weapon),
                     weapon -> BotWeapons.takesShield(BotWeapons.kindOf(weapon)));
-            Plan plan = BotGearPlanner.plan(wearer, worn, owned, valuers.apply(worn), rules);
+            Plan plan = optimizer ? BotGearOptimizer.plan(wearer, worn, owned, valuers.apply(worn), rules)
+                    : BotGearPlanner.plan(wearer, worn, owned, valuers.apply(worn), rules);
             if (plan == null) {
                 return false;
             }
@@ -206,11 +253,230 @@ public final class BotGear {
         }
     }
 
+    /* Ticket 162: the shared scoring entry point (GearScoring) over the live item data and damage yardstick. */
+    static final GearScoring SCORING = new GearScoring() {
+        @Override
+        public double upgradeValue(Character chr, Equip candidate) {
+            if (chr == null || candidate == null || !EquipMetadataCache.isInitialized()) {
+                return 0;
+            }
+            return BotGear.upgradeValue(chr, candidate, liveFacts(chr), worn -> liveValuer(chr, worn));
+        }
+
+        @Override
+        public double upgradeFraction(Character chr, Equip candidate) {
+            if (chr == null || candidate == null || !EquipMetadataCache.isInitialized()) {
+                return 0;
+            }
+            return BotGear.upgradeFraction(chr, candidate, liveFacts(chr), worn -> liveValuer(chr, worn));
+        }
+
+        @Override
+        public Map<Short, Equip> bestSet(Character chr, java.util.Collection<Equip> extras) {
+            if (chr == null || !EquipMetadataCache.isInitialized()) {
+                return Map.of();
+            }
+            return BotGear.bestSet(chr, extras, liveFacts(chr), worn -> liveValuer(chr, worn));
+        }
+    };
+
+    /* GearScoring.upgradeValue with its item data and yardstick handed in (tests). */
+    static double upgradeValue(Character chr, Equip candidate, IntFunction<Known> facts,
+                               Function<Map<Short, Piece>, Valuer> valuers) {
+        Plan plan = planWith(chr, List.of(candidate), facts, valuers);
+        if (plan == null) {
+            return 0;
+        }
+        for (Piece p : plan.wear().values()) {
+            if (p.item() == candidate) {
+                return Math.max(0, plan.after() - plan.before());
+            }
+        }
+        return 0;
+    }
+
+    /* GearScoring.upgradeFraction with its item data and yardstick handed in (tests). */
+    static double upgradeFraction(Character chr, Equip candidate, IntFunction<Known> facts,
+                                  Function<Map<Short, Piece>, Valuer> valuers) {
+        Plan plan = planWith(chr, List.of(candidate), facts, valuers);
+        if (plan == null || plan.before() <= 0) {
+            return 0;
+        }
+        for (Piece p : plan.wear().values()) {
+            if (p.item() == candidate) {
+                return Math.max(0, plan.after() - plan.before()) / plan.before();
+            }
+        }
+        return 0;
+    }
+
+    /* GearScoring.bestSet with its item data and yardstick handed in (tests). */
+    static Map<Short, Equip> bestSet(Character chr, java.util.Collection<Equip> extras, IntFunction<Known> facts,
+                                     Function<Map<Short, Piece>, Valuer> valuers) {
+        Plan plan = planWith(chr, extras, facts, valuers);
+        if (plan == null) {
+            return Map.of();
+        }
+        Inventory body = chr.getInventory(InventoryType.EQUIPPED);
+        Map<Short, Equip> out = new LinkedHashMap<>();
+        for (Map.Entry<Short, Piece> e : plan.wear().entrySet()) {
+            if (body.getItem(e.getKey()) != e.getValue().item()) {
+                out.put(e.getKey(), (Equip) e.getValue().item());
+            }
+        }
+        return out;
+    }
+
+    // What the character's own planner would wear from its gear plus these extras; read only.
+    private static Plan planWith(Character chr, java.util.Collection<Equip> extras, IntFunction<Known> facts,
+                                 Function<Map<Short, Piece>, Valuer> valuers) {
+        synchronized (chr) {
+            Inventory carried = chr.getInventory(InventoryType.EQUIP);
+            Inventory body = chr.getInventory(InventoryType.EQUIPPED);
+            List<Piece> owned = new ArrayList<>();
+            for (Item item : carried.list()) {
+                if (item instanceof Equip equip) {
+                    Known known = facts.apply(equip.getItemId());
+                    if (known != null) {
+                        owned.add(piece(equip, known));
+                    }
+                }
+            }
+            for (Equip equip : extras) {
+                Known known = equip == null ? null : facts.apply(equip.getItemId());
+                if (known != null) {
+                    owned.add(piece(equip, known));
+                }
+            }
+            Map<Short, Piece> worn = new LinkedHashMap<>();
+            for (short slot : BotGearPlanner.SLOTS) {
+                if (body.getItem(slot) instanceof Equip equip) {
+                    worn.put(slot, piece(equip, facts.apply(equip.getItemId())));
+                }
+            }
+            Wearer wearer = new Wearer(chr.getJob().getJobNiche(), chr.getLevel(), chr.getFame(), chr.getStr(),
+                    chr.getDex(), chr.getInt(), chr.getLuk(), Math.max(carried.getNumFreeSlot(), extras.size()));
+            Piece held = worn.get(BotGearPlanner.WEAPON);
+            int heldId = held != null ? held.itemId() : 0;
+            Rules rules = new Rules(weapon -> weaponAllowed(chr, heldId, weapon),
+                    weapon -> BotWeapons.takesShield(BotWeapons.kindOf(weapon)));
+            Valuer valuer = valuers.apply(worn);
+            return pareto() ? BotGearOptimizer.plan(wearer, worn, owned, valuer, rules)
+                    : BotGearPlanner.plan(wearer, worn, owned, valuer, rules);
+        }
+    }
+
+    /*
+     * Ticket 162 (dexless AP build, -Dslums.gear.dexless): the base secondary stat this bot's AP should stop at, from
+     * BotGearOptimizer.secondaryTarget over every weapon it owns or holds that it may fight with. -1 (no cap) without
+     * item data, for a class with no cap (secondaryFloor MAX_VALUE: magicians) or on any error.
+     */
+    public static int dexlessSecondaryTarget(Character bot,
+                                             soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat primary,
+                                             soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat secondary,
+                                             int floor, int freeAp) {
+        if (floor == Integer.MAX_VALUE || !EquipMetadataCache.isInitialized()) {
+            return -1;
+        }
+        try {
+            return dexlessSecondaryTarget(bot, primary, secondary, floor, freeAp, liveFacts(bot),
+                    weaponId -> BotDamage.gearValue(bot, weaponId));
+        } catch (RuntimeException | LinkageError e) {
+            return -1;
+        }
+    }
+
+    /* As above with the item data and the damage per weapon handed in (tests). */
+    static int dexlessSecondaryTarget(Character bot,
+                                      soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat primary,
+                                      soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat secondary,
+                                      int floor, int freeAp, IntFunction<Known> facts,
+                                      java.util.function.IntFunction<BotDamage.GearValue> damage) {
+        Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+        Equip held = body.getItem(BotGearPlanner.WEAPON) instanceof Equip e ? e : null;
+        int heldId = held != null ? held.getItemId() : 0;
+        int heldWatk = held != null ? held.getWatk() : 0;
+        int primaryBase = baseOf(bot, primary);
+        int secondaryBase = baseOf(bot, secondary);
+        int gearSecondary = totalOf(bot, secondary) - secondaryBase;
+        List<Equip> weapons = new ArrayList<>();
+        if (held != null) {
+            weapons.add(held);
+        }
+        for (Item item : bot.getInventory(InventoryType.EQUIP).list()) {
+            if (item instanceof Equip e && BotWeapons.kindOf(e.getItemId()) != null) {
+                weapons.add(e);
+            }
+        }
+        List<BotGearOptimizer.WeaponCand> cands = new ArrayList<>();
+        int heldReq = 0;
+        for (Equip w : weapons) {
+            Known k = facts.apply(w.getItemId());
+            if (k == null || k.slot() != BotGearPlanner.WEAPON || k.reqLevel() > bot.getLevel()
+                    || (w != held && !weaponAllowed(bot, heldId, w.getItemId()))) {
+                continue;
+            }
+            int req = reqOf(k, secondary);
+            if (w == held) {
+                heldReq = req;
+            }
+            BotDamage.GearValue value = damage.apply(w.getItemId());
+            int dWatk = w.getWatk() - heldWatk;
+            cands.add(new BotGearOptimizer.WeaponCand(req, (p, sec) -> value.of(
+                    delta(primary, soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat.STR, p - primaryBase)
+                            + delta(secondary, soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat.STR, sec - secondaryBase),
+                    delta(primary, soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat.DEX, p - primaryBase)
+                            + delta(secondary, soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat.DEX, sec - secondaryBase),
+                    delta(primary, soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat.INT, p - primaryBase)
+                            + delta(secondary, soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat.INT, sec - secondaryBase),
+                    delta(primary, soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat.LUK, p - primaryBase)
+                            + delta(secondary, soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat.LUK, sec - secondaryBase),
+                    dWatk, 0)));
+        }
+        if (cands.isEmpty()) {
+            return -1;
+        }
+        return BotGearOptimizer.secondaryTarget(floor, primaryBase, secondaryBase, gearSecondary, freeAp, cands,
+                heldReq);
+    }
+
+    private static int delta(soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat which,
+                             soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat dim, int d) {
+        return which == dim ? d : 0;
+    }
+
+    private static int baseOf(Character c, soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat s) {
+        return switch (s) {
+            case STR -> c.getStr();
+            case DEX -> c.getDex();
+            case INT -> c.getInt();
+            case LUK -> c.getLuk();
+        };
+    }
+
+    private static int totalOf(Character c, soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat s) {
+        return switch (s) {
+            case STR -> c.getTotalStr();
+            case DEX -> c.getTotalDex();
+            case INT -> c.getTotalInt();
+            case LUK -> c.getTotalLuk();
+        };
+    }
+
+    private static int reqOf(Known k, soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild.Stat s) {
+        return switch (s) {
+            case STR -> k.reqStr();
+            case DEX -> k.reqDex();
+            case INT -> k.reqInt();
+            case LUK -> k.reqLuk();
+        };
+    }
+
     private static Piece piece(Equip e, Known known) {
         int sturdiness = e.getWdef() + e.getMdef() + e.getAcc() + e.getAvoid() + e.getHp() + e.getMp()
                 + e.getSpeed() + e.getJump() + e.getStr() + e.getDex() + e.getInt() + e.getLuk();
         return new Piece(e, e.getItemId(), e.getPosition(), known, e.getStr(), e.getDex(), e.getInt(), e.getLuk(),
-                e.getWatk(), e.getMatk() + e.getInt(), sturdiness);   // magic attack counts INT, as the server's totals
+                e.getWatk(), e.getMatk() + e.getInt(), sturdiness, e.getAcc());   // magic attack counts INT, as the server's totals
     }
 
     /*

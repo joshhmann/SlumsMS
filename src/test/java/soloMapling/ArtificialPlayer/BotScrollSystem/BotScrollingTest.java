@@ -148,6 +148,70 @@ class BotScrollingTest {
         return bot.getInventory(InventoryType.USE).countById(itemId);
     }
 
+    // ---- ticket 162 part 5: the EV planner (-Dslums.scroll.ev) ----
+
+    private BotScrolling.Facts priced(java.util.function.IntFunction<Integer> prices) {
+        return new BotScrolling.Facts() {
+            @Override public ScrollFacts scroll(int id) { return facts.scroll(id); }
+            @Override public List<Integer> reqs(int scrollId) { return List.of(); }
+            @Override public List<Integer> catalogFor(int equipItemId) { return List.of(S100, S60, S10, DARK70); }
+            @Override public int totalSlots(Equip equip) { return 7; }
+            @Override public boolean cash(int itemId) { return false; }
+            @Override public String name(int itemId) { return "Sword"; }
+            @Override public Integer marketValue(int itemId) { return prices.apply(itemId); }
+            @Override public Integer equipValue(Equip equip) { return 50_000; }
+        };
+    }
+
+    @Test
+    void evPlannerPicksAProfitableScrollAndKeepsOurDarkScrollRules() throws Exception {
+        // 60% scrolls are cheap and the sure ones dear: a 60% pass is worth more than it costs.
+        BotScrolling.useForTest(priced(id -> id == S60 ? 20_000 : id == SWORD ? 50_000 : 500_000), roller,
+                (b, node, tokens, key) -> false, now::get);
+        System.setProperty("slums.scroll.ev", "true");
+        try {
+            Character bot = newBot(50);
+            Equip worn = sword(bot, (short) -11, 7);
+            give(bot, DARK70, 3);
+            // A normal bot never puts a dark scroll on worn gear, EV or not: nothing to do.
+            assertNull(BotScrolling.plan(bot, Appetite.NORMAL, new Random(1)));
+            give(bot, S60, 3);
+            BotScrolling.Plan plan = BotScrolling.plan(bot, Appetite.NORMAL, new Random(1));
+            assertNotNull(plan);
+            assertSame(worn, plan.equip());
+            assertEquals(S60, plan.choice().scrollId());
+        } finally {
+            System.clearProperty("slums.scroll.ev");
+        }
+    }
+
+    @Test
+    void evPlannerDeclinesAScrollThatCostsMoreThanItAdds() throws Exception {
+        // Fail-before: the old appetite rule (careful: the surest scroll) uses the 100% scroll whatever it costs.
+        Character bot = newBot(50);
+        sword(bot, (short) -11, 1);
+        give(bot, S100, 1);
+        BotScrolling.Facts pricey = new BotScrolling.Facts() {
+            @Override public ScrollFacts scroll(int id) { return facts.scroll(id); }
+            @Override public List<Integer> reqs(int scrollId) { return List.of(); }
+            @Override public List<Integer> catalogFor(int equipItemId) { return List.of(S100); }
+            @Override public int totalSlots(Equip equip) { return 7; }
+            @Override public boolean cash(int itemId) { return false; }
+            @Override public String name(int itemId) { return "Sword"; }
+            @Override public Integer marketValue(int itemId) { return itemId == S100 ? 5_000_000 : 10_000; }
+            @Override public Integer equipValue(Equip equip) { return 10_000; }
+        };
+        BotScrolling.useForTest(pricey, roller, (b, node, tokens, key) -> false, now::get);
+        assertNotNull(BotScrolling.plan(bot, Appetite.CAREFUL, new Random(1)), "the appetite rule scrolls anyway");
+        System.setProperty("slums.scroll.ev", "true");
+        try {
+            // One slot left and a scroll worth far more than the piece can ever be worth: stopping wins.
+            assertNull(BotScrolling.plan(bot, Appetite.CAREFUL, new Random(1)));
+        } finally {
+            System.clearProperty("slums.scroll.ev");
+        }
+    }
+
     @Test
     void aPassChangesTheStatsForRealAndUsesUpTheScroll() throws Exception {
         Character bot = newBot(50);

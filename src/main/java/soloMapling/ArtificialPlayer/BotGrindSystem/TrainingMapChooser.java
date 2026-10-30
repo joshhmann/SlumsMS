@@ -123,7 +123,27 @@ public final class TrainingMapChooser {
                 eligible = TrainingMapFinder.findTrainingMaps(
                         chr.getMapId(), level, minMob, maxMob, useReach, excluded, includeOrigin, hardMinMob, rebirths);
             }
-            if (attempt == 0 && !chill
+            // Ticket 162 part 2 (-Dslums.grind.gearFirst): a bot farming an item goes where it drops; the gear-first
+            // score weights the pick below, and a bot whose need is gear skips the EXP-first leveling path.
+            GearFirstAdvisor.Advice gearAdvice = null;
+            List<TrainingMap> advisedFor = null;
+            if (attempt == 0 && !chill && GearFirstAdvisor.enabled()) {
+                TrainingMap farm = farmTarget(chr, eligible, minMob, maxMob);
+                if (farm != null) {
+                    reserve(farm.mapId());
+                    if (botsOnMap(farm.mapId()) <= mapCapacity(farm.mapId())) {
+                        debug.accept("DECIDE: farming its wanted drop -> map " + farm.mapId());
+                        LevelingPathCensus.decided(chr.getId(), level, chr.getJob().getId(), farm,
+                                LevelingPathCensus.Source.LOCAL);
+                        return farm;
+                    }
+                    release(farm.mapId());
+                }
+                gearAdvice = GearFirstAdvisor.advise(chr, eligible);
+                advisedFor = eligible;
+            }
+            boolean gearLed = gearAdvice != null && gearAdvice.needGear() >= GEAR_LED_NEED;
+            if (attempt == 0 && !chill && !gearLed
                     && LevelingPathChooser.wantsPath(inBand(eligible, minMob, maxMob), rng.nextDouble())) {
                 // Ticket 31: the leveling path picks by band and job group (null = nothing on it fits right now,
                 // carry on as before). Its pick is all-or-nothing: over capacity -> the old search below.
@@ -153,7 +173,14 @@ public final class TrainingMapChooser {
             if (eligible.isEmpty()) {
                 return null; // nothing reachable with mobs (or all on cooldown)
             }
-            TrainingMap candidate = weightedPick(eligible, level, useReach);
+            double[] gearWeights = null;
+            if (GearFirstAdvisor.enabled()) {
+                if (advisedFor != eligible) {
+                    gearAdvice = GearFirstAdvisor.advise(chr, eligible);
+                }
+                gearWeights = gearAdvice != null ? gearAdvice.weights() : null;
+            }
+            TrainingMap candidate = weightedPick(eligible, level, useReach, gearWeights);
             reserve(candidate.mapId());
             if (botsOnMap(candidate.mapId()) <= mapCapacity(candidate.mapId()) || attempt == MAX_REDECIDES) {
                 LevelingPathCensus.decided(chr.getId(), level, chr.getJob().getId(), candidate,
@@ -199,6 +226,31 @@ public final class TrainingMapChooser {
             }
         }
         return false;
+    }
+
+    // Ticket 162: a gear need at or above this (GearFirstPlanner's scale) makes the bot skip the EXP-first path.
+    static final double GEAR_LED_NEED = 0.5;
+
+    // Ticket 162 part 2: the in-band map to farm the bot's FARM_ITEM goal on, or null (no such goal, or no
+    // in-band map drops it).
+    private static TrainingMap farmTarget(Character chr, List<TrainingMap> eligible, int minMob, int maxMob) {
+        soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory memory =
+                soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore.peek(chr.getId());
+        if (memory == null) {
+            return null;
+        }
+        for (soloMapling.ArtificialPlayer.BotLifeSystem.LifeGoals.Goal g : memory.goals()) {
+            if (g.kind() == soloMapling.ArtificialPlayer.BotLifeSystem.LifeGoals.Kind.FARM_ITEM && g.itemId() > 0) {
+                List<TrainingMap> band = new java.util.ArrayList<>();
+                for (TrainingMap m : eligible) {
+                    if (m.mobLevel() >= minMob && m.mobLevel() <= maxMob) {
+                        band.add(m);
+                    }
+                }
+                return GearFirstAdvisor.farmPick(chr, g.itemId(), band);
+            }
+        }
+        return null;
     }
 
     // ── Occupancy registry ──
@@ -259,7 +311,7 @@ public final class TrainingMapChooser {
     // its carrying capacity is hard-zeroed so it drops out of contention and selection spills to deeper,
     // less-crowded maps; the rest are weighted by remaining headroom. If every reachable map is full,
     // falls back to a soft divisor so the bot still goes somewhere (and shares) rather than idling.
-    private static TrainingMap weightedPick(List<TrainingMap> maps, int level, int reach) {
+    private static TrainingMap weightedPick(List<TrainingMap> maps, int level, int reach, double[] gearWeights) {
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         double[] weights = new double[maps.size()];
         double total = 0;
@@ -270,7 +322,8 @@ public final class TrainingMapChooser {
             int n = botsOnMap(m.mapId());
             // 1.6.0 S9: where real players of this band hunt at this time of day weighs up to x1.5 (capacity still rules)
             double base = levelFitWeight(level, m.mobLevel()) * distanceWeight(level, m.hops(), reach)
-                    * soloMapling.ArtificialPlayer.TrendIndex.mapWeight(level, m.mapId(), now);
+                    * soloMapling.ArtificialPlayer.TrendIndex.mapWeight(level, m.mapId(), now)
+                    * (gearWeights != null && gearWeights.length == maps.size() ? gearWeights[i] : 1.0);
             double w = (n >= cap) ? 0.0 : base * ((cap - n) / (double) cap); // hard cap + headroom weight
             weights[i] = w;
             total += w;

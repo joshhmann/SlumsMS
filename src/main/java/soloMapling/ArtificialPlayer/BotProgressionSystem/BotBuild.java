@@ -119,6 +119,12 @@ public final class BotBuild {
         /** Unspent SP. Every job covered here uses skill book 0, so this is that book's count. */
         public int sp;
         public final Map<Integer, Integer> skills = new TreeMap<>();
+        /**
+         * Ticket 162 (dexless build, -Dslums.gear.dexless): when 0 or more, the secondary stat is raised no further
+         * than this (never below the class's own floor) - the gear-aware target BotGear.dexlessSecondaryTarget
+         * worked out. -1 (always, unless the switch is on): the level rule alone. Never stored.
+         */
+        public int secondaryCap = -1;
         /** How many 4th-job packages (NPC 2084000) this state was given since it was made; never stored. */
         public int packagesBought;
 
@@ -376,6 +382,19 @@ public final class BotBuild {
         };
     }
 
+    /**
+     * Ticket 162: the least secondary stat a class keeps whatever its gear (the 1st-job requirement: 25 DEX for a
+     * thief, 20 for a brawler); a magician's LUK is not dexless-capped at all (its target stays the level rule).
+     */
+    public static int secondaryFloor(int jobId, Choice choice) {
+        return switch (classKey(jobId, choice)) {
+            case 200, 1200 -> Integer.MAX_VALUE;
+            case 400, 1400 -> 25;
+            case 510, 1500 -> 20;
+            default -> START_STAT;
+        };
+    }
+
     /** The class a build follows: the 1st job, or the pirate branch, since brawlers and gunslingers differ. */
     private static int classKey(int jobId, Choice choice) {
         int first = plannedFirstJob(jobId, choice);
@@ -390,6 +409,9 @@ public final class BotBuild {
         Stat primary = primaryStat(s.job, choice);
         Stat secondary = secondaryStat(s.job, choice);
         int target = secondaryTarget(s.job, Math.min(s.level, MAX_LEVEL), choice);
+        if (s.secondaryCap >= 0) {
+            target = Math.min(target, Math.max(secondaryFloor(s.job, choice), s.secondaryCap));
+        }
         while (s.remainingAp > 0) {
             s.addStat(s.stat(secondary) < target ? secondary : primary);
             s.remainingAp--;
