@@ -1334,6 +1334,10 @@ public final class AutoQaCatalog {
                 .minutes(1)
                 .expect(probe("scrollEv"))
                 .build());
+        // bots.apvariants (fromSlot=auto): the first roster slot past the boot rolls variants, the slot before does not
+        c.add(Check.auto("t-gb-6", "AP variants: a new roster slot past the boot slot rolls a variant").minutes(1)
+                .expect(probe("apVariants"))
+                .build());
         return List.copyOf(c);
     }
 

@@ -27,6 +27,7 @@ import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMapFinder;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeGoals;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore;
+import soloMapling.ArtificialPlayer.BotProgressionSystem.ApVariantQa;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression;
 import soloMapling.ArtificialPlayer.GCMoveSystem.LodCounts;
@@ -60,7 +61,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants");
 
     private Probes162() {
     }
@@ -76,6 +77,7 @@ final class Probes162 {
                 case "gearFirstFarm" -> gearFirstFarm(p);
                 case "junkSortSale" -> junkSortSale(p);
                 case "scrollEv" -> scrollEv(p);
+                case "apVariants" -> apVariants();
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1049,6 +1051,94 @@ final class Probes162 {
         for (short sl : slots) {
             use.removeSlot(sl);
         }
+    }
+
+    // ── t-gb-6: bots.apvariants with fromSlot=auto rolls variants for new roster slots ──────────
+
+    /** t-gb-6: new slots sampled past the boot slot, and the job classes sampled (one 2nd job each). */
+    static final int GB6_SLOTS = 200;
+    static final int[] GB6_JOBS = {110, 210, 310, 410, 510};
+
+    /**
+     * t-gb-6: what is wrong. {@code raw} is the fromSlot property as set, {@code fromSlot} what the build reads from it
+     * ({@link Integer#MAX_VALUE} = none); {@code bootRolls}/{@code newRolls} whether the slot just before and the
+     * first slot from it may roll; {@code variants} non-standard rolls among {@code sampled}. Pure, for the tests.
+     */
+    static List<String> apVariantProblems(String raw, int fromSlot, boolean bootRolls, boolean newRolls, int variants,
+                                          int sampled) {
+        List<String> bad = new ArrayList<>();
+        if (fromSlot == Integer.MAX_VALUE) {
+            bad.add(raw == null ? "slums.bots.apvariants.fromSlot is unset: only reborn bots roll a variant (audit B29)"
+                    : "this build reads fromSlot=" + raw + " as unset (Integer.getInteger), so no new bot rolls a"
+                    + " variant; 'auto' is understood from 162-auditfix b526a8132");
+            return bad;
+        }
+        if (bootRolls) {
+            bad.add("slot " + (fromSlot - 1) + " (before the first new slot) may roll: existing bots would change"
+                    + " build");
+        }
+        if (!newRolls) {
+            bad.add("slot " + fromSlot + " (the first new slot) may not roll");
+        }
+        if (variants == 0) {
+            bad.add("none of " + sampled + " new slots rolled a variant");
+        }
+        return bad;
+    }
+
+    /**
+     * t-gb-6 ({@code slums.bots.apvariants}, {@code fromSlot=auto}): the slot the build reads from the property must be
+     * a real number (auto = the first roster slot created after this boot); the slot before it must not roll (every
+     * bot that existed keeps its build), the slot itself must, and of the first {@link #GB6_SLOTS} new slots for each
+     * of five classes some must roll a non-standard build. Online roster bots at or past the slot are listed with their
+     * build name. Reads only; no bot is created.
+     */
+    static List<String> apVariants() {
+        if (!soloMapling.ArtificialPlayer.BotSupportSwitches.apVariants()) {
+            return List.of("SKIP AP variants are off (-Dslums.bots.apvariants=true)");
+        }
+        List<String> ev = new ArrayList<>();
+        String raw = System.getProperty("slums.bots.apvariants.fromSlot");
+        int fromSlot = soloMapling.ArtificialPlayer.BotSupportSwitches.apVariantFromSlot();
+        int base = soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE;
+        ev.add("fromSlot property " + raw + " -> slot " + (fromSlot == Integer.MAX_VALUE ? "none" : fromSlot));
+        boolean bootRolls = false, newRolls = false;
+        int variants = 0, sampled = 0;
+        if (fromSlot != Integer.MAX_VALUE) {
+            bootRolls = ApVariantQa.rolls(base + fromSlot - 1, 0);
+            newRolls = ApVariantQa.rolls(base + fromSlot, 0);
+            Map<String, Integer> kinds = new java.util.TreeMap<>();
+            for (int job : GB6_JOBS) {
+                for (int i = 0; i < GB6_SLOTS; i++) {
+                    BotBuild.Variant v = ApVariantQa.variant(job, base + fromSlot + i);
+                    sampled++;
+                    kinds.merge(job + ":" + v, 1, Integer::sum);
+                    if (v != BotBuild.Variant.STANDARD) {
+                        variants++;
+                    }
+                }
+            }
+            ev.add("slot " + (fromSlot - 1) + " rolls=" + bootRolls + ", slot " + fromSlot + " rolls=" + newRolls
+                    + "; first " + GB6_SLOTS + " new slots per class: " + kinds);
+            int highest = -1, past = 0;
+            Map<String, Integer> online = new java.util.TreeMap<>();
+            for (soloMapling.ArtificialPlayer.BotRoster.Member m : soloMapling.ArtificialPlayer.BotRoster.members()) {
+                int slot = m.botId() - base;
+                highest = Math.max(highest, slot);
+                if (slot >= fromSlot) {
+                    past++;
+                    Character c = soloMapling.ArtificialPlayer.BotHelpers.getCharFromChannelStorage(m.botId());
+                    if (c != null) {
+                        online.merge(BotProgression.apBuildName(c), 1, Integer::sum);
+                    }
+                }
+            }
+            ev.add("roster: highest slot " + highest + ", " + past + " member(s) at or past slot " + fromSlot
+                    + (online.isEmpty() ? "" : "; online builds " + online));
+        }
+        return Probes160.verdict(apVariantProblems(raw, fromSlot, bootRolls, newRolls, variants, sampled),
+                "new roster slots from " + fromSlot + " roll AP variants (" + variants + " of " + sampled
+                        + " sampled), the slots before keep their build", ev);
     }
 
     static long delta(Map<String, Long> a, Map<String, Long> b, String k) {

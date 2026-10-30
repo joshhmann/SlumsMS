@@ -9,6 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -16,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -138,5 +139,33 @@ class Probes162Test {
         assertEquals(1, blind.size());
         assertTrue(blind.get(0).contains("gambler declined"), blind.toString());
         assertEquals(1, Probes162.scrollEvProblems(2043000, 0, 2043004, 2043004, 2043004).size());
+    }
+
+    // ── t-gb-6 ──
+
+    @Test
+    void theApVariantCheckFailsOnAnAutoThisBuildCannotRead() {
+        assertTrue(Probes162.apVariantProblems("auto", 3001, false, true, 40, 1000).isEmpty());
+        assertTrue(Probes162.apVariantProblems("auto", Integer.MAX_VALUE, false, false, 0, 0).get(0)
+                .contains("reads fromSlot=auto as unset"));
+        assertTrue(Probes162.apVariantProblems(null, Integer.MAX_VALUE, false, false, 0, 0).get(0).contains("unset"));
+        assertEquals(3, Probes162.apVariantProblems("auto", 3001, true, false, 0, 1000).size());
+    }
+
+    @Test
+    void theSeamFollowsTheSwitchAndTheSlot() {
+        int base = soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE;
+        try {
+            System.setProperty("slums.bots.apvariants", "true");
+            System.setProperty("slums.bots.apvariants.fromSlot", "5000");
+            assertTrue(soloMapling.ArtificialPlayer.BotProgressionSystem.ApVariantQa.rolls(base + 5000, 0));
+            assertFalse(soloMapling.ArtificialPlayer.BotProgressionSystem.ApVariantQa.rolls(base + 4999, 0));
+            assertTrue(soloMapling.ArtificialPlayer.BotProgressionSystem.ApVariantQa.rolls(base + 10, 1), "reborn");
+            System.setProperty("slums.bots.apvariants", "false");
+            assertFalse(soloMapling.ArtificialPlayer.BotProgressionSystem.ApVariantQa.rolls(base + 5000, 0));
+        } finally {
+            System.clearProperty("slums.bots.apvariants");
+            System.clearProperty("slums.bots.apvariants.fromSlot");
+        }
     }
 }
