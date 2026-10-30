@@ -15,6 +15,9 @@ import soloMapling.ArtificialPlayer.BotGeneration;
 import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
 import soloMapling.ArtificialPlayer.BotGearSystem.GearScoring;
 import soloMapling.ArtificialPlayer.BotGrindSystem.GearFirstAdvisor;
+import soloMapling.ArtificialPlayer.BotScrollSystem.BotScrolling;
+import soloMapling.ArtificialPlayer.BotScrollSystem.ScrollEvQa;
+import soloMapling.ArtificialPlayer.BotScrollSystem.ScrollRules;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotBagRoom;
 import soloMapling.ArtificialPlayer.BotSupplySystem.JunkSort;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
@@ -57,7 +60,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv");
 
     private Probes162() {
     }
@@ -72,6 +75,7 @@ final class Probes162 {
                 case "dexlessAp" -> dexlessAp(p);
                 case "gearFirstFarm" -> gearFirstFarm(p);
                 case "junkSortSale" -> junkSortSale(p);
+                case "scrollEv" -> scrollEv(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -915,6 +919,135 @@ final class Probes162 {
                             + " to free more", ev);
         } finally {
             ev.add(TalkQa.teardown(List.of(bot)));
+        }
+    }
+
+    // ── t-gb-5: scroll.ev declines an EV-negative scroll; a gambler still gambles ───────────────
+
+    /** t-gb-5: the worn weapon (a one-handed sword, 7 slots) and the scroll ids searched for its ATT scrolls. */
+    static final int GB5_SWORD = 1302000, GB5_SCROLL_FROM = 2043000, GB5_SCROLL_TO = 2043020;
+
+    /** The scroll id a plan picked, or 0 for none. */
+    static int pickOf(BotScrolling.Plan plan) {
+        return plan == null ? 0 : plan.choice().scrollId();
+    }
+
+    /**
+     * t-gb-5: what is wrong. Part A holds only the plain 100% scroll ({@code plain}): the EV planner must decline it
+     * for a careful bot ({@code carefulA} 0); part B only the dark scroll ({@code dark}, 0 when not judged): a careful
+     * bot never takes it ({@code carefulB} 0), a gambler does ({@code gamblerB} = dark). Pure, for the tests.
+     */
+    static List<String> scrollEvProblems(int plain, int carefulA, int dark, int carefulB, int gamblerB) {
+        List<String> bad = new ArrayList<>();
+        if (carefulA != 0) {
+            bad.add("a careful bot under the EV planner took the plain " + plain + " (100% scrolls are break-even at"
+                    + " best under reproduction pricing, below the 20% margin)");
+        }
+        if (dark != 0) {
+            if (carefulB != 0) {
+                bad.add("a careful bot took the dark scroll " + carefulB);
+            }
+            if (gamblerB != dark) {
+                bad.add("a gambler declined the dark scroll " + dark + " on its worn sword (the EV planner's pick is"
+                        + " appetite-blind past the dark-scroll filter: it gambles only when the scroll is EV-positive)");
+            }
+        }
+        return bad;
+    }
+
+    /**
+     * t-gb-5 ({@code slums.scroll.ev}): a fresh level-50 bot (tick stopped), gear and scrolls taken away, wears a
+     * one-handed sword with 7 slots. Part A: it holds only a plain 100% ATT scroll for it; the appetite rule (the
+     * switch off) would use it for a careful bot, the EV planner must not. Part B (only while long shots are allowed
+     * today): it holds only a dark ATT scroll; a careful bot must decline it, a gambler must take it. Read-only
+     * ({@code ScrollEvQa}): nothing is rolled.
+     */
+    static List<String> scrollEv(SyntheticPlayer p) throws InterruptedException {
+        if (!BotScrolling.evEnabled()) {
+            return List.of("SKIP EV scrolling is off (-Dslums.scroll.ev=true)");
+        }
+        List<String> ev = new ArrayList<>();
+        Character bot = spawnTraining(p, 50);
+        if (bot == null) {
+            return List.of("FAIL could not spawn a training bot");
+        }
+        try {
+            freeze(bot);
+            clearGear(bot);
+            Equip sword = stagedEquip(GB5_SWORD, 17, 0);
+            sword.setUpgradeSlots((byte) 7);
+            wear(bot, sword, (short) -11);
+            clearScrolls(bot);
+            ItemInformationProvider ii = ItemInformationProvider.getInstance();
+            for (int id = GB5_SCROLL_FROM; id < GB5_SCROLL_TO; id++) {
+                if (ii.getName(id) != null) {
+                    bot.getInventory(InventoryType.USE).addItem(new Item(id, (short) 0, (short) 1));
+                }
+            }
+            List<ScrollRules.ScrollFacts> fit = ScrollEvQa.fitting(bot, sword);
+            clearScrolls(bot);
+            int plain = 0, dark = 0;
+            for (ScrollRules.ScrollFacts f : fit) {
+                if (!f.dark() && f.success() == 100 && plain == 0) {
+                    plain = f.scrollId();
+                } else if (f.dark() && dark == 0) {
+                    dark = f.scrollId();
+                }
+            }
+            ev.add("bot " + bot.getName() + " (own appetite " + ScrollRules.Appetite.of(bot.getId()) + ") wears "
+                    + GB5_SWORD + " with 7 slots; fitting scrolls " + fit.stream().map(f -> f.scrollId() + "(" + f.success()
+                    + "%" + (f.dark() ? " dark" : "") + ")").toList() + "; plain 100% " + plain + ", dark " + dark);
+            if (plain == 0) {
+                return List.of("FAIL no plain 100% ATT scroll fits " + GB5_SWORD + " in " + GB5_SCROLL_FROM + ".."
+                        + GB5_SCROLL_TO, ev.get(0));
+            }
+            bot.getInventory(InventoryType.USE).addItem(new Item(plain, (short) 0, (short) 1));
+            ScrollRules.Choice ruleA = ScrollEvQa.rule(bot, sword, ScrollRules.Appetite.CAREFUL);
+            int carefulA = pickOf(ScrollEvQa.ev(bot, ScrollRules.Appetite.CAREFUL));
+            int gamblerA = pickOf(ScrollEvQa.ev(bot, ScrollRules.Appetite.GAMBLER));
+            ev.add("A, plain " + plain + " held: the appetite rule (switch off) for a careful bot picks "
+                    + (ruleA == null ? "nothing" : ruleA.scrollId()) + "; EV careful " + carefulA + ", EV gambler "
+                    + gamblerA);
+            clearScrolls(bot);
+            boolean longShots = ScrollEvQa.longShotsAllowed();
+            int carefulB = 0, gamblerB = 0, judgedDark = longShots ? dark : 0;
+            if (judgedDark != 0) {
+                bot.getInventory(InventoryType.USE).addItem(new Item(dark, (short) 0, (short) 1));
+                carefulB = pickOf(ScrollEvQa.ev(bot, ScrollRules.Appetite.CAREFUL));
+                gamblerB = pickOf(ScrollEvQa.ev(bot, ScrollRules.Appetite.GAMBLER));
+                ScrollRules.Choice ruleB = ScrollEvQa.rule(bot, sword, ScrollRules.Appetite.GAMBLER);
+                ev.add("B, dark " + dark + " held: EV careful " + carefulB + ", EV gambler " + gamblerB
+                        + "; the appetite rule for a gambler picks " + (ruleB == null ? "nothing" : ruleB.scrollId()));
+            } else {
+                ev.add("B not judged: " + (dark == 0 ? "no dark scroll fits" : "long shots are off today (the world's"
+                        + " godly cap is reached)"));
+            }
+            List<String> bad = scrollEvProblems(plain, carefulA, judgedDark, carefulB, gamblerB);
+            if (bad.isEmpty() && judgedDark == 0) {
+                List<String> out = new ArrayList<>();
+                out.add("SKIP part A passed (a careful bot declined the plain 100% scroll); part B needs a dark scroll"
+                        + " and long shots allowed today");
+                out.addAll(ev);
+                return out;
+            }
+            return Probes160.verdict(bad, "a careful bot declined the EV-negative plain scroll and the dark one; a"
+                    + " gambler took the dark scroll on its worn sword", ev);
+        } finally {
+            ev.add(TalkQa.teardown(List.of(bot)));
+        }
+    }
+
+    /** Takes every scroll (204xxxx, white scrolls included) out of the bot's use tab. */
+    static void clearScrolls(Character bot) {
+        client.inventory.Inventory use = bot.getInventory(InventoryType.USE);
+        List<Short> slots = new ArrayList<>();
+        for (Item it : use.list()) {
+            if (it.getItemId() / 10000 == 204 || it.getItemId() / 10000 == 234) {
+                slots.add(it.getPosition());
+            }
+        }
+        for (short sl : slots) {
+            use.removeSlot(sl);
         }
     }
 

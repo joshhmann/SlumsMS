@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -125,5 +125,18 @@ class Probes162Test {
         assertTrue(Probes162.junkProblems(14, 2, 0, 0, 4).get(0).contains("sold 2 kept"));
         assertEquals(2, Probes162.junkProblems(0, 0, 14, 0, 4).size(), "nothing kept, shelf lost");
         assertTrue(Probes162.junkProblems(14, 0, 0, 2, 0).get(1).contains("sold nothing"));
+    }
+
+    // ── t-gb-5 ──
+
+    @Test
+    void theEvScrollCheckWantsCarefulDeclinesAndAGamble() {
+        assertTrue(Probes162.scrollEvProblems(2043000, 0, 2043004, 0, 2043004).isEmpty());
+        assertTrue(Probes162.scrollEvProblems(2043000, 0, 0, 0, 0).isEmpty(), "part B not judged");
+        assertTrue(Probes162.scrollEvProblems(2043000, 2043000, 0, 0, 0).get(0).contains("careful bot"));
+        List<String> blind = Probes162.scrollEvProblems(2043000, 0, 2043004, 0, 0);
+        assertEquals(1, blind.size());
+        assertTrue(blind.get(0).contains("gambler declined"), blind.toString());
+        assertEquals(1, Probes162.scrollEvProblems(2043000, 0, 2043004, 2043004, 2043004).size());
     }
 }

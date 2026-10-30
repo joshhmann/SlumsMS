@@ -1329,6 +1329,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-gb-4", "Junk sort: the town sale keeps the reserve and the shelf").minutes(1)
                 .expect(probe("junkSortSale"))
                 .build());
+        // scroll.ev: a careful bot declines the plain 100% scroll (EV-negative) and a dark one; a gambler takes the dark
+        c.add(Check.auto("t-gb-5", "EV scrolling: a careful bot declines an EV-negative scroll, a gambler gambles")
+                .minutes(1)
+                .expect(probe("scrollEv"))
+                .build());
         return List.copyOf(c);
     }
 
