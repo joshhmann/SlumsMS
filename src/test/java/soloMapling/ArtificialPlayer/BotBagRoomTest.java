@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import server.maps.MapItem;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotBagRoom;
 
+import soloMapling.Economy.SaleRules;
+
 import java.awt.Point;
 import java.util.Set;
 
@@ -41,6 +43,7 @@ class BotBagRoomTest {
         BotYieldCaps.setForTest(null, null, null);
         BotYieldCaps.clearForTest();
         System.clearProperty("solomapling.botBagSlots");
+        SaleRules.useForTest(null, null, null);
     }
 
     private static Character bot() {
@@ -163,5 +166,22 @@ class BotBagRoomTest {
         chr.setID(51);   // a real character id run headless (auto-QA, owned alt): the client still decides
         BotBagRoom.widen(chr);
         assertEquals(24, Byte.toUnsignedInt(chr.getInventory(InventoryType.ETC).getSlotLimit()));
+    }
+
+    // 1.6.2 bot audit G9: the town-stop sale had its own keep rule and so sold things no other bot sale may sell.
+    @Test
+    void theTownStopSaleNeverSellsWhatSaleRulesForbids() {
+        Character bot = bot();
+        fill(bot, InventoryType.EQUIP, EQUIP_JUNK);
+        Inventory inv = bot.getInventory(InventoryType.EQUIP);
+        int bossDrop = EQUIP_JUNK + 3;   // a boss-only drop: SaleRules refuses it, the junk sort would not
+        SaleRules.useForTest(Set.of(bossDrop), id -> false, id -> false);
+
+        BotBagRoom.Sale sale = BotBagRoom.sellJunk(bot, item -> item.getItemId() - EQUIP_JUNK,
+                BotBagRoom.townStopKeep(bot, id -> false));
+
+        assertEquals(12, sale.items(), "the sale still frees the tab");
+        assertTrue(bot.haveItemWithId(bossDrop, false), "a boss-only drop is not junk");
+        assertFalse(bot.haveItemWithId(EQUIP_JUNK + 0, false), "plain junk still sells");
     }
 }
