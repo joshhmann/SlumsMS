@@ -1,0 +1,29 @@
+package soloMapling.ArtificialPlayer.GCMoveSystem;
+
+/*
+ * Switches for the NN-011 movement fixes ported from nutnnut/Cosmic (AGPL-3.0. Credit: NutNNut), ticket 87 and
+ * docs/design/divergence-ledger.md NN-011. Every one is OFF unless its -D property is "true"; the owner decides at
+ * 1.6.1 integration which go on. One nav implementation for every bot (roster, owned alts, PQ bots): no switch here
+ * is per-bot.
+ *
+ * Fixes that change what the nav-graph builder authors (graphTag() non-empty) also change the graph cache folder
+ * (BotNavigationGraphProvider.cacheDir), so a graph built with a fix on is never loaded with it off, or the reverse.
+ * Flip those only before boot (or rebuild the graphs, as the tests do).
+ */
+final class NavPortSwitches {
+
+    private NavPortSwitches() {
+    }
+
+    private static boolean on(String property) {
+        return "true".equalsIgnoreCase(System.getProperty(property));
+    }
+
+    /* nutnnut/Cosmic 3516aa238: a swimming bot pressed against a wall fires a swim-jump burst to rise over it. */
+    static volatile boolean swimWallJump = on("bot.nav.swimWallJump");
+
+    /** Graph-affecting switches as a cache-folder suffix ("" when all are off: the plain v-folder). */
+    static String graphTag() {
+        return "";
+    }
+}

@@ -540,7 +540,16 @@ class BotMovementManager {
         // above would pin the bot against it when the target is at or below its level behind the wall: rise.
         if (entry.swimWallBlocked && entry.swimMoveDir != 0) {
             entry.swimVerticalHold = -1;
-            entry.swimJumpRequested = false;
+            // UP-hold alone cannot rise (SWIM_UP_THRUST 412 < SWIM_GRAVITY 590 px/s2): it only slows the sink, so a
+            // wall taller than the ground hop pins the bot. Fire the cooldown-gated swim-jump burst, the only real
+            // upward push, and keep UP held between bursts. (nutnnut/Cosmic 3516aa238, credit NutNNut; switch
+            // -Dbot.nav.swimWallJump, NavPortSwitches.)
+            if (NavPortSwitches.swimWallJump && now >= entry.swimNextJumpAtMs) {
+                entry.swimJumpRequested = true;
+                entry.swimNextJumpAtMs = now + BotPhysicsEngine.cfg.SWIM_JUMP_COOLDOWN_MS;
+            } else {
+                entry.swimJumpRequested = false;
+            }
         }
     }
 

@@ -42,6 +42,18 @@ Tests adapted from theirs: `BotForkWalkChainTest` (from `BotRegion11ForkOscillat
 `BotSharedGroundPhantomJumpTest`, and the rope-window cases in `BotRopeLaunchWindowTest` (from
 `BotNavigationManagerTest`).
 
+### Later ports: movement fixes NN-011 (branch `162-navfixes`, 1.6.1)
+
+From nutnnut/Cosmic (GreenCatMS), https://github.com/nutnnut/Cosmic, AGPL-3.0, `src/main/java/server/bots/`, dev
+branch. Each is behind its own switch in `NavPortSwitches` (default off). Already ported before this branch (1.5.2,
+`2582286c9`): `235b6aefa` (ground continuity at overlapping footholds), `f5787ab0c` `8a7e7b3a5` `362926fdf`
+`26b372e7c` (walk-off drops, our graph v69), `f424904a8` (swim wall unfreeze); the frozen-air watchdog
+(`7c4a2d517`) came with the GC movement system.
+
+| Their commit | What was ported | Switch | Our files |
+| --- | --- | --- | --- |
+| `3516aa238` | A swimming bot pressed into a wall fires the cooldown-gated swim-jump burst to rise over it (UP-hold alone loses to swim gravity) | `-Dbot.nav.swimWallJump=true` | `BotMovementManager` |
+
 ### Bot combat formula (branch `combat`, real bots ticket 07)
 
 After nutnnut/Cosmic (GreenCatMS), https://github.com/nutnnut/Cosmic, AGPL-3.0,
