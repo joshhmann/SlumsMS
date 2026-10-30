@@ -331,6 +331,60 @@ class OwnedAltCompanionTest {
         verify(service, times(1)).sendHomeAfterDeath(any(), anyString());
     }
 
+    /** Audit #11 (b116): seven alts on one map: six fight, the seventh waits, and nobody flaps tick to tick. */
+    @Test
+    void theSixAltsPerMapCapHoldsWithoutFlapping() {
+        List<OwnedAltService.Active> active = new ArrayList<>();
+        for (int i = 0; i < 7; i++) {
+            Character o = mock(Character.class);
+            when(o.getId()).thenReturn(100 + i / 4); // two owners: 4 + 3 alts
+            Character a = mock(Character.class);
+            when(a.getId()).thenReturn(200 + i);
+            when(a.getMap()).thenReturn(field);
+            active.add(new OwnedAltService.Active(o, a));
+        }
+        // the gate's own rule: fight when fewer than six others fight here
+        OwnedAltCompanion.Ticker gate = (o, a, st, now, others) ->
+                st.fighting = others < OwnedAltGate.FIGHTING_PER_MAP;
+        List<Integer> fightingPerTick = new ArrayList<>();
+        Map<Integer, Boolean> first = new HashMap<>();
+        try {
+            for (int tick = 0; tick < 6; tick++) {
+                OwnedAltCompanion.driveAll(active, NOW + tick * 200L, gate);
+                int n = 0;
+                for (OwnedAltService.Active a : active) {
+                    boolean f = OwnedAltCompanion.stateOf(a.alt().getId()).fighting;
+                    n += f ? 1 : 0;
+                    Boolean was = first.putIfAbsent(a.alt().getId(), f);
+                    assertEquals(was == null ? f : was, f, "alt " + a.alt().getId() + " flapped on tick " + tick);
+                }
+                fightingPerTick.add(n);
+            }
+        } finally {
+            for (OwnedAltService.Active a : active) {
+                OwnedAltCompanion.forget(a.alt());
+            }
+        }
+        assertEquals(List.of(6, 6, 6, 6, 6, 6), fightingPerTick);
+    }
+
+    /** Audit #11: the "map already has 6 alts fighting" line is said once, not twice a second as the gate flickers. */
+    @Test
+    void theMapFullLineIsNotRepeatedWhenTheGateFlickers() {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+        for (int i = 0; i < 10; i++) {
+            OwnedAltCompanion.tick(owner, alt, s, NOW + i * 200L, i % 2 == 0 ? OwnedAltGate.FIGHTING_PER_MAP : 0);
+        }
+        verify(owner, times(1)).yellowMessage(OwnedAltGate.Why.MAP_FULL.tell);
+        for (int i = 0; i < 30; i++) { // open for six seconds: the line may be said again
+            OwnedAltCompanion.tick(owner, alt, s, NOW + 2_000 + i * 200L, 0);
+        }
+        OwnedAltCompanion.tick(owner, alt, s, NOW + 9_000, OwnedAltGate.FIGHTING_PER_MAP);
+        verify(owner, times(2)).yellowMessage(OwnedAltGate.Why.MAP_FULL.tell);
+    }
+
     /** Audit #8 (b115): an alt killed inside a PQ leaves the instance quietly and really gets up in its exit town. */
     @Test
     void anAltKilledInsideAPqLeavesQuietlyAndGetsUpInTheExitTown() throws Exception {

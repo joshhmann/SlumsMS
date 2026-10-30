@@ -73,6 +73,8 @@ public final class OwnedAltCompanion {
     /** A target it walked to or swung at this long without landing a hit is left alone for {@link #GIVE_UP_MS}. */
     static final long STALL_MS = 10_000; // a 650 px walk at a slow walk speed fits in it
     static final long GIVE_UP_MS = 15_000;
+    /** Audit #11 (b116): a gate line is said again only after the gate has been open this long in between. */
+    static final long TOLD_RESET_MS = 5_000;
 
     /** Per alt: what the driver remembers between ticks, and what QA reads. */
     static final class State {
@@ -80,6 +82,7 @@ public final class OwnedAltCompanion {
         volatile boolean fighting;
         volatile boolean gone;
         OwnedAltGate.Why told = OwnedAltGate.Why.OPEN;
+        long openSince; // audit #11: when the gate last opened (0 = shut); "told" resets after TOLD_RESET_MS open
         final Set<InventoryType> toldFull = EnumSet.noneOf(InventoryType.class);
         boolean toldMesoFull;
         boolean toldWeapon;
@@ -193,14 +196,9 @@ public final class OwnedAltCompanion {
         List<OwnedAltService.Active> active = OwnedAltService.getInstance().active();
         Set<Integer> ownerIds = new HashSet<>();
         Set<Integer> altIds = new HashSet<>();
-        Map<MapleMap, Integer> fightingOn = new HashMap<>();
         for (OwnedAltService.Active a : active) {
             ownerIds.add(a.owner().getId());
             altIds.add(a.alt().getId());
-            State s = states.get(a.alt().getId());
-            if (s != null && s.fighting && a.alt().getMap() != null) {
-                fightingOn.merge(a.alt().getMap(), 1, Integer::sum);
-            }
         }
         owners.retainAll(ownerIds);
         owners.addAll(ownerIds);
@@ -209,27 +207,72 @@ public final class OwnedAltCompanion {
         // 1.6.2 ticket 99: each alt's formation place, by its slot among the owner's party companions
         Map<Integer, List<soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Target>> slotsOf = new HashMap<>();
         boolean formations = CompanionSwitches.orders();
-        for (OwnedAltService.Active a : active) {
-            Character alt = a.alt();
-            State s = states.computeIfAbsent(alt.getId(), State::new);
+        driveAll(active, now, (owner, alt, s, at, others) -> {
             if (formations) {
-                var slots = slotsOf.computeIfAbsent(a.owner().getId(),
-                        id -> soloMapling.ArtificialPlayer.BotPartySystem.PartyBotOrders.slots(a.owner()));
+                var slots = slotsOf.computeIfAbsent(owner.getId(),
+                        id -> soloMapling.ArtificialPlayer.BotPartySystem.PartyBotOrders.slots(owner));
                 int idx = 0;
                 while (idx < slots.size() && slots.get(idx).id() != alt.getId()) {
                     idx++;
                 }
-                GCMovement.setFollowOffset(alt, CompanionStance.formation(a.owner().getId()).offsetFor(idx));
+                GCMovement.setFollowOffset(alt, CompanionStance.formation(owner.getId()).offsetFor(idx));
             }
-            int others = fightingOn.getOrDefault(alt.getMap(), 0) - (s.fighting ? 1 : 0);
+            tick(owner, alt, s, at, others);
+        });
+    }
+
+    /** One alt's tick, given how many OTHER alts fight on its map right now. */
+    interface Ticker {
+        void tick(Character owner, Character alt, State s, long now, int otherAltsFightingHere);
+    }
+
+    /**
+     * Audit #11 (b116): the per-map fighting cap counted with the seats decided THIS tick. Before, every alt read a
+     * count taken before any of them ticked: seven idle alts all read 0 and all started; the next tick all read 6 and
+     * all stood down; and so on every 200 ms. Now alts already fighting tick first (they keep their seats, or free
+     * them), then the rest, each seeing the seats taken so far.
+     */
+    static void driveAll(List<OwnedAltService.Active> active, long now, Ticker ticker) {
+        Map<MapleMap, Integer> seats = new HashMap<>();
+        List<OwnedAltService.Active> order = new java.util.ArrayList<>(active.size());
+        List<OwnedAltService.Active> waiting = new java.util.ArrayList<>();
+        for (OwnedAltService.Active a : active) {
+            State s = states.computeIfAbsent(a.alt().getId(), State::new);
+            if (s.fighting && a.alt().getMap() != null) {
+                seats.merge(a.alt().getMap(), 1, Integer::sum);
+                order.add(a);
+            } else {
+                waiting.add(a);
+            }
+        }
+        order.addAll(waiting);
+        for (OwnedAltService.Active a : order) {
+            Character alt = a.alt();
+            State s = states.computeIfAbsent(alt.getId(), State::new);
+            MapleMap before = alt.getMap();
+            boolean was = s.fighting && before != null;
+            int others = (before == null ? 0 : seats.getOrDefault(before, 0)) - (was ? 1 : 0);
             try {
-                tick(a.owner(), alt, s, now, others);
+                ticker.tick(a.owner(), alt, s, now, others);
             } catch (RuntimeException e) {
                 if (QaLog.every("owned-alt-tick:" + alt.getId(), 60_000)) {
                     log.warn("Owned alt {} tick failed", alt.getName(), e);
                 }
             }
+            MapleMap after = alt.getMap();
+            boolean is = s.fighting && after != null;
+            if (was) {
+                seats.merge(before, -1, Integer::sum);
+            }
+            if (is) {
+                seats.merge(after, 1, Integer::sum);
+            }
         }
+    }
+
+    /** Test seam: the driver's state for an alt (made if new). */
+    static State stateOf(int altId) {
+        return states.computeIfAbsent(altId, State::new);
     }
 
     static void tick(Character owner, Character alt, State s, long now, int otherAltsFightingHere) {
@@ -267,6 +310,7 @@ public final class OwnedAltCompanion {
             OwnedAltGate.Why why = OwnedAltGate.check(owner, alt, now, otherAltsFightingHere);
             s.gate = why;
             if (why != OwnedAltGate.Why.OPEN) {
+                s.openSince = 0;
                 if (s.fighting) {
                     standDown(owner, alt, s);
                 }
@@ -278,7 +322,12 @@ public final class OwnedAltCompanion {
                 s.doing = "following (gate " + why + ")";
                 return;
             }
-            s.told = OwnedAltGate.Why.OPEN;
+            // audit #11: a gate that flickers open does not re-arm its line; open a few seconds, it may be said again
+            if (s.openSince == 0) {
+                s.openSince = now;
+            } else if (now - s.openSince >= TOLD_RESET_MS) {
+                s.told = OwnedAltGate.Why.OPEN;
+            }
             // 1.6.2: its class buffs, by the population bots' own maintenance (BotBuffDriver), recast on time as they
             // run out and paid out of its own MP and MP potions (Pay.ALL); only the buffs it has learned
             s.nextBuffMs = BotBuffDriver.selfBuff(alt, now, s.nextBuffMs, () -> 0L, BotBuffDriver.Pay.ALL, BUFF_RNG);
