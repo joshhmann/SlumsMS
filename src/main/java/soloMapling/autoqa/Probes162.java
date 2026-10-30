@@ -139,6 +139,37 @@ final class Probes162 {
      */
     static final int PROBE_FIELD = 100000000;
 
+    /**
+     * Moves the pretend player to {@code mapId} (waits up to 5 s) and returns the map it was on, for {@link #standBack};
+     * -1 when it was there already.
+     */
+    static int standOn(SyntheticPlayer p, int mapId) throws InterruptedException {
+        Character me = p.character();
+        if (me.getMapId() == mapId) {
+            return -1;
+        }
+        int was = me.getMapId();
+        MapleMap to = me.getClient().getChannelServer().getMapFactory().getMap(mapId);
+        me.changeMap(to, to.getPortal(0));
+        long until = System.currentTimeMillis() + 5000;
+        while (me.getMapId() != mapId && System.currentTimeMillis() < until) {
+            Thread.sleep(100);
+        }
+        return was;
+    }
+
+    /** Puts the pretend player back where {@link #standOn} found it. */
+    static void standBack(SyntheticPlayer p, int was) {
+        if (was < 0) {
+            return;
+        }
+        Character me = p.character();
+        MapleMap back = me.getClient().getChannelServer().getMapFactory().getMap(was);
+        if (back != null && me.getMapId() != was) {
+            me.changeMap(back, back.getPortal(0));
+        }
+    }
+
     /** Pins maps to full simulation (watched); returns the ones this call pinned, for {@link #unpin}. */
     static List<Integer> pin(List<String> ev, int... maps) {
         List<Integer> mine = new ArrayList<>();
@@ -1439,6 +1470,8 @@ final class Probes162 {
     /** t-jb-1: the errand's timeout for the check (the default is 6 min), and how many fresh bots it may try. */
     static final long JB1_TIMEOUT_MS = 240_000L;
     static final int JB1_TRIES = 4;
+    /** t-jb-1: mesos the staged bot gets for the taxi fares on its route (a fresh level-9 bot may hold none). */
+    static final int JB1_FARE_MESOS = 50_000;
 
     /** t-jb-1: the counters of {@code JobErrand.stats()} (started, arrived, fellBack, blocked, active), or null. */
     static long[] errandCounts(String stats) {
@@ -1455,11 +1488,13 @@ final class Probes162 {
     }
 
     /** t-jb-1: what is wrong. {@code held} = the errand held the advance; times in ms. Pure, for the tests. */
-    static List<String> errandProblems(boolean held, boolean ended, long arrived, long fellBack, int jobBefore,
-                                       int jobAfter, int mapAfter, int instructorMap) {
+    static List<String> errandProblems(boolean held, long blocked, boolean ended, long arrived, long fellBack,
+                                       int jobBefore, int jobAfter, int mapAfter, int instructorMap) {
         List<String> bad = new ArrayList<>();
         if (!held) {
-            bad.add("the watched bot advanced at once: no errand was started (watched? reachable?)");
+            bad.add("the watched bot advanced at once: no errand was started ("
+                    + (blocked > 0 ? "blocked: no route it could pay for to the instructor's map " + instructorMap
+                    : "not watched, or no instructor for the job") + ")");
             return bad;
         }
         if (!ended) {
@@ -1479,7 +1514,9 @@ final class Probes162 {
 
     /**
      * t-jb-1 ({@code solomapling.jobErrand}): a fresh level-9 beginner (its tick running, the pretend player on its map
-     * so it is watched) gains the EXP for level 10 the observed way ({@code gainExp}, the bot progression hook). Its
+     * so it is watched, both in Henesys ({@link #PROBE_FIELD}): TEST 2026-10-30 staged it in the Free Market, which no
+     * route leaves, and the errand was rightly "blocked"), given {@link #JB1_FARE_MESOS} for fares, gains the EXP for
+     * level 10 the observed way ({@code gainExp}, the bot progression hook). Its
      * advance must be held by an errand to its instructor; within the errand's timeout (set to
      * {@link #JB1_TIMEOUT_MS} for the check, put back after) it must arrive and advance, or fall back and advance.
      */
@@ -1490,7 +1527,12 @@ final class Probes162 {
         List<String> ev = new ArrayList<>();
         List<Character> spawned = new ArrayList<>();
         String timeoutWas = System.getProperty(soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.TIMEOUT_PROP);
+        int playerWas = standOn(p, PROBE_FIELD);
         try {
+            if (p.character().getMapId() != PROBE_FIELD) {
+                return List.of("FAIL could not move the pretend player to " + PROBE_FIELD + " (it is on "
+                        + p.character().getMapId() + ")");
+            }
             Character bot = null;
             for (int i = 0; i < JB1_TRIES && bot == null; i++) {
                 Character c = spawnTraining(p, 9);
@@ -1511,6 +1553,7 @@ final class Probes162 {
             }
             System.setProperty(soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.TIMEOUT_PROP,
                     Long.toString(JB1_TIMEOUT_MS));
+            bot.gainMeso(JB1_FARE_MESOS, false);
             long[] c0 = errandCounts(soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.stats());
             boolean watched = soloMapling.ArtificialPlayer.GCMoveSystem.WatchGate.watched(bot);
             int jobBefore = bot.getJob().getId();
@@ -1540,13 +1583,14 @@ final class Probes162 {
             long[] c1 = errandCounts(soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.stats());
             long arrived = c0 == null || c1 == null ? 0 : c1[1] - c0[1];
             long fellBack = c0 == null || c1 == null ? 0 : c1[2] - c0[2];
+            long blocked = c0 == null || c1 == null ? 0 : c1[3] - c0[3];
             int jobAfter = bot.getJob().getId();
             var where = soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.instructorFor(jobAfter);
             int instructorMap = where == null ? -1 : where.mapId();
             ev.add("after " + (System.currentTimeMillis() - t0) / 1000 + " s: ended=" + ended + " arrived +" + arrived
                     + " fell back +" + fellBack + "; job " + jobAfter + ", map " + bot.getMapId() + " (instructor's "
                     + instructorMap + "); " + soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.stats());
-            return Probes160.verdict(errandProblems(held, ended, arrived, fellBack, jobBefore, jobAfter,
+            return Probes160.verdict(errandProblems(held, blocked, ended, arrived, fellBack, jobBefore, jobAfter,
                     bot.getMapId(), instructorMap), "the watched bot's advance waited for an errand, which "
                     + (arrived > 0 ? "reached the instructor" : "fell back") + ", and it advanced to " + jobAfter, ev);
         } finally {
@@ -1559,6 +1603,7 @@ final class Probes162 {
                 soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.forget(c.getId());
             }
             ev.add(TalkQa.teardown(spawned));
+            standBack(p, playerWas);
         }
     }
 

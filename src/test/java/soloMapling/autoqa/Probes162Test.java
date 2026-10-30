@@ -215,11 +215,16 @@ class Probes162Test {
         long[] c = Probes162.errandCounts("jobErrand started=3 arrived=1 fellBack=2 blocked=0 active=1");
         assertEquals(List.of(3L, 1L, 2L, 0L, 1L), java.util.Arrays.stream(c).boxed().toList());
         assertNull(Probes162.errandCounts("nothing"));
-        assertTrue(Probes162.errandProblems(true, true, 1, 0, 0, 100, 102000003, 102000003).isEmpty());
-        assertTrue(Probes162.errandProblems(true, true, 0, 1, 0, 100, 100000000, 102000003).isEmpty(), "fell back");
-        assertTrue(Probes162.errandProblems(false, true, 0, 0, 0, 100, 0, 0).get(0).contains("advanced at once"));
-        assertEquals(2, Probes162.errandProblems(true, false, 0, 0, 0, 0, 0, 102000003).size());
-        assertTrue(Probes162.errandProblems(true, true, 1, 0, 0, 100, 100000000, 102000003).get(0).contains("arrived"));
+        assertTrue(Probes162.errandProblems(true, 0, true, 1, 0, 0, 100, 102000003, 102000003).isEmpty());
+        assertTrue(Probes162.errandProblems(true, 0, true, 0, 1, 0, 100, 100000000, 102000003).isEmpty(), "fell back");
+        assertTrue(Probes162.errandProblems(false, 0, true, 0, 0, 0, 100, 0, 0).get(0).contains("advanced at once"));
+        assertEquals(2, Probes162.errandProblems(true, 0, false, 0, 0, 0, 0, 0, 102000003).size());
+        assertTrue(Probes162.errandProblems(true, 0, true, 1, 0, 0, 100, 100000000, 102000003).get(0)
+                .contains("arrived"));
+        // TEST 2026-10-30: staged in the Free Market the errand was "blocked" (no route out); the verdict says so
+        assertTrue(Probes162.errandProblems(false, 1, true, 0, 0, 0, 400, 910000000, 103000003).get(0)
+                .contains("blocked: no route"));
+        assertTrue(Probes162.JB1_FARE_MESOS > 0, "the staged bot can pay a taxi on its way");
     }
 
     // ── t-jb-2 ──
