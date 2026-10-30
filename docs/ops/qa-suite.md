@@ -477,8 +477,8 @@ goals and takes the medals back. Auto-QA: t-ac-1, and t-ac-2 (below) for a clear
   every channel and checks each item in every bot shop (generated hired merchants, bots' own hired merchants, bots'
   player shops; real players' shops are skipped) with `SaleRules.whyNotListOwn` (a bot may list its own godly gear; boss-only, Chaos/White, cash and untradeable stay refused); FAILs naming shop owner, channel and map,
   item id and the rule that refuses it. Then forces the equip generator 40 times for each tier (S, A, B, C) and class
-  (the live desirable list holds the Zakum Helmet 1002357) and FAILs if any refused item comes out (also godly gear while `botShops.generatedStockExcludesGodly` is on), then the same for generated scrolls and dark scrolls. It also asserts SaleRules still refuses 1002357, 1002390, 1002430 (Zakum Helmets), 2049100 (Chaos) and 2340000 (White). PASS says how many
-  shops, listed items and generated equips were checked. (Commit d8f108325: stock used to skip SaleRules.)
+  (the live desirable list holds the Zakum Helmet 1002357) and FAILs if any refused item comes out (also godly gear while `botShops.generatedStockExcludesGodly` is on), then the same for generated scrolls and dark scrolls, and for the generated potion, throwing-star, ETC, mastery-book and chair lines (1.6.1: TEST 10-29 found 141 such listings, e.g. Gelt Chocolate 2022121, boss-only mastery books). It also asserts SaleRules still refuses 1002357, 1002390, 1002430 (Zakum Helmets), 2049100 (Chaos) and 2340000 (White). PASS says how many
+  shops, listed items and generated items were checked. (Commit d8f108325: stock used to skip SaleRules.)
 
 - **t-br-1 (`@bug` with context, ticket 131):** logs two WARN lines naming the QA character (one says "password"), then
   the pretend player types `@bug autoqa t-br-1 <marker> ...`. Wants the `Thanks! Bug #B-.. sent.` reply, the line in

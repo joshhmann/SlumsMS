@@ -2493,7 +2493,36 @@ final class Probes160 {
         }
         made += scrolls;
         ev.add("forced scroll generation: " + scrolls + " scrolls");
-        ev.add("forced generation: " + made + " equips over " + BS2_TIERS.size() + " tiers x 5 classes x " + BS2_ROUNDS
+        // 1.6.1 (TEST 10-29: Gelt Chocolate, boss-only mastery books and untradeable chairs came from these lines)
+        java.util.Map<String, java.util.function.Function<String, List<soloMapling.FreeMarket.FMItem>>> lines = new java.util.LinkedHashMap<>();
+        lines.put("potions", soloMapling.FreeMarket.ArtificialShopGenerator::generatePotionsList);
+        lines.put("stars", soloMapling.FreeMarket.ArtificialShopGenerator::generateThiefStarsList);
+        lines.put("etc", soloMapling.FreeMarket.ArtificialShopGenerator::generateETCList);
+        lines.put("mastery books", soloMapling.FreeMarket.ArtificialShopGenerator::generateMasteryBookList);
+        lines.put("chairs", soloMapling.FreeMarket.ArtificialShopGenerator::generateChairList);
+        List<String> perLine = new ArrayList<>();
+        int other = 0;
+        for (var e : lines.entrySet()) {
+            int n = 0;
+            for (String tier : BS2_TIERS) {
+                for (int i = 0; i < BS2_ROUNDS; i++) {
+                    List<soloMapling.FreeMarket.FMItem> got = e.getValue().apply(tier);
+                    for (soloMapling.FreeMarket.FMItem fi : got == null ? List.<soloMapling.FreeMarket.FMItem>of() : got) {
+                        n++;
+                        String why = soloMapling.Economy.SaleRules.whyNotId(fi.getItemId());
+                        if (why != null) {
+                            madeBad++;
+                            bad.add("generator tier " + tier + " (forced) made " + e.getKey() + " item " + fi.getItemId() + ": " + why);
+                        }
+                    }
+                }
+            }
+            perLine.add(e.getKey() + " " + n);
+            other += n;
+        }
+        made += other;
+        ev.add("forced use/etc/setup generation: " + other + " items (" + String.join(", ", perLine) + ")");
+        ev.add("forced generation: " + made + " items (equips, scrolls, use/etc/setup) over " + BS2_TIERS.size() + " tiers x 5 classes x " + BS2_ROUNDS
                 + " rounds, " + madeBad + " refused");
         if (!cached) {
             ev.add("(the equip cache is not loaded here, so only the yaml pool generated anything)");
@@ -2510,7 +2539,7 @@ final class Probes160 {
     /** t-bs-2: the PASS text, with how much was checked. */
     static String bossStockPass(int shops, int items, int generated) {
         return "checked " + shops + " bot shops with " + items + " listed items and " + generated
-                + " forced generated equips, none refused by SaleRules";
+                + " forced generated items, none refused by SaleRules";
     }
 
     // ── t-br-1: @bug with its automatic context (ticket 131) ─────────────────────────────────────

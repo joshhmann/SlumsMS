@@ -196,6 +196,9 @@ public class ArtificialShopGenerator {
             tier = distributedTierSelector(tier);
             ItemNode item = getRandomItemFull("thief.yaml", "Stars", tier);
             int itemId = pickRandomVariantId(item.getVariantId());
+            if (!idStockable(itemId)) {
+                continue;
+            }
             int price = item.getCurrentPrice();
             itemList.add(new FMItem(itemId, price, 1));
         }
@@ -223,6 +226,15 @@ public class ArtificialShopGenerator {
 
     /** Generated scroll stock follows SaleRules at item-id level (Chaos, White, cash, boss-only never come out). */
     static boolean scrollStockable(int itemId) {
+        return idStockable(itemId);
+    }
+
+    /**
+     * 1.6.1 t-bs-2 (TEST 2026-10-29: 141 refused listings): every generated non-equip line (potions, stars, ETC,
+     * mastery books, chairs, scrolls) follows SaleRules at item-id level, like generated gear does. Before, only
+     * scrolls did, so shops minted Gelt Chocolate (tradeBlock), boss-only mastery books and untradeable chairs.
+     */
+    static boolean idStockable(int itemId) {
         return soloMapling.Economy.SaleRules.whyNotId(itemId) == null;
     }
 
@@ -258,6 +270,9 @@ public class ArtificialShopGenerator {
             ItemNode item = getRandomItemFull(useablesList, randomItem, tier);
             if (item != null) {
                 int itemId = pickRandomVariantId(item.getVariantId());
+                if (!idStockable(itemId)) {
+                    continue;   // 1.6.1: SaleRules (untradeable, boss-only, cash...) for every generated line
+                }
                 int price = item.getCurrentPrice();
                 int qty = quantitySelector("Potion", tier); // getRandomIntInRange(5, 13);
                 itemList.add(new FMItem(itemId, price, qty));
@@ -267,7 +282,7 @@ public class ArtificialShopGenerator {
         return itemList;
     }
 
-    private static List<FMItem> generateETCList(String tier) {
+    public static List<FMItem> generateETCList(String tier) {
         List<FMItem> itemList = new ArrayList<>() {
         };
         String useablesList = "etc.yaml";
@@ -279,6 +294,9 @@ public class ArtificialShopGenerator {
             ItemNode item = getRandomItemFull(useablesList, randomItem, tier);
             if (item != null) {
                 int itemId = pickRandomVariantId(item.getVariantId());
+                if (!idStockable(itemId)) {
+                    continue;   // 1.6.1: SaleRules (untradeable, boss-only, cash...) for every generated line
+                }
                 int price = item.getCurrentPrice();
                 int qty = quantitySelector("ETC", tier); // getRandomIntInRange(5, 10);
                 itemList.add(new FMItem(itemId, price, qty));
@@ -288,7 +306,7 @@ public class ArtificialShopGenerator {
         return itemList;
     }
 
-    private static List<FMItem> generateMasteryBookList(String tier) {
+    public static List<FMItem> generateMasteryBookList(String tier) {
         List<FMItem> itemList = new ArrayList<>() {
         };
         String useablesList = "masteryBook.yaml";
@@ -299,6 +317,9 @@ public class ArtificialShopGenerator {
             ItemNode item = getRandomItemFull(useablesList, randomItem, tier);
             if (item != null) {
                 int itemId = pickRandomVariantId(item.getVariantId());
+                if (!idStockable(itemId)) {
+                    continue;   // 1.6.1: SaleRules (untradeable, boss-only, cash...) for every generated line
+                }
                 int price = item.getCurrentPrice();
                 int qty = quantitySelector("Mastery", tier);
                 itemList.add(new FMItem(itemId, price, qty));
@@ -308,7 +329,7 @@ public class ArtificialShopGenerator {
         return itemList;
     }
 
-    private static List<FMItem> generateChairList(String tier) {
+    public static List<FMItem> generateChairList(String tier) {
         List<FMItem> itemList = new ArrayList<>() {
         };
         String chairList = "chair.yaml";
@@ -319,6 +340,9 @@ public class ArtificialShopGenerator {
             ItemNode item = getRandomItemFull(chairList, randomItem, tier);
             if (item != null) {
                 int itemId = pickRandomVariantId(item.getVariantId());
+                if (!idStockable(itemId)) {
+                    continue;   // 1.6.1: SaleRules (untradeable, boss-only, cash...) for every generated line
+                }
                 int price = item.getCurrentPrice();
                 int qty = 1;
                 itemList.add(new FMItem(itemId, price, qty));
@@ -362,6 +386,9 @@ public class ArtificialShopGenerator {
     }
 
     private static void addItemToShop(HiredMerchantArtificial merchant, Item sellItem, int quantity, int price) {
+        if (soloMapling.Economy.SaleRules.whyNotListOwn(sellItem) != null) {
+            return;   // 1.6.1 backstop: nothing SaleRules refuses reaches a generated shop, whatever the generator
+        }
         short bundles = (short) adjustFMQuantity(merchant, quantity);
         int adjustedPrice = adjustFMPrices(merchant, price);
         PlayerShopItem shopItem = new PlayerShopItem(sellItem, bundles, adjustedPrice);
