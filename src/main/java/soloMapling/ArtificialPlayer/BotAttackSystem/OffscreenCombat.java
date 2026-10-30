@@ -169,10 +169,15 @@ public final class OffscreenCombat {
     }
 
     /*
-     * 1.6.1 ticket 30: what the bot takes off one boss a second with its single-target attack (its AoE when it has no
-     * single one), from the same averaged swing the grind uses: one swing's damage over the attack's cooldown. A
-     * regular's off-screen boss run (OffscreenBossRun) adds its group's up against the boss's real HP. 0 when it has
-     * no attack that fits.
+     * 1.6.1 ticket 30: what the bot takes off one boss a second. A regular's off-screen boss run (OffscreenBossRun)
+     * adds its group's up against the boss's real HP. 0 when it has no attack that fits.
+     *
+     * 1.6.2 b087: this used to be one swing of the single-target attack over the table's swing time, with the
+     * table's line count. The driver on screen draws the lines the skill's level allows (BotSwingPlan: Spear Crusher 6,
+     * Snipe 4), keeps the bot busy for the pose's length, and honours the skill's WZ cooltime (Snipe 8 s, La Mancha
+     * 5 s): a Marksman's Snipe was counted every 0.72 s at 1 line and a Dark Knight's Crusher at 3 of its 6, about 7x
+     * apart. It is now the driver's own rotation on a lone boss, played for a minute: a ready rotation extra first,
+     * then the single-target attack, the AoE, and the throttled ultimate, each when out of its cooltime.
      */
     public static double bossDamagePerSecond(Character bot, MonsterStats boss) {
         if (bot == null || boss == null) {
@@ -181,33 +186,95 @@ public final class OffscreenCombat {
         WeaponType weapon = BotAttack.resolveEquippedWeaponType(bot);
         BotAttackConfig.JobAttacks attacks = BotAttackConfig.resolve(bot.getJob(), weapon,
                 BotAttackDriver.ownedSkills(bot));
-        BotAttackProfile profile = attacks.single() != null ? attacks.single() : attacks.aoe();
+        int weaponItemId = BotAttackDriver.equippedWeaponId(bot);
+        List<RotationStep> steps = new ArrayList<>();
+        for (BotAttackConfig.Extra e : attacks.extras()) {
+            if (e.comboCost() == 0) {   // an Aran finisher needs combo a lone swing count cannot promise
+                addStep(steps, bot, e.profile(), weapon, weaponItemId, boss, e.everyMs());
+            }
+        }
+        addStep(steps, bot, attacks.single(), weapon, weaponItemId, boss, 0);
+        // While the single cools, the human-paced driver (BotSkillChoice on a boss) throws its pack attack, the
+        // ultimate first when that is ready; the plain driver tries the AoE first (BotAttackDriver.attack).
+        boolean human = soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human();
+        if (!human) {
+            addStep(steps, bot, attacks.aoe(), weapon, weaponItemId, boss, 0);
+        }
+        addStep(steps, bot, attacks.ultimate(), weapon, weaponItemId, boss, BotAttackDriver.FULL_MAP_ULTIMATE_COOLDOWN_MS);
+        if (human) {
+            addStep(steps, bot, attacks.aoe(), weapon, weaponItemId, boss, 0);
+        }
+        return rotationDps(steps, ROTATION_MS);
+    }
+
+    static final long ROTATION_MS = 60_000;
+
+    /** One attack of a boss rotation: averaged damage a swing, how long the swing keeps the bot busy, its cooltime. */
+    record RotationStep(double perSwing, long busyMs, long cooltimeMs) {
+    }
+
+    private static void addStep(List<RotationStep> steps, Character bot, BotAttackProfile profile, WeaponType weapon,
+                                int weaponItemId, MonsterStats boss, long minGapMs) {
         if (profile == null) {
+            return;
+        }
+        try {
+            profile = withAmmo(bot, profile, weapon);
+            int linesHint = BotAttackDriver.shadowDoubled(bot, profile.numDamage);
+            BotSwingPlan plan = BotSwingPlan.of(profile, packetLevel(bot, profile), weaponItemId, false, linesHint);
+            BotDamage.Swing swing = BotDamage.swing(bot, plan.skillId(), plan.skillLevel(), plan.route(), weapon, 2,
+                    linesHint != profile.numDamage);
+            double perSwing = swing.expectedPerMob(boss, plan.lines()) * Math.max(1, plan.shots());
+            long cooltime = Math.max(minGapMs, cooltimeMs(plan.skillId(), plan.skillLevel()));
+            steps.add(new RotationStep(perSwing, Math.max(1, plan.busyMs(profile.cooldownMs)), cooltime));
+        } catch (RuntimeException e) {
+            log.debug("Offscreen boss swing: skill {} skipped", profile.skillId, e);
+        }
+    }
+
+    private static long cooltimeMs(int skillId, int skillLevel) {
+        if (skillId == 0) {
             return 0;
         }
-        profile = withAmmo(bot, profile, weapon);
-        double perSwing = swingOn(bot, profile, weapon, boss, 1).perMob();
-        return perSwing <= 0 ? 0 : perSwing * 1000.0 / Math.max(1, profile.cooldownMs);
+        client.Skill skill = client.SkillFactory.getSkill(skillId);
+        server.StatEffect effect = skill != null ? skill.getEffect(Math.max(1, skillLevel)) : null;
+        return effect != null ? Math.max(0, effect.getCooldown()) * 1000L : 0;
     }
 
-    private record SwingOn(double perMob, int skillId, int skillLevel, BotAttackProfile.Route route) {
-    }
-
-    // One averaged swing of this attack at one of mobsPerSwing mobs (the driver's weapon fallback included).
-    private static SwingOn swingOn(Character bot, BotAttackProfile profile, WeaponType weapon, MonsterStats mob,
-                                   int mobsPerSwing) {
-        int skillId = profile.skillId;
-        int skillLevel = BotAttackDriver.packetLevel(bot, profile);
-        BotAttackProfile.Route route = profile.route;
-        if (!BotSkillActions.weaponFits(skillId, BotAttackDriver.equippedWeaponId(bot))) {
-            skillId = 0;   // what the driver draws instead
-            skillLevel = 0;
-            route = BotAttackProfile.Route.CLOSE;
+    /*
+     * Damage a second over horizonMs of the driver's choice on a lone boss: at each free moment the first step out of
+     * its cooltime, in order; when every step cools the bot waits for the first to come back.
+     */
+    static double rotationDps(List<RotationStep> steps, long horizonMs) {
+        if (steps.isEmpty() || horizonMs <= 0) {
+            return 0;
         }
-        int lines = BotAttackDriver.shadowDoubled(bot, profile.numDamage);
-        BotDamage.Swing swing = BotDamage.swing(bot, skillId, skillLevel, route, weapon, mobsPerSwing + 1,
-                lines != profile.numDamage);
-        return new SwingOn(swing.expectedPerMob(mob, lines), skillId, skillLevel, route);
+        long[] readyAt = new long[steps.size()];
+        long t = 0;
+        double damage = 0;
+        while (t < horizonMs) {
+            int pick = -1;
+            for (int i = 0; i < steps.size(); i++) {
+                if (readyAt[i] <= t && steps.get(i).perSwing() > 0) {
+                    pick = i;
+                    break;
+                }
+            }
+            if (pick < 0) {
+                long next = Long.MAX_VALUE;
+                for (int i = 0; i < steps.size(); i++) {
+                    if (steps.get(i).perSwing() > 0) next = Math.min(next, readyAt[i]);
+                }
+                if (next == Long.MAX_VALUE) return 0;
+                t = next;
+                continue;
+            }
+            RotationStep s = steps.get(pick);
+            damage += s.perSwing();
+            if (s.cooltimeMs() > 0) readyAt[pick] = t + s.cooltimeMs();
+            t += Math.max(1, s.busyMs());
+        }
+        return damage * 1000.0 / t;
     }
 
     private static Pace pace(Character bot, BotAttackProfile profile, WeaponType weapon,

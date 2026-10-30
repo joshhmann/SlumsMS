@@ -54,7 +54,7 @@ public final class BotAttackDriver {
     // with the class's sustained AoE (Crusher / Shining Ray / Ice Strike / Explosion) instead of
     // dropping to single-target. ~25s lets a bot use its ultimate roughly twice a minute.
     // botId -> absolute epoch-ms before which this bot's full-map ultimate is unavailable.
-    private static final long FULL_MAP_ULTIMATE_COOLDOWN_MS = 25_000;
+    static final long FULL_MAP_ULTIMATE_COOLDOWN_MS = 25_000;
     private static final Map<Integer, Long> nextUltimateByBot = new ConcurrentHashMap<>();
 
     // A skill whose WZ data carries a cooltime (most of MapleRoot's custom attacks: Megiddo Flame, La Mancha

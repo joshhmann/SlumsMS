@@ -109,6 +109,8 @@ public final class BotAttackConfig {
 
     // Dragon Knight's main attack, used as both single and mob swing.
     private static final BotAttackProfile CRUSHER = meleeMulti(DragonKnight.SPEAR_CRUSHER, 3, 3);
+    // Dark Knight's main attack, used as both single and mob swing (1.6.2 b087).
+    private static final BotAttackProfile DARK_IMPALE_4 = meleeAoe(DARK_IMPALE, 4);
 
     static {
         // ===== Warrior (melee, sword or spear) =====
@@ -120,8 +122,13 @@ public final class BotAttackConfig {
         put(Job.DRAGONKNIGHT, CRUSHER, CRUSHER, meleeAoe(DragonKnight.DRAGON_ROAR, 1));
         put(Job.HERO,         meleeMulti(RAGING_BLOW, 3, 5),          meleeAoe(RISING_RAGE, 8));
         put(Job.PALADIN,      melee(Paladin.BLAST, 1),                meleeAoe(HOLY_FLAME_HAMMER, 5));
-        put(Job.DARKKNIGHT,   null,                                   meleeAoe(DARK_IMPALE, 4),
-                meleeAoe(LA_MANCHA_SPEAR, 8)); // single inherits Crusher
+        // 1.6.2 b087: Dark Impale (700% x4, no cooltime) is the Dark Knight's strongest repeatable hit, so it is the
+        // single too (as Crusher is the Dragon Knight's); on a boss the bot used to swing Crusher (250% x6) forever,
+        // and La Mancha Spear (1000% x8, 5 s cooltime) never came out while Crusher was ready. A player fires it
+        // whenever it is back: it is woven in as a rotation extra, and stays the full-map ultimate for packs.
+        put(Job.DARKKNIGHT,   DARK_IMPALE_4,                          DARK_IMPALE_4,
+                meleeAoe(LA_MANCHA_SPEAR, 8));
+        extra(Job.DARKKNIGHT, new Extra(meleeAoe(LA_MANCHA_SPEAR, 8), 5_000, 0));
 
         // ===== Magician (magic) =====
         put(Job.MAGICIAN,     magic(Magician.MAGIC_CLAW, 2),  null);
