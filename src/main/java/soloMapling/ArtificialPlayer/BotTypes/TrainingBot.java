@@ -967,7 +967,8 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         if (!safePhase) return false;
         // 1.6.0 world events: a bot that answered an event fights it out (no cc, no wandering off to town or a new
         // map while it runs); it may still restock or log off
-        if (soloMapling.worldevents.WorldEventSteer.atEvent(getChr().getId(), getChr().getMapId())
+        if ((soloMapling.worldevents.WorldEventSteer.atEvent(getChr().getId(), getChr().getMapId())
+                || inEventAftermath(getChr())) // 1.6.2: and while it loots the pile after
                 && activity != LifeDecision.Activity.GRIND && activity != LifeDecision.Activity.RESTOCK
                 && activity != LifeDecision.Activity.LOG_OUT) return false;
         return switch (activity) {
@@ -1121,15 +1122,52 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
      * its next tick.
      */
     public void eventOver(int mapId) {
+        eventOver(mapId, 0L, 0L);
+    }
+
+    /**
+     * 1.6.2: as {@link #eventOver(int)}, but a bot fighting there may first stay until {@code lootUntil} to loot the
+     * fight's drops with its normal grind loot (EventLootScramble: owner report 2026-10-30, the cake's drops were
+     * left on the floor because every bot walked off the tick the cake fell).
+     */
+    public void eventOver(int mapId, long endedAt, long lootUntil) {
+        eventOverEndedAt = endedAt;
+        eventOverLootUntil = lootUntil;
         eventOverMap = mapId;
     }
 
     private volatile int eventOverMap = -1;
+    private volatile long eventOverEndedAt;
+    private volatile long eventOverLootUntil;
+    private boolean aftermathNoted;
+
+    /** Cheap: this bot is grinding on the map of an event that just ended, inside its loot patience. */
+    private boolean inEventAftermath(Character chr) {
+        return phase == Phase.GRIND && chr != null && eventOverMap > 0 && chr.getMapId() == eventOverMap
+                && now() < eventOverLootUntil;
+    }
 
     private void leaveEventMapIfOver(Character chr) {
         int m = eventOverMap;
         if (m <= 0) return;
+        if (onEventMap(chr)) { // a new event called it here meanwhile: that one holds it now
+            eventOverMap = -1;
+            eventOverLootUntil = 0L;
+            aftermathNoted = false;
+            return;
+        }
+        // only where a player can see it: an unobserved map loots nothing on screen (the grind ticks early-return)
+        if (inEventAftermath(chr) && GCMovement.isMapObserved(m) && soloMapling.worldevents.EventLootScramble.stays(now(), eventOverEndedAt,
+                eventOverLootUntil, grind.lootLeft(chr))) {
+            if (!aftermathNoted) {
+                aftermathNoted = true;
+                debugChat("event over: staying for the drops");
+            }
+            return; // the scramble for the pile: the grind's dry beat sweeps it (GrindLoot), ownership respected
+        }
+        aftermathNoted = false;
         eventOverMap = -1;
+        eventOverLootUntil = 0L;
         if (phase == Phase.GRIND && chr.getMapId() == m && MapMobIndex.level(m) < 0 && !recruitingNow()
                 && partyTargetMapId() == null) {
             leaveGrind();
@@ -2100,7 +2138,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             return;
         }
 
-        if (nowMs >= grindUntilMs && onEventMap(chr)) {
+        if (nowMs >= grindUntilMs && (onEventMap(chr) || inEventAftermath(chr))) {
             grindUntilMs = nowMs + 60_000; // ticket 21: stay while the event runs; released when it ends
         }
         if (nowMs >= grindUntilMs && !recruitingNow()) { // don't walk off mid-conversation/invite window
@@ -2122,6 +2160,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         }
         if (recruitingNow()) {
             return false; // mid-conversation / live invite window: never teleport or bail from under the player
+        }
+        if (inEventAftermath(chr)) {
+            return false; // 1.6.2: no mob to hit while it loots an ended event's pile; bounded by its patience
         }
         long stuck = grind.msSinceProgress();
         if (stuck < STUCK_TELEPORT_MS) {
@@ -2166,8 +2207,8 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         if (partyMap != null && partyMap == chr.getMapId()) {
             return false; // never crowd-bail off the party's map - staying with the player wins
         }
-        if (onEventMap(chr)) {
-            return false; // ticket 21: a world event's crowd is the point
+        if (onEventMap(chr) || inEventAftermath(chr)) {
+            return false; // ticket 21: a world event's crowd is the point (1.6.2: and its drops after)
         }
         if (recruitingNow()) {
             return false; // mid-recruit: hold the map until the exchange resolves

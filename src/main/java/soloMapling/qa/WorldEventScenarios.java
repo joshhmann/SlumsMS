@@ -144,7 +144,7 @@ final class WorldEventScenarios {
     /** ev-1: the friends' Giant Cake. */
     static final class Ev1GiantCake extends EventScenario {
         public String id() { return "ev-1"; }
-        public String title() { return "A Giant Cake in Henesys: notice, bots whack it, it dies, rewards, gossip (1.6.0)"; }
+        public String title() { return "A Giant Cake in Henesys: notice, bots whack it, it dies, rewards, bots loot it, gossip (1.6.0)"; }
         public String usage() { return "; then !qa do gossip"; }
         public int minutes(String[] args) { return 12; }
         String template() { return "giant_cake"; }
@@ -159,6 +159,8 @@ final class WorldEventScenarios {
                     + " with little cakes around it, bots hitting it.");
             out.add("Hit it yourself for the reward (most damage) - anyone on the map when it falls gets the"
                     + " participation cakes and a little EXP. Then WEVENT BOSS DOWN, the notice, WEVENT NEWS.");
+            out.add("1.6.2: the bots stay a little and loot the cake's drops (the owner's own drop first, the rest once"
+                    + " its 15 s ownership is over): WEVENT LOOT lines; what nobody takes expires as usual.");
             out.add("!qa do gossip: a bot that was there talks about it (the after-chatter and the world news line).");
             return out;
         }

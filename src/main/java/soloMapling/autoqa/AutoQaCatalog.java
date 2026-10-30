@@ -971,9 +971,10 @@ public final class AutoQaCatalog {
                 .build());
         // 1.6.0 world events: the friends' Giant Cake (ev-1: warnings, notice, bots whack it, it falls, participation,
         // world news and gossip) and an invasion where bots really die and respawn (ev-2)
-        c.add(Check.auto("t-ev-1", "A Giant Cake in Henesys: bots whack it, it falls, gossip after").minutes(12)
+        c.add(Check.auto("t-ev-1", "A Giant Cake in Henesys: bots whack it, it falls, they loot it, gossip after").minutes(12)
                 .step(run("ev-1"), waitFor("WEVENT BOSS DOWN ", 480), waitFor("WEVENT NEWS ", 30), waitSeconds(3),
-                        qaDo("gossip"), waitFor("EV1 GOSSIP ", 20), waitSeconds(3), stop())
+                        qaDo("gossip"), waitFor("EV1 GOSSIP ", 20), waitFor("WEVENT LOOT ", 75), waitSeconds(3),
+                        stop())
                 .expect(has("WEVENT NOTICE \\[World Event\\] A Giant Cake will appear in .* in 10 minutes"),
                         has("WEVENT NOTICE \\[World Event\\] A Giant Cake will appear in .* in 1 minute"),
                         has("WEVENT START #\\d+ giant_cake \\(giant cake\\) on 100000000 "),
@@ -984,6 +985,8 @@ public final class AutoQaCatalog {
                         has("WEVENT END #\\d+ giant_cake \\((won|boss killed)\\)"),
                         has("WEVENT NEWS #\\d+ \"the giant cake in \\S+"),
                         has("EV1 GOSSIP "),
+                        // 1.6.2 (owner 2026-10-30: nobody picked up the cake's drops): the bots loot the pile
+                        has("WEVENT LOOT #\\d+ \\S+ picks up (item \\d+|\\d+ mesos) \\((its own drop|free, \\d+ s on the floor)\\)"),
                         noEmoji())
                 .build());
         // Owner 2026-10-27 ("madness"): lv 1-40, most called bots come at once (a RECRUIT line with joiners), town bots

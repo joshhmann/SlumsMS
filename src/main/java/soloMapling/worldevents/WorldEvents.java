@@ -1044,6 +1044,33 @@ public final class WorldEvents {
         return false;
     }
 
+    /**
+     * 1.6.2 (EventLootScramble): DropCommands' bot pickup. A bot looting the map of a fight that ended in the last
+     * minute or so is looting its pile: counted on the event, and a {@code WEVENT LOOT} line for QA (ev-1/t-ev-1).
+     */
+    public void onBotLoot(Character bot, server.maps.MapItem drop) {
+        if (recent.isEmpty() || bot == null || drop == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        for (ActiveEvent e : recent) {
+            if (e.mapId() != bot.getMapId() || !EventLootScramble.fights(e.template.kind())
+                    || now - e.endedAt > EventLootScramble.STAY_MAX_MS + 10_000
+                    || bot.getClient() == null || bot.getClient().getChannel() != e.channel) {
+                continue;
+            }
+            int n = e.botLoots.incrementAndGet();
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.WORLD_EVENT)) {
+                String what = drop.getMeso() > 0 ? drop.getMeso() + " mesos" : "item " + drop.getItemId();
+                String whose = drop.getOwnerId() == bot.getId() ? "its own drop"
+                        : "free, " + Math.max(0, now - drop.getDropTime()) / 1000 + " s on the floor";
+                qa("WEVENT LOOT #" + e.id + " " + bot.getName() + " picks up " + what + " (" + whose + "), "
+                        + (now - e.endedAt) / 1000 + " s after the end [" + n + "]");
+            }
+            return;
+        }
+    }
+
     public void onMonsterKilled(MapleMap map, Monster mob, Character killer) {
         if (active.isEmpty() || mob == null || map == null) {
             return;

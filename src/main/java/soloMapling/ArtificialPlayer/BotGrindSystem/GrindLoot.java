@@ -135,6 +135,14 @@ final class GrindLoot {
         return true;
     }
 
+    // 1.6.2: the reach GrindBrain.lootLeft looks in (roam's dry-beat sweep radius).
+    static final int LOOT_LEFT_SEARCH_PX = 600;
+
+    // 1.6.2: true when a sweep over [x0, x1] would find anything (collectableDrops' filters, nothing moved).
+    boolean anyCollectable(Character chr, int x0, int x1, int searchRangePx) {
+        return !collectableDrops(chr, searchRangePx, x0, x1, LOOT_SAME_LEDGE_Y).isEmpty();
+    }
+
     // ── 1.5.0 rc3: loot habits (BotHabits.Loot) ──
     static final int PET_LOOT_PX = 160;          // what a looting pet reaches around its owner
     static final int INSTANT_LOOT_PX = 180;      // an instant looter walks this far for a fresh drop
