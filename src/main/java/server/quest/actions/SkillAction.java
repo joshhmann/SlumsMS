@@ -79,7 +79,7 @@ public class SkillAction extends AbstractQuestAction {
                 continue;
             }
 
-            boolean shouldLearn = skill.jobsContains(chr.getJob()) || skillObject.isBeginnerSkill();
+            boolean shouldLearn = shouldLearn(skill.getId(), skill.jobs, chr.getJob().getId());
 
             byte skillLevel = (byte) Math.max(skill.getLevel(), chr.getSkillLevel(skillObject));
             int masterLevel = Math.max(skill.getMasterLevel(), chr.getMasterLevel(skillObject));
@@ -88,6 +88,21 @@ public class SkillAction extends AbstractQuestAction {
             }
 
         }
+    }
+
+    /**
+     * Whether a character of this job learns a skill from a quest act's skill list. The act lists the jobs; a
+     * beginner skill is also learnt when the job is not listed (Cosmic), but only one of the character's own family:
+     * Moren's 6029 act lists all four Maker skills (1007, 10001007, 20001007, 20011007), and every Explorer who
+     * finished it was taught all four (ticket 112). A beginner skill of another family is never taught.
+     */
+    public static boolean shouldLearn(int skillId, List<Integer> jobs, int jobId) {
+        int prefix = skillId / 10000;   // the skill's job: 0, 1000, 2000, 2001 for beginner skills (Evan's included)
+        boolean beginner = prefix == 0 || prefix == 1000 || prefix == 2000 || prefix == 2001;
+        if (beginner && prefix != constants.game.GameConstants.getBeginnerJobId(jobId)) {
+            return false;
+        }
+        return jobs.contains(jobId) || beginner;
     }
 
     private class SkillData {

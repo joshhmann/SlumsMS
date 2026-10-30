@@ -57,6 +57,6 @@ public class NpcMakerCraftingService {
 //    }
 
     public static int getMakerSkillLevel(Character chr) {
-        return chr.getSkillLevel((chr.getJob().getId() / 1000) * 10000000 + 1007);
+        return client.inventory.MakerService.getMakerSkillLevel(chr);   // ticket 112: one rule (Evan included)
     }
 }

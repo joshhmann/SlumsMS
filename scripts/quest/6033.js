@@ -52,7 +52,7 @@ function end(mode, type, selection) {
         } else if (status == 2) {
             qm.forceCompleteQuest();
 
-            var skillid = Math.floor(qm.getPlayer().getJob().getId() / 1000) * 10000000 + 1007;
+            var skillid = qm.getMakerSkillId(); // ticket 112: Evan has its own Maker (20011007)
             qm.teachSkill(skillid, 2, 3, -1);
             qm.gainExp(230000);
             qm.dispose();

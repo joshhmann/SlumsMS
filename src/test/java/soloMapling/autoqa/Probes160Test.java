@@ -205,15 +205,20 @@ class Probes160Test {
     }
 
     /**
-     * Owner 2026-10-27: Dalair's gate is level only (160, 110 for Cygnus), no Maker skill (the servers have none).
-     * The gate and the 3-merge cap are checked on the pure rule.
+     * Ticket 112 (owner 2026-10-30): Dalair's gate is level 160 (110 Cygnus) and Maker 3 again. The gate and the 3-merge
+     * cap are checked on the pure rule; a server whose Skill.wz has no Maker fails the check (the WZ step was missed).
      */
     @Test
-    void dalairsGateAndCapAreLevelOnly() {
+    void dalairsGateNeedsMaker3AndAServerWithoutMakerFails() {
         assertTrue(Probes160.mergeGateProblems().isEmpty(), Probes160.mergeGateProblems().toString());
         assertTrue(Probes160.mergeCapProblems().isEmpty(), Probes160.mergeCapProblems().toString());
-        assertTrue(client.Character.meetsMergeGate(160, false) && client.Character.meetsMergeGate(110, true));
-        assertFalse(client.Character.meetsMergeGate(159, false) || client.Character.meetsMergeGate(109, true));
+        assertTrue(client.Character.meetsMergeGate(160, false, 3) && client.Character.meetsMergeGate(110, true, 3));
+        assertFalse(client.Character.meetsMergeGate(159, false, 3) || client.Character.meetsMergeGate(109, true, 3));
+        assertFalse(client.Character.meetsMergeGate(160, false, 2) || client.Character.meetsMergeGate(200, true, 0));
+        assertNull(Probes160.makerMissing(true, true));
+        String missing = Probes160.makerMissing(true, false);
+        assertNotNull(missing);
+        assertTrue(missing.contains("add_maker_skill.py") && missing.contains("closed to everyone"), missing);
     }
 
     @Test
