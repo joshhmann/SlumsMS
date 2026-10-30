@@ -1870,9 +1870,12 @@ final class GameQaWorld implements QaWorld {
         return true;
     }
 
-    private static final java.util.regex.Pattern REFUSAL = java.util.regex.Pattern.compile(
+    // 162 runfix (t-vb-8 on TEST 10-30): "you need" alone also matched Mr. Maker's lesson (6032, 2110004): "All you
+    // need to do is have an item in mind..." and "now you need to hand me a fee" while the lesson succeeded.
+    static final java.util.regex.Pattern REFUSAL = java.util.regex.Pattern.compile(
             "(?i)(no options|cannot|can not|can't|is closed|closed for now|not available|error|"
-                    + "i'm sorry|i am sorry|don't have|do not have|not enough|you need(?! to choose)|must have|unavailable)");
+                    + "i'm sorry|i am sorry|don't have|do not have|not enough|"
+                    + "you need(?! to (?:choose|do is|hand me))|must have|unavailable)");
 
     /** Turns a dialog that refuses into an NPC_REFUSAL line; a step that expects a refusal does not call this. */
     private void refuseCheck(List<String> out, List<String> dialogs) {
