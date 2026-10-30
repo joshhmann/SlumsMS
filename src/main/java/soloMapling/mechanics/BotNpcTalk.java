@@ -1,10 +1,8 @@
 package soloMapling.mechanics;
 
 import client.Character;
-import client.inventory.Inventory;
 import client.inventory.Item;
 import client.inventory.Pet;
-import constants.inventory.ItemConstants;
 import scripting.AbstractScriptManager;
 import scripting.npc.NPCConversationManager;
 import soloMapling.ArtificialPlayer.BotHoldings;
@@ -180,14 +178,6 @@ final class BotNpcTalk extends AbstractScriptManager {
 
     /** Takes up to {@code count} of an item out of a bot's inventory (its holdings ledger follows); how many went. */
     static int takeItems(Character bot, int itemId, int count) {
-        Inventory inv = bot.getInventory(ItemConstants.getInventoryType(itemId));
-        int left = count;
-        for (Item stack : new ArrayList<>(inv.listById(itemId))) {
-            if (left <= 0) {
-                break;
-            }
-            left -= BotHoldings.consumeHeld(bot, stack, left);
-        }
-        return count - left;
+        return BotHoldings.takeHeld(bot, itemId, count);
     }
 }

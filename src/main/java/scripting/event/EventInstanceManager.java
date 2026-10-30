@@ -1037,10 +1037,29 @@ public class EventInstanceManager {
     }
 
     private void dropExclusiveItems(Character chr) {
-        AbstractPlayerInteraction api = chr.getAbstractPlayerInteraction();
+        takeExclusiveItems(chr, exclusiveItems);
+    }
 
-        for (Integer item : exclusiveItems) {
-            api.removeAll(item);
+    /**
+     * Takes the event's exclusive items (KPQ coupons and passes) off a member leaving the instance. 1.6.2 (KPQ
+     * automation fix): a population bot sits on the shared headless client, whose {@code getPlayer()} is not the bot
+     * (null), so the client path threw a NullPointerException out of {@code unregisterPlayer}. The event script's
+     * {@code end} calls that for every member before {@code eim.dispose()}, so one bot in the party left the instance
+     * alive until its timer (whose {@code end} threw the same way): an orphan KPQ that Lakelis refused to replace. A
+     * bot's items now go through its holdings; anything else that throws is logged and never stops the exit.
+     */
+    static void takeExclusiveItems(Character chr, java.util.Collection<Integer> items) {
+        boolean ownClient = chr.getClient() != null && chr.getClient().getPlayer() == chr;
+        for (Integer item : items) {
+            try {
+                if (ownClient) {
+                    chr.getAbstractPlayerInteraction().removeAll(item);
+                } else {
+                    soloMapling.ArtificialPlayer.BotHoldings.takeAll(chr, item);
+                }
+            } catch (RuntimeException e) {
+                log.warn("Could not take event item {} from {} leaving the event", item, chr.getName(), e);
+            }
         }
     }
 
