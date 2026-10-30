@@ -14,7 +14,7 @@ Run every minute by slums-dashboard-extras@<instance>.timer, as root. It writes,
 and under DATA_DIR/nav/:
 
   world.json   the world graph (ticket 157): every exported map, its portal links to other maps, and the dead-end
-               check (see build_world). Rebuilt when the map export's nav/index.json is newer than it.
+               check (see build_world). Rebuilt when the map export's nav/index.json or nav/pits.json is newer.
 
 Config: /etc/slums-dashboard/<instance>.conf, KEY=value lines:
 
@@ -156,7 +156,7 @@ def reach(starts, adj):
     return seen
 
 
-def check_map(mid, portals, graph, arrivals, bounds=None):
+def check_map(mid, portals, graph, arrivals, bounds=None, handled=()):
     """Dead-end check for one map. arrivals: [(fromMap, portal name or None)], the ways into it; bounds: the map's
     [x, y, width, height] view, to tell a pit below the visible map (a hidden catch floor) from one on screen.
 
@@ -166,6 +166,7 @@ def check_map(mid, portals, graph, arrivals, bounds=None):
       arrive_stuck from where you arrive, the base graph reaches no exit portal
       pit          platforms you can get onto from an arrival but never back to an exit from (detail: region ids,
                    "(below view)" when the platform lies under the map's visible area)
+      pit_handled  the same, for platforms the game's planner already refuses (handled: NavPits' nav/pits.json)
       no_graph     no base-profile graph, so only the map-level check ran
     """
     exits = [p for p in portals if p[4] not in (NO_MAP, mid)]
@@ -203,11 +204,12 @@ def check_map(mid, portals, graph, arrivals, bounds=None):
     for frm, name, r in stuck[:20]:
         rows.append([mid, "arrive_stuck", "from %d at %s (r%s)" % (frm, name, r)])
     pits = sorted(r for r in reach(starts, fwd) - can_exit - set(starts) if r is not None)  # stuck arrivals are listed above
-    if pits:
-        bottom = bounds[1] + bounds[3] if bounds and len(bounds) == 4 else None
-        ys = {r[0]: min(r[3], r[5]) for r in regions}
-        rows.append([mid, "pit", " ".join("r%d" % r + (" (below view)" if bottom is not None and ys.get(r, 0) > bottom else "")
-                                          for r in pits[:40])])
+    bottom = bounds[1] + bounds[3] if bounds and len(bounds) == 4 else None
+    ys = {r[0]: min(r[3], r[5]) for r in regions}
+    for kind, part in (("pit", [r for r in pits if r not in handled]), ("pit_handled", [r for r in pits if r in handled])):
+        if part:
+            rows.append([mid, kind, " ".join("r%d" % r + (" (below view)" if bottom is not None and ys.get(r, 0) > bottom else "")
+                                             for r in part[:40])])
     return rows, exits
 
 
@@ -234,6 +236,11 @@ def build_world(nav, dry=False):
             target = p[5] if len(p) > 5 and p[5] else None
             links.append([mid, to, p[0], target or ""])
             arrivals.setdefault(to, []).append((mid, target))
+    try:   # the pits the game's planner refuses (NavPits): {"version": 1, "maps": {mapId: [regionId, ...]}}
+        with open(os.path.join(nav, "pits.json"), encoding="utf-8") as f:
+            handled = {int(k): set(v) for k, v in (json.load(f).get("maps") or {}).items()}
+    except (OSError, ValueError, AttributeError, TypeError):
+        handled = {}
     checks, unchecked = [], 0
     for mid in ids:
         graph = None
@@ -242,7 +249,7 @@ def build_world(nav, dry=False):
                 graph = json.load(f)
         except (OSError, ValueError):
             unchecked += 1
-        rows, _ = check_map(mid, portals_of[mid], graph, arrivals.get(mid, []), bounds_of.get(mid))
+        rows, _ = check_map(mid, portals_of[mid], graph, arrivals.get(mid, []), bounds_of.get(mid), handled.get(mid, ()))
         checks.extend(rows)
     doc = {"generated": int(time.time() * 1000), "index": index.get("generated"), "profile": BASE,
            "exactArrivals": any(len(p) > 5 for ps in portals_of.values() for p in ps),
@@ -290,7 +297,9 @@ def main(argv):
 
     nav = os.path.join(conf["DATA_DIR"], "nav")
     try:
-        stale = os.path.getmtime(os.path.join(nav, "index.json")) > os.path.getmtime(os.path.join(nav, "world.json"))
+        built = os.path.getmtime(os.path.join(nav, "world.json"))
+        stale = any(os.path.getmtime(os.path.join(nav, f)) > built for f in ("index.json", "pits.json")
+                    if os.path.exists(os.path.join(nav, f)))
     except FileNotFoundError:
         stale = os.path.exists(os.path.join(nav, "index.json"))
     if stale or (dry and os.path.exists(os.path.join(nav, "index.json"))):
