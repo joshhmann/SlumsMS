@@ -1,80 +1,99 @@
 ---
 name: release-book
-description: Build and keep one "release book" per SlumsMS version - a single tabbed artifact with where the version stands, the true player patch notes, the promise audit, bug squashing, who owns what, the owner's decisions and the release-night checklist - including the live board, bugs and the owner's TEST click-through, each card with a notes box for the owner. Use at the start of every version, whenever the owner asks for a sitrep, "one doc", "where are we", "what's left before live", an audit of promises, or a bug/board update, and again on release night. Also use when lanes report in, so the book and board stay current.
+description: Run one SlumsMS release from a single "release book" (a five-tab artifact with a shared database). It holds the status strip, milestones and target date, lane check-ins, the owner's Test list, bugs and tasks, the true patch notes, the feature-switch table, risks, go/no-go and the release-night run sheet. Use at the start of every version; whenever the owner asks for a sitrep, "where are we", "what's left", "are we on track", an audit of promises, or a bug/board update; when a lane reports or checks in; at code freeze; at go/no-go; on release night; and for the retro afterwards.
 ---
 
 # Release book (one per version)
 
-1.6.1 taught this: notes, an audit, a sitrep, two boards and a click-through list lived on six pages, the notes
-over-promised, and features "merged" were mistaken for "working". One book plus one live board fixes that.
+1.6.1 and 1.6.2 taught this:
+- Six pages became one book, and eleven tabs were cut to five.
+- Features that were "merged" got mistaken for "working".
+- Scope kept arriving after integration, and every late branch cost about 3 h of suite and auto-QA time.
+- No date meant there was no way to say on track or slipping.
+- Switch state lived in five places.
+- Risks hid inside Decisions.
 
-## One artifact per version
+This skill fixes those. The Coordinator session owns the book's content; Server Dev owns the page HTML.
 
-The book is ONE HTML artifact with the `db` capability (1.6.1: https://claude.ai/artifact/MyhfTPAtE1oAvDmpz6FTcG,
-scratchpad file `squash-board.html`; copy it for a new version and change the title). It holds every other page as a
-tab: Overview, Patch notes, Promise audit, Board, Bugs, Click-through, Owners, Decisions, Release night, Sources.
-Deep links: the artifact URL plus `#board`, `#bugs`, `#click`, etc. Never make separate pages for these again.
+## The page: five tabs (never a sixth, never a separate page)
 
-Its database (write with ArtifactData; every update carries `if_version`):
-- `book`: the written tabs, one doc per section `{tab, ord, md, updated, by}`. `tab` is overview | notes | audit |
-  owners | decisions | release | sources | click (intro). `md` is GitHub markdown (tables, `- [ ]` lists); the page
-  renders it. Update a section by rewriting its `md` and `updated` (UTC + PT). No republish needed.
-- `items`: board cards `{lane, ord, kind: fix|verify|decide|process, status: open|doing|check|done, title, done (the
-  "done when" test), note}`; doc_id `s01` server, `c01` client, `l01` launcher, `w01` website, `m01` chat model,
-  `o01` ops, `p01` process.
-- `bugs`: `{num, lane, sev: S1-S4, status: new|triaged|fixing|fixed|wontfix, title, repro, found_by, found_at (UTC),
-  fix, note}`; doc_id `b` + 3 digits. S1 breaks live or loses data, S2 a feature doesn't work, S3 wrong with a
-  workaround, S4 polish. Lane sessions file their own: query the highest `num` right before writing, then `set`.
-- `stops`: the owner's TEST click-through `{ord, title, url, mins, checks[], done}`.
-- Every card, section and stop has a **My notes** box: the owner's text is `owner_note` (+ `owner_note_at`). Read
-  them on every update and act on them.
+1. **Today**
+   - Status strip (`status/now`).
+   - Milestone line (`milestones`).
+   - Lane rows (`lanes`).
+   - "Waiting on you" (book `ov2`).
+   - "Where it stands" (book `ov1`, short).
+2. **Test** (`qa`): every check a person makes by hand, game and site, marked Pass / Issue / Fail with a note. It has a "Ships on" filter.
+3. **Work** (`items` + `bugs`): with `eta_utc`, `blocked_by` and a "Late" filter.
+4. **Patch notes** (book `notes1`): only what ships switched on and works.
+5. **Reference** pills:
+   - Release night (run sheet)
+   - Switches
+   - Risks
+   - Go/no-go
+   - Retro
+   - Promise audit
+   - Changes
+   - Drops
+   - Decisions
+   - Owners
+   - Sources
 
-What each tab must say:
-1. **Overview**: a table per piece (server, client, launcher, website, chat model) with live vs TEST/RC version and
-   time; the QA run tally; the release gate as `- [ ]`; a "Waiting on you" list.
-2. **Patch notes**: only what ships switched on and works; nothing that is off for live.
-3. **Promise audit**: feature, promise (the notes' words), state, proof so far (auto-QA id, real-client
-   screenshot), still needs.
-4. **Owners**: lane, owner session (ListAgents names), what it owns, what it needs from the owner.
-5. **Decisions**: date, decision, newest first. Mirror them into memory (`decisions-<date>.md`).
-6. **Release night**: numbered steps in deploy order, then the rollback per piece.
-7. **Sources**: older pages it replaces and the repo files (docs/release/<v>-notes.md, <v>.conf).
+## Database (ArtifactData; every write to an existing doc carries `if_version`; batch when writing more than two)
 
-## Change inventory (nothing ships undocumented)
+| Collection | Doc ids | Fields | Who writes |
+| --- | --- | --- | --- |
+| `status` | `now` | state on_track/at_risk/slipping/blocked, target (UTC ISO), next{title, eta_utc}, blocker, top_risk, needs_owner, updated | Coordinator after every report |
+| `milestones` | `m01`.. | ord, title, owner_lane, eta_utc, status, done_at, gate, note | Coordinator seeds; the owning lane updates its own |
+| `lanes` | server, client, launcher, website, chat, triage | session, done, next, next_eta_utc, blocked, checkin_at | Coordinator from each check-in |
+| `switches` | short key | feature, sees, switch, default_code, on_test, launch on/if_playtest/later/off, proof[], proof_pending[], proof_note, notes_line, rollback, decided_at | Coordinator; Server Dev confirms keys against the conf |
+| `risks` | `r01`.. | title, likelihood, impact (L/M/H), owner_lane, mitigation, trigger, status open/accepted/closed, accepted_by_owner_at | Coordinator |
+| `gonogo` | `g01`.., `signoff` | criterion, evidence, status pass/fail/waiting, checked_by, checked_at; signoff{signed_at, hour_utc} (the owner's button) | Coordinator; the owner signs |
+| `qa` | `q01`.., `qw01`.. | ord, area, test, how, where, status, owner_note | Coordinator writes rows; the owner marks; Server Dev routes Issue/Fail to triage |
+| `items` | `s01` `c01` `l01` `w01` `m01` `o01` `p01` | lane, ord, kind, status open/doing/check/done, title, done (the "done when" test), note, eta_utc, blocked_by | lanes and Coordinator |
+| `bugs` | `b###` | num, lane, sev S1–S4, status, title, repro, found_by, found_at, fix, note | lanes file their own (query the highest num first); triage owns statuses |
+| `changes` | lane-prefixed | lane, feature, commits, sees, state, in_notes, coverage, gap | every lane on merge; Server Dev checks git logs against them |
+| `book` | ov1, ov2, notes1, rel1, dec1, audit1, owners1, src1, retro | tab, ord, md, updated, by | Coordinator (say so before rewriting a doc another session edits) |
 
-1.6.1 shipped a whole Slums Market overhaul on the website that no page mentioned, so nobody tested it. The fix:
-every change in every lane is a row before the release, not just the features someone remembers.
+Every row has the owner's notes box (`owner_note`, `owner_note_at`). Read the notes on every update and act on them.
 
-- Keep a `changes` collection in the book (and a Changes tab): `{lane, feature, commits, sees: player|staff|owner,
-  state: live|ships|test-only|off, in_notes: yes|no|n/a, coverage: <auto-QA id / unit class / client screenshot /
-  site test / click-through stop / NONE>, gap}`.
-- Rebuild it from the git logs of all four repos (server, site, client on Silvia, launcher) since the last release
-  tag, grouped into features: at the start of release prep, after every merge batch, and on release night.
-- Release gate: no row may be player-visible + ships + coverage NONE. Each such row becomes a click-through stop, a
-  QA-client step or an auto-QA check, or the owner explicitly accepts it untested.
-- Every lane session adds its own rows when it merges something (same rule as filing bugs). The server session
-  checks the git logs against the rows, because sessions forget.
+## The rules that make it honest
 
-## Rules that make it honest
-
-- **Done means seen working where players see it.** Merged or unit-tested is "fixing"/"check". Server features
-  that touch the screen (NPC menus, portals, tooltips, warps) need a QA-client pass on Silvia, not only auto-QA:
-  auto-QA uses synthetic players inside the server and sees no client.
-- **Audit the notes against the code every version**: a helper reads every player line and lists claims the code
-  doesn't fully do (file:line). The owner's rule: over-promises get implemented, not reworded; only plain mistakes
-  (a wrong colour, a wrong item name) are reworded. Check item names against the client's String data.
-- **Grill the owner only on real decisions**, in batches of up to 4 with a recommended option first
-  (AskUserQuestion); record each answer in section 6 and in memory, and never re-ask.
-- **Live always needs the owner's go**, every lane. Launcher signing needs the go in the launcher session itself.
-- Times in UTC with PT next to them. Never mention MapleStory/Nexon/Wizet/v83/MapleRoot in player text.
+- **Done means seen working where players see it.** Merged or unit-tested only counts as "check". Anything on screen needs a real-client pass or a Test row, because auto-QA's pretend players see no client.
+- **Proof is strict.** A switch's `proof` lists only checks that cover it and pass now. Failing or unrun checks go in `proof_pending`, with the reason in `proof_note`. A launch-on switch with empty proof is red. Before go/no-go every red row gets one of three things: an auto-QA check, a Test row, or the owner's explicit "ship it unit-tested" (recorded in `proof_note` and Decisions).
+- **The notes follow the switches.** A notes line exists only for a switch that launches on. `if_playtest` lines are marked as conditional until the playtest decides. Over-promises get implemented, not reworded; only plain mistakes are reworded.
+- **Live is the owner's**, every lane, including reading live config or the DB. A go relayed through the Coordinator may not satisfy another session's permission check. Then the owner runs the step in that session. Never route around a refusal.
+- **Grill only real decisions**: up to 4 at a time, recommended option first, standalone wording. Record each answer in Decisions and memory the same turn. Never re-ask.
+- **Times**: UTC with PT beside them (PDT = UTC-7 until Nov 1 2026 09:00 UTC, then PST = UTC-8). Run `date -u` before writing any timestamp. The owner is "they".
+- **Names**: new player text never says MapleStory, Nexon, Wizet, GMS, v83 or MapleRoot.
 
 ## Cadence
 
-- Start of a version: copy the artifact, seed `book`, `items` and `stops` from the roadmap and the notes.
-- After each merge batch, TEST deploy or lane report: update `items`/`bugs` and the Overview and Promise audit
-  sections. Read the owner's notes boxes first.
-- Before release night: rerun the notes audit, a full auto-QA run and the QA-client pass; fill Release night.
-- After the release: mark the book released, carry open bugs to the next version's board.
+- **Start of a version.** Copy the artifact. Seed:
+  - book ov1/ov2/notes/release/decisions/owners/sources;
+  - `qa` from the draft notes;
+  - `items` from the roadmap;
+  - `switches` from the conf;
+  - `risks`;
+  - `gonogo` (the standard ten below);
+  - `milestones` with a **target date the owner confirms**. The date moves only when a gate fails, and the reason goes in Decisions.
+- **Lane check-ins**, ~15:00 and ~03:00 UTC. Each lane sends Done / Next (ETA, UTC) / Blocked. Update `lanes`, then `status/now`. A lane over 14 h without a check-in shows late; ask it once.
+- **Every lane report.** Update items/bugs, switches proof, milestones, `status/now` and the notes. Keep ov1 to the current state.
+- **Code freeze.** Set it at a named merge point. After it, a new branch needs the owner's yes and defaults to the next version. A late item says what it costs (another suite + auto-QA, ~3 h).
+- **Go/no-go**, the standard criteria:
+  1. The final full auto-QA has no unexplained FAIL.
+  2. No red switches.
+  3. The Test tab has no open Fail, and every Issue is fixed or accepted.
+  4. Playtest-gated switches are decided.
+  5. The client is checked, hash-diffed and staged.
+  6. The live-copy rehearsal passes, including rollback.
+  7. The website rollback is rehearsed or accepted.
+  8. There's no open S1, and no S2 without the owner's OK.
+  9. The night's prerequisites are ready.
+  10. The notes are final and the Discord draft is ready.
 
-Related skills: `release-readiness` (switches, hotfix parity, QA coverage), `notes-review` (site release page),
-`deploy-test`, `qa-triage`.
+  GO shows only when all ten pass and the owner signs and picks the hour.
+- **Release night.** rel1 is a run sheet: per step, who / est. minutes / check / rollback trigger, written before the night. Each live step gets its own go.
+- **After.** Mark the book released. Update `/root/work/START-HERE.md`'s Live column. Write the retro (what slipped and why, what to change in this skill). Carry open bugs and `later` rows to the next book.
+
+Related: `release-readiness`, `notes-review`, `deploy-test`, `qa-triage`; for helpers, `docs/sessions/EXTERNAL-AGENTS.md`.
