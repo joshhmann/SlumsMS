@@ -170,7 +170,7 @@ public final class KpqLobby {
             disband(members);
             return false;
         }
-        String name = eim.getName();
+        String name = MechanicsRuns.keyOf(eim); // per channel (b113): every channel's first KPQ is "Kerning0"
         MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, false, 0, 1, 0, true,
                 line -> log("[Mechanics] lobby " + name + " " + line), done -> {
                     running.remove(name);

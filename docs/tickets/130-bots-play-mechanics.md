@@ -317,6 +317,14 @@ above, and stage 1 tries are now one near miss at most (`NEAR_MISS` 5 below the 
 leaves stages 1..N-1 as Cloto's `clearStage` does: clear property, gate, `next00` linked to `kpq<n-1>`, stage 1's
 grid emptied; no stage rewards, nobody moved; members walk through every opened portal), `toN` stops after N.
 
+Bot audit (ticket 163): **b113** runs were kept by instance name, and every channel's event manager names its first
+KPQ "Kerning0" (KerningPQ.js: `"Kerning" + lobbyid`, lobbies per channel), so a second channel's run was refused
+("this event instance already has a run") and `runFor` could return another channel's run; runs and lobby runs are now
+keyed by name + world + channel (`MechanicsRuns.keyOf`). The script's names stay stock. Lakelis itself refuses a party
+only when that channel's one KPQ lobby (`maxLobbies = 1`) is taken, which the orphan instances above did. **b118**: an
+aborted run in a PQ a real player stays in sends out an owned alt whose owner left (alts with their owner stay); with
+no real player left the instance ends (above), alts included.
+
 Simulation (`KpqFullRunTest`, Ligator model at TEST's pace): real leader + 3 bots, 40 seeds: mean 375 s / worst 572 s before,
 262 s / 450 s after with the leader standing still, 196 s / 338 s when the leader hunts too. About 66 coupons at three
 hunters' pace is the floor; more needs more damage (not changed).

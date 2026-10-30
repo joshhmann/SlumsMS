@@ -67,8 +67,9 @@ public final class MechanicsRuns {
             return run;
         }
 
+        /** The instance and its channel ("Kerning0 ch 2"): every channel's first KPQ is "Kerning0". */
         public String instanceName() {
-            return eim.getName();
+            return keyOf(eim);
         }
 
         public List<Character> bots() {
@@ -76,7 +77,27 @@ public final class MechanicsRuns {
         }
     }
 
+    /**
+     * The runs, by {@link #keyOf}. 1.6.2 (b113): was by {@code eim.getName()}, but each channel's event manager names
+     * its first KPQ "Kerning0", so a second channel's run was refused ("this event instance already has a run") and
+     * {@link #runFor} could hand back another channel's run.
+     */
     private final Map<String, Active> active = new ConcurrentHashMap<>();
+
+    /** A run's key: the instance name with its world and channel ("Kerning0 ch 2", "Kerning0 w1 ch 2"). */
+    public static String keyOf(EventInstanceManager eim) {
+        String name = eim.getName();
+        try {
+            scripting.event.EventManager em = eim.getEm();
+            net.server.channel.Channel ch = em == null ? null : em.getChannelServer();
+            if (ch != null) {
+                return name + " w" + ch.getWorld() + " ch " + ch.getId();
+            }
+        } catch (RuntimeException e) {
+            // a half-disposed instance: its name alone
+        }
+        return name;
+    }
     private final Orchestrator orchestrator = new Orchestrator(Orchestrator.allSolvers(), new Random(), 0, 0);
     private final StepExecutor executor = new StepExecutor();
 
@@ -134,7 +155,7 @@ public final class MechanicsRuns {
             closeInstance(a);
             return a;
         }
-        if (active.putIfAbsent(eim.getName(), a) != null) {
+        if (active.putIfAbsent(keyOf(eim), a) != null) {
             run.end("this event instance already has a run");
             a.finished = true;
             a.reporter.accept("RUN not started: " + run.endedBecause());
@@ -149,7 +170,7 @@ public final class MechanicsRuns {
             }
             GCMovement.stop(bot);
         }
-        a.reporter.accept("RUN start " + content.id() + " stage " + run.currentStage() + " in " + eim.getName() + ": "
+        a.reporter.accept("RUN start " + content.id() + " stage " + run.currentStage() + " in " + keyOf(eim) + ": "
                 + Orchestrator.describe(run));
         Orchestrator use = o;
         a.tick = ExecutorServiceManager.getScheduledExecutorService().scheduleWithFixedDelay(
@@ -164,7 +185,7 @@ public final class MechanicsRuns {
         try {
             tick(a, o);
         } catch (Throwable t) {
-            log("[Mechanics] run " + a.eim.getName() + " threw: " + t);
+            log("[Mechanics] run " + keyOf(a.eim) + " threw: " + t);
             o.abort(a.run, "exception: " + t);
         }
         if (a.run.ended()) {
@@ -236,9 +257,9 @@ public final class MechanicsRuns {
             if (content == null || eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
                 return;
             }
-            get().start(eim, content, false, 0, line -> log("[Mechanics] " + eim.getName() + " " + line), null);
+            get().start(eim, content, false, 0, line -> log("[Mechanics] " + keyOf(eim) + " " + line), null);
         } catch (RuntimeException e) {
-            log("[Mechanics] could not start a run for " + eim.getName() + ": " + e);
+            log("[Mechanics] could not start a run for " + keyOf(eim) + ": " + e);
         }
     }
 
@@ -264,7 +285,7 @@ public final class MechanicsRuns {
 
     /** The run on this instance, or null. */
     public Active runFor(EventInstanceManager eim) {
-        return eim == null ? null : active.get(eim.getName());
+        return eim == null ? null : active.get(keyOf(eim));
     }
 
     /** Ends a run now (GM stop, QA stop). */
@@ -291,7 +312,7 @@ public final class MechanicsRuns {
         if (t != null) {
             t.cancel(false);
         }
-        active.remove(a.eim.getName(), a);
+        active.remove(keyOf(a.eim), a);
         for (Character bot : a.bots.values()) {
             MechanicsHold.release(bot.getId());
             executor.forget(bot.getId());
@@ -307,17 +328,17 @@ public final class MechanicsRuns {
         try {
             closeInstance(a);
         } catch (RuntimeException e) {
-            log("[Mechanics] could not end " + a.eim.getName() + ": " + e);
+            log("[Mechanics] could not end " + keyOf(a.eim) + ": " + e);
         }
         RunState r = a.run;
-        a.reporter.accept("RUN end " + r.content().id() + " in " + a.eim.getName() + ": " + r.endedBecause()
+        a.reporter.accept("RUN end " + r.content().id() + " in " + keyOf(a.eim) + ": " + r.endedBecause()
                 + (r.cleared() ? " after " + r.clearedAfterMs() / 1000 + " s, " + r.wrongShownTotal()
                 + " wrong tries shown" : ""));
         if (a.onEnd != null) {
             try {
                 a.onEnd.accept(a);
             } catch (RuntimeException e) {
-                log("[Mechanics] cleanup after " + a.eim.getName() + " threw: " + e);
+                log("[Mechanics] cleanup after " + keyOf(a.eim) + " threw: " + e);
             }
         }
     }
@@ -340,10 +361,46 @@ public final class MechanicsRuns {
         EventInstanceManager eim = a.eim;
         boolean realInside = eim.getPlayers().stream().anyMatch(c -> !drivable(c));
         if (!shouldEndInstance(a.ownsInstance, a.run.cleared(), eim.isEventDisposed(), realInside)) {
+            if (!a.run.cleared() && !eim.isEventDisposed()) {
+                sendStrayAltsOut(a, eim);
+            }
             return;
         }
         int out = endInstance(eim, a.run.content().exitMap());
-        a.reporter.accept("RUN instance " + eim.getName() + " ended with the run: " + out + " member(s) sent out");
+        a.reporter.accept("RUN instance " + keyOf(eim) + " ended with the run: " + out + " member(s) sent out");
+    }
+
+    /**
+     * b118 (1.6.2): after a run aborts in a PQ a real player stays in, an owned alt whose owner is no longer inside
+     * is sent out (unregistered, to the exit map) instead of standing in the stage until its owner dismisses it. An
+     * alt whose owner is still inside stays with him (its companion brain is awake again).
+     */
+    private void sendStrayAltsOut(Active a, EventInstanceManager eim) {
+        List<Character> inside = eim.getPlayers();
+        for (Character c : inside) {
+            if (!strayAlt(c, inside)) {
+                continue;
+            }
+            try {
+                eim.unregisterPlayer(c);
+                int exit = a.run.content().exitMap();
+                if (exit > 0) {
+                    c.changeMap(exit);
+                }
+                a.reporter.accept("RUN " + c.getName() + " (an alt whose owner left) sent out of " + keyOf(eim));
+            } catch (RuntimeException e) {
+                log("[Mechanics] could not send alt " + c.getName() + " out of " + keyOf(eim) + ": " + e);
+            }
+        }
+    }
+
+    /** An owned alt in the instance whose owner is not in it. */
+    static boolean strayAlt(Character c, List<Character> inside) {
+        if (c == null || !c.isOwnedAlt()) {
+            return false;
+        }
+        Character owner = c.getOwnedAltOwner();
+        return owner == null || inside.stream().noneMatch(o -> o.getId() == owner.getId());
     }
 
     /**
@@ -360,7 +417,7 @@ public final class MechanicsRuns {
         try {
             eim.invokeScriptFunction("end", eim);
         } catch (Exception e) {
-            log("[Mechanics] " + eim.getName() + "'s script end failed: " + e);
+            log("[Mechanics] " + keyOf(eim) + "'s script end failed: " + e);
         }
         if (!eim.isEventDisposed()) {
             for (Character c : eim.getPlayers()) {
@@ -370,7 +427,7 @@ public final class MechanicsRuns {
                         c.changeMap(exitMap);
                     }
                 } catch (RuntimeException e) {
-                    log("[Mechanics] could not send " + c.getName() + " out of " + eim.getName() + ": " + e);
+                    log("[Mechanics] could not send " + c.getName() + " out of " + keyOf(eim) + ": " + e);
                 }
             }
             eim.dispose();
@@ -425,7 +482,7 @@ public final class MechanicsRuns {
         for (Active a : active.values()) {
             RunState r = a.run;
             long secs = r.startedMs() == 0 ? 0 : (System.currentTimeMillis() - r.startedMs()) / 1000;
-            out.add(r.content().id() + " stage " + r.currentStage() + " in " + a.eim.getName() + ", " + secs + " s, "
+            out.add(r.content().id() + " stage " + r.currentStage() + " in " + keyOf(a.eim) + ", " + secs + " s, "
                     + Orchestrator.describe(r) + ", wrong tries " + r.wrongShownTotal());
         }
         if (out.isEmpty()) {
