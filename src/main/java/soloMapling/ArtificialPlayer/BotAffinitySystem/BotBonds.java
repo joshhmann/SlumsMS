@@ -768,14 +768,21 @@ public final class BotBonds {
         return out;
     }
 
-    /** A town map a crew mate is in on this channel ("a crew-mate is on map X", for S8's HANG_OUT pull), or -1. */
-    public static int crewTownMap(int botId, int channel) {
+    /**
+     * A town map a crew mate with a lower id than {@code belowId} stands in on this channel ("a crew-mate is on map X",
+     * for S8's HANG_OUT pull), or -1. The id bound makes the pull one-way (1.6.2 bot audit B28): the lowest member
+     * online is never pulled, so a crew settles on one town instead of two mates trading towns forever.
+     */
+    public static int crewTownMap(int botId, int channel, int belowId) {
+        int best = -1;
+        int bestId = Integer.MAX_VALUE;
         for (CrewMate m : crewWhereabouts(botId)) {
-            if (m.town() && m.channel() == channel) {
-                return m.mapId();
+            if (m.id() < belowId && m.town() && m.channel() == channel && m.id() < bestId) {
+                bestId = m.id();
+                best = m.mapId();
             }
         }
-        return -1;
+        return best;
     }
 
     /** A map a crew mate is on on this channel other than {@code exceptMap} (for S8's MOVE_MAP pull), or -1. */

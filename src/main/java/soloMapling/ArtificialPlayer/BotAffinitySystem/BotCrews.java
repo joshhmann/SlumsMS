@@ -20,7 +20,10 @@ import java.util.concurrent.atomic.LongAdder;
  * ({@link #led}), that town is the crew's pick for {@link #PICK_TTL_MS}: the other members' next hang-out goes there
  * ({@link #follow}, read by {@code LifeRuntime.townDestination}), and each is nudged to decide after a small delay
  * (2-6 s, then 3 s more per member) so they trickle in rather than arrive as one block. With no fresh pick, a member
- * standing in a town pulls the others there ({@link BotBonds#crewTownMap}).
+ * standing in a town pulls the others there ({@link BotBonds#crewTownMap}), but only one way: a member is pulled by a
+ * mate with a LOWER id (so the lowest member online is never pulled and the crew settles on its town), and a member
+ * pulled once is left alone for {@link #TOWN_PULL_COOLDOWN_MS} (1.6.2 bot audit B28: two mates in two towns used to
+ * walk to each other's town and back forever).
  *
  * <p>Never blocks a map: only {@link #maxMovers()} members (4) move with the leader, and each arrival still goes
  * through the bot's own map-cap check ({@code BotMapCap.hasRoom}, {@code LifeTownSlots}) - a full town is simply not
@@ -38,9 +41,13 @@ public final class BotCrews {
     }
 
     private static final Map<Integer, Pick> picks = new ConcurrentHashMap<>();
+    /** When each member was last pulled to a crew mate's town (1.6.2 bot audit B28: let the crew settle). */
+    private static final Map<Integer, Long> pulledAt = new ConcurrentHashMap<>();
+    static final long TOWN_PULL_COOLDOWN_MS = PICK_TTL_MS;
     private static final LongAdder led = new LongAdder();
     private static final LongAdder nudged = new LongAdder();
     private static final LongAdder followed = new LongAdder();
+    private static final LongAdder pulled = new LongAdder();
 
     /** Where a crew mate is (a seam for tests: id -> its channel and map, or null when offline). */
     @FunctionalInterface
@@ -131,13 +138,33 @@ public final class BotCrews {
             return -1; // no fresh pick: the leader is not pulled by where the others stand
         }
         if (target <= 0) {
-            target = BotBonds.crewTownMap(bot.getId(), channel);
+            // 1.6.2 bot audit B28: "a mate in a town pulls you" was mutual, so two mates in two towns walked to each
+            // other's town and back forever. Only a LOWER-id mate pulls (the lowest member online is never pulled, so
+            // the crew settles on its town), and a member pulled once is left alone for a while so a second standing
+            // mate cannot bounce it out again the moment it arrives.
+            if (recentlyPulled(bot.getId(), now)) {
+                return -1;
+            }
+            target = BotBonds.crewTownMap(bot.getId(), channel, bot.getId());
+            if (target > 0 && target != bot.getMapId()) {
+                pulledAt.put(bot.getId(), now);
+                pulled.increment();
+                if (pulledAt.size() > 4096) {
+                    pulledAt.values().removeIf(at -> now - at > TOWN_PULL_COOLDOWN_MS);
+                }
+            }
         }
         if (target <= 0 || target == bot.getMapId()) {
             return -1;
         }
         followed.increment();
         return target;
+    }
+
+    /** Whether this member was pulled to a crew mate's town recently enough that the crew has not settled yet. */
+    private static boolean recentlyPulled(int botId, long now) {
+        Long at = pulledAt.get(botId);
+        return at != null && now - at < TOWN_PULL_COOLDOWN_MS;
     }
 
     /**
@@ -257,7 +284,7 @@ public final class BotCrews {
     /** Counters for bot-life.json and the checks. */
     public static Map<String, Long> stats() {
         return Map.of("led", led.sum(), "nudged", nudged.sum(), "followed", followed.sum(), "picks", (long) picks.size(),
-                "handedOff", handedOff.sum(), "notHanded", notHanded.sum());
+                "pulled", pulled.sum(), "handedOff", handedOff.sum(), "notHanded", notHanded.sum());
     }
 
     /** QA: the leader's current pick for a crew member, or -1. */
@@ -269,9 +296,11 @@ public final class BotCrews {
 
     static void resetForTest() {
         picks.clear();
+        pulledAt.clear();
         led.reset();
         nudged.reset();
         followed.reset();
+        pulled.reset();
         handedOff.reset();
         notHanded.reset();
         where = BotCrews::worldWhere;
