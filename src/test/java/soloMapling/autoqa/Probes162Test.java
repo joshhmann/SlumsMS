@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1", "t-su-2", "t-su-3", "t-jb-1");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1", "t-su-2", "t-su-3", "t-jb-1", "t-jb-2");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -211,5 +211,19 @@ class Probes162Test {
         assertTrue(Probes162.errandProblems(false, true, 0, 0, 0, 100, 0, 0).get(0).contains("advanced at once"));
         assertEquals(2, Probes162.errandProblems(true, false, 0, 0, 0, 0, 0, 102000003).size());
         assertTrue(Probes162.errandProblems(true, true, 1, 0, 0, 100, 100000000, 102000003).get(0).contains("arrived"));
+    }
+
+    // ── t-jb-2 ──
+
+    @Test
+    void theBookCheckWantsAReadAndASpareThatMaySell() {
+        assertTrue(Probes162.bookProblems("kept for its skill plan", 1, 1, 10, 20, null).isEmpty());
+        assertTrue(Probes162.bookProblems("kept for its skill plan", 1, 0, 10, 10, "untradeable").isEmpty(),
+                "a failed roll still reads the book; SaleRules may refuse a spare");
+        assertEquals(1, Probes162.bookProblems(null, 1, 1, 10, 20, null).size());
+        assertEquals(1, Probes162.bookProblems("kept for its skill plan", 0, 0, 10, 10, null).size());
+        assertEquals(1, Probes162.bookProblems("kept for its skill plan", 1, 1, 10, 10, null).size());
+        assertEquals(1, Probes162.bookProblems("kept for its skill plan", 1, 1, 10, 20, "kept for its skill plan")
+                .size());
     }
 }

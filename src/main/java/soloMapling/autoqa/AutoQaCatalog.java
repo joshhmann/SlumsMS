@@ -1355,6 +1355,10 @@ public final class AutoQaCatalog {
                 .minutes(6)
                 .expect(probe("jobErrand"))
                 .build());
+        // botSkillBooks: a 4th-job bot keeps its wanted mastery book, reads it; another job's book may be sold
+        c.add(Check.auto("t-jb-2", "Bot skill books: a bot reads a wanted book; a spare one may be sold").minutes(1)
+                .expect(probe("skillBooks"))
+                .build());
         return List.copyOf(c);
     }
 

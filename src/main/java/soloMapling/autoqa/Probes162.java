@@ -63,7 +63,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants", "partyHeal", "fameRequest", "magicGuard", "jobErrand");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants", "partyHeal", "fameRequest", "magicGuard", "jobErrand", "skillBooks");
 
     private Probes162() {
     }
@@ -84,6 +84,7 @@ final class Probes162 {
                 case "fameRequest" -> fameRequest(p);
                 case "magicGuard" -> magicGuard(p);
                 case "jobErrand" -> jobErrand(p);
+                case "skillBooks" -> skillBooks(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1524,6 +1525,104 @@ final class Probes162 {
             for (Character c : spawned) {
                 soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.forget(c.getId());
             }
+            ev.add(TalkQa.teardown(spawned));
+        }
+    }
+
+    // ── t-jb-2: a bot reads a wanted skill book; a spare one may be sold ────────────────────────
+
+    /** t-jb-2: the 4th-job bot's level, the copies of the wanted book it is given, and the fresh bots it may try. */
+    static final int JB2_LEVEL = 135, JB2_COPIES = 3, JB2_TRIES = 3;
+    static final String JB2_KEPT = "kept for its skill plan";
+
+    /** t-jb-2: what is wrong. Pure, for the tests. */
+    static List<String> bookProblems(String keptBefore, int read, int raised, int masterBefore, int masterAfter,
+                                     String spareRefusal) {
+        List<String> bad = new ArrayList<>();
+        if (!JB2_KEPT.equals(keptBefore)) {
+            bad.add("the wanted book was not kept from sale before it was read (" + keptBefore + ")");
+        }
+        if (read == 0) {
+            bad.add("the bot read none of the wanted books (BotSkillBooks.useAll)");
+        }
+        if (raised > 0 && masterAfter <= masterBefore) {
+            bad.add("useAll counted a raise but the master level stayed " + masterBefore);
+        }
+        if (JB2_KEPT.equals(spareRefusal)) {
+            bad.add("a book the bot does not want is still kept for its skill plan");
+        }
+        return bad;
+    }
+
+    /**
+     * t-jb-2 ({@code solomapling.botSkillBooks}): a fresh level-135 bot (tick stopped) in a 4th job. The first mastery
+     * book (228/229xxxx) it wants and can read now is found ({@code BotSkillBooks.wants/canUseNow}); before reading,
+     * {@code sellRefusal} must keep it for the skill plan. Given {@link #JB2_COPIES} copies, {@code useAll} must read
+     * at least one (a failed roll still uses the book up; a raise must show in the master level). A book it does not
+     * want (another job's) must not be kept for the plan: it is a spare the bot may sell (only SaleRules may refuse).
+     */
+    static List<String> skillBooks(SyntheticPlayer p) throws InterruptedException {
+        if (!soloMapling.ArtificialPlayer.BotProgressionSystem.BotSkillBooks.enabled()) {
+            return List.of("SKIP bot skill books are off (-Dsolomapling.botSkillBooks=true)");
+        }
+        List<String> ev = new ArrayList<>();
+        List<Character> spawned = new ArrayList<>();
+        ItemInformationProvider ii = ItemInformationProvider.getInstance();
+        try {
+            for (int t = 0; t < JB2_TRIES; t++) {
+                Character bot = spawnTraining(p, JB2_LEVEL);
+                if (bot == null) {
+                    continue;
+                }
+                spawned.add(bot);
+                freeze(bot);
+                int job = bot.getJob().getId();
+                int wanted = 0, spare = 0;
+                for (int id = 2280000; id < 2300000 && (wanted == 0 || spare == 0); id++) {
+                    if (ii.getName(id) == null) {
+                        continue;
+                    }
+                    if (wanted == 0 && soloMapling.ArtificialPlayer.BotProgressionSystem.BotSkillBooks.canUseNow(bot, id)) {
+                        wanted = id;
+                    } else if (spare == 0 && !soloMapling.ArtificialPlayer.BotProgressionSystem.BotSkillBooks.wants(bot, id)) {
+                        Map<String, Integer> st = ii.getSkillStats(id, job);
+                        if (st != null && st.getOrDefault("skillid", 0) == 0) {
+                            spare = id;   // another job's book
+                        }
+                    }
+                }
+                if (wanted == 0) {
+                    ev.add("bot " + bot.getName() + " job " + job + " lv " + bot.getLevel() + " wants no book it can read now");
+                    continue;
+                }
+                int skillId = ii.getSkillStats(wanted, job).get("skillid");
+                Item probe = new Item(wanted, (short) 0, (short) 1);
+                String keptBefore = soloMapling.ArtificialPlayer.BotProgressionSystem.BotSkillBooks.sellRefusal(bot, probe);
+                int masterBefore = bot.getMasterLevel(skillId);
+                for (int i = 0; i < JB2_COPIES; i++) {
+                    bot.getInventory(InventoryType.USE).addItem(new Item(wanted, (short) 0, (short) 1));
+                }
+                int held0 = bot.getInventory(InventoryType.USE).countById(wanted);
+                int raised = soloMapling.ArtificialPlayer.BotProgressionSystem.BotSkillBooks.useAll(bot);
+                int held1 = bot.getInventory(InventoryType.USE).countById(wanted);
+                int masterAfter = bot.getMasterLevel(skillId);
+                String spareRefusal = spare == 0 ? null
+                        : soloMapling.ArtificialPlayer.BotProgressionSystem.BotSkillBooks.sellRefusal(bot,
+                        new Item(spare, (short) 0, (short) 1));
+                ev.add("bot " + bot.getName() + " job " + job + " lv " + bot.getLevel() + "; wanted book " + wanted + " ("
+                        + ii.getName(wanted) + ") for skill " + skillId + ", before reading: " + keptBefore);
+                ev.add("useAll: read " + (held0 - held1) + " of " + held0 + ", raised " + raised + "; master level "
+                        + masterBefore + " -> " + masterAfter);
+                ev.add("spare book " + spare + (spare == 0 ? " (none found)" : " (" + ii.getName(spare) + "): "
+                        + (spareRefusal == null ? "may be sold" : spareRefusal)));
+                return Probes160.verdict(bookProblems(keptBefore, held0 - held1, raised, masterBefore, masterAfter,
+                        spareRefusal), "the bot kept its wanted book from sale, read it (master " + masterBefore
+                        + " -> " + masterAfter + "), and a book it does not want may be sold", ev);
+            }
+            ev.add(0, "FAIL no fresh level-" + JB2_LEVEL + " bot wanted a book it could read now in " + JB2_TRIES
+                    + " tries");
+            return ev;
+        } finally {
             ev.add(TalkQa.teardown(spawned));
         }
     }
