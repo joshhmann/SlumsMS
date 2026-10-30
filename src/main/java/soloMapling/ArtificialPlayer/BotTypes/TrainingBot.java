@@ -2934,6 +2934,13 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         }
     }
 
+    // A stopped bot can be started again (a player names it, a QA/KPQ staging hands it back): its life queue opens again.
+    @Override
+    public synchronized void startScheduledTask(long initialDelayMs) {
+        lifeActivities.reopen();
+        super.startScheduledTask(initialDelayMs);
+    }
+
     // Release combat + movement when the bot stops (FINISHED / converted / manually stopped).
     @Override
     public synchronized void stopScheduledTask() {

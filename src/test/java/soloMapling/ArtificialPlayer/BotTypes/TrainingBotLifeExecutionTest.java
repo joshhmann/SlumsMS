@@ -149,6 +149,25 @@ class TrainingBotLifeExecutionTest {
         });
     }
 
+    // TEST 10-30: a stopped TrainingBot that was started again (a player named it, a staging handed it back) threw
+    // "activity queue is closed" on every life decision, ~19,000 times in five hours.
+    @Test
+    void aBotStartedAgainAfterAStopCanPlanItsLifeAgain() throws Exception {
+        withBot((bot, chr) -> {
+            var before = bot.prepareLifeActivity(RESTOCK);
+            try (var movement = mockStatic(GCMovement.class);
+                 var ticks = mockStatic(soloMapling.server.BotTickService.class)) {
+                bot.stopScheduledTask();
+                assertTrue(bot.lifeActivityState().closed());
+                bot.startScheduledTask(2000L);
+                assertFalse(bot.lifeActivityState().closed());
+                assertEquals(LifeActivityQueue.Offer.STALE, bot.submitLifeActivity(before));
+                var after = bot.prepareLifeActivity(RESTOCK);
+                assertEquals(LifeActivityQueue.Offer.QUEUED, bot.submitLifeActivity(after));
+            }
+        });
+    }
+
     @Test
     void townArrivalKeepsBothTheProfileDurationAndTheConversationHold() throws Exception {
         String enabled = System.getProperty("slums.botlife.enabled");
