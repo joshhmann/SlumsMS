@@ -251,9 +251,11 @@
     if (!id) return;
     var s = summary && summary[id];
     if (s && s.m) {
-      out.appendChild(el("b", null, "Market price " + num(s.m)));
-      out.appendChild(document.createTextNode(" mesos" + (s.lo && s.hi && s.lo !== s.hi ? " (" + short(s.lo) + " to " + short(s.hi) + ")" : "") +
-        (s.d ? ", " + s.d.slice(5).replace("-", "/") : "") + (typeof s.s === "number" ? " · " + num(s.s) + " sold between players" : "") + ". "));
+      var txt = el("span");   // one flex item, so the sentence wraps as text
+      txt.appendChild(el("b", null, "Market price " + num(s.m) + " mesos"));
+      txt.appendChild(document.createTextNode((s.lo && s.hi && s.lo !== s.hi ? " (" + short(s.lo) + " to " + short(s.hi) + ")" : "") +
+        (s.d ? ", " + s.d.slice(5).replace("-", "/") : "") + (s.s > 0 ? " · " + num(s.s) + " sold between players" : "") + "."));
+      out.appendChild(txt);
       out.appendChild(btn("Use " + short(s.m), "small", function () {
         var box = form.querySelector("[name=price]"); box.value = s.m; box.focus();
       }));
