@@ -102,6 +102,30 @@ class QaTradeScenarioTest {
     }
 
     @Test
+    void tr4StagesAScrollCheapEnoughToGive() {
+        // t-gf-1 (a917ef1c9): weapon attack scrolls got an item-pool price (2043001 = 1,300,000), so the one 60% scroll
+        // tr-4 put in the bot's bag was over gifts.scrollMaxValue and "!qa do gift scroll" had nothing to give
+        long cap = soloMapling.Economy.EconomyConfig.getLong("gifts.scrollMaxValue", 500_000);
+        double band = soloMapling.Economy.EconomyConfig.getDouble("priceBook.bandHigh", 4.0);
+        start("tr-4", 100000000);
+        List<String> giftable = new ArrayList<>();
+        for (String c : world.calls) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("give (\\d{7}) x").matcher(c);
+            if (!m.find()) {
+                continue;
+            }
+            int id = Integer.parseInt(m.group(1));
+            Integer price = soloMapling.itemPool.ItemDatabase.getInstance().getItemPrice(id);
+            if (soloMapling.ArtificialPlayer.BotScrollSystem.ScrollRules.isPlainScroll(id) && price != null
+                    && price * band <= cap) {
+                giftable.add(c);
+            }
+        }
+        assertFalse(giftable.isEmpty(), "no staged scroll is worth at most " + cap + ": " + world.calls);
+        suite.stop(1, "!qa stop");
+    }
+
+    @Test
     void tr6CountsAnswersOutsideTheBand() throws Exception {
         start("tr-6", 100000000, "2m");
         assertEquals(QaTradeScenarios.HAGGLE_LINES.size(), trade.haggled.size());

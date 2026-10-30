@@ -25,6 +25,7 @@ final class QaTradeScenarios {
     static final int SWORD_60 = 2043001;       // One-Handed Sword for ATT 60%
     static final int GLOVE_60 = 2040804;       // Gloves for ATT 60%
     static final int CLAW_60 = 2044701;        // Claw for ATT 60%
+    static final int GLOVE_DEX_60 = 2040801;   // Gloves for DEX 60%: item pool 100,000, under gifts.scrollMaxValue
     static final int ORE = 4004000;            // Power Crystal Ore
     static final int CHAOS = 2049100;          // never sold by a bot
 
@@ -204,7 +205,7 @@ final class QaTradeScenarios {
 
     /**
      * tr-4: a social bot next to the GM that counts it as a friend, with half its wealth ceiling + 1m (at least 5m)
-     * and a 60% scroll. For the run a friend bot that sees the GM gives a gift for sure (the weekly limit forgotten for
+     * and two 60% scrolls (one over the gift cap, one under). For the run a friend bot that sees the GM gives a gift for sure (the weekly limit forgotten for
      * this pair); {@code !qa do gift [potions|scroll|mesos]} forces one now.
      */
     static final class Tr4Gift implements QaScenario {
@@ -225,7 +226,10 @@ final class QaTradeScenarios {
             int id = botId;
             ctx.onStop("unstage the friend bot", () -> w.unstageAffinityBot(id));
             ctx.log("bot " + botId + " given " + w.giveBotMeso(botId, giftPurse(w.botCeiling(botId))) + " mesos");
+            // t-gf-1 (1.6.1): weapon attack scrolls now carry an item-pool price (SWORD_60 = 1,300,000, over the
+            // 500k gift cap); the gift picker skips it and must find a cheap 60% scroll beside it
             giveBot(ctx, botId, SWORD_60, 1);
+            giveBot(ctx, botId, GLOVE_DEX_60, 1);
             trade.forgetGift(botId, ctx.gm().getId());
             trade.certainGifts(true);
             ctx.onStop("gift chance back to economy.yaml", () -> trade.certainGifts(false));
