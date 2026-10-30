@@ -41,6 +41,15 @@ final class BotNpcTalk extends AbstractScriptManager {
 
     /** One click on the NPC: the script's {@code start()} (which for KPQ's Cloto plays its first status). */
     Result talk(Character bot, int npcId) {
+        return converse(bot, npcId, List.of());
+    }
+
+    /**
+     * A whole conversation: the click ({@code start()}), then one {@code action(1, 0, selection)} per answer, as a
+     * player presses "next"/"yes" or picks a menu line, until the script disposes. KPQ: Cloto's prize after the last
+     * stage ([0]: next), Nella's "leave?" ([0]: yes), Lakelis' "I want to participate" ([0]).
+     */
+    Result converse(Character bot, int npcId, List<Integer> answers) {
         ScriptEngine engine;
         try {
             engine = getInvocableScriptEngine("npc/" + npcId + ".js");
@@ -54,6 +63,12 @@ final class BotNpcTalk extends AbstractScriptManager {
         engine.put("cm", cm);
         try {
             ((Invocable) engine).invokeFunction("start");
+            for (int selection : answers) {
+                if (cm.disposed) {
+                    break;
+                }
+                ((Invocable) engine).invokeFunction("action", (byte) 1, (byte) 0, selection);
+            }
             return new Result(true, List.copyOf(cm.said), null);
         } catch (Exception e) {
             return new Result(false, List.copyOf(cm.said), "npc/" + npcId + ".js for a bot: " + e);
@@ -136,12 +151,25 @@ final class BotNpcTalk extends AbstractScriptManager {
             said.add(text);
         }
 
-        /** Every {@code gainItem} overload ends here: a bot's items go through its holdings, never the shared client. */
+        /** The event manager of the bot's own channel (the shared bot client may sit on another one). */
+        @Override
+        public scripting.event.EventManager getEventManager(String event) {
+            net.server.channel.Channel ch = bot.getClient().getChannelServer();
+            return ch == null ? super.getEventManager(event) : ch.getEventSM().getEventManager(event);
+        }
+
+        /**
+         * Every {@code gainItem} overload ends here: a population bot's items go through its holdings, never the
+         * shared client. An owned alt has its own client whose player is the alt: the normal path is right for it.
+         */
         @Override
         public Item gainItem(int id, short quantity, boolean randomStats, boolean showMessage, long expires, Pet from) {
+            if (bot.getClient().getPlayer() == bot) {
+                return super.gainItem(id, quantity, randomStats, showMessage, expires, from);
+            }
             if (quantity > 0) {
-                Item item = new Item(id, (short) 0, quantity);
-                return BotHoldings.grantItem(bot, item) ? item : null;
+                Item item = BotHoldings.newItem(id, quantity);
+                return item != null && BotHoldings.grantItem(bot, item) ? item : null;
             }
             if (quantity < 0) {
                 takeItems(bot, id, -quantity);

@@ -42,5 +42,23 @@ class MechanicsScenarioTest {
         assertNull(MechanicsCommand.parseKpq(new String[]{"kpq", "2"}, 1), "two bots alone are not a KPQ party");
         assertNull(MechanicsCommand.parseKpq(new String[]{"kpq", "me", "4"}, 1), "you + 4 is five");
         assertNull(MechanicsCommand.parseKpq(new String[]{"kpq", "lots"}, 1));
+        assertEquals(new MechanicsCommand.KpqRequest(false, 4, false, 3),
+                MechanicsCommand.parseKpq(new String[]{"kpq", "stage3"}, 1), "stop after stage 3");
+    }
+
+    @Test
+    void mx2PassesOnlyAFullClearInTheTimeWithEveryPrizeTaken() {
+        assertEquals("MX2 PASS cleared kpq in 1200 s (limit 1800 s) by 4 bots, 5 wrong tries shown, 4 prizes taken",
+                MechanicsScenarios.fullVerdict(true, 1_200_300, "cleared", 5, 4, 4));
+        assertTrue(MechanicsScenarios.fullVerdict(true, 1_801_000, "cleared", 0, 4, 4)
+                .startsWith("MX2 FAIL cleared kpq only after 1801 s"));
+        assertEquals("MX2 FAIL cleared kpq in 1200 s but only 3 of 4 bots took a prize",
+                MechanicsScenarios.fullVerdict(true, 1_200_000, "cleared", 0, 4, 3));
+        assertEquals("MX2 FAIL the leader left (disconnected)",
+                MechanicsScenarios.fullVerdict(false, -1, "the leader left (disconnected)", 0, 4, 0));
+        QaScenario mx2 = MechanicsScenarios.all().get(1);
+        assertEquals("mx-2", mx2.id());
+        QaRefusal r = assertThrows(QaRefusal.class, () -> mx2.stage(null));
+        assertTrue(soloMapling.autoqa.StepsAccess.isPrecondition(r.getMessage()), r.getMessage());
     }
 }

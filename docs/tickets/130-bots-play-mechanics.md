@@ -9,6 +9,12 @@ KPQ stage 1 end to end, see "Phase 1 (built)" below. Everything stays behind `-D
 with the flag off no command is registered and nothing calls the package. Unit-tested; **not yet run on TEST or
 watched on a real client**.
 
+**1.6.1 update (2026-10-30, branch `162-contentruns`):** KPQ automation moved into 1.6.1 (owner 2026-10-30, ticket
+87: every nutnnut port ships with alt bots in 1.6.1). Phase 2's KPQ half is built there: all five stages, the prize,
+the bonus and the way out, for bot-only parties and for bots or owned alts in a player's party. See "KPQ end to end
+(1.6.1)" below. Still behind `-Dslums.mechanics` (default off; the owner decides at integration). Unit-tested against
+simulations of our scripts; **not yet run on TEST or watched on a real client**.
+
 Numbering: this ticket was 114 until 2026-10-28; 114 is also bot talk on `161-botchat`, so it is now 130.
 
 ## Why
@@ -253,6 +259,40 @@ What a run does (KPQ stage 1, "Coupons for Cloto"):
 - **Not yet verified:** a run on TEST (staging, Ligator coupon drops for bots under the yield caps, movement in the
   stage map, the script run for a bot through `BotNpcTalk` on the real server, the clear in time); a watch on a real
   client (bots look like players, swings visible). TEST needs `-Dslums.mechanics=true` in start-test.sh to try it.
+
+## KPQ end to end (1.6.1, branch `162-contentruns`)
+
+Built on phase 1 (merged from `170-mech1`). Everything through our own scripts; no NPC bypass, no teleport.
+
+| Part | How |
+|---|---|
+| Start | A bot leader talks to Lakelis through his script (`9020000.js`, "I want to participate", `BotNpcTalk.converse`). A player who starts KPQ at Lakelis with bots or owned alts in his party gets a run automatically (`EventManager.startInstance` -> `MechanicsRuns.onPartyInstanceStarted`). GM staging with "me" still presses Lakelis' button for the GM. |
+| Stage 1 | Phase 1's `question-coupons`, unchanged. |
+| Between stages | Members behind walk into the stage's `next00` portal; `GCPortals` lets them through only when the portal script's gate is open (`PqGates`: `kpq0..3` test `<n>stageclear`). |
+| Stages 2-4 | `combination` (`CombinationSolver`): the leader opens the stage with Cloto (the script picks the answer into `stg<n>Property`); the solver reads the answer from that property; three members (the non-leaders, plus the leader in a party of three) stand inside the script's rectangles (`Occupy`: aim at the centre, done when inside); when the formation is exactly the combo's 0/1 pattern and has held for 2.5 s the leader checks (`CheckAnswer`; from his rope/platform in a party of three, as players click from where they stand). Nobody else stands on a position. |
+| Visible tries | A bot leader plans 0-3 wrong formations by persona and tier (`TryPlanner`), as a chain where each differs from the next by one mover and the last from the answer by one mover (idea: cosmic_agents' `AgentKpqCombinationOrder`, reimplemented). Each wrong check shows the script's wrong effect. Stage 1 keeps its 0-2 wrong hand-ins. |
+| Stage 5 | `kill-collect-hand-in` (`KillCollectHandInSolver`): everyone fights the stage's monsters (7 x 9300000, 3 x 9300002, King Slime; each drops a pass), collectors loot only monster drops and walk them to the leader (3 at a time, all once the map is clear), the leader loots them and hands 10 to Cloto (`5stageclear`, `eim.clearPQ`). |
+| Prize, bonus, out | `afterClear` in the stage data: each bot talks to Cloto and presses "next" (`Converse [0]`): the script gives the prize (`giveEventReward`) and warps to the bonus; it hunts there 60-150 s (a chaotic bot longer) and leaves through Nella ("yes"). A bot never leaves a real player alone in the bonus (the event would end and throw him out). The run ends, cleared, when no bot is left in the instance, or after 10 minutes. |
+| Mixed parties | Real players are never given a step. A real leader gets the passes at his feet, opens and checks the combination stages himself; the bots form the answer straight away (no wrong tries: they cannot make him check them) and one bot says when it is ready. A real member on the puzzle keeps the position he stands on; bots leave him one and the bot leader calls it out ("Bob u take rope3"). |
+| Owned alts | Same logic as party bots (owner's shared-systems rule): an alt is a driven member; its companion brain pauses while a run holds it. The prize: an alt claims its own at Cloto, and its owner's claim still gives it one; `EventInstanceManager` gives an alt one prize per instance whichever comes first. |
+| Population bots' prizes | The shared headless bot client has no player, so `giveEventReward` now puts a bot's prize in its inventory through `BotHoldings` (was: the client path, which gave it to nobody). |
+
+Stage data: `content/kpq.yaml` now has stages 2-5 and `afterClear`; `KpqStageDataTest` re-reads rectangles, combos,
+the pass count, the prize warp, the portal gates and Nella's exit from our scripts. `ClotoLaterStagesForBotsTest` runs
+Cloto's script on stages 2-5 against the bot-safe surface and the solver's own spots. `KpqFullRunTest` plays the
+whole PQ against a simulation of the scripts (30 seeded 4-bot runs, party of three, chaotic and perfect leaders, real
+leader, real member on the puzzle, the bonus rule, the portals).
+
+GM: `!mechanics kpq [me] [bots] [perfect] [stage1-5]` (default: the whole PQ). QA: `!qa run mx-2` (four bots, whole PQ,
+30-minute limit, every bot reaches the bonus); auto-QA **t-mx-2**. mx-1/t-mx-1 still stop after stage 1.
+
+What needs a real client (Silvia copies against TEST) before the switch goes on: bots hanging still inside the
+4 px rope rectangles (stage 2; nav must stop mid-rope) and standing on the 5 px barrel tops (stage 4); the Ligator and
+stage-5 boss attacks (FollowerFight's attack profiles, the client remote-attack check); portal walk-ins looking like
+walk-ins.
+
+Not done: OPQ on the orchestrator, other PQs, bosses, PQ tiers, organic bot-only LFG parties starting KPQ from the
+lobby (phase 6; KpqStaging and the GM/QA commands start bot-only runs today).
 
 ## Phased plan
 

@@ -46,4 +46,28 @@ class MechanicsCatalogTest {
         assertEquals(List.of(Check.Status.FAIL, Check.Status.FAIL, Check.Status.FAIL, Check.Status.PASS,
                 Check.Status.PASS), List.of(statuses(hintsOnly)));
     }
+
+    @Test
+    void t_mx_2_passesAFullClearAndFailsAStageThatNeverClears() throws Exception {
+        String h1 = "STAGE told GM: 4 bots are in Kerning PQ (Kerning1) and play all five stages: coupons, ropes,"
+                + " platforms, barrels, then the bosses' passes.";
+        String h2 = "STAGE told GM: Then each takes its prize from Cloto, hunts the bonus and leaves through Nella; a RUN"
+                + " line per step and one verdict line at the end.";
+        var pass = AutoQaCatalogPatternTest.eval("t-mx-2", h1, h2,
+                "MX2 MX2 START kpq with 4 bots in Kerning1",
+                "MX2 RUN stage 2 cleared in 95 s (1 wrong tries shown)",
+                "MX2 RUN stage 5 cleared in 240 s (3 wrong tries shown)",
+                "MX2 NPC Aria -> 9020001 (claim the prize): \"Incredible! You cleared all the stages...\"",
+                "MX2 RUN end kpq in Kerning1: cleared after 1100 s, 3 wrong tries shown",
+                "MX2 MX2 PASS cleared kpq in 1100 s (limit 1800 s) by 4 bots, 3 wrong tries shown, 4 prizes taken");
+        for (Check.Verdict x : pass) {
+            assertEquals(Check.Status.PASS, x.status(), x.toString());
+        }
+        var fail = AutoQaCatalogPatternTest.eval("t-mx-2", h1, h2,
+                "MX2 MX2 START kpq with 4 bots in Kerning1",
+                "MX2 NPC Aria -> 9020001 (check 3) FAILED: npc/9020001.js for a bot: java.lang.NullPointerException",
+                "MX2 MX2 FAIL time budget of 30 min ran out on stage 3");
+        assertEquals(List.of(Check.Status.PASS, Check.Status.FAIL, Check.Status.FAIL, Check.Status.FAIL,
+                Check.Status.FAIL), List.of(statuses(fail)));
+    }
 }

@@ -1264,6 +1264,14 @@ public final class AutoQaCatalog {
                 .expect(has("MX1 START kpq stage 1 with 4 bots"), has("RUN stage 1 cleared in \\d+ s"),
                         has("MX1 PASS cleared stage 1 in \\d+ s"), lacks("MX1 FAIL "), lacks(" FAILED: "))
                 .build());
+        // 1.6.1 KPQ automation (ticket 130): four fresh bots play all of Kerning PQ through the real scripts (Lakelis,
+        // Cloto's five stages, the stage portals, the prize, Nella) and every one reaches the bonus; mx-2 says PASS
+        // only then, within the PQ's 30 minutes. Off without -Dslums.mechanics=true: the refusal SKIPs.
+        c.add(Check.auto("t-mx-2", "Four bots play all of Kerning PQ on their own, prizes and bonus included").minutes(36)
+                .step(run("mx-2"), waitFor("MX2 (PASS|FAIL) ", 35 * 60), stop())
+                .expect(has("MX2 START kpq with 4 bots"), has("RUN stage 5 cleared in \\d+ s"),
+                        has("MX2 PASS cleared kpq in \\d+ s"), lacks("MX2 FAIL "), lacks(" FAILED: "))
+                .build());
         return List.copyOf(c);
     }
 

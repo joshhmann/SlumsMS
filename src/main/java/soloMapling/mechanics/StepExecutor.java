@@ -12,6 +12,7 @@ import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.server.ExecutorServiceManager;
 
 import java.awt.Point;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -46,6 +47,8 @@ final class StepExecutor {
         volatile long lastTalkMs;
         volatile boolean talking;
         long lastDropMs;
+        long lastPortalMs;
+        long lastSayMs;
         Point moveTarget;
         long moveIssuedMs;
     }
@@ -63,8 +66,12 @@ final class StepExecutor {
             case SolverStep.Loot l -> loot(view, bot, beat, l.itemId(), now);
             case SolverStep.TalkNpc t -> talk(run, orchestrator, view, bot, beat, t, now, log);
             case SolverStep.DropFor d -> dropFor(view, bot, beat, d, now, log);
-            case SolverStep.Say s -> SocialCommands.BotSpeak(bot, s.line());
+            case SolverStep.Say s -> say(view, bot, beat, s.line(), now);
             case SolverStep.HitReactor h -> log.accept(bot.getName() + ": reactor steps come in phase 2");
+            case SolverStep.Occupy o -> occupy(bot, beat, o, now);
+            case SolverStep.CheckAnswer c -> check(run, orchestrator, bot, beat, c, now, log);
+            case SolverStep.Converse c -> converse(bot, beat, c, now, log);
+            case SolverStep.EnterPortal e -> enterPortal(bot, beat, e, now, log);
             case SolverStep.Wait w -> {
             }
             case SolverStep.Done d -> {
@@ -80,7 +87,7 @@ final class StepExecutor {
             return;
         }
         Point at = bot.getPosition();
-        if (bot.getItemQuantity(f.itemId(), false) < f.untilItemCount()) {
+        if (f.itemId() > 0 && bot.getItemQuantity(f.itemId(), false) < f.untilItemCount()) {
             MapItem drop = nearestMobDrop(map, bot, f.itemId(), at);
             if (drop != null) {
                 pickUp(bot, beat, drop, now);
@@ -168,7 +175,7 @@ final class StepExecutor {
 
     private void talk(RunState run, Orchestrator orchestrator, LiveStageView view, Character bot, Beat beat,
                       SolverStep.TalkNpc t, long now, Consumer<String> log) {
-        int[] npc = view.npcPosition(t.npcId()).orElse(null);
+        int[] npc = npcOn(bot, t.npcId());
         if (npc == null) {
             log.accept(bot.getName() + ": NPC " + t.npcId() + " is not on map " + bot.getMapId());
             return;
@@ -226,6 +233,132 @@ final class StepExecutor {
         int paid = BotHoldings.payOut(bot, d.itemId(), d.count(), to == null ? bot : to, bot.getPosition());
         log.accept("DROP " + bot.getName() + " drops " + paid + " x " + d.itemId()
                 + (to == null ? " (extras)" : " for " + to.getName()));
+    }
+
+    /** Where an NPC stands on the bot's own map (the bot talks where it is), or null. */
+    static int[] npcOn(Character bot, int npcId) {
+        MapleMap map = bot.getMap();
+        server.life.NPC npc = map == null ? null : map.getNPCById(npcId);
+        Point p = npc == null ? null : npc.getPosition();
+        return p == null ? null : new int[]{p.x, p.y};
+    }
+
+    /** A party line; "@<id>" in it becomes that member's name. At most one line per bot every few seconds. */
+    private void say(LiveStageView view, Character bot, Beat beat, String line, long now) {
+        if (now - beat.lastSayMs < 4_000) {
+            return;
+        }
+        beat.lastSayMs = now;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("@(\\d+)").matcher(line);
+        StringBuilder out = new StringBuilder();
+        while (m.find()) {
+            Character c = view.character(Integer.parseInt(m.group(1)));
+            m.appendReplacement(out, java.util.regex.Matcher.quoteReplacement(c == null ? "u" : c.getName()));
+        }
+        m.appendTail(out);
+        SocialCommands.BotSpeak(bot, out.toString());
+    }
+
+    /** Stand on (or hang from) a puzzle position: walk/climb at it until the bot is inside its rectangle, then hold. */
+    private static void occupy(Character bot, Beat beat, SolverStep.Occupy o, long now) {
+        Point at = bot.getPosition();
+        if (at != null && o.inside(at.x, at.y)) {
+            return; // there: hold still (the formation is checked by the leader)
+        }
+        Point target = new Point(o.x(), o.y());
+        if (beat.moveTarget == null || !beat.moveTarget.equals(target) || now - beat.moveIssuedMs > 4_000) {
+            GCMovement.move(bot, o.x(), o.y());
+            beat.moveTarget = target;
+            beat.moveIssuedMs = now;
+        }
+    }
+
+    /** The leader checks the formation with the NPC; from where he stands when he is within its reach. */
+    private void check(RunState run, Orchestrator orchestrator, Character bot, Beat beat, SolverStep.CheckAnswer c,
+                       long now, Consumer<String> log) {
+        int[] npc = npcOn(bot, c.npcId());
+        if (npc == null) {
+            log.accept(bot.getName() + ": NPC " + c.npcId() + " is not on map " + bot.getMapId());
+            return;
+        }
+        Point at = bot.getPosition();
+        int reach = Math.max(NPC_REACH_X, c.reachPx());
+        if (Math.abs(npc[0] - at.x) > reach || Math.abs(npc[1] - at.y) > Math.max(NPC_REACH_Y, reach / 2)) {
+            int side = at.x < npc[0] ? -1 : 1;
+            moveNear(bot, beat, npc[0] + side * (NPC_REACH_X / 2), npc[1], NPC_REACH_X / 3, now);
+            return;
+        }
+        if (beat.talking || now - beat.lastTalkMs < TALK_GAP_MS) {
+            return;
+        }
+        orchestrator.noteTry(run, bot.getId(), c.tryValue(), now);
+        click(bot, beat, c.npcId(), List.of(), "check " + c.tryValue(), now, log);
+    }
+
+    private void converse(Character bot, Beat beat, SolverStep.Converse c, long now, Consumer<String> log) {
+        int[] npc = npcOn(bot, c.npcId());
+        if (npc == null) {
+            log.accept(bot.getName() + ": NPC " + c.npcId() + " is not on map " + bot.getMapId());
+            return;
+        }
+        Point at = bot.getPosition();
+        if (Math.abs(npc[0] - at.x) > NPC_REACH_X || Math.abs(npc[1] - at.y) > NPC_REACH_Y) {
+            int side = at.x < npc[0] ? -1 : 1;
+            moveNear(bot, beat, npc[0] + side * (NPC_REACH_X / 2), npc[1], NPC_REACH_X / 3, now);
+            return;
+        }
+        if (beat.talking || now - beat.lastTalkMs < TALK_GAP_MS) {
+            return;
+        }
+        click(bot, beat, c.npcId(), c.answers(), c.why(), now, log);
+    }
+
+    /** One NPC conversation through its own script, off the tick thread (a few hundred ms in interpreted mode). */
+    private static void click(Character bot, Beat beat, int npcId, List<Integer> answers, String why, long now,
+                              Consumer<String> log) {
+        beat.lastTalkMs = now;
+        beat.talking = true;
+        ExecutorServiceManager.getExecutorService().execute(() -> {
+            try {
+                BotNpcTalk.Result r = BotNpcTalk.INSTANCE.converse(bot, npcId, answers);
+                String said = r.lastLine().replaceAll("#[a-zA-Z]", "").replace("\r\n", " ");
+                if (said.length() > 90) {
+                    said = said.substring(0, 90) + "...";
+                }
+                log.accept("NPC " + bot.getName() + " -> " + npcId + " (" + why + ")"
+                        + (r.ran() ? ": \"" + said + "\"" : " FAILED: " + r.error()));
+            } finally {
+                beat.lastTalkMs = System.currentTimeMillis();
+                beat.talking = false;
+            }
+        });
+    }
+
+    /** Walk into a portal on the bot's map; the portal's script gate (PqGates) still decides whether it opens. */
+    private static void enterPortal(Character bot, Beat beat, SolverStep.EnterPortal e, long now, Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        server.maps.Portal portal = map == null ? null : map.getPortal(e.portalName());
+        if (portal == null) {
+            if (now - beat.lastPortalMs > 10_000) {
+                beat.lastPortalMs = now;
+                log.accept(bot.getName() + ": no portal " + e.portalName() + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        Point at = bot.getPosition();
+        Point p = portal.getPosition();
+        if (Math.abs(p.x - at.x) > 20 || Math.abs(p.y - at.y) > 60) {
+            moveNear(bot, beat, p.x, p.y, 10, now);
+            return;
+        }
+        if (now - beat.lastPortalMs < 1_500) {
+            return;
+        }
+        beat.lastPortalMs = now;
+        int from = bot.getMapId();
+        if (!GCMovement.enterPortal(bot, portal)) {
+            log.accept(bot.getName() + ": portal " + e.portalName() + " on " + from + " is still shut");
+        }
     }
 
     // ---- movement ----

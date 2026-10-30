@@ -74,7 +74,7 @@ public final class MechanicsRuns {
     }
 
     private final Map<String, Active> active = new ConcurrentHashMap<>();
-    private final Orchestrator orchestrator = new Orchestrator(Orchestrator.phase1Solvers(), new Random(), 0, 1);
+    private final Orchestrator orchestrator = new Orchestrator(Orchestrator.allSolvers(), new Random(), 0, 0);
     private final StepExecutor executor = new StepExecutor();
 
     private MechanicsRuns() {
@@ -90,10 +90,16 @@ public final class MechanicsRuns {
      */
     public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs,
                         Consumer<String> reporter, Consumer<Active> onEnd) {
+        return start(eim, content, perfect, budgetMs, 0, reporter, onEnd);
+    }
+
+    /** As above, playing stages up to {@code lastStage} only (0 = all of them, then the prize and the bonus). */
+    public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int lastStage,
+                        Consumer<String> reporter, Consumer<Active> onEnd) {
         List<RunMember> members = new ArrayList<>();
         Map<Integer, Character> bots = new ConcurrentHashMap<>();
         for (Character c : eim.getPlayers()) {
-            boolean bot = c.isBot();
+            boolean bot = drivable(c);
             boolean leader = c.getId() == eim.getLeaderId();
             members.add(new RunMember(c.getId(), leader, bot,
                     !bot || perfect ? MechanicsPersona.PERFECT : MechanicsPersona.forCharacter(c.getId())));
@@ -101,8 +107,8 @@ public final class MechanicsRuns {
                 bots.put(c.getId(), c);
             }
         }
-        Orchestrator o = budgetMs > 0 ? new Orchestrator(Orchestrator.phase1Solvers(), new Random(), budgetMs, 1)
-                : orchestrator;
+        Orchestrator o = budgetMs > 0 || lastStage > 0
+                ? new Orchestrator(Orchestrator.allSolvers(), new Random(), budgetMs, lastStage) : orchestrator;
         RunState run = o.start(content, Tier.NORMAL, members);
         Active a = new Active(run, eim, bots, reporter == null ? line -> { } : reporter, onEnd);
         if (run.ended()) {
@@ -158,7 +164,7 @@ public final class MechanicsRuns {
             return;
         }
         long now = System.currentTimeMillis();
-        LiveStageView view = new LiveStageView(a.run, a.eim);
+        LiveStageView view = new LiveStageView(a.run, a.eim, now);
         int eventsBefore = a.run.events().size();
         Map<Integer, SolverStep> steps = o.tick(a.run, view, now);
         List<RunState.Event> events = a.run.events();
@@ -167,11 +173,80 @@ public final class MechanicsRuns {
         }
         for (Map.Entry<Integer, SolverStep> e : steps.entrySet()) {
             Character bot = view.character(e.getKey());
-            if (bot == null || bot.getMap() == null || bot.getMapId() != a.run.stageData().mapId()) {
-                continue; // not on the stage's map (respawned elsewhere, being warped): next tick
+            if (bot == null || bot.getMap() == null || bot.getHp() <= 0) {
+                continue; // gone, between maps or dead: next tick
             }
             executor.execute(a.run, o, view, bot, e.getValue(), now, a.reporter);
         }
+    }
+
+    /**
+     * Who a run drives: population bots and the player's owned alts (owner rule: one PQ logic for both; an alt in its
+     * owner's party plays the stages like any party bot). Real players are planned around, never driven.
+     */
+    static boolean drivable(Character c) {
+        return c != null && (c.isBot() || c.isOwnedAlt());
+    }
+
+    /** Set while staging starts an instance that it then runs itself (no second, automatic run). */
+    private static final ThreadLocal<Boolean> STAGING = ThreadLocal.withInitial(() -> false);
+
+    /** Runs {@code start} with automatic runs held off (KpqStaging, the bot leader's Lakelis talk). */
+    public static <T> T staging(java.util.function.Supplier<T> start) {
+        boolean was = STAGING.get();
+        STAGING.set(true);
+        try {
+            return start.get();
+        } finally {
+            STAGING.set(was);
+        }
+    }
+
+    /**
+     * 1.6.1 (KPQ automation): a party with bots or owned alts in it just entered an event this package has stage data
+     * for (a player talked to Lakelis with bots in his party): the run takes the bots through it. Called by
+     * {@code EventManager} after a party instance starts; nothing happens with {@code -Dslums.mechanics} off, for an
+     * event without stage data, a party without bots, or while staging starts its own run.
+     */
+    public static void onPartyInstanceStarted(EventInstanceManager eim) {
+        if (!Mechanics.enabled() || eim == null || STAGING.get()) {
+            return;
+        }
+        try {
+            String event = eim.getEm() == null ? null : eim.getEm().getName();
+            Content content = contentFor(event);
+            if (content == null || eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
+                return;
+            }
+            get().start(eim, content, false, 0, line -> log("[Mechanics] " + eim.getName() + " " + line), null);
+        } catch (RuntimeException e) {
+            log("[Mechanics] could not start a run for " + eim.getName() + ": " + e);
+        }
+    }
+
+    private static volatile List<Content> contentCache;
+
+    /** The stage data for an event script name ("KerningPQ"), or null. Loaded once. */
+    static Content contentFor(String eventScript) {
+        if (eventScript == null) {
+            return null;
+        }
+        List<Content> all = contentCache;
+        if (all == null) {
+            all = StageData.load().content();
+            contentCache = all;
+        }
+        for (Content c : all) {
+            if (eventScript.equalsIgnoreCase(c.eventScript())) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    /** The run on this instance, or null. */
+    public Active runFor(EventInstanceManager eim) {
+        return eim == null ? null : active.get(eim.getName());
     }
 
     /** Ends a run now (GM stop, QA stop). */

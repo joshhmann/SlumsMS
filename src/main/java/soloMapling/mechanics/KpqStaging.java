@@ -72,6 +72,12 @@ public final class KpqStaging {
      */
     public static Staged start(Character gm, boolean withGm, int bots, boolean perfect, long budgetMs,
                                Consumer<String> reporter, Consumer<MechanicsRuns.Active> afterCleanup) {
+        return start(gm, withGm, bots, perfect, budgetMs, 0, reporter, afterCleanup);
+    }
+
+    /** As above, the run playing stages up to {@code lastStage} only (0 = the whole PQ, prize and bonus included). */
+    public static Staged start(Character gm, boolean withGm, int bots, boolean perfect, long budgetMs, int lastStage,
+                               Consumer<String> reporter, Consumer<MechanicsRuns.Active> afterCleanup) {
         if (!Mechanics.enabled()) {
             return new Staged(null, List.of(), "mechanics is off (start the server with -D" + Mechanics.FLAG + "=true)");
         }
@@ -156,10 +162,21 @@ public final class KpqStaging {
             return new Staged(null, List.of(), "Lakelis would refuse: " + eligible.size() + " eligible member(s)"
                     + " (all on " + RECRUIT_MAP + ", level " + content.minLevel() + "+)");
         }
-        if (!em.startInstance(party, recruit, 1)) {
+        boolean started;
+        String lakelisSaid = "";
+        if (withGm) {
+            // the GM leads: staging presses Lakelis' button for him (a GM tool), the same call the script makes
+            started = MechanicsRuns.staging(() -> em.startInstance(party, recruit, 1));
+        } else {
+            // a bot leads: it talks to Lakelis itself, through his own script ("I want to participate")
+            BotNpcTalk.Result r = MechanicsRuns.staging(() -> BotNpcTalk.INSTANCE.converse(leader, LAKELIS, List.of(0)));
+            lakelisSaid = r.ran() ? r.lastLine() : "script failed: " + r.error();
+            started = leader.getEventInstance() != null;
+        }
+        if (!started) {
             cleanup(spawned);
-            return new Staged(null, List.of(), "another party is in KPQ on channel " + ch.getId()
-                    + ": try another channel or wait");
+            return new Staged(null, List.of(), "Lakelis did not start KPQ (another party may be in it on channel "
+                    + ch.getId() + ")" + (lakelisSaid.isEmpty() ? "" : ": " + lakelisSaid));
         }
         EventInstanceManager eim = leader.getEventInstance();
         if (eim == null) {
@@ -167,7 +184,7 @@ public final class KpqStaging {
             return new Staged(null, List.of(), "the PQ started but the leader is not in it");
         }
         List<Integer> ours = List.copyOf(spawned);
-        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, perfect, budgetMs, reporter, done -> {
+        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, perfect, budgetMs, lastStage, reporter, done -> {
             ExecutorServiceManager.getScheduledExecutorService().schedule(() -> {
                 cleanup(ours);
                 if (afterCleanup != null) {

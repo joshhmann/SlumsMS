@@ -604,6 +604,8 @@ public class EventManager {
                         party.setEligibleMembers(null);
 
                         eim.startEvent();
+                        // 1.6.1 KPQ automation (-Dslums.mechanics): bots and owned alts in the party play the stages
+                        soloMapling.mechanics.MechanicsRuns.onPartyInstanceStarted(eim);
                     } catch (ScriptException | NoSuchMethodException ex) {
                         log.error("Event script startInstance", ex);
                     }
@@ -676,6 +678,8 @@ public class EventManager {
                         party.setEligibleMembers(null);
 
                         eim.startEvent();
+                        // 1.6.1 KPQ automation (-Dslums.mechanics): bots and owned alts in the party play the stages
+                        soloMapling.mechanics.MechanicsRuns.onPartyInstanceStarted(eim);
                     } catch (ScriptException | NoSuchMethodException ex) {
                         log.error("Event script startInstance", ex);
                     }

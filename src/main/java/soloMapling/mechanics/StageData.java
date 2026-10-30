@@ -210,11 +210,29 @@ public final class StageData {
         } else if (tierObj != null) {
             p.add("tiers: not a map");
         }
+        MechanicsModel.AfterClear after = null;
+        Object afterObj = m.get("afterClear");
+        if (afterObj instanceof Map<?, ?> am) {
+            after = new MechanicsModel.AfterClear(num(am, "rewardNpc", 0, p), num(am, "rewardMap", 0, p),
+                    num(am, "bonusMap", 0, p), num(am, "exitNpc", 0, p), num(am, "bonusMinSeconds", 60, p),
+                    num(am, "bonusMaxSeconds", 120, p));
+            if (after.rewardNpc() <= 0 || after.rewardMap() <= 0) {
+                p.add("afterClear: needs rewardNpc and rewardMap");
+            }
+            if (after.bonusMap() > 0 && after.exitNpc() <= 0) {
+                p.add("afterClear: a bonusMap needs the exitNpc that sends members out");
+            }
+            if (after.bonusMinSeconds() < 0 || after.bonusMaxSeconds() < after.bonusMinSeconds()) {
+                p.add("afterClear: need 0 <= bonusMinSeconds <= bonusMaxSeconds");
+            }
+        } else if (afterObj != null) {
+            p.add("afterClear: not a map");
+        }
         if (id == null || name == null || kind == null) {
             return null;
         }
         return new Content(id, name, kind, script, recruit, exit, minP, maxP, minL, maxL, time, List.copyOf(sources),
-                List.copyOf(stages), Map.copyOf(tiers));
+                List.copyOf(stages), Map.copyOf(tiers), after);
     }
 
     private static TierRules readTier(Tier t, Map<?, ?> m, int minL, int maxL, int time, List<String> p) {
@@ -407,8 +425,51 @@ public final class StageData {
         } else {
             p.add(at + "no clear: { eventProperty: ... }");
         }
+        String answerProperty = m.get("answerProperty") == null ? null : String.valueOf(m.get("answerProperty")).trim();
+        List<List<Integer>> combos = new ArrayList<>();
+        int ones = -1;
+        for (Object o : list(m, "combos")) {
+            if (!(o instanceof List<?> cl)) {
+                p.add(at + "a combo that is not a list of 0/1");
+                continue;
+            }
+            List<Integer> mask = new ArrayList<>();
+            for (Object v : cl) {
+                String t = String.valueOf(v).trim();
+                if (!t.equals("0") && !t.equals("1")) {
+                    p.add(at + "combo " + combos.size() + ": only 0 and 1, not " + t);
+                }
+                mask.add(t.equals("1") ? 1 : 0);
+            }
+            if (mask.size() != positions.size()) {
+                p.add(at + "combo " + combos.size() + ": " + mask.size() + " entries for " + positions.size()
+                        + " positions");
+            }
+            int n = (int) mask.stream().filter(v -> v == 1).count();
+            if (ones >= 0 && n != ones) {
+                p.add(at + "combo " + combos.size() + ": every combo occupies the same number of positions");
+            }
+            ones = n;
+            combos.add(List.copyOf(mask));
+        }
+        if (!combos.isEmpty() && (answerProperty == null || answerProperty.isEmpty())) {
+            p.add(at + "combos need the answerProperty the stage script keeps the answer in");
+        }
+        if ("combination".equals(solver) && combos.isEmpty()) {
+            p.add(at + "the combination solver needs combos and positions");
+        }
+        List<Integer> mobs = new ArrayList<>();
+        for (Object o : list(m, "mobs")) {
+            try {
+                mobs.add(Integer.parseInt(String.valueOf(o).trim()));
+            } catch (NumberFormatException e) {
+                p.add(at + "mobs: not a mob id: " + o);
+            }
+        }
+        String nextPortal = m.get("nextPortal") == null ? null : String.valueOf(m.get("nextPortal")).trim();
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
-                List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear);
+                List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
+                answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal);
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----

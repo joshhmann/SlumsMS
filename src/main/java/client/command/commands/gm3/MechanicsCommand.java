@@ -13,12 +13,16 @@ import java.util.Locale;
 import static soloMapling.BotLogger.log;
 
 /*
- * 1.7.0 ticket 130 (bots play the mechanics), TEST only: registered when -Dslums.mechanics=true.
- *   !mechanics kpq [me] [bots] [perfect]  stage a Kerning PQ run: fresh bots (4, or 3 with "me") on Kerning City's PQ
- *                                         map, a party, the PQ started as Lakelis starts it; bots clear stage 1
- *                                         (Cloto's question, Ligator coupons, passes to the leader). "me": you lead
- *                                         the party and play (collect the passes and talk to Cloto yourself).
- *                                         "perfect": no wrong tries. The bots leave 20 s after the run ends.
+ * 1.7.0 ticket 130 (bots play the mechanics; KPQ automation ships in 1.6.1), TEST only: registered when
+ * -Dslums.mechanics=true.
+ *   !mechanics kpq [me] [bots] [perfect] [stageN]
+ *                                         stage a Kerning PQ run: fresh bots (4, or 3 with "me") on Kerning City's PQ
+ *                                         map, a party, the PQ started at Lakelis (a bot leader talks to him through
+ *                                         his script); bots play all five stages (coupons, ropes, platforms, barrels,
+ *                                         bosses and passes), take their prizes, hunt the bonus and leave. "me": you
+ *                                         lead the party and play (collect the passes, check the formations and talk
+ *                                         to Cloto yourself). "perfect": no wrong tries. "stageN": stop after stage N.
+ *                                         The bots leave 20 s after the run ends.
  *   !mechanics status                     the runs going on
  *   !mechanics stop                       end every run now (bots released, staged bots despawned)
  */
@@ -28,18 +32,26 @@ public class MechanicsCommand extends Command {
     }
 
     /** A parsed {@code !mechanics kpq ...}: who plays and how many bots. */
-    public record KpqRequest(boolean withGm, int bots, boolean perfect) {
+    public record KpqRequest(boolean withGm, int bots, boolean perfect, int lastStage) {
+        public KpqRequest(boolean withGm, int bots, boolean perfect) {
+            this(withGm, bots, perfect, 0);
+        }
     }
 
-    static final String USAGE = "Syntax: !mechanics kpq [me] [bots 2-4] [perfect] | status | stop";
+    static final String USAGE = "Syntax: !mechanics kpq [me] [bots 2-4] [perfect] [stage1-5] | status | stop";
 
     /** Parses the words after {@code kpq}; null when they make no sense. */
     public static KpqRequest parseKpq(String[] params, int from) {
         boolean me = false;
         boolean perfect = false;
         Integer bots = null;
+        int last = 0;
         for (int i = from; i < params.length; i++) {
             String p = params[i].toLowerCase(Locale.ROOT);
+            if (p.matches("stage[1-5]")) {
+                last = p.charAt(5) - '0';
+                continue;
+            }
             switch (p) {
                 case "me" -> me = true;
                 case "perfect" -> perfect = true;
@@ -59,7 +71,7 @@ public class MechanicsCommand extends Command {
         if (n < min || n > (me ? 3 : 4)) {
             return null;
         }
-        return new KpqRequest(me, n, perfect);
+        return new KpqRequest(me, n, perfect, last);
     }
 
     @Override
@@ -81,7 +93,7 @@ public class MechanicsCommand extends Command {
                         + (req.perfect() ? ", perfect" : "") + "...");
                 ExecutorServiceManager.getExecutorService().execute(() -> {
                     KpqStaging.Staged s = KpqStaging.start(gm, req.withGm(), req.bots(), req.perfect(), 0,
-                            line -> {
+                            req.lastStage(), line -> {
                                 log("[Mechanics] " + line);
                                 gm.yellowMessage(line);
                             }, null);
@@ -90,7 +102,8 @@ public class MechanicsCommand extends Command {
                     } else if (!req.withGm()) {
                         gm.yellowMessage("Bot-only run in " + s.active().instanceName() + " (channel "
                                 + c.getChannel() + "): progress lines follow; !mechanics status any time."
-                                + " Phase 1 ends on the stage 1 clear.");
+                                + (req.lastStage() > 0 ? " The run ends on the stage " + req.lastStage() + " clear."
+                                : " They play all five stages, take their prizes, hunt the bonus and leave."));
                     }
                 });
             }

@@ -153,9 +153,47 @@ public final class MechanicsModel {
     public record Clear(String eventProperty) {
     }
 
+    /**
+     * A stage. Besides the parts every stage has, three optional ones (1.6.1, KPQ stages 2-5):
+     * <ul>
+     *   <li>{@code answerProperty} + {@code combos}: a combination puzzle (KPQ ropes, platforms, barrels). The stage
+     *   script keeps the answer's index in the event property; {@code combos.get(i)} is the 0/1 mask over
+     *   {@code positions} (in the script's order) that answer {@code i} wants occupied;</li>
+     *   <li>{@code mobs}: the stage's monsters (KPQ stage 5's bosses drop the passes);</li>
+     *   <li>{@code nextPortal}: the portal the stage opens on clear, which every member walks into.</li>
+     * </ul>
+     */
     public record Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                         List<Objective> objectives, List<Position> positions, List<ItemUse> items,
-                        List<Answer> answers, List<BossPhase> phases, Clear clear) {
+                        List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
+                        List<List<Integer>> combos, List<Integer> mobs, String nextPortal) {
+
+        public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
+                     List<Objective> objectives, List<Position> positions, List<ItemUse> items,
+                     List<Answer> answers, List<BossPhase> phases, Clear clear) {
+            this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
+                    List.of(), List.of(), null);
+        }
+
+        /** How many positions a combination's answer occupies (KPQ: 3), or 0 for a stage without combos. */
+        public int occupied() {
+            return combos.isEmpty() ? 0 : (int) combos.get(0).stream().filter(v -> v != 0).count();
+        }
+
+        /** The position indices (0-based, script order) that combination {@code index} wants occupied. */
+        public List<Integer> comboPositions(int index) {
+            List<Integer> out = new java.util.ArrayList<>();
+            if (index < 0 || index >= combos.size()) {
+                return out;
+            }
+            List<Integer> mask = combos.get(index);
+            for (int i = 0; i < mask.size(); i++) {
+                if (mask.get(i) != 0) {
+                    out.add(i);
+                }
+            }
+            return out;
+        }
 
         public Optional<Role> role(String id) {
             return roles.stream().filter(r -> r.id().equals(id)).findFirst();
@@ -179,9 +217,26 @@ public final class MechanicsModel {
     }
 
     /** One piece of content: a PQ, boss or JQ. {@code source} credits where the stage data was checked from. */
+    /**
+     * What happens after the last stage clears (1.6.1, KPQ): every member talks to {@code rewardNpc} on
+     * {@code rewardMap} for the prize (the script then sends him to {@code bonusMap}), hunts there for a while and
+     * leaves through {@code exitNpc}. Null when the content simply ends on its last clear.
+     */
+    public record AfterClear(int rewardNpc, int rewardMap, int bonusMap, int exitNpc, int bonusMinSeconds,
+                             int bonusMaxSeconds) {
+    }
+
     public record Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
                           int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
-                          List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers) {
+                          List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers,
+                          AfterClear afterClear) {
+
+        public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
+                       int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
+                       List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers) {
+            this(id, name, kind, eventScript, recruitMap, exitMap, minPlayers, maxPlayers, minLevel, maxLevel,
+                    timeLimitMinutes, sources, stages, tiers, null);
+        }
 
         public Optional<Stage> stage(int index) {
             return stages.stream().filter(s -> s.index() == index).findFirst();

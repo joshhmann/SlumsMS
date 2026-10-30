@@ -31,9 +31,16 @@ final class LiveStageView implements StageView {
     private final Map<Integer, Character> chars = new LinkedHashMap<>();
     private final List<RunMember> present = new ArrayList<>();
 
+    private final long now;
+
     LiveStageView(RunState run, EventInstanceManager eim) {
+        this(run, eim, System.currentTimeMillis());
+    }
+
+    LiveStageView(RunState run, EventInstanceManager eim, long now) {
         this.run = run;
         this.eim = eim;
+        this.now = now;
         Stage stage = run.stageData();
         this.map = eim.isEventDisposed() ? null : eim.getMapInstance(stage.mapId());
         if (!eim.isEventDisposed()) {
@@ -75,8 +82,42 @@ final class LiveStageView implements StageView {
 
     @Override
     public OptionalInt answerFor(int characterId) {
+        if (stage().answerProperty() != null) {
+            return CombinationSolver.answer(this); // one answer for the stage, kept in the event property
+        }
         int q = memberStatus(characterId);
         return q > 0 ? stage().answer(q) : OptionalInt.empty();
+    }
+
+    @Override
+    public int mapOf(int characterId) {
+        Character c = chars.get(characterId);
+        return c == null ? -1 : c.getMapId();
+    }
+
+    @Override
+    public int liveMobs() {
+        if (map == null) {
+            return 0;
+        }
+        java.util.List<Integer> wanted = stage().mobs();
+        int n = 0;
+        for (server.life.Monster m : map.getAllMonsters()) {
+            if (m != null && m.isAlive() && (wanted.isEmpty() || wanted.contains(m.getId()))) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    @Override
+    public long nowMs() {
+        return now;
+    }
+
+    @Override
+    public Map<String, Object> stageMemory() {
+        return run.stageMemory();
     }
 
     @Override

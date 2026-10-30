@@ -58,6 +58,43 @@ public interface StageView {
         return Optional.empty();
     }
 
+    /** The map a member is on (a member may still be on the last stage's map, or already in the bonus). */
+    default int mapOf(int characterId) {
+        return stage().mapId();
+    }
+
+    /** Live monsters on the stage's map, of the stage's {@code mobs} when it lists any. */
+    default int liveMobs() {
+        return 0;
+    }
+
+    /** The run's clock for this tick. */
+    default long nowMs() {
+        return 0;
+    }
+
+    /**
+     * Scratch memory for the current stage, kept in the run's blackboard ({@link RunState}) and emptied on every
+     * stage change: what a solver must remember between ticks (the formation it assigned, when a formation became
+     * steady). Solvers stay stateless; this is run state, never game state.
+     */
+    default java.util.Map<String, Object> stageMemory() {
+        return new java.util.HashMap<>();
+    }
+
+    /** Whether a real player (not a bot or an owned alt) is standing in this rectangle right now. */
+    default boolean playerIn(MechanicsModel.Position p) {
+        for (RunMember m : members()) {
+            if (!m.bot()) {
+                int[] at = positionOf(m.characterId());
+                if (mapOf(m.characterId()) == stage().mapId() && p.contains(at[0], at[1])) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     default int partySize() {
         return members().size();
     }

@@ -116,6 +116,18 @@ public final class GCMovement {
         move(bot, x, y, null);
     }
 
+    /* 1.6.1 (KPQ automation): step a bot through a portal on its map the way BotNav does at a PORTAL edge
+     * (GCPortals: a scripted portal inside a PQ only opens when its script's gate is open, PqGates). True when the
+     * bot changed map. */
+    public static boolean enterPortal(Character bot, server.maps.Portal portal) {
+        if (bot == null || portal == null || !portal.getPortalStatus()) {
+            return false;
+        }
+        int before = bot.getMapId();
+        stop(bot);
+        return GCPortals.enter(bot, portal) && bot.getMapId() != before;
+    }
+
     /* As .move(Character, int, int) with an arrival callback. */
     public static void move(Character bot, int x, int y, Runnable onArrival) {
         if (bot == null) {

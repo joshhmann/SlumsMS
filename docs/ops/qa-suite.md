@@ -259,6 +259,21 @@ persona shows 0-2 wrong hand-ins on the way up: a mixed-up answer or one short),
 the leader, who waits by Cloto and hands in one pass per other member. In game: `!mechanics kpq me` puts you in the
 party as leader with three bots: pick up the passes they drop at your feet and talk to Cloto. Auto-QA: t-mx-1.
 
+## mx-2: bots play all of Kerning PQ on their own (1.6.1, KPQ automation, ticket 130)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `mx-2 [perfect]` | Needs `-Dslums.mechanics=true` (refused, and t-mx-2 SKIPs, without it). Four level 30-35 bots next to Lakelis on Kerning City (103000000) of your channel, a party (the first bot leads); the leader talks to Lakelis through his own script (`scripts/npc/9020000.js`, "I want to participate"). The bots play stages 1-5 (coupons; ropes, platforms and barrels: the leader opens each stage with Cloto and checks every formation; the bosses' passes), walk into each opened `next00` portal, take their prize from Cloto (who sends them to the bonus), hunt the bonus for 60-150 s and leave through Nella. The PQ must clear within its 30 minutes and every bot must reach the bonus. Runs 35 minutes | `MX2 START kpq with 4 bots`, `RUN stage <n>: ...` role lines, `RUN <leader id> got answer <n>, will try [...] first` (combination stages), `NPC <bot> -> 9020001 (check <n>)` per check (a wrong formation shows the wrong effect), `RUN stage <n> cleared in <s> s`, `NPC <bot> -> 9020001 (claim the prize)`, `RUN <bot id> hunts the bonus for <s> s`, `NPC <bot> -> 9020002 (leave the bonus)`, `MX2 PASS cleared kpq in <s> s (limit 1800 s) ... 4 prizes taken`; a script that fails for a bot logs `FAILED:`, a shut portal `portal next00 on <map> is still shut` |
+
+In game: `!mechanics kpq me` puts you in the party as leader with three bots for the whole PQ: stage 1 passes and stage 5
+passes are dropped at your feet; on stages 2-4 talk to Cloto once to open the stage, the bots stand on the answer (a
+bot says when it is ready) and you check it. With your owned alts in your party (summon them, go to Lakelis, start
+KPQ), the alts play the stages the same way (one PQ logic for bots and alts); each alt gets one prize whether it
+claims first or you do. `!mechanics kpq stage3` stops a staged run after stage 3. What to watch on a real client:
+the ropes (do the bots hang still inside the rope's middle?), the barrels (5 px tall: do they stand on top?), and
+the attacks on stage 1's Ligators and stage 5's bosses (the client drops remote attacks with a pose it does not
+expect).
+
 ## xc-1: the NX exchange in game (1.6.1, ticket 113)
 
 | Test | What it stages | What to look for |

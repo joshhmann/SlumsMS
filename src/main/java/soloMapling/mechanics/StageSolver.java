@@ -26,6 +26,15 @@ public interface StageSolver {
         return java.util.List.of();
     }
 
+    /**
+     * As above with the stage's live view and the member (a solver whose puzzle belongs to one member, like the
+     * combination leader, plans for that member only). Defaults to the stage-only plan.
+     */
+    default java.util.List<Integer> planWrongTries(StageView view, RunMember member, int answer,
+                                                   MechanicsPersona persona, double mistakeFactor, java.util.Random rnd) {
+        return planWrongTries(view.stage(), answer, persona, mistakeFactor, rnd);
+    }
+
     /** A visible wrong attempt for this member right now, or null (persona tries, see {@link TryPlanner}). */
     default SolverStep wrongTry(StageView view, RunMember member) {
         return null;

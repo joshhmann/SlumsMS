@@ -38,6 +38,9 @@ public final class RunState implements RunOrchestrator.Run {
     private volatile String endedBecause;
     private volatile boolean cleared;
     private volatile long clearedAfterMs = -1;
+    private final Map<String, Object> stageMemory = new ConcurrentHashMap<>();
+    private volatile long afterClearSinceMs;
+    private final Map<Integer, Long> bonusUntil = new ConcurrentHashMap<>();
 
     RunState(Content content, Tier tier, List<RunMember> members, long budgetMs, int lastStage) {
         this.content = content;
@@ -184,6 +187,34 @@ public final class RunState implements RunOrchestrator.Run {
     void setStage(int s, long now) {
         stage = s;
         stageStartedMs = now;
+        stageMemory.clear();
+    }
+
+    /** The current stage's scratch memory (see {@link StageView#stageMemory()}); emptied on every stage change. */
+    public Map<String, Object> stageMemory() {
+        return stageMemory;
+    }
+
+    /** True once the last stage cleared and the members are claiming prizes, in the bonus, or leaving. */
+    public boolean afterClear() {
+        return afterClearSinceMs > 0;
+    }
+
+    long afterClearSinceMs() {
+        return afterClearSinceMs;
+    }
+
+    void enterAfterClear(long now) {
+        afterClearSinceMs = Math.max(1, now);
+    }
+
+    /** When this member means to leave the bonus map (planned when he first stands in it), or null. */
+    Long bonusUntil(int characterId) {
+        return bonusUntil.get(characterId);
+    }
+
+    void planBonus(int characterId, long until) {
+        bonusUntil.putIfAbsent(characterId, until);
     }
 
     long stageStartedMs() {
