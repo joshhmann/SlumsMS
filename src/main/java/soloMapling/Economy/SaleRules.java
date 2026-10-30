@@ -24,8 +24,8 @@ import java.util.function.IntPredicate;
  * <ul>
  *   <li>godly scrolled gear ({@link GearGrade}): bot-sold gear stays average;</li>
  *   <li>Chaos Scrolls (2049100-2049103) and the White Scroll (2340000);</li>
- *   <li>boss-only drops: items that only bosses drop (every monster in {@code drop_data} that drops it is a boss),
- *   plus {@code saleRules.bossOnly} in economy.yaml;</li>
+ *   <li>boss-only drops: items that only bosses drop (every monster in {@code drop_data} that drops it is a boss)
+ *   and no regular NPC shop sells, plus {@code saleRules.bossOnly} in economy.yaml (always);</li>
  *   <li>cash items; and what cannot change hands anyway (untradeable, account-bound, quest items, expiring items,
  *   pets, rings).</li>
  * </ul>
@@ -120,29 +120,79 @@ public final class SaleRules {
         return b;
     }
 
+    /**
+     * NPCs whose shops are GM/test shops (everything at 1 meso), never "a regular NPC sells it": 9001002 (the GM
+     * shops 9999992-9999999) and 11000 (shop 1337). Owner 2026-10-30.
+     */
+    static final Set<Integer> GM_SHOP_NPCS = Set.of(9001002, 11000);
+
     private static Set<Integer> loadBossOnly() {
-        Set<Integer> out = new HashSet<>(EconomyConfig.map("saleRules.bossOnly").keySet());
+        Set<Integer> fromDrops = new HashSet<>();
+        Set<Integer> npcSold = new HashSet<>();
         Map<Integer, Boolean> allBoss = new HashMap<>();   // item -> every dropper so far is a boss
         Map<Integer, Boolean> isBoss = new HashMap<>();
-        try (Connection con = BotDbGate.connection();
-             PreparedStatement ps = con.prepareStatement("SELECT itemid, dropperid FROM drop_data WHERE chance > 0");
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                int item = rs.getInt(1);
-                int mob = rs.getInt(2);
-                boolean boss = isBoss.computeIfAbsent(mob, SaleRules::mobIsBoss);
-                allBoss.merge(item, boss, Boolean::logicalAnd);
+        try (Connection con = BotDbGate.connection()) {
+            try (PreparedStatement ps = con.prepareStatement("SELECT itemid, dropperid FROM drop_data WHERE chance > 0");
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int item = rs.getInt(1);
+                    int mob = rs.getInt(2);
+                    boolean boss = isBoss.computeIfAbsent(mob, SaleRules::mobIsBoss);
+                    allBoss.merge(item, boss, Boolean::logicalAnd);
+                }
             }
+            allBoss.forEach((item, boss) -> {
+                if (boss) {
+                    fromDrops.add(item);
+                }
+            });
+            npcSold.addAll(loadNpcSold(con));
         } catch (Exception | LinkageError e) {
             log.warn("[Economy] boss-only drops not read from drop_data ({}); only economy.yaml's list applies",
                     e.toString());
         }
-        allBoss.forEach((item, boss) -> {
-            if (boss) {
-                out.add(item);
+        Set<Integer> out = combineBossOnly(EconomyConfig.map("saleRules.bossOnly").keySet(), fromDrops, npcSold);
+        long exempt = fromDrops.stream().filter(npcSold::contains).count();
+        log.info("[Economy] {} boss-only items bots will never sell ({} only bosses drop, {} of those exempt: a "
+                + "regular NPC shop sells them)", out.size(), fromDrops.size(), exempt);
+        return out;
+    }
+
+    /** Items a regular NPC shop sells ({@link #regularSale}), read once with the drop table at first use. */
+    private static Set<Integer> loadNpcSold(Connection con) {
+        Set<Integer> out = new HashSet<>();
+        try (PreparedStatement ps = con.prepareStatement("SELECT i.itemid, s.npcid, i.price FROM shopitems i "
+                + "JOIN shops s ON s.shopid = i.shopid");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                if (regularSale(rs.getInt(2), rs.getLong(3))) {
+                    out.add(rs.getInt(1));
+                }
             }
-        });
-        log.info("[Economy] {} boss-only items bots will never sell", out.size());
+        } catch (Exception | LinkageError e) {
+            log.warn("[Economy] NPC shop items not read ({}); no boss-only exemption for NPC-sold items", e.toString());
+        }
+        return out;
+    }
+
+    /** A shop row is a regular NPC sale: more than 1 meso, and not a GM/test shop NPC ({@link #GM_SHOP_NPCS}). */
+    static boolean regularSale(int npcId, long price) {
+        return price > 1 && !GM_SHOP_NPCS.contains(npcId);
+    }
+
+    /**
+     * The boss-only set: items only bosses drop, minus what a regular NPC shop sells (owner 2026-10-30: Red Bean
+     * Sundae is a 4,000-meso shop potion that only the Balrog drops), plus economy.yaml's explicit list, which wins
+     * over the exemption.
+     */
+    static Set<Integer> combineBossOnly(Set<Integer> yamlList, Set<Integer> onlyBossesDrop, Set<Integer> npcSold) {
+        Set<Integer> out = new HashSet<>();
+        for (int id : onlyBossesDrop) {
+            if (!npcSold.contains(id)) {
+                out.add(id);
+            }
+        }
+        out.addAll(yamlList);
         return Set.copyOf(out);
     }
 
