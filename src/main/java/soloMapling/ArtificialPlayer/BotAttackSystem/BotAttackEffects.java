@@ -153,6 +153,13 @@ public final class BotAttackEffects {
             release(onRelease);
             return;
         }
+        if (!bot.isAlive()) {
+            // 1.6.2 bot audit (B22): a hold outlived its bot. Death leaves the map and the client state alone, so the
+            // remaining shots still dealt damage, EXP and loot from a corpse. End the pose for the viewers and stop.
+            map.broadcastMessage(bot, releasePacket(bot, plan), false);
+            release(onRelease);
+            return;
+        }
         Map<Monster, List<Integer>> more = shot < plan.shots() ? nextHits.get() : null;
         if (notReady(bot, more)) {
             map.broadcastMessage(bot, releasePacket(bot, plan), false);

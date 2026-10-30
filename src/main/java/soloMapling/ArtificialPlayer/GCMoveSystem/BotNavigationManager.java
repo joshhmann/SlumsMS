@@ -163,7 +163,13 @@ final class BotNavigationManager {
             // the edge between ticks - the planner would only re-serve it.
             BotNavigationGraph.Edge parkedEdge = entry.navEdge != null ? entry.navEdge
                     : NavPortSwitches.blockedPosWatchdog ? entry.navBlockedPosEdge : null;
-            if (runAiTick && parkedEdge != null
+            // 1.6.2 bot audit B23: the count is evidence only while the gate is still refusing the bot ON POSITION.
+            // The reason is global to the entry and every execution path clears it on success (the jump gate does so
+            // when it launches), so a tick whose reason is gone - a launch that came back, or a reason never set -
+            // used to be reported as a GENUINE stuck and deleted a good edge from the learned graph. The count is
+            // kept (a bounce must still give up in the end); it just is not a failure while nothing refuses.
+            boolean refusedOnPos = entry.lastEdgeBlockReason != null && entry.lastEdgeBlockReason.endsWith("-pos");
+            if (runAiTick && parkedEdge != null && refusedOnPos
                     && entry.navBlockedPosTicks > 0
                     && entry.navBlockedPosTicks >= entry.navBlockedPosGiveUpTicks) {
                 NavEdgeLearning.failure(entry, graph, parkedEdge); // bot-persistence ticket 16: remember the miss

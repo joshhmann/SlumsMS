@@ -119,7 +119,7 @@ public final class TempleOfTime {
             }
             wanted.remove(chr.getId());
             hunt = c.mapId();
-            TempleLanes.register(chr.getId(), c.channel(), hunt, now);
+            TempleLanes.register(chr.getId(), c.channel(), hunt, step.questId(), now);
         }
         log.pick(active(step, hunt, now));
         return true;

@@ -74,6 +74,18 @@ class BlockedPosWatchdogTest {
         return entry;
     }
 
+    /* Sums the GENUINE (GAVE_UP) spots this test wrote for the map. */
+    private int giveUpSpots(MapleMap map) {
+        NavStuckLog.flush();
+        int count = 0;
+        for (NavStuckLog.Spot spot : NavStuckLog.read(NavStuckLog.fileFor(dir.resolve("stuck"), LocalDate.parse("2026-10-30")))) {
+            if (spot.kind == NavStuckLog.Kind.GAVE_UP && spot.mapId == map.getId()) {
+                count += spot.count;
+            }
+        }
+        return count;
+    }
+
     private int gatedTicks;
 
     /* Runs 40 AI ticks with the bot parked and the nav cleared after each; returns how many times the watchdog gave
@@ -87,14 +99,7 @@ class BlockedPosWatchdogTest {
             }
             BotMovementManager.clearNavigationState(entry); // the incidental clear
         }
-        NavStuckLog.flush();
-        int count = 0;
-        for (NavStuckLog.Spot spot : NavStuckLog.read(NavStuckLog.fileFor(dir.resolve("stuck"), LocalDate.parse("2026-10-30")))) {
-            if (spot.kind == NavStuckLog.Kind.GAVE_UP && spot.mapId == map.getId()) {
-                count += spot.count;
-            }
-        }
-        return count;
+        return giveUpSpots(map);
     }
 
     private MapleMap store() {
@@ -119,5 +124,28 @@ class BlockedPosWatchdogTest {
         // 40 AI ticks at a 6-10 tick give-up: 4 to 6 give-ups (each one marks the hop failed, replans and starts a
         // fresh count).
         assertTrue(giveUps >= 3, "gave up " + giveUps + " times in 40 parked ticks");
+    }
+
+    /* 1.6.2 bot audit B23: the count is evidence only while the gate still refuses the bot on position. Every
+     * execution path clears lastEdgeBlockReason on success (the jump gate does so when it launches), so a tick whose
+     * reason is gone must not be reported as a GENUINE failure. The count is kept: the next real refusal is a
+     * genuine failure again. */
+    @Test
+    void aClearedGateReasonIsNotAGenuineFailure() {
+        NavPortSwitches.blockedPosWatchdog = true;
+        MapleMap map = store();
+        BotMovementState entry = parkedBot(map, new Point(-8, -128), 7304);
+        BotNavigationManager.resolveTarget(entry, EXIT, true); // commit a hop and let its gate refuse it
+        assertTrue(entry.navEdge != null, "fixture: a hop is committed");
+        entry.navBlockedPosEdge = entry.navEdge;
+        entry.navBlockedPosTicks = Math.max(entry.navBlockedPosGiveUpTicks, 1);
+        entry.lastEdgeBlockReason = null; // the gate's success path cleared it
+        BotNavigationManager.resolveTarget(entry, EXIT, true);
+        assertEquals(0, giveUpSpots(map), "no GENUINE failure while the gate is not refusing on position");
+
+        entry.lastEdgeBlockReason = "jump-pos"; // the gate refuses on position again: that is a real stuck bot
+        entry.navBlockedPosTicks = Math.max(entry.navBlockedPosGiveUpTicks, 1);
+        BotNavigationManager.resolveTarget(entry, EXIT, true);
+        assertTrue(giveUpSpots(map) >= 1, "a real refusal is still a GENUINE failure");
     }
 }

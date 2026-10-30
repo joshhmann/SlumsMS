@@ -94,13 +94,17 @@ public final class LifeMemory {
         } catch (RuntimeException invalid) {
             reset(characterId);
             goals = List.of(); plans = List.of(); soft.clear();
-            quests = new soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog();
             lastJob = -1; lastSocial = 0; driftDay = -1; changesToday = 0; eventAt.clear(); met.clear();
             savedAt = 0; restored = false; migrated = false; dirty = false;
         }
     }
 
+    /** The bot this memory belongs to (0 before {@link #reset}). */
+    private int characterId;
+
     private void reset(int characterId) {
+        this.characterId = characterId;
+        quests = new soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog(characterId);
         socialSeed = SocialProfile.forCharacter(characterId);
         plasticity = SocialProfile.plasticityOf(SocialProfile.slotOf(characterId));
         pullBack = SocialProfile.pullBackOf(plasticity);
@@ -206,7 +210,7 @@ public final class LifeMemory {
             goals = List.copyOf(loaded);
         }
         readPlans(map);
-        quests = soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog.read(map.get("quests"));
+        quests = soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog.read(map.get("quests"), characterId);
         lastJob = number(map, "lastJob", -1).intValue();
         lastSocial = Math.max(0, number(map, "lastSocial", 0).longValue());
         driftDay = number(map, "driftDay", -1).longValue();

@@ -98,6 +98,17 @@ public final class BotQuestLog {
     private int templeDone;
     /** Bumped by every change that is saved (LifeMemory marks itself dirty on a change). */
     private int version;
+    /** Whose log this is (0 when nobody told us): lets the Temple lane entry be cleared when its quest ends. */
+    private final int botId;
+
+    /** A log for a bot whose id is not known (tests, detached copies): it clears no Temple lane entry. */
+    public BotQuestLog() {
+        this(0);
+    }
+
+    public BotQuestLog(int botId) {
+        this.botId = Math.max(0, botId);
+    }
 
     public int version() { return version; }
     /** Quests that failed for this bot this run (NPC missing, refused): never stored, bounded. */
@@ -195,6 +206,7 @@ public final class BotQuestLog {
     public void complete(boolean real, long now) {
         if (active == null) return;
         int id = active.questId;
+        TempleLanes.unregister(botId, id); // its lane is free again the moment the quest ends (1.6.2 bot audit B5)
         if (templeDone < TempleRoute.MAINLINE.size() && TempleRoute.MAINLINE.get(templeDone).questId() == id) {
             templeDone++; // the Temple's mainline, in order (its completed ids may fall off the capped list)
         }
@@ -212,6 +224,7 @@ public final class BotQuestLog {
     /** The active quest is dropped and not tried again this run. */
     public void drop() {
         if (active == null) return;
+        TempleLanes.unregister(botId, active.questId); // 1.6.2 bot audit B5: a dropped quest must not hold its lane
         skip(active.questId);
         active = null;
         version++;
@@ -251,9 +264,14 @@ public final class BotQuestLog {
         return out;
     }
 
-    /** Reads a saved log; anything unreadable is left out (never fatal). */
+    /** Reads a saved log for a bot whose id is not known; anything unreadable is left out (never fatal). */
     public static BotQuestLog read(Object saved) {
-        BotQuestLog log = new BotQuestLog();
+        return read(saved, 0);
+    }
+
+    /** Reads a saved log; anything unreadable is left out (never fatal). */
+    public static BotQuestLog read(Object saved, int botId) {
+        BotQuestLog log = new BotQuestLog(botId);
         if (!(saved instanceof Map<?, ?> map)) return log;
         try {
             if (map.get("done") instanceof List<?> ids) {
