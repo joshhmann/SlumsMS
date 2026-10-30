@@ -16,14 +16,13 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 /**
  * 1.6.2 ticket 99 / 162 part 3: upgrade sharing (nutnnut/Cosmic BotOfferManager) through one small scoring interface;
- * the default scores with our planner as it stands, counting what the recipient already wears and carries.
+ * the default scores through GearScoring.live() (the scorer bots dress by), counting what the recipient wears and carries.
  */
 class GearUpgradesTest {
 
@@ -60,8 +59,25 @@ class GearUpgradesTest {
         return e;
     }
 
-    private GearUpgrades.Planner planner() {
-        return new GearUpgrades.Planner(data::get, (wearer, worn) -> STR);
+    /* The default scorer over a GearScoring that reads this test's item data (BotGear's own scoring code). */
+    private GearUpgrades.Scorer planner() {
+        GearScoring scoring = new GearScoring() {
+            @Override
+            public double upgradeValue(Character chr, Equip candidate) {
+                return BotGear.upgradeValue(chr, candidate, data::get, worn -> STR);
+            }
+
+            @Override
+            public double upgradeFraction(Character chr, Equip candidate) {
+                return BotGear.upgradeFraction(chr, candidate, data::get, worn -> STR);
+            }
+
+            @Override
+            public Map<Short, Equip> bestSet(Character chr, java.util.Collection<Equip> extras) {
+                return BotGear.bestSet(chr, extras, data::get, worn -> STR);
+            }
+        };
+        return GearUpgrades.from(scoring);
     }
 
     @Test
@@ -125,6 +141,6 @@ class GearUpgradesTest {
         GearUpgrades.install(mine);
         assertSame(mine, GearUpgrades.scorer());
         GearUpgrades.install(null);
-        assertTrue(GearUpgrades.scorer() instanceof GearUpgrades.Planner);
+        assertSame(GearUpgrades.LIVE, GearUpgrades.scorer(), "the default is the shared GearScoring.live() scorer");
     }
 }
