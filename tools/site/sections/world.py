@@ -509,6 +509,14 @@ HUNTED = ("hunted", "Most hunted", "The monsters Bera hunts most: kills by playe
 # .offscreen), mixed into the same numbers, so every count here is labelled an estimate (squash board, 2026-10-29)
 HUNTED_EST = ("Kill counts are estimates: bots hunting off-screen are counted from their usual kill pace, not one by one, "
               "so the numbers are close but not exact.")
+# 1.6.2 (b015): the server sends each row's split, counted + estimated = kills
+HUNTED_SPLIT = ("Counted: kills that really happened in the game, one by one. Estimated: kills by bots hunting off-screen, "
+                "worked out from their usual pace. Kills is the two together.")
+
+
+def split(rows):
+    """Every row says how its kills split (1.6.2 b015): counted one by one plus estimated from the off-screen pace."""
+    return bool(rows) and all(_is(r.get("counted"), int) and _is(r.get("estimated"), int) for r in rows)
 
 
 def hunted_rows(wo, key):
@@ -522,13 +530,17 @@ def hunted_table(wo, rows, limit=None):
         return '<p class="empty" style="padding:12px 16px;margin:0">No kills counted yet.</p>'
     top = max(r["kills"] for r in rows) or 1
     lv = lambda r: ((wo.db or {}).get("mobs", {}).get(r.get("mob")) or {}).get("level")
-    show_lv = any(lv(r) for r in rows)
+    show_lv, both = any(lv(r) for r in rows), split(rows) and not limit
     head = ('<th class="r">#</th><th>Monster</th>' + ('<th class="r">Level</th>' if show_lv else "")
-            + '<th class="r">Kills <small>(est.)</small></th><th class="hunt-bar-h"><span class="vh">Share</span></th>')
+            + ('<th class="r">Kills</th><th class="r hunt-split">Counted</th><th class="r hunt-split">Estimated</th>' if both else
+               '<th class="r">Kills</th>' if split(rows) else '<th class="r">Kills <small>(est.)</small></th>')
+            + '<th class="hunt-bar-h"><span class="vh">Share</span></th>')
     body = "".join(
         f'<tr{" class=podium" if i <= 3 else ""}><td class="r num">{i}</td><td class="who-cell">{wo.mob(r.get("mob"), r.get("name"), "{root}")}</td>'
         + (f'<td class="r num">{lv(r) or "-"}</td>' if show_lv else "")
-        + f'<td class="r num">{r["kills"]:,}</td><td class="hunt-bar"><span style="width:{max(2, round(100 * r["kills"] / top))}%"></span></td></tr>'
+        + f'<td class="r num">{r["kills"]:,}</td>'
+        + (f'<td class="r num hunt-split">{r["counted"]:,}</td><td class="r num hunt-split">{r["estimated"]:,}</td>' if both else "")
+        + f'<td class="hunt-bar"><span style="width:{max(2, round(100 * r["kills"] / top))}%"></span></td></tr>'
         for i, r in enumerate(rows, 1))
     return f'<div class="tbl"><table class="t rank"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
 
@@ -564,7 +576,7 @@ def build_rankings(wo):
         body = (f'<h1>{HUNTED[1]}</h1><p class="id">{esc(HUNTED[2])}</p><p class="chips">{tabs}</p>'
                 f'<section class="panel"><h2 class="bar">Last 7 days</h2>{hunted_table(wo, week)}</section>'
                 f'<section class="panel"><h2 class="bar">Last 24 hours</h2>{hunted_table(wo, day)}</section>'
-                f'<p class="small">{esc(HUNTED_EST)}</p>')
+                f'<p class="small">{esc(HUNTED_SPLIT if split(week) or split(day) else HUNTED_EST)}</p>')
         wo.page(f"{WORLD}/rankings/hunted.html", "Most hunted monsters", body, "rankings")
     for kind, title, intro in shown:
         rows, limit = board_rows(lb, kind), 100
@@ -586,7 +598,8 @@ def build_rankings(wo):
     cards = "".join(f'<section class="panel"><h2 class="bar">{esc(t)} <a href="{{root}}{WORLD}/rankings/{k}.html">All &raquo;</a></h2>'
                     f'{table(k, board_rows(lb, k), 5)}</section>' for k, t, _ in shown)
     if hunted:
-        cards += (f'<section class="panel"><h2 class="bar">{HUNTED[1]} <small>{"7 days" if week else "24 hours"}, estimated</small> '
+        cards += (f'<section class="panel"><h2 class="bar">{HUNTED[1]} <small>{"7 days" if week else "24 hours"}'
+                  f'{"" if split(week or day) else ", estimated"}</small> '
                   f'<a href="{{root}}{WORLD}/rankings/hunted.html">All &raquo;</a></h2>{hunted_table(wo, week or day, 5)}</section>')
     as_of = f' &middot; as of {esc(when(lb["generated_at"]))}' if lb.get("generated_at") else ""
     body = (f'<div class="headfig"><div><h1>Rankings</h1><p class="id">Everyone on Bera on one board, like it should be{as_of} &middot; '

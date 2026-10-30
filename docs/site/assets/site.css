@@ -812,6 +812,8 @@ table.t { width: 100%; border-collapse: collapse; }
 
 /* Most hunted (world/rankings/hunted.html): a share bar beside each monster's kills */
 .hunt-bar-h { width: 30%; }
+.t .hunt-split { color: var(--muted); }
+@media (max-width: 560px) { .t .hunt-split { display: none; } }
 .hunt-bar span { display: block; height: 10px; border-radius: 5px; background: var(--accent); border: 1.5px solid var(--edge); }
 
 /* Invite codes (market/invites, admin/invites; invites.js) */

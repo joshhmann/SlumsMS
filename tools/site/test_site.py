@@ -869,6 +869,27 @@ class WorldTest(unittest.TestCase):
         self.assertIn("Kill counts are estimates", page)
         self.assertIn("7 days, estimated</small>", self.read("world/rankings/index.html"))
 
+    def test_most_hunted_shows_counted_and_estimated_when_the_server_splits_them(self):
+        """1.6.2 b015: rows with counted + estimated get both columns and no "(est.)"; the overview card shows kills."""
+        from sections import world
+
+        class Wo:
+            db = {}
+
+            def mob(self, mid, name, root):
+                return name
+        rows = [{"mob": 1, "name": "Snail", "kills": 1500, "counted": 1000, "estimated": 500},
+                {"mob": 2, "name": "Slime", "kills": 30, "counted": 30, "estimated": 0}]
+        full = world.hunted_table(Wo(), rows)
+        self.assertIn('<th class="r hunt-split">Counted</th><th class="r hunt-split">Estimated</th>', full)
+        self.assertIn('<td class="r num">1,500</td><td class="r num hunt-split">1,000</td><td class="r num hunt-split">500</td>', full)
+        self.assertNotIn("(est.)", full)
+        card = world.hunted_table(Wo(), rows, 5)
+        self.assertNotIn("hunt-split", card)
+        self.assertNotIn("(est.)", card)
+        self.assertIn("(est.)", world.hunted_table(Wo(), [{"mob": 1, "name": "Snail", "kills": 9}]), "older servers: all estimates")
+        self.assertFalse(world.split(rows[:1] + [{"mob": 3, "kills": 4}]), "a row without the split: treat all as estimates")
+
     def test_dojo_board_only_with_rows(self):
         from sections import world
         page = self.read("world/rankings/index.html")
