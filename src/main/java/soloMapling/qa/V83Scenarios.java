@@ -20,7 +20,7 @@ final class V83Scenarios {
     }
 
     static List<QaScenario> all() {
-        return List.of(new Vb1(), new Vb2(), new Vb3(), new Vb4(), new Vb5(), new Vb6(), new Vb7());
+        return List.of(new Vb1(), new Vb2(), new Vb3(), new Vb4(), new Vb5(), new Vb6(), new Vb7(), new Vb8());
     }
 
     /** Common shape: staging and steps both live in the world, so a step can reuse the same staging. */
@@ -183,6 +183,19 @@ final class V83Scenarios {
         @Override
         String steps() {
             return "storage|duey|trade";
+        }
+    }
+
+    /** vb-8 (ticket 112): Moren's Maker 1 chain (6029 and its three lessons) and one monster crystal made with Maker. */
+    static final class Vb8 extends Vb {
+        Vb8() {
+            super("vb-8", "Maker: Moren's 6029 chain teaches Maker 1, then a monster crystal from 100 leftovers",
+                    QaLog.Topic.NPC);
+        }
+
+        @Override
+        String steps() {
+            return "chain|craft";
         }
     }
 }

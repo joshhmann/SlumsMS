@@ -740,6 +740,17 @@ public final class AutoQaCatalog {
                         has("VB STORAGE tookOut bagDelta=0"), has("VB DUEY claimed recipientDelta=1"),
                         has("VB TRADE offered=true itemDelta=1 mesoDelta=5000"), noRefusal())
                 .build());
+        // Ticket 112 (1.6.2): the real Maker is back. Needs the Maker skill in the server's Skill.wz
+        // (tools/data-align/add_maker_skill.py); the Maker window itself is a real-client check.
+        c.add(Check.auto("t-vb-8", "Moren teaches Maker 1 and Maker makes a monster crystal").minutes(4)
+                .step(run("vb-8"), qaDo("chain"), qaDo("craft"))
+                .expect(has("VB MAKER staged .* skillInWz=true"),
+                        has("VB MAKER lesson 6030 at 2111000 done=true fee=10000"),
+                        has("VB MAKER lesson 6031 at 2012017 done=true fee=10000"),
+                        has("VB MAKER lesson 6032 at 2110004 done=true fee=10000"),
+                        has("VB MAKER chain canComplete=true state=2 lessons=3 maker=1 guide=1 otherMakers=0"),
+                        has("VB MAKER crystal handler=true leftover=\\d+ 100 -> 0 crystal=\\d+ 0 -> 1"), noRefusal())
+                .build());
         c.add(Check.auto("t-fh-1", "Fishing timer and cancellation").minutes(1)
                 .step(run("fh-1"), waitFor("FISHING POLICY PASS grants=1 duplicate=blocked movement=cancelled", 10))
                 .expect(has("FISHING POLICY PASS grants=1 duplicate=blocked movement=cancelled"))

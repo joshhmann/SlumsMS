@@ -289,6 +289,7 @@ public class CommandsExecutor {
         addCommand("quiet", QuietCommand.class);
         addCommand("botme", BotMeCommand.class);
         addCommand("dismiss", DismissCommand.class);
+        addCommand("maker", client.command.commands.gm0.MakerCommand.class);   // ticket 112: maker plan, alt crystals/scrap
         addCommand("botdrama", client.command.commands.gm0.BotDramaCommand.class);   // ticket 58
         addCommand("romance", client.command.commands.gm0.RomanceCommand.class);   // 1.5.0 bot drama: romance opt-in
         addCommand("guildwar", client.command.commands.gm0.GuildWarCommand.class);   // 1.5.0 bot drama: guild wars

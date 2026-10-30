@@ -65,13 +65,14 @@ class HiddenQuestsTest {
 
     @Test
     void theOwnersListIsHidden() {
-        for (int id : new int[]{6141, 6150, 6153, 6200, 6202, 6330, 6340, 6350, 6410, 6029, 6034, 6036,
+        for (int id : new int[]{6141, 6150, 6153, 6200, 6202, 6330, 6340, 6350, 6410,
                 3164, 3182, 31110, 31160}) {
             assertTrue(HiddenQuests.ids().contains(id), id + " must be hidden");
         }
         // these work and must stay: lead-ins, Holy Charge (6280 still teaches 1221003), the Arcane Path to 5th job,
         // the Rebirth Path, Henesys Ruins steps whose mobs and NPCs exist
-        for (int id : new int[]{6140, 6280, 6281, 3163, 3172, 31100, 31104, 31108, 31149, 31153, 31161, 31167,
+        // Moren's Maker chain 6029-6036 came back in 1.6.2 (ticket 112)
+        for (int id : new int[]{6029, 6030, 6031, 6032, 6033, 6034, 6035, 6036, 6140, 6280, 6281, 3163, 3172, 31100, 31104, 31108, 31149, 31153, 31161, 31167,
                 31168, 31170}) {
             assertFalse(HiddenQuests.ids().contains(id), id + " must stay startable");
         }

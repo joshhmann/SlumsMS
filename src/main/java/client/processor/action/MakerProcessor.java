@@ -59,37 +59,14 @@ public class MakerProcessor {
                 Map<Integer, Short> reagentids = new LinkedHashMap<>();
                 int stimulantid = -1;
 
-                if (type == 3) {    // building monster crystal
-                    int fromLeftover = toCreate;
-                    toCreate = ii.getMakerCrystalFromLeftover(toCreate);
-                    if (toCreate == -1) {
-                        c.sendPacket(PacketCreator.serverNotice(1, ii.getName(fromLeftover) + " is unavailable for Monster Crystal conversion."));
-                        c.sendPacket(PacketCreator.makerEnableActions());
-                        return;
-                    }
-
-                    recipe = MakerItemFactory.generateLeftoverCrystalEntry(fromLeftover, toCreate);
-                } else if (type == 4) {  // disassembling
+                if (type == 3) {    // building monster crystal: the same path the bot batch uses (ticket 112)
+                    MakerService.makeLeftoverCrystal(MakerService.of(c), toCreate);
+                    return;
+                } else if (type == 4) {  // disassembling: likewise
                     p.readInt(); // 1... probably inventory type
                     pos = p.readInt();
-
-                    Item it = c.getPlayer().getInventory(InventoryType.EQUIP).getItem((short) pos);
-                    if (it != null && it.getItemId() == toCreate) {
-                        toDisassemble = toCreate;
-
-                        Pair<Integer, List<Pair<Integer, Integer>>> pair = MakerService.generateDisassemblyInfo(toDisassemble);
-                        if (pair != null) {
-                            recipe = MakerItemFactory.generateDisassemblyCrystalEntry(toDisassemble, pair.getLeft(), pair.getRight());
-                        } else {
-                            c.sendPacket(PacketCreator.serverNotice(1, ii.getName(toCreate) + " is unavailable for Monster Crystal disassembly."));
-                            c.sendPacket(PacketCreator.makerEnableActions());
-                            return;
-                        }
-                    } else {
-                        c.sendPacket(PacketCreator.serverNotice(1, "An unknown error occurred when trying to apply that item for disassembly."));
-                        c.sendPacket(PacketCreator.makerEnableActions());
-                        return;
-                    }
+                    MakerService.disassemble(MakerService.of(c), (short) pos, toCreate);
+                    return;
                 } else {
                     if (ItemConstants.isEquipment(toCreate)) {   // only equips uses stimulant and reagents
                         if (p.readByte() != 0) {  // stimulant

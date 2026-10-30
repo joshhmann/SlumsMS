@@ -176,6 +176,7 @@ public final class QaMenuCatalog {
         section("Ordinary v83 features (ticket 69)");
         add("vb-5", v(), steps("buy", "sell", "expcard"));
         add("vb-7", v(), steps("storage", "duey", "trade"));
+        add("vb-8", v(), steps("chain", "craft")); // 1.6.2 ticket 112: Moren's Maker 1 chain and a monster crystal
         add("ti-1", v(), steps("ask", "back")); // 1.6.1 ticket 29: the Maple Island question
         add("fy-1", v(), steps("check")); // 1.6.1 ticket 53: Family, a bot junior and the entitlements
         add("rb-1", v(), steps("check")); // 1.6.1 ticket 30: a regular earns a rebirth

@@ -1482,6 +1482,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             crowdHopsThisEpisode = 0; // back home -> fresh outing, reset the crowd-migration budget
             yieldHopsThisEpisode = 0;
             SupplyNeeds needs = BotSupplies.arriveInTown(getChr()); // real bots 08: rest to full, see what it needs
+            // Ticket 112: with economy.yaml maker.botBatch on, leftovers become monster crystals and Maker junk is
+            // disassembled first (capped per bot and per world), through the real Maker path.
+            soloMapling.ArtificialPlayer.BotMakerSystem.BotMaker.townBatch(getChr());
             // 1.6.0 owner report (CapeLover): sell the junk out of a filling bag at the town's store, as a player
             // would, so the next grind has room for its drops.
             soloMapling.ArtificialPlayer.BotSupplySystem.BotBagRoom.sellJunk(getChr());

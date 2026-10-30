@@ -77,7 +77,7 @@ The claude.ai notes/QA pages from 1.5.0 can only be opened by Claude; repo files
 
 ## Ticket 69: ordinary v83 features (`vb-*`)
 
-Auto-QA checks `t-vb-1`..`t-vb-7` (scenario ids `vb-1`..`vb-7`) exercise the everyday paths a real player uses,
+Auto-QA checks `t-vb-1`..`t-vb-8` (scenario ids `vb-1`..`vb-8`) exercise the everyday paths a real player uses,
 one check per feature. Each check runs `!qa run vb-N` and then its steps; every outcome is asserted, and any NPC
 dialog that refuses a step the check expects to succeed fails it (`Expects.noRefusal`, diagnostic token
 `NPC_REFUSAL`).
@@ -91,6 +91,7 @@ dialog that refuses a step the check expects to succeed fails it (`Expects.noRef
 | `t-vb-5` | buys and sells at Henesys NPC 1012004, then makes the Cash Shop EXP coupon take effect | `VB SHOP buy ... owned 0 -> 1`, `VB CASH card=5211048 given=true rate 1 -> 2` |
 | `t-vb-6` | Dances with Balrog promotes 100 -> 110, then a real skill point is spent | `VB JOB advance 100 -> 110`, `VB JOB sp spend ... level 0 -> 1` |
 | `t-vb-7` | storage round trip, Duey to the other pretend player, and a trade between the two | `VB STORAGE tookOut bagDelta=0`, `VB DUEY claimed recipientDelta=1`, `VB TRADE offered=true itemDelta=1 mesoDelta=5000` |
+| `t-vb-8` | (1.6.2, ticket 112) Moren's 6029 chain: start, the three 10,000-meso lessons through their end scripts, the hand-in teaching Maker 1; then one monster crystal from 100 leftovers through the Maker window's packet (`MakerSkillHandler`). Needs Maker in the server's Skill.wz | `VB MAKER chain canComplete=true state=2 lessons=3 maker=1 guide=1 otherMakers=0`, `VB MAKER crystal handler=true leftover=<id> 100 -> 0 crystal=<id> 0 -> 1` |
 
 `t-vb-4` also drives the catch: it spawns the tamable hog if the hourly spawn is not up, drops it to 30% HP and sends
 the real `USE_CATCH_ITEM` packet with the perfume, so `VB MOUNT hog ... handler=true ... perfumeUsed=1` is the catch. `t-vb-5` stages the coupon by toggling it in the server's active set and always puts the

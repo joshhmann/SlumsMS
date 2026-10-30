@@ -1,6 +1,7 @@
 # 112: How players could get the Maker skill (Dalair's merge gate)
 
-Status: (c) done in 1.6.0 - Dalair's merge is level only (owner 2026-10-27), no Maker needed. (a)/(b) remain for 1.6.1.
+Status: 1.6.2 option (a) built on branch `162-maker` (server side; partial until the client lane ships the Skill img
+nodes and the WZ step runs on TEST). History: (c) shipped in 1.6.0 (merge level only).
 
 Owner, 2026-10-27: Dalair's equipment merge (NPC 9000040) needs level 160 (110 for Cygnus) **and Maker level 3**
 (`Character.meetsMergeGate`, owner decision 2026-10-26). Nobody can reach Maker 3 on this server, so the merge is
@@ -114,3 +115,53 @@ works if the skill works in the client.
 If the owner wants the merge open right away, do **(c)** first (S) and add (b) on top later. Keep **(a)** for a release
 that already ships a client layer (1.7.0 client work) and only if the owner wants the Maker window's crafting economy
 back; it needs his economy go.
+
+## nutnnut adoption (2026-10-30, owner: adopt what we haven't)
+
+Once the Maker skill works: a read-only "maker plan" (which craftable equips would be upgrades, ranked by attack gain;
+upstream BotMakerPlanner) for players and bots (S), and batch "make monster crystals" / "disassemble trash" through
+the real MakerProcessor path (upstream BotMakerManager), which fits ticket 127's batch modes (M; an economy faucet,
+so the owner decides the caps).
+
+## Owner decisions (grill, 2026-10-30): the real Maker comes back in 1.6.2
+
+1. **Route: option (a), the real Maker.** Restore skill 1007 / 10001007 / 20001007 (and Evan's 20011007) in the
+   server's Skill.wz from the stock Cosmic dump on 164 (/opt/cosmicms/wz/Skill.wz), unhide Moren's chain 6029-6036
+   (HiddenQuests), and add the skill nodes to the client's Skill 000/1000/2000(/2001).img in the next client build
+   (Client lane; rides with rc12 or the build after it). The quests teach Maker 1/2/3 at levels 45/75/105.
+2. **Economy: original rules.** Stock recipes and success rates; `USE_MAKER_PERMISSIVE_ATKUP` stays off; monster
+   crystals still only improve (NN-009 / EC-005).
+3. **Bots: plan, with crafting capped.** Bots and alts get the read-only "maker plan" (upstream BotMakerPlanner) and
+   may batch-make monster crystals and disassemble junk (upstream BotMakerManager) through the real MakerProcessor
+   path, with a daily cap per bot (and a world-wide cap) so crafted goods don't flood the market. One implementation
+   for alts and population bots.
+4. **Dalair's merge gate: back to level 160 (110 Cygnus) AND Maker 3** (the owner's 10-26 rule), now that Maker is
+   reachable. Update meetsMergeGate, Dalair's dialogue, DalairMigrationTest, EquipmentMergeCapTest and t-np-4.
+QA: walk 6029-6036 on TEST with a real client (QA client), craft in the Maker window, exercise MakerSkillHandler
+against the real client's packets; an auto-QA check for the quest chain and a bot batch-craft under the cap.
+
+## Built for 1.6.2 (branch `162-maker`, 2026-10-30)
+
+Status: **partial** (server done and unit-tested; not on TEST yet, no real-client check yet).
+
+- **Server skill data**: `tools/data-align/add_maker_skill.py --wz <server>/wz [--apply]` adds 0001007 (000.img),
+  10001007 (1000.img), 20001007 (2000.img) byte for byte from the stock Cosmic dump, and Evan's 20011007 in a new
+  2001.img.xml (no stock node: Aran's under Evan's id). Dry run by default; `--apply` backs up into
+  `wz-backup-<stamp>-maker-skill-<pid>/`. Restart after. Not run on TEST or live. The node XML is in
+  `tools/data-align/maker-skill/` (the client lane matches it in Data/Skill).
+- **Quests**: 6029-6036 unhidden. 6033/6036 teach `qm.getMakerSkillId()` (Evan has its own id). The 6029 act no longer
+  teaches all four Maker skills to everyone (SkillAction: a beginner skill only to its own family).
+- **Economy**: stock recipes (the DB Maker tables), USE_MAKER_PERMISSIVE_ATKUP off, crystals only improve (unchanged),
+  90% stimulant. Fixed: free recipes (monster crystals) ate the leftovers and gave nothing (MapleRoot).
+  MapleRoot's gem luck (a gem craft sometimes gives the next grade) is kept: owner's call.
+- **Dalair**: level 160 (110 Cygnus) and Maker 3 again (`meetsMergeGate`, 9000040.js, t-np-4: fails, naming the WZ
+  tool, on a server without Maker).
+- **Bots and alts**: `MakerPlan` (read-only, `@maker plan [alt]`) and `BotMaker` (crystals and junk disassembly through
+  the Maker path, per-character and world daily caps). Switch: economy.yaml `maker.botBatch` (off),
+  `maker.perBotDaily` 10, `maker.worldDaily` 300; TEST: `-Dsolomapling.economy.maker.botBatch=true`.
+- **QA**: auto-QA `t-vb-8` (`!qa run vb-8`, `!qa do chain`, `!qa do craft`); t-np-4 updated. Real client still needed:
+  the Maker window (opening it from the skill, the recipe list, crafting with gems/stimulant, disassembly), the skill
+  showing in the beginner tab next to MapleRoot's four, and quest dialogs on the way.
+- **Release steps (1.6.2)**: run the WZ tool on TEST (then live, owner's go) before the restart with the new jar; the
+  client build with the same nodes ships first (MMO order).
+

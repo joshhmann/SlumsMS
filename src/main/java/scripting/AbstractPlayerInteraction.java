@@ -980,13 +980,22 @@ public class AbstractPlayerInteraction {
         getPlayer().cancelEffect(ItemInformationProvider.getInstance().getItemEffect(id), false, -1);
     }
 
+    /** The Maker skill of this player's job family (ticket 112): 1007, 10001007, 20001007 or 20011007 (Evan). */
+    public int getMakerSkillId() {
+        return client.inventory.MakerService.makerSkillId(getPlayer().getJob().getId());
+    }
+
     public void teachSkill(int skillid, byte level, byte masterLevel, long expiration) {
         teachSkill(skillid, level, masterLevel, expiration, false);
     }
 
     public void teachSkill(int skillid, byte level, byte masterLevel, long expiration, boolean force) {
         Skill skill = SkillFactory.getSkill(skillid);
-        if (skill == null) { // not in our Skill.wz (MapleRoot removed it); skip it and let the script carry on
+        if (skill == null) {
+            // Not in this server's Skill.wz (MapleRoot removed it). The script carries on, but say so: ticket 112
+            // found Maker quests that finished and taught nothing because of this skip.
+            log.warn("teachSkill: skill {} is not in Skill.wz; {} was not taught it", skillid,
+                    getPlayer() != null ? getPlayer().getName() : "?");
             return;
         }
         Character.SkillEntry skillEntry = getPlayer().getSkills().get(skill);

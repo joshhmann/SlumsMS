@@ -508,6 +508,24 @@ public class GameConstants {
         return Aran.HIDDEN_FULL_DOUBLE == skill || Aran.HIDDEN_FULL_TRIPLE == skill || Aran.HIDDEN_OVER_DOUBLE == skill || Aran.HIDDEN_OVER_TRIPLE == skill;
     }
 
+    /**
+     * The beginner job a job descends from, which is also the prefix of its beginner skills (skill id / 10000):
+     * 0 Explorers (and GMs), 1000 Cygnus Knights, 2000 Aran, 2001 Evan (2200-2218, and this fork's 9900-9918).
+     * Ticket 112: Maker is 0001007 / 10001007 / 20001007 / 20011007 by this prefix.
+     */
+    public static int getBeginnerJobId(final int job) {
+        if (job == 2001 || (job >= 2200 && job <= 2218) || (job >= 9900 && job <= 9918)) {
+            return 2001;
+        }
+        if (job / 1000 == 1) {
+            return 1000;
+        }
+        if (job / 1000 == 2) {
+            return 2000;
+        }
+        return 0;
+    }
+
     public static boolean isCygnus(final int job) {
         return job / 1000 == 1;
     }

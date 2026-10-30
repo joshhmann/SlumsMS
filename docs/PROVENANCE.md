@@ -178,3 +178,10 @@ Credit: `nutnnut/Cosmic 77e0c5bc9` (`server/bots/BotSkillBookManager.java`: "wan
 bot's build, even before reqSkillLevel"). Taken: the want rule and the use-one-book-at-a-time pause. Ours:
 `BotSkillBooks`, master-level caps in `BotSkillPlan`/`BotBuild.State`, the keep/sell rule on `SaleRules`, the
 bot-shop stock hook. Switch `-Dsolomapling.botSkillBooks=true` (default off).
+### Ticket 112: the Maker plan and batch (branch `162-maker`)
+
+`dev`. Rewritten onto our types and rules (each file's header says what was kept and what is ours). The batch is
+behind economy.yaml `maker.botBatch` (off by default); the plan is read-only.
+
+| `BotMakerPlanner.java` @ `356fbfeb1` | The question and its shape: equips the character can Maker-craft right now (Maker level, materials) that would be upgrades, ranked best first. Ours: one plan for players, alts and bots, valued through `MakerGearScore` (162-gearopt's `GearScoring` plugs in), plain items only (upstream also samples stimulant and gem rolls) | `MakerPlan`, `MakerGearScore`, `AttackGainScore`, `@maker plan` | none (read-only) |
+| `BotMakerManager.java` @ `6fd0512a0`, `MakerProcessor.java` @ `1ff686027` | "Make monster crystals" and "disassemble trash" through the player's Maker path (upstream split `makeLeftoverCrystal` / `disassembleEquip` out of the packet handler). Ours: a `Hands` seam so population bots use the bot ledger, daily per-bot and world caps, monster leftovers only, junk = not an upgrade by the gear score, run at a bot's town stop or on the alt owner's `@maker crystals|scrap` | `BotMaker`, `BotMakerHands`, `MakerService.makeLeftoverCrystal` / `disassemble` | `maker.botBatch` (+ `maker.perBotDaily`, `maker.worldDaily`) |

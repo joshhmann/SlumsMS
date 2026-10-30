@@ -1759,7 +1759,7 @@ final class GameQaWorld implements QaWorld {
         for (client.Skill s : new ArrayList<>(gm.getSkills().keySet())) {
             gm.changeSkillLevel(s, (byte) -1, 0, -1);
         }
-        for (int qid : new int[]{6002, 6003, 6007, 100003, 100005}) {
+        for (int qid : new int[]{6002, 6003, 6007, 100003, 100005, 6029, 6030, 6031, 6032, 6033, 6034, 6035, 6036}) {
             server.quest.Quest q = server.quest.Quest.getInstance(qid);
             if (q != null) {
                 gm.getQuestRemove(q);
@@ -1798,6 +1798,7 @@ final class GameQaWorld implements QaWorld {
                 case "vb-5" -> shopStep(gm, step);
                 case "vb-6" -> jobStep(gm, step);
                 case "vb-7" -> basicsStep(gm, step);
+                case "vb-8" -> makerStep(gm, step);
                 default -> List.of("no v83 feature " + feature);
             };
         } catch (RuntimeException e) {
@@ -2352,6 +2353,109 @@ final class GameQaWorld implements QaWorld {
         h.handlePacket(new net.packet.ByteBufInPacket(io.netty.buffer.Unpooled.wrappedBuffer(b.getBytes())),
                 gm.getClient());
         return true;
+    }
+
+    // ── vb-8: Moren's Maker 1 chain and one monster crystal (ticket 112) ──
+
+    static final int MOREN = 2110004, MOREN_MAP = 261000002;
+    /** The three lessons of 6029: quest, teacher, the teacher's map. */
+    static final int[][] MAKER_LESSONS = {{6030, 2111000, 261000010}, {6031, 2012017, 200082301}, {6032, 2110004, 261000002}};
+    /** Monster leftovers tried in order for the crystal (the first one the drop data turns into a crystal). */
+    static final int[] MAKER_LEFTOVERS = {4000000, 4000016, 4000019, 4000001, 4000003};
+
+    private List<String> makerStep(Character gm, String step) {
+        List<String> out = new ArrayList<>();
+        int skillId = client.inventory.MakerService.makerSkillId(110);
+        if ("stage".equals(step)) {
+            resetPretendPlayer(gm, 110, 50, 1_000_000);
+            warp(gm, MOREN_MAP);
+            out.add("VB MAKER staged job=" + gm.getJob().getId() + " level=" + gm.getLevel() + " map=" + gm.getMapId()
+                    + " skillInWz=" + (client.SkillFactory.getSkill(skillId) != null));
+            return out;
+        }
+        if ("chain".equals(step)) {
+            server.quest.Quest chain = server.quest.Quest.getInstance(6029);
+            warp(gm, MOREN_MAP);
+            chain.start(gm, MOREN);
+            out.add("VB MAKER 6029 started state=" + gm.getQuestStatus(6029));
+            int lessons = 0;
+            for (int[] l : MAKER_LESSONS) {
+                server.quest.Quest q = server.quest.Quest.getInstance(l[0]);
+                warp(gm, MOREN_MAP);
+                q.start(gm, MOREN);
+                warp(gm, l[2]);
+                int mesoBefore = gm.getMeso();
+                long since = System.currentTimeMillis();
+                questEndScript(gm, l[0], l[1]);
+                boolean done = gm.getQuestStatus(l[0]) == 2;
+                lessons += done ? 1 : 0;
+                out.add("VB MAKER lesson " + l[0] + " at " + l[1] + " done=" + done + " fee=" + (mesoBefore - gm.getMeso()));
+                refuseCheck(out, npcDialogs(gm, since));
+            }
+            warp(gm, MOREN_MAP);
+            boolean can = chain.canComplete(gm, MOREN);
+            chain.complete(gm, MOREN);
+            out.add("VB MAKER chain canComplete=" + can + " state=" + gm.getQuestStatus(6029) + " lessons=" + lessons
+                    + " maker=" + gm.getSkillLevel(skillId) + " guide=" + countItem(gm, 4161037)
+                    + " otherMakers=" + (gm.getSkillLevel(10001007) + gm.getSkillLevel(20001007) + gm.getSkillLevel(20011007)));
+        } else if ("craft".equals(step)) {
+            server.ItemInformationProvider ii = server.ItemInformationProvider.getInstance();
+            int leftover = -1, crystal = -1;
+            for (int id : MAKER_LEFTOVERS) {
+                crystal = ii.getMakerCrystalFromLeftover(id);
+                if (crystal != -1) {
+                    leftover = id;
+                    break;
+                }
+            }
+            if (leftover == -1) {
+                out.add("VB MAKER crystal NO_LEFTOVER (none of " + java.util.Arrays.toString(MAKER_LEFTOVERS) + " makes a crystal)");
+                return out;
+            }
+            InventoryManipulator.addById(gm.getClient(), leftover, (short) 100, "qa", -1);
+            int leftBefore = countItem(gm, leftover), crystalBefore = countItem(gm, crystal);
+            int pickedLeftover = leftover;
+            long since = System.currentTimeMillis();
+            // the Maker window's own packet (type 3: a monster crystal from a leftover) through MakerSkillHandler
+            boolean handled = body(gm, net.opcodes.RecvOpcode.MAKER_SKILL, b -> {
+                b.writeInt(3);
+                b.writeInt(pickedLeftover);
+            });
+            out.add("VB MAKER crystal handler=" + handled + " leftover=" + leftover + " " + leftBefore + " -> "
+                    + countItem(gm, leftover) + " crystal=" + crystal + " " + crystalBefore + " -> " + countItem(gm, crystal));
+            for (String d : serverNotices(gm, since)) {
+                out.add("NPC_REFUSAL " + d);   // the Maker path's refusals arrive as notices
+            }
+        }
+        return out;
+    }
+
+    /** Ends a quest through its end script at this NPC, clicking "Next" until the script lets go (at most 10). */
+    private void questEndScript(Character gm, int quest, int npc) {
+        Client c = gm.getClient();
+        c.removeClickedNPC();
+        scripting.quest.QuestScriptManager qsm = scripting.quest.QuestScriptManager.getInstance();
+        qsm.end(c, (short) quest, npc);
+        for (int i = 0; i < 10 && gm.getQuestStatus(quest) != 2; i++) {
+            qsm.end(c, (byte) 1, (byte) 0, 0);
+            c.removeClickedNPC();
+        }
+        qsm.dispose(c);
+        c.removeClickedNPC();
+    }
+
+    /** Pop-up notices (serverNotice type 1) this pretend player received since a time. */
+    private List<String> serverNotices(Character gm, long since) {
+        if (!(gm.getClient() instanceof client.SyntheticClient sc)) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        for (soloMapling.autoqa.AutoQaLine line : sc.heardSince(since)) {
+            if ("NOTICE".equals(line.kind()) && line.message().startsWith("[1] ")) {
+                out.add(line.message());
+            }
+        }
+        return out;
     }
 
     // ── vb-7: storage, Duey and a trade between two pretend players ──

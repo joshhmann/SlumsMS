@@ -100,7 +100,7 @@ class V83ChecksTest {
 
     @Test
     void everyCheckHasAScenarioOfItsOwn() {
-        for (String id : List.of("t-vb-1", "t-vb-2", "t-vb-3", "t-vb-4", "t-vb-5", "t-vb-6", "t-vb-7")) {
+        for (String id : List.of("t-vb-1", "t-vb-2", "t-vb-3", "t-vb-4", "t-vb-5", "t-vb-6", "t-vb-7", "t-vb-8")) {
             assertNotNull(AutoQaCatalog.find(id), id + " is not in the catalogue");
             String scenario = id.substring(2);
             assertTrue(QaScenarios.all().stream().anyMatch(s -> s.id().equals(scenario)), id + " has no !qa scenario");
@@ -113,7 +113,7 @@ class V83ChecksTest {
      */
     @Test
     void everyQaDoStepIsOneTheScenarioOffers() {
-        for (String id : List.of("t-vb-1", "t-vb-2", "t-vb-3", "t-vb-4", "t-vb-5", "t-vb-6", "t-vb-7")) {
+        for (String id : List.of("t-vb-1", "t-vb-2", "t-vb-3", "t-vb-4", "t-vb-5", "t-vb-6", "t-vb-7", "t-vb-8")) {
             Check check = AutoQaCatalog.find(id);
             String scenarioId = id.substring(2);
             soloMapling.qa.QaScenario scenario = QaScenarios.all().stream()
