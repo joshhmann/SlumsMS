@@ -15,6 +15,8 @@ import soloMapling.ArtificialPlayer.BotGeneration;
 import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
 import soloMapling.ArtificialPlayer.BotGearSystem.GearScoring;
 import soloMapling.ArtificialPlayer.BotGrindSystem.GearFirstAdvisor;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotBagRoom;
+import soloMapling.ArtificialPlayer.BotSupplySystem.JunkSort;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMap;
 import soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMapChooser;
@@ -55,7 +57,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale");
 
     private Probes162() {
     }
@@ -69,6 +71,7 @@ final class Probes162 {
                 case "paretoGear" -> paretoGear(p);
                 case "dexlessAp" -> dexlessAp(p);
                 case "gearFirstFarm" -> gearFirstFarm(p);
+                case "junkSortSale" -> junkSortSale(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -476,13 +479,18 @@ final class Probes162 {
 
     /** The first real item in [from, to) with {@code test} on its equip stats (reqLevel, reqSTR, ...), or 0. */
     static int findEquip(int from, int to, java.util.function.Predicate<Map<String, Integer>> test) {
+        return findEquip(from, to, (id, st) -> test.test(st));
+    }
+
+    /** As above, with the item id handed to the test too. */
+    static int findEquip(int from, int to, java.util.function.BiPredicate<Integer, Map<String, Integer>> test) {
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
         for (int id = from; id < to; id++) {
             if (ii.getName(id) == null || ii.isCash(id)) {
                 continue;
             }
             Map<String, Integer> st = ii.getEquipStats(id);
-            if (st != null && !st.isEmpty() && test.test(st)) {
+            if (st != null && !st.isEmpty() && test.test(id, st)) {
                 return id;
             }
         }
@@ -804,6 +812,108 @@ final class Probes162 {
                             + ", in its band, which drops it", ev);
         } finally {
             GearFirstAdvisor.forget(bot.getId());
+            ev.add(TalkQa.teardown(List.of(bot)));
+        }
+    }
+
+    // ── t-gb-4: junk.sort keeps the reserve and shelf out of the town sale ──────────────────────
+
+    /** t-gb-4: the equip tab's size for the stage, the scrolled (shelf) pieces and the plain junk in it. */
+    static final int GB4_SLOTS = 24, GB4_SHELF = 14, GB4_JUNK = 2;
+
+    /**
+     * t-gb-4: what is wrong with the sale: {@code keptSold} kept pieces gone, {@code shelfNotKept} staged scrolled
+     * pieces the sort did not keep, {@code junkLeft} plain junk still held. Pure, for the tests.
+     */
+    static List<String> junkProblems(int kept, int keptSold, int shelfNotKept, int junkLeft, int sold) {
+        List<String> bad = new ArrayList<>();
+        if (kept == 0) {
+            bad.add("JunkSort.keeps kept nothing (no item data, or the switch did not reach it)");
+        }
+        if (shelfNotKept > 0) {
+            bad.add(shelfNotKept + " scrolled piece(s) were not kept as valuables");
+        }
+        if (keptSold > 0) {
+            bad.add("the sale sold " + keptSold + " kept piece(s)");
+        }
+        if (junkLeft > 0) {
+            bad.add(junkLeft + " plain junk piece(s) were not sold");
+        }
+        if (sold == 0) {
+            bad.add("the sale sold nothing");
+        }
+        return bad;
+    }
+
+    /**
+     * t-gb-4 ({@code slums.junk.sort}): a fresh bot's equip bag is emptied and cut to {@link #GB4_SLOTS} slots, then
+     * holds {@link #GB4_SHELF} scrolled off-class pieces (valuables: the shelf) and {@link #GB4_JUNK} plain off-class
+     * pieces with no stats or slots (junk): more than half full, and the sale wants to free more than the junk, so a
+     * sale that ignored the sort would sell shelf pieces. {@code BotBagRoom.sellJunk} (the town stop's call) must sell
+     * the junk and keep every piece {@code JunkSort.keeps} names, including every scrolled one.
+     */
+    static List<String> junkSortSale(SyntheticPlayer p) throws InterruptedException {
+        if (!JunkSort.enabled()) {
+            return List.of("SKIP junk sorting is off (-Dslums.junk.sort=true)");
+        }
+        if (!BotBagRoom.saleEnabled()) {
+            return List.of("SKIP the bots' town junk sale is off (-Dsolomapling.botJunkSale=false)");
+        }
+        List<String> ev = new ArrayList<>();
+        Character bot = spawnTraining(p, 30);
+        if (bot == null) {
+            return List.of("FAIL could not spawn a training bot");
+        }
+        try {
+            freeze(bot);
+            int niche = bot.getJob().getJobNiche();
+            int bit = niche >= 1 && niche <= 5 ? 1 << (niche - 1) : 1;
+            ItemInformationProvider ii = ItemInformationProvider.getInstance();
+            int offClass = findEquip(1040000, 1100000, (id, st) -> req(st, "reqJob") != 0
+                    && (req(st, "reqJob") & bit) == 0 && req(st, "reqLevel") <= 30 && ii.getPrice(id, 1) > 0);
+            if (offClass == 0 || ii.getPrice(offClass, 1) <= 0) {
+                return List.of("FAIL no off-class equip with a price to stage (job niche " + niche + ", item "
+                        + offClass + ")");
+            }
+            client.inventory.Inventory bag = bot.getInventory(InventoryType.EQUIP);
+            List<Short> slots = new ArrayList<>();
+            for (Item it : bag.list()) {
+                slots.add(it.getPosition());
+            }
+            for (short sl : slots) {
+                bag.removeSlot(sl);
+            }
+            bag.setSlotLimit(GB4_SLOTS);
+            List<Item> shelf = new ArrayList<>(), junk = new ArrayList<>();
+            for (int i = 0; i < GB4_SHELF + GB4_JUNK; i++) {
+                Equip e = stagedEquip(offClass, 0, 0);
+                e.setUpgradeSlots((byte) 0);
+                if (i < GB4_SHELF) {
+                    e.setLevel((byte) 1);
+                    shelf.add(e);
+                } else {
+                    junk.add(e);
+                }
+                bag.addItem(e);
+            }
+            java.util.Set<Item> keeps = JunkSort.keeps(bot);
+            int shelfNotKept = (int) shelf.stream().filter(e -> !keeps.contains(e)).count();
+            ev.add("bot " + bot.getName() + " lv " + bot.getLevel() + " job " + bot.getJob().getId() + "; bag "
+                    + bag.list().size() + "/" + GB4_SLOTS + ": " + shelf.size() + " scrolled + " + junk.size()
+                    + " plain " + offClass + " (" + ii.getName(offClass) + ", " + ii.getPrice(offClass, 1)
+                    + " mesos); the sort keeps " + keeps.size());
+            BotBagRoom.Sale sale = BotBagRoom.sellJunk(bot);
+            java.util.Set<Item> held = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            held.addAll(bot.getInventory(InventoryType.EQUIP).list());
+            int keptSold = (int) keeps.stream().filter(k -> !held.contains(k)).count();
+            int junkLeft = (int) junk.stream().filter(held::contains).count();
+            ev.add("sale: " + sale.items() + " item(s) for " + sale.mesosOffered() + " mesos (" + sale.mesosCredited()
+                    + " credited); equip bag now " + held.size() + ", kept pieces sold " + keptSold + ", junk left "
+                    + junkLeft);
+            return Probes160.verdict(junkProblems(keeps.size(), keptSold, shelfNotKept, junkLeft, sale.items()),
+                    "the town sale sold the junk and kept all " + keeps.size() + " sorted pieces, though it wanted"
+                            + " to free more", ev);
+        } finally {
             ev.add(TalkQa.teardown(List.of(bot)));
         }
     }

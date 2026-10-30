@@ -1325,6 +1325,10 @@ public final class AutoQaCatalog {
                 .minutes(1)
                 .expect(probe("gearFirstFarm"))
                 .build());
+        // junk.sort: a bag over half full of scrolled pieces and a little junk; the town sale sells the junk only
+        c.add(Check.auto("t-gb-4", "Junk sort: the town sale keeps the reserve and the shelf").minutes(1)
+                .expect(probe("junkSortSale"))
+                .build());
         return List.copyOf(c);
     }
 

@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -115,5 +115,15 @@ class Probes162Test {
         var at2 = new soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMap(2, 40, 2, -1);
         assertEquals(3, Probes162.farmProblems(at2, false, java.util.Set.of(3), 1, 34).size());
         assertEquals(1, Probes162.farmProblems(null, false, java.util.Set.of(3), 1, 34).size());
+    }
+
+    // ── t-gb-4 ──
+
+    @Test
+    void theJunkCheckFailsWhenAKeptPieceIsSold() {
+        assertTrue(Probes162.junkProblems(14, 0, 0, 0, 2).isEmpty());
+        assertTrue(Probes162.junkProblems(14, 2, 0, 0, 4).get(0).contains("sold 2 kept"));
+        assertEquals(2, Probes162.junkProblems(0, 0, 14, 0, 4).size(), "nothing kept, shelf lost");
+        assertTrue(Probes162.junkProblems(14, 0, 0, 2, 0).get(1).contains("sold nothing"));
     }
 }
