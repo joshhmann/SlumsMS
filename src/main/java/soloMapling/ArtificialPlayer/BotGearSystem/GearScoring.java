@@ -24,6 +24,9 @@ public interface GearScoring {
      */
     double upgradeValue(Character chr, Equip candidate);
 
+    /* upgradeValue as a fraction of what the character's main attack is now (0.3 = 30% more damage). */
+    double upgradeFraction(Character chr, Equip candidate);
+
     /*
      * The best loadout from what the character wears and carries plus the extras (another character's items, for
      * an offer): body slot to equip, only the slots that change. Empty when nothing would change.

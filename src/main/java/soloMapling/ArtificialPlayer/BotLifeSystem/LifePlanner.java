@@ -47,14 +47,16 @@ public final class LifePlanner {
 
     public enum Fact {
         LEVEL_READY, AT_INSTRUCTOR, ADVANCED, WEAPON_OK, HAS_FRIEND, HAS_CRUSH, HAS_RING, MARRIED,
-        GUILD_CONTACT, IN_GUILD, ZAKUM_LEVEL, ZAKUM_READY, ZHELM, LOOT, RICH;
+        GUILD_CONTACT, IN_GUILD, ZAKUM_LEVEL, ZAKUM_READY, ZHELM, LOOT, RICH,
+        /* Ticket 162: the farmed gear dropped (soft: made true by finishing the farm step). */
+        GEAR_FARMED;
 
         int bit() { return 1 << ordinal(); }
     }
 
     /** Facts the game can't answer: made true by finishing the step that causes them. */
     public static final Set<Fact> SOFT = Collections.unmodifiableSet(EnumSet.of(Fact.AT_INSTRUCTOR,
-            Fact.GUILD_CONTACT, Fact.ZAKUM_READY, Fact.LOOT));
+            Fact.GUILD_CONTACT, Fact.ZAKUM_READY, Fact.LOOT, Fact.GEAR_FARMED));
 
     public enum Step {
         GRIND_TO_LEVEL(Activity.GRIND, "grind to level %d", 2, List.of(), Fact.LEVEL_READY),
@@ -74,7 +76,9 @@ public final class LifePlanner {
                 Fact.ZAKUM_READY),
         ZAKUM_RUN(Activity.PARTY_QUEST, "find a Zakum run for the helmet", 2, List.of(Fact.ZAKUM_READY), Fact.ZHELM),
         FARM_LOOT(Activity.GRIND, "farm loot to sell", 1, List.of(), Fact.LOOT),
-        SELL_LOOT(Activity.FREE_MARKET, "sell loot in the FM", 1, List.of(Fact.LOOT), Fact.RICH);
+        SELL_LOOT(Activity.FREE_MARKET, "sell loot in the FM", 1, List.of(Fact.LOOT), Fact.RICH),
+        /* Ticket 162: grind where the wanted drop falls (GearFirstAdvisor.farmPick picks the map). */
+        FARM_GEAR(Activity.GRIND, "farm the gear drop it wants", 1, List.of(), Fact.GEAR_FARMED);
 
         public final Activity activity;
         final String text;
@@ -133,6 +137,7 @@ public final class LifePlanner {
             case GUILD -> Fact.IN_GUILD;
             case ZHELM -> Fact.ZHELM;
             case WEALTH -> Fact.RICH;
+            case FARM_ITEM -> Fact.GEAR_FARMED;
         };
     }
 

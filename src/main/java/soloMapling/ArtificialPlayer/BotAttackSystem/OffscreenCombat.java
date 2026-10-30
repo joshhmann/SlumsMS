@@ -103,6 +103,18 @@ public final class OffscreenCombat {
         return rate;
     }
 
+    /*
+     * Ticket 162 part 2: the bot's pace on another map, worked out fresh and not cached (the gear-first map choice
+     * weighs many maps at once and must not evict the estimate of the map the bot grinds). Null as rate().
+     */
+    public static Rate rateOn(Character bot, int mapId) {
+        MonsterStats mob = representativeMob(mapId);
+        if (bot == null || mob == null) {
+            return null;
+        }
+        return estimate(bot, mob, MapMobIndex.mobCount(mapId), 1);
+    }
+
     public static void clearBot(int botId) {
         byBot.remove(botId);
     }

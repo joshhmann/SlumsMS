@@ -15,15 +15,22 @@ import java.util.OptionalInt;
 public final class LifeGoals {
     private LifeGoals() {}
     public enum Kind {
-        JOB_ADVANCE, WEAPON_UPGRADE, LEVEL, MARRIAGE, GUILD, ZHELM, FOURTH_JOB, WEALTH;
+        JOB_ADVANCE, WEAPON_UPGRADE, LEVEL, MARRIAGE, GUILD, ZHELM, FOURTH_JOB, WEALTH,
+        /* Ticket 162 part 2: farm a gear drop the gear-first map choice found worth chasing (-Dslums.grind.gearFirst). */
+        FARM_ITEM;
 
         /** Whether this goal is about getting stronger (it feeds the PROGRESS need that pushes grinding). */
         public boolean progression() {
             return this == JOB_ADVANCE || this == WEAPON_UPGRADE || this == LEVEL || this == FOURTH_JOB
-                    || this == ZHELM;
+                    || this == ZHELM || this == FARM_ITEM;
         }
     }
-    public record Goal(Kind kind, int targetLevel, String description, double pressure) {
+    /* {@code itemId}: the item a FARM_ITEM goal farms (0 for every other kind). */
+    public record Goal(Kind kind, int targetLevel, String description, double pressure, int itemId) {
+        public Goal(Kind kind, int targetLevel, String description, double pressure) {
+            this(kind, targetLevel, description, pressure, 0);
+        }
+
         public Goal {
             if (targetLevel < 1 || !Double.isFinite(pressure) || pressure < 0 || pressure > 1) {
                 throw new IllegalArgumentException("invalid goal");
@@ -31,6 +38,14 @@ public final class LifeGoals {
             java.util.Objects.requireNonNull(kind);
             java.util.Objects.requireNonNull(description);
         }
+    }
+
+    /**
+     * Ticket 162 part 2: the drop the gear-first map choice wants most (GearFirstAdvisor.want), with how much: the
+     * DPS fraction it adds discounted by how likely it drops within two hours. Null when the switch is off or
+     * nothing in reach is worth chasing.
+     */
+    public record FarmWant(int itemId, String name, double desirability) {
     }
 
     /** A Zakum Helmet (v83 item 1002357), the 2009 flex. */
@@ -45,9 +60,14 @@ public final class LifeGoals {
      * point on Bartle's chart (null: no aspirations, the pre-S8 goals only).
      */
     public record Facts(int level, int jobId, OptionalInt weaponRequiredLevel, long meso, boolean inGuild,
-                        boolean married, boolean hasZhelm, SocialProfile social) {
+                        boolean married, boolean hasZhelm, SocialProfile social, FarmWant farm) {
         public Facts {
             java.util.Objects.requireNonNull(weaponRequiredLevel);
+        }
+
+        public Facts(int level, int jobId, OptionalInt weaponRequiredLevel, long meso, boolean inGuild,
+                     boolean married, boolean hasZhelm, SocialProfile social) {
+            this(level, jobId, weaponRequiredLevel, meso, inGuild, married, hasZhelm, social, null);
         }
 
         public static Facts basic(int level, int jobId, OptionalInt weaponRequiredLevel) {
@@ -103,6 +123,8 @@ public final class LifeGoals {
             case GUILD -> facts.inGuild();
             case ZHELM -> facts.hasZhelm();
             case WEALTH -> facts.meso() >= WEALTH_TARGET;
+            // Done once the item is no longer the bot's want (it got one, or something better came along).
+            case FARM_ITEM -> facts.farm() == null || facts.farm().itemId() != goal.itemId();
             case LEVEL -> facts.level() >= goal.targetLevel();
             case WEAPON_UPGRADE -> facts.weaponRequiredLevel().isPresent()
                     && facts.weaponRequiredLevel().getAsInt() >= goal.targetLevel();
@@ -128,7 +150,11 @@ public final class LifeGoals {
                 !f.inGuild() && f.level() >= 20 ? .6 * s + .8 * k : 0,                  // GUILD
                 !f.hasZhelm() && f.level() >= 40 && f.level() < 150 ? a + .4 * k : 0,   // ZHELM
                 f.meso() < WEALTH_TARGET && f.level() >= 25 ? .9 * e + .3 * a : 0};     // WEALTH
-        Kind[] kinds = {Kind.MARRIAGE, Kind.GUILD, Kind.ZHELM, Kind.WEALTH};
+        // FARM_ITEM: a gear-hungry bot (the want's need on GearFirstPlanner's scale), Achievers and Killers most.
+        double need = f.farm() == null ? 0 : Math.min(1, f.farm().desirability() / .30);
+        pulls = java.util.Arrays.copyOf(pulls, 5);
+        pulls[4] = need * (.5 + .5 * a + .3 * k);
+        Kind[] kinds = {Kind.MARRIAGE, Kind.GUILD, Kind.ZHELM, Kind.WEALTH, Kind.FARM_ITEM};
         for (int i = 0; i < kinds.length; i++) {
             if (pulls[i] > pull) { pull = pulls[i]; best = kinds[i]; }
         }
@@ -138,6 +164,8 @@ public final class LifeGoals {
             case MARRIAGE -> new Goal(Kind.MARRIAGE, f.level(), "get married", pressure);
             case GUILD -> new Goal(Kind.GUILD, f.level(), "join a guild", pressure);
             case ZHELM -> new Goal(Kind.ZHELM, Math.max(50, f.level()), "get a Zakum Helmet", pressure);
+            case FARM_ITEM -> new Goal(Kind.FARM_ITEM, f.level(), "farm a " + f.farm().name(), pressure,
+                    f.farm().itemId());
             default -> new Goal(Kind.WEALTH, f.level(), "save up 10m mesos", pressure);
         };
     }

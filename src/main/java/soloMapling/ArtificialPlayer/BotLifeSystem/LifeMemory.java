@@ -188,9 +188,16 @@ public final class LifeMemory {
             List<LifeGoals.Goal> loaded = new ArrayList<>();
             for (Object row : rows) {
                 if (loaded.size() == 2) break;
-                if (row instanceof Map<?, ?> g) loaded.add(new LifeGoals.Goal(
-                        LifeGoals.Kind.valueOf((String) g.get("kind")), ((Number) g.get("level")).intValue(),
-                        (String) g.get("description"), ((Number) g.get("pressure")).doubleValue()));
+                if (!(row instanceof Map<?, ?> g)) continue;
+                LifeGoals.Kind kind;
+                try {
+                    kind = LifeGoals.Kind.valueOf((String) g.get("kind"));
+                } catch (IllegalArgumentException | NullPointerException unknown) {
+                    continue;   // a goal kind this build does not know: dropped, the rest of the memory loads
+                }
+                loaded.add(new LifeGoals.Goal(kind, ((Number) g.get("level")).intValue(),
+                        (String) g.get("description"), ((Number) g.get("pressure")).doubleValue(),
+                        g.get("item") instanceof Number item ? item.intValue() : 0));
             }
             goals = List.copyOf(loaded);
         }
@@ -365,7 +372,7 @@ public final class LifeMemory {
                 case WEAPON_UPGRADE -> weaponLevel.isPresent() && weaponLevel.getAsInt() >= goal.targetLevel();
                 case LEVEL -> level >= goal.targetLevel();
                 // Aspirations are only judged when the facts are known (the S8 runtime passes them).
-                case MARRIAGE, GUILD, ZHELM, WEALTH -> facts.social() != null && LifeGoals.met(goal, facts);
+                case MARRIAGE, GUILD, ZHELM, WEALTH, FARM_ITEM -> facts.social() != null && LifeGoals.met(goal, facts);
             };
             if (!complete) pending.add(goal);
         }
@@ -376,7 +383,8 @@ public final class LifeMemory {
                 g.kind() == LifeGoals.Kind.JOB_ADVANCE || g.kind() == LifeGoals.Kind.FOURTH_JOB
                 ? Math.min(1, level / (double) g.targetLevel())
                 : g.kind() == LifeGoals.Kind.WEAPON_UPGRADE && weaponLevel.isPresent()
-                ? Math.max(0, Math.min(1, (g.targetLevel() - weaponLevel.getAsInt()) / 30.0)) : g.pressure())).toList();
+                ? Math.max(0, Math.min(1, (g.targetLevel() - weaponLevel.getAsInt()) / 30.0)) : g.pressure(),
+                g.itemId())).toList();
         if (!next.equals(goals)) {
             changed();
             if (!next.stream().map(LifeGoals.Goal::kind).toList().equals(goals.stream().map(LifeGoals.Goal::kind).toList())) {
@@ -599,8 +607,10 @@ public final class LifeMemory {
         Map<String, Double> drift = new LinkedHashMap<>();
         drift.put("dx", driftX); drift.put("dy", driftY);
         out.put("delta", Map.of("bartle", drift, "blend", names(delta)));
-        out.put("goals", goals.stream().map(g -> Map.of("kind", g.kind().name(), "level", g.targetLevel(),
-                "description", g.description(), "pressure", g.pressure())).toList());
+        out.put("goals", goals.stream().map(g -> g.itemId() == 0 ? Map.of("kind", g.kind().name(), "level",
+                g.targetLevel(), "description", g.description(), "pressure", g.pressure())
+                : Map.of("kind", g.kind().name(), "level", g.targetLevel(), "description", g.description(),
+                "pressure", g.pressure(), "item", g.itemId())).toList());
         out.put("plans", plans.stream().map(LifePlanner::save).toList());
         out.put("soft", soft.stream().map(Enum::name).toList());
         out.put("lastJob", lastJob); out.put("lastSocial", lastSocial);

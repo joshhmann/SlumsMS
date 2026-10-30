@@ -631,7 +631,13 @@ public final class LifeRuntime {
         boolean married = safe(chr::isMarried, false) || couple != null
                 && couple.stage() == soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.Stage.MARRIED;
         boolean zhelm = safe(() -> wears(chr, LifeGoals.ZHELM), false);
-        return new LifeGoals.Facts(level, job, weapon, meso, guild, married, zhelm, social);
+        LifeGoals.FarmWant farm = null;
+        if (soloMapling.ArtificialPlayer.BotGrindSystem.GearFirstAdvisor.enabled()) {
+            // Ticket 162 part 2: the drop its last gear-first map choice wanted most becomes a FARM_ITEM aspiration.
+            var want = soloMapling.ArtificialPlayer.BotGrindSystem.GearFirstAdvisor.want(chr.getId());
+            if (want != null) farm = new LifeGoals.FarmWant(want.itemId(), want.name(), want.desirability());
+        }
+        return new LifeGoals.Facts(level, job, weapon, meso, guild, married, zhelm, social, farm);
     }
 
     static LifePlanner.World world(Character chr, LifeGoals.Facts facts, Set<LifePlanner.Fact> soft) {

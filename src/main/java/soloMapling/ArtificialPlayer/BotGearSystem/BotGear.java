@@ -263,6 +263,14 @@ public final class BotGear {
         }
 
         @Override
+        public double upgradeFraction(Character chr, Equip candidate) {
+            if (chr == null || candidate == null || !EquipMetadataCache.isInitialized()) {
+                return 0;
+            }
+            return BotGear.upgradeFraction(chr, candidate, liveFacts(chr), worn -> liveValuer(chr, worn));
+        }
+
+        @Override
         public Map<Short, Equip> bestSet(Character chr, java.util.Collection<Equip> extras) {
             if (chr == null || !EquipMetadataCache.isInitialized()) {
                 return Map.of();
@@ -281,6 +289,21 @@ public final class BotGear {
         for (Piece p : plan.wear().values()) {
             if (p.item() == candidate) {
                 return Math.max(0, plan.after() - plan.before());
+            }
+        }
+        return 0;
+    }
+
+    /* GearScoring.upgradeFraction with its item data and yardstick handed in (tests). */
+    static double upgradeFraction(Character chr, Equip candidate, IntFunction<Known> facts,
+                                  Function<Map<Short, Piece>, Valuer> valuers) {
+        Plan plan = planWith(chr, List.of(candidate), facts, valuers);
+        if (plan == null || plan.before() <= 0) {
+            return 0;
+        }
+        for (Piece p : plan.wear().values()) {
+            if (p.item() == candidate) {
+                return Math.max(0, plan.after() - plan.before()) / plan.before();
             }
         }
         return 0;
