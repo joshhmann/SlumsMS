@@ -165,6 +165,9 @@ public final class SiteWorld {
             e.put("mob", r.mob());
             e.put("name", r.name());
             e.put("kills", r.kills());
+            // 1.6.2 b015: counted one by one (players, bots on screen) + estimated (bots' modelled offscreen pace)
+            e.put("counted", r.counted());
+            e.put("estimated", r.estimated());
             out.add(e);
         }
         return out;
