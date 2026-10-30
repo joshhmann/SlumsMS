@@ -45,7 +45,7 @@ class KsMannersTest {
         Character bot = at(9001, 0, 100);
         Character player = at(1, 900, 100);
         Monster m = mob(0, 100);
-        when(m.isAttackedBy(player)).thenReturn(true);
+        when(m.lastHitBy(1)).thenReturn(System.currentTimeMillis() - 1_000); // hitting it now
         assertEquals(player, KsManners.ownerOf(bot, List.of(player), m));
     }
 
@@ -84,5 +84,31 @@ class KsMannersTest {
             soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.stopSpree(bot.getId());
         }
         assertTrue(KsManners.respects(bot, player), "the spree over: manners again");
+    }
+
+    /** Audit 163 (B21): a player's hit claims a mob while they keep at it, not for the rest of its life. */
+    @Test
+    void aPlayersOldHitNoLongerClaimsTheMob() {
+        Character bot = at(9001, 0, 100);
+        Character player = at(1, 900, 100); // far from the mob: only a hit could make it theirs
+        Monster m = mob(0, 100);
+        long now = System.currentTimeMillis();
+        when(m.isAttackedBy(player)).thenReturn(true); // the vanilla record never forgets
+        when(m.lastHitBy(1)).thenReturn(now - KsManners.CLAIM_MS - 1_000);
+        assertNull(KsManners.ownerOf(bot.getMap(), List.of(player), m, now), "they stopped hitting it 16 s ago");
+        when(m.lastHitBy(1)).thenReturn(now - 2_000);
+        assertEquals(player, KsManners.ownerOf(bot.getMap(), List.of(player), m, now), "still at it");
+    }
+
+    /** Audit 163: the earlier claim is the one that counts (a run of hits restarts after a long gap). */
+    @Test
+    void aClaimStartsAtTheCurrentRunOfHits() {
+        Monster m = mob(0, 100);
+        long now = 1_000_000L;
+        when(m.lastHitBy(7)).thenReturn(now - 1_000);
+        when(m.hitStreakStart(7)).thenReturn(now - 9_000);
+        assertEquals(now - 9_000, KsManners.claimSince(m, 7, now));
+        when(m.lastHitBy(7)).thenReturn(now - KsManners.CLAIM_MS - 1);
+        assertEquals(0, KsManners.claimSince(m, 7, now), "lapsed: no claim");
     }
 }

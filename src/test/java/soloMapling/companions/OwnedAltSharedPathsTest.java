@@ -102,7 +102,7 @@ class OwnedAltSharedPathsTest {
         Set<Integer> party = Set.of(OWNER, ALT);
         try (MockedStatic<KsManners> ks = Mockito.mockStatic(KsManners.class, Mockito.CALLS_REAL_METHODS)) {
             assertTrue(OwnedAltCombat.strangers(m, field, party));
-            ks.verify(() -> KsManners.ownerOf(eq(field), eq(List.of(stranger)), eq(m)));
+            ks.verify(() -> KsManners.ownerOf(eq(field), eq(List.of(stranger)), eq(m), org.mockito.ArgumentMatchers.anyLong()));
         }
         when(stranger.getPosition()).thenReturn(new Point(1000 + 261, 0));
         assertFalse(OwnedAltCombat.strangers(m, field, party), "past the bots' 260 px: free");
@@ -122,6 +122,7 @@ class OwnedAltSharedPathsTest {
         chars.add(stranger);
         Map<Integer, Long> dealt = new HashMap<>(Map.of(OWNER, 5L));
         when(m.damageSnapshot()).thenReturn(dealt);
+        when(m.lastHitBy(OWNER)).thenReturn(System.currentTimeMillis()); // the party is hitting it now
         assertFalse(OwnedAltCombat.strangers(m, field, Set.of(OWNER, ALT)),
                 "the alt's layer on top: the party hit it first, a stranger walking up later does not take it");
     }

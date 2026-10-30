@@ -95,6 +95,14 @@ public class Monster extends AbstractLoadedLife {
     private final HashMap<Integer, AtomicLong> takenDamage = new HashMap<>();
     /** SoloMapling (1.5.0): when each attacker last landed damage (epoch ms), guarded like takenDamage. */
     private final HashMap<Integer, Long> lastHitAt = new HashMap<>();
+    /**
+     * SoloMapling 1.6.2 (audit 163, KS ordering): when each attacker's current run of hits began (epoch ms). A gap of
+     * more than {@link #HIT_STREAK_GAP_MS} between two hits starts a new run, so "who was on it first" reads the
+     * fight going on now, not a hit long ago. Guarded like takenDamage.
+     */
+    private final HashMap<Integer, Long> hitStreakAt = new HashMap<>();
+    /** A gap between one attacker's hits longer than this starts a new run (KsManners.CLAIM_MS reads the same). */
+    public static final long HIT_STREAK_GAP_MS = 15_000;
     private ScheduledFuture<?> monsterItemDrop = null;
     private Runnable removeAfterAction = null;
     private boolean availablePuppetUpdate = true;
@@ -455,7 +463,11 @@ public class Monster extends AbstractLoadedLife {
         } else {
             takenDamage.get(from.getId()).addAndGet(fake ? 1 : trueDamage);
         }
-        lastHitAt.put(from.getId(), System.currentTimeMillis());
+        long hitAt = System.currentTimeMillis();
+        Long before = lastHitAt.put(from.getId(), hitAt);
+        if (before == null || hitAt - before > HIT_STREAK_GAP_MS) {
+            hitStreakAt.put(from.getId(), hitAt);
+        }
 
         broadcastMobHpBar(from);
         DamageRank.onHit(this, from);
@@ -527,6 +539,17 @@ public class Monster extends AbstractLoadedLife {
                 }
             }
             return best;
+        } finally {
+            unlockMonster();
+        }
+    }
+
+    /** SoloMapling 1.6.2: when this attacker's current run of hits on the mob began (epoch ms), or 0. */
+    public long hitStreakStart(int attackerId) {
+        lockMonster();
+        try {
+            Long at = hitStreakAt.get(attackerId);
+            return at == null ? 0 : at;
         } finally {
             unlockMonster();
         }

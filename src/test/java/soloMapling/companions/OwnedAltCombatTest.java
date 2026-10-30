@@ -78,7 +78,7 @@ class OwnedAltCombatTest {
         Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
         Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
         assertSame(owners, OwnedAltCombat.target(owner, alt, party, NOW), "not the nearer quiet mob: it never starts alone");
-        assertTrue(OwnedAltCombat.mayHit(quiet, f, party), "its area attacks may still catch a free mob");
+        assertTrue(OwnedAltCombat.mayHit(quiet, f, party, NOW), "its area attacks may still catch a free mob");
     }
 
     @Test
@@ -111,8 +111,8 @@ class OwnedAltCombatTest {
         Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
         OwnedAltCombat.noteHit(alt, theirs, NOW); // even one that bumped into the alt
         assertNull(OwnedAltCombat.target(owner, alt, party, NOW), "a real player outside the party hit both");
-        assertFalse(OwnedAltCombat.mayHit(theirs, f, party), "and its area attacks leave them alone");
-        assertFalse(OwnedAltCombat.mayHit(shared, f, party));
+        assertFalse(OwnedAltCombat.mayHit(theirs, f, party, NOW), "and its area attacks leave them alone");
+        assertFalse(OwnedAltCombat.mayHit(shared, f, party, NOW));
     }
 
     @Test
@@ -122,8 +122,35 @@ class OwnedAltCombatTest {
         MapleMap f = map(List.of(botOnly, both));
         Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
         Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
-        assertFalse(OwnedAltCombat.mayHit(botOnly, f, party));
+        assertFalse(OwnedAltCombat.mayHit(botOnly, f, party, NOW));
         assertSame(both, OwnedAltCombat.target(owner, alt, party, NOW));
+    }
+
+    /** Audit 163 (A3): a population bot that was on a mob before the party keeps it; one that came later does not. */
+    @Test
+    void theEarlierClaimWinsBetweenThePartyAndAPopulationBot() {
+        Monster botFirst = mob(30, BOT, OWNER);
+        when(botFirst.hitStreakStart(BOT)).thenReturn(NOW - 5_000);
+        when(botFirst.hitStreakStart(OWNER)).thenReturn(NOW - 1_000);
+        Monster partyFirst = mob(60, BOT, OWNER);
+        when(partyFirst.hitStreakStart(OWNER)).thenReturn(NOW - 5_000);
+        when(partyFirst.hitStreakStart(BOT)).thenReturn(NOW - 1_000);
+        MapleMap f = map(List.of(botFirst, partyFirst));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
+        Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
+        assertTrue(OwnedAltCombat.strangers(botFirst, f, party, NOW), "the bot was on it first: its mob");
+        assertFalse(OwnedAltCombat.strangers(partyFirst, f, party, NOW), "the bot joined the party's fight");
+        assertSame(partyFirst, OwnedAltCombat.target(owner, alt, party, NOW));
+    }
+
+    /** Audit 163: a stranger's hit long ago does not fence a mob off from the party for ever. */
+    @Test
+    void aStrangersOldHitLapses() {
+        Monster m = mob(30, OWNER, STRANGER);
+        when(m.lastHitBy(STRANGER)).thenReturn(NOW - 60_000);
+        MapleMap f = map(List.of(m));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
+        assertFalse(OwnedAltCombat.strangers(m, f, OwnedAltCombat.partyIds(alt, owner), NOW));
     }
 
     @Test
@@ -138,7 +165,7 @@ class OwnedAltCombatTest {
         chars.add(alt);
         Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
         OwnedAltCombat.noteHit(alt, m, NOW);
-        assertTrue(OwnedAltCombat.strangers(m, f, party));
+        assertTrue(OwnedAltCombat.strangers(m, f, party, NOW));
         assertNull(OwnedAltCombat.target(owner, alt, party, NOW));
     }
 

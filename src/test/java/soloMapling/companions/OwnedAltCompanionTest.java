@@ -158,7 +158,7 @@ class OwnedAltCompanionTest {
         movement.verify(() -> GCMovement.stop(alt)); // off the follow leash while it fights
         attacks.verify(() -> BotAttackDriver.botAttack(alt));
         attacks.verify(() -> BotAttackDriver.setTargetFilter(eq(ALT), any()));
-        assertTrue(OwnedAltCombat.mayHit(m, field, OwnedAltCombat.partyIds(alt, owner)));
+        assertTrue(OwnedAltCombat.mayHit(m, field, OwnedAltCombat.partyIds(alt, owner), NOW));
     }
 
     @Test
