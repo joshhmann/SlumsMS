@@ -96,6 +96,8 @@ public class BotShowcaseCommand extends Command {
             }
             BotWeapons.ensureFittingWeapon(bot);
             StarterStash.grant(bot);
+            // owner 2026-10-30: no KS manners toward the GM who called the showcase (it stands by the mobs)
+            soloMapling.ArtificialPlayer.BotGrindSystem.KsManners.showcaseSummonedBy(bot.getId(), player.getId());
             ShowcaseBot showcase = new ShowcaseBot(bot, request.minutes() * 60_000L);
             CharacterStorage.addActiveBot(bot.getId(), showcase);
             showcase.setRunning(true);

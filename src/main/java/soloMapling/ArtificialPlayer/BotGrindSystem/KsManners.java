@@ -68,6 +68,10 @@ public final class KsManners {
      * KS spree against the player (a KS war's called helper).
      */
     static boolean respects(Character bot, Character player) {
+        Integer summoner = showcaseSummoner.get(bot.getId());
+        if (summoner != null && summoner == player.getId()) {
+            return false; // owner 2026-10-30: a !botshowcase bot fights by the GM who summoned it
+        }
         if (bot.getParty() != null && player.getParty() != null
                 && bot.getParty().getId() == player.getParty().getId()) {
             return false; // partied: grinding together is the point
@@ -151,8 +155,23 @@ public final class KsManners {
         return s.players().isEmpty() || ownerOf(bot.getMap(), s.players(), m, now) == null;
     }
 
-    /** Release a bot that left (its cached player list). */
+    /** Release a bot that left (its cached player list, its showcase summoner). */
     public static void forget(int botId) {
+        seen.remove(botId);
+        showcaseSummoner.remove(botId);
+    }
+
+    /*
+     * Owner decision 2026-10-30: a !botshowcase bot is spawned to swing at the mobs right by the GM who called it, so it
+     * does not keep KS manners toward that GM (a visible GM standing by the mobs would otherwise stop the showcase).
+     * Only showcase bots, only toward their own summoner: every other player is still respected, and every other bot
+     * still respects that GM. Cleared when the bot is despawned (BotGeneration.removeBotFromServer -> forget).
+     */
+    private static final java.util.Map<Integer, Integer> showcaseSummoner = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** BotShowcaseCommand: this showcase bot was summoned by {@code gmId}. */
+    public static void showcaseSummonedBy(int botId, int gmId) {
+        showcaseSummoner.put(botId, gmId);
         seen.remove(botId);
     }
 

@@ -333,6 +333,8 @@ public class BotGeneration {
         CharacterStorage.removeActiveBot(fakechar.getId());//
         BotBuffDriver.clearBot(fakechar.getId());   // Phase 3a: release buff recast timers
         BotBuffRequestHandler.clearBot(fakechar.getId());   // release chat-buff-request cooldown
+        // 1.6.2: its KS-manners cache and showcase summoner (a reused dynamic slot id must not inherit them)
+        soloMapling.ArtificialPlayer.BotGrindSystem.KsManners.forget(fakechar.getId());
         BotPets.forget(fakechar.getId());   // 1.5.0 rc4: its pet's follow state (the pet left the map with it)
     }
 

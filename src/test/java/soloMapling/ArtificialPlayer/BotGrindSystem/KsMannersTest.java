@@ -86,6 +86,28 @@ class KsMannersTest {
         assertTrue(KsManners.respects(bot, player), "the spree over: manners again");
     }
 
+    /**
+     * Owner 2026-10-30: a !botshowcase bot keeps no KS manners toward the GM who summoned it, so a visible GM standing
+     * by the mobs does not stop the showcase. Only that bot, only that GM, until the bot is despawned.
+     */
+    @Test
+    void aShowcaseBotFightsByItsOwnGmOnly() {
+        Character showcase = at(1_000_009_101, 0, 100);
+        Character other = at(1_000_009_102, 0, 100);
+        Character gm = at(1, 100, 100);
+        Character player = at(2, 100, 100);
+        assertTrue(KsManners.respects(showcase, gm), "before: the summoning GM is respected like anyone");
+        KsManners.showcaseSummonedBy(showcase.getId(), gm.getId());
+        try {
+            assertFalse(KsManners.respects(showcase, gm), "its own GM's mobs are fair game");
+            assertTrue(KsManners.respects(showcase, player), "another player is still respected");
+            assertTrue(KsManners.respects(other, gm), "another bot still respects the GM");
+        } finally {
+            KsManners.forget(showcase.getId());
+        }
+        assertTrue(KsManners.respects(showcase, gm), "despawned (forget): the slot's next bot has manners again");
+    }
+
     /** Audit 163 (B21): a player's hit claims a mob while they keep at it, not for the rest of its life. */
     @Test
     void aPlayersOldHitNoLongerClaimsTheMob() {
