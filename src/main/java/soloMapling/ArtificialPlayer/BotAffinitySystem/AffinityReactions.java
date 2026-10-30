@@ -378,7 +378,9 @@ public final class AffinityReactions {
         if (skill == 0) {
             return "no buff to give";
         }
-        BotBuffEffects.givePartyBuff(bot, skill, List.of(player));
+        if (!BotBuffEffects.givePartyBuff(bot, skill, List.of(player))) {
+            return "no MP for the buff";
+        }
         if (ThreadLocalRandom.current().nextBoolean()) {
             sayTo(bot, player, "FriendHelp");
         }

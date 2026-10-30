@@ -84,12 +84,16 @@ public final class BotBuffDriver {
             if (!due) {
                 continue;
             }
-            if ((partyBuff || pay == Pay.ALL) && !payFor(bot, skillId)) {
-                continue;   // 161: a party buff costs the MP it costs a player; no MP, no cast, retry next look
+            // 161 + audit #1: a party buff that reaches a player costs the MP it costs a player (at the bot's learned
+            // level); an alt pays for everything. No MP, no cast, retry next look.
+            boolean paid = (partyBuff || pay == Pay.ALL || (partied && BotBuffEffects.isPartyBuff(skillId)));
+            if (paid && !BotBuffEffects.payFor(bot, skillId)) {
+                continue;
             }
             final int sid = skillId;
-            MethodScheduler.runAfterDelay(() -> BotBuffEffects.castBuff(bot, sid), cast * STAGGER_MS);
-            int durationMs = BotBuffEffects.durationOf(sid);
+            final boolean paidFor = paid;
+            MethodScheduler.runAfterDelay(() -> BotBuffEffects.castBuff(bot, sid, paidFor), cast * STAGGER_MS);
+            int durationMs = BotBuffEffects.durationOf(bot, sid);
             long late = lateMaxMs > 0 ? rng.nextLong(lateMaxMs + 1) : 0;
             if (lateMaxMs > 0 && rng.nextDouble() < 0.08) {
                 late += 15_000 + rng.nextLong(30_001); // forgot it for a while
@@ -118,20 +122,6 @@ public final class BotBuffDriver {
     private static boolean lackGapPassed(int botId, int skillId, long now) {
         Long at = lackRecastAt.get(lackKey(botId, skillId));
         return at == null || now - at >= LACK_GAP_MS;
-    }
-
-    /* Ticket 161: pays a buff's MP (drinking MP potions if it must); a skill the bot has no level in is free. */
-    private static boolean payFor(Character bot, int skillId) {
-        int level = bot.getSkillLevel(skillId);
-        int cost = level <= 0 ? 0 : soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.mpCost(bot, skillId, level);
-        if (cost <= 0) {
-            return true;
-        }
-        if (!soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.affordMp(bot, cost)) {
-            return false;
-        }
-        soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.spend(bot, cost, 0);
-        return true;
     }
 
     // The legacy (non-human) cadence: every class buff re-shown every 90-120 s.
@@ -223,7 +213,7 @@ public final class BotBuffDriver {
             // bot's animation and, for party buffs, spreads to nearby party members.
             MethodScheduler.runAfterDelay(() -> BotBuffEffects.castBuff(bot, sid), cast * STAGGER_MS);
 
-            int durationMs = BotBuffEffects.durationOf(sid);
+            int durationMs = BotBuffEffects.durationOf(bot, sid);
             long recastAt = durationMs > 0 ? now + (long) (durationMs * 0.9) : now + FALLBACK_RECAST_MS;
             timers.put(sid, recastAt);
             cast++;

@@ -34,6 +34,70 @@ public final class BotBuffEffects {
     private BotBuffEffects() {}
 
     /*
+     * 1.6.2 audit #1 (b110): the skill table and the MP rule a hand-out uses. A bot hands a real player the buff at
+     * the level it has learned (never the max level), pays that level's MP for it, and hands nothing out for a skill
+     * it has not learned. The visual (cast animation, aura) still reads the max-level effect: it changes no stat.
+     */
+    interface Rules {
+        Skill skill(int skillId);
+        /* Pays a cast of skillId at level out of the bot's MP (drinking MP potions if it must); false = can't. */
+        boolean pay(Character bot, int skillId, int level);
+    }
+
+    private static final Rules SERVER = new Rules() {
+        @Override public Skill skill(int skillId) { return SkillFactory.getSkill(skillId); }
+        @Override public boolean pay(Character bot, int skillId, int level) {
+            int cost = soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.mpCost(bot, skillId, level);
+            if (cost <= 0) {
+                return true;
+            }
+            if (!soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.affordMp(bot, cost)) {
+                return false;
+            }
+            soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.spend(bot, cost, 0);
+            return true;
+        }
+    };
+
+    private static volatile Rules rules = SERVER;
+
+    /* Test seam: a fake skill table / MP rule, or back to the server's with null. */
+    static void useForTest(Rules r) {
+        rules = r == null ? SERVER : r;
+    }
+
+    private static Skill skill(int skillId) {
+        return rules.skill(skillId);
+    }
+
+    /* The level this bot casts skillId at: what it has learned, capped at the skill's max; 0 = not learned. */
+    public static int castLevel(Character bot, int skillId) {
+        if (bot == null) return 0;
+        int level = bot.getSkillLevel(skillId);
+        if (level <= 0) return 0;
+        Skill skill = skill(skillId);
+        int max = skill == null ? 0 : skill.getMaxLevel();
+        return max > 0 ? Math.min(level, max) : level;
+    }
+
+    /* The working effect this bot can hand out: at its learned level, or null when it has not learned the skill. */
+    static StatEffect handOutEffect(Character bot, int skillId) {
+        int level = castLevel(bot, skillId);
+        if (level <= 0) return null;
+        Skill skill = skill(skillId);
+        return skill == null ? null : skill.getEffect(level);
+    }
+
+    /*
+     * Pays the MP a cast of skillId costs this bot at its learned level (a skill it has not learned costs nothing:
+     * it hands nothing out). The one MP rule for buffs, for population bots and owned alts alike.
+     */
+    public static boolean payFor(Character bot, int skillId) {
+        int level = castLevel(bot, skillId);
+        return level <= 0 || rules.pay(bot, skillId, level);
+    }
+
+    /*
      * Broadcast the buff visual for skillId on the bot to everyone on its
      * map. Returns the buff's WZ duration in ms (for recast cadence), or 0 if the
      * skill/effect can't be resolved. Does NOT apply any stat.
@@ -48,7 +112,7 @@ public final class BotBuffEffects {
 
         // The persistent aura needs the buff's stat list (cheap memoized lookup,
         // no applyTo). Skip silently if the skill has no stat ups.
-        Skill skill = SkillFactory.getSkill(skillId);
+        Skill skill = skill(skillId);
         if (skill == null) return 0;
         StatEffect effect = skill.getEffect(skill.getMaxLevel());
         if (effect == null) return 0;
@@ -72,14 +136,23 @@ public final class BotBuffEffects {
 
     /* True when the buff reaches party members (its effect has an area box). */
     public static boolean isPartyBuff(int skillId) {
-        Skill skill = SkillFactory.getSkill(skillId);
+        Skill skill = skill(skillId);
         StatEffect effect = skill == null ? null : skill.getEffect(skill.getMaxLevel());
         return effect != null && effect.isPartyBuff();
     }
 
+    /* The buff's WZ duration (ms) at the level this bot casts it (max level when it has not learned it). */
+    public static int durationOf(Character bot, int skillId) {
+        int level = castLevel(bot, skillId);
+        if (level <= 0) return durationOf(skillId);
+        Skill skill = skill(skillId);
+        StatEffect effect = skill == null ? null : skill.getEffect(level);
+        return effect != null ? effect.getDuration() : 0;
+    }
+
     /* The buff's WZ duration (ms) at max level, or 0 if unresolvable. Cheap memoized lookup. */
     public static int durationOf(int skillId) {
-        Skill skill = SkillFactory.getSkill(skillId);
+        Skill skill = skill(skillId);
         if (skill == null) return 0;
         StatEffect effect = skill.getEffect(skill.getMaxLevel());
         return effect != null ? effect.getDuration() : 0;
@@ -101,17 +174,38 @@ public final class BotBuffEffects {
      * buff's WZ duration (ms) for recast cadence.
      */
     public static int castBuff(Character bot, int skillId) {
+        return castBuff(bot, skillId, false);
+    }
+
+    /*
+     * castBuff, saying whether the caller already paid this cast's MP (BotBuffDriver.maintain pays when it decides).
+     * A party buff reaches a real player only at the bot's learned level and only when paid for; unpaid and
+     * unaffordable, the real players get nothing and party-member bots still see the aura.
+     */
+    public static int castBuff(Character bot, int skillId, boolean paid) {
         showBuff(bot, skillId);
 
-        Skill skill = SkillFactory.getSkill(skillId);
+        Skill skill = skill(skillId);
         if (skill == null) return 0;
-        StatEffect effect = skill.getEffect(skill.getMaxLevel());
-        if (effect == null) return 0;
+        StatEffect shown = skill.getEffect(skill.getMaxLevel());
+        if (shown == null) return 0;
 
-        if (effect.isPartyBuff()) {
-            applyToTargets(bot, effect, skillId, nearbyPartyMembers(bot));
+        if (shown.isPartyBuff()) {
+            List<Character> members = nearbyPartyMembers(bot);
+            StatEffect real = handOutEffect(bot, skillId);
+            if (real != null && !paid && anyRealPlayer(members) && !payFor(bot, skillId)) {
+                real = null;   // no MP: party-member bots see it, players get nothing
+            }
+            applyToTargets(bot, real, skillId, members);
         }
-        return effect.getDuration();
+        return shown.getDuration();
+    }
+
+    private static boolean anyRealPlayer(Collection<Character> targets) {
+        for (Character c : targets) {
+            if (c != null && !BotHelpers.isBot(c)) return true;
+        }
+        return false;
     }
 
     /*
@@ -120,25 +214,35 @@ public final class BotBuffEffects {
      * working effect with no MP cost / no cast pose; bots get the cosmetic aura).
      * Used by the !bot givebuff command.
      */
-    public static void givePartyBuff(Character bot, int skillId, Collection<Character> targets) {
+    public static boolean givePartyBuff(Character bot, int skillId, Collection<Character> targets) {
+        StatEffect effect = handOutEffect(bot, skillId);
+        if (effect == null || !payFor(bot, skillId)) {
+            return false;   // audit #1: not learned, or no MP for it
+        }
         soloMapling.ArtificialPlayer.BotConvo.SayDo.event(bot, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.BUFF, bot.getMapId()); // rc6 say-do
         showBuff(bot, skillId);
-        if (targets == null || targets.isEmpty()) return;
+        if (targets != null && !targets.isEmpty()) {
+            applyToTargets(bot, effect, skillId, targets);
+        }
+        return true;
+    }
 
-        Skill skill = SkillFactory.getSkill(skillId);
-        if (skill == null) return;
-        StatEffect effect = skill.getEffect(skill.getMaxLevel());
-        if (effect == null) return;
-
+    /* The GM test (!bot givebuff): the bot hands out the max-level buff for free, whatever it has learned. */
+    public static void givePartyBuffAsGm(Character bot, int skillId, Collection<Character> targets) {
+        showBuff(bot, skillId);
+        Skill skill = skill(skillId);
+        StatEffect effect = skill == null ? null : skill.getEffect(skill.getMaxLevel());
+        if (effect == null || targets == null || targets.isEmpty()) return;
         applyToTargets(bot, effect, skillId, targets);
     }
 
+    // effect null: only the party-member bots' auras (nothing working to hand a player)
     private static void applyToTargets(Character bot, StatEffect effect, int skillId, Collection<Character> targets) {
         for (Character target : targets) {
             if (target == null || target == bot) continue;
             if (BotHelpers.isBot(target)) {
                 showBuff(target, skillId);            // party-member bots stay cosmetic
-            } else {
+            } else if (effect != null) {
                 effect.applyToTarget(bot, target);    // real player gets the working buff
                 showReceivedBuff(target, skillId);    // + the "received a party buff" particle
             }
@@ -168,15 +272,29 @@ public final class BotBuffEffects {
      * real buff given to player targets, instead of the WZ duration. Bots stay
      * cosmetic. Useful for extending key party buffs (Holy Symbol, Maple Warrior, ...).
      */
-    public static void giveExtendedBuff(Character bot, int skillId, Collection<Character> targets, int durationMs) {
+    public static boolean giveExtendedBuff(Character bot, int skillId, Collection<Character> targets, int durationMs) {
+        StatEffect effect = handOutEffect(bot, skillId);
+        if (effect == null || !payFor(bot, skillId)) {
+            return false;   // audit #1: not learned, or no MP for it
+        }
+        extended(bot, skillId, effect, targets, durationMs);
+        return true;
+    }
+
+    /* The GM test (!bot extbuff): the max-level buff for free, whatever the bot has learned. */
+    public static void giveExtendedBuffAsGm(Character bot, int skillId, Collection<Character> targets, int durationMs) {
+        Skill skill = skill(skillId);
+        StatEffect effect = skill == null ? null : skill.getEffect(skill.getMaxLevel());
+        if (effect != null) {
+            extended(bot, skillId, effect, targets, durationMs);
+        }
+    }
+
+    private static void extended(Character bot, int skillId, StatEffect effect, Collection<Character> targets,
+                                 int durationMs) {
         soloMapling.ArtificialPlayer.BotConvo.SayDo.event(bot, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.BUFF, bot.getMapId()); // rc6 say-do
         showBuff(bot, skillId);
         if (targets == null || targets.isEmpty()) return;
-
-        Skill skill = SkillFactory.getSkill(skillId);
-        if (skill == null) return;
-        StatEffect effect = skill.getEffect(skill.getMaxLevel());
-        if (effect == null) return;
 
         for (Character target : targets) {
             if (target == null || target == bot) continue;
@@ -217,7 +335,7 @@ public final class BotBuffEffects {
      * stat on the member. Only real players count: a bot partner's buff is a picture.
      */
     public static boolean partyMemberLacks(Character bot, int skillId) {
-        Skill skill = SkillFactory.getSkill(skillId);
+        Skill skill = skill(skillId);
         StatEffect effect = skill == null ? null : skill.getEffect(skill.getMaxLevel());
         if (effect == null || effect.getStatups().isEmpty() || !effect.isPartyBuff()) return false;
         client.BuffStat stat = effect.getStatups().get(0).getLeft();
