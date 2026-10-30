@@ -1,6 +1,6 @@
   # 1.6.2 (owner 2026-10-30): live bot replies move to the cloud model like TEST (DeepSeek 4.1 Flash API), all
   # replies, capped at $2 a day. The API key is NOT here: the unit's EnvironmentFile (/etc/slumsms/cloud-llm.env,
-  # created by the owner, 0640) sets SOLOMAPLING_LLM_CLOUD_API_KEY. Rollback: remove these keys (an empty BOT_LLM_CLOUD_BASE_URL
+  # created by the owner, root 0600) sets SOLOMAPLING_LLM_CLOUD_API_KEY. Rollback: remove these keys (an empty BOT_LLM_CLOUD_BASE_URL
   # turns the cloud off; there is no "off" mode, unknown modes mean "overflow") and restart; replies fall back to the local qwen9b on .17 (BOT_LLM_BASE_URL).
   BOT_LLM_CLOUD_BASE_URL: "https://api.deepseek.com"
   BOT_LLM_CLOUD_MODEL: "deepseek-flash"
