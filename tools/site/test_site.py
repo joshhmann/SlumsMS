@@ -56,6 +56,14 @@ class SiteBuildTest(unittest.TestCase):
             self.assertIn("data-accent-switch hidden", text, page)
             self.assertIn('assets/brand/wordmark.webp', text, page)
 
+    def test_card_styles_stay_in_my_cards(self):
+        # qw10: the My cards rules on a bare .card made every other card's links 220px card pictures (report page)
+        import re
+        with open(os.path.join(self.out, "assets", "site.css"), encoding="utf-8") as f:
+            css = f.read()
+        self.assertEqual([], re.findall(r"(?m)^\s*\.card (?:a|img|b)\b.*\{", css))
+        self.assertIn(".cards .card a {", css)
+
     def test_search_engines_are_turned_away(self):
         with open(os.path.join(self.out, "robots.txt"), encoding="utf-8") as f:
             self.assertIn("Disallow: /", f.read().splitlines())

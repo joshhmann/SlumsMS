@@ -83,10 +83,19 @@
       },
       copy: function (text) {
         var self = this;
-        try {
-          navigator.clipboard.writeText(text).then(function () { self.say("Copied " + text + ".", true); },
-            function () { self.say("Couldn't copy: select it and copy by hand.", false); });
-        } catch (e) { this.say("Couldn't copy: select it and copy by hand.", false); }
+        function done(ok) { self.say(ok ? "Copied " + text + "." : "Couldn't copy: select it and copy by hand.", ok); }
+        // Plain http (the TEST site) has no navigator.clipboard: copy from a hidden text box instead (qw06).
+        function old() {
+          var t = document.createElement("textarea"), ok = false;
+          t.value = text; t.setAttribute("readonly", ""); t.style.position = "fixed"; t.style.opacity = "0";
+          document.body.appendChild(t); t.select();
+          try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+          document.body.removeChild(t);
+          done(ok);
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(function () { done(true); }, old);
+        } else old();
       },
       go: function (d) { this.page = Math.max(1, this.page + d); this.load(); }
     };
