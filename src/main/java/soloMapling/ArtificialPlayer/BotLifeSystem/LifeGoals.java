@@ -15,7 +15,9 @@ import java.util.OptionalInt;
 public final class LifeGoals {
     private LifeGoals() {}
     public enum Kind {
-        JOB_ADVANCE, WEAPON_UPGRADE, LEVEL, MARRIAGE, GUILD, ZHELM, FOURTH_JOB, WEALTH;
+        JOB_ADVANCE, WEAPON_UPGRADE, LEVEL, MARRIAGE, GUILD, ZHELM, FOURTH_JOB, WEALTH,
+        /** Ticket 158: a kill quest the bot took for its grind map (BotQuests); its target is the quest id. */
+        QUEST;
 
         /** Whether this goal is about getting stronger (it feeds the PROGRESS need that pushes grinding). */
         public boolean progression() {
@@ -107,7 +109,21 @@ public final class LifeGoals {
             case WEAPON_UPGRADE -> facts.weaponRequiredLevel().isPresent()
                     && facts.weaponRequiredLevel().getAsInt() >= goal.targetLevel();
             case JOB_ADVANCE, FOURTH_JOB -> nextAdvance(facts.jobId()) != goal.targetLevel();
+            case QUEST -> false; // the bot's quest log says when it is done (LifeMemory.refresh)
         };
+    }
+
+    /** Pressure of a quest goal: a side goal, below a job advance at full pull. */
+    public static final double QUEST_PRESSURE = .5;
+
+    /**
+     * Ticket 158: the goal for the bot's active quest (from {@code BotQuests}). It comes on top of the two seeded
+     * goals while the quest runs, so a quest never pushes out a job advance or an aspiration. The target is the quest
+     * id (the plan is re-made when the quest changes); the description names the quest.
+     */
+    public static Goal quest(int questId, String name) {
+        return new Goal(Kind.QUEST, Math.max(1, questId), "finish the quest " + (name == null || name.isBlank()
+                ? "#" + questId : name), QUEST_PRESSURE);
     }
 
     static Goal fourthJob(Goal goal, int jobId) {

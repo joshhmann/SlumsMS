@@ -314,6 +314,13 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     private boolean lifePqTrip; // 1.6.0 S8: the PARTY_QUEST just started is a trip to a lobby (not a friend's invite)
     public LifeRuntime lifeRuntime() { return dailyLife; }
 
+    /** Ticket 158: a grinder runs quests (BotQuests); its NPCs may stand in its home town. */
+    @Override
+    public boolean runsQuests() { return dailyLife != null; }
+
+    @Override
+    public int questHomeMap() { return homeMapId; }
+
     public LifePhase lifePhase() { return lifePhase; }
     // Ticket 21: a world event called this bot (WorldEventReactions); the macro tick answers it.
     private volatile boolean eventCall = false;
@@ -475,7 +482,71 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         super.checkPrioritySpeed();
     }
 
+    // ── ticket 158: quest NPC visits (BotQuests) ──
+    private boolean questVisitDone;              // this stop already talked to its quest NPC
+    private volatile boolean questWalkArrived;   // the walk up to the NPC ended
+    private long questWalkDeadlineMs;            // 0 = no walk yet this stop
+    static final long QUEST_WALK_MAX_MS = 25_000;
+    /** After a quest NPC visit, a plan-led town stop ends this soon (the bot goes back to its quest). */
+    static final long QUEST_STAY_AFTER_MS = 12_000;
+
+    /**
+     * On the map of the plan's quest step (take or turn in): where a player can see it, the bot walks up to the NPC
+     * first, then the real quest call runs (BotQuests.atNpc); nobody watching, the log records it at once. True while
+     * the walk is under way (the caller skips its idle fidget so the two don't fight over the bot).
+     */
+    private boolean questVisitTick(boolean planStop) {
+        if (questVisitDone || dailyLife == null || !soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.enabled()) {
+            return false;
+        }
+        var next = dailyLife.planNext();
+        var step = next == null ? null : next.step();
+        if (step != soloMapling.ArtificialPlayer.BotLifeSystem.LifePlanner.Step.TAKE_QUEST
+                && step != soloMapling.ArtificialPlayer.BotLifeSystem.LifePlanner.Step.TURN_IN_QUEST) {
+            return false;
+        }
+        Character chr = getChr();
+        var memory = dailyLife.memory();
+        if (memory.quests(log -> soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.destination(log, step))
+                != chr.getMapId()) {
+            return false;
+        }
+        boolean watched = GCMovement.isMapObserved(chr.getMapId());
+        if (watched && questWalkDeadlineMs == 0) {
+            java.awt.Point npc = memory.quests(log -> soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.npcSpot(chr, step, log));
+            if (npc != null) {
+                questWalkArrived = false;
+                questWalkDeadlineMs = now() + QUEST_WALK_MAX_MS;
+                int side = rng.nextBoolean() ? 1 : -1;
+                java.awt.Point front = soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.freeSpotNear(chr.getMap(),
+                        new java.awt.Point(npc.x + side * (RESUPPLY_STAND_OFF_PX + rng.nextInt(40)), npc.y), chr.getId());
+                GCMovement.move(chr, front.x, front.y, () -> questWalkArrived = true);
+                return true;
+            }
+        }
+        if (watched && !questWalkArrived && now() < questWalkDeadlineMs) {
+            return true; // still walking up to the NPC
+        }
+        questVisitDone = true;
+        long at = now();
+        var visit = memory.quests(log -> soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.atNpc(chr, log, step,
+                watched, at));
+        debugChat("QUEST " + step + " -> " + visit);
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.HABITS)) {
+            soloMapling.qa.QaLog.any(soloMapling.qa.QaLog.Topic.HABITS, "QUEST " + step + " " + visit + " bot="
+                    + chr.getName() + " map=" + chr.getMapId() + (watched ? " watched" : " offscreen"));
+        }
+        if (visit != soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.Visit.NONE
+                && visit != soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.Visit.TOO_FAR) {
+            dailyLife.planNow(at); // the facts changed: the plan moves on (hunt, or the goal is done)
+            if (planStop) phaseDeadlineMs = Math.min(phaseDeadlineMs, at + QUEST_STAY_AFTER_MS);
+        }
+        return false;
+    }
+
     private void enterPhase(Phase next) {
+        questVisitDone = false;
+        questWalkDeadlineMs = 0;
         if (phase == Phase.SHOP_DWELL) {
             BotWanderSystem.stop(getChr()); // leaving a shop: end the flavor wander before travelling out
         }
@@ -1198,7 +1269,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 dailyLife.fishingStarted();
                 lifeNote("FISHING_SEATED");
             }
-        } else {
+        } else if (!questVisitTick(true)) { // ticket 158: at a quest NPC's map, walk up and talk to it first
             soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace.maybeKeep(getChr());
             soloMapling.ArtificialPlayer.BotTownSystem.TownIdle.tick(getChr(), townBeat, now()); // 1.6.0 likeness
         }
@@ -1450,7 +1521,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         }
         // TEST bot watch 2026-10-26 (ItsBucc): fidget was only switched on by the settle on arrival, so a stop that
         // skipped it (an errand, a chat) or lost it (an AFK camp) stood frozen for the rest of the stay.
-        soloMapling.ArtificialPlayer.BotTownSystem.TownIdle.tick(getChr(), townBeat, now());
+        if (resupplySite != null || !questVisitTick(false)) { // ticket 158: a quest NPC in this town, after shopping
+            soloMapling.ArtificialPlayer.BotTownSystem.TownIdle.tick(getChr(), townBeat, now());
+        }
         if (now() < phaseDeadlineMs) {
             return;
         }
@@ -1786,6 +1859,17 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             enterPhase(chr.getMapId() == back ? Phase.GRIND : Phase.GO_TRAIN);
             return;
         }
+        // Ticket 158: a taken quest's kills are on the map it was picked on - hunt there (a normal trip)
+        int questMap = dailyLife == null ? -1 : dailyLife.memory().quests(
+                soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests::huntMap);
+        if (questMap > 0 && MapMobIndex.level(questMap) >= 0 && BotMapGates.mayEnter(questMap, chr)
+                && soloMapling.ArtificialPlayer.BotMapCap.admit(chr, questMap)) {
+            debugChat("DECIDE: quest hunt -> map " + questMap);
+            setTrainTarget(questMap, Math.max(1, MapMobIndex.level(questMap)));
+            firstTrip = false;
+            enterPhase(chr.getMapId() == questMap ? Phase.GRIND : Phase.GO_TRAIN);
+            return;
+        }
         Set<Integer> excluded = crowdExcludedMaps(); // maps on crowd-cooldown (pruned) — steer away from them
         clearTrainTarget(); // release any stale reservation before choosing (choose() reserves the pick's slot)
         pendingHomeMapId = -1; // a relocation that never arrived is forgotten; the bot keeps its old home
@@ -1956,6 +2040,14 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 client.FamilyEntry family = chr.getFamilyEntry();
                 if (family != null) { // b035: a family junior's off-screen kills give its senior rep (capped a day)
                     family.giveOffscreenRep((rate != null ? rate.killsPerMinute() : KILLS_PER_MIN) / 60.0 * fought, 0);
+                }
+                if (dailyLife != null && soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.enabled()) {
+                    double questKills = (rate != null ? rate.killsPerMinute() : KILLS_PER_MIN) / 60.0 * fought;
+                    int questMapId = chr.getMapId();
+                    dailyLife.memory().quests(log -> { // ticket 158: an offscreen quest's kills, modelled
+                        soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.offscreenKills(log, questMapId, questKills);
+                        return null;
+                    });
                 }
                 if (rate != null && soloMapling.site.SiteMobKills.recording()) {   // site: most hunted (offscreen kills)
                     siteKillRemainder = soloMapling.site.SiteMobKills.offscreen(

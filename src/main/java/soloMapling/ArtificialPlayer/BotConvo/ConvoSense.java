@@ -190,7 +190,7 @@ public final class ConvoSense {
                     return Optional.of(ConvoIntent.TRADE);
                 }
                 // where-do-you-train / where-are-you stay ticket 37's own actions (talk with an outcome)
-                case WHERE_TRAIN, WHERE_AT -> {
+                case WHERE_TRAIN, WHERE_AT, QUESTS, RECOMMEND_QUEST -> { // ticket 158: quest questions too
                     return Optional.of(ConvoIntent.TALK);
                 }
                 case NONE -> s.outOfScope = true; // its cues matched out of scope; the rules below may still match

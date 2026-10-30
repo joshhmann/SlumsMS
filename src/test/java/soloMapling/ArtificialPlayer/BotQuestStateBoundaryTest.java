@@ -51,6 +51,27 @@ class BotQuestStateBoundaryTest {
         assertNull(bot.getQuestNoAdd(quest));
     }
 
+    // Ticket 158: a bot that runs quests (BotQuests, -Dslums.botquests.enabled) keeps quest state in memory once
+    // BotQuests switched it on for that character - and only then. Roster bots are still never saved to queststatus.
+    @Test
+    void aQuestingBotKeepsQuestStateOnlyOnceSwitchedOn() throws Exception {
+        Character bot = character(BotStore.BOT_ID_BASE + 2);
+        java.lang.reflect.Field quests = Character.class.getDeclaredField("quests");
+        quests.setAccessible(true);
+        quests.set(bot, new java.util.LinkedHashMap<Short, QuestStatus>());
+        Quest quest = quest();
+
+        bot.setQuestAdd(quest, (byte) QuestStatus.Status.COMPLETED.getId(), "");
+        assertNull(bot.getQuestNoAdd(quest), "not questing: still refused");
+        assertFalse(bot.botQuestState());
+
+        bot.enableBotQuestState();
+        bot.setQuestAdd(quest, (byte) QuestStatus.Status.COMPLETED.getId(), "");
+        assertEquals(QuestStatus.Status.COMPLETED, bot.getQuestNoAdd(quest).getStatus());
+        assertEquals(QuestStatus.Status.COMPLETED, bot.getQuestRemove(quest).getStatus());
+        assertNull(bot.getQuestNoAdd(quest));
+    }
+
     @Test
     void theGuardDrawsTheBotLineAtTheIdBaseNotAtTheConsoleId() {
         assertTrue(BotHelpers.isArtificial(BotStore.BOT_ID_BASE + 1));

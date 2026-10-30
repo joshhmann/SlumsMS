@@ -75,6 +75,35 @@ buffs); wearability as an equip order from the base stats; worn gear always coun
 (`BotWeapons` kinds, the same drawable attacks, 1st jobs and beginners keep their kind); unknown, cash, other-gender,
 omit-list and rebirth-locked equips refused; event triggers (loot, level-up) instead of a sweep.
 
+### Later ports
+
+Ports from nutnnut/Cosmic after the merge above, one entry per port. (The 1.5.2/1.6.x ports listed in
+docs/tickets/157-nutnnut-tools/adoption-matrix.md section 8 still need their entries here.)
+
+#### Bot questing (branch `162-questing`, ticket 158), nutnnut/Cosmic `77e0c5bc9` (branch `dev`)
+
+| From theirs | Our files |
+| --- | --- |
+| `server.bots.BotQuestIndex`: which quests a bot can run, from Quest.wz (unscripted, start and end NPC, complete reqs limited to kills plus gates `canComplete` re-checks) | `soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestIndex.java` |
+| `server.bots.BotQuestScorer`: quest worth as a multiple of the bot's grind EXP per minute (value / forgone EXP over the NPC trip) | `.../BotQuestSystem/BotQuestScorer.java` |
+| `server.bots.BotQuestManager` ideas: piggyback on the grind map, the real `canStart`/`start`/`canComplete`/`complete` gate, NPC map from the current map or its return town, quest chat | `.../BotQuestSystem/BotQuests.java`, `BotQuestChat.java` |
+
+Ours: mob quests only (no talk, fetch or auto quests, no disk cache); quests whose actions a headless bot can't take
+(random or chosen items, items taken back, chained quests, info strings) are left out; required mobs on the grind map
+count as neither value nor cost in the score; a quest is a BotLife goal with GOAP steps (`LifeGoals.Kind.QUEST`,
+`LifePlanner` TAKE_QUEST / HUNT_QUEST / TURN_IN_QUEST), not an autopilot errand; offscreen bots only record the quest
+in a capped log in their life profile (`BotQuestLog`); rewards go through `BotYieldCaps`; the chat answers come from
+the bot's own log (ticket 156).
+
+#### KPQ automation, 1.6.1 (branch `162-contentruns`, ticket 130)
+
+Ideas only, no code copied: our orchestrator, solvers and stage data are our own, checked against our scripts.
+
+| Source @ commit | What it gave | Our files | Switch |
+| --- | --- | --- | --- |
+| Kiwiism/cosmic_agents (https://github.com/Kiwiism/cosmic_agents, AGPL-3.0) @ `3c7e09435`, `AgentKpqDefinition`, `AgentKpqCombinationOrder` | Cross-check of the KPQ answers, rectangles and combos (theirs list the stage-2 ropes in another order; ours follow `9020001.js`); the "one mover" order for wrong formations (two members stay, one moves), reimplemented as a chain ending one mover from the answer | `content/kpq.yaml`, `CombinationSolver.plannedWrongCombos` | `-Dslums.mechanics=true` |
+| nutnnut/Cosmic (https://github.com/nutnnut/Cosmic, AGPL-3.0) @ `77e0c5bc9` (dev), `pq/BotKpqStage1`, `pq/BotKpqStage5` | Read for the stage flow (coupon target, the stage-5 reward). Not taken: their stage-5 reward without the NPC (`giveEventReward` called directly) and cosmic_agents' missing-pass recovery (sets the clear property / adds passes): our bots claim the prize by talking to Cloto and every pass comes from a monster | `KillCollectHandInSolver`, `Orchestrator.afterClearTick` | `-Dslums.mechanics=true` |
+
 ### Monster Book addon (branch `addon-monsterbook`, ticket 19)
 
 Source: the "MonsterBook Publish" addon package. Its server half (`server-cosmic/`) and its data tool
@@ -94,14 +123,3 @@ Ours:
 - the card list merged from monstercarddata and Item.wz;
 - `build_book.py` rewritten over parsed XML, because this server's WZ dump is minified. It takes drops from MySQL
   or a TSV and writes the HP strings the client book needs. MapleLib is not used.
-
-## Later ports
-
-### KPQ automation, 1.6.1 (branch `162-contentruns`, ticket 130)
-
-Ideas only, no code copied: our orchestrator, solvers and stage data are our own, checked against our scripts.
-
-| Source @ commit | What it gave | Our files | Switch |
-| --- | --- | --- | --- |
-| Kiwiism/cosmic_agents (https://github.com/Kiwiism/cosmic_agents, AGPL-3.0) @ `3c7e09435`, `AgentKpqDefinition`, `AgentKpqCombinationOrder` | Cross-check of the KPQ answers, rectangles and combos (theirs list the stage-2 ropes in another order; ours follow `9020001.js`); the "one mover" order for wrong formations (two members stay, one moves), reimplemented as a chain ending one mover from the answer | `content/kpq.yaml`, `CombinationSolver.plannedWrongCombos` | `-Dslums.mechanics=true` |
-| nutnnut/Cosmic (https://github.com/nutnnut/Cosmic, AGPL-3.0) @ `77e0c5bc9` (dev), `pq/BotKpqStage1`, `pq/BotKpqStage5` | Read for the stage flow (coupon target, the stage-5 reward). Not taken: their stage-5 reward without the NPC (`giveEventReward` called directly) and cosmic_agents' missing-pass recovery (sets the clear property / adds passes): our bots claim the prize by talking to Cloto and every pass comes from a monster | `KillCollectHandInSolver`, `Orchestrator.afterClearTick` | `-Dslums.mechanics=true` |

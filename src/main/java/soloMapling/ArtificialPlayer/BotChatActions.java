@@ -41,6 +41,8 @@ public final class BotChatActions {
         TRADE_OFFER,
         WHERE_TRAIN, WHERE_TRAIN_UNKNOWN,
         WHERE_AT,
+        /** Ticket 158: the bot named a quest from its own log (doing, done, or a recommendation), or had none. */
+        QUESTS, QUESTS_NONE,
         /** Ticket 59: the conversation layer's actions (BotConvo.ConvoActions): yes = done, no = refused. */
         COME_YES, COME_NO, HELP_YES, HELP_NO, GUIDE_YES, GUIDE_NO, BUFF_YES, BUFF_NO, BUDDY_YES, BUDDY_NO,
         /** Words that move feelings: a grudge eased, an apology taken, game-only trash talk back, a flirt back. */
@@ -89,7 +91,9 @@ public final class BotChatActions {
                 case TRADE_OFFER -> mustMention == null
                         ? soloMapling.Economy.HaggleBrain.price(reply) < 0
                         : reply.toLowerCase(Locale.ROOT).contains(mustMention.toLowerCase(Locale.ROOT));
-                case WHERE_TRAIN, WHERE_AT -> mustMention == null || text.contains(mustMention);
+                case WHERE_TRAIN, WHERE_AT, QUESTS -> mustMention == null || text.contains(mustMention);
+                // no quest to tell: the line must not name one (a model inventing "doing the snail quest")
+                case QUESTS_NONE -> NO.matcher(text).find() || text.contains(" none ") || text.contains(" just grind");
                 case WHERE_TRAIN_UNKNOWN, NONE -> true;
             };
         }
@@ -131,6 +135,8 @@ public final class BotChatActions {
             case TRADE -> trade(bot, player, line);
             case WHERE_TRAIN -> whereTrain(bot, chr);
             case WHERE_AT -> whereAt(chr);
+            case QUESTS -> quests(bot, null);
+            case RECOMMEND_QUEST -> quests(bot, player);
             case NONE -> Result.NONE;
         };
         if (result.outcome() != Outcome.NONE) {
@@ -246,6 +252,26 @@ public final class BotChatActions {
         }
         return new Result(Outcome.TRADE_DECLINED, "Say no to trading: you are not selling or giving anything right "
                 + "now.", ScriptedReplies.pick(ScriptedReplies.TRADE_NO));
+    }
+
+    // ── quests (ticket 158) ──
+
+    /**
+     * What quest the bot is on ({@code asker} null) or one it would recommend to {@code asker}: from the bot's own
+     * quest log only (ticket 156). A bot without a life brain has no log and says it is not questing.
+     */
+    static Result quests(BotSM bot, Character asker) {
+        var host = bot instanceof soloMapling.ArtificialPlayer.BotLifeSystem.LifeHost h ? h.lifeRuntime() : null;
+        var memory = host != null ? host.memory()
+                : soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.enabled() && bot.getChr() != null
+                ? soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemoryStore.of(bot.getChr().getId()) : null;
+        soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestChat.Answer answer = memory == null
+                ? (asker == null ? soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestChat.doing(null)
+                : soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestChat.recommend(null, asker.getLevel()))
+                : memory.quests(log -> asker == null ? soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestChat.doing(log)
+                : soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestChat.recommend(log, asker.getLevel()));
+        return new Result(answer.known() ? Outcome.QUESTS : Outcome.QUESTS_NONE, answer.fact(), answer.scripted(),
+                answer.mustMention());
     }
 
     // ── where do you train ──
