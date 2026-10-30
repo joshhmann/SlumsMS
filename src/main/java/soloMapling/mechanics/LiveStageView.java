@@ -167,6 +167,34 @@ final class LiveStageView implements StageView {
         return p == null ? Optional.empty() : Optional.of(new int[]{p.x, p.y});
     }
 
+    @Override
+    public Optional<FloorDrop> dropBy(int dropperId, int itemId) {
+        MapItem mi = ownDrop(map, itemId, dropperId);
+        return mi == null ? Optional.empty() : Optional.of(new FloorDrop(mi.getPosition().x, mi.getPosition().y,
+                mi.getOwnerId(), mi.getDropTime()));
+    }
+
+    /** The newest drop of {@code itemId} that {@code dropperId} dropped on this map and nobody took yet, or null. */
+    static MapItem ownDrop(MapleMap map, int itemId, int dropperId) {
+        MapItem best = null;
+        if (map == null) {
+            return null;
+        }
+        for (MapObject o : map.getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY,
+                List.of(MapObjectType.ITEM))) {
+            if (o instanceof MapItem mi && !mi.isPickedUp() && mi.getMeso() == 0 && mi.getItemId() == itemId
+                    && dropperOf(mi) == dropperId && (best == null || mi.getDropTime() > best.getDropTime())) {
+                best = mi;
+            }
+        }
+        return best;
+    }
+
+    /** The character id that dropped this item (0 for a monster's or a reactor's drop). */
+    static int dropperOf(MapItem mi) {
+        return mi.getDropper() instanceof Character c ? c.getId() : 0;
+    }
+
     /** Drops of {@code itemId} on the map that this character may take: its own, or anyone's. */
     static List<MapItem> floorDrops(MapleMap map, int itemId, int forCharacterId) {
         List<MapItem> out = new ArrayList<>();
@@ -176,7 +204,7 @@ final class LiveStageView implements StageView {
         for (MapObject o : map.getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY,
                 List.of(MapObjectType.ITEM))) {
             if (o instanceof MapItem mi && !mi.isPickedUp() && mi.getMeso() == 0 && mi.getItemId() == itemId
-                    && (mi.getOwnerId() == forCharacterId || mi.getOwnerId() <= 0 || mi.getDropType() == 2)) {
+                    && PassHandover.mayTake(forCharacterId, mi.getOwnerId(), dropperOf(mi), mi.getDropType())) {
                 out.add(mi);
             }
         }

@@ -44,6 +44,18 @@ public interface StageView {
         return 0;
     }
 
+    /** A drop on the stage's floor: where it lies, whose it is, when it fell (the view's clock). */
+    record FloorDrop(int x, int y, int ownerId, long droppedAtMs) {
+    }
+
+    /**
+     * The newest drop of {@code itemId} that this member dropped and nobody has picked up yet (1.6.2: a pass a bot
+     * dropped at a real leader's feet), if one lies on the stage's floor.
+     */
+    default Optional<FloorDrop> dropBy(int dropperId, int itemId) {
+        return Optional.empty();
+    }
+
     /**
      * Wrong tries this member still means to show before the right one, in the order it will show them (KPQ stage 1:
      * coupon counts below the answer it hands in on the way, ascending). Planned by the orchestrator with

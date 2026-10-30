@@ -66,6 +66,7 @@ final class StepExecutor {
             case SolverStep.MoveTo m -> moveNear(bot, beat, m.x(), m.y(), 30, now);
             case SolverStep.Fight f -> fight(view, bot, beat, f, now);
             case SolverStep.Loot l -> loot(view, bot, beat, l.itemId(), now);
+            case SolverStep.TakeBack t -> takeBack(view, bot, beat, t, now, log);
             case SolverStep.TalkNpc t -> talk(run, orchestrator, view, bot, beat, t, now, log);
             case SolverStep.DropFor d -> dropFor(view, bot, beat, d, now, log);
             case SolverStep.Say s -> say(view, bot, beat, s.line(), now);
@@ -231,28 +232,60 @@ final class StepExecutor {
             return;
         }
         Character to = d.toCharacterId() > 0 ? view.character(d.toCharacterId()) : null;
+        boolean realLeader = to != null && !MechanicsRuns.drivable(to);
+        Point dropAt = bot.getPosition();
         if (d.toCharacterId() > 0) {
             if (to == null || to.getMap() != bot.getMap()) {
                 return; // the leader is not on this map (yet): hold the pass
             }
-            Point at = bot.getPosition();
             Point p = to.getPosition();
-            if (Math.abs(p.x - at.x) > HANDOVER_REACH_X || Math.abs(p.y - at.y) > 60) {
+            // 1.6.2: within PassHandover.REACH_PX of him (the shared Approach reach test), else walk up first
+            int[] reach = realLeader ? new int[]{PassHandover.REACH_PX, PassHandover.REACH_Y}
+                    : new int[]{HANDOVER_REACH_X, 60};
+            if (!soloMapling.ArtificialPlayer.BotGrindSystem.Approach.inReach(bot.getPosition(), p, reach)) {
                 moveNear(bot, beat, p.x, p.y, HANDOVER_REACH_X / 2, now);
                 return;
             }
+            if (realLeader) {
+                dropAt = new Point(p); // at his feet, not the bot's
+            }
         }
         beat.lastDropMs = now;
-        int paid = BotHoldings.payOut(bot, d.itemId(), d.count(), to == null ? bot : to, bot.getPosition());
+        int paid = BotHoldings.payOut(bot, d.itemId(), d.count(), to == null ? bot : to, dropAt);
         log.accept("DROP " + bot.getName() + " drops " + paid + " x " + d.itemId()
                 + (to == null ? " (extras)" : " for " + to.getName()));
-        if (paid > 0 && to != null && !MechanicsRuns.drivable(to) && !beat.toldLeader) {
+        if (paid > 0 && realLeader && !beat.toldLeader) {
             // a real leader may be anywhere on the map: say where the NPC who takes the passes stands (TEST 10-30:
             // the tester waited by the spawn on the far left, Cloto is on the far right)
             beat.toldLeader = true;
             int[] npc = npcOn(bot, view.stage().npcId());
             beat.lastSayMs = now;
             SocialCommands.BotSpeak(bot, passLine(to.getName(), npc == null ? null : npc[0], to.getPosition().x));
+        }
+    }
+
+    /**
+     * 1.6.2: picks its own pass back up from a real leader's feet ({@link PassHandover#takeBack} decided he left it):
+     * only the drop this bot dropped, walked to and picked up through the bot's own loot call, which keeps the game's
+     * rule (by now the ownership window is over). The next step walks it to the leader again.
+     */
+    private void takeBack(LiveStageView view, Character bot, Beat beat, SolverStep.TakeBack t, long now,
+                          Consumer<String> log) {
+        MapItem mine = LiveStageView.ownDrop(bot.getMap(), t.itemId(), bot.getId());
+        if (mine == null || !DropCommands.botCanLoot(bot, mine)) {
+            return;
+        }
+        Point at = bot.getPosition();
+        Point p = mine.getPosition();
+        if (Math.abs(p.x - at.x) > LOOT_REACH_X || Math.abs(p.y - at.y) > 60) {
+            moveNear(bot, beat, p.x, p.y, LOOT_REACH_X / 2, now);
+            return;
+        }
+        int before = bot.getItemQuantity(t.itemId(), false);
+        DropCommands.botLootSingleDrop(bot, mine);
+        if (bot.getItemQuantity(t.itemId(), false) > before) {
+            beat.toldLeader = false; // the next drop tells him again
+            log.accept("TAKE BACK " + bot.getName() + " picks its " + t.itemId() + " back up (" + t.why() + ")");
         }
     }
 

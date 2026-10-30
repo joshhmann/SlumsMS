@@ -26,6 +26,13 @@ public sealed interface SolverStep {
     record DropFor(int itemId, int count, int toCharacterId) implements SolverStep {
     }
 
+    /**
+     * Pick its own drop back up (1.6.2: a pass it dropped at a real leader's feet that he left lying while he walked
+     * off): only the drop this member dropped, once the game's ownership window let anyone take it.
+     */
+    record TakeBack(int itemId, String why) implements SolverStep {
+    }
+
     /** Hit a reactor (box, lever). */
     record HitReactor(int reactorOid) implements SolverStep {
     }

@@ -101,7 +101,11 @@ public final class KillCollectHandInSolver implements StageSolver {
         if (have > 0 && leader.isPresent() && leader.get().characterId() != id
                 && view.mapOf(leader.get().characterId()) == view.stage().mapId()
                 && (mobs == 0 || have >= GIVE_AT)) {
-            return new SolverStep.DropFor(plan.itemId(), have, leader.get().characterId());
+            return PassHandover.give(view, id, plan.itemId(), have, leader.get());
+        }
+        SolverStep back = PassHandover.takeBack(view, id, plan.itemId());
+        if (back != null) {
+            return back;
         }
         if (mobs > 0) {
             return new SolverStep.Fight(0, plan.itemId(), Integer.MAX_VALUE);

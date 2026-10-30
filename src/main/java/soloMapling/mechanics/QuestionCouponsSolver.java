@@ -132,9 +132,11 @@ public final class QuestionCouponsSolver implements StageSolver {
                 if (leader.isEmpty() || leader.get().characterId() == id) {
                     return new SolverStep.Wait(2_000, "holding the pass: no leader in the stage");
                 }
-                return new SolverStep.DropFor(plan.passId(), passes, leader.get().characterId());
+                // 1.6.2: to a real leader, walk up to him first and drop at his feet (PassHandover)
+                return PassHandover.give(view, id, plan.passId(), passes, leader.get());
             }
-            return helpStep(view, plan, id);
+            SolverStep back = PassHandover.takeBack(view, id, plan.passId());
+            return back != null ? back : helpStep(view, plan, id);
         }
         if (status < 0) {
             return new SolverStep.TalkNpc(plan.npcId(), 0, 0);
