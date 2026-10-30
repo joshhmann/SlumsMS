@@ -132,8 +132,9 @@ class MakerServiceTest {
         }
 
         @Override
-        public void payMeso(int amount) {
+        public boolean payMeso(int amount) {
             mesoPaid += amount;
+            return true;
         }
 
         @Override
