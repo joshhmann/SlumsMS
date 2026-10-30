@@ -519,7 +519,8 @@ HUNTED_SPLIT = ("Counted: kills that really happened in the game, one by one. Es
 
 def split(rows):
     """Every row says how its kills split (1.6.2 b015): counted one by one plus estimated from the off-screen pace."""
-    return bool(rows) and all(_is(r.get("counted"), int) and _is(r.get("estimated"), int) for r in rows)
+    return bool(rows) and all(_is(r.get("counted"), int) and _is(r.get("estimated"), int)
+                              and r["counted"] + r["estimated"] == r["kills"] for r in rows)  # audit W7: they must add up
 
 
 def split_covers(world, hours):
@@ -594,8 +595,11 @@ def build_rankings(wo):
     hunted = bool(week or day)  # a board once the server counts kills
     tabs = "".join(f'<a href="{{root}}{WORLD}/rankings/{k}.html" class="chip">{esc(t)}</a>'
                    for k, t, _ in shown + ([HUNTED] if hunted else []))
+    # world.json's own time (every minute), not the rankings' 15-minute one (audit W8)
+    kills_at = when(wo.w["world"].get("generated_at")) if hunted else ""
     if hunted:
-        body = (f'<h1>{HUNTED[1]}</h1><p class="id">{esc(HUNTED[2])}</p><p class="chips">{tabs}</p>'
+        body = (f'<h1>{HUNTED[1]}</h1><p class="id">{esc(HUNTED[2])}{" As of " + esc(kills_at) + "." if kills_at else ""}</p>'
+                f'<p class="chips">{tabs}</p>'
                 f'<section class="panel"><h2 class="bar">Last 7 days</h2>{hunted_table(wo, week)}</section>'
                 f'<section class="panel"><h2 class="bar">Last 24 hours</h2>{hunted_table(wo, day)}</section>'
                 f'<p class="small">{esc(HUNTED_SPLIT if split(week) or split(day) else HUNTED_EST)}</p>')
@@ -621,9 +625,9 @@ def build_rankings(wo):
                     f'{table(k, board_rows(lb, k), 5)}</section>' for k, t, _ in shown)
     if hunted:
         cards += (f'<section class="panel"><h2 class="bar">{HUNTED[1]} <small>{"7 days" if week else "24 hours"}'
-                  f'{"" if split(week or day) else ", estimated"}</small> '
+                  f'{"" if split(week or day) else ", estimated"}{", as of " + esc(kills_at) if kills_at else ""}</small> '
                   f'<a href="{{root}}{WORLD}/rankings/hunted.html">All &raquo;</a></h2>{hunted_table(wo, week or day, 5)}</section>')
-    as_of = f' &middot; as of {esc(when(lb["generated_at"]))}' if lb.get("generated_at") else ""
+    as_of = f' &middot; boards as of {esc(when(lb["generated_at"]))}' if when(lb.get("generated_at")) else ""
     body = (f'<div class="headfig"><div><h1>Rankings</h1><p class="id">Everyone on Bera on one board, like it should be{as_of} &middot; '
             f'refreshes every 15 minutes</p></div>'
             f'</div>'

@@ -131,7 +131,9 @@ ssh root@<lxc-address> 'rm -rf /srv/slums-site/* && tar -xzf /tmp/slums-site.tar
 
 The 1.6.1 site work ships with 1.6.2 (owner, 2026-10-30: no separate 1.6.1); "1.6.1" below means that work.
 
-In this order; each step has its check, and stop at the first one that fails. `S=<UTC stamp>` for the backups. The
+Do this after the 1.6.2 game is up on live (its deploy turns the game's exchange on): the website's exchange asks the
+game for every order, and its password step goes to the game's sign-in API. In this order; each step has its check,
+and stop at the first one that fails. `S=<UTC stamp>` for the backups. The
 market and World rebuild timers, and the market service, run the code in `/opt/slums-site-build`, so the timers stay
 stopped from step 1 until nginx knows the 1.6.1 URLs (step 6). World shows numbers a few minutes old meanwhile.
 
@@ -158,15 +160,21 @@ stopped from step 1 until nginx knows the 1.6.1 URLs (step 6). World shows numbe
    ```
    It ends with "check passed". Compare before the copy: `ls /var/tmp/slums-site-161/database/icons/items | wc -l`
    matches `ls /srv/slums-site/database/icons/items | wc -l` (about 4,971), and the same for `mobs` and `npcs`.
-3. Copy the site: `rsync -a --delete /var/tmp/slums-site-161/ /srv/slums-site/` (market/ and World too: the build has
-   them fresh).
+3. Swap the site in with two renames (never an rsync or `rm -rf` into the live folder, audit W10): visitors see the
+   old site or the new one, never half of each.
+   ```
+   cp -a /var/tmp/slums-site-161 /srv/slums-site.new-$S
+   mv /srv/slums-site /srv/slums-site.old-$S && mv /srv/slums-site.new-$S /srv/slums-site
+   ```
+   Check: `ls /srv/slums-site/index.html`. Keep `/srv/slums-site.old-$S` until step 7 passes (step 1's backup too).
+   Later full builds do the same on their own: `build.py` builds beside `--out` and swaps in only after the check.
 4. Services (unit files in `/opt/slums-site-build/tools/site/`). Before installing a unit, `diff` it against the
    installed one: only the lines named here may differ.
    - The Flask market app. Flask comes from Ubuntu, no pip or venv: `dpkg -l python3-flask` shows `ii ... 3.0.2`
      (installed on 164 for TEST, checked 2026-10-29); if not, `apt install python3-flask`. Install the new unit
      (`install -m 0644 tools/site/slums-market.service /etc/systemd/system/`): its ExecStart is `market_app.py` (same
-     port 8095, URLs, cookie and database as `market_service.py`), and it has no `SLUMS_MARKET_EXCHANGE` line, so the
-     exchange stays off.
+     port 8095, URLs, cookie and database as `market_service.py`), and `SLUMS_MARKET_EXCHANGE=on`: the Slums Exchange
+     opens (owner, 2026-10-30). The diff against the installed unit shows those two lines and the comment.
    - `slums-login`: `install -m 0644 tools/site/login_service.py /opt/slums-login/` (a GM signed in over 12 h ago
      gets 401, so `/admin/` asks again).
    - `slums-report`: `install -m 0644 tools/site/report_service.py tools/site/report_export.py /opt/slums-report/`
@@ -174,7 +182,7 @@ stopped from step 1 until nginx knows the 1.6.1 URLs (step 6). World shows numbe
      server version from `/srv/slums-site/world/online.json`, the site's `build.json`, the staff port 8097).
    - `systemctl daemon-reload`, restart the three, then `curl -s 127.0.0.1:8094/api/login/health`,
      `127.0.0.1:8095/api/market/health` and `127.0.0.1:8093/api/report/health` all give `{"ok": true}`;
-     `journalctl -u slums-market -n 3` says `market service (Flask) ... exchange off`; `ss -ltn | grep 8097` shows the
+     `journalctl -u slums-market -n 3` says `market service (Flask) ... exchange on`; `ss -ltn | grep 8097` shows the
      staff reader. Signed in, a watch added on a database page shows on `/market/mine` (the watchlist survived).
 5. nginx: add part 3 of `tools/site/slums-login.nginx.conf` (clean URLs, `/admin/`, `/admin/data/`,
    `/api/report/staff/`, `@signagain`) and the `try_files` line in `/database/` and `/market/`; `nginx -t && systemctl
@@ -189,11 +197,20 @@ stopped from step 1 until nginx knows the 1.6.1 URLs (step 6). World shows numbe
    - `curl -sI $B/market/exchange.html` gives 301 to `/market/exchange`; `curl -sI $B/guide/` gives 200.
    - signed out: `curl -sI $B/admin/` gives 302 to `/login/?again=1&next=/admin/`; `curl -s -o /dev/null -w
      '%{http_code}' $B/api/report/staff/list` gives 404.
-   - signed in as a player: `/admin/` gives 404; `/api/market/exchange/book` gives `"open": false`; the page
-     `/market/exchange` shows only "The Slums Exchange isn't open yet", with Slums-chan's neutral lines (no "LEAF to
-     the moon!"); the Market menu on any market page has no Slums Exchange link.
+   - signed in as a player: `/admin/` gives 404; `/api/market/exchange/book` gives `"open": true`; the Market menu
+     on any market page shows the Slums Exchange link; `/market/exchange` shows the five tickers and the order form.
+     A buy preview of 100 NX answers within about 30 s (the game reads the inbox every few seconds; the first pass
+     comes about 30 s after the game starts). A sell preview asks for the password (b005); "Never mind" closes it.
+     Nothing is confirmed on live for the check.
    - signed in as a GM 3+ (the owner): `/admin/`, `/admin/invites` and `/admin/reports` open.
-   - a database page shows its icons; a test report sent from `/report/` shows server 1.6.1 in the staff Reports tab.
+   - a database page shows its icons; a test report sent from `/report/` shows server 1.6.2 in the staff Reports tab.
+8. Staff Bots page (ticket 157), only with the owner's go for bot inspect on live (the game's 1.6.2 deploy starts it
+   with `-Dslums.inspect=true -Dslums.inspect.port=8098 -Dslums.inspect.secretFile=/etc/slums-inspect/secret`; that
+   file, made once by the owner, group `slums-login`, mode 0640). In `/etc/systemd/system/slums-login.service`
+   uncomment the two `SLUMS_LOGIN_INSPECT_*` lines and add `-/etc/slums-inspect` to `ReadOnlyPaths`, then
+   `systemctl daemon-reload && systemctl restart slums-login`. Checks: `journalctl -u slums-login -n 2` ends
+   `bot inspect http://127.0.0.1:8098`; signed in as GM 3+, `/admin/bots` lists the busiest maps and opens a bot.
+   Without the go, skip it: the Bots page then says bot inspect is off, and nothing else changes.
 
 ### Website rollback (all of it, or the market alone)
 

@@ -169,7 +169,7 @@ class StoreTest(Base):
         with self.assertRaises(ms.Refused):
             self.store.change(self.other, self.store.close_post, {"id": a})      # not theirs
         self.store.change(self.me, self.store.close_post, {"id": a})            # the poster's take-down
-        self.store.change({"a": 99, "c": "GM", "g": 1}, self.store.close_post, {"id": b})  # a GM's
+        self.store.change({"a": 99, "c": "GM", "g": 1, "iat": int(self.clock())}, self.store.close_post, {"id": b})  # a GM's
         self.outbox_file("rejected.json", [{"id": c, "reason": "price over the cap"}])
         self.store.sync()
         st = {p["id"]: (p["status"], p["reason"]) for p in self.store.me(self.me)["posts"]}
@@ -177,6 +177,19 @@ class StoreTest(Base):
         self.assertEqual(st[b], ("removed", "taken down by a GM"))
         self.assertEqual(st[c], ("rejected", "price over the cap"))
         self.assertEqual(self.inbox_file("posts.json")["posts"], [])
+
+    def test_a_gm_take_down_needs_a_sign_in_from_the_last_12_hours(self):
+        """Audit W13 (owner 2026-10-30): like /admin/, an old copied GM cookie takes nothing down."""
+        pid = self.store.change(self.me, self.store.add_post, {"kind": "WTB", "itemId": 2000000, "qty": 100, "price": 30})
+        gm = {"a": 99, "c": "GM", "g": 1, "iat": int(self.clock())}
+        self.clock.t += ms.GM_FRESH + 1
+        with self.assertRaises(ms.Refused) as e:
+            self.store.change(gm, self.store.close_post, {"id": pid})
+        self.assertEqual(e.exception.status, 401)
+        self.assertFalse(self.store.me(gm)["gm"], "no take-down buttons for an old sign-in")
+        gm["iat"] = int(self.clock())
+        self.store.change(gm, self.store.close_post, {"id": pid})
+        self.assertTrue(self.store.me(gm)["gm"])
 
     def test_board_drops_expired_and_unknown_shapes(self):
         self.outbox_file("board.json", {"generated_at": "2027-01-15T08:00:00Z", "posts": [

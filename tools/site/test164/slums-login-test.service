@@ -11,6 +11,8 @@ Environment=SLUMS_LOGIN_REVOKED=/var/lib/slums-login-test/revoked.txt
 Environment=SLUMS_LOGIN_PORT=8194
 # plain http on the LAN: a Secure cookie would never be sent back
 Environment=SLUMS_LOGIN_SECURE=0
+# no proxy in front of TEST's nginx: the visitor is the address nginx appends (audit W11)
+Environment=SLUMS_LOGIN_PROXY_HOPS=0
 # ticket 105: the TEST game server's auth API, its secret (made by the release lead) and our own address salt
 Environment=SLUMS_LOGIN_AUTH_URL=http://127.0.0.1:8196
 Environment=SLUMS_LOGIN_AUTH_SECRET_FILE=/etc/slums-auth-test/secret

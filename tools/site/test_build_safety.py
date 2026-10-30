@@ -45,6 +45,26 @@ class FullBuildTest(unittest.TestCase):
         self.assertTrue(os.path.isfile(self.tar))
 
 
+class PrivateTopTest(unittest.TestCase):
+    """b179 / W6: a private build may only hold known public pages and the sign-in-guarded sections."""
+
+    def test_an_unknown_top_level_folder_fails_a_private_build_check(self):
+        tmp = tempfile.mkdtemp(prefix="slums-top-")
+        try:
+            for name in ("index.html", "market", "world", "stamps-dump"):
+                path = os.path.join(tmp, name)
+                if name.endswith(".html"):
+                    open(path, "w").close()
+                else:
+                    os.makedirs(path)
+            probs = build.check.check_top(tmp)
+            self.assertEqual(len(probs), 1, probs)
+            self.assertIn("stamps-dump", probs[0])
+            self.assertIn("stamps-dump", " ".join(build.check.check_all(tmp, private=True)))
+        finally:
+            shutil.rmtree(tmp)
+
+
 class BadExportTest(unittest.TestCase):
     """b177 / W4 and b178 / W5: a broken export is refused with a message, never a crash."""
 

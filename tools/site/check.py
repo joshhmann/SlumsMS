@@ -241,6 +241,22 @@ def check_private(root):
     return problems
 
 
+# Everything a build may put at its top level. In a private build, nginx guards PRIVATE_SECTIONS with the sign-in;
+# the rest is public. Anything else would be served to anyone without anybody having decided that (audit W6).
+PUBLIC_TOP = {"404.html", "index.html", "robots.txt", "assets", "forgot", "guide", "join", "login", "patch-notes",
+              "report", "world"}
+
+
+def check_top(root):
+    """Private builds: every top-level file or folder is a known public one or a sign-in-guarded section."""
+    if ONLY:
+        return []
+    return [f"{name}: not a known public page or a sign-in-guarded section ({', '.join(PRIVATE_SECTIONS)}); "
+            "add it to check.py's PUBLIC_TOP or move it under one of them"
+            for name in sorted(os.listdir(root)) if not name.startswith(".") and name not in PUBLIC_TOP
+            and name not in PRIVATE_SECTIONS]
+
+
 NOINDEX = '<meta name="robots" content="noindex'
 
 
@@ -264,7 +280,7 @@ def check_all(root, private=False, only=None):
     ONLY = only
     try:
         return (check_forbidden(root) + check_links(root) + check_noindex(root) +
-                ([] if private or only else check_private(root)))
+                (check_top(root) if private else [] if only else check_private(root)))
     finally:
         ONLY = None
 

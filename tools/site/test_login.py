@@ -366,6 +366,17 @@ class AccountSignInTest(unittest.TestCase):
         data = r.read()
         return r.status, (json.loads(data) if data else None)
 
+    def test_a_made_up_forwarded_address_doesnt_dodge_the_limit(self):
+        """Audit W11: the visitor's own X-Forwarded-For entries are ignored; the address Caddy wrote is counted."""
+        codes = [self.call("POST", "/api/login/password", {"user": "nope", "pass": "wrong-pw"},
+                           headers={"X-Slums": "1", "Content-Type": "application/json",
+                                    "X-Forwarded-For": f"10.9.{i}.1, 203.0.113.7, 127.0.0.1"})[0]
+                 for i in range(ls.AUTH_PER_IP_MIN + 1)]
+        self.assertEqual(codes[-1], 429, codes)
+        self.assertEqual(ls.client_ip("1.1.1.1, 203.0.113.7, 127.0.0.1", "127.0.0.1", 1), "203.0.113.7")
+        self.assertEqual(ls.client_ip("1.1.1.1, 203.0.113.7", "127.0.0.1", 0), "203.0.113.7")
+        self.assertEqual(ls.client_ip("", "127.0.0.9", 1), "127.0.0.9")
+
     def test_invites_go_to_the_game_with_the_sessions_account(self):
         self.assertEqual(self.call("POST", "/api/login/invites/list", {})[0], 401)
         self.call("POST", "/api/login/password", {"user": "momo", "pass": "hunter22"})

@@ -79,6 +79,7 @@ Settings (argument beats environment beats default):
     --auth-secret / SLUMS_LOGIN_AUTH_SECRET_FILE   /etc/slums-auth/secret (read by path, never printed)
     --ip-salt / SLUMS_LOGIN_IP_SALT_FILE  /etc/slums-login/ip-salt (32+ random bytes)
     --pass-key-file / SLUMS_LOGIN_PASS_KEY_FILE   /etc/slums-login/pass-key (32+ random bytes; missing: no passes)
+    --proxy-hops / SLUMS_LOGIN_PROXY_HOPS 1: proxies in front of nginx (live: Caddy = 1; TEST: 0), see client_ip()
     --inspect-url / SLUMS_LOGIN_INSPECT_URL       the game's bot inspect endpoint, e.g. http://127.0.0.1:8098 (empty: off)
     --inspect-secret / SLUMS_LOGIN_INSPECT_SECRET_FILE   /etc/slums-inspect/secret (16+ characters, read by path)
 Signed-out sessions are listed in revoked-sessions.txt next to --revoked, until they would have expired anyway.
@@ -493,7 +494,17 @@ def cookies(header):
     return out
 
 
-def make_handler(sessions, secure, auth=None, limiter=None, passes=None, inspect=None):
+def client_ip(xff, peer, hops=1):
+    """The visitor's address, as report_service.py's client_ip() works it out (audit W11): nginx appends the address it
+    saw, so with `hops` proxies in front (live: Caddy = 1; TEST: 0) the visitor is entry -(hops + 1) from the end.
+    Entries further left are whatever the visitor sent and are never trusted."""
+    parts = [p.strip() for p in (xff or "").split(",") if p.strip()]
+    if len(parts) > hops:
+        return parts[-(hops + 1)]
+    return parts[0] if parts else peer
+
+
+def make_handler(sessions, secure, auth=None, limiter=None, passes=None, inspect=None, hops=1):
     flags = "; Path=/; HttpOnly; SameSite=Lax" + ("; Secure" if secure else "")
     auth = auth or GameAuth(None, None, None)
     limiter = limiter or Limiter(AUTH_PER_IP_MIN)
@@ -508,8 +519,7 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None, inspect
             sys.stderr.write("%s %s\n" % (self.command, urlsplit(self.path).path))
 
         def client(self):
-            fwd = self.headers.get("X-Forwarded-For", "")
-            return fwd.split(",")[0].strip() or self.client_address[0]
+            return client_ip(self.headers.get("X-Forwarded-For"), self.client_address[0], hops)
 
         def send(self, status, body=None, set_cookies=(), headers=None):
             data = b"" if body is None else json.dumps(body).encode()
@@ -795,6 +805,7 @@ def main():
     ap.add_argument("--pass-key-file")
     ap.add_argument("--inspect-url")
     ap.add_argument("--inspect-secret")
+    ap.add_argument("--proxy-hops", type=int)
     args = ap.parse_args()
     key_file = setting(args, "key_file", "SLUMS_LOGIN_KEY_FILE", "/etc/slums-login/key")
     revoked = setting(args, "revoked", "SLUMS_LOGIN_REVOKED", "/var/lib/slums-login/revoked.txt")
@@ -824,7 +835,8 @@ def main():
         pass  # no pass key yet: download-pass answers 503 and every pass check 401
     inspect = Inspect(setting(args, "inspect_url", "SLUMS_LOGIN_INSPECT_URL", ""),
                       setting(args, "inspect_secret", "SLUMS_LOGIN_INSPECT_SECRET_FILE", "/etc/slums-inspect/secret"))
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(sessions, secure, auth, passes=passes, inspect=inspect))
+    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(sessions, secure, auth, passes=passes, inspect=inspect,
+                                                                   hops=int(setting(args, "proxy_hops", "SLUMS_LOGIN_PROXY_HOPS", 1))))
     print(f"login service on 127.0.0.1:{port}, game auth API {auth.url or '(not set: sign-in answers 503)'}, "
           f"download passes {'on' if passes else 'off (no pass key)'}, bot inspect "
           f"{inspect.url or ('off (not a loopback address)' if inspect.refused else 'off')}", file=sys.stderr)

@@ -858,6 +858,7 @@ class WorldTest(unittest.TestCase):
 
     def test_most_hunted_board(self):
         """161-hunted: world.json's top_mobs_7d and top_mobs (up to 25 each) get their own board and an overview card."""
+        from sections import world
         page = self.read("world/rankings/hunted.html")
         week, day = page.split("Last 7 days")[1].split("Last 24 hours")
         self.assertEqual((week.count('<td class="r num">'), day.count('<td class="r num">')), (12 * 2, 10 * 2))
@@ -867,7 +868,12 @@ class WorldTest(unittest.TestCase):
         # off-screen bot kills are modelled, so every count says it is an estimate (squash board, 2026-10-29)
         self.assertEqual(page.count("Kills <small>(est.)</small>"), 2)
         self.assertIn("Kill counts are estimates", page)
-        self.assertIn("7 days, estimated</small>", self.read("world/rankings/index.html"))
+        self.assertIn("7 days, estimated", self.read("world/rankings/index.html"))
+        # audit W8: the board and its card say when the kill counts are from (world.json's time, not the boards')
+        gen = world.load(self.data)["world"].get("generated_at")
+        if gen:
+            self.assertIn(" As of " + world.when(gen), page)
+            self.assertIn(", as of " + world.when(gen) + "</small>", self.read("world/rankings/index.html"))
 
     def test_most_hunted_shows_counted_and_estimated_when_the_server_splits_them(self):
         """1.6.2 b015: rows with counted + estimated get both columns and no "(est.)"; the overview card shows kills."""
@@ -889,6 +895,7 @@ class WorldTest(unittest.TestCase):
         self.assertNotIn("(est.)", card)
         self.assertIn("(est.)", world.hunted_table(Wo(), [{"mob": 1, "name": "Snail", "kills": 9}]), "older servers: all estimates")
         self.assertFalse(world.split(rows[:1] + [{"mob": 3, "kills": 4}]), "a row without the split: treat all as estimates")
+        self.assertFalse(world.split([dict(rows[0], counted=999)]), "audit W7: counted + estimated must equal kills")
         # before 1.6.2 the server didn't split kills: old hours read as counted, so show the split only once it covers
         # the window (split_since, epoch ms; generated_at 2026-10-30T13:00Z = 1793365200000)
         gen, hour = "2026-10-30T13:00:00Z", 3600 * 1000

@@ -59,6 +59,7 @@ from login_service import SESSION_COOKIE, Sessions, cookies  # noqa: E402
 
 MAX_WATCH, MAX_ALERTS, MAX_OPEN_POSTS = 20, 10, 5
 POST_TTL = 3 * 86400
+GM_FRESH = 12 * 3600  # a GM take-down needs a sign-in this recent, like /admin/ (owner 2026-10-30, audit W13)
 MAX_QTY, MAX_PRICE = 32767, 2_147_483_647  # a v83 stack, and the game's meso cap
 MAX_TOTAL = 2_147_483_647  # qty x price must fit one trade window (Site board contract)
 WRITES_PER_MIN = 30
@@ -298,7 +299,7 @@ class Store:
         watch = [{"itemId": it, "name": names.get(it, f"Item {it}")} for (it,) in self.q(
             "SELECT item FROM watch WHERE account=? ORDER BY created", a)]
         offers = self.offers(a, names)
-        return {"character": s.get("c"), "characters": characters(s), "gm": bool(s.get("g")), "watch": watch,
+        return {"character": s.get("c"), "characters": characters(s), "gm": self.gm_fresh(s), "watch": watch,
                 "trades": self.trades(characters(s)),
                 "alerts": alerts, "posts": posts, "badge": sum(1 for x in alerts if x["new"]),
                 "offers": offers, "offers_new": sum(1 for x in offers if x["new"]),
@@ -425,6 +426,10 @@ class Store:
                         (pid, a, who, body["kind"], item, qty, price, t, t + POST_TTL))
         return pid
 
+    def gm_fresh(self, s):
+        """A GM session signed in at most GM_FRESH ago, like /admin/ (audit W13): an old copied cookie takes nothing down."""
+        return bool(s.get("g")) and int(self.now()) - int(s.get("iat", 0)) <= GM_FRESH
+
     def close_post(self, s, body):
         pid = str(body.get("id", ""))
         row = self.q("SELECT account FROM posts WHERE id=? AND status='open'", pid)
@@ -432,6 +437,8 @@ class Store:
             raise Refused("That post is already closed.", 404)
         if row[0][0] == s["a"]:
             self.db.execute("UPDATE posts SET status='closed' WHERE id=?", (pid,))
+        elif s.get("g") and not self.gm_fresh(s):
+            raise Refused("Taking down a post needs a GM sign-in from the last 12 hours. Sign in again.", 401)
         elif s.get("g"):
             self.db.execute("UPDATE posts SET status='removed', reason='taken down by a GM' WHERE id=?", (pid,))
         else:
