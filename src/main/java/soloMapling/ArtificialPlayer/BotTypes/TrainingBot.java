@@ -2078,6 +2078,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
 
         maybeGrindChatter(chr);
         maybeSelfBuff(chr);
+        soloMapling.ArtificialPlayer.BotAttackSystem.BotPartySupport.tick(chr); // 161: heal the party, drink a buff pot (switch off)
 
         if (grindWatchdog(chr)) {
             return; // self-repair left the map (re-DECIDE) — skip the normal grind-timer transition

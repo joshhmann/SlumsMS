@@ -62,6 +62,7 @@ public final class BotVitals {
             return; // 1.5.0 rc3: a bot lying dead takes no more hits (and is not healed back to 1)
         }
         synchronized (lock(bot)) {
+            damage = magicGuardAbsorbs(bot, damage);   // 161: a bot with Magic Guard up pays part of the hit in MP
             if (bot.isOwnedAlt()) {
                 // 1.6.1 ticket 13: an owned alt is its player's character - a hit that takes it to 0 kills it (the normal
                 // death penalty), whatever the map; otherwise it drinks its own potions like any bot.
@@ -85,6 +86,63 @@ public final class BotVitals {
         }
     }
 
+    // ---------------------------------------------------------------- Magic Guard (ticket 161 item 4)
+
+    private static final int[] MAGIC_GUARDS = {Magician.MAGIC_GUARD, BlazeWizard.MAGIC_GUARD, Evan.MAGIC_GUARD};
+
+    /*
+     * Magic Guard's split of one hit, as the server does it for a player and as nutnnut/Cosmic 930ca5a01 does for its
+     * bots: {@code percent} of the damage comes off MP, the rest off HP, and whatever MP cannot pay falls back on HP.
+     * Returns {hpLoss, mpLoss}.
+     */
+    public static int[] magicGuardSplit(int damage, int percent, int currentMp) {
+        int mpLoss = (int) (damage * (percent / 100.0));
+        int hpLoss = damage - mpLoss;
+        int mp = Math.max(0, currentMp);
+        if (mpLoss > mp) {
+            hpLoss += mpLoss - mp;
+            mpLoss = mp;
+        }
+        return new int[]{hpLoss, mpLoss};
+    }
+
+    /*
+     * The share of a hit this bot's Magic Guard turns into MP loss, or 0. An owned alt (a real character with
+     * registered buffs) is read off its buff; a population bot's buffs are only shown, never registered, so it counts
+     * as guarded while it holds the skill and BotBuffDriver says it cast it and the cast has not run out.
+     */
+    static int magicGuardPercent(Character bot, Map<Integer, Long> castUntil, long now) {
+        Integer registered = bot.getBuffedValue(client.BuffStat.MAGIC_GUARD);
+        if (registered != null) {
+            return Math.max(0, Math.min(100, registered));
+        }
+        for (int skillId : MAGIC_GUARDS) {
+            int level = bot.getSkillLevel(skillId);
+            Long until = castUntil.get(skillId);
+            if (level > 0 && until != null && until > now) {
+                return Math.max(0, Math.min(100, SupplyData.get().x(skillId, level)));
+            }
+        }
+        return 0;
+    }
+
+    /* The HP part of a hit after Magic Guard took its MP share off the bot (the whole hit with the switch off). */
+    static int magicGuardAbsorbs(Character bot, int damage) {
+        if (!soloMapling.ArtificialPlayer.BotSupportSwitches.magicGuard() || damage <= 0) {
+            return damage;
+        }
+        int percent = magicGuardPercent(bot,
+                soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver.timersOf(bot.getId()), System.currentTimeMillis());
+        if (percent <= 0) {
+            return damage;
+        }
+        int[] split = magicGuardSplit(damage, percent, bot.getMp());
+        if (split[1] > 0) {
+            setMp(bot, bot.getMp() - split[1]);
+        }
+        return split[0];
+    }
+
     /*
      * 1.5.0 rc3 (owner decision 5): the HP share under which this bot drinks. On a map a player can see, each bot
      * drinks at its own habit (40-60%), and now and then notices late (15 points lower that time). Offscreen it keeps
@@ -99,6 +157,21 @@ public final class BotVitals {
                 soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits.of(bot.getId());
         boolean late = java.util.concurrent.ThreadLocalRandom.current().nextDouble() < h.latePotChance();
         return late ? h.hpPotAt() - 0.15 : h.hpPotAt();
+    }
+
+    /* Whether the item is a recovery potion (not a buff pot). */
+    public static boolean isRecoveryItem(int itemId) {
+        return SupplyData.get().recovery(itemId) != null;
+    }
+
+    /* Gives HP back (a party Heal), up to the bot's max. */
+    public static void heal(Character bot, int amount) {
+        if (bot == null || amount <= 0) {
+            return;
+        }
+        synchronized (lock(bot)) {
+            setHp(bot, Math.min(bot.getCurrentMaxHp(), bot.getHp() + amount));
+        }
     }
 
     /* What one cast of this skill costs in MP, by the server's rule (StatEffect.calcMPChange). */

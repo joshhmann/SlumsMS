@@ -153,6 +153,11 @@ public final class BotBuffEffects {
      * showBuffEffect broadcast to the rest of the map (others see it on them). effectId
      * 2 = the party-receive variant. Works regardless of party membership - it's just packets.
      */
+    /* The "received a party buff or heal" particle on a target, for BotPartySupport. */
+    public static void showReceived(Character target, int skillId) {
+        showReceivedBuff(target, skillId);
+    }
+
     private static void showReceivedBuff(Character target, int skillId) {
         target.sendPacket(PacketCreator.showOwnBuffEffect(skillId, 2));
         target.getMap().broadcastMessage(target, PacketCreator.showBuffEffect(target.getId(), skillId, 2), false);
@@ -205,6 +210,23 @@ public final class BotBuffEffects {
             target.getMap().broadcastMessage(target, aura, false);
         }
         showReceivedBuff(target, skillId);
+    }
+
+    /*
+     * Ticket 161: whether a real party member in reach has lost (or never got) this buff - judged by the buff's first
+     * stat on the member. Only real players count: a bot partner's buff is a picture.
+     */
+    public static boolean partyMemberLacks(Character bot, int skillId) {
+        Skill skill = SkillFactory.getSkill(skillId);
+        StatEffect effect = skill == null ? null : skill.getEffect(skill.getMaxLevel());
+        if (effect == null || effect.getStatups().isEmpty() || !effect.isPartyBuff()) return false;
+        client.BuffStat stat = effect.getStatups().get(0).getLeft();
+        for (Character member : nearbyPartyMembers(bot)) {
+            if (!BotHelpers.isBot(member) && member.isAlive() && member.getBuffedValue(stat) == null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /* The bot's party members on the same map within party-buff range (excludes the bot). */

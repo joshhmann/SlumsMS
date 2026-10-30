@@ -318,7 +318,46 @@ public final class BotProgression {
     static BotBuild.Choice choiceFor(Character bot) {
         int seed = bot.getId();
         WeaponType weapon = equippedWeapon(bot);
-        return new BotBuild.Choice(hintFor(weapon, seed), seed);
+        BotBuild.Choice base = new BotBuild.Choice(hintFor(weapon, seed), seed);
+        if (!variantsFor(bot)) {
+            return base;
+        }
+        int job = bot.getJob().getId();
+        return new BotBuild.Choice(base.secondJobHint(), seed,
+                BotBuild.rollVariant(job, BotBuild.alongLineOf(job, base), seed, rebirths(bot)));
+    }
+
+    /**
+     * Ticket 161: whether this bot may follow an AP variant. Off by default; when on, only a reborn bot (its build is
+     * made afresh at level 1) or one from a roster slot at or past {@code slums.bots.apvariants.fromSlot} - every older
+     * bot keeps the standard build it was made with, with no stored flag and no migration.
+     */
+    static boolean variantsFor(Character bot) {
+        if (!soloMapling.ArtificialPlayer.BotSupportSwitches.apVariants()) {
+            return false;   // off: do not even read the rebirth count (it throws when rebirth is not enabled)
+        }
+        return variantsFor(true, bot.getId(), rebirths(bot), soloMapling.ArtificialPlayer.BotSupportSwitches.apVariantFromSlot());
+    }
+
+    private static int rebirths(Character bot) {
+        try {
+            return bot.getReborns();
+        } catch (RuntimeException e) {
+            return 0;   // rebirth is not enabled on this server
+        }
+    }
+
+    static boolean variantsFor(boolean on, int botId, int reborns, int fromSlot) {
+        if (!on) {
+            return false;
+        }
+        return reborns > 0 || botId - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE >= fromSlot;
+    }
+
+    /** The AP build this bot follows by name ("standard", "dexless", "pure", "25 dex"), for tools and the report. */
+    public static String apBuildName(Character bot) {
+        BotBuild.Choice choice = BotBuild.alongLineOf(bot.getJob().getId(), choiceFor(bot));
+        return BotBuild.variantName(bot.getJob().getId(), choice);
     }
 
     private static WeaponType equippedWeapon(Character bot) {

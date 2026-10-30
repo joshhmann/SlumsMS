@@ -85,11 +85,25 @@ public final class BotBuild {
      * How a bot picks within its class. {@code secondJobHint} is the 2nd job its weapon points to (0 for none) and
      * {@code seed} breaks ties the same way every time for the same bot.
      */
-    public record Choice(int secondJobHint, int seed) {
+    public record Choice(int secondJobHint, int seed, Variant variant) {
+        public Choice(int secondJobHint, int seed) {
+            this(secondJobHint, seed, Variant.STANDARD);
+        }
+
         public static Choice of(int seed) {
             return new Choice(0, seed);
         }
     }
+
+    /**
+     * Ticket 161: how a bot spends its AP on the class's SECONDARY stat - a persona trait, like a real player's pick.
+     * {@code STANDARD} is the class rule (secondary kept at {@link #secondaryTarget} for the level); {@code LESS} is
+     * the "dexless / lukless / strless" build and {@code PURE} the "pure" one: the secondary stays at the least the job
+     * allows (4, or the 1st-job requirement for a thief or pirate) and everything goes to the primary; {@code FLAT25} is
+     * the "25 dex" (or luk, or str) build: the standard rule, but the secondary stops at 25. After nutnnut/Cosmic
+     * nutnnut/Cosmic {@code 3fb120faf} and {@code 47afdaa1e}'s idea (BotBuildManager's AP builds); the rolls and shares are ours.
+     */
+    public enum Variant { STANDARD, LESS, PURE, FLAT25 }
 
     /** A bot's build state: job, level, base stats, pools, unspent points and skills (id to level). */
     public static final class State {
@@ -291,11 +305,74 @@ public final class BotBuild {
     /** What the secondary stat is raised to at this level before AP goes to the primary. */
     public static int secondaryTarget(int jobId, int level, Choice choice) {
         int key = classKey(jobId, choice);
-        return switch (key) {
+        int standard = switch (key) {
             case 200, 1200 -> level + 3;
             case 400, 1400 -> Math.max(25, START_STAT + level / 2);
             case 510, 1500 -> Math.max(20, START_STAT + level / 2);
             default -> START_STAT + level / 2;
+        };
+        return switch (choice.variant()) {
+            case STANDARD -> standard;
+            case LESS, PURE -> secondaryFloor(key);
+            case FLAT25 -> Math.min(standard, Math.max(secondaryFloor(key), 25));
+        };
+    }
+
+    /** The least a class's secondary stat can be: 4, or the 1st-job requirement (thief DEX 25, brawler DEX 20). */
+    static int secondaryFloor(int classKey) {
+        return switch (classKey) {
+            case 400, 1400 -> 25;
+            case 510, 1500 -> 20;
+            default -> START_STAT;
+        };
+    }
+
+    /** The share (0..1, cumulative order LESS, PURE, FLAT25) of new bots of a class that roll each variant. */
+    private static double[] variantShares(int classKey) {
+        return switch (classKey) {
+            case 100, 1100, 2100 -> new double[]{0.22, 0.08, 0.15};   // warriors: dexless, pure, 25 dex
+            case 200, 1200 -> new double[]{0.22, 0.06, 0.12};         // mages: lukless, pure, 25 luk
+            case 300, 1300 -> new double[]{0.22, 0.04, 0.12};         // bowmen: strless, pure, 25 str
+            case 400, 1400 -> new double[]{0.40, 0, 0};               // thieves: dex is pinned at 25 either way
+            case 510, 1500 -> new double[]{0.20, 0, 0.20};            // brawlers: dexless (20), 25 dex
+            case 520 -> new double[]{0.25, 0, 0.13};                  // gunslingers: strless, 25 str
+            default -> new double[]{0, 0, 0};
+        };
+    }
+
+    /**
+     * The AP variant a bot rolls for the class of {@code jobId}: from its id and rebirth count only, so it is the same
+     * every time and nothing is stored. {@code STANDARD} for most.
+     */
+    public static Variant rollVariant(int jobId, Choice base, int botId, int reborns) {
+        if (!isBuildJob(jobId)) {
+            return Variant.STANDARD;
+        }
+        double[] share = variantShares(classKey(jobId, base));
+        java.util.SplittableRandom rng = new java.util.SplittableRandom(
+                0xA9B1D5E7L ^ (long) botId * 0x9E3779B97F4A7C15L ^ (long) reborns * 0xC2B2AE3D27D4EB4FL);
+        double roll = rng.nextDouble();
+        if (roll < share[0]) {
+            return Variant.LESS;
+        }
+        if (roll < share[0] + share[1]) {
+            return Variant.PURE;
+        }
+        if (roll < share[0] + share[1] + share[2]) {
+            return Variant.FLAT25;
+        }
+        return Variant.STANDARD;
+    }
+
+    /** What a player would call the build: "dexless", "pure", "25 dex"... or "standard". */
+    public static String variantName(int jobId, Choice choice) {
+        Stat secondary = secondaryStat(jobId, choice);
+        String stat = secondary.name().toLowerCase(java.util.Locale.ROOT);
+        return switch (choice.variant()) {
+            case STANDARD -> "standard";
+            case LESS -> stat + "less";
+            case PURE -> "pure";
+            case FLAT25 -> "25 " + stat;
         };
     }
 
@@ -569,6 +646,6 @@ public final class BotBuild {
         if (tier(jobId) == 0) {
             return choice;
         }
-        return new Choice(plannedSecondJob(jobId, choice), choice.seed());
+        return new Choice(plannedSecondJob(jobId, choice), choice.seed(), choice.variant());
     }
 }
