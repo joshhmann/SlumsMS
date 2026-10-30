@@ -16,7 +16,7 @@ class LifeChatDeferralTest {
         try (var roster = mockStatic(soloMapling.ArtificialPlayer.BotRoster.class);
              var movement = mockStatic(soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.class);
              var chat = mockStatic(soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.class)) {
-            movement.when(() -> soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(chr.getMapId())).thenReturn(true);
+            movement.when(() -> soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(chr)).thenReturn(true);
             var runtime = new LifeRuntime(bot);
             runtime.accepted(LifeDecision.Activity.RESTOCK, System.currentTimeMillis());
             var line = org.mockito.ArgumentCaptor.forClass(String.class);

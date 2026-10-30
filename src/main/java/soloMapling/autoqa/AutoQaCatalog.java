@@ -23,6 +23,7 @@ import static soloMapling.autoqa.Expects.rule;
 import static soloMapling.autoqa.Steps.acceptGuildInvite;
 import static soloMapling.autoqa.Steps.buddyAdd;
 import static soloMapling.autoqa.Steps.capture;
+import static soloMapling.autoqa.Steps.hiddenGm;
 import static soloMapling.autoqa.Steps.fixture;
 import static soloMapling.autoqa.Steps.guildInvite;
 import static soloMapling.autoqa.Steps.mark;
@@ -658,16 +659,18 @@ public final class AutoQaCatalog {
                 .step(run("pt-1"), until("PET ", 3, 60), mark("drop"), qaDo("drop"), until("PET(S)? PET LOOT|PET LOOT", 1, 60))
                 .expect(atLeast(1, "PET "), hasAfter("drop", "PETS PET LOOT|PET LOOT"))
                 .build());
+        // 1.6.2 (audit 163): the showcase bots stand next to the GM and swing at the mobs by it; with KS manners at the
+        // swing a visible GM's mobs are theirs, so the GM hides for these three (Steps.hiddenGm), as a player would.
         c.add(Check.half("t-bk-1", "Attack pacing: exact swing timing, held Hurricane and Rapid Fire",
                 "the swings on screen and attackdiag.log next to the client").minutes(6)
-                .step(run("bk-1", "pacing"), until("ATTACK .* busy \\d+ms", 60, 240))
+                .step(hiddenGm(), run("bk-1", "pacing"), until("ATTACK .* busy \\d+ms", 60, 240))
                 .expect(atLeast(20, "ATTACK .* busy \\d+ms"),
                         rule("no machine-gun swings (gap under 60% of busy) and no hitch (gap over busy + 3 s at a live mob)",
                                 AutoQaCatalog::pacingSteady),
                         lacks("ATTACK GUARD melee without a range"))
                 .build());
         c.add(Check.half("t-at-1", "Bots attack at a player's pace", "the swings next to your own character").minutes(14)
-                .step(run("bk-1"), until("ATTACK .* busy \\d+ms", 120, 600))
+                .step(hiddenGm(), run("bk-1"), until("ATTACK .* busy \\d+ms", 120, 600))
                 .expect(atLeast(40, "ATTACK .* busy \\d+ms"),
                         rule("no machine-gun swings (gap under 60% of busy)", AutoQaCatalog::pacingNotFast),
                         lacks("ATTACK GUARD melee without a range"))
@@ -676,7 +679,7 @@ public final class AutoQaCatalog {
         // no range for it and the viewer's client closed (TEST, twice). Gun and knuckle bots fight; every melee packet
         // must be one the client has a range for, and the packet guard must never have had to step in.
         c.add(Check.auto("t-bk-3", "Pirate bots never send a melee attack that closes a viewer's client").minutes(5)
-                .step(run("bk-1", "pirates", "3"), until("ATTACK .* weapon 149\\d{4} ", 20, 240))
+                .step(hiddenGm(), run("bk-1", "pirates", "3"), until("ATTACK .* weapon 149\\d{4} ", 20, 240))
                 .expect(atLeast(10, "ATTACK .* route RANGED .* weapon 149\\d{4} "),
                         lacks("ATTACK GUARD melee without a range"),
                         rule("every melee packet has a range in the client's tables (BotMeleeRange)",

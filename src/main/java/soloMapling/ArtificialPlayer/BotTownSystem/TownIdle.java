@@ -73,7 +73,7 @@ public final class TownIdle {
 
     /** One macro tick of a bot standing about in a town. */
     public static void tick(Character chr, Beat beat, long now) {
-        if (chr == null || beat == null || chr.getMap() == null || !GCMovement.isMapObserved(chr.getMapId())) {
+        if (chr == null || beat == null || chr.getMap() == null || !GCMovement.isMapObserved(chr)) {
             return; // nobody on this map id on any channel: nothing extra
         }
         boolean busy = chr.getChair() > 0 || AfkCampers.isCamping(chr.getId())

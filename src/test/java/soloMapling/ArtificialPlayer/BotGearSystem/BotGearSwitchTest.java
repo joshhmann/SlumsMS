@@ -265,4 +265,52 @@ class BotGearSwitchTest {
         assertTrue(paretoTypical < 20_000, "typical pareto call " + paretoTypical + " us");
         assertTrue(paretoHeavy < 250_000, "heavy pareto call " + paretoHeavy + " us");
     }
+
+    /*
+     * Audit 163 #12/#13 (b119): one gear review on a heavy bag. BotMaker.junk asks upgradeValue for every carried
+     * equip at a town stop; each used to be a full Pareto plan (bag size x plan cost). A review of 40 carried equips
+     * must stay bounded: < 50 ms on this box (generous; printed for the report).
+     */
+    @Test
+    void aHeavyBagReviewIsBounded() {
+        System.setProperty("slums.gear.optimizer", "pareto");
+        Random rng = new Random(163);
+        short[] slots = {-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11};
+        Character bot = bot(70);
+        for (short s : slots) {
+            if (s == -10) continue;
+            int id = s == -11 ? 1302000 : 1000000 + (-s) * 10000;
+            data.put(id, new Known(s, 10, 0, 0, 0, 0, 0, 0));
+            bot.getInventory(InventoryType.EQUIPPED).addItemFromDB(plainEquip(id, s, s == -11 ? 30 : rng.nextInt(2), rng.nextInt(4)));
+        }
+        List<Equip> carried = new ArrayList<>();
+        for (int i = 0; i < 40; i++) {
+            short s = slots[rng.nextInt(slots.length)];
+            if (s == -10) s = -5;
+            int id = s == -11 ? 1302001 + i : 1000000 + (-s) * 10000 + 1 + i;
+            data.put(id, new Known(s, rng.nextInt(50), 0, rng.nextInt(70), rng.nextInt(40), 0, 0, 0));
+            Equip e = plainEquip(id, (short) (i + 1), s == -11 ? 20 + rng.nextInt(30) : rng.nextInt(4), rng.nextInt(7));
+            e.setDex((short) rng.nextInt(7));
+            e.setAcc((short) rng.nextInt(6));
+            bot.getInventory(InventoryType.EQUIP).addItemFromDB(e);
+            carried.add(e);
+        }
+        java.util.function.Function<Map<Short, Piece>, Valuer> valuers = worn -> FORMULA;
+        double warm = 0;
+        for (int r = 0; r < 3; r++) {
+            BotGear.clearPlanCache();
+            for (Equip e : carried) warm += BotGear.upgradeValue(bot, e, data::get, valuers);
+        }
+        int reviews = 5;
+        long t0 = System.nanoTime();
+        double sum = 0;
+        for (int r = 0; r < reviews; r++) {
+            BotGear.clearPlanCache(); // each review cold: a town stop after the bag changed
+            for (Equip e : carried) sum += BotGear.upgradeValue(bot, e, data::get, valuers);
+        }
+        double msPerReview = (System.nanoTime() - t0) / 1e6 / reviews;
+        System.out.printf("[gear-timing] heavy-bag review (40 carried equips, pareto): %.1f ms%n", msPerReview);
+        assertTrue(warm >= 0 && sum >= 0);
+        assertTrue(msPerReview < 50, "one review took " + msPerReview + " ms");
+    }
 }

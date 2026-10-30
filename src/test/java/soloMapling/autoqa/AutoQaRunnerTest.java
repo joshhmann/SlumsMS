@@ -206,6 +206,27 @@ class AutoQaRunnerTest {
         assertEquals(1, w.logouts);
     }
 
+    /**
+     * 1.6.2 (audit 163, KS manners at the swing): the showcase checks hide their GM next to the bots, and the runner
+     * un-hides it at cleanup even when the check fails, so the next check has a visible GM again.
+     */
+    @Test
+    void aHiddenGmIsUnhiddenAtCleanupEvenOnAFail() {
+        FakeWorld w = world();
+        Check c = Check.auto("t-bk-9", "hidden").step(Steps.hiddenGm(), Steps.run("af-1"))
+                .expect(Expects.has("NEVER SEEN")).build();
+        AutoQaRunner.CheckResult res = new AutoQaRunner(w).run(List.of(c), false, null).get(0);
+        assertEquals(FAIL, res.status());
+        assertTrue(w.said.indexOf("1:!hide") >= 0 && w.said.indexOf("1:!hide") < w.said.indexOf("1:!qa run af-1"),
+                w.said.toString());
+        assertTrue(w.said.contains("1:!unhide"), w.said.toString());
+        for (String id : List.of("t-bk-1", "t-at-1", "t-bk-3")) {
+            assertTrue(AutoQaCatalog.find(id).steps().get(0).describe().contains("!hide"), id + " hides its GM");
+        }
+        assertFalse(AutoQaCatalog.find("t-cb-4").steps().get(0).describe().contains("!hide"),
+                "the manners check keeps a visible GM: the bots must give it space");
+    }
+
     @Test
     void aFailedExpectationFailsTheCheckWithEvidence() {
         FakeWorld w = world();

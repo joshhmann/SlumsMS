@@ -102,7 +102,7 @@ class OwnedAltSharedPathsTest {
         Set<Integer> party = Set.of(OWNER, ALT);
         try (MockedStatic<KsManners> ks = Mockito.mockStatic(KsManners.class, Mockito.CALLS_REAL_METHODS)) {
             assertTrue(OwnedAltCombat.strangers(m, field, party));
-            ks.verify(() -> KsManners.ownerOf(eq(field), eq(List.of(stranger)), eq(m)));
+            ks.verify(() -> KsManners.ownerOf(eq(field), eq(List.of(stranger)), eq(m), org.mockito.ArgumentMatchers.anyLong()));
         }
         when(stranger.getPosition()).thenReturn(new Point(1000 + 261, 0));
         assertFalse(OwnedAltCombat.strangers(m, field, party), "past the bots' 260 px: free");
@@ -122,6 +122,7 @@ class OwnedAltSharedPathsTest {
         chars.add(stranger);
         Map<Integer, Long> dealt = new HashMap<>(Map.of(OWNER, 5L));
         when(m.damageSnapshot()).thenReturn(dealt);
+        when(m.lastHitBy(OWNER)).thenReturn(System.currentTimeMillis()); // the party is hitting it now
         assertFalse(OwnedAltCombat.strangers(m, field, Set.of(OWNER, ALT)),
                 "the alt's layer on top: the party hit it first, a stranger walking up later does not take it");
     }
@@ -205,7 +206,7 @@ class OwnedAltSharedPathsTest {
             atk.when(() -> BotAttackDriver.attackReachX(any())).thenReturn(100);
             atk.when(() -> BotAttackDriver.attackReachY(any())).thenReturn(60);
             buffs.when(() -> BotBuffDriver.maintain(any(), anyLong(), any())).thenReturn(1);
-            mv.when(() -> GCMovement.isMapObserved(anyInt())).thenReturn(true);
+            mv.when(() -> GCMovement.isMapObserved(any(Character.class))).thenReturn(true);
             OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
             OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
             ap.verify(() -> Approach.reach(alt));
@@ -227,7 +228,7 @@ class OwnedAltSharedPathsTest {
              MockedStatic<BotBuffDriver> buffs = Mockito.mockStatic(BotBuffDriver.class, Mockito.CALLS_REAL_METHODS);
              MockedStatic<OwnedAltService> svc = Mockito.mockStatic(OwnedAltService.class)) {
             svc.when(OwnedAltService::getInstance).thenReturn(mock(OwnedAltService.class));
-            mv.when(() -> GCMovement.isMapObserved(anyInt())).thenReturn(true);
+            mv.when(() -> GCMovement.isMapObserved(any(Character.class))).thenReturn(true);
             OwnedAltCompanion.tick(owner, alt, new OwnedAltCompanion.State(ALT), NOW, 0);
             buffs.verify(() -> BotBuffDriver.selfBuff(any(), anyLong(), anyLong(), any(), any(), any()), Mockito.never());
         }
@@ -259,12 +260,15 @@ class OwnedAltSharedPathsTest {
         when(alt.getSkillLevel(anyInt())).thenReturn(0);
         when(alt.getSkillLevel(constants.skills.Fighter.POWER_GUARD)).thenReturn(10);
         try (MockedStatic<soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffEffects> fx =
-                     Mockito.mockStatic(soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffEffects.class);
+                     Mockito.mockStatic(soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffEffects.class,
+                             Mockito.CALLS_REAL_METHODS); // its MP rule (payFor) is the shared one under test
              MockedStatic<soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals> vit =
                      Mockito.mockStatic(soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.class);
              MockedStatic<soloMapling.server.MethodScheduler> sched =
                      Mockito.mockStatic(soloMapling.server.MethodScheduler.class)) {
-            fx.when(() -> soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffEffects.durationOf(anyInt())).thenReturn(60_000);
+            fx.when(() -> soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffEffects.durationOf(any(), anyInt())).thenReturn(60_000);
+            fx.when(() -> soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffEffects.isPartyBuff(anyInt())).thenReturn(false);
+            fx.when(() -> soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffEffects.castLevel(any(), anyInt())).thenReturn(10);
             vit.when(() -> soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.mpCost(any(), anyInt(), anyInt())).thenReturn(20);
             vit.when(() -> soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.affordMp(any(), anyInt())).thenReturn(false);
             assertEquals(0, BotBuffDriver.maintain(alt, 0, BotBuffDriver.Pay.ALL), "no MP and no MP potion: no cast");

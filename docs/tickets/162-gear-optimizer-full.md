@@ -41,7 +41,7 @@ TEST untouched (frozen for 1.6.1). Switches (all `-D` system properties, none in
 | Part | Switch | What turns on |
 | --- | --- | --- |
 | 1 | `-Dslums.gear.optimizer=pareto` | BotGearOptimizer (Pareto DP) for bots on watched maps; climb + skip-if-unchanged memo offscreen; GearScoring follows it |
-| 1 | `-Dslums.gear.dexless=true` | AP secondary stat capped by gear (BotBuild secondaryCap; never under the class floor; mages exempt) |
+| 1 | `-Dslums.gear.dexless=true` | AP secondary stat capped by gear (BotBuild secondaryCap; never under the class floor; mages exempt). Only AP spent after the switch: bots that exist when it goes on keep their build (owner 2026-10-30, audit 163 G11 - intended) |
 | 2 | `-Dslums.grind.gearFirst=true` | Gear-first map weights, leveling path skipped while gear-led, FARM_ITEM aspiration and farm map pick |
 | 4 | `-Dslums.junk.sort=true` | Town junk sale keeps the self-reserve and the valuables shelf |
 | 5 | `-Dslums.scroll.ev=true` | Reproduction-cost scrolled-gear prices (UpgradeSimulator) and the EV scroll planner (BotScrolling) |

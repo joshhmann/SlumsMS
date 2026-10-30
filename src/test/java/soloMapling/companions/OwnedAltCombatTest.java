@@ -78,7 +78,7 @@ class OwnedAltCombatTest {
         Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
         Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
         assertSame(owners, OwnedAltCombat.target(owner, alt, party, NOW), "not the nearer quiet mob: it never starts alone");
-        assertTrue(OwnedAltCombat.mayHit(quiet, f, party), "its area attacks may still catch a free mob");
+        assertTrue(OwnedAltCombat.mayHit(quiet, f, party, NOW), "its area attacks may still catch a free mob");
     }
 
     @Test
@@ -91,6 +91,26 @@ class OwnedAltCombatTest {
         OwnedAltCombat.noteHit(alt, biter, NOW);
         assertSame(biter, OwnedAltCombat.target(owner, alt, party, NOW + 1_000));
         assertNull(OwnedAltCombat.target(owner, alt, party, NOW + OwnedAltCombat.HIT_MEMORY_MS + 1));
+    }
+
+    /** Audit b135: a touch on the owner is let go when it is old, the mob died, or the owner's alts went home. */
+    @Test
+    void anOwnersTouchIsReleased() {
+        Monster biter = mob(40);
+        MapleMap f = map(List.of(biter));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
+        OwnedAltCombat.noteHit(alt, biter, NOW); // an alt's touch is always kept
+        assertTrue(OwnedAltCombat.recentlyHit(ALT, biter, NOW + 1_000));
+        when(biter.isAlive()).thenReturn(false);
+        assertFalse(OwnedAltCombat.recentlyHit(ALT, biter, NOW + 1_000), "dead: let go");
+        assertTrue(OwnedAltCombat.touchesKept(ALT) == 0, "and forgotten (its object id can come back)");
+        Monster other = mob(80);
+        OwnedAltCombat.noteHit(alt, other, NOW);
+        Monster later = mob(90);
+        OwnedAltCombat.noteHit(alt, later, NOW + OwnedAltCombat.HIT_MEMORY_MS + 1);
+        assertTrue(OwnedAltCombat.touchesKept(ALT) == 1, "the old touch went when a new one came");
+        OwnedAltCombat.retainOwners(Set.of(), Set.of());
+        assertTrue(OwnedAltCombat.touchesKept(ALT) == 0, "nothing kept for characters no longer out");
     }
 
     @Test
@@ -111,8 +131,8 @@ class OwnedAltCombatTest {
         Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
         OwnedAltCombat.noteHit(alt, theirs, NOW); // even one that bumped into the alt
         assertNull(OwnedAltCombat.target(owner, alt, party, NOW), "a real player outside the party hit both");
-        assertFalse(OwnedAltCombat.mayHit(theirs, f, party), "and its area attacks leave them alone");
-        assertFalse(OwnedAltCombat.mayHit(shared, f, party));
+        assertFalse(OwnedAltCombat.mayHit(theirs, f, party, NOW), "and its area attacks leave them alone");
+        assertFalse(OwnedAltCombat.mayHit(shared, f, party, NOW));
     }
 
     @Test
@@ -122,8 +142,35 @@ class OwnedAltCombatTest {
         MapleMap f = map(List.of(botOnly, both));
         Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
         Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
-        assertFalse(OwnedAltCombat.mayHit(botOnly, f, party));
+        assertFalse(OwnedAltCombat.mayHit(botOnly, f, party, NOW));
         assertSame(both, OwnedAltCombat.target(owner, alt, party, NOW));
+    }
+
+    /** Audit 163 (A3): a population bot that was on a mob before the party keeps it; one that came later does not. */
+    @Test
+    void theEarlierClaimWinsBetweenThePartyAndAPopulationBot() {
+        Monster botFirst = mob(30, BOT, OWNER);
+        when(botFirst.hitStreakStart(BOT)).thenReturn(NOW - 5_000);
+        when(botFirst.hitStreakStart(OWNER)).thenReturn(NOW - 1_000);
+        Monster partyFirst = mob(60, BOT, OWNER);
+        when(partyFirst.hitStreakStart(OWNER)).thenReturn(NOW - 5_000);
+        when(partyFirst.hitStreakStart(BOT)).thenReturn(NOW - 1_000);
+        MapleMap f = map(List.of(botFirst, partyFirst));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
+        Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
+        assertTrue(OwnedAltCombat.strangers(botFirst, f, party, NOW), "the bot was on it first: its mob");
+        assertFalse(OwnedAltCombat.strangers(partyFirst, f, party, NOW), "the bot joined the party's fight");
+        assertSame(partyFirst, OwnedAltCombat.target(owner, alt, party, NOW));
+    }
+
+    /** Audit 163: a stranger's hit long ago does not fence a mob off from the party for ever. */
+    @Test
+    void aStrangersOldHitLapses() {
+        Monster m = mob(30, OWNER, STRANGER);
+        when(m.lastHitBy(STRANGER)).thenReturn(NOW - 60_000);
+        MapleMap f = map(List.of(m));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
+        assertFalse(OwnedAltCombat.strangers(m, f, OwnedAltCombat.partyIds(alt, owner), NOW));
     }
 
     @Test
@@ -138,7 +185,7 @@ class OwnedAltCombatTest {
         chars.add(alt);
         Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
         OwnedAltCombat.noteHit(alt, m, NOW);
-        assertTrue(OwnedAltCombat.strangers(m, f, party));
+        assertTrue(OwnedAltCombat.strangers(m, f, party, NOW));
         assertNull(OwnedAltCombat.target(owner, alt, party, NOW));
     }
 
@@ -198,6 +245,19 @@ class OwnedAltCombatTest {
         } finally {
             BotAttackDriver.ledges = before;
         }
+    }
+
+    /** Audit (A2): an area swing never catches a party-engaged mob beyond the 650 px owner leash. */
+    @Test
+    void anAreaSwingKeepsToTheOwnerLeash() {
+        Monster near = mob(600, OWNER);
+        Monster far = mob(700, OWNER);   // engaged, 690 px from the alt's... 700 px from the owner
+        MapleMap f = map(List.of(near, far));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 300, true);
+        Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
+        assertTrue(OwnedAltCombat.driverMayFace(near, f, owner, alt, party, NOW));
+        assertFalse(OwnedAltCombat.driverMayFace(far, f, owner, alt, party, NOW),
+                "within the alt's 700 px seek range, but past the owner leash");
     }
 
     @Test

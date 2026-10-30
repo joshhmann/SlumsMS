@@ -464,7 +464,7 @@ public class ArtificialPlayerCommand extends Command {
                 break;
             case "givebuff":
                 // Bot casts (visual) and hands the REAL buff to you (the GM player).
-                BotBuffEffects.givePartyBuff(fakechar, input3, java.util.List.of(player));
+                BotBuffEffects.givePartyBuffAsGm(fakechar, input3, java.util.List.of(player));
                 player.yellowMessage("givebuff: " + fakechar.getName() + " -> you (skill " + input3 + ")");
                 if (fakechar.getMapId() != player.getMapId()) {
                     player.yellowMessage("Note: bot is on map " + fakechar.getMapId() + ", you are on "
@@ -473,7 +473,7 @@ public class ArtificialPlayerCommand extends Command {
                 break;
             case "extbuff":
                 // Bot casts (visual) and hands you the buff with a 10-minute duration.
-                BotBuffEffects.giveExtendedBuff(fakechar, input3, java.util.List.of(player),
+                BotBuffEffects.giveExtendedBuffAsGm(fakechar, input3, java.util.List.of(player),
                         BotBuffEffects.EXTENDED_DURATION_MS);
                 player.yellowMessage("extbuff: " + fakechar.getName() + " -> you (skill " + input3 + ", 10 min)");
                 if (fakechar.getMapId() != player.getMapId()) {

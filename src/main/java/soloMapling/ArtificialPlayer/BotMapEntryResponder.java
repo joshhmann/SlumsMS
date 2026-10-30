@@ -69,7 +69,7 @@ public final class BotMapEntryResponder implements EventSubscriber {
             if (map == null) {
                 return;
             }
-            GCMovement.markObservedNow(map.getId()); // instant FULL for the GC movement/combat LOD
+            GCMovement.markObservedNow(map); // instant FULL for the GC movement/combat LOD
             Character entrant = event.getMapleCharacter();
             java.awt.Point at = entrant != null ? new java.awt.Point(entrant.getPosition()) : null;
             ExecutorServiceManager.runAsync(() -> nudgeBotsOnMap(map, at));

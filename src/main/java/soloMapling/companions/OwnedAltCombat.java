@@ -50,19 +50,44 @@ public final class OwnedAltCombat {
             return;
         }
         if (!victim.isOwnedAlt() && !OwnedAltCompanion.hasAltsOut(victim.getId())) {
+            touchedBy.remove(victim.getId()); // b135: its alts went home - nothing of its fights is kept
             return;
         }
         Map<Integer, Long> hits = touchedBy.computeIfAbsent(victim.getId(), id -> new ConcurrentHashMap<>());
+        hits.values().removeIf(t -> now - t > HIT_MEMORY_MS); // b135: an old touch is let go, not kept to 32
         hits.put(mob.getObjectId(), now);
-        if (hits.size() > 32) {
-            hits.values().removeIf(t -> now - t > HIT_MEMORY_MS);
-        }
     }
 
+    /**
+     * The mob touched this character within {@link #HIT_MEMORY_MS}. Audit b135: a touch is released once it is old
+     * or the mob is dead (its object id may come back on a new mob), so the attack driver never swings at a mob only
+     * because it once bumped into the owner.
+     */
     static boolean recentlyHit(int characterId, Monster mob, long now) {
         Map<Integer, Long> hits = touchedBy.get(characterId);
-        Long at = hits == null ? null : hits.get(mob.getObjectId());
-        return at != null && now - at <= HIT_MEMORY_MS;
+        if (hits == null) {
+            return false;
+        }
+        Long at = hits.get(mob.getObjectId());
+        if (at == null) {
+            return false;
+        }
+        if (now - at > HIT_MEMORY_MS || !mob.isAlive()) {
+            hits.remove(mob.getObjectId(), at);
+            return false;
+        }
+        return true;
+    }
+
+    /** Audit b135: owners who no longer have alts out keep no touches (the driver's tick calls this). */
+    static void retainOwners(java.util.Set<Integer> stillOut, java.util.Set<Integer> alts) {
+        touchedBy.keySet().removeIf(id -> !stillOut.contains(id) && !alts.contains(id));
+    }
+
+    /** Test view: the touches kept for a character. */
+    static int touchesKept(int characterId) {
+        Map<Integer, Long> hits = touchedBy.get(characterId);
+        return hits == null ? 0 : hits.size();
     }
 
     static void forget(int characterId) {
@@ -87,29 +112,47 @@ public final class OwnedAltCombat {
         return ids;
     }
 
-    /** Someone outside the party has damaged this mob, or a real player outside it stands by it first. */
+    /** strangers at the current time (tests and tools). */
     static boolean strangers(Monster m, MapleMap map, Set<Integer> party) {
+        return strangers(m, map, party, System.currentTimeMillis());
+    }
+
+    /**
+     * Someone outside the party has a claim on this mob. Audit 163 (report A3): by the one KS rule the population bots
+     * use (KsManners: a hit claims a mob for CLAIM_MS after it lands, and the earlier claim wins), so
+     * <ul>
+     *   <li>a real player (or their alt) outside the party who is hitting it: theirs, whoever was first;</li>
+     *   <li>a population bot that was on it BEFORE the party: the bot's (the party joining in does not take it over -
+     *       before, any party damage did); a bot that came after the party: the party's;</li>
+     *   <li>no live party claim: a real player outside the party standing by it makes it theirs (KsManners.ownerOf).</li>
+     * </ul>
+     */
+    static boolean strangers(Monster m, MapleMap map, Set<Integer> party, long now) {
         Map<Integer, Long> dealt = m.damageSnapshot();
-        boolean partyHit = false;
-        boolean botHit = false;
+        long partySince = Long.MAX_VALUE;
+        long botSince = Long.MAX_VALUE;
         for (Integer id : dealt.keySet()) {
+            long since = KsManners.claimSince(m, id, now);
+            if (since <= 0) {
+                continue; // an old hit: no claim any more
+            }
             if (party.contains(id)) {
-                partyHit = true;
+                partySince = Math.min(partySince, since);
             } else if (BotHelpers.isArtificial(id)) {
-                botHit = true; // a population bot: its mob unless the party was on it too (a bot's KS is not theirs)
+                botSince = Math.min(botSince, since);
             } else {
-                return true; // a real player (or their alt) outside the party hit it: theirs, whoever was first
+                return true; // a real player (or their alt) outside the party is fighting it: theirs
             }
         }
-        if (botHit && !partyHit) {
-            return true;
+        if (botSince < partySince) {
+            return true; // a population bot was on it first
         }
-        if (partyHit || map == null) {
+        if (partySince != Long.MAX_VALUE || map == null) {
             return false;
         }
         // 1.6.2: who stands by a mob is the population bots' KS-manners rule (KsManners), asked about the real players
         // outside the party; the party-damage rules above are the alt's layer on top
-        return KsManners.ownerOf(map, KsManners.realPlayersOn(map, c -> !party.contains(c.getId())), m) != null;
+        return KsManners.ownerOf(map, KsManners.realPlayersOn(map, c -> !party.contains(c.getId())), m, now) != null;
     }
 
     /**
@@ -135,7 +178,11 @@ public final class OwnedAltCombat {
 
     /** May the alt's swing touch this mob at all: never a stranger's. */
     static boolean mayHit(Monster m, MapleMap map, Set<Integer> party) {
-        return m != null && BotAttackDriver.botMayTarget(m) && !strangers(m, map, party);
+        return mayHit(m, map, party, System.currentTimeMillis());
+    }
+
+    static boolean mayHit(Monster m, MapleMap map, Set<Integer> party, long now) {
+        return m != null && BotAttackDriver.botMayTarget(m) && !strangers(m, map, party, now);
     }
 
     /**
@@ -145,7 +192,16 @@ public final class OwnedAltCombat {
      */
     public static boolean driverMayFace(Monster m, MapleMap map, Character owner, Character alt, Set<Integer> party,
                                  long now) {
-        return mayHit(m, map, party) && engaged(m, owner, alt, party, now);
+        // audit (report A2): the owner leash holds for every mob a swing catches, area attacks included, not only for
+        // the target it picks
+        return byOwner(m, owner) && mayHit(m, map, party, now) && engaged(m, owner, alt, party, now);
+    }
+
+    /** The mob is within the owner leash ({@link #LEASH_X_PX} across, {@link #LEASH_Y_PX} up or down). */
+    static boolean byOwner(Monster m, Character owner) {
+        Point mp = m == null ? null : m.getPosition();
+        Point op = owner == null ? null : owner.getPosition();
+        return mp != null && op != null && Math.abs(mp.x - op.x) <= LEASH_X_PX && Math.abs(mp.y - op.y) <= LEASH_Y_PX;
     }
 
     /** The mob the alt goes for now: the nearest engaged one by its owner, or null (it follows instead). */
@@ -177,11 +233,11 @@ public final class OwnedAltCombat {
             if (mp == null || !m.isAlive() || !BotAttackDriver.botMayTarget(m)) {
                 continue;
             }
-            if (Math.abs(mp.x - op.x) > LEASH_X_PX || Math.abs(mp.y - op.y) > LEASH_Y_PX) {
+            if (!byOwner(m, owner)) {
                 continue;
             }
             if (!engaged(m, owner, alt, party, now) || skip.test(m) || !BotAttackDriver.onAttackableSurface(map, at, m)
-                    || strangers(m, map, party)) {
+                    || strangers(m, map, party, now)) {
                 continue;
             }
             double d = at.distanceSq(mp);

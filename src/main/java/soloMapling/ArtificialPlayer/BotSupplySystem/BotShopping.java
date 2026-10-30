@@ -244,7 +244,7 @@ public final class BotShopping {
 
     private static String observed(Character bot) {
         try {
-            return GCMovement.isMapObserved(bot.getMapId()) ? "on screen" : "offscreen";
+            return GCMovement.isMapObserved(bot) ? "on screen" : "offscreen";
         } catch (LinkageError | RuntimeException e) {
             return "offscreen";
         }

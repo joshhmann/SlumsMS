@@ -97,7 +97,7 @@ public final class BotDeaths {
     /** Whether a hit that would take the bot to 0 HP may kill it (and rolls for it). */
     public static boolean rollsDeath(Character bot) {
         if (bot == null || !eligible.contains(bot.getId()) || !BotCombatTuning.deaths()
-                || !GCMovement.isMapObserved(bot.getMapId()) || protectedFromDeath(bot)) {
+                || !GCMovement.isMapObserved(bot) || protectedFromDeath(bot)) {
             return false;
         }
         long now = System.currentTimeMillis();

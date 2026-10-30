@@ -104,28 +104,20 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
     @Override public void started(Character owner, Character alt) {
         OwnedAltCompanion.start();
     }
+    @Override public boolean mayEnter(Character alt, server.maps.MapleMap target) {
+        return target == null || soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(target.getId(), alt);
+    }
+    @Override public void closing(Character alt) {
+        OwnedAltCompanion.hold(alt); // audit B13: no tick (pickup, swing) inside the save window
+    }
     @Override public void leaveEvent(Character alt) {
-        scripting.event.EventInstanceManager eim = alt.getEventInstance();
-        if (eim == null || eim.isEventDisposed()) return;
-        try {
-            eim.invokeScriptFunction("playerExit", eim, alt); // KPQ: unregister, then to the exit map
-        } catch (Exception e) {
-            soloMapling.BotLogger.log("[OwnedAlt] " + alt.getName() + " could not leave " + eim.getName()
-                    + " through its script: " + e);
-        }
-        if (alt.getEventInstance() != null) {
-            eim.unregisterPlayer(alt);
-            server.maps.MapleMap map = alt.getMap();
-            if (map != null && map.getReturnMapId() > 0 && map.getReturnMapId() != 999999999) {
-                alt.changeMap(map.getReturnMapId());
-            }
-        }
+        OwnedAltCompanion.leaveInstanceQuietly(alt); // one path out of an event for an alt (K6/b118 + audit #8)
     }
     @Override public void detach(Character alt) {
         OwnedAltCompanion.forget(alt); // 1.6.1 ticket 13: the driver lets go first (no move after the disable below)
         GCMovement.disable(alt); // 1.6.0.4: stop following/travelling before the alt leaves its map and channel
         alt.setDisconnectedFromChannelWorld();
-        if (alt.getEventInstance() != null) alt.getEventInstance().playerDisconnected(alt);
+        OwnedAltCompanion.leaveInstanceQuietly(alt); // audit #8: an alt going home never ends its owner's run
         if (alt.getParty() != null) alt.leaveParty();
         if (alt.getMap() != null) alt.getMap().removePlayer(alt);
         alt.getClient().getChannelServer().removePlayer(alt);

@@ -115,6 +115,13 @@ public class BuddylistModifyHandler extends AbstractPacketHandler {
                     c.sendPacket(PacketCreator.updateBuddylist(buddylist.getBuddies()));
                     return;
                 }
+                // audit 163 (B16): an owned alt that is out cannot answer a buddy request
+                String altRefusal = soloMapling.companions.OwnedAltService.inviteRefusalByName(
+                        c.getWorldServer().getPlayerStorage(), player, addName, "answer a buddy request");
+                if (altRefusal != null) {
+                    player.dropMessage(1, altRefusal);
+                    return;
+                }
                 try {
                     World world = c.getWorldServer();
                     CharacterIdNameBuddyCapacity charWithId;

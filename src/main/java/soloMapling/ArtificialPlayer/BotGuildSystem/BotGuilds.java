@@ -1862,7 +1862,7 @@ public final class BotGuilds {
 
     static boolean realPlayerSees(Character bot) {
         try {
-            if (!GCMovement.isMapObserved(bot.getMapId())) {
+            if (!GCMovement.isMapObserved(bot)) {
                 return false;
             }
             for (Character c : bot.getMap().getAllPlayers()) {

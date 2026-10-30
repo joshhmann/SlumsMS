@@ -94,7 +94,7 @@ public final class BotChatter {
         if (!initiator.isAvailableForAmbientActions()) {
             return false; // engaged / traveling / mid-conversation
         }
-        if (!GCMovement.isMapObserved(me.getMapId())) {
+        if (!GCMovement.isMapObserved(me)) {
             return false; // no observer - chatter is packets, gate packets never simulation
         }
         if (!force) {
@@ -241,7 +241,7 @@ public final class BotChatter {
         if (!isEngaged(a) || !isEngaged(b)) {
             return false;
         }
-        return GCMovement.isMapObserved(a.getMapId());
+        return GCMovement.isMapObserved(a);
     }
 
     // Face a target, using the engine the actor is actually driven by so we never fight the GC driver on a

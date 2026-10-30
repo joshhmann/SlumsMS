@@ -73,6 +73,14 @@ public final class OwnedAltCompanion {
     /** A target it walked to or swung at this long without landing a hit is left alone for {@link #GIVE_UP_MS}. */
     static final long STALL_MS = 10_000; // a 650 px walk at a slow walk speed fits in it
     static final long GIVE_UP_MS = 15_000;
+    /** Audit #11 (b116): a gate line is said again only after the gate has been open this long in between. */
+    static final long TOLD_RESET_MS = 5_000;
+    /**
+     * Audit (report A4): a drop it has walked to this long without picking it up (no path to it, a ledge the 120 px
+     * band let through) is left for {@link #LOOT_SKIP_MS}: before, one unreachable drop parked the alt for good.
+     */
+    static final long LOOT_STALL_MS = 8_000;
+    static final long LOOT_SKIP_MS = 120_000;
 
     /** Per alt: what the driver remembers between ticks, and what QA reads. */
     static final class State {
@@ -80,6 +88,7 @@ public final class OwnedAltCompanion {
         volatile boolean fighting;
         volatile boolean gone;
         OwnedAltGate.Why told = OwnedAltGate.Why.OPEN;
+        long openSince; // audit #11: when the gate last opened (0 = shut); "told" resets after TOLD_RESET_MS open
         final Set<InventoryType> toldFull = EnumSet.noneOf(InventoryType.class);
         boolean toldMesoFull;
         boolean toldWeapon;
@@ -91,6 +100,10 @@ public final class OwnedAltCompanion {
         long targetSince;
         long lastLandedMs;
         final Map<Integer, Long> skip = new HashMap<>(); // mob oid -> until when it is left alone (stalled on it)
+        // audit (A4): the drop it walks to, since when, and drops it gave up on (oid -> until)
+        int lootOid = -1;
+        long lootSince;
+        final Map<Integer, Long> skipDrops = new HashMap<>();
         volatile String doing = "nothing yet";
         // 1.6.2 ticket 99: holding a stance spot (CompanionStance), and the sibling supply check
         int holdX = Integer.MIN_VALUE;
@@ -134,6 +147,23 @@ public final class OwnedAltCompanion {
     /** True while this character has alts out (a mob hitting them makes it the party's fight). */
     public static boolean hasAltsOut(int ownerId) {
         return owners.contains(ownerId);
+    }
+
+    /**
+     * Audit B13 (save window): the alt is about to be saved. Its state is marked gone under the state's own lock, so
+     * a tick already running finishes first and every later tick returns at once - nothing it loots or kills after
+     * this lands outside the save. (Before, the tick's guard only saw the alt closing once saveOwnedAltToDB had
+     * started, and a tick in flight could pick up an item the save had already read past.)
+     */
+    static void hold(Character alt) {
+        if (alt == null) {
+            return;
+        }
+        State s = states.computeIfAbsent(alt.getId(), State::new);
+        synchronized (s) {
+            s.gone = true;
+            s.fighting = false;
+        }
     }
 
     /** The alt is leaving the world: the driver lets go of it (called before its movement is disabled). */
@@ -193,43 +223,84 @@ public final class OwnedAltCompanion {
         List<OwnedAltService.Active> active = OwnedAltService.getInstance().active();
         Set<Integer> ownerIds = new HashSet<>();
         Set<Integer> altIds = new HashSet<>();
-        Map<MapleMap, Integer> fightingOn = new HashMap<>();
         for (OwnedAltService.Active a : active) {
             ownerIds.add(a.owner().getId());
             altIds.add(a.alt().getId());
-            State s = states.get(a.alt().getId());
-            if (s != null && s.fighting && a.alt().getMap() != null) {
-                fightingOn.merge(a.alt().getMap(), 1, Integer::sum);
-            }
         }
         owners.retainAll(ownerIds);
         owners.addAll(ownerIds);
         states.keySet().removeIf(id -> !altIds.contains(id));
+        OwnedAltCombat.retainOwners(ownerIds, altIds); // b135: an owner whose alts went home keeps no touches
         long now = System.currentTimeMillis();
         // 1.6.2 ticket 99: each alt's formation place, by its slot among the owner's party companions
         Map<Integer, List<soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Target>> slotsOf = new HashMap<>();
         boolean formations = CompanionSwitches.orders();
-        for (OwnedAltService.Active a : active) {
-            Character alt = a.alt();
-            State s = states.computeIfAbsent(alt.getId(), State::new);
+        driveAll(active, now, (owner, alt, s, at, others) -> {
             if (formations) {
-                var slots = slotsOf.computeIfAbsent(a.owner().getId(),
-                        id -> soloMapling.ArtificialPlayer.BotPartySystem.PartyBotOrders.slots(a.owner()));
+                var slots = slotsOf.computeIfAbsent(owner.getId(),
+                        id -> soloMapling.ArtificialPlayer.BotPartySystem.PartyBotOrders.slots(owner));
                 int idx = 0;
                 while (idx < slots.size() && slots.get(idx).id() != alt.getId()) {
                     idx++;
                 }
-                GCMovement.setFollowOffset(alt, CompanionStance.formation(a.owner().getId()).offsetFor(idx));
+                GCMovement.setFollowOffset(alt, CompanionStance.formation(owner.getId()).offsetFor(idx));
             }
-            int others = fightingOn.getOrDefault(alt.getMap(), 0) - (s.fighting ? 1 : 0);
+            tick(owner, alt, s, at, others);
+        });
+    }
+
+    /** One alt's tick, given how many OTHER alts fight on its map right now. */
+    interface Ticker {
+        void tick(Character owner, Character alt, State s, long now, int otherAltsFightingHere);
+    }
+
+    /**
+     * Audit #11 (b116): the per-map fighting cap counted with the seats decided THIS tick. Before, every alt read a
+     * count taken before any of them ticked: seven idle alts all read 0 and all started; the next tick all read 6 and
+     * all stood down; and so on every 200 ms. Now alts already fighting tick first (they keep their seats, or free
+     * them), then the rest, each seeing the seats taken so far.
+     */
+    static void driveAll(List<OwnedAltService.Active> active, long now, Ticker ticker) {
+        Map<MapleMap, Integer> seats = new HashMap<>();
+        List<OwnedAltService.Active> order = new java.util.ArrayList<>(active.size());
+        List<OwnedAltService.Active> waiting = new java.util.ArrayList<>();
+        for (OwnedAltService.Active a : active) {
+            State s = states.computeIfAbsent(a.alt().getId(), State::new);
+            if (s.fighting && a.alt().getMap() != null) {
+                seats.merge(a.alt().getMap(), 1, Integer::sum);
+                order.add(a);
+            } else {
+                waiting.add(a);
+            }
+        }
+        order.addAll(waiting);
+        for (OwnedAltService.Active a : order) {
+            Character alt = a.alt();
+            State s = states.computeIfAbsent(alt.getId(), State::new);
+            MapleMap before = alt.getMap();
+            boolean was = s.fighting && before != null;
+            int others = (before == null ? 0 : seats.getOrDefault(before, 0)) - (was ? 1 : 0);
             try {
-                tick(a.owner(), alt, s, now, others);
+                ticker.tick(a.owner(), alt, s, now, others);
             } catch (RuntimeException e) {
                 if (QaLog.every("owned-alt-tick:" + alt.getId(), 60_000)) {
                     log.warn("Owned alt {} tick failed", alt.getName(), e);
                 }
             }
+            MapleMap after = alt.getMap();
+            boolean is = s.fighting && after != null;
+            if (was) {
+                seats.merge(before, -1, Integer::sum);
+            }
+            if (is) {
+                seats.merge(after, 1, Integer::sum);
+            }
         }
+    }
+
+    /** Test seam: the driver's state for an alt (made if new). */
+    static State stateOf(int altId) {
+        return states.computeIfAbsent(altId, State::new);
     }
 
     static void tick(Character owner, Character alt, State s, long now, int otherAltsFightingHere) {
@@ -267,6 +338,7 @@ public final class OwnedAltCompanion {
             OwnedAltGate.Why why = OwnedAltGate.check(owner, alt, now, otherAltsFightingHere);
             s.gate = why;
             if (why != OwnedAltGate.Why.OPEN) {
+                s.openSince = 0;
                 if (s.fighting) {
                     standDown(owner, alt, s);
                 }
@@ -278,7 +350,12 @@ public final class OwnedAltCompanion {
                 s.doing = "following (gate " + why + ")";
                 return;
             }
-            s.told = OwnedAltGate.Why.OPEN;
+            // audit #11: a gate that flickers open does not re-arm its line; open a few seconds, it may be said again
+            if (s.openSince == 0) {
+                s.openSince = now;
+            } else if (now - s.openSince >= TOLD_RESET_MS) {
+                s.told = OwnedAltGate.Why.OPEN;
+            }
             // 1.6.2: its class buffs, by the population bots' own maintenance (BotBuffDriver), recast on time as they
             // run out and paid out of its own MP and MP potions (Pay.ALL); only the buffs it has learned
             s.nextBuffMs = BotBuffDriver.selfBuff(alt, now, s.nextBuffMs, () -> 0L, BotBuffDriver.Pay.ALL, BUFF_RNG);
@@ -483,7 +560,9 @@ public final class OwnedAltCompanion {
         }
         Set<InventoryType> full = EnumSet.noneOf(InventoryType.class);
         boolean[] mesoFull = new boolean[1];
-        MapItem drop = OwnedAltLoot.pick(alt, owner, party, now, full, mesoFull);
+        s.skipDrops.values().removeIf(until -> until <= now);
+        MapItem drop = OwnedAltLoot.pick(alt, owner, party, now, full, mesoFull,
+                d -> s.skipDrops.containsKey(d.getObjectId()));
         for (InventoryType bag : full) {
             if (s.toldFull.add(bag)) {
                 say(owner, alt, OwnedAltLoot.fullLine(bag));
@@ -494,7 +573,18 @@ public final class OwnedAltCompanion {
             say(owner, alt, "I can't carry any more mesos.");
         }
         if (drop == null) {
+            s.lootOid = -1;
             return false;
+        }
+        if (drop.getObjectId() != s.lootOid) {
+            s.lootOid = drop.getObjectId();
+            s.lootSince = now;
+        } else if (now - s.lootSince > LOOT_STALL_MS) {
+            s.skipDrops.put(drop.getObjectId(), now + LOOT_SKIP_MS);
+            s.lootOid = -1;
+            s.doing = "gave up on a drop it cannot reach";
+            audit(owner, alt.getName() + " " + s.doing + " (" + drop.getItemId() + ")");
+            return false; // follow (or fight) again this tick
         }
         s.doing = "looting " + drop.getItemId();
         if (OwnedAltLoot.inReach(alt, drop)) {
@@ -547,28 +637,74 @@ public final class OwnedAltCompanion {
         return false;
     }
 
-    /** It has lain long enough: up in town, saved and home; the owner is told. */
+    /**
+     * It has lain long enough: up in town, saved and home; the owner is told. Audit #8 (b115): an alt that died inside
+     * an instance (a PQ) first leaves it quietly - unregistered without the event script's "team lacking" check, so
+     * its death never ends the owner's run - and gets up in the instance's exit town (its forced return), so the
+     * line "it got up in town" is true and it is saved there.
+     */
     private static void afterDeath(Character owner, Character alt, State s) {
         s.gone = true;
         s.fighting = false;
         GCMovement.stop(alt);
         GCMovement.releaseCommitmentHold(alt);
-        if (alt.getEventInstance() == null && alt.getMap() != null) {
-            int town = alt.getMap().getReturnMapId();
-            if (town <= 0 || town == MapId.NONE) {
-                town = alt.getMapId();
-            }
+        if (alt.getMap() != null) {
+            int town = deathTown(alt.getMap(), alt.getMapId());
             try {
+                leaveInstanceQuietly(alt);
                 alt.respawn(town); // as a player clicking OK: the return map with 50 HP
             } catch (RuntimeException e) {
                 log.warn("Owned alt {} could not respawn in {}", alt.getName(), town, e);
+                if (alt.getHp() <= 0) {
+                    alt.updateHp(50);
+                }
             }
-        } else if (alt.getHp() <= 0) {
-            alt.updateHp(50); // died inside an instance: it leaves with the event's exit rules, not lying at 0 HP
         }
         audit(owner, alt.getName() + " died; respawned on map " + alt.getMapId() + ", going home");
         OwnedAltService.getInstance().sendHomeAfterDeath(alt, alt.getName() + " died and lost EXP, as a player does."
                 + " It got up in town and went home (saved). Call it again with @botme " + alt.getName() + ".");
+    }
+
+    /** Where a dead alt gets up: the map's forced return (a PQ's exit), else its return town, else where it lies. */
+    static int deathTown(server.maps.MapleMap map, int here) {
+        int forced = map.getForcedReturnId();
+        if (forced > 0 && forced != MapId.NONE) {
+            return forced;
+        }
+        int town = map.getReturnMapId();
+        return town <= 0 || town == MapId.NONE ? here : town;
+    }
+
+    /**
+     * The one way an owned alt leaves an event instance (audit #8 b115 + 162-kpqfix K6/b118), used by its death, its
+     * save before going home (Backend.leaveEvent) and its detach. It goes the way the event's script lets a member go
+     * ({@code playerExit}: KPQ unregisters it and sends it to the exit map), never through the disconnect/revive rules
+     * that end the whole run when the team drops below its minimum - so the owner's run goes on without it. If the
+     * script has no exit for it, it is unregistered and sent to the map's return town. Only the last member still goes
+     * through {@code playerDisconnected}, so an instance is never left running with nobody in it.
+     */
+    static void leaveInstanceQuietly(Character alt) {
+        scripting.event.EventInstanceManager eim = alt.getEventInstance();
+        if (eim == null || eim.isEventDisposed()) {
+            return;
+        }
+        if (eim.getPlayerCount() <= 1) {
+            eim.playerDisconnected(alt);
+            return;
+        }
+        try {
+            eim.invokeScriptFunction("playerExit", eim, alt); // KPQ: unregister, then to the exit map
+        } catch (Exception e) {
+            soloMapling.BotLogger.log("[OwnedAlt] " + alt.getName() + " could not leave " + eim.getName()
+                    + " through its script: " + e);
+        }
+        if (alt.getEventInstance() != null) {
+            eim.unregisterPlayer(alt);
+            server.maps.MapleMap map = alt.getMap();
+            if (map != null && map.getReturnMapId() > 0 && map.getReturnMapId() != MapId.NONE) {
+                alt.changeMap(map.getReturnMapId());
+            }
+        }
     }
 
     /**

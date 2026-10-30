@@ -468,7 +468,7 @@ public final class WorldEventReactions {
         long delay = 12_000 + rng.nextInt(6_000);
         WorldEvents.qa("WEVENT GRUMBLE #" + e.id + " " + bot.getName() + " (death " + deaths + "): " + line);
         ExecutorServiceManager.getScheduledExecutorService().schedule(() -> {
-            if (bot.getMap() != null && GCMovement.isMapObserved(bot.getMapId())) {
+            if (bot.getMap() != null && GCMovement.isMapObserved(bot)) {
                 SocialCommands.BotSpeak(bot, line);
             }
         }, delay, java.util.concurrent.TimeUnit.MILLISECONDS);
@@ -536,7 +536,7 @@ public final class WorldEventReactions {
         List<Character> heard = new ArrayList<>();
         for (BotSM bot : CharacterStorage.getAllBots().values()) {
             Character chr = bot.getChr();
-            if (chr != null && chr.getMap() != null && free(chr) && GCMovement.isMapObserved(chr.getMapId())) {
+            if (chr != null && chr.getMap() != null && free(chr) && GCMovement.isMapObserved(chr)) {
                 heard.add(chr);
             }
         }
@@ -561,7 +561,7 @@ public final class WorldEventReactions {
         List<Character> inRegion = new ArrayList<>();
         for (BotSM bot : CharacterStorage.getAllBots().values()) {
             Character chr = bot.getChr();
-            if (chr == null || chr.getMap() == null || !free(chr) || !GCMovement.isMapObserved(chr.getMapId())
+            if (chr == null || chr.getMap() == null || !free(chr) || !GCMovement.isMapObserved(chr)
                     || chr.getClient().getChannel() != e.channel) { // ticket 57: speak where the event is
                 continue;
             }

@@ -9063,7 +9063,11 @@ public class Character extends AbstractCharacterObject {
 
         cancelAllBuffsOnDeath();  // thanks Oblivium91 for finding out players still could revive in area and take damage before returning to town
 
-        if (usedSafetyCharm) {  // thanks kvmba for noticing safety charm not providing 30% HP/MP
+        // Audit b134: the charm counts for the death it was used on only (the flag was never reset, so every later
+        // respawn came back at 30 % HP/MP); an owned alt always gets up at 50 HP (ticket 13).
+        boolean charm = usedSafetyCharm && !isOwnedAlt();
+        usedSafetyCharm = false;
+        if (charm) {  // thanks kvmba for noticing safety charm not providing 30% HP/MP
             addMPHP((int) Math.ceil(this.getClientMaxHp() * 0.3), (int) Math.ceil(this.getClientMaxMp() * 0.3));
         } else {
             updateHp(50);

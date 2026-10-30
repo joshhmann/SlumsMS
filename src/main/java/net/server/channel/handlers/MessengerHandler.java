@@ -86,7 +86,12 @@ public final class MessengerHandler extends AbstractPacketHandler {
                         } else if (messenger.getMembers().size() < 3) {
                             input = p.readString();
                             Character target = c.getChannelServer().getPlayerStorage().getCharacterByName(input);
-                            if (target != null) {
+                            // audit 163 (B16): an owned alt cannot answer a Messenger invite
+                            String altRefusal = soloMapling.companions.OwnedAltService.inviteRefusalByName(
+                                    world.getPlayerStorage(), player, input, "join a Maple Messenger chat");
+                            if (altRefusal != null) {
+                                c.sendPacket(PacketCreator.messengerChat(player.getName() + " : " + altRefusal));
+                            } else if (target != null) {
                                 if (target.getMessenger() == null) {
                                     if (InviteCoordinator.createInvite(InviteType.MESSENGER, c.getPlayer(), messenger.getId(), target.getId())) {
                                         target.sendPacket(PacketCreator.messengerInvite(c.getPlayer().getName(), messenger.getId()));

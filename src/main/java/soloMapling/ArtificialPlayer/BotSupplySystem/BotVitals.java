@@ -150,7 +150,7 @@ public final class BotVitals {
      */
     static double hpPotAt(Character bot) {
         if (!soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human()
-                || !soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(bot.getMapId())) {
+                || !soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(bot)) {
             return HP_POT_AT;
         }
         soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits h =

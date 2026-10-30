@@ -228,7 +228,8 @@ public final class BotBuffRequestHandler {
     private static int resolveSkill(BuffConcept concept, Character chr) {
         List<Integer> kit = BotBuffConfig.buffsFor(chr);
         for (int id : concept.skillIds()) {
-            if (kit.contains(id)) {
+            // audit #1: a buff the bot has really learned (it hands out its own level, never the max)
+            if (kit.contains(id) && BotBuffEffects.castLevel(chr, id) > 0) {
                 return id;
             }
         }
@@ -259,8 +260,9 @@ public final class BotBuffRequestHandler {
             MovementCommands.botFaceTowardsPoint(chr, player.getPosition());
         }
         SocialCommands.BotEmote(chr, REACT_EMOTE);
-        SocialCommands.BotChatbubble(chr, reactLine(concept, player));
-        BotBuffEffects.giveExtendedBuff(chr, skillId, List.of(player), BotBuffEffects.EXTENDED_DURATION_MS);
+        if (BotBuffEffects.giveExtendedBuff(chr, skillId, List.of(player), BotBuffEffects.EXTENDED_DURATION_MS)) {
+            SocialCommands.BotChatbubble(chr, reactLine(concept, player));
+        }
     }
 
     private static String reactLine(BuffConcept concept, Character player) {
@@ -318,7 +320,9 @@ public final class BotBuffRequestHandler {
         if (player.getPosition() != null) {
             MovementCommands.botFaceTowardsPoint(bot, player.getPosition());
         }
-        BotBuffEffects.giveExtendedBuff(bot, skillId, List.of(player), BotBuffEffects.EXTENDED_DURATION_MS);
+        if (!BotBuffEffects.giveExtendedBuff(bot, skillId, List.of(player), BotBuffEffects.EXTENDED_DURATION_MS)) {
+            return null;   // audit #1: out of MP for it
+        }
         return concept.name();
     }
 

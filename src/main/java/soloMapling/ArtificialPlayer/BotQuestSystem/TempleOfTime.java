@@ -49,6 +49,13 @@ public final class TempleOfTime {
 
     /** Bots start the chain between these levels (a steady per-bot "ambition"), so they don't all arrive at 90. */
     static final int AMBITION_MIN = 90, AMBITION_BAND = 36;
+    /**
+     * Audit #2 (b111): a scripted step that ran but could not finish (NOT_READY: no potion, not enough mesos, the
+     * script said "not yet") is put back and asked again after a backoff that doubles; after this many such waits it
+     * is dropped for the run and the bot grinds and does normal quests instead.
+     */
+    static final int MAX_NOT_READY = 3;
+    static final long NOT_READY_BACKOFF_MS = 20 * 60_000L;
     /** A bot whose lanes are all full asks again after this long (jittered). */
     static final long CROWD_DEFER_MIN_MS = 60_000, CROWD_DEFER_MAX_MS = 180_000;
     /** Mesos a bot keeps on top of the Sorcerer's fee before it goes to him. */
@@ -57,6 +64,8 @@ public final class TempleOfTime {
     private static final Map<Integer, Integer> progress = new ConcurrentHashMap<>();
     private static final Map<Integer, Long> deferUntil = new ConcurrentHashMap<>();
     private static final Map<Integer, Integer> wanted = new ConcurrentHashMap<>();
+    /** botId -> {mainline quest id, NOT_READY waits so far} (audit #2). */
+    private static final Map<Integer, int[]> notReady = new ConcurrentHashMap<>();
 
     private TempleOfTime() {
     }
@@ -91,6 +100,9 @@ public final class TempleOfTime {
         TempleRoute.Step step = TempleRoute.MAINLINE.get(done);
         if (chr.getLevel() < step.lvmin()) {
             return null;
+        }
+        if (log.skipped(step.questId()) || log.completed(step.questId())) {
+            return null; // audit #2: a step dropped as unfinishable is not picked again this run
         }
         if (step.questId() == TempleRoute.Q_SORCERER && chr.getMeso() < TempleRoute.SORCERER_FEE + FEE_BUFFER) {
             return null; // saves up for the potion first, as upstream does
@@ -190,9 +202,13 @@ public final class TempleOfTime {
 
     // ── the corridor gates ──
 
-    /** Whether a bot may be sent to this map (BotMapGates): a Temple map needs the quest that opens its stretch. */
+    /**
+     * Whether a bot may be sent to this map (BotMapGates): a Temple map needs the quest that opens its stretch. Audit
+     * 163 (K12): an owned alt too - by its own real quest record - since it does not go through the lane portals'
+     * scripts either (it follows, or is caught up beside its owner).
+     */
     public static boolean mayEnter(int mapId, Character chr) {
-        if (!enabled() || chr == null || !chr.isBot()) {
+        if (!enabled() || chr == null || !(chr.isBot() || chr.isOwnedAlt())) {
             return true;
         }
         int quest = TempleRoute.questToEnter(mapId);
@@ -247,11 +263,19 @@ public final class TempleOfTime {
         }
         if (q == TempleRoute.Q_SORCERER) {
             if (take) {
-                return sorcererStart(chr, log, a, watched);
+                return sorcererStart(chr, log, a, watched, now);
             }
-            return turnIn && watched && a.mode() == BotQuestLog.Mode.REAL ? sorcererEnd(chr, log) : null;
+            return turnIn && watched && a.mode() == BotQuestLog.Mode.REAL ? sorcererEnd(chr, log, now) : null;
         }
         return null;
+    }
+
+    private static boolean startedQuietly(Character chr, BotQuestLog log, int questId) {
+        try {
+            return started(chr, log, questId);
+        } catch (RuntimeException | LinkageError e) {
+            return false; // no quest data (tests)
+        }
     }
 
     private static boolean started(Character chr, BotQuestLog log, int questId) {
@@ -278,10 +302,11 @@ public final class TempleOfTime {
         }
         BotQuestScript.Result r = BotQuestScript.INSTANCE.run(chr, a.questId, a.endNpc, false, 1);
         if (chr.getQuest(Quest.getInstance(a.questId)).getStatus() == QuestStatus.Status.COMPLETED) {
+            notReady.remove(chr.getId());
             log.complete(true, now);
             return BotQuests.Visit.COMPLETED;
         }
-        return r.ran() ? BotQuests.Visit.NOT_READY : drop(log);
+        return r.ran() ? notReady(chr, log, now) : drop(log);
     }
 
     /** The first instructor's sub-quest: its start script starts and completes it; then back to the Memory Keeper. */
@@ -299,17 +324,22 @@ public final class TempleOfTime {
         restore(chr, log);
         BotQuestScript.Result r = BotQuestScript.INSTANCE.run(chr, a.questId, a.startNpc, true, 1);
         if (chr.getQuest(Quest.getInstance(a.questId)).getStatus() != QuestStatus.Status.COMPLETED) {
-            return r.ran() ? BotQuests.Visit.NOT_READY : drop(log);
+            return r.ran() ? notReady(chr, log, now) : drop(log);
         }
         log.replace(back, true, BotQuestLog.Mode.REAL);
         return BotQuests.Visit.STARTED;
     }
 
     /** 3514's start: the Sorcerer charges the fee and hands over the potion (his script); offscreen just the fee. */
-    private static BotQuests.Visit sorcererStart(Character chr, BotQuestLog log, BotQuestLog.Active a, boolean watched) {
+    private static BotQuests.Visit sorcererStart(Character chr, BotQuestLog log, BotQuestLog.Active a, boolean watched,
+                                                long now) {
         if (!watched) {
+            if (startedQuietly(chr, log, a.questId)) {
+                log.taken(BotQuestLog.Mode.MODELLED); // paid before (put back after a wait): never charge twice
+                return BotQuests.Visit.TAKEN_OFFSCREEN;
+            }
             if (!BotHoldings.spendMeso(chr, TempleRoute.SORCERER_FEE)) {
-                return BotQuests.Visit.NOT_READY;
+                return notReady(chr, log, now);
             }
             log.taken(BotQuestLog.Mode.MODELLED);
             return BotQuests.Visit.TAKEN_OFFSCREEN;
@@ -326,11 +356,11 @@ public final class TempleOfTime {
             log.taken(BotQuestLog.Mode.REAL);
             return BotQuests.Visit.STARTED;
         }
-        return r.ran() ? BotQuests.Visit.NOT_READY : drop(log);
+        return r.ran() ? notReady(chr, log, now) : drop(log);
     }
 
     /** 3514's end: drink the potion (a player's own act), then the Sorcerer's end script gives the EXP and completes. */
-    private static BotQuests.Visit sorcererEnd(Character chr, BotQuestLog log) {
+    private static BotQuests.Visit sorcererEnd(Character chr, BotQuestLog log, long now) {
         BotQuestLog.Active a = log.active();
         if (!BotQuests.nearNpc(chr, a.endNpc)) {
             return BotQuests.Visit.TOO_FAR;
@@ -343,14 +373,15 @@ public final class TempleOfTime {
             drinkPotion(chr);
         }
         if (!drankPotion(chr)) {
-            return BotQuests.Visit.NOT_READY;
+            return notReady(chr, log, now);
         }
         BotQuestScript.Result r = BotQuestScript.INSTANCE.run(chr, a.questId, a.endNpc, false, 1);
         if (chr.getQuest(Quest.getInstance(a.questId)).getStatus() == QuestStatus.Status.COMPLETED) {
-            log.complete(true, System.currentTimeMillis());
+            notReady.remove(chr.getId());
+            log.complete(true, now);
             return BotQuests.Visit.COMPLETED;
         }
-        return r.ran() ? BotQuests.Visit.NOT_READY : drop(log);
+        return r.ran() ? notReady(chr, log, now) : drop(log);
     }
 
     /** The script's own test (q3514e: {@code getBuffSource(HPREC) == 2022337}). */
@@ -380,8 +411,37 @@ public final class TempleOfTime {
     }
 
     private static BotQuests.Visit drop(BotQuestLog log) {
+        int step = mainlineStep(log);
         log.drop();
+        if (step > 0) {
+            log.skip(step); // a detour (the sub-quest) dropped drops the mainline step it serves, or consider re-picks it
+        }
         return BotQuests.Visit.DROPPED;
+    }
+
+    /** The mainline quest the bot is on (its log's next step), or 0 when the chain is done. */
+    private static int mainlineStep(BotQuestLog log) {
+        int done = log.templeDone();
+        return done < TempleRoute.MAINLINE.size() ? TempleRoute.MAINLINE.get(done).questId() : 0;
+    }
+
+    /**
+     * Audit #2: the step ran but could not finish. The active quest is put back (the bot grinds meanwhile) and the
+     * driver waits NOT_READY_BACKOFF_MS, doubling each time, before it picks the step again; the
+     * (MAX_NOT_READY + 1)th wait drops it for the run.
+     */
+    static BotQuests.Visit notReady(Character chr, BotQuestLog log, long now) {
+        int step = mainlineStep(log);
+        int[] s = notReady.compute(chr.getId(), (k, v) -> v == null || v[0] != step ? new int[]{step, 1}
+                : new int[]{step, v[1] + 1});
+        if (s[1] > MAX_NOT_READY) {
+            notReady.remove(chr.getId());
+            return drop(log);
+        }
+        log.release();
+        TempleLanes.unregister(chr.getId());
+        deferUntil.put(chr.getId(), now + (NOT_READY_BACKOFF_MS << (s[1] - 1)));
+        return BotQuests.Visit.DEFERRED;
     }
 
     // ── the world (a seam: tests replace it) ──
@@ -455,5 +515,6 @@ public final class TempleOfTime {
         progress.clear();
         deferUntil.clear();
         wanted.clear();
+        notReady.clear();
     }
 }

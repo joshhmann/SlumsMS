@@ -102,11 +102,71 @@ public final class KsManners {
     }
 
     /**
-     * Which of {@code players} this mob belongs to: one who has hit it, or one standing by it ({@link #PLAYER_MOB_PX}
+     * Audit 163 (B21, KS ordering): how long after an attacker's last hit a mob is still theirs. Before 1.6.2 any hit,
+     * ever, made a mob the hitter's for the rest of its life (Monster.isAttackedBy): one player passing through an AoE
+     * map fenced off mobs from every bot. Now a claim lapses once its holder stops hitting for this long (a player who
+     * leaves the map is not asked at all).
+     */
+    public static final long CLAIM_MS = Monster.HIT_STREAK_GAP_MS;
+
+    /** {@code who} has hit this mob within {@link #CLAIM_MS}: it is theirs while they keep at it. */
+    public static boolean claims(Monster m, int who, long now) {
+        long at = m.lastHitBy(who);
+        return at > 0 && now - at <= CLAIM_MS;
+    }
+
+    /**
+     * When {@code who}'s live claim on this mob began (the start of their current run of hits), or 0 when they hold
+     * none. The ordering rule shared by population bots and owned alts: the earlier claim wins.
+     */
+    public static long claimSince(Monster m, int who, long now) {
+        if (!claims(m, who, now)) {
+            return 0;
+        }
+        long since = m.hitStreakStart(who);
+        return since > 0 ? since : m.lastHitBy(who);
+    }
+
+    /*
+     * Audit 163 (B20): manners at the moment of the hit, not only when a target is picked. A population bot's attack
+     * (BotAttackDriver.mayTarget: the swing's target, every mob an area attack catches, and the "2 or more in reach"
+     * AoE count) leaves a respected player's mob alone even when the player walked up after the bot chose it. The
+     * respected players are re-read at most every PLAYERS_TTL_MS per bot (a hit lands many mob checks at once).
+     */
+    static final long PLAYERS_TTL_MS = 500;
+    private record Seen(long at, List<Character> players) {
+    }
+    private static final java.util.Map<Integer, Seen> seen = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** A population bot may swing at this mob: no respected player is fighting it or standing by it. */
+    public static boolean mayHit(Character bot, Monster m, long now) {
+        if (bot == null || m == null || bot.isOwnedAlt() || !BotCombatTuning.ksManners()) {
+            return true; // an owned alt has its own, stricter rule (OwnedAltCombat)
+        }
+        Seen s = seen.get(bot.getId());
+        if (s == null || now - s.at() >= PLAYERS_TTL_MS || now < s.at()) {
+            s = new Seen(now, respectedPlayers(bot));
+            seen.put(bot.getId(), s);
+        }
+        return s.players().isEmpty() || ownerOf(bot.getMap(), s.players(), m, now) == null;
+    }
+
+    /** Release a bot that left (its cached player list). */
+    public static void forget(int botId) {
+        seen.remove(botId);
+    }
+
+    /**
+     * Which of {@code players} this mob belongs to: one who has hit it lately ({@link #CLAIM_MS}), or one standing by it ({@link #PLAYER_MOB_PX}
      * across, on its ledge), or null. The one KS-manners rule: population bots ask it about the players they respect,
      * owned alts (OwnedAltCombat) about the players outside their party.
      */
     public static Character ownerOf(MapleMap map, List<Character> players, Monster m) {
+        return ownerOf(map, players, m, System.currentTimeMillis());
+    }
+
+    /** ownerOf at a given time: a player's hit claims the mob for {@link #CLAIM_MS} after it lands. */
+    public static Character ownerOf(MapleMap map, List<Character> players, Monster m, long now) {
         Point mp = m.getPosition();
         if (mp == null) {
             return null;
@@ -116,7 +176,7 @@ public final class KsManners {
             if (pp == null) {
                 continue;
             }
-            if (m.isAttackedBy(p) || standsBy(map, pp, mp)) {
+            if (claims(m, p.getId(), now) || standsBy(map, pp, mp)) {
                 return p;
             }
         }

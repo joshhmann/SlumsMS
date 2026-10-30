@@ -158,7 +158,7 @@ class OwnedAltCompanionTest {
         movement.verify(() -> GCMovement.stop(alt)); // off the follow leash while it fights
         attacks.verify(() -> BotAttackDriver.botAttack(alt));
         attacks.verify(() -> BotAttackDriver.setTargetFilter(eq(ALT), any()));
-        assertTrue(OwnedAltCombat.mayHit(m, field, OwnedAltCombat.partyIds(alt, owner)));
+        assertTrue(OwnedAltCombat.mayHit(m, field, OwnedAltCombat.partyIds(alt, owner), NOW));
     }
 
     @Test
@@ -280,6 +280,27 @@ class OwnedAltCompanionTest {
                 "a weapon a viewer's client cannot draw would close it: no swing");
     }
 
+    /** Audit (A4): a drop it cannot reach is given up after a few seconds; the alt follows its owner again. */
+    @Test
+    void anUnreachableDropDoesNotParkTheAltForever() {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        MapItem drop = mock(MapItem.class);
+        when(drop.getObjectId()).thenReturn(777);
+        when(drop.getOwnerId()).thenReturn(OWNER);
+        when(drop.getPosition()).thenReturn(new Point(200, 0)); // the alt walks, but never gets there
+        when(drop.getDropTime()).thenReturn(NOW - 5_000);
+        when(drop.getItem()).thenReturn(new Item(4000000, (short) 0, (short) 1));
+        when(field.getMapObjectsInRange(any(Point.class), anyDouble(), anyList())).thenReturn(new ArrayList<>(List.of(drop)));
+        OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+        for (long t = 0; t <= OwnedAltCompanion.LOOT_STALL_MS + 1_000; t += 200) {
+            OwnedAltCompanion.tick(owner, alt, s, NOW + t, 0);
+        }
+        verify(alt, never()).pickupItem(any());
+        assertTrue(s.skipDrops.containsKey(777), "left alone for a while");
+        assertEquals("following", s.doing, "back with its owner");
+    }
+
     @Test
     void itPicksUpThePartysDropIntoItsOwnBag() {
         Character owner = owner(NOW);
@@ -329,6 +350,123 @@ class OwnedAltCompanionTest {
         assertTrue(s.gone);
         OwnedAltCompanion.tick(owner, alt, s, NOW + 200, 0);
         verify(service, times(1)).sendHomeAfterDeath(any(), anyString());
+    }
+
+    /** Audit #11 (b116): seven alts on one map: six fight, the seventh waits, and nobody flaps tick to tick. */
+    @Test
+    void theSixAltsPerMapCapHoldsWithoutFlapping() {
+        List<OwnedAltService.Active> active = new ArrayList<>();
+        for (int i = 0; i < 7; i++) {
+            Character o = mock(Character.class);
+            when(o.getId()).thenReturn(100 + i / 4); // two owners: 4 + 3 alts
+            Character a = mock(Character.class);
+            when(a.getId()).thenReturn(200 + i);
+            when(a.getMap()).thenReturn(field);
+            active.add(new OwnedAltService.Active(o, a));
+        }
+        // the gate's own rule: fight when fewer than six others fight here
+        OwnedAltCompanion.Ticker gate = (o, a, st, now, others) ->
+                st.fighting = others < OwnedAltGate.FIGHTING_PER_MAP;
+        List<Integer> fightingPerTick = new ArrayList<>();
+        Map<Integer, Boolean> first = new HashMap<>();
+        try {
+            for (int tick = 0; tick < 6; tick++) {
+                OwnedAltCompanion.driveAll(active, NOW + tick * 200L, gate);
+                int n = 0;
+                for (OwnedAltService.Active a : active) {
+                    boolean f = OwnedAltCompanion.stateOf(a.alt().getId()).fighting;
+                    n += f ? 1 : 0;
+                    Boolean was = first.putIfAbsent(a.alt().getId(), f);
+                    assertEquals(was == null ? f : was, f, "alt " + a.alt().getId() + " flapped on tick " + tick);
+                }
+                fightingPerTick.add(n);
+            }
+        } finally {
+            for (OwnedAltService.Active a : active) {
+                OwnedAltCompanion.forget(a.alt());
+            }
+        }
+        assertEquals(List.of(6, 6, 6, 6, 6, 6), fightingPerTick);
+    }
+
+    /** Audit #11: the "map already has 6 alts fighting" line is said once, not twice a second as the gate flickers. */
+    @Test
+    void theMapFullLineIsNotRepeatedWhenTheGateFlickers() {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+        for (int i = 0; i < 10; i++) {
+            OwnedAltCompanion.tick(owner, alt, s, NOW + i * 200L, i % 2 == 0 ? OwnedAltGate.FIGHTING_PER_MAP : 0);
+        }
+        verify(owner, times(1)).yellowMessage(OwnedAltGate.Why.MAP_FULL.tell);
+        for (int i = 0; i < 30; i++) { // open for six seconds: the line may be said again
+            OwnedAltCompanion.tick(owner, alt, s, NOW + 2_000 + i * 200L, 0);
+        }
+        OwnedAltCompanion.tick(owner, alt, s, NOW + 9_000, OwnedAltGate.FIGHTING_PER_MAP);
+        verify(owner, times(2)).yellowMessage(OwnedAltGate.Why.MAP_FULL.tell);
+    }
+
+    /** Audit B13: once its save begins, a tick in flight finishes first and no later tick loots or swings. */
+    @Test
+    void noTickRunsInsideTheSaveWindow() throws Exception {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        mob(50, OWNER);
+        OwnedAltCompanion.State s = OwnedAltCompanion.stateOf(ALT);
+        java.util.concurrent.CountDownLatch inTick = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        Thread ticking = new Thread(() -> {
+            synchronized (s) { // a tick holding its state
+                inTick.countDown();
+                try { release.await(); } catch (InterruptedException ignored) { }
+            }
+        });
+        ticking.start();
+        assertTrue(inTick.await(5, java.util.concurrent.TimeUnit.SECONDS));
+        Thread saver = new Thread(() -> OwnedAltCompanion.hold(alt));
+        saver.start();
+        Thread.sleep(100);
+        assertTrue(saver.isAlive(), "the save waits for the tick in flight");
+        release.countDown();
+        saver.join(5_000);
+        ticking.join(5_000);
+        assertTrue(s.gone);
+        OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
+        attacks.verify(() -> BotAttackDriver.botAttack(alt), never());
+        OwnedAltCompanion.forget(alt);
+    }
+
+    /** Audit #8 (b115): an alt killed inside a PQ leaves the instance quietly and really gets up in its exit town. */
+    @Test
+    void anAltKilledInsideAPqLeavesQuietlyAndGetsUpInTheExitTown() throws Exception {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        scripting.event.EventInstanceManager eim = mock(scripting.event.EventInstanceManager.class);
+        when(eim.getPlayerCount()).thenReturn(4); // the owner and three alts
+        when(alt.getEventInstance()).thenReturn(eim);
+        when(field.getForcedReturnId()).thenReturn(103_000_890);
+        lying().put(ALT, 0L);
+        OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+        OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
+        verify(eim).unregisterPlayer(alt);
+        verify(eim, never()).playerDisconnected(any()); // the script's "team lacking -> end(eim)" never runs for it
+        verify(alt).respawn(103_000_890);               // so "it got up in town" is true, and it is saved there
+        verify(service).sendHomeAfterDeath(eq(alt), contains("got up in town"));
+    }
+
+    /** Audit #8: an alt going home from an instance never ends the run, unless it is the last one in it. */
+    @Test
+    void anAltLeavingAnInstanceOnlyEndsItWhenItIsTheLastOneIn() {
+        Character alt = mock(Character.class);
+        scripting.event.EventInstanceManager eim = mock(scripting.event.EventInstanceManager.class);
+        when(alt.getEventInstance()).thenReturn(eim);
+        when(eim.getPlayerCount()).thenReturn(3);
+        OwnedAltCompanion.leaveInstanceQuietly(alt);
+        verify(eim).unregisterPlayer(alt);
+        verify(eim, never()).playerDisconnected(any());
+        when(eim.getPlayerCount()).thenReturn(1);
+        OwnedAltCompanion.leaveInstanceQuietly(alt);
+        verify(eim).playerDisconnected(alt);
     }
 
     @Test

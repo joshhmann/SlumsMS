@@ -53,6 +53,16 @@ public final class CheckRun {
         return actors.containsKey(slot);
     }
 
+    private final Set<Integer> hidden = new LinkedHashSet<>(); // actor slots a step hid (unhidden at cleanup)
+
+    void hid(int slot) {
+        hidden.add(slot);
+    }
+
+    List<Integer> hiddenSlots() {
+        return new ArrayList<>(hidden);
+    }
+
     void startedScenario(int slot) {
         started.add(String.valueOf(slot));
     }

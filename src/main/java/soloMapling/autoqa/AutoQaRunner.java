@@ -235,6 +235,17 @@ public final class AutoQaRunner {
     }
 
     private void cleanup(CheckRun run) {
+        for (int slot : run.hiddenSlots()) {
+            try {
+                run.actor(slot).say("!unhide");
+                world.sleep(Steps.SPAM_GAP_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (RuntimeException e) {
+                run.note("cleanup: !unhide failed: " + e);
+            }
+        }
         for (int slot : run.slotsWithScenario()) {
             try {
                 run.actor(slot).say("!qa stop");

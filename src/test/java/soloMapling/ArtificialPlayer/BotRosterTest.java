@@ -158,4 +158,31 @@ class BotRosterTest {
         assertEquals(13, upserts.get(1).size(), "every column is bound");
         assertEquals(BotRoster.Status.DORMANT, BotRoster.member(slot).status());
     }
+
+    /** Owner 2026-10-30: apvariants.fromSlot=auto = every roster slot created after this boot rolls a variant. */
+    @Test
+    void autoFromSlotMeansTheSlotsCreatedAfterThisBoot() throws Exception {
+        int existing = BotStore.FIRST_ROSTER_SLOT + 41;
+        pool(List.of(row(BotStore.planSlot(8, 2, 40), "ACTIVE"), row(existing, "DORMANT")));
+        System.setProperty("slums.bots.apvariants.fromSlot", "auto");
+        try {
+            assertEquals(Integer.MAX_VALUE, BotSupportSwitches.apVariantFromSlot(), "not loaded yet: nobody rolls");
+            BotRoster.members(); // the boot load
+            int from = BotSupportSwitches.apVariantFromSlot();
+            assertEquals(existing + 1, from);
+            int fresh = BotRoster.nextNewSlot();
+            assertEquals(existing + 1, fresh);
+            int base = BotStore.BOT_ID_BASE;
+            assertTrue(soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgressionAccess.variantsFor(base + fresh, from),
+                    "a bot created after boot rolls");
+            assertFalse(soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgressionAccess.variantsFor(base + existing, from),
+                    "an existing bot keeps its build");
+            BotRoster.nextNewSlot();
+            assertEquals(existing + 1, BotSupportSwitches.apVariantFromSlot(), "fixed at the boot's highest slot");
+            System.setProperty("slums.bots.apvariants.fromSlot", "5000");
+            assertEquals(5000, BotSupportSwitches.apVariantFromSlot(), "a number still works");
+        } finally {
+            System.clearProperty("slums.bots.apvariants.fromSlot");
+        }
+    }
 }

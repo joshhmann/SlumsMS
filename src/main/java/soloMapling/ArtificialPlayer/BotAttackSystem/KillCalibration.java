@@ -146,7 +146,7 @@ public final class KillCalibration {
 
     private void realKill(Character bot, long now) {
         int mapId = bot.getMapId();
-        if (!GCMovement.isMapObserved(mapId)) {
+        if (!GCMovement.isMapObserved(bot)) {
             return;   // offscreen: no real kills there anyway
         }
         seen.increment();

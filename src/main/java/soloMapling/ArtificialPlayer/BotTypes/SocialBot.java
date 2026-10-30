@@ -279,7 +279,7 @@ public class SocialBot extends BotSM {
             return; // an earlier tick step (e.g. chatter) may have engaged this bot
         }
         Character chr = getChr();
-        if (chr == null || chr.getMap() == null || !GCMovement.isMapObserved(chr.getMapId())) {
+        if (chr == null || chr.getMap() == null || !GCMovement.isMapObserved(chr)) {
             return;
         }
         long now = System.currentTimeMillis();
@@ -315,7 +315,7 @@ public class SocialBot extends BotSM {
         if (now < nextRelocateAtMs) {
             return;
         }
-        if (GCMovement.isMapObserved(chr.getMapId()) && random.nextDouble() >= OBSERVED_RELOCATE_CHANCE) {
+        if (GCMovement.isMapObserved(chr) && random.nextDouble() >= OBSERVED_RELOCATE_CHANCE) {
             nextRelocateAtMs = now + OBSERVED_DEFER_MS; // defer: prefer to drift while nobody's watching
             return;
         }

@@ -75,7 +75,7 @@ final class BotContactDamage {
         if (soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.isDead(bot.getId())) {
             return; // 1.5.0 rc3: lying dead
         }
-        if (!GCMovement.isMapObserved(bot.getMapId())) {
+        if (!GCMovement.isMapObserved(bot)) {
             entry.mobHitCooldownMs = 0; // reset i-frames so the first hit on re-entry is instant
             return;
         }
@@ -134,7 +134,7 @@ final class BotContactDamage {
         if (bot.isOwnedAlt()) {
             return; // 1.6.0.4: an owned alt takes no fall damage from the movement engine's physics (mobs only)
         }
-        if (!GCMovement.isMapObserved(bot.getMapId())) {
+        if (!GCMovement.isMapObserved(bot)) {
             return;
         }
         if (entry.mobHitCooldownMs > 0) {

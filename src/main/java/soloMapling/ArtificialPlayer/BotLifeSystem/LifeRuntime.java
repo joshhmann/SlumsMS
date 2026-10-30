@@ -802,7 +802,7 @@ public final class LifeRuntime {
             BotWhispers.send(requestPlayer, bot.getChr().getName(), bot.getChr().getMap().getChannelId() - 1, line, true);
             return;
         }
-        if (now - lastAnnouncement < 300_000 || !soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(bot.getChr().getMapId())) return;
+        if (now - lastAnnouncement < 300_000 || !soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(bot.getChr())) return;
         if (line != null) {
             lastAnnouncement = now;
             soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotFullChat(bot.getChr(), line);
