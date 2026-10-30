@@ -84,6 +84,40 @@ public final class HaggleBrain {
         return best;
     }
 
+    /**
+     * Ticket 156: every price a line names, in order ("9,520", "300k", "1.2m", plain numbers of 1,000 or more), for
+     * the grounding check that a reply does not just repeat the asking price over an open offer.
+     */
+    public static List<Long> prices(String line) {
+        List<Long> out = new java.util.ArrayList<>();
+        if (line == null) {
+            return out;
+        }
+        Matcher m = PRICE.matcher(line.toLowerCase(Locale.ROOT));
+        while (m.find()) {
+            double v;
+            try {
+                v = Double.parseDouble(m.group(1).replace(",", ""));
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            String unit = m.group(2);
+            if (unit != null) {
+                v *= switch (unit) {
+                    case "k" -> 1_000;
+                    case "m", "mil" -> 1_000_000;
+                    default -> 1_000_000_000;
+                };
+            } else if (v < 1000) {
+                continue;
+            }
+            if (v > 0 && v <= 2_100_000_000d) {
+                out.add((long) v);
+            }
+        }
+        return out;
+    }
+
     /** Rules only. */
     public static Read rules(String line) {
         String text = line == null ? "" : line.toLowerCase(Locale.ROOT).trim();

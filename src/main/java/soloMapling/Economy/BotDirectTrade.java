@@ -381,8 +381,39 @@ public final class BotDirectTrade {
         Quote q = quotes.get(k);
         HaggleBrain.Read read = HaggleBrain.rules(text);
         boolean friend = BotAffinity.friend(bot.getId(), player.getId());
+        boolean open = q != null && q.expiresAt() > System.currentTimeMillis();
+        // ticket 156 (b102): an answer to the open quote is answered - never the price list again
+        if (open && read.move() == HaggleBrain.Move.OFFER && read.price() >= q.price()) {
+            String p = PriceBook.shorthand(q.price());
+            String name = BotShops.nameOf(q.item().getItemId()).toLowerCase(Locale.ROOT);
+            qa(bot, "QUOTE haggle " + read.price() + " over the asking " + q.price() + " -> asking");
+            boolean way = read.price() > q.price() + q.price() / 10;
+            return new Answer(true, "They offered " + PriceBook.shorthand(read.price()) + " but you only want " + p
+                    + " for the " + name + "; say so honestly and that they can open a trade with you.",
+                    way ? "lol its only " + p + ", u dont need to pay " + PriceBook.shorthand(read.price())
+                            + ". trade me" : "ok " + p + " works, trade me", p);
+        }
+        if (open && read.move() == HaggleBrain.Move.REFUSE) {
+            Haggled next = haggleRefusal(q, friend, System.currentTimeMillis());
+            quotes.put(k, next.quote());
+            String p = PriceBook.shorthand(next.decision().price());
+            String name = BotShops.nameOf(q.item().getItemId()).toLowerCase(Locale.ROOT);
+            qa(bot, "QUOTE refused -> " + next.decision().kind() + " " + next.decision().price());
+            if (next.decision().kind() == PriceBand.Kind.FINAL) {
+                return new Answer(true, "Say " + p + " is already your lowest for the " + name + " and why (it is a "
+                        + "fair price); they can still open a trade.", p + " is already my lowest for " + name
+                        + ", its a fair price", p);
+            }
+            return new Answer(true, "Offer to go down to " + p + " for the " + name + "; they can open a trade.",
+                    "ok ok, " + p + " for " + name + " then? trade me", p);
+        }
+        if (open && read.move() == HaggleBrain.Move.ACCEPT) {
+            String p = PriceBook.shorthand(q.price());
+            return new Answer(true, "They agreed to " + p + "; tell them to open a trade with you.",
+                    "k " + p + ", open trade", p);
+        }
         // haggling over a quote it already gave
-        if (q != null && q.expiresAt() > System.currentTimeMillis() && read.move() == HaggleBrain.Move.OFFER) {
+        if (open && read.move() == HaggleBrain.Move.OFFER) {
             Haggled next = haggleQuote(q, read.price(), friend, System.currentTimeMillis());
             PriceBand.Decision d = next.decision();
             quotes.put(k, next.quote());
@@ -445,6 +476,50 @@ public final class BotDirectTrade {
         PriceBand.Band band = PriceBand.of(PriceBand.Side.BOT_SELLS, PriceBook.stackValue(q.item()), friend);
         PriceBand.Decision d = PriceBand.respond(band, q.price(), theirs, q.rounds());
         return new Haggled(new Quote(q.item(), d.price(), now + QUOTE_MS, q.rounds() + 1), d);
+    }
+
+    /**
+     * Ticket 156 (b102): the player said no to a quote without a number ("thats too much"): the bot comes halfway down
+     * to its band's floor, or names the floor as its last price after {@code bands.maxRounds} rounds or when it is
+     * already there.
+     */
+    static Haggled haggleRefusal(Quote q, boolean friend, long now) {
+        PriceBand.Band band = PriceBand.of(PriceBand.Side.BOT_SELLS, PriceBook.stackValue(q.item()), friend);
+        int maxRounds = Math.max(1, EconomyConfig.getInt("bands.maxRounds", 4));
+        PriceBand.Decision d;
+        if (q.price() <= band.low()) {
+            d = new PriceBand.Decision(PriceBand.Kind.FINAL, q.price());
+        } else if (q.rounds() + 1 >= maxRounds) {
+            d = new PriceBand.Decision(PriceBand.Kind.FINAL, band.low());
+        } else {
+            long down = PriceBand.clamp(band, PriceBand.nice(q.price() - (q.price() - band.low()) / 2, false));
+            d = down >= q.price() ? new PriceBand.Decision(PriceBand.Kind.FINAL, q.price())
+                    : new PriceBand.Decision(PriceBand.Kind.COUNTER, down);
+        }
+        return new Haggled(new Quote(q.item(), d.price(), now + QUOTE_MS, q.rounds() + 1), d);
+    }
+
+    /** Ticket 156: the open quote between this bot and player (item name and price), or null. */
+    public record OpenQuote(String item, long price) {
+    }
+
+    public static OpenQuote openQuote(int botId, int playerId) {
+        Quote q = quotes.get(key(botId, playerId));
+        if (q == null || q.expiresAt() <= System.currentTimeMillis()) {
+            return null;
+        }
+        String name;
+        try {
+            name = BotShops.nameOf(q.item().getItemId()).toLowerCase(Locale.ROOT);
+        } catch (RuntimeException | LinkageError e) {
+            name = "it";
+        }
+        return new OpenQuote(name, q.price());
+    }
+
+    /** Test seam: a quote as {@link #chat} would leave it. */
+    static void quoteForTest(int botId, int playerId, Item item, long price) {
+        quotes.put(key(botId, playerId), new Quote(item, price, System.currentTimeMillis() + QUOTE_MS));
     }
 
     /** The bag item a line names: its full name, or most of its name's longer words. */

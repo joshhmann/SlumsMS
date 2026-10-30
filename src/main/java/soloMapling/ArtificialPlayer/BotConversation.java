@@ -72,6 +72,10 @@ public final class BotConversation {
         /** Immutable for this reply, even if the player switches channels while it is being generated. */
         final Consumer<String> deliver;
         final soloMapling.ArtificialPlayer.BotBrainSystem.Priority priority;
+        /** Ticket 156: what the bot knows for this reply (null: the checker is off or nothing was built). */
+        volatile soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Snapshot mind;
+        /** Ticket 156: the model line that already passed the check (deliver does not count it twice). */
+        volatile String grounded;
 
         Session(BotSM bot, Character player, long now) {
             this.bot = bot;
@@ -507,7 +511,12 @@ public final class BotConversation {
                 soloMapling.ArtificialPlayer.BotConvo.ConvoSense.read(line, ChatDecide.get(),
                         ChatDecide.get() == null ? null : ChatDecide.getTone(), player == null ? null : player.getName(),
                         whisper ? whisperContext : earlierLines(bot, player, line));
-        ChatTriage.Result triage = read.triage();
+        // Ticket 156 (b102): an answer to the price this bot quoted ("would u do 300k", "thats too much") is a haggle,
+        // read before the quote moves; the trade answer below sees it, and the reply is checked against it
+        soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Offer offer = BotHelpers.isBot(player) ? null
+                : BotStateOfMind.offer(bot, player, line);
+        ChatTriage.Result triage = haggling(read.triage(), offer);
+        session.mind = mindFor(session, history, offer, null, line);
         // owner 2026-10-29: one rude line (the model's harassment, not a rule's death wish, slur or threat) only gets
         // a brush-off; the bot minds from the second within 10 minutes, and rudeness to 3+ bots on a map is heard there
         boolean lone = false;
@@ -556,6 +565,9 @@ public final class BotConversation {
                 // ticket 59: come, help, guide, buff, buddy and the moods - the server decides and does it
                 : soloMapling.ArtificialPlayer.BotConvo.ConvoActions.onIntent(session.bot, player, read, line);
         Cue cue = new Cue(triage, action.outcome(), line, action.mustMention());
+        if (action.fact() != null && session.mind != null) {
+            session.mind = mindFor(session, history, offer, action.fact(), line); // the answer's places are known too
+        }
         if (action.awaitingLife()) {
             deliver(session, action.scripted(), asked, ChatStats.Tier.SCRIPTED, "life request pending", cue);
             return;
@@ -612,6 +624,10 @@ public final class BotConversation {
         boolean recognise = !botHasSpoken(session) && !wary && BotRecognition.knows(slot, player.getId());
         String system = systemPrompt(session, slot, activity, wary, recognise, action.fact(), asked, whisper,
                 BotChatPrompt.asksAboutTheWorld(line));
+        soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Snapshot mind = session.mind;
+        if (mind != null && soloMapling.ArtificialPlayer.BotConvo.StateOfMind.promptOn()) {
+            system += soloMapling.ArtificialPlayer.BotConvo.StateOfMind.prompt(mind); // ticket 156: speak from it
+        }
         if (action.outcome() == BotChatActions.Outcome.NONE && soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("contract")) {
             system += " " + soloMapling.ArtificialPlayer.BotConvo.ConvoContract.instructions();
         }
@@ -641,6 +657,11 @@ public final class BotConversation {
                     }
                     String said = contract.get().text();
                     boolean fits = p.result().fits(said);
+                    if (fits && !grounded(session, said, "llm")) {
+                        retryGrounded(session, prompt, said, asked, detail, new Cue(triage, p.result().outcome(), line),
+                                p.result(), line);
+                        return;
+                    }
                     deliver(session, fits ? new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(said, -1, "llm")
                             : bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(p.result().outcome()), read,
                             p.result().scripted()), asked, fits ? ChatStats.Tier.LLM
@@ -655,6 +676,10 @@ public final class BotConversation {
                 reply = java.util.Optional.empty(); // 1.5.0: a flirt without @romance on, or off-limits: the script answers
             }
             if (reply.isPresent() && action.fits(reply.get())) {
+                if (!grounded(session, reply.get(), "llm")) {
+                    retryGrounded(session, prompt, reply.get(), asked, detail, cue, action, line);
+                    return;
+                }
                 deliver(session, reply.get(), asked, ChatStats.Tier.LLM, detail, cue);
                 return;
             }
@@ -737,6 +762,99 @@ public final class BotConversation {
                     ? training.lifeRuntime().prompt() : "");
     }
 
+    /** Ticket 156: the triage of a line that answers this bot's open quote is a trade line, whatever it read as. */
+    static ChatTriage.Result haggling(ChatTriage.Result triage, soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Offer offer) {
+        if (offer == null || triage == null || triage.flagged() || triage.intent() != ChatTriage.Intent.NONE) {
+            return triage;
+        }
+        return new ChatTriage.Result(triage.kind(), ChatTriage.Intent.TRADE, ChatTriage.Source.RULE, triage.con(),
+                triage.conSource(), triage.conConfidence());
+    }
+
+    /** Ticket 156: the snapshot for this reply, or null when both the prompt block and the checker are off. */
+    private static soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Snapshot mindFor(Session session,
+            List<BotBrain.Turn> history, soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Offer offer, String fact,
+            String line) {
+        if (!soloMapling.ArtificialPlayer.BotConvo.StateOfMind.promptOn()
+                && !soloMapling.ArtificialPlayer.BotConvo.StateOfMind.checkOn()) {
+            return null;
+        }
+        if (session.player == null || BotHelpers.isBot(session.player)) {
+            return null; // replies to players only: bots talking to bots have their own rules (BotTalk)
+        }
+        try {
+            return BotStateOfMind.capture(session.bot, session.player, history, false, offer, fact,
+                    line != null && BotChatPrompt.asksAboutTheWorld(line));
+        } catch (RuntimeException | LinkageError e) {
+            log.debug("State of mind unavailable for {}: {}", session.bot.getChr().getName(), e.toString());
+            return null;
+        }
+    }
+
+    /** Ticket 156: whether a line passes the grounding check (true when the checker is off or there is no snapshot). */
+    private static boolean grounded(Session session, String text, String source) {
+        soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Snapshot mind = session.mind;
+        if (mind == null || !soloMapling.ArtificialPlayer.BotConvo.StateOfMind.checkOn()) {
+            return true;
+        }
+        soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Verdict v = soloMapling.ArtificialPlayer.BotConvo.StateOfMind
+                .judge(text, mind, session.bot.getChr().getName() + " -> " + session.player.getName(), source);
+        if (v.ok()) {
+            session.grounded = text;
+            return true;
+        }
+        qaGrounding(session, text, v, source);
+        return false;
+    }
+
+    private static void qaGrounding(Session session, String text,
+                                    soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Verdict v, String source) {
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CONVO)) {
+            Character bot = session.bot.getChr();
+            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.CONVO, bot.getMapId(), "GROUNDING REJECT "
+                    + bot.getName() + " [" + source + "] " + v + ": \""
+                    + soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.anonymise(text, session.player.getName()) + "\"");
+        }
+    }
+
+    /**
+     * Ticket 156: a model reply that claimed something the snapshot does not hold is asked for once more with the
+     * reason; a second miss (or no answer) falls back to the action's scripted line when it passes, else a safe line.
+     */
+    private static void retryGrounded(Session session, List<BotBrain.Turn> prompt, String draft, long asked,
+                                      String detail, Cue cue, BotChatActions.Result action, String line) {
+        Character bot = session.bot.getChr();
+        Character player = session.player;
+        soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Snapshot mind = session.mind;
+        soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Verdict why =
+                soloMapling.ArtificialPlayer.BotConvo.StateOfMind.check(draft, mind);
+        List<BotBrain.Turn> again = new ArrayList<>(prompt);
+        again.add(BotBrain.Turn.assistant(draft));
+        again.add(BotBrain.Turn.user("(Not that: " + why.detail() + ". Write a new one-line reply to "
+                + player.getName() + " that only claims what YOUR STATE says. Just the line.)"));
+        BotBrains.get().reply(session.priority, player.getId(), again).thenAccept(contract -> {
+            if (!sessions.containsKey(new Key(bot.getId(), player.getId()))) {
+                return;
+            }
+            java.util.Optional<String> text = contract.map(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::text)
+                    .filter(t -> soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.replyAllowed(bot, player, t))
+                    .filter(action::fits);
+            boolean ok = text.isPresent() && grounded(session, text.get(), "retry");
+            soloMapling.ArtificialPlayer.BotConvo.StateOfMind.retried(ok);
+            if (ok) {
+                deliver(session, text.get(), asked, ChatStats.Tier.LLM, detail + ", grounding retry (" + why + ")", cue);
+                return;
+            }
+            soloMapling.ArtificialPlayer.BotConvo.StateOfMind.fellBack();
+            String scripted = action.scripted();
+            String safe = scripted != null && soloMapling.ArtificialPlayer.BotConvo.StateOfMind.check(scripted, mind).ok()
+                    ? scripted : soloMapling.ArtificialPlayer.BotConvo.StateOfMind.safeLine(mind, line,
+                    ThreadLocalRandom.current());
+            session.grounded = safe;
+            deliver(session, safe, asked, ChatStats.Tier.SCRIPTED, detail + ", grounding fell back (" + why + ")", cue);
+        });
+    }
+
     /**
      * Ticket 26: a bot noticed a player it knows and says hi first, in map chat, through the brain when it is live
      * (one light remembered thing at most) or a scripted "oh hey again". It opens a chat, so the player's answer
@@ -778,7 +896,10 @@ public final class BotConversation {
                 }
                 BotRoster.Activity doing = bot.activitySnapshot();
                 String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());
+                session.mind = mindFor(session, List.of(), null, null, null);
                 String system = systemPrompt(session, slot, activity, false, true, null, now, false, false)
+                        + (session.mind != null && soloMapling.ArtificialPlayer.BotConvo.StateOfMind.promptOn()
+                        ? soloMapling.ArtificialPlayer.BotConvo.StateOfMind.prompt(session.mind) : "")
                         + " Nobody has said anything yet: you just noticed " + player.getName()
                         + " near you. Write your first line to them.";
                 String transcript = heard(chr, player, now).transcript();
@@ -792,7 +913,8 @@ public final class BotConversation {
                     java.util.Optional<String> raw = contract.map(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::text);
                     java.util.Optional<String> reply = raw.filter(l ->  // 1.5.0: no flirt without @romance on
                             soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.replyAllowed(chr, player, l))
-                            .filter(l -> SocialGate.fresh(chr.getId(), player.getId(), l)); // 1.6.0 S5: no repeats
+                            .filter(l -> SocialGate.fresh(chr.getId(), player.getId(), l)) // 1.6.0 S5: no repeats
+                            .filter(l -> grounded(session, l, "llm")); // ticket 156
                     if (sessions.get(key) != session) {
                         return; // the chat moved on or ended while the brain was thinking
                     }
@@ -936,11 +1058,32 @@ public final class BotConversation {
      * bot's own voice ({@code VoiceStyler}) and timed like a person ({@code HumanTiming}: typing, a split, a late
      * answer or a "brb", or no answer mid-fight), and the quality loop remembers it for {@code !rate}.
      */
-    private static void deliver(Session session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line said, long asked,
-                                ChatStats.Tier tier, String detail, Cue cue) {
-        if (said == null || said.text() == null) {
+    private static void deliver(Session session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line saidIn,
+                                long asked, ChatStats.Tier tierIn, String detailIn, Cue cue) {
+        if (saidIn == null || saidIn.text() == null) {
             return;
         }
+        soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line said = saidIn;
+        ChatStats.Tier tier = tierIn;
+        String detail = detailIn;
+        Character bot = session.bot.getChr();
+        Character player = session.player;
+        // ticket 156: every line to a player (model, bank or script) is held to what the bot knows; a scripted line
+        // that claims something else is swapped for a safe one (the model's own were checked and retried in ask)
+        if (session.mind != null && !saidIn.text().equals(session.grounded)
+                && !grounded(session, saidIn.text(), saidIn.source())) {
+            soloMapling.ArtificialPlayer.BotConvo.StateOfMind.fellBack();
+            String safe = soloMapling.ArtificialPlayer.BotConvo.StateOfMind.safeLine(session.mind,
+                    cue == null ? null : cue.asked(), ThreadLocalRandom.current());
+            detail = detailIn + ", grounding swapped \"" + saidIn.text() + "\"";
+            said = new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(safe, -1, "scripted");
+            tier = tierIn == ChatStats.Tier.LLM ? ChatStats.Tier.SCRIPTED : tierIn;
+        }
+        deliverChecked(session, said, asked, tier, detail, cue);
+    }
+
+    private static void deliverChecked(Session session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line said,
+                                       long asked, ChatStats.Tier tier, String detail, Cue cue) {
         Character bot = session.bot.getChr();
         Character player = session.player;
         int slot = bot.getId() - BotStore.BOT_ID_BASE;
