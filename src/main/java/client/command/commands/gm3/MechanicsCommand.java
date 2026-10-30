@@ -26,7 +26,11 @@ import static soloMapling.BotLogger.log;
  *                                         rewards, everyone walks through the opened portals). "toN": stop after
  *                                         stage N (was "stageN" before 1.6.2).
  *                                         The bots leave 20 s after the run ends.
+ *                                         "hold" (1.6.2, with stage2-4, implies perfect): the bots take that stage's
+ *                                         positions (ropes, platforms, barrels) and wait on them without checking,
+ *                                         until !mechanics release or stop (a QA aid for screenshots).
  *   !mechanics status                     the runs going on
+ *   !mechanics release                    let every held run go on (the leader checks, the stage clears)
  *   !mechanics stop                       end every run now (bots released, staged bots despawned); a run that
  *                                         staging started ends its KPQ instance with it (everyone out)
  *   !mechanics dispose kpq [channel]      end a stuck Kerning PQ instance on this (or that) channel: its run stopped,
@@ -39,7 +43,7 @@ public class MechanicsCommand extends Command {
     }
 
     /** A parsed {@code !mechanics kpq ...}: who plays and how many bots. */
-    public record KpqRequest(boolean withGm, int bots, boolean perfect, int lastStage, int firstStage) {
+    public record KpqRequest(boolean withGm, int bots, boolean perfect, int lastStage, int firstStage, boolean hold) {
         public KpqRequest(boolean withGm, int bots, boolean perfect) {
             this(withGm, bots, perfect, 0, 1);
         }
@@ -47,10 +51,14 @@ public class MechanicsCommand extends Command {
         public KpqRequest(boolean withGm, int bots, boolean perfect, int lastStage) {
             this(withGm, bots, perfect, lastStage, 1);
         }
+
+        public KpqRequest(boolean withGm, int bots, boolean perfect, int lastStage, int firstStage) {
+            this(withGm, bots, perfect, lastStage, firstStage, false);
+        }
     }
 
-    static final String USAGE = "Syntax: !mechanics kpq [me] [bots 2-4] [perfect] [stage1-5] [to1-5] | status | stop"
-            + " | dispose kpq [channel]";
+    static final String USAGE = "Syntax: !mechanics kpq [me] [bots 2-4] [perfect] [stage1-5] [to1-5] [hold]"
+            + " | status | release | stop | dispose kpq [channel]";
 
     /** Parses {@code dispose kpq [channel]}: the channel to look on ({@code here} when none is given), or -1. */
     public static int parseDispose(String[] params, int here) {
@@ -72,6 +80,7 @@ public class MechanicsCommand extends Command {
     public static KpqRequest parseKpq(String[] params, int from) {
         boolean me = false;
         boolean perfect = false;
+        boolean hold = false;
         Integer bots = null;
         int last = 0;
         int first = 1;
@@ -88,6 +97,7 @@ public class MechanicsCommand extends Command {
             switch (p) {
                 case "me" -> me = true;
                 case "perfect" -> perfect = true;
+                case "hold" -> hold = true;
                 case "bots" -> {
                 }
                 default -> {
@@ -107,7 +117,11 @@ public class MechanicsCommand extends Command {
         if (last > 0 && last < first) {
             return null;
         }
-        return new KpqRequest(me, n, perfect, last, first);
+        if (hold && (first < 2 || first > 4)) {
+            return null; // hold shows a formation: the ropes, platforms or barrels (stage2-4)
+        }
+        // a held formation is the answer's (perfect: no planned wrong formations to hold instead)
+        return new KpqRequest(me, n, perfect || hold, last, first, hold);
     }
 
     @Override
@@ -126,13 +140,24 @@ public class MechanicsCommand extends Command {
                     return;
                 }
                 gm.yellowMessage("Staging KPQ: " + (req.withGm() ? "you + " : "") + req.bots() + " bots"
-                        + (req.perfect() ? ", perfect" : "") + "...");
+                        + (req.perfect() ? ", perfect" : "") + (req.hold() ? ", held on stage " + req.firstStage() : "")
+                        + "...");
                 ExecutorServiceManager.getExecutorService().execute(() -> {
                     KpqStaging.Staged s = KpqStaging.start(gm, req.withGm(), req.bots(), req.perfect(), 0,
                             req.firstStage(), req.lastStage(), line -> {
                                 log("[Mechanics] " + line);
                                 gm.yellowMessage(line);
                             }, null);
+                    if (s.ok() && req.hold()) {
+                        // set right after the start: the first tick is 250 ms away and no check comes before the
+                        // formation has stood still for 2.5 s
+                        s.active().run().setHeld(true);
+                        log("[Mechanics] RUN held for QA by " + gm.getName() + " on stage " + req.firstStage()
+                                + " in " + s.active().instanceName());
+                        gm.yellowMessage("Held: the bots take stage " + req.firstStage()
+                                + "'s positions and wait there. !mechanics release to let them clear it, "
+                                + "!mechanics stop to end the run.");
+                    }
                     if (!s.ok()) {
                         gm.yellowMessage("KPQ run did not start: " + s.error());
                     } else if (!req.withGm()) {
@@ -146,6 +171,10 @@ public class MechanicsCommand extends Command {
                 });
             }
             case "status" -> MechanicsRuns.get().status().forEach(gm::yellowMessage);
+            case "release" -> {
+                int n = MechanicsRuns.get().release(gm.getName());
+                gm.yellowMessage(n == 0 ? "No held runs." : "Released " + n + " held run(s): they clear the stage now.");
+            }
             case "stop" -> {
                 int n = MechanicsRuns.get().active().size();
                 MechanicsRuns.get().stopAll("stopped by " + gm.getName());

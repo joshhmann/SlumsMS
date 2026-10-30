@@ -498,13 +498,27 @@ public final class MechanicsRuns {
         return List.copyOf(active.values());
     }
 
+    /** {@code !mechanics release}: every held run goes on (QA hold); returns how many were held. */
+    public int release(String by) {
+        int n = 0;
+        for (Active a : List.copyOf(active.values())) {
+            if (a.run.held()) {
+                a.run.setHeld(false);
+                a.reporter.accept("RUN released by " + by + " on stage " + a.run.currentStage());
+                n++;
+            }
+        }
+        return n;
+    }
+
     /** One line per run for {@code !mechanics status}. */
     public List<String> status() {
         List<String> out = new ArrayList<>();
         for (Active a : active.values()) {
             RunState r = a.run;
             long secs = r.startedMs() == 0 ? 0 : (System.currentTimeMillis() - r.startedMs()) / 1000;
-            out.add(r.content().id() + " stage " + r.currentStage() + " in " + keyOf(a.eim) + ", " + secs + " s, "
+            out.add(r.content().id() + " stage " + r.currentStage() + (r.held() ? " (held)" : "") + " in "
+                    + keyOf(a.eim) + ", " + secs + " s, "
                     + Orchestrator.describe(r) + ", wrong tries " + r.wrongShownTotal());
         }
         if (out.isEmpty()) {

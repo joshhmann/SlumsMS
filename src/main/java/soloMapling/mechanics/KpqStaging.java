@@ -212,6 +212,18 @@ public final class KpqStaging {
             int staged = stageEventTo(eim, content, firstStage);
             reporter.accept("RUN staged: stages 1-" + (firstStage - 1) + " marked cleared (" + staged
                     + " portal(s) opened, no stage rewards); the party walks to stage " + firstStage);
+            if (withGm) {
+                // 1.6.2 (TEST 10-30: "me stage4" left the GM on stage 1 while the bots went on): the real leader goes
+                // through the same opened gates, each portal's own script (kpq0..3) moving him, never a GM warp
+                int reached = leaderThroughGates(content, firstStage, gm.getMapId(), (stage, portal) -> {
+                    MapleMap from = eim.getMapInstance(stage.mapId());
+                    server.maps.Portal p = from == null ? null : from.getPortal(portal);
+                    return p != null && gm.getMap() == from && scripting.portal.PortalScriptManager.getInstance()
+                            .executePortalScript(p, gm.getClient());
+                }, gm::getMapId);
+                reporter.accept("RUN staged: you went through the opened portals to stage " + reached
+                        + (reached == firstStage ? "" : " (a gate did not let you through: walk on from there)"));
+            }
         }
         MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, perfect, budgetMs, firstStage, lastStage, true,
                 reporter, done -> {
@@ -257,6 +269,35 @@ public final class KpqStaging {
             eim.showClearEffect(true, stage.mapId());
         }
         return linked;
+    }
+
+    /** One gate on the way: enter stage {@code from}'s portal {@code portal}; true when it moved the leader on. */
+    interface Gate {
+        boolean enter(MechanicsModel.Stage from, String portal);
+    }
+
+    /**
+     * Takes the leader from stage 1 to stage {@code first} through each earlier stage's {@code nextPortal}, the way
+     * the bots walk it, stopping at the first gate that does not let him through. {@code mapNow} reads where he is.
+     * Returns the stage he reached.
+     */
+    static int leaderThroughGates(Content content, int first, int startMap, Gate gate,
+                                  java.util.function.IntSupplier mapNow) {
+        MechanicsModel.Stage at = content.stageOnMap(startMap).orElse(null);
+        if (at == null) {
+            return 0;
+        }
+        while (at.index() < first && at.nextPortal() != null) {
+            if (!gate.enter(at, at.nextPortal())) {
+                break;
+            }
+            MechanicsModel.Stage next = content.stageOnMap(mapNow.getAsInt()).orElse(null);
+            if (next == null || next.index() <= at.index()) {
+                break;
+            }
+            at = next;
+        }
+        return at.index();
     }
 
     /** Takes the staged bots out of their party (the event script ends the PQ when it is short) and the world. */

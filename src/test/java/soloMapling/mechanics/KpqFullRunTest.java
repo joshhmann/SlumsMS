@@ -931,6 +931,77 @@ class KpqFullRunTest {
                 .count() >= 12, "each of four walked through three portals");
     }
 
+    /**
+     * 1.6.2 (TEST 10-30: "!mechanics kpq me 3 stage4" left the real GM leader on stage 1 while the bots went on to the
+     * barrels): staging takes him through the same opened gates, each stage's own next portal (its kpq script moves
+     * him), stopping where a gate does not open.
+     */
+    @Test
+    void stagingAtStageFourTakesTheRealLeaderThroughTheOpenedGatesToo() {
+        Content c = kpq();
+        int[] map = {S1};
+        List<String> entered = new ArrayList<>();
+        int reached = KpqStaging.leaderThroughGates(c, 4, map[0], (stage, portal) -> {
+            entered.add(stage.index() + ":" + portal);
+            map[0] = stage.mapId() + 1; // kpq<n-1>.js: changeMap to the next stage's instance map
+            return true;
+        }, () -> map[0]);
+        assertEquals(4, reached);
+        assertEquals(103000803, map[0]);
+        assertEquals(List.of("1:next00", "2:next00", "3:next00"), entered);
+
+        map[0] = S1;
+        int stuck = KpqStaging.leaderThroughGates(c, 4, map[0], (stage, portal) -> {
+            if (stage.index() == 2) {
+                return false; // "The portal is not opened yet."
+            }
+            map[0] = stage.mapId() + 1;
+            return true;
+        }, () -> map[0]);
+        assertEquals(2, stuck, "stops at the shut gate");
+        assertEquals(1, KpqStaging.leaderThroughGates(c, 1, S1, (s, p) -> {
+            throw new AssertionError("stage 1 needs no gate");
+        }, () -> S1));
+    }
+
+    /**
+     * 1.6.2 QA hold ({@code !mechanics kpq 4 stage2 hold}): the bots open the stage and take the answer's ropes, then
+     * stand there; nobody checks with Cloto until the run is released, and then the stage clears as usual.
+     */
+    @Test
+    void aHeldRunTakesThePositionsAndWaitsUntilReleased() {
+        for (int stage = 2; stage <= 4; stage++) {
+            Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(16), 30 * 60_000L, stage);
+            RunState run = o.start(kpq(), Tier.NORMAL, List.of(bot(1, true, MechanicsPersona.PERFECT),
+                    bot(2, false, MechanicsPersona.PERFECT), bot(3, false, MechanicsPersona.PERFECT),
+                    bot(4, false, MechanicsPersona.PERFECT)));
+            assertTrue(o.startAt(run, stage, 1_000));
+            run.setHeld(true);
+            World w = new World(run, 16);
+            for (int s = 1; s < stage; s++) {
+                w.props.put(s + "stageclear", "true");
+            }
+            List<Map<Integer, SolverStep>> trace = new ArrayList<>();
+            play(o, run, w, 4 * 60 * 3, trace); // three minutes held
+            assertFalse(run.ended(), run.events().toString());
+            assertFalse(w.props.containsKey(stage + "stageclear"), "held: stage " + stage + " not cleared");
+            assertTrue(w.rightChecks.isEmpty() && w.wrongChecks.isEmpty(), "nobody checked");
+            int answer = CombinationSolver.answer(w).orElseThrow();
+            assertTrue(CombinationSolver.formationExact(w, answer), "stage " + stage + ": on the answer's spots");
+            assertTrue(trace.stream().flatMap(m -> m.values().stream()).noneMatch(st -> st instanceof SolverStep.CheckAnswer));
+            assertTrue(run.events().stream().anyMatch(e -> e.line().contains("held")), run.events().toString());
+
+            run.setHeld(false); // !mechanics release
+            long now = w.now;
+            for (int t = 0; t < 4 * 60 && !run.ended(); t++, now += TICK) {
+                for (Map.Entry<Integer, SolverStep> e : o.tick(run, w, now).entrySet()) {
+                    w.apply(o, e.getKey(), e.getValue());
+                }
+            }
+            assertTrue(w.props.containsKey(stage + "stageclear"), "released: stage " + stage + " cleared");
+        }
+    }
+
     @Test
     void aStageThatIsNotPlayedIsRefused() {
         Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(15), 0, 3);

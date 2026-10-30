@@ -60,6 +60,13 @@ class MechanicsScenarioTest {
         assertEquals(new MechanicsCommand.KpqRequest(true, 3, false, 4, 2),
                 MechanicsCommand.parseKpq(new String[]{"kpq", "me", "stage2", "to4"}, 1), "stages 2-4");
         assertNull(MechanicsCommand.parseKpq(new String[]{"kpq", "stage4", "to2"}, 1), "ends before it starts");
+        // 1.6.2 QA hold: the formation of stage 2-4 shown and held (perfect: the answer's, no wrong ones first)
+        assertEquals(new MechanicsCommand.KpqRequest(false, 4, true, 0, 3, true),
+                MechanicsCommand.parseKpq(new String[]{"kpq", "4", "stage3", "hold"}, 1), "held on the platforms");
+        assertEquals(new MechanicsCommand.KpqRequest(true, 3, true, 0, 4, true),
+                MechanicsCommand.parseKpq(new String[]{"kpq", "me", "3", "stage4", "hold"}, 1), "with me");
+        assertNull(MechanicsCommand.parseKpq(new String[]{"kpq", "hold"}, 1), "hold needs stage2-4");
+        assertNull(MechanicsCommand.parseKpq(new String[]{"kpq", "stage5", "hold"}, 1), "no formation on stage 5");
     }
 
     @Test

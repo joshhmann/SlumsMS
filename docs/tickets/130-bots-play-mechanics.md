@@ -317,6 +317,14 @@ above, and stage 1 tries are now one near miss at most (`NEAR_MISS` 5 below the 
 leaves stages 1..N-1 as Cloto's `clearStage` does: clear property, gate, `next00` linked to `kpq<n-1>`, stage 1's
 grid emptied; no stage rewards, nobody moved; members walk through every opened portal), `toN` stops after N.
 
+## 1.6.2 real-leader recheck (branch `162-kpqlead`, TEST ch 3, 2026-10-30 18:11-18:37 UTC)
+
+| Finding | Cause | Fix |
+|---|---|---|
+| `!mechanics kpq me 3`: ~8 min on stage 1, no pass reached the GM's Etc although two bots logged `DROP ... 4001008 for AqClient` (18:12:52, 18:15:48 UTC) | the drops landed (`paid` 1 each; owner AqClient, party drop type 0, lootable by him) within 50 px of where he stood at that moment. No pickup of them is logged (bot pickups are not logged per item), but no path in the run loots a pass meant for a real leader (bot brains are paused; the coupon scan needs a monster dropper; Loot is the bot leader's only), so most likely he had moved on and they lay there until he left the PQ (on the exit map 103000890 by 18:19:34, when `!mechanics stop` ended the instance). `MapItem.setPermanentOwner` is never read: after 15 s a pass is free for all | `PassHandover`: to a real leader a bot walks up first (within 60 px, the shared `Approach.inReach` test) and drops at his feet; if he has not picked it up after 20 s and stands >100 px from it, the bot picks its own pass back up (`SolverStep.TakeBack`, the bot's normal loot call, legal after the ownership window) and brings it again. Floor scans never take a hand-over another member dropped (`PassHandover.mayTake`). Stage 1 and stage 5. No inventory shortcut |
+| `!mechanics kpq me 3 stage4`: the GM stayed on stage 1, the bots went to 4 | staging moved nobody; bots walk the opened portals, the GM is never driven | `KpqStaging.leaderThroughGates`: with `me`, the GM goes through each opened `next00` by its own portal script (`kpq0..2`), never a GM warp |
+| QA wanted formations held for screenshots | | `!mechanics kpq <n> stage2-4 hold` (and `me`): the run's checks and hand-ins become waits (`Orchestrator.hold`); `!mechanics release` (new) lets the run go on; `stop` ends it. Implies `perfect` |
+
 Bot audit (ticket 163): **b113** runs were kept by instance name, and every channel's event manager names its first
 KPQ "Kerning0" (KerningPQ.js: `"Kerning" + lobbyid`, lobbies per channel), so a second channel's run was refused
 ("this event instance already has a run") and `runFor` could return another channel's run; runs and lobby runs are now

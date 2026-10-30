@@ -41,6 +41,7 @@ public final class RunState implements RunOrchestrator.Run {
     private final Map<String, Object> stageMemory = new ConcurrentHashMap<>();
     private volatile long afterClearSinceMs;
     private final Map<Integer, Long> bonusUntil = new ConcurrentHashMap<>();
+    private volatile boolean held;
 
     RunState(Content content, Tier tier, List<RunMember> members, long budgetMs, int lastStage) {
         this.content = content;
@@ -48,6 +49,18 @@ public final class RunState implements RunOrchestrator.Run {
         this.members = new CopyOnWriteArrayList<>(members);
         this.budgetMs = budgetMs;
         this.lastStage = lastStage;
+    }
+
+    /**
+     * 1.6.2 QA ({@code !mechanics kpq ... stageN hold}): the bots take the stage's positions and wait there; nobody
+     * checks with the NPC or hands anything in until {@code !mechanics release} (or stop).
+     */
+    public boolean held() {
+        return held;
+    }
+
+    public void setHeld(boolean held) {
+        this.held = held;
     }
 
     @Override
