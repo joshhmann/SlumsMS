@@ -1,0 +1,42 @@
+# Live's local chat model (BOT_LLM_BASE_URL http://192.168.0.17:8095/v1): every live bot reply on 1.6.0.x, and the
+# fallback behind the DeepSeek cloud from 1.6.2 (and on TEST). Owner 2026-10-30: starts at boot. Install with
+# enable-qwen9b-at-boot.sh (enables it, never restarts or starts it); the repo copy is
+# tools/chatbank/units/qwen9b-8095.service. ExecStart is the running server's command line (hand-started 2026-10-19).
+# Not llama-server.service: that unit on .17 is a disabled Gemma 4 31B server.
+[Unit]
+Description=llama.cpp qwen9b chat model (:8095)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root
+
+# --main-gpu 1 --tensor-split 0,100,0 is CUDA's index 1: the RTX 5060 Ti on bus 0x41 (GPU-fe6447f3, nvidia-smi
+# index 0), shared with GLiNER decide-8900. At boot, wait until the driver lists that card. Never a second copy: the
+# start is refused while anything already listens on :8095 (the hand-started server, until the next reboot).
+ExecStartPre=/bin/sh -c 'for i in $$(seq 150); do nvidia-smi -L | grep -q GPU-fe6447f3-4fb8-b587-2a45-98f5926e8fb8 && exit 0; sleep 2; done; exit 1'
+ExecStartPre=/bin/sh -c '! ss -ltn | grep -q ":8095 "'
+ExecStart=/root/llama.cpp-upstream/build/bin/llama-server --host 0.0.0.0 --port 8095 \
+    --model /root/models/qwen9b-petruhonk/Qwen3.8-9B-Distill-Heretic-Uncensored-Q8_0.gguf --alias qwen9b \
+    --n-gpu-layers 99 --main-gpu 1 --tensor-split 0,100,0 --ctx-size 98304 --parallel 1 \
+    --cache-type-k q4_0 --cache-type-v q4_0 --flash-attn on --spec-type draft-mtp --spec-draft-n-max 3 --jinja \
+    --reasoning on --reasoning-effort low --reasoning-budget 512 --temp 1.0 --top-p 0.95 --top-k 20
+
+Restart=always
+RestartSec=10
+
+# About 10 GiB resident (the 9.8 GB model is mapped); 16 GiB is a ceiling, not a target.
+OOMScoreAdjust=-400
+MemoryMax=16G
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=qwen9b-8095
+
+# MODEL_DOCTRINE.md: lane scripts do not autostart. This one does, by the owner's go: it serves live chat, it is
+# capped and it waits for its own card.
+[Install]
+WantedBy=multi-user.target
