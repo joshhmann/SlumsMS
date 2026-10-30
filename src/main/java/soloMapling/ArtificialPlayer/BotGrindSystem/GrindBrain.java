@@ -517,6 +517,22 @@ public final class GrindBrain {
         }
     }
 
+    // 1.6.2: is anything this bot would sweep still on the floor within reach (the very filter its sweep uses:
+    // ownership, bag room, its loot habit, settle time, leash and ledge)? A world event's called bots stay to loot
+    // the fight's pile while this holds (soloMapling.worldevents.EventLootScramble).
+    public boolean lootLeft(Character chr) {
+        if (chr == null || chr.getMap() == null) {
+            return false;
+        }
+        long startedAt = System.nanoTime();
+        try {
+            int[] leash = effectiveLeash(chr);
+            return loot.anyCollectable(chr, leash[0], leash[1], GrindLoot.LOOT_LEFT_SEARCH_PX);
+        } finally {
+            BotPerformanceMonitor.recordCombatLoot(System.nanoTime() - startedAt);
+        }
+    }
+
     // 1.5.0 rc3: an instant looter walks over to a settled drop right after a kill, before the next mob; true when
     // it went for one this tick.
     boolean instantLoot(Character chr, int[] leash) {

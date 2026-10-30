@@ -65,6 +65,9 @@ public final class ActiveEvent {
     /** 1.6.0: the next wave of a giant cake's little cakes (they keep coming while the cake stands). */
     volatile int cakeWave;
 
+    /** 1.6.2: drops bots picked up on the map after the fight ended (EventLootScramble; QA's WEVENT LOOT lines). */
+    final java.util.concurrent.atomic.AtomicInteger botLoots = new java.util.concurrent.atomic.AtomicInteger();
+
     volatile boolean finished;
     volatile String endReason = "";
     volatile long endedAt;
@@ -123,6 +126,11 @@ public final class ActiveEvent {
 
     public boolean headline() {
         return headline;
+    }
+
+    /** 1.6.2: drops bots looted on the map after the fight ended. */
+    public int botLoots() {
+        return botLoots.get();
     }
 
     /** Bot deaths on the event map so far. */

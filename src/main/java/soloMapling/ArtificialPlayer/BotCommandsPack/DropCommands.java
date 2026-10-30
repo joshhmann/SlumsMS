@@ -319,6 +319,11 @@ public class DropCommands {
         } finally {
             mapItem.unlockItem();
         }
+        try {
+            soloMapling.worldevents.WorldEvents.getInstance().onBotLoot(fakechar, mapItem); // 1.6.2: event piles
+        } catch (RuntimeException e) {
+            // QA bookkeeping only: never fails a pickup
+        }
         // Real bots 10: a looted equip may beat what it wears. Outside the drop's lock - the review takes the bot's.
         BotGear.afterLoot(fakechar, credited);
     }

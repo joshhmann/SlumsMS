@@ -290,9 +290,15 @@ public final class WorldEventReactions {
 
     static void release(ActiveEvent e) {
         WorldEventSteer.release(e.id);
+        // 1.6.2 (owner 2026-10-30: nobody picked up the cake's drops): after a fight the called bots may stay a
+        // little and loot the pile with their normal grind loot (EventLootScramble), then settle in town and decide
+        boolean scramble = EventLootScramble.enabled() && EventLootScramble.fights(e.template.kind());
+        long endedAt = e.endedAt > 0 ? e.endedAt : System.currentTimeMillis();
+        Random rng = java.util.concurrent.ThreadLocalRandom.current();
         for (int id : e.joinedBots) {
             if (CharacterStorage.getBotById(id) instanceof TrainingBot tb) {
-                tb.eventOver(e.mapId()); // a town with no mobs of its own: they settle in town and decide
+                long until = scramble ? EventLootScramble.stayUntil(endedAt, rng) : endedAt;
+                tb.eventOver(e.mapId(), endedAt, until); // a town with no mobs of its own: they settle in town
             }
         }
     }
