@@ -844,7 +844,7 @@ STAMPS = """<h1>My stamps</h1>
 <p class="samplebar" x-show="state === 'signedOut'" x-cloak>Sign in to see your stamps.</p>
 <section class="panel" x-show="state !== 'signedOut'" x-cloak><h2 class="bar">Your stamps
 <small x-show="generated" x-text="'as of ' + when(generated)"></small></h2><div class="in">
-<p class="stp-count" x-show="state === 'ok'"><b x-text="stamps.toLocaleString()"></b> <span x-text="stamps === 1 ? 'stamp' : 'stamps'"></span></p>
+<p class="stp-count" x-show="state === 'ok'"><b x-text="stamps === null ? '' : stamps.toLocaleString()"></b> <span x-text="stamps === 1 ? 'stamp' : 'stamps'"></span></p>
 <p class="small" x-show="state === 'ok' && stamps === 0">None yet. Claim your Daily Check-In in game to start.</p>
 <p class="small" x-show="state === 'loading'">Loading...</p>
 <p class="small" x-show="state === 'unknown'">The game hasn't sent the stamp counts yet. Check again in a few minutes.</p>
