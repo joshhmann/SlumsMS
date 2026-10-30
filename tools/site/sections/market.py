@@ -415,7 +415,8 @@ class Market:
     def sidebar(self, root, here):
         groups = [(None, [("index.html", "Market home", "index")]),
                   ("My stuff", [("mine.html", "My market", "mine"), ("mine.html#trades", "My trades", "trades"),
-                                ("cards.html", "My cards", "cards"), ("invites.html", "My invites", "invites")]),
+                                ("cards.html", "My cards", "cards"), ("stamps.html", "My stamps", "stamps"),
+                                ("invites.html", "My invites", "invites")]),
                   ("Market", [("sales.html", "Recent sales", "sales"), ("listings.html", "FM now", "listings"),
                               ("board.html", "Buy/Sell board", "board"),
                               ("exchange.html", "Slums Exchange", "exchange"), ("prices/index.html", "Price check", "prices"),
@@ -832,6 +833,33 @@ tab). <span x-show="made" x-text="made && made.expiresAt === null ? 'It never ex
 <script src="{root}assets/invites.js"></script><script defer src="{root}assets/vendor/alpine-3.14.1.min.js"></script>"""
 
 
+# 1.6.2 (b193; owner: build it): the account's Slums Stamps, from the game's private stamps.json via the market
+# service (own row only). Earning rules from Server Dev (SlumsStamps): 1 per claimed check-in day, +5 on days 7, 14, 21
+# and 28 (48 a 28-day round), not tradeable, @stamps in game shows the same number.
+STAMPS = """<h1>My stamps</h1>
+<p class="lede">Slums Stamps come from the Daily Check-In in game: one for every day you claim, and five more on days
+7, 14, 21 and 28. A full 28-day round gives 48. They can't be traded.</p>
+<noscript><p class="small">Your stamps need JavaScript turned on.</p></noscript>
+<div class="stp" x-data="xstamps" data-root="{root}">
+<p class="samplebar" x-show="state === 'signedOut'" x-cloak>Sign in to see your stamps.</p>
+<section class="panel" x-show="state !== 'signedOut'" x-cloak><h2 class="bar">Your stamps
+<small x-show="generated" x-text="'as of ' + when(generated)"></small></h2><div class="in">
+<p class="stp-count" x-show="state === 'ok'"><b x-text="stamps.toLocaleString()"></b> <span x-text="stamps === 1 ? 'stamp' : 'stamps'"></span></p>
+<p class="small" x-show="state === 'ok' && stamps === 0">None yet. Claim your Daily Check-In in game to start.</p>
+<p class="small" x-show="state === 'loading'">Loading...</p>
+<p class="small" x-show="state === 'unknown'">The game hasn't sent the stamp counts yet. Check again in a few minutes.</p>
+<p class="small bad" x-show="state === 'error'">Your stamps didn't load. Try again in a bit.</p>
+<p class="small">The game updates this every 15 minutes. In game, <code>@stamps</code> shows the number right now.</p>
+</div></section>
+</div>
+<script src="{root}assets/stamps.js"></script><script defer src="{root}assets/vendor/alpine-3.14.1.min.js"></script>"""
+
+
+def build_stamps(mk):
+    """My stamps: the signed-in account's Slums Stamps (b193)."""
+    mk.page(f"{MARKET}/stamps.html", "My stamps", STAMPS, "stamps", "Your Slums Stamps from the Daily Check-In.")
+
+
 def build_invites(mk):
     """My invites: a player's own invite codes (made on the site or with @invite in game), from the login service."""
     mk.page(f"{MARKET}/invites.html", "My invites", INVITES, "invites", "Your invite codes for friends.")
@@ -892,6 +920,7 @@ def build(out, db, data_dir=None, site_root=None):
     build_board(mk)
     build_exchange(mk)
     build_invites(mk)
+    build_stamps(mk)
     write_summary(mk, priced)
     write_untradeable(mk)
     return {"priced": len(priced), "listings": len(m["listings"]["listings"]), "sample": m["sample"]}

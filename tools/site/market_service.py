@@ -38,6 +38,7 @@ Endpoints (127.0.0.1 only; nginx passes /api/market/ through):
     POST /api/market/posts                 {kind, itemId, qty, price, character}
     POST /api/market/posts/close           {id}          the poster's take-down, or a GM's
     GET  /api/market/cards                 the Slums-chan cards this account has found
+    GET  /api/market/stamps                this account's Slums Stamps (the game's outbox stamps.json, own row only)
     POST /api/market/cards                 {ids: [...]}  secrets found in the browser (unknown ids are ignored)
     GET  /api/market/health
 """
@@ -345,6 +346,24 @@ class Store:
                 out[c] = {"completed": r["completed"], "fellThrough": r["fellThrough"]}
         return out
 
+    def stamps(self, s):
+        """My stamps (1.6.2, b193): this account's Slums Stamps from the outbox's stamps.json, written by the game every
+        15 minutes ({"generated", "accounts": {login: {"id", "stamps"}}}; only accounts with stamps; never public).
+        Matched on the session's account id, never the name. {"stamps": None} when the file isn't there or can't be
+        read, so the page says it can't tell yet; an account missing from a good file has 0."""
+        try:
+            with open(os.path.join(self.outbox, "stamps.json"), encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return {"stamps": None, "generated": None}
+        rows = data.get("accounts") if isinstance(data, dict) else None
+        if not isinstance(rows, dict):
+            return {"stamps": None, "generated": None}
+        n = next((r["stamps"] for r in rows.values() if isinstance(r, dict) and r.get("id") == s["a"]
+                  and isinstance(r.get("stamps"), int) and not isinstance(r.get("stamps"), bool)), 0)
+        gen = data.get("generated")
+        return {"stamps": max(0, n), "generated": gen if isinstance(gen, str) else None}
+
     def board(self):
         """The server's board.json, expired posts dropped. Bot and player posts look the same (names only)."""
         try:
@@ -522,6 +541,8 @@ def make_handler(sessions, store):
                     return self.send(200, dict(store.board(), ok=True))
                 if path == "/api/market/cards":
                     return self.send(200, dict(store.cards(s), ok=True))
+                if path == "/api/market/stamps":
+                    return self.send(200, dict(store.stamps(s), ok=True))
             return self.send(404, {"ok": False})
 
         def body(self):

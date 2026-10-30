@@ -85,6 +85,7 @@ SLOTS = {
     "market/invites": ("chan-envelope", ["Bring a friend!", "Henesys is full again!"]),
     "market/mine": ("chan-envelope", "All your stuff in one place."),
     "market/cards": ("chan-lookback", "Gotta find them all!"),
+    "market/stamps": ("chan-envelope", ["Did you check in today?", "Day 28 is the big one!"]),
     # World
     "world": ("chan-peace", "Who's on right now?"),
     "world/feed": ("chan-boba", "Ooh, gossip!"),

@@ -828,6 +828,9 @@ table.t { width: 100%; border-collapse: collapse; }
 .inv-new .small { flex-basis: 100%; }
 .inv-code { font: 700 1.05rem var(--f-mono); letter-spacing: .08em; user-select: all; }
 .inv-new .inv-code { font-size: 1.4rem; }
+/* My stamps (market/stamps, 1.6.2 b193) */
+.stp-count { margin: 0 0 8px; display: flex; align-items: baseline; gap: 8px; }
+.stp-count b { font: 800 2.4rem/1 var(--f-display); color: var(--accent-ink); }
 .inv-staff { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
 .inv-staff label { display: grid; gap: 4px; font-size: .82rem; font-weight: 600; color: var(--muted); }
 .inv-staff input { font: inherit; padding: 8px 10px; border: var(--border) solid var(--edge); border-radius: 6px; background: var(--surface); color: var(--ink); }

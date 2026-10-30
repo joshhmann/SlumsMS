@@ -768,6 +768,20 @@ class WorldTest(unittest.TestCase):
         self.assertIn('board.html" aria-current=page', side)
         self.assertIn('href="../market/mine.html#trades"', side)
         self.assertIn('href="../market/cards.html"', side)
+        # b193: My stamps sits under My stuff; the page asks the market service for this account's own row only
+        self.assertRegex(side, r"My cards.*My stamps.*My invites")
+        self.assertIn('href="../market/stamps.html"', side)
+        tmp = tempfile.mkdtemp(prefix="slums-stamps-")
+        try:
+            market.build_stamps(market.Market(market.load(self.market), {}, tmp))
+            with open(os.path.join(tmp, "market", "stamps.html"), encoding="utf-8") as f:
+                page = f.read()
+        finally:
+            shutil.rmtree(tmp)
+        self.assertIn('x-data="xstamps"', page)
+        self.assertIn("assets/stamps.js", page)
+        self.assertNotIn("x-html", page)
+        self.assertIn("48", page)
         with open(os.path.join(self.out, "world", "traders.json"), encoding="utf-8") as f:
             traders = json.load(f)
         self.assertTrue(traders)

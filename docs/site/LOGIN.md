@@ -67,7 +67,8 @@ posts (3 days each), 30 changes a minute. Writes need a JSON body and the header
 must match the Host, so another website can't post for a signed-in player.
 
 For the board, the session carries the account's characters on Bera, so a post can be made as any of them (a new
-account with no character yet can't post). A GM session can take down any post.
+account with no character yet can't post). A GM session signed in within the last 12 hours can take down any post
+(like `/admin/`; owner 2026-10-30, audit W13): an older GM session gets 401 and no take-down buttons.
 
 ```
 The install commands are LAUNCH.md step 2b. Live runs as root, so it can read the inbox and write the outbox with no

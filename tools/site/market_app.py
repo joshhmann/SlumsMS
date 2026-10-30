@@ -77,7 +77,8 @@ def market_routes(store):
     def write(fn):
         return reply(200, dict(fn(g.session, write_body()) or {}, ok=True))
 
-    gets = {"me": lambda: store.me(g.session), "board": store.board, "cards": lambda: store.cards(g.session)}
+    gets = {"me": lambda: store.me(g.session), "board": store.board, "cards": lambda: store.cards(g.session),
+            "stamps": lambda: store.stamps(g.session)}
     for path, fn in gets.items():
         bp.add_url_rule("/" + path, "get_" + path, lambda fn=fn: read(fn), methods=["GET"])
     posts = {

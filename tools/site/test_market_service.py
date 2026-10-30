@@ -296,6 +296,20 @@ class HttpTest(Base):
         self.assertEqual((st, list(body["found"])), (200, ["wake"]))
         self.assertEqual(list(self.call("GET", "/api/market/cards")[1]["found"]), ["wake"])
 
+    def test_my_stamps_shows_only_this_accounts_own_row(self):
+        """b193: stamps.json (the game's private outbox file) is matched on the session's account id, never served whole."""
+        self.assertEqual(self.call("GET", "/api/market/stamps", token=False)[0], 401)
+        self.assertEqual(self.call("GET", "/api/market/stamps")[1], {"ok": True, "stamps": None, "generated": None})
+        self.outbox_file("stamps.json", {"generated": "2026-10-30T19:48:44.255Z", "accounts": {
+            "momo": {"id": 7, "stamps": 12}, "rival": {"id": 8, "stamps": 48}, "Momo": {"id": 70, "stamps": 3}}})
+        st, body = self.call("GET", "/api/market/stamps")
+        self.assertEqual((st, body), (200, {"ok": True, "stamps": 12, "generated": "2026-10-30T19:48:44.255Z"}))
+        self.assertNotIn("rival", json.dumps(body))
+        self.token = self.sessions.issue({"account_id": 9, "character": "Solo"})
+        self.assertEqual(self.call("GET", "/api/market/stamps")[1]["stamps"], 0, "no row = no stamps yet")
+        self.outbox_file("stamps.json", {"generated": "x", "accounts": [1, 2]})
+        self.assertIsNone(self.call("GET", "/api/market/stamps")[1]["stamps"])
+
     def test_session_without_a_character_list_posts_as_its_own_character(self):
         self.token = self.sessions.issue({"account_id": 9, "character": "Solo"})
         ok = {"kind": "WTB", "itemId": 2000000, "qty": 1, "price": 1}
