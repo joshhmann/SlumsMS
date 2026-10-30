@@ -1030,7 +1030,11 @@ public final class AutoQaCatalog {
         // still beats the boss. Long (6-12 min of fight), so not nightly: run it by id after tuning the template
         c.add(Check.auto("t-ev-3", "The full Henesys invasion: bots die in numbers, the crowd still wins").minutes(35)
                 .notNightly()
-                .step(run("ev-2", "full"), waitFor("WEVENT END ", 31 * 60), waitSeconds(3), stop())
+                // TEST 2026-10-30 19:35 (b32a14214): wave 1 of 6 never cleared in 30 min. KS manners now hold at the
+                // swing (39e79aa60), and the visible GM stood by the Drakes around it; a pretend player's client never
+                // moves the mobs it controls, so those stayed its mobs and the wave never ended. Hide the GM, as the
+                // showcase attack checks do (e6fe84751).
+                .step(hiddenGm(), run("ev-2", "full"), waitFor("WEVENT END ", 31 * 60), waitSeconds(3), stop())
                 .expect(has("EV2 EVENT #\\d+ henesys_invasion .*full strength"),
                         has("WEVENT WAVE #\\d+ (\\d+)/\\1"),
                         atLeast(EV3_MIN_DEATHS, "WEVENT BOT DIED #\\d+ .* on 100000000, death \\d+ for it"),

@@ -141,6 +141,17 @@ class AutoQaCatalogTest {
         assertEquals(100000000, AutoQaCatalog.COUPLE_TOWN, "Henesys: no mobs");
     }
 
+    /**
+     * TEST 2026-10-30: with KS manners at the swing, the full invasion's first wave never cleared around the visible
+     * auto-QA GM (its client moves no mobs, so they stayed by it). t-ev-3 hides the GM before the invasion.
+     */
+    @Test
+    void theFullInvasionCheckHidesItsGm() {
+        Check c = AutoQaCatalog.find("t-ev-3");
+        assertTrue(c.steps().get(0).describe().contains("!hide"), c.steps().get(0).describe());
+        assertTrue(c.steps().get(1).describe().startsWith("!qa run ev-2 full"), c.steps().get(1).describe());
+    }
+
     @Test
     void theNightlyRunIsAtTheNextFullHourUtc() {
         long t = java.time.Instant.parse("2026-10-23T09:30:00Z").toEpochMilli();
