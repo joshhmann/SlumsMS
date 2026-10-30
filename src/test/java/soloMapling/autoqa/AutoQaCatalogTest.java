@@ -130,6 +130,17 @@ class AutoQaCatalogTest {
         assertEquals(null, AutoQaReport.snapshot(null));
     }
 
+    /** TEST 2026-10-30: t-cu-1 staged its pair wherever the last check left the GM (a mob ledge) and never sat. */
+    @Test
+    void theCoupleChecksStageThePairInTown() {
+        for (String id : List.of("t-cu-1", "t-cu-2")) {
+            Check c = AutoQaCatalog.find(id);
+            assertEquals("p1 says '!warp " + AutoQaCatalog.COUPLE_TOWN + "'", c.steps().get(0).describe(), id);
+            assertTrue(c.steps().get(2).describe().startsWith("!qa run cp-1"), id);
+        }
+        assertEquals(100000000, AutoQaCatalog.COUPLE_TOWN, "Henesys: no mobs");
+    }
+
     @Test
     void theNightlyRunIsAtTheNextFullHourUtc() {
         long t = java.time.Instant.parse("2026-10-23T09:30:00Z").toEpochMilli();

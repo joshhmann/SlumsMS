@@ -51,6 +51,8 @@ import static soloMapling.autoqa.Steps.waitSeconds;
 public final class AutoQaCatalog {
 
     static final int HHG1 = 104040000, HHG2 = 104040001;
+    /** t-cu-1 / t-cu-2: Henesys, a town with no mobs to push a staged pair apart. */
+    static final int COUPLE_TOWN = 100000000;
     /** Bot chat lines a judge grades: "CHAT <bot>: <line>" from the staged bot. */
     static final String BOT_SAYS = "CHAT {bot}: (.+)";
     /** Every reply line of the convo layer: "SAID <bot> -> player <hash> [tier, src, voice, ms] <line>". */
@@ -289,8 +291,10 @@ public final class AutoQaCatalog {
                 .build());
 
         // ── Couples and weddings ─────────────────────────────────────────────────────────────────────────────
+        // TEST 2026-10-30 18:26: the GM was left on HHG2's upper ledge (809, -1045), among its Green Mushrooms; the
+        // staged pair was knocked about there, never stood side by side and so never sat. Stage the pairs in town.
         c.add(Check.auto("t-cu-1", "A married bot couple").minutes(7)
-                .step(run("cp-1", "married"), qaDo("step"), waitSeconds(10), qaDo("step"), waitSeconds(10), qaDo("step"),
+                .step(say("!warp " + COUPLE_TOWN), waitSeconds(3), run("cp-1", "married"), qaDo("step"), waitSeconds(10), qaDo("step"), waitSeconds(10), qaDo("step"),
                         waitSeconds(10), qaDo("step"), waitSeconds(10))
                 .expect(has("COUPLE PARTY ({staged}) \\+ ({staged}):"),
                         anyOf("COUPLE SIT ({staged}) \\+ ({staged}) on chair", "COUPLE MATCHING ({staged}) wears",
@@ -298,7 +302,7 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         c.add(Check.auto("t-cu-2", "Bot best friends of the same gender").minutes(6)
-                .step(run("cp-1", "friends", "same"), qaDo("step"), waitSeconds(10), qaDo("step"), waitSeconds(10),
+                .step(say("!warp " + COUPLE_TOWN), waitSeconds(3), run("cp-1", "friends", "same"), qaDo("step"), waitSeconds(10), qaDo("step"), waitSeconds(10),
                         qaDo("step"), waitSeconds(10))
                 .expect(has("COUPLE PARTY ({staged}) \\+ ({staged}):"), lacks("COUPLE SIT ({staged}) \\+ "),
                         lacks("COUPLE MARRIED .*({staged})"))
