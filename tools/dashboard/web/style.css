@@ -83,7 +83,7 @@ small, .muted { color: var(--muted); font-weight: normal; }
 main { flex: 1; min-height: 0; overflow: auto; }
 .tab { display: none; padding: 16px; }
 .tab.active { display: block; }
-#tab-map.active { display: flex; height: 100%; padding: 0; }
+#tab-map.active, #tab-world.active { display: flex; height: 100%; padding: 0; }
 
 /* map viewer */
 .side {
@@ -117,6 +117,24 @@ legend { font-size: 12px; color: var(--text-2); padding: 0 4px; }
 .viewer { position: relative; flex: 1; min-width: 0; background: var(--map-bg); }
 #map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
 #map-canvas.dragging { cursor: grabbing; }
+#map-canvas.picking { cursor: crosshair; }
+
+/* route preview, world graph, switches (ticket 157) */
+.route-out { font-size: 12px; line-height: 1.45; margin: 4px 0; }
+.route-out ol { margin: 4px 0 0; padding-left: 18px; max-height: 200px; overflow: auto; }
+.route-out small, .results small { color: var(--muted); }
+.bad { color: var(--bad); }
+.results.tall { max-height: 320px; }
+#world-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#world-svg text { font: 11px system-ui, sans-serif; fill: var(--text-2); paint-order: stroke; stroke: var(--map-bg); stroke-width: 3px; }
+#world-svg text.big { font-weight: 700; font-size: 13px; fill: var(--text); }
+#world-svg text.cnt { font-size: 10px; fill: var(--muted); }
+#world-svg .wnode { cursor: pointer; }
+#world-svg .wnode:hover circle, #world-svg .wnode:focus-visible circle { stroke: var(--accent); stroke-width: 3; }
+#world-svg .wnode:focus { outline: none; }
+.info h3 { font-size: 12px; margin: 10px 0 4px; color: var(--text-2); }
+.sw-on { color: var(--good); font-weight: 600; }
+.sw-off { color: var(--muted); }
 .viewer-tools { position: absolute; right: 12px; top: 12px; display: flex; gap: 4px; }
 .empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); pointer-events: none; }
 
@@ -165,7 +183,7 @@ table.t tr.link:hover td { background: var(--surface-2); }
 
 @media (max-width: 900px) {
   .grid2 { grid-template-columns: 1fr; }
-  #tab-map.active { flex-direction: column; height: auto; }
+  #tab-map.active, #tab-world.active { flex-direction: column; height: auto; }
   .side { width: auto; border-right: 0; border-bottom: 1px solid var(--border); }
   .viewer { height: 70vh; }
 }

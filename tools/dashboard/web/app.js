@@ -11,7 +11,7 @@
 
   const state = { live: null, days: null, day: null, series: null, names: null, index: null, learning: null, tab: 'map',
     map: null, mapId: null, key: null, dailies: {}, ops: null, gm: null };
-  const TABS = ['map', 'learning', 'bots', 'economy', 'health', 'accounts', 'gm'];
+  const TABS = ['map', 'world', 'learning', 'bots', 'economy', 'health', 'accounts', 'gm', 'switches'];
   const CHAT_TIERS = ['llm', 'scripted', 'emote', 'ignored', 'flagged'];
 
   async function getJSON(path, fresh) {
@@ -49,7 +49,14 @@
   function route() {
     const parts = location.hash.replace(/^#/, '').split('/');
     const tab = TABS.includes(parts[0]) ? parts[0] : 'map';
-    if (tab === 'map' && parts[1] && +parts[1] !== state.mapId) openMap(+parts[1], parts[2]);
+    if (tab === 'map' && parts[1]) {
+      // map/<id>[/<profile>][/r1,r2]: a dead end from the World tab rings those platforms
+      const regs = parts.find((x, i) => i > 1 && /^r[\d,r]+$/.test(x));
+      state.highlight = regs ? new Set(regs.split(',').map(x => +x.replace('r', ''))) : null;
+      const key = parts[2] && !/^r\d/.test(parts[2]) ? parts[2] : undefined;
+      if (+parts[1] !== state.mapId) openMap(+parts[1], key); else applyHighlight();
+    }
+    if (tab === 'world') openWorld(parts[1] ? +parts[1] : null);
     showTab(tab);
   }
   window.addEventListener('hashchange', route);
@@ -64,6 +71,8 @@
       else if (state.tab === 'health') renderHealth();
       else if (state.tab === 'accounts') renderAccounts();
       else if (state.tab === 'gm') renderGm();
+      else if (state.tab === 'switches') renderSwitches();
+      else if (state.tab === 'world') drawWorld();
     } catch (e) { console.error(e); }
   }
 
@@ -125,6 +134,11 @@
     $('zoom-out').addEventListener('click', () => view.zoom(1 / 1.4));
     $('profile').addEventListener('change', e => { location.hash = 'map/' + state.mapId + '/' + e.target.value; loadGraph(e.target.value); });
     $('map-search').addEventListener('input', search);
+    $('route-pick').addEventListener('change', e => { view.onPick = e.target.checked ? pickRoute : null; $('map-canvas').classList.toggle('picking', e.target.checked); });
+    $('route-clear').addEventListener('click', () => { state.route = null; view.route = null; view.draw(); renderRoute(); });
+    for (const sel of ['[data-type]', '[data-source]', '#skill-tp', '#skill-fj']) {
+      document.querySelectorAll(sel).forEach(c => c.addEventListener('change', () => { if (state.route && state.route.b) planRoute(); }));
+    }
     $('only-graphs').addEventListener('change', search);
     renderLegend();
   }
@@ -203,6 +217,7 @@
     $('map-empty').hidden = true;
     state.map = doc;
     view.setMap(doc, doc.stuck);
+    state.route = null; renderRoute();
     const sel = $('profile');
     sel.innerHTML = doc.profiles.map(p => '<option value="' + p[0] + '">speed ' + p[1] + ' / jump ' + p[2] + (p[3] ? ' snowshoes' : '') +
       (p[1] === 100 && p[2] === 100 ? ' (base)' : '') + ' · ' + p[4] + ' edges' + (p[5] ? ', ' + p[5] + ' baked' : '') + '</option>').join('');
@@ -219,6 +234,8 @@
       view.setGraph(g);
       for (const t of MapView.TYPES) { const n = $('n-' + t); if (n) n.textContent = g.byType[t] || ''; }
       state.graph = g;
+      applyHighlight();
+      if (state.route && state.route.b) planRoute();
     } catch (e) {
       view.setGraph(null);
       state.graph = null;
@@ -246,6 +263,224 @@
       const s = d.stuck[+tr.dataset.i]; view.centerOn(s[0], s[1], Math.max(view.view.s, 1.2));
     }));
   }
+
+
+  // ── route preview (ticket 157): two clicks on the map, the cheapest chain of nav edges between them ──
+  function pickRoute(x, y) {
+    if (!state.graph) { $('route-out').textContent = 'This map has no nav graph for the chosen profile.'; return; }
+    if (!state.route || state.route.b) state.route = { a: [x, y], b: null };
+    else { state.route.b = [x, y]; }
+    if (state.route.b) planRoute(); else { view.route = { a: state.route.a }; view.draw(); renderRoute(); }
+  }
+  function planRoute() {
+    const R = state.route;
+    const res = MapView.findRoute(state.graph, R.a, R.b, e => view.edgeVisible(e));
+    Object.assign(R, res);
+    view.route = { a: R.a, b: R.b, edges: res.edges || [] };
+    view.draw();
+    renderRoute();
+  }
+  function renderRoute() {
+    const R = state.route, out = $('route-out');
+    $('route-clear').hidden = !R;
+    if (!R) {
+      out.className = 'route-out muted';
+      out.textContent = 'Turn this on, then click where a bot starts and where it should go. The route uses the moves and sources ticked above, so tick Teleport or Flash jump to plan for those jobs.';
+      return;
+    }
+    out.className = 'route-out';
+    if (!R.b) { out.innerHTML = 'Start <b>A</b> at ' + R.a.join(', ') + '. Now click the goal.'; return; }
+    if (!R.edges) {
+      out.innerHTML = '<b class="bad">No route</b> from r' + R.ra + ' to r' + R.rb + ' with the moves ticked above. ' +
+        'A bot standing at A could not get to B: try Teleport / Flash jump or the night-bake and learned edges.';
+      return;
+    }
+    const steps = R.edges.map(e => '<li>' + E(e[2].replace('_', ' ').toLowerCase()) + ' r' + e[0] + ' → r' + e[1] +
+      ' <small>' + e[9] + ' ms' + (e[11] > 1.0001 ? ' ×' + e[11].toFixed(2) : '') + (e[10] ? ', ' + MapView.SOURCE_NAMES[e[10]] : '') + '</small></li>').join('');
+    out.innerHTML = '<b>' + (R.edges.length ? R.edges.length + ' move' + (R.edges.length > 1 ? 's' : '') : 'Same platform: just walk') +
+      '</b>, about ' + (R.ms / 1000).toFixed(1) + ' s at base speed <small>(r' + R.ra + ' → r' + R.rb + ')</small>' + (steps ? '<ol>' + steps + '</ol>' : '');
+  }
+  function applyHighlight() {
+    view.highlight = state.highlight && state.graph ? state.highlight : null;
+    if (view.highlight) {
+      $('map-canvas').scrollIntoView({ block: 'nearest' });
+      const rs = state.graph.regions.filter(r => view.highlight.has(r[0]));
+      if (rs.length) view.centerOn((rs[0][2] + rs[0][4]) / 2, (rs[0][3] + rs[0][5]) / 2, Math.max(view.view.s, 0.6));
+    }
+    view.draw();
+  }
+
+  // ── world graph (ticket 157): maps, the portals between them, live bot counts and the dead-end check ──
+  const DEAD = {
+    no_exit: ['No way out', 'Players and bots come in, but no portal leads anywhere else.'],
+    arrive_stuck: ['Arrive stuck', 'From where you arrive, walking, jumping, dropping and climbing reach no exit portal.'],
+    pit: ['Pit', 'A platform you can get onto from an arrival but never back to an exit from. "Below view" ones are hidden floors under the map.'],
+    script_exit: ['Script exit only', 'The only ways out are script-run portals; not checked further.'],
+    no_graph: ['No graph', 'No base nav graph, so only the map-level check ran.'],
+  };
+  async function ensureWorld() {
+    if (state.world) return state.world;
+    await ensureIndex();
+    try {
+      const w = await getJSON('nav/world.json', true);
+      const out = new Map(), into = new Map(), dead = new Map();
+      for (const l of w.links) {
+        if (!out.has(l[0])) out.set(l[0], []); out.get(l[0]).push(l);
+        if (!into.has(l[1])) into.set(l[1], []); into.get(l[1]).push(l);
+      }
+      for (const d of w.deadEnds) { if (!dead.has(d[0])) dead.set(d[0], []); dead.get(d[0]).push(d); }
+      state.world = { doc: w, out, into, dead, ids: w.maps.map(m => m[0]) };
+    } catch (e) { state.world = { doc: null, out: new Map(), into: new Map(), dead: new Map(), ids: [] }; }
+    renderDead();
+    return state.world;
+  }
+  const liveCount = id => {
+    const r = state.live && state.live.bots && (state.live.bots.mapCounts ? [id, '', state.live.bots.mapCounts[id]] : (state.live.bots.maps || []).find(m => m[0] === id));
+    return r && r[2] != null ? r[2] : null;
+  };
+  function findMap(q) {
+    q = String(q || '').trim().toLowerCase();
+    if (!q) return null;
+    if (/^\d+$/.test(q) && (state.names[q] || state.world.out.has(+q) || state.world.into.has(+q))) return +q;
+    const ids = state.world.ids.length ? state.world.ids : Object.keys(state.names).map(Number);
+    return ids.find(id => mapName(id).toLowerCase() === q) ?? ids.find(id => mapName(id).toLowerCase().includes(q)) ?? null;
+  }
+  async function openWorld(id) {
+    const W = await ensureWorld();
+    if (!W.doc) {
+      $('world-empty').hidden = false;
+      $('world-empty').textContent = 'No world graph yet: slums-dashboard-extras writes nav/world.json after the map export runs.';
+      return;
+    }
+    state.worldId = id;
+    worldSearch();
+    drawWorld();
+  }
+  function worldSearch() {
+    const W = state.world;
+    if (!W) return;
+    const q = $('world-search').value.trim().toLowerCase();
+    let ids;
+    if (q) ids = W.ids.filter(id => String(id).startsWith(q) || mapName(id).toLowerCase().includes(q)).slice(0, 60);
+    else ids = [...W.ids].filter(id => liveCount(id) != null).sort((a, b) => liveCount(b) - liveCount(a)).slice(0, 25);
+    $('world-results').innerHTML = ids.map(id => {
+      const n = liveCount(id), d = W.dead.get(id);
+      return '<li data-id="' + id + '"' + (id === state.worldId ? ' class="sel"' : '') + '><span class="tag">' +
+        (d ? '<b class="bad">' + E(DEAD[d[0][1]][0]) + '</b> ' : '') + (n != null ? n + ' bots' : '') + '</span><span class="id">' + id + '</span>' + E(mapName(id) || '?') + '</li>';
+    }).join('') || '<li class="muted">no match</li>';
+    $('world-results').querySelectorAll('li[data-id]').forEach(li => li.addEventListener('click', () => { location.hash = 'world/' + li.dataset.id; }));
+  }
+  function renderDead() {
+    const W = state.world;
+    if (!W || !W.doc) { $('dead-sum').textContent = 'No check yet.'; return; }
+    const by = {};
+    for (const d of W.doc.deadEnds) by[d[1]] = (by[d[1]] || 0) + 1;
+    const kinds = Object.keys(DEAD).filter(k => by[k]);
+    const sel = $('dead-kind'), cur = sel.value || kinds[0] || '';
+    sel.innerHTML = kinds.map(k => '<option value="' + k + '"' + (k === cur ? ' selected' : '') + '>' + E(DEAD[k][0]) + ' (' + by[k] + ')</option>').join('');
+    $('dead-sum').innerHTML = W.doc.maps.length + ' maps, ' + W.doc.links.length + ' portal links, checked with the base profile (speed 100, jump 100, no skills)' +
+      (W.doc.exactArrivals ? '' : '. Arrival spots are guessed (the portal back) until the export names target portals') +
+      '. <span title="' + E(DEAD[cur] ? DEAD[cur][1] : '') + '">' + E(DEAD[cur] ? DEAD[cur][1] : 'Nothing found.') + '</span>';
+    const rows = W.doc.deadEnds.filter(d => d[1] === cur);
+    $('dead-list').innerHTML = rows.map(d => '<li data-id="' + d[0] + '" data-r="' + E(d[1] === 'pit' ? String(d[2]).match(/r\d+/g).join(',') : '') + '"><span class="id">' + d[0] + '</span>' +
+      E(mapName(d[0]) || '?') + (d[2] !== '' ? '<br><small class="muted">' + E(String(d[2])) + '</small>' : '') + '</li>').join('') || '<li class="muted">none</li>';
+    $('dead-list').querySelectorAll('li[data-id]').forEach(li => li.addEventListener('click', () => {
+      location.hash = li.dataset.r ? 'map/' + li.dataset.id + '/' + li.dataset.r : 'world/' + li.dataset.id;
+    }));
+  }
+  function drawWorld() {
+    const W = state.world, svg = $('world-svg');
+    if (!W || !W.doc) return;
+    const id = state.worldId;
+    $('world-empty').hidden = !!id;
+    if (!id) { svg.innerHTML = ''; $('world-info').innerHTML = ''; return; }
+    const outs = W.out.get(id) || [], ins = W.into.get(id) || [];
+    const nb = new Map();   // neighbour -> {out: [portal names], in: [portal names]}
+    for (const l of outs) { const n = nb.get(l[1]) || { out: [], in: [] }; n.out.push(l[2]); nb.set(l[1], n); }
+    for (const l of ins) { const n = nb.get(l[0]) || { out: [], in: [] }; n.in.push(l[2]); nb.set(l[0], n); }
+    const r = svg.getBoundingClientRect(), w = Math.max(320, r.width), h = Math.max(320, r.height);
+    const cx = w / 2, cy = h / 2, rx = w / 2 - 130, ry = h / 2 - 50;
+    const order = [...nb.entries()].sort((a, b) => (!!b[1].out.length + !!b[1].in.length) - (!!a[1].out.length + !!a[1].in.length) || a[0] - b[0]);
+    const col = n => n.out.length && n.in.length ? C('--text-2') : n.out.length ? C('--s1') : C('--s2');
+    const node = (x, y, mid, big) => {
+      const d = W.dead.get(mid), n = liveCount(mid), name = mapName(mid) || String(mid);
+      const label = name.length > 28 ? name.slice(0, 27) + '…' : name;
+      return '<g class="wnode" data-id="' + mid + '" tabindex="0"><title>' + E(name) + ' (' + mid + ')' + (d ? '\n' + d.map(x => DEAD[x[1]][0] + (x[2] !== '' ? ': ' + x[2] : '')).join('\n') : '') + '</title>' +
+        '<circle cx="' + x + '" cy="' + y + '" r="' + (big ? 12 : 8) + '" fill="' + C(big ? '--accent' : '--surface') + '" stroke="' + C(d ? '--bad' : '--text-2') + '" stroke-width="' + (d ? 3 : 1.5) + '"/>' +
+        '<text x="' + x + '" y="' + (y + (big ? 28 : 22)) + '" text-anchor="middle" class="' + (big ? 'big' : '') + '">' + E(label) + '</text>' +
+        (n != null ? '<text x="' + x + '" y="' + (y + (big ? 42 : 35)) + '" text-anchor="middle" class="cnt">' + n + ' bots</text>' : '') + '</g>';
+    };
+    let edges = '', nodes = '';
+    order.forEach(([mid, n], i) => {
+      const a = order.length === 1 ? 0 : -Math.PI / 2 + (2 * Math.PI * i) / order.length;
+      const x = cx + rx * Math.cos(a), y = cy + ry * Math.sin(a), c = col(n);
+      const dx = x - cx, dy = y - cy, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+      edges += '<line x1="' + (cx + ux * 16) + '" y1="' + (cy + uy * 16) + '" x2="' + (x - ux * 12) + '" y2="' + (y - uy * 12) + '" stroke="' + c + '" stroke-width="1.6"' +
+        (n.out.length ? ' marker-end="url(#wa-' + (n.in.length ? 'b' : 'o') + ')"' : '') + (n.in.length ? ' marker-start="url(#wa-' + (n.out.length ? 'bs' : 'i') + ')"' : '') + '/>';
+      nodes += node(x, y, mid, false);
+    });
+    const mk = (idn, color, rev) => '<marker id="' + idn + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="' + (rev ? 'auto-start-reverse' : 'auto') + '"><path d="M0,0 L10,5 L0,10 z" fill="' + color + '"/></marker>';
+    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    svg.innerHTML = '<defs>' + mk('wa-o', C('--s1')) + mk('wa-i', C('--s2'), true) + mk('wa-b', C('--text-2')) + mk('wa-bs', C('--text-2'), true) + '</defs>' + edges + nodes + node(cx, cy, id, true) +
+      (order.length ? '' : '<text x="' + cx + '" y="' + (cy - 30) + '" text-anchor="middle" class="cnt">no portal links in the export</text>');
+    svg.querySelectorAll('.wnode').forEach(g => {
+      const go = () => { location.hash = +g.dataset.id === id ? 'map/' + id : 'world/' + g.dataset.id; };
+      g.addEventListener('click', go);
+      g.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    });
+    const d = W.dead.get(id) || [], n = liveCount(id);
+    const list = (ls, i) => ls.length ? '<table class="t"><tr><th>Portal</th><th>Map</th></tr>' + ls.map(l => '<tr class="link" data-id="' + l[i] + '"><td>' + E(l[2]) +
+      (l[3] ? ' → ' + E(l[3]) : '') + '</td><td>' + E(mapName(l[i]) || l[i]) + '</td></tr>').join('') + '</table>' : '<div class="muted">none</div>';
+    $('world-info').innerHTML = '<h2>' + E(mapName(id) || '?') + '</h2><div class="muted">' + id + (n != null ? ' · ' + n + ' bots now' : '') +
+      ' · <a href="#map/' + id + '">open in Map</a></div>' +
+      d.map(x => '<div class="bad"><b>' + E(DEAD[x[1]][0]) + '</b>' + (x[2] !== '' ? ': ' + E(String(x[2])) : '') + '</div>').join('') +
+      '<div class="legend"><div><span class="swatch" style="border-color:' + C('--s1') + '"></span> leads there <span class="swatch" style="border-color:' + C('--s2') + '"></span> comes from there ' +
+      '<span class="swatch" style="border-color:' + C('--text-2') + '"></span> both ways</div><div>Red ring: the dead-end check found something. Bot counts: the busiest maps in the live snapshot.</div></div>' +
+      '<h3>Leads to</h3>' + list(outs, 1) + '<h3>Comes from</h3>' + list(ins, 0);
+    $('world-info').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => { location.hash = 'world/' + tr.dataset.id; }));
+  }
+  function worldRoute() {
+    const W = state.world, a = findMap($('wr-from').value), b = findMap($('wr-to').value), out = $('wr-out');
+    if (a == null || b == null) { out.innerHTML = '<span class="bad">' + (a == null ? 'From' : 'To') + ': no such map in the export.</span>'; return; }
+    const prev = new Map([[a, null]]), q = [a];
+    while (q.length && !prev.has(b)) {
+      const m = q.shift();
+      for (const l of W.out.get(m) || []) if (!prev.has(l[1])) { prev.set(l[1], l); q.push(l[1]); }
+    }
+    if (!prev.has(b)) { out.innerHTML = '<b class="bad">No portal route</b> from ' + E(mapName(a)) + ' to ' + E(mapName(b)) + ' (boats, NPCs and scripts are not in the graph).'; return; }
+    const hops = [];
+    for (let m = b; prev.get(m); m = prev.get(m)[0]) hops.unshift(prev.get(m));
+    out.innerHTML = '<b>' + hops.length + ' portal' + (hops.length === 1 ? '' : 's') + '</b><ol><li><a href="#world/' + a + '">' + E(mapName(a)) + '</a></li>' +
+      hops.map(l => '<li><small>' + E(l[2]) + ' →</small> <a href="#world/' + l[1] + '">' + E(mapName(l[1]) || l[1]) + '</a>' +
+        (W.dead.has(l[1]) ? ' <b class="bad" title="' + E(W.dead.get(l[1]).map(x => DEAD[x[1]][0]).join(', ')) + '">!</b>' : '') + '</li>').join('') + '</ol>';
+  }
+  $('world-search').addEventListener('input', worldSearch);
+  $('dead-kind').addEventListener('change', renderDead);
+  $('wr-go').addEventListener('click', worldRoute);
+  for (const i of ['wr-from', 'wr-to']) $(i).addEventListener('keydown', e => { if (e.key === 'Enter') worldRoute(); });
+
+  // ── feature switches (ticket 157): what the game says is on, from live.json "switches" ──
+  const ON = v => /^(true|on|yes|1)$/i.test(String(v));
+  const OFF = v => /^(false|off|no|0|)$/i.test(String(v));
+  function renderSwitches() {
+    const sw = state.live && state.live.switches;
+    if (!sw) {
+      $('sw-source').textContent = state.live ? 'This server\'s snapshot has no switches yet: they come with the 1.6.2 game build (ticket 157).' : 'No live snapshot.';
+      $('sw-groups').innerHTML = '';
+      return;
+    }
+    const q = $('sw-q').value.trim().toLowerCase(), onlyOn = $('sw-on').checked;
+    const rows = Object.entries(sw).filter(([k, v]) => (!q || k.toLowerCase().includes(q) || String(v).toLowerCase().includes(q)) && (!onlyOn || !OFF(v))).sort();
+    const groups = {};
+    for (const [k, v] of rows) { const g = k.includes('.') ? k.split('.').slice(0, k.startsWith('slums.') || k.startsWith('solomapling.') ? 2 : 1).join('.') : 'config'; (groups[g] = groups[g] || []).push([k, v]); }
+    const total = Object.keys(sw).length, on = Object.values(sw).filter(ON).length;
+    $('sw-source').textContent = total + ' settings in the snapshot, ' + on + ' switched on. Read only: change them in the server\'s start script or config, then restart.';
+    $('sw-groups').innerHTML = Object.entries(groups).map(([g, list]) => '<div class="card"><h3>' + E(g) + '</h3><table class="t">' + list.map(([k, v]) =>
+      '<tr><td class="wrap">' + E(k) + '</td><td class="' + (ON(v) ? 'sw-on' : OFF(v) ? 'sw-off' : '') + '">' + E(ON(v) ? 'on' : OFF(v) ? 'off' : String(v)) + '</td></tr>').join('') + '</table></div>').join('') ||
+      '<div class="muted">No setting matches the filter.</div>';
+  }
+  $('sw-q').addEventListener('input', renderSwitches);
+  $('sw-on').addEventListener('change', renderSwitches);
 
   // ── learning ───────────────────────────────────────────────────────────────
   async function loadLearning() {
@@ -603,9 +838,9 @@
     await ensureIndex();
     route();
     if (!state.mapId) search();
-    setInterval(async () => { await refreshLive(); if (state.tab !== 'map') render(); }, 60_000);
+    setInterval(async () => { await refreshLive(); if (state.tab === 'world') worldSearch(); if (state.tab !== 'map') render(); }, 60_000);
     setInterval(async () => { await loadDays(); await loadDailies(); if (state.tab !== 'map') render(); }, 300_000);
-    setInterval(async () => { const idx = state.index; state.index = null; await ensureIndex(); if (!state.index.size) state.index = idx; await loadLearning(); if (state.tab === 'learning') render(); }, 900_000);
+    setInterval(async () => { const idx = state.index; state.index = null; await ensureIndex(); if (!state.index.size) state.index = idx; await loadLearning(); state.world = null; if (state.tab === 'world') await openWorld(state.worldId); if (state.tab === 'learning') render(); }, 900_000);
     setInterval(() => { renderStatus(); renderOps(); }, 15_000);
   })();
 })();

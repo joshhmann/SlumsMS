@@ -11,12 +11,14 @@
   <div class="brand">SlumsMS <span>admin</span></div>
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="map" aria-selected="true">Map</button>
+    <button role="tab" data-tab="world">World</button>
     <button role="tab" data-tab="learning">Learning</button>
     <button role="tab" data-tab="bots">Bots</button>
     <button role="tab" data-tab="economy">Economy</button>
     <button role="tab" data-tab="health">Health</button>
     <button role="tab" data-tab="accounts">Accounts</button>
     <button role="tab" data-tab="gm">GM audit</button>
+    <button role="tab" data-tab="switches">Switches</button>
   </nav>
   <div class="status" id="status">loading…</div>
 </header>
@@ -71,6 +73,13 @@
           <option value="source">Source</option>
         </select>
       </label>
+      <fieldset>
+        <legend>Route preview</legend>
+        <label class="check"><input type="checkbox" id="route-pick"> Click two spots on the map</label>
+        <div id="route-out" class="route-out muted">Turn this on, then click where a bot starts and where it should go. The route uses the
+          moves and sources ticked above, so tick Teleport or Flash jump to plan for those jobs.</div>
+        <button id="route-clear" type="button" hidden>Clear route</button>
+      </fieldset>
       <div id="map-legend" class="legend"></div>
       <div id="stuck-list"></div>
     </aside>
@@ -83,6 +92,35 @@
       </div>
       <div id="map-tip" class="tip" hidden></div>
       <div id="map-empty" class="empty">Search for a map on the left. Drag to pan, scroll to zoom.</div>
+    </div>
+  </section>
+
+  <!-- ── World graph (ticket 157) ───────────────────────────────────── -->
+  <section id="tab-world" class="tab">
+    <aside class="side">
+      <label class="field">
+        <span>Find a map (id or name)</span>
+        <input id="world-search" type="search" placeholder="Ellinia, 101000000…" autocomplete="off">
+      </label>
+      <ul id="world-results" class="results"></ul>
+      <div id="world-info" class="info"></div>
+      <fieldset>
+        <legend>Route between maps</legend>
+        <label class="field"><span>From</span><input id="wr-from" type="search" placeholder="id or name" autocomplete="off"></label>
+        <label class="field"><span>To</span><input id="wr-to" type="search" placeholder="id or name" autocomplete="off"></label>
+        <button id="wr-go" type="button">Find the fewest portals</button>
+        <div id="wr-out" class="route-out"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Dead-end check</legend>
+        <div id="dead-sum" class="muted"></div>
+        <label class="field"><span>Show</span><select id="dead-kind"></select></label>
+        <ul id="dead-list" class="results tall"></ul>
+      </fieldset>
+    </aside>
+    <div class="viewer">
+      <svg id="world-svg" role="img" aria-label="The chosen map and the maps its portals link to"></svg>
+      <div id="world-empty" class="empty">Search for a map on the left, or pick one from the dead-end list.</div>
     </div>
   </section>
 
@@ -172,6 +210,13 @@
       <div class="card"><h3>Most used commands</h3><div id="gm-top" class="chart"></div></div>
       <div class="card wide"><h3>GM level changes <small>(slumsms-gm, newest first, UTC)</small></h3><div id="gm-changes"></div></div>
     </div>
+  </section>
+  <!-- ── Feature switches (ticket 157) ──────────────────────────────── -->
+  <section id="tab-switches" class="tab">
+    <div id="sw-source" class="note"></div>
+    <div class="row-controls"><label>Filter <input id="sw-q" type="search" placeholder="e.g. exchange" autocomplete="off"></label>
+      <label class="check"><input type="checkbox" id="sw-on"> only switches that are on</label></div>
+    <div class="grid2" id="sw-groups"></div>
   </section>
 </main>
 

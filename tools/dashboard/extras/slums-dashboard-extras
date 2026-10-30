@@ -11,6 +11,11 @@ Run every minute by slums-dashboard-extras@<instance>.timer, as root. It writes,
                (SELECTs through `docker exec`, the container's own password; nothing here reads or writes a
                credential). Refreshed every GM_EVERY_S seconds.
 
+and under DATA_DIR/nav/:
+
+  world.json   the world graph (ticket 157): every exported map, its portal links to other maps, and the dead-end
+               check (see build_world). Rebuilt when the map export's nav/index.json is newer than it.
+
 Config: /etc/slums-dashboard/<instance>.conf, KEY=value lines:
 
   DATA_DIR=/srv/slums-dashboard-test/data     the dashboard's data folder (nginx /data/)
@@ -104,6 +109,148 @@ def gm_audit(conf, changes, limit):
     return [json.loads(line) for line in p.stdout.splitlines() if line.strip()]
 
 
+# ── world graph and dead-end check (ticket 157) ─────────────────────────────────────────────────────────────────────
+# Read from the map export (DashboardMapExport): nav/index.json, nav/maps/<id>.json (portals [name, type, x, y, toMap,
+# toPortal?]) and the base movement profile's graph nav/graphs/<id>-s100-j100.json (regions [id, kind, x1, y1, x2, y2],
+# edges [from, to, type, ...]). Jobs' skills (teleport, flash jump) are left out: every bot can walk, jump, drop and
+# climb, so a way out that needs a skill is no way out for most of them.
+NO_MAP = 999999999
+BASE = "s100-j100"
+SKILL_EDGES = ("TELEPORT", "FLASH_JUMP")
+SCRIPT_PORTALS = (7, 8, 9, 11, 12, 13, 14)  # script-run portal types: where they lead is not in the WZ data
+
+
+def region_at(regions, x, y):
+    """The platform a point stands on: the region under (or just above) it whose span covers x, else the nearest."""
+    best, bd = None, None
+    for r in regions:
+        if r[1] != 0:
+            continue
+        x1, y1, x2, y2 = r[2], r[3], r[4], r[5]
+        if not (x1 - 20 <= x <= x2 + 20):
+            continue
+        ry = y1 if x2 == x1 else y1 + (y2 - y1) * (min(max(x, x1), x2) - x1) / (x2 - x1)
+        d = ry - y
+        if d < -40:            # a platform well above the point is not where it stands
+            continue
+        if bd is None or d < bd:
+            best, bd = r[0], d
+    if best is None:
+        far = None
+        for r in regions:
+            cx = min(max(x, r[2]), r[4])
+            cy = min(max(y, min(r[3], r[5])), max(r[3], r[5]))
+            d = (cx - x) ** 2 + (cy - y) ** 2
+            if far is None or d < far:
+                best, far = r[0], d
+    return best
+
+
+def reach(starts, adj):
+    seen, todo = set(starts), list(starts)
+    while todo:
+        for n in adj.get(todo.pop(), ()):
+            if n not in seen:
+                seen.add(n)
+                todo.append(n)
+    return seen
+
+
+def check_map(mid, portals, graph, arrivals, bounds=None):
+    """Dead-end check for one map. arrivals: [(fromMap, portal name or None)], the ways into it; bounds: the map's
+    [x, y, width, height] view, to tell a pit below the visible map (a hidden catch floor) from one on screen.
+
+    Returns (rows, exits): rows are [map, kind, detail] findings; kinds:
+      no_exit      people come in, but no portal leads to another map (and none is script-run)
+      script_exit  the only ways out are script-run portals (not checked further)
+      arrive_stuck from where you arrive, the base graph reaches no exit portal
+      pit          platforms you can get onto from an arrival but never back to an exit from (detail: region ids,
+                   "(below view)" when the platform lies under the map's visible area)
+      no_graph     no base-profile graph, so only the map-level check ran
+    """
+    exits = [p for p in portals if p[4] not in (NO_MAP, mid)]
+    scripted = [p for p in portals if p[1] in SCRIPT_PORTALS]
+    rows = []
+    if not arrivals:
+        return rows, exits
+    if not exits:
+        rows.append([mid, "script_exit" if scripted else "no_exit", len(arrivals)])
+        return rows, exits
+    if not graph:
+        rows.append([mid, "no_graph", ""])
+        return rows, exits
+    regions = graph["regions"]
+    fwd, back = {}, {}
+    for e in graph["edges"]:
+        if e[2] in SKILL_EDGES:
+            continue
+        fwd.setdefault(e[0], set()).add(e[1])
+        back.setdefault(e[1], set()).add(e[0])
+    by_name = {}
+    for p in portals:
+        by_name.setdefault(p[0], p)
+    exit_regions = {region_at(regions, p[2], p[3]) for p in exits + scripted}
+    can_exit = reach(exit_regions, back)
+    starts = {}
+    for frm, name in arrivals:
+        p = by_name.get(name) if name else None
+        if p is None:
+            # target portal unknown (older export): you most likely arrive at the portal leading back
+            p = next((q for q in portals if q[4] == frm), None) or by_name.get("sp")
+        if p is not None:
+            starts.setdefault(region_at(regions, p[2], p[3]), []).append((frm, p[0]))
+    stuck = [[frm, name, r] for r, ins in starts.items() if r not in can_exit for frm, name in ins]
+    for frm, name, r in stuck[:20]:
+        rows.append([mid, "arrive_stuck", "from %d at %s (r%s)" % (frm, name, r)])
+    pits = sorted(r for r in reach(starts, fwd) - can_exit - set(starts) if r is not None)  # stuck arrivals are listed above
+    if pits:
+        bottom = bounds[1] + bounds[3] if bounds and len(bounds) == 4 else None
+        ys = {r[0]: min(r[3], r[5]) for r in regions}
+        rows.append([mid, "pit", " ".join("r%d" % r + (" (below view)" if bottom is not None and ys.get(r, 0) > bottom else "")
+                                          for r in pits[:40])])
+    return rows, exits
+
+
+def build_world(nav, dry=False):
+    with open(os.path.join(nav, "index.json"), encoding="utf-8") as f:
+        index = json.load(f)
+    ids = [r[0] for r in index["maps"]]
+    maps, links, portals_of, bounds_of = [], [], {}, {}
+    for r in index["maps"]:
+        mid = r[0]
+        try:
+            with open(os.path.join(nav, "maps", "%d.json" % mid), encoding="utf-8") as f:
+                doc = json.load(f)
+            portals_of[mid], bounds_of[mid] = doc.get("portals") or [], doc.get("bounds")
+        except (OSError, ValueError):
+            portals_of[mid] = []
+        maps.append([mid, r[1], r[2]])
+    arrivals = {}
+    for mid in ids:
+        for p in portals_of[mid]:
+            to = p[4]
+            if to in (NO_MAP, mid):
+                continue
+            target = p[5] if len(p) > 5 and p[5] else None
+            links.append([mid, to, p[0], target or ""])
+            arrivals.setdefault(to, []).append((mid, target))
+    checks, unchecked = [], 0
+    for mid in ids:
+        graph = None
+        try:
+            with open(os.path.join(nav, "graphs", "%d-%s.json" % (mid, BASE)), encoding="utf-8") as f:
+                graph = json.load(f)
+        except (OSError, ValueError):
+            unchecked += 1
+        rows, _ = check_map(mid, portals_of[mid], graph, arrivals.get(mid, []), bounds_of.get(mid))
+        checks.extend(rows)
+    doc = {"generated": int(time.time() * 1000), "index": index.get("generated"), "profile": BASE,
+           "exactArrivals": any(len(p) > 5 for ps in portals_of.values() for p in ps),
+           "maps": maps, "links": links, "deadEnds": checks, "noGraph": unchecked}
+    write_json(os.path.join(nav, "world.json"), doc, dry)
+    return doc
+
+
 def main(argv):
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__)
@@ -140,6 +287,17 @@ def main(argv):
                     errors.append("%s: %s" % (key, e))
             doc["error"] = "; ".join(errors) or None
             write_json(gm_path, doc, dry)
+
+    nav = os.path.join(conf["DATA_DIR"], "nav")
+    try:
+        stale = os.path.getmtime(os.path.join(nav, "index.json")) > os.path.getmtime(os.path.join(nav, "world.json"))
+    except FileNotFoundError:
+        stale = os.path.exists(os.path.join(nav, "index.json"))
+    if stale or (dry and os.path.exists(os.path.join(nav, "index.json"))):
+        try:
+            build_world(nav, dry)
+        except (OSError, ValueError, KeyError) as e:
+            print("slums-dashboard-extras: world graph: %s" % e, file=sys.stderr)
     return 0
 
 
