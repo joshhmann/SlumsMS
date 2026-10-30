@@ -27,6 +27,16 @@ public final class AutoQaRunner {
      */
     static final int GM_ANSWERS_ON_FAIL = 15;
 
+    /**
+     * How long after a server start the first check waits (-Dslums.autoqa.settleMs, default 3 min). TEST 2026-10-30
+     * 18:02 UTC: {@code tools/ops/autoqa-run all} was picked up 47 s after a restart, while the population director's
+     * boot fill logged in 1,153 bots and the item pools loaded; the first check's {@code !qa run af-1} took 38 s to
+     * answer and t-af-1 failed on the 20 s answer timeout. The load was over about 95 s after the boot.
+     */
+    static long settleMs() {
+        return Math.max(0, Long.getLong("slums.autoqa.settleMs", 180_000L));
+    }
+
 
     public enum State { IDLE, PREPARING, STEPPING, ASSERTING, CLEANING, FINISHED, ABORTED }
 
@@ -100,6 +110,9 @@ public final class AutoQaRunner {
         to(State.PREPARING, null);
         String unavailable = world.unavailableReason();
         try {
+            if (unavailable == null && checks.stream().anyMatch(c -> c.kind() != Check.Kind.MANUAL)) {
+                settle();
+            }
             for (Check c : checks) {
                 CheckResult r;
                 if (unavailable != null && c.kind() != Check.Kind.MANUAL) {
@@ -129,6 +142,27 @@ public final class AutoQaRunner {
             to(State.IDLE, null);
         }
         return out;
+    }
+
+    /** Waits until the server has been up {@link #settleMs()} (an abort ends the wait; the checks then SKIP). */
+    private void settle() {
+        long up = world.uptimeMs();
+        long left = settleMs() - up;
+        if (left <= 0) {
+            return;
+        }
+        to(State.PREPARING, "settling " + (left / 1000) + " s");
+        AutoQa.log.info("Auto-QA: the server has been up {} s; the first check waits {} s for the boot load to settle",
+                up / 1000, left / 1000);
+        try {
+            long until = world.now() + left;
+            while (!abort && world.now() < until) {
+                world.sleep(Math.min(1000, until - world.now()));
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            abort = true;
+        }
     }
 
     CheckResult runOne(Check c, boolean nightly) {

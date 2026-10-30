@@ -23,6 +23,8 @@ class AutoQaRunnerTest {
         final List<FakeActor> actors = new ArrayList<>();
         final List<String> said = new ArrayList<>();
         String unavailable;
+        Long bootAt;   // null: no boot to wait for
+        long firstSayAt = -1;
         int logouts;
         BiConsumer<FakeWorld, String> onSay = (w, line) -> {
         };
@@ -68,6 +70,11 @@ class AutoQaRunnerTest {
         @Override
         public void sleep(long ms) {
             now += ms;
+        }
+
+        @Override
+        public long uptimeMs() {
+            return bootAt == null ? Long.MAX_VALUE : now - bootAt;
         }
 
         @Override
@@ -118,6 +125,9 @@ class AutoQaRunnerTest {
         }
 
         public void say(String text) {
+            if (w.firstSayAt < 0) {
+                w.firstSayAt = w.now;
+            }
             w.said.add(slot + ":" + text);
             hear("CHAT", name() + ": " + text);
             w.onSay.accept(w, text);
@@ -204,6 +214,30 @@ class AutoQaRunnerTest {
         assertEquals(AutoQaRunner.State.IDLE, r.state());
         assertTrue(w.said.contains("1:!qa stop"), "cleanup stops the scenario");
         assertEquals(1, w.logouts);
+    }
+
+    /**
+     * t-af-1 on TEST 2026-10-30: a run picked up 47 s after a restart sent its first !qa run into the boot load and
+     * timed out. The runner waits until the server has been up settleMs before the first check; a settled server
+     * starts at once.
+     */
+    @Test
+    void theFirstCheckWaitsForAFreshlyStartedServerToSettle() {
+        FakeWorld w = world();
+        w.bootAt = w.now - 47_000;
+        Check c = Check.auto("t-af-1", "friend").step(Steps.run("af-1")).expect(Expects.has("STAGE staged")).build();
+        AutoQaRunner r = new AutoQaRunner(w);
+        AutoQaRunner.CheckResult res = r.run(List.of(c), false, null).get(0);
+        assertEquals(PASS, res.status(), res.toString());
+        assertTrue(w.firstSayAt - w.bootAt >= AutoQaRunner.settleMs(),
+                "first line said " + (w.firstSayAt - w.bootAt) + " ms after the boot");
+        assertTrue(r.transitions().get(1).startsWith("PREPARING settling "), r.transitions().toString());
+
+        FakeWorld settled = world();
+        settled.bootAt = settled.now - AutoQaRunner.settleMs() - 1;
+        long start = settled.now;
+        new AutoQaRunner(settled).run(List.of(c), false, null);
+        assertEquals(start, settled.firstSayAt, "a settled server starts the first check at once");
     }
 
     /**
