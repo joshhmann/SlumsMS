@@ -33,9 +33,16 @@ class RemovedSkillDialogueTest {
             "npc/STYLIST.js", "npc/9900000.js",
             "npc/9977777.js");   // the repack's changelog NPC ("Reviewed many skills, such as Steal")
 
+    /**
+     * Removed in the 1.5.2 audit but back since: 1.6.2 ticket 112 restores the Maker skill (Beginner, Noblesse and
+     * Legend 1007; tools/data-align/add_maker_skill.py) and re-opens Moren's Maker quest chain.
+     */
+    static final Set<Integer> RESTORED = Set.of(1007, 10001007, 20001007);
+
     @Test
     void noScriptTeachesShowsOrPromisesARemovedSkill() throws IOException {
         Map<Integer, String> removed = removedSkills();
+        removed.keySet().removeAll(RESTORED);
         assertTrue(removed.size() >= 60, "the audit's removed-skill table was read: " + removed.size());
 
         List<Pattern> namePatterns = new ArrayList<>();
