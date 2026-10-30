@@ -595,6 +595,7 @@ def build_board(mk):
             '<fieldset class="seg"><legend>I want to</legend><label><input type="radio" name="kind" value="WTB" checked> buy (WTB)</label>'
             '<label><input type="radio" name="kind" value="WTS"> sell (WTS)</label></fieldset>'
             '<label class="pick">Item <input name="item" type="search" autocomplete="off" placeholder="type a name" required></label>'
+            '<p class="mkprice" id="mk-price" aria-live="polite" hidden></p>'
             '<label>How many <input name="qty" type="number" min="1" step="1" value="1" required></label>'
             '<label>Price each (mesos) <input name="price" type="number" min="1" step="1" required></label>'
             '<label>Post as <select name="character"></select></label>'
@@ -815,9 +816,11 @@ def write_untradeable(mk):
 
 
 def write_summary(mk, priced):
-    """market/summary.json for market.js: name, median and change of every priced item."""
+    """market/summary.json for market.js: name, median and change of every priced item, plus that day's low and high,
+    the sales between players and the day (the board's price line, w09)."""
     data = {str(i): {"n": mk.name(i), "m": st["median"],
-                     "c": round((st["median"] - st["first"]) / st["first"] * 100, 1) if st["median"] and st["first"] else None}
+                     "c": round((st["median"] - st["first"]) / st["first"] * 100, 1) if st["median"] and st["first"] else None,
+                     "lo": st["low"], "hi": st["high"], "s": st["sold"], "d": st["date"]}
             for i, st in priced}
     with open(os.path.join(mk.out, MARKET, "summary.json"), "w", encoding="utf-8") as f:
         json.dump(data, f, separators=(",", ":"), sort_keys=True)

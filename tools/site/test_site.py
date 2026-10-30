@@ -676,6 +676,32 @@ class WorldTest(unittest.TestCase):
         self.assertEqual(re.findall(r"^    (\w+): \{ src", rewards[:rewards.index("};")], re.M),
                          list(market_service.REWARD_CARDS))
 
+    def test_board_post_shows_the_items_price(self):
+        # w09: picking an item for a post shows its price; summary.json carries the day's low/high, sales and date
+        import json as _json
+        from sections import market
+        tmp = tempfile.mkdtemp()
+        try:
+            mk = market.Market(market.load(self.market), {}, tmp)
+            os.makedirs(os.path.join(tmp, "market"), exist_ok=True)
+            mk.name = lambda i: "Item %d" % i
+            # the shape item_stats returns, for one priced item and one without a median
+            market.write_summary(mk, [(1002357, {"median": 900, "low": 700, "high": 1200, "first": 800, "sold": 3,
+                                                 "days": 7, "date": "2026-10-29"}),
+                                      (2000000, {"median": None, "low": None, "high": None, "first": None, "sold": 0,
+                                                 "days": 1, "date": "2026-10-29"})])
+            market.build_board(mk)
+            with open(os.path.join(tmp, "market", "summary.json"), encoding="utf-8") as f:
+                summary = _json.load(f)
+            with open(os.path.join(tmp, "market", "board.html"), encoding="utf-8") as f:
+                board = f.read()
+        finally:
+            shutil.rmtree(tmp)
+        self.assertEqual({"n": "Item 1002357", "m": 900, "c": 12.5, "lo": 700, "hi": 1200, "s": 3, "d": "2026-10-29"},
+                         summary["1002357"])
+        self.assertIsNone(summary["2000000"]["m"])
+        self.assertIn('id="mk-price"', board)
+
     def test_my_market_links_traders_only_with_world(self):
         # b031: a private build without World linked My market to world/rankings/traders and failed its own check
         from sections import market

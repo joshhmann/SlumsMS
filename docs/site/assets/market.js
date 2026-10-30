@@ -241,6 +241,37 @@
       me.posts.filter(function (p) { return p.status === "open"; }).length + " of " + me.limits.posts + " open";
     api("board").then(function (r) { boardRows = (r.body && r.body.posts) || []; drawBoard(); });
   }
+  /* w09 (owner, TEST click-through): once an item is picked for a post, show what it sells for (summary.json) and what
+     the board already has for it, with a button that puts the median in the price box. */
+  function priceLine(id) {
+    var out = document.getElementById("mk-price"), form = document.getElementById("post");
+    if (!out) return;
+    out.textContent = "";
+    out.hidden = !id;
+    if (!id) return;
+    var s = summary && summary[id];
+    if (s && s.m) {
+      out.appendChild(el("b", null, "Market price " + num(s.m)));
+      out.appendChild(document.createTextNode(" mesos" + (s.lo && s.hi && s.lo !== s.hi ? " (" + short(s.lo) + " to " + short(s.hi) + ")" : "") +
+        (s.d ? ", " + s.d.slice(5).replace("-", "/") : "") + (typeof s.s === "number" ? " · " + num(s.s) + " sold between players" : "") + ". "));
+      out.appendChild(btn("Use " + short(s.m), "small", function () {
+        var box = form.querySelector("[name=price]"); box.value = s.m; box.focus();
+      }));
+      out.appendChild(document.createTextNode(" "));
+      var a = el("a", null, "All prices »"); a.href = root + "market/prices/" + id; out.appendChild(a);
+    } else {
+      out.appendChild(document.createTextNode("No market price yet: not enough sales of this item lately."));
+    }
+    var open = (boardRows || []).filter(function (p) { return p.itemId === id; });
+    if (open.length) {
+      var sell = open.filter(function (p) { return p.kind === "WTS"; }), buy = open.filter(function (p) { return p.kind === "WTB"; });
+      var lo = function (r) { return Math.min.apply(null, r.map(function (p) { return p.price; })); };
+      var hi = function (r) { return Math.max.apply(null, r.map(function (p) { return p.price; })); };
+      out.appendChild(el("span", "mkboardnow", "On the board now: " + [
+        sell.length ? sell.length + " selling from " + short(lo(sell)) : "",
+        buy.length ? buy.length + " buying at up to " + short(hi(buy)) : ""].filter(Boolean).join(", ") + "."));
+    }
+  }
   function drawBoard() {
     var body = document.getElementById("mk-board"), f = document.getElementById("mk-filter");
     if (!body || !boardRows) return;
@@ -268,13 +299,14 @@
     var form = document.getElementById("post"), f = document.getElementById("mk-filter");
     if (!form) return;
     var input = form.querySelector("[name=item]"), status = document.getElementById("mk-status");
-    picker(input);
+    picker(input, priceLine);
+    input.addEventListener("input", function () { priceLine(null); });
     var pre = new URLSearchParams(location.search).get("item");
     if (pre && /^\d+$/.test(pre)) {
       getJSON("database/search-index.json").then(function (rows) {
         items = (rows || []).filter(function (r) { return r[0] === "i"; });
         var hit = items.filter(function (r) { return String(r[1]) === pre; })[0];
-        if (hit) { input.value = hit[2]; input.setAttribute("data-id", hit[1]); }
+        if (hit) { input.value = hit[2]; input.setAttribute("data-id", hit[1]); priceLine(hit[1]); }
       });
     }
     form.addEventListener("submit", function (e) {
