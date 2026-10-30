@@ -7,6 +7,10 @@ with a ticket or a comment, this file wins; if it conflicts with the owner's lat
 SlumsMS is a friends-only MapleStory v83 private server (5 to 15 real players) with thousands of AI bot players. The
 server is a fork of MapleRoot/Cosmic (Java 21, Maven). The owner decides; you build, test and propose.
 
+
+> **Start here:** /root/work/START-HERE.md (outside the repo) has the reading order for every kind of agent and the
+> table of pieces (dev branch, folder, owner, TEST/RC, live). Outside CLI agents also read docs/sessions/EXTERNAL-AGENTS.md.
+
 ## 1. Hard rules (break one of these and you can do real damage)
 
 1. **Live is the owner's.** Never stop, restart, deploy to, edit, or write to the live server, its database, its unit

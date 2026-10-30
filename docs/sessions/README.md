@@ -2,6 +2,9 @@
 
 One Claude session per area; each owns its repos/branches and hands work to the others with SendMessage.
 
+New here (a Claude session or an outside agent)? Start with **/root/work/START-HERE.md** (outside the repo): the reading
+order per agent type and the table of pieces (dev branch, folder, owner, TEST/RC, live).
+
 | Session | Owns | Kickoff |
 |---|---|---|
 | Server Dev SlumsMS (coordinator) | server code, release-* branches (only it merges), TEST, release night, version notes | - |
