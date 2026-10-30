@@ -53,6 +53,7 @@ branch. Each is behind its own switch in `NavPortSwitches` (default off). Alread
 | Their commit | What was ported | Switch | Our files |
 | --- | --- | --- | --- |
 | `3516aa238` | A swimming bot pressed into a wall fires the cooldown-gated swim-jump burst to rise over it (UP-hold alone loses to swim gravity) | `-Dbot.nav.swimWallJump=true` | `BotMovementManager` |
+| `43b9f06c8` (runtime part) | The parked-at-a-launch-gate watchdog survives incidental nav clears and counts freshly planned hops, so a hop re-served every tick is still given up. Their other runtime part (drop a committed route when the goal point moves) has no counterpart: GCMoveSystem has no committed routes | `-Dbot.nav.blockedPosWatchdog=true` | `BotNavigationManager`, `BotMovementManager`, `BotMovementState` |
 
 ### Bot combat formula (branch `combat`, real bots ticket 07)
 

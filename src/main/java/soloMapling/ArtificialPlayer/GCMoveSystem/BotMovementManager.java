@@ -206,10 +206,17 @@ class BotMovementManager {
         entry.navPreciseTarget = false;
         // The blocked-at-a-position tracker qualifies the leg being dropped here, so it goes with it: a
         // carried position would either give up on a fresh leg immediately or hide a real block.
-        entry.navBlockedPosTicks = 0;
-        entry.navBlockedPosGiveUpTicks = 0;
-        entry.navBlockedPosX = Integer.MIN_VALUE;
-        entry.navBlockedPosY = Integer.MIN_VALUE;
+        // NN-011 blockedPosWatchdog (nutnnut/Cosmic 43b9f06c8, credit NutNNut): kept instead. Incidental clears
+        // between AI ticks (a refused ground step, the post-move execute check) zeroed it every tick while the
+        // planner re-served the same unexecutable hop, so the give-up never fired. The tracker still resets itself
+        // on any unblocked tick and on leaving its 16 px drift radius, and the give-up consumes it.
+        if (!NavPortSwitches.blockedPosWatchdog) {
+            entry.navBlockedPosTicks = 0;
+            entry.navBlockedPosGiveUpTicks = 0;
+            entry.navBlockedPosX = Integer.MIN_VALUE;
+            entry.navBlockedPosY = Integer.MIN_VALUE;
+            entry.navBlockedPosEdge = null;
+        }
         // Ticket 33: an overrun or twitch belongs to the leg being dropped.
         entry.flaws.overrunTicks = 0;
         entry.flaws.twitchTicks = 0;

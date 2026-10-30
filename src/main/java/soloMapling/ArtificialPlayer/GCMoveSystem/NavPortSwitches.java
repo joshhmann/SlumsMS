@@ -22,6 +22,11 @@ final class NavPortSwitches {
     /* nutnnut/Cosmic 3516aa238: a swimming bot pressed against a wall fires a swim-jump burst to rise over it. */
     static volatile boolean swimWallJump = on("bot.nav.swimWallJump");
 
+    /* nutnnut/Cosmic 43b9f06c8 (runtime part): the parked-at-a-launch-gate watchdog keeps counting across the
+     * incidental nav clears between AI ticks and counts freshly planned edges too, so a bot re-served the same
+     * unexecutable hop every tick still gives it up after ~300-500 ms instead of freezing. */
+    static volatile boolean blockedPosWatchdog = on("bot.nav.blockedPosWatchdog");
+
     /** Graph-affecting switches as a cache-folder suffix ("" when all are off: the plain v-folder). */
     static String graphTag() {
         return "";
