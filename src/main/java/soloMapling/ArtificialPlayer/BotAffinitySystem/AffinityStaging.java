@@ -30,6 +30,29 @@ public final class AffinityStaging {
     private AffinityStaging() {
     }
 
+    /**
+     * 1.6.2 b092 (auto-QA t-af-1 failed 6 of 16 full runs): a staged social friend in the busy Free Market was drafted
+     * into the town bots' cluster conversations, chatter and hot-potato barks (its log shows it chatting all run), and a
+     * social bot only looks for players it likes while it is free of those, so it never greeted, invited or buffed the
+     * player within the check's wait. A staged social bot is held out of that drafting; it still notices the player.
+     */
+    private static final java.util.Set<Integer> held = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** Holds a staged bot out of the town chatter (stage does this for a social bot). */
+    static void hold(int botId) {
+        held.add(botId);
+    }
+
+    /** Lets a staged bot be drafted into town chatter again (the conversation checks want it talking). */
+    public static void release(int botId) {
+        held.remove(botId);
+    }
+
+    /** Whether this bot is a staged social affinity bot (never drafted into ambient town chatter). */
+    public static boolean held(int botId) {
+        return held.contains(botId);
+    }
+
     /** The staged bot's character id, or -1 when no bot could be made. */
     public static int stage(Character gm, AffinityState state, boolean training) {
         int mobLevel = MapMobIndex.level(gm.getMapId());
@@ -55,7 +78,9 @@ public final class AffinityStaging {
         } else {
             BotTypeManager.convertBotType(bot, BotTypeManager.BotType.SOCIAL_BOT);
             soloMapling.ArtificialPlayer.StageSpots.pin(id); // rc6 (QA cv-1): it stays next to the GM
+            hold(id);
         }
+        AffinityReactions.forgetBot(id); // a reused slot starts without the last holder's cooldowns (b092)
         BotAffinity.stage(id, gm.getId(), state);
         return id;
     }
@@ -64,6 +89,7 @@ public final class AffinityStaging {
     public static void unstage(int botId) {
         WorldEventSteer.unhold(botId);
         soloMapling.ArtificialPlayer.StageSpots.unpin(botId);
+        held.remove(botId);
         BotAffinity.forgetBot(botId);
         AffinityReactions.forgetBot(botId);
         Character bot = BotHelpers.getCharFromChannelStorage(botId);

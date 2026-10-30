@@ -2091,10 +2091,53 @@ final class Probes160 {
         } catch (java.sql.SQLException e) {
             bad.add("bb_drops_050_rows unreadable (migration 050 not applied?): " + e.getMessage());
         }
+        bad.addAll(pickerGates(ev));
         return verdict(bad, "lv119 refused and lv120 let in at the Future and lower Grandis (players and bots), upper "
                 + "deeper Grandis at rebirth 1 and Arcane at rebirth 2, Lion King's Castle open at rebirth 0, the Gate of Time "
                 + "offers lower Grandis and Leafre of the Past, the Rose Garden walk-in works, sampled mobs carry their "
-                + "HP/EXP rows and 050's drops", ev);
+                + "HP/EXP rows and 050's drops, the training pickers offer a rebirth-1 lv50 and a lv120 rebirth-0 bot "
+                + "only maps and towns they may enter", ev);
+    }
+
+    /**
+     * 1.6.2 b041: the bots' training pickers (the region picker, TrainingTravel, and the leveling path,
+     * LevelingPathChooser) offer only maps and towns the bot may enter (BotMapGates, the players' AreaGates): a
+     * rebirth-1 level-50 bot and a level-120 0-rebirth bot, from a few home towns, uncrowded.
+     */
+    static List<String> pickerGates(List<String> ev) {
+        List<String> bad = new ArrayList<>();
+        int[][] bots = {{50, 1, 300, 100000000}, {50, 1, 100, 200000000}, {120, 0, 100, 240000000},
+                {120, 0, 300, 270000000}, {120, 0, 200, 100000000}};
+        for (int[] bot : bots) {
+            int level = bot[0], rebirths = bot[1], job = bot[2], home = bot[3];
+            int offered = 0;
+            try {
+                for (int[] hm : soloMapling.ArtificialPlayer.BotGrindSystem.TrainingTravel.offeredForProbe(level, rebirths,
+                        job, home, Math.max(1, level - 25), level + 12)) {
+                    offered++;
+                    for (int map : hm) {
+                        if (!soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, rebirths, level)) {
+                            bad.add("region picker offers a lv" + level + " r" + rebirths + " bot from " + home + " map "
+                                    + map + " (hub " + hm[0] + ") it may not enter");
+                        }
+                    }
+                }
+                for (int[] mh : soloMapling.ArtificialPlayer.BotGrindSystem.LevelingPathChooser.offeredForProbe(level,
+                        rebirths, job, home)) {
+                    offered++;
+                    for (int map : mh) {
+                        if (map > 0 && !soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, rebirths, level)) {
+                            bad.add("leveling path offers a lv" + level + " r" + rebirths + " bot from " + home + " map "
+                                    + map + (map == mh[1] ? " as its new home" : "") + " it may not enter");
+                        }
+                    }
+                }
+            } catch (RuntimeException e) {
+                bad.add("training pickers for lv" + level + " r" + rebirths + ": " + e);
+            }
+            ev.add("pickers lv" + level + " r" + rebirths + " job " + job + " from " + home + ": " + offered + " offers checked");
+        }
+        return bad;
     }
 
     /** One map's rebirth gate at level 200: refused one rebirth short, let in at the count, for players and bots. */

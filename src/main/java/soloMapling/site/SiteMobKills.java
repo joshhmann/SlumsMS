@@ -34,15 +34,37 @@ public final class SiteMobKills {
         Map<Long, Map<Integer, Integer>> read(long fromHour) throws Exception;
 
         void prune(long beforeHour) throws Exception;
+
+        /** 1.6.2 b015: sets each (hour, mob) count's estimated (offscreen) part. A store without it keeps none. */
+        default void writeEstimated(Map<Long, Map<Integer, Integer>> estimated) throws Exception {
+        }
+
+        /** The estimated parts with hour >= {@code fromHour}; none from a store without them. */
+        default Map<Long, Map<Integer, Integer>> readEstimated(long fromHour) throws Exception {
+            return Map.of();
+        }
     }
 
-    /** One row of the file: the mob id, its String.wz name and the kills in the window. */
-    public record Row(int mob, String name, int kills) {
+    /**
+     * One row of the file: the mob id, its String.wz name and the kills in the window. 1.6.2 b015: of those,
+     * {@code estimated} are bots' offscreen kills (modelled by OffscreenCombat), the rest were counted one by one
+     * (players and on-screen bots): counted + estimated = kills.
+     */
+    public record Row(int mob, String name, int kills, int estimated) {
+        public Row(int mob, String name, int kills) {
+            this(mob, name, kills, 0);
+        }
+
+        public int counted() {
+            return kills - estimated;
+        }
     }
 
     private static final class Bucket {
         final long hour;
         final ConcurrentHashMap<Integer, AtomicInteger> kills = new ConcurrentHashMap<>();
+        /** The part of {@code kills} that was modelled offscreen (1.6.2 b015). */
+        final ConcurrentHashMap<Integer, AtomicInteger> estimated = new ConcurrentHashMap<>();
 
         Bucket(long hour) {
             this.hour = hour;
@@ -66,12 +88,19 @@ public final class SiteMobKills {
 
     /** One kill of mob {@code mobId}. Cheap, lock-free except when a new hour starts; never throws. */
     public static void kill(int mobId) {
+        kill(mobId, false);
+    }
+
+    private static void kill(int mobId, boolean modelled) {
         if (!recording) {
             return;
         }
         try {
             long hour = clock.getAsLong() / HOUR_MS;
             Bucket b = bucket(hour);
+            if (modelled) { // the estimated part first: a reader never sees more estimated than kills
+                b.estimated.computeIfAbsent(mobId, k -> new AtomicInteger()).incrementAndGet();
+            }
             b.kills.computeIfAbsent(mobId, k -> new AtomicInteger()).incrementAndGet();
         } catch (RuntimeException e) {
             // a counter must never hurt a kill
@@ -90,7 +119,7 @@ public final class SiteMobKills {
         int n = (int) Math.min(kills, 200);
         java.util.concurrent.ThreadLocalRandom rnd = java.util.concurrent.ThreadLocalRandom.current();
         for (int i = 0; i < n; i++) {
-            kill(mobIds.get(rnd.nextInt(mobIds.size())));
+            kill(mobIds.get(rnd.nextInt(mobIds.size())), true);
         }
         return kills - n;
     }
@@ -99,8 +128,10 @@ public final class SiteMobKills {
     public static List<Row> top(int hours, long now, IntFunction<String> names) {
         long hourNow = now / HOUR_MS;
         Map<Integer, Integer> sum = new ConcurrentHashMap<>();
+        Map<Integer, Integer> est = new ConcurrentHashMap<>();
         for (Bucket b : ring.clone()) {
             if (b != null && b.hour <= hourNow && b.hour > hourNow - hours) {
+                b.estimated.forEach((id, n) -> est.merge(id, n.get(), Integer::sum));
                 b.kills.forEach((id, n) -> sum.merge(id, n.get(), Integer::sum));
             }
         }
@@ -114,7 +145,9 @@ public final class SiteMobKills {
             } catch (RuntimeException ex) {
                 name = "";
             }
-            out.add(new Row(e.getKey(), name == null ? "" : name, e.getValue()));
+            int kills = e.getValue();
+            out.add(new Row(e.getKey(), name == null ? "" : name, kills,
+                    Math.max(0, Math.min(kills, est.getOrDefault(e.getKey(), 0)))));
         }
         return out;
     }
@@ -133,6 +166,19 @@ public final class SiteMobKills {
             });
         } catch (Exception e) {
             // no table yet (migration 047 not applied): start from zero
+            return;
+        }
+        try {
+            long hourNow = now / HOUR_MS;
+            store.readEstimated(hourNow - HOURS + 1).forEach((hour, mobs) -> {
+                if (hour > hourNow || hour <= hourNow - HOURS) {
+                    return;
+                }
+                Bucket b = bucket(hour);
+                mobs.forEach((id, n) -> b.estimated.computeIfAbsent(id, k -> new AtomicInteger()).addAndGet(n));
+            });
+        } catch (Exception e) {
+            // no estimated column yet (migration 056 not applied): the restored kills read as counted
         }
     }
 
@@ -141,15 +187,28 @@ public final class SiteMobKills {
         try {
             long hourNow = now / HOUR_MS;
             Map<Long, Map<Integer, Integer>> out = new java.util.HashMap<>();
+            Map<Long, Map<Integer, Integer>> est = new java.util.HashMap<>();
             for (Bucket b : ring.clone()) {
                 if (b != null && (b.hour == hourNow || b.hour == hourNow - 1) && !b.kills.isEmpty()) {
+                    Map<Integer, Integer> e = new java.util.HashMap<>();
+                    b.estimated.forEach((id, n) -> e.put(id, n.get()));
                     Map<Integer, Integer> m = new java.util.HashMap<>();
                     b.kills.forEach((id, n) -> m.put(id, n.get()));
                     out.put(b.hour, m);
+                    if (!e.isEmpty()) {
+                        est.put(b.hour, e);
+                    }
                 }
             }
             if (!out.isEmpty()) {
                 store.write(out);
+                if (!est.isEmpty()) {
+                    try {
+                        store.writeEstimated(est);
+                    } catch (Exception e) {
+                        // no estimated column yet (migration 056): the totals are kept, the split is not
+                    }
+                }
             }
             store.prune(hourNow - KEEP_DAYS * 24L);
             return true;

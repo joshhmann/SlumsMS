@@ -95,7 +95,14 @@ var mobsToSpawn = [8880531]; // Mob IDs to spawn
 var entryMap = 450010100; // Map ID to spawn mobs
 var spawnedMobs = []; // List to keep track of spawned mobs
 
+// EventManager calls an expedition's setup with the channel alone (setup(channel)): name the instance by the
+// channel and run at level 1, as PapulatusBattle does. 1.6.2 b096: it was named "Hard Verus Hillaundefined" and scaled by
+// the channel number.
 function setup(level, lobbyid) {
+    if (lobbyid === undefined || lobbyid === null) {
+        lobbyid = level;
+        level = 1;
+    }
     var eim = em.newInstance("Hard Verus Hilla" + lobbyid);
     eim.setProperty("level", level);
     eim.setProperty("boss", "0");

@@ -138,9 +138,15 @@ public class SocialBot extends BotSM {
         // Single source of truth for every ambient system. isInConversation covers the scripted
         // multi-bot cluster convos (ConversationManager); folding it in here stops BotChatter (which
         // gates only on availability) from grabbing a bot mid cluster-conversation -> double bubbles.
-        return !hasActiveRespondant() && !relocating && !BotChatter.isEngaged(getChr())
-                && !ConversationManager.getInstance().isInConversation(getChr().getId())
+        return isFreeOfTalk()
+                && !soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityStaging.held(getChr().getId()) // b092
                 && !soloMapling.ArtificialPlayer.BotTownSystem.AfkCampers.isCamping(getChr().getId()); // 1.6.0: AFK
+    }
+
+    /** Not talking with a player, not walking off, not in town chatter or a cluster conversation. */
+    private boolean isFreeOfTalk() {
+        return !hasActiveRespondant() && !relocating && !BotChatter.isEngaged(getChr())
+                && !ConversationManager.getInstance().isInConversation(getChr().getId());
     }
 
     public boolean hasActiveRespondant() {
@@ -196,6 +202,9 @@ public class SocialBot extends BotSM {
             BotChatter.maybeStartChatter(this); // occasional short back-and-forth with a nearby town bot
             maybeIdleChair(); // occasional sit/stand while idle - a resting townsperson
             maybeRelocate(); // last: rare drift to a fresh anchor-weighted spot (may block the tick's walk)
+        } else if (soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityStaging.held(getChr().getId())
+                && isFreeOfTalk()) {
+            maybeNoticePlayers(); // 1.6.2 b092: a staged friend is out of the town chatter but still sees the player
         }
         if (!relocating) {
             // rc6: personal space - step off a character standing on this bot (or, talking with a player or in a

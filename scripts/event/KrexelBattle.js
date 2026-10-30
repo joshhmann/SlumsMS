@@ -112,7 +112,14 @@ function getEligibleParty(party) {      //selects, from the given party, the tea
     return Java.to(eligible, Java.type('net.server.world.PartyCharacter[]'));
 }
 
+// EventManager calls an expedition's setup with the channel alone (setup(channel)): name the instance by the
+// channel and run at level 1, as PapulatusBattle does. 1.6.2 b096: it was named "Krexelundefined" and scaled by
+// the channel number.
 function setup(level, lobbyid) {
+    if (lobbyid === undefined || lobbyid === null) {
+        lobbyid = level;
+        level = 1;
+    }
     var eim = em.newInstance("Krexel" + lobbyid);
     eim.setProperty("level", level);
     eim.setProperty("boss", "0");

@@ -83,7 +83,8 @@ class SiteMobKillsTest {
         Object doc = Json.parse(Json.write(file));
         assertEquals(List.of(), SiteFileShape.shape("world.json", doc));
         Map<?, ?> row = (Map<?, ?>) ((List<?>) ((Map<?, ?>) doc).get("top_mobs")).getFirst();
-        assertEquals(List.of("mob", "name", "kills"), List.copyOf(row.keySet()));
+        // 1.6.2 b015: the old keys first and unchanged (old readers keep working), then the split
+        assertEquals(List.of("mob", "name", "kills", "counted", "estimated"), List.copyOf(row.keySet()));
         assertEquals(3L, ((Number) row.get("kills")).longValue());
         assertEquals("Snail", row.get("name"));
         assertNotNull(((Map<?, ?>) doc).get("top_mobs_7d"));
@@ -92,7 +93,31 @@ class SiteMobKillsTest {
     /** In-memory stand-in for the table. */
     static final class FakeStore implements SiteMobKills.Store {
         final Map<Long, Map<Integer, Integer>> rows = new java.util.TreeMap<>();
+        final Map<Long, Map<Integer, Integer>> est = new java.util.TreeMap<>();
         boolean broken;
+        boolean noEstimatedColumn;
+
+        @Override
+        public void writeEstimated(Map<Long, Map<Integer, Integer>> c) throws Exception {
+            if (noEstimatedColumn) {
+                throw new java.sql.SQLException("Unknown column 'estimated'");
+            }
+            c.forEach((h, m) -> est.computeIfAbsent(h, k -> new java.util.HashMap<>()).putAll(m));
+        }
+
+        @Override
+        public Map<Long, Map<Integer, Integer>> readEstimated(long from) throws Exception {
+            if (noEstimatedColumn) {
+                throw new java.sql.SQLException("Unknown column 'estimated'");
+            }
+            Map<Long, Map<Integer, Integer>> out = new java.util.HashMap<>();
+            est.forEach((h, m) -> {
+                if (h >= from) {
+                    out.put(h, new java.util.HashMap<>(m));
+                }
+            });
+            return out;
+        }
 
         public void write(Map<Long, Map<Integer, Integer>> c) throws Exception {
             if (broken) {
@@ -179,5 +204,66 @@ class SiteMobKillsTest {
         SiteMobKills.setRecording(false);
         assertEquals(0, SiteMobKills.offscreen(List.of(1), 5), 1e-9);
         assertEquals(200, SiteMobKills.top(24, now.get(), id -> "").stream().mapToInt(SiteMobKills.Row::kills).sum());
+    }
+
+    // ---- 1.6.2 b015: counted vs estimated ----
+
+    @Test
+    void theSplitSumsToTheTotalAndRowsStaySortedByKills() {
+        for (int i = 0; i < 5; i++) {
+            SiteMobKills.kill(100100);                       // a player or an on-screen bot: counted
+        }
+        SiteMobKills.offscreen(List.of(100100), 3);         // offscreen: estimated
+        SiteMobKills.offscreen(List.of(1210100), 7);
+        List<SiteMobKills.Row> top = SiteMobKills.top(24, now.get(), id -> "");
+        assertEquals(List.of(100100, 1210100), top.stream().map(SiteMobKills.Row::mob).toList(), "8 before 7");
+        SiteMobKills.Row snail = top.get(0), pig = top.get(1);
+        assertEquals(8, snail.kills());
+        assertEquals(5, snail.counted());
+        assertEquals(3, snail.estimated());
+        assertEquals(7, pig.kills());
+        assertEquals(0, pig.counted());
+        assertEquals(7, pig.estimated());
+        for (SiteMobKills.Row r : top) {
+            assertEquals(r.kills(), r.counted() + r.estimated());
+        }
+        Map<?, ?> doc = (Map<?, ?>) Json.parse(Json.write(SiteWorld.file(
+                new SiteWorld.Online(Map.of(), Map.of(), Map.of()), null, List.of(), now.get(), top, top)));
+        Map<?, ?> row = (Map<?, ?>) ((List<?>) doc.get("top_mobs")).getFirst();
+        assertEquals(8L, ((Number) row.get("kills")).longValue());
+        assertEquals(5L, ((Number) row.get("counted")).longValue());
+        assertEquals(3L, ((Number) row.get("estimated")).longValue());
+        assertEquals(List.of(), SiteFileShape.shape("world.json", doc));
+    }
+
+    @Test
+    void theSplitSurvivesARestartAndAnOldTableKeepsTheTotals() {
+        FakeStore store = new FakeStore();
+        SiteMobKills.kill(5);
+        SiteMobKills.offscreen(List.of(5), 2);
+        assertTrue(SiteMobKills.flush(store, now.get()));
+        SiteMobKills.reset(now::get);
+        SiteMobKills.restore(store, now.get());
+        SiteMobKills.Row r = SiteMobKills.top(24, now.get(), id -> "").getFirst();
+        assertEquals(List.of(3, 1, 2), List.of(r.kills(), r.counted(), r.estimated()));
+
+        // before migration 056: the totals still flush and restore, the split is not kept
+        FakeStore old = new FakeStore();
+        old.noEstimatedColumn = true;
+        assertTrue(SiteMobKills.flush(old, now.get()));
+        SiteMobKills.reset(now::get);
+        SiteMobKills.restore(old, now.get());
+        r = SiteMobKills.top(24, now.get(), id -> "").getFirst();
+        assertEquals(List.of(3, 3, 0), List.of(r.kills(), r.counted(), r.estimated()));
+    }
+
+    @Test
+    void migration056AddsTheColumnOnceAndRollsBack() throws Exception {
+        java.nio.file.Path d = java.nio.file.Path.of("database/migrations");
+        String sql = java.nio.file.Files.readString(d.resolve("056-mob-kills-split.sql"));
+        String rb = java.nio.file.Files.readString(d.resolve("056-mob-kills-split.rollback.sql"));
+        assertTrue(sql.contains("ADD COLUMN estimated INT NOT NULL DEFAULT 0") && sql.contains("information_schema.COLUMNS"));
+        assertTrue(sql.contains("VALUES ('056-mob-kills-split')"));
+        assertTrue(rb.contains("DROP COLUMN estimated") && rb.contains("migration_id = '056-mob-kills-split'"));
     }
 }

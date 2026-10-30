@@ -396,7 +396,7 @@ public class ExpeditionBossLog {
 
         String sql = "SELECT bl.*, c.name AS characterName " +
                 "FROM " + getBossLogTable(boss.week) + " bl " +
-                "JOIN mapleroot.characters c ON bl.characterid = c.id " +
+                "JOIN characters c ON bl.characterid = c.id " +
                 "WHERE bl.party_uuid = ? AND bl.bosstype LIKE ?";
 
         try (Connection con = DatabaseConnection.getConnection();

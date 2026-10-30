@@ -182,8 +182,30 @@ public class GenericPortal implements Portal {
         PortalScriptManager.Outcome outcome = PortalScriptManager.getInstance().runPortalScript(this, c);
         String text = outcome == PortalScriptManager.Outcome.NO_SCRIPT
                 ? outcome.text + " portal/" + getScriptName() + ".js" : outcome.text;
-        log.info(scriptLogLine(getScriptName(), chr.getName(), fromMapId, text));
+        String line = scriptLogLine(getScriptName(), chr.getName(), fromMapId, text);
+        if (firstInAWhile(line, System.currentTimeMillis())) {
+            log.info(line);
+        }
         return outcome == PortalScriptManager.Outcome.RAN;
+    }
+
+    private static final long REPEAT_QUIET_MS = 60_000;
+    private static final java.util.concurrent.ConcurrentHashMap<String, Long> lastLogged = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * 1.6.2 b089: a range-trigger portal (Marketplace pcs00) fires every few seconds while a character stands near it,
+     * so the same line was logged over and over. The same character, portal, map and outcome is logged once a minute.
+     */
+    static boolean firstInAWhile(String line, long now) {
+        if (lastLogged.size() > 10_000) {
+            lastLogged.clear();
+        }
+        Long before = lastLogged.get(line);
+        if (before != null && now - before < REPEAT_QUIET_MS) {
+            return false;
+        }
+        lastLogged.put(line, now);
+        return true;
     }
 
     /** "portal script <name> by <chr> on <map>: <ran|refused: reason>" (the line ops grep for). */

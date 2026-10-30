@@ -278,6 +278,9 @@ final class GameQaWorld implements QaWorld {
     @Override
     public int stageConvoBot(Character gm, String state, boolean training, String voice) {
         int id = stageAffinityBot(gm, state, training);
+        if (id >= 0) { // the conversation checks want it in the town's threads and chatter (b092 holds af-1's out)
+            soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityStaging.release(id);
+        }
         soloMapling.ArtificialPlayer.BotConvo.ConvoPersona.Voice v =
                 soloMapling.ArtificialPlayer.BotConvo.ConvoPersona.Voice.parse(voice);
         if (id >= 0 && v != null) {

@@ -128,6 +128,31 @@ class LevelingPathChooserTest {
     }
 
     @Test
+    void aBotIsNeverGivenAHomeItMayNotEnter() {
+        // 1.6.2 b041: Leafre's skeles, but the town found for them is in deeper Grandis (rebirth 1)
+        int deeperGrandis = 401000000;
+        world.homes.put(SKELE, deeperGrandis);
+        world.unreachable.add(BH);
+        for (int i = 0; i < 100; i++) {
+            TrainingMap m = LevelingPathChooser.choose(path, TUNING, world, permits, bot(i, 130, 110, 0, 10_000_000,
+                    HENESYS), new java.util.Random(i)::nextDouble);
+            if (m != null && m.mapId() == SKELE) {
+                assertFalse(m.relocates() && m.relocateHomeMapId() == deeperGrandis, "home in deeper Grandis at rebirth 0");
+            }
+            clock.addAndGet(61_000);
+        }
+        // at rebirth 1 the same town is fine
+        boolean moved = false;
+        for (int i = 0; i < 100 && !moved; i++) {
+            TrainingMap m = LevelingPathChooser.choose(path, TUNING, world, permits, bot(i, 130, 110, 1, 10_000_000,
+                    HENESYS), new java.util.Random(i)::nextDouble);
+            moved = m != null && m.relocates() && m.relocateHomeMapId() == deeperGrandis;
+            clock.addAndGet(61_000);
+        }
+        assertTrue(moved);
+    }
+
+    @Test
     void theRebirthGatesHold() {
         world.reach.put(LEAFRE, Map.of(SKELE, 5));
         for (int i = 0; i < 200; i++) {
@@ -302,6 +327,7 @@ class LevelingPathChooserTest {
         final Set<Integer> unreachable = new HashSet<>();
         final Map<Integer, Integer> levelGate = new HashMap<>();
         final Set<Integer> missing = new HashSet<>();
+        final Map<Integer, Integer> homes = new HashMap<>();
         int fare = 1_000;
 
         @Override
@@ -354,6 +380,9 @@ class LevelingPathChooserTest {
 
         @Override
         public int homeFor(int mapId) {
+            if (homes.containsKey(mapId)) {
+                return homes.get(mapId);
+            }
             if (mapId / 1_000_000 == 220) {
                 return LUDI;
             }
