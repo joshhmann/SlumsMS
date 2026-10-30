@@ -1312,6 +1312,10 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-tm-1", "A bot is offered the next Temple mainline quest and its lane").minutes(2)
                 .expect(probe("templeQuest"))
                 .build());
+        // gear.optimizer=pareto: a staged Fighter whose better sword needs both +5 STR helpers wears all three
+        c.add(Check.auto("t-gb-1", "Pareto gear: a bot with a requirement-chain bag ends up in the better set").minutes(1)
+                .expect(probe("paretoGear"))
+                .build());
         return List.copyOf(c);
     }
 

@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -71,5 +71,16 @@ class Probes162Test {
         List<String> loop = Probes162.templeProblems(3500, "take STARTED, turn-in NOT_READY", 3500, -1, 270010100,
                 true, false);
         assertEquals(2, loop.size(), "the step that could not finish is offered again (audit B2)");
+    }
+
+    // ── t-gb-1 ──
+
+    @Test
+    void theParetoCheckWantsTheWholeChainWorn() {
+        assertTrue(Probes162.chainProblems(2, 4, 6, 2, 4, 6, true).isEmpty());
+        List<String> climb = Probes162.chainProblems(1, 3, 5, 2, 4, 6, false);
+        assertEquals(3, climb.size(), climb.toString());
+        List<String> half = Probes162.chainProblems(1, 4, 5, 2, 4, 6, true);
+        assertTrue(half.get(1).contains("both are needed"), half.toString());
     }
 }

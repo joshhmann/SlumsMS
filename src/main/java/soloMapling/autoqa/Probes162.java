@@ -1,13 +1,21 @@
 package soloMapling.autoqa;
 
 import client.Character;
+import client.Job;
 import client.QuestStatus;
+import client.inventory.Equip;
+import client.inventory.InventoryType;
+import client.inventory.Item;
+import server.ItemInformationProvider;
 import server.life.LifeFactory;
 import server.life.Monster;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotConvo.TalkQa;
 import soloMapling.ArtificialPlayer.BotGeneration;
+import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
+import soloMapling.ArtificialPlayer.BotGearSystem.GearScoring;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifeMemory;
+import soloMapling.ArtificialPlayer.GCMoveSystem.LodCounts;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifePlanner;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog;
@@ -38,7 +46,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear");
 
     private Probes162() {
     }
@@ -49,6 +57,7 @@ final class Probes162 {
             return switch (what) {
                 case "botQuest" -> botQuest(p);
                 case "templeQuest" -> templeQuest(p);
+                case "paretoGear" -> paretoGear(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -404,6 +413,166 @@ final class Probes162 {
             }
             ev.add(TalkQa.teardown(List.of(bot)));
         }
+    }
+
+    // ── gear staging (t-gb-*) ────────────────────────────────────────────────────────────────────
+
+    /** Takes every worn and bagged equip off a throwaway bot, so only staged gear is there. */
+    static void clearGear(Character bot) {
+        for (InventoryType t : new InventoryType[]{InventoryType.EQUIPPED, InventoryType.EQUIP}) {
+            List<Short> slots = new ArrayList<>();
+            for (Item it : bot.getInventory(t).list()) {
+                slots.add(it.getPosition());
+            }
+            for (short s : slots) {
+                bot.getInventory(t).removeSlot(s);
+            }
+        }
+    }
+
+    /** A real equip with its stats replaced by the staged ones (as a scrolled piece would carry). */
+    static Equip stagedEquip(int itemId, int watk, int str) {
+        Item it = ItemInformationProvider.getInstance().getEquipById(itemId);
+        if (!(it instanceof Equip e)) {
+            return null;
+        }
+        e.setStr((short) str);
+        e.setDex((short) 0);
+        e.setInt((short) 0);
+        e.setLuk((short) 0);
+        e.setWatk((short) watk);
+        e.setMatk((short) 0);
+        return e;
+    }
+
+    static void wear(Character bot, Equip e, short slot) {
+        e.setPosition(slot);
+        bot.getInventory(InventoryType.EQUIPPED).addItemFromDB(e);
+    }
+
+    static int wornId(Character bot, short slot) {
+        Item it = bot.getInventory(InventoryType.EQUIPPED).getItem(slot);
+        return it == null ? 0 : it.getItemId();
+    }
+
+    /** Sets the four base stats exactly (4 is the floor; nothing left unspent). */
+    static void setStats(Character bot, int str, int dex, int int_, int luk) {
+        bot.updateStrDexIntLuk(4);
+        int ap = (str - 4) + (dex - 4) + (int_ - 4) + (luk - 4);
+        bot.changeRemainingAp(ap, true);
+        bot.assignStrDexIntLuk(str - 4, dex - 4, int_ - 4, luk - 4);
+    }
+
+    /** The first real item in [from, to) with {@code test} on its equip stats (reqLevel, reqSTR, ...), or 0. */
+    static int findEquip(int from, int to, java.util.function.Predicate<Map<String, Integer>> test) {
+        ItemInformationProvider ii = ItemInformationProvider.getInstance();
+        for (int id = from; id < to; id++) {
+            if (ii.getName(id) == null || ii.isCash(id)) {
+                continue;
+            }
+            Map<String, Integer> st = ii.getEquipStats(id);
+            if (st != null && !st.isEmpty() && test.test(st)) {
+                return id;
+            }
+        }
+        return 0;
+    }
+
+    static int req(Map<String, Integer> st, String k) {
+        return st.getOrDefault(k, 0);
+    }
+
+    // ── t-gb-1: the Pareto optimizer wears a requirement chain ──────────────────────────────────
+
+    /** t-gb-1: the Fighter's level; the chain's sword needs this much more STR than the bot has (two +5 helpers). */
+    static final int GB1_LEVEL = 50, GB1_SHORT = 8, GB1_HELPER_STR = 5;
+
+    /** t-gb-1: what is wrong with the end state (worn ids against the staged chain). Pure, for the tests. */
+    static List<String> chainProblems(int sword, int gloves, int shoes, int wantSword, int wantGloves, int wantShoes,
+                                      boolean moved) {
+        List<String> bad = new ArrayList<>();
+        if (!moved) {
+            bad.add("the review moved nothing (the climb's answer: one helper is not enough for the sword)");
+        }
+        if (sword != wantSword) {
+            bad.add("weapon is " + sword + ", not the stronger " + wantSword);
+        }
+        if (gloves != wantGloves || shoes != wantShoes) {
+            bad.add("helpers worn " + gloves + "/" + shoes + ", want " + wantGloves + "/" + wantShoes
+                    + " (both are needed for the sword's STR)");
+        }
+        return bad;
+    }
+
+    /**
+     * t-gb-1 ({@code slums.gear.optimizer=pareto}): a fresh bot made a level-50 Fighter on the player's map (an active
+     * map, so the full optimizer runs), all its gear taken off. It wears a real sword (WATK 20), gloves and shoes; its
+     * bag holds a real sword needing {@link #GB1_SHORT} more STR than it has (WATK 40) and real gloves and shoes with
+     * +5 STR each: only both helpers together let it hold the better sword (the climb leaves this chain alone, see
+     * BotGearSwitchTest). {@code BotGear.review} must end with all three bag pieces worn.
+     */
+    static List<String> paretoGear(SyntheticPlayer p) throws InterruptedException {
+        if (!"pareto".equals(BotGear.optimizer())) {
+            return List.of("SKIP the gear optimizer is " + BotGear.optimizer() + " (-Dslums.gear.optimizer=pareto)");
+        }
+        List<String> ev = new ArrayList<>();
+        int strongSword = findEquip(1302000, 1303000, st -> req(st, "reqLevel") <= GB1_LEVEL
+                && req(st, "reqSTR") >= 4 + GB1_SHORT + 10 && req(st, "reqDEX") <= 25 && req(st, "reqJob") <= 1);
+        if (strongSword == 0) {
+            return List.of("FAIL no real one-handed sword at level <= " + GB1_LEVEL + " with a STR requirement to chain");
+        }
+        int needStr = req(ItemInformationProvider.getInstance().getEquipStats(strongSword), "reqSTR");
+        int baseStr = needStr - GB1_SHORT;
+        int weakSword = findEquip(1302000, 1303000, st -> req(st, "reqLevel") <= GB1_LEVEL
+                && req(st, "reqSTR") <= baseStr && req(st, "reqDEX") <= 25 && req(st, "reqJob") <= 1);
+        int[] gloves = {findEquip(1082000, 1083000, st -> plain(st)), 0};
+        gloves[1] = findEquip(gloves[0] + 1, 1083000, st -> plain(st));
+        int[] shoes = {findEquip(1072000, 1073000, st -> plain(st)), 0};
+        shoes[1] = findEquip(shoes[0] + 1, 1073000, st -> plain(st));
+        if (weakSword == 0 || gloves[1] == 0 || shoes[1] == 0) {
+            return List.of("FAIL could not find real staging items: sword " + weakSword + ", gloves "
+                    + java.util.Arrays.toString(gloves) + ", shoes " + java.util.Arrays.toString(shoes));
+        }
+        Character bot = spawnTraining(p, GB1_LEVEL);
+        if (bot == null) {
+            return List.of("FAIL could not spawn a training bot");
+        }
+        try {
+            freeze(bot);
+            bot.setJob(Job.FIGHTER);
+            setStats(bot, baseStr, 25, 4, 4);
+            clearGear(bot);
+            wear(bot, stagedEquip(weakSword, 20, 0), (short) -11);
+            wear(bot, stagedEquip(gloves[0], 2, 0), (short) -8);
+            wear(bot, stagedEquip(shoes[0], 1, 0), (short) -7);
+            Equip bagSword = stagedEquip(strongSword, 40, 0);
+            bot.getInventory(InventoryType.EQUIP).addItem(bagSword);
+            bot.getInventory(InventoryType.EQUIP).addItem(stagedEquip(gloves[1], 0, GB1_HELPER_STR));
+            bot.getInventory(InventoryType.EQUIP).addItem(stagedEquip(shoes[1], 0, GB1_HELPER_STR));
+            ev.add("Fighter lv " + bot.getLevel() + " STR " + bot.getStr() + "; worn sword " + weakSword + " (WATK 20),"
+                    + " gloves " + gloves[0] + ", shoes " + shoes[0] + "; bag sword " + strongSword + " (WATK 40, needs "
+                    + needStr + " STR), gloves " + gloves[1] + " +5 STR, shoes " + shoes[1] + " +5 STR");
+            ev.add("map " + bot.getMapId() + " active=" + LodCounts.isMapActive(bot.getMapId()) + " (tracker running="
+                    + LodCounts.trackerRunning() + ")");
+            Map<Short, Equip> would = GearScoring.live().bestSet(bot, List.of());
+            StringBuilder w = new StringBuilder("scoring's best set (changes): ");
+            would.forEach((slot, e) -> w.append(slot).append('=').append(e.getItemId()).append(' '));
+            ev.add(w.toString().trim());
+            boolean moved = BotGear.review(bot);
+            int s = wornId(bot, (short) -11), g = wornId(bot, (short) -8), sh = wornId(bot, (short) -7);
+            ev.add("after review: moved=" + moved + " worn sword " + s + ", gloves " + g + ", shoes " + sh
+                    + ", STR " + bot.getStr() + " total " + bot.getTotalStr());
+            return Probes160.verdict(chainProblems(s, g, sh, strongSword, gloves[1], shoes[1], moved),
+                    "the Pareto optimizer wore the whole chain: both +5 STR helpers and the sword they unlock", ev);
+        } finally {
+            ev.add(TalkQa.teardown(List.of(bot)));
+        }
+    }
+
+    /** An equip any level-50 warrior can wear with no stat requirement. */
+    private static boolean plain(Map<String, Integer> st) {
+        return req(st, "reqLevel") <= GB1_LEVEL && req(st, "reqSTR") == 0 && req(st, "reqDEX") == 0
+                && req(st, "reqINT") == 0 && req(st, "reqLUK") == 0 && (req(st, "reqJob") == 0 || req(st, "reqJob") == 1);
     }
 
     static long delta(Map<String, Long> a, Map<String, Long> b, String k) {
