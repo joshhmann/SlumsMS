@@ -1390,6 +1390,14 @@ public final class AutoQaCatalog {
                 .step(run("mx-5"), waitFor("MX5 (PASS|FAIL) ", 8 * 60), stop())
                 .expect(has("MX5 START kpq led by "), has("MX5 PASS alts driven"), lacks("MX5 FAIL "))
                 .build());
+        // 1.6.2 (owner 2026-10-30, bots yield): a bot lobby run holds the channel's one KPQ (or one is forced with
+        // three fresh bots); the pretend player leads two bots to Lakelis and gets the instance on that talk, the
+        // lobby run ends at once ("yielded to ...") and the lobby keeps off the channel for 10 minutes
+        c.add(Check.auto("t-mx-6", "A player party takes the KPQ channel from a bot lobby run").minutes(3)
+                .step(run("mx-6"), waitFor("MX6 (PASS|FAIL) ", 2 * 60), stop())
+                .expect(has("MX6 START lobby run "), has("lobby yields ch \\d+ to .+'s party"),
+                        has("MX6 player instance started "), has("MX6 PASS "), lacks("MX6 FAIL "))
+                .build());
         return List.copyOf(c);
     }
 

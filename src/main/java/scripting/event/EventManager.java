@@ -248,13 +248,46 @@ public class EventManager {
     }
 
     public void disposeInstance(final String name) {
-        ess.registerEntry(() -> {
-            freeLobbyInstance(name);
+        final EventInstanceManager gone;
+        synchronized (instances) {
+            gone = instances.get(name);
+        }
+        ess.registerEntry(() -> releaseInstance(name, gone), SECONDS.toMillis(YamlConfig.config.server.EVENT_LOBBY_DELAY));
+    }
 
-            synchronized (instances) {
-                instances.remove(name);
+    /**
+     * Frees an ended instance's lobby and drops it from the instances, unless another instance has taken its name
+     * since (1.6.2, bots yield: {@link #releaseInstanceNow} may free a name at once, and the lobby delay's own release
+     * must then leave the new holder alone).
+     */
+    void releaseInstance(String name, EventInstanceManager gone) {
+        synchronized (instances) {
+            EventInstanceManager now = instances.get(name);
+            if (gone != null && now != null && now != gone) {
+                return;
             }
-        }, SECONDS.toMillis(YamlConfig.config.server.EVENT_LOBBY_DELAY));
+            instances.remove(name);
+        }
+        freeLobbyInstance(name);
+    }
+
+    /**
+     * 1.6.2 (owner 2026-10-30, bots yield): frees a disposed instance's lobby now instead of after the lobby delay, so
+     * the party it made room for starts on the same talk. Only an instance that is disposed and still holds its own
+     * name; returns whether it freed one.
+     */
+    public boolean releaseInstanceNow(EventInstanceManager eim) {
+        if (eim == null || !eim.isEventDisposed()) {
+            return false;
+        }
+        String name = eim.getName();
+        synchronized (instances) {
+            if (instances.get(name) != eim) {
+                return false;
+            }
+        }
+        releaseInstance(name, eim);
+        return true;
     }
 
     public void setProperty(String key, String value) {
@@ -563,6 +596,8 @@ public class EventManager {
         if (this.isDisposed()) {
             return false;
         }
+        // 1.6.2 (owner 2026-10-30, bots yield): a real player's party takes this channel's KPQ from a bot lobby run
+        soloMapling.mechanics.KpqLobby.yieldFor(this, leader);
 
         try {
             if (!playerPermit.contains(leader.getId()) && startSemaphore.tryAcquire(7777, MILLISECONDS)) {
@@ -637,6 +672,8 @@ public class EventManager {
         if (this.isDisposed()) {
             return false;
         }
+        // 1.6.2 (owner 2026-10-30, bots yield): a real player's party takes this channel's KPQ from a bot lobby run
+        soloMapling.mechanics.KpqLobby.yieldFor(this, leader);
 
         try {
             if (!playerPermit.contains(leader.getId()) && startSemaphore.tryAcquire(7777, MILLISECONDS)) {

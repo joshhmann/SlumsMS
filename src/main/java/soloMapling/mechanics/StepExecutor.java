@@ -53,6 +53,9 @@ final class StepExecutor {
         int scriptFailures;
         Point moveTarget;
         long moveIssuedMs;
+        int farmHave = -1;
+        long farmSinceMs;
+        boolean stallTold;
     }
 
     void forget(int botId) {
@@ -64,7 +67,7 @@ final class StepExecutor {
         Beat beat = beats.computeIfAbsent(bot.getId(), id -> new Beat());
         switch (step) {
             case SolverStep.MoveTo m -> moveNear(bot, beat, m.x(), m.y(), 30, now);
-            case SolverStep.Fight f -> fight(view, bot, beat, f, now);
+            case SolverStep.Fight f -> fight(view, bot, beat, f, now, log);
             case SolverStep.Loot l -> loot(view, bot, beat, l.itemId(), now);
             case SolverStep.TakeBack t -> takeBack(view, bot, beat, t, now, log);
             case SolverStep.TalkNpc t -> talk(run, orchestrator, view, bot, beat, t, now, log);
@@ -84,12 +87,70 @@ final class StepExecutor {
 
     // ---- steps ----
 
-    private void fight(LiveStageView view, Character bot, Beat beat, SolverStep.Fight f, long now) {
+    /**
+     * How long a farming bot's count may stand still before the run logs why once (1.6.2, b153: on TEST most lobby
+     * answerers never handed anything in and the log could not say why).
+     */
+    static final long STALL_MS = 3 * 60_000L;
+
+    /**
+     * Whether a farmer has held {@code have} for {@link #STALL_MS} without a change, true once per stall (a change
+     * starts the clock again).
+     */
+    static boolean stalled(Beat beat, int have, long now) {
+        if (have != beat.farmHave) {
+            beat.farmHave = have;
+            beat.farmSinceMs = now;
+            beat.stallTold = false;
+            return false;
+        }
+        if (!beat.stallTold && now - beat.farmSinceMs >= STALL_MS) {
+            beat.stallTold = true;
+            return true;
+        }
+        return false;
+    }
+
+    /** What a stalled farmer's bag and floor look like, for the STALL line. */
+    private static String stallWhy(LiveStageView view, Character bot, int itemId) {
+        try {
+            client.inventory.Inventory etc = bot.getInventory(client.inventory.InventoryType.ETC);
+            int free = etc.getNumFreeSlot();
+            boolean fits = BotHoldings.canHold(bot, new client.inventory.Item(itemId, (short) 0, (short) 1));
+            MapleMap map = bot.getMap();
+            int onFloor = 0;
+            int takeable = 0;
+            if (map != null) {
+                for (server.maps.MapObject o : map.getMapObjectsInRange(bot.getPosition(),
+                        (double) LOOT_SEARCH_PX * LOOT_SEARCH_PX, List.of(server.maps.MapObjectType.ITEM))) {
+                    if (o instanceof MapItem mi && mi.getItemId() == itemId && mi.getDropper() instanceof Monster) {
+                        onFloor++;
+                        if (BotHoldings.canCreditDrop(bot, mi)) {
+                            takeable++;
+                        }
+                    }
+                }
+            }
+            Point at = bot.getPosition();
+            return "etc " + free + " free of " + etc.getSlotLimit() + (fits ? "" : ", CANNOT HOLD " + itemId) + ", "
+                    + onFloor + " on the floor within " + LOOT_SEARCH_PX + " px (" + takeable + " it may take), at "
+                    + (at == null ? "?" : at.x + "," + at.y) + ", level " + bot.getLevel();
+        } catch (RuntimeException e) {
+            return "(could not look: " + e + ")";
+        }
+    }
+
+    private void fight(LiveStageView view, Character bot, Beat beat, SolverStep.Fight f, long now,
+                       Consumer<String> log) {
         MapleMap map = bot.getMap();
         if (map == null) {
             return;
         }
         Point at = bot.getPosition();
+        if (f.itemId() > 0 && stalled(beat, bot.getItemQuantity(f.itemId(), false), now)) {
+            log.accept("STALL " + bot.getName() + " on " + beat.farmHave + "/" + f.untilItemCount() + " x " + f.itemId()
+                    + " for " + (now - beat.farmSinceMs) / 1000 + " s: " + stallWhy(view, bot, f.itemId()));
+        }
         if (f.itemId() > 0 && bot.getItemQuantity(f.itemId(), false) < f.untilItemCount()) {
             MapItem drop = nearestMobDrop(view, map, bot, f.itemId(), at);
             if (drop != null) {

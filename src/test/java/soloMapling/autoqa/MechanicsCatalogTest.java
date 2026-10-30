@@ -102,4 +102,25 @@ class MechanicsCatalogTest {
                 "MX5 MX5 FAIL AutoQaAlt never got a Cloto question");
         assertEquals(List.of(Check.Status.PASS, Check.Status.FAIL, Check.Status.FAIL), List.of(statuses(fiveFail)));
     }
+
+    /** 1.6.2 (bots yield): t-mx-6 against the lines mx-6 and the yield write. */
+    @Test
+    void t_mx_6_passesOnTheYieldAndTheInstanceAndFailsOnAFail() throws Exception {
+        var six = AutoQaCatalogPatternTest.eval("t-mx-6",
+                "MX6 MX6 START lobby run Kerning0 w1 ch 1 with 3 bots holds channel 1's KPQ",
+                "MX6 [Mechanics] lobby yields ch 1 to AqClient's party",
+                "MX6 MX6 player instance started Kerning0 w1 ch 1",
+                "MX6 MX6 PASS the player's party took KPQ from the bot lobby run Kerning0 w1 ch 1 ([Mechanics] lobby"
+                        + " yields ch 1 to AqClient's party); the party is in Kerning0 w1 ch 1, the lobby keeps off"
+                        + " the channel for 10 min");
+        for (Check.Verdict x : six) {
+            assertEquals(Check.Status.PASS, x.status(), x.toString());
+        }
+        var sixFail = AutoQaCatalogPatternTest.eval("t-mx-6",
+                "MX6 MX6 START lobby run Kerning0 w1 ch 1 with 3 bots holds channel 1's KPQ",
+                "MX6 MX6 FAIL the lobby run did not yield (still running); no yield line; the player's party got no"
+                        + " instance");
+        assertEquals(List.of(Check.Status.PASS, Check.Status.FAIL, Check.Status.FAIL, Check.Status.FAIL,
+                Check.Status.FAIL), List.of(statuses(sixFail)));
+    }
 }

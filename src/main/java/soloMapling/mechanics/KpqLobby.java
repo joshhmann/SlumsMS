@@ -137,7 +137,8 @@ public final class KpqLobby {
     static boolean free(Character c) {
         try {
             if (c.isOwnedAlt() || c.getParty() != null || c.getEventInstance() != null || c.getHp() <= 0
-                    || MechanicsHold.committed(c)) {
+                    || MechanicsHold.committed(c) || !bagRoom(c.getInventory(client.inventory.InventoryType.ETC)
+                    .getNumFreeSlot())) {
                 return false;
             }
             BotSM sm = CharacterStorage.getBotById(c.getId());
@@ -146,6 +147,18 @@ public final class KpqLobby {
         } catch (RuntimeException | LinkageError e) {
             return false;
         }
+    }
+
+    /**
+     * Free etc slots a lobby bot needs: the stage's coupons and passes are etc items (4001007, 4001008). 1.6.2 (b153,
+     * TEST 10-30: 26 of 35 lobby answerers never handed in a pass in 15-30 minutes, while the others did in 20 s to 3
+     * min): a bot whose etc tab is full cannot pick up a single coupon ({@code BotHoldings.canCreditDrop}), so it
+     * farms forever and the party holds the channel's one KPQ until the event's 30-minute timer.
+     */
+    static final int MIN_FREE_ETC_SLOTS = 3;
+
+    static boolean bagRoom(int freeEtcSlots) {
+        return freeEtcSlots >= MIN_FREE_ETC_SLOTS;
     }
 
     static int channelKey(Channel ch) {
@@ -168,6 +181,15 @@ public final class KpqLobby {
         return !kpqBusy && (until == null || now >= until);
     }
 
+    /** QA (mx-6): whether the lobby may start on this channel at {@code at}, its KPQ taken as free. */
+    public static boolean mayRetake(Channel ch, long at) {
+        return mayTry(channelKey(ch), at, false);
+    }
+
+    public static long backoffMinutes() {
+        return REFUSED_BACKOFF_MS / 60_000;
+    }
+
     /** Lakelis refused this channel's party: leave the channel alone for a while (K9). */
     static void refused(int channel, long now) {
         refusedUntil.put(channel, now + REFUSED_BACKOFF_MS);
@@ -176,6 +198,92 @@ public final class KpqLobby {
     static void clearForTest() {
         refusedUntil.clear();
         running.clear();
+        lastYield = null;
+    }
+
+    /** Tests: marks a run's instance as a lobby run, as {@link #start} does. */
+    static void markLobbyRunForTest(String name) {
+        running.add(name);
+    }
+
+    /** The last yield, as logged (QA mx-6 notes it), or null. */
+    private static volatile String lastYield;
+
+    public static String lastYield() {
+        return lastYield;
+    }
+
+    /**
+     * Whether a run holding a channel's KPQ gives it up to a party at Lakelis (owner 2026-10-30: bots yield): only a
+     * bot lobby run (never a player-led or staged one), only before it cleared (a cleared run's instance has freed
+     * the PQ already), only a live instance, and never with a real player inside.
+     */
+    static boolean mayYield(boolean lobbyRun, boolean cleared, boolean disposed, boolean realPlayerInside) {
+        return lobbyRun && !cleared && !disposed && !realPlayerInside;
+    }
+
+    /**
+     * 1.6.2 (owner 2026-10-30, bots yield): a real player's party is about to start Kerning PQ on this channel
+     * ({@code EventManager.startInstance}, from Lakelis' script, a GM's staging or a QA check) and a bot lobby run
+     * holds the channel's one KPQ: the run ends at once through the stop path (bots leave cleanly, the instance is
+     * ended and its lobby freed now, not after the lobby delay), so the party starts on the same talk, and the lobby
+     * leaves the channel alone for {@link #REFUSED_BACKOFF_MS}. A leader who is a bot or an owned alt never makes a
+     * run yield. Returns whether a run yielded.
+     */
+    public static boolean yieldFor(scripting.event.EventManager em, Character leader) {
+        if (leader == null || running.isEmpty() || MechanicsRuns.drivable(leader)) {
+            return false;
+        }
+        return yieldTo(em, leader.getName() + "'s party", leader);
+    }
+
+    /**
+     * QA and GM staging of a bot-led run ({@code KpqStaging}): the GM who staged it makes the lobby yield, as a
+     * player's party would.
+     */
+    public static boolean yieldForStaging(scripting.event.EventManager em, Character gm) {
+        if (gm == null || running.isEmpty()) {
+            return false;
+        }
+        return yieldTo(em, gm.getName() + "'s party", null);
+    }
+
+    static boolean yieldTo(scripting.event.EventManager em, String to, Character tell) {
+        try {
+            if (em == null || !KpqStaging.EVENT.equalsIgnoreCase(em.getName())) {
+                return false;
+            }
+            boolean yielded = false;
+            for (EventInstanceManager eim : em.getInstances()) {
+                MechanicsRuns.Active a = MechanicsRuns.get().runFor(eim);
+                boolean lobbyRun = a != null && a.ownsInstance && running.contains(a.instanceName());
+                boolean realInside = eim.getPlayers().stream().anyMatch(c -> !MechanicsRuns.drivable(c));
+                if (!mayYield(lobbyRun, lobbyRun && a.run().cleared(), eim.isEventDisposed(), realInside)) {
+                    continue;
+                }
+                Channel ch = em.getChannelServer();
+                int channel = ch == null ? 0 : ch.getId();
+                MechanicsRuns.get().stop(a, "yielded to " + to);
+                if (!eim.isEventDisposed()) {
+                    MechanicsRuns.endInstance(eim, a.run().content().exitMap());
+                }
+                em.releaseInstanceNow(eim);
+                if (ch != null) {
+                    refused(channelKey(ch), System.currentTimeMillis()); // K9's backoff: no re-take for 10 min
+                }
+                String line = "[Mechanics] lobby yields ch " + channel + " to " + to;
+                lastYield = line;
+                log(line);
+                yielded = true;
+            }
+            if (yielded && tell != null) {
+                tell.dropMessage(5, "The bots in this channel's Kerning PQ step aside for your party.");
+            }
+            return yielded;
+        } catch (RuntimeException | LinkageError e) {
+            log("[Mechanics] KPQ lobby could not yield to " + to + ": " + e);
+            return false;
+        }
     }
 
     /**
@@ -249,6 +357,33 @@ public final class KpqLobby {
             disband(members);
             return false;
         }
+    }
+
+    /** QA (mx-6): the bot lobby run holding this channel's KPQ, or null. */
+    public static MechanicsRuns.Active lobbyRunOn(scripting.event.EventManager em) {
+        if (em == null) {
+            return null;
+        }
+        for (EventInstanceManager eim : em.getInstances()) {
+            MechanicsRuns.Active a = MechanicsRuns.get().runFor(eim);
+            if (a != null && a.ownsInstance && running.contains(a.instanceName()) && !a.run().ended()) {
+                return a;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * QA (mx-6): these bots (three or four on the recruit map, the first leads) start a lobby run the way the lobby
+     * tick starts one: a party, the leader's talk to Lakelis, a lobby-owned run. Returns the run, or null.
+     */
+    public static MechanicsRuns.Active startForQa(Content content, List<Character> bots) {
+        List<Integer> ids = bots.stream().map(Character::getId).toList();
+        if (!start(content, bots, ids)) {
+            return null;
+        }
+        EventInstanceManager eim = bots.get(0).getEventInstance();
+        return eim == null ? null : MechanicsRuns.get().runFor(eim);
     }
 
     /** The lobby party breaks up (each bot leaves; the event script ends a PQ that gets too small). */

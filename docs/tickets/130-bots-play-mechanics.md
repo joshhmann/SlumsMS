@@ -356,6 +356,39 @@ Simulation (`KpqFullRunTest`, Ligator model at TEST's pace): real leader + 3 bot
 262 s / 450 s after with the leader standing still, 196 s / 338 s when the leader hunts too. About 66 coupons at three
 hunters' pace is the floor; more needs more damage (not changed).
 
+### Bots yield KPQ to players (1.6.2, owner 2026-10-30)
+
+The bot lobby held a channel's one KPQ for its 30-minute timer and real players and auto-QA got "Another party has
+already entered the Party Quest in this channel" (the 10-30 full auto-QA lost t-vb-3 and t-mx-1..5 to it). Now:
+
+- **The lobby yields.** When a party whose leader is a real player (not a bot, not an owned alt; auto-QA's pretend
+  player counts) starts KPQ on a channel (`EventManager.startInstance`: Lakelis' script, a GM's `!mechanics kpq me`,
+  t-vb-3's direct start) and a bot **lobby** run holds that channel's KPQ, the run ends at once through the stop path
+  (bots leave the party, the instance is ended with KerningPQ.js `end`, `KpqLobby.yieldFor`) and the instance's lobby
+  is freed now, not after `EVENT_LOBBY_DELAY` (`EventManager.releaseInstanceNow`; the delayed release then leaves the
+  new `Kerning0` alone), so the party enters on the same click. The leader gets "The bots in this channel's Kerning
+  PQ step aside for your party." A player-led or staged run, a run with a real player inside, and a run that already
+  cleared never yield. A bot-led run staged by a GM or QA check (mx-1..4) makes the lobby yield too
+  (`KpqLobby.yieldForStaging`). Log: `[Mechanics] lobby yields ch N to <leader>'s party`.
+- **No re-take.** The channel gets K9's 10-minute backoff after a yield.
+- **Auto-QA t-mx-6** proves it (below); t-vb-3 and t-mx-1..5 no longer lose their channel to the lobby.
+
+### b153: lobby runs never cleared stage 1 (TEST 2026-10-30)
+
+TEST's BotLog, 12:02-14:50 server time (18:02-20:50 UTC), every lobby run on build b32a14214: 14 runs, 35 answerers,
+**9 passes**; no run cleared stage 1, and each held its channel until the event's 30-minute timer (or an `AqClient`
+stop). The passes that did come took 21, 36, 99, 118, 158, 581, 663, 684 and 1736 s; 26 of 35 answerers never
+handed anything in, including answers of 8 and 10 coupons, while their party mates hunted next to them. That is not
+the model's pace (196-262 s mean for the whole stage, `KpqFullRunTest`; fresh staged bots on the same build: passes at
+85 and 252 s): it is per-bot farmers that can never complete. The lobby takes population bots (any level 21+, worn
+bags), the QA checks fresh ones with empty bags. A bot whose etc tab has no free slot cannot pick up a coupon
+(`BotHoldings.canCreditDrop` -> `canHold`) and so farms forever; `BotBagRoom` counted 5,179 of 9,083 TEST bots with
+a full etc tab on 10-26. Fixes: the lobby only picks bots with at least 3 free etc slots (`KpqLobby.bagRoom`); a run
+says at its start when a member has no etc room; and a farmer whose coupon count has not moved for 3 minutes logs one
+`STALL <bot> on <n>/<target> x 4001007 for <s> s: etc <free> free of <slots>, ..., <n> on the floor within 600 px (<m>
+it may take), at x,y, level L` line, so the next run says why if it is something else (nav, kills). Not proven on
+TEST yet (no read of bot bags without the DB); the next lobby run's STALL lines will show it.
+
 ## Phased plan
 
 | Phase | What | Size |

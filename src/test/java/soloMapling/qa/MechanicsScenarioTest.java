@@ -84,4 +84,21 @@ class MechanicsScenarioTest {
         QaRefusal r = assertThrows(QaRefusal.class, () -> mx2.stage(null));
         assertTrue(soloMapling.autoqa.StepsAccess.isPrecondition(r.getMessage()), r.getMessage());
     }
+
+    /** 1.6.2 (bots yield): mx-6's verdict, and that the scenario is registered. */
+    @Test
+    void mx6PassesOnlyWhenTheLobbyYieldedAndThePartyIsIn() {
+        String yield = "[Mechanics] lobby yields ch 1 to AqClient's party";
+        String pass = MechanicsScenarios.mx6Verdict("Kerning0 w1 ch 1", true, "yielded to AqClient's party", true,
+                yield, "Kerning0 w1 ch 1", true);
+        assertTrue(pass.startsWith("MX6 PASS the player's party took KPQ from the bot lobby run Kerning0 w1 ch 1"),
+                pass);
+        String fail = MechanicsScenarios.mx6Verdict("Kerning0 w1 ch 1", false, null, false, null, null, false);
+        assertTrue(fail.startsWith("MX6 FAIL the lobby run did not yield (still running)"), fail);
+        assertTrue(MechanicsScenarios.mx6Verdict("Kerning0 w1 ch 1", true, "stopped by AqClient", true, yield,
+                "Kerning0 w1 ch 1", true).startsWith("MX6 FAIL"), "a stop is not a yield");
+        assertTrue(MechanicsScenarios.mx6Verdict("Kerning0 w1 ch 1", true, "yielded to AqClient's party", true, yield,
+                "Kerning0 w1 ch 1", false).contains("re-take"), "no backoff");
+        assertTrue(MechanicsScenarios.all().stream().anyMatch(q -> q.id().equals("mx-6")));
+    }
 }
