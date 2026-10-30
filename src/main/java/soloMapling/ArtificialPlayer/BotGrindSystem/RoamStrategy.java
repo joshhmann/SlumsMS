@@ -185,7 +185,8 @@ final class RoamStrategy implements GrindStrategy {
         }
         Point gp = GCMovement.groundPointBelow(chr.getMap(), mp.x, mp.y);
         int ty = (gp != null) ? gp.y : mp.y;
-        int tx = b.standX(chr, mp.x, ty, mp.x - 60, mp.x + 60);
+        int span = Math.max(60, b.standBand(chr, mob)[1]);   // 1.6.2 b085: room for an archer's distance
+        int tx = b.standX(chr, mob, mp.x, ty, mp.x - span, mp.x + span);
         if (b.engage.skillMoveToward(chr, tx, ty)) {
             return; // blink/dash toward it
         }

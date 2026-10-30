@@ -444,17 +444,35 @@ public final class GrindBrain {
     }
 
     /**
+     * 1.6.2 b085: how far from this mob's centre this bot stands to fight it (StandOffset.band): past the body's edge,
+     * archers and mages at their comfort distance, never beyond the reach.
+     */
+    int[] standBand(Character chr, Monster mob) {
+        if (approachX < 0) {
+            inAttackRange(chr, null, true);
+        }
+        java.awt.Rectangle body = mob != null ? GCMovement.mobBounds(mob) : null;
+        int half = body != null ? body.width / 2 : DEFAULT_MOB_HALF_WIDTH;
+        boolean far = style == MovementStyle.RANGED || (soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human() && keepsDistance);
+        int comfort = style == MovementStyle.RANGED ? EngageBeat.KITE_MIN_PX : EngageBeat.MAGE_COMFORT_PX;
+        return StandOffset.band(half, approachX, far, comfort);
+    }
+
+    private static final int DEFAULT_MOB_HALF_WIDTH = 20;
+
+    /**
      * Where to stand to fight a mob at (mobX, groundY): the mob's x shifted by this bot's stable offset, kept inside
      * [lo, hi] and on the mob's platform, and stepped aside when another character already stands within the
      * name-tag overlap box there. Called when a move is issued, never per tick.
      */
-    int standX(Character chr, int mobX, int groundY, int lo, int hi) {
+    int standX(Character chr, Monster mob, int mobX, int groundY, int lo, int hi) {
         server.maps.MapleMap map = chr.getMap();
         if (map == null) {
             return GrindBrain.clamp(mobX, lo, hi);
         }
         int self = chr.getId();
-        return StandOffset.standX(self, mobX, lo, hi, standReach(chr),
+        int[] band = standBand(chr, mob);
+        return StandOffset.standX(self, mobX, lo, hi, band[0], band[1],
                 x -> {
                     Point g = GCMovement.groundPointBelow(map, x, groundY - 12);
                     return g != null && Math.abs(g.y - groundY) <= 12;

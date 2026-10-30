@@ -472,7 +472,7 @@ final class StackStrategy implements GrindStrategy {
         int[] leash = leash(chr);
         Point gp = GCMovement.groundPointBelow(chr.getMap(), mp.x, mp.y);
         int ty = (gp != null) ? gp.y : mp.y;
-        int tx = b.standX(chr, mp.x, ty, leash[0], leash[1]);
+        int tx = b.standX(chr, mob, mp.x, ty, leash[0], leash[1]);
         if (b.engage.skillMoveToward(chr, tx, ty)) {
             return; // blinked/dashed toward it (vertical blinks included)
         }

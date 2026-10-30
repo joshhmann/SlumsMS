@@ -29,11 +29,11 @@ final class EngageBeat {
     private static final long AOE_REPOSITION_COOLDOWN_MS = 700; // cadence floor so it steps in, not jitters
 
     // ── Ranged kiting (bowmen back off when a mob closes inside the comfort band) ──
-    private static final int KITE_MIN_PX = 150;             // a mob nearer than this (|dx|) triggers a step back
+    static final int KITE_MIN_PX = 150;             // a mob nearer than this (|dx|) triggers a step back
     private static final int KITE_STEP_PX = 90;             // how far the bot retreats per kite step
     private static final long KITE_COOLDOWN_MS = 400;       // cadence floor between kite steps
     private static final int OWN_LEDGE_SLACK = 90;          // a mob this far off the bot's own height is another ledge
-    private static final int MAGE_COMFORT_PX = 120;         // 1.5.0 rc3: a mage keeps mobs at least this far off
+    static final int MAGE_COMFORT_PX = 120;         // 1.5.0 rc3: a mage keeps mobs at least this far off
 
     // ── Attack tempo (real classes can't walk mid-attack; only jumps/teleports move while attacking) ──
     static final long ATTACK_WALK_LOCK_MS = 500;            // after a swing, hold position this long before walking
