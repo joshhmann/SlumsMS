@@ -91,6 +91,11 @@ public final class BotBuffDriver {
         return t == null ? Map.of() : Map.copyOf(t);
     }
 
+    /* Test seam: pretend the bot cast this buff and it runs until the given time. */
+    public static void markCastForTest(int botId, int skillId, long until) {
+        nextCastByBot.computeIfAbsent(botId, k -> new ConcurrentHashMap<>()).put(skillId, until);
+    }
+
     private static boolean partiedWithPlayer(Character bot) {
         net.server.world.Party party = bot.getParty();
         if (party == null) return false;
