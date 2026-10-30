@@ -140,7 +140,7 @@ def head(body, fig):
     if i >= 0:  # already a heading row: she goes at its end
         j = body.index("</div>", i + 26) + 6
         return body[:j] + fig + body[j:]
-    m = re.search(r'<h1[ >].*?</h1>(<p class="?(?:id|lede)"?>.*?</p>)?', body, re.S)
+    m = re.search(r'<h1[ >].*?</h1>(\s*<p class="?(?:id|lede)"?>.*?</p>)?', body, re.S)  # a line break may come between
     if not m:
         return fig + body
     return body[:m.start()] + f'<div class="headfig"><div>{m.group(0)}</div>{fig}</div>' + body[m.end():]

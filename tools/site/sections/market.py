@@ -688,7 +688,7 @@ is the fair value: what the game's own drops and sinks say it's worth. It's a gu
 <section class="xc-p" style="grid-area: depth"><h2>Market depth</h2>
 <svg class="xc-depth" viewBox="0 0 640 150" preserveAspectRatio="none" role="img" aria-label="Buy and sell depth" x-html="depth()"></svg>
 <p class="xc-note"><span class="up">Green</span>: wanted at that price or higher. <span class="down">Red</span>: for sale at that price or lower.</p></section>
-<section class="xc-p" style="grid-area: book"><h2>Order book</h2>
+<section class="xc-p xc-bookp" style="grid-area: book"><h2>Order book</h2>
 <table class="xc-book"><thead><tr><th>Price</th><th x-text="qtyLabel"></th><th>Orders</th></tr></thead>
 <tbody><template x-for="l in asksDown" :key="'a' + l.price"><tr class="ask" @click="usePrice(l.price)" :style="bar(l, 'down')">
 <td x-text="fmt(l.price)"></td><td x-text="fmt(l.qty)"></td><td x-text="l.orders"></td></tr></template>

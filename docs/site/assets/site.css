@@ -708,7 +708,10 @@ table.t { width: 100%; border-collapse: collapse; }
   color-scheme: dark; background: var(--xc-bg); color: var(--xc-ink); border: var(--border) solid var(--edge);
   border-radius: var(--radius); padding: 12px; display: grid; gap: 12px; min-width: 0;
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
-  grid-template-areas: "alert alert" "tabs tabs" "tick tick" "chart book" "depth book" "form trades" "orders orders" "rules rules"; }
+  grid-template-areas: "alert alert" "tabs tabs" "tick tick" "chart form" "chart book" "depth book" "trades book"
+    "orders orders" "rules rules"; }
+/* w08 (1.6.2): the order form at the top right with the book under it, each only as tall as it is (no empty boxes) */
+.xc-term .xc-form, .xc-term .xc-bookp { align-self: start; }
 .xc-c { display: contents; }
 .xc-term .up { color: var(--xc-up); } .xc-term .down { color: var(--xc-down); } .xc-term .flat { color: var(--xc-muted); }
 .xc-alerts { display: grid; gap: 8px; } .xc-alerts:empty { display: none; }
