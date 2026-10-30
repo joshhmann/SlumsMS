@@ -696,5 +696,6 @@ Switch-on checklist (each live step needs the owner's go):
    10,000"; !exchange resume; one small @nx trade between staff accounts and one site sell with the password; check
    the audit lines.
 8. Rollback: !exchange halt. Never roll back 038/044 while any escrow or payout is non-zero.
-Open owner decisions: the price band is one-sided today (refuses SELL < 50% and BUY > 200% of the 7-day rate); make
-it two-sided? houseAccount for regulars.
+Owner decisions (grill, 2026-10-30): the price band STAYS one-sided (refuses SELL < 50% and BUY > 200% of the 7-day
+rate; silly asks and lowball bids may rest unfilled). Regular bots trade through a HOUSE ACCOUNT: one staff-owned
+account funds and receives every regular's exchange trades, so their money is tracked and reconciled in one place.
