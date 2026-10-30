@@ -104,4 +104,36 @@ class OwnedAltLifecycleAuditTest {
         verify(owner).yellowMessage("Alt2 was saved and went home.");
         try (var login = s.beginLogin(2)) { assertNotNull(login); }
     }
+
+    /**
+     * Audit B15 (MEDIUM "alt summons can exceed the 5-companion cap"): the counted scenario the report asked for. Alts,
+     * bot-friend reservations and live bot friends are one id set under one monitor; five in all, whatever the order.
+     */
+    @Test void fiveCompanionsInAllWhateverTheOrder() throws Exception {
+        OwnedAltServiceTest.Memory db = new OwnedAltServiceTest.Memory();
+        for (int id = 2; id <= 7; id++) db.add(id);
+        OwnedAltService s = new OwnedAltService(db, () -> true);
+        Character owner = owner(1);
+        for (int id = 2; id <= 5; id++) s.summon(owner, "Alt" + id);
+        assertTrue(s.reserveCompanion(1, 500), "a bot friend takes the fifth place");
+        assertThrows(IllegalStateException.class, () -> s.summon(owner, "Alt6"), "no sixth: 4 alts + 1 friend");
+        db.friends.add(500); // the friend became a follower (counted by the backend) while its reservation stands
+        assertThrows(IllegalStateException.class, () -> s.summon(owner, "Alt6"), "counted once, still full");
+        s.releaseCompanion(500);
+        assertThrows(IllegalStateException.class, () -> s.summon(owner, "Alt6"), "the follower still counts");
+        db.friends.clear();
+        s.summon(owner, "Alt6");
+        assertFalse(s.reserveCompanion(1, 501), "five alts: no bot friend");
+        // racing: the last place is taken by exactly one of an alt summon and a friend's accept
+        assertTrue(s.dismiss(owner, "Alt6"));
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+            var alt = pool.submit(() -> { go.await(); try { s.summon(owner, "Alt7"); return true; } catch (IllegalStateException e) { return false; } });
+            var friend = pool.submit(() -> { go.await(); return s.reserveCompanion(1, 502); });
+            go.countDown();
+            assertTrue(alt.get() ^ friend.get(), "exactly one of them gets the last place");
+            assertFalse(s.hasCompanionRoom(1));
+        } finally { pool.shutdownNow(); }
+    }
 }
