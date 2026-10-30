@@ -211,7 +211,10 @@ public class Character extends AbstractCharacterObject {
     private final Set<NewYearCardRecord> newyears = new LinkedHashSet<>();
     private final SavedLocation[] savedLocations;
     private final SkillMacro[] skillMacros = new SkillMacro[5];
-    private List<Integer> lastmonthfameids;
+    // 1.6.2 (t-su-2): only loadCharFromDB's channel-server branch read the fame log into this, so every bot (loaded
+    // with channelserver=false) had null here and canGiveFame/hasGivenFame threw: no bot could ever fame anyone.
+    // Empty until the fame log is read; a bot's fame log is not read back (BotFameRequest's own once-a-day per pair).
+    private List<Integer> lastmonthfameids = new ArrayList<>(31);
     private final List<WeakReference<MapleMap>> lastVisitedMaps = new LinkedList<>();
     private WeakReference<MapleMap> ownedMap = new WeakReference<>(null);
     private final Map<Short, QuestStatus> quests;

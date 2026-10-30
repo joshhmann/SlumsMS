@@ -129,6 +129,11 @@ final class GameAutoQaWorld implements AutoQaWorld {
     }
 
     @Override
+    public long uptimeMs() {
+        return java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime();
+    }
+
+    @Override
     public LlmJudge judge() {
         return judge;
     }

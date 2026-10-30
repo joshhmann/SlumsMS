@@ -34,6 +34,24 @@ public final class ScrollEvQa {
         return BotScrolling.evPlan(bot, appetite);
     }
 
+    /**
+     * What the game does: {@code plan()} with the switch as it is (the EV planner, then a gambler's appetite pick when
+     * the planner would stop), on a fixed roll. Null when the bot would scroll nothing.
+     */
+    public static BotScrolling.Plan plan(Character bot, Appetite appetite) {
+        return BotScrolling.plan(bot, appetite, new Random(1));
+    }
+
+    /** What a scroll trades for now, as the planner prices it, or null when it has no market price. */
+    public static Integer price(int scrollId) {
+        return BotScrolling.scrollPrice(scrollId);
+    }
+
+    /** The EV planner's pick with this scroll's market price staged at {@code price} (nothing else changes). */
+    public static BotScrolling.Plan evPriced(Character bot, Appetite appetite, int scrollId, int price) {
+        return BotScrolling.evPlanPriced(bot, appetite, scrollId, price);
+    }
+
     /** The appetite rule's pick (what plan() does with the switch off) on this equip, or null; a fixed roll. */
     public static Choice rule(Character bot, Equip equip, Appetite appetite) {
         return ScrollRules.choose(appetite, new Target(equip.getItemId(), equip.getUpgradeSlots(),

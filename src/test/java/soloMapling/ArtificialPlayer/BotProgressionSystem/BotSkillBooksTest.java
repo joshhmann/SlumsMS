@@ -33,6 +33,7 @@ class BotSkillBooksTest {
     private static final int ACHILLES_BOOK = 2290001;     // test ids: the item data is faked below
     private static final int BOSS_BOOK = 2290002;
     private static final int OTHER_JOB_BOOK = 2290003;
+    private static final int UNLOCK_BOOK = 2290004;      // raises a skill the bot has no level in (no level needed)
 
     private Map<Integer, Skill> previousSkills;
     private boolean rollWins = true;
@@ -62,6 +63,7 @@ class BotSkillBooksTest {
         BotSkillBooks.useForTest((itemId, jobId) -> switch (itemId) {
             case ACHILLES_BOOK, BOSS_BOOK -> jobId == 112 ? new BotSkillBooks.Stats(Hero.ACHILLES, 10, 30, 100) : null;
             case OTHER_JOB_BOOK -> new BotSkillBooks.Stats(0, 0, 30, 100);   // not for this job: skill id 0
+            case UNLOCK_BOOK -> jobId == 112 ? new BotSkillBooks.Stats(Hero.ACHILLES, 0, 30, 100) : null;
             default -> null;
         }, p -> rollWins, () -> on, (task, ms) -> task.run());
         SaleRules.useForTest(Set.of(BOSS_BOOK), id -> false, id -> false);
@@ -129,6 +131,34 @@ class BotSkillBooksTest {
         assertEquals(30, bot.getSkillLevel(achilles()), "its SP could go in now");
         assertEquals(0, bot.getInventory(InventoryType.USE).countById(ACHILLES_BOOK), "the book is used up");
         assertFalse(BotSkillBooks.wants(bot, ACHILLES_BOOK), "nothing left for a second copy to do");
+    }
+
+    /**
+     * t-jb-2 on TEST 2026-10-30: "useAll counted a raise but the master level stayed 0". A book read on a skill the
+     * bot has no level in leaves it at level 0 with a master level; the settle after the book (afterBook) captured
+     * only skills with a level and rebuilt the skill map from them, so the new master level was thrown away.
+     */
+    @Test
+    void aBookReadOnASkillWithNoLevelKeepsItsMasterLevel() {
+        Character bot = hero();
+        BotProgression.buildNew(bot);
+        Map<Skill, client.Character.SkillEntry> without = new HashMap<>(bot.getSkills());
+        without.remove(achilles());
+        bot.replaceBotSkills(without);   // no level in it, no master level
+        int sp = bot.getRemainingSps()[0];
+        if (sp > 0) {
+            bot.gainSp(-sp, 0, true);   // no SP to put in after the read: the master level must hold on its own
+        }
+        give(bot, UNLOCK_BOOK, 1);
+        assertTrue(BotSkillBooks.canUseNow(bot, UNLOCK_BOOK));
+
+        assertEquals(1, BotSkillBooks.useAll(bot));
+
+        assertEquals(30, bot.getMasterLevel(achilles()), "the book's master level survives the settle");
+        assertEquals(0, bot.getSkillLevel(achilles()));
+        assertFalse(BotSkillBooks.wants(bot, UNLOCK_BOOK), "a second copy has nothing left to do");
+        BotRealStats stored = BotProgression.snapshot(bot);
+        assertEquals(new BotRealStats.SkillLevel(0, 30), stored.skills().get(Hero.ACHILLES), "and it is saved");
     }
 
     @Test

@@ -263,7 +263,7 @@ public final class BotProgression {
         TreeMap<Integer, BotRealStats.SkillLevel> skills = new TreeMap<>();
         for (Map.Entry<Skill, SkillEntry> entry : bot.getSkills().entrySet()) {
             SkillEntry held = entry.getValue();
-            if (entry.getKey() != null && held != null && held.skillevel > 0) {
+            if (entry.getKey() != null && held != null && (held.skillevel > 0 || masterOnly(held))) {
                 skills.put(entry.getKey().getId(), new BotRealStats.SkillLevel(held.skillevel, held.masterlevel));
             }
         }
@@ -282,15 +282,33 @@ public final class BotProgression {
         s.remainingAp = bot.getRemainingAp();
         s.sp = bot.getRemainingSps()[0];
         for (Map.Entry<Skill, SkillEntry> entry : bot.getSkills().entrySet()) {
-            if (entry.getKey() != null && entry.getValue() != null && entry.getValue().skillevel > 0) {
-                s.skills.put(entry.getKey().getId(), (int) entry.getValue().skillevel);
-                if (BotSkillBooks.enabled() && entry.getValue().masterlevel > 0
-                        && BotSkillPlan.isBookSkill(entry.getKey().getId())) {
-                    s.masterCaps.put(entry.getKey().getId(), entry.getValue().masterlevel);
-                }
+            if (entry.getKey() == null || entry.getValue() == null) {
+                continue;
+            }
+            int id = entry.getKey().getId();
+            SkillEntry held = entry.getValue();
+            if (held.skillevel > 0) {
+                s.skills.put(id, (int) held.skillevel);
+            }
+            if (keepsCap(id, held.skillevel, held.masterlevel)) {
+                s.masterCaps.put(id, held.masterlevel);
             }
         }
         return s;
+    }
+
+    /*
+     * t-jb-2 (TEST 2026-10-30, "useAll counted a raise but the master level stayed 0"): a skill book read on a skill
+     * the bot has no level in leaves it at level 0 with a master level. Capture and the stored build kept only skills
+     * with a level, so the settle right after the book (afterBook) rebuilt the skill map without it and the read was
+     * lost. A master level held at level 0 is kept as a cap (and written back by apply, and saved) while books are on.
+     */
+    private static boolean keepsCap(int skillId, int level, int masterLevel) {
+        return BotSkillBooks.enabled() && masterLevel > 0 && (level <= 0 || BotSkillPlan.isBookSkill(skillId));
+    }
+
+    private static boolean masterOnly(SkillEntry held) {
+        return held.skillevel <= 0 && held.masterlevel > 0 && BotSkillBooks.enabled();
     }
 
     private static BotBuild.State fromStored(int job, int level, BotRealStats stored) {
@@ -304,8 +322,10 @@ public final class BotProgression {
         s.remainingAp = stored.remainingAp();
         s.sp = stored.sp()[0];
         stored.skills().forEach((id, held) -> {
-            s.skills.put(id, held.level());
-            if (BotSkillBooks.enabled() && held.masterLevel() > 0 && BotSkillPlan.isBookSkill(id)) {
+            if (held.level() > 0) {
+                s.skills.put(id, held.level());
+            }
+            if (keepsCap(id, held.level(), held.masterLevel())) {
                 s.masterCaps.put(id, held.masterLevel());
             }
         });
@@ -345,6 +365,13 @@ public final class BotProgression {
                     : BotBuild.isFourthJobSkill(id) || BotSkillPlan.isGranted(id)
                     ? Math.max(level, BotBuild.targetLevel(id / 10000, id, catalog)) : 0;
             skills.put(skill, new SkillEntry((byte) level, master, -1));
+        }
+        // t-jb-2: a master level with no level in the skill yet (a book read, an instructor's master 10) stays.
+        for (Map.Entry<Integer, Integer> cap : s.masterCaps.entrySet()) {
+            Skill skill = SkillFactory.getSkill(cap.getKey());
+            if (skill != null && cap.getValue() > 0 && !skills.containsKey(skill)) {
+                skills.put(skill, new SkillEntry((byte) 0, cap.getValue(), -1));
+            }
         }
         int[] sps = bot.getRemainingSps();
         sps[0] = s.sp + refunded;

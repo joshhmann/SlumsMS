@@ -31,6 +31,15 @@ public interface AutoQaWorld {
 
     void sleep(long ms) throws InterruptedException;
 
+    /**
+     * How long the server has been up, for the runner's settle wait before the first check (t-af-1 on TEST 2026-10-30:
+     * a run started 47 s after a restart, while the director logged in 1,153 bots, and the first {@code !qa run} took
+     * 38 s to answer). A world with no boot to wait for (the tests' fakes) says it has been up forever.
+     */
+    default long uptimeMs() {
+        return Long.MAX_VALUE;
+    }
+
     /** A server-side fact for a check (see {@link GameAutoQaWorld#probe}): lines of evidence, first line the verdict. */
     List<String> probe(String what, Actor actor, String... args);
 

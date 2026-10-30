@@ -273,6 +273,11 @@ public final class BotScrolling {
      * A white scroll goes with a long shot as ScrollRules decides it.
      */
     static Plan evPlan(Character bot, Appetite appetite) {
+        return evPlan(bot, appetite, facts);
+    }
+
+    /** {@link #evPlan(Character, Appetite)} on these facts (ScrollEvQa: one scroll's price staged, read-only). */
+    static Plan evPlan(Character bot, Appetite appetite, Facts fx) {
         boolean allowLong = longShotsAllowed();
         boolean whiteOk = holdsWhite(bot)
                 && soloMapling.Economy.EconomyConfig.getBool("scrolling.whiteOnLongShots", false);
@@ -289,17 +294,17 @@ public final class BotScrolling {
                 if (!ScrollRules.allows(appetite, f, target, whiteOk, allowLong)) {
                     continue;
                 }
-                Integer price = facts.scrollPrice(f.scrollId());   // what it would fetch on the market now
-                options.add(new ScrollPlanner.ScrollOption(f.scrollId(), facts.name(f.scrollId()), f.success() / 100.0,
+                Integer price = fx.scrollPrice(f.scrollId());   // what it would fetch on the market now
+                options.add(new ScrollPlanner.ScrollOption(f.scrollId(), fx.name(f.scrollId()), f.success() / 100.0,
                         f.dark() ? f.curse() / 100.0 : 0, f.gainWeight(), price == null ? 0 : price));
                 factsOf.put(f.scrollId(), f);
             }
             if (options.isEmpty()) {
                 continue;
             }
-            java.util.function.DoubleUnaryOperator curve = curveFor(e);
-            ScrollPlanner.EquipCandidate c = new ScrollPlanner.EquipCandidate(e.getItemId(), facts.name(e.getItemId()),
-                    facts.statScore(e), e.getUpgradeSlots(), facts.totalSlots(e), false, !worn, options, curve, curve,
+            java.util.function.DoubleUnaryOperator curve = curveFor(e, fx);
+            ScrollPlanner.EquipCandidate c = new ScrollPlanner.EquipCandidate(e.getItemId(), fx.name(e.getItemId()),
+                    fx.statScore(e), e.getUpgradeSlots(), fx.totalSlots(e), false, !worn, options, curve, curve,
                     0);
             candidates.add(c);
             equipOf.put(c, e);
@@ -318,10 +323,10 @@ public final class BotScrolling {
     private static final Map<String, java.util.function.DoubleUnaryOperator> curves = new ConcurrentHashMap<>();
 
     // The reproduction-cost curve of this equip's kind: every plain scroll the item data has for it at its market price.
-    private static java.util.function.DoubleUnaryOperator curveFor(Equip e) {
-        List<soloMapling.itemPool.ScrollValuer.ScrollSpec> specs = curveSpecs(e);
-        Integer known = facts.marketValue(e.getItemId());
-        StringBuilder key = new StringBuilder().append(e.getItemId()).append(':').append(facts.totalSlots(e))
+    private static java.util.function.DoubleUnaryOperator curveFor(Equip e, Facts fx) {
+        List<soloMapling.itemPool.ScrollValuer.ScrollSpec> specs = curveSpecs(e, fx);
+        Integer known = fx.marketValue(e.getItemId());
+        StringBuilder key = new StringBuilder().append(e.getItemId()).append(':').append(fx.totalSlots(e))
                 .append(':').append(known == null ? -1 : known);
         for (soloMapling.itemPool.ScrollValuer.ScrollSpec sp : specs) {
             key.append(':').append(priceBucket(sp.mesoCost()));
@@ -334,9 +339,9 @@ public final class BotScrolling {
         if (curves.size() > 4096) {
             curves.clear();   // prices moved on, or a very varied world: start over
         }
-        Integer base = known != null ? known : facts.equipValue(e);
+        Integer base = known != null ? known : fx.equipValue(e);
         java.util.function.DoubleUnaryOperator curve = soloMapling.itemPool.ScrollValuer.reproductionValue(0,
-                facts.totalSlots(e), specs, base == null ? 0 : base);
+                fx.totalSlots(e), specs, base == null ? 0 : base);
         if (known != null) {
             curves.put(k, curve);   // an EquipValuation base depends on the piece itself: not shared
         }
@@ -353,13 +358,13 @@ public final class BotScrolling {
         return p / scale * scale;
     }
 
-    private static List<soloMapling.itemPool.ScrollValuer.ScrollSpec> curveSpecs(Equip e) {
+    private static List<soloMapling.itemPool.ScrollValuer.ScrollSpec> curveSpecs(Equip e, Facts fx) {
         List<soloMapling.itemPool.ScrollValuer.ScrollSpec> specs = new ArrayList<>();
-        for (int id : facts.catalogFor(e.getItemId())) {
-            ScrollFacts f = facts.scroll(id);
+        for (int id : fx.catalogFor(e.getItemId())) {
+            ScrollFacts f = fx.scroll(id);
             if (f != null && f.success() > 0 && !f.dark()
-                    && ScrollRules.fits(id, e.getItemId(), Math.max(1, e.getUpgradeSlots()), facts.reqs(id))) {
-                Integer price = facts.scrollPrice(id);
+                    && ScrollRules.fits(id, e.getItemId(), Math.max(1, e.getUpgradeSlots()), fx.reqs(id))) {
+                Integer price = fx.scrollPrice(id);
                 if (price == null || price <= 0) {
                     // 162 runfix: a scroll with no market price (event, quest or unlisted scrolls) cannot be bought to
                     // make the item again. Priced at 0 it made every +stat "free" to reproduce, so the curve stayed
@@ -371,6 +376,34 @@ public final class BotScrolling {
             }
         }
         return specs;
+    }
+
+    /** These facts with one scroll's market price set to {@code price} (ScrollEvQa's staged price; nothing else). */
+    static Facts pricedAt(Facts base, int scrollId, int price) {
+        return new Facts() {
+            @Override public ScrollFacts scroll(int id) { return base.scroll(id); }
+            @Override public List<Integer> reqs(int id) { return base.reqs(id); }
+            @Override public List<Integer> catalogFor(int equipItemId) { return base.catalogFor(equipItemId); }
+            @Override public int totalSlots(Equip equip) { return base.totalSlots(equip); }
+            @Override public boolean cash(int itemId) { return base.cash(itemId); }
+            @Override public String name(int itemId) { return base.name(itemId); }
+            @Override public Integer marketValue(int itemId) { return base.marketValue(itemId); }
+            @Override public Integer scrollPrice(int id) {
+                return id == scrollId ? Integer.valueOf(price) : base.scrollPrice(id);
+            }
+            @Override public Integer equipValue(Equip equip) { return base.equipValue(equip); }
+            @Override public double statScore(Equip equip) { return base.statScore(equip); }
+        };
+    }
+
+    /** What a scroll trades for now (the planner's price), or null when it has none. */
+    static Integer scrollPrice(int scrollId) {
+        return facts.scrollPrice(scrollId);
+    }
+
+    /** The EV planner's pick with one scroll's market price staged (ScrollEvQa, t-gb-5); read-only. */
+    static Plan evPlanPriced(Character bot, Appetite appetite, int scrollId, int price) {
+        return evPlan(bot, appetite, pricedAt(facts, scrollId, price));
     }
 
     // ------------------------------------------------------------------ rolling
