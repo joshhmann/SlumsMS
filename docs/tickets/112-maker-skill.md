@@ -114,3 +114,27 @@ works if the skill works in the client.
 If the owner wants the merge open right away, do **(c)** first (S) and add (b) on top later. Keep **(a)** for a release
 that already ships a client layer (1.7.0 client work) and only if the owner wants the Maker window's crafting economy
 back; it needs his economy go.
+
+## nutnnut adoption (2026-10-30, owner: adopt what we haven't)
+
+Once the Maker skill works: a read-only "maker plan" (which craftable equips would be upgrades, ranked by attack gain;
+upstream BotMakerPlanner) for players and bots (S), and batch "make monster crystals" / "disassemble trash" through
+the real MakerProcessor path (upstream BotMakerManager), which fits ticket 127's batch modes (M; an economy faucet,
+so the owner decides the caps).
+
+## Owner decisions (grill, 2026-10-30): the real Maker comes back in 1.6.2
+
+1. **Route: option (a), the real Maker.** Restore skill 1007 / 10001007 / 20001007 (and Evan's 20011007) in the
+   server's Skill.wz from the stock Cosmic dump on 164 (/opt/cosmicms/wz/Skill.wz), unhide Moren's chain 6029-6036
+   (HiddenQuests), and add the skill nodes to the client's Skill 000/1000/2000(/2001).img in the next client build
+   (Client lane; rides with rc12 or the build after it). The quests teach Maker 1/2/3 at levels 45/75/105.
+2. **Economy: original rules.** Stock recipes and success rates; `USE_MAKER_PERMISSIVE_ATKUP` stays off; monster
+   crystals still only improve (NN-009 / EC-005).
+3. **Bots: plan, with crafting capped.** Bots and alts get the read-only "maker plan" (upstream BotMakerPlanner) and
+   may batch-make monster crystals and disassemble junk (upstream BotMakerManager) through the real MakerProcessor
+   path, with a daily cap per bot (and a world-wide cap) so crafted goods don't flood the market. One implementation
+   for alts and population bots.
+4. **Dalair's merge gate: back to level 160 (110 Cygnus) AND Maker 3** (the owner's 10-26 rule), now that Maker is
+   reachable. Update meetsMergeGate, Dalair's dialogue, DalairMigrationTest, EquipmentMergeCapTest and t-np-4.
+QA: walk 6029-6036 on TEST with a real client (QA client), craft in the Maker window, exercise MakerSkillHandler
+against the real client's packets; an auto-QA check for the quest chain and a bot batch-craft under the cap.
