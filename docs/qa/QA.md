@@ -96,3 +96,15 @@ dialog that refuses a step the check expects to succeed fails it (`Expects.noRef
 `t-vb-4` also drives the catch: it spawns the tamable hog if the hourly spawn is not up, drops it to 30% HP and sends
 the real `USE_CATCH_ITEM` packet with the perfume, so `VB MOUNT hog ... handler=true ... perfumeUsed=1` is the catch. `t-vb-5` stages the coupon by toggling it in the server's active set and always puts the
 toggle back.
+
+## Ticket 163: 1.6.2 bot switches (`bq`, `tm`, `gb`, `su`, `jb`, `nn`)
+
+The 1.6.2 bot audit (`docs/tickets/163-bot-audit-1-6-2.md` section 4) found these switches with no auto-QA proof. Each
+check is one probe (`Probes162`) that spawns fresh throwaway bots next to the pretend player, drives the switch's real
+entry point on them, judges, and despawns them (and undoes any map pin or property it set) itself. A switch that is
+off SKIPs and names its `-D` flag. The probe's first line is the verdict; the evidence lines name the step that went
+wrong. Run them with `tools/ops/autoqa-run bq,tm,gb,su,jb,nn`.
+
+| id | switch | what it does | PASS means |
+|---|---|---|---|
+| `t-bq-1` | `slums.botquests.enabled` | a level-20 training bot gets the best stageable mob quest (at most 40 kills) on a Victoria grind map from the real ranking, takes it by the start NPC with the maps pinned as watched, its own hits kill the quest mobs, it turns the quest in by the end NPC | `take: ... visit=STARTED real status STARTED`, `log hunted=true`, `turn-in: ... visit=COMPLETED real status COMPLETED` |

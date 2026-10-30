@@ -1301,6 +1301,13 @@ public final class AutoQaCatalog {
                 .expect(has("MX2 START kpq with 4 bots"), has("RUN stage 5 cleared in \\d+ s"),
                         has("MX2 PASS cleared kpq in \\d+ s"), lacks("MX2 FAIL "), lacks(" FAILED: "))
                 .build());
+        // ── 1.6.2 bot switches the bot audit found with no auto-QA proof (ticket 163 section 4) ─────────────────
+        // Each is one probe (Probes162) on fresh throwaway bots next to the pretend player, driving the switch's real
+        // entry point; the bots and anything else staged are put back by the probe. SKIP names the switch that is off.
+        // botquests: a watched bot takes a real mob quest by its start NPC, its own kills count, it turns it in
+        c.add(Check.auto("t-bq-1", "A watched bot takes, hunts and turns in one mob quest").minutes(3)
+                .expect(probe("botQuest"))
+                .build());
         return List.copyOf(c);
     }
 
