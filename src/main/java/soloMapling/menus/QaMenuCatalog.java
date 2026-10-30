@@ -204,7 +204,7 @@ public final class QaMenuCatalog {
         add("cs-2", v(), steps());
         add("co-1", v(), steps());
         add("oa-1", v(), steps());
-        add("oa-2", v(), steps()); // 1.6.2 ticket 99: companion orders and sharing
+        add("oa-2", v(), steps("alts", "alts remove")); // 1.6.2 ticket 99: companion orders and sharing
         add("gl-1", v(), steps("drop"));
         add("wd-1", v(), steps());
         section("Ordinary v83 features (ticket 69)");
