@@ -48,7 +48,7 @@ server is a fork of MapleRoot/Cosmic (Java 21, Maven). The owner decides; you bu
 | 187 (this workstation, "openclaw") | where agents run; all git checkouts under `/root/work` | Codex CLI, Maven, node |
 | 164 (`root@192.168.0.164`, LXC "maplestory", 12 cores, 48 GB) | live server, test server, patch site, release staging | shared by live and test: keep test inside its CPU/memory caps |
 | Silvia (`crims@192.168.0.186`, Windows) | builds the client DLL and launcher exe; the owner plays here | see rule 5; Parsec is often running |
-| 192.168.0.17 | local LLM (Qwen `qwen9b`, `:8095/v1`, 2 slots) and GLiNER Decide (`:8900`) | also serves live chat: keep load light |
+| 192.168.0.17 | chat classifiers: GLiNER Decide (`:8900`, what live 1.6.0.4 uses), the trained r7 model (`:8913`) and tone (`:8910`) that the 1.6.2 conf switches live to; also a local LLM (Qwen `qwen9b`, `:8095/v1`, 2 slots) used for tests | live bot replies are written by the DeepSeek 4.1 Flash API, not .17; live's classifier calls go to .17, so keep load light |
 
 ### Servers on 164
 | | Live | Test | Soak |
