@@ -17,8 +17,9 @@ import java.util.TreeSet;
  *   <li>an <b>answerer</b> asks the NPC for a question (the script picks one and keeps it in the event grid), kills the
  *   farm mob until it holds exactly the answer in coupons (extras are dropped), hands them in for a pass and drops
  *   the pass by the leader;</li>
- *   <li>the <b>leader</b> waits by the NPC, picks up the passes dropped for him and hands in one per other member,
- *   which clears the stage.</li>
+ *   <li>the <b>leader</b> picks up the passes dropped for him and hands in one per other member, which clears the
+ *   stage; until then he hunts next to whoever still farms (1.6.2), then waits by the NPC;</li>
+ *   <li>a member whose pass is handed over hunts next to whoever still farms, looting nothing (1.6.2);</li>
  * </ul>
  * Wrong tries (persona): on the way up to the answer the bot hands in at a planned wrong count (the script says "that
  * is not the right answer"), then keeps farming. A real player's steps are never asked for; a real leader gets the
@@ -33,6 +34,13 @@ public final class QuestionCouponsSolver implements StageSolver {
 
     /** How far (px) from the NPC the leader may stand while he waits for passes. */
     static final int LEADER_WAIT_PX = 150;
+
+    /**
+     * How close (px, horizontally) a member who is done hunts next to the one it helps: inside the loot search
+     * ({@code StepExecutor.LOOT_SEARCH_PX}), so the coupons its kills drop are within the farmer's reach.
+     */
+    static final int HELP_RADIUS_PX = 250;
+    static final int HELP_RADIUS_Y = 120;
 
     @Override
     public String id() {
@@ -91,6 +99,12 @@ public final class QuestionCouponsSolver implements StageSolver {
         if (view.floorItems(plan.passId(), id) > 0) {
             return new SolverStep.Loot(plan.passId());
         }
+        // 1.6.2: while passes are still being earned the bot leader hunts next to the slowest farmer, as a player
+        // leader does; the passes are dropped at his feet wherever he is, and he walks to the NPC once he has them
+        SolverStep help = helpStep(view, plan, id);
+        if (!(help instanceof SolverStep.Done)) {
+            return help;
+        }
         var npc = view.npcPosition(plan.npcId());
         if (npc.isPresent()) {
             int[] at = view.positionOf(id);
@@ -113,7 +127,7 @@ public final class QuestionCouponsSolver implements StageSolver {
                 }
                 return new SolverStep.DropFor(plan.passId(), passes, leader.get().characterId());
             }
-            return new SolverStep.Done();
+            return helpStep(view, plan, id);
         }
         if (status < 0) {
             return new SolverStep.TalkNpc(plan.npcId(), 0, 0);
@@ -132,6 +146,60 @@ public final class QuestionCouponsSolver implements StageSolver {
             return new SolverStep.Fight(plan.mobId(), plan.couponId(), target);
         }
         return new SolverStep.TalkNpc(plan.npcId(), plan.couponId(), coupons);
+    }
+
+    /**
+     * 1.6.2 (TEST 2026-10-30, a real leader with three bots: after 5.5 minutes one bot was still hunting alone for
+     * 17 coupons): a member whose pass is handed over keeps killing the farm mob next to whoever still needs
+     * coupons, as players in a party do, and leaves the coupons to him (it loots nothing: {@code itemId} 0). Done
+     * only when nobody farms any more.
+     */
+    static SolverStep helpStep(StageView view, Plan plan, int id) {
+        RunMember farmer = null;
+        int missing = 0;
+        for (RunMember m : view.members()) {
+            int other = m.characterId();
+            if (other == id || !plan.answererRole().equals(view.roleOf(other)) || view.memberStatus(other) <= 0
+                    || view.mapOf(other) != view.stage().mapId()) {
+                continue;
+            }
+            OptionalInt answer = view.answerFor(other);
+            int need = answer.isPresent() ? answer.getAsInt() - view.itemCount(other, plan.couponId()) : 0;
+            if (farmer == null || need > missing) {
+                farmer = m;
+                missing = need;
+            }
+        }
+        if (farmer == null) {
+            return new SolverStep.Done();
+        }
+        int[] at = view.positionOf(id);
+        int[] by = view.positionOf(farmer.characterId());
+        if (Math.abs(at[0] - by[0]) > HELP_RADIUS_PX || Math.abs(at[1] - by[1]) > HELP_RADIUS_Y) {
+            return new SolverStep.MoveTo(by[0], by[1], "help " + farmer.characterId() + " with coupons");
+        }
+        return new SolverStep.Fight(plan.mobId(), 0, 0);
+    }
+
+    /**
+     * Whether a farming bot may pick up a coupon a monster dropped. The game lets party members share each other's
+     * drops at once ({@code MapItem.canBePickedBy}); the bots take their own kills, a fellow bot's, and a real
+     * member's only when he is not farming coupons himself (the leader, or one whose pass is handed in), so they
+     * never vacuum a player's count. Anyone's once the drop's ownership window ran out.
+     */
+    static boolean mayTakeMobCoupon(StageView view, int botId, int ownerId, boolean ownershipOver) {
+        if (ownerId == botId || ownerId <= 0 || ownershipOver) {
+            return true;
+        }
+        for (RunMember m : view.members()) {
+            if (m.characterId() == ownerId) {
+                if (m.bot()) {
+                    return true;
+                }
+                return m.leader() || view.memberStatus(ownerId) == 0;
+            }
+        }
+        return false;
     }
 
     @Override

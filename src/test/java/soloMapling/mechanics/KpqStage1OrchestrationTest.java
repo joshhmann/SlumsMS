@@ -170,8 +170,9 @@ class KpqStage1OrchestrationTest {
                 }
                 case SolverStep.Fight f -> {
                     assertEquals(LIGATOR, f.mobId());
-                    assertEquals(COUPON, f.itemId());
-                    if (rnd.nextInt(3) == 0) { // a Ligator dies and drops a coupon every few beats
+                    assertTrue(f.itemId() == COUPON || f.itemId() == 0 && f.untilItemCount() == 0,
+                            "farms coupons, or helps (1.6.2) without looting");
+                    if (f.itemId() == COUPON && rnd.nextInt(3) == 0) { // a Ligator dies and drops a coupon every few beats
                         add(id, COUPON, 1);
                     }
                 }
@@ -370,7 +371,9 @@ class KpqStage1OrchestrationTest {
         assertEquals(3, ((SolverStep.DropFor) s).count());
         assertEquals(0, ((SolverStep.DropFor) s).toCharacterId(), "extras go on the floor");
         assertInstanceOf(SolverStep.TalkNpc.class, steps.get(3), "no question yet: ask Cloto");
-        assertInstanceOf(SolverStep.Wait.class, steps.get(1), "the leader waits for passes");
+        // 1.6.2: while 2 still farms, the bot leader hunts next to him instead of standing by Cloto
+        assertTrue(steps.get(1) instanceof SolverStep.Fight || steps.get(1) instanceof SolverStep.MoveTo,
+                "the leader helps while passes are earned: " + steps.get(1));
     }
 
     @Test

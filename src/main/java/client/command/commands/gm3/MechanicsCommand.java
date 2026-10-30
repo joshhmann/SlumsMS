@@ -24,7 +24,11 @@ import static soloMapling.BotLogger.log;
  *                                         to Cloto yourself). "perfect": no wrong tries. "stageN": stop after stage N.
  *                                         The bots leave 20 s after the run ends.
  *   !mechanics status                     the runs going on
- *   !mechanics stop                       end every run now (bots released, staged bots despawned)
+ *   !mechanics stop                       end every run now (bots released, staged bots despawned); a run that
+ *                                         staging started ends its KPQ instance with it (everyone out)
+ *   !mechanics dispose kpq [channel]      end a stuck Kerning PQ instance on this (or that) channel: its run stopped,
+ *                                         everyone sent out, the instance disposed. Refused for an instance with a
+ *                                         real non-GM player inside. Logged as [Mechanics] (and the GM audit line)
  */
 public class MechanicsCommand extends Command {
     {
@@ -38,7 +42,24 @@ public class MechanicsCommand extends Command {
         }
     }
 
-    static final String USAGE = "Syntax: !mechanics kpq [me] [bots 2-4] [perfect] [stage1-5] | status | stop";
+    static final String USAGE = "Syntax: !mechanics kpq [me] [bots 2-4] [perfect] [stage1-5] | status | stop"
+            + " | dispose kpq [channel]";
+
+    /** Parses {@code dispose kpq [channel]}: the channel to look on ({@code here} when none is given), or -1. */
+    public static int parseDispose(String[] params, int here) {
+        if (params.length < 2 || params.length > 3 || !"kpq".equalsIgnoreCase(params[1])) {
+            return -1;
+        }
+        if (params.length == 2) {
+            return here;
+        }
+        try {
+            int ch = Integer.parseInt(params[2]);
+            return ch >= 1 ? ch : -1;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
 
     /** Parses the words after {@code kpq}; null when they make no sense. */
     public static KpqRequest parseKpq(String[] params, int from) {
@@ -112,6 +133,20 @@ public class MechanicsCommand extends Command {
                 int n = MechanicsRuns.get().active().size();
                 MechanicsRuns.get().stopAll("stopped by " + gm.getName());
                 gm.yellowMessage("Stopped " + n + " run(s).");
+            }
+            case "dispose" -> {
+                int ch = parseDispose(params, c.getChannel());
+                if (ch < 0) {
+                    gm.yellowMessage("Syntax: !mechanics dispose kpq [channel]");
+                    return;
+                }
+                soloMapling.mechanics.MechanicsModel.Content kpq = MechanicsRuns.contentFor(KpqStaging.EVENT);
+                net.server.channel.Channel channel = gm.getWorldServer().getChannel(ch);
+                if (kpq == null || channel == null) {
+                    gm.yellowMessage(kpq == null ? "kpq stage data did not load" : "no channel " + ch);
+                    return;
+                }
+                MechanicsRuns.get().disposeStuck(kpq, channel, gm.getName()).forEach(gm::yellowMessage);
             }
             default -> gm.yellowMessage(USAGE);
         }

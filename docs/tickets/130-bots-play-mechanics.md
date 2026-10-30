@@ -299,6 +299,19 @@ such runs at a time world-wide. Unit-tested (the pick); not run on TEST.
 
 Not done: OPQ on the orchestrator, other PQs, bosses, PQ tiers.
 
+## 1.6.2 fixes from the first real-client run (branch `162-kpqfix`, TEST ch 2, 2026-10-30 14:09-14:15 UTC)
+
+GM AqClient led three bots (`!mechanics kpq me 3`); evidence in TEST's `BotLog.txt` (`[Mechanics]`) and the journal.
+
+| Finding | Cause | Fix |
+|---|---|---|
+| After `!mechanics stop` and a warp out, Lakelis refused the next party ("the current party to finish"); status said no runs | (1) stopping a run never touched its instance; the staged bots left the party 20 s later. (2) That party-leave ran KerningPQ.js `end()`, which exits each member before `eim.dispose()`; `unregisterPlayer` took the coupons/passes back through the bot's client, and the shared headless bot client has no player: NPE, `end()` stopped half way, instance alive until its timer, whose `end()` threw the same way (also 14:02 on the lobby run) | `EventInstanceManager.takeExclusiveItems`: a bot's event items go through `BotHoldings.takeAll`; a failure is logged and never stops the exit. `MechanicsRuns`: a run staging or the lobby started (`ownsInstance`) that ends short of the clear (stop, leader gone, too few, exception, budget) ends its instance (script `end`, fallback: unregister, warp to `exitMap`, dispose); any run's instance with nobody but bots left ends too; a player's own PQ is never ended under him. New `!mechanics dispose kpq [channel]` (GM 3, behind the flag, logged): ends stuck KPQ instances with no real non-GM player inside |
+| Stage 1 slow with a real leader: two passes after 3 min, the third bot alone on 17 coupons at 5.5 min | each bot only picked up coupons its own kills dropped (`LiveStageView.floorDrops` skipped a fellow bot's party drop even after the ownership window) and a bot whose pass was in stopped fighting. Kill pace on TEST: about 5 coupons a minute per bot. Also the tester waited by the spawn, far left; Cloto is far right | party loot rule (`QuestionCouponsSolver.mayTakeMobCoupon`): own kill, a fellow bot's, a real member's only when he is not farming (leader or pass in), anyone's after 15 s; done members and a bot leader hunt next to whoever misses the most coupons (loot nothing); the first pass dropped for a real leader comes with "<name> dropped my pass by u, take them to Cloto on the right" |
+
+Simulation (`KpqFullRunTest`, Ligator model at TEST's pace): real leader + 3 bots, 40 seeds: mean 375 s / worst 572 s before,
+262 s / 450 s after with the leader standing still, 196 s / 338 s when the leader hunts too. About 66 coupons at three
+hunters' pace is the floor; more needs more damage (not changed).
+
 ## Phased plan
 
 | Phase | What | Size |

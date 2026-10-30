@@ -184,7 +184,8 @@ public final class KpqStaging {
             return new Staged(null, List.of(), "the PQ started but the leader is not in it");
         }
         List<Integer> ours = List.copyOf(spawned);
-        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, perfect, budgetMs, lastStage, reporter, done -> {
+        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, perfect, budgetMs, lastStage, true,
+                reporter, done -> {
             ExecutorServiceManager.getScheduledExecutorService().schedule(() -> {
                 cleanup(ours);
                 if (afterCleanup != null) {

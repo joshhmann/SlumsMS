@@ -48,16 +48,19 @@ public final class MechanicsRuns {
         final List<Integer> pausedBrains = new ArrayList<>();
         final Consumer<String> reporter;
         final Consumer<Active> onEnd;
+        /** The run's own staging or lobby started this instance: a run that ends short of the clear ends it too. */
+        final boolean ownsInstance;
         volatile ScheduledFuture<?> tick;
         volatile boolean finished;
 
         Active(RunState run, EventInstanceManager eim, Map<Integer, Character> bots, Consumer<String> reporter,
-               Consumer<Active> onEnd) {
+               Consumer<Active> onEnd, boolean ownsInstance) {
             this.run = run;
             this.eim = eim;
             this.bots = bots;
             this.reporter = reporter;
             this.onEnd = onEnd;
+            this.ownsInstance = ownsInstance;
         }
 
         public RunState run() {
@@ -96,6 +99,16 @@ public final class MechanicsRuns {
     /** As above, playing stages up to {@code lastStage} only (0 = all of them, then the prize and the bonus). */
     public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int lastStage,
                         Consumer<String> reporter, Consumer<Active> onEnd) {
+        return start(eim, content, perfect, budgetMs, lastStage, false, reporter, onEnd);
+    }
+
+    /**
+     * As above. {@code ownsInstance}: staging or the bot lobby started this instance for the run (a GM's
+     * {@code !mechanics kpq}, a bot leader at Lakelis), so a run that ends short of the clear, or cannot start,
+     * ends the instance with it (everyone out, disposed); never left for its 30-minute timer.
+     */
+    public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int lastStage,
+                        boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd) {
         List<RunMember> members = new ArrayList<>();
         Map<Integer, Character> bots = new ConcurrentHashMap<>();
         for (Character c : eim.getPlayers()) {
@@ -110,10 +123,11 @@ public final class MechanicsRuns {
         Orchestrator o = budgetMs > 0 || lastStage > 0
                 ? new Orchestrator(Orchestrator.allSolvers(), new Random(), budgetMs, lastStage) : orchestrator;
         RunState run = o.start(content, Tier.NORMAL, members);
-        Active a = new Active(run, eim, bots, reporter == null ? line -> { } : reporter, onEnd);
+        Active a = new Active(run, eim, bots, reporter == null ? line -> { } : reporter, onEnd, ownsInstance);
         if (run.ended()) {
             a.finished = true;
             a.reporter.accept("RUN not started: " + run.endedBecause());
+            closeInstance(a);
             return a;
         }
         if (active.putIfAbsent(eim.getName(), a) != null) {
@@ -227,7 +241,7 @@ public final class MechanicsRuns {
     private static volatile List<Content> contentCache;
 
     /** The stage data for an event script name ("KerningPQ"), or null. Loaded once. */
-    static Content contentFor(String eventScript) {
+    public static Content contentFor(String eventScript) {
         if (eventScript == null) {
             return null;
         }
@@ -286,6 +300,11 @@ public final class MechanicsRuns {
                 BotTypeManager.manuallyStartBot(bot);
             }
         }
+        try {
+            closeInstance(a);
+        } catch (RuntimeException e) {
+            log("[Mechanics] could not end " + a.eim.getName() + ": " + e);
+        }
         RunState r = a.run;
         a.reporter.accept("RUN end " + r.content().id() + " in " + a.eim.getName() + ": " + r.endedBecause()
                 + (r.cleared() ? " after " + r.clearedAfterMs() / 1000 + " s, " + r.wrongShownTotal()
@@ -297,6 +316,99 @@ public final class MechanicsRuns {
                 log("[Mechanics] cleanup after " + a.eim.getName() + " threw: " + e);
             }
         }
+    }
+
+    /**
+     * Whether a run that just ended takes its event instance down with it (1.6.2, TEST 2026-10-30: a stopped run
+     * left its KPQ alive for 30 minutes and Lakelis refused the next party). Never while a real player plays on in
+     * an instance he started himself; otherwise an instance the run started that did not clear, or one with nobody
+     * but bots left in it, ends now.
+     */
+    static boolean shouldEndInstance(boolean ownsInstance, boolean cleared, boolean disposed, boolean realPlayerInside) {
+        if (disposed) {
+            return false;
+        }
+        return !realPlayerInside || ownsInstance && !cleared;
+    }
+
+    /** Ends the run's instance when {@link #shouldEndInstance} says so; reports what it did. */
+    private void closeInstance(Active a) {
+        EventInstanceManager eim = a.eim;
+        boolean realInside = eim.getPlayers().stream().anyMatch(c -> !drivable(c));
+        if (!shouldEndInstance(a.ownsInstance, a.run.cleared(), eim.isEventDisposed(), realInside)) {
+            return;
+        }
+        int out = endInstance(eim, a.run.content().exitMap());
+        a.reporter.accept("RUN instance " + eim.getName() + " ended with the run: " + out + " member(s) sent out");
+    }
+
+    /**
+     * Ends an event instance the way its script does ({@code end}: every member exits to the exit map, then
+     * {@code eim.dispose()}); if the script fails or leaves it alive, exits whoever is left and disposes it here.
+     *
+     * @return how many members were inside
+     */
+    public static int endInstance(EventInstanceManager eim, int exitMap) {
+        if (eim == null || eim.isEventDisposed()) {
+            return 0;
+        }
+        List<Character> inside = eim.getPlayers();
+        try {
+            eim.invokeScriptFunction("end", eim);
+        } catch (Exception e) {
+            log("[Mechanics] " + eim.getName() + "'s script end failed: " + e);
+        }
+        if (!eim.isEventDisposed()) {
+            for (Character c : eim.getPlayers()) {
+                try {
+                    eim.unregisterPlayer(c);
+                    if (exitMap > 0) {
+                        c.changeMap(exitMap);
+                    }
+                } catch (RuntimeException e) {
+                    log("[Mechanics] could not send " + c.getName() + " out of " + eim.getName() + ": " + e);
+                }
+            }
+            eim.dispose();
+        }
+        return inside.size();
+    }
+
+    /**
+     * {@code !mechanics dispose kpq [channel]}: ends a stuck instance of this content's event on a channel (its run
+     * stopped, everyone sent out) when no real non-GM player is inside. One line per instance looked at.
+     */
+    public List<String> disposeStuck(Content content, net.server.channel.Channel ch, String byGm) {
+        List<String> out = new ArrayList<>();
+        scripting.event.EventManager em = ch == null ? null : ch.getEventSM().getEventManager(content.eventScript());
+        if (em == null) {
+            out.add("no " + content.eventScript() + " event on that channel");
+            return out;
+        }
+        for (EventInstanceManager eim : em.getInstances()) {
+            if (eim.isEventDisposed()) {
+                continue;
+            }
+            List<Character> inside = eim.getPlayers();
+            List<String> players = inside.stream().filter(c -> !drivable(c) && !c.isGM()).map(Character::getName)
+                    .toList();
+            if (!players.isEmpty()) {
+                out.add(eim.getName() + ": not disposed, player(s) inside: " + String.join(", ", players));
+                continue;
+            }
+            Active a = runFor(eim);
+            if (a != null) {
+                stop(a, "disposed by " + byGm);
+            }
+            int n = eim.isEventDisposed() ? inside.size() : endInstance(eim, content.exitMap());
+            String line = eim.getName() + " on channel " + ch.getId() + ": disposed, " + n + " member(s) sent out";
+            log("[Mechanics] " + byGm + " disposed " + line);
+            out.add(line);
+        }
+        if (out.isEmpty()) {
+            out.add("no " + content.eventScript() + " instance on channel " + ch.getId());
+        }
+        return out;
     }
 
     public List<Active> active() {

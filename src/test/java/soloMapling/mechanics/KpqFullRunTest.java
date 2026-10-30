@@ -58,6 +58,18 @@ class KpqFullRunTest {
         final Map<Integer, Integer> playerWait = new HashMap<>();
         final Map<Integer, Integer> bonusWait = new HashMap<>();
         final List<Integer> stage5PassesFor = new ArrayList<>();
+        /**
+         * Stage 1 as TEST showed it (2026-10-30, level 30-35 bots on Ligators: about 5 coupons a minute each): a
+         * swing kills a Ligator now and then, the kill drops a coupon owned by the killer, and a bot only gets
+         * coupons by picking up drops (the party loot rule decides whose). Off: the old quick model (a swing has a
+         * 1 in 3 chance of putting a coupon straight in the bag).
+         */
+        boolean ligators;
+        int killOneIn = 24;     // ticks of 250 ms per kill: one Ligator every 6 s per member
+        int couponOneIn = 2;    // a kill drops a coupon half the time
+        boolean leaderHunts;    // a real leader hunts Ligators while he waits for passes, as players do
+        final Map<Integer, Integer> kills = new HashMap<>();
+        final List<String> lootedFromPlayer = new ArrayList<>();
 
         World(RunState run, long seed) {
             this.run = run;
@@ -276,7 +288,9 @@ class KpqFullRunTest {
                 case SolverStep.MoveTo m -> pos.put(id, new int[]{m.x(), m.y()});
                 case SolverStep.Fight f -> {
                     int stage = stageOf(id);
-                    if (stage == 1 && rnd.nextInt(3) == 0) {
+                    if (stage == 1 && ligators) {
+                        ligatorFight(id, f);
+                    } else if (stage == 1 && rnd.nextInt(3) == 0) {
                         add(id, COUPON, 1);
                     } else if (stage == 5) {
                         pickMobPass(id, f);
@@ -321,6 +335,39 @@ class KpqFullRunTest {
             }
         }
 
+        /**
+         * The live executor on stage 1: while short of its count it first picks up a coupon a monster dropped that
+         * the loot rule lets it take, else it swings; a swing sometimes kills, and a kill sometimes drops a coupon
+         * owned by the killer. Floor coupons are {COUPON, owner, 1, dropped at ms}.
+         */
+        void ligatorFight(int id, SolverStep.Fight f) {
+            if (f.itemId() > 0 && itemCount(id, f.itemId()) < f.untilItemCount()) {
+                for (int i = 0; i < floor.size(); i++) {
+                    int[] it = floor.get(i);
+                    if (it[0] == COUPON && it[2] == 1 && QuestionCouponsSolver.mayTakeMobCoupon(this, id, it[1],
+                            now - it[3] >= 15_000)) {
+                        floor.remove(i);
+                        add(id, COUPON, 1);
+                        RunMember owner = run.member(it[1]);
+                        if (owner != null && !owner.bot() && now - it[3] < 15_000) {
+                            lootedFromPlayer.add(id + " took " + it[1] + "'s coupon");
+                        }
+                        return;
+                    }
+                }
+            }
+            killLigator(id);
+        }
+
+        void killLigator(int id) {
+            if (rnd.nextInt(killOneIn) == 0) {
+                kills.merge(id, 1, Integer::sum);
+                if (rnd.nextInt(couponOneIn) == 0) {
+                    floor.add(new int[]{COUPON, id, 1, (int) now});
+                }
+            }
+        }
+
         /** The live executor loots the passes monsters dropped before it swings (never a member's hand-over). */
         void pickMobPass(int id, SolverStep.Fight f) {
             if (f.itemId() <= 0 || itemCount(id, f.itemId()) >= f.untilItemCount()) {
@@ -355,6 +402,8 @@ class KpqFullRunTest {
                     loot(id, PASS);
                     if (itemCount(id, PASS) >= members().size() - 1) {
                         cloto(id, false);
+                    } else if (ligators && leaderHunts) {
+                        killLigator(id);
                     }
                     return;
                 }
@@ -363,7 +412,11 @@ class KpqFullRunTest {
                     cloto(id, false);
                 } else if (data > 0) {
                     if (itemCount(id, COUPON) < kpq().stage(1).orElseThrow().answer(data).orElseThrow()) {
-                        add(id, COUPON, 1);
+                        if (ligators) {
+                            playerFarms(id);
+                        } else {
+                            add(id, COUPON, 1);
+                        }
                     } else {
                         cloto(id, false);
                     }
@@ -411,6 +464,19 @@ class KpqFullRunTest {
                     cloto(id, false);
                 }
             }
+        }
+
+        /** A real answerer on stage 1: picks up his own coupons, else swings like a bot does. */
+        void playerFarms(int id) {
+            for (int i = 0; i < floor.size(); i++) {
+                int[] it = floor.get(i);
+                if (it[0] == COUPON && it[2] == 1 && (it[1] == id || now - it[3] >= 15_000)) {
+                    floor.remove(i);
+                    add(id, COUPON, 1);
+                    return;
+                }
+            }
+            killLigator(id);
         }
 
         void loot(int id, int itemId) {
@@ -618,5 +684,181 @@ class KpqFullRunTest {
         for (int id = 1; id <= 3; id++) {
             assertEquals(new SolverStep.EnterPortal("next00"), steps.get(id));
         }
+    }
+
+    // ---- stage 1 pace with a real leader (TEST 2026-10-30 14:09-14:15 UTC) ----
+
+    /** Plays stage 1 only on the Ligator model; returns the world (the run has ended). */
+    static World stage1(long seed, List<RunMember> party) {
+        return stage1(seed, party, false);
+    }
+
+    static World stage1(long seed, List<RunMember> party, boolean leaderHunts) {
+        Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(seed), 30 * 60_000L, 1);
+        RunState run = o.start(kpq(), Tier.NORMAL, party);
+        World w = new World(run, seed);
+        w.ligators = true;
+        w.leaderHunts = leaderHunts;
+        play(o, run, w, MAX_TICKS, null);
+        assertEquals("cleared", run.endedBecause(), "seed " + seed + ": " + run.events());
+        return w;
+    }
+
+    static List<RunMember> gmAndThreeBots() {
+        return List.of(RunMember.player(100, true), bot(21, false, MechanicsPersona.forCharacter(21)),
+                bot(22, false, MechanicsPersona.forCharacter(22)), bot(23, false, MechanicsPersona.forCharacter(23)));
+    }
+
+    /** Mean and worst stage 1 clear (s) over {@code seeds} runs of a real leader with three bots. */
+    static long[] gmPace(int seeds, boolean leaderHunts) {
+        long total = 0;
+        long worst = 0;
+        for (long seed = 1; seed <= seeds; seed++) {
+            long secs = stage1(seed, gmAndThreeBots(), leaderHunts).run.clearedAfterMs() / 1000;
+            total += secs;
+            worst = Math.max(worst, secs);
+        }
+        return new long[]{total / seeds, worst};
+    }
+
+    /**
+     * On TEST a GM leader with three bots had two passes after 3 minutes and the third bot still hunting alone for
+     * its last 17 coupons after 5.5: each bot only ever picked up its own kills' coupons and a bot whose pass was
+     * handed over stopped fighting. A party of players shares drops and helps the slowest; so must the bots.
+     * On this model (each member about 5 coupons a minute, as on TEST) the old behaviour cleared in 375 s on
+     * average, worst 572 s. Three hunters need about 66 coupons, so about 4.4 minutes is the floor while the leader
+     * stands still; a leader who hunts too (his kills are the party's) brings it down further.
+     */
+    @Test
+    void aRealLeaderWithThreeBotsClearsStageOneInAFewMinutes() {
+        long[] idle = gmPace(40, false);
+        assertTrue(idle[0] <= 300, "mean stage 1 clear " + idle[0] + " s (worst " + idle[1] + " s)");
+        assertTrue(idle[1] <= 480, "worst stage 1 clear " + idle[1] + " s (mean " + idle[0] + " s)");
+        long[] hunting = gmPace(40, true);
+        assertTrue(hunting[0] <= 240, "leader hunting too: mean " + hunting[0] + " s (worst " + hunting[1] + " s)");
+    }
+
+    @Test
+    void aBotWhosePassIsHandedOverHuntsNextToTheSlowestAndLootsNothing() {
+        World w = stage1(7, gmAndThreeBots());
+        assertTrue(w.run.cleared());
+        // every coupon a bot holds came off the floor; helpers looted nothing (itemId 0), so nobody holds extras
+        for (int id = 21; id <= 23; id++) {
+            assertEquals(0, w.itemCount(id, COUPON), "bot " + id + " handed in exactly its count");
+        }
+        Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(1), 0, 1);
+        RunState run = o.start(kpq(), Tier.NORMAL, gmAndThreeBots());
+        World v = new World(run, 1);
+        o.tick(run, v, 1_000);
+        v.grid.put(21, 0);     // 21's pass is in
+        v.grid.put(22, 2);     // 22 farms 35, holds 5
+        v.grid.put(23, 7);     // 23 farms 8, holds 7
+        v.add(22, COUPON, 5);
+        v.add(23, COUPON, 7);
+        v.pos.put(21, new int[]{-900, 80});
+        v.pos.put(22, new int[]{400, 80});
+        SolverStep far = o.tick(run, v, 1_250).get(21);
+        assertEquals(new SolverStep.MoveTo(400, 80, "help 22 with coupons"), far, "goes to the one missing most");
+        v.pos.put(21, new int[]{300, 80});
+        assertEquals(new SolverStep.Fight(9300001, 0, 0), o.tick(run, v, 1_500).get(21), "fights there, loots nothing");
+        v.grid.put(22, 0);
+        v.grid.put(23, 0);
+        assertEquals(new SolverStep.Done(), o.tick(run, v, 1_750).get(21), "nobody farms: done");
+    }
+
+    @Test
+    void botsShareEachOthersCouponsButNeverTakeAFarmingPlayersOwn() {
+        Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(2), 0, 1);
+        RunState run = o.start(kpq(), Tier.NORMAL, List.of(bot(31, true, MechanicsPersona.PERFECT),
+                RunMember.player(200, false), bot(32, false, MechanicsPersona.PERFECT),
+                bot(33, false, MechanicsPersona.PERFECT)));
+        World v = new World(run, 2);
+        v.grid.put(200, 3);
+        v.grid.put(32, 3);
+        assertTrue(QuestionCouponsSolver.mayTakeMobCoupon(v, 32, 32, false), "its own kill");
+        assertTrue(QuestionCouponsSolver.mayTakeMobCoupon(v, 32, 33, false), "a fellow bot's kill");
+        assertTrue(QuestionCouponsSolver.mayTakeMobCoupon(v, 32, 31, false), "the bot leader's kill");
+        assertFalse(QuestionCouponsSolver.mayTakeMobCoupon(v, 32, 200, false), "a farming player's kill");
+        assertTrue(QuestionCouponsSolver.mayTakeMobCoupon(v, 32, 200, true), "anyone's once the window ran out");
+        assertFalse(QuestionCouponsSolver.mayTakeMobCoupon(v, 32, 999, false), "a stranger's kill");
+        v.grid.put(200, 0);
+        assertTrue(QuestionCouponsSolver.mayTakeMobCoupon(v, 32, 200, false), "a player whose pass is in");
+
+        for (long seed = 1; seed <= 20; seed++) {
+            World w = stage1(seed, List.of(bot(31, true, MechanicsPersona.forCharacter(31)),
+                    RunMember.player(200, false), bot(32, false, MechanicsPersona.forCharacter(32)),
+                    bot(33, false, MechanicsPersona.forCharacter(33))));
+            assertTrue(w.lootedFromPlayer.isEmpty(), "seed " + seed + ": " + w.lootedFromPlayer);
+        }
+    }
+
+    @Test
+    void fourBotsAloneAlsoClearStageOneInAFewMinutes() {
+        long worst = 0;
+        for (long seed = 1; seed <= 30; seed++) {
+            World w = stage1(seed, List.of(bot(11, true, MechanicsPersona.forCharacter(11)),
+                    bot(12, false, MechanicsPersona.forCharacter(12)), bot(13, false, MechanicsPersona.forCharacter(13)),
+                    bot(14, false, MechanicsPersona.forCharacter(14))));
+            worst = Math.max(worst, w.run.clearedAfterMs() / 1000);
+        }
+        assertTrue(worst <= 6 * 60, "worst " + worst + " s");
+    }
+
+    @Test
+    void passLineTellsARealLeaderWhereClotoIs() {
+        assertEquals("AqClient dropped my pass by u, take them to Cloto on the right",
+                StepExecutor.passLine("AqClient", 592, -1077));
+        assertEquals("AqClient dropped my pass by u, take them to Cloto", StepExecutor.passLine("AqClient", 592, 500));
+        assertEquals("AqClient dropped my pass by u, take them to Cloto", StepExecutor.passLine("AqClient", null, 0));
+    }
+
+    // ---- stop / dispose (TEST 2026-10-30 14:15 UTC: a stopped run left its KPQ alive, Lakelis refused the next) ----
+
+    /** What MechanicsRuns.finish decides for the simulated instance once the run has ended. */
+    static boolean endsInstance(RunState run, World w, boolean owns) {
+        boolean realInside = w.members().stream().anyMatch(m -> !m.bot());
+        return MechanicsRuns.shouldEndInstance(owns, run.cleared(), false, realInside);
+    }
+
+    @Test
+    void aStoppedStagedRunEndsItsInstanceEvenWithTheGmInside() {
+        Orchestrator o = orchestrator(11);
+        RunState run = o.start(kpq(), Tier.NORMAL, gmAndThreeBots());
+        World w = new World(run, 11);
+        w.ligators = true;
+        play(o, run, w, 4 * 60, null); // a minute into stage 1
+        assertFalse(run.ended());
+        o.abort(run, "stopped by AqClient");
+        assertTrue(endsInstance(run, w, true), "staging started it: the stop ends it, the GM goes out with the bots");
+    }
+
+    @Test
+    void theLeaderWarpingOutAbortsTheRunAndEndsAStagedInstance() {
+        Orchestrator o = orchestrator(12);
+        RunState run = o.start(kpq(), Tier.NORMAL, gmAndThreeBots());
+        World w = new World(run, 12);
+        w.ligators = true;
+        play(o, run, w, 4 * 30, null);
+        w.mapOf.put(100, 103000000); // the GM's !warp 103000000: the event script unregisters him (3 bots left)
+        play(o, run, w, 8, null);
+        assertTrue(run.ended());
+        assertTrue(run.endedBecause().startsWith("the leader left"), run.endedBecause());
+        assertTrue(endsInstance(run, w, true), "three bots alone in a staged KPQ: ended, not left for 30 minutes");
+    }
+
+    @Test
+    void aPlayersOwnPqIsNeverEndedUnderHimButAnEmptyOneIs() {
+        Orchestrator o = orchestrator(13);
+        RunState run = o.start(kpq(), Tier.NORMAL, gmAndThreeBots());
+        World w = new World(run, 13);
+        o.abort(run, "exception: test");
+        assertFalse(endsInstance(run, w, false), "he started it at Lakelis and is still in it");
+        for (int id : List.of(100, 21, 22, 23)) {
+            w.mapOf.put(id, EXIT);
+        }
+        assertTrue(endsInstance(run, w, false), "nobody left inside: no orphan");
+        assertFalse(MechanicsRuns.shouldEndInstance(true, true, false, true), "cleared with the GM in the bonus: his");
+        assertFalse(MechanicsRuns.shouldEndInstance(true, false, true, false), "already disposed");
+        assertTrue(MechanicsRuns.shouldEndInstance(false, true, false, false), "cleared and only bots or nobody left");
     }
 }

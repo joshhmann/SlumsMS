@@ -49,6 +49,7 @@ final class StepExecutor {
         long lastDropMs;
         long lastPortalMs;
         long lastSayMs;
+        boolean toldLeader;
         Point moveTarget;
         long moveIssuedMs;
     }
@@ -88,7 +89,7 @@ final class StepExecutor {
         }
         Point at = bot.getPosition();
         if (f.itemId() > 0 && bot.getItemQuantity(f.itemId(), false) < f.untilItemCount()) {
-            MapItem drop = nearestMobDrop(map, bot, f.itemId(), at);
+            MapItem drop = nearestMobDrop(view, map, bot, f.itemId(), at);
             if (drop != null) {
                 pickUp(bot, beat, drop, now);
                 return;
@@ -123,12 +124,22 @@ final class StepExecutor {
         BotAttackDriver.botAttack(bot);
     }
 
-    /** The nearest drop of {@code itemId} that a monster left and this bot may take (never a member's handover). */
-    private static MapItem nearestMobDrop(MapleMap map, Character bot, int itemId, Point at) {
+    /**
+     * The nearest drop of {@code itemId} that a monster left and this bot may take (never a member's handover):
+     * its own kill, a party member's by the party loot rule ({@link QuestionCouponsSolver#mayTakeMobCoupon}), or
+     * anyone's once the ownership window ran out. 1.6.2: was only its own or a free-for-all drop (the scan skipped
+     * every coupon a fellow bot's kill dropped), so each bot farmed only its own kills.
+     */
+    private static MapItem nearestMobDrop(StageView view, MapleMap map, Character bot, int itemId, Point at) {
         MapItem best = null;
         double bestSq = (double) LOOT_SEARCH_PX * LOOT_SEARCH_PX;
-        for (MapItem mi : LiveStageView.floorDrops(map, itemId, bot.getId())) {
-            if (!(mi.getDropper() instanceof Monster) || !DropCommands.botCanLoot(bot, mi)
+        for (server.maps.MapObject o : map.getMapObjectsInRange(at, bestSq,
+                List.of(server.maps.MapObjectType.ITEM))) {
+            if (!(o instanceof MapItem mi) || mi.getMeso() != 0 || mi.getItemId() != itemId
+                    || !(mi.getDropper() instanceof Monster)
+                    || !soloMapling.ArtificialPlayer.BotGrindSystem.LootPicker.onTheFloor(mi)
+                    || !(mi.getDropType() == 2 || QuestionCouponsSolver.mayTakeMobCoupon(view, bot.getId(),
+                    mi.getOwnerId(), mi.hasExpiredOwnershipTime()))
                     || !BotHoldings.canCreditDrop(bot, mi)) {
                 continue;
             }
@@ -233,6 +244,20 @@ final class StepExecutor {
         int paid = BotHoldings.payOut(bot, d.itemId(), d.count(), to == null ? bot : to, bot.getPosition());
         log.accept("DROP " + bot.getName() + " drops " + paid + " x " + d.itemId()
                 + (to == null ? " (extras)" : " for " + to.getName()));
+        if (paid > 0 && to != null && !MechanicsRuns.drivable(to) && !beat.toldLeader) {
+            // a real leader may be anywhere on the map: say where the NPC who takes the passes stands (TEST 10-30:
+            // the tester waited by the spawn on the far left, Cloto is on the far right)
+            beat.toldLeader = true;
+            int[] npc = npcOn(bot, view.stage().npcId());
+            beat.lastSayMs = now;
+            SocialCommands.BotSpeak(bot, passLine(to.getName(), npc == null ? null : npc[0], to.getPosition().x));
+        }
+    }
+
+    /** What a bot says once to a real leader when it drops its pass at his feet. */
+    static String passLine(String leader, Integer npcX, int leaderX) {
+        String where = npcX == null || Math.abs(npcX - leaderX) < 300 ? "" : npcX > leaderX ? " on the right" : " on the left";
+        return leader + " dropped my pass by u, take them to Cloto" + where;
     }
 
     /** Where an NPC stands on the bot's own map (the bot talks where it is), or null. */
