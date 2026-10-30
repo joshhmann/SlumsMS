@@ -1,0 +1,42 @@
+# Live's chat model (BOT_DECIDE_URL http://192.168.0.17:8900 in live 1.6.0.x): bots read chat by rules alone while
+# it is down. Owner 2026-10-30: starts at boot like decide-8910/8913. Install with enable-8900-at-boot.sh (enables
+# it, never restarts it); the repo copy is tools/chatbank/units/decide-8900.service.
+[Unit]
+Description=Decide GLiNER2.5 classifier server (:8900)
+Documentation=file:/opt/clm/neutral_bench/DECIDE_BENCH.md
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/von/playerbot
+
+# cuda:1 is the RTX 5060 Ti on bus 0x41 (GPU-fe6447f3, nvidia-smi index 0: CUDA's own order differs). The server
+# ignores CUDA_VISIBLE_DEVICES, so the index is passed explicitly. It shares the card with the qwen9b chat lane
+# (:8095); measured combined footprint leaves ~2 GiB headroom. At boot, wait until the driver lists that card.
+ExecStartPre=/bin/sh -c 'for i in $$(seq 150); do nvidia-smi -L | grep -q GPU-fe6447f3-4fb8-b587-2a45-98f5926e8fb8 && exit 0; sleep 2; done; exit 1'
+ExecStart=/root/venvs/decide/bin/python /opt/von/playerbot/serve_decide.py \
+    --port 8900 --host 0.0.0.0 --model fastino/GLiNER2.5-Decide --device cuda:1
+
+Restart=always
+RestartSec=5
+
+# It was OOM-killed three times (cgroup memory.events oom_kill) during a
+# parallel nvcc build that peaked host RAM at 48 GiB. A negative OOM score
+# makes the kernel prefer other victims; it is not a guarantee.
+OOMScoreAdjust=-400
+
+# Modest ceiling so a runaway does not take the whole box down again. The
+# model is ~2.4 GiB CPU-side; 6 GiB is generous.
+MemoryMax=6G
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=decide-8900
+
+# MODEL_DOCTRINE.md: lane scripts do not autostart (qwen38-huge once took both cards at boot). This one does, by the
+# owner's go: it serves live chat, it is capped at 6 GiB and it waits for its own card above.
+[Install]
+WantedBy=multi-user.target
