@@ -81,6 +81,9 @@ public final class PartyOperationHandler extends AbstractPacketHandler {
                     player.yellowMessage(altRefusal);
                     return;
                 }
+                if (invited == null && soloMapling.companions.OwnedAltInvite.onInviteNotFound(player, name)) {
+                    break; // 1.6.2 ticket 99: inviting your own offline character calls it as an alt
+                }
                 if (invited != null) {
                     if (invited.getLevel() < 10 && (!YamlConfig.config.server.USE_PARTY_FOR_STARTERS || player.getLevel() >= 10)) { //min requirement is level 10
                         c.sendPacket(PacketCreator.serverNotice(5, "The player you have invited does not meet the requirements."));
