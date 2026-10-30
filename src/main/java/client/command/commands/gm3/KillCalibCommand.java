@@ -6,7 +6,8 @@ import client.command.Command;
 import soloMapling.ArtificialPlayer.BotAttackSystem.KillCalibration;
 
 /**
- * Ticket 157 (TEST only, {@code -Dslums.killcalib}, following {@link soloMapling.server.DebugTools}): the kill
+ * Ticket 157 (switch {@code -Dslums.killcalib}, following {@link soloMapling.server.DebugTools}: off by default, and
+ * 1.6.2 ships it on for live, owner 2026-10-30): the kill
  * calibration summary - real kills a minute of solo grinding bots on full simulation against what OffscreenCombat
  * models for them, by job and level band. Read-only; private to the GM; audited like every GM command. The full
  * table is the dashboard's {@code calibration.json}.

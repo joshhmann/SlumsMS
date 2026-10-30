@@ -282,14 +282,11 @@ public final class BotScrolling {
         for (Equip e : targets(bot)) {
             boolean worn = e.getPosition() < 0;
             List<ScrollPlanner.ScrollOption> options = new ArrayList<>();
+            ScrollRules.Target target = new ScrollRules.Target(e.getItemId(), e.getUpgradeSlots(), worn);
             for (ScrollFacts f : fittingHeld(bot, e)) {
-                if (f.success() <= 0 || (!allowLong && (f.dark() || f.longShot()))
-                        || (f.dark() && (appetite == Appetite.CAREFUL || (worn && appetite != Appetite.GAMBLER)))) {
-                    continue;
-                }
-                // 162 runfix: the careful persona plays it safe under EV too: no 10%/30% long shot, except under a
-                // white scroll on gear it does not wear (as ScrollRules.choose).
-                if (appetite == Appetite.CAREFUL && f.longShot() && !(whiteOk && !worn)) {
+                // The one persona gate, EV after: dark scrolls, worn gear, the godly cap and the careful bot's long
+                // shots (10%/30% only under a white scroll on gear it does not wear; 162 runfix asked the same).
+                if (!ScrollRules.allows(appetite, f, target, whiteOk, allowLong)) {
                     continue;
                 }
                 Integer price = facts.scrollPrice(f.scrollId());   // what it would fetch on the market now

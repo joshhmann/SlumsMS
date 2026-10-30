@@ -10,8 +10,8 @@ Code: `soloMapling.inspect.BotInspectApi`, `soloMapling.inspect.InspectViews`,
 
 | Switch | Default | What it gates |
 |---|---|---|
-| `-Dslums.killcalib=true\|false` | follows `DebugTools`: on where `-Dslums.qa` / auto-QA runs (TEST), **off on live** | kill sampling, `calibration.json`, `!killcalib` |
-| `-Dslums.inspect=true\|false` | same rule: on on TEST, **off on live** | the inspect endpoint (it also needs the port and the secret) |
+| `-Dslums.killcalib=true\|false` | follows `DebugTools`: on where `-Dslums.qa` / auto-QA runs (TEST), off by default; **1.6.2 ships it on for live** (`docs/release/1.6.2.conf`, owner 2026-10-30) | kill sampling, `calibration.json`, `!killcalib` |
+| `-Dslums.inspect=true\|false` | same rule: on on TEST, off by default; **1.6.2 ships it on for live** | the inspect endpoint (it also needs the port and the secret) |
 | `-Dslums.inspect.port=<n>` | unset = endpoint off everywhere | the loopback port to listen on |
 | `-Dslums.inspect.secretFile=<path>` | unset = endpoint off | a file holding the shared secret (at least 16 characters; whitespace trimmed). Read once, never logged or printed. |
 | `-Dslums.inspect.bind=<addr>` | `127.0.0.1` | only a loopback address is accepted (`127.x`, `::1`, `localhost`); anything else (0.0.0.0, a LAN address, a host name) keeps the endpoint **off** and logs a warning |

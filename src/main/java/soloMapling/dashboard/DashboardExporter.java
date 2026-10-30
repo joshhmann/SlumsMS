@@ -189,7 +189,7 @@ public final class DashboardExporter {
             result.live().put("exportMs", (System.nanoTime() - t0) / 1_000_000);
             AtomicFiles.writeJson(dir.resolve("live.json"), result.live());
             if (soloMapling.ArtificialPlayer.BotAttackSystem.KillCalibration.enabled()) {
-                // Ticket 157: real vs modelled kill rates by job and level band (report-only, off on live)
+                // Ticket 157: real vs modelled kill rates by job and level band (report-only; 1.6.2 ships it on for live)
                 AtomicFiles.writeJson(dir.resolve("calibration.json"),
                         soloMapling.ArtificialPlayer.BotAttackSystem.KillCalibration.snapshotJson(now));
             }

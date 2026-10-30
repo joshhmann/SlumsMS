@@ -125,6 +125,30 @@ public final class ScrollRules {
      * @param fitting  the held scrolls that fit the target ({@link #fits})
      * @param hasWhite whether the bot holds a white scroll
      */
+    /**
+     * Whether this appetite may ever use this scroll on this target at all: the persona rules of {@link #choose} as one
+     * predicate, so a search that picks by expected value (the {@code -Dslums.scroll.ev} planner) never reaches for a
+     * scroll the plain rules would refuse - a dark scroll on a careful bot's gear or on anyone's worn gear but a
+     * gambler's, a 10%/30% scroll while the world's godly cap is spent or, for a careful bot, without a white scroll
+     * and never on gear it wears.
+     *
+     * @param whiteOk true when the bot holds a white scroll and {@code scrolling.whiteOnLongShots} lets it be spent
+     */
+    public static boolean allows(Appetite appetite, ScrollFacts f, Target target, boolean whiteOk,
+                                 boolean longShotsAllowed) {
+        if (appetite == null || f == null || target == null || f.success() <= 0) {
+            return false;
+        }
+        if (f.dark()) {
+            return longShotsAllowed && (appetite == Appetite.GAMBLER
+                    || (appetite == Appetite.NORMAL && !target.worn()));
+        }
+        if (f.longShot()) {
+            return longShotsAllowed && (appetite != Appetite.CAREFUL || (whiteOk && !target.worn()));
+        }
+        return true;
+    }
+
     public static Choice choose(Appetite appetite, Target target, List<ScrollFacts> fitting, boolean hasWhite,
                                 Random rng) {
         return choose(appetite, target, fitting, hasWhite, rng, true);

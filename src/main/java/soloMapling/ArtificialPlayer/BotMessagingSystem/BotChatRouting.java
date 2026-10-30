@@ -328,7 +328,19 @@ public final class BotChatRouting {
         return ofKind.size() == 1 ? Optional.of(new Choice(ofKind.get(0).id(), confidence)) : Optional.empty();
     }
 
+    /* The wire model id the decision server is trained under: the configured one (the main ChatDecide path sends the
+     * same), never a hardcoded name - a mismatch answers 404 and the request silently goes unanswered. */
+    static String decideModel() {
+        ServerConfig server = YamlConfig.config == null ? null : YamlConfig.config.server;
+        String model = server == null ? null : server.BOT_DECIDE_MODEL;
+        return model == null || model.isBlank() ? "decide" : model.trim();
+    }
+
     public static Map<String, Object> jobRequest(String line) {
+        return jobRequest(line, decideModel());
+    }
+
+    static Map<String, Object> jobRequest(String line, String model) {
         Map<String, Object> criteria = new LinkedHashMap<>();
         for (JobFamily family : JobFamily.values()) {
             criteria.put(family.name().toLowerCase(Locale.ROOT), family.description);
@@ -339,7 +351,7 @@ public final class BotChatRouting {
         question.put("instructions", "Which kind of player does this line ask for or point at?");
         question.put("criteria", criteria);
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", "decide");
+        body.put("model", model);
         body.put("state", "The player typed: " + clean(line));
         body.put("questions", Map.of("need", question));
         return body;

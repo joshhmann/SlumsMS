@@ -32,7 +32,8 @@ import java.util.concurrent.atomic.LongAdder;
  * <p>Cost: one small anchor per bot that kills on full simulation (dropped with the bot's combat state), one bucket
  * per (job, band), a lock per bucket for a few adds. No allocation per kill once a bot's anchor exists; the modelled
  * rate is re-read from {@link OffscreenCombat#rate} (itself cached) at most once a minute per bot or on a map or level
- * change. Off on live ({@code -Dslums.killcalib}, following {@link DebugTools}).
+ * change. The switch is {@code -Dslums.killcalib}, following {@link DebugTools}: off by default, and 1.6.2 ships it
+ * on for live (owner 2026-10-30, docs/release/1.6.2.conf).
  */
 public final class KillCalibration {
 
@@ -99,7 +100,10 @@ public final class KillCalibration {
 
     // ── switch ──────────────────────────────────────────────────────────────────────────────────
 
-    /** Whether calibration runs on this server: on where the debug tools are (TEST), off on live, -D override. */
+    /**
+     * Whether calibration runs on this server: on where the debug tools are (TEST), off by default, -D override. 1.6.2
+     * passes {@code -Dslums.killcalib=true} in live's unit, so it runs there too (owner 2026-10-30).
+     */
     public static boolean enabled() {
         Boolean on = enabled;
         if (on == null) {
