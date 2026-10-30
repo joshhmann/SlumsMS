@@ -335,9 +335,9 @@ class MarketTest(unittest.TestCase):
     def good_market(self):
         return {"listings": {"schema": 1, "listings": [{"item_id": 1, "qty": 1, "price": 5, "channel": 1, "room": 2,
                                                         "seller_kind": "bot", "seller_name": "Momo"}]},
-                "sales": {"schema": 1, "sales": [{"item_id": 1, "price": 5, "qty": 1, "source": "shop", "hour": "x"}]},
+                "sales": {"schema": 1, "sales": [{"item_id": 1, "price": 5, "qty": 1, "source": "shop", "hour": "2026-10-01T07:00:00Z"}]},
                 "nx-rate": {"schema": 1, "days": [{"date": "2026-10-01", "n_trades": 3, "mesos_per_1000nx": None}]},
-                "economy-public": {"schema": 1, "as_of": "x"}, "prices": [{"date": "2026-10-01", "items": {}}]}
+                "economy-public": {"schema": 1, "as_of": "2026-10-01T07:00:00Z"}, "prices": [{"date": "2026-10-01", "items": {}}]}
 
     def test_export_shape_and_privacy_lint(self):
         from sections import market

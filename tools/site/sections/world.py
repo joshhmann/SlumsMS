@@ -47,9 +47,12 @@ def load(data_dir=None):
         raise SystemExit(f"{data_dir}: World data missing ({', '.join(missing)}); "
                          "run tools/site/site_sample.py or point --site-data at Server/data/site")
     out = {}
-    for n in need:
-        with open(os.path.join(data_dir, n), encoding="utf-8") as f:
-            out[n[:-5]] = json.load(f)
+    for n in need:  # a half-written file is refused, never a crash (audit W4)
+        try:
+            with open(os.path.join(data_dir, n), encoding="utf-8") as f:
+                out[n[:-5]] = json.load(f)
+        except (OSError, ValueError) as e:
+            raise SystemExit(f"World data refused: {n} can't be read as JSON ({type(e).__name__})")
     out["sample"] = any(v.get("sample") for v in out.values() if isinstance(v, dict))
     drop_qa(out)
     out = check.scrub(out)
@@ -135,9 +138,9 @@ def validate(w):
         problems.append("feed.json: 'items' should be a list")
     else:
         for i, it in enumerate(items):
-            if not (_is(it.get("text"), str) and _is(it.get("t"), str) and it.get("kind") in FEED_KINDS
+            if not (isinstance(it, dict) and _is(it.get("text"), str) and market.is_time(it.get("t")) and it.get("kind") in FEED_KINDS
                     and isinstance(it.get("names", []), list)):
-                problems.append(f"feed.json: item {i} needs text, t, names[] and kind in {sorted(FEED_KINDS)}")
+                problems.append(f"feed.json: item {i} needs text, t (a time), names[] and kind in {sorted(FEED_KINDS)}")
                 break
     wd = w["world"]
     if not isinstance(wd.get("channels"), list) or not all(
@@ -174,7 +177,7 @@ def fm_room(map_id, name=None):
 
 
 def pt_day(iso):
-    t = dt.datetime.fromisoformat(iso)
+    t = dt.datetime.fromisoformat(str(iso).replace("Z", "+00:00"))  # validate() checked every feed time (audit W5)
     if t.tzinfo is None:
         t = t.replace(tzinfo=dt.timezone.utc)
     t = t.astimezone(market.PT) if market.PT else t - dt.timedelta(hours=7)

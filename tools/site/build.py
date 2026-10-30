@@ -134,7 +134,7 @@ def finish(out, tar_path, private=False, only=None):
     if problems:
         for p in problems:
             print("FAIL", p, file=sys.stderr)
-        raise SystemExit(f"site check failed with {len(problems)} problem(s); nothing was packed")
+        raise SystemExit(f"site check failed with {len(problems)} problem(s): the published site was left as it was, nothing was packed")
     if tar_path:
         make_tar(out, tar_path)
 
@@ -144,16 +144,32 @@ def sections_for(private, live):
 
 
 def build(out, tar_path=None, private=False, live=False):
+    """A full build goes into a new folder beside `out` and replaces `out` only once the check passes (audit W2): bad
+    data or a failed check leaves the old site as it was. An old tarball is removed first, so a failure never leaves
+    one behind to be shipped by mistake."""
     sections = sections_for(private, live)
+    out = os.path.abspath(out)
+    if tar_path and os.path.isfile(tar_path):
+        os.remove(tar_path)
+    new, old = f"{out}.new-{os.getpid()}", f"{out}.old-{os.getpid()}"
+    shutil.rmtree(new, ignore_errors=True)
+    os.makedirs(new)
+    try:
+        copy_assets(new, private)
+        rels = notes.releases()
+        set_context(rels, sections)
+        results = {name: build_section(name, new, rels) for name in sections}
+        common.clean_links(new)
+        finish(new, None, private)
+    except BaseException:
+        shutil.rmtree(new, ignore_errors=True)
+        raise
     if os.path.isdir(out):
-        shutil.rmtree(out)
-    os.makedirs(out)
-    copy_assets(out, private)
-    rels = notes.releases()
-    set_context(rels, sections)
-    results = {name: build_section(name, out, rels) for name in sections}
-    common.clean_links(out)
-    finish(out, tar_path, private)
+        os.rename(out, old)
+    os.rename(new, out)
+    shutil.rmtree(old, ignore_errors=True)
+    if tar_path:
+        make_tar(out, tar_path)
     return results["notes"], results["guide"]
 
 

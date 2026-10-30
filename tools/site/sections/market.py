@@ -42,8 +42,27 @@ except Exception:  # no tz database: PDT until 2026-11-01, PST after
 # ── data ────────────────────────────────────────────────────────────────────────────────────────
 
 def _read(path):
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    """A JSON object from the export, or the build stops with "refused" (audit W4: a half-written file must never
+    crash a rebuild before validate() has looked at it)."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError) as e:
+        raise SystemExit(f"market data refused: {os.path.basename(path)} can't be read as JSON ({type(e).__name__})")
+    if not isinstance(data, dict):
+        raise SystemExit(f"market data refused: {os.path.basename(path)} should be an object")
+    return data
+
+
+def is_time(v):
+    """An ISO time the pages can print (when()), e.g. '2026-10-26T07:00:00Z' (audit W5)."""
+    if not isinstance(v, str):
+        return False
+    try:
+        dt.datetime.fromisoformat(v.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return True
 
 
 def load(data_dir=None):
@@ -62,8 +81,10 @@ def load(data_dir=None):
     # Sold figures are real trades only (owner, 2026-10-29): a row with a real player on a side (player_side), so
     # the town's restocks (a bot shopper buying from a bot shop, source bot_seed) never show as a sale, in a list,
     # a count or the megaphone. An export without player_side drops the bot_seed rows.
-    m["sales"]["sales"] = [x for x in m["sales"]["sales"]
-                           if (x["player_side"] is True if "player_side" in x else x.get("source") not in SEEDS)]
+    rows = m["sales"].get("sales")
+    if isinstance(rows, list):  # anything else is left for validate() to refuse
+        m["sales"]["sales"] = [x for x in rows if not isinstance(x, dict)  # validate() refuses those
+                               or (x["player_side"] is True if "player_side" in x else x.get("source") not in SEEDS)]
     return m
 
 
@@ -112,6 +133,16 @@ def validate(m):
     for p in m["prices"]:
         if not isinstance(p.get("items"), dict):
             problems.append(f"prices/{p.get('date')}.json: 'items' should be an object")
+    # every time a page prints (audit W5)
+    for name, key, field in (("sales", "sales", "hour"),):
+        for i, r in enumerate(m[name].get(key) or []):
+            if isinstance(r, dict) and not is_time(r.get(field)):
+                problems.append(f"{name}.json: row {i} '{field}' isn't a time: {r.get(field)!r}")
+                break
+    if "generated_at" in m["listings"] and not is_time(m["listings"]["generated_at"]):
+        problems.append("listings.json: 'generated_at' isn't a time")
+    if not is_time(m["economy-public"].get("as_of")):
+        problems.append("economy-public.json: 'as_of' isn't a time")
     for name in ["listings", "sales", "nx-rate", "economy-public"]:
         for path, k in _walk_keys(m[name]):
             if k.lower() in PRIVATE_FIELDS:
@@ -132,8 +163,10 @@ def traded_items(m):
 
 
 def when(iso):
-    """'2026-10-26T07:00:00+00:00' -> '12:00 AM PT (07:00 UTC), Oct 26'"""
-    t = dt.datetime.fromisoformat(iso)
+    """'2026-10-26T07:00:00+00:00' -> '12:00 AM PT (07:00 UTC), Oct 26' ('' for no time: validate() refuses bad ones)"""
+    if not is_time(iso):
+        return ""
+    t = dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))
     if t.tzinfo is None:
         t = t.replace(tzinfo=dt.timezone.utc)
     utc = t.astimezone(dt.timezone.utc)
