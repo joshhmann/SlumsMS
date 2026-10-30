@@ -34,8 +34,26 @@ public final class BotSupportSwitches {
         return Boolean.getBoolean("slums.bots.magicguard");
     }
 
-    /** The first roster slot that rolls an AP variant; unset = none (only reborn bots roll one). */
+    /**
+     * The first roster slot that rolls an AP variant; unset = none (only reborn bots roll one). Owner 2026-10-30:
+     * {@code auto} = the first roster slot created after this boot (every slot above the highest the roster held when
+     * it loaded), so new bots roll variants and every existing bot keeps its build, with no number to look up in the
+     * live database. Until the roster has loaded, auto lets no slot roll. A number that does not parse counts as unset.
+     */
     public static int apVariantFromSlot() {
-        return Integer.getInteger("slums.bots.apvariants.fromSlot", Integer.MAX_VALUE);
+        String v = System.getProperty("slums.bots.apvariants.fromSlot");
+        if (v == null || v.isBlank()) {
+            return Integer.MAX_VALUE;
+        }
+        v = v.trim();
+        if ("auto".equalsIgnoreCase(v)) {
+            int highest = BotRoster.bootHighestSlot();
+            return highest < 0 ? Integer.MAX_VALUE : highest + 1;
+        }
+        try {
+            return Integer.parseInt(v);
+        } catch (NumberFormatException e) {
+            return Integer.MAX_VALUE;
+        }
     }
 }

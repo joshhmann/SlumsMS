@@ -145,6 +145,13 @@ public final class BotRoster {
     private static volatile boolean loaded;
     private static volatile BotStore.ConnectionSource connectionSource;
     private static int highestRosterSlot = BotStore.FIRST_ROSTER_SLOT - 1;
+    /** The highest roster slot when the roster first loaded this boot (-1 until then): apvariants.fromSlot=auto. */
+    private static volatile int bootHighestSlot = -1;
+
+    /** The highest roster slot the roster held when it loaded at boot, or -1 before it loaded. */
+    public static int bootHighestSlot() {
+        return bootHighestSlot;
+    }
 
     private BotRoster() {
     }
@@ -408,6 +415,9 @@ public final class BotRoster {
                     } catch (SQLException e) {
                         throw new IllegalStateException("Could not read the bot roster", e);
                     }
+                    if (bootHighestSlot < 0) {
+                        bootHighestSlot = highestRosterSlot; // before any new member takes a slot this boot
+                    }
                     loaded = true;
                     log.info("Bot roster holds {} members", members.size());
                 }
@@ -455,6 +465,7 @@ public final class BotRoster {
             endedSessions.clear();
             loaded = false;
             highestRosterSlot = BotStore.FIRST_ROSTER_SLOT - 1;
+            bootHighestSlot = -1;
         }
     }
 }
