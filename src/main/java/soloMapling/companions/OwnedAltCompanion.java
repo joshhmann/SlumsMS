@@ -547,28 +547,59 @@ public final class OwnedAltCompanion {
         return false;
     }
 
-    /** It has lain long enough: up in town, saved and home; the owner is told. */
+    /**
+     * It has lain long enough: up in town, saved and home; the owner is told. Audit #8 (b115): an alt that died inside
+     * an instance (a PQ) first leaves it quietly - unregistered without the event script's "team lacking" check, so
+     * its death never ends the owner's run - and gets up in the instance's exit town (its forced return), so the
+     * line "it got up in town" is true and it is saved there.
+     */
     private static void afterDeath(Character owner, Character alt, State s) {
         s.gone = true;
         s.fighting = false;
         GCMovement.stop(alt);
         GCMovement.releaseCommitmentHold(alt);
-        if (alt.getEventInstance() == null && alt.getMap() != null) {
-            int town = alt.getMap().getReturnMapId();
-            if (town <= 0 || town == MapId.NONE) {
-                town = alt.getMapId();
-            }
+        if (alt.getMap() != null) {
+            int town = deathTown(alt.getMap(), alt.getMapId());
             try {
+                leaveInstanceQuietly(alt);
                 alt.respawn(town); // as a player clicking OK: the return map with 50 HP
             } catch (RuntimeException e) {
                 log.warn("Owned alt {} could not respawn in {}", alt.getName(), town, e);
+                if (alt.getHp() <= 0) {
+                    alt.updateHp(50);
+                }
             }
-        } else if (alt.getHp() <= 0) {
-            alt.updateHp(50); // died inside an instance: it leaves with the event's exit rules, not lying at 0 HP
         }
         audit(owner, alt.getName() + " died; respawned on map " + alt.getMapId() + ", going home");
         OwnedAltService.getInstance().sendHomeAfterDeath(alt, alt.getName() + " died and lost EXP, as a player does."
                 + " It got up in town and went home (saved). Call it again with @botme " + alt.getName() + ".");
+    }
+
+    /** Where a dead alt gets up: the map's forced return (a PQ's exit), else its return town, else where it lies. */
+    static int deathTown(server.maps.MapleMap map, int here) {
+        int forced = map.getForcedReturnId();
+        if (forced > 0 && forced != MapId.NONE) {
+            return forced;
+        }
+        int town = map.getReturnMapId();
+        return town <= 0 || town == MapId.NONE ? here : town;
+    }
+
+    /**
+     * Audit #8 (b115): an alt leaves an event instance without the script's disconnect/revive rules (which end the
+     * whole run when the team drops below its minimum): the owner's run goes on without it. Only the last member
+     * still goes through the script, so an instance is never left running with nobody in it.
+     */
+    static void leaveInstanceQuietly(Character alt) {
+        scripting.event.EventInstanceManager eim = alt.getEventInstance();
+        if (eim == null) {
+            return;
+        }
+        if (eim.getPlayerCount() <= 1) {
+            eim.playerDisconnected(alt);
+        } else {
+            eim.unregisterPlayer(alt);
+        }
     }
 
     /** The alt speaks to its owner in party chat. */

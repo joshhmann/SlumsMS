@@ -108,7 +108,7 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
         OwnedAltCompanion.forget(alt); // 1.6.1 ticket 13: the driver lets go first (no move after the disable below)
         GCMovement.disable(alt); // 1.6.0.4: stop following/travelling before the alt leaves its map and channel
         alt.setDisconnectedFromChannelWorld();
-        if (alt.getEventInstance() != null) alt.getEventInstance().playerDisconnected(alt);
+        OwnedAltCompanion.leaveInstanceQuietly(alt); // audit #8: an alt going home never ends its owner's run
         if (alt.getParty() != null) alt.leaveParty();
         if (alt.getMap() != null) alt.getMap().removePlayer(alt);
         alt.getClient().getChannelServer().removePlayer(alt);

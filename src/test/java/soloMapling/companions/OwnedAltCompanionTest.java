@@ -331,6 +331,39 @@ class OwnedAltCompanionTest {
         verify(service, times(1)).sendHomeAfterDeath(any(), anyString());
     }
 
+    /** Audit #8 (b115): an alt killed inside a PQ leaves the instance quietly and really gets up in its exit town. */
+    @Test
+    void anAltKilledInsideAPqLeavesQuietlyAndGetsUpInTheExitTown() throws Exception {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        scripting.event.EventInstanceManager eim = mock(scripting.event.EventInstanceManager.class);
+        when(eim.getPlayerCount()).thenReturn(4); // the owner and three alts
+        when(alt.getEventInstance()).thenReturn(eim);
+        when(field.getForcedReturnId()).thenReturn(103_000_890);
+        lying().put(ALT, 0L);
+        OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+        OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
+        verify(eim).unregisterPlayer(alt);
+        verify(eim, never()).playerDisconnected(any()); // the script's "team lacking -> end(eim)" never runs for it
+        verify(alt).respawn(103_000_890);               // so "it got up in town" is true, and it is saved there
+        verify(service).sendHomeAfterDeath(eq(alt), contains("got up in town"));
+    }
+
+    /** Audit #8: an alt going home from an instance never ends the run, unless it is the last one in it. */
+    @Test
+    void anAltLeavingAnInstanceOnlyEndsItWhenItIsTheLastOneIn() {
+        Character alt = mock(Character.class);
+        scripting.event.EventInstanceManager eim = mock(scripting.event.EventInstanceManager.class);
+        when(alt.getEventInstance()).thenReturn(eim);
+        when(eim.getPlayerCount()).thenReturn(3);
+        OwnedAltCompanion.leaveInstanceQuietly(alt);
+        verify(eim).unregisterPlayer(alt);
+        verify(eim, never()).playerDisconnected(any());
+        when(eim.getPlayerCount()).thenReturn(1);
+        OwnedAltCompanion.leaveInstanceQuietly(alt);
+        verify(eim).playerDisconnected(alt);
+    }
+
     @Test
     void anAltLeftBehindCatchesUpAfterAFewSeconds() {
         Character owner = owner(NOW);
