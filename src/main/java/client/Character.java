@@ -13806,16 +13806,17 @@ public class Character extends AbstractCharacterObject {
         setExpeditionCompleted(type, 0, null);
     }
 
+    // 1.6.1: by id, not by client - a bot's client has no player (its room clear threw and stopped everyone's)
     public void setExpeditionCompleted(ExpeditionType type, long eventTime) {
-        ExpeditionBossLog.setExpeditionCompleted(getClient(), type, eventTime, 0, null);
+        ExpeditionBossLog.setExpeditionCompleted(getId(), type, eventTime, 0, null);
     }
 
     public void setExpeditionCompleted(ExpeditionType type, long eventTime, String partyUUID) {
-        ExpeditionBossLog.setExpeditionCompleted(getClient(), type, eventTime, 0, partyUUID);
+        ExpeditionBossLog.setExpeditionCompleted(getId(), type, eventTime, 0, partyUUID);
     }
 
     public void setExpeditionCompleted(ExpeditionType type, long eventTime, long damageDealt, String partyUUID) {
-        ExpeditionBossLog.setExpeditionCompleted(getClient(), type, eventTime, damageDealt, partyUUID);
+        ExpeditionBossLog.setExpeditionCompleted(getId(), type, eventTime, damageDealt, partyUUID);
     }
 
     public boolean reachedRewardLimit(ExpeditionType type) {
