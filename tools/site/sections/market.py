@@ -85,6 +85,12 @@ def load(data_dir=None):
     if isinstance(rows, list):  # anything else is left for validate() to refuse
         m["sales"]["sales"] = [x for x in rows if not isinstance(x, dict)  # validate() refuses those
                                or (x["player_side"] is True if "player_side" in x else x.get("source") not in SEEDS)]
+        # newest first on every page, whatever order the export used (audit W16); a bad time sorts last and
+        # validate() refuses it anyway
+        def newest(x):
+            h = x.get("hour") if isinstance(x, dict) else None
+            return dt.datetime.fromisoformat(h.replace("Z", "+00:00")).timestamp() if is_time(h) else float("-inf")
+        m["sales"]["sales"].sort(key=newest, reverse=True)
     return m
 
 
@@ -481,6 +487,16 @@ def item_stats(hist):
             "span": span if span and span > 0 else len(rows)}
 
 
+def index_cells(st):
+    """Price check's median and change cells (audit W15): each says its own day and span, since an item's price comes
+    from its newest day with enough sales and its change from its oldest such day, not one column-wide window."""
+    on = f' <small class="muted">{day(st["date"])}</small>' if st["date"] else ""
+    ch = change(st["first"], st["median"])
+    over = f' <small class="muted">{st["span"]} d</small>' if ch else ""
+    return (f'<td class="r num">{mesos(st["median"]) if st["median"] else "-"}{on}</td>'
+            f'<td class="r">{ch}{over}</td>')
+
+
 def sales_as_of(m):
     """When the sales feed was read (audit W16): the rows are hour-rounded and up to a day old, so every page that
     prints them says as of when, exactly like FM now does with its listings."""
@@ -541,11 +557,11 @@ def build_prices(mk):
     write(mk.out, f"{MARKET}/search-index.json",
           json.dumps([["$", i, mk.name(i), mesos(st["median"]) if st["median"] else ""] for i, st in out], separators=(",", ":"), ensure_ascii=False))
     rows = "".join(f'<tr><td>{mk.icon(i, "{root}")}</td><td>{mk.price_link(i, "{root}")}</td>'
-                   f'<td class="r num">{mesos(st["median"]) if st["median"] else "-"}</td><td class="r">{change(st["first"], st["median"])}</td>'
+                   f'{index_cells(st)}'
                    f'<td class="r num">{st["sold"]:,}</td></tr>' for i, st in out)
     body = (f'<h1>Price check</h1><p class="id">{len(out):,} item{"" if len(out) == 1 else "s"} with a price in the last {span(m)}, most traded first</p>'
             f'<section class="panel"><h2 class="bar">All prices</h2><div class="tbl"><table class="t icons"><thead><tr><th></th><th>Item</th>'
-            f'<th class="r">Median</th><th class="r">{span(m)}</th><th class="r">Sold</th></tr></thead><tbody>{rows}</tbody></table></div></section>')
+            f'<th class="r">Median <small>(day)</small></th><th class="r">Change <small>(days)</small></th><th class="r">Sold</th></tr></thead><tbody>{rows}</tbody></table></div></section>')
     mk.page(f"{MARKET}/prices/index.html", "Price check", body, "prices")
     return out
 

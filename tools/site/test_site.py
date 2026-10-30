@@ -414,6 +414,30 @@ class MarketTest(unittest.TestCase):
         m["sales"]["generated_at"] = "yesterday"
         self.assertTrue(any("generated_at" in p for p in market.validate(m)))
 
+    def test_sales_are_newest_first_and_the_index_names_each_items_day(self):
+        """Audit W15/W16: the site sorts sales itself; Price check's cells carry each item's own day and span."""
+        import shutil as _sh
+        from sections import market
+        tmp = tempfile.mkdtemp()
+        try:
+            _sh.copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata", "market-contract"), os.path.join(tmp, "m"))
+            path = os.path.join(tmp, "m", "sales.json")
+            with open(path) as f:
+                data = json.load(f)
+            rows = [dict(data["sales"][0], hour=h, player_side=True) for h in
+                    ("2026-10-24T07:00:00Z", "2026-10-26T07:00:00Z", "2026-10-25T07:00:00Z")]
+            data["sales"] = rows
+            with open(path, "w") as f:
+                json.dump(data, f)
+            hours = [x["hour"] for x in market.load(os.path.join(tmp, "m"))["sales"]["sales"]]
+        finally:
+            _sh.rmtree(tmp)
+        self.assertEqual(hours, sorted(hours, reverse=True))
+        cells = market.index_cells({"median": 130, "first": 100, "date": "2026-10-25", "span": 4})
+        self.assertIn("Oct 25", cells)
+        self.assertIn("4 d", cells)
+        self.assertNotIn(" d<", market.index_cells({"median": 130, "first": None, "date": None, "span": 1}))
+
     def test_seeded_sales_get_a_neutral_note(self):
         from sections import market
         seeded = [{"source": "bot_seed"}, {"source": "bot_seed"}, {"source": "trade"}]
@@ -442,7 +466,7 @@ class MarketTest(unittest.TestCase):
             self.assertIn("Lowest and highest sale, Oct 25", price)
             self.assertNotIn("Median today", price)
             self.assertNotIn("Low to high", price)
-            self.assertIn('<th class="r">4 days</th>', read("prices/index.html"))
+            self.assertIn('<th class="r">Change <small>(days)</small></th>', read("prices/index.html"))   # W15: per-item spans
             self.assertIn("last 4 days", read("prices/index.html"))
             self.assertNotIn("30 days", read("prices/index.html"))
             home = read("index.html")
