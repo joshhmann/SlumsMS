@@ -31,11 +31,20 @@ final class NavPortSwitches {
      * Graph-affecting. */
     static volatile boolean teleportPhantomGuard = on("bot.nav.teleportPhantomGuard");
 
+    /* nutnnut/Cosmic 43b9f06c8 (their v70 part a), the riskiest: client wall collidability. Walking scans no walls
+     * (the foothold chain is the only stop); in the air a wall collides only for a mover of its own zMass group or
+     * the map's base group, instead of every wall the Foothold.isCollidableWall heuristic keeps. Graph-affecting:
+     * walk-off, runway and arc sims all change. */
+    static volatile boolean zmassWalls = on("bot.nav.zmassWalls");
+
     /** Graph-affecting switches as a cache-folder suffix ("" when all are off: the plain v-folder). */
     static String graphTag() {
         StringBuilder tag = new StringBuilder();
         if (teleportPhantomGuard) {
             tag.append("-tp");
+        }
+        if (zmassWalls) {
+            tag.append("-zm");
         }
         return tag.toString();
     }

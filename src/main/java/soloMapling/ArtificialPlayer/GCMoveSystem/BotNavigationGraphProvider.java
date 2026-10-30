@@ -2060,7 +2060,7 @@ final class BotNavigationGraphProvider {
             return null;
         }
         Point launchPoint = from.pointAt(launchX);
-        if (isBlockedWallBoundaryLaunch(map, launchPoint)) {
+        if (isBlockedWallBoundaryLaunch(from, map, launchPoint)) {
             return null;
         }
         if (!BotPhysicsEngine.canStartDownJump(map, launchPoint)
@@ -2093,7 +2093,7 @@ final class BotNavigationGraphProvider {
             return false;
         }
         Point launchPoint = from.pointAt(launchX);
-        if (isBlockedWallBoundaryLaunch(map, launchPoint)) {
+        if (isBlockedWallBoundaryLaunch(from, map, launchPoint)) {
             return false;
         }
         if (launchX > from.minX && canWalkToLaunchX(from, map, launchX - 1, launchX)) {
@@ -2193,8 +2193,24 @@ final class BotNavigationGraphProvider {
         return grab != null;
     }
 
-    private static boolean isBlockedWallBoundaryLaunch(MapleMap map, Point launchPoint) {
+    private static boolean isBlockedWallBoundaryLaunch(BotNavigationGraph.Region from, MapleMap map, Point launchPoint) {
         if (map == null || map.getFootholds() == null || launchPoint == null) {
+            return false;
+        }
+        if (NavPortSwitches.zmassWalls) {
+            // NN-011 zmassWalls (nutnnut/Cosmic 43b9f06c8): only a wall that really collides for a mover launching
+            // from this region pins the launch; walls of unrelated structures are invisible to it.
+            for (Foothold foothold : map.getFootholds().getAllFootholds()) {
+                if (!foothold.isWall() || foothold.getX1() != launchPoint.x
+                        || !BotPhysicsEngine.wallCollidesForLaunch(map, foothold, from)) {
+                    continue;
+                }
+                int minY = Math.min(foothold.getY1(), foothold.getY2());
+                int maxY = Math.max(foothold.getY1(), foothold.getY2());
+                if (launchPoint.y > minY && launchPoint.y <= maxY) {
+                    return true;
+                }
+            }
             return false;
         }
 
