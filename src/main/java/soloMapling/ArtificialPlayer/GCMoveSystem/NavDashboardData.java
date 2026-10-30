@@ -53,7 +53,7 @@ public final class NavDashboardData {
             // Player-learned jumps and nav learning are written under cache/bot-nav whatever bot.nav.cacheDir says.
             Path observed = Files.isDirectory(cache.resolve("observed")) ? cache.resolve("observed") : NavObservedEdges.DIR;
             Path learned = Files.isDirectory(cache.resolve("learned")) ? cache.resolve("learned") : NavEdgeLearning.DIR;
-            return new Dirs(cache.resolve("v" + BotNavigationGraphProvider.GRAPH_VERSION), NavDeepOverlay.defaultRoot(),
+            return new Dirs(cache.resolve(BotNavigationGraphProvider.cacheFolderName()), NavDeepOverlay.defaultRoot(),
                     observed, learned, NavStuckLog.defaultDir());
         }
 

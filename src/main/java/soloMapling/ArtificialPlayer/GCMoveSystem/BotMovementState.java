@@ -217,6 +217,7 @@ class BotMovementState {
     int navBlockedPosGiveUpTicks = 0;
     int navBlockedPosX = Integer.MIN_VALUE;
     int navBlockedPosY = Integer.MIN_VALUE;
+    BotNavigationGraph.Edge navBlockedPosEdge = null; // NN-011 blockedPosWatchdog: the edge being counted
     boolean graphWarmupFallback = false;
     int observedOwnerStepX = 0;
     int observedOwnerStepY = 0;

@@ -142,6 +142,10 @@ final class BotNavigationManager {
                     BotMovementManager.clearNavigationState(entry);
                 }
                 entry.lastRegionId = -1; // region ids are per-graph; a stale id could mis-trigger continuity
+                if (NavPortSwitches.blockedPosWatchdog) { // the clear above keeps the count with this switch on
+                    entry.navBlockedPosTicks = 0; // the counted edge belonged to the old graph
+                    entry.navBlockedPosEdge = null;
+                }
                 entry.navGraph = graph;
             }
             Point botPos = bot.getPosition();
@@ -155,13 +159,18 @@ final class BotNavigationManager {
             // where the bot actually stands (pathlog-Leroy-2026-06-12T141517: stale DROP
             // window [1245,1285], bot at 1287, while a fresh plan's window contained the
             // bot the whole time). Drop the edge and replan from the live position.
-            if (runAiTick && entry.navEdge != null
+            // NN-011 blockedPosWatchdog (nutnnut/Cosmic 43b9f06c8): also when an incidental clear already dropped
+            // the edge between ticks - the planner would only re-serve it.
+            BotNavigationGraph.Edge parkedEdge = entry.navEdge != null ? entry.navEdge
+                    : NavPortSwitches.blockedPosWatchdog ? entry.navBlockedPosEdge : null;
+            if (runAiTick && parkedEdge != null
                     && entry.navBlockedPosTicks > 0
                     && entry.navBlockedPosTicks >= entry.navBlockedPosGiveUpTicks) {
-                NavEdgeLearning.failure(entry, graph, entry.navEdge); // bot-persistence ticket 16: remember the miss
-                NavStuckLog.record(NavStuckLog.Kind.GAVE_UP, bot.getMap(), botPos, graph, entry.navEdge,
-                        NavTrace.capture(entry));
+                NavEdgeLearning.failure(entry, graph, parkedEdge); // bot-persistence ticket 16: remember the miss
+                NavStuckLog.record(NavStuckLog.Kind.GAVE_UP, bot.getMap(), botPos, graph, parkedEdge, NavTrace.capture(entry));
                 clearNavigation(entry);
+                entry.navBlockedPosTicks = 0; // consumed: the fresh plan starts with a clean count
+                entry.navBlockedPosEdge = null;
             }
             // ...and the make: the bot reached the region the committed edge leads to (counted once per edge), or the
             // miss: a launched move came down somewhere else (ticket 04).
@@ -222,7 +231,7 @@ final class BotNavigationManager {
             }
 
             entry.lastNavDecision = edgeReused ? "reuse" : "new";
-            trackBlockedPositionGate(entry, botPos, edgeReused);
+            trackBlockedPositionGate(entry, botPos, edge, edgeReused);
             entry.navPreciseTarget = shouldUsePreciseTarget(graph, entry, botPos, edge);
             entry.navTargetPos = selectWaypoint(entry, graph, botPos, edge);
             return new NavigationDirective(new Point(entry.navTargetPos), false);
@@ -292,14 +301,19 @@ final class BotNavigationManager {
      * change restarts the count, so a slow legal approach (e.g. slippery-ground pulse
      * creep) is never interrupted while it is making progress.
      */
-    private static void trackBlockedPositionGate(BotMovementState entry, Point botPos, boolean edgeReused) {
-        boolean blockedPos = edgeReused
+    private static void trackBlockedPositionGate(BotMovementState entry, Point botPos, BotNavigationGraph.Edge edge,
+                                                 boolean edgeReused) {
+        // NN-011 blockedPosWatchdog (nutnnut/Cosmic 43b9f06c8, credit NutNNut): count a freshly planned edge too.
+        // The reused-only rule was blind to a hop the planner re-serves every AI tick after an incidental clear.
+        boolean blockedPos = (edgeReused || NavPortSwitches.blockedPosWatchdog)
                 && entry.lastEdgeBlockReason != null
                 && entry.lastEdgeBlockReason.endsWith("-pos");
         if (!blockedPos) {
             entry.navBlockedPosTicks = 0;
+            entry.navBlockedPosEdge = null;
             return;
         }
+        entry.navBlockedPosEdge = edge; // the latest hop parked at the gate is the one given up
         // nutnnut/Cosmic 8a7e7b3a5 (credit NutNNut): progress means leaving a small drift radius, not any 1 px
         // move - a bot bouncing +-walkStep across an unhittable launch point restarted the count every tick.
         if (entry.navBlockedPosTicks == 0

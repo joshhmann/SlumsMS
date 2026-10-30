@@ -56,7 +56,7 @@ public final class NavDeepOverlay {
 
     static Path defaultRoot() {
         return Path.of(System.getProperty("bot.nav.cacheDir", "cache/bot-nav"), "deep",
-                "v" + BotNavigationGraphProvider.GRAPH_VERSION);
+                BotNavigationGraphProvider.cacheFolderName());
     }
 
     /** A region's outgoing edges with the baked ones: the graph's own list itself when nothing was baked there. */

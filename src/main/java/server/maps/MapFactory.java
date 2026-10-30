@@ -224,6 +224,8 @@ public class MapFactory {
                     fh.setPrev(DataTool.getInt(footHold.getChildByPath("prev")));
                     fh.setNext(DataTool.getInt(footHold.getChildByPath("next")));
                     fh.setForbidFallDown(DataTool.getInt(footHold.getChildByPath("forbidFallDown"), 0) != 0);
+                    fh.setLayer(Foothold.parseGroupId(footRoot.getName()));
+                    fh.setZMass(Foothold.parseGroupId(footCat.getName()));
                     if (fh.getX1() < lBound.x) {
                         lBound.x = fh.getX1();
                     }

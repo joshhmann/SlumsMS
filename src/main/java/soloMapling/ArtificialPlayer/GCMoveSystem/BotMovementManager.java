@@ -193,7 +193,16 @@ class BotMovementManager {
         entry.observedOwnerStepX = 0;
         entry.observedOwnerStepY = 0;
         clearNavigationState(entry);
+        resetBlockedPosTracker(entry); // a teleport, map change or LOD promotion is a genuinely new leg
         entry.movementBroadcastValid = false;
+    }
+
+    private static void resetBlockedPosTracker(BotMovementState entry) {
+        entry.navBlockedPosTicks = 0;
+        entry.navBlockedPosGiveUpTicks = 0;
+        entry.navBlockedPosX = Integer.MIN_VALUE;
+        entry.navBlockedPosY = Integer.MIN_VALUE;
+        entry.navBlockedPosEdge = null;
     }
 
     static void clearNavigationState(BotMovementState entry) {
@@ -206,10 +215,14 @@ class BotMovementManager {
         entry.navPreciseTarget = false;
         // The blocked-at-a-position tracker qualifies the leg being dropped here, so it goes with it: a
         // carried position would either give up on a fresh leg immediately or hide a real block.
-        entry.navBlockedPosTicks = 0;
-        entry.navBlockedPosGiveUpTicks = 0;
-        entry.navBlockedPosX = Integer.MIN_VALUE;
-        entry.navBlockedPosY = Integer.MIN_VALUE;
+        // NN-011 blockedPosWatchdog (nutnnut/Cosmic 43b9f06c8, credit NutNNut): kept instead. Incidental clears
+        // between AI ticks (a refused ground step, the post-move execute check) zeroed it every tick while the
+        // planner re-served the same unexecutable hop, so the give-up never fired. The tracker still resets itself
+        // on any unblocked tick and on leaving its 16 px drift radius, and the give-up consumes it.
+        // A teleport, map change or LOD promotion still resets it (clearTransientState).
+        if (!NavPortSwitches.blockedPosWatchdog) {
+            resetBlockedPosTracker(entry);
+        }
         // Ticket 33: an overrun or twitch belongs to the leg being dropped.
         entry.flaws.overrunTicks = 0;
         entry.flaws.twitchTicks = 0;
@@ -540,7 +553,16 @@ class BotMovementManager {
         // above would pin the bot against it when the target is at or below its level behind the wall: rise.
         if (entry.swimWallBlocked && entry.swimMoveDir != 0) {
             entry.swimVerticalHold = -1;
-            entry.swimJumpRequested = false;
+            // UP-hold alone cannot rise (SWIM_UP_THRUST 412 < SWIM_GRAVITY 590 px/s2): it only slows the sink, so a
+            // wall taller than the ground hop pins the bot. Fire the cooldown-gated swim-jump burst, the only real
+            // upward push, and keep UP held between bursts. (nutnnut/Cosmic 3516aa238, credit NutNNut; switch
+            // -Dbot.nav.swimWallJump, NavPortSwitches.)
+            if (NavPortSwitches.swimWallJump && now >= entry.swimNextJumpAtMs) {
+                entry.swimJumpRequested = true;
+                entry.swimNextJumpAtMs = now + BotPhysicsEngine.cfg.SWIM_JUMP_COOLDOWN_MS;
+            } else {
+                entry.swimJumpRequested = false;
+            }
         }
     }
 

@@ -118,6 +118,37 @@ public class Foothold implements Comparable<Foothold> {
         this.forbidFallDown = forbidFallDown;
     }
 
+    // WZ path foothold/<layer>/<zMass group>/<id>. The client keeps both on each foothold and scopes airborne wall
+    // collision by the zMass group (bot nav, NN-011 zmassWalls, from nutnnut/Cosmic 43b9f06c8). -1 = unknown
+    // (hand-built test footholds), which the bot physics treats as "always collides".
+    private int layer = -1;
+    private int zMass = -1;
+
+    public int getLayer() {
+        return layer;
+    }
+
+    public void setLayer(int layer) {
+        this.layer = layer;
+    }
+
+    public int getZMass() {
+        return zMass;
+    }
+
+    public void setZMass(int zMass) {
+        this.zMass = zMass;
+    }
+
+    /** A WZ foothold layer or group folder name as a number, -1 when it is not one. */
+    public static int parseGroupId(String name) {
+        try {
+            return Integer.parseInt(name);
+        } catch (NumberFormatException | NullPointerException e) {
+            return -1;
+        }
+    }
+
     public static boolean isCollidableWall(Foothold wall, java.util.Map<Integer, Foothold> footholdsById) {
         if (wall == null || !wall.isWall()) {
             return false;
