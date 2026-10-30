@@ -951,6 +951,12 @@ final class Probes162 {
 
     /** t-gb-5: the worn weapon (a one-handed sword, 7 slots) and the scroll ids searched for its ATT scrolls. */
     static final int GB5_SWORD = 1302000, GB5_SCROLL_FROM = 2043000, GB5_SCROLL_TO = 2043020;
+    /**
+     * t-gb-5: the market price part A stages for a plain 100% scroll the item pool does not price (2043000 on TEST).
+     * Unpriced, a held scroll has nothing to sell for, so the planner rightly counts it free to use; priced, a sure
+     * scroll adds no more than it costs to make again, which is below the planner's 20% margin.
+     */
+    static final int GB5_STAGED_PRICE = 100_000;
 
     /** The scroll id a plan picked, or 0 for none. */
     static int pickOf(BotScrolling.Plan plan) {
@@ -965,16 +971,16 @@ final class Probes162 {
     static List<String> scrollEvProblems(int plain, int carefulA, int dark, int carefulB, int gamblerB) {
         List<String> bad = new ArrayList<>();
         if (carefulA != 0) {
-            bad.add("a careful bot under the EV planner took the plain " + plain + " (100% scrolls are break-even at"
-                    + " best under reproduction pricing, below the 20% margin)");
+            bad.add("a careful bot under the EV planner took the priced plain " + plain + " (a sure scroll adds no more"
+                    + " than it costs to make again, below the 20% margin)");
         }
         if (dark != 0) {
             if (carefulB != 0) {
                 bad.add("a careful bot took the dark scroll " + carefulB);
             }
             if (gamblerB != dark) {
-                bad.add("a gambler declined the dark scroll " + dark + " on its worn sword (the EV planner's pick is"
-                        + " appetite-blind past the dark-scroll filter: it gambles only when the scroll is EV-positive)");
+                bad.add("a gambler declined the dark scroll " + dark + " on its worn sword (plan(): when the EV"
+                        + " planner stops, a gambler takes its appetite's pick)");
             }
         }
         return bad;
@@ -983,9 +989,10 @@ final class Probes162 {
     /**
      * t-gb-5 ({@code slums.scroll.ev}): a fresh level-50 bot (tick stopped), gear and scrolls taken away, wears a
      * one-handed sword with 7 slots. Part A: it holds only a plain 100% ATT scroll for it; the appetite rule (the
-     * switch off) would use it for a careful bot, the EV planner must not. Part B (only while long shots are allowed
-     * today): it holds only a dark ATT scroll; a careful bot must decline it, a gambler must take it. Read-only
-     * ({@code ScrollEvQa}): nothing is rolled.
+     * switch off) would use it for a careful bot, the EV planner must not once the scroll has a market price (its
+     * own, else {@link #GB5_STAGED_PRICE} staged for the read; an unpriced held scroll is free to use). Part B (only
+     * while long shots are allowed today): it holds only a dark ATT scroll; the game ({@code plan()}) must have a
+     * careful bot decline it and a gambler take it. Read-only ({@code ScrollEvQa}): nothing is rolled.
      */
     static List<String> scrollEv(SyntheticPlayer p) throws InterruptedException {
         if (!BotScrolling.evEnabled()) {
@@ -1028,20 +1035,30 @@ final class Probes162 {
             }
             bot.getInventory(InventoryType.USE).addItem(new Item(plain, (short) 0, (short) 1));
             ScrollRules.Choice ruleA = ScrollEvQa.rule(bot, sword, ScrollRules.Appetite.CAREFUL);
-            int carefulA = pickOf(ScrollEvQa.ev(bot, ScrollRules.Appetite.CAREFUL));
-            int gamblerA = pickOf(ScrollEvQa.ev(bot, ScrollRules.Appetite.GAMBLER));
+            // TEST 2026-10-30: 2043000 has no market price; held, it is free to use and the careful bot rightly took
+            // it. Part A judges the decline at a market price (its own, else a staged one).
+            Integer marketA = ScrollEvQa.price(plain);
+            boolean priced = marketA != null && marketA > 0;
+            int asIs = pickOf(ScrollEvQa.plan(bot, ScrollRules.Appetite.CAREFUL));
+            int carefulA = priced ? asIs
+                    : pickOf(ScrollEvQa.evPriced(bot, ScrollRules.Appetite.CAREFUL, plain, GB5_STAGED_PRICE));
             ev.add("A, plain " + plain + " held: the appetite rule (switch off) for a careful bot picks "
-                    + (ruleA == null ? "nothing" : ruleA.scrollId()) + "; EV careful " + carefulA + ", EV gambler "
-                    + gamblerA);
+                    + (ruleA == null ? "nothing" : ruleA.scrollId()) + "; the game (plan) for a careful bot picks "
+                    + asIs + (priced ? " at its market price " + marketA
+                    : " (no market price: free to use); priced at " + GB5_STAGED_PRICE + " the EV planner picks "
+                    + carefulA));
             clearScrolls(bot);
             boolean longShots = ScrollEvQa.longShotsAllowed();
             int carefulB = 0, gamblerB = 0, judgedDark = longShots ? dark : 0;
             if (judgedDark != 0) {
                 bot.getInventory(InventoryType.USE).addItem(new Item(dark, (short) 0, (short) 1));
-                carefulB = pickOf(ScrollEvQa.ev(bot, ScrollRules.Appetite.CAREFUL));
-                gamblerB = pickOf(ScrollEvQa.ev(bot, ScrollRules.Appetite.GAMBLER));
+                // TEST 2026-10-30: evPlan alone skipped plan()'s gambler fallback (162 runfix); judge plan(), the game
+                carefulB = pickOf(ScrollEvQa.plan(bot, ScrollRules.Appetite.CAREFUL));
+                gamblerB = pickOf(ScrollEvQa.plan(bot, ScrollRules.Appetite.GAMBLER));
+                int evGambler = pickOf(ScrollEvQa.ev(bot, ScrollRules.Appetite.GAMBLER));
                 ScrollRules.Choice ruleB = ScrollEvQa.rule(bot, sword, ScrollRules.Appetite.GAMBLER);
-                ev.add("B, dark " + dark + " held: EV careful " + carefulB + ", EV gambler " + gamblerB
+                ev.add("B, dark " + dark + " held: the game (plan) for a careful bot " + carefulB + ", for a gambler "
+                        + gamblerB + "; the EV planner alone for a gambler " + evGambler
                         + "; the appetite rule for a gambler picks " + (ruleB == null ? "nothing" : ruleB.scrollId()));
             } else {
                 ev.add("B not judged: " + (dark == 0 ? "no dark scroll fits" : "long shots are off today (the world's"

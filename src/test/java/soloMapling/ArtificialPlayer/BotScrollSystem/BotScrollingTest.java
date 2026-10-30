@@ -365,6 +365,35 @@ class BotScrollingTest {
         }
     }
 
+    /**
+     * t-gb-5 on TEST 2026-10-30: the probe asked evPlan alone, which skips plan()'s gambler fallback (162 runfix), and
+     * judged the plain 100% scroll at no price at all. ScrollEvQa now reads what the game does (plan) and can stage
+     * one scroll's market price without touching the live facts.
+     */
+    @Test
+    void theEvQaSeamReadsWhatTheGameDoesAndStagesAPrice() throws Exception {
+        BotScrolling.useForTest(qaKitPrices(), roller, (b, node, tokens, key) -> false, now::get);
+        System.setProperty("slums.scroll.ev", "true");
+        try {
+            Character bot = newBot(50);
+            sword(bot, (short) -11, 7);
+            give(bot, S100, 1);
+            assertNull(ScrollEvQa.price(S100), "the item pool does not list the plain 100% scroll");
+            assertEquals(S100, ScrollEvQa.plan(bot, Appetite.CAREFUL).choice().scrollId(),
+                    "held and unsellable, it costs nothing to use: worth its +stat");
+            assertNull(ScrollEvQa.evPriced(bot, Appetite.CAREFUL, S100, 100_000),
+                    "priced, a sure scroll adds no more than it costs to make again: below the 20% margin");
+            bot.getInventory(InventoryType.USE).removeItem(bot.getInventory(InventoryType.USE).findById(S100).getPosition());
+            give(bot, DARK70, 1);
+            assertNull(ScrollEvQa.ev(bot, Appetite.GAMBLER), "the EV planner alone stops the gambler (as on TEST)");
+            assertNull(ScrollEvQa.plan(bot, Appetite.CAREFUL), "a careful bot never takes a dark scroll");
+            assertEquals(DARK70, ScrollEvQa.plan(bot, Appetite.GAMBLER).choice().scrollId(),
+                    "plan(): the gambler falls back to its appetite pick and gambles");
+        } finally {
+            System.clearProperty("slums.scroll.ev");
+        }
+    }
+
     @Test
     void aPassChangesTheStatsForRealAndUsesUpTheScroll() throws Exception {
         Character bot = newBot(50);

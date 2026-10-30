@@ -141,6 +141,9 @@ class Probes162Test {
         assertTrue(Probes162.scrollEvProblems(2043000, 0, 2043004, 0, 2043004).isEmpty());
         assertTrue(Probes162.scrollEvProblems(2043000, 0, 0, 0, 0).isEmpty(), "part B not judged");
         assertTrue(Probes162.scrollEvProblems(2043000, 2043000, 0, 0, 0).get(0).contains("careful bot"));
+        assertTrue(Probes162.scrollEvProblems(2043000, 0, 2043004, 0, 0).get(0).contains("plan()"),
+                "the gambler is judged on plan(), the game's path, not the EV planner alone");
+        assertTrue(Probes162.GB5_STAGED_PRICE > 0, "part A judges the plain scroll at a market price");
         List<String> blind = Probes162.scrollEvProblems(2043000, 0, 2043004, 0, 0);
         assertEquals(1, blind.size());
         assertTrue(blind.get(0).contains("gambler declined"), blind.toString());
