@@ -158,7 +158,8 @@ final class EngageBeat {
             return false;
         }
         int dir = pos.x >= GCMovement.lastContactHitFromX(chr) ? 1 : -1;
-        int tx = pos.x + dir * (40 + b.rng.nextInt(50));
+        // 162 runfix (t-cb-2): not back into the next mob along (the kite and the touch step-out check this too)
+        int tx = clearOfMobs(chr, pos, pos.x + dir * (40 + b.rng.nextInt(50)), dir);
         if (!stepTo(chr, tx)) {
             return false;
         }
