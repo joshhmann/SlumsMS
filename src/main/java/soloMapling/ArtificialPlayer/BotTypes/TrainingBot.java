@@ -521,7 +521,8 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             return;
         }
         // 1.6.1 ticket 30: in a rebirth boss run, the run moves and fights for it; its own life waits
-        if (soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.holds(chr.getId())) {
+        if (soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.holds(chr.getId())
+                || soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.holds(chr.getId())) { // 1.6.2 ticket 159: walking to its job instructor
             if (!inBossRun) {
                 inBossRun = true;
                 leaveGrind(); // its spot, its grind loop and its trip are given up

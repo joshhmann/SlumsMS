@@ -54,6 +54,11 @@ public final class BotProgression {
 
     private static volatile BotBuild.SkillCatalog catalog = BotProgression::serverMaxLevel;
 
+    /** The skill catalog the build uses (the server's, or a test's). */
+    static BotBuild.SkillCatalog catalog() {
+        return catalog;
+    }
+
     private BotProgression() {
     }
 
@@ -70,6 +75,7 @@ public final class BotProgression {
     /** Forgets a bot (it left the world for good, or a test is done with it). */
     public static void forget(int charId) {
         settledLevel.remove(charId);
+        JobErrand.forget(charId);
     }
 
     /** Test seam: the skill catalog, or back to the server's with {@code null}. */
@@ -155,6 +161,24 @@ public final class BotProgression {
         soloMapling.site.SiteFeed.jobChanged(bot, jobBefore, bot.getJob().getId()); // 1.6.0 Track D: website feed
         if (bot.getJob().getId() != jobBefore) soloMapling.achievements.Achievements.onJob(bot, bot.getJob().getId()); // 1.6.1 ticket 93
         BotGear.afterProgress(bot);   // real bots 10: gear it can wear now
+        BotSkillBooks.soon(bot);      // 1.6.2 ticket 159: a book it could not read before may fit now
+    }
+
+    /**
+     * A job errand ended (the bot reached its instructor, or the trip was given up): the advancement it held back
+     * happens now, by the same path a level-up takes. Called by {@link JobErrand} only.
+     */
+    static void afterErrand(Character bot) {
+        int jobBefore = bot.getJob().getId();
+        progress(bot, bot.getLevel());
+        soloMapling.site.SiteFeed.jobChanged(bot, jobBefore, bot.getJob().getId());
+        if (bot.getJob().getId() != jobBefore) soloMapling.achievements.Achievements.onJob(bot, bot.getJob().getId());
+        BotGear.afterProgress(bot);
+    }
+
+    /** A skill book raised a master level: SP the cap was holding back can be spent now (ticket 159). */
+    static void afterBook(Character bot) {
+        progress(bot, bot.getLevel());
     }
 
     /** The offscreen gain path: the levels above {@code levelBefore} came without any points; grant and spend them. */
@@ -188,13 +212,14 @@ public final class BotProgression {
             }
             BotBuild.Choice choice = BotBuild.alongLineOf(job, choiceFor(bot));
             BotBuild.State state = capture(bot);
+            BotBuild.AdvanceGate gate = JobErrand.gateFor(bot);   // null unless -Dsolomapling.jobErrand=true (ticket 159)
             int grantTo = Math.min(ungrantedTo, level);
             if (grantTo > settled) {
                 state.level = grantTo;
-                BotBuild.catchUp(state, settled, choice, catalog);
+                BotBuild.catchUp(state, settled, choice, catalog, gate);
             }
             state.level = level;
-            BotBuild.settle(state, choice, catalog);
+            BotBuild.settle(state, choice, catalog, gate);
             apply(bot, state, level > settled);
             payForPackages(bot, state);
             settledLevel.put(bot.getId(), level);
@@ -250,6 +275,10 @@ public final class BotProgression {
         for (Map.Entry<Skill, SkillEntry> entry : bot.getSkills().entrySet()) {
             if (entry.getKey() != null && entry.getValue() != null && entry.getValue().skillevel > 0) {
                 s.skills.put(entry.getKey().getId(), (int) entry.getValue().skillevel);
+                if (BotSkillBooks.enabled() && entry.getValue().masterlevel > 0
+                        && BotSkillPlan.isBookSkill(entry.getKey().getId())) {
+                    s.masterCaps.put(entry.getKey().getId(), entry.getValue().masterlevel);
+                }
             }
         }
         return s;
@@ -265,7 +294,12 @@ public final class BotProgression {
         s.maxMp = stored.maxMp();
         s.remainingAp = stored.remainingAp();
         s.sp = stored.sp()[0];
-        stored.skills().forEach((id, held) -> s.skills.put(id, held.level()));
+        stored.skills().forEach((id, held) -> {
+            s.skills.put(id, held.level());
+            if (BotSkillBooks.enabled() && held.masterLevel() > 0 && BotSkillPlan.isBookSkill(id)) {
+                s.masterCaps.put(id, held.masterLevel());
+            }
+        });
         return s;
     }
 
@@ -297,7 +331,9 @@ public final class BotProgression {
             if (level <= 0) {
                 continue;
             }
-            int master = BotBuild.isFourthJobSkill(id) || BotSkillPlan.isGranted(id)
+            Integer cap = s.masterCaps.get(id);
+            int master = cap != null ? Math.max(level, cap)
+                    : BotBuild.isFourthJobSkill(id) || BotSkillPlan.isGranted(id)
                     ? Math.max(level, BotBuild.targetLevel(id / 10000, id, catalog)) : 0;
             skills.put(skill, new SkillEntry((byte) level, master, -1));
         }

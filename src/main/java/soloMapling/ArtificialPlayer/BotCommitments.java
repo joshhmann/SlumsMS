@@ -70,6 +70,10 @@ public final class BotCommitments {
         if (soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.holds(chr.getId())) {
             return true;
         }
+        // 1.6.2 ticket 159: walking to its job instructor to advance
+        if (soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.holds(chr.getId())) {
+            return true;
+        }
         // The bot said "invite me": the invite can land inside the armed window, so the bot keeps
         // draining the incoming invite promptly instead of on the slow wheel.
         return BotRecruitManager.isArmed(chr.getId());

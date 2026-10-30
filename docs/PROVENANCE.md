@@ -94,3 +94,21 @@ Ours:
 - the card list merged from monstercarddata and Item.wz;
 - `build_book.py` rewritten over parsed XML, because this server's WZ dump is minified. It takes drops from MySQL
   or a TSV and writes the HP strings the client book needs. MapleLib is not used.
+
+## Later ports
+
+Both are AGPL-3.0 to AGPL-3.0. Concepts from nutnnut/Cosmic `dev`; the code is ours, on our travel, progression and
+economy systems.
+
+### Job-advance errand (ticket 159, branch `162-joberrands`)
+Credit: `nutnnut/Cosmic 77e0c5bc9` (`server/bots/BotAutopilotManager.java`, the job-change detour errand and its
+"route unreachable" give-up). Taken: the idea of walking to the class instructor and advancing there, and of giving up
+to an instant advance when the trip cannot finish. Ours: `JobErrand`, the gate in `BotBuild.settle`, the
+watched-only rule (`WatchGate`), the timeout, the trip through `GCMovement`/`BotTransit`. Switch
+`-Dsolomapling.jobErrand=true` (default off).
+
+### 4th-job skill and mastery books (ticket 159, branch `162-joberrands`)
+Credit: `nutnnut/Cosmic 77e0c5bc9` (`server/bots/BotSkillBookManager.java`: "wanted when it raises a skill in the
+bot's build, even before reqSkillLevel"). Taken: the want rule and the use-one-book-at-a-time pause. Ours:
+`BotSkillBooks`, master-level caps in `BotSkillPlan`/`BotBuild.State`, the keep/sell rule on `SaleRules`, the
+bot-shop stock hook. Switch `-Dsolomapling.botSkillBooks=true` (default off).
