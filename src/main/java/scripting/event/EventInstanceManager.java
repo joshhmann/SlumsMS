@@ -1230,37 +1230,51 @@ public class EventInstanceManager {
                 soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.onClear(scriptName(), getPlayers()));
 
         String partyId = java.util.UUID.randomUUID().toString();
-        for (Character chr : getPlayers()) {
-            if (type != null) {
-                int characterId = chr.getId();
-                long damageDealt = 0;
-
-                if (dmgDealt.containsKey(characterId))
-                {
-                    damageDealt = dmgDealt.get(characterId).get();
-                }
-
-                long duration = timeStarted == 0 ? 0 : System.currentTimeMillis() - timeStarted;
-                chr.setExpeditionCompleted(type, duration, damageDealt, partyId);
-
-                String formattedCompletionTime = TimeConversion.millisecondsToTimeString(duration);
-                chr.dropMessage(6, type + " expedition completed. Duration: " + formattedCompletionTime);
-            } else { // award quest points for PQ completion.
-                chr.awardQuestPoint(YamlConfig.config.server.QUEST_POINT_PER_EVENT_CLEAR);
-            }
-        }
-
-        dismissEventTimer();
-
-        if (type != null) {
-            ExpeditionLeaderboard.updateLeaderboardFromExpedition(type, partyId);
-        }
-
-        scriptLock.lock();
         try {
-            em.disposeInstance(name);
+            for (Character chr : getPlayers()) {
+                // 1.6.1: one character's failure (a bot's client had no player) must not cost the rest their clear
+                try {
+                    if (type != null) {
+                        int characterId = chr.getId();
+                        long damageDealt = 0;
+
+                        if (dmgDealt.containsKey(characterId)) {
+                            damageDealt = dmgDealt.get(characterId).get();
+                        }
+
+                        long duration = timeStarted == 0 ? 0 : System.currentTimeMillis() - timeStarted;
+                        chr.setExpeditionCompleted(type, duration, damageDealt, partyId);
+
+                        String formattedCompletionTime = TimeConversion.millisecondsToTimeString(duration);
+                        chr.dropMessage(6, type + " expedition completed. Duration: " + formattedCompletionTime);
+                    } else { // award quest points for PQ completion.
+                        chr.awardQuestPoint(YamlConfig.config.server.QUEST_POINT_PER_EVENT_CLEAR);
+                    }
+                } catch (RuntimeException e) {
+                    log.warn("Event {} clear: {} ({}) failed, the others go on", name, chr.getName(), chr.getId(), e);
+                }
+            }
         } finally {
-            scriptLock.unlock();
+            try {
+                dismissEventTimer();
+            } catch (RuntimeException e) {
+                log.warn("Event {} clear: the timer could not be dismissed", name, e);
+            }
+
+            try {
+                if (type != null) {
+                    ExpeditionLeaderboard.updateLeaderboardFromExpedition(type, partyId);
+                }
+            } catch (RuntimeException e) {
+                log.warn("Event {} clear: the {} leaderboard was not updated", name, type, e);
+            }
+
+            scriptLock.lock();
+            try {
+                em.disposeInstance(name);
+            } finally {
+                scriptLock.unlock();
+            }
         }
 
         disposeExpedition();
