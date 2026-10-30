@@ -17,7 +17,7 @@ Code: `soloMapling.inspect.BotInspectApi`, `soloMapling.inspect.InspectViews`,
 | `-Dslums.inspect.bind=<addr>` | `127.0.0.1` | only a loopback address is accepted (`127.x`, `::1`, `localhost`); anything else (0.0.0.0, a LAN address, a host name) keeps the endpoint **off** and logs a warning |
 
 So the endpoint starts only when all of: port set, switch on, secret file readable and long enough, bind loopback.
-Turning it on for live would need the owner's go and both `-Dslums.inspect=true` and the port (live runs no QA).
+On live, 1.6.2 sets `-Dslums.inspect=true`, the port and the secret file in `1.6.2.conf` UNIT_EDITS (owner 2026-10-30); the secret file must exist first (deploy steps).
 
 ## Inspect endpoint
 
