@@ -639,6 +639,7 @@ public class EnvironmentCommand extends Command {
         player.yellowMessage("---- Environment Commands (!env) ----");
         player.yellowMessage("-- Diagnostics --");
         player.yellowMessage("!env perf                        - bot perf: threads, heap, tick rates, tiers, active/background/transition cost");
+        player.yellowMessage("!env lod pin <map>|unpin <map>|list - force up to 5 maps to full simulation (TEST only)");
         player.yellowMessage("-- World Startup --");
         player.yellowMessage("!env loadenv                     - run full environment startup");
         player.yellowMessage("-- FM Spawning --");
