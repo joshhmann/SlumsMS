@@ -116,6 +116,17 @@ public final class BotPartySupport {
         return best;
     }
 
+    /*
+     * 162 runfix (t-oa-1 on TEST 10-30): getItemEffect throws an NPE for a USE item with no effect data - scrolls,
+     * arrows, stars, bullets, summon sacks, the White Scroll. pots() read every USE item, so a partied bot holding any
+     * of them threw out of tick(): an owned alt's tick died there on every field tick (before its gate), and the alt
+     * never fought or looted. Only potion and food item ids (200xxxx-202xxxx) can be a pot.
+     */
+    static boolean mayBePot(int itemId) {
+        int cat = itemId / 10000;
+        return cat >= 200 && cat <= 202;
+    }
+
     // ---------------------------------------------------------------- the game
 
     /** What the server does for real; behind a seam for the tests. */
@@ -287,10 +298,16 @@ public final class BotPartySupport {
             use.lockInventory();
             try {
                 for (Item item : use.list()) {
-                    if (item.getQuantity() <= 0 || BotVitals.isRecoveryItem(item.getItemId())) {
+                    if (item.getQuantity() <= 0 || !mayBePot(item.getItemId())
+                            || BotVitals.isRecoveryItem(item.getItemId())) {
                         continue;
                     }
-                    StatEffect fx = ItemInformationProvider.getInstance().getItemEffect(item.getItemId());
+                    StatEffect fx;
+                    try {
+                        fx = ItemInformationProvider.getInstance().getItemEffect(item.getItemId());
+                    } catch (RuntimeException e) {
+                        continue;   // an item with no effect data: not a pot
+                    }
                     if (fx == null || fx.getStatups().isEmpty()) {
                         continue;
                     }
