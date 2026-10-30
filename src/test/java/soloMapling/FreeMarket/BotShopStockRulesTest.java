@@ -79,4 +79,50 @@ class BotShopStockRulesTest {
         }
         assertTrue(ArtificialShopGenerator.scrollStockable(2040001));
     }
+
+    private static final int GELT_CHOCOLATE = 2022121, ONYX_APPLE = 2022179, GUARDIAN_30 = 2290015;
+
+    /** Every generated non-equip line (potions, stars, ETC, mastery books, chairs). */
+    private static java.util.List<FMItem> everyUseLine(String tier) {
+        java.util.List<FMItem> out = new java.util.ArrayList<>();
+        out.addAll(ArtificialShopGenerator.generatePotionsList(tier));
+        out.addAll(ArtificialShopGenerator.generateThiefStarsList(tier));
+        out.addAll(ArtificialShopGenerator.generateETCList(tier));
+        out.addAll(ArtificialShopGenerator.generateMasteryBookList(tier));
+        out.addAll(ArtificialShopGenerator.generateChairList(tier));
+        return out;
+    }
+
+    /**
+     * TEST 2026-10-29, t-bs-2: 141 bot-shop listings refused by SaleRules, all from the generated potion, mastery
+     * book and chair lines (Gelt Chocolate is tradeBlock in Item.wz; Guardian 30 and Onyx Apple count as boss-only).
+     * Only scrolls and gear followed SaleRules; now every generated line does.
+     */
+    @Test
+    void generatedUseEtcAndSetupStockFollowsSaleRules() {
+        SaleRules.useForTest(Set.of(ONYX_APPLE, GUARDIAN_30), id -> false, id -> id == GELT_CHOCOLATE);
+        for (int id : new int[]{GELT_CHOCOLATE, ONYX_APPLE, GUARDIAN_30}) {
+            assertFalse(ArtificialShopGenerator.idStockable(id), "" + id);
+        }
+        int made = 0;
+        for (int round = 0; round < 60; round++) {
+            for (String tier : new String[]{"S", "A", "B", "C"}) {
+                for (FMItem fi : everyUseLine(tier)) {
+                    made++;
+                    assertEquals(null, SaleRules.whyNotId(fi.getItemId()), "generated " + fi.getItemId() + " tier " + tier);
+                }
+            }
+        }
+        assertTrue(made > 0, "the generators made something");
+    }
+
+    @Test
+    void whenSaleRulesRefuseEverythingNoUseEtcOrSetupStockIsMinted() {
+        SaleRules.useForTest(Set.of(), id -> false, id -> true);   // everything untradeable
+        for (int round = 0; round < 20; round++) {
+            for (String tier : new String[]{"S", "A", "B", "C"}) {
+                assertTrue(everyUseLine(tier).isEmpty(), "tier " + tier);
+            }
+        }
+    }
 }

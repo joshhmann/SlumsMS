@@ -272,7 +272,7 @@ class Probes160Test {
             assertNull(Probes160.refusal("ShopGuy", "ch1 map 910000003", gloves));
             assertTrue(Probes160.verdict(List.of(line), Probes160.bossStockPass(3, 9, 40), List.of()).get(0).startsWith("FAIL "));
             List<String> ok = Probes160.verdict(List.of(), Probes160.bossStockPass(3, 9, 40), List.of());
-            assertEquals("PASS checked 3 bot shops with 9 listed items and 40 forced generated equips, none refused by SaleRules", ok.get(0));
+            assertEquals("PASS checked 3 bot shops with 9 listed items and 40 forced generated items, none refused by SaleRules", ok.get(0));
         } finally {
             soloMapling.Economy.SaleRules.useForTest(null, null, null);
         }
