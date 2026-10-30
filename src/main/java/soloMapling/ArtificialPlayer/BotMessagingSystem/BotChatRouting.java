@@ -330,10 +330,22 @@ public final class BotChatRouting {
 
     /* The wire model id the decision server is trained under: the configured one (the main ChatDecide path sends the
      * same), never a hardcoded name - a mismatch answers 404 and the request silently goes unanswered. */
+    private static final java.util.concurrent.atomic.AtomicBoolean MODEL_UNSET_WARNED =
+            new java.util.concurrent.atomic.AtomicBoolean();
+
     static String decideModel() {
         ServerConfig server = YamlConfig.config == null ? null : YamlConfig.config.server;
         String model = server == null ? null : server.BOT_DECIDE_MODEL;
-        return model == null || model.isBlank() ? "decide" : model.trim();
+        if (model == null || model.isBlank()) {
+            // audit 163 (fallback): with nothing configured there is no right id to send, and "decide" is not one the
+            // decision server knows, so every job question would 404 unseen. Say it once; the answers just stop.
+            if (MODEL_UNSET_WARNED.compareAndSet(false, true)) {
+                log.warn("BOT_DECIDE_MODEL is not set: job questions go out under the name \"decide\" and the decision "
+                        + "server answers 404 for it (set it with the other SERVER_SET values)");
+            }
+            return "decide";
+        }
+        return model.trim();
     }
 
     public static Map<String, Object> jobRequest(String line) {

@@ -24,7 +24,7 @@ class WhisperTrailTest {
         trail.add(true, "cool, trade me your gear to hold", 3_000);
         assertEquals("Earlier in this chat:\nplayer: hey, you play a lot?\nyou: yeah most days\n"
                         + "player: cool, trade me your gear to hold\n"
-                        + "A MapleStory player typed this to you in chat: send me the mesos",
+                        + "A player typed this to you in chat: send me the mesos",
                 state("send me the mesos", trail.earlier(4_000)));
     }
 

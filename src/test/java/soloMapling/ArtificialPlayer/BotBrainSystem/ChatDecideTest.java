@@ -33,7 +33,7 @@ class ChatDecideTest {
         assertEquals(new ChatDecide.Answer("party", 0.8), a.orElseThrow().get("intent"));
         assertEquals(1, bodies.size());
         Map<?, ?> body = (Map<?, ?>) Json.parse(bodies.get(0));
-        assertEquals("A MapleStory player typed this to you in chat: wanna pt?", body.get("state"),
+        assertEquals("A player typed this to you in chat: wanna pt?", body.get("state"),
                 "characters the server rejects are dropped");
         Map<?, ?> questions = (Map<?, ?>) body.get("questions");
         assertEquals(List.of("intent", "con"), List.copyOf(questions.keySet()));

@@ -82,6 +82,16 @@ class ReplyCleanerTest {
     }
 
     @Test
+    void theBrandNameNeverReachesChat() {
+        assertEquals("brand mention", ReplyCleaner.voiceProblem("i play maplestory every day"));
+        assertEquals("brand mention", ReplyCleaner.voiceProblem("thx Nexon"));
+        assertEquals("brand mention", ReplyCleaner.voiceProblem("Maple Story was better in 2008"));
+        assertEquals("brand mention", ReplyCleaner.voiceProblem("v83 client runs smooth"));
+        assertEquals(Optional.empty(), ReplyCleaner.chat("back in mapleroot we just grinded"));
+        assertEquals(null, ReplyCleaner.voiceProblem("back in the day we just grinded"));
+    }
+
+    @Test
     void aPlayerLinePassesAndLosesAFinalFullStopAndAStrayEmoji() {
         assertEquals(null, ReplyCleaner.voiceProblem("lol ya pigs drop nothing"));
         assertEquals(null, ReplyCleaner.voiceProblem("idk maybe ant tunnel? -_-"));

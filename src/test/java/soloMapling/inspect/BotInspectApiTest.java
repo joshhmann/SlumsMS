@@ -26,7 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Ticket 157: the bot inspect endpoint is loopback-only, secret-gated, GET-only, cached and off on live. */
+/** Ticket 157: the bot inspect endpoint is loopback-only, secret-gated, GET-only, cached;
+ * 1.6.2 ships it on for live ({@code -Dslums.inspect=true} in docs/release/1.6.2.conf). */
 class BotInspectApiTest {
 
     private static final String SECRET = "0123456789abcdef-test-only";
