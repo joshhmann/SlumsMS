@@ -135,15 +135,44 @@ class BotMakerTest {
     }
 
     @Test
-    void aFailedOperationStopsTheBatchAndUsesNoCap() {
+    void aFailedOperationIsSkippedAndUsesNoCap() {
         config(true, 10, 10);
         Character a = bot(1_000_000_001);
         AtomicInteger calls = new AtomicInteger();
         BotMaker.Result r = BotMaker.run(a, ops(3, calls, (short) 1), 99);
         assertEquals(0, r.made());
         assertEquals("out of materials", r.stoppedBy());
-        assertEquals(1, calls.get());
-        assertEquals(0, EconomyMeters.get(BotMaker.WORLD_METER), "the world unit is given back");
+        assertEquals(3, calls.get(), "each operation is tried (audit 163: the batch used to stop at the first)");
+        assertEquals(0, EconomyMeters.get(BotMaker.WORLD_METER), "the world units are given back");
+        assertEquals(0, BotMaker.doneToday(a.getId()));
+    }
+
+    @Test
+    void oneUnconvertibleItemDoesNotDeadEndTheBatch() {
+        // Audit 163 §2: the list is built in the same order at every town stop, so one leftover that makes no crystal
+        // (or one equip that cannot be disassembled) at its head stopped every later batch for good.
+        config(true, 10, 10);
+        Character a = bot(1_000_000_001);
+        AtomicInteger calls = new AtomicInteger();
+        List<BotMaker.Op> list = new ArrayList<>(ops(1, calls, (short) -1));
+        list.addAll(ops(2, calls, (short) 0));
+        BotMaker.Result r = BotMaker.run(a, list, 99);
+        assertEquals(2, r.made());
+        assertEquals("not a Maker item", r.stoppedBy(), "the skipped item is still reported");
+        assertEquals(2, EconomyMeters.get(BotMaker.WORLD_METER));
+        assertEquals(2, BotMaker.doneToday(a.getId()));
+        assertEquals(2, BotMaker.run(a, list, 99).made(), "and again at the next stop");
+    }
+
+    @Test
+    void aThrowingOperationGivesItsWorldUnitBack() {
+        config(true, 10, 10);
+        Character a = bot(1_000_000_001);
+        List<BotMaker.Op> list = List.of(() -> {
+            throw new IllegalStateException("boom");
+        });
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> BotMaker.run(a, list, 99));
+        assertEquals(0, EconomyMeters.get(BotMaker.WORLD_METER), "audit 163: the unit stayed spent");
         assertEquals(0, BotMaker.doneToday(a.getId()));
     }
 

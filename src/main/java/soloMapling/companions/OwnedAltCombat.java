@@ -94,8 +94,8 @@ public final class OwnedAltCombat {
         touchedBy.remove(characterId);
     }
 
-    /** The alt's party: every member id (its owner and itself included). */
-    static Set<Integer> partyIds(Character alt, Character owner) {
+    /** The alt's party: every member id (its owner and itself included). Population followers share it (FollowerFight). */
+    public static Set<Integer> partyIds(Character alt, Character owner) {
         Set<Integer> ids = new HashSet<>();
         ids.add(alt.getId());
         if (owner != null) {
@@ -190,7 +190,7 @@ public final class OwnedAltCombat {
      * {@link #mayHit} alone the driver faced the nearest wild mob instead of the alt's target, swung at nothing for
      * STALL_MS, gave up, and never got to looting.
      */
-    static boolean driverMayFace(Monster m, MapleMap map, Character owner, Character alt, Set<Integer> party,
+    public static boolean driverMayFace(Monster m, MapleMap map, Character owner, Character alt, Set<Integer> party,
                                  long now) {
         // audit (report A2): the owner leash holds for every mob a swing catches, area attacks included, not only for
         // the target it picks
@@ -213,8 +213,12 @@ public final class OwnedAltCombat {
      * As {@link #target(Character, Character, Set, long)}, skipping the mobs {@code skip} names (ones it could not
      * land a hit on lately) and mobs on another ledge than the alt - by the attack driver's own surface test, so the
      * alt never stands at a mob the driver will not face (it follows instead).
+     *
+     * <p>1.6.2 (followerfix, owner rule "one implementation for alts and population bots"): a population bot that
+     * follows a player in his party ({@code FollowerFight}) picks the party's fight by this same rule, its leader in
+     * the owner's place.
      */
-    static Monster target(Character owner, Character alt, Set<Integer> party, long now,
+    public static Monster target(Character owner, Character alt, Set<Integer> party, long now,
                           java.util.function.Predicate<Monster> skip) {
         MapleMap map = alt.getMap();
         Point at = alt.getPosition();

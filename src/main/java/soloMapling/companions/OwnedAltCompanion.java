@@ -692,10 +692,21 @@ public final class OwnedAltCompanion {
         }
     }
 
-    /** The alt speaks to its owner in party chat. */
+    /**
+     * The alt speaks in party chat. 1.6.2 (owner, grill 2026-10-30: "alt chat lines: whole party"): when the alt is in
+     * its owner's party, the line goes out on the shared party voice ({@link
+     * soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat#sayInParty}), so everyone in that party sees its loot
+     * lines, "bag full", trade replies and acknowledgements; before, only the owner did. An alt outside its owner's
+     * party still tells the owner alone, as before. The lines themselves are the alts' own, which never say what it is.
+     */
     static void say(Character owner, Character alt, String text) {
         try {
-            owner.sendPacket(PacketCreator.multiChat(alt.getName(), text, 1));
+            net.server.world.Party party = alt.getParty();
+            if (party != null && owner != null && party.getMemberById(owner.getId()) != null) {
+                soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat.sayInParty(alt, text);
+            } else {
+                owner.sendPacket(PacketCreator.multiChat(alt.getName(), text, 1));
+            }
         } catch (RuntimeException ignored) {
             // the owner is leaving
         }

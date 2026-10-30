@@ -99,3 +99,9 @@ fail-before unit test (or an auto-QA id, which is what most of these lack) plus 
 
 Closing rule: an item is done when the fix is in and a fail-before test or a named auto-QA id proves it; the audit
 report's `[scout]` marks are the items I did not re-read line-by-line, so check those anchors first.
+
+Playbook follow-up: ticket **164** checks these 58 findings against what the 1.6.1/1.6.2 release docs promise. It
+confirms #1 (max-level party buffs for 0 MP) is still open on `release-1.6.2` with the fix sitting unmerged on
+`162-auditfix` (`8558545c0`), and that §5.2 below got worse since: the launch line now passes
+`-Dslums.bots.apvariants.fromSlot=auto`, a value no code parses (`BotSupportSwitches.java:38-40` falls back to
+`MAX_VALUE`, so only reborn bots roll a variant).

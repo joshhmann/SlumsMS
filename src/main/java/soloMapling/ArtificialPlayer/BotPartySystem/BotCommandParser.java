@@ -326,7 +326,7 @@ public final class BotCommandParser {
             if (w.get(at).equals("anything") || w.get(at).equals("something")) {
                 return fillerOnly(w, at + 1) ? new Cmd(Verb.REQUEST, null) : null;
             }
-            String need = supplyKind(w, at);
+            String need = supplyKind(w, at, false, FILLER_MORE);
             return need != null ? new Cmd(Verb.NEED, need) : null;
         }
         // "any upgrades?", "upgrades", "got upgrades for me", "any better gear"
@@ -419,8 +419,14 @@ public final class BotCommandParser {
         return 0;
     }
 
-    /** "hp", "mp", "pots", "ammo" or "rocks" for the supply words at {@code at}, filler after; else null. */
-    private static String supplyKind(List<String> w, int at) {
+    /**
+     * "hp", "mp", "pots", "ammo" or "rocks" for the supply words at {@code at}, filler after; else null. An ask of a
+     * bot friend ({@code ask}) also takes "scrolls" and leaves rocks out.
+     */
+    private static String supplyKind(List<String> w, int at, boolean ask, Set<String> filler) {
+        if (at >= w.size()) {
+            return null;
+        }
         String word = w.get(at);
         if (SUPPLY_HP.contains(word) || SUPPLY_MP.contains(word)) {
             String kind = SUPPLY_HP.contains(word) ? "hp" : "mp";
@@ -428,13 +434,85 @@ public final class BotCommandParser {
             if (next < w.size() && "pots".equals(CATEGORIES.get(w.get(next)))) {
                 next++;
             }
-            return fillerOnly(w, next) ? kind : null;
+            return fillerOnly(w, next, filler) ? kind : null;
         }
         String category = CATEGORIES.get(word);
-        if (category == null || !(category.equals("pots") || category.equals("ammo") || category.equals("rocks"))) {
+        boolean fits = category != null && (category.equals("pots") || category.equals("ammo")
+                || (ask ? category.equals("scrolls") : category.equals("rocks")));
+        if (!fits) {
             return null;
         }
-        return fillerOnly(w, at + 1) ? category : null;
+        return fillerOnly(w, at + 1, filler) ? category : null;
+    }
+
+    // ── 1.6.2: asking a bot friend for something ──
+
+    /** Words around an ask that do not change it ("got any pots to spare?", "need pots bro"). */
+    private static final Set<String> ASK_FILLER;
+    /** Words between the ask and the thing ("spare me a few pots", "got any extra pots"). */
+    private static final Set<String> ASK_BRIDGE = Set.of("any", "some", "extra", "spare", "a", "few", "me", "us",
+            "of", "ur", "your", "more", "couple", "the");
+
+    static {
+        Set<String> more = new HashSet<>(FILLER_MORE);
+        more.addAll(Set.of("to", "spare", "extra", "lol", "bro", "man", "dude", "by", "chance", "maybe", "friend",
+                "buddy", "pal", "u", "you", "ya", "i", "could", "can", "use", "have", "left", "on", "hand"));
+        ASK_FILLER = Set.copyOf(more);
+    }
+
+    /**
+     * 1.6.2 (owner, grill 2026-10-30, "bot friends handing over items: yes, small and capped"): what a player asks a
+     * bot for - "got any pots?", "can u spare a pot", "need pots", "any scrolls?", "u have any arrows", "can i get
+     * some mana pots", "low on hp pots". The companions' "need pot" words ({@link #parse}) plus the ways a player asks
+     * someone who is not their companion. "hp", "mp", "pots", "ammo" or "scrolls"; null when the line is anything
+     * else (it stays natural chat). Pure.
+     */
+    public static String supplyAsk(String line) {
+        if (line == null || line.isBlank()) {
+            return null;
+        }
+        String text = line.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9 ]", " ").trim();
+        List<String> w = new ArrayList<>(Arrays.asList(text.split("\\s+")));
+        w.removeIf(String::isEmpty);
+        while (w.size() > 1 && LEAD_IN.contains(w.get(0))) {
+            w.remove(0);
+        }
+        if (w.isEmpty() || w.size() > 10) {
+            return null;
+        }
+        // "need pots", "low on mana", "out of arrows": the companions' words
+        int at = needAt(w);
+        if (at > 0) {
+            return supplyKind(w, at, true, ASK_FILLER);
+        }
+        int i = 0;
+        boolean modal = Set.of("can", "could", "would", "will", "do", "does", "may").contains(w.get(0));
+        if (modal) {
+            i++;
+        }
+        boolean me = false;
+        if (i < w.size() && Set.of("u", "you", "ya", "yu").contains(w.get(i))) {
+            i++;                         // "u got any pots", "can u spare a pot", "do you have pots"
+        } else if (modal && i < w.size() && w.get(i).equals("i")) {
+            i++;                         // "can i get a pot", "could i have some pots"
+            me = true;
+        }
+        if (i >= w.size()) {
+            return null;
+        }
+        String verb = w.get(i);
+        boolean asks = switch (verb) {
+            case "got", "have", "has", "spare", "gimme" -> !me || verb.equals("have");
+            case "get", "borrow", "grab" -> me;
+            case "give" -> i + 1 < w.size() && (w.get(i + 1).equals("me") || w.get(i + 1).equals("us"));
+            case "any" -> i == 0;        // "any pots?", "any scrolls"
+            default -> false;
+        };
+        if (!asks) {
+            return null;
+        }
+        int from = verb.equals("any") ? i : i + 1;
+        return supplyKind(w, skip(w, from, ASK_BRIDGE), true, ASK_FILLER);
     }
 
     /** Index after "show (me)", "let me see", "lemme see", "can i see", "show us"; 0 = not a show. */

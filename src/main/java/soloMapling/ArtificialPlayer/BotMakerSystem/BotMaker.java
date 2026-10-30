@@ -170,8 +170,15 @@ public final class BotMaker {
     }
 
     /*
-     * Runs operations in order until one fails, the list ends or a cap is reached. Each operation first takes one unit
-     * of the world's daily cap (given back if the operation does not happen) and must fit the character's own.
+     * Runs operations in order until the list ends or a cap is reached. Each operation first takes one unit of the
+     * world's daily cap (given back if the operation does not happen, or throws) and must fit the character's own.
+     * An operation that fails (this leftover makes no crystal, that equip cannot be disassembled, no room for its
+     * crystals, short of its fee) is skipped and the batch goes on: the list is built in the same order at every town
+     * stop, so stopping at the first failure dead-ended the batch on one item for good (audit 163 §2). The result
+     * names the first failure when nothing stopped it sooner.
+     *
+     * The caps count operations, not crystals: one crystal made from 100 leftovers is one, and one equip disassembled
+     * is one however many crystals it gives back (half its recipe's).
      */
     static Result run(Character chr, List<Op> ops, int max) {
         if (!enabled()) {
@@ -187,6 +194,7 @@ public final class BotMaker {
         }
         int made = 0;
         String stop = "done";
+        String failed = null;
         try {
             for (Op op : ops) {
                 if (made >= max) {
@@ -201,14 +209,25 @@ public final class BotMaker {
                     stop = "world daily limit (" + worldDaily() + ")";
                     break;
                 }
-                short status = op.run();
+                short status;
+                try {
+                    status = op.run();
+                } catch (RuntimeException | LinkageError e) {
+                    EconomyMeters.add(WORLD_METER, -1);   // it did not happen: the world's unit goes back
+                    throw e;
+                }
                 if (status != 0) {
                     EconomyMeters.add(WORLD_METER, -1);
-                    stop = reason(status);
-                    break;
+                    if (failed == null) {
+                        failed = reason(status);
+                    }
+                    continue;
                 }
                 todayByChar.merge(chr.getId(), 1, Integer::sum);
                 made++;
+            }
+            if ("done".equals(stop) && failed != null) {
+                stop = failed;
             }
         } finally {
             if (locked) {

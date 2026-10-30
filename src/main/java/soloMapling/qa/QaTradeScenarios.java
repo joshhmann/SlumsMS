@@ -28,13 +28,14 @@ final class QaTradeScenarios {
     static final int GLOVE_DEX_60 = 2040801;   // Gloves for DEX 60%: item pool 100,000, under gifts.scrollMaxValue
     static final int ORE = 4004000;            // Power Crystal Ore
     static final int CHAOS = 2049100;          // never sold by a bot
+    static final int WHITE_POTION = 2000002;   // tr-9: what a friend bot is asked for
 
     private QaTradeScenarios() {
     }
 
     static List<QaScenario> all() {
         return List.of(new Tr1BotShop(), new Tr2SellToBot(), new Tr3BuyFromBot(), new Tr4Gift(), new Tr5PriceTax(),
-                new Tr6Haggle(), new Tr7Sinks(), new Tr8MegaBuy());
+                new Tr6Haggle(), new Tr7Sinks(), new Tr8MegaBuy(), new Tr9AskGift());
     }
 
     private static Set<QaLog.Topic> trade() {
@@ -243,6 +244,39 @@ final class QaTradeScenarios {
             }
             String kind = args.length > 0 && args[0].matches("(?i)potions|scroll|mesos") ? args[0] : null;
             return note(ctx, List.of(trade.gift(botId, gmNow(ctx), kind)));
+        }
+    }
+
+    // ---- tr-9: asking a friend for pots (1.6.2) ----
+
+    /**
+     * tr-9 (1.6.2, owner grill 2026-10-30: "bot friends handing over items: yes, small and capped"): a social bot next
+     * to the GM that counts it as a friend, with 200 White Potions; today's asked-for gift caps of this bot and the
+     * GM's account and the pair's weekly gift forgotten. "&lt;bot&gt; got any pots?" in chat: it drops a few potions
+     * at the GM's feet ({@code BotGiftAsks}); a second ask says no (the weekly pair rule).
+     */
+    static final class Tr9AskGift implements QaScenario {
+        private volatile int botId;
+
+        public String id() { return "tr-9"; }
+        public String title() { return "Ask a friend for pots: a friend bot hands over a few from its own bag"; }
+        public String usage() { return "then say \"<bot> got any pots?\""; }
+        public Set<QaLog.Topic> topics() { return EnumSet.of(QaLog.Topic.TRADE, QaLog.Topic.AFFINITY); }
+        public int minutes(String[] args) { return 10; }
+
+        public List<String> stage(QaContext ctx) {
+            QaWorld w = ctx.world();
+            botId = w.stageAffinityBot(ctx.gm(), "friend", false);
+            if (botId <= 0) {
+                throw new QaRefusal("Could not stage a friend bot here.");
+            }
+            int id = botId;
+            ctx.onStop("unstage the friend bot", () -> w.unstageAffinityBot(id));
+            giveBot(ctx, botId, WHITE_POTION, 200);
+            trade.forgetGiftAsks(botId, ctx.gm());
+            return List.of("A friend bot stands next to you with 200 White Potions.",
+                    "Say \"<its name> got any pots?\" (or \"can u spare a pot\", \"need pots\"): up to 20 drop at "
+                            + "your feet, yours alone. Ask again: it says no (one gift a week per bot and player).");
         }
     }
 

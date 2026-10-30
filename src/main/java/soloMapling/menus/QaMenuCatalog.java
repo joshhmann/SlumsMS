@@ -149,6 +149,7 @@ public final class QaMenuCatalog {
         add("xc-3", v(), steps("check")); // 1.6.1 volatility: a Leaf Rush changes the rate; a trader bot posts an order
         section("Gifts and prices");
         add("tr-4", v(), steps("gift", "gift potions", "gift scroll", "gift mesos"));
+        add("tr-9", v(), steps()); // 1.6.2: ask the friend bot "got any pots?" in chat
         add("tr-5", v(), steps("price", "tax"), "price <item id>", "tax <price>");
         add("mk-1", v(), steps());
         add("sf-1", v(), steps());

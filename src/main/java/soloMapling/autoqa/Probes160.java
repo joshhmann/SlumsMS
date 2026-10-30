@@ -3074,17 +3074,24 @@ final class Probes160 {
         }
         Character me = p.character();
         int level = Math.max(15, Math.min(60, me.getLevel()));
-        List<Character> two = soloMapling.ArtificialPlayer.BotConvo.TalkQa.spawn(me, 2, true, level);
+        // 162 runfix (t-bt-3 on TEST 10-30: "[octogurl: in the middle of grind]" for all 90 s): a fresh training bot
+        // can start a grind session that outlasts the wait, so stage SAYDO_STAGED and talk with the first two free
+        List<Character> staged = soloMapling.ArtificialPlayer.BotConvo.TalkQa.spawn(me, SAYDO_STAGED, true, level);
+        List<Character> two = staged;
         try {
-            if (two.size() < 2) {
-                return List.of("FAIL could not spawn two training bots (" + two.size() + ")");
+            if (staged.size() < 2) {
+                return List.of("FAIL could not spawn two training bots (" + staged.size() + ")");
             }
-            soloMapling.ArtificialPlayer.BotConvo.TalkQa.friends(two);
-            List<String> held = soloMapling.ArtificialPlayer.BotConvo.TalkQa.awaitFree(two, FREE_WAIT_S * 1000L);
-            if (!held.isEmpty()) {
-                bad.add("the two were never free to move in " + FREE_WAIT_S + " s: " + held);
+            List<String> held = new ArrayList<>();
+            two = soloMapling.ArtificialPlayer.BotConvo.TalkQa.awaitFreeOf(staged, 2, FREE_WAIT_S * 1000L, held);
+            if (two.size() < 2) {
+                bad.add("no two of " + staged.size() + " were free to move in " + FREE_WAIT_S + " s: " + held);
                 return verdict(bad, "", ev);
             }
+            if (!held.isEmpty()) {
+                ev.add("talking with " + two.get(0).getName() + " and " + two.get(1).getName() + "; still busy: " + held);
+            }
+            soloMapling.ArtificialPlayer.BotConvo.TalkQa.friends(two);
             int town = soloMapling.ArtificialPlayer.BotConvo.TalkQa.crewTown(two.get(0).getMapId(), level);
             if (!soloMapling.ArtificialPlayer.BotConvo.TalkQa.aimAt(two.get(0), town)) {
                 bad.add("could not point " + two.get(0).getName() + "'s hang-out at " + town);
@@ -3114,13 +3121,13 @@ final class Probes160 {
                         + " in " + SAYDO_TRIP_S + " s (on " + c.getMapId() + ")");
             }
         } finally {
-            ev.add(soloMapling.ArtificialPlayer.BotConvo.TalkQa.teardown(two));
+            ev.add(soloMapling.ArtificialPlayer.BotConvo.TalkQa.teardown(staged));
         }
         return verdict(bad, "a forced come-along yes took both bots to the town, and the talk ledger's yeses are"
                 + " carried out", ev);
     }
 
-    static final int SAYDO_TRIP_S = 240, SAYDO_MIN_YES = 10;
+    static final int SAYDO_TRIP_S = 240, SAYDO_MIN_YES = 10, SAYDO_STAGED = 4;
 
     /** t-bt-3 (2): the ledger's verdict, or null when it passes or too few yeses are judged yet (pure, unit-tested). */
     @SuppressWarnings("unchecked")
