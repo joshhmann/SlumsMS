@@ -269,7 +269,7 @@ In game: `!mechanics kpq me` puts you in the party as leader with three bots for
 passes are dropped at your feet; on stages 2-4 talk to Cloto once to open the stage, the bots stand on the answer (a
 bot says when it is ready) and you check it. With your owned alts in your party (summon them, go to Lakelis, start
 KPQ), the alts play the stages the same way (one PQ logic for bots and alts); each alt gets one prize whether it
-claims first or you do. `!mechanics kpq stage3` stops a staged run after stage 3. What to watch on a real client:
+claims first or you do. `!mechanics kpq to3` stops a staged run after stage 3; `!mechanics kpq stage4` starts it on stage 4 (1.6.2: stages before it marked cleared through the event's state, no rewards, everyone walks through the opened portals). What to watch on a real client:
 the ropes (do the bots hang still inside the rope's middle?), the barrels (5 px tall: do they stand on top?), and
 the attacks on stage 1's Ligators and stage 5's bosses (the client drops remote attacks with a pose it does not
 expect).

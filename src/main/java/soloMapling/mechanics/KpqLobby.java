@@ -171,7 +171,7 @@ public final class KpqLobby {
             return false;
         }
         String name = eim.getName();
-        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, false, 0, 0, true,
+        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, false, 0, 1, 0, true,
                 line -> log("[Mechanics] lobby " + name + " " + line), done -> {
                     running.remove(name);
                     disband(members);

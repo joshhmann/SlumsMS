@@ -15,13 +15,16 @@ import static soloMapling.BotLogger.log;
 /*
  * 1.7.0 ticket 130 (bots play the mechanics; KPQ automation ships in 1.6.1), TEST only: registered when
  * -Dslums.mechanics=true.
- *   !mechanics kpq [me] [bots] [perfect] [stageN]
+ *   !mechanics kpq [me] [bots] [perfect] [stageN] [toN]
  *                                         stage a Kerning PQ run: fresh bots (4, or 3 with "me") on Kerning City's PQ
  *                                         map, a party, the PQ started at Lakelis (a bot leader talks to him through
  *                                         his script); bots play all five stages (coupons, ropes, platforms, barrels,
  *                                         bosses and passes), take their prizes, hunt the bonus and leave. "me": you
  *                                         lead the party and play (collect the passes, check the formations and talk
- *                                         to Cloto yourself). "perfect": no wrong tries. "stageN": stop after stage N.
+ *                                         to Cloto yourself). "perfect": no wrong tries. "stageN": start on stage N (1.6.2;
+ *                                         stages before it are marked cleared through the event's own state, no
+ *                                         rewards, everyone walks through the opened portals). "toN": stop after
+ *                                         stage N (was "stageN" before 1.6.2).
  *                                         The bots leave 20 s after the run ends.
  *   !mechanics status                     the runs going on
  *   !mechanics stop                       end every run now (bots released, staged bots despawned); a run that
@@ -36,13 +39,17 @@ public class MechanicsCommand extends Command {
     }
 
     /** A parsed {@code !mechanics kpq ...}: who plays and how many bots. */
-    public record KpqRequest(boolean withGm, int bots, boolean perfect, int lastStage) {
+    public record KpqRequest(boolean withGm, int bots, boolean perfect, int lastStage, int firstStage) {
         public KpqRequest(boolean withGm, int bots, boolean perfect) {
-            this(withGm, bots, perfect, 0);
+            this(withGm, bots, perfect, 0, 1);
+        }
+
+        public KpqRequest(boolean withGm, int bots, boolean perfect, int lastStage) {
+            this(withGm, bots, perfect, lastStage, 1);
         }
     }
 
-    static final String USAGE = "Syntax: !mechanics kpq [me] [bots 2-4] [perfect] [stage1-5] | status | stop"
+    static final String USAGE = "Syntax: !mechanics kpq [me] [bots 2-4] [perfect] [stage1-5] [to1-5] | status | stop"
             + " | dispose kpq [channel]";
 
     /** Parses {@code dispose kpq [channel]}: the channel to look on ({@code here} when none is given), or -1. */
@@ -67,10 +74,15 @@ public class MechanicsCommand extends Command {
         boolean perfect = false;
         Integer bots = null;
         int last = 0;
+        int first = 1;
         for (int i = from; i < params.length; i++) {
             String p = params[i].toLowerCase(Locale.ROOT);
             if (p.matches("stage[1-5]")) {
-                last = p.charAt(5) - '0';
+                first = p.charAt(5) - '0'; // 1.6.2: start there (QA asked for stage4 to mean the barrels)
+                continue;
+            }
+            if (p.matches("to[1-5]")) {
+                last = p.charAt(2) - '0';
                 continue;
             }
             switch (p) {
@@ -92,7 +104,10 @@ public class MechanicsCommand extends Command {
         if (n < min || n > (me ? 3 : 4)) {
             return null;
         }
-        return new KpqRequest(me, n, perfect, last);
+        if (last > 0 && last < first) {
+            return null;
+        }
+        return new KpqRequest(me, n, perfect, last, first);
     }
 
     @Override
@@ -114,7 +129,7 @@ public class MechanicsCommand extends Command {
                         + (req.perfect() ? ", perfect" : "") + "...");
                 ExecutorServiceManager.getExecutorService().execute(() -> {
                     KpqStaging.Staged s = KpqStaging.start(gm, req.withGm(), req.bots(), req.perfect(), 0,
-                            req.lastStage(), line -> {
+                            req.firstStage(), req.lastStage(), line -> {
                                 log("[Mechanics] " + line);
                                 gm.yellowMessage(line);
                             }, null);
@@ -123,6 +138,8 @@ public class MechanicsCommand extends Command {
                     } else if (!req.withGm()) {
                         gm.yellowMessage("Bot-only run in " + s.active().instanceName() + " (channel "
                                 + c.getChannel() + "): progress lines follow; !mechanics status any time."
+                                + (req.firstStage() > 1 ? " It starts on stage " + req.firstStage()
+                                + " (earlier stages marked cleared; they walk through the portals)." : "")
                                 + (req.lastStage() > 0 ? " The run ends on the stage " + req.lastStage() + " clear."
                                 : " They play all five stages, take their prizes, hunt the bonus and leave."));
                     }

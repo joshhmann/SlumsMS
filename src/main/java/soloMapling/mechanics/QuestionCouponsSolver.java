@@ -29,8 +29,15 @@ public final class QuestionCouponsSolver implements StageSolver {
 
     public static final String ID = "question-coupons";
 
-    /** Most visible wrong hand-ins one bot makes on KPQ stage 1 (each one is a walk back to Cloto). */
-    public static final int MAX_WRONG_HAND_INS = 2;
+    /**
+     * Most visible wrong hand-ins one bot makes on KPQ stage 1 (each one is a walk back to Cloto). 1.6.2: was 2, and
+     * a try could be far below the answer ("will try [8] first" for 25 on TEST: a walk across the map with 8, then
+     * 17 more to hunt); now one, and only a near miss.
+     */
+    public static final int MAX_WRONG_HAND_INS = 1;
+
+    /** How far below the answer a wrong hand-in may be: a near miss, handed in on the way to the right count. */
+    public static final int NEAR_MISS = 5;
 
     /** How far (px) from the NPC the leader may stand while he waits for passes. */
     static final int LEADER_WAIT_PX = 150;
@@ -221,14 +228,14 @@ public final class QuestionCouponsSolver implements StageSolver {
 
     /**
      * The wrong coupon counts a member shows before the right one, ascending (it hands them in on its way up). The
-     * plausible mistakes are the other answers in the table below this one (a mixed-up question) and one short (a
-     * miscount); {@link TryPlanner} picks how many by persona and tier, at most {@link #MAX_WRONG_HAND_INS}.
+     * plausible mistakes are the other answers in the table just below this one (a mixed-up question, at most
+     * {@link #NEAR_MISS} short) and one short (a miscount); {@link TryPlanner} picks how many by persona and tier, at most {@link #MAX_WRONG_HAND_INS}.
      */
     public static List<Integer> plannedWrongCounts(int right, List<Integer> answerTable, MechanicsPersona persona,
                                                    double mistakeFactor, Random rnd) {
         TreeSet<Integer> options = new TreeSet<>();
         for (int a : answerTable) {
-            if (a > 0 && a < right) {
+            if (a > 0 && a < right && right - a <= NEAR_MISS) {
                 options.add(a);
             }
         }

@@ -84,6 +84,26 @@ public final class Orchestrator implements RunOrchestrator {
         return run;
     }
 
+    /**
+     * QA staging ({@code !mechanics kpq ... stageN}): the run begins on stage {@code first}; the caller has already
+     * put the event in the state the earlier clears leave (their clear properties set, their portals open), so the
+     * members walk there through those portals as a party would. Returns false (run untouched) when the stage is not
+     * one this run can play.
+     */
+    public boolean startAt(RunState run, int first, long nowMs) {
+        if (run.ended() || first <= 1) {
+            return !run.ended();
+        }
+        if (first > run.lastStage()) {
+            return false;
+        }
+        run.setStage(first, nowMs);
+        run.clearTries();
+        run.setClaims(RoleClaims.claim(run.stageData(), run.members()));
+        run.note(nowMs, "staged at stage " + first + ": " + describe(run));
+        return true;
+    }
+
     /** The highest stage (in order from 1) that has a solver, capped by {@code lastStage}; 0 when stage 1 has none. */
     int lastPlayable(Content content) {
         int last = 0;
@@ -170,16 +190,18 @@ public final class Orchestrator implements RunOrchestrator {
         StageSolver solver = solvers.get(stage.solver());
         double factor = run.content().rules(run.tier()).map(MechanicsModel.TierRules::botMistakeFactor)
                 .orElse(TryPlanner.tierFactor(run.tier()));
-        Stage previous = run.content().stage(run.currentStage() - 1).orElse(null);
         for (RunMember m : run.members()) {
             if (!m.bot()) {
                 continue; // a real player is planned around, never steered
             }
             int on = view.mapOf(m.characterId());
             if (on != stage.mapId()) {
-                // still behind: walk into the portal the last stage opened (its script's gate decides), else wait
-                steps.put(m.characterId(), previous != null && on == previous.mapId() && previous.nextPortal() != null
-                        ? new SolverStep.EnterPortal(previous.nextPortal())
+                // still behind: walk into the portal an earlier stage opened (its script's gate decides), else wait.
+                // Any earlier stage, not just the last: a run staged at a later stage walks through every one
+                Stage behind = run.content().stageOnMap(on).orElse(null);
+                steps.put(m.characterId(), behind != null && behind.index() < stage.index()
+                        && behind.nextPortal() != null
+                        ? new SolverStep.EnterPortal(behind.nextPortal())
                         : new SolverStep.Wait(1_000, "not on stage " + stage.index() + "'s map yet"));
                 continue;
             }

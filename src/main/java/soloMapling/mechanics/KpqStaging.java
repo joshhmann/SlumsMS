@@ -78,6 +78,17 @@ public final class KpqStaging {
     /** As above, the run playing stages up to {@code lastStage} only (0 = the whole PQ, prize and bonus included). */
     public static Staged start(Character gm, boolean withGm, int bots, boolean perfect, long budgetMs, int lastStage,
                                Consumer<String> reporter, Consumer<MechanicsRuns.Active> afterCleanup) {
+        return start(gm, withGm, bots, perfect, budgetMs, 1, lastStage, reporter, afterCleanup);
+    }
+
+    /**
+     * As above, the run beginning on stage {@code firstStage} (QA: {@code !mechanics kpq ... stage4} to watch the
+     * barrels without playing stages 1-3). The PQ starts at Lakelis as always; then the event is put in the state
+     * Cloto's clears leave ({@link #stageEventTo}) and everyone walks through the opened portals.
+     */
+    public static Staged start(Character gm, boolean withGm, int bots, boolean perfect, long budgetMs, int firstStage,
+                               int lastStage, Consumer<String> reporter,
+                               Consumer<MechanicsRuns.Active> afterCleanup) {
         if (!Mechanics.enabled()) {
             return new Staged(null, List.of(), "mechanics is off (start the server with -D" + Mechanics.FLAG + "=true)");
         }
@@ -184,7 +195,12 @@ public final class KpqStaging {
             return new Staged(null, List.of(), "the PQ started but the leader is not in it");
         }
         List<Integer> ours = List.copyOf(spawned);
-        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, perfect, budgetMs, lastStage, true,
+        if (firstStage > 1) {
+            int staged = stageEventTo(eim, content, firstStage);
+            reporter.accept("RUN staged: stages 1-" + (firstStage - 1) + " marked cleared (" + staged
+                    + " portal(s) opened, no stage rewards); the party walks to stage " + firstStage);
+        }
+        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, perfect, budgetMs, firstStage, lastStage, true,
                 reporter, done -> {
             ExecutorServiceManager.getScheduledExecutorService().schedule(() -> {
                 cleanup(ours);
@@ -198,6 +214,36 @@ public final class KpqStaging {
             return new Staged(a, ours, a.run().endedBecause());
         }
         return new Staged(a, ours, null);
+    }
+
+    /**
+     * Puts a fresh KPQ instance in the state Cloto's script leaves after clearing stages {@code 1..first-1}
+     * ({@code clearStage} in scripts/npc/9020001.js): the {@code <n>stageclear} property, the stage map's gate shown
+     * open, its {@code next00} portal linked to {@code kpq<n-1>} (whose own gate checks the property), and stage 1's
+     * question grid emptied. Unlike Cloto it gives no stage-clear EXP or mesos (a QA shortcut earns nothing). Nobody
+     * is moved: members walk through the portals like a party that cleared them. Returns the portals linked.
+     */
+    static int stageEventTo(EventInstanceManager eim, Content content, int first) {
+        int linked = 0;
+        for (int s = 1; s < first; s++) {
+            MechanicsModel.Stage stage = content.stage(s).orElse(null);
+            if (stage == null) {
+                continue;
+            }
+            eim.setProperty(s + "stageclear", "true");
+            if (s == 1) {
+                eim.gridClear();
+            }
+            MapleMap map = eim.getMapInstance(stage.mapId());
+            server.maps.Portal portal = map == null || stage.nextPortal() == null ? null
+                    : map.getPortal(stage.nextPortal());
+            if (portal != null) {
+                portal.setScriptName("kpq" + (s - 1));
+                linked++;
+            }
+            eim.showClearEffect(true, stage.mapId());
+        }
+        return linked;
     }
 
     /** Takes the staged bots out of their party (the event script ends the PQ when it is short) and the world. */

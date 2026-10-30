@@ -861,4 +861,62 @@ class KpqFullRunTest {
         assertFalse(MechanicsRuns.shouldEndInstance(true, false, true, false), "already disposed");
         assertTrue(MechanicsRuns.shouldEndInstance(false, true, false, false), "cleared and only bots or nobody left");
     }
+
+    // ---- stage 1 visible tries (TEST 10-30 14:41: "will try [8] first" for 25, "[34]" for 35) ----
+
+    @Test
+    void stageOneWrongTriesAreOneNearMissAtMost() {
+        Stage s1 = kpq().stage(1).orElseThrow();
+        List<Integer> table = s1.answers().stream().map(MechanicsModel.Answer::value).toList();
+        Random rnd = new Random(3);
+        int shown = 0;
+        for (int i = 0; i < 2_000; i++) {
+            int right = table.get(rnd.nextInt(table.size()));
+            List<Integer> wrong = QuestionCouponsSolver.plannedWrongCounts(right, table,
+                    new MechanicsPersona(rnd.nextDouble(), 1.0), 2.0, rnd);
+            assertTrue(wrong.size() <= 1, "one walk to Cloto at most: " + wrong);
+            for (int w : wrong) {
+                assertTrue(w < right && right - w <= QuestionCouponsSolver.NEAR_MISS,
+                        "a near miss on the way up, not 8 for 25: " + w + " for " + right);
+            }
+            shown += wrong.size();
+        }
+        assertTrue(shown > 0, "chaotic bots still show a try");
+    }
+
+    // ---- !mechanics kpq ... stageN (TEST 10-30: "stage4" started on stage 1) ----
+
+    @Test
+    void aRunStagedAtStageFourWalksThroughTheOpenedPortalsAndPlaysTheBarrels() {
+        Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(14), 30 * 60_000L, 4);
+        RunState run = o.start(kpq(), Tier.NORMAL, List.of(bot(1, true, MechanicsPersona.PERFECT),
+                bot(2, false, MechanicsPersona.PERFECT), bot(3, false, MechanicsPersona.PERFECT),
+                bot(4, false, MechanicsPersona.PERFECT)));
+        assertTrue(o.startAt(run, 4, 1_000));
+        assertEquals(4, run.currentStage());
+        World w = new World(run, 14);
+        for (int s = 1; s <= 3; s++) {
+            w.props.put(s + "stageclear", "true"); // what KpqStaging.stageEventTo leaves (Cloto's clearStage)
+        }
+        List<Map<Integer, SolverStep>> trace = new ArrayList<>();
+        play(o, run, w, MAX_TICKS, trace);
+        assertEquals("cleared", run.endedBecause(), run.events().toString());
+        assertTrue(w.props.containsKey("4stageclear"));
+        assertEquals(List.of("4:" + w.props.get("stg4Property")), w.rightChecks.stream().filter(c -> c.startsWith("4:"))
+                .toList(), "stage 4 checked right");
+        assertTrue(trace.stream().flatMap(m -> m.values().stream()).noneMatch(st -> st instanceof SolverStep.Fight f
+                && f.itemId() == COUPON), "no coupon hunting");
+        assertTrue(w.grid.isEmpty(), "nobody asked Cloto a stage 1 question");
+        assertTrue(trace.stream().flatMap(m -> m.values().stream()).filter(st -> st instanceof SolverStep.EnterPortal)
+                .count() >= 12, "each of four walked through three portals");
+    }
+
+    @Test
+    void aStageThatIsNotPlayedIsRefused() {
+        Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(15), 0, 3);
+        RunState run = o.start(kpq(), Tier.NORMAL, List.of(bot(1, true, MechanicsPersona.PERFECT),
+                bot(2, false, MechanicsPersona.PERFECT), bot(3, false, MechanicsPersona.PERFECT)));
+        assertFalse(o.startAt(run, 4, 1_000), "stops after 3, cannot start on 4");
+        assertEquals(1, run.currentStage());
+    }
 }

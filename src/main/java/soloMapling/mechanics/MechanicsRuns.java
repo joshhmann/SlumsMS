@@ -99,16 +99,17 @@ public final class MechanicsRuns {
     /** As above, playing stages up to {@code lastStage} only (0 = all of them, then the prize and the bonus). */
     public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int lastStage,
                         Consumer<String> reporter, Consumer<Active> onEnd) {
-        return start(eim, content, perfect, budgetMs, lastStage, false, reporter, onEnd);
+        return start(eim, content, perfect, budgetMs, 1, lastStage, false, reporter, onEnd);
     }
 
     /**
      * As above. {@code ownsInstance}: staging or the bot lobby started this instance for the run (a GM's
      * {@code !mechanics kpq}, a bot leader at Lakelis), so a run that ends short of the clear, or cannot start,
-     * ends the instance with it (everyone out, disposed); never left for its 30-minute timer.
+     * ends the instance with it (everyone out, disposed); never left for its 30-minute timer. {@code firstStage}
+     * (QA): the run begins there; the caller has staged the event's state for it ({@link KpqStaging#stageEventTo}).
      */
-    public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int lastStage,
-                        boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd) {
+    public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int firstStage,
+                        int lastStage, boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd) {
         List<RunMember> members = new ArrayList<>();
         Map<Integer, Character> bots = new ConcurrentHashMap<>();
         for (Character c : eim.getPlayers()) {
@@ -123,6 +124,9 @@ public final class MechanicsRuns {
         Orchestrator o = budgetMs > 0 || lastStage > 0
                 ? new Orchestrator(Orchestrator.allSolvers(), new Random(), budgetMs, lastStage) : orchestrator;
         RunState run = o.start(content, Tier.NORMAL, members);
+        if (firstStage > 1 && !o.startAt(run, firstStage, System.currentTimeMillis())) {
+            run.end("stage " + firstStage + " is not one this run plays (last " + run.lastStage() + ")");
+        }
         Active a = new Active(run, eim, bots, reporter == null ? line -> { } : reporter, onEnd, ownsInstance);
         if (run.ended()) {
             a.finished = true;
@@ -145,7 +149,7 @@ public final class MechanicsRuns {
             }
             GCMovement.stop(bot);
         }
-        a.reporter.accept("RUN start " + content.id() + " stage 1 in " + eim.getName() + ": "
+        a.reporter.accept("RUN start " + content.id() + " stage " + run.currentStage() + " in " + eim.getName() + ": "
                 + Orchestrator.describe(run));
         Orchestrator use = o;
         a.tick = ExecutorServiceManager.getScheduledExecutorService().scheduleWithFixedDelay(
