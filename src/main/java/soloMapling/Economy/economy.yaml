@@ -157,5 +157,7 @@ saleRules:
 # TEST). The read-only maker plan (@maker plan) is not behind the switch.
 maker:
   botBatch: false
+  # Both caps count Maker operations, not crystals: one crystal made, or one equip disassembled (however many
+  # crystals it gives back), is one.
   perBotDaily: 10           # per bot or alt per day (kept in memory: a restart gives the day back)
   worldDaily: 300           # all bots and alts together per day (economy meter "makerbatch", survives a restart)
