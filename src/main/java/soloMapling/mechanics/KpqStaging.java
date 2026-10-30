@@ -89,6 +89,16 @@ public final class KpqStaging {
     public static Staged start(Character gm, boolean withGm, int bots, boolean perfect, long budgetMs, int firstStage,
                                int lastStage, Consumer<String> reporter,
                                Consumer<MechanicsRuns.Active> afterCleanup) {
+        return start(null, gm, withGm, bots, perfect, budgetMs, firstStage, lastStage, reporter, afterCleanup);
+    }
+
+    /**
+     * As above on channel {@code on} (null: the GM's own). A bot-only run can be staged on any channel (QA mx-4 runs
+     * two channels at once); a run with the GM in it must be on his channel.
+     */
+    public static Staged start(Channel on, Character gm, boolean withGm, int bots, boolean perfect, long budgetMs,
+                               int firstStage, int lastStage, Consumer<String> reporter,
+                               Consumer<MechanicsRuns.Active> afterCleanup) {
         if (!Mechanics.enabled()) {
             return new Staged(null, List.of(), "mechanics is off (start the server with -D" + Mechanics.FLAG + "=true)");
         }
@@ -97,7 +107,10 @@ public final class KpqStaging {
         if (content == null) {
             return new Staged(null, List.of(), why[0]);
         }
-        Channel ch = gm.getClient().getChannelServer();
+        Channel ch = on != null ? on : gm.getClient().getChannelServer();
+        if (withGm && ch != gm.getClient().getChannelServer()) {
+            return new Staged(null, List.of(), "a run with you in it is staged on your own channel");
+        }
         MapleMap recruit = ch.getMapFactory().getMap(RECRUIT_MAP);
         if (recruit == null) {
             return new Staged(null, List.of(), "map " + RECRUIT_MAP + " did not load");

@@ -116,4 +116,42 @@ class MechanicsRunsInstancesTest {
         verify(eim).invokeScriptFunction("end", eim);
         assertTrue(lines.stream().anyMatch(l -> l.contains("ended with the run")), lines.toString());
     }
+
+    /** K7 (bot audit): a scheduler that refuses the tick must not leave the run registered and its bots held. */
+    @Test
+    void aRunWhoseTickCannotBeScheduledReleasesEverything() {
+        var was = MechanicsRuns.scheduler;
+        java.util.concurrent.ScheduledExecutorService refusing = mock(java.util.concurrent.ScheduledExecutorService.class);
+        when(refusing.scheduleWithFixedDelay(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new java.util.concurrent.RejectedExecutionException("shutting down"));
+        MechanicsRuns.scheduler = () -> refusing;
+        try {
+            int heldBefore = MechanicsHold.count();
+            EventInstanceManager eim = kpqOn(5, bots(9_500), 9_500);
+            MechanicsRuns.Active a = MechanicsRuns.get().start(eim, KpqStageDataTest.kpq(), true, 0, 1, 0, true,
+                    lines::add, null);
+            assertTrue(a.run().ended(), lines.toString());
+            assertTrue(a.run().endedBecause().startsWith("could not start"), a.run().endedBecause());
+            assertSame(null, MechanicsRuns.get().runFor(eim), "not left registered");
+            org.junit.jupiter.api.Assertions.assertEquals(heldBefore, MechanicsHold.count(), "no bot left held");
+        } finally {
+            MechanicsRuns.scheduler = was;
+        }
+    }
+
+    /** K10 (bot audit): a broken NPC script is logged once in a row and abandons the run on the third failure. */
+    @Test
+    void aBrokenScriptIsLoggedOnceAndEndsTheRun() {
+        StepExecutor.Beat beat = new StepExecutor.Beat();
+        boolean[] first = StepExecutor.scriptOutcome(beat, false);
+        boolean[] second = StepExecutor.scriptOutcome(beat, false);
+        boolean[] third = StepExecutor.scriptOutcome(beat, false);
+        assertTrue(first[0] && !first[1]);
+        assertFalse(second[0] || second[1]);
+        assertFalse(third[0]);
+        assertTrue(third[1], "abort");
+        assertTrue(StepExecutor.scriptOutcome(beat, true)[0]);
+        assertFalse(StepExecutor.scriptOutcome(beat, false)[1], "a success resets the count");
+    }
 }

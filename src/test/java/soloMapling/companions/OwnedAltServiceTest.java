@@ -39,9 +39,11 @@ class OwnedAltServiceTest {
             return alt;
         }
         public void attach(Character owner, Character alt) { online.add(alt.getId()); }
-        public void save(Character alt) { saves.incrementAndGet(); saving.run(); }
+        public void save(Character alt) { order.add("save " + alt.getId()); saves.incrementAndGet(); saving.run(); }
         public void detach(Character alt) { detaching.run(); online.remove(alt.getId()); }
         public Set<Integer> companions(int ownerId) { return friends; }
+        final List<String> order = new java.util.concurrent.CopyOnWriteArrayList<>();
+        @Override public void leaveEvent(Character alt) { order.add("leaveEvent " + alt.getId()); }
         void add(int id) { candidates.add(new OwnedAltService.Candidate(id, 7, 1, "Alt" + id)); }
     }
     @Test void validatesAccountWorldOnlineAndIdentity() {
@@ -187,4 +189,14 @@ class OwnedAltServiceTest {
         assertTrue(s.dismiss(owner,"Alt2")); assertEquals(1,db.saves.get());
     }
 
+
+    /** 1.6.2 (bot audit K6): an alt sent home leaves its event first, so it is saved in town and ends no PQ. */
+    @Test void anAltLeavesItsEventBeforeItIsSaved() {
+        Memory db = new Memory(); db.add(2);
+        OwnedAltService s = new OwnedAltService(db, () -> true);
+        Character owner = owner(1);
+        s.summon(owner, "Alt2");
+        s.dismiss(owner, "Alt2");
+        assertEquals(List.of("leaveEvent 2", "save 2"), db.order);
+    }
 }

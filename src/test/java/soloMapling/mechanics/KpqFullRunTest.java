@@ -68,6 +68,9 @@ class KpqFullRunTest {
         int killOneIn = 24;     // ticks of 250 ms per kill: one Ligator every 6 s per member
         int couponOneIn = 2;    // a kill drops a coupon half the time
         boolean leaderHunts;    // a real leader hunts Ligators while he waits for passes, as players do
+        boolean lazyLeader;     // a real leader who does his part only when a bot asks him to (K4)
+        boolean prompted;
+        boolean leaderDead;     // K5
         final Map<Integer, Integer> kills = new HashMap<>();
         final List<String> lootedFromPlayer = new ArrayList<>();
 
@@ -160,6 +163,11 @@ class KpqFullRunTest {
         }
 
         @Override
+        public boolean alive(int id) {
+            return !(leaderDead && isLeader(id));
+        }
+
+        @Override
         public Map<String, Object> stageMemory() {
             return run.stageMemory();
         }
@@ -179,6 +187,9 @@ class KpqFullRunTest {
 
         /** Cloto's script for one click; {@code next} = the player pressed "next" after the first page. */
         void cloto(int id, boolean next) {
+            if (lazyLeader && isLeader(id)) {
+                prompted = false; // did what he was asked; waits for the next ask
+            }
             int stage = stageOf(id);
             if (props.containsKey(stage + "stageclear")) {
                 if (stage == 5 && next) {
@@ -329,7 +340,13 @@ class KpqFullRunTest {
                         pos.put(id, new int[]{-1000, 80});
                     }
                 }
-                case SolverStep.Say s -> lines.add(id + ": " + s.line());
+                case SolverStep.Say s -> {
+                    lines.add(id + ": " + s.line());
+                    RunMember lead = run.members().stream().filter(RunMember::leader).findFirst().orElse(null);
+                    if (lead != null && s.line().contains("@" + lead.characterId())) {
+                        prompted = true;
+                    }
+                }
                 default -> {
                 }
             }
@@ -396,6 +413,9 @@ class KpqFullRunTest {
                 mapOf.put(id, mapOf(id) + 1);
                 pos.put(id, new int[]{-1000, 80});
                 return;
+            }
+            if (isLeader(id) && (leaderDead || lazyLeader && !prompted && !props.containsKey("5stageclear"))) {
+                return; // waits to be asked (or lies dead)
             }
             if (stage == 1) {
                 if (isLeader(id)) {
@@ -918,5 +938,101 @@ class KpqFullRunTest {
                 bot(2, false, MechanicsPersona.PERFECT), bot(3, false, MechanicsPersona.PERFECT)));
         assertFalse(o.startAt(run, 4, 1_000), "stops after 3, cannot start on 4");
         assertEquals(1, run.currentStage());
+    }
+
+    // ---- a real leader (bot audit K4, K5) ----
+
+    /**
+     * K4: the bots never do the leader's part (the scripts only take passes and checks from the event leader) and a
+     * real player is never steered; a leader who waits for the bots used to idle the run to its time limit. Now one
+     * bot tells him when it is his turn, again every 40 s, and the PQ gets cleared.
+     */
+    @Test
+    void aRealLeaderWhoWaitsToBeAskedIsAskedAndThePqGetsCleared() {
+        for (long seed = 1; seed <= 5; seed++) {
+            Orchestrator o = orchestrator(seed);
+            RunState run = o.start(kpq(), Tier.NORMAL, gmAndThreeBots());
+            World w = new World(run, seed);
+            w.lazyLeader = true;
+            play(o, run, w, MAX_TICKS, null);
+            assertTrue(run.cleared(), "seed " + seed + ": " + run.endedBecause() + " " + w.lines);
+            for (int s = 1; s <= 5; s++) {
+                assertTrue(w.props.containsKey(s + "stageclear"), "seed " + seed + " stage " + s);
+            }
+            assertTrue(w.lines.stream().anyMatch(l -> l.contains("@100") && l.contains("Cloto")), w.lines.toString());
+        }
+    }
+
+    @Test
+    void remindersComeTwentySecondsAfterHisTurnThenEveryFortyNotEveryTick() {
+        Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(1), 0, 1);
+        RunState run = o.start(kpq(), Tier.NORMAL, gmAndThreeBots());
+        World w = new World(run, 1);
+        for (int id = 21; id <= 23; id++) {
+            w.grid.put(id, 0);
+        }
+        w.add(100, PASS, 3); // his turn: all three passes in his bag
+        List<Long> said = new ArrayList<>();
+        for (long t = 1_000; t <= 120_000; t += TICK) {
+            for (SolverStep st : o.tick(run, w, t).values()) {
+                if (st instanceof SolverStep.Say s && s.line().contains("@100")) {
+                    said.add(t);
+                }
+            }
+        }
+        assertEquals(List.of(21_000L, 61_000L, 101_000L), said);
+    }
+
+    /** K5: while the real leader lies dead the bots stop and one says so once; they go on when he is up. */
+    @Test
+    void aDeadLeaderStopsTheBots() {
+        Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(2), 0, 1);
+        RunState run = o.start(kpq(), Tier.NORMAL, gmAndThreeBots());
+        World w = new World(run, 2);
+        w.leaderDead = true;
+        int said = 0;
+        for (long t = 1_000; t <= 10_000; t += TICK) {
+            for (SolverStep st : o.tick(run, w, t).values()) {
+                if (st instanceof SolverStep.Say s) {
+                    said++;
+                    assertTrue(s.line().contains("@100"), s.line());
+                } else {
+                    assertTrue(st instanceof SolverStep.Wait, "nothing but waiting: " + st);
+                }
+            }
+        }
+        assertEquals(1, said);
+        w.leaderDead = false;
+        assertTrue(o.tick(run, w, 11_000).values().stream().anyMatch(st -> st instanceof SolverStep.TalkNpc),
+                "back to asking Cloto once he is up");
+    }
+
+    /** B6: a bot whose bag is too full for the prize stops clicking Cloto after a minute; the run ends. */
+    @Test
+    void aBotWithAFullBagGivesUpOnThePrize() {
+        Orchestrator o = orchestrator(3);
+        RunState run = o.start(kpq(), Tier.NORMAL, List.of(bot(1, true, MechanicsPersona.PERFECT),
+                bot(2, false, MechanicsPersona.PERFECT), bot(3, false, MechanicsPersona.PERFECT)));
+        World w = new World(run, 3);
+        for (int s = 1; s <= 5; s++) {
+            w.props.put(s + "stageclear", "true");
+        }
+        for (int id = 1; id <= 3; id++) {
+            w.mapOf.put(id, S5);
+        }
+        o.startAt(run, 5, 1_000);
+        long t = 1_000;
+        int claims = 0;
+        for (; t < 1_000 + 5 * 60_000 && !run.ended(); t += TICK) {
+            for (SolverStep st : o.tick(run, w, t).values()) {
+                if (st instanceof SolverStep.Converse) {
+                    claims++; // Cloto says no every time: no room (the sim never warps them)
+                }
+            }
+        }
+        assertTrue(run.ended(), run.events().toString());
+        assertEquals("cleared", run.endedBecause());
+        assertTrue(t <= 1_000 + Orchestrator.PRIZE_GIVE_UP_MS + 5_000, "ended at " + t);
+        assertTrue(claims <= 3 * (Orchestrator.PRIZE_GIVE_UP_MS / TICK + 4), "claims " + claims);
     }
 }

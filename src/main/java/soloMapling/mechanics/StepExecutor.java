@@ -43,13 +43,14 @@ final class StepExecutor {
     private final Map<Integer, Beat> beats = new ConcurrentHashMap<>();
 
     /** Per-bot pacing: when it last clicked, dropped, or was sent somewhere. */
-    private static final class Beat {
+    static final class Beat {
         volatile long lastTalkMs;
         volatile boolean talking;
         long lastDropMs;
         long lastPortalMs;
         long lastSayMs;
         boolean toldLeader;
+        int scriptFailures;
         Point moveTarget;
         long moveIssuedMs;
     }
@@ -71,7 +72,7 @@ final class StepExecutor {
             case SolverStep.HitReactor h -> log.accept(bot.getName() + ": reactor steps come in phase 2");
             case SolverStep.Occupy o -> occupy(bot, beat, o, now);
             case SolverStep.CheckAnswer c -> check(run, orchestrator, bot, beat, c, now, log);
-            case SolverStep.Converse c -> converse(bot, beat, c, now, log);
+            case SolverStep.Converse c -> converse(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.EnterPortal e -> enterPortal(bot, beat, e, now, log);
             case SolverStep.Wait w -> {
             }
@@ -213,9 +214,10 @@ final class StepExecutor {
                 if (said.length() > 90) {
                     said = said.substring(0, 90) + "...";
                 }
-                log.accept("NPC " + bot.getName() + " -> " + t.npcId()
+                String line = "NPC " + bot.getName() + " -> " + t.npcId()
                         + (t.itemId() > 0 ? " with " + t.count() + " x " + t.itemId() : "")
-                        + (r.ran() ? ": \"" + said + "\"" : " FAILED: " + r.error()));
+                        + (r.ran() ? ": \"" + said + "\"" : " FAILED: " + r.error());
+                scriptResult(run, orchestrator, beat, bot, t.npcId(), r, line, log);
             } finally {
                 beat.lastTalkMs = System.currentTimeMillis();
                 beat.talking = false;
@@ -258,6 +260,37 @@ final class StepExecutor {
     static String passLine(String leader, Integer npcX, int leaderX) {
         String where = npcX == null || Math.abs(npcX - leaderX) < 300 ? "" : npcX > leaderX ? " on the right" : " on the left";
         return leader + " dropped my pass by u, take them to Cloto" + where;
+    }
+
+    /** Failed NPC script runs in a row after which the run is abandoned (bot audit K10). */
+    static final int MAX_SCRIPT_FAILURES = 3;
+
+    /**
+     * What one NPC talk's outcome means for the log and the run (bot audit K10: a broken stage script logged one
+     * FAILED line per bot every 2.5 s, about 720 per bot per run). A success is logged and clears the count; a
+     * failure is logged once in a row, and the {@link #MAX_SCRIPT_FAILURES}th in a row abandons the run.
+     *
+     * @return {log the line, abort the run}
+     */
+    static boolean[] scriptOutcome(Beat beat, boolean ran) {
+        if (ran) {
+            beat.scriptFailures = 0;
+            return new boolean[]{true, false};
+        }
+        beat.scriptFailures++;
+        return new boolean[]{beat.scriptFailures == 1, beat.scriptFailures >= MAX_SCRIPT_FAILURES};
+    }
+
+    private static void scriptResult(RunState run, Orchestrator orchestrator, Beat beat, Character bot, int npcId,
+                                     BotNpcTalk.Result r, String line, Consumer<String> log) {
+        boolean[] what = scriptOutcome(beat, r.ran());
+        if (what[0]) {
+            log.accept(line);
+        }
+        if (what[1]) {
+            orchestrator.abort(run, "NPC " + npcId + "'s script failed " + MAX_SCRIPT_FAILURES + " times in a row for "
+                    + bot.getName() + ": " + r.error());
+        }
     }
 
     /** Where an NPC stands on the bot's own map (the bot talks where it is), or null. */
@@ -317,10 +350,11 @@ final class StepExecutor {
             return;
         }
         orchestrator.noteTry(run, bot.getId(), c.tryValue(), now);
-        click(bot, beat, c.npcId(), List.of(), "check " + c.tryValue(), now, log);
+        click(run, orchestrator, bot, beat, c.npcId(), List.of(), "check " + c.tryValue(), now, log);
     }
 
-    private void converse(Character bot, Beat beat, SolverStep.Converse c, long now, Consumer<String> log) {
+    private void converse(RunState run, Orchestrator orchestrator, Character bot, Beat beat, SolverStep.Converse c,
+                          long now, Consumer<String> log) {
         int[] npc = npcOn(bot, c.npcId());
         if (npc == null) {
             log.accept(bot.getName() + ": NPC " + c.npcId() + " is not on map " + bot.getMapId());
@@ -335,12 +369,12 @@ final class StepExecutor {
         if (beat.talking || now - beat.lastTalkMs < TALK_GAP_MS) {
             return;
         }
-        click(bot, beat, c.npcId(), c.answers(), c.why(), now, log);
+        click(run, orchestrator, bot, beat, c.npcId(), c.answers(), c.why(), now, log);
     }
 
     /** One NPC conversation through its own script, off the tick thread (a few hundred ms in interpreted mode). */
-    private static void click(Character bot, Beat beat, int npcId, List<Integer> answers, String why, long now,
-                              Consumer<String> log) {
+    private void click(RunState run, Orchestrator orchestrator, Character bot, Beat beat, int npcId,
+                       List<Integer> answers, String why, long now, Consumer<String> log) {
         beat.lastTalkMs = now;
         beat.talking = true;
         ExecutorServiceManager.getExecutorService().execute(() -> {
@@ -350,8 +384,8 @@ final class StepExecutor {
                 if (said.length() > 90) {
                     said = said.substring(0, 90) + "...";
                 }
-                log.accept("NPC " + bot.getName() + " -> " + npcId + " (" + why + ")"
-                        + (r.ran() ? ": \"" + said + "\"" : " FAILED: " + r.error()));
+                scriptResult(run, orchestrator, beat, bot, npcId, r, "NPC " + bot.getName() + " -> " + npcId + " (" + why
+                        + ")" + (r.ran() ? ": \"" + said + "\"" : " FAILED: " + r.error()), log);
             } finally {
                 beat.lastTalkMs = System.currentTimeMillis();
                 beat.talking = false;

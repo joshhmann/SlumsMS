@@ -55,6 +55,20 @@ public final class KillCollectHandInSolver implements StageSolver {
     }
 
     @Override
+    public java.util.Optional<String> leaderPrompt(StageView view, RunMember leader) {
+        Plan plan = Plan.of(view.stage(), view.partySize());
+        int id = leader.characterId();
+        int have = view.itemCount(id, plan.itemId());
+        if (have >= plan.need()) {
+            return java.util.Optional.of("@" + id + " u have the " + plan.need() + " passes, talk to Cloto");
+        }
+        if (view.floorItems(plan.itemId(), id) > 0) {
+            return java.util.Optional.of("@" + id + " grab the passes we dropped by u");
+        }
+        return java.util.Optional.empty();
+    }
+
+    @Override
     public SolverStep next(StageView view, RunMember member) {
         if (view.cleared()) {
             return new SolverStep.Done();

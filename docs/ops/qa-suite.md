@@ -259,6 +259,14 @@ persona shows 0-2 wrong hand-ins on the way up: a mixed-up answer or one short),
 the leader, who waits by Cloto and hands in one pass per other member. In game: `!mechanics kpq me` puts you in the
 party as leader with three bots: pick up the passes they drop at your feet and talk to Cloto. Auto-QA: t-mx-1.
 
+## mx-3, mx-4, mx-5: stops, channels and a player-led party (1.6.2, bot audit)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `mx-3` | Four bots start KPQ on your channel; the run is stopped 30 s in, as `!mechanics stop` does. Runs 3 minutes. Auto-QA t-mx-3 | `MX3 START kpq with 4 bots`, `RUN instance <name> ended with the run: N member(s) sent out`, `MX3 PASS stopped run left nobody inside` (instance disposed, nobody held or registered) |
+| `mx-4` | Three bots start KPQ on your channel and three more on another channel at the same time (every channel's first KPQ is named Kerning0). 20 s in both must be running; then both are stopped. Runs 3 minutes. Auto-QA t-mx-4 | `MX4 START <name> w1 ch A and <name> w1 ch B`, `MX4 PASS two channels ran KPQ at once` |
+| `mx-5` | Needs owned alts on (and the QA alts t-oa-1 makes). You (21+) lead a party of your two alts (raised to level 30 for the check, put back after) and one bot into KPQ; you do nothing. The alts must get Cloto questions like the bot; once the passes are in a bot must remind you (up to 6 minutes); then the run is stopped. Runs 9 minutes. Auto-QA t-mx-5 | `MX5 START kpq led by <you> with 3 driven (2 alts)`, `RUN <alt id> got answer <n>`, `RUN reminded the leader: @<you> ...`, `MX5 PASS alts driven, ..., nobody left inside after the stop` |
+
 ## mx-2: bots play all of Kerning PQ on their own (1.6.1, KPQ automation, ticket 130)
 
 | Test | What it stages | What to look for |
@@ -269,7 +277,10 @@ In game: `!mechanics kpq me` puts you in the party as leader with three bots for
 passes are dropped at your feet; on stages 2-4 talk to Cloto once to open the stage, the bots stand on the answer (a
 bot says when it is ready) and you check it. With your owned alts in your party (summon them, go to Lakelis, start
 KPQ), the alts play the stages the same way (one PQ logic for bots and alts); each alt gets one prize whether it
-claims first or you do. `!mechanics kpq to3` stops a staged run after stage 3; `!mechanics kpq stage4` starts it on stage 4 (1.6.2: stages before it marked cleared through the event's state, no rewards, everyone walks through the opened portals). What to watch on a real client:
+claims first or you do. **The leader's part is always yours** (1.6.2, bot audit K4): only the event leader can hand
+in passes or check a formation, so alts and bots never finish a run you lead on their own; when it is your turn a bot
+says so in party chat (20 s after, then every 40 s). If you die the bots stop and wait; reviving outside the PQ ends
+the run, and an instance with only bots and alts left in it ends with it. `!mechanics kpq to3` stops a staged run after stage 3; `!mechanics kpq stage4` starts it on stage 4 (1.6.2: stages before it marked cleared through the event's state, no rewards, everyone walks through the opened portals). What to watch on a real client:
 the ropes (do the bots hang still inside the rope's middle?), the barrels (5 px tall: do they stand on top?), and
 the attacks on stage 1's Ligators and stage 5's bosses (the client drops remote attacks with a pose it does not
 expect).

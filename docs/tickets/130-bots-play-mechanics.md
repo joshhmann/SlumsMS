@@ -325,6 +325,25 @@ only when that channel's one KPQ lobby (`maxLobbies = 1`) is taken, which the or
 aborted run in a PQ a real player stays in sends out an owned alt whose owner left (alts with their owner stay); with
 no real player left the instance ends (above), alts included.
 
+Bot audit (ticket 163) medium/low items, fixed on the same branch:
+
+| Item | Fix |
+|---|---|
+| K4 a player-led run cannot be finished | the leader's part stays his (only the event leader can hand in or check); every solver now says when it is his turn (`StageSolver.leaderPrompt`) and one bot reminds him 20 s after, then every 40 s (`Orchestrator.realLeader`) |
+| K5 the owner's death is invisible | `StageView.alive`; while a real leader is dead every bot waits and one says so once; they go on when he is up (a revive outside the PQ ends the run, and the instance with it when only bots and alts are left) |
+| K6 party ops tear alts out mid-run | `OwnedAltService.finish` has the alt leave its event through the script's `playerExit` before the save (`Backend.leaveEvent`): saved in town, no `playerDisconnected` that ends the PQ |
+| K7 a throw between party and run leaks | `MechanicsRuns.start`: a throw after the holds (scheduler refusing) aborts and finishes the run (holds released, unregistered); `KpqLobby.start` disbands the party on any throw |
+| K10 a broken stage script floods FAILED | `StepExecutor.scriptOutcome`: a failure is logged once in a row, the third in a row abandons the run |
+| B6 prize re-talk on a full bag | a bot gives up on its prize after `PRIZE_GIVE_UP_MS` (60 s) and waits; the run ends when every bot left gave up. (The bonus guard counting members anywhere is kept: KPQ's own "team lacking" check counts every registered member, so a bot leaving could end the PQ under a player still on stage 5.) |
+| B9 lobby level band 21-30 | `KpqLobby.pickParty` takes the content file's band (kpq.yaml 21-255) |
+| K8 lobby slot race | the slot is taken before the run starts, given back if it does not |
+| K9 / one lobby per channel | a channel whose KPQ has a live instance is skipped; one where Lakelis refused anyway is left alone 10 minutes |
+| B8 a despawning bot stays in the instance | `BotGeneration.removeBotFromServer` calls the event's `playerDisconnected` (bot-safe since the first fix) |
+| doc | `Mechanics.java` says what calls it |
+
+Auto-QA: t-mx-3 (a stopped run leaves nobody inside), t-mx-4 (two channels at once), t-mx-5 (a player leads his two
+alts and a bot; the alts are driven, the idle leader is reminded, the stop leaves nobody inside). See docs/ops/qa-suite.md.
+
 Simulation (`KpqFullRunTest`, Ligator model at TEST's pace): real leader + 3 bots, 40 seeds: mean 375 s / worst 572 s before,
 262 s / 450 s after with the leader standing still, 196 s / 338 s when the leader hunts too. About 66 coupons at three
 hunters' pace is the floor; more needs more damage (not changed).

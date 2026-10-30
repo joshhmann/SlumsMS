@@ -75,6 +75,11 @@ public final class MechanicsRuns {
         public List<Character> bots() {
             return List.copyOf(bots.values());
         }
+
+        /** The event instance the run plays in (QA checks look at who is still inside after a run). */
+        public EventInstanceManager instance() {
+            return eim;
+        }
     }
 
     /**
@@ -161,6 +166,24 @@ public final class MechanicsRuns {
             a.reporter.accept("RUN not started: " + run.endedBecause());
             return a;
         }
+        try {
+            holdAndSchedule(a, o, eim, content, run);
+        } catch (RuntimeException | LinkageError e) {
+            // K7 (bot audit): a throw after the holds (the scheduler refusing at shutdown) left the run registered,
+            // its bots held for good and no tick to ever finish it
+            log("[Mechanics] run " + keyOf(eim) + " could not start: " + e);
+            o.abort(run, "could not start: " + e);
+            finish(a);
+        }
+        return a;
+    }
+
+    /** The shared scheduler the run ticks on; tests put a refusing one here. */
+    static java.util.function.Supplier<java.util.concurrent.ScheduledExecutorService> scheduler =
+            ExecutorServiceManager::getScheduledExecutorService;
+
+    private void holdAndSchedule(Active a, Orchestrator o, EventInstanceManager eim, Content content, RunState run) {
+        Map<Integer, Character> bots = a.bots;
         for (Character bot : bots.values()) {
             MechanicsHold.hold(bot.getId());
             BotSM brain = CharacterStorage.getBotById(bot.getId());
@@ -173,9 +196,8 @@ public final class MechanicsRuns {
         a.reporter.accept("RUN start " + content.id() + " stage " + run.currentStage() + " in " + keyOf(eim) + ": "
                 + Orchestrator.describe(run));
         Orchestrator use = o;
-        a.tick = ExecutorServiceManager.getScheduledExecutorService().scheduleWithFixedDelay(
+        a.tick = scheduler.get().scheduleWithFixedDelay(
                 () -> safeTick(a, use), TICK_MS, TICK_MS, TimeUnit.MILLISECONDS);
-        return a;
     }
 
     private void safeTick(Active a, Orchestrator o) {

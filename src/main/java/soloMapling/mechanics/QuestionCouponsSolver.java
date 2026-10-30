@@ -210,6 +210,21 @@ public final class QuestionCouponsSolver implements StageSolver {
     }
 
     @Override
+    public java.util.Optional<String> leaderPrompt(StageView view, RunMember leader) {
+        Plan plan = Plan.of(view.stage());
+        int id = leader.characterId();
+        int need = Math.max(1, view.partySize() - 1);
+        int have = view.itemCount(id, plan.passId());
+        if (have >= need) {
+            return java.util.Optional.of("@" + id + " u have all " + need + " passes, talk to Cloto");
+        }
+        if (have + view.floorItems(plan.passId(), id) >= need) {
+            return java.util.Optional.of("@" + id + " pick up the passes by u and talk to Cloto");
+        }
+        return java.util.Optional.empty();
+    }
+
+    @Override
     public List<Integer> planWrongTries(Stage stage, int answer, MechanicsPersona persona, double mistakeFactor,
                                         Random rnd) {
         return plannedWrongCounts(answer, stage.answers().stream().map(MechanicsModel.Answer::value).toList(),

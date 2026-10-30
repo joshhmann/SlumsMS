@@ -1292,6 +1292,25 @@ public final class AutoQaCatalog {
                 .expect(has("MX2 START kpq with 4 bots"), has("RUN stage 5 cleared in \\d+ s"),
                         has("MX2 PASS cleared kpq in \\d+ s"), lacks("MX2 FAIL "), lacks(" FAILED: "))
                 .build());
+        // 1.6.2 (TEST 10-30 and bot audit K3/K7): a stopped run takes its KPQ instance with it - nobody inside, no
+        // bot held or registered (it used to stay 30 minutes and Lakelis refused the next party)
+        c.add(Check.auto("t-mx-3", "A stopped KPQ run leaves nobody inside and frees the channel's KPQ").minutes(3)
+                .step(run("mx-3"), waitFor("MX3 (PASS|FAIL) ", 2 * 60), stop())
+                .expect(has("MX3 START kpq with 4 bots"), has("MX3 PASS stopped run left nobody inside"),
+                        lacks("MX3 FAIL "))
+                .build());
+        // 1.6.2 (bot audit b113): bot-only KPQ runs on two channels at once (every channel's first KPQ is "Kerning0")
+        c.add(Check.auto("t-mx-4", "Two channels run Kerning PQ at once").minutes(3)
+                .step(run("mx-4"), waitFor("MX4 (PASS|FAIL) ", 2 * 60), stop())
+                .expect(has("MX4 START "), has("MX4 PASS two channels ran KPQ at once"), lacks("MX4 FAIL "))
+                .build());
+        // 1.6.2 (bot audit K3/K4, coverage): the pretend player leads his two alts and a bot; the alts are driven
+        // (Cloto gives each a question), a bot reminds the idle leader when the passes are in, and the stop leaves
+        // nobody inside. SKIPs without mechanics or owned alts, or without the QA alts (t-oa-1 makes them)
+        c.add(Check.auto("t-mx-5", "A player leads his alts and a bot in KPQ; the stop leaves nobody inside").minutes(9)
+                .step(run("mx-5"), waitFor("MX5 (PASS|FAIL) ", 8 * 60), stop())
+                .expect(has("MX5 START kpq led by "), has("MX5 PASS alts driven"), lacks("MX5 FAIL "))
+                .build());
         return List.copyOf(c);
     }
 
