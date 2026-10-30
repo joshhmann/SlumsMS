@@ -1,12 +1,20 @@
 package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import soloMapling.dashboard.DashboardMapExport;
+import soloMapling.server.Json;
 import server.maps.Foothold;
 import server.maps.FootholdTree;
 import server.maps.MapleMap;
 
 import java.awt.Point;
+import java.io.ObjectOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -71,5 +79,61 @@ class NavPitsTest {
         int pit = graph.regionIdByFootholdId.get(3);
         assertFalse(NavPits.isPit(graph, map, pit));
         assertEquals(0, NavPits.pits(graph, map).cardinality());
+    }
+
+    // ── nav/pits.json (the Website lane's dead-end check) ──────────────────────────────────────
+
+    @TempDir
+    Path dir;
+
+    private NavDashboardData.Dirs dirs() {
+        return new NavDashboardData.Dirs(dir.resolve("v68"), dir.resolve("deep"), dir.resolve("observed"),
+                dir.resolve("learned"), dir.resolve("stuck"));
+    }
+
+    @Test
+    void theExportedPitsAreExactlyTheRegionsThePlannerRefuses() {
+        MapleMap map = map(910000952, 450, FOOTHOLDS);
+        BotNavigationGraph graph = BotNavigationGraphProvider.rebuildGraph(map);
+        Map<String, Object> g = NavDashboardData.graph(graph, dirs(), System.currentTimeMillis());
+        Object bounds = NavDashboardData.geometry(map).get("bounds");
+        List<Integer> expected = NavPits.pits(graph, map).stream().boxed().toList();
+        assertEquals(List.of(graph.regionIdByFootholdId.get(3)), expected);
+        assertEquals(expected, NavDashboardData.pitRegions(g.get("regions"), bounds));
+        assertEquals(List.of(), NavDashboardData.pitRegions(g.get("regions"), null), "no view bounds, no pits");
+        assertEquals(List.of(), NavDashboardData.pitRegions(g.get("regions"),
+                NavDashboardData.geometry(map(910000953, 700, FOOTHOLDS)).get("bounds")));
+    }
+
+    @Test
+    void theMapExportWritesPitsJsonOnlyWhenItChanges() throws Exception {
+        int id = 910000954;
+        MapleMap map = map(id, 450, FOOTHOLDS);
+        BotNavigationGraph graph = BotNavigationGraphProvider.rebuildGraph(map);
+        NavDashboardData.Dirs dirs = dirs();
+        Files.createDirectories(dirs.graphs());
+        String key = NavEdgeLearning.bookKey(graph);
+        try (ObjectOutputStream o = new ObjectOutputStream(Files.newOutputStream(dirs.graphs().resolve(key + ".bin")))) {
+            o.writeObject(graph);
+        }
+        Path out = dir.resolve("dashboard");
+        DashboardMapExport.Options opts = DashboardMapExport.Options.parse(new String[]{"--out=" + out,
+                "--nav-reports=" + dir.resolve("reports")});
+        DashboardMapExport.Geometry geometry = mapId -> NavDashboardData.geometry(map);
+        long now = System.currentTimeMillis();
+
+        assertEquals(1, DashboardMapExport.run(opts, dirs, geometry, Map.of(), now).mapsWritten());
+        Path pits = out.resolve("nav/pits.json");
+        Map<?, ?> doc = (Map<?, ?>) Json.parse(Files.readString(pits));
+        assertEquals(1, ((Number) doc.get("version")).intValue());
+        Map<?, ?> maps = (Map<?, ?>) doc.get("maps");
+        assertEquals(List.of(String.valueOf(id)), new ArrayList<>(maps.keySet()));
+        List<Integer> regions = ((List<?>) maps.get(String.valueOf(id))).stream().map(v -> ((Number) v).intValue()).toList();
+        assertEquals(List.of(graph.regionIdByFootholdId.get(3)), regions);
+
+        Files.setLastModifiedTime(pits, java.nio.file.attribute.FileTime.fromMillis(1_000));
+        assertEquals(0, DashboardMapExport.run(opts, dirs, geometry, Map.of(), now).mapsWritten(), "nothing changed");
+        assertEquals(1_000, Files.getLastModifiedTime(pits).toMillis(), "pits.json kept from the map state, not rewritten");
+        assertEquals(Json.write(doc), Files.readString(pits));
     }
 }

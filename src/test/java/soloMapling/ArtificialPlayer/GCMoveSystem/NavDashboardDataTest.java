@@ -144,6 +144,9 @@ class NavDashboardDataTest {
         assertEquals(4, ((Number) today.get("stuckToday")).intValue());
         assertEquals(Map.of("GAVE_UP", 4L), Map.of("GAVE_UP", ((Number) ((Map<?, ?>) learning.get("stuckTodayByKind")).get("GAVE_UP")).longValue()));
 
+        assertEquals("{\"version\":1,\"maps\":{}}", Files.readString(out.resolve("nav/pits.json")),
+                "ticket 157: no view bounds, no pits");
+
         DashboardMapExport.Summary again = DashboardMapExport.run(o, dirs, geometry, names, now);
         assertEquals(0, again.mapsWritten(), "nothing changed");
         assertEquals(0, again.graphsWritten());
