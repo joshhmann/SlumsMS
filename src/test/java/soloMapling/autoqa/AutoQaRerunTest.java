@@ -165,10 +165,12 @@ class AutoQaRerunTest {
         AutoQaRerun.Plan plan = AutoQaRerun.plan(AutoQaCatalog.all(), report, 0.4, COMMIT);
         Map<String, Object> check = plan.carried().get("t-af-1");
 
-        AutoQaReport.carry(report, Map.of("t-af-1", check), plan.sourceRun(), "fast");
+        AutoQaReport.carry(report, Map.of("t-af-1", check), plan.sourceRun(), "fast", COMMIT);
 
         Map<?, ?> entry = (Map<?, ?>) ((Map<?, ?>) report.get("checks")).get("t-af-1");
-        assertEquals("PASS", entry.get("status"));
+        // b222: a carried row is labelled old, never a fresh PASS
+        assertEquals("PASS(old, 2026-10-24T10:00:00Z, 1c1e5dd9c)", entry.get("status"));
+        assertEquals(Boolean.FALSE, entry.get("fresh"));
         assertEquals("1.5.0", entry.get("build"));
         assertEquals("2026-10-24T10:02:00Z", entry.get("finished"));
         assertEquals("fast", entry.get("mode"));

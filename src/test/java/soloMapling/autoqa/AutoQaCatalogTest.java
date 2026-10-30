@@ -126,7 +126,8 @@ class AutoQaCatalogTest {
         java.util.Map<String, Object> r = AutoQaReport.empty("b", "2026-10-23", AutoQaCatalog.all());
         AutoQaReport.Snapshot s = AutoQaReport.snapshot(r);
         assertEquals(AutoQaCatalog.all().size(), s.checks().size());
-        assertEquals(s.checks().size(), s.count("PASS") + s.count("FAIL") + s.count("SKIP") + s.count("NOT_RUN"));
+        assertEquals(s.checks().size(), s.count("PASS") + s.count("FAIL") + s.count("SKIP") + s.count("NOT_RUN")
+                + s.count("OLD"));
         assertEquals(null, AutoQaReport.snapshot(null));
     }
 
@@ -152,6 +153,49 @@ class AutoQaCatalogTest {
                 assertFalse(st.describe().contains("!hide"), id + ": " + st.describe());
             }
         }
+    }
+
+    /**
+     * b222: a wait that runs out fails its check. The few windows that may legitimately stay empty are explicit
+     * ({@code Steps.optionalWait}) and pinned here, and the checks whose waits timed out in every TEST run of
+     * 10-23..30 while the check still passed were converted (they would otherwise fail on the new rule for the wrong
+     * reason, or kept passing without testing what they waited for).
+     */
+    @Test
+    void onlyPinnedChecksHaveOptionalWindowsAndTheTimedOutWaitsWereConverted() {
+        Set<String> optional = new HashSet<>();
+        for (Check c : AutoQaCatalog.all()) {
+            for (Check.Step st : c.steps()) {
+                if (st.describe().startsWith("optional: ")) {
+                    optional.add(c.id());
+                }
+            }
+        }
+        assertEquals(Set.of("t-ev-2"), optional);
+        // t-gu-8: a held kick is a branch (vote), not a wait that may run out
+        assertTrue(steps("t-gu-8").contains("up to 15 s for the kick, else !qa do vote"), steps("t-gu-8"));
+        assertFalse(steps("t-gu-8").contains("for /BOT_GUILD KICK /"), steps("t-gu-8"));
+        // t-td-2: waits for the bot's answer to the chat ask, not a new QUOTE line the ask never logs
+        assertTrue(steps("t-td-2").contains("for /CHAT {bot}: /"), steps("t-td-2"));
+        // t-cb-4: no 120 s soak that saw 0 lines in every run
+        assertFalse(steps("t-cb-4").contains("x /MANNERS /"), steps("t-cb-4"));
+        // t-af-3: the wait ends on what the expectation accepts
+        assertTrue(steps("t-af-3").contains("for /" + AutoQaCatalog.AF3_DRAMA_ON + "/"), steps("t-af-3"));
+        // t-bl-3 and t-ev-2: the trip, death and respawn may come before the wait's own window
+        assertTrue(steps("t-bl-3").contains("(since mark need)"), steps("t-bl-3"));
+        assertTrue(steps("t-ev-2").contains("for /WEVENT BOT DIED / (since the start)"), steps("t-ev-2"));
+        // the chat checks give a late (human-timed) reply the time it takes
+        for (String id : List.of("t-cv-1", "t-cv-2", "t-cv-3", "t-cv-7")) {
+            assertFalse(steps(id).matches("(?s).*wait up to 1[25] s for 1 x .*"), id + ": " + steps(id));
+        }
+    }
+
+    private static String steps(String id) {
+        StringBuilder b = new StringBuilder();
+        for (Check.Step st : AutoQaCatalog.find(id).steps()) {
+            b.append(st.describe()).append('\n');
+        }
+        return b.toString();
     }
 
     @Test

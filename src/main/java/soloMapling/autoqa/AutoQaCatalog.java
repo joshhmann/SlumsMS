@@ -37,6 +37,7 @@ import static soloMapling.autoqa.Steps.stop;
 import static soloMapling.autoqa.Steps.until;
 import static soloMapling.autoqa.Steps.untilProbe;
 import static soloMapling.autoqa.Steps.waitFor;
+import static soloMapling.autoqa.Steps.waitForSince;
 import static soloMapling.autoqa.Steps.waitSeconds;
 
 /**
@@ -51,12 +52,21 @@ import static soloMapling.autoqa.Steps.waitSeconds;
 public final class AutoQaCatalog {
 
     static final int HHG1 = 104040000, HHG2 = 104040001;
+    /** t-af-3: what proves drama is back on after {@code !qa do on}: an act, a KS, or the bot turning nemesis. */
+    static final String AF3_DRAMA_ON =
+            "(AFFINITY ACT (taunt|ks|defame)|AFFINITY KS \\S+ takes|STATE bot \\d+: nemesis(?!.*botdrama off))";
     /** t-cu-1 / t-cu-2: Henesys, a town with no mobs to push a staged pair apart. */
     static final int COUPLE_TOWN = 100000000;
     /** Bot chat lines a judge grades: "CHAT <bot>: <line>" from the staged bot. */
     static final String BOT_SAYS = "CHAT {bot}: (.+)";
     /** Every reply line of the convo layer: "SAID <bot> -> player <hash> [tier, src, voice, ms] <line>". */
     static final String SAID = "CONVO SAID \\S+ -> player \\S+ \\[[^]]*] (.+)";
+    /**
+     * b222: how long a chat check waits for the bot's reply before its next line. A wait that runs out now FAILs, and
+     * human timing makes ~3% of replies late (up to ~55 s; t-cv-7 timed out at 12 s on 10-28): the wait still ends
+     * as soon as the reply is there.
+     */
+    static final int SAID_CAP_S = 60;
 
     private static volatile List<Check> all;
 
@@ -106,11 +116,13 @@ public final class AutoQaCatalog {
                         noEmoji())
                 .build());
         c.add(Check.auto("t-af-3", "@botdrama off keeps bots friendly").minutes(7)
+                // b222: the wait ends on what the last expectation accepts (an act, a KS, or the nemesis state); it
+                // waited for the act alone and timed out in 5 of 5 runs (10-26..30) that then passed on the state
                 .step(run("af-3"), say("@botdrama"), waitSeconds(120), mark("on"), qaDo("on"),
-                        waitFor("AFFINITY (ACT (taunt|ks|defame)|KS \\S+ takes)", 150))
+                        waitFor(AF3_DRAMA_ON, 150))
                 .expect(has("YELLOW .*(Now: off|Bot drama is off)"),
                         lacksBefore("on", "AFFINITY (ACT (taunt|ks|defame)|EVENT ks|KS \\S+ takes)"),
-                        hasAfter("on", "(AFFINITY ACT (taunt|ks|defame)|AFFINITY KS \\S+ takes|STATE bot \\d+: nemesis(?!.*botdrama off))"))
+                        hasAfter("on", AF3_DRAMA_ON))
                 .build());
 
         // ── Spicy rivals ─────────────────────────────────────────────────────────────────────────────────────
@@ -224,12 +236,21 @@ public final class AutoQaCatalog {
                         has("BOT_GUILD BACK"), has("BOT_GUILD RESULT .*: (CLEARED|WIPED)"))
                 .build());
         c.add(Check.auto("t-gu-8", "A bot guild kicks a hated player").minutes(4)
-                .step(fixture("guildless"), run("gu-8"), qaDo("kick"), waitFor("BOT_GUILD KICK ", 15), Steps.of(
-                        "!qa do vote if the kick was held", r -> {
-                            if (r.matching("BOT_GUILD KICK \\S+ kicked", null, null).isEmpty()) {
-                                r.actor(1).say("!qa do vote");
-                                r.world().sleep(15_000);
+                // b222: the kick may be held for a vote - that is a branch, not a miss: up to 15 s for the kick,
+                // else !qa do vote; the expectations then demand the kick either way (the old waitFor timed out in
+                // every run of 10-26..30, all of which kicked after the vote)
+                .step(fixture("guildless"), run("gu-8"), qaDo("kick"), Steps.of(
+                        "up to 15 s for the kick, else !qa do vote", r -> {
+                            long until = r.world().now() + 15_000;
+                            while (r.world().now() < until) {
+                                if (!r.matching("BOT_GUILD KICK \\S+ kicked", null, null).isEmpty()) {
+                                    return Check.StepResult.OK;
+                                }
+                                r.world().sleep(1000);
                             }
+                            r.note("the kick was held: !qa do vote");
+                            r.actor(1).say("!qa do vote");
+                            r.world().sleep(15_000);
                             return Check.StepResult.OK;
                         }))
                 .expect(has("BOT_GUILD KICK \\S+ kicked {me}"), inOrder("WHISPER \\S+: ", "BOT_GUILD KICK \\S+ kicked {me}"),
@@ -400,10 +421,10 @@ public final class AutoQaCatalog {
 
         // ── Natural conversations (ticket 59) ────────────────────────────────────────────────────────────────
         c.add(Check.auto("t-cv-1", "Ask a bot to do things in plain words").minutes(8)
-                .step(run("cv-1"), say("{bot} wanna party?"), until(SAID, 1, 12), say("{bot} come to henesys"), until(SAID, 1, 12),
-                        say("{bot} meet me at the fm"), until(SAID, 1, 12), say("{bot} show me the way to perion"),
-                        until(SAID, 1, 12), stop(), run("cv-1", "training"), say("{bot2} help me kill these"), until(SAID, 1, 12),
-                        say("{bot2} can u buff me"), until(SAID, 1, 12))
+                .step(run("cv-1"), say("{bot} wanna party?"), until(SAID, 1, SAID_CAP_S), say("{bot} come to henesys"), until(SAID, 1, SAID_CAP_S),
+                        say("{bot} meet me at the fm"), until(SAID, 1, SAID_CAP_S), say("{bot} show me the way to perion"),
+                        until(SAID, 1, SAID_CAP_S), stop(), run("cv-1", "training"), say("{bot2} help me kill these"), until(SAID, 1, SAID_CAP_S),
+                        say("{bot2} can u buff me"), until(SAID, 1, SAID_CAP_S))
                 .expect(atLeast(4, "CONVO .*INTENT "), has(SAID),
                         rule("a refusal never says yes", AutoQaCatalog::refusalNeverSaysYes),
                         lacks("CONVO .*INTENT .*teleport"),
@@ -413,7 +434,7 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.auto("t-cv-2", "Haggle by chat").minutes(4)
                 .step(run("cv-2"), say("{bot} how much for the work gloves"), waitFor("TRADE QUOTE ", 20),
-                        say("{bot} would u do 300k"), until(SAID, 1, 12), say("{bot} thats too much"), until(SAID, 1, 12))
+                        say("{bot} would u do 300k"), until(SAID, 1, SAID_CAP_S), say("{bot} thats too much"), until(SAID, 1, SAID_CAP_S))
                 .expect(has("TRADE QUOTE \\S+ offers {me} "),
                         rule("the quoted price sits inside its band", AutoQaCatalog::quoteInsideBand),
                         judged(SAID, "a bot haggles over the price of work gloves with a player", 4), noEmoji(),
@@ -423,7 +444,7 @@ public final class AutoQaCatalog {
                 .step(say("@botdrama on"), run("cv-3"), say("{bot} sorry for ksing u"), waitFor("AFFINITY EVENT apology", 15),
                         // 1.6.0 triage (2026-10-27): the answer to the apology landed after the insult and the judge
                         // read it as the answer to the insult ("water under the bridge" to "ur trash noob")
-                        until(SAID, 1, 15),
+                        until(SAID, 1, SAID_CAP_S),
                         // owner 2026-10-29: one rude line only gets a brush-off; the second within 10 min counts
                         say("{bot} ur trash noob"), waitSeconds(8), say("{bot} ur trash noob"),
                         waitFor("AFFINITY EVENT rude_chat", 15), waitSeconds(8),
@@ -463,8 +484,8 @@ public final class AutoQaCatalog {
                 .expect(has("CONVO SAID {bot} "), lacks("CONVO RATE .*thread-"), has("CONVO RATE bad"), has("YELLOW (Bank line #\\d+ (weighs|is blacklisted)|Kept as a (good|bad) example|A scripted line)"))
                 .build());
         c.add(Check.auto("t-cv-7", "Line bank only (model off)").minutes(5)
-                .step(run("cv-7"), say("{bot} hey"), until(SAID, 1, 12), say("{bot} what u doing"), until(SAID, 1, 12),
-                        say("{bot} wanna grind together"), until(SAID, 1, 12), say("{bot} lol ok"), until(SAID, 1, 12))
+                .step(run("cv-7"), say("{bot} hey"), until(SAID, 1, SAID_CAP_S), say("{bot} what u doing"), until(SAID, 1, SAID_CAP_S),
+                        say("{bot} wanna grind together"), until(SAID, 1, SAID_CAP_S), say("{bot} lol ok"), until(SAID, 1, SAID_CAP_S))
                 .expect(atLeast(2, "CONVO SAID .*\\[[^]]*(bank#|script)"), lacks("CONVO SAID .*\\[[^]]*llm"),
                         rule("bank replies do not repeat", AutoQaCatalog::noRepeats),
                         judged(SAID, "a bot chats with a player in its own voice", 4), Expects.sayDo(130))
@@ -559,8 +580,11 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.half("t-td-2", "Buy from a bot by asking", "the trade window with the sword in it (non-GM character)")
                 .minutes(3)
+                // b222: the staging and !qa do quote log the quotes; the chat ask answers the open quote in chat
+                // without a new QUOTE line, so the old wait for one timed out in every run (10-26..30). The step now
+                // waits for the bot's chat answer to the ask (human timing can take ~55 s)
                 .step(run("tr-3"), qaDo("quote", "sword"), waitSeconds(3), say("{bot} how much for the sword?"),
-                        waitFor("TRADE QUOTE ", 15), say("{bot} would u do 1k"), waitSeconds(12))
+                        waitFor("CHAT {bot}: ", 75), say("{bot} would u do 1k"), waitSeconds(12))
                 .expect(has("TRADE QUOTE \\S+ offers "), rule("a counter never drops more than ~5% under fair",
                         AutoQaCatalog::haggleFloor))
                 .build());
@@ -638,8 +662,9 @@ public final class AutoQaCatalog {
                 // rc6 say-do triage (no MANNERS line in 3 runs): a mannerly bot never picks the player's platform, so
                 // next to a pretend player that stands still and never attacks nothing ever needed yielding. The
                 // player now steps onto a bot's spot once they have settled, then fights the mobs around it.
-                .step(run("cb-4"), waitSeconds(30), mark("step"), qaDo("stepon"), waitFor("MANNERS (YIELD|CROWDED) ", 20),
-                        qaDo("fight"), until("MANNERS ", 4, 120))
+                // b222: the 120 s "fight" soak after it (until 4 x MANNERS) saw 0 lines in 5 of 5 runs (10-26..30) and
+                // no expectation needs it: the step-on's YIELD/CROWDED is the proof, so the soak is gone
+                .step(run("cb-4"), waitSeconds(30), mark("step"), qaDo("stepon"), waitFor("MANNERS (YIELD|CROWDED) ", 20))
                 .expect(anyOf("MANNERS YIELD ", "MANNERS MOVE ON ", "MANNERS LEAVE "),
                         hasAfter("step", "MANNERS (YIELD|CROWDED) "))
                 .build());
@@ -809,9 +834,11 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.half("t-bl-3", "Bot chooses restocking from a real supply need",
                         "watch the trip and supplies after the shop visit").minutes(3)
+                // b222: the trip often starts with the decision, before the decision's wait began; the start wait
+                // looks from the request on (it timed out in 4 of 4 runs, all of which had started the trip)
                 .step(say("!warp 104040000"), waitSeconds(3), run("bl-3"), waitFor("LIFE READY bot=", 60),
-                        qaDo("need"), waitFor("HABITS LIFE DECISION bot={bot} selected=RESTOCK", 40),
-                        waitFor("HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)", 30))
+                        mark("need"), qaDo("need"), waitForSince("need", "HABITS LIFE DECISION bot={bot} selected=RESTOCK", 40),
+                        waitForSince("need", "HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)", 30))
                 .expect(has("LIFE NEED bot=\\d+ HP-potions=0; no trip was directly requested"),
                         has("HABITS LIFE DECISION bot={bot} selected=RESTOCK"),
                         has("HABITS LIFE START activity=RESTOCK bot={bot}(?:\\s|$)"))
@@ -1011,9 +1038,12 @@ public final class AutoQaCatalog {
         // 1.6.0 release-day triage: 100 called bots clear all three waves in ~90 s (TEST 18:17, 0 deaths), so the
         // 150 s wait let the event end before !qa do die; the natural-death window is now 20 s and the die stays armed
         c.add(Check.auto("t-ev-2", "A Henesys invasion: bots swarm it, some die and respawn").minutes(10)
-                .step(run("ev-2"), waitSeconds(8), waitFor("WEVENT BOT DIED ", EV2_NATURAL_DEATH_S), qaDo("die"),
-                        waitFor("WEVENT BOT DIED ", 180), waitFor("RESPAWN .* died on 100000000", 60), waitSeconds(5),
-                        stop())
+                // b222: the natural-death window may stay empty (the forced death follows), so it is an optionalWait;
+                // the death and respawn waits look from the start: a bot can die during the staging (10-30 19:30)
+                .step(run("ev-2"), waitSeconds(8), Steps.optionalWait("WEVENT BOT DIED ", EV2_NATURAL_DEATH_S,
+                                "a natural death is welcome, !qa do die forces one next"), qaDo("die"),
+                        waitForSince(null, "WEVENT BOT DIED ", 180), waitForSince(null, "RESPAWN .* died on 100000000", 60),
+                        waitSeconds(5), stop())
                 .expect(has("WEVENT START #\\d+ henesys_invasion \\(invasion\\) on 100000000 .*bots lv 1-40"),
                         has("WEVENT RECRUIT #\\d+ [1-9]\\d* bots head to 100000000"),
                         has("WEVENT NOTICE \\[Monster Invasion\\] Monsters are pouring into "),

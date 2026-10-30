@@ -1,7 +1,7 @@
 #!/bin/bash
 # Start an auto-QA run on the TEST server without logging in to the game.
 #
-#   tools/ops/autoqa-run [--feature] [all|smoke|<check id or family>|<id,id,...>] [--fast] [--failed]
+#   tools/ops/autoqa-run [--feature] [all|smoke|<check id or family>|<id,id,...>] [--fast] [--failed] [--release]
 #
 #   --fast    run the suite with the QA clock at 0.4x: the staged waits (guild boss-run gathering and inside time,
 #             buddy/pending accept windows, settle windows) are 40% as long. Checks that assert a real timer, a
@@ -9,6 +9,10 @@
 #   --failed  rerun only the checks whose last result was not a PASS and carry the rest forward, labelled not-rerun.
 #             Refused (so everything runs) when the server was redeployed since that run, when the fast/normal mode
 #             changed, or when the earlier run recorded no results. For iterating; evidence comes from a full run.
+#   --release a RELEASE run (b222): every check, fresh, normal clock; the run FAILs overall on any FAIL or on any SKIP
+#             not on the allow-list (src/main/resources/soloMapling/autoqa-release-skips.tsv, the client-only checks).
+#             The run line in latest.json and test-status say "release: PASS" or "release: FAIL (unexpected SKIP: ids)".
+#             Needs the selector all; refused with --fast or --failed.
 #   --feature target the isolated bot-brain copy (/opt/mapleroot-dev/bot-life-160) instead of TEST.
 #
 # Writes the request to Server/data/autoqa/run-request.txt; the server picks it up within 30 s (logged as
@@ -19,12 +23,17 @@ FLAGS=""
 BASE=/opt/mapleroot-dev/persistence-test
 for arg in "$@"; do
     case "$arg" in
-        --fast|--failed) FLAGS="$FLAGS $arg" ;;
+        --fast|--failed|--release) FLAGS="$FLAGS $arg" ;;
         --feature) BASE=/opt/mapleroot-dev/bot-life-160 ;;
         -*) echo "bad option: $arg" >&2; exit 2 ;;
         *) [[ -z "$SEL" ]] || { echo "one selector only: $SEL $arg" >&2; exit 2; }; SEL="$arg" ;;
     esac
 done
+if [[ "$FLAGS" == *--release* ]]; then
+    SEL="${SEL:-all}"
+    [[ "$SEL" == all ]] || { echo "a release run covers every check: use all, not $SEL" >&2; exit 2; }
+    [[ "$FLAGS" != *--fast* && "$FLAGS" != *--failed* ]] || { echo "a release run refuses --fast and --failed" >&2; exit 2; }
+fi
 SEL="${SEL:-smoke}"
 [[ "$SEL" =~ ^[A-Za-z0-9,_-]+$ ]] || { echo "bad selector: $SEL" >&2; exit 2; }
 REQ="$SEL$FLAGS"

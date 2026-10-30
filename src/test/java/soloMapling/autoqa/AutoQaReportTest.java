@@ -91,7 +91,8 @@ class AutoQaReportTest {
         List<String> lines = AutoQaReport.summaryLines(r, 25);
         assertTrue(lines.get(0).startsWith("Auto-QA 2026-10-23 (1.5.0-rc5): 0 pass, 1 fail"), lines.get(0));
         assertEquals("Health FAIL: foothold FAIL: 3 sunk", lines.get(1));
-        assertEquals("FAIL t-af-1 title t-af-1: no greet", lines.get(2));
+        assertTrue(lines.get(2).startsWith("Last run: t at "), lines.get(2)); // b222: the run's own summary line
+        assertEquals("FAIL t-af-1 title t-af-1: no greet", lines.get(3));
         assertTrue(AutoQaReport.summaryLines(null, 5).get(0).startsWith("No auto-QA report yet"));
         assertTrue(AutoQaReport.summaryLines(r, 4).size() <= 5);
     }

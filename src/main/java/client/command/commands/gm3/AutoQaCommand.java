@@ -14,7 +14,7 @@ import java.util.Map;
 
 /*
  * Test server only (registered when AutoQa.isEnabled(): -Dslums.autoqa=true or AUTOQA_ENABLED):
- *   !autoqa run <check-id|group|all> | !autoqa status | !autoqa stop | !autoqa report | !autoqa health | !autoqa list
+ *   !autoqa run <check-id|group|all> [--fast] [--failed] [release] | !autoqa status | !autoqa stop | !autoqa report | !autoqa health | !autoqa list
  * Runs release-notes checks with headless synthetic players and writes data/autoqa/ (docs/ops/qa-suite.md "Auto-QA").
  */
 public class AutoQaCommand extends Command {
@@ -30,12 +30,15 @@ public class AutoQaCommand extends Command {
         switch (sub) {
             case "run" -> {
                 if (params.length < 2) {
-                    gm.yellowMessage("Syntax: !autoqa run <t-af-1 | af-1 | af | bg-1,vg-1,ch-1 | smoke | all>");
+                    gm.yellowMessage("Syntax: !autoqa run <t-af-1 | af-1 | af | bg-1,vg-1,ch-1 | smoke | all>"
+                            + " [--fast] [--failed] [release]");
                     return;
                 }
                 int gmId = gm.getId();
                 int world = gm.getWorld();
-                show(gm, svc.start(params[1], gm.getName(), false, line -> {
+                // b222: the flags travel with the selector ("!autoqa run all release" is a release run)
+                String request = String.join(" ", java.util.Arrays.copyOfRange(params, 1, params.length));
+                show(gm, svc.start(request, gm.getName(), false, line -> {
                     Character now = Server.getInstance().getWorld(world).getPlayerStorage().getCharacterById(gmId);
                     if (now != null) {
                         now.yellowMessage(line);
@@ -75,7 +78,7 @@ public class AutoQaCommand extends Command {
                 }
                 gm.yellowMessage("* = not in the nightly run (leaves a lasting change).");
             }
-            default -> gm.yellowMessage("!autoqa run <check|a,b,c|smoke|all> | status | stop | report | health | list (!qa: menu)");
+            default -> gm.yellowMessage("!autoqa run <check|a,b,c|smoke|all> [release] | status | stop | report | health | list (!qa: menu)");
         }
     }
 

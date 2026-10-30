@@ -98,6 +98,20 @@ public final class CheckRun {
         return name == null ? startMs : marks.getOrDefault(name, Long.MAX_VALUE);
     }
 
+    private final List<String> logs = new ArrayList<>();
+
+    /** b222: a QA log file this check's scenarios wrote (from the suite's "Logging to ..." answer). */
+    void logged(String path) {
+        if (path != null && !path.isBlank() && !logs.contains(path)) {
+            logs.add(path);
+        }
+    }
+
+    /** The QA log files this check's scenarios wrote, in order (empty for a probe-only check). */
+    public List<String> logs() {
+        return List.copyOf(logs);
+    }
+
     public void note(String line) {
         notes.add(line);
     }
