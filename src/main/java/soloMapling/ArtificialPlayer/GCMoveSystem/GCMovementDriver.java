@@ -295,9 +295,11 @@ final class GCMovementDriver {
         // throttled physics when mid-air/climbing or the map has no baked graph (never bake just to move
         // an unwatched bot). `active` is false here only when nobody can see the bot.
         if (!active && tryCoarseAdvance(entry, bot, target)) {
+            NavTrace.tick(entry, false, target);
             return;
         }
         stepMovementCore(entry, target != null ? target : bot.getPosition(), runAiTick);
+        NavTrace.tick(entry, active, target); // ticket 157: one read when off
     }
 
     /*
@@ -750,7 +752,8 @@ final class GCMovementDriver {
         MapleMap map = bot.getMap();
         Rope rope = entry.climbRope;
         Point pos = bot.getPosition();
-        NavStuckLog.record(NavStuckLog.Kind.ROPE_HUNG, map, pos, entry.navGraph, entry.navEdge);
+        NavStuckLog.record(NavStuckLog.Kind.ROPE_HUNG, map, pos, entry.navGraph, entry.navEdge,
+                NavTrace.capture(entry));
         Point goal = entry.moveTarget != null ? entry.moveTarget : entry.navTargetPos;
         boolean atHead = pos.y <= rope.topY() + 2 * BotPhysicsEngine.climbStepPerTick() + 2;
         boolean goalAbove = goal == null || goal.y <= pos.y + BotMovementManager.cfg.STOP_DIST;
@@ -795,7 +798,8 @@ final class GCMovementDriver {
         entry.airStuckX = Integer.MIN_VALUE;
         // Recovery: snap to ground beneath the goal (or current position).
         MapleMap map = entry.bot.getMap();
-        NavStuckLog.record(NavStuckLog.Kind.AIR_FROZEN, map, pos, entry.navGraph, entry.navEdge);
+        NavStuckLog.record(NavStuckLog.Kind.AIR_FROZEN, map, pos, entry.navGraph, entry.navEdge,
+                NavTrace.capture(entry));
         Point goal = entry.moveTarget != null ? entry.moveTarget : entry.navTargetPos;
         // 1.6.0 WatchGate: in front of a player, drop straight down onto the ground below instead of snapping
         // across the map to the ground under the goal; the bot then walks to its goal like anyone would.
@@ -832,7 +836,8 @@ final class GCMovementDriver {
         if (!belowFloor && !offSides) {
             return;
         }
-        NavStuckLog.record(NavStuckLog.Kind.FELL_OFF_MAP, map, pos, entry.navGraph, entry.navEdge);
+        NavStuckLog.record(NavStuckLog.Kind.FELL_OFF_MAP, map, pos, entry.navGraph, entry.navEdge,
+                NavTrace.capture(entry));
         boolean watched = WatchGate.enabled() && WatchGate.watched(bot);
         if (watched) {
             WatchGate.noteSnappedWhileWatched(bot, "fell-off-map"); // out of bounds: there is nothing to walk on

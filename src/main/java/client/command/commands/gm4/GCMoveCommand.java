@@ -61,6 +61,7 @@ public class GCMoveCommand extends Command {
         }
         if (sub.equals("stuck")) { // ticket 04c: today's worst stuck spots (the daily report has the full list)
             soloMapling.ArtificialPlayer.GCMoveSystem.NavStuckLog.topToday(8).forEach(player::dropMessage);
+            player.dropMessage(soloMapling.ArtificialPlayer.GCMoveSystem.NavTrace.describe()); // ticket 157
             return;
         }
 

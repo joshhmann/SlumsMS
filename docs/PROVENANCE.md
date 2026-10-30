@@ -94,3 +94,14 @@ Ours:
 - the card list merged from monstercarddata and Item.wz;
 - `build_book.py` rewritten over parsed XML, because this server's WZ dump is minified. It takes drops from MySQL
   or a TSV and writes the HP strings the client book needs. MapleLib is not used.
+
+## Later ports
+
+Smaller ports from nutnnut/Cosmic (https://github.com/nutnnut/Cosmic, AGPL-3.0) after the merges above, one line each
+(the commit message of each port credits the same sha). Earlier 1.5.2/1.6.x ports (ticket 80 stability fixes,
+7a7a03de7, owned alts 51b88ee7b/cc5058459, megaphone buy requests 257ee6b48) are credited in their commits and in
+the adoption ledger (ticket 157 matrix, section 8).
+
+- Ticket 157, path trace on stuck: the idea of `BotPathLogger` (a 120-tick nav ring buffer, zero cost when off) from
+  nutnnut/Cosmic dev `77e0c5bc9`. Ours: `NavTrace` (no code copied), attached to `NavStuckLog` spots and the stuck
+  report, kept only on full simulation, capped per hour.

@@ -104,6 +104,11 @@ public final class GCMovement {
         return bot != null && STATES.containsKey(bot.getId());
     }
 
+    /* Ticket 157: this bot's movement state, or null when it is not on dynamic movement. */
+    static BotMovementState stateOf(Character bot) {
+        return bot == null ? null : STATES.get(bot.getId());
+    }
+
     /* Package-private snapshot of the enabled dynamic states (for LodMetrics reporting). */
     static java.util.Collection<BotMovementState> enabledStates() {
         return new java.util.ArrayList<>(STATES.values());

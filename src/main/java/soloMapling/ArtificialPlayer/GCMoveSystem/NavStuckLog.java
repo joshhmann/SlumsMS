@@ -75,6 +75,10 @@ public final class NavStuckLog {
         long last;
         int sampleX;
         int sampleY;
+        /** Ticket 157: the nav ticks that led to the latest traced event here ({@link NavTrace}); null = none. */
+        List<String> trace;
+        long traceAt;
+        int traces;
 
         Spot(int mapId, Kind kind, int x, int y, String edge, String graph) {
             this.mapId = mapId;
@@ -113,13 +117,19 @@ public final class NavStuckLog {
     /** A grind brain's view: a bot and where it stands, no nav edge. */
     public static void record(Kind kind, Character bot) {
         if (bot != null) {
-            record(kind, bot.getMapId(), bot.getPosition(), null, "");
+            record(kind, bot.getMapId(), bot.getPosition(), null, "", NavTrace.capture(bot)); // ticket 157
         }
     }
 
     static void record(Kind kind, MapleMap map, Point pos, BotNavigationGraph graph, BotNavigationGraph.Edge edge) {
+        record(kind, map, pos, graph, edge, null);
+    }
+
+    /** Ticket 157: with the path trace that led here ({@link NavTrace#capture}; null when tracing is off). */
+    static void record(Kind kind, MapleMap map, Point pos, BotNavigationGraph graph, BotNavigationGraph.Edge edge,
+                       List<String> trace) {
         if (map != null) {
-            record(kind, map.getId(), pos, graph, edge);
+            record(kind, map.getId(), pos, graph, describe(edge), trace);
         }
     }
 
@@ -128,6 +138,10 @@ public final class NavStuckLog {
     }
 
     static void record(Kind kind, int mapId, Point pos, BotNavigationGraph graph, String edgeName) {
+        record(kind, mapId, pos, graph, edgeName, null);
+    }
+
+    static void record(Kind kind, int mapId, Point pos, BotNavigationGraph graph, String edgeName, List<String> trace) {
         if (pos == null || mapId <= 0) {
             return;
         }
@@ -153,6 +167,11 @@ public final class NavStuckLog {
                 spot.last = now;
                 spot.sampleX = pos.x;
                 spot.sampleY = pos.y;
+                if (trace != null && !trace.isEmpty()) {
+                    spot.trace = trace; // the latest one: what led to this spot most recently
+                    spot.traceAt = now;
+                    spot.traces++;
+                }
             }
             day.dirty = true;
         } catch (RuntimeException e) {
@@ -243,6 +262,11 @@ public final class NavStuckLog {
                 o.put("last", s.last);
                 o.put("sampleX", s.sampleX);
                 o.put("sampleY", s.sampleY);
+                if (s.trace != null) {
+                    o.put("trace", s.trace);
+                    o.put("traceAt", s.traceAt);
+                    o.put("traces", s.traces);
+                }
                 spots.add(o);
             }
         }
@@ -300,6 +324,15 @@ public final class NavStuckLog {
                         s.last = m.get("last") instanceof Number n ? n.longValue() : 0;
                         s.sampleX = num(m, "sampleX");
                         s.sampleY = num(m, "sampleY");
+                        if (m.get("trace") instanceof List<?> lines && !lines.isEmpty()) {
+                            List<String> trace = new ArrayList<>(lines.size());
+                            for (Object line : lines) {
+                                trace.add(String.valueOf(line));
+                            }
+                            s.trace = trace;
+                            s.traceAt = m.get("traceAt") instanceof Number n ? n.longValue() : 0;
+                            s.traces = Math.max(1, num(m, "traces"));
+                        }
                         spots.add(s);
                     }
                 }
@@ -308,6 +341,27 @@ public final class NavStuckLog {
             log.debug("Ignoring unreadable stuck log {}", file, e);
         }
         return spots;
+    }
+
+    /** Ticket 157: one stuck spot with the path trace that led to it, as nav learning and the report read it. */
+    public record Traced(int mapId, Kind kind, int x, int y, String edge, int count, List<String> trace) {
+    }
+
+    /** The spots of a day file that carry a path trace, most counted first. */
+    public static List<Traced> traced(Path file) {
+        List<Traced> out = new ArrayList<>();
+        for (Spot s : read(file)) {
+            if (s.trace != null) {
+                out.add(new Traced(s.mapId, s.kind, s.x, s.y, s.edge, s.count, List.copyOf(s.trace)));
+            }
+        }
+        out.sort(Comparator.comparingInt((Traced t) -> -t.count()));
+        return out;
+    }
+
+    /** {@link #traced(Path)} for one UTC day of the live stuck log directory. */
+    public static List<Traced> traced(LocalDate day) {
+        return traced(fileFor(dir, day));
     }
 
     private static int num(Map<?, ?> m, String key) {
