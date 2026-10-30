@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1", "t-su-2");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -176,5 +176,16 @@ class Probes162Test {
         assertTrue(Probes162.healProblems(true, true, 400, 700, 1000).isEmpty());
         assertEquals(1, Probes162.healProblems(false, false, 400, 400, 1000).size());
         assertEquals(2, Probes162.healProblems(true, false, 400, 400, 1000).size());
+    }
+
+    // ── t-su-2 ──
+
+    @Test
+    void theFameCheckWantsOneFameAndARefusal() {
+        assertTrue(Probes162.fameProblems(false, 0, true, 1, true, 0).isEmpty());
+        assertTrue(soloMapling.ArtificialPlayer.BotFameRequest.isFameRequest(Probes162.SU2_ASK));
+        assertEquals(1, Probes162.fameProblems(false, 0, true, 1, true, 1).size(), "farmed twice");
+        assertEquals(1, Probes162.fameProblems(true, 1, true, 1, true, 0).size(), "a stranger famed");
+        assertEquals(1, Probes162.fameProblems(false, 0, false, 0, true, 0).size());
     }
 }

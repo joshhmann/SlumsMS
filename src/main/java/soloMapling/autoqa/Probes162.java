@@ -63,7 +63,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants", "partyHeal");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants", "partyHeal", "fameRequest");
 
     private Probes162() {
     }
@@ -81,6 +81,7 @@ final class Probes162 {
                 case "scrollEv" -> scrollEv(p);
                 case "apVariants" -> apVariants();
                 case "partyHeal" -> partyHeal(p);
+                case "fameRequest" -> fameRequest(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1236,6 +1237,93 @@ final class Probes162 {
             BotPartySupport.clearBot(bot.getId());
             partyDown(me, bot);
             me.updateHp(Math.max(hp0, 1));
+            ev.add(TalkQa.teardown(List.of(bot)));
+        }
+    }
+
+    // ── t-su-2: a friend fames on request once; a second ask is refused ─────────────────────────
+
+    /** t-su-2: the line the pretend player says (a fame request by BotFameRequest.isFameRequest). */
+    static final String SU2_ASK = "fame me pls";
+
+    /** t-su-2: what is wrong with the three asks (stranger, friend, friend again). Pure, for the tests. */
+    static List<String> fameProblems(boolean strangerHandled, int strangerGain, boolean firstHandled, int firstGain,
+                                     boolean secondHandled, int secondGain) {
+        List<String> bad = new ArrayList<>();
+        if (strangerHandled || strangerGain != 0) {
+            bad.add("a bot that is not a friend answered the ask (handled=" + strangerHandled + ", fame +" + strangerGain
+                    + ")");
+        }
+        if (!firstHandled || firstGain != 1) {
+            bad.add("the friend's first answer gave fame +" + firstGain + " (handled=" + firstHandled + "), want +1");
+        }
+        if (!secondHandled || secondGain != 0) {
+            bad.add("the second ask gave fame +" + secondGain + " (handled=" + secondHandled + "), want a refusal and +0");
+        }
+        return bad;
+    }
+
+    /**
+     * t-su-2 ({@code slums.bots.famerequest}): a fresh level-20 bot (tick stopped) next to the pretend player. Asked
+     * "{@value #SU2_ASK}" while not a friend it must not answer; staged a FRIEND ({@code BotAffinity.stage}) it must
+     * fame the player once ({@code BotFameRequest.tryHandle}, the chat path's call; fame +1), and a second ask must be
+     * refused (fame +0). The fame point, the bot's famelog row and the staged tie are taken back.
+     */
+    static List<String> fameRequest(SyntheticPlayer p) throws Exception {
+        if (!soloMapling.ArtificialPlayer.BotSupportSwitches.fameRequest()) {
+            return List.of("SKIP fame requests are off (-Dslums.bots.famerequest=true)");
+        }
+        Character me = p.character();
+        List<String> ev = new ArrayList<>();
+        Character bot = spawnTraining(p, 20);
+        if (bot == null) {
+            return List.of("FAIL could not spawn a training bot");
+        }
+        int gained = 0;
+        try {
+            freeze(bot);
+            soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.stage(bot.getId(), me.getId(),
+                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.NEUTRAL);
+            int f0 = me.getFame();
+            boolean stranger = soloMapling.ArtificialPlayer.BotFameRequest.tryHandle(bot, me, SU2_ASK);
+            int f1 = me.getFame();
+            boolean staged = soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.stage(bot.getId(), me.getId(),
+                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.FRIEND);
+            long since = System.currentTimeMillis();
+            boolean first = soloMapling.ArtificialPlayer.BotFameRequest.tryHandle(bot, me, SU2_ASK);
+            int f2 = me.getFame();
+            boolean second = soloMapling.ArtificialPlayer.BotFameRequest.tryHandle(bot, me, SU2_ASK);
+            int f3 = me.getFame();
+            gained = f3 - f0;
+            Thread.sleep(1500);
+            List<String> said = new ArrayList<>();
+            for (AutoQaLine l : p.heard(since)) {
+                if (l.message().contains(bot.getName())) {
+                    said.add(l.kind() + " " + l.message());
+                }
+            }
+            ev.add("bot " + bot.getName() + " lv " + bot.getLevel() + " on " + bot.getMapId() + ", player on "
+                    + me.getMapId() + "; friend staged=" + staged);
+            ev.add("fame " + f0 + " -> stranger ask (handled=" + stranger + ") " + f1 + " -> friend ask (handled=" + first
+                    + ") " + f2 + " -> again (handled=" + second + ") " + f3);
+            ev.add("the bot said: " + (said.isEmpty() ? "nothing the player heard" : String.join(" | ", said)));
+            return Probes160.verdict(fameProblems(stranger, f1 - f0, first, f2 - f1, second, f3 - f2),
+                    "a stranger bot ignored the ask, the friend famed the player once and refused the second ask", ev);
+        } finally {
+            if (gained > 0) {
+                me.gainFame(-gained);
+            }
+            try (java.sql.Connection con = tools.DatabaseConnection.getConnection();
+                 java.sql.PreparedStatement ps = con.prepareStatement(
+                         "DELETE FROM famelog WHERE characterid = ? AND characterid_to = ?")) {
+                ps.setInt(1, bot.getId());
+                ps.setInt(2, me.getId());
+                ev.add("famelog rows removed: " + ps.executeUpdate() + ", fame given back: " + Math.max(0, gained));
+            } catch (java.sql.SQLException e) {
+                ev.add("famelog cleanup failed: " + e.getMessage());
+            }
+            soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.stage(bot.getId(), me.getId(),
+                    soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.NEUTRAL);
             ev.add(TalkQa.teardown(List.of(bot)));
         }
     }

@@ -1342,6 +1342,10 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-su-1", "Party support: a cleric bot heals a partied player under 60% HP").minutes(1)
                 .expect(probe("partyHeal"))
                 .build());
+        // bots.famerequest: a stranger bot ignores "fame me pls", a friend fames once and refuses the second ask
+        c.add(Check.auto("t-su-2", "Fame requests: a friend fames on request once, a second ask is refused").minutes(1)
+                .expect(probe("fameRequest"))
+                .build());
         return List.copyOf(c);
     }
 
