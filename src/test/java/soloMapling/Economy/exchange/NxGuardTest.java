@@ -39,6 +39,11 @@ class NxGuardTest {
         ex = new Exchange(store, ExchangeLiveTest.cfg(100, 0), store::online, store.finder(), now::get);
         assertTrue(ex.recover().isEmpty());
         ex.guard(NxGuard.defaults());
+        // 1.6.2 b005: every account signed in with its password just now (the game's own record)
+        ex.signIns(new SiteReauth.SignIns());
+        for (long a = 1; a <= 4; a++) {
+            ex.signIns().record(a, now.get());
+        }
     }
 
     Response place(long account, Side side, long price, long nx) {
@@ -224,7 +229,12 @@ class NxGuardTest {
         ExchangeSite.Request c = ExchangeSite.requests("[{\"id\":\"sc" + (++req) + "\",\"account\":" + account
                 + ",\"type\":\"confirm\",\"token\":\"" + p.data().get("token") + "\",\"siteAuthAt\":" + (now.get() - H)
                 + ",\"createdAt\":\"" + created + "\"}]").get(0);
-        return ExchangeSite.answer(ex, c, now.get());
+        Response r = ExchangeSite.answer(ex, c, now.get());
+        if ("PASSWORD_REQUIRED".equals(r.code())) { // 1.6.2 b005: the player types the password on the site
+            assertTrue(ex.approve(account, (String) p.data().get("token")).ok());
+            r = ExchangeSite.answer(ex, c, now.get());
+        }
+        return r;
     }
 
     @Test
@@ -237,6 +247,23 @@ class NxGuardTest {
         long rate = ex.officialRate();
         assertEquals(rate * 2, ex.nxBand()[1]);
         assertEquals("PRICE_BAND", siteBuy(4, rate * 2 + 1_000, 100).code(), "but never over 200% of the rate");
+    }
+
+    @Test
+    void theSiteGetsThePriceBandWithAClearMessageOnceThe7DayRateExists() {
+        rateAt(4_000_000);
+        Response dump = siteSell(3, 1_000_000, 1_000);
+        assertEquals("PRICE_BAND", dump.code());
+        assertEquals("an NX sell must ask at least 2,000 mesos per NX (the official rate is 4,000 mesos per NX)",
+                dump.message());
+        assertEquals(2_000_000L, dump.data().get("minPrice"));
+        assertEquals(8_000_000L, dump.data().get("maxPrice"));
+        assertEquals(4_000_000L, dump.data().get("rate"));
+        Response over = siteBuy(4, 8_001_000, 100);
+        assertEquals("PRICE_BAND", over.code());
+        assertEquals("an NX buy may bid at most 8,000 mesos per NX (the official rate is 4,000 mesos per NX)",
+                over.message());
+        assertEquals(NX0, store.nx(3), "nothing left the account");
     }
 
     // ---------------------------------------------------------------- the site sign-in age

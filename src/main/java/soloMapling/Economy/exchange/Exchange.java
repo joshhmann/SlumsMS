@@ -107,8 +107,11 @@ public final class Exchange {
         return account >= BOT_ACCOUNT_BASE;
     }
 
-    /** A previewed place waiting for its confirm. */
-    private record Pending(Place place, long expiresAt) {
+    /**
+     * A previewed place waiting for its confirm. {@code site}: previewed from the site; {@code approvedAt} (0 = not)
+     * when the password was typed for it ({@link #approve}, b005 step-up).
+     */
+    private record Pending(Place place, long expiresAt, boolean site, long approvedAt) {
     }
 
     /** A site preview's token prefix on the order's request id ({@code @nx} in game: "t-"): which orders came from the site. */
@@ -124,6 +127,96 @@ public final class Exchange {
     /** Another guard (tests, the QA staging). */
     public void guard(NxGuard g) {
         guard = g == null ? NxGuard.OFF : g;
+    }
+
+    /** 1.6.2 b005: the game-side sign-in age and the password step-up for site orders ({@link SiteReauth}). */
+    private volatile SiteReauth siteReauth = SiteReauth.fromSystem();
+    private volatile SiteReauth.SignIns signIns = SiteReauth.GAME;
+    /** Account -> {at, mesos} of its site buys confirmed without a password (the step-up's free amount). */
+    private final Map<Long, Deque<long[]>> freeBuys = new HashMap<>();
+
+    public SiteReauth siteReauth() {
+        return siteReauth;
+    }
+
+    /** Another policy (tests). */
+    public void siteReauth(SiteReauth r) {
+        siteReauth = r == null ? SiteReauth.OFF : r;
+    }
+
+    /** Where password checks are read from ({@link SiteReauth#GAME} in the game). */
+    public SiteReauth.SignIns signIns() {
+        return signIns;
+    }
+
+    public void signIns(SiteReauth.SignIns s) {
+        signIns = s == null ? new SiteReauth.SignIns() : s;
+    }
+
+    // ---------------------------------------------------------------- audit (1.6.2)
+
+    private static final Logger AUDIT = LoggerFactory.getLogger("soloMapling.Economy.exchange.Audit");
+    private volatile java.util.function.Consumer<String> audit = AUDIT::info;
+
+    /** Where the audit lines go (tests); the game logs them on the {@code soloMapling.Economy.exchange.Audit} logger. */
+    public void auditSink(java.util.function.Consumer<String> sink) {
+        audit = sink == null ? AUDIT::info : sink;
+    }
+
+    /** One audit line: "NX exchange audit: " + {@code line}. Never throws. */
+    void audit(String line) {
+        try {
+            audit.accept("NX exchange audit: " + line);
+        } catch (RuntimeException e) {
+            // the audit never breaks a trade
+        }
+    }
+
+    /** "acct=3 char=13" for an order row (a regular: "regular=2"; a trader bot: "bot=..."). */
+    private static String who(OrderRow r) {
+        if (r == null) {
+            return "acct=? char=?";
+        }
+        if (r.regular() > 0) {
+            return "regular=" + r.regular();
+        }
+        return botAccount(r.account()) ? "bot=" + r.character() : "acct=" + r.account() + " char=" + r.character();
+    }
+
+    /** Applies a batch and, once it is in the store, writes its audit line ({@code what}: place, cancel, ...). */
+    private void commit(Batch b, String what) throws StoreException {
+        store.apply(b);
+        audit(describe(b, what));
+    }
+
+    private String describe(Batch b, String what) {
+        StringBuilder sb = new StringBuilder(what).append(" batch=").append(b.id());
+        if (b.liveAccount() > 0) {
+            sb.append(" live=acct=").append(b.liveAccount()).append(" char=").append(b.liveCharacter());
+        }
+        Map<Long, OrderRow> byId = new HashMap<>();
+        for (OrderRow o : b.orders()) {
+            byId.put(o.id(), o);
+            sb.append(" | order #").append(o.id()).append(' ').append(o.requestId()).append(' ').append(who(o))
+                    .append(' ').append(o.side()).append(' ').append(o.ticker()).append(' ').append(o.nxTotal())
+                    .append('@').append(o.price()).append(" left=").append(o.nxLeft()).append(' ').append(o.status());
+        }
+        for (FillRow f : b.fills()) {
+            OrderRow buy = byId.getOrDefault(f.buyOrder(), rows.get(f.buyOrder()));
+            OrderRow sell = byId.getOrDefault(f.sellOrder(), rows.get(f.sellOrder()));
+            sb.append(" | fill #").append(f.id()).append(' ').append(f.ticker()).append(' ').append(f.nx()).append('@')
+                    .append(f.price()).append(" mesos=").append(f.mesos()).append(" buy#").append(f.buyOrder())
+                    .append('(').append(who(buy)).append(") sell#").append(f.sellOrder()).append('(').append(who(sell))
+                    .append(')');
+        }
+        for (Posting p : b.postings()) {
+            if (p.from().kind().external() || p.to().kind().external() || p.why() == Why.REVERSE
+                    || p.why() == Why.FUND) {
+                sb.append(" | ").append(p.why()).append(' ').append(p.from()).append("->").append(p.to()).append(' ')
+                        .append(p.amount()).append(p.account() > 0 ? " acct=" + p.account() : "");
+            }
+        }
+        return sb.toString();
     }
 
     /**
@@ -577,8 +670,9 @@ public final class Exchange {
         }
         String t = token.toString();
         long expires = now + config.confirmMs();
-        pending.put(t, new Pending(new Place((site ? SITE_RID : "t-") + t, p.account(), p.character(), p.side(), p.price(), p.nx(),
-                tk.id()), expires));
+        Place placed = new Place((site ? SITE_RID : "t-") + t, p.account(), p.character(), p.side(), p.price(), p.nx(),
+                tk.id());
+        pending.put(t, new Pending(placed, expires, site, 0));
         latestToken.put(p.account(), t);
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("token", t);
@@ -602,6 +696,10 @@ public final class Exchange {
         data.put("restsNx", p.nx() - nx);
         data.put("cancelledBySelfTrade", r.closed().stream().anyMatch(c -> c.orderId() == nextOrder
                 && c.reason() == OrderBook.Reason.SELF_TRADE));
+        if (site) {
+            // b005: the site shows the password box with the confirm when this is true (POST /exchange/approve)
+            data.put("passwordRequired", passwordRequired(placed, now));
+        }
         return Response.ok(rid, data);
     }
 
@@ -611,6 +709,9 @@ public final class Exchange {
      * a restart: tokens live in memory only).
      */
     public synchronized Response confirm(String rid, long account, String token) {
+        if (halted) {
+            return Response.error(rid, "HALTED", "the exchange is stopped: " + haltReason);
+        }
         long now = clock.getAsLong();
         Pending x = token == null ? null : pending.get(token);
         if (x == null || x.expiresAt() < now) {
@@ -624,6 +725,101 @@ public final class Exchange {
         }
         Response r = place(x.place());
         return new Response(rid, r.ok(), r.code(), r.message(), r.data());
+    }
+
+    // ---------------------------------------------------------------- b005 step-up (1.6.2)
+
+    /**
+     * Does this site order need the password typed for it ({@link SiteReauth})? Every SELL (NX or items leave the
+     * account), and a BUY once the account's password-free site buys of the last 12 h plus this one would pass
+     * {@link SiteReauth#freeBuyMesos}.
+     */
+    private boolean passwordRequired(Place p, long now) {
+        SiteReauth r = siteReauth;
+        if (!r.stepUp()) {
+            return false;
+        }
+        if (p.side() == Side.SELL) {
+            return true;
+        }
+        Ticker t = tickers.get(p.ticker());
+        long cost = t == null ? Long.MAX_VALUE : t.buyTotal(config, p.nx(), p.price());
+        return freeBuysUsed(p.account(), now) + cost > r.freeBuyMesos();
+    }
+
+    private long freeBuysUsed(long account, long now) {
+        Deque<long[]> d = freeBuys.get(account);
+        if (d == null) {
+            return 0;
+        }
+        while (!d.isEmpty() && now - d.peekFirst()[0] >= SiteReauth.FREE_WINDOW_MS) {
+            d.removeFirst();
+        }
+        long sum = 0;
+        for (long[] e : d) {
+            sum += e[1];
+        }
+        if (d.isEmpty()) {
+            freeBuys.remove(account);
+        }
+        return sum;
+    }
+
+    /**
+     * b005: the auth API checked the account's password for this preview token ({@code POST /exchange/approve}). The
+     * token is marked approved and gets a fresh {@link ExchangeConfig#confirmMs()} to be confirmed in (typing the
+     * password takes time). TOKEN_EXPIRED for an unknown, expired or other account's token.
+     */
+    public synchronized Response approve(long account, String token) {
+        long now = clock.getAsLong();
+        Pending x = token == null ? null : pending.get(token);
+        if (x == null || x.expiresAt() < now || x.place().account() != account) {
+            audit("approve REFUSED acct=" + account + " TOKEN_EXPIRED");
+            return Response.error("approve", "TOKEN_EXPIRED", "that preview expired; preview the order again");
+        }
+        if (halted) {
+            return Response.error("approve", "HALTED", "the exchange is stopped: " + haltReason);
+        }
+        long expires = Math.max(x.expiresAt(), now + config.confirmMs());
+        pending.put(token, new Pending(x.place(), expires, x.site(), now));
+        audit("approve OK acct=" + account + " char=" + x.place().character() + " " + x.place().side() + " "
+                + x.place().ticker() + " " + x.place().nx() + "@" + x.place().price());
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("token", token);
+        data.put("expiresAt", iso(expires));
+        return Response.ok("approve", data);
+    }
+
+    /**
+     * Step 2 from the site: as {@link #confirm}, but a big or risky order ({@link #passwordRequired}) needs the
+     * password approved for this token first (PASSWORD_REQUIRED, nothing moves; the token stays valid so the site can
+     * ask for the password and confirm again).
+     */
+    public synchronized Response confirmSite(String rid, long account, String token) {
+        if (halted) {
+            return confirm(rid, account, token);
+        }
+        long now = clock.getAsLong();
+        Pending x = token == null ? null : pending.get(token);
+        if (x == null || x.expiresAt() < now || x.place().account() != account) {
+            return confirm(rid, account, token);
+        }
+        boolean needs = passwordRequired(x.place(), now);
+        if (needs && x.approvedAt() <= 0) {
+            Map<String, Object> d = new LinkedHashMap<>();
+            d.put("token", token);
+            d.put("expiresAt", iso(x.expiresAt()));
+            return new Response(rid, false, "PASSWORD_REQUIRED", x.place().side() == Side.SELL
+                    ? "type your password to confirm a sell from the website"
+                    : "type your password to confirm this buy (big buys from the website ask for it)", d);
+        }
+        Response r = confirm(rid, account, token);
+        if (r.ok() && !needs && x.place().side() == Side.BUY && siteReauth.stepUp()) {
+            Ticker t = tickers.get(x.place().ticker());
+            freeBuys.computeIfAbsent(account, k -> new java.util.ArrayDeque<>())
+                    .addLast(new long[]{now, t.buyTotal(config, x.place().nx(), x.place().price())});
+        }
+        return r;
     }
 
     /** The in-game {@code @nx confirm}: the account's latest preview. */
@@ -783,7 +979,7 @@ public final class Exchange {
                 : new Batch(nextBatch, now, postings, touched, fills, w.account(), w.character(),
                 w.inventoryWriter());
         try {
-            store.apply(batch);
+            commit(batch, "place");
         } catch (StoreException e) {
             books.put(t.id(), before);
             rows.clear();
@@ -953,7 +1149,7 @@ public final class Exchange {
             return Response.error(rid, "NOT_FOUND", "no open order");
         }
         try {
-            store.apply(new Batch(nextBatch, now, postings, touched, List.of()));
+            commit(new Batch(nextBatch, now, postings, touched, List.of()), "close " + why + " " + rid);
         } catch (StoreException e) {
             books = before;
             return storeError(rid, e);
@@ -993,7 +1189,7 @@ public final class Exchange {
                     b.ticker()));
         }
         try {
-            store.apply(new Batch(nextBatch, now, postings, touched, List.of()));
+            commit(new Batch(nextBatch, now, postings, touched, List.of()), "expire");
         } catch (StoreException e) {
             books = before;
             return 0;
@@ -1032,8 +1228,13 @@ public final class Exchange {
             return false;
         }
         try {
-            List<Posting> done = store.collect(nextBatch, clock.getAsLong(), account);
+            long batchId = nextBatch;
+            List<Posting> done = store.collect(batchId, clock.getAsLong(), account);
             nextBatch++;
+            if (!done.isEmpty()) {
+                audit(describe(new Batch(batchId, clock.getAsLong(), done, List.of(), List.of()),
+                        "payout offline acct=" + account));
+            }
             return !done.isEmpty();
         } catch (StoreException e) {
             return false;
@@ -1077,7 +1278,7 @@ public final class Exchange {
             return items;
         }
         try {
-            store.apply(new Batch(nextBatch, now, postings, List.of(), List.of(), w.account(), w.character()));
+            commit(new Batch(nextBatch, now, postings, List.of(), List.of(), w.account(), w.character()), "payout live");
         } catch (StoreException e) {
             return items;
         }
@@ -1090,8 +1291,8 @@ public final class Exchange {
             }
             // memory could not take it after all: undo this leg in the database (wallet back to payout)
             try {
-                store.apply(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.COLLECT, p.to(), p.from(),
-                        p.amount(), w.account(), 0, 0)), List.of(), List.of(), w.account(), w.character()));
+                commit(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.COLLECT, p.to(), p.from(),
+                        p.amount(), w.account(), 0, 0)), List.of(), List.of(), w.account(), w.character()), "payout undo");
                 nextBatch++;
             } catch (StoreException e) {
                 log.error("NX exchange: {} {} credited to account {} in the database but not in memory; halting",
@@ -1142,9 +1343,9 @@ public final class Exchange {
                 continue;
             }
             try {
-                store.apply(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.COLLECT, pay,
+                commit(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.COLLECT, pay,
                         Bucket.wallet(a, w.character()), n, w.account(), 0, 0)), List.of(), List.of(), w.account(),
-                        w.character(), w.inventoryWriter()));
+                        w.character(), w.inventoryWriter()), "payout items");
                 nextBatch++;
             } catch (StoreException e) {
                 if (!w.take(a, n)) {
@@ -1174,9 +1375,9 @@ public final class Exchange {
         }
         Bucket from = asset == Asset.NX ? Bucket.wallet(Asset.NX, account) : Bucket.wallet(Asset.MESO, character);
         try {
-            store.apply(new Batch(nextBatch, clock.getAsLong(),
+            commit(new Batch(nextBatch, clock.getAsLong(),
                     List.of(new Posting(Why.FUND, from, Bucket.house(asset, regular), amount, account, 0, 0)),
-                    List.of(), List.of()));
+                    List.of(), List.of()), "fund regular " + regular);
         } catch (StoreException e) {
             return storeError("fund", e);
         }
@@ -1211,9 +1412,9 @@ public final class Exchange {
             Bucket from = asset == Asset.NX ? Bucket.wallet(Asset.NX, w.account())
                     : Bucket.wallet(Asset.MESO, w.character());
             try {
-                store.apply(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.FUND, from,
+                commit(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.FUND, from,
                         Bucket.house(asset, regular), amount, w.account(), 0, 0)), List.of(), List.of(), w.account(),
-                        w.character()));
+                        w.character()), "fund regular " + regular);
             } catch (StoreException e) {
                 giveBack(w, asset, amount, "a refused house funding");
                 return storeError("fund", e);
@@ -1253,7 +1454,7 @@ public final class Exchange {
                 }
             }
             if (!postings.isEmpty()) {
-                store.apply(new Batch(nextBatch, clock.getAsLong(), postings, List.of(), List.of()));
+                commit(new Batch(nextBatch, clock.getAsLong(), postings, List.of(), List.of()), "unfund regular " + regular);
                 nextBatch++;
             }
         } catch (StoreException e) {
@@ -1348,7 +1549,7 @@ public final class Exchange {
             if (out.isEmpty()) {
                 return Response.error(rid, "NOT_FOUND", "fill " + fillId + " moved nothing");
             }
-            store.apply(new Batch(nextBatch, clock.getAsLong(), out, List.of(), List.of()));
+            commit(new Batch(nextBatch, clock.getAsLong(), out, List.of(), List.of()), "reverse fill " + fillId + " by " + by);
             nextBatch++;
             Deque<FillRow> rec = recent.get(f.ticker());
             if (rec != null) {
@@ -1548,7 +1749,7 @@ public final class Exchange {
             }
             Posting out = new Posting(Why.COLLECT, pay, Bucket.bot(a, w.character()), n, 0, 0, 0);
             try {
-                store.apply(new Batch(nextBatch, clock.getAsLong(), List.of(out), List.of(), List.of()));
+                commit(new Batch(nextBatch, clock.getAsLong(), List.of(out), List.of(), List.of()), "payout bot");
                 nextBatch++;
             } catch (StoreException e) {
                 left = true;
@@ -1560,8 +1761,8 @@ public final class Exchange {
             }
             left = true;
             try {
-                store.apply(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.COLLECT,
-                        Bucket.bot(a, w.character()), pay, n, 0, 0, 0)), List.of(), List.of()));
+                commit(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.COLLECT,
+                        Bucket.bot(a, w.character()), pay, n, 0, 0, 0)), List.of(), List.of()), "payout bot undo");
                 nextBatch++;
             } catch (StoreException e) {
                 log.error("NX exchange: {} {} left PAYOUT for bot {} but did not reach it; halting", n, a,
@@ -1747,11 +1948,15 @@ public final class Exchange {
     public synchronized void halt(String reason) {
         halted = true;
         haltReason = reason == null || reason.isBlank() ? "halted by staff" : reason;
+        pending.clear(); // b005/halt: a preview made before the halt never places after a resume without a new look
+        latestToken.clear();
+        audit("HALT " + haltReason);
     }
 
     public synchronized void resume() {
         halted = false;
         haltReason = "";
+        audit("RESUME");
     }
 
     public boolean halted() {
