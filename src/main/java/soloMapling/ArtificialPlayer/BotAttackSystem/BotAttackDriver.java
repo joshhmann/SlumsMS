@@ -94,7 +94,7 @@ public final class BotAttackDriver {
     // Cleric Heal (2301002) damages undead as an AoE in v83 (client-authoritative). A cleric-line bot
     // casts it at an undead pack instead of its normal bolt; the MAGIC route renders the heal and applies
     // real damage like any bot magic attack. Heal is not a charge skill, so magicChargeFor(-1) already fits.
-    private static final BotAttackProfile HEAL_PROFILE = BotAttackProfile.magicAoe(Cleric.HEAL, 1);
+    static final BotAttackProfile HEAL_PROFILE = BotAttackProfile.magicAoe(Cleric.HEAL, 1);
 
     private BotAttackDriver() {}
 

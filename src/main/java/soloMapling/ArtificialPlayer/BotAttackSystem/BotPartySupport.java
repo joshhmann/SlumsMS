@@ -16,6 +16,8 @@ import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotHoldings;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 import soloMapling.ArtificialPlayer.BotSupportSwitches;
+import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
+import soloMapling.qa.QaLog;
 
 import java.awt.Point;
 import java.util.ArrayList;
@@ -37,8 +39,10 @@ import java.util.concurrent.ConcurrentHashMap;
  *       the item's real buff - when the stat is not already up and a fight is on. It never buys one; see
  *       {@link #pickPot}.</li>
  * </ul>
- * Heal reuses the cast pose BotBuffEffects already shows for every bot buff and the stock "received" effect; the pose
- * is NOT yet verified on a real client (ticket 161 needs a real-client check before this switch goes on).
+ * Heal shows what a player's Heal shows: the MAGIC_ATTACK packet a viewer draws the Heal light column from (b140,
+ * {@link #showHealCast}: skill 2301002, pose alert2, the stock echo's speed, no mobs), the cast effect BotBuffEffects
+ * shows for every bot buff and the stock "received" effect. NOT yet verified on a real client (ticket 161 needs a
+ * real-client check before this switch goes on).
  */
 public final class BotPartySupport {
 
@@ -47,6 +51,7 @@ public final class BotPartySupport {
     static final long POT_GAP_MS = 3_000;
     static final int REACH_X = 600;
     static final int REACH_Y = 300;
+    static final long HEAL_LOG_GAP_MS = 2_000;
 
     private static final Map<Integer, Long> lastHealAt = new ConcurrentHashMap<>();
     private static final Map<Integer, Long> lastPotAt = new ConcurrentHashMap<>();
@@ -218,6 +223,47 @@ public final class BotPartySupport {
         return effects.drink(bot, pot);
     }
 
+    // ---------------------------------------------------------------- the Heal cast a viewer sees
+
+    /*
+     * b140: a player's Heal goes out as a magic attack, and that is what a viewer's client draws the Heal light column
+     * from - the buff cast effect alone draws nothing. Broadcasts the same MAGIC_ATTACK packet (no mobs hit) through
+     * the shared bot attack code (BotAttackEffects.healCastPlan / healCastPacket) to the bot's map; returns the plan
+     * sent, or null when none could be built. Facing: the bot's own, else towards the target.
+     */
+    static BotSwingPlan showHealCast(Character bot, Character target, int level) {
+        if (bot == null || bot.getMap() == null) {
+            return null;
+        }
+        Boolean left = GCMovement.isFacingLeft(bot);
+        if (left == null) {
+            Point b = bot.getPosition();
+            Point t = target == null ? null : target.getPosition();
+            left = b != null && t != null && t.x < b.x;
+        }
+        BotSwingPlan plan = BotAttackEffects.healCastPlan(level, BotAttackDriver.equippedWeaponId(bot), left);
+        if (plan != null) {
+            bot.getMap().broadcastMessage(bot, BotAttackEffects.healCastPacket(bot, plan), false);
+        }
+        return plan;
+    }
+
+    /* b140: one COMBAT line per bot Heal cast (at most one per bot every 2 s); a real player's heal to that player's run. */
+    static void logHeal(Character bot, Character target, int level, BotSwingPlan cast, int hpBefore, int hpAfter) {
+        if (QaLog.on(QaLog.Topic.COMBAT) && QaLog.every("party-heal:" + bot.getId(), HEAL_LOG_GAP_MS)) {
+            String line = "PARTY HEAL " + bot.getName() + " -> " + target.getName()
+                    + " skill " + Cleric.HEAL + " lv " + level
+                    + " action " + (cast == null ? "none" : String.valueOf(cast.action()))
+                    + " stance " + (cast == null ? "none" : String.valueOf(cast.facingMask()))
+                    + " hp " + hpBefore + "->" + hpAfter;
+            if (!BotHelpers.isBot(target)) {
+                QaLog.owner(QaLog.Topic.COMBAT, target.getId(), line);   // the run the healed player started, any map
+            } else {
+                QaLog.map(QaLog.Topic.COMBAT, bot.getMapId(), line);
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- real effects
 
     static final class GameEffects implements Effects {
@@ -283,6 +329,8 @@ public final class BotPartySupport {
             if (effect == null) {
                 return;
             }
+            int before = target.getHp();
+            BotSwingPlan cast = showHealCast(bot, target, level);
             BotBuffEffects.showBuff(bot, skillId);
             if (BotHelpers.isBot(target)) {
                 BotVitals.heal(target, healAmount(bot.getCurrentMaxHp(), effect.getHp()));
@@ -290,6 +338,7 @@ public final class BotPartySupport {
                 effect.applyToTarget(bot, target);
             }
             BotBuffEffects.showReceived(target, skillId);
+            logHeal(bot, target, level, cast, before, target.getHp());
         }
 
         @Override
