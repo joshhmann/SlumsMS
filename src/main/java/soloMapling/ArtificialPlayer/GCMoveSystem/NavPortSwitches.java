@@ -27,8 +27,16 @@ final class NavPortSwitches {
      * unexecutable hop every tick still gives it up after ~300-500 ms instead of freezing. */
     static volatile boolean blockedPosWatchdog = on("bot.nav.blockedPosWatchdog");
 
+    /* nutnnut/Cosmic 43b9f06c8 (their v70 part b): the v67 phantom shared-ground guard also covers TELEPORT edges.
+     * Graph-affecting. */
+    static volatile boolean teleportPhantomGuard = on("bot.nav.teleportPhantomGuard");
+
     /** Graph-affecting switches as a cache-folder suffix ("" when all are off: the plain v-folder). */
     static String graphTag() {
-        return "";
+        StringBuilder tag = new StringBuilder();
+        if (teleportPhantomGuard) {
+            tag.append("-tp");
+        }
+        return tag.toString();
     }
 }

@@ -80,9 +80,18 @@ final class BotNavigationGraphProvider {
     // trimmed map at base profile would otherwise overwrite the real graph and strand bots with region=-1.
     // Surefire points -Dbot.nav.cacheDir at cache/bot-nav-test; prod uses the default. (After nutnnut/Cosmic
     // 6c8896f98, AGPL-3.0. Credit: NutNNut.)
-    private static final Path CACHE_DIR =
-            Path.of(System.getProperty("bot.nav.cacheDir", "cache/bot-nav"), "v" + GRAPH_VERSION);
-    // Bounded LRU (ticket 48): never drops a graph of a map someone is on; evicted graphs reload from CACHE_DIR.
+    private static final Path CACHE_BASE_DIR = Path.of(System.getProperty("bot.nav.cacheDir", "cache/bot-nav"));
+
+    /** The graph cache folder name: the graph version plus the graph-affecting NN-011 switches that are on
+     *  (NavPortSwitches.graphTag), so a graph built with one of them on is never served with it off. */
+    static String cacheFolderName() {
+        return "v" + GRAPH_VERSION + NavPortSwitches.graphTag();
+    }
+
+    private static Path cacheDir() {
+        return CACHE_BASE_DIR.resolve(cacheFolderName());
+    }
+    // Bounded LRU (ticket 48): never drops a graph of a map someone is on; evicted graphs reload from cacheDir().
     static final NavGraphCache<GraphCacheKey> GRAPHS = new NavGraphCache<>(GraphCacheKey::mapId,
             key -> Files.isRegularFile(graphFile(key)), NavGraphCache::occupiedMapIds,
             NavGraphCache.DEFAULT_MAX_ENTRIES, NavGraphCache.DEFAULT_MAX_BYTES, NavGraphCache.DEFAULT_MIN_IDLE_MS);
@@ -674,9 +683,10 @@ final class BotNavigationGraphProvider {
      */
     static void saveGraph(BotNavigationGraph graph) {
         try {
-            Files.createDirectories(CACHE_DIR);
+            Path cacheDir = cacheDir();
+            Files.createDirectories(cacheDir);
             Path file = graphFile(GraphCacheKey.from(graph.mapId, graph.movementProfile));
-            Path tmp = Files.createTempFile(CACHE_DIR, file.getFileName().toString(), ".tmp");
+            Path tmp = Files.createTempFile(cacheDir, file.getFileName().toString(), ".tmp");
             try {
                 try (ObjectOutputStream out = new ObjectOutputStream(Files.newOutputStream(tmp))) {
                     out.writeObject(graph);
@@ -697,7 +707,7 @@ final class BotNavigationGraphProvider {
      * plain files stay valid; a snowshoe graph left under a plain name is refused by {@link #isGraphFor}.
      */
     static Path graphFile(GraphCacheKey key) {
-        return CACHE_DIR.resolve(key.mapId() + "-s" + key.totalSpeedStat() + "-j" + key.totalJumpStat()
+        return cacheDir().resolve(key.mapId() + "-s" + key.totalSpeedStat() + "-j" + key.totalJumpStat()
                 + (key.snowShoes() ? "-ss" : "") + ".bin");
     }
 
@@ -1444,6 +1454,13 @@ final class BotNavigationGraphProvider {
         JumpLaunchWindow launchWindow = expandTeleportLaunchWindow(from, map, regionsById, regionIdByFootholdId,
                 anchor.x, dirX, dirY, to.id);
         if (launchWindow == null) {
+            return;
+        }
+        // NN-011 teleportPhantomGuard (nutnnut/Cosmic 43b9f06c8, credit NutNNut): the v67 phantom guard for teleports.
+        // A blink that lands on ground the SOURCE region also covers (overlapping chains at the same height) cannot be
+        // trusted to switch chains, so the edge may never change region and the bot parks on tele-pos (600020100
+        // TELEPORT r97->r73 onto the shared foot).
+        if (NavPortSwitches.teleportPhantomGuard && isPhantomCrossRegionLanding(from, launchWindow.endPoint())) {
             return;
         }
 
