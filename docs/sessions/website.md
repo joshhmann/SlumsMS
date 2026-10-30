@@ -14,7 +14,9 @@ credentials (`/etc/slums-site-test/qa.env`) are loaded into memory only, never p
 printed or forged, and you sign out after use. Never `git stash`. Give times in PT next to UTC. The name rule and look are as in
 EXTERNAL-AGENTS.md's Website lane.
 
-**1.6.2 state:** branch `site-161-framework` (b005 exchange password step, Bots page, w09, b031, b097) on TEST; the
-dashboard's World/Switches tabs on `162-dashtools`. Waiting on the integrated 1.6.2 TEST build for the b005 by-hand
-checklist and the real inspect check. Then b015 (Most hunted counted/estimated), w08 (exchange layout), and
-`docs/site/releases/1.6.2.md` from the Coordinator's final text.
+**1.6.2 state:** branch `site-161-framework` on TEST (8192): b005 exchange password step (password, HALTED and resume
+pass on b32a14214; REAUTH after a restart still to check), the staff Bots page (checked against the real inspect API),
+w08 exchange layout, w09, b015 Most hunted split (shown once `split_since` covers the window), b031, b097, and the
+website audit fixes (ticket 165: HIGH and MEDIUM done; LOW W15–W19 with omp on `site-x-omp-sitelow`; My stamps b193 in
+progress). Dashboard World/Switches tabs on `162-dashtools`; key console on `keys-console` (164:8791). Left: the REAUTH
+check at the next TEST restart, My stamps, `docs/site/releases/1.6.2.md` from the Coordinator's final text.
