@@ -13,8 +13,9 @@ import java.util.List;
  * ({@link NavStuckLog}) takes a copy of the ring with it, so each hotspot carries the moves that led into it and not
  * only the stop. Nav learning and the stuck report read it back from the day file ({@link NavStuckLog#traced}).
  *
- * <p>Cost: off by default ({@code -Dslums.navTrace=true} turns it on), and then one volatile read a tick and nothing
- * else. On, a bot gets its ring the first time it ticks with full physics on an observed map (FULL, HALO or the dwell
+ * <p>Cost: off by default ({@code -Dslums.navTrace=true} turns it on; 1.6.2 ships it on for live, owner 2026-10-30,
+ * docs/release/1.6.2.conf), and then one volatile read a tick and nothing else. On, a bot gets its ring the first time
+ * it ticks with full physics on an observed map (FULL, HALO or the dwell
  * window, the same rule the driver uses); the ring is primitives and references written in place, so a tick
  * allocates nothing. A bot that drops to coarse (LOD) movement lets its ring go, since coarse moves have no nav ticks.
  * Copies are capped per hour ({@code -Dslums.navTrace.perHour}, default 20) across the whole server, so a runaway map
