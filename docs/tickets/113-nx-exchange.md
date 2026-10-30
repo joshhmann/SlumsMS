@@ -646,3 +646,23 @@ action gets REAUTH (or start that server with `siteAuthMaxHours=0` until it does
   decimals; shown rounded to whole mesos per NX); PRICE_BAND and the price-range BAD_REQUEST read per NX. Stored prices,
   the site JSON (`unit` "1000nx"), `minPrice`/`maxPrice`/`rate` and the staff commands stay per 1,000 NX.
 - Orders 100..50,000 NX in lots of 100 and the 1% fee a side are unchanged.
+
+## Before switch-on: b005 stolen-cookie guard, round 2 (1.6.2; branch `162-exchange`)
+
+Owner 2026-10-30: the exchange goes on in 1.6.2 once b005 (S2: "a stolen site cookie can dump an account's NX") is
+closed. The 1.6.1 guard trusted the site's `siteAuthAt`, which is the cookie's own sign-in time, so a cookie stolen
+within 12 h of a real sign-in passed it. Now the game checks for itself (`SiteReauth`, JVM knobs, all on by default):
+
+| Guard | Rule | Code | Knob, default |
+|---|---|---|---|
+| Game-side sign-in age | the game remembers every passed password check of its own auth API (`/verify`, `/signup`, `/reset/complete`, `/exchange/approve`). A site preview, confirm, cancel or mine needs one for that account in the last 12 h (`siteAuthMaxHours`), on top of `siteAuthAt`. In memory: after a game restart players sign in on the site once more | `REAUTH` (`data.game = true`) | `-Dslums.exchange.siteAuthGame=true` |
+| Password step-up | a site confirm of **every SELL** (NX or items leave the account) and of a **BUY** once the account's password-free site buys of the last 12 h would pass 10,000,000 mesos (fee reserve counted) needs the password typed for that order: the site posts it with the preview token to the auth API's `POST /exchange/approve {account_id, user, pass, token, ipHash}`; the game checks it like a sign-in (same rate limit and 5-try lock; it must be `account_id`'s own password), approves that token and gives it a fresh 60 s. A confirm before that is refused, the token stays valid. Not a cap: with the password any order goes through (no daily NX caps, owner 2026-10-29) | `PASSWORD_REQUIRED` (`data.token`, `data.expiresAt`); preview data `passwordRequired` | `-Dslums.exchange.stepUp=true`, `-Dslums.exchange.stepUpFreeMesos=10000000` |
+| Audit | every committed batch (place, fill, cancel, expiry, payout live/offline/items/bot, fund, unfund, reverse), every site account request (account, character, answer code), every approval, halt and resume: one line each on the logger `soloMapling.Economy.exchange.Audit` ("NX exchange audit: ...", with `acct=` and `char=`) | | |
+| Halt | as before (no orders, fills, expiry or payouts; cancels still work), and now also drops every waiting preview, so nothing previewed before a halt places after a resume; a confirm while halted answers `HALTED`. `-Dslums.exchange.startHalted=true` starts the exchange halted (first switch-on, or a restart during an incident) | `HALTED` | `-Dslums.exchange.startHalted=false` |
+
+`@nx` in game needs neither (the player typed the password at the game's login). The NX price band is unchanged
+(50%..200% of the 7-day rate, else of the 5,000 mesos per NX starting price; a sell under / a buy over is refused).
+Tests: `ExchangeStolenCookieTest` (the three stolen-cookie refusals fail on 1.6.1 and pass now; success with the
+password; small buys; halt; audit), `SiteAuthExchangeTest` (site -> auth API -> exchange end to end: wrong password,
+another account's password, another account's token, lockout, success; nothing secret logged), `NxGuardTest` (site
+PRICE_BAND message with a 7-day rate).

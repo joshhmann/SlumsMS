@@ -59,6 +59,9 @@ public final class ExchangeService {
             Exchange ex = new Exchange(JdbcExchangeStore.forGame(), config, ExchangeService::accountInGame,
                     GameLiveWallet::find, System::currentTimeMillis, Ticker.fromSystem(config));
             List<String> problems = ex.recover();
+            if (startHalted()) {
+                ex.halt("started halted (-Dslums.exchange.startHalted)");
+            }
             if (!problems.isEmpty()) {
                 log.error("NX exchange HALTED at start: {} ledger mismatch(es), first: {}", problems.size(),
                         problems.get(0));
@@ -79,6 +82,15 @@ public final class ExchangeService {
         } catch (Exception e) {
             log.warn("NX exchange did not start; the game is unaffected", e);
         }
+    }
+
+    /**
+     * 1.6.2: {@code -Dslums.exchange.startHalted=true} starts the exchange halted (no orders, fills, expiry or payouts
+     * until a GM types {@code !exchange resume}): for the first live switch-on, and so a restart in the middle of an
+     * incident does not quietly lift a halt (the halt itself lives in memory).
+     */
+    static boolean startHalted() {
+        return Boolean.parseBoolean(System.getProperty("slums.exchange.startHalted", "false").trim());
     }
 
     public static synchronized void stop() {

@@ -52,6 +52,7 @@ class ExchangeSiteTest {
         store.addCharacter(12, 2, 10_000_000);
         Exchange ex = new Exchange(store, ExchangeTest.open(), store::online, () -> NOW);
         ex.guard(ExchangeTest.engineGuard());
+        ex.siteReauth(SiteReauth.OFF); // b005 has its own tests (ExchangeStolenCookieTest)
         ex.recover();
         String json = "[{\"id\":\"a\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
                 + "{\"id\":\"old\",\"account\":2,\"type\":\"preview\",\"character\":12,\"side\":\"BUY\",\"price\":1000000,\"nx\":500,\"createdAt\":\"2020-01-01T00:00:00Z\"}]";
@@ -115,6 +116,7 @@ class ExchangeSiteTest {
         store.addCharacter(11, 1, 10_000_000);
         Exchange ex = new Exchange(store, ExchangeTest.open(), store::online, () -> NOW);
         ex.guard(ExchangeTest.engineGuard());
+        ex.siteReauth(SiteReauth.OFF); // b005 has its own tests (ExchangeStolenCookieTest)
         ex.recover();
         java.nio.file.Path in = dir.resolve("in"), out = dir.resolve("out");
         java.nio.file.Files.createDirectories(in);
@@ -149,6 +151,7 @@ class ExchangeSiteTest {
         store.addCharacter(12, 2, 10_000_000, "Bob", 1);
         Exchange ex = new Exchange(store, ExchangeTest.open(), store::online, () -> NOW);
         ex.guard(ExchangeTest.engineGuard());
+        ex.siteReauth(SiteReauth.OFF); // b005 has its own tests (ExchangeStolenCookieTest)
         ex.recover();
         return ex;
     }

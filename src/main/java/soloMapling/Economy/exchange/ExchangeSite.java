@@ -37,6 +37,12 @@ import java.util.Map;
  * sells from 2,500,000, buys up to 10,000,000 per 1,000 NX) are refused PRICE_BAND (data minPrice, maxPrice, rate; per
  * 1,000 NX like every price here; the message reads per 1 NX). No daily caps (owner 2026-10-29).
  * <p>
+ * 1.6.2 b005 ({@link SiteReauth}): the game also needs its own record of a password check for the account in the last
+ * 12 h (REAUTH with {@code data.game = true}), and a site confirm of any SELL, or of a BUY past the account's
+ * password-free 10,000,000 mesos in 12 h, answers PASSWORD_REQUIRED ({@code data.token, data.expiresAt}) until the
+ * password is approved for that token through the auth API's {@code POST /exchange/approve}. A site preview's data
+ * carries {@code passwordRequired}. Every account request is audited (account, character, answer code).
+ * <p>
  * Each request id is answered once. A request older than {@link #MAX_AGE_MS} is answered STALE and not acted on,
  * so a backlog after downtime never places orders the player gave up on. Places are idempotent by request id even
  * across restarts (the id is stored on the order). Error codes: BAD_REQUEST, STALE, HALTED, UNAVAILABLE,
@@ -199,17 +205,45 @@ public final class ExchangeSite {
             return null;
         }
         Long at = r.siteAuthAt();
-        if (at != null && at <= now + NxGuard.SKEW_MS && now - at <= max) {
-            return null;
-        }
         long hours = max / 3_600_000L;
-        return new Exchange.Response(r.id(), false, "REAUTH", "sign in again on the site (your last sign-in was "
-                + (at == null ? "not sent" : at > now ? "in the future" : "over " + hours + " hours ago") + ")",
-                Map.of("maxAgeHours", hours));
+        if (at == null || at > now + NxGuard.SKEW_MS || now - at > max) {
+            return new Exchange.Response(r.id(), false, "REAUTH", "sign in again on the site (your last sign-in was "
+                    + (at == null ? "not sent" : at > now ? "in the future" : "over " + hours + " hours ago") + ")",
+                    Map.of("maxAgeHours", hours));
+        }
+        // 1.6.2 b005: the site's siteAuthAt is the cookie's own sign-in time, so a stolen cookie carries a good one.
+        // The game also needs its OWN record of a password check for this account (its auth API saw the password).
+        if (ex.siteReauth().gameSignIn()) {
+            Long game = ex.signIns().last(r.account());
+            if (game == null || now - game > max || game > now + NxGuard.SKEW_MS) {
+                return new Exchange.Response(r.id(), false, "REAUTH", "sign in again on the site (the game has no "
+                        + "sign-in with your password in the last " + hours + " hours)",
+                        Map.of("maxAgeHours", hours, "game", true));
+            }
+        }
+        return null;
     }
 
-    /** Answers one request against the exchange. */
+    /**
+     * Answers one request against the exchange. Every request that acts for an account (not book or trades) leaves
+     * an audit line with the account, the character it named and the answer's code (1.6.2).
+     */
     public static Exchange.Response answer(Exchange ex, Request r, long now) {
+        Exchange.Response out = answer0(ex, r, now);
+        if (r.type() != Type.BOOK && r.type() != Type.TRADES) {
+            ex.audit("site " + (r.type() == null ? "?" : r.type().name().toLowerCase(java.util.Locale.ROOT))
+                    + " id=" + r.id() + " acct=" + r.account()
+                    + (r.character() > 0 ? " char=" + r.character() : "")
+                    + (r.characterName() != null ? " charName=" + r.characterName() : "")
+                    + (r.side() != null ? " " + r.side() + " " + r.ticker() + " " + r.nx() + "@" + r.price() : "")
+                    + (r.orderId() > 0 ? " order=" + r.orderId() : "")
+                    + " -> " + out.code()
+                    + (out.ok() && out.data().get("orderId") != null ? " order=" + out.data().get("orderId") : ""));
+        }
+        return out;
+    }
+
+    private static Exchange.Response answer0(Exchange ex, Request r, long now) {
         if (r.error() != null) {
             return new Exchange.Response(r.id(), false, "BAD_REQUEST", "malformed: " + r.error(), Map.of());
         }
@@ -239,7 +273,7 @@ public final class ExchangeSite {
             case PLACE -> new Exchange.Response(r.id(), false, "BAD_REQUEST", "use preview then confirm", Map.of());
             case PREVIEW -> ex.preview(new Exchange.Place(r.id(), r.account(), resolved, r.side(), r.price(),
                     r.nx(), r.ticker()), true);
-            case CONFIRM -> ex.confirm(r.id(), r.account(), r.token());
+            case CONFIRM -> ex.confirmSite(r.id(), r.account(), r.token());
             case CANCEL -> ex.cancel(r.id(), r.account(), r.orderId());
             case MINE -> {
                 try {

@@ -59,6 +59,7 @@ class ExchangeTickersTest {
     Exchange start() throws Exception {
         Exchange e = new Exchange(store, ExchangeLiveTest.cfg(100, 0), store::online, store.finder(), now::get);
         e.guard(ExchangeTest.engineGuard());
+        e.siteReauth(SiteReauth.OFF); // b005 has its own tests (ExchangeStolenCookieTest)
         assertTrue(e.recover().isEmpty());
         return e;
     }
@@ -195,6 +196,7 @@ class ExchangeTickersTest {
         Exchange nxOnly = new Exchange(store, ExchangeLiveTest.cfg(100, 0), store::online, store.finder(), now::get,
                 List.of(Ticker.nx(ExchangeLiveTest.cfg(100, 0))));
         nxOnly.guard(ExchangeTest.engineGuard());
+        nxOnly.siteReauth(SiteReauth.OFF); // b005 has its own tests (ExchangeStolenCookieTest)
         assertTrue(nxOnly.recover().isEmpty(), "a closed ticker's open orders still load");
         assertFalse(nxOnly.open("LEAF"));
         assertEquals("BAD_REQUEST", nxOnly.place(new Place("z", 1, 11, Side.BUY, P, 1, "LEAF")).code());
@@ -244,6 +246,7 @@ class ExchangeTickersTest {
                 d.pollSeconds(), 0, 60_000);
         Exchange e = new Exchange(store, c, store::online, store.finder(), now::get, Ticker.defaults(c));
         e.guard(ExchangeTest.engineGuard());
+        e.siteReauth(SiteReauth.OFF); // b005 has its own tests (ExchangeStolenCookieTest)
         assertTrue(e.recover().isEmpty());
         Ticker leaf = e.ticker("LEAF");
         assertEquals(10, leaf.maxOpen());
@@ -378,6 +381,7 @@ class ExchangeTickersTest {
         store.addItems(19, Asset.LEAF, 50);
         Exchange e = new Exchange(store, c, store::online, store.finder(), now::get);
         e.guard(ExchangeTest.engineGuard());
+        e.siteReauth(SiteReauth.OFF); // b005 has its own tests (ExchangeStolenCookieTest)
         assertTrue(e.recover().isEmpty());
         assertEquals("BAD_REQUEST", e.fundHouse(1, 9, 19, Asset.LEAF, 10).code(), "never items into a house");
         Session house = store.login(9, 19);

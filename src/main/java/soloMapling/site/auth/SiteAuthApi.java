@@ -49,6 +49,40 @@ public final class SiteAuthApi {
     private final SiteAccounts accounts;
     private final PasswordResets resets;
     private final SiteInvites invites;
+    private volatile ExchangeHook exchange = ExchangeHook.GAME;
+
+    /**
+     * 1.6.2 b005: what the auth API tells the NX exchange. Every passed password check is a sign-in the exchange can
+     * trust ({@link soloMapling.Economy.exchange.SiteReauth}); {@code /exchange/approve} marks one previewed site
+     * order as approved by the password.
+     */
+    public interface ExchangeHook {
+        /** The account's password was just checked and was right. */
+        void signedIn(long account);
+
+        /** Approves the account's preview {@code token}: the exchange's answer (OK, TOKEN_EXPIRED, HALTED, ...). */
+        soloMapling.Economy.exchange.Exchange.Response approve(long account, String token);
+
+        /** The running game: {@link soloMapling.Economy.exchange.SiteReauth#GAME} and the running exchange. */
+        ExchangeHook GAME = new ExchangeHook() {
+            @Override
+            public void signedIn(long account) {
+                soloMapling.Economy.exchange.SiteReauth.GAME.record(account, System.currentTimeMillis());
+            }
+
+            @Override
+            public soloMapling.Economy.exchange.Exchange.Response approve(long account, String token) {
+                soloMapling.Economy.exchange.Exchange ex = soloMapling.Economy.exchange.ExchangeService.exchange();
+                return ex == null ? new soloMapling.Economy.exchange.Exchange.Response("approve", false,
+                        SiteAccounts.UNAVAILABLE, "the exchange is off", Map.of()) : ex.approve(account, token);
+            }
+        };
+    }
+
+    /** Another exchange hook (tests). */
+    void exchangeHook(ExchangeHook hook) {
+        exchange = hook == null ? ExchangeHook.GAME : hook;
+    }
 
     SiteAuthApi(byte[] secret, SiteAccounts accounts) {
         this(secret, accounts, null);
@@ -180,7 +214,7 @@ public final class SiteAuthApi {
      */
     Response route(String method, String path, byte[] body) {
         if (!"/signup".equals(path) && !"/verify".equals(path) && !RESET_PATHS.contains(path)
-                && !INVITE_PATHS.contains(path)) {
+                && !INVITE_PATHS.contains(path) && !APPROVE_PATH.equals(path)) {
             return error(404, "NOT_FOUND");
         }
         if (!"POST".equals(method)) {
@@ -201,10 +235,56 @@ public final class SiteAuthApi {
         if (INVITE_PATHS.contains(path)) {
             return invite(path, json);
         }
+        if (APPROVE_PATH.equals(path)) {
+            return approve(json);
+        }
         SiteAccounts.Result result = "/signup".equals(path)
                 ? accounts.signup(text(json, "code"), text(json, "user"), text(json, "pass"), text(json, "ipHash"))
                 : accounts.verify(text(json, "user"), text(json, "pass"), text(json, "ipHash"));
+        if (result.ok()) {
+            exchange.signedIn(result.accountId());
+        }
         return new Response(result.ok() || !SiteAccounts.RATE_LIMITED.equals(result.error()) ? 200 : 429, body(result));
+    }
+
+    /** 1.6.2 b005: the password step-up for one previewed site exchange order. */
+    static final String APPROVE_PATH = "/exchange/approve";
+
+    /**
+     * {@code POST /exchange/approve {"account_id", "user", "pass", "token", "ipHash"}}: the site's confirm page sends
+     * the password the player typed for a big or risky order (the preview said {@code passwordRequired}). The game
+     * checks it as a sign-in does (same rate limit and lockout); it must belong to {@code account_id}, the session's
+     * account. Then the preview {@code token} is approved and the site sends its confirm as usual. Answers
+     * {@code {"ok":true,"token","expires_at"}} or {@code {"ok":false,"error"}}: WRONG_LOGIN (also for a password of
+     * another account), LOCKED, RATE_LIMITED (429), BAD_INPUT, TOKEN_EXPIRED, HALTED, UNAVAILABLE. Never logs the
+     * password or the token.
+     */
+    private Response approve(Map<?, ?> json) {
+        Integer account = number(json, "account_id");
+        String token = text(json, "token");
+        if (account == null || account <= 0 || token == null || !token.matches("[0-9a-f]{8,64}")) {
+            return error(200, SiteAccounts.BAD_INPUT);
+        }
+        SiteAccounts.Result r = accounts.verify(text(json, "user"), text(json, "pass"), text(json, "ipHash"));
+        if (!r.ok()) {
+            log.info("Site exchange approve refused for account {}: {}", account, r.error());
+            return error(SiteAccounts.RATE_LIMITED.equals(r.error()) ? 429 : 200, r.error());
+        }
+        if (r.accountId() != account) {
+            log.info("Site exchange approve refused for account {}: the password is another account's", account);
+            return error(200, SiteAccounts.WRONG_LOGIN);
+        }
+        exchange.signedIn(account);
+        soloMapling.Economy.exchange.Exchange.Response a = exchange.approve(account, token);
+        log.info("Site exchange approve for account {}: {}", account, a.code());
+        if (!a.ok()) {
+            return error(200, a.code());
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ok", true);
+        m.put("token", token);
+        m.put("expires_at", a.data().get("expiresAt"));
+        return new Response(200, m);
     }
 
     static final java.util.Set<String> RESET_PATHS = java.util.Set.of("/reset/request", "/reset/status", "/reset/complete");
@@ -262,6 +342,7 @@ public final class SiteAuthApi {
                         text(json, "pass"), text(json, "ipHash"));
                 Map<String, Object> m = body(d);
                 if (d.ok()) {
+                    exchange.signedIn(d.accountId());
                     m.put("revoke_sessions", true);   // informational: the site revokes the sessions itself
                 }
                 return new Response(SiteAccounts.RATE_LIMITED.equals(d.error()) ? 429 : 200, m);
