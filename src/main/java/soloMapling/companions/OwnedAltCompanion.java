@@ -149,6 +149,23 @@ public final class OwnedAltCompanion {
         return owners.contains(ownerId);
     }
 
+    /**
+     * Audit B13 (save window): the alt is about to be saved. Its state is marked gone under the state's own lock, so
+     * a tick already running finishes first and every later tick returns at once - nothing it loots or kills after
+     * this lands outside the save. (Before, the tick's guard only saw the alt closing once saveOwnedAltToDB had
+     * started, and a tick in flight could pick up an item the save had already read past.)
+     */
+    static void hold(Character alt) {
+        if (alt == null) {
+            return;
+        }
+        State s = states.computeIfAbsent(alt.getId(), State::new);
+        synchronized (s) {
+            s.gone = true;
+            s.fighting = false;
+        }
+    }
+
     /** The alt is leaving the world: the driver lets go of it (called before its movement is disabled). */
     static void forget(Character alt) {
         if (alt == null) {

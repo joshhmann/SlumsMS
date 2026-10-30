@@ -51,6 +51,11 @@ public final class OwnedAltService {
         default boolean botFriendNamed(int ownerId, String name) { return false; }
         /** 1.6.1 ticket 13: the alt is out: its companion driver takes it (fight, loot, death, the activity gate). */
         default void started(Character owner, Character alt) {}
+        /**
+         * Audit B13: the alt is about to be saved: its companion driver stops (waiting out a tick in flight), so
+         * nothing it picks up or kills lands after the save reads its bag.
+         */
+        default void closing(Character alt) {}
     }
     private enum State { LOADING, ACTIVE, SAVING, FAILED, LOGIN }
     private static final class Entry {
@@ -290,6 +295,7 @@ public final class OwnedAltService {
         }
         try {
             if (!entry.saved) {
+                backend.closing(entry.alt); // outside the monitor: the tick it waits for may call back into us
                 backend.save(entry.alt);
                 entry.saved = true;
                 audit(entry, "save committed alt=" + id);

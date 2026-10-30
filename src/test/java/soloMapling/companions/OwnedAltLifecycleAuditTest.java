@@ -136,4 +136,19 @@ class OwnedAltLifecycleAuditTest {
             assertFalse(s.hasCompanionRoom(1));
         } finally { pool.shutdownNow(); }
     }
+
+    /** Audit B13: the companion driver is stopped before the save reads the alt, never after. */
+    @Test void theDriverStopsBeforeTheSave() {
+        List<String> order = new ArrayList<>();
+        OwnedAltServiceTest.Memory db = new OwnedAltServiceTest.Memory() {
+            @Override public void closing(Character alt) { order.add("closing"); }
+            @Override public void save(Character alt) { order.add("save"); super.save(alt); }
+        };
+        db.add(2);
+        OwnedAltService s = new OwnedAltService(db, () -> true);
+        Character owner = owner(1);
+        s.summon(owner, "Alt2");
+        assertTrue(s.dismiss(owner, "Alt2"));
+        assertEquals(List.of("closing", "save"), order);
+    }
 }

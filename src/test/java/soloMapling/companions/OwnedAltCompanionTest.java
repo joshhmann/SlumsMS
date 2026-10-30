@@ -406,6 +406,36 @@ class OwnedAltCompanionTest {
         verify(owner, times(2)).yellowMessage(OwnedAltGate.Why.MAP_FULL.tell);
     }
 
+    /** Audit B13: once its save begins, a tick in flight finishes first and no later tick loots or swings. */
+    @Test
+    void noTickRunsInsideTheSaveWindow() throws Exception {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        mob(50, OWNER);
+        OwnedAltCompanion.State s = OwnedAltCompanion.stateOf(ALT);
+        java.util.concurrent.CountDownLatch inTick = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        Thread ticking = new Thread(() -> {
+            synchronized (s) { // a tick holding its state
+                inTick.countDown();
+                try { release.await(); } catch (InterruptedException ignored) { }
+            }
+        });
+        ticking.start();
+        assertTrue(inTick.await(5, java.util.concurrent.TimeUnit.SECONDS));
+        Thread saver = new Thread(() -> OwnedAltCompanion.hold(alt));
+        saver.start();
+        Thread.sleep(100);
+        assertTrue(saver.isAlive(), "the save waits for the tick in flight");
+        release.countDown();
+        saver.join(5_000);
+        ticking.join(5_000);
+        assertTrue(s.gone);
+        OwnedAltCompanion.tick(owner, alt, s, NOW, 0);
+        attacks.verify(() -> BotAttackDriver.botAttack(alt), never());
+        OwnedAltCompanion.forget(alt);
+    }
+
     /** Audit #8 (b115): an alt killed inside a PQ leaves the instance quietly and really gets up in its exit town. */
     @Test
     void anAltKilledInsideAPqLeavesQuietlyAndGetsUpInTheExitTown() throws Exception {
