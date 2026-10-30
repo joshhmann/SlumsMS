@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -167,5 +167,14 @@ class Probes162Test {
             System.clearProperty("slums.bots.apvariants");
             System.clearProperty("slums.bots.apvariants.fromSlot");
         }
+    }
+
+    // ── t-su-1 ──
+
+    @Test
+    void theHealCheckWantsATickAndMoreHp() {
+        assertTrue(Probes162.healProblems(true, true, 400, 700, 1000).isEmpty());
+        assertEquals(1, Probes162.healProblems(false, false, 400, 400, 1000).size());
+        assertEquals(2, Probes162.healProblems(true, false, 400, 400, 1000).size());
     }
 }

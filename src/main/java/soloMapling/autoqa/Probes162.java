@@ -12,6 +12,8 @@ import server.life.Monster;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotConvo.TalkQa;
 import soloMapling.ArtificialPlayer.BotGeneration;
+import net.server.world.Party;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotPartySupport;
 import soloMapling.ArtificialPlayer.BotGearSystem.BotGear;
 import soloMapling.ArtificialPlayer.BotGearSystem.GearScoring;
 import soloMapling.ArtificialPlayer.BotGrindSystem.GearFirstAdvisor;
@@ -61,7 +63,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants", "partyHeal");
 
     private Probes162() {
     }
@@ -78,6 +80,7 @@ final class Probes162 {
                 case "junkSortSale" -> junkSortSale(p);
                 case "scrollEv" -> scrollEv(p);
                 case "apVariants" -> apVariants();
+                case "partyHeal" -> partyHeal(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1139,6 +1142,102 @@ final class Probes162 {
         return Probes160.verdict(apVariantProblems(raw, fromSlot, bootRolls, newRolls, variants, sampled),
                 "new roster slots from " + fromSlot + " roll AP variants (" + variants + " of " + sampled
                         + " sampled), the slots before keep their build", ev);
+    }
+
+    // ── party staging (t-su-*) ───────────────────────────────────────────────────────────────────
+
+    /** Puts the player in a fresh party with the bot (the player leads); false when the party did not form. */
+    static boolean partyUp(Character me, Character bot) {
+        if (me.getParty() != null) {
+            Party.leaveParty(me.getParty(), me);
+        }
+        if (bot.getParty() != null) {
+            Party.leaveParty(bot.getParty(), bot);
+        }
+        Party.createParty(me, true);
+        if (me.getParty() == null) {
+            return false;
+        }
+        Party.joinParty(bot, me.getPartyId(), true);
+        return bot.getParty() != null && bot.getPartyId() == me.getPartyId();
+    }
+
+    static void partyDown(Character me, Character bot) {
+        try {
+            if (bot.getParty() != null) {
+                Party.leaveParty(bot.getParty(), bot);
+            }
+        } finally {
+            if (me.getParty() != null) {
+                Party.leaveParty(me.getParty(), me);
+            }
+        }
+    }
+
+    // ── t-su-1: a cleric bot heals a partied player under 60% HP ─────────────────────────────────
+
+    /** t-su-1: the cleric's level and Heal level, and the HP share the player is dropped to. */
+    static final int SU1_LEVEL = 40, SU1_HEAL = 10, SU1_HP_PERCENT = 40;
+
+    /** t-su-1: what is wrong. Pure, for the tests. */
+    static List<String> healProblems(boolean partied, boolean acted, int hpStaged, int hpAfter, int maxHp) {
+        List<String> bad = new ArrayList<>();
+        if (!partied) {
+            bad.add("the party did not form");
+            return bad;
+        }
+        if (!acted) {
+            bad.add("BotPartySupport.tick did nothing for a partied player at " + hpStaged + "/" + maxHp + " HP");
+        }
+        if (hpAfter <= hpStaged) {
+            bad.add("the player's HP did not rise (" + hpStaged + " -> " + hpAfter + ")");
+        }
+        return bad;
+    }
+
+    /**
+     * t-su-1 ({@code slums.bots.partysupport}): a fresh level-40 bot (tick stopped) is made a Cleric with Heal 10 and
+     * full MP, next to the pretend player; the two form a party (the player leads) and the player is dropped to
+     * {@link #SU1_HP_PERCENT}% HP. One {@code BotPartySupport.tick} must cast Heal on the player and raise its HP.
+     * Server side only: the cast pose still needs a real client (audit B24). The party is left and the player's HP
+     * put back.
+     */
+    static List<String> partyHeal(SyntheticPlayer p) throws InterruptedException {
+        if (!soloMapling.ArtificialPlayer.BotSupportSwitches.partySupport()) {
+            return List.of("SKIP party support is off (-Dslums.bots.partysupport=true)");
+        }
+        Character me = p.character();
+        List<String> ev = new ArrayList<>();
+        Character bot = spawnTraining(p, SU1_LEVEL);
+        if (bot == null) {
+            return List.of("FAIL could not spawn a training bot");
+        }
+        int hp0 = me.getHp();
+        try {
+            freeze(bot);
+            bot.setJob(Job.CLERIC);
+            bot.changeSkillLevel(client.SkillFactory.getSkill(constants.skills.Cleric.HEAL), (byte) SU1_HEAL, 30, -1);
+            bot.updateHpMp(bot.getCurrentMaxHp(), bot.getCurrentMaxMp());
+            boolean partied = partyUp(me, bot);
+            int max = me.getCurrentMaxHp();
+            int staged = Math.max(1, max * SU1_HP_PERCENT / 100);
+            me.updateHp(staged);
+            ev.add("cleric " + bot.getName() + " lv " + bot.getLevel() + " Heal " + bot.getSkillLevel(constants.skills.Cleric.HEAL)
+                    + " MP " + bot.getMp() + "/" + bot.getCurrentMaxMp() + " at " + bot.getPosition() + "; player "
+                    + me.getName() + " at " + me.getPosition() + " HP " + me.getHp() + "/" + max + "; partied=" + partied
+                    + " same map=" + (bot.getMapId() == me.getMapId()));
+            boolean acted = partied && BotPartySupport.tick(bot);
+            int after = me.getHp();
+            ev.add("tick acted=" + acted + "; player HP " + staged + " -> " + after + ", cleric MP now " + bot.getMp());
+            return Probes160.verdict(healProblems(partied, acted, staged, after, max), "the cleric bot healed its"
+                    + " partied player from " + staged + " to " + after + " HP (server side; the pose needs a real"
+                    + " client)", ev);
+        } finally {
+            BotPartySupport.clearBot(bot.getId());
+            partyDown(me, bot);
+            me.updateHp(Math.max(hp0, 1));
+            ev.add(TalkQa.teardown(List.of(bot)));
+        }
     }
 
     static long delta(Map<String, Long> a, Map<String, Long> b, String k) {

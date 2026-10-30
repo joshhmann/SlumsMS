@@ -1338,6 +1338,10 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-gb-6", "AP variants: a new roster slot past the boot slot rolls a variant").minutes(1)
                 .expect(probe("apVariants"))
                 .build());
+        // bots.partysupport: a cleric bot in the player's party heals the player at 40% HP (server side)
+        c.add(Check.auto("t-su-1", "Party support: a cleric bot heals a partied player under 60% HP").minutes(1)
+                .expect(probe("partyHeal"))
+                .build());
         return List.copyOf(c);
     }
 
