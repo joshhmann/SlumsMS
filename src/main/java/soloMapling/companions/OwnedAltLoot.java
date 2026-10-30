@@ -5,11 +5,9 @@ import client.inventory.InventoryType;
 import client.inventory.Item;
 import constants.inventory.ItemConstants;
 import server.maps.MapItem;
-import server.maps.MapObject;
-import server.maps.MapObjectType;
+import soloMapling.ArtificialPlayer.BotGrindSystem.LootPicker;
 
 import java.awt.Point;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -19,7 +17,8 @@ import java.util.Set;
  * <ul>
  *   <li>a drop owned by someone outside the party (even after the ownership window ends: no sweeping strangers' loot),</li>
  *   <li>an item a player dropped on purpose,</li>
- *   <li>a drop still settling ({@link #SETTLE_MS}), or one off its ledge or farther than {@link #REACH_X_PX} px,</li>
+ *   <li>a drop still settling ({@link #SETTLE_MS}), or one off its ledge or farther than {@link #REACH_X_PX} px (the
+ *       drop selection is the bots' shared LootPicker),</li>
  *   <li>anything its bag has no room for: it leaves it and says so once (until it has room again).</li>
  * </ul>
  */
@@ -28,13 +27,11 @@ public final class OwnedAltLoot {
     private OwnedAltLoot() {
     }
 
-    static final long SETTLE_MS = 1_000;
-    /** How far across the alt walks for a drop. */
+    /** The settle time and same-ledge band are the bots' (LootPicker); before 1.6.2 an alt waited 1,000 ms. */
+    static final long SETTLE_MS = LootPicker.SETTLE_MS;
+    /** How far across the alt walks for a drop (its own rule: it stays with its owner, OwnedAltCombat's leash). */
     static final int REACH_X_PX = 350;
-    static final int SAME_LEDGE_DY = 120;
-    /** Close enough to pick up. */
-    static final int PICKUP_PX = 50;
-    static final int PICKUP_DY = 60;
+    static final int SAME_LEDGE_DY = LootPicker.SAME_LEDGE_DY;
 
     /** Room in the alt's bag for this drop (mesos: the meso cap). Replaced in tests (item data needs WZ). */
     interface Room {
@@ -74,26 +71,33 @@ public final class OwnedAltLoot {
         return ItemConstants.getInventoryType(drop.getItem().getItemId());
     }
 
-    /** The loot rules, before room: the party's, not a player's own drop, settled, still there. */
+    /**
+     * The loot rules, before room: the party's (the shared ownership rule with no ownership window: never a stranger's,
+     * however old), not a player's own drop, not a prop, a quest item only when it needs it; on the floor and settled.
+     */
     static boolean ours(Character alt, MapItem drop, Set<Integer> party, long now) {
-        if (drop == null || drop.isPickedUp() || drop.getPosition() == null || drop.isPlayerDrop() || drop.isConjured()) {
+        if (!LootPicker.onTheFloor(drop) || !LootPicker.settled(drop, SETTLE_MS, now)) {
             return false;
         }
-        if (now - drop.getDropTime() < SETTLE_MS) {
-            return false;
-        }
-        int ownerId = drop.getOwnerId();
-        if (ownerId != alt.getId() && !party.contains(ownerId)) {
-            return false; // a stranger's (or a drop nobody owns: a reactor's or an event's) - not the alt's to take
-        }
-        if (drop.getMeso() <= 0 && drop.getItem() != null && drop.getQuest() > 0
-                && !alt.needQuestItem(drop.getQuest(), drop.getItem().getItemId())) {
-            return false;
-        }
-        return true;
+        return mayTake(alt, drop, party, now);
     }
 
-    /** What the alt goes for now. {@code full} collects the bags it found no room in (for the once-only line). */
+    // the alt's own rules on top of the shared picker
+    private static boolean mayTake(Character alt, MapItem drop, Set<Integer> party, long now) {
+        if (drop.isPlayerDrop() || drop.isConjured()) {
+            return false;
+        }
+        if (!LootPicker.claimable(drop, id -> id == alt.getId() || party.contains(id), -1, now)) {
+            return false; // a stranger's (or a drop nobody owns: a reactor's or an event's) - not the alt's to take
+        }
+        return drop.getMeso() > 0 || drop.getItem() == null || drop.getQuest() <= 0
+                || alt.needQuestItem(drop.getQuest(), drop.getItem().getItemId());
+    }
+
+    /**
+     * What the alt goes for now: the shared picker (LootPicker) within {@link #REACH_X_PX} of it and its owner's leash,
+     * on its ledge. {@code full} collects the bags it found no room in (for the once-only line).
+     */
     static MapItem pick(Character alt, Character owner, Set<Integer> party, long now, java.util.Set<InventoryType> full,
                         boolean[] mesoFull) {
         Point at = alt.getPosition();
@@ -101,41 +105,29 @@ public final class OwnedAltLoot {
         if (alt.getMap() == null || at == null || op == null) {
             return null;
         }
-        double range = (double) REACH_X_PX * REACH_X_PX + (double) SAME_LEDGE_DY * SAME_LEDGE_DY;
-        MapItem best = null;
-        double bestSq = Double.MAX_VALUE;
-        for (MapObject mo : alt.getMap().getMapObjectsInRange(at, range, List.of(MapObjectType.ITEM))) {
-            if (!(mo instanceof MapItem drop) || !ours(alt, drop, party, now)) {
-                continue;
+        int x0 = Math.max(at.x - REACH_X_PX, op.x - OwnedAltCombat.LEASH_X_PX);
+        int x1 = Math.min(at.x + REACH_X_PX, op.x + OwnedAltCombat.LEASH_X_PX);
+        int range = (int) Math.ceil(Math.hypot(REACH_X_PX, SAME_LEDGE_DY));
+        return LootPicker.nearest(alt, new LootPicker.Reach(range, x0, x1, SAME_LEDGE_DY, SETTLE_MS), now, drop -> {
+            if (!mayTake(alt, drop, party, now)) {
+                return false;
             }
-            Point dp = drop.getPosition();
-            if (Math.abs(dp.x - at.x) > REACH_X_PX || Math.abs(dp.y - at.y) > SAME_LEDGE_DY
-                    || Math.abs(dp.x - op.x) > OwnedAltCombat.LEASH_X_PX) {
-                continue;
+            if (room.fits(alt, drop)) {
+                return true;
             }
-            if (!room.fits(alt, drop)) {
-                InventoryType bag = bagOf(drop);
-                if (bag != null) {
-                    full.add(bag);
-                } else if (mesoFull != null && mesoFull.length > 0) {
-                    mesoFull[0] = true;
-                }
-                continue;
+            InventoryType bag = bagOf(drop);
+            if (bag != null) {
+                full.add(bag);
+            } else if (mesoFull != null && mesoFull.length > 0) {
+                mesoFull[0] = true;
             }
-            double d = at.distanceSq(dp);
-            if (d < bestSq) {
-                bestSq = d;
-                best = drop;
-            }
-        }
-        return best;
+            return false;
+        });
     }
 
-    /** Close enough to pick it up from where it stands. */
+    /** Close enough to pick it up from where it stands (the bots' at-feet reach). */
     static boolean inReach(Character alt, MapItem drop) {
-        Point at = alt.getPosition();
-        Point dp = drop.getPosition();
-        return at != null && dp != null && Math.abs(dp.x - at.x) <= PICKUP_PX && Math.abs(dp.y - at.y) <= PICKUP_DY;
+        return LootPicker.atFeet(alt.getPosition(), drop.getPosition());
     }
 
     /** The line the alt says when a bag is full (once until it has room again). */

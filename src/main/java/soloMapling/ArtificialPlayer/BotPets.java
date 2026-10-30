@@ -305,7 +305,9 @@ public final class BotPets {
         if (mi.getMeso() > 0 ? !bot.isEquippedMesoMagnet() : !bot.isEquippedItemPouch()) {
             return false;
         }
-        return mi.getOwnerId() == bot.getId() || now - mi.getDropTime() >= OWNERSHIP_MS;
+        // the shared ownership rule (LootPicker): its bot's own drop, or anybody's once the window has run out
+        return soloMapling.ArtificialPlayer.BotGrindSystem.LootPicker.claimable(mi, id -> id == bot.getId(),
+                OWNERSHIP_MS, now);
     }
 
     /** Staged bots (pt-1) whose pet loots for them whatever their own loot habit is. */

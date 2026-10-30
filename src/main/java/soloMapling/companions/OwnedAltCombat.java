@@ -6,6 +6,7 @@ import net.server.world.PartyCharacter;
 import server.life.Monster;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
+import soloMapling.ArtificialPlayer.BotGrindSystem.KsManners;
 import soloMapling.ArtificialPlayer.BotHelpers;
 
 import java.awt.Point;
@@ -20,9 +21,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li><b>Engaged mobs only</b>: a mob its owner or any party member (itself included) has damaged, or a mob that
  *       touched its owner or itself in the last {@link #HIT_MEMORY_MS} ms. It never starts on a quiet mob alone.</li>
  *   <li><b>Never a stranger's</b> (KS manners): a mob a real player outside the party (or their alt) has damaged, a
- *       mob a population bot is on before the party, or one a real player outside the party stands by (within
- *       {@link #STRANGER_MOB_PX} px on its ledge) before the party touched it, is left alone - and that holds for every
- *       mob its area attacks catch (BotAttackDriver's per-bot filter).</li>
+ *       mob a population bot is on before the party, or one a real player outside the party stands by before the party
+ *       touched it (the population bots' own KS-manners rule, {@link KsManners#ownerOf}), is left alone - and that
+ *       holds for every mob its area attacks catch (BotAttackDriver's per-bot filter).</li>
  *   <li><b>By its owner</b>: only mobs within {@link #LEASH_X_PX} px across of the owner.</li>
  * </ul>
  */
@@ -33,9 +34,6 @@ public final class OwnedAltCombat {
 
     /** How long a mob's touch on the owner (or the alt) makes it the party's fight. */
     static final long HIT_MEMORY_MS = 6_000;
-    /** A real player outside the party this close (x) to a mob on its ledge is fighting it. */
-    static final int STRANGER_MOB_PX = 260;
-    static final int SAME_LEDGE_DY = 90;
     /** How far across from the owner an alt goes for a mob. */
     static final int LEASH_X_PX = 650;
     static final int LEASH_Y_PX = 250;
@@ -109,20 +107,9 @@ public final class OwnedAltCombat {
         if (partyHit || map == null) {
             return false;
         }
-        Point mp = m.getPosition();
-        if (mp == null) {
-            return false;
-        }
-        for (Character c : map.getCharacters()) {
-            if (c == null || party.contains(c.getId()) || c.isHidden() || BotHelpers.isBot(c)) {
-                continue;
-            }
-            Point cp = c.getPosition();
-            if (cp != null && Math.abs(cp.x - mp.x) <= STRANGER_MOB_PX && Math.abs(cp.y - mp.y) <= SAME_LEDGE_DY) {
-                return true;
-            }
-        }
-        return false;
+        // 1.6.2: who stands by a mob is the population bots' KS-manners rule (KsManners), asked about the real players
+        // outside the party; the party-damage rules above are the alt's layer on top
+        return KsManners.ownerOf(map, KsManners.realPlayersOn(map, c -> !party.contains(c.getId())), m) != null;
     }
 
     /**

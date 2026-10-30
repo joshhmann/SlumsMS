@@ -197,8 +197,6 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     private static final long AMBIENT_MAX_MS = 240_000;      // max gap (4 min)
     // Self-buff cadence while grinding: re-show the bot's class buffs every 90-120s so a watched grinder
     // looks like it's keeping itself buffed (cosmetic - BotBuffDriver shows visuals only, no real stats).
-    private static final long BUFF_MIN_MS = 90_000;
-    private static final long BUFF_MAX_MS = 120_000;
 
     // ── Shared combat ticker (one task for ALL training bots) ────────────────
     private static final Set<TrainingBot> ACTIVE_GRINDERS = ConcurrentHashMap.newKeySet();
@@ -2547,20 +2545,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     // unobserved bot buffs the instant it's first observed and then keeps to the cadence. forceBuff
     // ignores BotBuffDriver's own duration timers so the visible re-buff stays on this fixed cadence.
     private void maybeSelfBuff(Character chr) {
-        if (now() < nextBuffMs) {
-            return;
-        }
-        if (!GCMovement.isMapObserved(chr.getMapId())) {
-            return; // hold the timer until it's worth showing.
-        }
-        if (BotCombatTuning.human()) {
-            // 1.5.0 rc3: each buff recast as it runs out, a little late by the bot's habit (party buffs on time)
-            BotBuffDriver.maintain(chr, BotHabits.of(chr.getId()).rebuffLateNowMs());
-            nextBuffMs = now() + 2_000;
-            return;
-        }
-        BotBuffDriver.forceBuff(chr);
-        nextBuffMs = now() + BUFF_MIN_MS + (long) (rng.nextDouble() * (BUFF_MAX_MS - BUFF_MIN_MS));
+        // 1.6.2: the shared self-buff loop (owned alts run it too); a bot's buffs are shown, its party buffs paid
+        nextBuffMs = BotBuffDriver.selfBuff(chr, now(), nextBuffMs,
+                () -> BotHabits.of(chr.getId()).rebuffLateNowMs(), BotBuffDriver.Pay.PARTY_BUFFS, rng);
     }
 
     // Fires a context-token dialogue node, but only when a real player can see it (observed map), and

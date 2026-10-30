@@ -143,10 +143,11 @@ public final class BotBuffConfig {
      * - a bot that has not put SP into Haste yet does not show it. A bot without a build (one of a job
      * the build does not cover) shows its job's table as before.
      */
+    // 1.6.2: an owned alt is a real character too: only the buffs it has learned (it never showed the whole kit)
     public static List<Integer> buffsFor(Character bot) {
         if (bot == null) return Collections.emptyList();
         List<Integer> kit = buffsForJob(bot.getJob());
-        if (!BotProgression.isReal(bot.getId())) {
+        if (!BotProgression.isReal(bot.getId()) && !bot.isOwnedAlt()) {
             return kit;
         }
         List<Integer> held = new ArrayList<>(kit.size());

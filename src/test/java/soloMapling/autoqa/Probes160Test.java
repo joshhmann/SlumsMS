@@ -282,4 +282,28 @@ class Probes160Test {
             soloMapling.Economy.SaleRules.useForTest(null, null, null);
         }
     }
+
+    @Test
+    void theAltLootStepJudgesItsDropByThePickersLedgeRuleB082() {
+        // b082 (1.6.2 staging): the shell fell to the ledge below the alt, the picker rightly ignored it, the step failed
+        server.maps.MapleMap field = org.mockito.Mockito.mock(server.maps.MapleMap.class);
+        java.awt.Point alt = new java.awt.Point(100, 200);
+        assertTrue(Probes160.dropOnAltsLedge(field, alt, new java.awt.Point(130, 200)));
+        assertTrue(Probes160.dropOnAltsLedge(field, alt, new java.awt.Point(130, 200 + 120)), "a slope's height");
+        assertFalse(Probes160.dropOnAltsLedge(field, alt, new java.awt.Point(130, 200 + 121)),
+                "on the ledge below: drop it again");
+        assertFalse(Probes160.dropOnAltsLedge(field, alt, null));
+    }
+
+    @Test
+    void theAltLootStepWaitsUntilTheAltStands() throws Exception {
+        client.Character alt = org.mockito.Mockito.mock(client.Character.class);
+        try (org.mockito.MockedStatic<soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement> mv =
+                     org.mockito.Mockito.mockStatic(soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.class)) {
+            mv.when(() -> soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isAirborne(alt)).thenReturn(true, true, false);
+            assertTrue(Probes160.waitStanding(alt, 5_000), "lands after two looks");
+            mv.when(() -> soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMoving(alt)).thenReturn(true);
+            assertFalse(Probes160.waitStanding(alt, 250), "still walking: not standing in time");
+        }
+    }
 }

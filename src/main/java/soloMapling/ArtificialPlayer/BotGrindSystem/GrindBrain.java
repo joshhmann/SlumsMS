@@ -22,10 +22,10 @@ import java.util.function.Consumer;
 public final class GrindBrain {
 
     // ── Shared approach/engage tunables (read by the strategies + beats) ──
-    static final int APPROACH_X = 70;                // melee floor: within this dx -> stop and swing
-    static final int APPROACH_Y = 90;                // melee floor: within this dy -> in range
-    private static final double APPROACH_REACH_FRAC = 0.80;  // stop at this fraction of attack reach
-    static final int ROAM_RETARGET_EPS = 16;         // skip re-issuing move for tiny shifts
+    // 1.6.2: the approach numbers are the shared Approach step's (owned alts walk into reach with it too)
+    static final int APPROACH_X = Approach.MELEE_X;  // melee floor: within this dx -> stop and swing
+    static final int APPROACH_Y = Approach.MELEE_Y;  // melee floor: within this dy -> in range
+    static final int ROAM_RETARGET_EPS = Approach.RETARGET_EPS; // skip re-issuing move for tiny shifts
     private static final long TARGET_RETARGET_TIMEOUT = 4_000; // give up walking to an unreachable target/spot after this
     private static final int APPROACH_PROGRESS_EPS = 20;     // bot must move at least this far to count as progress
     static final int APPROACH_Y_TOLERANCE = 120;     // within() vertical slack (covers a sloped/stacked anchor)
@@ -200,14 +200,7 @@ public final class GrindBrain {
 
     // Archers (2nd job up) and mages fight from range and keep mobs off; warriors and thieves close in.
     static boolean keepsDistance(Character chr, MovementStyle style) {
-        if (style == MovementStyle.RANGED) {
-            return true;
-        }
-        if (chr == null || chr.getJob() == null) {
-            return false;
-        }
-        int niche = chr.getJob().getJobNiche(); // 2 = magician, 3 = bowman
-        return niche == 2 || niche == 3;
+        return Approach.keepsDistance(chr, style);
     }
 
     /** True when the episode found only real players' platforms left on this map (KS manners: move on). */
@@ -423,16 +416,14 @@ public final class GrindBrain {
 
     private boolean inAttackRange(Character chr, Monster mob, boolean deriveOnly) {
         if (approachX < 0) {
-            approachX = Math.max(APPROACH_X, (int) (BotAttackDriver.attackReachX(chr) * APPROACH_REACH_FRAC));
-            approachY = Math.max(APPROACH_Y, (int) (BotAttackDriver.attackReachY(chr) * APPROACH_REACH_FRAC));
+            int[] reach = Approach.reach(chr);
+            approachX = reach[0];
+            approachY = reach[1];
         }
         if (deriveOnly) {
             return false;
         }
-        Point pos = chr.getPosition();
-        Point mp = mob.getPosition();
-        return pos != null && mp != null
-                && Math.abs(mp.x - pos.x) <= approachX && Math.abs(mp.y - pos.y) <= approachY;
+        return Approach.inReach(chr.getPosition(), mob.getPosition(), new int[]{approachX, approachY});
     }
 
     /** Largest personal stand offset that keeps the target inside the swing: half the approach reach, at most 40 px. */
@@ -451,14 +442,9 @@ public final class GrindBrain {
         if (approachX < 0) {
             inAttackRange(chr, null, true);
         }
-        java.awt.Rectangle body = mob != null ? GCMovement.mobBounds(mob) : null;
-        int half = body != null ? body.width / 2 : DEFAULT_MOB_HALF_WIDTH;
-        boolean far = style == MovementStyle.RANGED || (soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human() && keepsDistance);
-        int comfort = style == MovementStyle.RANGED ? EngageBeat.KITE_MIN_PX : EngageBeat.MAGE_COMFORT_PX;
-        return StandOffset.band(half, approachX, far, comfort);
+        return Approach.standBand(mob, approachX, style, keepsDistance,
+                soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human());
     }
-
-    private static final int DEFAULT_MOB_HALF_WIDTH = 20;
 
     /**
      * Where to stand to fight a mob at (mobX, groundY): the mob's x shifted by this bot's stable offset, kept inside
@@ -466,28 +452,7 @@ public final class GrindBrain {
      * name-tag overlap box there. Called when a move is issued, never per tick.
      */
     int standX(Character chr, Monster mob, int mobX, int groundY, int lo, int hi) {
-        server.maps.MapleMap map = chr.getMap();
-        if (map == null) {
-            return GrindBrain.clamp(mobX, lo, hi);
-        }
-        int self = chr.getId();
-        int[] band = standBand(chr, mob);
-        return StandOffset.standX(self, mobX, lo, hi, band[0], band[1],
-                x -> {
-                    Point g = GCMovement.groundPointBelow(map, x, groundY - 12);
-                    return g != null && Math.abs(g.y - groundY) <= 12;
-                },
-                x -> {
-                    for (MapObject mo : map.getMapObjectsInRange(new Point(x, groundY), 30.0 * 30.0,
-                            java.util.List.of(server.maps.MapObjectType.PLAYER))) {
-                        Character o = (Character) mo;
-                        Point op = o.getPosition();
-                        if (o.getId() != self && op != null && Math.abs(op.x - x) < 16 && Math.abs(op.y - groundY) < 10) {
-                            return true;
-                        }
-                    }
-                    return false;
-                });
+        return Approach.standX(chr, standBand(chr, mob), mobX, groundY, lo, hi);
     }
 
     // ── Organic loot, driven through here so the collect cost is attributable (see BotPerformanceMonitor) ──

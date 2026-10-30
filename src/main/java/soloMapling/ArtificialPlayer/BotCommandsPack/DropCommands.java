@@ -260,14 +260,13 @@ public class DropCommands {
     // no owner, or whose owner-protection window has expired). Lets bots grab their kills plus loot a real
     // player left on the floor, without stealing another player's still-protected drop.
     public static boolean botCanLoot(Character fakechar, MapItem mapItem) {
-        if (mapItem == null || mapItem.isPickedUp() || mapItem.getPosition() == null) {
+        if (!soloMapling.ArtificialPlayer.BotGrindSystem.LootPicker.onTheFloor(mapItem)) {
             return false;
         }
-        if (mapItem.getOwnerId() == fakechar.getId()) {
-            return true; // the bot's own drop
-        }
-        return mapItem.getDropType() == 2
-                || System.currentTimeMillis() - mapItem.getDropTime() >= FFA_OWNER_PROTECT_MS;
+        // the shared ownership rule (LootPicker): the bot's own drop, a free-for-all drop, or anybody's once the
+        // vanilla ownership window has run out
+        return mapItem.getDropType() == 2 || soloMapling.ArtificialPlayer.BotGrindSystem.LootPicker.claimable(mapItem,
+                id -> id == fakechar.getId(), FFA_OWNER_PROTECT_MS, System.currentTimeMillis());
     }
 
     // Pick up one specific drop (organic single-item loot, paced by the caller for a natural look).

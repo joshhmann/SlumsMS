@@ -466,12 +466,29 @@ final class Probes160 {
             }
             clearStaged(field, gm, staged);
 
-            // (3) a party drop beside the alt goes into its own bag
+            // (3) a party drop beside the alt goes into its own bag. b082 (1.6.2 staging): the shell was dropped while
+            // the alt was still moving and landed on the ledge below it, which the loot picker rightly ignores; now
+            // the alt is standing first, and a shell that lands on another ledge than the alt is dropped again
             ownerActs(p);
             int shellsBefore = alt.getInventory(InventoryType.ETC).countById(ALT_LOOT);
             long lootsBefore = soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).loots();
-            server.maps.MapItem shell = field.spawnItemDrop(gm, gm, new Item(ALT_LOOT, (short) 0, (short) 1),
-                    new java.awt.Point(alt.getPosition().x + 30, alt.getPosition().y), (byte) 1, false, false);
+            boolean standing = waitStanding(alt, 5_000);
+            server.maps.MapItem shell = null;
+            for (int attempt = 0; attempt < 3; attempt++) {
+                if (shell != null && !shell.isPickedUp()) {
+                    field.makeDisappearItemFromMap(shell);
+                }
+                java.awt.Point at = alt.getPosition();
+                shell = field.spawnItemDrop(gm, gm, new Item(ALT_LOOT, (short) 0, (short) 1),
+                        new java.awt.Point(at.x + (attempt == 1 ? -30 : attempt == 2 ? 0 : 30), at.y), (byte) 1, false,
+                        false);
+                if (shell == null || dropOnAltsLedge(field, alt.getPosition(), shell.getPosition())) {
+                    break;
+                }
+                out.add("staging: the shell landed at " + shell.getPosition().x + "," + shell.getPosition().y
+                        + ", another ledge than " + ALT_A + " at " + alt.getPosition().x + "," + alt.getPosition().y
+                        + (standing ? "" : " (it was not standing)") + "; dropped again");
+            }
             boolean looted = false;
             start = System.currentTimeMillis();
             while (!looted && System.currentTimeMillis() - start < 15_000) {
@@ -526,6 +543,33 @@ final class Probes160 {
             clearStaged(field, gm, staged);
         }
         return bad;
+    }
+
+    /**
+     * b082: a drop at {@code drop} is one the alt at {@code at} can go for by the loot picker's ledge rule (the shared
+     * LootPicker band, and the nav graph does not put it on another ledge).
+     */
+    static boolean dropOnAltsLedge(server.maps.MapleMap field, java.awt.Point at, java.awt.Point drop) {
+        return at != null && drop != null
+                && soloMapling.ArtificialPlayer.BotGrindSystem.LootPicker.onItsLedge(at, drop,
+                soloMapling.ArtificialPlayer.BotGrindSystem.LootPicker.SAME_LEDGE_DY)
+                && !soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.onDifferentLedge(field, at.x, at.y, drop.x, drop.y);
+    }
+
+    /** b082: waits (up to maxMs) until the alt stands on the ground, not walking, jumping or climbing. */
+    static boolean waitStanding(Character alt, long maxMs) throws InterruptedException {
+        long until = System.currentTimeMillis() + maxMs;
+        while (true) {
+            if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMoving(alt)
+                    && !soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isAirborne(alt)
+                    && !soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isClimbing(alt)) {
+                return true;
+            }
+            if (System.currentTimeMillis() >= until) {
+                return false;
+            }
+            Thread.sleep(100);
+        }
     }
 
     /** t-oa-1: kills the staged mobs still alive (no drops) and forgets them. */
