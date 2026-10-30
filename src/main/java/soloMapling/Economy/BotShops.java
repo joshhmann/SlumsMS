@@ -15,6 +15,7 @@ import server.maps.MapObject;
 import server.maps.MapObjectType;
 import server.maps.MapleMap;
 import server.maps.PlayerShopItem;
+import soloMapling.ArtificialPlayer.BotProgressionSystem.BotSkillBooks;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotHoldings;
 import soloMapling.FreeMarket.FMShopInfoManager;
@@ -306,10 +307,11 @@ public final class BotShops {
                 inv.unlockInventory();
             }
             for (Item item : items) {
-                if (t == InventoryType.USE && item.getItemId() / 10000 != 204) {
-                    continue;   // potions and ammo are the bot's own kit; scrolls only
+                boolean book = t == InventoryType.USE && BotSkillBooks.enabled() && BotSkillBooks.isBook(item.getItemId());
+                if (t == InventoryType.USE && item.getItemId() / 10000 != 204 && !book) {
+                    continue;   // potions and ammo are the bot's own kit; scrolls only (and, 1.6.2 ticket 159, spare skill books)
                 }
-                String why = SaleRules.whyNotListOwn(item);
+                String why = book ? BotSkillBooks.sellRefusal(bot, item) : SaleRules.whyNotListOwn(item);
                 if (why != null) {
                     refused.add(nameOf(item.getItemId()) + " (" + why + ")");
                     continue;

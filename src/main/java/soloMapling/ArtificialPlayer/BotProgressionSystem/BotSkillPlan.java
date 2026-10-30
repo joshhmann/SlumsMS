@@ -85,14 +85,44 @@ import static soloMapling.ArtificialPlayer.MapleRootSkills.*;
  *       MapleRoot's custom 4th-job skills at level 1 (master 5), the Cygnus 4th-job skills likewise, Echo of Hero, and
  *       Power Drill to a Buccaneer. A bot gets it on reaching its 4th job (see {@link BotProgression}).</li>
  * </ul>
- * The skill-book master levels the package also sets (10, or 25 for the Beholder passives) are not modelled: a bot's
- * 4th-job master level is its plan target, as if it had read the books.
+ * The skill-book master levels the package also sets (10, or 25 for the Beholder passives) are modelled only behind
+ * {@code -Dsolomapling.botSkillBooks=true} (ticket 159, {@link BotSkillBooks}): then a 4th-job skill the Leafre
+ * instructors give master level 10 ({@link #isBookSkill}) starts at {@link #BASE_MASTER} and its SP stops there until
+ * the bot reads the skill or mastery book that raises it ({@link #booksRaise}). With the switch off a bot's 4th-job
+ * master level is its plan target, as if it had read the books.
  *
  * <p>Beginner skills are not listed: the server gives no SP below 1st job. MapleRoot's 5th tier (x13), Super
  * Beginner (700) and Synth Master (710) need rebirths or a quest item and are never built (see
  * {@link BotBuild#isBuildJob(int)}).
  */
 public final class BotSkillPlan {
+
+    /** The master level the 4th-job instructors give a book-limited skill (ticket 159); books raise it from here. */
+    public static final int BASE_MASTER = 10;
+
+    private static final Set<Integer> BOOK_SKILLS = new HashSet<>();
+
+    static {
+        for (int job : new int[]{112, 122, 132, 212, 222, 232, 312, 322, 412, 422, 512, 522}) {
+            for (int skill : constants.game.FourthJobMasteries.forJob(job)) {
+                BOOK_SKILLS.add(skill);
+            }
+        }
+    }
+
+    /** True for a 4th-job skill whose master level starts at {@link #BASE_MASTER} and is raised by a book. */
+    public static boolean isBookSkill(int skillId) {
+        return BOOK_SKILLS.contains(skillId);
+    }
+
+    /**
+     * Would a book that raises a skill's master level to {@code bookCap} help a bot whose plan raises it to
+     * {@code plannedTarget} and whose master level is {@code currentMaster} now? A book is wanted even before the
+     * skill is high enough to read it, so a future book is never sold off.
+     */
+    public static boolean booksRaise(int plannedTarget, int bookCap, int currentMaster) {
+        return Math.min(plannedTarget, bookCap) > currentMaster;
+    }
 
     /** What the 4th-job package costs at NPC 2084000. */
     public static final int FOURTH_JOB_PACKAGE_MESOS = 10_000_000;

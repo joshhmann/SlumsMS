@@ -127,6 +127,11 @@ public final class BotBuild {
         public int secondaryCap = -1;
         /** How many 4th-job packages (NPC 2084000) this state was given since it was made; never stored. */
         public int packagesBought;
+        /**
+         * Master levels of the book-limited 4th-job skills ({@link BotSkillPlan#isBookSkill}) a bot is held to; empty
+         * unless {@code -Dsolomapling.botSkillBooks=true} (ticket 159). SP never raises such a skill past its cap.
+         */
+        public final Map<Integer, Integer> masterCaps = new TreeMap<>();
 
         public State(int job, int level) {
             this.job = job;
@@ -461,7 +466,7 @@ public final class BotBuild {
                 if (max <= 0) {
                     continue;   // the server does not have this skill: skip it rather than invent it
                 }
-                int target = Math.min(entry.target(), max);
+                int target = Math.min(Math.min(entry.target(), max), s.masterCaps.getOrDefault(skillId, Integer.MAX_VALUE));
                 int have = s.skillLevel(skillId);
                 if (have >= target || (have == 0 && BotSkillPlan.isGranted(skillId))) {
                     continue;   // done, or taught by an NPC the bot has not been to yet
@@ -535,6 +540,11 @@ public final class BotBuild {
         int[] pools = advancementPools(newJob);
         s.maxHp += pools[0];
         s.maxMp += pools[1];
+        if (tier == 4 && BotSkillBooks.enabled()) {
+            for (int skill : constants.game.FourthJobMasteries.forJob(newJob)) {
+                s.masterCaps.putIfAbsent(skill, BotSkillPlan.BASE_MASTER);   // the instructor's master 10; books raise it
+            }
+        }
         grantNpcSkills(s, catalog);
     }
 
@@ -602,6 +612,17 @@ public final class BotBuild {
      * its own SP spend, and finally the AP is spent.
      */
     public static void settle(State s, Choice choice, SkillCatalog catalog) {
+        settle(s, choice, catalog, null);
+    }
+
+    /** Asked before each advancement; false holds the bot at its job (ticket 159: it walks to its instructor first). */
+    @FunctionalInterface
+    public interface AdvanceGate {
+        boolean mayAdvanceInto(int newJob);
+    }
+
+    /** {@link #settle(State, Choice, SkillCatalog)} with a gate on every advancement ({@code null} = none). */
+    public static void settle(State s, Choice choice, SkillCatalog catalog, AdvanceGate gate) {
         grantNpcSkills(s, catalog);
         spendSp(s, choice, catalog);
         int level = Math.min(s.level, MAX_LEVEL);
@@ -609,6 +630,9 @@ public final class BotBuild {
             int at = advancementLevel(s.job, choice);
             int next = nextJob(s.job, choice);
             if (at <= 0 || next < 0 || level < at || !isBuildJob(next)) {
+                break;
+            }
+            if (gate != null && !gate.mayAdvanceInto(next)) {
                 break;
             }
             advance(s, next, catalog);
@@ -622,15 +646,20 @@ public final class BotBuild {
      * that had been playing all along would have got them. Levels past {@link #MAX_LEVEL} grant nothing.
      */
     public static void catchUp(State s, int fromLevel, Choice choice, SkillCatalog catalog) {
+        catchUp(s, fromLevel, choice, catalog, null);
+    }
+
+    /** {@link #catchUp(State, int, Choice, SkillCatalog)} with a gate on every advancement. */
+    public static void catchUp(State s, int fromLevel, Choice choice, SkillCatalog catalog, AdvanceGate gate) {
         int target = s.level;
         for (int l = fromLevel + 1; l <= Math.min(target, MAX_LEVEL); l++) {
             s.level = l - 1;
             grantLevel(s);   // the level-up is granted at the job held before it, as the server does
             s.level = l;
-            settle(s, choice, catalog);
+            settle(s, choice, catalog, gate);
         }
         s.level = target;
-        settle(s, choice, catalog);
+        settle(s, choice, catalog, gate);
     }
 
     /**
