@@ -139,6 +139,28 @@ class DashboardExporterTest {
     }
 
     @Test
+    void calibrationJsonIsWrittenOnlyWhileKillCalibrationIsOn() throws Exception {
+        String prop = soloMapling.ArtificialPlayer.BotAttackSystem.KillCalibration.PROPERTY;
+        try {
+            System.setProperty(prop, "false");
+            soloMapling.ArtificialPlayer.BotAttackSystem.KillCalibration.resetSwitch();
+            DashboardExporter.Runner r = runner(new Fake(), new DerivedEconomy(UTC));
+            r.runOnce(DAY1);
+            assertFalse(Files.exists(dir.resolve("calibration.json")), "off (live): no file");
+            System.setProperty(prop, "true");
+            soloMapling.ArtificialPlayer.BotAttackSystem.KillCalibration.resetSwitch();
+            r.runOnce(DAY1 + 60_000);
+            Map<?, ?> doc = read("calibration.json");
+            assertEquals(1, ((Number) doc.get("version")).intValue());
+            assertEquals(true, doc.get("reportOnly"));
+            assertTrue(doc.get("buckets") instanceof List<?>);
+        } finally {
+            System.clearProperty(prop);
+            soloMapling.ArtificialPlayer.BotAttackSystem.KillCalibration.resetSwitch();
+        }
+    }
+
+    @Test
     void aFailingReadIsLoggedAndTheNextRunWorks() {
         Fake fake = new Fake();
         DashboardExporter.Runner r = runner(fake, new DerivedEconomy(UTC));

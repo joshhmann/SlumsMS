@@ -186,6 +186,7 @@ public final class BotAttackDriver {
         BotAttackStats.clear(botId);
         BotComboOrbs.clearBot(botId);
         OffscreenCombat.clearBot(botId);
+        KillCalibration.forget(botId);
         BotSupplies.clearBot(botId);
     }
 

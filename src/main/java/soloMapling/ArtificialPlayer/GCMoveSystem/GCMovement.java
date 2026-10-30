@@ -647,6 +647,12 @@ public final class GCMovement {
         }
     }
 
+    /** Whether the bot is marked as grinding ({@link #setGrinding}); ticket 157's kill calibration counts only these. */
+    public static boolean isGrinding(Character bot) {
+        BotMovementState st = bot == null ? null : STATES.get(bot.getId());
+        return st != null && st.grinding;
+    }
+
     /* Mark the bot as holding an explicit rest hang on a rope (a grind break's rope rest). While set, the
      * climb-idle hold stays engaged regardless of the grind guard, and the driver freezes the hang so no
      * nav / player-reaction / fidget layer can dislodge it. The bot must already be on the rope (isClimbing)
