@@ -93,6 +93,26 @@ class OwnedAltCombatTest {
         assertNull(OwnedAltCombat.target(owner, alt, party, NOW + OwnedAltCombat.HIT_MEMORY_MS + 1));
     }
 
+    /** Audit b135: a touch on the owner is let go when it is old, the mob died, or the owner's alts went home. */
+    @Test
+    void anOwnersTouchIsReleased() {
+        Monster biter = mob(40);
+        MapleMap f = map(List.of(biter));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 10, true);
+        OwnedAltCombat.noteHit(alt, biter, NOW); // an alt's touch is always kept
+        assertTrue(OwnedAltCombat.recentlyHit(ALT, biter, NOW + 1_000));
+        when(biter.isAlive()).thenReturn(false);
+        assertFalse(OwnedAltCombat.recentlyHit(ALT, biter, NOW + 1_000), "dead: let go");
+        assertTrue(OwnedAltCombat.touchesKept(ALT) == 0, "and forgotten (its object id can come back)");
+        Monster other = mob(80);
+        OwnedAltCombat.noteHit(alt, other, NOW);
+        Monster later = mob(90);
+        OwnedAltCombat.noteHit(alt, later, NOW + OwnedAltCombat.HIT_MEMORY_MS + 1);
+        assertTrue(OwnedAltCombat.touchesKept(ALT) == 1, "the old touch went when a new one came");
+        OwnedAltCombat.retainOwners(Set.of(), Set.of());
+        assertTrue(OwnedAltCombat.touchesKept(ALT) == 0, "nothing kept for characters no longer out");
+    }
+
     @Test
     void ownerHitsAreOnlyRememberedForOwnersWithAltsOut() {
         Monster biter = mob(40);

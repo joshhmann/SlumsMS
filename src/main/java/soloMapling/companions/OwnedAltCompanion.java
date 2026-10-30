@@ -213,6 +213,7 @@ public final class OwnedAltCompanion {
         owners.retainAll(ownerIds);
         owners.addAll(ownerIds);
         states.keySet().removeIf(id -> !altIds.contains(id));
+        OwnedAltCombat.retainOwners(ownerIds, altIds); // b135: an owner whose alts went home keeps no touches
         long now = System.currentTimeMillis();
         // 1.6.2 ticket 99: each alt's formation place, by its slot among the owner's party companions
         Map<Integer, List<soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser.Target>> slotsOf = new HashMap<>();

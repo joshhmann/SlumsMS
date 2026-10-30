@@ -50,19 +50,44 @@ public final class OwnedAltCombat {
             return;
         }
         if (!victim.isOwnedAlt() && !OwnedAltCompanion.hasAltsOut(victim.getId())) {
+            touchedBy.remove(victim.getId()); // b135: its alts went home - nothing of its fights is kept
             return;
         }
         Map<Integer, Long> hits = touchedBy.computeIfAbsent(victim.getId(), id -> new ConcurrentHashMap<>());
+        hits.values().removeIf(t -> now - t > HIT_MEMORY_MS); // b135: an old touch is let go, not kept to 32
         hits.put(mob.getObjectId(), now);
-        if (hits.size() > 32) {
-            hits.values().removeIf(t -> now - t > HIT_MEMORY_MS);
-        }
     }
 
+    /**
+     * The mob touched this character within {@link #HIT_MEMORY_MS}. Audit b135: a touch is released once it is old
+     * or the mob is dead (its object id may come back on a new mob), so the attack driver never swings at a mob only
+     * because it once bumped into the owner.
+     */
     static boolean recentlyHit(int characterId, Monster mob, long now) {
         Map<Integer, Long> hits = touchedBy.get(characterId);
-        Long at = hits == null ? null : hits.get(mob.getObjectId());
-        return at != null && now - at <= HIT_MEMORY_MS;
+        if (hits == null) {
+            return false;
+        }
+        Long at = hits.get(mob.getObjectId());
+        if (at == null) {
+            return false;
+        }
+        if (now - at > HIT_MEMORY_MS || !mob.isAlive()) {
+            hits.remove(mob.getObjectId(), at);
+            return false;
+        }
+        return true;
+    }
+
+    /** Audit b135: owners who no longer have alts out keep no touches (the driver's tick calls this). */
+    static void retainOwners(java.util.Set<Integer> stillOut, java.util.Set<Integer> alts) {
+        touchedBy.keySet().removeIf(id -> !stillOut.contains(id) && !alts.contains(id));
+    }
+
+    /** Test view: the touches kept for a character. */
+    static int touchesKept(int characterId) {
+        Map<Integer, Long> hits = touchedBy.get(characterId);
+        return hits == null ? 0 : hits.size();
     }
 
     static void forget(int characterId) {
