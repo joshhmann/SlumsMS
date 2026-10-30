@@ -156,7 +156,7 @@ final class GCFollow {
         }
 
         // Past the gate a shared map id is the same map object (same channel, same instance or none).
-        if (bot.getMap() == target.getMap()) {
+        if (soloMapling.ArtificialPlayer.BotHelpers.sameMap(bot, target)) {
             // Same map: cancel any in-flight travel and let the 50 ms driver tail the target.
             if (GCMovement.isTraveling(bot)) {
                 GCTravel.cancel(bot);

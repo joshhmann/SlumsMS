@@ -209,7 +209,7 @@ public final class BotPartySupport {
 
     // ---------------------------------------------------------------- real effects
 
-    private static final class GameEffects implements Effects {
+    static final class GameEffects implements Effects {
         @Override
         public List<Character> partyInReach(Character bot) {
             Party party = bot.getParty();
@@ -220,7 +220,8 @@ public final class BotPartySupport {
             Point here = bot.getPosition();
             for (PartyCharacter pc : party.getMembers()) {
                 Character c = pc == null ? null : pc.getPlayer();
-                if (c == null || c == bot || c.getMapId() != bot.getMapId() || c.getPosition() == null || here == null) {
+                // b168 follow-up: the same map OBJECT, not just the id (another channel's or instance's copy is out of reach)
+                if (c == null || c == bot || !BotHelpers.sameMap(c, bot) || c.getPosition() == null || here == null) {
                     continue;
                 }
                 if (Math.abs(c.getPosition().x - here.x) <= REACH_X && Math.abs(c.getPosition().y - here.y) <= REACH_Y) {
