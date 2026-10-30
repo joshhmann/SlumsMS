@@ -156,4 +156,34 @@ class NavDashboardDataTest {
         assertEquals(1, changed.graphsWritten(), "a new player-learned jump");
         assertEquals(1, changed.mapsWritten());
     }
+
+    @Test
+    void portalsCarryTheirTargetPortalNameAsTheSixthField() {
+        server.maps.MapleMap map = new server.maps.MapleMap(910000920, 0, 0, 910000920, 1.0f);
+        server.maps.GenericPortal door = new server.maps.GenericPortal(2);
+        door.setName("east00");
+        door.setPosition(new Point(500, 300));
+        door.setTargetMapId(100000000);
+        door.setTarget("west00");
+        door.setId(1);
+        server.maps.GenericPortal spawn = new server.maps.GenericPortal(0);
+        spawn.setName("sp");
+        spawn.setPosition(new Point(0, 300));
+        spawn.setTargetMapId(999999999);
+        spawn.setId(0);
+        map.addPortal(door);
+        map.addPortal(spawn);
+
+        List<?> portals = (List<?>) NavDashboardData.geometry(map).get("portals");
+        assertEquals(2, portals.size());
+        Map<String, List<?>> byName = new HashMap<>();
+        for (Object p : portals) {
+            byName.put((String) ((List<?>) p).get(0), (List<?>) p);
+        }
+        assertEquals(List.of("east00", 2, 500, 300, 100000000, "west00"), byName.get("east00"));
+        assertEquals(6, byName.get("sp").size());
+        assertEquals("", byName.get("sp").get(5), "no target portal: an empty name");
+        assertEquals(List.of("east00", 2, 500, 300, 100000000), byName.get("east00").subList(0, 5),
+                "the first five fields are as before");
+    }
 }

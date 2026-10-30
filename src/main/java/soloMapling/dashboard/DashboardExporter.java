@@ -180,6 +180,8 @@ public final class DashboardExporter {
                 result.live().put("accounts", accounts);
             }
             result.live().put("wealthIndex", soloMapling.ArtificialPlayer.PlayerWealthIndex.snapshot());
+            // Ticket 157: the effective on/off settings (system properties and config toggles), once per export
+            result.live().put("switches", EffectiveSwitches.snapshot());
             result.live().put("exportMs", (System.nanoTime() - t0) / 1_000_000);
             AtomicFiles.writeJson(dir.resolve("live.json"), result.live());
             boolean newDay = series.add(result.point(), now);

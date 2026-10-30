@@ -122,8 +122,10 @@ public final class NavDashboardData {
             if (p.getPosition() == null) {
                 continue;
             }
+            // [name, type, x, y, toMap, toPortal]: ticket 157 appends the target portal's name ("" for none) as p[5];
+            // readers of the old five fields keep working
             portals.add(List.of(String.valueOf(p.getName()), p.getType(), p.getPosition().x, p.getPosition().y,
-                    p.getTargetMapId()));
+                    p.getTargetMapId(), p.getTarget() == null ? "" : p.getTarget()));
         }
         Map<String, Object> out = new LinkedHashMap<>();
         Rectangle area = map.getMapArea();
