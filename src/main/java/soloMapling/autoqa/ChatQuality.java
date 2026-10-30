@@ -548,6 +548,16 @@ public final class ChatQuality {
                 + sd.get("claims") + " claims" + talkPart(sd) + ")";
     }
 
+    /** "; grounding rejects 12/340 (place 5, familiar 4, ...)" since boot, or "" before any reply was checked. */
+    static String groundingPart(Map<String, Object> g) {
+        if (g == null || !(g.get("checked") instanceof Number c) || c.longValue() == 0) {
+            return "";
+        }
+        String reasons = g.get("byReason") instanceof Map<?, ?> m && !m.isEmpty() ? " " + m : "";
+        return "; grounding rejects " + g.get("rejected") + "/" + c + reasons + " since boot (retry ok "
+                + g.get("retryPassed") + "/" + g.get("retried") + ", fell back " + g.get("fellBack") + ")";
+    }
+
     /** "; bot talk 69% of 314" when bots made claims talking to each other. */
     @SuppressWarnings("unchecked")
     private static String talkPart(Map<String, Object> sd) {
@@ -630,6 +640,10 @@ public final class ChatQuality {
         }
         r.put("generatedAt", Instant.ofEpochMilli(now).toString());
         r.put("sayDoSinceBoot", SayDo.stats());
+        // ticket 156: replies the state-of-mind check rejected since boot (made-up places, "again" to strangers...)
+        Map<String, Object> grounding = soloMapling.ArtificialPlayer.BotConvo.StateOfMind.stats();
+        r.put("grounding", grounding);
+        r.put("headline", r.get("headline") + groundingPart(grounding));
         r.put("problems", problems(r));
         String name = "chat-quality-" + HealthSweeper.DAY.format(Instant.ofEpochMilli(now)) + ".json";
         try {
@@ -656,6 +670,7 @@ public final class ChatQuality {
         m.put("repetition", ((Map<String, Object>) r.get("repetition")).get("score"));
         m.put("unanswered", ((Map<String, Object>) r.get("unanswered")).get("unanswered"));
         m.put("sayDo", ((Map<String, Object>) r.get("sayDo")).get("rate"));
+        m.put("groundingRejects", r.get("grounding") instanceof Map<?, ?> g ? g.get("rejected") : null);
         m.put("problems", r.get("problems"));
         m.put("file", r.get("file"));
         m.put("generatedAt", r.get("generatedAt"));

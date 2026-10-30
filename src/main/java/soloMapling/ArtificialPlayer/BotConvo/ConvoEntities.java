@@ -103,6 +103,11 @@ public final class ConvoEntities {
     private ConvoEntities() {
     }
 
+    /** The String.wz name tables, or null until {@link #warmUp} finished (ticket 156's checker reads them). */
+    static Names names() {
+        return names;
+    }
+
     /** Test seam (null = aliases only until {@link #warmUp}). */
     public static void useForTest(Names testNames) {
         names = testNames;
