@@ -417,4 +417,33 @@ class OwnedAltCompanionTest {
         }
         assertSame(null, alt.getInventory(InventoryType.EQUIPPED).getItem((short) -11));
     }
+    // 1.6.2 (owner, grill 2026-10-30: "alt chat lines: whole party"): an alt's lines (loot, bag full, trade replies,
+    // acknowledgements) go out on the shared party voice, so everyone in the owner's party sees them, not only the owner.
+    @Test
+    void anAltSpeaksToTheWholePartyThroughTheSharedPartyVoice() {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        net.server.world.Party party = mock(net.server.world.Party.class);
+        when(party.getMemberById(OWNER)).thenReturn(mock(net.server.world.PartyCharacter.class));
+        when(alt.getParty()).thenReturn(party);
+        try (MockedStatic<soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat> chat =
+                     Mockito.mockStatic(soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat.class)) {
+            OwnedAltCompanion.say(owner, alt, "my bag is full");
+            chat.verify(() -> soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat.sayInParty(alt, "my bag is full"));
+        }
+        verify(owner, never()).sendPacket(any());   // the party voice already reaches the owner: no double line
+    }
+
+    @Test
+    void anAltOutsideItsOwnersPartyStillTellsTheOwner() {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);   // no party
+        try (MockedStatic<soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat> chat =
+                     Mockito.mockStatic(soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat.class)) {
+            OwnedAltCompanion.say(owner, alt, "omw");
+            chat.verify(() -> soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat.sayInParty(any(), anyString()),
+                    never());
+        }
+        verify(owner).sendPacket(any());
+    }
 }
