@@ -140,6 +140,14 @@ public final class DashboardMapExport {
         order.sort(Comparator.comparingInt((Integer id) -> -stuckTotals.getOrDefault(id, 0)).thenComparingInt(id -> id));
 
         Map<String, Object> state = readState(nav.resolve("state.json"));
+        // Ticket 157 follow-up: every map's pit regions (NavPits), from the last time its map file was written
+        Map<Integer, List<Integer>> pitsByMap = new TreeMap<>();
+        for (int mapId : keys.keySet()) {
+            List<Integer> known = statePits(state, mapId);
+            if (known != null && !known.isEmpty()) {
+                pitsByMap.put(mapId, known);
+            }
+        }
         long learnedBucket = now / LEARNED_REFRESH_MS;
         int mapsWritten = 0;
         int graphsWritten = 0;
@@ -152,6 +160,7 @@ public final class DashboardMapExport {
             }
             List<NavDashboardData.StuckSpot> spots = spotsByMap.getOrDefault(mapId, List.of());
             List<Object> keyRows = new ArrayList<>();
+            Map<String, Map<String, Object>> built = new HashMap<>();
             StringBuilder mapSig = new StringBuilder("v" + NavDashboardData.graphVersion() + MAP_FORMAT);
             try {
                 for (String key : keys.get(mapId)) {
@@ -165,6 +174,7 @@ public final class DashboardMapExport {
                             continue;
                         }
                         AtomicFiles.writeJson(out, g);
+                        built.put(key, g);
                         graphsWritten++;
                         summary = keySummary(g);
                         state.put("k:" + key, Map.of("sig", sig, "summary", summary));
@@ -174,14 +184,16 @@ public final class DashboardMapExport {
                 }
                 mapSig.append("|s").append(spotHash(spots));
                 Path mapFile = nav.resolve("maps").resolve(mapId + ".json");
-                boolean fresh = state.get("m:" + mapId) instanceof Map<?, ?> st && mapSig.toString().equals(st.get("sig"));
+                boolean fresh = state.get("m:" + mapId) instanceof Map<?, ?> st && mapSig.toString().equals(st.get("sig"))
+                        && st.get("pits") instanceof List<?>;
                 if (!fresh || o.force() || !Files.exists(mapFile)) {
                     Map<String, Object> doc = new LinkedHashMap<>();
                     doc.put("id", mapId);
                     String[] n = names.getOrDefault(mapId, new String[]{"", ""});
                     doc.put("street", n[0]);
                     doc.put("name", n[1]);
-                    doc.putAll(geometry.of(mapId));
+                    Map<String, Object> geo = geometry.of(mapId);
+                    doc.putAll(geo);
                     doc.put("profiles", keyRows);
                     doc.put("stuckDays", o.stuckDays());
                     doc.put("stuck", spotRows(spots));
@@ -190,7 +202,13 @@ public final class DashboardMapExport {
                     doc.put("stuckByDay", perDay);
                     AtomicFiles.writeJson(mapFile, doc);
                     mapsWritten++;
-                    state.put("m:" + mapId, Map.of("sig", mapSig.toString()));
+                    List<Integer> pits = pits(nav, keys.get(mapId), built, geo.get("bounds"));
+                    state.put("m:" + mapId, Map.of("sig", mapSig.toString(), "pits", pits));
+                    if (pits.isEmpty()) {
+                        pitsByMap.remove(mapId);
+                    } else {
+                        pitsByMap.put(mapId, pits);
+                    }
                 }
             } catch (IOException | RuntimeException e) {
                 failed++;
@@ -199,10 +217,78 @@ public final class DashboardMapExport {
         }
 
         writeIndex(nav, keys, names, state, stuckTotals, players, deep, now);
+        writePits(nav, pitsByMap);
         writeLearning(nav, dirs, keys, stuck, recent, deep, players, learned, today, now);
         copyReports(o.navReports(), nav);
         AtomicFiles.writeJson(nav.resolve("state.json"), state);
         return new Summary(order.size(), mapsWritten, graphsWritten, failed, skipped);
+    }
+
+    // ── pits ──────────────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Ticket 157 follow-up (the Website lane's dead-end check): {@code nav/pits.json},
+     * {@code {"version":1, "maps": {"<mapId>": [regionId, ...]}}}, every region {@code NavPits} treats as a pit (the
+     * planner never routes into one, but the exported graphs still carry those edges). Only maps with a pit are
+     * listed. Rewritten only when its content changes.
+     */
+    static boolean writePits(Path nav, Map<Integer, List<Integer>> pitsByMap) throws IOException {
+        Map<String, Object> maps = new LinkedHashMap<>();
+        pitsByMap.forEach((id, regions) -> maps.put(String.valueOf(id), regions));
+        Map<String, Object> doc = new LinkedHashMap<>();
+        doc.put("version", 1);
+        doc.put("maps", maps);
+        String text = Json.write(doc);
+        Path file = nav.resolve("pits.json");
+        try {
+            if (Files.isRegularFile(file) && text.equals(Files.readString(file, StandardCharsets.UTF_8))) {
+                return false;
+            }
+        } catch (IOException e) {
+            // rewrite it
+        }
+        AtomicFiles.write(file, text);
+        return true;
+    }
+
+    /** The union of a map's pit regions over its profiles' graphs (just built, else read back from the export). */
+    private static List<Integer> pits(Path nav, List<String> keys, Map<String, Map<String, Object>> built, Object bounds) {
+        if (bounds == null) {
+            return List.of();
+        }
+        TreeSet<Integer> out = new TreeSet<>();
+        for (String key : keys) {
+            Object regions = null;
+            Map<String, Object> g = built.get(key);
+            if (g != null) {
+                regions = g.get("regions");
+            } else {
+                Path f = nav.resolve("graphs").resolve(key + ".json");
+                try {
+                    if (Files.isRegularFile(f) && Json.parse(Files.readString(f, StandardCharsets.UTF_8)) instanceof Map<?, ?> m) {
+                        regions = m.get("regions");
+                    }
+                } catch (IOException | RuntimeException e) {
+                    // no regions for this profile
+                }
+            }
+            out.addAll(NavDashboardData.pitRegions(regions, bounds));
+        }
+        return List.copyOf(out);
+    }
+
+    /** The pits a map's state entry remembers, or null when it has none recorded. */
+    private static List<Integer> statePits(Map<String, Object> state, int mapId) {
+        if (!(state.get("m:" + mapId) instanceof Map<?, ?> st) || !(st.get("pits") instanceof List<?> list)) {
+            return null;
+        }
+        List<Integer> out = new ArrayList<>();
+        for (Object v : list) {
+            if (v instanceof Number n) {
+                out.add(n.intValue());
+            }
+        }
+        return out;
     }
 
     // ── index ───────────────────────────────────────────────────────────────────────────────────

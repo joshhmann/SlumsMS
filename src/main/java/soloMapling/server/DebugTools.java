@@ -35,4 +35,26 @@ public final class DebugTools {
         }
         return QaSuite.enabledFor(property) || "true".equalsIgnoreCase(property.apply(AutoQa.PROPERTY));
     }
+
+    /**
+     * A debug feature with its own switch that follows this one unless forced: {@code -D<property>=true|false} wins,
+     * else it is on exactly where the debug tools are (the test server), off on live. Kill calibration
+     * ({@code slums.killcalib}) and the bot inspect endpoint ({@code slums.inspect}) use it.
+     */
+    public static boolean featureOn(String property) {
+        String forced = System.getProperty(property);
+        if (forced != null) {
+            return "true".equalsIgnoreCase(forced);
+        }
+        return isEnabled();
+    }
+
+    /** {@link #featureOn} for a set of -D properties (tests read live's and the test server's command lines). */
+    public static boolean featureFor(String property, Function<String, String> props) {
+        String forced = props.apply(property);
+        if (forced != null) {
+            return "true".equalsIgnoreCase(forced);
+        }
+        return enabledFor(props);
+    }
 }

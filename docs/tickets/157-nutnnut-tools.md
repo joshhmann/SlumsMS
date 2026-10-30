@@ -37,6 +37,15 @@ Later candidates from the matrix (separate decisions): bot questing slice (M-L),
 mastery books (M), companion commands and sharing for owned alts (NN-012, M), Maker plan / batch crafting (needs
 ticket 112).
 
+## Progress
+
+- 2026-10-30, branch `162-inspect` (from release-1.6.2): item 2 (kill calibration: `KillCalibration`,
+  `calibration.json`, `!killcalib`, switch `-Dslums.killcalib`, on TEST, off on live) and item 4 (live bot inspect:
+  `BotInspectApi` on 127.0.0.1, `X-Slums-Inspect` secret header, GET `/bots/{cid}`, `/maps/{id}`, `/positions`,
+  switch `-Dslums.inspect` plus `-Dslums.inspect.port` and `-Dslums.inspect.secretFile`), plus `nav/pits.json` for the
+  Website lane's dead-end check. Contract: docs/design/inspect-api.md. Not yet run on TEST; the site proxy and
+  dashboard tables are the Website lane's.
+
 ## Not adopted
 
 Their server as written, disconnect-all, wipe, economy reset, their market beliefs (NN-013), cross-account

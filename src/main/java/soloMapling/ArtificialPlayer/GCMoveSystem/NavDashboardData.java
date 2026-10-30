@@ -138,6 +138,30 @@ public final class NavDashboardData {
         return out;
     }
 
+    /**
+     * Ticket 157 follow-up (the Website lane's dead-end check): the regions of an exported graph ({@link #graph}'s
+     * {@code regions} rows, {@code [id, rope, minX, minY, maxX, maxY]}) that {@link NavPits} treats as pits on a map
+     * with these view {@code bounds} ({@code [x, y, width, height]}, as {@link #geometry} exports them), sorted. Empty
+     * without bounds, as NavPits has no pits on a map without view bounds.
+     */
+    public static List<Integer> pitRegions(Object regions, Object bounds) {
+        if (!(regions instanceof List<?> rows) || !(bounds instanceof List<?> b) || b.size() < 4
+                || !(b.get(1) instanceof Number y) || !(b.get(2) instanceof Number w) || !(b.get(3) instanceof Number h)
+                || w.intValue() <= 0 || h.intValue() <= 0) {
+            return List.of();
+        }
+        int bottom = y.intValue() + h.intValue();
+        java.util.TreeSet<Integer> out = new java.util.TreeSet<>();
+        for (Object row : rows) {
+            if (row instanceof List<?> r && r.size() >= 4 && r.get(0) instanceof Number id && r.get(1) instanceof Number rope
+                    && r.get(3) instanceof Number minY
+                    && NavPits.isPitRegion(rope.intValue() != 0, id.intValue(), minY.intValue(), bottom)) {
+                out.add(id.intValue());
+            }
+        }
+        return List.copyOf(out);
+    }
+
     // ── graphs ──────────────────────────────────────────────────────────────────────────────────
 
     /** One cached graph with every overlay, or null when the key has no usable cache file. */

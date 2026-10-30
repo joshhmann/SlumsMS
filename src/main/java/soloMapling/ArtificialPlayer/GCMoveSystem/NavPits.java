@@ -54,7 +54,7 @@ final class NavPits {
         int bottom = view.y + view.height;
         BitSet out = null;
         for (BotNavigationGraph.Region region : graph.regions) {
-            if (!region.isRopeRegion && region.id >= 0 && region.minY > bottom) {
+            if (isPitRegion(region.isRopeRegion, region.id, region.minY, bottom)) {
                 if (out == null) {
                     out = new BitSet();
                 }
@@ -62,5 +62,10 @@ final class NavPits {
             }
         }
         return out == null ? NONE : out;
+    }
+
+    /** The pit rule for one region (shared with the dashboard's {@code nav/pits.json}): ground whose top is below the view. */
+    static boolean isPitRegion(boolean rope, int regionId, int minY, int viewBottom) {
+        return !rope && regionId >= 0 && minY > viewBottom;
     }
 }
