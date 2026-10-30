@@ -42,24 +42,6 @@ Tests adapted from theirs: `BotForkWalkChainTest` (from `BotRegion11ForkOscillat
 `BotSharedGroundPhantomJumpTest`, and the rope-window cases in `BotRopeLaunchWindowTest` (from
 `BotNavigationManagerTest`).
 
-### Later ports: movement fixes NN-011 (branch `162-navfixes`, 1.6.1)
-
-From nutnnut/Cosmic (GreenCatMS), https://github.com/nutnnut/Cosmic, AGPL-3.0, `src/main/java/server/bots/`, dev
-branch. Each is behind its own switch in `NavPortSwitches` (default off). Already ported before this branch (1.5.2,
-`2582286c9`): `235b6aefa` (ground continuity at overlapping footholds), `f5787ab0c` `8a7e7b3a5` `362926fdf`
-`26b372e7c` (walk-off drops, our graph v69), `f424904a8` (swim wall unfreeze); the frozen-air watchdog
-(`7c4a2d517`) came with the GC movement system.
-
-| Their commit | What was ported | Switch | Our files |
-| --- | --- | --- | --- |
-| `3516aa238` | A swimming bot pressed into a wall fires the cooldown-gated swim-jump burst to rise over it (UP-hold alone loses to swim gravity) | `-Dbot.nav.swimWallJump=true` | `BotMovementManager` |
-| `43b9f06c8` (runtime part) | The parked-at-a-launch-gate watchdog survives incidental nav clears and counts freshly planned hops, so a hop re-served every tick is still given up. Their other runtime part (drop a committed route when the goal point moves) has no counterpart: GCMoveSystem has no committed routes | `-Dbot.nav.blockedPosWatchdog=true` | `BotNavigationManager`, `BotMovementManager`, `BotMovementState` |
-| `43b9f06c8` (their v70 part b) | The v67 phantom shared-ground guard also drops TELEPORT edges that land on the source region's own ground. Graph-affecting: with it on the graph cache folder is `v69-tp` | `-Dbot.nav.teleportPhantomGuard=true` | `BotNavigationGraphProvider`, `NavDeepOverlay`, `NavDashboardData` |
-| `43b9f06c8` (their v70 part a) | Client wall collidability: ground walking scans no walls on region-model maps (only the map side), airborne walls collide only for a mover of their own zMass group or the map's base group (mover group from `lastRegionId`; sims from the foothold under their start); foothold layer/zMass parsed from WZ. The `Foothold.isCollidableWall` heuristic stays for the switch-off path. Graph-affecting: cache folder `v69-zm` | `-Dbot.nav.zmassWalls=true` | `BotPhysicsEngine`, `BotNavigationGraphProvider`, `BotNavigationMapLoader`, `server/maps/Foothold`, `server/maps/MapFactory` |
-
-Tests adapted from theirs: `ZMassWallTest` (from `BotDeityRoomSharedGroundTest` and their 193000000 wall test),
-`TeleportPhantomGuardTest` (from the same file's teleport case).
-
 ### Bot combat formula (branch `combat`, real bots ticket 07)
 
 After nutnnut/Cosmic (GreenCatMS), https://github.com/nutnnut/Cosmic, AGPL-3.0,
@@ -92,48 +74,6 @@ Ours: damage from our own formula (`BotDamage.gearValue`: the bot's main attack 
 buffs); wearability as an equip order from the base stats; worn gear always counts as wearable; the weapon rules
 (`BotWeapons` kinds, the same drawable attacks, 1st jobs and beginners keep their kind); unknown, cash, other-gender,
 omit-list and rebirth-locked equips refused; event triggers (loot, level-up) instead of a sweep.
-
-### Later ports
-
-Ports from nutnnut/Cosmic after the merge above, one entry per port. (The 1.5.2/1.6.x ports listed in
-docs/tickets/157-nutnnut-tools/adoption-matrix.md section 8 still need their entries here.)
-
-#### Bot questing (branch `162-questing`, ticket 158), nutnnut/Cosmic `77e0c5bc9` (branch `dev`)
-
-| From theirs | Our files |
-| --- | --- |
-| `server.bots.BotQuestIndex`: which quests a bot can run, from Quest.wz (unscripted, start and end NPC, complete reqs limited to kills plus gates `canComplete` re-checks) | `soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestIndex.java` |
-| `server.bots.BotQuestScorer`: quest worth as a multiple of the bot's grind EXP per minute (value / forgone EXP over the NPC trip) | `.../BotQuestSystem/BotQuestScorer.java` |
-| `server.bots.BotQuestManager` ideas: piggyback on the grind map, the real `canStart`/`start`/`canComplete`/`complete` gate, NPC map from the current map or its return town, quest chat | `.../BotQuestSystem/BotQuests.java`, `BotQuestChat.java` |
-
-Ours: mob quests only (no talk, fetch or auto quests, no disk cache); quests whose actions a headless bot can't take
-(random or chosen items, items taken back, chained quests, info strings) are left out; required mobs on the grind map
-count as neither value nor cost in the score; a quest is a BotLife goal with GOAP steps (`LifeGoals.Kind.QUEST`,
-`LifePlanner` TAKE_QUEST / HUNT_QUEST / TURN_IN_QUEST), not an autopilot errand; offscreen bots only record the quest
-in a capped log in their life profile (`BotQuestLog`); rewards go through `BotYieldCaps`; the chat answers come from
-the bot's own log (ticket 156).
-
-#### KPQ automation, 1.6.1 (branch `162-contentruns`, ticket 130)
-
-Ideas only, no code copied: our orchestrator, solvers and stage data are our own, checked against our scripts.
-
-| Source @ commit | What it gave | Our files | Switch |
-| --- | --- | --- | --- |
-| Kiwiism/cosmic_agents (https://github.com/Kiwiism/cosmic_agents, AGPL-3.0) @ `3c7e09435`, `AgentKpqDefinition`, `AgentKpqCombinationOrder` | Cross-check of the KPQ answers, rectangles and combos (theirs list the stage-2 ropes in another order; ours follow `9020001.js`); the "one mover" order for wrong formations (two members stay, one moves), reimplemented as a chain ending one mover from the answer | `content/kpq.yaml`, `CombinationSolver.plannedWrongCombos` | `-Dslums.mechanics=true` |
-| nutnnut/Cosmic (https://github.com/nutnnut/Cosmic, AGPL-3.0) @ `77e0c5bc9` (dev), `pq/BotKpqStage1`, `pq/BotKpqStage5` | Read for the stage flow (coupon target, the stage-5 reward). Not taken: their stage-5 reward without the NPC (`giveEventReward` called directly) and cosmic_agents' missing-pass recovery (sets the clear property / adds passes): our bots claim the prize by talking to Cloto and every pass comes from a monster | `KillCollectHandInSolver`, `Orchestrator.afterClearTick` | `-Dslums.mechanics=true` |
-
-#### Temple of Time driver, 1.6.1 (branch `162-contentruns`, ticket 158 item 5), nutnnut/Cosmic `77e0c5bc9` (branch `dev`)
-
-| From theirs | Our files |
-| --- | --- |
-| `server.bots.BotTempleProgressionManager`: the mainline chain 3500-3521 with its NPCs and lanes, the job sub-quest that unlocks 3507, the Sorcerer's potion, a per-bot "ambition" level to start at, stepping aside when a lane is crowded | `soloMapling/ArtificialPlayer/BotQuestSystem/TempleRoute.java`, `TempleOfTime.java`, `TempleLanes.java` |
-
-Ours: the driver feeds ticket 158's quest path (a BotLife `QUEST` goal, `BotQuestLog`) instead of an autopilot errand;
-lane dispersal is a cap per map and channel with a channel change before stepping aside; the lane exits are bot
-transit edges gated by the exit's quest (`timeQuest.js`, run in a test) and Temple maps are gated by progress; the
-sub-quests, 3507's end and 3514 run through their own quest scripts (`BotQuestScript`), where upstream calls
-`forceStart`/`forceComplete` and grants the potion itself; 3521 is not driven; every number is checked against
-Quest.wz, Map.wz and our scripts (`TempleRouteTest`).
 
 ### Monster Book addon (branch `addon-monsterbook`, ticket 19)
 
@@ -182,7 +122,7 @@ the adoption ledger (ticket 157 matrix, section 8).
   nutnnut/Cosmic dev `77e0c5bc9`. Ours: `BotInspectApi` / `InspectViews`, loopback-only, secret header, GET-only,
   cached, off on live (docs/design/inspect-api.md). Their web server is not ported.
 
-### Later ports (1.6.2, ticket 161: bot builds and party support)
+### Bot builds and party support (1.6.2, ticket 161)
 
 From nutnnut/Cosmic (GreenCatMS), https://github.com/nutnnut/Cosmic, AGPL-3.0. Each piece is ours in code and tuning, behind
 a switch that is off by default; the upstream commit is the source of the idea or the rule.
@@ -255,3 +195,58 @@ From `dev` at `77e0c5bc9` (files) and the two commits named. Behind the switches
 Ours: one implementation for owned alts and party bot friends; every item moves through the player's own window
 path (`Trade.putFromInventory`, now shared with `PlayerInteractionHandler`) or a normal drop; stances stay inside the
 owned-alt activity gate (no autopilot); wording never gives a companion away.
+
+### Movement fixes NN-011 (branch `162-navfixes`, 1.6.1)
+
+From nutnnut/Cosmic (GreenCatMS), https://github.com/nutnnut/Cosmic, AGPL-3.0, `src/main/java/server/bots/`, dev
+branch. Each is behind its own switch in `NavPortSwitches` (default off). Already ported before this branch (1.5.2,
+`2582286c9`): `235b6aefa` (ground continuity at overlapping footholds), `f5787ab0c` `8a7e7b3a5` `362926fdf`
+`26b372e7c` (walk-off drops, our graph v69), `f424904a8` (swim wall unfreeze); the frozen-air watchdog
+(`7c4a2d517`) came with the GC movement system.
+
+| Their commit | What was ported | Switch | Our files |
+| --- | --- | --- | --- |
+| `3516aa238` | A swimming bot pressed into a wall fires the cooldown-gated swim-jump burst to rise over it (UP-hold alone loses to swim gravity) | `-Dbot.nav.swimWallJump=true` | `BotMovementManager` |
+| `43b9f06c8` (runtime part) | The parked-at-a-launch-gate watchdog survives incidental nav clears and counts freshly planned hops, so a hop re-served every tick is still given up. Their other runtime part (drop a committed route when the goal point moves) has no counterpart: GCMoveSystem has no committed routes | `-Dbot.nav.blockedPosWatchdog=true` | `BotNavigationManager`, `BotMovementManager`, `BotMovementState` |
+| `43b9f06c8` (their v70 part b) | The v67 phantom shared-ground guard also drops TELEPORT edges that land on the source region's own ground. Graph-affecting: with it on the graph cache folder is `v69-tp` | `-Dbot.nav.teleportPhantomGuard=true` | `BotNavigationGraphProvider`, `NavDeepOverlay`, `NavDashboardData` |
+| `43b9f06c8` (their v70 part a) | Client wall collidability: ground walking scans no walls on region-model maps (only the map side), airborne walls collide only for a mover of their own zMass group or the map's base group (mover group from `lastRegionId`; sims from the foothold under their start); foothold layer/zMass parsed from WZ. The `Foothold.isCollidableWall` heuristic stays for the switch-off path. Graph-affecting: cache folder `v69-zm` | `-Dbot.nav.zmassWalls=true` | `BotPhysicsEngine`, `BotNavigationGraphProvider`, `BotNavigationMapLoader`, `server/maps/Foothold`, `server/maps/MapFactory` |
+
+Tests adapted from theirs: `ZMassWallTest` (from `BotDeityRoomSharedGroundTest` and their 193000000 wall test),
+`TeleportPhantomGuardTest` (from the same file's teleport case).
+
+### Bot questing (branch `162-questing`, ticket 158), nutnnut/Cosmic `77e0c5bc9` (branch `dev`)
+
+| From theirs | Our files |
+| --- | --- |
+| `server.bots.BotQuestIndex`: which quests a bot can run, from Quest.wz (unscripted, start and end NPC, complete reqs limited to kills plus gates `canComplete` re-checks) | `soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestIndex.java` |
+| `server.bots.BotQuestScorer`: quest worth as a multiple of the bot's grind EXP per minute (value / forgone EXP over the NPC trip) | `.../BotQuestSystem/BotQuestScorer.java` |
+| `server.bots.BotQuestManager` ideas: piggyback on the grind map, the real `canStart`/`start`/`canComplete`/`complete` gate, NPC map from the current map or its return town, quest chat | `.../BotQuestSystem/BotQuests.java`, `BotQuestChat.java` |
+
+Ours: mob quests only (no talk, fetch or auto quests, no disk cache); quests whose actions a headless bot can't take
+(random or chosen items, items taken back, chained quests, info strings) are left out; required mobs on the grind map
+count as neither value nor cost in the score; a quest is a BotLife goal with GOAP steps (`LifeGoals.Kind.QUEST`,
+`LifePlanner` TAKE_QUEST / HUNT_QUEST / TURN_IN_QUEST), not an autopilot errand; offscreen bots only record the quest
+in a capped log in their life profile (`BotQuestLog`); rewards go through `BotYieldCaps`; the chat answers come from
+the bot's own log (ticket 156).
+
+### KPQ automation, 1.6.1 (branch `162-contentruns`, ticket 130)
+
+Ideas only, no code copied: our orchestrator, solvers and stage data are our own, checked against our scripts.
+
+| Source @ commit | What it gave | Our files | Switch |
+| --- | --- | --- | --- |
+| Kiwiism/cosmic_agents (https://github.com/Kiwiism/cosmic_agents, AGPL-3.0) @ `3c7e09435`, `AgentKpqDefinition`, `AgentKpqCombinationOrder` | Cross-check of the KPQ answers, rectangles and combos (theirs list the stage-2 ropes in another order; ours follow `9020001.js`); the "one mover" order for wrong formations (two members stay, one moves), reimplemented as a chain ending one mover from the answer | `content/kpq.yaml`, `CombinationSolver.plannedWrongCombos` | `-Dslums.mechanics=true` |
+| nutnnut/Cosmic (https://github.com/nutnnut/Cosmic, AGPL-3.0) @ `77e0c5bc9` (dev), `pq/BotKpqStage1`, `pq/BotKpqStage5` | Read for the stage flow (coupon target, the stage-5 reward). Not taken: their stage-5 reward without the NPC (`giveEventReward` called directly) and cosmic_agents' missing-pass recovery (sets the clear property / adds passes): our bots claim the prize by talking to Cloto and every pass comes from a monster | `KillCollectHandInSolver`, `Orchestrator.afterClearTick` | `-Dslums.mechanics=true` |
+
+### Temple of Time driver, 1.6.1 (branch `162-contentruns`, ticket 158 item 5), nutnnut/Cosmic `77e0c5bc9` (branch `dev`)
+
+| From theirs | Our files |
+| --- | --- |
+| `server.bots.BotTempleProgressionManager`: the mainline chain 3500-3521 with its NPCs and lanes, the job sub-quest that unlocks 3507, the Sorcerer's potion, a per-bot "ambition" level to start at, stepping aside when a lane is crowded | `soloMapling/ArtificialPlayer/BotQuestSystem/TempleRoute.java`, `TempleOfTime.java`, `TempleLanes.java` |
+
+Ours: the driver feeds ticket 158's quest path (a BotLife `QUEST` goal, `BotQuestLog`) instead of an autopilot errand;
+lane dispersal is a cap per map and channel with a channel change before stepping aside; the lane exits are bot
+transit edges gated by the exit's quest (`timeQuest.js`, run in a test) and Temple maps are gated by progress; the
+sub-quests, 3507's end and 3514 run through their own quest scripts (`BotQuestScript`), where upstream calls
+`forceStart`/`forceComplete` and grants the potion itself; 3521 is not driven; every number is checked against
+Quest.wz, Map.wz and our scripts (`TempleRouteTest`).
