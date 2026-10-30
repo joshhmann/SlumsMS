@@ -80,6 +80,15 @@ public final class BotQuests {
     private static final LongAdder picks = new LongAdder(), realStarts = new LongAdder(), realCompletes = new LongAdder(),
             modelledCompletes = new LongAdder(), deferred = new LongAdder(), dropped = new LongAdder();
 
+    /*
+     * 1.6.2 bot audit (K11): the real quest gate is the scripted Quest rule set, and a throw out of it used to escape
+     * atNpc / ranked, be swallowed by the bot tick's catch-all (BotTickService) and come back every tick with nothing
+     * in the log. Every gate call goes through the guards below: a throw is logged once per bot and quest id, and the
+     * caller drops the quest (the same as an NPC that says no).
+     */
+    private static final Set<Long> gateFaultsLogged = ConcurrentHashMap.newKeySet();
+    private static final LongAdder gateFaults = new LongAdder();
+
     private BotQuests() {
     }
 
@@ -315,7 +324,9 @@ public final class BotQuests {
                 if (startMap < 0 || endMap < 0) continue;
                 int toStart = world.hops(chr, mapId, startMap), toEnd = world.hops(chr, mapId, endMap);
                 if (toStart < 0 || toEnd < 0 || toStart > MAX_HOPS || toEnd > MAX_HOPS) continue;
-                if (!gate.canStart(chr, q.id(), q.startNpc())) continue; // level, job, earlier quests: the real rule
+                if (!Boolean.TRUE.equals(gateSays(chr, q.id(), () -> gate.canStart(chr, q.id(), q.startNpc())))) {
+                    continue; // level, job, earlier quests: the real rule (a throw just leaves the quest out)
+                }
                 double travel = 2.0 * (toStart + toEnd) * SECONDS_PER_HOP;
                 double score = BotQuestScorer.score(q.mobs(), (int) Math.round(q.rewardExp() * expFactor), 0, here,
                         mobId -> (int) Math.round(expPerKill), killSeconds, travel, baseline);
@@ -389,7 +400,12 @@ public final class BotQuests {
         if (chr == null || log == null) return;
         BotQuestLog.Active a = log.active();
         if (a == null || !a.taken() || a.mode() != BotQuestLog.Mode.REAL || !chr.botQuestState()) return;
-        for (int mob : a.need.keySet()) log.syncKills(mob, gate.progress(chr, a.questId, mob));
+        for (int mob : a.need.keySet()) {
+            int real = gateProgress(chr, a.questId, mob);
+            if (real >= 0) {
+                log.syncKills(mob, real);
+            }
+        }
     }
 
     // ── the bot's quest map ──
@@ -442,13 +458,13 @@ public final class BotQuests {
             }
             if (!nearNpc(chr, a.startNpc)) return Visit.TOO_FAR;
             restore(chr, log);
-            if (!gate.canStart(chr, a.questId, a.startNpc)) {
+            if (!Boolean.TRUE.equals(gateSays(chr, a.questId, () -> gate.canStart(chr, a.questId, a.startNpc)))) {
                 log.drop();
                 dropped.increment();
                 return Visit.DROPPED;
             }
-            gate.start(chr, a.questId, a.startNpc);
-            if (gate.status(chr, a.questId) != QuestStatus.Status.STARTED) {
+            gateRun(chr, a.questId, () -> gate.start(chr, a.questId, a.startNpc));
+            if (gateStatus(chr, a.questId) != QuestStatus.Status.STARTED) {
                 log.drop();
                 dropped.increment();
                 return Visit.DROPPED;
@@ -464,7 +480,13 @@ public final class BotQuests {
             if (!watched || a.mode() != BotQuestLog.Mode.REAL) return record(chr, log, now);
             if (!nearNpc(chr, a.endNpc)) return Visit.TOO_FAR;
             restore(chr, log);
-            if (!gate.canComplete(chr, a.questId, a.endNpc)) {
+            Boolean canComplete = gateSays(chr, a.questId, () -> gate.canComplete(chr, a.questId, a.endNpc));
+            if (canComplete == null) { // the gate threw: the quest is dropped, not retried every tick
+                log.drop();
+                dropped.increment();
+                return Visit.DROPPED;
+            }
+            if (!canComplete) {
                 // the log counted modelled kills the quest itself never saw (it hunted offscreen): no rewards
                 return record(chr, log, now);
             }
@@ -475,8 +497,8 @@ public final class BotQuests {
                 deferred.increment();
                 return Visit.DEFERRED;
             }
-            gate.complete(chr, a.questId, a.endNpc);
-            if (gate.status(chr, a.questId) != QuestStatus.Status.COMPLETED) {
+            gateRun(chr, a.questId, () -> gate.complete(chr, a.questId, a.endNpc));
+            if (gateStatus(chr, a.questId) != QuestStatus.Status.COMPLETED) {
                 held.giveBack(chr);
                 log.drop();
                 dropped.increment();
@@ -487,6 +509,60 @@ public final class BotQuests {
             return Visit.COMPLETED;
         }
         return Visit.NONE;
+    }
+
+    /*
+     * The guarded gate calls. A null answer means the gate threw: it has been logged once and the caller drops the
+     * quest, exactly as it does when the NPC refuses.
+     */
+
+    private static Boolean gateSays(Character chr, int questId, java.util.function.BooleanSupplier call) {
+        try {
+            return call.getAsBoolean();
+        } catch (RuntimeException | LinkageError e) {
+            gateFault(chr, questId, e);
+            return null;
+        }
+    }
+
+    private static void gateRun(Character chr, int questId, Runnable call) {
+        try {
+            call.run();
+        } catch (RuntimeException | LinkageError e) {
+            gateFault(chr, questId, e);
+        }
+    }
+
+    /** The quest's status, or null when the gate threw. */
+    private static QuestStatus.Status gateStatus(Character chr, int questId) {
+        try {
+            return gate.status(chr, questId);
+        } catch (RuntimeException | LinkageError e) {
+            gateFault(chr, questId, e);
+            return null;
+        }
+    }
+
+    /** Real kill progress, or -1 when the gate threw (nothing is synced then). */
+    private static int gateProgress(Character chr, int questId, int mobId) {
+        try {
+            return gate.progress(chr, questId, mobId);
+        } catch (RuntimeException | LinkageError e) {
+            gateFault(chr, questId, e);
+            return -1;
+        }
+    }
+
+    /** Count a gate throw and log it once per bot and quest id (a broken quest script must not flood the log). */
+    private static void gateFault(Character chr, int questId, Throwable e) {
+        gateFaults.increment();
+        int botId = chr == null ? 0 : chr.getId();
+        if (gateFaultsLogged.size() > 8192) {
+            gateFaultsLogged.clear(); // a leak guard only: thousands of bots, a handful of quests
+        }
+        if (gateFaultsLogged.add(((long) botId << 32) ^ questId)) {
+            LOG.warn("bot {}: the real quest gate threw for quest {}; the quest is dropped", botId, questId, e);
+        }
     }
 
     /** A completion only the log knows about: no rewards; a really started quest is marked done in the quest map. */
@@ -585,8 +661,10 @@ public final class BotQuests {
         return rosterBot.test(chr);
     }
 
-    /** Test seam: forget per-bot clocks. */
+    /** Test seam: forget per-bot clocks and the gate-fault log dedupe. */
     static void resetForTests() {
         nextConsider.clear();
+        gateFaultsLogged.clear();
+        gateFaults.reset();
     }
 }
