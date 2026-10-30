@@ -18,10 +18,22 @@ public final class OwnedAltService {
     private static final OwnedAltService INSTANCE = new OwnedAltService(new OwnedAltBackend(),
             () -> YamlConfig.config.server.OWNED_ALTS_ENABLED, () -> YamlConfig.config.server.OWNED_ALTS_SUMMON_ENABLED,
             r -> server.ThreadManager.getInstance().newTask(r));
+    static {
+        INSTANCE.retryWith(r -> soloMapling.server.MethodScheduler.runAfterDelay(
+                () -> INSTANCE.runAsync(r), OwnedAltService.RETRY_MS)); // the save is DB I/O: off the scheduler thread
+    }
     /** 1.6.0.4: what @botme says while OWNED_ALTS_SUMMON_ENABLED is off (alts are half-built: no fighting yet). */
     public static final String RESTING = "Alts are resting while we finish them - they'll be back soon.";
     /** 1.6.0.4: said on arrival after a channel change sent the owner's alts home. */
     public static final String WENT_HOME = "Your alts went home. Changing channel sends them home (saved); call them again with @botme <name>.";
+    /** Audit b132: said on arrival when a channel change could not save an alt. */
+    public static final String HOME_FAILED = "Your alts were sent home when you changed channel, but one could not be saved. Please contact a GM before logging into it.";
+    /** Audit #6 (b117): a channel change that never arrives (a disconnect mid-change) stops blocking @botme after this. */
+    static final long TRANSITION_TTL_MS = 60_000;
+    /** Audit #7 (b117): failed save/close attempts before a closing alt is given up on and taken out of the world. */
+    static final int SAVE_TRIES = 3;
+    /** Audit #7: how long a FAILED alt waits before its save is tried again by itself. */
+    static final long RETRY_MS = 30_000;
     public static OwnedAltService getInstance() { return INSTANCE; }
 
     public record Candidate(int id, int accountId, int world, String name) {}
@@ -46,15 +58,28 @@ public final class OwnedAltService {
         Character alt;
         State state;
         boolean saved;
+        boolean detached; // audit #7: out of the world (a FAILED entry then holds only the login block)
+        int failures;
         Entry(Character owner, State state) { this.owner = owner; this.state = state; }
     }
     private final Map<Integer, Entry> entries = new HashMap<>();
     private final Set<Character> closedOwners = Collections.newSetFromMap(new WeakHashMap<>());
     private final Map<Integer, Integer> friendReservations = new HashMap<>();
-    /** 1.6.0.4: owners mid channel change; a summon still loading must not attach to the channel being left. */
-    private final Set<Integer> transitioning = new HashSet<>();
-    /** 1.6.0.4: owners whose alts a channel change sent home, told so on arrival. */
-    private final Set<Integer> wentHome = new HashSet<>();
+    /**
+     * 1.6.0.4: owners mid channel change (owner id -> when it started); a summon still loading must not attach to the
+     * channel being left. Audit #6: an entry older than TRANSITION_TTL_MS no longer counts (the owner never arrived).
+     */
+    private final Map<Integer, Long> transitioning = new HashMap<>();
+    /** Audit #5 (b114): owners whose alts a channel change is still saving (off the packet thread). */
+    private final Set<Integer> sendingHome = new HashSet<>();
+    /** The result of a finished channel-change save (true = all saved), until the owner arrives. */
+    private final Map<Integer, Boolean> homeResult = new HashMap<>();
+    /** Owners who arrived while their alts were still being saved: told when the save ends. */
+    private final Map<Integer, Character> arrivedWaiting = new HashMap<>();
+    private final java.util.function.LongSupplier clock;
+    /** Audit #7: runs a FAILED alt's retry later (production: after RETRY_MS; tests choose). */
+    private java.util.function.Consumer<Runnable> later = r -> {};
+    void retryWith(java.util.function.Consumer<Runnable> later) { this.later = later; }
     private final Backend backend;
     private final BooleanSupplier enabled;
     private final BooleanSupplier summonEnabled;
@@ -67,10 +92,25 @@ public final class OwnedAltService {
         this(backend, enabled, () -> true, async);
     }
     OwnedAltService(Backend backend, BooleanSupplier enabled, BooleanSupplier summonEnabled, Executor async) {
+        this(backend, enabled, summonEnabled, async, System::currentTimeMillis);
+    }
+    OwnedAltService(Backend backend, BooleanSupplier enabled, BooleanSupplier summonEnabled, Executor async,
+                    java.util.function.LongSupplier clock) {
         this.backend = backend;
         this.enabled = enabled;
         this.summonEnabled = summonEnabled;
         this.async = async;
+        this.clock = clock;
+    }
+    /** Audit #6: the owner is mid channel change (and the change is not older than TRANSITION_TTL_MS). */
+    private boolean transitioning(int ownerId) {
+        Long since = transitioning.get(ownerId);
+        if (since == null) return false;
+        if (clock.getAsLong() - since > TRANSITION_TTL_MS) {
+            transitioning.remove(ownerId);
+            return false;
+        }
+        return true;
     }
     /** 1.6.0.4: false while OWNED_ALTS_SUMMON_ENABLED is off - @botme answers {@link #RESTING}; @dismiss still works. */
     public boolean summoningOpen() { return summonEnabled.getAsBoolean(); }
@@ -104,7 +144,9 @@ public final class OwnedAltService {
         Set<Integer> ids = new HashSet<>(backend.companions(ownerId));
         friendReservations.forEach((id, leader) -> { if (leader == ownerId) ids.add(id); });
         entries.forEach((id, entry) -> {
-            if (entry.owner != null && entry.owner.getId() == ownerId) ids.add(id);
+            // audit #7: a FAILED alt taken out of the world holds no companion slot
+            if (entry.owner != null && entry.owner.getId() == ownerId && !(entry.state == State.FAILED && entry.detached))
+                ids.add(id);
         });
         return ids;
     }
@@ -144,7 +186,7 @@ public final class OwnedAltService {
                 throw new IllegalStateException("Your session is closing. Please log in again.");
             if (entries.containsKey(row.id) || backend.online(row.id))
                 throw new IllegalStateException(row.name + " is already online or still being saved.");
-            if (transitioning.contains(owner.getId()))
+            if (transitioning(owner.getId()))
                 throw new IllegalStateException("You are changing channel. Call your alt again when you arrive.");
             if (occupied(owner.getId()).size() >= CAP)
                 throw new IllegalStateException("You can have up to five companions at once (alts and bot friends together).");
@@ -158,7 +200,7 @@ public final class OwnedAltService {
             synchronized (this) {
                 if (closedOwners.contains(owner) || !owner.isLoggedin())
                     throw new IllegalStateException("Your session has closed.");
-                if (transitioning.contains(owner.getId()))
+                if (transitioning(owner.getId()))
                     throw new IllegalStateException("You changed channel while your alt was loading. Call it again.");
                 // Attach is short, with no character DB load or save, and cannot race owner teardown.
                 entry.alt = alt;
@@ -173,7 +215,7 @@ public final class OwnedAltService {
             try {
                 if (entry.alt != null) backend.detach(entry.alt);
             } catch (RuntimeException cleanup) {
-                synchronized (this) { entry.state = State.FAILED; }
+                synchronized (this) { entry.state = State.FAILED; entry.detached = true; } // audit #7: frees the slot
                 cleanup.addSuppressed(e);
                 throw new IllegalStateException("Unable to finish closing that character. Please contact a GM.", cleanup);
             }
@@ -209,7 +251,9 @@ public final class OwnedAltService {
         synchronized (this) {
             if (closing) closedOwners.add(owner);
             ids = entries.entrySet().stream().filter(e -> ownedBy(e.getValue(), owner))
-                    .filter(e -> e.getValue().state != State.LOADING).map(Map.Entry::getKey).toList();
+                    .filter(e -> e.getValue().state != State.LOADING)
+                    .filter(e -> !(e.getValue().state == State.FAILED && e.getValue().detached)) // already out of the world
+                    .map(Map.Entry::getKey).toList();
         }
         RuntimeException failure = null;
         int count = 0;
@@ -238,6 +282,8 @@ public final class OwnedAltService {
                 if (login) entries.put(id, new Entry(null, State.LOGIN));
                 return;
             }
+            if (entry.state == State.FAILED && entry.detached)
+                throw new IllegalStateException("That character could not be saved when it went home. Please contact a GM before logging into it.");
             if (entry.state != State.ACTIVE && !(entry.state == State.FAILED && !login))
                 throw new IllegalStateException("That character is still being loaded or saved. Please try again shortly.");
             entry.state = State.SAVING;
@@ -249,17 +295,60 @@ public final class OwnedAltService {
                 audit(entry, "save committed alt=" + id);
             }
             backend.detach(entry.alt);
+            entry.detached = true;
             audit(entry, "removed alt=" + id + " takeover=" + login);
             synchronized (this) {
                 if (login) entries.put(id, new Entry(null, State.LOGIN));
                 else entries.remove(id, entry);
             }
         } catch (RuntimeException e) {
-            synchronized (this) { entry.state = State.FAILED; }
-            audit(entry, "save/cleanup failed alt=" + id + "; login blocked");
+            int failures;
+            synchronized (this) { entry.state = State.FAILED; failures = ++entry.failures; }
+            audit(entry, "save/cleanup failed alt=" + id + " (" + failures + "/" + SAVE_TRIES + "); login blocked");
+            if (failures >= SAVE_TRIES) {
+                giveUp(id, entry, e);
+            } else {
+                later.accept(() -> retryFailed(id, entry)); // audit #7: tried again by itself, not only by a GM
+            }
             throw new IllegalStateException("Unable to finish saving that character. Please contact a GM before logging into it.", e);
         }
     }
+
+    /** Audit #7: a FAILED alt's own retry (a later save/close); explicit @dismiss/logout retries count too. */
+    private void retryFailed(int id, Entry entry) {
+        synchronized (this) {
+            if (entries.get(id) != entry || entry.state != State.FAILED || entry.detached) return;
+        }
+        try {
+            finish(id, false);
+            if (entry.owner != null) entry.owner.yellowMessage(entry.alt.getName() + " was saved and went home.");
+        } catch (RuntimeException ignored) {
+            // counted in finish; the next retry or the give-up follows
+        }
+    }
+
+    /**
+     * Audit #7 (b117): FAILED is terminal after SAVE_TRIES failures: the alt leaves the world (no ghost standing
+     * untickable on the map) and frees its companion slot; its login stays blocked (its last save is older than what
+     * it carried) until a GM looks.
+     */
+    private void giveUp(int id, Entry entry, RuntimeException why) {
+        if (!entry.detached) {
+            try {
+                backend.detach(entry.alt);
+            } catch (RuntimeException e) {
+                why.addSuppressed(e);
+            }
+        }
+        synchronized (this) { entry.detached = true; }
+        audit(entry, "gave up on alt=" + id + " after " + SAVE_TRIES + " failed saves: out of the world, slot freed, login blocked");
+        org.slf4j.LoggerFactory.getLogger(OwnedAltService.class)
+                .error("Owned alt {} could not be saved after {} tries; taken out of the world, login blocked", id, SAVE_TRIES, why);
+        if (entry.owner != null && entry.alt != null) {
+            entry.owner.yellowMessage(entry.alt.getName() + " could not be saved and was sent away. Please contact a GM before logging into it.");
+        }
+    }
+
     /**
      * 1.6.0.4 (L2): an owned alt is headless - nobody answers an invitation sent to it, so a trade, party, guild or
      * ring invite would sit pending on it. The line to refuse with, or null when the target is not an owned alt.
@@ -286,39 +375,53 @@ public final class OwnedAltService {
     /**
      * 1.6.0.4 (H1): an owner is changing channel (or world). Alts are loaded on the channel being left and cannot
      * cross it, so every one is saved and sent home, exactly as @dismiss does, and the owner hears so on arrival.
-     * A save failure keeps that alt's reservation (login stays blocked), as on logout; it is logged, never thrown,
-     * so the channel change itself goes ahead.
+     * Audit #5 (b114): the saves run off the packet thread (runAsync, as @botme/@dismiss); the alts' reservations
+     * keep them out of a new @botme or a login until they are saved. A save failure is logged, never thrown, so the
+     * channel change itself goes ahead, and the owner hears it failed (b132). Returns how many alts are going home.
      */
     public int ownerChangingChannel(Character owner) {
         if (owner == null || owner.isOwnedAlt()) return 0;
+        int going;
         synchronized (this) {
-            transitioning.add(owner.getId());
-            boolean any = entries.values().stream().anyMatch(e -> ownedBy(e, owner));
-            if (!any) return 0;
+            transitioning.put(owner.getId(), clock.getAsLong());
+            going = (int) entries.values().stream()
+                    .filter(e -> ownedBy(e, owner) && e.state != State.LOADING && !(e.state == State.FAILED && e.detached))
+                    .count();
+            if (going == 0) return 0;
+            sendingHome.add(owner.getId());
+            homeResult.remove(owner.getId());
         }
-        int count = 0;
-        boolean tell;
-        try {
-            count = dismissAll(owner, false);
-            tell = count > 0;
-        } catch (RuntimeException e) {
-            tell = true;
-            org.slf4j.LoggerFactory.getLogger(OwnedAltService.class)
-                    .error("Unable to save the alts of character {} on a channel change (login stays blocked)", owner.getId(), e);
-        }
-        if (tell) synchronized (this) { wentHome.add(owner.getId()); }
-        return count;
+        int ownerId = owner.getId();
+        runAsync(() -> {
+            boolean ok = true;
+            try {
+                dismissAll(owner, false);
+            } catch (RuntimeException e) {
+                ok = false;
+                org.slf4j.LoggerFactory.getLogger(OwnedAltService.class)
+                        .error("Unable to save the alts of character {} on a channel change (login stays blocked)", ownerId, e);
+            }
+            Character arrived;
+            synchronized (this) {
+                sendingHome.remove(ownerId);
+                arrived = arrivedWaiting.remove(ownerId);
+                if (arrived == null) homeResult.put(ownerId, ok);
+            }
+            if (arrived != null) arrived.yellowMessage(ok ? WENT_HOME : HOME_FAILED);
+        });
+        return going;
     }
 
     /** 1.6.0.4 (H1): the owner arrived on a channel: summons are allowed again; tell them if their alts went home. */
     public void ownerArrived(Character owner) {
         if (owner == null || owner.isOwnedAlt()) return;
-        boolean tell;
+        Boolean result;
         synchronized (this) {
             transitioning.remove(owner.getId());
-            tell = wentHome.remove(owner.getId());
+            result = homeResult.remove(owner.getId());
+            if (result == null && sendingHome.contains(owner.getId())) arrivedWaiting.put(owner.getId(), owner);
         }
-        if (tell) owner.yellowMessage(WENT_HOME);
+        if (result != null) owner.yellowMessage(result ? WENT_HOME : HOME_FAILED);
     }
 
     /**
