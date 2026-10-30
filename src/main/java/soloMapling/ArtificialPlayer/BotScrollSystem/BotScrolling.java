@@ -274,9 +274,10 @@ public final class BotScrolling {
         for (Equip e : targets(bot)) {
             boolean worn = e.getPosition() < 0;
             List<ScrollPlanner.ScrollOption> options = new ArrayList<>();
+            ScrollRules.Target target = new ScrollRules.Target(e.getItemId(), e.getUpgradeSlots(), worn);
             for (ScrollFacts f : fittingHeld(bot, e)) {
-                if (f.success() <= 0 || (!allowLong && (f.dark() || f.longShot()))
-                        || (f.dark() && (appetite == Appetite.CAREFUL || (worn && appetite != Appetite.GAMBLER)))) {
+                // the plain rules first (dark scrolls, worn gear, the careful bot's white-scroll condition), EV after
+                if (!ScrollRules.allows(appetite, f, target, whiteOk, allowLong)) {
                     continue;
                 }
                 Integer price = facts.scrollPrice(f.scrollId());   // what it would fetch on the market now
