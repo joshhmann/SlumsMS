@@ -51,7 +51,13 @@ print(result)
 
 public class ArtificialShopGenerator {
 
-    static List<String> ALL_SCROLLS = List.of("Earring", "Overall", "Gloves", "Claw", "Dagger", "Shoes", "Gloves", "Cape", "ETC");
+    /** 1.6.1 (owner 2026-10-30): the other weapons' attack scrolls, so spear, polearm etc. show up too. One weighted
+     *  bucket, so they don't crowd out the armor scrolls. */
+    static final String WEAPON = "Weapon";
+    static List<String> ALL_SCROLLS = List.of("Earring", "Overall", "Gloves", "Claw", "Dagger", "Shoes", "Gloves", "Cape", "ETC",
+            WEAPON, WEAPON, WEAPON);
+    static List<String> WEAPON_SCROLLS = List.of("OneHandedSword", "OneHandedAxe", "OneHandedBW", "Wand", "Staff",
+            "TwoHandedSword", "TwoHandedAxe", "TwoHandedBW", "Spear", "Polearm", "Bow", "Crossbow", "Knuckle", "Gun");
     static List<String> ALL_DARK_SCROLLS = List.of(
             "Earring", "Overall", "Shoes",
             "Gloves", "Cape", "Hat", "Top", "Bottom", "Shield", "ETC", "Special");
@@ -243,6 +249,9 @@ public class ArtificialShopGenerator {
         };
         for (int i = 0; i < 4; i++) {
             String randomItem = pickRandomItem(items);
+            if (WEAPON.equals(randomItem)) {
+                randomItem = pickRandomItem(WEAPON_SCROLLS);
+            }
             tier = distributedTierSelector(tier);
             ItemNode item = getRandomItemFull(scrollList, randomItem, tier);
             if (item != null) {

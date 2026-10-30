@@ -125,4 +125,23 @@ class BotShopStockRulesTest {
             }
         }
     }
+
+    /** Owner 2026-10-30: a player saw no spear or polearm scrolls on the Slums Market; generated stock only had claw and dagger. */
+    @Test
+    void generatedScrollStockIncludesEveryWeaponsAttackScrolls() {
+        SaleRules.useForTest(Set.of(), id -> false, id -> false);
+        java.util.Set<Integer> seen = new java.util.HashSet<>();
+        for (int i = 0; i < 3000; i++) {
+            for (FMItem item : ArtificialShopGenerator.generateScrollsList("A")) {
+                seen.add(item.getItemId());
+            }
+        }
+        for (int id : new int[]{2043002, 2043001, 2043102, 2043101, 2043202, 2043201, 2043702, 2043701, 2043802,
+                2043801, 2044002, 2044001, 2044102, 2044101, 2044202, 2044201, 2044302, 2044301, 2044402, 2044401,
+                2044502, 2044501, 2044602, 2044601, 2044802, 2044801, 2044902, 2044901}) {
+            assertTrue(seen.contains(id), "weapon scroll " + id + " never stocked");
+        }
+        assertTrue(seen.stream().anyMatch(id -> id / 100 == 20408),
+                "gloves scrolls still stocked");
+    }
 }
