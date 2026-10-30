@@ -132,6 +132,13 @@ final class Probes162 {
         BotGeneration.warpBotToLocation(bot, to, map);
     }
 
+    /**
+     * TEST 2026-10-30 (t-gb-3, t-jb-1): the pretend player is often left in the Free Market entrance (910000000) by the
+     * NX checks, and FM's exit is a scripted portal back to the saved map: no training-map search and no travel route
+     * leaves it ("0 maps from 910000000", "blocked=1"). Probes that need a bot with routes stage it in Henesys.
+     */
+    static final int PROBE_FIELD = 100000000;
+
     /** Pins maps to full simulation (watched); returns the ones this call pinned, for {@link #unpin}. */
     static List<Integer> pin(List<String> ev, int... maps) {
         List<Integer> mine = new ArrayList<>();
@@ -756,9 +763,9 @@ final class Probes162 {
     }
 
     /**
-     * t-gb-3 ({@code slums.grind.gearFirst}): a fresh level-22 training bot (tick stopped). Among the in-band maps the
-     * finder offers from its spot, the equip that drops on the fewest maps is picked, and the bot is given a FARM_ITEM
-     * goal for it (the {@code !qa bl-11} seam). {@code TrainingMapChooser.choose} must take the farm path to an
+     * t-gb-3 ({@code slums.grind.gearFirst}): a fresh level-22 training bot (tick stopped), put in Henesys
+     * ({@link #PROBE_FIELD}). Among the in-band maps the finder offers from there, the equip that drops on the
+     * fewest maps is picked, and the bot is given a FARM_ITEM goal for it (the {@code !qa bl-11} seam). {@code TrainingMapChooser.choose} must take the farm path to an
      * in-band map that drops it. The reservation is released and the want forgotten after.
      */
     static List<String> gearFirstFarm(SyntheticPlayer p) throws InterruptedException {
@@ -772,6 +779,11 @@ final class Probes162 {
         }
         try {
             freeze(bot);
+            place(bot, PROBE_FIELD, null);   // the map search and the chooser start from the bot's own map
+            if (bot.getMapId() != PROBE_FIELD) {
+                return List.of("FAIL could not put the bot on " + PROBE_FIELD + " to search from (it is on "
+                        + bot.getMapId() + ")");
+            }
             int level = bot.getLevel();
             int minMob = Math.max(1, level - GB3_BELOW), maxMob = level + GB3_ABOVE;
             List<TrainingMap> band = TrainingMapFinder.findTrainingMaps(bot.getMapId(), level, minMob, maxMob, GB3_HOPS,

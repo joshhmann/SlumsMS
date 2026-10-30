@@ -118,6 +118,12 @@ class Probes162Test {
         assertEquals(1, Probes162.farmProblems(null, false, java.util.Set.of(3), 1, 34).size());
     }
 
+    /** TEST 2026-10-30: from the Free Market entrance the search found 0 maps; the probe searches from Henesys. */
+    @Test
+    void routedProbesStageOutsideTheFreeMarket() {
+        assertEquals(100000000, Probes162.PROBE_FIELD, "Henesys: a Victoria town with field maps all round");
+    }
+
     // ── t-gb-4 ──
 
     @Test
