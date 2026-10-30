@@ -220,7 +220,10 @@ public final class BotProgression {
             }
             state.level = level;
             if (Boolean.getBoolean("slums.gear.dexless")) {
-                // Ticket 162: the gear-aware ("dexless") secondary target for the AP this settle spends.
+                // Ticket 162: the gear-aware ("dexless") secondary target for the AP this settle spends. Only AP spent
+                // from here on: the catch-up above has already spent the AP of the levels it granted, and a bot that
+                // exists when the switch goes on keeps the build it has (owner 2026-10-30: existing bots keep their
+                // build; audit 163 G11 is intended, not a bug). New level-ups respect the cap.
                 state.secondaryCap = soloMapling.ArtificialPlayer.BotGearSystem.BotGear.dexlessSecondaryTarget(bot,
                         BotBuild.primaryStat(job, choice), BotBuild.secondaryStat(job, choice),
                         BotBuild.secondaryFloor(job, choice), state.remainingAp);
