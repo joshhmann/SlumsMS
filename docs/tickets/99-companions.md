@@ -39,3 +39,14 @@ Source: owner grill, 2026-10-25 (`docs/roadmap/1.6.0.md`, section "Owner grill")
 
 A player can recruit up to 5 bot friends and owned alts, run a PQ with them, and dismiss them, on TEST with auto-QA
 coverage and an in-game look from the owner.
+
+## nutnnut adoption (2026-10-30, owner: adopt what we haven't)
+
+Not adopted yet from upstream, for owned alts and companions (ledger NN-012):
+- Trade by category ("trade pots / scrolls / equips / 100k / <item>"), "show me your hat", drop (M).
+- Share upgrades with the owner and sibling alts, compared against the recipient's inventory; "any upgrades?" (M).
+- Pot, ammo and teleport-rock sharing among siblings and to the owner ("need pot") (S-M).
+- Commands: patrol, sentry, move here, targeting by name/prefix/slot; formations (split, spread, stack, tight,
+  loose...) (S-M).
+- Buddy-menu invite summons an alt (upstream 59f9bc091) (S).
+Rules: normal Trade only; no wording that gives a bot away; owner rule of no autopilot for alts stays.

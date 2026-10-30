@@ -289,6 +289,7 @@ public class CommandsExecutor {
         addCommand("quiet", QuietCommand.class);
         addCommand("botme", BotMeCommand.class);
         addCommand("dismiss", DismissCommand.class);
+        addCommand("alts", client.command.commands.gm0.AltsCommand.class);   // 1.6.2 ticket 99: companion orders
         addCommand("botdrama", client.command.commands.gm0.BotDramaCommand.class);   // ticket 58
         addCommand("romance", client.command.commands.gm0.RomanceCommand.class);   // 1.5.0 bot drama: romance opt-in
         addCommand("guildwar", client.command.commands.gm0.GuildWarCommand.class);   // 1.5.0 bot drama: guild wars
@@ -379,6 +380,7 @@ public class CommandsExecutor {
         if (client.command.commands.gm3.BotWhyCommand.isEnabled()) {
             addCommand("botwhy", 3, client.command.commands.gm3.BotWhyCommand.class);
         }
+        addCommand("companions", 3, client.command.commands.gm3.CompanionsCommand.class); // 1.6.2 ticket 99, read-only
         if (soloMapling.autoqa.AutoQa.isEnabled()) {
             addCommand("autoqa", 3, client.command.commands.gm3.AutoQaCommand.class); // health sweeps + check runner (docs/ops/qa-suite.md)
         }

@@ -497,12 +497,28 @@ final class GCMovementDriver {
             return entry.moveTarget;
         }
         if (entry.following && entry.owner != null && entry.owner.getMap() == bot.getMap()) {
-            return entry.owner.getPosition();
+            return formationPlace(entry.owner.getPosition(), GCMovement.followOffset(bot.getId()), bot.getMap());
         }
         if (entry.farmAnchor != null) {
             return entry.farmAnchor;
         }
         return null;
+    }
+
+    /*
+     * 1.6.2 ticket 99: a follower's formation place - {@code dx} px beside the one it follows, kept inside the map's
+     * area so a "right 120" line at a wall bunches up instead of steering into it. dx 0 = the followed spot itself.
+     */
+    static Point formationPlace(Point followed, int dx, server.maps.MapleMap map) {
+        if (dx == 0 || followed == null) {
+            return followed;
+        }
+        int x = followed.x + dx;
+        java.awt.Rectangle area = map == null ? null : map.getMapArea();
+        if (area != null && area.width > 0) {
+            x = Math.max(area.x + 10, Math.min(area.x + area.width - 10, x));
+        }
+        return new Point(x, followed.y);
     }
 
     /* Faithful port of BotManager.stepMovementCore (minus fidget). */

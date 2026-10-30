@@ -301,6 +301,66 @@ public class Trade {
         return true;
     }
 
+    /** 1.6.2 ticket 99: what came of putting an inventory item into a trade window ({@link #putFromInventory}). */
+    public enum PutResult { ADDED, NO_TRADE, NO_ITEM, PET, CASH, BAD_QUANTITY, UNTRADEABLE, CHANGED, NOT_ADDED }
+
+    /**
+     * Puts {@code quantity} of the item at {@code pos} of {@code chr}'s {@code ivType} tab into its trade window at
+     * {@code targetSlot} (1-9): the player's own path (PlayerInteractionHandler SET_ITEMS), shared since 1.6.2 with
+     * companions handing items over in a normal trade (ticket 99), so both take the same checks: no cash items or
+     * pets, no untradeable item without karma, the quantity it holds, the item still where it was; the copy goes in
+     * the window, the original comes out of the inventory, and both windows are told.
+     */
+    public static PutResult putFromInventory(Character chr, InventoryType ivType, short pos, short quantity,
+                                             byte targetSlot) {
+        if (targetSlot < 1 || targetSlot > 9) {
+            return PutResult.NOT_ADDED;
+        }
+        Item item = chr.getInventory(ivType).getItem(pos);
+        if (item == null) {
+            return PutResult.NO_ITEM;
+        }
+        server.ItemInformationProvider ii = server.ItemInformationProvider.getInstance();
+        if (ii.isUnmerchable(item.getItemId())) {
+            return constants.inventory.ItemConstants.isPet(item.getItemId()) ? PutResult.PET : PutResult.CASH;
+        }
+        if (quantity < 1 || quantity > item.getQuantity()) {
+            return PutResult.BAD_QUANTITY;
+        }
+        Trade trade = chr.getTrade();
+        if (trade == null) {
+            return PutResult.NO_TRADE;
+        }
+        if (ii.isDropRestricted(item.getItemId()) && !KarmaManipulator.hasKarmaFlag(item)) {
+            return PutResult.UNTRADEABLE; // undroppable items do not make it to the trade window
+        }
+        Inventory inv = chr.getInventory(ivType);
+        inv.lockInventory();
+        try {
+            Item checkItem = inv.getItem(pos);
+            if (checkItem != item || checkItem.getPosition() != item.getPosition()) {
+                return PutResult.CHANGED;
+            }
+            Item tradeItem = item.copy();
+            if (constants.inventory.ItemConstants.isRechargeable(item.getItemId())) {
+                quantity = item.getQuantity();
+            }
+            tradeItem.setQuantity(quantity);
+            tradeItem.setPosition(targetSlot);
+            if (!trade.addItem(tradeItem)) {
+                return PutResult.NOT_ADDED;
+            }
+            InventoryManipulator.removeFromSlot(chr.getClient(), ivType, item.getPosition(), quantity, true);
+            trade.getChr().sendPacket(PacketCreator.getTradeItemAdd((byte) 0, tradeItem));
+            if (trade.getPartner() != null) {
+                trade.getPartner().getChr().sendPacket(PacketCreator.getTradeItemAdd((byte) 1, tradeItem));
+            }
+            return PutResult.ADDED;
+        } finally {
+            inv.unlockInventory();
+        }
+    }
+
     public void chat(String message) {
         chr.sendPacket(PacketCreator.getTradeChat(chr, message, true));
         if (partner != null) {
