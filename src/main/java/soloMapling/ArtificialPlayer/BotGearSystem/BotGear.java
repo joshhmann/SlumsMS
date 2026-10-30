@@ -207,7 +207,7 @@ public final class BotGear {
             carried.lockInventory();
             try {
                 for (Item item : carried.list()) {
-                    if (item instanceof Equip equip) {
+                    if (item instanceof Equip equip && !rebirthLocked(bot, equip.getItemId())) {
                         Known known = facts.apply(equip.getItemId());
                         if (known != null) {
                             owned.add(piece(equip, known));
@@ -336,7 +336,7 @@ public final class BotGear {
             Inventory body = chr.getInventory(InventoryType.EQUIPPED);
             List<Piece> owned = new ArrayList<>();
             for (Item item : carried.list()) {
-                if (item instanceof Equip equip) {
+                if (item instanceof Equip equip && !rebirthLocked(chr, equip.getItemId())) {
                     Known known = facts.apply(equip.getItemId());
                     if (known != null) {
                         owned.add(piece(equip, known));
@@ -344,7 +344,8 @@ public final class BotGear {
                 }
             }
             for (Equip equip : extras) {
-                Known known = equip == null ? null : facts.apply(equip.getItemId());
+                Known known = equip == null || rebirthLocked(chr, equip.getItemId()) ? null
+                        : facts.apply(equip.getItemId());
                 if (known != null) {
                     owned.add(piece(equip, known));
                 }
@@ -484,73 +485,122 @@ public final class BotGear {
      * 1.6.2 bot audit (G6): the game's own wear rules, re-run on the bot as it stands before a piece goes on. The
      * planner already refuses what does not fit the bot it planned for; this catches what it cannot see - a rebirth
      * gate, a stale plan (built before a level or a rebuild), or a stat need only another piece of the plan fills.
-     * A piece that fails a need stays in the bag. Returns the pieces to put on, in an order that works.
+     * A piece that fails a need stays in the bag.
+     *
+     * Returns the body the bot ends up in (slot to piece): what it wears now, with each accepted piece of the plan put
+     * on in an order that works. A worn piece leaves the body only when an ACCEPTED piece displaces it - its own slot,
+     * pants under an overall, a shield beside a new weapon (as the plan decided: the slot the plan empties) - so a
+     * refused piece never costs the bot what it had on. Pants of the plan wait for a top that is not an overall, a
+     * shield for the plan's own weapon, and a top that would leave the bot bare-legged (its pants refused) stays off.
+     * Stat needs are met from the base stats plus whatever is on the body at that moment, as the game checks them.
      */
     static Map<Short, Piece> wearableNow(Character bot, Map<Short, Piece> worn, Map<Short, Piece> wear) {
+        Set<Short> refused = new java.util.HashSet<>();
+        while (true) {
+            Map<Short, Piece> body = bodyAfter(bot, worn, wear, refused);
+            Piece top = body.get(BotGearPlanner.TOP);
+            if (top != worn.get(BotGearPlanner.TOP) && !refused.contains(BotGearPlanner.TOP)
+                    && bareLegged(body) && !bareLegged(worn)) {
+                refused.add(BotGearPlanner.TOP);   // the pair move half done: keep the overall on instead
+                continue;
+            }
+            return body;
+        }
+    }
+
+    private static boolean bareLegged(Map<Short, Piece> body) {
+        Piece top = body.get(BotGearPlanner.TOP);
+        return body.get(BotGearPlanner.PANTS) == null && (top == null || !BotGearPlanner.overall(top.itemId()));
+    }
+
+    private static Map<Short, Piece> bodyAfter(Character bot, Map<Short, Piece> worn, Map<Short, Piece> wear,
+                                               Set<Short> refused) {
         int level = bot.getLevel();
         int niche = bot.getJob().getJobNiche();
         int fame = bot.getFame();
-        Set<Integer> reborn = YamlConfig.config.server.USE_REBIRTH_SYSTEM
-                ? ItemConstants.getRestrictedItemsForRebirth(bot.getReborns()) : Set.of();
-        Map<Short, Piece> keep = new LinkedHashMap<>();
+        Map<Short, Piece> body = new LinkedHashMap<>(worn);
         List<Map.Entry<Short, Piece>> pending = new ArrayList<>();
         for (Map.Entry<Short, Piece> e : wear.entrySet()) {
             Piece piece = e.getValue();
+            if (worn.get(e.getKey()) == piece || refused.contains(e.getKey())) {
+                continue;   // already on, or refused above
+            }
             Known k = piece.known();
             if (k == null || k.reqLevel() > level || !BotGearPlanner.jobMayWear(niche, k.reqJob())
-                    || (k.reqFame() > 0 && k.reqFame() > fame) || reborn.contains(piece.itemId())) {
+                    || (k.reqFame() > 0 && k.reqFame() > fame) || rebirthLocked(bot, piece.itemId())) {
                 continue;   // a need no piece of this plan fills
             }
-            if (worn.get(e.getKey()) == piece) {
-                keep.put(e.getKey(), piece);
-            } else {
-                pending.add(e);
-            }
-        }
-        int str = bot.getStr();
-        int dex = bot.getDex();
-        int int_ = bot.getInt();
-        int luk = bot.getLuk();
-        for (Piece piece : keep.values()) {   // what it wears already counts, as the game's totals do
-            str += piece.str();
-            dex += piece.dex();
-            int_ += piece.int_();
-            luk += piece.luk();
+            pending.add(e);
         }
         boolean progress = true;
         while (!pending.isEmpty() && progress) {
             progress = false;
+            int str = bot.getStr();   // base stats (AbstractCharacterObject.str), plus what is on the body now
+            int dex = bot.getDex();
+            int int_ = bot.getInt();
+            int luk = bot.getLuk();
+            for (Piece on : body.values()) {
+                str += on.str();
+                dex += on.dex();
+                int_ += on.int_();
+                luk += on.luk();
+            }
             for (int i = 0; i < pending.size(); i++) {
+                short slot = pending.get(i).getKey();
                 Piece piece = pending.get(i).getValue();
                 Known k = piece.known();
                 if (k.reqStr() > str || k.reqDex() > dex || k.reqInt() > int_ || k.reqLuk() > luk) {
                     continue;
                 }
-                str += piece.str();
-                dex += piece.dex();
-                int_ += piece.int_();
-                luk += piece.luk();
-                keep.put(pending.get(i).getKey(), piece);
-                pending.remove(i--);
+                if (slot == BotGearPlanner.PANTS && body.get(BotGearPlanner.TOP) != null
+                        && BotGearPlanner.overall(body.get(BotGearPlanner.TOP).itemId())) {
+                    continue;   // the overall it still wears covers the legs: its new top first
+                }
+                if (slot == BotGearPlanner.SHIELD && body.get(BotGearPlanner.WEAPON) != wear.get(BotGearPlanner.WEAPON)) {
+                    continue;   // the plan's shield goes with the plan's weapon
+                }
+                body.put(slot, piece);
+                if (slot == BotGearPlanner.TOP && BotGearPlanner.overall(piece.itemId())
+                        && !wear.containsKey(BotGearPlanner.PANTS)) {
+                    body.remove(BotGearPlanner.PANTS);
+                } else if (slot == BotGearPlanner.WEAPON && !wear.containsKey(BotGearPlanner.SHIELD)) {
+                    body.remove(BotGearPlanner.SHIELD);   // the plan drops the shield for this weapon
+                }
+                pending.remove(i);
                 progress = true;
+                break;   // the body changed: re-total before the next piece
             }
         }
-        return keep;
+        return body;
+    }
+
+    /*
+     * The game's rebirth gate (ItemInformationProvider.canWearEquipRequirements: getIsItemRestrictedByPlayerReborns)
+     * while the rebirth system is on (getReborns throws without it). One helper for the item data a review hands the
+     * planner, the bag it plans from and the re-check before a piece goes on, so a piece the gate refuses is never
+     * planned (and then re-planned and refused every review, in place of the upgrades it crowds out).
+     */
+    static boolean rebirthLocked(Character bot, int itemId) {
+        return YamlConfig.config.server.USE_REBIRTH_SYSTEM
+                && ItemConstants.getRestrictedItemsForRebirth(bot.getReborns()).contains(itemId);
     }
 
     /*
      * Moves the equips: whatever a new piece replaces goes to the inventory slot the piece came from, and whatever
-     * is taken off without a replacement (pants under an overall, a shield under a two-handed weapon) to a free one.
-     * Every piece is checked to still be where the review saw it; a trade or a sale in between stops the moves.
+     * an accepted piece takes off without a replacement (pants under an overall, a shield under a two-handed weapon)
+     * to a free one. Only pieces wearableNow accepts move anything: a refused overall or two-hander leaves the pants
+     * or shield on. Every piece is checked to still be where the review saw it; a trade or a sale in between stops
+     * the moves.
      */
     static boolean apply(Character bot, Map<Short, Piece> worn, Map<Short, Piece> wear) {
         Inventory carried = bot.getInventory(InventoryType.EQUIP);
         Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+        Map<Short, Piece> after = wearableNow(bot, worn, wear);   // 1.6.2 G6
         boolean changed = false;
         try {
             for (Map.Entry<Short, Piece> e : worn.entrySet()) {
                 short slot = e.getKey();
-                if (wear.containsKey(slot)) {
+                if (after.containsKey(slot)) {
                     continue;
                 }
                 Equip off = (Equip) e.getValue().item();
@@ -564,7 +614,7 @@ public final class BotGear {
                 carried.addItemFromDB(off);
                 changed = true;
             }
-            for (Map.Entry<Short, Piece> e : wearableNow(bot, worn, wear).entrySet()) {   // 1.6.2 G6
+            for (Map.Entry<Short, Piece> e : after.entrySet()) {
                 short slot = e.getKey();
                 Piece piece = e.getValue();
                 if (worn.get(slot) == piece) {
@@ -660,12 +710,11 @@ public final class BotGear {
         EquipMetadataCache cache = EquipMetadataCache.get();
         ItemInformationProvider itemData = ItemInformationProvider.getInstance();
         int gender = bot.getGender();
-        int rebirths = bot.getReborns();
         return itemId -> {
             EquipMetadataCache.EquipEntry entry = cache.find(itemId);
             if (entry == null || entry.cash || (entry.gender != 2 && entry.gender != gender)
                     || EquipOmitList.isOmitted(itemId)
-                    || itemData.getIsItemRestrictedByPlayerReborns(rebirths, itemId)) {
+                    || rebirthLocked(bot, itemId)) {
                 return null;
             }
             Map<String, Integer> stats = itemData.getEquipStats(itemId);
