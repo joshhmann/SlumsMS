@@ -1,0 +1,18 @@
+[Unit]
+Description=SlumsMS key console (home network only, http://192.168.0.164:8791/; tools/keys/README.md)
+After=network-online.target
+
+[Service]
+Type=simple
+# root: it replaces key files under /etc and restarts the services that read them (only what registry.py allows)
+ExecStart=/usr/bin/python3 /usr/local/lib/slums-keys/console.py serve --host 192.168.0.164 --port 8791
+Restart=on-failure
+RestartSec=5
+PrivateTmp=true
+ProtectHome=read-only
+ReadWritePaths=/root/.config/slums-keys
+NoNewPrivileges=true
+MemoryMax=96M
+
+[Install]
+WantedBy=multi-user.target

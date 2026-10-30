@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""The 164 half of the key console (tools/keys/README.md). Root only. It takes an id from registry.py, never a path,
+a command or a generated value, and never prints or logs a key.
+
+    slums-keys-remote status              JSON: every key's file facts (no contents); live files are not looked at
+    slums-keys-remote rotate <id>         back up, make a new one, restart what reads it, check; put the old one back
+                                          if a check fails
+    slums-keys-remote restore <id>        put the newest backup back (the current one is backed up first)
+
+Backups sit next to the key as <file>.bak-<UTC stamp> (the newest 5 are kept). Every action is logged to
+/var/log/slums-keys.log with the time, id, action and result.
+"""
+import base64
+import datetime as dt
+import glob
+import grp
+import json
+import os
+import pwd
+import re
+import subprocess
+import sys
+import time
+import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import registry  # noqa: E402
+
+LOG = os.environ.get("SLUMS_KEYS_LOG", "/var/log/slums-keys.log")
+KEEP = 5
+
+
+def now():
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def log(key_id, action, result):
+    line = f"{now().strftime('%Y-%m-%dT%H:%M:%SZ')} {key_id} {action} {result}\n"
+    with open(LOG, "a", encoding="utf-8") as f:
+        f.write(line)
+
+
+def backups(path):
+    return sorted(glob.glob(glob.escape(path) + ".bak-*"))
+
+
+def last_log(key_id):
+    try:
+        with open(LOG, encoding="utf-8") as f:
+            rows = [l.strip() for l in f if l.split(" ")[1:2] == [key_id]]
+        return rows[-1] if rows else None
+    except OSError:
+        return None
+
+
+def facts(key):
+    """What the console shows about a key: never its contents. Live files aren't looked at (owner's rule)."""
+    out = {"id": key["id"]}
+    if key["env"] != "test" or key["path"].startswith("187:"):
+        out["seen"] = False
+        return out
+    out["seen"] = True
+    try:
+        st = os.stat(key["path"])
+    except OSError:
+        out["exists"] = False
+        return out
+    out.update(exists=True, nonEmpty=st.st_size > 0, changed=int(st.st_mtime),
+               modeOk=(st.st_mode & 0o777) == key["mode"],
+               ownerOk=pwd.getpwuid(st.st_uid).pw_name == key["owner"] and grp.getgrgid(st.st_gid).gr_name == key["group"],
+               backups=len(backups(key["path"])), last=last_log(key["id"]))
+    return out
+
+
+def make(kind):
+    if kind == "bytes48":
+        return os.urandom(48)
+    if kind == "bytes32":
+        return os.urandom(32)
+    if kind == "text":
+        return re.sub(rb"[=+/\n]", b"", base64.b64encode(os.urandom(32)))
+    raise ValueError(kind)
+
+
+def write(key, data):
+    """Put data in place atomically with the key's permissions."""
+    path = key["path"]
+    tmp = f"{path}.new-{os.getpid()}"
+    old = os.umask(0o077)
+    try:
+        with open(tmp, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+    finally:
+        os.umask(old)
+    os.chown(tmp, pwd.getpwnam(key["owner"]).pw_uid, grp.getgrnam(key["group"]).gr_gid)
+    os.chmod(tmp, key["mode"])
+    os.replace(tmp, path)
+
+
+def back_up(key):
+    path = key["path"]
+    dest = f"{path}.bak-{now().strftime('%Y%m%dT%H%M%S%fZ')}"
+    subprocess.run(["cp", "-p", path, dest], check=True)
+    for old in backups(path)[:-KEEP]:
+        os.remove(old)
+    return dest
+
+
+def restart_and_check(key):
+    """-> None when every unit is up and every health URL answers 200, else what failed."""
+    for unit in key["restart"]:
+        r = subprocess.run(["systemctl", "restart", unit], capture_output=True, text=True)
+        if r.returncode:
+            return f"restart {unit} failed"
+    if key["restart"]:
+        time.sleep(3)
+    for unit in key["restart"]:
+        if subprocess.run(["systemctl", "is-active", "--quiet", unit]).returncode:
+            return f"{unit} is not running"
+    for url in key["health"]:
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                if r.status != 200:
+                    return f"{url} answered {r.status}"
+        except OSError as e:
+            return f"{url} didn't answer ({type(e).__name__})"
+    return None
+
+
+def checked(key_id):
+    key = registry.BY_ID.get(key_id) if re.match(registry.ID_RE, key_id or "") else None
+    if not registry.changeable(key):
+        raise SystemExit(json.dumps({"ok": False, "error": "That key can't be changed here."}))
+    if not os.path.isfile(key["path"]):
+        raise SystemExit(json.dumps({"ok": False, "error": "The key file isn't there."}))
+    return key
+
+
+def rotate(key_id):
+    key = checked(key_id)
+    saved = back_up(key)
+    write(key, make(key["make"]))
+    problem = restart_and_check(key)
+    if problem:
+        with open(saved, "rb") as f:
+            write(key, f.read())
+        again = restart_and_check(key)
+        log(key_id, "rotate", f"FAILED ({problem}); old key put back" + (f", and then: {again}" if again else ""))
+        return {"ok": False, "error": f"The check failed ({problem}), so the old key was put back."
+                + (f" After that: {again}." if again else " Everything is running again.")}
+    log(key_id, "rotate", "ok")
+    return {"ok": True, "message": "Done. " + key["breaks"]}
+
+
+def restore(key_id):
+    key = checked(key_id)
+    olds = backups(key["path"])
+    if not olds:
+        return {"ok": False, "error": "There's no backup to put back."}
+    with open(olds[-1], "rb") as f:
+        data = f.read()
+    back_up(key)
+    write(key, data)
+    problem = restart_and_check(key)
+    log(key_id, "restore", "ok" if not problem else f"FAILED ({problem})")
+    return {"ok": not problem, "message" if not problem else "error":
+            "The previous key is back." if not problem else f"Put back, but the check failed: {problem}."}
+
+
+def main(argv):
+    if os.geteuid() != 0:
+        raise SystemExit("run as root")
+    if argv[:1] == ["status"]:
+        out = {"ok": True, "keys": [facts(k) for k in registry.KEYS]}
+    elif len(argv) == 2 and argv[0] in ("rotate", "restore"):
+        out = (rotate if argv[0] == "rotate" else restore)(argv[1])
+    else:
+        raise SystemExit(__doc__)
+    print(json.dumps(out))
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
