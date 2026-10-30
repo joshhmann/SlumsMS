@@ -1,6 +1,6 @@
 # Key console
 
-Owner, 2026-10-30. A page on 164 that shows every server key (where it lives, how old, what a change breaks) and
+Owner, 2026-10-30. Which piece needs which key: `docs/ops/keys.md` (and the `keys` skill). A page on 164 that shows every server key (where it lives, how old, what a change breaks) and
 changes the TEST ones. Keys themselves are never shown, sent or logged.
 
 - **Page:** http://192.168.0.164:8791/ (home network only; never behind the public website's nginx).
