@@ -182,6 +182,7 @@ public final class BotAttackDriver {
         extraUsedByBot.remove(botId);
         lastSwingAtByBot.remove(botId);
         targetFilters.remove(botId);
+        soloMapling.ArtificialPlayer.BotGrindSystem.KsManners.forget(botId);
         BotAranCombo.clearBot(botId);
         BotAttackStats.clear(botId);
         BotComboOrbs.clearBot(botId);
@@ -767,7 +768,11 @@ public final class BotAttackDriver {
             return false;
         }
         java.util.function.Predicate<Monster> f = targetFilters.get(bot.getId());
-        return f == null || f.test(m);
+        if (f != null) {
+            return f.test(m);
+        }
+        // audit 163 (B20): a population bot's KS manners hold at the hit too (one rule, KsManners)
+        return soloMapling.ArtificialPlayer.BotGrindSystem.KsManners.mayHit(bot, m, System.currentTimeMillis());
     }
 
     public static boolean botMayTarget(Monster m) {
