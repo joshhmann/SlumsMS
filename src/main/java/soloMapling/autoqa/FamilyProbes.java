@@ -416,6 +416,8 @@ final class FamilyProbes {
         }
         Character bot = null;
         int ch = me.getClient().getChannel();
+        MapleMap home = me.getMap();
+        List<String> passed = new ArrayList<>();
         for (soloMapling.ArtificialPlayer.BotSM sm
                 : soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getAllBots().values()) {
             Character c = sm == null ? null : sm.getChr();
@@ -423,16 +425,35 @@ final class FamilyProbes {
                     && c.getLevel() <= me.getLevel() && me.getLevel() - c.getLevel() <= 20
                     && c.getClient() != null && c.getClient().getChannel() == ch && c.getWorld() == me.getWorld()
                     && !BotFamily.waryOf(c, me)) {
-                bot = c;
-                break;
+                // t-fy-4 (10-30 final run): bloodclaw07 grinds Magatia Lab - Unit 202, where Deet and Roi (a boss)
+                // is a regular spawn; on a boss map every bot whisper is held off (PlayerBusy) and the offer came
+                // back NOT_VISIBLE. Take a regular on a map where a bot may whisper the player.
+                MapleMap there = c.getMap();
+                if (me.getMap() != there) {
+                    me.changeMap(there, there.findClosestPortal(c.getPosition()));
+                }
+                if (!soloMapling.ArtificialPlayer.PlayerBusy.isBusy(me)) {
+                    bot = c;
+                    break;
+                }
+                passed.add(c.getName() + " on " + there.getId());
+                if (passed.size() >= 5) {
+                    break;
+                }
             }
         }
         if (bot == null) {
-            return List.of("SKIP no regular within 20 levels below " + me.getName() + " on channel " + ch);
+            if (me.getMap() != home) {
+                me.changeMap(home, home.getPortal(0));
+            }
+            return List.of("SKIP no regular within 20 levels below " + me.getName() + " on channel " + ch
+                    + " on a map where bots may whisper" + (passed.isEmpty() ? "" : " (player busy beside " + passed + ")"));
         }
         List<String> bad = new ArrayList<>();
         List<String> ev = new ArrayList<>();
-        MapleMap home = me.getMap();
+        if (!passed.isEmpty()) {
+            ev.add("passed over (bots hold off whispers there): " + passed);
+        }
         Integer familyId = null;
         try {
             MapleMap there = bot.getMap();
