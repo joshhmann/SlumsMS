@@ -32,3 +32,22 @@ docs/PROVENANCE.md. Matrix section 1: 157-nutnnut-tools/adoption-matrix.md.
 Upgrade sharing with the owner and sibling alts goes with ticket 99 (branch 162-companions). It must score through
 `soloMapling.ArtificialPlayer.BotGearSystem.GearScoring` (`upgradeValue`, `bestSet`), the single gear-scoring entry
 point population bots use too (owner rule 2026-10-30: one implementation for bots and alts).
+
+## Status (branch 162-gearopt, 2026-10-30)
+
+Parts 1, 2, 4, 5 done in code, every one behind a switch that is off by default (live unchanged). Not deployed;
+TEST untouched (frozen for 1.6.1). Switches (all `-D` system properties, none in config.yaml):
+
+| Part | Switch | What turns on |
+| --- | --- | --- |
+| 1 | `-Dslums.gear.optimizer=pareto` | BotGearOptimizer (Pareto DP) for bots on watched maps; climb + skip-if-unchanged memo offscreen; GearScoring follows it |
+| 1 | `-Dslums.gear.dexless=true` | AP secondary stat capped by gear (BotBuild secondaryCap; never under the class floor; mages exempt) |
+| 2 | `-Dslums.grind.gearFirst=true` | Gear-first map weights, leveling path skipped while gear-led, FARM_ITEM aspiration and farm map pick |
+| 4 | `-Dslums.junk.sort=true` | Town junk sale keeps the self-reserve and the valuables shelf |
+| 5 | `-Dslums.scroll.ev=true` | Reproduction-cost scrolled-gear prices (UpgradeSimulator) and the EV scroll planner (BotScrolling) |
+
+QA before any switch-on (TEST first): `!botwhy` gear on a watched bot after a loot; a level-up dressing pass; the
+price report `mvn -q -o test -Dtest=ScrollPriceImpactReportTest -Dwz-path=<wz>` reviewed by the owner (part 5 moves
+FM prices of scrolled gear); bag fill after a day with junk sort on (no bot stuck at 90% full).
+Rollback note: a FARM_ITEM goal or FARM_GEAR plan step saved by this build is unknown to older builds; goals now skip
+unknown kinds on load, older builds do not, so turn gearFirst off a day before rolling back to a pre-162 build.
