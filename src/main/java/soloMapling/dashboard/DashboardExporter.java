@@ -182,6 +182,10 @@ public final class DashboardExporter {
             result.live().put("wealthIndex", soloMapling.ArtificialPlayer.PlayerWealthIndex.snapshot());
             // Ticket 157: the effective on/off settings (system properties and config toggles), once per export
             result.live().put("switches", EffectiveSwitches.snapshot());
+            if (soloMapling.Economy.ScrollMarketPrice.enabled()) {
+                // 162: the learned scroll prices (most traded first) next to their yaml prices
+                result.live().put("scrollPrices", soloMapling.Economy.ScrollMarketPrice.snapshot(40));
+            }
             result.live().put("exportMs", (System.nanoTime() - t0) / 1_000_000);
             AtomicFiles.writeJson(dir.resolve("live.json"), result.live());
             if (soloMapling.ArtificialPlayer.BotAttackSystem.KillCalibration.enabled()) {

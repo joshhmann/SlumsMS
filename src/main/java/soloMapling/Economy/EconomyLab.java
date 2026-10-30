@@ -75,6 +75,11 @@ public final class EconomyLab {
         }
         out.add("  samples: " + q.samples() + " in the window, " + q.playerSamples() + " with a player; board from "
                 + (q.playerOnly() ? "players only" : q.fromSamples() ? "players and bot seeds" : "the static value"));
+        if (ScrollMarketPrice.isScroll(itemId)) {
+            // 162: the scroll's learned market price (what bots scroll, value gear and sell it by)
+            out.add("  " + (ScrollMarketPrice.enabled() ? "" : "[slums.scroll.marketPrice off] ")
+                    + ScrollMarketPrice.view(itemId, staticValue).line("market price"));
+        }
         return out;
     }
 

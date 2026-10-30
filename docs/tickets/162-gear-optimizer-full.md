@@ -45,12 +45,36 @@ TEST untouched (frozen for 1.6.1). Switches (all `-D` system properties, none in
 | 2 | `-Dslums.grind.gearFirst=true` | Gear-first map weights, leveling path skipped while gear-led, FARM_ITEM aspiration and farm map pick |
 | 4 | `-Dslums.junk.sort=true` | Town junk sale keeps the self-reserve and the valuables shelf |
 | 5 | `-Dslums.scroll.ev=true` | Reproduction-cost scrolled-gear prices (UpgradeSimulator) and the EV scroll planner (BotScrolling) |
+| 5b | `-Dslums.scroll.marketPrice` (default: follows `slums.scroll.ev`) | Scroll prices learned from real sales (ScrollMarketPrice), used by the EV planner, the reproduction cost, bots' scroll asks and wants |
 
 QA before any switch-on (TEST first): `!botwhy` gear on a watched bot after a loot; a level-up dressing pass; the
 price report `mvn -q -o test -Dtest=ScrollPriceImpactReportTest -Dwz-path=<wz>` reviewed by the owner (part 5 moves
 FM prices of scrolled gear); bag fill after a day with junk sort on (no bot stuck at 90% full).
 Rollback note: a FARM_ITEM goal or FARM_GEAR plan step saved by this build is unknown to older builds; goals now skip
 unknown kinds on load, older builds do not, so turn gearFirst off a day before rolling back to a pre-162 build.
+
+## Part 5b: market-learned scroll prices (2026-10-30, branch `162-scrollmarket`)
+
+Owner: "if bots create scrolls they should check the prices of scrolls ... drive it by some learning algo".
+`soloMapling.Economy.ScrollMarketPrice` learns a price per scroll id (204xxxx) from every sale the price board keeps
+(`PriceBook.record`: FM shop and hired merchant sales, bot shop sales, bot FM buys as bot seeds, window trades,
+bot direct trades; never bot-to-bot trades or linked accounts, which the board already refuses). Rule: EWMA,
+alpha 0.2 per unit weight (weight 1 player side / 0.5 bot fill, x sqrt(qty) up to 3); sales under 0.2x or over 5x
+the current estimate are outliers and ignored; at most 15% move per day; always inside the board's 0.25x..4x band
+of the yaml price; blended with the yaml by n/(n+4), n the summed weights halving every 5 days without sales.
+Constants are `economy.yaml` keys `scrollMarket.alpha|botWeight|outlierLow|outlierHigh|dayStep|blendK|halfLifeDays`.
+Persistence: none of its own; the board's `pricesamples` window (7 days) is replayed in time order at the first
+read after a restart. No migration.
+
+Wired into: `UpgradeSimulator.scrollsFor` (reproduction cost of scrolled gear), `BotScrolling.evPlan` (a held
+scroll's cost in the planner) and its value curve, `BotScrolling.postWants` (want price), `PriceBook.fairValue`
+for scrolls (bot shops, direct trades / haggling bands, bot-bot trades, MegaBuy), the bot FM scroll stock
+(`ArtificialShopGenerator`) and `SellingMerchantBot`. Unchanged: SaleRules, PriceBook's static anchors and caps,
+the FM shopper's yaml-based buy ceiling. Read-out: `!economy price <scroll id>` (learned, sales, weight,
+outliers, yaml, price used); `live.json` `scrollPrices` (top 40). Tests: `ScrollMarketPriceTest`,
+`ScrollMarketValuationTest`, `BotScrollingTest.evPlannerDeclinesAScrollWhoseMarketPriceOutgrewWhatItAdds`.
+QA check id: none yet (TEST not touched); suggested: on TEST with scroll.ev on, `!economy price 2043001` after a
+day of FM traffic shows sales > 0 and a learned price within 15% a day of the yaml.
 
 ## Part 3 status (2026-10-30, branch `162-companions`)
 
