@@ -68,7 +68,7 @@ public class BotWhyCommand extends Command {
     }
 
     /** The brain this bot runs: a training bot's own, or a social/town bot's light host's (1.6.0 S8). */
-    static soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime runtimeOf(BotSM bot) {
+    public static soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime runtimeOf(BotSM bot) {
         if (bot instanceof soloMapling.ArtificialPlayer.BotLifeSystem.LifeHost host) return host.lifeRuntime();
         if (bot instanceof soloMapling.ArtificialPlayer.BotTypes.SocialBot social && social.life() != null) {
             return social.life().lifeRuntime();

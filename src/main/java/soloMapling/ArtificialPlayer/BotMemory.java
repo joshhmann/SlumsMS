@@ -249,6 +249,25 @@ public final class BotMemory {
         }
     }
 
+    /**
+     * Ticket 157 (bot inspect): how many notes this bot holds about players in the in-memory cache, and about how many
+     * players. A scan of the cache under its lock (at most {@code solomapling.memory.cachePairs} pairs, no database):
+     * call it on demand only, never per tick. Pairs never loaded or already evicted are not counted.
+     */
+    public static int[] cachedNotesBy(int botId) {
+        int notes = 0;
+        int pairs = 0;
+        synchronized (cache) {
+            for (Map.Entry<Long, List<Note>> e : cache.entrySet()) {
+                if ((int) (e.getKey() >>> 32) == botId) {
+                    pairs++;
+                    notes += e.getValue().size();
+                }
+            }
+        }
+        return new int[]{notes, pairs};
+    }
+
     /** Own notes before hearsay, newest first. */
     private static final Comparator<Note> RECALL_ORDER = Comparator.comparing((Note n) -> n.source() != Source.DIRECT)
             .thenComparing(Comparator.comparingLong(Note::createdAt).reversed());

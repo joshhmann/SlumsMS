@@ -88,12 +88,35 @@ public abstract class BotSM implements EventSubscriber {
             try {
                 updateState();
             } finally {
-                BotPerformanceMonitor.recordMacroTick(System.nanoTime() - startedAt);
+                long took = System.nanoTime() - startedAt;
+                BotPerformanceMonitor.recordMacroTick(took);
+                noteTickCost(took);
             }
         } catch (Exception e) {
             e.printStackTrace(); // Handle exceptions to ensure the scheduler doesn't stop unexpectedly
         }
     };
+
+    // Ticket 157 (bot inspect): this bot's own macro tick cost - the last one and a fading average (1/8 weight).
+    // Two plain fields written by the tick, read by the inspect endpoint; no allocation.
+    private volatile long lastTickNanos;
+    private volatile long avgTickNanos;
+
+    final void noteTickCost(long nanos) {
+        lastTickNanos = nanos;
+        long avg = avgTickNanos;
+        avgTickNanos = avg == 0 ? nanos : avg + (nanos - avg) / 8;
+    }
+
+    /** The last macro tick's cost in nanoseconds (0 before the first). */
+    public long lastTickNanos() {
+        return lastTickNanos;
+    }
+
+    /** A fading average of the macro tick's cost in nanoseconds (0 before the first). */
+    public long avgTickNanos() {
+        return avgTickNanos;
+    }
 
     // ── Waiting without sleeping (Fable Phase 4) ─────────────────────────────
     // FSM code that needs a pause calls waitFor(ms) and RETURNS from its tick
