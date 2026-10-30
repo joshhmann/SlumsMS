@@ -94,3 +94,15 @@ Ours:
 - the card list merged from monstercarddata and Item.wz;
 - `build_book.py` rewritten over parsed XML, because this server's WZ dump is minified. It takes drops from MySQL
   or a TSV and writes the HP strings the client book needs. MapleLib is not used.
+
+### Later ports (1.6.2, ticket 161: bot builds and party support)
+
+From nutnnut/Cosmic (GreenCatMS), https://github.com/nutnnut/Cosmic, AGPL-3.0. Each piece is ours in code and tuning, behind
+a switch that is off by default; the upstream commit is the source of the idea or the rule.
+
+| Their commit | What | Our files |
+| --- | --- | --- |
+| `3fb120faf`, `47afdaa1e` | AP builds named "dexless", "lukless", "strless", "pure" and "25 dex" (`BotBuildManager`); ours rolls them for new and reborn bots from the bot's id, with our own shares per class (`slums.bots.apvariants`) | `BotBuild`, `BotProgression`, `BotSupportSwitches` |
+| `930ca5a01` | Magic Guard damage split: the share of a hit that comes off MP, the MP shortfall falling back on HP (`slums.bots.magicguard`). Their `CRITICAL_SURVIVAL_BUFFS` recast priority and `effectiveMaxHp` valuation are not ported | `BotVitals` |
+| `67359bdce` | Fame on request ("fame me"); ours is gated by affinity, level 15, the server's own fame rules and once a day per pair (`slums.bots.famerequest`) | `BotFameRequest`, `Dispatcher` |
+| (`BotBuffManager`, no single commit) | Party support: a Cleric line heals the hurt party member for MP on a cooldown, party buffs cost MP and are re-cast on a member who lacks them, held buff pots are drunk in a fight (`slums.bots.partysupport`) | `BotPartySupport`, `BotBuffDriver`, `BotBuffEffects` |

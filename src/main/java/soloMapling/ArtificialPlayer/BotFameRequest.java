@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
  * famed a given player at most once a day however the fame log reads. Anything else is not answered here, so the
  * normal chat reply stands.
  *
- * <p>Idea from nutnnut/Cosmic's bot chat (fame on request, README_SERVER_BOTS.md); the gates and wording are ours.
+ * <p>Idea from nutnnut/Cosmic 67359bdce (the bot fame command); the gates and wording are ours.
  */
 public final class BotFameRequest {
 

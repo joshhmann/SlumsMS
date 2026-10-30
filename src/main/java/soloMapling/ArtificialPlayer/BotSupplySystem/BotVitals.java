@@ -159,6 +159,21 @@ public final class BotVitals {
         return late ? h.hpPotAt() - 0.15 : h.hpPotAt();
     }
 
+    /* Whether the item is a recovery potion (not a buff pot). */
+    public static boolean isRecoveryItem(int itemId) {
+        return SupplyData.get().recovery(itemId) != null;
+    }
+
+    /* Gives HP back (a party Heal), up to the bot's max. */
+    public static void heal(Character bot, int amount) {
+        if (bot == null || amount <= 0) {
+            return;
+        }
+        synchronized (lock(bot)) {
+            setHp(bot, Math.min(bot.getCurrentMaxHp(), bot.getHp() + amount));
+        }
+    }
+
     /* What one cast of this skill costs in MP, by the server's rule (StatEffect.calcMPChange). */
     public static int mpCost(Character bot, int skillId, int skillLevel) {
         if (skillId == 0 || skillLevel <= 0) {

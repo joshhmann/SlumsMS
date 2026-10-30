@@ -60,9 +60,20 @@ public final class BotBuffDriver {
         boolean partied = partiedWithPlayer(bot);
         java.util.concurrent.ThreadLocalRandom rng = java.util.concurrent.ThreadLocalRandom.current();
         int cast = 0;
+        boolean support = partied && soloMapling.ArtificialPlayer.BotSupportSwitches.partySupport();
         for (int skillId : buffIds) {
-            if (now < timers.getOrDefault(skillId, 0L)) {
+            boolean partyBuff = support && BotBuffEffects.isPartyBuff(skillId);
+            boolean due = now >= timers.getOrDefault(skillId, 0L);
+            if (!due && partyBuff && lackGapPassed(bot.getId(), skillId, now)
+                    && BotBuffEffects.partyMemberLacks(bot, skillId)) {
+                due = true;   // 161: a player who joined, died or ran out since the last cast gets it now
+                lackRecastAt.put(lackKey(bot.getId(), skillId), now);
+            }
+            if (!due) {
                 continue;
+            }
+            if (partyBuff && !payForPartyBuff(bot, skillId)) {
+                continue;   // 161: a party buff costs the MP it costs a player; no MP, no cast, retry next look
             }
             final int sid = skillId;
             MethodScheduler.runAfterDelay(() -> BotBuffEffects.castBuff(bot, sid), cast * STAGGER_MS);
@@ -83,6 +94,32 @@ public final class BotBuffDriver {
             cast++;
         }
         return cast;
+    }
+
+    private static final long LACK_GAP_MS = 30_000L;
+    private static final Map<Long, Long> lackRecastAt = new ConcurrentHashMap<>();
+
+    private static long lackKey(int botId, int skillId) {
+        return ((long) botId << 32) ^ (skillId & 0xffffffffL);
+    }
+
+    private static boolean lackGapPassed(int botId, int skillId, long now) {
+        Long at = lackRecastAt.get(lackKey(botId, skillId));
+        return at == null || now - at >= LACK_GAP_MS;
+    }
+
+    /* Ticket 161: pays a party buff's MP (drinking MP potions if it must); a skill the bot has no level in is free. */
+    private static boolean payForPartyBuff(Character bot, int skillId) {
+        int level = bot.getSkillLevel(skillId);
+        int cost = level <= 0 ? 0 : soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.mpCost(bot, skillId, level);
+        if (cost <= 0) {
+            return true;
+        }
+        if (!soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.affordMp(bot, cost)) {
+            return false;
+        }
+        soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.spend(bot, cost, 0);
+        return true;
     }
 
     /* When each of the bot's buffs is due again (skill -> epoch ms), for the cb-1 read-out. */
@@ -109,6 +146,8 @@ public final class BotBuffDriver {
     /* Release a despawned bot's recast timers so the map doesn't grow unbounded. */
     public static void clearBot(int botId) {
         nextCastByBot.remove(botId);
+        BotPartySupport.clearBot(botId);
+        lackRecastAt.keySet().removeIf(k -> (int) (k >> 32) == botId);
     }
 
     /*
