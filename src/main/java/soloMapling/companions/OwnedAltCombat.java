@@ -146,18 +146,19 @@ public final class OwnedAltCombat {
     /** How long a party member's hit keeps a mob the party's fight. */
     static final long ENGAGED_MS = 20_000;
 
-    /** A mob on another ledge than the alt (a platform above or below): not a target, the alt follows instead. */
-    interface Ledge {
-        boolean different(MapleMap map, Point a, Point b);
-    }
-
-    static final Ledge NAV_LEDGE = (map, a, b) -> Math.abs(a.y - b.y) > SAME_LEDGE_DY
-            && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.onDifferentLedge(map, a.x, a.y, b.x, b.y);
-    static volatile Ledge ledge = NAV_LEDGE;
-
-    /** May the alt's swing touch this mob at all (the per-bot attack filter): never a stranger's. */
+    /** May the alt's swing touch this mob at all: never a stranger's. */
     static boolean mayHit(Monster m, MapleMap map, Set<Integer> party) {
         return m != null && BotAttackDriver.botMayTarget(m) && !strangers(m, map, party);
+    }
+
+    /**
+     * The alt's per-bot attack filter: a mob it may hit that is the party's fight. t-oa-1 (TEST 2026-10-29): with
+     * {@link #mayHit} alone the driver faced the nearest wild mob instead of the alt's target, swung at nothing for
+     * STALL_MS, gave up, and never got to looting.
+     */
+    static boolean driverMayFace(Monster m, MapleMap map, Character owner, Character alt, Set<Integer> party,
+                                 long now) {
+        return mayHit(m, map, party) && engaged(m, owner, alt, party, now);
     }
 
     /** The mob the alt goes for now: the nearest engaged one by its owner, or null (it follows instead). */
@@ -167,7 +168,8 @@ public final class OwnedAltCombat {
 
     /**
      * As {@link #target(Character, Character, Set, long)}, skipping the mobs {@code skip} names (ones it could not
-     * land a hit on lately) and mobs on another ledge than the alt.
+     * land a hit on lately) and mobs on another ledge than the alt - by the attack driver's own surface test, so the
+     * alt never stands at a mob the driver will not face (it follows instead).
      */
     static Monster target(Character owner, Character alt, Set<Integer> party, long now,
                           java.util.function.Predicate<Monster> skip) {
@@ -187,7 +189,7 @@ public final class OwnedAltCombat {
             if (Math.abs(mp.x - op.x) > LEASH_X_PX || Math.abs(mp.y - op.y) > LEASH_Y_PX) {
                 continue;
             }
-            if (!engaged(m, owner, alt, party, now) || skip.test(m) || ledge.different(map, at, mp)
+            if (!engaged(m, owner, alt, party, now) || skip.test(m) || !BotAttackDriver.onAttackableSurface(map, at, m)
                     || strangers(m, map, party)) {
                 continue;
             }

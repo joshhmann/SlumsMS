@@ -447,6 +447,9 @@ final class Probes160 {
             if (!hurt) {
                 bad.add("no mob damaged " + ALT_A + " in 25 s (mobs spawned on it: " + staged.size() + ")");
             }
+            // t-oa-1: a step's staged mobs still alive would stay the party's fight into the next step (or pull the
+            // alt at the wrong mob); clear them first
+            clearStaged(field, gm, staged);
 
             // (2) the alt attacks the mob its owner hits, and damages it
             ownerActs(p);
@@ -459,6 +462,7 @@ final class Probes160 {
                 bad.add(ALT_A + " did not damage the mob its owner hit within 20 s (gate " + st.gate() + ", doing: "
                         + st.doing() + ")");
             }
+            clearStaged(field, gm, staged);
 
             // (3) a party drop beside the alt goes into its own bag
             ownerActs(p);
@@ -486,9 +490,7 @@ final class Probes160 {
             }
 
             // (4) the activity gate: its owner idle, it does not fight; active again, it does
-            server.life.Monster idleMob = server.life.LifeFactory.getMonster(ALT_MOB);
-            field.spawnMonsterOnGroundBelow(idleMob, new java.awt.Point(gm.getPosition().x - 80, gm.getPosition().y));
-            staged.add(idleMob);
+            server.life.Monster idleMob = spawnBesideOwner(field, gm, staged, -80);
             soloMapling.companions.OwnedAltGate.forceIdleForQa(gm.getId(), true);
             try {
                 Thread.sleep(600); // a driver tick sees the idle owner and stands down
@@ -508,6 +510,7 @@ final class Probes160 {
             } finally {
                 soloMapling.companions.OwnedAltGate.forceIdleForQa(gm.getId(), false);
             }
+            clearStaged(field, gm, staged); // the idle check's mob is the owner's fight too: not the one judged next
             ownerActs(p);
             boolean resumed = altDamagesOwnersMob(field, gm, alt, staged, -80, 20_000);
             out.add("owner active again: " + ALT_A + " fights again=" + resumed);
@@ -518,17 +521,46 @@ final class Probes160 {
                         + alt.getPosition().y + ", owner at " + gm.getPosition().x + "," + gm.getPosition().y + ")");
             }
         } finally {
-            for (server.life.Monster m : staged) {
-                if (m.isAlive() && field.getMonsterByOid(m.getObjectId()) != null) {
-                    field.killMonster(m, gm, false);
-                }
-            }
+            clearStaged(field, gm, staged);
         }
         return bad;
     }
 
+    /** t-oa-1: kills the staged mobs still alive (no drops) and forgets them. */
+    private static void clearStaged(server.maps.MapleMap field, Character gm, List<server.life.Monster> staged) {
+        for (server.life.Monster m : staged) {
+            if (m.isAlive() && field.getMonsterByOid(m.getObjectId()) != null) {
+                field.killMonster(m, gm, false);
+            }
+        }
+        staged.clear();
+    }
+
     /**
-     * t-oa-1: a mob is spawned {@code dx} px beside the owner and the owner hits it; true once the alt has damaged it
+     * t-oa-1: a mob staged {@code dx} px beside the owner on the owner's own ledge, or on the other side when that one
+     * landed on another ledge (the alt does not fight across ledges: it follows).
+     */
+    private static server.life.Monster spawnBesideOwner(server.maps.MapleMap field, Character gm,
+                                                        List<server.life.Monster> staged, int dx) {
+        server.life.Monster m = null;
+        for (int side : new int[]{dx, -dx}) {
+            if (m != null && m.isAlive()) {
+                field.killMonster(m, gm, false);
+            }
+            m = server.life.LifeFactory.getMonster(ALT_MOB);
+            field.spawnMonsterOnGroundBelow(m, new java.awt.Point(gm.getPosition().x + side, gm.getPosition().y));
+            staged.add(m);
+            java.awt.Point mp = m.getPosition();
+            if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.onDifferentLedge(field,
+                    gm.getPosition().x, gm.getPosition().y, mp.x, mp.y)) {
+                break;
+            }
+        }
+        return m;
+    }
+
+    /**
+     * t-oa-1: a mob is spawned {@code dx} px beside the owner (on its ledge) and the owner hits it; true once the alt has damaged it
      * within {@code maxMs}. A population bot may kill the staged mob first: then another one is staged.
      */
     private static boolean altDamagesOwnersMob(server.maps.MapleMap field, Character gm, Character alt,
@@ -541,9 +573,7 @@ final class Probes160 {
                 if (m != null && m.damageSnapshot().getOrDefault(alt.getId(), 0L) > 0) {
                     return true;
                 }
-                m = server.life.LifeFactory.getMonster(ALT_MOB);
-                field.spawnMonsterOnGroundBelow(m, new java.awt.Point(gm.getPosition().x + dx, gm.getPosition().y));
-                staged.add(m);
+                m = spawnBesideOwner(field, gm, staged, dx);
                 field.damageMonster(gm, m, 1);
             }
             Thread.sleep(250);

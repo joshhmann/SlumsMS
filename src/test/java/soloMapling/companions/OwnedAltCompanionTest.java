@@ -161,6 +161,22 @@ class OwnedAltCompanionTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void itsAttackDriverFacesOnlyThePartysFight() {
+        // t-oa-1 (TEST 2026-10-29): the filter let the driver face a nearer quiet wild mob instead of the alt's target
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        Monster quiet = mob(30, 0);
+        Monster owners = mob(60, OWNER);
+        OwnedAltCompanion.tick(owner, alt, new OwnedAltCompanion.State(ALT), NOW, 0);
+        org.mockito.ArgumentCaptor<java.util.function.Predicate<Monster>> filter =
+                org.mockito.ArgumentCaptor.forClass(java.util.function.Predicate.class);
+        attacks.verify(() -> BotAttackDriver.setTargetFilter(eq(ALT), filter.capture()));
+        assertFalse(filter.getValue().test(quiet), "a mob nobody in the party touched");
+        assertTrue(filter.getValue().test(owners));
+    }
+
+    @Test
     void outOfReachItWalksToTheMobFirst() {
         Character owner = owner(NOW);
         Character alt = alt(owner, 1302000);
