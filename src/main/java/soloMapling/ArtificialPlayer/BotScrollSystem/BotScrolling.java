@@ -96,6 +96,14 @@ public final class BotScrolling {
 
         /** The equip's value (EquipValuation), or null when it cannot be traded. */
         Integer equipValue(Equip equip);
+
+        /*
+         * Ticket 162 part 5: how far the equip is above its clean stats, on the scrolls' gainWeight scale (attack 10,
+         * main stats 3, the rest 1). 0 when unknown.
+         */
+        default double statScore(Equip equip) {
+            return 0;
+        }
     }
 
     interface Roller {
@@ -213,8 +221,16 @@ public final class BotScrolling {
         }
     }
 
+    /* Ticket 162 part 5: -Dslums.scroll.ev=true picks the scroll by nutnnut's EV planner (ScrollPlanner). */
+    public static boolean evEnabled() {
+        return Boolean.getBoolean("slums.scroll.ev");
+    }
+
     /** What the bot scrolls next, or null when it has nothing it would use on anything. */
     public static Plan plan(Character bot, Appetite appetite, Random rng) {
+        if (evEnabled()) {
+            return evPlan(bot, appetite);
+        }
         boolean white = holdsWhite(bot);
         for (Equip e : targets(bot)) {
             List<ScrollFacts> fitting = fittingHeld(bot, e);
@@ -229,6 +245,94 @@ public final class BotScrolling {
             }
         }
         return null;
+    }
+
+    /*
+     * Ticket 162 part 5: the EV planner's pick. Each equip with a slot left is a candidate; its options are the held
+     * scrolls that fit it, after our own rules: a careful bot never uses a dark scroll, nobody but a gambler puts one
+     * on worn gear, and once the world's godlies for the day are made only 60%+ non-dark scrolls are left (as
+     * ScrollRules.choose). The value curve is the item's reproduction cost (ScrollValuer) over every plain scroll that
+     * fits that equip at its FM price, from its own FM value (else EquipValuation) as the clean base; the planner
+     * proposes the single best scroll now, or nothing when no play beats stopping by 20% of the scroll's value.
+     * A white scroll goes with a long shot as ScrollRules decides it.
+     */
+    static Plan evPlan(Character bot, Appetite appetite) {
+        boolean allowLong = longShotsAllowed();
+        boolean whiteOk = holdsWhite(bot)
+                && soloMapling.Economy.EconomyConfig.getBool("scrolling.whiteOnLongShots", false);
+        List<ScrollPlanner.EquipCandidate> candidates = new ArrayList<>();
+        Map<ScrollPlanner.EquipCandidate, Equip> equipOf = new java.util.IdentityHashMap<>();
+        Map<Integer, ScrollFacts> factsOf = new HashMap<>();
+        for (Equip e : targets(bot)) {
+            boolean worn = e.getPosition() < 0;
+            List<ScrollPlanner.ScrollOption> options = new ArrayList<>();
+            for (ScrollFacts f : fittingHeld(bot, e)) {
+                if (f.success() <= 0 || (!allowLong && (f.dark() || f.longShot()))
+                        || (f.dark() && (appetite == Appetite.CAREFUL || (worn && appetite != Appetite.GAMBLER)))) {
+                    continue;
+                }
+                Integer price = facts.marketValue(f.scrollId());
+                options.add(new ScrollPlanner.ScrollOption(f.scrollId(), facts.name(f.scrollId()), f.success() / 100.0,
+                        f.dark() ? f.curse() / 100.0 : 0, f.gainWeight(), price == null ? 0 : price));
+                factsOf.put(f.scrollId(), f);
+            }
+            if (options.isEmpty()) {
+                continue;
+            }
+            java.util.function.DoubleUnaryOperator curve = curveFor(e);
+            ScrollPlanner.EquipCandidate c = new ScrollPlanner.EquipCandidate(e.getItemId(), facts.name(e.getItemId()),
+                    facts.statScore(e), e.getUpgradeSlots(), facts.totalSlots(e), false, !worn, options, curve, curve,
+                    0);
+            candidates.add(c);
+            equipOf.put(c, e);
+        }
+        ScrollPlanner.ScrollPlan best = ScrollPlanner.planBest(candidates);
+        if (best == null) {
+            return null;
+        }
+        ScrollFacts f = factsOf.get(best.scroll().scrollItemId());
+        boolean white = whiteOk && f.longShot() && appetite != Appetite.GAMBLER;
+        return new Plan(equipOf.get(best.equip()), new Choice(f.scrollId(), white), f);
+    }
+
+    // Curves per (item, slots, base price): the valuer memoizes inside a curve, so a kept curve answers from memory.
+    private static final Map<String, java.util.function.DoubleUnaryOperator> curves = new ConcurrentHashMap<>();
+
+    // The reproduction-cost curve of this equip's kind: every plain scroll the item data has for it at its FM price.
+    private static java.util.function.DoubleUnaryOperator curveFor(Equip e) {
+        Integer known = facts.marketValue(e.getItemId());
+        String key = e.getItemId() + ":" + facts.totalSlots(e) + ":" + (known == null ? -1 : known);
+        java.util.function.DoubleUnaryOperator cached = curves.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        if (curves.size() > 4096) {
+            curves.clear();   // prices moved on, or a very varied world: start over
+        }
+        java.util.function.DoubleUnaryOperator curve = buildCurve(e);
+        if (known != null) {
+            curves.put(key, curve);   // an EquipValuation base depends on the piece itself: not shared
+        }
+        return curve;
+    }
+
+    private static java.util.function.DoubleUnaryOperator buildCurve(Equip e) {
+        List<soloMapling.itemPool.ScrollValuer.ScrollSpec> specs = new ArrayList<>();
+        for (int id : facts.catalogFor(e.getItemId())) {
+            ScrollFacts f = facts.scroll(id);
+            Integer price = facts.marketValue(id);
+            if (f != null && f.success() > 0 && !f.dark()
+                    && ScrollRules.fits(id, e.getItemId(), Math.max(1, e.getUpgradeSlots()), facts.reqs(id))) {
+                specs.add(new soloMapling.itemPool.ScrollValuer.ScrollSpec(f.success() / 100.0, f.gainWeight(),
+                        price == null ? 0 : price));
+            }
+        }
+        Integer base = facts.marketValue(e.getItemId());
+        if (base == null) {
+            base = facts.equipValue(e);
+        }
+        return soloMapling.itemPool.ScrollValuer.reproductionValue(0, facts.totalSlots(e), specs,
+                base == null ? 0 : base);
     }
 
     // ------------------------------------------------------------------ rolling
@@ -672,6 +776,16 @@ public final class BotScrolling {
         public Integer equipValue(Equip equip) {
             return EquipValuation.valueOf(equip);
         }
+
+        @Override
+        public double statScore(Equip equip) {
+            EquipValuation.Facts f = EquipValuation.factsOf(equip);
+            if (f == null) {
+                return 0;
+            }
+            return 10.0 * Math.max(0, f.attackGain()) + 3.0 * Math.max(0, f.statGain())
+                    + Math.max(0, f.hpMpGain()) / 5.0;
+        }
     }
 
     // ------------------------------------------------------------------ test seams
@@ -684,5 +798,6 @@ public final class BotScrolling {
                 WorldEventMegaphones.getInstance().offerEvent(bot, node, tokens, key) : testMegaphone;
         clock = testClock == null ? System::currentTimeMillis : testClock;
         states.clear();
+        curves.clear();
     }
 }
