@@ -572,6 +572,15 @@ public final class AutoQaCatalog {
                         qaDo("gift", "scroll"), waitFor("TRADE GIFT .*(scroll|from its bag| x )", 20))
                 .expect(atLeast(2, "TRADE GIFT \\S+ gave {me}"), probe("mesoGained", "100000", "500000"))
                 .build());
+        // 1.6.2 (owner grill 2026-10-30): asked in chat, a friend hands over a few potions from its own bag; a
+        // second ask the same week is a no
+        c.add(Check.auto("t-gf-2", "Ask a friend bot for pots").minutes(3)
+                .step(say("!warp 100000000"), waitSeconds(3), run("tr-9"), waitSeconds(3),
+                        say("{bot} got any pots?"), waitFor("TRADE GIFT-ASK .*: GAVE", 20), waitSeconds(3),
+                        say("{bot} can u spare a pot"), waitFor("TRADE GIFT-ASK .*: ALREADY_THIS_WEEK", 20))
+                .expect(has("TRADE GIFT-ASK \\S+ asked \\S+ for pots: GAVE"), has("TRADE GIFT \\S+ gave {me} \\d+ x "),
+                        has("TRADE GIFT-ASK \\S+ asked \\S+ for pots: ALREADY_THIS_WEEK"))
+                .build());
         c.add(Check.auto("t-pr-1", "@price shows real prices").minutes(3)
                 .step(run("tr-5"), say("@price work gloves"), waitSeconds(2), say("@price 60%"), waitSeconds(2),
                         say("@price zzqqxx"), waitSeconds(2))

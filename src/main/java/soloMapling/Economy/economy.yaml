@@ -86,6 +86,20 @@ gifts:
   mesoMax: 500000
   scrollMaxValue: 500000    # a scroll gift is a common 60%+ scroll from the bot's bag worth at most this
 
+# 1.6.2 (owner, grill 2026-10-30: "bot friends handing over items: yes, small and capped"): a player asks a regular
+# for something ("got any pots?", "can u spare a pot", "need pots", "any scrolls?"). A friend on the player's map
+# hands over a small gift from its own bag (BotGiftAsks: potions it drinks, arrows/bolts for the player's weapon, or
+# a common 60%+ scroll; never gear, never what bots may not sell; nothing minted); anyone else says no.
+giftAsks:
+  enabled: true             # on for 1.6.2 (owner said yes)
+  perBotPerDay: 2           # asked-for gifts a bot hands out a day
+  perPlayerPerDay: 3        # asked-for gifts a player account gets a day, all its characters together
+  perPairDays: 7            # one gift (asked for or not) per bot and player in this many days
+  worldPerDay: 200          # asked-for gifts a day, world-wide
+  maxValue: 100000          # a gift is worth at most this in all (price board fair value)
+  potions: 20               # at most this many potions (the bot always keeps 50 of its own)
+  ammo: 200                 # at most this many arrows or bolts (it keeps 500)
+
 # Gear rules (gear audit 2026-10-21). Slots = the item's WZ slots + hammers.
 gear:
   godlyAttackPerSlot: 2     # godly: attack gain over clean > 2 x slots (+5 on weapons for the drop roll) ...

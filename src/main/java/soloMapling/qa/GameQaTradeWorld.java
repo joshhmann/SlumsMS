@@ -88,6 +88,12 @@ public final class GameQaTradeWorld implements QaTradeWorld {
     }
 
     @Override
+    public void forgetGiftAsks(int botId, Character player) {
+        BotGifts.forget(botId, player.getId());
+        soloMapling.Economy.BotGiftAsks.forgetForQa(botId, player.getAccountID());
+    }
+
+    @Override
     public String quote(int botId, Character gm, String words) {
         Character b = bot(botId);
         if (b == null) {

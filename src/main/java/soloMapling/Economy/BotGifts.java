@@ -152,19 +152,82 @@ public final class BotGifts {
                 case MESOS -> mesos(bot, player, rng);
             };
             if (line != null) {
-                long now = clock.getAsLong();
-                lastGift.put(key(bot.getId(), player.getId()), now);
-                EconomyStore st = store;
-                ExecutorServiceManager.runAsync(() -> st.saveGift(bot.getId(), player.getId(), now, line));
-                log.info("[Gift] {}", line);
-                soloMapling.ArtificialPlayer.BotConvo.SayDo.event(bot, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.GIFT, bot.getMapId()); // rc6 say-do: the gift was given
-                if (QaLog.on(QaLog.Topic.TRADE)) {
-                    QaLog.any(QaLog.Topic.TRADE, "GIFT " + line);
-                }
+                record(bot, player, line);
                 return line;
             }
         }
         return null;
+    }
+
+    /**
+     * A gift was given: this pair's gift time (memory and the {@code botgifts} row, so the 7-day pair rule holds for
+     * both kinds of gift and across a restart), the log, say-do and the QA log. Shared with {@link BotGiftAsks}.
+     */
+    static void record(Character bot, Character player, String line) {
+        long now = clock.getAsLong();
+        lastGift.put(key(bot.getId(), player.getId()), now);
+        EconomyStore st = store;
+        ExecutorServiceManager.runAsync(() -> st.saveGift(bot.getId(), player.getId(), now, line));
+        log.info("[Gift] {}", line);
+        soloMapling.ArtificialPlayer.BotConvo.SayDo.event(bot, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.GIFT, bot.getMapId()); // rc6 say-do: the gift was given
+        if (QaLog.on(QaLog.Topic.TRADE)) {
+            QaLog.any(QaLog.Topic.TRADE, "GIFT " + line);
+        }
+    }
+
+    /**
+     * When this bot last gave this player any gift (unprompted or asked for), or 0: memory first, else the stored
+     * row (a database read: call it off the game threads).
+     */
+    static long lastGiftAt(int botId, int playerId) {
+        Long last = lastGift.get(key(botId, playerId));
+        if (last != null) {
+            return last;
+        }
+        long stored = store.lastGift(botId, playerId);
+        if (stored > 0) {
+            lastGift.put(key(botId, playerId), stored);
+        }
+        return Math.max(0, stored);
+    }
+
+    static long now() {
+        return clock.getAsLong();
+    }
+
+    /**
+     * The one value-and-sale rule for an item a bot gives away from its bag (1.6.2: asked-for gifts; the scroll rule
+     * below adds its success floor): never gear, never what bots may not sell ({@link SaleRules}), and the units given
+     * worth at most {@code max} in all at the price board's fair value. Null when it may be given, else why not.
+     */
+    static String giftProblem(Item item, int quantity, long max) {
+        if (item == null || quantity <= 0) {
+            return "nothing";
+        }
+        if (item.getInventoryType() == InventoryType.EQUIP || item.getInventoryType() == InventoryType.EQUIPPED) {
+            return "gear is never a gift";
+        }
+        String why = SaleRules.whyNot(item);
+        if (why != null) {
+            return "bots may not sell it (" + why + ")";
+        }
+        // a star or bullet stack is priced as one set (PriceBook.units); anything else per unit
+        long value = unitValue(item) * (constants.inventory.ItemConstants.isRechargeable(item.getItemId()) ? 1 : quantity);
+        if (value > max) {
+            return String.format("worth %,d > %,d", value, max);
+        }
+        return null;
+    }
+
+    /** What one unit is worth for the gift rules: the board's fair value, at least 1. */
+    static long unitValue(Item item) {
+        return Math.max(1, PriceBook.fairValue(item));
+    }
+
+    /** How many of this item fit under {@code max} in all (0 when not even one does). */
+    static int unitsUnder(Item item, int wanted, long max) {
+        long each = unitValue(item);
+        return (int) Math.max(0, Math.min(wanted, max / each));
     }
 
     /**
@@ -238,27 +301,33 @@ public final class BotGifts {
     }
 
     private static String scroll(Character bot, Character player) {
-        long max = EconomyConfig.getLong("gifts.scrollMaxValue", 500_000);
-        Inventory inv = bot.getInventory(InventoryType.USE);
-        Item pick = null;
-        inv.lockInventory();
-        try {
-            for (Item it : inv.list()) {
-                if (ScrollRules.isPlainScroll(it.getItemId())
-                        && scrollProblem(SaleRules.whyNot(it), successOf(it.getItemId()), PriceBook.fairValue(it), max) == null) {
-                    pick = it;
-                    break;
-                }
-            }
-        } finally {
-            inv.unlockInventory();
-        }
+        Item pick = giftableScroll(bot, EconomyConfig.getLong("gifts.scrollMaxValue", 500_000));
         if (pick == null || BotHoldings.payOut(bot, pick.getItemId(), 1, player, player.getPosition()) <= 0) {
             return null;
         }
         greet(bot, player, "found this, u can have it");
         return String.format("%s gave %s a %s from its bag", bot.getName(), player.getName(),
                 BotShops.nameOf(pick.getItemId()));
+    }
+
+    /**
+     * The first scroll in the bot's bag it would give: a plain 60%+ scroll bots may sell, worth at most {@code max}
+     * ({@link #scrollProblem}). Shared by the unprompted gift and the asked-for one ({@link BotGiftAsks}).
+     */
+    static Item giftableScroll(Character bot, long max) {
+        Inventory inv = bot.getInventory(InventoryType.USE);
+        inv.lockInventory();
+        try {
+            for (Item it : inv.list()) {
+                if (ScrollRules.isPlainScroll(it.getItemId())
+                        && scrollProblem(SaleRules.whyNot(it), successOf(it.getItemId()), PriceBook.fairValue(it), max) == null) {
+                    return it;
+                }
+            }
+        } finally {
+            inv.unlockInventory();
+        }
+        return null;
     }
 
     /**
@@ -323,7 +392,7 @@ public final class BotGifts {
         return String.format("%s gave %s %,d mesos", bot.getName(), player.getName(), amount);
     }
 
-    private static void greet(Character bot, Character player, String scripted) {
+    static void greet(Character bot, Character player, String scripted) {
         BotTiming.afterRandom(300, 900, () -> BotDirectTrade.say(bot, player,
                 "You just gave your friend " + player.getName() + " a small gift; say so warmly in a few words.",
                 scripted, null, false));
@@ -338,7 +407,7 @@ public final class BotGifts {
         }
     }
 
-    private static int successOf(int scrollId) {
+    static int successOf(int scrollId) {
         try {
             Map<String, Integer> stats = ItemInformationProvider.getInstance().getEquipStats(scrollId);
             return stats == null ? 0 : stats.getOrDefault("success", 0);

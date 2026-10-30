@@ -351,6 +351,9 @@ public class Dispatcher implements Runnable {
         if (soloMapling.ArtificialPlayer.BotFameRequest.tryHandle(bot.getChr(), player, said)) {
             return; // 1.6.2 ticket 161: a friend famed the player who asked (slums.bots.famerequest)
         }
+        if (soloMapling.Economy.BotGiftAsks.tryHandle(bot.getChr(), player, said)) {
+            return; // 1.6.2: "got any pots?" - a friend hands over a small gift, anyone else says no (giftAsks.*)
+        }
         if (bot.naturalAction(player, said)) {
             return;
         }

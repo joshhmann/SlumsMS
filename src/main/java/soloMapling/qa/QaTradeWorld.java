@@ -28,6 +28,13 @@ public interface QaTradeWorld {
     /** Forgets when this bot last gave this player a gift (in memory), so the weekly limit does not block a re-test. */
     void forgetGift(int botId, int playerId);
 
+    /**
+     * 1.6.2: forgets this bot's and this player's asked-for gifts today and the pair's last gift, so the daily and
+     * weekly caps do not block a re-test (the world's count stays).
+     */
+    default void forgetGiftAsks(int botId, Character player) {
+    }
+
     /** The bot quotes the GM a price for something in its bag, as if asked in chat; a line. */
     String quote(int botId, Character gm, String words);
 
