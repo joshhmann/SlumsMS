@@ -216,11 +216,33 @@ public final class Orchestrator implements RunOrchestrator {
                 steps.put(m.characterId(), solver.next(view, m));
             }
         }
+        if (run.held()) {
+            hold(run, steps, nowMs);
+            return steps; // no reminders to a real leader either: the formation is up for a screenshot
+        }
         RunMember leader = view.leader().orElse(null);
         if (leader != null && !leader.bot() && view.mapOf(leader.characterId()) == stage.mapId()) {
             realLeader(run, view, solver, stage, leader, steps, nowMs);
         }
         return steps;
+    }
+
+    /**
+     * A held run (QA hold): every step that would clear the stage (a formation check, a hand-in) becomes a wait, so the
+     * bots stand on their spots; walking, climbing, opening the stage with the NPC and fighting go on as usual.
+     */
+    static void hold(RunState run, Map<Integer, SolverStep> steps, long nowMs) {
+        boolean waiting = false;
+        for (Map.Entry<Integer, SolverStep> e : steps.entrySet()) {
+            SolverStep s = e.getValue();
+            if (s instanceof SolverStep.CheckAnswer || s instanceof SolverStep.TalkNpc t && t.itemId() > 0) {
+                e.setValue(new SolverStep.Wait(1_000, "held for QA: !mechanics release to go on"));
+                waiting = true;
+            }
+        }
+        if (waiting && run.stageMemory().putIfAbsent("heldNoted", nowMs) == null) {
+            run.note(nowMs, "stage " + run.currentStage() + " in place and held (!mechanics release to clear it)");
+        }
     }
 
     /** First reminder this long after the leader's turn comes, then one every {@link #LEADER_PROMPT_EVERY_MS}. */
