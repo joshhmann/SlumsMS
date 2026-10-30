@@ -390,9 +390,9 @@ public final class LifeMemory {
         for (var goal : seeded) if (pending.size() < 2 && pending.stream().noneMatch(g -> g.kind() == goal.kind())) {
             pending.add(goal);
         }
-        // ticket 158: the active quest rides on top of the two seeded goals, last
+        // ticket 158: the active quest rides on top of the two seeded goals, last (only while questing is switched on)
         var active = quests.active();
-        if (active != null) {
+        if (active != null && soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.enabled()) {
             var old = goals.stream().filter(g -> g.kind() == LifeGoals.Kind.QUEST && g.targetLevel() == active.questId)
                     .findFirst().orElse(null);
             pending.add(old != null ? old : LifeGoals.quest(active.questId,

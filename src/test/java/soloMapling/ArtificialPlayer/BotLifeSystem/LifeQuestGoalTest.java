@@ -1,5 +1,7 @@
 package soloMapling.ArtificialPlayer.BotLifeSystem;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog;
 import soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests;
@@ -16,6 +18,20 @@ import static soloMapling.ArtificialPlayer.BotLifeSystem.LifePlanner.Step.*;
 /** Ticket 158: a picked quest is a BotLife goal with a plan (take, hunt, turn in), saved with the life profile. */
 class LifeQuestGoalTest {
     static final int QUEST = 1001;
+
+    @BeforeEach
+    void on() {
+        System.setProperty("slums.botlife.enabled", "true");
+        System.setProperty("slums.botlife.execute", "true");
+        System.setProperty(BotQuests.PROP, "true");
+    }
+
+    @AfterEach
+    void off() {
+        System.clearProperty("slums.botlife.enabled");
+        System.clearProperty("slums.botlife.execute");
+        System.clearProperty(BotQuests.PROP);
+    }
 
     static LifeGoals.Facts facts() {
         return new LifeGoals.Facts(15, 100, OptionalInt.empty(), 0, false, false, false, new SocialProfile(.8, .8));
@@ -85,6 +101,16 @@ class LifeQuestGoalTest {
                 loaded.goals().stream().map(LifeGoals.Goal::kind).toList());
         assertEquals(memory.plans().size(), loaded.plans().size(), "the quest plan lines up after a load");
         assertEquals(QUEST, (int) loaded.quests(l -> l.active().questId));
+    }
+
+    @Test
+    void switchedOffAStoredQuestIsNoGoal() {
+        var memory = new LifeMemory(1_000_000_780, null);
+        pick(memory);
+        System.clearProperty(BotQuests.PROP);
+        memory.refresh(facts(), 1);
+        assertTrue(memory.goals().stream().noneMatch(g -> g.kind() == LifeGoals.Kind.QUEST));
+        assertNotNull(memory.quests(BotQuestLog::active), "the log is kept for when it is switched on again");
     }
 
     @Test

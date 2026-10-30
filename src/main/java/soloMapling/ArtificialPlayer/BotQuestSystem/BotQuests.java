@@ -256,7 +256,7 @@ public final class BotQuests {
      * map. Cheap when it does nothing: a per-bot clock, the daily cap and an active quest all return at once.
      */
     public static boolean consider(Character chr, BotQuestLog log, boolean grinding, int homeMap, long now) {
-        if (!enabled() || chr == null || log == null) return false;
+        if (!enabled() || chr == null || log == null || !isRosterBot(chr)) return false;
         BotQuestLog.Active current = log.active();
         if (current != null && now - current.pickedAt > (current.taken() ? STALE_TAKEN_MS : STALE_PICK_MS)) {
             log.drop(); // never got round to it (the brain kept choosing other things): let it go, as players do
@@ -567,6 +567,14 @@ public final class BotQuests {
     public static Map<String, Long> metrics() {
         return Map.of("picks", picks.sum(), "realStarts", realStarts.sum(), "realCompletes", realCompletes.sum(),
                 "recorded", modelledCompletes.sum(), "deferred", deferred.sum(), "dropped", dropped.sum());
+    }
+
+    /** Roster bots only (an owned alt is a player's character with its own quests); a seam for tests. */
+    static volatile java.util.function.Predicate<Character> rosterBot =
+            soloMapling.ArtificialPlayer.BotHelpers::isRosterBot;
+
+    private static boolean isRosterBot(Character chr) {
+        return rosterBot.test(chr);
     }
 
     /** Test seam: forget per-bot clocks. */

@@ -66,6 +66,7 @@ class BotQuestsTest {
         };
         BotQuestIndex.set(BotQuestIndex.of(List.of(snailQuest(QUEST, 1, Map.of(SNAIL, 10), 2000, 500))));
         BotQuests.resetForTests();
+        BotQuests.rosterBot = chr -> true;
     }
 
     @AfterEach
@@ -75,6 +76,7 @@ class BotQuestsTest {
         BotQuests.yield = oldYield;
         BotQuestIndex.set(null);
         BotQuests.resetForTests();
+        BotQuests.rosterBot = soloMapling.ArtificialPlayer.BotHelpers::isRosterBot;
         System.clearProperty("slums.botlife.enabled");
         System.clearProperty("slums.botlife.execute");
         System.clearProperty(BotQuests.PROP);
@@ -167,6 +169,14 @@ class BotQuestsTest {
         BotQuests.consider(bot(FIELD, 15, null, null), log, false, TOWN, NOW + BotQuests.STALE_PICK_MS + 1);
         assertNull(log.active(), "two hours and never taken: dropped");
         assertTrue(log.skipped(QUEST));
+    }
+
+    @Test
+    void onlyRosterBotsQuest() {
+        BotQuests.rosterBot = chr -> false; // an owned alt: its player's character, its player's quests
+        var log = new BotQuestLog();
+        assertFalse(BotQuests.consider(bot(FIELD, 15, null, null), log, true, TOWN, NOW));
+        assertNull(log.active());
     }
 
     @Test
