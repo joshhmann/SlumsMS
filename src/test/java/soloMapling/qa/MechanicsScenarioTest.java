@@ -48,10 +48,10 @@ class MechanicsScenarioTest {
 
     @Test
     void mx2PassesOnlyAFullClearInTheTimeWithEveryPrizeTaken() {
-        assertEquals("MX2 PASS cleared kpq in 1200 s (limit 1800 s) by 4 bots, 5 wrong tries shown, 4 prizes taken",
+        assertEquals("MX2 PASS cleared kpq in 1200 s (limit 1500 s) by 4 bots, 5 wrong tries shown, 4 prizes taken",
                 MechanicsScenarios.fullVerdict(true, 1_200_300, "cleared", 5, 4, 4));
-        assertTrue(MechanicsScenarios.fullVerdict(true, 1_801_000, "cleared", 0, 4, 4)
-                .startsWith("MX2 FAIL cleared kpq only after 1801 s"));
+        assertTrue(MechanicsScenarios.fullVerdict(true, 1_501_000, "cleared", 0, 4, 4)
+                .startsWith("MX2 FAIL cleared kpq only after 1501 s"));
         assertEquals("MX2 FAIL cleared kpq in 1200 s but only 3 of 4 bots took a prize",
                 MechanicsScenarios.fullVerdict(true, 1_200_000, "cleared", 0, 4, 3));
         assertEquals("MX2 FAIL the leader left (disconnected)",

@@ -284,15 +284,20 @@ whole PQ against a simulation of the scripts (30 seeded 4-bot runs, party of thr
 leader, real member on the puzzle, the bonus rule, the portals).
 
 GM: `!mechanics kpq [me] [bots] [perfect] [stage1-5]` (default: the whole PQ). QA: `!qa run mx-2` (four bots, whole PQ,
-30-minute limit, every bot reaches the bonus); auto-QA **t-mx-2**. mx-1/t-mx-1 still stop after stage 1.
+25-minute limit, every bot reaches the bonus); auto-QA **t-mx-2**. mx-1/t-mx-1 still stop after stage 1.
 
 What needs a real client (Silvia copies against TEST) before the switch goes on: bots hanging still inside the
 4 px rope rectangles (stage 2; nav must stop mid-rope) and standing on the 5 px barrel tops (stage 4); the Ligator and
 stage-5 boss attacks (FollowerFight's attack profiles, the client remote-attack check); portal walk-ins looking like
 walk-ins.
 
-Not done: OPQ on the orchestrator, other PQs, bosses, PQ tiers, organic bot-only LFG parties starting KPQ from the
-lobby (phase 6; KpqStaging and the GM/QA commands start bot-only runs today).
+Bot-only parties on their own (phase 6, KPQ only): `KpqLobby`, behind `-Dslums.mechanics.lobby=true` on top of
+`-Dslums.mechanics` (both off). Once a minute, on a channel whose Kerning PQ lobby (103000000) holds 3-4 free
+population bots of level 21-30 (LifePq sends them there at PQ hours), they make a party, the strongest leads and
+talks to Lakelis; the run plays the whole PQ; the party breaks up after. At most `-Dslums.mechanics.lobbyRuns` (2)
+such runs at a time world-wide. Unit-tested (the pick); not run on TEST.
+
+Not done: OPQ on the orchestrator, other PQs, bosses, PQ tiers.
 
 ## Phased plan
 

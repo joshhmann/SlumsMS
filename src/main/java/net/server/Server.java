@@ -1041,6 +1041,7 @@ public class Server {
         soloMapling.Economy.exchange.ExchangeService.startIfEnabled(); // 1.6.1 NX exchange (ticket 113), off unless -Dslums.exchange=true
         soloMapling.Economy.exchange.volatility.MarketVolatility.startIfEnabled(); // 1.6.1 volatility: traders/events/rumours, off unless their -D flags
         soloMapling.Economy.board.SiteBoard.startIfEnabled(); // 1.6.0 site board + price alerts (file channel), off unless -Dslums.board=true
+        soloMapling.mechanics.KpqLobby.startIfEnabled(); // 1.6.1 KPQ automation: bot-only lobby parties, off unless -Dslums.mechanics=true and -Dslums.mechanics.lobby=true
        // DamageSkin.loadDamageSkins();
     }
 

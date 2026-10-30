@@ -4,7 +4,6 @@ import client.Character;
 import soloMapling.mechanics.KpqStaging;
 import soloMapling.mechanics.Mechanics;
 import soloMapling.mechanics.MechanicsRuns;
-import soloMapling.mechanics.Orchestrator;
 import soloMapling.mechanics.RunState;
 
 import java.util.EnumSet;
@@ -34,8 +33,11 @@ final class MechanicsScenarios {
         return List.of(new Mx1KpqStage1(), new Mx2KpqFull());
     }
 
-    /** mx-2: the whole PQ must clear inside KPQ's own 30 minutes. */
-    static final int FULL_LIMIT_S = 30 * 60;
+    /**
+     * mx-2: the whole PQ must clear within 25 minutes (KPQ's own timer is 30), so the prizes and the bonus (at most
+     * 150 s each) still fit the QA suite's 31-minute box.
+     */
+    static final int FULL_LIMIT_S = 25 * 60;
 
     /**
      * The line mx-2 logs when the run ends: PASS when every stage cleared within the PQ's time and every bot took its
@@ -92,7 +94,7 @@ final class MechanicsScenarios {
         }
 
         public int minutes(String[] args) {
-            return 35;
+            return 31;
         }
 
         public List<String> stage(QaContext ctx) {
@@ -117,8 +119,7 @@ final class MechanicsScenarios {
                     + (perfect ? " (perfect)" : ""));
             Thread watcher = new Thread(() -> {
                 RunState r = a.run();
-                long deadline = System.currentTimeMillis()
-                        + (FULL_LIMIT_S + Orchestrator.AFTER_CLEAR_BUDGET_MS / 1000 + 120) * 1000L;
+                long deadline = System.currentTimeMillis() + (FULL_LIMIT_S + 5 * 60) * 1000L;
                 while (!r.ended() && System.currentTimeMillis() < deadline) {
                     try {
                         Thread.sleep(1000);

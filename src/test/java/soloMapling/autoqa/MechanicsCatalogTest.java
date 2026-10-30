@@ -59,7 +59,7 @@ class MechanicsCatalogTest {
                 "MX2 RUN stage 5 cleared in 240 s (3 wrong tries shown)",
                 "MX2 NPC Aria -> 9020001 (claim the prize): \"Incredible! You cleared all the stages...\"",
                 "MX2 RUN end kpq in Kerning1: cleared after 1100 s, 3 wrong tries shown",
-                "MX2 MX2 PASS cleared kpq in 1100 s (limit 1800 s) by 4 bots, 3 wrong tries shown, 4 prizes taken");
+                "MX2 MX2 PASS cleared kpq in 1100 s (limit 1500 s) by 4 bots, 3 wrong tries shown, 4 prizes taken");
         for (Check.Verdict x : pass) {
             assertEquals(Check.Status.PASS, x.status(), x.toString());
         }
