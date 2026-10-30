@@ -1435,6 +1435,30 @@ public final class AutoQaCatalog {
                 .expect(has("MX6 START lobby run "), has("lobby yields ch \\d+ to .+'s party"),
                         has("MX6 player instance started "), has("MX6 PASS "), lacks("MX6 FAIL "))
                 .build());
+        // ── 1.6.2 checks two tickets promised (ticket 164 b224, owner 2026-10-30) ─────────────────────────────
+        // Ticket 156 chat grounding, no chat model: a fresh bot's snapshot holds its real level, map and the player;
+        // true claims pass, a wrong level, a far town and "again" to a stranger are rejected and counted, and the
+        // delivery path swaps an untrue scripted line for a safe one (Probes164)
+        c.add(Check.auto("t-gr-1", "Chat grounding: the bot's snapshot is the truth, untrue claims are rejected")
+                .minutes(1)
+                .expect(probe("groundingTruth"))
+                .build());
+        // ticket 156 through the chat model: asked its level a fresh bot says its real one; a forced untrue model draft
+        // is rejected, the model is asked again, and the untrue line is never said. SKIPs without a live model
+        c.add(Check.auto("t-gr-2", "Chat grounding live: a bot says its real level, an untrue model draft is retried")
+                .minutes(5)
+                .expect(probe("groundingLive"))
+                .build());
+        // ticket 157 (adoption matrix: "the trap check as an auto-QA check"): no one-way-in trap from Lith Harbor in
+        // the bots' world graph that the committed baseline does not know (NavTrapQa)
+        c.add(Check.auto("t-nv-2", "No new one-way trap maps in the bots' world graph").minutes(2)
+                .expect(probe("trapMaps"))
+                .build());
+        // ticket 157's debug tools answer on the server: the inspect API refuses a request without the secret and its
+        // view of a fresh bot is the bot; kill calibration reports; a watched bot keeps a nav path trace
+        c.add(Check.auto("t-nv-3", "Debug tools answer: bot inspect API, kill calibration, nav path trace").minutes(2)
+                .expect(probe("debugTools"))
+                .build());
         return List.copyOf(c);
     }
 

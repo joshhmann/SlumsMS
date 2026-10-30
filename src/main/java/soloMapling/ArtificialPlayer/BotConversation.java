@@ -637,10 +637,12 @@ public final class BotConversation {
                 heard.justSaid());
         qaPrompt(bot, player, session.priority, prompt);
         BotBrains.get().reply(session.priority, player.getId(), prompt)
-                .thenAccept(contract -> {
+                .thenAccept(answer -> {
             if (!sessions.containsKey(new Key(bot.getId(), player.getId()))) {
                 return; // the chat ended while the brain was thinking
             }
+            var contract = qaDraft(bot, player, answer); // auto-QA t-gr-2 only
+
             java.util.Optional<String> reply = contract.map(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply::text);
             if (contract.isPresent() && action.outcome() == BotChatActions.Outcome.NONE
                     && contract.get().action() != soloMapling.ArtificialPlayer.BotConvo.ConvoAction.NONE
@@ -1063,23 +1065,90 @@ public final class BotConversation {
         if (saidIn == null || saidIn.text() == null) {
             return;
         }
-        soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line said = saidIn;
-        ChatStats.Tier tier = tierIn;
-        String detail = detailIn;
-        Character bot = session.bot.getChr();
-        Character player = session.player;
-        // ticket 156: every line to a player (model, bank or script) is held to what the bot knows; a scripted line
-        // that claims something else is swapped for a safe one (the model's own were checked and retried in ask)
+        Grounded g = groundForDelivery(session, saidIn, tierIn, detailIn, cue == null ? null : cue.asked());
+        deliverChecked(session, g.said(), asked, g.tier(), g.detail(), cue);
+    }
+
+    /** What {@link #deliver} says after the grounding check: the line, its tier and the stats detail. */
+    private record Grounded(soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line said, ChatStats.Tier tier,
+                            String detail) {
+    }
+
+    /**
+     * Ticket 156: every line to a player (model, bank or script) is held to what the bot knows; a scripted line
+     * that claims something else is swapped for a safe one (the model's own were checked and retried in ask).
+     */
+    private static Grounded groundForDelivery(Session session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line saidIn,
+                                              ChatStats.Tier tierIn, String detailIn, String askedLine) {
         if (session.mind != null && !saidIn.text().equals(session.grounded)
                 && !grounded(session, saidIn.text(), saidIn.source())) {
             soloMapling.ArtificialPlayer.BotConvo.StateOfMind.fellBack();
-            String safe = soloMapling.ArtificialPlayer.BotConvo.StateOfMind.safeLine(session.mind,
-                    cue == null ? null : cue.asked(), ThreadLocalRandom.current());
-            detail = detailIn + ", grounding swapped \"" + saidIn.text() + "\"";
-            said = new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(safe, -1, "scripted");
-            tier = tierIn == ChatStats.Tier.LLM ? ChatStats.Tier.SCRIPTED : tierIn;
+            String safe = soloMapling.ArtificialPlayer.BotConvo.StateOfMind.safeLine(session.mind, askedLine,
+                    ThreadLocalRandom.current());
+            return new Grounded(new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(safe, -1, "scripted"),
+                    tierIn == ChatStats.Tier.LLM ? ChatStats.Tier.SCRIPTED : tierIn,
+                    detailIn + ", grounding swapped \"" + saidIn.text() + "\"");
         }
-        deliverChecked(session, said, asked, tier, detail, cue);
+        return new Grounded(saidIn, tierIn, detailIn);
+    }
+
+    /**
+     * Auto-QA t-gr-1 (ticket 156, b224): what this bot would say to {@code player} if {@code line} were its scripted
+     * answer to {@code asked} - the real snapshot ({@code mindFor}) and the real delivery check
+     * ({@link #groundForDelivery}), counters included, but nothing is said and no chat is opened. Null when the
+     * checker is off or no snapshot can be built.
+     */
+    public static String qaGroundScripted(BotSM bot, Character player, String asked, String line) {
+        if (bot == null || bot.getChr() == null || player == null) {
+            return null;
+        }
+        Session session = new Session(bot, player, System.currentTimeMillis());
+        session.mind = mindFor(session, List.of(BotBrain.Turn.user(asked)), null, null, asked);
+        if (session.mind == null || !soloMapling.ArtificialPlayer.BotConvo.StateOfMind.checkOn()) {
+            return null;
+        }
+        return groundForDelivery(session, new soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line(line, -1, "scripted"),
+                ChatStats.Tier.SCRIPTED, "qa", asked).said().text();
+    }
+
+    /**
+     * Auto-QA t-gr-2 (ticket 156, b224): the chat model's next reply from this bot to this player is replaced, once,
+     * by {@code draft} before the grounding check, so a known-ungrounded claim goes through the real reject and
+     * retry (the retry itself asks the model for real). Only the auto-QA probe sets it; empty otherwise.
+     */
+    private static final Map<Key, String> QA_NEXT_DRAFT = new ConcurrentHashMap<>();
+
+    public static void qaNextDraft(int botCharId, int playerId, String draft) {
+        if (draft == null) {
+            QA_NEXT_DRAFT.remove(new Key(botCharId, playerId));
+        } else {
+            QA_NEXT_DRAFT.put(new Key(botCharId, playerId), draft);
+        }
+    }
+
+    /**
+     * Auto-QA t-gr-1 / t-gr-2 (ticket 156, b224): the snapshot this bot would answer {@code player} from at the start
+     * of a chat ({@code BotStateOfMind.capture}, the one every reply uses). Null for a character that is not a bot.
+     */
+    public static soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Snapshot qaSnapshot(Character bot, Character player) {
+        return BotStateOfMind.qaSnapshot(bot, player);
+    }
+
+    /** Whether an auto-QA draft is still waiting for this pair's next model reply. */
+    public static boolean qaDraftPending(int botCharId, int playerId) {
+        return QA_NEXT_DRAFT.containsKey(new Key(botCharId, playerId));
+    }
+
+    /** The reply with a pending auto-QA draft in place of its text (the draft is used up). */
+    private static java.util.Optional<soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply> qaDraft(
+            Character bot, Character player,
+            java.util.Optional<soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply> contract) {
+        if (QA_NEXT_DRAFT.isEmpty() || contract.isEmpty()) {
+            return contract;
+        }
+        String draft = QA_NEXT_DRAFT.remove(new Key(bot.getId(), player.getId()));
+        return draft == null ? contract
+                : java.util.Optional.of(soloMapling.ArtificialPlayer.BotConvo.ConvoContract.Reply.plain(draft));
     }
 
     private static void deliverChecked(Session session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line said,
