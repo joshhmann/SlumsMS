@@ -119,8 +119,10 @@ class AutoQaTriageCatalogTest {
     @Test
     void cb4StepsOntoABotAndFightsThenWantsAYield() {
         List<String> s = steps("t-cb-4");
-        int step = index(s, "!qa do stepon"), fight = index(s, "!qa do fight");
-        assertTrue(step > index(s, "wait 30 s") && fight > step, s.toString());
+        int step = index(s, "!qa do stepon");
+        assertTrue(step > index(s, "wait 30 s"), s.toString());
+        // b222: the 120 s fight soak after the step-on saw 0 MANNERS lines in every run and no expectation used it
+        assertTrue(s.get(step + 1).contains("for /MANNERS (YIELD|CROWDED) /") && s.size() == step + 2, s.toString());
         String all = AutoQaCatalog.find("t-cb-4").expects().stream().map(Check.Expect::describe).toList().toString();
         assertTrue(all.contains("YIELD|CROWDED"), all);
     }

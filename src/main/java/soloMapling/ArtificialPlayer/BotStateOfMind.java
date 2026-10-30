@@ -143,6 +143,16 @@ final class BotStateOfMind {
         return s;
     }
 
+    /**
+     * Auto-QA t-gr-1 (ticket 156, b224): the snapshot this bot would answer {@code player} from at the start of a chat
+     * (no history, no offer, no game answer), built by the same {@link #capture} a reply uses. Null for a character
+     * that is not an online bot.
+     */
+    public static StateOfMind.Snapshot qaSnapshot(Character bot, Character player) {
+        BotSM sm = bot == null ? null : soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById(bot.getId());
+        return sm == null ? null : capture(sm, player, List.of(), false, null, null, false);
+    }
+
     /** An open offer: the player's line answers a quote this bot gave them (an amount or a "no"). */
     static StateOfMind.Offer offer(Character bot, Character player, String line) {
         if (bot == null || player == null || line == null) {

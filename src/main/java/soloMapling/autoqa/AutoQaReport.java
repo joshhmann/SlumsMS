@@ -64,10 +64,17 @@ public final class AutoQaReport {
      * deployed from), and which earlier passes it carried forward instead of rerunning them.
      */
     record Run(String trigger, long startedMs, long finishedMs, double timeScale, String commit,
-               List<AutoQaRunner.CheckResult> results, Map<String, Map<String, Object>> carried, String carriedRun) {
+               List<AutoQaRunner.CheckResult> results, Map<String, Map<String, Object>> carried, String carriedRun,
+               AutoQaRelease.Verdict release) {
 
         Run {
             carried = carried == null ? Map.of() : carried;
+        }
+
+        /** An ordinary (not release) run. */
+        Run(String trigger, long startedMs, long finishedMs, double timeScale, String commit,
+            List<AutoQaRunner.CheckResult> results, Map<String, Map<String, Object>> carried, String carriedRun) {
+            this(trigger, startedMs, finishedMs, timeScale, commit, results, carried, carriedRun, null);
         }
     }
 
@@ -89,15 +96,25 @@ public final class AutoQaReport {
 
     /** Merges a run into a day's report (in place): results, carried passes, then the run's own line. Returns it. */
     static Map<String, Object> merge(Map<String, Object> report, String build, Run run, Map<String, Object> health) {
-        mergeChecks(report, build, run.timeScale(), run.results(), health);
-        carry(report, run.carried(), run.carriedRun(), mode(run.timeScale()));
+        mergeChecks(report, build, run.timeScale(), run.commit(), run.results(), health);
+        carry(report, run.carried(), run.carriedRun(), mode(run.timeScale()), run.commit());
         addRun(report, run);
         return report;
     }
 
     /** Puts each result under its check id (replacing an earlier one), the health line, and re-counts. */
-    @SuppressWarnings("unchecked")
     static void mergeChecks(Map<String, Object> report, String build, double timeScale,
+                            List<AutoQaRunner.CheckResult> results, Map<String, Object> health) {
+        mergeChecks(report, build, timeScale, null, results, health);
+    }
+
+    /**
+     * As above; b222: every entry also cites its evidence - the commit the TEST server was deployed from
+     * ({@code DEPLOYED_COMMIT}, null when unreadable), the QA log file(s) its scenarios wrote, and when it finished -
+     * and is marked fresh (it ran in this run).
+     */
+    @SuppressWarnings("unchecked")
+    static void mergeChecks(Map<String, Object> report, String build, double timeScale, String commit,
                             List<AutoQaRunner.CheckResult> results, Map<String, Object> health) {
         Map<String, Object> checks = (Map<String, Object>) report.computeIfAbsent("checks", k -> new LinkedHashMap<>());
         long last = 0;
@@ -114,6 +131,9 @@ public final class AutoQaReport {
             e.put("seconds", (r.finishedMs() - r.startedMs()) / 1000);
             e.put("build", build);
             e.put("mode", mode(timeScale));
+            e.put("commit", commit);
+            e.put("logs", new ArrayList<>(r.logs()));
+            e.put("fresh", true);
             checks.put(r.id(), e);
             last = Math.max(last, r.finishedMs());
         }
@@ -149,12 +169,21 @@ public final class AutoQaReport {
         }
     }
 
+    /** As {@link #carry(Map, Map, String, String, String)} with no commit known. */
+    static void carry(Map<String, Object> report, Map<String, Map<String, Object>> carried, String sourceRun, String mode) {
+        carry(report, carried, sourceRun, mode, null);
+    }
+
     /**
-     * Carries a PASS over from an earlier run: the entry keeps its own status, started/finished, build and mode, and
-     * says so in its own evidence, so a carried pass can never be read as a fresh one.
+     * Carries a PASS over from an earlier run: the entry keeps its started/finished, build and mode, and says so in
+     * its own evidence. b222 (owner 2026-10-30): its status reads {@code PASS(old, <run started>, <commit>)} - in
+     * latest.json, test-status and {@code !autoqa report} - with {@code fresh: false}, and it is counted as OLD, never
+     * as a PASS: a carried row is never fresh evidence. {@code commit} is the deployed commit the rerun was guarded
+     * on (the same as the carried run's; null when unknown).
      */
     @SuppressWarnings("unchecked")
-    static void carry(Map<String, Object> report, Map<String, Map<String, Object>> carried, String sourceRun, String mode) {
+    static void carry(Map<String, Object> report, Map<String, Map<String, Object>> carried, String sourceRun, String mode,
+                      String commit) {
         if (carried == null || carried.isEmpty()) {
             return;
         }
@@ -162,9 +191,13 @@ public final class AutoQaReport {
         for (Map.Entry<String, Map<String, Object>> e : carried.entrySet()) {
             Map<String, Object> entry = new LinkedHashMap<>(e.getValue());
             String wasMode = String.valueOf(entry.getOrDefault("mode", mode));
+            entry.put("fresh", false);
             if (entry.get("carriedFrom") instanceof Map<?, ?> already) {
                 // carried twice: the entry still points at the run that actually ran it, and already says so once
-                entry.put("carriedFrom", new LinkedHashMap<>(cast(already)));
+                Map<String, Object> from = new LinkedHashMap<>(cast(already));
+                from.putIfAbsent("commit", entry.get("commit") != null ? entry.get("commit") : commit);
+                entry.put("carriedFrom", from);
+                entry.put("status", oldLabel(from.get("run"), from.get("commit")));
                 checks.put(e.getKey(), entry);
                 continue;
             }
@@ -180,10 +213,36 @@ public final class AutoQaReport {
             from.put("run", sourceRun);
             from.put("build", entry.get("build"));
             from.put("mode", wasMode);
+            from.put("commit", entry.get("commit") != null ? entry.get("commit") : commit);
+            from.put("status", "PASS");
             entry.put("carriedFrom", from);
+            entry.put("status", oldLabel(sourceRun, from.get("commit")));
             checks.put(e.getKey(), entry);
         }
         summarise(report);
+    }
+
+    /** The status a carried pass shows: {@code PASS(old, 2026-10-30T19:00:00Z, b32a14214)}. */
+    static String oldLabel(Object run, Object commit) {
+        String c = commit == null ? "commit unknown" : String.valueOf(commit);
+        return "PASS(old, " + (run == null ? "run unknown" : run) + ", " + (c.length() > 9 ? c.substring(0, 9) : c) + ")";
+    }
+
+    /** Whether a report entry is a carried (old) row rather than a result of the run that wrote it. */
+    static boolean isOld(Map<?, ?> entry) {
+        return entry != null && (entry.containsKey("carriedFrom") || Boolean.FALSE.equals(entry.get("fresh"))
+                || String.valueOf(entry.get("status")).startsWith("PASS(old"));
+    }
+
+    /** Whether a report entry passed, fresh or carried (what a later {@code --failed} may carry again). */
+    static boolean passed(Map<?, ?> entry) {
+        Object st = entry == null ? null : entry.get("status");
+        return "PASS".equals(st) || String.valueOf(st).startsWith("PASS(old");
+    }
+
+    /** The bucket a report entry counts in: PASS, FAIL, SKIP, NOT_RUN, or OLD for a carried pass. */
+    static String bucket(Map<?, ?> entry) {
+        return isOld(entry) ? "OLD" : String.valueOf(entry.get("status"));
     }
 
     @SuppressWarnings("unchecked")
@@ -226,6 +285,18 @@ public final class AutoQaReport {
             line.put("carriedFrom", from);
         }
         line.put("results", results);
+        // b222 (4): which checks this run skipped, and why, so a nightly can never hide a SKIP among the counts
+        Map<String, Object> skipped = new LinkedHashMap<>();
+        for (AutoQaRunner.CheckResult r : run.results()) {
+            if (r.status() == Check.Status.SKIP) {
+                skipped.put(r.id(), r.reason() == null ? "no reason given" : r.reason());
+            }
+        }
+        line.put("skipped", skipped);
+        if (run.release() != null) {
+            line.put("release", run.release().toMap());
+        }
+        line.put("summary", runSummary(line));
         Object runsObj = report.get("runs");
         List<Object> runs = runsObj instanceof List ? new ArrayList<>((List<Object>) runsObj) : new ArrayList<>();
         runs.add(line);
@@ -237,14 +308,14 @@ public final class AutoQaReport {
     static void summarise(Map<String, Object> report) {
         Map<String, Object> checks = (Map<String, Object>) report.get("checks");
         Map<String, Object> s = new LinkedHashMap<>();
-        for (String k : List.of("PASS", "FAIL", "SKIP", "NOT_RUN")) {
+        for (String k : List.of("PASS", "FAIL", "SKIP", "NOT_RUN", "OLD")) {
             s.put(k, 0);
         }
         int carried = 0;
         for (Object o : checks.values()) {
             Map<String, Object> c = (Map<String, Object>) o;
-            s.merge(String.valueOf(c.get("status")), 1, (a, b) -> (Integer) a + (Integer) b);
-            if (c.containsKey("carriedFrom")) {
+            s.merge(bucket(c), 1, (a, b) -> (Integer) a + (Integer) b);
+            if (isOld(c)) {
                 carried++;
             }
         }
@@ -284,6 +355,36 @@ public final class AutoQaReport {
         AutoQa.writeAtomic(dir.resolve("latest.json"), json);
     }
 
+    /**
+     * A run's one-line summary (b222): counts, the skipped ids grouped by reason, and for a release run its verdict:
+     * {@code "<trigger> at <started>: 120 pass, 2 fail, 13 skip; skipped: client-only: t-cl-1, t-cl-2 | ...;
+     * release: FAIL (unexpected SKIP: t-mx-1)"}.
+     */
+    static String runSummary(Map<String, Object> line) {
+        StringBuilder b = new StringBuilder();
+        b.append(line.get("trigger")).append(" at ").append(line.get("started")).append(": ")
+                .append(line.get("PASS")).append(" pass, ").append(line.get("FAIL")).append(" fail, ")
+                .append(line.get("SKIP")).append(" skip");
+        if (line.get("carried") instanceof Number n && n.intValue() > 0) {
+            b.append(", ").append(n).append(" old (carried, not rerun)");
+        }
+        if (line.get("skipped") instanceof Map<?, ?> skipped && !skipped.isEmpty()) {
+            Map<String, List<String>> byReason = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : skipped.entrySet()) {
+                String why = String.valueOf(e.getValue());
+                why = why.length() > 70 ? why.substring(0, 70) + "..." : why;
+                byReason.computeIfAbsent(why, k -> new ArrayList<>()).add(String.valueOf(e.getKey()));
+            }
+            List<String> parts = new ArrayList<>();
+            byReason.forEach((why, ids) -> parts.add(String.join(", ", ids) + " (" + why + ")"));
+            b.append("; skipped: ").append(String.join(" | ", parts));
+        }
+        if (line.get("release") instanceof Map<?, ?> rel) {
+            b.append("; ").append(rel.get("line"));
+        }
+        return b.toString();
+    }
+
     /** One check's line in a report: id ({@code t-af-1}), title, status (PASS/FAIL/SKIP/NOT_RUN) and the reason. */
     public record CheckLine(String id, String title, String status, String reason) {
     }
@@ -303,7 +404,7 @@ public final class AutoQaReport {
             return null;
         }
         Map<String, Integer> counts = new LinkedHashMap<>();
-        for (String k : List.of("PASS", "FAIL", "SKIP", "NOT_RUN")) {
+        for (String k : List.of("PASS", "FAIL", "SKIP", "NOT_RUN", "OLD")) {
             counts.put(k, 0);
         }
         List<CheckLine> lines = new ArrayList<>();
@@ -313,7 +414,7 @@ public final class AutoQaReport {
             }
             Map<String, Object> c = (Map<String, Object>) e.getValue();
             String status = String.valueOf(c.get("status"));
-            counts.merge(status, 1, Integer::sum);
+            counts.merge(bucket(c), 1, Integer::sum);
             Object reason = c.get("reason");
             lines.add(new CheckLine(e.getKey(), String.valueOf(c.get("title")), status,
                     reason == null ? null : String.valueOf(reason)));
@@ -331,14 +432,17 @@ public final class AutoQaReport {
             return out;
         }
         Map<String, Object> s = (Map<String, Object>) report.get("summary");
+        Object old = s.get("OLD");
         out.add("Auto-QA " + report.get("day") + " (" + report.get("build") + "): " + s.get("PASS") + " pass, "
-                + s.get("FAIL") + " fail, " + s.get("SKIP") + " skip, " + s.get("NOT_RUN") + " not run of " + s.get("total")
-                + ". Updated " + report.get("updated"));
-        if (lastRun(report) instanceof Map<?, ?> last && last.get("carried") instanceof Number n && n.intValue() > 0) {
+                + s.get("FAIL") + " fail, " + s.get("SKIP") + " skip, " + s.get("NOT_RUN") + " not run"
+                + (old instanceof Number o && o.intValue() > 0 ? ", " + o + " old (carried, not rerun)" : "")
+                + " of " + s.get("total") + ". Updated " + report.get("updated"));
+        Map<?, ?> last = lastRun(report);
+        if (last != null && last.get("carried") instanceof Number n && n.intValue() > 0) {
             Object from = last.get("carriedFrom") instanceof Map<?, ?> c ? c.get("run") : null;
             out.add("Last run: " + last.get("PASS") + " pass / " + last.get("FAIL") + " fail rerun at "
-                    + last.get("timeScale") + " (" + last.get("mode") + "); " + n + " pass carried forward, not rerun, from "
-                    + from);
+                    + last.get("timeScale") + " (" + last.get("mode") + "); " + n + " pass carried forward, not rerun, "
+                    + "from " + from + " - shown as PASS(old, ...), never fresh evidence");
         }
         Map<String, Object> h = (Map<String, Object>) report.get("health");
         if (h != null) {
@@ -354,7 +458,17 @@ public final class AutoQaReport {
         if (report.get("sayDo") instanceof Map<?, ?> sd && sd.get("claims") instanceof Number c && c.longValue() > 0) {
             out.add("Say-do since boot: " + sd.get("backed") + " of " + c + " claims backed");
         }
+        if (last != null) {
+            // b222: what the last run skipped and why, and a release run's verdict
+            out.add("Last run: " + (last.get("summary") != null ? last.get("summary") : runSummary(cast(last))));
+        }
         Map<String, Object> checks = (Map<String, Object>) report.get("checks");
+        List<String> olds = new ArrayList<>();
+        for (Map.Entry<String, Object> e : checks.entrySet()) {
+            if (e.getValue() instanceof Map<?, ?> c && isOld(c)) {
+                olds.add(e.getKey() + " " + c.get("status"));
+            }
+        }
         for (String want : List.of("FAIL", "PASS", "SKIP")) {
             for (Map.Entry<String, Object> e : checks.entrySet()) {
                 Map<String, Object> c = (Map<String, Object>) e.getValue();
@@ -367,6 +481,10 @@ public final class AutoQaReport {
                 Object reason = c.get("reason");
                 out.add(want + " " + e.getKey() + " " + c.get("title") + (reason == null ? "" : ": " + reason));
             }
+        }
+        if (!olds.isEmpty() && out.size() < maxLines) {
+            out.add("OLD (carried, not rerun): " + String.join("; ", olds.subList(0, Math.min(olds.size(), 8)))
+                    + (olds.size() > 8 ? "; ... " + (olds.size() - 8) + " more" : ""));
         }
         if (out.size() >= maxLines) {
             out.add("... more in data/autoqa/latest.json");

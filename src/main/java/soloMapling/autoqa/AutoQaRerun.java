@@ -73,7 +73,7 @@ final class AutoQaRerun {
             Map<String, Object> entry = entries.get(c.id());
             boolean passed = "PASS".equals(results.get(c.id()))
                     || (carriedIds != null && carriedIds.contains(c.id()));
-            if (passed && "PASS".equals(entry == null ? null : entry.get("status"))) {
+            if (passed && AutoQaReport.passed(entry)) {
                 carried.put(c.id(), entry);
             } else {
                 rerun.add(c);

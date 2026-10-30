@@ -131,6 +131,22 @@ public final class BotInspectApi {
         return running;
     }
 
+    /** Auto-QA t-nv-3 (ticket 157, b224): the port the endpoint listens on, or -1 when it is not running. */
+    public static int qaPort() {
+        HttpServer s = running;
+        return s == null || s.getAddress() == null ? -1 : s.getAddress().getPort();
+    }
+
+    /** Auto-QA t-nv-3: the {@code /bots/{cid}} document the endpoint would serve (in process, no secret involved). */
+    public static Map<String, Object> qaBot(int cid) {
+        return new GameSources().bot(cid, System.currentTimeMillis());
+    }
+
+    /** Auto-QA t-nv-3: the {@code /positions} document the endpoint would serve. */
+    public static Map<String, Object> qaPositions() {
+        return new GameSources().positions(System.currentTimeMillis());
+    }
+
     public static void stop() {
         HttpServer s = running;
         if (s != null) {

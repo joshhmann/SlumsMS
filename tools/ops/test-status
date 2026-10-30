@@ -1,30 +1,37 @@
 #!/bin/bash
 # One-screen status of the TEST server: version, uptime, errors, bots, auto-QA and health. Read-only.
 #
-#   tools/ops/test-status [--feature] [--since "30 min ago"]
+#   tools/ops/test-status [--feature] [--since "30 min ago"] [--checks]
+#
+# Auto-QA (b222): the last run's summary line (what it skipped and why, a release run's verdict), every FAIL and every
+# carried row ("PASS(old, <run>, <commit>)": not rerun, never fresh evidence), each with the evidence it cites: the
+# commit TEST was deployed from, the QA log(s) and the time. --checks prints that line for every check.
 set -euo pipefail
 SINCE="1 hour ago"
 FEATURE=0
+CHECKS=0
 while [ $# -gt 0 ]; do
  case "$1" in
   --feature) FEATURE=1 ;;
   --since) SINCE="${2:?--since needs a value}"; shift ;;
+  --checks) CHECKS=1 ;;
   *) echo 'unknown status option' >&2; exit 2 ;;
  esac
  shift
 done
 # ssh joins its arguments into one string, so quote the value for the remote shell
-ssh root@192.168.0.164 "bash -s -- $(printf %q "$SINCE") $FEATURE" <<'REMOTE'
-SINCE=$1; U=slums-persistence-test; S=/opt/mapleroot-dev/persistence-test/Server
+ssh root@192.168.0.164 "bash -s -- $(printf %q "$SINCE") $FEATURE $CHECKS" <<'REMOTE'
+SINCE=$1; CHECKS=$3; U=slums-persistence-test; S=/opt/mapleroot-dev/persistence-test/Server
 if [ "$2" = 1 ]; then U=slums-life160; S=/opt/mapleroot-dev/bot-life-160/Server; fi
 echo "unit: $(systemctl is-active $U) since $(systemctl show $U -p ActiveEnterTimestamp --value)"
 echo "commit: $(cat $S/DEPLOYED_COMMIT 2>/dev/null || echo unknown)"
 journalctl -u $U --since "$(systemctl show $U -p ActiveEnterTimestamp --value)" | grep -m1 -oE "SlumsMS v[^ ]+"
 echo "ERROR/Exception lines since $SINCE: $(journalctl -u $U --since "$SINCE" | grep -cE 'ERROR|Exception')"
 journalctl -u $U --since "$SINCE" | grep -E "ERROR|Exception" | sed -E 's/^.{0,45}//; s/[0-9]{9,}/N/g' | cut -c1-120 | sort | uniq -c | sort -rn | head -5
-python3 - "$S" <<'PY'
+python3 - "$S" "$CHECKS" <<'PY'
 import json, sys, os
 s = sys.argv[1]
+every = sys.argv[2] == '1' 
 def load(p):
     try: return json.load(open(os.path.join(s, p)))
     except Exception: return None
@@ -43,7 +50,32 @@ if r:
     print('auto-QA latest:', r.get('summary'))
     cq = r.get('chatQuality') or {}
     if cq: print('chat quality:', cq.get('headline'), ('PROBLEMS %s' % cq.get('problems')) if cq.get('problems') else '')
+    runs = r.get('runs') or []
+    if runs:
+        last = runs[-1]
+        print('last run:', last.get('summary') or '%s: %s pass, %s fail, %s skip' % (
+            last.get('trigger'), last.get('PASS'), last.get('FAIL'), last.get('SKIP')))
+        rel = last.get('release')
+        if rel: print('  ' + rel.get('line', ''))
+    def cite(v):
+        st = str(v.get('status'))
+        if v.get('carriedFrom') or st.startswith('PASS(old') or v.get('fresh') is False:
+            f = v.get('carriedFrom') or {}
+            commit, when = f.get('commit') or v.get('commit'), f.get('run')
+        else:
+            commit, when = v.get('commit'), v.get('finished')
+        if 'logs' not in v:
+            return 'evidence not recorded (result from before b222), %s' % (when or '?')
+        logs = v.get('logs') or []
+        return 'commit %s, %s, log %s' % ((commit or 'unknown')[:9], when or '?', ', '.join(logs) if logs else 'none (probe only)')
     for k, v in (r.get('checks') or {}).items():
-        if v.get('status') == 'FAIL': print('  FAIL', k, (v.get('reason') or '')[:110])
+        st = str(v.get('status'))
+        if st == 'FAIL':
+            print('  FAIL', k, (v.get('reason') or '')[:110])
+            print('       ', cite(v))
+        elif st.startswith('PASS(old') or v.get('carriedFrom'):
+            print('  OLD ', k, st, '(carried, not rerun)')
+        elif every:
+            print('  %-4s %s %s' % (st, k, cite(v)))
 PY
 REMOTE

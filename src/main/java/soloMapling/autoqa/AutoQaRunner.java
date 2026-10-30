@@ -42,7 +42,17 @@ public final class AutoQaRunner {
 
     /** One check's outcome, keyed by its page id in the report. */
     public record CheckResult(String id, String title, Check.Kind kind, Status status, String reason, List<String> evidence,
-                              long startedMs, long finishedMs) {
+                              long startedMs, long finishedMs, List<String> logs) {
+
+        public CheckResult {
+            logs = logs == null ? List.of() : List.copyOf(logs);
+        }
+
+        /** A result with no QA log (a probe-only check, a SKIP before any step). */
+        public CheckResult(String id, String title, Check.Kind kind, Status status, String reason, List<String> evidence,
+                           long startedMs, long finishedMs) {
+            this(id, title, kind, status, reason, evidence, startedMs, finishedMs, List.of());
+        }
     }
 
     private final AutoQaWorld world;
@@ -96,7 +106,8 @@ public final class AutoQaRunner {
         ev.add("fast lane: QA staging ran at " + soloMapling.qa.QaTiming.label()
                 + " - staged windows are shorter than a normal run's");
         ev.addAll(r.evidence());
-        return new CheckResult(r.id(), r.title(), r.kind(), r.status(), r.reason(), ev, r.startedMs(), r.finishedMs());
+        return new CheckResult(r.id(), r.title(), r.kind(), r.status(), r.reason(), ev, r.startedMs(), r.finishedMs(),
+                r.logs());
     }
 
     /**
@@ -265,7 +276,7 @@ public final class AutoQaRunner {
         if (status == Status.FAIL) {
             all.addAll(run.gmAnswers(GM_ANSWERS_ON_FAIL));
         }
-        return new CheckResult(c.id(), c.title(), c.kind(), status, reason, all, t0, world.now());
+        return new CheckResult(c.id(), c.title(), c.kind(), status, reason, all, t0, world.now(), run.logs());
     }
 
     private void cleanup(CheckRun run) {

@@ -168,6 +168,19 @@ public final class NavTrace {
         return capture(GCMovement.stateOf(bot));
     }
 
+    /**
+     * Auto-QA t-nv-3 (ticket 157, b224): the bot's ring as it stands, without spending this hour's copy budget (a
+     * check reading it is not a stuck event). Null when tracing is off or the bot has no ring (not on full physics).
+     */
+    public static List<String> qaRing(Character bot) {
+        if (!enabled || bot == null) {
+            return null;
+        }
+        BotMovementState entry = GCMovement.stateOf(bot);
+        Ring ring = entry == null ? null : entry.navTrace;
+        return ring == null || ring.size == 0 ? null : ring.lines();
+    }
+
     /** One copy from this hour's budget. */
     static synchronized boolean take(long now) {
         if (now - hourStartMs >= 3_600_000L || now < hourStartMs) {

@@ -42,3 +42,11 @@ NPCs that don't talk (owner: "to the ones that dont talk"): every NPC players ca
 Build the list from the TEST journal's "is not coded" lines plus a scan of map NPCs without a script; research what
 each did in the original game (game-reference skill); decide per NPC with the owner: script it, give it a line, hide
 it, or leave it.
+
+## Auto-QA (ticket 164 b224, 2026-10-30)
+
+Branch `162-qaharden`: **t-gr-1** (no chat model) proves a fresh bot's snapshot holds its real level, map and the
+player, the checker passes true claims and rejects a wrong level, a far town and "again" to a stranger (counted), and
+the delivery path swaps an untrue scripted line for a safe one. **t-gr-2** (live model) asks a fresh bot its level
+(must say the real one) and forces one untrue model draft through the reject and retry (never said). The day's
+transcript share in item 5 is still ChatQuality's "grounding rejects" headline, not a check of its own.

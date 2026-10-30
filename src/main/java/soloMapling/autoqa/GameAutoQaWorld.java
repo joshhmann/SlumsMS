@@ -200,6 +200,9 @@ final class GameAutoQaWorld implements AutoQaWorld {
                     if (more == null) {
                         more = Probes162.probe(what, actor instanceof SyntheticPlayer sp2 ? sp2 : null, a);
                     }
+                    if (more == null) {
+                        more = Probes164.probe(what, actor instanceof SyntheticPlayer sp3 ? sp3 : null, a);
+                    }
                     yield more != null ? more : List.of("FAIL no probe '" + what + "'");
                 }
             };

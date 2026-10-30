@@ -30,8 +30,15 @@ class AutoQaRunnerTest {
         };
         LlmJudge judge = LlmJudge.of(null, 0);
 
+        final List<AutoQaLine> pending = new ArrayList<>();
+
         void qa(String kind, String msg) {
             qa.add(new AutoQaLine(now, "qa", kind, msg));
+        }
+
+        /** A qa line that lands at {@code atMs} on the fake clock (while a step sleeps). */
+        void later(long atMs, String kind, String msg) {
+            pending.add(new AutoQaLine(atMs, "qa", kind, msg));
         }
 
         @Override
@@ -70,6 +77,13 @@ class AutoQaRunnerTest {
         @Override
         public void sleep(long ms) {
             now += ms;
+            for (java.util.Iterator<AutoQaLine> it = pending.iterator(); it.hasNext(); ) {
+                AutoQaLine l = it.next();
+                if (l.timeMs() <= now) {
+                    qa.add(l);
+                    it.remove();
+                }
+            }
         }
 
         @Override

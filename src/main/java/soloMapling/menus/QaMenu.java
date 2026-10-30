@@ -189,7 +189,8 @@ public final class QaMenu {
         } else {
             text.append("report ").append(r.day()).append(" (").append(r.build()).append("):\r\n")
                     .append("#bPASS ").append(r.count("PASS")).append("#k  #rFAIL ").append(r.count("FAIL"))
-                    .append("#k  SKIP ").append(r.count("SKIP")).append("  NOT_RUN ").append(r.count("NOT_RUN"));
+                    .append("#k  SKIP ").append(r.count("SKIP")).append("  NOT_RUN ").append(r.count("NOT_RUN"))
+                    .append(r.count("OLD") > 0 ? "  OLD " + r.count("OLD") + " (carried, not rerun)" : "");
             boolean any = false;
             for (AutoQaReport.CheckLine c : r.checks()) {
                 if (!"FAIL".equals(c.status())) {
@@ -279,6 +280,9 @@ public final class QaMenu {
     }
 
     private static String statusTag(String status) {
+        if (status.startsWith("PASS(old")) {
+            return "old"; // b222: a carried pass is never shown as a fresh one
+        }
         return switch (status.toUpperCase(Locale.ROOT)) {
             case "PASS" -> "#bPASS#k";
             case "FAIL" -> "#rFAIL#k";

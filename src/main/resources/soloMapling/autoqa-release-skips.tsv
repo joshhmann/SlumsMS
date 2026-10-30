@@ -1,0 +1,15 @@
+# Auto-QA release run (b222, owner 2026-10-30): the checks that may SKIP in a release run. Any other SKIP makes the
+# release run FAIL ("release: FAIL (unexpected SKIP: ids)"). One check id per line, a tab, then why it may skip.
+# Initially the client-only checks: MANUAL in AutoQaCatalog, never run headless (AutoQaCatalogTest pins that).
+# Adding an id here is an owner decision: say why in the line and in the commit.
+t-ga-4	MANUAL: a show bot's rolls vanishing is a real client's pick-up attempt and timer
+t-rg-1	MANUAL: the Cash Shop purchase flow and the ring effect are client-side
+t-rg-2	MANUAL: the Cash Shop purchase flow and the couple effect are client-side
+t-mv-1	MANUAL: measures the tester's own client movement packets
+t-jq-1	MANUAL: the bounce is client-side input
+t-cl-1	MANUAL: client art, eyes only
+t-cl-2	MANUAL: client input, eyes only
+t-cl-3	MANUAL: client crash and icons, eyes only
+t-cc-1	MANUAL: the login screen of a real client
+t-mr-2	MANUAL: the client's proposal window for a female proposer
+t-la-1	MANUAL: the Tauri launcher is a desktop app with its own checklist

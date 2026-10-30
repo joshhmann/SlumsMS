@@ -25,7 +25,7 @@ class AutoQaCatalogTest {
             "t-mv-1", "t-jq-1", "t-cl-1", "t-cl-2", "t-cl-3", "t-cc-1", "t-mr-2", "t-vg-1", "t-ch-1", "t-la-1", "t-vb-1", "t-vb-2", "t-vb-3", "t-vb-4", "t-vb-5", "t-vb-6", "t-vb-7", "t-vb-8", "t-fh-1", "t-fh-2", "t-mb-1", "t-bl-1", "t-bl-2", "t-bl-3", "t-bl-4", "t-lk-1", "t-sg-1", "t-sg-2", "t-bb-3", "t-bl-11", "t-bc-1", "t-me-1", "t-me-2", "t-gs-1", "t-in-1", "t-in-2", "t-in-3", "t-lr-1", "t-rv-5", "t-dr-6", "t-cr-1", "t-ev-1", "t-ev-2", "t-ev-3", "t-mk-1", "t-sf-1", "t-bd-1", "t-bw-1", "t-st-1", "t-ex-1", "t-nx-1", "t-nx-2",
             "t-oa-1", "t-tw-1", "t-hp-1", "t-au-1", "t-ds-1", "t-np-4", "t-ck-1", "t-sc-3", "t-ss-1", "t-xc-1", "t-xc-2", "t-xc-3", "t-xc-4", "t-fy-1", "t-fy-2", "t-fy-3", "t-fy-4", "t-ti-1", "t-rb-1", "t-rb-2", "t-rb-3", "t-ac-1", "t-ac-2", "t-pg-1", "t-nc-1", "t-ld-1", "t-iv-1", "t-iv-2", "t-sn-1", "t-bt-1", "t-bt-2", "t-bt-3", "t-br-1", "t-nv-1", "t-mx-1", "t-mx-2",
             "t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1", "t-su-2", "t-su-3", "t-jb-1", "t-jb-2", "t-nn-1", "t-nn-2",
-            "t-mx-3", "t-mx-4", "t-mx-5", "t-mx-6");
+            "t-mx-3", "t-mx-4", "t-mx-5", "t-mx-6", "t-gr-1", "t-gr-2", "t-nv-2", "t-nv-3");
 
     @Test
     void everyPageCheckIsThereOnceInPageOrder() {
@@ -126,7 +126,8 @@ class AutoQaCatalogTest {
         java.util.Map<String, Object> r = AutoQaReport.empty("b", "2026-10-23", AutoQaCatalog.all());
         AutoQaReport.Snapshot s = AutoQaReport.snapshot(r);
         assertEquals(AutoQaCatalog.all().size(), s.checks().size());
-        assertEquals(s.checks().size(), s.count("PASS") + s.count("FAIL") + s.count("SKIP") + s.count("NOT_RUN"));
+        assertEquals(s.checks().size(), s.count("PASS") + s.count("FAIL") + s.count("SKIP") + s.count("NOT_RUN")
+                + s.count("OLD"));
         assertEquals(null, AutoQaReport.snapshot(null));
     }
 
@@ -152,6 +153,49 @@ class AutoQaCatalogTest {
                 assertFalse(st.describe().contains("!hide"), id + ": " + st.describe());
             }
         }
+    }
+
+    /**
+     * b222: a wait that runs out fails its check. The few windows that may legitimately stay empty are explicit
+     * ({@code Steps.optionalWait}) and pinned here, and the checks whose waits timed out in every TEST run of
+     * 10-23..30 while the check still passed were converted (they would otherwise fail on the new rule for the wrong
+     * reason, or kept passing without testing what they waited for).
+     */
+    @Test
+    void onlyPinnedChecksHaveOptionalWindowsAndTheTimedOutWaitsWereConverted() {
+        Set<String> optional = new HashSet<>();
+        for (Check c : AutoQaCatalog.all()) {
+            for (Check.Step st : c.steps()) {
+                if (st.describe().startsWith("optional: ")) {
+                    optional.add(c.id());
+                }
+            }
+        }
+        assertEquals(Set.of("t-ev-2"), optional);
+        // t-gu-8: a held kick is a branch (vote), not a wait that may run out
+        assertTrue(steps("t-gu-8").contains("up to 15 s for the kick, else !qa do vote"), steps("t-gu-8"));
+        assertFalse(steps("t-gu-8").contains("for /BOT_GUILD KICK /"), steps("t-gu-8"));
+        // t-td-2: waits for the bot's answer to the chat ask, not a new QUOTE line the ask never logs
+        assertTrue(steps("t-td-2").contains("for /CHAT {bot}: /"), steps("t-td-2"));
+        // t-cb-4: no 120 s soak that saw 0 lines in every run
+        assertFalse(steps("t-cb-4").contains("x /MANNERS /"), steps("t-cb-4"));
+        // t-af-3: the wait ends on what the expectation accepts
+        assertTrue(steps("t-af-3").contains("for /" + AutoQaCatalog.AF3_DRAMA_ON + "/"), steps("t-af-3"));
+        // t-bl-3 and t-ev-2: the trip, death and respawn may come before the wait's own window
+        assertTrue(steps("t-bl-3").contains("(since mark need)"), steps("t-bl-3"));
+        assertTrue(steps("t-ev-2").contains("for /WEVENT BOT DIED / (since the start)"), steps("t-ev-2"));
+        // the chat checks give a late (human-timed) reply the time it takes
+        for (String id : List.of("t-cv-1", "t-cv-2", "t-cv-3", "t-cv-7")) {
+            assertFalse(steps(id).matches("(?s).*wait up to 1[25] s for 1 x .*"), id + ": " + steps(id));
+        }
+    }
+
+    private static String steps(String id) {
+        StringBuilder b = new StringBuilder();
+        for (Check.Step st : AutoQaCatalog.find(id).steps()) {
+            b.append(st.describe()).append('\n');
+        }
+        return b.toString();
     }
 
     @Test
