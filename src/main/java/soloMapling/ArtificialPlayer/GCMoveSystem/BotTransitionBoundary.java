@@ -104,7 +104,8 @@ final class BotTransitionBoundary {
         entry.airStuckX = Integer.MIN_VALUE;
         entry.airStuckY = Integer.MIN_VALUE;
         // navBlockedPos*, the other "measured against a position" counters, are reset by the delegated
-        // clearNavigationState instead: that is where the nav leg they qualify is dropped.
+        // resetEntryStateAfterTeleport instead (clearNavigationState too, unless NN-011 blockedPosWatchdog keeps
+        // them across incidental clears).
         // No-progress move clock: 0 means "not seeded yet", which restarts the window from the position
         // the bot actually landed on (see GCMovementDriver.giveUpStalledMove).
         entry.moveBestDist = Integer.MAX_VALUE;

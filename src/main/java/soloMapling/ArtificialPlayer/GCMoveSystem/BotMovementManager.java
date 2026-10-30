@@ -193,7 +193,16 @@ class BotMovementManager {
         entry.observedOwnerStepX = 0;
         entry.observedOwnerStepY = 0;
         clearNavigationState(entry);
+        resetBlockedPosTracker(entry); // a teleport, map change or LOD promotion is a genuinely new leg
         entry.movementBroadcastValid = false;
+    }
+
+    private static void resetBlockedPosTracker(BotMovementState entry) {
+        entry.navBlockedPosTicks = 0;
+        entry.navBlockedPosGiveUpTicks = 0;
+        entry.navBlockedPosX = Integer.MIN_VALUE;
+        entry.navBlockedPosY = Integer.MIN_VALUE;
+        entry.navBlockedPosEdge = null;
     }
 
     static void clearNavigationState(BotMovementState entry) {
@@ -210,12 +219,9 @@ class BotMovementManager {
         // between AI ticks (a refused ground step, the post-move execute check) zeroed it every tick while the
         // planner re-served the same unexecutable hop, so the give-up never fired. The tracker still resets itself
         // on any unblocked tick and on leaving its 16 px drift radius, and the give-up consumes it.
+        // A teleport, map change or LOD promotion still resets it (clearTransientState).
         if (!NavPortSwitches.blockedPosWatchdog) {
-            entry.navBlockedPosTicks = 0;
-            entry.navBlockedPosGiveUpTicks = 0;
-            entry.navBlockedPosX = Integer.MIN_VALUE;
-            entry.navBlockedPosY = Integer.MIN_VALUE;
-            entry.navBlockedPosEdge = null;
+            resetBlockedPosTracker(entry);
         }
         // Ticket 33: an overrun or twitch belongs to the leg being dropped.
         entry.flaws.overrunTicks = 0;
