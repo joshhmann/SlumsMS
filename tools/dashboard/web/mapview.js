@@ -27,6 +27,9 @@
       };
       this.view = { s: 1, x: 0, y: 0 };
       this.onPortal = null;
+      this.onPick = null;      // route preview: (x, y) in map coordinates when the picker is on
+      this.route = null;       // { a: [x, y], b: [x, y], edges: [...] } from the route preview
+      this.highlight = null;   // Set of region ids to ring (a dead end from the World tab)
       this.hover = null;
       this.pinned = null;
       this._bind();
@@ -38,6 +41,8 @@
       this.stuck = stuck || [];
       this.graph = null;
       this.paths = [];
+      this.route = null;
+      this.highlight = null;
       this.fit();
     }
 
@@ -207,6 +212,38 @@
         }
       }
 
+      if (this.highlight && this.graph) {
+        ctx.strokeStyle = css('--bad'); ctx.lineWidth = 3; ctx.setLineDash([6, 4]);
+        for (const r of this.graph.regions) {
+          if (!this.highlight.has(r[0])) continue;
+          ctx.strokeRect(X(r[2]) - 8, Math.min(Y(r[3]), Y(r[5])) - 8, (r[4] - r[2]) * v.s + 16, Math.abs(r[5] - r[3]) * v.s + 16);
+        }
+        ctx.setLineDash([]);
+      }
+
+      if (this.route) {
+        const R = this.route, col = css('--accent'), halo = css('--map-bg');
+        let at = R.a;
+        for (const e of R.edges || []) {
+          // the walk along the platform to the launch spot, then the move itself
+          strokePath(ctx, [at, [e[3], e[4]]], X, Y, halo, 9, []);
+          strokePath(ctx, [at, [e[3], e[4]]], X, Y, col, 4, [2, 5]);
+          const pts = edgePath(e);
+          strokePath(ctx, pts, X, Y, halo, 9, []);
+          strokePath(ctx, pts, X, Y, col, 4, []);
+          arrow(ctx, pts, X, Y, col, Math.max(v.s, 0.3));
+          at = [e[5], e[6]];
+        }
+        if (R.edges && R.b) { strokePath(ctx, [at, R.b], X, Y, halo, 9, []); strokePath(ctx, [at, R.b], X, Y, col, 4, [2, 5]); }
+        for (const [pt, label] of [[R.a, 'A'], [R.b, 'B']]) {
+          if (!pt) continue;
+          ctx.fillStyle = col; ctx.strokeStyle = halo; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(X(pt[0]), Y(pt[1]), 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = halo; ctx.font = '700 11px system-ui'; ctx.textAlign = 'center';
+          ctx.fillText(label, X(pt[0]), Y(pt[1]) + 4); ctx.textAlign = 'start';
+        }
+      }
+
       if (L.portals) {
         ctx.fillStyle = css('--s5'); ctx.strokeStyle = css('--map-bg'); ctx.lineWidth = 1.5;
         ctx.font = '11px system-ui';
@@ -293,6 +330,11 @@
     }
 
     _click(ev) {
+      if (this.onPick) {
+        const r = this.canvas.getBoundingClientRect(), v = this.view;
+        this.onPick(Math.round((ev.clientX - r.left - v.x) / v.s), Math.round((ev.clientY - r.top - v.y) / v.s));
+        return;
+      }
       const hit = this._pick(ev);
       if (hit && hit.kind === 'portal' && hit.p[4] && hit.p[4] !== 999999999 && this.onPortal) {
         this.onPortal(hit.p[4]);
@@ -378,7 +420,66 @@
     return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`;
   }
 
+  // The platform a point stands on: the region under (or just above) it whose span covers x, else the nearest one.
+  // Same rule as region_at in slums-dashboard-extras (the dead-end check), so the two agree on where a spot is.
+  function regionAt(regions, x, y) {
+    let best = null, bd = null;
+    for (const r of regions) {
+      if (r[1] !== 0) continue;
+      const [x1, y1, x2, y2] = [r[2], r[3], r[4], r[5]];
+      if (x < x1 - 20 || x > x2 + 20) continue;
+      const ry = x2 === x1 ? y1 : y1 + (y2 - y1) * (Math.min(Math.max(x, x1), x2) - x1) / (x2 - x1);
+      const d = ry - y;
+      if (d < -40) continue;
+      if (bd === null || d < bd) { best = r[0]; bd = d; }
+    }
+    if (best === null) {
+      let far = null;
+      for (const r of regions) {
+        const cx = Math.min(Math.max(x, r[2]), r[4]), cy = Math.min(Math.max(y, Math.min(r[3], r[5])), Math.max(r[3], r[5]));
+        const d = (cx - x) ** 2 + (cy - y) ** 2;
+        if (far === null || d < far) { best = r[0]; far = d; }
+      }
+    }
+    return best;
+  }
+
+  // Route preview: the cheapest chain of nav edges from point a to point b over the edges ok(e) allows. A move costs
+  // its built cost (ms) times its learned multiplier, and walking along a platform costs its distance at base speed
+  // (about 125 px a second). Each platform keeps the x a bot reached it at, so the walking estimate is approximate.
+  const WALK_MS_PER_PX = 8;
+  function findRoute(graph, a, b, ok) {
+    const ra = regionAt(graph.regions, a[0], a[1]), rb = regionAt(graph.regions, b[0], b[1]);
+    if (ra === null || rb === null) return { ra, rb, edges: null };
+    const out = new Map();
+    for (const e of graph.edges) if (ok(e)) { if (!out.has(e[0])) out.set(e[0], []); out.get(e[0]).push(e); }
+    const best = new Map([[ra, { cost: 0, x: a[0], prev: null, e: null }]]);
+    const open = [[0, ra]], done = new Set();
+    while (open.length) {
+      let k = 0;
+      for (let i = 1; i < open.length; i++) if (open[i][0] < open[k][0]) k = i;
+      const [, r] = open.splice(k, 1)[0];
+      if (done.has(r)) continue;
+      done.add(r);
+      if (r === rb) break;
+      const cur = best.get(r);
+      for (const e of out.get(r) || []) {
+        const launch = Math.min(Math.max(cur.x, e[7]), e[8]);
+        const c = cur.cost + Math.abs(launch - cur.x) * WALK_MS_PER_PX + e[9] * Math.max(1, e[11]) + 50;
+        const nb = best.get(e[1]);
+        if (!nb || c < nb.cost) { best.set(e[1], { cost: c, x: e[5], prev: r, e }); open.push([c, e[1]]); }
+      }
+    }
+    if (!best.has(rb)) return { ra, rb, edges: null };
+    const edges = [];
+    for (let r = rb; best.get(r).e; r = best.get(r).prev) edges.unshift(best.get(r).e);
+    const end = best.get(rb);
+    return { ra, rb, edges, ms: Math.round(end.cost + Math.abs(b[0] - end.x) * WALK_MS_PER_PX) };
+  }
+
   window.MapView = MapView;
+  window.MapView.regionAt = regionAt;
+  window.MapView.findRoute = findRoute;
   window.MapView.TYPES = TYPES;
   window.MapView.TYPE_SLOT = TYPE_SLOT;
   window.MapView.SOURCE_SLOT = SOURCE_SLOT;
