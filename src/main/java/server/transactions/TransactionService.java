@@ -238,7 +238,7 @@ public class TransactionService {
 
     // ======== DATABASE =========
     public static int createTransaction(int userId) throws SQLException {
-        String insertTransactionSQL = "INSERT INTO mapleroot.transactions (user_id) VALUES (?)";
+        String insertTransactionSQL = "INSERT INTO transactions (user_id) VALUES (?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement preparedStatement = conn.prepareStatement(insertTransactionSQL, PreparedStatement.RETURN_GENERATED_KEYS)) {
             preparedStatement.setInt(1, userId);
@@ -254,9 +254,9 @@ public class TransactionService {
     }
 
     public static void createTransactionItems(int transactionId, List<TransactionItem> items) throws SQLException {
-        String insertTransactionItemSQL = "INSERT INTO mapleroot.transaction_items (transaction_id, type, itemid, inventorytype, " +
+        String insertTransactionItemSQL = "INSERT INTO transaction_items (transaction_id, type, itemid, inventorytype, " +
                 "position, quantity, owner, petid, flag, expiration, giftFrom) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        String insertTransactionEquipSQL = "INSERT INTO mapleroot.transaction_equips (transaction_item_id, upgradeslots, level, str, dex, `int`, luk, hp, mp, watk, matk, wdef, mdef, acc, avoid, hands, speed, jump, locked, vicious, itemlevel, itemexp, ringid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String insertTransactionEquipSQL = "INSERT INTO transaction_equips (transaction_item_id, upgradeslots, level, str, dex, `int`, luk, hp, mp, watk, matk, wdef, mdef, acc, avoid, hands, speed, jump, locked, vicious, itemlevel, itemexp, ringid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement itemPreparedStatement = conn.prepareStatement(insertTransactionItemSQL, Statement.RETURN_GENERATED_KEYS);
@@ -318,7 +318,7 @@ public class TransactionService {
 
     public static List<Transaction> getLastTransactions(int userId, int transactionCount) {
         List<Transaction> transactions = new ArrayList<>();
-        String selectTransactionsSQL = "SELECT * FROM mapleroot.transactions WHERE user_id = ? ORDER BY transaction_date DESC LIMIT ?";
+        String selectTransactionsSQL = "SELECT * FROM transactions WHERE user_id = ? ORDER BY transaction_date DESC LIMIT ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement transactionPreparedStatement = conn.prepareStatement(selectTransactionsSQL)) {
@@ -345,10 +345,10 @@ public class TransactionService {
 
     public static Transaction getTransactionById(int transactionId) throws SQLException {
         Transaction transaction = null;
-        String selectTransactionSQL = "SELECT * FROM mapleroot.transactions WHERE transaction_id = ?";
+        String selectTransactionSQL = "SELECT * FROM transactions WHERE transaction_id = ?";
         String selectTransactionItemsSQL = "SELECT ti.*, te.upgradeslots, te.level, te.str, te.dex, te.int, te.luk, te.hp, te.mp, te.watk, te.matk, te.wdef, te.mdef, te.acc, te.avoid, te.hands, te.speed, te.jump, te.locked, te.vicious, te.itemlevel, te.itemexp, te.ringid " +
-                "FROM mapleroot.transaction_items ti " +
-                "LEFT JOIN mapleroot.transaction_equips te ON ti.transaction_item_id = te.transaction_item_id " +
+                "FROM transaction_items ti " +
+                "LEFT JOIN transaction_equips te ON ti.transaction_item_id = te.transaction_item_id " +
                 "WHERE ti.transaction_id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -381,8 +381,8 @@ public class TransactionService {
     private static List<TransactionItem> getTransactionItemsByTransactionId(int transactionId) throws SQLException {
         List<TransactionItem> items = new ArrayList<>();
         String selectTransactionItemsSQL = "SELECT ti.*, te.upgradeslots, te.level, te.str, te.dex, te.int, te.luk, te.hp, te.mp, te.watk, te.matk, te.wdef, te.mdef, te.acc, te.avoid, te.hands, te.speed, te.jump, te.locked, te.vicious, te.itemlevel, te.itemexp, te.ringid " +
-                "FROM mapleroot.transaction_items ti " +
-                "LEFT JOIN mapleroot.transaction_equips te ON ti.transaction_item_id = te.transaction_item_id " +
+                "FROM transaction_items ti " +
+                "LEFT JOIN transaction_equips te ON ti.transaction_item_id = te.transaction_item_id " +
                 "WHERE ti.transaction_id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -447,7 +447,7 @@ public class TransactionService {
 
 
     public static boolean updateTransactionBuybackStatus(int transactionId, boolean buybackUsed) {
-        String updateTransactionSQL = "UPDATE mapleroot.transactions SET buyback_used = ? WHERE transaction_id = ?";
+        String updateTransactionSQL = "UPDATE transactions SET buyback_used = ? WHERE transaction_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement preparedStatement = conn.prepareStatement(updateTransactionSQL)) {
             preparedStatement.setBoolean(1, buybackUsed);
@@ -461,7 +461,7 @@ public class TransactionService {
     }
 
     public static boolean deleteTransaction(int transactionId) throws SQLException {
-        String deleteTransactionSQL = "DELETE FROM mapleroot.transactions WHERE transaction_id = ?";
+        String deleteTransactionSQL = "DELETE FROM transactions WHERE transaction_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement preparedStatement = conn.prepareStatement(deleteTransactionSQL)) {
             preparedStatement.setInt(1, transactionId);
@@ -471,8 +471,8 @@ public class TransactionService {
     }
 
     public static boolean deleteTransactionItems(List<Integer> transactionItemIds) throws SQLException {
-        String deleteTransactionEquipSQL = "DELETE FROM mapleroot.transaction_equips WHERE transaction_item_id = ?";
-        String deleteTransactionItemSQL = "DELETE FROM mapleroot.transaction_items WHERE transaction_item_id = ?";
+        String deleteTransactionEquipSQL = "DELETE FROM transaction_equips WHERE transaction_item_id = ?";
+        String deleteTransactionItemSQL = "DELETE FROM transaction_items WHERE transaction_item_id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement equipPreparedStatement = conn.prepareStatement(deleteTransactionEquipSQL);

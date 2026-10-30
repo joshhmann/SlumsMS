@@ -74,14 +74,14 @@ public class ExpeditionLeaderboard {
 
         String sqlGetTopParties = "SELECT DISTINCT bl.party_uuid, MIN(bl.duration) as min_duration, DATE_FORMAT(MIN(bl.attempttime), '%M %d, %Y') as formattedAttemptTime " +
                 "FROM " + getBossLogLeaderboardTable(boss.getIsWeekly()) + " bl " +
-                "JOIN mapleroot.characters c ON bl.characterid = c.id " +
+                "JOIN characters c ON bl.characterid = c.id " +
                 "WHERE bl.bosstype = ? " +
                 "GROUP BY bl.party_uuid " +
                 "ORDER BY min_duration ASC LIMIT 10";
 
         String sqlGetPartyMembers = "SELECT bl.*, c.name " +
                 "FROM " + getBossLogLeaderboardTable(boss.getIsWeekly()) + " bl " +
-                "JOIN mapleroot.characters c ON bl.characterid = c.id " +
+                "JOIN characters c ON bl.characterid = c.id " +
                 "WHERE bl.party_uuid = ? " +
                 "ORDER BY bl.damage DESC";
 
@@ -103,14 +103,14 @@ public class ExpeditionLeaderboard {
 
         String sqlGetTopParties = "SELECT DISTINCT bl.party_uuid, MIN(bl.duration) as min_duration, DATE_FORMAT(MIN(bl.attempttime), '%M %d, %Y') as formattedAttemptTime " +
                 "FROM " + getBossLogLeaderboardTable(boss.getIsWeekly()) + " bl " +
-                "JOIN mapleroot.characters c ON bl.characterid = c.id " +
+                "JOIN characters c ON bl.characterid = c.id " +
                 "WHERE bl.characterid = ? AND bl.bosstype = ? " +
                 "GROUP BY bl.party_uuid " +
                 "ORDER BY min_duration ASC LIMIT 3";
 
         String sqlGetPartyMembers = "SELECT bl.*, c.name " +
                 "FROM " + getBossLogLeaderboardTable(boss.getIsWeekly()) + " bl " +
-                "JOIN mapleroot.characters c ON bl.characterid = c.id " +
+                "JOIN characters c ON bl.characterid = c.id " +
                 "WHERE bl.party_uuid = ? " +
                 "ORDER BY bl.damage DESC";
 
