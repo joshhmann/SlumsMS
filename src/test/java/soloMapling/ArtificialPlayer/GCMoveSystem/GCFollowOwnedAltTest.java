@@ -22,8 +22,8 @@ class GCFollowOwnedAltTest {
 
     @Test void followsAcrossOrdinaryMaps() {
         MapleMap a = mock(MapleMap.class), b = mock(MapleMap.class);
-        assertNull(GCFollow.altBlockReason(chr("Alt", 100, a, null), chr("Owner", 101, b, null)));
-        assertNull(GCFollow.altBlockReason(chr("Alt", 100, a, null), chr("Owner", 100, a, null)));
+        assertNull(GCFollow.followBlockReason(chr("Alt", 100, a, null), chr("Owner", 101, b, null)));
+        assertNull(GCFollow.followBlockReason(chr("Alt", 100, a, null), chr("Owner", 100, a, null)));
     }
 
     @Test void neverIntoAnInstanceItDidNotEnter() {
@@ -31,23 +31,23 @@ class GCFollowOwnedAltTest {
         EventInstanceManager pq = mock(EventInstanceManager.class);
         when(stage.getEventInstance()).thenReturn(pq);
         Character alt = chr("Alt", 103000000, town, null);
-        String why = GCFollow.altBlockReason(alt, chr("Owner", 103000800, stage, pq));
+        String why = GCFollow.followBlockReason(alt, chr("Owner", 103000800, stage, pq));
         assertNotNull(why);
         assertTrue(why.contains("instance"));
         // the owner registered for an event, its map not (yet) an instance map
-        assertNotNull(GCFollow.altBlockReason(alt, chr("Owner", 103000000, town, pq)));
+        assertNotNull(GCFollow.followBlockReason(alt, chr("Owner", 103000000, town, pq)));
         // an instance map shares its id with the public map: same id is not the same map
         MapleMap publicCopy = mock(MapleMap.class);
-        assertNotNull(GCFollow.altBlockReason(chr("Alt", 103000800, publicCopy, null), chr("Owner", 103000800, stage, pq)));
+        assertNotNull(GCFollow.followBlockReason(chr("Alt", 103000800, publicCopy, null), chr("Owner", 103000800, stage, pq)));
         // a map an event owns, even with the owner not (or no longer) registered in it
-        assertNotNull(GCFollow.altBlockReason(alt, chr("Owner", 103000800, stage, null)));
+        assertNotNull(GCFollow.followBlockReason(alt, chr("Owner", 103000800, stage, null)));
     }
 
     @Test void followsInsideAnInstanceBothEnteredWithTheParty() {
         EventInstanceManager pq = mock(EventInstanceManager.class);
         MapleMap s1 = mock(MapleMap.class), s2 = mock(MapleMap.class);
         when(s1.getEventInstance()).thenReturn(pq); when(s2.getEventInstance()).thenReturn(pq);
-        assertNull(GCFollow.altBlockReason(chr("Alt", 103000800, s1, pq), chr("Owner", 103000801, s2, pq)));
+        assertNull(GCFollow.followBlockReason(chr("Alt", 103000800, s1, pq), chr("Owner", 103000801, s2, pq)));
     }
 
     @Test void anAltsTripWalksPortalsOnly() {

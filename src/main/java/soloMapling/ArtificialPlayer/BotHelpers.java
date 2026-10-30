@@ -30,6 +30,15 @@ public class BotHelpers {
         return null;
     }
 
+    /**
+     * 1.6.2 b168: true when both stand on the very same map: the same MapleMap object, so the same channel and the same
+     * event instance (or none). A map id is not enough: an instance map and its public copy share one id, and every
+     * channel has its own copy. One rule for follow, party reach and anything else that asks "are we together".
+     */
+    public static boolean sameMap(Character a, Character b) {
+        return a != null && b != null && a.getMap() != null && a.getMap() == b.getMap();
+    }
+
     public static boolean isBot(Character chr) {
         return chr != null && chr.getClient() instanceof client.BotClient;
     }

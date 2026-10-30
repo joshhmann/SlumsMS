@@ -90,22 +90,27 @@ final class GCFollow {
      * into an event instance (PQ, boss, event map) it was not entered into with the party, and never onto a map the
      * owner reached through one. Same map id is not enough there - an instance map shares its id with the public map.
      * Null = free to follow.
+     * 1.6.2 b168: the same rule for a population FollowerBot (one implementation for alts and bots): before, only an
+     * alt was gated, so a follower whose leader was in an instance (a Zakum expedition, a PQ stage) walked to the
+     * PUBLIC map with that id and then counted it as "same map", standing where its player could not see it. A
+     * follower the event registered with the party (same instance) still follows inside it.
      */
-    static String altBlockReason(Character alt, Character owner) {
-        var altEim = alt.getEventInstance();
-        var ownerEim = owner.getEventInstance();
-        var ownerMap = owner.getMap();
-        var mapEim = ownerMap == null ? null : ownerMap.getEventInstance();
-        if (ownerEim != altEim || (mapEim != null && mapEim != altEim)) {
-            return alt.getName() + " waits outside: alts can't follow you into an instance they did not enter with you.";
+    static String followBlockReason(Character bot, Character leader) {
+        var botEim = bot.getEventInstance();
+        var leaderEim = leader.getEventInstance();
+        var leaderMap = leader.getMap();
+        var mapEim = leaderMap == null ? null : leaderMap.getEventInstance();
+        boolean blocked = leaderEim != botEim || (mapEim != null && mapEim != botEim)
+                || (bot.getMapId() == leader.getMapId() && bot.getMap() != leaderMap);
+        if (!blocked) {
+            return null;
         }
-        if (alt.getMapId() == owner.getMapId() && alt.getMap() != ownerMap) {
-            return alt.getName() + " waits outside: alts can't follow you into an instance they did not enter with you.";
-        }
-        return null;
+        return bot.isOwnedAlt()
+                ? bot.getName() + " waits outside: alts can't follow you into an instance they did not enter with you."
+                : bot.getName() + " waits outside: it can't follow you into an instance it did not enter with you.";
     }
 
-    /* The alt stands where it is (no travel, no same-map tailing) and the owner hears why, once per map. */
+    /* The alt / follower stands where it is (no travel, no same-map tailing) and its player hears why, once per map. */
     private static void waitHere(Session s, Character bot, Character target, String why) {
         if (GCMovement.isTraveling(bot)) {
             GCTravel.cancel(bot);
@@ -131,7 +136,7 @@ final class GCFollow {
         }
     }
 
-    private static void tick(Session s) {
+    static void tick(Session s) {
         if (BotShutdown.isQuiesced()) {
             cancel(s.bot); // Ticket 09: a follower must not travel after the gate has closed
             return;
@@ -144,15 +149,14 @@ final class GCFollow {
             return;
         }
 
-        if (bot.isOwnedAlt()) {
-            String blocked = altBlockReason(bot, target);
-            if (blocked != null) {
-                waitHere(s, bot, target, blocked);
-                return;
-            }
+        String blocked = followBlockReason(bot, target); // alts and population followers alike (b168)
+        if (blocked != null) {
+            waitHere(s, bot, target, blocked);
+            return;
         }
 
-        if (bot.getMapId() == target.getMapId()) {
+        // Past the gate a shared map id is the same map object (same channel, same instance or none).
+        if (soloMapling.ArtificialPlayer.BotHelpers.sameMap(bot, target)) {
             // Same map: cancel any in-flight travel and let the 50 ms driver tail the target.
             if (GCMovement.isTraveling(bot)) {
                 GCTravel.cancel(bot);
