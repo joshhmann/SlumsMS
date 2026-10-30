@@ -99,13 +99,28 @@ public abstract class BotSM implements EventSubscriber {
 
     // Ticket 157 (bot inspect): this bot's own macro tick cost - the last one and a fading average (1/8 weight).
     // Two plain fields written by the tick, read by the inspect endpoint; no allocation.
+    // The first few ticks after a spawn or a map load are warm-up (class loading, graph builds) and can cost hundreds
+    // of ms; seeding the average with one of them kept it far too high for bots that tick rarely, so they are skipped.
+    static final int WARMUP_TICKS = 3;
     private volatile long lastTickNanos;
     private volatile long avgTickNanos;
+    private volatile int tickSamples;
 
     final void noteTickCost(long nanos) {
         lastTickNanos = nanos;
-        long avg = avgTickNanos;
-        avgTickNanos = avg == 0 ? nanos : avg + (nanos - avg) / 8;
+        int seen = tickSamples;
+        if (seen <= WARMUP_TICKS) {
+            tickSamples = seen + 1;
+        }
+        avgTickNanos = fadeTickCost(avgTickNanos, nanos, seen);
+    }
+
+    /** The fading average after one more sample; {@code seen} counts the samples before this one. */
+    static long fadeTickCost(long avg, long nanos, int seen) {
+        if (seen < WARMUP_TICKS) {
+            return 0;
+        }
+        return avg == 0 ? nanos : avg + (nanos - avg) / 8;
     }
 
     /** The last macro tick's cost in nanoseconds (0 before the first). */
