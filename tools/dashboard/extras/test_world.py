@@ -54,6 +54,10 @@ class CheckMapTest(unittest.TestCase):
         rows, _ = X.check_map(1, self.PORTALS, self.GRAPH, [(2, "in")], bounds=[0, -100, 300, 500])
         self.assertEqual("r3 (below view)", rows[0][2])
 
+    def test_pits_the_planner_refuses_are_handled(self):
+        rows, _ = X.check_map(1, self.PORTALS, self.GRAPH, [(2, "in")], handled={3})
+        self.assertEqual([[1, "pit_handled", "r3"]], rows)
+
     def test_no_arrivals_means_nothing_to_check(self):
         self.assertEqual([], X.check_map(1, self.PORTALS, self.GRAPH, [])[0])
 
@@ -117,6 +121,14 @@ class BuildWorldTest(unittest.TestCase):
         self.assertEqual([], doc["deadEnds"])     # map 2's r2 has its own exit ("fall"), so no pit
         with open(os.path.join(self.nav, "world.json"), encoding="utf-8") as f:
             self.assertEqual(doc["links"], json.load(f)["links"])
+
+    def test_pits_json_marks_pits_handled(self):
+        with open(os.path.join(self.nav, "maps", "2.json"), "w", encoding="utf-8") as f:
+            json.dump({"bounds": [0, 0, 300, 300], "portals": [["in", 2, 50, 90, 1, "out"]]}, f)
+        self.assertEqual([[2, "pit", "r2"]], X.build_world(self.nav)["deadEnds"])
+        with open(os.path.join(self.nav, "pits.json"), "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "maps": {"2": [2]}}, f)
+        self.assertEqual([[2, "pit_handled", "r2"]], X.build_world(self.nav)["deadEnds"])
 
 
 if __name__ == "__main__":

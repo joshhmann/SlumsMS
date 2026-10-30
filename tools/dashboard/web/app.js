@@ -315,6 +315,7 @@
     no_exit: ['No way out', 'Players and bots come in, but no portal leads anywhere else.'],
     arrive_stuck: ['Arrive stuck', 'From where you arrive, walking, jumping, dropping and climbing reach no exit portal.'],
     pit: ['Pit', 'A platform you can get onto from an arrival but never back to an exit from. "Below view" ones are hidden floors under the map.'],
+    pit_handled: ['Pit, handled', 'A pit the game\'s planner already refuses (NavPits), so bots no longer walk into it. Kept here so it can be checked.'],
     script_exit: ['Script exit only', 'The only ways out are script-run portals; not checked further.'],
     no_graph: ['No graph', 'No base nav graph, so only the map-level check ran.'],
   };
@@ -382,7 +383,7 @@
       (W.doc.exactArrivals ? '' : '. Arrival spots are guessed (the portal back) until the export names target portals') +
       '. <span title="' + E(DEAD[cur] ? DEAD[cur][1] : '') + '">' + E(DEAD[cur] ? DEAD[cur][1] : 'Nothing found.') + '</span>';
     const rows = W.doc.deadEnds.filter(d => d[1] === cur);
-    $('dead-list').innerHTML = rows.map(d => '<li data-id="' + d[0] + '" data-r="' + E(d[1] === 'pit' ? String(d[2]).match(/r\d+/g).join(',') : '') + '"><span class="id">' + d[0] + '</span>' +
+    $('dead-list').innerHTML = rows.map(d => '<li data-id="' + d[0] + '" data-r="' + E(d[1].startsWith('pit') ? String(d[2]).match(/r\d+/g).join(',') : '') + '"><span class="id">' + d[0] + '</span>' +
       E(mapName(d[0]) || '?') + (d[2] !== '' ? '<br><small class="muted">' + E(String(d[2])) + '</small>' : '') + '</li>').join('') || '<li class="muted">none</li>';
     $('dead-list').querySelectorAll('li[data-id]').forEach(li => li.addEventListener('click', () => {
       location.hash = li.dataset.r ? 'map/' + li.dataset.id + '/' + li.dataset.r : 'world/' + li.dataset.id;
