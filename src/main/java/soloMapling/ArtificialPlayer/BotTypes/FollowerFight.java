@@ -162,7 +162,7 @@ final class FollowerFight {
             s.skip.put(t.getObjectId(), now + GIVE_UP_MS);
             s.skip.values().removeIf(until -> until <= now);
             s.targetOid = -1;
-            log(bot, "gives up on " + t.getName() + " (no hit in " + STALL_MS / 1000 + " s)");
+            log(bot, leader, "gives up on " + t.getName() + " (no hit in " + STALL_MS / 1000 + " s)");
             return true;
         }
         if (GCMovement.isFollowing(bot)) {
@@ -183,14 +183,14 @@ final class FollowerFight {
         if (!closeEnough(at, mob, reach, t.isBoss())) {
             int[] spot = Approach.fightSpot(bot, t, reach, BotCombatTuning.human());
             s.lastMoveX = Approach.walkTo(bot, spot[0], spot[1], s.lastMoveX);
-            log(bot, "walks to " + t.getName() + " (" + Math.abs(mob.x - at.x) + " px away)");
+            log(bot, leader, "walks to " + t.getName() + " (" + Math.abs(mob.x - at.x) + " px away)");
             return true;
         }
         s.lastMoveX = Integer.MIN_VALUE;
         BotAttackDriver.AttackResult r = BotAttackDriver.botAttack(bot);
         if (r != null && r.hit()) {
             s.lastLandedMs = now;
-            log(bot, "hits " + r.monsterName() + " for " + r.damage() + (r.killed() ? " (killed)" : "")
+            log(bot, leader, "hits " + r.monsterName() + " for " + r.damage() + (r.killed() ? " (killed)" : "")
                     + " skill " + r.skillId());
         }
         return true;
@@ -217,11 +217,19 @@ final class FollowerFight {
         }
     }
 
-    private static void log(Character bot, String what) {
+    /*
+     * One COMBAT line (!qa dj-1). A real player's follower logs to the run that player started, wherever it fights
+     * (a run watches its own maps: dj-1's dojo run heard nothing from the Zakum altar); a bot's follower to the map.
+     */
+    static void log(Character bot, Character leader, String what) {
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.COMBAT)
-                && soloMapling.qa.QaLog.every("follower-fight:" + bot.getId(), 3_000)) { // !qa dj-1
-            soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.COMBAT, bot.getMapId(),
-                    "FOLLOWER FIGHT " + bot.getName() + " " + what);
+                && soloMapling.qa.QaLog.every("follower-fight:" + bot.getId(), 3_000)) {
+            String line = "FOLLOWER FIGHT " + bot.getName() + " " + what;
+            if (leader != null && !soloMapling.ArtificialPlayer.BotHelpers.isBot(leader)) {
+                soloMapling.qa.QaLog.owner(soloMapling.qa.QaLog.Topic.COMBAT, leader.getId(), line);
+            } else {
+                soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.COMBAT, bot.getMapId(), line);
+            }
         }
     }
 }
