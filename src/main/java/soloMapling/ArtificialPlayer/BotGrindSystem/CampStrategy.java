@@ -244,7 +244,17 @@ class CampStrategy implements GrindStrategy {
             int idx = -1;
             boolean claimed = false;
             int slot = -1;
-            for (int attempt = 0; attempt < SELECT_CLAIM_ATTEMPTS; attempt++) {
+            // 1.6.1 rv-2: a KS war's called helper camps the player's platform for the war (shared, uncapped: the
+            // war is the point, never a crowding signal), not the best spot of its own.
+            Spot war = SpotFinder.warSpot(chr, p);
+            if (war != null) {
+                s = war;
+                idx = indexOfSame(p.spots(), s);
+                slot = BotSpotClaims.claim(SpotFinder.claimKey(chr), idx, Integer.MAX_VALUE, chr.getId());
+                claimed = true;
+                b.narrate("KS war -> camping the player's platform");
+            }
+            for (int attempt = 0; !claimed && attempt < SELECT_CLAIM_ATTEMPTS; attempt++) {
                 s = pickSpot(chr, p);
                 if (s == null) {
                     spot = null;
@@ -318,6 +328,9 @@ class CampStrategy implements GrindStrategy {
             state = State.SELECT_SPOT;
             return;
         }
+        if (warSpotElsewhere(chr, s)) {
+            return;
+        }
         if (within(chr, s.anchor(), s.radius())) {
             GCMovement.stop(chr);
             b.resetApproachProgress(chr);
@@ -337,6 +350,9 @@ class CampStrategy implements GrindStrategy {
         if (s == null) {
             state = State.SELECT_SPOT;
             return;
+        }
+        if (warSpotElsewhere(chr, s)) {
+            return; // 1.6.1 rv-2: called into a KS war -> re-select onto the player's platform
         }
         if (enforceAnchorProximity(chr, s)) {
             return; // off the anchor ledge too long -> Layer 3 took this tick to escalate the return
@@ -388,6 +404,22 @@ class CampStrategy implements GrindStrategy {
         }
     }
 
+    // 1.6.1 rv-2: this bot was called into a KS war and the player's platform is another spot than the one it holds
+    // (it settled before the call, or the player moved): re-select, which claims the player's platform. Cheap when
+    // the bot is on no war (one map lookup).
+    private boolean warSpotElsewhere(Character chr, Spot s) {
+        if (soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.warTargetOf(chr.getId(),
+                chr.getMapId()) < 0) {
+            return false;
+        }
+        Spot war = SpotFinder.warSpot(chr, SpotFinder.profile(chr.getMap()));
+        if (war == null || war == s) {
+            return false;
+        }
+        state = State.SELECT_SPOT;
+        return true;
+    }
+
     private void enterWait(Character chr, Spot s) {
         b.engaged = false;
         waitStartedMs = now();
@@ -412,6 +444,9 @@ class CampStrategy implements GrindStrategy {
         if (s == null) {
             state = State.SELECT_SPOT;
             return;
+        }
+        if (warSpotElsewhere(chr, s)) {
+            return; // 1.6.1 rv-2: called into a KS war -> re-select onto the player's platform
         }
         if (enforceAnchorProximity(chr, s)) {
             return; // corral back to the anchor before waiting out a lull off-ledge

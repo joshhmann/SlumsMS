@@ -784,6 +784,19 @@ public final class AffinityReactions {
         return s != null && s.playerId() == playerId && BotAffinity.now() <= s.until() && s.left()[0] > 0;
     }
 
+    /**
+     * 1.6.1 rv-2: the player a KS war called this bot in on (a live war spree on the bot's current map, mobs and time
+     * left), or -1. The grind brain camps that player's platform for the war instead of its own pick: a helper that
+     * settled on another ledge never had the player's mobs in reach, and the rally walks were undone by its anchor.
+     */
+    public static int warTargetOf(int botCharId, int mapId) {
+        KsSpree s = sprees.get(botCharId);
+        if (s == null || !s.war() || s.mapId() != mapId || BotAffinity.now() > s.until() || s.left()[0] <= 0) {
+            return -1;
+        }
+        return s.playerId();
+    }
+
     /** 1.5.0 bot drama: the bot's KS spree ends now. */
     public static void stopSpree(int botCharId) {
         sprees.remove(botCharId);

@@ -561,6 +561,51 @@ public final class SpotFinder {
         return !players.isEmpty() && KsManners.playerOn(chr, players, s.anchor(), s.radius()) != null;
     }
 
+    // 1.6.1 rv-2: the spot a KS war's called helper must camp — the one on the platform of the player it was called
+    // on (AffinityReactions.warTargetOf) — or null when the bot is on no war or the player stands on no spot.
+    // pickBest scored the helper's own ledge higher (near its landing point, uncrowded), so it settled one ledge up
+    // with none of the player's mobs in its take reach, and the rally walk back was undone by its anchor.
+    public static Spot warSpot(Character chr, MapGrindProfile p) {
+        if (chr == null || chr.getMap() == null) {
+            return null;
+        }
+        int pid = soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.warTargetOf(chr.getId(),
+                chr.getMapId());
+        if (pid < 0) {
+            return null;
+        }
+        return warSpot(chr, p, chr.getMap().getCharacterById(pid));
+    }
+
+    // The reachable spot whose platform `target` stands on (closest anchor along x when several), or null.
+    static Spot warSpot(Character chr, MapGrindProfile p, Character target) {
+        if (chr == null || p == null || target == null || target.getPosition() == null || p.spots().isEmpty()) {
+            return null;
+        }
+        MapleMap map = chr.getMap();
+        Point pos = chr.getPosition();
+        Set<Integer> reach = (map != null && pos != null) ? GCMovement.reachableRegions(map, pos.x, pos.y) : Set.of();
+        boolean filter = !reach.isEmpty();
+        Point tp = target.getPosition();
+        List<Character> only = List.of(target);
+        Spot best = null;
+        int bestDx = Integer.MAX_VALUE;
+        for (Spot s : p.spots()) {
+            if (filter && s.regionId() >= 0 && !reach.contains(s.regionId())) {
+                continue; // unreachable island ledge
+            }
+            if (KsManners.playerOn(chr, only, s.anchor(), s.radius()) == null) {
+                continue; // not the player's platform
+            }
+            int dx = Math.abs(s.anchor().x - tp.x);
+            if (dx < bestDx) {
+                bestDx = dx;
+                best = s;
+            }
+        }
+        return best;
+    }
+
     // Score each candidate spot for this bot and return the highest scorer (or null if none reachable).
     // Hard filters: a spot's region must be reachable from where the bot stands (skip the filter if that
     // set is empty — graph unbaked / on no ledge); skip the just-left spot while its cooldown holds. An
