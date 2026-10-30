@@ -1350,6 +1350,11 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-su-3", "Bot Magic Guard: with it up a bot pays part of a hit in MP").minutes(1)
                 .expect(probe("magicGuard"))
                 .build());
+        // jobErrand: a watched beginner reaching level 10 walks to its instructor and advances, or falls back and advances
+        c.add(Check.auto("t-jb-1", "Job errand: a watched bot walks to its instructor and advances, or falls back")
+                .minutes(6)
+                .expect(probe("jobErrand"))
+                .build());
         return List.copyOf(c);
     }
 

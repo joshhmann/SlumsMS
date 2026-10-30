@@ -63,7 +63,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants", "partyHeal", "fameRequest", "magicGuard");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants", "partyHeal", "fameRequest", "magicGuard", "jobErrand");
 
     private Probes162() {
     }
@@ -83,6 +83,7 @@ final class Probes162 {
                 case "partyHeal" -> partyHeal(p);
                 case "fameRequest" -> fameRequest(p);
                 case "magicGuard" -> magicGuard(p);
+                case "jobErrand" -> jobErrand(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1396,6 +1397,134 @@ final class Probes162 {
         } finally {
             soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver.clearBot(bot.getId());
             ev.add(TalkQa.teardown(List.of(bot)));
+        }
+    }
+
+    // ── t-jb-1: a watched bot walks to its instructor and advances, or falls back ──────────────
+
+    /** t-jb-1: the errand's timeout for the check (the default is 6 min), and how many fresh bots it may try. */
+    static final long JB1_TIMEOUT_MS = 240_000L;
+    static final int JB1_TRIES = 4;
+
+    /** t-jb-1: the counters of {@code JobErrand.stats()} (started, arrived, fellBack, blocked, active), or null. */
+    static long[] errandCounts(String stats) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "started=(\\d+) arrived=(\\d+) fellBack=(\\d+) blocked=(\\d+) active=(\\d+)").matcher(stats);
+        if (!m.find()) {
+            return null;
+        }
+        long[] out = new long[5];
+        for (int i = 0; i < 5; i++) {
+            out[i] = Long.parseLong(m.group(i + 1));
+        }
+        return out;
+    }
+
+    /** t-jb-1: what is wrong. {@code held} = the errand held the advance; times in ms. Pure, for the tests. */
+    static List<String> errandProblems(boolean held, boolean ended, long arrived, long fellBack, int jobBefore,
+                                       int jobAfter, int mapAfter, int instructorMap) {
+        List<String> bad = new ArrayList<>();
+        if (!held) {
+            bad.add("the watched bot advanced at once: no errand was started (watched? reachable?)");
+            return bad;
+        }
+        if (!ended) {
+            bad.add("the errand still holds the bot past its timeout");
+        }
+        if (jobAfter == jobBefore) {
+            bad.add("the bot is still job " + jobBefore + " after the errand");
+        }
+        if (arrived == 0 && fellBack == 0 && ended) {
+            bad.add("the errand ended neither by arriving nor by falling back");
+        }
+        if (arrived > 0 && mapAfter != instructorMap) {
+            bad.add("counted as arrived but the bot is on " + mapAfter + ", not the instructor's " + instructorMap);
+        }
+        return bad;
+    }
+
+    /**
+     * t-jb-1 ({@code solomapling.jobErrand}): a fresh level-9 beginner (its tick running, the pretend player on its map
+     * so it is watched) gains the EXP for level 10 the observed way ({@code gainExp}, the bot progression hook). Its
+     * advance must be held by an errand to its instructor; within the errand's timeout (set to
+     * {@link #JB1_TIMEOUT_MS} for the check, put back after) it must arrive and advance, or fall back and advance.
+     */
+    static List<String> jobErrand(SyntheticPlayer p) throws InterruptedException {
+        if (!soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.enabled()) {
+            return List.of("SKIP job errands are off (-Dsolomapling.jobErrand=true)");
+        }
+        List<String> ev = new ArrayList<>();
+        List<Character> spawned = new ArrayList<>();
+        String timeoutWas = System.getProperty(soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.TIMEOUT_PROP);
+        try {
+            Character bot = null;
+            for (int i = 0; i < JB1_TRIES && bot == null; i++) {
+                Character c = spawnTraining(p, 9);
+                if (c == null) {
+                    continue;
+                }
+                spawned.add(c);
+                if (c.getJob().getId() == 0 && BotProgression.isReal(c.getId())) {
+                    bot = c;
+                } else {
+                    ev.add("bot " + c.getName() + " is job " + c.getJob().getId() + " at level " + c.getLevel()
+                            + " (real=" + BotProgression.isReal(c.getId()) + "): not a beginner to stage");
+                }
+            }
+            if (bot == null) {
+                ev.add(0, "FAIL no fresh level-9 beginner to stage in " + JB1_TRIES + " tries");
+                return ev;
+            }
+            System.setProperty(soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.TIMEOUT_PROP,
+                    Long.toString(JB1_TIMEOUT_MS));
+            long[] c0 = errandCounts(soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.stats());
+            boolean watched = soloMapling.ArtificialPlayer.GCMoveSystem.WatchGate.watched(bot);
+            int jobBefore = bot.getJob().getId();
+            long need = constants.game.ExpTable.getExpNeededForLevel(bot.getLevel()) - bot.getExp() + 1;
+            bot.gainExp((int) need);
+            long t0 = System.currentTimeMillis();
+            boolean held = false;
+            while (System.currentTimeMillis() - t0 < 5_000 && !held) {
+                held = soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.holds(bot.getId());
+                if (!held) {
+                    Thread.sleep(200);
+                }
+            }
+            ev.add("bot " + bot.getName() + " lv " + bot.getLevel() + " job " + jobBefore + " on " + bot.getMapId()
+                    + " watched=" + watched + "; errand held=" + held + ", job now " + bot.getJob().getId());
+            boolean ended = !held;
+            if (held) {
+                while (System.currentTimeMillis() - t0 < JB1_TIMEOUT_MS + 30_000) {
+                    if (!soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.holds(bot.getId())) {
+                        ended = true;
+                        break;
+                    }
+                    Thread.sleep(1000);
+                }
+            }
+            Thread.sleep(1500);   // the advance runs right after the errand ends
+            long[] c1 = errandCounts(soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.stats());
+            long arrived = c0 == null || c1 == null ? 0 : c1[1] - c0[1];
+            long fellBack = c0 == null || c1 == null ? 0 : c1[2] - c0[2];
+            int jobAfter = bot.getJob().getId();
+            var where = soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.instructorFor(jobAfter);
+            int instructorMap = where == null ? -1 : where.mapId();
+            ev.add("after " + (System.currentTimeMillis() - t0) / 1000 + " s: ended=" + ended + " arrived +" + arrived
+                    + " fell back +" + fellBack + "; job " + jobAfter + ", map " + bot.getMapId() + " (instructor's "
+                    + instructorMap + "); " + soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.stats());
+            return Probes160.verdict(errandProblems(held, ended, arrived, fellBack, jobBefore, jobAfter,
+                    bot.getMapId(), instructorMap), "the watched bot's advance waited for an errand, which "
+                    + (arrived > 0 ? "reached the instructor" : "fell back") + ", and it advanced to " + jobAfter, ev);
+        } finally {
+            if (timeoutWas == null) {
+                System.clearProperty(soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.TIMEOUT_PROP);
+            } else {
+                System.setProperty(soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.TIMEOUT_PROP, timeoutWas);
+            }
+            for (Character c : spawned) {
+                soloMapling.ArtificialPlayer.BotProgressionSystem.JobErrand.forget(c.getId());
+            }
+            ev.add(TalkQa.teardown(spawned));
         }
     }
 

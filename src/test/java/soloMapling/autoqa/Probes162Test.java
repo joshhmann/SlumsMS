@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1", "t-su-2", "t-su-3");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1", "t-su-2", "t-su-3", "t-jb-1");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -197,5 +197,19 @@ class Probes162Test {
         assertTrue(Probes162.guardProblems(100, new int[]{100, 0}, want, want).isEmpty());
         assertEquals(1, Probes162.guardProblems(100, new int[]{100, 0}, new int[]{100, 0}, want).size(), "never split");
         assertEquals(1, Probes162.guardProblems(100, new int[]{20, 80}, want, want).size(), "split with none up");
+    }
+
+    // ── t-jb-1 ──
+
+    @Test
+    void theErrandCheckReadsTheCountersAndWantsAnAdvance() {
+        long[] c = Probes162.errandCounts("jobErrand started=3 arrived=1 fellBack=2 blocked=0 active=1");
+        assertEquals(List.of(3L, 1L, 2L, 0L, 1L), java.util.Arrays.stream(c).boxed().toList());
+        assertNull(Probes162.errandCounts("nothing"));
+        assertTrue(Probes162.errandProblems(true, true, 1, 0, 0, 100, 102000003, 102000003).isEmpty());
+        assertTrue(Probes162.errandProblems(true, true, 0, 1, 0, 100, 100000000, 102000003).isEmpty(), "fell back");
+        assertTrue(Probes162.errandProblems(false, true, 0, 0, 0, 100, 0, 0).get(0).contains("advanced at once"));
+        assertEquals(2, Probes162.errandProblems(true, false, 0, 0, 0, 0, 0, 102000003).size());
+        assertTrue(Probes162.errandProblems(true, true, 1, 0, 0, 100, 100000000, 102000003).get(0).contains("arrived"));
     }
 }
