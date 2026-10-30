@@ -1000,7 +1000,7 @@ class AvatarTest(unittest.TestCase):
 
     def test_ranked_names_get_their_picture_and_others_a_blank(self):
         import json as _json, struct, zlib
-        import site_sample
+        import site_sample, market_sample
         from sections import world
         tmp = tempfile.mkdtemp()
         try:
@@ -1008,6 +1008,14 @@ class AvatarTest(unittest.TestCase):
             argv, sys.argv = sys.argv, ["site_sample.py", "--out", data]
             try:
                 site_sample.main()
+            finally:
+                sys.argv = argv
+            # world.build renders the economy page too, and that needs the market export: generate one here instead of
+            # reading cache/market-sample, which only exists on a machine that ran market_sample.py (audit 165 W19)
+            mkt = os.path.join(tmp, "market")
+            argv, sys.argv = sys.argv, ["market_sample.py", "--out", mkt]
+            try:
+                market_sample.main()
             finally:
                 sys.argv = argv
             lb = _json.load(open(os.path.join(data, "leaderboards.json")))
@@ -1024,7 +1032,7 @@ class AvatarTest(unittest.TestCase):
             self.assertEqual(w["avatars"]["map"], {first: "0123456789abcdef.png"})   # missing file and bad names dropped
             out = os.path.join(tmp, "out")
             build.set_context(build.notes.releases(), ["notes", "guide", "world"])
-            world.build(out, data)
+            world.build(out, data, market_dir=mkt)
             html = open(os.path.join(out, "world", "rankings", "level.html"), encoding="utf-8").read()
             self.assertIn('src="../../world/avatars/0123456789abcdef.png"', html)
             self.assertIn('class="ava none"', html)
