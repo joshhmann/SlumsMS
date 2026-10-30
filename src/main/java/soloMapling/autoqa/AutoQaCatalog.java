@@ -1301,6 +1301,73 @@ public final class AutoQaCatalog {
                 .expect(has("MX2 START kpq with 4 bots"), has("RUN stage 5 cleared in \\d+ s"),
                         has("MX2 PASS cleared kpq in \\d+ s"), lacks("MX2 FAIL "), lacks(" FAILED: "))
                 .build());
+        // ── 1.6.2 bot switches the bot audit found with no auto-QA proof (ticket 163 section 4) ─────────────────
+        // Each is one probe (Probes162) on fresh throwaway bots next to the pretend player, driving the switch's real
+        // entry point; the bots and anything else staged are put back by the probe. SKIP names the switch that is off.
+        // botquests: a watched bot takes a real mob quest by its start NPC, its own kills count, it turns it in
+        c.add(Check.auto("t-bq-1", "A watched bot takes, hunts and turns in one mob quest").minutes(3)
+                .expect(probe("botQuest"))
+                .build());
+        // temple: a fresh bot is offered 3500, takes and turns it in for real, then is offered 3501 with its lane entry
+        c.add(Check.auto("t-tm-1", "A bot is offered the next Temple mainline quest and its lane").minutes(2)
+                .expect(probe("templeQuest"))
+                .build());
+        // gear.optimizer=pareto: a staged Fighter whose better sword needs both +5 STR helpers wears all three
+        c.add(Check.auto("t-gb-1", "Pareto gear: a bot with a requirement-chain bag ends up in the better set").minutes(1)
+                .expect(probe("paretoGear"))
+                .build());
+        // gear.dexless: a staged bot's new AP stops its secondary stat at the gear cap, the rest goes to the primary
+        c.add(Check.auto("t-gb-2", "Dexless builds: new AP stops at the secondary cap").minutes(1)
+                .expect(probe("dexlessAp"))
+                .build());
+        // grind.gearFirst: a bot with a FARM_ITEM goal picks an in-band map that drops the item
+        c.add(Check.auto("t-gb-3", "Gear-first grinding: a bot wanting an item picks an in-band map that drops it")
+                .minutes(1)
+                .expect(probe("gearFirstFarm"))
+                .build());
+        // junk.sort: a bag over half full of scrolled pieces and a little junk; the town sale sells the junk only
+        c.add(Check.auto("t-gb-4", "Junk sort: the town sale keeps the reserve and the shelf").minutes(1)
+                .expect(probe("junkSortSale"))
+                .build());
+        // scroll.ev: a careful bot declines the plain 100% scroll (EV-negative) and a dark one; a gambler takes the dark
+        c.add(Check.auto("t-gb-5", "EV scrolling: a careful bot declines an EV-negative scroll, a gambler gambles")
+                .minutes(1)
+                .expect(probe("scrollEv"))
+                .build());
+        // bots.apvariants (fromSlot=auto): the first roster slot past the boot rolls variants, the slot before does not
+        c.add(Check.auto("t-gb-6", "AP variants: a new roster slot past the boot slot rolls a variant").minutes(1)
+                .expect(probe("apVariants"))
+                .build());
+        // bots.partysupport: a cleric bot in the player's party heals the player at 40% HP (server side)
+        c.add(Check.auto("t-su-1", "Party support: a cleric bot heals a partied player under 60% HP").minutes(1)
+                .expect(probe("partyHeal"))
+                .build());
+        // bots.famerequest: a stranger bot ignores "fame me pls", a friend fames once and refuses the second ask
+        c.add(Check.auto("t-su-2", "Fame requests: a friend fames on request once, a second ask is refused").minutes(1)
+                .expect(probe("fameRequest"))
+                .build());
+        // bots.magicguard: a magician bot's hit comes off HP only, then with Magic Guard cast splits into MP
+        c.add(Check.auto("t-su-3", "Bot Magic Guard: with it up a bot pays part of a hit in MP").minutes(1)
+                .expect(probe("magicGuard"))
+                .build());
+        // jobErrand: a watched beginner reaching level 10 walks to its instructor and advances, or falls back and advances
+        c.add(Check.auto("t-jb-1", "Job errand: a watched bot walks to its instructor and advances, or falls back")
+                .minutes(6)
+                .expect(probe("jobErrand"))
+                .build());
+        // botSkillBooks: a 4th-job bot keeps its wanted mastery book, reads it; another job's book may be sold
+        c.add(Check.auto("t-jb-2", "Bot skill books: a bot reads a wanted book; a spare one may be sold").minutes(1)
+                .expect(probe("skillBooks"))
+                .build());
+        // nav ports (NN-011), replayed by the server's own nav code on made-up maps: no real map's graph is touched
+        c.add(Check.half("t-nn-1", "Swim wall jump: a stuck swimmer gets over a wall",
+                        "watch a bot swim over a rock on a real client (Aqua Road)").minutes(1)
+                .expect(probe("swimWallJump"))
+                .build());
+        c.add(Check.half("t-nn-2", "Blocked-position watchdog: a parked bot gives up the move",
+                        "watch a bot that used to freeze at a launch gate replan on a real client").minutes(1)
+                .expect(probe("blockedPosWatchdog"))
+                .build());
         return List.copyOf(c);
     }
 
