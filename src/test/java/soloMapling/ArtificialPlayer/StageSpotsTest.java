@@ -104,4 +104,35 @@ class StageSpotsTest {
         String qa = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/soloMapling/qa/GameQaWorld.java"));
         assertTrue(qa.contains("StageSpots.near(map, around)"), "!qa idle bots too");
     }
+
+    // 162 runfix (t-cv-8 on TEST 10-30): in a busy Henesys the staged chat partner landed 151 px from the GM, past the
+    // 150 px conversation hold radius, and cv-9 logged a bot that never moved as "WANDERED OFF".
+    @Test
+    void aChatPartnerInACrowdStillStandsWithinTalkingDistance() {
+        Point gm = new Point(1000, 300);
+        // a crowd every 30 px from 940 to 1060 and out to 1150 on the right: little room close in
+        List<Point> taken = new ArrayList<>(List.of(gm));
+        for (int x = 850; x <= 1150; x += 30) {
+            taken.add(new Point(x, 300));
+        }
+        boolean oldWentFar = false;
+        for (int seed = 0; seed < 200; seed++) {
+            Point old = StageSpots.pick(gm, taken, new Random(seed), StageSpotsTest::ground);
+            oldWentFar |= old.distance(gm) > 150;
+            Point p = StageSpots.pickClose(gm, taken, new Random(seed), StageSpotsTest::ground, StageSpots.CLOSE_PX);
+            assertTrue(p != null && p.distance(gm) <= StageSpots.CLOSE_PX && p.y == 300, "seed " + seed + ": " + p);
+        }
+        assertTrue(oldWentFar, "the spread pick goes past the hold radius in a crowd");
+    }
+
+    @Test
+    void aChatPartnerTakesAClearSpotWhenThereIsOne() {
+        Point gm = new Point(1000, 300);
+        List<Point> taken = new ArrayList<>(List.of(gm, new Point(1070, 300)));
+        for (int seed = 0; seed < 50; seed++) {
+            Point p = StageSpots.pickClose(gm, taken, new Random(seed), StageSpotsTest::ground, StageSpots.CLOSE_PX);
+            assertTrue(StageSpots.clear(p, taken) && p.distance(gm) <= StageSpots.CLOSE_PX, "seed " + seed + ": " + p);
+        }
+        assertEquals(null, StageSpots.pickClose(gm, taken, new Random(1), (x, y) -> null, StageSpots.CLOSE_PX));
+    }
 }

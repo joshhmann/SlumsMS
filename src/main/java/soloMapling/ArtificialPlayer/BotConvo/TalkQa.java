@@ -286,6 +286,36 @@ public final class TalkQa {
      * doing for a trip a friend asks for ({@link LifeRuntime#commitBlocker}); returns what still holds each one that
      * is not free (empty: all free).
      */
+    /**
+     * 162 runfix (t-bt-3 on TEST 10-30: "[octogurl: in the middle of grind]" for the whole wait): waits (up to
+     * {@code maxMs}) until {@code want} of {@code bots} are free to move and returns those, in spawn order; fewer when
+     * the wait ran out. A fresh training bot may start a grind session that outlasts the wait, so the check stages a
+     * spare or two and talks with the first that are free.
+     */
+    public static List<Character> awaitFreeOf(List<Character> bots, int want, long maxMs, List<String> held)
+            throws InterruptedException {
+        long end = System.currentTimeMillis() + maxMs;
+        List<Character> free = new ArrayList<>();
+        while (true) {
+            free.clear();
+            held.clear();
+            long now = System.currentTimeMillis();
+            for (Character c : bots) {
+                LifeRuntime life = BotTalk.lifeOf(c.getId());
+                String why = life == null ? "no daily life" : life.commitBlocker(now);
+                if (why == null) {
+                    free.add(c);
+                } else {
+                    held.add(c.getName() + ": " + why);
+                }
+            }
+            if (free.size() >= want || now >= end) {
+                return free.size() > want ? new ArrayList<>(free.subList(0, want)) : free;
+            }
+            Thread.sleep(2_000);
+        }
+    }
+
     public static List<String> awaitFree(List<Character> bots, long maxMs) throws InterruptedException {
         long end = System.currentTimeMillis() + maxMs;
         List<String> held = new ArrayList<>();

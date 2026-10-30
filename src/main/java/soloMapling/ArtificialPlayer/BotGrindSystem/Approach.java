@@ -83,12 +83,16 @@ public final class Approach {
             return GrindBrain.clamp(mobX, lo, hi);
         }
         int self = chr.getId();
+        java.util.List<java.awt.Rectangle> bodies = mobBodiesNear(map, mobX, groundY, band[1]);
         return StandOffset.standX(self, mobX, lo, hi, band[0], band[1],
                 x -> {
                     Point g = GCMovement.groundPointBelow(map, x, groundY - 12);
                     return g != null && Math.abs(g.y - groundY) <= 12;
                 },
                 x -> {
+                    if (insideBody(bodies, x, groundY)) {
+                        return true;   // 162 runfix: not a spot inside another mob (t-cb-2)
+                    }
                     for (MapObject mo : map.getMapObjectsInRange(new Point(x, groundY), 30.0 * 30.0,
                             java.util.List.of(server.maps.MapObjectType.PLAYER))) {
                         Character o = (Character) mo;
@@ -99,6 +103,40 @@ public final class Approach {
                     }
                     return false;
                 });
+    }
+
+    /*
+     * 162 runfix (t-cb-2 on TEST 10-30: 11 of 40 snapshots inside a mob): the band puts an archer or mage 120-180 px off
+     * its target, which on a busy ledge is often inside ANOTHER mob (leetownz fighting a Red Snail from inside a Pig).
+     * The stand spot now skips spots inside any hostile mob's touch box, as a spot another player holds.
+     */
+    static java.util.List<java.awt.Rectangle> mobBodiesNear(server.maps.MapleMap map, int mobX, int groundY, int span) {
+        java.util.List<java.awt.Rectangle> out = new java.util.ArrayList<>();
+        double r = span + 120.0;
+        for (MapObject mo : map.getMapObjectsInRange(new Point(mobX, groundY), r * r,
+                java.util.List.of(server.maps.MapObjectType.MONSTER))) {
+            Monster m = (Monster) mo;
+            if (!m.isAlive() || !SpotFinder.isHostile(m)) {
+                continue;
+            }
+            java.awt.Rectangle b = GCMovement.mobBounds(m);
+            if (b != null) {
+                out.add(b);
+            }
+        }
+        return out;
+    }
+
+    /** A character standing at (x, groundY) touches one of these bodies (the lower half, as BotContactDamage). */
+    static boolean insideBody(java.util.List<java.awt.Rectangle> bodies, int x, int groundY) {
+        for (java.awt.Rectangle r : bodies) {
+            int lower = Math.max(1, r.height / 2);
+            java.awt.Rectangle touch = new java.awt.Rectangle(r.x - 4, r.y + r.height - lower, r.width + 8, lower + 6);
+            if (touch.contains(x, groundY - 8)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The ground under a point (for a walk's target y), or the point's own y when there is none. */

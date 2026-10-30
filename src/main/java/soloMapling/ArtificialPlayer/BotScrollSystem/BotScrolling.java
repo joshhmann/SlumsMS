@@ -237,8 +237,16 @@ public final class BotScrolling {
     /** What the bot scrolls next, or null when it has nothing it would use on anything. */
     public static Plan plan(Character bot, Appetite appetite, Random rng) {
         if (evEnabled()) {
-            return evPlan(bot, appetite);
+            Plan ev = evPlan(bot, appetite);
+            // 162 runfix: a gambler gambles. When the EV planner sees no play worth its meso, the gambler persona
+            // still takes its appetite's pick (the biggest stats, a dark scroll now and then), as before the planner.
+            return ev != null || appetite != Appetite.GAMBLER ? ev : rulesPlan(bot, appetite, rng);
         }
+        return rulesPlan(bot, appetite, rng);
+    }
+
+    /** The appetite rule's pick (ScrollRules.choose), the pre-EV planner. */
+    private static Plan rulesPlan(Character bot, Appetite appetite, Random rng) {
         boolean white = holdsWhite(bot);
         for (Equip e : targets(bot)) {
             List<ScrollFacts> fitting = fittingHeld(bot, e);
@@ -277,6 +285,11 @@ public final class BotScrolling {
             for (ScrollFacts f : fittingHeld(bot, e)) {
                 if (f.success() <= 0 || (!allowLong && (f.dark() || f.longShot()))
                         || (f.dark() && (appetite == Appetite.CAREFUL || (worn && appetite != Appetite.GAMBLER)))) {
+                    continue;
+                }
+                // 162 runfix: the careful persona plays it safe under EV too: no 10%/30% long shot, except under a
+                // white scroll on gear it does not wear (as ScrollRules.choose).
+                if (appetite == Appetite.CAREFUL && f.longShot() && !(whiteOk && !worn)) {
                     continue;
                 }
                 Integer price = facts.scrollPrice(f.scrollId());   // what it would fetch on the market now
@@ -350,8 +363,14 @@ public final class BotScrolling {
             if (f != null && f.success() > 0 && !f.dark()
                     && ScrollRules.fits(id, e.getItemId(), Math.max(1, e.getUpgradeSlots()), facts.reqs(id))) {
                 Integer price = facts.scrollPrice(id);
+                if (price == null || price <= 0) {
+                    // 162 runfix: a scroll with no market price (event, quest or unlisted scrolls) cannot be bought to
+                    // make the item again. Priced at 0 it made every +stat "free" to reproduce, so the curve stayed
+                    // flat at the base and the planner declined every real scroll (t-sc-1/t-sc-2 on TEST 10-30).
+                    continue;
+                }
                 specs.add(new soloMapling.itemPool.ScrollValuer.ScrollSpec(f.success() / 100.0, f.gainWeight(),
-                        price == null ? 0 : price));
+                        price));
             }
         }
         return specs;

@@ -102,6 +102,37 @@ public final class StageSpots {
         return pick(center, taken, rng, ground);
     }
 
+    /** How far out a staged chat partner may stand: inside the 150 px a conversation hold counts as "with you". */
+    public static final int CLOSE_PX = 120;
+
+    /**
+     * 162 runfix (t-cv-8 on TEST 10-30): a staged social bot is someone to talk to, so it stands within
+     * {@code maxPx} of the centre (and within {@link #LEVEL_DY} of its height): the first clear grounded spot sweeping
+     * out from 60 px on a random side, else the first grounded one even if crowded. Null when no ground is that close.
+     * {@link #pick} grows its tries to 290 px; in a busy Henesys the first clear one was 151 px out, past the hold
+     * radius, so cv-9 logged a bot that never moved as "WANDERED OFF".
+     */
+    static Point pickClose(Point center, List<Point> taken, Random rng, BiFunction<Integer, Integer, Point> ground,
+                           int maxPx) {
+        Point fallback = null;
+        int side = rng.nextBoolean() ? 1 : -1;
+        for (int d = 60; d <= maxPx; d += 10) {
+            for (int s : new int[]{side, -side}) {
+                Point g = ground.apply(center.x + s * d, center.y - 40);
+                if (g == null || Math.abs(g.y - center.y) > LEVEL_DY || g.distance(center) > maxPx) {
+                    continue;
+                }
+                if (clear(g, taken)) {
+                    return g;
+                }
+                if (fallback == null) {
+                    fallback = g;
+                }
+            }
+        }
+        return fallback;
+    }
+
     static boolean clear(Point p, List<Point> taken) {
         for (Point t : taken) {
             if (t != null && Math.abs(t.x - p.x) < MIN_GAP && Math.abs(t.y - p.y) < 40) {
@@ -145,6 +176,27 @@ public final class StageSpots {
             // nobody known: any grounded spot will do
         }
         return pickLevel(center, taken, ThreadLocalRandom.current(), (x, y) -> groundBelow(map, x, y));
+    }
+
+    /** A spot within {@link #CLOSE_PX} of the GM when there is ground that close ({@link #pickClose}), else {@link #nearGm}. */
+    public static Point closeToGm(Character gm) {
+        MapleMap map = gm.getMap();
+        Point center = gm.getPosition();
+        if (map == null || center == null) {
+            return nearGm(gm);
+        }
+        List<Point> taken = new ArrayList<>();
+        try {
+            for (Character c : map.getAllPlayers()) {
+                if (c != null && c.getPosition() != null) {
+                    taken.add(c.getPosition());
+                }
+            }
+        } catch (RuntimeException e) {
+            // nobody known: any grounded spot will do
+        }
+        Point p = pickClose(center, taken, ThreadLocalRandom.current(), (x, y) -> groundBelow(map, x, y), CLOSE_PX);
+        return p != null ? p : nearGm(gm);
     }
 
     /** A spot near the GM on the GM's map. */

@@ -58,7 +58,9 @@ public final class AffinityStaging {
         int mobLevel = MapMobIndex.level(gm.getMapId());
         boolean fights = training && MapMobIndex.mobCount(gm.getMapId()) > 0;
         int slot = BotStore.nextDynamicSlots(1);
-        Point at = soloMapling.ArtificialPlayer.StageSpots.nearGm(gm); // rc6 (QA t-pb-1): spread, on the ground
+        // rc6 (QA t-pb-1): spread, on the ground; 162 runfix (t-cv-8): a social bot within talking distance
+        Point at = fights ? soloMapling.ArtificialPlayer.StageSpots.nearGm(gm)
+                : soloMapling.ArtificialPlayer.StageSpots.closeToGm(gm);
         // The level floor holds for a fighting staged bot too: a hostile one (a rival, a nemesis) fights, and on a
         // low-level mob map it came out under 10 - too young to be answered on a party invite (auto-QA t-pb-1).
         int id = fights

@@ -1037,10 +1037,48 @@ public class EventInstanceManager {
     }
 
     private void dropExclusiveItems(Character chr) {
-        AbstractPlayerInteraction api = chr.getAbstractPlayerInteraction();
+        dropExclusiveItems(chr, exclusiveItems);
+    }
 
-        for (Integer item : exclusiveItems) {
-            api.removeAll(item);
+    /*
+     * 162 runfix (TEST 10-30: t-vb-3 "instance DID NOT START" on ch 1 for over an hour): a bot that logged out during a
+     * bot-lobby KPQ has a client whose player is gone, so removeAll's cl.getPlayer() threw an NPE inside the script's
+     * playerExit while the lobby party disbanded (KpqLobby.disband, 13:33 and 14:02 UTC); end() never finished, the
+     * instance was never disposed and the channel's only Kerning PQ lobby stayed taken. Such a character loses the
+     * items straight from its inventory (no packets: nobody is connected), and nothing here may stop the exit.
+     */
+    static void dropExclusiveItems(Character chr, java.util.Collection<Integer> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        client.Client cl = chr.getClient();
+        boolean live = cl != null && cl.getPlayer() == chr;
+        for (Integer item : items) {
+            try {
+                if (live) {
+                    chr.getAbstractPlayerInteraction().removeAll(item);
+                } else {
+                    removeOffline(chr, item);
+                }
+            } catch (RuntimeException e) {
+                log.warn("Could not drop event item {} from {}", item, chr.getName(), e);
+            }
+        }
+    }
+
+    private static void removeOffline(Character chr, int itemId) {
+        client.inventory.InventoryType type = constants.inventory.ItemConstants.getInventoryType(itemId);
+        for (client.inventory.InventoryType t : type == client.inventory.InventoryType.EQUIP
+                ? new client.inventory.InventoryType[]{type, client.inventory.InventoryType.EQUIPPED}
+                : new client.inventory.InventoryType[]{type}) {
+            client.inventory.Inventory iv = chr.getInventory(t);
+            if (iv == null) {
+                continue;
+            }
+            client.inventory.Item it;
+            while ((it = iv.findById(itemId)) != null) {
+                iv.removeSlot(it.getPosition());
+            }
         }
     }
 
