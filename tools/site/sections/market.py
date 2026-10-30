@@ -141,6 +141,8 @@ def validate(m):
                 break
     if "generated_at" in m["listings"] and not is_time(m["listings"]["generated_at"]):
         problems.append("listings.json: 'generated_at' isn't a time")
+    if "generated_at" in m["sales"] and not is_time(m["sales"]["generated_at"]):
+        problems.append("sales.json: 'generated_at' isn't a time")  # audit W16: the page prints it
     if not is_time(m["economy-public"].get("as_of")):
         problems.append("economy-public.json: 'as_of' isn't a time")
     for name in ["listings", "sales", "nx-rate", "economy-public"]:
@@ -469,8 +471,21 @@ def item_stats(hist):
     last_date = shown[-1][0] if shown else None  # the newest day with enough sales, not necessarily today
     sold = sum(real_count(r) for _, r in rows)  # real trades only; the prices above use every sample
     first = shown[0][1]["median"] if shown else None
+    # Audit W15: the change is "median now vs the median of the oldest day with enough sales", so its label has to be
+    # that day's real distance, not the number of days the history happens to hold.
+    span = None
+    if shown:
+        span = (dt.date.fromisoformat(shown[-1][0]) - dt.date.fromisoformat(shown[0][0])).days
     return {"median": last and last["median"], "low": last and last["low"], "high": last and last["high"],
-            "first": first, "sold": sold, "days": len(rows), "date": last_date}
+            "first": first, "sold": sold, "days": len(rows), "date": last_date,
+            "span": span if span and span > 0 else len(rows)}
+
+
+def sales_as_of(m):
+    """When the sales feed was read (audit W16): the rows are hour-rounded and up to a day old, so every page that
+    prints them says as of when, exactly like FM now does with its listings."""
+    t = m["sales"].get("generated_at")
+    return f' &middot; as of {esc(when(t))}' if is_time(t) else ""
 
 
 def build_prices(mk):
@@ -504,7 +519,7 @@ def build_prices(mk):
                 + '</p></div></div>'
                 f'<div class="mkstats"><div class="hot"><small>Median{on}</small><b>{median}</b><span>mesos</span></div>'
                 f'<div><small>Lowest and highest sale{on}</small><b>{rng}</b><span>mesos</span></div>'
-                f'<div><small>{len(hist)}-day change</small><b>{change(st["first"], st["median"]) or "-"}</b><span>median vs {len(hist)} days ago</span></div>'
+                f'<div><small>{st["span"]}-day change</small><b>{change(st["first"], st["median"]) or "-"}</b><span>median vs {st["span"]} days ago</span></div>'
                 f'<div><small>Sold</small><b>{st["sold"]:,}</b><span>in {len(hist)} days</span></div></div>'
                 f'<section class="panel mkact" data-mk-item="{item_id}" hidden><h2 class="bar">Watch, alert, post</h2>'
                 f'<div class="in"></div></section>'
@@ -516,7 +531,7 @@ def build_prices(mk):
                    + (f'<p class="small" style="padding:6px 16px 10px;margin:0">and {more} more in the '
                       f'<a href="{{root}}{MARKET}/listings.html">FM now</a> list</p>' if more > 0 else "")
                    + '</section>' if lrows else "")
-                + (f'<section class="panel"><h2 class="bar">Recent sales <small>rounded to the hour</small></h2><div class="tbl"><table class="t">'
+                + (f'<section class="panel"><h2 class="bar">Recent sales <small>rounded to the hour{sales_as_of(m)}</small></h2><div class="tbl"><table class="t">'
                    f'<thead><tr><th class="r">Price</th><th class="r">Qty</th><th>How</th><th>When</th></tr></thead>'
                    f'<tbody>{srows}</tbody></table></div>{sales_note(sales, PAD)}</section>' if srows else ""))
         mk.page(f"{MARKET}/prices/{item_id}.html", f"{name} price", body, "prices", f"{name}: price history and FM listings on SlumsMS.")
@@ -559,7 +574,7 @@ def build_lists(mk, priced):
              else f'<p class="empty">{NO_SALES}</p>')
     body = (f'<h1>Recent sales</h1><p class="id">'
             + (f'The last {len(sales)} sale{"" if len(sales) == 1 else "s"}, newest first, rounded to the hour' if sales
-               else "Sales between players, newest first") + '</p>'
+               else "Sales between players, newest first") + sales_as_of(m) + '</p>'
             f'{sales_note(sales)}<section class="panel"><h2 class="bar">Sales</h2>{table}</section>')
     mk.page(f"{MARKET}/sales.html", "Recent sales", body, "sales")
 
