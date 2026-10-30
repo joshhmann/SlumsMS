@@ -66,7 +66,7 @@ class ReleaseDayChecksTest {
 
     private static int waitSeconds(Check c, String regex) {
         for (Check.Step s : c.steps()) {
-            Matcher m = Pattern.compile("wait up to (\\d+) s for /" + Pattern.quote(regex) + "/").matcher(s.describe());
+            Matcher m = Pattern.compile("up to (\\d+) s for /" + Pattern.quote(regex) + "/").matcher(s.describe());
             if (m.find()) {
                 return Integer.parseInt(m.group(1));
             }
