@@ -26,3 +26,12 @@ docs/PROVENANCE.md. Matrix section 1: 157-nutnnut-tools/adoption-matrix.md.
 - Everything behind switches, off on live until the owner's go; credits per port; fail-before tests.
 - Interacts with: BotGear, BotGearPlanner, BotScrolling/ScrollRules/ScrollWants, UpgradeSimulator, SaleRules,
   LifeGoals, TrainingMapChooser/LevelingPathChooser, OwnedAlt*, merchant stock prices.
+
+## Part 3 status (2026-10-30, branch `162-companions`)
+
+Built behind `COMPANION_UPGRADES_ENABLED` (off): `GearUpgrades` asks one question through `GearUpgrades.Scorer`
+("how much better is this wearer with this piece, counting what it wears and carries"). The default answers with
+`BotGearPlanner` as it stands; when the new optimizer lands, `GearUpgrades.install(scorer)` swaps it in without
+touching the companion code. `GearUpgrades.Planner` carries a copy of BotGear's private `liveFacts`/`liveValuer`/`piece`
+(about 40 lines) because BotGear was not to be edited on this branch: when part 1 merges, make those package-visible
+and delete the copy.

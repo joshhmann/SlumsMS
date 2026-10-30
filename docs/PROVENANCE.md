@@ -94,3 +94,28 @@ Ours:
 - the card list merged from monstercarddata and Item.wz;
 - `build_book.py` rewritten over parsed XML, because this server's WZ dump is minified. It takes drops from MySQL
   or a TSV and writes the HP strings the client book needs. MapleLib is not used.
+
+## Later ports
+
+nutnnut/Cosmic, https://github.com/nutnnut/Cosmic, AGPL-3.0 (the same licence as ours). Each port names the upstream
+commit or file in its commit message; this list is the running record.
+
+### Companion command and sharing set (ticket 99 / 162 part 3, 1.6.2, branch `162-companions`)
+
+From `dev` at `77e0c5bc9` (files) and the two commits named. Behind the switches `COMPANION_ORDERS_ENABLED`,
+`COMPANION_TRADES_ENABLED`, `COMPANION_UPGRADES_ENABLED`, `COMPANION_SUPPLIES_ENABLED`, `OWNED_ALTS_INVITE_SUMMON_ENABLED`
+(all off by default).
+
+| From theirs | Our files |
+| --- | --- |
+| `BotChatManager` command words (patrol, sentry/guard/camp, move here, trade/drop category words, "show me your hat", "any upgrades?", "request?", "trade upgrades", "need pot/ammo") and `BotCommandParser` targeting (name, prefix, slot) | `BotCommandParser` (ticket 14's parser, extended; ours already had targeting after cosmic_agents) |
+| `8fd725404` formations (split/stagger, spread, stack, random, left, right; tight/loose presets; px qualifier) | `Formation`, `CompanionStance`, `GCMovement.setFollowOffset`, `GCMovementDriver.formationPlace` |
+| `BotTradePacing` (step 900-2200 ms, confirm 1500-3000 ms) | `TradePacing` |
+| `BotInventoryManager.startTradeSequence/tickTrade/collectItems` (bot-driven window: invite, one item a beat, chat, wait for the partner, confirm) | `BotGiveTrade`, `TradeCategories`, `CompanionItems` |
+| `BotOfferManager` (offer spare gear to the owner and siblings, compared against what they wear and carry) | `GearUpgrades` (scored by our `BotGearPlanner` through a `Scorer` interface ticket 162 can replace) |
+| `BotPotionManager`, `BotAmmoManager`, `BotRockManager` (best donor, keep a reserve, share by trade) | `SupplyShare`, `CompanionItems.need/shareWithSibling` |
+| `59f9bc091` party invite of an offline own character spawns it | `OwnedAltInvite` (party-window invite only; the buddy-list "fake online" half is not ported) |
+
+Ours: one implementation for owned alts and party bot friends; every item moves through the player's own window
+path (`Trade.putFromInventory`, now shared with `PlayerInteractionHandler`) or a normal drop; stances stay inside the
+owned-alt activity gate (no autopilot); wording never gives a companion away.
