@@ -77,6 +77,22 @@ final class SiteMobKillsStore implements SiteMobKills.Store {
     }
 
     @Override
+    public long oldestSplitHour(long fromHour) throws Exception {
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT MIN(hour_start) FROM site_mob_kills "
+                     + "WHERE hour_start >= ? AND estimated IS NOT NULL")) {
+            ps.setLong(1, fromHour);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    long h = rs.getLong(1);
+                    return rs.wasNull() ? -1 : h;
+                }
+            }
+        }
+        return -1;
+    }
+
+    @Override
     public void prune(long beforeHour) throws Exception {
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement("DELETE FROM site_mob_kills WHERE hour_start < ?")) {

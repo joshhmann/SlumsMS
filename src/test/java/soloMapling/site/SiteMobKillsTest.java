@@ -119,6 +119,15 @@ class SiteMobKillsTest {
             return out;
         }
 
+        /** Hours whose rows carry a non-null estimated value (the rest were written before the split). */
+        @Override
+        public long oldestSplitHour(long from) throws Exception {
+            if (noEstimatedColumn) {
+                throw new java.sql.SQLException("Unknown column 'estimated'");
+            }
+            return est.keySet().stream().filter(h -> h >= from).min(Long::compare).orElse(-1L);
+        }
+
         public void write(Map<Long, Map<Integer, Integer>> c) throws Exception {
             if (broken) {
                 throw new java.sql.SQLException("no table");
@@ -265,5 +274,69 @@ class SiteMobKillsTest {
         assertTrue(sql.contains("ADD COLUMN estimated INT NOT NULL DEFAULT 0") && sql.contains("information_schema.COLUMNS"));
         assertTrue(sql.contains("VALUES ('056-mob-kills-split')"));
         assertTrue(rb.contains("DROP COLUMN estimated") && rb.contains("migration_id = '056-mob-kills-split'"));
+    }
+
+    @Test
+    void splitSinceIsTheFirstHourWithRealSplitData() {
+        assertNull(SiteMobKills.splitSince()); // nothing recorded, nothing restored
+
+        // old unsplit hours restored from a store (rows, no estimated values) do not count as split
+        FakeStore store = new FakeStore();
+        long hourMs = 3_600_000L;
+        long nowHour = now.get() / hourMs;
+        store.rows.put(nowHour - 5, new java.util.HashMap<>(Map.of(5, 40)));
+        store.rows.put(nowHour - 4, new java.util.HashMap<>(Map.of(5, 40)));
+        SiteMobKills.restore(store, now.get());
+        assertNull(SiteMobKills.splitSince());
+
+        // this build's first recorded hour starts the split
+        SiteMobKills.kill(5);
+        assertEquals(nowHour * hourMs, SiteMobKills.splitSince());
+
+        // a restored hour the store marks split-aware (non-null, even 0) and older than ours moves it back
+        SiteMobKills.reset(now::get);
+        store.est.put(nowHour - 3, new java.util.HashMap<>(Map.of(5, 0)));
+        store.rows.put(nowHour - 3, new java.util.HashMap<>(Map.of(5, 7)));
+        SiteMobKills.restore(store, now.get());
+        SiteMobKills.kill(5);
+        assertEquals((nowHour - 3) * hourMs, SiteMobKills.splitSince());
+
+        // a store without the column (migration 056 not applied) tells nothing: only our own hour
+        SiteMobKills.reset(now::get);
+        FakeStore old = new FakeStore();
+        old.noEstimatedColumn = true;
+        SiteMobKills.restore(old, now.get());
+        SiteMobKills.kill(5);
+        assertEquals(nowHour * hourMs, SiteMobKills.splitSince());
+    }
+
+    @Test
+    void flushWritesAZeroEstimateSoARealHourIsNotUnknown() {
+        FakeStore store = new FakeStore();
+        SiteMobKills.kill(5); // counted only, no offscreen kill
+        assertTrue(SiteMobKills.flush(store, now.get()));
+        assertEquals(Map.of(5, 0), store.est.get(now.get() / 3_600_000L));
+    }
+
+    @Test
+    void worldJsonCarriesSplitSinceOrNull() {
+        Map<String, Object> with = SiteWorld.file(new SiteWorld.Online(Map.of(), Map.of(), Map.of()), null, List.of(),
+                now.get(), List.of(), List.of(), 1_700_000_000_000L);
+        assertEquals(1_700_000_000_000L, with.get("split_since"));
+        Map<String, Object> none = SiteWorld.file(new SiteWorld.Online(Map.of(), Map.of(), Map.of()), null, List.of(),
+                now.get(), List.of(), List.of());
+        assertTrue(none.containsKey("split_since"));
+        assertNull(none.get("split_since"));
+        assertTrue(none.containsKey("top_mobs") && none.containsKey("top_mobs_7d"));
+    }
+
+    @Test
+    void migration057AllowsNullAndRollsBack() throws Exception {
+        java.nio.file.Path d = java.nio.file.Path.of("database/migrations");
+        String sql = java.nio.file.Files.readString(d.resolve("057-mob-kills-split-null.sql"));
+        String rb = java.nio.file.Files.readString(d.resolve("057-mob-kills-split-null.rollback.sql"));
+        assertTrue(sql.contains("MODIFY COLUMN estimated INT NULL DEFAULT NULL"));
+        assertTrue(sql.contains("VALUES ('057-mob-kills-split-null')"));
+        assertTrue(rb.contains("INT NOT NULL DEFAULT 0") && rb.contains("migration_id = '057-mob-kills-split-null'"));
     }
 }
