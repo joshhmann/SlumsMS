@@ -114,6 +114,7 @@ public class ItemInformationProvider {
     protected Map<Integer, Pair<String, Integer>> statUpgradeMakerCache = Collections.synchronizedMap(new HashMap<>());
     protected Map<Integer, MakerItemFactory.MakerItemCreateEntry> makerItemCache = Collections.synchronizedMap(new HashMap<>());
     protected Map<Integer, Integer> makerCatalystCache = Collections.synchronizedMap(new HashMap<>());
+    protected Map<Integer, Integer> makerMesoCache = Collections.synchronizedMap(new HashMap<>());
     protected Map<Integer, Map<String, Integer>> skillUpgradeCache = Collections.synchronizedMap(new HashMap<>());
     protected Map<Integer, Data> skillUpgradeInfoCache = Collections.synchronizedMap(new HashMap<>());
     protected Map<Integer, Pair<Integer, Set<Integer>>> cashPetFoodCache = Collections.synchronizedMap(new HashMap<>());
@@ -2566,6 +2567,31 @@ public class ItemInformationProvider {
 
         makerCatalystCache.put(itemId, itemid);
         return itemid;
+    }
+
+    /**
+     * The recipe's own meso in Etc/ItemMake.img (the number the v83 client builds its Maker fees from), or -1 when
+     * ItemMake.img has no recipe for the item. Not makercreatedata.req_meso: that column holds Cosmic's marked-up
+     * estimate of the shown fee (ticket 112 follow-up).
+     */
+    public int getMakerRecipeMeso(int itemId) {
+        Integer meso = makerMesoCache.get(itemId);
+        if (meso != null) {
+            return meso;
+        }
+
+        meso = -1;
+        for (Data md : etcData.getData("ItemMake.img").getChildren()) {
+            Data me = md.getChildByPath(StringUtil.getLeftPaddedStr(Integer.toString(itemId), '0', 8));
+
+            if (me != null) {
+                meso = DataTool.getInt(me.getChildByPath("meso"), 0);
+                break;
+            }
+        }
+
+        makerMesoCache.put(itemId, meso);
+        return meso;
     }
 
     public Set<String> getWhoDrops(Integer itemId) {

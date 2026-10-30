@@ -345,6 +345,8 @@ public class ServerConfig {
 
     //Maker Configuration
     public boolean USE_MAKER_PERMISSIVE_ATKUP;
+    /** Only for recipes missing from Etc/ItemMake.img and the NPC crafting scripts: the Maker window charges the
+     * fee the v83 client shows, worked out from ItemMake.img (ticket 112 follow-up, MakerItemFactory.clientCraftFee). */
     public boolean USE_MAKER_FEE_HEURISTICS;
 
     //Custom Configuration

@@ -1037,28 +1037,52 @@ public class EventInstanceManager {
     }
 
     private void dropExclusiveItems(Character chr) {
-        takeExclusiveItems(chr, exclusiveItems);
+        dropExclusiveItems(chr, exclusiveItems);
     }
 
-    /**
-     * Takes the event's exclusive items (KPQ coupons and passes) off a member leaving the instance. 1.6.2 (KPQ
-     * automation fix): a population bot sits on the shared headless client, whose {@code getPlayer()} is not the bot
-     * (null), so the client path threw a NullPointerException out of {@code unregisterPlayer}. The event script's
-     * {@code end} calls that for every member before {@code eim.dispose()}, so one bot in the party left the instance
-     * alive until its timer (whose {@code end} threw the same way): an orphan KPQ that Lakelis refused to replace. A
-     * bot's items now go through its holdings; anything else that throws is logged and never stops the exit.
+    /*
+     * One path for every member leaving (162-kpqfix merged with 162 runfix). 162-kpqfix: a population bot sits on the
+     * shared headless client, whose getPlayer() is not the bot, so the client path threw out of unregisterPlayer and
+     * KerningPQ.js end() (which exits every member before eim.dispose()) left the instance alive; a bot's items go
+     * through its holdings (its ledger follows). 162 runfix (TEST 10-30: t-vb-3 "instance DID NOT START" on ch 1 for
+     * over an hour): a bot that logged out during a bot-lobby KPQ has a client whose player is gone, so removeAll's cl.getPlayer() threw an NPE inside the script's
+     * playerExit while the lobby party disbanded (KpqLobby.disband, 13:33 and 14:02 UTC); end() never finished, the
+     * instance was never disposed and the channel's only Kerning PQ lobby stayed taken. Such a character loses the
+     * items straight from its inventory (no packets: nobody is connected), and nothing here may stop the exit.
      */
-    static void takeExclusiveItems(Character chr, java.util.Collection<Integer> items) {
-        boolean ownClient = chr.getClient() != null && chr.getClient().getPlayer() == chr;
+    static void dropExclusiveItems(Character chr, java.util.Collection<Integer> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        client.Client cl = chr.getClient();
+        boolean live = cl != null && cl.getPlayer() == chr;
         for (Integer item : items) {
             try {
-                if (ownClient) {
+                if (live) {
                     chr.getAbstractPlayerInteraction().removeAll(item);
-                } else {
+                } else if (chr.isBot()) {
                     soloMapling.ArtificialPlayer.BotHoldings.takeAll(chr, item);
+                } else {
+                    removeOffline(chr, item);
                 }
             } catch (RuntimeException e) {
-                log.warn("Could not take event item {} from {} leaving the event", item, chr.getName(), e);
+                log.warn("Could not drop event item {} from {}", item, chr.getName(), e);
+            }
+        }
+    }
+
+    private static void removeOffline(Character chr, int itemId) {
+        client.inventory.InventoryType type = constants.inventory.ItemConstants.getInventoryType(itemId);
+        for (client.inventory.InventoryType t : type == client.inventory.InventoryType.EQUIP
+                ? new client.inventory.InventoryType[]{type, client.inventory.InventoryType.EQUIPPED}
+                : new client.inventory.InventoryType[]{type}) {
+            client.inventory.Inventory iv = chr.getInventory(t);
+            if (iv == null) {
+                continue;
+            }
+            client.inventory.Item it;
+            while ((it = iv.findById(itemId)) != null) {
+                iv.removeSlot(it.getPosition());
             }
         }
     }

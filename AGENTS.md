@@ -7,6 +7,10 @@ with a ticket or a comment, this file wins; if it conflicts with the owner's lat
 SlumsMS is a friends-only MapleStory v83 private server (5 to 15 real players) with thousands of AI bot players. The
 server is a fork of MapleRoot/Cosmic (Java 21, Maven). The owner decides; you build, test and propose.
 
+
+> **Start here:** /root/work/START-HERE.md (outside the repo) has the reading order for every kind of agent and the
+> table of pieces (dev branch, folder, owner, TEST/RC, live). Outside CLI agents also read docs/sessions/EXTERNAL-AGENTS.md.
+
 ## 1. Hard rules (break one of these and you can do real damage)
 
 1. **Live is the owner's.** Never stop, restart, deploy to, edit, or write to the live server, its database, its unit
@@ -44,7 +48,7 @@ server is a fork of MapleRoot/Cosmic (Java 21, Maven). The owner decides; you bu
 | 187 (this workstation, "openclaw") | where agents run; all git checkouts under `/root/work` | Codex CLI, Maven, node |
 | 164 (`root@192.168.0.164`, LXC "maplestory", 12 cores, 48 GB) | live server, test server, patch site, release staging | shared by live and test: keep test inside its CPU/memory caps |
 | Silvia (`crims@192.168.0.186`, Windows) | builds the client DLL and launcher exe; the owner plays here | see rule 5; Parsec is often running |
-| 192.168.0.17 | local LLM (Qwen `qwen9b`, `:8095/v1`, 2 slots) and GLiNER Decide (`:8900`) | also serves live chat: keep load light |
+| 192.168.0.17 | local LLM (Qwen `qwen9b`, `:8095/v1`, 2 slots) that writes live 1.6.0.4's bot replies, and the chat classifiers: GLiNER Decide (`:8900`, live today), the trained r7 model (`:8913`) and tone (`:8910`) | live uses it now: keep load light. With 1.6.2, live replies move to the DeepSeek 4.1 Flash API (like TEST) and the classifier to :8913/:8910; qwen9b and :8900 stay as the rollback |
 
 ### Servers on 164
 | | Live | Test | Soak |

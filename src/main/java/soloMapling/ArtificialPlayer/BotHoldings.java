@@ -325,6 +325,17 @@ public final class BotHoldings {
      * @return units actually paid; 0 when the bot holds none of the item, has no map, or quantity is not positive
      */
     public static int payOut(Character bot, int itemId, int quantity, Character recipient, Point position) {
+        return payOut(bot, itemId, quantity, recipient, position, false);
+    }
+
+    /**
+     * {@link #payOut(Character, int, int, Character, Point)}, with {@code stacked} landing the units as stacks (up to
+     * the item's slot max each) instead of one drop per unit: 1.6.2 asked-for friend gifts, so twenty potions or a
+     * hundred arrows are one or two drops, not a hundred. The destock, the ledger and the put-back of what a map
+     * refused are exactly the same.
+     */
+    public static int payOut(Character bot, int itemId, int quantity, Character recipient, Point position,
+                             boolean stacked) {
         if (recipient != null && bot != null && recipient != bot) {
             soloMapling.ArtificialPlayer.BotConvo.SayDo.event(bot, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.GIFT, bot.getMapId()); // rc6 say-do
         }
@@ -363,12 +374,15 @@ public final class BotHoldings {
         int units = paid;   // the destock loop's counter is not effectively final, a lambda needs one that is
         mutate(bot, ledger -> ledger.addItem(itemId, -units));
         int landed = 0;
-        for (int i = 0; i < paid; i++) {
-            MapItem drop = map.spawnItemDropNoExpire(bot, recipient, new Item(itemId, (short) 0, (short) 1, -1),
+        int per = stacked ? Math.max(1, slotMaxFor(itemId)) : 1;
+        for (int left = paid; left > 0; ) {
+            int q = Math.min(per, left);
+            left -= q;
+            MapItem drop = map.spawnItemDropNoExpire(bot, recipient, new Item(itemId, (short) 0, (short) q, -1),
                     position, false, false, false);
             if (drop != null) {
                 drop.setPermanentOwner(true);
-                landed++;
+                landed += q;
             }
         }
         if (landed < paid) {

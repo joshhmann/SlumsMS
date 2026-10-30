@@ -47,7 +47,7 @@ final class OwnedAltScenarios {
             if (!(c.COMPANION_ORDERS_ENABLED || c.COMPANION_TRADES_ENABLED || c.COMPANION_UPGRADES_ENABLED
                     || c.COMPANION_SUPPLIES_ENABLED || c.OWNED_ALTS_INVITE_SUMMON_ENABLED))
                 throw new QaRefusal("Turn on the COMPANION_* switches (and OWNED_ALTS_INVITE_SUMMON_ENABLED) on TEST first.");
-            return List.of("Use an account with two more characters in this world. Call both with @botme <name>. !companions shows the switches and each one's stance.",
+            return List.of("Use an account with two more characters in this world (QA staging: !qa do alts makes them: <your name>Alt1 lv30 with potions, hat, ETC and a sword; Alt2 lv30 with 5 Red Potions; run it again to top up; !qa do alts remove deletes only those it made; !qa stop keeps them). Call both with @botme <name>. !companions shows the switches and each one's stance.",
                     "Orders (party chat or @alts): 'stay' - they stop and fight nothing they would walk to; 'follow' - they walk again; '1 move here' - the first walks to where you stand and holds; 'sentry' - they hold and hit only what comes near; 'patrol' - they walk back and forth around you. Stand 3 minutes still: they stop fighting (gate).",
                     "Formations: 'spread', 'formation left 80', 'tight', 'loose', 'stack', 'formation random' - they keep those places while following; 'snap' - every one back to following at its place.",
                     "Trades (normal window, a beat between each step): 'trade pots', 'trade hp pots', 'trade scrolls', 'trade etc', 'trade equips', 'trade 100k', 'trade <item name>', 'trade hat' (a spare hat in its bag). Cancel once: the items go back to the alt. Accept once: check the trade log line.",
@@ -56,6 +56,17 @@ final class OwnedAltScenarios {
                     "Supplies: empty your HP pots, say 'need hp pots' - the alt with the most to spare (it keeps 50) trades you up to 100. Empty one alt's pots: within ~15 s its sibling trades it some.",
                     "Invite summon: dismiss an alt, then invite its name from the party window - it is called as with @botme. A name that is not yours: the normal 'cannot find' answer.",
                     "Never: a line saying it is a bot, an item moving outside a trade window or a drop, an alt walking off on its own.");
+        }
+
+        /** {@code !qa do alts [remove]}: stage (or clean up) the two extra characters; GM 3 and audited by the command. */
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"alts".equals(name)) throw new QaRefusal("oa-2 steps: alts | alts remove");
+            OwnedAltStaging staging = new OwnedAltStaging(OwnedAltStaging.DEFAULT_MARKER);
+            var host = OwnedAltStaging.liveHost(ctx.gmNow());
+            boolean remove = args != null && args.length > 0 && "remove".equalsIgnoreCase(args[0]);
+            List<String> lines = remove ? staging.remove(host) : staging.make(host);
+            for (String l : lines) ctx.log(l);
+            return lines;
         }
     }
 }

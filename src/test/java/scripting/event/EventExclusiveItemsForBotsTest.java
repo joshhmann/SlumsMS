@@ -31,7 +31,7 @@ class EventExclusiveItemsForBotsTest {
         assertTrue(BotHoldings.grantItem(bot, new Item(COUPON, (short) 0, (short) 7, -1)));
         assertTrue(BotHoldings.grantItem(bot, new Item(PASS, (short) 0, (short) 1, -1)));
 
-        assertDoesNotThrow(() -> EventInstanceManager.takeExclusiveItems(bot, List.of(COUPON, PASS)));
+        assertDoesNotThrow(() -> EventInstanceManager.dropExclusiveItems(bot, List.of(COUPON, PASS)));
 
         assertEquals(0, bot.getInventory(InventoryType.ETC).countById(COUPON));
         assertEquals(0, bot.getInventory(InventoryType.ETC).countById(PASS));
@@ -40,6 +40,6 @@ class EventExclusiveItemsForBotsTest {
     @Test
     void nothingHeldIsFine() {
         Character bot = Character.getDefault(new BotClient(0, 0));
-        assertDoesNotThrow(() -> EventInstanceManager.takeExclusiveItems(bot, List.of(COUPON, PASS)));
+        assertDoesNotThrow(() -> EventInstanceManager.dropExclusiveItems(bot, List.of(COUPON, PASS)));
     }
 }

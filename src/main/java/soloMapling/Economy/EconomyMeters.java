@@ -32,6 +32,11 @@ public final class EconomyMeters {
     public static final String SINK_SHOP = "sinkshop";
     /** Per-account gift counts ({@link BotGifts}): "giftacct" + the account id. Not shown in {@link #line}. */
     public static final String GIFT_ACCOUNT_PREFIX = "giftacct";
+    /** 1.6.2 asked-for friend gifts ({@link BotGiftAsks}): the world's count today. */
+    public static final String GIFT_ASKS = "giftasks";
+    /** Per-bot and per-account counts of asked-for gifts: prefix + id. Not shown in {@link #line}. */
+    public static final String GIFT_ASK_BOT_PREFIX = "giftaskbot";
+    public static final String GIFT_ASK_ACCOUNT_PREFIX = "giftaskacct";
 
     private static final Map<String, Long> today = new ConcurrentHashMap<>();
     /**
@@ -141,7 +146,8 @@ public final class EconomyMeters {
                 .append(String.format("%,d of %,d", get(BOT_BUY), botBuyBudget()));
         Map<String, Long> rest = new TreeMap<>(today);
         rest.remove(BOT_BUY);
-        rest.keySet().removeIf(k -> k.startsWith(GIFT_ACCOUNT_PREFIX));
+        rest.keySet().removeIf(k -> k.startsWith(GIFT_ACCOUNT_PREFIX) || k.startsWith(GIFT_ASK_BOT_PREFIX)
+                || k.startsWith(GIFT_ASK_ACCOUNT_PREFIX));
         rest.forEach((k, v) -> sb.append(String.format("; %s %,d", k, v)));
         return sb.toString();
     }

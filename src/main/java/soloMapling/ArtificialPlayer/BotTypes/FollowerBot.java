@@ -7,6 +7,9 @@ import soloMapling.ArtificialPlayer.BotDialogueHandler;
 import soloMapling.ArtificialPlayer.BotOptionMenu;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypeManager;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotPartySupport;
+import soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyCommands;
@@ -16,6 +19,7 @@ import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.server.BotTickService;
 
 import java.util.List;
+import java.util.Random;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
 import static soloMapling.ArtificialPlayer.BotHelpers.isBot;
@@ -48,6 +52,8 @@ public class FollowerBot extends BotSM {
     private volatile boolean wasPartied = false;
     private volatile boolean pausedForTrade = false;
     private volatile boolean fighting = false; // 1.5.5: swinging at a dojo floor's monster (FollowerFight)
+    private long nextBuffMs = 0; // 1.6.2 followerfix: the shared self/party-buff loop (BotBuffDriver.selfBuff)
+    private final Random rng = new Random();
 
     // NOTE: no "here" keyword - "there" contains "here", so a casual "hi there" would trigger it.
     private final BotOptionMenu menu = new BotOptionMenu(this,
@@ -104,8 +110,9 @@ public class FollowerBot extends BotSM {
             return;
         }
         pausedForTrade = false;
-        if (followPhase != FollowPhase.FOLLOW) {
+        if (followPhase != FollowPhase.FOLLOW && fighting) {
             fighting = false; // only a following bot fights (doFollow sets it each tick)
+            FollowerFight.standDown(chr);
         }
 
         switch (followPhase) {
@@ -164,10 +171,14 @@ public class FollowerBot extends BotSM {
         followPhase = FollowPhase.FOLLOW;
     }
 
-    private void doFollow() {
+    void doFollow() {
         Character chr = getChr();
         Character leader = resolveLeader();
         if (leader == null || leader.getMap() == null) {
+            if (fighting) {
+                fighting = false;
+                FollowerFight.standDown(chr);
+            }
             leaderLostSinceMs = now();
             followPhase = FollowPhase.LEADER_LOST;
             sayNode("LeaderLost", null);
@@ -181,7 +192,9 @@ public class FollowerBot extends BotSM {
             fallbackConvert();
             return;
         }
-        // 1.5.5: on a dojo floor with its leader the follower fights the floor's monster (it has no other way to)
+        supportParty(chr);
+        // 1.5.5: on a dojo floor with its leader the follower fights the floor's monster (it has no other way to);
+        // 1.6.2 followerfix: and in its leader's party, the party's fight (FollowerFight)
         fighting = FollowerFight.tick(chr, leader);
         if (fighting) {
             return;
@@ -191,6 +204,18 @@ public class FollowerBot extends BotSM {
             // the freshly resolved leader Character makes the new session current).
             GCMovement.follow(chr, leader);
         }
+    }
+
+    /**
+     * 1.6.2 followerfix (TEST 2026-10-30: a following Bishop never healed its player under 60% nor cast a party buff
+     * through a Zakum fight): the party support every other bot in a player's party runs, through the same shared calls
+     * - BotPartySupport (Heal under 60%, buff pots, for the skill's MP) as a grinder and an owned alt, and the self-buff
+     * loop (BotBuffDriver.selfBuff, party buffs paid in MP) as a grinder. Both are cheap when nothing is due.
+     */
+    void supportParty(Character chr) {
+        BotPartySupport.tick(chr);
+        nextBuffMs = BotBuffDriver.selfBuff(chr, now(), nextBuffMs,
+                () -> BotHabits.of(chr.getId()).rebuffLateNowMs(), BotBuffDriver.Pay.PARTY_BUFFS, rng);
     }
 
     // Ticket 14: told to stop - stand here until told to follow, still watching the party and the leader.
@@ -206,6 +231,7 @@ public class FollowerBot extends BotSM {
             fallbackConvert();
             return;
         }
+        supportParty(chr); // a healer told to stay still heals the party in reach
         Character leader = resolveLeader();
         if (leader != null && leader.getMap() != null) {
             leaderLostSinceMs = 0;
@@ -275,6 +301,12 @@ public class FollowerBot extends BotSM {
         return leaderId;
     }
 
+    /** Test seam: follow this leader from now on (as the first tick's INIT would). */
+    void followForTest(int leader) {
+        leaderId = leader;
+        followPhase = FollowPhase.FOLLOW;
+    }
+
     /**
      * Ticket 14: a party order. Only the leader is obeyed; anyone else hears it is loyal (unless the order went to
      * every bot, which needs no answer from each). True when the bot answered.
@@ -309,8 +341,8 @@ public class FollowerBot extends BotSM {
                 }
                 nudgeSoon(0L);
             }
-            // 1.6.2 ticket 99 (COMPANION_ORDERS_ENABLED): the companion movement set. A bot friend fights only on a
-            // dojo floor, so a sentry holds like a stay; a patrol trains here as "grind" does.
+            // 1.6.2 ticket 99 (COMPANION_ORDERS_ENABLED): the companion movement set. A bot friend fights only its
+            // party's fight (FollowerFight), so a sentry holds like a stay; a patrol trains here as "grind" does.
             case MOVE_HERE -> {
                 followPhase = FollowPhase.STAY;
                 leaderLostSinceMs = 0;
@@ -442,6 +474,7 @@ public class FollowerBot extends BotSM {
         Character chr = getChr();
         if (chr != null) {
             BotRecruitManager.clearArmed(chr.getId()); // pending station/leader handoffs survive on purpose
+            FollowerFight.standDown(chr);
             GCMovement.disable(chr); // ends the follow session + releases the shared movement lock
         }
         super.stopScheduledTask();

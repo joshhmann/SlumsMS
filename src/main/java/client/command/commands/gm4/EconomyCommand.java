@@ -27,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * !economy gift [bot] [potions|scroll|mesos]   the bot gives you a gift now (outside the chance and the caps)
  * !economy quote [bot] &lt;item words&gt; the bot names you a price for something in its bag, as if asked in chat
  * !economy price &lt;item id&gt;         the board's detail: median, range, samples, both bands
+ *                                  (a scroll: also its learned market price, sales, outliers and yaml price)
  * !economy tax &lt;price&gt;             what the FM shop tax takes from a sale at that price
  * !economy haggle &lt;fair&gt; &lt;line...&gt;  a haggle test: what a bot makes of the line, buying and selling
  * !economy reload                  re-reads economy.yaml (and NPC shop prices)

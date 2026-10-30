@@ -90,8 +90,8 @@ final class BotMakerHands implements MakerService.Hands {
     }
 
     @Override
-    public void payMeso(int amount) {
-        BotHoldings.spendMeso(bot, amount);
+    public boolean payMeso(int amount) {
+        return BotHoldings.spendMeso(bot, amount);
     }
 
     @Override
