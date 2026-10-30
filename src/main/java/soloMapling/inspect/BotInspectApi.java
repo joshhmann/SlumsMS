@@ -44,8 +44,9 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>bound to the loopback address only; any other bind address is refused and the endpoint stays off;</li>
  *   <li>off unless {@code -Dslums.inspect.port} is set, the switch {@code slums.inspect} is on ({@link DebugTools}
- *       rule: on where QA runs, off on live, {@code -Dslums.inspect=true|false} forces it) and
- *       {@code -Dslums.inspect.secretFile} names a readable file of at least 16 characters;</li>
+ *       rule: on where QA runs, off by default, {@code -Dslums.inspect=true|false} forces it) and
+ *       {@code -Dslums.inspect.secretFile} names a readable file of at least 16 characters. 1.6.2 ships it on for
+ *       live with its own port and secret file (owner 2026-10-30, docs/release/1.6.2.conf);</li>
  *   <li>every request must carry that secret in {@link #HEADER} (403 otherwise) and come from a loopback address;
  *       GET only (405); answers cached for {@link #CACHE_MS} per path, so a busy admin page costs one build per path
  *       every two seconds;</li>

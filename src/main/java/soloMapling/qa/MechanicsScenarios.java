@@ -30,7 +30,8 @@ final class MechanicsScenarios {
     }
 
     static List<QaScenario> all() {
-        return List.of(new Mx1KpqStage1(), new Mx2KpqFull());
+        return List.of(new Mx1KpqStage1(), new Mx2KpqFull(), new Mx3StopLeavesNobody(), new Mx4TwoChannels(),
+                new Mx5PlayerLedWithAlts());
     }
 
     /**
@@ -225,6 +226,338 @@ final class MechanicsScenarios {
                             + " farm Ligator coupons, hand them in for passes and give the passes to their leader.",
                     "The log has a RUN line per step (answers, hand-ins with wrong tries, drops) and a verdict line at"
                             + " the end; the bots leave 20 s after."); // names no verdict word: a waitFor must not match it
+        }
+    }
+
+    // ── 1.6.2 (bot audit coverage): a stopped run leaves nobody inside, two channels at once, a player-led party ──
+
+    /** Who is still around once a run has ended, for the verdicts below. */
+    record Leftover(boolean disposed, int inside, int held, int inEvent) {
+
+        static Leftover of(MechanicsRuns.Active a, List<Character> watched) {
+            scripting.event.EventInstanceManager eim = a.instance();
+            int held = 0;
+            int inEvent = 0;
+            for (Character c : watched) {
+                if (soloMapling.mechanics.MechanicsHold.committed(c)) {
+                    held++;
+                }
+                if (c.getEventInstance() == eim) {
+                    inEvent++;
+                }
+            }
+            return new Leftover(eim.isEventDisposed(), eim.isEventDisposed() ? 0 : eim.getPlayers().size(), held,
+                    inEvent);
+        }
+
+        boolean clean() {
+            return disposed && inside == 0 && held == 0 && inEvent == 0;
+        }
+
+        String describe() {
+            return "instance " + (disposed ? "disposed" : "ALIVE with " + inside + " inside") + ", " + held
+                    + " still held, " + inEvent + " still registered";
+        }
+    }
+
+    /** Waits until the run has ended and its instance is gone (or {@code maxMs}); true when both. */
+    static boolean awaitGone(MechanicsRuns.Active a, long maxMs) {
+        long end = System.currentTimeMillis() + maxMs;
+        while (System.currentTimeMillis() < end) {
+            if (a.run().ended() && a.instance().isEventDisposed()) {
+                return true;
+            }
+            try {
+                Thread.sleep(250);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return a.run().ended() && a.instance().isEventDisposed();
+    }
+
+    static void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    static void requireMechanics() {
+        if (!Mechanics.enabled()) {
+            throw new QaRefusal("Mechanics is off: the server needs -D" + Mechanics.FLAG + "=true.");
+        }
+    }
+
+    /**
+     * mx-3 (1.6.2, TEST 10-30 14:15 and bot audit K3/K7): four bots start Kerning PQ; 30 s in the run is stopped as
+     * {@code !mechanics stop} stops it. PASS = within 10 s the instance is disposed, nobody is inside, no bot is held
+     * or still registered to it (before 1.6.2 it stayed for its 30-minute timer and Lakelis refused the next party).
+     */
+    static final class Mx3StopLeavesNobody implements QaScenario {
+
+        public String id() {
+            return "mx-3";
+        }
+
+        public String title() {
+            return "KPQ automation: a stopped run leaves nobody inside and frees the channel's KPQ (1.6.2)";
+        }
+
+        public Set<QaLog.Topic> topics() {
+            return EnumSet.of(PQ);
+        }
+
+        public Set<Integer> watchedMaps(Character gm, String[] args) {
+            return Set.of(KpqStaging.RECRUIT_MAP, 103000800, 103000890);
+        }
+
+        public int minutes(String[] args) {
+            return 3;
+        }
+
+        public List<String> stage(QaContext ctx) {
+            requireMechanics();
+            KpqStaging.Staged s = KpqStaging.start(ctx.gm(), false, 4, true, 0, 0,
+                    line -> ctx.run().note("MX3", line), done -> {
+                    });
+            if (!s.ok()) {
+                throw new QaRefusal("mx-3 could not stage: " + (s.error() == null ? "the run ended at once" : s.error()));
+            }
+            MechanicsRuns.Active a = s.active();
+            ctx.onStop("take the " + s.spawned().size() + " bots away", () -> {
+                MechanicsRuns.get().stop(a, "QA stop");
+                KpqStaging.cleanup(s.spawned());
+            });
+            ctx.run().note("MX3", "MX3 START kpq with " + a.bots().size() + " bots in " + a.instanceName());
+            List<Character> bots = a.bots();
+            Thread t = new Thread(() -> {
+                sleep(30_000);
+                MechanicsRuns.get().stop(a, "stopped by mx-3");
+                awaitGone(a, 10_000);
+                Leftover left = Leftover.of(a, bots);
+                ctx.run().note("MX3", (left.clean() ? "MX3 PASS stopped run left nobody inside: "
+                        : "MX3 FAIL stopped run left: ") + left.describe());
+            }, "qa-mx-3");
+            t.setDaemon(true);
+            t.start();
+            return List.of("Four bots are in Kerning PQ (" + a.instanceName() + "); the run is stopped 30 s in.",
+                    "One line at the end says whether the instance went away with it.");
+        }
+    }
+
+    /**
+     * mx-4 (1.6.2, bot audit b113): bot-only Kerning PQ runs on two channels at once. Every channel names its first
+     * KPQ "Kerning0", and runs used to be kept by that name, so the second was refused. PASS = both run at the same
+     * time (each under its own channel's name), then both are stopped and both instances are gone.
+     */
+    static final class Mx4TwoChannels implements QaScenario {
+
+        public String id() {
+            return "mx-4";
+        }
+
+        public String title() {
+            return "KPQ automation: two channels run Kerning PQ at once (1.6.2, b113)";
+        }
+
+        public Set<QaLog.Topic> topics() {
+            return EnumSet.of(PQ);
+        }
+
+        public Set<Integer> watchedMaps(Character gm, String[] args) {
+            return Set.of(KpqStaging.RECRUIT_MAP, 103000800);
+        }
+
+        public int minutes(String[] args) {
+            return 3;
+        }
+
+        public List<String> stage(QaContext ctx) {
+            requireMechanics();
+            Character gm = ctx.gm();
+            net.server.channel.Channel here = gm.getClient().getChannelServer();
+            net.server.channel.Channel other = gm.getWorldServer().getChannels().stream()
+                    .filter(c -> c != null && c.getId() != here.getId()).findFirst().orElse(null);
+            if (other == null) {
+                throw new QaRefusal("mx-4 needs a second channel");
+            }
+            List<KpqStaging.Staged> staged = new java.util.ArrayList<>();
+            ctx.onStop("stop both KPQ runs and take their bots away", () -> {
+                for (KpqStaging.Staged s : staged) {
+                    MechanicsRuns.get().stop(s.active(), "QA stop");
+                    KpqStaging.cleanup(s.spawned());
+                }
+            });
+            for (net.server.channel.Channel ch : List.of(here, other)) {
+                KpqStaging.Staged s = KpqStaging.start(ch, gm, false, 3, true, 0, 1, 0,
+                        line -> ctx.run().note("MX4", line), done -> {
+                        });
+                if (!s.ok()) {
+                    ctx.run().note("MX4", "MX4 FAIL channel " + ch.getId() + " could not start: " + s.error());
+                    return List.of("Channel " + ch.getId() + " could not start its run: " + s.error());
+                }
+                staged.add(s);
+            }
+            MechanicsRuns.Active a = staged.get(0).active();
+            MechanicsRuns.Active b = staged.get(1).active();
+            ctx.run().note("MX4", "MX4 START " + a.instanceName() + " and " + b.instanceName());
+            Thread t = new Thread(() -> {
+                sleep(20_000);
+                boolean both = !a.run().ended() && !b.run().ended()
+                        && MechanicsRuns.get().runFor(a.instance()) == a && MechanicsRuns.get().runFor(b.instance()) == b;
+                String names = a.instanceName() + " / " + b.instanceName();
+                MechanicsRuns.get().stop(a, "stopped by mx-4");
+                MechanicsRuns.get().stop(b, "stopped by mx-4");
+                boolean gone = awaitGone(a, 10_000) & awaitGone(b, 10_000);
+                ctx.run().note("MX4", both && gone ? "MX4 PASS two channels ran KPQ at once (" + names + "), both gone after"
+                        : "MX4 FAIL " + (both ? "" : "not both running 20 s in (" + a.run().endedBecause() + " / "
+                        + b.run().endedBecause() + ") ") + (gone ? "" : "an instance outlived its run"));
+            }, "qa-mx-4");
+            t.setDaemon(true);
+            t.start();
+            return List.of("Two bot-only KPQ runs: " + a.instanceName() + " and " + b.instanceName() + ".",
+                    "20 s in both must be running; then both are stopped and must be gone.");
+        }
+    }
+
+    /** A level for the check; the party list (which KPQ's eligibility reads) is told, as a level-up tells it. */
+    static void setLevel(Character c, int level) {
+        c.setLevel(level);
+        c.setMPC(new net.server.world.PartyCharacter(c));
+        c.silentPartyUpdate();
+    }
+
+    /** mx-5: the QA account's two alts (t-oa-1 makes them) and the level they play KPQ at for this check. */
+    static final String[] MX5_ALTS = {"AutoQaAlt", "AutoQaAltB"};
+    static final int MX5_ALT_LEVEL = 30;
+
+    /**
+     * mx-5 (1.6.2, bot audit K3/K4 and the coverage gap): the pretend player leads a party of his two owned alts and
+     * one bot into Kerning PQ. The run drives the alts like the bot (they ask Cloto and farm); the leader does nothing,
+     * so a bot must remind him once the passes are in (or the check gives that up after 6 minutes); then the run is
+     * stopped. PASS = both alts were driven (each got a Cloto question), and after the stop nobody is inside, no alt
+     * or bot is held or registered. The alts go home and get their levels back.
+     */
+    static final class Mx5PlayerLedWithAlts implements QaScenario {
+
+        public String id() {
+            return "mx-5";
+        }
+
+        public String title() {
+            return "KPQ automation: a player leads his alts and a bot; the stop leaves nobody inside (1.6.2)";
+        }
+
+        public Set<QaLog.Topic> topics() {
+            return EnumSet.of(PQ, QaLog.Topic.OWNED_ALT);
+        }
+
+        public Set<Integer> watchedMaps(Character gm, String[] args) {
+            return Set.of(KpqStaging.RECRUIT_MAP, 103000800, 103000890);
+        }
+
+        public int minutes(String[] args) {
+            return 9;
+        }
+
+        public List<String> stage(QaContext ctx) {
+            requireMechanics();
+            var cfg = config.YamlConfig.config.server;
+            if (!cfg.OWNED_ALTS_ENABLED || !cfg.OWNED_ALTS_SUMMON_ENABLED) {
+                throw new QaRefusal("owned alts are off here (OWNED_ALTS_ENABLED / OWNED_ALTS_SUMMON_ENABLED)");
+            }
+            Character gm = ctx.gm();
+            if (gm.getLevel() < 21) {
+                throw new QaRefusal("the pretend player is level " + gm.getLevel() + "; KPQ takes 21+");
+            }
+            if (gm.getEventInstance() != null) {
+                throw new QaRefusal("the pretend player is in an event");
+            }
+            if (gm.getParty() != null) {
+                gm.leaveParty();
+            }
+            var recruit = gm.getClient().getChannelServer().getMapFactory().getMap(KpqStaging.RECRUIT_MAP);
+            gm.changeMap(recruit, recruit.getPortal(0));
+            net.server.world.Party.createParty(gm, false);
+            soloMapling.companions.OwnedAltService alts = soloMapling.companions.OwnedAltService.getInstance();
+            List<Character> called = new java.util.ArrayList<>();
+            java.util.Map<Integer, Integer> levels = new java.util.HashMap<>();
+            ctx.onStop("send the alts home with their levels back", () -> {
+                for (Character alt : called) {
+                    Integer was = levels.get(alt.getId());
+                    if (was != null) {
+                        setLevel(alt, was);
+                    }
+                    try {
+                        alts.dismiss(gm, alt.getName());
+                    } catch (RuntimeException e) {
+                        ctx.run().note("MX5", "could not dismiss " + alt.getName() + ": " + e.getMessage());
+                    }
+                }
+            });
+            for (String name : MX5_ALTS) {
+                try {
+                    Character alt = alts.summon(gm, name);
+                    if (alt != null) {
+                        called.add(alt);
+                        levels.put(alt.getId(), alt.getLevel());
+                        if (alt.getLevel() < MX5_ALT_LEVEL) {
+                            setLevel(alt, MX5_ALT_LEVEL);
+                        }
+                    }
+                } catch (RuntimeException e) {
+                    throw new QaRefusal("@botme " + name + ": " + e.getMessage() + " (t-oa-1 makes the QA alts)");
+                }
+            }
+            sleep(2_000);
+            KpqStaging.Staged s = KpqStaging.start(gm, true, 1, true, 0, 0, line -> ctx.run().note("MX5", line),
+                    done -> {
+                    });
+            if (!s.ok()) {
+                throw new QaRefusal("mx-5 could not stage: " + (s.error() == null ? "the run ended at once" : s.error()));
+            }
+            MechanicsRuns.Active a = s.active();
+            ctx.onStop("stop the run and take the bot away", () -> {
+                MechanicsRuns.get().stop(a, "QA stop");
+                KpqStaging.cleanup(s.spawned());
+            });
+            List<Character> driven = a.bots();
+            ctx.run().note("MX5", "MX5 START kpq led by " + gm.getName() + " with " + driven.size() + " driven ("
+                    + called.size() + " alts) in " + a.instanceName());
+            Thread t = new Thread(() -> {
+                RunState r = a.run();
+                long end = System.currentTimeMillis() + 6 * 60_000L;
+                while (System.currentTimeMillis() < end && !r.ended() && r.events().stream()
+                        .noneMatch(e -> e.line().startsWith("reminded the leader"))) {
+                    sleep(1_000);
+                }
+                List<String> bad = new java.util.ArrayList<>();
+                for (Character alt : called) {
+                    if (driven.stream().noneMatch(c -> c.getId() == alt.getId())) {
+                        bad.add(alt.getName() + " was not driven");
+                    } else if (r.events().stream().noneMatch(e -> e.line().startsWith(alt.getId() + " got answer"))) {
+                        bad.add(alt.getName() + " never got a Cloto question");
+                    }
+                }
+                boolean reminded = r.events().stream().anyMatch(e -> e.line().startsWith("reminded the leader"));
+                MechanicsRuns.get().stop(a, "stopped by mx-5");
+                awaitGone(a, 10_000);
+                Leftover left = Leftover.of(a, driven);
+                if (!left.clean()) {
+                    bad.add(left.describe());
+                }
+                ctx.run().note("MX5", bad.isEmpty() ? "MX5 PASS alts driven, " + (reminded ? "the leader was reminded"
+                        : "no reminder within 6 min (passes not in yet)") + ", nobody left inside after the stop"
+                        : "MX5 FAIL " + String.join("; ", bad));
+            }, "qa-mx-5");
+            t.setDaemon(true);
+            t.start();
+            return List.of(gm.getName() + " leads " + called.size() + " alts and a bot in Kerning PQ ("
+                            + a.instanceName() + "); he does nothing, the bots must ask him when it is his turn.",
+                    "Then the run is stopped and nobody may be left inside; the alts go home.");
         }
     }
 }

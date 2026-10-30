@@ -2,12 +2,19 @@ package soloMapling.ArtificialPlayer.BotMessagingSystem;
 
 import client.BotClient;
 import client.Character;
+import config.YamlConfig;
 import org.junit.jupiter.api.Test;
 import soloMapling.server.Json;
 
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -100,5 +107,57 @@ class BotChatRoutingTest {
                 "{\"answers\":{\"need\":{\"choice\":\"cleric\",\"confidence\":0.6}}}").orElseThrow().family());
         assertEquals(Optional.empty(), BotChatRouting.parseJob(
                 "{\"answers\":{\"need\":{\"choice\":\"any\",\"confidence\":0.9}}}"));
+    }
+
+    // 1.6.2 bot audit (B26): this second decide consumer asked for the model id "decide" whatever the config said, so
+    // the trained endpoint answered 404 and the request silently went unanswered.
+    @Test
+    void theDecisionRequestAsksForTheConfiguredModel() {
+        config.ServerConfig server = YamlConfig.config.server;
+        String was = server.BOT_DECIDE_MODEL;
+        try {
+            server.BOT_DECIDE_MODEL = "jev-latest";
+            Map<?, ?> body = (Map<?, ?>) Json.parse(Json.write(BotChatRouting.jobRequest("which one of u is the thief")));
+            assertEquals("jev-latest", body.get("model"));
+
+            server.BOT_DECIDE_MODEL = "  ";
+            body = (Map<?, ?>) Json.parse(Json.write(BotChatRouting.jobRequest("which one of u is the thief")));
+            assertEquals("decide", body.get("model"), "an unset model keeps the old name");
+        } finally {
+            server.BOT_DECIDE_MODEL = was;
+        }
+    }
+
+    @Test
+    void theDecisionCallSendsTheConfiguredModelAndPicksTheOneNamedKind() throws IOException {
+        AtomicReference<String> sent = new AtomicReference<>();
+        HttpServer http = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        http.createContext("/v1/systemone", exchange -> {
+            sent.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            byte[] out = "{\"answers\":{\"need\":{\"choice\":\"cleric\",\"confidence\":0.7}}}"
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, out.length);
+            exchange.getResponseBody().write(out);
+            exchange.close();
+        });
+        http.start();
+        config.ServerConfig server = YamlConfig.config.server;
+        String url = server.BOT_DECIDE_URL;
+        String model = server.BOT_DECIDE_MODEL;
+        try {
+            server.BOT_DECIDE_URL = "http://127.0.0.1:" + http.getAddress().getPort() + "/";
+            server.BOT_DECIDE_MODEL = "jev-latest";
+            List<BotAddressee.Candidate> near = List.of(
+                    new BotAddressee.Candidate(1_000_000_012, "Prayer", 230),
+                    new BotAddressee.Candidate(1_000_000_013, "Stab", 100));
+            Optional<BotChatRouting.Choice> pick = BotChatRouting.decideByJob("which one of u is the cleric", near);
+            assertEquals(1_000_000_012, pick.orElseThrow().botId(), "the one cleric nearby");
+            assertTrue(sent.get().contains("\"model\":\"jev-latest\""), sent.get());
+        } finally {
+            server.BOT_DECIDE_URL = url;
+            server.BOT_DECIDE_MODEL = model;
+            http.stop(0);
+        }
     }
 }

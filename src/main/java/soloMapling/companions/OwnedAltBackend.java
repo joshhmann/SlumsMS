@@ -110,6 +110,9 @@ final class OwnedAltBackend implements OwnedAltService.Backend {
     @Override public void closing(Character alt) {
         OwnedAltCompanion.hold(alt); // audit B13: no tick (pickup, swing) inside the save window
     }
+    @Override public void leaveEvent(Character alt) {
+        OwnedAltCompanion.leaveInstanceQuietly(alt); // one path out of an event for an alt (K6/b118 + audit #8)
+    }
     @Override public void detach(Character alt) {
         OwnedAltCompanion.forget(alt); // 1.6.1 ticket 13: the driver lets go first (no move after the disable below)
         GCMovement.disable(alt); // 1.6.0.4: stop following/travelling before the alt leaves its map and channel

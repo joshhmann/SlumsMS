@@ -467,7 +467,7 @@ public class CommandsExecutor {
             addCommand("navprobe", 3, client.command.commands.gm3.NavProbeCommand.class);
             addCommand("botstatus", 3, client.command.commands.gm3.BotStatusCommand.class);
         }
-        if (soloMapling.ArtificialPlayer.BotAttackSystem.KillCalibration.enabled()) { // ticket 157: report-only, off on live
+        if (soloMapling.ArtificialPlayer.BotAttackSystem.KillCalibration.enabled()) { // ticket 157: report-only; 1.6.2 ships it on for live
             addCommand("killcalib", 3, client.command.commands.gm3.KillCalibCommand.class);
         }
         addCommand("togglecoupon", 3, ToggleCouponCommand.class);

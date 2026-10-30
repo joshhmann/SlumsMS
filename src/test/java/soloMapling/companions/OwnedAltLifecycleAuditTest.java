@@ -139,17 +139,17 @@ class OwnedAltLifecycleAuditTest {
 
     /** Audit B13: the companion driver is stopped before the save reads the alt, never after. */
     @Test void theDriverStopsBeforeTheSave() {
-        List<String> order = new ArrayList<>();
+        List<String> calls = new ArrayList<>();
         OwnedAltServiceTest.Memory db = new OwnedAltServiceTest.Memory() {
-            @Override public void closing(Character alt) { order.add("closing"); }
-            @Override public void save(Character alt) { order.add("save"); super.save(alt); }
+            @Override public void closing(Character alt) { calls.add("closing"); }
+            @Override public void save(Character alt) { calls.add("save"); super.save(alt); }
         };
         db.add(2);
         OwnedAltService s = new OwnedAltService(db, () -> true);
         Character owner = owner(1);
         s.summon(owner, "Alt2");
         assertTrue(s.dismiss(owner, "Alt2"));
-        assertEquals(List.of("closing", "save"), order);
+        assertEquals(List.of("closing", "save"), calls); // the inherited Memory.order would shadow a local named order
     }
 
     /** Audit B14: one alt's attach (party, storage, map) never holds up the rest of the alt service. */

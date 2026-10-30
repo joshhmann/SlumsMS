@@ -619,6 +619,31 @@ public final class BotHoldings {
     }
 
     /**
+     * Takes up to {@code count} of an item out of a bot's inventory, stack by stack, its ledger following (an NPC
+     * script taking coupons, an event taking its items back). Returns how many went.
+     */
+    public static int takeHeld(Character bot, int itemId, int count) {
+        Inventory inv = bot.getInventory(ItemConstants.getInventoryType(itemId));
+        if (inv == null || count <= 0) {
+            return 0;
+        }
+        int left = count;
+        for (Item stack : new java.util.ArrayList<>(inv.listById(itemId))) {
+            if (left <= 0) {
+                break;
+            }
+            left -= consumeHeld(bot, stack, left);
+        }
+        return count - left;
+    }
+
+    /** Takes every one of an item out of a bot's inventory (an event's exclusive items when it leaves). */
+    public static int takeAll(Character bot, int itemId) {
+        Inventory inv = bot.getInventory(ItemConstants.getInventoryType(itemId));
+        return inv == null ? 0 : takeHeld(bot, itemId, inv.countById(itemId));
+    }
+
+    /**
      * Uses up part of one held stack - a potion drunk, arrows fired, stars thrown - out of the inventory and the
      * ledger together (real bots 08). Like {@code InventoryManipulator.removeFromSlot(..., consume = true)} for a
      * player, a rechargeable stack (stars, bullets) stays in its slot at 0 to be recharged, anything else leaves

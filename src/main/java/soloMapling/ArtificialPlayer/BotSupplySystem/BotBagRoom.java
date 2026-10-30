@@ -137,12 +137,8 @@ public final class BotBagRoom {
         }
         try {
             ItemInformationProvider ii = ItemInformationProvider.getInstance();
-            // Ticket 162 part 4 (-Dslums.junk.sort): reserve and valuables-shelf equips stay out of the sale.
-            java.util.Set<Item> sorted = JunkSort.keeps(chr);
             Sale sale = sellJunk(chr, item -> ii.getPrice(item.getItemId(), item.getQuantity()),
-                    item -> ii.isQuestItem(item.getItemId()) || ii.isCash(item.getItemId())
-                            || soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.keeps(item.getItemId())
-                            || sorted.contains(item));
+                    townStopKeep(chr, id -> ii.isQuestItem(id) || ii.isCash(id)));
             if (sale.items() > 0) {
                 log.info("[Bag] {} (lv {}) sold {} junk item(s) at the store on map {} for {} mesos ({} credited)",
                         chr.getName(), chr.getLevel(), sale.items(), chr.getMapId(), sale.mesosOffered(),
@@ -153,6 +149,20 @@ public final class BotBagRoom {
             log.warn("Bot junk sale failed for {}", chr.getName(), e);
             return Sale.NONE;
         }
+    }
+
+    /**
+     * What the town-stop sale never sells: quest and cash items, {@code BotRebirth}'s keeps, the equips
+     * {@code -Dslums.junk.sort} reserves, and now every {@link soloMapling.Economy.SaleRules} rule too (1.6.2 bot
+     * audit: this sale bypassed them, so a junk sort could sell what no other bot sale may - a dark scroll, a
+     * boss-only drop, a scrolled godly piece - for shop price).
+     */
+    public static Keep townStopKeep(Character chr, java.util.function.IntPredicate questOrCash) {
+        java.util.Set<Item> sorted = JunkSort.keeps(chr);
+        return item -> questOrCash.test(item.getItemId())
+                || soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.keeps(item.getItemId())
+                || sorted.contains(item)
+                || soloMapling.Economy.SaleRules.whyNot(item) != null;
     }
 
     /** The sale with its price list and keep rule passed in (headless tests have no WZ item data). */

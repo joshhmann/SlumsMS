@@ -15,9 +15,11 @@ import soloMapling.ArtificialPlayer.BotHoldings;
 import soloMapling.ArtificialPlayer.BotScrollSystem.ScrollRules.Appetite;
 import soloMapling.ArtificialPlayer.BotScrollSystem.ScrollRules.ScrollFacts;
 import soloMapling.ArtificialPlayer.BotSupplySystem.ShopCatalog;
+import soloMapling.Economy.EconomyConfig;
 
 import java.awt.Point;
 import java.lang.reflect.Field;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -182,6 +184,45 @@ class BotScrollingTest {
             assertEquals(S60, plan.choice().scrollId());
         } finally {
             System.clearProperty("slums.scroll.ev");
+        }
+    }
+
+    // 1.6.2 bot audit G10: the EV planner filtered the scrolls with its own, looser rules, so a careful bot could put
+    // a 10% scroll on worn gear without a white scroll - which ScrollRules.choose never does.
+    @Test
+    void evPlannerKeepsACarefulBotsLongShotRules() throws Exception {
+        BotScrolling.useForTest(priced(id -> id == S10 ? 100 : id == SWORD ? 50_000 : 500_000), roller,
+                (b, node, tokens, key) -> false, now::get);
+        System.setProperty("slums.scroll.ev", "true");
+        try {
+            Character bot = newBot(50);
+            sword(bot, (short) -11, 7);          // worn, and no white scroll held
+            give(bot, S10, 3);
+            assertNull(BotScrolling.plan(bot, Appetite.CAREFUL, new Random(1)),
+                    "no 10% scroll on worn gear without a white scroll");
+        } finally {
+            System.clearProperty("slums.scroll.ev");
+        }
+    }
+
+    @Test
+    void evPlannerStillAllowsACarefulBotsLongShotUnderAWhiteScroll() throws Exception {
+        EconomyConfig.useForTest(java.util.Map.of("scrolling.whiteOnLongShots", true));
+        BotScrolling.useForTest(priced(id -> id == S10 ? 100 : id == SWORD ? 50_000 : 500_000), roller,
+                (b, node, tokens, key) -> false, now::get);
+        System.setProperty("slums.scroll.ev", "true");
+        try {
+            Character bot = newBot(50);
+            sword(bot, (short) 5, 7);            // in the bag, not worn
+            give(bot, ItemId.WHITE_SCROLL, 1);
+            give(bot, S10, 3);
+            BotScrolling.Plan plan = BotScrolling.plan(bot, Appetite.CAREFUL, new Random(1));
+            assertNotNull(plan);
+            assertEquals(S10, plan.choice().scrollId());
+            assertTrue(plan.choice().whiteScroll(), "the white scroll pays for the attempt");
+        } finally {
+            System.clearProperty("slums.scroll.ev");
+            EconomyConfig.useForTest(null);
         }
     }
 

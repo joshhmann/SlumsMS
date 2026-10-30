@@ -22,6 +22,11 @@ final class BotNavigationMapLoader {
     }
 
     static MapleMap loadMapGeometry(int mapId) {
+        return loadMapGeometry(mapId, mapId);
+    }
+
+    /** As above, the map's geometry under another id ({@code asId}): auto-QA replays it without touching the real map's graph. */
+    static MapleMap loadMapGeometry(int mapId, int asId) {
         DataProvider mapSource = DataProviderFactory.getDataProvider(WZFiles.MAP);
         Data mapData = mapSource.getData(getMapName(mapId));
         if (mapData == null) {
@@ -41,7 +46,7 @@ final class BotNavigationMapLoader {
             monsterRate = (Float) mobRate.getData();
         }
 
-        MapleMap map = new MapleMap(mapId, 0, 0, DataTool.getInt("returnMap", infoData, mapId), monsterRate);
+        MapleMap map = new MapleMap(asId, 0, 0, DataTool.getInt("returnMap", infoData, mapId), monsterRate);
         map.setFieldLimit(DataTool.getInt(infoData.getChildByPath("fieldLimit"), 0));
         map.setSwim(DataTool.getInt(infoData.getChildByPath("swim"), 0) != 0);
         loadBounds(map, mapData, infoData);

@@ -202,6 +202,153 @@ class BotGearTest {
         assertSame(held, bot.getInventory(InventoryType.EQUIPPED).getItem((short) -11));
     }
 
+    // 1.6.2 bot audit (G6): the plan is re-checked against the bot as it stands; a piece it may not wear stays in the
+    // bag (the game's own wear rules, re-run instead of trusting the plan).
+    @Test
+    void aPieceTheBotMayNotWearAnyMoreStaysInTheBag() {
+        Character bot = bot(Job.BEGINNER, 8);
+        int bigTop = 1040111;
+        data.put(bigTop, new Known((short) -5, 30, 0, 0, 0, 0, 0, 0));   // a level 30 top, the bot is level 8
+        Equip top = equip(bigTop, (short) 2, 0, 0);
+        put(bot, InventoryType.EQUIP, top);
+        BotGearPlanner.Piece stale = new BotGearPlanner.Piece(top, bigTop, (short) 2, data.get(bigTop),
+                0, 0, 0, 0, 0, 0, 0);
+
+        assertFalse(BotGear.apply(bot, Map.of(), Map.of((short) -5, stale)));
+        assertNull(bot.getInventory(InventoryType.EQUIPPED).getItem((short) -5));
+        assertSame(top, bot.getInventory(InventoryType.EQUIP).getItem((short) 2));
+    }
+
+    // ... and a need only another piece of the same plan fills does not cost the piece its place.
+    @Test
+    void aPieceThatNeedsAStatAnotherPieceAddsStillGoesOn() {
+        Character bot = bot(Job.BEGINNER, 40);
+        data.put(TOP, new Known((short) -5, 0, 0, 0, 0, 0, 0, 0));
+        data.put(PANTS, new Known((short) -6, 0, 0, bot.getStr() + 1, 0, 0, 0, 0));   // STR only the top adds
+        Equip strTop = equip(TOP, (short) 2, 0, 20);
+        Equip pants = equip(PANTS, (short) 3, 0, 0);
+        put(bot, InventoryType.EQUIP, strTop);
+        put(bot, InventoryType.EQUIP, pants);
+        BotGearPlanner.Piece topPiece = new BotGearPlanner.Piece(strTop, TOP, (short) 2, data.get(TOP),
+                20, 0, 0, 0, 0, 0, 0);
+        BotGearPlanner.Piece pantsPiece = new BotGearPlanner.Piece(pants, PANTS, (short) 3, data.get(PANTS),
+                0, 0, 0, 0, 0, 0, 0);
+
+        assertTrue(BotGear.apply(bot, Map.of(), Map.of((short) -6, pantsPiece, (short) -5, topPiece)));
+        Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+        assertSame(strTop, body.getItem((short) -5));
+        assertSame(pants, body.getItem((short) -6));
+    }
+
+    private BotGearPlanner.Piece piece(Equip e, int str, int watk) {
+        return new BotGearPlanner.Piece(e, e.getItemId(), e.getPosition(), data.get(e.getItemId()),
+                str, 0, 0, 0, watk, 0, 0);
+    }
+
+    // G6 review: a refused overall must not cost the bot the pants under it (they came off before the check).
+    @Test
+    void aRefusedOverallLeavesTheTopAndPantsOn() {
+        Character bot = bot(Job.BEGINNER, 8);
+        know(TOP, (short) -5, 0);
+        know(PANTS, (short) -6, 0);
+        know(OVERALL, (short) -5, 30);   // a level 30 overall, the bot is level 8
+        Equip top = equip(TOP, (short) -5, 0, 1);
+        Equip pants = equip(PANTS, (short) -6, 0, 1);
+        Equip overall = equip(OVERALL, (short) 1, 0, 6);
+        put(bot, InventoryType.EQUIPPED, top);
+        put(bot, InventoryType.EQUIPPED, pants);
+        put(bot, InventoryType.EQUIP, overall);
+
+        assertFalse(BotGear.apply(bot, Map.of((short) -5, piece(top, 1, 0), (short) -6, piece(pants, 1, 0)),
+                Map.of((short) -5, piece(overall, 6, 0))));
+        Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+        assertSame(top, body.getItem((short) -5));
+        assertSame(pants, body.getItem((short) -6));
+        assertSame(overall, bot.getInventory(InventoryType.EQUIP).getItem((short) 1));
+    }
+
+    // ... nor a refused two-hander the shield and the weapon it holds.
+    @Test
+    void aRefusedTwoHanderLeavesTheShieldAndOldWeaponOn() {
+        Character bot = bot(Job.BEGINNER, 8);
+        int shieldId = 1092000;
+        int twoHander = 1402000;
+        know(SWORD, (short) -11, 0);
+        know(shieldId, (short) -10, 0);
+        know(twoHander, (short) -11, 30);
+        Equip sword = equip(SWORD, (short) -11, 17, 0);
+        Equip shield = equip(shieldId, (short) -10, 0, 0);
+        Equip big = equip(twoHander, (short) 1, 60, 0);
+        put(bot, InventoryType.EQUIPPED, sword);
+        put(bot, InventoryType.EQUIPPED, shield);
+        put(bot, InventoryType.EQUIP, big);
+
+        assertFalse(BotGear.apply(bot, Map.of((short) -11, piece(sword, 0, 17), (short) -10, piece(shield, 0, 0)),
+                Map.of((short) -11, piece(big, 0, 60))));
+        Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+        assertSame(sword, body.getItem((short) -11));
+        assertSame(shield, body.getItem((short) -10));
+        assertSame(big, bot.getInventory(InventoryType.EQUIP).getItem((short) 1));
+    }
+
+    // ... and a top that replaces an overall stays off when its pants are refused (no bare legs).
+    @Test
+    void aTopWhosePantsAreRefusedLeavesTheOverallOn() {
+        Character bot = bot(Job.BEGINNER, 8);
+        know(TOP, (short) -5, 0);
+        know(PANTS, (short) -6, 30);
+        know(OVERALL, (short) -5, 0);
+        Equip overall = equip(OVERALL, (short) -5, 0, 2);
+        Equip top = equip(TOP, (short) 1, 0, 3);
+        Equip pants = equip(PANTS, (short) 2, 0, 3);
+        put(bot, InventoryType.EQUIPPED, overall);
+        put(bot, InventoryType.EQUIP, top);
+        put(bot, InventoryType.EQUIP, pants);
+
+        assertFalse(BotGear.apply(bot, Map.of((short) -5, piece(overall, 2, 0)),
+                Map.of((short) -5, piece(top, 3, 0), (short) -6, piece(pants, 3, 0))));
+        assertSame(overall, bot.getInventory(InventoryType.EQUIPPED).getItem((short) -5));
+        assertNull(bot.getInventory(InventoryType.EQUIPPED).getItem((short) -6));
+    }
+
+    // A rebirth-locked piece is never planned (BotGear.rebirthLocked, the game's gate): before, the review planned
+    // the locked overall every time, the re-check refused it, and the better top it carried never went on.
+    @Test
+    void aRebirthLockedOverallNeverBlocksTheOtherUpgrades() {
+        boolean rebirth = config.YamlConfig.config.server.USE_REBIRTH_SYSTEM;
+        config.YamlConfig.config.server.USE_REBIRTH_SYSTEM = true;
+        try {
+            rebirthLockedOverallNeverBlocksTheOtherUpgrades();
+        } finally {
+            config.YamlConfig.config.server.USE_REBIRTH_SYSTEM = rebirth;
+        }
+    }
+
+    private void rebirthLockedOverallNeverBlocksTheOtherUpgrades() {
+        Character bot = bot(Job.BEGINNER, 10);
+        int lockedOverall = 1052889;   // ItemConstants rebirth list; the bot has 0 rebirths
+        int betterTop = 1040001;
+        assertTrue(BotGear.rebirthLocked(bot, lockedOverall));
+        know(TOP, (short) -5, 0);
+        know(betterTop, (short) -5, 0);
+        know(PANTS, (short) -6, 0);
+        know(lockedOverall, (short) -5, 0);
+        Equip top = equip(TOP, (short) -5, 0, 1);
+        Equip pants = equip(PANTS, (short) -6, 0, 1);
+        Equip overall = equip(lockedOverall, (short) 1, 0, 50);
+        Equip better = equip(betterTop, (short) 2, 0, 5);
+        put(bot, InventoryType.EQUIPPED, top);
+        put(bot, InventoryType.EQUIPPED, pants);
+        put(bot, InventoryType.EQUIP, overall);
+        put(bot, InventoryType.EQUIP, better);
+
+        assertTrue(review(bot));
+        Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+        assertSame(better, body.getItem((short) -5));
+        assertSame(pants, body.getItem((short) -6));
+        assertSame(overall, bot.getInventory(InventoryType.EQUIP).getItem((short) 1));
+    }
+
     // 1.6.1 ticket 30 (REPORT item 2): a reborn level 1 wears what a level 1 can and keeps the rest, then re-gears.
     @Test
     void aRebornLevelOneWearsWhatItCanKeepsTheRestAndRegearsAsItLevels() {

@@ -9,6 +9,7 @@ import soloMapling.ArtificialPlayer.BotGrindSystem.GearFirstPlanner.GearProspect
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -80,6 +81,8 @@ class GearFirstTest {
         }
         @Override public double gain(Character chr, int itemId) { return itemId == 1302010 ? 0.3 : 0; }
         @Override public String name(int itemId) { return "Sword"; }
+        private final Map<Integer, Double> saturation = new java.util.HashMap<>();
+        @Override public double saturation(int mapId) { return saturation.getOrDefault(mapId, 0.0); }
     }
 
     private static Character bot() {
@@ -107,5 +110,37 @@ class GearFirstTest {
         assertTrue(advice.weights()[1] > advice.weights()[0], java.util.Arrays.toString(advice.weights()));
         assertEquals(1302010, GearFirstAdvisor.want(chr.getId()).itemId());
         assertEquals(200, GearFirstAdvisor.farmPick(chr, 1302010, maps).mapId());
+    }
+
+    // 1.6.2 bot audit (G7): the gear-first choice applies the same crowd rule as the EXP-first one - a map whose yield
+    // the bots there already spend weighs less, and a farm target on a spent map is refused.
+    @Test
+    void aSpentMapWeighsLikeTheExpFirstChoiceWeighsIt() {
+        System.setProperty("slums.grind.gearFirst", "true");
+        List<TrainingMap> maps = List.of(new TrainingMap(100, 20, 1), new TrainingMap(200, 20, 1));
+
+        GearFirstAdvisor.useForTest(new Stub());
+        double[] quiet = GearFirstAdvisor.advise(bot(), maps).weights();
+
+        Stub crowded = new Stub();
+        crowded.saturation.put(100, 1.0);
+        GearFirstAdvisor.useForTest(crowded);
+        double[] spent = GearFirstAdvisor.advise(bot(), maps).weights();
+
+        assertEquals(quiet[0] * 0.25, spent[0], 1e-9, "a map the bots there have drained weighs a quarter");
+        assertEquals(quiet[1], spent[1], 1e-9, "a quiet map is untouched");
+    }
+
+    @Test
+    void aFarmTargetOnASpentMapIsRefused() {
+        System.setProperty("slums.grind.gearFirst", "true");
+        List<TrainingMap> maps = List.of(new TrainingMap(100, 20, 1), new TrainingMap(200, 20, 1));
+        Stub stub = new Stub();
+        stub.saturation.put(200, 1.0);   // the only map that drops the wanted sword is drained
+        GearFirstAdvisor.useForTest(stub);
+        assertNull(GearFirstAdvisor.farmPick(bot(), 1302010, maps), "no farm trip to a map that yields nothing more");
+
+        stub.saturation.clear();
+        assertEquals(200, GearFirstAdvisor.farmPick(bot(), 1302010, maps).mapId(), "a quiet map is still a farm target");
     }
 }

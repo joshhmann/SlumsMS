@@ -8,8 +8,12 @@ import java.util.function.Function;
 /**
  * Ticket 157: the switch for the TEST-only debug tools - {@code !navprobe}, {@code !env lod pin}, {@code !botstatus},
  * the nav region in {@code !pos} and the gear-pick reason in {@code !botwhy}. On wherever the QA suite or auto-QA is
- * on (the test server), off on live, which runs neither. {@code -Dslums.debugtools=true|false} forces it either way.
- * The path trace on stuck has its own switch ({@code -Dslums.navTrace}), since it costs memory on every watched bot.
+ * on (the test server), off by default, {@code -Dslums.debugtools=true|false} forces it either way. The path trace on
+ * stuck has its own switch ({@code -Dslums.navTrace}), since it costs memory on every watched bot.
+ *
+ * <p>1.6.2 ships the two switches that follow this class ({@code -Dslums.killcalib} and {@code -Dslums.inspect}) on for
+ * live as well, plus {@code -Dslums.navTrace} (owner 2026-10-30, docs/release/1.6.2.conf); the remaining debug tools
+ * stay off there because live runs neither the QA suite nor auto-QA.
  */
 public final class DebugTools {
 
@@ -38,8 +42,8 @@ public final class DebugTools {
 
     /**
      * A debug feature with its own switch that follows this one unless forced: {@code -D<property>=true|false} wins,
-     * else it is on exactly where the debug tools are (the test server), off on live. Kill calibration
-     * ({@code slums.killcalib}) and the bot inspect endpoint ({@code slums.inspect}) use it.
+     * else it is on exactly where the debug tools are (the test server), off by default on live - where 1.6.2 forces
+     * it on for kill calibration ({@code slums.killcalib}) and the bot inspect endpoint ({@code slums.inspect}).
      */
     public static boolean featureOn(String property) {
         String forced = System.getProperty(property);

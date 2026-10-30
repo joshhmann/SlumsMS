@@ -61,6 +61,12 @@ public final class OwnedAltService {
          * the Temple of Time corridor by its own quests), which a player's portals enforce and a catch-up skips.
          */
         default boolean mayEnter(Character alt, server.maps.MapleMap target) { return true; }
+        /**
+         * 1.6.2 (bot audit K6): the alt leaves the event instance it is in the way its script lets a member go
+         * ({@code playerExit}: out to the event's exit map), before it is saved and detached. Without it the alt was
+         * saved on the PQ map and its detach ran {@code playerDisconnected}, which ends a KPQ that drops below 3.
+         */
+        default void leaveEvent(Character alt) {}
     }
     private enum State { LOADING, ACTIVE, SAVING, FAILED, LOGIN }
     private static final class Entry {
@@ -309,6 +315,7 @@ public final class OwnedAltService {
         try {
             if (!entry.saved) {
                 backend.closing(entry.alt); // outside the monitor: the tick it waits for may call back into us
+                backend.leaveEvent(entry.alt); // K6: out of a PQ first, so it is saved in town and ends nobody's run
                 backend.save(entry.alt);
                 entry.saved = true;
                 audit(entry, "save committed alt=" + id);

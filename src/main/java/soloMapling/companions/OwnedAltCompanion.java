@@ -676,19 +676,34 @@ public final class OwnedAltCompanion {
     }
 
     /**
-     * Audit #8 (b115): an alt leaves an event instance without the script's disconnect/revive rules (which end the
-     * whole run when the team drops below its minimum): the owner's run goes on without it. Only the last member
-     * still goes through the script, so an instance is never left running with nobody in it.
+     * The one way an owned alt leaves an event instance (audit #8 b115 + 162-kpqfix K6/b118), used by its death, its
+     * save before going home (Backend.leaveEvent) and its detach. It goes the way the event's script lets a member go
+     * ({@code playerExit}: KPQ unregisters it and sends it to the exit map), never through the disconnect/revive rules
+     * that end the whole run when the team drops below its minimum - so the owner's run goes on without it. If the
+     * script has no exit for it, it is unregistered and sent to the map's return town. Only the last member still goes
+     * through {@code playerDisconnected}, so an instance is never left running with nobody in it.
      */
     static void leaveInstanceQuietly(Character alt) {
         scripting.event.EventInstanceManager eim = alt.getEventInstance();
-        if (eim == null) {
+        if (eim == null || eim.isEventDisposed()) {
             return;
         }
         if (eim.getPlayerCount() <= 1) {
             eim.playerDisconnected(alt);
-        } else {
+            return;
+        }
+        try {
+            eim.invokeScriptFunction("playerExit", eim, alt); // KPQ: unregister, then to the exit map
+        } catch (Exception e) {
+            soloMapling.BotLogger.log("[OwnedAlt] " + alt.getName() + " could not leave " + eim.getName()
+                    + " through its script: " + e);
+        }
+        if (alt.getEventInstance() != null) {
             eim.unregisterPlayer(alt);
+            server.maps.MapleMap map = alt.getMap();
+            if (map != null && map.getReturnMapId() > 0 && map.getReturnMapId() != MapId.NONE) {
+                alt.changeMap(map.getReturnMapId());
+            }
         }
     }
 

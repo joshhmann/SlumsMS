@@ -192,6 +192,9 @@ final class GameAutoQaWorld implements AutoQaWorld {
                 }
                 default -> {
                     List<String> more = Probes160.probe(what, actor instanceof SyntheticPlayer sp ? sp : null, a);
+                    if (more == null) {
+                        more = Probes162.probe(what, actor instanceof SyntheticPlayer sp2 ? sp2 : null, a);
+                    }
                     yield more != null ? more : List.of("FAIL no probe '" + what + "'");
                 }
             };

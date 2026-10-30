@@ -117,10 +117,12 @@ the adoption ledger (ticket 157 matrix, section 8).
 - Ticket 157, kill calibration: the idea of `BotKillCalibration` and `/api/killcalib` (real kill rates of watched bots
   against the offscreen model, by job and level band, billed as kills over elapsed time) from nutnnut/Cosmic dev
   `77e0c5bc9`. Ours: `KillCalibration` against our `OffscreenCombat`, report-only (no auto-tuning, no persistence),
-  `calibration.json` and `!killcalib`, off on live (`-Dslums.killcalib`). No code copied.
+  `calibration.json` and `!killcalib`, switch `-Dslums.killcalib` (off by default; 1.6.2 ships it on for live). No code
+  copied.
 - Ticket 157, live bot inspect: the idea of `/api/botdebug`, `/api/mapinfo` and the world map's bot positions from
   nutnnut/Cosmic dev `77e0c5bc9`. Ours: `BotInspectApi` / `InspectViews`, loopback-only, secret header, GET-only,
-  cached, off on live (docs/design/inspect-api.md). Their web server is not ported.
+  cached, switch `-Dslums.inspect` (off by default; 1.6.2 ships it on for live), docs/design/inspect-api.md. Their web
+  server is not ported.
 
 ### Bot builds and party support (1.6.2, ticket 161)
 
