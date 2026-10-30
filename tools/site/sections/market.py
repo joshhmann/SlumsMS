@@ -785,8 +785,8 @@ character; NX is your account's. If you're logged in to the game, use the charac
 </div>
 <div class="xc-c" x-data="xmine">
 <p class="xc-alert" style="grid-area: form" x-show="state === 'signedOut'" x-cloak>Sign in to trade.</p>
-<p class="xc-alert" style="grid-area: form" x-show="reauth" x-cloak>For safety, trading needs a sign-in from the last
-12 hours, so a copied cookie can't empty your account. <a :href="againUrl()">Sign in again</a> to trade.</p>
+<p class="xc-alert" style="grid-area: form" x-show="reauth" x-cloak><span x-text="reauthText()"></span>
+<a :href="againUrl()">Sign in again</a> to trade.</p>
 <form class="xc-p xc-form" style="grid-area: form" x-show="data && !reauth" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
 <h2><span x-text="'New ' + meta.id + ' order'"></span> <small x-text="openCount() + ' of ' + lim(meta).max_open_per_ticker + ' open'"></small></h2>
 <div class="xc-side"><button type="button" class="buy" :class="side === 'BUY' && 'on'" @click="side = 'BUY'" x-text="'Buy ' + meta.id"></button>

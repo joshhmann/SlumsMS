@@ -805,6 +805,11 @@ class WorldTest(unittest.TestCase):
         self.assertIn("self.needPw = !!d.passwordRequired;", js)          # the preview says so
         self.assertIn('a.code === "PASSWORD_REQUIRED" && path === "confirm"', js)   # or the confirm does
         self.assertIn('var self = this, pw = this.pw;\n        this.pw = "";', js)  # emptied as it's sent
+        # b005 on TEST (2026-10-30): after a game restart the banner said "a sign-in from the last 12 hours"; it now
+        # names the restart when the game's REAUTH says data.game
+        self.assertIn('<span x-text="reauthText()"></span>', page)
+        self.assertIn("self.staleGame = !!(a.data && a.data.game)", js)
+        self.assertIn("The game restarted since you signed in", js)
 
     def test_market_sidebar_groups_and_my_trades(self):
         from sections import market

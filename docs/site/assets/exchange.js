@@ -311,7 +311,7 @@
     return extend(base, {
       fmt: fmt, when: when, lim: lim,
       side: "BUY", qty: null, price: null, character: "", busy: false, msg: "", msgClass: "", pv: null, left: 0, clock: null,
-      stale: false, needPw: false, pw: "",
+      stale: false, staleGame: false, needPw: false, pw: "",
       init: function () {
         var self = this;
         init.call(this);
@@ -331,6 +331,12 @@
       get isItem() { return this.meta.unit === "item"; },
       // a sign-in over 12 h old can't trade (b005): the site or the game says REAUTH
       get reauth() { return this.stale || !!(this.data && this.data.reauth); },
+      // the banner says why (b005 check on TEST 2026-10-30: after a game restart it said "a sign-in from the last
+      // 12 hours" to someone who had signed in 15 minutes before)
+      reauthText: function () {
+        return this.staleGame ? "The game restarted since you signed in, so for safety it needs a fresh sign-in."
+          : "For safety, trading needs a sign-in from the last 12 hours, so a copied cookie can't empty your account.";
+      },
       againUrl: function () { return ROOT + "login/?again=1&next=" + encodeURIComponent(location.pathname); },
       lot: function () { var m = this.meta; return m.unit === "item" ? Math.max(1, m.min_qty || 1) : 1000; },
       orders: function () { return (this.data && this.data.orders) || []; },
@@ -363,7 +369,11 @@
           return answer(j.id, function () { self.say("Still waiting for the game..."); }).then(function (a) {
             self.busy = false;
             if (!a.ok && a.code === "PASSWORD_REQUIRED" && path === "confirm") return { passwordRequired: true, data: a.data || {} };
-            if (!a.ok) { if (a.code === "REAUTH") { self.stale = true; self.pv = null; } self.say(said(a, body && body.side), false); return null; }
+            if (!a.ok) {
+              if (a.code === "REAUTH") { self.stale = true; self.staleGame = !!(a.data && a.data.game); self.pv = null; }
+              self.say(said(a, body && body.side), false);
+              return null;
+            }
             self.say("");
             return a.data;
           });
