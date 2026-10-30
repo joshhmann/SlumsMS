@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1", "t-su-2", "t-su-3", "t-jb-1", "t-jb-2");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1", "t-su-2", "t-su-3", "t-jb-1", "t-jb-2", "t-nn-1", "t-nn-2");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -25,7 +25,7 @@ class Probes162Test {
         for (String id : NEW) {
             Check c = AutoQaCatalog.find(id);
             assertNotNull(c, id);
-            assertEquals(Check.Kind.AUTO, c.kind(), id);
+            assertEquals(id.startsWith("t-nn-") ? Check.Kind.HALF : Check.Kind.AUTO, c.kind(), id);
             assertTrue(c.nightly(), id + " stages nothing lasting");
             int probes = 0;
             for (Check.Expect e : c.expects()) {
@@ -225,5 +225,23 @@ class Probes162Test {
         assertEquals(1, Probes162.bookProblems("kept for its skill plan", 1, 1, 10, 10, null).size());
         assertEquals(1, Probes162.bookProblems("kept for its skill plan", 1, 1, 10, 20, "kept for its skill plan")
                 .size());
+    }
+
+    // ── t-nn-1 / t-nn-2 ──
+
+    @Test
+    void theNavChecksJudgeTheReplays() {
+        assertTrue(Probes162.swimProblems(new soloMapling.ArtificialPlayer.GCMoveSystem.NavPortQa.SwimRun(-700, 250, 300))
+                .isEmpty());
+        assertEquals(2, Probes162.swimProblems(
+                new soloMapling.ArtificialPlayer.GCMoveSystem.NavPortQa.SwimRun(-300, -60, 300)).size());
+        assertTrue(Probes162.parkedProblems(
+                new soloMapling.ArtificialPlayer.GCMoveSystem.NavPortQa.ParkedRun(40, 40, 5)).isEmpty());
+        assertEquals(1, Probes162.parkedProblems(
+                new soloMapling.ArtificialPlayer.GCMoveSystem.NavPortQa.ParkedRun(40, 40, 0)).size());
+        assertEquals(2, Probes162.parkedProblems(
+                new soloMapling.ArtificialPlayer.GCMoveSystem.NavPortQa.ParkedRun(40, 0, 0)).size());
+        assertTrue(Probes162.parkedProblems(
+                new soloMapling.ArtificialPlayer.GCMoveSystem.NavPortQa.ParkedRun(0, 0, 0)).get(0).contains("graph"));
     }
 }

@@ -33,6 +33,7 @@ import soloMapling.ArtificialPlayer.BotProgressionSystem.ApVariantQa;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotBuild;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotProgression;
 import soloMapling.ArtificialPlayer.GCMoveSystem.LodCounts;
+import soloMapling.ArtificialPlayer.GCMoveSystem.NavPortQa;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifePlanner;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotQuestSystem.BotQuestLog;
@@ -63,7 +64,8 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants", "partyHeal", "fameRequest", "magicGuard", "jobErrand", "skillBooks");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants", "partyHeal", "fameRequest", "magicGuard", "jobErrand", "skillBooks", "swimWallJump",
+            "blockedPosWatchdog");
 
     private Probes162() {
     }
@@ -85,6 +87,8 @@ final class Probes162 {
                 case "magicGuard" -> magicGuard(p);
                 case "jobErrand" -> jobErrand(p);
                 case "skillBooks" -> skillBooks(p);
+                case "swimWallJump" -> swimWallJump();
+                case "blockedPosWatchdog" -> blockedPosWatchdog();
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1625,6 +1629,80 @@ final class Probes162 {
         } finally {
             ev.add(TalkQa.teardown(spawned));
         }
+    }
+
+    // ── t-nn-1 / t-nn-2: the NN-011 nav ports, replayed in the server ───────────────────────────
+
+    /** t-nn-1: game ticks of the swim replay; t-nn-2: AI ticks of the parked replay (as the unit tests). */
+    static final int NN1_TICKS = 300, NN2_TICKS = 40;
+
+    /** t-nn-1: what is wrong with the swim replay (the rock's top is y -600; the target is past x 100). Pure. */
+    static List<String> swimProblems(NavPortQa.SwimRun run) {
+        List<String> bad = new ArrayList<>();
+        if (run.highestAtWestFace() >= -600) {
+            bad.add("the swimmer stayed pinned to the rock: highest y on its face " + run.highestAtWestFace()
+                    + " (the top is -600)");
+        }
+        if (run.furthestEast() <= 100) {
+            bad.add("the swimmer never got east of the rock toward its target (furthest x " + run.furthestEast() + ")");
+        }
+        return bad;
+    }
+
+    /** t-nn-2: what is wrong with the parked replay. Pure, for the tests. */
+    static List<String> parkedProblems(NavPortQa.ParkedRun run) {
+        List<String> bad = new ArrayList<>();
+        if (run.ticks() == 0) {
+            bad.add("no nav graph could be built for the replay map");
+            return bad;
+        }
+        if (run.gatedTicks() == 0) {
+            bad.add("the fixture did not park the bot: no launch gate refused it (the department store's geometry"
+                    + " changed?)");
+        }
+        if (run.giveUps() < 3) {
+            bad.add("the parked bot gave its hop up " + run.giveUps() + " time(s) in " + run.ticks()
+                    + " AI ticks, want at least 3 (every 6-10 ticks)");
+        }
+        return bad;
+    }
+
+    /**
+     * t-nn-1 ({@code bot.nav.swimWallJump}): the server's own navigation and swim physics replay the unit test's
+     * scenario (a detached swimmer pressed against a 600 px rock, open water beyond) on a made-up map with the live
+     * switches; the swim-jump burst must lift it over the rock and on east. No real map is touched; how it looks on a
+     * real client still needs eyes (audit: never watched on a client).
+     */
+    static List<String> swimWallJump() {
+        if (!NavPortQa.swimWallJump()) {
+            return List.of("SKIP the swim wall jump is off (-Dbot.nav.swimWallJump=true)");
+        }
+        NavPortQa.SwimRun run = NavPortQa.swimWall(NN1_TICKS);
+        List<String> ev = new ArrayList<>();
+        ev.add("replay on made-up map " + NavPortQa.SWIM_MAP + " (swim navigator " + (NavPortQa.swimNavigator() ? "on"
+                : "off") + "): " + run.ticks() + " ticks, highest y on the rock's west face " + run.highestAtWestFace()
+                + ", furthest x " + run.furthestEast());
+        return Probes160.verdict(swimProblems(run), "a swimmer pinned to a 600 px rock jumped over it and swam on", ev);
+    }
+
+    /**
+     * t-nn-2 ({@code bot.nav.blockedPosWatchdog}): the server's navigation replays the unit test's scenario: a bot
+     * parked on the department store's top floor (the real map's geometry under a made-up id, so the real map's graph
+     * and learning are untouched), its launch gate refusing it, the nav cleared after every AI tick. It must give the
+     * hop up at least 3 times in 40 ticks. Today's real GAVE_UP spots from the nav lab's log are listed for context.
+     */
+    static List<String> blockedPosWatchdog() {
+        if (!NavPortQa.blockedPosWatchdog()) {
+            return List.of("SKIP the blocked-position watchdog is off (-Dbot.nav.blockedPosWatchdog=true)");
+        }
+        NavPortQa.ParkedRun run = NavPortQa.parkedBot(NN2_TICKS);
+        List<String> ev = new ArrayList<>();
+        ev.add("replay of map " + NavPortQa.WATCHDOG_REAL_MAP + " as " + NavPortQa.WATCHDOG_MAP + ": " + run.ticks()
+                + " AI ticks, launch gate refused " + run.gatedTicks() + ", gave up " + run.giveUps());
+        ev.add("real maps today (GAVE_UP): " + NavPortQa.today(
+                soloMapling.ArtificialPlayer.GCMoveSystem.NavStuckLog.Kind.GAVE_UP, 3));
+        return Probes160.verdict(parkedProblems(run), "a bot parked at a launch gate gave the hop up " + run.giveUps()
+                + " times in " + run.ticks() + " AI ticks instead of standing there", ev);
     }
 
     static long delta(Map<String, Long> a, Map<String, Long> b, String k) {

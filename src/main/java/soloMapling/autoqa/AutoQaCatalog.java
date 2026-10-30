@@ -1359,6 +1359,15 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-jb-2", "Bot skill books: a bot reads a wanted book; a spare one may be sold").minutes(1)
                 .expect(probe("skillBooks"))
                 .build());
+        // nav ports (NN-011), replayed by the server's own nav code on made-up maps: no real map's graph is touched
+        c.add(Check.half("t-nn-1", "Swim wall jump: a stuck swimmer gets over a wall",
+                        "watch a bot swim over a rock on a real client (Aqua Road)").minutes(1)
+                .expect(probe("swimWallJump"))
+                .build());
+        c.add(Check.half("t-nn-2", "Blocked-position watchdog: a parked bot gives up the move",
+                        "watch a bot that used to freeze at a launch gate replan on a real client").minutes(1)
+                .expect(probe("blockedPosWatchdog"))
+                .build());
         return List.copyOf(c);
     }
 
