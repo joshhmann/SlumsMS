@@ -94,3 +94,15 @@ Ours:
 - the card list merged from monstercarddata and Item.wz;
 - `build_book.py` rewritten over parsed XML, because this server's WZ dump is minified. It takes drops from MySQL
   or a TSV and writes the HP strings the client book needs. MapleLib is not used.
+
+## Later ports
+
+### Ticket 162: nutnnut's gear optimization (branch `162-gearopt`)
+
+From nutnnut/Cosmic (GreenCatMS), https://github.com/nutnnut/Cosmic, AGPL-3.0, `src/main/java/server/bots/`, branch
+`dev`. Rewritten onto our types and rules (each file's header says what was kept and what is ours); every part is
+behind a switch that is off by default.
+
+| Their file @ commit | What was ported | Our files | Switch |
+| --- | --- | --- | --- |
+| `BotEquipManager.java` @ `2771d9ea1` | The per-weapon Pareto DP over body slots (frontier dedup, wearable-only pruning, frontier cap), per-slot dominance pruning with requirement comparison, requirement-relevant and accuracy dimensions, and `chooseSecondaryTarget` (the dexless AP target) | `BotGearOptimizer`, `GearMemo`, `BotGear` (switch, shared `GearScoring`), `BotBuild`/`BotProgression` (secondary cap) | `-Dslums.gear.optimizer=pareto`, `-Dslums.gear.dexless=true` |

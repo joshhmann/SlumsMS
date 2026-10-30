@@ -54,7 +54,12 @@ public final class BotGearPlanner {
      * what it adds, and its requirements (null for an equip the bot must not be dressed in).
      */
     public record Piece(Object item, int itemId, short position, Known known, int str, int dex, int int_, int luk,
-                        int watk, int matk, int sturdiness) {
+                        int watk, int matk, int sturdiness, int acc) {
+        /* Without accuracy (it only steers the Pareto optimizer, BotGearOptimizer). */
+        public Piece(Object item, int itemId, short position, Known known, int str, int dex, int int_, int luk,
+                     int watk, int matk, int sturdiness) {
+            this(item, itemId, position, known, str, dex, int_, luk, watk, matk, sturdiness, 0);
+        }
     }
 
     /* The bot without its gear: job niche (0 beginner, 1 warrior ... 5 pirate), level, fame, base stats. */
@@ -128,7 +133,7 @@ public final class BotGearPlanner {
         return (reqJob & mask) != 0;
     }
 
-    private record Score(double damage, long sturdiness) {
+    record Score(double damage, long sturdiness) {
         boolean beats(Score other) {
             double margin = 1e-9 * Math.max(1.0, Math.abs(other.damage));
             if (damage > other.damage + margin) {
@@ -138,7 +143,7 @@ public final class BotGearPlanner {
         }
     }
 
-    private static final class Search {
+    static final class Search {
         final Wearer wearer;
         final Map<Short, Piece> worn;
         final Set<Piece> wornPieces;
@@ -177,7 +182,7 @@ public final class BotGearPlanner {
             return pools;
         }
 
-        private static boolean isSlot(short slot) {
+        static boolean isSlot(short slot) {
             for (short s : SLOTS) {
                 if (s == slot) {
                     return true;
@@ -314,7 +319,7 @@ public final class BotGearPlanner {
             return movedOut - movedIn <= wearer.freeEquipSlots() ? trial : null;
         }
 
-        private static boolean bareLegged(Map<Short, Piece> loadout) {
+        static boolean bareLegged(Map<Short, Piece> loadout) {
             Piece top = loadout.get(TOP);
             return loadout.get(PANTS) == null && (top == null || !overall(top.itemId()));
         }
