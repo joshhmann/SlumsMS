@@ -376,6 +376,7 @@ public final class PriceBook {
             }
         }
         add(s);
+        ScrollMarketPrice.observe(s);   // 162: a scroll's learned market price (no-op unless switched on)
         EconomyStore st = store;
         writer.execute(() -> st.insertSample(s));
         if (QaLog.on(QaLog.Topic.TRADE)) {
@@ -460,6 +461,14 @@ public final class PriceBook {
         if (item == null) {
             return 0;
         }
+        if (ScrollMarketPrice.enabled() && ScrollMarketPrice.isScroll(item.getItemId())) {
+            // 162: a scroll's fair value is its learned market price (an EWMA of real sales blended with the yaml
+            // price, ScrollMarketPrice), still inside the board's band around the static value
+            long learned = ScrollMarketPrice.price(item.getItemId(), Math.max(0, staticValue.applyAsLong(item)));
+            if (learned > 0) {
+                return clampToStatic(item, learned);
+            }
+        }
         Quote q = quote(item.getItemId(), -1);
         if (!q.fromSamples()) {
             return Math.max(0, staticValue.applyAsLong(item));
@@ -542,6 +551,25 @@ public final class PriceBook {
 
     // ---- persistence ----
 
+    /** Reads the window back from the store once (ScrollMarketPrice replays it before its first answer). */
+    static void warm() {
+        ensureLoaded();
+    }
+
+    /** The board's clock (a test clock in tests). */
+    static long now() {
+        return clock.getAsLong();
+    }
+
+    /** An item's static value (the item pool's price, EquipValuation for an equip); 0 when none. */
+    static long staticValue(Item item) {
+        try {
+            return Math.max(0, staticValue.applyAsLong(item));
+        } catch (RuntimeException | LinkageError e) {
+            return 0;
+        }
+    }
+
     private static void ensureLoaded() {
         if (loaded) {
             return;
@@ -554,6 +582,7 @@ public final class PriceBook {
             List<Sample> rows = store.samplesSince(clock.getAsLong() - windowMs());
             for (Sample s : rows) {
                 add(s);
+                ScrollMarketPrice.observe(s);   // replays the window: the learned scroll prices survive a restart
             }
             if (!rows.isEmpty()) {
                 log.info("[PriceBook] {} price samples read back for the last {} days", rows.size(), windowDays());
@@ -640,6 +669,7 @@ public final class PriceBook {
         seedsToday.clear();
         recentIps.clear();
         pairsToday.clear();
+        ScrollMarketPrice.clearForTest();
         loaded = false;
         lastPruneAt = clock.getAsLong();
     }

@@ -213,6 +213,54 @@ class BotScrollingTest {
     }
 
     @Test
+    void evPlannerDeclinesAScrollWhoseMarketPriceOutgrewWhatItAdds() throws Exception {
+        // 162: the planner prices a held scroll at what it sells for now (ScrollMarketPrice), not at the yaml's price.
+        // The sword's value curve is made by 60% scrolls (20k, +23); the bot holds a 100% scroll (+10) that the yaml
+        // prices at 10k: worth using (+10 on this piece is worth ~33k). Then the market shows it sells for ~40k.
+        Character bot = newBot(50);
+        sword(bot, (short) -11, 1);
+        give(bot, S100, 1);
+        BotScrolling.Facts market = new BotScrolling.Facts() {
+            @Override public ScrollFacts scroll(int id) { return facts.scroll(id); }
+            @Override public List<Integer> reqs(int scrollId) { return List.of(); }
+            @Override public List<Integer> catalogFor(int equipItemId) { return List.of(S60); }
+            @Override public int totalSlots(Equip equip) { return 7; }
+            @Override public boolean cash(int itemId) { return false; }
+            @Override public String name(int itemId) { return "Sword"; }
+            @Override public Integer marketValue(int itemId) {
+                return itemId == SWORD ? 50_000 : itemId == S60 ? 20_000 : itemId == S100 ? 10_000 : null;
+            }
+            @Override public Integer equipValue(Equip equip) { return 50_000; }
+        };
+        BotScrolling.useForTest(market, roller, (b, node, tokens, key) -> false, now::get);
+        soloMapling.Economy.EconomyConfig.useForTest(java.util.Map.of());
+        soloMapling.Economy.PriceBook.useForTest(new soloMapling.Economy.EconomyStore.Memory(), Runnable::run, now::get,
+                item -> item.getItemId() == S100 ? 10_000L : 0L);
+        System.setProperty("slums.scroll.ev", "true");
+        try {
+            BotScrolling.Plan plan = BotScrolling.plan(bot, Appetite.NORMAL, new Random(1));
+            assertNotNull(plan, "at the yaml's 10k the 100% scroll is worth using");
+            assertEquals(S100, plan.choice().scrollId());
+            // two weeks of real sales at 40k
+            for (int d = 0; d < 14; d++) {
+                for (int i = 0; i < 8; i++) {
+                    soloMapling.Economy.PriceBook.record(new soloMapling.Economy.PriceBook.Sample(S100, 40_000,
+                            40_000, 1, soloMapling.Economy.PriceBook.Source.SHOP, true, now.get()));
+                }
+                now.addAndGet(86_400_000L);
+            }
+            long learned = soloMapling.Economy.ScrollMarketPrice.price(S100, 10_000L);
+            assertTrue(learned > 35_000, "learned " + learned);
+            assertNull(BotScrolling.plan(bot, Appetite.NORMAL, new Random(1)),
+                    "selling it beats using it: the bot keeps the scroll");
+        } finally {
+            System.clearProperty("slums.scroll.ev");
+            soloMapling.Economy.PriceBook.useForTest(null, null, null, null);
+            soloMapling.Economy.EconomyConfig.useForTest(null);
+        }
+    }
+
+    @Test
     void aPassChangesTheStatsForRealAndUsesUpTheScroll() throws Exception {
         Character bot = newBot(50);
         Equip e = sword(bot, (short) -11, 7);

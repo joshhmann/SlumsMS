@@ -259,7 +259,8 @@ public class ArtificialShopGenerator {
                 if (!scrollStockable(itemId)) {
                     continue;   // owner 2026-10-29: no minted Chaos / White Scrolls, even if a yaml entry lists them
                 }
-                int price = item.getCurrentPrice();
+                // 162: a bot shop asks what the scroll sells for now (ScrollMarketPrice), the yaml price when off
+                int price = soloMapling.Economy.ScrollMarketPrice.price(itemId, (Integer) item.getCurrentPrice());
                 int qty = quantitySelector("Scroll", tier); // getRandomIntInRange(5, 13);
                 itemList.add(new FMItem(itemId, price, qty));
             }

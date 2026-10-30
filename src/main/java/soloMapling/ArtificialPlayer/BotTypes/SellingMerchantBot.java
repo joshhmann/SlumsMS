@@ -98,6 +98,8 @@ public class SellingMerchantBot extends BotSM {
         getTradeInventory().setItemForSaleMain(item);
         getTradeWants().resetTradeWants();
         int rawValue = getItemMarketValue(item);
+        // 162: a scroll is offered at what it sells for now (ScrollMarketPrice), the yaml price when that is off
+        rawValue = soloMapling.Economy.ScrollMarketPrice.price(item.getItemId(), (Integer) rawValue);
         int adjValue = priceAdjustmentRules((int) (rawValue * 0.9));
         getTradeWants().setMesoWanted(adjValue);
         setTradeMode(BotTradeSM.TradeMode.SELLING);

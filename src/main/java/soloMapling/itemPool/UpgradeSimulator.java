@@ -33,6 +33,12 @@ public class UpgradeSimulator {
             this.statBonus = statBonus;
         }
 
+        /* 162: a scroll of the item pool, priced at its learned market price (ScrollMarketPrice; the yaml price
+         * {@code poolPrice} when -Dslums.scroll.marketPrice is off or nothing sold yet). */
+        static Scroll market(int scrollId, long poolPrice, int successRate, int statBonus) {
+            return new Scroll(soloMapling.Economy.ScrollMarketPrice.price(scrollId, poolPrice), successRate, statBonus);
+        }
+
         public int getStatBonus() {
             return this.statBonus;
         }
@@ -182,21 +188,26 @@ public class UpgradeSimulator {
         return limitToIntRange(item_price);
     }
 
-    /* The item pool's scrolls for this kind of equip: [price, success rate, stat bonus] (10%/60%, and 30%/70%). */
+    /* The item pool's scrolls for this kind of equip: [price, success rate, stat bonus] (10%/60%, and 30%/70%), each at
+     * its learned market price (ScrollMarketPrice) when that is on. */
     static ArrayList<Scroll> scrollsFor(ScrollInfoManager.ScrollInfo scrollInfo) {
         ArrayList<Scroll> scrolls2 = new ArrayList<>();
         if (scrollInfo.hasPercent_10_60()) {
             ScrollNode tenPc = getScrollNodeData(scrollInfo.getPercent_10());
             ScrollNode sixtyPc = getScrollNodeData(scrollInfo.getPercent_60());
-            scrolls2.add(new Scroll(tenPc.getCurrentPrice(), tenPc.getSuccessRate(), tenPc.getStatBonus()));
-            scrolls2.add(new Scroll(sixtyPc.getCurrentPrice(), sixtyPc.getSuccessRate(), sixtyPc.getStatBonus()));
+            scrolls2.add(Scroll.market(scrollInfo.getPercent_10(), tenPc.getCurrentPrice(),
+                    tenPc.getSuccessRate(), tenPc.getStatBonus()));
+            scrolls2.add(Scroll.market(scrollInfo.getPercent_60(), sixtyPc.getCurrentPrice(),
+                    sixtyPc.getSuccessRate(), sixtyPc.getStatBonus()));
         }
         if (getItemPoolVersion() > 40) {
             if (scrollInfo.hasPercent_30_70()) {
                 ScrollNode thirtyPc = getScrollNodeData(scrollInfo.getPercent_30());
                 ScrollNode seventyPc = getScrollNodeData(scrollInfo.getPercent_70());
-                scrolls2.add(new Scroll(thirtyPc.getCurrentPrice(), thirtyPc.getSuccessRate(), thirtyPc.getStatBonus()));
-                scrolls2.add(new Scroll(seventyPc.getCurrentPrice(), seventyPc.getSuccessRate(), seventyPc.getStatBonus()));
+                scrolls2.add(Scroll.market(scrollInfo.getPercent_30(), thirtyPc.getCurrentPrice(),
+                        thirtyPc.getSuccessRate(), thirtyPc.getStatBonus()));
+                scrolls2.add(Scroll.market(scrollInfo.getPercent_70(), seventyPc.getCurrentPrice(),
+                        seventyPc.getSuccessRate(), seventyPc.getStatBonus()));
             }
         }
         return scrolls2;

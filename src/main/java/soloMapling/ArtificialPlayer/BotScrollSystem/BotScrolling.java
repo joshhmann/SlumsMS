@@ -94,6 +94,14 @@ public final class BotScrolling {
         /** The scroll's normal FM value (item pool), or null. */
         Integer marketValue(int itemId);
 
+        /*
+         * 162: what a scroll trades for now: its learned market price (ScrollMarketPrice: real sales blended with
+         * the item pool's price), or the item pool's price when -Dslums.scroll.marketPrice is off or nothing sold.
+         */
+        default Integer scrollPrice(int scrollId) {
+            return soloMapling.Economy.ScrollMarketPrice.price(scrollId, marketValue(scrollId));
+        }
+
         /** The equip's value (EquipValuation), or null when it cannot be traded. */
         Integer equipValue(Equip equip);
 
@@ -271,7 +279,7 @@ public final class BotScrolling {
                         || (f.dark() && (appetite == Appetite.CAREFUL || (worn && appetite != Appetite.GAMBLER)))) {
                     continue;
                 }
-                Integer price = facts.marketValue(f.scrollId());
+                Integer price = facts.scrollPrice(f.scrollId());   // what it would fetch on the market now
                 options.add(new ScrollPlanner.ScrollOption(f.scrollId(), facts.name(f.scrollId()), f.success() / 100.0,
                         f.dark() ? f.curse() / 100.0 : 0, f.gainWeight(), price == null ? 0 : price));
                 factsOf.put(f.scrollId(), f);
@@ -295,44 +303,58 @@ public final class BotScrolling {
         return new Plan(equipOf.get(best.equip()), new Choice(f.scrollId(), white), f);
     }
 
-    // Curves per (item, slots, base price): the valuer memoizes inside a curve, so a kept curve answers from memory.
+    // Curves per (item, slots, base price, scroll prices): the valuer memoizes inside a curve, so a kept curve answers
+    // from memory; a scroll's market price moving (ScrollMarketPrice) makes a new key, so the curve follows the market.
     private static final Map<String, java.util.function.DoubleUnaryOperator> curves = new ConcurrentHashMap<>();
 
-    // The reproduction-cost curve of this equip's kind: every plain scroll the item data has for it at its FM price.
+    // The reproduction-cost curve of this equip's kind: every plain scroll the item data has for it at its market price.
     private static java.util.function.DoubleUnaryOperator curveFor(Equip e) {
+        List<soloMapling.itemPool.ScrollValuer.ScrollSpec> specs = curveSpecs(e);
         Integer known = facts.marketValue(e.getItemId());
-        String key = e.getItemId() + ":" + facts.totalSlots(e) + ":" + (known == null ? -1 : known);
-        java.util.function.DoubleUnaryOperator cached = curves.get(key);
+        StringBuilder key = new StringBuilder().append(e.getItemId()).append(':').append(facts.totalSlots(e))
+                .append(':').append(known == null ? -1 : known);
+        for (soloMapling.itemPool.ScrollValuer.ScrollSpec sp : specs) {
+            key.append(':').append(priceBucket(sp.mesoCost()));
+        }
+        String k = key.toString();
+        java.util.function.DoubleUnaryOperator cached = curves.get(k);
         if (cached != null) {
             return cached;
         }
         if (curves.size() > 4096) {
             curves.clear();   // prices moved on, or a very varied world: start over
         }
-        java.util.function.DoubleUnaryOperator curve = buildCurve(e);
+        Integer base = known != null ? known : facts.equipValue(e);
+        java.util.function.DoubleUnaryOperator curve = soloMapling.itemPool.ScrollValuer.reproductionValue(0,
+                facts.totalSlots(e), specs, base == null ? 0 : base);
         if (known != null) {
-            curves.put(key, curve);   // an EquipValuation base depends on the piece itself: not shared
+            curves.put(k, curve);   // an EquipValuation base depends on the piece itself: not shared
         }
         return curve;
     }
 
-    private static java.util.function.DoubleUnaryOperator buildCurve(Equip e) {
+    // A scroll price for the curve key: two significant digits (a 1% move does not cost a new DP solve).
+    static long priceBucket(double price) {
+        long p = Math.max(0, Math.round(price));
+        long scale = 1;
+        while (p >= 100 * scale) {
+            scale *= 10;
+        }
+        return p / scale * scale;
+    }
+
+    private static List<soloMapling.itemPool.ScrollValuer.ScrollSpec> curveSpecs(Equip e) {
         List<soloMapling.itemPool.ScrollValuer.ScrollSpec> specs = new ArrayList<>();
         for (int id : facts.catalogFor(e.getItemId())) {
             ScrollFacts f = facts.scroll(id);
-            Integer price = facts.marketValue(id);
             if (f != null && f.success() > 0 && !f.dark()
                     && ScrollRules.fits(id, e.getItemId(), Math.max(1, e.getUpgradeSlots()), facts.reqs(id))) {
+                Integer price = facts.scrollPrice(id);
                 specs.add(new soloMapling.itemPool.ScrollValuer.ScrollSpec(f.success() / 100.0, f.gainWeight(),
                         price == null ? 0 : price));
             }
         }
-        Integer base = facts.marketValue(e.getItemId());
-        if (base == null) {
-            base = facts.equipValue(e);
-        }
-        return soloMapling.itemPool.ScrollValuer.reproductionValue(0, facts.totalSlots(e), specs,
-                base == null ? 0 : base);
+        return specs;
     }
 
     // ------------------------------------------------------------------ rolling
@@ -594,7 +616,8 @@ public final class BotScrolling {
                 continue;
             }
             long budget = ScrollBudget.maxPrice(bot.getId(), bot.getLevel(), bot.getMeso(), false);
-            long price = Math.min(facts.marketValue(c.scrollId()), budget);
+            Integer want = facts.scrollPrice(c.scrollId());   // 162: today's market price, not the yaml's
+            long price = Math.min(want == null ? 0 : want, budget);
             if (price > 0 && ScrollWants.post(bot, c.scrollId(), price)) {
                 posted++;
             }
