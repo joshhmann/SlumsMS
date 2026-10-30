@@ -143,13 +143,15 @@ class AutoQaCatalogTest {
 
     /**
      * TEST 2026-10-30: with KS manners at the swing, the full invasion's first wave never cleared around the visible
-     * auto-QA GM (its client moves no mobs, so they stayed by it). t-ev-3 hides the GM before the invasion.
+     * auto-QA GM. Event mobs are everyone's now; the invasion checks keep the GM visible to prove it.
      */
     @Test
-    void theFullInvasionCheckHidesItsGm() {
-        Check c = AutoQaCatalog.find("t-ev-3");
-        assertTrue(c.steps().get(0).describe().contains("!hide"), c.steps().get(0).describe());
-        assertTrue(c.steps().get(1).describe().startsWith("!qa run ev-2 full"), c.steps().get(1).describe());
+    void theInvasionChecksKeepTheirGmVisible() {
+        for (String id : List.of("t-ev-2", "t-ev-3")) {
+            for (Check.Step st : AutoQaCatalog.find(id).steps()) {
+                assertFalse(st.describe().contains("!hide"), id + ": " + st.describe());
+            }
+        }
     }
 
     @Test

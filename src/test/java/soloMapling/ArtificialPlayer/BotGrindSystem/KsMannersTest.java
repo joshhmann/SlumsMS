@@ -108,6 +108,33 @@ class KsMannersTest {
         assertTrue(KsManners.respects(showcase, gm), "despawned (forget): the slot's next bot has manners again");
     }
 
+    /**
+     * TEST 2026-10-30 (t-ev-3): a visible player standing by invasion mobs made them "theirs" at every swing, so the
+     * wave never cleared. A world event's mob is everyone's; a normal field mob by the player still is the player's.
+     */
+    @Test
+    void aPlayerByAnInvasionMobDoesNotStopABotsSwingButByAFieldMobItDoes() {
+        server.maps.MapleMap map = mock(server.maps.MapleMap.class);
+        Character bot = at(1_000_009_201, 0, 100);
+        Character player = at(3, 300, 100);
+        when(bot.getMap()).thenReturn(map);
+        when(player.getMap()).thenReturn(map);
+        when(map.getCharacters()).thenReturn(List.of(bot, player));
+        Monster invader = mob(350, 100);
+        Monster field = mob(360, 100);
+        KsManners.useEventMobsForTest((m, mob) -> m == map && mob == invader);
+        try {
+            long now = System.currentTimeMillis();
+            assertTrue(KsManners.mayHit(bot, invader, now), "an invasion mob by the player is still everyone's");
+            assertFalse(KsManners.mayHit(bot, field, now), "a field mob by the player is the player's");
+            assertNull(KsManners.ownerOf(map, List.of(player), invader, now));
+            assertEquals(player, KsManners.ownerOf(map, List.of(player), field, now));
+        } finally {
+            KsManners.useEventMobsForTest(null);
+            KsManners.forget(bot.getId());
+        }
+    }
+
     /** Audit 163 (B21): a player's hit claims a mob while they keep at it, not for the rest of its life. */
     @Test
     void aPlayersOldHitNoLongerClaimsTheMob() {

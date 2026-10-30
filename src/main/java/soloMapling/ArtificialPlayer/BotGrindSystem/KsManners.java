@@ -184,10 +184,13 @@ public final class KsManners {
         return ownerOf(map, players, m, System.currentTimeMillis());
     }
 
-    /** ownerOf at a given time: a player's hit claims the mob for {@link #CLAIM_MS} after it lands. */
+    /**
+     * ownerOf at a given time: a player's hit claims the mob for {@link #CLAIM_MS} after it lands. A world event's mob
+     * (an invasion wave, its boss) is nobody's: event mobs are shared by everyone on the map.
+     */
     public static Character ownerOf(MapleMap map, List<Character> players, Monster m, long now) {
         Point mp = m.getPosition();
-        if (mp == null) {
+        if (mp == null || players.isEmpty() || sharedMob(map, m)) {
             return null;
         }
         for (Character p : players) {
@@ -200,6 +203,29 @@ public final class KsManners {
             }
         }
         return null;
+    }
+
+    /*
+     * 1.6.2 (TEST 2026-10-30, t-ev-3): with manners held at every swing, a player standing in Henesys during an invasion
+     * made every wave mob within 260 px of them "theirs"; no bot hit those, so the wave (which ends only when all its
+     * mobs are dead) could stall for good. Mobs a world event spawned on this map instance (WorldEvents.isEventMob:
+     * the running event's mob list, waves and boss) are exempt from KS manners; normal field mobs are not.
+     */
+    private static volatile java.util.function.BiPredicate<MapleMap, Monster> eventMob = (map, m) -> map != null
+            && soloMapling.worldevents.WorldEvents.getInstance().isEventMob(map, m);
+
+    static boolean sharedMob(MapleMap map, Monster m) {
+        try {
+            return eventMob.test(map, m);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** Test seam: which mobs a world event spawned (null: the real WorldEvents). */
+    static void useEventMobsForTest(java.util.function.BiPredicate<MapleMap, Monster> test) {
+        eventMob = test != null ? test : (map, m) -> map != null
+                && soloMapling.worldevents.WorldEvents.getInstance().isEventMob(map, m);
     }
 
     /** A player at {@code player} is standing by a mob at {@code mob}: close across and on its ledge. */
