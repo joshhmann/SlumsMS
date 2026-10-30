@@ -261,15 +261,61 @@ class TempleOfTimeTest {
         try (var holdings = org.mockito.Mockito.mockStatic(soloMapling.ArtificialPlayer.BotHoldings.class)) {
             holdings.when(() -> soloMapling.ArtificialPlayer.BotHoldings.spendMeso(chr, TempleRoute.SORCERER_FEE))
                     .thenReturn(false, true);
-            assertEquals(BotQuests.Visit.NOT_READY,
+            assertEquals(BotQuests.Visit.DEFERRED,
                     TempleOfTime.atNpc(chr, log, LifePlanner.Step.TAKE_QUEST, false, NOW), "can't pay: no potion");
-            assertFalse(log.active().taken());
+            assertNull(log.active(), "put back to wait (audit #2)");
+            log.pick(TempleOfTime.active(TempleRoute.MAINLINE.get(TempleRoute.indexOf(TempleRoute.Q_SORCERER)), -1, NOW));
             assertEquals(BotQuests.Visit.TAKEN_OFFSCREEN,
                     TempleOfTime.atNpc(chr, log, LifePlanner.Step.TAKE_QUEST, false, NOW));
             assertTrue(log.active().taken());
             holdings.verify(() -> soloMapling.ArtificialPlayer.BotHoldings.spendMeso(chr, TempleRoute.SORCERER_FEE),
                     org.mockito.Mockito.times(2));
         }
+    }
+
+    /** Audit #2 (b111): a step that cannot be finished waits with a doubling backoff, then is dropped for good. */
+    @Test
+    void anUnfinishableStepBacksOffThenIsDropped() {
+        int id = idFor(140, 1_000_000_000);
+        Character chr = bot(id, 140, 5_000_000);
+        when(chr.getMapId()).thenReturn(TempleRoute.SORCERER_MAP);
+        BotQuestLog log = new BotQuestLog();
+        int sorcerer = TempleRoute.indexOf(TempleRoute.Q_SORCERER);
+        for (int i = 0; i < sorcerer; i++) {
+            assertEquals(Boolean.TRUE, TempleOfTime.consider(chr, log, NOW));
+            log.taken(BotQuestLog.Mode.MODELLED);
+            log.active().need.forEach((mob, n) -> log.addKills(mob, n));
+            log.complete(false, NOW);
+        }
+        long t = NOW;
+        try (var holdings = org.mockito.Mockito.mockStatic(soloMapling.ArtificialPlayer.BotHoldings.class)) {
+            holdings.when(() -> soloMapling.ArtificialPlayer.BotHoldings.spendMeso(chr, TempleRoute.SORCERER_FEE))
+                    .thenReturn(false); // the fee never goes through
+            long backoff = TempleOfTime.NOT_READY_BACKOFF_MS;
+            for (int wait = 1; wait <= TempleOfTime.MAX_NOT_READY; wait++) {
+                assertEquals(Boolean.TRUE, TempleOfTime.consider(chr, log, t), "picked again, wait " + wait);
+                assertEquals(TempleRoute.Q_SORCERER, log.active().questId);
+                assertEquals(BotQuests.Visit.DEFERRED,
+                        TempleOfTime.atNpc(chr, log, LifePlanner.Step.TAKE_QUEST, false, t));
+                assertNull(log.active(), "put back: the bot grinds meanwhile");
+                assertNull(TempleOfTime.consider(chr, log, t + backoff - 1), "still backing off");
+                t += backoff;
+                backoff *= 2;
+            }
+            assertEquals(Boolean.TRUE, TempleOfTime.consider(chr, log, t));
+            assertEquals(BotQuests.Visit.DROPPED, TempleOfTime.atNpc(chr, log, LifePlanner.Step.TAKE_QUEST, false, t));
+        }
+        assertTrue(log.skipped(TempleRoute.Q_SORCERER));
+        assertNull(TempleOfTime.consider(chr, log, t + 100 * 3_600_000L), "a dropped step is never re-picked this run");
+    }
+
+    @Test
+    void aSkippedOrCompletedStepIsNotPicked() {
+        int id = idFor(140, 1_000_000_000);
+        Character chr = bot(id, 140, 5_000_000);
+        BotQuestLog log = new BotQuestLog();
+        log.skip(TempleRoute.MAINLINE.get(0).questId());
+        assertNull(TempleOfTime.consider(chr, log, NOW), "dropped earlier: the Temple has nothing for it");
     }
 
     @Test

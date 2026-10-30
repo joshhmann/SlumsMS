@@ -217,6 +217,13 @@ public final class BotQuestLog {
         version++;
     }
 
+    /** The active quest is put back without being skipped (it may be picked again later: the Temple's backoff). */
+    public void release() {
+        if (active == null) return;
+        active = null;
+        version++;
+    }
+
     public void skip(int questId) {
         skip.add(questId);
         while (skip.size() > KEEP_SKIP) skip.remove(skip.iterator().next());
