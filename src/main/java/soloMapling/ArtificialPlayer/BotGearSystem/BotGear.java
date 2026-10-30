@@ -6,6 +6,7 @@ import client.inventory.Equip;
 import client.inventory.Inventory;
 import client.inventory.InventoryType;
 import client.inventory.Item;
+import config.YamlConfig;
 import constants.inventory.EquipType;
 import constants.inventory.ItemConstants;
 import org.slf4j.Logger;
@@ -480,6 +481,64 @@ public final class BotGear {
     }
 
     /*
+     * 1.6.2 bot audit (G6): the game's own wear rules, re-run on the bot as it stands before a piece goes on. The
+     * planner already refuses what does not fit the bot it planned for; this catches what it cannot see - a rebirth
+     * gate, a stale plan (built before a level or a rebuild), or a stat need only another piece of the plan fills.
+     * A piece that fails a need stays in the bag. Returns the pieces to put on, in an order that works.
+     */
+    static Map<Short, Piece> wearableNow(Character bot, Map<Short, Piece> worn, Map<Short, Piece> wear) {
+        int level = bot.getLevel();
+        int niche = bot.getJob().getJobNiche();
+        int fame = bot.getFame();
+        Set<Integer> reborn = YamlConfig.config.server.USE_REBIRTH_SYSTEM
+                ? ItemConstants.getRestrictedItemsForRebirth(bot.getReborns()) : Set.of();
+        Map<Short, Piece> keep = new LinkedHashMap<>();
+        List<Map.Entry<Short, Piece>> pending = new ArrayList<>();
+        for (Map.Entry<Short, Piece> e : wear.entrySet()) {
+            Piece piece = e.getValue();
+            Known k = piece.known();
+            if (k == null || k.reqLevel() > level || !BotGearPlanner.jobMayWear(niche, k.reqJob())
+                    || (k.reqFame() > 0 && k.reqFame() > fame) || reborn.contains(piece.itemId())) {
+                continue;   // a need no piece of this plan fills
+            }
+            if (worn.get(e.getKey()) == piece) {
+                keep.put(e.getKey(), piece);
+            } else {
+                pending.add(e);
+            }
+        }
+        int str = bot.getStr();
+        int dex = bot.getDex();
+        int int_ = bot.getInt();
+        int luk = bot.getLuk();
+        for (Piece piece : keep.values()) {   // what it wears already counts, as the game's totals do
+            str += piece.str();
+            dex += piece.dex();
+            int_ += piece.int_();
+            luk += piece.luk();
+        }
+        boolean progress = true;
+        while (!pending.isEmpty() && progress) {
+            progress = false;
+            for (int i = 0; i < pending.size(); i++) {
+                Piece piece = pending.get(i).getValue();
+                Known k = piece.known();
+                if (k.reqStr() > str || k.reqDex() > dex || k.reqInt() > int_ || k.reqLuk() > luk) {
+                    continue;
+                }
+                str += piece.str();
+                dex += piece.dex();
+                int_ += piece.int_();
+                luk += piece.luk();
+                keep.put(pending.get(i).getKey(), piece);
+                pending.remove(i--);
+                progress = true;
+            }
+        }
+        return keep;
+    }
+
+    /*
      * Moves the equips: whatever a new piece replaces goes to the inventory slot the piece came from, and whatever
      * is taken off without a replacement (pants under an overall, a shield under a two-handed weapon) to a free one.
      * Every piece is checked to still be where the review saw it; a trade or a sale in between stops the moves.
@@ -505,7 +564,7 @@ public final class BotGear {
                 carried.addItemFromDB(off);
                 changed = true;
             }
-            for (Map.Entry<Short, Piece> e : wear.entrySet()) {
+            for (Map.Entry<Short, Piece> e : wearableNow(bot, worn, wear).entrySet()) {   // 1.6.2 G6
                 short slot = e.getKey();
                 Piece piece = e.getValue();
                 if (worn.get(slot) == piece) {

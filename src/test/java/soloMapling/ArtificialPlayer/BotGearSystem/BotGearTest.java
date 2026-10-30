@@ -202,6 +202,44 @@ class BotGearTest {
         assertSame(held, bot.getInventory(InventoryType.EQUIPPED).getItem((short) -11));
     }
 
+    // 1.6.2 bot audit (G6): the plan is re-checked against the bot as it stands; a piece it may not wear stays in the
+    // bag (the game's own wear rules, re-run instead of trusting the plan).
+    @Test
+    void aPieceTheBotMayNotWearAnyMoreStaysInTheBag() {
+        Character bot = bot(Job.BEGINNER, 8);
+        int bigTop = 1040111;
+        data.put(bigTop, new Known((short) -5, 30, 0, 0, 0, 0, 0, 0));   // a level 30 top, the bot is level 8
+        Equip top = equip(bigTop, (short) 2, 0, 0);
+        put(bot, InventoryType.EQUIP, top);
+        BotGearPlanner.Piece stale = new BotGearPlanner.Piece(top, bigTop, (short) 2, data.get(bigTop),
+                0, 0, 0, 0, 0, 0, 0);
+
+        assertFalse(BotGear.apply(bot, Map.of(), Map.of((short) -5, stale)));
+        assertNull(bot.getInventory(InventoryType.EQUIPPED).getItem((short) -5));
+        assertSame(top, bot.getInventory(InventoryType.EQUIP).getItem((short) 2));
+    }
+
+    // ... and a need only another piece of the same plan fills does not cost the piece its place.
+    @Test
+    void aPieceThatNeedsAStatAnotherPieceAddsStillGoesOn() {
+        Character bot = bot(Job.BEGINNER, 40);
+        data.put(TOP, new Known((short) -5, 0, 0, 0, 0, 0, 0, 0));
+        data.put(PANTS, new Known((short) -6, 0, 0, bot.getStr() + 1, 0, 0, 0, 0));   // STR only the top adds
+        Equip strTop = equip(TOP, (short) 2, 0, 20);
+        Equip pants = equip(PANTS, (short) 3, 0, 0);
+        put(bot, InventoryType.EQUIP, strTop);
+        put(bot, InventoryType.EQUIP, pants);
+        BotGearPlanner.Piece topPiece = new BotGearPlanner.Piece(strTop, TOP, (short) 2, data.get(TOP),
+                20, 0, 0, 0, 0, 0, 0);
+        BotGearPlanner.Piece pantsPiece = new BotGearPlanner.Piece(pants, PANTS, (short) 3, data.get(PANTS),
+                0, 0, 0, 0, 0, 0, 0);
+
+        assertTrue(BotGear.apply(bot, Map.of(), Map.of((short) -6, pantsPiece, (short) -5, topPiece)));
+        Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+        assertSame(strTop, body.getItem((short) -5));
+        assertSame(pants, body.getItem((short) -6));
+    }
+
     // 1.6.1 ticket 30 (REPORT item 2): a reborn level 1 wears what a level 1 can and keeps the rest, then re-gears.
     @Test
     void aRebornLevelOneWearsWhatItCanKeepsTheRestAndRegearsAsItLevels() {
