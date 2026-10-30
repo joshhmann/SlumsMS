@@ -113,6 +113,7 @@ public final class QaScenarios {
         all.addAll(SocialTraceScenarios.all()); // 1.6.0 social trace: a short trace records a bot thread (st-1)
         all.addAll(ExpeditionScenarios.all()); // 1.6.0: party bots join your boss expedition (ex-1)
         all.addAll(NxScenarios.all()); // 1.6.0: buy a 10k NX code from an NX merchant bot and redeem it (nx-1)
+        all.addAll(MechanicsScenarios.all()); // 1.7.0 ticket 130: bots clear Kerning PQ stage 1 on their own (mx-1)
         return List.copyOf(all);
     }
 

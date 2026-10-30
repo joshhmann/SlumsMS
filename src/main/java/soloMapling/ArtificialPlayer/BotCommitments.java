@@ -70,6 +70,10 @@ public final class BotCommitments {
         if (soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns.holds(chr.getId())) {
             return true;
         }
+        // 1.7.0 ticket 130: a bots-play-the-mechanics run is driving it (released when the run ends).
+        if (soloMapling.mechanics.MechanicsHold.committed(chr)) {
+            return true;
+        }
         // The bot said "invite me": the invite can land inside the armed window, so the bot keeps
         // draining the incoming invite promptly instead of on the slow wheel.
         return BotRecruitManager.isArmed(chr.getId());
