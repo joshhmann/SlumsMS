@@ -889,6 +889,13 @@ class WorldTest(unittest.TestCase):
         self.assertNotIn("(est.)", card)
         self.assertIn("(est.)", world.hunted_table(Wo(), [{"mob": 1, "name": "Snail", "kills": 9}]), "older servers: all estimates")
         self.assertFalse(world.split(rows[:1] + [{"mob": 3, "kills": 4}]), "a row without the split: treat all as estimates")
+        # before 1.6.2 the server didn't split kills: old hours read as counted, so show the split only once it covers
+        # the window (split_since, epoch ms; generated_at 2026-10-30T13:00Z = 1793365200000)
+        gen, hour = "2026-10-30T13:00:00Z", 3600 * 1000
+        self.assertFalse(world.split_covers({"generated_at": gen}, 24))
+        self.assertFalse(world.split_covers({"generated_at": gen, "split_since": 1793365200000 - 23 * hour}, 24))
+        self.assertTrue(world.split_covers({"generated_at": gen, "split_since": 1793365200000 - 24 * hour}, 24))
+        self.assertFalse(world.split_covers({"generated_at": gen, "split_since": 1793365200000 - 24 * hour}, 24 * 7))
 
     def test_dojo_board_only_with_rows(self):
         from sections import world

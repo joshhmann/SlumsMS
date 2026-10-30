@@ -519,9 +519,28 @@ def split(rows):
     return bool(rows) and all(_is(r.get("counted"), int) and _is(r.get("estimated"), int) for r in rows)
 
 
+def split_covers(world, hours):
+    """Does the split cover the whole window? Hours from before the server split kills (before 1.6.2) come back all
+    "counted", so the split is shown only once world.json's split_since (epoch ms of the first split hour) is at least
+    `hours` before generated_at. No split_since (an older server): never."""
+    since, gen = world.get("split_since"), world.get("generated_at")
+    if not _is(since, int) or not gen:
+        return False
+    try:
+        t = dt.datetime.fromisoformat(str(gen).replace("Z", "+00:00")).timestamp() * 1000
+    except ValueError:
+        return False
+    return since <= t - hours * 3600 * 1000
+
+
 def hunted_rows(wo, key):
-    """world.json's top_mobs (24 h) or top_mobs_7d: [{mob, name, kills}], up to 25 (161-hunted)."""
-    return [r for r in (wo.w["world"].get(key) or []) if isinstance(r, dict) and _is(r.get("kills"), int)][:25]
+    """world.json's top_mobs (24 h) or top_mobs_7d: [{mob, name, kills}], up to 25 (161-hunted). The counted/estimated
+    split is dropped unless it covers the whole window (split_covers)."""
+    world = wo.w["world"]
+    rows = [r for r in (world.get(key) or []) if isinstance(r, dict) and _is(r.get("kills"), int)][:25]
+    if not split_covers(world, 24 * 7 if key == "top_mobs_7d" else 24):
+        rows = [{k: v for k, v in r.items() if k not in ("counted", "estimated")} for r in rows]
+    return rows
 
 
 def hunted_table(wo, rows, limit=None):
