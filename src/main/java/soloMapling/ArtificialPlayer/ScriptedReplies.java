@@ -25,7 +25,7 @@ public final class ScriptedReplies {
     static final List<String> HARASSMENT = List.of("ok", "...", "k bye", "whatever", "rude", "ok buddy");
     /** A scam that asks for a password or login (owner 2026-10-27): "get ur own mesos" would not answer it. */
     static final List<String> PHISHING = List.of("lol no", "nice try", "not giving u my pw lol", "never sharing my login",
-            "gms never ask for that", "nope not falling for that", "thats a scam lol");
+            "u never gotta give that out", "nope not falling for that", "thats a scam lol");
     static final List<String> RWT = List.of("no thx", "thats bannable lol", "nope", "dont do that its a scam",
             "nah not into that");
 

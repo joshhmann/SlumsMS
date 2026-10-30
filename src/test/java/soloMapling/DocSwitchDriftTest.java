@@ -35,7 +35,10 @@ class DocSwitchDriftTest {
             Path.of("src/main/java/client/command/CommandsExecutor.java"),
             Path.of("src/main/java/soloMapling/dashboard/DashboardExporter.java"),
             Path.of("docs", "design", "inspect-api.md"),
-            Path.of("docs", "PROVENANCE.md"));
+            Path.of("docs", "PROVENANCE.md"),
+            // audit 163 (LOW, doc drift): the two lines the 11-file list missed
+            Path.of("docs", "tickets", "157-nutnnut-tools.md"),
+            Path.of("src/test/java/soloMapling/inspect/BotInspectApiTest.java"));
 
     @Test
     void theDiagnosticsThisReleaseTurnsOnAreNotDocumentedOffOnLive() throws IOException {

@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.1: earlier lines go to the intent+con endpoint only, in an exact state format. */
 class ChatDecideContextTest {
 
-    private static final String PREFIX = "A MapleStory player typed this to you in chat: ";
+    private static final String PREFIX = "A player typed this to you in chat: ";
     private static final String ANSWER = "{\"answers\":{\"intent\":{\"choice\":\"party\",\"confidence\":0.9}}}";
 
     @AfterEach
@@ -118,6 +118,6 @@ class ChatDecideContextTest {
         assertEquals(1, mainBodies.size());
         assertEquals(1, toneBodies.size());
         assertFalse(toneBodies.get(0).contains("Earlier in this chat"));
-        assertTrue(mainBodies.get(0).contains("Earlier in this chat:\\nplayer: hello\\nA MapleStory"));
+        assertTrue(mainBodies.get(0).contains("Earlier in this chat:\\nplayer: hello\\nA player"));
     }
 }

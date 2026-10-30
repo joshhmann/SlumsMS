@@ -382,7 +382,7 @@ public final class ChatDecide {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
         body.put("state", (context == null || context.isEmpty() ? "" : context + "\n")
-                + "A MapleStory player typed this to you in chat: " + clean(line));
+                + "A player typed this to you in chat: " + clean(line));
         body.put("questions", qs);
         return body;
     }

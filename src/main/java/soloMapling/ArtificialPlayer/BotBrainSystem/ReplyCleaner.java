@@ -35,6 +35,11 @@ final class ReplyCleaner {
             + "|zilker|barton springs|rainey|south congress|tiktok|instagram|snapchat|discord|twitch|iphone|android"
             + "|smartphone|covid|pandemic|netflix|uber|lyft|spotify|chatgpt|openai|fortnite|among us|zoom call|wifi"
             + "|reddit|twitter|tweet|elon|crypto|bitcoin|nft)\\b");
+    /**
+     * The studio's and the era client's names: a player line never carries them (audit 163 #10 — the model echoed the
+     * prompt's own brand back into chat).
+     */
+    private static final Pattern BRAND = Pattern.compile("(?i)\\b(maple\\s?story|maple\\s?root|nexon|wizet|gms|v83)\\b");
     static final int MAX_RAW_LENGTH = 160;
 
     /**
@@ -65,6 +70,9 @@ final class ReplyCleaner {
         }
         if (REAL_WORLD.matcher(text).find()) {
             return "real-world reference";
+        }
+        if (BRAND.matcher(text).find()) {
+            return "brand mention";
         }
         if (ContentGuard.aiTalk(text)) {
             return "ai talk"; // ticket 59 review: "im a robot" passed the assistant regex; every model reply gets this

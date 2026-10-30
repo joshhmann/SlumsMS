@@ -2428,7 +2428,7 @@ conversations:
   how_i_found_maple:
     participants: 3
     lines:
-      - {speaker: A, text: "how did u guys first find out about maplestory"}
+      - {speaker: A, text: "how did u guys first find out about this game"}
       - {speaker: B, text: "my older cousin showed me at his house. i was hooked instantly"}
       - {speaker: C, text: "i saw an ad for it on miniclip or something back in like 2006", emote: 2}
       - {speaker: A, text: "i watched someone play it at an internet cafe and asked what it was"}
@@ -2774,7 +2774,7 @@ conversations:
       - {speaker: A, text: "did u read the patch notes"}
       - {speaker: B, text: "nah were they good"}
       - {speaker: A, text: "i literally cant understand what they changed lol"}
-      - {speaker: B, text: "classic nexon communication. say a lot without saying anything"}
+      - {speaker: B, text: "classic company communication. say a lot without saying anything"}
       - {speaker: A, text: "so nothing changed essentially"}
 
   new_player_waves:
