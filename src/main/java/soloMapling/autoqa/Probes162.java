@@ -63,7 +63,7 @@ import java.util.Map;
 final class Probes162 {
 
     /** Every probe name here, for the catalog test. */
-    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants", "partyHeal", "fameRequest");
+    static final List<String> NAMES = List.of("botQuest", "templeQuest", "paretoGear", "dexlessAp", "gearFirstFarm", "junkSortSale", "scrollEv", "apVariants", "partyHeal", "fameRequest", "magicGuard");
 
     private Probes162() {
     }
@@ -82,6 +82,7 @@ final class Probes162 {
                 case "apVariants" -> apVariants();
                 case "partyHeal" -> partyHeal(p);
                 case "fameRequest" -> fameRequest(p);
+                case "magicGuard" -> magicGuard(p);
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -1324,6 +1325,76 @@ final class Probes162 {
             }
             soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity.stage(bot.getId(), me.getId(),
                     soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState.NEUTRAL);
+            ev.add(TalkQa.teardown(List.of(bot)));
+        }
+    }
+
+    // ── t-su-3: Magic Guard up splits a bot's damage into MP ────────────────────────────────────
+
+    /** t-su-3: the magician's level and Magic Guard level. */
+    static final int SU3_LEVEL = 30, SU3_MG = 20;
+
+    /**
+     * t-su-3: what is wrong. {@code plain} is the HP/MP loss of a hit with no guard up, {@code guarded} of the same hit
+     * with Magic Guard cast, {@code want} the split {@code BotVitals.magicGuardSplit} gives. Pure, for the tests.
+     */
+    static List<String> guardProblems(int damage, int[] plain, int[] guarded, int[] want) {
+        List<String> bad = new ArrayList<>();
+        if (plain[0] != damage || plain[1] != 0) {
+            bad.add("with no guard up the hit took " + plain[0] + " HP and " + plain[1] + " MP, want " + damage + " HP");
+        }
+        if (want[1] <= 0) {
+            bad.add("the guard's share is 0 (no Magic Guard percent for the skill level)");
+        }
+        if (guarded[0] != want[0] || guarded[1] != want[1]) {
+            bad.add("with Magic Guard up the hit took " + guarded[0] + " HP and " + guarded[1] + " MP, want " + want[0]
+                    + " HP and " + want[1] + " MP");
+        }
+        return bad;
+    }
+
+    /**
+     * t-su-3 ({@code slums.bots.magicguard}): a fresh level-30 bot (tick stopped) is made a Magician with Magic Guard
+     * 20 and full HP/MP. A hit of a tenth of its HP through {@code BotVitals.hurt} with no guard cast must come off HP
+     * only; after {@code BotBuffDriver.markCastForTest} (the cast's timer, as the buff driver records it) the same hit
+     * must split by the skill's x percent into MP ({@code BotVitals.magicGuardSplit}).
+     */
+    static List<String> magicGuard(SyntheticPlayer p) throws InterruptedException {
+        if (!soloMapling.ArtificialPlayer.BotSupportSwitches.magicGuard()) {
+            return List.of("SKIP bot Magic Guard is off (-Dslums.bots.magicguard=true)");
+        }
+        List<String> ev = new ArrayList<>();
+        Character bot = spawnTraining(p, SU3_LEVEL);
+        if (bot == null) {
+            return List.of("FAIL could not spawn a training bot");
+        }
+        try {
+            freeze(bot);
+            int mg = constants.skills.Magician.MAGIC_GUARD;
+            bot.setJob(Job.MAGICIAN);
+            bot.changeSkillLevel(client.SkillFactory.getSkill(mg), (byte) SU3_MG, 20, -1);
+            soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver.clearBot(bot.getId());
+            bot.updateHpMp(bot.getCurrentMaxHp(), bot.getCurrentMaxMp());
+            int damage = Math.max(10, bot.getCurrentMaxHp() / 10);
+            int hp0 = bot.getHp(), mp0 = bot.getMp();
+            soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.hurt(bot, damage);
+            int[] plain = {hp0 - bot.getHp(), mp0 - bot.getMp()};
+            bot.updateHpMp(bot.getCurrentMaxHp(), bot.getCurrentMaxMp());
+            int percent = client.SkillFactory.getSkill(mg).getEffect(SU3_MG).getX();
+            soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver.markCastForTest(bot.getId(), mg,
+                    System.currentTimeMillis() + 60_000);
+            int hp1 = bot.getHp(), mp1 = bot.getMp();
+            int[] want = soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.magicGuardSplit(damage, percent, mp1);
+            soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.hurt(bot, damage);
+            int[] guarded = {hp1 - bot.getHp(), mp1 - bot.getMp()};
+            ev.add("magician " + bot.getName() + " lv " + bot.getLevel() + " Magic Guard " + bot.getSkillLevel(mg)
+                    + " (x " + percent + "%), HP " + hp0 + " MP " + mp0 + "; hit " + damage);
+            ev.add("no guard: -" + plain[0] + " HP, -" + plain[1] + " MP; guard up: -" + guarded[0] + " HP, -"
+                    + guarded[1] + " MP (want -" + want[0] + " HP, -" + want[1] + " MP)");
+            return Probes160.verdict(guardProblems(damage, plain, guarded, want), "with Magic Guard up the bot paid "
+                    + want[1] + " of a " + damage + " hit in MP; with none up it all came off HP", ev);
+        } finally {
+            soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver.clearBot(bot.getId());
             ev.add(TalkQa.teardown(List.of(bot)));
         }
     }

@@ -1346,6 +1346,10 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-su-2", "Fame requests: a friend fames on request once, a second ask is refused").minutes(1)
                 .expect(probe("fameRequest"))
                 .build());
+        // bots.magicguard: a magician bot's hit comes off HP only, then with Magic Guard cast splits into MP
+        c.add(Check.auto("t-su-3", "Bot Magic Guard: with it up a bot pays part of a hit in MP").minutes(1)
+                .expect(probe("magicGuard"))
+                .build());
         return List.copyOf(c);
     }
 

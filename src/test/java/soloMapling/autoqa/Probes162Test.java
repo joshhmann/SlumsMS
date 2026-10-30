@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 1.6.2 (ticket 163 section 4): the checks for the bot switches that had no auto-QA proof; verdicts and wiring. */
 class Probes162Test {
 
-    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1", "t-su-2");
+    static final List<String> NEW = List.of("t-bq-1", "t-tm-1", "t-gb-1", "t-gb-2", "t-gb-3", "t-gb-4", "t-gb-5", "t-gb-6", "t-su-1", "t-su-2", "t-su-3");
 
     @Test
     void theNewChecksAreAutomatedNightlyAndUseOnlyKnownProbes() {
@@ -187,5 +187,15 @@ class Probes162Test {
         assertEquals(1, Probes162.fameProblems(false, 0, true, 1, true, 1).size(), "farmed twice");
         assertEquals(1, Probes162.fameProblems(true, 1, true, 1, true, 0).size(), "a stranger famed");
         assertEquals(1, Probes162.fameProblems(false, 0, false, 0, true, 0).size());
+    }
+
+    // ── t-su-3 ──
+
+    @Test
+    void theMagicGuardCheckWantsTheSplitOnlyWhileUp() {
+        int[] want = soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals.magicGuardSplit(100, 80, 500);
+        assertTrue(Probes162.guardProblems(100, new int[]{100, 0}, want, want).isEmpty());
+        assertEquals(1, Probes162.guardProblems(100, new int[]{100, 0}, new int[]{100, 0}, want).size(), "never split");
+        assertEquals(1, Probes162.guardProblems(100, new int[]{20, 80}, want, want).size(), "split with none up");
     }
 }
