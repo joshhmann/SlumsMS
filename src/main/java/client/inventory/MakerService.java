@@ -243,7 +243,9 @@ public class MakerService {
             h.send(PacketCreator.makerEnableActions());
             return -1;
         }
-        MakerItemFactory.MakerItemCreateEntry recipe = MakerItemFactory.generateDisassemblyCrystalEntry(toDisassemble, pair.getLeft(), pair.getRight());
+        // the fee the window shows for this very item (it depends on the item's stats)
+        int fee = MakerItemFactory.getDisassemblyFee(it);
+        MakerItemFactory.MakerItemCreateEntry recipe = MakerItemFactory.generateDisassemblyCrystalEntry(toDisassemble, fee, pair.getRight());
         short status = getCreateStatus(h, recipe);
         applyMakerResult(h, status, toDisassemble, recipe, toDisassemble, pos, -1, new LinkedHashMap<>(), true, 4);
         return status;
