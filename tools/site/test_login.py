@@ -187,6 +187,140 @@ class AdminTest(unittest.TestCase):
             self.assertEqual(st, want)
 
 
+class FakeInspect:
+    """The game's bot inspect endpoint (ticket 157, docs/design/inspect-api.md): GET only, header X-Slums-Inspect."""
+
+    def __init__(self, secret, redirect_to=None):
+        from http.server import BaseHTTPRequestHandler
+        self.calls, fake = [], self
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                fake.calls.append((self.path, self.headers.get("X-Slums-Inspect")))
+                if redirect_to:
+                    self.send_response(302)
+                    self.send_header("Location", redirect_to + self.path)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                ans = ((403, {"ok": False, "error": "FORBIDDEN"}) if self.headers.get("X-Slums-Inspect") != secret else
+                       (200, {"ok": True, "at": 5, "cid": 1000000012, "name": "Wolfie", "bartle": None})
+                       if self.path == "/bots/1000000012" else
+                       (200, {"ok": True, "at": 5, "fields": ["cid", "map", "x", "y"], "count": 1,
+                              "bots": [[1000000012, 100000000, 10, 20]], "maps": {"100000000": 1}})
+                       if self.path == "/positions" else (404, {"ok": False, "error": "NOT_FOUND"}))
+                data = json.dumps(ans[1]).encode()
+                self.send_response(ans[0])
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+        self.srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.srv.server_address[1]}"
+
+
+class InspectTest(unittest.TestCase):
+    """1.6.2 ticket 157: the staff Bots page reads the game's inspect endpoint through here, staff only."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.secret = os.path.join(self.dir, "inspect-secret")
+        with open(self.secret, "w") as f:
+            f.write("inspect-secret-for-tests\n")
+        self.game = FakeInspect("inspect-secret-for-tests")
+        self.t = [1_000_000]
+        self.sessions = ls.Sessions(KEY, now=lambda: self.t[0])
+        self.serve(ls.Inspect(self.game.url, self.secret))
+
+    def serve(self, inspect):
+        if getattr(self, "srv", None):
+            self.srv.shutdown()
+        self.srv = ThreadingHTTPServer(("127.0.0.1", 0), ls.make_handler(self.sessions, secure=False, inspect=inspect))
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.base = f"http://127.0.0.1:{self.srv.server_address[1]}"
+
+    def tearDown(self):
+        self.srv.shutdown()
+        self.game.srv.shutdown()
+        shutil.rmtree(self.dir)
+
+    def get(self, what, gm=3, xslums=True, account=7):
+        req = urllib.request.Request(self.base + "/api/login/staff/inspect/" + what)
+        if xslums:
+            req.add_header("X-Slums", "1")
+        if gm is not None:
+            req.add_header("Cookie", ls.SESSION_COOKIE + "=" + self.sessions.issue(
+                {"account_id": account, "account": "gm", "character": "Boss", "gm": gm}))
+        try:
+            r = urllib.request.urlopen(req)
+        except urllib.error.HTTPError as e:
+            r = e
+        return r.status, json.loads(r.read() or b"{}")
+
+    def test_staff_get_the_games_answer_with_the_secret_sent_only_to_the_game(self):
+        st, body = self.get("bots/1000000012")
+        self.assertEqual((st, body["name"]), (200, "Wolfie"))
+        self.assertEqual(self.game.calls[-1], ("/bots/1000000012", "inspect-secret-for-tests"))
+        self.assertNotIn("inspect-secret", json.dumps(body))
+        st, body = self.get("positions")
+        self.assertEqual((st, body["count"], body["maps"]), (200, 1, {"100000000": 1}))
+        st, body = self.get("maps/910000000")
+        self.assertEqual((st, body["code"]), (404, "NOT_FOUND"))
+
+    def test_only_fresh_staff_sessions_and_only_the_three_reads(self):
+        calls = len(self.game.calls)
+        self.assertEqual(self.get("positions", gm=None)[0], 401)
+        self.assertEqual(self.get("positions", gm=2)[0], 403)
+        self.assertEqual(self.get("positions", xslums=False)[0], 403)
+        token = self.sessions.issue({"account_id": 7, "account": "gm", "character": "Boss", "gm": 3})
+        self.t[0] += ls.ADMIN_TTL + 1
+        req = urllib.request.Request(self.base + "/api/login/staff/inspect/positions",
+                                     headers={"X-Slums": "1", "Cookie": ls.SESSION_COOKIE + "=" + token})
+        with self.assertRaises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(req)
+        self.assertEqual((e.exception.code, json.loads(e.exception.read())["code"]), (401, "SIGN_IN"))
+        for odd in ("bots/abc", "bots/1/../../x", "positions/", "bots/12345678901", "bots/-1"):
+            self.assertEqual(self.get(odd)[0], 404, odd)
+        self.assertEqual(len(self.game.calls), calls, "nothing reached the game")
+
+    def test_off_wrong_secret_and_odd_addresses_answer_503(self):
+        self.serve(ls.Inspect("", self.secret))
+        self.assertEqual(self.get("positions")[0], 503)
+        with open(self.secret, "w") as f:
+            f.write("not-the-games-secret")
+        self.serve(ls.Inspect(self.game.url, self.secret))
+        self.assertEqual(self.get("positions")[1]["code"], "UNAVAILABLE")
+        with open(self.secret, "wb") as f:
+            f.write(b"\xff" * 20)   # not text: never sent
+        self.assertEqual(self.get("positions")[0], 503)
+        for url in ("http://192.168.0.164:8197", "http://0.0.0.0:8197", "https://127.0.0.1:8197", "http://example.com"):
+            self.assertTrue(ls.Inspect(url, self.secret).refused, url)
+            self.assertEqual(ls.Inspect(url, self.secret).url, "")
+        for url in ("http://127.0.0.1:8197", "http://localhost:8197", "http://[::1]:8197"):
+            self.assertFalse(ls.Inspect(url, self.secret).refused, url)
+
+    def test_a_redirect_is_never_followed_with_the_secret(self):
+        other = FakeInspect("inspect-secret-for-tests")
+        bouncer = FakeInspect("x", redirect_to=other.url)
+        try:
+            self.serve(ls.Inspect(bouncer.url, self.secret))
+            self.assertEqual(self.get("positions")[0], 503)
+            self.assertEqual(other.calls, [])
+        finally:
+            other.srv.shutdown()
+            bouncer.srv.shutdown()
+
+    def test_lookups_are_limited_per_account(self):
+        for _ in range(ls.INSPECT_PER_MIN):
+            self.assertEqual(self.get("positions")[0], 200)
+        self.assertEqual(self.get("positions")[0], 429)
+        self.assertEqual(self.get("positions", account=8)[0], 200)
+
+
 class AccountSignInTest(unittest.TestCase):
     """Ticket 105: sign in with the game username and password, or sign up with an invite code."""
 

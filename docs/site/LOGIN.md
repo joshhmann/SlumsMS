@@ -99,5 +99,11 @@ docs/design/track-d-plan.md). The nginx snippet already routes `/api/market/`.
     inbox. It's not a cap: with the password every order goes through.
   - The game keeps NX orders in a band around the official rate (`PRICE_BAND`). There is no daily NX cap (owner:
     no daily caps; the 1% fee each side stays).
+- Staff Bots page (1.6.2, ticket 157; `admin/bots`): `GET /api/login/staff/inspect/bots/<cid>`, `/maps/<id>` and
+  `/positions` here pass on to the game's read-only bot inspect endpoint on the same host's loopback (the server's
+  `docs/design/inspect-api.md`), only for an admin session (GM 3+, signed in at most 12 h ago) and 120 calls a minute
+  per account. The game's secret (`X-Slums-Inspect`, read from `SLUMS_LOGIN_INSPECT_SECRET_FILE`) stays here and never
+  reaches a browser; redirects are never followed; only a loopback `SLUMS_LOGIN_INSPECT_URL` is used. Nothing it
+  reaches can change the game. Off on live until the owner says go (the unit's lines are commented out).
 - The service listens on 127.0.0.1 only, logs only the method and path (no addresses or cookies), and answers
   nothing but the endpoints above.

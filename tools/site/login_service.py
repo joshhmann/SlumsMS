@@ -58,6 +58,14 @@ app as usual. Every site sell and big site buys need it, so a stolen cookie alon
 429 too many tries; 503 the exchange paused or unreachable. The password is never logged, kept or written anywhere;
 only the account id and the answer code are logged.
 
+Bot inspect (1.6.2, ticket 157; the server's docs/design/inspect-api.md): GET /api/login/staff/inspect/bots/<cid>,
+/maps/<id> and /positions ("X-Slums: 1") for the staff admin's Bots page. Staff only, as /admin/ (GM level 3+, a
+sign-in at most 12 h old: 401 signed out or too old, 403 anyone else), 120 calls per account a minute. Each is passed
+on to the game's read-only inspect endpoint on this host's loopback (--inspect-url, header X-Slums-Inspect from
+--inspect-secret, read by path each call and never printed or sent to a browser). The game's JSON comes back as it is;
+404 that bot isn't online or nobody is on that map; 503 the endpoint is off, unreachable or refused the secret.
+Only a loopback --inspect-url (127.x, ::1, localhost) is used; anything else keeps it off.
+
 Listens on 127.0.0.1 only. Sessions are HMAC-SHA256 signed with --key-file (32+ random bytes; the service refuses to
 start without it). An account listed in --revoked (one account id per line, e.g. banned accounts) is signed out.
 
@@ -71,6 +79,8 @@ Settings (argument beats environment beats default):
     --auth-secret / SLUMS_LOGIN_AUTH_SECRET_FILE   /etc/slums-auth/secret (read by path, never printed)
     --ip-salt / SLUMS_LOGIN_IP_SALT_FILE  /etc/slums-login/ip-salt (32+ random bytes)
     --pass-key-file / SLUMS_LOGIN_PASS_KEY_FILE   /etc/slums-login/pass-key (32+ random bytes; missing: no passes)
+    --inspect-url / SLUMS_LOGIN_INSPECT_URL       the game's bot inspect endpoint, e.g. http://127.0.0.1:8098 (empty: off)
+    --inspect-secret / SLUMS_LOGIN_INSPECT_SECRET_FILE   /etc/slums-inspect/secret (16+ characters, read by path)
 Signed-out sessions are listed in revoked-sessions.txt next to --revoked, until they would have expired anyway.
 """
 import argparse
@@ -92,6 +102,9 @@ from urllib.parse import urlsplit
 SESSION_TTL = 30 * 86400
 AUTH_PER_IP_MIN = 10  # sign-ins and sign-ups per address a minute (the game server also locks accounts)
 INVITES_PER_MIN = 30  # invite-page calls per account a minute (the game also limits making codes)
+INSPECT_PER_MIN = 120  # bot inspect calls per staff account a minute (the game caches each answer 2 s)
+INSPECT_MAX = 4 * 1024 * 1024  # the biggest inspect answer passed on (/positions for 3,000 bots is under 100 KB)
+INSPECT_PATH = re.compile(r"^/api/login/staff/inspect/(bots/\d{1,10}|maps/\d{1,10}|positions)$")
 MAX_BODY = 1024
 SESSION_COOKIE, RESET_COOKIE = "slums_session", "slums_reset"
 ADMIN_LEVEL, ADMIN_TTL = 3, 12 * 3600  # the staff dashboard: GM level 3+, a sign-in at most 12 h old
@@ -379,7 +392,8 @@ class GameAuth:
     def __init__(self, url, secret_file, salt_file, timeout=8):
         self.url, self.secret_file, self.salt_file, self.timeout = (url or "").rstrip("/"), secret_file, salt_file, timeout
 
-    def _read(self, path):
+    @staticmethod
+    def _read(path):
         try:
             with open(path, "rb") as f:
                 return f.read().strip()
@@ -410,6 +424,49 @@ class GameAuth:
         return data if isinstance(data, dict) else None
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k):  # never follow one: the secret header would go along
+        return None
+
+
+class Inspect:
+    """The game's bot inspect endpoint (ticket 157): GET only, on this host's loopback, behind the X-Slums-Inspect
+    secret. The secret is read by path each call (it can be made after the service starts) and never printed."""
+
+    def __init__(self, url, secret_file, timeout=4):
+        self.url, self.secret_file, self.timeout = (url or "").rstrip("/"), secret_file, timeout
+        parts = urlsplit(self.url)
+        host = parts.hostname or ""
+        self.refused = bool(self.url) and not (parts.scheme == "http" and (host in ("localhost", "::1")
+                                                                           or re.match(r"^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$", host)))
+        if self.refused:
+            self.url = ""
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)
+
+    def get(self, path):
+        """path ('bots/12', 'maps/100000000', 'positions') -> (status, JSON object), or None when it is off, can't
+        be reached or doesn't answer JSON."""
+        secret = GameAuth._read(self.secret_file)
+        if not self.url or len(secret) < 16 or not re.fullmatch(rb"[\x21-\x7e]+", secret):  # header-safe text only
+            return None
+        req = urllib.request.Request(f"{self.url}/{path}", headers={"X-Slums-Inspect": secret.decode("ascii")})
+        try:
+            with self.opener.open(req, timeout=self.timeout) as r:
+                status, raw = r.status, r.read(INSPECT_MAX + 1)
+        except urllib.error.HTTPError as e:
+            try:
+                status, raw = e.code, e.read(INSPECT_MAX + 1)
+            except OSError:
+                return None
+        except (OSError, ValueError):
+            return None
+        try:
+            data = json.loads(raw) if len(raw) <= INSPECT_MAX else None
+        except ValueError:
+            return None
+        return (status, data) if isinstance(data, dict) else None
+
+
 class Limiter:
     def __init__(self, per_min, now=time.time):
         self.per_min, self.now, self.lock, self.hits = per_min, now, threading.Lock(), {}
@@ -436,11 +493,12 @@ def cookies(header):
     return out
 
 
-def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
+def make_handler(sessions, secure, auth=None, limiter=None, passes=None, inspect=None):
     flags = "; Path=/; HttpOnly; SameSite=Lax" + ("; Secure" if secure else "")
     auth = auth or GameAuth(None, None, None)
     limiter = limiter or Limiter(AUTH_PER_IP_MIN)
     invite_limiter = Limiter(INVITES_PER_MIN)
+    inspect_limiter = Limiter(INSPECT_PER_MIN)
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "slums-login"
@@ -488,6 +546,9 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
                                        "characters": (s.get("cs") or []) if s else []})
             if path == "/api/login/health":
                 return self.send(200, {"ok": True})
+            m = INSPECT_PATH.match(path)
+            if m:
+                return self.inspect(m.group(1))
             return self.send(404, {"ok": False})
 
         def do_POST(self):
@@ -689,6 +750,27 @@ def make_handler(sessions, secure, auth=None, limiter=None, passes=None):
             sys.stderr.write(f"exchange approve for account {s['a']}: ok\n")
             return self.send(200, {"ok": True, "expiresAt": got.get("expires_at")})
 
+        def inspect(self, what):
+            """1.6.2 ticket 157: the staff Bots page's reads, passed on to the game's inspect endpoint (read only)."""
+            if self.headers.get("X-Slums") != "1":
+                return self.send(403, {"ok": False, "error": "Refused."})
+            s = self.session()
+            if not sessions.admin(s):
+                again = not s or sessions.stale_admin(s)
+                return self.send(401 if again else 403, {"ok": False, "code": "SIGN_IN" if again else "STAFF",
+                                                         "error": "Sign in again." if again else "Staff only."})
+            if not inspect_limiter.allow(s["a"]):
+                return self.send(429, {"ok": False, "error": "Too many lookups. Wait a minute.", "code": "RATE_LIMITED"})
+            got = inspect.get(what) if inspect else None
+            if got and got[0] == 200 and got[1].get("ok"):
+                return self.send(200, got[1])
+            if got and got[0] == 404:
+                return self.send(404, {"ok": False, "code": "NOT_FOUND",
+                                       "error": "Not found: that bot isn't online, or nobody is on that map."})
+            if got and got[0] == 403:
+                sys.stderr.write("inspect: the game refused the secret\n")
+            return self.send(503, {"ok": False, "code": "UNAVAILABLE", "error": "The game's bot inspect isn't on or can't be reached."})
+
         @staticmethod
         def err(pair):
             return pair[0], {"ok": False, "error": pair[1]}
@@ -711,6 +793,8 @@ def main():
     ap.add_argument("--auth-secret")
     ap.add_argument("--ip-salt")
     ap.add_argument("--pass-key-file")
+    ap.add_argument("--inspect-url")
+    ap.add_argument("--inspect-secret")
     args = ap.parse_args()
     key_file = setting(args, "key_file", "SLUMS_LOGIN_KEY_FILE", "/etc/slums-login/key")
     revoked = setting(args, "revoked", "SLUMS_LOGIN_REVOKED", "/var/lib/slums-login/revoked.txt")
@@ -738,9 +822,12 @@ def main():
         passes = Passes(pass_key, sessions)
     except FileNotFoundError:
         pass  # no pass key yet: download-pass answers 503 and every pass check 401
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(sessions, secure, auth, passes=passes))
+    inspect = Inspect(setting(args, "inspect_url", "SLUMS_LOGIN_INSPECT_URL", ""),
+                      setting(args, "inspect_secret", "SLUMS_LOGIN_INSPECT_SECRET_FILE", "/etc/slums-inspect/secret"))
+    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(sessions, secure, auth, passes=passes, inspect=inspect))
     print(f"login service on 127.0.0.1:{port}, game auth API {auth.url or '(not set: sign-in answers 503)'}, "
-          f"download passes {'on' if passes else 'off (no pass key)'}", file=sys.stderr)
+          f"download passes {'on' if passes else 'off (no pass key)'}, bot inspect "
+          f"{inspect.url or ('off (not a loopback address)' if inspect.refused else 'off')}", file=sys.stderr)
     server.serve_forever()
 
 

@@ -38,6 +38,10 @@ ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet $DEST/cache /srv
   # ticket 106: a throwaway TEST download-pass key, separate from the session key; never printed
   [ -s /etc/slums-login-test/pass-key ] || (umask 077; head -c 48 /dev/urandom > /etc/slums-login-test/pass-key)
   chmod 600 /etc/slums-login-test/pass-key
+  # 1.6.2 ticket 157: the TEST bot inspect secret, shared with the TEST game (-Dslums.inspect.secretFile); text, never printed
+  install -d -m 700 /etc/slums-inspect-test
+  [ -s /etc/slums-inspect-test/secret ] || (umask 077; head -c 32 /dev/urandom | base64 | tr -d '=+/\n' > /etc/slums-inspect-test/secret)
+  chmod 600 /etc/slums-inspect-test/secret
   # the file behind /dl-test/ (the download pass check on TEST)
   install -d -o www-data -g www-data -m 750 /var/lib/slums-site-test-web/dl-test /var/lib/slums-site-test-web/passcache
   echo 'SlumsMS TEST download: ok' > /var/lib/slums-site-test-web/dl-test/hello.txt

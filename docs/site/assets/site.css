@@ -845,3 +845,12 @@ table.t { width: 100%; border-collapse: collapse; }
 .rp-list tr[aria-current] td { background: var(--surface-2); }
 .rp-list .rp-nw { white-space: nowrap; }
 .rp-list .rp-ti { min-width: 12rem; }
+/* staff Bots (admin/bots, 1.6.2 ticket 157) */
+.bt .bt-pair { display: contents; }
+.bt h3 { margin: 14px 0 6px; }
+.bt-nums { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 10px; }
+.bt-lines { margin: 0 0 8px; padding-left: 1.2rem; overflow-wrap: anywhere; }
+.rp-find label.bt-auto { display: flex; align-items: center; gap: 6px; padding-bottom: 10px; }
+.bt-hi { color: var(--down); }
+.bt-lo { color: var(--accent-ink); }
+.bt-ok { color: var(--up); }

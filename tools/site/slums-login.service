@@ -14,6 +14,11 @@ Environment=SLUMS_LOGIN_PORT=8094
 Environment=SLUMS_LOGIN_AUTH_URL=http://127.0.0.1:8186
 Environment=SLUMS_LOGIN_AUTH_SECRET_FILE=/etc/slums-auth/secret
 Environment=SLUMS_LOGIN_IP_SALT_FILE=/etc/slums-login/ip-salt
+# 1.6.2 ticket 157: the staff Bots page's bot inspect. OFF on live: it needs the owner's go and the game started with
+# -Dslums.inspect=true -Dslums.inspect.port=8098 -Dslums.inspect.secretFile=/etc/slums-inspect/secret (that file
+# readable by group slums-login). Then uncomment both lines and add -/etc/slums-inspect to ReadOnlyPaths.
+#Environment=SLUMS_LOGIN_INSPECT_URL=http://127.0.0.1:8098
+#Environment=SLUMS_LOGIN_INSPECT_SECRET_FILE=/etc/slums-inspect/secret
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

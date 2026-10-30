@@ -60,5 +60,17 @@ class AdminTest(unittest.TestCase):
         self.assertNotIn("x-html", page, "report text is the players' own: shown as text only")
         self.assertIn('href="reports">Reports</a>', self.read("index.html"))
 
+    def test_bots_page_reads_through_the_staff_proxy_and_never_renders_html(self):
+        page = self.read("bots.html")
+        self.assertIn('x-data="xbots"', page)
+        self.assertIn('href="bots" aria-current=page>Bots</a>', page)
+        self.assertIn('../assets/bots.js', page)
+        self.assertNotIn("x-html", page, "bot names and chat-made goals are shown as text only")
+        self.assertIn('href="bots">Bots</a>', self.read("index.html"))
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "docs", "site", "assets", "bots.js")) as f:
+            js = f.read()
+        self.assertIn('"api/login/staff/inspect/"', js)
+        self.assertNotIn("X-Slums-Inspect", js, "the game's secret stays on the server")
+
 if __name__ == "__main__":
     unittest.main()
