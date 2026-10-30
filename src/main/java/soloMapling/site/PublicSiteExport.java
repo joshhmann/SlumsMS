@@ -314,7 +314,7 @@ public final class PublicSiteExport {
                 running = List.of();
             }
             AtomicFiles.writeJson(dir.resolve("world.json"), SiteWorld.file(sources.online(), headline, running, now,
-                    SiteMobKills.top(24, now, sources::mobName), SiteMobKills.top(SiteMobKills.HOURS, now, sources::mobName)));
+                    SiteMobKills.top(24, now, sources::mobName), SiteMobKills.top(SiteMobKills.HOURS, now, sources::mobName), SiteMobKills.splitSince()));
         }
 
         void writeBoards() throws IOException {

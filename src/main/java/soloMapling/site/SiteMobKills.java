@@ -43,6 +43,14 @@ public final class SiteMobKills {
         default Map<Long, Map<Integer, Integer>> readEstimated(long fromHour) throws Exception {
             return Map.of();
         }
+
+        /**
+         * The oldest hour >= {@code fromHour} that has a non-null estimated value (a split-aware build wrote it; 0 counts,
+         * NULL = unknown, migration 057), or -1 for none / a store without the column.
+         */
+        default long oldestSplitHour(long fromHour) throws Exception {
+            return -1;
+        }
     }
 
     /**
@@ -73,6 +81,10 @@ public final class SiteMobKills {
 
     private static final Bucket[] ring = new Bucket[HOURS];
     private static volatile boolean recording;
+    /** The first hour this process recorded a kill in (-1: none yet); its buckets are the first with real split data. */
+    private static volatile long firstOwnHour = -1;
+    /** The oldest restored hour the store says carries split data (-1: none). */
+    private static volatile long storeSplitHour = -1;
     private static volatile LongSupplier clock = System::currentTimeMillis;
 
     private SiteMobKills() {
@@ -98,6 +110,9 @@ public final class SiteMobKills {
         try {
             long hour = clock.getAsLong() / HOUR_MS;
             Bucket b = bucket(hour);
+            if (firstOwnHour < 0) {
+                firstOwnHour = hour;
+            }
             if (modelled) { // the estimated part first: a reader never sees more estimated than kills
                 b.estimated.computeIfAbsent(mobId, k -> new AtomicInteger()).incrementAndGet();
             }
@@ -152,6 +167,18 @@ public final class SiteMobKills {
         return out;
     }
 
+    /**
+     * Epoch ms of the first hour whose counted/estimated split is real, or null when there is none. Rule: the hour this
+     * server first recorded a kill itself, or an older restored hour the store marks as split-aware (non-null estimated),
+     * whichever is older; hours restored from before that read as all "counted" and are unsplit.
+     */
+    public static Long splitSince() {
+        long own = firstOwnHour;
+        long st = storeSplitHour;
+        long h = own < 0 ? st : st < 0 ? own : Math.min(own, st);
+        return h < 0 ? null : h * HOUR_MS;
+    }
+
     /** Reads the last 7 days back from {@code store} into the ring (adds to what is already counted). Never throws. */
     public static void restore(Store store, long now) {
         try {
@@ -177,6 +204,10 @@ public final class SiteMobKills {
                 Bucket b = bucket(hour);
                 mobs.forEach((id, n) -> b.estimated.computeIfAbsent(id, k -> new AtomicInteger()).addAndGet(n));
             });
+            long sh = store.oldestSplitHour(hourNow - HOURS + 1);
+            if (sh >= 0 && sh <= hourNow) {
+                storeSplitHour = sh;
+            }
         } catch (Exception e) {
             // no estimated column yet (migration 056 not applied): the restored kills read as counted
         }
@@ -195,9 +226,9 @@ public final class SiteMobKills {
                     Map<Integer, Integer> m = new java.util.HashMap<>();
                     b.kills.forEach((id, n) -> m.put(id, n.get()));
                     out.put(b.hour, m);
-                    if (!e.isEmpty()) {
-                        est.put(b.hour, e);
-                    }
+                    // every row gets its estimated value (0 included): non-null marks the row as written with the split
+                    m.keySet().forEach(id -> e.putIfAbsent(id, 0));
+                    est.put(b.hour, e);
                 }
             }
             if (!out.isEmpty()) {
@@ -236,6 +267,8 @@ public final class SiteMobKills {
     static void reset(LongSupplier c) {
         synchronized (ring) {
             java.util.Arrays.fill(ring, null);
+            firstOwnHour = -1;
+            storeSplitHour = -1;
         }
         clock = c == null ? System::currentTimeMillis : c;
     }

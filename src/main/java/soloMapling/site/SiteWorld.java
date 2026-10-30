@@ -76,6 +76,12 @@ public final class SiteWorld {
     /** {@code topMobs}: the most killed mobs of the last 24 h, {@code topMobs7d} of the last 7 days (see {@link SiteMobKills}). */
     public static Map<String, Object> file(Online online, Headline headline, List<Running> running, long now,
                                            List<SiteMobKills.Row> topMobs, List<SiteMobKills.Row> topMobs7d) {
+        return file(online, headline, running, now, topMobs, topMobs7d, null);
+    }
+
+    /** {@code splitSince}: epoch ms of the first hour with a real counted/estimated split, or null (world.json "split_since"). */
+    public static Map<String, Object> file(Online online, Headline headline, List<Running> running, long now,
+                                           List<SiteMobKills.Row> topMobs, List<SiteMobKills.Row> topMobs7d, Long splitSince) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("schema", PublicSiteExport.SCHEMA);
         m.put("generated_at", Instant.ofEpochMilli(now).toString());
@@ -106,6 +112,7 @@ public final class SiteWorld {
         m.put("busiest_maps", busiest);
         m.put("top_mobs", mobRows(topMobs));
         m.put("top_mobs_7d", mobRows(topMobs7d));
+        m.put("split_since", splitSince);
 
         if (headline == null) {
             m.put("tonight", null);
