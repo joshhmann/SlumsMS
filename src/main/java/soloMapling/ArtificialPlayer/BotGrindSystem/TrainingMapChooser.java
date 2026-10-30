@@ -131,7 +131,9 @@ public final class TrainingMapChooser {
                 TrainingMap farm = farmTarget(chr, eligible, minMob, maxMob);
                 if (farm != null) {
                     reserve(farm.mapId());
-                    if (botsOnMap(farm.mapId()) <= mapCapacity(farm.mapId())) {
+                    if (botsOnMap(farm.mapId()) < mapCapacity(farm.mapId())
+                            && !GearFirstAdvisor.spent(soloMapling.ArtificialPlayer.BotYieldCaps
+                                    .mapSaturation(farm.mapId()))) {
                         debug.accept("DECIDE: farming its wanted drop -> map " + farm.mapId());
                         LevelingPathCensus.decided(chr.getId(), level, chr.getJob().getId(), farm,
                                 LevelingPathCensus.Source.LOCAL);
@@ -226,6 +228,17 @@ public final class TrainingMapChooser {
             }
         }
         return false;
+    }
+
+    /*
+     * 1.6.2 bot audit (G7): one crowd rule for every choice. A map whose bot yield cap the bots on it already
+     * spend (BotYieldCaps.mapSaturation: 0 untouched .. 1 spent) weighs a quarter of a quiet one and loses a
+     * tie; the EXP-first leveling path (LevelingPathChooser) and the gear-first advisor (GearFirstAdvisor) both
+     * multiply their weights by this, so a gear need can no longer drag a bot onto a drained, crowded map.
+     */
+    static double crowdFactor(double saturation) {
+        double s = Math.max(0.0, Math.min(1.0, saturation));
+        return 1.0 - 0.75 * s;
     }
 
     // Ticket 162: a gear need at or above this (GearFirstPlanner's scale) makes the bot skip the EXP-first path.

@@ -182,7 +182,7 @@ public final class LevelingPathChooser {
                 continue; // full: the next decision may find room, the fallback has other maps meanwhile
             }
             double weight = e.weight() * favourite(r.botId(), map) * ((cap - n) / (double) cap)
-                    * (1.0 - 0.75 * clamp01(w.yieldSaturation(map))) * (e.party() ? t.partyWeight() : 1.0);
+                    * TrainingMapChooser.crowdFactor(w.yieldSaturation(map)) * (e.party() ? t.partyWeight() : 1.0);
             if (weight <= 0) {
                 continue;
             }

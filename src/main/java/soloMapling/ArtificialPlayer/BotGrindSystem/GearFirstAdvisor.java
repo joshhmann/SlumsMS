@@ -71,6 +71,9 @@ public final class GearFirstAdvisor {
         double gain(Character chr, int itemId);
 
         String name(int itemId);
+
+        /* How crowded the map is, 0 (untouched) to 1 (the bots there already take its whole yield cap). */
+        double saturation(int mapId);
     }
 
     static final Sources LIVE = new Sources() {
@@ -116,6 +119,11 @@ public final class GearFirstAdvisor {
             String n = ItemInformationProvider.getInstance().getName(itemId);
             return n == null ? "item " + itemId : n;
         }
+
+        @Override
+        public double saturation(int mapId) {
+            return soloMapling.ArtificialPlayer.BotYieldCaps.mapSaturation(mapId);
+        }
     };
 
     private static volatile Sources sources = LIVE;
@@ -123,6 +131,15 @@ public final class GearFirstAdvisor {
     static void useForTest(Sources test) {
         sources = test == null ? LIVE : test;
         WANTS.clear();
+    }
+
+    /*
+     * 1.6.2 bot audit (G7): a map the bots there already drain is no farm target - the trip would buy nothing.
+     * The damping of the weights themselves is TrainingMapChooser.crowdFactor, the same rule the EXP-first
+     * leveling path applies, so the two choices now weigh a crowded map alike.
+     */
+    static boolean spent(double saturation) {
+        return saturation >= 1.0;
     }
 
     /* The gear-first candidates for these maps (a map the bot cannot grind gets no candidate: null in the list). */
@@ -186,7 +203,8 @@ public final class GearFirstAdvisor {
             Scores s = GearFirstPlanner.score(scored);
             double[] weights = new double[maps.size()];
             for (int i = 0, k = 0; i < cands.size(); i++) {
-                weights[i] = cands.get(i) == null ? 0.1 : 0.1 + 0.9 * s.unified()[k++];
+                double w = cands.get(i) == null ? 0.1 : 0.1 + 0.9 * s.unified()[k++];
+                weights[i] = w * TrainingMapChooser.crowdFactor(sources.saturation(maps.get(i).mapId()));
             }
             if (s.gearFirst() && s.wanted() != null) {
                 WANTS.put(chr.getId(), new Want(s.wanted().itemId(), sources.name(s.wanted().itemId()),
@@ -210,7 +228,7 @@ public final class GearFirstAdvisor {
             List<Candidate> scored = new ArrayList<>();
             List<TrainingMap> scoredMaps = new ArrayList<>();
             for (int i = 0; i < cands.size(); i++) {
-                if (cands.get(i) != null) {
+                if (cands.get(i) != null && !spent(sources.saturation(maps.get(i).mapId()))) {
                     scored.add(withAllDrops(cands.get(i), chr, maps.get(i), itemId));
                     scoredMaps.add(maps.get(i));
                 }
