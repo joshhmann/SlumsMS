@@ -225,6 +225,8 @@ public final class OwnedAltCompanion {
             if (elapsed > 0) {
                 BotVitals.regen(alt, Math.min(elapsed, 2_000));
             }
+            // 161: the shared party-support path (heal, buff pots) - the same call a population grinder makes
+            soloMapling.ArtificialPlayer.BotAttackSystem.BotPartySupport.tick(alt);
             if (catchUp(owner, alt, s, now)) {
                 return;
             }
