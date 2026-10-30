@@ -134,6 +134,34 @@ class RebirthQaWalletTest {
         assertTrue(BotHoldings.grantItem(bot, new Item(Boss.PINKBEAN.clearItem, (short) 0, (short) 1)));
     }
 
+    /**
+     * QA run 4 (TEST d520c48b1, 2026-10-29 23:55 UTC): t-rb-2's bot (urreaper, bother chance .595, this week's roll for
+     * its 2nd rebirth .695) held both Red-stone items after the Von Leon clear but never crafted: finishRebirth ran with
+     * the pace forced but not the wish, so the bot was NOT_BOTHERED. Its walk is the QA's, as rb-1's is.
+     */
+    @Test
+    void finishRebirthCraftsAndRebirthsABotThatWouldNotBotherThisWeek() {
+        long now = System.currentTimeMillis();
+        int id = BOT_ID;
+        while (BotRebirth.bothers(id, 1, BotRebirth.botherChance(
+                soloMapling.ArtificialPlayer.BotLifeSystem.SocialProfile.forCharacter(id)), now)) id++;
+        Character bot = bot(412, 200, 1_000_000);
+        bot.setID(id);
+        bot.setBotReborns(1);
+        for (int item : BotRebirth.ingredientsFor(1)) {
+            assertTrue(BotHoldings.grantItem(bot, new Item(item, (short) 0, (short) 1)));
+        }
+        assertEquals(BotRebirth.Stage.NOT_BOTHERED, BotRebirth.stageOf(bot, now), "the staged bot would not bother on its own");
+        BotRebirthQa.Before b = new BotRebirthQa.Before(bot, 200, 0, 412, 1, BotProgression.snapshot(bot),
+                bot.getExpRate(), bot.getMeso(), 0, new LinkedHashMap<>(), new LinkedHashMap<>(),
+                new java.util.EnumMap<>(server.expeditions.ExpeditionBossLog.BossLogEntry.class), 0,
+                ConcurrentHashMap.newKeySet(), new ConcurrentHashMap<>(), new AtomicLong(bot.getMeso()));
+        var ev = BotRebirthQa.finishRebirth(b);
+        assertEquals(2, bot.getReborns(), String.join(" | ", ev));
+        for (int item : BotRebirth.consumedFor(1)) assertEquals(0, bot.getItemQuantity(item, false), "used up " + item);
+        BotProgression.forget(id);
+    }
+
     @Test
     void theStagedVonLeonDiesInMinutesWhateverTheBot() {
         long hp = 7_500_000_000L;

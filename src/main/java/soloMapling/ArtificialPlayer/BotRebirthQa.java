@@ -245,19 +245,28 @@ public final class BotRebirthQa {
         return new RunResult(true, run.cleared(), run.gotBy(b.bot().getId()), run.result(), run.notes());
     }
 
-    /** rb-2 after the run: its decisions craft the key and send it to Wyatt; the rebirth there (pace forced). */
+    /**
+     * rb-2 after the run: its decisions craft the key and send it to Wyatt; the rebirth there (pace and wish forced, as
+     * {@link #walk}). QA run 4 (TEST 2026-10-29 23:55): runVonLeon's finally had cleared the wish, so a bot whose
+     * weekly roll for this rebirth said no (urreaper: .695 against .595) stayed NOT_BOTHERED and never crafted.
+     */
     public static List<String> finishRebirth(Before b) {
         Character bot = b.bot();
         long now = System.currentTimeMillis();
         forcePace(now);
+        BotRebirth.certainFor(120_000);
         List<String> ev = new ArrayList<>();
-        int trip = -1;
-        for (int i = 0; i < 3 && trip < 0; i++) {
-            trip = BotRebirth.tripMap(bot, now);
-            ev.add("decision " + (i + 1) + ": stage " + BotRebirth.stageOf(bot, now) + ", key "
-                    + count(bot, BotRebirth.keyItemFor(bot.getReborns())) + ", trip " + trip);
+        try {
+            int trip = -1;
+            for (int i = 0; i < 3 && trip < 0; i++) {
+                trip = BotRebirth.tripMap(bot, now);
+                ev.add("decision " + (i + 1) + ": stage " + BotRebirth.stageOf(bot, now) + ", key "
+                        + count(bot, BotRebirth.keyItemFor(bot.getReborns())) + ", trip " + trip);
+            }
+            ev.addFirst(rebirthAt(b, now).text());
+        } finally {
+            BotRebirth.certainFor(0);
         }
-        ev.addFirst(rebirthAt(b, now).text());
         return ev;
     }
 
