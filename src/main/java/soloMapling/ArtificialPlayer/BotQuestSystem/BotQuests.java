@@ -262,12 +262,18 @@ public final class BotQuests {
             log.drop(); // never got round to it (the brain kept choosing other things): let it go, as players do
             dropped.increment();
         }
+        if (TempleOfTime.enabled()) TempleOfTime.note(chr.getId(), log); // ticket 158 item 5: the corridor gates read it
         if (!grinding || log.active() != null) return false;
         Long due = nextConsider.get(chr.getId());
         if (due != null && now < due) return false;
         nextConsider.put(chr.getId(), now + CONSIDER_EVERY_MS);
         if (log.doneToday(now) >= perDay()) return false;
         if (!log.done().isEmpty()) restore(chr, log); // earlier quests count as prerequisites in canStart
+        Boolean temple = TempleOfTime.consider(chr, log, now); // ticket 158 item 5: the Temple of Time mainline first
+        if (temple != null) {
+            if (temple) picks.increment();
+            return temple;
+        }
         Candidate best = best(chr, log, chr.getMapId(), homeMap, BotQuestScorer.TAKE_MIN_SCORE);
         if (best == null) return false;
         BotQuestIndex.QuestMeta q = best.quest();
@@ -426,6 +432,8 @@ public final class BotQuests {
         if (!enabled() || chr == null || log == null || step == null) return Visit.NONE;
         BotQuestLog.Active a = log.active();
         if (a == null) return Visit.NONE;
+        Visit temple = TempleOfTime.atNpc(chr, log, step, watched, now); // ticket 158 item 5: scripted Temple steps
+        if (temple != null) return temple;
         if (step == LifePlanner.Step.TAKE_QUEST && !a.taken()) {
             if (chr.getMapId() != a.startMap) return Visit.NONE;
             if (!watched) {

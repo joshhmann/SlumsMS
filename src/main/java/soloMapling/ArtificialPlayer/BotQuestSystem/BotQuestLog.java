@@ -94,6 +94,8 @@ public final class BotQuestLog {
     private long day = -1;
     private int doneToday;
     private int realDone, modelledDone;
+    /** Ticket 158 item 5: how many Temple of Time mainline quests ({@link TempleRoute#MAINLINE}) are done, in order. */
+    private int templeDone;
     /** Bumped by every change that is saved (LifeMemory marks itself dirty on a change). */
     private int version;
 
@@ -109,7 +111,7 @@ public final class BotQuestLog {
     public Active active() { return active; }
 
     public boolean isEmpty() {
-        return active == null && done.isEmpty() && realDone == 0 && modelledDone == 0;
+        return active == null && done.isEmpty() && realDone == 0 && modelledDone == 0 && templeDone == 0;
     }
 
     public boolean completed(int questId) { return done.contains(questId); }
@@ -118,6 +120,9 @@ public final class BotQuestLog {
     public List<Integer> done() { return List.copyOf(done); }
 
     public int realDone() { return realDone; }
+
+    /** Temple of Time mainline quests done (the next one is {@code TempleRoute.MAINLINE.get(templeDone())}). */
+    public int templeDone() { return templeDone; }
 
     public int modelledDone() { return modelledDone; }
 
@@ -174,10 +179,25 @@ public final class BotQuestLog {
         return ++active.deferrals;
     }
 
+    /**
+     * Ticket 158 item 5: swaps the active quest for another without completing or dropping it (the Temple's 3507
+     * detour to the first instructor's sub-quest and back). {@code taken}: the new one is already under way.
+     */
+    public void replace(Active next, boolean taken, Mode mode) {
+        if (next == null) return;
+        active = next;
+        active.taken = taken;
+        active.mode = mode;
+        version++;
+    }
+
     /** The active quest is done: stored as completed (the cap drops the oldest), counted for today. */
     public void complete(boolean real, long now) {
         if (active == null) return;
         int id = active.questId;
+        if (templeDone < TempleRoute.MAINLINE.size() && TempleRoute.MAINLINE.get(templeDone).questId() == id) {
+            templeDone++; // the Temple's mainline, in order (its completed ids may fall off the capped list)
+        }
         active = null;
         done.remove(id);
         done.addLast(id);
@@ -227,6 +247,7 @@ public final class BotQuestLog {
         out.put("today", doneToday);
         out.put("real", realDone);
         out.put("modelled", modelledDone);
+        if (templeDone > 0) out.put("temple", templeDone);
         return out;
     }
 
@@ -243,6 +264,8 @@ public final class BotQuestLog {
             log.doneToday = map.get("today") instanceof Number n ? Math.max(0, n.intValue()) : 0;
             log.realDone = map.get("real") instanceof Number n ? Math.max(0, n.intValue()) : 0;
             log.modelledDone = map.get("modelled") instanceof Number n ? Math.max(0, n.intValue()) : 0;
+            log.templeDone = map.get("temple") instanceof Number n
+                    ? Math.max(0, Math.min(TempleRoute.MAINLINE.size(), n.intValue())) : 0;
             if (map.get("active") instanceof Map<?, ?> a && a.get("id") instanceof Number id
                     && a.get("npc") instanceof List<?> npc && npc.size() == 2
                     && a.get("maps") instanceof List<?> maps && maps.size() == 3

@@ -73,6 +73,8 @@ public final class BotMapGates {
     }
 
     public static boolean mayEnter(int mapId, Character chr) {
-        return mayEnter(mapId, rebirthsOf(chr), chr == null ? 0 : chr.getLevel());
+        return mayEnter(mapId, rebirthsOf(chr), chr == null ? 0 : chr.getLevel())
+                // ticket 158 item 5 (-Dslums.temple.enabled): a Temple of Time map past a lane exit needs that lane's quest
+                && soloMapling.ArtificialPlayer.BotQuestSystem.TempleOfTime.mayEnter(mapId, chr);
     }
 }

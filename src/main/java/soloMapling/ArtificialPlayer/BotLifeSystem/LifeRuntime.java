@@ -453,6 +453,9 @@ public final class LifeRuntime {
             boolean ksWar = chr.getMap() != null && safe(() -> LifeChannelMove.ksWarHere(chr), false);
             channelForKs = ksWar;
             channelTarget = crowd >= LifePolicy.CROWDED || ksWar ? safe(() -> LifeChannelMove.target(chr), -1) : -1;
+            if (channelTarget < 0) { // ticket 158 item 5: a Temple lane full here, with room on another channel
+                channelTarget = safe(() -> soloMapling.ArtificialPlayer.BotQuestSystem.TempleOfTime.wantedChannel(chr), -1);
+            }
             // 1.6.0 towns: at a normal decision point only (the current stay or grind has run its course, nothing in
             // flight, nothing promised) a town short of bots may pull (TownPulse); decided before HANG_OUT's
             // destination is checked for eligibility below.

@@ -43,3 +43,36 @@ bot completes one mob quest legally.
   brain's prompt facts carry the active quest.
 - **Not done:** the auto-QA check (a watched bot completes one mob quest legally), a `!qa` scenario, TEST switch-on
   and the 24 h row/size check; no real-client check of the quest effect a player sees.
+
+## Item 5 built (2026-10-30, branch 162-contentruns; nutnnut/Cosmic 77e0c5bc9)
+
+The Temple of Time mainline driver, on this ticket's quest path (merged from `162-questing`), no second quest system:
+
+- **Switch:** `-Dslums.temple.enabled=true` (default off), on top of `-Dslums.botquests.enabled` and the life brain.
+  Tunable `-Dslums.temple.laneCap` (3). Not in `start-test.sh` or a release conf.
+- **A BotLife goal:** when a grinding bot asks `BotQuests.consider` for a quest, `TempleOfTime.consider` hands it the
+  next mainline quest (3500-3520) as its active quest, so the life brain's `QUEST` goal and its TAKE_QUEST ->
+  HUNT_QUEST -> TURN_IN_QUEST steps play it (watched: the real `Quest.start`/`complete` at the NPC; offscreen: a
+  recorded completion, no rewards), like any quest. A bot starts the chain at its own "ambition" level (90-125,
+  steady per bot) and each quest at its Quest.wz level. Progress is `BotQuestLog.templeDone` (saved in the life
+  profile), so the chain survives the capped completed list.
+- **Lane dispersal** (`TempleLanes`): the lane map and channel are picked with the quest. At most `laneCap` Temple
+  hunters share one lane map of one channel (real players count double); for the overflow the life brain is offered
+  a "cc" to a channel with room (`LifeRuntime`'s channel target, carried out by `LifeChannelMove` with its checks);
+  when every channel is full the bot grinds elsewhere and asks again in 1-3 minutes.
+  Each v83 lane quest has one reachable map (the lane monster's second map lies past the quest's own exit), so the
+  spread is over channels.
+- **The corridor:** the lane exits (`timeQuest.js`, portal `in00`) are transit edges only a bot that completed the
+  exit's quest may take (`BotTransit.templeExits`, `questGate`, refused at boarding in `GCTravel`), and `BotMapGates`
+  only sends a bot to a Temple map its progress opens. Both only with the switch on.
+- **Scripted steps through their scripts** (`BotQuestScript`, a bot-safe `qm`): 3507's end at the Memory Keeper after
+  the job's sub-quest (3523-3539) at its first instructor (the driver makes the detour and back), and 3514's start
+  (the Sorcerer charges 1,000,000 mesos for the potion; offscreen the fee is still paid) and end (the bot drinks the
+  potion first). No `forceStart`/`forceComplete` from outside a script (upstream forces them).
+- **Not driven:** 3521 (Force Field, a six-item turn-in from the lane bosses and masks): the kill-quest path has no
+  item hunt yet. No `!qa` scenario or auto-QA check yet (a lane is 999 kills: needs a staged-progress scenario).
+- **Tests:** `TempleRouteTest` (lane exits by running `timeQuest.js`; with `wz/`: every quest, NPC map, lane and
+  sub-quest against Quest.wz/Map.wz - run with `-Dwz-path`, all pass), `TempleOfTimeTest` (the chain in order,
+  progress saved, ambition/level/fee, lane cap over channels, the corridor gates, the 3507 detour, the fee offscreen),
+  `TempleScriptsForBotsTest` (the scripted steps' scripts against the bot-safe `qm` surface), `GCTravelTempleExitTest`.
+  Not run on TEST; no real-client check.
