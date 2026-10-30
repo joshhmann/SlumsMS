@@ -151,4 +151,30 @@ class OwnedAltLifecycleAuditTest {
         assertTrue(s.dismiss(owner, "Alt2"));
         assertEquals(List.of("closing", "save"), order);
     }
+
+    /** Audit B14: one alt's attach (party, storage, map) never holds up the rest of the alt service. */
+    @Test void anAttachDoesNotHoldTheServiceMonitor() throws Exception {
+        java.util.concurrent.CountDownLatch attaching = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        OwnedAltServiceTest.Memory db = new OwnedAltServiceTest.Memory() {
+            @Override public void attach(Character owner, Character alt) {
+                attaching.countDown();
+                try { release.await(10, java.util.concurrent.TimeUnit.SECONDS); } catch (InterruptedException ignored) { }
+                super.attach(owner, alt);
+            }
+        };
+        db.add(2);
+        OwnedAltService s = new OwnedAltService(db, () -> true);
+        Character owner = owner(1);
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var summon = pool.submit(() -> s.summon(owner, "Alt2"));
+            assertTrue(attaching.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            var other = pool.submit(() -> s.active().size() + (s.hasCompanionRoom(9) ? 1 : 0));
+            assertEquals(1, other.get(2, java.util.concurrent.TimeUnit.SECONDS), "the driver's view is not blocked");
+            release.countDown();
+            assertNotNull(summon.get(5, java.util.concurrent.TimeUnit.SECONDS));
+            assertEquals(1, s.active().size());
+        } finally { release.countDown(); pool.shutdownNow(); }
+    }
 }

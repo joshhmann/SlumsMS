@@ -207,13 +207,21 @@ public final class OwnedAltService {
                     throw new IllegalStateException("Your session has closed.");
                 if (transitioning(owner.getId()))
                     throw new IllegalStateException("You changed channel while your alt was loading. Call it again.");
-                // Attach is short, with no character DB load or save, and cannot race owner teardown.
                 entry.alt = alt;
-                backend.attach(owner, alt);
+            }
+            // Audit B14: the attach (party, channel/world storage, map, packets) runs outside the service monitor, so
+            // the 200 ms driver, @dismiss, catch-up and other owners' summons never wait on it. The entry stays
+            // LOADING (a logout or channel change skips it), and the owner is re-checked once it is in.
+            backend.attach(owner, alt);
+            synchronized (this) {
+                if (closedOwners.contains(owner) || !owner.isLoggedin())
+                    throw new IllegalStateException("Your session has closed.");
+                if (transitioning(owner.getId()))
+                    throw new IllegalStateException("You changed channel while your alt was loading. Call it again.");
                 entry.state = State.ACTIVE;
                 audit(entry, "loaded alt=" + row.id);
-                backend.started(owner, alt); // 1.6.1 ticket 13: the companion driver (fight, loot, death, gate)
             }
+            backend.started(owner, alt); // 1.6.1 ticket 13: the companion driver (fight, loot, death, gate)
             return alt;
         } catch (RuntimeException e) {
             synchronized (this) { entry.state = State.SAVING; }
@@ -497,8 +505,8 @@ public final class OwnedAltService {
             }
             synchronized (this) {
                 if (e.state != State.ACTIVE) continue;
-                backend.bringHere(owner, alt);
             }
+            backend.bringHere(owner, alt); // audit B14: map moves outside the monitor
             moved.add(alt.getName());
         }
         return moved;
@@ -555,8 +563,8 @@ public final class OwnedAltService {
         synchronized (this) {
             Entry e = entries.get(alt.getId());
             if (e == null || e.alt != alt || e.state != State.ACTIVE || !ownedBy(e, owner)) return false;
-            backend.bringHere(owner, alt);
         }
+        backend.bringHere(owner, alt); // audit B14: map moves outside the monitor
         return true;
     }
 
