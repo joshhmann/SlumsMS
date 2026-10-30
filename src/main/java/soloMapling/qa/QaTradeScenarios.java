@@ -176,7 +176,17 @@ final class QaTradeScenarios {
         public int minutes(String[] args) { return 15; }
 
         public List<String> stage(QaContext ctx) {
-            botId = spawnOne(ctx, "seller bot");
+            // 1.6.2 (t-td-2, every run 10-26..30 silent after the quote): an idle spawn has no bot brain, so chat
+            // routing took it for a player and nothing the GM said reached it. A neutral social bot - pinned next to
+            // the GM, held out of town chatter - hears chat the way a real trading bot does
+            QaWorld w = ctx.world();
+            botId = w.stageAffinityBot(gmNow(ctx), "neutral", false);
+            if (botId < 0) {
+                throw new QaRefusal("Could not stage a bot here.");
+            }
+            int staged = botId;
+            ctx.onStop("unstage the seller bot", () -> w.unstageAffinityBot(staged));
+            ctx.log("staged seller bot " + botId + " (social, neutral)");
             giveBot(ctx, botId, SWORD, 1);
             giveBot(ctx, botId, SWORD_60, 2);
             ctx.log(trade.quote(botId, gmNow(ctx), "sword"));

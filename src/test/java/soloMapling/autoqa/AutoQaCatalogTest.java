@@ -175,8 +175,11 @@ class AutoQaCatalogTest {
         // t-gu-8: a held kick is a branch (vote), not a wait that may run out
         assertTrue(steps("t-gu-8").contains("up to 15 s for the kick, else !qa do vote"), steps("t-gu-8"));
         assertFalse(steps("t-gu-8").contains("for /BOT_GUILD KICK /"), steps("t-gu-8"));
-        // t-td-2: waits for the bot's answer to the chat ask, not a new QUOTE line the ask never logs
-        assertTrue(steps("t-td-2").contains("for /CHAT {bot}: /"), steps("t-td-2"));
+        // t-td-2: the chat ask is answered with the open quote and the 1k offer with a counter, each said in chat
+        assertTrue(steps("t-td-2").contains("for /QUOTE asked again {bot} /"), steps("t-td-2"));
+        assertTrue(steps("t-td-2").contains("for /QUOTE haggle 1000 -> /"), steps("t-td-2"));
+        assertTrue(steps("t-td-2").contains("for /CHAT {bot}: .*\\d/"), steps("t-td-2"));
+        assertFalse(steps("t-td-2").contains("quote sword"), "a staged re-ask would stand in for the chat one");
         // t-cb-4: no 120 s soak that saw 0 lines in every run
         assertFalse(steps("t-cb-4").contains("x /MANNERS /"), steps("t-cb-4"));
         // t-af-3: the wait ends on what the expectation accepts
