@@ -280,6 +280,27 @@ class OwnedAltCompanionTest {
                 "a weapon a viewer's client cannot draw would close it: no swing");
     }
 
+    /** Audit (A4): a drop it cannot reach is given up after a few seconds; the alt follows its owner again. */
+    @Test
+    void anUnreachableDropDoesNotParkTheAltForever() {
+        Character owner = owner(NOW);
+        Character alt = alt(owner, 1302000);
+        MapItem drop = mock(MapItem.class);
+        when(drop.getObjectId()).thenReturn(777);
+        when(drop.getOwnerId()).thenReturn(OWNER);
+        when(drop.getPosition()).thenReturn(new Point(200, 0)); // the alt walks, but never gets there
+        when(drop.getDropTime()).thenReturn(NOW - 5_000);
+        when(drop.getItem()).thenReturn(new Item(4000000, (short) 0, (short) 1));
+        when(field.getMapObjectsInRange(any(Point.class), anyDouble(), anyList())).thenReturn(new ArrayList<>(List.of(drop)));
+        OwnedAltCompanion.State s = new OwnedAltCompanion.State(ALT);
+        for (long t = 0; t <= OwnedAltCompanion.LOOT_STALL_MS + 1_000; t += 200) {
+            OwnedAltCompanion.tick(owner, alt, s, NOW + t, 0);
+        }
+        verify(alt, never()).pickupItem(any());
+        assertTrue(s.skipDrops.containsKey(777), "left alone for a while");
+        assertEquals("following", s.doing, "back with its owner");
+    }
+
     @Test
     void itPicksUpThePartysDropIntoItsOwnBag() {
         Character owner = owner(NOW);

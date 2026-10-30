@@ -75,6 +75,12 @@ public final class OwnedAltCompanion {
     static final long GIVE_UP_MS = 15_000;
     /** Audit #11 (b116): a gate line is said again only after the gate has been open this long in between. */
     static final long TOLD_RESET_MS = 5_000;
+    /**
+     * Audit (report A4): a drop it has walked to this long without picking it up (no path to it, a ledge the 120 px
+     * band let through) is left for {@link #LOOT_SKIP_MS}: before, one unreachable drop parked the alt for good.
+     */
+    static final long LOOT_STALL_MS = 8_000;
+    static final long LOOT_SKIP_MS = 120_000;
 
     /** Per alt: what the driver remembers between ticks, and what QA reads. */
     static final class State {
@@ -94,6 +100,10 @@ public final class OwnedAltCompanion {
         long targetSince;
         long lastLandedMs;
         final Map<Integer, Long> skip = new HashMap<>(); // mob oid -> until when it is left alone (stalled on it)
+        // audit (A4): the drop it walks to, since when, and drops it gave up on (oid -> until)
+        int lootOid = -1;
+        long lootSince;
+        final Map<Integer, Long> skipDrops = new HashMap<>();
         volatile String doing = "nothing yet";
         // 1.6.2 ticket 99: holding a stance spot (CompanionStance), and the sibling supply check
         int holdX = Integer.MIN_VALUE;
@@ -532,7 +542,9 @@ public final class OwnedAltCompanion {
         }
         Set<InventoryType> full = EnumSet.noneOf(InventoryType.class);
         boolean[] mesoFull = new boolean[1];
-        MapItem drop = OwnedAltLoot.pick(alt, owner, party, now, full, mesoFull);
+        s.skipDrops.values().removeIf(until -> until <= now);
+        MapItem drop = OwnedAltLoot.pick(alt, owner, party, now, full, mesoFull,
+                d -> s.skipDrops.containsKey(d.getObjectId()));
         for (InventoryType bag : full) {
             if (s.toldFull.add(bag)) {
                 say(owner, alt, OwnedAltLoot.fullLine(bag));
@@ -543,7 +555,18 @@ public final class OwnedAltCompanion {
             say(owner, alt, "I can't carry any more mesos.");
         }
         if (drop == null) {
+            s.lootOid = -1;
             return false;
+        }
+        if (drop.getObjectId() != s.lootOid) {
+            s.lootOid = drop.getObjectId();
+            s.lootSince = now;
+        } else if (now - s.lootSince > LOOT_STALL_MS) {
+            s.skipDrops.put(drop.getObjectId(), now + LOOT_SKIP_MS);
+            s.lootOid = -1;
+            s.doing = "gave up on a drop it cannot reach";
+            audit(owner, alt.getName() + " " + s.doing + " (" + drop.getItemId() + ")");
+            return false; // follow (or fight) again this tick
         }
         s.doing = "looting " + drop.getItemId();
         if (OwnedAltLoot.inReach(alt, drop)) {

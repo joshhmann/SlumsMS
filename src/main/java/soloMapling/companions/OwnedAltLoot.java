@@ -100,6 +100,12 @@ public final class OwnedAltLoot {
      */
     static MapItem pick(Character alt, Character owner, Set<Integer> party, long now, java.util.Set<InventoryType> full,
                         boolean[] mesoFull) {
+        return pick(alt, owner, party, now, full, mesoFull, d -> false);
+    }
+
+    /** As pick, leaving the drops {@code skip} names (ones it could not reach lately). */
+    static MapItem pick(Character alt, Character owner, Set<Integer> party, long now, java.util.Set<InventoryType> full,
+                        boolean[] mesoFull, java.util.function.Predicate<MapItem> skip) {
         Point at = alt.getPosition();
         Point op = owner.getPosition();
         if (alt.getMap() == null || at == null || op == null) {
@@ -109,7 +115,7 @@ public final class OwnedAltLoot {
         int x1 = Math.min(at.x + REACH_X_PX, op.x + OwnedAltCombat.LEASH_X_PX);
         int range = (int) Math.ceil(Math.hypot(REACH_X_PX, SAME_LEDGE_DY));
         return LootPicker.nearest(alt, new LootPicker.Reach(range, x0, x1, SAME_LEDGE_DY, SETTLE_MS), now, drop -> {
-            if (!mayTake(alt, drop, party, now)) {
+            if (skip.test(drop) || !mayTake(alt, drop, party, now)) {
                 return false;
             }
             if (room.fits(alt, drop)) {
