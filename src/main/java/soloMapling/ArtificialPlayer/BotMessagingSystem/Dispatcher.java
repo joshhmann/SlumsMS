@@ -348,6 +348,9 @@ public class Dispatcher implements Runnable {
         BotChatRouting.attend(player.getId(), bot.getChr().getId(), System.currentTimeMillis());
         BotNoiseFilter.noteEngaged(player.getId(), bot.getChr().getId()); // ticket 47: @quiet bots keeps this one
         BotConversation.engaged(bot.getChr(), player); // 1.5.1: a natural action is an exchange too: it stays put
+        if (soloMapling.ArtificialPlayer.BotFameRequest.tryHandle(bot.getChr(), player, said)) {
+            return; // 1.6.2 ticket 161: a friend famed the player who asked (slums.bots.famerequest)
+        }
         if (bot.naturalAction(player, said)) {
             return;
         }
