@@ -9,7 +9,8 @@ Pretend players (SyntheticClient) stage scenes with `!qa` and assert results; he
 
 ```
 tools/ops/autoqa-run smoke          # quick set; also: all | <id> | <family> | id,id,...
-tools/ops/test-status               # last run summary, health sweep, deployed commit, errors
+tools/ops/autoqa-run --release all  # the launch check: FAILs on any FAIL or any SKIP off the allow-list
+tools/ops/test-status               # last run summary, health sweep, deployed commit, errors (--checks: every row)
 ssh root@192.168.0.164 cat /opt/mapleroot-dev/persistence-test/Server/data/autoqa/latest.json   # full results
 ssh root@192.168.0.164 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa/ | head'      # per-check logs
 ```
@@ -17,6 +18,16 @@ ssh root@192.168.0.164 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa
 - A request is picked up within 30 s; a run in progress is not interrupted. `all` takes about 20-30 minutes.
 - Checks live in the server code under the auto-QA package (search `AutoQa` / `QaScenario`); each has an id like
   `rv-2`, `gw-4`. Add a check for every bug you fix when it can be staged.
+- **A check never goes green without testing (1.6.2, ticket 164 b222).** A wait that runs out FAILs its check ("timed
+  out waiting for /x/ after N s"). A `--failed` rerun's carried passes read `PASS(old, <run>, <commit>)` and count as
+  old, never as fresh evidence. Every run lists what it skipped and why (`latest.json` run line `skipped`, its
+  `summary`, test-status, `!autoqa report`), and every result cites the deployed commit, its QA log(s) and the time.
+- **Release run** (`tools/ops/autoqa-run --release all` or `!autoqa run all release`): every check fresh at the normal
+  clock; it FAILs on any FAIL, any check not run, or any SKIP not on
+  `src/main/resources/soloMapling/autoqa-release-skips.tsv` (the 11 client-only checks: t-ga-4, t-rg-1, t-rg-2,
+  t-mv-1, t-jq-1, t-cl-1, t-cl-2, t-cl-3, t-cc-1, t-mr-2, t-la-1). The summary says `release: PASS` or
+  `release: FAIL (unexpected SKIP: ids)`. A switch that is off on TEST SKIPs its check, so a release PASS also means
+  TEST runs every shipped switch. Details: `docs/ops/qa-suite.md`, "The report".
 - Triage every failure before fixing: staging problem (the `!qa` setup), real bug, working as designed but hard to
   see, or needs the owner. Read that check's log and the journal around it first
   (`.claude/skills/qa-triage/SKILL.md`). Known flakes are listed in `docs/HANDOFF.md` section 3.
@@ -128,3 +139,15 @@ wrong. Run them with `tools/ops/autoqa-run bq,tm,gb,su,jb,nn`.
 | `t-jb-2` | `solomapling.botSkillBooks` | a fresh level-135 4th-job bot: the first mastery book it wants and can read now is found; it must be kept from sale, then 3 copies are given and `BotSkillBooks.useAll` runs; another job's book is offered to `sellRefusal` | `before reading: kept for its skill plan`, `useAll: read >= 1`, the spare book `may be sold` (or only a SaleRules reason) |
 | `t-nn-1` (HALF) | `bot.nav.swimWallJump` | the server's own navigation and swim physics replay `SwimWallJumpBurstTest`'s scene (a detached swimmer pressed against a 600 px rock) on made-up map 990340299 with the live switches; nothing on a real map | `highest y on the rock's west face` under -600 and `furthest x` past 100; the look on a real client still needs eyes |
 | `t-nn-2` (HALF) | `bot.nav.blockedPosWatchdog` | replays `BlockedPosWatchdogTest`'s scene: the department store's (100000102) geometry loaded as made-up map 990340298 (its graph is built and cached once under that id; the real map's graph and learning are untouched), a bot parked at a launch gate, the nav cleared after every AI tick | `launch gate refused 40, gave up >= 3`; today's real GAVE_UP spots are listed for context |
+
+## Ticket 164 b224: checks tickets 156 and 157 promised (`gr`, `nv-2`, `nv-3`)
+
+Probes in `Probes164` on fresh throwaway bots next to the pretend player; details in `docs/ops/qa-suite.md`, "Checks two
+tickets promised". None may SKIP in a release run. Run them with `tools/ops/autoqa-run gr,nv-2,nv-3`.
+
+| id | ticket | what it does | PASS means |
+|---|---|---|---|
+| `t-gr-1` | 156 | a fresh lv-35 bot's state-of-mind snapshot vs the truth; the real checker on two true and three untrue claims; the real delivery path on an untrue scripted line. No chat model | the snapshot holds its level, map and the player; untrue claims rejected and counted; the scripted line swapped for a safe one |
+| `t-gr-2` | 156 | asked its level through the real chat path, a fresh bot answers with the model; then a forced untrue model draft goes through the reject and the retry. SKIPs without a live model (a release FAIL) | the reply states its real level and is grounded; the draft was rejected, retried and never said |
+| `t-nv-2` | 157 item 3 | one-way-in traps of the bots' world graph from Lith Harbor vs the committed baseline (`nav-trap-maps.txt`, 485 of 1,471 maps on 10-30) | no trap the baseline does not know |
+| `t-nv-3` | 157 tools | the inspect API without the secret, its view of a fresh bot, kill calibration's report, a watched bot's nav trace ring | 403 without the secret, the view is the bot, calibration on and report-only, a ring of the bot's own ticks |

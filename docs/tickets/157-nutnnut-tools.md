@@ -51,3 +51,11 @@ ticket 112).
 Their server as written, disconnect-all, wipe, economy reset, their market beliefs (NN-013), cross-account
 ownership transfer, their population system (ours is ahead, NN-021). The "wisteria" client edit and
 Seikoxi/BotlingMaple have no clear licence: don't use without checking.
+
+## Auto-QA (ticket 164 b224, 2026-10-30)
+
+Branch `162-qaharden`: **t-nv-2** is item 3's promised "no trap maps" check (`NavTrapQa` over GCWorldGraph from Lith
+Harbor; FAILs on a one-way-in trap not in the committed baseline `nav-trap-maps.txt`: 485 of 1,471 reachable maps on
+10-30, mostly Arcane River and Grandis with one-way rides, plus Rien - leads for the nav lane, not fixed here).
+**t-nv-3** checks that the tools answer on the server: the inspect API refuses no secret / a wrong one (403) and its
+view of a fresh bot is the bot, kill calibration reports, a watched bot keeps a nav trace ring.

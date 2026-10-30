@@ -527,6 +527,42 @@ goals and takes the medals back. Auto-QA: t-ac-1, and t-ac-2 (below) for a clear
   surroundings, quests, buffs, the first WARN line and not the password one. Removes exactly that line (under the
   file lock) and its context file in a `finally`, and resets the QA account's report limit.
 
+### Checks two tickets promised (1.6.2, ticket 164 b224)
+
+Probes in `Probes164`, no `!qa` scenario; each stages fresh throwaway bots next to the pretend player and despawns
+them (and undoes any LOD pin) itself. None of them is on the release allow-list.
+
+- **t-gr-1 (ticket 156, chat grounding without the chat model):** a fresh level-35 training bot. Its state-of-mind
+  snapshot (`BotConversation.qaSnapshot`, the same `BotStateOfMind.capture` every reply uses) must hold its real name,
+  level and map and the pretend player's name and level (not a bot). The real checker (`StateOfMind.judge`) must pass
+  "im lvl <its level> rn" and "hey whats up", and reject "im lvl <level+37> rn" (LEVEL), "im grinding in <a far town>
+  rn" (LOCATION) and, when they never met, "hey again! good to see u" (FAMILIAR); the checked/rejected counters must
+  grow by as much. Then the real delivery path (`BotConversation.qaGroundScripted` -> `groundForDelivery`) must swap
+  an untrue scripted answer for a safe line that passes, and count the fallback. SKIPs only when
+  `-Dsolomapling.convo.grounding=false`.
+- **t-gr-2 (ticket 156 through the chat model):** a fresh level-35 social bot is asked "what level are you? just the
+  number pls" through the real chat path (`BotConversation.talk`); its reply (heard in map chat, up to 90 s) must state
+  its real level and pass the checker. Then its next model reply is replaced once by an untrue draft
+  (`BotConversation.qaNextDraft`: "lol im lvl <level+40> grinding in leafre, good to see u again") and the player says
+  "hows ur day going": the draft must reach the model path, be rejected, retried with the model, and the retry pass or
+  fall back (StateOfMind counters), and the untrue line is never said. SKIPs when the chat model is not live
+  (`BotBrains`), which fails a release run: live answers with the model.
+- **t-nv-2 (ticket 157 item 3, "no trap maps"):** `NavTrapQa` searches the bots' world graph (`GCWorldGraph`:
+  walkable portals, curated scripted warps, BotTransit rides; no Hyper Rock) from Lith Harbor for one-way-in traps:
+  maps a bot can reach with no route back. FAILs on any trap not in the committed baseline
+  `src/main/resources/soloMapling/nav-trap-maps.txt` (generated from the WZ data: 485 of 1,471 reachable maps on
+  10-30, mostly Arcane River 450xxxxxx and Grandis 40xxxxxxx with one-way rides, plus Rien 140000000), or when the
+  graph did not load; lists baseline maps that now have a way back. `NavTrapQaTest` checks the baseline against the
+  WZ data where a checkout has it; after a deliberate data change regenerate it with
+  `mvn -o test -Dtest=NavTrapQaTest -Dwz-path=<wz> -DnavTrap.write=<baseline file>`.
+- **t-nv-3 (ticket 157's debug tools answer):** a fresh bot on HHG1 (pinned to full simulation for the check). The
+  bot inspect API (`-Dslums.inspect`, port and secret file) must answer 403 to a request with no secret and one with a
+  wrong one (the check never reads the secret), its `/bots/{cid}` view must be the bot (name, level, map), the pretend
+  player is never served, `/positions` lists the bot; kill calibration (`-Dslums.killcalib`) reports version 1,
+  report-only, with totals and buckets, and `!killcalib`'s header says on; the nav path trace (`-Dslums.navTrace`)
+  holds a ring of the bot's own ticks on its map (`NavTrace.qaRing`, which spends none of the hourly copy budget). A
+  tool that is off SKIPs the check naming its flag.
+
 ### bt-1: bots talk to bots (1.6.1, ticket 114)
 
 `!qa run bt-1` (needs `-Dslums.bottalk=true`): five fresh bots next to the GM, Ann and Bob friends, Cat, Dan and Eve a
@@ -590,10 +626,10 @@ already passes. The health sweeps work without it. Live passes neither switch, s
 
 | Command | What it does |
 |---|---|
-| `!autoqa run <check>` | Runs checks in the background. `<check>` can be a page id (`t-af-1`), a short id (`af-1`), a group (`af`), a comma list (`bg-1,vg-1,ch-1`), `smoke` (that quick set) or `all`. Each result is posted to you as it finishes. The `!qa` menu's Auto-QA page runs these for you |
+| `!autoqa run <check> [--fast] [--failed] [release]` | Runs checks in the background. `<check>` can be a page id (`t-af-1`), a short id (`af-1`), a group (`af`), a comma list (`bg-1,vg-1,ch-1`), `smoke` (that quick set) or `all`. Each result is posted to you as it finishes. The `!qa` menu's Auto-QA page runs these for you. `!autoqa run all release` is a release run (below) |
 | `!autoqa status` | The runner's state, check and step |
 | `!autoqa stop` | Stops after the current step. Cleanup still runs |
-| `!autoqa report` | Today's totals, the last health sweep, grounding (server and sent), the chat-quality headline, say-do since boot, then every FAIL and SKIP with its reason |
+| `!autoqa report` | Today's totals (carried passes counted as old, not pass), the last health sweep, grounding (server and sent), the chat-quality headline, say-do since boot, the last run's summary line (what it skipped and why, a release run's verdict), then every FAIL and SKIP with its reason and the carried (old) rows |
 | `!autoqa health` | Runs a health sweep now and prints its summary |
 | `!autoqa list` | Every check, marked automated, half (logic only) or manual. `*` = left out of the nightly run |
 
@@ -710,10 +746,28 @@ FINISHED | ABORTED -> IDLE`. It runs on its own daemon thread. Each check gets o
 
 - **PASS**: every expectation held. SKIP expectations, such as when no judge is configured, do not fail a check.
 - **FAIL**: an expectation failed, a step failed (`!qa run` refused for a reason that is not a precondition, a
-  `{bot}` that never appeared), or the check ran past its minute budget. The evidence lists the lines that matched
-  or what was missing.
+  `{bot}` that never appeared, a wait that ran out), or the check ran past its minute budget. The evidence lists the
+  lines that matched or what was missing.
 - **SKIP**: a manual check, a precondition refusal (no bot guilds, wrong channel, guild state ...), a check left out
   of the nightly run, or the run was stopped.
+
+**Waits fail when they run out (1.6.2, ticket 164 b222).** A `waitFor`, `until`, `untilProbe` or
+`acceptGuildInvite` that does not get what it waits for ends the check as FAIL with "timed out waiting for /x/ after
+N s" (also an evidence line). Before, it left a note and an expectation that matched an earlier line or another
+alternative passed the check without the step ever having happened (t-td-2 passed for a week on the staged quote while
+the bot never answered the chat ask). The explicit forms for the windows that are allowed to stay empty:
+
+- `quietFor(regex, s)`: the window must stay empty; FAILs the moment the line shows up.
+- `optionalWait(regex, s, why)`: a branch (t-ev-2's natural-death window before the forced death); never fails, notes
+  the outcome. `AutoQaCatalogTest` pins the checks allowed to use it.
+- `waitForSince(mark, regex, s)`: a line that may have come before the previous step (a decision logged with the
+  request, a death during the staging); `null` = since the check started.
+
+The checks converted with the rule (each timed out in every TEST run of 10-23..30 while still passing): t-af-3 (the
+wait now ends on what its expectation accepts: an act, a KS or the nemesis state), t-gu-8 (a held kick is a branch:
+up to 15 s, else `!qa do vote`), t-td-2 (waits for the bot's chat answer to the ask, up to 75 s; it now FAILs until
+the bot answers), t-cb-4 (the 120 s fight soak that saw 0 MANNERS lines is gone; the step-on's YIELD/CROWDED is the
+proof), t-bl-3 and t-ev-2 (`waitForSince`), t-cv-1/2/3/7 (60 s for a human-timed reply, was 12-15 s).
 
 Cleanup always sends `!qa stop`. Guild state is set up by fixtures:
 
@@ -810,6 +864,27 @@ local model (`BOT_LLM_*`), else none.
 - A day's runs merge: a check run again replaces its entry, and the others stay.
 - A new day's report lists every page check: NOT_RUN, or SKIP with the reason for manual ones.
 - `!autoqa report` prints the short version.
+
+1.6.2 (ticket 164 b222) adds:
+
+- **Evidence on every result**: `"commit"` (the commit TEST was deployed from, `Server/DEPLOYED_COMMIT`), `"logs"`
+  (the QA log file(s) its scenarios wrote, from the suite's "Logging to ..." answer; empty for a probe-only check),
+  `"finished"` (the time) and `"fresh": true`. `tools/ops/test-status` prints them for every FAIL and carried row
+  (`--checks`: every row).
+- **Carried rows are old**: a `--failed` rerun's carried pass reads `"status": "PASS(old, <run started>, <commit>)"`,
+  `"fresh": false`, with `carriedFrom` `{run, build, mode, commit, status}`. It counts as `OLD` in `summary`, never as
+  `PASS`, and shows as old in `!autoqa report`, the `!qa` menu and test-status: a carried row is never fresh evidence.
+- **Skips listed**: every run line has `"skipped": {"<id>": "<reason>"}` and a one-line `"summary"`
+  (`"<trigger> at <started>: 120 pass, 2 fail, 13 skip; skipped: t-cl-1, t-cl-2 (client art: eyes only) | ...;
+  release: PASS"`), which is also logged ("Auto-QA run done: ...") and told to the GM who started it.
+- **Release runs** (`tools/ops/autoqa-run --release all`, `!autoqa run all release`): every check, fresh, at the
+  normal clock (refused with `--fast`, `--failed` or a selector other than `all`). The run FAILs overall on any FAIL,
+  any check not run, or any SKIP not on the allow-list `src/main/resources/soloMapling/autoqa-release-skips.tsv`
+  (initially the 11 client-only MANUAL checks: t-ga-4, t-rg-1, t-rg-2, t-mv-1, t-jq-1, t-cl-1, t-cl-2, t-cl-3,
+  t-cc-1, t-mr-2, t-la-1). The run line carries `"release": {"verdict", "line", "fails", "unexpectedSkips",
+  "allowedSkips", "missing"}`; the line reads `release: PASS` or `release: FAIL (unexpected SKIP: t-mx-1)`. A switch
+  that is off on TEST makes its check SKIP, so a release run also proves TEST runs with every shipped switch on.
+  Adding an id to the allow-list is the owner's call.
 
 ### Inference checks (rc6): things we used to think needed a person
 
@@ -913,7 +988,8 @@ with lines from the test server's 2026-10-23 runs).
 
 1. Add it to `AutoQaCatalog` where it sits on the page. Use:
    - `Check.auto(id, title)`, or `half(id, title, what still needs eyes)`, or `manual(id, title, why)`;
-   - `.step(...)` from `Steps`: `run`, `qaDo`, `say`, `waitFor`, `mark`, `capture`, `fixture`, invites and chat;
+   - `.step(...)` from `Steps`: `run`, `qaDo`, `say`, `waitFor` / `waitForSince` / `until` / `untilProbe` (each
+     FAILs when it runs out), `quietFor` (must stay empty), `mark`, `capture`, `fixture`, invites and chat;
    - `.expect(...)` from `Expects`: `has`, `atLeast`, `lacks`, `hasAfter`/`lacksBefore` around a mark, `inOrder`,
      `probe`, `rule`, `numbersWithin`, `judged`, `noEmoji`;
    - `.minutes(n)` for the budget, and `.notNightly()` if a run leaves something behind.
@@ -930,5 +1006,5 @@ placeholder that never gets filled (a staged bot that did not show up) fails the
 Tests: `GroundingAsSentTest` (synthetic grounding, sent positions), `ChatQualityTest`, `SceneFocusTest`,
 `ClaimRulesTest`, `SayDoTest`, `BankClaimsTest`, `MerchantAdHonestyTest`, `FootholdCheckTest`, `SweepMathTest`, `HealthSweepTest`, `CoarseGroundTest`, `HenesysGroundWzTest` (needs wz/), `AutoQaRunnerTest`,
 `AutoQaReportTest`, `AutoQaCatalogTest`, `AutoQaCatalogPatternTest`, `LlmJudgeTest`, `SyntheticClientTest`,
-`Probes160Test`, `SyntheticClientStatTest`, `DecideShadowSelfCheckTest`, `DailyCheckinRewindTest`, `SiteAuthQaTest`,
+`Probes160Test`, `Probes164Test`, `AutoQaWaitTimeoutTest`, `AutoQaReleaseTest`, `NavTrapQaTest`, `SyntheticClientStatTest`, `DecideShadowSelfCheckTest`, `DailyCheckinRewindTest`, `SiteAuthQaTest`,
 `PlayerStorageTest`.
