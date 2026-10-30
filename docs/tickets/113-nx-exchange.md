@@ -666,3 +666,35 @@ Tests: `ExchangeStolenCookieTest` (the three stolen-cookie refusals fail on 1.6.
 password; small buys; halt; audit), `SiteAuthExchangeTest` (site -> auth API -> exchange end to end: wrong password,
 another account's password, another account's token, lockout, success; nothing secret logged), `NxGuardTest` (site
 PRICE_BAND message with a 7-day rate).
+
+## 1.6.2 switch-on (b005 closed on 162-exchange 56ce32a65, merged 2026-10-30)
+
+Owner 2026-10-30: the exchange goes ON in 1.6.2. b005 fix: the game keeps its own record of password sign-ins
+(SiteReauth; a cookie can't create one; 12 h), and every site SELL plus site BUYs over 10,000,000 mesos per 12 h
+need the password for that one order (PASSWORD_REQUIRED -> site POST /api/login/exchange-approve -> game
+/exchange/approve, sign-in rate limits and lockout apply). Not a cap: with the password every order goes through.
+Switches (on by default): -Dslums.exchange.siteAuthGame, -Dslums.exchange.stepUp,
+-Dslums.exchange.stepUpFreeMesos=10000000; -Dslums.exchange.startHalted=true keeps a halt across restarts. Audit
+lines on logger soloMapling.Economy.exchange.Audit ("NX exchange audit:", acct=/char=; never tokens or passwords).
+
+Website lane: the exchange-approve endpoint in login_service.py, a password box on the confirm page, REAUTH with
+data.game=true goes to /login/?again=1 (expect it after every game restart), keep sending siteAuthAt, and fix
+docs/site/LOGIN.md (it wrongly says the game caps NX sold per day).
+
+Switch-on checklist (each live step needs the owner's go):
+1. Server + the site's password page together on TEST.
+2. Auto-QA t-xc-1..4 and !qa run xc-1; by hand: a site sell with a wrong then right password; REAUTH after a restart;
+   !exchange halt -> a site confirm answers HALTED -> resume.
+3. TEST log: "NX exchange audit:" lines carry acct=/char= on place, fill, cancel and payout; INFO kept for the Audit
+   logger.
+4. Multi-day TEST soak: the daily reconcile query shows 0 mismatches, with one restart mid-soak.
+5. 1.6.2 release conf: migrations 038 then 044; UNIT_EDITS -Dslums.exchange=true,
+   -Dslums.exchange.tickers=NX,LEAF,CHAOS,WS,ELIXIR, -Dslums.exchange.startHalted=true; the auth API on
+   (slums.auth.port, slums.auth.secretFile); volatility switches off; the owner's call on houseAccount (regulars).
+6. The site's password page deploys before or with the server.
+7. Live after the restart: !exchange status shows HALTED with 0 mismatches; @nx shows "Sell from 2,500, buy up to
+   10,000"; !exchange resume; one small @nx trade between staff accounts and one site sell with the password; check
+   the audit lines.
+8. Rollback: !exchange halt. Never roll back 038/044 while any escrow or payout is non-zero.
+Open owner decisions: the price band is one-sided today (refuses SELL < 50% and BUY > 200% of the 7-day rate); make
+it two-sided? houseAccount for regulars.
