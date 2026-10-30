@@ -195,6 +195,12 @@ public final class MechanicsRuns {
         }
         a.reporter.accept("RUN start " + content.id() + " stage " + run.currentStage() + " in " + keyOf(eim) + ": "
                 + Orchestrator.describe(run));
+        for (Character bot : bots.values()) {
+            String full = fullBag(bot);
+            if (full != null) {
+                a.reporter.accept("RUN " + bot.getName() + " " + full);
+            }
+        }
         Orchestrator use = o;
         a.tick = scheduler.get().scheduleWithFixedDelay(
                 () -> safeTick(a, use), TICK_MS, TICK_MS, TimeUnit.MILLISECONDS);
@@ -247,6 +253,19 @@ public final class MechanicsRuns {
      */
     static boolean drivable(Character c) {
         return c != null && (c.isBot() || c.isOwnedAlt());
+    }
+
+    /**
+     * 1.6.2 (b153): a member whose etc tab has no room cannot pick up the stage's coupons or passes; the run says so
+     * at its start (null when there is room).
+     */
+    static String fullBag(Character bot) {
+        try {
+            int free = bot.getInventory(client.inventory.InventoryType.ETC).getNumFreeSlot();
+            return KpqLobby.bagRoom(free) ? null : "has " + free + " free etc slot(s): coupons and passes may not fit";
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /** Set while staging starts an instance that it then runs itself (no second, automatic run). */

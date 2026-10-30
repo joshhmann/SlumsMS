@@ -31,7 +31,7 @@ final class MechanicsScenarios {
 
     static List<QaScenario> all() {
         return List.of(new Mx1KpqStage1(), new Mx2KpqFull(), new Mx3StopLeavesNobody(), new Mx4TwoChannels(),
-                new Mx5PlayerLedWithAlts());
+                new Mx5PlayerLedWithAlts(), new Mx6PlayerTakesFromLobby());
     }
 
     /**
@@ -558,6 +558,165 @@ final class MechanicsScenarios {
             return List.of(gm.getName() + " leads " + called.size() + " alts and a bot in Kerning PQ ("
                             + a.instanceName() + "); he does nothing, the bots must ask him when it is his turn.",
                     "Then the run is stopped and nobody may be left inside; the alts go home.");
+        }
+    }
+
+    /** The pretend player clicks Lakelis and picks "I want to participate", as a leader at the NPC does. */
+    static boolean talkToLakelis(Character gm) {
+        gm.getClient().removeClickedNPC();
+        if (!scripting.npc.NPCScriptManager.getInstance().start(gm.getClient(), KpqStaging.LAKELIS, gm)) {
+            return false;
+        }
+        scripting.npc.NPCScriptManager.getInstance().action(gm.getClient(), (byte) 1, (byte) 0, 0);
+        gm.getClient().removeClickedNPC();
+        return true;
+    }
+
+    /** The line mx-6 logs: PASS when the lobby run yielded and the player's party has its own instance. */
+    static String mx6Verdict(String lobbyName, boolean lobbyEnded, String lobbyEndedBecause, boolean lobbyGone,
+                             String yieldLine, String playerInstance, boolean backoff) {
+        List<String> bad = new java.util.ArrayList<>();
+        if (!lobbyEnded || lobbyEndedBecause == null || !lobbyEndedBecause.startsWith("yielded to ")) {
+            bad.add("the lobby run did not yield (" + (lobbyEnded ? lobbyEndedBecause : "still running") + ")");
+        }
+        if (!lobbyGone) {
+            bad.add("the lobby's instance is still alive");
+        }
+        if (yieldLine == null) {
+            bad.add("no yield line");
+        }
+        if (playerInstance == null) {
+            bad.add("the player's party got no instance");
+        }
+        if (!backoff) {
+            bad.add("the lobby may re-take the channel at once");
+        }
+        return bad.isEmpty() ? "MX6 PASS the player's party took KPQ from the bot lobby run " + lobbyName + " ("
+                + yieldLine + "); the party is in " + playerInstance + ", the lobby keeps off the channel for "
+                + soloMapling.mechanics.KpqLobby.backoffMinutes() + " min"
+                : "MX6 FAIL " + String.join("; ", bad);
+    }
+
+    /**
+     * mx-6 (1.6.2, owner 2026-10-30: bots yield): a bot lobby run holds the channel's one Kerning PQ (the one on the
+     * pretend player's channel, or one forced with three fresh bots); the pretend player leads a party of two fresh
+     * bots to Lakelis and picks "I want to participate". PASS = on that one talk the lobby run ended ("yielded to
+     * ..."), its instance is gone, the yield was logged, the player's party is in a new KPQ instance and the lobby
+     * keeps off the channel. Then the player's PQ is ended and everyone spawned goes away.
+     */
+    static final class Mx6PlayerTakesFromLobby implements QaScenario {
+
+        public String id() {
+            return "mx-6";
+        }
+
+        public String title() {
+            return "KPQ lobby: a player party takes the KPQ channel from a bot lobby run (1.6.2, bots yield)";
+        }
+
+        public Set<QaLog.Topic> topics() {
+            return EnumSet.of(PQ);
+        }
+
+        public Set<Integer> watchedMaps(Character gm, String[] args) {
+            return Set.of(KpqStaging.RECRUIT_MAP, 103000800, 103000890);
+        }
+
+        public int minutes(String[] args) {
+            return 3;
+        }
+
+        public List<String> stage(QaContext ctx) {
+            requireMechanics();
+            Character gm = ctx.gm();
+            if (gm.getEventInstance() != null) {
+                throw new QaRefusal("the pretend player is in an event");
+            }
+            net.server.channel.Channel ch = gm.getClient().getChannelServer();
+            scripting.event.EventManager em = ch.getEventSM().getEventManager(KpqStaging.EVENT);
+            soloMapling.mechanics.MechanicsModel.Content content = MechanicsRuns.contentFor(KpqStaging.EVENT);
+            var recruit = ch.getMapFactory().getMap(KpqStaging.RECRUIT_MAP);
+            if (em == null || content == null || recruit == null) {
+                throw new QaRefusal("no KerningPQ event, stage data or map " + KpqStaging.RECRUIT_MAP + " here");
+            }
+            List<Integer> spawned = new java.util.ArrayList<>();
+            int levelWas = gm.getLevel();
+            ctx.onStop("take the spawned bots away and give the player his level back", () -> {
+                KpqStaging.cleanup(spawned);
+                if (gm.getLevel() != levelWas) {
+                    setLevel(gm, levelWas);
+                }
+            });
+            MechanicsRuns.Active lobby = soloMapling.mechanics.KpqLobby.lobbyRunOn(em);
+            if (lobby == null) {
+                if (em.getInstances().stream().anyMatch(e -> !e.isEventDisposed())) {
+                    throw new QaRefusal("channel " + ch.getId() + "'s KPQ is held by a run that is not the bots'"
+                            + " lobby (a player's or a staged one): try again later");
+                }
+                // an instance a check before this one ended keeps the lobby for EVENT_LOBBY_DELAY (10 s on TEST)
+                long freeBy = System.currentTimeMillis() + 20_000;
+                while (!em.getInstances().isEmpty() && System.currentTimeMillis() < freeBy) {
+                    sleep(500);
+                }
+                List<Character> lobbyBots = KpqStaging.spawnBots(recruit, 3, spawned);
+                if (lobbyBots.size() < 3) {
+                    throw new QaRefusal("only " + lobbyBots.size() + " of 3 lobby bots spawned");
+                }
+                lobby = soloMapling.mechanics.KpqLobby.startForQa(content, lobbyBots);
+                if (lobby == null) {
+                    throw new QaRefusal("the forced lobby run did not start on channel " + ch.getId());
+                }
+            }
+            MechanicsRuns.Active held = lobby;
+            ctx.run().note("MX6", "MX6 START lobby run " + held.instanceName() + " with " + held.bots().size()
+                    + " bots holds channel " + ch.getId() + "'s KPQ");
+            if (gm.getLevel() < content.minLevel()) {
+                setLevel(gm, 30);
+            }
+            if (gm.getParty() != null) {
+                gm.leaveParty();
+            }
+            gm.changeMap(recruit, recruit.getPortal(0));
+            net.server.world.Party.createParty(gm, false);
+            List<Character> mates = KpqStaging.spawnBots(recruit, 2, spawned);
+            for (Character c : mates) {
+                net.server.world.Party.joinParty(c, gm.getParty().getId(), true);
+            }
+            ctx.run().note("MX6", gm.getName() + " leads " + mates.size() + " bots to Lakelis on channel " + ch.getId());
+            String before = soloMapling.mechanics.KpqLobby.lastYield();
+            boolean talked = talkToLakelis(gm);
+            scripting.event.EventInstanceManager mine = gm.getEventInstance();
+            boolean gone = awaitGone(held, 5_000);
+            String yieldLine = soloMapling.mechanics.KpqLobby.lastYield();
+            if (yieldLine != null && yieldLine.equals(before)) {
+                yieldLine = null;
+            }
+            if (yieldLine != null) {
+                ctx.run().note("MX6", yieldLine);
+            }
+            String playerInstance = mine != null && mine != held.instance() && !mine.isEventDisposed()
+                    ? MechanicsRuns.keyOf(mine) : null;
+            if (playerInstance != null) {
+                ctx.run().note("MX6", "MX6 player instance started " + playerInstance);
+            } else if (!talked) {
+                ctx.run().note("MX6", "Lakelis' script did not start for " + gm.getName());
+            }
+            boolean backoff = !soloMapling.mechanics.KpqLobby.mayRetake(ch, System.currentTimeMillis() + 60_000);
+            ctx.run().note("MX6", mx6Verdict(held.instanceName(), held.run().ended(), held.run().endedBecause(), gone,
+                    yieldLine, playerInstance, backoff));
+            // the player's own PQ ends with the check: its run (the two bots) stops, everyone is sent out
+            if (mine != null && !mine.isEventDisposed()) {
+                MechanicsRuns.Active run = MechanicsRuns.get().runFor(mine);
+                if (run != null) {
+                    MechanicsRuns.get().stop(run, "mx-6 over");
+                }
+                MechanicsRuns.endInstance(mine, content.exitMap());
+            }
+            if (gm.getParty() != null) {
+                gm.leaveParty();
+            }
+            return List.of("A bot lobby run held channel " + ch.getId() + "'s Kerning PQ; " + gm.getName()
+                    + " led two bots to Lakelis.", "One verdict line says whether the bots stepped aside on that talk.");
         }
     }
 }

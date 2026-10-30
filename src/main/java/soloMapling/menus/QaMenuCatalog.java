@@ -78,6 +78,7 @@ public final class QaMenuCatalog {
         add("mx-3", v(), steps()); // 1.6.2: a stopped KPQ run leaves nobody inside
         add("mx-4", v(), steps()); // 1.6.2 b113: two channels run KPQ at once
         add("mx-5", v(), steps()); // 1.6.2: a player leads his alts and a bot in KPQ
+        add("mx-6", v(), steps()); // 1.6.2: a player party takes the KPQ channel from a bot lobby run
         section("Couples and weddings");
         add("cp-1", v("married", "friends", "married same", "married mixed"), steps("step"));
         add("we-1", v("same", "mixed"), steps());

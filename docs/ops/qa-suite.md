@@ -260,13 +260,14 @@ persona shows 0-2 wrong hand-ins on the way up: a mixed-up answer or one short),
 the leader, who waits by Cloto and hands in one pass per other member. In game: `!mechanics kpq me` puts you in the
 party as leader with three bots: pick up the passes they drop at your feet and talk to Cloto. Auto-QA: t-mx-1.
 
-## mx-3, mx-4, mx-5: stops, channels and a player-led party (1.6.2, bot audit)
+## mx-3 .. mx-6: stops, channels, a player-led party, the lobby yields (1.6.2, bot audit)
 
 | Test | What it stages | What to look for |
 |---|---|---|
 | `mx-3` | Four bots start KPQ on your channel; the run is stopped 30 s in, as `!mechanics stop` does. Runs 3 minutes. Auto-QA t-mx-3 | `MX3 START kpq with 4 bots`, `RUN instance <name> ended with the run: N member(s) sent out`, `MX3 PASS stopped run left nobody inside` (instance disposed, nobody held or registered) |
 | `mx-4` | Three bots start KPQ on your channel and three more on another channel at the same time (every channel's first KPQ is named Kerning0). 20 s in both must be running; then both are stopped. Runs 3 minutes. Auto-QA t-mx-4 | `MX4 START <name> w1 ch A and <name> w1 ch B`, `MX4 PASS two channels ran KPQ at once` |
 | `mx-5` | Needs owned alts on (and the QA alts t-oa-1 makes). You (21+) lead a party of your two alts (raised to level 30 for the check, put back after) and one bot into KPQ; you do nothing. The alts must get Cloto questions like the bot; once the passes are in a bot must remind you (up to 6 minutes); then the run is stopped. Runs 9 minutes. Auto-QA t-mx-5 | `MX5 START kpq led by <you> with 3 driven (2 alts)`, `RUN <alt id> got answer <n>`, `RUN reminded the leader: @<you> ...`, `MX5 PASS alts driven, ..., nobody left inside after the stop` |
+| `mx-6` | Bots yield (owner 2026-10-30). Uses the bot lobby run that holds your channel's KPQ, or forces one with three fresh bots (the lobby's own start: party, the leader's talk to Lakelis). Refused when a player's or staged run holds it. You (raised to level 30 if below 21, put back after) lead two fresh bots to Lakelis and pick "I want to participate". On that one talk the lobby run must end ("yielded to <you>'s party"), its instance go, and your party get a new KPQ instance; the lobby must keep off the channel. Then your PQ is ended and the spawned bots leave. Runs 3 minutes. Auto-QA t-mx-6 | `MX6 START lobby run <name> with N bots holds channel C's KPQ`, `[Mechanics] lobby yields ch C to <you>'s party`, `MX6 player instance started <name>`, `MX6 PASS the player's party took KPQ from the bot lobby run ...` |
 
 ## mx-2: bots play all of Kerning PQ on their own (1.6.1, KPQ automation, ticket 130)
 

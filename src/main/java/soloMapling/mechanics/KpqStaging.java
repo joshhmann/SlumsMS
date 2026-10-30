@@ -141,27 +141,8 @@ public final class KpqStaging {
             gm.changeMap(recruit, recruit.getPortal(0));
         }
 
-        NPC lakelis = recruit.getNPCById(LAKELIS);
-        Point by = lakelis != null ? lakelis.getPosition() : recruit.getPortal(0).getPosition();
         List<Integer> spawned = new ArrayList<>();
-        int slotBase = BotStore.nextDynamicSlots(want);
-        for (int i = 0; i < want; i++) {
-            Point at = StageSpots.nearLevel(recruit, new Point(by.x + 40 * (i + 1), by.y));
-            int id = BotGeneration.createBot(slotBase + i, at, recruit, 0, BOT_LEVEL_MIN, BOT_LEVEL_MAX);
-            if (id > 0) {
-                spawned.add(id);
-            }
-        }
-        // createBot plays the arrival drop-down on another thread: let it land before the PQ warps the bots, as
-        // BotGeneration warns for OPQ map transitions (a late drop-down packet would play in the wrong map)
-        BotHelpers.blockingSleep(BotGeneration.SPAWN_CHOREOGRAPHY_MAX_MS);
-        List<Character> botChars = new ArrayList<>();
-        for (int id : spawned) {
-            Character c = BotHelpers.getCharFromChannelStorage(id);
-            if (c != null && c.getMap() == recruit) {
-                botChars.add(c);
-            }
-        }
+        List<Character> botChars = spawnBots(recruit, want, spawned);
         if (botChars.size() < want) {
             cleanup(spawned);
             return new Staged(null, List.of(), "only " + botChars.size() + " of " + want + " bots spawned on "
@@ -188,6 +169,11 @@ public final class KpqStaging {
         }
         boolean started;
         String lakelisSaid = "";
+        if (!withGm) {
+            // 1.6.2 (owner 10-30, bots yield): a GM's or QA's staged run takes the channel from a bot lobby run, as a
+            // player's party does at Lakelis (a GM-led start yields inside EventManager.startInstance)
+            KpqLobby.yieldForStaging(em, gm);
+        }
         if (withGm) {
             // the GM leads: staging presses Lakelis' button for him (a GM tool), the same call the script makes
             started = MechanicsRuns.staging(() -> em.startInstance(party, recruit, 1));
@@ -239,6 +225,37 @@ public final class KpqStaging {
             return new Staged(a, ours, a.run().endedBecause());
         }
         return new Staged(a, ours, null);
+    }
+
+    /**
+     * Spawns {@code want} fresh bots (level {@link #BOT_LEVEL_MIN}-{@link #BOT_LEVEL_MAX}) next to Lakelis on the
+     * recruit map and waits for them to land. Every id made goes into {@code spawned} (for {@link #cleanup}); returns
+     * the ones standing on the map. Blocks (call it off the packet thread).
+     */
+    public static List<Character> spawnBots(MapleMap recruit, int want, List<Integer> spawned) {
+        NPC lakelis = recruit.getNPCById(LAKELIS);
+        Point by = lakelis != null ? lakelis.getPosition() : recruit.getPortal(0).getPosition();
+        int slotBase = BotStore.nextDynamicSlots(want);
+        List<Integer> mine = new ArrayList<>();
+        for (int i = 0; i < want; i++) {
+            Point at = StageSpots.nearLevel(recruit, new Point(by.x + 40 * (i + 1), by.y));
+            int id = BotGeneration.createBot(slotBase + i, at, recruit, 0, BOT_LEVEL_MIN, BOT_LEVEL_MAX);
+            if (id > 0) {
+                mine.add(id);
+                spawned.add(id);
+            }
+        }
+        // createBot plays the arrival drop-down on another thread: let it land before the PQ warps the bots, as
+        // BotGeneration warns for OPQ map transitions (a late drop-down packet would play in the wrong map)
+        BotHelpers.blockingSleep(BotGeneration.SPAWN_CHOREOGRAPHY_MAX_MS);
+        List<Character> botChars = new ArrayList<>();
+        for (int id : mine) {
+            Character c = BotHelpers.getCharFromChannelStorage(id);
+            if (c != null && c.getMap() == recruit) {
+                botChars.add(c);
+            }
+        }
+        return botChars;
     }
 
     /**

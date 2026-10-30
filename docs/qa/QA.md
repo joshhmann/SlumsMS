@@ -93,6 +93,12 @@ dialog that refuses a step the check expects to succeed fails it (`Expects.noRef
 | `t-vb-7` | storage round trip, Duey to the other pretend player, and a trade between the two | `VB STORAGE tookOut bagDelta=0`, `VB DUEY claimed recipientDelta=1`, `VB TRADE offered=true itemDelta=1 mesoDelta=5000` |
 | `t-vb-8` | (1.6.2, ticket 112) Moren's 6029 chain: start, the three 10,000-meso lessons through their end scripts, the hand-in teaching Maker 1; then one monster crystal from 100 leftovers through the Maker window's packet (`MakerSkillHandler`). Needs Maker in the server's Skill.wz | `VB MAKER chain canComplete=true state=2 lessons=3 maker=1 guide=1 otherMakers=0`, `VB MAKER crystal handler=true leftover=<id> 100 -> 0 crystal=<id> 0 -> 1` |
 
+`t-vb-3` and the KPQ mechanics checks (`t-mx-1`..`t-mx-6`) share each channel's one Kerning PQ with the bot lobby
+(`-Dslums.mechanics.lobby`). Since 1.6.2 a lobby run yields at once to a party led by a real player, the pretend
+player included, and to a GM's or check's staged run (`[Mechanics] lobby yields ch N to <name>'s party` in BotLog);
+`t-mx-6` proves it: a lobby run holds the channel, the pretend player's party talks to Lakelis and gets the instance
+on that click (`MX6 PASS ...`). A player-led or staged run never yields.
+
 `t-vb-4` also drives the catch: it spawns the tamable hog if the hourly spawn is not up, drops it to 30% HP and sends
 the real `USE_CATCH_ITEM` packet with the perfume, so `VB MOUNT hog ... handler=true ... perfumeUsed=1` is the catch. `t-vb-5` stages the coupon by toggling it in the server's active set and always puts the
 toggle back.
