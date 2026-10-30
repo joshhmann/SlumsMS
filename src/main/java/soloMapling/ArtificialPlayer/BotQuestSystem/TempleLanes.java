@@ -97,18 +97,32 @@ public final class TempleLanes {
 
     // ── who hunts where ──
 
-    private record Hunt(int channel, int mapId, long since) {
+    private record Hunt(int channel, int mapId, int questId, long since) {
     }
 
     private static final Map<Integer, Hunt> hunts = new ConcurrentHashMap<>();
 
-    /** The bot hunts this lane map on this channel now (replaces any earlier hunt). */
-    public static void register(int botId, int channel, int mapId, long now) {
-        hunts.put(botId, new Hunt(channel, mapId, now));
+    /**
+     * The bot hunts this lane map on this channel for this quest now (replaces any earlier hunt). The quest id is kept
+     * so the entry can be cleared the moment that quest ends ({@link BotQuestLog#complete}/{@link BotQuestLog#drop}).
+     */
+    public static void register(int botId, int channel, int mapId, int questId, long now) {
+        hunts.put(botId, new Hunt(channel, mapId, questId, now));
     }
 
     public static void unregister(int botId) {
         hunts.remove(botId);
+    }
+
+    /**
+     * Forgets the bot's hunt for one quest, and only for that quest: a lane entry must not outlive its quest (1.6.2 bot
+     * audit B5 - a finished or dropped quest used to keep its map counted as busy for up to {@link #FORGET_MS}).
+     */
+    public static void unregister(int botId, int questId) {
+        Hunt h = hunts.get(botId);
+        if (h != null && h.questId() == questId) {
+            hunts.remove(botId, h);
+        }
     }
 
     /** Temple hunters registered on a map of a channel, the bot itself left out. */
