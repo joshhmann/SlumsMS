@@ -135,6 +135,9 @@ public class ExpeditionLeaderboard {
         }
 
         List<ExpeditionBossLogRecord> partyRecords = ExpeditionBossLog.getBossLogRecordsForParty(type, partyUUID);
+        if (partyRecords.isEmpty()) {
+            return;   // 1.6.2 b096: no player rows (a bot-only run): nothing to rank
+        }
         List<LeaderboardRecord> leaderboardRecords = getGlobalLeaderboardForBoss(boss);
 
         announceNewRecordIfAny(leaderboardRecords, partyRecords, boss);
@@ -205,24 +208,37 @@ public class ExpeditionLeaderboard {
     }
 
     private static void announceNewRecordIfAny(List<LeaderboardRecord> leaderboardRecords, List<ExpeditionBossLogRecord> partyRecords, ExpeditionBossLog.BossLogEntry boss) {
-        if (leaderboardRecords.isEmpty()) {
-            Server server = Server.getInstance();
-            String characterNamesString = getCharacterNameListString(partyRecords);
+        if (!isNewRecord(leaderboardRecords, partyRecords)) {
+            return;
+        }
 
-            for (World world : server.getWorlds()) {
-                world.dropMessage(6, "Congratulations to " + characterNamesString + " for achieving the fastest clear time of " + TimeConversion.millisecondsToTimeString(partyRecords.get(0).getDuration()) + " on " + boss.name() + "!");
-            }
-        } else {
-            long shortestTime = leaderboardRecords.get(0).getRecords().get(0).getDuration();
-            if (partyRecords.get(0).getDuration() < shortestTime) {
-                Server server = Server.getInstance();
-                String characterNamesString = getCharacterNameListString(partyRecords);
+        Server server = Server.getInstance();
+        String characterNamesString = getCharacterNameListString(partyRecords);
 
-                for (World world : server.getWorlds()) {
-                    world.dropMessage(6, "Congratulations to " + characterNamesString + " for achieving the fastest clear time of " + TimeConversion.millisecondsToTimeString(partyRecords.get(0).getDuration()) + " on " + boss.name() + "!");
+        for (World world : server.getWorlds()) {
+            world.dropMessage(6, "Congratulations to " + characterNamesString + " for achieving the fastest clear time of " + TimeConversion.millisecondsToTimeString(partyRecords.get(0).getDuration()) + " on " + boss.name() + "!");
+        }
+    }
+
+    /**
+     * Whether this party's clear beats the board's fastest. 1.6.2 b096: a clear with no player boss-log rows (a
+     * bot-only rebirth run) and a top party whose rows are gone (its characters deleted, so the JOIN drops them)
+     * used to throw IndexOutOfBounds here; no rows means nothing to announce, and a top entry without rows is skipped.
+     */
+    static boolean isNewRecord(List<LeaderboardRecord> leaderboardRecords, List<ExpeditionBossLogRecord> partyRecords) {
+        if (partyRecords == null || partyRecords.isEmpty()) {
+            return false;
+        }
+
+        long ours = partyRecords.get(0).getDuration();
+        if (leaderboardRecords != null) {
+            for (LeaderboardRecord top : leaderboardRecords) {
+                if (top != null && !top.getRecords().isEmpty()) {
+                    return ours < top.getRecords().get(0).getDuration();
                 }
             }
         }
+        return true;
     }
 
     private static String getCharacterNameListString(List<ExpeditionBossLogRecord> partyRecords) {

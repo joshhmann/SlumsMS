@@ -116,7 +116,14 @@ function getEligibleParty(party) {      //selects, from the given party, the tea
 var spawnTimes = [120000, 240000, 360000]; // Times to spawn mobs (in milliseconds)
 var mobsToSpawn = [9990076, 9990077, 9990078]; // Mob IDs to spawn
 
+// EventManager calls an expedition's setup with the channel alone (setup(channel)): name the instance by the
+// channel and run at level 1, as PapulatusBattle does. 1.6.2 b096: it was named "Hard Darknellundefined" and scaled by
+// the channel number.
 function setup(level, lobbyid) {
+    if (lobbyid === undefined || lobbyid === null) {
+        lobbyid = level;
+        level = 1;
+    }
     var eim = em.newInstance("Hard Darknell" + lobbyid);
     eim.setProperty("level", level);
     eim.setProperty("boss", "0");
