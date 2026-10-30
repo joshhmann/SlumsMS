@@ -66,25 +66,23 @@ Both servers run world id **1**, never 0. Code that assumes world 0 is a bug (se
 | `SoloMapling` | `/root/SoloMapling` | the bot project's history and notes; not deployed |
 
 ### Branches
-- **Live runs 1.5.1** (released 2026-10-25 07:38 UTC) from branch `release-1.5.1` (commit 6443043f9). That branch
-  is now the integration branch: make fix branches from `origin/release-1.5.1` (`git worktree add ... -b
-  152-<topic> origin/release-1.5.1`), and the coordinator merges them into a `release-1.5.2` branch for the next patch.
-  `151-integration` is the history of 1.5.1. 1.6.0 work (`160-*`) waits until the 1.5.x bug squash settles.
-- Previous releases: `release-1.5.0` (1.5.0), `hotfix-1.4.2-haggle` (1.4.2), `release-1.4.1`.
-- Client: `client-1.5.0-fixes3` is the current client line (live DLL FFFFE143, build 10500). Launcher:
-  `main` (Tauri; 1.5.2 on Live), `launcher-handover` (Electron hand-over, must include
-  `7f385b0`; on Live as 1.5.0).
+- **Live runs 1.6.0.4** (tag `v1.6.0.4`). There was no separate 1.6.1 release. The next release is the combined
+  **1.6.2**: everything built for 1.6.1 plus the alt bots and the nutnnut ports. Its integration branch is
+  `release-1.6.2` (created from `release-1.6.1` at a917ef1c9). Only Server Dev merges into it.
+- Helper branches are `162-<topic>`, made from the local `release-1.6.2` (there is no `origin/release-1.6.2`).
+- Previous releases: `release-1.5.1` (1.5.1), `release-1.5.0` (1.5.0), `hotfix-1.4.2-haggle` (1.4.2), `release-1.4.1`.
+- Client: `client-162-maker` is the current client line (1.6.2-rc1). Launcher: see `docs/sessions/launcher.md`.
 - **Current state, open work and decisions: `docs/HANDOFF.md`.** Read it after this file.
 
 ## 3. Working on the server
 
 ### Start a task
 ```
-git -C /root/work/SlumsMS fetch -q origin
-git -C /root/work/SlumsMS worktree add /root/work/SlumsMS-<topic> -b 152-<topic> origin/release-1.5.1
-cd /root/work/SlumsMS-<topic> && cp config.example.yaml config.yaml
+git -C /root/work/SlumsMS-150 worktree add /root/work/SlumsMS-162-<topic> -b 162-<topic> release-1.6.2
+cp /root/work/SlumsMS-150/config.yaml /root/work/SlumsMS-162-<topic>/
 ```
-Never work in someone else's worktree. Check `git worktree list` first.
+Never work in someone else's worktree. Check `git worktree list` first. Hand your branch back; only Server Dev merges
+into `release-1.6.2`. Lane rules for helpers: `docs/sessions/EXTERNAL-AGENTS.md`.
 
 ### Build and test
 - Full suite: `mvn -q -o test` (about 10 minutes, 4,000+ tests). Must be green before you hand back.
@@ -137,7 +135,7 @@ promote an RC client layer to Live: those point at the test server.
 
 ### Full release cycle, Discord, notes and QA
 
-**`docs/AGENT-PROMPTS.md`** has starter prompts per kind of work. **`docs/ROADMAP.md`** is what comes next (1.5.x hotfixes, 1.6.0, 1.7.0). **`docs/qa/QA.md`** is how to QA: auto-QA,
+**`docs/AGENT-PROMPTS.md`** has starter prompts per kind of work. **`docs/ROADMAP.md`** is what comes next. **`docs/qa/QA.md`** is how to QA: auto-QA,
 client visual QA through the client MCP (`tools/ops/client-mcp`), and the owner's checklist.
 **`docs/release/RUNBOOK.md`** has every step: development, test deploys, auto-QA and the player QA checklist, patch notes,
 pre-checks, the live sequence with the owner's go points, rollback, and Cody's Discord posts through `slumsms-monitor`.
@@ -152,20 +150,32 @@ artifact pages, their databases) are not required for any step; use the repo fil
 
 ## 4. Working on the client (`slums.dll`)
 
-- Source: `/root/work/client/src` (+ worktrees such as `src-150fixes`). Make a branch from the current client line.
-- Build on Silvia in a NEW folder under `Z:\MSv83\SlumsMS-dev\` (copy how `client-1.5.0-fixes3` was built: a clone,
-  `cmake` + MSVC Release, native tests with `ctest`). Record the DLL's sha256.
-- Test with a COPY of the RC client under `SlumsMS-dev`, never the owner's installs. If the owner's client has the DLL
-  locked, put yours next to it as `slums.dll.new` and say so.
+- Source: `/root/work/client/src` (+ worktrees such as `src-<topic>`). Make a branch from the current client line,
+  `client-162-maker` (1.6.2-rc1). Details for helpers: `docs/sessions/EXTERNAL-AGENTS.md`, Client lane.
+- Build on Silvia in a NEW folder under `Z:\MSv83\SlumsMS-dev\`. Clone from the newest RC folder
+  (`client-1.6.2-rc1`), fetch your branch from a full `git bundle`, run `git submodule update --init --recursive`
+  (configure fails without it), then `cmake` + MSVC Release and `ctest`. Take the configure flags from that folder's
+  `prep-build-rc1.ps1`. Record the DLL's sha256.
+- Build numbers: only builds that carry the 4-byte HP/MP patch may use numbers >= 10600. Release numbers are 107xx
+  (the lane session hands them out). The `MIN_CLIENT_BUILD` hand-off goes into the release conf.
+- Test on TEST with the client-MCP QA client only (`Z:\MSv83\SlumsMS-dev\client-mcp\client`). The Client lane session
+  drives it. A second client you start by hand competes with the worker, and it needs the owner away from the PC.
+  Never touch the owner's installs. If the owner's client has the DLL locked, put yours next to it as `slums.dll.new`
+  and say so.
 - Patches are byte patches, code caves and hooks at fixed v83 addresses. Read the stock bytes from an exe copy
   (`Z:\MSv83\SlumsMS-dev\client-1.5.0-fixes2\exe-copy\MapleStory.exe`, file offset = VA - 0x400000) before you
   change anything. Keep every patch switchable from `config.ini` when you can.
+- `Custom.wz` changes only go through the `tools/wz` scripts, with semantic checks that every other image is
+  unchanged. Since rc11, resman merges new sub-folders into the stock images.
 - "error code -2147467259 (Unspecified error)" at startup on Silvia means the main display is a virtual one (Parsec):
   not a client bug. Make the real monitor the main display.
+- The test VM (tarkov2, 192.168.0.175) cannot run the client under client-mcp yet: D3D9 fails on the Parsec virtual
+  display. Silvia is the only working QA box for now.
 - Bot attacks with a pose or weapon the client doesn't expect are dropped by the client: check new bot skills on a
   real client.
 - Publish an RC client with `tools/release/stage-client` + `publish-client` to `/srv/slums-patch/launcher-rc` (RC
   channel). Before publishing, hash-diff against the previous client: only the files you meant to change may differ.
+  `SlumsMS.exe` is not reproducible, so ship only the changed files (slums.dll, Custom.wz, slums-build.txt).
 
 ## 5. Working on the launcher
 

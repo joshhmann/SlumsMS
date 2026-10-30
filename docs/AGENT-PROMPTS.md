@@ -8,7 +8,7 @@ read the rules first. Live, Discord and anything outside the test server still n
 | Work | Machine | Folder |
 |---|---|---|
 | Server code, bots, chat, QA, test deploys, releases, website, Discord, launcher publishing | dev box 192.168.0.187 | `/root/work/SlumsMS-150` |
-| Client DLL (slums.dll), launcher builds, client visual QA | owner's PC (Silvia) | `Z:\MSv83\SlumsMS-dev` |
+| Client DLL (slums.dll), client visual QA | 187; builds on Silvia over ssh | `/root/work/client/src`, `Z:\MSv83\SlumsMS-dev` |
 
 ## 1. Server fix or feature (most work)
 
@@ -56,19 +56,21 @@ in order with rollback, and a Discord draft under 2,000 characters. The owner ru
 
 ## 4. Client DLL work (slums.dll)
 
-Start in `Z:\MSv83\SlumsMS-dev` on the owner's PC.
+Start on 187 (helpers reach Silvia over ssh, `crims@192.168.0.186`, key `~/.ssh/id_rsprox_desktop`). Read
+`docs/sessions/EXTERNAL-AGENTS.md`, Client lane, too.
 
 ```
-Read AGENTS.md and HANDOFF.md in this folder first and follow them exactly: write only inside
+Read AGENTS.md (section 4) and docs/sessions/EXTERNAL-AGENTS.md first and follow them exactly: write only inside
 Z:\MSv83\SlumsMS-dev, make a new folder for this task, never touch test-client\ or the owner's installs, never close
-the owner's programs, run the game only from your own copy pointed at the TEST server.
+the owner's programs, and don't start the game yourself.
 
 Task: <describe it, e.g. "Guide NPC pages show a scrollbar; check the window size">.
 
-Clone SlumsMS-Client branch <client-1.5.0-fixes3 or newer> into client-<topic>\src, build with CMake (Win32,
+Work on a branch client-162-<topic> from client-162-maker. Build in client-<topic>\ on Silvia: clone from the newest
+RC folder, fetch your branch from a full git bundle, git submodule update --init --recursive, CMake (Win32,
 Release), run ctest. Read stock bytes from client-1.5.0-fixes2\exe-copy\MapleStory.exe before patching an address.
-Push your branch, write NOTES.md in your folder (what changed, DLL SHA-256, what you tested). If the task also needs
-server changes, describe them in NOTES.md; an agent on 192.168.0.187 does those.
+Do not push. Write REPORT.md in your folder (what changed, DLL SHA-256, ctest result, the in-game checks you want
+run). If the task also needs server changes, describe them in REPORT.md; a server agent does those.
 ```
 
 ## 5. Launcher work
@@ -85,16 +87,25 @@ owner's go.
 
 ## 6. Client visual QA with the client MCP
 
-The owner first starts the worker and controller on Silvia (`docs/qa/QA.md` section 2) and leaves the PC for 10
-minutes. Then start the agent in `/root/work/SlumsMS-150` on 187.
+The owner starts the worker on Silvia (a scheduled task) with
+`Z:\MSv83\SlumsMS-dev\client-mcp\scripts\qa-task.ps1 start` and leaves the PC for 10 minutes. Helpers can run
+`status` only; they never start the worker. The tool on 187 is
+`/root/work/SlumsMS-ops-client-mcp-vm/tools/ops/client-mcp` (`CLIENT_MCP_TARGET=silvia|vm`; the VM can't run the
+client yet). Start the agent in `/root/work/SlumsMS-150` on 187.
 
 ```
 Read AGENTS.md and docs/qa/QA.md. The client-MCP worker on the owner's PC is running for about an hour. Use
-tools/ops/client-mcp to: status, start_client, login channel 1, then <what to check, e.g. "warp to Henesys
+the client-mcp tool to: status, start_client, login channel 1, then <what to check, e.g. "warp to Henesys
 (100000000), run !botground, screenshot; open @guide, screenshot each page">, read_logs, stop_client. Copy the
 screenshots back and look at them. Write the results to Z:\MSv83\SlumsMS-dev\client-mcp\qa-<version>.md (step,
 result, screenshot). If a tool refuses, stop and report; don't work around it.
 ```
+
+Chat traps:
+- `!` and `@` commands parse only from All chat (press ENTER, then 1).
+- A command typed into an already-open chat box loses its first character.
+- `go_to {"channel":N}` can leak "changechannel" as public chat. Use MENU, then Change Channel.
+- The login tool needs the login screen. If the client sits at world select with no channel list, restart the client.
 
 ## 7. Bigger feature from the roadmap (1.6.0)
 
