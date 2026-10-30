@@ -74,7 +74,7 @@ public final class LevelUpCongrats {
         if (leveler.getMap() != me.getMap()) {
             return; // leveler left the map
         }
-        if (!GCMovement.isMapObserved(me.getMapId())) {
+        if (!GCMovement.isMapObserved(me)) {
             return; // nobody's around to see it now
         }
         String line;

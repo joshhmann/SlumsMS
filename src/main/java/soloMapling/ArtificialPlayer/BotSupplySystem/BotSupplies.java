@@ -165,7 +165,7 @@ public final class BotSupplies {
                     bot.getId(), bot.getName(), bot.getLevel(), bot.getJob(), shortage, bot.getHp(),
                     bot.getCurrentMaxHp(), bot.getMp(), bot.getCurrentMaxMp(), BotVitals.potionCount(bot, true),
                     BotVitals.potionCount(bot, false), BotAmmo.held(bot, weapon),
-                    GCMovement.isMapObserved(bot.getMapId())
+                    GCMovement.isMapObserved(bot)
                             ? " on screen" : " offscreen");
         }
     }

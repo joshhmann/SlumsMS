@@ -169,7 +169,7 @@ public final class BotPets {
         bot.addPet(pet);
         bot.setBotPetEquips(choice.magnet(), choice.pouch());
         MapleMap map = bot.getMap();
-        if (map != null && GCMovement.isMapObserved(map.getId())) {
+        if (map != null && GCMovement.isMapObserved(map)) {
             // the bot is already on a watched map: its spawn packet went out without the pet
             map.broadcastMessage(bot, PacketCreator.showPet(bot, pet, false, false), false);
         }
@@ -184,7 +184,7 @@ public final class BotPets {
         for (Pet pet : bot.getPets()) {
             if (pet != null && pet.isBotPet()) {
                 MapleMap map = bot.getMap();
-                if (map != null && GCMovement.isMapObserved(map.getId())) {
+                if (map != null && GCMovement.isMapObserved(map)) {
                     map.broadcastMessage(bot, PacketCreator.showPet(bot, pet, true, false), false);
                 }
                 bot.removePet(pet, true);

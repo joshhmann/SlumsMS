@@ -284,7 +284,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     private void pacedCombatTick() {
         combatTick();
         Character chr = getChr();
-        if (chr != null && getRunning() && phase == Phase.GRIND && GCMovement.isMapObserved(chr.getMapId())) {
+        if (chr != null && getRunning() && phase == Phase.GRIND && GCMovement.isMapObserved(chr)) {
             swingClock.armAt(BotAttackDriver.swingEndsAt(chr.getId()), System.currentTimeMillis(),
                     this::pacedCombatTick);
         }
@@ -511,7 +511,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 != chr.getMapId()) {
             return false;
         }
-        boolean watched = GCMovement.isMapObserved(chr.getMapId());
+        boolean watched = GCMovement.isMapObserved(chr);
         if (watched && questWalkDeadlineMs == 0) {
             java.awt.Point npc = memory.quests(log -> soloMapling.ArtificialPlayer.BotQuestSystem.BotQuests.npcSpot(chr, step, log));
             if (npc != null) {
@@ -1155,7 +1155,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             return;
         }
         // only where a player can see it: an unobserved map loots nothing on screen (the grind ticks early-return)
-        if (inEventAftermath(chr) && GCMovement.isMapObserved(m) && soloMapling.worldevents.EventLootScramble.stays(now(), eventOverEndedAt,
+        if (inEventAftermath(chr) && (chr.getMapId() == m ? GCMovement.isMapObserved(chr) : GCMovement.isMapObserved(m)) && soloMapling.worldevents.EventLootScramble.stays(now(), eventOverEndedAt,
                 eventOverLootUntil, grind.lootLeft(chr))) {
             if (!aftermathNoted) {
                 aftermathNoted = true;
@@ -1284,7 +1284,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 }
             }
             lifeNote("ARRIVED activity=" + lifeVisit);
-            if (lifeVisit == LifeDecision.Activity.PARTY_QUEST && GCMovement.isMapObserved(getChr().getMapId())) {
+            if (lifeVisit == LifeDecision.Activity.PARTY_QUEST && GCMovement.isMapObserved(getChr())) {
                 // 1.6.0 S8: standing in the lobby looking for a party, as 2009 players did.
                 var lobby = soloMapling.ArtificialPlayer.BotLifeSystem.LifePq.lobbyFor(getChr().getLevel());
                 String pq = getChr().getMapId() == 211042300 || getChr().getMapId() == 211000000 ? "zak"
@@ -1952,7 +1952,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         firstTrip = false;
         boolean migrates = chr.getMapId() != pick.mapId();
         if (wasFirstTrip && migrates && !pick.relocates() // a move to another region always travels for real
-                && !GCMovement.isMapObserved(chr.getMapId())
+                && !GCMovement.isMapObserved(chr)
                 && rng.nextDouble() < FIRST_TRIP_TELEPORT_CHANCE) {
             debugChat("DECIDE: first-trip warp -> map " + pick.mapId());
             midSessionGrind = true; // warped in -> reads as already-grinding -> shortened first session
@@ -2072,7 +2072,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         long nowMs = now();
         double elapsedSec = (nowMs - lastExpAccrualMs) / 1000.0;
         lastExpAccrualMs = nowMs;
-        if (elapsedSec > 0 && !GCMovement.isMapObserved(chr.getMapId()) && currentMobLevel > 0) {
+        if (elapsedSec > 0 && !GCMovement.isMapObserved(chr) && currentMobLevel > 0) {
             // Real bots 08: the stretch uses up ammo, HP, MP and potions at the on-screen rates; only the share the
             // bot could afford is ground (EXP and loot); running out part way sends it to town just below.
             OffscreenCombat.Rate rate = OffscreenCombat.rate(chr, chr.getMapId());
@@ -2153,7 +2153,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     // A landed hit (heartbeat refresh) drops it back below the threshold and resets the ladder. Returns true
     // only when it changed phase (left the map), so doGrind skips its own grind-timer transition that tick.
     private boolean grindWatchdog(Character chr) {
-        if (chr == null || !GCMovement.isMapObserved(chr.getMapId())) {
+        if (chr == null || !GCMovement.isMapObserved(chr)) {
             return false; // unobserved bots don't fight (abstract EXP) — they can't be physically stuck
         }
         if (recruitingNow()) {
@@ -2211,7 +2211,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         if (recruitingNow()) {
             return false; // mid-recruit: hold the map until the exchange resolves
         }
-        if (!CROWD_BAIL_UNOBSERVED && !GCMovement.isMapObserved(chr.getMapId())) {
+        if (!CROWD_BAIL_UNOBSERVED && !GCMovement.isMapObserved(chr)) {
             return false; // old gate: only relieve crowding a player can actually see
         }
         boolean yielding = grind.yieldsMap(); // 1.5.0 rc3: only a real player's platforms are left here
@@ -2268,7 +2268,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     private void sayCc(Character chr) {
         boolean says = rng.nextDouble() < BotHabits.of(chr.getId()).ccChance();
         String line = CC_LINES[rng.nextInt(CC_LINES.length)];
-        if (says && GCMovement.isMapObserved(chr.getMapId())) {
+        if (says && GCMovement.isMapObserved(chr)) {
             BotSpeak(chr, line);
         }
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MANNERS)) {
@@ -2527,7 +2527,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             return;
         }
         nextChatterMs = t + AMBIENT_MIN_MS + (long) (rng.nextDouble() * (AMBIENT_MAX_MS - AMBIENT_MIN_MS));
-        if (!GCMovement.isMapObserved(chr.getMapId())) {
+        if (!GCMovement.isMapObserved(chr)) {
             return; // gate advanced so we don't re-roll every tick; nothing worth saying unobserved
         }
         if (rng.nextDouble() < Math.min(1, BotChatTuning.multiplier(chr.getMap()))) {
@@ -2554,7 +2554,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     // off the macro thread so the line's hold never blocks the tick. Biased toward plain lines over
     // {TOKEN} ones (CONTEXT_LINE_CHANCE). player may be null (self-only nodes).
     void sayContext(String node, Character chr, Character player) { // package-visible: GrindBreakRoutine speaks through the bot
-        if (chr == null || !GCMovement.isMapObserved(chr.getMapId())) {
+        if (chr == null || !GCMovement.isMapObserved(chr)) {
             return;
         }
         ExecutorServiceManager.runAsync(() ->

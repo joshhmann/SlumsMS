@@ -57,6 +57,10 @@ final class ObserverTracker {
 
     private static volatile Set<Integer> fullMaps = Set.of();   // raw: a real player is on the map
     private static volatile Set<Integer> haloMaps = Set.of();   // proximity: a player is near the portal to it
+    // 1.6.2 audit #3 (b112): the map INSTANCES a real player is on. "Watched" (real quest scripts, real rewards, real
+    // combat) is per instance: the same map id on another channel, or another event instance, is not watched.
+    // Map ids above stay for the LOD physics tiers, where over-rendering is safe.
+    private static volatile Set<MapleMap> fullInstances = Set.of();
 
     // The sticky "active" set (full ∪ halo, held for DWELL_MS after observation) — the dwell hysteresis.
     private static final TierDwell DWELL = new TierDwell(DWELL_MS);
@@ -70,6 +74,22 @@ final class ObserverTracker {
     // same tick instead of waiting up to one poll. Short TTL (> POLL_MS) so the poll takes back over.
     private static final long FORCE_TTL_MS = 2_000;
     private static final Map<Integer, Long> forcedFull = new ConcurrentHashMap<>();
+    // Audit #3: the same override for one map instance (BotMapEntryResponder, a bot arriving next to a player).
+    // MapleMap keeps identity equality, so this is keyed by the instance.
+    private static final Map<MapleMap, Long> forcedInstances = new ConcurrentHashMap<>();
+    private static final Map<Integer, Long> forcedLod = new ConcurrentHashMap<>();
+
+    private static boolean forcedUntil(Map<Integer, Long> m, int mapId) {
+        Long until = m.get(mapId);
+        if (until == null) {
+            return false;
+        }
+        if (until < System.currentTimeMillis()) {
+            m.remove(mapId);
+            return false;
+        }
+        return true;
+    }
 
     // Ticket 157 (idea from nutnnut/Cosmic /api/lod, 77e0c5bc9): maps a GM pinned to full simulation with
     // !env lod pin (TEST only, at most MAX_PINS, gone on restart), so auto-QA and BotWatch see real behaviour there
@@ -113,6 +133,16 @@ final class ObserverTracker {
         return pinned.contains(mapId);
     }
 
+    /* Test seam: these map instances (and their ids) have a real player on them. */
+    static void observeForTest(Set<MapleMap> maps) {
+        Set<Integer> ids = new HashSet<>();
+        for (MapleMap m : maps) {
+            ids.add(m.getId());
+        }
+        fullInstances = Set.copyOf(maps);
+        fullMaps = Set.copyOf(ids);
+    }
+
     /* Test seam: no pins. */
     static synchronized void clearPinsForTest() {
         pinned = Set.of();
@@ -134,6 +164,28 @@ final class ObserverTracker {
     // Treat mapId as observed (FULL) immediately for a short window, regardless of the 1s poll.
     static void markObservedNow(int mapId) {
         forcedFull.put(mapId, System.currentTimeMillis() + FORCE_TTL_MS);
+    }
+
+    // Treat this map instance as observed (FULL) for a short window; its id is held at full LOD physics too.
+    static void markObservedNow(MapleMap map) {
+        if (map == null) {
+            return;
+        }
+        long until = System.currentTimeMillis() + FORCE_TTL_MS;
+        forcedInstances.put(map, until);
+        forcedLod.put(map.getId(), until); // the id's LOD physics (isActiveMap); not "watched" on other instances
+    }
+
+    private static boolean forced(MapleMap map) {
+        Long until = forcedInstances.get(map);
+        if (until == null) {
+            return false;
+        }
+        if (until < System.currentTimeMillis()) {
+            forcedInstances.remove(map);
+            return false;
+        }
+        return true;
     }
 
     private static boolean forced(int mapId) {
@@ -181,7 +233,24 @@ final class ObserverTracker {
 
     /* A real player is on this map (FULL tier). */
     static boolean isFull(int mapId) {
-        return fullMaps.contains(mapId) || forced(mapId) || pinned.contains(mapId);
+        return fullMaps.contains(mapId) || forced(mapId) || forcedUntil(forcedLod, mapId) || pinned.contains(mapId);
+    }
+
+    /*
+     * Audit #3: a real player is on THIS map instance (same channel, same event instance), or a short entry override
+     * marked it, or a GM pinned its id (TEST, ticket 157: a pin holds the id on every channel), or a test/tool forced
+     * the id with markObservedNow(int). The "watched" gate for real quests, rewards and combat.
+     */
+    static boolean isFull(MapleMap map) {
+        if (map == null) {
+            return false;
+        }
+        return fullInstances.contains(map) || forced(map) || pinned.contains(map.getId()) || forcedById(map.getId());
+    }
+
+    // markObservedNow(int) without an instance (a tool or test forcing an id): every instance of it
+    private static boolean forcedById(int mapId) {
+        return forcedUntil(forcedFull, mapId);
     }
 
     /* A real player is standing near the portal leading to this map (HALO tier). */
@@ -194,7 +263,7 @@ final class ObserverTracker {
      * now, OR within the post-observation dwell window. This is the set the driver gates on.
      */
     static boolean isActiveMap(int mapId) {
-        return DWELL.isActive(mapId) || forced(mapId) || pinned.contains(mapId);
+        return DWELL.isActive(mapId) || forced(mapId) || forcedUntil(forcedLod, mapId) || pinned.contains(mapId);
     }
 
     static int fullCount() {
@@ -246,6 +315,7 @@ final class ObserverTracker {
             return;
         }
         Set<Integer> full = new HashSet<>();
+        Set<MapleMap> instances = new HashSet<>();
         List<Character> realPlayers = new ArrayList<>();
         for (World world : server.getWorlds()) {
             if (world == null) {
@@ -254,6 +324,10 @@ final class ObserverTracker {
             for (Character chr : world.getPlayerStorage().getAllCharacters()) {
                 if (chr != null && !BotHelpers.isBot(chr)) {
                     full.add(chr.getMapId());
+                    MapleMap on = chr.getMap();
+                    if (on != null) {
+                        instances.add(on);
+                    }
                     realPlayers.add(chr);
                 }
             }
@@ -291,6 +365,9 @@ final class ObserverTracker {
         BotPerformanceMonitor.recordTierFlips(promoted, demoted);
 
         fullMaps = full.isEmpty() ? Set.of() : Set.copyOf(full);
+        fullInstances = instances.isEmpty() ? Set.of() : Set.copyOf(instances);
+        long nowMs = System.currentTimeMillis();
+        forcedInstances.values().removeIf(until -> until < nowMs); // never hold a closed event instance's map
         haloMaps = halo.isEmpty() ? Set.of() : Set.copyOf(halo);
     }
 

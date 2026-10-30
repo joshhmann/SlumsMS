@@ -415,7 +415,7 @@ public final class InvasionTownCrowd {
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         Long last = lastShoutByEvent.get(e.id);
         if (last != null && now - last < SHOUT_GAP_MS || rng.nextDouble() >= SHOUT_CHANCE
-                || !GCMovement.isMapObserved(chr.getMapId())) {
+                || !GCMovement.isMapObserved(chr)) {
             return;
         }
         lastShoutByEvent.put(e.id, now);

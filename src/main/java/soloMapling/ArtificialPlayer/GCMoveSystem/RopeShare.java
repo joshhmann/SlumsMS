@@ -26,7 +26,7 @@ final class RopeShare {
             return false;
         }
         MapleMap map = bot.getMap();
-        if (map == null || !GCMovement.isMapObserved(bot.getMapId())) {
+        if (map == null || !GCMovement.isMapObserved(bot)) {
             entry.ropeWaitSinceMs = 0L;
             return false;
         }

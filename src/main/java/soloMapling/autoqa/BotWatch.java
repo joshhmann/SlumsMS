@@ -299,7 +299,7 @@ public final class BotWatch {
      */
     static boolean watchedHere(Character chr) {
         return chr != null && chr.getMap() != null
-                && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(chr.getMapId())
+                && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(chr)
                 && soloMapling.ArtificialPlayer.GCMoveSystem.WatchGate.watched(chr);
     }
 

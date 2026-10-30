@@ -134,7 +134,7 @@ public final class LifeChannelMove {
      */
     public static boolean move(Character chr, int channel, boolean ksWar, long now) {
         if (chr == null || channel <= 0) return false;
-        if (soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(chr.getMapId())) {
+        if (soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(chr)) {
             soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotFullChat(chr, line(ksWar));
         }
         int from = chr.getMap().getChannelId();

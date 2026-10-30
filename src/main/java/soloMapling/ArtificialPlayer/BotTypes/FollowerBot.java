@@ -420,7 +420,7 @@ public class FollowerBot extends BotSM {
 
     private void sayNode(String node, Character player) {
         Character chr = getChr();
-        if (chr == null || chr.getMap() == null || !GCMovement.isMapObserved(chr.getMapId())) {
+        if (chr == null || chr.getMap() == null || !GCMovement.isMapObserved(chr)) {
             return;
         }
         try {

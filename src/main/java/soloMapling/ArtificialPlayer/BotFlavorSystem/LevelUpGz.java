@@ -91,7 +91,7 @@ public final class LevelUpGz implements EventSubscriber {
             return;
         }
         Character leveler = event.getMapleCharacter();
-        if (leveler == null || leveler.getMap() == null || !GCMovement.isMapObserved(leveler.getMapId())) {
+        if (leveler == null || leveler.getMap() == null || !GCMovement.isMapObserved(leveler)) {
             return;
         }
         boolean real = !BotHelpers.isBot(leveler);
@@ -162,7 +162,7 @@ public final class LevelUpGz implements EventSubscriber {
 
     private static void fire(Character bot, Character leveler, String line) {
         if (bot.getMap() == null || bot.getMap() != leveler.getMap() || !bot.isAlive()
-                || !GCMovement.isMapObserved(bot.getMapId())) {
+                || !GCMovement.isMapObserved(bot)) {
             return;
         }
         BotSpeak(bot, line);

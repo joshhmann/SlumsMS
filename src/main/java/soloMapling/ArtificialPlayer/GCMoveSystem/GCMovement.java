@@ -882,8 +882,35 @@ public final class GCMovement {
         return ObserverTracker.MAX_PINS;
     }
 
+    /*
+     * Audit #3 (b112): whether a real player can see this character - one is on its map INSTANCE (its channel, its
+     * event instance), not merely on some map with the same id. The gate for real quests, rewards and combat. A
+     * character with no map (in transit) falls back to the id.
+     */
+    public static boolean isMapObserved(Character chr) {
+        if (chr == null) {
+            return false;
+        }
+        MapleMap map = chr.getMap();
+        return map != null ? ObserverTracker.isFull(map) : ObserverTracker.isFull(chr.getMapId());
+    }
+
+    /* Audit #3: a real player is on this map instance. */
+    public static boolean isMapObserved(MapleMap map) {
+        return ObserverTracker.isFull(map);
+    }
+
+    /*
+     * A real player is on SOME instance of this map id (any channel). Diagnostics and LOD only: for "is this bot
+     * watched" use isMapObserved(Character) - one channel's player does not watch another channel's bots.
+     */
     public static boolean isMapObserved(int mapId) {
         return ObserverTracker.isFull(mapId);
+    }
+
+    /* Audit #3: force this map instance to FULL for a short window (a real player just arrived on it). */
+    public static void markObservedNow(MapleMap map) {
+        ObserverTracker.markObservedNow(map);
     }
 
     /*

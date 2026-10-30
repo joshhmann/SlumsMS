@@ -141,7 +141,7 @@ public final class BotBuffDriver {
         if (now < nextLookMs) {
             return nextLookMs;
         }
-        if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(bot.getMapId())) {
+        if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isMapObserved(bot)) {
             return nextLookMs; // hold the timer until it's worth showing
         }
         if (pay == Pay.ALL || soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human()) {

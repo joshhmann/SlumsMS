@@ -217,7 +217,7 @@ final class GCMovementDriver {
         // Idle safety (1.4.2): a bot about to stand idle - or idling - with live mobs in reach, or hit while idle,
         // walks to a safe spot first. Observed maps only (no contact damage elsewhere); sets a move target that the
         // branches below walk like any other.
-        if (!bot.isOwnedAlt() && GCMovement.isMapObserved(bot.getMapId())) { // 1.6.0.4: an alt stays by its owner
+        if (!bot.isOwnedAlt() && GCMovement.isMapObserved(bot)) { // 1.6.0.4: an alt stays by its owner
             IdleSafety.tick(entry, bot);
         }
 
@@ -627,7 +627,7 @@ final class GCMovementDriver {
         // If a real player is already on this map, mark it observed NOW so the visible spawn (float →
         // drop, jump stance) and FULL combat start this tick instead of waiting up to one observer poll.
         if (ObserverTracker.hasRealPlayerNow(map)) {
-            ObserverTracker.markObservedNow(bot.getMapId());
+            ObserverTracker.markObservedNow(map);
             // Ours: the movement above is already instant - also wake the arriving bot's macro brain so
             // it acts promptly instead of on its slow 2-6s/10s wheel. See BotMapEntryResponder (B).
             soloMapling.ArtificialPlayer.BotMapEntryResponder.onBotArrivedObserved(bot);
