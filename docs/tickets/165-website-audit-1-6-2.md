@@ -13,8 +13,9 @@ Full evidence: `/root/work/agent-runs/site/site-audit-162/REPORT.md`.
 
 ## 0. Status (2026-10-30, after the fix round)
 
-14 of the 20 findings are fixed on `site-161-framework`, three of them (W1, W6-W14, W20) by `96bee8e1e` "Website audit
-MEDIUM fixes…" and one (W19) by `c9eb56b54` on `site-165-w19`. Everything below was re-grepped at `a250d5131`.
+18 of the 20 findings are fixed on `site-161-framework` plus the `site-165-w19` branch: three (W1, W6-W14, W20) by
+`96bee8e1e` "Website audit MEDIUM fixes…", one (W19) by `c9eb56b54`, and W15-W18 by `936df84e9` (two new tests, `Ran
+196 tests … OK`). Everything below was re-grepped at `a250d5131` and `936df84e9`.
 
 | W | state | evidence at `a250d5131` (+ `c9eb56b54`) |
 |---|---|---|
@@ -32,10 +33,10 @@ MEDIUM fixes…" and one (W19) by `c9eb56b54` on `site-165-w19`. Everything belo
 | W12 | fixed as a step | `DEPLOY.md:207-213` + `1.6.2-deploy-steps.md:166-170` (uncomment the two `SLUMS_LOGIN_INSPECT_*` lines, owner's go); the live unit stays commented on purpose |
 | W13 | fixed | `market_service.py:63` `GM_FRESH = 12 * 3600`, `:448-450` `gm_fresh()` - a take-down needs a sign-in inside 12 h; test at `test_market_service.py:181-182` |
 | W14 | fixed | `nosniff` + `Referrer-Policy` repeated in the three gated blocks (`slums-login.nginx.conf:57-58` and neighbours) |
-| W15 | **open** | `sections/market.py:507` still says "N-day change" while `st["first"]` is the oldest day with enough samples |
-| W16 | **open** | `sections/market.py:561-562` "Recent sales" still has no as-of and no order guarantee |
-| W17 | **open** | `sections/world.py:324` "Online now" still trusts `world.online` over the channel rows beside it |
-| W18 | **open** | `sections/world.py:485` rank cell still prints the export's `rank` while the podium uses list position |
+| W15 | fixed | `936df84e9`: `item_stats` carries `span` (the newest and oldest shown day's real distance) and the card prints it; a 4-day history whose shown days are Oct 22-25 reads "3-day change", not "4-day" |
+| W16 | fixed | `936df84e9`: `sales_as_of()` prints `sales.json`'s `generated_at` on the sales page and in every item page's Recent sales panel, and `validate()` now rejects a `generated_at` that isn't a time |
+| W17 | fixed | `936df84e9`: `total_online()` returns the channel sum whenever there is a channel list (the export's own total only stands in when there is none) |
+| W18 | fixed | `936df84e9`: `table()` reads the rank it prints (`r["rank"]`, position only as a fallback) and highlights `rank <= 3`, so 1, 1, 3 highlights three rows and a fourth-place row stays plain |
 | W19 | fixed | `c9eb56b54`: `AvatarTest` makes its own market export and passes `market_dir`; a clean `git archive` run is `Ran 194 tests … OK` (was 1 error) |
 | W20 | fixed | `FRAMEWORK.md:26-28` no longer says "unwired"; `DEPLOY.md` has no "exchange stays off" / "shows server 1.6.1" left; `LOGIN.md:100-101` no daily NX cap |
 
