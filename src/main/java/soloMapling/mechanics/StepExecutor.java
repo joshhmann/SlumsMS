@@ -59,6 +59,10 @@ final class StepExecutor {
         long moveIssuedMs;
         int farmHave = -1;
         long farmSinceMs;
+        /** The puzzle position this bot is walking to, since when, and when it last said it had not got there. */
+        String occupyAt;
+        long occupySinceMs;
+        long occupyToldMs;
         boolean stallTold;
         int stallGain;
         final Chase chase = new Chase();
@@ -80,7 +84,7 @@ final class StepExecutor {
             case SolverStep.DropFor d -> dropFor(view, bot, beat, d, now, log);
             case SolverStep.Say s -> say(view, bot, beat, s.line(), now);
             case SolverStep.HitReactor h -> log.accept(bot.getName() + ": reactor steps come in phase 2");
-            case SolverStep.Occupy o -> occupy(bot, beat, o, now);
+            case SolverStep.Occupy o -> occupy(bot, beat, o, now, log);
             case SolverStep.CheckAnswer c -> check(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.Converse c -> converse(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.EnterPortal e -> enterPortal(bot, beat, e, now, log);
@@ -101,6 +105,18 @@ final class StepExecutor {
     static final long STALL_MS = 90_000L;
     /** Fewer coupons than this in one {@link #STALL_MS} window is a stall: under 2 a minute. */
     static final int STALL_MIN_GAIN = 3;
+
+    /**
+     * How long a stander may be on its way to a puzzle position before it says where it is stuck, and how often it
+     * says it again. mx-2 on TEST (run 4d3de9837) spent 1164 s between a wrong check and the right one with no log
+     * line at all: one member never reached its position and nothing else is written while it walks.
+     */
+    static final long OCCUPY_NOTE_MS = 30_000L;
+
+    /** Whether a stander that has been walking to {@code o.id()} since {@code sinceMs} should say so now. */
+    static boolean occupyDueForNote(long sinceMs, long toldMs, long now) {
+        return now - sinceMs >= OCCUPY_NOTE_MS && now - toldMs >= OCCUPY_NOTE_MS;
+    }
 
     /**
      * Whether a farmer got fewer than {@link #STALL_MIN_GAIN} in the {@link #STALL_MS} window that ends now; true
@@ -528,10 +544,19 @@ final class StepExecutor {
     }
 
     /** Stand on (or hang from) a puzzle position: walk/climb at it until the bot is inside its rectangle, then hold. */
-    private static void occupy(Character bot, Beat beat, SolverStep.Occupy o, long now) {
+    private static void occupy(Character bot, Beat beat, SolverStep.Occupy o, long now, Consumer<String> log) {
         Point at = bot.getPosition();
         if (at != null && o.inside(at.x, at.y)) {
+            beat.occupyAt = null;
             return; // there: hold still (the formation is checked by the leader)
+        }
+        if (!o.positionId().equals(beat.occupyAt)) { // a new position: the stall clock starts again
+            beat.occupyAt = o.positionId();
+            beat.occupySinceMs = now;
+            beat.occupyToldMs = 0;
+        } else if (occupyDueForNote(beat.occupySinceMs, beat.occupyToldMs, now)) {
+            beat.occupyToldMs = now;
+            log.accept(occupyStallLine(bot, o, at, now - beat.occupySinceMs));
         }
         Point target = new Point(o.x(), o.y());
         if (beat.moveTarget == null || !beat.moveTarget.equals(target) || now - beat.moveIssuedMs > 4_000) {
@@ -539,6 +564,12 @@ final class StepExecutor {
             beat.moveTarget = target;
             beat.moveIssuedMs = now;
         }
+    }
+
+    private static String occupyStallLine(Character bot, SolverStep.Occupy o, Point at, long forMs) {
+        return "OCCUPY " + bot.getName() + " has not reached position " + o.positionId() + " in " + (forMs + 500) / 1_000
+                + " s: at " + (at == null ? "nowhere" : at.x + "," + at.y) + ", wants " + o.x() + "," + o.y()
+                + (o.rope() ? " (a rope)" : "");
     }
 
     /** The leader checks the formation with the NPC; from where he stands when he is within its reach. */
