@@ -132,6 +132,47 @@ class BotConversationFlowTest {
         }
     }
 
+    /** Brief step 4: when the model says nothing, the plan's script is delivered through the same guards. */
+    @Test
+    void aPlannedGreetingReachesThePlayerWhenTheModelSaysNothing() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        Optional<String> was = brainReply;
+        brainReply = Optional.empty();
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            // a real client, not a BotClient: a bot-to-bot pair plans nothing (BotTalk decides those)
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            assertTrue(BotConversation.say(bot, player, "hey", null, said::add));
+            waitFor(() -> !said.isEmpty());
+            assertEquals(1, said.size(), said.toString());
+            assertEquals(1, asked.size(), "the model is asked first; the plan answers when it says nothing");
+            soloMapling.ArtificialPlayer.BotConvo.ReplyPlanner.View view =
+                    soloMapling.ArtificialPlayer.BotConvo.BotReplyView.of(bot, player, chr.getId() - BotStore.BOT_ID_BASE,
+                            null, "hey", soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage.rules("hey"), false, false);
+            soloMapling.ArtificialPlayer.BotConvo.ReplyPlanner.Plan plan =
+                    soloMapling.ArtificialPlayer.BotConvo.ReplyPlanner.plan(view);
+            assertEquals(soloMapling.ArtificialPlayer.BotConvo.ReplyPlanner.Move.HELLO, plan.move());
+            java.util.Set<String> pool = new java.util.LinkedHashSet<>();
+            for (int seed = 0; seed < 400; seed++) {
+                String candidate = soloMapling.ArtificialPlayer.BotConvo.ReplyPlanner.line(view, plan,
+                        new java.util.Random(seed));
+                if (candidate != null) {
+                    pool.add(candidate);
+                }
+            }
+            assertTrue(pool.contains(said.get(0)),
+                    "the player hears one of the planned scripts, unchanged by delivery: " + said + " not in " + pool);
+            assertTrue(!soloMapling.ArtificialPlayer.BotConvo.SpeechGuard.hasSlot(said.get(0)),
+                    "so the delivery guard has no slot to fill: " + said);
+        } finally {
+            brainReply = was;
+            System.clearProperty("solomapling.convo.planner");
+        }
+    }
+
     @Test
     void aLaterGuildMessageCannotRedirectAPendingWhisperReply() throws Exception {
         BotSM bot = mock(TownWandererBot.class);
