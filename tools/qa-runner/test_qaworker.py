@@ -74,7 +74,7 @@ class WorkerCallsTest(unittest.TestCase):
         worker.send('me', {'do': 'select_character', 'slot': 0})
         worker.send('me', {'do': 'gm', 'line': '!bot followbot 1000000777'})
         worker.send('me', {'do': 'chat', 'text': 'hello'})
-        worker.send('me', {'do': 'click', 'anchor': 'channel_confirm'})
+        worker.send('me', {'do': 'click', 'anchor': 'channel.confirm'})
         worker.send('me', {'do': 'key', 'key': 'Z', 'hold_ms': 250})
         worker.send('me', {'do': 'move', 'dir': 'left', 'ms': 400})
         self.assertEqual([
@@ -174,6 +174,23 @@ class WorkerCallsTest(unittest.TestCase):
         with self.assertRaises(qarunner.RunFailed) as caught:
             worker.character('me')
         self.assertIn('has not logged its build stamp', str(caught.exception))
+
+    def test_a_click_uses_the_anchors_calibrated_point(self):
+        worker, transport = self.make()
+        self.assertEqual('ok', worker.send('me', {'do': 'click', 'anchor': 'channel.1'})['result'])
+        self.assertEqual([('click_anchor', {'name': 'channel_1'})], transport.calls)
+
+    def test_an_uncalibrated_anchor_is_refused_before_any_call(self):
+        worker, transport = self.make()
+        with self.assertRaises(qarunner.RunFailed) as caught:
+            worker.send('me', {'do': 'click', 'anchor': 'party_invite.accept'})
+        self.assertIn('anchor party_invite.accept is not calibrated', str(caught.exception))
+        self.assertEqual([], transport.calls)
+
+    def test_an_unknown_anchor_is_refused(self):
+        worker, _ = self.make()
+        with self.assertRaises(qarunner.RunFailed):
+            worker.send('me', {'do': 'click', 'anchor': 'no.such_anchor'})
 
     def test_login_starts_the_client_when_none_is_running(self):
         worker, transport = self.make({

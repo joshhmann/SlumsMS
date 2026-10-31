@@ -316,6 +316,7 @@ class SilviaWorker:
         self.seen = {}       # alias -> every event this run read, in order (the run folder's pipe.log)
         self.info = {}       # alias -> build/release/caps/dll_sha256 learned so far
         self.labels = {}     # burst label -> capture id, when the caller registers it through pull
+        self._anchors = None  # anchors.yaml, read once
         self.closed = False
 
     # -- the transport --
@@ -369,6 +370,17 @@ class SilviaWorker:
         self.json_tool("login_credentials", {"vault": vault})
         return self.character(alias)
 
+    def anchor_point(self, name):
+        """The worker's ui.json point for a script's anchor (anchors.yaml's `uijson`); refuses an uncalibrated one."""
+        if self._anchors is None:
+            self._anchors = qascript.load_anchors()[0]
+        anchor = self._anchors.get(name)
+        if not anchor:
+            raise RunFailed("anchor %s is not in docs/qa/client-scripts/anchors.yaml" % name, "error")
+        if anchor.get("status") != "calibrated" or not anchor.get("uijson"):
+            raise RunFailed("anchor %s is not calibrated: it has no ui.json point yet" % name, "refused")
+        return anchor["uijson"]
+
     def send(self, alias, step):
         """Plays one action step; {"result": "ok"|"refused", "detail"} (the caller turns a refusal into a failure)."""
         kind = step["do"]
@@ -376,7 +388,7 @@ class SilviaWorker:
         if kind in ("gm", "chat"):
             name, arguments = "command", {"line": step.get("line") if kind == "gm" else step.get("text")}
         elif kind == "click":
-            name, arguments = "click_anchor", {"name": step["anchor"]}
+            name, arguments = "click_anchor", {"name": self.anchor_point(step["anchor"])}
         elif kind == "select_world":
             name, arguments = "select_world", {"world": step["world"]}
         elif kind == "select_channel":
