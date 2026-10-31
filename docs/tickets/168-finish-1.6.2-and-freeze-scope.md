@@ -5,8 +5,9 @@ Owner direction: 2026-10-31 (UTC and PT). The owner agrees with the release-clos
 it does not authorize a deployment, remove existing release gates, or declare any bug fixed.
 
 Target: close 1.6.2. Server Dev leads technical closure; the Coordinator maintains the release book and scope;
-each lane supplies its evidence; triage reconciles bug closure. Current status remains in the release book and
-`/root/work/STATUS-1.6.2.md`, not this ticket.
+each lane supplies its evidence; triage reconciles bug closure. Current status remains in the release book
+(https://claude.ai/artifact/MyhfTPAtE1oAvDmpz6FTcG, the source of truth) and in `/root/work/STATUS-1.6.2.md`, the
+copy for non-Claude agents generated from the book, never edited by hand; not this ticket.
 
 ## Problem
 
@@ -54,6 +55,10 @@ The earlier blanket instruction that every board bug goes into 1.6.2 is replaced
 The owner can approve an exception. The Coordinator records why it must ship now, affected systems, required
 rechecks, and the schedule consequence or work displaced. A newly found adjacent improvement is not automatic scope.
 
+Two owner exceptions are in force as of 2026-10-31, recorded in the release book's Decisions (dec1 v73): s-xtraders
+(trader bots at 25-50%, CHAOS/WS from the bots' own drops including event bosses, NX forex-style market, offline
+simulator) and m02 (reply planner). Each ships OFF if not proven by go/no-go. No more tickers until 1.6.3.
+
 No broad new audits, economy redesign, expanded chat-quality goals, infrastructure moves or QA-platform completion
 as implicit prerequisites. Existing agreed requirements still need acceptance or an explicit disposition.
 
@@ -71,6 +76,11 @@ ideas implied by a group name.
 
 For each group, name an acceptance owner and list the exact unresolved checks. Avoid broad tasks such as
 "improve KPQ" or "watch questing work" without a defined starting state, action and expected outcome.
+
+Client compatibility group detail: the final 1.6.2 client is built at build 10721 or higher via
+`-DSLUMS_BUILD_NUMBER_OVERRIDE` (VERSION 1.6.2 alone computes 10720), and `MIN_CLIENT_BUILD` is raised to 10721 in
+[1.6.2.conf](../release/1.6.2.conf): rc2-rc5 (10720) crash in Rampart Residences (410000350). rc6 is rc5's code plus
+the b238 fix.
 
 ## 4. Use QA to finish the candidate
 

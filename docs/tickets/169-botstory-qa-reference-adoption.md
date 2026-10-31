@@ -27,6 +27,8 @@ BotStory uses `server.agents` gateways, registries, provisioning and configurati
 Use only if an existing blocker cannot be diagnosed with current logs. SlumsMS already reports stage-clear times
 and has a stall guard; check those and the current fix branches before adding anything.
 
+Decide at the s-relfails round-2 review whether t-mx-2/t-mx-5 need the stall diagnostic; otherwise 169 is post-1.6.2.
+
 Reference: [AgentKpqPaceReport.java](https://github.com/Incluwin/BotStory/blob/beede7880802d2a95618c074bc11e3d25e8d608d/src/main/java/server/agents/capabilities/partyquest/kpq/AgentKpqPaceReport.java).
 It separates grinding, hand-ins, puzzle checks, movement, combat, loot and pass delivery, and marks incomplete
 measurements with reasons such as member loss or throttled simulation.
