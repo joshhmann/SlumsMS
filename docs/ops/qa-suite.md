@@ -564,7 +564,7 @@ them (and undoes any LOD pin) itself. None of them is on the release allow-list.
   door (410000300 -> Storage Cellar 993162016) must route back to the square, a character saved in 410000350 must land
   on 410000300, and the Storage Cellar must still load nothing (a live image there means the table is stale). The bots'
   half is t-nv-2's graph, which drops the same maps.
-- **t-mp-2 (map routing, eyes only):** walk Ristonia's doors in a real client - Fountain Square's `in00` and
+- **t-mp-1, eyes part (map routing):** walk Ristonia's doors in a real client - Fountain Square's `in00` and
   410000325's `east00` - and check the client survives and the character is told it was taken back.
 - **t-nv-3 (ticket 157's debug tools answer):** a fresh bot on HHG1 (pinned to full simulation for the check). The
   bot inspect API (`-Dslums.inspect`, port and secret file) must answer 403 to a request with no secret and one with a

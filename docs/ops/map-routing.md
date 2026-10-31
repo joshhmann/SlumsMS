@@ -136,7 +136,7 @@ its `from_map` when the row is not `*`. It exits non-zero with the offending row
   WZ update without a table regeneration fails that command (the Java tests assert the invariants, not equality, since
   they run without python).
 - Auto-QA `t-mp-1` runs the same invariants on a live server (table in the jar, fallbacks load, an image-less map
-  still loads nothing) and `t-mp-2` is the eyes-only check: walk the doors in a real client.
+  still loads nothing); the eyes part of it is the walk in a real client (HALF check).
 
 ## Status (2026-10-31, branch `162-maproute`)
 
@@ -148,7 +148,7 @@ for, plus 410000350 from the client list), 18 of them dead ends that keep the ch
   because the default is on. Table override: `-Dslums.maps.routing.table=<path>`.
 - No migration, no `config.yaml` key, no data file outside the jar: the table ships as
   `src/main/resources/soloMapling/map-routing.tsv`.
-- Checks: auto-QA `t-mp-1` (`Probes164.mapRouting`), eyes-only `t-mp-2` (`docs/qa/QA.md`).
+- Checks: auto-QA `t-mp-1` (`Probes164.mapRouting`, a HALF check: the probe plus the walk in a real client).
 - Known consequence: 410000325 (Ristonia, the map whose only door leads into Rampart Residences) is now a dead end for
   bots, since the graph drops the edge. Players walking it are taken back.
 - Unverified: a real client walking the doors (the crash is client-side), and the effect on a live world with moving
