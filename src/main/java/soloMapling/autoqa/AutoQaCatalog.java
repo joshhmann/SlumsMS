@@ -1464,6 +1464,13 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-nv-3", "Debug tools answer: bot inspect API, kill calibration, nav path trace").minutes(2)
                 .expect(probe("debugTools"))
                 .build());
+        // ticket 112 (decision 3): the bots' Maker batch, once for real on a fresh bot: crystals made and equips
+        // disassembled through MakerService paying the client's fee, a bad item skipped without stopping the batch, and
+        // the per-bot and world caps counting operations (ProbesMaker). SKIPs when maker.botBatch is off
+        c.add(Check.auto("t-mk-2", "Bot Maker batch: crystals and disassembly, real fee, bad item skipped, caps count operations")
+                .minutes(2)
+                .expect(probe("makerBatch"))
+                .build());
         return List.copyOf(c);
     }
 

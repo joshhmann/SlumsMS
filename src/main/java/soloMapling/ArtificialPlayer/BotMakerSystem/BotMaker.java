@@ -91,6 +91,21 @@ public final class BotMaker {
         return todayByChar.getOrDefault(charId, 0);
     }
 
+    /* Operations this character made today, for the auto-QA check (t-mk-2). */
+    public static int opsToday(int charId) {
+        return doneToday(charId);
+    }
+
+    /* Operations the world's cap still has today (for the auto-QA check). */
+    public static long worldCapLeft() {
+        return worldDaily() - EconomyMeters.get(WORLD_METER);
+    }
+
+    /* Gives a character its day back (the auto-QA check's throwaway bot: ids are reused between runs). */
+    public static void forget(int charId) {
+        todayByChar.remove(charId);
+    }
+
     private static void roll() {
         LocalDate now = clock.get();
         if (!now.equals(countedDay)) {
