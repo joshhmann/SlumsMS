@@ -99,6 +99,15 @@ class SiteBuildTest(unittest.TestCase):
         self.assertIn(f'href="patch-notes/{self.rels[0]["version"]}/"', home)
         self.assertNotIn("{{", home)
 
+    def test_162_notes_absorb_161(self):
+        """b176: 1.6.1 became part of 1.6.2, so the newest release is 1.6.2 and its page says so early (the 1.6.0
+        page promised a 1.6.1, which stays as history)."""
+        self.assertEqual(self.rels[0]["version"], "1.6.2")
+        with open(os.path.join(self.out, "patch-notes", "1.6.2", "index.html"), encoding="utf-8") as f:
+            page = f.read()
+        self.assertIn("There is no 1.6.1", page)
+        self.assertIn("became part of this patch", page)
+
     def test_wiki_notes_are_stripped(self):
         for name in self.guide:
             with open(os.path.join(self.out, "guide", name), encoding="utf-8") as f:
