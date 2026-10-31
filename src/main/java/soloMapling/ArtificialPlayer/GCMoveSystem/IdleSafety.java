@@ -253,7 +253,7 @@ final class IdleSafety {
         if (start < 0) {
             return null;
         }
-        Set<Integer> reachable = reachable(graph, start);
+        Set<Integer> reachable = reachable(graph, map, start);
         List<Candidate> candidates = candidates(graph, reachable, pos);
         for (Portal portal : map.getPortals()) {
             Point p = portal.getPosition();
@@ -332,6 +332,11 @@ final class IdleSafety {
 
     /** Regions reachable from {@code start} by walking, jumping, dropping and climbing (no job skills). */
     static Set<Integer> reachable(BotNavigationGraph graph, int start) {
+        return reachable(graph, null, start);
+    }
+
+    /** As {@link #reachable(BotNavigationGraph, int)}, never into a pit the planner refuses on {@code map} (b109). */
+    static Set<Integer> reachable(BotNavigationGraph graph, MapleMap map, int start) {
         Set<Integer> seen = new HashSet<>();
         Deque<Integer> queue = new ArrayDeque<>();
         seen.add(start);
@@ -340,7 +345,7 @@ final class IdleSafety {
             int rid = queue.poll();
             for (BotNavigationGraph.Edge e : NavObservedEdges.outgoing(graph, rid)) {
                 if (e.toRegionId != rid && !e.isMovementSkill() && e.type != BotNavigationGraph.EdgeType.PORTAL
-                        && seen.add(e.toRegionId)) {
+                        && (map == null || !NavPits.into(graph, map, e)) && seen.add(e.toRegionId)) {
                     queue.add(e.toRegionId);
                 }
             }
