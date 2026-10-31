@@ -1,6 +1,6 @@
 """The 187 orchestrator for auto-QA client scripts (ticket 166/170, Server Dev half of the split runner).
 
-It reads and validates a script, arms the QA event feed on TEST, sends the steps one at a time to the Silvia worker
+It reads and validates a script, arms the QA event feed on TEST, sends the steps one at a time to the QA box's worker (tarkov2 by default, Silvia with CLIENT_MCP_TARGET=silvia)
 (client-mcp run_script, Client lane), waits on client signals the worker relays and on server lines from the feed,
 triggers bursts, then writes the run folder's manifest.json and the feed lines it saw (run-folder.md).
 
@@ -193,7 +193,7 @@ class WorkerTransport:
     program here, against the same files, instead of over ssh.
     """
 
-    def __init__(self, target="silvia", runner=subprocess.run, wait=120, queue_wait=3600, wrap=True,
+    def __init__(self, target="vm", runner=subprocess.run, wait=120, queue_wait=3600, wrap=True,
                  root=None, python=PYTHON, clock=time.time):
         if target not in WORKER_TARGETS:
             raise RunFailed("unknown worker target %r: use %s" % (target, " or ".join(WORKER_TARGETS)), "error")
@@ -314,7 +314,7 @@ class SilviaWorker:
     NO_PAYLOAD = {"field.ready"}
     KEY_STEPS = {"key": ("key", "hold_ms"), "move": ("dir", "ms")}
 
-    def __init__(self, transport=None, sleep=time.sleep, clock=time.time, target="silvia"):
+    def __init__(self, transport=None, sleep=time.sleep, clock=time.time, target="vm"):
         self.transport = transport or WorkerTransport(target)
         self.sleep, self.clock = sleep, clock
         self.cursor = {}     # alias -> position in the pipe's event log
@@ -923,7 +923,7 @@ def main(argv):
         for w in warnings:
             print("warn: " + w)
         return 0
-    run = Run(script, SshFeed(), SilviaWorker(target=os.environ.get("CLIENT_MCP_TARGET", "silvia")),
+    run = Run(script, SshFeed(), SilviaWorker(target=os.environ.get("CLIENT_MCP_TARGET", "vm")),
               commit=read_deployed_commit())
     manifest = run.run()
     print("%s %s -> %s" % (manifest["result"], run.run_id, run.folder))
