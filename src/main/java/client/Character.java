@@ -1716,14 +1716,15 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void changeMap(final MapleMap target, Portal pto) {
-        MapRouting.Move move = MapRouting.move(this, target.getId(), pto == null ? null : pto.getName());
-        if (move != null && move.stay()) {
-            return; // the door leads nowhere: MapRouting already sent the message and enableActions
-        }
         final boolean locked = lockWarp();
         try {
             canWarpCounter++;
             try {
+                // s-maproute: resolved under the warp lock, so a bot mid-channel-move cannot read the target's id
+                MapRouting.Move move = MapRouting.move(this, target.getId(), pto == null ? null : pto.getName());
+                if (move != null && move.stay()) {
+                    return; // the door leads nowhere: MapRouting messaged the player and re-enabled actions
+                }
                 eventChangedMap(target.getId());    // player can be dropped from an event here, hence the new warping target.
                 MapleMap to = (move == null) ? getWarpMap(target.getId()) : lookupWarpMap(move.map());
                 if (move != null) {
@@ -1770,14 +1771,14 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void changeMap(final MapleMap target, final Point pos) {
-        MapRouting.Move move = MapRouting.move(this, target.getId(), null);
-        if (move != null && move.stay()) {
-            return;
-        }
         final boolean locked = lockWarp();
         try {
             canWarpCounter++;
             try {
+                MapRouting.Move move = MapRouting.move(this, target.getId(), null);   // s-maproute, under the lock
+                if (move != null && move.stay()) {
+                    return;
+                }
                 eventChangedMap(target.getId());
                 MapleMap to = (move == null) ? getWarpMap(target.getId()) : lookupWarpMap(move.map());
                 Point where = pos;
@@ -1834,12 +1835,13 @@ public class Character extends AbstractCharacterObject {
     public void forceChangeMap(final MapleMap target, Portal pto) {
         // will actually enter the map given as parameter, regardless of being an eventmap or whatnot
 
-        MapRouting.Move move = MapRouting.move(this, target.getId(), pto == null ? null : pto.getName());
-        if (move != null && move.stay()) {
-            return; // s-maproute: the target is a map this client cannot enter; the player stays, already messaged
-        }
         canWarpCounter++;
         try {
+            // s-maproute: resolved after the counter, so a refused move still balances the latch in the finally
+            MapRouting.Move move = MapRouting.move(this, target.getId(), pto == null ? null : pto.getName());
+            if (move != null && move.stay()) {
+                return; // the target is a map this client cannot enter; the player stays, already messaged
+            }
             eventChangedMap(MapId.NONE);
 
             EventInstanceManager mapEim = target.getEventInstance();
