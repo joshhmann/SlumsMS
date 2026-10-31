@@ -15,6 +15,10 @@
 #   tools/ops/client-mcp stop_client
 #   tools/ops/client-mcp qa_wait '{"signal":"field.ready"}'  |  qa_burst '{"fps":10,"ms":2000,"label":"x"}'   (QA build)
 #   tools/ops/client-mcp run_script '{"name":"b140-heal"}'   # plays qa-scripts\b140-heal.json; see tools/ops/qa-run
+#   tools/ops/client-mcp login_credentials '{"vault":"aq-gm-1"}'   # one script step each (ticket 170): the account
+#     select_world '{"world":"Bera"}' | select_channel '{"channel":3}' | select_character '{"slot":0}' |
+#     click_anchor '{"name":"party_invite_accept"}' | qa_events '{"since":12}'   # the pipe's events by position
+#     (vault accounts live on the box as client-mcp\secrets\<vault>.txt)
 #   tools/ops/client-mcp exit_worker                          # stop the worker (refused while its client runs)
 #
 # Needs the worker running there: the scheduled task "SlumsMS QA worker" (client-mcp\scripts\qa-task.ps1 start) or
@@ -26,7 +30,7 @@
 # Prints the tool's text replies; exits 1 on an error or refusal, 3 if no worker answered, 4 if it stayed queued.
 set -euo pipefail
 NAME="${1:?tool name}"; ARGS="${2:-{\}}"
-[[ "$NAME" =~ ^(heartbeat|status|start_client|login|command|go_to|screenshot|read_logs|stop_client|press_key|mouse_click|mouse_drag|qa_wait|qa_burst|run_script|exit_worker)$ ]] \
+[[ "$NAME" =~ ^(heartbeat|status|start_client|login|command|go_to|screenshot|read_logs|stop_client|press_key|mouse_click|mouse_drag|qa_wait|qa_burst|qa_events|run_script|login_credentials|click_anchor|select_world|select_channel|select_character|exit_worker)$ ]] \
   || { echo "unknown tool $NAME" >&2; exit 2; }
 WAIT="${CLIENT_MCP_WAIT:-120}"; QUEUE_WAIT="${CLIENT_MCP_QUEUE_WAIT:-3600}"
 TARGET="${CLIENT_MCP_TARGET:-vm}"

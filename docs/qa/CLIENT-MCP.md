@@ -55,6 +55,18 @@ tools/ops/client-mcp screenshot '{"label":"henesys"}'
 tools/ops/client-mcp stop_client
 ```
 
+Since ticket 170 a script can also be played one step at a time, without the driver guessing screens: a vault is a
+secret file (`secrets/<vault>.txt`: account, password, PIC) and the rest are the login screens by name.
+
+```bash
+tools/ops/client-mcp login_credentials '{"vault":"aq-gm-1"}'   # account + TAB + password + ENTER on the login screen
+tools/ops/client-mcp select_world '{"world":"Bera"}'
+tools/ops/client-mcp select_channel '{"channel":3}'
+tools/ops/client-mcp select_character '{"slot":0}'
+tools/ops/client-mcp click_anchor '{"name":"party_invite_accept"}'   # a calibrated ui.json point name
+tools/ops/client-mcp qa_events '{"since":0}'   # the QA pipe's events by position, for tools/qa-runner
+```
+
 Never run a new client or call input tools without first telling the owner. A request made while the owner is at
 the PC prints `queued` and waits (up to `CLIENT_MCP_QUEUE_WAIT`, default 3600 s; exit 4 if it never ran). On a
 focus/display/endpoint refusal, stop and report it; do not try another path. `stop_client` closes only the copy owned by the driver.

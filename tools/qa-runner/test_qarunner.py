@@ -84,6 +84,13 @@ class FakeWorker:
     def capture(self, alias, kind, cap_id, spec, start):
         self.captures.append((alias, kind, cap_id, start))
 
+    def pull(self, dest, labels=None):
+        self.pulled = Path(dest)
+        for cap_id in (labels or {}).values():   # the run tells the worker which label is which capture
+            frames = Path(dest) / 'frames' / cap_id
+            frames.mkdir(parents=True, exist_ok=True)
+            (frames / '0001.png').write_bytes(b'png')
+
     def close(self):
         pass
 
@@ -171,6 +178,29 @@ class OrchestratorTest(unittest.TestCase):
         m = run.run()
         self.assertEqual("FAIL", m["result"])
         self.assertIn("timed out waiting for", next(s for s in m["steps"] if s["id"] == "heal")["detail"])
+
+    def test_a_pull_that_fails_marks_the_captures_missing_instead_of_pointing_at_nothing(self):
+        feed = FakeFeed()
+
+        class NoPull(FakeWorker):
+            def pull(self, dest, labels=None):
+                raise qarunner.RunFailed('the copy of frames/column-early failed', 'error')
+
+        run = qarunner.Run(SCRIPT, feed, NoPull(feed), runs_root=tempfile.mkdtemp(), commit='d4f103b0e', clock=clock,
+                           sleep=lambda s: None)
+        m = run.run()
+        self.assertEqual('PASS', m['result'])   # the steps did pass: only the copy failed
+        self.assertIn('the copy of frames/column-early failed', m['runner']['pull'])
+        paths = [cap['path'] for cap in m['captures']]
+        self.assertTrue(any(path.startswith('frames/') for path in paths))
+        self.assertEqual({'missing'}, {cap['result'] for cap in m['captures'] if cap['path'].startswith(('frames/',
+                                                                                                        'client/'))})
+
+    def test_a_finished_run_keeps_the_frames_the_worker_pulled(self):
+        run, m, _, _ = self.run_b140()
+        for cap in ('column-early', 'column-on-line'):
+            self.assertTrue((run.folder / 'frames' / cap / '0001.png').exists(), cap)
+        self.assertEqual(['ok', 'ok'], [cap['result'] for cap in m['captures'] if cap['kind'] == 'burst'])
 
     def test_the_feed_secret_is_read_on_164_by_path(self):
         cmd = qarunner.SshFeed().remote_command("since=0&topics=COMBAT")
