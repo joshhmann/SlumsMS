@@ -15,8 +15,11 @@
 #             Needs the selector all; refused with --fast or --failed.
 #   --feature target the isolated bot-brain copy (/opt/mapleroot-dev/bot-life-160) instead of TEST.
 #
-# Writes the request to Server/data/autoqa/run-request.txt; the server picks it up within 30 s (logged as
-# "Auto-QA run request"). A run already in progress is not interrupted. Results: tools/ops/test-status.
+# Appends the request to the queue Server/data/autoqa/run-queue.txt (b016: one line "<id> TAB <UTC stamp> TAB <request>",
+# atomic append) and prints "queued (#n, position k)". The server takes the requests in order, each one 30 s or less
+# after the previous run ends (logged as "Auto-QA run request"); a run in progress is not interrupted and a second
+# request no longer replaces the first. Results: tools/ops/test-status. Never run it against TEST for a quick look:
+# every call is a real run request.
 set -euo pipefail
 SEL=""
 FLAGS=""
@@ -37,5 +40,22 @@ fi
 SEL="${SEL:-smoke}"
 [[ "$SEL" =~ ^[A-Za-z0-9,_-]+$ ]] || { echo "bad selector: $SEL" >&2; exit 2; }
 REQ="$SEL$FLAGS"
-ssh root@192.168.0.164 "echo '$REQ' > $BASE/Server/data/autoqa/run-request.txt"
-echo "requested auto-QA '$REQ'; the test server starts it within 30 s"
+# enqueue <dir> <request>: runs where the data dir is (over ssh, or locally with AUTOQA_LOCAL_DIR for the shell test).
+enqueue() {
+    local dir="$1" req="$2" n k stamp
+    mkdir -p "$dir"
+    exec 9>"$dir/.run-queue.lock"
+    flock 9
+    n=$(( $(cat "$dir/run-queue.seq" 2>/dev/null || echo 0) + 1 ))
+    echo "$n" > "$dir/run-queue.seq"
+    stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    printf '%s\t%s\t%s\n' "$n" "$stamp" "$req" >> "$dir/run-queue.txt"
+    k=$(cat "$dir/run-queue.txt" "$dir/run-queue.work" 2>/dev/null | grep -c . || true)
+    echo "queued (#$n, position $k) '$req'"
+}
+if [[ -n "${AUTOQA_LOCAL_DIR:-}" ]]; then
+    enqueue "$AUTOQA_LOCAL_DIR" "$REQ"
+else
+    ssh root@192.168.0.164 "$(declare -f enqueue); enqueue '$BASE/Server/data/autoqa' '$REQ'"
+fi
+echo "the test server starts it within 30 s of the earlier runs ending"
