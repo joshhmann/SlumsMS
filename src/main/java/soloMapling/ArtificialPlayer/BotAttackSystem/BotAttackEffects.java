@@ -97,37 +97,6 @@ public final class BotAttackEffects {
     }
 
     /*
-     * b140: the attack speed the server's echo of a player's Heal carries. AbstractDealDamageHandler.parseDamage sets
-     * speed 7 for Cleric.HEAL whatever the client sent, so every viewer of a real player's Heal gets 7.
-     */
-    public static final int HEAL_ECHO_SPEED = 7;
-
-    /*
-     * b140: the plan for a bot's party Heal cast - the same plan the undead Heal attack uses (BotAttackDriver
-     * HEAL_PROFILE through BotSwingPlan.of: MAGIC route, the skill's own Skill.wz pose "alert2" = code 41, the level's
-     * line count), with the speed the stock echo of a player's Heal carries. Null when the plan cannot carry Heal
-     * (no pose data for the skill): the caller then sends no attack packet.
-     */
-    public static BotSwingPlan healCastPlan(int level, int weaponItemId, boolean facingLeft) {
-        BotSwingPlan p = BotSwingPlan.of(BotAttackDriver.HEAL_PROFILE, level, weaponItemId, facingLeft,
-                BotAttackDriver.HEAL_PROFILE.numDamage);
-        if (p.skillId() != BotAttackDriver.HEAL_PROFILE.skillId || p.route() != BotAttackProfile.Route.MAGIC) {
-            return null;
-        }
-        return new BotSwingPlan(p.route(), p.skillId(), p.skillLevel(), p.action(), p.facingLeft(), HEAL_ECHO_SPEED,
-                p.prepare(), p.prepareAction(), p.shots(), p.maxMobs(), p.lines(), p.weaponItemId());
-    }
-
-    /*
-     * b140: the MAGIC_ATTACK packet a player's Heal produces when it hits no mob: the viewer's client draws the Heal
-     * light column from it (Heal is on its no-pose-check list, BotClientPoses.NO_ACTION_CHECK). No targets: 0 mobs in
-     * the high nibble, the level's lines in the low one, as the player's client sends.
-     */
-    public static Packet healCastPacket(Character bot, BotSwingPlan plan) {
-        return attackPacket(bot, plan, Map.of(), plan.lines() & 0x0F, 0);
-    }
-
-    /*
      * The keydown packet a player's client sends before a keydown / prepare skill (CUserLocal 0x96b0be -> the server's
      * SkillEffectHandler, which relays it as SKILL_EFFECT): skill, level, the keydown pose with the facing bit on
      * top, the attack speed. A viewer (CUserRemote::OnPrepare 0x980a81) starts the keydown pose and effect; for a

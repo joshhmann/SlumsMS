@@ -94,7 +94,7 @@ public final class BotAttackDriver {
     // Cleric Heal (2301002) damages undead as an AoE in v83 (client-authoritative). A cleric-line bot
     // casts it at an undead pack instead of its normal bolt; the MAGIC route renders the heal and applies
     // real damage like any bot magic attack. Heal is not a charge skill, so magicChargeFor(-1) already fits.
-    static final BotAttackProfile HEAL_PROFILE = BotAttackProfile.magicAoe(Cleric.HEAL, 1);
+    private static final BotAttackProfile HEAL_PROFILE = BotAttackProfile.magicAoe(Cleric.HEAL, 1);
 
     private BotAttackDriver() {}
 
@@ -158,6 +158,14 @@ public final class BotAttackDriver {
     /* When the bot's last swing ends (its pose has played out): 0 when it has not swung. */
     public static long swingEndsAt(int botId) {
         return nextAttackByBot.getOrDefault(botId, 0L);
+    }
+
+    /*
+     * b140: the bot may not swing before {@code until} (epoch ms). A party Heal holds the next attack this way so the
+     * cast's pose and light column play out before an attack's pose replaces them; a longer wait already set stays.
+     */
+    public static void holdAttacks(int botId, long until) {
+        nextAttackByBot.merge(botId, until, Math::max);
     }
 
     /*

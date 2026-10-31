@@ -41,6 +41,7 @@ final class GCFollow {
         int travelDest = -1; // map the current follow-travel is heading to (-1 = not traveling)
         volatile int blockedDest = -1; // 1.6.0.4 owned alt: the owner's map it cannot walk to (not retried)
         volatile boolean toldWaiting;  // 1.6.0.4 owned alt: the owner has heard why it waits (once until it catches up)
+        volatile Object leftInstance;  // 1.6.2 S3: the instance it last went out of with its leader (tried once each)
 
         Session(Character bot, Character target) {
             this.bot = bot;
@@ -100,14 +101,47 @@ final class GCFollow {
         var leaderEim = leader.getEventInstance();
         var leaderMap = leader.getMap();
         var mapEim = leaderMap == null ? null : leaderMap.getEventInstance();
+        // 1.6.2 S3: a follower inside an instance its leader left goes out with it (leavesWithLeader) - judged from
+        // outside, where it is going: it waits only if the leader went somewhere it could not enter from there.
+        boolean leaving = leavesWithLeader(bot, leader);
+        if (leaving) {
+            botEim = null;
+        }
         boolean blocked = leaderEim != botEim || (mapEim != null && mapEim != botEim)
-                || (bot.getMapId() == leader.getMapId() && bot.getMap() != leaderMap);
+                || (!leaving && bot.getMapId() == leader.getMapId() && bot.getMap() != leaderMap);
         if (!blocked) {
             return null;
         }
         return bot.isOwnedAlt()
                 ? bot.getName() + " waits outside: alts can't follow you into an instance they did not enter with you."
                 : bot.getName() + " waits outside: it can't follow you into an instance it did not enter with you.";
+    }
+
+    /*
+     * 1.6.2 S3: the follower is inside an event instance (the event registered it with the party) and its leader is
+     * no longer in that instance - it went out through the exit, a scroll, a warp, or into another event. A member
+     * does not stay behind: it leaves too, the way a player leaves (BotEventExit: the script's playerExit, which
+     * unregisters it and sends it to the event's exit map), and follows from there. Before, the instance check read
+     * this as "the leader is in an instance the bot did not enter" and the bot stood inside saying it waits outside.
+     */
+    static boolean leavesWithLeader(Character bot, Character leader) {
+        var botEim = bot.getEventInstance();
+        return botEim != null && leader.getEventInstance() != botEim;
+    }
+
+    /* Out of the instance through the event's own exit, once per instance; the next poll follows from the exit map. */
+    private static void leaveWithLeader(Session s, Character bot) {
+        var eim = bot.getEventInstance();
+        if (eim == null || s.leftInstance == eim) {
+            return; // already on its way out (or the script kept it: not retried every poll)
+        }
+        s.leftInstance = eim;
+        if (GCMovement.isTraveling(bot)) {
+            GCTravel.cancel(bot);
+        }
+        s.travelDest = -1;
+        GCMovement.pauseFollowForTravel(bot);
+        soloMapling.ArtificialPlayer.BotEventExit.leave(bot);
     }
 
     /* The alt / follower stands where it is (no travel, no same-map tailing) and its player hears why, once per map. */
@@ -149,6 +183,10 @@ final class GCFollow {
             return;
         }
 
+        if (leavesWithLeader(bot, target)) { // 1.6.2 S3: its leader left the instance; alts and bots alike
+            leaveWithLeader(s, bot);
+            return;
+        }
         String blocked = followBlockReason(bot, target); // alts and population followers alike (b168)
         if (blocked != null) {
             waitHere(s, bot, target, blocked);
