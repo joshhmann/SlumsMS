@@ -285,7 +285,8 @@ public final class BotChatPrompt {
         };
     }
 
-    private static String jobName(int jobId) {
+    /** A job's name, lowercased, as the prompts say it ("beginner" when it has none). */
+    public static String jobName(int jobId) {
         String name = GameConstants.getJobName(jobId);
         return name == null || name.isBlank() ? "beginner" : name.toLowerCase();
     }

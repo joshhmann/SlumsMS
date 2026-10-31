@@ -2,6 +2,8 @@ package soloMapling.ArtificialPlayer;
 
 import client.Character;
 import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrain;
+import soloMapling.ArtificialPlayer.BotConvo.BotReplyView;
+import soloMapling.ArtificialPlayer.BotConvo.ReplyPlanner;
 import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrains;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats;
@@ -622,17 +624,39 @@ public final class BotConversation {
         boolean wary = BotChatActions.wary(slot, player.getId());
         // Ticket 26: the chat's first reply to a player the bot knows greets them like an acquaintance.
         boolean recognise = !botHasSpoken(session) && !wary && BotRecognition.knows(slot, player.getId());
-        String system = systemPrompt(session, slot, activity, wary, recognise, action.fact(), asked, whisper,
-                BotChatPrompt.asksAboutTheWorld(line));
-        soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Snapshot mind = session.mind;
-        if (mind != null && soloMapling.ArtificialPlayer.BotConvo.StateOfMind.promptOn()) {
-            system += soloMapling.ArtificialPlayer.BotConvo.StateOfMind.prompt(mind); // ticket 156: speak from it
+        // m02: the game decides the move and its facts first; the model only words them, from a short prompt.
+        ReplyPlanner.Plan plan = null;
+        ReplyPlanner.View view = null;
+        if (planReply(action.outcome())) {
+            try {
+                view = BotReplyView.of(session.bot, player, slot, activity, line, triage, botHasSpoken(session), wary);
+                plan = ReplyPlanner.plan(view);
+            } catch (RuntimeException | LinkageError e) {
+                log.debug("Reply planner unavailable for {}: {}", bot.getName(), e.toString());
+            }
         }
-        if (action.outcome() == BotChatActions.Outcome.NONE && soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("contract")) {
-            system += " " + soloMapling.ArtificialPlayer.BotConvo.ConvoContract.instructions();
+        String system;
+        if (plan != null) {
+            if (plan.move() == ReplyPlanner.Move.TRAIN_SPOT || plan.move() == ReplyPlanner.Move.LEVEL_TALK) {
+                // the plan names a spot for the player's level: the checker has to know it too, or it rejects the line
+                session.mind = mindFor(session, history, offer, action.fact(), line, true);
+            }
+            system = ReplyPlanner.prompt(view, plan);
+        } else {
+            system = systemPrompt(session, slot, activity, wary, recognise, action.fact(), asked, whisper,
+                    BotChatPrompt.asksAboutTheWorld(line));
+            soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Snapshot mind = session.mind;
+            if (mind != null && soloMapling.ArtificialPlayer.BotConvo.StateOfMind.promptOn()) {
+                system += soloMapling.ArtificialPlayer.BotConvo.StateOfMind.prompt(mind); // ticket 156: speak from it
+            }
+            if (action.outcome() == BotChatActions.Outcome.NONE && soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("contract")) {
+                system += " " + soloMapling.ArtificialPlayer.BotConvo.ConvoContract.instructions();
+            }
         }
         String detail = triage.describe() + " " + read.describe() + (action.outcome() == BotChatActions.Outcome.NONE ? ""
                 : " -> " + action.outcome().name().toLowerCase());
+        final ReplyPlanner.Plan decided = plan;
+        final ReplyPlanner.View seen = view;
         List<BotBrain.Turn> prompt = BotChatPrompt.conversation(system, history, heard.transcript(), player.getName(),
                 heard.justSaid());
         qaPrompt(bot, player, session.priority, prompt);
@@ -699,24 +723,49 @@ public final class BotConversation {
                 fallback.run();
                 ChatStats.reply(ChatStats.Tier.SCRIPTED, System.currentTimeMillis() - asked, bot.getName(),
                         detail + ", llm fell back to the caller's script");
-            } else {
-                String activityAnswer = ScriptedReplies.activityQuestion(line);
-                if (activityAnswer != null) {
-                    // A generic acknowledgement cannot answer "what u doing". This is true while replying;
-                    // the saved roster activity is a role, not proof of current combat, travel or shopping.
-                    deliver(session, activityAnswer, asked, ChatStats.Tier.SCRIPTED,
-                            detail + ", factual activity reply", cue);
+            } else if (decided != null) {
+                // m02: the model did not answer; the plan's own script says the same move from the same facts
+                String planned = ReplyPlanner.line(bot.getId(), seen, decided, ThreadLocalRandom.current());
+                if (planned != null) {
+                    deliver(session, planned, asked, ChatStats.Tier.SCRIPTED, detail + ", planned "
+                            + decided.move().name().toLowerCase(java.util.Locale.ROOT), cue);
                     return;
                 }
-                soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line scripted = recognise
-                        && triage.kind() == ChatTriage.Kind.GREETING
-                        ? bank(session, "recognise", read, BotRecognition.scriptedHello(player.getName(),
-                        ThreadLocalRandom.current()))
-                        : bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.kind(), triage.intent(), line), read,
-                        ScriptedReplies.forKind(triage.kind()));
-                deliver(session, scripted, asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back", cue);
+                fallbackScript(session, recognise, triage, line, read, asked, detail, cue);
+            } else {
+                fallbackScript(session, recognise, triage, line, read, asked, detail, cue);
             }
         });
+    }
+
+    /** The reply when the model said nothing: the factual activity answer, else the bank's line for the triage. */
+    private static void fallbackScript(Session session, boolean recognise, ChatTriage.Result triage, String line,
+                                       soloMapling.ArtificialPlayer.BotConvo.ConvoSense.Read read, long asked,
+                                       String detail, Cue cue) {
+        Character player = session.player;
+        String activityAnswer = ScriptedReplies.activityQuestion(line);
+        if (activityAnswer != null) {
+            // A generic acknowledgement cannot answer "what u doing". This is true while replying;
+            // the saved roster activity is a role, not proof of current combat, travel or shopping.
+            deliver(session, activityAnswer, asked, ChatStats.Tier.SCRIPTED,
+                    detail + ", factual activity reply", cue);
+            return;
+        }
+        soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line scripted = recognise
+                && triage.kind() == ChatTriage.Kind.GREETING
+                ? bank(session, "recognise", read, BotRecognition.scriptedHello(player.getName(),
+                ThreadLocalRandom.current()))
+                : bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(triage.kind(), triage.intent(), line), read,
+                ScriptedReplies.forKind(triage.kind()));
+        deliver(session, scripted, asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back", cue);
+    }
+
+    /**
+     * Whether this reply is planned before it is worded (m02). Off by default and only for plain talk: an ask is the
+     * action layer's, and with the switch off the reply takes the prompt it took before this ticket, byte for byte.
+     */
+    static boolean planReply(BotChatActions.Outcome outcome) {
+        return soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.planner() && outcome == BotChatActions.Outcome.NONE;
     }
 
     /**
@@ -745,12 +794,7 @@ public final class BotConversation {
             card = soloMapling.ArtificialPlayer.BotConvo.RelationshipCard.of(bot, player, activity,
                     soloMapling.ArtificialPlayer.BotConvo.BotThreads.contextFor(bot.getId(), player.getId()), now);
         }
-        if (soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.on("persona")) {
-            soloMapling.ArtificialPlayer.BotConvo.ConvoPersona voice = soloMapling.ArtificialPlayer.BotConvo.ConvoPersona.of(
-                    slot, traits == null ? -1 : traits.chattiness());
-            voiceLine = voice.prompt(context.job(), bot.getGuildId() > 0)
-                    + soloMapling.ArtificialPlayer.BotConvo.ConvoTune.promptLines();
-        }
+        voiceLine = soloMapling.ArtificialPlayer.BotConvo.BotReplyView.voiceLine(slot, bot);
         return BotChatPrompt.system(context, persona, traits == null ? 0.4 : traits.chattiness(), card, voiceLine,
                 worldFacts)
                 + soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityReactions.promptLine(bot.getId(), player) // ticket 58: friend or beef
@@ -777,6 +821,13 @@ public final class BotConversation {
     private static soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Snapshot mindFor(Session session,
             List<BotBrain.Turn> history, soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Offer offer, String fact,
             String line) {
+        return mindFor(session, history, offer, fact, line, false);
+    }
+
+    /** As above; {@code world} forces the world block (m02: a planned training or level reply names a spot). */
+    private static soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Snapshot mindFor(Session session,
+            List<BotBrain.Turn> history, soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Offer offer, String fact,
+            String line, boolean world) {
         if (!soloMapling.ArtificialPlayer.BotConvo.StateOfMind.promptOn()
                 && !soloMapling.ArtificialPlayer.BotConvo.StateOfMind.checkOn()) {
             return null;
@@ -786,7 +837,7 @@ public final class BotConversation {
         }
         try {
             return BotStateOfMind.capture(session.bot, session.player, history, false, offer, fact,
-                    line != null && BotChatPrompt.asksAboutTheWorld(line));
+                    world || line != null && BotChatPrompt.asksAboutTheWorld(line));
         } catch (RuntimeException | LinkageError e) {
             log.debug("State of mind unavailable for {}: {}", session.bot.getChr().getName(), e.toString());
             return null;
