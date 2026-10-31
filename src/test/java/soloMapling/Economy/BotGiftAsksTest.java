@@ -307,6 +307,22 @@ class BotGiftAsksTest {
     }
 
     @Test
+    void theStagingsForgetClearsAStoredGiftFromAnEarlierRun() throws Exception {
+        // TEST 10-31 06:29 (t-gf-2, run 4d3de9837): tr-9's own first ask answered ALREADY_THIS_WEEK, because the
+        // staging forgot the gift time in memory only and lastGiftAt went on to read the row the previous run saved.
+        Character bot = bot(500);
+        Character p = player(11, 501);
+        befriend(bot, p);
+        t.store.saveGift(bot.getId(), p.getId(), t.now.get() - EconomyTestSupport.DAY, "an earlier run's gift");
+        assertEquals(BotGiftAsks.Outcome.ALREADY_THIS_WEEK, BotGiftAsks.handle(bot, p, "got any pots?"));
+
+        BotGifts.forget(bot.getId(), p.getId());   // what tr-9's stage does
+
+        assertEquals(BotGiftAsks.Outcome.GAVE, BotGiftAsks.handle(bot, p, "got any pots?"),
+                "the staging forgot the pair, but the stored row answered for it");
+    }
+
+    @Test
     void anUnpromptedGiftThisWeekCountsForThePair() throws Exception {
         Character bot = bot(500);
         Character p = player(11, 501);
