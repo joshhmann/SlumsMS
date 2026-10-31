@@ -18,15 +18,20 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * m02 section 6: the replay check over real TEST traffic. Four days of replies to players (2026-10-28..31, 768 lines,
- * checked in as {@code chat/replies-to-players-2026-10-28-31.jsonl}) are re-read with the rule triage and the planner:
- * how many said the bot was grinding where it stood in a town, which of the lines the planner would have moved
- * instead, what its scripts say in their place, and which lines three or more bots said word for word. {@code main}
- * prints the tables for REPORT.md; {@link ReplyReplayTest} asserts them.
+ * m02 section 6: the replay check over replies to players. A row is a line a bot said to a player, re-read with the
+ * rule triage and the planner: whether it said the bot was grinding where it stood in a town, which of the lines the
+ * planner would have moved instead, what its scripts say in their place, and which lines three or more bots said word
+ * for word.
+ *
+ * The checked-in fixture ({@code chat/replies-fixture.jsonl}) is 24 hand-written rows with invented names, one for
+ * each kind of before row, so the test stays small and nobody's real chats live in the repo. The real TEST traffic
+ * (2026-10-28..31, 768 lines) is kept outside the repo, at
+ * {@code /root/work/agent-runs/chat/c-ctxprompt/data/replies-to-players-2026-10-28-31.jsonl}; {@code main <path>}
+ * prints the same tables for it.
  */
 final class ReplyReplay {
 
-    static final String FIXTURE = "/chat/replies-to-players-2026-10-28-31.jsonl";
+    static final String FIXTURE = "/chat/replies-fixture.jsonl";
 
     /** What players call the towns in the transcript, for the planner's place fact (offline: no game data). */
     private static final Map<Integer, String> TOWN_NAMES = Map.ofEntries(
@@ -50,8 +55,17 @@ final class ReplyReplay {
     }
 
     static List<Row> rows() throws IOException {
+        return parse(read());
+    }
+
+    /** The same rows from a file outside the repo: the real traffic kept in {@code agent-runs}. */
+    static List<Row> rows(Path file) throws IOException {
+        return parse(Files.readString(file, StandardCharsets.UTF_8));
+    }
+
+    private static List<Row> parse(String text) {
         List<Row> out = new ArrayList<>();
-        for (String raw : read().split("\n")) {
+        for (String raw : text.split("\n")) {
             if (raw.isBlank()) {
                 continue;
             }
@@ -199,7 +213,7 @@ final class ReplyReplay {
     }
 
     public static void main(String[] args) throws IOException {
-        Result r = run(rows());
+        Result r = run(args.length == 0 ? rows() : rows(Path.of(args[0])));
         System.out.println("replies to players: " + r.replies() + "  " + r.sources());
         System.out.println("on a town map:      " + r.town() + "  (" + r.townAsked()
                 + " with the player's line recorded, " + r.plannedAsked() + " of those planned)");
@@ -230,11 +244,6 @@ final class ReplyReplay {
             }
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
-    }
-
-    /** For a run over fresh logs: {@code java ... ReplyReplay <files>}. */
-    static String readFile(Path path) throws IOException {
-        return Files.readString(path, StandardCharsets.UTF_8);
     }
 
     private static String str(Object o) {
