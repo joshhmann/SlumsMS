@@ -459,6 +459,21 @@ public final class BotRebirthQa {
         return itemId < 0 ? 0 : bot.getInventory(InventoryType.ETC).countById(itemId);
     }
 
+    /**
+     * rb-2: whether the run's clear item is accounted for: it sits in the bag, or the bot's own rebirth decision
+     * already spent it on the key it carries now. TEST 10-31 07:23: the item was handed over at 07:23:00.999 and the
+     * bot crafted its key 4033442 out of it at 07:23:02.308, before the probe's own 2 s poll looked at the bag, so
+     * "1 held" alone failed a run that did everything right. A key the bot already carried does not count.
+     */
+    public static boolean clearItemEarned(int held, int keyBefore, int keyNow) {
+        return held >= 1 || (held == 0 && keyNow > keyBefore);
+    }
+
+    /** rb-2: how many of the key for the bot's next rebirth it carries right now. */
+    public static int keyAhead(Character bot) {
+        return count(bot, BotRebirth.keyItemFor(bot.getReborns()));
+    }
+
     private static String held(Character bot, int[] ids) {
         return ids.length < 2 ? "-" : count(bot, ids[0]) + "/" + count(bot, ids[1]);
     }

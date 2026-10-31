@@ -1755,15 +1755,29 @@ final class Probes160 {
             ev.add(soloMapling.ArtificialPlayer.BotRebirthQa.stageVonLeon(b));
             int before = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
             if (before != 0) bad.add("held Von Leon's item before the run");
+            int keyBefore = soloMapling.ArtificialPlayer.BotRebirthQa.keyAhead(b.bot());
             var run = soloMapling.ArtificialPlayer.BotRebirthQa.runVonLeon(b, RB2_RUN_MS);
             ev.add("run: started " + run.started() + ", cleared " + run.cleared() + ", item by " + run.gotBy()
                     + ", " + run.result());
             ev.addAll(run.notes());
             if (!run.started()) bad.add("no Von Leon run formed: " + run.result());
             else if (!run.cleared()) bad.add("the Von Leon run did not clear: " + run.result());
-            int after = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
-            if (after != 1 || run.gotBy() == null) {
-                bad.add("Von Leon's item " + vlItem + ": " + after + " held, earned by " + run.gotBy());
+            // t-rb-2 (TEST 10-31): the hand-out is spent by the bot's own rebirth decision within about a second
+            // (it crafted its key 4033442 at 07:23:02.308, the probe looked at the bag a poll later), so the claim is
+            // "earned and accounted for", not "still in the bag": the item, or the next key it went into.
+            int after = -1;
+            int keyNow = keyBefore;
+            long giveUp = System.currentTimeMillis() + 5_000;
+            do {
+                after = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
+                keyNow = soloMapling.ArtificialPlayer.BotRebirthQa.keyAhead(b.bot());
+                if (soloMapling.ArtificialPlayer.BotRebirthQa.clearItemEarned(after, keyBefore, keyNow)) break;
+                Thread.sleep(200);
+            } while (System.currentTimeMillis() < giveUp);
+            ev.add("after the run: bag " + after + " x " + vlItem + ", key " + keyBefore + " -> " + keyNow);
+            if (run.gotBy() == null || !soloMapling.ArtificialPlayer.BotRebirthQa.clearItemEarned(after, keyBefore, keyNow)) {
+                bad.add("Von Leon's item " + vlItem + ": " + after + " held, key " + keyBefore + " -> " + keyNow
+                        + ", earned by " + run.gotBy());
             }
             if (bad.isEmpty()) {
                 List<String> fin = soloMapling.ArtificialPlayer.BotRebirthQa.finishRebirth(b);
