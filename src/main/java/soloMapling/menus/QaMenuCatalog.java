@@ -180,6 +180,7 @@ public final class QaMenuCatalog {
         add("cb-4", v(), steps("stepon", "fight"));
         add("sp-1", v(), steps("rope"));
         add("pt-1", v("noloot"), steps("drop"));
+        add("hc-1", v(), steps()); // 1.6.2 b140: a staged Bishop follower heals the GM, for the Heal-column script
         section("Ordinary v83 features (ticket 69)");
         add("vb-5", v(), steps("buy", "sell", "expcard"));
         add("vb-7", v(), steps("storage", "duey", "trade"));
