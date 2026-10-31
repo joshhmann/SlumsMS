@@ -6,11 +6,14 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Ticket 167: several checks in flight at once, on separate lanes of synthetic players. */
@@ -51,6 +54,27 @@ class AutoQaLanesTest {
                     return id;
                 }
             };
+        }
+    }
+
+    @Test
+    void everyLaneGetsItsOwnGmAndPairOfPlayers() {
+        Set<String> names = new HashSet<>();
+        for (int lane = 1; lane <= SyntheticPlayers.MAX_LANES; lane++) {
+            int gm = SyntheticPlayers.laneSlot(lane, 1);
+            int other = SyntheticPlayers.laneSlot(lane, 2);
+            assertEquals(lane, SyntheticPlayers.laneOfSlot(gm), "slot " + gm + " belongs to lane " + lane);
+            assertEquals(lane, SyntheticPlayers.laneOfSlot(other), "slot " + other + " belongs to lane " + lane);
+            assertTrue(SyntheticPlayers.isLaneSlot(gm) && SyntheticPlayers.isGmSlot(gm),
+                    "lane " + lane + " starts with a GM in slot " + gm);
+            assertFalse(SyntheticPlayers.isGmSlot(other), "lane " + lane + "'s second player is no GM");
+            names.add(SyntheticPlayers.nameOf(gm));
+            names.add(SyntheticPlayers.nameOf(other));
+        }
+        assertEquals(2 * SyntheticPlayers.MAX_LANES, names.size(), "no two players share a name: " + names);
+        for (int observer = SyntheticPlayers.FIRST_OBSERVER_SLOT; observer < SyntheticPlayers
+                .laneSlot(2, 1); observer++) {
+            assertFalse(SyntheticPlayers.isLaneSlot(observer), "observer slot " + observer + " must stay out of lanes");
         }
     }
 
