@@ -236,7 +236,8 @@ class WorkerCallsTest(unittest.TestCase):
 
     def test_capture_kinds_the_build_does_not_record_are_refused(self):
         worker, _ = self.make()
-        for kind in ('chat_log', 'packet_trace', 'samples'):
+        worker.capture('me', 'chat_log', 'chat', {}, True)   # from chat.received at the pull: no refusal
+        for kind in ('packet_trace', 'samples'):
             with self.assertRaises(qarunner.RunFailed) as caught:
                 worker.capture('me', kind, 'cap-1', {}, True)
             self.assertIn('%s capture is not available in this client build' % kind, str(caught.exception))

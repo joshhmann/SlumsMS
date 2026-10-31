@@ -499,8 +499,12 @@ class SilviaWorker:
         return self.json_tool("qa_burst", {"fps": fps, "ms": ms, "label": label})
 
     def capture(self, alias, kind, cap_id, spec, start):
-        """chat_log / packet_trace / samples: the QA build records none of them; never report one as recorded."""
-        raise RunFailed("a %s capture is not available in this client build (it records no chat log, packet trace or "
+        """chat_log comes from the pipe's chat.received events (client-170-qa-signals), written to
+        client/<alias>/chat.log at the pull; nothing to start or stop. packet_trace / samples: the QA build records
+        neither; never report one as recorded."""
+        if kind == "chat_log":
+            return
+        raise RunFailed("a %s capture is not available in this client build (it records no packet trace or "
                         "samples)" % kind, "refused")
 
     def pull(self, dest, labels=None):
@@ -520,6 +524,11 @@ class SilviaWorker:
             with (client / "pipe.log").open("w", encoding="utf-8") as out:
                 for event in events:
                     out.write(json.dumps(event) + "\n")
+            with (client / "chat.log").open("w", encoding="utf-8") as out:
+                for event in events:
+                    if event.get("ev") == "chat.received":
+                        out.write("%s\tkind=%s\t%s\n" % (event.get("utc", ""), event.get("kind", ""),
+                                                          event.get("text", "")))
             logs = self.json_tool("read_logs", {"lines": 200})
             (client / "client.log").write_text("\n\n".join("%s:\n%s" % (name, text)
                                                            for name, text in logs.items()), encoding="utf-8")
