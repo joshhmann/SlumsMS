@@ -329,10 +329,14 @@ class SilviaWorker:
         text = "\n".join(answer.get("text") or []).strip()
         if answer.get("isError"):
             raise RunFailed(text or (name + " was refused"), "refused")
-        try:
-            return json.loads(text)
-        except ValueError:
-            raise RunFailed("%s answered with something other than JSON: %s" % (name, text[:200]), "error")
+        # A reply can carry several text parts; status adds a "worker: {...}" line after its JSON. The first part
+        # that parses as JSON is the tool's answer.
+        for part in [text] + list(answer.get("text") or []):
+            try:
+                return json.loads(part.strip())
+            except ValueError:
+                continue
+        raise RunFailed("%s answered with something other than JSON: %s" % (name, text[:200]), "error")
 
     def events(self, alias):
         """The pipe's events since the last call for this alias; also the position for the next one."""
