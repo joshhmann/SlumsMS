@@ -914,6 +914,15 @@ public final class GCMovement {
     }
 
     /*
+     * 1.6.2 (b153): full movement physics on this map for a short window (about 2 s), without counting it as watched.
+     * Unwatched bots otherwise move by the coarse planner, which lands them on the nearest floor under a goal it
+     * cannot plan to: a bot-only KPQ run's bots stood still under their Ligators for minutes (t-mx-1/t-mx-2).
+     */
+    public static void holdFullPhysics(MapleMap map) {
+        ObserverTracker.holdFullPhysics(map);
+    }
+
+    /*
      * Force mapId to FULL ("observed") immediately for a short window, regardless of the ~1s observer
      * poll - so visible movement / combat / broadcast resume the same tick a real player arrives,
      * instead of up to one poll later. Used by BotMapEntryResponder when a real player enters a map.

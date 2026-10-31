@@ -389,6 +389,20 @@ says at its start when a member has no etc room; and a farmer whose coupon count
 it may take), at x,y, level L` line, so the next run says why if it is something else (nav, kills). Not proven on
 TEST yet (no read of bot bags without the DB); the next lobby run's STALL lines will show it.
 
+**Follow-up (d4f103b0e, 10-31 01:09-01:50 UTC): not the bag, the movement LOD.** The bot-only staged t-mx-1/t-mx-2
+(fresh bots, empty bags: `etc 96 free of 96`) ran out of their 15/25-minute budgets on stage 1 with 0-10 coupons per
+bot; ch 2/3 lobby runs the same night logged the same STALL lines. The bots swung 0-2 times in 9-15 minutes
+(`BotAttackStats`: xWaifu 0 swings in 544 s, Snailx 2 in 872 s) and their STALL positions repeat exactly across bots
+and runs (-57,104 by Cloto; 303,-66 three bots at once; -437,121; -437,-428; -454,-385; -470,120). The "85 and 252 s"
+staged run above had AqClient (a real client) on the stage map, and so did b153's player-led 534 s run (5-7 coupons a
+minute per bot). With no real player on the map, movement LOD goes coarse: the coarse planner lands a bot on the
+floor under a goal it cannot plan to (a point next to a Ligator on a ledge) and the fight step re-issues the same
+goal for ever, never in reach. Nothing in b32a14214..d4f103b0e changed fight or movement; bot-only runs were slow
+before too (14:41 UTC run: 10 minutes for 25 coupons). Fix (162-healamt): a run keeps the maps its bots stand on at
+full movement physics (`GCMovement.holdFullPhysics`, LOD only, not "watched") on every run tick
+(`MechanicsRuns.keepPhysics`). Proof needs a TEST run: t-mx-1 on the fix, or `!env lod pin 103000800` on the current
+build as an A/B.
+
 ## Phased plan
 
 | Phase | What | Size |
