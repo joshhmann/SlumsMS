@@ -1,4 +1,11 @@
-# Ticket 162: the NX desk (FOREX-style), stage 1 plan
+# Ticket 162: the NX desk (FOREX-style), the 1.6.3 plan
+
+**Not 1.6.2 (owner, 2026-10-31 ~19:50 UTC): the desk is 1.6.3 work; nothing of it is built in 1.6.2 and no desk
+switch goes out with 1.6.2** — not `-Dslums.exchange.houseAccount`, not `-Dslums.market.desk.*`, not the NX book
+cutover. 1.6.2 ships the NX order book with the **hard absolute price clamp** (2,500,000..10,000,000 per 1,000 NX,
+`NxGuard.NX_LOWEST`/`NX_HIGHEST`, see `docs/tickets/113-nx-exchange.md` "The hard window"), and
+`-Dslums.exchange.traders.nx` (bot NX book trading) stays OFF for 1.6.2 (`docs/release/1.6.2.conf`). The desk, when
+it comes, inherits a book whose every order and fill is already inside that window.
 
 Owner, 2026-10-31 12:45 UTC (via Coordinator): "NX becomes FOREX-style; items keep order books." This is the plan the
 owner asked for **before** any code: the model, the rate formula, the caps, what happens to the NX order book and the
@@ -93,6 +100,11 @@ A player buying 10,000 NX at `R` 5,000,000 pays 51,000,000 under A (2% spread + 
   fills at that ceiling double it again. The desk's `R` must therefore be clamped to the absolute
   [`PRICE_BAND` 2,500,000, 10,000,000] in code, and its quotes are the authority; the relative band then only guards
   the retired book. Owner decision: hard absolute clamp (**recommended**), or a wider band with a per-day cap.
+  **Decided and shipped in 1.6.2 (owner 2026-10-31 ~19:50 UTC): the hard clamp**, not the desk. The window is now in
+  code (`NxGuard.NX_LOWEST`/`NX_HIGHEST`), `nxBand()` cannot leave it, every NX order on either side is refused
+  outside it (players, bots, house regulars, the site), and fills follow because a fill trades at the resting order's
+  price. The probe above no longer reproduces: with the rate at 9,500,000 a 10,500,000 buy is `PRICE_BAND`. The desk
+  will therefore start from a book that is already inside the window; its `R` clamp is unchanged by that.
 - **`NxGuard`.** The band becomes a safety net (R is inside it by construction). NX buy limits, the site's step-up and
   the halt are unchanged.
 - **The 1.6.2 branch's bot NX book work.** Reused: the bot purse (`Exchange.botNx`, a bot's NX in its own PAYOUT
