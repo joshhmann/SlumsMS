@@ -593,12 +593,13 @@ final class Probes160 {
             if (m != null && m.isAlive()) {
                 field.killMonster(m, gm, false);
             }
+            java.awt.Point at = gm.getPosition();
+            int x = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stageMobX(field, at, side);
             m = server.life.LifeFactory.getMonster(ALT_MOB);
-            field.spawnMonsterOnGroundBelow(m, new java.awt.Point(gm.getPosition().x + side, gm.getPosition().y));
+            field.spawnMonsterOnGroundBelow(m, new java.awt.Point(x, at.y));
             staged.add(m);
             java.awt.Point mp = m.getPosition();
-            if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.onDifferentLedge(field,
-                    gm.getPosition().x, gm.getPosition().y, mp.x, mp.y)) {
+            if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.onDifferentLedge(field, at.x, at.y, mp.x, mp.y)) {
                 break;
             }
         }
@@ -1722,9 +1723,11 @@ final class Probes160 {
      * regulars, the event started as the recruiter does, Von Leon summoned as his NPC does (staged at 1% of his HP so
      * the check fits in minutes; the run's notes give the real fight's expected length), fought with the bot attack
      * driver through the map's boss rules; (3) the run must clear (the event's own
-     * monsterKilled / clearPQ) and the bot must hold Von Leon's item afterwards, earned in that run (the clear reward
-     * or the floor), never before it; (4) its decisions craft the 2nd key, it is reborn (rebirth 2) at level 1 with
-     * the rebirth checks of t-rb-1; (5) the bot, its items and the run's boss-log rows are put back.
+     * monsterKilled / clearPQ), name this bot as the one it handed Von Leon's item to (the clear reward or the floor),
+     * and the bot's own craft must then have spent that exact item on the key for its next rebirth, after the run
+     * began - a bag count or a key that appeared any other way is not accepted; (4) its decisions craft the 2nd key,
+     * it is reborn (rebirth 2) at level 1 with the rebirth checks of t-rb-1; (5) the bot, its items and the run's
+     * boss-log rows are put back.
      */
     static List<String> botRebirthBoss(SyntheticPlayer p) throws InterruptedException {
         if (!soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.enabled()) {
@@ -1754,20 +1757,41 @@ final class Probes160 {
             ev.add(soloMapling.ArtificialPlayer.BotRebirthQa.stageVonLeon(b));
             int before = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
             if (before != 0) bad.add("held Von Leon's item before the run");
+            int craftReborns = b.bot().getReborns(); // staged at 1: the key this rebirth takes is the 2nd
+            int keyBefore = soloMapling.ArtificialPlayer.BotRebirthQa.keyAhead(b.bot());
+            long runAt = System.currentTimeMillis();
             var run = soloMapling.ArtificialPlayer.BotRebirthQa.runVonLeon(b, RB2_RUN_MS);
             ev.add("run: started " + run.started() + ", cleared " + run.cleared() + ", item by " + run.gotBy()
                     + ", " + run.result());
             ev.addAll(run.notes());
             if (!run.started()) bad.add("no Von Leon run formed: " + run.result());
             else if (!run.cleared()) bad.add("the Von Leon run did not clear: " + run.result());
-            int after = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
-            if (after != 1 || run.gotBy() == null) {
-                bad.add("Von Leon's item " + vlItem + ": " + after + " held, earned by " + run.gotBy());
-            }
+            if (run.gotBy() == null) bad.add("the run handed Von Leon's item " + vlItem + " to no one");
+            // t-rb-2 (round 2): neither "the item is in the bag" nor "the next key count went up" is the claim. A key
+            // arrives from another bot's clear, a GM grant or another route too. The pass needs this bot's own craft
+            // to have spent this item on the key for this rebirth, after this run began, and the run to name this bot
+            // as the one the item was handed to.
+            int afterRun = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
+            int keyAfterRun = soloMapling.ArtificialPlayer.BotRebirthQa.keyAhead(b.bot());
+            boolean spentEarly = soloMapling.ArtificialPlayer.BotRebirthQa.clearItemConsumed(b.bot(), vlItem,
+                    craftReborns, runAt);
+            ev.add("after the run: bag " + afterRun + " x " + vlItem + ", key " + keyBefore + " -> " + keyAfterRun
+                    + ", the bot's own craft spent " + vlItem + " on that key: " + spentEarly);
             if (bad.isEmpty()) {
+                // its decisions craft the key (the bot's own, or forced here as the walk does) and it is reborn
                 List<String> fin = soloMapling.ArtificialPlayer.BotRebirthQa.finishRebirth(b);
                 ev.addAll(fin);
-                bad.addAll(soloMapling.ArtificialPlayer.BotRebirthQa.check(b, 1));
+                int after = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
+                boolean spent = soloMapling.ArtificialPlayer.BotRebirthQa.clearItemConsumed(b.bot(), vlItem,
+                        craftReborns, runAt);
+                ev.add("after its rebirth decisions: bag " + after + " x " + vlItem + ", the bot's own craft spent "
+                        + vlItem + " on rebirth " + (craftReborns + 1) + "'s key: " + spent);
+                if (!spent) {
+                    bad.add("Von Leon's item " + vlItem + " was not spent by this bot's own craft on rebirth "
+                            + (craftReborns + 1) + "'s key (bag " + after + ", key " + keyBefore + " -> " + keyAfterRun
+                            + ", earned by " + run.gotBy() + "); a key that appeared any other way is not the item");
+                }
+                bad.addAll(soloMapling.ArtificialPlayer.BotRebirthQa.check(b, craftReborns));
                 ev.add("after: " + soloMapling.ArtificialPlayer.BotRebirthQa.describe(b));
             }
         } finally {
@@ -1778,8 +1802,8 @@ final class Probes160 {
             bad.add("the bot was not put back");
         }
         return verdict(bad, "a level 200 regular went into a real Von Leon run (boss staged at 1% HP), the kill cleared"
-                + " the event, it came out with Von Leon's item from that kill, crafted its 2nd key and was reborn; then"
-                + " put back", ev);
+                + " the event and handed it Von Leon's item, its own craft spent that item on its 2nd key and it was"
+                + " reborn; then put back", ev);
     }
 
     // ── t-rb-3: a player makes an Essence Stone at Wyatt and is reborn with it (1.6.1, owner 2026-10-29) ─────────

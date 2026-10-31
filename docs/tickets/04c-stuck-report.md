@@ -17,7 +17,8 @@ A daily file or GM command with the top hotspots.
 - **Recording** (`NavStuckLog`, in the server): the movement code already noticed stuck bots; each of these now also
   counts one event per UTC day, map, kind, 50px spot and the edge the bot was on:
   - `UNSTUCK`: the unstuck hop fired;
-  - `GAVE_UP`: an edge given up because its launch window was never reached;
+  - `GAVE_UP`: an edge given up because its launch window was never reached, or (Round 2, t-mx-2) a move target the
+    bot made no progress toward for 8 s;
   - `ROPE_HUNG`: ClimbRecovery kicked the bot off a hung rope;
   - `AIR_FROZEN` and `FELL_OFF_MAP`: put back by a watchdog;
   - `NO_REGION` and `NO_PATH`: the bot stood off the graph, or had no route. These two are counted at most once per

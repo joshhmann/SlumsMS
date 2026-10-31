@@ -379,10 +379,16 @@ final class MechanicsScenarios {
             requireMechanics();
             Character gm = ctx.gm();
             net.server.channel.Channel here = gm.getClient().getChannelServer();
-            net.server.channel.Channel other = gm.getWorldServer().getChannels().stream()
-                    .filter(c -> c != null && c.getId() != here.getId()).findFirst().orElse(null);
+            // TEST 10-31 (t-mx-4): "the first other channel" had an instance no run owned, so Lakelis refused the
+            // staging and the check failed on that, not on two channels playing at once. Take a channel whose KPQ is
+            // free; the one we play on must be free too.
+            net.server.channel.Channel other = soloMapling.mechanics.KpqLobby.pickOtherChannel(here);
             if (other == null) {
-                throw new QaRefusal("mx-4 needs a second channel");
+                throw new QaRefusal("every other channel's Kerning PQ has a live instance right now; mx-4 needs one free");
+            }
+            if (!soloMapling.mechanics.KpqLobby.kpqFreeOn(here)) {
+                throw new QaRefusal("channel " + here.getId() + "'s Kerning PQ has a live instance right now"
+                        + " (a stopped run or a lobby run left it open); mx-4 needs its own channel free");
             }
             List<KpqStaging.Staged> staged = new java.util.ArrayList<>();
             ctx.onStop("stop both KPQ runs and take their bots away", () -> {
@@ -426,6 +432,9 @@ final class MechanicsScenarios {
     /** A level for the check; the party list (which KPQ's eligibility reads) is told, as a level-up tells it. */
     static void setLevel(Character c, int level) {
         c.setLevel(level);
+        if (c.getClient() == null) {
+            return; // an alt that died and went home has no client or channel to tell (TEST 10-31: t-mx-5's cleanup threw here)
+        }
         c.setMPC(new net.server.world.PartyCharacter(c));
         c.silentPartyUpdate();
     }
@@ -488,11 +497,22 @@ final class MechanicsScenarios {
             ctx.onStop("send the alts home with their levels back", () -> {
                 for (Character alt : called) {
                     Integer was = levels.get(alt.getId());
-                    if (was != null) {
-                        setLevel(alt, was);
-                    }
                     try {
-                        alts.dismiss(gm, alt.getName());
+                        Character back = alt;
+                        if (back.getClient() == null) {
+                            // it died and went home, which is a save at level 30 (TEST 10-31: t-mx-5 lost AutoQaAltB
+                            // this way and the restore threw): call it back, put the level right, then dismiss it
+                            back = alts.summon(gm, alt.getName());
+                            if (back == null) {
+                                ctx.run().note("MX5", "could not call " + alt.getName() + " back: it went home at level "
+                                        + MX5_ALT_LEVEL + " instead of " + was);
+                                continue;
+                            }
+                        }
+                        if (was != null) {
+                            setLevel(back, was);
+                        }
+                        alts.dismiss(gm, back.getName());
                     } catch (RuntimeException e) {
                         ctx.run().note("MX5", "could not dismiss " + alt.getName() + ": " + e.getMessage());
                     }

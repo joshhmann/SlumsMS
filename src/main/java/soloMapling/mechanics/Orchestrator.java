@@ -149,6 +149,8 @@ public final class Orchestrator implements RunOrchestrator {
             }
         }
 
+        noteStrays(run, view, nowMs);
+
         if (view.cleared()) {
             long took = nowMs - run.stageStartedMs();
             run.note(nowMs, "stage " + run.currentStage() + " cleared in " + took / 1000 + " s ("
@@ -401,6 +403,39 @@ public final class Orchestrator implements RunOrchestrator {
         int hi = Math.max(lo, after.bonusMaxSeconds());
         double f = Math.min(1.0, 0.6 * rnd.nextDouble() + 0.4 * persona.chaos());
         return (long) ((lo + (hi - lo) * f) * 1000);
+    }
+
+    /** How long a member may sit where the run cannot drive it before one note says so (a walk between stages fits). */
+    public static final long STRAY_GRACE_MS = 15_000;
+
+    /**
+     * One line for a member the run cannot drive: down, still on another map, or gone from the stage's map. Without
+     * it a stage that never finishes reads exactly like a stall with no cause (TEST 10-31: t-mx-2 stage 3 waited
+     * 19 minutes in silence, t-mx-5's second alt never asked Cloto and said nothing). Noted once per member and
+     * reason, after {@link #STRAY_GRACE_MS}, and again only if the member left and strayed once more.
+     */
+    static void noteStrays(RunState run, StageView view, long nowMs) {
+        Stage stage = run.stageData();
+        Map<String, Object> mem = run.stageMemory();
+        for (RunMember m : run.members()) {
+            int id = m.characterId();
+            int on = view.mapOf(id);
+            String why = !view.alive(id) ? "is down"
+                    : on != stage.mapId() ? "is on map " + on + (on == -1 ? " (not in the event)" : "") : null;
+            String key = "stray:" + id;
+            if (why == null) {
+                mem.remove(key);
+                mem.remove(key + ":noted");
+                continue;
+            }
+            if (mem.putIfAbsent(key, nowMs) == null || nowMs - (Long) mem.get(key) < STRAY_GRACE_MS) {
+                continue;
+            }
+            if (mem.putIfAbsent(key + ":noted", true) == null) {
+                run.note(nowMs, id + " " + why + ", not on stage " + stage.index() + "'s map " + stage.mapId()
+                        + ": the run cannot drive it");
+            }
+        }
     }
 
     @Override

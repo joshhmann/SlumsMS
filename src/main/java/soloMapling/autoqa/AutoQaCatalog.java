@@ -209,8 +209,17 @@ public final class AutoQaCatalog {
                 .expect(has("BOT_GUILD APPLY .*YES"), has("BOT_GUILD INVITE SENT"), has("BOT_GUILD PLAYER JOINED"),
                         atLeast(1, "BOT_GUILD GUILD CHAT", "hi", null),
                         atLeast(1, "MULTICHAT guild {bot}: ", "hi", "q"),
-                        Expects.atMost(1, "MULTICHAT guild (?!{me})\\S+: ", "hi", "q"),
-                        Expects.atMost(1, "MULTICHAT guild (?!{me})\\S+: ", "q", "end"))
+                        // t-gu-1 on TEST (run 4d3de9837): an unrelated bot's guild chatter ("who wants to do some
+                        // pqs later") inside the window counted as a second answer. Count the guild's ANSWERS (one
+                        // hook per bot that takes the line), not the chat the guild happens to be having.
+                        Expects.atMost(1, "BOT_GUILD GUILD CHAT ", "hi", "q"),
+                        Expects.atMost(1, "BOT_GUILD GUILD CHAT ", "q", "end"),
+                        // Review (round 2): the answer count alone is satisfied by a second bot that answers through a
+                        // path the answer hook never logs. Every other bot's guild line inside the window must be one
+                        // the log already marks as ordinary bot guild chat (GUILD SAY, the hook every bot line goes
+                        // through), so chatter still passes and a line delivered any other way FAILs.
+                        rule("no second bot answered the guild line outside the answer hook",
+                                AutoQaCatalog::noSecondAnswerer))
                 .build());
         c.add(Check.auto("t-gu-3", "Bot guilds recruit").laneOnly().minutes(4)
                 .step(fixture("guildless"), run("gu-3"), waitFor("BOT_GUILD RECRUIT (WHISPER|MEGAPHONE)", 60),
@@ -1272,7 +1281,8 @@ public final class AutoQaCatalog {
                 .build());
         // Rebirth keys from real boss kills (ticket 30 promise audit): a staged level 200 regular forms a real Von
         // Leon run (real expedition, event and summon, bot attacks through the map's boss rules), the kill clears the
-        // event, it comes out with Von Leon's item and is reborn; bot, items and boss-log rows put back after
+        // event and hands it the item, its own craft is seen spending that exact item on its 2nd key, and it is reborn;
+        // bot, items and boss-log rows put back after
         c.add(Check.auto("t-rb-2", "Bot rebirth: a level 200 regular earns its key item from a real Von Leon kill").holds("rebirth").minutes(20)
                 .expect(probe("botRebirthBoss"))
                 .build());
@@ -1483,8 +1493,9 @@ public final class AutoQaCatalog {
                 .build());
         // ticket 112 (decision 3): the bots' Maker batch, once for real on a fresh bot: crystals made and equips
         // disassembled through MakerService paying the client's fee, a bad item skipped without stopping the batch, and
-        // the per-bot and world caps counting operations (ProbesMaker). SKIPs when maker.botBatch is off
-        c.add(Check.auto("t-mk-2", "Bot Maker batch: crystals and disassembly, real fee, bad item skipped, caps count operations").laneOnly()
+        // the per-bot and world caps counting operations (ProbesMaker). On a world whose daily cap is spent the check
+        // reserves its own QA-only headroom for its bot and still runs. SKIPs only when maker.botBatch is off
+        c.add(Check.auto("t-mk-2", "Bot Maker batch: crystals and disassembly, real fee, bad item skipped, caps count operations").holds("maker")
                 .minutes(2)
                 .expect(probe("makerBatch"))
                 .build());
@@ -1933,5 +1944,65 @@ public final class AutoQaCatalog {
         }
         return hitches && slow * 5 > seen ? slow + " of " + seen + " swings at a live mob waited over 3 s past the swing"
                 : null;
+    }
+
+    /**
+     * t-gu-1 (review, round 2): nobody but the bot the answer hook named may take the player's guild line. Inside the
+     * window, every {@code MULTICHAT guild <bot>: <line>} from another bot has to be a line the log already marks as
+     * ordinary bot guild chat - a {@code BOT_GUILD GUILD SAY <bot> [<guild>]: <line>} hook for that same bot and line,
+     * which is where every unprompted guild line (chatter, welcomes, feuds) comes from. A bot line the player heard
+     * with no such hook was sent outside that path, i.e. a second answer the answer count cannot see.
+     */
+    static String noSecondAnswerer(CheckRun r) {
+        String first = firstAnswerer(r);
+        if (first == null) {
+            return "no BOT_GUILD GUILD CHAT line says which bot answered, so a second answerer cannot be told apart";
+        }
+        List<String> unexplained = new ArrayList<>();
+        for (AutoQaLine l : r.matching("MULTICHAT guild ", "hi", "end")) {
+            String message = l.message();
+            int colon = message.indexOf(": ");
+            if (colon < 0) {
+                continue;
+            }
+            String bot = message.substring("guild ".length(), colon);
+            String line = message.substring(colon + 2);
+            if (bot.equals(r.fill("{me}")) || bot.equals(first) || loggedGuildSay(r, bot, line)) {
+                continue;
+            }
+            unexplained.add(bot + ": " + line);
+        }
+        if (unexplained.isEmpty()) {
+            return null;
+        }
+        return unexplained.size() + " guild line(s) no BOT_GUILD GUILD SAY hook explains (a bot answered outside the "
+                + "answer path?): "
+                + String.join("; ", unexplained.subList(0, Math.min(unexplained.size(), Expects.EVIDENCE)));
+    }
+
+    /** The bot the answer hook named first after the {@code hi} mark: {@code GUILD CHAT <me>: "<line>" -> <bot> answers}. */
+    static String firstAnswerer(CheckRun r) {
+        for (AutoQaLine l : r.matching("BOT_GUILD GUILD CHAT ", "hi", "end")) {
+            String message = l.message();
+            int arrow = message.lastIndexOf(" -> ");
+            String tail = arrow < 0 ? "" : message.substring(arrow + 4);
+            if (tail.endsWith(" answers")) {
+                return tail.substring(0, tail.length() - " answers".length());
+            }
+        }
+        return null;
+    }
+
+    /** True when the log has {@code GUILD SAY <bot> [<guild>]: <line>} for this bot and this guild-chat line. */
+    static boolean loggedGuildSay(CheckRun r, String bot, String line) {
+        String prefix = "GUILD SAY " + bot + " [";
+        String tail = "]: " + line;
+        for (AutoQaLine l : r.matching("BOT_GUILD GUILD SAY ", "hi", "end")) {
+            String message = l.message();
+            if (message.startsWith(prefix) && message.endsWith(tail)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

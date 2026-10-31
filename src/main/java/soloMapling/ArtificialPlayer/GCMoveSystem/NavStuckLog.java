@@ -41,7 +41,7 @@ public final class NavStuckLog {
     public enum Kind {
         /** Stood in one spot with a move to make until the unstuck hop fired. */
         UNSTUCK,
-        /** Gave up on an edge whose launch window it never got into. */
+        /** Gave up on an edge whose launch window it never got into, or on a move it made no progress toward for 8 s. */
         GAVE_UP,
         /** Hung on a rope without climbing until the grind brain kicked it off. */
         ROPE_HUNG,

@@ -178,6 +178,9 @@ class BotMovementState {
     // blocked / bug) instead of trying forever. Reset whenever a new moveTarget is issued.
     int moveBestDist = Integer.MAX_VALUE;
     long moveProgressAtMs = 0L;
+    // The map the current moveTarget was issued on. Re-issuing the same point on the same map is the caller saying
+    // "keep going" (see GCMovement.move); the same coordinates on another map are a new journey with a new clock.
+    int moveTargetMapId = -1;
     Point farmAnchor = null;
     int farmAnchorMapId = -1;
 

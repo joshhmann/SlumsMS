@@ -84,10 +84,20 @@ public final class BotRebirth {
 
     public enum Stage { NOT_READY, MAXED, NOT_BOTHERED, GATHER, CRAFT, TRIP }
 
+    /**
+     * What one bot's own craft took and made: the rebirth it is for ({@code reborns} before the rebirth), the
+     * key, the items it used up, and when. Written at the consume itself, per character id, so a check can tell the
+     * item that went into this bot's key apart from a key that appeared any other way (QA: t-rb-2).
+     */
+    public record Crafted(int reborns, int key, int[] consumed, long atMs) {
+    }
+
     /** Per bot: when its next boss-run roll may happen, and when a failed trip may be tried again. */
     private static final Map<Integer, Long> nextRoll = new ConcurrentHashMap<>();
     private static final Map<Integer, Long> tripRetry = new ConcurrentHashMap<>();
     private static final Map<Integer, String> lastOutcome = new ConcurrentHashMap<>();
+    /** Per bot: its last key craft - which rebirth it was for, the key and the items it took (QA: t-rb-2). */
+    private static final Map<Integer, Crafted> lastCraft = new ConcurrentHashMap<>();
     private static final Pace pace = new Pace();
     /** Bot id -> rebirths, read from characters_rebirth once per boot (null until then). */
     private static volatile Map<Integer, Integer> stored;
@@ -368,18 +378,25 @@ public final class BotRebirth {
         int[] ing = ingredientsFor(reborns);
         int key = keyItemFor(reborns);
         if (key < 0 || ing.length == 0) return false;
+        int[] consumed = consumedFor(reborns);
         synchronized (bot) {
             for (int id : ing) if (count(bot, id) <= 0) return false;
             Item keyItem = new Item(key, (short) 0, (short) 1);
             if (!BotHoldings.canHold(bot, keyItem)) return false;
-            for (int id : consumedFor(reborns)) {   // the Cygnus Knight Emblem is held, not taken (owner 2026-10-29)
+            for (int id : consumed) {   // the Cygnus Knight Emblem is held, not taken (owner 2026-10-29)
                 Item held = bot.getInventory(InventoryType.ETC).findById(id);
                 if (held == null || BotHoldings.consumeHeld(bot, held, 1) != 1) return false;
             }
             if (!BotHoldings.grantItem(bot, keyItem)) return false;
         }
         log.info("[Rebirth] {} (lv {}) crafted rebirth key {}", bot.getName(), bot.getLevel(), key);
+        lastCraft.put(bot.getId(), new Crafted(reborns, key, consumed, System.currentTimeMillis()));
         return true;
+    }
+
+    /** The last key this bot crafted for itself, or null (QA: t-rb-2). */
+    public static Crafted lastCraft(int botId) {
+        return lastCraft.get(botId);
     }
 
     /** What a rebirth attempt did. */
@@ -535,6 +552,7 @@ public final class BotRebirth {
         nextRoll.clear();
         tripRetry.clear();
         lastOutcome.clear();
+        lastCraft.clear();
         certainUntil = 0;
         stored = new ConcurrentHashMap<>();
         dbWrites = false;

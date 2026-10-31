@@ -133,9 +133,10 @@ public final class NavStuckReport {
         }
         out.append("By kind: ").append(byKind.isEmpty() ? "none" : byKind.toString()).append("\n\n");
         out.append("Kinds: UNSTUCK = stood still with a move to make until the unstuck hop; GAVE_UP = never got into an")
-                .append(" edge's launch window; ROPE_HUNG = hung on a rope; AIR_FROZEN / FELL_OFF_MAP = put back by a")
-                .append(" watchdog; PIT = put back out of a pit with no way to the map's exits; NO_REGION = standing off the")
-                .append(" graph; NO_PATH = no route to the target's region.\n\n");
+                .append(" edge's launch window, or a move target it made no progress toward for 8 s; ROPE_HUNG = hung on a")
+                .append(" rope; AIR_FROZEN / FELL_OFF_MAP = put back by a watchdog; PIT = put back out of a pit with no way to")
+                .append(" the map's exits; NO_REGION = standing off the graph; NO_PATH = no route to the target's")
+                .append(" region.\n\n");
 
         out.append("## Top stuck spots\n\n");
         List<NavStuckLog.Spot> stuck = spots.stream().filter(s -> s.kind != NavStuckLog.Kind.NO_PATH).toList();

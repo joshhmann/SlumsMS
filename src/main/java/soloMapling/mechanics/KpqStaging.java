@@ -197,6 +197,14 @@ public final class KpqStaging {
             cleanup(spawned);
             return new Staged(null, List.of(), "the PQ started but the leader is not in it");
         }
+        // TEST 10-31, t-mx-5: the event started for the party Lakelis' own check returned, but its entry only takes a
+        // member it can find on this channel's copy of the recruit map (see bringThePartyIn): a skipped member is put
+        // in the way the others went in, and a member the event will not take is a refusal, not a silent short party.
+        String notIn = bringThePartyIn(eim, eligible, recruit, reporter);
+        if (notIn != null) {
+            cleanup(spawned);
+            return new Staged(null, List.of(), notIn);
+        }
         List<Integer> ours = List.copyOf(spawned);
         if (firstStage > 1) {
             int staged = stageEventTo(eim, content, firstStage);
@@ -229,6 +237,102 @@ public final class KpqStaging {
             return new Staged(a, ours, a.run().endedBecause());
         }
         return new Staged(a, ours, null);
+    }
+
+    /**
+     * Brings the members the event did not take in through the event's own entry, one at a time, and returns null when
+     * the instance holds every member Lakelis took the party for - or what to say when it does not. The event takes the
+     * party in through its own {@code playerEntry} (scripts/event/KerningPQ.js) and {@code
+     * EventInstanceManager.registerParty} registers only the members it finds on the map it was handed, skipping the
+     * rest without a word, while {@code getEligibleParty} counted them by map id alone. Stage 1 is cleared with one
+     * pass per OTHER member (scripts/npc/9020001.js), so a party short a member cannot clear, and a run over it would
+     * hold the rest where they stand. Nothing here moves a member onto a stage map (TEST 10-31, t-mx-5).
+     */
+    static String bringThePartyIn(EventInstanceManager eim, java.util.Collection<PartyCharacter> eligible,
+                                  MapleMap recruit, Consumer<String> reporter) {
+        List<Outside> outside = outsideTheInstance(eim, eligible, recruit);
+        for (Outside missed : outside) {
+            if (missed.character() != null) {
+                enterThroughTheEvent(eim, missed.character());
+            }
+        }
+        List<Outside> stillOutside = outsideTheInstance(eim, eligible, recruit);
+        if (!stillOutside.isEmpty()) {
+            return "the party quest started without " + names(stillOutside) + " (the event only takes a member it finds"
+                    + " on the " + (recruit == null ? RECRUIT_MAP : recruit.getId()) + " it started from, and stage 1 needs"
+                    + " one pass per other member, so it cannot clear)";
+        }
+        if (!outside.isEmpty() && reporter != null) {
+            reporter.accept("RUN the party went in short: " + names(outside)
+                    + " came in through the event's own entry (the party warp had left "
+                    + (outside.size() == 1 ? "it" : "them") + " outside)");
+        }
+        return null;
+    }
+
+    /**
+     * A party member the event did not take in: its character when that character is on the recruit map staging started
+     * on (so it can still be brought in), and its name either way (so a refusal can say who it is). TEST 10-31, t-mx-5.
+     */
+    record Outside(Character character, String name) {
+    }
+
+    /**
+     * The party members the event did not take in, in party order: the event started for them ({@code
+     * EventManager.startInstance} registers {@code party.getEligibleMembers()}, the list Lakelis' own eligibility
+     * check returned) but {@code EventInstanceManager.registerParty} registers only the members it finds on the map
+     * handed to it, skipping the rest without a word.
+     */
+    static List<Outside> outsideTheInstance(EventInstanceManager eim, java.util.Collection<PartyCharacter> eligible,
+                                            MapleMap recruit) {
+        List<Outside> out = new ArrayList<>();
+        if (eim == null || eligible == null) {
+            return out;
+        }
+        java.util.Set<Integer> inside = new java.util.HashSet<>();
+        for (Character c : eim.getPlayers()) {
+            if (c != null) {
+                inside.add(c.getId());
+            }
+        }
+        for (PartyCharacter mpc : eligible) {
+            if (mpc == null || inside.contains(mpc.getId())) {
+                continue;
+            }
+            out.add(new Outside(recruit == null ? null : recruit.getCharacterById(mpc.getId()), mpc.getName()));
+        }
+        return out;
+    }
+
+    /**
+     * Brings one party member into the instance the way every other member went in: {@link
+     * EventInstanceManager#registerPlayer(Character)} registers it and runs the event's own {@code playerEntry}, which
+     * warps it to the instance's entry map (scripts/event/KerningPQ.js). Nothing here moves a character onto a stage
+     * map: one put there without being registered is in no run and clears nothing. Returns whether the event took it.
+     */
+    static boolean enterThroughTheEvent(EventInstanceManager eim, Character chr) {
+        if (eim == null || chr == null || eim.isEventDisposed()) {
+            return false;
+        }
+        eim.registerPlayer(chr);
+        for (Character in : eim.getPlayers()) {
+            if (in != null && in.getId() == chr.getId()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Who a refusal or a run line is about, in party order ("AqClientAlt1, AqClientAlt2"). */
+    static String names(List<Outside> members) {
+        StringBuilder sb = new StringBuilder();
+        for (Outside m : members) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(m.name());
+        }
+        return sb.toString();
     }
 
     /**
