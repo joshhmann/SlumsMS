@@ -68,12 +68,20 @@ class FakeDriver:
         self.activity, self.client, self.backend = FakeActivity(), FakeClient(), FakeBackend()
         self.idle_required = 600
         self.force = False
+        self.run_now = False
         self.calls = []
         self.stage = None
         self.fail = None
 
     def local_config(self):
-        return {'force': self.force}
+        return {'force': self.force, 'run_now': self.run_now}
+
+    # The runnow worker (2026-10-28) asks the driver these two (driver.forced / driver.clear_run_now).
+    def forced(self):
+        return self.force or self.run_now
+
+    def clear_run_now(self):
+        self.run_now = False
 
     def ui_state(self):
         return None if self.stage is None else {'stage': self.stage}
@@ -148,6 +156,29 @@ class WorkerTests(unittest.TestCase):
         self.send('a', 'start_client')
         worker.tick()
         self.assertEqual(self.driver.calls, [('start_client', {})])
+
+    def test_run_now_skips_the_wait_and_ends_when_the_client_stops(self):
+        worker = self.worker()
+        self.driver.activity.idle, self.driver.run_now = 5, True
+        self.send('a', 'start_client')
+        worker.tick()
+        self.assertEqual(self.driver.calls, [('start_client', {})])
+        self.clock.t += self.config['health_seconds'] + 1
+        worker.tick()
+        self.assertTrue(self.driver.run_now)          # still on while the client runs
+        self.driver.client.running = []
+        self.clock.t += self.config['health_seconds'] + 1
+        worker.tick()
+        self.assertFalse(self.driver.run_now)         # the client stopped: Run now lapses
+        self.assertIn('run_now_off', [e.get('event') for e in self.out])
+
+    def test_run_now_lapses_when_no_client_starts(self):
+        worker = self.worker()
+        self.driver.activity.idle, self.driver.run_now = 5, True
+        worker.tick()
+        self.clock.t += 31 * 60
+        worker.tick()
+        self.assertFalse(self.driver.run_now)
 
     def test_status_answers_while_owner_is_active(self):
         worker = self.worker()

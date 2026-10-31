@@ -9,6 +9,8 @@ import struct
 import threading
 import time
 
+import idleseed
+
 from PIL import Image
 
 u = c.WinDLL('user32', use_last_error=True)
@@ -30,11 +32,20 @@ api(k, 'GetTickCount64', c.c_ulonglong)
 api(u, 'GetForegroundWindow', w.HWND)
 api(u, 'IsHungAppWindow', w.BOOL, w.HWND)
 api(u, 'SetForegroundWindow', w.BOOL, w.HWND)
+api(u, 'GetWindowLongW', c.c_long, w.HWND, c.c_int)
+api(u, 'GetWindowRect', w.BOOL, w.HWND, c.POINTER(w.RECT))
+api(u, 'ClientToScreen', w.BOOL, w.HWND, c.POINTER(w.POINT))
+try:
+    api(u, 'GetWindowDpiAwarenessContext', PTR, w.HWND)
+    api(u, 'GetAwarenessFromDpiAwarenessContext', c.c_int, PTR)
+except AttributeError:   # older Windows
+    pass
 api(u, 'keybd_event', None, w.BYTE, w.BYTE, w.DWORD, SIZE)
 api(u, 'BringWindowToTop', w.BOOL, w.HWND)
 api(u, 'ShowWindow', w.BOOL, w.HWND, c.c_int)
 api(u, 'PrintWindow', w.BOOL, w.HWND, w.HDC, w.UINT)
 api(u, 'GetWindowThreadProcessId', w.DWORD, w.HWND, c.POINTER(w.DWORD))
+api(u, 'GetClassNameW', c.c_int, w.HWND, w.LPWSTR, c.c_int)
 api(u, 'GetDC', w.HDC, w.HWND)
 api(u, 'ReleaseDC', c.c_int, w.HWND, w.HDC)
 api(g, 'CreateCompatibleDC', w.HDC, w.HDC)
@@ -80,14 +91,34 @@ def last_input_tick():
 
 
 class InputGuard:
-    """Track physical input; injected input must not reset the owner's idle time."""
-    def __init__(self):
-        self.last_physical = last_input_tick()
+    """Track physical input; injected input must not reset the owner's idle time.
+
+    state_path (logs/owner-input.json) carries the clock across worker restarts (b023, idleseed.py)."""
+    def __init__(self, state_path=None):
+        self.state_path = state_path
+        now_tick, now_wall = k.GetTickCount64(), time.time()
+        last_input_wall = now_wall - (now_tick - last_input_tick()) / 1000
+        seed = idleseed.seed_last_physical(now_wall, last_input_wall,
+                                           idleseed.read_state(state_path) if state_path else None)
+        self.last_physical = now_tick - int((now_wall - seed) * 1000)
         self.ready = threading.Event()
         self.healthy = False
         self.thread = threading.Thread(target=self._watch, daemon=True)
         self.thread.start()
         self.ready.wait(3)
+        if state_path:
+            threading.Thread(target=self._keep_state, daemon=True).start()
+
+    def _keep_state(self):
+        # Every few seconds while the hooks run: the last physical input seen and "watched until now".
+        while True:
+            if self.healthy and self.thread.is_alive():
+                now_tick, now_wall = k.GetTickCount64(), time.time()
+                try:
+                    idleseed.write_state(self.state_path, now_wall - (now_tick - self.last_physical) / 1000, now_wall)
+                except OSError:
+                    pass
+            time.sleep(5)
 
     def record_input(self, flags, extra, injected_mask):
         # Parsec and unrelated injected input still count as owner activity.
@@ -355,6 +386,25 @@ class OwnedClient:
         self.image_path(found[0][1])
         return found[0]
 
+    def window_info(self):
+        """Read-only facts about the owned game window: frame style, rectangles, DPI awareness (2026-10-29: the
+        proof for [graphics] borderless / dpiaware, which slums.dll does not log)."""
+        hwnd, _, _ = self.window()
+        style = u.GetWindowLongW(hwnd, -16) & 0xFFFFFFFF
+        wr, cr = w.RECT(), w.RECT()
+        u.GetWindowRect(hwnd, c.byref(wr))
+        u.GetClientRect(hwnd, c.byref(cr))
+        origin = w.POINT(0, 0)
+        u.ClientToScreen(hwnd, c.byref(origin))
+        try:
+            awareness = u.GetAwarenessFromDpiAwarenessContext(u.GetWindowDpiAwarenessContext(hwnd))
+        except (AttributeError, OSError):
+            awareness = None
+        return {'style': '%08X' % style, 'popup': bool(style & 0x80000000), 'caption': (style & 0x00C00000) == 0x00C00000,
+                'window_rect': [wr.left, wr.top, wr.right, wr.bottom],
+                'client_origin': [origin.x, origin.y], 'client_size': [cr.right, cr.bottom],
+                'dpi_awareness': {0: 'unaware', 1: 'system', 2: 'per-monitor'}.get(awareness, awareness)}
+
     def foreground(self):
         hwnd, pid, _ = self.window()
         if u.GetForegroundWindow() != hwnd and self.focus_authorized:
@@ -376,7 +426,8 @@ class OwnedClient:
                 if not u.SetForegroundWindow(hwnd):
                     raise Blocked('Windows refused authorized focus of the owned game window.')
         if u.GetForegroundWindow() != hwnd:
-            raise Blocked('Owned game window is not foreground; refusing to steal focus.')
+            raise Blocked('Owned game window is not foreground; refusing to steal focus. Foreground: '
+                          + describe_window(u.GetForegroundWindow(), set(self.pids())))
         if u.IsIconic(hwnd):
             raise Blocked('Owned game window is minimized.')
         return hwnd
@@ -415,6 +466,19 @@ class OwnedClient:
 def window_hung(hwnd):
     # Read-only: Windows' own "not responding" test (no input for 5 s). Never sends anything to the window.
     return bool(u.IsHungAppWindow(hwnd))
+
+
+def describe_window(hwnd, owned):
+    """'class=<c> title=<t> pid=<p> ours=<bool>' for a refusal message (b044 diagnosis). No input, read only."""
+    if not hwnd:
+        return 'none (locked desktop or a secure screen?)'
+    pid = w.DWORD()
+    u.GetWindowThreadProcessId(hwnd, c.byref(pid))
+    name = c.create_unicode_buffer(128)
+    u.GetClassNameW(hwnd, name, len(name))
+    title = c.create_unicode_buffer(64)
+    u.GetWindowTextW(hwnd, title, len(title))
+    return 'class=%s title=%s pid=%d ours=%s' % (name.value, title.value[:40], pid.value, pid.value in owned)
 
 
 def capture(hwnd):
