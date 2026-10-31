@@ -788,6 +788,63 @@ public final class GCMovement {
         return false;
     }
 
+    /*
+     * 1.6.2 (t-oa-1, TEST 2026-10-31 07:14): the x to stage a mob at so it stands on the ledge of the one at
+     * {@code owner}, {@code dx} px to its side. Auto-QA's owned-alt probe spawned its "the owner's mob" on the ground
+     * under {@code owner.x + dx}; on a 100 px step of Henesys Hunting Ground I that ground is the floor 66 px below the
+     * step, another nav region, so the alt (which never fights across ledges) stood beside its owner and "following"
+     * for the whole 20 s and the check failed. The place is pulled back onto the owner's ledge and checked by the
+     * ground the spawn would land on; a ledge with no room puts the mob at the owner's own x. No graph: as before.
+     */
+    public static int stageMobX(MapleMap map, java.awt.Point owner, int dx) {
+        if (map == null || owner == null) {
+            return owner == null ? 0 : owner.x + dx;
+        }
+        BotNavigationGraph graph = null;
+        try {
+            graph = BotNavigationGraphProvider.peekGraph(map);
+        } catch (RuntimeException e) {
+            // no graph: as before
+        }
+        return stageMobX(map, owner, dx, graph);
+    }
+
+    /** {@link #stageMobX(MapleMap, java.awt.Point, int)} on an already-known graph ({@code null}: no ledge known). */
+    static int stageMobX(MapleMap map, java.awt.Point owner, int dx, BotNavigationGraph graph) {
+        int want = owner.x + dx;
+        int[] ledge = GCMovementDriver.ledgeOf(map, graph, owner);
+        if (ledge == null) {
+            return want;
+        }
+        int lo = ledge[0] + GCMovementDriver.LEDGE_EDGE_PX;
+        int hi = ledge[1] - GCMovementDriver.LEDGE_EDGE_PX;
+        if (lo > hi) {
+            return owner.x; // too narrow to stand a mob on: on the owner
+        }
+        // from the place asked for (kept on the ledge), a few px at a time towards the owner's own x: the first x
+        // whose ground is on the owner's own ledge, else the owner's own x
+        int step = want < owner.x ? 4 : -4;
+        for (int x = Math.max(lo, Math.min(hi, want)); ; x += Math.abs(x - owner.x) < 4 ? owner.x - x : step) {
+            if (onOwnLedge(map, graph, owner, x)) {
+                return x;
+            }
+            if (x == owner.x) {
+                return owner.x;
+            }
+        }
+    }
+
+    /** Would a mob staged at {@code x} on the owner's own y land on the owner's own ledge? */
+    private static boolean onOwnLedge(MapleMap map, BotNavigationGraph graph, java.awt.Point owner,
+                                      int x) {
+        int home = graph.findRegionId(map, owner);
+        if (home < 0) {
+            return false;
+        }
+        java.awt.Point landed = map.getGroundBelow(new java.awt.Point(x, owner.y));
+        return landed != null && graph.findRegionId(map, landed) == home;
+    }
+
     /** True while the bot is in the air (mid-jump or falling); false on the ground, on a rope or when not driven. */
     public static boolean isAirborne(Character bot) {
         BotMovementState st = bot == null ? null : STATES.get(bot.getId());

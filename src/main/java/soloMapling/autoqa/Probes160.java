@@ -593,12 +593,13 @@ final class Probes160 {
             if (m != null && m.isAlive()) {
                 field.killMonster(m, gm, false);
             }
+            java.awt.Point at = gm.getPosition();
+            int x = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stageMobX(field, at, side);
             m = server.life.LifeFactory.getMonster(ALT_MOB);
-            field.spawnMonsterOnGroundBelow(m, new java.awt.Point(gm.getPosition().x + side, gm.getPosition().y));
+            field.spawnMonsterOnGroundBelow(m, new java.awt.Point(x, at.y));
             staged.add(m);
             java.awt.Point mp = m.getPosition();
-            if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.onDifferentLedge(field,
-                    gm.getPosition().x, gm.getPosition().y, mp.x, mp.y)) {
+            if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.onDifferentLedge(field, at.x, at.y, mp.x, mp.y)) {
                 break;
             }
         }

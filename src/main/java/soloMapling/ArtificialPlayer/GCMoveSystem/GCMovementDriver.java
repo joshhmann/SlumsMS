@@ -560,7 +560,7 @@ final class GCMovementDriver {
     }
 
     /** The x span of the ground ledge (nav region) under {@code p}, or null (no graph, a rope, nothing under it). */
-    private static int[] ledgeOf(server.maps.MapleMap map, BotNavigationGraph graph, Point p) {
+    static int[] ledgeOf(server.maps.MapleMap map, BotNavigationGraph graph, Point p) {
         if (map == null || graph == null) {
             return null;
         }
