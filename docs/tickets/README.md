@@ -1,5 +1,13 @@
 # SlumsMS tickets
 
+## 1.6.2 release closure (owner direction, 2026-10-31)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [168](168-finish-1.6.2-and-freeze-scope.md) | Finish 1.6.2 with fixed scope and explicit acceptance gates | Reconcile remaining promises, freeze additions, complete QA and prepare the owner go/no-go |
+
+Current status is in `/root/work/STATUS-1.6.2.md` and the release book; the older tables below are historical.
+
 ## 1.5.1 technical review follow-ups (2026-10-24)
 
 Source review of 1.5.0 `06a724dfc`; all four tickets are open and need regression/runtime validation.
