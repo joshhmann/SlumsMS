@@ -274,7 +274,8 @@ class Driver:
 
     def display_guard(self):
         display = self.backend.primary_display()
-        if display['virtual']:
+        # VM-only opt-in (owner OK 2026-10-30): the test VM's primary is a virtual display and the client runs there.
+        if display['virtual'] and not (self.root / 'allow-virtual-display').exists():
             raise Refusal('Primary display is Parsec/virtual. Make the real monitor primary before starting the client.')
         return display
 

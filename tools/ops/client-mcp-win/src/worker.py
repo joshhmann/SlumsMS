@@ -21,7 +21,7 @@ DEFAULTS = {
     'heartbeat_seconds': 15,
     'health_seconds': 20,
 }
-LIMITS = {'lifetime_hours': (0, 720), 'idle_minutes': (1, 240), 'queue_wait_minutes': (1, 1440),
+LIMITS = {'lifetime_hours': (0, 720), 'idle_minutes': (0.5, 240), 'queue_wait_minutes': (1, 1440),
           'max_recoveries_per_hour': (0, 20), 'heartbeat_seconds': (5, 300), 'health_seconds': (5, 600)}
 
 
