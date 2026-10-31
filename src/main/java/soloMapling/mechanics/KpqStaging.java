@@ -133,6 +133,10 @@ public final class KpqStaging {
             }
         }
         int want = Math.max(0, Math.min(bots, content.maxPlayers() - (withGm ? Math.max(1, partyNow) : 0)));
+        String full = withGm ? noRoomForBots(bots, want, gm) : null;
+        if (full != null) {
+            return new Staged(null, List.of(), full);
+        }
         if ((withGm ? Math.max(1, partyNow) : 0) + want < content.minPlayers()) {
             return new Staged(null, List.of(), "KPQ needs " + content.minPlayers() + "-" + content.maxPlayers()
                     + " in the party");
@@ -232,7 +236,29 @@ public final class KpqStaging {
      * recruit map and waits for them to land. Every id made goes into {@code spawned} (for {@link #cleanup}); returns
      * the ones standing on the map. Blocks (call it off the packet thread).
      */
+    /**
+     * TEST 10-30: with the GM's party already full (an alt still out, the last run's bots not yet gone) the staging
+     * asked for 0 bots, BotStore refused "Cannot reserve 0 on-demand slots" on the worker thread and the GM saw only
+     * "Staging KPQ..." forever. Null = there is room; otherwise the line saying who fills the party.
+     */
+    static String noRoomForBots(int asked, int want, Character gm) {
+        if (asked <= 0 || want > 0 || gm.getParty() == null) {
+            return null;
+        }
+        List<String> others = new ArrayList<>();
+        for (var m : gm.getParty().getMembers()) {
+            if (m.getId() != gm.getId()) {
+                others.add(m.getName());
+            }
+        }
+        return "your party is full (" + String.join(", ", others) + " with you): no room for the bots."
+                + " @dismiss your alts or leave the party, wait for the last run's bots to go, then try again";
+    }
+
     public static List<Character> spawnBots(MapleMap recruit, int want, List<Integer> spawned) {
+        if (want <= 0) {
+            return new ArrayList<>();
+        }
         NPC lakelis = recruit.getNPCById(LAKELIS);
         Point by = lakelis != null ? lakelis.getPosition() : recruit.getPortal(0).getPosition();
         int slotBase = BotStore.nextDynamicSlots(want);

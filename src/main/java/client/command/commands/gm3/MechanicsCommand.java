@@ -143,30 +143,35 @@ public class MechanicsCommand extends Command {
                         + (req.perfect() ? ", perfect" : "") + (req.hold() ? ", held on stage " + req.firstStage() : "")
                         + "...");
                 ExecutorServiceManager.getExecutorService().execute(() -> {
-                    KpqStaging.Staged s = KpqStaging.start(gm, req.withGm(), req.bots(), req.perfect(), 0,
-                            req.firstStage(), req.lastStage(), line -> {
-                                log("[Mechanics] " + line);
-                                gm.yellowMessage(line);
-                            }, null);
-                    if (s.ok() && req.hold()) {
-                        // set right after the start: the first tick is 250 ms away and no check comes before the
-                        // formation has stood still for 2.5 s
-                        s.active().run().setHeld(true);
-                        log("[Mechanics] RUN held for QA by " + gm.getName() + " on stage " + req.firstStage()
-                                + " in " + s.active().instanceName());
-                        gm.yellowMessage("Held: the bots take stage " + req.firstStage()
-                                + "'s positions and wait there. !mechanics release to let them clear it, "
-                                + "!mechanics stop to end the run.");
-                    }
-                    if (!s.ok()) {
-                        gm.yellowMessage("KPQ run did not start: " + s.error());
-                    } else if (!req.withGm()) {
-                        gm.yellowMessage("Bot-only run in " + s.active().instanceName() + " (channel "
-                                + c.getChannel() + "): progress lines follow; !mechanics status any time."
-                                + (req.firstStage() > 1 ? " It starts on stage " + req.firstStage()
-                                + " (earlier stages marked cleared; they walk through the portals)." : "")
-                                + (req.lastStage() > 0 ? " The run ends on the stage " + req.lastStage() + " clear."
-                                : " They play all five stages, take their prizes, hunt the bonus and leave."));
+                    try {
+                        KpqStaging.Staged s = KpqStaging.start(gm, req.withGm(), req.bots(), req.perfect(), 0,
+                                req.firstStage(), req.lastStage(), line -> {
+                                    log("[Mechanics] " + line);
+                                    gm.yellowMessage(line);
+                                }, null);
+                        if (s.ok() && req.hold()) {
+                            // set right after the start: the first tick is 250 ms away and no check comes before the
+                            // formation has stood still for 2.5 s
+                            s.active().run().setHeld(true);
+                            log("[Mechanics] RUN held for QA by " + gm.getName() + " on stage " + req.firstStage()
+                                    + " in " + s.active().instanceName());
+                            gm.yellowMessage("Held: the bots take stage " + req.firstStage()
+                                    + "'s positions and wait there. !mechanics release to let them clear it, "
+                                    + "!mechanics stop to end the run.");
+                        }
+                        if (!s.ok()) {
+                            gm.yellowMessage("KPQ run did not start: " + s.error());
+                        } else if (!req.withGm()) {
+                            gm.yellowMessage("Bot-only run in " + s.active().instanceName() + " (channel "
+                                    + c.getChannel() + "): progress lines follow; !mechanics status any time."
+                                    + (req.firstStage() > 1 ? " It starts on stage " + req.firstStage()
+                                    + " (earlier stages marked cleared; they walk through the portals)." : "")
+                                    + (req.lastStage() > 0 ? " The run ends on the stage " + req.lastStage() + " clear."
+                                    : " They play all five stages, take their prizes, hunt the bonus and leave."));
+                        }
+                    } catch (RuntimeException e) { // never leave the GM at "Staging KPQ..." with no answer
+                        log("[Mechanics] KPQ staging failed: " + e);
+                        gm.yellowMessage("KPQ run did not start: " + e.getMessage());
                     }
                 });
             }
