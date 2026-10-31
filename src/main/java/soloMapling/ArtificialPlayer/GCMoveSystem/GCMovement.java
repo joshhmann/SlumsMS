@@ -1058,7 +1058,8 @@ public final class GCMovement {
             int rid = queue.poll();
             for (BotNavigationGraph.Edge e : NavObservedEdges.outgoing(g, rid)) { // with baked and learned edges
                 // Skill edges (teleport / flash jump) only exist for some jobs - walk reachability ignores them.
-                if (e.toRegionId != rid && !e.isMovementSkill() && seen.add(e.toRegionId)) {
+                // b109: nor does it lead into a pit the planner refuses (a mob down there is out of reach).
+                if (e.toRegionId != rid && !e.isMovementSkill() && !NavPits.into(g, map, e) && seen.add(e.toRegionId)) {
                     queue.add(e.toRegionId);
                 }
             }

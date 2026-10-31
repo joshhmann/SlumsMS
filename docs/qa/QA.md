@@ -155,7 +155,7 @@ tickets promised". None may SKIP in a release run. Run them with `tools/ops/auto
 |---|---|---|---|
 | `t-gr-1` | 156 | a fresh lv-35 bot's state-of-mind snapshot vs the truth; the real checker on two true and three untrue claims; the real delivery path on an untrue scripted line. No chat model | the snapshot holds its level, map and the player; untrue claims rejected and counted; the scripted line swapped for a safe one |
 | `t-gr-2` | 156 | asked its level through the real chat path, a fresh bot answers with the model; then a forced untrue model draft goes through the reject and the retry. SKIPs without a live model (a release FAIL) | the reply states its real level and is grounded; the draft was rejected, retried and never said |
-| `t-nv-2` | 157 item 3 | one-way-in traps of the bots' world graph from Lith Harbor vs the committed baseline (`nav-trap-maps.txt`, 485 of 1,471 maps on 10-30) | no trap the baseline does not know |
+| `t-nv-2` | 157 item 3 | one-way-in traps of the bots' world graph from Lith Harbor vs the committed baseline (`nav-trap-maps.txt`: the accepted real traps, 0 since b230; intended one-way rides are not traps) | no trap the baseline does not know |
 | `t-nv-3` | 157 tools | the inspect API without the secret, its view of a fresh bot, kill calibration's report, a watched bot's nav trace ring | 403 without the secret, the view is the bot, calibration on and report-only, a ring of the bot's own ticks |
 
 ## Ticket 112 decision 3: the bots' Maker batch (`t-mk-2`)

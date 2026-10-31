@@ -54,7 +54,9 @@ public final class NavStuckLog {
         /** The planner found no route to the target's region. */
         NO_PATH,
         /** Swam against something without getting closer to the next swim waypoint (ticket 34). */
-        SWIM_STUCK
+        SWIM_STUCK,
+        /** Stood in a pit with no way back to the map's exits until the pit rescue put it back (b109). */
+        PIT
     }
 
     static final int SPOT_PX = 50;

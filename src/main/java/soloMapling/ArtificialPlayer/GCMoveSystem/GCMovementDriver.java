@@ -726,6 +726,7 @@ final class GCMovementDriver {
         tickFrozenAirborneWatchdog(entry);
         tickRopeStallWatchdog(entry);
         tickFallOffMapRecovery(entry); // ours: catch a live plummet the frozen-air watchdog above misses
+        tickPitRescue(entry); // b109: a bot in a pit with no way back to the exits is put back
         if (entry.inAir || entry.climbing || entry.graphWarmupFallback
                 || (entry.navEdge == null && entry.moveTarget == null)) {
             entry.stuckMs = 0;
@@ -917,6 +918,57 @@ final class GCMovementDriver {
         // the "glitchy" fall on tall maps). Drop the goal too so the brain re-decides a safe target next tick.
         entry.moveTarget = null;
         broadcastIfObserved(entry);
+    }
+
+    /** b109: how long a bot stands in a trap before the pit rescue puts it back; longer while a player is on the map. */
+    static final long PIT_RESCUE_MS = 3_000;
+    static final long PIT_RESCUE_WATCHED_MS = 20_000;
+
+    /**
+     * b109 (the dead-end check's pits on 12 maps): a bot standing on a platform with no walk, jump, drop, climb or
+     * in-map portal back to the map's exits (NavPits trap: the hollow inside the Ludibrium ticketing-place block, the
+     * Lith Harbor crates, the lower halves of Unbalanced / Twisted Time) can never leave by moving, and the planner
+     * refuses every route out. The planner no longer routes into one, but a bot can still land there (knocked back,
+     * an unstuck hop, a fall, warped onto a spawn point inside). After PIT_RESCUE_MS on the ground there it is put on
+     * the nearest platform with a way out, like the fall-off-map recovery. Nothing on swim maps (swimmers swim out)
+     * or while climbing. With a player on the map it waits PIT_RESCUE_WATCHED_MS first, as there is no walk to offer.
+     */
+    static boolean tickPitRescue(BotMovementState entry) {
+        Character bot = entry.bot;
+        MapleMap map = bot != null ? bot.getMap() : null;
+        Point pos = bot != null ? bot.getPosition() : null;
+        if (map == null || pos == null || entry.inAir || entry.climbing || map.isSwim()) {
+            entry.pitSinceMs = 0;
+            return false;
+        }
+        BotNavigationGraph graph = entry.navGraph != null && entry.navGraph.mapId == map.getId() ? entry.navGraph
+                : BotNavigationGraphProvider.peekGraph(map, entry.movementProfile);
+        if (graph == null || !NavPits.isTrap(graph, map, graph.findRegionId(map, pos))) {
+            entry.pitSinceMs = 0;
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        if (entry.pitSinceMs == 0) {
+            entry.pitSinceMs = now;
+            return false;
+        }
+        boolean watched = WatchGate.enabled() && WatchGate.watched(bot);
+        if (now - entry.pitSinceMs < (watched ? PIT_RESCUE_WATCHED_MS : PIT_RESCUE_MS)) {
+            return false;
+        }
+        Point out = NavPits.rescuePoint(graph, map, pos);
+        entry.pitSinceMs = 0;
+        if (out == null) {
+            return false;
+        }
+        NavStuckLog.record(NavStuckLog.Kind.PIT, map, pos, graph, entry.navEdge, NavTrace.capture(entry));
+        if (watched) {
+            WatchGate.noteSnappedWhileWatched(bot, "pit-rescue"); // a trap has no walk out
+        }
+        BotPhysicsEngine.teleportTo(entry, bot, out);
+        BotMovementManager.resetEntryStateAfterTeleport(entry);
+        broadcastIfObserved(entry);
+        return true;
     }
 
     /**
