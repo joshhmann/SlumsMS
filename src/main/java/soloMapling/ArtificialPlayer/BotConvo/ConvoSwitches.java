@@ -24,6 +24,15 @@ public final class ConvoSwitches {
         return "true".equalsIgnoreCase(System.getProperty("solomapling.convo.forceBank", "false"));
     }
 
+    /**
+     * Whether a reply to a player is planned before it is worded (m02, default false): the game decides the move and
+     * the facts, the model only phrases them, and the planner's short prompt replaces the long advisory stack. Off,
+     * the reply takes exactly the prompt it took before the ticket.
+     */
+    public static boolean planner() {
+        return "true".equalsIgnoreCase(System.getProperty("solomapling.convo.planner", "false"));
+    }
+
     /** A number under {@code solomapling.convo.<name>}. */
     public static double num(String name, double fallback) {
         return prop("solomapling.convo." + name, fallback);

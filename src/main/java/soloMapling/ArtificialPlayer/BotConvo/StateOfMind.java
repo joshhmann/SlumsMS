@@ -825,6 +825,14 @@ public final class StateOfMind {
         return Verdict.OK;
     }
 
+    /**
+     * Whether a line claims the bot is grinding right where it stands in a town - the b240 rule, asked of a line alone
+     * (m02's replay check counts how often the old prompts let this through).
+     */
+    static boolean claimsGrindingInTown(String text) {
+        return !activityIn(text, true, "town").ok();
+    }
+
     /** Whether a clause says the bot itself is grinding, training, hunting or farming right now. */
     static boolean claimsActivity(String clause) {
         Matcher m = GRIND_ANY.matcher(clause);
@@ -876,7 +884,8 @@ public final class StateOfMind {
     // ── a safe line ──
 
     private static final List<String> NEUTRAL = List.of("lol ya", "hm idk tbh", "ya fr", "true lol", "haha ya", "idk lol");
-    private static final Pattern ASKS_DOING = Pattern.compile("\\b(wat|what|wut|wht|whatcha|watcha|wyd|where)\\b.*\\b("
+    /** "what are you doing", "where r u": the reply planner and the safe line both answer this one factually. */
+    static final Pattern ASKS_DOING = Pattern.compile("\\b(wat|what|wut|wht|whatcha|watcha|wyd|where)\\b.*\\b("
             + "doin|doing|up to|u at|you at|r u|are you|u train|you train|u grind)\\b|\\bwyd\\b|\\bwhere (r|are) (u|you)\\b");
 
     /**
