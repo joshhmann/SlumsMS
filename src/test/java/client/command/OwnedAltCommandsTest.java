@@ -40,6 +40,26 @@ class OwnedAltCommandsTest {
         }
     }
 
+    // TEST 10-30: the tester typed a bare @dismiss, got only the usage line, and the alt stayed out and in the party.
+    @Test void bareDismissSendsTheOnlyAltHomeOrAsksWhichOne() {
+        Client c = mock(Client.class); Character owner = mock(Character.class); when(c.getPlayer()).thenReturn(owner);
+        var service = inline(mock(OwnedAltService.class));
+        when(service.dismiss(owner, "Second")).thenReturn(true);
+        try (MockedStatic<OwnedAltService> services = mockStatic(OwnedAltService.class)) {
+            services.when(OwnedAltService::getInstance).thenReturn(service);
+            when(service.outNames(owner)).thenReturn(List.of("Second"));
+            new DismissCommand().execute(c, new String[0]);
+            verify(service).dismiss(owner, "Second");
+            verify(owner).yellowMessage("Second has been saved and dismissed.");
+            when(service.outNames(owner)).thenReturn(List.of("Second", "Third"));
+            new DismissCommand().execute(c, new String[0]);
+            verify(owner).yellowMessage("Which one? @dismiss <name> or @dismiss all. Out with you: Second, Third.");
+            when(service.outNames(owner)).thenReturn(List.of());
+            new DismissCommand().execute(c, new String[0]);
+            verify(owner).yellowMessage("You have no alts out. Usage: @dismiss <name> | all");
+            verify(service, times(1)).dismiss(any(), any());
+        }
+    }
     static OwnedAltService inline(OwnedAltService service) {
         doAnswer(inv -> { ((Runnable) inv.getArgument(0)).run(); return null; }).when(service).runAsync(any());
         when(service.summoningOpen()).thenReturn(true); // 1.6.0.4: OWNED_ALTS_SUMMON_ENABLED on

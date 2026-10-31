@@ -31,6 +31,21 @@ class LifeActivityQueueTest {
     }
 
     @Test
+    void reopenedQueueTakesNewPlansButNeverOneFromBeforeTheStop() {
+        var queue = new LifeActivityQueue();
+        var old = queue.prepare(RESTOCK, 100, 1000);
+        queue.close();
+        assertThrows(IllegalStateException.class, () -> queue.prepare(RESTOCK, 101, 1000));
+        queue.reopen();
+        assertFalse(queue.state().closed());
+        assertEquals(LifeActivityQueue.Offer.STALE, queue.offer(old, 102));
+        var fresh = queue.prepare(RESTOCK, 103, 1000);
+        assertEquals(LifeActivityQueue.Offer.QUEUED, queue.offer(fresh, 103));
+        queue.reopen(); // an open queue is left alone
+        assertTrue(queue.hasWaiting());
+    }
+
+    @Test
     void onlyNewestWaitingDecisionRunsAndActiveWorkCannotBeReplaced() {
         var queue = new LifeActivityQueue();
         var starts = new AtomicInteger();

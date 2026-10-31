@@ -168,6 +168,38 @@ final class OwnedAltStaging {
 
     // ── the real server ──
 
+    interface ItemAdder { void add(int itemId, short qty); }
+
+    /**
+     * Brings a freshly loaded, offline alt up to the role and writes it. The character sits on a BotClient, so it must
+     * be marked as the GM's owned alt first: an unmarked BotClient character is a roster bot, and saveCharToDB skips
+     * roster bots without a word (1.6.2 TEST 10-30: "made AqClientAlt1 ... level 30" while the row stayed level 1).
+     * The owned-alt save fails closed, so a write that did not commit is a refusal instead of a false "made".
+     */
+    static String supplyAndSave(Character alt, Character gm, Role role, ItemAdder adder,
+                                java.util.function.IntFunction<String> itemName) {
+        alt.markOwnedAlt(gm);
+        StringBuilder what = new StringBuilder();
+        if (alt.getLevel() < LEVEL) {
+            alt.setExp(0);
+            alt.setLevel(LEVEL - 1);
+            try { alt.levelUp(false); } catch (RuntimeException e) { alt.setLevel(LEVEL); }
+        }
+        what.append("level ").append(alt.getLevel());
+        for (int[] it : role.items) {
+            int have = alt.getInventory(constants.inventory.ItemConstants.getInventoryType(it[0])).countById(it[0]);
+            int add = it[1] - have;
+            if (add > 0) adder.add(it[0], (short) add);
+            what.append(", ").append(it[1]).append(" x ").append(itemName.apply(it[0]));
+        }
+        try {
+            alt.saveOwnedAltToDB();
+        } catch (IllegalStateException e) {
+            throw new QaRefusal("QA ALTS could not save " + alt.getName() + ": " + e.getMessage() + " (nothing was written)");
+        }
+        return what.toString();
+    }
+
     static Host liveHost(Character gm) {
         return new Host() {
             final Client c = gm.getClient();
@@ -202,22 +234,8 @@ final class OwnedAltStaging {
                     bc.setPlayer(alt);
                     alt.setParty(null);
                     alt.setMPC(null);
-                    StringBuilder what = new StringBuilder();
-                    if (alt.getLevel() < LEVEL) {
-                        alt.setExp(0);
-                        alt.setLevel(LEVEL - 1);
-                        try { alt.levelUp(false); } catch (RuntimeException e) { alt.setLevel(LEVEL); }
-                    }
-                    what.append("level ").append(alt.getLevel());
-                    for (int[] it : role.items) {
-                        int have = alt.getInventory(constants.inventory.ItemConstants.getInventoryType(it[0])).countById(it[0]);
-                        int add = it[1] - have;
-                        if (add > 0) InventoryManipulator.addById(bc, it[0], (short) add, "qa", -1);
-                        what.append(", ").append(it[1]).append(" x ")
-                                .append(server.ItemInformationProvider.getInstance().getName(it[0]));
-                    }
-                    alt.saveCharToDB(true);
-                    return what.toString();
+                    return supplyAndSave(alt, gm, role, (itemId, qty) -> InventoryManipulator.addById(bc, itemId, qty, "qa", -1),
+                            itemId -> server.ItemInformationProvider.getInstance().getName(itemId));
                 } catch (java.sql.SQLException e) { throw new QaRefusal("Cannot load " + charId + ": " + e.getMessage()); }
             }
         };

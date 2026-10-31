@@ -194,6 +194,22 @@ public final class LifeActivityQueue {
         if (!lock.isHeldByCurrentThread()) notifyEnded();
     }
 
+    /**
+     * A stopped bot that is started again (a player names it, a staging hands it back) keeps this queue object: open it
+     * again under a new epoch, so nothing prepared before the stop can run. Without this every life decision of the
+     * restarted bot threw "activity queue is closed" (TEST 10-30: ~19,000 in five hours). An exhausted queue stays closed.
+     */
+    public void reopen() {
+        lock.lock();
+        try {
+            if (!closed || issued == Long.MAX_VALUE || epoch == Long.MAX_VALUE || startingThread != null) return;
+            epoch++;
+            handled = Math.max(handled, issued);
+            waiting = null;
+            closed = false;
+        } finally { lock.unlock(); }
+    }
+
     public State state() {
         lock.lock();
         try {

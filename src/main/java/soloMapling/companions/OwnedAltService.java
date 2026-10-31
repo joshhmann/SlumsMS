@@ -259,6 +259,15 @@ public final class OwnedAltService {
         }
         finish(alt.getId(), false);
     }
+    /** The names of this owner's alts that are out (a bare @dismiss sends the only one home, or lists them). */
+    public synchronized List<String> outNames(Character owner) {
+        List<String> out = new ArrayList<>();
+        entries.values().forEach(e -> {
+            if (e.alt != null && e.state == State.ACTIVE && ownedBy(e, owner)) out.add(e.alt.getName());
+        });
+        java.util.Collections.sort(out, String.CASE_INSENSITIVE_ORDER);
+        return out;
+    }
     public boolean dismiss(Character owner, String name) {
         int id;
         synchronized (this) {
