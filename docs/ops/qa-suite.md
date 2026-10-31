@@ -558,6 +558,14 @@ them (and undoes any LOD pin) itself. None of them is on the release allow-list.
   Life) and one was a portal to a map with no Map.wz image (now no edge). `NavTrapQaTest` checks the baseline against
   the WZ data where a checkout has it; after a deliberate data change regenerate it with
   `mvn -o test -Dtest=NavTrapQaTest -Dwz-path=<wz> -DnavTrap.write=<baseline file>` and give every new map a reason.
+- **t-mp-1 (map routing, ticket s-maproute):** `MapRouting` and the jar. SKIPs when `-Dslums.maps.routing=false`. The
+  table must be loaded from `soloMapling/map-routing.tsv` (at least 40 routes, 30 blocked maps), every blocked map must
+  have a fallback that is not itself blocked and that `MapFactory.loadMapFromWz` really loads, Fountain Square's `in00`
+  door (410000300 -> Storage Cellar 993162016) must route back to the square, a character saved in 410000350 must land
+  on 410000300, and the Storage Cellar must still load nothing (a live image there means the table is stale). The bots'
+  half is t-nv-2's graph, which drops the same maps.
+- **t-mp-2 (map routing, eyes only):** walk Ristonia's doors in a real client - Fountain Square's `in00` and
+  410000325's `east00` - and check the client survives and the character is told it was taken back.
 - **t-nv-3 (ticket 157's debug tools answer):** a fresh bot on HHG1 (pinned to full simulation for the check). The
   bot inspect API (`-Dslums.inspect`, port and secret file) must answer 403 to a request with no secret and one with a
   wrong one (the check never reads the secret), its `/bots/{cid}` view must be the bot (name, level, map), the pretend

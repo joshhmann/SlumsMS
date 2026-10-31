@@ -23,7 +23,7 @@ maps and of where a move into one has to go instead, and one resolver all warp p
 | `src/main/resources/soloMapling/map-routing.tsv` | the table: per-move routes and the blocked maps with their kind and fallback. Generated, hand rows kept. |
 | `tools/data-align/map_routing.py` | the generator (WZ -> table), re-runnable, validator included. |
 | `tools/data-align/client-crash-maps.txt` | the client-crash list, until the Client lane's file replaces it (seed: 410000350). |
-| `src/main/java/server/maps/MapRouting.java` | loads the table, answers `plan(from, portal, target)`, `blocked(id)`, `fallback(id)`, and does the once-an-hour logging. |
+| `src/main/java/server/maps/MapRouting.java` | loads the table, answers `route(from, portal, target)` / `move(chr, target, portal)`, `blocked(id)`, `fallback(id)`, and does the once-an-hour logging. |
 | `src/main/java/client/Character.java` | the one enforcement point for movement: `getWarpMap`/`mapInstanceFor`, so every `changeMap*` obeys it. |
 | `server/maps/MapManager.java` | the net under it: a map that is still absent after routing resolves to its fallback (once per hour log), so nothing that fetches a map straight from the factory can throw. |
 | `soloMapling/ArtificialPlayer/GCMoveSystem/GCWorldGraph.java` | bots' world graph drops blocked targets, so bot route planning agrees with the table. |
@@ -34,8 +34,9 @@ Two sections, `<TAB>` separated, `#` starts a comment, blank lines ignored.
 
 ```
 # routes: from_map <TAB> portal_name|* <TAB> target_map <TAB> route_to_map <TAB> route_to_portal <TAB> reason
-410000300	in00	993162016	410000300	sp	street-town
+410000300	in00	993162016	410000300	sp	source-return
 410000325	east00	410000350	410000300	sp	return
+*	*	910060100	120000000	sp	street-town (script)
 
 # blocked_maps: map <TAB> kind(missing|client-crash) <TAB> reason <TAB> fallback_map
 410000350	client-crash	Ristonia : Rampart Residences (client list)	410000300
@@ -80,7 +81,8 @@ in `Map.wz`), so no script can warp a player into one either.
 One resolver, `server.maps.MapRouting`:
 
 ```java
-Plan plan = MapRouting.plan(fromMap, portalNameOrNull, targetMap); // null = the move is fine as it is
+MapRouting.Route route = MapRouting.route(fromMap, portalNameOrNull, targetMap); // null = the move is fine as it is
+MapRouting.Move  move  = MapRouting.move(chr, targetMap, portalNameOrNull);      // what changeMap does with it
 ```
 
 `Character.getWarpMap(int, String)` and `mapInstanceFor(int)` call it, so every `changeMap*`/`forceChangeMap` caller
@@ -90,11 +92,12 @@ factory directly cannot throw; it resolves to the fallback and logs.
 
 Behaviour:
 
-- a rerouted move is logged once per (from map, target map) per hour: `log.info` plus a `QaLog` line on the
-  `MAP_CHANGE` topic, so QA runs and TEST logs show real traffic:
-  `map routing: 410000300 in00 -> 993162016 rerouted to 410000300 (street-town)`.
-- a route to the source map itself is a dead end: the character gets one short system message (the target's name from
-  `String.wz` when it is known) and `enableActions`; it does not move and does not get stuck.
+- a rerouted move is logged once per target map per hour: `log.info` plus a `QaLog` line on the `MAP_CHANGE` topic,
+  so QA runs and TEST logs show real traffic:
+  `map routing: chr Name 410000300:in00 -> 993162016 rerouted to 410000300 (source-return)`.
+- a route to the source map itself is a dead end: the character gets one short system message ("That way doesn't lead
+  anywhere right now.") and `enableActions`; it does not move and does not get stuck. A rerouted move is told so
+  ("That way is closed right now, so you were taken back.").
 - saved-map login: `Character.loadCharFromDB` resolves the map through the factory, so a character saved in 410000350
   logs in at 410000300 and its `mapid` is corrected.
 
@@ -118,12 +121,35 @@ its `from_map` when the row is not `*`. It exits non-zero with the offending row
 
 ## Tests
 
-- `MapRoutingTest` - table parsing, resolution order, dead end, switch off, once-an-hour logging key.
-- `MapRoutingWzTest` (skips without `wz/`) - the committed table against the real WZ: no route into a missing or
-  blocked map, every blocked map has a loadable fallback, every portal row names a real portal; the generator's output
-  for the same WZ equals the committed table (so a WZ update without a regeneration fails the build).
-- `MapRoutingWarpTest` - Fountain Square's `in00` no longer throws and routes per the table; a script warp to a blocked
-  map is rerouted; a character saved in 410000350 logs in at the fallback; the world graph has no edge into a blocked
-  map.
-- `!qa` scenario `route-1` (Fountain Square left portal, Rampart Residences from 410000325) plus the auto-QA check that
-  the table is in the jar and every blocked map has a fallback.
+- `MapRoutingTableTest` (no WZ) - the table is in the jar and loaded, the two owner maps are blocked with the right
+  kind and fallback, Fountain Square's `in00` routes back to itself, 410000325/410000351 `east00` route to the square,
+  an unknown source still lands on the fallback, and no route in the committed table lands in a blocked map.
+- `MapRoutingWzTest` (skips without `wz/`) - the committed table against the real `Map.wz`: every route lands on an
+  image that exists, is not blocked, and has the arrival portal; `missing` rows really have no image and `client-crash`
+  rows do; every blocked map's fallback loads; the map manager turns 993162016 and 410000350 into 410000300 while
+  ordinary maps pass through; the data still says Fountain Square `in00` targets 993162016.
+- `MapRoutingWarpTest` - Fountain Square's `in00` from a character standing there sends the message and
+  `enableActions` and does not move; a script warp to 993162016 lands on the square; saved-map moves to 410000350 land
+  on the square; an ordinary portal is untouched and sends no packet.
+- `GCWorldGraphRoutingTest` - the bots' graph drops edges into blocked maps, on a hand graph and on the real one.
+- Drift check: `python3 tools/data-align/map_routing.py --check --wz <wz>` regenerates into memory and compares, so a
+  WZ update without a table regeneration fails that command (the Java tests assert the invariants, not equality, since
+  they run without python).
+- Auto-QA `t-mp-1` runs the same invariants on a live server (table in the jar, fallbacks load, an image-less map
+  still loads nothing) and `t-mp-2` is the eyes-only check: walk the doors in a real client.
+
+## Status (2026-10-31, branch `162-maproute`)
+
+Built and tested here; **not deployed to TEST yet** (no restart, no deploy in this task) and not merged into
+`release-1.6.2` (Server Dev merges). Today the table has 60 routes over 39 blocked maps (38 ids `Map.wz` has no image
+for, plus 410000350 from the client list), 18 of them dead ends that keep the character where they are.
+
+- Switch: `-Dslums.maps.routing=true` (code default true) in `docs/release/1.6.2.conf` UNIT_EDITS; TEST needs nothing
+  because the default is on. Table override: `-Dslums.maps.routing.table=<path>`.
+- No migration, no `config.yaml` key, no data file outside the jar: the table ships as
+  `src/main/resources/soloMapling/map-routing.tsv`.
+- Checks: auto-QA `t-mp-1` (`Probes164.mapRouting`), eyes-only `t-mp-2` (`docs/qa/QA.md`).
+- Known consequence: 410000325 (Ristonia, the map whose only door leads into Rampart Residences) is now a dead end for
+  bots, since the graph drops the edge. Players walking it are taken back.
+- Unverified: a real client walking the doors (the crash is client-side), and the effect on a live world with moving
+  bots (the graph change is visible at boot).

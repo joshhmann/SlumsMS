@@ -44,7 +44,8 @@ import java.util.regex.Pattern;
  */
 final class Probes164 {
 
-    static final List<String> NAMES = List.of("groundingTruth", "groundingLive", "trapMaps", "debugTools");
+    static final List<String> NAMES = List.of("groundingTruth", "groundingLive", "trapMaps", "debugTools",
+            "mapRouting");
 
     private Probes164() {
     }
@@ -56,6 +57,7 @@ final class Probes164 {
                 case "groundingLive" -> groundingLive(p);
                 case "trapMaps" -> trapMaps();
                 case "debugTools" -> debugTools(p);
+                case "mapRouting" -> mapRouting();
                 default -> null;
             };
         } catch (InterruptedException e) {
@@ -395,6 +397,76 @@ final class Probes164 {
         out.add("graph " + (ready ? "already built" : "built for the check") + ", search " + (System.currentTimeMillis()
                 - t0) + " ms");
         return out;
+    }
+
+    // ── t-mp-1: no door leads into a map that fails to load or crashes the client ────────────────────────
+
+    /** Fountain Square (Ristonia) and the two maps the owner's walk hit on TEST, 2026-10-31. */
+    static final int MR1_FOUNTAIN_SQUARE = 410000300;
+    static final int MR1_STORAGE_CELLAR = 993162016;
+    static final int MR1_RAMPART_RESIDENCES = 410000350;
+
+    /**
+     * s-maproute: the routing table is in the jar and loaded, every blocked map has a fallback that is neither blocked
+     * nor empty, the two doors the owner reported route the way the table says they do, and a map whose image is
+     * missing still refuses to load while the fallbacks do load. The bots' half (no edge into a blocked map) is t-nv-2's
+     * graph, which drops them the same way.
+     */
+    static List<String> mapRouting() {
+        List<String> bad = new ArrayList<>();
+        List<String> ev = new ArrayList<>();
+
+        if (!server.maps.MapRouting.enabled()) {
+            return List.of("SKIP map routing is off (-Dslums.maps.routing=false)", "source " + server.maps.MapRouting.source());
+        }
+
+        int routes = server.maps.MapRouting.routeCount();
+        int blocked = server.maps.MapRouting.blockedCount();
+        ev.add(server.maps.MapRouting.source() + ": " + routes + " routes, " + blocked + " blocked maps");
+        if (routes < 40 || blocked < 30) {
+            bad.add("the table is not loaded (" + routes + " routes, " + blocked + " blocked maps)");
+        }
+
+        java.util.Set<Integer> lands = new java.util.TreeSet<>();
+        for (int map : server.maps.MapRouting.blockedMaps()) {
+            int fallback = server.maps.MapRouting.fallback(map);
+            if (fallback < 0) {
+                bad.add("blocked map " + map + " has no fallback");
+            } else if (server.maps.MapRouting.blocked(fallback)) {
+                bad.add("the fallback of " + map + " (" + fallback + ") is itself blocked");
+            } else {
+                lands.add(fallback);
+            }
+        }
+        ev.add(server.maps.MapRouting.blockedMaps().size() + " blocked maps land on " + lands.size() + " map(s): " + lands);
+
+        server.maps.MapRouting.Route door = server.maps.MapRouting.route(MR1_FOUNTAIN_SQUARE, "in00",
+                MR1_STORAGE_CELLAR);
+        if (door == null || door.map() != MR1_FOUNTAIN_SQUARE) {
+            bad.add("Fountain Square's in00 door is not routed back to Fountain Square");
+        }
+        if (server.maps.MapRouting.fallback(MR1_RAMPART_RESIDENCES) != MR1_FOUNTAIN_SQUARE) {
+            bad.add("a character saved in " + MR1_RAMPART_RESIDENCES + " does not log in at Fountain Square");
+        }
+
+        for (int id : lands) {
+            try {
+                if (server.maps.MapFactory.loadMapFromWz(id, 1, 1, null) == null) {
+                    bad.add("the fallback map " + id + " does not load");
+                }
+            } catch (RuntimeException e) {
+                bad.add("the fallback map " + id + " threw " + e);
+            }
+        }
+        try {
+            if (server.maps.MapFactory.loadMapFromWz(MR1_STORAGE_CELLAR, 1, 1, null) != null) {
+                bad.add("the Storage Cellar loads after all: the table is stale, regenerate it");
+            }
+        } catch (RuntimeException e) {
+            bad.add("a map with no image threw " + e + " instead of loading nothing");
+        }
+        ev.add("the floor is the fallback maps, not the image-less one");
+        return Probes160.verdict(bad, "no door leads into a map that fails to load or crashes the client", ev);
     }
 
     // ── t-nv-3: the ticket-157 debug tools answer on this server ─────────────────────────────────────────
