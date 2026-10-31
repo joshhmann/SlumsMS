@@ -30,10 +30,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * party with its own skills and potions, the way nutnnut/Cosmic's BotBuffManager supports a party - the part
  * {@link BotBuffDriver} (a cast on a timer, free of MP) and {@code BotBuffRequestHandler} (a buff on request) leave out:
  * <ul>
- *   <li><b>Heal.</b> A bot that holds Cleric's Heal (a Cleric, Priest or Bishop) heals the party member in reach whose
- *       HP is lowest when it is under {@value #HEAL_BELOW_PERCENT}%, for the skill's MP, at most once every
- *       {@value #HEAL_GAP_MS} ms. A real player gets the server's own Heal effect; a bot partner gets the same number
- *       back as HP. It stays silent when it lacks the MP (after trying its potions) and never heals itself.</li>
+ *   <li><b>Heal.</b> A bot that holds Cleric's Heal (a Cleric, Priest or Bishop) casts it when the party member in
+ *       the Heal's reach whose HP is lowest is under {@value #HEAL_BELOW_PERCENT}%, for the skill's MP, at most once
+ *       every {@value #HEAL_GAP_MS} ms. The cast heals as a player's Heal does (1.6.2 healamt): every party member in
+ *       its box and the caster get maxHp x hp% / (people healed), by the stock StatEffect selection and formula.
+ *       It stays silent when it lacks the MP (after trying its potions) and never casts for itself alone.</li>
  *   <li><b>Buff potions.</b> A bot already holding an attack or defence potion drinks one - out of its ledger, through
  *       the item's real buff - when the stat is not already up and a fight is on. It never buys one; see
  *       {@link #pickPot}.</li>
@@ -90,11 +91,6 @@ public final class BotPartySupport {
 
     public static boolean healDue(long now, Long lastCast) {
         return lastCast == null || now - lastCast >= HEAL_GAP_MS;
-    }
-
-    /** HP a Heal of {@code percent} gives one target, off the caster's max HP (the server's rule for one target). */
-    public static int healAmount(int casterMaxHp, int percent) {
-        return Math.max(0, (int) (casterMaxHp * (float) percent / 100.0f));
     }
 
     /** A buff potion the bot holds: its item id and the stat it lifts (a pot of several is judged by its first). */
@@ -246,21 +242,24 @@ public final class BotPartySupport {
     static final String SENT_OWN_AFFECTED = "SHOW_ITEM_GAIN_INCHAT/2>target";
     static final String SENT_FOREIGN_AFFECTED = "SHOW_FOREIGN_EFFECT/2>map";
 
-    /* b140: the caster's cast effect for Heal to the bot's map (all but the bot); what was sent, or null. */
-    static String showHealCast(Character bot) {
-        if (bot == null || bot.getMap() == null) {
+    /* b140: the caster's cast effect for Heal to the bot's map (all but the bot), sent by the same StatEffect code as a
+       player's Heal (1.6.2 healamt); what was sent, or null. */
+    static String showHealCast(Character bot, StatEffect heal) {
+        if (bot == null || bot.getMap() == null || heal == null) {
             return null;
         }
-        bot.getMap().broadcastMessage(bot, BotBuffEffects.castPacket(bot, Cleric.HEAL), false);
+        heal.showCastEffect(bot);
         return SENT_CAST;
     }
 
     /* b140: one COMBAT line per bot Heal cast (at most one per bot every 2 s); a real player's heal to that player's run. */
-    static void logHeal(Character bot, Character target, int level, List<String> sent, int hpBefore, int hpAfter) {
+    static void logHeal(Character bot, Character target, int level, List<String> sent, int hpBefore, int hpAfter,
+                        int healedCount, int share) {
         if (QaLog.on(QaLog.Topic.COMBAT) && QaLog.every("party-heal:" + bot.getId(), HEAL_LOG_GAP_MS)) {
             String line = "PARTY HEAL " + bot.getName() + " -> " + target.getName()
                     + " skill " + Cleric.HEAL + " lv " + level
                     + " hp " + hpBefore + "->" + hpAfter
+                    + " healed " + healedCount + " x " + share
                     + " sent " + (sent == null || sent.isEmpty() ? "none" : String.join(" ", sent))
                     + " hold " + HEAL_ATTACK_HOLD_MS + "ms";
             if (!BotHelpers.isBot(target)) {
@@ -280,6 +279,12 @@ public final class BotPartySupport {
             List<Character> out = new ArrayList<>();
             if (party == null || bot.getMap() == null) {
                 return out;
+            }
+            // 1.6.2 healamt: with Heal, the members its cast really reaches (the stock StatEffect selection), so the
+            // member picked is one the cast heals
+            StatEffect heal = healEffect(bot.getSkillLevel(Cleric.HEAL));
+            if (heal != null && heal.isPartyBuff()) {
+                return heal.partyBuffTargets(bot, false);
             }
             Point here = bot.getPosition();
             for (PartyCharacter pc : party.getMembers()) {
@@ -331,33 +336,52 @@ public final class BotPartySupport {
 
         @Override
         public void heal(Character bot, Character target, int skillId, int level) {
-            Skill skill = SkillFactory.getSkill(skillId);
-            StatEffect effect = skill == null ? null : skill.getEffect(level);
+            StatEffect effect = healEffect(level);
             if (effect != null) {
                 castHeal(bot, target, level, effect);
             }
         }
 
-        /* One bot Heal on one party member with the skill level's effect: the packets, the HP, the hold, the log. */
+        private static StatEffect healEffect(int level) {
+            if (level <= 0) {
+                return null;
+            }
+            Skill skill = SkillFactory.getSkill(Cleric.HEAL);
+            return skill == null ? null : skill.getEffect(level);
+        }
+
+        /*
+         * One bot Heal with the skill level's effect, as a player's Heal (SpecialMoveHandler -> StatEffect.applyTo):
+         * the cast effect, then every party member the cast's box reaches - the stock selection - gets maxHp x hp% /
+         * (members healed + the caster), its HP change and the "affected" effects, then the caster its own share.
+         * {@code target} is the member the bot cast for (the log's subject). Then the hold and the log.
+         */
         static void castHeal(Character bot, Character target, int level, StatEffect effect) {
             int skillId = Cleric.HEAL;
             int before = target.getHp();
             List<String> sent = new ArrayList<>(3);
-            String cast = showHealCast(bot);
+            String cast = showHealCast(bot, effect);
             if (cast != null) {
                 sent.add(cast);
             }
-            // then what StatEffect.applyBuff does for each member a player's Heal reaches, in its order
-            if (BotHelpers.isBot(target)) {
-                BotVitals.heal(target, healAmount(bot.getCurrentMaxHp(), effect.getHp()));
-            } else {
-                effect.applyToTarget(bot, target);
+            List<Character> healed = effect.partyBuffTargets(bot, false);
+            int count = healed.size() + 1;   // the caster counted, as StatEffect.applyBuff counts
+            int share = effect.partyMemberHpChange(bot, count);
+            for (Character c : healed) {
+                if (BotHelpers.isBot(c)) {
+                    BotVitals.heal(c, share);
+                } else {
+                    effect.applyToTarget(bot, c, count);
+                }
+                BotBuffEffects.showReceived(c, skillId);
             }
-            BotBuffEffects.showReceived(target, skillId);
-            sent.add(SENT_OWN_AFFECTED);
-            sent.add(SENT_FOREIGN_AFFECTED);
+            if (!healed.isEmpty()) {
+                sent.add(SENT_OWN_AFFECTED);
+                sent.add(SENT_FOREIGN_AFFECTED);
+            }
+            BotVitals.heal(bot, share);   // the caster's own share (a player's primary applyTo; Heal has no HP cost)
             BotAttackDriver.holdAttacks(bot.getId(), System.currentTimeMillis() + HEAL_ATTACK_HOLD_MS);
-            logHeal(bot, target, level, sent, before, target.getHp());
+            logHeal(bot, target, level, sent, before, target.getHp(), count, share);
         }
 
         @Override
