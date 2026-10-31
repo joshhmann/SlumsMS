@@ -17,6 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.sql.Connection;
@@ -134,6 +136,51 @@ class MapRoutingWzTest {
             }
             assertTrue(imageExists(fallback), "fallback " + fallback + " of " + map + " has no image");
         }
+    }
+
+    /**
+     * s-maproute round 4 (b253): an image and a portal are not enough. The QA probe loads every fallback for real, and
+     * on TEST two of them threw, so t-mp-1 failed twice with {@code NoSuchElementException: No value present}: a
+     * destination the routing picks is a map a character actually gets put in, and the table can only be trusted if
+     * each one loads. Two causes, both fixed in this round: mob 3501008 (map 867120900) and 3401011 (map 867120100)
+     * name mob skill 201, which this server does not implement ({@code MobSkillToleranceTest}), and map 706030000's
+     * reactor 7492024 waits for an item its data never names ({@code ReactorLoadTest}). This test keeps the table
+     * honest against whatever the load path does next, so a new route cannot add a crash only TEST would find.
+     *
+     * <p>Only destinations are loaded. A row's source map is where the character already stands, so the routing cannot
+     * put anyone in it, and 229 maps (five of them sources in the table: 811000001, 863010210, 863010230, 863010300,
+     * 863010400) spawn a later-client mob that has no Mob.wz image at all - a load failure of its own that
+     * {@code tools/data-align/map_routing.py} keeps out of the destination column.
+     */
+    @Test
+    void everyMapTheTableSendsACharacterToLoadsOnThisServer() throws Exception {
+        WzTestData.assumePresent("Map.wz");
+        Set<Integer> ids = new TreeSet<>();
+        for (String[] row : section("routes")) {
+            ids.add(Integer.parseInt(row[3]));       // where the routing puts the character, portal and all
+        }
+        for (String[] row : section("blocked_maps")) {
+            ids.add(Integer.parseInt(row[3]));       // the fallback of a blocked map
+        }
+        assertFalse(ids.isEmpty());
+
+        try (MockedStatic<DatabaseConnection> db = Mockito.mockStatic(DatabaseConnection.class)) {
+            Connection con = mock(Connection.class, RETURNS_DEEP_STUBS);
+            db.when(DatabaseConnection::getConnection).thenReturn(con);
+            for (int id : ids) {
+                assertLoads(id);
+            }
+        }
+    }
+
+    private static void assertLoads(int map) {
+        MapleMap loaded;
+        try {
+            loaded = MapFactory.loadMapFromWz(map, 1, 1, null);
+        } catch (RuntimeException e) {
+            throw new AssertionError("the routing table moves a character into " + map + ", which cannot load", e);
+        }
+        assertNotNull(loaded, "the routing table moves a character into " + map + ", which has no image");
     }
 
     @Test

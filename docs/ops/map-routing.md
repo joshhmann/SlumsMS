@@ -11,7 +11,18 @@ findings - an image the client's tables lack is fatal) and the Rose Garden famil
 client dies on for a reason that is still under investigation. Every way into either goes to a map that loads: the
 Gollux legs to Memories of the Heart Tree (863010000), the Rose Garden to its entrance, Gardener's Spot (211080000).
 
-Our server WZ carries maps from newer game versions. Two things can go wrong when a portal, a script, a GM warp or a
+**Round 4 (2026-10-31, QA).** t-mp-1 failed on TEST twice - the probe could not load two of the fallbacks the table
+hands a character to, 867120100 and 867120900: `NoSuchElementException: No value present` out of
+`LifeFactory.getMonsterStats`. Those two maps spawn mob 3401011 and 3501008, and both name mob skill 201, which this
+server's `MobSkillType` does not carry (470 mobs of our `Mob.wz` name a skill id the enum lacks or a level
+`Skill.wz/MobSkill.img` has no data for; 48 maps spawn one). The throw took the whole map with it because
+`MapFactory.loadLife` cannot survive a mob that fails to load. Fixed at the cause: an unimplemented skill entry is
+skipped with one warning per mob, and the mob and its map load. The same tolerance now applies to map 706030000's
+reactor 7492024, whose type-100 item events never name their item (also fatal to the map load; 3109000 and 9260002 are
+the only other reactors built like that). Third class found and left alone: 229 maps spawn a mob that has no `Mob.wz`
+image at all - that is a data gap, and the generator now refuses such a map as a destination instead.
+
+Our server WZ carries maps from newer game versions. Three things can go wrong when a portal, a script, a GM warp or a
 saved character points at one of them:
 
 1. **missing** - the map id is not in the server's `Map.wz` at all (`MapFactory.loadMapFromWz` then throws: the image
@@ -20,6 +31,9 @@ saved character points at one of them:
 2. **client-crash** - the map loads on the server but the v83 client cannot render it, and the client dies on entry.
    11 today: Gollux: Abdomen (863010240), the seven Rose Garden maps past Gardener's Spot (211080100-211080700), two
    Star Planet maps (814040000, 814041900) and 402000324, an id `String.wz` does not name.
+3. **mob without an image** - the map's image is there but a mob it spawns has none, and `MapFactory.loadLife` fails on
+   the null life, so the map cannot load. 229 today (811000001, the four Gollux legs, ...). A map like that is never a
+   destination: the generator's `Router.loadable` refuses it and the fallback/pair rules pick the next candidate.
 
 Bots already skip (1) (`GCWorldGraph.dropMissingTargets`); players never did. This table is the one list of such
 maps and of where a move into one has to go instead, and one resolver all warp paths go through.
@@ -132,8 +146,11 @@ python3 -m unittest discover -s tools/data-align -p 'test_*.py'
 ```
 
 The generator keeps `# manual` rows, rewrites everything else, and validates its own output: no `route_to_map` is
-missing from `Map.wz` or blocked itself, every blocked map has a loadable fallback, every row's portal name exists on
-its `from_map` when the row is not `*`. It exits non-zero with the offending rows instead of writing a bad table.
+missing from `Map.wz`, blocked itself, or a map whose mobs cannot all load; every blocked map has a loadable fallback;
+every row's portal name exists on its `from_map` when the row is not `*`. It exits non-zero with the offending rows
+instead of writing a bad table. Loadable means `Router.loadable`: in `Map.wz`, not blocked, and every mob in the map's
+`life` has a `Mob.wz` image (NPCs never fail; a mob skill the server lacks does not disqualify a map any more, the
+loader tolerates it).
 
 ## Tests
 
@@ -143,7 +160,8 @@ its `from_map` when the row is not `*`. It exits non-zero with the offending row
   of the Fifth Tower stays ordinary, 410000350 is no longer blocked, an unknown source still lands on the fallback, and
   no route in the committed table lands in a blocked map.
 - `MapRoutingWzTest` (skips without `wz/`) - the committed table against the real `Map.wz`: every route lands on an
-  image that exists, is not blocked, and has the arrival portal; `missing` rows really have no image and `client-crash`
+  image that exists, is not blocked, and has the arrival portal; every destination and fallback loads for real through
+  `MapFactory.loadMapFromWz` (the round-4 guard: the probe found a crash here, this test refuses the next one); `missing` rows really have no image and `client-crash`
   rows do; every blocked map's fallback loads; the map manager hands out neither 993162016 (no image) nor 863010240 or
   211080100 (`client-crash`, image present) and substitutes only through `getMapOrFallback`; the data still says
   Fountain Square `in00` targets 993162016 and Gardener's Spot `east00` targets 211080100.
@@ -153,14 +171,20 @@ its `from_map` when the row is not `*`. It exits non-zero with the offending row
   sends no packet.
 - `CharacterLoginMapRoutingTest` - a character saved in 863010240 or 211080100 logs in at the fallback and the next
   save writes the corrected id.
-- `tools/data-align/test_map_routing.py` - the crash lists' `!` clear, and the committed table agreeing with the seed
-  (every seeded id a `client-crash` row, the cleared one absent, no fallback blocked).
+- `MobSkillToleranceTest` / `ReactorLoadTest` (skip without `wz/`) - mob 3501008's unimplemented skill 201 costs the
+  skill and not the mob; mob 2600030 keeps the one skill of its six that this server can run; 9410204 keeps its FEAR;
+  reactor 7492024's itemless state is inert through both load paths while 6938001 still waits for item 4034370.
+- `tools/data-align/test_map_routing.py` - the crash lists' `!` clear, the committed table agreeing with the seed
+  (every seeded id a `client-crash` row, the cleared one absent, no fallback blocked), and the loadability rule: a map
+  whose mob has no image is not a destination, and with the two round-4 mobs' images removed the router moves both
+  rows to `henesys` instead.
 - `GCWorldGraphRoutingTest` - the bots' graph drops edges into blocked maps, on a hand graph and on the real one.
 - Drift check: `python3 tools/data-align/map_routing.py --check --wz <wz>` regenerates into memory and compares, so a
   WZ update without a table regeneration fails that command (the Java tests assert the invariants, not equality, since
   they run without python).
 - Auto-QA `t-mp-1` runs the same invariants on a live server (table in the jar, fallbacks load, an image-less map
-  still loads nothing); the eyes part of it is the walk in a real client (HALF check).
+  still loads nothing); the eyes part of it is the walk in a real client (HALF check). It passed here only once round 4
+  fixed the two fallbacks; it re-runs on TEST after the next deploy.
 
 ## Status (2026-10-31, branch `162-maproute`)
 
@@ -181,5 +205,9 @@ python3 tools/data-align/map_routing.py --wz /root/slums-nav-v70/wz --client-cra
 - Known consequence: the bots' graph drops the 11 client-crash maps, so they are no bot destination and every map that
   only led into one (410000325, the Gollux legs, the Rose Garden past the entrance) loses that edge for bots. 410000325
   is an ordinary map again since rc6.
-- Unverified: a real client walking the doors (the crash is client-side), and the effect on a live world with moving
-  bots (the graph change is visible at boot).
+- Round 4: the table is unchanged (63 routes, 49 blocked maps, 24 dead ends), `--check` is current, and the three
+  load failures are fixed in the loader, not by moving rows. Nothing deployed: TEST still runs an older jar (60 routes,
+  39 blocked), so `t-mp-1` there still reads FAIL until Server Dev deploys.
+- Unverified: a real client walking the doors (the crash is client-side), the effect on a live world with moving bots
+  (the graph change is visible at boot), and the 229 mob-image maps (a data gap reported, not fixed: only the fallbacks
+  and destinations matter to this table and none of them is one).
