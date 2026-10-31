@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 /*
@@ -58,15 +59,21 @@ public final class BotMaker {
         public static final Result NONE = new Result(0, "nothing to do");
     }
 
-    /* One Maker operation; its MakerService status (0 = made). */
+    /* One Maker operation; its MakerService status (0 = made). Public with {@link #run} for the auto-QA check's tests
+     * (ProbesMakerTest), which drives this engine against a spent world cap. */
     @FunctionalInterface
-    interface Op {
+    public interface Op {
         short run();
     }
 
     private static final Map<Integer, Integer> todayByChar = new ConcurrentHashMap<>();
     private static volatile LocalDate countedDay;
     private static volatile Supplier<LocalDate> clock = LocalDate::now;
+    /** Auto-QA's Maker headroom (t-mk-2): the one bot it belongs to and the operations past the world's cap, or null. */
+    private record QaHeadroom(int charId, int ops) {
+    }
+
+    private static final AtomicReference<QaHeadroom> qaHeadroom = new AtomicReference<>();
 
     private BotMaker() {
     }
@@ -101,13 +108,49 @@ public final class BotMaker {
         return worldDaily() - EconomyMeters.get(WORLD_METER);
     }
 
-    /* The world's cap itself, and what it has counted so far today (for the auto-QA check's SKIP reason). */
+    /* The world's cap itself, and what it has counted so far today (for the auto-QA check's cap failure). */
     public static long worldCapToday() {
         return worldDaily();
     }
 
     public static long worldOpsToday() {
         return EconomyMeters.get(WORLD_METER);
+    }
+
+    /*
+     * Auto-QA only (t-mk-2): lets one character make {@code ops} Maker operations past the world's daily cap until
+     * {@link #releaseQaOperations()}. Set-once - false while a reservation is held, so two runs cannot stack - and the
+     * headroom is spent by that character id alone ({@link #capFor}), so a normal bot never sees it. The production
+     * cap is untouched: every operation still counts on the world's meter and normal bots still stop at it.
+     */
+    public static boolean reserveQaOperations(int charId, int ops) {
+        return ops > 0 && qaHeadroom.compareAndSet(null, new QaHeadroom(charId, ops));
+    }
+
+    /*
+     * Ends auto-QA's headroom; the operations its bot really made stay counted, only the extra room goes. Idempotent:
+     * returns the operations released, 0 when nothing was held.
+     */
+    public static int releaseQaOperations() {
+        QaHeadroom held = qaHeadroom.getAndSet(null);
+        return held == null ? 0 : held.ops();
+    }
+
+    /* The operations of auto-QA headroom in force right now (0 when none): a batch may only run on its own. */
+    public static int qaOperationsHeld() {
+        QaHeadroom held = qaHeadroom.get();
+        return held == null ? 0 : held.ops();
+    }
+
+    /* The cap this character may reach today: the world's, plus auto-QA's headroom for its own bot only. */
+    static long capFor(int charId) {
+        QaHeadroom held = qaHeadroom.get();
+        return worldDaily() + (held != null && held.charId() == charId ? held.ops() : 0);
+    }
+
+    /* Operations this character may still make today (the world's cap plus auto-QA's headroom for its own bot). */
+    public static long worldCapLeftFor(int charId) {
+        return capFor(charId) - EconomyMeters.get(WORLD_METER);
     }
 
     /* Gives a character its day back (the auto-QA check's throwaway bot: ids are reused between runs). */
@@ -131,6 +174,7 @@ public final class BotMaker {
         clock = testClock == null ? LocalDate::now : testClock;
         todayByChar.clear();
         countedDay = null;
+        qaHeadroom.set(null);
     }
 
     // ---- the batches ----
@@ -204,7 +248,7 @@ public final class BotMaker {
      * The caps count operations, not crystals: one crystal made from 100 leftovers is one, and one equip disassembled
      * is one however many crystals it gives back (half its recipe's).
      */
-    static Result run(Character chr, List<Op> ops, int max) {
+    public static Result run(Character chr, List<Op> ops, int max) {
         if (!enabled()) {
             return new Result(0, "off");
         }
@@ -219,6 +263,7 @@ public final class BotMaker {
         int made = 0;
         String stop = "done";
         String failed = null;
+        long cap = capFor(chr.getId());
         try {
             for (Op op : ops) {
                 if (made >= max) {
@@ -229,8 +274,8 @@ public final class BotMaker {
                     stop = "daily limit (" + perBotDaily() + ")";
                     break;
                 }
-                if (!EconomyMeters.tryAdd(WORLD_METER, 1, worldDaily())) {
-                    stop = "world daily limit (" + worldDaily() + ")";
+                if (!EconomyMeters.tryAdd(WORLD_METER, 1, cap)) {
+                    stop = "world daily limit (" + cap + ")";
                     break;
                 }
                 short status;

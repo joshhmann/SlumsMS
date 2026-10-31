@@ -483,8 +483,15 @@ final class GCMovementDriver {
      * MOVE_NO_PROGRESS_MS, abandon the move (clear target + nav, drop the callback) so an
      * unreachable / blocked / buggy goal can't loop forever. Any real progress resets the clock, so
      * long legitimate walks are never cut off. Follow/farm without a moveTarget are unaffected.
+     *
+     * Round 2 (t-mx-2): the give-up is neither silent nor costless any more. It records a GAVE_UP spot (so a stuck
+     * report shows it next to the other kinds) and counts the miss against the edge the bot was on, exactly like
+     * the parked-edge give-up in BotNavigationManager - the next plan then routes around the leg that did not work,
+     * instead of re-serving the same route, which is what made t-mx-2's stage 3 idle for 1164 s.
+     *
+     * Package-visible: MoveStallGiveUpTest drives this seam directly.
      */
-    private static boolean giveUpStalledMove(BotMovementState entry) {
+    static boolean giveUpStalledMove(BotMovementState entry) {
         if (entry.moveTarget == null || entry.inAir || entry.climbing) {
             return false;
         }
@@ -502,6 +509,12 @@ final class GCMovementDriver {
         if (now - entry.moveProgressAtMs <= MOVE_NO_PROGRESS_MS) {
             return false;
         }
+        BotNavigationGraph graph = entry.navGraph;
+        BotNavigationGraph.Edge edge = entry.navEdge;
+        if (edge != null && graph != null) {
+            NavEdgeLearning.failure(entry, graph, edge); // the leg did not work: make the next plan avoid it
+        }
+        NavStuckLog.record(NavStuckLog.Kind.GAVE_UP, entry.bot.getMap(), bp, graph, edge, NavTrace.capture(entry));
         entry.moveTarget = null;
         entry.moveTargetPrecise = false;
         entry.moveBestDist = Integer.MAX_VALUE;

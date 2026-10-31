@@ -154,11 +154,20 @@ public final class GCMovement {
         st.following = false;
         st.farmAnchor = null;
         st.farmAnchorMapId = -1;
+        // Round 2 (t-mx-2): callers re-issue their target every few seconds (StepExecutor's occupy/moveNear every
+        // 4 s), and this re-armed the no-progress clock each time, so GCMovementDriver's 8 s give-up could never
+        // fire during a mechanics run: a bot whose route did not work repeated it silently, for as long as the run
+        // lasted (t-mx-2 stage 3 idled for 1164 s). Re-issuing the same point on the same map now keeps the clock.
+        boolean sameTarget = st.moveTarget != null && st.moveTarget.x == x && st.moveTarget.y == y
+                && st.moveTargetMapId == bot.getMapId();
         st.moveTarget = new Point(x, y);
+        st.moveTargetMapId = bot.getMapId();
         st.moveTargetPrecise = true;
         st.moveTargetSource = "gcmove";
-        st.moveBestDist = Integer.MAX_VALUE;
-        st.moveProgressAtMs = System.currentTimeMillis();
+        if (!sameTarget) {
+            st.moveBestDist = Integer.MAX_VALUE;
+            st.moveProgressAtMs = System.currentTimeMillis();
+        }
         if (onArrival != null) {
             ARRIVAL_CALLBACKS.put(bot.getId(), onArrival);
         } else {

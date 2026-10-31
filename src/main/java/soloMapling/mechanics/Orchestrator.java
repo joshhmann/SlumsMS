@@ -405,23 +405,6 @@ public final class Orchestrator implements RunOrchestrator {
         return (long) ((lo + (hi - lo) * f) * 1000);
     }
 
-    /**
-     * Bot members of the event that are still on another map of it (TEST 10-31, t-mx-5: one of the two alts asked Cloto
-     * nothing all run). The run holds every bot it drives ({@code MechanicsHold} + {@code GCMovement.stop}), so such a
-     * member can neither walk in nor follow its owner: nothing but a put-in gets it to the stage.
-     */
-    static java.util.List<Integer> stragglers(RunState run, StageView view) {
-        Stage stage = run.stageData();
-        java.util.List<Integer> ids = new java.util.ArrayList<>();
-        for (RunMember m : run.members()) {
-            int on = view.mapOf(m.characterId());
-            if (m.bot() && on != stage.mapId() && on != -1) {
-                ids.add(m.characterId());
-            }
-        }
-        return ids;
-    }
-
     /** How long a member may sit where the run cannot drive it before one note says so (a walk between stages fits). */
     public static final long STRAY_GRACE_MS = 15_000;
 

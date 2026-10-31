@@ -460,13 +460,17 @@ public final class BotRebirthQa {
     }
 
     /**
-     * rb-2: whether the run's clear item is accounted for: it sits in the bag, or the bot's own rebirth decision
-     * already spent it on the key it carries now. TEST 10-31 07:23: the item was handed over at 07:23:00.999 and the
-     * bot crafted its key 4033442 out of it at 07:23:02.308, before the probe's own 2 s poll looked at the bag, so
-     * "1 held" alone failed a run that did everything right. A key the bot already carried does not count.
+     * rb-2/t-rb-2: whether this bot's own craft spent {@code itemId} on the key for rebirth {@code reborns}, at or
+     * after {@code sinceMs}. {@link BotRebirth#craft} writes that record at the consume itself, with the bot's id,
+     * the rebirth the key is for and every item it took, so the check can only pass on the item this bot earned going
+     * into its own key. Round 2 review: "the bag is empty and the next key count went up" also passed when the key
+     * came from another bot's award, a GM grant or another route; a key is not the item.
      */
-    public static boolean clearItemEarned(int held, int keyBefore, int keyNow) {
-        return held >= 1 || (held == 0 && keyNow > keyBefore);
+    public static boolean clearItemConsumed(Character bot, int itemId, int reborns, long sinceMs) {
+        BotRebirth.Crafted c = bot == null ? null : BotRebirth.lastCraft(bot.getId());
+        if (c == null || c.reborns() != reborns || c.atMs() < sinceMs) return false;
+        for (int id : c.consumed()) if (id == itemId) return true;
+        return false;
     }
 
     /** rb-2: how many of the key for the bot's next rebirth it carries right now. */

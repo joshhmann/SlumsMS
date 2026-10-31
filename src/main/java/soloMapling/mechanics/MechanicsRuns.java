@@ -254,7 +254,6 @@ public final class MechanicsRuns {
             a.reporter.accept("RUN " + events.get(i).line());
         }
         List<Character> driven = new ArrayList<>(steps.size());
-        bringInStragglers(a, view);
         for (Map.Entry<Integer, SolverStep> e : steps.entrySet()) {
             Character bot = view.character(e.getKey());
             if (bot == null || bot.getMap() == null || bot.getHp() <= 0) {
@@ -264,33 +263,6 @@ public final class MechanicsRuns {
             executor.execute(a.run, o, view, bot, e.getValue(), now, a.reporter);
         }
         keepPhysics(driven, GCMovement::holdFullPhysics);
-    }
-
-    /**
-     * Puts a bot member the run drives but that an event start left on another map into the stage map, once per member
-     * per stage (TEST 10-31, t-mx-5: an owned alt never reached stage 1 and asked Cloto nothing for six minutes). The
-     * run holds every bot it drives, so such a member cannot walk or follow its owner in by itself, and the old code
-     * gave it a silent {@code Wait} every tick. Not done for a member that is not in the event at all: it would be
-     * joining a party quest it never entered. Returns how many were put in.
-     */
-    static int bringInStragglers(Active a, LiveStageView view) {
-        server.maps.MapleMap target = view.map();
-        int moved = 0;
-        for (int id : Orchestrator.stragglers(a.run, view)) {
-            if (target == null || a.run.stageMemory().putIfAbsent("broughtIn:" + id, true) != null) {
-                continue;
-            }
-            Character c = view.character(id);
-            if (c == null || c.getMap() == null || c.getMap() == target) {
-                continue;
-            }
-            int from = view.mapOf(id);
-            c.changeMap(target, target.getPortal(0));
-            a.reporter.accept("RUN " + id + " was left on map " + from + " (the run holds it, it cannot walk in):"
-                    + " put on stage " + a.run.stageData().index() + "'s map " + target.getId());
-            moved++;
-        }
-        return moved;
     }
 
     /*

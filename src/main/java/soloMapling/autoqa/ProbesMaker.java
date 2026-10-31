@@ -15,6 +15,7 @@ import soloMapling.Economy.EconomyMeters;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Ticket 112, decision 3 (auto-QA t-mk-2): the bots' Maker batch, run once for real on a fresh throwaway bot. The bot
@@ -22,8 +23,10 @@ import java.util.List;
  * client fee is more than its wallet; its wallet is exactly the two cheap fees. {@link BotMaker#townBatch} then must
  * make the crystal and disassemble the two cheap equips through MakerService (the real fee off the wallet, to the
  * meso), keep the bad equip (out of mesos, skipped) and carry on past it, and count three operations - not the
- * crystals they gave - on the bot's cap and the world's. The bot is despawned, its day forgotten and the world's
- * units put back. SKIPs when maker.botBatch is off. The verdict rules are static, for tests.
+ * crystals they gave - on the bot's cap and the world's. The bot is despawned and its day forgotten; the operations it
+ * really made stay counted. On a world whose 300 operations are already spent, the check stages its own headroom
+ * ({@link BotMaker#reserveQaOperations}) for this bot alone and runs anyway, so a busy TEST world cannot turn it into
+ * a SKIP. SKIPs only when maker.botBatch is off. The verdict rules are static, for tests.
  */
 final class ProbesMaker {
 
@@ -123,17 +126,71 @@ final class ProbesMaker {
         return out;
     }
 
+    /** The operations the staged batch makes: the crystal from the leftover and the two disassemblies. */
+    static final int BATCH_OPS = 3;
+
     /**
-     * The SKIP line when the world's Maker cap has no room for a batch's 3 operations, null when it has. The numbers
-     * are in it because TEST 10-31 (t-mk-2) skipped with "0 operations left" and nothing else, and the run's report
-     * could not say whether a bot batch or the check itself had used the day.
+     * The headroom a batch needs past the world's cap: none while the world's day has room for it, otherwise the
+     * shortfall. TEST 10-31 (t-mk-2) skipped with "0 operations left" because the check left the whole day to the
+     * world's bots; now it reserves what it lacks, for its own bot alone.
      */
-    static String capSkip(long room, long cap) {
-        if (room >= 3) {
+    static int headroomNeeded(long room, int need) {
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0, need - room));
+    }
+
+    /**
+     * The FAIL line when the cap still has no room for the batch with auto-QA's headroom in place (a bot batch took
+     * the room between the reservation and the run), null when the batch fits. Never a SKIP: a check that cannot run
+     * its batch must say so.
+     */
+    static String capFailure(long room, long cap, int need) {
+        if (room >= need) {
             return null;
         }
-        return "SKIP the world's Maker cap for today is used up (" + room + " of " + cap + " operations left, "
-                + (cap - room) + " used today)";
+        return "FAIL the world's Maker cap has only " + room + " of " + cap + " operations left even with auto-QA's "
+                + "headroom for this bot: another batch is holding the world's day";
+    }
+
+    /** A batch run under auto-QA's headroom: its result, or the FAIL line when the cap could not be covered. */
+    record Run(BotMaker.Result result, String failure) {
+    }
+
+    /**
+     * Runs the staged batch with auto-QA's own Maker headroom: the reservation is taken only when the world's day
+     * cannot fit it, it covers that one bot's shortfall, and it is always released afterwards, even when the batch
+     * throws. The operations the bot really made stay counted on the world's meter, which is the real account of them.
+     */
+    static Run withHeadroom(int charId, int need, Supplier<BotMaker.Result> batch) {
+        long cap = BotMaker.worldCapToday();
+        int foreign = BotMaker.qaOperationsHeld();
+        if (foreign > 0) { // a reservation this run did not take: never run on, or release, someone else's headroom
+            return new Run(null, "FAIL the world's Maker cap has " + BotMaker.worldCapLeft() + " of " + cap
+                    + " operations left and auto-QA's " + foreign + " operations of headroom are already held by"
+                    + " another run: this batch may not run on a reservation it will not release");
+        }
+        long room = BotMaker.worldCapLeftFor(charId);
+        int reserve = headroomNeeded(room, need);
+        if (reserve > 0) {
+            if (!BotMaker.reserveQaOperations(charId, reserve)) {
+                return new Run(null, "FAIL the world's Maker cap has " + room + " of " + cap + " operations left and "
+                        + "auto-QA's headroom is already held by another run: no batch can be staged");
+            }
+            AutoQa.log.info("t-mk-2: reserved {} of the world's {} Maker operations for bot {} ({} left today)",
+                    reserve, cap, charId, room);
+        }
+        try {
+            String capped = capFailure(BotMaker.worldCapLeftFor(charId), cap + reserve, need);
+            if (capped != null) {
+                AutoQa.log.info("t-mk-2: {}", capped);
+                return new Run(null, capped);
+            }
+            return new Run(batch.get(), null);
+        } finally {
+            if (reserve > 0) {
+                int released = BotMaker.releaseQaOperations();
+                AutoQa.log.info("t-mk-2: released {} Maker operation(s) of auto-QA headroom for bot {}", released, charId);
+            }
+        }
     }
 
     static List<String> makerBatch(SyntheticPlayer p) {
@@ -143,7 +200,6 @@ final class ProbesMaker {
         List<String> ev = new ArrayList<>();
         List<Character> spawned = new ArrayList<>();
         Character bot = null;
-        long worldDone = 0;
         try {
             spawned.addAll(TalkQa.spawn(p.character(), 1, true, LEVEL));
             if (spawned.isEmpty()) {
@@ -165,12 +221,6 @@ final class ProbesMaker {
             long priceyFee = MakerItemFactory.getDisassemblyFee(pricey);
             if (priceyFee <= 2 * cheapFee) {
                 return List.of("FAIL could not stage a bad equip: fees " + cheapFee + " and " + priceyFee);
-            }
-            long room = BotMaker.worldCapLeft();
-            String capSkip = capSkip(room, BotMaker.worldCapToday());
-            if (capSkip != null) {
-                AutoQa.log.info("t-mk-2: {}", capSkip + " (the batch was not run; TEST's population bots batch too)");
-                return List.of(capSkip);
             }
             // an empty bag: the fresh bot's own gear and leftovers must not join the batch
             Inventory eq = bot.getInventory(InventoryType.EQUIP);
@@ -204,8 +254,13 @@ final class ProbesMaker {
                     + " (fee " + cheapFee + " each), bad " + pricey.getItemId() + " (fee " + priceyFee + "), wallet "
                     + bot.getMeso());
 
-            BotMaker.Result r = BotMaker.townBatch(bot);
-            worldDone = EconomyMeters.get(BotMaker.WORLD_METER) - worldBefore;
+            Character target = bot;
+            Run ran = withHeadroom(bot.getId(), BATCH_OPS, () -> BotMaker.townBatch(target));
+            if (ran.failure() != null) {
+                return List.of(ran.failure());
+            }
+            BotMaker.Result r = ran.result();
+            long worldDone = EconomyMeters.get(BotMaker.WORLD_METER) - worldBefore;
             ev.add("batch: made " + r.made() + ", stopped by " + r.stoppedBy() + "; Maker level "
                     + MakerService.getMakerSkillLevel(bot));
 
@@ -218,9 +273,6 @@ final class ProbesMaker {
             return Probes160.verdict(problems(o), "the batch made a crystal and disassembled 2 equips through the Maker path, "
                     + "paid the client's fee to the meso, skipped the bad equip and carried on, and the caps counted 3 operations", ev);
         } finally {
-            if (worldDone != 0) {
-                EconomyMeters.add(BotMaker.WORLD_METER, -worldDone);
-            }
             if (bot != null) {
                 BotMaker.forget(bot.getId());
             }
