@@ -941,6 +941,9 @@ public class StatEffect {
                 if (moveTo == MapId.NONE) {
                     if (sourceid != ItemId.ANTI_BANISH_SCROLL) {
                         target = applyto.getMap().getReturnMap();
+                        if (target == null) {   // s-maproute: the return map has no image
+                            return false;
+                        }
                         pt = target.getRandomPlayerSpawnpoint();
                     } else {
                         if (!applyto.canRecoverLastBanish()) {
@@ -956,6 +959,10 @@ public class StatEffect {
                     }
                 } else {
                     target = applyto.getClient().getWorldServer().getChannel(applyto.getClient().getChannel()).getMapFactory().getMap(moveTo);
+                    if (target == null) {   // s-maproute: blocked or no image, so the effect does nothing
+                        applyto.sendPacket(PacketCreator.enableActions());
+                        return false;
+                    }
                     int targetid = target.getId() / 10000000;
                     if (targetid != 60 && applyto.getMapId() / 10000000 != 61 && targetid != applyto.getMapId() / 10000000 && targetid != 21 && targetid != 20 && targetid != 12 && (applyto.getMapId() / 10000000 != 10 && applyto.getMapId() / 10000000 != 12)) {
                         return false;

@@ -733,7 +733,11 @@ public final class Channel {
             }
 
             MiniDungeonInfo mmdi = MiniDungeonInfo.getDungeon(dungeonid);
-            MiniDungeon mmd = new MiniDungeon(mmdi.getBase(), this.getMapFactory().getMap(mmdi.getDungeonId()).getTimeLimit());   // thanks Conrad for noticing hardcoded time limit for minidungeons
+            MapleMap dungeonMap = this.getMapFactory().getMap(mmdi.getDungeonId());
+            if (dungeonMap == null) {   // s-maproute: the dungeon map has no image, so there is no time limit to read
+                return false;
+            }
+            MiniDungeon mmd = new MiniDungeon(mmdi.getBase(), dungeonMap.getTimeLimit());   // thanks Conrad for noticing hardcoded time limit for minidungeons
 
             dungeons.put(dungeonid, mmd);
             return true;

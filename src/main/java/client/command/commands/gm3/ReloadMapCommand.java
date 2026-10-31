@@ -39,6 +39,10 @@ public class ReloadMapCommand extends Command {
     public void execute(Client c, String[] params) {
         Character player = c.getPlayer();
         MapleMap newMap = c.getChannelServer().getMapFactory().resetMap(player.getMapId());
+        if (newMap == null) {   // s-maproute: the map could not be loaded again, so nobody moves
+            player.dropMessage(5, "This map could not be reloaded.");
+            return;
+        }
         int callerid = c.getPlayer().getId();
 
         Collection<Character> characters = player.getMap().getAllPlayers();

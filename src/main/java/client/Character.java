@@ -1022,7 +1022,12 @@ public class Character extends AbstractCharacterObject {
         this.loggedIn = true;
         c.setAccountName(this.client.getAccountName());//No null's for accountName
         this.setClient(c);
-        this.map = c.getChannelServer().getMapFactory().getMap(getMapId());
+        // s-maproute: a reattach (channel change, relogin) also cannot land nowhere; a direct getMap would be null
+        // for a map the table blocks or has no image for.
+        this.map = c.getChannelServer().getMapFactory().getMapOrFallback(getMapId());
+        if (this.map == null) {
+            this.map = c.getChannelServer().getMapFactory().getMapOrFallback(MapId.HENESYS);
+        }
         Point near = getPosition();
         // 1.6.1 ticket 53: a Family Reunion / Summon across channels lands on the family member's map
         FamilyTravel.Arrival arrival = FamilyTravel.take(getId(), c.getChannel(), System.currentTimeMillis());
@@ -1720,13 +1725,20 @@ public class Character extends AbstractCharacterObject {
         try {
             canWarpCounter++;
             try {
-                // s-maproute: resolved under the warp lock, so a bot mid-channel-move cannot read the target's id
-                MapRouting.Move move = MapRouting.move(this, target.getId(), pto == null ? null : pto.getName());
+                // s-maproute: resolved under the warp lock, so a bot mid-channel-move cannot read the target's id.
+                // An event instance's own map is live and was loaded for the event: the routing table says nothing
+                // about it (a party quest may reuse any base id), so it is entered as asked.
+                MapRouting.Move move = isEventInstanceMap(target)
+                        ? null : MapRouting.move(this, target.getId(), pto == null ? null : pto.getName());
                 if (move != null && move.stay()) {
                     return; // the door leads nowhere: MapRouting messaged the player and re-enabled actions
                 }
                 eventChangedMap(target.getId());    // player can be dropped from an event here, hence the new warping target.
-                MapleMap to = (move == null) ? getWarpMap(target.getId()) : lookupWarpMap(move.map());
+                // routing was resolved above (or skipped for an instance map), so this is a plain lookup
+                MapleMap to = (move == null) ? lookupWarpMap(target.getId()) : lookupWarpMap(move.map());
+                if (to == null) {
+                    return; // nowhere to land (an instance map that does not exist, a channel with no maps left)
+                }
                 if (move != null) {
                     pto = arrivalPortal(to, move.portal(), pto);
                 } else if (pto == null) {
@@ -1747,6 +1759,15 @@ public class Character extends AbstractCharacterObject {
                 warpLock.unlock();
             }
         }
+    }
+
+    /**
+     * s-maproute: true for a map object that belongs to an event instance (see {@code EventInstanceManager.getMapInstance}).
+     * Such a map is loaded and in use for its event; the routing table, which exists for ids the server cannot load or
+     * the client crashes on, must not send the player out of it.
+     */
+    private static boolean isEventInstanceMap(MapleMap map) {
+        return map != null && map.getEventInstance() != null;
     }
 
     /**
@@ -1775,12 +1796,16 @@ public class Character extends AbstractCharacterObject {
         try {
             canWarpCounter++;
             try {
-                MapRouting.Move move = MapRouting.move(this, target.getId(), null);   // s-maproute, under the lock
+                MapRouting.Move move = isEventInstanceMap(target)
+                        ? null : MapRouting.move(this, target.getId(), null);   // s-maproute, under the lock
                 if (move != null && move.stay()) {
                     return;
                 }
                 eventChangedMap(target.getId());
-                MapleMap to = (move == null) ? getWarpMap(target.getId()) : lookupWarpMap(move.map());
+                MapleMap to = (move == null) ? lookupWarpMap(target.getId()) : lookupWarpMap(move.map());
+                if (to == null) {
+                    return;
+                }
                 Point where = pos;
                 if (move != null) {   // a coordinate of the map we could not enter means nothing in the new one
                     Portal p = arrivalPortal(to, move.portal(), null);
@@ -1838,7 +1863,8 @@ public class Character extends AbstractCharacterObject {
         canWarpCounter++;
         try {
             // s-maproute: resolved after the counter, so a refused move still balances the latch in the finally
-            MapRouting.Move move = MapRouting.move(this, target.getId(), pto == null ? null : pto.getName());
+            MapRouting.Move move = isEventInstanceMap(target)
+                    ? null : MapRouting.move(this, target.getId(), pto == null ? null : pto.getName());
             if (move != null && move.stay()) {
                 return; // the target is a map this client cannot enter; the player stays, already messaged
             }
@@ -1859,6 +1885,9 @@ public class Character extends AbstractCharacterObject {
             }
 
             MapleMap to = (move == null) ? target : lookupWarpMap(move.map());
+            if (to == null) {
+                return;
+            }
             // warps directly to the target intead of the target's map id, this allows GMs to patrol players inside instances.
             if (move != null) {
                 pto = arrivalPortal(to, move.portal(), pto);
@@ -8469,14 +8498,20 @@ public class Character extends AbstractCharacterObject {
 
                     if (channelserver) {
                         MapManager mapManager = client.getChannelServer().getMapFactory();
-                        ret.map = mapManager.getMap(ret.mapid);
-
+                        // s-maproute: a character saved inside a map nobody can enter (a client-crash map, an id with
+                        // no image) logs in at the routing table's fallback for it, and that map id is the one it now
+                        // carries, so the next save writes it. A direct getMap no longer substitutes anything.
+                        ret.map = mapManager.getMapOrFallback(ret.mapid);
+                        if (ret.map == null) {   // not blocked, yet no image either: the table has not caught up
+                            log.error("Chr {} was saved in map {}, which has no image and no fallback row; using {}",
+                                    ret.getName(), ret.mapid, MapId.HENESYS);
+                            ret.map = mapManager.getMapOrFallback(MapId.HENESYS);
+                        }
                         if (ret.map == null) {
-                            ret.map = mapManager.getMap(MapId.HENESYS);
+                            throw new IllegalStateException("Loading char " + ret.getName() + " failed: no map for "
+                                    + ret.mapid + " and none for " + MapId.HENESYS + " either");
                         }
                         if (ret.map.getId() != ret.mapid) {
-                            // s-maproute: saved inside a map that cannot be entered (MapManager redirected it), or
-                            // one the client crashes on. Log in at the map they were rerouted to, on its spawn point.
                             log.info("Chr {} was saved in map {} ({}), logging in at {}", ret.getName(), ret.mapid,
                                     MapRouting.blocked(ret.mapid) ? MapRouting.kind(ret.mapid) : "no image",
                                     ret.map.getId());

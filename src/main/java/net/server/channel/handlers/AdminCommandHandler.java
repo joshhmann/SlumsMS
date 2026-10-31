@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import server.ItemInformationProvider;
 import server.life.LifeFactory;
 import server.life.Monster;
+import server.maps.MapleMap;
 import server.maps.MapObject;
 import server.maps.MapObjectType;
 import server.quest.Quest;
@@ -124,7 +125,13 @@ public final class AdminCommandHandler extends AbstractPacketHandler {
             case 0x12: // Send
                 victim = p.readString();
                 int mapId = p.readInt();
-                c.getChannelServer().getPlayerStorage().getCharacterByName(victim).changeMap(c.getChannelServer().getMapFactory().getMap(mapId));
+                Character sendVictim = c.getChannelServer().getPlayerStorage().getCharacterByName(victim);
+                MapleMap sendTo = c.getChannelServer().getMapFactory().getMap(mapId);
+                if (sendVictim == null || sendTo == null) {   // s-maproute: map {} has no image or is blocked
+                    c.getPlayer().dropMessage(5, "No such player or map: " + victim + " " + mapId);
+                    break;
+                }
+                sendVictim.changeMap(sendTo);
                 break;
             case 0x15: // Kill
                 int mobToKill = p.readInt();

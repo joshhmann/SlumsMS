@@ -65,14 +65,13 @@ public class MapManager {
     private synchronized MapleMap loadMapFromWz(int mapid, boolean cache) {
         MapleMap map;
 
-        // s-maproute: the net for every direct factory load that bypasses a character (a script calling
-        // getMap(id), a monster or NPC spawn target). A map id the server has no image for, or that the client
-        // crashes on, is served as its routing fallback instead of loading null and throwing.
-        int routed = MapRouting.fallback(mapid);
-        if (routed >= 0) {
-            log.debug("map routing: map {} ({}) has no usable image, serving {}", mapid,
-                    MapRouting.blocked(mapid) ? MapRouting.kind(mapid) : "missing", routed);
-            mapid = routed;
+        // s-maproute: nothing is substituted behind a direct getMap. A map id the server has no image for, or one
+        // the routing table blocks, is no map at all: a script that asked for it gets null instead of silently
+        // acting on Henesys (spawning mobs there, reporting another id). Callers that must land somewhere ask for
+        // getMapOrFallback.
+        if (MapRouting.blocked(mapid)) {
+            log.warn("map routing: map {} is blocked ({}), returning no map", mapid, MapRouting.kind(mapid));
+            return null;
         }
 
         if (cache) {
@@ -102,6 +101,7 @@ public class MapManager {
         return map;
     }
 
+    /** The map, or null when the server has no image for it or the routing table blocks it ({@link #getMapOrFallback}). */
     public MapleMap getMap(int mapid) {
         MapleMap map;
 
@@ -113,6 +113,21 @@ public class MapManager {
         }
 
         return (map != null) ? map : loadMapFromWz(mapid, true);
+    }
+
+    /**
+     * s-maproute: where a move to {@code mapid} has to end up - the routing table's fallback for a map that is
+     * blocked, else the map itself (still null when the server has no image for it). The login path and a map's own
+     * return map ask for this: they cannot stay nowhere.
+     */
+    public MapleMap getMapOrFallback(int mapid) {
+        int fallback = MapRouting.fallback(mapid);
+        if (fallback < 0) {
+            return getMap(mapid);
+        }
+
+        log.warn("map routing: map {} is blocked ({}), using {}", mapid, MapRouting.kind(mapid), fallback);
+        return getMap(fallback);
     }
 
     public void setEventInstanceManager(EventInstanceManager eim) {

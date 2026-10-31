@@ -957,7 +957,10 @@ public class AbstractPlayerInteraction {
     }
 
     public int getPlayerCount(int mapid) {
-        return c.getChannelServer().getMapFactory().getMap(mapid).getCharacters().size();
+        MapleMap map = c.getChannelServer().getMapFactory().getMap(mapid);
+        // s-maproute: a script counting players in a map that does not exist counts nobody, it does not act on
+        // another map's players.
+        return map == null ? 0 : map.getCharacters().size();
     }
 
     public void showInstruction(String msg, int width, int height) {

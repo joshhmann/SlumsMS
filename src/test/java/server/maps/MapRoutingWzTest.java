@@ -23,9 +23,11 @@ import java.sql.Connection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
@@ -46,6 +48,7 @@ class MapRoutingWzTest {
     private static final int STORAGE_CAVE = 410000310;
 
     private static final Pattern IMGDIR = Pattern.compile("<imgdir name=\"(\\d+)\">(.*?)</imgdir>", Pattern.DOTALL);
+    private static final String INFO = "<imgdir name=\"info\">";
     private static final Pattern FIELD = Pattern.compile("<(?:string|int) name=\"(\\w+)\" value=\"([^\"]*)\"/>");
 
     @BeforeAll
@@ -62,7 +65,7 @@ class MapRoutingWzTest {
     }
 
     @Test
-    void theMapManagerServesTheMapTheLoginFallbackLandsOn() throws Exception {
+    void aDirectGetMapOfABlockedMapIsNoMapAndOnlyTheExplicitFallbackSubstitutes() throws Exception {
         WzTestData.assumePresent("Map.wz");
         // a map image exists but its spawn tables are in the database: an empty one is enough for the geometry
         try (MockedStatic<DatabaseConnection> db = Mockito.mockStatic(DatabaseConnection.class)) {
@@ -71,11 +74,19 @@ class MapRoutingWzTest {
 
             MapManager maps = new MapManager(null, 1, 1);
 
-            assertEquals(FOUNTAIN_SQUARE, maps.getMap(STORAGE_CELLAR).getId(),
-                    "a script asking for the Storage Cellar gets Fountain Square, never null");
-            assertEquals(FOUNTAIN_SQUARE, maps.getMap(RAMPART_RESIDENCES).getId(),
+            // The rule: a caller that asked for one map never gets another one's object. Round 1 substituted the
+            // fallback here, so a script spawning mobs in the Storage Cellar spawned them in Henesys or Fountain
+            // Square and read back an id it never asked for.
+            assertNull(maps.getMap(STORAGE_CELLAR), "993162016 has no image, so there is no map to hand out");
+            assertNull(maps.getMap(RAMPART_RESIDENCES), "410000350 crashes the client, so it is not handed out either");
+            assertNull(maps.getMap(1234567), "an id Map.wz never had is no map");
+
+            assertEquals(FOUNTAIN_SQUARE, maps.getMapOrFallback(STORAGE_CELLAR).getId(),
+                    "the login path asks for the fallback, and gets the table's map for the Storage Cellar");
+            assertEquals(FOUNTAIN_SQUARE, maps.getMapOrFallback(RAMPART_RESIDENCES).getId(),
                     "a character saved inside Rampart Residences logs in at Fountain Square");
             assertEquals(STORAGE_CAVE, maps.getMap(STORAGE_CAVE).getId(), "an ordinary map is untouched");
+            assertEquals(STORAGE_CAVE, maps.getMapOrFallback(STORAGE_CAVE).getId(), "an ordinary map is untouched");
             assertEquals(FOUNTAIN_SQUARE, maps.getMap(FOUNTAIN_SQUARE).getId(), "an ordinary map is untouched");
         }
     }
@@ -127,6 +138,77 @@ class MapRoutingWzTest {
         MapRouting.Route route = MapRouting.route(FOUNTAIN_SQUARE, "in00", STORAGE_CELLAR);
         assertNotNull(route);
         assertEquals(FOUNTAIN_SQUARE, route.map());
+    }
+
+    /**
+     * s-maproute round 2, review item 4: the reason column says which rule picked the row, so it has to be provable
+     * from the data and not just from the run that wrote it. Row {@code 100 out03 70 -> 66 source-return} is the case
+     * that was questioned: 100's own returnMap is 66 (65 is 66's), so the two rows are a chain out of the same hole.
+     */
+    @Test
+    void everyRowReasonIsTheRuleItNames() throws IOException {
+        WzTestData.assumePresent("Map.wz");
+        for (String[] row : section("routes")) {
+            String reason = row[5].replace(" (script)", "");
+            int lands = Integer.parseInt(row[3]);
+            String where = row[0] + ":" + row[1] + " -> " + row[2] + " = " + lands + " (" + reason + ")";
+            if (row.length > 6) {
+                assertEquals("manual", row[6], where + ": a seventh column can only be the manual marker");
+                continue;
+            }
+            switch (reason) {
+                case "return": {
+                    int target = Integer.parseInt(row[2]);
+                    String forced = mapInfoField(target, "forcedReturn");
+                    String back = mapInfoField(target, "returnMap");
+                    assertTrue(String.valueOf(lands).equals(forced) || String.valueOf(lands).equals(back),
+                            where + ": the target returns to " + forced + " / " + back + ", not " + lands);
+                    break;
+                }
+                case "source-return": {
+                    assertNotEquals("*", row[0], where + ": a script row has no source map to return to");
+                    String back = mapInfoField(Integer.parseInt(row[0]), "returnMap");
+                    assertEquals(String.valueOf(lands), back, where + ": the source's returnMap is " + back);
+                    break;
+                }
+                case "henesys":
+                    assertEquals(100000000, lands, where + ": the last resort is Henesys");
+                    break;
+                case "portal-pair":
+                case "street-town":
+                case "street-nearest":
+                    break;   // checked by tools/data-align/map_routing.py --check, which has String.wz and every portal
+                default:
+                    fail(where + ": unknown reason");
+            }
+        }
+    }
+
+    /**
+     * A field of a map's info node ("returnMap", "forcedReturn", "town"), null when absent. The dump carries several
+     * {@code info} blocks per image (the WZ's own patch history, nine of them in Map0/000002000.img.xml), and only the
+     * last one is the map's real info: 2000's first block holds a single string and its last holds returnMap 2000.
+     */
+    private static String mapInfoField(int map, String field) throws IOException {
+        Path file = imagePath(map);
+        if (!Files.exists(file)) {
+            return null;
+        }
+        String xml = Files.readString(file);
+        String found = null;
+        int at = xml.indexOf(INFO);
+        while (at >= 0) {
+            int next = xml.indexOf("<imgdir name=", at + 1);
+            String info = next < 0 ? xml.substring(at) : xml.substring(at, next);
+            Matcher f = FIELD.matcher(info);
+            while (f.find()) {
+                if (f.group(1).equals(field)) {
+                    found = f.group(2);
+                }
+            }
+            at = xml.indexOf(INFO, at + INFO.length());
+        }
+        return found;
     }
 
     private static boolean imageExists(int map) {
