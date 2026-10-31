@@ -198,3 +198,5 @@ t-cl-3,t-cc-1,t-vg-1,t-vb-1,t-vb-2,t-vb-3,t-vb-4,t-vb-5,t-vb-6,t-vb-7,t-vb-8,t-h
 t-nv-2	src/main/resources/soloMapling/nav-trap-maps.txt	the one-way trap map list
 t-mp-1	src/main/java/server/maps/MapRouting.java	map routing: blocked/missing maps rerouted (ticket s-maproute)
 t-mp-1	src/main/resources/soloMapling/map-routing.tsv	the routing table
+t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketTraders.java	trader bots list the scrolls they hold (s-xtraders)
+t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketQa.java	probe marketScroll
