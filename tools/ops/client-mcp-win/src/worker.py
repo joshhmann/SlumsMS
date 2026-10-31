@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 import time
 
-VERSION = '2026-10-27-longrun'
+VERSION = '2026-10-28-runnow'
 DEFAULTS = {
     'lifetime_hours': 12,             # stop after this long without a request; 0 = run until stopped
     'idle_minutes': 10,               # owner must be away this long before the client is driven
@@ -23,6 +23,19 @@ DEFAULTS = {
 }
 LIMITS = {'lifetime_hours': (0, 720), 'idle_minutes': (1, 240), 'queue_wait_minutes': (1, 1440),
           'max_recoveries_per_hour': (0, 20), 'heartbeat_seconds': (5, 300), 'health_seconds': (5, 600)}
+
+
+# A recovery that fails because the focus controller is not the foreground window (focus.py grant): someone is
+# looking at this desktop, e.g. the owner's noVNC/console view of the test VM (2026-10-28).
+FOCUS_BLOCKED = 'controller is not foreground'
+FOCUS_REASON = 'owner is viewing the VM console'
+FOCUS_HINT = ('someone is using this desktop (on the test VM: an open noVNC/console view), so the "SlumsMS '
+              'client-driver controller" window is not in front and cannot hand focus to the client. Close the '
+              'viewer or click that window, then send login again.')
+
+
+# The controller's Run now button turns the idle wait off until the QA client stops; if no client starts, it lapses.
+RUN_NOW_SECONDS = 30 * 60
 
 
 class ConfigError(Exception):
@@ -81,12 +94,14 @@ class Worker:
         self.next_health = self.next_heartbeat = self.started
         self.waiting_since = None
         self.stopped = None
+        self.run_now_since = None      # clock() when Run now was first seen on
+        self.run_now_client = False    # a client ran while Run now was on
 
     # ---- owner guard ----
     def owner_ready(self):
         """True when the driver's guard would let a tool act now. The guard itself still runs on every action."""
         try:
-            if self.driver.local_config().get('force', False):
+            if self.driver.forced():
                 return True
             return self.driver.activity.idle_seconds() >= self.driver.idle_required
         except Exception:
@@ -97,6 +112,29 @@ class Worker:
             return round(self.driver.activity.idle_seconds(), 1)
         except Exception:
             return None
+
+    def run_now(self):
+        """Run now (the controller's button) lasts until the QA client stops, or RUN_NOW_SECONDS if none starts."""
+        try:
+            if not self.driver.local_config().get('run_now', False):
+                self.run_now_since, self.run_now_client = None, False
+                return
+            if self.run_now_since is None:
+                self.run_now_since = self.clock()
+            if self.pending:
+                return
+            if self.driver.client.pids():
+                self.run_now_client = True
+                return
+            reason = 'client stopped' if self.run_now_client else None
+            if not reason and self.clock() - self.run_now_since >= RUN_NOW_SECONDS:
+                reason = 'no client started'
+            if reason:
+                self.driver.clear_run_now()
+                self.run_now_since, self.run_now_client = None, False
+                self.emit({'event': 'run_now_off', 'reason': reason, 'utc': utc(self.wall())})
+        except Exception:
+            pass
 
     # ---- lifetime ----
     def expired(self):
@@ -279,9 +317,14 @@ class Worker:
             self.last_recovery = {'utc': utc(self.wall()), 'problem': problem, 'ok': True}
             self.emit({'event': 'recovered', 'problem': problem})
         except Exception as error:
+            message = self.safe_error.text(error)
             self.last_recovery = {'utc': utc(self.wall()), 'problem': problem, 'ok': False, 'step': step,
-                                  'message': self.safe_error.text(error)}
-            self.emit({'event': 'recovery_failed', 'problem': problem, 'step': step})
+                                  'message': message}
+            event = {'event': 'recovery_failed', 'problem': problem, 'step': step}
+            if FOCUS_BLOCKED in message:
+                self.last_recovery.update(reason=FOCUS_REASON, hint=FOCUS_HINT)
+                event['reason'] = FOCUS_REASON
+            self.emit(event)
 
     # ---- heartbeat ----
     def summary(self):
@@ -322,6 +365,7 @@ class Worker:
         if now >= self.next_health:
             self.next_health = now + self.config['health_seconds']
             self.health()
+            self.run_now()
         if self.clock() >= self.next_heartbeat:
             self.next_heartbeat = self.clock() + self.config['heartbeat_seconds']
             self.heartbeat()

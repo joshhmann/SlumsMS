@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import re
 import time
@@ -43,7 +44,10 @@ KEYS = {**{chr(c): (c, False) for c in range(ord('A'), ord('Z') + 1)},
         'ESCAPE': (0x1B, False), 'ENTER': (0x0D, False), 'TAB': (0x09, False), 'SPACE': (0x20, False),
         'BACKSPACE': (0x08, False), 'UP': (0x26, True), 'DOWN': (0x28, True), 'LEFT': (0x25, True),
         'RIGHT': (0x27, True), 'INSERT': (0x2D, True), 'DELETE': (0x2E, True), 'HOME': (0x24, True),
-        'END': (0x23, True), 'PAGEUP': (0x21, True), 'PAGEDOWN': (0x22, True)}
+        'END': (0x23, True), 'PAGEUP': (0x21, True), 'PAGEDOWN': (0x22, True),
+        # Ctrl on its own is the game's default attack key (2026-10-29: hits for the short damage numbers). It is a
+        # single key here like the others: nothing else is held with it, so it still makes no Ctrl shortcut.
+        'CTRL': (0x11, False)}
 # The only key combinations: each opens a SlumsMS window, nothing that closes or leaves the game.
 COMBOS = {'CTRL+F10': (0x11, 0x79),   # the in-game settings window (slums.dll D3D9 host)
           'CTRL+F11': (0x11, 0x7A)}   # freeze / unfreeze the slums.dll HUD
@@ -154,23 +158,38 @@ class Driver:
     def local_config(self):
         path = inside(self.root / 'local-config.json', self.root)
         value = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
-        keys = ('force', 'allow_owned_focus', 'focus_handoff')
+        keys = ('force', 'allow_owned_focus', 'focus_handoff', 'run_now')
         if set(value) - set(keys) or any(not isinstance(value.get(key, False), bool) for key in keys):
-            raise Refusal('local-config.json supports boolean force, allow_owned_focus, and focus_handoff values only.')
+            raise Refusal('local-config.json supports boolean force, allow_owned_focus, focus_handoff, and run_now '
+                          'values only.')
         return value
+
+    def forced(self):
+        """The idle wait is off: Start-QA's Y for this run, or the controller's Run now (until the client stops)."""
+        config = self.local_config()
+        return config.get('force', False) or config.get('run_now', False)
+
+    def clear_run_now(self):
+        path = inside(self.root / 'local-config.json', self.root)
+        value = self.local_config()
+        value['run_now'] = False
+        temporary = Path(str(path) + '.tmp')
+        temporary.write_text(json.dumps(value), encoding='utf-8')
+        os.replace(temporary, path)
 
     def guard(self):
         # Check this again before each keystroke/click and during every wait.
         self.reload_ui()
         idle = self.activity.idle_seconds()
-        if idle < getattr(self, 'idle_required', 600) and not self.local_config().get('force', False):
+        if idle < getattr(self, 'idle_required', 600) and not self.forced():
             raise Refusal('owner is using the PC')
         if not self.backend.interactive_desktop():
             raise Refusal('Run in the logged-on owner\'s interactive desktop; desktop may be locked.')
         self.client.focus_authorized = self.local_config().get('allow_owned_focus', False)
         self.client.focus_handoff = self.foreground_permission if self.local_config().get('focus_handoff', False) else None
-        # Only the owner's local force (Start-QA's Y for this run) lets the driver raise its own game window itself.
-        self.client.force_focus = bool(self.local_config().get('force', False))
+        # Only the owner's local force (Start-QA's Y, or the controller's Run now) lets the driver raise its own game
+        # window itself.
+        self.client.force_focus = bool(self.forced())
 
     def foreground_permission(self):
         from focus import FocusError
@@ -376,10 +395,20 @@ class Driver:
         return {'owner_idle_seconds': round(idle, 1), 'owner_idle': idle >= required,
                 'idle_required_seconds': required,
                 'local_force': self.local_config().get('force', False),
+                'run_now': self.local_config().get('run_now', False),
                 'interactive_desktop': self.backend.interactive_desktop(),
                 'primary_display': display, 'client_running': bool(pids),
                 'pids': pids, 'launcher_pid': self.client.launcher_pid,
-                'state': self.state, 'build': stamp, 'last_logs': self.read_logs(8)}
+                'state': self.state, 'build': stamp, 'window': self.window_info(pids),
+                'last_logs': self.read_logs(8)}
+
+    def window_info(self, pids):
+        if not pids:
+            return None
+        try:
+            return self.client.window_info()
+        except Exception as error:
+            return {'error': str(error) if isinstance(error, Refusal) else type(error).__name__}
 
     def start_client(self):
         self.endpoint()
@@ -548,7 +577,7 @@ class Driver:
         key = KEYS.get(name)
         if key is None and combo is None:
             raise Refusal('Unsupported key. Use A-Z, 0-9, F1-F12, Escape, Enter, Tab, Space, Backspace, arrows, '
-                          'Insert, Delete, Home, End, PageUp, PageDown, Ctrl+F10 or Ctrl+F11.')
+                          'Insert, Delete, Home, End, PageUp, PageDown, Ctrl (attack), Ctrl+F10 or Ctrl+F11.')
         if name == 'ESCAPE' and self.state == 'field':
             # Escape only closes things; a menu it opened hides the status bar the field check reads, and every
             # tool would then refuse until a restart. Allowed while the last verified screen was the field.

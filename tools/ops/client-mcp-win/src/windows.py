@@ -30,6 +30,14 @@ api(k, 'GetTickCount64', c.c_ulonglong)
 api(u, 'GetForegroundWindow', w.HWND)
 api(u, 'IsHungAppWindow', w.BOOL, w.HWND)
 api(u, 'SetForegroundWindow', w.BOOL, w.HWND)
+api(u, 'GetWindowLongW', c.c_long, w.HWND, c.c_int)
+api(u, 'GetWindowRect', w.BOOL, w.HWND, c.POINTER(w.RECT))
+api(u, 'ClientToScreen', w.BOOL, w.HWND, c.POINTER(w.POINT))
+try:
+    api(u, 'GetWindowDpiAwarenessContext', PTR, w.HWND)
+    api(u, 'GetAwarenessFromDpiAwarenessContext', c.c_int, PTR)
+except AttributeError:   # older Windows
+    pass
 api(u, 'keybd_event', None, w.BYTE, w.BYTE, w.DWORD, SIZE)
 api(u, 'BringWindowToTop', w.BOOL, w.HWND)
 api(u, 'ShowWindow', w.BOOL, w.HWND, c.c_int)
@@ -354,6 +362,25 @@ class OwnedClient:
             raise Blocked('Expected exactly one owned game window; found ' + str(len(found)) + '.')
         self.image_path(found[0][1])
         return found[0]
+
+    def window_info(self):
+        """Read-only facts about the owned game window: frame style, rectangles, DPI awareness (2026-10-29: the
+        proof for [graphics] borderless / dpiaware, which slums.dll does not log)."""
+        hwnd, _, _ = self.window()
+        style = u.GetWindowLongW(hwnd, -16) & 0xFFFFFFFF
+        wr, cr = w.RECT(), w.RECT()
+        u.GetWindowRect(hwnd, c.byref(wr))
+        u.GetClientRect(hwnd, c.byref(cr))
+        origin = w.POINT(0, 0)
+        u.ClientToScreen(hwnd, c.byref(origin))
+        try:
+            awareness = u.GetAwarenessFromDpiAwarenessContext(u.GetWindowDpiAwarenessContext(hwnd))
+        except (AttributeError, OSError):
+            awareness = None
+        return {'style': '%08X' % style, 'popup': bool(style & 0x80000000), 'caption': (style & 0x00C00000) == 0x00C00000,
+                'window_rect': [wr.left, wr.top, wr.right, wr.bottom],
+                'client_origin': [origin.x, origin.y], 'client_size': [cr.right, cr.bottom],
+                'dpi_awareness': {0: 'unaware', 1: 'system', 2: 'per-monitor'}.get(awareness, awareness)}
 
     def foreground(self):
         hwnd, pid, _ = self.window()
