@@ -37,9 +37,6 @@ final class StepExecutor {
     static final long TALK_GAP_MS = 2_500;
     static final long DROP_GAP_MS = 1_500;
 
-    private static final int MIN_REACH_PX = 60;
-    private static final double REACH_FRAC = 0.8;
-
     private final Map<Integer, Beat> beats = new ConcurrentHashMap<>();
 
     /** Per-bot pacing: when it last clicked, dropped, or was sent somewhere. */
@@ -56,6 +53,7 @@ final class StepExecutor {
         int farmHave = -1;
         long farmSinceMs;
         boolean stallTold;
+        final Chase chase = new Chase();
     }
 
     void forget(int botId) {
@@ -158,33 +156,121 @@ final class StepExecutor {
                 return;
             }
         }
-        Monster target = null;
-        double best = Double.MAX_VALUE;
-        for (Monster m : map.getAllMonsters()) {
-            if (m == null || !m.isAlive() || m.getPosition() == null || (f.mobId() > 0 && m.getId() != f.mobId())
-                    || !BotAttackDriver.botMayTarget(m)) {
-                continue;
-            }
-            double d = at.distanceSq(m.getPosition());
-            if (d < best) {
-                best = d;
-                target = m;
-            }
+        Monster target = beat.chase.keep(map, now);
+        if (target == null || !mayStillChase(bot, target, f.mobId(), beat, now)) {
+            target = BotAttackDriver.pickTarget(bot, f.mobId(), m -> beat.chase.skipped(m.getObjectId(), now));
+            beat.chase.picked(target, now);
         }
         if (target == null) {
             return; // the stage respawns its mobs every 15 s (KerningPQ.respawnStages): wait for them
         }
-        Point mob = target.getPosition();
-        int reach = Math.max(MIN_REACH_PX, (int) (BotAttackDriver.attackReachX(bot) * REACH_FRAC));
-        int dx = mob.x - at.x;
-        if (Math.abs(dx) > reach || Math.abs(mob.y - at.y) > Math.max(60, BotAttackDriver.attackReachY(bot))) {
-            moveNear(bot, beat, mob.x - Integer.signum(dx) * (reach / 2), mob.y, reach / 3, now);
+        int[] reach = soloMapling.ArtificialPlayer.BotGrindSystem.Approach.reach(bot);
+        if (!BotAttackDriver.canSwingFrom(map, at, target, reach[0], reach[1])) {
+            if (beat.chase.walking(target.getObjectId(), BotAttackDriver.costTo(bot, target), now)) {
+                log.accept("FIGHT " + bot.getName() + " gives up on " + target.getName() + " at "
+                        + target.getPosition().x + "," + target.getPosition().y + " for " + Chase.SKIP_MS / 1000
+                        + " s (no way closer in " + Chase.NO_PROGRESS_MS / 1000 + " s)");
+                return;
+            }
+            int[] spot = soloMapling.ArtificialPlayer.BotGrindSystem.Approach.fightSpot(bot, target, reach,
+                    soloMapling.ArtificialPlayer.BotCombatSystem.BotCombatTuning.human());
+            moveNear(bot, beat, spot[0], spot[1], Math.max(10, reach[0] / 3), now);
             return;
         }
+        beat.chase.inReach(target.getObjectId(), now);
         if (GCMovement.isFollowing(bot)) {
             GCMovement.stop(bot);
         }
-        BotAttackDriver.botAttack(bot);
+        BotAttackDriver.AttackResult r = BotAttackDriver.botAttack(bot);
+        if (BotAttackDriver.noTargetableMob(r)) {
+            beat.chase.skip(target.getObjectId(), now); // the swing sees none it may hit from here: another one
+        }
+    }
+
+    /** The kept target is still one to chase: of the step's mob, not ruled out, and still the swing's to hit. */
+    private static boolean mayStillChase(Character bot, Monster m, int mobId, Beat beat, long now) {
+        return m.isAlive() && (mobId <= 0 || m.getId() == mobId) && !beat.chase.skipped(m.getObjectId(), now)
+                && now - beat.chase.pickedMs < Chase.REPICK_MS
+                && BotAttackDriver.pickable(bot, m);
+    }
+
+    /**
+     * 1.6.2 (KPQ pace, b153/b204): a fighting bot's hold on its target. While it walks to the mob, the walk's cost
+     * (the nav planner's, {@link BotAttackDriver#costTo}) must drop by {@link #MIN_GAIN_MS} (about 20 px at walking
+     * pace) within {@link #NO_PROGRESS_MS}, else the mob is skipped for {@link #SKIP_MS} and another picked; a swing
+     * that sees no mob it may hit skips it too. The target is re-picked every {@link #REPICK_MS} (a cheaper one may
+     * have spawned). Before, a bot kept walking at a mob it could not reach (TEST: hanging on the x=-437 rope, standing
+     * under the y=-340 platform) for the whole run.
+     */
+    static final class Chase {
+        static final long NO_PROGRESS_MS = 3_000;
+        static final int MIN_GAIN_MS = 20 * 8;
+        static final long SKIP_MS = 10_000;
+        static final long REPICK_MS = 2_000;
+
+        int oid = -1;
+        Monster target;
+        long pickedMs;
+        int bestCost = Integer.MAX_VALUE;
+        long sinceMs;
+        final Map<Integer, Long> skipUntil = new java.util.HashMap<>();
+
+        boolean skipped(int oid, long now) {
+            Long until = skipUntil.get(oid);
+            return until != null && until > now;
+        }
+
+        void skip(int oid, long now) {
+            skipUntil.values().removeIf(until -> until <= now);
+            skipUntil.put(oid, now + SKIP_MS);
+            if (this.oid == oid) {
+                this.oid = -1;
+                target = null;
+            }
+        }
+
+        /** The target held, if it is still on this map. */
+        Monster keep(MapleMap map, long now) {
+            return target != null && target.getMap() == map ? target : null;
+        }
+
+        void picked(Monster m, long now) {
+            int id = m == null ? -1 : m.getObjectId();
+            if (id != oid) {
+                oid = id;
+                bestCost = Integer.MAX_VALUE;
+                sinceMs = now;
+            }
+            target = m;
+            pickedMs = now;
+        }
+
+        /** One walking beat toward {@code oid}, the walk costing {@code cost} ms; true when it gave up on the mob. */
+        boolean walking(int oid, int cost, long now) {
+            if (oid != this.oid) {
+                this.oid = oid;
+                bestCost = cost;
+                sinceMs = now;
+                return false;
+            }
+            if (bestCost == Integer.MAX_VALUE || cost <= bestCost - MIN_GAIN_MS) {
+                bestCost = cost;
+                sinceMs = now;
+                return false;
+            }
+            if (now - sinceMs >= NO_PROGRESS_MS) {
+                skip(oid, now);
+                return true;
+            }
+            return false;
+        }
+
+        /** In reach of {@code oid}: the clock starts again if it has to walk once more. */
+        void inReach(int oid, long now) {
+            this.oid = oid;
+            bestCost = Integer.MAX_VALUE;
+            sinceMs = now;
+        }
     }
 
     /**

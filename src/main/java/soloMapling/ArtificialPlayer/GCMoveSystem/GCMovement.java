@@ -1001,6 +1001,36 @@ public final class GCMovement {
         return ra >= 0 && rb >= 0 && ra != rb;
     }
 
+    /** {@link #pathCostMs}: no walking route between the two points. */
+    public static final int UNREACHABLE = Integer.MAX_VALUE;
+
+    /*
+     * 1.6.2 (KPQ pace, b153/b204): what walking from (ax,ay) to (bx,by) costs in ms on the map's ALREADY-baked nav
+     * graph (peek only, never a build): the planner's walk-only optimal route (the same ledge is its walk; another
+     * ledge its ropes, jumps and falls), UNREACHABLE when the planner finds none. When the graph is not baked or a
+     * point is on no ledge it cannot tell and falls back to the straight distance at walking pace (never blanks a pick).
+     */
+    public static int pathCostMs(MapleMap map, int ax, int ay, int bx, int by) {
+        int straight = (int) Math.min(Integer.MAX_VALUE - 1L, Math.round(Point.distance(ax, ay, bx, by) * 8));
+        BotNavigationGraph g = map == null ? null : BotNavigationGraphProvider.peekGraph(map);
+        if (g == null) {
+            return straight;
+        }
+        try {
+            Point a = new Point(ax, ay);
+            Point b = new Point(bx, by);
+            int ra = g.findRegionId(map, a);
+            int rb = g.findRegionId(map, b);
+            if (ra < 0 || rb < 0) {
+                return straight;
+            }
+            int cost = BotNavigationManager.runSearch(g, map, a, ra, rb, b, null, true, false, 0L).cost();
+            return cost == Integer.MAX_VALUE ? UNREACHABLE : cost;
+        } catch (RuntimeException e) {
+            return straight;
+        }
+    }
+
     /* The set of region ids reachable from the ledge under (fromX,fromY) (empty if it's on none). */
     public static java.util.Set<Integer> reachableRegions(MapleMap map, int fromX, int fromY) {
         BotNavigationGraph g = BotNavigationGraphProvider.getGraph(map);
