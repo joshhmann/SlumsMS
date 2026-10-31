@@ -39,6 +39,13 @@ final class StepExecutor {
 
     private final Map<Integer, Beat> beats = new ConcurrentHashMap<>();
 
+    /**
+     * 1.6.2 (KPQ pace): a mob another member of the run already goes for counts as this much more walk (ms, about
+     * 400 px), so a party spreads over the platforms instead of all chasing one Ligator and hopping on together when
+     * it dies.
+     */
+    static final int TAKEN_PENALTY_MS = 400 * 8;
+
     /** Per-bot pacing: when it last clicked, dropped, or was sent somewhere. */
     static final class Beat {
         volatile long lastTalkMs;
@@ -53,6 +60,7 @@ final class StepExecutor {
         int farmHave = -1;
         long farmSinceMs;
         boolean stallTold;
+        int stallGain;
         final Chase chase = new Chase();
     }
 
@@ -86,27 +94,35 @@ final class StepExecutor {
     // ---- steps ----
 
     /**
-     * How long a farming bot's count may stand still before the run logs why once (1.6.2, b153: on TEST most lobby
-     * answerers never handed anything in and the log could not say why).
+     * The window over which a farming bot's pace is judged (1.6.2, b153: on TEST most lobby answerers never handed
+     * anything in and the log could not say why). 1.6.2 KPQ pace: was "no change in 3 minutes"; a bot that crept up
+     * one coupon now and then never said anything.
      */
-    static final long STALL_MS = 3 * 60_000L;
+    static final long STALL_MS = 90_000L;
+    /** Fewer coupons than this in one {@link #STALL_MS} window is a stall: under 2 a minute. */
+    static final int STALL_MIN_GAIN = 3;
 
     /**
-     * Whether a farmer has held {@code have} for {@link #STALL_MS} without a change, true once per stall (a change
-     * starts the clock again).
+     * Whether a farmer got fewer than {@link #STALL_MIN_GAIN} in the {@link #STALL_MS} window that ends now; true
+     * once per run of slow windows (a window at pace lets it tell again). A count that went down (a hand-in, extras
+     * dropped) starts the window again. {@code beat.farmHave} keeps the count the window started with.
      */
     static boolean stalled(Beat beat, int have, long now) {
-        if (have != beat.farmHave) {
+        if (beat.farmHave < 0 || have < beat.farmHave) {
             beat.farmHave = have;
             beat.farmSinceMs = now;
-            beat.stallTold = false;
             return false;
         }
-        if (!beat.stallTold && now - beat.farmSinceMs >= STALL_MS) {
-            beat.stallTold = true;
-            return true;
+        if (now - beat.farmSinceMs < STALL_MS) {
+            return false;
         }
-        return false;
+        boolean slow = have - beat.farmHave < STALL_MIN_GAIN;
+        boolean tell = slow && !beat.stallTold;
+        beat.stallTold = slow;
+        beat.stallGain = have - beat.farmHave;
+        beat.farmHave = have;
+        beat.farmSinceMs = now;
+        return tell;
     }
 
     /** What a stalled farmer's bag and floor look like, for the STALL line. */
@@ -147,7 +163,8 @@ final class StepExecutor {
         Point at = bot.getPosition();
         if (f.itemId() > 0 && stalled(beat, bot.getItemQuantity(f.itemId(), false), now)) {
             log.accept("STALL " + bot.getName() + " on " + beat.farmHave + "/" + f.untilItemCount() + " x " + f.itemId()
-                    + " for " + (now - beat.farmSinceMs) / 1000 + " s: " + stallWhy(view, bot, f.itemId()));
+                    + ": +" + beat.stallGain + " in " + STALL_MS / 1000 + " s (under 2 a minute): "
+                    + stallWhy(view, bot, f.itemId()));
         }
         if (f.itemId() > 0 && bot.getItemQuantity(f.itemId(), false) < f.untilItemCount()) {
             MapItem drop = nearestMobDrop(view, map, bot, f.itemId(), at);
@@ -157,8 +174,9 @@ final class StepExecutor {
             }
         }
         Monster target = beat.chase.keep(map, now);
-        if (target == null || !mayStillChase(bot, target, f.mobId(), beat, now)) {
-            target = BotAttackDriver.pickTarget(bot, f.mobId(), m -> beat.chase.skipped(m.getObjectId(), now));
+        if (target == null || !mayStillChase(bot, target, f, beat, now)) {
+            target = BotAttackDriver.pickTarget(bot, f.mobId(), m -> beat.chase.skipped(m.getObjectId(), now)
+                    || !f.onLeash(m.getPosition().x, m.getPosition().y), m -> takenByAnother(bot.getId(), m));
             beat.chase.picked(target, now);
         }
         if (target == null) {
@@ -187,9 +205,21 @@ final class StepExecutor {
         }
     }
 
+    /** {@link #TAKEN_PENALTY_MS} when another bot this executor drives goes for {@code m}, else 0. */
+    private int takenByAnother(int botId, Monster m) {
+        for (Map.Entry<Integer, Beat> e : beats.entrySet()) {
+            if (e.getKey() != botId && e.getValue().chase.target == m) {
+                return TAKEN_PENALTY_MS;
+            }
+        }
+        return 0;
+    }
+
     /** The kept target is still one to chase: of the step's mob, not ruled out, and still the swing's to hit. */
-    private static boolean mayStillChase(Character bot, Monster m, int mobId, Beat beat, long now) {
+    private static boolean mayStillChase(Character bot, Monster m, SolverStep.Fight f, Beat beat, long now) {
+        int mobId = f.mobId();
         return m.isAlive() && (mobId <= 0 || m.getId() == mobId) && !beat.chase.skipped(m.getObjectId(), now)
+                && f.onLeash(m.getPosition().x, m.getPosition().y)
                 && now - beat.chase.pickedMs < Chase.REPICK_MS
                 && BotAttackDriver.pickable(bot, m);
     }
@@ -209,7 +239,7 @@ final class StepExecutor {
         static final long REPICK_MS = 2_000;
 
         int oid = -1;
-        Monster target;
+        volatile Monster target;
         long pickedMs;
         int bestCost = Integer.MAX_VALUE;
         long sinceMs;

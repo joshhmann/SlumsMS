@@ -124,4 +124,16 @@ class PickTargetTest {
         assertFalse(BotAttackDriver.noTargetableMob(BotAttackDriver.AttackResult.miss("on cooldown")));
         assertFalse(BotAttackDriver.noTargetableMob(null));
     }
+
+    @Test
+    void aMobAMateGoesForCountsAsMoreWalkSoThePartySpreads() {
+        MapleMap map = mock(MapleMap.class);
+        Monster mates = ligator(map, -250, -345);
+        Monster next = ligator(map, -330, -347);
+        when(map.getAllMonsters()).thenReturn(List.of(mates, next));
+        Character bot = botAt(map, -230, -345);
+        assertSame(mates, BotAttackDriver.pickTarget(bot, LIGATOR, null, m -> 0));
+        assertSame(next, BotAttackDriver.pickTarget(bot, LIGATOR, null, m -> m == mates ? 400 * 8 : 0),
+                "80 px further but nobody on it");
+    }
 }

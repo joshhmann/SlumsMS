@@ -44,6 +44,14 @@ public interface StageSolver {
         return java.util.Optional.empty();
     }
 
+    /**
+     * How long after a real leader's turn comes the first reminder waits, and the gap between reminders after it
+     * ({first, every} ms). Default 20 s then every 40 s (a formation may still be settling).
+     */
+    default long[] leaderPromptTiming() {
+        return new long[]{Orchestrator.LEADER_PROMPT_FIRST_MS, Orchestrator.LEADER_PROMPT_EVERY_MS};
+    }
+
     /** A visible wrong attempt for this member right now, or null (persona tries, see {@link TryPlanner}). */
     default SolverStep wrongTry(StageView view, RunMember member) {
         return null;

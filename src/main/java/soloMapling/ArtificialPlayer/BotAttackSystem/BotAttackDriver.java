@@ -807,6 +807,12 @@ public final class BotAttackDriver {
      * another ledge: bots parked under (or hung on the rope next to) Ligators they could never hit. Null: none.
      */
     public static Monster pickTarget(Character bot, int mobId, java.util.function.Predicate<Monster> skip) {
+        return pickTarget(bot, mobId, skip, null);
+    }
+
+    /** As above; {@code extraMs} adds to a mob's walk cost (a party mate already goes for it), or null. */
+    public static Monster pickTarget(Character bot, int mobId, java.util.function.Predicate<Monster> skip,
+                                     java.util.function.ToIntFunction<Monster> extraMs) {
         MapleMap map = bot == null ? null : bot.getMap();
         if (map == null || bot.getPosition() == null) {
             return null;
@@ -814,11 +820,15 @@ public final class BotAttackDriver {
         Monster best = null;
         int bestCost = Integer.MAX_VALUE;
         for (Monster m : map.getAllMonsters()) {
-            if (m == null || !m.isAlive() || (mobId > 0 && m.getId() != mobId) || (skip != null && skip.test(m))
+            if (m == null || !m.isAlive() || m.getPosition() == null || (mobId > 0 && m.getId() != mobId)
+                    || (skip != null && skip.test(m))
                     || !pickable(bot, m)) {
                 continue;
             }
             int cost = costTo(bot, m);
+            if (cost != GCMovement.UNREACHABLE && extraMs != null) {
+                cost = (int) Math.min(Integer.MAX_VALUE - 1L, (long) cost + extraMs.applyAsInt(m));
+            }
             if (cost != GCMovement.UNREACHABLE && cost < bestCost) {
                 bestCost = cost;
                 best = m;

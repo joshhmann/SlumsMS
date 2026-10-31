@@ -71,6 +71,7 @@ class KpqFullRunTest {
         boolean lazyLeader;     // a real leader who does his part only when a bot asks him to (K4)
         boolean prompted;
         boolean leaderDead;     // K5
+        Geo geo;                // stage 1's real layout (null: no geometry)
         final Map<Integer, Integer> kills = new HashMap<>();
         final List<String> lootedFromPlayer = new ArrayList<>();
 
@@ -144,6 +145,9 @@ class KpqFullRunTest {
 
         @Override
         public Optional<int[]> npcPosition(int npcId) {
+            if (npcId == CLOTO && geo != null) {
+                return Optional.of(new int[]{Geo.CLOTO_X, Geo.GROUND_Y});
+            }
             return npcId == CLOTO ? Optional.of(new int[]{2_000, 0}) : Optional.empty();
         }
 
@@ -272,6 +276,10 @@ class KpqFullRunTest {
             switch (step) {
                 case SolverStep.TalkNpc t -> {
                     assertEquals(CLOTO, t.npcId());
+                    if (geo != null && stageOf(id) == 1 && !geo.near(this, id, Geo.CLOTO_X, Geo.GROUND_Y, 110)) {
+                        geo.walk(this, id, Geo.CLOTO_X - 55, Geo.GROUND_Y); // StepExecutor.talk walks up first
+                        return;
+                    }
                     if (t.itemId() > 0) {
                         o.noteHandIn(run, id, t.itemId(), t.count(), now);
                     }
@@ -296,10 +304,18 @@ class KpqFullRunTest {
                         pos.put(id, new int[]{oc.x(), oc.y()});
                     }
                 }
-                case SolverStep.MoveTo m -> pos.put(id, new int[]{m.x(), m.y()});
+                case SolverStep.MoveTo m -> {
+                    if (geo != null && stageOf(id) == 1) {
+                        geo.walk(this, id, m.x(), m.y());
+                    } else {
+                        pos.put(id, new int[]{m.x(), m.y()});
+                    }
+                }
                 case SolverStep.Fight f -> {
                     int stage = stageOf(id);
-                    if (stage == 1 && ligators) {
+                    if (stage == 1 && geo != null) {
+                        geo.fight(this, id, f);
+                    } else if (stage == 1 && ligators) {
                         ligatorFight(id, f);
                     } else if (stage == 1 && rnd.nextInt(3) == 0) {
                         add(id, COUPON, 1);
@@ -312,6 +328,13 @@ class KpqFullRunTest {
                     }
                 }
                 case SolverStep.DropFor d -> {
+                    if (geo != null && stageOf(id) == 1 && d.toCharacterId() > 0) {
+                        int[] to = positionOf(d.toCharacterId());
+                        if (!geo.near(this, id, to[0], to[1], 50)) {
+                            geo.walk(this, id, to[0], to[1]); // StepExecutor.dropFor walks up first
+                            return;
+                        }
+                    }
                     int have = itemCount(id, d.itemId());
                     assertTrue(d.count() > 0 && d.count() <= have, "drops what it holds");
                     add(id, d.itemId(), -d.count());
@@ -508,6 +531,223 @@ class KpqFullRunTest {
                     return;
                 }
             }
+        }
+    }
+
+
+    /**
+     * KPQ stage 1 (map 103000800) as Map.wz lays it out: the floor (y 110) with Cloto on the right and no Ligator on
+     * it, and the 22 Ligator spawns on 13 upper platforms. A member walks 30 px a beat (about a walk's pace), climbs
+     * up to a platform from the floor below one end of it at 20 px a beat, and drops back to the floor at once. The
+     * Fight step runs the executor's rule: the cheapest mob by this walk within the step's leash and not skipped
+     * ({@link StepExecutor.Chase}), walked to, and a swing only from its own platform within the member's reach
+     * (melee 80 px, ranged 350). A kill drops a coupon owned by the killer at the mob, taken within 600 px; a kill's
+     * spawn comes back 15 s later. {@code coarse}: no real player on the map and no full-physics hold, the coarse
+     * planner never climbs (a goal on a platform lands the member on the floor under it).
+     */
+    static final class Geo {
+        /** A swing in reach kills one Ligator in 8 (about one every 2 s of swinging: a level 30 bot, 2-3 hits). */
+        static final int KILL_ONE_IN = 8;
+        static final int GROUND_Y = 110, CLOTO_X = 592, STEP = 30, CLIMB = 20, LOOT = 600, RESPAWN_MS = 15_000;
+        /** Platforms: {y, left x, right x}; 0 is the floor. */
+        static final int[][] LEDGES = {{GROUND_Y, -1150, 760}, {-214, -863, -473}, {-460, -1025, -526},
+                {-671, -877, -647}, {-893, -1010, -451}, {-1121, -827, -457}, {-1049, -238, 132}, {-897, -272, -66},
+                {-850, -42, 181}, {-950, 332, 533}, {-671, 204, 574}, {-617, -335, 231}, {-341, -42, 328},
+                {-345, -369, -139}};
+        /** Spawns: {x, ledge}. */
+        static final int[][] SPAWNS = {{-555, 1}, {-679, 1}, {-651, 2}, {-772, 2}, {-931, 2}, {-753, 3}, {-814, 3},
+                {-709, 3}, {-760, 4}, {-694, 5}, {-86, 6}, {-177, 7}, {-129, 7}, {21, 8}, {97, 8}, {457, 9},
+                {385, 9}, {360, 10}, {-10, 11}, {123, 12}, {-233, 13}, {-329, 13}};
+
+        boolean coarse;
+        final long[] respawnAt = new long[SPAWNS.length]; // 0: alive
+        final Map<Integer, Integer> ledgeOf = new HashMap<>();
+        final Map<Integer, Integer> climbing = new HashMap<>(); // id -> beats left on the way up
+        final Map<Integer, Integer> climbTo = new HashMap<>();
+        final Map<Integer, Integer> reach = new HashMap<>();
+        final Map<Integer, Integer> swings = new HashMap<>();
+        final Map<Integer, Integer> helpSwings = new HashMap<>();
+        final Map<Integer, Integer> helpBeats = new HashMap<>();
+        final Map<Integer, StepExecutor.Chase> chase = new HashMap<>();
+        final Map<Integer, Integer> target = new HashMap<>();
+
+        static int ledgeY(int ledge) {
+            return LEDGES[ledge][0];
+        }
+
+        /** The platform a point is on (its y within 40 px and x inside it), else the floor. */
+        static int ledgeAt(int x, int y) {
+            for (int l = 1; l < LEDGES.length; l++) {
+                if (Math.abs(y - LEDGES[l][0]) <= 40 && x >= LEDGES[l][1] && x <= LEDGES[l][2]) {
+                    return l;
+                }
+            }
+            return 0;
+        }
+
+        int ledge(int id) {
+            return ledgeOf.getOrDefault(id, 0);
+        }
+
+        /** Where a platform is climbed onto from the floor: its end nearer to x. */
+        static int accessX(int ledge, int fromX) {
+            return Math.abs(fromX - LEDGES[ledge][1]) <= Math.abs(fromX - LEDGES[ledge][2]) ? LEDGES[ledge][1]
+                    : LEDGES[ledge][2];
+        }
+
+        /** The walk's cost (px of walking) from a member to (x, ledge). */
+        int cost(World w, int id, int x, int ledge) {
+            int[] at = w.positionOf(id);
+            int from = ledge(id);
+            int left = climbing.getOrDefault(id, 0);
+            if (left > 0 && climbTo.get(id) == ledge) {
+                return left * STEP + Math.abs(at[0] - x); // on the way up: the climb left
+            }
+            if (from == ledge) {
+                return Math.abs(at[0] - x);
+            }
+            int cost = 0;
+            int ax = at[0];
+            if (from != 0) {
+                cost += 20; // drop down
+            }
+            if (ledge == 0) {
+                return cost + Math.abs(ax - x);
+            }
+            int access = accessX(ledge, ax);
+            return cost + Math.abs(ax - access) + (GROUND_Y - ledgeY(ledge)) * STEP / CLIMB + Math.abs(access - x);
+        }
+
+        boolean near(World w, int id, int x, int y, int px) {
+            int[] at = w.positionOf(id);
+            return ledge(id) == ledgeAt(x, y) && Math.abs(at[0] - x) <= px && climbing.getOrDefault(id, 0) == 0;
+        }
+
+        /** One beat of walking toward (x, y). */
+        void walk(World w, int id, int x, int y) {
+            int[] at = w.positionOf(id);
+            int goal = ledgeAt(x, y);
+            int left = climbing.getOrDefault(id, 0);
+            if (left > 0) {
+                if (left == 1) {
+                    climbing.remove(id);
+                    int l = climbTo.remove(id);
+                    ledgeOf.put(id, l);
+                    w.pos.put(id, new int[]{at[0], ledgeY(l)});
+                } else {
+                    climbing.put(id, left - 1);
+                }
+                return;
+            }
+            int from = ledge(id);
+            if (from == goal) {
+                w.pos.put(id, new int[]{at[0] + Integer.signum(x - at[0]) * Math.min(STEP, Math.abs(x - at[0])),
+                        ledgeY(from)});
+                return;
+            }
+            if (from != 0) {
+                ledgeOf.put(id, 0);
+                w.pos.put(id, new int[]{at[0], GROUND_Y});
+                return;
+            }
+            if (coarse) { // the coarse planner: to the floor under the goal, never up
+                w.pos.put(id, new int[]{at[0] + Integer.signum(x - at[0]) * Math.min(STEP, Math.abs(x - at[0])),
+                        GROUND_Y});
+                return;
+            }
+            int access = accessX(goal, at[0]);
+            if (at[0] != access) {
+                w.pos.put(id, new int[]{at[0] + Integer.signum(access - at[0]) * Math.min(STEP, Math.abs(access - at[0])),
+                        GROUND_Y});
+                return;
+            }
+            climbing.put(id, Math.max(1, (GROUND_Y - ledgeY(goal)) / CLIMB));
+            climbTo.put(id, goal);
+        }
+
+        /** The executor's Fight beat. */
+        void fight(World w, int id, SolverStep.Fight f) {
+            long now = w.now;
+            if (f.itemId() == 0) {
+                helpBeats.merge(id, 1, Integer::sum);
+            }
+            for (int i = 0; i < SPAWNS.length; i++) {
+                if (respawnAt[i] > 0 && now >= respawnAt[i]) {
+                    respawnAt[i] = 0;
+                }
+            }
+            if (f.itemId() > 0 && w.itemCount(id, f.itemId()) < f.untilItemCount() && lootNear(w, id)) {
+                return;
+            }
+            StepExecutor.Chase c = chase.computeIfAbsent(id, k -> new StepExecutor.Chase());
+            int best = -1;
+            int bestCost = Integer.MAX_VALUE;
+            Integer held = target.get(id);
+            if (held != null && respawnAt[held] == 0 && !c.skipped(held, now)
+                    && f.onLeash(SPAWNS[held][0], ledgeY(SPAWNS[held][1]))) {
+                best = held;
+            } else {
+                for (int i = 0; i < SPAWNS.length; i++) {
+                    if (respawnAt[i] > 0 || c.skipped(i, now) || !f.onLeash(SPAWNS[i][0], ledgeY(SPAWNS[i][1]))) {
+                        continue;
+                    }
+                    int cost = cost(w, id, SPAWNS[i][0], SPAWNS[i][1]);
+                    final int spawn = i;
+                    if (target.entrySet().stream().anyMatch(e -> e.getKey() != id && e.getValue() == spawn)) {
+                        cost += StepExecutor.TAKEN_PENALTY_MS / 8; // a mate is on it: another one if near enough
+                    }
+                    if (cost < bestCost) {
+                        bestCost = cost;
+                        best = i;
+                    }
+                }
+            }
+            if (best < 0) {
+                target.remove(id);
+                return;
+            }
+            target.put(id, best);
+            int mx = SPAWNS[best][0];
+            int ml = SPAWNS[best][1];
+            int[] at = w.positionOf(id);
+            int r = reach.getOrDefault(id, 80);
+            if (ledge(id) != ml || climbing.getOrDefault(id, 0) > 0 || Math.abs(at[0] - mx) > r) {
+                if (c.walking(best, cost(w, id, mx, ml) * 8, now)) {
+                    target.remove(id);
+                    return;
+                }
+                walk(w, id, mx - Integer.signum(mx - at[0]) * (r / 2), ledgeY(ml));
+                return;
+            }
+            c.inReach(best, now);
+            swings.merge(id, 1, Integer::sum);
+            if (f.itemId() == 0) {
+                helpSwings.merge(id, 1, Integer::sum);
+            }
+            if (w.rnd.nextInt(w.killOneIn) == 0) {
+                w.kills.merge(id, 1, Integer::sum);
+                respawnAt[best] = now + RESPAWN_MS;
+                target.remove(id);
+                if (w.rnd.nextInt(5) < 4) { // TEST's drop data: 200000/999999 x drop rate 4 = 80 %
+                    w.floor.add(new int[]{COUPON, id, 1, (int) now, mx, ledgeY(ml)});
+                }
+            }
+        }
+
+        /** Picks up a coupon within {@link #LOOT} px that the party loot rule lets it take; true when it did. */
+        boolean lootNear(World w, int id) {
+            int[] at = w.positionOf(id);
+            for (int i = 0; i < w.floor.size(); i++) {
+                int[] it = w.floor.get(i);
+                if (it[0] == COUPON && it[2] == 1 && it.length > 5
+                        && Math.hypot(it[4] - at[0], it[5] - at[1]) <= LOOT
+                        && QuestionCouponsSolver.mayTakeMobCoupon(w, id, it[1], w.now - it[3] >= 15_000)) {
+                    w.floor.remove(i);
+                    w.add(id, COUPON, 1);
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
@@ -780,7 +1020,11 @@ class KpqFullRunTest {
         SolverStep far = o.tick(run, v, 1_250).get(21);
         assertEquals(new SolverStep.MoveTo(400, 80, "help 22 with coupons"), far, "goes to the one missing most");
         v.pos.put(21, new int[]{300, 80});
-        assertEquals(new SolverStep.Fight(9300001, 0, 0), o.tick(run, v, 1_500).get(21), "fights there, loots nothing");
+        assertEquals(new SolverStep.Fight(9300001, 0, 0, 400, 80, 600), o.tick(run, v, 1_500).get(21),
+                "fights there, loots nothing, only mobs within 600 px of 22");
+        v.pos.put(21, new int[]{-250, 80}); // 650 px off: inside the slack, it hunts on instead of walking back
+        assertEquals(new SolverStep.Fight(9300001, 0, 0, 400, 80, 600), o.tick(run, v, 1_625).get(21),
+                "1.6.2: no walk back at 250 px (the 534 s run's helper walked to and fro and stopped swinging)");
         v.grid.put(22, 0);
         v.grid.put(23, 0);
         assertEquals(new SolverStep.Done(), o.tick(run, v, 1_750).get(21), "nobody farms: done");
@@ -822,6 +1066,118 @@ class KpqFullRunTest {
             worst = Math.max(worst, w.run.clearedAfterMs() / 1000);
         }
         assertTrue(worst <= 6 * 60, "worst " + worst + " s");
+    }
+
+
+    // ---- stage 1 on the real layout (1.6.2 KPQ pace, b153/b204) ----
+
+    /** Plays stage 1 on {@link Geo}: everyone starts on the floor at the far left, as the event warps them in. */
+    static World geoStage1(long seed, List<RunMember> party, Map<Integer, Integer> reach, boolean coarse, int maxTicks) {
+        Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(seed), 30 * 60_000L, 1);
+        RunState run = o.start(kpq(), Tier.NORMAL, party);
+        World w = new World(run, seed);
+        w.ligators = true;
+        w.geo = new Geo();
+        w.geo.coarse = coarse;
+        w.geo.reach.putAll(reach);
+        w.killOneIn = Geo.KILL_ONE_IN;
+        for (RunMember m : party) {
+            w.pos.put(m.characterId(), new int[]{-1000, Geo.GROUND_Y});
+        }
+        play(o, run, w, maxTicks, null);
+        return w;
+    }
+
+    static List<RunMember> threeWithARangedBot() {
+        return List.of(bot(51, true, MechanicsPersona.forCharacter(51)), bot(52, false, MechanicsPersona.forCharacter(52)),
+                bot(53, false, MechanicsPersona.forCharacter(53)));
+    }
+
+    /**
+     * TEST 10-30 (a 534 s player-led run, LostBow a ranged Magic Claw wizard, DopeGod melee): the ranged bot's swings
+     * mostly found no mob near and the melee one stopped swinging once its pass was in. A party of three bots with a
+     * ranged one on the real layout: everyone who hunts for another swings (the helper never just walks to and fro),
+     * and this draw clears in at most 330 s.
+     */
+    @Test
+    void aPartyOfThreeWithARangedBotClearsStageOneOnTheRealLayoutAndHelpersSwing() {
+        World w = geoStage1(5, threeWithARangedBot(), Map.of(52, 350), false, MAX_TICKS);
+        assertEquals("cleared", w.run.endedBecause(), w.run.events().toString());
+        long secs = w.run.clearedAfterMs() / 1000;
+        int helping = w.geo.helpBeats.values().stream().mapToInt(Integer::intValue).sum();
+        int swung = w.geo.helpSwings.values().stream().mapToInt(Integer::intValue).sum();
+        // before 1.6.2's leash: 62 swings in 803 beats of helping on this draw (it walked back to its farmer at 250 px)
+        assertTrue(helping > 0 && swung * 10 >= helping, "helpers swing: " + w.geo.helpSwings + " in "
+                + w.geo.helpBeats + " beats");
+        assertTrue(w.geo.swings.getOrDefault(52, 0) > 0, "the ranged bot swings");
+        System.out.println("geo seed 5: " + secs + " s, swings " + w.geo.swings + ", help " + w.geo.helpSwings + "/" + w.geo.helpBeats);
+        assertTrue(secs <= 330, "cleared in " + secs + " s; swings " + w.geo.swings + ", help " + w.geo.helpSwings
+                + "/" + w.geo.helpBeats);
+    }
+
+    /** Over many draws the layout model clears every time (worst within the 15-minute t-mx-1 budget). */
+    @Test
+    void botOnlyPartiesClearStageOneOnTheRealLayoutEveryDraw() {
+        long worst = 0;
+        long total = 0;
+        long helpSwings = 0;
+        long helpBeats = 0;
+        for (long seed = 1; seed <= 20; seed++) {
+            World w = geoStage1(seed, threeWithARangedBot(), Map.of(52, 350), false, MAX_TICKS);
+            assertEquals("cleared", w.run.endedBecause(), "seed " + seed + ": " + w.run.events());
+            helpSwings += w.geo.helpSwings.values().stream().mapToInt(Integer::intValue).sum();
+            helpBeats += w.geo.helpBeats.values().stream().mapToInt(Integer::intValue).sum();
+            long secs = w.run.clearedAfterMs() / 1000;
+            worst = Math.max(worst, secs);
+            total += secs;
+        }
+        System.out.println("geo stage 1, 3 bots incl. ranged, 20 draws: mean " + total / 20 + " s, worst " + worst
+                + " s, helpers swing in " + helpSwings + " of " + helpBeats + " beats");
+        assertTrue(worst <= 10 * 60, "worst " + worst + " s, mean " + total / 20 + " s");
+        // 1.6.2: was mean 317 s and helpers swinging in 4.6 % of their beats (walking to and fro the rest)
+        assertTrue(total / 20 <= 300, "mean " + total / 20 + " s");
+        assertTrue(helpSwings * 10 >= helpBeats, "helpers swing in " + helpSwings + " of " + helpBeats + " beats");
+    }
+
+    /**
+     * b153 (t-mx-1/t-mx-2, no real player on the stage): unwatched, the coarse planner never climbs and every Ligator
+     * is on a platform, so a bot-only party gets nothing: why a run holds its maps at full physics
+     * (MechanicsRuns.keepPhysics, MechanicsRunsPhysicsTest).
+     */
+    @Test
+    void unwatchedWithoutTheFullPhysicsHoldABotOnlyPartyNeverClears() {
+        World w = geoStage1(5, threeWithARangedBot(), Map.of(52, 350), true, 4 * 60 * 15);
+        assertFalse(w.run.cleared());
+        assertEquals(0, w.geo.swings.values().stream().mapToInt(Integer::intValue).sum(), w.geo.swings.toString());
+    }
+
+
+    /**
+     * 1.6.2 (KPQ pace): a planned near miss costs no walk. A member hands in its wrong count only when it already stands
+     * within 300 px of Cloto; anywhere else it farms straight on to the answer.
+     */
+    @Test
+    void aNearMissIsHandedInOnlyByCloto() {
+        Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(1), 0, 1);
+        RunState run = o.start(kpq(), Tier.NORMAL, List.of(bot(1, true, MechanicsPersona.PERFECT),
+                bot(2, false, MechanicsPersona.PERFECT), bot(3, false, MechanicsPersona.PERFECT)));
+        World v = new World(run, 1);
+        v.geo = new Geo(); // Cloto at (592, 110)
+        int q = 1;
+        while (kpq().stage(1).orElseThrow().answer(q).orElseThrow() < 10) {
+            q++;
+        }
+        int right = kpq().stage(1).orElseThrow().answer(q).orElseThrow();
+        v.grid.put(2, q);
+        run.planTries(2, List.of(right - 1));
+        v.add(2, COUPON, right - 1);
+        QuestionCouponsSolver solver = new QuestionCouponsSolver();
+        RunMember two = run.member(2);
+        v.pos.put(2, new int[]{-600, Geo.GROUND_Y});
+        assertEquals(new SolverStep.Fight(9300001, COUPON, right), solver.next(v, two),
+                "far from Cloto: on to the answer, no walk over with " + (right - 1));
+        v.pos.put(2, new int[]{400, Geo.GROUND_Y});
+        assertEquals(new SolverStep.TalkNpc(CLOTO, COUPON, right - 1), solver.next(v, two), "by Cloto: shows it");
     }
 
     @Test
@@ -1035,7 +1391,7 @@ class KpqFullRunTest {
     }
 
     @Test
-    void remindersComeTwentySecondsAfterHisTurnThenEveryFortyNotEveryTick() {
+    void stageOneRemindersComeAsSoonAsThePassesAreInThenEveryThirtyNotEveryTick() {
         Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(1), 0, 1);
         RunState run = o.start(kpq(), Tier.NORMAL, gmAndThreeBots());
         World w = new World(run, 1);
@@ -1051,7 +1407,8 @@ class KpqFullRunTest {
                 }
             }
         }
-        assertEquals(List.of(21_000L, 61_000L, 101_000L), said);
+        // 1.6.2 (KPQ pace): was 20 s after his turn, then every 40 s
+        assertEquals(List.of(1_000L, 31_000L, 61_000L, 91_000L), said);
     }
 
     /** K5: while the real leader lies dead the bots stop and one says so once; they go on when he is up. */

@@ -403,6 +403,27 @@ full movement physics (`GCMovement.holdFullPhysics`, LOD only, not "watched") on
 (`MechanicsRuns.keepPhysics`). Proof needs a TEST run: t-mx-1 on the fix, or `!env lod pin 103000800` on the current
 build as an A/B.
 
+### KPQ stage 1 pace (b153/b204, branch `162-kpqpace`, release blocker)
+
+TEST checkpoint d4f103b0e (2026-10-30 23:10-01:57 UTC): t-mx-1/t-mx-2 ran out of time on stage 1 with fresh bots. No
+code regression: those checks had never finished on TEST before (the b32a14214 run SKIPped them), and "85/252 s" above
+were single passes in a GM-led run. Causes and fixes:
+
+| Cause | Fix |
+|---|---|
+| Every Ligator on 103000800 stands on an upper platform. `StepExecutor.fight` took the nearest one in a straight line and called it in reach by \|dy\| alone; the swing skips mobs on another ledge. STALL spots repeat: under the y=-340 platforms (-57,104), on the x=-437 rope (-437,-428), its foot (-470,120) | `BotAttackDriver.pickTarget` (the swing's own `mayTarget`, ranked by the nav planner's walk cost `GCMovement.pathCostMs`, never an unreachable mob; a mob a mate goes for costs ~400 px more), `canSwingFrom` (same ledge as the swing), `StepExecutor.Chase`: no 20 px closer in 3 s, or the swing sees no targetable mob, skips that mob 10 s |
+| With no real player on the map the movement LOD went coarse and the coarse planner never climbs | `MechanicsRuns.keepPhysics` holds the run's maps at full physics each tick (922b1a5c2) |
+| A helper (pass in) walked to the nearest mob anywhere, then back within 250 px of its farmer, and stopped swinging (the 534 s run) | `helpStep`: `Fight` leashed to mobs within 600 px of the farmer; it walks back only beyond 750 px |
+| A near miss cost a walk across the map to Cloto | handed in only within 300 px of Cloto, else it farms on to the answer |
+| A real leader was reminded 20 s after his passes were in | stage 1: at once, then every 30 s (`StageSolver.leaderPromptTiming`) |
+| STALL only after 3 minutes of no change | STALL when under 2 coupons a minute over 90 s (once until it speeds up) |
+| A visible player outside the party (a GM) fenced off the mobs by him | KS manners: a PQ/event instance map's mobs are shared, like world-event mobs |
+
+Model: `KpqFullRunTest` now has stage 1's real layout (`Geo`: the 22 spawns on 13 platforms, climbs, drop rate 80 %).
+Three bots incl. a ranged one, 20 draws: mean 269 s, worst 371 s, helpers swinging in 12.7 % of their help beats
+(old helper rule: mean 317 s, worst 455 s, 4.6 %). Unwatched without the physics hold: no clear, no swing. Not yet
+proven on TEST: needs a t-mx-1/t-mx-2 run and a lobby run's STALL lines.
+
 ## Phased plan
 
 | Phase | What | Size |
