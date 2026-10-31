@@ -23,7 +23,7 @@ final class CakeHp {
 
     static final long DEFAULT_PER_HEAD = 36_000L;
     static final long DEFAULT_CAP = 0L;
-    static final long DEFAULT_TARGET_SECONDS = 240L;
+    static final long DEFAULT_TARGET_SECONDS = 300L; // owner 2026-10-31: about five minutes a fight
     /** How long the crowd's damage is measured before the first aim. */
     static final long PROBE_MS = 5_000L;
     /** How often the event looks for newcomers while the cake stands. */
