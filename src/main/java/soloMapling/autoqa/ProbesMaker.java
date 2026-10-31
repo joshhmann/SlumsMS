@@ -123,6 +123,19 @@ final class ProbesMaker {
         return out;
     }
 
+    /**
+     * The SKIP line when the world's Maker cap has no room for a batch's 3 operations, null when it has. The numbers
+     * are in it because TEST 10-31 (t-mk-2) skipped with "0 operations left" and nothing else, and the run's report
+     * could not say whether a bot batch or the check itself had used the day.
+     */
+    static String capSkip(long room, long cap) {
+        if (room >= 3) {
+            return null;
+        }
+        return "SKIP the world's Maker cap for today is used up (" + room + " of " + cap + " operations left, "
+                + (cap - room) + " used today)";
+    }
+
     static List<String> makerBatch(SyntheticPlayer p) {
         if (!BotMaker.enabled()) {
             return List.of("SKIP the bots' Maker batch is off (-Dsolomapling.economy.maker.botBatch=true)");
@@ -154,8 +167,10 @@ final class ProbesMaker {
                 return List.of("FAIL could not stage a bad equip: fees " + cheapFee + " and " + priceyFee);
             }
             long room = BotMaker.worldCapLeft();
-            if (room < 3) {
-                return List.of("SKIP the world's Maker cap for today is used up (" + room + " operations left)");
+            String capSkip = capSkip(room, BotMaker.worldCapToday());
+            if (capSkip != null) {
+                AutoQa.log.info("t-mk-2: {}", capSkip + " (the batch was not run; TEST's population bots batch too)");
+                return List.of(capSkip);
             }
             // an empty bag: the fresh bot's own gear and leftovers must not join the batch
             Inventory eq = bot.getInventory(InventoryType.EQUIP);

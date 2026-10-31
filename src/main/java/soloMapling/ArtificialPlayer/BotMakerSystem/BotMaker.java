@@ -101,6 +101,15 @@ public final class BotMaker {
         return worldDaily() - EconomyMeters.get(WORLD_METER);
     }
 
+    /* The world's cap itself, and what it has counted so far today (for the auto-QA check's SKIP reason). */
+    public static long worldCapToday() {
+        return worldDaily();
+    }
+
+    public static long worldOpsToday() {
+        return EconomyMeters.get(WORLD_METER);
+    }
+
     /* Gives a character its day back (the auto-QA check's throwaway bot: ids are reused between runs). */
     public static void forget(int charId) {
         todayByChar.remove(charId);

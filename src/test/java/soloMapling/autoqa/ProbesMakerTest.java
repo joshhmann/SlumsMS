@@ -55,6 +55,22 @@ class ProbesMakerTest {
         assertTrue(out.get(0).contains("solomapling.economy.maker.botBatch"));
     }
 
+    /**
+     * TEST 10-31 (run 4d3de9837): mk-2 skipped with "0 operations left" and the report could not say where the day
+     * went. The SKIP line names the cap, the room left and what the world used; nothing is skipped while 3 fit.
+     */
+    @Test
+    void theCapSkipNamesTheNumbers() {
+        String none = ProbesMaker.capSkip(0, 300);
+        assertTrue(none.startsWith("SKIP "), none);
+        assertTrue(none.contains("0 of 300 operations left"), none);
+        assertTrue(none.contains("300 used today"), none);
+        assertTrue(ProbesMaker.capSkip(2, 300).contains("2 of 300 operations left"),
+                "a batch needs 3 operations: 2 left is still a skip");
+        assertNull(ProbesMaker.capSkip(3, 300), "3 operations fit: the check runs");
+        assertNull(ProbesMaker.capSkip(300, 300), "an unused cap never skips");
+    }
+
     private static ProbesMaker.Outcome good() {
         // 1 crystal + 2 disassemblies = 3 operations, though the disassemblies gave 4 more crystals
         return new ProbesMaker.Outcome(3, 1, 2, 14000, 0, 14000, 0, 5, 2, true, 3, 3);
