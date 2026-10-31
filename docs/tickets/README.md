@@ -8,6 +8,12 @@
 
 Current status is in `/root/work/STATUS-1.6.2.md` and the release book; the older tables below are historical.
 
+## QA follow-ups (2026-10-31)
+
+| # | Ticket | Target |
+|---|---|---|
+| [169](169-botstory-qa-reference-adoption.md) | Borrow targeted QA diagnostics from BotStory | After 1.6.2; only minimal diagnostics/regressions for an existing blocker may enter the frozen release |
+
 ## 1.5.1 technical review follow-ups (2026-10-24)
 
 Source review of 1.5.0 `06a724dfc`; all four tickets are open and need regression/runtime validation.
