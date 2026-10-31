@@ -45,6 +45,7 @@ api(u, 'BringWindowToTop', w.BOOL, w.HWND)
 api(u, 'ShowWindow', w.BOOL, w.HWND, c.c_int)
 api(u, 'PrintWindow', w.BOOL, w.HWND, w.HDC, w.UINT)
 api(u, 'GetWindowThreadProcessId', w.DWORD, w.HWND, c.POINTER(w.DWORD))
+api(u, 'GetClassNameW', c.c_int, w.HWND, w.LPWSTR, c.c_int)
 api(u, 'GetDC', w.HDC, w.HWND)
 api(u, 'ReleaseDC', c.c_int, w.HWND, w.HDC)
 api(g, 'CreateCompatibleDC', w.HDC, w.HDC)
@@ -425,7 +426,8 @@ class OwnedClient:
                 if not u.SetForegroundWindow(hwnd):
                     raise Blocked('Windows refused authorized focus of the owned game window.')
         if u.GetForegroundWindow() != hwnd:
-            raise Blocked('Owned game window is not foreground; refusing to steal focus.')
+            raise Blocked('Owned game window is not foreground; refusing to steal focus. Foreground: '
+                          + describe_window(u.GetForegroundWindow(), set(self.pids())))
         if u.IsIconic(hwnd):
             raise Blocked('Owned game window is minimized.')
         return hwnd
@@ -464,6 +466,19 @@ class OwnedClient:
 def window_hung(hwnd):
     # Read-only: Windows' own "not responding" test (no input for 5 s). Never sends anything to the window.
     return bool(u.IsHungAppWindow(hwnd))
+
+
+def describe_window(hwnd, owned):
+    """'class=<c> title=<t> pid=<p> ours=<bool>' for a refusal message (b044 diagnosis). No input, read only."""
+    if not hwnd:
+        return 'none (locked desktop or a secure screen?)'
+    pid = w.DWORD()
+    u.GetWindowThreadProcessId(hwnd, c.byref(pid))
+    name = c.create_unicode_buffer(128)
+    u.GetClassNameW(hwnd, name, len(name))
+    title = c.create_unicode_buffer(64)
+    u.GetWindowTextW(hwnd, title, len(title))
+    return 'class=%s title=%s pid=%d ours=%s' % (name.value, title.value[:40], pid.value, pid.value in owned)
 
 
 def capture(hwnd):
