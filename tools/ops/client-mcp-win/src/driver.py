@@ -673,6 +673,11 @@ class Driver:
         if key is None and combo is None:
             raise Refusal('Unsupported key. Use A-Z, 0-9, F1-F12, Escape, Enter, Tab, Space, Backspace, arrows, '
                           'Insert, Delete, Home, End, PageUp, PageDown, Ctrl (attack), Ctrl+F10 or Ctrl+F11.')
+        if hold_ms and (combo is not None or name in ('ESCAPE', 'ENTER', 'TAB', 'BACKSPACE')):
+            # b024: hold_ms used to be ignored silently for every key but the arrows. Keys a hold makes no sense for
+            # (or would repeat into an open chat box) now say so instead of returning as if held.
+            raise Refusal('hold_ms works for single game keys (arrows, letters, digits, F-keys, Space, Ctrl, ...), '
+                          'not for ' + name + '.')
         if name == 'ESCAPE' and self.state == 'field':
             # Escape only closes things; a menu it opened hides the status bar the field check reads, and every
             # tool would then refuse until a restart. Allowed while the last verified screen was the field.
@@ -695,8 +700,9 @@ class Driver:
                 if time.monotonic() >= deadline:
                     raise Refusal('Chat entry is open and did not close; key not sent.')
                 time.sleep(0.1)
-        if hold_ms and name in ('LEFT', 'RIGHT', 'UP', 'DOWN'):
-            # Walking: hold an arrow up to 3 s. The guard and endpoint are checked before; the release always runs.
+        if hold_ms:
+            # Hold the key up to 3 s: arrows to walk, Ctrl to keep attacking, a skill key to charge or repeat (b024).
+            # The guard is checked every 50 ms; the release always runs.
             hold_ms = max(0, min(int(hold_ms), 3000))
             self.sender.key(key[0], True, extended=key[1])
             try:
