@@ -426,6 +426,9 @@ final class MechanicsScenarios {
     /** A level for the check; the party list (which KPQ's eligibility reads) is told, as a level-up tells it. */
     static void setLevel(Character c, int level) {
         c.setLevel(level);
+        if (c.getClient() == null) {
+            return; // an alt that died and went home has no client or channel to tell (TEST 10-31: t-mx-5's cleanup threw here)
+        }
         c.setMPC(new net.server.world.PartyCharacter(c));
         c.silentPartyUpdate();
     }
@@ -488,11 +491,22 @@ final class MechanicsScenarios {
             ctx.onStop("send the alts home with their levels back", () -> {
                 for (Character alt : called) {
                     Integer was = levels.get(alt.getId());
-                    if (was != null) {
-                        setLevel(alt, was);
-                    }
                     try {
-                        alts.dismiss(gm, alt.getName());
+                        Character back = alt;
+                        if (back.getClient() == null) {
+                            // it died and went home, which is a save at level 30 (TEST 10-31: t-mx-5 lost AutoQaAltB
+                            // this way and the restore threw): call it back, put the level right, then dismiss it
+                            back = alts.summon(gm, alt.getName());
+                            if (back == null) {
+                                ctx.run().note("MX5", "could not call " + alt.getName() + " back: it went home at level "
+                                        + MX5_ALT_LEVEL + " instead of " + was);
+                                continue;
+                            }
+                        }
+                        if (was != null) {
+                            setLevel(back, was);
+                        }
+                        alts.dismiss(gm, back.getName());
                     } catch (RuntimeException e) {
                         ctx.run().note("MX5", "could not dismiss " + alt.getName() + ": " + e.getMessage());
                     }
