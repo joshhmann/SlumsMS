@@ -25,7 +25,10 @@ non-zero instead of writing a table that would send a player into another broken
 does not follow.
 
     python3 tools/data-align/map_routing.py --wz /root/slums-nav-v70/wz \
-        --client-crash tools/data-align/client-crash-maps.txt [--check]
+        [--client-crash <the Client lane's list>] [--check]
+
+The seed tools/data-align/client-crash-maps.txt is always read; --client-crash adds another list (repeatable) on top
+of it, so the lane's audit file and our own confirmed rows can be passed together without either replacing the other.
 
 --check prints the validation and the counts, and fails when the committed table is out of date, without
 writing.
@@ -97,13 +100,21 @@ def read_names(wz):
 
 
 def read_list(path):
-    """Map ids from a list file: first token of every line, '#' starts a comment."""
-    out = []
+    """Map ids from a list file: first token of every line, '#' starts a comment.
+
+    Round 3: an id prefixed with '!' clears that map instead of listing it - the seed retires 410000350, which the
+    Client lane's audit file still carries, because client build 10721 fixed its crash. Returns (listed, cleared)."""
+    listed, cleared = [], []
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.split("#", 1)[0].strip()
-        if line:
-            out.append(int(line.split()[0]))
-    return out
+        if not line:
+            continue
+        token = line.split()[0]
+        if token.startswith("!"):
+            cleared.append(int(token[1:]))
+        else:
+            listed.append(int(token))
+    return listed, cleared
 
 
 def script_edges(wz_root, mapid, portal):
@@ -314,7 +325,9 @@ def check_reasons(router, rows, problems):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--wz", default="wz", help="server WZ directory (XML)")
-    ap.add_argument("--client-crash", default=str(CRASH), help="maps that crash the client, one id per line")
+    ap.add_argument("--client-crash", action="append", default=[], metavar="FILE",
+                    help="another client-crash list, one map id per line (repeatable); the seed "
+                         "tools/data-align/client-crash-maps.txt is always read too")
     ap.add_argument("--out", default=str(OUT))
     ap.add_argument("--check", action="store_true",
                     help="validate, compare with the committed table, write nothing")
@@ -324,7 +337,14 @@ def main():
     wz_root = ROOT  # scripts/ live in the repo, not in the WZ
     maps = read_maps(wz)
     names = read_names(wz)
-    crash = read_list(Path(a.client_crash))
+    listed, cleared = read_list(CRASH)
+    for f in a.client_crash:
+        more, gone = read_list(Path(f))
+        listed += more
+        cleared += gone
+    crash = sorted(set(listed) - set(cleared))
+    for mapid in sorted(set(cleared) & set(listed)):
+        print(f"note: client-crash map {mapid} is cleared by a '!' line", file=sys.stderr)
 
     def label(mapid):
         street, name = names.get(mapid, ("", ""))
@@ -341,10 +361,7 @@ def main():
         if target not in maps:
             blocked[target] = "missing"
     for target in crash:
-        blocked.setdefault(target, "client-crash")
-    for target in crash:
-        if target in blocked:
-            blocked[target] = "client-crash"
+        blocked[target] = "client-crash"   # a client crash outranks "no image": both are blocked, this says why
         if target not in maps:
             print(f"note: client-crash map {target} is not in Map.wz either", file=sys.stderr)
 
