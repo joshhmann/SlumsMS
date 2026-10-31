@@ -13,6 +13,7 @@ Current status is in `/root/work/STATUS-1.6.2.md` and the release book; the olde
 | # | Ticket | Target |
 |---|---|---|
 | [169](169-botstory-qa-reference-adoption.md) | Borrow targeted QA diagnostics from BotStory | After 1.6.2; only minimal diagnostics/regressions for an existing blocker may enter the frozen release |
+| [170](170-cosmic-agents-qa-reference-adoption.md) | Borrow controlled QA fixtures from cosmic_agents | After 1.6.2; deduplicate shared BotStory tooling and preserve the release freeze |
 
 ## 1.5.1 technical review follow-ups (2026-10-24)
 
