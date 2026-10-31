@@ -247,6 +247,9 @@ public final class NavEdgeLearning {
         if (graph == null || edge == null || edge.type == BotNavigationGraph.EdgeType.PORTAL) {
             return; // a portal does not fail by technique
         }
+        if (isolated(graph)) {
+            return;
+        }
         startFlusher();
         Book book = bookOf(graph);
         BotNavigationGraph.Edge canonical = canonical(graph, edge);
@@ -367,6 +370,18 @@ public final class NavEdgeLearning {
     }
 
     /**
+     * A QA probe's graph ({@code NavPortQa.parkedBot}, {@code swimWall}) is isolated: b254, auto-QA 2026-10-31 15:41
+     * UTC, t-nn-2 "the parked bot gave its hop up 1 time(s) in 40 AI ticks". The replay's own give-ups were learned
+     * under its made-up map id and written to {@code cache/bot-nav/learned}, so the planner routed around the very
+     * hop under test: three replays gave up 5, 4, then 0 times. An isolated graph reads no file and records nothing,
+     * so every replay reads the same. The flag lives on the graph, not on the map id: unit tests build synthetic
+     * graphs on ids in the same range as the probes' made-up ones.
+     */
+    static boolean isolated(BotNavigationGraph graph) {
+        return graph != null && graph.learningIsolated;
+    }
+
+    /**
      * The graph's book, cached on the graph itself: the planner asks on every edge relaxation, and a shared map
      * behind one lock (as this used to be) serialised every planning thread.
      */
@@ -381,6 +396,9 @@ public final class NavEdgeLearning {
     }
 
     private static Book book(BotNavigationGraph graph) {
+        if (isolated(graph)) {
+            return new Book(graph.version); // never its own file: see isolated
+        }
         return books.compute(bookKey(graph), (key, existing) -> {
             if (existing != null && existing.version == graph.version) {
                 return existing;
@@ -560,6 +578,9 @@ public final class NavEdgeLearning {
     }
 
     static void recordSwim(SwimNavGraph graph, BotNavigationGraph.Edge edge, boolean failed, long now) {
+        if (graph == null || edge == null) {
+            return;
+        }
         startFlusher();
         Book book = swimBookOf(graph);
         Stats stats = book.edges.computeIfAbsent(edgeKey(edge), k -> new Stats());

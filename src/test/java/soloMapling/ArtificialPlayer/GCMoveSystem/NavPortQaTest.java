@@ -61,4 +61,30 @@ class NavPortQaTest {
             NavPortSwitches.blockedPosWatchdog = false;
         }
     }
+
+    /**
+     * b254 (auto-QA 2026-10-31 10:00 and 15:41 UTC: t-nn-2 "the parked bot gave its hop up 1 time(s) in 40 AI
+     * ticks"): the replay's own give-ups were learned under its made-up map id and persisted
+     * (cache/bot-nav/learned/990340298-s100-j100.json on TEST), so the planner stopped serving the gated hop and the
+     * check measured a healthy server as broken. Every replay must read the same as the first.
+     */
+    @Test
+    void everyReplayOfTheParkedBotGivesUpAsMuchAsTheFirst() {
+        if (System.getProperty("wz-path") == null) {
+            System.setProperty("wz-path", Path.of("wz").toAbsolutePath().toString());
+        }
+        WzTestData.assumePresent("Map.wz");
+        NavPortSwitches.blockedPosWatchdog = true;
+        try {
+            for (int i = 0; i < 3; i++) {
+                NavPortQa.ParkedRun run = NavPortQa.parkedBot(40);
+                assertTrue(run.gatedTicks() == 40 && run.giveUps() >= 3, "replay " + i + ": " + run);
+            }
+        } finally {
+            NavPortSwitches.blockedPosWatchdog = false;
+        }
+        String[] learned = dir.resolve("learned").toFile().list();
+        assertTrue(learned == null || java.util.Arrays.stream(learned).noneMatch(n -> n.startsWith("990")),
+                "a made-up map keeps no learned book: " + java.util.Arrays.toString(learned));
+    }
 }

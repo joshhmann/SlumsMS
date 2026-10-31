@@ -703,14 +703,16 @@ final class MechanicsScenarios {
                 net.server.world.Party.joinParty(c, gm.getParty().getId(), true);
             }
             ctx.run().note("MX6", gm.getName() + " leads " + mates.size() + " bots to Lakelis on channel " + ch.getId());
-            String before = soloMapling.mechanics.KpqLobby.lastYield();
+            long yieldsBefore = soloMapling.mechanics.KpqLobby.yieldCount();
             boolean talked = talkToLakelis(gm);
             scripting.event.EventInstanceManager mine = gm.getEventInstance();
             boolean gone = awaitGone(held, 5_000);
-            String yieldLine = soloMapling.mechanics.KpqLobby.lastYield();
-            if (yieldLine != null && yieldLine.equals(before)) {
-                yieldLine = null;
-            }
+            // 1.6.2 (auto-QA 2026-10-31 10:00, 15:41 UTC): compare the yield count, not the text. The same pretend
+            // player on the same channel yields a byte-identical line, so the previous yield's line looked unchanged
+            // and mx-6 logged "no yield line" on a server whose BotLog had the yield ("lobby yields ch 1 to
+            // AutoQaOne's party" at 10:47 and 11:07). A yield that happened during this talk is what mx-6 asks.
+            String yieldLine = soloMapling.mechanics.KpqLobby.yieldCount() == yieldsBefore ? null
+                    : soloMapling.mechanics.KpqLobby.lastYield();
             if (yieldLine != null) {
                 ctx.run().note("MX6", yieldLine);
             }
