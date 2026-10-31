@@ -50,7 +50,10 @@ import static org.mockito.Mockito.when;
 class CharacterLoginMapRoutingTest {
 
     private static final int FOUNTAIN_SQUARE = 410000300;
-    private static final int RAMPART_RESIDENCES = 410000350;   // client-crash
+    private static final int GOLLUX_ABDOMEN = 863010240;       // client-crash, logs in at its returnMap
+    private static final int HEART_TREE = 863010000;
+    private static final int ROSE_GARDEN = 211080000;          // Rose Garden : Gardener's Spot
+    private static final int ROSE_GARDEN_DEPTH = 211080100;    // client-crash
     private static final int STORAGE_CELLAR = 993162016;       // no Map.wz image
     private static final int CHARACTER_ID = 3;
 
@@ -75,15 +78,20 @@ class CharacterLoginMapRoutingTest {
 
     @Test
     void aCharacterSavedInTheCrashMapLogsInAtItsFallbackAndSavesThatId() throws Exception {
-        assertLogsInAtFallbackAndSavesIt(RAMPART_RESIDENCES);
+        assertLogsInAtFallbackAndSavesIt(GOLLUX_ABDOMEN, HEART_TREE);
+    }
+
+    @Test
+    void aCharacterSavedInTheRoseGardenLogsInAtTheEntranceAndSavesThatId() throws Exception {
+        assertLogsInAtFallbackAndSavesIt(ROSE_GARDEN_DEPTH, ROSE_GARDEN);
     }
 
     @Test
     void aCharacterSavedInAMapWithNoImageLogsInAtItsFallbackAndSavesThatId() throws Exception {
-        assertLogsInAtFallbackAndSavesIt(STORAGE_CELLAR);
+        assertLogsInAtFallbackAndSavesIt(STORAGE_CELLAR, FOUNTAIN_SQUARE);
     }
 
-    private void assertLogsInAtFallbackAndSavesIt(int savedIn) throws Exception {
+    private void assertLogsInAtFallbackAndSavesIt(int savedIn, int at) throws Exception {
         WzTestData.assumePresent("Map.wz");
 
         FakeLoginDb db = new FakeLoginDb()
@@ -104,12 +112,12 @@ class CharacterLoginMapRoutingTest {
             Character chr = Character.loadCharFromDB(CHARACTER_ID, client, true);
 
             assertNotNull(chr.getMap(), "a login never has no map");
-            assertEquals(FOUNTAIN_SQUARE, chr.getMapId(), "saved in " + savedIn + ": logs in at its fallback");
+            assertEquals(at, chr.getMapId(), "saved in " + savedIn + ": logs in at its fallback");
             assertNotEquals(savedIn, chr.getMapId());
 
             chr.saveCharToDB(false);
 
-            assertEquals(FOUNTAIN_SQUARE, db.savedMap(),
+            assertEquals(at, db.savedMap(),
                     "the save writes the map the character really is in, not the one it was saved in");
         }
     }

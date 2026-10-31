@@ -29,12 +29,18 @@ class MapRoutingWarpTest {
     private static final int FOUNTAIN_SQUARE = 410000300;
     private static final int STORAGE_CAVE = 410000310;
     private static final int SIDE_MAP = 410000325;
-    private static final int RAMPART_RESIDENCES = 410000350;
+    private static final int GOLLUX_ABDOMEN = 863010240;   // the client crash on TEST
+    private static final int HEART_TREE = 863010000;       // Gollux: Abdomen's own returnMap
+    private static final int ROSE_GARDEN = 211080000;      // Rose Garden : Gardener's Spot, loads fine
+    private static final int ROSE_GARDEN_DEPTH = 211080100; // the first map past it: the client dies there
+    private static final int ROOF_OF_THE_FIFTH_TOWER = 211061001;
     private static final int STORAGE_CELLAR = 993162016;
 
     private MapleMap fountain;
     private MapleMap cave;
     private MapleMap side;
+    private MapleMap heartTree;
+    private MapleMap roseGarden;
     private Client client;
     private Character chr;
 
@@ -43,11 +49,15 @@ class MapRoutingWarpTest {
         fountain = new MapleMap(FOUNTAIN_SQUARE, 0, 1, 0, 1f);
         cave = new MapleMap(STORAGE_CAVE, 0, 1, 0, 1f);
         side = new MapleMap(SIDE_MAP, 0, 1, 0, 1f);
+        heartTree = new MapleMap(HEART_TREE, 0, 1, 0, 1f);
+        roseGarden = new MapleMap(ROSE_GARDEN, 0, 3, 0, 1f);
 
         MapManager maps = mock(MapManager.class);
         when(maps.getMap(FOUNTAIN_SQUARE)).thenReturn(fountain);
         when(maps.getMap(STORAGE_CAVE)).thenReturn(cave);
         when(maps.getMap(SIDE_MAP)).thenReturn(side);
+        when(maps.getMap(HEART_TREE)).thenReturn(heartTree);
+        when(maps.getMap(ROSE_GARDEN)).thenReturn(roseGarden);
 
         Channel channel = mock(Channel.class);
         when(channel.getMapFactory()).thenReturn(maps);
@@ -83,14 +93,45 @@ class MapRoutingWarpTest {
     void aScriptWarpIntoTheCrashMapLandsOnItsReturnMap() {
         chr.setMap(side);
 
-        assertEquals(FOUNTAIN_SQUARE, chr.getWarpMap(RAMPART_RESIDENCES, null).getId());
+        assertEquals(HEART_TREE, chr.getWarpMap(GOLLUX_ABDOMEN, null).getId());
     }
 
     @Test
     void aSideDoorIntoTheCrashMapLandsOnItsReturnMap() {
         chr.setMap(cave);
 
-        assertEquals(FOUNTAIN_SQUARE, chr.getWarpMap(RAMPART_RESIDENCES, "east00").getId());
+        assertEquals(HEART_TREE, chr.getWarpMap(GOLLUX_ABDOMEN, "east00").getId());
+    }
+
+    @Test
+    void aScriptWarpIntoTheRoseGardenLandsAtTheGardener() {
+        chr.setMap(new MapleMap(ROOF_OF_THE_FIFTH_TOWER, 0, 2, 0, 1f));   // the map before the Rose Garden
+
+        MapleMap to = chr.getWarpMap(ROSE_GARDEN_DEPTH, null);
+
+        assertEquals(ROSE_GARDEN, to.getId(), "the client dies past the entrance, so the door lands at the entrance");
+        verify(client, times(1)).sendPacket(any());   // the one-line reroute message
+    }
+
+    @Test
+    void theEastDoorOfTheRoseGardenIsADeadEnd() {
+        chr.setMap(roseGarden);   // standing at Gardener's Spot, walking into east00
+
+        MapleMap to = chr.getWarpMap(ROSE_GARDEN_DEPTH, "east00");
+
+        assertNull(to, "the map past the entrance kills the client: there is nothing to warp to");
+        verify(client, times(2)).sendPacket(any());   // the message and enableActions, as for Fountain Square's in00
+        assertEquals(ROSE_GARDEN, chr.getMapId());
+    }
+
+    @Test
+    void theWayIntoTheRoseGardenFromTheTowerIsUntouched() {
+        chr.setMap(new MapleMap(ROOF_OF_THE_FIFTH_TOWER, 0, 2, 0, 1f));
+
+        MapleMap to = chr.getWarpMap(ROSE_GARDEN, "next00");
+
+        assertEquals(ROSE_GARDEN, to.getId(), "Gardener's Spot loads fine: the way in is an ordinary warp");
+        verify(client, never()).sendPacket(any());
     }
 
     @Test

@@ -153,8 +153,8 @@ Run it with `tools/ops/autoqa-run mp-1`.
 
 | id | switch | what it does | PASS means |
 |---|---|---|---|
-| `t-mp-1` | `slums.maps.routing` (default on) | the table in the jar is loaded (`soloMapling/map-routing.tsv`), every blocked map's fallback is not blocked and really loads, Fountain Square's `in00` door routes back to the square, a character saved in 410000350 lands on 410000300, and the image-less Storage Cellar still loads nothing | every reroute lands on a map the server has, no door leads into a map that fails to load or crashes the client. SKIPs only with routing off, which fails a release run |
-| `t-mp-1` (walk) | - | eyes only: walk Fountain Square's `in00` and 410000325/410000351's `east00` in a real client | the client stays up and the character is told it was taken back |
+| `t-mp-1` | `slums.maps.routing` (default on) | the table in the jar is loaded (`soloMapling/map-routing.tsv`), every blocked map's fallback is not blocked and really loads, Fountain Square's `in00` door routes back to the square, a character saved in 863010240 lands on 863010000, all seven Rose Garden maps past the entrance fall back to 211080000, Rampart Residences (410000350) is no longer blocked, and the image-less Storage Cellar still loads nothing | every reroute lands on a map the server has, no door leads into a map that fails to load or crashes the client. SKIPs only with routing off, which fails a release run |
+| `t-mp-1` (walk) | - | eyes only: walk Fountain Square's `in00`, a Gollux leg into the abdomen (863010240) and the Rose Garden's `east00` in a real client | the client stays up and the character is told it was taken back |
 
 ## Ticket 164 b224: checks tickets 156 and 157 promised (`gr`, `nv-2`, `nv-3`)
 

@@ -23,7 +23,10 @@ class GCWorldGraphRoutingTest {
     private static final int FOUNTAIN_SQUARE = 410000300;
     private static final int STORAGE_CAVE = 410000310;
     private static final int SIDE_MAP = 410000325;
-    private static final int RAMPART_RESIDENCES = 410000350;
+    private static final int GOLLUX_ABDOMEN = 863010240;       // client-crash; the Gollux legs point at it
+    private static final int HEART_TREE = 863010000;           // the map the player reroute lands on
+    private static final int ROSE_GARDEN = 211080000;          // loads fine
+    private static final int ROSE_GARDEN_DEPTH = 211080100;    // client-crash, behind the entrance's east00
 
     @BeforeAll
     static void setWzPath() {
@@ -35,16 +38,16 @@ class GCWorldGraphRoutingTest {
     @Test
     void aBlockedTargetIsNotAnEdge() {
         Map<Integer, int[]> graph = new HashMap<>();
-        graph.put(SIDE_MAP, new int[]{RAMPART_RESIDENCES, FOUNTAIN_SQUARE});
-        graph.put(FOUNTAIN_SQUARE, new int[]{SIDE_MAP, RAMPART_RESIDENCES, STORAGE_CAVE});
-        graph.put(RAMPART_RESIDENCES, new int[]{FOUNTAIN_SQUARE});
+        graph.put(SIDE_MAP, new int[]{GOLLUX_ABDOMEN, FOUNTAIN_SQUARE});
+        graph.put(FOUNTAIN_SQUARE, new int[]{SIDE_MAP, GOLLUX_ABDOMEN, STORAGE_CAVE});
+        graph.put(GOLLUX_ABDOMEN, new int[]{FOUNTAIN_SQUARE});
         graph.put(STORAGE_CAVE, new int[]{FOUNTAIN_SQUARE});
 
         GCWorldGraph.dropMissingTargets(graph);
 
-        assertArrayEquals(new int[]{FOUNTAIN_SQUARE}, graph.get(SIDE_MAP), "the way into Rampart Residences is gone");
+        assertArrayEquals(new int[]{FOUNTAIN_SQUARE}, graph.get(SIDE_MAP), "the way into Gollux's abdomen is gone");
         assertArrayEquals(new int[]{SIDE_MAP, STORAGE_CAVE}, graph.get(FOUNTAIN_SQUARE));
-        assertArrayEquals(new int[]{FOUNTAIN_SQUARE}, graph.get(RAMPART_RESIDENCES), "a map keeps its own way out");
+        assertArrayEquals(new int[]{FOUNTAIN_SQUARE}, graph.get(GOLLUX_ABDOMEN), "a map keeps its own way out");
     }
 
     @Test
@@ -62,11 +65,18 @@ class GCWorldGraphRoutingTest {
         }
         assertTrue(edges > 1000, "edges: " + edges);
 
-        for (int next : GCWorldGraph.neighbors(SIDE_MAP)) {
-            assertFalse(next == RAMPART_RESIDENCES, "the planner has no step into the crash map");
+        // the legs whose own portal leads into the crash map have no step into it...
+        for (int leg : new int[]{863010210, 863010230, 863010300, 863010400}) {
+            for (int next : GCWorldGraph.neighbors(leg)) {
+                assertFalse(next == GOLLUX_ABDOMEN, "the planner has no step from " + leg + " into the crash map");
+            }
         }
-        // the side map's only portal led into the crash map, so it is now a dead end for bots - and the map the
-        // player is rerouted to is still in the graph.
-        assertTrue(graph.containsKey(FOUNTAIN_SQUARE), "the reroute destination is a map bots can still use");
+        for (int next : GCWorldGraph.neighbors(ROSE_GARDEN)) {
+            assertFalse(next == ROSE_GARDEN_DEPTH, "the planner has no step past the Rose Garden entrance");
+        }
+        // ...and the maps the player is rerouted to are still in the graph.
+        assertTrue(graph.containsKey(HEART_TREE), "the Gollux reroute destination is a map bots can still use");
+        assertTrue(graph.containsKey(ROSE_GARDEN), "the Rose Garden entrance is a map bots can still use");
+        assertTrue(graph.containsKey(FOUNTAIN_SQUARE), "Fountain Square is a map bots can still use");
     }
 }

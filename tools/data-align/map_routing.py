@@ -19,13 +19,17 @@ written in the row's reason column:
   6. street-nearest - the nearest map on that street
   7. henesys      - 100000000
 
-Every route must itself be a map that is in Map.wz and not blocked, and every row's reason is re-derived from the
-data by check_reasons() independently of the rule that wrote it; the generator validates its own output and exits
-non-zero instead of writing a table that would send a player into another broken map or that names a rule its route
-does not follow.
+Every route must itself be a map that loads: in Map.wz, not blocked, and every mob it spawns has a Mob.wz image
+(MapFactory.loadLife cannot load a map that spawns a mob with no image, and 229 maps in this data do). Every row's
+reason is re-derived from the data by check_reasons() independently of the rule that wrote it; the generator
+validates its own output and exits non-zero instead of writing a table that would send a player into another broken
+map or that names a rule its route does not follow.
 
     python3 tools/data-align/map_routing.py --wz /root/slums-nav-v70/wz \
-        --client-crash tools/data-align/client-crash-maps.txt [--check]
+        [--client-crash <the Client lane's list>] [--check]
+
+The seed tools/data-align/client-crash-maps.txt is always read; --client-crash adds another list (repeatable) on top
+of it, so the lane's audit file and our own confirmed rows can be passed together without either replacing the other.
 
 --check prints the validation and the counts, and fails when the committed table is out of date, without
 writing.
@@ -60,19 +64,24 @@ def leaves(node):
 
 
 def read_maps(wz):
-    """id -> {'info': {...}, 'portals': [{'pn','tn','tm','pt','script','index'}]} for every Map.wz image."""
+    """id -> {'info': {...}, 'portals': [{'pn','tn','tm','pt','script','index'}], 'mobs': [id]} per Map.wz image."""
     maps = {}
     for f in sorted((wz / "Map.wz" / "Map").glob("Map*/*.img.xml")):
         stem = f.name.split(".")[0]
         if not stem.isdigit():
             continue
         mapid = int(stem)
-        entry = {"info": {}, "portals": []}
+        entry = {"info": {}, "portals": [], "mobs": []}
         root = ET.parse(f).getroot()
         for node in root:
             name = node.get("name")
             if name == "info":
                 entry["info"] = leaves(node)
+            elif name == "life":
+                for spawn in node:
+                    v = leaves(spawn)
+                    if v.get("type") == "m":          # a mob; "n" is an NPC, which never fails to load
+                        entry["mobs"].append(int(v["id"]))
             elif name == "portal":
                 for portal in node:
                     v = leaves(portal)
@@ -82,6 +91,16 @@ def read_maps(wz):
                     entry["portals"].append(v)
         maps[mapid] = entry
     return maps
+
+
+def read_mob_images(wz):
+    """ids of the mobs Mob.wz has an image for: what MapFactory needs before it can put one in a map."""
+    out = set()
+    for f in (wz / "Mob.wz").glob("*.img.xml"):
+        stem = f.name.split(".")[0]
+        if stem.isdigit():
+            out.add(int(stem))
+    return out
 
 
 def read_names(wz):
@@ -97,13 +116,21 @@ def read_names(wz):
 
 
 def read_list(path):
-    """Map ids from a list file: first token of every line, '#' starts a comment."""
-    out = []
+    """Map ids from a list file: first token of every line, '#' starts a comment.
+
+    Round 3: an id prefixed with '!' clears that map instead of listing it - the seed retires 410000350, which the
+    Client lane's audit file still carries, because client build 10721 fixed its crash. Returns (listed, cleared)."""
+    listed, cleared = [], []
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.split("#", 1)[0].strip()
-        if line:
-            out.append(int(line.split()[0]))
-    return out
+        if not line:
+            continue
+        token = line.split()[0]
+        if token.startswith("!"):
+            cleared.append(int(token[1:]))
+        else:
+            listed.append(int(token))
+    return listed, cleared
 
 
 def script_edges(wz_root, mapid, portal):
@@ -144,8 +171,9 @@ def collect_edges(wz_root, wz, maps):
 
 
 class Router:
-    def __init__(self, maps, names, blocked):
+    def __init__(self, maps, names, blocked, mob_images):
         self.maps, self.names, self.blocked = maps, names, blocked
+        self.mob_images = mob_images
         self.by_street = {}
         for mapid in maps:
             street = names.get(mapid, ("", ""))[0]
@@ -164,8 +192,14 @@ class Router:
                     areas[m // 100000000] += 1
                 self.street_area[street] = min(areas, key=lambda a: (-areas[a], a))
 
+    def unloadable_mobs(self, mapid):
+        """The mobs a map spawns that Mob.wz has no image for; MapFactory.loadLife fails on the first of them."""
+        return [m for m in self.maps.get(mapid, {}).get("mobs", ()) if m not in self.mob_images]
+
     def loadable(self, mapid):
-        return mapid in self.maps and mapid not in self.blocked
+        """A map a character can be put in: in Map.wz, not blocked, and every mob it spawns can load."""
+        return (mapid in self.maps and mapid not in self.blocked
+                and not self.unloadable_mobs(mapid))
 
     def portal_named(self, mapid, name):
         if not name:
@@ -314,7 +348,9 @@ def check_reasons(router, rows, problems):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--wz", default="wz", help="server WZ directory (XML)")
-    ap.add_argument("--client-crash", default=str(CRASH), help="maps that crash the client, one id per line")
+    ap.add_argument("--client-crash", action="append", default=[], metavar="FILE",
+                    help="another client-crash list, one map id per line (repeatable); the seed "
+                         "tools/data-align/client-crash-maps.txt is always read too")
     ap.add_argument("--out", default=str(OUT))
     ap.add_argument("--check", action="store_true",
                     help="validate, compare with the committed table, write nothing")
@@ -324,7 +360,14 @@ def main():
     wz_root = ROOT  # scripts/ live in the repo, not in the WZ
     maps = read_maps(wz)
     names = read_names(wz)
-    crash = read_list(Path(a.client_crash))
+    listed, cleared = read_list(CRASH)
+    for f in a.client_crash:
+        more, gone = read_list(Path(f))
+        listed += more
+        cleared += gone
+    crash = sorted(set(listed) - set(cleared))
+    for mapid in sorted(set(cleared) & set(listed)):
+        print(f"note: client-crash map {mapid} is cleared by a '!' line", file=sys.stderr)
 
     def label(mapid):
         street, name = names.get(mapid, ("", ""))
@@ -341,14 +384,12 @@ def main():
         if target not in maps:
             blocked[target] = "missing"
     for target in crash:
-        blocked.setdefault(target, "client-crash")
-    for target in crash:
-        if target in blocked:
-            blocked[target] = "client-crash"
+        blocked[target] = "client-crash"   # a client crash outranks "no image": both are blocked, this says why
         if target not in maps:
             print(f"note: client-crash map {target} is not in Map.wz either", file=sys.stderr)
 
-    router = Router(maps, names, blocked)
+    mob_images = read_mob_images(wz)
+    router = Router(maps, names, blocked, mob_images)
     kept = manual_rows(Path(a.out))
 
     rows, problems = [], []
@@ -386,12 +427,22 @@ def main():
         blocked_rows.append([str(target), kind, reason, str(got[0])])
 
     # validate every route: it must be a map the server has and is not blocked itself
+    def mob_problem(mapid):
+        """Why a destination cannot load though Map.wz has it, or '' when it can."""
+        missing_mobs = router.unloadable_mobs(mapid)
+        if missing_mobs:
+            return (f"which spawns mob(s) {', '.join(str(m) for m in missing_mobs)} that Mob.wz has no image for,"
+                    " so the map cannot load")
+        return ""
+
     for row in rows:
         route_map = int(row[3])
         if route_map not in maps:
             problems.append(f"route {row[0]}/{row[1]} -> {row[2]} lands on {route_map}, which is not in Map.wz")
         elif route_map in blocked:
             problems.append(f"route {row[0]}/{row[1]} -> {row[2]} lands on {route_map}, which is blocked")
+        elif mob_problem(route_map):
+            problems.append(f"route {row[0]}/{row[1]} -> {row[2]} lands on {route_map}, {mob_problem(route_map)}")
         if row[0] != "*" and int(row[0]) not in maps:
             problems.append(f"row source {row[0]} is not in Map.wz")
         if row[0] != "*" and row[1] != "*" and router.portal_named(int(row[0]), row[1]) is None:
@@ -402,6 +453,8 @@ def main():
         fallback = int(row[3])
         if fallback not in maps or fallback in blocked:
             problems.append(f"blocked map {row[0]} has fallback {fallback}, which is missing or blocked")
+        elif mob_problem(fallback):
+            problems.append(f"blocked map {row[0]} has fallback {fallback}, {mob_problem(fallback)}")
 
     # and every reason must be the rule that names it, proved from the data rather than from route()'s own output
     check_reasons(router, rows, problems)
@@ -429,8 +482,8 @@ def main():
         return 1
     out = Path(a.out)
     if a.check:
-        print("valid: every route lands on a map Map.wz has and the client can load, and every reason"
-              " matches the rule that names it")
+        print("valid: every route lands on a map Map.wz has, whose mobs all have an image, and that the client can"
+              " load, and every reason matches the rule that names it")
         current = out.read_text(encoding="utf-8") if out.exists() else ""
         if current == text:
             print(f"{out.relative_to(ROOT) if out.is_relative_to(ROOT) else out} is current")
