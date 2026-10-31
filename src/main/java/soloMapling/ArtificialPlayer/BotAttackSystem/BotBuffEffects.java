@@ -107,8 +107,7 @@ public final class BotBuffEffects {
 
         // The cast animation only needs the skill id - fire it regardless of
         // whether the StatEffect resolves, so the visual is never skipped.
-        bot.getMap().broadcastMessage(bot,
-                PacketCreator.showBuffEffect(bot.getId(), skillId, CAST_EFFECT_ID), false);
+        bot.getMap().broadcastMessage(bot, castPacket(bot, skillId), false);
 
         // The persistent aura needs the buff's stat list (cheap memoized lookup,
         // no applyTo). Skip silently if the skill has no stat ups.
@@ -132,6 +131,15 @@ public final class BotBuffEffects {
         }
 
         return effect.getDuration();
+    }
+
+    /*
+     * The cast effect viewers get for a skill a player casts (SHOW_FOREIGN_EFFECT, effect 1 "skill use": the packet
+     * StatEffect.applyBuffEffect broadcasts for a player's buff). The v83 client (CUser::OnEffect 0x9377d9, case 1)
+     * plays the skill's own pose on the caster and draws its Skill.wz "effect" (CUser::ShowSkillEffect 0x933990).
+     */
+    public static net.packet.Packet castPacket(Character bot, int skillId) {
+        return PacketCreator.showBuffEffect(bot.getId(), skillId, CAST_EFFECT_ID);
     }
 
     /* True when the buff reaches party members (its effect has an area box). */
