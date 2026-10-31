@@ -720,10 +720,13 @@ class Driver:
         return {'dragged': [[x1, y1], [x2, y2]], 'steps': steps}
 
     def stop_client(self):
+        # Stop the client BEFORE closing the QA pipe: closing a pipe handle while the reader thread is blocked in a
+        # synchronous ReadFile on it waits for that read, which hung the worker (2026-10-31 02:39 UTC). The client's
+        # exit breaks the pipe, the read returns, and close() is then safe.
+        stopped = self.client.stop()
         if self.qa:
             self.qa.close()
             self.qa = None
-        stopped = self.client.stop()
         self.state = 'stopped'
         self.sensitive_screen = True
         return {'stopped_pids': stopped}

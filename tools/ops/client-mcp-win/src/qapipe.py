@@ -74,6 +74,10 @@ class QaPipe:
                     self._queue.put(event)
         except OSError:
             pass
+        try:
+            self._events.close()
+        except OSError:
+            pass
         self.closed = True
         self._queue.put({'ev': '_closed', '_at': time.time()})
 
@@ -115,8 +119,9 @@ class QaPipe:
             return [e for e in self.log if e['_at'] >= since]
 
     def close(self):
-        for stream in (self._commands, self._events):
-            try:
-                stream.close()
-            except OSError:
-                pass
+        """Closes the command pipe. The events pipe is closed by the reader thread once its read ends (the client
+        exited or disconnected): closing it here while that thread is blocked in a read would hang on Windows."""
+        try:
+            self._commands.close()
+        except OSError:
+            pass
