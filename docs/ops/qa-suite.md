@@ -1008,3 +1008,11 @@ Tests: `GroundingAsSentTest` (synthetic grounding, sent positions), `ChatQuality
 `AutoQaReportTest`, `AutoQaCatalogTest`, `AutoQaCatalogPatternTest`, `LlmJudgeTest`, `SyntheticClientTest`,
 `Probes160Test`, `Probes164Test`, `AutoQaWaitTimeoutTest`, `AutoQaReleaseTest`, `NavTrapQaTest`, `SyntheticClientStatTest`, `DecideShadowSelfCheckTest`, `DailyCheckinRewindTest`, `SiteAuthQaTest`,
 `PlayerStorageTest`.
+
+- **t-mk-2 (ticket 112, the bots' Maker batch):** `ProbesMaker.makerBatch` stages one fresh lv-60 training bot with an empty bag
+  apart from 100 of a monster leftover, two cheap Maker-made junk equips and, first in the bag, a pricey one (fee more than
+  twice the cheap one); the wallet is exactly the two cheap fees. It calls `BotMaker.townBatch` once and checks the
+  made count, crystals, the gone equips, the meso drop (exactly the sum of `MakerItemFactory.getDisassemblyFee`), the pricey
+  equip kept (out of mesos, skipped) and both caps (`BotMaker.opsToday`, meter `makerbatch`) up by operations. SKIPs with
+  the flag name when `maker.botBatch` is off, and when the world cap has under 3 operations left. Cleanup despawns the bot, forgets its day and
+  gives the world meter's units back.

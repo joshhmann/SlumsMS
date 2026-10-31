@@ -151,3 +151,11 @@ tickets promised". None may SKIP in a release run. Run them with `tools/ops/auto
 | `t-gr-2` | 156 | asked its level through the real chat path, a fresh bot answers with the model; then a forced untrue model draft goes through the reject and the retry. SKIPs without a live model (a release FAIL) | the reply states its real level and is grounded; the draft was rejected, retried and never said |
 | `t-nv-2` | 157 item 3 | one-way-in traps of the bots' world graph from Lith Harbor vs the committed baseline (`nav-trap-maps.txt`, 485 of 1,471 maps on 10-30) | no trap the baseline does not know |
 | `t-nv-3` | 157 tools | the inspect API without the secret, its view of a fresh bot, kill calibration's report, a watched bot's nav trace ring | 403 without the secret, the view is the bot, calibration on and report-only, a ring of the bot's own ticks |
+
+## Ticket 112 decision 3: the bots' Maker batch (`t-mk-2`)
+
+Probe `makerBatch` in `ProbesMaker`. SKIPs when `-Dsolomapling.economy.maker.botBatch` is off (ON for live, so a release run may not SKIP).
+
+| id | ticket | what it does | PASS means |
+|---|---|---|---|
+| `t-mk-2` | 112 | a fresh lv-60 training bot gets 100 leftovers, two cheap junk equips, one junk equip whose fee is above its wallet (first in the bag) and exactly the two cheap fees in mesos; the real `BotMaker.townBatch` runs once | 1 crystal made, 2 equips disassembled through MakerService, mesos down by exactly the client's fee, the bad equip kept and the batch carried on past it, per-bot and world caps up by 3 operations (not by the crystals). The bot is despawned, its day forgotten, the world's units put back |
