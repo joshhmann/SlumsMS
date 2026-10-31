@@ -144,11 +144,21 @@ public class MechanicsCommand extends Command {
                         + "...");
                 ExecutorServiceManager.getExecutorService().execute(() -> {
                     try {
+                        // b241: one line per thing at most once per stage in the GM's chat (the per-mob fight
+                        // diagnostics repeated every few seconds through the bonus stage); all lines still logged
+                        soloMapling.mechanics.StagingChat[] chat = {null};
+                        java.util.concurrent.atomic.AtomicReference<KpqStaging.Staged> staged =
+                                new java.util.concurrent.atomic.AtomicReference<>();
+                        chat[0] = new soloMapling.mechanics.StagingChat(gm::yellowMessage, () -> {
+                            KpqStaging.Staged s = staged.get();
+                            return s == null || s.active() == null ? 0 : s.active().run().currentStage();
+                        });
                         KpqStaging.Staged s = KpqStaging.start(gm, req.withGm(), req.bots(), req.perfect(), 0,
                                 req.firstStage(), req.lastStage(), line -> {
                                     log("[Mechanics] " + line);
-                                    gm.yellowMessage(line);
-                                }, null);
+                                    chat[0].accept(line);
+                                }, active -> chat[0].finish());
+                        staged.set(s);
                         if (s.ok() && req.hold()) {
                             // set right after the start: the first tick is 250 ms away and no check comes before the
                             // formation has stood still for 2.5 s
