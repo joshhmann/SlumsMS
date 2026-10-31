@@ -1,0 +1,13 @@
+{
+  "id": "smoke-login",
+  "expect": "Login on ch 3 succeeds without a fixed-timing retry (manifest: login ok, its Bera click count in events.jsonl = one channels.ready); field.ready arrives; burst-henesys holds ~20 frames of Henesys with AqClient standing; screenshot 'field' matches the last burst frame.",
+  "steps": [
+    {"tool": "start_client"},
+    {"tool": "login", "args": {"channel": 3}},
+    {"tool": "command", "args": {"line": "!warp 100000000"}},
+    {"tool": "qa_wait", "args": {"signal": "field.ready", "timeout_s": 30}},
+    {"tool": "qa_burst", "args": {"fps": 10, "ms": 2000, "label": "henesys"}},
+    {"tool": "screenshot", "args": {"label": "field"}},
+    {"tool": "stop_client"}
+  ]
+}
