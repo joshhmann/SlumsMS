@@ -50,6 +50,10 @@ public final class GeneralChatHandler extends AbstractPacketHandler {
                 chr.dropMessage(5, "The map you are in is currently muted. Please try again later.");
                 return;
             }
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CHAT)) { // ticket 170: the QA event feed
+                soloMapling.qa.QaLog.chars(soloMapling.qa.QaLog.Topic.CHAT, chr.getMapId(), new int[]{chr.getId()},
+                        "CHAT " + chr.getName() + ": " + s);
+            }
             if (!chr.isHidden()) { // 1.4.1: bots don't hear (or answer, or buff) a GM in /hide
                 soloMapling.server.MapleRootSolo.runHook("general chat", () -> {
                     // owner report 2026-10-22: the map's public chat log, which every bot reply prompt shows

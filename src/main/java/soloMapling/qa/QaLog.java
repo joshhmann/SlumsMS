@@ -65,7 +65,10 @@ public final class QaLog {
         LIKENESS,       // 1.6.0 player likeness: AFK campers, walks instead of snaps while watched, messy chat (lk-1)
         SOCIAL_GATE,    // 1.6.0 S5: every unprompted bot->player act's yes/no and why, the started-it ledger (sg-1, sg-2)
     MEMORY,         // 1.6.0 S3: episodes, slots and scams bots remember about players, PQ clears and trades (me-1, me-2)
-        WORLD_EVENT;    // 1.6.0 world events: plan, warnings, starts, bots joining and dying, the boss, rewards, gossip (ev-1, ev-2)
+        WORLD_EVENT,    // 1.6.0 world events: plan, warnings, starts, bots joining and dying, the boss, rewards, gossip (ev-1, ev-2)
+        MAP_CHANGE,     // ticket 170 QA event feed: a real player entered a map ("MAP <name> -> <mapId> ch <n>")
+        CHAT,           // ticket 170 QA event feed: map chat said by a player or a bot, whispers to and from a player
+        MECHANICS;      // ticket 170 QA event feed: every "RUN ..." line a mechanics run (KPQ) reports, any starter
 
         final long bit = 1L << ordinal(); // a long: 33 topics no longer fit an int
     }
@@ -75,6 +78,8 @@ public final class QaLog {
     private static final Map<String, Long> lastByKey = new ConcurrentHashMap<>();
 
     private static final List<Listener> listeners = new CopyOnWriteArrayList<>();
+    private static final List<SinkHandle> sinks = new CopyOnWriteArrayList<>();
+    private static final int[] NO_CHARS = new int[0];
 
     private QaLog() {
     }
@@ -85,6 +90,51 @@ public final class QaLog {
      */
     public interface Listener {
         void line(int gmId, String scenarioId, String kind, String message);
+    }
+
+    /**
+     * Ticket 170: hears every hook line of the topics it asked for, whatever runs (the TEST QA event feed,
+     * {@code soloMapling.qa.feed.QaEventFeed}). While a sink wants a topic, that topic is on, like a running scenario.
+     * {@code charIds} are the characters the line is about ({@link #owner}: the owner; {@link #chars}: those named;
+     * {@link #map}/{@link #any}: none). Called on the hook's thread; must be quick and never throw.
+     */
+    public interface Sink {
+        void line(Topic topic, int mapId, int[] charIds, String message);
+    }
+
+    /** One registered sink; {@link #topics} changes what it hears (and so the mask), {@link #close} removes it. */
+    public static final class SinkHandle {
+        private final Sink sink;
+        private volatile long bits;
+
+        private SinkHandle(Sink sink) {
+            this.sink = sink;
+        }
+
+        public void topics(java.util.Collection<Topic> topics) {
+            long b = 0;
+            for (Topic t : topics) {
+                b |= t.bit;
+            }
+            bits = b;
+            synchronized (QaLog.class) {
+                recompute();
+            }
+        }
+
+        public void close() {
+            synchronized (QaLog.class) {
+                sinks.remove(this);
+                recompute();
+            }
+        }
+    }
+
+    /** Adds a sink hearing no topic yet; set them with {@link SinkHandle#topics}. */
+    public static synchronized SinkHandle sink(Sink sink) {
+        SinkHandle h = new SinkHandle(sink);
+        sinks.add(h);
+        return h;
     }
 
     /** Adds a listener; the returned Runnable removes it. */
@@ -142,6 +192,22 @@ public final class QaLog {
         return true;
     }
 
+    /**
+     * Ticket 170: a line about this map (0 = none) and these characters. Runs hear it as a {@link #map} line; sinks
+     * hear it once with every character named (a whisper's sender and receiver, a KPQ run's real players).
+     */
+    public static void chars(Topic topic, int mapId, int[] charIds, String message) {
+        if (!on(topic)) {
+            return;
+        }
+        for (QaRun run : runs) {
+            if (run.accepts(topic, mapId, 0)) {
+                run.event(topic, message);
+            }
+        }
+        toSinks(topic, mapId, charIds == null ? NO_CHARS : charIds, message);
+    }
+
     private static void dispatch(Topic topic, int mapId, int ownerId, String message) {
         if (!on(topic)) {
             return;
@@ -149,6 +215,19 @@ public final class QaLog {
         for (QaRun run : runs) {
             if (run.accepts(topic, mapId, ownerId)) {
                 run.event(topic, message);
+            }
+        }
+        toSinks(topic, mapId, ownerId == 0 ? NO_CHARS : new int[]{ownerId}, message);
+    }
+
+    private static void toSinks(Topic topic, int mapId, int[] charIds, String message) {
+        for (SinkHandle h : sinks) {
+            if ((h.bits & topic.bit) != 0) {
+                try {
+                    h.sink.line(topic, mapId, charIds, message);
+                } catch (RuntimeException ignored) {
+                    // a sink never breaks the hook that logged
+                }
             }
         }
     }
@@ -173,12 +252,16 @@ public final class QaLog {
                 m |= t.bit;
             }
         }
+        for (SinkHandle h : sinks) {
+            m |= h.bits;
+        }
         mask = m;
     }
 
-    /* Tests: forget every run. */
+    /* Tests: forget every run and sink. */
     static synchronized void reset() {
         runs.clear();
+        sinks.clear();
         lastByKey.clear();
         mask = 0;
     }

@@ -122,6 +122,10 @@ public final class BotNoiseFilter {
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.BOT_CHAT)) { // !qa gd-1, gh-1
             soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.BOT_CHAT, map.getId(), bot.getName() + ": " + line);
         }
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CHAT)) { // ticket 170: the QA event feed
+            soloMapling.qa.QaLog.chars(soloMapling.qa.QaLog.Topic.CHAT, map.getId(), new int[]{bot.getId()},
+                    "CHAT " + bot.getName() + ": " + line);
+        }
         if (settings.isEmpty()) {
             map.broadcastMessage(packet);
             return;
