@@ -632,6 +632,8 @@ class Driver:
             # chat, the "!" gone). A Backspace first absorbs it; in an empty entry box it does nothing.
             self.sender.key(8)
             time.sleep(0.1)
+        if self.qa:
+            self.qa.drain()   # a qa_wait after this command sees only what the command causes
         self.sender.text(line)
         self.sender.key(13)
         self.state = 'field'
