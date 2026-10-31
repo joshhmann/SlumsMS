@@ -20,6 +20,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -171,6 +172,24 @@ class BotConversationFlowTest {
             brainReply = was;
             System.clearProperty("solomapling.convo.planner");
         }
+    }
+
+    /** REVIEW-A2 item 1: with the planner off, a chat end writes nothing new - the old path stays as it was. */
+    @Test
+    void endingAChatWithThePlannerOffWritesNoProgressRow() throws Exception {
+        FakeMemoryTable table = new FakeMemoryTable(false);
+        table.install();
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+        assertTrue(BotConversation.say(bot, player, "hey", null, said::add));
+        waitFor(() -> !said.isEmpty());
+        BotConversation.end(chr.getId(), player.getId());
+        assertFalse(table.rows.stream().anyMatch(r -> "PROGRESS".equals(r.get("Kind"))),
+                "the planner is off: no new memory row " + table.rows);
+        assertEquals(0, BotMemory.progressLevel(chr.getId() - BotStore.BOT_ID_BASE, player.getId()),
+                "nothing was recorded about the player");
     }
 
     @Test

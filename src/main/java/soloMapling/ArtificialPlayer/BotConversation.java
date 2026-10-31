@@ -478,8 +478,11 @@ public final class BotConversation {
         }
         if (!transcript.isEmpty()) {
             BotMemory.writeConversationNotes(session.bot.getChr(), session.player, transcript);
-            // owner's answer 8: a greeting later can tell whether the player leveled up since this talk
-            BotMemory.progress(session.bot.getChr(), session.player, System.currentTimeMillis());
+            if (soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.planner()) {
+                // owner's answer 8: a greeting later can tell whether the player leveled up since this talk. Only
+                // with the planner on: switch off, a chat end writes exactly what it wrote before m02.
+                BotMemory.progress(session.bot.getChr(), session.player, System.currentTimeMillis());
+            }
             // Ticket 49: after a real chat with a player it already knew, a bot may (rarely) ask to be buddies.
             int playerLines = (int) transcript.stream().filter(t -> t.role() == BotBrain.Role.USER).count();
             BotBuddies.afterChat(session.bot.getChr(), session.player, playerLines);
