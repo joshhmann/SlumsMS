@@ -583,11 +583,6 @@ public final class BotMemory {
     }
 
     /**
-     * A conversation ended. Scripted, with or without the LLM: the last topic, an inside joke and the player's goals
-     * ({@link MemoryFacts}, only from what was said). With a live brain it is also asked for notes about the player.
-     * Runs on background threads; nothing waits on it.
-     */
-    /**
      * Records how the player looked when a chat ended, so a later greeting can tell whether they leveled up since
      * (owner's answer 8: greetings use what is true now). A slot: one row per pair, replaced, never a remembered fact
      * and never gossip, so it cannot push a real memory out. No schema change (the Kind column already holds it).
@@ -623,6 +618,11 @@ public final class BotMemory {
         }
     }
 
+    /**
+     * A conversation ended. Scripted, with or without the LLM: the last topic, an inside joke and the player's goals
+     * ({@link MemoryFacts}, only from what was said). With a live brain it is also asked for notes about the player.
+     * Runs on background threads; nothing waits on it.
+     */
     public static void writeConversationNotes(client.Character bot, client.Character player, List<BotBrain.Turn> transcript) {
         boolean botSpoke = transcript.stream().anyMatch(t -> t.role() == BotBrain.Role.ASSISTANT);
         if (!botSpoke) {
