@@ -6,12 +6,15 @@ import net.opcodes.SendOpcode;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import soloMapling.ArtificialPlayer.BotGenerationSpawnAccess;
+import server.maps.Foothold;
+import server.maps.FootholdTree;
 
 import java.awt.Point;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -77,5 +80,27 @@ class BotSpawnPacketLookTest {
         }
     }
 
+    /**
+     * Owner, same report: "one floated in mid air". A bot spawns on a map spawn point or a portal, which sits above
+     * its floor, and a bot in an unobserved map gets no physics to fall with — so the point the spawn packet carries
+     * is where every viewer sees it stand until someone walks in.
+     */
+    @Test
+    void aBotThatSpawnsAboveItsFloorReachesTheMapOnTheGround() {
+        try (MapEntryHarness h = new MapEntryHarness(100000000)) {
+            FootholdTree tree = new FootholdTree(new Point(-1000, -1000), new Point(3000, 3000));
+            tree.insert(new Foothold(new Point(100, 200), new Point(500, 200), 1));
+            h.map.setFootholds(tree);
+
+            Character bot = Character.getDefault(new BotClient(0, 0));
+            bot.setID(BOT_ID);
+            bot.setName("Floatbot");
+
+            BotGenerationSpawnAccess.joinMap(bot, new Point(300, 160), h.map, b -> { });
+
+            assertSame(bot, h.map.getCharacterById(BOT_ID), "the bot is in the map it joined");
+            assertEquals(200, bot.getPosition().y, "it stands on the floor below its spawn point, not in mid air");
+            assertEquals(300, bot.getPosition().x, "and keeps the x it was given");
+        }
     }
 }

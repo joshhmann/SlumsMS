@@ -7,6 +7,7 @@ import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
 import soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
+import soloMapling.ArtificialPlayer.BotMovementSystem.BotGround;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.server.SoloMaplingUtilities;
 
@@ -280,6 +281,10 @@ public class BotGeneration {
     static void joinMap(Character bot, Point pos, MapleMap map, Dressing dressing) {
         if (bot.getMap() == map) {
             bot.getMap().removePlayer(bot);
+        }
+        Point ground = BotGround.settle(map, pos); // a spawn point or portal sits above its floor
+        if (ground != null) {
+            pos = ground;
         }
         bot.setMap(map);
         bot.setPosition(pos);
