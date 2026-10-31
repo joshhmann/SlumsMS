@@ -214,8 +214,29 @@ public final class ReplyPlanner {
                     out.add("im " + v.botLevel() + ", i train at " + v.mySpot());
                 }
             }
-            case BUSY -> out.addAll(List.of("1 sec", "brb", "busy rn sry", "gimme a sec", "2 min", "sec sry",
-                    "kinda busy rn", "one min"));
+            case BUSY -> {
+                // owner's answer 6: a busy bot says what it is doing, and a PQ line is shorter than a grind line
+                String mob = v.mobsHere().isEmpty() ? null : v.mobsHere().get(0).toLowerCase(Locale.ROOT);
+                if (v.inPq()) {
+                    out.addAll(List.of("in pq", "doing pq rn", "pq rn sry", "in a pq rn"));
+                } else if (mob != null && mob.length() <= 8) {
+                    out.add("on " + mob + "s rn, sec");
+                    out.add("killing " + mob + "s rn");
+                    out.add(mob + "s rn, sec");
+                    out.add("busy on " + mob + "s sry");
+                } else if (place != null) {
+                    out.add("grinding " + place + " rn");
+                    out.add("on " + place + " rn, sec");
+                    out.add("busy in " + place + " rn");
+                } else if (mob != null) {
+                    out.add("on " + mob + "s rn");
+                } else if (v.activity() != null && !v.activity().isBlank()) {
+                    out.add("busy " + v.activity() + " rn");
+                    out.add(v.activity() + " rn sry");
+                } else {
+                    out.add("busy rn sry");
+                }
+            }
         }
         return out;
     }

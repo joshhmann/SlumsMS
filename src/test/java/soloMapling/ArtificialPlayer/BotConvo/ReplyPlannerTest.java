@@ -247,6 +247,40 @@ class ReplyPlannerTest {
         assertTrue(facts(p).contains("you are in the middle of grinding here"), () -> facts(p).toString());
     }
 
+    /** Bare time claims: a busy line says what it is doing, not only how long it will take (owner's answer 6). */
+    private static final List<String> BARE_TIME = List.of("brb", "1 sec", "2 min", "sec sry", "one min",
+            "gimme a sec", "busy rn sry", "kinda busy rn");
+
+    @Test
+    void busyLineNamesWhatItIsDoing() {
+        ReplyPlanner.View grinding = v().kind(ChatTriage.Kind.TALK).asked("lol nice hat").busy(true).town(false)
+                .place("ant tunnel").mobs(List.of("Pig")).activity("grinding").build();
+        ReplyPlanner.Plan p = ReplyPlanner.plan(grinding);
+        assertEquals(ReplyPlanner.Move.BUSY, p.move());
+        List<String> lines = ReplyPlanner.scripts(grinding, p.move());
+        assertFalse(lines.isEmpty(), "a busy grinding bot has something to say");
+        for (String line : lines) {
+            assertFalse(BARE_TIME.contains(line), "grinding: \"" + line + "\" says nothing about what it is doing");
+            assertTrue(line.contains("pig") || line.contains("ant tunnel"),
+                    "grinding: \"" + line + "\" does not name the mob or the map");
+            assertTrue(line.length() <= 24, "grinding: \"" + line + "\" is not one short line");
+        }
+
+        ReplyPlanner.View inPq = v().kind(ChatTriage.Kind.TALK).asked("lol nice hat").busy(true).inPq(true)
+                .activity("waiting to do Orbis PQ").build();
+        ReplyPlanner.Plan pqPlan = ReplyPlanner.plan(inPq);
+        assertEquals(ReplyPlanner.Move.BUSY, pqPlan.move());
+        List<String> pqLines = ReplyPlanner.scripts(inPq, pqPlan.move());
+        assertFalse(pqLines.isEmpty());
+        for (String line : pqLines) {
+            assertFalse(BARE_TIME.contains(line), "pq: \"" + line + "\" says nothing about what it is doing");
+            assertTrue(line.contains("pq"), "pq: \"" + line + "\" does not say pq");
+            assertTrue(line.length() <= 12, "pq: \"" + line + "\" is not shorter than the grinding line: " + line);
+        }
+        assertTrue(pqLines.stream().anyMatch(l -> l.length() < lines.get(0).length()),
+                "a pq line is shorter than a grinding one: " + pqLines + " vs " + lines);
+    }
+
     @Test
     void noScriptBegs() {
         // owner's answer 5: no begging, in any move, with any player level - and the triage's own con rules are the judge
