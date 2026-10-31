@@ -154,6 +154,9 @@ public class AbstractPlayerInteraction {
         if (portal == null) {
             portal = warpMap.getPortal(0);
         }
+        if (portal == null) {
+            return;   // s-maproute: a map with no portal at all
+        }
 
         var portalId = portal.getId();
 
