@@ -273,6 +273,25 @@ class BotPetsTest {
         assertEquals(4, bot.getPets()[0].getStance());
     }
 
+    /** b239 (the owner, 10-31): a summoned alt is a real character with a real pet, and its pet hung in mid-air. */
+    @Test
+    void aSummonedAltsRealPetFollowsItLikeABotsPet() {
+        Character alt = bot(BASE + 4242, 60); // an alt: a real DB character, no BotClient-generated pet of its own
+        Pet real = mock(Pet.class);
+        when(real.getUniqueId()).thenReturn(5001234);
+        assertFalse(real.isBotPet());
+        alt.addPet(real);
+        MapleMap map = mock(MapleMap.class);
+        alt.setMap(map);
+
+        BotPets.follow(alt, 100, 200, 120, 0, 2, 7);
+
+        // the mock map has no floor behind it, so the pet settles at the bot's feet - the point is that it moves at
+        // all: before b239 it got nothing after the one placement MapleMap.addPlayer does
+        verify(real).setPos(new Point(100, 200));
+        verify(map).broadcastMessage(eq(alt), any(Packet.class), eq(false));
+    }
+
     @Test
     void aBotWithoutAPetSendsNoPetPackets() {
         Character bot = bot(idWith(BotHabits.Loot.BATCH, false), 50);
