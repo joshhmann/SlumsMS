@@ -3,6 +3,8 @@ package soloMapling.ArtificialPlayer;
 import client.Character;
 import client.Client;
 import client.Job;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
 import soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler;
@@ -13,6 +15,7 @@ import soloMapling.server.SoloMaplingUtilities;
 import java.awt.*;
 import java.sql.SQLException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static soloMapling.ArtificialPlayer.BotClientHandler.getBotClient;
@@ -45,6 +48,11 @@ public class BotGeneration {
      * bots are placed, because a bot's slot no longer says anything about how many have been placed.
      */
     private static final AtomicInteger placedBots = new AtomicInteger();
+
+    private static final Logger log = LoggerFactory.getLogger(BotGeneration.class);
+
+    /** Set by the first dressing failure, which is logged in full; see {@link #logDressFailure}. */
+    private static final AtomicBoolean dressFailureLogged = new AtomicBoolean();
 
     public static int getBotsCreatedCount() {
         return placedBots.get();
@@ -276,6 +284,11 @@ public class BotGeneration {
      * the pet is placed at the bot's point, not at the template's. Nothing is announced yet — the bot is not in the
      * map, so no spawn packet has gone out — and {@link MapleMap#addPlayer} then sends the one packet that carries
      * the finished look.
+     *
+     * <p>A dress step that throws must not strand the bot: it already carries the map, so leaving it out of the map
+     * would hand every system a character that believes it is somewhere it is not. The bot is added undressed
+     * instead (the spawn packet carries the template look, and the next player to enter the map sees it) and the
+     * failure is logged once, so a broken pool cannot spam a 13,000-bot boot.
      */
     static void joinMap(Character bot, Point pos, MapleMap map, Dressing dressing) {
         if (bot.getMap() == map) {
@@ -284,8 +297,25 @@ public class BotGeneration {
         bot.setMap(map);
         bot.setPosition(pos);
         bot.setStance(5);
-        dressing.apply(bot);
-        map.addPlayer(bot);
+        try {
+            dressing.apply(bot);
+        } catch (RuntimeException e) {
+            logDressFailure(bot, map, e);
+        } finally {
+            // Undressed is still visible and still part of the map; every caller after joinMap (store rows, roster,
+            // the spawn choreography) depends on the bot having joined cleanly.
+            map.addPlayer(bot);
+        }
+    }
+
+    /** First dressing failure in full, the rest at debug: see {@link #joinMap(Character, Point, MapleMap, Dressing)}. */
+    private static void logDressFailure(Character bot, MapleMap map, RuntimeException e) {
+        if (dressFailureLogged.compareAndSet(false, true)) {
+            log.warn("dressing bot {} on map {} failed; it joins the map undressed and keeps the template look "
+                    + "(later dressing failures are logged at debug)", bot.getId(), map.getId(), e);
+        } else {
+            log.debug("dressing bot {} on map {} failed; it joins the map undressed", bot.getId(), map.getId(), e);
+        }
     }
 
     /**

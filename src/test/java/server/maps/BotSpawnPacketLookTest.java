@@ -103,4 +103,37 @@ class BotSpawnPacketLookTest {
             assertEquals(300, bot.getPosition().x, "and the x it was given");
         }
     }
+
+    /**
+     * Review round 2, item 2: a dress step that throws leaves the bot carrying a map it never joined - every
+     * system after the join (store rows, roster, the spawn choreography) reads the map, so the bot must still be
+     * added, undressed, and the failure must not escape into the spawn path.
+     */
+    @Test
+    void aBotWhoseDressingThrowsStillJoinsTheMapUndressed() {
+        try (MapEntryHarness h = new MapEntryHarness(100000000)) {
+            Character watcher = h.player(0);
+            h.enter(watcher);
+
+            Character bot = Character.getDefault(new BotClient(0, 0));
+            bot.setID(BOT_ID);
+            bot.setName("Raggedbot");
+            bot.setHair(TEMPLATE_HAIR);
+            bot.setFace(TEMPLATE_FACE);
+
+            BotGenerationSpawnAccess.joinMap(bot, new Point(10, 10), h.map, b -> {
+                b.setHair(DRESSED_HAIR); // a dress step that got half way before the pool blew up
+                throw new IllegalStateException("the cosmetic pool is empty");
+            });
+
+            assertSame(bot, h.map.getCharacterById(BOT_ID), "the bot is in the map, not stranded outside it");
+            assertEquals(DRESSED_HAIR, bot.getHair(), "whatever the dressing set before it threw is kept");
+
+            List<MapEntryHarness.Sent> spawns = h.sent.stream()
+                    .filter(s -> s.opcode() == SPAWN_PLAYER && s.intAt(2) == BOT_ID)
+                    .toList();
+            assertEquals(1, spawns.size(), "the watcher still got exactly one spawn packet for the bot");
+            assertTrue(hasInt(spawns.get(0).bytes(), DRESSED_HAIR), "and it carries the look the bot ended up with");
+        }
+    }
 }
