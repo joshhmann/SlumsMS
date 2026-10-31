@@ -43,15 +43,40 @@ the checks that need human judgment (feel, art, fun): `owner-vs-machine.md`.
 ```
 
 - The orchestrator (`tools/qa-runner/qarunner.py`) is built and tested against a fake feed and a fake worker
-  (9 tests: the b140 script end to end, the manifest against its schema, the lost world click resent, a missing
-  signal failing the run at its step, a server line from before the arming step not counting). Its `SilviaWorker`
-  is the contract for run_script (login, send, wait_signal, character, burst, capture, pull); the transport is wired
-  when the Client lane's run_script lands. Nothing has run against a real client yet.
+  (40 tests: the b140 script end to end through `SilviaWorker` with a fake transport, the transport's own remote
+  program played by a thread against a temp folder, the manifest against its schema, the lost world click resent, a
+  missing signal failing the run at its step, a server line from before the arming step not counting). Its
+  `SilviaWorker` (ticket 170, 2026-10-31) talks to the worker's file queue over ssh
+  one call per step: `status`, `stop_client`/`start_client` for a fresh client, `login_credentials {vault}`,
+  `select_world`, `select_channel`, `select_character {slot}`, `click_anchor {name}`, `command` for `gm`/`chat`,
+  `press_key` for `key`/`move`, `qa_burst`, and `qa_events {since}` for every wait. A wait never sleeps: it reads
+  the QA pipe's event log by position, so a signal the client does not send fails its step at once with
+  "client signal <name> not available in this client build" instead of timing out. The whole path is offline-tested;
+  the first real run is the lane session's to make.
 - The QA event feed and its secret never leave 164 and 187: the orchestrator calls the feed with `curl` **on 164 over
   ssh**, reading the secret there from `/etc/slums-inspect-test/secret` by path (never printed, never copied).
 - 187 **pulls** the run folder from Silvia over ssh, then runs `tools/ops/qa-run-collect` for the server side.
 - The QA client build stamps caps bit 31 (`0x80000000`, client `kCapQaBuild`) and a release `<version>-qa`. Live
   refuses it at login; TEST and RC accept it only with `-Dslums.client.allowQa=true` (`ClientVersionGate`).
+
+## How to run a script (187)
+
+```bash
+tools/qa-runner/run qa-scripts/b140-bot-heal-column.yaml --dry-run   # what it will do, no feed, no worker, no ssh
+tools/qa-runner/run qa-scripts/b140-bot-heal-column.yaml             # the real run
+CLIENT_MCP_TARGET=vm tools/qa-runner/run qa-scripts/<id>.yaml        # the Windows VM worker instead of Silvia
+```
+
+- Prerequisites: a running client-mcp worker on the QA box (`tools/ops/client-mcp heartbeat` says ALIVE), the vault
+  file for each `account.vault` (`secrets/<vault>.txt`: account, password, PIC on one line each), and TEST serving
+  the run's commit (`server.commit` in the manifest comes from `Server/DEPLOYED_COMMIT` on 164).
+- One run stops a client the worker left running and starts a fresh QA client, so the run's result cannot be a
+  half-played leftover. The worker's idle guard still applies: while the owner is using the PC the calls queue, and
+  the run simply takes longer.
+- The run folder lands in `/root/work/qa-runs/<date>/<id>-<stamp>/`; see `run-folder.md`. The manifest says
+  `runner.worker` (`client-mcp silvia`) and, when the copy back failed, `runner.pull`.
+- Exit code 0 = PASS, 1 = FAIL or ERROR (the manifest and the last line say which step), 2 = the script does not
+  validate. The verdict is the script's own; a runner failure (no worker, ssh) ends the run as ERROR.
 
 ## The script
 
