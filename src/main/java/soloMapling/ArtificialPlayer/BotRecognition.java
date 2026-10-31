@@ -108,6 +108,11 @@ public final class BotRecognition {
         if (bot == null || bot.getChr() == null || player == null || bot.getChr().getId() < BotStore.BOT_ID_BASE) {
             return false;
         }
+        if (!BotConversation.freeForOwnChat(bot)) {
+            // m02 stage B: a bot that is grinding or inside a party quest never opens a chat, and never spends the
+            // pair's greet budget trying to
+            return false;
+        }
         int slot = bot.getChr().getId() - BotStore.BOT_ID_BASE;
         long now = System.currentTimeMillis();
         long pair = ((long) slot << 32) | (player.getId() & 0xffffffffL);

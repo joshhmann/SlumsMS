@@ -47,7 +47,7 @@ public final class BotReplyView {
         int mapId = chr.getMapId();
         boolean town = mobs.isEmpty() && StateOfMind.TOWNS.contains(mapId);
         boolean inPq = activity != null && activity.toLowerCase(Locale.ROOT).contains("pq");
-        boolean busy = inPq || "grinding".equals(activity) || "waiting to do Orbis PQ".equals(activity);
+        boolean busy = ReplyPlanner.busyActivity(activity);
         String romance = romance(chr, player);
         return new ReplyPlanner.View(chr.getName(), chr.getLevel(), BotChatPrompt.jobName(chr.getJob().getId()),
                 RelationshipCard.mapName(chr), town, mobs, activity, inPq, busy,

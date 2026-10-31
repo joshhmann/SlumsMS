@@ -312,6 +312,15 @@ public final class ReplyPlanner {
     }
 
     /**
+     * Stage B: whether the bot is in the middle of something right now and should not start a chat of its own. The
+     * activities come from {@link soloMapling.ArtificialPlayer.BotChatPrompt#activityPhrase(String)}.
+     */
+    public static boolean busyActivity(String activity) {
+        return activity != null && (activity.toLowerCase(Locale.ROOT).contains("pq")
+                || "grinding".equals(activity) || "waiting to do Orbis PQ".equals(activity));
+    }
+
+    /**
      * The move for a party or follow ask the action layer already answered, or null for every other action (a trade,
      * an invite the bot cannot answer in one planned line): those keep the caller's prompt.
      */

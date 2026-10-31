@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
  * <ol>
  *   <li><b>Greeting, per bot and player.</b> A bot greets the same player at most once per {@link #GREETING_GAP_MS}.
  *       Before, every "hi" back was a greeting again: TEST transcripts show one bot greeting one player 6-31 times a
- *       day, many within minutes. 10 minutes: shorter than the social gate's 40-minute unsolicited-greet cooldown
+ *       day, many within minutes. 10 minutes: shorter than the social gate's 60-minute unsolicited-greet cooldown
  *       ({@code SocialGate.pairMinutes(GREET)}), so this never blocks a hello the gate would allow, and longer than
  *       the "hi / hey / sup" exchange that made the repeat visible.</li>
  *   <li><b>Same line, two bots, one map.</b> No two bots on one map say the same text (case, whitespace and

@@ -552,7 +552,7 @@ public final class SocialGate {
     /*
      * One table for the per-pair cooldowns and world-wide hourly caps (1.6.0, about 3x the 1.5.x ones; the old system
      * properties still tune them). Before -> after:
-     *   per pair (minutes): greet 120 -> 40, party invite 180 -> 60, buddy 1440 -> 480, taunt 20 -> 7, KS spree 15 -> 10 (owner),
+     *   per pair (minutes): greet 120 -> 40 -> 60 (m02 stage B: the owner's "about once per player per hour"), party invite 180 -> 60, buddy 1440 -> 480, taunt 20 -> 7, KS spree 15 -> 10 (owner),
      *     help 15 (unchanged), defame 1440 (unchanged: it changes fame, and stays once a day per player world-wide)
      *   world per hour: taunts 20 -> 60, KS sprees 10 -> 30, party invites 6 -> 18
      *   unsolicited whisper per player (all bots): one per 10 min -> one per 200 s
@@ -564,7 +564,7 @@ public final class SocialGate {
     /** Per-pair cooldown, in minutes. */
     public static long pairMinutes(Act a) {
         long min = switch (a) {
-            case GREET -> 40;
+            case GREET -> 60; // m02 stage B: a bot starts a chat with a player about once per hour
             case PARTY_INVITE -> 60;
             case BUDDY_REQUEST -> 480;
             case HELP -> 15;

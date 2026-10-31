@@ -955,6 +955,29 @@ public final class BotConversation {
         if (RepeatGuard.greetedRecently(chr, player)) {
             return false;
         }
+        // m02 stage B: a bot never starts a chat in the middle of a grind or a party quest
+        if (!freeForOwnChat(bot)) {
+            return false;
+        }
+        int slot = chr.getId() - BotStore.BOT_ID_BASE;
+        ChatTriage.Result hello = new ChatTriage.Result(ChatTriage.Kind.GREETING, ChatTriage.Intent.NONE,
+                ChatTriage.Source.DEFAULT, ChatTriage.Con.NORMAL, ChatTriage.Source.DEFAULT);
+        // m02 stage B: the opening line is a planned move too, when the planner is on (same prompt as a reply)
+        ReplyPlanner.View planView = null;
+        ReplyPlanner.Plan planned = null;
+        if (soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.planner()) {
+            try {
+                BotRoster.Activity doing = bot.activitySnapshot();
+                planView = BotReplyView.of(bot, player, slot,
+                        BotChatPrompt.activityPhrase(doing == null ? null : doing.name()), null, hello, false, false);
+                planned = ReplyPlanner.plan(planView);
+            } catch (RuntimeException | LinkageError e) {
+                planView = null;
+                planned = null;
+            }
+        }
+        ReplyPlanner.View openView = planView;
+        ReplyPlanner.Plan openPlan = planned;
         startSweeper();
         Session session = new Session(bot, player, now);
         sessions.put(key, session);
@@ -962,15 +985,16 @@ public final class BotConversation {
         if (attention == null || now - attention.lastAt() > BotChatRouting.attentionMs()) {
             BotChatRouting.attend(player.getId(), chr.getId(), now);
         }
-        int slot = chr.getId() - BotStore.BOT_ID_BASE;
-        ChatTriage.Result hello = new ChatTriage.Result(ChatTriage.Kind.GREETING, ChatTriage.Intent.NONE,
-                ChatTriage.Source.DEFAULT, ChatTriage.Con.NORMAL, ChatTriage.Source.DEFAULT);
         Cue cue = new Cue(hello, BotChatActions.Outcome.NONE, null);
         ExecutorServiceManager.runAsync(() -> {
             try {
                 // 1.6.0 S5: the script first when the gate's unprompted-LLM budget is spent; never a repeated hello
                 if (!BotBrains.get().isLive() || !SocialGate.llmOk()) {
-                    String scripted = freshHello(chr, player);
+                    // the same move from the bank, so a bot without a model still opens with its plan
+                    String scripted = plannedLine(openView, openPlan, chr, player);
+                    if (scripted == null) {
+                        scripted = freshHello(chr, player);
+                    }
                     if (scripted == null) {
                         end(chr.getId(), player.getId());
                         return;
@@ -978,14 +1002,20 @@ public final class BotConversation {
                     deliver(session, scripted, now, ChatStats.Tier.SCRIPTED, "recognised on sight", cue);
                     return;
                 }
-                BotRoster.Activity doing = bot.activitySnapshot();
-                String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());
                 session.mind = mindFor(session, List.of(), null, null, null);
-                String system = systemPrompt(session, slot, activity, false, true, null, now, false, false)
-                        + (session.mind != null && soloMapling.ArtificialPlayer.BotConvo.StateOfMind.promptOn()
-                        ? soloMapling.ArtificialPlayer.BotConvo.StateOfMind.prompt(session.mind) : "")
-                        + " Nobody has said anything yet: you just noticed " + player.getName()
-                        + " near you. Write your first line to them.";
+                String system;
+                if (openPlan != null) {
+                    // stage B: who it is, its voice and the never-rules first, the facts, the move last
+                    system = ReplyPlanner.prompt(openView, openPlan);
+                } else {
+                    BotRoster.Activity doing = bot.activitySnapshot();
+                    String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());
+                    system = systemPrompt(session, slot, activity, false, true, null, now, false, false)
+                            + (session.mind != null && soloMapling.ArtificialPlayer.BotConvo.StateOfMind.promptOn()
+                            ? soloMapling.ArtificialPlayer.BotConvo.StateOfMind.prompt(session.mind) : "")
+                            + " Nobody has said anything yet: you just noticed " + player.getName()
+                            + " near you. Write your first line to them.";
+                }
                 String transcript = heard(chr, player, now).transcript();
                 List<BotBrain.Turn> prompt = BotChatPrompt.conversation(system,
                         List.of(BotBrain.Turn.user((transcript.isEmpty() ? ""
@@ -1002,7 +1032,13 @@ public final class BotConversation {
                     if (sessions.get(key) != session) {
                         return; // the chat moved on or ended while the brain was thinking
                     }
-                    String line = reply.orElseGet(() -> freshHello(chr, player));
+                    String line = reply.orElse(null);
+                    if (line == null) {
+                        line = plannedLine(openView, openPlan, chr, player);
+                    }
+                    if (line == null) {
+                        line = freshHello(chr, player);
+                    }
                     if (line == null) {
                         end(chr.getId(), player.getId());
                         return;
@@ -1015,6 +1051,27 @@ public final class BotConversation {
             }
         });
         return true;
+    }
+
+    /** m02 stage B: whether the bot is free to start a chat of its own - not grinding, not in a party quest. */
+    static boolean freeForOwnChat(BotSM bot) {
+        if (!soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.planner() || bot == null) {
+            return true; // the legacy path: the old greeting had no busy rule
+        }
+        try {
+            BotRoster.Activity doing = bot.activitySnapshot();
+            return !ReplyPlanner.busyActivity(BotChatPrompt.activityPhrase(doing == null ? null : doing.name()));
+        } catch (RuntimeException | LinkageError e) {
+            return true;
+        }
+    }
+
+    /** The planned opening line from the bank, or null when there is no plan or every line was said lately. */
+    private static String plannedLine(ReplyPlanner.View view, ReplyPlanner.Plan plan, Character bot,
+                                      Character player) {
+        return plan == null || view == null ? null
+                : ReplyPlanner.line(view, plan, ThreadLocalRandom.current(),
+                        line -> SocialGate.fresh(bot.getId(), player.getId(), line));
     }
 
     /** A scripted hello this bot has not said to this player lately (1.6.0 S5), or null when all of them were. */

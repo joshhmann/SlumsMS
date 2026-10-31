@@ -432,6 +432,59 @@ class BotConversationFlowTest {
         BotConversation.end(chr.getId(), player.getId());
     }
 
+    /**
+     * m02 stage B: a bot starts a chat with a player too, but only when it is free - never in the middle of a grind
+     * or a party quest, and never more than about once an hour per player.
+     */
+    @Test
+    void aBusyBotNeverStartsAChatWithAPlayer() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Grindr");
+            when(bot.getChr()).thenReturn(chr);
+            when(bot.activitySnapshot())
+                    .thenReturn(soloMapling.ArtificialPlayer.BotRoster.Activity.of("grind", 0, null));
+            Character player = character(nextPlayer++, "Josh");
+            assertFalse(BotConversation.greet(bot, player), "grinding: the bot does not open a chat");
+            assertFalse(BotConversation.isTalking(chr.getId(), player.getId()), "and no chat was opened");
+            when(bot.activitySnapshot())
+                    .thenReturn(soloMapling.ArtificialPlayer.BotRoster.Activity.of("opq", 0, null));
+            assertFalse(BotConversation.greet(bot, character(nextPlayer++, "Mika")), "a PQ is busy too");
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+        }
+    }
+
+    /** m02 stage B: with the planner on, the bot's own opening line is a planned move, not the free-chat prompt. */
+    @Test
+    void aBotThatStartsAChatPlansItsOpeningLine() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            when(bot.activitySnapshot())
+                    .thenReturn(soloMapling.ArtificialPlayer.BotRoster.Activity.of("social", 0, null));
+            // a real player, not the test's BotClient stand-in: the planner leaves bot-to-bot chat alone
+            Character player = Character.getDefault(mock(client.Client.class));
+            player.setID(nextPlayer++);
+            player.setName("Josh");
+            player.setLevel(40);
+            assertTrue(BotConversation.greet(bot, player));
+            waitFor(() -> !asked.isEmpty());
+            String system = asked.get(0).get(0).content();
+            assertTrue(system.contains("You are Walkr, a real person playing this game in 2008"),
+                    "the planned prompt: " + system);
+            assertTrue(system.contains("Say hi"), "the move is the instruction: " + system);
+            assertTrue(!system.contains("Nobody has said anything yet"),
+                    "not the free-chat opening prompt: " + system);
+            BotConversation.end(chr.getId(), player.getId());
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+        }
+    }
+
     @Test
     void aBotDoesNotGreetTheSamePlayerTwiceInTheGap() throws Exception {
         BotSM bot = mock(TownWandererBot.class);

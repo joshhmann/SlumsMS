@@ -261,7 +261,8 @@ class SocialGateTest {
 
     @Test
     void theBusyServerBudgetIsAboutThreeTimesTheOldCaps() {
-        assertEquals(40, SocialGate.pairMinutes(Act.GREET));
+        assertEquals(60, SocialGate.pairMinutes(Act.GREET),
+                "m02 stage B: the owner wants a bot-started chat about once per player per hour");
         assertEquals(60, SocialGate.pairMinutes(Act.PARTY_INVITE));
         assertEquals(480, SocialGate.pairMinutes(Act.BUDDY_REQUEST));
         assertEquals(7, SocialGate.pairMinutes(Act.TAUNT));
