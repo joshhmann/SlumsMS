@@ -64,8 +64,21 @@ One script end to end on TEST: log in on ch 3 (waiting on "channel list drawn", 
 `!hurt` to 40%, burst-capture 10 fps for 2 s on the server's `PARTY HEAL` line, save the run folder to 187. That one
 script settles b140 and shows the whole loop.
 
-## Open questions (owner)
+## Owner decisions (grill 2026-10-31, ~03:00 UTC)
 
-- Where the runner lives first: the Windows VM (needs its D3D9/Parsec display fixed) or Silvia's QA folder.
-- Video clips or screenshot bursts only (size on 187).
-- Whether the QA client may be a separate install next to the normal client (recommended), never replacing it.
+- Runner home: **Silvia's QA folder** first (under Z:\MSv83\SlumsMS-dev only); the VM later once its display works.
+- Images: **screenshot bursts + short clips** only for checks that need motion; no full-run video.
+- Schedule: **nightly + after every TEST deploy**; results land in the release book next to the server checks.
+- Review: **an agent reviews every run folder** and marks PASS/FAIL with evidence; the owner sees FAILs.
+- Install: **separate QA client install** next to the normal client (own folder, QA module built in, TEST/RC only,
+  refused by live); never touches the owner's game install or the launcher.
+- Silvia busy (owner playing/active, or a game in the foreground): a scheduled run **waits and retries every 30 min**;
+  it never steals the screen.
+- First scripts cover: **visual/effect checks, login + channel + basics, @botme alt flows, party quests with bots,
+  and any feature or change**.
+- Rule: **every new player-visible feature ships with a client script** that passes on TEST; for bug fixes it's
+  optional (use it when the bug was client-visible).
+- Odd-but-not-FAIL runs: the reviewing agent **files a bug**, starting at **S4 "unconfirmed"** with the frames
+  attached; triage raises it once confirmed.
+- Gate: **from 1.7.0**, a release needs the client scripts PASS (or known-accepted) on the release candidate; 1.6.2
+  ships on the hand checks.
