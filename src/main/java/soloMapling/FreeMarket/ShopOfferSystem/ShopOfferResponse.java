@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Random;
 
 import static soloMapling.BotLogger.log;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
 
 public class ShopOfferResponse {
 
@@ -151,6 +152,8 @@ public class ShopOfferResponse {
 
     private static void shopOwnerChat(PlayerShop shop, Character owner, String message) {
         if (message == null || message.isEmpty()) return;
+        message = SpeechGuard.check(owner, message); // b247: never a {slot}
+        if (message == null) return;
         shop.chat(owner, message);
     }
 

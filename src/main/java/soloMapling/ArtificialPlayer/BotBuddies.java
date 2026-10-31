@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
 
 /**
  * Ticket 49: bots as buddies. A player can add a bot by name (online or not), the bot answers like a person would
@@ -822,8 +823,14 @@ public final class BotBuddies {
         lastBuddyChat.put(player.getId(), now);
         String botName = to.name();
         BotConversation.talk(brain, player, line,
-                reply -> player.sendPacket(PacketCreator.multiChat(botName,
-                        soloMapling.ArtificialPlayer.BotConvo.MessyChat.forWhisper(brain.getChr(), botName, player, reply), 0)));
+                reply -> {
+                    // b247: a buddy reply is player text too - no {slot} reaches it
+                    String safe = SpeechGuard.check(brain.getChr(), player, reply);
+                    if (safe != null) {
+                        player.sendPacket(PacketCreator.multiChat(botName,
+                                soloMapling.ArtificialPlayer.BotConvo.MessyChat.forWhisper(brain.getChr(), botName, player, safe), 0));
+                    }
+                });
     }
 
     // ── GM read-out ──

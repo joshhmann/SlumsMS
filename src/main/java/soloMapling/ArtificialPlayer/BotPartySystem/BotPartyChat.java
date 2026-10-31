@@ -22,6 +22,7 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
 
 /**
  * Ticket 85: party chat reaches the bots. A player's line on the party channel goes to the bots in that party through
@@ -162,6 +163,10 @@ public final class BotPartyChat {
     /** A bot (or an owned alt, 1.6.2) says a line on its party's channel (every real member sees it). */
     public static void sayInParty(Character bot, String line) {
         if (bot == null || line == null || line.isBlank() || bot.getParty() == null) {
+            return;
+        }
+        line = SpeechGuard.check(bot, line); // b247: never a {slot}
+        if (line == null) {
             return;
         }
         Party party = bot.getParty();

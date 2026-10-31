@@ -325,4 +325,41 @@ class BotConversationFlowTest {
         assertTrue(!BotConversation.greet(bot, player), "never twice mid-chat");
         BotConversation.end(chr.getId(), player.getId());
     }
+
+    @Test
+    void aSecondHelloToTheSamePlayerIsSmallTalkNotAnotherGreeting() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+
+        assertTrue(BotConversation.say(bot, player, "hi", null, said::add));
+        waitFor(() -> said.size() == 1);
+        assertEquals(List.of("lol ya ant tunnel is ok"), said, "the first hello gets the brain");
+        assertEquals(1, asked.size());
+
+        assertTrue(BotConversation.say(bot, player, "hey", null, said::add), "the small talk answer goes out");
+        waitFor(() -> said.size() == 2);
+        assertEquals(2, said.size(), said.toString());
+        assertEquals(1, asked.size(), "b248: the second hello is small talk, not another greeting for the model");
+        assertTrue(ScriptedReplies.TALK.contains(said.get(1)), "small talk, not a greeting: " + said.get(1));
+        assertTrue(!ScriptedReplies.GREETING.contains(said.get(1)), "another hello: " + said.get(1));
+        BotConversation.end(chr.getId(), player.getId());
+    }
+
+    @Test
+    void aBotDoesNotGreetTheSamePlayerTwiceInTheGap() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+
+        assertTrue(BotConversation.greet(bot, player));
+        waitFor(() -> !said.isEmpty() || !asked.isEmpty());
+        BotConversation.end(chr.getId(), player.getId());
+        waitFor(() -> !BotConversation.isTalking(chr.getId(), player.getId()));
+
+        assertTrue(!BotConversation.greet(bot, player), "b248: not again inside the greeting gap");
+        BotConversation.end(chr.getId(), player.getId());
+    }
 }

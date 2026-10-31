@@ -53,6 +53,7 @@ import java.util.function.IntFunction;
 import java.util.regex.Pattern;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
 
 /**
  * 1.5.0 bot guilds and bots in players' guilds (owner grill 2026-10-21; ticket 50 B/C).
@@ -695,6 +696,10 @@ public final class BotGuilds {
     /** A bot says a line in its guild's chat (every online member sees it). */
     public static void sayInGuild(Character bot, String line) {
         if (bot == null || line == null || line.isBlank() || bot.getGuildId() <= 0) {
+            return;
+        }
+        line = SpeechGuard.check(bot, line); // b247: never a {slot}
+        if (line == null) {
             return;
         }
         Server.getInstance().guildChat(bot.getGuildId(), bot.getName(), bot.getId(), line);

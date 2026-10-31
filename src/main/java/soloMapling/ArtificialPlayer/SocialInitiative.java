@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.DoubleSupplier;
 import java.util.function.IntFunction;
 import java.util.function.LongSupplier;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
 
 /**
  * 1.6.0 slice S6, initiative: bots that start things with real players, as people on a busy 2009 server did. Four
@@ -134,6 +135,10 @@ public final class SocialInitiative {
         @Override
         public boolean buddyChat(Character bot, Character player, String line) {
             if (!SocialGate.freshLine(bot, player, line)) {
+                return false;
+            }
+            line = SpeechGuard.check(bot, player, line); // b247: never a {slot}
+            if (line == null) {
                 return false;
             }
             player.sendPacket(tools.PacketCreator.multiChat(bot.getName(),
