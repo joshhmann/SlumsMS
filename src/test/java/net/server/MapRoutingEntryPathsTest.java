@@ -51,13 +51,15 @@ class MapRoutingEntryPathsTest {
     private static final int HENESYS = 100000000;
     private static final int FOUNTAIN_SQUARE = 410000300;
     private static final int STORAGE_CAVE = 410000310;
-    private static final int RAMPART_RESIDENCES = 410000350;
+    private static final int GOLLUX_ABDOMEN = 863010240;      // the client crash on TEST
+    private static final int HEART_TREE = 863010000;          // Gollux: Abdomen's own returnMap
     private static final int STORAGE_CELLAR = 993162016;
     private static final int WORLD = 1;
 
     private int savedVisitedSize;
     private MapleMap fountain;
     private MapleMap cave;
+    private MapleMap heartTree;
     private MapManager maps;
     private Channel channel;
     private Client client;
@@ -78,10 +80,12 @@ class MapRoutingEntryPathsTest {
 
         fountain = map(FOUNTAIN_SQUARE);
         cave = map(STORAGE_CAVE);
+        heartTree = map(HEART_TREE);
 
         maps = mock(MapManager.class);
         when(maps.getMap(FOUNTAIN_SQUARE)).thenReturn(fountain);
         when(maps.getMap(STORAGE_CAVE)).thenReturn(cave);
+        when(maps.getMap(HEART_TREE)).thenReturn(heartTree);
 
         PlayerStorage storage = mock(PlayerStorage.class);
         channel = mock(Channel.class);
@@ -150,14 +154,14 @@ class MapRoutingEntryPathsTest {
     }
 
     @Test
-    void aScriptForceWarpIntoTheCrashMapLandsInFountainSquare() {
-        MapleMap crashMap = map(RAMPART_RESIDENCES);
+    void aScriptForceWarpIntoTheCrashMapLandsOnItsReturnMap() {
+        MapleMap crashMap = map(GOLLUX_ABDOMEN);
         chr.setMap(cave);
 
         assertDoesNotThrow(() -> chr.forceChangeMap(crashMap, null));
 
-        assertEquals(FOUNTAIN_SQUARE, chr.getMapId(), "the client crashes on 410000350, so it must not be entered");
-        verify(fountain).addPlayer(chr);
+        assertEquals(HEART_TREE, chr.getMapId(), "the client crashes on 863010240, so it must not be entered");
+        verify(heartTree).addPlayer(chr);
         verify(crashMap, never()).addPlayer(chr);
     }
 
@@ -180,17 +184,17 @@ class MapRoutingEntryPathsTest {
 
     @Test
     void anEventInstanceWarpEntersTheInstanceMapAsAsked() {
-        MapleMap instance = map(RAMPART_RESIDENCES);
+        MapleMap instance = map(GOLLUX_ABDOMEN);
         EventInstanceManager eim = mock(EventInstanceManager.class);
-        when(eim.getMapInstance(RAMPART_RESIDENCES)).thenReturn(instance);
+        when(eim.getMapInstance(GOLLUX_ABDOMEN)).thenReturn(instance);
         when(instance.getEventInstance()).thenReturn(eim);
         chr.setEventInstance(eim);
 
-        assertDoesNotThrow(() -> chr.changeMap(RAMPART_RESIDENCES));
+        assertDoesNotThrow(() -> chr.changeMap(GOLLUX_ABDOMEN));
 
         assertSame(instance, chr.getMap(), "an instance map is loaded and live; the routing table does not apply to it");
-        assertEquals(RAMPART_RESIDENCES, chr.getMapId());
-        assertNotEquals(FOUNTAIN_SQUARE, chr.getMapId());
+        assertEquals(GOLLUX_ABDOMEN, chr.getMapId());
+        assertNotEquals(HEART_TREE, chr.getMapId());
         verify(maps, never()).getMap(HENESYS);
     }
 }

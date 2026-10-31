@@ -21,6 +21,7 @@
 18100	st01	18104	18110	st00	portal-pair
 18103	st02	18101	18102	st02	portal-pair
 18998	st02	18101	18000	sp	source-return
+211080000	east00	211080100	211080000	sp	return
 302090405	east00	302040000	302090300	sp	street-nearest
 302090410	west00	302040000	302050020	sp	source-return
 310010010	tr01	91000	310000000	sp	source-return
@@ -34,8 +35,6 @@
 350020018	west00	350003300	350020400	sp	street-town
 350020019	west00	350003000	350020400	sp	street-town
 410000300	in00	993162016	410000300	sp	source-return
-410000325	east00	410000350	410000300	sp	return
-410000351	east00	410000350	410000300	sp	return
 450000020	pt_horizon	105300000	350160100	sp	street-nearest
 701100000	YuGa01	91000	701100000	sp	source-return
 706030000	home00	691000100	706030000	sp	source-return
@@ -44,12 +43,16 @@
 811000011	out00	807100111	811000011	sp	street-nearest
 811000030	out00	807000000	811000030	sp	source-return
 811000032	out00	807000000	801000300	sp	street-town
-814041000	player1	812010100	814040000	sp	street-town
-814041000	player2	812010100	814040000	sp	street-town
-814041000	player3	812010100	814040000	sp	street-town
-814041000	player4	812010100	814040000	sp	street-town
-814041000	player5	812010100	814040000	sp	street-town
+814041000	player1	812010100	814041000	sp	street-nearest
+814041000	player2	812010100	814041000	sp	street-nearest
+814041000	player3	812010100	814041000	sp	street-nearest
+814041000	player4	812010100	814041000	sp	street-nearest
+814041000	player5	812010100	814041000	sp	street-nearest
 863000100	ra10	86000	863000100	sp	source-return
+863010210	Right2	863010240	863010000	sp	return
+863010230	Left2	863010240	863010000	sp	return
+863010300	Right3	863010240	863010000	sp	return
+863010400	Left3	863010240	863010000	sp	return
 865010200	berry_out	610052100	865010200	sp	source-return
 867120100	out00	120041800	867120100	sp	street-nearest
 867120300	867120300_out	106030600	867120200	sp	street-nearest
@@ -87,17 +90,27 @@
 105300000	missing	Dark World Tree : Deserted Camp	350160100
 106030600	missing	Viking Airship : Storage Deck	867120200
 120041800	missing	Gold Beach : Hardwave Beach	867120100
+211080100	client-crash	Rose Garden : Abandoned Garden (client list)	211080000
+211080200	client-crash	Rose Garden : Soul's Rest (client list)	211080000
+211080300	client-crash	Rose Garden : Castle Wall's Edge (client list)	211080000
+211080400	client-crash	Rose Garden : Hidden Garden 1 (client list)	211080000
+211080500	client-crash	Rose Garden : Hidden Garden 2 (client list)	211080000
+211080600	client-crash	Rose Garden : Hidden Garden 3 (client list)	211080000
+211080700	client-crash	not in String.wz (client list)	211080000
 302040000	missing	Forest of Peace : Aurora Great Temple Lobby	302090300
 325000110	missing	not in String.wz	100000000
 350003000	missing	not in String.wz	100000000
 350003100	missing	not in String.wz	100000000
 350003300	missing	not in String.wz	100000000
-410000350	client-crash	Ristonia : Rampart Residences (client list)	410000300
+402000324	client-crash	not in String.wz (client list)	100000000
 610052100	missing	not in String.wz	100000000
 691000100	missing	Endurance Road : First Road	100000000
 807000000	missing	Zipangu : Momijigaoka	801000300
 807100111	missing	not in String.wz	100000000
 812010100	missing	not in String.wz	100000000
+814040000	client-crash	Star Planet : Star Arena 3F (client list)	814041000
+814041900	client-crash	Star Planet : Step Game Exit (client list)	814041000
+863010240	client-crash	Phantom Forest : Gollux: Abdomen (client list)	863010000
 900090101	missing	Video : Tutorial 1 	100000000
 900090103	missing	Video : Job Advancement	100000000
 910060100	missing	Victoria Road : Power B. Fore's Spore Training Center	120000000

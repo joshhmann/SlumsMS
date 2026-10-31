@@ -44,7 +44,10 @@ class MapRoutingWzTest {
 
     private static final int FOUNTAIN_SQUARE = 410000300;
     private static final int STORAGE_CELLAR = 993162016;
-    private static final int RAMPART_RESIDENCES = 410000350;
+    private static final int GOLLUX_ABDOMEN = 863010240;       // client-crash, and Map.wz has its image
+    private static final int HEART_TREE = 863010000;           // the abdomen's returnMap: the table's fallback
+    private static final int ROSE_GARDEN = 211080000;          // Rose Garden : Gardener's Spot, loads fine
+    private static final int ROSE_GARDEN_DEPTH = 211080100;    // client-crash, and Map.wz has its image
     private static final int STORAGE_CAVE = 410000310;
 
     private static final Pattern IMGDIR = Pattern.compile("<imgdir name=\"(\\d+)\">(.*?)</imgdir>", Pattern.DOTALL);
@@ -78,13 +81,17 @@ class MapRoutingWzTest {
             // fallback here, so a script spawning mobs in the Storage Cellar spawned them in Henesys or Fountain
             // Square and read back an id it never asked for.
             assertNull(maps.getMap(STORAGE_CELLAR), "993162016 has no image, so there is no map to hand out");
-            assertNull(maps.getMap(RAMPART_RESIDENCES), "410000350 crashes the client, so it is not handed out either");
+            assertNull(maps.getMap(GOLLUX_ABDOMEN), "863010240 crashes the client, so its own image is not handed out");
+            assertNull(maps.getMap(ROSE_GARDEN_DEPTH), "211080100 has an image and still crashes the client");
             assertNull(maps.getMap(1234567), "an id Map.wz never had is no map");
 
             assertEquals(FOUNTAIN_SQUARE, maps.getMapOrFallback(STORAGE_CELLAR).getId(),
                     "the login path asks for the fallback, and gets the table's map for the Storage Cellar");
-            assertEquals(FOUNTAIN_SQUARE, maps.getMapOrFallback(RAMPART_RESIDENCES).getId(),
-                    "a character saved inside Rampart Residences logs in at Fountain Square");
+            assertEquals(HEART_TREE, maps.getMapOrFallback(GOLLUX_ABDOMEN).getId(),
+                    "a character saved in Gollux's abdomen logs in at Memories of the Heart Tree");
+            assertEquals(ROSE_GARDEN, maps.getMapOrFallback(ROSE_GARDEN_DEPTH).getId(),
+                    "a character saved past the Rose Garden entrance logs in at the entrance");
+            assertEquals(ROSE_GARDEN, maps.getMap(ROSE_GARDEN).getId(), "the entrance is an ordinary map");
             assertEquals(STORAGE_CAVE, maps.getMap(STORAGE_CAVE).getId(), "an ordinary map is untouched");
             assertEquals(STORAGE_CAVE, maps.getMapOrFallback(STORAGE_CAVE).getId(), "an ordinary map is untouched");
             assertEquals(FOUNTAIN_SQUARE, maps.getMap(FOUNTAIN_SQUARE).getId(), "an ordinary map is untouched");
@@ -138,6 +145,18 @@ class MapRoutingWzTest {
         MapRouting.Route route = MapRouting.route(FOUNTAIN_SQUARE, "in00", STORAGE_CELLAR);
         assertNotNull(route);
         assertEquals(FOUNTAIN_SQUARE, route.map());
+    }
+
+    @Test
+    void theRoseGardenDoorTheTableRoutesIsTheOneInTheData() throws IOException {
+        WzTestData.assumePresent("Map.wz");
+        assertEquals(String.valueOf(ROSE_GARDEN_DEPTH), portalField(ROSE_GARDEN, "east00", "tm"),
+                "211080000 east00 targets the first map past the entrance");
+
+        MapRouting.Route route = MapRouting.route(ROSE_GARDEN, "east00", ROSE_GARDEN_DEPTH);
+        assertNotNull(route);
+        assertEquals(ROSE_GARDEN, route.map(), "the only way in is a door the client dies behind");
+        assertEquals("return", route.reason());
     }
 
     /**

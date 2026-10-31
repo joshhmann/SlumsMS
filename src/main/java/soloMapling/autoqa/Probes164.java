@@ -401,16 +401,23 @@ final class Probes164 {
 
     // ── t-mp-1: no door leads into a map that fails to load or crashes the client ────────────────────────
 
-    /** Fountain Square (Ristonia) and the two maps the owner's walk hit on TEST, 2026-10-31. */
+    /** Fountain Square (Ristonia) and the maps the owner's walk hit on TEST, 2026-10-31. */
     static final int MR1_FOUNTAIN_SQUARE = 410000300;
     static final int MR1_STORAGE_CELLAR = 993162016;
+    /** rc6 client build 10721 fixed this one: it must load and be ordinary again. */
     static final int MR1_RAMPART_RESIDENCES = 410000350;
+    /** the client crash on TEST after that: Gollux's abdomen and the Rose Garden past its entrance. */
+    static final int MR1_GOLLUX_ABDOMEN = 863010240;
+    static final int MR1_HEART_TREE = 863010000;
+    static final int MR1_ROSE_GARDEN = 211080000;
+    static final int MR1_ROSE_GARDEN_DEPTH = 211080100;
+    static final int MR1_ROOF_OF_THE_FIFTH_TOWER = 211061001;
 
     /**
      * s-maproute: the routing table is in the jar and loaded, every blocked map has a fallback that is neither blocked
-     * nor empty, the two doors the owner reported route the way the table says they do, and a map whose image is
-     * missing still refuses to load while the fallbacks do load. The bots' half (no edge into a blocked map) is t-nv-2's
-     * graph, which drops them the same way.
+     * nor empty, the doors the owner and the Rose Garden report route the way the table says they do, and a map whose
+     * image is missing still refuses to load while the fallbacks do load. The bots' half (no edge into a blocked map)
+     * is t-nv-2's graph, which drops them the same way.
      */
     static List<String> mapRouting() {
         List<String> bad = new ArrayList<>();
@@ -445,9 +452,27 @@ final class Probes164 {
         if (door == null || door.map() != MR1_FOUNTAIN_SQUARE) {
             bad.add("Fountain Square's in00 door is not routed back to Fountain Square");
         }
-        if (server.maps.MapRouting.fallback(MR1_RAMPART_RESIDENCES) != MR1_FOUNTAIN_SQUARE) {
-            bad.add("a character saved in " + MR1_RAMPART_RESIDENCES + " does not log in at Fountain Square");
+        if (server.maps.MapRouting.fallback(MR1_GOLLUX_ABDOMEN) != MR1_HEART_TREE) {
+            bad.add("a character saved in " + MR1_GOLLUX_ABDOMEN + " does not log in at " + MR1_HEART_TREE);
         }
+        if (server.maps.MapRouting.blocked(MR1_RAMPART_RESIDENCES)) {
+            bad.add("map " + MR1_RAMPART_RESIDENCES + " is still blocked: client build 10721 fixed it");
+        }
+        int[] roseGarden = {211080100, 211080200, 211080300, 211080400, 211080500, 211080600, 211080700};
+        for (int map : roseGarden) {
+            if (!server.maps.MapRouting.blocked(map) || server.maps.MapRouting.fallback(map) != MR1_ROSE_GARDEN) {
+                bad.add("Rose Garden " + map + " does not fall back to " + MR1_ROSE_GARDEN);
+            }
+        }
+        if (server.maps.MapRouting.blocked(MR1_ROOF_OF_THE_FIFTH_TOWER)) {
+            bad.add("map " + MR1_ROOF_OF_THE_FIFTH_TOWER + " loads fine and must not be blocked");
+        }
+        server.maps.MapRouting.Route garden = server.maps.MapRouting.route(MR1_ROSE_GARDEN, "east00",
+                MR1_ROSE_GARDEN_DEPTH);
+        if (garden == null || garden.map() != MR1_ROSE_GARDEN) {
+            bad.add("the Rose Garden's east00 door is not routed back to the entrance");
+        }
+        ev.add("Rose Garden: " + roseGarden.length + " maps past the entrance lead back to the entrance");
 
         for (int id : lands) {
             try {

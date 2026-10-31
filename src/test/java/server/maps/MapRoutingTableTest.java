@@ -18,8 +18,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * s-maproute, no WZ needed: the policy of the checked-in routing table (src/main/resources/soloMapling/map-routing.tsv).
- * Before this table a move into one of the 30-odd maps Map.wz has no image for loaded null and threw inside
- * MapFactory (mapData.getChildByPath("info") on null), and the client died walking into Ristonia Rampart Residences.
+ * Before this table a move into one of the 40-odd maps Map.wz has no image for loaded null and threw inside
+ * MapFactory (mapData.getChildByPath("info") on null), and the client died walking into Gollux's abdomen and the
+ * whole Rose Garden family past its entrance.
  *
  * The real-WZ half (that every route lands on a map that exists, and that every blocked map has a fallback that
  * loads) is {@link MapRoutingWzTest}; the bots' half is GCWorldGraphRoutingTest.
@@ -28,9 +29,11 @@ class MapRoutingTableTest {
 
     private static final int FOUNTAIN_SQUARE = 410000300;      // Ristonia
     private static final int STORAGE_CELLAR = 993162016;       // Ristonia, no Map.wz image
-    private static final int RAMPART_RESIDENCES = 410000350;   // Ristonia, the client crash on TEST
-    private static final int RAMPART_RESIDENCES_2 = 410000351;
+    private static final int GOLLUX_ABDOMEN = 863010240;       // Phantom Forest, the client crash on TEST
+    private static final int HEART_TREE = 863010000;           // Gollux: Abdomen's own returnMap
     private static final int STORAGE_CAVE = 410000310;
+    private static final int ROSE_GARDEN = 211080000;          // Rose Garden : Gardener's Spot, loads fine
+    private static final int ROOF_OF_THE_FIFTH_TOWER = 211061001; // the map before it, loads fine
 
     @Test
     void theTableIsInTheJar() {
@@ -41,11 +44,17 @@ class MapRoutingTableTest {
     }
 
     @Test
-    void rampartResidencesIsBlockedAsAClientCrash() {
-        assertTrue(MapRouting.blocked(RAMPART_RESIDENCES));
-        assertEquals("client-crash", MapRouting.kind(RAMPART_RESIDENCES));
-        assertEquals(FOUNTAIN_SQUARE, MapRouting.fallback(RAMPART_RESIDENCES),
-                "a character saved inside it logs in at Fountain Square");
+    void golluxAbdomenIsBlockedAsAClientCrash() {
+        assertTrue(MapRouting.blocked(GOLLUX_ABDOMEN));
+        assertEquals("client-crash", MapRouting.kind(GOLLUX_ABDOMEN));
+        assertEquals(HEART_TREE, MapRouting.fallback(GOLLUX_ABDOMEN),
+                "a character saved inside it logs in at Memories of the Heart Tree");
+    }
+
+    @Test
+    void rampartResidencesLoadsAgainSinceClientBuild10721() {
+        assertFalse(MapRouting.blocked(410000350), "rc6 fixes the Rampart Residences crash; MIN_CLIENT_BUILD is 10721");
+        assertNull(MapRouting.route(410000325, "east00", 410000350), "an ordinary door is not touched");
     }
 
     @Test
@@ -71,18 +80,40 @@ class MapRoutingTableTest {
 
     @Test
     void aMoveIntoTheCrashMapFromASideDoor() {
-        MapRouting.Route route = MapRouting.route(410000325, "east00", RAMPART_RESIDENCES);
-        assertNotNull(route);
-        assertEquals(FOUNTAIN_SQUARE, route.map());
-        assertEquals("return", route.reason(), "Rampart Residences' own returnMap");
-        assertEquals(FOUNTAIN_SQUARE, MapRouting.route(RAMPART_RESIDENCES_2, "east00", RAMPART_RESIDENCES).map());
+        // every leg of the Gollux chain whose portal leads into the abdomen: Left1/Right1 are one map back, these four
+        // are the legs that point straight at it
+        int[] legs = {863010210, 863010230, 863010300, 863010400};
+        String[] ways = {"Right2", "Left2", "Right3", "Left3"};
+        for (int i = 0; i < legs.length; i++) {
+            MapRouting.Route route = MapRouting.route(legs[i], ways[i], GOLLUX_ABDOMEN);
+            assertNotNull(route, legs[i] + ":" + ways[i]);
+            assertEquals(HEART_TREE, route.map(), legs[i] + ":" + ways[i]);
+            assertEquals("return", route.reason(), "the abdomen's own returnMap, " + legs[i] + ":" + ways[i]);
+        }
     }
 
     @Test
     void aMoveOfUnknownOriginIntoABlockedMapGetsItsFallback() {
-        MapRouting.Route route = MapRouting.route(123456789, null, RAMPART_RESIDENCES);
+        MapRouting.Route route = MapRouting.route(123456789, null, GOLLUX_ABDOMEN);
         assertNotNull(route, "a saved map id or a direct factory load has no source portal and must still route");
-        assertEquals(FOUNTAIN_SQUARE, route.map());
+        assertEquals(HEART_TREE, route.map());
+    }
+
+    @Test
+    void everyRoseGardenMapPastTheEntranceLeadsBackToTheGardener() {
+        // Client lane 2026-10-31: the client dies on entry to every map past 211080000, and no script warps into them
+        int[] family = {211080100, 211080200, 211080300, 211080400, 211080500, 211080600, 211080700};
+        for (int map : family) {
+            assertTrue(MapRouting.blocked(map), "Rose Garden " + map);
+            assertEquals("client-crash", MapRouting.kind(map), "Rose Garden " + map);
+            assertEquals(ROSE_GARDEN, MapRouting.fallback(map), "Rose Garden " + map + " falls back to the entrance");
+        }
+        MapRouting.Route east = MapRouting.route(ROSE_GARDEN, "east00", 211080100);
+        assertNotNull(east, "Gardener's Spot's east00 door leads into the family");
+        assertEquals(ROSE_GARDEN, east.map(), "the door is a dead end: the player stays where the map loads");
+        assertEquals("return", east.reason());
+        assertFalse(MapRouting.blocked(ROOF_OF_THE_FIFTH_TOWER), "Roof of the Fifth Tower loads fine and stays ordinary");
+        assertNull(MapRouting.route(ROOF_OF_THE_FIFTH_TOWER, "next00", ROSE_GARDEN), "the way in is untouched");
     }
 
     @Test

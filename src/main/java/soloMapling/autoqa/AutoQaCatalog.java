@@ -1464,11 +1464,12 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-nv-3", "Debug tools answer: bot inspect API, kill calibration, nav path trace").minutes(2)
                 .expect(probe("debugTools"))
                 .build());
-        // s-maproute (owner 2026-10-31: the client crashed walking into Ristonia Rampart Residences): the routing table
-        // is in the jar and loaded, every blocked map has a fallback that loads and is not itself blocked, the two doors
-        // the owner reported route as the table says, and an image-less map still refuses to load (Probes164)
+        // s-maproute (owner 2026-10-31: the client crashed walking into Ristonia Rampart Residences, which rc6 fixes;
+        // then Gollux's abdomen and the Rose Garden past its entrance): the routing table is in the jar and loaded,
+        // every blocked map has a fallback that loads and is not itself blocked, the doors reported route as the table
+        // says, and an image-less map still refuses to load (Probes164)
         c.add(Check.half("t-mp-1", "Map routing: no door leads into a map that fails to load or crashes the client",
-                "the crash is client-side: walk Fountain Square's in00 door, and 410000325/410000351's east00, in a real client")
+                "walk Fountain Square's in00 door, a Gollux leg into the abdomen, and the Rose Garden's east00, in a real client")
                 .minutes(2)
                 .expect(probe("mapRouting"))
                 .build());
