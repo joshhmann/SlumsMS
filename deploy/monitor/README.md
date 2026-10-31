@@ -16,6 +16,26 @@ announcements, for one or more game servers on 192.168.0.164. Python 3 standard 
 | bot population | online bots (botroster: `LastLoginAt > LastLogoutAt`) under `BOTS_MIN_RATIO` (60%) of the director target, after `BOTS_GRACE_MIN` (20) minutes of uptime; or `[Director] tick failed` lines | 10 runs |
 | bot chat LLM / Decide | `LLM_URL` (`192.168.0.17:8095/health`) or `DECIDE_URL` (`:8900/health`) not 2xx within 5 s, twice 3 s apart | 1 run |
 | scheduled jobs | a timer in `TIMERS` is not active, its last run failed, or it has not run for `TIMER_MAX_AGE_H` (26) hours | 1 run |
+| cloud budget | today's spend in `CLOUD_BUDGET_FILE` (`<server>/data/convo/cloud-budget.json`, written by `CloudBudget.java`) passes `CLOUD_WARN_PCT` (80%) of the daily cap, or reaches it | once a day per level |
+| cloud balance | the provider account's USD balance (`GET <base>/user/balance`) is under `BALANCE_MIN_USD` (5), or the request failed three times in a row | 3 failed calls / immediately when low |
+
+The last two are **managed checks**: they keep their own "told already" flags in
+`/var/lib/slumsms-monitor/<target>/cloud.json` instead of `FAIL_AFTER_<check>` counts, because a spend warning must
+not repeat every `REMIND_MIN` and the balance may only be asked every `BALANCE_EVERY_MIN` (45) minutes. They follow
+the same alert / `**RECOVERED**` / maintenance / rate-cap rules; a message that could not be delivered (maintenance,
+webhook down) is not used up and goes out later.
+
+- **cloud budget:** `$1.70 of $2.00 today (85%, warning at 80%)` once a day when the warning line is passed, then
+  `cap reached, bot replies fall back to the local model until 00:00 UTC` when it is spent, and `**RECOVERED** ... new
+  day: $0.00 of $2.00 to spend` at the UTC day rollover. No file = no alert (cloud chat off). A file the server is
+  writing mid-way reads as missing, so it never alerts on a half-written JSON.
+- **cloud balance:** the key is read in-process from `CLOUD_ENV_FILE` (`/etc/slumsms/cloud-llm.env`, root 0600,
+  `SOLOMAPLING_LLM_CLOUD_API_KEY`) for the `Authorization` header only; it is never logged, printed or put into a
+  message (the scrubber redacts `sk-...` and `*api_key=` shapes anyway). The base URL is `CLOUD_BASE_URL`, else
+  `BOT_LLM_CLOUD_BASE_URL` from the server's `config.yaml`, else `https://api.deepseek.com` (a trailing `/v1` is
+  dropped: `/user/balance` sits at the root). HTTP errors are retried every minute until the third in a row, the
+  alert says only `HTTP 401` / `unreachable (...)`, never the URL; after the alert it goes back to the 45-minute
+  interval. No key in the file = skipped, no request. An answer without a USD entry is skipped too.
 
 The director target is computed like `BotPopulationCurve` does: peak and curve from the boot line
 `Population director started: peak N [(roster peak N, population cap N)], curve C, tick Ts` (cached per server start), weekend lift and timezone from
@@ -42,8 +62,9 @@ Every login probe adds one `DEBUG ... Client connected to login server from 127.
   this), `... end` after; the recovery then is quiet too. Both also post to the public channel (below).
 - **No webhook configured:** everything goes to `/var/log/slumsms-monitor/<target>.log`.
 
-State: `/var/lib/slumsms-monitor/<target>/` (`checks.json` alert state, `status.json` the last results, for the
-ticket 35 dashboard strip). See the current results any time with `slumsms-monitor check <target> --dry-run`.
+State: `/var/lib/slumsms-monitor/<target>/` (`checks.json` alert state, `cloud.json` the cloud spend/balance state,
+`status.json` the last results, for the ticket 35 dashboard strip). See the current results any time with
+`slumsms-monitor check <target> --dry-run`.
 
 ## Status message (ticket 46, `slumsms-monitor status <target>`, every 5 minutes)
 
@@ -115,7 +136,9 @@ are sent with `allowed_mentions: none` anyway). Names from the server are one li
   (`install.sh --announce`), which seeds what is already in the file.
 
 Test without Discord: `python3 test_announce.py` (runs `mock-webhook.py`; rate cap, fallback rules, dedupe,
-maintenance, Cody's lines, the deploy hook).
+maintenance, Cody's lines, the deploy hook). `python3 test_cloud.py` covers the cloud budget and balance checks with
+a fake budget file, a fake key file and a local `http.server` standing in for `/user/balance`: it never calls the
+real API.
 
 ## Configuration
 
@@ -134,6 +157,25 @@ Test a webhook: `slumsms-monitor test-webhook live alerts` (or `status`, `news`,
 public channel).
 Without Discord: `mock-webhook.py --port 8599 --out messages.jsonl` takes the same POST/PATCH calls, then
 `WEBHOOK_URL=http://127.0.0.1:8599/api/webhooks/1/test`.
+
+Cloud chat keys (all optional; the defaults watch the server's own budget file and the provider account):
+
+```
+# CLOUD_BUDGET_FILE=    default <SERVER_DIR>/data/convo/cloud-budget.json
+# CLOUD_WARN_PCT=80     one warning a UTC day at this share of the cap
+# CLOUD_ENV_FILE=/etc/slumsms/cloud-llm.env
+# CLOUD_KEY_NAME=SOLOMAPLING_LLM_CLOUD_API_KEY
+# CLOUD_BASE_URL=       default BOT_LLM_CLOUD_BASE_URL from config.yaml, else https://api.deepseek.com
+# BALANCE_MIN_USD=5     alert below this
+# BALANCE_EVERY_MIN=45  one GET per interval (status "last check X ago" in between)
+```
+
+The monitor runs as root, so it can read `/etc/slumsms/cloud-llm.env` (root 0600, the same file the game server's unit
+loads). It never copies the key anywhere: not into the log, `cloud.json` or a message.
+
+Nothing is asked of the provider when `CLOUD_ENV_FILE` has no `CLOUD_KEY_NAME` line, so a server without cloud chat
+just sees the budget check skipped. The TEST target points `CLOUD_ENV_FILE` at `/etc/slums-persistence-test/cloud-llm.env`
+(its own key), so the test monitor never asks about live's account.
 
 ## Install
 
