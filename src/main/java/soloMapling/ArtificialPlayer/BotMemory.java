@@ -68,7 +68,9 @@ public final class BotMemory {
         /** Slot: what the pair last talked about. */
         TOPIC,
         /** Slot: an inside joke (a line one of them laughed at). */
-        JOKE;
+        JOKE,
+        /** How the player looked when these two last talked (their level), written when the chat ends. */
+        PROGRESS;
 
         public boolean episode() {
             return ordinal() >= PQ.ordinal() && ordinal() <= SCAM.ordinal();
@@ -585,6 +587,42 @@ public final class BotMemory {
      * ({@link MemoryFacts}, only from what was said). With a live brain it is also asked for notes about the player.
      * Runs on background threads; nothing waits on it.
      */
+    /**
+     * Records how the player looked when a chat ended, so a later greeting can tell whether they leveled up since
+     * (owner's answer 8: greetings use what is true now). One row per level, deduped like any episode; no schema change
+     * (the Kind column already holds longer names).
+     */
+    public static Note progress(client.Character bot, client.Character player, long now) {
+        if (bot == null || player == null) {
+            return null;
+        }
+        return episode(bot.getId() - BotStore.BOT_ID_BASE, player.getId(), Kind.PROGRESS,
+                "level " + player.getLevel(), 1, "", now);
+    }
+
+    /** The player's level the last time these two talked, or 0 when they never have. */
+    public static int progressLevel(int botId, int charId) {
+        Note newest = null;
+        for (Note n : about(botId, charId)) {
+            if (n.kind() == Kind.PROGRESS && (newest == null || n.createdAt() >= newest.createdAt())) {
+                newest = n;
+            }
+        }
+        return newest == null ? 0 : levelOf(newest.text());
+    }
+
+    private static int levelOf(String text) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d{1,3})").matcher(text == null ? "" : text);
+        if (!m.find()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(m.group(1));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
     public static void writeConversationNotes(client.Character bot, client.Character player, List<BotBrain.Turn> transcript) {
         boolean botSpoke = transcript.stream().anyMatch(t -> t.role() == BotBrain.Role.ASSISTANT);
         if (!botSpoke) {

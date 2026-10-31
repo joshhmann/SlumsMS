@@ -46,6 +46,7 @@ class ReplyPlannerTest {
         String romance;
         String note;
         String shared;
+        int lastLevel;
         List<String> spots = List.of("ant tunnel");
         String mySpot = "kerning subway";
         boolean botHasSpoken;
@@ -139,9 +140,15 @@ class ReplyPlannerTest {
             return this;
         }
 
+        V lastLevel(int level) {
+            this.lastLevel = level;
+            return this;
+        }
+
         ReplyPlanner.View build() {
             return new ReplyPlanner.View(botName, botLevel, botJob, place, town, mobs, activity, inPq, busy,
-                    playerName, playerLevel, playerJob, playerIsBot, bond, romance, note, shared, spots, mySpot,
+                    playerName, playerLevel, playerJob, playerIsBot, bond, romance, note, shared, lastLevel, spots,
+                    mySpot,
                     botHasSpoken, asked, kind, intent, voice);
         }
     }
@@ -419,6 +426,77 @@ class ReplyPlannerTest {
             assertFalse(StateOfMind.claimsGrindingInTown(line), move + " in a town: " + line);
             assertTrue(line.length() < 70, line);
         }
+    }
+
+    /**
+     * Owner's answer 8: a greeting comes from what is true now (where the bot is, what it is killing, whether the two
+     * have history), not from a stock hello. Progress since the last meeting needs a fact nothing records yet, so the
+     * greeting never claims one (the bond fact says it must not).
+     */
+    @Test
+    void greetingsUseTheRelationshipAndWhatIsTrueNow() {
+        ReplyPlanner.View town = viewFor(ReplyPlanner.Move.HELLO).build();
+        List<String> townLines = ReplyPlanner.scripts(town, ReplyPlanner.Move.HELLO);
+        assertTrue(townLines.stream().anyMatch(l -> l.contains("henesys")),
+                "a hello says where the bot is: " + townLines);
+        assertTrue(townLines.stream().noneMatch(l -> l.contains("remember")),
+                "a stranger's hello claims no history: " + townLines);
+
+        ReplyPlanner.View mob = viewFor(ReplyPlanner.Move.HELLO).town(false).place("ant tunnel")
+                .mobs(List.of("Pig")).activity("grinding").build();
+        List<String> mobLines = ReplyPlanner.scripts(mob, ReplyPlanner.Move.HELLO);
+        assertTrue(mobLines.stream().anyMatch(l -> l.contains("pigs")),
+                "a hello says what the bot is killing: " + mobLines);
+
+        ReplyPlanner.View known = viewFor(ReplyPlanner.Move.HELLO_BACK).bond(ReplyPlanner.Bond.FRIEND)
+                .sharedNote("partied together in henesys").build();
+        List<String> knownLines = ReplyPlanner.scripts(known, ReplyPlanner.Move.HELLO_BACK);
+        assertTrue(knownLines.stream().anyMatch(l -> l.contains("remember")),
+                "a friend's hello comes back to what the two did: " + knownLines);
+        assertTrue(knownLines.stream().anyMatch(l -> l.contains("again")),
+                "and says it is not the first time: " + knownLines);
+        ReplyPlanner.Plan knownPlan = ReplyPlanner.plan(known);
+        assertNotNull(knownPlan);
+        assertTrue(facts(knownPlan).contains("what you two did before: partied together in henesys"),
+                () -> facts(knownPlan).toString());
+        assertTrue(facts(knownPlan).contains("they are your friend"), () -> facts(knownPlan).toString());
+    }
+
+    /** Owner's answer 8: the greeting knows how far the player has come since the two last talked. */
+    @Test
+    void aGreetingGratsTheLevelTheyGainedSinceTheLastTalk() {
+        ReplyPlanner.View up = viewFor(ReplyPlanner.Move.HELLO_BACK).bond(ReplyPlanner.Bond.KNOWN)
+                .lastLevel(30).build(); // playerLevel is 38
+        List<String> lines = ReplyPlanner.scripts(up, ReplyPlanner.Move.HELLO_BACK);
+        assertTrue(lines.stream().anyMatch(l -> l.contains("grats") || l.contains("leveled")),
+                "a level gained is worth one line: " + lines);
+        ReplyPlanner.Plan plan = ReplyPlanner.plan(up);
+        assertNotNull(plan);
+        assertTrue(facts(plan).contains("when you last talked they were level 30"), () -> facts(plan).toString());
+        assertTrue(facts(plan).stream().anyMatch(f -> f.contains("they leveled up since then")),
+                () -> facts(plan).toString());
+    }
+
+    @Test
+    void aGreetingNeverInventsALevelUp() {
+        ReplyPlanner.View same = viewFor(ReplyPlanner.Move.HELLO_BACK).bond(ReplyPlanner.Bond.KNOWN)
+                .lastLevel(38).build();
+        List<String> lines = ReplyPlanner.scripts(same, ReplyPlanner.Move.HELLO_BACK);
+        assertTrue(lines.stream().noneMatch(l -> l.contains("grats") || l.contains("leveled")),
+                "the level is the same as last time, so no grats: " + lines);
+        ReplyPlanner.Plan plan = ReplyPlanner.plan(same);
+        assertNotNull(plan);
+        assertTrue(facts(plan).stream().anyMatch(f -> f.contains("still level 38")), () -> facts(plan).toString());
+    }
+
+    @Test
+    void aGreetingFromMemorylessHistoryStillClaimsNothing() {
+        ReplyPlanner.View never = viewFor(ReplyPlanner.Move.HELLO_BACK).bond(ReplyPlanner.Bond.KNOWN)
+                .lastLevel(0).build();
+        ReplyPlanner.Plan plan = ReplyPlanner.plan(never);
+        assertNotNull(plan);
+        assertTrue(facts(plan).stream().anyMatch(f -> f.startsWith("you do not know what they have done")),
+                () -> facts(plan).toString());
     }
 
     /** The pair's own net ({@code SocialGate.fresh}) refuses a line at delivery; the planner only offers another. */

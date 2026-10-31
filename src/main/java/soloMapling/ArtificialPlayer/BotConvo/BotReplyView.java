@@ -43,11 +43,21 @@ public final class BotReplyView {
                 RelationshipCard.mapName(chr), town, mobs, activity, inPq, busy,
                 player.getName(), player.getLevel(), BotChatPrompt.jobName(player.getJob().getId()),
                 BotHelpers.isBot(player),
-                bond(slot, chr, player, wary, romance), romance, note(slot, player, wary), null,
+                bond(slot, chr, player, wary, romance), romance, note(slot, player, wary),
+                shared(slot, player, wary), lastLevel(slot, player),
                 spots(player.getLevel(), player.getJob().getId()), mySpot(chr, town, activity),
                 botHasSpoken, asked,
                 triage == null ? null : triage.kind(), triage == null ? null : triage.intent(),
                 voiceLine(slot, chr));
+    }
+
+    /** The player's level the last time these two talked, 0 when they never have (or memory is unreadable). */
+    private static int lastLevel(int slot, Character player) {
+        try {
+            return BotMemory.progressLevel(slot, player.getId());
+        } catch (RuntimeException | LinkageError e) {
+            return 0;
+        }
     }
 
     /** The bond the reply may show: dating beats wary beats friend beats known beats stranger. */
@@ -95,6 +105,32 @@ public final class BotReplyView {
                 if (!text.isEmpty()) {
                     return text.length() <= 90 ? text : text.substring(0, 90) + "…";
                 }
+            }
+        } catch (RuntimeException | LinkageError e) {
+            return null;
+        }
+        return null;
+    }
+
+    /**
+     * The one thing these two did together that memory kept - "partied together in henesys", "saved me from a mob at
+     * kerning" - so a greeting can come back to it instead of starting from nothing. Null for a wary bot (it is short
+     * with them) and when memory has no episode; an episode that is the same note is not repeated.
+     */
+    private static String shared(int slot, Character player, boolean wary) {
+        if (wary) {
+            return null;
+        }
+        String note = note(slot, player, false);
+        try {
+            List<BotMemory.Note> episodes = BotMemory.bestEpisodes(slot, player.getId(),
+                    System.currentTimeMillis(), 3);
+            for (BotMemory.Note episode : episodes) {
+                String text = episode.text() == null ? "" : episode.text().trim();
+                if (text.isEmpty() || text.equals(note)) {
+                    continue;
+                }
+                return text.length() <= 90 ? text : text.substring(0, 90) + "…";
             }
         } catch (RuntimeException | LinkageError e) {
             return null;

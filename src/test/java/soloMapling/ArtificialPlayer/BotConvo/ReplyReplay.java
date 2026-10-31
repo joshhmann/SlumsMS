@@ -190,7 +190,7 @@ final class ReplyReplay {
             spots.add("ant tunnel");
         }
         return new ReplyPlanner.View(row.bot(), 30, "warrior", place, place != null, List.of(), "hanging out in town",
-                false, false, "player", 30, "warrior", false, ReplyPlanner.Bond.STRANGER, null, null, null, spots,
+                false, false, "player", 30, "warrior", false, ReplyPlanner.Bond.STRANGER, null, null, null, 0, spots,
                 "ant tunnel", false, row.asked(), triage.kind(), triage.intent(), null);
     }
 

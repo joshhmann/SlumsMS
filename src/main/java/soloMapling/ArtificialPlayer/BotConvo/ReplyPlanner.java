@@ -53,7 +53,7 @@ public final class ReplyPlanner {
                        String place, boolean town, List<String> mobsHere, String activity,
                        boolean inPq, boolean busy,
                        String playerName, int playerLevel, String playerJob, boolean playerIsBot, Bond bond,
-                       String romance, String note, String shared,
+                       String romance, String note, String shared, int lastLevel,
                        List<String> playerSpots, String mySpot,
                        boolean botHasSpoken, String asked, ChatTriage.Kind kind, ChatTriage.Intent intent,
                        String voice) {
@@ -115,12 +115,20 @@ public final class ReplyPlanner {
             case HELLO -> {
                 out.addAll(List.of("hey", "yo", "hii", "sup", "hey hey", "o hey", "heya", "hi hi", "hey u", "hii there",
                         "sup man", "hey there", "oh hi", "hiya", "yo whats up", "hello", "hi", "yo there"));
+                if (v.bond() == Bond.FRIEND || v.bond() == Bond.DATING) {
+                    out.add("hey again man");
+                    out.add("oh hey, good to see u");
+                }
                 out.add("hey " + name(v));
+                greetingNow(v, out);
+                leveledUp(v, out);
             }
             case HELLO_BACK -> {
                 out.addAll(List.of("oh hey again", "yo long time", "heyy", "oh hey", "hey u back", "oh its u",
                         "yo again lol", "hii again", "hey hey long time", "oh hey man", "yo sup again", "hey stranger"));
                 out.add("o hey " + name(v));
+                greetingNow(v, out);
+                leveledUp(v, out);
             }
             case SMALL_TALK -> out.addAll(List.of("lol ya", "same as always lol", "not much tbh", "ya just here lol",
                     "hm same", "yea lol same", "still here lol", "aw nothing much", "same lol", "ye just chillin",
@@ -288,6 +296,26 @@ public final class ReplyPlanner {
         return f;
     }
 
+    /**
+     * Greeting scripts that say what is true now - where the bot stands and what it is killing - and, when memory has
+     * one, that the two have met before (owner's answer 8: a hello uses what is true now, not a stock greeting).
+     */
+    private static void greetingNow(View v, List<String> out) {
+        String place = v.place() == null ? null : v.place().toLowerCase(Locale.ROOT);
+        if (v.town() && place != null) {
+            out.add("hey, just chillin in " + place);
+            out.add("yo, in " + place + " rn");
+        } else if (!v.mobsHere().isEmpty()) {
+            String mob = v.mobsHere().get(0).toLowerCase(Locale.ROOT);
+            out.add("hey, killing " + mob + "s rn");
+            out.add("yo, on " + mob + "s rn");
+        }
+        if (v.shared() != null && !v.shared().isBlank()) {
+            out.add("oh hey, remember me lol");
+            out.add("hey, we know each other right");
+        }
+    }
+
     /** Where the bot stands - and never "grinding" in a town (the b240 rule, carried into the planner's facts). */
     private static void place(View v, List<String> f) {
         if (v.place() == null || v.place().isBlank()) {
@@ -340,12 +368,30 @@ public final class ReplyPlanner {
             f.add("what you remember about them: " + v.note().trim());
         }
         if (v.shared() != null && !v.shared().isBlank()) {
-            f.add("just now: " + v.shared().trim());
+            f.add("what you two did before: " + v.shared().trim());
         }
-        if (v.bond() != Bond.STRANGER && (v.note() == null || v.note().isBlank())) {
+        if (v.bond() != Bond.STRANGER && v.lastLevel() > 0) {
+            f.add("when you last talked they were level " + v.lastLevel());
+            if (v.playerLevel() > v.lastLevel()) {
+                f.add("they are level " + v.playerLevel() + " now: they leveled up since then, and you may say so");
+            } else {
+                f.add("they are still level " + v.playerLevel() + ": do not say they leveled up");
+            }
+        } else if (v.bond() != Bond.STRANGER && (v.note() == null || v.note().isBlank())) {
             f.add("you do not know what they have done since then: do not say they leveled up or that they are back "
                     + "after a break");
         }
+    }
+
+    /** What the player's progress since the last talk earns them: a grats, and nothing at all when there is none. */
+    private static void leveledUp(View v, List<String> out) {
+        if (v.lastLevel() <= 0 || v.playerLevel() <= v.lastLevel()) {
+            return;
+        }
+        out.add("oh u leveled, grats");
+        out.add("grats on " + v.playerLevel());
+        out.add("yo u hit " + v.playerLevel() + "?");
+        out.add("nice, " + v.playerLevel() + " now");
     }
 
     // ── the phrasing prompt ──
