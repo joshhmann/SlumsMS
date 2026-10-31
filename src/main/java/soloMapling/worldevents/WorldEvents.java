@@ -561,10 +561,19 @@ public final class WorldEvents {
                 e.npcName = npc.getName();
             }
             case GIANT_CAKE -> {
-                Monster cake = spawnMob(map, t.bossMobId(), centerSpot(map, rng), t.bossHp());
+                // 1.6.2 (owner b236): the cake's HP scales with everyone on the map now; newcomers top it up (CakeHp)
+                Monster probe = LifeFactory.getMonster(t.bossMobId());
+                e.cakeBaseHp = t.bossHp() > 0 ? t.bossHp() : probe == null ? 0 : probe.getMaxHp();
+                e.cakeHeads = headsOn(map);
+                long hp = CakeHp.hpFor(e.cakeBaseHp, e.cakeHeads, CakeHp.perHead(), CakeHp.cap());
+                Monster cake = spawnMob(map, t.bossMobId(), centerSpot(map, rng), hp);
                 if (cake == null) {
                     return "cake " + t.bossMobId() + " could not be spawned";
                 }
+                qa("WEVENT CAKE HP " + hp + " for " + e.cakeHeads + " attendees (base " + e.cakeBaseHp + ", +"
+                        + CakeHp.perHead() + " each, cap " + CakeHp.cap() + ")");
+                e.touchTask = ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(
+                        () -> topUpCake(e), CakeHp.BEAT_MS, CakeHp.BEAT_MS, TimeUnit.MILLISECONDS);
                 e.subject = cake.getName();
                 e.bossOid = cake.getObjectId();
                 e.mobOids.add(cake.getObjectId());
@@ -667,6 +676,40 @@ public final class WorldEvents {
             WorldEventReactions.recruit(e, rng);
         }
         WorldEventReactions.chatter(e, now, rng, false);
+    }
+
+    /** 1.6.2 (b236): everyone on the event map, players and bots (the cake's attendance). */
+    private static int headsOn(MapleMap map) {
+        try {
+            return map.getAllPlayers().size();
+        } catch (RuntimeException ex) {
+            return 0;
+        }
+    }
+
+    /** 1.6.2 (b236): the cake's beat - newcomers since the last count raise its max and current HP (CakeHp, to the cap). */
+    private void topUpCake(ActiveEvent e) {
+        try {
+            if (e.finished) {
+                return;
+            }
+            MapleMap map = mapOf(e.mapId());
+            Monster cake = map == null || e.bossOid < 0 ? null : map.getMonsterByOid(e.bossOid);
+            if (cake == null || !cake.isAlive()) {
+                return;
+            }
+            int heads = headsOn(map);
+            long add = CakeHp.topUp(e.cakeBaseHp, cake.getMaxHp(), e.cakeHeads, heads, CakeHp.perHead(), CakeHp.cap());
+            if (heads > e.cakeHeads) {
+                e.cakeHeads = heads;
+            }
+            if (add > 0 && cake.raiseMaxHp(add)) {
+                qa("WEVENT CAKE HP " + cake.getMaxHp() + " for " + heads + " attendees (+" + add + ", now "
+                        + cake.getHp() + " left)");
+            }
+        } catch (RuntimeException ex) {
+            log("[WorldEvents] cake top-up failed: " + ex);
+        }
     }
 
     /** The giant cake's little cakes: the template's waves in turn, over and over. */

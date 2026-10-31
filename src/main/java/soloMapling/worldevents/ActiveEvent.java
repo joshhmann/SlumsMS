@@ -64,6 +64,9 @@ public final class ActiveEvent {
     volatile java.util.concurrent.ScheduledFuture<?> touchTask;
     /** 1.6.0: the next wave of a giant cake's little cakes (they keep coming while the cake stands). */
     volatile int cakeWave;
+    /** 1.6.2 (b236): the giant cake's HP before attendance (template or !qa), and the most heads its HP was set for. */
+    volatile long cakeBaseHp;
+    volatile int cakeHeads;
 
     /** 1.6.2: drops bots picked up on the map after the fight ended (EventLootScramble; QA's WEVENT LOOT lines). */
     final java.util.concurrent.atomic.AtomicInteger botLoots = new java.util.concurrent.atomic.AtomicInteger();
