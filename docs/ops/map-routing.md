@@ -48,7 +48,9 @@ Two sections, `<TAB>` separated, `#` starts a comment, blank lines ignored.
 - `route_to_map` is where the move lands instead. `route_to_map == from_map` means "stay where you are": the move is
   refused with a short system message, the character stays on its map with actions enabled.
 - `route_to_portal` is a portal name on `route_to_map` (`sp` or `0` for its default spawn).
-- `reason` is the rule that picked the row, so a human can audit every line (see below).
+- `reason` is the rule that picked the row, so a human can audit every line (see below). The generator re-derives it
+  from the data on every run (`check_reasons`), so a row whose route does not follow the rule it names stops the run
+  instead of reaching the table.
 - `blocked_maps` gives every blocked id a kind and a `fallback_map`: what a saved character and a warp whose source is
   unknown fall back to. The fallback is always a loadable, unblocked map.
 
@@ -62,7 +64,10 @@ its name goes in `reason`:
    999999999), else its `info/returnMap`. A map always knows where it sends a character back to.
 3. `portal-pair` - another loadable map has the counterpart portal: `pn` of ours is its `tn` and `tn` of ours is its
    `pn`. That is the map our door was meant to appear in (WZ renumbering), used when unambiguous.
-4. `source-return` - the source map's own `info/returnMap`: the way back out of the dead end.
+4. `source-return` - the source map's own `info/returnMap`: where that map sends a character back to, so a door into
+   a hole leaves the player through the map they are standing in. This is why `100 out03 70 66 sp source-return` is
+   right even though `66 out03 70 65 sp source-return` exists too: 100 returns to 66 and 66 returns to 65, so the two
+   rows are a chain out of the same hole rather than the same answer twice.
 5. `street-town` - the nearest loadable, unblocked town (`info/town` = 1) on the target's street (`String.wz`
    `streetName`, else the source's street), nearest by map id.
 6. `street-nearest` - the nearest loadable, unblocked map on that street.

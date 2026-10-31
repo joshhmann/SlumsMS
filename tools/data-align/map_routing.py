@@ -12,13 +12,17 @@ written in the row's reason column:
   1. manual       - a kept row from the previous table (its line ends with '# manual'); never recomputed
   2. return       - the target exists (client-crash): its info/forcedReturn, else its info/returnMap
   3. portal-pair  - a map whose portal is the exact counterpart of ours (its pn is our tn and its tn our pn)
-  4. source-return- the source map's own info/returnMap (the way back out of the dead end)
+  4. source-return- the source map's own info/returnMap: where that map sends a character back to, so a door into a
+                    hole leads out of the map the player is standing in. Row '100 out03 70 -> 66 source-return' is an
+                    example: 100's returnMap is 66 (not 65, which is 66's own returnMap), so the two rows are a chain
   5. street-town  - the nearest town (info/town=1) on the target's street (String.wz streetName)
   6. street-nearest - the nearest map on that street
   7. henesys      - 100000000
 
-Every route must itself be a map that is in Map.wz and not blocked; the generator validates its own output and exits
-non-zero instead of writing a table that would send a player into another broken map.
+Every route must itself be a map that is in Map.wz and not blocked, and every row's reason is re-derived from the
+data by check_reasons() independently of the rule that wrote it; the generator validates its own output and exits
+non-zero instead of writing a table that would send a player into another broken map or that names a rule its route
+does not follow.
 
     python3 tools/data-align/map_routing.py --wz /root/slums-nav-v70/wz \
         --client-crash tools/data-align/client-crash-maps.txt [--check]
@@ -184,6 +188,23 @@ class Router:
         portals = self.maps[route]["portals"]
         return portals[0].get("pn") if portals else "0"
 
+    def street_for(self, target, source=None):
+        """The street a route is judged against: the target's own, else the source's (String.wz may not know the
+        target at all)."""
+        return self.names.get(target, ("", ""))[0] or self.names.get(source or 0, ("", ""))[0]
+
+    def street_candidates(self, target, street):
+        """(rule, map) for rules 5 and 6, best first: the street's nearest town, else its nearest map. Only maps
+        inside the street's own area count, so a 2012 event map cannot pull a route across the world."""
+        area = self.street_area.get(street)
+        on_street = [m for m in self.by_street.get(street, [])
+                     if self.loadable(m) and m != target and (area is None or m // 100000000 == area)]
+        out = []
+        for rule, take in (("street-town", lambda m: self.maps[m]["info"].get("town") == "1"),
+                           ("street-nearest", lambda m: True)):
+            out += [(rule, m) for m in sorted((m for m in on_street if take(m)), key=lambda m: (abs(m - target), m))]
+        return out
+
     def route(self, target, source=None, portal=None):
         """(map, portal, reason) for a move into `target`; None when nothing loadable is known."""
         info = self.maps.get(target, {}).get("info", {})
@@ -204,17 +225,11 @@ class Router:
             back = int(self.maps.get(source, {}).get("info", {}).get("returnMap", NO_TARGET) or NO_TARGET)
             if self.loadable(back):
                 return back, self.arrival_portal(target, back, source, (portal or {}).get("tn")), "source-return"
-        street = self.names.get(target, ("", ""))[0] or self.names.get(source or 0, ("", ""))[0]
+        street = self.street_for(target, source)
         wanted = (portal or {}).get("tn")
         if street:  # rules 5 and 6: the street this door belongs to, inside that street's own area
-            area = self.street_area.get(street)
-            on_street = [m for m in self.by_street.get(street, [])
-                         if self.loadable(m) and m != target and (area is None or m // 100000000 == area)]
-            for rule, keep in (("street-town", lambda m: self.maps[m]["info"].get("town") == "1"),
-                               ("street-nearest", lambda m: True)):
-                near = sorted((m for m in on_street if keep(m)), key=lambda m: (abs(m - target), m))
-                if near:
-                    return near[0], self.arrival_portal(target, near[0], source, wanted), rule
+            for rule, near in self.street_candidates(target, street):
+                return near, self.arrival_portal(target, near, source, wanted), rule
         if self.loadable(HENESYS):  # rule 7
             return HENESYS, self.arrival_portal(target, HENESYS, source, wanted), "henesys"
         return None
@@ -233,6 +248,67 @@ def manual_rows(path):
         if len(cols) >= 6:
             kept[(cols[0], cols[1], cols[2])] = cols
     return kept
+
+
+def check_reasons(router, rows, problems):
+    """s-maproute round 2: a row's reason must be provable from the data on its own, not only from what route() said
+    on the run that wrote it. Every label is re-derived here without calling route(), so a row that claims
+    'source-return' but lands where the source never returns is a problem instead of a review finding."""
+    for row in rows:
+        frm, portal_name, target, lands, door, label = row[0], row[1], int(row[2]), int(row[3]), row[4], row[5]
+        reason = label.replace(" (script)", "")
+        if reason == "manual":
+            continue
+        where = f"{frm}/{portal_name} -> {target}"
+        if lands not in router.maps or lands in router.blocked:
+            problems.append(f"{where}: reason {label} but route {lands} is missing or blocked")
+            continue
+        if door != "0" and router.portal_named(lands, door) is None:
+            problems.append(f"{where}: reason {label} but map {lands} has no portal {door}")
+            continue
+        source = None if frm == "*" else int(frm)
+        if reason == "return":
+            if target not in router.maps:
+                problems.append(f"{where}: reason 'return' but Map.wz has no image for {target}")
+                continue
+            info = router.maps[target]["info"]
+            backs = [int(info.get(k, NO_TARGET) or NO_TARGET) for k in ("forcedReturn", "returnMap")]
+            if lands not in backs:
+                problems.append(f"{where}: reason 'return' but {target} sends a character to {backs}, not {lands}")
+        elif reason == "source-return":
+            if source is None:
+                problems.append(f"{where}: reason 'source-return' with no source map")
+                continue
+            back = int(router.maps.get(source, {}).get("info", {}).get("returnMap", NO_TARGET) or NO_TARGET)
+            if target in router.maps:
+                problems.append(f"{where}: reason 'source-return' but {target} has an image, so 'return' comes first")
+            elif back != lands:
+                problems.append(f"{where}: reason 'source-return' but map {source}'s returnMap is {back}, not {lands}")
+        elif reason == "portal-pair":
+            ours = router.portal_named(source, portal_name) if source is not None else None
+            if ours is None:
+                problems.append(f"{where}: reason 'portal-pair' but map {frm} has no portal {portal_name}")
+                continue
+            pn, tn = ours.get("pn"), ours.get("tn")
+            twins = [m for m in router.maps
+                     if router.loadable(m) and m != target
+                     and any(p.get("pn") == tn and p.get("tn") == pn and int(p.get("tm") or NO_TARGET) == source
+                             for p in router.maps[m]["portals"])]
+            if twins != [lands]:
+                problems.append(f"{where}: reason 'portal-pair' but the counterpart door is in {twins}, not {lands}")
+        elif reason in ("street-town", "street-nearest"):
+            street = router.street_for(target, source)
+            if not street:
+                problems.append(f"{where}: reason '{reason}' but String.wz knows no street for {target}")
+                continue
+            best = next((m for rule, m in router.street_candidates(target, street) if rule == reason), None)
+            if best != lands:
+                problems.append(f"{where}: reason '{reason}' but the street '{street}' gives {best}, not {lands}")
+        elif reason == "henesys":
+            if lands != HENESYS:
+                problems.append(f"{where}: reason 'henesys' but the route is {lands}")
+        else:
+            problems.append(f"{where}: unknown reason '{label}'")
 
 
 def main():
@@ -327,6 +403,9 @@ def main():
         if fallback not in maps or fallback in blocked:
             problems.append(f"blocked map {row[0]} has fallback {fallback}, which is missing or blocked")
 
+    # and every reason must be the rule that names it, proved from the data rather than from route()'s own output
+    check_reasons(router, rows, problems)
+
     rows.sort(key=lambda r: (r[0] != "*", int(r[0]) if r[0] != "*" else 0, r[1], int(r[2])))
     text = HEADER_ROUTES + "#\n"
     text += "".join("\t".join(r) + "\n" for r in rows)
@@ -338,6 +417,11 @@ def main():
           f"{len(blocked_rows)} blocked maps ({missing} missing, {len(blocked_rows) - missing} client-crash)")
     stayed = sum(1 for r in rows if r[0] != "*" and r[0] == r[3])
     print(f"{stayed} routes are dead ends (route_to_map == from_map: the character stays with a message)")
+    counts = {}
+    for r in rows:
+        key = r[5].replace(" (script)", "")
+        counts[key] = counts.get(key, 0) + 1
+    print("reasons: " + ", ".join(f"{k} {counts[k]}" for k in sorted(counts)))
     if problems:
         print(f"\n{len(problems)} problem(s), table not written:", file=sys.stderr)
         for p in problems:
@@ -345,7 +429,8 @@ def main():
         return 1
     out = Path(a.out)
     if a.check:
-        print("valid: every route lands on a map Map.wz has and the client can load")
+        print("valid: every route lands on a map Map.wz has and the client can load, and every reason"
+              " matches the rule that names it")
         current = out.read_text(encoding="utf-8") if out.exists() else ""
         if current == text:
             print(f"{out.relative_to(ROOT) if out.is_relative_to(ROOT) else out} is current")
