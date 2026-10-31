@@ -187,19 +187,25 @@ public class BotGeneration {
         soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onBotLogin(bot); // 1.5.0: its guild, before it shows on the map
         soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onBotLogin(bot); // 1.5.0: a bot engaged or married to a player
         BotFamily.onBotLogin(bot); // 1.6.1 ticket 53: a player's family junior
-        placeBotOnMap(bot, placePos, placeMap);
+        // 1.6.2 rc: the look and the pet are in place *before* the bot joins the map, so its spawn packet (the only
+        // one a watching client ever gets about a bot) already carries them. See Dressing. The chair is a bag item,
+        // not part of the spawn packet, so it is still handed over after the store write, as it always was.
+        Dressing dressing = adopted
+                ? BotPets::attach
+                : b -> {
+                    switch (decorationFor(baseClass, minLevel)) {
+                        case RANDOM -> setBotVariables(b);
+                        case LEVEL_RANGE -> setBotVariablesInRange(b, minLevel, Math.max(minLevel, maxLevel));
+                        case CLASS -> setBotVariables(b, baseClass, minLevel, maxLevel, forcedJobId);
+                    }
+                    b.setFame(BotFame.forBot(botId, b.getLevel()));
+                    BotPets.attach(b); // 1.5.0 rc4: its pet, now that its level is known (drawn from its id)
+                };
+        joinMap(bot, placePos, placeMap, dressing);
         placedBots.incrementAndGet();
         if (adopted) {
             BotStore.restorePlacement(bot, placeMap);
         } else {
-            // Decorate before the drop-down plays so the bot arrives fully dressed
-            // (decoration is an in-memory cache lookup, takes microseconds).
-            switch (decorationFor(baseClass, minLevel)) {
-                case RANDOM -> setBotVariables(bot);
-                case LEVEL_RANGE -> setBotVariablesInRange(bot, minLevel, Math.max(minLevel, maxLevel));
-                case CLASS -> setBotVariables(bot, baseClass, minLevel, maxLevel, forcedJobId);
-            }
-            bot.setFame(BotFame.forBot(botId, bot.getLevel()));
             // A brand new bot is minted with the initial-creator grants and gets its store row right away,
             // so a restart between creation and its first save cannot re-mint it as somebody else.
             try {
@@ -215,7 +221,6 @@ public class BotGeneration {
         // 1.6.0 (ticket 92): ~1 in 20 hangout/explorer bots own a Fishing Chair; new ones get it now, existing ones at
         // this login (once: it is saved with the bag). After decoration and restore, so neither replaces the bag.
         soloMapling.fishing.BotFishingChairs.ensure(bot);
-        BotPets.attach(bot); // 1.5.0 rc4: its pet, now that its level is known (drawn from its id: nothing stored)
         // Choreography sleeps ~2.5-6s in total; play it on a virtual thread so
         // mass spawning isn't gated on each bot's arrival animation. Drop-down ->
         // turn-around ordering is preserved because it's one sequential task.
@@ -248,6 +253,39 @@ public class BotGeneration {
         fakechar.setPosition(pos);
         fakechar.setStance(5);
         map.addPlayer(fakechar);
+    }
+
+    /**
+     * Everything a bot's spawn packet has to carry, worked out before the bot joins its map.
+     *
+     * <p>1.6.2 rc (owner, 2026-10-31, "incomplete playerbots"): {@link MapleMap#addPlayer} broadcasts the spawn
+     * packet, and for a bot that packet is the <em>only</em> thing a watching client ever learns about its look,
+     * chair and pet (a bot's client is a shared headless {@link client.BotClient}). Decorating after the join sent
+     * the template's look - the source character's hair/face and no clothes - and nothing re-sent it, so a freshly
+     * minted bot stayed incomplete on screen until the client re-entered the map.
+     */
+    interface Dressing {
+        void apply(Character bot);
+    }
+
+    /**
+     * Puts a bot on its map, dressed first. See {@link Dressing}.
+     *
+     * <p>The map and the point are set before the dressing runs: a dress step that equips calls
+     * {@link Character#equipChanged()}, which needs a map to broadcast to (a freshly loaded template has none), and
+     * the pet is placed at the bot's point, not at the template's. Nothing is announced yet — the bot is not in the
+     * map, so no spawn packet has gone out — and {@link MapleMap#addPlayer} then sends the one packet that carries
+     * the finished look.
+     */
+    static void joinMap(Character bot, Point pos, MapleMap map, Dressing dressing) {
+        if (bot.getMap() == map) {
+            bot.getMap().removePlayer(bot);
+        }
+        bot.setMap(map);
+        bot.setPosition(pos);
+        bot.setStance(5);
+        dressing.apply(bot);
+        map.addPlayer(bot);
     }
 
     /**
