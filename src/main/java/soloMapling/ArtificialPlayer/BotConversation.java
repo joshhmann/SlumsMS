@@ -25,6 +25,8 @@ import java.util.function.Consumer;
 import static soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands.botFaceTowardsPoint;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotEmote;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
+import soloMapling.ArtificialPlayer.BotConvo.RepeatGuard;
 
 /**
  * A free-form chat between one bot and one player through the bot's brain (bot-persistence ticket 21): the
@@ -607,6 +609,12 @@ public final class BotConversation {
                     return;
                 }
                 case GREETING -> {
+                    if (RepeatGuard.greetedRecently(bot, player)) {
+                        // b248: this bot greeted this player minutes ago - answer with small talk, not another hello
+                        deliver(session, bank(session, "talk", read, ScriptedReplies.pick(ScriptedReplies.TALK)), asked,
+                                ChatStats.Tier.SCRIPTED, "greeted recently", cue);
+                        return;
+                    }
                     if (botHasSpoken(session)) { // a greeting mid-chat is small talk; the first one gets a real reply
                         deliver(session, bank(session, "greeting", read, ScriptedReplies.forKind(triage.kind())), asked,
                                 ChatStats.Tier.SCRIPTED, "greeting", cue);
@@ -879,6 +887,10 @@ public final class BotConversation {
         Key key = new Key(chr.getId(), player.getId());
         long now = System.currentTimeMillis();
         if (isTalking(chr.getId(), player.getId())) {
+            return false;
+        }
+        // b248: one hello per player per gap, whether the player said hi or the bot noticed them first
+        if (RepeatGuard.greetedRecently(chr, player)) {
             return false;
         }
         startSweeper();
@@ -1176,7 +1188,18 @@ public final class BotConversation {
                 : said.text();
         // rc6 say-do: a reply never promises what the decided action does not do ("omw" with the walk refused,
         // "inv me" with no party decided): the clause with that claim is taken out (ClaimActions.guardReply)
-        String line = guardClaims(bot, player, styledLine, cue);
+        String guarded = guardClaims(bot, player, styledLine, cue);
+        // b247: the last net before a player sees it - a slot is refilled from live state or the line is dropped
+        guarded = SpeechGuard.check(bot, player, guarded);
+        if (guarded == null) {
+            ChatStats.reply(ChatStats.Tier.IGNORED, System.currentTimeMillis() - asked, bot.getName(),
+                    "speech guard: unfilled slot");
+            return;
+        }
+        final String line = guarded;
+        if (cue != null && cue.triage() != null && cue.triage().kind() == ChatTriage.Kind.GREETING) {
+            RepeatGuard.noteGreeting(bot, player); // b248: one hello per gap
+        }
         String claimSource = "reply-" + said.source();
         synchronized (session.history) {
             session.history.add(BotBrain.Turn.assistant(line));

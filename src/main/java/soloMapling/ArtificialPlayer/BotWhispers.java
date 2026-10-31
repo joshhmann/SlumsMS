@@ -5,6 +5,7 @@ import tools.PacketCreator;
 
 import java.util.HashMap;
 import java.util.Map;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
 
 /**
  * One unsolicited whisper budget per recipient across all bots/channels; replies spend no budget and ignore busy.
@@ -32,6 +33,10 @@ public final class BotWhispers {
         }
         boolean reply = act == null;
         Character bot = senderOf(player, sender);
+        line = SpeechGuard.check(bot, player, line); // b247: never a {slot}
+        if (line == null) {
+            return false;
+        }
         int botKey = SocialGate.botKey(bot, sender);
         if (!reply) { // a reply to the player's own whisper always goes through
             SocialGate.Verdict v = SocialGate.check(bot, player, act);

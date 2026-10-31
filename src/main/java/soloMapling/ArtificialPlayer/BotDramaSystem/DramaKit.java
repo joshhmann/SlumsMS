@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
 
 /**
  * Shared pieces of the 1.5.0 bot drama package: its lines ({@code DramaDialogue.yaml}, root {@code Drama}), per-key
@@ -232,6 +233,10 @@ public final class DramaKit {
     /** A bot's whisper answering something the player just did (never held: the player is waiting for it). */
     static void reply(Character bot, Character player, String line) {
         if (bot == null || player == null || line == null) {
+            return;
+        }
+        line = SpeechGuard.check(bot, player, line); // b247: never a {slot}
+        if (line == null) {
             return;
         }
         player.sendPacket(PacketCreator.getWhisperReceive(bot.getName(), Math.max(0, channelOf(bot) - 1), false, line));

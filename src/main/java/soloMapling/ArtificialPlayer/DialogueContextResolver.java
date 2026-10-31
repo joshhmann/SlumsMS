@@ -41,7 +41,9 @@ public final class DialogueContextResolver {
     private DialogueContextResolver() {
     }
 
-    private static final Pattern TOKEN = Pattern.compile("\\{([A-Z_]+)\\}");
+    // b247: identifiers in either case. It used to be [A-Z_]+ only, so a lower-case slot ({player} in the
+    // SocialBotDialogue greetings, {item} in the shop packs) read as plain text and was spoken raw.
+    private static final Pattern TOKEN = Pattern.compile("\\{([A-Za-z][A-Za-z0-9_]*)\\}");
 
     // Cash-overlay equipped items sit at slot <= this; regular visible equips are between this and 0.
     private static final int CASH_SLOT_CEILING = -100;
@@ -112,6 +114,16 @@ public final class DialogueContextResolver {
                     case "PLAYER_PET" -> player == null ? Optional.empty() : petName(player);
                     case "PLAYER_GUILD" -> player == null ? Optional.empty() : guildName(player);
                     case "PLAYER_NX" -> player == null ? Optional.empty() : cashItem(player);
+                    // b247: lower-case spellings the older packs use ({player} in SocialBotDialogue, {me}, {map}).
+                    // Only the ones live state can answer: {item}, {price} and {counter_price} stay unresolved, so
+                    // their line is dropped here rather than spoken with the braces in it.
+                    case "player", "name", "you" -> player == null ? Optional.empty() : nonBlank(player.getName());
+                    case "me", "bot", "self" -> self == null ? Optional.empty() : nonBlank(self.getName());
+                    case "map" -> self == null ? Optional.empty() : mapName(self);
+                    case "job" -> self == null ? Optional.empty() : jobName(self);
+                    case "level" -> self == null ? Optional.empty() : levelStr(self);
+                    case "guild" -> self == null ? Optional.empty() : guildName(self);
+                    case "mob" -> mobName();
                     default -> Optional.empty();
                 };
             } catch (RuntimeException e) {
