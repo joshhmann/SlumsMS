@@ -826,6 +826,11 @@ Kerning PQ checks alone were a quarter of it. Checks can now overlap on up to fo
   flip a world switch (`@botdrama`, `@romance`, `@quiet`, a guild war), stay serial. The catalogue's current split is
   101 lane-only, 48 holding a map/PQ/market key and 26 holding the world.
 
+- **A stuck Kerning PQ run fails at 8 minutes** (`-Dslums.autoqa.kpqStallMin`, default 8, 0 = off): t-mx-1 and
+  t-mx-2 wait on the run's own `RUN` lines, so a run that stops reporting FAILs with "no stage cleared in 8 min"
+  instead of spending its 17/31-minute budget to the same timeout. The wait still passes the moment the verdict line
+  arrives, so a run whose stages clear is judged exactly as before.
+
 Before trusting a parallel run, run the catalogue once at each setting on one build and diff the two reports: every
 check that passes alone must pass beside its neighbours, or its declaration is wrong and it needs the key it really
 uses. A check that fails only in parallel is the leak.

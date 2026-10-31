@@ -38,6 +38,7 @@ import static soloMapling.autoqa.Steps.until;
 import static soloMapling.autoqa.Steps.untilProbe;
 import static soloMapling.autoqa.Steps.waitFor;
 import static soloMapling.autoqa.Steps.waitForSince;
+import static soloMapling.autoqa.Steps.waitForWithProgress;
 import static soloMapling.autoqa.Steps.waitSeconds;
 
 /**
@@ -1334,7 +1335,8 @@ public final class AutoQaCatalog {
         // their own (Cloto's question, Ligator coupons, passes to the leader) within the limit; mx-1 says PASS only
         // when the stage's clear property was set in time. Off without -Dslums.mechanics=true: the refusal SKIPs.
         c.add(Check.auto("t-mx-1", "Four bots clear Kerning PQ stage 1 on their own").holds("pq:kpq").minutes(18)
-                .step(run("mx-1"), waitFor("MX1 (PASS|FAIL) ", 17 * 60), stop())
+                .step(run("mx-1"), waitForWithProgress("MX1 (PASS|FAIL) ", 17 * 60, "RUN ",
+                        "stage cleared"), stop())
                 .expect(has("MX1 START kpq stage 1 with 4 bots"), has("RUN stage 1 cleared in \\d+ s"),
                         has("MX1 PASS cleared stage 1 in \\d+ s"), lacks("MX1 FAIL "), lacks(" FAILED: "))
                 .build());
@@ -1342,7 +1344,8 @@ public final class AutoQaCatalog {
         // Cloto's five stages, the stage portals, the prize, Nella) and every one reaches the bonus; mx-2 says PASS
         // only then, within 25 minutes (KPQ's own timer is 30). Off without -Dslums.mechanics=true: the refusal SKIPs.
         c.add(Check.auto("t-mx-2", "Four bots play all of Kerning PQ on their own, prizes and bonus included").holds("pq:kpq").minutes(32)
-                .step(run("mx-2"), waitFor("MX2 (PASS|FAIL) ", 31 * 60), stop())
+                .step(run("mx-2"), waitForWithProgress("MX2 (PASS|FAIL) ", 31 * 60, "RUN ",
+                        "stage cleared"), stop())
                 .expect(has("MX2 START kpq with 4 bots"), has("RUN stage 5 cleared in \\d+ s"),
                         has("MX2 PASS cleared kpq in \\d+ s"), lacks("MX2 FAIL "), lacks(" FAILED: "))
                 .build());
