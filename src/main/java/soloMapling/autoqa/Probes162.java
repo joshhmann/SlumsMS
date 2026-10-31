@@ -989,6 +989,16 @@ final class Probes162 {
      */
     static final int GB5_STAGED_PRICE = 100_000;
 
+    /**
+     * t-gb-5's worn sword, with the slots the item data gives it (1302000 has 5). TEST 2026-10-31: the probe gave it 7.
+     * The EV planner values a piece by what it costs to make again with its own slots, so the two extra slots were
+     * stats no sword can be made with, priced sky-high, and a careful bot "profitably" used a sure scroll at its
+     * market price. Nothing to change here: the item keeps its own slot count.
+     */
+    static Equip gb5Staged(Equip sword) {
+        return sword;
+    }
+
     /** The scroll id a plan picked, or 0 for none. */
     static int pickOf(BotScrolling.Plan plan) {
         return plan == null ? 0 : plan.choice().scrollId();
@@ -1019,7 +1029,7 @@ final class Probes162 {
 
     /**
      * t-gb-5 ({@code slums.scroll.ev}): a fresh level-50 bot (tick stopped), gear and scrolls taken away, wears a
-     * one-handed sword with 7 slots. Part A: it holds only a plain 100% ATT scroll for it; the appetite rule (the
+     * clean one-handed sword with its own slots (5). Part A: it holds only a plain 100% ATT scroll for it; the appetite rule (the
      * switch off) would use it for a careful bot, the EV planner must not once the scroll has a market price (its
      * own, else {@link #GB5_STAGED_PRICE} staged for the read; an unpriced held scroll is free to use). Part B (only
      * while long shots are allowed today): it holds only a dark ATT scroll; the game ({@code plan()}) must have a
@@ -1037,8 +1047,7 @@ final class Probes162 {
         try {
             freeze(bot);
             clearGear(bot);
-            Equip sword = stagedEquip(GB5_SWORD, 17, 0);
-            sword.setUpgradeSlots((byte) 7);
+            Equip sword = gb5Staged(stagedEquip(GB5_SWORD, 17, 0));
             wear(bot, sword, (short) -11);
             clearScrolls(bot);
             ItemInformationProvider ii = ItemInformationProvider.getInstance();
@@ -1058,7 +1067,7 @@ final class Probes162 {
                 }
             }
             ev.add("bot " + bot.getName() + " (own appetite " + ScrollRules.Appetite.of(bot.getId()) + ") wears "
-                    + GB5_SWORD + " with 7 slots; fitting scrolls " + fit.stream().map(f -> f.scrollId() + "(" + f.success()
+                    + GB5_SWORD + " with " + sword.getUpgradeSlots() + " slots; fitting scrolls " + fit.stream().map(f -> f.scrollId() + "(" + f.success()
                     + "%" + (f.dark() ? " dark" : "") + ")").toList() + "; plain 100% " + plain + ", dark " + dark);
             if (plain == 0) {
                 return List.of("FAIL no plain 100% ATT scroll fits " + GB5_SWORD + " in " + GB5_SCROLL_FROM + ".."
