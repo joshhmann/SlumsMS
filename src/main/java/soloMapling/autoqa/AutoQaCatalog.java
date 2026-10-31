@@ -60,7 +60,11 @@ public final class AutoQaCatalog {
     static final int COUPLE_TOWN = 100000000;
     /** Bot chat lines a judge grades: "CHAT <bot>: <line>" from the staged bot. */
     static final String BOT_SAYS = "CHAT {bot}: (.+)";
-    /** Every reply line of the convo layer: "SAID <bot> -> player <hash> [tier, src, voice, ms] <line>". */
+    /**
+     * Every reply line of the convo layer: "SAID <bot> -> player <hash> [tier, src, voice, ms, slots=<filled|literal|
+     * none>] <line>". The {@code slots} tag (b247 triage) is inside the bracket on purpose, so the captured line is still
+     * exactly what the player saw.
+     */
     static final String SAID = "CONVO SAID \\S+ -> player \\S+ \\[[^]]*] (.+)";
     /**
      * b222: how long a chat check waits for the bot's reply before its next line. A wait that runs out now FAILs, and

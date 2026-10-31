@@ -45,6 +45,8 @@ public final class ConvoQuality {
 
     static final long RATE_WINDOW_MS = TimeUnit.MINUTES.toMillis(10);
     static final long THREAD_WINDOW_MS = TimeUnit.MINUTES.toMillis(2);
+    /** A {@code {slot}} left in a line (b247: lower case too, {@code {player}}, {@code {map}}). */
+    private static final java.util.regex.Pattern SLOT = java.util.regex.Pattern.compile("\\{[A-Za-z_]+}");
 
     /** A line a bot said: to a player ({@code playerId} > 0) or in a thread on a map. */
     public record Said(long at, int botId, String botName, int playerId, String asked, String line, String source,
@@ -176,6 +178,7 @@ public final class ConvoQuality {
         // privacy (review 2026-10-22): the player's name never reaches a transcript, a rating or a QA line
         String name = player.getName();
         asked = anonymise(asked, name);
+        String rawLine = line;
         line = anonymise(line, name);
         Said s = new Said(System.currentTimeMillis(), bot.getId(), bot.getName(), player.getId(), asked, line, src,
                 source == null ? -1 : source.bankId(), persona == null ? null : persona.voice().label(),
@@ -187,8 +190,21 @@ public final class ConvoQuality {
         if (QaLog.on(QaLog.Topic.CONVO)) { // !qa cv-4, cv-6, cv-7
             QaLog.map(QaLog.Topic.CONVO, player.getMapId(), "SAID " + bot.getName() + " -> player " + hash(player.getId()) + " ["
                     + s.tier() + ", " + src + (s.bankId() >= 0 ? "#" + s.bankId() : "") + ", " + s.voice() + ", " + ms
-                    + " ms] " + line);
+                    + " ms, slots=" + slotsOf(rawLine, line) + "] " + line);
         }
+    }
+
+    /**
+     * b247 triage (TEST 2026-10-31): a name the bot really said and a slot nobody filled both read {@code {player}} in a
+     * QA line, so two filled lines were misread as leaks. This says which: {@code filled} (the bot said the player's
+     * name and {@link #anonymise} masked it), {@code literal} (a slot in the text it was given, unfilled: a real leak)
+     * or {@code none}. The tag sits inside the bracket, so the text after it is still the line as the player saw it.
+     */
+    static String slotsOf(String raw, String anonymised) {
+        if (raw != null && anonymised != null && !raw.equals(anonymised)) {
+            return "filled";
+        }
+        return anonymised != null && SLOT.matcher(anonymised).find() ? "literal" : "none";
     }
 
     /** A bot-to-bot thread line went out on a map. */

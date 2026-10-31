@@ -83,11 +83,14 @@ public final class MechanicsRuns {
     }
 
     /**
-     * The runs, by {@link #keyOf}. 1.6.2 (b113): was by {@code eim.getName()}, but each channel's event manager names
-     * its first KPQ "Kerning0", so a second channel's run was refused ("this event instance already has a run") and
-     * {@link #runFor} could hand back another channel's run.
+     * The runs, by the event instance itself (identity: {@link EventInstanceManager} defines no {@code equals}), so a
+     * name can never make one instance stand in for another. 1.6.2 (b113) keyed this by {@link #keyOf}, the name with
+     * world and channel; that still refused a real run (t-mx-1 on TEST 2026-10-31) because a CLEARED Kerning PQ frees
+     * its lobby, hence its name "Kerning0", while the old run is still playing the prizes and bonus: the next instance
+     * took the name and was told "this event instance already has a run" for an instance that was gone. Two instances
+     * of one event may share a name (that is what freeing the lobby means) and are two different runs.
      */
-    private final Map<String, Active> active = new ConcurrentHashMap<>();
+    private final Map<EventInstanceManager, Active> active = new ConcurrentHashMap<>();
 
     /** A run's key: the instance name with its world and channel ("Kerning0 ch 2", "Kerning0 w1 ch 2"). */
     public static String keyOf(EventInstanceManager eim) {
@@ -175,7 +178,7 @@ public final class MechanicsRuns {
             closeInstance(a);
             return a;
         }
-        if (active.putIfAbsent(keyOf(eim), a) != null) {
+        if (active.putIfAbsent(eim, a) != null) {
             run.end("this event instance already has a run");
             a.finished = true;
             a.reporter.accept("RUN not started: " + run.endedBecause());
@@ -362,7 +365,7 @@ public final class MechanicsRuns {
 
     /** The run on this instance, or null. */
     public Active runFor(EventInstanceManager eim) {
-        return eim == null ? null : active.get(keyOf(eim));
+        return eim == null ? null : active.get(eim);
     }
 
     /** Ends a run now (GM stop, QA stop). */
@@ -389,7 +392,7 @@ public final class MechanicsRuns {
         if (t != null) {
             t.cancel(false);
         }
-        active.remove(keyOf(a.eim), a);
+        active.remove(a.eim, a);
         for (Character bot : a.bots.values()) {
             MechanicsHold.release(bot.getId());
             executor.forget(bot.getId());
