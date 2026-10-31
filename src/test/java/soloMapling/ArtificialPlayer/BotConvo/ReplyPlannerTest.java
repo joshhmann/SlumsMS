@@ -346,6 +346,41 @@ class ReplyPlannerTest {
         assertFalse(ReplyPlanner.greets(null));
     }
 
+    /** Brief step 7: stable parts first, facts next, the move instruction last, so the model reads the ask last. */
+    @Test
+    void thePromptPutsTheStablePartsFirstAndTheMoveLast() {
+        for (ReplyPlanner.Move move : ReplyPlanner.Move.values()) {
+            V v = v().bond(ReplyPlanner.Bond.KNOWN);
+            v.kind = greeting(move) ? ChatTriage.Kind.GREETING : ChatTriage.Kind.TALK;
+            v.botHasSpoken = move == ReplyPlanner.Move.SMALL_TALK;
+            v.asked = switch (move) {
+                case ACTIVITY -> "what u doing";
+                case TRAIN_SPOT -> "where should i train";
+                case LEVEL_TALK -> "what lvl r u";
+                case BUSY -> "lol nice hat";
+                default -> "hey";
+            };
+            v.busy = move == ReplyPlanner.Move.BUSY;
+            ReplyPlanner.View view = v.build();
+            ReplyPlanner.Plan p = ReplyPlanner.plan(view);
+            assertNotNull(p, move + " should plan from these facts");
+            String prompt = ReplyPlanner.prompt(view, p);
+            int who = prompt.indexOf("You are Kitsune");
+            int voice = prompt.indexOf(v.voice);
+            int rules = prompt.indexOf("Never say you are an AI");
+            int facts = prompt.indexOf("the only things you may claim");
+            int instruction = prompt.indexOf(p.move().outline);
+            assertTrue(who == 0, move + ": who the bot is comes first:\n" + prompt);
+            assertTrue(voice > who, move + ": the voice comes after who it is:\n" + prompt);
+            assertTrue(rules > voice, move + ": the rules come before anything that changes:\n" + prompt);
+            assertTrue(facts > rules, move + ": the facts come after the rules:\n" + prompt);
+            assertTrue(instruction > facts, move + ": the move is the last thing read:\n" + prompt);
+            if (p.brief()) {
+                assertTrue(prompt.indexOf("You are busy") > instruction, move + ": the brief note rides with the move");
+            }
+        }
+    }
+
     @Test
     void promptIsShortAndCarriesOnlyFactsAndOneVoice() {
         for (ReplyPlanner.Move move : ReplyPlanner.Move.values()) {

@@ -407,13 +407,15 @@ public final class ReplyPlanner {
                 .append(v.botLevel()).append(' ').append(job(v.botJob())).append(". ");
         String voice = v.voice() == null || v.voice().isBlank() ? DEFAULT_VOICE : v.voice().trim();
         b.append(voice).append(' ');
+        // stable first (who the bot is, how it talks, the rules), then what is true now, then what to do: the small
+        // model reads the instruction last, right before it writes
+        b.append(RULES).append(' ');
         b.append("True right now, and the only things you may claim: ").append(String.join("; ", p.facts()))
                 .append(". ");
         b.append(p.move().outline).append(". ");
         if (p.brief()) {
             b.append("You are busy, so keep it tiny. ");
         }
-        b.append(RULES);
         return b.toString();
     }
 
