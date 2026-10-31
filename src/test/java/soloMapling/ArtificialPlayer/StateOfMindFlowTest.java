@@ -196,6 +196,29 @@ class StateOfMindFlowTest {
         assertNull(BotStateOfMind.claimedActivity(null, true));
     }
 
+    /** REVIEW-A2 item 2: a level snapshot is not something the bot remembers, and knowing one is not knowing them. */
+    @Test
+    void theSnapshotDoesNotCountTheLevelSnapshotAsAMemory() {
+        FakeMemoryTable table = new FakeMemoryTable(false);
+        table.install();
+        BotMemory.useForTest(Runnable::run, () -> 100_000L, 0);
+        try {
+            int slot = 5;
+            int playerId = 70_001;
+            Character bot = character(BotStore.BOT_ID_BASE + slot, "NLord99", 35);
+            Character player = character(playerId, "Josh", 200);
+            BotMemory.progress(bot, player, 99_000L);
+            BotSM sm = mock(TownWandererBot.class);
+            when(sm.getChr()).thenReturn(bot);
+            StateOfMind.Snapshot s = BotStateOfMind.capture(sm, player, null, false, null, null, false);
+            assertTrue(s.notes().stream().noneMatch(n -> n.startsWith("level ")),
+                    "the level snapshot is not a note: " + s.notes());
+            assertFalse(s.met(), "standing in one chat with them is not knowing them: " + s.notes());
+        } finally {
+            BotMemory.useForTest(null, null, 0);
+        }
+    }
+
     @Test
     void theSwitchesTurnTheCheckAndThePromptBlockOff() throws Exception {
         System.setProperty("solomapling.convo.grounding", "false");

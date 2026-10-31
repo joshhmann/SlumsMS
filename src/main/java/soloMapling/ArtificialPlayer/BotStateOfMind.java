@@ -107,6 +107,9 @@ final class BotStateOfMind {
             boolean known = spoken;
             try {
                 for (BotMemory.Note n : BotMemory.about(slot, player.getId())) {
+                    if (n.kind() == BotMemory.Kind.PROGRESS) {
+                        continue; // the level snapshot is the reply planner's fact, not something the bot remembers
+                    }
                     if (n.source() == BotMemory.Source.DIRECT) {
                         known = true;
                         notes.add(n.text());

@@ -69,7 +69,7 @@ public final class BotMemory {
         TOPIC,
         /** Slot: an inside joke (a line one of them laughed at). */
         JOKE,
-        /** How the player looked when these two last talked (their level), written when the chat ends. */
+        /** Slot: how the player looked when these two last talked (their level), written when the chat ends. */
         PROGRESS;
 
         public boolean episode() {
@@ -83,7 +83,7 @@ public final class BotMemory {
 
         /** One per pair, replaced rather than added; never shown as a fact or passed on as gossip. */
         public boolean slot() {
-            return this == TOPIC || this == JOKE;
+            return this == TOPIC || this == JOKE || this == PROGRESS;
         }
 
         public static Kind parse(String raw) {
@@ -589,15 +589,15 @@ public final class BotMemory {
      */
     /**
      * Records how the player looked when a chat ended, so a later greeting can tell whether they leveled up since
-     * (owner's answer 8: greetings use what is true now). One row per level, deduped like any episode; no schema change
-     * (the Kind column already holds longer names).
+     * (owner's answer 8: greetings use what is true now). A slot: one row per pair, replaced, never a remembered fact
+     * and never gossip, so it cannot push a real memory out. No schema change (the Kind column already holds it).
      */
     public static Note progress(client.Character bot, client.Character player, long now) {
         if (bot == null || player == null) {
             return null;
         }
-        return episode(bot.getId() - BotStore.BOT_ID_BASE, player.getId(), Kind.PROGRESS,
-                "level " + player.getLevel(), 1, "", now);
+        return setSlot(bot.getId() - BotStore.BOT_ID_BASE, player.getId(), Kind.PROGRESS,
+                "level " + player.getLevel(), now);
     }
 
     /** The player's level the last time these two talked, or 0 when they never have. */
