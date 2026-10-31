@@ -1,0 +1,1585 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://slumsms.local/qa/client-scripts/schema.json",
+ "title": "SlumsMS auto-QA client script (qa-scripts/<id>.yaml)",
+ "description": "One check played by the auto-QA runner (the client-mcp worker's run_script on Silvia) against TEST. Spec: docs/qa/client-scripts/README.md. Validate with tools/qa-scripts/validate.",
+ "type": "object",
+ "required": [
+  "id",
+  "title",
+  "covers",
+  "server",
+  "clients",
+  "steps",
+  "expect"
+ ],
+ "additionalProperties": false,
+ "properties": {
+  "id": {
+   "$ref": "#/$defs/id"
+  },
+  "title": {
+   "type": "string",
+   "minLength": 5,
+   "maxLength": 120
+  },
+  "covers": {
+   "type": "array",
+   "minItems": 1,
+   "uniqueItems": true,
+   "items": {
+    "type": "string",
+    "pattern": "^(b[0-9]{1,4}|t-[a-z]{2}-[0-9]{1,2}|q[w]?[0-9]{2}|ticket-[0-9]{1,4}|feature-[a-z0-9-]+)$"
+   },
+   "description": "What this script settles: bug ids (b140), auto-QA check ids (t-cl-1), release-book Test rows (q48), tickets, features."
+  },
+  "status": {
+   "enum": [
+    "draft",
+    "ready",
+    "retired"
+   ],
+   "description": "draft: written, not yet passed on TEST. ready: passed on TEST at least once."
+  },
+  "server": {
+   "const": "test",
+   "description": "Always TEST (192.168.0.164:8489). The QA client build is refused by live."
+  },
+  "needs": {
+   "type": "array",
+   "uniqueItems": true,
+   "items": {
+    "enum": [
+     "gm",
+     "two_clients",
+     "owned_alt",
+     "new_character",
+     "kpq_free_channel",
+     "cash_shop",
+     "female_character",
+     "pet",
+     "mechanics",
+     "proposed_anchors",
+     "proposed_windows",
+     "proposed_signals",
+     "proposed_steps"
+    ]
+   },
+   "description": "Staging the runner/vault must provide before the run (e.g. owned_alt: the account has an offline second character)."
+  },
+  "notes": {
+   "type": "string",
+   "maxLength": 2000
+  },
+  "clients": {
+   "type": "object",
+   "minProperties": 1,
+   "maxProperties": 2,
+   "propertyNames": {
+    "$ref": "#/$defs/alias"
+   },
+   "additionalProperties": {
+    "$ref": "#/$defs/client"
+   }
+  },
+  "steps": {
+   "type": "array",
+   "minItems": 1,
+   "maxItems": 200,
+   "items": {
+    "$ref": "#/$defs/step"
+   }
+  },
+  "captures": {
+   "type": "array",
+   "maxItems": 40,
+   "items": {
+    "$ref": "#/$defs/capture"
+   }
+  },
+  "expect": {
+   "$ref": "#/$defs/expect"
+  }
+ },
+ "$defs": {
+  "id": {
+   "type": "string",
+   "pattern": "^[a-z0-9][a-z0-9-]{0,47}$"
+  },
+  "alias": {
+   "type": "string",
+   "pattern": "^[a-z][a-z0-9_]{0,15}$"
+  },
+  "span": {
+   "type": "object",
+   "properties": {
+    "from": {
+     "$ref": "#/$defs/id"
+    },
+    "to": {
+     "$ref": "#/$defs/id"
+    }
+   },
+   "additionalProperties": false
+  },
+  "client": {
+   "type": "object",
+   "required": [
+    "account",
+    "world",
+    "channel"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "account": {
+     "type": "object",
+     "required": [
+      "vault"
+     ],
+     "additionalProperties": false,
+     "properties": {
+      "vault": {
+       "type": "string",
+       "pattern": "^[a-z0-9][a-z0-9-]{1,31}$",
+       "description": "An alias in the runner's QA vault on Silvia. Never a name or password."
+      }
+     }
+    },
+    "character": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "slot": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 14
+      },
+      "vault": {
+       "type": "string",
+       "pattern": "^[a-z0-9][a-z0-9-]{1,31}$"
+      }
+     },
+     "description": "Which character to pick: a slot, or a vault alias whose entry names the slot. Default slot 0."
+    },
+    "world": {
+     "const": "Bera"
+    },
+    "channel": {
+     "type": "integer",
+     "minimum": 1,
+     "maximum": 5
+    },
+    "gm": {
+     "type": "boolean"
+    }
+   }
+  },
+  "signal": {
+   "oneOf": [
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "name"
+     ],
+     "description": "A client pipe signal from the QA module, relayed by the Silvia worker. Built (client-170-qa-module): worldselect.ready (world list handled and drawn), channels.ready (SERVERSTATUS 0x03, the reply to clicking a world: a lost world click shows as its absence), charselect.ready, field.ready (map_id narrows it). Proposed: chat.received (regex), window.open / window.closed (window).",
+     "properties": {
+      "type": {
+       "const": "client_signal"
+      },
+      "name": {
+       "enum": [
+        "worldselect.ready",
+        "channels.ready",
+        "charselect.ready",
+        "field.ready",
+        "chat.received",
+        "window.open",
+        "window.closed"
+       ]
+      },
+      "map_id": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 999999999
+      },
+      "regex": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 300
+      },
+      "window": {
+       "type": "string",
+       "pattern": "^[a-z][a-z0-9_]*$"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "type",
+      "topic",
+      "regex",
+      "char"
+     ],
+     "description": "A QA event feed line (GET /qa/events on TEST, long-polled by the 187 orchestrator over ssh) of this topic, about this client's character (or any), matching regex.",
+     "properties": {
+      "type": {
+       "const": "server_line"
+      },
+      "topic": {
+       "enum": [
+        "OWNED_ALT",
+        "ATTACK",
+        "GUILD",
+        "FM_BUY",
+        "ROPE",
+        "HIDE",
+        "MOB_CONTROL",
+        "BOT_CHAT",
+        "MERCHANT",
+        "STORAGE",
+        "EQUIP",
+        "SCROLL",
+        "CHANNEL_LOAD",
+        "IDLE",
+        "SLIDE",
+        "MAP_ENTRY",
+        "BOUNCE",
+        "GACHA",
+        "WEALTH",
+        "AFFINITY",
+        "COUPLE",
+        "BOT_GUILD",
+        "COMBAT",
+        "HABITS",
+        "MANNERS",
+        "SPREAD",
+        "TRADE",
+        "PETS",
+        "RING",
+        "ROMANCE",
+        "RIVALRY",
+        "GUILD_WAR",
+        "CONVO",
+        "NPC",
+        "AUTOQA",
+        "PQ",
+        "LIKENESS",
+        "SOCIAL_GATE",
+        "MEMORY",
+        "WORLD_EVENT",
+        "MAP_CHANGE",
+        "CHAT",
+        "MECHANICS",
+        "QA_RUN"
+       ]
+      },
+      "regex": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 300
+      },
+      "char": {
+       "type": "string",
+       "pattern": "^([a-z][a-z0-9_]{0,15}|any)$"
+      }
+     }
+    }
+   ]
+  },
+  "step": {
+   "oneOf": [
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "login"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "select_world"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "world": {
+       "const": "Bera"
+      }
+     },
+     "required": [
+      "do",
+      "world"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "select_channel"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "channel": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 5
+      }
+     },
+     "required": [
+      "do",
+      "channel"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "select_character"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "chat"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "text": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 120
+      }
+     },
+     "required": [
+      "do",
+      "text"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "gm"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "line": {
+       "type": "string",
+       "pattern": "^![a-z]",
+       "maxLength": 120
+      }
+     },
+     "required": [
+      "do",
+      "line"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "key"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "key": {
+       "enum": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "W",
+        "X",
+        "Y",
+        "Z",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "F7",
+        "F8",
+        "F9",
+        "F10",
+        "F11",
+        "F12",
+        "ESCAPE",
+        "ENTER",
+        "TAB",
+        "SPACE",
+        "BACKSPACE",
+        "UP",
+        "DOWN",
+        "LEFT",
+        "RIGHT",
+        "INSERT",
+        "DELETE",
+        "HOME",
+        "END",
+        "PAGEUP",
+        "PAGEDOWN",
+        "CTRL",
+        "ALT",
+        "SHIFT",
+        "CTRL+F10",
+        "CTRL+F11"
+       ]
+      },
+      "hold_ms": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 10000
+      }
+     },
+     "required": [
+      "do",
+      "key"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "move"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "dir": {
+       "enum": [
+        "left",
+        "right",
+        "up",
+        "down"
+       ]
+      },
+      "ms": {
+       "type": "integer",
+       "minimum": 50,
+       "maximum": 10000
+      }
+     },
+     "required": [
+      "do",
+      "dir",
+      "ms"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "jump"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "dir": {
+       "enum": [
+        "none",
+        "left",
+        "right"
+       ]
+      },
+      "double": {
+       "type": "boolean"
+      },
+      "down": {
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "do"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "click"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "anchor": {
+       "type": "string",
+       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+      },
+      "button": {
+       "enum": [
+        "left",
+        "right",
+        "double"
+       ]
+      }
+     },
+     "required": [
+      "do",
+      "anchor"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "wait"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "signal": {
+       "$ref": "#/$defs/signal"
+      },
+      "timeout_ms": {
+       "type": "integer",
+       "minimum": 500,
+       "maximum": 300000
+      },
+      "armed_at": {
+       "$ref": "#/$defs/id"
+      },
+      "bind": {
+       "type": "object",
+       "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,23}$"
+       },
+       "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,23}$"
+       },
+       "description": "var -> named regex group: later text may use ${var}."
+      },
+      "retry": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "step",
+        "every_ms",
+        "times"
+       ],
+       "description": "Client signals only: when the signal has not come within every_ms, send that earlier step again, up to times (the lost world click). timeout_ms still bounds the whole wait.",
+       "properties": {
+        "step": {
+         "$ref": "#/$defs/id"
+        },
+        "every_ms": {
+         "type": "integer",
+         "minimum": 1000,
+         "maximum": 30000
+        },
+        "times": {
+         "type": "integer",
+         "minimum": 1,
+         "maximum": 5
+        }
+       }
+      }
+     },
+     "required": [
+      "do",
+      "id",
+      "signal",
+      "timeout_ms"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "sleep"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "ms": {
+       "type": "integer",
+       "minimum": 50,
+       "maximum": 10000
+      },
+      "reason": {
+       "type": "string",
+       "minLength": 15,
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do",
+      "ms",
+      "reason"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "mark"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "required": [
+      "do",
+      "id"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "click_npc"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "npc": {
+       "type": "integer",
+       "minimum": 1000000,
+       "maximum": 9999999
+      }
+     },
+     "required": [
+      "do",
+      "npc"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "wheel"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "anchor": {
+       "type": "string",
+       "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"
+      },
+      "notches": {
+       "type": "integer",
+       "minimum": -20,
+       "maximum": 20
+      }
+     },
+     "required": [
+      "do",
+      "anchor",
+      "notches"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "type"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "text": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 60
+      }
+     },
+     "required": [
+      "do",
+      "text"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "key_down"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "key": {
+       "enum": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "W",
+        "X",
+        "Y",
+        "Z",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "F7",
+        "F8",
+        "F9",
+        "F10",
+        "F11",
+        "F12",
+        "ESCAPE",
+        "ENTER",
+        "TAB",
+        "SPACE",
+        "BACKSPACE",
+        "UP",
+        "DOWN",
+        "LEFT",
+        "RIGHT",
+        "INSERT",
+        "DELETE",
+        "HOME",
+        "END",
+        "PAGEUP",
+        "PAGEDOWN",
+        "CTRL",
+        "ALT",
+        "SHIFT",
+        "CTRL+F10",
+        "CTRL+F11"
+       ]
+      }
+     },
+     "required": [
+      "do",
+      "key"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "do": {
+       "const": "key_up"
+      },
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "key": {
+       "enum": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "W",
+        "X",
+        "Y",
+        "Z",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "F7",
+        "F8",
+        "F9",
+        "F10",
+        "F11",
+        "F12",
+        "ESCAPE",
+        "ENTER",
+        "TAB",
+        "SPACE",
+        "BACKSPACE",
+        "UP",
+        "DOWN",
+        "LEFT",
+        "RIGHT",
+        "INSERT",
+        "DELETE",
+        "HOME",
+        "END",
+        "PAGEUP",
+        "PAGEDOWN",
+        "CTRL",
+        "ALT",
+        "SHIFT",
+        "CTRL+F10",
+        "CTRL+F11"
+       ]
+      }
+     },
+     "required": [
+      "do",
+      "key"
+     ],
+     "additionalProperties": false
+    }
+   ]
+  },
+  "capture": {
+   "oneOf": [
+    {
+     "type": "object",
+     "properties": {
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "burst": {
+       "type": "object",
+       "properties": {
+        "fps": {
+         "type": "integer",
+         "minimum": 1,
+         "maximum": 30
+        },
+        "ms": {
+         "type": "integer",
+         "minimum": 100,
+         "maximum": 5000
+        },
+        "delay_ms": {
+         "type": "integer",
+         "minimum": 0,
+         "maximum": 5000
+        },
+        "at": {
+         "$ref": "#/$defs/at"
+        }
+       },
+       "required": [
+        "fps",
+        "ms",
+        "at"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "required": [
+      "id",
+      "burst"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "clip": {
+       "type": "object",
+       "properties": {
+        "fps": {
+         "type": "integer",
+         "minimum": 1,
+         "maximum": 30
+        },
+        "ms": {
+         "type": "integer",
+         "minimum": 100,
+         "maximum": 5000
+        },
+        "delay_ms": {
+         "type": "integer",
+         "minimum": 0,
+         "maximum": 5000
+        },
+        "at": {
+         "$ref": "#/$defs/at"
+        }
+       },
+       "required": [
+        "fps",
+        "ms",
+        "at"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "required": [
+      "id",
+      "clip"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "chat_log": {
+       "type": "object",
+       "properties": {
+        "span": {
+         "$ref": "#/$defs/span"
+        }
+       },
+       "required": [],
+       "additionalProperties": false
+      }
+     },
+     "required": [
+      "id",
+      "chat_log"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "packet_trace": {
+       "type": "object",
+       "properties": {
+        "opcodes": {
+         "type": "array",
+         "minItems": 1,
+         "maxItems": 16,
+         "uniqueItems": true,
+         "items": {
+          "type": "string",
+          "pattern": "^(0x[0-9A-Fa-f]{1,4}|[A-Z][A-Z0-9_]+)$"
+         }
+        },
+        "direction": {
+         "enum": [
+          "in",
+          "out",
+          "both"
+         ]
+        },
+        "span": {
+         "$ref": "#/$defs/span"
+        }
+       },
+       "required": [
+        "opcodes"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "required": [
+      "id",
+      "packet_trace"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "id": {
+       "$ref": "#/$defs/id"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "note": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "samples": {
+       "type": "object",
+       "properties": {
+        "fields": {
+         "type": "array",
+         "minItems": 1,
+         "uniqueItems": true,
+         "items": {
+          "enum": [
+           "hp",
+           "mp",
+           "max_hp",
+           "max_mp",
+           "pos",
+           "map"
+          ]
+         }
+        },
+        "hz": {
+         "type": "integer",
+         "minimum": 1,
+         "maximum": 30
+        },
+        "span": {
+         "$ref": "#/$defs/span"
+        }
+       },
+       "required": [
+        "fields",
+        "hz"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "required": [
+      "id",
+      "samples"
+     ],
+     "additionalProperties": false
+    }
+   ]
+  },
+  "expect": {
+   "type": "object",
+   "required": [
+    "reviewer"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "reviewer": {
+     "type": "array",
+     "minItems": 1,
+     "items": {
+      "type": "object",
+      "required": [
+       "see"
+      ],
+      "additionalProperties": false,
+      "properties": {
+       "see": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 500
+       },
+       "in": {
+        "type": "array",
+        "items": {
+         "$ref": "#/$defs/id"
+        }
+       }
+      }
+     }
+    },
+    "checks": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/check"
+     }
+    },
+    "judgment": {
+     "type": "string",
+     "maxLength": 500,
+     "description": "What the owner still judges by eye (feel, art, fun), if anything."
+    }
+   }
+  },
+  "check": {
+   "oneOf": [
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "check",
+      "topic",
+      "regex",
+      "char"
+     ],
+     "properties": {
+      "check": {
+       "const": "server_line"
+      },
+      "topic": {
+       "enum": [
+        "OWNED_ALT",
+        "ATTACK",
+        "GUILD",
+        "FM_BUY",
+        "ROPE",
+        "HIDE",
+        "MOB_CONTROL",
+        "BOT_CHAT",
+        "MERCHANT",
+        "STORAGE",
+        "EQUIP",
+        "SCROLL",
+        "CHANNEL_LOAD",
+        "IDLE",
+        "SLIDE",
+        "MAP_ENTRY",
+        "BOUNCE",
+        "GACHA",
+        "WEALTH",
+        "AFFINITY",
+        "COUPLE",
+        "BOT_GUILD",
+        "COMBAT",
+        "HABITS",
+        "MANNERS",
+        "SPREAD",
+        "TRADE",
+        "PETS",
+        "RING",
+        "ROMANCE",
+        "RIVALRY",
+        "GUILD_WAR",
+        "CONVO",
+        "NPC",
+        "AUTOQA",
+        "PQ",
+        "LIKENESS",
+        "SOCIAL_GATE",
+        "MEMORY",
+        "WORLD_EVENT",
+        "MAP_CHANGE",
+        "CHAT",
+        "MECHANICS",
+        "QA_RUN"
+       ]
+      },
+      "regex": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 300
+      },
+      "char": {
+       "type": "string",
+       "pattern": "^([a-z][a-z0-9_]{0,15}|any)$"
+      },
+      "min": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "max": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "span": {
+       "$ref": "#/$defs/span"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "check",
+      "regex"
+     ],
+     "properties": {
+      "check": {
+       "const": "chat_line"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "regex": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 300
+      },
+      "min": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "max": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "span": {
+       "$ref": "#/$defs/span"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "check",
+      "field",
+      "op"
+     ],
+     "properties": {
+      "check": {
+       "const": "sample"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "field": {
+       "enum": [
+        "hp",
+        "mp",
+        "pos_x",
+        "pos_y",
+        "map"
+       ]
+      },
+      "op": {
+       "enum": [
+        "rises",
+        "falls",
+        "constant",
+        "above",
+        "below",
+        "changes_within"
+       ]
+      },
+      "value": {
+       "type": "number"
+      },
+      "tolerance": {
+       "type": "number",
+       "minimum": 0
+      },
+      "span": {
+       "$ref": "#/$defs/span"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "check",
+      "opcode"
+     ],
+     "properties": {
+      "check": {
+       "const": "packet"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      },
+      "opcode": {
+       "type": "string",
+       "pattern": "^(0x[0-9A-Fa-f]{1,4}|[A-Z][A-Z0-9_]+)$"
+      },
+      "min": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "max": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "span": {
+       "$ref": "#/$defs/span"
+      }
+     }
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "check"
+     ],
+     "properties": {
+      "check": {
+       "const": "client_alive"
+      },
+      "client": {
+       "$ref": "#/$defs/alias"
+      }
+     }
+    }
+   ]
+  },
+  "at": {
+   "oneOf": [
+    {
+     "type": "object",
+     "properties": {
+      "step": {
+       "$ref": "#/$defs/id"
+      }
+     },
+     "required": [
+      "step"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "signal": {
+       "$ref": "#/$defs/id"
+      }
+     },
+     "required": [
+      "signal"
+     ],
+     "additionalProperties": false
+    }
+   ],
+   "description": "step: starts when that step is sent. signal: starts when that wait step's signal arrives (a client_signal within a frame or two; a server_line ~100-300 ms late, so burst short effects on the step before the action and keep the server line as an expect)."
+  }
+ }
+}

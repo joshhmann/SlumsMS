@@ -49,8 +49,13 @@ public final class BotWhispers {
         if (!reply) {
             SocialGate.fresh(botKey, player.getId(), line);
         }
-        player.sendPacket(PacketCreator.getWhisperReceive(sender, channel, false,
-                soloMapling.ArtificialPlayer.BotConvo.MessyChat.forWhisper(bot, sender, player, line)));
+        String typed = soloMapling.ArtificialPlayer.BotConvo.MessyChat.forWhisper(bot, sender, player, line);
+        player.sendPacket(PacketCreator.getWhisperReceive(sender, channel, false, typed));
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CHAT)) { // ticket 170: the QA event feed
+            soloMapling.qa.QaLog.chars(soloMapling.qa.QaLog.Topic.CHAT, 0,
+                    bot == null ? new int[]{player.getId()} : new int[]{bot.getId(), player.getId()},
+                    "WHISPER " + sender + " -> " + player.getName() + ": " + typed);
+        }
         return true;
     }
 

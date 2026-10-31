@@ -69,6 +69,7 @@ public final class BotInspectApi {
     private static final Pattern MAP = Pattern.compile("^/maps/(\\d{1,10})$");
 
     private static volatile HttpServer running;
+    private static volatile QaEventFeed feed;
 
     /** One answer: a status and its JSON text. */
     record Response(int status, String json) {
@@ -153,6 +154,11 @@ public final class BotInspectApi {
             s.stop(0);
             running = null;
         }
+        QaEventFeed f = feed;
+        if (f != null) {
+            f.close();
+            feed = null;
+        }
     }
 
     /**
@@ -185,8 +191,11 @@ public final class BotInspectApi {
             throw new IllegalArgumentException("the bot inspect API binds a loopback address only");
         }
         HttpServer server = HttpServer.create(new InetSocketAddress(bind, port), 16);
+        // ticket 170: the TEST-only QA event feed rides this listener (off unless -Dslums.qa.feed=true, never on live);
+        // its long-polls get their own threads so the inspect routes never wait behind them
+        feed = QaEventFeed.attachIfEnabled(server, api.secret);
         AtomicInteger n = new AtomicInteger();
-        ExecutorService pool = Executors.newFixedThreadPool(2, r -> {
+        ExecutorService pool = Executors.newFixedThreadPool(feed == null ? 2 : 2 + QaEventFeed.MAX_POLLERS, r -> {
             Thread t = new Thread(r, "bot-inspect-" + n.incrementAndGet());
             t.setDaemon(true);
             return t;

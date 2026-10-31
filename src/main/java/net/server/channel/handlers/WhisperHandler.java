@@ -150,6 +150,10 @@ public final class WhisperHandler extends AbstractPacketHandler {
         }
 
         ChatLogger.log(user.getClient(), "Whisper To " + target.getName(), message);
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CHAT)) { // ticket 170: the QA event feed
+            soloMapling.qa.QaLog.chars(soloMapling.qa.QaLog.Topic.CHAT, 0, new int[]{user.getId(), target.getId()},
+                    "WHISPER " + user.getName() + " -> " + target.getName() + ": " + message);
+        }
 
         if (BotHelpers.isBot(target)) {
             whisperBot(message, user, target); // bot-persistence ticket 22: a bot reads its whispers

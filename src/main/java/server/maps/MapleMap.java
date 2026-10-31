@@ -2812,6 +2812,11 @@ public class MapleMap {
         if (soloMapling.autoqa.SentPositions.on()) { // what clients were told about the old map no longer applies
             soloMapling.autoqa.SentPositions.entered(chr.getId());
         }
+        if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MAP_CHANGE) // ticket 170: the QA event feed's marker
+                && !soloMapling.ArtificialPlayer.BotHelpers.isBot(chr)) {
+            soloMapling.qa.QaLog.chars(soloMapling.qa.QaLog.Topic.MAP_CHANGE, mapid, new int[]{chr.getId()},
+                    "MAP " + chr.getName() + " -> " + mapid + " ch " + channel);
+        }
         if (soloMapling.ArtificialPlayer.BotConvo.SayDo.watching(chr.getId())) { // rc6 say-do: a map change
             soloMapling.ArtificialPlayer.BotConvo.SayDo.event(chr, soloMapling.ArtificialPlayer.BotConvo.SayDo.Ev.MAP, mapid);
         }

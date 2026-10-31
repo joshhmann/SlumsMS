@@ -30,6 +30,15 @@ public final class ClientVersionGate {
     private static final Logger log = LoggerFactory.getLogger(ClientVersionGate.class);
     /** Login-failed reason with no client dialog (see above). */
     static final int SILENT_LOGIN_FAILED = 1;
+    /**
+     * Ticket 170: the QA client build's caps bit in the format-2 stamp (client kCapQaBuild, bit 31). A QA build also
+     * stamps its release "<version>-qa". It never connects to live: refused unless {@link #ALLOW_QA} is on.
+     */
+    public static final int CAP_QA_BUILD = 0x80000000;
+    /** {@code -Dslums.client.allowQa=true}: TEST and RC accept the QA client build. Off (refused) by default. */
+    public static final String ALLOW_QA = "slums.client.allowQa";
+    static final String QA_BUILD_MESSAGE =
+            "This is a QA test client: it only connects to the test server. Open the SlumsMS launcher to play.";
 
     private ClientVersionGate() {
     }
@@ -68,6 +77,11 @@ public final class ClientVersionGate {
         return loginok == 0 || loginok == 7 || loginok == 23 || loginok == -23 || loginok == -10;
     }
 
+    /** True when the client is a QA build and this server does not take one (ticket 170). No GM bypass. */
+    static boolean qaBuildRefused(int clientCaps, boolean allowQa) {
+        return (clientCaps & CAP_QA_BUILD) != 0 && !allowQa;
+    }
+
     /** Refuse (popup + silent login failure) and return true, or return false to let the login continue. */
     static boolean refuseIfOutdated(Client c, String login) {
         return refuseIfOutdated(c, login, YamlConfig.config.server, ClientVersionGate::accountGmLevel);
@@ -79,6 +93,19 @@ public final class ClientVersionGate {
      * It is asked only when the client is outdated and the bypass is on.
      */
     static boolean refuseIfOutdated(Client c, String login, ServerConfig config, IntUnaryOperator gmLevelOfAccount) {
+        return refuseIfOutdated(c, login, config, gmLevelOfAccount, Boolean.getBoolean(ALLOW_QA));
+    }
+
+    /** As above; {@code allowQa} is {@link #ALLOW_QA} (tests hand it in). The QA build check runs first. */
+    static boolean refuseIfOutdated(Client c, String login, ServerConfig config, IntUnaryOperator gmLevelOfAccount,
+                                    boolean allowQa) {
+        if (qaBuildRefused(c.getClientCaps(), allowQa)) {
+            log.info("Client version gate: refused '{}' from {}: QA client build {} ({}); -D{} is off", login,
+                    c.getRemoteAddress(), c.getClientBuild(), c.getClientRelease(), ALLOW_QA);
+            c.sendPacket(PacketCreator.serverNotice(1, QA_BUILD_MESSAGE));
+            c.sendPacket(PacketCreator.getLoginFailed(SILENT_LOGIN_FAILED));
+            return true;
+        }
         int build = c.getClientBuild();
         if (config.MIN_CLIENT_BUILD <= 0 || build >= config.MIN_CLIENT_BUILD) {
             return false;

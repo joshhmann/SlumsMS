@@ -1,0 +1,41 @@
+# t-cl-2: the mouse wheel scrolls the Cash Shop item list.
+id: t-cl-2-cash-shop-wheel
+title: "The mouse wheel scrolls the Cash Shop item list"
+covers: [t-cl-2]
+status: draft
+server: test
+needs: [gm, cash_shop, proposed_anchors, proposed_signals, proposed_steps]
+notes: "Frames before and after each wheel turn must differ in the item list area; an image diff of those frames is the machine half."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    world: Bera
+    channel: 2
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 2}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: enter, do: click, anchor: menu.cash_shop}
+  - {id: shop, do: wait, signal: {type: client_signal, name: window.open, window: cash_shop}, timeout_ms: 30000}
+  - {id: down, do: wheel, anchor: cash_shop.item_list, notches: -3}
+  - {id: down-more, do: wheel, anchor: cash_shop.item_list, notches: -3}
+  - {id: up, do: wheel, anchor: cash_shop.item_list, notches: 6}
+  - {id: leave, do: click, anchor: cash_shop.exit}
+  - {id: back, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 30000}
+captures:
+  - {id: before, burst: {fps: 2, ms: 1000, at: {signal: shop}}}
+  - {id: after-down, burst: {fps: 5, ms: 1000, at: {step: down}, delay_ms: 300}}
+  - {id: after-down-more, burst: {fps: 5, ms: 1000, at: {step: down-more}, delay_ms: 300}}
+  - {id: after-up, burst: {fps: 5, ms: 1000, at: {step: up}, delay_ms: 300}}
+expect:
+  reviewer:
+    - see: "The item list moves down two pages with the wheel, then back up to the first items"
+      in: [before, after-down, after-down-more, after-up]
+  checks:
+    - {check: client_alive}

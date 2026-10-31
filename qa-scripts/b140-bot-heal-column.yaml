@@ -1,0 +1,68 @@
+# b140: a bot Bishop's Heal must show the Heal column on a real client (1.6.2 healamt sends SHOW_FOREIGN_EFFECT/1).
+# The ticket 166 first milestone. 1 frame a second missed it on 10-30; a 10 fps burst does not.
+id: b140-bot-heal-column
+title: A bot Bishop's party Heal shows its column on a real client
+covers: [b140, q48, t-su-1]
+status: draft
+server: test
+needs: [gm, proposed_anchors, proposed_signals]
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  # a map with mobs: trainhere refuses towns
+  - {id: warp, do: gm, line: "!warp 104040000"}
+  - {id: on-map, do: wait, signal: {type: client_signal, name: field.ready, map_id: 104040000}, timeout_ms: 30000}
+  - {id: spawn, do: gm, line: "!bot trainhere bishop 120 1"}
+  - id: spawned
+    do: wait
+    signal: {type: client_signal, name: chat.received, regex: "Spawned 1 BISHOP TrainingBot.*cids \\[(?P<bishop>\\d+)\\]"}
+    bind: {bishop: bishop}
+    timeout_ms: 20000
+  - {do: gm, line: "!bot followbot ${bishop}"}
+  - {id: following, do: wait, signal: {type: client_signal, name: chat.received, regex: "is now a FollowerBot following YOU"}, timeout_ms: 15000}
+  - {do: gm, line: "!bot makeparty ${bishop}"}
+  - {do: gm, line: "!bot botinviteme ${bishop}"}
+  - {id: invite, do: wait, signal: {type: client_signal, name: window.open, window: party_invite}, timeout_ms: 15000}
+  - {id: accept, do: click, anchor: party_invite.accept}
+  - {id: invite-gone, do: wait, signal: {type: client_signal, name: window.closed, window: party_invite}, timeout_ms: 10000}
+  # the cleric heals party members under 60% HP, about once every 4 s
+  - {id: hurt, do: gm, line: "!hurt ${me.name} 40"}
+  - id: heal
+    do: wait
+    armed_at: hurt
+    signal: {type: server_line, topic: COMBAT, regex: "^PARTY HEAL \\S+ -> ${me.name} ", char: me}
+    timeout_ms: 30000
+  - {id: cleanup, do: gm, line: "!bot remove ${bishop}"}
+captures:
+  # starts with the hurt: the heal comes within ~4 s, so this burst holds the whole column whatever the feed's delay
+  - {id: column-early, burst: {fps: 10, ms: 5000, at: {step: hurt}}}
+  # the owner's milestone burst on the server line (starts ~100-300 ms after the cast: the column's tail)
+  - {id: column-on-line, burst: {fps: 10, ms: 2000, at: {signal: heal}}}
+  - {id: hp, samples: {fields: [hp, max_hp, pos], hz: 10, span: {from: hurt, to: cleanup}}}
+  - {id: chat, chat_log: {span: {from: spawn, to: cleanup}}}
+  - {id: effects, packet_trace: {opcodes: [SHOW_FOREIGN_EFFECT, SHOW_ITEM_GAIN_INCHAT], direction: in, span: {from: hurt, to: cleanup}}}
+expect:
+  reviewer:
+    - see: "Over the Bishop bot, the Heal cast: its pose and the vertical light column (the same art a player's Heal shows)"
+      in: [column-early, column-on-line]
+    - see: "Over your own character, the green heal effect and the HP bar going up from about 40%"
+      in: [column-early, hp]
+  checks:
+    - {check: server_line, topic: COMBAT, regex: "^PARTY HEAL \\S+ -> ${me.name} .* sent SHOW_FOREIGN_EFFECT/1>map", char: me, min: 1}
+    - {check: packet, opcode: SHOW_FOREIGN_EFFECT, min: 1, span: {from: hurt, to: cleanup}}
+    - {check: sample, field: hp, op: rises, span: {from: hurt, to: cleanup}}
+    - {check: client_alive}
+  judgment: "None: the column is there or not; the frames settle it."

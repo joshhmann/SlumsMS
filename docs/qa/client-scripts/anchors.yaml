@@ -1,0 +1,73 @@
+# Named UI targets for client scripts (`do: click, anchor: <name>`), and the window names `window_open` /
+# `window_closed` signals use. Scripts never click raw x,y: the runner maps a name to the point calibrated in its
+# ui.json (client-mcp keeps the 800x600 points in Z:\MSv83\SlumsMS-dev\client-mcp\ui.json, not in this repo).
+#
+# status: calibrated - the current client-mcp driver already clicks it (its ui.json point name is `uijson`);
+#         proposed   - a script needs it; the Client lane adds it to ui.json (or a QA-module hook) and flips it.
+# A script that uses a proposed anchor validates with a warning and must list `proposed_anchors` in `needs`.
+# Adding a name here is how a script gets a new target; tools/qa-scripts/validate refuses names not listed.
+
+anchors:
+  # login screen (client-mcp prepare_login / login)
+  login.account:              {screen: login, status: calibrated, uijson: account, what: "the account box"}
+  login.save_login_id:        {screen: login, status: calibrated, uijson: save_login_id, what: "the Save ID checkbox"}
+  terms.accept:               {screen: terms, status: calibrated, uijson: terms_accept, what: "I accept on the terms page"}
+  terms.scroll_page:          {screen: terms, status: calibrated, uijson: terms_scroll_page, what: "page down in the terms"}
+  terms.scroll_end:           {screen: terms, status: calibrated, uijson: terms_scroll_end, what: "end of the terms"}
+  gender.confirm:             {screen: gender, status: calibrated, uijson: gender_confirm, what: "OK on the first-login gender pick"}
+  # world / channel select
+  world.bera:                 {screen: world, status: calibrated, uijson: bera, what: "the Bera world button (world id 1)"}
+  channel.1:                  {screen: channel, status: calibrated, uijson: channel_1, what: "channel 1"}
+  channel.2:                  {screen: channel, status: calibrated, uijson: channel_2, what: "channel 2"}
+  channel.3:                  {screen: channel, status: calibrated, uijson: channel_3, what: "channel 3"}
+  channel.4:                  {screen: channel, status: calibrated, uijson: channel_4, what: "channel 4"}
+  channel.5:                  {screen: channel, status: calibrated, uijson: channel_5, what: "channel 5"}
+  channel.confirm:            {screen: channel, status: calibrated, uijson: channel_confirm, what: "Go on the channel list"}
+  # character select
+  character.first:            {screen: character, status: calibrated, uijson: first_character, what: "the first character slot"}
+  character.confirm:          {screen: character, status: calibrated, uijson: character_confirm, what: "Select on character select"}
+  # field
+  basic_configuration.close:  {screen: field, status: calibrated, uijson: basic_configuration_close, what: "closes the first-login settings dialog"}
+
+  # proposed (scripts below need them; Client lane calibrates)
+  character.create:           {screen: character, status: proposed, what: "Create on character select (t-cc-1)"}
+  character.delete:           {screen: character, status: proposed, what: "Delete on character select"}
+  party_invite.accept:        {screen: field, status: proposed, what: "Accept on a party invite (b140, b233)"}
+  party_invite.decline:       {screen: field, status: proposed, what: "Decline on a party invite"}
+  npc_dialog.next:            {screen: field, status: proposed, what: "Next in an NPC dialog"}
+  npc_dialog.yes:             {screen: field, status: proposed, what: "Yes in an NPC yes/no dialog"}
+  npc_dialog.option_1:        {screen: field, status: proposed, what: "the first option of an NPC menu"}
+  npc_dialog.close:           {screen: field, status: proposed, what: "End chat / close on an NPC dialog"}
+  menu.cash_shop:             {screen: field, status: proposed, what: "the Cash Shop button on the status bar (t-cl-2, t-rg-1)"}
+  cash_shop.exit:             {screen: cash_shop, status: proposed, what: "Exit in the Cash Shop"}
+  cash_shop.item_list:        {screen: cash_shop, status: proposed, what: "the middle of the item list (wheel target, t-cl-2)"}
+  cash_shop.buy:              {screen: cash_shop, status: proposed, what: "Buy on the selected item"}
+  cash_shop.tab_rings:        {screen: cash_shop, status: proposed, what: "the rings category (t-rg-1, t-rg-2)"}
+  cash_shop.partner_name:     {screen: cash_shop, status: proposed, what: "the partner name box of a ring purchase"}
+  cash_shop.confirm:          {screen: cash_shop, status: proposed, what: "OK on a Cash Shop prompt"}
+  proposal.accept:            {screen: field, status: proposed, what: "Accept on a marriage proposal (t-mr-2)"}
+  inventory.cash_tab:         {screen: field, status: proposed, what: "the Cash tab of the item window (t-cl-3)"}
+  inventory.slot_1:           {screen: field, status: proposed, what: "the first slot of the open item tab"}
+  pet_equip.slot:             {screen: field, status: proposed, what: "the pet equip slot in the equip window (t-cl-3)"}
+  gacha.machine:              {screen: field, status: proposed, what: "the gachapon machine NPC in Henesys (t-ga-4)"}
+
+# Window names for window_open / window_closed (the QA module reports these names).
+windows:
+  - party_invite
+  - npc_dialog
+  - cash_shop
+  - trade
+  - proposal
+  - equip
+  - item
+  - skill
+  - family
+  - monster_book
+  - world_map
+  - hud_settings      # Ctrl+F10, slums.dll settings window
+  - edit_ui           # Ctrl+F11
+  - character_create
+  - notice            # a server notice popup (BROADCAST_MSG type 1)
+  - maker
+  - storage
+  - adventurer_bag

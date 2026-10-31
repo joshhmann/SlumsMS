@@ -129,6 +129,21 @@ public final class MechanicsRuns {
     }
 
     /**
+     * Ticket 170: every line the run reports also goes to the QA log's MECHANICS topic (the TEST QA event feed),
+     * about the run's real players, whoever started it (a GM's !mechanics, a !qa check, a player's party at Lakelis).
+     */
+    static Consumer<String> toQaLog(List<RunMember> members, Consumer<String> reporter) {
+        Consumer<String> out = reporter == null ? line -> { } : reporter;
+        int[] players = members.stream().filter(m -> !m.bot()).mapToInt(RunMember::characterId).toArray();
+        return line -> {
+            out.accept(line);
+            if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.MECHANICS)) {
+                soloMapling.qa.QaLog.chars(soloMapling.qa.QaLog.Topic.MECHANICS, 0, players, line);
+            }
+        };
+    }
+
+    /**
      * As above. {@code ownsInstance}: staging or the bot lobby started this instance for the run (a GM's
      * {@code !mechanics kpq}, a bot leader at Lakelis), so a run that ends short of the clear, or cannot start,
      * ends the instance with it (everyone out, disposed); never left for its 30-minute timer. {@code firstStage}
@@ -153,7 +168,7 @@ public final class MechanicsRuns {
         if (firstStage > 1 && !o.startAt(run, firstStage, System.currentTimeMillis())) {
             run.end("stage " + firstStage + " is not one this run plays (last " + run.lastStage() + ")");
         }
-        Active a = new Active(run, eim, bots, reporter == null ? line -> { } : reporter, onEnd, ownsInstance);
+        Active a = new Active(run, eim, bots, toQaLog(members, reporter), onEnd, ownsInstance);
         if (run.ended()) {
             a.finished = true;
             a.reporter.accept("RUN not started: " + run.endedBecause());
