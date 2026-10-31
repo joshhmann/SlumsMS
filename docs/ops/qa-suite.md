@@ -824,7 +824,8 @@ Kerning PQ checks alone were a quarter of it. Checks can now overlap on up to fo
   `on N lanes (W s wall, C s of checks)` when N > 1. Sum of check time divided by wall clock is the speed-up.
 - **What parallel cannot fix:** a check still has to wait for the game. Two checks that stage on the same map, or that
   flip a world switch (`@botdrama`, `@romance`, `@quiet`, a guild war), stay serial. The catalogue's current split is
-  101 lane-only, 48 holding a map/PQ/market key and 26 holding the world.
+  101 lane-only, 48 holding a map/PQ/market key and 37 holding the world (26 declared, plus the 11 manual checks
+  that never run unless asked and keep the default).
 
 - **A stuck Kerning PQ run fails at 8 minutes** (`-Dslums.autoqa.kpqStallMin`, default 8, 0 = off): t-mx-1 and
   t-mx-2 wait on the run's own `RUN` lines, so a run that stops reporting FAILs with "no stage cleared in 8 min"
