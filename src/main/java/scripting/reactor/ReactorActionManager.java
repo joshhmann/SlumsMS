@@ -33,10 +33,13 @@ import server.TimerManager;
 import server.life.LifeFactory;
 import server.life.Monster;
 import server.maps.MapMonitor;
+import server.maps.MapleMap;
 import server.maps.Reactor;
 import server.maps.ReactorDropEntry;
 import server.partyquest.CarnivalFactory;
 import server.partyquest.CarnivalFactory.MCSkill;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.script.Invocable;
 import java.awt.*;
@@ -50,6 +53,8 @@ import java.util.concurrent.ScheduledFuture;
  * @author Ronan
  */
 public class ReactorActionManager extends AbstractPlayerInteraction {
+    private static final Logger log = LoggerFactory.getLogger(ReactorActionManager.class);
+
     private final Reactor reactor;
     private final Invocable iv;
     private ScheduledFuture<?> sprayTask = null;
@@ -250,7 +255,12 @@ public class ReactorActionManager extends AbstractPlayerInteraction {
     }
 
     public void createMapMonitor(int mapId, String portal) {
-        new MapMonitor(c.getChannelServer().getMapFactory().getMap(mapId), portal);
+        MapleMap map = c.getChannelServer().getMapFactory().getMap(mapId);
+        if (map == null) {   // s-maproute: no such map to monitor
+            log.warn("reactor {}: cannot create a monitor for map {}", getReactor().getId(), mapId);
+            return;
+        }
+        new MapMonitor(map, portal);
     }
 
     public void spawnMonster(int id, int qty) {

@@ -779,6 +779,10 @@ public class EventInstanceManager {
 
     public MapleMap getMapInstance(int mapId) {
         MapleMap map = mapManager.getMap(mapId);
+        if (map == null) {   // s-maproute: no image for the event's map, so there is no instance to make
+            log.error("event {}: map {} has no image", name, mapId);
+            return null;
+        }
         map.setEventInstance(this);
 
         if (!mapManager.isMapLoaded(mapId)) {
@@ -935,6 +939,9 @@ public class EventInstanceManager {
         MapleMap map = null;
         if (towarp > 0) {
             map = this.getMapFactory().getMap(towarp);
+            if (map == null) {   // s-maproute: the exit map has no image, so the players stay where they are
+                log.warn("event {}: exit map {} has no image, players stay put", name, towarp);
+            }
         }
 
         List<Character> players = getPlayerList();
@@ -947,7 +954,7 @@ public class EventInstanceManager {
                     }
 
                     unregisterPlayer(chr);
-                    if (towarp > 0) {
+                    if (map != null) {
                         chr.changeMap(map, map.getPortal(0));
                     }
                 }
@@ -976,7 +983,11 @@ public class EventInstanceManager {
     }
 
     public void dispatchRaiseQuestMobCount(int mobid, int mapid) {
-        Map<Integer, Character> mapChars = getInstanceMap(mapid).getMapPlayers();
+        MapleMap map = getInstanceMap(mapid);
+        if (map == null) {   // s-maproute: the map is gone (or never existed)
+            return;
+        }
+        Map<Integer, Character> mapChars = map.getMapPlayers();
         if (!mapChars.isEmpty()) {
             List<Character> eventMembers = getPlayers();
 

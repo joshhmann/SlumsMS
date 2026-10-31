@@ -539,10 +539,17 @@ public class PlayerNPC extends AbstractMapObject {
             return false;
         }
 
-        PlayerNPC pn = processPlayerNPCInternal(chr.getClient().getChannelServer().getMapFactory().getMap(mapid), pos, chr, true).getLeft();
+        MapleMap home = chr.getClient().getChannelServer().getMapFactory().getMap(mapid);
+        if (home == null) {   // s-maproute: a player NPC in a map with no image has nowhere to stand
+            return false;
+        }
+        PlayerNPC pn = processPlayerNPCInternal(home, pos, chr, true).getLeft();
         if (pn != null) {
             for (Channel channel : Server.getInstance().getChannelsFromWorld(chr.getWorld())) {
                 MapleMap m = channel.getMapFactory().getMap(mapid);
+                if (m == null) {
+                    continue;
+                }
 
                 m.addPlayerNPCMapObject(pn);
                 m.broadcastMessage(PacketCreator.spawnPlayerNPC(pn));
@@ -557,7 +564,11 @@ public class PlayerNPC extends AbstractMapObject {
 
     private static PlayerNPC getPlayerNPCFromWorldMap(String name, int world, int map) {
         World wserv = Server.getInstance().getWorld(world);
-        for (MapObject pnpcObj : wserv.getChannel(1).getMapFactory().getMap(map).getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY, Arrays.asList(MapObjectType.PLAYER_NPC))) {
+        MapleMap home = wserv.getChannel(1).getMapFactory().getMap(map);
+        if (home == null) {   // s-maproute: the map has no image, so nothing of ours stands in it
+            return null;
+        }
+        for (MapObject pnpcObj : home.getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY, Arrays.asList(MapObjectType.PLAYER_NPC))) {
             PlayerNPC pn = (PlayerNPC) pnpcObj;
 
             if (name.contentEquals(pn.getName()) && pn.getScriptId() < NpcId.CUSTOM_DEV) {
@@ -582,6 +593,9 @@ public class PlayerNPC extends AbstractMapObject {
             if (pn != null) {
                 for (Channel channel : Server.getInstance().getChannelsFromWorld(worldid)) {
                     MapleMap m = channel.getMapFactory().getMap(mapid);
+                    if (m == null) {
+                        continue;
+                    }
                     m.removeMapObject(pn);
 
                     m.broadcastMessage(PacketCreator.removeNPCController(pn.getObjectId()));
@@ -619,6 +633,9 @@ public class PlayerNPC extends AbstractMapObject {
 
                 for (Channel channel : Server.getInstance().getChannelsFromWorld(world)) {
                     MapleMap m = channel.getMapFactory().getMap(map);
+                    if (m == null) {   // s-maproute: the playernpcs row names a map with no image
+                        continue;
+                    }
 
                     for (MapObject pnpcObj : m.getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY, Arrays.asList(MapObjectType.PLAYER_NPC))) {
                         PlayerNPC pn = (PlayerNPC) pnpcObj;

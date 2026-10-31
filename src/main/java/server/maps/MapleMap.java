@@ -277,7 +277,8 @@ public class MapleMap {
         if (returnMapId == MapId.NONE) {
             return this;
         }
-        return getChannelServer().getMapFactory().getMap(returnMapId);
+        // s-maproute: a map's own return map is where banish/potion pulls land, so a blocked one falls back.
+        return getChannelServer().getMapFactory().getMapOrFallback(returnMapId);
     }
 
     public int getReturnMapId() {
@@ -285,7 +286,8 @@ public class MapleMap {
     }
 
     public MapleMap getForcedReturnMap() {
-        return getChannelServer().getMapFactory().getMap(forcedReturnMap);
+        // s-maproute: same as getReturnMap - the player is ejected here and cannot end up nowhere.
+        return getChannelServer().getMapFactory().getMapOrFallback(forcedReturnMap);
     }
 
     public int getForcedReturnId() {

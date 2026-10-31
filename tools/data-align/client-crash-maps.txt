@@ -1,0 +1,4 @@
+# Maps that load on the server but crash the v83 client on entry. Read by tools/data-align/map_routing.py
+# (--client-crash) and listed in src/main/resources/soloMapling/map-routing.tsv as kind "client-crash".
+# One map id per line, '#' starts a comment. The Client lane's WZ audit replaces the seed row below when it lands.
+410000350	# Ristonia : Rampart Residences - the owner's client crashed walking in on TEST, 2026-10-31 08:1x UTC

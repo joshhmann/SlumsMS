@@ -1491,6 +1491,14 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-nv-3", "Debug tools answer: bot inspect API, kill calibration, nav path trace").laneOnly().minutes(2)
                 .expect(probe("debugTools"))
                 .build());
+        // s-maproute (owner 2026-10-31: the client crashed walking into Ristonia Rampart Residences): the routing table
+        // is in the jar and loaded, every blocked map has a fallback that loads and is not itself blocked, the two doors
+        // the owner reported route as the table says, and an image-less map still refuses to load (Probes164)
+        c.add(Check.half("t-mp-1", "Map routing: no door leads into a map that fails to load or crashes the client",
+                "the crash is client-side: walk Fountain Square's in00 door, and 410000325/410000351's east00, in a real client")
+                .minutes(2)
+                .expect(probe("mapRouting"))
+                .build());
         // ticket 112 (decision 3): the bots' Maker batch, once for real on a fresh bot: crystals made and equips
         // disassembled through MakerService paying the client's fee, a bad item skipped without stopping the batch, and
         // the per-bot and world caps counting operations (ProbesMaker). On a world whose daily cap is spent the check

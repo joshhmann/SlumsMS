@@ -146,6 +146,16 @@ wrong. Run them with `tools/ops/autoqa-run bq,tm,gb,su,jb,nn`.
 | `t-nn-1` (HALF) | `bot.nav.swimWallJump` | the server's own navigation and swim physics replay `SwimWallJumpBurstTest`'s scene (a detached swimmer pressed against a 600 px rock) on made-up map 990340299 with the live switches; nothing on a real map | `highest y on the rock's west face` under -600 and `furthest x` past 100; the look on a real client still needs eyes |
 | `t-nn-2` (HALF) | `bot.nav.blockedPosWatchdog` | replays `BlockedPosWatchdogTest`'s scene: the department store's (100000102) geometry loaded as made-up map 990340298 (its graph is built and cached once under that id; the real map's graph and learning are untouched), a bot parked at a launch gate, the nav cleared after every AI tick | `launch gate refused 40, gave up >= 3`; today's real GAVE_UP spots are listed for context |
 
+## Ticket s-maproute: map routing (`t-mp-1`)
+
+Probe `mapRouting` in `Probes164`; rules and table in `docs/ops/map-routing.md`.
+Run it with `tools/ops/autoqa-run mp-1`.
+
+| id | switch | what it does | PASS means |
+|---|---|---|---|
+| `t-mp-1` | `slums.maps.routing` (default on) | the table in the jar is loaded (`soloMapling/map-routing.tsv`), every blocked map's fallback is not blocked and really loads, Fountain Square's `in00` door routes back to the square, a character saved in 410000350 lands on 410000300, and the image-less Storage Cellar still loads nothing | every reroute lands on a map the server has, no door leads into a map that fails to load or crashes the client. SKIPs only with routing off, which fails a release run |
+| `t-mp-1` (walk) | - | eyes only: walk Fountain Square's `in00` and 410000325/410000351's `east00` in a real client | the client stays up and the character is told it was taken back |
+
 ## Ticket 164 b224: checks tickets 156 and 157 promised (`gr`, `nv-2`, `nv-3`)
 
 Probes in `Probes164` on fresh throwaway bots next to the pretend player; details in `docs/ops/qa-suite.md`, "Checks two

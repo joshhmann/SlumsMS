@@ -113,6 +113,9 @@ public class GotoCommand extends Command {
             return "'" + key + "' is not a town you can @goto.";
         }
         MapleMap target = player.getClient().getChannelServer().getMapFactory().getMap(mapId);
+        if (target == null) {   // s-maproute: the destination has no image, or the table blocks it
+            return "'" + key + "' has nowhere to send you right now.";
+        }
         Portal targetPortal = target.getRandomPlayerSpawnpoint();
         player.saveLocationOnWarp();
         player.changeMap(target, targetPortal);
