@@ -1,0 +1,38 @@
+# t-cl-1: ropes and ladders have no box around them (client art). An agent reviews the frames; no person needed.
+id: t-cl-1-rope-no-box
+title: "Ropes and ladders have no box around them"
+covers: [t-cl-1]
+status: draft
+server: test
+needs: [gm]
+notes: "Ellinia's town map has ropes and ladders in the first screen. The reviewer looks for a rectangle outline around any rope."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    world: Bera
+    channel: 2
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 2}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: warp, do: gm, line: "!warp 101000000"}
+  - {id: there, do: wait, signal: {type: client_signal, name: field.ready, map_id: 101000000}, timeout_ms: 30000}
+  - {id: walk, do: move, dir: left, ms: 3000}
+  - {id: climb, do: move, dir: up, ms: 2000}
+  - {id: done, do: mark}
+captures:
+  - {id: arrive, burst: {fps: 2, ms: 3000, at: {signal: there}}}
+  - {id: walking, burst: {fps: 5, ms: 3000, at: {step: walk}}}
+  - {id: climbing, burst: {fps: 10, ms: 2000, at: {step: climb}}}
+expect:
+  reviewer:
+    - see: "No rope or ladder on screen has a box (rectangle outline) drawn around it, standing or climbing"
+      in: [arrive, walking, climbing]
+  checks:
+    - {check: client_alive}

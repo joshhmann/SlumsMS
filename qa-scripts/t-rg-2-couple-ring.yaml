@@ -1,0 +1,70 @@
+# t-rg-2: the Cash Shop couple ring purchase flow (Buy, the partner-name prompt), then the ring effect after a channel change.
+id: t-rg-2-couple-ring
+title: "Buy a couple ring, same gender too"
+covers: [t-rg-2]
+status: draft
+server: test
+needs: [gm, two_clients, cash_shop, proposed_anchors, proposed_signals, proposed_steps]
+notes: "Both online on channel 2. The buyer gets NX with !givenx; the ring tab and the first couple ring are anchors to calibrate. The partner is the SAME gender as the buyer (the 1.5.0 rule allows it)."
+clients:
+  buyer:
+    account: {vault: aq-ring-buyer}
+    world: Bera
+    channel: 2
+    gm: true
+  partner:
+    account: {vault: aq-ring-same}
+    world: Bera
+    channel: 2
+    gm: true
+steps:
+  - {do: login, client: buyer}
+  - {id: worlds-buyer, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000, client: buyer}
+  - {id: pick-world-buyer, do: select_world, world: Bera, client: buyer}
+  - {id: channels-buyer, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world-buyer, every_ms: 4000, times: 4}, timeout_ms: 30000, client: buyer}
+  - {do: select_channel, channel: 2, client: buyer}
+  - {id: chars-buyer, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000, client: buyer}
+  - {do: select_character, client: buyer}
+  - {id: in-game-buyer, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000, client: buyer}
+  - {do: login, client: partner}
+  - {id: worlds-partner, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000, client: partner}
+  - {id: pick-world-partner, do: select_world, world: Bera, client: partner}
+  - {id: channels-partner, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world-partner, every_ms: 4000, times: 4}, timeout_ms: 30000, client: partner}
+  - {do: select_channel, channel: 2, client: partner}
+  - {id: chars-partner, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000, client: partner}
+  - {do: select_character, client: partner}
+  - {id: in-game-partner, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000, client: partner}
+  - {id: nx, client: buyer, do: gm, line: "!givenx ${buyer.name} 20000"}
+  - {id: enter, client: buyer, do: click, anchor: menu.cash_shop}
+  - {id: shop, client: buyer, do: wait, signal: {type: client_signal, name: window.open, window: cash_shop}, timeout_ms: 30000}
+  - {id: rings, client: buyer, do: click, anchor: cash_shop.tab_rings}
+  - {id: pick, client: buyer, do: click, anchor: cash_shop.item_list}
+  - {id: buy, client: buyer, do: click, anchor: cash_shop.buy}
+  - {id: prompt, client: buyer, do: wait, armed_at: buy, signal: {type: server_line, topic: RING, regex: "^PROMPT ${buyer.name} pressed Buy", char: buyer}, timeout_ms: 10000}
+  - {client: buyer, do: click, anchor: cash_shop.partner_name}
+  - {id: name, client: buyer, do: type, text: "${partner.name}"}
+  - {id: confirm, client: buyer, do: click, anchor: cash_shop.confirm}
+  - {id: bought, client: buyer, do: wait, armed_at: confirm, signal: {type: server_line, topic: RING, regex: "^BOUGHT ${buyer.name} \\+ ${partner.name}: couple ring", char: buyer}, timeout_ms: 15000}
+  - {id: leave, client: buyer, do: click, anchor: cash_shop.exit}
+  - {id: back, client: buyer, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 30000}
+  - {id: cc-buyer, client: buyer, do: gm, line: "!changechannel 3"}
+  - {id: buyer-cc, client: buyer, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 30000}
+  - {id: cc-partner, client: partner, do: gm, line: "!changechannel 3"}
+  - {id: partner-cc, client: partner, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 30000}
+  - {id: meet, client: partner, do: gm, line: "!warp 100000000"}
+  - {id: partner-town, client: partner, do: wait, signal: {type: client_signal, name: field.ready, map_id: 100000000}, timeout_ms: 30000}
+  - {id: buyer-meet, client: buyer, do: gm, line: "!warp 100000000"}
+  - {id: buyer-town, client: buyer, do: wait, signal: {type: client_signal, name: field.ready, map_id: 100000000}, timeout_ms: 30000}
+captures:
+  - {id: purchase, client: buyer, burst: {fps: 5, ms: 3000, at: {step: confirm}}}
+  - {id: effect, client: partner, burst: {fps: 10, ms: 3000, at: {signal: buyer-town}}}
+  - {id: chat, client: buyer, chat_log: {span: {from: nx, to: buyer-town}}}
+expect:
+  reviewer:
+    - see: "The partner-name prompt opens on Buy, the purchase goes through, and after the channel change the couple ring effect shows on the buyer (seen by the partner)"
+      in: [purchase, effect]
+  checks:
+    - {check: server_line, topic: RING, regex: "^BOUGHT ${buyer.name} ", char: buyer, min: 1}
+    - {check: server_line, topic: RING, regex: "^(REFUSED|BUSY|CANCELLED) ${buyer.name}", char: buyer, max: 0}
+    - {check: client_alive, client: buyer}
+    - {check: client_alive, client: partner}

@@ -1,0 +1,42 @@
+# t-cl-3: equipping a pet equip does not crash the client and its icon draws.
+id: t-cl-3-pet-equip
+title: "Equipping a pet and a pet equip does not crash the client"
+covers: [t-cl-3]
+status: draft
+server: test
+needs: [gm, pet, proposed_anchors, proposed_signals]
+notes: "Item ids to confirm on the first run: 5000000 (Brown Kitty) and 1802000 (a pet equip). Opening the item window is key I, the equip window key E."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    world: Bera
+    channel: 2
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 2}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: give-pet, do: gm, line: "!item 5000000 1"}
+  - {id: give-equip, do: gm, line: "!item 1802000 1"}
+  - {id: open-items, do: key, key: I}
+  - {id: items, do: wait, signal: {type: client_signal, name: window.open, window: item}, timeout_ms: 5000}
+  - {do: click, anchor: inventory.cash_tab}
+  - {id: summon, do: click, anchor: inventory.slot_1, button: double}
+  - {id: open-equip, do: key, key: E}
+  - {id: equips, do: wait, signal: {type: client_signal, name: window.open, window: equip}, timeout_ms: 5000}
+  - {id: wear, do: click, anchor: pet_equip.slot, button: double}
+  - {id: done, do: mark}
+captures:
+  - {id: pet-out, burst: {fps: 5, ms: 2000, at: {step: summon}, delay_ms: 500}}
+  - {id: worn, burst: {fps: 5, ms: 3000, at: {step: wear}, delay_ms: 300}}
+expect:
+  reviewer:
+    - see: "The pet walks beside you; the pet equip's icon draws in the equip window and on the pet"
+      in: [pet-out, worn]
+  checks:
+    - {check: client_alive}

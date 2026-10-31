@@ -77,6 +77,12 @@ result, screenshot path), as `qa-1.5.0.md` does.
 report; virtual display = tell the owner. Don't edit `local-config.json` (`force`), don't kill other processes, don't
 work around a refusal.
 
+### Client scripts (ticket 166/170): replacing live driving
+
+Real-client checks are moving from an agent steering the client to scripts a runner plays and records:
+`docs/qa/client-scripts/README.md` (format, validator, the TEST QA event feed), `run-folder.md` (what a run leaves
+behind) and `owner-vs-machine.md` (which hand checks a script takes over). Scripts live in `qa-scripts/`.
+
 ## 3. The owner's checklist (what only a person can judge)
 
 For each release write `docs/release/<version>-qa.md`: one line per check, `id | what to do | what you should see`,

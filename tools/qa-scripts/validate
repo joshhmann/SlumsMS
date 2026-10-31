@@ -1,0 +1,3 @@
+#!/bin/sh
+# Validate auto-QA client scripts: tools/qa-scripts/validate [qa-scripts/<id>.yaml ...] (default: all of them).
+exec python3 -I "$(dirname "$0")/qascript.py" "$@"

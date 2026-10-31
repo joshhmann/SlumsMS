@@ -1,0 +1,64 @@
+# KPQ stage 1 with a REAL leader (q45, mx-1 with "me"): the bots farm the coupons, trade them for passes and bring the
+# passes to the leader; the leader (this client) picks them up and hands them to Cloto. Proves a real client can lead
+# a bot party through stage 1. Needs a channel with no KPQ running (a player-led run makes a lobby run yield).
+id: kpq-stage1-leader
+title: A real leader clears Kerning PQ stage 1 with three bots
+covers: [q45, t-mx-1]
+status: draft
+server: test
+needs: [gm, mechanics, kpq_free_channel, proposed_anchors, proposed_signals, proposed_steps]
+notes: "The vault character is level 21-30 (KPQ's range). Cloto is NPC 9020001 in stage 1 (103000800). The pick-up loop and Cloto's dialog clicks are guesses until the first run; fix them from the run folder."
+clients:
+  me:
+    account: {vault: aq-kpq-leader}
+    world: Bera
+    channel: 4
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 4}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: to-kerning, do: gm, line: "!warp 103000000"}
+  - {id: in-kerning, do: wait, signal: {type: client_signal, name: field.ready, map_id: 103000000}, timeout_ms: 30000}
+  - {id: stage, do: gm, line: "!mechanics kpq me 3 to1"}
+  - {id: in-stage, do: wait, signal: {type: client_signal, name: field.ready, map_id: 103000800}, timeout_ms: 90000}
+  - {id: run-start, do: wait, armed_at: stage, signal: {type: server_line, topic: MECHANICS, regex: "^RUN start kpq stage 1 ", char: me}, timeout_ms: 30000}
+  # the leader asks Cloto too (every member gets a question in stage 1)
+  - {id: ask-cloto, do: click_npc, npc: 9020001}
+  - {id: cloto-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {do: click, anchor: npc_dialog.next}
+  - {do: click, anchor: npc_dialog.close}
+  - {id: cloto-closed, do: wait, signal: {type: client_signal, name: window.closed, window: npc_dialog}, timeout_ms: 10000}
+  # a bot drops its pass by the leader and says so
+  - {id: pass-dropped, do: wait, armed_at: run-start, signal: {type: client_signal, name: chat.received, regex: "dropped my pass by u, take them to Cloto"}, timeout_ms: 240000}
+  - {id: loot-1, do: key, key: Z}
+  - {do: key, key: Z}
+  - {do: key, key: Z}
+  - {id: hand-in, do: click_npc, npc: 9020001}
+  - {id: hand-in-open, do: wait, signal: {type: client_signal, name: window.open, window: npc_dialog}, timeout_ms: 10000}
+  - {do: click, anchor: npc_dialog.next}
+  - {id: cleared, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s", char: me}, timeout_ms: 120000}
+  - {id: run-end, do: wait, armed_at: run-start, signal: {type: server_line, topic: MECHANICS, regex: "^RUN end kpq ", char: me}, timeout_ms: 120000}
+captures:
+  - {id: stage-start, burst: {fps: 5, ms: 3000, at: {signal: in-stage}}}
+  - {id: pass-drop, burst: {fps: 10, ms: 3000, at: {step: loot-1}}}
+  - {id: clear, clip: {fps: 15, ms: 4000, at: {step: hand-in}}}
+  - {id: chat, chat_log: {span: {from: stage, to: run-end}}}
+  - {id: where, samples: {fields: [pos, map], hz: 2, span: {from: in-stage, to: run-end}}}
+expect:
+  reviewer:
+    - see: "Three bots spread over stage 1, fight Ligators for coupons and walk to Cloto like players working it out"
+      in: [stage-start, pass-drop]
+    - see: "Cloto accepts the passes and the stage-clear effect plays (portal opens)"
+      in: [clear]
+  checks:
+    - {check: server_line, topic: MECHANICS, regex: "^RUN stage 1 cleared in \\d+ s", char: me, min: 1}
+    - {check: server_line, topic: MECHANICS, regex: "^RUN end kpq .*(stuck|error)", char: me, max: 0}
+    - {check: chat_line, regex: "take them to Cloto", min: 1, span: {from: stage, to: run-end}}
+    - {check: client_alive}
+  judgment: "Whether the bots look like real players working it out (owner, from the frames, once)."
