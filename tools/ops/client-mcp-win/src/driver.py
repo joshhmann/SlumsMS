@@ -189,7 +189,7 @@ class Driver:
         if backend is None:
             import windows as backend
         self.backend = backend
-        self.activity = backend.InputGuard()
+        self.activity = backend.InputGuard(inside(root / 'logs', root) / 'owner-input.json')
         self.client = backend.OwnedClient(inside(root / 'client', root))
         self.sender = backend.Sender(self.client, self.guard)
         self.secrets = Secrets(root / 'secrets' / 'account.txt')

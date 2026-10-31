@@ -9,6 +9,8 @@ import struct
 import threading
 import time
 
+import idleseed
+
 from PIL import Image
 
 u = c.WinDLL('user32', use_last_error=True)
@@ -88,14 +90,34 @@ def last_input_tick():
 
 
 class InputGuard:
-    """Track physical input; injected input must not reset the owner's idle time."""
-    def __init__(self):
-        self.last_physical = last_input_tick()
+    """Track physical input; injected input must not reset the owner's idle time.
+
+    state_path (logs/owner-input.json) carries the clock across worker restarts (b023, idleseed.py)."""
+    def __init__(self, state_path=None):
+        self.state_path = state_path
+        now_tick, now_wall = k.GetTickCount64(), time.time()
+        last_input_wall = now_wall - (now_tick - last_input_tick()) / 1000
+        seed = idleseed.seed_last_physical(now_wall, last_input_wall,
+                                           idleseed.read_state(state_path) if state_path else None)
+        self.last_physical = now_tick - int((now_wall - seed) * 1000)
         self.ready = threading.Event()
         self.healthy = False
         self.thread = threading.Thread(target=self._watch, daemon=True)
         self.thread.start()
         self.ready.wait(3)
+        if state_path:
+            threading.Thread(target=self._keep_state, daemon=True).start()
+
+    def _keep_state(self):
+        # Every few seconds while the hooks run: the last physical input seen and "watched until now".
+        while True:
+            if self.healthy and self.thread.is_alive():
+                now_tick, now_wall = k.GetTickCount64(), time.time()
+                try:
+                    idleseed.write_state(self.state_path, now_wall - (now_tick - self.last_physical) / 1000, now_wall)
+                except OSError:
+                    pass
+            time.sleep(5)
 
     def record_input(self, flags, extra, injected_mask):
         # Parsec and unrelated injected input still count as owner activity.
