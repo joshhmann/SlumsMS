@@ -63,6 +63,10 @@ final class StepExecutor {
         String occupyAt;
         long occupySinceMs;
         long occupyToldMs;
+        /** The wait message this bot has been sitting on, since when, and when it last said it. */
+        String waitMsg;
+        long waitSinceMs;
+        long waitToldMs;
         boolean stallTold;
         int stallGain;
         final Chase chase = new Chase();
@@ -88,8 +92,7 @@ final class StepExecutor {
             case SolverStep.CheckAnswer c -> check(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.Converse c -> converse(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.EnterPortal e -> enterPortal(bot, beat, e, now, log);
-            case SolverStep.Wait w -> {
-            }
+            case SolverStep.Wait w -> waitNote(bot, beat, w, now, log);
             case SolverStep.Done d -> {
             }
         }
@@ -116,6 +119,43 @@ final class StepExecutor {
     /** Whether a stander that has been walking to {@code o.id()} since {@code sinceMs} should say so now. */
     static boolean occupyDueForNote(long sinceMs, long toldMs, long now) {
         return now - sinceMs >= OCCUPY_NOTE_MS && now - toldMs >= OCCUPY_NOTE_MS;
+    }
+
+    /** Whether a member sitting on the same wait since {@code sinceMs} should say it now (once a minute after 30 s). */
+    static boolean waitDueForNote(long sinceMs, long toldMs, long now) {
+        return now - sinceMs >= OCCUPY_NOTE_MS && now - toldMs >= WAIT_AGAIN_MS;
+    }
+
+    static final long WAIT_AGAIN_MS = 60_000L;
+
+    /**
+     * mx-2 (TEST 10-31): a waiting member wrote nothing, so 1164 s of a stage that never became exact left no trace.
+     * A bot that sits on one wait message for 30 s now says what it waits for and where it stands, and repeats at most
+     * once a minute while the message stays the same; a new step starts it over.
+     */
+    private static void waitNote(Character bot, Beat beat, SolverStep.Wait w, long now, Consumer<String> log) {
+        String msg = w.why();
+        if (msg == null || msg.isBlank()) {
+            beat.waitMsg = null;
+            beat.waitSinceMs = 0;
+            beat.waitToldMs = 0;
+            return;
+        }
+        if (!msg.equals(beat.waitMsg)) {
+            beat.waitMsg = msg;
+            beat.waitSinceMs = now;
+            beat.waitToldMs = 0;
+            return;
+        }
+        if (!waitDueForNote(beat.waitSinceMs, beat.waitToldMs, now)) {
+            return;
+        }
+        beat.waitToldMs = now;
+        log.accept(waitNoteLine(bot.getName(), msg, bot.getPosition(), now - beat.waitSinceMs));
+    }
+
+    static String waitNoteLine(String name, String msg, Point at, long forMs) {
+        return "WAIT " + name + " " + forMs / 1000 + " s: " + msg + (at == null ? "" : " (at " + at.x + "," + at.y + ")");
     }
 
     /**
