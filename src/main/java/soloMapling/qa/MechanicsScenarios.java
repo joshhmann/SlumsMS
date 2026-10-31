@@ -379,10 +379,16 @@ final class MechanicsScenarios {
             requireMechanics();
             Character gm = ctx.gm();
             net.server.channel.Channel here = gm.getClient().getChannelServer();
-            net.server.channel.Channel other = gm.getWorldServer().getChannels().stream()
-                    .filter(c -> c != null && c.getId() != here.getId()).findFirst().orElse(null);
+            // TEST 10-31 (t-mx-4): "the first other channel" had an instance no run owned, so Lakelis refused the
+            // staging and the check failed on that, not on two channels playing at once. Take a channel whose KPQ is
+            // free; the one we play on must be free too.
+            net.server.channel.Channel other = soloMapling.mechanics.KpqLobby.pickOtherChannel(here);
             if (other == null) {
-                throw new QaRefusal("mx-4 needs a second channel");
+                throw new QaRefusal("every other channel's Kerning PQ has a live instance right now; mx-4 needs one free");
+            }
+            if (!soloMapling.mechanics.KpqLobby.kpqFreeOn(here)) {
+                throw new QaRefusal("channel " + here.getId() + "'s Kerning PQ has a live instance right now"
+                        + " (a stopped run or a lobby run left it open); mx-4 needs its own channel free");
             }
             List<KpqStaging.Staged> staged = new java.util.ArrayList<>();
             ctx.onStop("stop both KPQ runs and take their bots away", () -> {

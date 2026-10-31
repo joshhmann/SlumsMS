@@ -175,6 +175,30 @@ public final class KpqLobby {
         }
     }
 
+    /**
+     * The first channel in {@code channels} other than {@code here} whose KPQ has no live instance, or null.
+     * TEST 10-31 (t-mx-4): mx-4 took "the first other channel" and found channel 2's KPQ held by an instance no run
+     * owned, so Lakelis refused and the check failed on the staging rather than on two channels running at once.
+     */
+    static Channel firstFree(List<Channel> channels, Channel here, java.util.function.Predicate<Channel> busy) {
+        for (Channel c : channels) {
+            if (c != null && c != here && !busy.test(c)) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    /** A channel a second staged run can play KPQ on now (mx-4), or null when every other channel's KPQ is in use. */
+    public static Channel pickOtherChannel(Channel here) {
+        return firstFree(soloMapling.ArtificialPlayer.BotChannels.channels(), here, KpqLobby::kpqBusy);
+    }
+
+    /** Whether a staged run can take this channel's KPQ now (QA mx-4 checks its own channel too). */
+    public static boolean kpqFreeOn(Channel ch) {
+        return ch != null && !kpqBusy(ch);
+    }
+
     /** Whether the lobby may try a start on a channel now: its KPQ is free and no refusal backoff is running. */
     static boolean mayTry(int channel, long now, boolean kpqBusy) {
         Long until = refusedUntil.get(channel);
