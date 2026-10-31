@@ -197,6 +197,34 @@ class StateOfMindFlowTest {
     }
 
     /** REVIEW-A2 item 2: a level snapshot is not something the bot remembers, and knowing one is not knowing them. */
+    /**
+     * Stage B (owner's step 5): a bot in Henesys told a level 200 player it knows "Path of Time, Lost Time (Platoon
+     * Chronos)" - the player's own level's spots, listed as the bot's. A level 40 bot only knows places its own level
+     * reaches.
+     */
+    @Test
+    void aBotOnlyKnowsPlacesItsOwnLevelReaches() {
+        assertTrue(BotStateOfMind.reaches(40, 40));
+        assertTrue(BotStateOfMind.reaches(40, 60), "twenty levels up is still a place it hears about");
+        assertFalse(BotStateOfMind.reaches(40, 200), "Platoon Chronos is not a level 40's place");
+        Character bot = character(BotStore.BOT_ID_BASE + 5, "NLord99", 40);
+        Character high = character(70_004, "Hero99", 200);
+        BotSM sm = mock(TownWandererBot.class);
+        when(sm.getChr()).thenReturn(bot);
+        List<String> highSpots = new java.util.ArrayList<>();
+        for (soloMapling.ArtificialPlayer.BotConvo.TrainingTips.Spot spot
+                : soloMapling.ArtificialPlayer.BotConvo.TrainingTips.spotsFor(200, high.getJob().getId(), 2)) {
+            if (spot.name() != null) {
+                highSpots.add(spot.name());
+            }
+        }
+        StateOfMind.Snapshot s = BotStateOfMind.capture(sm, high, null, false, null, null, true);
+        for (StateOfMind.Place place : s.knownPlaces()) {
+            assertFalse(highSpots.contains(place.name()),
+                    "a level 40 bot claims a level 200 spot it cannot know: " + place.name() + " in " + s.knownPlaces());
+        }
+    }
+
     @Test
     void theSnapshotDoesNotCountTheLevelSnapshotAsAMemory() {
         FakeMemoryTable table = new FakeMemoryTable(false);

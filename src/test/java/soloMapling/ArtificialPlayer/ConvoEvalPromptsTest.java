@@ -109,7 +109,7 @@ class ConvoEvalPromptsTest {
         String activity = BotChatPrompt.activityPhrase((String) b.get("activity"));
         String map = (String) b.get("map");
         BotChatPrompt.Context context = new BotChatPrompt.Context(bot.getName(), bot.getLevel(),
-                constants.game.GameConstants.getJobName(bot.getJob().getId()).toLowerCase(), map, activity, null, BotChatPrompt.mood(slot, activity, false, now),
+                constants.game.GameConstants.getJobName(bot.getJob().getId()).toLowerCase(), map, activity, null, BotChatPrompt.mood(activity, false),
                 player.getName(), player.getLevel(), constants.game.GameConstants.getJobName(player.getJob().getId()).toLowerCase(), List.of(), List.of(), null);
         String card = RelationshipCard.build(new RelationshipCard.Data(player.getName(), AffinityState.NEUTRAL, 0,
                 List.of(), null, null, map, List.of(), null, null, activity, null), now, ZoneId.systemDefault());

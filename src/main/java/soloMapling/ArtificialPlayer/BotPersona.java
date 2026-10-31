@@ -71,14 +71,25 @@ public final class BotPersona {
 
     /** The persona's half of the system prompt: who is typing and how. */
     public static String describe(Persona persona, double chattiness) {
-        StringBuilder style = new StringBuilder();
-        style.append(persona.lowercase() ? "type in all lowercase" : "type with normal capitals");
-        if (persona.shortForms()) {
-            style.append(", use u/ur/ppl/pls/ty/idk/nvm");
-        }
-        style.append(", laugh with \"").append(persona.laugh()).append("\" sometimes, no period at the end");
+        return describe(persona, chattiness, true);
+    }
+
+    /**
+     * As above. {@code withStyle} false leaves the "Chat style:" sentence out, for the prompts that already carry a
+     * voice line (m02 stage B, owner's step 5: one typing style per prompt, the persona's own).
+     */
+    public static String describe(Persona persona, double chattiness, boolean withStyle) {
         String length = chattiness > 0.6 ? "1-2 short sentences" : chattiness > 0.25 ? "one short sentence" : "a few words";
-        return "You are " + persona.vibe() + ". You care about " + String.join(" and ", persona.interests())
-                + ". Chat style: " + style + ". Reply with " + length + ".";
+        StringBuilder out = new StringBuilder("You are ").append(persona.vibe()).append(". You care about ")
+                .append(String.join(" and ", persona.interests())).append(". ");
+        if (withStyle) {
+            out.append("Chat style: ")
+                    .append(persona.lowercase() ? "type in all lowercase" : "type with normal capitals");
+            if (persona.shortForms()) {
+                out.append(", use u/ur/ppl/pls/ty/idk/nvm");
+            }
+            out.append(", laugh with \"").append(persona.laugh()).append("\" sometimes, no period at the end. ");
+        }
+        return out.append("Reply with ").append(length).append('.').toString();
     }
 }

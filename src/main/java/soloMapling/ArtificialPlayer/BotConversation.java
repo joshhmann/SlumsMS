@@ -811,7 +811,7 @@ public final class BotConversation {
         BotPersonality.Traits traits = member == null ? null : member.traits();
         MerchantStock.Stock stock = MerchantStock.of(session.bot);
         BotChatPrompt.Context context = BotChatPrompt.context(bot, player, activity,
-                BotChatPrompt.mood(slot, activity, wary, now), BotMemory.recall(slot, player.getId(), now),
+                BotChatPrompt.mood(activity, wary), BotMemory.recall(slot, player.getId(), now),
                 List.of(), outcome) // the map's chat goes in the final turn (BotChatPrompt.finalTurn)
                 .with(stock == null ? null : stock.fact(), recognise);
         String card = null;

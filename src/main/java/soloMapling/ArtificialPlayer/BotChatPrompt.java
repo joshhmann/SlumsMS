@@ -132,7 +132,8 @@ public final class BotChatPrompt {
         }
         s.append(NEVER).append(' ');
         s.append("Do not bring up your map or what you are doing unless it fits the chat. ");
-        s.append(BotPersona.describe(persona, chattiness)).append(' ');
+        // stage B (owner's step 5): one typing style per prompt - the persona's own voice line replaces its style rules
+        s.append(BotPersona.describe(persona, chattiness, voiceLine == null)).append(' ');
         if (worldFacts) {
             s.append(WORLD_FACTS).append(' ');
         }
@@ -198,18 +199,20 @@ public final class BotChatPrompt {
         }
     }
 
-    /** A mood for the prompt: wary of a player it flagged, focused while grinding, else one per bot per hour. */
-    public static String mood(int botSlot, String activity, boolean wary, long now) {
+    /**
+     * A mood for the prompt, when the game state gives one: wary of a player it flagged, focused while grinding.
+     * Stage B (owner's step 5, the precedence game state &gt; relationship &gt; persona &gt; mood): the per-hour dice
+     * are gone - "lazy, half afk" sat next to a hyper persona and "hyped" next to a wary bot. With no state behind a
+     * mood the persona speaks alone, and this returns null.
+     */
+    public static String mood(String activity, boolean wary) {
         if (wary) {
             return "wary of this player after how they acted before, short with them";
         }
         if ("grinding".equals(activity)) {
             return "focused on grinding, a bit distracted";
         }
-        String[] moods = {"in a good mood", "a bit bored", "tired but ok", "chill", "hyped about the game today",
-                "lazy, half afk"};
-        long hour = now / 3_600_000L;
-        return moods[(int) Math.floorMod(botSlot * 31L + hour, moods.length)];
+        return null;
     }
 
     private static final java.util.regex.Pattern WORLD_WORDS = java.util.regex.Pattern.compile(

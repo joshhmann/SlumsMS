@@ -9,6 +9,7 @@ import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrain;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BotChatPromptTest {
@@ -98,7 +99,34 @@ class BotChatPromptTest {
         assertTrue(!system.contains("Recent chat around you"), "the map's chat goes in the final turn now");
         assertTrue(system.contains("your reply must say so: You agreed to party"));
         assertEquals("wary of this player after how they acted before, short with them",
-                BotChatPrompt.mood(3, "grinding", true, 0));
+                BotChatPrompt.mood("grinding", true));
+    }
+
+    /**
+     * Stage B (owner's step 5, one typing style): with a persona voice line in the prompt the persona's own
+     * "Chat style: ..." sentence is gone, so the model never gets two sets of typing rules.
+     */
+    @Test
+    void aPersonaVoiceLineReplacesThePersonaStyleRules() {
+        BotPersona.Persona persona = BotPersona.generate(5);
+        BotChatPrompt.Context c = new BotChatPrompt.Context("Kimchiz", 41, "assassin", "Ant Tunnel I", "grinding",
+                null, null, "Josh", 30, "page", List.of(), List.of(), null);
+        String withVoice = BotChatPrompt.system(c, persona, 0.9, null, "u type like kikz: all lowercase, lol", false);
+        assertTrue(withVoice.contains("u type like kikz"), withVoice);
+        assertTrue(!withVoice.contains("Chat style:"), "two typing styles in one prompt: " + withVoice);
+        assertTrue(withVoice.contains("1-2 short sentences"), "the length still comes from chattiness: " + withVoice);
+        String noVoice = BotChatPrompt.system(c, persona, 0.4, null, null, false);
+        assertTrue(noVoice.contains("Chat style:"), "no voice line: the persona's own style rules carry it");
+    }
+
+    /** Stage B (owner's step 5, precedence): a mood only exists when the game state gives one. */
+    @Test
+    void theMoodComesFromTheGameStateOrNotAtAll() {
+        assertEquals("focused on grinding, a bit distracted", BotChatPrompt.mood("grinding", false));
+        assertEquals("wary of this player after how they acted before, short with them",
+                BotChatPrompt.mood("hanging out in town", true));
+        assertNull(BotChatPrompt.mood("hanging out in town", false),
+                "no state behind a mood: the persona speaks alone instead of a per-hour dice");
     }
 
     @Test

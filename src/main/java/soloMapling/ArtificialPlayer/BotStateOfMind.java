@@ -31,6 +31,14 @@ final class BotStateOfMind {
     private BotStateOfMind() {
     }
 
+    /** How far above or below the bot a level may be for that player's own training spots to be places it knows. */
+    static final int LEVEL_REACH = 25;
+
+    /** Whether a bot of {@code botLevel} could plausibly know the training spots of a player of {@code theirLevel}. */
+    static boolean reaches(int botLevel, int theirLevel) {
+        return Math.abs(theirLevel - botLevel) <= LEVEL_REACH;
+    }
+
     /**
      * The snapshot for {@code bot} answering {@code player}. {@code history}: the chat's turns (oldest first);
      * {@code spoken}: the bot already said something in this chat; {@code offer}: an open trade offer or null;
@@ -84,7 +92,9 @@ final class BotStateOfMind {
                 List.<TrainingTips.Spot>of())) {
             b.knows(new StateOfMind.Place(spot.mapId(), spot.name(), region(spot.mapId())), spawnNames(spot.mapId()));
         }
-        if (worldTalk && player != null) {
+        if (worldTalk && player != null && reaches(bot.getLevel(), player.getLevel())) {
+            // stage B (owner's step 5): the asker's own level's spots are only "places you know" when their level is
+            // within reach of the bot's - a level 40 bot never claims Platoon Chronos for a level 200 player
             int pJob = safe(() -> player.getJob().getId(), 0);
             for (TrainingTips.Spot spot : safe(() -> TrainingTips.spotsFor(player.getLevel(), pJob, 2),
                     List.<TrainingTips.Spot>of())) {
