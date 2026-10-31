@@ -81,12 +81,12 @@ class BotSpawnPacketLookTest {
     }
 
     /**
-     * Owner, same report: "one floated in mid air". A bot spawns on a map spawn point or a portal, which sits above
-     * its floor, and a bot in an unobserved map gets no physics to fall with — so the point the spawn packet carries
-     * is where every viewer sees it stand until someone walks in.
+     * Review round 2, item 1: joining a map must not move the point it is given. Snapping the spawn point down to
+     * the foothold below it changes where every bot in every map lands, so it is out of the spawn path: a bot
+     * still spawns exactly where its callers place it.
      */
     @Test
-    void aBotThatSpawnsAboveItsFloorReachesTheMapOnTheGround() {
+    void aBotJoinsTheMapAtThePointItsCallerGave() {
         try (MapEntryHarness h = new MapEntryHarness(100000000)) {
             FootholdTree tree = new FootholdTree(new Point(-1000, -1000), new Point(3000, 3000));
             tree.insert(new Foothold(new Point(100, 200), new Point(500, 200), 1));
@@ -94,13 +94,13 @@ class BotSpawnPacketLookTest {
 
             Character bot = Character.getDefault(new BotClient(0, 0));
             bot.setID(BOT_ID);
-            bot.setName("Floatbot");
+            bot.setName("Givenbot");
 
             BotGenerationSpawnAccess.joinMap(bot, new Point(300, 160), h.map, b -> { });
 
             assertSame(bot, h.map.getCharacterById(BOT_ID), "the bot is in the map it joined");
-            assertEquals(200, bot.getPosition().y, "it stands on the floor below its spawn point, not in mid air");
-            assertEquals(300, bot.getPosition().x, "and keeps the x it was given");
+            assertEquals(160, bot.getPosition().y, "the spawn point the caller gave is kept, not snapped to a floor");
+            assertEquals(300, bot.getPosition().x, "and the x it was given");
         }
     }
 }
