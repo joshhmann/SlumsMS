@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -182,6 +183,17 @@ class StateOfMindFlowTest {
         assertTrue(BotStateOfMind.haggleWords("300k?"));
         assertTrue(BotStateOfMind.haggleWords("9k for it"));
         assertFalse(BotStateOfMind.haggleWords("lol im like 300k exp away from 50 tho"));
+    }
+
+    /** b240: a roster role is a plan. A bot whose role is grinding that stands in a town is not grinding there. */
+    @Test
+    void b240ATownTakesTheGrindOutOfThePromptedActivity() {
+        assertEquals("hanging out in town", BotStateOfMind.claimedActivity("grinding", true));
+        assertEquals("grinding", BotStateOfMind.claimedActivity("grinding", false));
+        assertEquals("running a shop in the Free Market",
+                BotStateOfMind.claimedActivity("running a shop in the Free Market", true));
+        assertEquals("hanging out in town", BotStateOfMind.claimedActivity("hanging out in town", true));
+        assertNull(BotStateOfMind.claimedActivity(null, true));
     }
 
     @Test

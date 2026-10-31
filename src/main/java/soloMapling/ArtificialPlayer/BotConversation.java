@@ -333,6 +333,14 @@ public final class BotConversation {
                 && e.getKey().playerId() != exceptPlayerId && now - e.getValue().state.lastAt <= IDLE_MS);
     }
 
+    /**
+     * b240: whether {@code bot}'s map has monsters (alive now or on its spawn list) - the snapshot's own list - for a
+     * line that has no chat snapshot of its own (a map-chat thread): a bot in a town does not say it is grinding.
+     */
+    public static boolean monstersHere(Character bot) {
+        return !BotStateOfMind.monstersHere(bot).isEmpty();
+    }
+
     /** Whether this player is mid-chat with this bot. */
     public static boolean isTalking(int botCharId, int playerId) {
         Session session = sessions.get(new Key(botCharId, playerId));

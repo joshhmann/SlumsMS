@@ -570,8 +570,9 @@ public final class WorldEvents {
                 if (cake == null) {
                     return "cake " + t.bossMobId() + " could not be spawned";
                 }
+                e.cakeSpawnedAtMs = System.currentTimeMillis();
                 qa("WEVENT CAKE HP " + hp + " for " + e.cakeHeads + " attendees (base " + e.cakeBaseHp + ", +"
-                        + CakeHp.perHead() + " each, cap " + CakeHp.cap() + ")");
+                        + CakeHp.perHead() + " each, cap " + CakeHp.cap() + ", aim " + CakeHp.targetSeconds() + " s)");
                 e.touchTask = ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(
                         () -> topUpCake(e), CakeHp.BEAT_MS, CakeHp.BEAT_MS, TimeUnit.MILLISECONDS);
                 e.subject = cake.getName();
@@ -705,6 +706,17 @@ public final class WorldEvents {
             }
             if (add > 0 && cake.raiseMaxHp(add)) {
                 qa("WEVENT CAKE HP " + cake.getMaxHp() + " for " + heads + " attendees (+" + add + ", now "
+                        + cake.getHp() + " left)");
+            }
+            // 1.6.2 (b236): and aim it at the target fight length from the crowd's own damage rate (CakeHp.aimFor)
+            long damage = damageTaken(cake);
+            long elapsed = e.cakeSpawnedAtMs == 0 ? 0 : System.currentTimeMillis() - e.cakeSpawnedAtMs;
+            e.cakeDps = CakeHp.dps(damage, elapsed);
+            long aim = CakeHp.aimTopUp(e.cakeBaseHp, cake.getMaxHp(), damage, elapsed, CakeHp.targetSeconds(),
+                    CakeHp.cap());
+            if (aim > 0 && cake.raiseMaxHp(aim)) {
+                qa("WEVENT CAKE AIMED " + cake.getMaxHp() + " HP for ~" + CakeHp.targetSeconds() + " s at " + e.cakeDps
+                        + " DPS (" + damage + " taken in " + elapsed / 1000 + " s, +" + aim + ", now "
                         + cake.getHp() + " left)");
             }
         } catch (RuntimeException ex) {
@@ -997,6 +1009,15 @@ public final class WorldEvents {
         return mob;
     }
 
+    /** 1.6.2 (b236): everything the crowd has taken off a mob so far (the cake's own damage rate). */
+    private static long damageTaken(Monster mob) {
+        long total = 0;
+        for (long d : mob.damageSnapshot().values()) {
+            total += d;
+        }
+        return total;
+    }
+
     static long mapKey(int channel, int mapId) {
         return ((long) channel << 32) | (mapId & 0xffffffffL);
     }
@@ -1183,6 +1204,11 @@ public final class WorldEvents {
             if (e.participants.add(chr.getId())) {
                 giveParticipation(chr, e);
             }
+        }
+        if (e.template.kind() == EventTemplate.Kind.GIANT_CAKE) {
+            long elapsed = e.cakeSpawnedAtMs == 0 ? 0 : System.currentTimeMillis() - e.cakeSpawnedAtMs;
+            qa("WEVENT CAKE FELL after " + elapsed / 1000 + " s at " + boss.getMaxHp() + " HP (aim "
+                    + CakeHp.targetSeconds() + " s, " + CakeHp.dps(total, elapsed) + " DPS)");
         }
         qa("WEVENT BOSS DOWN #" + e.id + " " + boss.getName() + ": " + damage.size() + " attackers, "
                 + countBots(damage.keySet()) + " of them bots (" + botDamage + " of " + total + " dmg), winner "

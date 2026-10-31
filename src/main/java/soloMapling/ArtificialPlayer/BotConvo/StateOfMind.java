@@ -369,10 +369,23 @@ public final class StateOfMind {
             + "lvling|sniping)\\b");
     private static final Pattern SECOND = Pattern.compile("\\b(u|you|ya|ur|your|youre|yall)\\b");
 
-    private static final Pattern GRIND_CLAIM = Pattern.compile("^\\s*(?:(?:im|i am|still|just|been|currently|rn|ya|"
-            + "yea|yeah|yh|lol|lmao|nah|sup|ok|tbh|meh|eh|oh|kinda|out here|over here)\\s+)*"
-            + "(grinding|grindin|sniping|farming|hunting|leveling|lvling|training)\\b"
+    /** b240: a grinding, training, hunting or farming word anywhere in a clause, so long as it is not a comment on it
+     * ("grinding is so boring") or a plan ("grinding later", read by {@link #NOT_NOW} instead). */
+    private static final Pattern GRIND_ANY = Pattern.compile("\\b(grinding|grindin|grind|grinds|sniping|farming|"
+            + "hunting|leveling|lvling|training)\\b"
             + "(?!\\s+(is|was|sucks|sux|gets|takes|later|after|tmr|tomorrow|soon))");
+    private static final Pattern FIRST_PERSON = Pattern.compile("\\b(i|im|me|my|myself|we|were|us)\\b|\\blet me\\b");
+    private static final Pattern SECOND_PERSON = Pattern.compile("\\b(u|you|ya|ur|your|youre|yall|they|them|he|she|"
+            + "his|her)\\b");
+    /** Grinding named as the other player's ("hows the grind at 70 goin", "ur grind"). */
+    private static final Pattern THEIR_ACTIVITY = Pattern.compile("\\b(?:the|that|ur|your)\\s+(?:grind|grinding|"
+            + "farm|farming|hunt|hunting|train|training|leveling|lvling)\\b");
+    /** A denial right before the word, which is true in town ("no grind today tbh", "im not really grinding rn"). */
+    private static final Pattern DENIED = Pattern.compile("(?:^|\\s)(no|not|never|aint|dont|didnt|without|"
+            + "quit)\\s+(?:\\w+\\s+){0,2}$");
+    /** Said to the other player rather than about itself ("good luck grinding", "keep grinding"). */
+    private static final Pattern TO_THEM = Pattern.compile("\\b(good luck|gl|gz|grats|congrats|keep|happy|enjoy|"
+            + "dont|stop)\\s+(?:(?:\\w+ )?){0,2}$");
     private static final Pattern NOT_NOW = Pattern.compile("\\b(later|after|soon|gonna|tmr|tomorrow|was|earlier|"
             + "yesterday|before|then|next)\\b");
 
@@ -778,17 +791,60 @@ public final class StateOfMind {
         return false;
     }
 
+    /**
+     * b240 (the owner, 10-31): "regulars will say their grinding when they're in town". Standing on a map with no
+     * monsters, a bot does not get to say it is grinding now, whatever its roster role says (a role is a plan, not
+     * what it is doing: StateOfMind.prompt says "a town: no monsters here" beside it). The claim is looked for
+     * anywhere in a clause, not just at its start, because real lines put it in the middle ("np man tbh i mostly
+     * grind garden of red ii anyway", "good, now let me grind in peace pls"); a clause about the player, a plan, the
+     * past, or grinding in the abstract ("grinding is so boring") is left alone.
+     */
     private static Verdict grindingInTown(String text, Snapshot s) {
-        if (!s.town() || s.here() == null || "grinding".equals(s.activity())) {
+        return s.here() == null ? Verdict.OK : activityIn(text, s.town(), s.here().name());
+    }
+
+    /**
+     * The same rule for a line that has no chat snapshot: map-chat threads, where a bot standing in town gossiped
+     * about its grind ("lvl 42 finally ^^ grind at lorangs is slow kekeke", Kerning City, 10-31). {@code place}: the
+     * name the reason names, or null.
+     */
+    public static Verdict activityIn(String line, boolean town, String place) {
+        if (!town || line == null || line.isBlank()) {
             return Verdict.OK;
         }
+        String text = words(line);
         for (String clause : text.split("[,.!?;]|\\bbut\\b")) {
-            Matcher m = GRIND_CLAIM.matcher(clause);
-            if (m.find() && !NOT_NOW.matcher(clause).find()) {
-                return new Verdict(Reason.ACTIVITY, "says \"" + clause.trim() + "\" standing in " + s.here().name());
+            if (NOT_NOW.matcher(clause).find()) {
+                continue; // later, after this, tomorrow, earlier: not a claim to be at it now
+            }
+            if (claimsActivity(clause)) {
+                return new Verdict(Reason.ACTIVITY, "says \"" + clause.trim() + "\" standing in "
+                        + (place == null || place.isBlank() ? "a map with no monsters" : place));
             }
         }
         return Verdict.OK;
+    }
+
+    /** Whether a clause says the bot itself is grinding, training, hunting or farming right now. */
+    static boolean claimsActivity(String clause) {
+        Matcher m = GRIND_ANY.matcher(clause);
+        while (m.find()) {
+            String before = clause.substring(0, m.start());
+            if (DENIED.matcher(before).find()) {
+                continue; // "no grind today", "im not grinding rn": a denial is the truth here
+            }
+            if (TO_THEM.matcher(before).find()) {
+                continue; // "good luck grinding", "keep grinding"
+            }
+            if (FIRST_PERSON.matcher(clause).find()) {
+                return true; // "i mostly grind ...", "let me grind in peace"
+            }
+            if (SECOND_PERSON.matcher(clause).find() || THEIR_ACTIVITY.matcher(clause).find()) {
+                continue; // "u still grinding?", "hows the grind at 70 going"
+            }
+            return true; // no one else named: "lolz 35 stil grinding hard for 70", "still grinding hene tbh"
+        }
+        return false;
     }
 
     private static Verdict offer(String reply, String text, Snapshot s) {
