@@ -727,6 +727,16 @@ class Driver:
         self.secrets.load()
         if any(value in line for value in self.secrets.values):
             raise Refusal('Chat line contains protected account data.')
+        if self.matches('chat_open'):
+            # An open, EMPTY chat box takes Shift+1 / Shift+2 as chat-type hotkeys, so "!warp" typed into it lost its
+            # "!" (2026-10-31: after login and after a mouse click). Close it and open it fresh, as the old
+            # cmd.sh did; Enter on an empty box closes it without sending anything.
+            self.sender.key(13)
+            deadline = time.monotonic() + 3
+            while self.matches('chat_open'):
+                if time.monotonic() >= deadline:
+                    raise Refusal('Chat entry is open and did not close; line not sent.')
+                time.sleep(0.1)
         if not self.matches('chat_open'):
             self.sender.key(13)
             self.wait('chat_open', 5)
