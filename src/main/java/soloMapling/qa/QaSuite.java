@@ -157,8 +157,10 @@ public final class QaSuite {
         }
         Instant now = clock.instant();
         int minutes = Math.max(1, scenario.minutes(a));
+        // two lanes can start the same scenario in the same second (ticket 167): the second run gets its own file
+        boolean sameIdLive = active.values().stream().anyMatch(r -> r.scenarioId().equals(scenario.id()));
         QaRun run = new QaRun(scenario.id(), gm.getId(), gm.getName(), now, logDir, scenario.topics(),
-                scenario.watchedMaps(gm, a), claims);
+                scenario.watchedMaps(gm, a), claims, sameIdLive ? "-" + gm.getId() : "");
         try {
             run.open(List.of(
                     "scenario " + scenario.id() + ": " + scenario.title(),

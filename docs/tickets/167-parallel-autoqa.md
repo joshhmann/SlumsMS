@@ -32,8 +32,8 @@ holds, and the scheduler only starts a check when nothing running holds any of t
 - **Unclear means `world`.** No declaration = `{"world"}` = runs alone, exactly like today. This keeps the safe
   default even for a check someone adds later and forgets to annotate.
 - **Keys are strings, not an enum**, so a new kind of resource (a new PQ, a new file) needs no scheduler change.
-  Vocabulary: `world`, `map:<mapId>`, `pq:<name>`, `ch:<n>`, `lane:<n>`.
-- **`lane:<n>` is added by the scheduler**, never written by hand: a lane's synthetic players are exclusive to it.
+  Vocabulary: `world`, `map:<mapId>`, `pq:<name>`, `ch:<n>`. No `lane:<n>` keys: a lane is occupied by the check
+  running on it, and a lane's synthetic players are its own, so nothing else can be mistaken for it.
 - **Each lane gets its own two synthetic players, and its own GM.** Lane 1 keeps slots 1 (`AutoQaOne`, GM) and 2
   (`AutoQaTwo`) so a one-lane run is today's run. Lane *k* (2..4) uses slots `2k+2+logical` — 7/8, 9/10, 11/12 — and
   each lane's first slot is a GM (level 3) so that check's player 1 can run `!qa`. The four social-trace observers

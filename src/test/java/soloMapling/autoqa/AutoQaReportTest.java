@@ -36,6 +36,34 @@ class AutoQaReportTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void aRunRecordsItsLanesAndHowMuchCheckTimeTheyOverlapped() {
+        Map<String, Object> r = AutoQaReport.empty("1.6.2", "2026-10-31", AutoQaCatalog.all());
+        List<AutoQaRunner.CheckResult> results = List.of(result("t-af-1", Check.Status.PASS, null),
+                result("t-rv-1", Check.Status.PASS, null));
+        AutoQaReport.merge(r, "1.6.2", new AutoQaReport.Run("!autoqa run all by Owner", 1_760_000_000_000L,
+                1_760_000_030_000L, 1.0, "abc1234", results, Map.of(), null, null, 4), null);
+
+        Map<String, Object> run = (Map<String, Object>) ((List<?>) r.get("runs")).get(0);
+        assertEquals(4, ((Number) run.get("parallel")).intValue(), "the report says how the run was produced");
+        assertEquals(30L, ((Number) run.get("wallSeconds")).longValue());
+        assertEquals(84L, ((Number) run.get("checkSeconds")).longValue(), "two 42 s checks ran inside 30 s of wall clock");
+        assertTrue(String.valueOf(run.get("summary")).contains("4 lanes"), String.valueOf(run.get("summary")));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aOneLaneRunSaysNothingAboutLanes() {
+        Map<String, Object> r = AutoQaReport.empty("1.6.2", "2026-10-31", AutoQaCatalog.all());
+        AutoQaReport.merge(r, "1.6.2", new AutoQaReport.Run("!autoqa run all by Owner", 1_760_000_000_000L,
+                1_760_000_030_000L, 1.0, "abc1234", List.of(result("t-af-1", Check.Status.PASS, null)),
+                Map.of(), null, null), null);
+        Map<String, Object> run = (Map<String, Object>) ((List<?>) r.get("runs")).get(0);
+        assertEquals(1, ((Number) run.get("parallel")).intValue());
+        assertTrue(!String.valueOf(run.get("summary")).contains("lane"), String.valueOf(run.get("summary")));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void runsMergeIntoTheDayAndALaterRunReplacesACheck(@TempDir Path dir) throws Exception {
         Map<String, Object> r = AutoQaReport.empty("1.5.0-rc5", "2026-10-23", AutoQaCatalog.all());
         AutoQaReport.merge(r, "1.5.0-rc5", "nightly by the schedule", 1, 2,

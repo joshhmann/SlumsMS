@@ -3,6 +3,7 @@ package soloMapling.autoqa;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * One release-notes check the runner can do by itself (or knows it cannot): its page id ({@code t-af-1}), the steps
@@ -16,9 +17,14 @@ import java.util.Objects;
  * @param players    synthetic players it needs (1 or 2)
  * @param nightly    false when a run leaves a lasting change (it then runs only when asked by id)
  * @param minutes    the check's time budget; the runner stops waiting past it
+ * @param holds      the shared things it holds while it runs ({@link #WORLD}, {@code map:<id>}, {@code pq:<name>},
+ *                   {@code ch:<n>}); empty = nothing beyond its own lane, {@link #WORLD} = runs alone
  */
 public record Check(String id, String title, Kind kind, String why, int players, boolean nightly, int minutes,
-                    List<Step> steps, List<Expect> expects) {
+                    Set<String> holds, List<Step> steps, List<Expect> expects) {
+
+    /** Server-wide state (rates, the event clock, the roster/director, exports): nothing else may run beside it. */
+    public static final String WORLD = "world";
 
     public enum Kind { AUTO, HALF, MANUAL }
 
@@ -74,8 +80,14 @@ public record Check(String id, String title, Kind kind, String why, int players,
         if (!id.matches("t-[a-z]{2}-\\d{1,2}")) {
             throw new IllegalArgumentException("check id '" + id + "' is not a notes page id like t-af-1");
         }
+        holds = holds == null ? Set.of(WORLD) : Set.copyOf(holds);
         steps = List.copyOf(steps);
         expects = List.copyOf(expects);
+    }
+
+    /** True when it holds nothing beyond its own lane's synthetic players. */
+    public boolean laneOnly() {
+        return holds.isEmpty();
     }
 
     /** The {@code !qa} scenario id this check runs first, or null ({@code t-af-1} usually runs {@code af-1}). */
@@ -94,7 +106,7 @@ public record Check(String id, String title, Kind kind, String why, int players,
 
     /** Never run headless: {@code why} goes into the report as the SKIP reason. */
     public static Check manual(String id, String title, String why) {
-        return new Check(id, title, Kind.MANUAL, why, 1, false, 0, List.of(), List.of());
+        return new Check(id, title, Kind.MANUAL, why, 1, false, 0, Set.of(WORLD), List.of(), List.of());
     }
 
     public static final class Builder {
@@ -103,6 +115,7 @@ public record Check(String id, String title, Kind kind, String why, int players,
         private int players = 1;
         private boolean nightly = true;
         private int minutes = 10;
+        private Set<String> holds = Set.of(WORLD);
         private final List<Step> steps = new ArrayList<>();
         private final List<Expect> expects = new ArrayList<>();
 
@@ -129,6 +142,30 @@ public record Check(String id, String title, Kind kind, String why, int players,
             return this;
         }
 
+        /**
+         * Holds nothing beyond its own lane's synthetic players, so it may run beside any other check. Only right for
+         * a check that neither stages bots where another check looks nor reads world-wide state.
+         */
+        public Builder laneOnly() {
+            this.holds = Set.of();
+            return this;
+        }
+
+        /**
+         * What it holds while it runs: {@link Check#WORLD}, {@code map:<id>}, {@code pq:<name>}, {@code ch:<n>}. Two
+         * checks that hold any key in common never run at the same time.
+         */
+        public Builder holds(String... keys) {
+            Objects.requireNonNull(keys);
+            for (String k : keys) {
+                if (k == null || k.isBlank() || k.startsWith("lane:")) {
+                    throw new IllegalArgumentException("check " + id + ": not a resource key: " + k);
+                }
+            }
+            this.holds = Set.of(keys);
+            return this;
+        }
+
         public Builder step(Step... s) {
             steps.addAll(List.of(s));
             return this;
@@ -140,7 +177,7 @@ public record Check(String id, String title, Kind kind, String why, int players,
         }
 
         public Check build() {
-            return new Check(id, title, kind, why, players, nightly, minutes, steps, expects);
+            return new Check(id, title, kind, why, players, nightly, minutes, holds, steps, expects);
         }
     }
 }

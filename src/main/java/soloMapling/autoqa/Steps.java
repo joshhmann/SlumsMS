@@ -91,7 +91,7 @@ public final class Steps {
         return of(cmd, r -> {
             AutoQaWorld.Actor gm = r.actor(1);
             long t = r.world.now();
-            gm.say(cmd);
+            gm.say(r.fill(cmd)); // {p2} and friends are per-lane names
             r.startedScenario(1);
             long deadline = t + 20_000;
             while (r.world.now() < deadline) {

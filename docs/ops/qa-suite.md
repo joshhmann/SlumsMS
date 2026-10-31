@@ -799,6 +799,37 @@ Notes on what some checks prove:
 - **ga-2** checks each new machine NPC with the foothold rule and keeps it 40+ px from a portal.
 - **ch-1** reads `BotChannels.botsPerChannel()`: 5 channels, ch1-4 have bots, ch1 the busiest and ch5 the quietest, each within max(10, 25%) of its `BOT_CHANNEL_WEIGHTS` share.
 
+### Running checks in parallel (1.6.2, ticket 167)
+
+One run used to be one check at a time: 181 checks, 9578 s of check time (run `d4f103b0e`, 2026-10-30), and the two
+Kerning PQ checks alone were a quarter of it. Checks can now overlap on up to four lanes of synthetic players.
+
+- **Switch:** `-Dslums.autoqa.parallel=2..4` (default 1, clamped 1..4). 1 is today's serial run, in catalogue order,
+  with only `AutoQaOne` and `AutoQaTwo` logged in. The switch is read from the JVM (`AUTOQA_PARALLEL` in a release
+  conf, `start-test.sh` on TEST), not from `config.yaml`, so an old server's strict config can never trip on it.
+- **Who plays:** lane 1 keeps slots 1 (`AutoQaOne`, GM) and 2 (`AutoQaTwo`); lanes 2..4 get slots 7/8, 9/10, 11/12
+  (`AutoQaSeven` .. `AutoQaTwelve`), each lane's first player a GM so it can run `!qa`. The four observer slots 3..6
+  are untouched. Six extra characters exist on TEST only when a lane is used.
+- **What a check declares:** `Check.Builder.laneOnly()` when it only touches its own players, or
+  `.holds("map:<id>", "pq:<name>", "ch:<n>", ...)` for what it stages. **No declaration means `world`**: it runs alone,
+  exactly as every check did before. Leave the default when you are not sure, and annotate when evidence says the
+  check cannot be seen by another one.
+- **The rules** (`AutoQaScheduler`): a check starts when its keys are free and a lane is idle; a `world` check waits
+  for every lane to be empty and nothing starts beside it; checks that share a key never overlap; everything else may.
+  Results still come back in catalogue order, so two runs of the same build diff line by line.
+- **Logs:** each `!qa` run's file name carries its GM id, so two lanes that start the same scenario in the same second
+  get two files. `QaLog` lines are attributed per GM, so a check only ever reads its own lane's lines.
+- **Status:** `!autoqa status` lists every running check as `t-xx-n (lane k): <step>`. The report's run line gains
+  `parallel`, `wallSeconds` and `checkSeconds` (sum of the checks' own times), and its summary says
+  `on N lanes (W s wall, C s of checks)` when N > 1. Sum of check time divided by wall clock is the speed-up.
+- **What parallel cannot fix:** a check still has to wait for the game. Two checks that stage on the same map, or that
+  flip a world switch (`@botdrama`, `@romance`, `@quiet`, a guild war), stay serial. The catalogue's current split is
+  101 lane-only, 48 holding a map/PQ/market key and 26 holding the world.
+
+Before trusting a parallel run, run the catalogue once at each setting on one build and diff the two reports: every
+check that passes alone must pass beside its neighbours, or its declaration is wrong and it needs the key it really
+uses. A check that fails only in parallel is the leak.
+
 ### 1.6.0 checks for features that shipped without one (owner 2026-10-27)
 
 Each is one probe in `soloMapling.autoqa.Probes160` (t-tw-1 two). A probe stages on the pretend players' own
@@ -995,7 +1026,9 @@ with lines from the test server's 2026-10-23 runs).
      FAILs when it runs out), `quietFor` (must stay empty), `mark`, `capture`, `fixture`, invites and chat;
    - `.expect(...)` from `Expects`: `has`, `atLeast`, `lacks`, `hasAfter`/`lacksBefore` around a mark, `inOrder`,
      `probe`, `rule`, `numbersWithin`, `judged`, `noEmoji`;
-   - `.minutes(n)` for the budget, and `.notNightly()` if a run leaves something behind.
+   - `.minutes(n)` for the budget, and `.notNightly()` if a run leaves something behind;
+   - `.laneOnly()` if it only touches its own two players, or `.holds(...)` for the map, PQ, channel or other
+     resource it stages (see "Running checks in parallel"). No declaration means `world`, and the check runs alone.
 2. A server fact the lines do not carry becomes a probe in `GameAutoQaWorld.probe`. Its first line is
    PASS/FAIL/SKIP, and `VAR name=value` lines set variables.
 3. `AutoQaCatalogTest` keeps the page order, checks that every `!qa run` scenario exists, and compiles every
@@ -1010,7 +1043,7 @@ Tests: `GroundingAsSentTest` (synthetic grounding, sent positions), `ChatQuality
 `ClaimRulesTest`, `SayDoTest`, `BankClaimsTest`, `MerchantAdHonestyTest`, `FootholdCheckTest`, `SweepMathTest`, `HealthSweepTest`, `CoarseGroundTest`, `HenesysGroundWzTest` (needs wz/), `AutoQaRunnerTest`,
 `AutoQaReportTest`, `AutoQaCatalogTest`, `AutoQaCatalogPatternTest`, `LlmJudgeTest`, `SyntheticClientTest`,
 `Probes160Test`, `Probes164Test`, `AutoQaWaitTimeoutTest`, `AutoQaReleaseTest`, `NavTrapQaTest`, `SyntheticClientStatTest`, `DecideShadowSelfCheckTest`, `DailyCheckinRewindTest`, `SiteAuthQaTest`,
-`PlayerStorageTest`.
+`PlayerStorageTest`, `AutoQaSchedulerTest`, `AutoQaLanesTest`.
 
 - **t-mk-2 (ticket 112, the bots' Maker batch):** `ProbesMaker.makerBatch` stages one fresh lv-60 training bot with an empty bag
   apart from 100 of a monster leftover, two cheap Maker-made junk equips and, first in the bag, a pricey one (fee more than

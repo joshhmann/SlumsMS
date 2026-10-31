@@ -185,8 +185,22 @@ public final class AutoQaService {
                 + (req.fast() ? ", fast lane " + AutoQaReport.scaleLabel(timeScale) + " (QA staging only)" : "")
                 + (carried.isEmpty() ? "" : ", " + carried.size() + " passed last time carried forward, not rerun")
                 + note + (req.release() ? ". RELEASE run: any FAIL, or a SKIP off the allow-list ("
-                + AutoQaRelease.allowList().size() + " client-only ids), fails it" : "") + ". Synthetic players " + String.join(" and ", SyntheticPlayers.NAMES)
-                + " log in on channel 1. !autoqa status / stop / report.");
+                + AutoQaRelease.allowList().size() + " client-only ids), fails it" : "") + ". Synthetic players "
+                + playersLine() + " log in on channel 1. !autoqa status / stop / report.");
+    }
+
+    /** Who logs in for this run: one pair per lane when checks overlap (ticket 167), else AutoQaOne and AutoQaTwo. */
+    static String playersLine() {
+        int parallel = AutoQaScheduler.parallel();
+        if (parallel <= 1) {
+            return String.join(" and ", SyntheticPlayers.NAMES);
+        }
+        List<String> lanes = new ArrayList<>();
+        for (int lane = 1; lane <= parallel; lane++) {
+            lanes.add(SyntheticPlayers.nameOf(SyntheticPlayers.laneSlot(lane, 1)) + " and "
+                    + SyntheticPlayers.nameOf(SyntheticPlayers.laneSlot(lane, 2)));
+        }
+        return String.join(", ", lanes) + " (" + parallel + " lanes, " + AutoQaScheduler.PROPERTY + "=" + parallel + ")";
     }
 
     /**
@@ -278,7 +292,7 @@ public final class AutoQaService {
         if (finalLine) {
             AutoQaReport.merge(report, ServerConstants.SLUMSMS_VERSION, new AutoQaReport.Run(runTrigger, t0,
                     System.currentTimeMillis(), mode.timeScale(), mode.commit(), results, mode.carried(),
-                    mode.carriedRun(), release), health);
+                    mode.carriedRun(), release, AutoQaScheduler.parallel()), health);
         } else {
             AutoQaReport.mergeChecks(report, ServerConstants.SLUMSMS_VERSION, mode.timeScale(), mode.commit(), results,
                     health);
@@ -296,6 +310,11 @@ public final class AutoQaService {
         Thread t = thread;
         if (t == null || !t.isAlive()) {
             return List.of("Auto-QA idle. Last report: !autoqa report");
+        }
+        List<String> running = runner.running();
+        if (running.size() > 1) {
+            return List.of("Auto-QA " + runner.state() + " (" + trigger + "), " + running.size() + " lanes: "
+                    + String.join(" | ", running));
         }
         return List.of("Auto-QA " + runner.state() + " (" + trigger + "): check " + runner.current() + ", step "
                 + runner.stepNow());

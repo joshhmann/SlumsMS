@@ -1,18 +1,28 @@
 package soloMapling.autoqa;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 import static soloMapling.autoqa.Check.Status;
 
 /**
- * Runs checks one after another with the synthetic players, as a state machine:
+ * Runs checks with the synthetic players, as a state machine:
  * <pre>
- *   IDLE -> PREPARING -> (per check: STEPPING -> ASSERTING -> CLEANING) -> FINISHED | ABORTED -> IDLE
+ *   IDLE -> PREPARING -> (per lane: STEPPING -> ASSERTING -> CLEANING) -> FINISHED | ABORTED -> IDLE
  * </pre>
+ * One check at a time by default ({@code -Dslums.autoqa.parallel=1}), or several at once on separate lanes of
+ * synthetic players when the operator asks for it ({@code -Dslums.autoqa.parallel=2..4}); {@link AutoQaScheduler}
+ * decides which check may start, so two checks that need the same map, instance or the whole world never overlap.
  * A check is SKIP when it is MANUAL, when it needs something the server lacks (a precondition refusal, a missing
  * LLM judge on a judge-only check), or when it is not nightly and the run is the nightly one. A step that fails ends
  * the check as FAIL with the step's reason; otherwise every expectation is evaluated and any FAIL fails the check.
@@ -57,10 +67,10 @@ public final class AutoQaRunner {
 
     private final AutoQaWorld world;
     private final List<String> transitions = new CopyOnWriteArrayList<>();
+    private final Map<Integer, String> laneCheck = new ConcurrentHashMap<>();
+    private final Map<Integer, String> laneWhere = new ConcurrentHashMap<>();
     private volatile State state = State.IDLE;
-    private volatile String current;
     private volatile boolean abort;
-    private volatile String stepNow;
 
     public AutoQaRunner(AutoQaWorld world) {
         this.world = world;
@@ -70,13 +80,41 @@ public final class AutoQaRunner {
         return state;
     }
 
-    /** The check running now, or null. */
+    /** The check running now on the first busy lane, or null. */
     public String current() {
-        return current;
+        Integer lane = firstBusyLane();
+        return lane == null ? null : laneCheck.get(lane);
     }
 
     public String stepNow() {
-        return stepNow;
+        Integer lane = firstBusyLane();
+        return lane == null ? null : laneWhere.get(lane);
+    }
+
+    /** Every check running now, {@code t-af-1 (lane 2): step}, in lane order. */
+    public List<String> running() {
+        List<String> out = new ArrayList<>();
+        for (int lane = 1; lane <= SyntheticPlayers.MAX_LANES; lane++) {
+            String id = laneCheck.get(lane);
+            if (id != null) {
+                out.add(id + " (lane " + lane + "): " + laneWhere.get(lane));
+            }
+        }
+        return out;
+    }
+
+    private Integer firstBusyLane() {
+        for (int lane = 1; lane <= SyntheticPlayers.MAX_LANES; lane++) {
+            if (laneCheck.containsKey(lane)) {
+                return lane;
+            }
+        }
+        return null;
+    }
+
+    private void markStep(int lane, String checkId, String what) {
+        laneCheck.put(lane, checkId);
+        laneWhere.put(lane, what);
     }
 
     /** Asks the run to stop after the step it is on (cleanup still runs). */
@@ -120,30 +158,27 @@ public final class AutoQaRunner {
         List<CheckResult> out = new ArrayList<>();
         to(State.PREPARING, null);
         String unavailable = world.unavailableReason();
+        int parallel = AutoQaScheduler.parallel();
         try {
             if (unavailable == null && checks.stream().anyMatch(c -> c.kind() != Check.Kind.MANUAL)) {
                 settle();
             }
-            for (Check c : checks) {
-                CheckResult r;
-                if (unavailable != null && c.kind() != Check.Kind.MANUAL) {
-                    long t = world.now();
-                    r = new CheckResult(c.id(), c.title(), c.kind(), Status.SKIP, unavailable, List.of(), t, t);
-                } else if (abort) {
-                    long t = world.now();
-                    r = new CheckResult(c.id(), c.title(), c.kind(), Status.SKIP, "run aborted", List.of(), t, t);
-                } else {
-                    r = runOne(c, nightly);
+            if (unavailable != null) {
+                for (Check c : checks) {
+                    CheckResult r = c.kind() == Check.Kind.MANUAL ? runOne(c, nightly, 1) : skipped(c, unavailable);
+                    out.add(deliver(r, onResult));
                 }
-                r = label(r);
-                out.add(r);
-                if (onResult != null) {
-                    onResult.accept(r);
+            } else if (parallel <= 1) {
+                for (Check c : checks) {
+                    CheckResult r = abort ? skipped(c, "run aborted") : runOne(c, nightly, 1);
+                    out.add(deliver(r, onResult));
                 }
+            } else {
+                out.addAll(runLanes(checks, nightly, onResult, parallel));
             }
         } finally {
-            current = null;
-            stepNow = null;
+            laneCheck.clear();
+            laneWhere.clear();
             try {
                 world.logoutAll();
             } catch (RuntimeException e) {
@@ -151,6 +186,107 @@ public final class AutoQaRunner {
             }
             to(abort ? State.ABORTED : State.FINISHED, null);
             to(State.IDLE, null);
+        }
+        return out;
+    }
+
+    private CheckResult skipped(Check c, String why) {
+        long t = world.now();
+        return new CheckResult(c.id(), c.title(), c.kind(), Status.SKIP, why, List.of(), t, t);
+    }
+
+    /** Labels a result with the QA clock it ran on and hands it to the report as it is known. */
+    private CheckResult deliver(CheckResult r, Consumer<CheckResult> onResult) {
+        CheckResult labelled = label(r);
+        if (onResult != null) {
+            onResult.accept(labelled);
+        }
+        return labelled;
+    }
+
+    /**
+     * Runs the checks on {@code parallel} lanes at once, starting the first check (in catalogue order) whose resources
+     * are free whenever a lane frees up; the results come back in catalogue order whichever lane finished first.
+     */
+    private List<CheckResult> runLanes(List<Check> checks, boolean nightly, Consumer<CheckResult> onResult, int parallel) {
+        int n = checks.size();
+        CheckResult[] results = new CheckResult[n];
+        List<Integer> pending = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            pending.add(i);
+        }
+        boolean[] laneFree = new boolean[parallel + 1];
+        Arrays.fill(laneFree, true);
+        Set<String> busy = new HashSet<>();
+        int[] running = {0};
+        Object lock = new Object();
+        ExecutorService pool = Executors.newFixedThreadPool(parallel, r -> {
+            Thread t = new Thread(r, "autoqa-lane");
+            t.setDaemon(true);
+            return t;
+        });
+        try {
+            synchronized (lock) {
+                while (true) {
+                    AutoQaScheduler.Start start;
+                    while (!abort && (start = AutoQaScheduler.pick(checks, pending, busy, laneFree)) != null) {
+                        int pos = start.position();
+                        int idx = pending.get(pos);
+                        int lane = start.lane();
+                        Check c = checks.get(idx);
+                        pending.remove(pos);
+                        laneFree[lane] = false;
+                        busy.addAll(AutoQaScheduler.keys(c));
+                        running[0]++;
+                        pool.execute(() -> {
+                            CheckResult labelled = null;
+                            try {
+                                CheckResult r;
+                                try {
+                                    r = runOne(c, nightly, lane);
+                                } catch (RuntimeException e) {
+                                    long t = world.now();
+                                    r = new CheckResult(c.id(), c.title(), c.kind(), Status.FAIL, "error: " + e,
+                                            List.of(), t, t);
+                                }
+                                labelled = deliver(r, onResult);
+                            } finally { // a lane is freed even if handing the result over throws
+                                synchronized (lock) {
+                                    results[idx] = labelled;
+                                    laneFree[lane] = true;
+                                    busy.removeAll(AutoQaScheduler.keys(c));
+                                    running[0]--;
+                                    lock.notifyAll();
+                                }
+                            }
+                        });
+                    }
+                    if (abort) {
+                        for (int idx : pending) {
+                            CheckResult r = deliver(skipped(checks.get(idx), "run aborted"), onResult);
+                            synchronized (lock) {
+                                results[idx] = r;
+                            }
+                        }
+                        pending.clear();
+                    }
+                    if (pending.isEmpty() && running[0] == 0) {
+                        break;
+                    }
+                    try {
+                        lock.wait(1000); // a lane finishing (or an abort) wakes this up
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        abort = true;
+                    }
+                }
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+        List<CheckResult> out = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            out.add(results[i]);
         }
         return out;
     }
@@ -176,7 +312,7 @@ public final class AutoQaRunner {
         }
     }
 
-    CheckResult runOne(Check c, boolean nightly) {
+    CheckResult runOne(Check c, boolean nightly, int lane) {
         long t0 = world.now();
         if (c.kind() == Check.Kind.MANUAL) {
             return new CheckResult(c.id(), c.title(), c.kind(), Status.SKIP, c.why(), List.of(), t0, t0);
@@ -185,8 +321,8 @@ public final class AutoQaRunner {
             return new CheckResult(c.id(), c.title(), c.kind(), Status.SKIP,
                     "not in the nightly run (leaves a lasting change); run it with !autoqa run " + c.id(), List.of(), t0, t0);
         }
-        current = c.id();
-        CheckRun run = new CheckRun(c, world);
+        markStep(lane, c.id(), "logging in");
+        CheckRun run = new CheckRun(c, world, lane);
         List<String> evidence = new ArrayList<>();
         Status status = null;
         String reason = null;
@@ -207,7 +343,7 @@ public final class AutoQaRunner {
                     reason = "over its " + c.minutes() + " min budget at '" + step.describe() + "'";
                     break;
                 }
-                stepNow = step.describe();
+                markStep(lane, c.id(), step.describe());
                 run.stepStarting();
                 Check.StepResult sr = step.run(run);
                 if (!sr.ok()) {
@@ -218,7 +354,7 @@ public final class AutoQaRunner {
             }
             if (status == null) {
                 to(State.ASSERTING, c.id());
-                stepNow = "expectations";
+                markStep(lane, c.id(), "expectations");
                 int pass = 0, skip = 0;
                 String firstSkip = null;
                 List<String> failed = new ArrayList<>();
@@ -268,9 +404,11 @@ public final class AutoQaRunner {
             reason = "error: " + e;
         } finally {
             to(State.CLEANING, c.id());
-            stepNow = "cleanup";
+            markStep(lane, c.id(), "cleanup");
             cleanup(run);
         }
+        laneCheck.remove(lane);
+        laneWhere.remove(lane);
         List<String> all = new ArrayList<>(run.notes());
         all.addAll(evidence);
         if (status == Status.FAIL) {
