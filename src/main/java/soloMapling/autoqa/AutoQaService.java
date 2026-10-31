@@ -185,8 +185,22 @@ public final class AutoQaService {
                 + (req.fast() ? ", fast lane " + AutoQaReport.scaleLabel(timeScale) + " (QA staging only)" : "")
                 + (carried.isEmpty() ? "" : ", " + carried.size() + " passed last time carried forward, not rerun")
                 + note + (req.release() ? ". RELEASE run: any FAIL, or a SKIP off the allow-list ("
-                + AutoQaRelease.allowList().size() + " client-only ids), fails it" : "") + ". Synthetic players " + String.join(" and ", SyntheticPlayers.NAMES)
-                + " log in on channel 1. !autoqa status / stop / report.");
+                + AutoQaRelease.allowList().size() + " client-only ids), fails it" : "") + ". Synthetic players "
+                + playersLine() + " log in on channel 1. !autoqa status / stop / report.");
+    }
+
+    /** Who logs in for this run: one pair per lane when checks overlap (ticket 167), else AutoQaOne and AutoQaTwo. */
+    static String playersLine() {
+        int parallel = AutoQaScheduler.parallel();
+        if (parallel <= 1) {
+            return String.join(" and ", SyntheticPlayers.NAMES);
+        }
+        List<String> lanes = new ArrayList<>();
+        for (int lane = 1; lane <= parallel; lane++) {
+            lanes.add(SyntheticPlayers.nameOf(SyntheticPlayers.laneSlot(lane, 1)) + " and "
+                    + SyntheticPlayers.nameOf(SyntheticPlayers.laneSlot(lane, 2)));
+        }
+        return String.join(", ", lanes) + " (" + parallel + " lanes, " + AutoQaScheduler.PROPERTY + "=" + parallel + ")";
     }
 
     /**
@@ -219,10 +233,12 @@ public final class AutoQaService {
         }
         world.open();
         long t0 = System.currentTimeMillis();
-        List<AutoQaRunner.CheckResult> done = new ArrayList<>();
+        // lane threads call back here at the same time, in whatever order they finish: the list is guarded, and the
+        // run's final order is rebuilt from the catalogue below (ticket 167 follow-up)
+        List<AutoQaRunner.CheckResult> finished = java.util.Collections.synchronizedList(new ArrayList<>());
         try {
             runner.run(checks, nightly, r -> {
-                done.add(r);
+                finished.add(r);
                 write(runTrigger, t0, List.of(r), false, mode, null);
                 String line = r.status() + " " + r.id() + " " + r.title() + (r.reason() == null ? "" : ": " + r.reason());
                 AutoQa.log.info("Auto-QA {}", line);
@@ -242,10 +258,13 @@ public final class AutoQaService {
             } catch (RuntimeException e) {
                 AutoQa.log.warn("Auto-QA chat quality failed", e);
             }
-            AutoQaRelease.Verdict release = mode.release()
-                    ? AutoQaRelease.judge(AutoQaCatalog.all(), done, AutoQaRelease.allowList(),
-                    ClientScriptVerdicts.load(AutoQa.dataDir(), AutoQaCatalog.all())) : null;
-            String runLine = write(runTrigger, t0, done, true, mode, release);
+            AutoQaRelease.Verdict release = null;
+            List<AutoQaRunner.CheckResult> results = orderedByCatalogue(checks, finished);
+            if (mode.release()) {
+                release = AutoQaRelease.judge(AutoQaCatalog.all(), results, AutoQaRelease.allowList(),
+                        ClientScriptVerdicts.load(AutoQa.dataDir(), AutoQaCatalog.all()));
+            }
+            String runLine = write(runTrigger, t0, results, true, mode, release);
             // b222: every run's summary line names what it skipped and why, and a release run's verdict
             AutoQa.log.info("Auto-QA run done: {}", runLine);
             world.close();
@@ -259,6 +278,31 @@ public final class AutoQaService {
                 }
             }
         }
+    }
+
+    /**
+     * The run's results in catalogue order: the lanes report in whatever order they finish, but the report, the run
+     * line and the release verdict read them in the order the catalogue names, and a run that threw part-way keeps
+     * every result it did produce (nothing is dropped for being out of order).
+     */
+    static List<AutoQaRunner.CheckResult> orderedByCatalogue(List<Check> checks, List<AutoQaRunner.CheckResult> finished) {
+        List<AutoQaRunner.CheckResult> snapshot;
+        synchronized (finished) { // lane threads may still be adding to a plain or synchronized list
+            snapshot = new ArrayList<>(finished);
+        }
+        Map<String, AutoQaRunner.CheckResult> byId = new java.util.LinkedHashMap<>();
+        for (AutoQaRunner.CheckResult r : snapshot) {
+            byId.putIfAbsent(r.id(), r); // one result per check id: the first one landed
+        }
+        List<AutoQaRunner.CheckResult> out = new ArrayList<>(byId.size());
+        for (Check c : checks) {
+            AutoQaRunner.CheckResult r = byId.remove(c.id());
+            if (r != null) {
+                out.add(r);
+            }
+        }
+        out.addAll(byId.values()); // never seen in the selector's list: kept, not silently dropped
+        return out;
     }
 
     /**
@@ -279,7 +323,7 @@ public final class AutoQaService {
         if (finalLine) {
             AutoQaReport.merge(report, ServerConstants.SLUMSMS_VERSION, new AutoQaReport.Run(runTrigger, t0,
                     System.currentTimeMillis(), mode.timeScale(), mode.commit(), results, mode.carried(),
-                    mode.carriedRun(), release), health);
+                    mode.carriedRun(), release, AutoQaScheduler.parallel()), health);
         } else {
             AutoQaReport.mergeChecks(report, ServerConstants.SLUMSMS_VERSION, mode.timeScale(), mode.commit(), results,
                     health);
@@ -303,6 +347,11 @@ public final class AutoQaService {
         Thread t = thread;
         if (t == null || !t.isAlive()) {
             return List.of("Auto-QA idle. Last report: !autoqa report");
+        }
+        List<String> running = runner.running();
+        if (running.size() > 1) {
+            return List.of("Auto-QA " + runner.state() + " (" + trigger + "), " + running.size() + " lanes: "
+                    + String.join(" | ", running));
         }
         return List.of("Auto-QA " + runner.state() + " (" + trigger + "): check " + runner.current() + ", step "
                 + runner.stepNow());

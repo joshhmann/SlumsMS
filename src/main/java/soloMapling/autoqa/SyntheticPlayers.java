@@ -49,6 +49,14 @@ public final class SyntheticPlayers {
      */
     public static final String[] OBSERVER_NAMES = {"AutoQaThree", "AutoQaFour", "AutoQaFive", "AutoQaSix"};
     public static final int FIRST_OBSERVER_SLOT = NAMES.length + 1;
+    /**
+     * Ticket 167: parallel runs get more lanes, each with its own two players (its first one a GM) so two checks can
+     * log in at once. Lane 1 is slots 1-2 (the players above); lanes 2-4 are slots 7-12, after the observers.
+     */
+    public static final int MAX_LANES = 4;
+    static final String[] LANE_NAMES = {"AutoQaSeven", "AutoQaEight", "AutoQaNine", "AutoQaTen", "AutoQaEleven",
+            "AutoQaTwelve"};
+    public static final int FIRST_LANE2_SLOT = FIRST_OBSERVER_SLOT + OBSERVER_NAMES.length;
     public static final int GM_LEVEL = 3;
     static final int LEVEL = 70;
     static final int OBSERVER_LEVEL = 30;
@@ -65,7 +73,7 @@ public final class SyntheticPlayers {
         return login(slot, CHANNEL);
     }
 
-    /** The default name of a slot: 1-2 auto-QA's players, 3-6 the social trace's observers. */
+    /** The default name of a slot: 1-2 auto-QA's players, 3-6 the social trace's observers, 7-12 lanes 2-4. */
     public static String nameOf(int slot) {
         if (slot >= 1 && slot <= NAMES.length) {
             return NAMES[slot - 1];
@@ -74,7 +82,77 @@ public final class SyntheticPlayers {
         if (o >= 0 && o < OBSERVER_NAMES.length) {
             return OBSERVER_NAMES[o];
         }
+        int l = slot - FIRST_LANE2_SLOT;
+        if (l >= 0 && l < LANE_NAMES.length) {
+            return LANE_NAMES[l];
+        }
         throw new IllegalStateException("no synthetic player slot " + slot);
+    }
+
+    /**
+     * The slot a lane's {@code logical} player uses (1 = the GM that runs {@code !qa}, 2 = a plain player). Lane 1
+     * keeps 1 and 2, so a one-lane run logs in exactly the players it always did.
+     */
+    public static int laneSlot(int lane, int logical) {
+        if (lane < 1 || lane > MAX_LANES) {
+            throw new IllegalArgumentException("no auto-QA lane " + lane);
+        }
+        if (logical < 1 || logical > NAMES.length) {
+            throw new IllegalArgumentException("no player " + logical + " in an auto-QA lane");
+        }
+        return lane == 1 ? logical : FIRST_LANE2_SLOT + 2 * (lane - 2) + (logical - 1);
+    }
+
+    /** The lane a slot plays in: 1 for slots 1-2, 2-4 for slots 7-12, 0 for an observer or unknown slot. */
+    public static int laneOfSlot(int slot) {
+        if (slot >= 1 && slot <= NAMES.length) {
+            return 1;
+        }
+        int l = slot - FIRST_LANE2_SLOT;
+        if (l >= 0 && l < LANE_NAMES.length) {
+            return 2 + l / 2;
+        }
+        return 0;
+    }
+
+    /** True for a slot that a check can use (1-2, 7-12): an observer slot is not one. */
+    public static boolean isLaneSlot(int slot) {
+        return laneOfSlot(slot) != 0;
+    }
+
+    /**
+     * The two slots of the lane {@code slot} plays in, GM first - what a probe that acts on "both players" (an
+     * engagement, a party, a trade) must use, so lane 2's check moves its own pair and never lane 1's. Slots 1 and 2
+     * for a slot with no lane (an observer, or no caller at all).
+     */
+    public static int[] lanePair(int slot) {
+        int lane = laneOfSlot(slot);
+        return lane == 0 ? new int[] {1, 2} : new int[] {laneSlot(lane, 1), laneSlot(lane, 2)};
+    }
+
+    /** The other player of {@code slot}'s own lane (slot 2 when {@code slot} has no lane). */
+    public static int partnerSlot(int slot) {
+        int lane = laneOfSlot(slot);
+        if (lane == 0) {
+            return 2; // no lane (an observer, or no caller): the second of the original pair
+        }
+        return slot == laneSlot(lane, 1) ? laneSlot(lane, 2) : laneSlot(lane, 1);
+    }
+
+    /** True for a lane's first slot, the one with GM level 3 so it can run {@code !qa}. */
+    public static boolean isGmSlot(int slot) {
+        int lane = laneOfSlot(slot);
+        return lane != 0 && laneSlot(lane, 1) == slot;
+    }
+
+    /** True for a player id that is one of the lanes' (while online); the observers are not one. */
+    public static boolean isLaneId(int characterId) {
+        for (var e : online.entrySet()) {
+            if (isLaneSlot(e.getKey()) && e.getValue().id() == characterId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** True for a social-trace observer slot (3-6). */
@@ -217,7 +295,7 @@ public final class SyntheticPlayers {
     }
 
     private static int ensureCharacter(int accountId, int world, int slot) throws SQLException {
-        int gm = slot == 1 ? GM_LEVEL : 0;
+        int gm = isGmSlot(slot) ? GM_LEVEL : 0;
         int level = isObserverSlot(slot) ? OBSERVER_LEVEL : LEVEL;
         try (Connection con = DatabaseConnection.getConnection()) {
             try (PreparedStatement ps = con.prepareStatement("SELECT id FROM characters WHERE accountid = ? AND world = ? ORDER BY id LIMIT 1")) {

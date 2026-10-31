@@ -71,6 +71,50 @@ class AutoQaWaitTimeoutTest {
     }
 
     @Test
+    void aKpqRunThatStopsReportingFailsInEightMinutesInsteadOfBurningItsBudget() {
+        AutoQaRunnerTest.FakeWorld w = world();
+        Check c = Check.auto("t-mx-1", "kpq").step(Steps.run("mx-1"),
+                        Steps.waitForWithProgress("MX1 (PASS|FAIL) ", 17 * 60, "RUN ", "stage cleared"))
+                .expect(Expects.has("MX1 PASS")).build();
+        AutoQaRunner.CheckResult r = runOne(w, c);
+        assertEquals(FAIL, r.status(), r.toString());
+        assertTrue(r.reason().contains("no stage cleared in 8 min"), r.reason());
+        assertTrue(says(r, "no stage cleared in 8 min"), r.evidence().toString());
+    }
+
+    @Test
+    void aKpqRunThatKeepsReportingIsNotCutShortAndStillPasses() {
+        AutoQaRunnerTest.FakeWorld w = world();
+        long start = w.now;
+        // RUN lines at 1, 2, 3 and 6 minutes; the verdict at 7: no 8-minute silence anywhere, so the guard holds off
+        for (int min : new int[] {1, 2, 3, 6}) {
+            w.later(start + min * 60_000L, "qa", "RUN step at " + min + " min");
+        }
+        w.later(start + 7 * 60_000L, "qa", "MX1 PASS cleared stage 1 in 400 s");
+        Check c = Check.auto("t-mx-1", "kpq").step(Steps.run("mx-1"),
+                        Steps.waitForWithProgress("MX1 (PASS|FAIL) ", 17 * 60, "RUN ", "stage cleared"))
+                .expect(Expects.has("MX1 PASS")).build();
+        AutoQaRunner.CheckResult r = runOne(w, c);
+        assertEquals(PASS, r.status(), r.toString());
+    }
+
+    @Test
+    void theStallGuardCanBeTurnedOff() {
+        System.setProperty("slums.autoqa.kpqStallMin", "0");
+        try {
+            AutoQaRunnerTest.FakeWorld w = world();
+            Check c = Check.auto("t-mx-1", "kpq").step(Steps.run("mx-1"),
+                            Steps.waitForWithProgress("MX1 (PASS|FAIL) ", 60, "RUN ", "stage cleared"))
+                    .expect(Expects.has("MX1 PASS")).build();
+            AutoQaRunner.CheckResult r = runOne(w, c);
+            assertEquals(FAIL, r.status(), r.toString());
+            assertEquals("timed out waiting for /MX1 (PASS|FAIL) / after 60 s", r.reason());
+        } finally {
+            System.clearProperty("slums.autoqa.kpqStallMin");
+        }
+    }
+
+    @Test
     void aWaitOnAnUnknownPlaceholderFailsInsteadOfPassingThrough() {
         AutoQaRunnerTest.FakeWorld w = world();
         Check c = Check.auto("t-af-1", "x").step(Steps.waitFor("CHAT {nobody}: ", 5))

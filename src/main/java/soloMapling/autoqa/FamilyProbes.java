@@ -91,7 +91,7 @@ final class FamilyProbes {
             return List.of("SKIP USE_FAMILY_SYSTEM is off on this server");
         }
         Character me = p.character();
-        SyntheticPlayer p2 = SyntheticPlayers.login(2);
+        SyntheticPlayer p2 = SyntheticPlayers.login(SyntheticPlayers.partnerSlot(p.slot()));
         Character pal = p2.character();
         if (pal.getFamily() != null) {
             return List.of("FAIL " + pal.getName() + " is already in a family (a run before left it)");

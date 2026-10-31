@@ -52,18 +52,32 @@ public final class QaRun {
 
     QaRun(String scenarioId, int gmId, String gmName, Instant started, Path logDir, Set<QaLog.Topic> topics,
           Set<Integer> maps, Set<String> claims) {
+        this(scenarioId, gmId, gmName, started, logDir, topics, maps, claims, "");
+    }
+
+    /**
+     * @param nameSuffix appended to the file name before {@code .log} when the plain name is taken: two runs of one
+     *                   scenario started in the same second (two lanes of a parallel auto-QA run) would otherwise
+     *                   write one file, ticket 167
+     */
+    QaRun(String scenarioId, int gmId, String gmName, Instant started, Path logDir, Set<QaLog.Topic> topics,
+          Set<Integer> maps, Set<String> claims, String nameSuffix) {
         this.scenarioId = scenarioId;
         this.gmId = gmId;
         this.gmName = gmName;
         this.started = started;
-        this.logPath = logDir.resolve(fileName(scenarioId, started));
+        this.logPath = logDir.resolve(fileName(scenarioId, started, nameSuffix));
         this.topics = topics.isEmpty() ? Collections.emptySet() : Collections.unmodifiableSet(EnumSet.copyOf(topics));
         this.maps = Set.copyOf(maps);
         this.claims = Set.copyOf(claims);
     }
 
     static String fileName(String scenarioId, Instant started) {
-        return scenarioId + "-" + FILE_TIME.format(started) + ".log";
+        return fileName(scenarioId, started, "");
+    }
+
+    static String fileName(String scenarioId, Instant started, String nameSuffix) {
+        return scenarioId + "-" + FILE_TIME.format(started) + nameSuffix + ".log";
     }
 
     public String scenarioId() {
