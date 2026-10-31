@@ -175,7 +175,7 @@ if [ "$NOCLIENT" = 0 ]; then
     event "publish FAILED: the new server will not be started"
     restore_manifest || stuck "bash $D/deploy.sh --phase restart-old"
     if hx "bash $(q "$D/deploy.sh") --phase restart-old"; then event "old version back up (old client, old server)"
-      summary "FAILED at step 3; old server + old client. Layer client/$CV may be published but unreferenced: use a new client version next time"
+      summary "FAILED at step 3; old server + old client. Layer client/$CV may be published but unreferenced: a rerun from the same staging tree reuses it (publish-client compares manifests), a changed tree needs a new client version"
     else event "restart-old FAILED"; summary "FAILED at step 3; manifest restored, old server NOT back: see the log"; fi
     exit 1
   fi

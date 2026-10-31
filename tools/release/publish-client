@@ -16,6 +16,10 @@
 # --no-packs: the release manifest references no first-install packs (publish.mjs --release --no-packs), for a client
 # release that goes out before the launcher/packs release.
 # --dry-run: steps 1 and the publisher check only; prints the publish commands.
+# The checks (also on --dry-run) validate --news with the publisher's own limits (publish_checks.py news), so a bad news
+# file stops the run before anything is published. Rerun after a failed run: a client layer <client-version> that is
+# already published is reused when its manifest.json is byte for byte the one this staging tree would publish (same
+# SHA-256, publish_checks.py same-layer); a different one still aborts (layers are immutable).
 # On the LIVE feed (PATCH_DIR = $LIVE_PATCH_DIR, default /srv/slums-patch) step 1 and 3 also refuse a client whose
 # config.ini [config] host/port differs from the live client layer's (ALLOW_LIVE_ENDPOINT_CHANGE=1 for a real move).
 # After a --release manifest, Cody posts that the client is in the launcher (slumsms-monitor client-ready on the host,
@@ -69,11 +73,26 @@ while [ $# -gt 0 ]; do case $1 in
   --sync-publisher) SYNC=1;; --no-packs) NOPACKS=1;; --dry-run) DRY_RUN=1;; --no-announce) ANNOUNCE=0;; *) die "unknown option $1";; esac; shift; done
 [ -n "$SRC" ] || die "--source <client staging dir on the host> is required"
 [ "$NOPACKS" = 0 ] || [ -n "$REL" ] || die "--no-packs needs --release"
+[ -z "$NEWS" ] || [ -n "$REL" ] || die "--news needs --release (news goes into the release manifest)"
 require_workstation
 
 step "checks"
 h "test -d $(q "$SRC")" || die "no $SRC on $RELEASE_HOST"
-h "test ! -e $(q "$PATCH_DIR/layers/client/$CV")" || die "client layer $CV is already published (layers are immutable; pick a new version)"
+checks() { h "nice -n 19 ionice -c3 python3 -I - $(q "$@")" < "$here/publish_checks.py"; }
+if [ -n "$NEWS" ]; then
+  h "test -f $(q "$NEWS")" || die "no news file $NEWS on $RELEASE_HOST"
+  checks news "$NEWS" || die "news file $NEWS would be refused by the publisher: nothing published. Fix it and rerun"
+fi
+# A layer an earlier (failed) run published from this same staging tree is reused; any other is immutable.
+LAYER_DONE=0
+if h "test -e $(q "$PATCH_DIR/layers/client/$CV")"; then
+  echo "client layer $CV is already published; comparing it with what $SRC would publish (hashes the whole tree)"
+  if checks same-layer "$SRC" "$PATCH_DIR/layers/client/$CV" client "$CV"; then
+    LAYER_DONE=1; echo "client layer $CV is identical to $SRC (same manifest SHA-256): reusing it, not publishing it again"
+  else
+    die "client layer $CV is already published with different files or is incomplete (layers are immutable; pick a new version)"
+  fi
+fi
 if [ -z "$BASE" ]; then
   BASE=$(h "python3 -I -c 'import json,sys; m=json.load(open(sys.argv[1])); print([l[\"version\"] for l in m[\"layers\"] if l[\"name\"]==\"base\"][0])' $PATCH_DIR/manifest.json")
 fi
@@ -104,12 +123,17 @@ pub_layer="$NODE tools/publish.mjs --layer client --source $(q "$SRC") --out $(q
 pub_rel="$NODE tools/publish.mjs --release $(q "$REL") --out $(q "$PATCH_DIR") --use base@$(q "$BASE") --use client@$(q "$CV")${NEWS:+ --news $(q "$NEWS")}$([ "$NOPACKS" = 1 ] && echo " --no-packs" || true)"
 if [ "$DRY_RUN" = 1 ]; then
   step "DRY RUN OK. Would run on $RELEASE_HOST (cd $PUBLISHER):"
-  echo "  $pub_layer"; [ -n "$REL" ] && echo "  cp $PATCH_DIR/manifest.json $STAGING_DIR/manifest-before-$REL.json && $pub_rel"
+  if [ "$LAYER_DONE" = 1 ]; then echo "  (client layer $CV already published, identical: skipped)"; else echo "  $pub_layer"; fi
+  [ -n "$REL" ] && echo "  cp $PATCH_DIR/manifest.json $STAGING_DIR/manifest-before-$REL.json && $pub_rel"
   exit 0
 fi
 
-step "publish client layer $CV"
-h "cd $PUBLISHER && $pub_layer"
+if [ "$LAYER_DONE" = 1 ]; then
+  step "client layer $CV: already published from these files, skipped"
+else
+  step "publish client layer $CV"
+  h "cd $PUBLISHER && $pub_layer"
+fi
 step "hash-diff again on the published layer manifest"
 verify --client-manifest "$PATCH_DIR/layers/client/$CV/manifest.json" || die "published layer $CV fails the hash-diff; manifest.json NOT updated. Do not point a release at it"
 test_fail after-layer

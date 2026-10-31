@@ -34,6 +34,10 @@ tools/release/stage-client 1.4.0 --build-dir 'Z:\MSv83\SlumsMS-dev\client-1.4.0\
 
 It writes only under `/srv/slums-staging` on 164 (never `/srv/slums-patch`). The real publish stays the owner's go:
 `tools/release/publish-client <version> --source /srv/slums-staging/client-<version> --release <release> --news <news.json>`.
+Its checks (and `--dry-run`) validate the news file with the publisher's limits (at most 10 entries, title <= 120,
+body <= 1000 characters, date YYYY-MM-DD) before anything is published. If a run fails after publishing the layer,
+rerun the same command: a layer that is byte for byte what the staging tree would publish (same manifest SHA-256) is
+reused; a different one still aborts (`publish_checks.py`).
 
 ## Client version gate: `set-min-client-build` (release hook)
 
