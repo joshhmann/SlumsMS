@@ -65,8 +65,12 @@ public class HurtCommand extends Command {
         return p >= 1 && p <= 99 ? p : null;
     }
 
-    /** The HP to set: 1 without a percent (the stock command), else that share of max HP (at least 1). */
-    static int hpFor(int maxHp, Integer pct) {
+    /**
+     * The HP to set: 1 without a percent (the stock command), else that share of max HP (at least 1). Public for the
+     * QA staging that hurts the caller itself ({@code !qa run hc-1}: a script has no character name to pass to
+     * {@code !hurt}).
+     */
+    public static int hpFor(int maxHp, Integer pct) {
         if (pct == null) {
             return 1;
         }

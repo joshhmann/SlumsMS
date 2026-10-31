@@ -51,6 +51,24 @@ everything. The agent writes scripts and reviews recordings; it never steers liv
 - Each server auto-QA check that is HALF/MANUAL today gets a client script where it can (t-cl-*, t-rg-*, t-mv-1,
   t-jq-1, t-ga-4, t-mr-2, t-cc-1, and the b140/b233/b167 visual checks).
 
+### Stage hooks landed (branch 162-b140stage)
+
+- `!qa run hc-1` (`HealColumnScenarios`, `QaWorld.stageFollowerBot` / `hurtTo` / `unstageFollowerBot`) stages the b140
+  scene server-side for the calling GM: the warp to 104040000, one Bishop follower (the `!bot trainhere` spawn + follow
+  + party join), the GM's own HP down to 40% (what `!hurt <name> 40` does, without needing the name), and two `STAGING`
+  feed lines (`STAGE FOLLOWER cid=... job=BISHOP lv=... party=... gm=... id=... map=...`,
+  `STAGE HURT cid=... hp=...->... pct=40 map=...`) whose chars are the GM's id. `!qa stop` takes the bot out of the
+  party and the world and disbands a party the run made. It refuses without `-Dslums.bots.partysupport=true` (the
+  party heal's switch), with a full party, and when the hurt cannot be set.
+- `qa-scripts/b140-bot-heal-column-staged.yaml` is the milestone script on that hook: built client signals for login,
+  server lines for everything after (`MAP_CHANGE`, `STAGING` twice, `COMBAT`), all matched by char id (`char: me`) with
+  no character name anywhere, the 10 fps burst from the staged hurt, a second burst on the heal line, and the client's
+  own chat log. Checks are the feed lines only (`... sent SHOW_FOREIGN_EFFECT/1>map`): the build records no HP samples
+  and no packet traces. No chat wait, no invite window.
+- The by-hand `qa-scripts/b140-bot-heal-column.yaml` stays for the day the driver can do chat and window anchors (it
+  passes `${me.name}` to `!hurt` and `!bot remove`): the two share the reviewer lines and the two bursts, and the by-hand
+  one adds the HP samples and the `SHOW_FOREIGN_EFFECT` packet check the build cannot record yet.
+
 ## Lanes
 
 - Client lane: the QA client build, the runner, the recorder, the anchor table.
