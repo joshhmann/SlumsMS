@@ -135,29 +135,61 @@ public final class NavDashboardData {
         out.put("footholds", footholds);
         out.put("ropes", ropes);
         out.put("portals", portals);
+        if (map.isSwim()) {
+            out.put("swim", true); // b109: swimmers do not use the ground graph, so the dead-end check skips the map
+        }
         return out;
     }
 
     /**
-     * Ticket 157 follow-up (the Website lane's dead-end check): the regions of an exported graph ({@link #graph}'s
-     * {@code regions} rows, {@code [id, rope, minX, minY, maxX, maxY]}) that {@link NavPits} treats as pits on a map
-     * with these view {@code bounds} ({@code [x, y, width, height]}, as {@link #geometry} exports them), sorted. Empty
-     * without bounds, as NavPits has no pits on a map without view bounds.
+     * Ticket 157 follow-up / b109 (the Website lane's dead-end check): the regions of an exported graph ({@link #graph}'s
+     * {@code regions} rows, {@code [id, rope, minX, minY, maxX, maxY]}, and {@code edges} rows, {@code [from, to, type,
+     * ...]}) that {@link NavPits} treats as pits on a map with this {@link #geometry} ({@code bounds}, {@code portals},
+     * {@code swim}), sorted: ground under the view bottom (none without bounds), and traps with no way back to an exit
+     * (none on a swim map or a map without a portal to another map). Same rule as the planner, on the same rows.
      */
-    public static List<Integer> pitRegions(Object regions, Object bounds) {
-        if (!(regions instanceof List<?> rows) || !(bounds instanceof List<?> b) || b.size() < 4
-                || !(b.get(1) instanceof Number y) || !(b.get(2) instanceof Number w) || !(b.get(3) instanceof Number h)
-                || w.intValue() <= 0 || h.intValue() <= 0) {
+    public static List<Integer> pitRegions(int mapId, Object regions, Object edges, Map<String, Object> geo) {
+        if (!(regions instanceof List<?> rows)) {
             return List.of();
         }
-        int bottom = y.intValue() + h.intValue();
         java.util.TreeSet<Integer> out = new java.util.TreeSet<>();
+        List<NavPits.Row> parsed = new ArrayList<>();
         for (Object row : rows) {
-            if (row instanceof List<?> r && r.size() >= 4 && r.get(0) instanceof Number id && r.get(1) instanceof Number rope
-                    && r.get(3) instanceof Number minY
-                    && NavPits.isPitRegion(rope.intValue() != 0, id.intValue(), minY.intValue(), bottom)) {
-                out.add(id.intValue());
+            if (row instanceof List<?> r && r.size() >= 6 && r.get(0) instanceof Number id && r.get(1) instanceof Number rope
+                    && r.get(2) instanceof Number minX && r.get(3) instanceof Number minY
+                    && r.get(4) instanceof Number maxX && r.get(5) instanceof Number maxY) {
+                parsed.add(new NavPits.Row(id.intValue(), rope.intValue() != 0, minX.intValue(), minY.intValue(),
+                        maxX.intValue(), maxY.intValue()));
             }
+        }
+        parsed.sort(Comparator.comparingInt(NavPits.Row::id));
+        Object bounds = geo == null ? null : geo.get("bounds");
+        if (bounds instanceof List<?> b && b.size() >= 4 && b.get(1) instanceof Number y && b.get(2) instanceof Number w
+                && b.get(3) instanceof Number h && w.intValue() > 0 && h.intValue() > 0) {
+            int bottom = y.intValue() + h.intValue();
+            for (NavPits.Row r : parsed) {
+                if (NavPits.isPitRegion(r.rope(), r.id(), r.minY(), bottom)) {
+                    out.add(r.id());
+                }
+            }
+        }
+        boolean swim = geo != null && geo.get("swim") instanceof Boolean sw && sw;
+        if (!swim && geo != null && geo.get("portals") instanceof List<?> ps && edges instanceof List<?> es) {
+            Map<Integer, Set<Integer>> fwd = new HashMap<>();
+            for (Object e : es) {
+                if (e instanceof List<?> l && l.size() >= 3 && l.get(0) instanceof Number from && l.get(1) instanceof Number to
+                        && !"TELEPORT".equals(l.get(2)) && !"FLASH_JUMP".equals(l.get(2))) {
+                    fwd.computeIfAbsent(from.intValue(), k -> new HashSet<>()).add(to.intValue());
+                }
+            }
+            List<NavPits.PortalRow> portals = new ArrayList<>();
+            for (Object p : ps) {
+                if (p instanceof List<?> l && l.size() >= 5 && l.get(1) instanceof Number type && l.get(2) instanceof Number x
+                        && l.get(3) instanceof Number py && l.get(4) instanceof Number toMap) {
+                    portals.add(new NavPits.PortalRow(type.intValue(), x.intValue(), py.intValue(), toMap.intValue()));
+                }
+            }
+            out.addAll(NavPits.traps(parsed, fwd, portals, mapId));
         }
         return List.copyOf(out);
     }

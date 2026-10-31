@@ -185,6 +185,8 @@ class BotMovementState {
     String lastEdgeBlockReason = null;
     Point navTargetPos = null;
     BotNavigationGraph navGraph = null;
+    long pitSinceMs = 0L; // b109: when the bot was first seen standing in a trap (GCMovementDriver.tickPitRescue), 0 = not
+
     // The last committed edge whose completion NavEdgeLearning already counted (ticket 16).
     BotNavigationGraph.Edge navLearnedEdge = null;
     // Ticket 04: the launched move (jump, flash jump, drop, rope jump) the bot is in the air on, and its graph. A

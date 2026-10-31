@@ -156,7 +156,7 @@ def reach(starts, adj):
     return seen
 
 
-def check_map(mid, portals, graph, arrivals, bounds=None, handled=()):
+def check_map(mid, portals, graph, arrivals, bounds=None, handled=(), swim=False):
     """Dead-end check for one map. arrivals: [(fromMap, portal name or None)], the ways into it; bounds: the map's
     [x, y, width, height] view, to tell a pit below the visible map (a hidden catch floor) from one on screen.
 
@@ -168,6 +168,7 @@ def check_map(mid, portals, graph, arrivals, bounds=None, handled=()):
                    "(below view)" when the platform lies under the map's visible area)
       pit_handled  the same, for platforms the game's planner already refuses (handled: NavPits' nav/pits.json)
       no_graph     no base-profile graph, so only the map-level check ran
+    A swim map (swim: the map export's "swim") gets only the map-level check: swimmers do not use the ground graph.
     """
     exits = [p for p in portals if p[4] not in (NO_MAP, mid)]
     scripted = [p for p in portals if p[1] in SCRIPT_PORTALS]
@@ -176,6 +177,8 @@ def check_map(mid, portals, graph, arrivals, bounds=None, handled=()):
         return rows, exits
     if not exits:
         rows.append([mid, "script_exit" if scripted else "no_exit", len(arrivals)])
+        return rows, exits
+    if swim:
         return rows, exits
     if not graph:
         rows.append([mid, "no_graph", ""])
@@ -217,13 +220,15 @@ def build_world(nav, dry=False):
     with open(os.path.join(nav, "index.json"), encoding="utf-8") as f:
         index = json.load(f)
     ids = [r[0] for r in index["maps"]]
-    maps, links, portals_of, bounds_of = [], [], {}, {}
+    maps, links, portals_of, bounds_of, swim_of = [], [], {}, {}, set()
     for r in index["maps"]:
         mid = r[0]
         try:
             with open(os.path.join(nav, "maps", "%d.json" % mid), encoding="utf-8") as f:
                 doc = json.load(f)
             portals_of[mid], bounds_of[mid] = doc.get("portals") or [], doc.get("bounds")
+            if doc.get("swim"):
+                swim_of.add(mid)
         except (OSError, ValueError):
             portals_of[mid] = []
         maps.append([mid, r[1], r[2]])
@@ -249,7 +254,8 @@ def build_world(nav, dry=False):
                 graph = json.load(f)
         except (OSError, ValueError):
             unchecked += 1
-        rows, _ = check_map(mid, portals_of[mid], graph, arrivals.get(mid, []), bounds_of.get(mid), handled.get(mid, ()))
+        rows, _ = check_map(mid, portals_of[mid], graph, arrivals.get(mid, []), bounds_of.get(mid), handled.get(mid, ()),
+                             mid in swim_of)
         checks.extend(rows)
     doc = {"generated": int(time.time() * 1000), "index": index.get("generated"), "profile": BASE,
            "exactArrivals": any(len(p) > 5 for ps in portals_of.values() for p in ps),
