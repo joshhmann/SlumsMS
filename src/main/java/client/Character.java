@@ -1731,6 +1731,9 @@ public class Character extends AbstractCharacterObject {
                 } else if (pto == null) {
                     pto = to.getPortal(0);
                 }
+                if (pto == null) {
+                    return; // a map with no portal at all: refuse the move instead of throwing
+                }
                 changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
                 canWarpMap = false;
             } finally {
@@ -1779,7 +1782,10 @@ public class Character extends AbstractCharacterObject {
                 MapleMap to = (move == null) ? getWarpMap(target.getId()) : lookupWarpMap(move.map());
                 Point where = pos;
                 if (move != null) {   // a coordinate of the map we could not enter means nothing in the new one
-                    where = arrivalPortal(to, move.portal(), null).getPosition();
+                    Portal p = arrivalPortal(to, move.portal(), null);
+                    if (p != null) {
+                        where = p.getPosition();
+                    }
                 }
                 changeMapInternal(to, where, PacketCreator.getWarpToMap(to, 0x80, where, this));
                 canWarpMap = false;
