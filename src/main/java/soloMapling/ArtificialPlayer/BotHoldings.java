@@ -379,7 +379,7 @@ public final class BotHoldings {
             int q = Math.min(per, left);
             left -= q;
             MapItem drop = map.spawnItemDropNoExpire(bot, recipient, new Item(itemId, (short) 0, (short) q, -1),
-                    position, false, false, false);
+                    position, false, true, false);
             if (drop != null) {
                 drop.setPermanentOwner(true);
                 landed += q;
@@ -441,7 +441,7 @@ public final class BotHoldings {
         }
         Item gone = held;   // the scan's local is reassigned, a lambda needs one that is not
         mutate(bot, ledger -> ledger.addItem(gone.getItemId(), -gone.getQuantity()));
-        MapItem drop = map.spawnItemDropNoExpire(bot, recipient, held, position, false, false, false);
+        MapItem drop = map.spawnItemDropNoExpire(bot, recipient, held, position, false, true, false);
         if (drop == null) {
             // The map refused the drop: FieldLimit.DROP_LIMIT registers nothing and only plays the
             // disappearing-drop animation (MapleMap.disappearingItemDrop), so this instance never reached the
