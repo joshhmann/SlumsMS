@@ -110,6 +110,22 @@ class NewToolsTest(unittest.TestCase):
         clicks = [event[1] for event in self.d.sender.events if event[0] == 'click']
         self.assertEqual(['bera', 'channel_3', 'channel_confirm', 'first_character', 'character_confirm'], clicks)
 
+    def test_a_lost_click_on_bera_is_repeated_on_a_release_build(self):
+        # b249: a release build has no QA pipe; the first click on Bera is often lost and the channel list never shows.
+        self.d.qa = None
+        answers = iter([False, True])
+        self.d.channel_shows = lambda timeout: next(answers)
+        self.d.click_bera()
+        clicks = [event[1] for event in self.d.sender.events if event[0] == 'click']
+        self.assertEqual(['bera', 'bera'], clicks)
+
+    def test_bera_is_clicked_three_times_at_most_on_a_release_build(self):
+        self.d.qa = None
+        self.d.channel_shows = lambda timeout: False
+        self.d.click_bera()
+        clicks = [event[1] for event in self.d.sender.events if event[0] == 'click']
+        self.assertEqual(['bera'] * 3, clicks)
+
     def test_only_the_calibrated_character_slot_is_offered(self):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.select_character(4)

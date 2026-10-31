@@ -561,21 +561,7 @@ class Driver:
         if screen == 'gender':
             self.click('gender_confirm')
         self.wait('world')
-        if self.qa:
-            # QA build: click Bera only once the world list is handled and drawn, and click again when the client
-            # shows no sign of the click (no channels.ready): the old fixed timing left an empty channel panel.
-            if self.qa.wait('worldselect.ready', 30) is None:
-                raise Refusal('The QA client never reported the world list (worldselect.ready).')
-            for attempt in range(3):
-                self.qa.drain()
-                self.click('bera')
-                if self.qa.wait('channels.ready', 4) is not None:
-                    break
-            else:
-                shot = self.save_shot('no-channels-ready', include_image=False)
-                raise Refusal('Three clicks on Bera drew no channel panel (no channels.ready); screenshot: ' + shot['path'])
-        else:
-            self.click('bera')
+        self.click_bera()
         self.wait('channel')
         self.click('channel_' + str(channel))
         self.click('channel_confirm')
@@ -652,6 +638,41 @@ class Driver:
         if not path.is_file():
             raise Refusal('Create secrets/' + vault + '.txt: account on line 1, password on line 2, PIC on line 3.')
         return Secrets(path).load()
+
+    def click_bera(self):
+        if self.qa:
+            # QA build: click Bera only once the world list is handled and drawn, and click again when the client
+            # shows no sign of the click (no channels.ready): the old fixed timing left an empty channel panel.
+            if self.qa.wait('worldselect.ready', 30) is None:
+                raise Refusal('The QA client never reported the world list (worldselect.ready).')
+            for attempt in range(3):
+                self.qa.drain()
+                self.click('bera')
+                if self.qa.wait('channels.ready', 4) is not None:
+                    break
+            else:
+                shot = self.save_shot('no-channels-ready', include_image=False)
+                raise Refusal('Three clicks on Bera drew no channel panel (no channels.ready); screenshot: ' + shot['path'])
+        else:
+            # Release build (no pipe): the click is often lost the same way (b249), so click again while the channel
+            # screen does not show; the caller's wait('channel') then reports a real failure with its screenshot.
+            for attempt in range(3):
+                self.click('bera')
+                if self.channel_shows(6):
+                    break
+
+    def channel_shows(self, timeout):
+        until = time.monotonic() + timeout
+        while time.monotonic() < until:
+            self.guard()
+            try:
+                if self.matches('channel'):
+                    return True
+            except self.backend.Blocked as exc:
+                if 'found 0' not in str(exc):
+                    raise
+            time.sleep(0.25)
+        return False
 
     def login_credentials(self, vault):
         """Types one vault account and its password at the login screen and presses Enter (ticket 170).
