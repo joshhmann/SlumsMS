@@ -196,3 +196,5 @@ t-sf-1,t-bd-1,t-au-1,t-xc-1,t-iv-2	src/main/java/soloMapling/site/**	site feed, 
 t-ev-1,t-ev-2,t-ev-3	src/main/java/soloMapling/worldevents/**	cake HP, director, reactions
 t-cl-3,t-cc-1,t-vg-1,t-vb-1,t-vb-2,t-vb-3,t-vb-4,t-vb-5,t-vb-6,t-vb-7,t-vb-8,t-hp-1	src/main/java/tools/PacketCreator.java	client packets
 t-nv-2	src/main/resources/soloMapling/nav-trap-maps.txt	the one-way trap map list
+t-mp-1	src/main/java/server/maps/MapRouting.java	map routing: blocked/missing maps rerouted (ticket s-maproute)
+t-mp-1	src/main/resources/soloMapling/map-routing.tsv	the routing table
