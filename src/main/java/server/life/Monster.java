@@ -247,6 +247,20 @@ public class Monster extends AbstractLoadedLife {
         return stats.getHp();
     }
 
+    /**
+     * SlumsMS 1.6.2 (b236): raise a live mob's max HP and current HP by {@code extra} (a Giant Cake topped up as more people
+     * arrive). Counts toward the EXP pool like a heal. False when it is already dead or {@code extra} is not positive.
+     */
+    public synchronized boolean raiseMaxHp(long extra) {
+        if (extra <= 0 || hp.get() <= 0) {
+            return false;
+        }
+        stats.setHp(stats.getHp() + extra);
+        hp.addAndGet(extra);
+        maxHpPlusHeal.addAndGet(extra);
+        return true;
+    }
+
     public int getMp() {
         return mp;
     }
