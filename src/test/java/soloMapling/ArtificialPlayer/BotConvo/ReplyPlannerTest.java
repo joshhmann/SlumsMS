@@ -91,6 +91,11 @@ class ReplyPlannerTest {
             return this;
         }
 
+        V inPq(boolean pq) {
+            this.inPq = pq;
+            return this;
+        }
+
         V town(boolean town) {
             this.town = town;
             return this;
@@ -240,6 +245,39 @@ class ReplyPlannerTest {
         assertEquals(ReplyPlanner.Move.BUSY, p.move());
         assertTrue(p.brief());
         assertTrue(facts(p).contains("you are in the middle of grinding here"), () -> facts(p).toString());
+    }
+
+    @Test
+    void noScriptBegs() {
+        // owner's answer 5: no begging, in any move, with any player level - and the triage's own con rules are the judge
+        for (ReplyPlanner.Move move : ReplyPlanner.Move.values()) {
+            for (int playerLevel : List.of(5, 20, 38, 65, 140)) {
+                V v = viewFor(move).playerLevel(playerLevel);
+                ReplyPlanner.View view = v.build();
+                ReplyPlanner.Plan p = ReplyPlanner.plan(view);
+                assertNotNull(p, move + " should plan");
+                List<String> lines = ReplyPlanner.scripts(view, p.move());
+                assertFalse(lines.isEmpty(), move + " has scripts");
+                for (String line : lines) {
+                    String where = move + " at player " + playerLevel + ": " + line;
+                    assertFalse(ChatTriage.conRule(line).filter(con -> con == ChatTriage.Con.SCAM).isPresent(),
+                            where + " is begging by the chat rules");
+                    assertFalse(line.contains("carry"), where + " asks for a carry");
+                }
+            }
+        }
+    }
+
+    @Test
+    void levelTalkSaysTheLevelAndTheNextGoal() {
+        ReplyPlanner.View view = viewFor(ReplyPlanner.Move.LEVEL_TALK).playerLevel(65).build();
+        ReplyPlanner.Plan p = ReplyPlanner.plan(view);
+        assertEquals(ReplyPlanner.Move.LEVEL_TALK, p.move());
+        assertTrue(facts(p).contains("they are 25 levels above you"), () -> facts(p).toString());
+        List<String> lines = ReplyPlanner.scripts(view, p.move());
+        assertTrue(lines.stream().anyMatch(l -> l.contains("40")), () -> lines.toString());
+        assertTrue(lines.stream().anyMatch(l -> l.contains(LevelTalk.nextGoal(40))), () -> lines.toString());
+        assertTrue(facts(p).contains("your next job goal is " + LevelTalk.nextGoal(40)), () -> facts(p).toString());
     }
 
     @Test
@@ -412,6 +450,22 @@ class ReplyPlannerTest {
     private static boolean greeting(ReplyPlanner.Move move) {
         return move == ReplyPlanner.Move.HELLO || move == ReplyPlanner.Move.HELLO_BACK
                 || move == ReplyPlanner.Move.SMALL_TALK;
+    }
+
+    /** The state one move is planned from, so a test over every move states only what that move adds. */
+    private static V viewFor(ReplyPlanner.Move move) {
+        V v = v();
+        v.botHasSpoken = move == ReplyPlanner.Move.SMALL_TALK;
+        v.busy = move == ReplyPlanner.Move.BUSY;
+        v.asked = switch (move) {
+            case ACTIVITY -> "what u doing";
+            case TRAIN_SPOT -> "where should i train";
+            case LEVEL_TALK -> "what lvl r u";
+            case BUSY -> "lol nice hat";
+            default -> "hey";
+        };
+        v.kind = greeting(move) ? ChatTriage.Kind.GREETING : ChatTriage.Kind.TALK;
+        return v;
     }
 
     private static List<String> facts(ReplyPlanner.Plan p) {

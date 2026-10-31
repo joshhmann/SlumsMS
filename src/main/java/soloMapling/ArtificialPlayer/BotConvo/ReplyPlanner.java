@@ -197,16 +197,21 @@ public final class ReplyPlanner {
                 }
             }
             case LEVEL_TALK -> {
+                String goal = LevelTalk.nextGoal(v.botLevel());
                 out.add("im lvl " + v.botLevel());
                 out.add("lvl " + v.botLevel() + " here lol");
                 out.add("im " + v.botLevel() + " lol");
-                out.add("just hit " + v.botLevel());
                 out.add(v.botLevel() + " atm");
+                out.add("im " + v.botLevel() + ", next is " + goal);
+                out.add("lvl " + v.botLevel() + ", going for " + goal);
                 int gap = v.botLevel() - v.playerLevel();
                 if (gap >= 15) {
                     out.add("been here a while lol");
                 } else if (gap <= -5) {
-                    out.add("u gotta carry me lol");
+                    out.add("ur way ahead of me lol");
+                }
+                if (v.mySpot() != null && !v.mySpot().isBlank()) {
+                    out.add("im " + v.botLevel() + ", i train at " + v.mySpot());
                 }
             }
             case BUSY -> out.addAll(List.of("1 sec", "brb", "busy rn sry", "gimme a sec", "2 min", "sec sry",
@@ -270,6 +275,10 @@ public final class ReplyPlanner {
                 }
             }
             case LEVEL_TALK -> {
+                f.add("your next job goal is " + LevelTalk.nextGoal(v.botLevel()));
+                if (v.mySpot() != null && !v.mySpot().isBlank()) {
+                    f.add("you train at " + v.mySpot());
+                }
                 int gap = v.botLevel() - v.playerLevel();
                 if (gap >= 5) {
                     f.add("you are " + gap + " levels above them");
