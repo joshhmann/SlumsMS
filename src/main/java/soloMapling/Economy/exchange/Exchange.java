@@ -222,8 +222,9 @@ public final class Exchange {
 
     /**
      * The NX limit prices a player may use now: {lowest sell, highest buy} in mesos per 1,000 NX ({@link NxGuard}):
-     * 50% and 200% of the official rate, else of NX's starting price (5,000,000: sells from 2,500,000, buys up to
-     * 10,000,000).
+     * 50% and 200% of the official rate, else of NX's starting price (5,000,000), always inside the hard window
+     * {@link NxGuard#NX_LOWEST}..{@link NxGuard#NX_HIGHEST} (2,500..10,000 mesos per NX, owner 2026-10-31 ~19:50 UTC),
+     * which the relative band can only tighten.
      */
     public synchronized long[] nxBand() {
         Ticker t = tickers.get(Ticker.NX);
@@ -243,24 +244,58 @@ public final class Exchange {
         if (!Ticker.NX.equals(p.ticker())) {
             return null;
         }
+        Response outside = outOfWindow(rid, p.ticker(), p.side(), p.price());
+        if (outside != null) {
+            return outside;
+        }
         long[] b = nxBand();
         boolean low = p.side() == Side.SELL && p.price() < b[0];
         boolean high = p.side() == Side.BUY && p.price() > b[1];
         if (!low && !high) {
             return null;
         }
+        String basis = rateBasis();
+        String msg = low ? String.format("an NX sell must ask at least %s mesos per NX %s", perNx(b[0]), basis)
+                : String.format("an NX buy may bid at most %s mesos per NX %s", perNx(b[1]), basis);
+        return new Response(rid, false, "PRICE_BAND", msg, bandData(b));
+    }
+
+    /**
+     * PRICE_BAND for an NX order priced outside the hard window (owner 2026-10-31 ~19:50 UTC: no NX order on either
+     * side is ever outside {@link NxGuard#NX_LOWEST}..{@link NxGuard#NX_HIGHEST}, whatever the official rate says), else
+     * null. Applied by every caller of {@link #placeOrder} as well, because the house regulars quote through their own
+     * path and never see {@link #priceBand}.
+     */
+    private Response outOfWindow(String rid, String ticker, Side side, long price) {
+        if (!Ticker.NX.equals(ticker) || (price >= NxGuard.NX_LOWEST && price <= NxGuard.NX_HIGHEST)) {
+            return null;
+        }
+        // the two clamps players meet most (a dump below the floor, an overpay above the ceiling) keep their old words
+        String msg = price < NxGuard.NX_LOWEST && side == Side.SELL
+                ? String.format("an NX sell must ask at least %s mesos per NX %s", perNx(NxGuard.NX_LOWEST), rateBasis())
+                : price > NxGuard.NX_HIGHEST && side == Side.BUY
+                ? String.format("an NX buy may bid at most %s mesos per NX %s", perNx(NxGuard.NX_HIGHEST), rateBasis())
+                : String.format("an NX order must price NX from %s to %s mesos per NX %s", perNx(NxGuard.NX_LOWEST),
+                        perNx(NxGuard.NX_HIGHEST), rateBasis());
+        return new Response(rid, false, "PRICE_BAND", msg, bandData(nxBand()));
+    }
+
+    /** How the refusal explains the band: the official rate, or NX's starting price before there is one. */
+    private String rateBasis() {
         Long rate = officialRate(Ticker.NX);
+        return rate == null
+                ? String.format("(no official rate yet: NX counts as %s mesos per NX)",
+                        perNx(guard.startPrice() > 0 ? guard.startPrice() : NxGuard.START_PRICE))
+                : String.format("(the official rate is %s mesos per NX)", perNx(rate));
+    }
+
+    /** A PRICE_BAND's data: the band it refused against (per 1,000 NX) and the rate behind it (null before one). */
+    private Map<String, Object> bandData(long[] b) {
         Map<String, Object> d = new LinkedHashMap<>();
         d.put("minPrice", b[0]);
         d.put("maxPrice", b[1]);
-        d.put("rate", rate);
-        // player text per 1 NX (owner 2026-10-29); the data stays per 1,000 NX
-        String basis = rate == null
-                ? String.format("(no official rate yet: NX counts as %s mesos per NX)", perNx(guard.startPrice()))
-                : String.format("(the official rate is %s mesos per NX)", perNx(rate));
-        String msg = low ? String.format("an NX sell must ask at least %s mesos per NX %s", perNx(b[0]), basis)
-                : String.format("an NX buy may bid at most %s mesos per NX %s", perNx(b[1]), basis);
-        return new Response(rid, false, "PRICE_BAND", msg, d);
+        d.put("rate", officialRate(Ticker.NX));
+        return d;
     }
 
     private final ExchangeStore store;
@@ -368,6 +403,14 @@ public final class Exchange {
                 continue;
             }
             rows.put(r.id(), r);
+            if (Ticker.NX.equals(r.ticker()) && (r.price() < NxGuard.NX_LOWEST
+                    || r.price() > NxGuard.NX_HIGHEST)) {
+                // before the hard window (owner 2026-10-31 ~19:50 UTC) NX could rest outside it; those orders stay
+                // (a store row is never edited) but nothing new may match them at that price: cancel by hand
+                log.warn("exchange: NX order {} at {} per 1,000 NX is outside the hard window "
+                        + "{}..{}: cancel it (!exchange cancel {})", r.id(), r.price(), NxGuard.NX_LOWEST,
+                        NxGuard.NX_HIGHEST, r.id());
+            }
             open.computeIfAbsent(r.ticker(), k -> new ArrayList<>()).add(toOrder(r));
         }
         open.forEach((t, os) -> books.get(t).restoreAll(os));
@@ -936,6 +979,12 @@ public final class Exchange {
     /** Places an order (player or regular) and settles what it matches, all in one batch. */
     private Response placeOrder(String rid, long account, long character, int regular, Ticker t, Side side, long price,
                                 long nx, long now, LiveWallet w) {
+        // the hard window on every order, including the house regulars' own quotes (they skip priceBand): a fill
+        // trades at the resting order's price, so this is what keeps every fill inside too (owner 2026-10-31 ~19:50)
+        Response outside = t == null ? null : outOfWindow(rid, t.id(), side, price);
+        if (outside != null) {
+            return outside;
+        }
         long id = nextOrder;
         long seq = nextSeq;
         long owner = regular > 0 ? Regulars.owner(regular) : account;

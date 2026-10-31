@@ -33,9 +33,10 @@ import java.util.Map;
  * </pre>
  * Stolen-cookie guard (1.6.1, owner 2026-10-29; {@link NxGuard}): preview, confirm, cancel and mine carry
  * {@code "siteAuthAt"} (epoch ms of the player's last real site sign-in), refused REAUTH when missing, over 12 h old
- * or in the future; NX orders outside 50%..200% of the official rate (before one, of the 5,000,000 starting price:
- * sells from 2,500,000, buys up to 10,000,000 per 1,000 NX) are refused PRICE_BAND (data minPrice, maxPrice, rate; per
- * 1,000 NX like every price here; the message reads per 1 NX). No daily caps (owner 2026-10-29).
+ * or in the future; NX orders outside the hard window 2,500,000..10,000,000 per 1,000 NX (owner 2026-10-31 ~19:50
+ * UTC) or outside 50%..200% of the official rate (before one, of the 5,000,000 starting price) are refused PRICE_BAND
+ * (data minPrice, maxPrice, rate; per 1,000 NX like every price here; the message reads per 1 NX). No daily caps
+ * (owner 2026-10-29).
  * <p>
  * 1.6.2 b005 ({@link SiteReauth}): the game also needs its own record of a password check for the account in the last
  * 12 h (REAUTH with {@code data.game = true}), and a site confirm of any SELL, or of a BUY past the account's

@@ -642,11 +642,18 @@ Owner, 2026-10-31: at least a quarter to half of the bots should trade, and CHAO
 - **Bots on NX**: the branch has a bot NX purse (`Exchange.botNx`, a bot's NX in its own PAYOUT bucket) and
   per-1,000-NX order maths, behind `-Dslums.exchange.traders.nx` (default off, not in 1.6.2's flags). The desk plan in
   `docs/tickets/162-nx-forex.md` keeps the purse and the maths and replaces the quoting.
-- **Finding (2026-10-31): the NX band is relative.** `nxBand()` is `NxGuard.band(officialRate, ...)` = 50%..200% of the
-  official rate, so the first fills move the wall with them (one fill at 9,900,000 -> a 10,500,000 buy accepted; the
-  probe in the handback). Bot quotes are additionally held to 2,500,000..10,000,000 per 1,000 NX
-  (`MarketTraders.BOT_NX_MIN/MAX`), so bots alone cannot push fills past 10,000,000, but players can. The desk plan
-  makes the absolute clamp explicit; owner's call for the live book.
+- **The NX band is relative, so a hard window now sits under it (owner 2026-10-31 ~19:50 UTC).** `nxBand()` is
+  `NxGuard.band(officialRate, ...)` = 50%..200% of the official rate, so the first fills moved the wall with them
+  (round-1 probe: a fill at 9,900,000 let a 10,500,000 buy through). That is closed: no NX order, player or bot, may
+  price outside **2,500,000..10,000,000 per 1,000 NX** (`NxGuard.NX_LOWEST`/`NX_HIGHEST`), whatever the rate does.
+  The relative band is intersected with it, so whichever is tighter refuses (`PRICE_BAND`), and the window applies
+  even with the guard switched off. Because a fill trades at the maker's price, every fill is inside the window too.
+  Tests: `NxGuardTest.theRateCannotWalkPastTheHardCeilingOf10000MesosPerNx` (a fill at 10,000,000 leaves the 7-day
+  rate at 9,625,000 and a 10,500,000 bid refused),
+  `NxGuardTest.anOrderOutsideTheHardWindowIsRefusedOnEitherSideEvenWithTheGuardOff`, and
+  `NxGuardTest.aHouseRegularCannotQuoteOutsideTheWindow` (the regulars' own path, which skips `priceBand`, is caught
+  in `placeOrder`). Bots were already held to the same numbers by `MarketTraders.BOT_NX_MIN/MAX`. The desk plan
+  (`docs/tickets/162-nx-forex.md`, 1.6.3) starts from an already-clamped book.
 
 ## Stolen-cookie guard, game side (owner 2026-10-29: "both guards"; branch `161-nxguard`)
 
@@ -657,7 +664,7 @@ Site orders still carry request id `s-<token>` (`@nx`: `t-`), so staff can tell 
 
 | Guard | Rule | Code (data) | Knob, default |
 |---|---|---|---|
-| NX price band | every player NX order, site or `@nx`: a SELL may not ask under 50% of the official NX rate, a BUY may not bid over 200%; with no official rate yet the band is around NX's **starting price, 5,000,000 per 1,000 NX (5,000 mesos per NX, the NX merchant bots' 10k NX for 50m; owner 2026-10-29)**: sells from 2,500,000, buys up to 10,000,000 (before, a stolen session could buy a thief's NX at the ticker's 100m and drain the account's mesos). The message reads per 1 NX ("an NX sell must ask at least 2,500 mesos per NX (no official rate yet: NX counts as 5,000 mesos per NX)"); `minPrice`/`maxPrice`/`rate` stay per 1,000 NX. Checked at preview and again at place. Regulars and the QA test regular quote through their own path; the NX QA check prices its bid at the band's lowest sell or above | `PRICE_BAND` (`minPrice`, `maxPrice`, `rate`) | `-Dslums.exchange.nxBand.minPct=50`, `.maxPct=200`, `-Dslums.exchange.nxStartPrice=5000000` (the ceiling follows it) |
+| NX price band | every NX order, site, `@nx`, bot or house regular, **inside 2,500,000..10,000,000 per 1,000 NX whatever the rate does** (owner 2026-10-31 ~19:50 UTC: both sides, so a resting order outside it is refused and every fill, which trades at the maker's price, is inside it) **and** a SELL may not ask under 50% of the official NX rate, a BUY may not bid over 200% (the tighter of the two); with no official rate yet the band is around NX's **starting price, 5,000,000 per 1,000 NX (5,000 mesos per NX, the NX merchant bots' 10k NX for 50m; owner 2026-10-29)**: sells from 2,500,000, buys up to 10,000,000 (before, a stolen session could buy a thief's NX at the ticker's 100m and drain the account's mesos). The message reads per 1 NX ("an NX sell must ask at least 2,500 mesos per NX (no official rate yet: NX counts as 5,000 mesos per NX)"); `minPrice`/`maxPrice`/`rate` stay per 1,000 NX. Checked at preview and again at place. Regulars and the QA test regular quote through their own path; the NX QA check prices its bid at the band's lowest sell or above | `PRICE_BAND` (`minPrice`, `maxPrice`, `rate`) | `-Dslums.exchange.nxBand.minPct=50`, `.maxPct=200`, `-Dslums.exchange.nxStartPrice=5000000` (the ceiling follows it) |
 | Site sign-in age | preview, confirm, cancel and mine must carry `siteAuthAt` (epoch ms, or ISO-8601, of the player's last real sign-in on the site, not a cookie refresh); refused when missing, older than 12 h or more than 5 min in the future. Book and trades need none | `REAUTH` (`maxAgeHours`) | `-Dslums.exchange.siteAuthMaxHours=12` |
 
 Rollout: the site must send `siteAuthAt` before a server with this build answers its requests, or every account
