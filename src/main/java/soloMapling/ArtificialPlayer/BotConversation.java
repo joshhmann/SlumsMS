@@ -741,7 +741,10 @@ public final class BotConversation {
                         detail + ", llm fell back to the caller's script");
             } else if (decided != null) {
                 // m02: the model did not answer; the plan's own script says the same move from the same facts
-                String planned = ReplyPlanner.line(bot.getId(), seen, decided, ThreadLocalRandom.current());
+                // the plan's scripts have no ring of their own: the pair's own guard refuses a line this bot
+                // already said to this player, and the shuffled scripts give it another
+                String planned = ReplyPlanner.line(seen, decided, ThreadLocalRandom.current(),
+                        text -> SocialGate.fresh(bot.getId(), player.getId(), text));
                 if (planned != null) {
                     deliver(session, planned, asked, ChatStats.Tier.SCRIPTED, detail + ", planned "
                             + decided.move().name().toLowerCase(java.util.Locale.ROOT), cue);

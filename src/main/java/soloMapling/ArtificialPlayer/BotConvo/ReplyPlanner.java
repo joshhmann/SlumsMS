@@ -79,65 +79,33 @@ public final class ReplyPlanner {
     // ── the same move without a model: the scripts the bank and the fallback path say ──
 
     /**
-     * One line for this move, typed from the same facts; null when the move has nothing to say here. A line two other
-     * bots said in the last ten minutes is passed over while another fits (m02: no reply repeated word for word by
-     * three bots; the shared delivery guard is s-chatguards' job, this is the planner's own scripts).
+     * One line for this move, typed from the same facts; null when the move has nothing to say here. The scripts are
+     * shuffled, so one move is not always one line. Repetition is not the planner's bookkeeping: a line a bot already
+     * said to this player is refused at the delivery point ({@code SocialGate.fresh}), and every line a bot says to a
+     * player passes the slot net there too ({@code SpeechGuard}, b247), so the planner keeps no memory of its own.
      */
-    public static String line(int botId, View v, Plan p, java.util.Random rng) {
-        return line(botId, v, p, rng, System.currentTimeMillis());
+    public static String line(View v, Plan p, java.util.Random rng) {
+        return line(v, p, rng, text -> true);
     }
 
-    /** The same, at a given time (the replay walks recorded traffic in its own clock). */
-    static String line(int botId, View v, Plan p, java.util.Random rng, long now) {
+    /**
+     * The same, but only a text the delivery point's own net accepts ({@code SocialGate.fresh}: this bot has not said
+     * it to this player lately). The scripts are shuffled, so a refused one costs variety, not the line: null only when
+     * every script is refused, and the caller falls back to what it would have said without a plan.
+     */
+    public static String line(View v, Plan p, java.util.Random rng, java.util.function.Predicate<String> acceptable) {
         List<String> options = scripts(v, p.move());
         if (options.isEmpty()) {
             return null;
         }
-        if (options.size() > 1) {
-            List<String> shuffled = new ArrayList<>(options);
-            java.util.Collections.shuffle(shuffled, rng);
-            for (String candidate : shuffled) {
-                if (fresh(botId, candidate, now)) {
-                    said(botId, candidate, now);
-                    return candidate;
-                }
+        List<String> shuffled = new ArrayList<>(options);
+        java.util.Collections.shuffle(shuffled, rng);
+        for (String candidate : shuffled) {
+            if (acceptable.test(candidate)) {
+                return candidate;
             }
         }
-        String pick = options.get(rng.nextInt(options.size()));
-        said(botId, pick, now);
-        return pick;
-    }
-
-    /** Scripted texts recently said, with the bots that said them and when. */
-    private static final java.util.Map<String, Recent> RECENT = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final int REPEAT_BOTS = 2; // at most two bots, so a third never says it word for word
-    private static final long REPEAT_MS = 10 * 60_000L;
-    private static final int RECENT_CAP = 512;
-
-    private static final class Recent {
-        final java.util.Map<Integer, Long> bots = new java.util.concurrent.ConcurrentHashMap<>();
-    }
-
-    /** Whether this bot may say this line: fewer than two other bots said it in the last ten minutes. */
-    static boolean fresh(int botId, String text, long now) {
-        Recent r = RECENT.get(StateOfMind.words(text));
-        if (r == null) {
-            return true;
-        }
-        r.bots.values().removeIf(at -> now - at > REPEAT_MS);
-        return r.bots.size() < REPEAT_BOTS || r.bots.containsKey(botId);
-    }
-
-    static void said(int botId, String text, long now) {
-        if (RECENT.size() > RECENT_CAP) {
-            RECENT.clear(); // unbounded growth is worse than forgetting: the window is short anyway
-        }
-        RECENT.computeIfAbsent(StateOfMind.words(text), k -> new Recent()).bots.put(botId, now);
-    }
-
-    /** Tests only. */
-    static void clearForTest() {
-        RECENT.clear();
+        return null;
     }
 
     static List<String> scripts(View v, Move move) {

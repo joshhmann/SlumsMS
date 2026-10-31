@@ -1,5 +1,6 @@
 package soloMapling.ArtificialPlayer.BotConvo;
 
+import client.Character;
 import org.junit.jupiter.api.Test;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage;
 
@@ -12,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * m02 stage A: the planner turns the bot's state, the player's state and the read of the line into one move and the
@@ -395,7 +398,6 @@ class ReplyPlannerTest {
 
     @Test
     void scriptsSayTheSameMoveWithoutTheModel() {
-        ReplyPlanner.clearForTest();
         Random rng = new Random(3);
         for (ReplyPlanner.Move move : ReplyPlanner.Move.values()) {
             V v = v();
@@ -412,23 +414,68 @@ class ReplyPlannerTest {
             ReplyPlanner.View view = v.build();
             ReplyPlanner.Plan p = ReplyPlanner.plan(view);
             assertNotNull(p, move + " should plan from these facts");
-            String line = ReplyPlanner.line(100 + move.ordinal(), view, p, rng);
+            String line = ReplyPlanner.line(view, p, rng);
             assertNotNull(line, move + " has a script");
             assertFalse(StateOfMind.claimsGrindingInTown(line), move + " in a town: " + line);
             assertTrue(line.length() < 70, line);
         }
     }
 
+    /** The pair's own net ({@code SocialGate.fresh}) refuses a line at delivery; the planner only offers another. */
     @Test
-    void aThirdBotDoesNotSayTheSameScriptWordForWord() {
-        ReplyPlanner.clearForTest();
-        long now = 1_000_000L;
-        ReplyPlanner.said(1, "hey", now);
-        assertTrue(ReplyPlanner.fresh(1, "hey", now), "a bot may repeat itself");
-        ReplyPlanner.said(2, "hey", now);
-        assertFalse(ReplyPlanner.fresh(3, "hey", now), "three bots, word for word: no");
-        assertTrue(ReplyPlanner.fresh(3, "yo", now), "a different line is free");
-        assertTrue(ReplyPlanner.fresh(3, "hey", now + 11 * 60_000L), "ten minutes later it is fair again");
+    void theDeliveryGuardPicksTheScriptNotThePlanner() {
+        ReplyPlanner.View view = viewFor(ReplyPlanner.Move.HELLO).build();
+        ReplyPlanner.Plan plan = ReplyPlanner.plan(view);
+        List<String> options = ReplyPlanner.scripts(view, plan.move());
+        assertTrue(options.size() > 2, options.toString());
+        String wanted = options.get(options.size() - 1);
+        Random rng = new Random(31);
+        for (int i = 0; i < 20; i++) {
+            assertEquals(wanted, ReplyPlanner.line(view, plan, rng, text -> text.equals(wanted)),
+                    "only the script the delivery point accepts comes out");
+            assertNull(ReplyPlanner.line(view, plan, rng, text -> false),
+                    "everything refused: null, and the caller says its own fallback");
+        }
+    }
+
+    /** b247/b248 carry repetition across bots: the planner keeps no ring of its own, only shuffles its scripts. */
+    @Test
+    void theSameMoveVariesWithoutThePlannersOwnRing() {
+        ReplyPlanner.View view = viewFor(ReplyPlanner.Move.HELLO).build();
+        ReplyPlanner.Plan plan = ReplyPlanner.plan(view);
+        assertNotNull(plan);
+        Random rng = new Random(5);
+        java.util.Set<String> distinct = new java.util.HashSet<>();
+        for (int i = 0; i < 200; i++) {
+            distinct.add(ReplyPlanner.line(view, plan, rng));
+        }
+        assertTrue(distinct.size() > 3, "the scripts are shuffled, so one view gives several lines: " + distinct);
+    }
+
+    /**
+     * Every line a bot says to a player goes through {@link SpeechGuard} at the delivery point
+     * ({@code BotConversation.deliverChecked}); a planned line must survive it untouched, which is why the planner
+     * scripts carry no slot at all.
+     */
+    @Test
+    void plannedLinesCarryNoSlotAndPassTheSpeechGuard() {
+        Character bot = mock(Character.class);
+        when(bot.getName()).thenReturn("Kitsune");
+        when(bot.getLevel()).thenReturn(40);
+        when(bot.getMap()).thenReturn(mock(server.maps.MapleMap.class));
+        Character player = mock(Character.class);
+        when(player.getName()).thenReturn("Slayer");
+        when(player.getLevel()).thenReturn(38);
+        Random rng = new Random(9);
+        for (ReplyPlanner.Move move : ReplyPlanner.Move.values()) {
+            ReplyPlanner.View view = viewFor(move).build();
+            ReplyPlanner.Plan plan = ReplyPlanner.plan(view);
+            String line = ReplyPlanner.line(view, plan, rng);
+            assertNotNull(line, move.name());
+            assertFalse(SpeechGuard.hasSlot(line), move + " planned a slot: " + line);
+            assertEquals(line, SpeechGuard.check(bot, player, line),
+                    move + " planned line was changed or dropped by the speech guard: " + line);
+        }
     }
 
     @Test

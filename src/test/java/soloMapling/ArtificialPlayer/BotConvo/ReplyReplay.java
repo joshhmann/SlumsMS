@@ -68,7 +68,6 @@ final class ReplyReplay {
     }
 
     static Result run(List<Row> rows) {
-        ReplyPlanner.clearForTest();
         List<Row> ordered = new ArrayList<>(rows);
         ordered.sort(java.util.Comparator.comparingLong(Row::at));
         int town = 0;
@@ -115,7 +114,7 @@ final class ReplyReplay {
                 plannedAsked++;
             }
             byMove.merge(plan.move().name(), 1, Integer::sum);
-            String script = ReplyPlanner.line(row.bot().hashCode(), view, plan, rng, row.at());
+            String script = ReplyPlanner.line(view, plan, rng);
             if (script == null) {
                 continue;
             }
