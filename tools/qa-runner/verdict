@@ -1,0 +1,3 @@
+#!/bin/sh
+# Judge a client-script run folder (ticket 166): tools/qa-runner/verdict <run folder> [--out DIR] [--deployed-commit SHA]
+exec python3 -I "$(dirname "$0")/qaverdict.py" "$@"

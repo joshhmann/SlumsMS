@@ -243,7 +243,8 @@ public final class AutoQaService {
                 AutoQa.log.warn("Auto-QA chat quality failed", e);
             }
             AutoQaRelease.Verdict release = mode.release()
-                    ? AutoQaRelease.judge(AutoQaCatalog.all(), done, AutoQaRelease.allowList()) : null;
+                    ? AutoQaRelease.judge(AutoQaCatalog.all(), done, AutoQaRelease.allowList(),
+                    ClientScriptVerdicts.load(AutoQa.dataDir(), AutoQaCatalog.all())) : null;
             String runLine = write(runTrigger, t0, done, true, mode, release);
             // b222: every run's summary line names what it skipped and why, and a release run's verdict
             AutoQa.log.info("Auto-QA run done: {}", runLine);
@@ -282,6 +283,12 @@ public final class AutoQaService {
         } else {
             AutoQaReport.mergeChecks(report, ServerConstants.SLUMSMS_VERSION, mode.timeScale(), mode.commit(), results,
                     health);
+        }
+        try {
+            // ticket 166: the real-client scripts' verdicts sit under their t-ids, refreshed on every write
+            ClientScriptVerdicts.apply(report, dir, AutoQaCatalog.all(), ServerConstants.SLUMSMS_VERSION);
+        } catch (RuntimeException e) {
+            AutoQa.log.warn("Auto-QA could not read the client-script verdicts: {}", e.toString());
         }
         try {
             AutoQaReport.write(dir, day, report);

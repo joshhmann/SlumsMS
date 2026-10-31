@@ -122,6 +122,17 @@ public final class AutoQaRelease {
      * carries).
      */
     static Verdict judge(List<Check> catalogue, List<AutoQaRunner.CheckResult> results, Map<String, String> allowed) {
+        return judge(catalogue, results, allowed, Map.of());
+    }
+
+    /**
+     * As above, with the client-script verdicts (ticket 166, {@link ClientScriptVerdicts}): a MANUAL check the
+     * headless runner always SKIPs counts from its script's own verdict instead - a fresh PASS is evidence, a fresh
+     * FAIL fails the release, and anything else (no verdict, another build, a review still owed) is a SKIP: allowed
+     * on the allow-list, unexpected off it. That is what lets an id leave the allow-list as soon as its script passes.
+     */
+    static Verdict judge(List<Check> catalogue, List<AutoQaRunner.CheckResult> results, Map<String, String> allowed,
+                         Map<String, Map<String, Object>> clientVerdicts) {
         Map<String, AutoQaRunner.CheckResult> byId = new LinkedHashMap<>();
         for (AutoQaRunner.CheckResult r : results) {
             byId.put(r.id(), r);
@@ -138,7 +149,14 @@ public final class AutoQaRelease {
             }
             switch (r.status()) {
                 case FAIL -> fails.add(c.id());
-                case SKIP -> (allowed.containsKey(c.id()) ? allowedSkips : unexpected).add(c.id());
+                case SKIP -> {
+                    String state = ClientScriptVerdicts.releaseState(clientVerdicts.get(c.id()));
+                    if ("FAIL".equals(state)) {
+                        fails.add(c.id()); // its script ran on this build and failed: not an allowed skip
+                    } else if (!"PASS".equals(state)) {
+                        (allowed.containsKey(c.id()) ? allowedSkips : unexpected).add(c.id());
+                    }
+                }
                 case PASS -> {
                     // fresh evidence
                 }

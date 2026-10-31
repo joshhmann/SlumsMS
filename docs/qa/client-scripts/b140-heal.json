@@ -1,0 +1,20 @@
+{
+  "id": "b140-heal",
+  "card": "b140",
+  "expect": "In burst-heal (10 fps, 3 s starting just before !hurt): a party Bishop follower casts Heal on AqClient within ~4 s. Look for the stock Heal: a green-white column rising at the Bishop and green sparkles on AqClient (reference: Skill.wz 230.img/skill/2301002 effect/affected). Server side: logs/qa COMBAT 'PARTY HEAL <bishop> -> AqClient skill 2301002 ... action 41' at the same time. Needs AqClient gm 4 (for !bot) and a Bishop among the spawned mages; pick it with !botstatus before running (see note).",
+  "steps": [
+    {"tool": "start_client", "note": "QA build: opens the client's QA pipe"},
+    {"tool": "login", "args": {"channel": 3}, "note": "Bera click waits on worldselect.ready and retries on no channels.ready"},
+    {"tool": "qa_wait", "args": {"signal": "field.ready", "timeout_s": 60}},
+    {"tool": "command", "args": {"line": "!warp 100000000"}, "note": "Henesys: no boss effects over the cast"},
+    {"tool": "qa_wait", "args": {"signal": "field.ready", "timeout_s": 30}},
+    {"tool": "command", "args": {"line": "!qa run dj-1"}, "note": "a COMBAT-topic run so PARTY HEAL lines are logged"},
+    {"tool": "screenshot", "args": {"label": "before"}},
+    {"tool": "command", "args": {"line": "!hurt AqClient 40"}, "note": "40% HP: the follower Bishop heals under 60%"},
+    {"tool": "qa_burst", "args": {"fps": 10, "ms": 3000, "label": "heal"}},
+    {"tool": "qa_burst", "args": {"fps": 10, "ms": 3000, "label": "heal2"}, "note": "the next 4-s heal cycle"},
+    {"tool": "screenshot", "args": {"label": "after"}},
+    {"tool": "command", "args": {"line": "!qa stop"}},
+    {"tool": "stop_client"}
+  ]
+}
