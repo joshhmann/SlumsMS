@@ -407,9 +407,10 @@ New public outbox file **`exchange-tickers.json`** (every poll; no names, no ids
  "rate_window_hours":168,"rate_min_fills":3,
  "tickers":[
   {"id":"NX","name":"NX","item_id":null,"unit":"1000nx","unit_label":"mesos per 1,000 NX","per":1000,
-   "qty_label":"NX","min_qty":100,"max_qty":50000,"lot":100,"min_price":1000,"max_price":100000000,
-   "bid":1150000,"ask":1200000,"last":1180000,"change_24h":-20000,"change_24h_pct":-1.67,
-   "high_24h":1210000,"low_24h":1150000,"volume_24h":42000,"turnover_24h":49560000,"fills_24h":17,
+   // min_price/max_price are the band an order may use now (window ∩ relative band); with no official rate: the window
+   "qty_label":"NX","min_qty":100,"max_qty":50000,"lot":100,"min_price":2500000,"max_price":10000000,
+   "bid":4950000,"ask":5050000,"last":5000000,"change_24h":0,"change_24h_pct":0.0,
+   "high_24h":5000000,"low_24h":5000000,"volume_24h":42000,"turnover_24h":210000000,"fills_24h":17,
    "rate":1182000,
    "bids":[{"price":1150000,"qty":3000,"orders":2}],"asks":[{"price":1200000,"qty":1000,"orders":1}],
    "trades":[{"t":"2026-10-28T17:59:12Z","price":1180000,"qty":500}]},
@@ -652,8 +653,15 @@ Owner, 2026-10-31: at least a quarter to half of the bots should trade, and CHAO
   rate at 9,625,000 and a 10,500,000 bid refused),
   `NxGuardTest.anOrderOutsideTheHardWindowIsRefusedOnEitherSideEvenWithTheGuardOff`, and
   `NxGuardTest.aHouseRegularCannotQuoteOutsideTheWindow` (the regulars' own path, which skips `priceBand`, is caught
-  in `placeOrder`). Bots were already held to the same numbers by `MarketTraders.BOT_NX_MIN/MAX`. The desk plan
-  (`docs/tickets/162-nx-forex.md`, 1.6.3) starts from an already-clamped book.
+  in `placeOrder`). Bots were already held to the same numbers by `MarketTraders.BOT_NX_MIN/MAX`, which are now
+  aliases of `NxGuard.NX_LOWEST`/`NX_HIGHEST` so there is one place to change the numbers. The site's
+  `exchange-tickers.json` NX entry carries the band an order may actually use in `min_price`/`max_price` (before, it
+  was the ticker's own 1,000..100,000,000), and an open NX order found outside the window at boot is **cancelled and
+  refunded through the normal cancel path**, one audit line each (`clamp cancel order #N ...`), never edited in place;
+  TEST's order 2940 (owner's SELL 1,000 NX at 100,000 per 1,000 NX) was the only one, and 1.6.2 is the exchange's first
+  live run so live has none. Tests: `NxGuardTest.theSiteTickerCarriesTheBandAnNxOrderMayActuallyUse`,
+  `...anOpenNxOrderOutsideTheWindowIsCancelledAndRefundedAtBoot`, `...anOpenNxOrderInsideTheWindowIsLeftAloneAtBoot`.
+  The desk plan (`docs/tickets/162-nx-forex.md`, 1.6.3) starts from an already-clamped book.
 
 ## Stolen-cookie guard, game side (owner 2026-10-29: "both guards"; branch `161-nxguard`)
 

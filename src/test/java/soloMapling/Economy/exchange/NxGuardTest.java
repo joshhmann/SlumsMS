@@ -6,6 +6,7 @@ import soloMapling.Economy.exchange.Exchange.Place;
 import soloMapling.Economy.exchange.Exchange.Response;
 import soloMapling.Economy.exchange.OrderBook.Side;
 import soloMapling.Economy.exchange.Ledger.Asset;
+import soloMapling.Economy.exchange.Ledger.Bucket;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -282,6 +283,64 @@ class NxGuardTest {
         assertTrue(ex.preview(new Place("q", 3, 13, Side.SELL, st.bidPrice(), ExchangeQa.NX, "NX")).ok());
         assertTrue(ex.confirmLatest("qc", 3).ok());
         assertEquals("OK", ExchangeQa.teardown(ex, w).get("code"));
+    }
+
+    // ---------------------------------------------------------------- open orders outside the window at boot
+
+    @SuppressWarnings("unchecked")
+    static java.util.Map<String, Object> nxTicker(Exchange ex, long now) {
+        List<java.util.Map<String, Object>> ts = (List<java.util.Map<String, Object>>) ExchangeSite
+                .tickers(ex, now).get("tickers");
+        for (java.util.Map<String, Object> t : ts) {
+            if ("NX".equals(t.get("id"))) {
+                return t;
+            }
+        }
+        throw new AssertionError("no NX ticker in " + ts);
+    }
+
+    @Test
+    void theSiteTickerCarriesTheBandAnNxOrderMayActuallyUse() {
+        // the site shows an NX range; before, it was the ticker's own 1,000..100,000,000, not the band (owner
+        // 2026-10-31 ~20:05 UTC)
+        java.util.Map<String, Object> nx = nxTicker(ex, now.get());
+        assertEquals(NxGuard.NX_LOWEST, ((Number) nx.get("min_price")).longValue(), "the window before any rate");
+        assertEquals(NxGuard.NX_HIGHEST, ((Number) nx.get("max_price")).longValue());
+        rateAt(7_000_000);
+        nx = nxTicker(ex, now.get());
+        assertEquals(3_500_000L, ((Number) nx.get("min_price")).longValue(), "50% of the rate, not the ticker's 1,000");
+        assertEquals(10_000_000L, ((Number) nx.get("max_price")).longValue(), "the window caps 200%");
+    }
+
+    @Test
+    void anOpenNxOrderOutsideTheWindowIsCancelledAndRefundedAtBoot() throws Exception {
+        // like TEST's order 2940: a SELL 1,000 NX at 100,000 per 1,000 NX, resting since before the hard window
+        Response r = place(3, Side.SELL, 4_000_000, 1_000);
+        long id = ((Number) r.data().get("orderId")).longValue();
+        store.reprice(id, 100_000);
+        Exchange again = new Exchange(store, ExchangeLiveTest.cfg(100, 0), store::online, store.finder(), now::get);
+        again.guard(NxGuard.defaults());
+        List<String> audit = new java.util.ArrayList<>();
+        again.auditSink(audit::add);
+        assertTrue(again.recover().isEmpty());
+        assertEquals(0, again.openOrders(), "nothing outside the window may rest");
+        assertEquals("CANCELLED", store.order(id).status());
+        assertEquals(1_000, store.balance(Bucket.payout(Asset.NX, 3)), "refunded to the payer's payout");
+        assertTrue(audit.stream().anyMatch(l -> l.contains("clamp cancel order #" + id)), audit.toString());
+    }
+
+    @Test
+    void anOpenNxOrderInsideTheWindowIsLeftAloneAtBoot() throws Exception {
+        Response r = place(3, Side.SELL, 4_000_000, 1_000);
+        long id = ((Number) r.data().get("orderId")).longValue();
+        Exchange again = new Exchange(store, ExchangeLiveTest.cfg(100, 0), store::online, store.finder(), now::get);
+        again.guard(NxGuard.defaults());
+        List<String> audit = new java.util.ArrayList<>();
+        again.auditSink(audit::add);
+        assertTrue(again.recover().isEmpty());
+        assertEquals(1, again.openOrders());
+        assertEquals("OPEN", store.order(id).status());
+        assertTrue(audit.stream().noneMatch(l -> l.contains("clamp cancel")), audit.toString());
     }
 
     // ---------------------------------------------------------------- no daily caps (owner 2026-10-29)

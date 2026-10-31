@@ -21,7 +21,7 @@ class ExchangeSiteTest {
     @Test
     void parsesEveryRequestTypeAndFlagsBadRows() {
         String json = "{\"schema\":1,\"requests\":["
-                + "{\"id\":\"a\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
+                + "{\"id\":\"a\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"SELL\",\"price\":5000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
                 + "{\"id\":\"b\",\"account\":\"1\",\"type\":\"cancel\",\"orderId\":7,\"siteAuthAt\":" + NOW + ",\"createdAt\":" + NOW + "},"
                 + "{\"id\":\"c\",\"account\":1,\"type\":\"mine\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
                 + "{\"id\":\"d\",\"account\":1,\"type\":\"book\",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
@@ -54,12 +54,12 @@ class ExchangeSiteTest {
         ex.guard(ExchangeTest.engineGuard());
         ex.siteReauth(SiteReauth.OFF); // b005 has its own tests (ExchangeStolenCookieTest)
         ex.recover();
-        String json = "[{\"id\":\"a\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
-                + "{\"id\":\"old\",\"account\":2,\"type\":\"preview\",\"character\":12,\"side\":\"BUY\",\"price\":1000000,\"nx\":500,\"createdAt\":\"2020-01-01T00:00:00Z\"}]";
+        String json = "[{\"id\":\"a\",\"account\":1,\"type\":\"place\",\"character\":11,\"side\":\"SELL\",\"price\":5000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"},"
+                + "{\"id\":\"old\",\"account\":2,\"type\":\"preview\",\"character\":12,\"side\":\"BUY\",\"price\":5000000,\"nx\":500,\"createdAt\":\"2020-01-01T00:00:00Z\"}]";
         List<ExchangeSite.Request> reqs = ExchangeSite.requests(json);
         assertEquals("BAD_REQUEST", ExchangeSite.answer(ex, reqs.get(0), NOW).code(), "a bare place needs a confirm now");
-        Exchange.Response a = viaSite(ex, "a", 1, 11, "SELL", 1_000_000, 1000);
-        Exchange.Response b = viaSite(ex, "b", 2, 12, "BUY", 1_000_000, 500);
+        Exchange.Response a = viaSite(ex, "a", 1, 11, "SELL", 5_000_000, 1000);
+        Exchange.Response b = viaSite(ex, "b", 2, 12, "BUY", 5_000_000, 500);
         Exchange.Response old = ExchangeSite.answer(ex, reqs.get(1), NOW);
         assertTrue(a.ok() && b.ok(), a + " " + b);
         assertEquals("STALE", old.code());
@@ -81,7 +81,7 @@ class ExchangeSiteTest {
         String text = Json.write(book);
         assertFalse(text.contains("account"), "the public book names no accounts");
         assertEquals(1, ((List<?>) book.get("trades")).size());
-        assertEquals(1_000_000L, ((Map<?, ?>) book.get("rate")).get("mesos_per_1000nx"));
+        assertEquals(5_000_000L, ((Map<?, ?>) book.get("rate")).get("mesos_per_1000nx"));
 
         Map<String, Object> resp = ExchangeSite.responsesFile(List.of(ExchangeSite.responseJson(a, 1)), NOW);
         Map<?, ?> row = (Map<?, ?>) ((List<?>) resp.get("responses")).get(0);
@@ -120,7 +120,7 @@ class ExchangeSiteTest {
         ex.recover();
         java.nio.file.Path in = dir.resolve("in"), out = dir.resolve("out");
         java.nio.file.Files.createDirectories(in);
-        String preview = "{\"id\":\"p\",\"account\":1,\"type\":\"preview\",\"character\":11,\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}";
+        String preview = "{\"id\":\"p\",\"account\":1,\"type\":\"preview\",\"character\":11,\"side\":\"SELL\",\"price\":5000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}";
         java.nio.file.Files.writeString(in.resolve(ExchangeSite.REQUESTS), "[" + preview + "]");
         ExchangeService.Runner r = new ExchangeService.Runner(ex, in, out, () -> NOW);
         r.tick();
@@ -158,7 +158,7 @@ class ExchangeSiteTest {
 
     private static Exchange.Response preview(Exchange ex, long account, String charFields) {
         return ExchangeSite.answer(ex, ExchangeSite.requests("[{\"id\":\"p" + charFields.hashCode() + "\",\"account\":"
-                + account + ",\"type\":\"preview\"," + charFields + ",\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\""
+                + account + ",\"type\":\"preview\"," + charFields + ",\"side\":\"SELL\",\"price\":5000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\""
                 + T + "\"}]").get(0), NOW);
     }
 
@@ -181,8 +181,8 @@ class ExchangeSiteTest {
     @Test
     void myOrdersCanBeFilteredByCharacterIdOrName() throws Exception {
         Exchange ex = namedExchange(new MemoryExchangeStore());
-        assertTrue(viaSite(ex, "o1", 1, 11, "SELL", 1_000_000, 1000).ok());
-        assertTrue(viaSite(ex, "o2", 1, 13, "SELL", 1_100_000, 1000).ok());
+        assertTrue(viaSite(ex, "o1", 1, 11, "SELL", 5_000_000, 1000).ok());
+        assertTrue(viaSite(ex, "o2", 1, 13, "SELL", 5_100_000, 1000).ok());
         java.util.function.Function<String, Exchange.Response> mine = fields -> ExchangeSite.answer(ex,
                 ExchangeSite.requests("[{\"id\":\"m" + fields.hashCode() + "\",\"account\":1,\"type\":\"mine\"" + fields
                         + ",\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}]").get(0), NOW);
@@ -204,7 +204,7 @@ class ExchangeSiteTest {
         java.nio.file.Path req = in.resolve(ExchangeSite.REQUESTS);
         ExchangeService.Runner r = new ExchangeService.Runner(ex, in, out, () -> NOW);
         assertFalse(r.inboxChanged(), "no file yet");
-        String preview = "{\"id\":\"p\",\"account\":1,\"type\":\"preview\",\"characterName\":\"Silvia\",\"side\":\"SELL\",\"price\":1000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}";
+        String preview = "{\"id\":\"p\",\"account\":1,\"type\":\"preview\",\"characterName\":\"Silvia\",\"side\":\"SELL\",\"price\":5000000,\"nx\":1000,\"siteAuthAt\":\"" + T + "\",\"createdAt\":\"" + T + "\"}";
         java.nio.file.Files.writeString(req, "[" + preview + "]");
         assertTrue(r.inboxChanged());
         r.quickSafely();

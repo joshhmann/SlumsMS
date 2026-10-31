@@ -52,11 +52,14 @@ public final class MarketTraders {
     static final Map<String, Long> FALLBACK = Map.of("LEAF", 600_000L, "CHAOS", 20_000_000L, "WS", 10_000_000L,
             "ELIXIR", 6_000L, Ticker.NX, 5_000_000L);
     /**
-     * 1.6.2: the band the owner set for bots on NX (2,500..10,000 mesos per NX = 2,500,000..10,000,000 per 1,000,
-     * the same 50%/200% of NX's 5,000,000 start price that {@link soloMapling.Economy.exchange.NxGuard} gives players), inside the player range
-     * ({@link ExchangeConfig#minPrice()}..{@link ExchangeConfig#maxPrice()}). A bot never quotes outside it.
+     * 1.6.2: the bots' NX quotes stay inside the one hard window, {@link
+     * soloMapling.Economy.exchange.NxGuard#NX_LOWEST}..{@link soloMapling.Economy.exchange.NxGuard#NX_HIGHEST}
+     * (2,500..10,000 mesos per NX; owner 2026-10-31 ~19:50 UTC made it a rule for everyone, players and bots), inside
+     * the player range ({@link ExchangeConfig#minPrice()}..{@link ExchangeConfig#maxPrice()}). A bot never quotes
+     * outside it.
      */
-    static final long BOT_NX_MIN = 2_500_000L, BOT_NX_MAX = 10_000_000L;
+    static final long BOT_NX_MIN = soloMapling.Economy.exchange.NxGuard.NX_LOWEST,
+            BOT_NX_MAX = soloMapling.Economy.exchange.NxGuard.NX_HIGHEST;
     /** The NPC shops buy Maple Leaves at this: value traders anchor LEAF's fair value near it. */
     static final long LEAF_SHOP = 500_000L;
 
@@ -429,7 +432,7 @@ public final class MarketTraders {
         }
         long fair = fairValue != null && fairValue > 0 ? fairValue : fair(ex, tk, now, fallback, in);
         long lo = tk.minPrice(), hi = tk.maxPrice();
-        if (Ticker.NX.equals(tk.id())) { // the bots' band is narrower than the players' range (owner 2026-10-28)
+        if (Ticker.NX.equals(tk.id())) { // the bots' band is the hard window, narrower than the player range
             lo = Math.max(lo, BOT_NX_MIN);
             hi = Math.min(hi, BOT_NX_MAX);
         }

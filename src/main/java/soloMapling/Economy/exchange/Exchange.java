@@ -397,6 +397,7 @@ public final class Exchange {
         history.clear();
         Map<String, List<OrderBook.Order>> open = new HashMap<>();
         List<String> unknown = new ArrayList<>();
+        List<OrderRow> clamped = new ArrayList<>();
         for (OrderRow r : l.openOrders()) {
             if (!books.containsKey(r.ticker())) {
                 unknown.add("order " + r.id() + " is on an unknown ticker " + r.ticker());
@@ -405,11 +406,9 @@ public final class Exchange {
             rows.put(r.id(), r);
             if (Ticker.NX.equals(r.ticker()) && (r.price() < NxGuard.NX_LOWEST
                     || r.price() > NxGuard.NX_HIGHEST)) {
-                // before the hard window (owner 2026-10-31 ~19:50 UTC) NX could rest outside it; those orders stay
-                // (a store row is never edited) but nothing new may match them at that price: cancel by hand
-                log.warn("exchange: NX order {} at {} per 1,000 NX is outside the hard window "
-                        + "{}..{}: cancel it (!exchange cancel {})", r.id(), r.price(), NxGuard.NX_LOWEST,
-                        NxGuard.NX_HIGHEST, r.id());
+                // an order placed before the hard window (owner 2026-10-31) can rest outside it: it is cancelled and
+                // refunded below, through the normal path, once the book and the reconcile are in
+                clamped.add(r);
             }
             open.computeIfAbsent(r.ticker(), k -> new ArrayList<>()).add(toOrder(r));
         }
@@ -464,8 +463,32 @@ public final class Exchange {
         problems.addAll(reconcile(l));
         if (!problems.isEmpty()) {
             halt("reconcile: " + problems.size() + " mismatch(es), first: " + problems.get(0));
+        } else {
+            cancelClamped(clamped);
         }
         return problems;
+    }
+
+    /**
+     * Cancels and refunds, through the normal cancel path, every open NX order the hard window now forbids (owner
+     * 2026-10-31 ~20:05 UTC: "open NX orders whose price is outside the clamp are CANCELLED and REFUNDED through the
+     * normal cancel path, each logged in the exchange audit"). Runs once at recovery, after the reconcile passed; the
+     * refund lands in the payer's PAYOUT bucket exactly like its own cancel, and the store row is closed, never edited.
+     */
+    private void cancelClamped(List<OrderRow> clamped) {
+        for (OrderRow r : clamped) {
+            long owner = r.regular() > 0 ? Regulars.owner((int) r.regular()) : r.account();
+            Response res = closeOrders("clamp cancel order #" + r.id(), List.of(r.id()), owner,
+                    OrderBook.Reason.CANCELLED);
+            if (res.ok()) {
+                log.warn("exchange: clamp cancel order #{} ({} at {} per 1,000 NX, outside the hard window {}..{}): "
+                        + "refunded to the payer", r.id(), r.side(), r.price(), NxGuard.NX_LOWEST,
+                        NxGuard.NX_HIGHEST);
+            } else {
+                log.error("exchange: clamp cancel order #{} ({} at {} per 1,000 NX) failed: {} {}; it stays open",
+                        r.id(), r.side(), r.price(), res.code(), res.message());
+            }
+        }
     }
 
     public static List<String> reconcile(ExchangeStore.Loaded l) {
