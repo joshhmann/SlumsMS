@@ -756,7 +756,16 @@ final class Probes162 {
     // ── t-gb-3: grind.gearFirst sends a bot that wants an item where it drops ──────────────────
 
     /** t-gb-3: the bot's level (under 30: no "chill" trips), the chooser's band and the map search reach. */
-    static final int GB3_LEVEL = 22, GB3_BELOW = 25, GB3_ABOVE = 12, GB3_HOPS = 6, GB3_TRIES = 3;
+    static final int GB3_LEVEL = 22, GB3_BELOW = 25, GB3_ABOVE = 12, GB3_TRIES = 3;
+
+    /**
+     * t-gb-3: how far the probe's map search reaches: the chooser's own reach for the level (3 hops at 22). TEST
+     * 2026-10-31: the probe searched 6 hops, picked the Red Duke that only drops on 105040100 (4 hops from Henesys),
+     * and the chooser, which never sees that map, rightly took the leveling path.
+     */
+    static int gb3Reach(int level) {
+        return TrainingMapChooser.hopsForLevel(level);
+    }
 
     /** t-gb-3: the equip that drops on the fewest of these maps (at least one), or 0. Pure, for the tests. */
     static int rarestDrop(Map<Integer, java.util.Set<Integer>> dropsByMap) {
@@ -795,7 +804,7 @@ final class Probes162 {
 
     /**
      * t-gb-3 ({@code slums.grind.gearFirst}): a fresh level-22 training bot (tick stopped), put in Henesys
-     * ({@link #PROBE_FIELD}). Among the in-band maps the finder offers from there, the equip that drops on the
+     * ({@link #PROBE_FIELD}). Among the in-band maps the finder offers from there within the chooser's own reach (full maps out, as the chooser), the equip that drops on the
      * fewest maps is picked, and the bot is given a FARM_ITEM goal for it (the {@code !qa bl-11} seam). {@code TrainingMapChooser.choose} must take the farm path to an
      * in-band map that drops it. The reservation is released and the want forgotten after.
      */
@@ -817,8 +826,8 @@ final class Probes162 {
             }
             int level = bot.getLevel();
             int minMob = Math.max(1, level - GB3_BELOW), maxMob = level + GB3_ABOVE;
-            List<TrainingMap> band = TrainingMapFinder.findTrainingMaps(bot.getMapId(), level, minMob, maxMob, GB3_HOPS,
-                    new java.util.HashSet<>());
+            List<TrainingMap> band = TrainingMapFinder.findTrainingMaps(bot.getMapId(), level, minMob, maxMob,
+                    gb3Reach(level), soloMapling.ArtificialPlayer.BotMapCap.excludeFull(bot, new java.util.HashSet<>()));
             Map<Integer, java.util.Set<Integer>> drops = new java.util.LinkedHashMap<>();
             for (TrainingMap m : band) {
                 if (m.mobLevel() < minMob || m.mobLevel() > maxMob) {

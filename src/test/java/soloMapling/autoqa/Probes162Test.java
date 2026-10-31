@@ -280,4 +280,16 @@ class Probes162Test {
         assertEquals(5, Probes162.gb5Staged(sword).getUpgradeSlots());
         assertNull(Probes162.gb5Staged(null));
     }
+
+    /**
+     * t-gb-3 on TEST 2026-10-31: the probe searched 6 hops from Henesys for its wanted item, the chooser only
+     * reaches 3 at level 22, so the wanted Red Duke dropped only on 105040100, out of the chooser's reach, and the
+     * chooser rightly took the leveling path. The probe now searches exactly as far as the chooser.
+     */
+    @Test
+    void gb3SearchesAsFarAsTheChooserReaches() {
+        int reach = soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMapChooser.hopsForLevel(Probes162.GB3_LEVEL);
+        assertEquals(3, reach);
+        assertEquals(reach, Probes162.gb3Reach(Probes162.GB3_LEVEL));
+    }
 }
