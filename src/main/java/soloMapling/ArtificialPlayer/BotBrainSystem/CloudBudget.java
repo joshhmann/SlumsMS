@@ -26,6 +26,8 @@ public final class CloudBudget {
 
     private final double dailyUsd;
     private final double priceInPerMTok;
+    /** What the provider charges for an input token it had already cached (DeepSeek's cache-hit price). */
+    private final double priceInCachedPerMTok;
     private final double priceOutPerMTok;
     private final LongSupplier clock;
     private final ZoneId zone;
@@ -36,11 +38,23 @@ public final class CloudBudget {
     private double reserved;
     private long calls;
     private long skipped;
+    /** Today's input tokens the provider had already cached (billed at the cache-hit price). */
+    private long cacheHitTokens;
+    /** Today's input tokens it had not (billed at the input price). */
+    private long cacheMissTokens;
 
+    /** Hits are billed at the input price (no cached price configured, or the provider reports no cache). */
     public CloudBudget(double dailyUsd, double priceInPerMTok, double priceOutPerMTok, LongSupplier clock, ZoneId zone,
                        Path file) {
+        this(dailyUsd, priceInPerMTok, -1, priceOutPerMTok, clock, zone, file);
+    }
+
+    /** {@code priceInCachedPerMTok} negative = a cached input token costs the same as any other. */
+    public CloudBudget(double dailyUsd, double priceInPerMTok, double priceInCachedPerMTok, double priceOutPerMTok,
+                       LongSupplier clock, ZoneId zone, Path file) {
         this.dailyUsd = Math.max(0, dailyUsd);
         this.priceInPerMTok = Math.max(0, priceInPerMTok);
+        this.priceInCachedPerMTok = priceInCachedPerMTok < 0 ? this.priceInPerMTok : priceInCachedPerMTok;
         this.priceOutPerMTok = Math.max(0, priceOutPerMTok);
         this.clock = clock;
         this.zone = zone;
@@ -60,6 +74,8 @@ public final class CloudBudget {
             reserved = 0;
             calls = 0;
             skipped = 0;
+            cacheHitTokens = 0;
+            cacheMissTokens = 0;
         }
     }
 
@@ -90,9 +106,21 @@ public final class CloudBudget {
      * whole real cost is charged now; an overrun then stops further calls until midnight.
      */
     public synchronized void settle(double reservedUsd, long inTokens, long outTokens) {
+        settle(reservedUsd, inTokens, 0, outTokens);
+    }
+
+    /**
+     * As above, with the input tokens the provider reported as cached ({@code prompt_cache_hit_tokens}); those are
+     * charged at the cache-hit price, the rest at the input price.
+     */
+    public synchronized void settle(double reservedUsd, long inTokens, long cachedInTokens, long outTokens) {
         roll();
         reserved = Math.max(0, reserved - reservedUsd);
-        spent += cost(Math.max(0, inTokens), Math.max(0, outTokens));
+        long in = Math.max(0, inTokens);
+        long cached = Math.min(Math.max(0, cachedInTokens), in);
+        spent += cost(in, cached, outTokens);
+        cacheHitTokens += cached;
+        cacheMissTokens += in - cached;
         calls++;
         save();
     }
@@ -103,15 +131,51 @@ public final class CloudBudget {
 
     /** The cost of a call in USD. */
     public double cost(long inTokens, long outTokens) {
-        return inTokens * priceInPerMTok / 1e6 + outTokens * priceOutPerMTok / 1e6;
+        return cost(inTokens, 0, outTokens);
+    }
+
+    /** The cost of a call in USD, {@code cachedInTokens} of the input at the cache-hit price. */
+    public double cost(long inTokens, long cachedInTokens, long outTokens) {
+        long in = Math.max(0, inTokens);
+        long cached = Math.min(Math.max(0, cachedInTokens), in);
+        return (in - cached) * priceInPerMTok / 1e6 + cached * priceInCachedPerMTok / 1e6
+                + outTokens * priceOutPerMTok / 1e6;
     }
 
     /** Records a call's tokens. */
     public synchronized void charge(long inTokens, long outTokens) {
+        charge(inTokens, 0, outTokens);
+    }
+
+    /** Records a call's tokens, {@code cachedInTokens} of the input at the cache-hit price. */
+    public synchronized void charge(long inTokens, long cachedInTokens, long outTokens) {
         roll();
-        spent += cost(Math.max(0, inTokens), Math.max(0, outTokens));
+        long in = Math.max(0, inTokens);
+        long cached = Math.min(Math.max(0, cachedInTokens), in);
+        spent += cost(in, cached, outTokens);
+        cacheHitTokens += cached;
+        cacheMissTokens += in - cached;
         calls++;
         save();
+    }
+
+    /** Today's input tokens the provider had cached. */
+    public synchronized long cacheHitTokens() {
+        roll();
+        return cacheHitTokens;
+    }
+
+    /** Today's input tokens it had not cached. */
+    public synchronized long cacheMissTokens() {
+        roll();
+        return cacheMissTokens;
+    }
+
+    /** The share of today's input tokens that came back cached (0 when there were none yet). */
+    public synchronized double cacheHitRatio() {
+        roll();
+        long all = cacheHitTokens + cacheMissTokens;
+        return all == 0 ? 0 : (double) cacheHitTokens / all;
     }
 
     /** Spent plus in flight, as a share of the daily cap (1 when there is no cap). */
@@ -127,8 +191,12 @@ public final class CloudBudget {
 
     public synchronized String describe() {
         roll();
-        return String.format(java.util.Locale.ROOT, "cloud $%.4f of $%.2f today (%d calls, %d skipped at the cap)", spent,
-                dailyUsd, calls, skipped);
+        long all = cacheHitTokens + cacheMissTokens;
+        String cache = all == 0 ? "no cache data yet"
+                : String.format(java.util.Locale.ROOT, "cache hit %d%% of %d input tokens",
+                        Math.round(100.0 * cacheHitTokens / all), all);
+        return String.format(java.util.Locale.ROOT, "cloud $%.4f of $%.2f today (%d calls, %d skipped at the cap; %s)",
+                spent, dailyUsd, calls, skipped, cache);
     }
 
     /** Tokens of a text, estimated (about four characters a token). */
@@ -146,6 +214,8 @@ public final class CloudBudget {
                     && m.get("spent") instanceof Number n) {
                 spent = n.doubleValue();
                 calls = m.get("calls") instanceof Number c ? c.longValue() : 0;
+                cacheHitTokens = m.get("cacheHitTokens") instanceof Number h ? h.longValue() : 0;
+                cacheMissTokens = m.get("cacheMissTokens") instanceof Number mi ? mi.longValue() : 0;
             }
         } catch (IOException | RuntimeException e) {
             log.debug("Cloud budget file unreadable: starting the day at zero", e);
@@ -162,6 +232,8 @@ public final class CloudBudget {
             m.put("day", day.toString());
             m.put("spent", spent);
             m.put("calls", calls);
+            m.put("cacheHitTokens", cacheHitTokens);
+            m.put("cacheMissTokens", cacheMissTokens);
             m.put("capUsd", dailyUsd);
             Files.writeString(file, Json.write(m));
         } catch (IOException | RuntimeException e) {

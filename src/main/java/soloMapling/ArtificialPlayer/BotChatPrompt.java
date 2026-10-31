@@ -118,7 +118,24 @@ public final class BotChatPrompt {
      */
     public static String system(Context c, BotPersona.Persona persona, double chattiness, String card, String voiceLine,
                                 boolean worldFacts) {
+        // s-llmcache: DeepSeek (and every other provider that caches a repeated prompt prefix) bills the part of the
+        // prompt that is identical to the previous call at its cached price. So the blocks that never change between
+        // two messages go first - the typing and hard rules, this bot's persona, the world facts - and everything that
+        // belongs to this one message goes last: who the bot is right now, who it is talking to, what it remembers,
+        // what the game just did. Same text as before, only the order; the fixed blocks are the same for every message
+        // to the same bot, so the provider's cache covers them.
         StringBuilder s = new StringBuilder();
+        if (voiceLine != null) {
+            s.append(VOICE_BASE).append(' ').append(voiceLine).append(' ');
+        } else {
+            s.append(VOICE).append(' ');
+        }
+        s.append(NEVER).append(' ');
+        s.append("Do not bring up your map or what you are doing unless it fits the chat. ");
+        s.append(BotPersona.describe(persona, chattiness)).append(' ');
+        if (worldFacts) {
+            s.append(WORLD_FACTS).append(' ');
+        }
         s.append("You are ").append(c.botName()).append(", a real person playing MapleStory in 2008. ");
         s.append("Right now you are a level ").append(c.level()).append(' ').append(c.job());
         if (c.map() != null) {
@@ -134,7 +151,6 @@ public final class BotChatPrompt {
         if (c.mood() != null && !c.mood().isEmpty()) {
             s.append("Mood: ").append(c.mood()).append(". ");
         }
-        s.append(BotPersona.describe(persona, chattiness)).append(' ');
         s.append("You are talking to ").append(c.playerName()).append(", a level ").append(c.playerLevel())
                 .append(' ').append(c.playerJob()).append(". ");
         List<String> memories = c.memories();
@@ -159,16 +175,6 @@ public final class BotChatPrompt {
         if (c.stock() != null && !c.stock().isEmpty()) {
             s.append(c.stock()).append(' ');
         }
-        if (worldFacts) {
-            s.append(WORLD_FACTS).append(' ');
-        }
-        if (voiceLine != null) {
-            s.append(VOICE_BASE).append(' ').append(voiceLine).append(' ');
-        } else {
-            s.append(VOICE).append(' ');
-        }
-        s.append(NEVER).append(' ');
-        s.append("Do not bring up your map or what you are doing unless it fits the chat.");
         if (c.outcome() != null && !c.outcome().isEmpty()) {
             // Last, where a small model pays the most attention: the words must match what the game did.
             s.append(" The game already did this, and your reply must say so: ").append(c.outcome());

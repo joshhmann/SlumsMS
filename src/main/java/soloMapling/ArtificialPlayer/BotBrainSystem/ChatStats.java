@@ -208,6 +208,8 @@ public final class ChatStats {
     private static final AtomicLong cloudCalls = new AtomicLong();
     private static final AtomicLong cloudFailures = new AtomicLong();
     private static final AtomicLong cloudTotalMs = new AtomicLong();
+    private static final AtomicLong cloudCacheHitTokens = new AtomicLong();
+    private static final AtomicLong cloudCacheMissTokens = new AtomicLong();
 
     /** Ticket 59: a cloud overflow call (router). */
     static void cloudCall(long ms, boolean ok) {
@@ -216,6 +218,22 @@ public final class ChatStats {
         if (!ok) {
             cloudFailures.incrementAndGet();
         }
+    }
+
+    /**
+     * s-llmcache: the cloud's input tokens, split by whether the provider had already cached them (DeepSeek's
+     * prompt_cache_hit_tokens). The hit ratio is what to watch after a prompt-order change.
+     */
+    static void cloudTokens(long hit, long miss) {
+        cloudCacheHitTokens.addAndGet(Math.max(0, hit));
+        cloudCacheMissTokens.addAndGet(Math.max(0, miss));
+    }
+
+    /** The share of the cloud's input tokens the provider had cached, in percent (0 when there were none). */
+    public static double cloudCacheHitPercent() {
+        long hit = cloudCacheHitTokens.get();
+        long all = hit + cloudCacheMissTokens.get();
+        return all == 0 ? 0 : 100.0 * hit / all;
     }
 
     static void decideCacheHit() {
@@ -236,24 +254,34 @@ public final class ChatStats {
                 return;
             }
             Map<String, Object> summary = tiers(hour);
-            StringBuilder line = new StringBuilder("Bot chat last hour:");
-            for (Tier tier : Tier.values()) {
-                Counter c = hour.get(tier);
-                long n = c.count.get();
-                line.append(' ').append(tier.name().toLowerCase()).append('=').append(n);
-                if (n > 0) {
-                    line.append(" (avg ").append(c.totalMs.get() / n).append("ms)");
-                }
-            }
-            line.append(" flags=").append(counts(flags)).append(" actions=").append(counts(actions))
-                    .append(" decide calls=").append(decideCalls.get()).append(" failed=").append(decideFailures.get())
-                    .append(" cached=").append(decideCacheHits.get())
-                    .append(" cloud calls=").append(cloudCalls.get()).append(" failed=").append(cloudFailures.get());
-            log.info(line.toString());
+            log.info(summaryLine());
             lastHour = summary;
             hour.values().forEach(Counter::reset);
             hourStartedAt = now;
         }
+    }
+
+    /** The hourly "Bot chat last hour" line; package-private so a test can read exactly what is logged. */
+    static String summaryLine() {
+        StringBuilder line = new StringBuilder("Bot chat last hour:");
+        for (Tier tier : Tier.values()) {
+            Counter c = hour.get(tier);
+            long n = c.count.get();
+            line.append(' ').append(tier.name().toLowerCase()).append('=').append(n);
+            if (n > 0) {
+                line.append(" (avg ").append(c.totalMs.get() / n).append("ms)");
+            }
+        }
+        line.append(" flags=").append(counts(flags)).append(" actions=").append(counts(actions))
+                .append(" decide calls=").append(decideCalls.get()).append(" failed=").append(decideFailures.get())
+                .append(" cached=").append(decideCacheHits.get())
+                .append(" cloud calls=").append(cloudCalls.get()).append(" failed=").append(cloudFailures.get());
+        long inTokens = cloudCacheHitTokens.get() + cloudCacheMissTokens.get();
+        if (inTokens > 0) {
+            line.append(String.format(java.util.Locale.ROOT, " cache hit=%.0f%% of %d in tokens",
+                    100.0 * cloudCacheHitTokens.get() / inTokens, inTokens));
+        }
+        return line.toString();
     }
 
     /** For the dashboard's {@code live.json}: totals since start, the running hour and the last full hour. */
@@ -279,6 +307,9 @@ public final class ChatStats {
         cloud.put("calls", cc);
         cloud.put("avgMs", cc == 0 ? 0 : cloudTotalMs.get() / cc);
         cloud.put("failed", cloudFailures.get());
+        cloud.put("cacheHitTokens", cloudCacheHitTokens.get());
+        cloud.put("cacheMissTokens", cloudCacheMissTokens.get());
+        cloud.put("cacheHitPercent", cloudCacheHitPercent());
         m.put("cloud", cloud);
         BotBrain brain = BotBrains.peek();
         if (brain != null) {
@@ -327,6 +358,8 @@ public final class ChatStats {
         cloudCalls.set(0);
         cloudFailures.set(0);
         cloudTotalMs.set(0);
+        cloudCacheHitTokens.set(0);
+        cloudCacheMissTokens.set(0);
         decideCacheHits.set(0);
         decideFailures.set(0);
         decideSkipped.set(0);

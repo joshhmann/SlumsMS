@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -210,5 +211,20 @@ class OpenAICompatibleBrainTest {
         config.BOT_LLM_CLOUD_EXTRA_BODY = new java.util.HashMap<>(Map.of("reasoning_effort", "\"none\""));
         String body = BotBrains.cloudFrom(config).requestBody(List.of());
         assertTrue(body.contains("\"reasoning_effort\":\"none\""), body);
+    }
+
+    /** s-llmcache: DeepSeek reports the input it had cached; the budget needs that third number. */
+    @Test
+    void theUsageBlockCarriesTheCachedPromptTokens() {
+        assertArrayEquals(new long[]{1_000, 20, 800}, OpenAICompatibleBrain.usageOf(
+                "{\"usage\":{\"prompt_tokens\":1000,\"completion_tokens\":20,"
+                        + "\"prompt_cache_hit_tokens\":800,\"prompt_cache_miss_tokens\":200}}"));
+        assertArrayEquals(new long[]{1_000, 20, 0}, OpenAICompatibleBrain.usageOf(
+                "{\"usage\":{\"prompt_tokens\":1000,\"completion_tokens\":20}}"),
+                "a provider or reply with no cache field is all miss, as before s-llmcache");
+        assertArrayEquals(new long[]{1_000, 20, 1_000}, OpenAICompatibleBrain.usageOf(
+                "{\"usage\":{\"prompt_tokens\":1000,\"completion_tokens\":20,\"prompt_cache_hit_tokens\":1200}}"),
+                "a hit count past the prompt is clamped");
+        assertArrayEquals(new long[]{-1, -1, -1}, OpenAICompatibleBrain.usageOf("{\"choices\":[]}"));
     }
 }

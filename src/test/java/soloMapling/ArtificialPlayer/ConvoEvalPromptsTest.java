@@ -128,10 +128,14 @@ class ConvoEvalPromptsTest {
         List<BotBrain.Turn> after = BotChatPrompt.conversation(afterSystem, afterHistory, heard.transcript(),
                 player.getName(), heard.justSaid());
 
-        // before: 1.5.0-rc5 - the last four lines (2 min) as one sentence before the world facts, the line alone
+        // before: 1.5.0-rc5 - the last four lines (2 min) as one sentence in the system prompt, no "(you)", no
+        // "You just said", the bot's own public line not a turn, temperature 1.0. Splice it in at the start of the
+        // per-message state (s-llmcache put the fixed rules, persona and world facts first, so the old cut point
+        // before the world facts would now land inside the rules block).
         String full = BotChatPrompt.system(context, persona, 0.4, card, voice, true);
         List<String> four = oldRecent.subList(Math.max(0, oldRecent.size() - 4), oldRecent.size());
-        int at = full.indexOf(BotChatPrompt.WORLD_FACTS);
+        int at = full.indexOf("You are " + bot.getName() + ", a real person");
+        assertTrue(at > 0, "the state block is in the prompt");
         String beforeSystem = full.substring(0, at) + "Recent chat around you: " + String.join(" / ", four) + ". "
                 + full.substring(at) + " " + ConvoContract.instructions();
         List<BotBrain.Turn> beforeHistory = new ArrayList<>(history);
