@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+# qa-run-collect: pull the TEST server's side of one auto-QA client run into its run folder (ticket 166/170).
+#
+#   tools/ops/qa-run-collect --run <run folder> --from <UTC> --to <UTC> [--chars id,id] [--checks t-xx-1,t-yy-2]
+#                            [--pad 60] [--dry-run]
+#
+#   <run folder>  /root/work/qa-runs/<YYYY-MM-DD>/<script-id>-<YYYYMMDDTHHMMSSZ>/ (made if missing; must be under
+#                 /root/work/qa-runs unless QA_RUNS_ROOT says otherwise, for tests)
+#   <UTC>         2026-10-31T03:12:05Z (the manifest's started_utc / finished_utc)
+#   --chars       the run's character ids: journal lines naming them are also cut out to server/journal-chars.txt
+#   --checks      auto-QA check ids the script covers: their latest.json entries are kept
+#   --pad         seconds added before and after the window (default 60)
+#
+# Writes into <run folder>/server/:
+#   journal.txt          journalctl -u slums-persistence-test for the padded window (UTC, ISO times)
+#   journal-chars.txt    the journal lines that mention a --chars id (when given)
+#   qa-logs/*.log        Server/logs/qa/<id>-<UTC>.log runs started before the window closed and written after it opened
+#   autoqa-latest.json   latest.json's build/updated/summary, the runs overlapping the window and the --checks entries
+#   deployed-commit.txt  Server/DEPLOYED_COMMIT
+#   collect.json         what was pulled, when, from where, and anything that failed
+#
+# READ-ONLY on 164 and TEST ONLY: every remote command below is a read (journalctl, find, cat, python3 reading a
+# file). The TEST paths are fixed here; the live folder, unit and port are refused if they ever appear.
+set -euo pipefail
+
+HOST=root@192.168.0.164
+UNIT=slums-persistence-test
+SERVER=/opt/mapleroot-dev/persistence-test/Server
+RUNS_ROOT=${QA_RUNS_ROOT:-/root/work/qa-runs}
+LIVE_FOLDER="/opt/mapleroot/MapleRoot Full Repack"
+
+run="" from="" to="" chars="" checks="" pad=60 dry=0
+die() { echo "qa-run-collect: $*" >&2; exit 2; }
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --run) run=${2:-}; shift 2 ;;
+        --from) from=${2:-}; shift 2 ;;
+        --to) to=${2:-}; shift 2 ;;
+        --chars) chars=${2:-}; shift 2 ;;
+        --checks) checks=${2:-}; shift 2 ;;
+        --pad) pad=${2:-}; shift 2 ;;
+        --dry-run) dry=1; shift ;;
+        -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
+        *) die "unknown argument $1" ;;
+    esac
+done
+
+utc_re='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z$'
+[ -n "$run" ] || die "--run is required"
+[[ "$from" =~ $utc_re ]] || die "--from must be a UTC time like 2026-10-31T03:12:05Z"
+[[ "$to" =~ $utc_re ]] || die "--to must be a UTC time like 2026-10-31T03:14:40Z"
+[[ "$pad" =~ ^[0-9]{1,4}$ ]] || die "--pad must be seconds (0-9999)"
+[[ -z "$chars" || "$chars" =~ ^[0-9]{1,10}(,[0-9]{1,10}){0,15}$ ]] || die "--chars must be ids like 7,1000000123"
+[[ -z "$checks" || "$checks" =~ ^t-[a-z]{2}-[0-9]{1,2}(,t-[a-z]{2}-[0-9]{1,2})*$ ]] || die "--checks must be ids like t-cl-1,t-mv-1"
+case "$SERVER$UNIT" in *"$LIVE_FOLDER"*|*slumsms.service*) die "refusing: live paths" ;; esac
+[ "$UNIT" != slumsms ] || die "refusing: the live unit"
+
+from_s=$(date -u -d "$from" +%s) || die "bad --from"
+to_s=$(date -u -d "$to" +%s) || die "bad --to"
+[ "$to_s" -ge "$from_s" ] || die "--to is before --from"
+[ $((to_s - from_s)) -le 21600 ] || die "the window is longer than 6 hours"
+since=$(date -u -d "@$((from_s - pad))" '+%Y-%m-%d %H:%M:%S')
+until=$(date -u -d "@$((to_s + pad))" '+%Y-%m-%d %H:%M:%S')
+
+mkdir -p "$RUNS_ROOT"
+root_real=$(realpath "$RUNS_ROOT")
+run_real=$(realpath -m "$run")
+case "$run_real/" in "$root_real"/*/*) ;; *) die "the run folder must be inside $RUNS_ROOT/<date>/" ;; esac
+out="$run_real/server"
+
+remote() {   # one read-only command on 164
+    if [ "$dry" = 1 ]; then echo "ssh $HOST $1"; return 0; fi
+    ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$1"
+}
+
+if [ "$dry" = 1 ]; then
+    echo "would write $out"
+else
+    mkdir -p "$out/qa-logs"
+fi
+failed=()
+
+# 1. the journal for the padded window (UTC)
+if [ "$dry" = 1 ]; then
+    remote "journalctl -u $UNIT --utc -o short-iso-precise --no-pager --since '$since' --until '$until'"
+elif ! remote "journalctl -u $UNIT --utc -o short-iso-precise --no-pager --since '$since' --until '$until'" \
+        > "$out/journal.txt"; then
+    failed+=("journal")
+fi
+if [ -n "$chars" ] && [ "$dry" = 0 ] && [ -s "$out/journal.txt" ]; then
+    pattern="\\b($(echo "$chars" | tr ',' '|'))\\b"
+    grep -E "$pattern" "$out/journal.txt" > "$out/journal-chars.txt" || true
+fi
+
+# 2. QA run logs touched inside the window
+# written to after the window opened, and started (the name's UTC stamp) before it closed
+stamp_until=$(date -u -d "@$((to_s + pad))" +%Y%m%dT%H%M%SZ)
+list_cmd="find $SERVER/logs/qa -maxdepth 1 -type f -name '*.log' -newermt '$since UTC' -printf '%f\\n'"
+if [ "$dry" = 1 ]; then
+    remote "$list_cmd"
+else
+    if names=$(remote "$list_cmd"); then
+        while IFS= read -r name; do
+            [ -n "$name" ] || continue
+            [[ "$name" =~ ^[A-Za-z0-9._-]+-([0-9]{8}T[0-9]{6}Z)\.log$ ]] || continue
+            [[ "${BASH_REMATCH[1]}" > "$stamp_until" ]] && continue
+            remote "cat '$SERVER/logs/qa/$name'" > "$out/qa-logs/$name" || failed+=("qa-logs/$name")
+        done <<< "$names"
+    else
+        failed+=("qa-logs")
+    fi
+fi
+
+# 3. latest.json: the summary, runs overlapping the window, the covered checks
+py="import json,sys
+d=json.load(open('$SERVER/data/autoqa/latest.json'))
+f,t='$from','$to'
+keep=set(x for x in '$checks'.split(',') if x)
+runs=[r for r in d.get('runs') or [] if (r.get('started') or '')<=t and (r.get('finished') or r.get('started') or '9')>=f]
+checks={k:v for k,v in (d.get('checks') or {}).items() if k in keep}
+json.dump({'build':d.get('build'),'updated':d.get('updated'),'summary':d.get('summary'),'runs':runs,'checks':checks},sys.stdout,indent=1)"
+if [ "$dry" = 1 ]; then
+    remote "python3 -c <latest.json filter>"
+elif ! remote "python3 -c \"$py\"" > "$out/autoqa-latest.json"; then
+    failed+=("autoqa-latest.json")
+fi
+
+# 4. the deployed commit
+if [ "$dry" = 1 ]; then
+    remote "cat $SERVER/DEPLOYED_COMMIT"
+elif ! remote "cat $SERVER/DEPLOYED_COMMIT" > "$out/deployed-commit.txt"; then
+    failed+=("deployed-commit")
+fi
+
+[ "$dry" = 1 ] && exit 0
+python3 - "$out/collect.json" "$from" "$to" "$pad" "$chars" "$checks" "${failed[@]+"${failed[@]}"}" <<'PY'
+import json, sys, datetime
+path, f, t, pad, chars, checks, *failed = sys.argv[1:]
+json.dump({"collected_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+           "host": "192.168.0.164", "unit": "slums-persistence-test",
+           "server": "/opt/mapleroot-dev/persistence-test/Server", "from_utc": f, "to_utc": t, "pad_s": int(pad),
+           "chars": [int(c) for c in chars.split(",") if c], "checks": [c for c in checks.split(",") if c],
+           "failed": failed}, open(path, "w"), indent=1)
+PY
+if [ ${#failed[@]} -gt 0 ]; then
+    echo "qa-run-collect: done with gaps: ${failed[*]} (see $out/collect.json)" >&2
+    exit 1
+fi
+echo "qa-run-collect: $out"

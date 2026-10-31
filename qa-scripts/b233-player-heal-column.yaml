@@ -1,0 +1,66 @@
+# b233: other players see a REAL player's Heal column (1.6.2 healamt). Needs two clients on one map: the healer casts,
+# the viewer records. The healer's vault character is a Cleric/Priest/Bishop with Heal on key A (staged once by hand:
+# !job 230, !level 120, Heal maxed, key A).
+id: b233-player-heal-column
+title: Another player sees a real player's Heal column
+covers: [b233]
+status: draft
+server: test
+needs: [gm, two_clients]
+notes: "No server line exists for a player's own Heal cast, so the viewer's capture starts on the cast step and the packet trace proves the effect reached the viewer."
+clients:
+  healer:
+    account: {vault: aq-cleric}
+    world: Bera
+    channel: 3
+    gm: true
+  viewer:
+    account: {vault: aq-gm-1}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login, client: healer}
+  - {id: worlds-healer, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000, client: healer}
+  - {id: pick-world-healer, do: select_world, world: Bera, client: healer}
+  - {id: channels-healer, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world-healer, every_ms: 4000, times: 4}, timeout_ms: 30000, client: healer}
+  - {do: select_channel, channel: 3, client: healer}
+  - {id: chars-healer, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000, client: healer}
+  - {do: select_character, client: healer}
+  - {id: in-game-healer, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000, client: healer}
+  - {do: login, client: viewer}
+  - {id: worlds-viewer, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000, client: viewer}
+  - {id: pick-world-viewer, do: select_world, world: Bera, client: viewer}
+  - {id: channels-viewer, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world-viewer, every_ms: 4000, times: 4}, timeout_ms: 30000, client: viewer}
+  - {do: select_channel, channel: 3, client: viewer}
+  - {id: chars-viewer, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000, client: viewer}
+  - {do: select_character, client: viewer}
+  - {id: in-game-viewer, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000, client: viewer}
+  - {id: warp-healer, client: healer, do: gm, line: "!warp 100000000"}
+  - {id: healer-there, client: healer, do: wait, signal: {type: client_signal, name: field.ready, map_id: 100000000}, timeout_ms: 30000}
+  - {id: warp-viewer, client: viewer, do: gm, line: "!warp 100000000"}
+  - {id: viewer-there, client: viewer, do: wait, signal: {type: client_signal, name: field.ready, map_id: 100000000}, timeout_ms: 30000}
+  # stand side by side on the lower street (q11's spot), both on screen for the viewer
+  - {client: healer, do: gm, line: "!tp 1215 334"}
+  - {client: viewer, do: gm, line: "!tp 1150 334"}
+  - {id: viewer-arrived, client: viewer, do: wait, armed_at: warp-viewer, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP ${viewer.name} -> 100000000 ", char: viewer}, timeout_ms: 10000}
+  - {id: cast, client: healer, do: key, key: A}
+  - {client: healer, do: sleep, ms: 2500, reason: "No signal marks a player's own Heal cast yet; the viewer's 3 s burst runs meanwhile."}
+  - {id: cast-again, client: healer, do: key, key: A}
+  - {client: healer, do: sleep, ms: 2500, reason: "No signal marks a player's own Heal cast yet; the second burst runs meanwhile."}
+  - {id: done, do: mark, client: viewer}
+captures:
+  - {id: view-1, client: viewer, burst: {fps: 15, ms: 3000, at: {step: cast}}}
+  - {id: view-2, client: viewer, burst: {fps: 15, ms: 3000, at: {step: cast-again}}}
+  - {id: self-1, client: healer, burst: {fps: 10, ms: 2000, at: {step: cast}}}
+  - {id: viewer-packets, client: viewer, packet_trace: {opcodes: [SHOW_FOREIGN_EFFECT, GIVE_FOREIGN_BUFF], direction: in, span: {from: cast, to: done}}}
+expect:
+  reviewer:
+    - see: "On the viewer's screen, the healer character plays the Heal pose and the vertical Heal column, both casts"
+      in: [view-1, view-2]
+    - see: "The healer's own screen shows the same column (the reference for what the viewer should see)"
+      in: [self-1]
+  checks:
+    - {check: packet, client: viewer, opcode: SHOW_FOREIGN_EFFECT, min: 2, span: {from: cast, to: done}}
+    - {check: client_alive, client: viewer}
+    - {check: client_alive, client: healer}

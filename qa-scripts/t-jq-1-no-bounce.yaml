@@ -1,0 +1,44 @@
+# t-jq-1: no bounce (double-tap jump) in jump quests; it still works elsewhere (jq-1, bounce-zones.yaml).
+id: t-jq-1-no-bounce
+title: "No bounces in jump quests, double-tap jump elsewhere"
+covers: [t-jq-1]
+status: draft
+server: test
+needs: [gm]
+notes: "jq-1 warps to 101000100 (Forest of Patience step 1) with !bounce bypass off. The client must not send a bounce there: any REFUSED line means its own block failed."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    world: Bera
+    channel: 2
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 2}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: run, do: gm, line: "!qa run jq-1"}
+  - {id: in-jq, do: wait, signal: {type: client_signal, name: field.ready, map_id: 101000100}, timeout_ms: 30000}
+  - {id: bounce-jq, do: jump, dir: right, double: true}
+  - {id: bounce-jq-2, do: jump, dir: left, double: true}
+  - {id: out, do: gm, line: "!warp 104040000"}
+  - {id: elsewhere, do: wait, signal: {type: client_signal, name: field.ready, map_id: 104040000}, timeout_ms: 30000}
+  - {id: bounce-free, do: jump, dir: right, double: true}
+  - {id: allowed, do: wait, armed_at: bounce-free, signal: {type: server_line, topic: BOUNCE, regex: "^ALLOWED ${me.name} ", char: me}, timeout_ms: 10000}
+  - {id: stop, do: gm, line: "!qa stop"}
+captures:
+  - {id: jq-try, burst: {fps: 15, ms: 2000, at: {step: bounce-jq}}}
+  - {id: free-try, burst: {fps: 15, ms: 2000, at: {step: bounce-free}}}
+  - {id: pos, samples: {fields: [pos, map], hz: 20, span: {from: bounce-jq, to: stop}}}
+expect:
+  reviewer:
+    - see: "In the jump quest the double tap is an ordinary jump (no dash forward); on the hunting ground it bounces"
+      in: [jq-try, free-try, pos]
+  checks:
+    - {check: server_line, topic: BOUNCE, regex: "^REFUSED ", char: me, max: 0}
+    - {check: server_line, topic: BOUNCE, regex: "^ALLOWED ", char: me, min: 1, span: {from: bounce-free, to: stop}}
+    - {check: client_alive}

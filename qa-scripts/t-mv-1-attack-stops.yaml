@@ -1,0 +1,50 @@
+# t-mv-1: attacking on the ground stops you, even with a direction held (mv-1 attack slide meter).
+id: t-mv-1-attack-stops
+title: "Attacking on the ground stops you, direction held or not"
+covers: [t-mv-1]
+status: draft
+server: test
+needs: [gm, proposed_steps]
+notes: "Uses !qa run mv-1 (meters the tester's own movement packets): the client is the tester here. Basic attack is Ctrl. Flat ground: Henesys Hunting Ground I's lower floor."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    world: Bera
+    channel: 2
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 2}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: warp, do: gm, line: "!warp 104040000"}
+  - {id: there, do: wait, signal: {type: client_signal, name: field.ready, map_id: 104040000}, timeout_ms: 30000}
+  - {id: arm, do: gm, line: "!qa run mv-1 10 600"}
+  - {id: armed, do: wait, armed_at: arm, signal: {type: server_line, topic: QA_RUN, regex: "armed: 10 attacks", char: me}, timeout_ms: 15000}
+  - {id: still-1, do: key, key: CTRL}
+  - {id: still-1-seen, do: wait, armed_at: still-1, signal: {type: server_line, topic: QA_RUN, regex: "^#1 skill", char: me}, timeout_ms: 10000}
+  - {id: still-2, do: key, key: CTRL}
+  - {id: still-2-seen, do: wait, armed_at: still-2, signal: {type: server_line, topic: QA_RUN, regex: "^#2 skill", char: me}, timeout_ms: 10000}
+  - {id: hold, do: key_down, key: RIGHT}
+  - {id: held-1, do: key, key: CTRL}
+  - {id: held-1-seen, do: wait, armed_at: held-1, signal: {type: server_line, topic: QA_RUN, regex: "^#3 skill", char: me}, timeout_ms: 10000}
+  - {id: held-2, do: key, key: CTRL}
+  - {id: held-2-seen, do: wait, armed_at: held-2, signal: {type: server_line, topic: QA_RUN, regex: "^#4 skill", char: me}, timeout_ms: 10000}
+  - {id: release, do: key_up, key: RIGHT}
+  - {id: stop, do: gm, line: "!qa stop"}
+  - {id: summary, do: wait, armed_at: stop, signal: {type: server_line, topic: QA_RUN, regex: "(?i)summary|attacks", char: me}, timeout_ms: 15000}
+captures:
+  - {id: held-attacks, burst: {fps: 15, ms: 2000, at: {step: held-1}}}
+  - {id: pos, samples: {fields: [pos], hz: 20, span: {from: hold, to: release}}}
+expect:
+  reviewer:
+    - see: "With Right held, the character stops for each swing instead of sliding along"
+      in: [held-attacks, pos]
+  checks:
+    - {check: server_line, topic: QA_RUN, regex: "held yes.*slide ([2-9]\\d|\\d{3,})px|slide ([2-9]\\d|\\d{3,})px.*held yes", char: me, max: 0}
+    - {check: client_alive}
+  judgment: "None: the slide is measured in px."

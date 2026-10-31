@@ -1,0 +1,62 @@
+# t-mr-2: a female character can propose (the rc4 client's proposal window for a female proposer).
+id: t-mr-2-woman-proposes
+title: "A woman can propose"
+covers: [t-mr-2]
+status: draft
+server: test
+needs: [gm, two_clients, female_character, proposed_anchors, proposed_signals, proposed_steps]
+notes: "The proposer's vault character is female. 2240000 is the Moonstone engagement ring box; using it asks for the partner's name. Inventory clicks are guesses until the first run."
+clients:
+  her:
+    account: {vault: aq-female}
+    world: Bera
+    channel: 2
+    gm: true
+  him:
+    account: {vault: aq-partner}
+    world: Bera
+    channel: 2
+    gm: true
+steps:
+  - {do: login, client: her}
+  - {id: worlds-her, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000, client: her}
+  - {id: pick-world-her, do: select_world, world: Bera, client: her}
+  - {id: channels-her, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world-her, every_ms: 4000, times: 4}, timeout_ms: 30000, client: her}
+  - {do: select_channel, channel: 2, client: her}
+  - {id: chars-her, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000, client: her}
+  - {do: select_character, client: her}
+  - {id: in-game-her, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000, client: her}
+  - {do: login, client: him}
+  - {id: worlds-him, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000, client: him}
+  - {id: pick-world-him, do: select_world, world: Bera, client: him}
+  - {id: channels-him, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world-him, every_ms: 4000, times: 4}, timeout_ms: 30000, client: him}
+  - {do: select_channel, channel: 2, client: him}
+  - {id: chars-him, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000, client: him}
+  - {do: select_character, client: him}
+  - {id: in-game-him, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000, client: him}
+  - {id: to-town, client: her, do: gm, line: "!warp 100000000"}
+  - {id: her-there, client: her, do: wait, signal: {type: client_signal, name: field.ready, map_id: 100000000}, timeout_ms: 30000}
+  - {id: him-warp, client: him, do: gm, line: "!warp 100000000"}
+  - {id: him-there, client: him, do: wait, signal: {type: client_signal, name: field.ready, map_id: 100000000}, timeout_ms: 30000}
+  - {id: give, client: her, do: gm, line: "!item 2240000 1"}
+  - {id: open-items, client: her, do: key, key: I}
+  - {id: items, client: her, do: wait, signal: {type: client_signal, name: window.open, window: item}, timeout_ms: 5000}
+  - {id: use-ring, client: her, do: click, anchor: inventory.slot_1, button: double}
+  - {id: name-box, client: her, do: wait, signal: {type: client_signal, name: window.open, window: notice}, timeout_ms: 5000}
+  - {id: partner, client: her, do: type, text: "${him.name}"}
+  - {id: send, client: her, do: key, key: ENTER}
+  - {id: proposal, client: him, do: wait, signal: {type: client_signal, name: window.open, window: proposal}, timeout_ms: 15000}
+  - {id: accept-it, client: him, do: click, anchor: proposal.accept}
+  - {id: engaged, client: her, do: wait, armed_at: send, signal: {type: client_signal, name: chat.received, regex: "(?i)engag"}, timeout_ms: 15000}
+captures:
+  - {id: her-side, client: her, burst: {fps: 5, ms: 3000, at: {step: send}}}
+  - {id: his-window, client: him, burst: {fps: 5, ms: 2000, at: {signal: proposal}}}
+  - {id: her-chat, client: her, chat_log: {span: {from: give, to: engaged}}}
+expect:
+  reviewer:
+    - see: "Her proposal goes out without a 'only men can propose' refusal; his client shows the proposal window"
+      in: [her-side, his-window]
+  checks:
+    - {check: chat_line, client: her, regex: "(?i)only (men|males)|cannot propose", max: 0}
+    - {check: client_alive, client: her}
+    - {check: client_alive, client: him}

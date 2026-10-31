@@ -1,0 +1,60 @@
+# @botme alt basics (q23-q25, ticket 13 / 1.6.2 alt bots): summon an offline character of the same account, it
+# follows and fights your fight, a duplicate summon is refused, @dismiss saves it.
+id: botme-alt-basics
+title: "@botme summons an alt that follows, fights with you and dismisses cleanly"
+covers: [q23, q24, q25]
+status: draft
+server: test
+needs: [gm, owned_alt, proposed_signals]
+notes: "The account needs a second, offline character on Bera (any level). TEST runs OWNED_ALTS_ENABLED with summons on."
+clients:
+  me:
+    account: {vault: aq-alt-owner}
+    world: Bera
+    channel: 2
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 2}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: to-field, do: gm, line: "!warp 104040000"}
+  - {id: on-field, do: wait, signal: {type: client_signal, name: field.ready, map_id: 104040000}, timeout_ms: 30000}
+  - {id: list, do: chat, text: "@botme"}
+  - id: listed
+    do: wait
+    signal: {type: client_signal, name: chat.received, regex: "Available characters: (?P<alt>[A-Za-z0-9]+)"}
+    bind: {alt: alt}
+    timeout_ms: 15000
+  - {id: summon, do: chat, text: "@botme ${alt}"}
+  - {id: joined, do: wait, signal: {type: client_signal, name: chat.received, regex: "${alt} has joined you and follows you"}, timeout_ms: 20000}
+  - {id: again, do: chat, text: "@botme ${alt}"}
+  - {id: duplicate, do: wait, signal: {type: client_signal, name: chat.received, regex: "${alt} is already online or still being saved"}, timeout_ms: 15000}
+  - {id: mobs, do: gm, line: "!spawn 100100 4"}
+  - {id: attack, do: key, key: CTRL, hold_ms: 3000}
+  - {id: fights, do: wait, armed_at: mobs, signal: {type: server_line, topic: COMBAT, regex: "^FOLLOWER FIGHT ${alt} ", char: me}, timeout_ms: 30000}
+  - {id: walk, do: move, dir: right, ms: 2500}
+  - {id: dismiss, do: chat, text: "@dismiss ${alt}"}
+  - {id: dismissed, do: wait, signal: {type: client_signal, name: chat.received, regex: "${alt} has been saved and dismissed"}, timeout_ms: 20000}
+  - {do: gm, line: "!killall"}
+captures:
+  - {id: arrive, burst: {fps: 5, ms: 3000, at: {signal: joined}}}
+  - {id: fight, burst: {fps: 10, ms: 3000, at: {step: attack}}}
+  - {id: follow, burst: {fps: 10, ms: 3000, at: {step: walk}}}
+  - {id: chat, chat_log: {span: {from: list, to: dismissed}}}
+expect:
+  reviewer:
+    - see: "The alt appears next to you (not across the map) and walks after you when you move right"
+      in: [arrive, follow]
+    - see: "The alt swings at the snails you attack with a real attack animation"
+      in: [fight]
+  checks:
+    - {check: chat_line, regex: "has joined you and follows you", min: 1}
+    - {check: chat_line, regex: "already online or still being saved", min: 1}
+    - {check: server_line, topic: COMBAT, regex: "^FOLLOWER FIGHT ${alt} ", char: me, min: 1}
+    - {check: chat_line, regex: "\\bbot\\b", max: 0, span: {from: summon, to: dismissed}}
+    - {check: client_alive}

@@ -1,0 +1,34 @@
+# t-cc-1: Create Character is never greyed out or answered 'disabled' on the login screen.
+id: t-cc-1-create-character
+title: "Character creation is never disabled"
+covers: [t-cc-1]
+status: draft
+server: test
+needs: [proposed_anchors, proposed_signals]
+notes: "Stops at the creation window; it never makes a character. The vault account needs a free slot."
+clients:
+  me:
+    account: {vault: aq-cc-test}
+    world: Bera
+    channel: 1
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 1}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {id: create, do: click, anchor: character.create}
+  - {id: creating, do: wait, signal: {type: client_signal, name: window.open, window: character_create}, timeout_ms: 10000}
+  - {id: done, do: mark}
+captures:
+  - {id: select-screen, burst: {fps: 2, ms: 1000, at: {signal: chars}}}
+  - {id: create-screen, burst: {fps: 5, ms: 2000, at: {signal: creating}}}
+expect:
+  reviewer:
+    - see: "The Create button is lit on character select and opens the creation screen; no 'disabled' notice"
+      in: [select-screen, create-screen]
+  checks:
+    - {check: chat_line, regex: "(?i)disabled", max: 0}
+    - {check: client_alive}

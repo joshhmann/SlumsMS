@@ -1,0 +1,50 @@
+# t-ga-4: a show bot's gachapon pop sprays items no player can pick up; they vanish within 12 s (SHOW_SWEEP_MS).
+id: t-ga-4-show-rolls-vanish
+title: "A show bot's gachapon prizes vanish and can't be picked up"
+covers: [t-ga-4]
+status: draft
+server: test
+needs: [gm, proposed_signals]
+notes: "ga-1 puts you at the Henesys Market machine (100000100). A fresh bot is the show roller; the client stands on the spray and presses the loot key (Z) the whole time."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    world: Bera
+    channel: 2
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 2}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: run, do: gm, line: "!qa run ga-1"}
+  - {id: market, do: wait, signal: {type: client_signal, name: field.ready, map_id: 100000100}, timeout_ms: 30000}
+  - {id: spawn, do: gm, line: "!bot spawn thief 2"}
+  - id: spawned
+    do: wait
+    signal: {type: client_signal, name: chat.received, regex: "Spawned 1 .*cids \\[(?P<showbot>\\d+)\\]"}
+    bind: {showbot: showbot}
+    timeout_ms: 20000
+  - {id: roll, do: gm, line: "!gacharoll henesys ${showbot} 3"}
+  - {id: rolled, do: wait, armed_at: roll, signal: {type: server_line, topic: GACHA, regex: "(?i)henesys", char: any}, timeout_ms: 15000}
+  - {id: loot-1, do: key, key: Z, hold_ms: 4000}
+  - {id: loot-2, do: key, key: Z, hold_ms: 4000}
+  - {id: loot-3, do: key, key: Z, hold_ms: 4000}
+  - {id: after, do: sleep, ms: 3000, reason: "SHOW_SWEEP_MS is 12 s with no signal for the sweep; this pads the 12 s of loot presses to 15 s."}
+  - {id: stop, do: gm, line: "!qa stop"}
+  - {do: gm, line: "!bot remove ${showbot}"}
+captures:
+  - {id: spray, clip: {fps: 10, ms: 5000, at: {signal: rolled}}}
+  - {id: gone, burst: {fps: 2, ms: 4000, at: {step: loot-3}}}
+  - {id: pickups, packet_trace: {opcodes: [SHOW_ITEM_GAIN_INCHAT, SHOW_STATUS_INFO], direction: in, span: {from: roll, to: stop}}}
+expect:
+  reviewer:
+    - see: "The box pops and sprays items around the bot; the loot key picks none of them up; all are gone by about 12 s"
+      in: [spray, gone]
+  checks:
+    - {check: packet, opcode: SHOW_ITEM_GAIN_INCHAT, max: 0, span: {from: roll, to: stop}}
+    - {check: client_alive}
