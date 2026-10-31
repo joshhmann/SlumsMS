@@ -412,6 +412,17 @@ public final class BotDirectTrade {
             return new Answer(true, "They agreed to " + p + "; tell them to open a trade with you.",
                     "k " + p + ", open trade", p);
         }
+        // 1.6.2 (t-td-2): "how much for the sword?" again, or a bare "how much?", while a quote is open names the price
+        // it stands at now - never the opening price again, which undid a counter it had given and reset its rounds
+        if (open && read.move() != HaggleBrain.Move.OFFER && asksAboutQuote(bot, q, text, read)) {
+            quotes.put(k, new Quote(q.item(), q.price(), System.currentTimeMillis() + QUOTE_MS, q.rounds()));
+            String p = PriceBook.shorthand(q.price());
+            String name = BotShops.nameOf(q.item().getItemId()).toLowerCase(Locale.ROOT);
+            qa(bot, "QUOTE asked again " + bot.getName() + " -> " + player.getName() + " " + name + " still at "
+                    + q.price() + " (round " + q.rounds() + ")");
+            return new Answer(true, "Say the " + name + " is still " + p + ", the price you already gave them; they "
+                    + "can open a trade with you.", "still " + p + " for the " + name + ", trade me", p);
+        }
         // haggling over a quote it already gave
         if (open && read.move() == HaggleBrain.Move.OFFER) {
             Haggled next = haggleQuote(q, read.price(), friend, System.currentTimeMillis());
@@ -462,6 +473,25 @@ public final class BotDirectTrade {
         }
         return new Answer(true, "Say what you could sell them: " + list + ". They can ask for one.",
                 "i got " + list, null);
+    }
+
+    /**
+     * Whether a line (not an offer) asks about the open quote: it names the quoted item, or asks a price without naming
+     * anything else the bot carries ("how much?", "whats the price"). A price ask for another item gets its own quote.
+     */
+    static boolean asksAboutQuote(Character bot, Quote q, String text, HaggleBrain.Read read) {
+        if (match(List.of(q.item()), text) != null) {
+            return read.move() == HaggleBrain.Move.ASK_PRICE || read.move() == HaggleBrain.Move.OTHER;
+        }
+        if (read.move() != HaggleBrain.Move.ASK_PRICE) {
+            return false;
+        }
+        try {
+            Item named = match(BotShops.sellable(bot, new ArrayList<>()), text);
+            return named == null || named.getItemId() == q.item().getItemId();
+        } catch (RuntimeException e) {
+            return true; // the bag cannot be read: the quote is what it can stand behind
+        }
     }
 
     /** A haggle over a quote: the bot's answer and the quote it now stands at. */

@@ -117,4 +117,50 @@ class HaggleAnswersOfferTest {
         assertFalse(a.scripted().startsWith("i got"), a.scripted());
         assertTrue(StateOfMind.check(a.scripted(), open(9_520, 9_000)).ok(), a.scripted());
     }
+
+    // 1.6.2 (auto-QA t-td-2): the ask over an open quote, and an offer well under it
+
+    @Test
+    void askingAgainNamesTheCurrentQuoteNotTheOpeningPrice() {
+        quote(9_520);
+        BotDirectTrade.Answer counter = BotDirectTrade.chat(null, bot, player, "would u do 5k");
+        long now = BotDirectTrade.openQuote(BOT, PLAYER).price();
+        assertTrue(now < 9_520, "it came down first: " + now);
+        String p = PriceBook.shorthand(now);
+        BotDirectTrade.Answer a = BotDirectTrade.chat(null, bot, player, "how much for the work gloves?");
+        assertNotNull(a);
+        assertTrue(a.yes());
+        assertTrue(a.scripted().contains(p) && !a.scripted().contains("9,520"), a.scripted());
+        assertEquals(p, a.mustMention());
+        assertEquals(now, BotDirectTrade.openQuote(BOT, PLAYER).price(), "the counter stands");
+        a = BotDirectTrade.chat(null, bot, player, "how much?");
+        assertTrue(a.scripted().contains(p), "a bare price ask names the open quote too: " + a.scripted());
+        assertNotNull(counter);
+    }
+
+    @Test
+    void askingAgainKeepsTheHaggleRounds() {
+        quote(9_520);
+        // with bands.maxRounds 4 the fourth counter is the last price; a re-ask in between must not reset the count
+        for (int i = 0; i < 3; i++) {
+            BotDirectTrade.chat(null, bot, player, "would u do 1k");
+            BotDirectTrade.chat(null, bot, player, "how much for the work gloves");
+        }
+        BotDirectTrade.Answer a = BotDirectTrade.chat(null, bot, player, "would u do 1k");
+        assertTrue(a.scripted().contains("last price"), a.scripted());
+    }
+
+    @Test
+    void anOfferWellUnderTheQuoteGetsACounterInsideTheBand() {
+        quote(9_520);
+        PriceBand.Band band = PriceBand.of(PriceBand.Side.BOT_SELLS,
+                PriceBook.stackValue(new Item(GLOVES, (short) 0, (short) 1)), false);
+        BotDirectTrade.Answer a = BotDirectTrade.chat(null, bot, player, "would u do 1k");
+        assertNotNull(a);
+        long now = BotDirectTrade.openQuote(BOT, PLAYER).price();
+        assertTrue(now < 9_520 && now >= band.low() && now <= band.high(), now + " in " + band);
+        assertTrue(a.scripted().contains(PriceBook.shorthand(now)), a.scripted());
+        assertFalse(a.scripted().contains("9,520"), "never the same price again: " + a.scripted());
+        assertTrue(StateOfMind.check(a.scripted(), open(9_520, 1_000)).ok(), a.scripted());
+    }
 }

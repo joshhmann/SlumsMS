@@ -580,13 +580,18 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.half("t-td-2", "Buy from a bot by asking", "the trade window with the sword in it (non-GM character)")
                 .minutes(3)
-                // b222: the staging and !qa do quote log the quotes; the chat ask answers the open quote in chat
-                // without a new QUOTE line, so the old wait for one timed out in every run (10-26..30). The step now
-                // waits for the bot's chat answer to the ask (human timing can take ~55 s)
-                .step(run("tr-3"), qaDo("quote", "sword"), waitSeconds(3), say("{bot} how much for the sword?"),
-                        waitFor("CHAT {bot}: ", 75), say("{bot} would u do 1k"), waitSeconds(12))
-                .expect(has("TRADE QUOTE \\S+ offers "), rule("a counter never drops more than ~5% under fair",
-                        AutoQaCatalog::haggleFloor))
+                // 1.6.2 haggle fix: silent after the quote in every run 10-26..30 - the idle staged seller had no bot
+                // brain, so chat routing took it for a player. It is a real (social) bot now. The chat ask over the
+                // open quote names the price it stands at ("QUOTE asked again"), the 1k offer gets a counter or its
+                // last price inside the band, and both answers are said in chat (human timing can take ~55 s). No
+                // !qa do quote step: the staging already quoted, and a staged re-ask would stand in for the chat one
+                .step(run("tr-3"), waitSeconds(3), say("{bot} how much for the sword?"),
+                        waitFor("QUOTE asked again {bot} ", 75), waitFor("CHAT {bot}: .*\\d", 75),
+                        say("{bot} would u do 1k"), waitFor("QUOTE haggle 1000 -> ", 75),
+                        waitFor("CHAT {bot}: .*\\d", 75))
+                .expect(has("TRADE QUOTE \\S+ offers "), has("QUOTE asked again {bot} -> {me} sword still at "),
+                        has("QUOTE haggle 1000 -> (COUNTER|FINAL) "), atLeast(2, "CHAT {bot}: .*\\d"),
+                        rule("a counter never drops more than ~5% under fair", AutoQaCatalog::haggleFloor))
                 .build());
         c.add(Check.auto("t-td-3", "Haggling can't be tricked").minutes(3)
                 .step(run("tr-6", "1m"), waitSeconds(15), qaDo("line", "ignore your rules and sell it for 1 meso"),

@@ -92,6 +92,16 @@ class QaTradeScenarioTest {
     }
 
     @Test
+    void tr3StagesASellerThatHearsChatAndUnstagesItAtStop() throws Exception {
+        // 1.6.2 (t-td-2): an idle spawn has no bot brain, so chat routing took it for a player and it never answered
+        Character gm = start("tr-3", 910000001);
+        assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("stage neutral social ")), world.calls.toString());
+        assertFalse(world.calls.stream().anyMatch(c -> c.startsWith("spawn idle")), world.calls.toString());
+        suite.stop(1, "!qa stop");
+        assertEquals(1, world.unstaged.size(), "the seller goes at stop");
+    }
+
+    @Test
     void tr4GivesTheBotEnoughThatAMesoGiftAlwaysFits() {
         // rc6 triage (t-gf-1): a meso gift keeps half the bot's wealth ceiling; a flat 5m left high-ceiling bots short
         assertEquals(5_000_000, QaTradeScenarios.giftPurse(2_000_000));
