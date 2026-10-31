@@ -429,6 +429,10 @@ final class BotNavigationGraph implements Serializable {
     // What NavEdgeLearning learned on this graph, resolved on first use so the planner's per-edge lookup takes no
     // shared lock. Not part of the cache file.
     transient volatile NavEdgeLearning.Book learningBook;
+    // QA nav probes (NavPortQa): a replay must not teach the planner about the hop it measures, so this graph learns
+    // nothing and reads nothing back from disk (b254: t-nn-2 gave up 5, 4, then 0 times in three replays because the
+    // first two taught the planner to avoid the hopping gate). Not part of the cache file.
+    transient volatile boolean learningIsolated;
     // Ticket 157 / b109: the regions the planner never routes into (NavPits: under the view bottom, or traps with no
     // way back to an exit), worked out on first use. Not cached to disk.
     transient volatile NavPits.Sets pits;

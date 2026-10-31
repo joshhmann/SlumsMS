@@ -42,7 +42,12 @@ public final class KpqLobby {
     /** How long a channel is left alone after Lakelis refused its lobby party (K9: was retried every minute). */
     static final long REFUSED_BACKOFF_MS = 10 * 60_000L;
 
-    private static final Set<String> running = ConcurrentHashMap.newKeySet();
+    /**
+     * The lobby runs, by instance (1.6.2, as MechanicsRuns: {@code EventInstanceManager} defines no equals). A name is
+     * not a run: a channel's first KPQ is "Kerning0" every time, and identity also tells a re-taken channel's instance
+     * from the one a run has already ended.
+     */
+    private static final Set<EventInstanceManager> running = ConcurrentHashMap.newKeySet();
     /** Channel (world * 100 + channel) to when its lobby may try again after a refusal. */
     private static final java.util.Map<Integer, Long> refusedUntil = new ConcurrentHashMap<>();
     private static volatile boolean started;
@@ -226,15 +231,27 @@ public final class KpqLobby {
     }
 
     /** Tests: marks a run's instance as a lobby run, as {@link #start} does. */
-    static void markLobbyRunForTest(String name) {
-        running.add(name);
+    static void markLobbyRunForTest(EventInstanceManager eim) {
+        running.add(eim);
     }
 
     /** The last yield, as logged (QA mx-6 notes it), or null. */
     private static volatile String lastYield;
 
+    /** Yields so far. QA mx-6 tells its own yield by this going up, never by the text changing (see {@link #yieldCount}). */
+    private static final java.util.concurrent.atomic.AtomicLong yields = new java.util.concurrent.atomic.AtomicLong();
+
     public static String lastYield() {
         return lastYield;
+    }
+
+    /**
+     * How many lobby runs have yielded since boot. The yield line alone cannot say whether a given talk yielded: the
+     * same player on the same channel produces a byte-identical line, and a single last-write slot then looks
+     * unchanged (auto-QA 2026-10-31 10:00 and 15:41 UTC: mx-6 FAIL "no yield line" although BotLog has the yield).
+     */
+    public static long yieldCount() {
+        return yields.get();
     }
 
     /**
@@ -280,7 +297,7 @@ public final class KpqLobby {
             boolean yielded = false;
             for (EventInstanceManager eim : em.getInstances()) {
                 MechanicsRuns.Active a = MechanicsRuns.get().runFor(eim);
-                boolean lobbyRun = a != null && a.ownsInstance && running.contains(a.instanceName());
+                boolean lobbyRun = a != null && a.ownsInstance && running.contains(a.instance());
                 boolean realInside = eim.getPlayers().stream().anyMatch(c -> !MechanicsRuns.drivable(c));
                 if (!mayYield(lobbyRun, lobbyRun && a.run().cleared(), eim.isEventDisposed(), realInside)) {
                     continue;
@@ -297,6 +314,7 @@ public final class KpqLobby {
                 }
                 String line = "[Mechanics] lobby yields ch " + channel + " to " + to;
                 lastYield = line;
+                yields.incrementAndGet();
                 log(line);
                 yielded = true;
             }
@@ -327,7 +345,7 @@ public final class KpqLobby {
         if (members.isEmpty()) {
             return false;
         }
-        String[] slot = {null};
+        EventInstanceManager[] slot = {null};
         try {
             Character leader = members.get(0);
             if (!Party.createParty(leader, true) || leader.getParty() == null) {
@@ -357,15 +375,15 @@ public final class KpqLobby {
                 return false;
             }
             String name = MechanicsRuns.keyOf(eim); // per channel (b113): every channel's first KPQ is "Kerning0"
-            slot[0] = name;
-            running.add(name); // K8: before the run can end
+            slot[0] = eim;
+            running.add(eim); // K8: before the run can end
             MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, false, 0, 1, 0, true,
                     line -> log("[Mechanics] lobby " + name + " " + line), done -> {
-                        running.remove(name);
+                        running.remove(eim);
                         disband(members);
                     });
             if (a.run().ended()) {
-                running.remove(name);
+                running.remove(eim);
                 disband(members);
                 return false;
             }
@@ -374,9 +392,8 @@ public final class KpqLobby {
             return true;
         } catch (RuntimeException | LinkageError e) {
             log("[Mechanics] KPQ lobby: starting a run threw, the party breaks up: " + e);
-            if (slot[0] != null && MechanicsRuns.get().active().stream().noneMatch(x -> x.instanceName()
-                    .equals(slot[0]))) {
-                running.remove(slot[0]);
+            if (slot[0] != null && MechanicsRuns.get().active().stream().noneMatch(x -> x.instance() == slot[0])) {
+                running.remove(slot[0]); // the run never took the slot: its instance is not a lobby run
             }
             disband(members);
             return false;
@@ -390,7 +407,7 @@ public final class KpqLobby {
         }
         for (EventInstanceManager eim : em.getInstances()) {
             MechanicsRuns.Active a = MechanicsRuns.get().runFor(eim);
-            if (a != null && a.ownsInstance && running.contains(a.instanceName()) && !a.run().ended()) {
+            if (a != null && a.ownsInstance && running.contains(a.instance()) && !a.run().ended()) {
                 return a;
             }
         }

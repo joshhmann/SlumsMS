@@ -59,7 +59,7 @@ class KpqLobbyYieldTest {
                 lines::add, null);
         assertFalse(a.run().ended(), lines.toString());
         if (lobby) {
-            KpqLobby.markLobbyRunForTest(a.instanceName());
+            KpqLobby.markLobbyRunForTest(a.instance());
         }
         return a;
     }
@@ -99,7 +99,7 @@ class KpqLobbyYieldTest {
     @Test
     void aStagedOrPlayerLedRunNeverYields() {
         Kpq k = kpqOn(9, MechanicsRunsInstancesTest.bots(9_720), 9_720);
-        KpqLobby.markLobbyRunForTest("some other run"); // the lobby has a run, just not this one
+        KpqLobby.markLobbyRunForTest(mock(EventInstanceManager.class)); // the lobby has a run, just not this one
         MechanicsRuns.Active a = run(k, false);
         assertFalse(KpqLobby.yieldFor(k.em(), MechanicsRunsInstancesTest.member(9_792, false)));
         assertFalse(a.run().ended());
@@ -123,6 +123,28 @@ class KpqLobbyYieldTest {
         when(k.em().getName()).thenReturn("LudiPQ");
         assertFalse(KpqLobby.yieldFor(k.em(), MechanicsRunsInstancesTest.member(9_795, false)));
         assertFalse(a.run().ended());
+    }
+
+    /**
+     * b255 (auto-QA 2026-10-31 10:00 and 15:41 UTC: t-mx-6 FAIL "no yield line", the check's other conditions all
+     * met, BotLog holding the yield): the same pretend player takes the same channel twice, so the second yield's line
+     * is byte-identical to the last one. A check that compares the text cannot see its own yield; the count can.
+     */
+    @Test
+    void aSecondYieldToTheSamePartyNameStillCounts() throws Exception {
+        Character player = MechanicsRunsInstancesTest.member(9_796, false);
+        Kpq first = kpqOn(7, MechanicsRunsInstancesTest.bots(9_700), 9_700);
+        run(first, true);
+        long before = KpqLobby.yieldCount();
+        assertTrue(KpqLobby.yieldFor(first.em(), player));
+        assertEquals(before + 1, KpqLobby.yieldCount());
+        String line = KpqLobby.lastYield();
+
+        Kpq second = kpqOn(7, MechanicsRunsInstancesTest.bots(9_701), 9_701);
+        run(second, true);
+        assertTrue(KpqLobby.yieldFor(second.em(), player), "a re-taken channel yields to the same party again");
+        assertEquals(before + 2, KpqLobby.yieldCount(), "the count is what tells the two yields apart");
+        assertEquals(line, KpqLobby.lastYield(), "and the text is the same");
     }
 
     @Test
