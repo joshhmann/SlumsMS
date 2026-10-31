@@ -558,14 +558,17 @@ public final class AutoQaCatalog {
                 .build());
         c.add(Check.manual("t-ga-4", "Bots' show rolls vanish",
                 "needs a show bot at the machine and a real client's pick-up attempt; the vanish timer is client-visible"));
-        c.add(Check.auto("t-wc-1", "A rich bot spends down").laneOnly().minutes(11)
+        // the WEALTH / TALLY lines are about the bots on that map (ga-2 stages the rich bot where it warps the GM,
+        // the last Henesys gacha map), so another lane staging there would change them
+        c.add(Check.auto("t-wc-1", "A rich bot spends down").holds("map:100000100").minutes(11)
                 .step(run("ga-2"), until("WEALTH ", 2, 60), qaDo("step"), waitSeconds(5), qaDo("step"), waitSeconds(5), qaDo("step"),
                         waitFor("DONE ", 480))
                 .expect(atLeast(2, "WEALTH "), has("(GACHA .*bought|STEP .*ticket)"), has("DONE "))
                 .build());
 
         // ── Economy ──────────────────────────────────────────────────────────────────────────────────────────
-        c.add(Check.auto("t-bs-1", "Buy from a bot's shop").laneOnly().minutes(4)
+        // tr-1 warps the GM to FM room 1 and opens the shop there: one shop bot per room, not two lanes in it
+        c.add(Check.auto("t-bs-1", "Buy from a bot's shop").holds("map:910000001").minutes(4)
                 .step(run("tr-1"), waitSeconds(5), qaDo("collect"), waitSeconds(3))
                 .expect(has("TRADE SHOP \\S+ opened"), atLeast(3, "TRADE SHOP (loot|resale) "),
                         lacks("TRADE SHOP (loot|resale) .*(2049100|Chaos Scroll)"), probe("botShops"))
@@ -664,7 +667,9 @@ public final class AutoQaCatalog {
                 .expect(has("HABITS "), has("HABITS POT ({staged}) "), has("HABITS RESTOCK ({staged}) "),
                         has("HABITS DEATH ({staged}) "), has("HABITS RESPAWN ({staged}) "))
                 .build());
-        c.add(Check.auto("t-cb-4", "Neutral bots give you space").laneOnly().minutes(5)
+        // MANNERS lines are what the bots on the map do around the GM: the grinder staging lands at the Hunting
+        // Grounds (both of them), so those two maps are held rather than shared
+        c.add(Check.auto("t-cb-4", "Neutral bots give you space").holds("map:104040000", "map:104040001").minutes(5)
                 // rc6 say-do triage (no MANNERS line in 3 runs): a mannerly bot never picks the player's platform, so
                 // next to a pretend player that stands still and never attacks nothing ever needed yielding. The
                 // player now steps onto a bot's spot once they have settled, then fights the mobs around it.
@@ -674,7 +679,9 @@ public final class AutoQaCatalog {
                 .expect(anyOf("MANNERS YIELD ", "MANNERS MOVE ON ", "MANNERS LEAVE "),
                         hasAfter("step", "MANNERS (YIELD|CROWDED) "))
                 .build());
-        c.add(Check.auto("t-sp-1", "Bots spread out").laneOnly().minutes(5)
+        // the TALLY SPREAD counts and clumpsOnMyMap are the whole map's bots, and sp-1 stages 8 of them at the
+        // Hunting Grounds: two lanes there would count each other's grinders
+        c.add(Check.auto("t-sp-1", "Bots spread out").holds("map:104040000", "map:104040001").minutes(5)
                 .step(run("sp-1"), until("TALLY SPREAD map ", 3, 150))
                 .expect(has("(START|TALLY) SPREAD map "), has("SPREAD (SPACE|ROPE) "),
                         rule("fewer pairs closer than 34 px at the end than at the start", AutoQaCatalog::spreadImproves),
@@ -720,7 +727,9 @@ public final class AutoQaCatalog {
                         rule("every melee packet has a range in the client's tables (BotMeleeRange)",
                                 AutoQaCatalog::meleeInRange))
                 .build());
-        c.add(Check.auto("t-id-1", "Idle bots step out of mob packs").laneOnly().minutes(5)
+        // the IDLE / TALLY lines are the map's: id-1 stages 4 bots in the busiest mob pack, at the Hunting Grounds
+        // when the GM's map has no mobs
+        c.add(Check.auto("t-id-1", "Idle bots step out of mob packs").holds("map:104040000", "map:104040001").minutes(5)
                 .step(run("id-1"), until("TALLY ", 2, 150))
                 .expect(has("IDLE .* -> (LEDGE|ROPE_TOP|PORTAL) "), atLeast(1, "TALLY "))
                 .build());
@@ -781,7 +790,9 @@ public final class AutoQaCatalog {
                 .step(run("vb-6"), qaDo("advance"), qaDo("spend"))
                 .expect(has("VB JOB advance 100 -> 110"), has("VB JOB sp spend .* level 0 -> 1"), noRefusal())
                 .build());
-        c.add(Check.auto("t-vb-7", "Storage, Duey and a trade between two players").laneOnly().minutes(6)
+        // vb-7's staging and its storage/duey/trade steps act on AutoQaTwo by name (the second player of lane 1),
+        // so it cannot share the server with another lane: it runs alone until those steps know their lane
+        c.add(Check.auto("t-vb-7", "Storage, Duey and a trade between two players").holds(Check.WORLD).minutes(6)
                 .step(run("vb-7"), qaDo("storage"), qaDo("duey"), qaDo("trade"))
                 .expect(has("VB STORAGE stored 4000000 bag 5 -> 4 store \\d+ -> \\d+"),
                         has("VB STORAGE tookOut bagDelta=0"), has("VB DUEY claimed recipientDelta=1"),
@@ -1237,7 +1248,8 @@ public final class AutoQaCatalog {
         // min, party to the second pretend player, Bonding refused below its minimum then to the players below), real
         // kills paying the buffed EXP, the buff saved for a restart (052), a bot junior's real kills capped at 300 rep
         // a day, and the daily reset freeing every perk and the cap
-        c.add(Check.auto("t-fy-2", "Family perks: party, Bonding, 2x / 30 min, real kills, the cap, the reset").holds("family")
+        // the perks probe sets slums.family.bondingMin for the whole JVM (FamilyProbes) while it checks Bonding
+        c.add(Check.auto("t-fy-2", "Family perks: party, Bonding, 2x / 30 min, real kills, the cap, the reset").holds(Check.WORLD)
                 .minutes(3)
                 .expect(probe("familyPerks"))
                 .build());
@@ -1399,7 +1411,9 @@ public final class AutoQaCatalog {
                 .expect(probe("magicGuard"))
                 .build());
         // jobErrand: a watched beginner reaching level 10 walks to its instructor and advances, or falls back and advances
-        c.add(Check.auto("t-jb-1", "Job errand: a watched bot walks to its instructor and advances, or falls back").laneOnly()
+        // the probe shortens JobErrand.TIMEOUT_PROP for the whole JVM while it runs (Probes162), which would change
+        // every other lane's bots' job errands
+        c.add(Check.auto("t-jb-1", "Job errand: a watched bot walks to its instructor and advances, or falls back").holds(Check.WORLD)
                 .minutes(6)
                 .expect(probe("jobErrand"))
                 .build());

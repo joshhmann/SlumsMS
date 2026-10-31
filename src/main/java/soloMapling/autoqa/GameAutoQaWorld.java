@@ -202,8 +202,8 @@ final class GameAutoQaWorld implements AutoQaWorld {
                 case "buddy" -> buddy(me, a[0], a[1]);
                 case "buddyRoom" -> buddyRoom(me, Integer.parseInt(a[0]));
                 case "buddyFresh" -> buddyFresh(me, a[0]);
-                case "engaged" -> engaged(laneActor(caller, Integer.parseInt(a[0])));
-                case "notEngaged" -> notEngaged();
+                case "engaged" -> engaged(caller, laneActor(caller, Integer.parseInt(a[0])));
+                case "notEngaged" -> notEngaged(caller);
                 case "equipRoom" -> equipRoom(me, Integer.parseInt(a[0]));
                 case "certainBuddies" -> {
                     soloMapling.ArtificialPlayer.BotBuddies.certainFor(java.util.concurrent.TimeUnit.MINUTES.toMillis(
@@ -782,11 +782,14 @@ final class GameAutoQaWorld implements AutoQaWorld {
      * rc6 triage: t-mr-1 leaves the pretend players engaged to each other, and every later romance check's proposal
      * was refused ("already engaged"). Breaks any engagement or marriage of an online pretend player the way the
      * client's inventory "break" does (RING_ACTION mode 3 on its token or ring).
+     * <p>
+     * Only the caller's own two players (ticket-167 follow-up): it used to sweep slots 1-2, which made lane 2 break
+     * lane 1's engagement instead of its own and proved nothing about the check that asked.
      */
-    private List<String> notEngaged() {
+    private List<String> notEngaged(SyntheticPlayer caller) {
         List<String> out = new ArrayList<>();
         boolean ok = true;
-        for (int slot = 1; slot <= SyntheticPlayers.NAMES.length; slot++) {
+        for (int slot : SyntheticPlayers.lanePair(caller == null ? 0 : caller.slot())) {
             SyntheticPlayer p = SyntheticPlayers.get(slot);
             Character c = p == null ? null : p.character();
             if (c == null || c.getPartnerId() <= 0) {
@@ -811,8 +814,10 @@ final class GameAutoQaWorld implements AutoQaWorld {
         return out;
     }
 
-    private List<String> engaged(Actor other) {
-        Character a = ((SyntheticPlayer) actor(1)).character();
+    /** Both of the caller's own players engaged to each other (not slot 1 and somebody: lane 2 has its own pair). */
+    private List<String> engaged(SyntheticPlayer caller, Actor other) {
+        Character a = ((SyntheticPlayer) actor(SyntheticPlayers.lanePair(caller == null ? 0 : caller.slot())[0]))
+                .character();
         Character b = ((SyntheticPlayer) other).character();
         boolean ok = a.getPartnerId() == b.getId() && b.getPartnerId() == a.getId();
         return List.of((ok ? "PASS " : "FAIL ") + a.getName() + " partner " + a.getPartnerId() + ", " + b.getName()

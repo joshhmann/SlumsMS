@@ -79,7 +79,18 @@ holds, and the scheduler only starts a check when nothing running holds any of t
 11. Tests: scheduler never starts two checks sharing a key; a `world` check runs alone; `parallel=1` keeps catalogue
     order; two scenario runs at once keep their own state (slot mapping, log files, remembered wallets); declaration
     coverage (every AUTO/HALF check has an explicit declaration, none silently world-locked); report fields.
-12. Docs: `docs/ops/qa-suite.md` section "Parallel runs" (switch, cap, what a declaration means, how to read a
+12. Review follow-up (external agent, 2026-10-31):
+    - the lane callbacks add to a `Collections.synchronizedList`, and the run's results are rebuilt in catalogue order
+      (`AutoQaService.orderedByCatalogue`) before the release verdict, the report and the run line — finishing first
+      no longer reorders a report, and no plain `ArrayList` is written from several lane threads;
+    - `engaged` / `notEngaged` and the family perks probe act on the caller's own pair (`SyntheticPlayers.lanePair`,
+      `partnerSlot`), not on slots 1 and 2, so lane 2 no longer reads lane 1's player;
+    - eight checks that read map-wide lines or set a global property were redeclared: `t-sp-1`, `t-cb-4`, `t-id-1` hold
+      `map:104040000` + `map:104040001`, `t-bs-1` holds `map:910000001`, `t-wc-1` holds `map:100000100`, `t-vb-7`,
+      `t-jb-1` and `t-fy-2` hold the world (the last two set a system property for the whole JVM);
+    - `AutoQaSchedulerTest.checksThatReadMapWideLinesOrSetAGlobalPropertyDeclareIt` keeps that from regressing, and the
+      free-text catalogue commands were checked for literal `{` (none: only placeholders and regex quantifiers).
+13. Docs: `docs/ops/qa-suite.md` section "Parallel runs" (switch, cap, what a declaration means, how to read a
     parallel report, how to re-run a single check).
 
 ## Proof the lane session has to run

@@ -144,4 +144,44 @@ class AutoQaSchedulerTest {
         }
         assertTrue(AutoQaCatalog.find("t-af-1").laneOnly(), "a check about its own staged bot overlaps");
     }
+
+    /**
+     * Ticket-167 follow-up: a check whose evidence is what bots do on a whole map, or whose probe sets a system
+     * property for the whole server, must never share the server with another lane - the second lane's bots would
+     * land in the first one's lines, or read the other one's switch.
+     */
+    @Test
+    void checksThatReadMapWideLinesOrSetAGlobalPropertyDeclareIt() {
+        java.util.regex.Pattern mapWide = java.util.regex.Pattern.compile(
+                "MANNERS|TALLY|WEALTH |TRADE SHOP|clumpsOnMyMap");
+        List<String> mapWideChecks = new ArrayList<>();
+        List<String> propertyChecks = new ArrayList<>();
+        for (Check c : AutoQaCatalog.all()) {
+            List<String> said = new ArrayList<>();
+            for (Check.Step s : c.steps()) {
+                said.add(s.describe());
+            }
+            for (Check.Expect e : c.expects()) {
+                said.add(e.describe());
+            }
+            for (String d : said) {
+                if (mapWide.matcher(d).find()) {
+                    mapWideChecks.add(c.id());
+                    assertFalse(c.laneOnly(), c.id() + " reads the map's bots' lines (" + d.trim()
+                            + ") but declares nothing: a second lane's bots would show up in them");
+                }
+                for (String global : List.of("jobErrand", "familyPerks")) {
+                    if (d.contains(global)) {
+                        propertyChecks.add(c.id() + " " + global);
+                        assertTrue(c.holds().contains(Check.WORLD), c.id() + " runs " + global
+                                + ", which sets a system property for the whole server, but does not hold the world: "
+                                + c.holds());
+                    }
+                }
+            }
+        }
+        assertFalse(mapWideChecks.isEmpty(), "the catalogue still reads map-wide lines: " + mapWideChecks);
+        assertFalse(propertyChecks.isEmpty(), "the catalogue still runs probes that set a global property: "
+                + propertyChecks);
+    }
 }

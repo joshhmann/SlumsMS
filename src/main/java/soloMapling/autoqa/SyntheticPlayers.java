@@ -120,6 +120,25 @@ public final class SyntheticPlayers {
         return laneOfSlot(slot) != 0;
     }
 
+    /**
+     * The two slots of the lane {@code slot} plays in, GM first - what a probe that acts on "both players" (an
+     * engagement, a party, a trade) must use, so lane 2's check moves its own pair and never lane 1's. Slots 1 and 2
+     * for a slot with no lane (an observer, or no caller at all).
+     */
+    public static int[] lanePair(int slot) {
+        int lane = laneOfSlot(slot);
+        return lane == 0 ? new int[] {1, 2} : new int[] {laneSlot(lane, 1), laneSlot(lane, 2)};
+    }
+
+    /** The other player of {@code slot}'s own lane (slot 2 when {@code slot} has no lane). */
+    public static int partnerSlot(int slot) {
+        int lane = laneOfSlot(slot);
+        if (lane == 0) {
+            return 2; // no lane (an observer, or no caller): the second of the original pair
+        }
+        return slot == laneSlot(lane, 1) ? laneSlot(lane, 2) : laneSlot(lane, 1);
+    }
+
     /** True for a lane's first slot, the one with GM level 3 so it can run {@code !qa}. */
     public static boolean isGmSlot(int slot) {
         int lane = laneOfSlot(slot);

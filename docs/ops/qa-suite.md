@@ -824,8 +824,21 @@ Kerning PQ checks alone were a quarter of it. Checks can now overlap on up to fo
   `on N lanes (W s wall, C s of checks)` when N > 1. Sum of check time divided by wall clock is the speed-up.
 - **What parallel cannot fix:** a check still has to wait for the game. Two checks that stage on the same map, or that
   flip a world switch (`@botdrama`, `@romance`, `@quiet`, a guild war), stay serial. The catalogue's current split is
-  101 lane-only, 48 holding a map/PQ/market key and 37 holding the world (26 declared, plus the 11 manual checks
+  94 lane-only, 52 holding a map/PQ/market key and 40 holding the world (29 declared, plus the 11 manual checks
   that never run unless asked and keep the default).
+- **Evidence that is the map's, not the check's:** if a check judges what bots do on a whole map (`MANNERS`, `TALLY`,
+  `WEALTH`, `TRADE SHOP`, `clumpsOnMyMap`) it holds that map, and if its probe sets a system property for the whole
+  server (`jobErrand` sets `JobErrand.TIMEOUT_PROP`, `familyPerks` sets `slums.family.bondingMin`) it holds the world.
+  Ticket 167's review found six lane-only checks that read map-wide lines (t-sp-1, t-cb-4, t-id-1, t-bs-1, t-wc-1,
+  t-vb-7) and two that set a global (t-jb-1, t-fy-2); all eight now hold the map or the world, and
+  `AutoQaSchedulerTest.checksThatReadMapWideLinesOrSetAGlobalPropertyDeclareIt` walks the catalogue so a new check
+  cannot slip back to `laneOnly()`. t-vb-7 holds the world because its staging and its storage/duey/trade steps act on
+  `AutoQaTwo` by name (lane 1's second player), not on the caller's lane.
+- **A probe's "both players" is the caller's lane:** `SyntheticPlayers.lanePair(slot)` / `partnerSlot(slot)` map a
+  caller to its own two players (`laneSlot`), and `engaged` / `notEngaged` / the family perks probe use them, so lane 2
+  never reads lane 1's player. Results are collected from the lanes into a synchronized list and rebuilt in catalogue
+  order (`AutoQaService.orderedByCatalogue`) before the report, the run line and the release verdict, so finishing
+  first never reorders the report.
 
 - **A stuck Kerning PQ run fails at 8 minutes** (`-Dslums.autoqa.kpqStallMin`, default 8, 0 = off): t-mx-1 and
   t-mx-2 wait on the run's own `RUN` lines, so a run that stops reporting FAILs with "no stage cleared in 8 min"
