@@ -10,6 +10,7 @@ import re
 import time
 
 from PIL import Image, ImageChops, ImageDraw, ImageStat
+from qapipe import LABEL as QA_LABEL, QaPipe
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = {
@@ -27,6 +28,14 @@ TOOLS = {
     'mouse_click': {'x': {'type': 'integer', 'minimum': 0, 'maximum': 799},
                     'y': {'type': 'integer', 'minimum': 0, 'maximum': 599},
                     'button': {'type': 'string', 'maxLength': 6, 'enum': ['left', 'right', 'double']}},
+    # QA client (ticket 166): only with a SLUMS_QA_MODULE slums.dll (its pipes); a player build refuses these.
+    'qa_wait': {'signal': {'type': 'string', 'maxLength': 24,
+                           'enum': ['worldselect.ready', 'channels.ready', 'charselect.ready', 'field.ready']},
+                'timeout_s': {'type': 'integer', 'minimum': 1, 'maximum': 120}},
+    'qa_burst': {'fps': {'type': 'integer', 'minimum': 1, 'maximum': 30},
+                 'ms': {'type': 'integer', 'minimum': 100, 'maximum': 5000},
+                 'label': {'type': 'string', 'maxLength': 40}},
+    'run_script': {'name': {'type': 'string', 'maxLength': 48}},
     'mouse_drag': {'x1': {'type': 'integer', 'minimum': 0, 'maximum': 799},
                    'y1': {'type': 'integer', 'minimum': 0, 'maximum': 599},
                    'x2': {'type': 'integer', 'minimum': 0, 'maximum': 799},
@@ -34,7 +43,8 @@ TOOLS = {
                    'steps': {'type': 'integer', 'minimum': 1, 'maximum': 60}},
 }
 CHAT_SETTLE = 1.0   # 0.3 s still lost the "!" of the first command after login (2026-10-25)
-REQUIRED = {'command': ('line',), 'press_key': ('name',), 'mouse_click': ('x', 'y'),
+REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_script': ('name',),
+            'command': ('line',), 'press_key': ('name',), 'mouse_click': ('x', 'y'),
             'mouse_drag': ('x1', 'y1', 'x2', 'y2')}
 
 # Single taps only: no modifiers, so no Alt+F4, no Ctrl shortcuts. Value = (virtual key, extended).
@@ -134,6 +144,45 @@ def log_tail(path, lines):
     return '\n'.join(data.splitlines()[-lines:])
 
 
+SCRIPT_NAME = re.compile(r'^[a-z0-9][a-z0-9_-]{0,47}$')
+SCRIPT_TOOLS = {'start_client', 'login', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
+                'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to'}
+
+
+def utc(epoch):
+    return datetime.fromtimestamp(epoch, timezone.utc).isoformat(timespec='milliseconds')
+
+
+def utc_now():
+    return utc(time.time())
+
+
+def load_script(root, name):
+    """qa-scripts/<name>.json: {"id", "expect", "steps": [{"tool", "args", "note"}]}. Refused unless every step is a
+    known tool (run_script cannot nest) and wait_ms stays short; the agent writes these, the runner only plays them."""
+    if not SCRIPT_NAME.match(name or ''):
+        raise Refusal('A script name is a-z 0-9 _ - (1-48).')
+    path = inside(root / 'qa-scripts' / (name + '.json'), root)
+    if not path.is_file():
+        raise Refusal('No qa-scripts/' + name + '.json.')
+    raw = path.read_bytes()
+    try:
+        script = json.loads(raw.decode('utf-8-sig'))
+    except ValueError:
+        raise Refusal('qa-scripts/' + name + '.json is not valid JSON.') from None
+    steps = script.get('steps') if isinstance(script, dict) else None
+    if not isinstance(steps, list) or not 1 <= len(steps) <= 200:
+        raise Refusal('A script needs 1-200 steps.')
+    for index, step in enumerate(steps):
+        if not isinstance(step, dict) or step.get('tool') not in SCRIPT_TOOLS or not isinstance(step.get('args', {}), dict):
+            raise Refusal('Step %d: unknown tool (allowed: %s).' % (index, ', '.join(sorted(SCRIPT_TOOLS))))
+        if step['tool'] == 'wait_ms':
+            ms = step.get('args', {}).get('ms')
+            if type(ms) is not int or not 0 < ms <= 10000:
+                raise Refusal('Step %d: wait_ms needs ms 1-10000 (prefer qa_wait on a signal).' % index)
+    return raw, steps
+
+
 class Driver:
     def __init__(self, root=ROOT, backend=None):
         self.root = root
@@ -154,6 +203,7 @@ class Driver:
         self.ui = json.loads(inside(root / 'ui.json', root).read_text(encoding='utf-8'))
         from focus import Handoff
         self.focus = Handoff(root)
+        self.qa = None   # QaPipe to a SLUMS_QA_MODULE client, set by start_client when the client has one
 
     def local_config(self):
         path = inside(self.root / 'local-config.json', self.root)
@@ -425,7 +475,35 @@ class Driver:
         self.sensitive_screen = True
         self.client.start()
         self.wait('login', 60)
-        return {'state': self.state, 'pids': self.client.pids()}
+        self.qa = QaPipe.connect(self.client.pids(), timeout=5) if self.qa_build() else None
+        return {'state': self.state, 'pids': self.client.pids(), 'qa_pipe': bool(self.qa)}
+
+    def qa_build(self):
+        build = inside(self.root / 'client' / 'slums-build.txt', self.root)
+        return build.exists() and any(line.strip().startswith('release=') and line.strip().endswith('-qa')
+                                      for line in build.read_text(encoding='utf-8', errors='replace').splitlines())
+
+    def need_qa(self):
+        if not self.qa or self.qa.closed:
+            raise Refusal('No QA pipe: the client is not a running SLUMS_QA_MODULE build (start_client first).')
+        return self.qa
+
+    def qa_wait(self, signal, timeout_s=30):
+        event = self.need_qa().wait(signal, timeout_s)
+        if event is None:
+            raise Refusal('Timed out after %d s waiting for the client signal %s.' % (timeout_s, signal))
+        return {'signal': signal, 'client_ms': event.get('t')}
+
+    def qa_burst(self, fps, ms, label):
+        pipe = self.need_qa()
+        if not QA_LABEL.match(label):
+            raise Refusal('A burst label is 1-40 of A-Z a-z 0-9 - _.')
+        pipe.burst(fps, ms, label)
+        done = pipe.wait('burst.done', ms / 1000.0 + 10)
+        if done is None:
+            raise Refusal('The burst %s did not finish.' % label)
+        return {'label': label, 'frames': done.get('frames'),
+                'folder': str(self.root / 'client' / 'qa-captures' / label)}
 
     def reload_ui(self):
         # Re-read the calibration each run, so a recalibrated ui.json needs no worker restart.
@@ -451,7 +529,21 @@ class Driver:
         if screen == 'gender':
             self.click('gender_confirm')
         self.wait('world')
-        self.click('bera')
+        if self.qa:
+            # QA build: click Bera only once the world list is handled and drawn, and click again when the client
+            # shows no sign of the click (no channels.ready): the old fixed timing left an empty channel panel.
+            if self.qa.wait('worldselect.ready', 30) is None:
+                raise Refusal('The QA client never reported the world list (worldselect.ready).')
+            for attempt in range(3):
+                self.qa.drain()
+                self.click('bera')
+                if self.qa.wait('channels.ready', 4) is not None:
+                    break
+            else:
+                shot = self.save_shot('no-channels-ready', include_image=False)
+                raise Refusal('Three clicks on Bera drew no channel panel (no channels.ready); screenshot: ' + shot['path'])
+        else:
+            self.click('bera')
         self.wait('channel')
         self.click('channel_' + str(channel))
         self.click('channel_confirm')
@@ -626,10 +718,74 @@ class Driver:
         return {'dragged': [[x1, y1], [x2, y2]], 'steps': steps}
 
     def stop_client(self):
+        if self.qa:
+            self.qa.close()
+            self.qa = None
         stopped = self.client.stop()
         self.state = 'stopped'
         self.sensitive_screen = True
         return {'stopped_pids': stopped}
+
+    def run_script(self, name):
+        """Plays qa-scripts/<name>.json and records runs/<name>-<UTC>/ (ticket 166). See NOTES-QA.md."""
+        script, steps = load_script(self.root, name)
+        started = time.time()
+        stamp = datetime.fromtimestamp(started, timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+        run = inside(self.root / 'runs' / (name + '-' + stamp), self.root)
+        run.mkdir(parents=True)
+        results, labels, failed = [], [], None
+        for index, step in enumerate(steps):
+            tool, args = step['tool'], dict(step.get('args', {}))
+            entry = {'step': index, 'tool': tool, 'note': step.get('note', ''), 'start_utc': utc_now()}
+            try:
+                if tool == 'wait_ms':
+                    time.sleep(args['ms'] / 1000.0)
+                    result = {'slept_ms': args['ms']}
+                else:
+                    self.validate(tool, args)
+                    if tool == 'screenshot':
+                        result = self.save_shot(self.secrets.redact(args.get('label', 'step%d' % index)), include_image=False)
+                    else:
+                        result = getattr(self, tool)(**args)
+                if tool == 'qa_burst':
+                    labels.append(args['label'])
+                if isinstance(result, dict):
+                    result.pop('_image', None)
+                entry.update(ok=True, result=result)
+            except Exception as error:
+                message = str(error) if isinstance(error, (Refusal, self.backend.Blocked)) else type(error).__name__
+                entry.update(ok=False, error=self.secrets.redact(message))
+                failed = index
+            entry['end_utc'] = utc_now()
+            results.append(entry)
+            if failed is not None:
+                break
+        # Collect what the run made: bursts, step screenshots, client events, the client logs' tails.
+        for label in labels:
+            source = inside(self.root / 'client' / 'qa-captures' / label, self.root)
+            if source.is_dir():
+                source.rename(run / ('burst-' + label))
+        for entry in results:
+            path = (entry.get('result') or {}).get('path')
+            if path and Path(path).is_file() and Path(path).parent == self.root / 'shots':
+                Path(path).replace(run / Path(path).name)
+                entry['result']['path'] = Path(path).name
+        if self.qa:
+            with (run / 'events.jsonl').open('w', encoding='utf-8') as out:
+                for event in self.qa.events_since(started):
+                    out.write(json.dumps(event) + '\n')
+        logs = self.read_logs(200)
+        for log_name, text in logs.items():
+            (run / log_name).write_text(text or '', encoding='utf-8')
+        build = inside(self.root / 'client' / 'slums-build.txt', self.root)
+        manifest = {'script': name, 'script_sha256': hashlib.sha256(script).hexdigest(),
+                    'expect': json.loads(script).get('expect', ''),
+                    'client_build': build.read_text(encoding='utf-8').strip().splitlines() if build.exists() else [],
+                    'qa_pipe': bool(self.qa), 'start_utc': utc(started), 'end_utc': utc_now(),
+                    'result': 'ERROR' if failed is not None else 'RECORDED', 'failed_step': failed, 'steps': results}
+        (run / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+        return {'run': str(run), 'result': manifest['result'], 'failed_step': failed,
+                'steps': len(results), 'bursts': labels}
 
     def validate(self, name, args):
         if not isinstance(name, str) or name not in TOOLS or not isinstance(args, dict) or set(args) - set(TOOLS[name]):

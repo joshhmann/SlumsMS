@@ -1,0 +1,46 @@
+#!/bin/bash
+# Play one auto-QA client script on the QA box and bring its run folder back to 187 (ticket 166).
+#
+#   tools/ops/qa-run docs/qa/client-scripts/b140-heal.json        # CLIENT_MCP_TARGET=silvia|vm as for client-mcp
+#
+# 1. copies the script to <QA_ROOT>\qa-scripts\<id>.json (id = the file name without .json),
+# 2. runs it with client-mcp run_script (the worker's idle gate applies: it waits while the owner uses the PC),
+# 3. pulls <QA_ROOT>\runs\<id>-<UTC>\ to /root/work/qa-runs/<YYYY-MM-DD>/<id>-<UTC>/ and prints the manifest summary.
+# The runner only RECORDS (result RECORDED or ERROR); an agent reviews the run folder and marks PASS/FAIL.
+set -euo pipefail
+FILE="${1:?script .json}"
+ID=$(basename "$FILE" .json)
+[[ "$ID" =~ ^[a-z0-9][a-z0-9_-]{0,47}$ ]] || { echo "script file name must be a-z 0-9 _ - (1-48) .json" >&2; exit 2; }
+python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); assert isinstance(s.get("steps"), list)' "$FILE" \
+  || { echo "$FILE is not a script (JSON with steps)" >&2; exit 2; }
+here=$(cd "$(dirname "$0")" && pwd)
+TARGET="${CLIENT_MCP_TARGET:-vm}"
+case "$TARGET" in
+  vm)     KEY=~/.ssh/id_slums_winvm;      HOST=crims@192.168.0.175; QA_ROOT='C:/SlumsQA/client-mcp' ;;
+  silvia) KEY=~/.ssh/id_rsprox_desktop;   HOST=crims@192.168.0.186; QA_ROOT='Z:/MSv83/SlumsMS-dev/client-mcp' ;;
+  *) echo "CLIENT_MCP_TARGET must be vm or silvia" >&2; exit 2 ;;
+esac
+SSH=(ssh -o ConnectTimeout=10 -o IdentitiesOnly=yes -i "$KEY" "$HOST")
+"${SSH[@]}" "python -c \"import pathlib; pathlib.Path(r'$QA_ROOT/qa-scripts').mkdir(exist_ok=True)\""
+scp -q -o IdentitiesOnly=yes -i "$KEY" "$FILE" "$HOST:$QA_ROOT/qa-scripts/$ID.json"
+out=$(CLIENT_MCP_WAIT="${CLIENT_MCP_WAIT:-900}" "$here/client-mcp" run_script "{\"name\":\"$ID\"}") || { echo "$out"; exit 1; }
+echo "$out"
+run=$(python3 -c 'import json,sys
+for line in sys.stdin:
+    line=line.strip()
+    if line.startswith("{") and "\"run\"" in line:
+        print(json.loads(line)["run"].replace("\\\\","/")); break' <<<"$out")
+[ -n "$run" ] || { echo "no run folder in the reply" >&2; exit 1; }
+name=$(basename "$run")
+dest=/root/work/qa-runs/$(date -u +%F)/$name
+mkdir -p "$dest"
+scp -q -r -o IdentitiesOnly=yes -i "$KEY" "$HOST:$run/*" "$dest/"
+python3 - "$dest/manifest.json" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+print('run', sys.argv[1].rsplit('/', 1)[0])
+print('result', m['result'], 'failed_step', m['failed_step'], 'client', m['client_build'], 'qa_pipe', m['qa_pipe'])
+for s in m['steps']:
+    print(' ', s['step'], s['tool'], 'ok' if s.get('ok') else 'FAIL ' + s.get('error', ''), s.get('note', ''))
+print('expect:', m.get('expect', ''))
+PY
