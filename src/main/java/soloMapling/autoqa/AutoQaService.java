@@ -340,9 +340,9 @@ public final class AutoQaService {
     private boolean requestWatch;
 
     /**
-     * Polls {@code <dataDir>/run-request.txt} every 30 s: its first line is a request ({@code <selector> [--fast]
-     * [--failed]}), the file is deleted and the run starts as if a GM had typed it. A run already in progress keeps
-     * going and the request is reported and dropped.
+     * Polls every 30 s. When no run is going, takes the next request off the queue ({@link AutoQaRunQueue}:
+     * {@code run-queue.txt}, one line per request, plus a legacy {@code run-request.txt}) and starts it as if a GM had
+     * typed it ({@code <selector> [--fast] [--failed]}). Requests made during a run wait their turn, in order.
      */
     synchronized void watchRunRequests() {
         if (requestWatch) {
@@ -351,7 +351,10 @@ public final class AutoQaService {
         requestWatch = true;
         soloMapling.server.ExecutorServiceManager.getScheduledExecutorService().scheduleWithFixedDelay(() -> {
             try {
-                String request = takeRequest(AutoQa.dataDir().resolve(REQUEST_FILE));
+                if (running()) {
+                    return; // queued requests wait for the run in progress to end (b016)
+                }
+                String request = AutoQaRunQueue.takeNext(AutoQa.dataDir());
                 if (request != null && AutoQa.isEnabled()) {
                     AutoQa.log.info("Auto-QA run request '{}': {}", request,
                             start(parseRequest(request), "a run request", false, null));
@@ -360,6 +363,10 @@ public final class AutoQaService {
                 AutoQa.log.warn("Auto-QA run request failed", e);
             }
         }, 30, 30, TimeUnit.SECONDS);
+    }
+
+    private synchronized boolean running() {
+        return thread != null && thread.isAlive();
     }
 
     /** The request in a request file (first non-blank line, trimmed), deleting the file; null when there is none. */
