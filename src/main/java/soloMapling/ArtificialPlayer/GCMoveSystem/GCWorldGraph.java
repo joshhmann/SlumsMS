@@ -398,13 +398,16 @@ final class GCWorldGraph {
      * such portals in all) can't be taken - MapFactory has nothing to load for a player either - so it is no edge. Left
      * in, the planner could route a bot through a map that isn't there and the trap check counted it as a dead end.
      * Every readable map has a key (EMPTY when it has no portals), so a target with no key has no image.
+     *
+     * s-maproute: the same for a map the server can load but the client crashes on (server.maps.MapRouting). A player
+     * who walks into one is rerouted, so it is not a door a bot can take either: the graph and the player path agree.
      */
     static Map<Integer, int[]> dropMissingTargets(Map<Integer, int[]> g) {
         for (Map.Entry<Integer, int[]> e : g.entrySet()) {
             int[] to = e.getValue();
             int kept = 0;
             for (int t : to) {
-                if (g.containsKey(t)) {
+                if (usable(t, g)) {
                     kept++;
                 }
             }
@@ -414,13 +417,17 @@ final class GCWorldGraph {
             int[] arr = new int[kept];
             int i = 0;
             for (int t : to) {
-                if (g.containsKey(t)) {
+                if (usable(t, g)) {
                     arr[i++] = t;
                 }
             }
             e.setValue(arr);
         }
         return g;
+    }
+
+    private static boolean usable(int target, Map<Integer, int[]> g) {
+        return g.containsKey(target) && !server.maps.MapRouting.blocked(target);
     }
 
     private static void readMap(DataProvider mapSource, int area, int mapId, Map<Integer, int[]> out) {

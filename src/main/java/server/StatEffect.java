@@ -949,6 +949,9 @@ public class StatEffect {
 
                         Pair<Integer, Integer> lastBanishInfo = applyto.getLastBanishData();
                         target = applyto.getWarpMap(lastBanishInfo.getLeft());
+                        if (target == null) {   // s-maproute: that map is not reachable any more
+                            return false;
+                        }
                         pt = target.getPortal(lastBanishInfo.getRight());
                     }
                 } else {

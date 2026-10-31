@@ -220,8 +220,18 @@ public class GenericPortal implements Portal {
             return changed;
         }
         if (!(chr.getChalkboard() != null && GameConstants.isFreeMarketRoom(getTargetMapId()))) {
-            MapleMap to = chr.getEventInstance() == null ? c.getChannelServer().getMapFactory().getMap(getTargetMapId()) : chr.getEventInstance().getMapInstance(getTargetMapId());
-            Portal pto = to.getPortal(getTarget());
+            // s-maproute: the portal knows its name, so the routing table can pick the exact row for this door (and the
+            // door to arrive at in the map it sends us to). A null answer means the door leads nowhere: stay put, and
+            // enterPortal sends enableActions.
+            MapRouting.Move move = MapRouting.move(chr, getTargetMapId(), getName());
+            if (move != null && move.stay()) {
+                return changed;
+            }
+            MapleMap to = chr.getWarpMap(move == null ? getTargetMapId() : move.map(), getName());
+            if (to == null) {
+                return changed;   // the second call is idempotent: a routed id is never blocked
+            }
+            Portal pto = to.getPortal(move == null ? getTarget() : move.portal());
             if (pto == null) {// fallback for missing portals - no real life case anymore - interesting for not implemented areas
                 pto = to.getPortal(0);
             }

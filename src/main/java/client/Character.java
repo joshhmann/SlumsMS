@@ -1545,6 +1545,27 @@ public class Character extends AbstractCharacterObject {
     }
 
     public MapleMap getWarpMap(int map) {
+        return getWarpMap(map, null);
+    }
+
+    /**
+     * s-maproute: the map a warp to an id lands on, with map routing applied first. A move whose target the server
+     * cannot load, or the client crashes on, goes where the routing table sends it (and the character is told); null
+     * means the door leads nowhere and they stay where they are, already messaged.
+     */
+    public MapleMap getWarpMap(int map, String portalName) {
+        MapRouting.Move move = MapRouting.move(this, map, portalName);
+        if (move != null) {
+            if (move.stay()) {
+                return null;
+            }
+            return lookupWarpMap(move.map());
+        }
+        return lookupWarpMap(map);
+    }
+
+    /** The map object for an id, no routing: event instance first, then the carnival event map, then the channel. */
+    private MapleMap lookupWarpMap(int map) {
         MapleMap warpMap;
         EventInstanceManager eim = getEventInstance();
         if (eim != null) {
@@ -1614,6 +1635,9 @@ public class Character extends AbstractCharacterObject {
         }
 
         MapleMap map_ = getWarpMap(mapid);
+        if (map_ == null) {
+            return; // s-maproute: that door leads nowhere; getWarpMap already told the player
+        }
         Portal portal_ = map_.getPortal(portal);
         changeMap(map_, portal_ != null ? portal_ : map_.getRandomPlayerSpawnpoint());
 
@@ -1658,30 +1682,26 @@ public class Character extends AbstractCharacterObject {
             return null;
         }
 
+        MapRouting.Move move = MapRouting.move(this, map, null);   // s-maproute
+        if (move != null) {
+            return move.stay() ? null : mapManager.getMap(move.map());
+        }
         return mapManager.getMap(map);
     }
 
     public void changeMap(int map, String portal) {
-        MapleMap warpMap;
-        EventInstanceManager eim = getEventInstance();
-
-        if (eim != null) {
-            warpMap = eim.getMapInstance(map);
-        } else {
-            warpMap = client.getChannelServer().getMapFactory().getMap(map);
+        MapleMap warpMap = mapInstanceFor(map);
+        if (warpMap == null) {
+            return;
         }
 
         changeMap(warpMap, warpMap.getPortal(portal));
     }
 
     public void changeMap(int map, Portal portal) {
-        MapleMap warpMap;
-        EventInstanceManager eim = getEventInstance();
-
-        if (eim != null) {
-            warpMap = eim.getMapInstance(map);
-        } else {
-            warpMap = client.getChannelServer().getMapFactory().getMap(map);
+        MapleMap warpMap = mapInstanceFor(map);
+        if (warpMap == null) {
+            return;
         }
 
         changeMap(warpMap, portal);
@@ -1696,13 +1716,19 @@ public class Character extends AbstractCharacterObject {
     }
 
     public void changeMap(final MapleMap target, Portal pto) {
+        MapRouting.Move move = MapRouting.move(this, target.getId(), pto == null ? null : pto.getName());
+        if (move != null && move.stay()) {
+            return; // the door leads nowhere: MapRouting already sent the message and enableActions
+        }
         final boolean locked = lockWarp();
         try {
             canWarpCounter++;
             try {
                 eventChangedMap(target.getId());    // player can be dropped from an event here, hence the new warping target.
-                MapleMap to = getWarpMap(target.getId());
-                if (pto == null) {
+                MapleMap to = (move == null) ? getWarpMap(target.getId()) : lookupWarpMap(move.map());
+                if (move != null) {
+                    pto = arrivalPortal(to, move.portal(), pto);
+                } else if (pto == null) {
                     pto = to.getPortal(0);
                 }
                 changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
@@ -1719,14 +1745,43 @@ public class Character extends AbstractCharacterObject {
         }
     }
 
+    /**
+     * s-maproute: the door to arrive at when a warp was rerouted. The route's own portal when the destination map has
+     * it, else the door of the same name, else the map's first portal: a portal object that belongs to the map we
+     * could not enter must never be used as a position.
+     */
+    private static Portal arrivalPortal(MapleMap to, String routed, Portal asked) {
+        if (routed != null && !routed.isEmpty()) {
+            Portal p = to.getPortal(routed);
+            if (p != null) {
+                return p;
+            }
+        }
+        if (asked != null && asked.getName() != null) {
+            Portal p = to.getPortal(asked.getName());
+            if (p != null) {
+                return p;
+            }
+        }
+        return to.getPortal(0);
+    }
+
     public void changeMap(final MapleMap target, final Point pos) {
+        MapRouting.Move move = MapRouting.move(this, target.getId(), null);
+        if (move != null && move.stay()) {
+            return;
+        }
         final boolean locked = lockWarp();
         try {
             canWarpCounter++;
             try {
                 eventChangedMap(target.getId());
-                MapleMap to = getWarpMap(target.getId());
-                changeMapInternal(to, pos, PacketCreator.getWarpToMap(to, 0x80, pos, this));
+                MapleMap to = (move == null) ? getWarpMap(target.getId()) : lookupWarpMap(move.map());
+                Point where = pos;
+                if (move != null) {   // a coordinate of the map we could not enter means nothing in the new one
+                    where = arrivalPortal(to, move.portal(), null).getPosition();
+                }
+                changeMapInternal(to, where, PacketCreator.getWarpToMap(to, 0x80, where, this));
                 canWarpMap = false;
             } finally {
                 releaseWarpLatch();
@@ -1773,6 +1828,10 @@ public class Character extends AbstractCharacterObject {
     public void forceChangeMap(final MapleMap target, Portal pto) {
         // will actually enter the map given as parameter, regardless of being an eventmap or whatnot
 
+        MapRouting.Move move = MapRouting.move(this, target.getId(), pto == null ? null : pto.getName());
+        if (move != null && move.stay()) {
+            return; // s-maproute: the target is a map this client cannot enter; the player stays, already messaged
+        }
         canWarpCounter++;
         try {
             eventChangedMap(MapId.NONE);
@@ -1791,8 +1850,11 @@ public class Character extends AbstractCharacterObject {
                 mapEim.registerPlayer(this, false);
             }
 
-            MapleMap to = target; // warps directly to the target intead of the target's map id, this allows GMs to patrol players inside instances.
-            if (pto == null) {
+            MapleMap to = (move == null) ? target : lookupWarpMap(move.map());
+            // warps directly to the target intead of the target's map id, this allows GMs to patrol players inside instances.
+            if (move != null) {
+                pto = arrivalPortal(to, move.portal(), pto);
+            } else if (pto == null) {
                 pto = to.getPortal(0);
             }
             changeMapInternal(to, pto.getPosition(), PacketCreator.getWarpToMap(to, pto.getId(), this));
@@ -8403,6 +8465,15 @@ public class Character extends AbstractCharacterObject {
 
                         if (ret.map == null) {
                             ret.map = mapManager.getMap(MapId.HENESYS);
+                        }
+                        if (ret.map.getId() != ret.mapid) {
+                            // s-maproute: saved inside a map that cannot be entered (MapManager redirected it), or
+                            // one the client crashes on. Log in at the map they were rerouted to, on its spawn point.
+                            log.info("Chr {} was saved in map {} ({}), logging in at {}", ret.getName(), ret.mapid,
+                                    MapRouting.blocked(ret.mapid) ? MapRouting.kind(ret.mapid) : "no image",
+                                    ret.map.getId());
+                            ret.mapid = ret.map.getId();
+                            ret.initialSpawnPoint = 0;
                         }
                         Portal portal = ret.map.getPortal(ret.initialSpawnPoint);
                         if (portal == null) {

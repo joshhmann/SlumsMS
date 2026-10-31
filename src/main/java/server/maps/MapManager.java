@@ -19,6 +19,8 @@
 */
 package server.maps;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import scripting.event.EventInstanceManager;
 
 import java.util.HashMap;
@@ -28,6 +30,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class MapManager {
+    private static final Logger log = LogManager.getLogger(MapManager.class);
+
     private final int channel;
     private final int world;
     private EventInstanceManager event;
@@ -61,6 +65,16 @@ public class MapManager {
     private synchronized MapleMap loadMapFromWz(int mapid, boolean cache) {
         MapleMap map;
 
+        // s-maproute: the net for every direct factory load that bypasses a character (a script calling
+        // getMap(id), a monster or NPC spawn target). A map id the server has no image for, or that the client
+        // crashes on, is served as its routing fallback instead of loading null and throwing.
+        int routed = MapRouting.fallback(mapid);
+        if (routed >= 0) {
+            log.debug("map routing: map {} ({}) has no usable image, serving {}", mapid,
+                    MapRouting.blocked(mapid) ? MapRouting.kind(mapid) : "missing", routed);
+            mapid = routed;
+        }
+
         if (cache) {
             mapsRLock.lock();
             try {
@@ -76,7 +90,7 @@ public class MapManager {
 
         map = MapFactory.loadMapFromWz(mapid, world, channel, event);
 
-        if (cache) {
+        if (cache && map != null) {   // s-maproute: a null image must not be cached, or every later getMap NPEs
             mapsWLock.lock();
             try {
                 maps.put(mapid, map);

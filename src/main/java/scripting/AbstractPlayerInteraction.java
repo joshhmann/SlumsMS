@@ -108,7 +108,8 @@ public class AbstractPlayerInteraction {
     }
 
     public int getMarketPortalId(int mapId) {
-        return getMarketPortalId(getWarpMap(mapId));
+        MapleMap map = getWarpMap(mapId);   // s-maproute: null when the door leads nowhere
+        return map == null ? 0 : getMarketPortalId(map);
     }
 
     private int getMarketPortalId(MapleMap map) {
@@ -143,7 +144,10 @@ public class AbstractPlayerInteraction {
     public void warpParty(int map, String portalName) {
 
         int mapid = getMapId();
-        var warpMap = c.getChannelServer().getMapFactory().getMap(map);
+        var warpMap = getPlayer().getWarpMap(map, portalName);   // s-maproute: rerouted, null when it leads nowhere
+        if (warpMap == null) {
+            return;
+        }
 
         var portal = warpMap.getPortal(portalName);
 
@@ -180,7 +184,8 @@ public class AbstractPlayerInteraction {
     }
 
     public int countAllMonstersOnMap(int map) {
-        return getMap(map).countMonsters();
+        MapleMap warpMap = getMap(map);
+        return warpMap == null ? 0 : warpMap.countMonsters();
     }
 
     public int countMonster() {
@@ -188,7 +193,10 @@ public class AbstractPlayerInteraction {
     }
 
     public void resetMapObjects(int mapid) {
-        getWarpMap(mapid).resetMapObjects();
+        MapleMap map = getWarpMap(mapid);
+        if (map != null) {
+            map.resetMapObjects();
+        }
     }
 
     public EventManager getEventManager(String event) {
