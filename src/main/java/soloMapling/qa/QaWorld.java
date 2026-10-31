@@ -87,6 +87,25 @@ public interface QaWorld {
         return new java.util.ArrayList<>(List.of("not available here"));
     }
 
+    /**
+     * b140: one follower bot of an exact job and level, next to the GM and in its party, following it - the scene
+     * {@code !bot trainhere <job> <level> 1} then {@code !bot <cid> followbot} then a party join makes, without the
+     * client-side chat waits and invite window a script cannot take. Null when the bot could not be spawned or
+     * partied (a full party included), in which case nothing is left behind.
+     */
+    default StagedFollower stageFollowerBot(Character gm, int jobId, int level) {
+        return null;
+    }
+
+    /** b140: takes the staged follower out of its party and the world, and disbands a party the staging made. */
+    default void unstageFollowerBot(Character gm, StagedFollower staged) {
+        despawnBot(staged.botId());
+    }
+
+    /** b140: what {@link #stageFollowerBot} put in the world, so the undo can be exact. */
+    record StagedFollower(int botId, int partyId, boolean partyMade, int membersAtStage) {
+    }
+
     /** Spawns FM shopper bots in the GM's FM room that stay in that room; their character ids. */
     List<Integer> spawnFmShoppers(Character gm, int count);
 

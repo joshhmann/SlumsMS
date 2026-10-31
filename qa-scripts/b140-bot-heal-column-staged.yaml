@@ -1,0 +1,58 @@
+# b140, staged variant: the Bishop follower is staged server-side (!qa run hc-1: warp, one level-120 Bishop following
+# the GM, in its party, and a STAGING feed line), so this script never waits on a bot's chat or accepts a party-invite
+# window - steps the client driver cannot take yet (b140-bot-heal-column.yaml does them by hand and stays the reference).
+id: b140-bot-heal-column-staged
+title: A staged Bishop follower's party Heal shows the Heal column on a real client
+covers: [b140, q48, t-su-1]
+status: draft
+server: test
+needs: [gm]
+notes: "hc-1 warps the GM to 104040000, spawns one level-120 Bishop that follows it in its party, and logs STAGE FOLLOWER cid=... to the feed; it refuses without -Dslums.bots.partysupport=true (TEST has it). !qa stop takes the bot out (and disbands the party the run made). Captures and checks match the original b140 script; the only client work is login, !hurt and !qa stop."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  # hc-1 does the warp, the spawn and the party server-side and says so on the feed
+  - {id: scene, do: gm, line: "!qa run hc-1"}
+  - {id: on-map, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP ${me.name} -> 104040000 ", char: me}, timeout_ms: 30000}
+  - {id: staged, do: wait, armed_at: scene, signal: {type: server_line, topic: STAGING, regex: "^STAGE FOLLOWER cid=\\d+ job=BISHOP ", char: me}, timeout_ms: 30000}
+  # the bishop heals party members under 60% HP, about once every 4 s
+  - {id: hurt, do: gm, line: "!hurt ${me.name} 40"}
+  - id: heal
+    do: wait
+    armed_at: hurt
+    signal: {type: server_line, topic: COMBAT, regex: "^PARTY HEAL \\S+ -> ${me.name} ", char: me}
+    timeout_ms: 30000
+  - {id: cleanup, do: gm, line: "!qa stop"}
+captures:
+  # starts with the hurt: the heal comes within ~4 s, so this burst holds the whole column whatever the feed's delay
+  - {id: column-early, burst: {fps: 10, ms: 5000, at: {step: hurt}}}
+  # the owner's milestone burst on the server line (starts ~100-300 ms after the cast: the column's tail)
+  - {id: column-on-line, burst: {fps: 10, ms: 2000, at: {signal: heal}}}
+  - {id: hp, samples: {fields: [hp, max_hp, pos], hz: 10, span: {from: hurt, to: cleanup}}}
+  - {id: effects, packet_trace: {opcodes: [SHOW_FOREIGN_EFFECT, SHOW_ITEM_GAIN_INCHAT], direction: in, span: {from: hurt, to: cleanup}}}
+expect:
+  reviewer:
+    - see: "Over the Bishop bot, the Heal cast: its pose and the vertical light column (the same art a player's Heal shows)"
+      in: [column-early, column-on-line]
+    - see: "Over your own character, the green heal effect and the HP bar going up from about 40%"
+      in: [column-early, hp]
+  checks:
+    - {check: server_line, topic: STAGING, regex: "^STAGE FOLLOWER cid=\\d+ job=BISHOP ", char: me, min: 1}
+    - {check: server_line, topic: COMBAT, regex: "^PARTY HEAL \\S+ -> ${me.name} .* sent SHOW_FOREIGN_EFFECT/1>map", char: me, min: 1}
+    - {check: packet, opcode: SHOW_FOREIGN_EFFECT, min: 1, span: {from: hurt, to: cleanup}}
+    - {check: sample, field: hp, op: rises, span: {from: hurt, to: cleanup}}
+    - {check: client_alive}
+  judgment: "None: the column is there or not; the frames settle it."

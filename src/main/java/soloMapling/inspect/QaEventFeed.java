@@ -47,7 +47,8 @@ import java.util.regex.PatternSyntaxException;
  *       runner polls, {@link #ARM_MS}), and the lines of running {@code !qa} scenarios (STAGE, STEP, verdicts:
  *       topic {@code QA_RUN}). No journal scraping. Markers: {@code MAP_CHANGE} (a real player entered a map),
  *       {@code CHAT} (map chat and whispers), {@code MECHANICS} (KPQ "RUN ..." lines), {@code COMBAT}
- *       ({@code PARTY HEAL}, {@code FOLLOWER FIGHT}).</li>
+ *       ({@code PARTY HEAL}, {@code FOLLOWER FIGHT}), {@code STAGING} (a {@code !qa} scene staged a bot for the
+ *       caller: {@code STAGE FOLLOWER cid=...}).</li>
  * </ul>
  * {@code GET /qa/events?since=<seq>&chars=<id,id>&topics=<T,T>&match=<regex>&wait=<s>&limit=<n>} answers the lines
  * after {@code since} that pass every filter, oldest first, each with its sequence number and UTC time; with none yet

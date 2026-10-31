@@ -100,6 +100,24 @@ class FakeQaWorld implements QaWorld {
     }
     @Override public void despawnBot(int botId) { despawned.add(botId); calls.add("despawn " + botId); }
 
+    /** b140: the party slot check the real world makes (a full party stages nothing); the fake party id is 1. */
+    boolean partyFull;
+
+    @Override public QaWorld.StagedFollower stageFollowerBot(Character gm, int jobId, int level) {
+        if (partyFull) {
+            calls.add("stage follower refused");
+            return null;
+        }
+        int id = nextBot++;
+        calls.add("stage follower job " + jobId + " lv " + level + " " + id);
+        return new QaWorld.StagedFollower(id, 1, true, 1);
+    }
+
+    @Override public void unstageFollowerBot(Character gm, QaWorld.StagedFollower staged) {
+        calls.add("unstage follower " + staged.botId());
+        despawnBot(staged.botId());
+    }
+
     @Override public String openPlayerShop(Character gm, String description, List<int[]> stock) {
         for (int[] s : stock) {
             inventory.merge(s[0], -1, Integer::sum);

@@ -610,6 +610,72 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public QaWorld.StagedFollower stageFollowerBot(Character gm, int jobId, int level) {
+        MapleMap map = gm.getMap();
+        client.Job job = client.Job.getById(jobId);
+        if (map == null || job == null) {
+            return null;
+        }
+        int baseClass = job.getJobNiche(); // 1 warrior, 2 magician, 3 bowman, 4 thief: what createBot decorates by
+        if (baseClass < 1 || baseClass > 4 || level < 1 || level > 200) {
+            return null;
+        }
+        boolean made = false;
+        if (gm.getParty() == null) {
+            net.server.world.Party.createParty(gm, true); // the GM leads, so !qa stop can take it down again
+            made = gm.getParty() != null;
+        }
+        if (gm.getParty() == null || gm.getParty().getMembers().size() >= 6) {
+            return null; // no party slot for the follower
+        }
+        int partyId = gm.getParty().getId();
+        int members = gm.getParty().getMembers().size();
+        // The !bot trainhere spawn: a dynamic slot, a spot by the GM's level, the exact job.
+        int botId = BotGeneration.createBot(BotStore.nextDynamicSlot(),
+                soloMapling.ArtificialPlayer.StageSpots.nearLevel(map, gm.getPosition()), map, baseClass, level, level,
+                jobId);
+        Character bot = botId > 0 ? BotHelpers.getCharFromChannelStorage(botId) : null;
+        if (bot == null) {
+            if (made) {
+                net.server.world.Party.leaveParty(gm.getParty(), gm);
+            }
+            return null;
+        }
+        QaWorld.StagedFollower staged = new QaWorld.StagedFollower(botId, partyId, made, members);
+        soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager.markStationHere(botId);
+        BotTypeManager.BotType.TRAINING_BOT.createAndSetBot(bot);
+        BotTypeManager.manuallyStartBot(bot);
+        if (!net.server.world.Party.joinParty(bot, partyId, true)) {
+            unstageFollowerBot(gm, staged);
+            return null;
+        }
+        // Then the !bot <cid> followbot step, minus the chat round trip.
+        soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager.setPendingLeader(botId, gm.getId());
+        if (!BotTypeManager.convertBotType(bot, BotTypeManager.BotType.FOLLOWER_BOT)) {
+            unstageFollowerBot(gm, staged);
+            return null;
+        }
+        return staged;
+    }
+
+    @Override
+    public void unstageFollowerBot(Character gm, QaWorld.StagedFollower staged) {
+        if (staged == null) {
+            return;
+        }
+        Character bot = BotHelpers.getCharFromChannelStorage(staged.botId());
+        if (bot != null && bot.getParty() != null) {
+            net.server.world.Party.leaveParty(bot.getParty(), bot);
+        }
+        despawnBot(staged.botId());
+        // A party this staging made goes with it: the leader leaving disbands it.
+        if (staged.partyMade() && gm != null && gm.getParty() != null && gm.getParty().getId() == staged.partyId()
+                && gm.getParty().getMembers().size() <= 1) {
+            net.server.world.Party.leaveParty(gm.getParty(), gm);
+        }
+    }
+
+    @Override
     public void despawnBot(int botId) {
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {

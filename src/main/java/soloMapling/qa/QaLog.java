@@ -68,9 +68,10 @@ public final class QaLog {
         WORLD_EVENT,    // 1.6.0 world events: plan, warnings, starts, bots joining and dying, the boss, rewards, gossip (ev-1, ev-2)
         MAP_CHANGE,     // ticket 170 QA event feed: a real player entered a map ("MAP <name> -> <mapId> ch <n>")
         CHAT,           // ticket 170 QA event feed: map chat said by a player or a bot, whispers to and from a player
-        MECHANICS;      // ticket 170 QA event feed: every "RUN ..." line a mechanics run (KPQ) reports, any starter
+        MECHANICS,      // ticket 170 QA event feed: every "RUN ..." line a mechanics run (KPQ) reports, any starter
+        STAGING;        // b140: a !qa scene staged for the caller ("STAGE FOLLOWER cid=..."), chars = the GM's id
 
-        final long bit = 1L << ordinal(); // a long: 33 topics no longer fit an int
+        final long bit = 1L << ordinal(); // a long: 34 topics no longer fit an int
     }
 
     private static volatile long mask;

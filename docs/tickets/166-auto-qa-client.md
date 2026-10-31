@@ -51,6 +51,19 @@ everything. The agent writes scripts and reviews recordings; it never steers liv
 - Each server auto-QA check that is HALF/MANUAL today gets a client script where it can (t-cl-*, t-rg-*, t-mv-1,
   t-jq-1, t-ga-4, t-mr-2, t-cc-1, and the b140/b233/b167 visual checks).
 
+### Stage hooks landed (branch 162-b140stage)
+
+- `!qa run hc-1` (`HealColumnScenarios`, `QaWorld.stageFollowerBot` / `unstageFollowerBot`) stages the b140 scene
+  server-side for the calling GM: the warp to 104040000, one Bishop follower (the `!bot trainhere` spawn + follow +
+  party join) and one `STAGING` feed line (`STAGE FOLLOWER cid=... job=BISHOP lv=... party=... gm=... id=... map=...`)
+  whose chars are the GM's id. `!qa stop` takes the bot out of the party and the world and disbands a party the run
+  made. It refuses without `-Dslums.bots.partysupport=true` (the party heal's switch) and with a full party.
+- `qa-scripts/b140-bot-heal-column-staged.yaml` is the milestone script on that hook: built client signals for login,
+  server lines for everything after (`MAP_CHANGE`, `STAGING`, `COMBAT`), `!hurt`, the 10 fps burst from the hurt, a
+  second burst on the heal line, HP samples and a `SHOW_FOREIGN_EFFECT` packet check. No chat wait, no invite window.
+- The by-hand `qa-scripts/b140-bot-heal-column.yaml` stays for the day the driver can do chat and window anchors; the
+  two share captures and checks.
+
 ## Lanes
 
 - Client lane: the QA client build, the runner, the recorder, the anchor table.
