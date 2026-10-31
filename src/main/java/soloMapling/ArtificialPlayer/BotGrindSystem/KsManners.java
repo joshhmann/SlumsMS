@@ -216,10 +216,20 @@ public final class KsManners {
 
     static boolean sharedMob(MapleMap map, Monster m) {
         try {
-            return eventMob.test(map, m);
+            return pqInstance(map) || eventMob.test(map, m);
         } catch (RuntimeException e) {
             return false;
         }
+    }
+
+    /*
+     * 1.6.2 (KPQ pace, b153/b204): a party quest's or other event script's instance map (MapleMap.getEventInstance:
+     * KPQ's stages, OPQ, boss runs) is the party's own; its mobs are there for the party to kill together, so no one on
+     * it holds a mob against the others (a visible GM or a member outside the bots' party used to fence the Ligators
+     * around him off from every bot). One rule with the world-event exemption above.
+     */
+    static boolean pqInstance(MapleMap map) {
+        return map != null && map.getEventInstance() != null;
     }
 
     /** Test seam: which mobs a world event spawned (null: the real WorldEvents). */

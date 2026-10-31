@@ -252,7 +252,7 @@ public final class Orchestrator implements RunOrchestrator {
     /**
      * A real leader (bot audit K4, K5). Only he can do the leader's part (the scripts check {@code isEventLeader}),
      * and he is never steered: when it is his turn (passes in, formation ready) one bot reminds him in party chat,
-     * 20 s after his turn came and every 40 s after, so a run with a player leader always says what it waits for. When
+     * after his turn came and again every little while ({@link StageSolver#leaderPromptTiming}), so a run with a player leader always says what it waits for. When
      * he is dead the bots stop where they are and one asks him to get up (his revive outside the PQ ends the run).
      */
     private void realLeader(RunState run, StageView view, StageSolver solver, Stage stage, RunMember leader,
@@ -284,8 +284,8 @@ public final class Orchestrator implements RunOrchestrator {
         Object since = mem.putIfAbsent("leaderTurnSince", nowMs);
         long turn = since == null ? nowMs : (Long) since;
         Object last = mem.get("leaderPromptAt");
-        boolean due = last == null ? nowMs - turn >= LEADER_PROMPT_FIRST_MS
-                : nowMs - (Long) last >= LEADER_PROMPT_EVERY_MS;
+        long[] timing = solver.leaderPromptTiming();
+        boolean due = last == null ? nowMs - turn >= timing[0] : nowMs - (Long) last >= timing[1];
         if (due && speaker != null) {
             mem.put("leaderPromptAt", nowMs);
             steps.put(speaker, new SolverStep.Say(prompt.get()));

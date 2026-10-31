@@ -48,4 +48,26 @@ class KsMannersAtHitTest {
         assertFalse(BotAttackDriver.mayTarget(bot, theirs), "the player stands by it now: not the bot's to hit");
         assertTrue(BotAttackDriver.mayTarget(bot, free));
     }
+
+    /**
+     * 1.6.2 (KPQ pace): a party quest's instance map is the party's; a visible player there who is not in the bots'
+     * party (a watching GM by Cloto) no longer fences off the Ligators by him. Same rule as world-event mobs.
+     */
+    @Test
+    void aPartyQuestInstancesMobsAreNobodysToHoldAgainstTheBots() {
+        MapleMap map = mock(MapleMap.class);
+        when(map.getEventInstance()).thenReturn(mock(scripting.event.EventInstanceManager.class));
+        Character bot = mock(Character.class);
+        when(bot.getId()).thenReturn(BOT);
+        when(bot.getMap()).thenReturn(map);
+        when(bot.getPosition()).thenReturn(new Point(0, 0));
+        Character gm = mock(Character.class);
+        when(gm.getId()).thenReturn(PLAYER);
+        when(gm.getMap()).thenReturn(map);
+        when(gm.getPosition()).thenReturn(new Point(120, 0));
+        when(map.getCharacters()).thenReturn(List.of(bot, gm));
+        Monster ligator = mock(Monster.class);
+        when(ligator.getPosition()).thenReturn(new Point(100, 0));
+        assertTrue(BotAttackDriver.mayTarget(bot, ligator), "a PQ stage's mob is the party's to kill");
+    }
 }

@@ -238,12 +238,33 @@ public final class MechanicsRuns {
         for (int i = eventsBefore; i < events.size(); i++) {
             a.reporter.accept("RUN " + events.get(i).line());
         }
+        List<Character> driven = new ArrayList<>(steps.size());
         for (Map.Entry<Integer, SolverStep> e : steps.entrySet()) {
             Character bot = view.character(e.getKey());
             if (bot == null || bot.getMap() == null || bot.getHp() <= 0) {
                 continue; // gone, between maps or dead: next tick
             }
+            driven.add(bot);
             executor.execute(a.run, o, view, bot, e.getValue(), now, a.reporter);
+        }
+        keepPhysics(driven, GCMovement::holdFullPhysics);
+    }
+
+    /*
+     * 1.6.2 (b153): the maps a run's bots stand on keep full movement physics while the run drives them. With no real
+     * player there (a bot-only lobby or staged run) the movement LOD went coarse, and the coarse planner lands a bot
+     * on the floor under a goal it cannot plan to: on TEST (d4f103b0e) t-mx-1/t-mx-2's bots stood at the same few
+     * points for minutes (STALL lines, 0-2 swings in 9-15 min) while a player-led run's bots farmed 5-7 coupons a
+     * minute. Once per distinct map instance per tick; the hold lapses ~2 s after the run stops calling it.
+     */
+    static void keepPhysics(List<Character> bots, Consumer<server.maps.MapleMap> hold) {
+        List<server.maps.MapleMap> done = new ArrayList<>(2);
+        for (Character bot : bots) {
+            server.maps.MapleMap map = bot == null ? null : bot.getMap();
+            if (map != null && done.stream().noneMatch(m -> m == map)) {
+                done.add(map);
+                hold.accept(map);
+            }
         }
     }
 

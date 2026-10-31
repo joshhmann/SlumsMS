@@ -914,6 +914,15 @@ public final class GCMovement {
     }
 
     /*
+     * 1.6.2 (b153): full movement physics on this map for a short window (about 2 s), without counting it as watched.
+     * Unwatched bots otherwise move by the coarse planner, which lands them on the nearest floor under a goal it
+     * cannot plan to: a bot-only KPQ run's bots stood still under their Ligators for minutes (t-mx-1/t-mx-2).
+     */
+    public static void holdFullPhysics(MapleMap map) {
+        ObserverTracker.holdFullPhysics(map);
+    }
+
+    /*
      * Force mapId to FULL ("observed") immediately for a short window, regardless of the ~1s observer
      * poll - so visible movement / combat / broadcast resume the same tick a real player arrives,
      * instead of up to one poll later. Used by BotMapEntryResponder when a real player enters a map.
@@ -999,6 +1008,36 @@ public final class GCMovement {
         int ra = g.findRegionId(map, new Point(ax, ay));
         int rb = g.findRegionId(map, new Point(bx, by));
         return ra >= 0 && rb >= 0 && ra != rb;
+    }
+
+    /** {@link #pathCostMs}: no walking route between the two points. */
+    public static final int UNREACHABLE = Integer.MAX_VALUE;
+
+    /*
+     * 1.6.2 (KPQ pace, b153/b204): what walking from (ax,ay) to (bx,by) costs in ms on the map's ALREADY-baked nav
+     * graph (peek only, never a build): the planner's walk-only optimal route (the same ledge is its walk; another
+     * ledge its ropes, jumps and falls), UNREACHABLE when the planner finds none. When the graph is not baked or a
+     * point is on no ledge it cannot tell and falls back to the straight distance at walking pace (never blanks a pick).
+     */
+    public static int pathCostMs(MapleMap map, int ax, int ay, int bx, int by) {
+        int straight = (int) Math.min(Integer.MAX_VALUE - 1L, Math.round(Point.distance(ax, ay, bx, by) * 8));
+        BotNavigationGraph g = map == null ? null : BotNavigationGraphProvider.peekGraph(map);
+        if (g == null) {
+            return straight;
+        }
+        try {
+            Point a = new Point(ax, ay);
+            Point b = new Point(bx, by);
+            int ra = g.findRegionId(map, a);
+            int rb = g.findRegionId(map, b);
+            if (ra < 0 || rb < 0) {
+                return straight;
+            }
+            int cost = BotNavigationManager.runSearch(g, map, a, ra, rb, b, null, true, false, 0L).cost();
+            return cost == Integer.MAX_VALUE ? UNREACHABLE : cost;
+        } catch (RuntimeException e) {
+            return straight;
+        }
     }
 
     /* The set of region ids reachable from the ledge under (fromX,fromY) (empty if it's on none). */

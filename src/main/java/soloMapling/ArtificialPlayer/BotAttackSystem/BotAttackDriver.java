@@ -788,6 +788,92 @@ public final class BotAttackDriver {
                 && (m.getStats() == null || !m.getStats().isFriendly());
     }
 
+    /** What walking between two points costs (ms), or {@link GCMovement#UNREACHABLE}; tests stub it. */
+    public interface PathCost {
+        int ms(MapleMap map, Point from, Point to);
+    }
+
+    public static final PathCost NAV_PATH_COST = (map, a, b) -> GCMovement.pathCostMs(map, a.x, a.y, b.x, b.y);
+    /** The path cost {@link #pickTarget} ranks by. */
+    public static volatile PathCost pathCost = NAV_PATH_COST;
+
+    /**
+     * 1.6.2 (KPQ pace, b153/b204): the one target rule for a bot that walks to its mob and then swings (the PQ
+     * executor's Fight step). The candidates are the ones the swing itself would hit ({@link #mayTarget}: no friendly
+     * or transparent mob, an alt's own filter, KS manners), of {@code mobId} when it is above 0, minus those
+     * {@code skip} rules out; the pick is the cheapest to walk to (the nav planner's route, so a mob on a platform
+     * overhead ranks by the climb, not by the straight line) and a mob no walk reaches is never picked. Before, the
+     * executor took the nearest by straight distance and judged reach by |dy| alone, while the swing skips a mob on
+     * another ledge: bots parked under (or hung on the rope next to) Ligators they could never hit. Null: none.
+     */
+    public static Monster pickTarget(Character bot, int mobId, java.util.function.Predicate<Monster> skip) {
+        return pickTarget(bot, mobId, skip, null);
+    }
+
+    /** As above; {@code extraMs} adds to a mob's walk cost (a party mate already goes for it), or null. */
+    public static Monster pickTarget(Character bot, int mobId, java.util.function.Predicate<Monster> skip,
+                                     java.util.function.ToIntFunction<Monster> extraMs) {
+        MapleMap map = bot == null ? null : bot.getMap();
+        if (map == null || bot.getPosition() == null) {
+            return null;
+        }
+        Monster best = null;
+        int bestCost = Integer.MAX_VALUE;
+        for (Monster m : map.getAllMonsters()) {
+            if (m == null || !m.isAlive() || m.getPosition() == null || (mobId > 0 && m.getId() != mobId)
+                    || (skip != null && skip.test(m))
+                    || !pickable(bot, m)) {
+                continue;
+            }
+            int cost = costTo(bot, m);
+            if (cost != GCMovement.UNREACHABLE && extraMs != null) {
+                cost = (int) Math.min(Integer.MAX_VALUE - 1L, (long) cost + extraMs.applyAsInt(m));
+            }
+            if (cost != GCMovement.UNREACHABLE && cost < bestCost) {
+                bestCost = cost;
+                best = m;
+            }
+        }
+        return best;
+    }
+
+    /** A mob the swing would hit once in reach ({@link #mayTarget}), with a position. */
+    public static boolean pickable(Character bot, Monster m) {
+        return m != null && m.getPosition() != null && mayTarget(bot, m);
+    }
+
+    /**
+     * What walking to {@code m} costs this bot (ms): across its own ledge at walking pace, else the nav planner's
+     * route ({@link #pathCost}); {@link GCMovement#UNREACHABLE} when no walk gets there.
+     */
+    public static int costTo(Character bot, Monster m) {
+        Point at = bot.getPosition();
+        Point mp = m.getPosition();
+        if (at == null || mp == null) {
+            return GCMovement.UNREACHABLE;
+        }
+        if (onAttackableSurface(bot.getMap(), at, m)) {
+            return (int) Math.min(Integer.MAX_VALUE - 1L, Math.abs(mp.x - at.x) * 8L);
+        }
+        return pathCost.ms(bot.getMap(), at, mp);
+    }
+
+    /**
+     * Whether a bot at {@code at} can swing at {@code m} from where it stands: the mob on a surface it can strike
+     * ({@link #onAttackableSurface}, as the swing asks) and within {@code reachX} across and {@code reachY} up/down.
+     * The executor's "close enough" test, the same ledge rule as the swing's.
+     */
+    public static boolean canSwingFrom(MapleMap map, Point at, Monster m, int reachX, int reachY) {
+        Point mp = m.getPosition();
+        return mp != null && at != null && Math.abs(mp.x - at.x) <= reachX && Math.abs(mp.y - at.y) <= reachY
+                && onAttackableSurface(map, at, m);
+    }
+
+    /** A swing's miss that means no mob it may hit stands near (none, or all on another ledge). */
+    public static boolean noTargetableMob(AttackResult r) {
+        return r != null && !r.hit() && r.reason() != null && r.reason().startsWith("no targetable mobs");
+    }
+
     private static Monster nearestMob(Character bot) {
         Point botPos = bot.getPosition();
         if (botPos == null) {
