@@ -220,6 +220,7 @@ class Driver:
         from focus import Handoff
         self.focus = Handoff(root)
         self.qa = None   # QaPipe to a SLUMS_QA_MODULE client, set by start_client when the client has one
+        self.chat_primed = True   # False after start_client: the first chat line after a login loses its first key
         self.qa_last = None
 
     def local_config(self):
@@ -491,6 +492,7 @@ class Driver:
                 raise Refusal('Missing screen template: ' + screen)
         self.sensitive_screen = True
         self.client.start()
+        self.chat_primed = False
         self.wait('login', 60)
         self.qa = QaPipe.connect(self.client.pids(), timeout=5) if self.qa_build() else None
         return {'state': self.state, 'pids': self.client.pids(), 'qa_pipe': bool(self.qa)}
@@ -709,6 +711,13 @@ class Driver:
         return {'slot': slot, 'character': point}
 
     def command(self, line):
+        if not self.chat_primed:
+            # The first chat line after a login loses its first key even with the Backspace below (the "!" of !warp
+            # went out as plain chat in the first scripted b140 run, 2026-10-31 09:25 UTC). login() always sent
+            # !unhide first, which absorbed it; the scripted login (select_* steps) doesn't, so do the same here.
+            self.chat_primed = True
+            self.command('!unhide')
+            time.sleep(CHAT_SETTLE)
         self.endpoint()
         if not line or len(line) > 160 or any(ord(ch) < 32 for ch in line):
             raise Refusal('Chat line must be 1–160 printable characters, with no newlines.')
