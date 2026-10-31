@@ -8,8 +8,8 @@ Our server WZ carries maps from newer game versions. Two things can go wrong whe
 saved character points at one of them:
 
 1. **missing** - the map id is not in the server's `Map.wz` at all (`MapFactory.loadMapFromWz` then throws: the image
-   data is null). 32 such targets behind 50 unscripted portals today, e.g. Fountain Square (410000300) `in00` ->
-   Storage Cellar (993162016), plus 16 more behind portal and NPC scripts (Evan's rooms, the dragon mounts).
+   data is null). 38 such targets today, e.g. Fountain Square (410000300) `in00` -> Storage Cellar (993162016), and a
+   few of them are named by portal, NPC and event scripts too.
 2. **client-crash** - the map loads on the server but the v83 client cannot render it, and the client dies on entry
    (410000350 today; the Client lane sends the rest of the list).
 
