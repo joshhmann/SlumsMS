@@ -11,6 +11,7 @@ import soloMapling.Economy.exchange.Ledger.Kind;
 import soloMapling.Economy.exchange.Ledger.Posting;
 import soloMapling.Economy.exchange.Ledger.Why;
 import soloMapling.Economy.exchange.OrderBook.Side;
+import soloMapling.Economy.exchange.volatility.MarketConfig;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -389,7 +390,9 @@ public final class Exchange {
             if (e.getKey().kind() == Kind.FEEHOLD && e.getValue() > 0) {
                 feeHold.put(e.getKey().id(), e.getValue());
             }
-            if (e.getKey().kind() == Kind.PAYOUT && botAccount(e.getKey().id()) && e.getValue() > 0) {
+            // a bot's NX purse stays in PAYOUT (no wallet can take it): never a collection to retry
+            if (e.getKey().kind() == Kind.PAYOUT && botAccount(e.getKey().id()) && e.getValue() > 0
+                    && e.getKey().asset() != Asset.NX) {
                 botPayouts.add(e.getKey().id());
             }
         }
@@ -949,7 +952,10 @@ public final class Exchange {
         List<Posting> postings = new ArrayList<>();
         Asset sold = t.asset();
         boolean bot = regular == 0 && botAccount(account);
+        // 1.6.2: a trader bot's NX is held for it in PAYOUT (it has no cash shop), so an NX sell spends the purse
+        boolean purse = bot && sold == Asset.NX && side == Side.SELL;
         Bucket source = regular > 0 ? Bucket.house(side == Side.SELL ? sold : Asset.MESO, regular)
+                : purse ? Bucket.payout(Asset.NX, account)
                 : bot ? Bucket.bot(side == Side.SELL ? sold : Asset.MESO, character)
                 : side == Side.BUY ? Bucket.wallet(Asset.MESO, character)
                 : sold.perCharacter() ? Bucket.wallet(sold, character) : Bucket.wallet(Asset.NX, account);
@@ -1589,10 +1595,16 @@ public final class Exchange {
 
     /**
      * A trader bot's order, from its own bags and mesos ({@code w} is the bot's {@code BotTraderWallet}; the order's
-     * account and character are both the bot's character id). Item tickers only, every player limit applies (5 open
-     * per ticker, the day's count, the cooldown, the fee). Under the bot's lock: take the escrow out of the bot, save
-     * the bot (so a crash from here on loses the escrow rather than duplicating it), then write the order; a refused
-     * order gives it back. Nothing is minted: what a bot cannot pay it does not post.
+     * account and character are both the bot's character id). Every player limit applies (5 open per ticker, the day's
+     * count, the cooldown, the fee). Under the bot's lock: take the escrow out of the bot, save the bot (so a crash
+     * from here on loses the escrow rather than duplicating it), then write the order; a refused order gives it back.
+     * Nothing is minted: what a bot cannot pay it does not post.
+     * <p>
+     * 1.6.2 (owner: bots trade NX too, {@code -Dslums.exchange.traders.nx}): the NX ticker is open to bots as well.
+     * Bots have no cash shop of their own, so their NX is held for them inside the exchange ({@link #botNx}: the NX
+     * they bought from a player, never granted). An NX sell draws on that purse in the same transaction as the order,
+     * so it cannot be sold twice; an NX buy pays mesos out of the bot as any other buy. Inside the NX band as well
+     * ({@link #nxBand}), which {@link #place} enforces for every trader.
      */
     public synchronized Response placeBot(Place p, LiveWallet w) {
         String rid = p.requestId();
@@ -1610,24 +1622,35 @@ public final class Exchange {
             return Response.error(rid, "BAD_REQUEST", bad);
         }
         Ticker t = tickers.get(p.ticker());
-        if (!t.item()) {
+        boolean nx = Ticker.NX.equals(t.id());
+        if (!t.item() && !(nx && MarketConfig.tradersNxOn())) {
             return Response.error(rid, "BAD_REQUEST", "trader bots trade item tickers only");
         }
         long now = clock.getAsLong();
+        // the players' NX band applies to a bot too: an NX order nobody inside it could fill is a dead order
+        Response guarded = priceBand(rid, p);
+        if (guarded != null) {
+            return guarded;
+        }
         String limit = limits(p.account(), t, now);
         if (limit != null) {
             return Response.error(rid, limit, limitMessage(limit, t, p.account(), now));
         }
         Asset a = p.side() == Side.SELL ? t.asset() : Asset.MESO;
         long amount = p.side() == Side.SELL ? p.nx() : t.buyTotal(config, p.nx(), p.price());
+        boolean purse = nx && p.side() == Side.SELL;   // the bot's NX sits in the ledger, not in a wallet
         return w.locked(() -> {
             if (!w.usable()) {
                 return Response.error(rid, "TRY_AGAIN", "the bot is not in the game");
             }
-            if (w.have(a) < amount || !w.take(a, amount)) {
+            if (purse) {
+                if (botNx(p.account()) < p.nx()) {
+                    return Response.error(rid, "INSUFFICIENT_FUNDS",
+                            "the bot has fewer than " + p.nx() + " " + unitName(a));
+                }
+            } else if (w.have(a) < amount || !w.take(a, amount)) {
                 return Response.error(rid, "INSUFFICIENT_FUNDS", "the bot has fewer than " + amount + " " + unitName(a));
-            }
-            if (!w.saveNow()) {
+            } else if (!w.saveNow()) {
                 giveBack(w, a, amount, "an unsaved bot place " + rid);
                 return Response.error(rid, "ERROR", "could not save the bot first");
             }
@@ -1637,17 +1660,21 @@ public final class Exchange {
                 placed = placeOrder(rid, p.account(), p.character(), 0, t, p.side(), p.price(), p.nx(), now, null);
             } catch (RuntimeException e) {
                 if (!committed) {
-                    giveBack(w, a, amount, "a failed bot place " + rid);
-                    w.saveNow();
+                    if (!purse) {
+                        giveBack(w, a, amount, "a failed bot place " + rid);
+                        w.saveNow();
+                    }
                 } else {
                     halt("bot place " + rid + " failed after its commit: " + e);
                 }
-                log.error("NX exchange: bot place {} failed", rid, e);
+                log.error("exchange: bot place {} failed", rid, e);
                 return Response.error(rid, "ERROR", "try again later");
             }
             if (!placed.ok()) {
-                giveBack(w, a, amount, "a refused bot place " + rid);
-                w.saveNow();
+                if (!purse) {
+                    giveBack(w, a, amount, "a refused bot place " + rid);
+                    w.saveNow();
+                }
             } else {
                 collectBotLocked(w);
             }
@@ -1704,6 +1731,23 @@ public final class Exchange {
             return n;
         } catch (StoreException e) {
             return t.perDay();
+        }
+    }
+
+    /**
+     * 1.6.2: the NX the exchange holds for a trader bot (0: none, not a bot, or the store failed). A bot has no cash
+     * shop account of its own, so NX it buys stays in its PAYOUT bucket until it sells it back (see {@link #placeBot});
+     * nothing is ever granted to a bot's purse.
+     */
+    public synchronized long botNx(long account) {
+        if (!recovered || !botAccount(account)) {
+            return 0;
+        }
+        try {
+            return Math.max(0, store.balance(Bucket.payout(Asset.NX, account)));
+        } catch (StoreException e) {
+            log.warn("exchange: could not read bot {}'s NX purse", account, e);
+            return 0;
         }
     }
 

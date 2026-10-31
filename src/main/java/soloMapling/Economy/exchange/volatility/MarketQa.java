@@ -6,6 +6,7 @@ import soloMapling.Economy.exchange.ExchangeStore.OrderRow;
 import soloMapling.Economy.exchange.Ledger.Asset;
 import soloMapling.Economy.exchange.LiveWallet;
 import soloMapling.Economy.exchange.OrderBook.Side;
+import soloMapling.Economy.exchange.Ticker;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -194,6 +195,117 @@ public final class MarketQa {
                     w.have(Asset.LEAF), w.have(Asset.CHAOS), w.have(Asset.WS), w.have(Asset.ELIXIR)));
         }
         return "traders " + roster.traders().size() + ", online " + online + ": " + sb;
+    }
+
+    /**
+     * t-xc-5 / {@code !qa run xc-5} (162-xtraders, owner 2026-10-31: "waking up chaos and WS"): a trader that holds a
+     * Chaos or White Scroll offers that scroll on the next turn instead of rolling the LEAF dice - until 1.6.2 the dice
+     * alone decided, so no bot ever quoted one of the 27 Chaos Scrolls bots already held and the ticker had no fills.
+     * The check reads every online holder's pick ({@link MarketTraders#heldScroll}), then places and cancels one SELL
+     * of the scroll through the exchange exactly as the trader would (its own holdings, the price band, 1% fee), and
+     * sees the scroll come back. Nothing is minted: with no holder online it SKIPs and says why.
+     */
+    public static List<String> scrollCheck(long now) {
+        MarketVolatility mv = MarketVolatility.get();
+        Exchange ex = ExchangeService.exchange();
+        if (mv == null || ex == null || !mv.config().traders()) {
+            return List.of("SKIP trader bots are off (-Dslums.exchange=true -Dslums.exchange.traders=true)");
+        }
+        return scrollCheck(ex, mv.gameRoster(now), now);
+    }
+
+    /** The check itself, against a roster and a clock (tests pass a fixed clock). First line PASS / FAIL / SKIP. */
+    static List<String> scrollCheck(Exchange ex, MarketTraders.Roster roster, long now) {
+        List<String> out = new ArrayList<>();
+        List<String> bad = new ArrayList<>();
+        List<Ticker> scrolls = new ArrayList<>();
+        for (Ticker k : ex.tickers()) {
+            if (k.item() && ex.open(k.id()) && MarketTraders.SCROLL_IDS.contains(k.id())) {
+                scrolls.add(k);
+            }
+        }
+        if (scrolls.isEmpty()) {
+            return List.of("SKIP no scroll ticker is open (-Dslums.exchange.tickers)");
+        }
+        record Cand(MarketTraders.Trader t, LiveWallet w, Ticker k) {
+        }
+        List<Cand> holders = new ArrayList<>();
+        int online = 0;
+        for (MarketTraders.Trader t : roster.traders()) {
+            LiveWallet w = roster.walletOf(t);
+            if (w == null) {
+                continue;
+            }
+            online++;
+            for (Ticker k : scrolls) {
+                if (w.have(k.asset()) > 0) {
+                    holders.add(new Cand(t, w, k));
+                }
+            }
+        }
+        if (holders.isEmpty()) {
+            return List.of("SKIP no online trader holds a Chaos or White Scroll yet: a trader finds them by hunting at "
+                    + "the real drop chance (one global row each, 1200 per million, about 2.2 per trader-hour), so run "
+                    + "this again later (" + online + " traders online)");
+        }
+        for (Cand c : holders) {
+            Ticker pick = MarketTraders.heldScroll(scrolls, c.w());
+            out.add("trader " + c.t.id() + " (" + c.t.archetype() + ") holds " + c.w().have(c.k.asset()) + " " + c.k.id()
+                    + "; its pick is " + (pick == null ? "none" : pick.id()));
+            if (pick == null || !pick.id().equals(c.k.id())) {
+                bad.add("trader " + c.t.id() + " held " + c.k.id() + " and picked "
+                        + (pick == null ? "no scroll at all" : pick.id()));
+            }
+        }
+        // a real order through the exchange, from the trader's own holdings: the first SELL its own decision makes
+        Cand c = holders.get(0);
+        Ticker tk = c.k;
+        TraderBrain.View v = MarketTraders.view(ex, tk, now, 0, FairValue.of(tk.id()));
+        List<TraderBrain.Open> open = new ArrayList<>();
+        for (OrderRow r : ex.openBotOrders(c.w.account(), tk.id())) {
+            open.add(new TraderBrain.Open(r.id(), r.side(), r.price(), r.nxLeft(), r.placedAt()));
+        }
+        TraderBrain.Holdings h = new TraderBrain.Holdings(c.w.have(Asset.MESO), c.w.have(tk.asset()), open,
+                Math.max(0, tk.perDay() - ex.placedToday(c.w.account(), tk.id())), tk.maxOpen());
+        TraderBrain.Place sell = null;
+        for (int seed = 1; seed <= 20 && sell == null; seed++) {
+            for (TraderBrain.Action a : TraderBrain.decide(c.t.archetype(), v, h, now, new java.util.Random(seed))) {
+                if (a instanceof TraderBrain.Place p && p.side() == Side.SELL) {
+                    sell = p;
+                    break;
+                }
+            }
+        }
+        if (sell == null) {
+            bad.add("no turn of trader " + c.t.id() + " (" + c.t.archetype() + ") would ever sell the " + tk.id()
+                    + " it holds");
+        } else {
+            long have0 = c.w.have(tk.asset()), meso0 = c.w.have(Asset.MESO);
+            Exchange.Response r = ex.placeBot(new Exchange.Place("qa-xc5-" + c.t.id() + "-" + now, c.w.account(),
+                    c.w.character(), Side.SELL, sell.price(), sell.qty(), tk.id()), c.w);
+            if (!r.ok()) {
+                out.add("the sell of " + sell.qty() + " " + tk.id() + " at " + sell.price() + " was refused: "
+                        + r.code() + " " + r.message());
+                bad.add("the trader's " + tk.id() + " sell was refused: " + r.code());
+            } else {
+                long id = ((Number) r.data().get("orderId")).longValue();
+                boolean onBook = ex.openBotOrders(c.w.account(), tk.id()).stream().anyMatch(o -> o.id() == id);
+                long held = have0 - c.w.have(tk.asset());
+                boolean inBand = sell.price() >= tk.minPrice() && sell.price() <= tk.maxPrice();
+                Exchange.Response can = ex.cancelBot("qa-xc5-cancel-" + id, c.w, id);
+                long back = c.w.have(tk.asset());
+                out.add("sold " + sell.qty() + " " + tk.id() + " at " + sell.price() + " (order " + id
+                        + (onBook ? ", on the book" : ", NOT on the book") + (inBand ? "" : ", OUTSIDE the band "
+                        + tk.minPrice() + ".." + tk.maxPrice()) + "), " + held + " escrowed from its own holdings; "
+                        + "cancel " + can.code() + ", " + tk.id() + " " + have0 + " -> " + back + ", mesos "
+                        + meso0 + " -> " + c.w.have(Asset.MESO));
+                if (!onBook || held != sell.qty() || !inBand || !can.ok() || back != have0) {
+                    bad.add("the trader's " + tk.id() + " order did not post, hold, price in band and cancel cleanly");
+                }
+            }
+        }
+        out.add(0, bad.isEmpty() ? "PASS a scroll holder lists its scroll" : "FAIL " + String.join("; ", bad));
+        return out;
     }
 
     /**

@@ -43,15 +43,32 @@ public final class TraderBrain {
      * @param pressure    where the events and rumours the bot knows push the price (+ up, - down; about -2..2)
      * @param bandLo      the lowest price a bot may quote ({@link #BAND} under the anchor; 0 with no band)
      * @param bandHi      the highest ({@link #BAND} over the anchor; 0: no band)
+     * @param per         prices are mesos per this many units (1,000 for NX, 1 for an item; 1.6.2)
+     * @param lot         orders are whole lots of this many units ({@code minQty} at least; 1 for an item)
+     * @param minQty      the smallest order a bot may place (1 for an item; 100 NX)
      */
     public record View(String ticker, long reference, long bestBid, long bestAsk, long hourAgo, long high2h,
                        long fair, double pressure, long minPrice, long maxPrice, long maxQty, int feeBps,
-                       long bandLo, long bandHi) {
+                       long bandLo, long bandHi, long per, long lot, long minQty) {
+        public View {
+            per = per <= 0 ? 1 : per;
+            lot = lot <= 0 ? 1 : lot;
+            minQty = minQty <= 0 ? 1 : minQty;
+        }
+
         /** Without a fair-value band (tests, a ticker with no anchor). */
         public View(String ticker, long reference, long bestBid, long bestAsk, long hourAgo, long high2h, long fair,
                     double pressure, long minPrice, long maxPrice, long maxQty, int feeBps) {
             this(ticker, reference, bestBid, bestAsk, hourAgo, high2h, fair, pressure, minPrice, maxPrice, maxQty,
                     feeBps, 0, 0);
+        }
+
+        /** The 1.6.1 shape: an item ticker (whole items, no fair-value band). */
+        public View(String ticker, long reference, long bestBid, long bestAsk, long hourAgo, long high2h, long fair,
+                    double pressure, long minPrice, long maxPrice, long maxQty, int feeBps, long bandLo,
+                    long bandHi) {
+            this(ticker, reference, bestBid, bestAsk, hourAgo, high2h, fair, pressure, minPrice, maxPrice, maxQty,
+                    feeBps, bandLo, bandHi, 1, 1, 1);
         }
 
         /** Is {@code price} inside the band (always, without one)? */
@@ -150,14 +167,14 @@ public final class TraderBrain {
                     price, v)));
         } else if (signal < -0.03 && h.items() > 0) {
             long price = down(v.bestBid() > 0 ? v.bestBid() : v.reference(), 0.01 + 0.02 * rng.nextDouble());
-            out.add(new Place(Side.SELL, price, part(h.items(), 0.2 + 0.2 * rng.nextDouble())));
+            out.add(new Place(Side.SELL, price, part(h.items(), 0.2 + 0.2 * rng.nextDouble(), v)));
         } else if (rng.nextInt(5) == 0) {
             // drifting: a small passive order leaning with the last move
             if (signal >= 0) {
                 long price = down(v.mid(), 0.01 * rng.nextDouble());
                 out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.04, price, v)));
             } else if (h.items() > 0) {
-                out.add(new Place(Side.SELL, up(v.mid(), 0.01 * rng.nextDouble()), part(h.items(), 0.1)));
+                out.add(new Place(Side.SELL, up(v.mid(), 0.01 * rng.nextDouble()), part(h.items(), 0.1, v)));
             }
         }
     }
@@ -168,7 +185,7 @@ public final class TraderBrain {
         boolean scared = drop > 0.12 || (drop > 0.06 && v.pressure() < -0.5) || v.pressure() < -1.5;
         if (scared && h.items() > 0) {
             long price = down(v.bestBid() > 0 ? v.bestBid() : v.reference(), 0.03 + 0.04 * rng.nextDouble());
-            out.add(new Place(Side.SELL, price, part(h.items(), 0.3 + 0.2 * rng.nextDouble())));
+            out.add(new Place(Side.SELL, price, part(h.items(), 0.3 + 0.2 * rng.nextDouble(), v)));
         } else if (!scared && v.reference() <= v.fair() * 1.05 && rng.nextInt(10) < 3) {
             long price = down(v.mid(), 0.03 * rng.nextDouble());
             out.add(new Place(Side.BUY, price, afford(h.mesos() * 0.10, price, v)));
@@ -186,7 +203,7 @@ public final class TraderBrain {
             out.add(new Place(Side.BUY, price, afford(h.mesos() * (0.2 + 0.15 * rng.nextDouble()), price, v)));
         } else {
             long price = down(v.bestBid() > 0 ? v.bestBid() : v.reference(), 0.04 + 0.06 * rng.nextDouble());
-            out.add(new Place(Side.SELL, price, part(h.items(), 0.25 + 0.2 * rng.nextDouble())));
+            out.add(new Place(Side.SELL, price, part(h.items(), 0.25 + 0.2 * rng.nextDouble(), v)));
         }
     }
 
@@ -205,9 +222,9 @@ public final class TraderBrain {
         }
         if (h.items() > 0) {
             if (v.bestBid() > fair * 1.15) {
-                out.add(new Place(Side.SELL, v.bestBid(), part(h.items(), 0.5)));
+                out.add(new Place(Side.SELL, v.bestBid(), part(h.items(), 0.5, v)));
             } else if (!hasSell && rng.nextInt(2) == 0) {
-                out.add(new Place(Side.SELL, up(fair, 0.08 + 0.07 * rng.nextDouble()), part(h.items(), 0.3)));
+                out.add(new Place(Side.SELL, up(fair, 0.08 + 0.07 * rng.nextDouble()), part(h.items(), 0.3, v)));
             }
         }
     }
@@ -235,7 +252,7 @@ public final class TraderBrain {
         }
         if (!hasSell && h.items() > 0) {
             out.add(new Place(Side.SELL, Math.round(center * (1 + spread + skew)), part(h.items(), 0.25 + 0.15
-                    * rng.nextDouble())));
+                    * rng.nextDouble(), v)));
         }
     }
 
@@ -270,7 +287,7 @@ public final class TraderBrain {
             case LOSER, CLEARED -> {
                 if (h.items() > 0) {
                     out.add(new Place(Side.SELL, down(bid, 0.02 + 0.03 * rng.nextDouble()),
-                            part(h.items(), 0.3 + 0.2 * rng.nextDouble())));
+                            part(h.items(), 0.3 + 0.2 * rng.nextDouble(), v)));
                 }
             }
             case NONE -> {
@@ -327,22 +344,22 @@ public final class TraderBrain {
             if (price < lo || price > hi) {
                 continue; // tidied over the edge
             }
-            long qty = Math.min(p.qty(), v.maxQty());
+            long qty = guardQty(Math.min(p.qty(), v.maxQty()), v);
             if (price <= 0 || qty <= 0) {
                 continue;
             }
             if (p.side() == Side.SELL) {
-                qty = Math.min(qty, items);
+                qty = guardQty(Math.min(qty, items), v);
                 if (qty <= 0) {
                     continue;
                 }
                 items -= qty;
             } else {
-                qty = Math.min(qty, maxAfford(mesos, price, v.feeBps()));
+                qty = guardQty(Math.min(qty, maxAfford(mesos, price, v.per(), v.feeBps())), v);
                 if (qty <= 0) {
                     continue;
                 }
-                mesos -= total(qty, price, v.feeBps());
+                mesos -= total(qty, price, v.per(), v.feeBps());
             }
             out.add(new Place(p.side(), price, qty));
             slots--;
@@ -350,29 +367,68 @@ public final class TraderBrain {
         return out;
     }
 
-    /** What a buy of {@code qty} at {@code price} takes: the price plus the buyer's fee reserve. */
-    static long total(long qty, long price, int feeBps) {
+    /**
+     * Trims a quantity to the ticker's smallest order and lot; 0 when it is under the smallest order. Whole items pass
+     * unchanged (1, 1). 1.6.2: NX trades in lots of 100, at least 100.
+     */
+    private static long guardQty(long qty, View v) {
+        if (qty < v.minQty()) {
+            return 0;
+        }
+        return qty - qty % v.lot();
+    }
+
+    /**
+     * What a buy of {@code qty} at {@code price} takes: the price at {@code per} units plus the buyer's fee reserve
+     * (rounded up, so the bot never promises more than it has).
+     */
+    static long total(long qty, long price, long per, int feeBps) {
         long cost = Math.multiplyExact(qty, price);
+        cost = (cost + Math.max(1, per) - 1) / Math.max(1, per);
         return cost + Math.multiplyExact(cost, feeBps) / 10_000;
     }
 
-    static long maxAfford(long mesos, long price, int feeBps) {
+    /** Whole items (1 per). */
+    static long total(long qty, long price, int feeBps) {
+        return total(qty, price, 1, feeBps);
+    }
+
+    static long maxAfford(long mesos, long price, long per, int feeBps) {
         if (price <= 0 || mesos <= 0) {
             return 0;
         }
-        long q = mesos / price;
-        while (q > 0 && total(q, price, feeBps) > Math.min(mesos, Integer.MAX_VALUE)) {
+        long p = Math.max(1, per);
+        long q = Math.multiplyExact(Math.min(mesos, Integer.MAX_VALUE), p) / price;
+        while (q > 0 && total(q, price, p, feeBps) > Math.min(mesos, Integer.MAX_VALUE)) {
             q--;
         }
         return q;
     }
 
-    private static long afford(double budget, long price, View v) {
-        return price <= 0 ? 0 : Math.min(v.maxQty(), (long) Math.floor(budget / (price * (1 + v.feeBps() / 10_000.0))));
+    /** Whole items (1 per). */
+    static long maxAfford(long mesos, long price, int feeBps) {
+        return maxAfford(mesos, price, 1, feeBps);
     }
 
-    private static long part(long items, double frac) {
-        return items <= 0 ? 0 : Math.max(1, Math.round(items * Math.min(1, frac)));
+    private static long afford(double budget, long price, View v) {
+        return price <= 0 ? 0
+                : Math.min(v.maxQty(),
+                        (long) Math.floor(budget * v.per() / (price * (1 + v.feeBps() / 10_000.0))));
+    }
+
+    /**
+     * A fraction of what the bot holds, at least one lot: below the ticker's smallest order the bot offers its
+     * smallest order instead, when it holds that much (NX: 100 of a 250 purse, not 75 that the guard would drop).
+     */
+    private static long part(long items, double frac, View v) {
+        if (items <= 0) {
+            return 0;
+        }
+        long want = Math.max(1, Math.round(items * Math.min(1, frac)));
+        if (v.lot() > 1 && want < v.minQty() && items >= v.minQty()) {
+            want = v.minQty();
+        }
+        return want;
     }
 
     static long up(long p, double frac) {

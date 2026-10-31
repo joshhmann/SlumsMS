@@ -219,6 +219,93 @@ public final class MarketVolatility {
         }
     }
 
+    // ---------------------------------------------------------------- off-screen scroll finds
+
+    /**
+     * Called from a bot's off-screen loot accrual: a trader bot (traders on) also finds the scrolls the mobs on its map
+     * drop, at their real {@code drop_data} rows and the map's global drops, under the world's drop rate and at the
+     * bots' hunting pace. Both scrolls have one {@code drop_data_global} row each (chance 1200/1,000,000 on every
+     * continent) and only the Chaos Scroll has per-mob rows, so the global row is what a bot mostly finds; the White
+     * Scroll's other sources (gachapon, the check-in, the drop game) stay player systems and are not used. Granted
+     * through the yield caps and holdings like any other off-screen find, so a bot with no loot budget left finds
+     * nothing; global rates are not touched. Never throws.
+     */
+    public static void offscreenScrollFinds(Character bot, long elapsedMs) {
+        try {
+            MarketVolatility m = running;
+            if (m == null || !m.config.traders() || bot == null || !MarketTraders.isTrader(bot.getId())) {
+                return;
+            }
+            server.maps.MapleMap map = bot.getMap();
+            if (map == null) {
+                return;
+            }
+            List<server.life.Monster> spawned = map.getAllMonsters();
+            List<Integer> mobs = new ArrayList<>();
+            for (server.life.Monster mo : spawned) {
+                if (mo != null && !mobs.contains(mo.getId())) {
+                    mobs.add(mo.getId());
+                }
+            }
+            if (mobs.isEmpty()) {
+                return;
+            }
+            int dropRate = 1, bossRate = 1;
+            try {
+                var world = bot.getWorldServer();
+                if (world != null) {
+                    dropRate = Math.max(1, world.getDropRate());
+                    bossRate = Math.max(1, world.getBossDropRate());
+                }
+            } catch (RuntimeException e) {
+                // no world (tests): rate 1
+            }
+            // the bot's kills split evenly over the mobs on its map, like its averaged off-screen loot
+            double share = 1.0 / mobs.size();
+            for (int slot = 0; slot < MarketTraders.SCROLL_IDS.size(); slot++) {
+                int itemId = soloMapling.Economy.exchange.Ledger.Asset.valueOf(
+                        MarketTraders.SCROLL_IDS.get(slot)).itemId();
+                double perKill = 0;
+                for (int mobId : mobs) {
+                    boolean boss;
+                    try {
+                        server.life.Monster mm = server.life.LifeFactory.getMonster(mobId);
+                        boss = mm != null && mm.getStats() != null && mm.getStats().isBoss();
+                    } catch (RuntimeException e) {
+                        boss = false;
+                    }
+                    int rate = boss ? bossRate : dropRate;
+                    for (server.life.MonsterDropEntry de : server.life.MonsterInformationProvider.getInstance()
+                            .retrieveDrop(mobId)) {
+                        if (de.itemId == itemId && de.chance > 0 && de.questid == 0) {
+                            perKill += (double) de.chance * rate * share;
+                        }
+                    }
+                }
+                for (server.life.MonsterGlobalDropEntry de : server.life.MonsterInformationProvider.getInstance()
+                        .getRelevantGlobalDrops(bot.getMapId())) {
+                    if (de.itemId == itemId && de.chance > 0) {
+                        perKill += de.chance;
+                    }
+                }
+                int n = MarketTraders.offscreenScroll(bot.getId(), slot, elapsedMs, KILLS_PER_MIN, perKill);
+                if (n <= 0) {
+                    continue;
+                }
+                client.inventory.Item item = new client.inventory.Item(itemId, (short) 0, (short) Math.min(n, 100));
+                if (soloMapling.ArtificialPlayer.BotYieldCaps.takeItem(bot, item)) {
+                    if (soloMapling.ArtificialPlayer.BotHoldings.grantItem(bot, item)) {
+                        MarketFlows.supplied(itemId, item.getQuantity());
+                    } else {
+                        soloMapling.ArtificialPlayer.BotYieldCaps.returnItem(bot, item);
+                    }
+                }
+            }
+        } catch (RuntimeException e) {
+            // a lost find, never a broken hunt
+        }
+    }
+
     // ---------------------------------------------------------------- the game's roster of traders
 
     /** The traders (re-picked every 10 minutes from the roster bots in the game) with their in-game wallets. */
@@ -237,7 +324,9 @@ public final class MarketVolatility {
             } catch (RuntimeException e) {
                 log.warn("Market traders: could not read the roster", e);
             }
-            roster = MarketTraders.keepAndFill(roster, cands, config.traderCount());
+            // 1.6.2: a share of the bots in the game (all Bartle types), else the 1.6.1 fixed count
+            roster = MarketTraders.keepAndFill(roster, cands, MarketTraders.target(cands, config),
+                    config.tradersPct() > 0);
             MarketTraders.setTraderIds(roster.stream().map(MarketTraders.Trader::id).toList());
         }
         List<MarketTraders.Trader> list = roster;

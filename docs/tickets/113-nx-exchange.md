@@ -489,7 +489,7 @@ are toned down by about half, prices anchor to a **fair value** from real drops 
   written: a crash in between loses the escrow, never duplicates it. Payouts go back into the bot while it is in the
   game (else they wait in its PAYOUT; the volatility thread collects for online bots even with traders off). A bot's
   orders use its character id as the account (bots share one game account), so every player limit applies per bot:
-  10 open and 20 a day per ticker, the 10 s cooldown, the 1% fee. Bots never trade NX. No granting, ever.
+  10 open and 20 a day per ticker, the 10 s cooldown, the 1% fee. Bots never trade NX on 1.6.1's build (162-xtraders adds an off-by-default purse and order path; the NX desk plan in `docs/tickets/162-nx-forex.md` replaces quoting). No granting, ever.
 - **Leaves for traders**: the bots' off-screen loot left out the global drop table, so bots never found Maple Leaves.
   Trader bots find them at the leaf's own global chance (the real `drop_data_global` row) x 30 kills/min while
   hunting off screen, through `BotYieldCaps` and `BotHoldings`. Global rates are untouched.
@@ -618,6 +618,31 @@ oscillates around the fair value. Mesos and leaves were exactly conserved in eve
    stand-in for "what they buy" (scrolling has no simple sink value); players' elixir use is not counted yet.
 4. Guild-war Cody notices: one per 10 min; fine, or only for wars between bot guilds and players?
 5. Rumours are heard world-wide by traders; OK?
+
+### 1.6.2 update, 162-xtraders (2026-10-31): a third of the bots trade; scrolls have a source; NX goes to a desk
+
+Owner, 2026-10-31: at least a quarter to half of the bots should trade, and CHAOS/WS should wake up. Then, for NX,
+"FOREX-style instead of an order book".
+
+- **Trader share**: `-Dslums.exchange.traders.pct` (25..50; 0/absent keeps 1.6.1's fixed count, the default-safe
+  path). Traders now come from **every** Bartle type with archetypes cycled per type (`MarketTraders.select`'s
+  `allTypes`), the roster is re-drawn as bots log in and out (`keepAndFill`), the sanity bound is 5,000
+  (`MarketConfig.MAX_TRADERS`) and `-Dslums.exchange.traders.count` stays an optional cap. 1.6.2's live flags carry
+  `-Dslums.exchange.traders=true -Dslums.exchange.traders.pct=35` (docs/release/1.6.2.conf UNIT_EDITS).
+- **CHAOS and WS have 0 fills because nobody held them.** A trader now lists a scroll it holds instead of rolling the
+  LEAF dice, and traders find both scrolls hunting off screen at the real chances: the one **global** `drop_data_global`
+  row each (chance 1200/1,000,000, continent -1) plus any per-mob row of a mob on the bot's own map, through
+  `BotYieldCaps` like any other loot — no minting, no seeding. Measured 2.2 of each per trader-hour at 30 kills/min.
+  When the bots' own drops are the only source (owner's 12:33 UTC answer), that rate is the supply; the owner's call
+  whether it is right.
+- **Bots on NX**: the branch has a bot NX purse (`Exchange.botNx`, a bot's NX in its own PAYOUT bucket) and
+  per-1,000-NX order maths, behind `-Dslums.exchange.traders.nx` (default off, not in 1.6.2's flags). The desk plan in
+  `docs/tickets/162-nx-forex.md` keeps the purse and the maths and replaces the quoting.
+- **Finding (2026-10-31): the NX band is relative.** `nxBand()` is `NxGuard.band(officialRate, ...)` = 50%..200% of the
+  official rate, so the first fills move the wall with them (one fill at 9,900,000 -> a 10,500,000 buy accepted; the
+  probe in the handback). Bot quotes are additionally held to 2,500,000..10,000,000 per 1,000 NX
+  (`MarketTraders.BOT_NX_MIN/MAX`), so bots alone cannot push fills past 10,000,000, but players can. The desk plan
+  makes the absolute clamp explicit; owner's call for the live book.
 
 ## Stolen-cookie guard, game side (owner 2026-10-29: "both guards"; branch `161-nxguard`)
 
