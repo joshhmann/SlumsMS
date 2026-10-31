@@ -174,6 +174,31 @@ class BotConversationFlowTest {
         }
     }
 
+    /**
+     * Stage B: the gates answer a party ask and the planner words their verdict. This wanderer is not a social bot, so
+     * {@code BotChatActions.party} declines; the prompt the model gets is the planned one and must not read as a yes.
+     */
+    @Test
+    void aRefusedPartyAskIsPlannedFromTheGatesVerdict() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            assertTrue(BotConversation.say(bot, player, "can i join ur pt", null, said::add));
+            waitFor(() -> !asked.isEmpty());
+            String system = asked.get(0).get(0).content();
+            assertTrue(system.contains("Answer their party ask with a no"), "the planned party prompt:\n" + system);
+            assertTrue(system.contains("Say no to the party"), "the gates' own words ride along:\n" + system);
+            assertFalse(system.contains("Say yes"), system);
+            assertTrue(system.length() < 1000, "a planned prompt is short: " + system.length() + " chars");
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+        }
+    }
+
     /** REVIEW-A2 item 1: with the planner off, a chat end writes nothing new - the old path stays as it was. */
     @Test
     void endingAChatWithThePlannerOffWritesNoProgressRow() throws Exception {

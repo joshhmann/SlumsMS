@@ -1,6 +1,7 @@
 package soloMapling.ArtificialPlayer.BotConvo;
 
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage;
+import soloMapling.ArtificialPlayer.BotChatActions;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,9 +20,10 @@ import java.util.regex.Pattern;
  * typing styles (the persona's "Chat style:" line and {@code BotChatPrompt.VOICE_BASE}) plus, now and then, a romance
  * or mood the state contradicted. One planner, one voice, one set of facts.
  *
- * <p>Coverage (owner, 2026-10-31): greetings and small talk, training spots, level talk, and the busy short line.
- * Party and PQ asks are stage B; anything else is free chat, and {@link #plan} returns null so the reply takes the
- * prompt it took before this ticket.
+ * <p>Coverage (owner, 2026-10-31, stage B): greetings and small talk, training spots, level talk, the busy short line,
+ * and a party or party-quest ask the gates already answered ({@link #partyMove}: the move words their verdict, in their
+ * own words, so the line cannot say yes to a party that was refused). Anything else is free chat, and {@link #plan}
+ * returns null so the reply takes the prompt it took before this ticket.
  */
 public final class ReplyPlanner {
 
@@ -33,7 +35,9 @@ public final class ReplyPlanner {
         ACTIVITY("Answer what you are doing right now"),
         TRAIN_SPOT("Answer where they should train, naming that spot"),
         LEVEL_TALK("Answer about your two levels, using only the numbers above"),
-        BUSY("One very short line: you are in the middle of something");
+        BUSY("One very short line: you are in the middle of something"),
+        PARTY_YES("Answer their party ask with a yes"),
+        PARTY_NO("Answer their party ask with a no");
 
         public final String outline;
 
@@ -56,20 +60,40 @@ public final class ReplyPlanner {
                        String romance, String note, String shared, int lastLevel,
                        List<String> playerSpots, String mySpot,
                        boolean botHasSpoken, String asked, ChatTriage.Kind kind, ChatTriage.Intent intent,
-                       String voice) {
+                       String voice,
+                       BotChatActions.Outcome outcome, String outcomeFact) {
+
+        /** A view with no action behind it: plain talk. */
+        public View(String botName, int botLevel, String botJob, String place, boolean town, List<String> mobsHere,
+                    String activity, boolean inPq, boolean busy, String playerName, int playerLevel, String playerJob,
+                    boolean playerIsBot, Bond bond, String romance, String note, String shared, int lastLevel,
+                    List<String> playerSpots, String mySpot, boolean botHasSpoken, String asked, ChatTriage.Kind kind,
+                    ChatTriage.Intent intent, String voice) {
+            this(botName, botLevel, botJob, place, town, mobsHere, activity, inPq, busy, playerName, playerLevel,
+                    playerJob, playerIsBot, bond, romance, note, shared, lastLevel, playerSpots, mySpot, botHasSpoken,
+                    asked, kind, intent, voice, BotChatActions.Outcome.NONE, null);
+        }
 
         public View {
             mobsHere = mobsHere == null ? List.of() : List.copyOf(mobsHere);
             playerSpots = playerSpots == null ? List.of() : List.copyOf(playerSpots);
             bond = bond == null ? Bond.STRANGER : bond;
             kind = kind == null ? ChatTriage.Kind.TALK : kind;
+            outcome = outcome == null ? BotChatActions.Outcome.NONE : outcome;
         }
     }
 
-    /** The decided move, the facts it may state, and how brief the phrasing has to be. */
-    public record Plan(Move move, List<String> facts, boolean brief) {
+    /**
+     * The decided move, the facts it may state, how brief the phrasing has to be and, for a party ask, what the
+     * gates said the answer is (an instruction, not a fact: it goes after the move's own outline).
+     */
+    public record Plan(Move move, List<String> facts, boolean brief, String instruction) {
         public Plan {
             facts = List.copyOf(facts);
+        }
+
+        public Plan(Move move, List<String> facts, boolean brief) {
+            this(move, facts, brief, null);
         }
     }
 
@@ -227,6 +251,17 @@ public final class ReplyPlanner {
                     out.add("busy rn sry");
                 }
             }
+            case PARTY_YES -> {
+                out.addAll(List.of("sure, send the inv", "ya im down, inv me", "ok sure, inv me", "yea inv me",
+                        "sure thing, inv me", "im in, send inv"));
+            }
+            case PARTY_NO -> {
+                if (v.outcome() == BotChatActions.Outcome.PARTY_ALREADY) {
+                    out.addAll(List.of("in a pt already sry", "got a pt rn sry", "already in a pt lol"));
+                } else {
+                    out.addAll(List.of("nah sry", "cant rn sry", "not rn sry", "no thx sry", "maybe later sry"));
+                }
+            }
         }
         return out;
     }
@@ -243,6 +278,13 @@ public final class ReplyPlanner {
     public static Plan plan(View v) {
         if (v == null || v.playerIsBot()) {
             return null; // bots talking to bots have their own decisions (BotTalk)
+        }
+        if (v.outcome() != null && v.outcome() != BotChatActions.Outcome.NONE) {
+            // m02 stage B: the gates (BotChatActions, the LFG rules) decided the answer and did it; the move only
+            // words their verdict from their own words, so the line cannot say yes to a party that was refused
+            Move move = partyMove(v.outcome());
+            return move == null ? null
+                    : new Plan(move, facts(v, move), false, v.outcomeFact());
         }
         if (v.intent() != null && v.intent() != ChatTriage.Intent.NONE) {
             return null; // an ask: the action layer decides and does it, and its outcome words the line
@@ -267,6 +309,21 @@ public final class ReplyPlanner {
             return new Plan(Move.BUSY, facts(v, Move.BUSY), true);
         }
         return null;
+    }
+
+    /**
+     * The move for a party or follow ask the action layer already answered, or null for every other action (a trade,
+     * an invite the bot cannot answer in one planned line): those keep the caller's prompt.
+     */
+    public static Move partyMove(BotChatActions.Outcome outcome) {
+        if (outcome == null) {
+            return null;
+        }
+        return switch (outcome) {
+            case PARTY_ACCEPTED, FOLLOW_ACCEPTED -> Move.PARTY_YES;
+            case PARTY_DECLINED, PARTY_WARY, PARTY_ALREADY, FOLLOW_DECLINED -> Move.PARTY_NO;
+            default -> null;
+        };
     }
 
     // ── the facts: what is true, in the words the model may repeat ──
@@ -427,6 +484,9 @@ public final class ReplyPlanner {
         b.append("True right now, and the only things you may claim: ").append(String.join("; ", p.facts()))
                 .append(". ");
         b.append(p.move().outline).append(". ");
+        if (p.instruction() != null && !p.instruction().isBlank()) {
+            b.append(p.instruction().trim()).append(' ');
+        }
         if (p.brief()) {
             b.append("You are busy, so keep it tiny. ");
         }

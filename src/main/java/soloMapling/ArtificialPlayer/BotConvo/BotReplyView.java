@@ -29,6 +29,16 @@ public final class BotReplyView {
     /** The view of this reply, for the planner. Never null; unreadable pieces are left null and drop their fact. */
     public static ReplyPlanner.View of(BotSM bot, Character player, int slot, String activity, String asked,
                                        ChatTriage.Result triage, boolean botHasSpoken, boolean wary) {
+        return of(bot, player, slot, activity, asked, triage, botHasSpoken, wary, null);
+    }
+
+    /**
+     * As above, with what the action layer already did ({@code action}, m02 stage B: a party ask the gates answered):
+     * its verdict and its own words for the answer go into the view, so the move cannot say the opposite.
+     */
+    public static ReplyPlanner.View of(BotSM bot, Character player, int slot, String activity, String asked,
+                                       ChatTriage.Result triage, boolean botHasSpoken, boolean wary,
+                                       soloMapling.ArtificialPlayer.BotChatActions.Result action) {
         Character chr = bot == null ? null : bot.getChr();
         if (chr == null || player == null) {
             return null;
@@ -48,7 +58,8 @@ public final class BotReplyView {
                 spots(player.getLevel(), player.getJob().getId()), mySpot(chr, town, activity),
                 botHasSpoken, asked,
                 triage == null ? null : triage.kind(), triage == null ? null : triage.intent(),
-                voiceLine(slot, chr));
+                voiceLine(slot, chr),
+                action == null ? null : action.outcome(), action == null ? null : action.fact());
     }
 
     /** The player's level the last time these two talked, 0 when they never have (or memory is unreadable). */

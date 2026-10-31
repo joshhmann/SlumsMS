@@ -650,7 +650,8 @@ public final class BotConversation {
         ReplyPlanner.View view = null;
         if (planReply(action.outcome())) {
             try {
-                view = BotReplyView.of(session.bot, player, slot, activity, line, triage, botHasSpoken(session), wary);
+                view = BotReplyView.of(session.bot, player, slot, activity, line, triage, botHasSpoken(session), wary,
+                        action);
                 plan = ReplyPlanner.plan(view);
             } catch (RuntimeException | LinkageError e) {
                 log.debug("Reply planner unavailable for {}: {}", bot.getName(), e.toString());
@@ -785,11 +786,13 @@ public final class BotConversation {
     }
 
     /**
-     * Whether this reply is planned before it is worded (m02). Off by default and only for plain talk: an ask is the
-     * action layer's, and with the switch off the reply takes the prompt it took before this ticket, byte for byte.
+     * Whether this reply is planned before it is worded (m02). Off by default; with the switch off the reply takes the
+     * prompt it took before this ticket, byte for byte. Plain talk is planned, and so is a party or follow ask that the
+     * gates already answered (stage B): the planner words their verdict, and every other ask stays the action layer's.
      */
     static boolean planReply(BotChatActions.Outcome outcome) {
-        return soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.planner() && outcome == BotChatActions.Outcome.NONE;
+        return soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.planner()
+                && (outcome == BotChatActions.Outcome.NONE || ReplyPlanner.partyMove(outcome) != null);
     }
 
     /**

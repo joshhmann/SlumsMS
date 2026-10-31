@@ -54,6 +54,15 @@ class ReplyPlannerTest {
         ChatTriage.Kind kind = ChatTriage.Kind.GREETING;
         ChatTriage.Intent intent = ChatTriage.Intent.NONE;
         String voice = "How you type: lowercase, short, 2008 slang";
+        soloMapling.ArtificialPlayer.BotChatActions.Outcome outcome =
+                soloMapling.ArtificialPlayer.BotChatActions.Outcome.NONE;
+        String outcomeFact;
+
+        V outcome(soloMapling.ArtificialPlayer.BotChatActions.Outcome outcome, String fact) {
+            this.outcome = outcome;
+            this.outcomeFact = fact;
+            return this;
+        }
 
         V bond(ReplyPlanner.Bond bond) {
             this.bond = bond;
@@ -149,7 +158,7 @@ class ReplyPlannerTest {
             return new ReplyPlanner.View(botName, botLevel, botJob, place, town, mobs, activity, inPq, busy,
                     playerName, playerLevel, playerJob, playerIsBot, bond, romance, note, shared, lastLevel, spots,
                     mySpot,
-                    botHasSpoken, asked, kind, intent, voice);
+                    botHasSpoken, asked, kind, intent, voice, outcome, outcomeFact);
         }
     }
 
@@ -375,17 +384,7 @@ class ReplyPlannerTest {
     @Test
     void thePromptPutsTheStablePartsFirstAndTheMoveLast() {
         for (ReplyPlanner.Move move : ReplyPlanner.Move.values()) {
-            V v = v().bond(ReplyPlanner.Bond.KNOWN);
-            v.kind = greeting(move) ? ChatTriage.Kind.GREETING : ChatTriage.Kind.TALK;
-            v.botHasSpoken = move == ReplyPlanner.Move.SMALL_TALK;
-            v.asked = switch (move) {
-                case ACTIVITY -> "what u doing";
-                case TRAIN_SPOT -> "where should i train";
-                case LEVEL_TALK -> "what lvl r u";
-                case BUSY -> "lol nice hat";
-                default -> "hey";
-            };
-            v.busy = move == ReplyPlanner.Move.BUSY;
+            V v = viewFor(move).bond(ReplyPlanner.Bond.KNOWN);
             ReplyPlanner.View view = v.build();
             ReplyPlanner.Plan p = ReplyPlanner.plan(view);
             assertNotNull(p, move + " should plan from these facts");
@@ -410,17 +409,7 @@ class ReplyPlannerTest {
     void promptIsShortAndCarriesOnlyFactsAndOneVoice() {
         for (ReplyPlanner.Move move : ReplyPlanner.Move.values()) {
             for (ReplyPlanner.Bond bond : ReplyPlanner.Bond.values()) {
-                V v = v().bond(bond);
-                v.kind = greeting(move) ? ChatTriage.Kind.GREETING : ChatTriage.Kind.TALK;
-                v.botHasSpoken = move == ReplyPlanner.Move.SMALL_TALK;
-                v.asked = switch (move) {
-                    case ACTIVITY -> "what u doing";
-                    case TRAIN_SPOT -> "where should i train";
-                    case LEVEL_TALK -> "what lvl r u";
-                    case BUSY -> "lol nice hat";
-                    default -> "hey";
-                };
-                v.busy = move == ReplyPlanner.Move.BUSY;
+                V v = viewFor(move).bond(bond);
                 ReplyPlanner.View view = v.build();
                 ReplyPlanner.Plan p = ReplyPlanner.plan(view);
                 assertNotNull(p, move + "/" + bond + " should plan from these facts");
@@ -467,17 +456,7 @@ class ReplyPlannerTest {
     void scriptsSayTheSameMoveWithoutTheModel() {
         Random rng = new Random(3);
         for (ReplyPlanner.Move move : ReplyPlanner.Move.values()) {
-            V v = v();
-            v.botHasSpoken = move == ReplyPlanner.Move.SMALL_TALK;
-            v.busy = move == ReplyPlanner.Move.BUSY;
-            v.asked = switch (move) {
-                case ACTIVITY -> "what u doing";
-                case TRAIN_SPOT -> "where should i train";
-                case LEVEL_TALK -> "what lvl r u";
-                case BUSY -> "lol nice hat";
-                default -> "hey";
-            };
-            v.kind = greeting(move) ? ChatTriage.Kind.GREETING : ChatTriage.Kind.TALK;
+            V v = viewFor(move);
             ReplyPlanner.View view = v.build();
             ReplyPlanner.Plan p = ReplyPlanner.plan(view);
             assertNotNull(p, move + " should plan from these facts");
@@ -636,12 +615,20 @@ class ReplyPlannerTest {
     }
 
     @Test
-    void anAskIsNeverPlanned()
+    void partyAndFollowAsksArePlannedAndOtherAsksStayTheActionLayers()
             throws Exception {
-        // the gate BotConversation uses: the planner only words plain talk
+        // the gate BotConversation uses: plain talk and the party ask the gates already answered are planned; every
+        // other ask keeps the action layer's prompt (m02 stage B)
         java.lang.reflect.Method gate = soloMapling.ArtificialPlayer.BotConversation.class
                 .getDeclaredMethod("planReply", soloMapling.ArtificialPlayer.BotChatActions.Outcome.class);
         gate.setAccessible(true);
+        java.util.Set<soloMapling.ArtificialPlayer.BotChatActions.Outcome> party =
+                java.util.Set.of(soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_ACCEPTED,
+                        soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_DECLINED,
+                        soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_WARY,
+                        soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_ALREADY,
+                        soloMapling.ArtificialPlayer.BotChatActions.Outcome.FOLLOW_ACCEPTED,
+                        soloMapling.ArtificialPlayer.BotChatActions.Outcome.FOLLOW_DECLINED);
         String old = System.getProperty("solomapling.convo.planner");
         try {
             System.clearProperty("solomapling.convo.planner");
@@ -650,12 +637,11 @@ class ReplyPlannerTest {
                 assertEquals(false, gate.invoke(null, outcome), "switch off: no plan for " + outcome);
             }
             System.setProperty("solomapling.convo.planner", "true");
-            assertEquals(true, gate.invoke(null, soloMapling.ArtificialPlayer.BotChatActions.Outcome.NONE));
             for (soloMapling.ArtificialPlayer.BotChatActions.Outcome outcome
                     : soloMapling.ArtificialPlayer.BotChatActions.Outcome.values()) {
-                if (outcome != soloMapling.ArtificialPlayer.BotChatActions.Outcome.NONE) {
-                    assertEquals(false, gate.invoke(null, outcome), "an ask is the action layer's: " + outcome);
-                }
+                assertEquals(outcome == soloMapling.ArtificialPlayer.BotChatActions.Outcome.NONE
+                                || party.contains(outcome), gate.invoke(null, outcome),
+                        "planned or the action layer's: " + outcome);
             }
         } finally {
             if (old == null) {
@@ -663,6 +649,60 @@ class ReplyPlannerTest {
             } else {
                 System.setProperty("solomapling.convo.planner", old);
             }
+        }
+    }
+
+    /** Stage B: the gates answer the party ask; the move only words their verdict, from their own sentence. */
+    @Test
+    void aPartyYesSaysYesWithoutInventingAnything() {
+        ReplyPlanner.View yes = viewFor(ReplyPlanner.Move.PARTY_YES).build();
+        ReplyPlanner.Plan p = ReplyPlanner.plan(yes);
+        assertNotNull(p, "an accepted party ask is planned");
+        assertEquals(ReplyPlanner.Move.PARTY_YES, p.move());
+        assertEquals("Say yes to the party and tell them to send you the party invite.", p.instruction());
+        String prompt = ReplyPlanner.prompt(yes, p);
+        assertTrue(prompt.endsWith(p.instruction() + " "), "the verdict is the last thing read:\n" + prompt);
+        assertFalse(prompt.contains("say no"), prompt);
+        for (String line : ReplyPlanner.scripts(yes, p.move())) {
+            assertTrue(line.toLowerCase(java.util.Locale.ROOT).contains("inv"), "a yes asks for the invite: " + line);
+        }
+    }
+
+    @Test
+    void aPartyNoNeverReadsAsAYes() {
+        List<String> yes = List.of("sure", " ya ", "yea", "im down", "ok, ", "ok ", "yep");
+        for (soloMapling.ArtificialPlayer.BotChatActions.Outcome no
+                : List.of(soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_DECLINED,
+                        soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_WARY,
+                        soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_ALREADY,
+                        soloMapling.ArtificialPlayer.BotChatActions.Outcome.FOLLOW_DECLINED)) {
+            V v = viewFor(ReplyPlanner.Move.PARTY_NO).outcome(no, "Say no to the party for now.");
+            ReplyPlanner.View view = v.build();
+            ReplyPlanner.Plan p = ReplyPlanner.plan(view);
+            assertNotNull(p, "a refused party ask is planned: " + no);
+            assertEquals(ReplyPlanner.Move.PARTY_NO, p.move(), no.name());
+            String prompt = ReplyPlanner.prompt(view, p);
+            assertFalse(prompt.contains("Say yes"), no + " prompt says yes:\n" + prompt);
+            for (String line : ReplyPlanner.scripts(view, p.move())) {
+                String lower = " " + line.toLowerCase(java.util.Locale.ROOT) + " ";
+                for (String word : yes) {
+                    assertFalse(lower.contains(word), no + " refused the ask but says \"" + line + "\"");
+                }
+            }
+        }
+    }
+
+    /** A trade, an invite or a help ask is the action layer's own line: the planner leaves it alone. */
+    @Test
+    void otherActionsAreNotPlanned() {
+        for (soloMapling.ArtificialPlayer.BotChatActions.Outcome other
+                : soloMapling.ArtificialPlayer.BotChatActions.Outcome.values()) {
+            if (ReplyPlanner.partyMove(other) != null
+                    || other == soloMapling.ArtificialPlayer.BotChatActions.Outcome.NONE) {
+                continue;
+            }
+            assertNull(ReplyPlanner.plan(viewFor(ReplyPlanner.Move.HELLO).outcome(other, "Say no.").build()),
+                    other + " is the action layer's");
         }
     }
 
@@ -681,9 +721,18 @@ class ReplyPlannerTest {
             case TRAIN_SPOT -> "where should i train";
             case LEVEL_TALK -> "what lvl r u";
             case BUSY -> "lol nice hat";
+            case PARTY_YES -> "can i join ur pt";
+            case PARTY_NO -> "can i join ur pt";
             default -> "hey";
         };
         v.kind = greeting(move) ? ChatTriage.Kind.GREETING : ChatTriage.Kind.TALK;
+        if (move == ReplyPlanner.Move.PARTY_YES) {
+            v.outcome = soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_ACCEPTED;
+            v.outcomeFact = "Say yes to the party and tell them to send you the party invite.";
+        } else if (move == ReplyPlanner.Move.PARTY_NO) {
+            v.outcome = soloMapling.ArtificialPlayer.BotChatActions.Outcome.PARTY_DECLINED;
+            v.outcomeFact = "Say no to the party for now (busy, or just not feeling it).";
+        }
         return v;
     }
 
