@@ -1000,6 +1000,8 @@ with lines from the test server's 2026-10-23 runs).
    PASS/FAIL/SKIP, and `VAR name=value` lines set variables.
 3. `AutoQaCatalogTest` keeps the page order, checks that every `!qa run` scenario exists, and compiles every
    pattern. `AutoQaRunnerTest` drives the runner against a scripted world.
+4. Add the files the check proves to `src/main/resources/soloMapling/autoqa-coverage.tsv` (next section). The map is
+   pinned to the catalogue: a check with no row fails `AutoQaProofMapTest`.
 
 Patterns must match what the hook really writes (case, order, topic and note kind). `AutoQaCatalogPatternTest` feeds
 checks lines copied from the game's own format strings. Add a case there when you add or change a pattern. A
@@ -1019,3 +1021,80 @@ Tests: `GroundingAsSentTest` (synthetic grounding, sent positions), `ChatQuality
   equip kept (out of mesos, skipped) and both caps (`BotMaker.opsToday`, meter `makerbatch`) up by operations. SKIPs with
   the flag name when `maker.botBatch` is off, and when the world cap has under 3 operations left. Cleanup despawns the bot, forgets its day and
   gives the world meter's units back.
+
+### Proving one fix between merge times (ticket 164 b223)
+
+Auto-QA has 186 checks; a fix touches a handful of files. `tools/ops/autoqa-proof` turns the second into the first:
+it reads the coverage map and prints, for the files a branch changed, the check ids that prove them, ending in a line
+you can paste.
+
+```
+tools/ops/autoqa-proof 8c42275d9^..591127f79          # a commit range
+tools/ops/autoqa-proof                               # uncommitted changes in this worktree
+tools/ops/autoqa-proof --files src/main/java/soloMapling/mechanics/KpqStaging.java
+```
+
+Real output for the nav-traps branch:
+
+```
+auto-QA proof for 8c42275d9^..591127f79: 10 files
+  docs/ops/qa-suite.md                                                                 docs
+  src/main/java/soloMapling/ArtificialPlayer/BotTravelSystem/BotScriptedWarp.java      t-bt-2, t-nn-1, t-nn-2, t-nv-1, t-nv-3
+  src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/GCWorldGraph.java            t-bc-1, t-nn-1, t-nn-2, t-nv-1, t-nv-2, t-nv-3
+  src/main/java/soloMapling/autoqa/Probes164.java                                      t-gr-1, t-gr-2, t-nv-2, t-nv-3
+  src/main/resources/soloMapling/nav-trap-maps.txt                                     t-nv-2
+  src/test/java/soloMapling/autoqa/Probes164Test.java                                  unit test only (the suite covers it)
+  ...
+
+checks: 9 of 186
+  t-bc-1
+  t-bt-2
+  t-gr-1
+  t-gr-2
+  t-nn-1
+  t-nn-2
+  t-nv-1
+  t-nv-2
+  t-nv-3
+
+tools/ops/autoqa-run t-bc-1,t-bt-2,t-gr-1,t-gr-2,t-nn-1,t-nn-2,t-nv-1,t-nv-2,t-nv-3
+```
+
+Run that line on TEST (or hand it to the auto-QA queue) and the run's log is your proof. The tool never queues
+anything itself: it touches no server, and `tools/ops/autoqa-run` is still the only thing that talks to 164.
+
+What it says, per file: the checks it reaches, `docs` (a markdown file or `docs/`), `unit test only (the suite covers
+it)`, `every check (runner/platform file)` for the auto-QA runner itself, or `no check covers this file`. Three
+verdicts come in whole-change form:
+
+- `docs only, no proof run needed` — nothing to queue.
+- `tests only, no auto-QA run needed (the unit suite is the proof)` — the same.
+- `no check covers this change: run the unit suite, then decide by hand`, exit code 3 — a tool, a data file or a
+  script no check proves. Look at the check list for the nearest neighbour, or add a check (above) and a map row.
+
+Two more lines matter: `needs -Dslums.mechanics=true on the server for t-mx-1, ...` (the KPQ checks refuse and SKIP
+without the flag) and `manual-only, needs a person and a real client` for the ids in
+`src/main/resources/soloMapling/autoqa-release-skips.tsv` — those cannot be proven headless, so a mapped change to
+them still needs the owner's eyes.
+
+**The map** is one committed file, `src/main/resources/soloMapling/autoqa-coverage.tsv`: TAB-separated
+`check_id <TAB> key <TAB> note`. `check_id` is one id or a comma list, or `all` for runner/platform files every
+check needs. `key` is a path glob relative to the repo root (`**` crosses directories, `*` does not, `?` is one
+character), or `-D<property>=<value>` for a switch a check needs, or `-` for a check no file triggers (the 11
+manual-only ids). `note` says why the file belongs to those checks. Several rows may name the same check.
+
+`AutoQaProofMapTest` pins it: every catalogue id appears exactly once as a row (or in a list), every path glob
+matches at least one file in the worktree, the `-` rows are exactly the release skips, the KPQ files reach `t-mx-1`
+and `t-mx-2`, no path key claims `tools/release/*` or a docs page, and the printed id list still parses as a
+selector for `AutoQaService.select` / `tools/ops/autoqa-run`. So adding a check without a map row fails the build.
+`tools/ops/test_autoqa_proof.py` covers the tool itself (globs, the three verdicts, range mode on a throw-away repo,
+and that the printed line queues the same ids in `AUTOQA_LOCAL_DIR` mode):
+
+```
+python3 tools/ops/test_autoqa_proof.py
+```
+
+Write rows from evidence, not guesses: the `!qa` scenario and the probe a check drives tell you which files it
+really proves (a curated feature package such as `src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/**`),
+and a transitive "everything this class references" closure is useless because it marks every bot class as covered
+by every check.

@@ -1,0 +1,198 @@
+# Auto-QA coverage map: which auto-QA checks prove a change to which file.
+#
+# Read by tools/ops/autoqa-proof and pinned by AutoQaProofMapTest. Three columns, TAB separated:
+#   check_id  an id from AutoQaCatalog ("t-mx-1"), or "all" for runner/platform files that every check needs
+#   key       a path glob relative to the repo root, or -D<property>=<value> for a switch a check needs,
+#             or "-" for a check no file triggers (a person proves it on a real client: see the note)
+#             glob: "**" crosses directories, "*" does not, "?" is one character
+#   note      why this file belongs to those checks (informal, shown by the tool)
+#
+# Rule when adding a check: fill in its scenario file and the feature package it proves.
+# Rule when moving a package: fix the globs here; AutoQaProofMapTest fails if a glob matches no tracked file.
+all	src/main/java/soloMapling/autoqa/AutoQa.java	log and result paths (data/autoqa)
+all	src/main/java/soloMapling/autoqa/AutoQaCatalog.java	the check definitions themselves
+all	src/main/java/soloMapling/autoqa/AutoQaRunQueue.java	queue file format read by autoqa-run
+all	src/main/java/soloMapling/autoqa/AutoQaRunner.java	runs a check: steps, expectations, settle
+all	src/main/java/soloMapling/autoqa/AutoQaService.java	selector parsing (all/smoke/family/comma list)
+all	src/main/java/soloMapling/autoqa/AutoQaWorld.java	world seam the checks drive
+all	src/main/java/soloMapling/autoqa/Check.java	Check/steps/expects record types
+all	src/main/java/soloMapling/autoqa/GameAutoQaWorld.java	live server side of the seam
+all	src/main/java/soloMapling/autoqa/SyntheticPlayers.java	the two pretend players auto-QA uses
+all	src/main/java/soloMapling/qa/GameQaWorld.java	live server side of the scenario seam
+all	src/main/java/soloMapling/qa/QaScenarios.java	the scenario list every run(<id>) step uses; holds scenario af-1, af-2, af-3, at-1, bk-1, bk-3, cu-1, cu-2, ga-1, id-1, sc-1, sc-2, wc-1, we-1
+all	src/main/java/soloMapling/qa/QaSuite.java	scenario staging and refusals
+all	src/main/java/soloMapling/qa/QaWorld.java	world seam for scenarios
+all	src/main/resources/soloMapling/autoqa-coverage.tsv	this map
+all	src/main/resources/soloMapling/autoqa-release-skips.tsv	which checks a release may skip
+all	tools/ops/autoqa-proof	this tool
+all	tools/ops/autoqa-run	the runner the printed line is fed to
+t-ga-4	-	no file triggers it: bots show rolls: judge the machine screen with bots playing
+t-rg-1	-	no file triggers it: needs two real characters and a person at the ring NPC
+t-rg-2	-	no file triggers it: needs two real characters, same gender, at the ring NPC
+t-mv-1	-	no file triggers it: matches core client behaviour, judged by eye
+t-jq-1	-	no file triggers it: bounce zones and double-tap jump, judged by eye
+t-cl-1	-	no file triggers it: a client-side rope fix, judged by eye
+t-cl-2	-	no file triggers it: a client-side cash shop fix, judged by eye
+t-cl-3	-	no file triggers it: a client-side pet equip fix, judged by eye
+t-cc-1	-	no file triggers it: character creation against the real client
+t-mr-2	-	no file triggers it: a woman proposing against the real client
+t-la-1	-	no file triggers it: the Tauri launcher checklist, on a Windows box
+t-ac-1,t-ac-2	-Dslums.achievements=true	achievement scenarios refuse unless achievements are on
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	-Dslums.mechanics=true	KPQ scenarios refuse (the check SKIPs) unless mechanics is on
+t-bb-1,t-bb-2	src/main/java/client/BuddyList.java	buddy list and buddy chat
+t-fy-1,t-fy-2,t-fy-3,t-fy-4	src/main/java/client/Family*.java	family tree, precepts, buffs, travel
+t-fy-1,t-fy-2,t-fy-3,t-fy-4	src/main/java/net/server/channel/handlers/*Family*Handler.java	family packets the fy checks drive
+t-bb-1,t-bb-2	src/main/java/net/server/channel/handlers/BuddylistModifyHandler.java	buddy add/remove packets
+t-we-1,t-rg-1,t-rg-2,t-mr-2	src/main/java/net/server/channel/handlers/RingActionHandler.java	rings, engagement and the wedding
+t-we-1	src/main/java/net/server/channel/handlers/WeddingHandler.java	the Amoria wedding itself
+t-cb-1,t-at-1,t-su-1,t-su-3	src/main/java/server/StatEffect.java	buff/heal effect application
+t-cb-3,t-ev-1,t-ev-3,t-nc-1,t-ld-1	src/main/java/server/life/Monster.java	mob HP/EXP rows read by event and combat checks
+t-af-1,t-af-2,t-af-3,t-sg-1,t-sg-2,t-me-2,t-lr-1,t-rv-5	src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/**	affinity, grudges, shadow decisions
+t-sg-1,t-sg-2,t-gs-1	src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/AffinityEvent.java	called by scenario SocialGate; called by scenario Gossip
+t-gs-1,t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/AffinityState.java	called by scenario Gossip; called by scenario Beef
+t-sg-1,t-sg-2,t-gs-1	src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/BotAffinity.java	called by scenario SocialGate; called by scenario Gossip
+t-cb-1,t-cb-2,t-bk-1,t-at-1,t-bk-3,t-su-1,t-su-3	src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/**	attack driver, pacing, party support
+t-cv-1,t-cv-2,t-cv-3,t-cv-6,t-cv-7,t-cv-11,t-cv-12,t-cq-1,t-ds-1,t-bt-1,t-bt-3,t-gr-1,t-gr-2	src/main/java/soloMapling/ArtificialPlayer/BotBrainSystem/**	chat decide, triage, grounding
+t-cv-1,t-cv-2,t-cv-3,t-cv-4,t-cv-5,t-cv-6,t-cv-7,t-cv-8,t-cv-9,t-cv-10,t-cv-11,t-cv-12	src/main/java/soloMapling/ArtificialPlayer/BotBrainSystem/ChatDecide.java	called by scenario Convo
+t-cv-1,t-cv-2,t-cv-3,t-cv-4,t-cv-5,t-cv-6,t-cv-7,t-cv-8,t-cv-9,t-cv-10,t-cv-11,t-cv-12	src/main/java/soloMapling/ArtificialPlayer/BotBrainSystem/ChatStats.java	called by scenario Convo
+t-cv-1,t-cv-2,t-cv-3,t-cv-4,t-cv-5,t-cv-6,t-cv-7,t-cv-8,t-cv-9,t-cv-10,t-cv-11,t-cv-12	src/main/java/soloMapling/ArtificialPlayer/BotBrainSystem/ChatTriage.java	called by scenario Convo
+t-sg-1,t-sg-2	src/main/java/soloMapling/ArtificialPlayer/BotBuddies.java	called by scenario SocialGate
+t-cb-1,t-su-1	src/main/java/soloMapling/ArtificialPlayer/BotBuffRequestSystem/**	bots asking for buffs
+t-cv-4,t-cv-12,t-lk-1	src/main/java/soloMapling/ArtificialPlayer/BotChatterSystem/**	idle chatter and typing cadence
+t-cb-3,t-cb-4,t-bk-1,t-id-1,t-ev-2,t-ev-3	src/main/java/soloMapling/ArtificialPlayer/BotCombatSystem/**	mob combat staging and deaths
+t-ev-1,t-ev-2,t-ev-3	src/main/java/soloMapling/ArtificialPlayer/BotCombatSystem/BotDeaths.java	called by scenario WorldEvent
+t-ev-1,t-ev-2,t-ev-3	src/main/java/soloMapling/ArtificialPlayer/BotCombatSystem/CombatStaging.java	called by scenario WorldEvent
+t-cv-1,t-pr-1,t-sg-1	src/main/java/soloMapling/ArtificialPlayer/BotCommandsPack/**	@commands bots answer
+t-sg-1,t-sg-2	src/main/java/soloMapling/ArtificialPlayer/BotCommandsPack/SocialCommands.java	called by scenario SocialGate
+t-mr-1	src/main/java/soloMapling/ArtificialPlayer/BotConversation.java	probe warpPlayer, engaged
+t-cv-1,t-cv-3,t-cv-5,t-cv-9,t-cq-1,t-bt-1,t-bt-3	src/main/java/soloMapling/ArtificialPlayer/BotConvo/**	conversation intent and sense
+t-gs-1,t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/BotConvo/BotThreads.java	called by scenario Gossip; called by scenario Beef
+t-cv-1,t-cv-2,t-cv-3,t-cv-4,t-cv-5,t-cv-6,t-cv-7,t-cv-8,t-cv-9,t-cv-10,t-cv-11,t-cv-12	src/main/java/soloMapling/ArtificialPlayer/BotConvo/ConvoIntent.java	called by scenario Convo
+t-cv-1,t-cv-2,t-cv-3,t-cv-4,t-cv-5,t-cv-6,t-cv-7,t-cv-8,t-cv-9,t-cv-10,t-cv-11,t-cv-12	src/main/java/soloMapling/ArtificialPlayer/BotConvo/ConvoSense.java	called by scenario Convo
+t-lk-1	src/main/java/soloMapling/ArtificialPlayer/BotConvo/MessyChat.java	called by scenario Likeness
+t-gs-1,t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/BotConvo/NameGuard.java	called by scenario Gossip; called by scenario Beef
+t-me-1,t-me-2	src/main/java/soloMapling/ArtificialPlayer/BotConvo/RelationshipCard.java	called by scenario Memory
+t-fy-1	src/main/java/soloMapling/ArtificialPlayer/BotConvo/StateOfMind.java	probe family
+t-cu-1,t-cu-2,t-mr-1,t-rm-1,t-rm-2,t-rm-3,t-rm-4,t-mr-2,t-cr-1,t-we-1	src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/**	couples, crushes, weddings
+t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCouples.java	called by scenario Beef
+t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/BotCoupleSystem/BotCrushes.java	called by scenario Beef
+t-sl-1,t-vb-1	src/main/java/soloMapling/ArtificialPlayer/BotDecoratorSystem/**	cosmetic names and looks
+t-rv-1,t-rv-2,t-rv-3,t-rv-4,t-gw-4,t-rm-3,t-dr-6	src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/**	rivalry, drama, rage quit
+t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/BotBotRivalry.java	called by scenario Beef
+t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/DramaNews.java	called by scenario Beef
+t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RageQuit.java	called by scenario Beef
+t-rv-1,t-rv-2,t-rv-3,t-rv-4,t-gw-1,t-gw-2,t-gw-3,t-gw-4,t-rm-1,t-rm-2,t-rm-3,t-rm-4	src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/Romance.java	called by scenario Drama
+t-rv-1,t-rv-2,t-rv-3,t-rv-4,t-gw-1,t-gw-2,t-gw-3,t-gw-4,t-rm-1,t-rm-2,t-rm-3,t-rm-4	src/main/java/soloMapling/ArtificialPlayer/BotDramaSystem/RomanceWedding.java	called by scenario Drama
+t-cb-1,t-gb-1,t-gb-2,t-gb-3,t-gb-4,t-gb-5,t-gb-6	src/main/java/soloMapling/ArtificialPlayer/BotGearSystem/**	gear picking and AP variants
+t-gs-1,t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/BotGossip.java	called by scenario Gossip; called by scenario Beef
+t-nc-1,t-ld-1,t-bq-1,t-gb-3	src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/**	grind map choice and kills
+t-cb-1,t-cb-2,t-cb-3,t-cb-4,t-sp-1,t-pt-1	src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/SpotFinder.java	called by scenario Combat
+t-bg-1,t-gu-1,t-gu-3,t-gu-4,t-gu-5,t-gu-8,t-gu-2,t-gu-6,t-gw-1,t-gw-2,t-gw-3,t-gw-4,t-me-1	src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/**	bot guilds and wars
+t-bl-1,t-bl-2,t-bl-3,t-bl-4,t-lk-1,t-bl-11,t-in-1,t-in-2	src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/**	shadow policy, goals, profile reload
+t-bl-1,t-bl-2,t-bl-3,t-bl-4,t-bl-11,t-bc-1	src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeAcceptance.java	called by scenario BotLife
+t-bl-1,t-bl-2,t-bl-3,t-bl-4,t-bl-11,t-bc-1	src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeActivityQueue.java	called by scenario BotLife
+t-bl-1,t-bl-2,t-bl-3,t-bl-4,t-bl-11,t-bc-1	src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeDecision.java	called by scenario BotLife
+t-bl-1,t-bl-2,t-bl-3,t-bl-4,t-bl-11,t-bc-1	src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifePolicy.java	called by scenario BotLife
+t-in-1,t-in-2,t-in-3	src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifePq.java	called by scenario Initiative
+t-bl-1,t-bl-2,t-bl-3,t-bl-4,t-bl-11,t-bc-1	src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeProfile.java	called by scenario BotLife
+t-gb-1,t-gb-2,t-gb-6,t-mk-2	src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/**	roster slots and maker batch
+t-rv-3,t-mb-1	src/main/java/soloMapling/ArtificialPlayer/BotMegaphoneSystem/**	megaphone buys and callouts
+t-sg-1,t-sg-2	src/main/java/soloMapling/ArtificialPlayer/BotMegaphoneSystem/BotNoiseFilter.java	called by scenario SocialGate
+t-bs-1,t-td-1,t-td-2,t-td-3,t-gf-1,t-gf-2,t-pr-1,t-mb-1	src/main/java/soloMapling/ArtificialPlayer/BotMegaphoneSystem/PlayerMegaphones.java	called by scenario QaTrade
+t-me-1,t-me-2,t-in-1,t-in-2,t-in-3	src/main/java/soloMapling/ArtificialPlayer/BotMemory.java	called by scenario Memory; called by scenario Initiative
+t-cv-10,t-td-3,t-bl-4,t-nx-2	src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/**	DMs, party chat, messenger
+t-sp-1,t-ps-2,t-nn-2	src/main/java/soloMapling/ArtificialPlayer/BotMovementSystem/**	bot movement and stuck watchdog
+t-sl-1	src/main/java/soloMapling/ArtificialPlayer/BotNames/**	bot name generation and filtering
+t-pb-1,t-in-3,t-ex-1,t-mx-5	src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/**	party invites and cohorts
+t-in-1,t-in-2,t-in-3	src/main/java/soloMapling/ArtificialPlayer/BotPartySystem/BotPartyCommands.java	called by scenario Initiative
+t-pt-1,t-cl-3	src/main/java/soloMapling/ArtificialPlayer/BotPets.java	bot pets
+t-rb-1,t-rb-2,t-jb-1,t-jb-2	src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/**	job advance, books, rebirth keys
+t-ac-2,t-bq-1,t-tm-1,t-jb-1	src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/**	mob quests, mainline, job errand
+t-sg-1,t-sg-2	src/main/java/soloMapling/ArtificialPlayer/BotSM.java	called by scenario SocialGate
+t-sc-1,t-sc-2,t-gb-5	src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/**	EV scrolling decisions
+t-me-1,t-me-2,t-in-1,t-in-2,t-in-3	src/main/java/soloMapling/ArtificialPlayer/BotStore.java	called by scenario Memory; called by scenario Initiative
+t-cb-3,t-bl-2,t-bl-3	src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/**	restock choice and supply need
+t-gb-6,t-su-2,t-su-3	src/main/java/soloMapling/ArtificialPlayer/BotSupportSwitches.java	probe apVariants; probe fameRequest; probe magicGuard
+t-bg-1,t-sl-1,t-ps-2,t-lk-1,t-tw-1	src/main/java/soloMapling/ArtificialPlayer/BotTownSystem/**	town fill, NPC spacing, AFK camp
+t-bs-1,t-bs-2,t-td-1,t-td-2,t-td-3,t-me-2	src/main/java/soloMapling/ArtificialPlayer/BotTradeSystem/**	bot shops and trade/haggle
+t-bt-2,t-nv-1,t-nn-1,t-nn-2,t-nv-3	src/main/java/soloMapling/ArtificialPlayer/BotTravelSystem/**	portal/path travel used by the nav checks
+t-nx-1,t-nx-2	src/main/java/soloMapling/ArtificialPlayer/BotTypeManager.java	called by scenario Nx
+t-cb-1,t-in-3,t-rb-1,t-gb-6	src/main/java/soloMapling/ArtificialPlayer/BotTypes/**	bot type roster
+t-nx-1,t-nx-2	src/main/java/soloMapling/ArtificialPlayer/BotTypes/NXMerchantBot.java	called by scenario Nx
+t-ev-1,t-ev-2,t-ev-3	src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java	called by scenario WorldEvent
+t-cv-8,t-lk-1	src/main/java/soloMapling/ArtificialPlayer/BotWanderSystem/**	bots staying with the player
+t-cv-1,t-cv-2,t-cv-3,t-cv-4,t-cv-5,t-cv-6,t-cv-7,t-cv-8,t-cv-9,t-cv-10,t-cv-11,t-cv-12	src/main/java/soloMapling/ArtificialPlayer/BotWanderSystem/BotWanderSystem.java	called by scenario Convo
+t-sg-1,t-sg-2	src/main/java/soloMapling/ArtificialPlayer/BotWhispers.java	called by scenario SocialGate
+t-bc-1,t-nv-1,t-nn-1,t-nn-2,t-nv-2,t-nv-3	src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/**	world graph, nav probe, one-way trap maps
+t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/GCMovement.java	called by scenario Beef
+t-lk-1	src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/WatchGate.java	called by scenario Likeness
+t-gs-1	src/main/java/soloMapling/ArtificialPlayer/Reputation.java	called by scenario Gossip
+t-me-1,t-me-2	src/main/java/soloMapling/ArtificialPlayer/SocialHooks.java	called by scenario Memory
+t-in-1,t-in-2,t-in-3	src/main/java/soloMapling/ArtificialPlayer/SocialInitiative.java	called by scenario Initiative
+t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/StageSpots.java	called by scenario Beef
+t-jq-1	src/main/java/soloMapling/BounceZones/**	bounce zones
+t-ga-1,t-ga-2,t-ga-4,t-wc-1	src/main/java/soloMapling/Casino/**	town machines and rolls
+t-ck-1	src/main/java/soloMapling/DailyCheckin/**	daily check-in
+t-wc-1,t-bs-1,t-bs-2,t-td-1,t-td-2,t-td-3,t-gf-1,t-gf-2,t-pr-1,t-mk-1,t-bd-1,t-xc-1,t-xc-2,t-xc-3,t-xc-4,t-gb-4	src/main/java/soloMapling/Economy/**	prices, shops, exchange, market files
+t-bs-1,t-td-1,t-td-2,t-td-3,t-gf-1,t-gf-2,t-pr-1,t-mb-1	src/main/java/soloMapling/Economy/BotGiftAsks.java	called by scenario QaTrade
+t-bs-1,t-td-1,t-td-2,t-td-3,t-gf-1,t-gf-2,t-pr-1,t-mb-1	src/main/java/soloMapling/Economy/BotGifts.java	called by scenario QaTrade
+t-bs-1,t-td-1,t-td-2,t-td-3,t-gf-1,t-gf-2,t-pr-1,t-mb-1	src/main/java/soloMapling/Economy/HaggleBrain.java	called by scenario QaTrade
+t-bs-1,t-td-1,t-td-2,t-td-3,t-gf-1,t-gf-2,t-pr-1,t-mb-1,t-bd-1	src/main/java/soloMapling/Economy/MegaBuyDesk.java	called by scenario QaTrade; called by scenario Board
+t-bs-1,t-td-1,t-td-2,t-td-3,t-gf-1,t-gf-2,t-pr-1,t-mb-1,t-bd-1	src/main/java/soloMapling/Economy/MegaBuyGame.java	called by scenario QaTrade; called by scenario Board
+t-sk-1	src/main/java/soloMapling/Economy/MesoSinks.java	probe cosmeticStock
+t-cv-1,t-cv-2,t-cv-3,t-cv-4,t-cv-5,t-cv-6,t-cv-7,t-cv-8,t-cv-9,t-cv-10,t-cv-11,t-cv-12	src/main/java/soloMapling/Economy/PriceBand.java	called by scenario Convo
+t-ss-1	src/main/java/soloMapling/Environment/**	stamps and environment flags
+t-mk-1,t-nx-1,t-nx-2	src/main/java/soloMapling/FreeMarket/**	FM shops and NX codes
+t-ga-1,t-ga-2,t-ga-3,t-ga-4	src/main/java/soloMapling/Gachapon/**	gacha rolls and remote ticket
+t-ld-1,t-gb-1	src/main/java/soloMapling/SetEquip/**	set effects and 120+ gear
+t-ac-1,t-ac-2	src/main/java/soloMapling/achievements/**	achievement goals and medals
+t-bs-2,t-oa-1,t-tw-1,t-hp-1,t-au-1,t-np-4,t-ck-1,t-sc-3,t-ss-1,t-xc-1,t-xc-2,t-fy-1,t-ti-1,t-rb-1,t-rb-2,t-rb-3,t-ac-1,t-ac-2,t-pg-1,t-nc-1,t-ld-1,t-iv-1,t-iv-2,t-sn-1,t-bt-1,t-bt-2,t-bt-3,t-br-1	src/main/java/soloMapling/autoqa/Probes160.java	probe botShopStock; probe ownedAlts; probe townVerdict, townDressing; probe hpMp4Byte; probe authFlow; probe customNpcCaps; probe dailyCheckin; probe starterChairs; probe slumsStamps; probe nxExchange; probe leafExchange; probe family; probe tutorialIsland; probe botRebirth; probe botRebirthBoss; probe essenceStone; probe achievements; probe achievementClear; probe lazyPenguins; probe newerAreaCards; probe trainingLadder; probe playerInvites; probe siteInvites; probe slumsChan; probe botTalk; probe botCrew; probe botSayDo; probe bugReport
+t-bq-1,t-tm-1,t-gb-1,t-gb-2,t-gb-3,t-gb-4,t-gb-5,t-gb-6,t-su-1,t-su-2,t-su-3,t-jb-1,t-jb-2,t-nn-1,t-nn-2	src/main/java/soloMapling/autoqa/Probes162.java	probe botQuest; probe templeQuest; probe paretoGear; probe dexlessAp; probe gearFirstFarm; probe junkSortSale; probe scrollEv; probe apVariants; probe partyHeal; probe fameRequest; probe magicGuard; probe jobErrand; probe skillBooks; probe swimWallJump; probe blockedPosWatchdog
+t-gr-1,t-gr-2,t-nv-2,t-nv-3	src/main/java/soloMapling/autoqa/Probes164.java	probe groundingTruth; probe groundingLive; probe trapMaps; probe debugTools
+t-mk-2	src/main/java/soloMapling/autoqa/ProbesMaker.java	probe makerBatch
+t-ch-1	src/main/java/soloMapling/autoqa/SweepMath.java	probe channelSplit
+t-oa-1	src/main/java/soloMapling/companions/**	owned alts follow the player
+t-mr-1	src/main/java/soloMapling/companions/OwnedAltCombat.java	probe warpPlayer, engaged
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/companions/OwnedAltService.java	called by scenario Mechanics
+t-fh-1,t-fh-2,t-sc-3,t-ac-1	src/main/java/soloMapling/fishing/**	fishing sessions and policy
+t-nv-3	src/main/java/soloMapling/inspect/**	bot inspect API
+t-bs-2,t-nc-1,t-ld-1	src/main/java/soloMapling/itemPool/**	drop tables and sale rules
+t-in-3,t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/**	KPQ staging + bot run mechanics
+t-gu-1,t-sk-1,t-sk-2,t-vb-5	src/main/java/soloMapling/menus/**	NPC menus and new prices
+t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/qa/BeefScenarios.java	stages scenario cr-1, dr-6, rv-5
+t-bd-1	src/main/java/soloMapling/qa/BoardScenarios.java	stages scenario bd-1
+t-bb-3	src/main/java/soloMapling/qa/BondScenarios.java	stages scenario bb-3
+t-bl-1,t-bl-2,t-bl-3,t-bl-4,t-bl-11,t-bc-1	src/main/java/soloMapling/qa/BotLifeScenarios.java	stages scenario bc-1, bl-1, bl-11, bl-2, bl-3, bl-4
+t-bw-1	src/main/java/soloMapling/qa/BotWatchScenarios.java	stages scenario bw-1
+t-cb-1,t-cb-2,t-cb-3,t-cb-4,t-sp-1,t-pt-1	src/main/java/soloMapling/qa/CombatScenarios.java	stages scenario cb-1, cb-2, cb-3, cb-4, pt-1, sp-1
+t-cv-1,t-cv-2,t-cv-3,t-cv-4,t-cv-5,t-cv-6,t-cv-7,t-cv-8,t-cv-9,t-cv-10,t-cv-11,t-cv-12	src/main/java/soloMapling/qa/ConvoScenarios.java	stages scenario cv-1, cv-10, cv-11, cv-12, cv-2, cv-3, cv-4, cv-5, cv-6, cv-7, cv-8, cv-9
+t-sl-1	src/main/java/soloMapling/qa/CosmeticScenarios.java	stages scenario sl-1
+t-rv-1,t-rv-2,t-rv-3,t-rv-4,t-gw-1,t-gw-2,t-gw-3,t-gw-4,t-rm-1,t-rm-2,t-rm-3,t-rm-4	src/main/java/soloMapling/qa/DramaScenarios.java	stages scenario gw-1, gw-2, gw-3, gw-4, rm-1, rm-2, rm-3, rm-4, rv-1, rv-2, rv-3, rv-4
+t-ex-1	src/main/java/soloMapling/qa/ExpeditionScenarios.java	stages scenario ex-1
+t-fh-1,t-fh-2	src/main/java/soloMapling/qa/FishingScenarios.java	stages scenario fh-1, fh-2
+t-gs-1	src/main/java/soloMapling/qa/GossipScenarios.java	stages scenario gs-1
+t-gu-1,t-gu-3,t-gu-4,t-gu-5,t-gu-8,t-gu-2,t-gu-6,t-pb-1	src/main/java/soloMapling/qa/GuildScenarios.java	stages scenario gu-1, gu-2, gu-3, gu-4, gu-5, gu-6, gu-8, pb-1
+t-in-1,t-in-2,t-in-3	src/main/java/soloMapling/qa/InitiativeScenarios.java	stages scenario in-1, in-2, in-3
+t-lr-1	src/main/java/soloMapling/qa/LearningScenarios.java	stages scenario lr-1
+t-lk-1	src/main/java/soloMapling/qa/LikenessScenarios.java	stages scenario lk-1
+t-mk-1	src/main/java/soloMapling/qa/MarketScenarios.java	stages scenario mk-1
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/qa/MechanicsScenarios.java	stages scenario mx-1, mx-2, mx-3, mx-4, mx-5, mx-6
+t-me-1,t-me-2	src/main/java/soloMapling/qa/MemoryScenarios.java	stages scenario me-1, me-2
+t-nv-1	src/main/java/soloMapling/qa/NavProbeScenarios.java	stages scenario nv-1
+t-nx-1,t-nx-2	src/main/java/soloMapling/qa/NxScenarios.java	stages scenario nx-1, nx-2
+t-ps-2	src/main/java/soloMapling/qa/PersonalSpaceScenarios.java	stages scenario ps-2
+t-bs-1,t-td-1,t-td-2,t-td-3,t-gf-1,t-gf-2,t-pr-1,t-mb-1	src/main/java/soloMapling/qa/QaTradeScenarios.java	stages scenario bs-1, gf-1, gf-2, mb-1, pr-1, td-1, td-2, td-3
+t-sf-1	src/main/java/soloMapling/qa/SiteScenarios.java	stages scenario sf-1
+t-sg-1,t-sg-2	src/main/java/soloMapling/qa/SocialGateScenarios.java	stages scenario sg-1, sg-2
+t-st-1	src/main/java/soloMapling/qa/SocialTraceScenarios.java	stages scenario st-1
+t-vb-1,t-vb-2,t-vb-3,t-vb-4,t-vb-5,t-vb-6,t-vb-7,t-vb-8	src/main/java/soloMapling/qa/V83Scenarios.java	stages scenario vb-1, vb-2, vb-3, vb-4, vb-5, vb-6, vb-7, vb-8
+t-ev-1,t-ev-2,t-ev-3	src/main/java/soloMapling/qa/WorldEventScenarios.java	stages scenario ev-1, ev-2, ev-3
+t-rb-1,t-rb-2,t-rb-3	src/main/java/soloMapling/rebirth/**	rebirth and essence stones
+t-nx-1,t-nx-2	src/main/java/soloMapling/server/**	NX code manager
+t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/server/BotTiming.java	called by scenario Beef
+t-bl-1,t-bl-2,t-bl-3,t-bl-4,t-bl-11,t-bc-1,t-nv-1	src/main/java/soloMapling/server/ExecutorServiceManager.java	called by scenario BotLife; called by scenario NavProbe
+t-mk-1,t-sf-1	src/main/java/soloMapling/server/Json.java	called by scenario Market; called by scenario Site
+t-sf-1,t-bd-1,t-au-1,t-xc-1,t-iv-2	src/main/java/soloMapling/site/**	site feed, invites, auth
+t-ev-1,t-ev-2,t-ev-3	src/main/java/soloMapling/worldevents/**	cake HP, director, reactions
+t-cl-3,t-cc-1,t-vg-1,t-vb-1,t-vb-2,t-vb-3,t-vb-4,t-vb-5,t-vb-6,t-vb-7,t-vb-8,t-hp-1	src/main/java/tools/PacketCreator.java	client packets
+t-nv-2	src/main/resources/soloMapling/nav-trap-maps.txt	the one-way trap map list
