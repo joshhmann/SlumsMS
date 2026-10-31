@@ -546,16 +546,19 @@ public final class MarketTraders {
     /**
      * How many of the scroll at {@code slot} ({@link #SCROLL_IDS}) a trader bot finds while hunting off screen for
      * {@code elapsedMs}: {@code perKill} is the summed chance out of 1,000,000 that one of its kills drops it (its
-     * map's mobs' real drop_data rows and global drops, the world's rate in), rolled at {@code killsPerMin}. Fractions
-     * carry over per bot and scroll, so a rare drop lands eventually rather than never. The caller grants through the
-     * bot's yield caps and holdings.
+     * map's mobs' real drop_data rows and global drops, the world's rate in), rolled at {@code killsPerMin}, and
+     * {@code findRate} is the owner's share of that real chance ({@link MarketConfig#scrollFindRate}: a quarter since
+     * 2026-10-31, 1 = the real rate, 0 = none). Fractions carry over per bot and scroll, so a rare drop lands
+     * eventually rather than never. The caller grants through the bot's yield caps and holdings.
      */
-    public static int offscreenScroll(long botId, int slot, long elapsedMs, double killsPerMin, double perKill) {
-        if (elapsedMs <= 0 || perKill <= 0 || killsPerMin <= 0 || slot < 0 || slot >= SCROLL_IDS.size()) {
+    public static int offscreenScroll(long botId, int slot, long elapsedMs, double killsPerMin, double perKill,
+                                      double findRate) {
+        if (elapsedMs <= 0 || perKill <= 0 || killsPerMin <= 0 || findRate <= 0 || slot < 0
+                || slot >= SCROLL_IDS.size()) {
             return 0;
         }
         double[] owed = scrollOwed.computeIfAbsent(botId, k -> new double[SCROLL_IDS.size()]);
-        owed[slot] += killsPerMin * elapsedMs / 60_000.0 * perKill / 1_000_000.0;
+        owed[slot] += killsPerMin * elapsedMs / 60_000.0 * perKill * findRate / 1_000_000.0;
         int n = (int) Math.floor(owed[slot]);
         owed[slot] -= n;
         return n;

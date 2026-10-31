@@ -223,17 +223,22 @@ public final class MarketVolatility {
 
     /**
      * Called from a bot's off-screen loot accrual: a trader bot (traders on) also finds the scrolls the mobs on its map
-     * drop, at their real {@code drop_data} rows and the map's global drops, under the world's drop rate and at the
-     * bots' hunting pace. Both scrolls have one {@code drop_data_global} row each (chance 1200/1,000,000 on every
-     * continent) and only the Chaos Scroll has per-mob rows, so the global row is what a bot mostly finds; the White
-     * Scroll's other sources (gachapon, the check-in, the drop game) stay player systems and are not used. Granted
-     * through the yield caps and holdings like any other off-screen find, so a bot with no loot budget left finds
-     * nothing; global rates are not touched. Never throws.
+     * drop, **at a quarter of their real {@code drop_data} rows** (owner 2026-10-31 ~19:50 UTC:
+     * {@code -Dslums.exchange.scrollFindRate}, 0.25 by default, 1 = the real rate, 0 = no finds) and the map's global
+     * drops, under the world's drop rate and at the bots' hunting pace. Both scrolls have one {@code drop_data_global}
+     * row each (chance 1200/1,000,000 on every continent) and only the Chaos Scroll has per-mob rows, so the global
+     * row is what a bot mostly finds; the White Scroll's other sources (gachapon, the check-in, the drop game) stay
+     * player systems and are not used. Granted through the yield caps and holdings like any other off-screen find, so
+     * a bot with no loot budget left finds nothing; global rates are not touched. Never throws.
      */
     public static void offscreenScrollFinds(Character bot, long elapsedMs) {
         try {
             MarketVolatility m = running;
             if (m == null || !m.config.traders() || bot == null || !MarketTraders.isTrader(bot.getId())) {
+                return;
+            }
+            double findRate = MarketConfig.scrollFindRate();
+            if (findRate <= 0) {
                 return;
             }
             server.maps.MapleMap map = bot.getMap();
@@ -288,7 +293,7 @@ public final class MarketVolatility {
                         perKill += de.chance;
                     }
                 }
-                int n = MarketTraders.offscreenScroll(bot.getId(), slot, elapsedMs, KILLS_PER_MIN, perKill);
+                int n = MarketTraders.offscreenScroll(bot.getId(), slot, elapsedMs, KILLS_PER_MIN, perKill, findRate);
                 if (n <= 0) {
                     continue;
                 }

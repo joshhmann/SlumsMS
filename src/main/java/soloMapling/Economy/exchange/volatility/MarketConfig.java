@@ -45,6 +45,11 @@ public record MarketConfig(boolean traders, int traderCount, long minActMs, long
     public static final String TRADERS_COUNT = TRADERS + ".count";
     /** Trader bots trade NX too (1.6.2; off: the item tickers only, as in 1.6.1). */
     public static final String TRADERS_NX = TRADERS + ".nx";
+    /**
+     * How much of the real drop chance a trader bot's off-screen scroll find uses (owner 2026-10-31 ~19:50 UTC: a
+     * quarter, so CHAOS and WS stay rare instead of flooding the books; 1 = the real rate, 0 = no finds at all).
+     */
+    public static final String SCROLL_FIND_RATE = "slums.exchange.scrollFindRate";
 
     /** The 1.6.1 shape: a fixed count of traders, item tickers only. */
     public MarketConfig(boolean traders, int traderCount, long minActMs, long maxActMs, boolean events,
@@ -122,6 +127,14 @@ public record MarketConfig(boolean traders, int traderCount, long minActMs, long
     /** Trader bots trade NX too (read where the exchange itself has only the flag: {@code placeBot}). */
     public static boolean tradersNxOn() {
         return Boolean.getBoolean(TRADERS_NX);
+    }
+
+    /**
+     * The share of the real drop chance a trader's off-screen scroll find uses, 0..1 ({@link #SCROLL_FIND_RATE}): a
+     * quarter unless the JVM says otherwise, never more than the real rate.
+     */
+    public static double scrollFindRate() {
+        return Math.max(0, Math.min(1, dbl(SCROLL_FIND_RATE, 0.25)));
     }
 
     private static long l(String key, long dflt) {

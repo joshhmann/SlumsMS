@@ -191,17 +191,67 @@ class MarketTradersScrollTest {
     void offscreenFindsCarryTheirFractionAndNeverInventADrop() {
         MarketTraders.clearForTest();
         // 30 kills a minute at 3,000 per million (0.3%) is 0.09 a minute: one scroll after ~11 minutes, not before
-        assertEquals(0, MarketTraders.offscreenScroll(77, 0, 60_000L, 30, 3_000));
+        assertEquals(0, MarketTraders.offscreenScroll(77, 0, 60_000L, 30, 3_000, 1.0));
         for (int i = 0; i < 10; i++) {
-            assertEquals(0, MarketTraders.offscreenScroll(77, 0, 60_000L, 30, 3_000), "minute " + i);
+            assertEquals(0, MarketTraders.offscreenScroll(77, 0, 60_000L, 30, 3_000, 1.0), "minute " + i);
         }
-        assertEquals(1, MarketTraders.offscreenScroll(77, 0, 60_000L, 30, 3_000), "the eleventh minute's fraction");
+        assertEquals(1, MarketTraders.offscreenScroll(77, 0, 60_000L, 30, 3_000, 1.0), "the eleventh minute's fraction");
         // no drop row, no find: the White Scroll has no mob in drop_data, so traders get none off screen
-        assertEquals(0, MarketTraders.offscreenScroll(77, 1, 86_400_000L, 30, 0));
+        assertEquals(0, MarketTraders.offscreenScroll(77, 1, 86_400_000L, 30, 0, 1.0));
         // the bot's pace and the chance are what lands it
-        assertEquals(0, MarketTraders.offscreenScroll(78, 0, 0, 30, 3_000));
-        assertEquals(30, MarketTraders.offscreenScroll(79, 0, 60_000L, 30, 1_000_000), "one per kill at 30 kills");
-        assertEquals(0, MarketTraders.offscreenScroll(80, 5, 60_000L, 30, 3_000), "a slot past the scrolls");
+        assertEquals(0, MarketTraders.offscreenScroll(78, 0, 0, 30, 3_000, 1.0));
+        assertEquals(30, MarketTraders.offscreenScroll(79, 0, 60_000L, 30, 1_000_000, 1.0), "one per kill at 30 kills");
+        assertEquals(0, MarketTraders.offscreenScroll(80, 5, 60_000L, 30, 3_000, 1.0), "a slot past the scrolls");
+    }
+
+    @Test
+    void aQuarterOfTheRealRateFindsAQuarterOfTheScrolls() {
+        // owner 2026-10-31 ~19:50 UTC: the scroll supply is a QUARTER of the real drop rate (-Dslums.exchange.scrollFindRate)
+        MarketTraders.clearForTest();
+        assertEquals(0.25, MarketConfig.scrollFindRate(), 1e-9, "a quarter unless the JVM says otherwise");
+        int real = 0, quarter = 0;
+        // the one global row is 1200/1,000,000; at 30 kills a minute that is 0.036 a minute at the real rate (216 in
+        // 6,000 minutes) and 0.009 at a quarter (54)
+        for (int i = 0; i < 6_000; i++) {
+            real += MarketTraders.offscreenScroll(201, 0, 60_000L, 30, 1_200, 1.0);
+            quarter += MarketTraders.offscreenScroll(202, 0, 60_000L, 30, 1_200, MarketConfig.scrollFindRate());
+        }
+        assertEquals(216, real);
+        assertEquals(54, quarter);
+        assertEquals(4 * quarter, real, "a quarter of the real rate, not a different roll");
+        // the fraction still carries at a quarter of the chance: 0.009 a minute owes its first scroll in the 112th
+        MarketTraders.clearForTest();
+        int minute = 0, found = 0;
+        while (found == 0 && minute < 200) {
+            found += MarketTraders.offscreenScroll(203, 0, 60_000L, 30, 1_200, 0.25);
+            minute++;
+        }
+        assertEquals(112, minute);
+        assertEquals(0, MarketTraders.offscreenScroll(204, 0, 86_400_000L, 30, 1_200, 0.0), "0 finds nothing");
+        System.setProperty(MarketConfig.SCROLL_FIND_RATE, "1");
+        try {
+            assertEquals(1.0, MarketConfig.scrollFindRate(), 1e-9, "1 is the real rate");
+        } finally {
+            System.clearProperty(MarketConfig.SCROLL_FIND_RATE);
+        }
+        System.setProperty(MarketConfig.SCROLL_FIND_RATE, "5");
+        try {
+            assertEquals(1.0, MarketConfig.scrollFindRate(), 1e-9, "never more than the real rate");
+        } finally {
+            System.clearProperty(MarketConfig.SCROLL_FIND_RATE);
+        }
+        System.setProperty(MarketConfig.SCROLL_FIND_RATE, "-1");
+        try {
+            assertEquals(0.0, MarketConfig.scrollFindRate(), 1e-9, "negative is off");
+        } finally {
+            System.clearProperty(MarketConfig.SCROLL_FIND_RATE);
+        }
+        System.setProperty(MarketConfig.SCROLL_FIND_RATE, "a quarter");
+        try {
+            assertEquals(0.25, MarketConfig.scrollFindRate(), 1e-9, "unreadable keeps the default");
+        } finally {
+            System.clearProperty(MarketConfig.SCROLL_FIND_RATE);
+        }
     }
 
     @Test

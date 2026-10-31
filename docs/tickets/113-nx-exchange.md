@@ -630,11 +630,15 @@ Owner, 2026-10-31: at least a quarter to half of the bots should trade, and CHAO
   (`MarketConfig.MAX_TRADERS`) and `-Dslums.exchange.traders.count` stays an optional cap. 1.6.2's live flags carry
   `-Dslums.exchange.traders=true -Dslums.exchange.traders.pct=35` (docs/release/1.6.2.conf UNIT_EDITS).
 - **CHAOS and WS have 0 fills because nobody held them.** A trader now lists a scroll it holds instead of rolling the
-  LEAF dice, and traders find both scrolls hunting off screen at the real chances: the one **global** `drop_data_global`
-  row each (chance 1200/1,000,000, continent -1) plus any per-mob row of a mob on the bot's own map, through
-  `BotYieldCaps` like any other loot — no minting, no seeding. Measured 2.2 of each per trader-hour at 30 kills/min.
-  When the bots' own drops are the only source (owner's 12:33 UTC answer), that rate is the supply; the owner's call
-  whether it is right.
+  LEAF dice, and traders find both scrolls hunting off screen at their real chances: the one **global**
+  `drop_data_global` row each (chance 1200/1,000,000, continent -1) plus any per-mob row of a mob on the bot's own map,
+  through `BotYieldCaps` like any other loot — no minting, no seeding. When the bots' own drops are the only source
+  (owner's 12:33 UTC answer), that rate is the supply.
+  **A quarter of it (owner, 2026-10-31 ~19:50 UTC):** `-Dslums.exchange.scrollFindRate` (default **0.25**; 1 = the real
+  rate, 0 = off) multiplies the summed chance, so measured supply is **0.54 of each per trader-hour at 30 kills/min**
+  (2.2 at the real rate), the fraction still carrying per bot and scroll. The default is the owner's quarter, so
+  `docs/release/1.6.2.conf` sets no flag; test `MarketTradersScrollTest.aQuarterOfTheRealRateFindsAQuarterOfTheScrolls`
+  (216 real vs 54 at a quarter over 6,000 minutes, first find in the 112th minute).
 - **Bots on NX**: the branch has a bot NX purse (`Exchange.botNx`, a bot's NX in its own PAYOUT bucket) and
   per-1,000-NX order maths, behind `-Dslums.exchange.traders.nx` (default off, not in 1.6.2's flags). The desk plan in
   `docs/tickets/162-nx-forex.md` keeps the purse and the maths and replaces the quoting.
