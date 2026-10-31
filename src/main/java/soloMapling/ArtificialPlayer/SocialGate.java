@@ -442,6 +442,19 @@ public final class SocialGate {
         return rules(botId, playerId, Act.FLIRT).ok();
     }
 
+    /**
+     * Stage B (owner's step 5): whether a romance with this player may be spoken of at all - @romance on and not
+     * opted off, the switch the prompt needs. Unlike {@link #romanceAllowed(int, int)} a flirt-first unlock does not
+     * count: that buys a flirt, it does not make a relationship.
+     */
+    public static boolean romanceSpeakable(int playerId) {
+        try {
+            return !romanceOff(playerId) && romanceOn.test(playerId);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     public static boolean romanceOff(int playerId) {
         return romanceOff.contains(playerId);
     }
