@@ -1252,6 +1252,12 @@ public final class AutoQaCatalog {
         c.add(Check.auto("t-xc-4", "Guild war market news: a trader in a guild at war bids for elixirs").holds("market").minutes(1)
                 .expect(probe("marketWar"))
                 .build());
+        // 162-xtraders (owner 2026-10-31 "waking up chaos and WS"): a trader that holds a Chaos or White Scroll offers
+        // that scroll instead of the LEAF dice, and the sell holds, stays in the band and comes back on a cancel;
+        // SKIPs with the measured find rate when no online trader holds one yet
+        c.add(Check.auto("t-xc-5", "A trader that holds a Chaos or White Scroll lists it").minutes(1)
+                .expect(probe("marketScroll"))
+                .build());
         // Family (ticket 53, USE_FAMILY_SYSTEM): a bot accepts being the pretend player's junior, its kill gives rep,
         // the EXP / drop entitlements spend rep and give their buffs, a second use is refused, the family is dissolved
         c.add(Check.auto("t-fy-1", "Family: a bot junior, rep, the EXP / drop entitlements").holds("family").minutes(2)

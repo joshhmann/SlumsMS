@@ -11,6 +11,7 @@ import soloMapling.Economy.exchange.Ledger.Kind;
 import soloMapling.Economy.exchange.Ledger.Posting;
 import soloMapling.Economy.exchange.Ledger.Why;
 import soloMapling.Economy.exchange.OrderBook.Side;
+import soloMapling.Economy.exchange.volatility.MarketConfig;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -221,8 +222,9 @@ public final class Exchange {
 
     /**
      * The NX limit prices a player may use now: {lowest sell, highest buy} in mesos per 1,000 NX ({@link NxGuard}):
-     * 50% and 200% of the official rate, else of NX's starting price (5,000,000: sells from 2,500,000, buys up to
-     * 10,000,000).
+     * 50% and 200% of the official rate, else of NX's starting price (5,000,000), always inside the hard window
+     * {@link NxGuard#NX_LOWEST}..{@link NxGuard#NX_HIGHEST} (2,500..10,000 mesos per NX, owner 2026-10-31 ~19:50 UTC),
+     * which the relative band can only tighten.
      */
     public synchronized long[] nxBand() {
         Ticker t = tickers.get(Ticker.NX);
@@ -242,24 +244,58 @@ public final class Exchange {
         if (!Ticker.NX.equals(p.ticker())) {
             return null;
         }
+        Response outside = outOfWindow(rid, p.ticker(), p.side(), p.price());
+        if (outside != null) {
+            return outside;
+        }
         long[] b = nxBand();
         boolean low = p.side() == Side.SELL && p.price() < b[0];
         boolean high = p.side() == Side.BUY && p.price() > b[1];
         if (!low && !high) {
             return null;
         }
+        String basis = rateBasis();
+        String msg = low ? String.format("an NX sell must ask at least %s mesos per NX %s", perNx(b[0]), basis)
+                : String.format("an NX buy may bid at most %s mesos per NX %s", perNx(b[1]), basis);
+        return new Response(rid, false, "PRICE_BAND", msg, bandData(b));
+    }
+
+    /**
+     * PRICE_BAND for an NX order priced outside the hard window (owner 2026-10-31 ~19:50 UTC: no NX order on either
+     * side is ever outside {@link NxGuard#NX_LOWEST}..{@link NxGuard#NX_HIGHEST}, whatever the official rate says), else
+     * null. Applied by every caller of {@link #placeOrder} as well, because the house regulars quote through their own
+     * path and never see {@link #priceBand}.
+     */
+    private Response outOfWindow(String rid, String ticker, Side side, long price) {
+        if (!Ticker.NX.equals(ticker) || (price >= NxGuard.NX_LOWEST && price <= NxGuard.NX_HIGHEST)) {
+            return null;
+        }
+        // the two clamps players meet most (a dump below the floor, an overpay above the ceiling) keep their old words
+        String msg = price < NxGuard.NX_LOWEST && side == Side.SELL
+                ? String.format("an NX sell must ask at least %s mesos per NX %s", perNx(NxGuard.NX_LOWEST), rateBasis())
+                : price > NxGuard.NX_HIGHEST && side == Side.BUY
+                ? String.format("an NX buy may bid at most %s mesos per NX %s", perNx(NxGuard.NX_HIGHEST), rateBasis())
+                : String.format("an NX order must price NX from %s to %s mesos per NX %s", perNx(NxGuard.NX_LOWEST),
+                        perNx(NxGuard.NX_HIGHEST), rateBasis());
+        return new Response(rid, false, "PRICE_BAND", msg, bandData(nxBand()));
+    }
+
+    /** How the refusal explains the band: the official rate, or NX's starting price before there is one. */
+    private String rateBasis() {
         Long rate = officialRate(Ticker.NX);
+        return rate == null
+                ? String.format("(no official rate yet: NX counts as %s mesos per NX)",
+                        perNx(guard.startPrice() > 0 ? guard.startPrice() : NxGuard.START_PRICE))
+                : String.format("(the official rate is %s mesos per NX)", perNx(rate));
+    }
+
+    /** A PRICE_BAND's data: the band it refused against (per 1,000 NX) and the rate behind it (null before one). */
+    private Map<String, Object> bandData(long[] b) {
         Map<String, Object> d = new LinkedHashMap<>();
         d.put("minPrice", b[0]);
         d.put("maxPrice", b[1]);
-        d.put("rate", rate);
-        // player text per 1 NX (owner 2026-10-29); the data stays per 1,000 NX
-        String basis = rate == null
-                ? String.format("(no official rate yet: NX counts as %s mesos per NX)", perNx(guard.startPrice()))
-                : String.format("(the official rate is %s mesos per NX)", perNx(rate));
-        String msg = low ? String.format("an NX sell must ask at least %s mesos per NX %s", perNx(b[0]), basis)
-                : String.format("an NX buy may bid at most %s mesos per NX %s", perNx(b[1]), basis);
-        return new Response(rid, false, "PRICE_BAND", msg, d);
+        d.put("rate", officialRate(Ticker.NX));
+        return d;
     }
 
     private final ExchangeStore store;
@@ -361,12 +397,19 @@ public final class Exchange {
         history.clear();
         Map<String, List<OrderBook.Order>> open = new HashMap<>();
         List<String> unknown = new ArrayList<>();
+        List<OrderRow> clamped = new ArrayList<>();
         for (OrderRow r : l.openOrders()) {
             if (!books.containsKey(r.ticker())) {
                 unknown.add("order " + r.id() + " is on an unknown ticker " + r.ticker());
                 continue;
             }
             rows.put(r.id(), r);
+            if (Ticker.NX.equals(r.ticker()) && (r.price() < NxGuard.NX_LOWEST
+                    || r.price() > NxGuard.NX_HIGHEST)) {
+                // an order placed before the hard window (owner 2026-10-31) can rest outside it: it is cancelled and
+                // refunded below, through the normal path, once the book and the reconcile are in
+                clamped.add(r);
+            }
             open.computeIfAbsent(r.ticker(), k -> new ArrayList<>()).add(toOrder(r));
         }
         open.forEach((t, os) -> books.get(t).restoreAll(os));
@@ -389,7 +432,9 @@ public final class Exchange {
             if (e.getKey().kind() == Kind.FEEHOLD && e.getValue() > 0) {
                 feeHold.put(e.getKey().id(), e.getValue());
             }
-            if (e.getKey().kind() == Kind.PAYOUT && botAccount(e.getKey().id()) && e.getValue() > 0) {
+            // a bot's NX purse stays in PAYOUT (no wallet can take it): never a collection to retry
+            if (e.getKey().kind() == Kind.PAYOUT && botAccount(e.getKey().id()) && e.getValue() > 0
+                    && e.getKey().asset() != Asset.NX) {
                 botPayouts.add(e.getKey().id());
             }
         }
@@ -418,8 +463,32 @@ public final class Exchange {
         problems.addAll(reconcile(l));
         if (!problems.isEmpty()) {
             halt("reconcile: " + problems.size() + " mismatch(es), first: " + problems.get(0));
+        } else {
+            cancelClamped(clamped);
         }
         return problems;
+    }
+
+    /**
+     * Cancels and refunds, through the normal cancel path, every open NX order the hard window now forbids (owner
+     * 2026-10-31 ~20:05 UTC: "open NX orders whose price is outside the clamp are CANCELLED and REFUNDED through the
+     * normal cancel path, each logged in the exchange audit"). Runs once at recovery, after the reconcile passed; the
+     * refund lands in the payer's PAYOUT bucket exactly like its own cancel, and the store row is closed, never edited.
+     */
+    private void cancelClamped(List<OrderRow> clamped) {
+        for (OrderRow r : clamped) {
+            long owner = r.regular() > 0 ? Regulars.owner((int) r.regular()) : r.account();
+            Response res = closeOrders("clamp cancel order #" + r.id(), List.of(r.id()), owner,
+                    OrderBook.Reason.CANCELLED);
+            if (res.ok()) {
+                log.warn("exchange: clamp cancel order #{} ({} at {} per 1,000 NX, outside the hard window {}..{}): "
+                        + "refunded to the payer", r.id(), r.side(), r.price(), NxGuard.NX_LOWEST,
+                        NxGuard.NX_HIGHEST);
+            } else {
+                log.error("exchange: clamp cancel order #{} ({} at {} per 1,000 NX) failed: {} {}; it stays open",
+                        r.id(), r.side(), r.price(), res.code(), res.message());
+            }
+        }
     }
 
     public static List<String> reconcile(ExchangeStore.Loaded l) {
@@ -933,6 +1002,12 @@ public final class Exchange {
     /** Places an order (player or regular) and settles what it matches, all in one batch. */
     private Response placeOrder(String rid, long account, long character, int regular, Ticker t, Side side, long price,
                                 long nx, long now, LiveWallet w) {
+        // the hard window on every order, including the house regulars' own quotes (they skip priceBand): a fill
+        // trades at the resting order's price, so this is what keeps every fill inside too (owner 2026-10-31 ~19:50)
+        Response outside = t == null ? null : outOfWindow(rid, t.id(), side, price);
+        if (outside != null) {
+            return outside;
+        }
         long id = nextOrder;
         long seq = nextSeq;
         long owner = regular > 0 ? Regulars.owner(regular) : account;
@@ -949,7 +1024,10 @@ public final class Exchange {
         List<Posting> postings = new ArrayList<>();
         Asset sold = t.asset();
         boolean bot = regular == 0 && botAccount(account);
+        // 1.6.2: a trader bot's NX is held for it in PAYOUT (it has no cash shop), so an NX sell spends the purse
+        boolean purse = bot && sold == Asset.NX && side == Side.SELL;
         Bucket source = regular > 0 ? Bucket.house(side == Side.SELL ? sold : Asset.MESO, regular)
+                : purse ? Bucket.payout(Asset.NX, account)
                 : bot ? Bucket.bot(side == Side.SELL ? sold : Asset.MESO, character)
                 : side == Side.BUY ? Bucket.wallet(Asset.MESO, character)
                 : sold.perCharacter() ? Bucket.wallet(sold, character) : Bucket.wallet(Asset.NX, account);
@@ -1589,10 +1667,16 @@ public final class Exchange {
 
     /**
      * A trader bot's order, from its own bags and mesos ({@code w} is the bot's {@code BotTraderWallet}; the order's
-     * account and character are both the bot's character id). Item tickers only, every player limit applies (5 open
-     * per ticker, the day's count, the cooldown, the fee). Under the bot's lock: take the escrow out of the bot, save
-     * the bot (so a crash from here on loses the escrow rather than duplicating it), then write the order; a refused
-     * order gives it back. Nothing is minted: what a bot cannot pay it does not post.
+     * account and character are both the bot's character id). Every player limit applies (5 open per ticker, the day's
+     * count, the cooldown, the fee). Under the bot's lock: take the escrow out of the bot, save the bot (so a crash
+     * from here on loses the escrow rather than duplicating it), then write the order; a refused order gives it back.
+     * Nothing is minted: what a bot cannot pay it does not post.
+     * <p>
+     * 1.6.2 (owner: bots trade NX too, {@code -Dslums.exchange.traders.nx}): the NX ticker is open to bots as well.
+     * Bots have no cash shop of their own, so their NX is held for them inside the exchange ({@link #botNx}: the NX
+     * they bought from a player, never granted). An NX sell draws on that purse in the same transaction as the order,
+     * so it cannot be sold twice; an NX buy pays mesos out of the bot as any other buy. Inside the NX band as well
+     * ({@link #nxBand}), which {@link #place} enforces for every trader.
      */
     public synchronized Response placeBot(Place p, LiveWallet w) {
         String rid = p.requestId();
@@ -1610,24 +1694,35 @@ public final class Exchange {
             return Response.error(rid, "BAD_REQUEST", bad);
         }
         Ticker t = tickers.get(p.ticker());
-        if (!t.item()) {
+        boolean nx = Ticker.NX.equals(t.id());
+        if (!t.item() && !(nx && MarketConfig.tradersNxOn())) {
             return Response.error(rid, "BAD_REQUEST", "trader bots trade item tickers only");
         }
         long now = clock.getAsLong();
+        // the players' NX band applies to a bot too: an NX order nobody inside it could fill is a dead order
+        Response guarded = priceBand(rid, p);
+        if (guarded != null) {
+            return guarded;
+        }
         String limit = limits(p.account(), t, now);
         if (limit != null) {
             return Response.error(rid, limit, limitMessage(limit, t, p.account(), now));
         }
         Asset a = p.side() == Side.SELL ? t.asset() : Asset.MESO;
         long amount = p.side() == Side.SELL ? p.nx() : t.buyTotal(config, p.nx(), p.price());
+        boolean purse = nx && p.side() == Side.SELL;   // the bot's NX sits in the ledger, not in a wallet
         return w.locked(() -> {
             if (!w.usable()) {
                 return Response.error(rid, "TRY_AGAIN", "the bot is not in the game");
             }
-            if (w.have(a) < amount || !w.take(a, amount)) {
+            if (purse) {
+                if (botNx(p.account()) < p.nx()) {
+                    return Response.error(rid, "INSUFFICIENT_FUNDS",
+                            "the bot has fewer than " + p.nx() + " " + unitName(a));
+                }
+            } else if (w.have(a) < amount || !w.take(a, amount)) {
                 return Response.error(rid, "INSUFFICIENT_FUNDS", "the bot has fewer than " + amount + " " + unitName(a));
-            }
-            if (!w.saveNow()) {
+            } else if (!w.saveNow()) {
                 giveBack(w, a, amount, "an unsaved bot place " + rid);
                 return Response.error(rid, "ERROR", "could not save the bot first");
             }
@@ -1637,17 +1732,21 @@ public final class Exchange {
                 placed = placeOrder(rid, p.account(), p.character(), 0, t, p.side(), p.price(), p.nx(), now, null);
             } catch (RuntimeException e) {
                 if (!committed) {
-                    giveBack(w, a, amount, "a failed bot place " + rid);
-                    w.saveNow();
+                    if (!purse) {
+                        giveBack(w, a, amount, "a failed bot place " + rid);
+                        w.saveNow();
+                    }
                 } else {
                     halt("bot place " + rid + " failed after its commit: " + e);
                 }
-                log.error("NX exchange: bot place {} failed", rid, e);
+                log.error("exchange: bot place {} failed", rid, e);
                 return Response.error(rid, "ERROR", "try again later");
             }
             if (!placed.ok()) {
-                giveBack(w, a, amount, "a refused bot place " + rid);
-                w.saveNow();
+                if (!purse) {
+                    giveBack(w, a, amount, "a refused bot place " + rid);
+                    w.saveNow();
+                }
             } else {
                 collectBotLocked(w);
             }
@@ -1704,6 +1803,23 @@ public final class Exchange {
             return n;
         } catch (StoreException e) {
             return t.perDay();
+        }
+    }
+
+    /**
+     * 1.6.2: the NX the exchange holds for a trader bot (0: none, not a bot, or the store failed). A bot has no cash
+     * shop account of its own, so NX it buys stays in its PAYOUT bucket until it sells it back (see {@link #placeBot});
+     * nothing is ever granted to a bot's purse.
+     */
+    public synchronized long botNx(long account) {
+        if (!recovered || !botAccount(account)) {
+            return 0;
+        }
+        try {
+            return Math.max(0, store.balance(Bucket.payout(Asset.NX, account)));
+        } catch (StoreException e) {
+            log.warn("exchange: could not read bot {}'s NX purse", account, e);
+            return 0;
         }
     }
 

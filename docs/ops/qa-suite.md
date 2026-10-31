@@ -327,6 +327,16 @@ Auto-QA t-xc-2 runs the same with AutoQaOne through the real `@nx leaf` command 
 Auto-QA t-xc-3 runs the same check (no player needed); t-xc-4 checks the guild-war news path the same way. The request named it t-mk-1, but mk-1 / t-mk-1 already belong
 to the 1.6.0 Market export.
 
+## xc-5: a trader that holds a scroll lists it (1.6.2, 162-xtraders)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `xc-5` | Needs `-Dslums.exchange=true`, `-Dslums.exchange.traders=true`, the CHAOS or WS ticker open and an online trader holding a Chaos or White Scroll (they find them hunting: one global row each at 1200/1,000,000 at a quarter of that rate (-Dslums.exchange.scrollFindRate, default 0.25), about 0.54 per trader-hour, so it may take a while - with no holder it SKIPs and says so). Reads every online holder's pick, then places and cancels one SELL of that scroll through the exchange from the trader's own holdings | the pick is the scroll the trader holds, never another ticker; the sell rests on the book as the bot's, its price is inside the ticker's band, exactly the quantity is escrowed and the cancel puts it straight back; no NX, no mesos and no scroll minted |
+
+Auto-QA `t-xc-5` runs the same probe (`marketScroll`). Before 162-xtraders a trader's ticker came from the dice only
+(LEAF 70%, else one of the four item tickers): 27 bots on TEST held a Chaos Scroll and not one exchange order for CHAOS
+had ever been placed.
+
 ## pq-2: OPQ bots (1.5.2)
 
 | Test | What it stages | What to look for |
@@ -898,6 +908,7 @@ line (`nothing could be judged here: SKIP OWNED_ALTS_ENABLED is off ...`). All r
 | t-xc-2 LEAF ticker | AutoQaOne (topped up to 20 tradeable Maple Leaves if short, taken back): the test regular, funded from its own mesos, bids for 10 leaves; `@nx leaf sell 10 <bid>` + confirm; after the cooldown `@nx leaf sell 10 <max>` + confirm, then `@nx cancel`; the regular is taken out | the sale takes exactly 10 leaves and fills, its mesos less 1% land at once; the resting sell takes 10 more and the cancel returns exactly those; the regular's 10 leaves come back; at the end the same leaves and exactly the two 1% fees fewer mesos; the exchange never halts | `-Dslums.exchange` off or LEAF closed |
 | t-xc-3 Market volatility | a secret 2-minute Leaf Rush, then an online trader bot's 1-leaf LEAF bid from its own mesos, cancelled | the leaf chance x3 during the Rush and back after; the bot's order rests on the book as the bot's; its mesos come back exactly | `-Dslums.market.events`, `-Dslums.exchange.traders` or `-Dslums.exchange` off |
 | t-xc-4 Guild war market news | war news on a private desk (no Cody notice, no banner) for an online trader's guild, then a resting 1-elixir bid from its own mesos, cancelled; the trader is one outside the 10 s order cooldown (the check waits it out once if every one is in it), and one short of 100,000 mesos is topped up for the check and exactly that is taken back; the evidence lists every trader's holdings | the trader's role reads AT_WAR_FRESH, ELIXIR pressure is above 0, its news action is an elixir buy; the bid rests on the book and the cancel succeeds | `-Dslums.exchange.traders` or `-Dslums.exchange` off, or ELIXIR closed |
+| t-xc-5 Scroll trading | an online trader that holds a Chaos or White Scroll: its pick this turn, then one SELL of that scroll through the exchange from its own holdings, cancelled | the pick is the held scroll (not the LEAF dice), the sell rests on the book inside the ticker's band, exactly its quantity is escrowed and the cancel returns it; SKIP with the measured find rate when no trader holds one | `-Dslums.exchange.traders` or `-Dslums.exchange` off, or no scroll ticker open |
 
 Not automated: how an owned alt's fight looks in a real client (its attack poses, the mob hit numbers, knockback),
 an alt's death in a real client, a boat catch-up (t-oa-1 follows through one walkable portal only),

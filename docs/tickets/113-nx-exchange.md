@@ -407,9 +407,10 @@ New public outbox file **`exchange-tickers.json`** (every poll; no names, no ids
  "rate_window_hours":168,"rate_min_fills":3,
  "tickers":[
   {"id":"NX","name":"NX","item_id":null,"unit":"1000nx","unit_label":"mesos per 1,000 NX","per":1000,
-   "qty_label":"NX","min_qty":100,"max_qty":50000,"lot":100,"min_price":1000,"max_price":100000000,
-   "bid":1150000,"ask":1200000,"last":1180000,"change_24h":-20000,"change_24h_pct":-1.67,
-   "high_24h":1210000,"low_24h":1150000,"volume_24h":42000,"turnover_24h":49560000,"fills_24h":17,
+   // min_price/max_price are the band an order may use now (window ∩ relative band); with no official rate: the window
+   "qty_label":"NX","min_qty":100,"max_qty":50000,"lot":100,"min_price":2500000,"max_price":10000000,
+   "bid":4950000,"ask":5050000,"last":5000000,"change_24h":0,"change_24h_pct":0.0,
+   "high_24h":5000000,"low_24h":5000000,"volume_24h":42000,"turnover_24h":210000000,"fills_24h":17,
    "rate":1182000,
    "bids":[{"price":1150000,"qty":3000,"orders":2}],"asks":[{"price":1200000,"qty":1000,"orders":1}],
    "trades":[{"t":"2026-10-28T17:59:12Z","price":1180000,"qty":500}]},
@@ -489,7 +490,7 @@ are toned down by about half, prices anchor to a **fair value** from real drops 
   written: a crash in between loses the escrow, never duplicates it. Payouts go back into the bot while it is in the
   game (else they wait in its PAYOUT; the volatility thread collects for online bots even with traders off). A bot's
   orders use its character id as the account (bots share one game account), so every player limit applies per bot:
-  10 open and 20 a day per ticker, the 10 s cooldown, the 1% fee. Bots never trade NX. No granting, ever.
+  10 open and 20 a day per ticker, the 10 s cooldown, the 1% fee. Bots never trade NX on 1.6.1's build (162-xtraders adds an off-by-default purse and order path; the NX desk plan in `docs/tickets/162-nx-forex.md` replaces quoting). No granting, ever.
 - **Leaves for traders**: the bots' off-screen loot left out the global drop table, so bots never found Maple Leaves.
   Trader bots find them at the leaf's own global chance (the real `drop_data_global` row) x 30 kills/min while
   hunting off screen, through `BotYieldCaps` and `BotHoldings`. Global rates are untouched.
@@ -619,6 +620,51 @@ oscillates around the fair value. Mesos and leaves were exactly conserved in eve
 4. Guild-war Cody notices: one per 10 min; fine, or only for wars between bot guilds and players?
 5. Rumours are heard world-wide by traders; OK?
 
+### 1.6.2 update, 162-xtraders (2026-10-31): a third of the bots trade; scrolls have a source; NX goes to a desk
+
+Owner, 2026-10-31: at least a quarter to half of the bots should trade, and CHAOS/WS should wake up. Then, for NX,
+"FOREX-style instead of an order book".
+
+- **Trader share**: `-Dslums.exchange.traders.pct` (25..50; 0/absent keeps 1.6.1's fixed count, the default-safe
+  path). Traders now come from **every** Bartle type with archetypes cycled per type (`MarketTraders.select`'s
+  `allTypes`), the roster is re-drawn as bots log in and out (`keepAndFill`), the sanity bound is 5,000
+  (`MarketConfig.MAX_TRADERS`) and `-Dslums.exchange.traders.count` stays an optional cap. 1.6.2's live flags carry
+  `-Dslums.exchange.traders=true -Dslums.exchange.traders.pct=35` (docs/release/1.6.2.conf UNIT_EDITS).
+- **CHAOS and WS have 0 fills because nobody held them.** A trader now lists a scroll it holds instead of rolling the
+  LEAF dice, and traders find both scrolls hunting off screen at their real chances: the one **global**
+  `drop_data_global` row each (chance 1200/1,000,000, continent -1) plus any per-mob row of a mob on the bot's own map,
+  through `BotYieldCaps` like any other loot — no minting, no seeding. When the bots' own drops are the only source
+  (owner's 12:33 UTC answer), that rate is the supply.
+  **A quarter of it (owner, 2026-10-31 ~19:50 UTC):** `-Dslums.exchange.scrollFindRate` (default **0.25**; 1 = the real
+  rate, 0 = off) multiplies the summed chance, so measured supply is **0.54 of each per trader-hour at 30 kills/min**
+  (2.2 at the real rate), the fraction still carrying per bot and scroll. The default is the owner's quarter, so
+  `docs/release/1.6.2.conf` sets no flag; test `MarketTradersScrollTest.aQuarterOfTheRealRateFindsAQuarterOfTheScrolls`
+  (216 real vs 54 at a quarter over 6,000 minutes, first find in the 112th minute).
+- **Bots on NX**: the branch has a bot NX purse (`Exchange.botNx`, a bot's NX in its own PAYOUT bucket) and
+  per-1,000-NX order maths, behind `-Dslums.exchange.traders.nx` (default off, not in 1.6.2's flags). The desk plan in
+  `docs/tickets/162-nx-forex.md` keeps the purse and the maths and replaces the quoting.
+- **The NX band is relative, so a hard window now sits under it (owner 2026-10-31 ~19:50 UTC).** `nxBand()` is
+  `NxGuard.band(officialRate, ...)` = 50%..200% of the official rate, so the first fills moved the wall with them
+  (round-1 probe: a fill at 9,900,000 let a 10,500,000 buy through). That is closed: no NX order, player or bot, may
+  price outside **2,500,000..10,000,000 per 1,000 NX** (`NxGuard.NX_LOWEST`/`NX_HIGHEST`), whatever the rate does.
+  The relative band is intersected with it, so whichever is tighter refuses (`PRICE_BAND`), and the window applies
+  even with the guard switched off. Because a fill trades at the maker's price, every fill is inside the window too.
+  Tests: `NxGuardTest.theRateCannotWalkPastTheHardCeilingOf10000MesosPerNx` (a fill at 10,000,000 leaves the 7-day
+  rate at 9,625,000 and a 10,500,000 bid refused),
+  `NxGuardTest.anOrderOutsideTheHardWindowIsRefusedOnEitherSideEvenWithTheGuardOff`, and
+  `NxGuardTest.aHouseRegularCannotQuoteOutsideTheWindow` (the regulars' own path, which skips `priceBand`, is caught
+  in `placeOrder`). Bots quote inside the same band (`MarketTraders.view` clips to `ex.nxBand()`, and falls back to it
+  wholesale when the brain's own anchor band does not overlap it), so a low official rate narrows the bots' NX asks and
+  bids too; the fixed `BOT_NX_MIN/MAX` constants are gone
+  (`NxGuardTest.aBotQuotesInsideTheBandTheExchangeRefusesPlayersOn`). The site's
+  `exchange-tickers.json` NX entry carries the band an order may actually use in `min_price`/`max_price` (before, it
+  was the ticker's own 1,000..100,000,000), and an open NX order found outside the window at boot is **cancelled and
+  refunded through the normal cancel path**, one audit line each (`clamp cancel order #N ...`), never edited in place;
+  TEST's order 2940 (owner's SELL 1,000 NX at 100,000 per 1,000 NX) was the only one, and 1.6.2 is the exchange's first
+  live run so live has none. Tests: `NxGuardTest.theSiteTickerCarriesTheBandAnNxOrderMayActuallyUse`,
+  `...anOpenNxOrderOutsideTheWindowIsCancelledAndRefundedAtBoot`, `...anOpenNxOrderInsideTheWindowIsLeftAloneAtBoot`.
+  The desk plan (`docs/tickets/162-nx-forex.md`, 1.6.3) starts from an already-clamped book.
+
 ## Stolen-cookie guard, game side (owner 2026-10-29: "both guards"; branch `161-nxguard`)
 
 The website does a fresh sign-in on its side; the game enforces two things (`NxGuard`, JVM knobs, 0 = off). **No
@@ -628,7 +674,7 @@ Site orders still carry request id `s-<token>` (`@nx`: `t-`), so staff can tell 
 
 | Guard | Rule | Code (data) | Knob, default |
 |---|---|---|---|
-| NX price band | every player NX order, site or `@nx`: a SELL may not ask under 50% of the official NX rate, a BUY may not bid over 200%; with no official rate yet the band is around NX's **starting price, 5,000,000 per 1,000 NX (5,000 mesos per NX, the NX merchant bots' 10k NX for 50m; owner 2026-10-29)**: sells from 2,500,000, buys up to 10,000,000 (before, a stolen session could buy a thief's NX at the ticker's 100m and drain the account's mesos). The message reads per 1 NX ("an NX sell must ask at least 2,500 mesos per NX (no official rate yet: NX counts as 5,000 mesos per NX)"); `minPrice`/`maxPrice`/`rate` stay per 1,000 NX. Checked at preview and again at place. Regulars and the QA test regular quote through their own path; the NX QA check prices its bid at the band's lowest sell or above | `PRICE_BAND` (`minPrice`, `maxPrice`, `rate`) | `-Dslums.exchange.nxBand.minPct=50`, `.maxPct=200`, `-Dslums.exchange.nxStartPrice=5000000` (the ceiling follows it) |
+| NX price band | every NX order, site, `@nx`, bot or house regular, **inside 2,500,000..10,000,000 per 1,000 NX whatever the rate does** (owner 2026-10-31 ~19:50 UTC: both sides, so a resting order outside it is refused and every fill, which trades at the maker's price, is inside it) **and** a SELL may not ask under 50% of the official NX rate, a BUY may not bid over 200% (the tighter of the two); with no official rate yet the band is around NX's **starting price, 5,000,000 per 1,000 NX (5,000 mesos per NX, the NX merchant bots' 10k NX for 50m; owner 2026-10-29)**: sells from 2,500,000, buys up to 10,000,000 (before, a stolen session could buy a thief's NX at the ticker's 100m and drain the account's mesos). The message reads per 1 NX ("an NX sell must ask at least 2,500 mesos per NX (no official rate yet: NX counts as 5,000 mesos per NX)"); `minPrice`/`maxPrice`/`rate` stay per 1,000 NX. Checked at preview and again at place. Regulars and the QA test regular quote through their own path; the NX QA check prices its bid at the band's lowest sell or above | `PRICE_BAND` (`minPrice`, `maxPrice`, `rate`) | `-Dslums.exchange.nxBand.minPct=50`, `.maxPct=200`, `-Dslums.exchange.nxStartPrice=5000000` (the ceiling follows it) |
 | Site sign-in age | preview, confirm, cancel and mine must carry `siteAuthAt` (epoch ms, or ISO-8601, of the player's last real sign-in on the site, not a cookie refresh); refused when missing, older than 12 h or more than 5 min in the future. Book and trades need none | `REAUTH` (`maxAgeHours`) | `-Dslums.exchange.siteAuthMaxHours=12` |
 
 Rollout: the site must send `siteAuthAt` before a server with this build answers its requests, or every account

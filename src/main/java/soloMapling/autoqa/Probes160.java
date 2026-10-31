@@ -65,7 +65,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "botRebirth", "botRebirthBoss", "essenceStone", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer", "botShopStock");
+            "family", "tutorialIsland", "botRebirth", "botRebirthBoss", "essenceStone", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "marketScroll", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer", "botShopStock");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -98,6 +98,7 @@ final class Probes160 {
                 case "leafExchange" -> leafExchange(p);
                 case "marketVolatility" -> soloMapling.Economy.exchange.volatility.MarketQa.check(System.currentTimeMillis());
                 case "marketWar" -> soloMapling.Economy.exchange.volatility.MarketQa.warCheck(System.currentTimeMillis());
+                case "marketScroll" -> soloMapling.Economy.exchange.volatility.MarketQa.scrollCheck(System.currentTimeMillis());
                 case "family" -> family(p);
                 case "familyPerks" -> FamilyProbes.perks(p);
                 case "familyTravel" -> FamilyProbes.travel(p);

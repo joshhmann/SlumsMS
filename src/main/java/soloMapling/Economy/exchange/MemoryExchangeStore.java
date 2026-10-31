@@ -773,4 +773,18 @@ public final class MemoryExchangeStore implements ExchangeStore {
     public synchronized void tamper(Bucket b, long amount) {
         state.balances.put(b, amount);
     }
+
+    /**
+     * Test hook: rewrites an open order's limit price, as an order placed before a price rule changed would look. The
+     * escrow is left alone (an NX SELL's is its NX either way), so the store stays internally consistent.
+     */
+    public synchronized void reprice(long id, long price) {
+        OrderRow r = state.orders.get(id);
+        if (r == null) {
+            return;
+        }
+        state.orders.put(id, new OrderRow(r.id(), r.requestId(), r.account(), r.character(), r.regular(), r.side(),
+                price, r.nxTotal(), r.nxLeft(), r.mesosHeld(), r.placedAt(), r.expiresAt(), r.seq(), r.status(),
+                r.closedAt(), r.ticker()));
+    }
 }

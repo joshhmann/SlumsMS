@@ -2784,6 +2784,8 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 chr.getMap().getCharacters().size(), drawMs, nowMs, chr.getWorldServer());
         // 1.6.1 volatility: trader bots also find Maple Leaves at the leaf's global drop chance (traders on only)
         soloMapling.Economy.exchange.volatility.MarketVolatility.offscreenLeafFinds(chr, elapsedMs);
+        // 1.6.2: and the scrolls the mobs on their map drop (trader bots; see the method for why WS has none)
+        soloMapling.Economy.exchange.volatility.MarketVolatility.offscreenScrollFinds(chr, elapsedMs);
         if (reward.isEmpty()) {
             return;
         }

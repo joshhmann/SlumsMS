@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ExchangeLiveTest {
 
-    static final long P = 1_000_000;
+    static final long P = 5_000_000; // 5m mesos per 1,000 NX, inside the hard window
     static final long NX0 = 100_000;
     static final long MESO0 = 50_000_000;
 
@@ -111,9 +111,9 @@ class ExchangeLiveTest {
         Session s = store.login(2, 12);
         s.gainMeso(12, 5_000); // looted since the last save: memory has more than the database
         totalMeso = store.totalMeso();
-        Response r = place(2, Side.BUY, 1_250_000, 2000);
+        Response r = place(2, Side.BUY, 6_250_000, 2000);
         assertTrue(r.ok(), r.toString());
-        long hold = 2_500_000, reserve = 25_000;
+        long hold = 12_500_000, reserve = 125_000;
         assertEquals(MESO0 + 5_000 - hold - reserve, s.meso.get(12L), "memory paid the hold and the fee reserve");
         assertEquals(MESO0 + 5_000 - hold - reserve, store.meso(12), "the database matches memory (save + delta)");
         assertEquals(hold, store.balance(Bucket.escrow(Asset.MESO, id(r))));
@@ -170,12 +170,12 @@ class ExchangeLiveTest {
         assertEquals(NX0 + 1000, buyer.nx, "the NX landed in the live account without a logout");
         assertEquals(NX0 + 1000, store.nx(2), "and in the database, in the same transaction");
         assertEquals(0, store.balance(Bucket.payout(Asset.NX, 2)));
-        assertEquals(MESO0 + 990_000, store.meso(11), "the offline seller got its mesos less its 1% fee");
+        assertEquals(MESO0 + 4_950_000, store.meso(11), "the offline seller got its mesos less its 1% fee");
         long before = buyer.meso.get(12L);
         assertTrue(ex.cancel("c", 2, buy).ok());
-        assertEquals(before + 1_000_000 + 10_000, buyer.meso.get(12L), "the cancel refunded the rest and its reserve");
-        assertEquals(MESO0 - 1_010_000, buyer.meso.get(12L));
-        assertEquals(20_000, store.balance(Bucket.fees()));
+        assertEquals(before + 5_000_000 + 50_000, buyer.meso.get(12L), "the cancel refunded the rest and its reserve");
+        assertEquals(MESO0 - 5_050_000, buyer.meso.get(12L));
+        assertEquals(100_000, store.balance(Bucket.fees()));
         conserved();
         store.logout(2);
         persistedConserved();
@@ -205,7 +205,7 @@ class ExchangeLiveTest {
         totalMeso = store.totalMeso();
         assertTrue(ex.cancel("c", 2, buy).ok());
         assertEquals(Integer.MAX_VALUE, (long) s.meso.get(12L));
-        assertEquals(1_010_000 - 500, store.balance(Bucket.payout(Asset.MESO, 12)));
+        assertEquals(5_050_000 - 500, store.balance(Bucket.payout(Asset.MESO, 12)));
         conserved();
     }
 
@@ -215,7 +215,7 @@ class ExchangeLiveTest {
     @Test
     void saveAfterEscrowCannotDupe() throws Exception {
         Session s = store.login(2, 12);
-        long buy = id(place(2, Side.BUY, P, 10_000)); // 10m + 100k reserve
+        long buy = id(place(2, Side.BUY, P, 2_000)); // 10m + 100k reserve
         long left = MESO0 - 10_100_000;
         assertEquals(left, s.meso.get(12L));
         assertFalse(s.spendMeso(12, left + 1), "the escrow is not spendable");
@@ -238,11 +238,11 @@ class ExchangeLiveTest {
         for (int step = 0; step < 12; step++) {
             setUp();
             assertTrue(place(1, Side.SELL, P, 500).ok());
-            assertTrue(place(3, Side.SELL, 1_100_000, 500).ok());
+            assertTrue(place(3, Side.SELL, 5_100_000, 500).ok());
             Session s = store.login(2, 12);
             long mem = s.meso.get(12L);
             store.crashAfterSteps(step);
-            Response r = place(2, Side.BUY, 1_200_000, 1000); // two fills, a release, fees: many steps
+            Response r = place(2, Side.BUY, 6_000_000, 1000); // two fills, a release, fees: many steps
             if (r.ok()) {
                 continue; // past the last step: nothing crashed
             }
@@ -293,7 +293,7 @@ class ExchangeLiveTest {
         ex = start(cfg(100, 0));
         long buy = id(place(2, Side.BUY, P, 1000));
         Session s4 = store.changeChannel(2);
-        assertEquals(MESO0 - 1_010_000, s4.meso.get(12L));
+        assertEquals(MESO0 - 5_050_000, s4.meso.get(12L));
         assertTrue(ex.cancel("c", 2, buy).ok());
         assertEquals(MESO0, s4.meso.get(12L), "the refund landed on the new channel");
         conserved();
@@ -397,7 +397,7 @@ class ExchangeLiveTest {
         logout.get(5, TimeUnit.SECONDS);
         pool.shutdown();
         assertFalse(store.online(2));
-        assertEquals(MESO0 - 1_010_000, store.meso(12), "the logout saved memory with the escrow taken");
+        assertEquals(MESO0 - 5_050_000, store.meso(12), "the logout saved memory with the escrow taken");
         persistedConserved();
     }
 
@@ -418,7 +418,7 @@ class ExchangeLiveTest {
                     int op = rnd.nextInt(12);
                     if (op < 7) {
                         Side side = rnd.nextBoolean() ? Side.BUY : Side.SELL;
-                        long price = 950_000 + rnd.nextInt(100) * 1000L, nx = 100L * (1 + rnd.nextInt(10));
+                        long price = 4_950_000 + rnd.nextInt(100) * 1000L, nx = 100L * (1 + rnd.nextInt(10));
                         Place p = new Place("t" + seed + "-" + i, acc, 10 + acc, side, price, nx);
                         if (seed % 2 == 0) {
                             ex.place(p); // the site's path
@@ -464,14 +464,14 @@ class ExchangeLiveTest {
     @Test
     void previewMovesNothingAndConfirmPlacesOnce() throws Exception {
         assertTrue(place(1, Side.SELL, P, 500).ok());
-        Response pv = ex.preview(new Place("p", 2, 12, Side.BUY, 1_100_000, 1000));
+        Response pv = ex.preview(new Place("p", 2, 12, Side.BUY, 5_600_000, 1000));
         assertTrue(pv.ok(), pv.toString());
         String token = (String) pv.data().get("token");
         assertNotNull(token);
         @SuppressWarnings("unchecked")
         var match = (java.util.Map<String, Object>) pv.data().get("matchNow");
         assertEquals(500L, match.get("nx"));
-        assertEquals(500_000L, match.get("mesos"));
+        assertEquals(2_500_000L, match.get("mesos"));
         assertEquals(1, ex.openOrders());
         assertEquals(MESO0, store.meso(12), "a preview moves nothing");
         assertEquals("TOKEN_EXPIRED", ex.confirm("x", 3, token).code(), "another account's token");
@@ -491,14 +491,14 @@ class ExchangeLiveTest {
     void theInGameCommandPreviewsConfirmsListsAndCancels() throws Exception {
         Session s = store.login(2, 12);
         LiveWallet w = store.finder().find(2);
-        // owner 2026-10-29: typed and shown per 1 NX (1,200 per NX = 1,200,000 per 1,000 NX underneath)
-        List<String> pv = ExchangeChat.handle(ex, w, new String[]{"buy", "1,000", "1.2k"});
-        assertTrue(pv.get(0).startsWith("Preview: buy 1,000 NX at 1,200 mesos per NX"), pv.toString());
+        // owner 2026-10-29: typed and shown per 1 NX (5,200 per NX = 5,200,000 per 1,000 NX underneath)
+        List<String> pv = ExchangeChat.handle(ex, w, new String[]{"buy", "1,000", "5.2k"});
+        assertTrue(pv.get(0).startsWith("Preview: buy 1,000 NX at 5,200 mesos per NX"), pv.toString());
         assertTrue(pv.get(pv.size() - 1).contains("@nx confirm"));
         assertEquals(MESO0, s.meso.get(12L));
         List<String> ok = ExchangeChat.handle(ex, w, new String[]{"confirm"});
         assertTrue(ok.get(0).startsWith("Order "), ok.toString());
-        assertEquals(MESO0 - 1_212_000, s.meso.get(12L));
+        assertEquals(MESO0 - 5_252_000, s.meso.get(12L));
         assertEquals("NX exchange: nothing to confirm; preview an order first (TOKEN_EXPIRED)",
                 ExchangeChat.handle(ex, w, new String[]{"confirm"}).get(0));
         long orderId = ex.openIdsOf(2).get(0);
@@ -524,7 +524,7 @@ class ExchangeLiveTest {
         long buy = id(place(2, Side.BUY, P, 1000)); // no reserve
         ex = start(cfg(100, 0));
         assertTrue(place(1, Side.SELL, P, 1000).ok());
-        assertEquals(10_000, store.balance(Bucket.fees()), "only the seller's fee: the buyer reserved none");
+        assertEquals(50_000, store.balance(Bucket.fees()), "only the seller's fee: the buyer reserved none");
         assertEquals("FILLED", store.order(buy).status());
         conserved();
     }
@@ -563,8 +563,8 @@ class ExchangeLiveTest {
 
     @Test
     void regularsAreIdleWithoutAHouseAndOnlyTheHouseAccountFundsThem() throws Exception {
-        assertTrue(place(1, Side.SELL, 1_100_000, 1000).ok());
-        assertTrue(place(3, Side.BUY, 900_000, 1000).ok());
+        assertTrue(place(1, Side.SELL, 5_200_000, 1000).ok());
+        assertTrue(place(3, Side.BUY, 4_800_000, 1000).ok());
         assertEquals(0, ex.tickRegulars(), "no house account: idle");
         Session player = store.login(2, 12);
         LiveWallet pw = store.finder().find(2);
@@ -580,9 +580,9 @@ class ExchangeLiveTest {
         }
         assertEquals(1_000_000 - 3000, house.nx);
         assertEquals(6, ex.tickRegulars(), "3 regulars, a bid and an ask each");
-        assertEquals(1_000_000 + 30_000, ex.bookForTest().best(Side.SELL), "3% above the mid");
+        assertEquals(5_000_000 + 150_000, ex.bookForTest().best(Side.SELL), "3% above the mid");
         conserved();
-        assertTrue(place(4, Side.BUY, 1_030_000, 500).ok()); // a player takes regular 1's ask
+        assertTrue(place(4, Side.BUY, 5_150_000, 500).ok()); // a player takes regular 1's ask
         assertEquals(null, ex.officialRate(), "regulars never set the rate");
         long nx0 = house.nx, meso0 = house.meso.get(19L);
         for (int reg = 1; reg <= 3; reg++) {
