@@ -32,6 +32,14 @@ class SiteBuildTest(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(self.out, rel)), rel)
         self.assertFalse(os.path.exists(os.path.join(self.out, "guide", "changelog.html")))
 
+    def test_faq_points_to_my_invites_through_the_sign_in(self):
+        """b194: the public FAQ names My invites; it links through /login/ (check.py: public pages never link the
+        signed-in sections), and the sign-in page sends an already-signed-in player straight on."""
+        with open(os.path.join(self.out, "guide", "faq.html"), encoding="utf-8") as f:
+            self.assertIn('href="../login/?next=/market/invites"', f.read())
+        with open(os.path.join(build.SRC, "assets", "login.js"), encoding="utf-8") as f:
+            self.assertIn('j.signed_in && new URLSearchParams(location.search).get("next")', f.read())
+
     def test_theme_and_fonts(self):
         for rel in ["assets/tokens.css", "assets/theme.js", "assets/fonts/OFL.txt", "assets/fonts/bricolage-grotesque.woff2",
                     "assets/fonts/instrument-sans.woff2", "assets/fonts/jetbrains-mono.woff2"]:

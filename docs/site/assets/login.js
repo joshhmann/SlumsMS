@@ -59,6 +59,9 @@
     if (j.signed_in && again) {
       say("You're signed in as " + (j.character || j.account || "a player")
         + ", but that page needs a sign-in from the last 12 hours. Sign in again below.", "");
+    } else if (j.signed_in && new URLSearchParams(location.search).get("next")) {
+      // already signed in and sent here on the way somewhere (e.g. the guide's FAQ to My invites, b194): go on
+      signedIn(j.character || j.account);
     } else if (j.signed_in) {
       say("You're signed in as " + (j.character || j.account || "a player") + ".", "ok");
       // the links are added here: a public page never links to the signed-in sections (check.py)
