@@ -390,7 +390,37 @@ final class GCWorldGraph {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        return Collections.unmodifiableMap(out);
+        return Collections.unmodifiableMap(dropMissingTargets(out));
+    }
+
+    /*
+     * b230: a portal whose target map has no Map.wz image (Ristonia's hidden in00 to the Storage Cellar 993162016, ~600
+     * such portals in all) can't be taken - MapFactory has nothing to load for a player either - so it is no edge. Left
+     * in, the planner could route a bot through a map that isn't there and the trap check counted it as a dead end.
+     * Every readable map has a key (EMPTY when it has no portals), so a target with no key has no image.
+     */
+    static Map<Integer, int[]> dropMissingTargets(Map<Integer, int[]> g) {
+        for (Map.Entry<Integer, int[]> e : g.entrySet()) {
+            int[] to = e.getValue();
+            int kept = 0;
+            for (int t : to) {
+                if (g.containsKey(t)) {
+                    kept++;
+                }
+            }
+            if (kept == to.length) {
+                continue;
+            }
+            int[] arr = new int[kept];
+            int i = 0;
+            for (int t : to) {
+                if (g.containsKey(t)) {
+                    arr[i++] = t;
+                }
+            }
+            e.setValue(arr);
+        }
+        return g;
     }
 
     private static void readMap(DataProvider mapSource, int area, int mapId, Map<Integer, int[]> out) {

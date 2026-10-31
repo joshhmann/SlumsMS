@@ -6,20 +6,4 @@
 # Only real traps belong here, each with its reason after a '#'. A trap missing from this list fails
 # t-nv-2. Regenerate after a deliberate data change (keeps the reasons; add one for a new map):
 #   mvn -o test -Dtest=NavTrapQaTest -Dwz-path=<wz> -DnavTrap.write=<this file>
-# 1471 maps reachable, 1455 with a way back, 16 traps.
-140000000 # Rien (Snow Island): Snow-covered Field 3's east00 to the dock (Dangerous Forest 140020300) runs enterPort.js, which the graph does not see; the whale lands on the dock, so the island has no way back to the boat
-140000001 # Rien (Snow Island): Snow-covered Field 3's east00 to the dock (Dangerous Forest 140020300) runs enterPort.js, which the graph does not see; the whale lands on the dock, so the island has no way back to the boat
-140000010 # Rien (Snow Island): Snow-covered Field 3's east00 to the dock (Dangerous Forest 140020300) runs enterPort.js, which the graph does not see; the whale lands on the dock, so the island has no way back to the boat
-140000011 # Rien (Snow Island): Snow-covered Field 3's east00 to the dock (Dangerous Forest 140020300) runs enterPort.js, which the graph does not see; the whale lands on the dock, so the island has no way back to the boat
-140000012 # Rien (Snow Island): Snow-covered Field 3's east00 to the dock (Dangerous Forest 140020300) runs enterPort.js, which the graph does not see; the whale lands on the dock, so the island has no way back to the boat
-140020000 # Rien (Snow Island): Snow-covered Field 3's east00 to the dock (Dangerous Forest 140020300) runs enterPort.js, which the graph does not see; the whale lands on the dock, so the island has no way back to the boat
-140020100 # Rien (Snow Island): Snow-covered Field 3's east00 to the dock (Dangerous Forest 140020300) runs enterPort.js, which the graph does not see; the whale lands on the dock, so the island has no way back to the boat
-140020110 # Rien (Snow Island): Snow-covered Field 3's east00 to the dock (Dangerous Forest 140020300) runs enterPort.js, which the graph does not see; the whale lands on the dock, so the island has no way back to the boat
-140020200 # Rien (Snow Island): Snow-covered Field 3's east00 to the dock (Dangerous Forest 140020300) runs enterPort.js, which the graph does not see; the whale lands on the dock, so the island has no way back to the boat
-222010300 # Korean Folk Town: Fox Ridge's west00 back to Tiger Ridge runs foxLaidy_map.js, which the graph does not see
-222010310 # Korean Folk Town: Fox Ridge's west00 back to Tiger Ridge runs foxLaidy_map.js, which the graph does not see
-222010400 # Korean Folk Town: Fox Ridge's west00 back to Tiger Ridge runs foxLaidy_map.js, which the graph does not see
-222010401 # Korean Folk Town: Fox Ridge's west00 back to Tiger Ridge runs foxLaidy_map.js, which the graph does not see
-222010402 # Korean Folk Town: Fox Ridge's west00 back to Tiger Ridge runs foxLaidy_map.js, which the graph does not see
-240040700 # Leafre: Cave of Life - Entrance's out00 back to Peak of the Big Nest runs hontale_morph2.js, which the graph does not see
-993162016 # Ristonia: Fountain Square's hidden in00 leads to Storage Cellar 993162016, which has no Map.wz image (a dead end in the graph; MapFactory cannot load it)
+# 1470 maps reachable, 1470 with a way back, 0 traps.

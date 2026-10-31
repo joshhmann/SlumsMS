@@ -170,6 +170,23 @@ class NavTrapQaTest {
     }
 
     @Test
+    void aPortalToAMapWithNoImageIsNoEdge() {
+        // Ristonia's Fountain Square: its hidden in00 leads to the Storage Cellar, which Map.wz does not have
+        int square = 410000300;
+        int cellar = 993162016;
+        int street = 410000310;
+        Map<Integer, int[]> g = new java.util.HashMap<>(Map.of(square, new int[]{street, cellar}, street,
+                new int[]{square}));
+        assertEquals(Set.of(cellar), traps(square, g).traps(), "before: a dead end");
+
+        GCWorldGraph.dropMissingTargets(g);
+
+        assertArrayEquals(new int[]{street}, g.get(square));
+        assertArrayEquals(new int[]{square}, g.get(street));
+        assertTrue(traps(square, g).traps().isEmpty());
+    }
+
+    @Test
     void everyAcceptedTrapNamesItsReason() {
         Map<Integer, String> b = NavTrapQa.baseline();
         for (Map.Entry<Integer, String> e : b.entrySet()) {

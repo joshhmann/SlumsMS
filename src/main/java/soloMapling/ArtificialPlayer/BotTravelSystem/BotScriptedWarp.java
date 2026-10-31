@@ -30,6 +30,15 @@ public final class BotScriptedWarp {
             // portal 3). The way back (103000101 "out00" -> booth) is a plain portal already in the graph,
             // so this one inbound edge reconnects the whole subway.
             new WarpEdge(103000100, "in00", 103000101, 3),
+            // b230 (auto-QA t-nv-2): the scripted ways back that left whole areas one-way for bots.
+            // Rien: Snow-covered Field 3's east00 (enterPort.js) -> the whale's dock, Dangerous Forest, portal 1 (the
+            // script's other branch is Aran's quest 21301, which no bot runs). Without it the island had no way back.
+            new WarpEdge(140020200, "east00", 140020300, 1),
+            // Korean Folk Town: Fox Ridge's west00 (foxLaidy_map.js) -> Tiger Ridge's east00 (portal 5); the quest
+            // 3647 branch to the fox's den needs an item no bot carries.
+            new WarpEdge(222010300, "west00", 222010200, 5),
+            // Leafre: Cave of Life - Entrance's out00 (hontale_morph2.js) -> Peak of the Big Nest, portal 4.
+            new WarpEdge(240040700, "out00", 240040600, 4),
     };
 
     private static final Map<Integer, List<WarpEdge>> BY_FROM = buildEdges();

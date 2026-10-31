@@ -547,14 +547,17 @@ them (and undoes any LOD pin) itself. None of them is on the release allow-list.
   "hows ur day going": the draft must reach the model path, be rejected, retried with the model, and the retry pass or
   fall back (StateOfMind counters), and the untrue line is never said. SKIPs when the chat model is not live
   (`BotBrains`), which fails a release run: live answers with the model.
-- **t-nv-2 (ticket 157 item 3, "no trap maps"):** `NavTrapQa` searches the bots' world graph (`GCWorldGraph`:
-  walkable portals, curated scripted warps, BotTransit rides; no Hyper Rock) from Lith Harbor for one-way-in traps:
-  maps a bot can reach with no route back. FAILs on any trap not in the committed baseline
-  `src/main/resources/soloMapling/nav-trap-maps.txt` (generated from the WZ data: 485 of 1,471 reachable maps on
-  10-30, mostly Arcane River 450xxxxxx and Grandis 40xxxxxxx with one-way rides, plus Rien 140000000), or when the
-  graph did not load; lists baseline maps that now have a way back. `NavTrapQaTest` checks the baseline against the
-  WZ data where a checkout has it; after a deliberate data change regenerate it with
-  `mvn -o test -Dtest=NavTrapQaTest -Dwz-path=<wz> -DnavTrap.write=<baseline file>`.
+- **t-nv-2 (ticket 157 item 3, "no trap maps"):** `NavTrapQa` searches the bots' world graph from Lith Harbor for
+  one-way-in traps: maps a bot can reach with no route back. It steps the way the planner does for some bot
+  (`GCWorldGraph.waysOn`: walkable portals, curated scripted warps, BotTransit rides, the tours' way home to whichever
+  town was saved, and the Hyper Teleport Rock's jump home out of its `out_of` ranges; not the rock's jump in). FAILs on
+  any trap not in the committed baseline `src/main/resources/soloMapling/nav-trap-maps.txt` (the accepted real traps,
+  one reason each), or when the graph did not load; lists baseline maps that now have a way back. b230 (10-30) cut the
+  baseline from 485 to 0: 469 were intended one-way rides (Grandis and Arcane River, left by the rock; Malaysia, by the
+  tour home), 15 lacked a scripted way back the graph now has (Rien, Korean Folk Town's Black Mountain, Leafre's Cave of
+  Life) and one was a portal to a map with no Map.wz image (now no edge). `NavTrapQaTest` checks the baseline against
+  the WZ data where a checkout has it; after a deliberate data change regenerate it with
+  `mvn -o test -Dtest=NavTrapQaTest -Dwz-path=<wz> -DnavTrap.write=<baseline file>` and give every new map a reason.
 - **t-nv-3 (ticket 157's debug tools answer):** a fresh bot on HHG1 (pinned to full simulation for the check). The
   bot inspect API (`-Dslums.inspect`, port and secret file) must answer 403 to a request with no secret and one with a
   wrong one (the check never reads the secret), its `/bots/{cid}` view must be the bot (name, level, map), the pretend
