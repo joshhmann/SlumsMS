@@ -303,7 +303,12 @@ class SilviaWorker:
     wrong account (worker recovery logs in with secrets/account.txt, not the script's vault).
     """
 
-    SIGNALS = ("worldselect.ready", "channels.ready", "charselect.ready", "field.ready")
+    # The QA build's signals (client src/qamodule_policy.h). Since client-170-qa-signals (2026-10-31): field.ready
+    # carries map_id, chat.received carries kind + text, window.open/closed carry the window's name.
+    SIGNALS = ("worldselect.ready", "channels.ready", "charselect.ready", "field.ready", "chat.received",
+               "window.open", "window.closed")
+    FILTERS = {"field.ready": ("map_id",), "chat.received": ("regex", "kind"), "window.open": ("window",),
+               "window.closed": ("window",)}
     # field.ready already carries no map id (the QA module sends the name only), so "the map I asked for loaded"
     # cannot be waited on until the client says which map it is: client work, ticket 166.
     NO_PAYLOAD = {"field.ready"}
@@ -354,10 +359,24 @@ class SilviaWorker:
         step at once instead of burning its timeout and calling the silence a failure of the game."""
         if name not in self.SIGNALS:
             return "client signal %s not available in this client build" % name
-        if extra.get("map_id") is not None:
-            return "client signal %s not available in this client build (it sends no %s)" % (
-                name, "map id" if name == "field.ready" else "payload")
+        unsupported = [key for key, value in extra.items()
+                       if value is not None and key not in self.FILTERS.get(name, ())]
+        if unsupported:
+            return "client signal %s not available in this client build with %s" % (name, ", ".join(sorted(unsupported)))
         return None
+
+    @staticmethod
+    def matches(event, extra):
+        """The event fits the step's filters: map_id equal, window equal, kind equal, regex searched in the text."""
+        for key, want in extra.items():
+            if want is None:
+                continue
+            if key == "regex":
+                if not re.search(want, str(event.get("text") or "")):
+                    return False
+            elif str(event.get(key)) != str(want):
+                return False
+        return True
 
     def login(self, alias, client):
         """Starts a fresh QA client (a running one is stopped first: a client left over from before this run could be
@@ -426,7 +445,7 @@ class SilviaWorker:
         deadline = self.clock() + timeout_s
         while True:
             got = self.events(alias)
-            hit = next((event for event in got if event.get("ev") == name), None)
+            hit = next((event for event in got if event.get("ev") == name and self.matches(event, extra)), None)
             if hit:
                 return {"name": name, "detail": self.payload(hit), "utc": hit.get("utc") or iso(utc_now()),
                         "text": self.text_of(hit)}
@@ -444,7 +463,7 @@ class SilviaWorker:
     @staticmethod
     def payload(event):
         """The fields of a pipe event that say what happened, for the manifest (the client sends the name only)."""
-        keys = ("release", "build", "frames", "label", "pid", "error")
+        keys = ("release", "build", "frames", "label", "pid", "error", "map_id", "window", "kind")
         return " ".join("%s=%s" % (key, event[key]) for key in keys if key in event)[:120]
 
     @staticmethod

@@ -103,20 +103,25 @@ class WorkerCallsTest(unittest.TestCase):
 
     def test_a_signal_this_client_build_does_not_send_fails_at_once(self):
         worker, transport = self.make()
-        for name, extra in (('chat.received', {'regex': 'Spawned'}),
-                            ('window.open', {'window': 'party_invite'}),
-                            ('window.closed', {'window': 'party_invite'})):
+        for name, extra in (('jump.done', {}), ('field.ready', {'window': 'x'}), ('window.open', {'map_id': 1})):
             with self.assertRaises(qarunner.RunFailed) as caught:
                 worker.wait_signal('me', name, 30, extra)
             self.assertIn('client signal %s not available in this client build' % name, str(caught.exception))
             self.assertEqual('refused', caught.exception.result)
         self.assertEqual([], transport.calls)   # no timeout was burned waiting for it
 
-    def test_a_map_id_cannot_be_waited_on_because_the_signal_carries_none(self):
-        worker, _ = self.make()
-        with self.assertRaises(qarunner.RunFailed) as caught:
-            worker.wait_signal('me', 'field.ready', 30, {'map_id': 104040000})
-        self.assertIn('field.ready not available in this client build', str(caught.exception))
+    def test_signals_match_their_filters(self):
+        events = [{'ev': 'field.ready', 'map_id': 100000000}, {'ev': 'chat.received', 'kind': 255, 'text': 'hi'},
+                  {'ev': 'field.ready', 'map_id': 104040000},
+                  {'ev': 'chat.received', 'kind': 255, 'text': 'Spawned 1 BISHOP TrainingBot cids [77]'},
+                  {'ev': 'window.open', 'window': 'item'}, {'ev': 'window.open', 'window': 'party_invite'}]
+        for name, extra, want in (('field.ready', {'map_id': 104040000}, 2),
+                                  ('chat.received', {'regex': r'cids \[(\d+)\]'}, 3),
+                                  ('window.open', {'window': 'party_invite'}, 5)):
+            worker, _ = self.make({'qa_events': answer({'from': 0, 'next': len(events), 'events': events})})
+            got = worker.wait_signal('me', name, 5, extra)
+            self.assertEqual(events[want].get('text', ''), got['text'], name)
+            self.assertIn(name, got['name'])
 
     def test_a_wait_reads_the_new_events_by_position(self):
         pages = [answer({'from': 0, 'next': 1, 'more': False, 'events': [HELLO]}),
@@ -406,7 +411,7 @@ class RunWithTheRealWorkerTest(unittest.TestCase):
             'login_credentials': answer({'vault': 'aq-gm-1', 'entered': True}),
             'read_logs': answer({'integration.log': 'Build stamp: caps 0x80000001', 'crash.log': ''}),
             'stop_client': answer({'state': 'stopped'}),
-        }, sleep=lambda s: None)
+        }, *ticking(step=5.0))
         run = qarunner.Run(script, LocalFeed(), worker, runs_root=tempfile.mkdtemp(), commit='d4f103b0e',
                            clock=clock, sleep=lambda s: None)
         return run, run.run(), transport
@@ -425,11 +430,10 @@ class RunWithTheRealWorkerTest(unittest.TestCase):
         run, m, transport = self.b140(self.pages())
         self.assertEqual('FAIL', m['result'])
         self.assertEqual('client-mcp silvia', m['runner']['worker'])
-        self.assertEqual(9, m['failed_at'])   # "on-map": a field.ready with a map id
+        self.assertEqual(9, m['failed_at'])   # "on-map": no field.ready with map id 104040000 ever comes
         step = m['steps'][9]
-        self.assertEqual('refused', step['result'])
-        self.assertIn('client signal field.ready not available in this client build (it sends no map id)',
-                      step['detail'])
+        self.assertEqual('timeout', step['result'])
+        self.assertIn('timed out waiting for field.ready', step['detail'])
         self.assertEqual(['ok'] * 9, [s['result'] for s in m['steps'][:9]])
         self.assertEqual('not run', m['steps'][10]['result'])
         # what the client said it is; no character name is invented because the build sends none
