@@ -8,3 +8,14 @@
       reasoning_effort: '"none"'
   BOT_LLM_CLOUD_MODE: "all"
   BOT_LLM_CLOUD_DAILY_BUDGET_USD: 2.0
+  # s-llmcache (owner 2026-10-31, "we need to also support caching for deepseek if it's not"): DeepSeek bills the
+  # prompt prefix it has already seen at its cache-hit price and reports those tokens as usage.prompt_cache_hit_tokens;
+  # the daily budget now charges them at this price instead of the input price. Nothing else needs a switch: the reply
+  # prompt is already ordered stable-first (rules, persona, world facts, then the per-message state) so the prefix can be
+  # cached, and a hit ratio shows in data/convo/cloud-budget.json and the hourly "Bot chat last hour" line.
+  # OWNER PICKS: DeepSeek's published cache-hit price per million input tokens - CHECK IT ON THEIR PRICING PAGE BEFORE
+  # THE NIGHT; this repo only knows the 0.30 in / 1.20 out pair above (deepseek-flash, 2026-10-22). Left out (or
+  # negative), hits are billed at BOT_LLM_CLOUD_PRICE_IN_PER_MTOK: the day's spend then reads as it did before
+  # s-llmcache, i.e. an overestimate, never an under-run of the $2 cap.
+  # BOT_LLM_CLOUD_PRICE_IN_CACHED_PER_MTOK: <owner picks, e.g. a tenth of the input price>
+

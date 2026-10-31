@@ -38,7 +38,7 @@ class BotChatPromptTest {
         String system = BotChatPrompt.system(bot, player, BotPersona.generate(1), 0.5, "grinding",
                 List.of("said they were saving for a pink adventurer cape"));
 
-        assertTrue(system.startsWith("You are xXSkyBladeXx, a real person playing MapleStory in 2008."));
+        assertTrue(system.contains("You are xXSkyBladeXx, a real person playing MapleStory in 2008."));
         assertTrue(system.contains("level 34"));
         assertTrue(system.contains("currently grinding"));
         assertTrue(system.contains("talking to Josh, a level 52"));
@@ -46,6 +46,34 @@ class BotChatPromptTest {
         assertTrue(system.contains("Ellinia station"), "world facts are included");
         assertTrue(system.contains("Never: say you are an AI"));
         assertTrue(system.contains("No emojis, no markdown"));
+    }
+
+    /** s-llmcache: DeepSeek bills a repeated prompt prefix at its cached price, so the blocks that never change
+     *  between two messages must come first and everything about this one message must come last. */
+    @Test
+    void theStableBlocksComeFirstSoTwoLinesToTheSameBotShareTheirWholePrefix() {
+        BotPersona.Persona persona = BotPersona.generate(11);
+        BotChatPrompt.Context josh = new BotChatPrompt.Context("Kimchiz", 41, "assassin", "Ant Tunnel I", "grinding",
+                null, "chill", "Josh", 30, "page", List.of(), List.of(), null);
+        BotChatPrompt.Context mika = new BotChatPrompt.Context("Kimchiz", 41, "assassin", "Ant Tunnel I", "grinding",
+                null, "chill", "Mika", 44, "cleric", List.of(), List.of(), null);
+        String a = BotChatPrompt.system(josh, persona, 0.4);
+        String b = BotChatPrompt.system(mika, persona, 0.4);
+
+        int shared = 0;
+        while (shared < a.length() && shared < b.length() && a.charAt(shared) == b.charAt(shared)) {
+            shared++;
+        }
+        String prefix = a.substring(0, shared);
+        assertTrue(prefix.contains(BotChatPrompt.VOICE), "the typing rules are first");
+        assertTrue(prefix.contains("Never: say you are an AI"), "the hard rules are in the shared prefix");
+        assertTrue(prefix.contains(BotPersona.describe(persona, 0.4)), "so is this bot's persona");
+        int stableEnd = a.indexOf(BotChatPrompt.WORLD_FACTS) + BotChatPrompt.WORLD_FACTS.length();
+        assertTrue(stableEnd > BotChatPrompt.WORLD_FACTS.length(), "world facts are in the prompt");
+        assertTrue(shared >= stableEnd, "the shared prefix covers rules, persona and world facts: shared "
+                + shared + " < stable " + stableEnd);
+        assertTrue(shared < a.length(), "the two lines still differ where the message differs");
+        assertTrue(a.substring(shared).contains("Josh"), "the player's line is in the part that differs");
     }
 
     @Test

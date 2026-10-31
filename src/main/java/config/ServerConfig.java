@@ -219,6 +219,10 @@ public class ServerConfig {
     public double BOT_LLM_CLOUD_DAILY_BUDGET_USD = 1.0;
     //DeepSeek's peak prices for deepseek-flash (2026-10-22); off-peak is half, so this overestimates
     public double BOT_LLM_CLOUD_PRICE_IN_PER_MTOK = 0.30;
+    //What the provider charges for an input token it had already cached (DeepSeek's cache hit, reported as
+    //usage.prompt_cache_hit_tokens). Negative = a cached token costs the normal input price, so the day's spend reads
+    //exactly as it did before cache hits were read (the safe default; the owner fills the real price at release).
+    public double BOT_LLM_CLOUD_PRICE_IN_CACHED_PER_MTOK = -1;
     public double BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK = 1.20;
     //Extra request fields for the cloud as raw JSON, e.g. reasoning_effort: '"none"': thinking models spend max_tokens thinking and
     //answer nothing without it
