@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import soloMapling.ArtificialPlayer.BotStore;
+import soloMapling.qa.QaLog;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -114,6 +115,40 @@ class ConvoQualityTest {
         } finally {
             System.clearProperty("solomapling.convo.transcriptDir");
             System.clearProperty("solomapling.convo.dataDir");
+        }
+    }
+
+    /**
+     * b247 triage (TEST 2026-10-31): a name the bot really said and a slot nobody filled both read {player} in the QA
+     * line, and two filled lines were misread as leaks. The tag says which, and the name still never reaches the line.
+     */
+    @Test
+    void theQaLineSaysWhetherASlotWasFilled() {
+        java.util.List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+        QaLog.SinkHandle h = QaLog.sink((topic, mapId, chars, message) -> {
+            if (message.startsWith("SAID ")) {
+                lines.add(message);
+            }
+        });
+        h.topics(java.util.List.of(QaLog.Topic.CONVO));
+        try {
+            Character bot = chr(BotStore.BOT_ID_BASE + 9, "Kimchi");
+            Character josh = chr(4009, "Pinky");
+            ConvoQuality.said(bot, josh, "hey Pinky, want to train?", new ConvoLines.Line("x", -1, "llm"), "LLM", LOWER,
+                    "yo", 700);
+            ConvoQuality.said(bot, josh, "hey {player}, want to train?", new ConvoLines.Line("x", -1, "llm"), "LLM",
+                    LOWER, "yo", 700);
+            ConvoQuality.said(bot, josh, "nice weather", new ConvoLines.Line("x", -1, "llm"), "LLM", LOWER, "hi", 700);
+        } finally {
+            h.close();
+        }
+        assertEquals(3, lines.size(), lines.toString());
+        assertTrue(lines.get(0).contains("slots=filled"), lines.get(0));
+        assertTrue(lines.get(0).endsWith("] hey {player}, want to train?"), lines.get(0));
+        assertTrue(lines.get(1).contains("slots=literal"), lines.get(1));
+        assertTrue(lines.get(2).contains("slots=none"), lines.get(2));
+        for (String l : lines) {
+            assertTrue(!l.toLowerCase().contains("pinky"), l);
         }
     }
 
