@@ -684,27 +684,7 @@ public final class OwnedAltCompanion {
      * through {@code playerDisconnected}, so an instance is never left running with nobody in it.
      */
     static void leaveInstanceQuietly(Character alt) {
-        scripting.event.EventInstanceManager eim = alt.getEventInstance();
-        if (eim == null || eim.isEventDisposed()) {
-            return;
-        }
-        if (eim.getPlayerCount() <= 1) {
-            eim.playerDisconnected(alt);
-            return;
-        }
-        try {
-            eim.invokeScriptFunction("playerExit", eim, alt); // KPQ: unregister, then to the exit map
-        } catch (Exception e) {
-            soloMapling.BotLogger.log("[OwnedAlt] " + alt.getName() + " could not leave " + eim.getName()
-                    + " through its script: " + e);
-        }
-        if (alt.getEventInstance() != null) {
-            eim.unregisterPlayer(alt);
-            server.maps.MapleMap map = alt.getMap();
-            if (map != null && map.getReturnMapId() > 0 && map.getReturnMapId() != MapId.NONE) {
-                alt.changeMap(map.getReturnMapId());
-            }
-        }
+        soloMapling.ArtificialPlayer.BotEventExit.leave(alt); // one way out of an event for alts and bots alike
     }
 
     /**
