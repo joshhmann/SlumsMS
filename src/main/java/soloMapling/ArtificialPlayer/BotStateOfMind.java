@@ -44,11 +44,14 @@ final class BotStateOfMind {
         StateOfMind.Builder b = StateOfMind.builder();
         b.bot(bot.getName(), bot.getLevel(), job(bot));
         int mapId = bot.getMapId();
+        List<String> mobs = List.of();
         if (safe(bot::getMap, null) != null) { // a bot always stands on a map; a staged one without it knows no place
-            b.here(new StateOfMind.Place(mapId, mapName(bot), region(mapId)), mobsOn(bot));
+            mobs = mobsOn(bot);
+            b.here(new StateOfMind.Place(mapId, mapName(bot), region(mapId)), mobs);
         }
         BotRoster.Activity doing = safe(sm::activitySnapshot, null);
-        String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());
+        String activity = claimedActivity(BotChatPrompt.activityPhrase(doing == null ? null : doing.name()),
+                mobs.isEmpty());
         String step = null;
         if (sm instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot training
                 && soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()) {
@@ -202,6 +205,15 @@ final class BotStateOfMind {
         }
     }
 
+    /**
+     * b240 (the owner, 10-31): what the prompt may say the bot is doing right now. A roster role is a plan - a bot
+     * whose role is grinding is still standing in a town while it walks to its spot or sells, and "doing: grinding"
+     * next to "a town: no monsters here" is what made regulars say they were grinding in Henesys.
+     */
+    static String claimedActivity(String phrase, boolean town) {
+        return town && "grinding".equals(phrase) ? "hanging out in town" : phrase;
+    }
+
     private static String nameOf(int mapId) {
         try {
             String place = server.maps.MapFactory.loadPlaceName(mapId);
@@ -220,6 +232,11 @@ final class BotStateOfMind {
         } catch (RuntimeException | LinkageError e) {
             return -1;
         }
+    }
+
+    /** b240: the monsters a bot's map holds - alive now, then on its spawn list - as the snapshot lists them. */
+    public static List<String> monstersHere(Character bot) {
+        return bot == null ? List.of() : mobsOn(bot);
     }
 
     /** The monsters on the bot's map: the ones alive now, then the map's spawn list. */

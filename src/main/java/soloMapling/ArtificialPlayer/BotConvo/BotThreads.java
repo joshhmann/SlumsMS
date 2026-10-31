@@ -1046,6 +1046,16 @@ public final class BotThreads {
                 }
                 continue;
             }
+            // b240 (the owner, 10-31): "regulars will say their grinding when they're in town". A thread line is not
+            // held to a chat snapshot, so the town rule is applied on its own: no monsters here, no grind to report.
+            StateOfMind.Verdict activity = StateOfMind.activityIn(honest,
+                    !soloMapling.ArtificialPlayer.BotConversation.monstersHere(who), null);
+            if (!activity.ok()) {
+                if (traced) {
+                    soloMapling.autoqa.SocialTrace.threadDropped(l.id, line[0], honest, "grounding: " + activity);
+                }
+                continue;
+            }
             List<String> protect = new ArrayList<>(List.of(a.getName().toLowerCase(Locale.ROOT),
                     b.getName().toLowerCase(Locale.ROOT)));
             if (l.fact != null) { // 1.6.0 S4: the people the story is about keep their names (no typo in a name)
