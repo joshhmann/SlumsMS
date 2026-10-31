@@ -231,12 +231,16 @@ and no party-invite window, so a script that spawns a bot, waits for its chat li
 the first wait. Stage those with a `!qa` scenario and let the script do only what a client really does:
 
 - The scenario runs the steps a GM would (`!warp`, `!bot trainhere <job> <level> 1`, `!bot <cid> followbot`, the party
-  join) through `QaWorld` (`stageFollowerBot`, `stageDojoFollowers`, ...). Every method returns what it really did, so
-  the undo carries the exact bot id.
-- It says what it staged in a `STAGING` line that names the caller (`QaLog.chars(STAGING, map, new int[]{gm.getId()},
-  "STAGE FOLLOWER cid=... job=BISHOP ...")`), so the feed keeps it for `char: me`.
-- The script sends `!qa run <id>`, waits on the `STAGING` line (and `MAP_CHANGE` for the warp), then does the client
-  parts: `!hurt`, the capture bursts, checks on the server's own lines.
+  join, `!hurt`) through `QaWorld` (`stageFollowerBot`, `hurtTo`, `stageDojoFollowers`, ...). Every method returns what
+  it really did, so the undo carries the exact bot id.
+- It says what it staged in `STAGING` lines that carry the caller's char id in the line's `chars`
+  (`QaLog.chars(STAGING, map, new int[]{gm.getId()}, "STAGE FOLLOWER cid=... job=BISHOP ...")`), so the feed keeps them
+  for `char: me`. Put everything the runner cannot fill - a character name above all - in the line and in the staging,
+  not in the script.
+- The script sends `!qa run <id>`, waits on those `STAGING` lines (and `MAP_CHANGE` for the warp) with a name-free
+  regex plus `char: me`, then does the client parts: the capture bursts, checks on the server's own lines.
+- Today's QA build records screenshot `burst` and `chat_log` captures only (no `samples`, no `packet_trace`): prove
+  HP, position or packets from the server's lines instead of from a capture.
 - `!qa stop` runs the scenario's undos: the bot leaves the party and the world, and a party the staging made is
   disbanded. Never leave a staged bot for the next player.
 
@@ -249,7 +253,7 @@ steps itself.
 | script | covers | state |
 |---|---|---|
 | `b140-bot-heal-column` | b140, q48, t-su-1 | draft: needs `chat.received`, `window.*`, `party_invite.accept` |
-| `b140-bot-heal-column-staged` | b140, q48, t-su-1 | draft: staged server-side by `!qa run hc-1`, so built client signals plus server lines only |
+| `b140-bot-heal-column-staged` | b140, q48, t-su-1 | draft: staged server-side by `!qa run hc-1` (warp, follower, party, hurt), so built client signals, server lines and screenshot/chat captures only |
 | `b233-player-heal-column` | b233 | draft: two clients, the healer's Heal on key A |
 | `kpq-stage1-leader` | q45, t-mx-1 | draft: `click_npc` for Cloto, dialog anchors |
 | `botme-alt-basics` | q23-q25 | draft: `chat.received` |

@@ -75,14 +75,40 @@ class HealColumnScenarioTest {
         assertEquals("warp 104040000", world.calls.get(0));
         int bot = 1_000_000_100;
         assertTrue(world.calls.contains("stage follower job 232 lv 120 " + bot), world.calls.toString());
-        assertEquals(List.of("STAGE FOLLOWER cid=" + bot + " job=BISHOP lv=120 party=1 gm=Admin id=7 map=104040000"),
+        assertEquals(List.of(
+                        "STAGE FOLLOWER cid=" + bot + " job=BISHOP lv=120 party=1 gm=Admin id=7 map=104040000",
+                        "STAGE HURT cid=7 hp=0->700 pct=40 map=104040000"),
                 feed);
         assertEquals(7, feedChars.get(0)[0], "the line must name the caller: the runner filters on its char id");
+        assertEquals(7, feedChars.get(1)[0], "the hurt line too: the script's burst starts on it");
         assertTrue(suite.runOf(7).maps().contains(104040000));
 
         String log = Files.readString(suite.runOf(7).logPath());
         assertTrue(log.contains("staged STAGE FOLLOWER cid=" + bot), log);
+        assertTrue(log.contains("hurt STAGE HURT cid=7 hp=0->700 pct=40"), log);
         assertTrue(log.contains("is a level 120 Bishop, following you, in party 1"), log);
+    }
+
+    @Test
+    void hc1HurtsTheCallerToFortyPercentSoTheFollowerCasts() {
+        Character gm = gm(100000000);
+        suite.start(gm, "hc-1", new String[0]);
+
+        assertTrue(world.calls.indexOf("stage follower job 232 lv 120 1000000100")
+                < world.calls.indexOf("hurt 40"), world.calls.toString()); // staged first: the heal has a target
+        assertTrue(feed.get(1).startsWith("STAGE HURT cid=7 hp=0->700 pct=40 "), feed.toString());
+    }
+
+    @Test
+    void hc1RefusesAndUndoesTheBotWhenTheHurtCouldNotBeSet() {
+        world.hurtFails = true;
+        Character gm = gm(100000000);
+
+        assertThrows(QaRefusal.class, () -> suite.start(gm, "hc-1", new String[0]));
+        assertTrue(world.calls.contains("hurt 40"));
+        assertTrue(world.despawned.contains(1_000_000_100), world.calls.toString());
+        assertTrue(feed.isEmpty(), "nothing was staged: the script must not see a scene that is not there");
+        assertNull(suite.runningId(7));
     }
 
     @Test

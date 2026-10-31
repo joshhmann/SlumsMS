@@ -178,19 +178,33 @@ class ContractTest(unittest.TestCase):
         self.assertIn('QA_RUN = "QA_RUN"', feed)
 
     def test_the_staged_b140_script_waits_on_server_lines_only(self):
-        """b140: the follower is staged by !qa run hc-1, so nothing after login needs a chat wait or a window."""
+        """b140: the follower and the hurt are staged by !qa run hc-1, so nothing after login needs a chat wait, a
+        window, the character's name, or a capture the build cannot record."""
         path = REPO / "qa-scripts/b140-bot-heal-column-staged.yaml"
         errors, _ = qascript.validate_file(path)
         self.assertEqual([], errors)
-        steps = yaml.safe_load(path.read_text(encoding="utf-8"))["steps"]
+        text = path.read_text(encoding="utf-8")
+        doc = yaml.safe_load(text)
+        steps = doc["steps"]
         after_login = steps[steps.index(next(s for s in steps if s.get("id") == "in-game")) + 1:]
         waits = [(s.get("signal") or {}).get("type") for s in after_login if s.get("do") == "wait"]
-        self.assertEqual(["server_line", "server_line", "server_line"], waits)
+        self.assertEqual(["server_line", "server_line", "server_line", "server_line"], waits)
         topics = [(s.get("signal") or {}).get("topic") for s in after_login if s.get("do") == "wait"]
-        self.assertEqual(["MAP_CHANGE", "STAGING", "COMBAT"], topics)
+        self.assertEqual(["MAP_CHANGE", "STAGING", "STAGING", "COMBAT"], topics)
         self.assertIn("!qa run hc-1", [s.get("line") for s in after_login if s.get("do") == "gm"])
         for name in ("chat.received", "window.open", "window.closed"):
             self.assertNotIn(name, [(s.get("signal") or {}).get("name") for s in steps], name)
+        # the runner cannot fill a character name: every wait and check is the char id (char: me) plus a name-free regex
+        self.assertNotIn("${me.", text, "the runner fills no character field into this script")
+        for s in after_login:
+            if s.get("do") == "wait":
+                self.assertEqual("me", s["signal"]["char"], s.get("id"))
+        for check in doc["expect"]["checks"]:
+            if check.get("check") == "server_line":
+                self.assertEqual("me", check["char"], check)
+        # only the two captures today's client records: screenshot bursts and its own chat log
+        kinds = [next(k for k in c if k not in ("id", "client", "note")) for c in doc["captures"]]
+        self.assertEqual({"burst", "chat_log"}, set(kinds), kinds)
 
     def test_calibrated_anchors_are_points_the_client_mcp_driver_clicks(self):
         anchors, windows = qascript.load_anchors()

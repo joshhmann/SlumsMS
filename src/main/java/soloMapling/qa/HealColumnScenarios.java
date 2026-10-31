@@ -19,9 +19,10 @@ import static soloMapling.qa.QaLog.Topic.STAGING;
  *
  * <p>A client script cannot do the whole scene yet: the driver has no chat anchors and no party-invite window, so
  * "spawn a Bishop, wait for its chat lines, accept its invite" stops at the first chat wait. So the scene is staged
- * server-side - the warp, one Bishop follower in the GM's party, and one {@link QaLog.Topic#STAGING} line naming it -
- * and {@code qa-scripts/b140-bot-heal-column-staged.yaml} does only what a client can do: hurt the GM, wait for the
- * server's PARTY HEAL line, and film the column.
+ * server-side - the warp, one Bishop follower in the GM's party, the GM's own HP down to 40% (the runner cannot fill a
+ * name into {@code !hurt}), and two {@link QaLog.Topic#STAGING} lines, one naming the bot and one the caller - and
+ * {@code qa-scripts/b140-bot-heal-column-staged.yaml} does only what a client can do: wait on those feed lines, film the
+ * column and the HP bar, and stop the scene.
  *
  * <p>Registered in {@link QaScenarios#all()}; docs/ops/qa-suite.md has the row.
  */
@@ -33,6 +34,8 @@ final class HealColumnScenarios {
     /** A Bishop's skill plan already holds Heal 30 at this level: the level only picks the client's cast art. */
     static final int DEFAULT_LEVEL = 120;
     static final int PARTY_SIZE = 6;
+    /** Below the 60% a bot's Heal looks for, so the follower casts at once; the script has no name to pass to !hurt. */
+    static final int HURT_TO_PERCENT = 40;
 
     private HealColumnScenarios() {
     }
@@ -90,14 +93,26 @@ final class HealColumnScenarios {
                 staged.remove(ctx.run().gmId());
                 ctx.world().unstageFollowerBot(ctx.gmNow(), bot);
             });
+            // The hurt is a step of the staging, not of the script: the runner cannot fill a character name into
+            // !hurt, and the feed line it makes is what the script waits on before it films.
+            int hpBefore = gm.getHp();
+            int hpAfter = ctx.world().hurtTo(gm, HURT_TO_PERCENT);
+            if (hpAfter < 0) {
+                throw new QaRefusal("Your HP could not be set to " + HURT_TO_PERCENT + "% for the Bishop to heal"
+                        + " (nothing staged).");
+            }
             String line = feedLine(gm, bot, level);
             QaLog.chars(STAGING, HUNTING_GROUND, new int[]{gm.getId()}, line);
             ctx.log("staged " + line);
+            String hurt = hurtLine(gm, hpBefore, hpAfter);
+            QaLog.chars(STAGING, HUNTING_GROUND, new int[]{gm.getId()}, hurt);
+            ctx.log("hurt " + hurt);
             List<String> out = new ArrayList<>();
             out.add(ctx.world().botLabel(gm, bot.botId()) + " is a level " + level + " Bishop, following you, in party "
                     + bot.partyId() + (bot.partyMade() ? " (made for this run)" : ""));
-            out.add("Let it heal you: !hurt " + gm.getName() + " 40, then watch its Heal column and your own HP bar"
-                    + " (qa-scripts/b140-bot-heal-column-staged.yaml drives the client side and films both).");
+            out.add("Your HP is at " + HURT_TO_PERCENT + "%: it heals you, so watch its Heal column and your own HP bar"
+                    + " (qa-scripts/b140-bot-heal-column-staged.yaml drives the client side and films both)."
+                    + " !hurt " + gm.getName() + " " + HURT_TO_PERCENT + " drops you again for another cast.");
             out.add("!qa stop takes the Bishop out of the party and the world"
                     + (bot.partyMade() ? ", and disbands the party this run made." : "."));
             return out;
@@ -107,6 +122,12 @@ final class HealColumnScenarios {
         static String feedLine(Character gm, QaWorld.StagedFollower bot, int level) {
             return "STAGE FOLLOWER cid=" + bot.botId() + " job=BISHOP lv=" + level + " party=" + bot.partyId()
                     + " gm=" + gm.getName() + " id=" + gm.getId() + " map=" + HUNTING_GROUND;
+        }
+
+        /** b140: the hurt line - the script's burst starts on it, so it carries no name the runner would have to fill. */
+        static String hurtLine(Character gm, int hpBefore, int hpAfter) {
+            return "STAGE HURT cid=" + gm.getId() + " hp=" + hpBefore + "->" + hpAfter + " pct=" + HURT_TO_PERCENT
+                    + " map=" + HUNTING_GROUND;
         }
 
         static int level(String[] args) {

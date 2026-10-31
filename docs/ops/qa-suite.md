@@ -226,13 +226,15 @@ Gong, pick the party challenge, and watch the bots swing on floor 1, then on the
 
 | Test | What it stages | What to look for |
 |---|---|---|
-| `hc-1 [level]` | Warps you to the Henesys hunting ground (104040000, a map with mobs), spawns one Bishop (level 120 unless given, 1-200) next to you as a follower, and puts it in your party - the spawn `!bot trainhere bishop 120 1`, the follow and the party join a script cannot make without chat waits and an invite window. Refused when your party is full (6), the bot does not spawn, or the server runs without `-Dslums.bots.partysupport=true` (TEST and 1.6.2.conf set it). The feed gets one `STAGING` line naming it. `!qa stop` takes the bot out of the party and the world and disbands a party the run made. Runs 15 minutes | `STAGE FOLLOWER cid=<bot> job=BISHOP lv=<n> party=<id> gm=<you> id=<your id> map=104040000`; then `!hurt <you> 40` and the Bishop's `PARTY HEAL <bot> -> <you> ... sent SHOW_FOREIGN_EFFECT/1>map`, with the Heal column over the bot and your HP bar rising |
+| `hc-1 [level]` | Warps you to the Henesys hunting ground (104040000, a map with mobs), spawns one Bishop (level 120 unless given, 1-200) next to you as a follower, puts it in your party, and sets your own HP to 40% - the spawn `!bot trainhere bishop 120 1`, the follow, the party join and the `!hurt` a script cannot make without chat waits, an invite window or a character name. Refused when your party is full (6), the bot does not spawn, the hurt cannot be set, or the server runs without `-Dslums.bots.partysupport=true` (TEST and 1.6.2.conf set it). The feed gets two `STAGING` lines naming you. `!qa stop` takes the bot out of the party and the world and disbands a party the run made; your HP stays where the heal left it. Runs 15 minutes | `STAGE FOLLOWER cid=<bot> job=BISHOP lv=<n> party=<id> gm=<you> id=<your id> map=104040000`, `STAGE HURT cid=<your id> hp=<n>-><n> pct=40 map=104040000`; then the Bishop's `PARTY HEAL <bot> -> <you> ... sent SHOW_FOREIGN_EFFECT/1>map`, with the Heal column over the bot and your HP bar rising from about 40% |
 
 b140: a bot Bishop's party Heal must show the Heal column on a real client (1.6.2 sends the effect with the column's
-art). `qa-scripts/b140-bot-heal-column-staged.yaml` drives it: `!qa run hc-1`, waits for `MAP_CHANGE` and the
-`STAGING` line, hurts you, films from the hurt (10 fps for 5 s) and once more on the server's heal line, and checks
-the `SHOW_FOREIGN_EFFECT` packet and the rising HP samples. `qa-scripts/b140-bot-heal-column.yaml` is the by-hand
-version of the same scene (spawn, chat waits, invite window), kept for the day the client driver has chat anchors.
+art). `qa-scripts/b140-bot-heal-column-staged.yaml` drives it: `!qa run hc-1` (warp, follower, party and the GM at 40%
+HP, all server-side), waits on `MAP_CHANGE` and the two `STAGING` lines by char id only, films from the hurt (10 fps
+for 5 s) and once more on the server's heal line, and checks both `STAGING` lines and the heal line's
+`sent SHOW_FOREIGN_EFFECT/1>map`. Its captures are the two screenshot bursts and the client's chat log: today's QA
+build records no HP samples or packet traces. `qa-scripts/b140-bot-heal-column.yaml` is the by-hand version of the same
+scene (spawn, chat waits, invite window), kept for the day the client driver has chat anchors.
 Scenario class: `soloMapling.qa.HealColumnScenarios`.
 
 ## ex-1: party bots join your boss expedition (1.6.0)

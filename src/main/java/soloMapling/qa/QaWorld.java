@@ -102,6 +102,14 @@ public interface QaWorld {
         despawnBot(staged.botId());
     }
 
+    /**
+     * b140: sets the GM's own HP to {@code percent} of its maximum, the way {@code !hurt <name> <percent>} does, for a
+     * script that has no character name to pass. The HP it is now, or -1 when it has none to set.
+     */
+    default int hurtTo(Character gm, int percent) {
+        return -1;
+    }
+
     /** b140: what {@link #stageFollowerBot} put in the world, so the undo can be exact. */
     record StagedFollower(int botId, int partyId, boolean partyMade, int membersAtStage) {
     }

@@ -676,6 +676,16 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public int hurtTo(Character gm, int percent) {
+        if (gm == null || percent < 1 || percent > 99 || gm.getCurrentMaxHp() < 1) {
+            return -1;
+        }
+        // The !hurt command's own HP arithmetic, so a staged scene hurts exactly as a GM's command would.
+        gm.updateHp(client.command.commands.gm3.HurtCommand.hpFor(gm.getCurrentMaxHp(), percent));
+        return gm.getHp();
+    }
+
+    @Override
     public void despawnBot(int botId) {
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {
