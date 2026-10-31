@@ -1,0 +1,3 @@
+#!/bin/sh
+# Play one auto-QA client script against TEST: tools/qa-runner/run qa-scripts/<id>.yaml [--dry-run]
+exec python3 -I "$(dirname "$0")/qarunner.py" "$@"

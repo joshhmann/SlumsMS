@@ -14,6 +14,7 @@ the checks that need human judgment (feel, art, fun): `owner-vs-machine.md`.
 | `docs/qa/client-scripts/owner-vs-machine.md` | every hand check the owner does today: script or judgment |
 | `tools/qa-scripts/validate` | the validator (`tools/qa-scripts/validate [files]`; all scripts when none given) |
 | `tools/ops/qa-run-collect` | pulls the TEST side of a run (journal slice, `logs/qa`, `latest.json`) into the run folder |
+| `tools/qa-runner/run` | the 187 orchestrator: `tools/qa-runner/run qa-scripts/<id>.yaml [--dry-run]` |
 
 ## Owner decisions (2026-10-31, ticket 166)
 
@@ -41,6 +42,11 @@ the checks that need human judgment (feel, art, fun): `owner-vs-machine.md`.
   writes manifest.json, pulls the folder from Silvia   
 ```
 
+- The orchestrator (`tools/qa-runner/qarunner.py`) is built and tested against a fake feed and a fake worker
+  (9 tests: the b140 script end to end, the manifest against its schema, the lost world click resent, a missing
+  signal failing the run at its step, a server line from before the arming step not counting). Its `SilviaWorker`
+  is the contract for run_script (login, send, wait_signal, character, burst, capture, pull); the transport is wired
+  when the Client lane's run_script lands. Nothing has run against a real client yet.
 - The QA event feed and its secret never leave 164 and 187: the orchestrator calls the feed with `curl` **on 164 over
   ssh**, reading the secret there from `/etc/slums-inspect-test/secret` by path (never printed, never copied).
 - 187 **pulls** the run folder from Silvia over ssh, then runs `tools/ops/qa-run-collect` for the server side.
