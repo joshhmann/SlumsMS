@@ -118,6 +118,14 @@ class QaPipe:
         with self._lock:
             return [e for e in self.log if e['_at'] >= since]
 
+    def events_from(self, index):
+        """The events at or after position `index` in the log, and the log's length now (the next index).
+
+        Positions, not times: a caller that remembers the returned length sees every later event exactly once,
+        whatever the clocks do (ticket 170; the orchestrator's qa_events reads the log this way)."""
+        with self._lock:
+            return list(self.log[index:]), len(self.log)
+
     def close(self):
         """Closes the command pipe. The events pipe is closed by the reader thread once its read ends (the client
         exited or disconnected): closing it here while that thread is blocked in a read would hang on Windows."""

@@ -74,6 +74,15 @@ class QaPipeTest(unittest.TestCase):
         pipe.drain()
         self.assertIsNone(pipe.wait('channels.ready', 0.3))   # a stale signal must not satisfy a new click
 
+    def test_events_from_reads_the_log_by_position(self):
+        pipe, events, _ = self.make()
+        events.feed(line({'ev': 'hello', 't': 1}) + line({'ev': 'worldselect.ready', 't': 2}))
+        self.assertEqual(2, pipe.wait('worldselect.ready', 2)['t'])
+        first, position = pipe.events_from(0)
+        self.assertEqual(['hello', 'worldselect.ready'], [event['ev'] for event in first])
+        self.assertEqual(2, position)
+        self.assertEqual(([], 2), pipe.events_from(position))   # nothing new: the same position comes back
+
     def test_closed_pipe_ends_waits(self):
         pipe, events, _ = self.make()
         events.feed(end=True)

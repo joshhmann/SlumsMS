@@ -36,6 +36,14 @@ TOOLS = {
                  'ms': {'type': 'integer', 'minimum': 100, 'maximum': 5000},
                  'label': {'type': 'string', 'maxLength': 40}},
     'run_script': {'name': {'type': 'string', 'maxLength': 48}},
+    # The steps of qa-scripts/*.yaml, one tool call each (ticket 170): the 187 orchestrator drives the login one step
+    # at a time and reads the pipe's event log by position after each one.
+    'login_credentials': {'vault': {'type': 'string', 'maxLength': 32}},
+    'click_anchor': {'name': {'type': 'string', 'maxLength': 32}},
+    'select_world': {'world': {'type': 'string', 'maxLength': 8, 'enum': ['Bera']}},
+    'select_channel': {'channel': {'type': 'integer', 'minimum': 1, 'maximum': 5}},
+    'select_character': {'slot': {'type': 'integer', 'minimum': 0, 'maximum': 14}},
+    'qa_events': {'since': {'type': 'integer', 'minimum': 0, 'maximum': 1000000}},
     'mouse_drag': {'x1': {'type': 'integer', 'minimum': 0, 'maximum': 799},
                    'y1': {'type': 'integer', 'minimum': 0, 'maximum': 599},
                    'x2': {'type': 'integer', 'minimum': 0, 'maximum': 799},
@@ -45,6 +53,8 @@ TOOLS = {
 CHAT_SETTLE = 1.0   # 0.3 s still lost the "!" of the first command after login (2026-10-25)
 REQUIRED = {'qa_wait': ('signal',), 'qa_burst': ('fps', 'ms', 'label'), 'run_script': ('name',),
             'command': ('line',), 'press_key': ('name',), 'mouse_click': ('x', 'y'),
+            'login_credentials': ('vault',), 'click_anchor': ('name',), 'select_world': ('world',),
+            'select_channel': ('channel',), 'select_character': ('slot',),
             'mouse_drag': ('x1', 'y1', 'x2', 'y2')}
 
 # Single taps only: no modifiers, so no Alt+F4, no Ctrl shortcuts. Value = (virtual key, extended).
@@ -145,8 +155,14 @@ def log_tail(path, lines):
 
 
 SCRIPT_NAME = re.compile(r'^[a-z0-9][a-z0-9_-]{0,47}$')
-SCRIPT_TOOLS = {'start_client', 'login', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
+SCRIPT_TOOLS = {'start_client', 'login', 'login_credentials', 'click_anchor', 'select_world', 'select_channel',
+                'select_character', 'qa_events', 'command', 'press_key', 'mouse_click', 'mouse_drag', 'screenshot',
                 'qa_wait', 'qa_burst', 'wait_ms', 'stop_client', 'go_to'}
+# A QA vault alias (secrets/<vault>.txt) is a script name: secrets/aq-gm-1.txt. Never a path.
+VAULT = re.compile(r'^[a-z0-9][a-z0-9-]{1,31}$')
+# The QA build writes this once per login (slums.dll bypass.cpp ClientDataCaps); the manifest's caps come from it.
+BUILD_STAMP_CAPS = re.compile(r'Build stamp: caps (0x[0-9A-Fa-f]{8})')
+QA_EVENTS_MAX = 200
 
 
 def utc(epoch):
@@ -506,6 +522,19 @@ class Driver:
         return {'label': label, 'frames': done.get('frames'),
                 'folder': str(self.root / 'client' / 'qa-captures' / label)}
 
+    def qa_events(self, since=0):
+        """The QA pipe's events from position `since` (a count of events read so far), oldest first, and `next` for
+        the following call. The names are the client's (qamodule_policy.h); a bare signal carries no payload."""
+        events, _ = self.need_qa().events_from(since)
+        more = len(events) > QA_EVENTS_MAX
+        events = events[:QA_EVENTS_MAX]
+        out = []
+        for event in events:
+            item = {key: value for key, value in event.items() if key != '_at'}
+            item['utc'] = utc(event.get('_at', time.time())).replace('+00:00', 'Z')
+            out.append(item)
+        return {'from': since, 'next': since + len(events), 'more': more, 'events': out}
+
     def reload_ui(self):
         # Re-read the calibration each run, so a recalibrated ui.json needs no worker restart.
         root = getattr(self, 'root', None)
@@ -612,6 +641,72 @@ class Driver:
             self.click('terms_scroll_end')
         shot = self.save_shot('terms-scroll-timeout', include_image=False)
         raise Refusal('Terms acceptance did not become available; screenshot: ' + shot['path'])
+
+    def vault_secrets(self, vault):
+        """(account, password[, pic]) of secrets/<vault>.txt: one file per QA vault alias, never a script value."""
+        if not VAULT.match(vault or ''):
+            raise Refusal('A vault alias is 2-32 of a-z 0-9 - (secrets/<vault>.txt).')
+        path = inside(self.root / 'secrets' / (vault + '.txt'), self.root)
+        if not path.is_file():
+            raise Refusal('Create secrets/' + vault + '.txt: account on line 1, password on line 2, PIC on line 3.')
+        return Secrets(path).load()
+
+    def login_credentials(self, vault):
+        """Types one vault account and its password at the login screen and presses Enter (ticket 170).
+
+        Only the part that needs the vault: world, channel and character are the orchestrator's select_* steps, each
+        after its own pipe signal. The PIC is kept in this process for select_character, never returned."""
+        self.reload_ui()
+        self.endpoint()
+        self.prepare_login()
+        account, password, *rest = self.vault_secrets(vault)
+        self.vault_pic = rest[0] if rest else None
+        self.sensitive_screen = True
+        self.sender.text(account)
+        self.sender.key(9)
+        self.sender.text(password)
+        self.sender.key(13)
+        # No qa.drain() here: the orchestrator reads the pipe's log by position (qa_events) and must see everything.
+        return {'vault': vault, 'entered': True}
+
+    def click_anchor(self, name):
+        """Clicks one calibrated ui.json point (docs/qa/client-scripts/anchors.yaml). x,y never come from a script."""
+        if name not in (self.ui.get('points') or {}):
+            raise Refusal('Anchor ' + str(name) + ' is not a calibrated point in ui.json: add it to '
+                          'docs/qa/client-scripts/anchors.yaml first.')
+        self.click(name)
+        return {'clicked': name, 'point': list(self.ui['points'][name])}
+
+    def select_world(self, world):
+        if world != 'Bera':
+            raise Refusal('Only the Bera world is configured for TEST.')
+        if 'bera' not in (self.ui.get('points') or {}):
+            raise Refusal('ui.json has no bera point (the world list is not calibrated).')
+        self.click('bera')
+        return {'world': world}
+
+    def select_channel(self, channel):
+        point = 'channel_' + str(channel)
+        if point not in (self.ui.get('points') or {}):
+            raise Refusal('ui.json has no ' + point + ' point.')
+        self.click(point)
+        self.click('channel_confirm')
+        return {'channel': channel}
+
+    def select_character(self, slot=0):
+        """Picks the character in `slot` of the character-select screen and confirms it (PIC if the vault has one)."""
+        point = 'first_character' if slot == 0 else 'character_slot_' + str(slot)
+        if point not in (self.ui.get('points') or {}):
+            raise Refusal('ui.json has no ' + point + ' point: only slot 0 (the first character) is calibrated.')
+        if self.wait_choice(('empty_character', 'character')) == 'empty_character':
+            shot = self.save_shot('vault-account-has-no-character', include_image=False)
+            raise Refusal('This vault account has no characters on Bera; prepare one first; screenshot: ' + shot['path'])
+        self.click(point)
+        self.click('character_confirm')
+        pic = getattr(self, 'vault_pic', None)
+        if pic:
+            self.enter_pic(pic)
+        return {'slot': slot, 'character': point}
 
     def command(self, line):
         self.endpoint()
