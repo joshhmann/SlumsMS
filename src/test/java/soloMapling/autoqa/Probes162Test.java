@@ -258,4 +258,38 @@ class Probes162Test {
         assertTrue(Probes162.parkedProblems(
                 new soloMapling.ArtificialPlayer.GCMoveSystem.NavPortQa.ParkedRun(0, 0, 0)).get(0).contains("graph"));
     }
+
+    /**
+     * t-gb-5 on TEST 2026-10-31: the probe gave the 5-slot sword 1302000 seven slots. The EV planner's value curve is
+     * the cost to make the sword again with its own 5 slots, so two slots past that were priced as unreachable stats
+     * and a careful bot "profitably" used a sure scroll at its market price. The staged sword keeps its own slots.
+     */
+    @Test
+    void gb5StagesTheSwordWithTheSlotsItReallyHas() throws Exception {
+        // As BotScrollingTest: load ItemInformationProvider once with no DB and no WZ behind it (Equip needs it).
+        try (var db = org.mockito.Mockito.mockStatic(tools.DatabaseConnection.class);
+             var providers = org.mockito.Mockito.mockStatic(provider.DataProviderFactory.class)) {
+            db.when(tools.DatabaseConnection::getConnection).thenReturn(
+                    org.mockito.Mockito.mock(java.sql.Connection.class, org.mockito.Mockito.RETURNS_DEEP_STUBS));
+            providers.when(() -> provider.DataProviderFactory.getDataProvider(
+                    org.mockito.ArgumentMatchers.any(provider.wz.WZFiles.class)))
+                    .thenReturn(org.mockito.Mockito.mock(provider.DataProvider.class));
+            Class.forName("server.ItemInformationProvider");
+        }
+        client.inventory.Equip sword = new client.inventory.Equip(Probes162.GB5_SWORD, (short) 0, 5);
+        assertEquals(5, Probes162.gb5Staged(sword).getUpgradeSlots());
+        assertNull(Probes162.gb5Staged(null));
+    }
+
+    /**
+     * t-gb-3 on TEST 2026-10-31: the probe searched 6 hops from Henesys for its wanted item, the chooser only
+     * reaches 3 at level 22, so the wanted Red Duke dropped only on 105040100, out of the chooser's reach, and the
+     * chooser rightly took the leveling path. The probe now searches exactly as far as the chooser.
+     */
+    @Test
+    void gb3SearchesAsFarAsTheChooserReaches() {
+        int reach = soloMapling.ArtificialPlayer.BotGrindSystem.TrainingMapChooser.hopsForLevel(Probes162.GB3_LEVEL);
+        assertEquals(3, reach);
+        assertEquals(reach, Probes162.gb3Reach(Probes162.GB3_LEVEL));
+    }
 }

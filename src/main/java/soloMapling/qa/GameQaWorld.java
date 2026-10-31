@@ -1032,6 +1032,29 @@ final class GameQaWorld implements QaWorld {
                             : "no boss run: " + problem);
                 }
             }
+            case "bossready" -> { // !qa gu-5: the guild to run with, and who of it to log in first
+                String wantedGuild = first == null || "*".equals(first) ? null : first;
+                var boss = args.length > 1 && !"*".equals(args[1])
+                        ? soloMapling.ArtificialPlayer.BotGuildSystem.GuildRules.boss(args[1]) : null;
+                var crew = soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.qaCrew(wantedGuild, boss);
+                out.add(crew == null ? "none" : crew.logIn().isEmpty() ? "ready|" + crew.guild()
+                        : "stage|" + crew.guild() + "|" + crew.logIn().stream().map(String::valueOf)
+                        .collect(java.util.stream.Collectors.joining(",")));
+            }
+            case "bossstage", "bossunstage" -> { // !qa gu-5: log the planned roster members in, and out again at stop
+                int done = 0;
+                for (String a : args) {
+                    if (!a.matches("\\d+")) {
+                        continue;
+                    }
+                    int botId = Integer.parseInt(a) - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE;
+                    boolean ok = "bossstage".equals(action)
+                            ? soloMapling.ArtificialPlayer.BotPopulationDirector.logInBounded(botId)
+                            : soloMapling.ArtificialPlayer.BotPopulationDirector.logOut(botId);
+                    done += ok ? 1 : 0;
+                }
+                out.add(("bossstage".equals(action) ? "logged in " : "logged out ") + done + " of " + args.length);
+            }
             case "bossstop" -> out.add("stopped " + soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.stop(gm.getName()) + " run(s)");
             case "kick", "kickcheck" -> {
                 if (g == null) {

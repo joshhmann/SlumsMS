@@ -301,7 +301,7 @@ public final class TrainingMapChooser {
     // Wander radius (hops from town) for a level, interpolating HOPS_BY_LEVEL between its breakpoints.
     // ANYWHERE_LEVEL and up opens the radius to MAX_HOPS (the whole connected landmass). Low bots hug
     // town, 30+ bots range widely (Victoria's good maps are far out), 70+ can go essentially anywhere.
-    static int hopsForLevel(int level) {
+    public static int hopsForLevel(int level) {
         if (level >= ANYWHERE_LEVEL) {
             return MAX_HOPS;
         }

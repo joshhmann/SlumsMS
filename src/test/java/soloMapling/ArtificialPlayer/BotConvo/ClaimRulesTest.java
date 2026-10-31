@@ -136,4 +136,41 @@ class ClaimRulesTest {
         assertTrue(ClaimRules.sameArea(910000003, 910000000), "an FM room is the FM");
         assertFalse(ClaimRules.sameArea(100000000, 101000000));
     }
+    /** t-cv-1 2026-10-31: "lvling at Henesys Hunting Ground I" was judged as a claim to be in the town Henesys. */
+    @Test
+    void aFieldNamedAfterATownIsNotTheTown() {
+        ConvoEntities.Names saved = ConvoEntities.names();
+        try {
+            ConvoEntities.useForTest(null);
+            ClaimRules.Claim c = ClaimRules.classify("lvling at Henesys Hunting Ground I today, comfy spot").stream()
+                    .filter(x -> x.kind() == TRAIN_AT).findFirst().orElse(null);
+            assertTrue(c == null || c.mapId() != 100000000, "no name table: never the town, got " + c);
+            assertEquals(-1, ClaimRules.place("kerning city subway"));
+            assertEquals(100000000, ClaimRules.place("henesys to buy pots"));
+
+            ConvoEntities.useForTest(new ConvoEntities.Names() {
+                public java.util.Map<String, Integer> maps() {
+                    return java.util.Map.of("henesys hunting ground i", 104040000,
+                            "kerning city construction site", 103010000, "henesys", 100000000);
+                }
+
+                public java.util.Map<String, Integer> mobs() {
+                    return java.util.Map.of();
+                }
+
+                public java.util.Map<String, Integer> items() {
+                    return java.util.Map.of();
+                }
+            });
+            List<ClaimRules.Claim> got = ClaimRules.classify("lvling at Henesys Hunting Ground I today, comfy spot");
+            assertEquals(1, got.size(), got.toString());
+            assertEquals(TRAIN_AT, got.get(0).kind());
+            assertEquals(104040000, got.get(0).mapId());
+            assertEquals(103010000, ClaimRules.classify("lvling at Kerning City Construction Site today, comfy spot")
+                    .get(0).mapId());
+            assertEquals(100000000, ClaimRules.place("henesys today"));
+        } finally {
+            ConvoEntities.useForTest(saved);
+        }
+    }
 }

@@ -515,12 +515,61 @@ final class GCMovementDriver {
         if (dx == 0 || followed == null) {
             return followed;
         }
+        BotNavigationGraph graph = null;
+        try {
+            graph = map == null ? null : BotNavigationGraphProvider.peekGraph(map);
+        } catch (RuntimeException e) {
+            // no graph: the map-area clamp alone, as before
+        }
+        return formationPlace(followed, dx, map, graph);
+    }
+
+    /*
+     * 1.6.2 (t-oa-1, TEST 2026-10-31): the place is also kept on the ledge the followed one stands on. Its owner on a
+     * 168 px step of Henesys Hunting Ground I, an alt's "right 60" place was past the step's edge; the ground under it
+     * was the floor 180 px below, so the alt "arrived" there and stood under its owner for good, unable to reach (or
+     * fight) the mobs its owner hit on the step. A ledge too narrow for the place puts the follower on the followed
+     * spot. A followed one on a rope, or a map whose graph is not built yet, keeps the map-area clamp alone.
+     */
+    static Point formationPlace(Point followed, int dx, server.maps.MapleMap map, BotNavigationGraph graph) {
+        if (dx == 0 || followed == null) {
+            return followed;
+        }
         int x = followed.x + dx;
         java.awt.Rectangle area = map == null ? null : map.getMapArea();
         if (area != null && area.width > 0) {
             x = Math.max(area.x + 10, Math.min(area.x + area.width - 10, x));
         }
-        return new Point(x, followed.y);
+        return new Point(onLedge(followed.x, x, ledgeOf(map, graph, followed)), followed.y);
+    }
+
+    /** How far inside a ledge's ends a formation place stays. */
+    static final int LEDGE_EDGE_PX = 10;
+
+    /** {@code x} kept on the ledge {@code [minX, maxX]} (null: no ledge known); a ledge too narrow: the followed x. */
+    static int onLedge(int followedX, int x, int[] ledge) {
+        if (ledge == null) {
+            return x;
+        }
+        int lo = ledge[0] + LEDGE_EDGE_PX;
+        int hi = ledge[1] - LEDGE_EDGE_PX;
+        if (lo > hi) {
+            return followedX;
+        }
+        return Math.max(lo, Math.min(hi, x));
+    }
+
+    /** The x span of the ground ledge (nav region) under {@code p}, or null (no graph, a rope, nothing under it). */
+    private static int[] ledgeOf(server.maps.MapleMap map, BotNavigationGraph graph, Point p) {
+        if (map == null || graph == null) {
+            return null;
+        }
+        try {
+            BotNavigationGraph.Region r = graph.getRegion(graph.findRegionId(map, p));
+            return r == null || r.isRopeRegion ? null : new int[]{r.minX, r.maxX};
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /* Faithful port of BotManager.stepMovementCore (minus fidget). */
