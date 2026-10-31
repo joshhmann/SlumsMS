@@ -653,8 +653,10 @@ Owner, 2026-10-31: at least a quarter to half of the bots should trade, and CHAO
   rate at 9,625,000 and a 10,500,000 bid refused),
   `NxGuardTest.anOrderOutsideTheHardWindowIsRefusedOnEitherSideEvenWithTheGuardOff`, and
   `NxGuardTest.aHouseRegularCannotQuoteOutsideTheWindow` (the regulars' own path, which skips `priceBand`, is caught
-  in `placeOrder`). Bots were already held to the same numbers by `MarketTraders.BOT_NX_MIN/MAX`, which are now
-  aliases of `NxGuard.NX_LOWEST`/`NX_HIGHEST` so there is one place to change the numbers. The site's
+  in `placeOrder`). Bots quote inside the same band (`MarketTraders.view` clips to `ex.nxBand()`, and falls back to it
+  wholesale when the brain's own anchor band does not overlap it), so a low official rate narrows the bots' NX asks and
+  bids too; the fixed `BOT_NX_MIN/MAX` constants are gone
+  (`NxGuardTest.aBotQuotesInsideTheBandTheExchangeRefusesPlayersOn`). The site's
   `exchange-tickers.json` NX entry carries the band an order may actually use in `min_price`/`max_price` (before, it
   was the ticker's own 1,000..100,000,000), and an open NX order found outside the window at boot is **cancelled and
   refunded through the normal cancel path**, one audit line each (`clamp cancel order #N ...`), never edited in place;

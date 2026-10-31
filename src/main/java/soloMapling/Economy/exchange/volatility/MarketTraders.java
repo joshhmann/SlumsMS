@@ -51,15 +51,6 @@ public final class MarketTraders {
     /** A ticker's price when it has never traded (until players set one): the trader's first anchor. */
     static final Map<String, Long> FALLBACK = Map.of("LEAF", 600_000L, "CHAOS", 20_000_000L, "WS", 10_000_000L,
             "ELIXIR", 6_000L, Ticker.NX, 5_000_000L);
-    /**
-     * 1.6.2: the bots' NX quotes stay inside the one hard window, {@link
-     * soloMapling.Economy.exchange.NxGuard#NX_LOWEST}..{@link soloMapling.Economy.exchange.NxGuard#NX_HIGHEST}
-     * (2,500..10,000 mesos per NX; owner 2026-10-31 ~19:50 UTC made it a rule for everyone, players and bots), inside
-     * the player range ({@link ExchangeConfig#minPrice()}..{@link ExchangeConfig#maxPrice()}). A bot never quotes
-     * outside it.
-     */
-    static final long BOT_NX_MIN = soloMapling.Economy.exchange.NxGuard.NX_LOWEST,
-            BOT_NX_MAX = soloMapling.Economy.exchange.NxGuard.NX_HIGHEST;
     /** The NPC shops buy Maple Leaves at this: value traders anchor LEAF's fair value near it. */
     static final long LEAF_SHOP = 500_000L;
 
@@ -432,9 +423,15 @@ public final class MarketTraders {
         }
         long fair = fairValue != null && fairValue > 0 ? fairValue : fair(ex, tk, now, fallback, in);
         long lo = tk.minPrice(), hi = tk.maxPrice();
-        if (Ticker.NX.equals(tk.id())) { // the bots' band is the hard window, narrower than the player range
-            lo = Math.max(lo, BOT_NX_MIN);
-            hi = Math.min(hi, BOT_NX_MAX);
+        if (Ticker.NX.equals(tk.id())) { // the bots quote inside the band the exchange refuses players on
+            long[] nx = ex.nxBand(); // hard window ∩ the relative band around the official rate (owner 2026-10-31)
+            long nxLo = Math.max(lo, nx[0]), nxHi = Math.min(hi, nx[1]);
+            if (nxLo > nxHi) { // the brain's own anchor is far from the official rate: the exchange's band wins
+                nxLo = nx[0];
+                nxHi = nx[1];
+            }
+            lo = nxLo;
+            hi = nxHi;
         }
         return new TraderBrain.View(tk.id(), ref, bid, ask, hourAgo, high2h, fair, pressure, lo, hi, tk.maxQty(),
                 ex.config().feeBps(), band[0], band[1], tk.per(), tk.lot(), tk.minQty());

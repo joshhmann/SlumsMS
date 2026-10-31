@@ -178,11 +178,11 @@ class MarketTradersScrollTest {
         }
         nx = ex.openBotOrders(BOT, "NX");
         assertFalse(nx.isEmpty(), "a bot with a purse offers NX back");
+        long[] band = ex.nxBand();
         for (OrderRow o : nx) {
             assertEquals(Side.SELL, o.side());
             assertEquals(0, o.nxLeft() % 100, "whole lots: " + o.nxLeft());
-            assertTrue(o.price() >= MarketTraders.BOT_NX_MIN && o.price() <= MarketTraders.BOT_NX_MAX,
-                    "inside the bot band: " + o.price());
+            assertTrue(o.price() >= band[0] && o.price() <= band[1], "inside the exchange's band: " + o.price());
         }
         assertTrue(ex.botNx(BOT) < 1_000, "the escrow left the purse");
     }

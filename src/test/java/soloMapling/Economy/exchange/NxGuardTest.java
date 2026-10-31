@@ -6,6 +6,7 @@ import soloMapling.Economy.exchange.Exchange.Place;
 import soloMapling.Economy.exchange.Exchange.Response;
 import soloMapling.Economy.exchange.OrderBook.Side;
 import soloMapling.Economy.exchange.Ledger.Asset;
+import soloMapling.Economy.exchange.volatility.MarketTraders;
 import soloMapling.Economy.exchange.Ledger.Bucket;
 
 import java.util.List;
@@ -283,6 +284,24 @@ class NxGuardTest {
         assertTrue(ex.preview(new Place("q", 3, 13, Side.SELL, st.bidPrice(), ExchangeQa.NX, "NX")).ok());
         assertTrue(ex.confirmLatest("qc", 3).ok());
         assertEquals("OK", ExchangeQa.teardown(ex, w).get("code"));
+    }
+
+    @Test
+    void aBotQuotesInsideTheBandTheExchangeRefusesPlayersOn() {
+        // the traders' own anchor band is 50%..200% of NX's 5,000,000 fallback, i.e. the whole window; the official
+        // rate's band is narrower, so a bot's NX quotes must be too (owner 2026-10-31 ~20:05 UTC: "the bot clamp" uses
+        // the effective band)
+        var before = MarketTraders.view(ex, ex.ticker("NX"), now.get(), 0.5, null);
+        assertTrue(before.minPrice() == NxGuard.NX_LOWEST && before.maxPrice() == NxGuard.NX_HIGHEST,
+                before.minPrice() + ".." + before.maxPrice());
+        rateAt(4_000_000);
+        long[] band = ex.nxBand();
+        assertEquals(2_500_000L, band[0]);
+        assertEquals(8_000_000L, band[1]);
+        var after = MarketTraders.view(ex, ex.ticker("NX"), now.get(), 0.5, null);
+        assertTrue(after.minPrice() >= band[0] && after.maxPrice() <= band[1],
+                after.minPrice() + ".." + after.maxPrice());
+        assertEquals(8_000_000L, after.maxPrice(), "200% of the rate, not the window's ceiling");
     }
 
     // ---------------------------------------------------------------- open orders outside the window at boot
