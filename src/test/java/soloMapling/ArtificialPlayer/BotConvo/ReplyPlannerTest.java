@@ -291,6 +291,31 @@ class ReplyPlannerTest {
                 "a pq line is shorter than a grinding one: " + pqLines + " vs " + lines);
     }
 
+    /** REVIEW-A2 item 3: a town has no monsters, so a busy bot there never calls what it is doing grinding. */
+    @Test
+    void aBusyBotInTownNeverSaysItIsGrinding() {
+        for (String activity : List.of("waiting to do Orbis PQ", "grinding", "hanging out in town")) {
+            ReplyPlanner.View town = v().kind(ChatTriage.Kind.TALK).asked("lol nice hat").busy(true).town(true)
+                    .place("henesys").mobs(List.of()).activity(activity).build();
+            ReplyPlanner.Plan p = ReplyPlanner.plan(town);
+            assertEquals(ReplyPlanner.Move.BUSY, p.move(), activity);
+            List<String> lines = ReplyPlanner.scripts(town, p.move());
+            assertFalse(lines.isEmpty(), activity);
+            for (String line : lines) {
+                assertFalse(line.toLowerCase(java.util.Locale.ROOT).contains("grind"),
+                        activity + ": \"" + line + "\" says the bot is grinding in a town");
+                assertFalse(StateOfMind.claimsGrindingInTown(line),
+                        activity + ": \"" + line + "\" claims grinding in town");
+            }
+        }
+        ReplyPlanner.View pqWait = v().kind(ChatTriage.Kind.TALK).asked("lol nice hat").busy(true).town(true)
+                .place("orbis").activity("waiting to do Orbis PQ").build();
+        assertTrue(ReplyPlanner.scripts(pqWait, ReplyPlanner.Move.BUSY).stream()
+                        .anyMatch(l -> l.contains("orbis pq") || l.contains("waiting")),
+                "the town line names what the bot is waiting for: "
+                        + ReplyPlanner.scripts(pqWait, ReplyPlanner.Move.BUSY));
+    }
+
     @Test
     void noScriptBegs() {
         // owner's answer 5: no begging, in any move, with any player level - and the triage's own con rules are the judge

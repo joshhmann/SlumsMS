@@ -200,6 +200,20 @@ public final class ReplyPlanner {
                     out.add("killing " + mob + "s rn");
                     out.add(mob + "s rn, sec");
                     out.add("busy on " + mob + "s sry");
+                } else if (v.town()) {
+                    // a town has no monsters here: name what the bot is doing, never "grinding" (b240, owner's 6)
+                    String act = v.activity() == null || v.activity().isBlank()
+                            || StateOfMind.claimsGrindingInTown(v.activity())
+                            ? null : v.activity().toLowerCase(Locale.ROOT);
+                    if (act != null) {
+                        out.add("busy rn, " + act);
+                        out.add(act + " rn sry");
+                    } else if (place != null) {
+                        out.add("in " + place + " rn, sec");
+                        out.add("busy in " + place + " rn");
+                    } else {
+                        out.add("busy rn sry");
+                    }
                 } else if (place != null) {
                     out.add("grinding " + place + " rn");
                     out.add("on " + place + " rn, sec");
