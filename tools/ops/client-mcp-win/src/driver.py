@@ -204,6 +204,7 @@ class Driver:
         from focus import Handoff
         self.focus = Handoff(root)
         self.qa = None   # QaPipe to a SLUMS_QA_MODULE client, set by start_client when the client has one
+        self.qa_last = None
 
     def local_config(self):
         path = inside(self.root / 'local-config.json', self.root)
@@ -726,7 +727,7 @@ class Driver:
         stopped = self.client.stop()
         if self.qa:
             self.qa.close()
-            self.qa = None
+            self.qa_last, self.qa = self.qa, None   # run_script still saves this pipe's events
         self.state = 'stopped'
         self.sensitive_screen = True
         return {'stopped_pids': stopped}
@@ -775,9 +776,10 @@ class Driver:
             if path and Path(path).is_file() and Path(path).parent == self.root / 'shots':
                 Path(path).replace(run / Path(path).name)
                 entry['result']['path'] = Path(path).name
-        if self.qa:
+        pipe = self.qa or self.qa_last
+        if pipe:
             with (run / 'events.jsonl').open('w', encoding='utf-8') as out:
-                for event in self.qa.events_since(started):
+                for event in pipe.events_since(started):
                     out.write(json.dumps(event) + '\n')
         logs = self.read_logs(200)
         for log_name, text in logs.items():
@@ -786,7 +788,7 @@ class Driver:
         manifest = {'script': name, 'script_sha256': hashlib.sha256(script).hexdigest(),
                     'expect': json.loads(script).get('expect', ''),
                     'client_build': build.read_text(encoding='utf-8').strip().splitlines() if build.exists() else [],
-                    'qa_pipe': bool(self.qa), 'start_utc': utc(started), 'end_utc': utc_now(),
+                    'qa_pipe': bool(pipe), 'start_utc': utc(started), 'end_utc': utc_now(),
                     'result': 'ERROR' if failed is not None else 'RECORDED', 'failed_step': failed, 'steps': results}
         (run / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
         return {'run': str(run), 'result': manifest['result'], 'failed_step': failed,

@@ -29,7 +29,7 @@ run=$(python3 -c 'import json,sys
 for line in sys.stdin:
     line=line.strip()
     if line.startswith("{") and "\"run\"" in line:
-        print(json.loads(line)["run"].replace("\\\\","/")); break' <<<"$out")
+        print(json.loads(line)["run"].replace(chr(92),"/")); break' <<<"$out")
 [ -n "$run" ] || { echo "no run folder in the reply" >&2; exit 1; }
 name=$(basename "$run")
 dest=/root/work/qa-runs/$(date -u +%F)/$name
