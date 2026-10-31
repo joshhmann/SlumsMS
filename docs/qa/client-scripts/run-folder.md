@@ -19,6 +19,7 @@ it (commit + log + time + frames). Nothing in it is a secret: no account names o
     collect.json           what was pulled and any gap
     feed.jsonl             every QA event feed line the orchestrator received (one JSON object a line, as served)
   review.md                optional: the reviewer's longer notes (the verdict itself lives in manifest.json)
+  verdicts/<t-id>.json     one judged record per release id the script covers (tools/qa-runner/verdict output)
 ```
 
 How it gets there: the orchestrator on 187 runs the script, the Silvia worker writes the client side under its QA
@@ -112,3 +113,15 @@ Schema: `docs/qa/client-scripts/manifest.schema.json`. Times are UTC ISO 8601 wi
 | ERROR / ABORTED | the runner or the client broke, or Silvia was busy and the run gave up | the Client lane / the next scheduled retry (every 30 min) |
 
 Run folders are kept 30 days; the ones a release book links are kept until that release is retired.
+
+## From this folder to `latest.json`
+
+`tools/qa-runner/verdict <folder>` (module `tools/qa-runner/qaverdict.py`) re-reads the manifest and applies the base
+rules above mechanically (the orchestrator runs it on every run, so `verdicts/` is already there, and re-running it
+after a review costs nothing): a timeout/refused step or a failed machine check is FAIL, `ERROR`/`ABORTED`/still running or
+a script edited since the run is SKIP, and PASS needs a passed machine check or a recorded `review` with every item
+`seen`. Its output is one record per t-id in `script.covers`, and the run folder is the first entry of `evidence`.
+Point `--out` at TEST's `Server/data/autoqa/client-verdicts/` (or run the orchestrator with `--publish <that dir>`);
+the server copies each record under its t-id into
+`latest.json` on every auto-QA report write (fresh same-commit verdicts only; another build's pass shows as
+`PASS(old, ...)`). See "How a script becomes a release check" in `README.md`.

@@ -1,0 +1,69 @@
+{
+  "format": 1,
+  "status": "PASS",
+  "reason": "2 frame item(s) seen and the server checks passed",
+  "fresh": true,
+  "commit": "5e5c0ab1d",
+  "deployed_commit": "5e5c0ab1d",
+  "script": {
+    "id": "b140-bot-heal-column",
+    "sha256": "7267fea94ee319bb50140c8d084fce5ad02f7017515bc1a7489171b4ef52d2ce",
+    "status": "draft"
+  },
+  "run": {
+    "folder": "/tmp/tmppyzx6l_2/2026-10-31/b140-bot-heal-column-20261031T031205Z",
+    "run_id": "b140-bot-heal-column-20261031T031205Z",
+    "result": "PASS",
+    "started_utc": "2026-10-31T03:12:05.120Z",
+    "finished_utc": "2026-10-31T03:12:05.120Z",
+    "trigger": "manual"
+  },
+  "server": {
+    "host": "TEST",
+    "commit": "5e5c0ab1d"
+  },
+  "checks": [
+    {
+      "check": "server_line",
+      "result": "PASS",
+      "detail": "1 line(s) (min 1, max -)"
+    },
+    {
+      "check": "packet",
+      "result": "SKIP",
+      "detail": "judged from the client files after the pull (reviewer or tools/qa-runner check pass)"
+    },
+    {
+      "check": "sample",
+      "result": "SKIP",
+      "detail": "judged from the client files after the pull (reviewer or tools/qa-runner check pass)"
+    },
+    {
+      "check": "client_alive",
+      "result": "SKIP",
+      "detail": "judged from the client files after the pull (reviewer or tools/qa-runner check pass)"
+    }
+  ],
+  "review": {
+    "by": "an agent",
+    "at_utc": "2026-10-31T03:20:00Z",
+    "verdict": "PASS",
+    "reviewer_items": [
+      {
+        "index": 0,
+        "result": "seen"
+      },
+      {
+        "index": 1,
+        "result": "seen"
+      }
+    ],
+    "summary": "both Heal columns drew over the Bishop and the HP bar rose"
+  },
+  "evidence": [
+    "/tmp/tmppyzx6l_2/2026-10-31/b140-bot-heal-column-20261031T031205Z",
+    "server/feed.jsonl",
+    "script.yaml"
+  ],
+  "id": "t-cl-1"
+}

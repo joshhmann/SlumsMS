@@ -26,6 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "qa-scripts"))
 import qascript  # noqa: E402
+import qaverdict  # noqa: E402
 import yaml  # noqa: E402
 
 REPO = qascript.REPO
@@ -440,6 +441,27 @@ class Run:
         (self.folder / "manifest.json").write_text(json.dumps(self.manifest, indent=1), encoding="utf-8")
 
 
+def write_verdicts(folder, deployed_commit=None, publish_dir=None):
+    """Judge the run folder (ticket 166): verdicts/<t-id>.json beside the manifest, and in publish_dir when given
+    (TEST's data/autoqa/client-verdicts, which auto-QA reads on its next report write). Never fails a run: a folder
+    that cannot be judged just gets no records."""
+    try:
+        records = qaverdict.judge(folder, deployed_commit)
+    except (ValueError, OSError) as e:
+        print("no t-id verdict: %s" % e)
+        return []
+    folders = [Path(folder) / "verdicts"]
+    if publish_dir:
+        folders.append(Path(publish_dir))
+    for out in folders:
+        out.mkdir(parents=True, exist_ok=True)
+        for r in records:
+            (out / (r["id"] + ".json")).write_text(json.dumps(r, indent=1) + "\n", encoding="utf-8")
+    for r in records:
+        print("verdict %s %s (%s)" % (r["id"], r["status"], r["reason"]))
+    return records
+
+
 def plan(script_path):
     """A dry run: what would be sent and waited on, nothing touched."""
     doc = yaml.safe_load(Path(script_path).read_text(encoding="utf-8"))
@@ -468,6 +490,9 @@ def main(argv):
     run = Run(script, SshFeed(), SilviaWorker(), commit=read_deployed_commit())
     manifest = run.run()
     print("%s %s -> %s" % (manifest["result"], run.run_id, run.folder))
+    publish_dir = argv[argv.index("--publish") + 1] if "--publish" in argv and argv.index("--publish") + 1 < len(
+        argv) else None
+    write_verdicts(run.folder, manifest.get("server", {}).get("commit"), publish_dir)
     return 0 if manifest["result"] == "PASS" else 1
 
 

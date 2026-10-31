@@ -15,6 +15,7 @@ the checks that need human judgment (feel, art, fun): `owner-vs-machine.md`.
 | `tools/qa-scripts/validate` | the validator (`tools/qa-scripts/validate [files]`; all scripts when none given) |
 | `tools/ops/qa-run-collect` | pulls the TEST side of a run (journal slice, `logs/qa`, `latest.json`) into the run folder |
 | `tools/qa-runner/run` | the 187 orchestrator: `tools/qa-runner/run qa-scripts/<id>.yaml [--dry-run]` |
+| `tools/qa-runner/verdict` | judges a run folder into per-t-id records: `tools/qa-runner/verdict <run folder> [--out DIR]` |
 
 ## Owner decisions (2026-10-31, ticket 166)
 
@@ -50,6 +51,9 @@ the checks that need human judgment (feel, art, fun): `owner-vs-machine.md`.
 - The QA event feed and its secret never leave 164 and 187: the orchestrator calls the feed with `curl` **on 164 over
   ssh**, reading the secret there from `/etc/slums-inspect-test/secret` by path (never printed, never copied).
 - 187 **pulls** the run folder from Silvia over ssh, then runs `tools/ops/qa-run-collect` for the server side.
+- The orchestrator then judges the folder (`tools/qa-runner/verdict`, the same module the reviewer runs) and writes
+  one record per t-id into the folder's `verdicts/`; `--publish <dir>` also copies them to TEST's
+  `data/autoqa/client-verdicts/`, where the next auto-QA report write picks them up.
 - The QA client build stamps caps bit 31 (`0x80000000`, client `kCapQaBuild`) and a release `<version>-qa`. Live
   refuses it at login; TEST and RC accept it only with `-Dslums.client.allowQa=true` (`ClientVersionGate`).
 
@@ -221,6 +225,42 @@ backup of the file, at the next TEST restart). Not done in ticket 170: TEST was 
 3. Burst before short effects; keep server lines as checks.
 4. `tools/qa-scripts/validate qa-scripts/<id>.yaml` must print `ok`. Commit it as `status: draft`; it becomes `ready`
    after its first PASS on TEST.
+
+## How a script becomes a release check
+
+A run folder is not a verdict by itself (b222: nothing goes green untested). Three steps turn it into one:
+
+1. **Judge the folder.** `tools/qa-runner/verdict <run folder>` writes one record per t-id the script `covers`
+   (`tools/qa-runner/qaverdict.py` holds the rules, so the reviewer, the orchestrator's next run and the server read
+   the same thing):
+   - `result: FAIL` with a step that `timeout`s or is refused → **FAIL**, naming the step and its detail.
+   - `ERROR`, `ABORTED`, still `RUNNING`, or a `script.yaml` whose sha256 is not the one in the manifest → **SKIP**;
+     nothing is judged.
+   - a machine `checks[]` entry that FAILed → **FAIL**.
+   - `review.verdict: FAIL` → **FAIL**; `INCONCLUSIVE`, or a reviewer item not `seen` → **SKIP**.
+   - **PASS** needs either a machine check that passed (`server_line`, `packet`, `sample`, ...) or a recorded
+     `review` whose every reviewer item is `seen`. Frames without a review prove nothing.
+   Record shape: `{id, status, reason, fresh, commit, deployed_commit, script{id,sha256,status}, run{folder,run_id,
+   result,started_utc,finished_utc,trigger}, review, evidence[]}` - the run folder first, then the frames, client logs,
+   server slice and `script.yaml` that exist.
+2. **Publish the records to TEST.** `--out` defaults to `<auto-QA data dir>/client-verdicts/`, i.e.
+   `/opt/mapleroot-dev/persistence-test/Server/data/autoqa/client-verdicts/<t-id>.json`. TEST's auto-QA reads that
+   directory on **every report write** (`ClientScriptVerdicts.apply`), so the next `!autoqa` run - nightly, after a
+   deploy, or `tools/ops/autoqa-run smoke` - copies each verdict under its t-id into `latest.json`:
+   - fresh (same `server.commit` as the run) PASS → that check reads **PASS**, `mode`/`source` `client-script`, the
+     run folder and its evidence as the row's evidence;
+   - fresh FAIL → **FAIL**;
+   - another build → **PASS(old, <run>, <commit9>)**, counted as `OLD`, never as a fresh pass;
+   - a check the headless run measured itself keeps its own result: a script never overwrites a real PASS or FAIL.
+   `tools/ops/test-status` shows these rows like any other check.
+3. **Retire the allow-list entry.** A MANUAL check always SKIPs headless, which is why it sits in
+   `src/main/resources/soloMapling/autoqa-release-skips.tsv`. Once its script is `ready` (it passed on TEST), the id
+   comes off that list **in the same commit**, and a release run (`!autoqa all --release`) then counts the script's
+   fresh verdict: PASS covers it, FAIL fails the release, an old verdict is an unexpected SKIP. `AutoQaReleaseScriptsTest`
+   fails if an id is both allow-listed and covered by a `ready` script, and refuses a `ready` script that covers no
+   t-id - so the list can only shrink one id at a time, with proof.
+
+`t-la-1` has no script (the launcher is not the game client) and stays a hand check; its allow-list line says so.
 
 ## Scripts so far
 
