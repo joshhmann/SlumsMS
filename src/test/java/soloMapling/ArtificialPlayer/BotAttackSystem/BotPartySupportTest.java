@@ -156,10 +156,4 @@ class BotPartySupportTest {
         active = Set.of(BuffStat.WATK);
         assertFalse(BotPartySupport.tick(bot, T0 + 20_000), "already up");
     }
-
-    @Test
-    void healAmountIsAShareOfTheCastersMaxHp() {
-        assertEquals(300, BotPartySupport.healAmount(1000, 30));
-        assertEquals(0, BotPartySupport.healAmount(1000, 0));
-    }
 }

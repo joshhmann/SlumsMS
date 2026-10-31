@@ -891,6 +891,12 @@ public class StatEffect {
             return true;
         }
         if (primary && isHeal()) {
+            if (sourceid == Cleric.HEAL) {
+                // 1.6.2 healamt: viewers draw the Heal column on a remote caster only from this cast effect
+                // (SHOW_FOREIGN_EFFECT effect 1, CUser::OnEffect case 1); Heal is not a buff over time, so
+                // applyBuffEffect never sent it. The same packet a buff's cast gets, to the map but the caster.
+                showCastEffect(applyfrom);
+            }
             affectedPlayers = applyBuff(applyfrom, useMaxRange);
         }
 
@@ -1114,23 +1120,7 @@ public class StatEffect {
         int affectedc = 1;
 
         if (isPartyBuff() && (applyfrom.getParty() != null || isGmBuff())) {
-            Rectangle bounds = (!useMaxRange) ? calculateBoundingBox(applyfrom.getPosition(), applyfrom.isFacingLeft()) : new Rectangle(Integer.MIN_VALUE / 2, Integer.MIN_VALUE / 2, Integer.MAX_VALUE, Integer.MAX_VALUE);
-            List<MapObject> affecteds = applyfrom.getMap().getMapObjectsInRect(bounds, Arrays.asList(MapObjectType.PLAYER));
-            List<Character> affectedp = new ArrayList<>(affecteds.size());
-            for (MapObject affectedmo : affecteds) {
-                Character affected = (Character) affectedmo;
-                if (affected != applyfrom && (isGmBuff() || applyfrom.getParty().equals(affected.getParty()))) {
-                    if (!isResurrection()) {
-                        if (affected.isAlive()) {
-                            affectedp.add(affected);
-                        }
-                    } else {
-                        if (!affected.isAlive()) {
-                            affectedp.add(affected);
-                        }
-                    }
-                }
-            }
+            List<Character> affectedp = partyBuffTargets(applyfrom, useMaxRange);
 
             affectedc += affectedp.size();   // used for heal
             for (Character affected : affectedp) {
@@ -1950,5 +1940,52 @@ public class StatEffect {
 
     public boolean applyToTarget(Character caster, Character target) {
         return applyTo(caster, target, false, null, false, 1);
+    }
+
+    /**
+     * The other characters a party skill cast by {@code applyfrom} reaches: the stock applyBuff selection (its box from
+     * the caster's position and facing, the caster's party, alive - or dead for a resurrection). Empty when the skill
+     * has no box or the caster no party. Shared with bot casts (1.6.2 healamt) so they reach whom a player's cast does.
+     */
+    public List<Character> partyBuffTargets(Character applyfrom, boolean useMaxRange) {
+        List<Character> affectedp = new ArrayList<>();
+        if (!isPartyBuff() || (applyfrom.getParty() == null && !isGmBuff())) {
+            return affectedp;
+        }
+        Rectangle bounds = (!useMaxRange) ? calculateBoundingBox(applyfrom.getPosition(), applyfrom.isFacingLeft()) : new Rectangle(Integer.MIN_VALUE / 2, Integer.MIN_VALUE / 2, Integer.MAX_VALUE, Integer.MAX_VALUE);
+        List<MapObject> affecteds = applyfrom.getMap().getMapObjectsInRect(bounds, Arrays.asList(MapObjectType.PLAYER));
+        for (MapObject affectedmo : affecteds) {
+            Character affected = (Character) affectedmo;
+            if (affected != applyfrom && (isGmBuff() || applyfrom.getParty().equals(affected.getParty()))) {
+                if (!isResurrection()) {
+                    if (affected.isAlive()) {
+                        affectedp.add(affected);
+                    }
+                } else {
+                    if (!affected.isAlive()) {
+                        affectedp.add(affected);
+                    }
+                }
+            }
+        }
+        return affectedp;
+    }
+
+    /**
+     * 1.6.2 healamt: the HP this effect cast by {@code caster} gives one party member when {@code affectedPlayers}
+     * people are healed, the caster counted - what applyTo hands each member of a player's Heal (calcHPChange).
+     */
+    public int partyMemberHpChange(Character caster, int affectedPlayers) {
+        return calcHPChange(caster, false, Math.max(1, affectedPlayers));
+    }
+
+    /** As {@link #applyToTarget(Character, Character)}, for a cast that heals {@code affectedPlayers} people in all. */
+    public boolean applyToTarget(Character caster, Character target, int affectedPlayers) {
+        return applyTo(caster, target, false, null, false, Math.max(1, affectedPlayers));
+    }
+
+    /** The cast effect a player's buff shows the rest of the map (SHOW_FOREIGN_EFFECT effect 1 on the caster). */
+    public void showCastEffect(Character caster) {
+        caster.getMap().broadcastMessage(caster, PacketCreator.showBuffEffect(caster.getId(), sourceid, 1, (byte) 3), false);
     }
 }
