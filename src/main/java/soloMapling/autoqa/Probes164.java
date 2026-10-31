@@ -365,8 +365,9 @@ final class Probes164 {
     static List<String> trapVerdict(NavTrapQa.Traps t, Map<Integer, String> baseline) {
         List<String> ev = new ArrayList<>();
         List<String> bad = new ArrayList<>();
-        if (baseline.isEmpty()) {
+        if (baseline == null) {
             bad.add("the trap baseline (soloMapling/nav-trap-maps.txt) is missing from the jar");
+            baseline = Map.of();
         }
         if (t.reachable() < 500) {
             bad.add("only " + t.reachable() + " maps reachable from " + t.hub() + ": the world graph did not load");

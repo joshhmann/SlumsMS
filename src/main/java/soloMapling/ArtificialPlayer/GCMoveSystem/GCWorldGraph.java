@@ -281,7 +281,7 @@ final class GCWorldGraph {
             if (e.minRebirths() > rebirths || e.minLevel() > level) {
                 continue; // the script turns this bot away (the teleporter's Heliseum / Arcane rows, rebirth 1 / 2; Jeff, level 50)
             }
-            if (e.returnToSaved() != null && e.toMapId() != savedReturn) {
+            if (e.returnToSaved() != null && savedReturn != ANY_SAVED_RETURN && e.toMapId() != savedReturn) {
                 continue; // the World Tour only takes a bot back where it came from
             }
             long flags = (e.saveLocation() != null ? SAVES : 0) | (e.returnToSaved() != null ? RETURNS : 0);
@@ -302,6 +302,39 @@ final class GCWorldGraph {
             }
         }
         return n == out.length ? out : java.util.Arrays.copyOf(out, n);
+    }
+
+    /* A savedReturn matching every "return to saved" edge (the World Tour and Malaysia tour home): for the trap check,
+     * which plans for every bot at once - a bot only rides one of those home to the town it really left from. */
+    static final int ANY_SAVED_RETURN = 0;
+
+    /*
+     * b230 (auto-QA t-nv-2): every map a bot on mapId can go on to in one planner step, for some bot: .neighbors, plus
+     * each tour's way home whatever town was saved, plus the Hyper Teleport Rock's jump home out of the areas that
+     * have no other way back (its out_of ranges: Grandis, Arcane River, Edelstein and Black Heaven - the game itself
+     * lets you out only by a return scroll, the rock or a town's NPC there). The rock's jump INTO its areas is left
+     * out: it is open from every map, and one jump per route means it is never half of a way back.
+     */
+    static int[] waysOn(int mapId) {
+        return waysOn(get(), mapId);
+    }
+
+    static int[] waysOn(Map<Integer, int[]> g, int mapId) {
+        java.util.Set<Integer> out = new java.util.LinkedHashSet<>();
+        for (long step : steps(g, mapId, true, ANY_SAVED_RETURN, 3, ANY_LEVEL)) {
+            int next = (int) (step >>> 32);
+            if (next > 0) {
+                out.add(next);
+            } else if (next == HYPER_OUT) {
+                out.addAll(BotTransit.hyperRock().home());
+            }
+        }
+        int[] arr = new int[out.size()];
+        int i = 0;
+        for (int m : out) {
+            arr[i++] = m;
+        }
+        return arr;
     }
 
     private static List<Integer> reconstruct(Map<Integer, Integer> cameFrom, int from, int to) {
