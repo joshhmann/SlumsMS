@@ -208,8 +208,11 @@ public final class AutoQaCatalog {
                 .expect(has("BOT_GUILD APPLY .*YES"), has("BOT_GUILD INVITE SENT"), has("BOT_GUILD PLAYER JOINED"),
                         atLeast(1, "BOT_GUILD GUILD CHAT", "hi", null),
                         atLeast(1, "MULTICHAT guild {bot}: ", "hi", "q"),
-                        Expects.atMost(1, "MULTICHAT guild (?!{me})\\S+: ", "hi", "q"),
-                        Expects.atMost(1, "MULTICHAT guild (?!{me})\\S+: ", "q", "end"))
+                        // t-gu-1 on TEST (run 4d3de9837): an unrelated bot's guild chatter ("who wants to do some
+                        // pqs later") inside the window counted as a second answer. Count the guild's ANSWERS (one
+                        // hook per bot that takes the line), not the chat the guild happens to be having.
+                        Expects.atMost(1, "BOT_GUILD GUILD CHAT ", "hi", "q"),
+                        Expects.atMost(1, "BOT_GUILD GUILD CHAT ", "q", "end"))
                 .build());
         c.add(Check.auto("t-gu-3", "Bot guilds recruit").minutes(4)
                 .step(fixture("guildless"), run("gu-3"), waitFor("BOT_GUILD RECRUIT (WHISPER|MEGAPHONE)", 60),
