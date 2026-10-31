@@ -145,6 +145,7 @@ final class GCMovementDriver {
             long startedAt = System.nanoTime();
             try {
                 tick(entry);
+                traceAfterTick(entry); // ticket 157 follow-up: every tick, not only the ones that moved
             } finally {
                 BotPerformanceMonitor.recordMovementTick(System.nanoTime() - startedAt);
             }
@@ -295,11 +296,26 @@ final class GCMovementDriver {
         // throttled physics when mid-air/climbing or the map has no baked graph (never bake just to move
         // an unwatched bot). `active` is false here only when nobody can see the bot.
         if (!active && tryCoarseAdvance(entry, bot, target)) {
-            NavTrace.tick(entry, false, target);
             return;
         }
         stepMovementCore(entry, target != null ? target : bot.getPosition(), runAiTick);
-        NavTrace.tick(entry, active, target); // ticket 157: one read when off
+    }
+
+    /**
+     * The path trace's one tick, read after the tick finished whatever it did (t-nv-3, TEST 10-31). It used to be
+     * read only where the bot had a goal and walked, so a full-simulation bot that stood still - idle between mobs,
+     * held by a QA check, or just given up on a goal - kept no ring at all, and the QA check found "ring none" for a
+     * bot it had put on a watched map for 8 s. A stuck report of a bot that stops is exactly what a trace is for.
+     */
+    static void traceAfterTick(BotMovementState entry) {
+        if (entry == null) {
+            return;
+        }
+        Character bot = entry.bot;
+        if (bot == null) {
+            return; // the tick called stop()
+        }
+        NavTrace.tick(entry, ObserverTracker.isActiveMap(bot.getMapId()), entry.navTargetPos);
     }
 
     /*
