@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Website QA against the TEST copy of the site (http://192.168.0.164:8192) and the TEST server's real exports.
+"""Website QA against the TEST copy of the site (http://<TEST host>:8192, SLUMS_TEST_HOST) and the TEST server's real exports.
 
     tools/site/test164/qa.sh [--quick] [--account ID --character NAME] [--no-browser]
 
 Run on 187 from the repo root. Prints one PASS / FAIL / SKIP line per check, then a count; exit status 1 on any FAIL.
 - @weblogin is gone (owner, 2026-10-26): one way in, the game username and password.
-- Signed-in checks use short-lived sessions minted on 164 with the TEST key (the key never leaves 164, the token is
+- Signed-in checks use short-lived sessions minted on the TEST host with the TEST key (the key never leaves it, the token is
   kept in memory and never printed), for made-up account ids >= 2,000,000,000 that no game account has, except the
   Buy/Sell round trip, which needs a real TEST account and character (--account, --character).
 - Password sign-in and invite sign-up need the TEST game auth API (ticket 105) and, for sign-up, a fresh invite code
   from `!invite` on TEST (QA_INVITE). The sign-in check uses QA_USER / QA_PASS. They come from the environment or
-  from QA_CREDS on 164 (KEY=value lines, root 600, read over ssh into memory, never printed). Missing ones are SKIP.
+  from QA_CREDS on the TEST host (KEY=value lines, root 600, read over ssh into memory, never printed). Missing ones
+  are SKIP.
 - API calls go through the TEST nginx about once a second, under its limit (60 a minute), so a full run takes a few
   minutes; the board round trip waits up to 2 minutes for the TEST server (it reads the inbox every 30 s).
 - Everything it writes is undone at the end: watchlist, alerts and posts of the made-up accounts, the revoke line.
@@ -32,8 +33,11 @@ sys.path.insert(0, os.path.dirname(HERE))
 import check  # noqa: E402
 from sections import market  # noqa: E402
 
-HOST = "root@192.168.0.164"
-BASE = "http://192.168.0.164:8192"
+# One setting for the host, SLUMS_TEST_HOST (http://<host>:8192): TEST moved from 192.168.0.164 to 192.168.0.111
+# ("mapletest") at 1.6.3, same ports and paths. tools/site/test164/install.sh writes nginx's listen line from it too.
+TEST_HOST = os.environ.get("SLUMS_TEST_HOST") or "192.168.0.111"
+HOST = "root@" + TEST_HOST
+BASE = f"http://{TEST_HOST}:8192"
 TEST = "/opt/mapleroot-dev/persistence-test"
 SITE_DIR, BUILD = "/srv/slums-site-test", "/opt/slums-site-test"
 REVOKED = "/var/lib/slums-login-test/revoked.txt"
@@ -105,7 +109,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def mint(account, character, characters=None):
-    """A TEST session token, made on 164 with the TEST key; the key is read there and never sent anywhere."""
+    """A TEST session token, made on the TEST host with the TEST key; the key is read there and never sent anywhere."""
     payload = json.dumps({"account_id": account, "account": f"qa{account}", "character": character,
                           "characters": characters or [character]})
     out = ssh(f"python3 -c 'import sys,json; sys.path.insert(0,\"{BUILD}/tools/site\"); import login_service as l; "
@@ -485,7 +489,7 @@ def main():
           f"{datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC", flush=True)
     for name, acct in FAKE.items():
         TOKENS[name] = mint(acct, {"limits": "QaLimits", "launcher": "QaLauncher", "posts": "QaPosts"}.get(name, "QaPlayer"))
-    if not ok(all(TOKENS.values()), "test sessions made on 164 with the TEST key"):
+    if not ok(all(TOKENS.values()), f"test sessions made on {TEST_HOST} with the TEST key"):
         return 1
     st, _, _, idx = http("GET", "/database/search-index.json", token=TOKENS["limits"])
     untradeable = set(http("GET", "/market/untradeable.json", token=TOKENS["limits"])[3] or [])
