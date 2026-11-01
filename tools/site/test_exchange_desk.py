@@ -545,6 +545,17 @@ class NxDeskTest(old.Base):
         self.assertEqual(len(self.game.answers), 1, "a fresh mine answer isn't asked for again")
 
 
+    def test_my_nx_says_when_it_is_still_waiting_for_the_game(self):
+        # TEST 2026-11-01 19:04 UTC: after a desk SELL, /nx/me showed the old balance (the cached "mine") while it asked
+        # the game again, and the panel never read again. It now says "refreshing" while that answer is on its way.
+        self.file()
+        first = self.desk.nx_me(self.me)
+        self.assertTrue(first["refreshing"], "it just asked the game")
+        self.game.poll(reply=lambda r: (True, "OK", {"nx": 100, "fills": [], "stepUpFreeMesos": 0}))
+        self.step()
+        self.assertFalse(self.desk.nx_me(self.me)["refreshing"], "a fresh answer is in")
+
+
 class NxMockTest(old.Base):
     """The desk as a mock (SLUMS_MARKET_NX_DESK=mock): the fixtures in testdata/nx-desk/, never the inbox."""
 

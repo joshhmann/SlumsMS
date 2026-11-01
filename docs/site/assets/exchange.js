@@ -541,13 +541,16 @@
           .then(function (j) { if (j && j.ok && j.history) self.hist = j.history; })
           .catch(function () { /* keep what we had */ });
       },
-      loadMe: function () {
+      loadMe: function (tries) {
         var self = this;
+        tries = tries || 0;
         fetch(API + "nx/me", { credentials: "same-origin", cache: "no-store" })
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (j) {
             if (!j || !j.ok) return;
             self.me = j;
+            // the site just asked the game for your NX (after a trade, or when it was old): read again shortly
+            if (j.refreshing && tries < 6) setTimeout(function () { self.loadMe(tries + 1); }, 2500);
             if (j.state === "signedOut") return;
             if (j.characters && j.characters.length && j.characters.indexOf(self.character) < 0) self.character = j.characters[0];
           })

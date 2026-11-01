@@ -916,7 +916,8 @@ class WorldTest(unittest.TestCase):
         for line in ('window.Alpine.data("xdesk", xdesk)', 'return !DESK || t.id !== "NX"', 'var DESK_PW =',
                      'id: "NX", name: "NX desk"',
                      '"nx/quote"', '"nx/history?hours=168"', '"nx/me"', '"nx/preview"', '"nx/confirm"',
-                     "DESK_CLOSED:", "DESK_EMPTY:", "QUOTE_MOVED:", "MIN_QTY:"):
+                     "DESK_CLOSED:", "DESK_EMPTY:", "QUOTE_MOVED:", "MIN_QTY:",
+                     "if (j.refreshing && tries < 6) setTimeout"):  # My NX reads again while the game answers
             self.assertIn(line, js)
         self.assertNotIn("x-html", market.NX_PANEL.replace('x-html="chart()"', ""), "only our own chart SVG")
 

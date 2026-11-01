@@ -527,8 +527,10 @@ class Desk:
             return {"state": "signedOut"}
         a = s["a"]
         mine = self.q("SELECT at, data, stale FROM xmine WHERE account=?", a)
+        refreshing = False
         if self.fresh(s) and (not mine or mine[0][2] or mine[0][0] < int(self.store.now()) - MINE_FRESH):
             self.ask(s, "mine")
+            refreshing = True  # the game's answer comes on a later read: the panel asks again shortly
             mine = self.q("SELECT at, data, stale FROM xmine WHERE account=?", a)
         data = json.loads(mine[0][1]) if mine else {}
         data = data if isinstance(data, dict) else {}
@@ -538,7 +540,7 @@ class Desk:
                 "fills": [nx_desk_prices(f) for f in fills if isinstance(f, dict)] if fills is not None else None,
                 "stepUpFreeMesos": data.get("stepUpFreeMesos") if isinstance(data.get("stepUpFreeMesos"), int)
                 else None,
-                "asOf": iso(mine[0][0]) if mine else None, "reauth": not self.fresh(s)}
+                "asOf": iso(mine[0][0]) if mine else None, "reauth": not self.fresh(s), "refreshing": refreshing}
 
     def nx_preview(self, s, body, names):
         """A quote for one trade: an NX preview with no price (API.md §2). The game answers with the held quote."""
