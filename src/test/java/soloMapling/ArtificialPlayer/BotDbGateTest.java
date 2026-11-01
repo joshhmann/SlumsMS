@@ -395,4 +395,42 @@ class BotDbGateTest {
         assertEquals("6 of 6 bot permits in use, 17 refused so far; pool not started",
                 BotDbGate.statsLine(new int[]{6, 0, 17}, null));
     }
+
+    @Test
+    void aRefusalIsReportedAsABusyShareNotAsAMissingMigration() {
+        // b272: at 3,000 bots the boot log blamed a missing migration for what was the bots' share refusing a read
+        // ("Bot guilds are not stored (is migration 014-bot-guilds applied?)"), which sends the reader after a table
+        // that is there. A refusal now says what actually happened, and only a real "no such table" keeps the
+        // migration warning.
+        List<String> lines = new CopyOnWriteArrayList<>();
+        org.apache.logging.log4j.core.Logger core = (org.apache.logging.log4j.core.Logger)
+                org.apache.logging.log4j.LogManager.getLogger("b272.gate.test");
+        org.apache.logging.log4j.core.Appender capture =
+                new org.apache.logging.log4j.core.appender.AbstractAppender("b272", null, null, false, null) {
+                    @Override
+                    public void append(org.apache.logging.log4j.core.LogEvent event) {
+                        lines.add(event.getMessage().getFormattedMessage());
+                    }
+                };
+        capture.start();
+        core.addAppender(capture);
+        core.setLevel(org.apache.logging.log4j.Level.WARN);
+        org.slf4j.Logger storeLog = org.slf4j.LoggerFactory.getLogger("b272.gate.test");
+        try {
+            assertTrue(BotDbGate.refusedNotMissing(new BotDbGate.RefusedException("the bots' share is busy"),
+                    storeLog, "Bot guilds were not read"), "a refusal is the store's answer too");
+            assertAll(
+                    () -> assertEquals(1, lines.size(), "one line, not a second missing-migration warning"),
+                    () -> assertTrue(lines.get(0).contains("the bots' share of the database pool stayed busy"),
+                            lines.get(0)),
+                    () -> assertTrue(lines.get(0).startsWith("Bot guilds were not read"), lines.get(0)));
+
+            assertFalse(BotDbGate.refusedNotMissing(new SQLException("no such table", "42S02", 1146), storeLog,
+                    "Bot guilds were not read"), "a missing table is not a refusal");
+            assertEquals(1, lines.size(), "and the store's own migration warning is left to it");
+        } finally {
+            core.removeAppender(capture);
+            core.setLevel(null);
+        }
+    }
 }

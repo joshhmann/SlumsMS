@@ -19,6 +19,7 @@ import soloMapling.ArtificialPlayer.BotAffinitySystem.AffinityState;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.BotAffinity;
 import soloMapling.ArtificialPlayer.BotChannels;
 import soloMapling.ArtificialPlayer.BotConversation;
+import soloMapling.ArtificialPlayer.BotDbGate;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotMegaphoneSystem.WorldEventMegaphones;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
@@ -96,6 +97,13 @@ public final class BotGuilds {
     private static final Set<Long> deciding = ConcurrentHashMap.newKeySet();
     private static volatile boolean loaded;
     private static volatile long loadTriedAt;
+    /**
+     * b272: bots that logged in while the guild tables had not been read. They are put on their guild as soon as the
+     * read goes through ({@link #attachWaiting}), rather than going the whole run without one.
+     */
+    private static final Set<Integer> waitingForGuild = ConcurrentHashMap.newKeySet();
+    /** Where {@link #attachWaiting} runs: a platform thread (attaching a bot asks the server for its guild). */
+    private static volatile java.util.concurrent.Executor attachExecutor = ExecutorServiceManager::runBotDb;
     private static volatile boolean seedTried;
     private static volatile boolean gpRescaled;
     /**
@@ -129,6 +137,7 @@ public final class BotGuilds {
         if (loaded) {
             return;
         }
+        List<Integer> waiting;
         synchronized (BotGuilds.class) {
             long now = System.currentTimeMillis();
             if (loaded || (loadTriedAt > 0 && now - loadTriedAt < TimeUnit.SECONDS.toMillis(30))) {
@@ -137,15 +146,23 @@ public final class BotGuilds {
             loadTriedAt = now;
             List<GuildRow> g;
             List<MemberRow> m;
+            boolean refused = false;
             try {
                 g = store.loadGuilds();
                 m = g == null ? null : store.loadMembers();
             } catch (RuntimeException e) {
                 g = null;
                 m = null;
+                refused = BotDbGate.refusedIn(e);
             }
             if (g == null || m == null) {
-                log.warn("Bot guilds could not be read; trying again later (nothing is founded or written meanwhile)");
+                if (refused) {
+                    log.warn("Bot guilds could not be read: the bots' share of the database pool stayed busy; trying"
+                            + " again later (nothing is founded or written meanwhile)");
+                } else {
+                    log.warn("Bot guilds could not be read; trying again later (nothing is founded or written"
+                            + " meanwhile)");
+                }
                 return;
             }
             for (GuildRow row : g) {
@@ -157,6 +174,36 @@ public final class BotGuilds {
             loaded = true;
             if (!guilds.isEmpty() || !members.isEmpty()) {
                 log.info("Bot guilds: {} bot-run guilds, {} bot members", guilds.size(), members.size());
+            }
+            waiting = List.copyOf(waitingForGuild); // b272: the bots that logged in before this read
+            waitingForGuild.clear();
+        }
+        if (!waiting.isEmpty()) {
+            // Off this monitor, on a platform thread: attaching a bot asks the server for its guild, which reads.
+            attachExecutor.execute(() -> attachWaiting(waiting));
+        }
+    }
+
+    /**
+     * b272: a login gives a bot its guild. When the guild tables had not been read yet (the bots' share of the pool
+     * was busy at the first logins), the bot was left without a guild for the whole run - so it is remembered in
+     * {@link #waitingForGuild} and put back on its guild as soon as the read goes through. Nothing is founded or
+     * written before that.
+     */
+    private static void attachWaiting(List<Integer> botIds) {
+        for (int botId : botIds) {
+            Character bot = online.apply(botId);
+            if (bot == null || !BotHelpers.isArtificial(bot.getId())) {
+                continue; // logged out again: its next login reads the tables, which are loaded by then
+            }
+            MemberRow m = members.get(botId);
+            if (m == null) {
+                continue;
+            }
+            try {
+                attach(bot, m);
+            } catch (RuntimeException e) {
+                log.warn("Bot {} could not take its guild after the tables were read", bot.getName(), e);
             }
         }
     }
@@ -279,6 +326,13 @@ public final class BotGuilds {
         }
         try {
             ensureLoaded();
+            if (!loaded) {
+                // b272: the tables were not read (the bots' share of the pool was busy, or the read failed). Nothing
+                // is founded or written while unloaded; this bot gets its guild once the read goes through.
+                waitingForGuild.add(bot.getId());
+                return;
+            }
+            waitingForGuild.remove(bot.getId());
             MemberRow m = members.get(bot.getId());
             if (m == null) {
                 if (bot.getGuildId() != 0) { // a template's guild is not this bot's
@@ -1999,7 +2053,9 @@ public final class BotGuilds {
         seedTried = false;
         gpRescaled = false;
         lastStepAt = 0;
+        waitingForGuild.clear();
         writer = testStore != null ? Runnable::run : ExecutorServiceManager::runAsync;
+        attachExecutor = testStore != null ? Runnable::run : ExecutorServiceManager::runBotDb;
     }
 
     /** Tests: the next load attempt runs at once (no wait after a failed one). */

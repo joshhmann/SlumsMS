@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class BotRomanceTest {
@@ -151,6 +153,30 @@ class BotRomanceTest {
         BotRomance.ensureLoaded();
         assertFalse(BotRomance.loaded());
         assertNull(BotRomance.onPlayerLine(chr(BOT, "Amy"), chr(PLAYER, "Bob"), "wanna go out with me"));
+    }
+
+    @Test
+    void aBotThatLogsInWhileTheRomancesCannotBeReadTakesItsPartnerOnceTheyAre() {
+        // b272: a bot logging in while the romances had not been read (the bots' share of the pool was busy) went the
+        // whole run without its partner - no spouse chat, no ring. It is remembered and takes its romance up as soon
+        // as the read goes through.
+        store.rows.put(RomanceStore.Memory.key(PLAYER, 77),
+                new Romance(PLAYER, 77, Romance.Stage.ENGAGED, clock.get(), clock.get(), 0, 1112803, 0, false));
+        store.failing = true;
+        Character bot = chr(BOT, "Amy");
+        BotRomance.useForTest(store, id -> id == BOT ? bot : null, id -> null, clock::get);
+
+        BotRomance.onBotLogin(bot);
+
+        assertFalse(BotRomance.loaded(), "the read failed, so nothing is loaded");
+        verify(bot, never()).setPartnerId(PLAYER);
+
+        store.failing = false;
+        clock.addAndGet(2 * 60_000L); // the minute between read attempts has passed
+        BotRomance.ensureLoaded();
+
+        assertTrue(BotRomance.loaded());
+        verify(bot).setPartnerId(PLAYER); // the bot that was waiting has its partner now
     }
 
     @Test

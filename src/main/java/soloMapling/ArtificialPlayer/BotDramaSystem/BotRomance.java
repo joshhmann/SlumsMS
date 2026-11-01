@@ -15,6 +15,7 @@ import soloMapling.ArtificialPlayer.BotBuddies;
 import soloMapling.ArtificialPlayer.BotChannels;
 import soloMapling.ArtificialPlayer.BotConversation;
 import soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples;
+import soloMapling.ArtificialPlayer.BotDbGate;
 import soloMapling.ArtificialPlayer.BotGrindSystem.MapMobIndex;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotMegaphoneSystem.WorldEventMegaphones;
@@ -82,6 +83,11 @@ public final class BotRomance {
     private static final Set<Integer> optedIn = ConcurrentHashMap.newKeySet();
     private static volatile boolean loaded;
     private static volatile long loadTriedAt;
+    /**
+     * b272: bots that logged in while the romances had not been read. They take theirs up as soon as the read goes
+     * through ({@link #attachWaiting}) instead of going the whole run without a partner.
+     */
+    private static final Set<Integer> waitingForLoad = ConcurrentHashMap.newKeySet();
     // 1.6.3 (b269 review): these writes hit the bots' share of the pool, and a virtual thread is refused there
     // instead of waiting - which drops a player's choice that was already acknowledged. A bot-db platform thread
     // waits its turn, and BotDbGate.write asks again if the share was busy.
@@ -139,6 +145,7 @@ public final class BotRomance {
         if (loaded) {
             return;
         }
+        List<Integer> waiting;
         synchronized (BotRomance.class) {
             long now = now();
             if (loaded || (loadTriedAt > 0 && now - loadTriedAt < TimeUnit.MINUTES.toMillis(1))) {
@@ -147,15 +154,23 @@ public final class BotRomance {
             loadTriedAt = now;
             List<Romance> all;
             Set<Integer> in;
+            boolean refused = false;
             try {
                 all = store.loadAll();
                 in = all == null ? null : store.loadOptedIn();
             } catch (RuntimeException e) {
                 all = null;
                 in = null;
+                refused = BotDbGate.refusedIn(e);
             }
             if (all == null || in == null) {
-                log.warn("Bot romance could not be read; trying again in a minute (nothing romantic happens meanwhile)");
+                if (refused) {
+                    log.warn("Bot romance could not be read: the bots' share of the database pool stayed busy;"
+                            + " trying again in a minute (nothing romantic happens meanwhile)");
+                } else {
+                    log.warn("Bot romance could not be read; trying again in a minute (nothing romantic happens"
+                            + " meanwhile)");
+                }
                 return;
             }
             for (Romance r : all) {
@@ -163,6 +178,31 @@ public final class BotRomance {
             }
             optedIn.addAll(in);
             loaded = true;
+            waiting = List.copyOf(waitingForLoad); // b272: the bots that logged in before this read
+            waitingForLoad.clear();
+        }
+        if (!waiting.isEmpty()) {
+            // Off this monitor, on a platform thread: taking up a romance reads rings and asks for the player.
+            writer.execute(() -> attachWaiting(waiting));
+        }
+    }
+
+    /**
+     * b272: a bot that logged in while the romances had not been read was left without its partner for the whole run
+     * (no spouse chat, no ring). It is remembered in {@link #waitingForLoad} and taken up as soon as the read goes
+     * through; nothing romantic happens before that.
+     */
+    private static void attachWaiting(List<Integer> botIds) {
+        for (int botId : botIds) {
+            Character bot = bots.apply(botId);
+            if (bot == null) {
+                continue; // logged out again: its next login reads what is loaded by then
+            }
+            try {
+                onBotLogin(bot);
+            } catch (RuntimeException e) {
+                log.warn("Bot {} could not take up its romance after the romances were read", bot.getName(), e);
+            }
         }
     }
 
@@ -989,6 +1029,13 @@ public final class BotRomance {
         }
         try {
             ensureLoaded();
+            if (!loaded) {
+                // b272: the romances were not read (the bots' share of the pool was busy, or the read failed).
+                // Nothing romantic happens while unloaded; this bot takes its romance up once the read goes through.
+                waitingForLoad.add(bot.getId());
+                return;
+            }
+            waitingForLoad.remove(bot.getId());
             Romance r = ofBot(bot.getId());
             if (r == null || r.stage() == Romance.Stage.DATING) {
                 return;
@@ -1595,6 +1642,7 @@ public final class BotRomance {
         loaded = false;
         loadTriedAt = 0;
         lastStepAt = 0;
+        waitingForLoad.clear();
     }
 
     static void putForTest(Romance r) {

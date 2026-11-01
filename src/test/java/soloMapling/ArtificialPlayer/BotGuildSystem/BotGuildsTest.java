@@ -21,6 +21,31 @@ class BotGuildsTest {
     final List<Integer> roster = new ArrayList<>();
 
     @Test
+    void aBotThatLogsInWhileTheGuildsCannotBeReadTakesItsGuildOnceTheyAre() {
+        // b272: the boot fill's first logins found the guild tables unread (the bots' share of the pool was busy) and
+        // took that for "this bot has no guild", so the bot spent the whole run guildless. It is remembered instead,
+        // and put on its guild as soon as the read goes through - without founding or writing anything before that.
+        int charId = BotStore.BOT_ID_BASE + 901;
+        store.members.put(charId, new MemberRow(charId, 42, 5, 1L, 1L, "Zedbot", 30, 100));
+        store.failing = true;
+        client.Character bot = org.mockito.Mockito.mock(client.Character.class);
+        org.mockito.Mockito.when(bot.getId()).thenReturn(charId);
+        BotGuilds.useForTest(store, id -> id == charId ? bot : null, () -> roster);
+
+        BotGuilds.onBotLogin(bot);
+
+        assertFalse(BotGuilds.loaded(), "the read failed, so the guilds stay unloaded");
+        org.mockito.Mockito.verify(bot, org.mockito.Mockito.never()).setGuildId(org.mockito.ArgumentMatchers.anyInt());
+
+        store.failing = false;
+        BotGuilds.retryLoadForTest();
+        BotGuilds.ensureLoaded();
+
+        assertTrue(BotGuilds.loaded());
+        org.mockito.Mockito.verify(bot).setGuildId(42); // the bot that was waiting has its guild now
+    }
+
+    @Test
     void aQaSureFriendJoinsUnderTheSoftLimitButPastItRollsTheRealDice() {
         // rc6 auto-QA t-gu-2: the first friend lost its 95% roll, so no invite ever reached "bots 1/2"
         int bot = 1_000_000_901;

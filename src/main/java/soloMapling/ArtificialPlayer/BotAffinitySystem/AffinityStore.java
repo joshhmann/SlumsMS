@@ -78,6 +78,9 @@ public interface AffinityStore {
         }
 
         private void missing(SQLException e) {
+            if (BotDbGate.refusedNotMissing(e, log, "Bot affinity was not read or written")) {
+                return; // b272: the share was busy, not a missing table
+            }
             if (!warned) {
                 warned = true;
                 log.warn("Bot affinity is not stored (is migration 011-bot-affinity applied?); keeping it in memory", e);

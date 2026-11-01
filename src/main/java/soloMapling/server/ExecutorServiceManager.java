@@ -95,15 +95,42 @@ public class ExecutorServiceManager {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while waiting for a bot logout thread", e);
         } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof RuntimeException runtime) {
-                throw runtime;
-            }
-            if (cause instanceof Error error) {
-                throw error;
-            }
-            throw new IllegalStateException(cause);
+            throw asRuntime(e.getCause());
         }
+    }
+
+    /**
+     * Runs {@code task} on a bot-db thread and waits for it (in place on a platform thread). For bot work that reads
+     * or writes as part of a login and is reached from a virtual thread - a spawn wave, a GM spawning a bot: the gate
+     * refuses a virtual thread instead of letting it wait, so the read has to happen where waiting is allowed
+     * (b272: a login's buddy, guild and romance reads were refused and left the bot without them for the run).
+     * <p>
+     * Callers must not hold a monitor that a bot-db thread takes. Nothing on the login path does: the store and the
+     * roster take their own locks inside the load, which a waiting virtual thread does not hold.
+     */
+    public static void callBotDb(Runnable task) {
+        if (!Thread.currentThread().isVirtual()) {
+            task.run();
+            return;
+        }
+        try {
+            botDbExecutor.submit(task).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for a bot database thread", e);
+        } catch (ExecutionException e) {
+            throw asRuntime(e.getCause());
+        }
+    }
+
+    private static RuntimeException asRuntime(Throwable cause) {
+        if (cause instanceof RuntimeException runtime) {
+            return runtime;
+        }
+        if (cause instanceof Error error) {
+            throw error;
+        }
+        return new IllegalStateException(cause);
     }
 
     public static void scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit) {

@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -320,6 +321,73 @@ class BotBuddiesTest {
     }
 
     @Test
+    void aBuddyWriteAfterAReadThatWasRefusedGoesByTheTableNotByTheEmptyList() {
+        // b272 item 3: the refused login read leaves the bot with an empty list for a moment. Nothing may be written
+        // from that empty view: every buddy write re-reads its pair from the table first, so the mutual buddy the bot
+        // could not see stays mutual instead of being knocked back to "requested" (which is what a write taken from
+        // the unread list would do), and the bot's list is repaired from the row it does read.
+        World world = mock(World.class);
+        Character bot = liveBot(BOT, "Ressurectme", world);
+        Character josh = player(PLAYER, "Josh", false);
+        table.names.put(PLAYER, "Josh");
+        table.put(new Row(BOT, PLAYER, Link.MUTUAL, 0));
+        BotBuddies.useForTest(table, id -> "bot" + id, online::get, null, () -> 1.0);
+        table.refuseNextBotList = true;
+        LoginLoadRetry retry = BotBuddies.loginLoadsForTest();
+        retry.useSchedulerForTest(task -> { }); // parked: this test looks at the state after the refused read
+        try {
+            BotBuddies.onBotLogin(bot);
+            assertFalse(bot.getBuddylist().containsVisible(PLAYER), "the login read was refused, so the list is empty");
+
+            BotBuddies.recordRequest(josh, new BotBuddies.Target(BOT, "Ressurectme"));
+
+            assertAll(
+                    () -> assertEquals(0, table.pair(BOT, PLAYER).pending(), "the stored mutual buddy is unchanged"),
+                    () -> assertTrue(bot.getBuddylist().containsVisible(PLAYER),
+                            "and the bot's list is repaired from the row it read, not from the list it could not"));
+        } finally {
+            retry.resetForTest();
+        }
+    }
+
+    @Test
+    void aBuddyReadTheShareRefusedIsReadAgainRatherThanLeftEmpty() {
+        // b272: at 3,000 bots every login's buddy read was refused (the share refuses a virtual thread instead of
+        // letting it wait) and the bot spent the run with an empty list. The refused read now goes on a short list
+        // and is tried again on a platform thread, so the bot gets its list without a second login.
+        World world = mock(World.class);
+        Character bot = liveBot(BOT, "Ressurectme", world);
+        table.names.put(PLAYER, "Josh");
+        table.put(new Row(BOT, PLAYER, Link.MUTUAL, 0));
+        online.put(PLAYER, player(PLAYER, "Josh", false));
+        table.refuseNextBotList = true;
+        LoginLoadRetry retry = BotBuddies.loginLoadsForTest();
+        List<Runnable> sweeps = new ArrayList<>();
+        LoginLoadRetry.useGapForTest(0);
+        retry.useSchedulerForTest(sweeps::add); // driven by the test, so the retry is visible
+        try {
+            BotBuddies.onBotLogin(bot);
+
+            assertAll(
+                    () -> assertEquals(1, retry.waiting(), "the refused read is kept, not dropped"),
+                    () -> assertFalse(bot.getBuddylist().containsVisible(PLAYER), "so the bot has no list yet"),
+                    () -> assertEquals(1, sweeps.size(), "one sweep was armed"));
+
+            sweeps.get(0).run(); // the sweep hands the retry to a bot-db thread
+            for (int next = 1; next < sweeps.size() && next < 10; next++) {
+                sweeps.get(next).run(); // the retry itself (and a sweep it arms)
+            }
+
+            assertAll(
+                    () -> assertEquals(0, retry.waiting(), "the retry read the list, so nothing is left waiting"),
+                    () -> assertTrue(bot.getBuddylist().containsVisible(PLAYER), "and the bot has its buddy"));
+        } finally {
+            retry.resetForTest();
+        }
+    }
+
+
+    @Test
     void aBotWithoutBuddiesCostsNothingAtLogin() {
         World world = mock(World.class);
         Character bot = liveBot(BOT, "Ressurectme", world);
@@ -511,8 +579,16 @@ class BotBuddiesTest {
             playerSide.remove(List.of(playerId, botCharId));
         }
 
+        /** b272: the next "which bots have buddies" read is refused, the way the bots' share refuses one. */
+        volatile boolean refuseNextBotList;
+
         @Override
         public synchronized Set<Integer> botsWithRows() {
+            if (refuseNextBotList) {
+                refuseNextBotList = false;
+                throw new IllegalStateException("Could not read which bots have buddies",
+                        new BotDbGate.RefusedException("the bots' share of the database pool is busy"));
+            }
             Set<Integer> out = new HashSet<>();
             for (Stored s : table) {
                 out.add(s.characterId());
