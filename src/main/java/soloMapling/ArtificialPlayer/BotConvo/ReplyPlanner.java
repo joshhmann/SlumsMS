@@ -137,22 +137,30 @@ public final class ReplyPlanner {
         String place = v.place() == null ? null : v.place().toLowerCase(Locale.ROOT);
         switch (move) {
             case HELLO -> {
-                out.addAll(List.of("hey", "yo", "hii", "sup", "hey hey", "o hey", "heya", "hi hi", "hey u", "hii there",
-                        "sup man", "hey there", "oh hi", "hiya", "yo whats up", "hello", "hi", "yo there"));
-                if (v.bond() == Bond.FRIEND || v.bond() == Bond.DATING) {
-                    out.add("hey again man");
-                    out.add("oh hey, good to see u");
+                if (onGrindMap(v)) {
+                    mobGreetings(v, out, false);
+                } else {
+                    out.addAll(List.of("hey", "yo", "hii", "sup", "hey hey", "o hey", "heya", "hi hi", "hey u", "hii there",
+                            "sup man", "hey there", "oh hi", "hiya", "yo whats up", "hello", "hi", "yo there"));
+                    if (v.bond() == Bond.FRIEND || v.bond() == Bond.DATING) {
+                        out.add("hey again man");
+                        out.add("oh hey, good to see u");
+                    }
+                    out.add("hey " + name(v));
+                    greetingNow(v, out);
+                    leveledUp(v, out);
                 }
-                out.add("hey " + name(v));
-                greetingNow(v, out);
-                leveledUp(v, out);
             }
             case HELLO_BACK -> {
-                out.addAll(List.of("oh hey again", "yo long time", "heyy", "oh hey", "hey u back", "oh its u",
-                        "yo again lol", "hii again", "hey hey long time", "oh hey man", "yo sup again", "hey stranger"));
-                out.add("o hey " + name(v));
-                greetingNow(v, out);
-                leveledUp(v, out);
+                if (onGrindMap(v)) {
+                    mobGreetings(v, out, true);
+                } else {
+                    out.addAll(List.of("oh hey again", "yo long time", "heyy", "oh hey", "hey u back", "oh its u",
+                            "yo again lol", "hii again", "hey hey long time", "oh hey man", "yo sup again", "hey stranger"));
+                    out.add("o hey " + name(v));
+                    greetingNow(v, out);
+                    leveledUp(v, out);
+                }
             }
             case SMALL_TALK -> out.addAll(List.of("lol ya", "same as always lol", "not much tbh", "ya just here lol",
                     "hm same", "yea lol same", "still here lol", "aw nothing much", "same lol", "ye just chillin",
@@ -293,8 +301,8 @@ public final class ReplyPlanner {
             if (v.botHasSpoken()) {
                 return new Plan(Move.SMALL_TALK, facts(v, Move.SMALL_TALK), v.busy());
             }
-            return new Plan(v.bond() == Bond.STRANGER ? Move.HELLO : Move.HELLO_BACK,
-                    facts(v, v.bond() == Bond.STRANGER ? Move.HELLO : Move.HELLO_BACK), v.busy());
+            Move move = v.bond() == Bond.STRANGER ? Move.HELLO : Move.HELLO_BACK;
+            return new Plan(move, facts(v, move), v.busy(), mobInstruction(v));
         }
         if (trainingTalk(v.asked()) && !v.playerSpots().isEmpty() && !levelOnly(v.asked())) {
             return new Plan(Move.TRAIN_SPOT, facts(v, Move.TRAIN_SPOT), v.busy());
@@ -377,18 +385,15 @@ public final class ReplyPlanner {
     }
 
     /**
-     * Greeting scripts that say what is true now - where the bot stands and what it is killing - and, when memory has
-     * one, that the two have met before (owner's answer 8: a hello uses what is true now, not a stock greeting).
+     * Greeting scripts that say what is true now in a town - where the bot stands - and, when memory has one, that the
+     * two have met before (owner's answer 8: a hello uses what is true now, not a stock greeting). On a map with
+     * monsters {@link #mobGreetings} does it instead, with the mob.
      */
     private static void greetingNow(View v, List<String> out) {
         String place = v.place() == null ? null : v.place().toLowerCase(Locale.ROOT);
         if (v.town() && place != null) {
             out.add("hey, just chillin in " + place);
             out.add("yo, in " + place + " rn");
-        } else if (!v.mobsHere().isEmpty()) {
-            String mob = v.mobsHere().get(0).toLowerCase(Locale.ROOT);
-            out.add("hey, killing " + mob + "s rn");
-            out.add("yo, on " + mob + "s rn");
         }
         if (v.shared() != null && !v.shared().isBlank()) {
             out.add("oh hey, remember me lol");
@@ -396,16 +401,55 @@ public final class ReplyPlanner {
         }
     }
 
+    /** Whether the bot stands where the monsters are: the one thing a hello there says. */
+    private static boolean onGrindMap(View v) {
+        return !v.town() && !v.mobsHere().isEmpty();
+    }
+
+    /** The mob the bot is killing here, lowercase, or null where there is none. */
+    private static String mob(View v) {
+        return v.mobsHere().isEmpty() ? null : v.mobsHere().get(0).toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * cv-13 (hunting ground, 2026-11-01): "hey! lolz long time xd" as the answer to "hey" on a mob map named nothing
+     * at all. A hello there is short and names the mob - the one thing that is true - so every scripted hello does, and
+     * the prompt asks the model for the same.
+     */
+    private static void mobGreetings(View v, List<String> out, boolean back) {
+        String mob = mob(v);
+        out.add("hey, on " + mob + "s rn");
+        out.add("yo, " + mob + "s here rn");
+        out.add("sup, killing " + mob + "s");
+        out.add("hii, farming " + mob + "s lol");
+        out.add("hey, grinding " + mob + "s rn");
+        out.add(back ? "oh hey again, " + mob + "s rn" : "o hey, " + mob + "s over here");
+        out.add(back ? "yo again, still " + mob + "s lol" : "yo, on " + mob + "s all day");
+        if (v.bond() == Bond.FRIEND || v.bond() == Bond.DATING) {
+            out.add("hey again man, on " + mob + "s rn");
+        }
+        if (v.lastLevel() > 0 && v.playerLevel() > v.lastLevel()) {
+            out.add("grats on " + v.playerLevel() + ", on " + mob + "s rn");
+        }
+    }
+
+    /** What a hello on a mob map must name, as the planner's instruction: null where there is no mob. */
+    private static String mobInstruction(View v) {
+        String mob = onGrindMap(v) ? mob(v) : null;
+        return mob == null ? null : "Name the mob you are killing (" + mob + "s) so they know what you are on.";
+    }
+
     /** Where the bot stands - and never "grinding" in a town (the b240 rule, carried into the planner's facts). */
     private static void place(View v, List<String> f) {
-        if (v.place() == null || v.place().isBlank()) {
-            return;
-        }
+        boolean named = v.place() != null && !v.place().isBlank();
         if (v.town()) {
-            f.add("you are in " + v.place() + ", a town: no monsters here and you are not grinding");
+            if (named) {
+                f.add("you are in " + v.place() + ", a town: no monsters here and you are not grinding");
+            }
         } else if (!v.mobsHere().isEmpty()) {
-            f.add("you are on " + v.place() + ", killing " + String.join(", ", head(v.mobsHere(), 2)));
-        } else {
+            String mobs = String.join(", ", head(v.mobsHere(), 2));
+            f.add(named ? "you are on " + v.place() + ", killing " + mobs : "you are killing " + mobs + " here");
+        } else if (named) {
             f.add("you are on " + v.place());
         }
     }
