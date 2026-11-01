@@ -98,6 +98,16 @@ class LanesGuideTest(unittest.TestCase):
 
     def test_the_commands_page_offers_lanes(self):
         self.assertIn("lanes", flat("commands.html"))
+class RestartGuideTest(unittest.TestCase):
+    def test_the_regulars_page_says_about_25_minutes(self):
+        self.assertIn("about 25 minutes", flat("regulars.html"))
+
+    def test_the_faq_says_about_25_minutes(self):
+        self.assertIn("about 25 minutes", flat("faq.html"))
+
+    def test_no_per_second_number_leaks_into_the_guide(self):
+        for page in ("regulars.html", "faq.html"):
+            self.assertNotIn("per second", flat(page))
 
 if __name__ == "__main__":
     unittest.main()
