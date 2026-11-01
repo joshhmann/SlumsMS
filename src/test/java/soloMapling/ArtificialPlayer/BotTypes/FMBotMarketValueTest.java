@@ -47,4 +47,12 @@ class FMBotMarketValueTest {
         assertFalse(FMBot.shouldBuyListedItem(1, 700, 1_000, "not a type bots buy"),
                 "a real player's item the seller rules exclude stays unbought");
     }
+
+    @Test
+    void aPlayerShopItemWithNoFairPriceAndNoPoolValueStaysUnvalued() {
+        // b271: the live NPE at FMBot.purchaseShopItems:529 - `fair > 0 ? (int) ... : itemMarketValue` unboxed a null
+        assertTrue(FMBot.playerShopValue(0, null) == null);
+        assertTrue(FMBot.playerShopValue(1_500, null) == 1_500);
+        assertTrue(FMBot.playerShopValue(0, 700) == 700);
+    }
 }

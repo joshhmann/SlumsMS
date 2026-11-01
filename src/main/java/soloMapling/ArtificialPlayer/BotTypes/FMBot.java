@@ -536,7 +536,7 @@ public class FMBot extends BotSM {
             if (fromPlayerShop) {
                 // per set for stars, and never far over what an NPC pays for a low-value item (1.5.0 rc3 review)
                 long fair = soloMapling.Economy.PriceBook.botBuyValue(thisItem);
-                itemMarketValue = fair > 0 ? (int) Math.min(Integer.MAX_VALUE, fair) : itemMarketValue;
+                itemMarketValue = playerShopValue(fair, itemMarketValue);
                 playerSkip = soloMapling.Economy.BotBuying.whyNotBuyFromPlayer(thisItem);
             }
             // b271: a missing value means "no known value", never "worth nothing": skip the item, keep scanning.
@@ -884,6 +884,12 @@ public class FMBot extends BotSM {
      * @param playerSkip  why a real player's item is not taken, null when it is allowed
      * @return true when the bot should pay for the item
      */
+    /** A real player's item: its fair price when the board has one, else the pool's value (which may be null). */
+    static Integer playerShopValue(long fair, Integer poolValue) {
+        // boxed on purpose: `cond ? int : Integer` unboxes the Integer and threw on a null pool value (b271)
+        return fair > 0 ? Integer.valueOf((int) Math.min(Integer.MAX_VALUE, fair)) : poolValue;
+    }
+
     static boolean shouldBuyListedItem(int itemId, int askingPrice, Integer marketValue, String playerSkip) {
         if (marketValue == null) {
             noteMissingMarketValue(itemId);
