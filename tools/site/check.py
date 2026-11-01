@@ -61,6 +61,8 @@ WORD_OK = {
     "admin/app.html": {"password"},
     "admin/app.js": {"password"},
     "guide/getting-started.html": {"password"},
+    # the exchange guide: the website asks for the game password on a sale and on a big buy (12 h step-up)
+    "guide/money.html": {"password"},
     # the 1.6.0 notes announce sign-up and password resets on the website (owner-approved text)
     "patch-notes/1.6.0/index.html": {"password"},
     # the 1.6.2 notes name the exchange's confirm step (the game password, sent to the login service, never stored)
