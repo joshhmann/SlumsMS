@@ -32,18 +32,19 @@ import uuid
 import zipfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/qa-runner/run runs `python3 -I`, which drops it
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "qa-scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ops" / "client-mcp-win" / "src"))
 import qascript  # noqa: E402
 import qaverdict  # noqa: E402
+import testhost  # noqa: E402
 import yaml  # noqa: E402
 
 REPO = qascript.REPO
 RUNS_ROOT = Path("/root/work/qa-runs")
 # TEST moved to its own box in 1.6.3 (mapletest, ssh alias `mapletest`); live, release staging and the patch site stay
-# on 192.168.0.164. SLUMS_TEST_HOST overrides the box (the same setting the Website lane's installer uses). 164 is the
-# one host that keeps ssh's default key.
-DEFAULT_TEST_HOST = "192.168.0.164"  # until the 1.6.3 TEST cutover (o03 step 3); then 192.168.0.111
-TEST_KEY = "~/.ssh/id_slums_lxc"
+# on 192.168.0.164. The box comes from SLUMS_TEST_HOST through testhost.py, the one guard (allowlisted to TEST's two
+# boxes, port 8489); 164 is the one host that keeps ssh's default key. Nothing here reads the setting directly.
 FEED_URL = "http://127.0.0.1:8198/qa/events"
 FEED_SECRET_FILE = "/etc/slums-inspect-test/secret"
 DEPLOYED_COMMIT = "/opt/mapleroot-dev/persistence-test/Server/DEPLOYED_COMMIT"
@@ -52,17 +53,24 @@ PLACEHOLDER = qascript.PLACEHOLDER
 BUILD_STAMP_CAPS = re.compile(r"Build stamp: caps (0x[0-9A-Fa-f]{8})")
 
 
-def test_host():
-    """The TEST box's name or address: SLUMS_TEST_HOST, default mapletest (192.168.0.111)."""
-    return os.environ.get("SLUMS_TEST_HOST") or DEFAULT_TEST_HOST
+class TestHostRefused(testhost.Refused):
+    """The TEST box the run would talk to is not one the QA tools may use (see testhost.Refused)."""
+
+
+def test_host(host=None):
+    """The TEST box's name or address, validated by testhost.py: SLUMS_TEST_HOST, default 164 until the cutover."""
+    try:
+        return testhost.host(host)
+    except testhost.Refused as error:
+        raise TestHostRefused(str(error)) from None
 
 
 def test_ssh(remote, host=None):
     """The argv that runs `remote` as root on the TEST box, with its key unless the box is the old 164."""
-    name = host or test_host()
+    name = test_host(host)
     argv = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]
-    if name != "192.168.0.164":
-        argv += ["-o", "IdentitiesOnly=yes", "-i", os.path.expanduser(TEST_KEY)]
+    if testhost.uses_test_key(name):
+        argv += ["-o", "IdentitiesOnly=yes", "-i", os.path.expanduser(testhost.TEST_KEY)]
     return argv + ["root@" + name, remote]
 
 
@@ -88,7 +96,7 @@ class SshFeed:
     """GET /qa/events on TEST, run on the TEST box over ssh; the secret header is built there from the file."""
 
     def __init__(self, host=None, runner=subprocess.run):
-        self.host = host or test_host()
+        self.host = test_host(host)
         self.runner = runner
 
     def remote_command(self, query):
@@ -920,6 +928,11 @@ def main(argv):
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__)
         return 0
+    try:
+        test_host()
+    except TestHostRefused as error:
+        print("refused: %s" % error, file=sys.stderr)
+        return 2
     script = argv[0]
     errors, warnings = qascript.validate_file(script)
     if errors:
