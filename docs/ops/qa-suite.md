@@ -853,8 +853,9 @@ Kerning PQ checks alone were a quarter of it. Checks can now overlap on up to fo
 - **The rules** (`AutoQaScheduler`): a check starts when its keys are free and a lane is idle; a `world` check waits
   for every lane to be empty and nothing starts beside it; checks that share a key never overlap; everything else may.
   Results still come back in catalogue order, so two runs of the same build diff line by line.
-- **Logs:** each `!qa` run's file name carries its GM id, so two lanes that start the same scenario in the same second
-  get two files. `QaLog` lines are attributed per GM, so a check only ever reads its own lane's lines.
+- **Logs:** two lanes that start the same scenario in the same second get two files — the second one's name carries
+  its GM id (`QaSuite` passes it as the suffix), so neither run overwrites the other's log. `QaLog` lines are
+  attributed per GM, so a check only ever reads its own lane's lines.
 - **Status:** `!autoqa status` lists every running check as `t-xx-n (lane k): <step>`. The report's run line gains
   `parallel`, `wallSeconds` and `checkSeconds` (sum of the checks' own times), and its summary says
   `on N lanes (W s wall, C s of checks)` when N > 1. Sum of check time divided by wall clock is the speed-up.
@@ -880,6 +881,16 @@ Kerning PQ checks alone were a quarter of it. Checks can now overlap on up to fo
   t-mx-2 wait on the run's own `RUN` lines, so a run that stops reporting FAILs with "no stage cleared in 8 min"
   instead of spending its 17/31-minute budget to the same timeout. The wait still passes the moment the verdict line
   arrives, so a run whose stages clear is judged exactly as before.
+
+- **Longest-first packing** (1.6.3, ticket 163, `-Dslums.autoqa.longestFirst=true`, default off): with the switch on
+  and more than one lane, a free lane takes the pending check with the longest declared `.minutes(...)` budget instead
+  of the first one in catalogue order; ties keep the catalogue order. Nothing else changes — the keys, the world rule
+  and the catalogue-order report are the same, and at one lane the run order is untouched. Why: the packer used to
+  trail off behind whichever long check was left for last, and the world checks cannot overlap anything, so the
+  remaining work has to be spread evenly over the lanes. Replaying the 2026-10-31 run's own durations through the
+  scheduler (`latest.json`, 187 checks, 8331 s of checks) the four-lane wall clock falls from 4871 s to 4112 s and the
+  two-lane one from 6018 s to 5509 s. `AutoQaSchedulerTest.longestFirstPacksTheRealCatalogueTighter` walks the
+  catalogue with the checks' own budgets and fails if that gain disappears.
 
 Before trusting a parallel run, run the catalogue once at each setting on one build and diff the two reports: every
 check that passes alone must pass beside its neighbours, or its declaration is wrong and it needs the key it really
