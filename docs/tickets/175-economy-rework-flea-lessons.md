@@ -10,6 +10,37 @@ allowing more playerbots to participate". So: no adoption list now. Let 1.6.2's 
 and look first at getting more regulars to take part (more trader bots, on the board as well as the exchange, and on
 NX once the 1.6.3 desk is in). The Tarkov ideas below are a reference to come back to, not a plan.
 
+## Owner's calls, 2026-11-01 ~22:30-22:49 UTC (Website session)
+- "prices should be driven by merchants": the exchange's item fair values anchor on the merchant/price-board median,
+  not the NPC buy-back price (handed to Server Dev; 1.6.3 or 1.6.4 is the Coordinator's call with the owner).
+- "we should allow items to run out of stock in stores": shops get limited stock that sells out and restocks over time,
+  instead of endless stock. The owner clarified: **NPC merchants** (the game's NPC shops). Open questions: which items
+  (potions and ammo too, or only the valuable ones); how fast they restock; per channel or world-wide. A sold-out shop
+  pushes buyers to the board and the exchange, which helps "prices driven by merchants" and gives regulars a reason to
+  trade.
+
+## NPC shop stock, Tarkov-style restocking (owner, 2026-11-01 22:49 UTC)
+Owner: "should just have a stock of items im not sure how much though but there should be restocking, following
+tarkovs like restocking". How Tarkov's traders restock (as it has worked across wipes; details change):
+- **One stock per item, shared by the whole server**: first come, first served; when it's gone, it's gone until the
+  restock.
+- **A restock on a fixed timer per trader** (roughly every 1-3 hours), with a visible countdown, so players plan around
+  it and rush the good items at restock time.
+- **A per-player limit per restock** on the valuable items ("2 per restock"), so one player can't buy out a whole
+  stock.
+- **Stock sizes per item**: big for basics, small for valuable items.
+- **Loyalty levels** unlock better items (SlumsMS has no trader loyalty today; not proposed).
+A SlumsMS version to decide with the owner (amounts are the open part: "im not sure how much"):
+- every NPC shop item gets a stock and a per-character limit per restock; basics (potions, ammo) large or effectively
+  endless, valuable items small;
+- each shop restocks on a timer (e.g. every 2 h; a world-wide or per-shop time), shown in the shop window if the client
+  allows it, else in `@shop` and on the website;
+- stock is world-wide (all channels), not per channel, like Tarkov's server-wide stock;
+- the regulars buy from the same stock (they compete with players), which feeds the board and the exchange;
+- start with data, not guesses: from TEST (and live aggregates when allowed) measure what each shop sells per hour
+  today, then set the stock to about one restock window of normal demand, so basics rarely run out and valuable items
+  do.
+
 ## Today in SlumsMS (what any rework starts from)
 - **Buy/Sell board** (website): players post buy or sell offers, 5 open posts each; regulars keep shops in the FM.
 - **Slums Exchange** (1.6.2): order books for NX, Maple Leaves, Chaos and White Scrolls and Power Elixirs, a 1% fee
