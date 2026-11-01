@@ -1712,8 +1712,15 @@ public final class AutoQaCatalog {
         return null;
     }
 
+    /**
+     * A lone "k" (or "kk") is a yes; the same letter hanging off the end of a phrase ("maybe later k", "mm k") is a
+     * trailing ack, not agreement (b265: the yes pattern took any word "k", so a refusal that ended in one read as a
+     * yes). Kept out of the word scan below and matched only against the whole reply.
+     */
+    private static final java.util.regex.Pattern loneK = java.util.regex.Pattern.compile("(?i) *k+ *[.!]* *");
+
     static String refusalNeverSaysYes(CheckRun r) {
-        java.util.regex.Pattern yes = java.util.regex.Pattern.compile("(?i)\\b(yes|sure|ok+|omw|coming|lets go|k)\\b");
+        java.util.regex.Pattern yes = java.util.regex.Pattern.compile("(?i)\\b(yes|sure|ok+|omw|coming|lets go)\\b");
         List<AutoQaLine> lines = r.lines();
         for (int i = 0; i < lines.size(); i++) {
             AutoQaLine l = lines.get(i);
@@ -1722,7 +1729,8 @@ public final class AutoQaCatalog {
                     AutoQaLine n = lines.get(j);
                     if (n.text().startsWith("CONVO SAID ")) {
                         String said = n.message().replaceFirst("^SAID \\S+ -> player \\S+ \\[[^]]*] ", "");
-                        if (yes.matcher(said).find() && !said.toLowerCase().matches(".*\\b(no|nah|cant|can't|busy)\\b.*")) {
+                        if ((yes.matcher(said).find() || loneK.matcher(said).matches())
+                                && !said.toLowerCase().matches(".*\\b(no|nah|cant|can't|busy)\\b.*")) {
                             return "a NO was answered with a yes: " + said;
                         }
                         break;
