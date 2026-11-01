@@ -166,12 +166,17 @@ function getJobTierScrolls() {
 
     const GameConstants = Java.type('constants.game.GameConstants');
     var jobBranch = GameConstants.getJobBranch(job);
+    var rows = jobScrolls;
     if (jobBranch >= 2) {
-        Array.prototype.push.apply(scrolls, jobScrolls[Math.floor((job.getId() / 10) % 10) - 1]);
-    } else {
-        for (var i = 0; i < jobScrolls.length; i++) {
-            Array.prototype.push.apply(scrolls, jobScrolls[i]);
-        }
+        var jobRow = jobScrolls[Math.floor((job.getId() / 10) % 10) - 1];
+        // b258: a job whose branch digit is outside the style's table (job 2001: (2001 / 10) % 10 = 0, minus 1 = -1)
+        // read an undefined row, so every tier-1 roll found no scroll and the dialog refused. It gets the style's whole
+        // table, which is what a job without a branch gets.
+        rows = (jobRow == null) ? jobScrolls : [jobRow];
+    }
+
+    for (var i = 0; i < rows.length; i++) {
+        Array.prototype.push.apply(scrolls, rows[i]);
     }
 
     return scrolls;
@@ -224,10 +229,16 @@ function getScrollSuccessTier(scrollStats) {
     }
 }
 
+// The scroll data: Item.wz through the server's item provider, behind a function so a test can hand in its own.
+function getItemInfoProvider() {
+    const ItemInformationProvider = Java.type('server.ItemInformationProvider');
+    return ItemInformationProvider.getInstance();
+}
+
+// rewardTier: the stat tier the scroll must have, or 0 for any tier. successTier: likewise, or 0 for any.
 function getAvailableScrollsPool(baseScrolls, rewardTier, successTier) {
     var scrolls = [];
-    const ItemInformationProvider = Java.type('server.ItemInformationProvider');
-    var ii = ItemInformationProvider.getInstance();
+    var ii = getItemInfoProvider();
 
     for (var i = 0; i < baseScrolls.length; i++) {
         for (var j = 0; j < 100; j++) {
@@ -235,7 +246,7 @@ function getAvailableScrollsPool(baseScrolls, rewardTier, successTier) {
             var scrollStats = ii.getEquipStats(scrollid);
             if (scrollStats != null && ii.getScrollReqs(scrollid).isEmpty()) {
                 var scrollTier = getScrollTier(scrollStats);
-                if (scrollTier == rewardTier && successTier == getScrollSuccessTier(scrollStats)) {
+                if ((rewardTier == 0 || scrollTier == rewardTier) && (successTier == 0 || successTier == getScrollSuccessTier(scrollStats))) {
                     scrolls.push(scrollid);
                 }
             }
@@ -404,11 +415,37 @@ function getRandomScrollFromRightPermutations(tiers) {
     return -1;
 }
 
+// The roll asks for a stat tier the chosen family does not have: the job weapon scrolls are all PAD/MAD (stat tier 1)
+// and the tier 2/3 families never give PAD/MAD, so most (typeTier, subtypeTier) pairs the roll makes are impossible.
+// getRandomScrollFromRightPermutations repairs only some of them - two tiers already at 3 cannot be shifted - and
+// (1,3,3), (1,3,1) came out with no scroll at all. Keep the family the roll picked and relax the stat tier, then the
+// success tier, so a claim always pays out from the family that was rolled. No scroll outside the tables can come out.
+function getFallbackScroll(typeTier, successTier) {
+    var scrollTypePool = getScrollTypePool(typeTier);
+    var scrollPool = getAvailableScrollsPool(scrollTypePool, 0, successTier);
+    if (scrollPool.length == 0) {
+        scrollPool = getAvailableScrollsPool(scrollTypePool, 0, 0);
+    }
+
+    if (scrollPool.length == 0) {
+        return -1;      // the family has no scroll data at all: generateRandomScroll tells the player
+    }
+
+    return scrollPool[Math.floor(Math.random() * scrollPool.length)];
+}
+
 function getRandomScroll(tiers) {
+    var typeTier = tiers[0];
+    var successTier = tiers[2];
+
     var itemid = getRandomScrollFromTiers(tiers);
     if (itemid == -1) {
         // worst case shift-right permutations...
         itemid = getRandomScrollFromRightPermutations(tiers);
+    }
+
+    if (itemid == -1) {
+        itemid = getFallbackScroll(typeTier, successTier);
     }
 
     return itemid;
