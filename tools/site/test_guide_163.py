@@ -118,6 +118,13 @@ class MorenMakerGuideTest(unittest.TestCase):
         self.assertIn("a monster's leftovers", text)      # Maker 1 path
         self.assertIn("taking an item apart", text)        # disassembly path (the 163-maker2 fix)
         self.assertIn("before the quest started", text)    # only while quest 6033 is running
+class ChangelogGuideTest(unittest.TestCase):
+    def test_the_guide_changelog_has_1_6_3(self):
+        page = source("changelog.html")
+        self.assertIn("<td>1.6.3</td>", page)
+        text = flat("changelog.html")
+        for phrase in ("NX desk", "lanes"):
+            self.assertIn(phrase, text)
 
 if __name__ == "__main__":
     unittest.main()
