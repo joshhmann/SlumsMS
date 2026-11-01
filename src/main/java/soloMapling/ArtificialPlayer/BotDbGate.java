@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.server.ExecutorServiceManager;
 import tools.DatabaseConnection;
 
 import java.lang.reflect.InvocationTargetException;
@@ -182,6 +183,40 @@ public final class BotDbGate {
     /** Permits free right now (tests and the GM read-out). */
     static int available() {
         return permits.availablePermits();
+    }
+
+    /** Once a minute in the log: this line is how a lane session tells a busy share from a wedged pool. */
+    private static final long STATS_LOG_INTERVAL_MS = 60_000;
+    private static final AtomicBoolean statsLogStarted = new AtomicBoolean();
+
+    /**
+     * Starts the once-a-minute share/pool line; safe to call more than once. Bot work is the only thing this gate
+     * guards, so the bot director starts it when it starts.
+     */
+    static void startStatsLogging() {
+        if (!statsLogStarted.compareAndSet(false, true)) {
+            return;
+        }
+        ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(BotDbGate::logStats,
+                STATS_LOG_INTERVAL_MS, STATS_LOG_INTERVAL_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private static void logStats() {
+        try {
+            log.info("BotDbGate: {}", statsLine(stats(), DatabaseConnection.poolStats()));
+        } catch (RuntimeException e) {
+            log.debug("Bot DB share stats unavailable", e);
+        }
+    }
+
+    /** {@code stats()} is {permits, free, refusals}; {@code pool} is {@code DatabaseConnection.poolStats()}. */
+    static String statsLine(int[] stats, int[] pool) {
+        String share = (PERMITS - stats[1]) + " of " + PERMITS + " bot permits in use, " + stats[2]
+                + " refused so far; pool ";
+        if (pool == null) {
+            return share + "not started";
+        }
+        return share + "active=" + pool[0] + " idle=" + pool[1] + " total=" + pool[2] + " waiting=" + pool[3];
     }
 
     /**

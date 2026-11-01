@@ -228,4 +228,12 @@ class BotDbGateTest {
         }
         assertEquals(BotDbGate.PERMITS, BotDbGate.available());
     }
+
+    @Test
+    void theMinuteLineShowsTheShareTheRefusalsAndThePool() {
+        assertEquals("0 of 6 bot permits in use, 0 refused so far; pool active=0 idle=10 total=10 waiting=0",
+                BotDbGate.statsLine(new int[]{6, 6, 0}, new int[]{0, 10, 10, 0}));
+        assertEquals("6 of 6 bot permits in use, 17 refused so far; pool not started",
+                BotDbGate.statsLine(new int[]{6, 0, 17}, null));
+    }
 }

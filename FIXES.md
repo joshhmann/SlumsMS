@@ -9,7 +9,7 @@ commit after it is one finding, with its own test.
 | F1 (blocker) | fixed | `b269 fix 1` | `BotPopulationDirector.askLogin` answers `LOGGED_IN` / `QUEUED` / `REFUSED`; the guild show-up spends its 2-hour token only when a login was taken on; the romance show-up spends its 30-minute token only then; a queued rage-quit return keeps its promise |
 | F6 (functional) | fixed | `b269 fix 6` | paced boot fill (`LoginPace`: 8 in flight, 8 a second), tick budget follows the pace |
 | F8 (high) | fixed | `b269 fix 8` | `BotDbGateLoadTest`'s gossip test builds plain `Character` doubles, so it needs no config.yaml |
-| Timeouts/observability | open | — | `connectionTimeout` 10 s, minute `BotDbGate.stats()` log |
+| Timeouts/observability | fixed | `b269 pool timeout and share log` | `connectionTimeout` 30 s → 10 s; one `BotDbGate: …` line a minute with the pool beside it |
 | F3/F4/F5 | open | — | documented, not fixed (see the notes at the bottom) |
 
 ## F1 — a refused or queued login is not "no"
@@ -79,3 +79,22 @@ table answers through Mockito, and `BotDbGate` is exercised through its own seam
 
 Test: `BotDbGateLoadTest#aPopulationTickReadsOnceHoweverManyBotsAreOnline` passes with `config.yaml` moved out of the
 working tree — 3,000 bots over 250 maps, one `BotId IN (...)` read (`FakeMemoryTable.batchReads == 1`).
+
+## Timeout and observability
+
+`DatabaseConnection.getConfig()` asked Hikari for its default 30-second `connectionTimeout`, so a wedged pool let
+borrowers — a player login among them — sit for half a minute before failing. It is 10 seconds now
+(`DatabaseConnection.java:79`): long enough for a healthy pool under the gate's six-permit cap, short enough that a jam
+fails loudly and quickly instead of freezing logins.
+
+`BotDbGate.startStatsLogging()` (started by the bot director) logs one line a minute:
+
+    BotDbGate: 2 of 6 bot permits in use, 0 refused so far; pool active=2 idle=8 total=10 waiting=0
+
+`statsLine(stats, pool)` renders it from `BotDbGate.stats()` (permits, free, refusals) and
+`DatabaseConnection.poolStats()` (active, idle, total, waiting), with `pool not started` before the pool exists. The
+gate wait stays 15 s and the pool stays at 10 connections: with the hard cap the share is the only thing bots queue on,
+and a longer wait would only keep a `bot-db` thread busy with work that is going to be refused anyway.
+
+Test: `BotDbGateTest#theMinuteLineShowsTheShareTheRefusalsAndThePool` — the line's numbers come from the two read-outs,
+and the pool-absent case says so.

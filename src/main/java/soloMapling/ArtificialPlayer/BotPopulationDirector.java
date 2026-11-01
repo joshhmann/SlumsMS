@@ -382,6 +382,7 @@ public final class BotPopulationDirector {
         startedAt = System.currentTimeMillis();
         tick(Integer.MAX_VALUE);
         long period = Math.max(5, server.BOT_DIRECTOR_TICK_SECONDS);
+        BotDbGate.startStatsLogging(); // b269: the share and the pool in one line a minute, so a jam is visible
         int budget = loginBudget(server);
         ticker = ExecutorServiceManager.getScheduledExecutorService()
                 .scheduleAtFixedRate(() -> tick(budget), period, period, TimeUnit.SECONDS);
