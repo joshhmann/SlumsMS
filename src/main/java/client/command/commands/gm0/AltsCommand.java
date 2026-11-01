@@ -15,7 +15,8 @@ public class AltsCommand extends Command {
 
     static final String HELP = "Orders (say them in party chat or after @alts; a name or slot number first for one "
             + "companion): follow, stay, move here, sentry, patrol, lanes [map|screen] (each companion takes a spot of "
-            + "its own spread out from the others), formation split/spread/stack/left/right/random"
+            + "its own, on this screen first and across the map only when there are too many for one screen), "
+            + "formation split/spread/stack/left/right/random"
             + " [px|tight|loose], tight, loose, snap; trade pots/hp pots/scrolls/use/etc/equips/ammo/rocks/100k/"
             + "<item>/<slot>, show me your hat, drop <what>; any upgrades?, request?, trade upgrades; need pots/hp/mp/"
             + "ammo/rocks.";

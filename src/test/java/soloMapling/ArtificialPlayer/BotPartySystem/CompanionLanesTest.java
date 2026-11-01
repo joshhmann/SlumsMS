@@ -126,19 +126,20 @@ class CompanionLanesTest {
     void spotsComeFromTheMapsSpawnGroundOnItsFootholds() {
         MapleMap map = mock(MapleMap.class);
         when(map.getMonsterSpawnPositions()).thenReturn(List.of(p(-200, 100), p(200, 100), p(600, 100)));
-        List<Point> spots = CompanionLanes.spots(map, p(0, 100), SCREEN, 2);
-        assertEquals(2, spots.size(), "two lanes from the spawn ground: " + spots);
-        assertEquals(-200, spots.get(0).x);
-        assertTrue(Math.abs(spots.get(1).x - spots.get(0).x) >= CompanionLanes.MIN_SPACING_PX,
-                "the second lane keeps its distance rather than stack on the first: " + spots);
+        List<CompanionLanes.Lane> lanes = CompanionLanes.lanes(map, p(0, 100), SCREEN, 2);
+        assertEquals(2, lanes.size(), "two lanes from the spawn ground: " + lanes);
+        assertEquals(-200, lanes.get(0).spot().x);
+        assertEquals(SCREEN, lanes.get(0).reach(), "an explicit screen reach is a screen lane");
+        assertTrue(Math.abs(lanes.get(1).spot().x - lanes.get(0).spot().x) >= CompanionLanes.MIN_SPACING_PX,
+                "the second lane keeps its distance rather than stack on the first: " + lanes);
     }
 
     @Test
     void aMapWithoutSpawnGroundGivesNoLanes() {
         MapleMap map = mock(MapleMap.class);
-        assertEquals(List.of(), CompanionLanes.spots(map, p(0, 100), SCREEN, 3));
-        assertEquals(List.of(), CompanionLanes.spots(null, p(0, 100), SCREEN, 3));
-        assertEquals(List.of(), CompanionLanes.spots(map, p(0, 100), SCREEN, 0));
+        assertEquals(List.of(), CompanionLanes.lanes(map, p(0, 100), SCREEN, 3));
+        assertEquals(List.of(), CompanionLanes.lanes(null, p(0, 100), SCREEN, 3));
+        assertEquals(List.of(), CompanionLanes.lanes(map, p(0, 100), SCREEN, 0));
     }
 
     @Test
@@ -147,7 +148,123 @@ class CompanionLanesTest {
         assertEquals(MAP, CompanionLanes.Reach.parse(" Whole "));
         assertEquals(SCREEN, CompanionLanes.Reach.parse("screen"));
         assertEquals(SCREEN, CompanionLanes.Reach.parse("nearby"));
+        assertEquals(CompanionLanes.Reach.AUTO, CompanionLanes.Reach.parse("auto"));
         assertNull(CompanionLanes.Reach.parse("pot"));
         assertNull(CompanionLanes.Reach.parse(null));
+    }
+
+    // ---- the automatic rule (owner, 2026-11-01): a screen each, and only the extras of a party of two or more wide
+
+    private static List<CompanionLanes.Lane> auto(List<Point> ground, Point owner, int count) {
+        return CompanionLanes.spreads(ground, owner, CompanionLanes.Reach.AUTO, count, ONE_PLATFORM);
+    }
+
+    @Test
+    void oneCompanionAloneNeverGoesWiderThanTheScreen() {
+        // the screen is cramped and there is ground across the map: still no lane out there for a lone companion
+        List<Point> ground = List.of(p(-40, 100), p(20, 100), p(3000, 100), p(4000, 100));
+        List<CompanionLanes.Lane> lanes = auto(ground, p(0, 100), 1);
+        assertEquals(1, lanes.size(), "one lane: " + lanes);
+        assertEquals(SCREEN, lanes.get(0).reach(), "one companion alone never goes across the map by default");
+        assertTrue(Math.abs(lanes.get(0).spot().x) <= CompanionLanes.HALF_WINDOW_PX,
+                lanes.get(0).spot() + " is off the owner's screen");
+        assertEquals(List.of(), auto(List.of(p(3000, 100), p(4000, 100)), p(0, 100), 1),
+                "nothing on screen and a lone companion: no lane rather than one across the map");
+    }
+
+    @Test
+    void aPartyTooBigForOneScreenSendsOnlyTheExtrasAcrossTheMap() {
+        // two lanes fit this screen (-500 and 500 are 1000 px apart); the third companion has no screen spot left
+        List<Point> ground = List.of(p(-2500, 100), p(-500, 100), p(500, 100), p(2500, 100));
+        List<CompanionLanes.Lane> lanes = auto(ground, p(0, 100), 3);
+        assertEquals(3, lanes.size(), "everybody has a lane, the third one wide: " + lanes);
+        assertEquals(List.of(p(-500, 100), p(500, 100)), List.of(lanes.get(0).spot(), lanes.get(1).spot()),
+                "party order: the first two hold the screen lanes, left to right");
+        assertEquals(SCREEN, lanes.get(0).reach());
+        assertEquals(SCREEN, lanes.get(1).reach());
+        assertEquals(CompanionLanes.Reach.MAP, lanes.get(2).reach(),
+                "only the companion the screen could not seat goes wide");
+        assertTrue(Math.abs(lanes.get(2).spot().x) > CompanionLanes.HALF_WINDOW_PX,
+                "the extra lane is off screen: " + lanes.get(2).spot());
+        for (int i = 0; i < 2; i++) {
+            assertClearOfTheScreenLanes(lanes.get(2).spot(), lanes.get(i).spot());
+        }
+    }
+
+    /** The wide lane keeps its distance from the lanes the screen already holds. */
+    private static void assertClearOfTheScreenLanes(Point wide, Point here) {
+        assertTrue(Math.abs(wide.x - here.x) >= CompanionLanes.MIN_SPACING_PX, wide + " stacks on " + here);
+    }
+
+    @Test
+    void aPartyThatFitsOnOneScreenIsNeverSplit() {
+        List<Point> ground = List.of(p(-700, 100), p(-350, 100), p(0, 100), p(350, 100), p(700, 100),
+                p(3000, 100), p(4000, 100));
+        List<CompanionLanes.Lane> lanes = auto(ground, p(0, 100), 3);
+        assertEquals(3, lanes.size());
+        for (CompanionLanes.Lane lane : lanes) {
+            assertEquals(SCREEN, lane.reach(), "there is room on screen: " + lane);
+        }
+    }
+
+    @Test
+    void anExplicitWordStillForcesItsOwnReach() {
+        List<Point> ground = List.of(p(-2500, 100), p(-500, 100), p(500, 100), p(2500, 100));
+        List<CompanionLanes.Lane> byMap = CompanionLanes.spreads(ground, p(0, 100), MAP, 3, ONE_PLATFORM);
+        assertEquals(3, byMap.size(), "lanes map: three lanes across the whole map: " + byMap);
+        for (CompanionLanes.Lane lane : byMap) {
+            assertEquals(CompanionLanes.Reach.MAP, lane.reach(), "an explicit map reach: " + lane);
+        }
+        List<CompanionLanes.Lane> byScreen = CompanionLanes.spreads(ground, p(0, 100), SCREEN, 3, ONE_PLATFORM);
+        assertEquals(2, byScreen.size(), "lanes screen: what the screen seats, no extras: " + byScreen);
+        for (CompanionLanes.Lane lane : byScreen) {
+            assertEquals(SCREEN, lane.reach(), "an explicit screen reach: " + lane);
+        }
+    }
+
+    @Test
+    void theAutomaticRuleIsTheSwitchDefault() {
+        String was = System.getProperty("slums.alts.lanes.reach");
+        try {
+            System.clearProperty("slums.alts.lanes.reach");
+            assertEquals(CompanionLanes.Reach.AUTO, CompanionLanes.Reach.configured(), "no switch: the rule");
+            System.setProperty("slums.alts.lanes.reach", "map");
+            assertEquals(CompanionLanes.Reach.MAP, CompanionLanes.Reach.configured());
+            System.setProperty("slums.alts.lanes.reach", "screen");
+            assertEquals(SCREEN, CompanionLanes.Reach.configured());
+            System.setProperty("slums.alts.lanes.reach", "auto");
+            assertEquals(CompanionLanes.Reach.AUTO, CompanionLanes.Reach.configured());
+            System.setProperty("slums.alts.lanes.reach", "pot");
+            assertEquals(CompanionLanes.Reach.AUTO, CompanionLanes.Reach.configured(), "not a reach: the rule");
+        } finally {
+            if (was == null) {
+                System.clearProperty("slums.alts.lanes.reach");
+            } else {
+                System.setProperty("slums.alts.lanes.reach", was);
+            }
+        }
+    }
+
+    @Test
+    void theAutomaticRuleIsDeterministicToo() {
+        List<Point> ground = new ArrayList<>(List.of(p(-2500, 100), p(-500, 100), p(500, 100), p(2500, 100),
+                p(-1500, 100), p(1500, 100)));
+        List<CompanionLanes.Lane> first = auto(ground, p(0, 100), 4);
+        assertEquals(4, first.size(), first.toString());
+        Random rnd = new Random(163);
+        for (int i = 0; i < 6; i++) {
+            Collections.shuffle(ground, rnd);
+            assertEquals(first, auto(ground, p(0, 100), 4), "re-issuing the order must not reshuffle the lanes");
+        }
+    }
+
+    @Test
+    void theLanesAnswerSaysHowManyStayedHereAndHowManyWentWide() {
+        assertEquals("k, 2 lanes spread out", PartyBotOrders.lanesSaid(2, 0, false));
+        assertEquals("k, 1 lane across the map", PartyBotOrders.lanesSaid(0, 1, false));
+        assertEquals("k, 2 lanes here, 1 across the map", PartyBotOrders.lanesSaid(2, 1, false));
+        assertEquals("k, 2 lanes here, 1 across the map (no room for more)",
+                PartyBotOrders.lanesSaid(2, 1, true));
+        assertEquals("k, 1 lane spread out (no room for more)", PartyBotOrders.lanesSaid(1, 0, true));
     }
 }

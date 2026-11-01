@@ -159,7 +159,9 @@ public final class PartyBotOrders {
      * roster on this map, left to right in party order, so a later targeted "lanes" takes a lane nobody else has;
      * each ordered companion then holds its lane like a sentry. A lane belongs to the map it was given on - another
      * map and the companion follows again - and a narrow map gives fewer lanes than companions (the rest follow).
-     * The lane's reach is the order's own word ("lanes map" / "lanes screen") or the switch's default.
+     * The reach is the order's own word ("lanes map" / "lanes screen"), or else the switch's default: the automatic
+     * rule ({@link CompanionLanes.Reach#AUTO}), a screen for everybody with only the companions a screen cannot seat
+     * going over the whole map - each lane carries its own reach, so only those get the wider gate.
      */
     private static void lanes(Character player, Order order, Map<Integer, Character> alts) {
         if (player == null || !CompanionSwitches.lanes()) {
@@ -185,36 +187,61 @@ public final class PartyBotOrders {
             say(order.targets().isEmpty() ? -1 : order.targets().get(0).id(), alts, "no one of yours is on this map");
             return;
         }
-        List<java.awt.Point> spots = CompanionLanes.spots(player.getMap(), player.getPosition(), reach, roster.size());
-        if (spots.isEmpty()) {
+        List<CompanionLanes.Lane> plan = CompanionLanes.lanes(player.getMap(), player.getPosition(), reach,
+                roster.size());
+        if (plan.isEmpty()) {
             say(roster.get(0).id(), alts, "no room for lanes here");
             return;
         }
-        int given = 0;
+        int here = 0;
+        int across = 0;
         int speaker = -1;
         for (Target t : who) {
             Character c = companions.get(t.id());
             int idx = roster.indexOf(t);
-            if (c == null || idx < 0 || idx >= spots.size()) {
+            if (c == null || idx < 0 || idx >= plan.size()) {
                 continue; // not on this map, or no lane left for it: it keeps following
             }
-            CompanionStance.setAt(c.getId(), CompanionStance.Mode.LANES, spots.get(idx), player.getMapId(), reach);
+            CompanionLanes.Lane lane = plan.get(idx);
+            CompanionStance.setAt(c.getId(), CompanionStance.Mode.LANES, lane.spot(), player.getMapId(),
+                    lane.reach());
             BotSM bot = getBotById(c.getId());
             if (bot instanceof FollowerBot follower) {
                 follower.order(Verb.LANES, player, order.everyone());
             }
+            if (lane.reach() == CompanionLanes.Reach.MAP) {
+                across++;
+            } else {
+                here++;
+            }
             if (speaker < 0) {
                 speaker = c.getId();
             }
-            given++;
         }
         if (speaker < 0) {
             return;
         }
-        String lanes = given == 1 ? "1 lane" : given + " lanes";
-        say(speaker, alts, given < who.size()
-                ? "k, " + lanes + " (no room for more)"
-                : "k, " + lanes + (reach == CompanionLanes.Reach.MAP ? " across the map" : " spread out"));
+        say(speaker, alts, lanesSaid(here, across, here + across < who.size()));
+    }
+
+    /**
+     * What the companions answer to a lanes order: how many hold a lane on this screen and how many across the map,
+     * so a player can tell that a party too big for one screen was split ("2 lanes here, 1 across the map").
+     */
+    static String lanesSaid(int here, int across, boolean noRoomForMore) {
+        String said;
+        if (across == 0) {
+            said = laneCount(here) + " spread out";
+        } else if (here == 0) {
+            said = laneCount(across) + " across the map";
+        } else {
+            said = laneCount(here) + " here, " + across + " across the map";
+        }
+        return "k, " + said + (noRoomForMore ? " (no room for more)" : "");
+    }
+
+    private static String laneCount(int lanes) {
+        return lanes == 1 ? "1 lane" : lanes + " lanes";
     }
 
     /** The Character behind a party slot: an owned alt, or a party bot friend. */

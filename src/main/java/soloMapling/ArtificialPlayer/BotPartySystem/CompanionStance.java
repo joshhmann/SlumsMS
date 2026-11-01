@@ -21,9 +21,9 @@ import java.util.function.IntConsumer;
  *   <li><b>PATROL</b>: walk back and forth {@link #PATROL_HALF_PX} px either side of the spot, fighting as it goes.</li>
  *   <li><b>LANES</b> (1.6.3 s-lanes): hold a lane of its own - the spot {@link CompanionLanes} handed it, spread out
  *       from its sibling companions instead of stacking on the leader - and fight within reach of it like a sentry.
- *       The lane's reach ({@link CompanionLanes.Reach}) comes with it: within a screen of the leader by default, or
- *       over the whole map, and only the second one lets an owned alt hold it beyond the gate's distance
- *       ({@link #lanesWholeMap}).</li>
+ *       The lane's reach ({@link CompanionLanes.Reach}) comes with it per companion: within a screen of the leader,
+ *       or over the whole map for the companions a screen could not seat when the party is two or more, and only
+ *       the second one lets an owned alt hold it beyond the gate's distance ({@link #lanesWholeMap}).</li>
  * </ul>
  * None of this lets a companion leave its leader on its own: an owned alt still fights only inside the activity gate
  * (OwnedAltGate: owner online, same map, not a town, the owner active, about a screen away), and only a whole-map lane
