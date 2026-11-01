@@ -120,8 +120,17 @@ public final class BotGossip {
             order.add(i);
         }
         java.util.Collections.shuffle(order, rng);
+        List<Integer> round = order.subList(0, Math.min(TELLERS_PER_STEP, order.size()));
+        // 1.6.2 (live 3k spinner): the round's notes come in one read. One query per teller meant up to twenty
+        // pool round trips a minute from the thread that also drives the population tick, and each was a gate
+        // acquisition on the same thread that then took a memory stripe lock.
+        List<Integer> tellerIds = new ArrayList<>(round.size());
+        for (int i : round) {
+            tellerIds.add(tellers.get(i).getId() - BotStore.BOT_ID_BASE);
+        }
+        Map<Integer, List<BotMemory.Note>> notesByTeller = BotMemory.recentPassableFor(tellerIds, 5);
         int passed = 0;
-        for (int i : order.subList(0, Math.min(TELLERS_PER_STEP, order.size()))) {
+        for (int i : round) {
             Character tellerChr = tellers.get(i);
             int listenerId = listeners.get(i);
             Character listenerChr = online.get(listenerId);
@@ -139,7 +148,7 @@ public final class BotGossip {
                 continue; // an offline friend hears the reputation, not a note (notes go to bots with memory loaded)
             }
             int teller = tellerChr.getId() - BotStore.BOT_ID_BASE;
-            List<BotMemory.Note> notes = BotMemory.recentPassable(teller, 5);
+            List<BotMemory.Note> notes = notesByTeller.getOrDefault(teller, List.of());
             if (notes.isEmpty()) {
                 continue;
             }

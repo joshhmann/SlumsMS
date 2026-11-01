@@ -74,7 +74,9 @@ public class DatabaseConnection {
 
         final int initFailTimeoutSeconds = YamlConfig.config.server.INIT_CONNECTION_POOL_TIMEOUT;
         config.setInitializationFailTimeout(SECONDS.toMillis(initFailTimeoutSeconds));
-        config.setConnectionTimeout(SECONDS.toMillis(30)); // Hikari default
+        // 10 s, not Hikari's 30 s (b269): a wedged pool must fail its borrowers loudly and quickly instead of
+        // letting a player login sit for half a minute behind whatever jammed it.
+        config.setConnectionTimeout(SECONDS.toMillis(10));
         config.setMaximumPoolSize(MAX_POOL_SIZE);
 
         config.addDataSourceProperty("cachePrepStmts", true);

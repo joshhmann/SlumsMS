@@ -56,7 +56,7 @@ t0 = lo if lo else (P(m[0]["utc"]) if m else 0)
 lo = max(lo, t0)
 if m:
     w(f"### Soak target over time ({a.bucket_min} min buckets, from {m[0]['utc']} UTC)\n")
-    w("| UTC | bots online (min-max) | players | heap used MB avg / max | old gen MB min / max | GC ms/min avg | CPU % avg (of one core) | RSS MB max | DB pool waiting max | BotDbGate free min / overruns | macro tick avg ms | movement tick ms/s | wheel-lag lines | LLM fallbacks | errors |")
+    w("| UTC | bots online (min-max) | players | heap used MB avg / max | old gen MB min / max | GC ms/min avg | CPU % avg (of one core) | RSS MB max | DB pool waiting max | BotDbGate free min / refusals | macro tick avg ms | movement tick ms/s | wheel-lag lines | LLM fallbacks | errors |")
     w("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     g = collections.defaultdict(list)
     for r in m: g[bucket(P(r["utc"]), t0)].append(r)
@@ -64,7 +64,7 @@ if m:
         rs = g[k]
         col = lambda c: [v for v in (num(r[c]) for r in rs) if v is not None]
         on = col("bots_online"); heap = col("heap_used_mb"); old = col("old_used_mb")
-        ov = col("gate_overruns")
+        ov = col("gate_refusals")
         w("| {} | {} | {} | {} / {} | {} / {} | {} | {} | {} | {} | {} / {} | {} | {} | {} | {} | {} |".format(
             lab(k),
             f"{f0(min(on))}-{f0(max(on))}" if on else "", f0(max(col("players")) if col("players") else None),

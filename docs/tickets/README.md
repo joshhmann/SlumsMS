@@ -8,6 +8,14 @@
 
 Current status is in `/root/work/STATUS-1.6.2.md` and the release book; the older tables below are historical.
 
+## b269 pool forensics follow-ups (2026-11-01)
+
+From `agent-runs/server/269-dbpool-forensics/AUDIT.md` and the fix branch `269-dbpoolfix`. Documented, not changed.
+
+| # | Ticket | Severity |
+|---|---|---|
+| [172](172-roster-load-pool-get.md) | The roster and store snapshot reads bypass the bot share | S3 |
+
 ## QA follow-ups (2026-10-31)
 
 | # | Ticket | Target |

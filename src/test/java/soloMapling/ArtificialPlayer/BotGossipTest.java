@@ -188,6 +188,27 @@ class BotGossipTest {
     }
 
     @Test
+    void aRoundOfTellersReadsTheNotesOnceNotOncePerTeller() {
+        // Live 1.6.0.4 at 3,000 bots: every teller asked the pool for its own notes, from the thread that also
+        // drives the population tick. The round reads them all in one statement now.
+        FakeMemoryTable memories = new FakeMemoryTable(false);
+        memories.install();
+        long now = System.currentTimeMillis();
+        List<Character> crowded = new java.util.ArrayList<>();
+        for (int i = 1; i <= 8; i++) {
+            crowded.add(chr(B + i, "bot" + i));
+        }
+        Random always = new Random() {
+            @Override
+            public double nextDouble() {
+                return 0; // every teller passes
+            }
+        };
+        BotGossip.step(Map.of(100000000, crowded), now, always);
+        assertEquals(1, memories.batchReads.get(), "eight tellers, one read");
+    }
+
+    @Test
     void trainingTalkNamesNobodyMadeUp() {
         BotGossip.Fact f = BotGossip.trainingFor(chr(B + 3, "Bob"), chr(B + 4, "Tofu"), new Random(3));
         assertFalse(f.person());

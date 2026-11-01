@@ -674,7 +674,7 @@
       ['Process CPU', h.cpuPct != null ? h.cpuPct + '%' : '–', 'load ' + (h.load != null ? h.load : '–') + ' · ' + h.threads + ' threads'],
       ['Bot tick work', h.tickMsPerS != null ? N(h.tickMsPerS) + ' ms/s' : '–', h.buckets ? Object.entries(h.buckets).map(([k, v]) => k.toLowerCase() + ' ' + v).join(' · ') : ''],
       ['DB pool', h.pool ? h.pool.active + ' / ' + h.pool.total : '–', h.pool ? h.pool.idle + ' idle · ' + h.pool.waiting + ' waiting' : 'not up'],
-      ['Bot DB permits', h.gate ? (h.gate.permits - h.gate.free) + ' / ' + h.gate.permits : '–', h.gate ? h.gate.overruns + ' waits gave up' : ''],
+      ['Bot DB permits', h.gate ? (h.gate.permits - h.gate.free) + ' / ' + h.gate.permits : '–', h.gate ? h.gate.refusals + ' bot work refused' : ''],
       ['GC', h.gcPerMin != null ? h.gcPerMin + '/min' : '–', h.gcMsPerMin != null ? h.gcMsPerMin + ' ms/min' : ''],
       ['Uptime', up, 'snapshot took ' + lv.exportMs + ' ms'],
     ]);

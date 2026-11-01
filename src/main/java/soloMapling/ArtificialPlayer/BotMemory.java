@@ -12,7 +12,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -154,6 +156,8 @@ public final class BotMemory {
     static final String TOUCH = "UPDATE botmemory SET LastUsedAt = ? WHERE Id = ?";
     static final String FOLLOWED_UP = "UPDATE botmemory SET FollowedUpAt = ? WHERE Id = ?";
     static final String RECENT_OF_BOT = "SELECT * FROM botmemory WHERE BotId = ? AND Hops < ? ORDER BY CreatedAt DESC LIMIT ?";
+    /** {@link #RECENT_OF_BOT} for a whole round of tellers: one round trip instead of one per teller. */
+    static final String RECENT_OF_BOTS = "SELECT * FROM botmemory WHERE BotId IN (%s) AND Hops < ? ORDER BY BotId, CreatedAt DESC";
     /** S4's reputation input: how many first-hand notes of each kind bots hold about a player. */
     static final String KIND_COUNTS = "SELECT Kind, COUNT(*) AS N FROM botmemory WHERE AboutCharacterId = ? "
             + "AND Source = 'DIRECT' GROUP BY Kind";
@@ -174,6 +178,9 @@ public final class BotMemory {
 
     /** A note passes through at most this many mouths: what a bot saw, and what it heard from that bot. */
     public static final int MAX_HOPS = 2;
+
+    /** Bots per {@code IN (...)} list in {@link #recentPassableFor}. */
+    static final int READ_CHUNK = 32;
 
     /** The notes {@code BotAffinity} writes when feelings change (kept here so the store can tell them apart). */
     static final Set<String> FEELINGS = Set.of("is a good friend, always nice to me", "keeps ksing my mobs",
@@ -415,24 +422,55 @@ public final class BotMemory {
      * small episodes ("partied together") are the bot's own business.
      */
     public static List<Note> recentPassable(int botId, int limit) {
-        List<Note> notes = new ArrayList<>();
+        return recentPassableFor(List.of(botId), limit).getOrDefault(botId, List.of());
+    }
+
+    /**
+     * {@link #recentPassable(int, int)} for many bots at once: one round trip for a whole gossip round instead of
+     * one per teller (1.6.2: at 3,000 bots the minute's twenty tellers each asked the pool for their own read, on the
+     * thread that also drives the population tick). Bots are read in chunks so the statement stays small.
+     *
+     * @return notes per bot id, each bot's newest {@code limit} rows that can still be passed on (empty list absent)
+     */
+    public static Map<Integer, List<Note>> recentPassableFor(Collection<Integer> botIds, int limit) {
+        Map<Integer, List<Note>> out = new HashMap<>();
+        List<Integer> ids = new ArrayList<>(botIds);
+        if (ids.isEmpty() || limit <= 0) {
+            return out;
+        }
         boolean extended = hasKinds();
-        try (Connection con = connections().get(); PreparedStatement ps = con.prepareStatement(RECENT_OF_BOT)) {
-            ps.setInt(1, botId);
-            ps.setInt(2, MAX_HOPS);
-            ps.setInt(3, limit);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Note n = read(rs, extended);
-                    if (n.kind().passable()) {
-                        notes.add(n);
+        for (int from = 0; from < ids.size(); from += READ_CHUNK) {
+            List<Integer> chunk = ids.subList(from, Math.min(from + READ_CHUNK, ids.size()));
+            StringBuilder marks = new StringBuilder();
+            for (int i = 0; i < chunk.size(); i++) {
+                marks.append(i == 0 ? "?" : ",?");
+            }
+            try (Connection con = connections().get();
+                 PreparedStatement ps = con.prepareStatement(RECENT_OF_BOTS.formatted(marks))) {
+                int p = 1;
+                for (int id : chunk) {
+                    ps.setInt(p++, id);
+                }
+                ps.setInt(p, MAX_HOPS);
+                Map<Integer, Integer> seen = new HashMap<>();
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        int owner = rs.getInt("BotId");
+                        int taken = seen.merge(owner, 1, Integer::sum);
+                        if (taken > limit) {
+                            continue; // same rows, same order as the single-bot read: the newest `limit`
+                        }
+                        Note n = read(rs, extended);
+                        if (n.kind().passable()) {
+                            out.computeIfAbsent(owner, k -> new ArrayList<>()).add(n);
+                        }
                     }
                 }
+            } catch (SQLException e) {
+                log.debug("Could not read the notes of {} bots", chunk.size(), e);
             }
-        } catch (SQLException e) {
-            log.debug("Could not read the notes of bot {}", botId, e);
         }
-        return notes;
+        return out;
     }
 
     /**
