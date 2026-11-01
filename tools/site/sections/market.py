@@ -710,9 +710,10 @@ def build_board(mk):
 
 
 EXCHANGE = """<h1>Slums Exchange</h1>
+<details class="help"><summary>How it works</summary>
 <p class="lede">The stock market for NX and the items everyone wants. Post a buy or a sell at your own price; when a
 buyer's price meets a seller's, they trade straight away, and the game pays both sides. No set price: every price
-here is one someone actually paid.</p>
+here is one someone actually paid.</p></details>
 <noscript><p class="small">The exchange needs JavaScript turned on.</p></noscript>
 <p class="xc-alert" x-data x-show="$store.xc.closed" x-cloak>The Slums Exchange isn't open yet. It opens in a later
 update: the patch notes will say when.</p>
@@ -748,13 +749,15 @@ update: the patch notes will say when.</p>
 <template x-for="r in ranges" :key="r[0]"><button type="button" :class="range === r[0] && 'on'" @click="range = r[0]" x-text="r[0]"></button></template>
 </span></h2>
 <svg class="xc-chart" viewBox="0 0 640 280" preserveAspectRatio="none" role="img" :aria-label="'Price of ' + (cur && cur.name)" x-html="chart()"></svg>
+<details class="help"><summary>About the chart</summary>
 <p class="xc-note">Each candle is an hour that traded: <span class="up">green</span> closed higher than it opened,
 <span class="down">red</span> lower; the bars underneath are how much traded. The dashed yellow line is the official
 rate, the size-weighted average of player trades in the last 7 days (once there are at least 3). The dotted blue line
-is the fair value: what the game's own drops and sinks say it's worth. It's a guide; players set the price.</p></section>
+is the fair value: what the game's own drops and sinks say it's worth. It's a guide; players set the price.</p></details></section>
 <section class="xc-p" style="grid-area: depth" x-show="$store.xc.tk !== 'NX'"><h2>Market depth</h2>
 <svg class="xc-depth" viewBox="0 0 640 150" preserveAspectRatio="none" role="img" aria-label="Buy and sell depth" x-html="depth()"></svg>
-<p class="xc-note"><span class="up">Green</span>: wanted at that price or higher. <span class="down">Red</span>: for sale at that price or lower.</p></section>
+<details class="help"><summary>About this chart</summary>
+<p class="xc-note"><span class="up">Green</span>: wanted at that price or higher. <span class="down">Red</span>: for sale at that price or lower.</p></details></section>
 <section class="xc-p xc-bookp" style="grid-area: book" x-show="$store.xc.tk !== 'NX'"><h2>Order book</h2>
 <table class="xc-book"><thead><tr><th>Price</th><th x-text="qtyLabel"></th><th>Orders</th></tr></thead>
 <tbody><template x-for="l in asksDown" :key="'a' + l.price"><tr class="ask" @click="usePrice(l.price)" :style="bar(l, 'down')">
@@ -769,7 +772,7 @@ is the fair value: what the game's own drops and sinks say it's worth. It's a gu
 <tbody><template x-for="(t, i) in recent()" :key="i"><tr :class="t.dir"><td x-text="clock(t.t)"></td>
 <td x-text="fmt(t.price)"></td><td x-text="fmt(t.qty)"></td></tr></template></tbody></table>
 <p class="xc-note" x-show="cur && !trades.length">No trades yet.</p></section>
-<section class="xc-p xc-rules" style="grid-area: rules"><h2>Fees and limits</h2><ul>
+<section class="xc-p xc-rules" style="grid-area: rules"><details class="help"><summary>Fees and limits</summary><ul>
 <li><b>Fee:</b> <span x-text="feePct()"></span> of the mesos, paid by each side. A seller gets the mesos less the fee;
 a buyer pays the mesos plus the fee (set aside when the order is placed; what isn't used comes back).</li>
 <template x-for="t in list" :key="t.id"><li><b x-text="t.name + ':'"></b> <span x-text="sizeRule(t)"></span></li></template>
@@ -783,7 +786,7 @@ Prices are per NX. Until players have set an official rate, NX counts as 5,000 m
 price), so sells start at 2,500 and buys stop at 10,000 mesos per NX.</li>
 <li><b>Which character:</b> every order names one of your characters. Mesos and items come from (and go to) that
 character; NX is your account's. If you're logged in to the game, use the character you're playing (or log out first).</li>
-</ul></section>
+</ul></details></section>
 </div>
 <div class="xc-c" x-data="xmine">
 <p class="xc-alert" style="grid-area: form" x-show="state === 'signedOut' && $store.xc.tk !== 'NX'" x-cloak>Sign in
@@ -860,12 +863,13 @@ to sell yet: you can sell NX, not buy it.</p>
 </div>
 <p class="xc-deskrate" x-show="quote" x-cloak>Rate <b x-text="fmt(quote && quote.mid)"></b> mesos each.
 <span x-text="movedText()"></span> <span x-text="driftText()"></span></p>
+<details class="help"><summary>How the desk works</summary>
 <p class="xc-note">SlumsBank sets buy and sell prices around a rate that drifts slowly with what players and bots buy
 and sell (capped per day).</p>
 <p class="xc-note" x-text="gapText()"></p>
 <p class="xc-note" x-show="!quote || !quote.fee_bps">No fee: the gap between the buy and sell price is the cost.</p>
 <p class="xc-note" x-show="quote && quote.fee_bps">On top of the gap there is a fee of
-<span x-text="feeText()"></span>, paid by each side.</p>
+<span x-text="feeText()"></span>, paid by each side.</p></details>
 </section>
 <form class="xc-p xc-form xc-deskform" style="grid-area: nxform" x-cloak
 x-show="$store.xc.tk === 'NX' && quote && quote.open !== false"
@@ -905,8 +909,9 @@ x-text="previewLabel()"></button>
 <svg class="xc-chart xc-deskchart" viewBox="0 0 640 260" preserveAspectRatio="none" role="img"
 aria-label="The NX desk's rate each hour for the last 7 days, with the buy and sell prices around it"
 x-html="chart()"></svg>
+<details class="help"><summary>About the chart</summary>
 <p class="xc-note">The line is the desk's rate each hour; the faint band is what it paid and charged around it. The
-shaded part is the day's limit: from where the rate was a day ago it can move <span x-text="capText()"></span>.</p></section>
+shaded part is the day's limit: from where the rate was a day ago it can move <span x-text="capText()"></span>.</p></details></section>
 <section class="xc-p" style="grid-area: nxme" x-show="$store.xc.tk === 'NX' && signedIn" x-cloak><h2>My NX <small x-text="asOf()"></small></h2>
 <p class="xc-deskbal">Your NX <b x-text="fmt(me && me.nx)"></b></p>
 <p class="xc-note" x-show="me && me.stepUpFreeMesos">A buy of up to <b x-text="fmt(me && me.stepUpFreeMesos)"></b> mesos

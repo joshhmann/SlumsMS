@@ -68,7 +68,9 @@ INVITES = """<h1>Invite codes</h1><p class="id">Every code on the server: made h
 <script src="../assets/invites.js"></script><script defer src="../assets/vendor/alpine-3.14.1.min.js"></script>"""
 # every report and idea (report_service.py's staff reader); all text goes in with x-text, never as HTML
 REPORTS = """<h1>Reports</h1><p class="id">Bug reports and ideas from the website's Report page and from <code>@bug</code> /
-<code>@idea</code> in game. Read only. No IP hashes, e-mails or browser details are shown here.</p>
+<code>@idea</code> in game.</p>
+<details class="help"><summary>What isn't shown</summary><p class="id">Read only. No IP hashes, e-mails or browser
+details are shown here.</p></details>
 <div class="rp" x-data="xreports" data-root="../">
 <section class="panel"><h2 class="bar">Find <small x-show="state === 'ok'" x-text="found + ' of ' + total"></small></h2>
 <form class="in rp-find" @submit.prevent="load()">
@@ -108,8 +110,9 @@ REPORTS = """<h1>Reports</h1><p class="id">Bug reports and ideas from the websit
 <script src="../assets/reports.js"></script><script defer src="../assets/vendor/alpine-3.14.1.min.js"></script>"""
 # 1.6.2 ticket 157: the game's read-only bot inspect (login_service.py's staff proxy) and the kill calibration
 # (admin/data/calibration.json); all text goes in with x-text, never as HTML
-BOTS = """<h1>Bots</h1><p class="id">What the bots are doing right now, read from the game. Read only: nothing here changes
-the game. Real players are counted, never listed.</p>
+BOTS = """<h1>Bots</h1><p class="id">What the bots are doing right now, read from the game.</p>
+<details class="help"><summary>What this page shows</summary><p class="id">Read only: nothing here changes the game.
+Real players are counted, never listed.</p></details>
 <div class="bt" x-data="xbots" data-root="../">
 <section class="panel"><h2 class="bar">Find</h2>
 <form class="in rp-find" @submit.prevent="find()">
@@ -166,8 +169,10 @@ the game. Real players are counted, never listed.</p>
 
 <section class="panel"><h2 class="bar">Kill calibration <small x-show="cal" x-text="cal && ('report only · ' + num(cal.totals && cal.totals.killsSeen) + ' kills seen')"></small></h2>
 <div class="in"><p class="small" style="margin:0 0 10px">How fast grinding bots really kill on screen, beside what the offscreen
-model pays for the same bot and map. Near 1 is right; well above 1 the offscreen grind pays too little (EXP, mesos, drops and
-Most hunted all follow kills), well below it pays too much. Nothing tunes itself from this.</p>
+model pays for the same bot and map.</p>
+<details class="help"><summary>How to read it</summary><p class="small">Near 1 is right; well above 1 the offscreen grind
+pays too little (EXP, mesos, drops and Most hunted all follow kills), well below it pays too much. Nothing tunes itself
+from this.</p></details>
 <p class="empty" x-show="calState === 'none'" style="margin:0">No calibration yet: the server writes it only while kill calibration is on (TEST).</p>
 <p class="empty" x-show="calState === 'error'" style="margin:0">The calibration file didn't load.</p></div>
 <div class="tbl" x-show="cal && cal.buckets.length"><table class="t"><thead><tr><th>Job</th><th>Levels</th><th>Kills</th><th>Minutes</th><th>Real / min</th><th>Model / min</th><th>Ratio</th></tr></thead>
