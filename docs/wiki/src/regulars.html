@@ -34,6 +34,12 @@ Nobody under level 10 parties, and merchants and hosts are too busy.</td></tr>
 follows you. A trainer already in your party comes along. Tell a follower "train here" to make them stay and train.</td></tr>
 <tr><td><code>&lt;name&gt; how much for &lt;item&gt;</code></td><td>They name a price and put the item in a trade
 window. Haggle in chat or in the window; friends pay less, rivals won't trade.</td></tr>
+<tr><td>"got any pots?" / "any scrolls?"</td><td>A regular who counts you a friend and stands next to you hands
+over a small gift from its own bag: up to 20 potions or 200 arrows and bolts, worth at most 100,000 mesos, and it
+always keeps its own supply. Two gifts a day from each regular, three a day from all of them together, one per
+regular per week.</td></tr>
+<tr><td>'be my junior'</td><td>Ask a regular to join your family; the offer stands 30 minutes. See
+<a href="goals.html">Goals and family</a>.</td></tr>
 <tr><td>anything else</td><td>Just chat. They know where they are, what they're doing, and they remember you.</td></tr>
 </table></div>
 
@@ -92,12 +98,55 @@ member (up to 5 companions). <code>@dismiss &lt;name&gt;</code> or <code>@dismis
 <p>One window for bot drama, romance, their megaphones and their chatter, each with its state: click a line to
 switch it.</p>
 
+<h2>Your own characters</h2>
+<p>1.6.2 lets you call your other characters to play with you: they join your party, follow you, fight and loot.</p>
+<ul>
+<li><code>@botme &lt;name&gt;</code> calls one; you can also invite it by typing its name in the party window, which
+works while it is offline (the buddy list can't, because an offline character shows offline there).</li>
+<li><b>Five companions at once</b>, regulars and your own characters together. Changing channel sends your own ones
+home. <code>@dismiss &lt;name&gt;</code>, or <code>@dismiss all</code>, sends them home and saves them.</li>
+</ul>
+<p>Give them orders with <code>@alts &lt;order&gt;</code>, or just say the order in party chat with their name or slot
+number in front:</p>
+<div class="scroll"><table>
+<tr><th>Order</th><th>What happens</th></tr>
+<tr><td><code>follow</code>, <code>stay</code>, <code>move here</code></td><td>Where it goes: with you, where it
+stands, or to the spot you're standing on.</td></tr>
+<tr><td><code>sentry</code>, <code>patrol</code></td><td>Guards a spot, or walks a route around it.</td></tr>
+<tr><td><code>formation split</code> / <code>spread</code> / <code>stack</code> / <code>left</code> / <code>right</code>
+/ <code>random</code></td><td>How several of them spread out around you. <code>tight</code>, <code>loose</code> or a
+distance in pixels sets how far; <code>snap</code> puts them back in line.</td></tr>
+<tr><td><code>trade pots</code>, <code>trade scrolls</code>, <code>trade use</code>, <code>trade equips</code>,
+<code>trade ammo</code>, <code>trade 100k</code></td><td>It opens a trade and hands over those: its potions, scrolls,
+use items, spare gear, arrows or 100,000 mesos.</td></tr>
+<tr><td><code>show me your hat</code>, <code>drop &lt;what&gt;</code></td><td>Shows you a worn item, or drops a kind of
+thing on the ground.</td></tr>
+<tr><td><code>any upgrades?</code></td><td>It checks its spare gear against what you and its siblings wear and tells
+you what would help, best first.</td></tr>
+<tr><td><code>trade upgrades</code></td><td>It trades you that spare gear.</td></tr>
+<tr><td><code>request?</code></td><td>The other way round: it asks you for a spare piece that would help it.</td></tr>
+<tr><td><code>need pots</code> / <code>need ammo</code> / <code>need rocks</code></td><td>It says what it is short
+of.</td></tr>
+</table></div>
+<p>Items always change hands in a normal trade window or on the ground, never out of nowhere.</p>
+
+<h2>When you are rude</h2>
+<ul>
+<li>One rude line gets a brush-off, nothing more. Keep it up, or say something cruel about someone, and the regular
+you said it to cools on you, and remembers it.</li>
+<li>Say it in front of <b>three or more</b> regulars and they all hear it: everyone on the map goes colder for a
+while.</li>
+<li>A real apology to the regular you were rude to clears it. Death wishes and slurs are not laughed off at all.</li>
+</ul>
+
 <h2>Good to know</h2>
 <ul>
 <li>Be decent and they'll be friendly. Try to scam, beg or mess with them and they'll be cold, may refuse to
 party, and may tell their friends.</li>
 <li>Gifts come only from friends. Otherwise trade, and haggle: see <a href="shops.html">Gachapon, shops and
 trading</a>.</li>
+<li>They use the <a href="money.html">Slums Exchange</a> too: their orders sit a few percent either side of the
+official rate, and about a third of them buy and sell the leaves, elixirs and scrolls they find.</li>
 <li>Too much chatter? See <a href="commands.html#quiet"><code>@quiet</code></a>. <code>@quiet bots</code> also
 stops whispers, invites and buddy requests you didn't ask for.</li>
 </ul>
@@ -110,5 +159,5 @@ chat-attention build (talk by name, 50 s follow-ups, double-click menu): it is i
 <code>SettingsMenu</code>, <code>GuildWarCommand</code>, <code>scripts/npc/2010007.js</code> (Heracle). Older sections: <code>BotChatRouting</code> (50 s attention, 700 px range), <code>Dispatcher.talkNaturally</code>,
 <code>BotChatActions</code> (party/follow/trade/where-train rules), <code>BotRecruitManager</code> (level 10),
 <code>CharInfoRequestHandler</code> (double-click, default "after"), <code>WhisperHandler</code>,
-<code>EnvironmentManager</code> (who is where), <code>docs/tickets/37-natural-conversations.md</code>,
+<code>EnvironmentManager</code> (who is where), <code>docs/tickets/37-natural-conversations.md</code>, <code>BotGiftAsks.java</code>, <code>PartyBotOrders.java</code>, <code>CompanionItems.java</code>, <code>OwnedAltInvite.java</code>, <code>RudeStreak.java</code>,
 <code>docs/release/1.3.0.md</code>.</p>
