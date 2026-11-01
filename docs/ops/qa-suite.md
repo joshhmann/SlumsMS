@@ -1022,7 +1022,10 @@ chat 24h: 129 lines; relevance 100% (60 judged); stiff 0%; repeats 0%; unanswere
 m02 (the reply planner) makes a decision before the model words anything: a `Move` (`hello`, `hello_back`,
 `small_talk`, `activity`, `train_spot`, `level_talk`, `busy`, `party_yes`, `party_no`) plus the facts it may use.
 Three of the planner's promises are judged from the same transcripts `t-cq-1` reads, over the last 24 h, with no
-in-game steps (the check `holds` the world and takes 2 minutes):
+in-game steps (the check `holds` the world and takes 2 minutes). Only rows written since this server process started
+are judged (`ChatQuality.bootMs()`, still capped at 24 h): a deploy replaces the planner, so a line the previous build
+worded says nothing about the one that is running, and judging it failed `t-pl-1` for a day after each deploy (TEST,
+2026-11-01). How many older rows were skipped goes into the evidence.
 
 | Rule | The row it reads | t-pl-1 FAILs when |
 |---|---|---|
@@ -1031,8 +1034,9 @@ in-game steps (the check `holds` the world and takes 2 minutes):
 | One bot chat an hour | `player`, `open`, `at` | One player heard from more than one bot that started the chat (`open`) inside any 60 minutes; the gap is `SocialGate.botChatGapMs()` (`-Dsolomapling.chat.botStartedPlayerGapMs`, 1 h) |
 
 Threads (a bot talking to the map, `player` `-`) are not replies to a player and are left out. The check SKIPs with
-the switch name when `solomapling.convo.planner` is off, and when no bot replied to a player in the window; a
-pre-m02 row carries no `move` or `open`, so the second and third rules only see what the planner itself wrote.
+the switch name when `solomapling.convo.planner` is off, and with "no bot reply to a player since this server started"
+when nothing arrived after the boot (never a PASS); a pre-m02 row carries no `move` or `open`, so the second and third
+rules only see what the planner itself wrote.
 
 #### Say-do: a bot does what it says (`BotConvo.ClaimRules`, `SayDo`, `ClaimActions`)
 
