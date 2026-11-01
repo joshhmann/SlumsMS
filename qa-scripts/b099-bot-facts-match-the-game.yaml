@@ -8,7 +8,7 @@ covers: [b099]
 status: draft
 server: test
 needs: [gm]
-notes: "cv-13 needs -Dsolomapling.convo.planner=true on the server (off by default; the scenario refuses without it and the run then times out on the warp wait - that is a lead on the staging, not on this card), warps the GM to Henesys (100000000, a town) and stages one friend bot next to him. Every reply logs PLAN <bot> -> <player> <move> on CONVO before the words: 'where should i train' plans train_spot and the line must name a spot from the bot's own list for the player's level. The second line challenges it: the bot must not simply repeat the same spot as if nothing was said."
+notes: "1.6.3: the PLAN/ROUTE lines are not on the QA feed for the GM (b276, 1.6.4), so their waits and checks are left out; judge on SAID + frames (Coordinator, 19:02 UTC 2026-11-01). cv-13 needs -Dsolomapling.convo.planner=true on the server (off by default; the scenario refuses without it and the run then times out on the warp wait - that is a lead on the staging, not on this card), warps the GM to Henesys (100000000, a town) and stages one friend bot next to him. Every reply logs PLAN <bot> -> <player> <move> on CONVO before the words: 'where should i train' plans train_spot and the line must name a spot from the bot's own list for the player's level. The second line challenges it: the bot must not simply repeat the same spot as if nothing was said."
 clients:
   me:
     account: {vault: aq-gm-1}
@@ -35,7 +35,6 @@ steps:
   - {id: in-town, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 100000000 ", char: me}, timeout_ms: 60000}
   - {id: staged, do: sleep, ms: 3000, reason: "the friend bot is spawned beside the GM by the scenario"}
   - {id: ask, do: chat, text: "where should i train"}
-  - {id: planned, do: wait, armed_at: ask, signal: {type: server_line, topic: CONVO, regex: "^PLAN \\S+ -> \\S+ train_spot", char: me}, timeout_ms: 90000}
   - {id: answered, do: wait, armed_at: ask, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
   # the correction: a bot that invents a spot has to change its story, not repeat it
   - {id: correct, do: chat, text: "that place has no mobs my level"}
@@ -52,7 +51,6 @@ expect:
     - see: "The answer to 'that place has no mobs my level': a new line that takes the correction (another spot, a question, an admission), not the same spot repeated"
       in: [correction]
   checks:
-    - {check: server_line, topic: CONVO, regex: "^PLAN \\S+ -> \\S+ train_spot", char: me, min: 1}
     - {check: server_line, topic: CONVO, regex: "^SAID ", char: me, min: 2}
     - {check: client_alive}
   judgment: "Whether the named place exists and whether the second answer is the same story are judgements on the chat text: the frames plus the two PLAN/SAID lines settle it."

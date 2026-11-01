@@ -8,7 +8,7 @@ covers: [b100]
 status: draft
 server: test
 needs: [gm]
-notes: "cv-8 stages one neutral bot next to the GM and makes it ask the map a question (the exact prompt is on the GM's yellow chat); ROUTE logs which bot took the nameless answer and which of its lines it answers, PROMPT the whole prompt, SAID the reply. The answer must come within 60 s and must be a follow-up. The two chats are deliberately plain so nothing else on the map can be mistaken for them; every check filters on char: me, so another lane's bots in Henesys cannot satisfy them."
+notes: "1.6.3: the PLAN/ROUTE lines are not on the QA feed for the GM (b276, 1.6.4), so their waits and checks are left out; judge on SAID + frames (Coordinator, 19:02 UTC 2026-11-01). cv-8 stages one neutral bot next to the GM and makes it ask the map a question (the exact prompt is on the GM's yellow chat); ROUTE logs which bot took the nameless answer and which of its lines it answers, PROMPT the whole prompt, SAID the reply. The answer must come within 60 s and must be a follow-up. The two chats are deliberately plain so nothing else on the map can be mistaken for them; every check filters on char: me, so another lane's bots in Henesys cannot satisfy them."
 clients:
   me:
     account: {vault: aq-gm-1}
@@ -37,7 +37,6 @@ steps:
   - {id: asked, do: sleep, ms: 4000, reason: "the staged bot asks the map its question after the stage"}
   # no name: that is the whole point of cv-8, the attention routing picks the bot
   - {id: answer, do: chat, text: "im from the east, just came here"}
-  - {id: routed, do: wait, armed_at: answer, signal: {type: server_line, topic: CONVO, regex: "^ROUTE \"im from the east, just came here\"", char: me}, timeout_ms: 90000}
   - {id: replied, do: wait, armed_at: answer, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
   - {id: cleanup, do: gm, line: "!qa stop"}
 captures:
@@ -51,7 +50,6 @@ expect:
     - see: "The bot's reply: a follow-up on its own question that treats you as new - no 'long time no see', no invented shared history, no made-up claim about your level, guild or gear"
       in: [their-reply]
   checks:
-    - {check: server_line, topic: CONVO, regex: "^ROUTE \"im from the east, just came here\"", char: me, min: 1}
     - {check: server_line, topic: CONVO, regex: "^SAID ", char: me, min: 1}
     - {check: client_alive}
   judgment: "Whether the reply invents a past is a judgement on the text: the frames show it and the ROUTE line names the bot that took the line and the question it answers."

@@ -7,7 +7,7 @@ covers: [b101]
 status: draft
 server: test
 needs: [gm]
-notes: "cv-13 needs -Dsolomapling.convo.planner=true on the server (off by default; without it the run times out on the warp wait - a staging lead, not this card), warps the GM to Henesys and stages one friend bot. Each reply logs PLAN <bot> -> <player> level_talk before the words, so two asks give two PLAN level_talk lines; both answers must name the same level, and neither may beg for mesos or push a trade. The frames are the readable half: the level and the activity it names."
+notes: "1.6.3: the PLAN/ROUTE lines are not on the QA feed for the GM (b276, 1.6.4), so their waits and checks are left out; judge on SAID + frames (Coordinator, 19:02 UTC 2026-11-01). cv-13 needs -Dsolomapling.convo.planner=true on the server (off by default; without it the run times out on the warp wait - a staging lead, not this card), warps the GM to Henesys and stages one friend bot. Each reply logs PLAN <bot> -> <player> level_talk before the words, so two asks give two PLAN level_talk lines; both answers must name the same level, and neither may beg for mesos or push a trade. The frames are the readable half: the level and the activity it names."
 clients:
   me:
     account: {vault: aq-gm-1}
@@ -33,11 +33,9 @@ steps:
   - {id: in-town, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 100000000 ", char: me}, timeout_ms: 60000}
   - {id: staged, do: sleep, ms: 3000, reason: "the friend bot is spawned beside the GM by the scenario"}
   - {id: ask-level, do: chat, text: "what lvl r u"}
-  - {id: level-plan, do: wait, armed_at: ask-level, signal: {type: server_line, topic: CONVO, regex: "^PLAN \\S+ -> \\S+ level_talk", char: me}, timeout_ms: 90000}
   - {id: level-said, do: wait, armed_at: ask-level, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
   - {id: pause, do: sleep, ms: 4000, reason: "read the first answer before asking again"}
   - {id: ask-again, do: chat, text: "what lvl r u"}
-  - {id: level-plan-2, do: wait, armed_at: ask-again, signal: {type: server_line, topic: CONVO, regex: "^PLAN \\S+ -> \\S+ level_talk", char: me}, timeout_ms: 90000}
   - {id: level-said-2, do: wait, armed_at: ask-again, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
   # and the activity it claims must fit the town it is standing in (b240's neighbour, judged from the same frames)
   - {id: ask-doing, do: chat, text: "what r u doing"}
@@ -55,7 +53,6 @@ expect:
     - see: "The answer to 'what r u doing' naming something it can be doing in Henesys (hanging out, looking for someone, town talk) and not a hunting ground it is not on"
       in: [doing-answer]
   checks:
-    - {check: server_line, topic: CONVO, regex: "^PLAN \\S+ -> \\S+ level_talk", char: me, min: 2}
     - {check: server_line, topic: CONVO, regex: "^SAID ", char: me, min: 3}
     - {check: client_alive}
   judgment: "The same level in both answers and an activity the map allows: the frames settle both. Two PLAN level_talk lines prove the planner picked that move both times, not that the words agreed."
