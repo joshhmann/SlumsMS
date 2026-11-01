@@ -1,8 +1,14 @@
-# 175: economy rework, lessons from Tarkov's flea market
+# Ticket 175: economy rework, lessons from Tarkov's flea market (1.6.3 book item e01, after 1.6.3)
 
 Owner, 2026-11-01 (Website session): "can we also add a ticket for economy rework? based on learning from tarkovs
 flea market". Target: after 1.6.3 (1.6.3 is catch-up and stability). Economy changes need the owner's say-so at
 each step: this ticket collects the ideas and the questions. It decides nothing.
+
+## Owner's direction (2026-11-01, ~07:35 UTC)
+"we dont need to adopt all of those but just trying to figure out the economy. guess just needs time to bake. and
+allowing more playerbots to participate". So: no adoption list now. Let 1.6.2's market run and collect the numbers,
+and look first at getting more regulars to take part (more trader bots, on the board as well as the exchange, and on
+NX once the 1.6.3 desk is in). The Tarkov ideas below are a reference to come back to, not a plan.
 
 ## Today in SlumsMS (what any rework starts from)
 - **Buy/Sell board** (website): players post buy or sell offers, 5 open posts each; regulars keep shops in the FM.
