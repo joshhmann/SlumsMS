@@ -188,9 +188,9 @@ class ClientEndpointTest(unittest.TestCase):
         return mock.patch.dict(os.environ, environ, clear=True)
 
     def test_the_client_config_points_at_the_test_box(self):
-        # o03: the played TEST stays on 164 until the 1.6.3 TEST cutover (testhost.DEFAULT_HOST flips then)
+        # o03: TEST is mapletest (192.168.0.111) since the 2026-11-01 cutover
         with self.setting(None):
-            self.driver.verify_config(self.config('host=192.168.0.164\nport=8489\n'))
+            self.driver.verify_config(self.config('host=192.168.0.111\nport=8489\n'))
         with self.setting('192.168.0.111'):
             self.driver.verify_config(self.config('host=192.168.0.111\nport=8489\n'))
         # the two boxes are the whole allowlist: TEST's own box is accepted beside the old one
@@ -199,12 +199,12 @@ class ClientEndpointTest(unittest.TestCase):
 
     def test_another_box_and_live_are_refused(self):
         with self.setting(None):
-            for text in ('host=192.168.0.111\nport=8489\n',                                  # not the TEST in use yet
+            for text in ('host=192.168.0.164\nport=8489\n',                                  # the old box, not the default
                          'host=slumsms.asslorde.com\nport=8489\n',                          # the live site
                          'host=10.0.0.9\nport=8489\n',                                      # any other address
                          'host=\nport=8489\n',                                              # no host at all
-                         'host=192.168.0.164\nport=8485\n',                                 # live's login port
-                         'host=192.168.0.164\nport=8489\nhost=10.0.0.9\nport=8489\n'):     # two endpoints
+                         'host=192.168.0.111\nport=8485\n',                                 # live's login port
+                         'host=192.168.0.111\nport=8489\nhost=10.0.0.9\nport=8489\n'):     # two endpoints
                 with self.assertRaises(self.driver.Refusal, msg=text):
                     self.driver.verify_config(self.config(text))
 
@@ -227,7 +227,7 @@ class ClientEndpointTest(unittest.TestCase):
         self.assertEqual(('192.168.0.164', '192.168.0.111'), self.testhost.TEST_HOSTS)
         self.assertEqual('8489', self.testhost.PORT)
         with self.setting(None):
-            self.assertEqual('192.168.0.164', self.driver.test_host())
+            self.assertEqual('192.168.0.111', self.driver.test_host())
             for name in self.testhost.TEST_HOSTS:
                 self.assertEqual(name, self.testhost.host(name))
             with self.assertRaises(self.testhost.Refused) as caught:

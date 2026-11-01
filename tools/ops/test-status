@@ -1,6 +1,6 @@
 #!/bin/bash
 # One-screen status of the TEST server: version, uptime, errors, bots, auto-QA and health. Read-only.
-# TEST is mapletest (root@$SLUMS_TEST_HOST, default 164 until the 1.6.3 TEST cutover, then 192.168.0.111); live on 164 is not read here.
+# TEST is mapletest (root@$SLUMS_TEST_HOST, default 192.168.0.111 = mapletest since the 1.6.3 cutover); live on 164 is not read here.
 #
 #   tools/ops/test-status [--feature] [--since "30 min ago"] [--checks]
 #

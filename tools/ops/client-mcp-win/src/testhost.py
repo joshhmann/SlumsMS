@@ -21,7 +21,7 @@ import sys
 ENV = "SLUMS_TEST_HOST"
 # The two boxes the QA tools may talk to. Nothing else: no live name, no other IP, no empty value.
 TEST_HOSTS = ("192.168.0.164", "192.168.0.111")
-DEFAULT_HOST = "192.168.0.164"  # until the 1.6.3 TEST cutover (o03 step 3); flip to 192.168.0.111 then
+DEFAULT_HOST = "192.168.0.111"  # mapletest since the 1.6.3 TEST cutover (o03, 2026-11-01 09:35 UTC)
 DEFAULT_KEY_HOST = "192.168.0.164"  # the one box that keeps ssh's default key (it is live's box too)
 TEST_KEY = "~/.ssh/id_slums_lxc"
 PORT = "8489"  # TEST's login port; 8485 on 164 is live's
