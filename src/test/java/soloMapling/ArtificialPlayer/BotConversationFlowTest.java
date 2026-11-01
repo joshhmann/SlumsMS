@@ -5,6 +5,7 @@ import client.Character;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrain;
 import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrains;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide;
@@ -30,6 +31,9 @@ import static org.mockito.Mockito.when;
 
 /** Ticket 36/37's fast/slow path through {@link BotConversation}, with a fake brain, no Decide and a fake memory table. */
 class BotConversationFlowTest {
+
+    @TempDir
+    java.nio.file.Path tmp;
 
     private final List<List<BotBrain.Turn>> asked = new CopyOnWriteArrayList<>();
     private final List<String> said = new CopyOnWriteArrayList<>();
@@ -171,6 +175,80 @@ class BotConversationFlowTest {
         } finally {
             brainReply = was;
             System.clearProperty("solomapling.convo.planner");
+        }
+    }
+
+    /**
+     * m02: the transcript row says which move worded the answer, so t-pl-1 (auto-QA) judges what the planner decided
+     * instead of guessing from the words. The move rides on the cue the delivery went through, and a chat the player
+     * started carries no {@code open}.
+     */
+    @Test
+    void aPlannedAnswerPutsItsMoveInTheTranscript() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        System.setProperty("solomapling.convo.quality", "true");
+        System.setProperty("solomapling.convo.transcriptDir", tmp.resolve("logs").toString());
+        System.setProperty("solomapling.convo.dataDir", tmp.resolve("data").toString());
+        Optional<String> was = brainReply;
+        brainReply = Optional.empty(); // the plan answers, so the delivered line is the planned one
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Planb");
+            when(bot.getChr()).thenReturn(chr);
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            assertTrue(BotConversation.say(bot, player, "hey", null, said::add));
+            waitFor(() -> !said.isEmpty());
+            java.nio.file.Path transcript =
+                    soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.transcriptFile(java.time.LocalDate.now());
+            java.util.List<String> mine = List.of(); // another test's delivery in flight must not be read as ours
+            for (int i = 0; i < 200 && mine.isEmpty(); i++) { // the row is written off the chat thread
+                mine = java.nio.file.Files.exists(transcript) ? java.nio.file.Files.readAllLines(transcript).stream()
+                        .filter(r -> r.contains("\"bot\":\"Planb\"")).toList() : List.of();
+                Thread.sleep(10);
+            }
+            assertEquals(1, mine.size(), mine.toString());
+            assertTrue(mine.get(0).contains("\"move\":\"hello\""), mine.get(0));
+            assertFalse(mine.get(0).contains("\"open\""), "the player spoke first, so this reply is not an opening: "
+                    + mine.get(0));
+        } finally {
+            brainReply = was;
+            System.clearProperty("solomapling.convo.planner");
+            System.clearProperty("solomapling.convo.transcriptDir");
+            System.clearProperty("solomapling.convo.dataDir");
+        }
+    }
+
+    /**
+     * m02: the greet path plans its own hello and says so in the QA log with "(it started the chat)", which is how
+     * t-pl-1 knows a row is a bot-started chat rather than an answer. Synchronous: the log is written before the
+     * model is asked, so the test does not depend on the delivery.
+     */
+    @Test
+    void aBotStartedChatIsPlannedAsOne() {
+        System.setProperty("solomapling.convo.planner", "true");
+        java.util.List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+        soloMapling.qa.QaLog.SinkHandle h = soloMapling.qa.QaLog.sink((topic, mapId, chars, message) -> {
+            if (message.startsWith("PLAN ")) {
+                lines.add(message);
+            }
+        });
+        h.topics(List.of(soloMapling.qa.QaLog.Topic.CONVO));
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            when(bot.activitySnapshot()).thenReturn(BotRoster.Activity.of("social", 0, null));
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            assertTrue(BotConversation.greet(bot, player), "a free social bot says hi on sight");
+            assertEquals(1, lines.size(), lines.toString());
+            assertTrue(lines.get(0).contains(" hello "), lines.get(0));
+            assertTrue(lines.get(0).endsWith("(it started the chat)"), lines.get(0));
+        } finally {
+            h.close();
+            System.clearProperty("solomapling.convo.planner");
+            SocialGate.forgetBotChatsForTest();
         }
     }
 
