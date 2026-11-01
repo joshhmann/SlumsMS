@@ -23,6 +23,22 @@ code {
   max-width: 1160px; margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
+/* b263: explanation text folds behind a click. A native details/summary, so it works with no script, from the
+   keyboard and with a screen reader; the ring comes from the site-wide :focus-visible rule above. */
+.help { margin: 0 0 10px; }
+.help > summary {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer; padding: 4px 11px;
+  border: 1.5px solid var(--hair); border-radius: 999px; background: var(--surface); color: var(--muted);
+  font: 700 .76rem var(--f-body); letter-spacing: .01em; list-style: none;
+}
+.help > summary::-webkit-details-marker { display: none; }
+.help > summary::marker { content: ""; }
+.help > summary::after { content: "+"; font: 800 1rem/1 var(--f-mono); }
+.help > summary:hover { color: var(--ink); border-color: var(--edge); }
+.help[open] > summary { color: var(--ink); border-color: var(--edge); }
+.help[open] > summary::after { content: "\2212"; }
+.help > :not(summary) { margin-top: 8px; }
+.help > p.lede, .help > p.id { padding-bottom: 2px; }
 .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
 img.px { image-rendering: pixelated; }
 
@@ -806,6 +822,19 @@ table.t { width: 100%; border-collapse: collapse; }
 .xc-preview dd { margin: 0; font: 600 .9rem var(--f-mono); }
 .xc-rules ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: .86rem; color: var(--xc-muted); }
 .xc-rules b { color: var(--xc-ink); }
+/* b263: the terminal's own skin for the folded help. Small pill summaries in the panel's line colour; inside the rules
+   panel the summary is the panel's heading, so the panel reads like the others until you open it. */
+.xc-term .help { margin: 0 0 8px; }
+.xc-term .help > summary { background: transparent; border-color: var(--xc-line); color: var(--xc-muted);
+  font: 700 .68rem var(--f-mono); letter-spacing: .12em; text-transform: uppercase; padding: 3px 9px; }
+.xc-term .help > summary:hover, .xc-term .help[open] > summary { color: var(--xc-ink); border-color: var(--xc-muted); }
+.xc-term .help > :not(summary) { margin-top: 10px; }
+.xc-p.xc-rules > .help { margin: 0; }
+.xc-rules > .help > summary { display: block; border: 0; border-radius: 0; padding: 0; background: none;
+  color: var(--xc-muted); letter-spacing: .12em; }
+.xc-rules > .help > summary::after { content: " +"; }
+.xc-rules > .help[open] > summary { color: var(--xc-ink); margin-bottom: 10px; }
+.xc-rules > .help[open] > summary::after { content: " \2212"; }
 /* The NX desk (1.6.3, ticket 162: exchange.html with the desk on, exchange.js xdesk). The NX tab keeps its place in
    the strip; exchange.js puts .xc-nx on the term while that tab is picked, and its four panels take their own grid
    areas. The item tabs keep the plain .xc-term grid and their book, candles, depth and order form. */
