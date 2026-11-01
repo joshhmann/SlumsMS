@@ -8,6 +8,14 @@
 
 Current status is in `/root/work/STATUS-1.6.2.md` and the release book; the older tables below are historical.
 
+## Bot platform review (owner direction, 2026-11-01)
+
+Read-only architecture review of BotStory, nutnnut/Cosmic, SoloMapling and cosmic_agents. Documented, not changed.
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [176](176-bot-platform-comparison.md) | Adopt from four upstream bot platforms, in the owner's order | Correctness debt, then cost shape, then capability coverage, then realism; records the reviewed shas and the gate each item must pass first |
+
 ## b269 pool forensics follow-ups (2026-11-01)
 
 From `agent-runs/server/269-dbpool-forensics/AUDIT.md` and the fix branch `269-dbpoolfix`. Documented, not changed.
