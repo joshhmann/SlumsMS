@@ -192,9 +192,12 @@
           .then(function (j) { if (j && j.ok && j.ticker === store().tk) { self.candles = j.candles || []; self.candlesFor = j.ticker; } })
           .catch(function () { /* keep what we had */ });
       },
-      get list() {  // the desk's tab is its own panel (xdesk), so NX has no book to show here
-        var ts = (this.data && this.data.tickers) || [];
-        return DESK ? ts.filter(function (t) { return t.id !== "NX"; }) : ts;
+      get list() {  // with the desk on, the NX tab is SlumsBank's quote panel (xdesk) and has no book: NX comes first
+        var ts = ((this.data && this.data.tickers) || []).filter(function (t) { return !DESK || t.id !== "NX"; });
+        if (!DESK) return ts;
+        var q = store().desk;  // xdesk puts the quote here, so the tab can show the desk's rate and today's move
+        return [{ id: "NX", name: "NX desk", unit: "nx", unit_label: "mesos per NX", qty_label: "NX", per: 1,
+                  last: q ? q.mid : null, change_24h_pct: q ? q.moved_today_pct : null }].concat(ts);
       },
       get halted() { return !!(this.data && this.data.halted); },
       get cur() {
@@ -519,7 +522,11 @@
         return fetch(API + "nx/quote", { credentials: "same-origin", cache: "no-store" })
           .then(function (r) { return r.json().catch(function () { return { ok: false, error: "The server said no (" + r.status + ")." }; }); })
           .then(function (j) {
-            if (j && j.ok) { self.quote = j; self.qstate = "ok"; self.stale = false; self.err = ""; self.stamp = "as of " + clock(j.generated_at); return; }
+            if (j && j.ok) {
+              self.quote = j; window.Alpine.store("xc").desk = j;  // the NX tab's own line in the tab strip
+              self.qstate = "ok"; self.stale = false; self.err = ""; self.stamp = "as of " + clock(j.generated_at);
+              return;
+            }
             self.quote = null;
             if (j && j.code === "PRICES_STALE") { self.qstate = "stale"; self.stale = true; self.stamp = ""; return; }
             self.qstate = "error";
@@ -764,7 +771,7 @@
   }
 
   document.addEventListener("alpine:init", function () {
-    window.Alpine.store("xc", { tk: "NX", meta: null, limits: null, closed: false });
+    window.Alpine.store("xc", { tk: "NX", meta: null, limits: null, closed: false, desk: null });
     window.Alpine.data("xbook", xbook);
     window.Alpine.data("xmine", xmine);
     window.Alpine.data("xdesk", xdesk);

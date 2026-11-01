@@ -716,7 +716,7 @@ here is one someone actually paid.</p>
 <noscript><p class="small">The exchange needs JavaScript turned on.</p></noscript>
 <p class="xc-alert" x-data x-show="$store.xc.closed" x-cloak>The Slums Exchange isn't open yet. It opens in a later
 update: the patch notes will say when.</p>
-<div class="xc-term" x-data x-show="!$store.xc.closed">
+<div class="xc-term" x-data x-show="!$store.xc.closed"{desk}>
 <div class="xc-c" x-data="xbook">
 <div class="xc-alerts" style="grid-area: alert"><p class="xc-alert" x-show="state === 'error'" x-text="error" x-cloak></p>
 <p class="xc-alert" x-show="halted" x-cloak>Trading paused by a GM: no new orders or trades for now. You can still cancel.</p>
@@ -727,7 +727,7 @@ update: the patch notes will say when.</p>
 <button type="button" class="xc-tk" :class="cur && cur.id === t.id && 'on'" @click="pick(t.id)" :aria-pressed="cur && cur.id === t.id">
 <img :src="icon(t)" alt="" width="22" height="22" loading="lazy"><b x-text="t.id"></b>
 <span x-text="short(t.last)"></span><small :class="dirOf(t.change_24h_pct)" x-text="pct(t.change_24h_pct)"></small></button></template></nav>
-<header class="xc-tick" style="grid-area: tick" x-show="cur" x-cloak>
+<header class="xc-tick" style="grid-area: tick" x-show="cur && cur.id !== 'NX'" x-cloak>
 <div class="xc-sym"><img :src="icon(cur)" alt="" width="36" height="36"><div><b x-text="cur && cur.id"></b>
 <span x-text="cur && cur.name"></span></div></div>
 <div class="xc-last"><b x-text="fmt(cur && cur.last)">-</b><span :class="dir" x-text="pct(cur && cur.change_24h_pct)"></span>
@@ -744,7 +744,7 @@ update: the patch notes will say when.</p>
 <small class="xc-upd" x-show="data" x-text="'updated ' + ago"></small>
 </header>
 <!-- nx-desk -->
-<section class="xc-p" style="grid-area: chart"><h2>Price, hourly candles <span class="xc-tabs">
+<section class="xc-p" style="grid-area: chart" x-show="$store.xc.tk !== 'NX'"><h2>Price, hourly candles <span class="xc-tabs">
 <template x-for="r in ranges" :key="r[0]"><button type="button" :class="range === r[0] && 'on'" @click="range = r[0]" x-text="r[0]"></button></template>
 </span></h2>
 <svg class="xc-chart" viewBox="0 0 640 280" preserveAspectRatio="none" role="img" :aria-label="'Price of ' + (cur && cur.name)" x-html="chart()"></svg>
@@ -752,10 +752,10 @@ update: the patch notes will say when.</p>
 <span class="down">red</span> lower; the bars underneath are how much traded. The dashed yellow line is the official
 rate, the size-weighted average of player trades in the last 7 days (once there are at least 3). The dotted blue line
 is the fair value: what the game's own drops and sinks say it's worth. It's a guide; players set the price.</p></section>
-<section class="xc-p" style="grid-area: depth"><h2>Market depth</h2>
+<section class="xc-p" style="grid-area: depth" x-show="$store.xc.tk !== 'NX'"><h2>Market depth</h2>
 <svg class="xc-depth" viewBox="0 0 640 150" preserveAspectRatio="none" role="img" aria-label="Buy and sell depth" x-html="depth()"></svg>
 <p class="xc-note"><span class="up">Green</span>: wanted at that price or higher. <span class="down">Red</span>: for sale at that price or lower.</p></section>
-<section class="xc-p xc-bookp" style="grid-area: book"><h2>Order book</h2>
+<section class="xc-p xc-bookp" style="grid-area: book" x-show="$store.xc.tk !== 'NX'"><h2>Order book</h2>
 <table class="xc-book"><thead><tr><th>Price</th><th x-text="qtyLabel"></th><th>Orders</th></tr></thead>
 <tbody><template x-for="l in asksDown" :key="'a' + l.price"><tr class="ask" @click="usePrice(l.price)" :style="bar(l, 'down')">
 <td x-text="fmt(l.price)"></td><td x-text="fmt(l.qty)"></td><td x-text="l.orders"></td></tr></template>
@@ -764,7 +764,7 @@ is the fair value: what the game's own drops and sinks say it's worth. It's a gu
 <td x-text="fmt(l.price)"></td><td x-text="fmt(l.qty)"></td><td x-text="l.orders"></td></tr></template></tbody></table>
 <p class="xc-note" x-show="cur && !bids.length && !asks.length">The book is empty: be the first to post.</p>
 <p class="xc-note">Prices in <span x-text="unit"></span>. Click one to use it in your order.</p></section>
-<section class="xc-p" style="grid-area: trades"><h2>Last trades</h2>
+<section class="xc-p" style="grid-area: trades" x-show="$store.xc.tk !== 'NX'"><h2>Last trades</h2>
 <table class="xc-book xc-trades"><thead><tr><th>Time</th><th>Price</th><th x-text="qtyLabel"></th></tr></thead>
 <tbody><template x-for="(t, i) in recent()" :key="i"><tr :class="t.dir"><td x-text="clock(t.t)"></td>
 <td x-text="fmt(t.price)"></td><td x-text="fmt(t.qty)"></td></tr></template></tbody></table>
@@ -786,10 +786,11 @@ character; NX is your account's. If you're logged in to the game, use the charac
 </ul></section>
 </div>
 <div class="xc-c" x-data="xmine">
-<p class="xc-alert" style="grid-area: form" x-show="state === 'signedOut'" x-cloak>Sign in to trade.</p>
-<p class="xc-alert" style="grid-area: form" x-show="reauth" x-cloak><span x-text="reauthText()"></span>
+<p class="xc-alert" style="grid-area: form" x-show="state === 'signedOut' && $store.xc.tk !== 'NX'" x-cloak>Sign in
+to trade.</p>
+<p class="xc-alert" style="grid-area: form" x-show="reauth && $store.xc.tk !== 'NX'" x-cloak><span x-text="reauthText()"></span>
 <a :href="againUrl()">Sign in again</a> to trade.</p>
-<form class="xc-p xc-form" style="grid-area: form" x-show="data && !reauth" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
+<form class="xc-p xc-form" style="grid-area: form" x-show="data && !reauth && $store.xc.tk !== 'NX'" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
 <h2><span x-text="'New ' + meta.id + ' order'"></span> <small x-text="openCount() + ' of ' + lim(meta).max_open_per_ticker + ' open'"></small></h2>
 <div class="xc-side"><button type="button" class="buy" :class="side === 'BUY' && 'on'" @click="side = 'BUY'" x-text="'Buy ' + meta.id"></button>
 <button type="button" class="sell" :class="side === 'SELL' && 'on'" @click="side = 'SELL'" x-text="'Sell ' + meta.id"></button></div>
@@ -844,7 +845,8 @@ sign-in alone can't trade your NX or items away. It goes straight to the game's 
 # nx-desk.json (exchange_desk.py); nothing here is a price.
 NX_MARK = "<!-- nx-desk -->"
 NX_PANEL = """<div class="xc-c" x-data="xdesk">
-<section class="xc-p xc-deskq" style="grid-area: nxq"><h2>NX desk <small x-text="stamp"></small></h2>
+<section class="xc-p xc-deskq" style="grid-area: nxq" x-show="$store.xc.tk === 'NX'"><h2>NX desk
+<small x-text="stamp"></small></h2>
 <p class="xc-alert" x-show="stale" x-cloak>Prices are updating: the desk sets a fresh rate every minute and this page
 will catch up in a moment. No trades until it does.</p>
 <p class="xc-alert" x-show="qstate === 'error'" x-text="err" x-cloak></p>
@@ -865,7 +867,8 @@ and sell (capped per day).</p>
 <p class="xc-note" x-show="quote && quote.fee_bps">On top of the gap there is a fee of
 <span x-text="feeText()"></span>, paid by each side.</p>
 </section>
-<form class="xc-p xc-form xc-deskform" style="grid-area: nxform" x-show="quote && quote.open !== false" x-cloak
+<form class="xc-p xc-form xc-deskform" style="grid-area: nxform" x-cloak
+x-show="$store.xc.tk === 'NX' && quote && quote.open !== false"
 @submit.prevent="preview()">
 <h2>Trade at the quote <small x-text="smallest()"></small></h2>
 <p class="xc-alert" x-show="!signedIn" x-cloak>Sign in to trade.</p>
@@ -898,13 +901,13 @@ x-text="previewLabel()"></button>
 <button type="button" class="xc-ghost" @click="drop()">Never mind</button>
 </div>
 </form>
-<section class="xc-p" style="grid-area: nxchart" x-show="quote" x-cloak><h2>NX rate, hour by hour <small>7 days</small></h2>
+<section class="xc-p" style="grid-area: nxchart" x-show="$store.xc.tk === 'NX' && quote" x-cloak><h2>NX rate, hour by hour <small>7 days</small></h2>
 <svg class="xc-chart xc-deskchart" viewBox="0 0 640 260" preserveAspectRatio="none" role="img"
 aria-label="The NX desk's rate each hour for the last 7 days, with the buy and sell prices around it"
 x-html="chart()"></svg>
 <p class="xc-note">The line is the desk's rate each hour; the faint band is what it paid and charged around it. The
 shaded part is the day's limit: from where the rate was a day ago it can move <span x-text="capText()"></span>.</p></section>
-<section class="xc-p" style="grid-area: nxme" x-show="signedIn" x-cloak><h2>My NX <small x-text="asOf()"></small></h2>
+<section class="xc-p" style="grid-area: nxme" x-show="$store.xc.tk === 'NX' && signedIn" x-cloak><h2>My NX <small x-text="asOf()"></small></h2>
 <p class="xc-deskbal">Your NX <b x-text="fmt(me && me.nx)"></b></p>
 <p class="xc-note" x-show="me && me.stepUpFreeMesos">A buy of up to <b x-text="fmt(me && me.stepUpFreeMesos)"></b> mesos
 doesn't ask for your password.</p>
@@ -990,16 +993,16 @@ def nx_mode():
 def build_exchange(mk):
     """The exchange: a static shell that exchange.js (Alpine) fills from /api/market/exchange/.
 
-    With the NX desk on (mock/on) the NX tab is the desk's quote panel: NX_PANEL goes in at NX_MARK, the term gets
-    .xc-nx (its own grid) and data-nxdesk (exchange.js drops NX from the tickers), so the item tabs keep the book."""
+    With the NX desk on (mock/on) the NX tab is the desk's quote panel: NX_PANEL goes in at NX_MARK and the term gets
+    data-nxdesk (exchange.js keeps NX in the tab strip with the desk's rate, and the desk panels show only on that tab).
+    .xc-nx (the desk's own grid) follows the picked tab, so the item tabs keep 1.6.2's layout and book."""
     nx = nx_mode()
     body = EXCHANGE
     if nx != "off":
-        body = (body.replace(NX_MARK, NX_PANEL)
-                .replace('<div class="xc-term" x-data x-show="!$store.xc.closed">',
-                         '<div class="xc-term xc-nx" data-nxdesk="' + nx + '" x-data x-show="!$store.xc.closed">'))
+        body = body.replace("{desk}", " data-nxdesk=\"" + nx + "\" :class=\"$store.xc.tk === 'NX' && 'xc-nx'\"")
+        body = body.replace(NX_MARK, NX_PANEL)
     else:
-        body = body.replace(NX_MARK, "")  # off: 1.6.2's page, without the marker or the panel
+        body = body.replace("{desk}", "").replace(NX_MARK, "")  # off: 1.6.2's page, without the marker or the panel
     mk.page(f"{MARKET}/exchange.html", "Slums Exchange", body, "exchange",
             "The stock market for NX, Maple Leaves, Chaos and White Scrolls and Power Elixirs.")
 

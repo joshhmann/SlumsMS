@@ -889,11 +889,17 @@ class WorldTest(unittest.TestCase):
                     page = f.read()
                 self.assertEqual('x-data="xdesk"' in page, want, mode)
                 self.assertEqual('data-nxdesk="' + mode + '"' in page, want, mode)
+                # the desk's grid follows the picked tab, so the item tabs keep 1.6.2's layout and book
+                self.assertEqual(":class=\"$store.xc.tk === 'NX' && 'xc-nx'\"" in page, want, mode)
                 self.assertEqual("<!-- nx-desk -->" in page, False, mode)  # the marker never reaches the page
                 flat = " ".join(page.split())  # the templates wrap their lines
                 for line in (rate, nofee, "Buy NX at", "Sell NX at", "The NX desk is closed right now",
                              "SlumsBank is buying NX but has none to sell yet", "grid-area: nxq"):
                     self.assertEqual(line in flat, want, (mode, line))
+                self.assertIn("@submit.prevent=\"preview()\" @xc-price.window", flat)  # items keep their order form
+                if want:  # the item panels step aside on the desk's tab; the desk panels show only there
+                    self.assertEqual(flat.count("""x-show="$store.xc.tk !== 'NX'">"""), 4, (mode, "item panels"))
+                    self.assertEqual(flat.count("$store.xc.tk !== 'NX'"), 7, (mode, "candles, depth, book, trades, form"))
                 # 1.6.2's NX book, depth and order form are only in the page as the item tabs' panels
                 self.assertIn('x-data="xbook"', page)
         finally:
@@ -901,7 +907,8 @@ class WorldTest(unittest.TestCase):
             shutil.rmtree(tmp)
         with open(os.path.join(build.REPO, "docs", "site", "assets", "exchange.js"), encoding="utf-8") as f:
             js = f.read()
-        for line in ('window.Alpine.data("xdesk", xdesk)', 'return t.id !== "NX"', 'var DESK_PW =',
+        for line in ('window.Alpine.data("xdesk", xdesk)', 'return !DESK || t.id !== "NX"', 'var DESK_PW =',
+                     'id: "NX", name: "NX desk"',
                      '"nx/quote"', '"nx/history?hours=168"', '"nx/me"', '"nx/preview"', '"nx/confirm"',
                      "DESK_CLOSED:", "DESK_EMPTY:", "QUOTE_MOVED:", "MIN_QTY:"):
             self.assertIn(line, js)

@@ -806,10 +806,11 @@ table.t { width: 100%; border-collapse: collapse; }
 .xc-preview dd { margin: 0; font: 600 .9rem var(--f-mono); }
 .xc-rules ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: .86rem; color: var(--xc-muted); }
 .xc-rules b { color: var(--xc-ink); }
-/* The NX desk (1.6.3, ticket 162: exchange.html with the desk on, exchange.js xdesk). Its four panels take their own
-   grid areas, above the item tabs' panels; .xc-nx swaps the term's template for this one. */
-.xc-term.xc-nx { grid-template-areas: "alert alert" "tabs tabs" "tick tick" "nxq nxform" "nxchart nxform"
-  "nxchart nxme" "chart form" "depth book" "trades book" "orders orders" "rules rules"; }
+/* The NX desk (1.6.3, ticket 162: exchange.html with the desk on, exchange.js xdesk). The NX tab keeps its place in
+   the strip; exchange.js puts .xc-nx on the term while that tab is picked, and its four panels take their own grid
+   areas. The item tabs keep the plain .xc-term grid and their book, candles, depth and order form. */
+.xc-term.xc-nx { grid-template-areas: "alert alert" "tabs tabs" "nxq nxform" "nxchart nxform" "nxme nxme"
+  "orders orders" "rules rules"; }
 .xc-term .xc-deskform { align-self: start; }
 .xc-deskp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin: 0 0 10px; }
 .xc-deskone { background: var(--xc-bg); border: 1px solid var(--xc-line); border-radius: 6px; padding: 10px 12px; min-width: 0; }
@@ -822,13 +823,14 @@ table.t { width: 100%; border-collapse: collapse; }
 .xc-deskbal { margin: 0 0 8px; font-size: .86rem; color: var(--xc-muted); }
 .xc-deskbal b { font: 800 1.4rem var(--f-mono); color: var(--xc-ink); margin-left: 6px; }
 .xc-deskchart { height: clamp(180px, 30vw, 260px); }
+.xc-deskbook { min-width: 0; }  /* what you traded, in the panel it sits in: never a sideways scroll */
+.xc-deskbook th, .xc-deskbook td { white-space: nowrap; }
 .xc-deskcap { fill: var(--xc-sun); opacity: .1; }
 .xc-deskband { fill: var(--xc-fair); opacity: .16; }
 @media (max-width: 900px) {
-  .xc-term.xc-nx { grid-template-areas: "alert" "tabs" "tick" "nxq" "nxform" "nxchart" "nxme" "chart" "book" "form"
-    "orders" "depth" "trades" "rules"; }
+  .xc-term.xc-nx { grid-template-areas: "alert" "tabs" "nxq" "nxform" "nxchart" "nxme" "orders" "rules"; }
   .xc-deskp { grid-template-columns: minmax(0, 1fr); }  /* phone: the two prices stack */
-  .xc-deskbook { min-width: 0; }
+  .xc-deskbook { font-size: .78rem; }
 }
 @media (max-width: 900px) {
   .xc-term { grid-template-columns: minmax(0, 1fr); padding: 8px;
