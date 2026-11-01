@@ -85,6 +85,19 @@ class NxDeskGuideTest(unittest.TestCase):
         text = flat("money.html")
         self.assertIn("@nx tickers", text)
         self.assertIn("until the next update", text)
+class LanesGuideTest(unittest.TestCase):
+    """BotCommandParser: "lanes", "lanes map", "lanes screen"; CompanionLanes AUTO seats a screen first and the extras
+    across the map."""
+
+    def test_the_regulars_page_lists_the_lanes_order(self):
+        text = flat("regulars.html")
+        self.assertIn("lanes", text)
+        self.assertIn("lanes map", text)
+        self.assertIn("lanes screen", text)
+        self.assertIn("a spot of its own", text)
+
+    def test_the_commands_page_offers_lanes(self):
+        self.assertIn("lanes", flat("commands.html"))
 
 if __name__ == "__main__":
     unittest.main()
