@@ -11,9 +11,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -54,6 +57,61 @@ public class DatabaseConnection {
         var pool = ds == null ? null : ds.getHikariPoolMXBean();
         return pool == null ? null : new int[]{pool.getActiveConnections(), pool.getIdleConnections(),
                 pool.getTotalConnections(), pool.getThreadsAwaitingConnection()};
+    }
+
+    /**
+     * A connection of its own for a one-time snapshot read (ticket 174). It is opened straight from the driver on
+     * first use, never taken from the pool and never returned to it: the reads that use one - the bot roster and the
+     * bot store's roster - run while holding a monitor every spawning bot queues on, so a borrow that had to wait
+     * for a pooled connection there would hold those bots for up to the pool's connection timeout (10 s) and pin
+     * the carrier of any virtual thread among them.
+     */
+    public static final class SnapshotConnection {
+        private Connection connection;
+
+        private SnapshotConnection() {
+        }
+
+        /** The read's own connection, opened on first use (and again after {@link #close()}). */
+        public synchronized Connection get() throws SQLException {
+            if (connection == null || connection.isClosed()) {
+                connection = DriverManager.getConnection(getDbUrl(), YamlConfig.config.server.DB_USER,
+                        YamlConfig.config.server.DB_PASS);
+            }
+            return connection;
+        }
+
+        /** Closes it at shutdown; a later use opens a new one, which is what a restart needs. */
+        public synchronized void close() {
+            if (connection == null) {
+                return;
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                log.warn("Could not close a snapshot connection: {}", e.getMessage());
+            }
+            connection = null;
+        }
+    }
+
+    private static final Set<SnapshotConnection> snapshotConnections = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Hands out a {@link SnapshotConnection} and remembers it, so {@link #closeSnapshotConnections()} at shutdown
+     * closes every one that was handed out.
+     */
+    public static SnapshotConnection newSnapshotConnection() {
+        SnapshotConnection connection = new SnapshotConnection();
+        snapshotConnections.add(connection);
+        return connection;
+    }
+
+    /** Closes the snapshot connections (ticket 174): they are not in the pool, so Hikari never returns them. */
+    public static void closeSnapshotConnections() {
+        for (SnapshotConnection connection : snapshotConnections) {
+            connection.close();
+        }
     }
 
     private static String getDbUrl() {

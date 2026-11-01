@@ -132,7 +132,8 @@ public final class BotStore {
     private static final List<InventoryType> STORED_TYPES = List.of(InventoryType.EQUIP, InventoryType.USE,
             InventoryType.SETUP, InventoryType.ETC, InventoryType.CASH, InventoryType.EQUIPPED);
 
-    private static final String SELECT_ROSTER = "SELECT * FROM botstore ORDER BY BotId";
+    // Package-visible so the snapshot-read test can aim a mock pool at the one statement the cold read runs.
+    static final String SELECT_ROSTER = "SELECT * FROM botstore ORDER BY BotId";
     // Package-visible with read/bindMutable so the mapping test can check the statements' column order
     // against the order the values are written in: a swap there would corrupt every row silently.
     static final String INSERT_ROW = "INSERT INTO botstore (BotId, Name, Tier, Level, Exp, Meso, Job, "
@@ -731,18 +732,55 @@ public final class BotStore {
     private static volatile ConnectionSource connectionSource = GATED;
 
     /**
-     * The one-time read of the whole store, taken under {@code ROSTER_LOCK}, goes straight to the pool: every
-     * spawning bot queues on that lock, and on Java 21 a virtual thread blocked on a monitor pins its carrier,
-     * so the reader waiting for the gate there could wait on threads that can no longer run (see BotDbGate).
+     * The store's own connection for its one-time roster read (ticket 174), and never a pooled one: that read runs
+     * under {@code ROSTER_LOCK}, which every spawning bot queues on, so it must not be able to wait for a connection
+     * there. Closed at shutdown.
+     */
+    private static final DatabaseConnection.SnapshotConnection SNAPSHOT =
+            DatabaseConnection.newSnapshotConnection();
+
+    /** Test seam: points the snapshot read (not the writes) at a mock; null reads from {@link #SNAPSHOT}. */
+    private static volatile ConnectionSource snapshotSource;
+
+    /**
+     * The one-time read of the whole store, taken under {@code ROSTER_LOCK}, comes from the store's own connection
+     * rather than the pool (ticket 174): every spawning bot queues on that lock, and on Java 21 a virtual thread
+     * blocked on a monitor pins its carrier, so a borrow that waited for the pool there would wait on threads that
+     * can no longer run (see BotDbGate). It is not gated either - a login that paid a permit under this lock would
+     * nest a second demand on the character load's.
      */
     private static Connection lockedReadConnection() throws SQLException {
-        ConnectionSource source = connectionSource;
-        return source == GATED ? DatabaseConnection.getConnection() : source.get();
+        ConnectionSource source = snapshotSource;
+        return source != null ? source.get() : SNAPSHOT.get();
     }
 
-    /** Test seam: points the store at a mock pool, or back at the real one with {@code null}. */
+    /**
+     * Test seam: points the store at a mock pool, or back at the real one with {@code null}. The one-time read
+     * comes from {@code source} too, as a swapped-in pool is the only connection a unit test has.
+     */
     static void useConnectionSourceForTest(ConnectionSource source) {
         connectionSource = source == null ? GATED : source;
+        snapshotSource = source;
+    }
+
+    /**
+     * Test seam: points just the one-time read at a mock (null reads from the store's own connection), leaving
+     * the writes where {@link #useConnectionSourceForTest} put them.
+     */
+    static void useSnapshotSourceForTest(ConnectionSource source) {
+        snapshotSource = source;
+    }
+
+    /** Test seam: forgets the stored rows, so the next read loads them again (the real read runs once per process). */
+    static void forgetRosterForTest() {
+        synchronized (ROSTER_LOCK) {
+            roster.clear();
+            unstocked.clear();
+            stockPending.clear();
+            realStatsSchema = null;
+            stashSchema = null;
+            rosterLoaded = false;
+        }
     }
 
     /** Test seam: forgets what the store learned about migration 005 being applied. */

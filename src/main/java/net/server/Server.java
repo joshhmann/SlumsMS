@@ -2219,6 +2219,10 @@ public class Server {
         // 1.6.0 Track D (owner 2026-10-26): the day's economy counters survive the restart
         soloMapling.Economy.stats.EconomySnapshotService.shutdown();
         soloMapling.site.TradeRatings.shutdown(); // 1.6.0 Track D: the last minute of trade ratings
+        // ticket 174: the roster and store snapshot reads take a connection of their own, not from the pool, so
+        // Hikari never returns them. The channels above have finished saving their bots, so nothing reads through
+        // them now.
+        DatabaseConnection.closeSnapshotConnections();
 
         resetServerWorlds();
 
