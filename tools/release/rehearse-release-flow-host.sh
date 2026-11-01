@@ -50,7 +50,7 @@ setup)
   DBPASS=$(head -c 18 /dev/urandom | base64 | tr -d '/+=')
   mysql "${TESTDB[@]}" -e "CREATE DATABASE \`$SCHEMA\`; CREATE USER '$DBUSER'@'%' IDENTIFIED BY '$DBPASS'; GRANT ALL ON \`$SCHEMA\`.* TO '$DBUSER'@'%';"
   zcat "$src" | grep -vE '^(USE `mapleroot`;|CREATE DATABASE .*`mapleroot`)' | tsql
-  echo "ledger: $(echo "SELECT GROUP_CONCAT(migration_id ORDER BY migration_id) FROM mapleroot_integration_migrations;" | tsql)"
+  echo "ledger: $(echo "SET SESSION group_concat_max_len=1048576; SELECT GROUP_CONCAT(migration_id ORDER BY migration_id) FROM mapleroot_integration_migrations;" | tsql)"
 
   step "Server copy (old = 1.4.0 runtime from $OLD_RUNTIME)"
   mkdir -p "$R/Server"

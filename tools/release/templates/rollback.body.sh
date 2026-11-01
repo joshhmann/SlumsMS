@@ -41,7 +41,7 @@ maint() {   # maint start|end [--dry-run]: never fails the script
 }
 now() { date +%s.%N; }
 dur() { awk -v a="$1" -v b="$2" 'BEGIN{printf "%.1f", b-a}'; }
-ledger() { echo "SELECT IFNULL(GROUP_CONCAT(migration_id ORDER BY migration_id),'') FROM mapleroot_integration_migrations;" | sql | tail -1; }
+ledger() { echo "SET SESSION group_concat_max_len=1048576; SELECT IFNULL(GROUP_CONCAT(migration_id ORDER BY migration_id),'') FROM mapleroot_integration_migrations;" | sql | tail -1; }
 in_ledger() { echo "SELECT COUNT(*) FROM mapleroot_integration_migrations WHERE migration_id='$1';" | sql | tail -1; }
 declare -A T
 

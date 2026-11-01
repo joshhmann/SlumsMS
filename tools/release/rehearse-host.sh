@@ -106,7 +106,7 @@ echo "loaded: $(echo "SELECT COUNT(*) FROM characters;" | tsql) characters, $(ec
 
 step "catch-up: ledger the release expects live to have"
 want=$(sed -n 's/^LEDGER_BEFORE=//p' "$D/deploy.sh" | tr -d "'")
-have=$(echo "SELECT IFNULL(GROUP_CONCAT(migration_id ORDER BY migration_id),'') FROM mapleroot_integration_migrations;" | tsql)
+have=$(echo "SET SESSION group_concat_max_len=1048576; SELECT IFNULL(GROUP_CONCAT(migration_id ORDER BY migration_id),'') FROM mapleroot_integration_migrations;" | tsql)
 echo "copy: $have"; echo "want: $want"
 catchup=()
 for id in ${want//,/ }; do
@@ -168,7 +168,7 @@ SELECT 'items_per_char', characterid, COUNT(*) FROM inventoryitems WHERE charact
 SELECT 'skills_per_char', characterid, COUNT(*) FROM skills WHERE characterid < 1000000000 GROUP BY characterid ORDER BY characterid;
 SELECT 'storages', storageid, accountid, world, meso FROM storages ORDER BY storageid;
 SELECT 'accounts', COUNT(*) FROM accounts;
-SELECT 'ledger', GROUP_CONCAT(migration_id ORDER BY migration_id) FROM mapleroot_integration_migrations;
+SET SESSION group_concat_max_len=1048576; SELECT 'ledger', GROUP_CONCAT(migration_id ORDER BY migration_id) FROM mapleroot_integration_migrations;
 Q
 }
 bots() { echo "SELECT 'botstore', (SELECT COUNT(*) FROM botstore), 'bot items', (SELECT COUNT(*) FROM inventoryitems WHERE characterid >= 1000000000);" | tsql 2>/dev/null || echo "no bot tables"; }
