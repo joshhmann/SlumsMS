@@ -27,6 +27,7 @@ anchors:
   character.first:            {screen: character, status: calibrated, uijson: first_character, what: "the first character slot"}
   character.confirm:          {screen: character, status: calibrated, uijson: character_confirm, what: "Select on character select"}
   # field
+  checkin.close:              {screen: field, status: calibrated, uijson: checkin_close, what: "closes the Daily Check-in window that opens at every login (tarkov2 1366x768 borderless: 540,63)"}
   basic_configuration.close:  {screen: field, status: calibrated, uijson: basic_configuration_close, what: "closes the first-login settings dialog"}
 
   # proposed (scripts below need them; Client lane calibrates)
