@@ -113,5 +113,38 @@ class TestSiteInstallTest(DeployScriptTest):
         self.assertNotIn("rsync", self.copies(), "nothing is copied without the item icon list")
 
 
+def top_level(text, header):
+    """The statements directly inside the first block that starts with header ("server {"): a brace walk, comment-free."""
+    start = text.index(header) + len(header)
+    out, depth = [], 1
+    for line in text[start:].splitlines():
+        code = line.split("#", 1)[0].strip()
+        if depth == 1 and code:
+            out.append(code)
+        depth += code.count("{") - code.count("}")
+        if depth <= 0:
+            break
+    return out
+
+
+class NginxRedirectTest(unittest.TestCase):
+    """audit: behind the front proxy every clean-URL redirect said http://<host>:8092/... until absolute_redirect off."""
+
+    def test_test_server_nginx_has_no_absolute_redirects(self):
+        with open(os.path.join(ROOT, "tools/site/test164/nginx.conf")) as f:
+            directives = top_level(f.read(), "\n    server {")
+        self.assertIn("absolute_redirect off;", directives,
+                      "absolute_redirect off must be a server-block line (a location's redirect is not enough)")
+
+    def test_the_live_recipe_says_server_level(self):
+        with open(os.path.join(ROOT, "tools/site/slums-login.nginx.conf")) as f:
+            text = f.read()
+        part = text[text.index("# a) Clean URLs"):text.index("# b) The staff dashboard")]
+        lines = part.splitlines()
+        self.assertIn("absolute_redirect off;", lines, "part 3a must carry the line itself, unindented (server level)")
+        self.assertIn("not in a location", part)
+        self.assertIn("8092", part, "the comment says what the redirect leaked: the server's own port")
+
+
 if __name__ == "__main__":
     unittest.main()
