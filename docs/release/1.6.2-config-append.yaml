@@ -8,6 +8,7 @@
       reasoning_effort: '"none"'
   BOT_LLM_CLOUD_MODE: "all"
   BOT_LLM_CLOUD_DAILY_BUDGET_USD: 2.0
+  BOT_LLM_CLOUD_PRICE_IN_CACHED_PER_MTOK: 0.006
   # s-llmcache (owner 2026-10-31, "we need to also support caching for deepseek if it's not"): DeepSeek bills the
   # prompt prefix it has already seen at its cache-hit price and reports those tokens as usage.prompt_cache_hit_tokens;
   # the daily budget now charges them at this price instead of the input price. Nothing else needs a switch: the reply
