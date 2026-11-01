@@ -6,6 +6,19 @@ something.
 
 Times: give the owner Pacific next to UTC (PDT = UTC-7).
 
+**b267 (S1, live hang, 2026-10-31 22:46 UTC = 15:46 PDT).** Live 1.6.0.4 froze with 25 threads parked on
+`PlayerStorage`'s fair `ReentrantReadWriteLock` and one thread BLOCKED on the Fads monitor
+(`Fads.followed` <- `chairFor` <- `MovementCommands.botSitChair` <- `AfkCampers.camp`): `Fads.step()` read the World
+(`w.channels()`, `w.onlineBots`, `w.playersAt`/`playersOnChair` -> `PlayerStorage.getAllCharacters`, `w.channelOf`,
+`w.friendsOf`) while holding `synchronized (lock)`. 1.6.2 ships with fads OFF: the UNIT_EDITS entry in
+`docs/release/1.6.2.conf:212` carries `-Dsolomapling.fads=false`, and while the flag is off Fads writes no
+`reports/bot-fads.json` (the option is a stopgap, not a fix). The real fix (snapshot the World outside the lock, keep
+every Fads monitor a leaf) is branch `162-fadslock` `516b46474` on `3a12f371b`, with `FadsLockOrderTest` failing
+before and passing after. It lands in **1.6.3, not 1.6.2**. Do not flip fads back on before a 1.6.3 TEST soak with
+fads ON: `-Dsolomapling.fads=true`, the `t-lk-1` camp check (`AutoQaCatalog.java:885`) and `t-af-1`
+(`AutoQaCatalog.java:103`) in the rotation, `jcmd $MainPID Thread.print` every 15 min for 72 h (288 samples, 0 with a
+thread holding the Fads monitor), then `-Dsolomapling.fads=true` on live.
+
 **1.6.0 base branch (2026-10-25): `release-1.6.0`** (worktree `/root/work/SlumsMS-160-release`), cut from
 `152-integration` (live 1.5.2) with `160-bot-brain`, `160-convo-scope` and `160-life-in-town` merged in, in that order.
 `SLUMSMS_VERSION` is `1.6.0` on this branch. The branch tickets 68-74 from `160-life-in-town` are now **92-98**

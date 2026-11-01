@@ -249,12 +249,18 @@ public final class Fads {
     /**
      * One step at {@code now}: start a fad now and then, spread, count players, cool, end.
      *
-     * <p>b267 (the 1.6.0.4 hang, 2026-10-31 22:46 UTC): the step never calls the game while holding {@link #lock}.
-     * PlayerStorage guards its maps with a <i>fair</i> {@code ReentrantReadWriteLock}, so one queued writer (a login or
-     * logout) stops every new reader; threads that hold that read lock call {@link #chairFor} / {@link #phraseFor} /
-     * {@link #spotFor}, which want {@code lock}. Reading the World under {@code lock} closed the cycle step(lock) ->
-     * PlayerStorage -> lock and parked 25 threads. So the step copies what it needs out of the game first
-     * ({@link #snapshot}, no lock held), then takes {@code lock} only to touch this class's own maps.
+     * <p>b267 (the 1.6.0.4 hang, 2026-10-31 22:46 UTC): the step must never call the game while holding {@link #lock}.
+     * PlayerStorage guards its maps with a <i>fair</i> {@code ReentrantReadWriteLock}, so a writer that is queued (a
+     * login or logout) stops every new reader; a step that read the World under {@code lock} could therefore sit
+     * there holding this class's monitor for as long as that wait lasted, and every caller that came in from the game
+     * side wanting {@link #chairFor} / {@link #phraseFor} / {@link #spotFor} queued behind it. So the step copies what
+     * it needs out of the game first ({@link #snapshot}, no lock held), then takes {@code lock} only to touch this
+     * class's own maps.
+     *
+     * <p>Fads' monitors are leaves. Nothing under {@code synchronized (lock)} — here or in any method added later —
+     * may call a World, MapleMap, PlayerStorage or Character method, and nothing here may take a second lock that
+     * anything outside this class also takes. If a step needs another fact about the game, it belongs in
+     * {@link #snapshot}, outside the monitor.
      */
     public static void step(long now) {
         if (!enabled()) return;
@@ -544,8 +550,8 @@ public final class Fads {
             out.put("endedThisRun", ended);
             out.put("joinsThisRun", joins);
             out.put("fads", fads.values().stream().map(f -> f.kind + " '" + label(f.kind, f.value) + "' ch" + f.channel
-                    + " followers " + f.followers.size() + " heat " + Math.round(f.heat * 100) / 100.0
-                    + " players " + f.playersSeen).toList());
+                    + " starter " + f.starter + " followers " + f.followers.size()
+                    + " heat " + Math.round(f.heat * 100) / 100.0 + " players " + f.playersSeen).toList());
         }
         return out;
     }

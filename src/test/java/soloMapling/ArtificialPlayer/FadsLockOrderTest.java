@@ -168,4 +168,47 @@ class FadsLockOrderTest {
         }
         assertFalse(stepper.isAlive(), "the step finished");
     }
+
+    /** A channel with two bots, all reads cheap; the social pull lets the first pick through every time. */
+    static final class StartWorld implements Fads.World {
+        public List<Integer> channels() { return List.of(1); }
+        public List<Integer> onlineBots(int channel) { return channel == 1 ? List.of(11, 12) : List.of(); }
+        public int channelOf(int botId) { return 1; }
+        public int mapOf(int botId) { return 100000000; }
+        public List<Integer> friendsOf(int botId) { return List.of(); }
+        public double socialPull(int botId) { return 1.0; }
+        public int playersAt(int channel, int mapId) { return 0; }
+        public int playersOnChair(int channel, int chairId) { return 0; }
+    }
+
+    /** Draws fixed for a plan: {@code nextDouble} clears the start gate, every {@code nextInt} takes the first option. */
+    static final class StartRandom extends Random {
+        public double nextDouble() { return 0.0; }
+        public int nextInt(int bound) { return 0; }
+    }
+
+    /**
+     * The world the step plans a start from is the one the starter comes from: the STARTED event, the {@code active}
+     * view and the report all name that bot. (The plan is built outside the lock, which is why this is checkable at
+     * all: the step no longer reads the World while it applies it.)
+     */
+    @Test
+    void aFadStartedFromTheWorldKeepsTheStarterItPlanned() {
+        Fads.useForTest(new StartWorld(), new StartRandom());
+        List<Fads.Event> seen = new CopyOnWriteArrayList<>();
+        Fads.Listener listener = seen::add;
+        Fads.listen(listener);
+        try {
+            Fads.step(T0);
+            Fads.Event started = seen.stream().filter(e -> e.change() == Fads.Change.STARTED).findFirst()
+                    .orElseThrow(() -> new AssertionError("no fad started: " + Fads.report()));
+            assertEquals(Fads.Kind.SPOT, started.fad().kind());
+            assertEquals(11, started.botId(), "the event names the planned starter");
+            assertEquals(11, started.fad().starter());
+            assertTrue(String.valueOf(Fads.report().get("fads")).contains("starter 11"),
+                    "the report names the starter: " + Fads.report());
+        } finally {
+            Fads.remove(listener);
+        }
+    }
 }

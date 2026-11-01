@@ -8,6 +8,12 @@
 
 Current status is in `/root/work/STATUS-1.6.2.md` and the release book; the older tables below are historical.
 
+## Lock-order follow-ups (2026-10-31)
+
+| # | Ticket | Priority |
+|---|---|---|
+| [171](171-life-runtime-lock.md) | `LifeRuntime.accepted` takes the bot's monitor over a PlayerStorage read (same family as b267, no cycle today) | S4, after 1.6.2 |
+
 ## QA follow-ups (2026-10-31)
 
 | # | Ticket | Target |
