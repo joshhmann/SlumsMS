@@ -9,11 +9,11 @@ order per agent type and the table of pieces (dev branch, folder, owner, TEST/RC
 |---|---|---|
 | Server Dev SlumsMS (coordinator) | server code, release-* branches (only it merges), TEST, release night, version notes | - |
 | Website Slums | website, site repo (site-160-theme), TEST site stack | [website.md](website.md) |
-| SlumsMS Coordinator | the release book, lane coordination, owner checklists; no code | - |
-| SlumsMS bug triage | the bugs list, triage and closing proof; no code | - |
+| SlumsMS Coordinator | the release book, lane coordination, owner checklists, and bug triage (qa-triage skill) since 2026-11-01; no code | - |
+| ~~SlumsMS bug triage~~ | closed ~06:00 UTC 2026-11-01 to save usage; triage moved to the Coordinator | - |
 | Client Development SlumsMS | client (slums.dll, client builds) | - |
-| launcher-tauri-48 (launcher) | Tauri launcher, publisher, patch feed, signing, Defender | [launcher.md](launcher.md) |
-| slumsms-160-playerlines-e7 (chat model) | pair generator, .17 runs, training, scoring | [chat-model.md](chat-model.md) |
+| launcher-tauri-48 (launcher) | Tauri launcher, publisher, patch feed, signing, Defender. Closed ~06:00 UTC 2026-11-01; reopen from the kickoff for the next launcher release | [launcher.md](launcher.md) |
+| slumsms-160-playerlines-e7 (chat model) | pair generator, .17 runs, training, scoring. Training closed; m02's TEST proof and switch-on belong to Server Dev | [chat-model.md](chat-model.md) |
 | CLI agents (Codex, omp, agy) | bounded tasks on a lane, handed out by a lane session | [EXTERNAL-AGENTS.md](EXTERNAL-AGENTS.md) |
 
 Names are the SendMessage addresses (the owner renamed the first three on 2026-10-27).
