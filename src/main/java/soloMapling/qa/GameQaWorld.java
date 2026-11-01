@@ -1966,6 +1966,7 @@ final class GameQaWorld implements QaWorld {
             scripting.npc.NPCScriptManager.getInstance().action(gm.getClient(), (byte) 1, (byte) 0, selection);
             gm.getClient().removeClickedNPC();
         }
+        closeDialog(gm); // the dialog is this helper's window: leaving it open holds the player off (t-mb-1, 163)
         return true;
     }
 
@@ -2626,6 +2627,19 @@ final class GameQaWorld implements QaWorld {
         }
         if (chr.getTrade() != null) {
             server.Trade.cancelTrade(chr, server.Trade.TradeResult.PARTNER_CANCEL);
+        }
+        // 163: an NPC conversation left open is a window too. PlayerBusy calls it "NPC dialog" and holds the player
+        // off, so the check after the one that opened it lost its trade offer at cap 4: t-vb-6's job advance leaves
+        // Balrog's dialog open (npcScript answers the selections but never disposes) and the next check on that lane
+        // (t-mb-1, tr-8) had its megaphone answer dropped - "AutoQaSeven left before lorddy answered" 2 s after the
+        // claim (TEST 2026-10-31, lane 2 on 102000000). The storage half of this method has the same history (vb-7).
+        closeDialog(chr);
+    }
+
+    /** Ends an open NPC conversation on this character, if one is open (safe to call any time). */
+    static void closeDialog(Character chr) {
+        if (chr.getClient() != null && chr.getClient().getCM() != null) {
+            scripting.npc.NPCScriptManager.getInstance().dispose(chr.getClient());
         }
     }
 

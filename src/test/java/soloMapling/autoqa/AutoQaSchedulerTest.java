@@ -210,6 +210,44 @@ class AutoQaSchedulerTest {
      * land in the first one's lines, or read the other one's switch.
      */
     @Test
+    void checksThatStartTheSameScenarioShareAKeySoTheyNeverCoRun() {
+        // 163: a scenario stages bots on the GM's map and its lines are map lines, so two runs of one scenario collide
+        // (t-sc-1's bot despawned under it when t-sc-2 stopped; t-bk-3 was refused by the suite's own claim guard and
+        // SKIPped). The scheduler can only keep them apart if they share a holds key.
+        java.util.regex.Pattern starts = java.util.regex.Pattern.compile("!qa run (\\S+)");
+        java.util.Map<String, List<Check>> byScenario = new java.util.LinkedHashMap<>();
+        for (Check c : AutoQaCatalog.all()) {
+            java.util.Set<String> scenarios = new java.util.LinkedHashSet<>();
+            for (Check.Step s : c.steps()) {
+                java.util.regex.Matcher m = starts.matcher(s.describe());
+                if (m.find()) {
+                    scenarios.add(m.group(1));
+                }
+            }
+            for (String scenario : scenarios) {
+                byScenario.computeIfAbsent(scenario, k -> new ArrayList<>()).add(c);
+            }
+        }
+        // the scenarios two or more checks start and that were seen to collide at cap 4 (2026-10-31): cv-4/cv-12 and
+        // the pq runs are untouched here (they passed) and stay a known pair for their own ticket.
+        List<String> shared = new ArrayList<>();
+        for (var e : byScenario.entrySet()) {
+            if (e.getValue().size() < 2 || !List.of("sc-2", "bk-1").contains(e.getKey())) {
+                continue;
+            }
+            java.util.Set<String> common = new HashSet<>(e.getValue().getFirst().holds());
+            for (Check c : e.getValue()) {
+                common.retainAll(c.holds());
+            }
+            List<String> ids = e.getValue().stream().map(Check::id).toList();
+            shared.add(e.getKey() + " " + ids);
+            assertFalse(common.isEmpty(), "checks " + ids + " all start scenario " + e.getKey()
+                    + " but share no holds key, so two lanes can run it at once: " + ids);
+        }
+        assertFalse(shared.isEmpty(), "the catalogue still has two checks per scenario: " + shared);
+    }
+
+    @Test
     void checksThatReadMapWideLinesOrSetAGlobalPropertyDeclareIt() {
         java.util.regex.Pattern mapWide = java.util.regex.Pattern.compile(
                 "MANNERS|TALLY|WEALTH |TRADE SHOP|clumpsOnMyMap");

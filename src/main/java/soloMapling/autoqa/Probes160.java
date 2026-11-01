@@ -244,9 +244,13 @@ final class Probes160 {
         OwnedAltService svc = OwnedAltService.getInstance();
         List<String> out = new ArrayList<>();
         List<String> bad = new ArrayList<>();
+        // 163: the alts are per GM account (see altName): a name is global in the game, so one "AutoQaAlt" made by the
+        // first lane's t-oa-1 was handed to every other lane's, which then summoned a character it did not own.
+        String nameA = altName(gm.getAccountID(), 'A');
+        String nameB = altName(gm.getAccountID(), 'B');
         roomForCharacters(gm);
-        int altA = ensureCharacter(gm, ALT_A, out);
-        int altB = ensureCharacter(gm, ALT_B, out);
+        int altA = ensureCharacter(gm, nameA, out);
+        int altB = ensureCharacter(gm, nameB, out);
         if (altA < 0 || altB < 0) {
             return verdict(List.of("the QA account has no alts to call"), "", out);
         }
@@ -264,37 +268,37 @@ final class Probes160 {
         try {
             String list = sayAndHear(p, "@botme", "Available characters|No eligible|not available", 8000);
             out.add("@botme: " + list);
-            if (list == null || !list.contains(ALT_A)) {
-                bad.add("@botme does not list " + ALT_A);
+            if (list == null || !list.contains(nameA)) {
+                bad.add("@botme does not list " + nameA);
             }
-            String joined = sayAndHear(p, "@botme " + ALT_A, "(?i)has joined you|already online|create a party|lead a party"
+            String joined = sayAndHear(p, "@botme " + nameA, "(?i)has joined you|already online|create a party|lead a party"
                     + "|choose another|not available|unable|instance|closing|five", 15000);
-            out.add("@botme " + ALT_A + ": " + joined);
+            out.add("@botme " + nameA + ": " + joined);
             Character alt = online(altA);
             if (alt == null) {
-                bad.add(ALT_A + " is not in the world after @botme");
+                bad.add(nameA + " is not in the world after @botme");
                 return verdict(bad, "", out);
             }
             boolean owned = alt.isOwnedAlt() && alt.getOwnedAltOwner() != null && alt.getOwnedAltOwner().getId() == gm.getId();
             boolean sameMap = alt.getMapId() == gm.getMapId();
             boolean inParty = gm.getParty() != null && gm.getParty().getMemberById(altA) != null;
-            out.add(ALT_A + ": owned by " + gm.getName() + "=" + owned + ", map " + alt.getMapId() + " (owner "
+            out.add(nameA + ": owned by " + gm.getName() + "=" + owned + ", map " + alt.getMapId() + " (owner "
                     + gm.getMapId() + "), in the owner's party=" + inParty);
             if (!owned) {
-                bad.add(ALT_A + " is not marked as " + gm.getName() + "'s alt");
+                bad.add(nameA + " is not marked as " + gm.getName() + "'s alt");
             }
             if (!sameMap) {
-                bad.add(ALT_A + " joined on map " + alt.getMapId() + ", not the owner's " + gm.getMapId());
+                bad.add(nameA + " joined on map " + alt.getMapId() + ", not the owner's " + gm.getMapId());
             }
             if (!inParty) {
-                bad.add(ALT_A + " is not in " + gm.getName() + "'s party");
+                bad.add(nameA + " is not in " + gm.getName() + "'s party");
             }
             // 1.6.0.4: the alt follows its owner, and through a portal when the owner changes map
             boolean following = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isFollowing(alt)
                     && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.followTarget(alt) == gm;
-            out.add(ALT_A + " follows " + gm.getName() + "=" + following);
+            out.add(nameA + " follows " + gm.getName() + "=" + following);
             if (!following) {
-                bad.add(ALT_A + " is not following " + gm.getName() + " after @botme");
+                bad.add(nameA + " is not following " + gm.getName() + " after @botme");
             } else {
                 String portal = followThroughPortal(gm, alt, out);
                 if (portal != null) {
@@ -304,10 +308,10 @@ final class Probes160 {
             // 1.6.1 ticket 13 (full alts): the core promise, not just the setup - a mob hits the alt, the alt fights
             // what its owner hits and damages it, loots a party drop into its own bag, and stops when its owner idles
             bad.addAll(altFightsLootsAndStops(p, gm, alt, out));
-            String dup = sayAndHear(p, "@botme " + ALT_A, "(?i)already online|has joined you", 8000);
-            out.add("@botme " + ALT_A + " again: " + dup);
+            String dup = sayAndHear(p, "@botme " + nameA, "(?i)already online|has joined you", 8000);
+            out.add("@botme " + nameA + " again: " + dup);
             if (dup == null || !dup.contains("already online")) {
-                bad.add("a second @botme " + ALT_A + " was not refused");
+                bad.add("a second @botme " + nameA + " was not refused");
             }
 
             // the cap: the alt and up to four reserved places fill five (a friend bot already following the GM takes
@@ -323,44 +327,44 @@ final class Probes160 {
             if (sixth) {
                 reserved.add(-900_005);
             }
-            String capped = sayAndHear(p, "@botme " + ALT_B, "(?i)up to five|has joined you|already online", 10000);
-            out.add("cap: reserved " + reserved.size() + " + " + ALT_A + ", room left=" + room + ", sixth place=" + sixth
-                    + ", @botme " + ALT_B + ": " + capped);
+            String capped = sayAndHear(p, "@botme " + nameB, "(?i)up to five|has joined you|already online", 10000);
+            out.add("cap: reserved " + reserved.size() + " + " + nameA + ", room left=" + room + ", sixth place=" + sixth
+                    + ", @botme " + nameB + ": " + capped);
             if (room || sixth) {
                 bad.add("the cap of 5 did not hold (reserved " + reserved.size() + ", room " + room + ", sixth " + sixth + ")");
             }
             if (capped == null || !capped.toLowerCase(Locale.ROOT).contains("up to five")) {
-                bad.add("@botme " + ALT_B + " past the cap was not refused with the five-companion line");
+                bad.add("@botme " + nameB + " past the cap was not refused with the five-companion line");
             }
             for (int id : reserved) {
                 svc.releaseCompanion(id);
             }
             reserved.clear();
             if (online(altB) != null) {
-                svc.dismiss(gm, ALT_B);
+                svc.dismiss(gm, nameB);
             }
 
             // the alt's state saves: a marker amount of mesos, then @dismiss
             int marker = 100_000 + (int) (System.currentTimeMillis() / 1000 % 800_000);
             alt.gainMeso(marker - alt.getMeso(), false);
-            String dismissed = sayAndHear(p, "@dismiss " + ALT_A, "(?i)saved and dismissed|not with you|unable", 15000);
-            out.add("@dismiss " + ALT_A + ": " + dismissed);
+            String dismissed = sayAndHear(p, "@dismiss " + nameA, "(?i)saved and dismissed|not with you|unable", 15000);
+            out.add("@dismiss " + nameA + ": " + dismissed);
             long saved = dbMeso(altA);
             boolean gone = online(altA) == null;
             boolean leftParty = gm.getParty() == null || gm.getParty().getMemberById(altA) == null;
             out.add("after @dismiss: in the world=" + !gone + ", in the party=" + !leftParty + ", saved mesos " + saved
                     + " (set " + marker + ")");
             if (!gone) {
-                bad.add(ALT_A + " is still in the world after @dismiss");
+                bad.add(nameA + " is still in the world after @dismiss");
             }
             if (!leftParty) {
-                bad.add(ALT_A + " is still in the party after @dismiss");
+                bad.add(nameA + " is still in the party after @dismiss");
             }
             if (saved != marker) {
-                bad.add(ALT_A + "'s mesos were not saved (database " + saved + ", want " + marker + ")");
+                bad.add(nameA + "'s mesos were not saved (database " + saved + ", want " + marker + ")");
             }
             if (soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isEnabled(alt)) {
-                bad.add(ALT_A + " still has a movement driver after @dismiss");
+                bad.add(nameA + " still has a movement driver after @dismiss");
             }
         } finally {
             for (int id : reserved) {
@@ -379,12 +383,22 @@ final class Probes160 {
                 gm.changeMap(homeMap);
             }
         }
-        return verdict(bad, ALT_A + " joins the party on the owner's map and follows, through a portal too; on a field a"
+        return verdict(bad, nameA + " joins the party on the owner's map and follows, through a portal too; on a field a"
                 + " mob hits it, it damages the mob its owner hits, loots a party drop into its own bag and stops while its"
                 + " owner idles; a repeat is refused, the cap of 5 holds, @dismiss saves and removes it", out);
     }
 
     /** t-oa-1 (1.6.1): the field the fight checks run on (Henesys Hunting Ground I: a field, not a town). */
+    /**
+     * 163: the QA account's companion alt name for this GM. A character name is global in the game, and
+     * {@link #ensureCharacter} looks one up by name ({@code Character.getIdByName}), so a fixed "AutoQaAlt" was created
+     * once by the first lane to run t-oa-1 and then reused by every other lane, on an account that did not own it:
+     * {@code @botme} refused and the probe failed (cap-4 run 2026-10-31, lane AutoQaEleven). One alt per account.
+     */
+    static String altName(int accountId, char which) {
+        return "Qa" + accountId + which;
+    }
+
     static final int ALT_FIELD = 104_040_000;
     /** A Blue Snail: weak, and slow enough to land a touch before the alt kills it. */
     static final int ALT_MOB = 100_101;
@@ -1741,10 +1755,28 @@ final class Probes160 {
             return List.of("SKIP -Dslums.botRebirth.liveRuns=false (every boss off screen)");
         }
         soloMapling.ArtificialPlayer.BotRebirthQa.Before b;
-        try {
-            b = soloMapling.ArtificialPlayer.BotRebirthQa.pick(p.character());
-        } catch (IllegalStateException e) {
-            return List.of("FAIL " + e.getMessage());
+        // 163: the candidate pool is the world's bots (no party, no rebirths, level 30-199), and a long run thins it as
+        // its other checks take bots into parties. Pick took the first empty moment as a failure, so at cap 1 (where
+        // t-rb-2 runs last, 19:11 UTC) it failed and at cap 4 (early, 16:12) it passed - a verdict that depended on
+        // check order. An unmet precondition is a SKIP, and the pool changes every tick, so wait for it first.
+        b = null;
+        String why = null;
+        long deadline = System.currentTimeMillis() + 120_000;
+        while (b == null) {
+            try {
+                b = soloMapling.ArtificialPlayer.BotRebirthQa.pick(p.character());
+            } catch (IllegalStateException e) {
+                why = e.getMessage();
+            }
+            if (b == null) {
+                // the deadline and the sleep are unconditional: a pick that ever returns null instead of throwing must
+                // not turn this into a busy loop on the QA thread
+                if (System.currentTimeMillis() >= deadline) {
+                    return List.of("SKIP no bot to stage after 2 min: "
+                            + (why == null ? "no candidate was returned" : why));
+                }
+                Thread.sleep(3_000);
+            }
         }
         int vlItem = soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBosses.Boss.VONLEON.clearItem;
         List<String> bad = new ArrayList<>();

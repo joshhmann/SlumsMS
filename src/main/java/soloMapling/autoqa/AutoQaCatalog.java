@@ -434,8 +434,11 @@ public final class AutoQaCatalog {
                 .build());
 
         // ── Natural conversations (ticket 59) ────────────────────────────────────────────────────────────────
-        c.add(Check.auto("t-cv-1", "Ask a bot to do things in plain words").laneOnly().minutes(8)
-                .step(run("cv-1"), say("{bot} wanna party?"), until(SAID, 1, SAID_CAP_S), say("{bot} come to henesys"), until(SAID, 1, SAID_CAP_S),
+        c.add(Check.auto("t-cv-1", "Ask a bot to do things in plain words").holds("map:100000000").minutes(8)
+                // 163: "come to henesys" only works from Henesys. The GM stays where the previous check left it, and
+                // a lane that had walked to 104040001 sent the bot off on go_to@100000000, so its later lines got no
+                // answer at all (cap-4 run 2026-10-31, lane AutoQaSeven).
+                .step(say("!warp 100000000"), waitSeconds(3), run("cv-1"), say("{bot} wanna party?"), until(SAID, 1, SAID_CAP_S), say("{bot} come to henesys"), until(SAID, 1, SAID_CAP_S),
                         say("{bot} meet me at the fm"), until(SAID, 1, SAID_CAP_S), say("{bot} show me the way to perion"),
                         until(SAID, 1, SAID_CAP_S), stop(), run("cv-1", "training"), say("{bot2} help me kill these"), until(SAID, 1, SAID_CAP_S),
                         say("{bot2} can u buff me"), until(SAID, 1, SAID_CAP_S))
@@ -651,11 +654,14 @@ public final class AutoQaCatalog {
                 "as t-rg-1: Cash Shop purchase flow not driven headless; the couple effect is visual"));
 
         // ── Scrolling ────────────────────────────────────────────────────────────────────────────────────────
-        c.add(Check.auto("t-sc-1", "A gambler bot scrolls its sword").laneOnly().minutes(6)
+        // 163: sc-1 and sc-2 drive the same scrolling-bot fixture (one staged bot, one sword, one KIT): at cap 4 both
+        // ran at once, read and rolled the same item (ROLL lines 0.4 s apart, lane2 saw lane1's passes) and lane2's
+        // stop despawned the bot under lane1, which then timed out waiting for DONE (2026-10-31). Same key, never at once.
+        c.add(Check.auto("t-sc-1", "A gambler bot scrolls its sword").holds("scenario:sc-2").minutes(6)
                 .step(run("sc-2", "gambler"), qaDo("roll"), waitSeconds(4), qaDo("roll"), waitFor("DONE ", 300))
                 .expect(atLeast(2, "ROLL .*(SUCCESS|FAIL|CURSE)|SCROLL .*(SUCCESS|FAIL|CURSE)"), has("DONE "))
                 .build());
-        c.add(Check.auto("t-sc-2", "A careful bot plays it safe").laneOnly().minutes(6)
+        c.add(Check.auto("t-sc-2", "A careful bot plays it safe").holds("scenario:sc-2").minutes(6)
                 .step(run("sc-2", "careful"), qaDo("roll"), waitSeconds(4), qaDo("roll"), waitFor("DONE ", 300))
                 .expect(atLeast(1, "(ROLL|SCROLL) .*2043001"), lacks("(ROLL|SCROLL) .*(2043002|2043004)"), has("DONE "))
                 .build());
@@ -717,14 +723,15 @@ public final class AutoQaCatalog {
         // 1.6.2 (audit 163): the showcase bots stand next to the GM and swing at the mobs by it; with KS manners at the
         // swing a visible GM's mobs are theirs, so the GM hides for these three (Steps.hiddenGm), as a player would.
         c.add(Check.half("t-bk-1", "Attack pacing: exact swing timing, held Hurricane and Rapid Fire",
-                "the swings on screen and attackdiag.log next to the client").laneOnly().minutes(6)
+                "the swings on screen and attackdiag.log next to the client").holds("scenario:bk-1").minutes(6)
                 .step(hiddenGm(), run("bk-1", "pacing"), until("ATTACK .* busy \\d+ms", 60, 240))
                 .expect(atLeast(20, "ATTACK .* busy \\d+ms"),
                         rule("no machine-gun swings (gap under 60% of busy) and no hitch (gap over busy + 3 s at a live mob)",
                                 AutoQaCatalog::pacingSteady),
                         lacks("ATTACK GUARD melee without a range"))
                 .build());
-        c.add(Check.half("t-at-1", "Bots attack at a player's pace", "the swings next to your own character").laneOnly().minutes(14)
+        c.add(Check.half("t-at-1", "Bots attack at a player's pace", "the swings next to your own character")
+                .holds("scenario:bk-1").minutes(14)
                 .step(hiddenGm(), run("bk-1"), until("ATTACK .* busy \\d+ms", 120, 600))
                 .expect(atLeast(40, "ATTACK .* busy \\d+ms"),
                         rule("no machine-gun swings (gap under 60% of busy)", AutoQaCatalog::pacingNotFast),
@@ -733,7 +740,10 @@ public final class AutoQaCatalog {
         // 1.6.0: a gunslinger bot's Double Shot went out as a melee attack in its doublefire pose; a gun's afterimage has
         // no range for it and the viewer's client closed (TEST, twice). Gun and knuckle bots fight; every melee packet
         // must be one the client has a range for, and the packet guard must never have had to step in.
-        c.add(Check.auto("t-bk-3", "Pirate bots never send a melee attack that closes a viewer's client").laneOnly().minutes(5)
+        // 163: bk-1 and bk-3 both start scenario bk-1 (t-bk-1 on 104040000). At cap 4 the second one was refused by the
+        // suite's own claim guard ("AutoQaSeven is running bk-1 on [map:104040000]") and SKIPped; one key, so the
+        // scheduler serialises exactly these two and nothing else.
+        c.add(Check.auto("t-bk-3", "Pirate bots never send a melee attack that closes a viewer's client").holds("scenario:bk-1").minutes(5)
                 .step(hiddenGm(), run("bk-1", "pirates", "3"), until("ATTACK .* weapon 149\\d{4} ", 20, 240))
                 .expect(atLeast(10, "ATTACK .* route RANGED .* weapon 149\\d{4} "),
                         lacks("ATTACK GUARD melee without a range"),
