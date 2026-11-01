@@ -2,6 +2,9 @@ package soloMapling.ArtificialPlayer.BotTypes;
 
 import soloMapling.qa.QaLog;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import client.Character;
 import client.inventory.Item;
 import server.maps.HiredMerchant;
@@ -100,6 +103,13 @@ public class FMBot extends BotSM {
     private boolean seated;
     // Equips this bot bought (oldest first): when its equip tab is full it lets the oldest go to make room.
     private final Deque<Integer> boughtEquipIds = new ArrayDeque<>();
+
+    // b271: the item pool does not know every item's value (getItemMarketValue returns null for, e.g., an equip
+    // the valuation refuses or a non-equip whose id is not in the pool). Such an item is never bought, and the
+    // missing value is warned about once per item id per JVM so a live log names the item instead of repeating.
+    private static final Set<Integer> missingMarketValueIds = ConcurrentHashMap.newKeySet();
+    private static final int MISSING_MARKET_VALUE_LOG_LIMIT = 1_000;
+    private static final Logger LOG = LoggerFactory.getLogger(FMBot.class);
 
     public FMBot(Character character) {
         super(character);
@@ -526,10 +536,11 @@ public class FMBot extends BotSM {
             if (fromPlayerShop) {
                 // per set for stars, and never far over what an NPC pays for a low-value item (1.5.0 rc3 review)
                 long fair = soloMapling.Economy.PriceBook.botBuyValue(thisItem);
-                itemMarketValue = fair > 0 ? (int) Math.min(Integer.MAX_VALUE, fair) : itemMarketValue;
+                itemMarketValue = playerShopValue(fair, itemMarketValue);
                 playerSkip = soloMapling.Economy.BotBuying.whyNotBuyFromPlayer(thisItem);
             }
-            Boolean purchase = playerSkip == null && shouldPurchaseItem(itemPrice, itemMarketValue);
+            // b271: a missing value means "no known value", never "worth nothing": skip the item, keep scanning.
+            Boolean purchase = shouldBuyListedItem(thisItem.getItemId(), itemPrice, itemMarketValue, playerSkip);
             if (playerSkip != null && QaLog.on(QaLog.Topic.FM_BUY)) {
                 qaBuy("skip", thisItem.getItemId(), itemPrice, itemMarketValue, playerSkip);
             }
@@ -845,7 +856,7 @@ public class FMBot extends BotSM {
      * @return true if item should be purchased, false otherwise
      */
     public static boolean shouldPurchaseItem(Integer askingPrice, Integer marketValue) {
-        if (marketValue == null) return false;
+        if (askingPrice == null || marketValue == null) return false;   // b271: no price or no value, never buy blind
         if (askingPrice <= 0 || marketValue <= 0) return false;
 
         double ratio = (double) askingPrice / marketValue;
@@ -861,6 +872,45 @@ public class FMBot extends BotSM {
         }
 
         return false;
+    }
+
+    /**
+     * b271: the shop-buy decision for one listed item. An item whose market value is unknown is skipped (and its id
+     * warned about once) instead of being judged, so no bot buys blind and none of these can throw.
+     *
+     * @param itemId     the listed item's id, for the once-per-id warning
+     * @param askingPrice the item's FM price
+     * @param marketValue the item's market value, null when the pool does not know it
+     * @param playerSkip  why a real player's item is not taken, null when it is allowed
+     * @return true when the bot should pay for the item
+     */
+    /** A real player's item: its fair price when the board has one, else the pool's value (which may be null). */
+    static Integer playerShopValue(long fair, Integer poolValue) {
+        // boxed on purpose: `cond ? int : Integer` unboxes the Integer and threw on a null pool value (b271)
+        return fair > 0 ? Integer.valueOf((int) Math.min(Integer.MAX_VALUE, fair)) : poolValue;
+    }
+
+    static boolean shouldBuyListedItem(int itemId, int askingPrice, Integer marketValue, String playerSkip) {
+        if (marketValue == null) {
+            noteMissingMarketValue(itemId);
+            return false;
+        }
+        return playerSkip == null && shouldPurchaseItem(askingPrice, marketValue);
+    }
+
+    /**
+     * b271: records that the item pool has no value for {@code itemId} and warns about it once per JVM (the set is
+     * bounded, so a bad item id cannot grow it without limit and the log cannot flood). The caller does not buy the
+     * item; the warning is what makes the next live log able to name the item.
+     *
+     * @return true when this call was the first for the id (and so logged)
+     */
+    static boolean noteMissingMarketValue(int itemId) {
+        if (missingMarketValueIds.size() >= MISSING_MARKET_VALUE_LOG_LIMIT || !missingMarketValueIds.add(itemId)) {
+            return false;
+        }
+        LOG.warn("Item {} has no known market value: FM bots skip it (b271)", itemId);
+        return true;
     }
 
     @Override
