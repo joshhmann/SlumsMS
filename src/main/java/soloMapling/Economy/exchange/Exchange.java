@@ -159,6 +159,8 @@ public final class Exchange {
     /** The desk's knobs ({@link DeskConfig}); the desk itself is null while the switch is off. */
     private volatile DeskConfig deskConfig = DeskConfig.fromSystem();
     private Desk desk;
+    /** 1.6.3: the bots' hourly NX allowance at the desk ({@code -Dslums.exchange.traders.nx.*}). */
+    private final DeskBotCaps deskBotCaps = DeskBotCaps.fromSystem();
 
     public DeskConfig deskConfig() {
         return deskConfig;
@@ -190,6 +192,27 @@ public final class Exchange {
     /** The desk's HOUSE bucket for an asset: its NX and its mesos (id {@link Desk#HOUSE}). */
     public static Bucket deskBucket(Asset a) {
         return Bucket.house(a, Desk.HOUSE);
+    }
+
+    /**
+     * What a trader bot sees of the desk: the quotes of the moment and how much NX it may still trade this hour
+     * ({@link DeskBotCaps}). Null when no bot should trade the desk now: the desk is off or closed, the exchange is
+     * halted, {@code -Dslums.exchange.traders.nx} is off, the account is not a bot, or the hour's allowance is spent.
+     */
+    public record DeskBotQuote(long mid, long buy, long sell, long minQty, long lot, long left) {}
+
+    public synchronized DeskBotQuote deskForBot(long account) {
+        if (!recovered || halted || desk == null || closeReason() != null || !MarketConfig.tradersNxOn()
+                || !botAccount(account)) {
+            return null;
+        }
+        long now = clock.getAsLong();
+        long left = Math.min(deskBotCaps.left(account, now), deskBotCaps.worldLeft(now));
+        if (left < ticker(Ticker.NX).minQty()) {
+            return null;
+        }
+        Ticker t = ticker(Ticker.NX);
+        return new DeskBotQuote(desk.mid(), desk.buy(), desk.sell(), t.minQty(), t.lot(), left);
     }
 
     // ---------------------------------------------------------------- audit (1.6.2)
@@ -1155,17 +1178,143 @@ public final class Exchange {
     }
 
     /**
+     * 1.6.3 (b260): one desk fill for a trader bot, in its own purse and mesos. There is no preview, token or queue for
+     * a bot (it has no site, and the desk trades only at its own quote), so the bot names a side and a whole lot of NX
+     * and the fill goes in at the quote of the moment, which is the quote {@link #deskForBot} showed it a moment
+     * before; a step in between is a slightly worse price, never a refusal. Its money leg is its bookkeeping bucket
+     * (the store skips BOT buckets: the bot's own memory moved the mesos) and its NX leg is the purse {@link #botNx}
+     * reads, so the house and the bot's NX still balance. MIN_QTY, BOT_CAP, DESK_EMPTY and INSUFFICIENT_FUNDS refuse
+     * without moving anything, as they do for a player.
+     */
+    public synchronized Response deskBot(String rid, LiveWallet w, Side side, long nx) {
+        if (!recovered) {
+            return Response.error(rid, "UNAVAILABLE", "the exchange is not started");
+        }
+        if (halted) {
+            return Response.error(rid, "HALTED", "the exchange is stopped: " + haltReason);
+        }
+        if (desk == null || closeReason() != null) {
+            return Response.error(rid, "DESK_CLOSED", deskClosedMessage());
+        }
+        if (!MarketConfig.tradersNxOn()) {
+            return Response.error(rid, "BAD_REQUEST", "trader bots do not trade NX (-Dslums.exchange.traders.nx)");
+        }
+        if (w == null || !botAccount(w.account())) {
+            return Response.error(rid, "BAD_REQUEST", "a trader bot trades with its own wallet");
+        }
+        Ticker t = ticker(Ticker.NX);
+        if (nx <= 0 || nx % t.lot() != 0) {
+            return Response.error(rid, "BAD_REQUEST", "the desk trades whole lots of " + t.lot() + " NX");
+        }
+        if (nx < t.minQty()) {
+            return Response.error(rid, "MIN_QTY", "the desk trades from " + t.minQty() + " NX up");
+        }
+        long now = clock.getAsLong();
+        if (nx > deskBotCaps.left(w.account(), now)) {
+            return Response.error(rid, "BOT_CAP", "this bot has " + deskBotCaps.left(w.account(), now)
+                    + " NX of its hourly desk allowance left");
+        }
+        long worldLeft = deskBotCaps.worldLeft(now);
+        if (nx > worldLeft) {
+            return Response.error(rid, "BOT_CAP", "the traders have " + worldLeft
+                    + " NX of their hourly desk allowance left");
+        }
+        long price = desk.quote(side);
+        long mesos, fee;
+        try {
+            mesos = desk.mesos(side, nx, price);
+        } catch (ArithmeticException e) {
+            return Response.error(rid, "BAD_REQUEST", "that is more NX than one trade can carry");
+        }
+        fee = desk.config().fee(mesos);
+        if (mesos <= 0 || mesos > Integer.MAX_VALUE - fee) {
+            return Response.error(rid, "BAD_REQUEST", "that is more NX than one trade can carry");
+        }
+        long deskNx, deskMeso;
+        try {
+            deskNx = store.balance(deskBucket(Asset.NX));
+            deskMeso = store.balance(deskBucket(Asset.MESO));
+        } catch (StoreException e) {
+            return storeError(rid, e);
+        }
+        Response short_ = deskShort(rid, side, nx, mesos, deskNx, deskMeso);
+        if (short_ != null) {
+            return short_;
+        }
+        Place p = new Place(rid, w.account(), w.character(), side, price, nx, Ticker.NX);
+        Asset meso = Asset.MESO;
+        long takes = side == Side.BUY ? mesos + fee : 0;
+        return w.locked(() -> {
+            if (!w.usable()) {
+                return Response.error(rid, "TRY_AGAIN",
+                        "the bot is changing channel or logging out; try again in a moment");
+            }
+            if (!w.saveNow()) {
+                return Response.error(rid, "ERROR", "could not save the bot first; try again later");
+            }
+            if (side == Side.BUY) {
+                if (w.have(meso) < takes) {
+                    return Response.error(rid, "INSUFFICIENT_FUNDS", "the bot needs " + takes + " mesos");
+                }
+                if (!w.take(meso, takes)) {
+                    return Response.error(rid, "INSUFFICIENT_FUNDS", "the bot needs " + takes + " mesos");
+                }
+            } else if (botNx(w.account()) < nx) {
+                return Response.error(rid, "INSUFFICIENT_FUNDS", "the bot has fewer than " + nx + " NX");
+            }
+            committed = false;
+            try {
+                commitFill(p, now, mesos, fee, 0, 0, Bucket.bot(meso, w.character()),
+                        Bucket.payout(Asset.NX, w.account()));
+            } catch (RuntimeException | StoreException e) {
+                if (!committed) {
+                    if (side == Side.BUY) {
+                        giveBack(w, meso, takes, "a refused desk fill " + rid);
+                    }
+                } else {
+                    halt("desk fill " + rid + " failed after its commit: " + e);
+                }
+                log.error("NX exchange: bot desk fill {} failed", rid, e);
+                return Response.error(rid, "ERROR", "try again later");
+            }
+            if (side == Side.SELL) {
+                long paid = mesos - fee;
+                if (!w.give(meso, paid)) {
+                    log.error("NX exchange: bot desk fill {} committed but {} mesos could not be given to character "
+                            + "{} (account {}): staff must add it", rid, paid, w.character(), w.account());
+                    halt("could not give " + paid + " mesos to character " + w.character());
+                }
+                // the bot's mesos are in memory: save now, or a crash before its next save loses what the house paid
+                w.saveNow();
+            }
+            deskBotCaps.count(w.account(), now, nx);
+            w.tell("NX desk: " + (side == Side.BUY ? "bought" : "sold") + " " + nx + " NX at " + price
+                    + " mesos per 1,000 (" + (side == Side.BUY ? "-" : "+") + mesos + " mesos).");
+            return Response.ok(rid, fillData(p, mesos, now));
+        });
+    }
+
+    /**
      * Writes one desk fill in the batch: the player's money leg to or from the desk's HOUSE bucket, the NX leg the
      * other way, a fee when one is configured, the fill row (no order ids: the desk has no orders) and the desk's new
      * state, in one transaction.
      */
     private long commitFill(Place p, long now, long mesos, long fee, long liveAccount, long liveCharacter)
             throws StoreException {
+        return commitFill(p, now, mesos, fee, liveAccount, liveCharacter,
+                Bucket.wallet(Asset.MESO, p.character()), Bucket.wallet(Asset.NX, p.account()));
+    }
+
+    /**
+     * The same with the buckets the trader's side of the trade lives in: a player's character wallet and account NX,
+     * or a trader bot's bookkeeping meso bucket and NX purse ({@link #deskBot}).
+     */
+    private long commitFill(Place p, long now, long mesos, long fee, long liveAccount, long liveCharacter,
+                            Bucket playerMeso, Bucket playerNx) throws StoreException {
         Side side = p.side();
         long nx = p.nx(), price = p.price();
         long fillId = nextFill;
         Bucket houseNx = deskBucket(Asset.NX), houseMeso = deskBucket(Asset.MESO);
-        Bucket playerMeso = Bucket.wallet(Asset.MESO, p.character()), playerNx = Bucket.wallet(Asset.NX, p.account());
         List<Posting> postings = new ArrayList<>(3);
         if (side == Side.BUY) {
             postings.add(new Posting(Why.FILL, playerMeso, houseMeso, mesos, p.account(), 0, fillId));
@@ -1195,6 +1344,7 @@ public final class Exchange {
         nextFill++;
         nextBatch++;
         remember(List.of(f));
+        noteBotPayouts(postings);
         return fillId;
     }
 

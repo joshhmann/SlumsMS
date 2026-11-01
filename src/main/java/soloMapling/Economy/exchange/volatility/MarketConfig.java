@@ -13,7 +13,11 @@ import java.util.concurrent.TimeUnit;
  *   -Dslums.exchange.traders.count=16         how many bots of the roster are traders (Achiever/Killer-leaning); with
  *                                             pct given it is a hard cap (default 200: the pct decides)
  *   -Dslums.exchange.traders.nx=false         1.6.2: trader bots also trade NX for mesos inside the NX band (they
- *                                             sell only the NX they bought: nothing is granted)
+ *                                             sell only the NX they bought: nothing is granted). 1.6.3: with the NX
+ *                                             desk on they trade at the desk's quotes instead of the order book.
+ *   -Dslums.exchange.traders.nx.perBotHour=2000  1.6.3: NX one trader bot may trade at the desk in an hour, both
+ *                                             sides together (0: bots do not trade the desk)
+ *   -Dslums.exchange.traders.nx.worldHour=20000  1.6.3: the same for all traders together, whatever the population
  *   -Dslums.exchange.traders.minMinutes=4     each trader acts every min..max minutes (per-bot jitter)
  *   -Dslums.exchange.traders.maxMinutes=12
  *   -Dslums.market.events=false               market events: Leaf Rush, Leaf Blight, Rooty's Bonus (GM tools) and the
@@ -45,6 +49,19 @@ public record MarketConfig(boolean traders, int traderCount, long minActMs, long
     public static final String TRADERS_COUNT = TRADERS + ".count";
     /** Trader bots trade NX too (1.6.2; off: the item tickers only, as in 1.6.1). */
     public static final String TRADERS_NX = TRADERS + ".nx";
+    /**
+     * 1.6.3 (b260): how much NX one trader bot may trade at the NX desk in one hour, buys and sells together, so a
+     * bot cannot walk the rate with its own purse. 0 stops the bots trading the desk at all.
+     */
+    public static final String TRADERS_NX_PER_BOT_HOUR = TRADERS_NX + ".perBotHour";
+    /**
+     * 1.6.3 (b260): the same for all the trader bots together, the cap that keeps the whole bot population from
+     * moving the rate whatever its size (at 20,000 NX an hour, a day at the cap is under 2.4% of the desk's rate).
+     */
+    public static final String TRADERS_NX_WORLD_HOUR = TRADERS_NX + ".worldHour";
+    /** Defaults: 2,000 NX an hour for one bot, 20,000 for the world (see {@link #TRADERS_NX_WORLD_HOUR}). */
+    public static final long BOT_NX_PER_BOT_HOUR = 2_000;
+    public static final long BOT_NX_WORLD_HOUR = 20_000;
     /**
      * How much of the real drop chance a trader bot's off-screen scroll find uses (owner 2026-10-31 ~19:50 UTC: a
      * quarter, so CHAOS and WS stay rare instead of flooding the books; 1 = the real rate, 0 = no finds at all).
@@ -127,6 +144,16 @@ public record MarketConfig(boolean traders, int traderCount, long minActMs, long
     /** Trader bots trade NX too (read where the exchange itself has only the flag: {@code placeBot}). */
     public static boolean tradersNxOn() {
         return Boolean.getBoolean(TRADERS_NX);
+    }
+
+    /** One bot's hourly desk allowance in NX, both sides together ({@link #TRADERS_NX_PER_BOT_HOUR}). */
+    public static long tradersNxPerBotHour() {
+        return Math.max(0, l(TRADERS_NX_PER_BOT_HOUR, BOT_NX_PER_BOT_HOUR));
+    }
+
+    /** All the trader bots' hourly desk allowance in NX together ({@link #TRADERS_NX_WORLD_HOUR}). */
+    public static long tradersNxWorldHour() {
+        return Math.max(0, l(TRADERS_NX_WORLD_HOUR, BOT_NX_WORLD_HOUR));
     }
 
     /**
