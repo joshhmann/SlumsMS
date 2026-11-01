@@ -27,6 +27,8 @@ steps:
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
   # a town with regulars: cv-1 stages a friend bot next to the GM here
+  - {id: hop, do: gm, line: "!warp 100000100", note: "the GM is usually saved in Henesys; a warp to the map it is on logs no MAP_CHANGE"}
+  - {id: hopped, do: sleep, ms: 4000, reason: "let the market load before warping back"}
   - {id: warp, do: gm, line: "!warp 100000000"}
   - {id: on-map, do: wait, armed_at: warp, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 100000000 ", char: me}, timeout_ms: 60000}
   - {id: scene, do: gm, line: "!qa run cv-1"}
