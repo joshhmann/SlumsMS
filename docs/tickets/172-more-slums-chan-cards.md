@@ -27,6 +27,11 @@ already on the cheeky side (from behind, bend, lying, lounge). Site art changes 
 5. **Tests:** each new id saves and shows; the total updates; the all-found reward follows the new rule; a signed-out
    visitor gets 404 for every new image.
 
+## Art received
+2026-11-01 ~07:00 UTC: 13 files (11 singles plus sheets of 12, 35 and 40 stickers), kept at
+/root/work/agent-runs/site/172-cards/ (README lists each one; not in git, about 40 MB). Owner: "Don't add these yet":
+they wait for the owner's picks.
+
 ## Owner decisions needed
 - How many cards, and the art sheets.
 - Mixed into the current secrets, or a separate "after dark" set?
