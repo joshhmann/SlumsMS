@@ -53,6 +53,9 @@ public interface CoupleStore {
         private volatile boolean warned;
 
         private void missing(SQLException e) {
+            if (BotDbGate.refusedNotMissing(e, log, "Bot couples were not read or written")) {
+                return; // b272: the share was busy, not a missing table
+            }
             if (!warned) {
                 warned = true;
                 log.warn("Bot couples are not stored (is migration 012-bot-couples applied?); keeping them in memory", e);

@@ -9,6 +9,7 @@ import client.inventory.Equip;
 import client.inventory.InventoryType;
 import client.inventory.Item;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import server.Trade;
 import server.maps.MapItem;
 import server.maps.MapleMap;
@@ -40,6 +41,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -342,6 +345,56 @@ class BotStoreTest {
     }
 
     @Test
+    void aLoginWhoseHoldingsTheShareRefusedIsTurnedAwayRatherThanAdoptedWithItsTabsEmpty() throws Exception {
+        // b272: at 3,000 bots the boot fill's logins were refused a connection for the item load, and the bot was
+        // adopted with empty tabs anyway - the next save would then write those empty tabs over the stored items.
+        // A refused read is not "this bot has nothing": the login is turned away (the same answer as a deferred
+        // departure) and nothing is claimed or registered, so the director comes back for the bot later.
+        int slot = BotStore.BOT_ID_BASE + 1088;
+        Connection con = mockPool(accepting());
+        BotStore.markHoldingsUnreadableForTest(slot, false);
+        BotStore.useConnectionSourceForTest(() -> con);
+        java.util.concurrent.CountDownLatch holding = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        Thread holder = Thread.ofPlatform().daemon().start(() -> {
+            try {
+                BotDbGate.hold(BotDbGate.PERMITS - 1, () -> {
+                    holding.countDown();
+                    try {
+                        release.await(20, java.util.concurrent.TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return null;
+                });
+            } catch (Exception ignored) {
+                // the release below ends it
+            }
+        });
+        try {
+            BotStore.recordFirstCreation(newBot(slot, "Holder"));
+            assertTrue(holding.await(5, java.util.concurrent.TimeUnit.SECONDS), "the share is full");
+
+            Character refused = newBot(slot, "Placeholder");
+            BotDbGate.useMaxWaitForTest(5); // the row read fits in the one free permit, the item load does not
+            assertAll(
+                    () -> assertEquals(BotStore.Restore.BUSY, BotStore.restoreIdentity(refused),
+                            "the holdings were not read, so the login is turned away"),
+                    () -> assertFalse(BotStore.isAdoptedInThisRun(slot),
+                            "and nothing is marked as adopted for this run"),
+                    () -> assertEquals(0, refused.getMeso(), "the stored row was not applied to it"),
+                    () -> assertTrue(refused.getInventory(InventoryType.EQUIP).list().isEmpty(),
+                            "and it carries no items either"));
+        } finally {
+            release.countDown();
+            holder.join(10_000);
+            BotDbGate.useMaxWaitForTest(0);
+            BotStore.useConnectionSourceForTest(null);
+            BotStore.markHoldingsUnreadableForTest(slot, false);
+        }
+    }
+
+    @Test
     void aBotThatTookItsRowFromTheStoreIsMarkedAsAdopted() throws SQLException {
         // Callers that would roll fresh state onto a whole cohort (the OPQ lobby's 50-70 level band) ask
         // the store which bots came back from an earlier run, so an adopted bot keeps its progression.
@@ -389,6 +442,41 @@ class BotStoreTest {
         }
 
         verify(map).spawnMesoDrop(3_000, bot.getPosition(), bot, bot, true, (byte) 2, (short) 0);
+    }
+
+    @Test
+    void aBotWhoseHoldingsCannotBeReadSettlesOnlyWhatItsOwnLedgerRecorded() throws SQLException {
+        // b272 question: what does "settled onto its map" hand to players? Only the net of what this bot's holdings
+        // path recorded for it this boot - loot, a sale, a prize, minus what it spent. The stored row is not part of
+        // it: the bot never read the row, and the failed write leaves the row untouched, so nothing of the stored
+        // items comes to the world and nothing of them is wiped.
+        Character bot = newBot(BOT_ID, "Unreadable");
+        MapleMap map = mock(MapleMap.class);
+        bot.setMap(map);
+        BotHoldings.grantMeso(bot, 300);
+        assertTrue(BotHoldings.spendMeso(bot, 100), "a purchase this boot nets the mesos down too");
+        Item loot = BotHoldings.newItem(2000000, 5);
+        assertTrue(BotHoldings.grantItem(bot, loot), "loot this boot");
+
+        Connection con = mockPool(accepting());
+        BotStore.markHoldingsUnreadableForTest(BOT_ID, true);
+        BotStore.useConnectionSourceForTest(() -> con);
+        try {
+            BotStore.saveThenSettle(bot);
+        } finally {
+            BotStore.useConnectionSourceForTest(null);
+            BotStore.markHoldingsUnreadableForTest(BOT_ID, false);
+        }
+
+        ArgumentCaptor<Item> dropped = ArgumentCaptor.forClass(Item.class);
+        assertAll(
+                () -> verify(map, times(1)).spawnItemDrop(any(), any(), dropped.capture(), any(), eq(true), eq(true)),
+                () -> assertEquals(2000000, dropped.getValue().getItemId()),
+                () -> assertEquals(5, dropped.getValue().getQuantity(), "what it took in, nothing else"),
+                () -> verify(map, times(1)).spawnMesoDrop(200, bot.getPosition(), bot, bot, true, (byte) 2,
+                        (short) 0),
+                () -> verify(con, never()).commit(),
+                () -> assertEquals(0, BotHoldings.ledgerStamp(bot), "the ledger was handed over once"));
     }
 
     @Test

@@ -105,6 +105,9 @@ public interface GuildStore {
         private volatile boolean warned;
 
         private void missing(SQLException e) {
+            if (BotDbGate.refusedNotMissing(e, log, "Bot guilds were not read or written")) {
+                return; // b272: the share was busy, not a missing table (probe() asks again next time)
+            }
             if (!warned) {
                 warned = true;
                 log.warn("Bot guilds are not stored (is migration 014-bot-guilds applied?)", e);

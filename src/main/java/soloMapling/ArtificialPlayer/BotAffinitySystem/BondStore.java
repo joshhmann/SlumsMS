@@ -41,6 +41,9 @@ public interface BondStore {
         private volatile boolean warned;
 
         private void missing(SQLException e) {
+            if (BotDbGate.refusedNotMissing(e, log, "Bot bonds were not read or written")) {
+                return; // b272: the share was busy, not a missing table
+            }
             if (!warned) {
                 warned = true;
                 log.warn("Bot bonds are not stored (is migration 029-bot-bonds applied?); keeping them in memory", e);

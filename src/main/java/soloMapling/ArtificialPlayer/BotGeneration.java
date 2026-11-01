@@ -108,6 +108,9 @@ public class BotGeneration {
         return minLevel > 0 ? Decoration.LEVEL_RANGE : Decoration.RANDOM;
     }
 
+    /** Tests: told whether the login body ran on a virtual thread (b272); null in play. */
+    static volatile java.util.function.Consumer<Boolean> loginThreadForTest;
+
     public static int createBot(int slot, Point pos, MapleMap map) {
         return createBot(slot, pos, map, 0, 0, 0, 0);
     }
@@ -126,6 +129,17 @@ public class BotGeneration {
      */
     public static int createBot(int slot, Point pos, MapleMap map, int baseClass, int minLevel, int maxLevel,
                                 int forcedJobId) {
+        if (Thread.currentThread().isVirtual()) {
+            // b272: a login reads the store row, the holdings, the buddy list, the guild and the romance, and the
+            // bots' share refuses a virtual thread instead of letting it wait - so a wave or a GM command spawning
+            // from a virtual thread logged bots in without that state. The login is done where the wait is allowed.
+            int[] placed = {-1};
+            Point where = pos;
+            MapleMap onMap = map;
+            soloMapling.server.ExecutorServiceManager.callBotDb(() -> placed[0] = createBot(slot, where, onMap,
+                    baseClass, minLevel, maxLevel, forcedJobId));
+            return placed[0];
+        }
         // Ticket 57: a bot of the environment's town dressing goes to the channel furthest below its share of the
         // dressing; any other bot (a roster login picks its channel itself) goes to the map's channel.
         int reserved = -1;
@@ -147,6 +161,10 @@ public class BotGeneration {
 
     private static int createBotOnChannel(int slot, Point pos, MapleMap map, int baseClass, int minLevel, int maxLevel,
                                           int forcedJobId) {
+        java.util.function.Consumer<Boolean> probe = loginThreadForTest;
+        if (probe != null) {
+            probe.accept(Thread.currentThread().isVirtual()); // b272: a login's reads may not be refused for its thread
+        }
         Client client = clientFor(map);
         int cid = soloMapling.server.MapleRootSolo.templateId(); // the dedicated bot template character
 

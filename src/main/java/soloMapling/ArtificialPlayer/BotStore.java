@@ -435,8 +435,8 @@ public final class BotStore {
         NEVER_FILLED,
         /**
          * The bot left the world in an earlier session and its departure is still waiting for a write that was
-         * refused again just now (b269 round 3). Nothing was restored and nothing was minted: the login is turned
-         * away as busy and the bot stays deferred for the next sweep.
+         * refused again just now (b269 round 3), or its holdings could not be read because the bots' share of the
+         * pool was busy (b272). Nothing was claimed or registered: the login is turned away and comes back later.
          */
         BUSY
     }
@@ -451,7 +451,9 @@ public final class BotStore {
      * first, once, through the same platform-thread write the retry sweep uses: its row is then the fresh one, and
      * the deferred departure cannot land on top of what the new session did. When even that write is refused, the
      * login is answered {@link Restore#BUSY} - the bot is neither restored from the stale row it left nor minted as
-     * a new bot, which would hand the same value out twice.
+     * a new bot, which would hand the same value out twice. The same holds for a holdings read the bots' share of the
+     * pool refused (b272): a bot adopted with empty tabs would write them back over its stored items at its next
+     * save, so the login is turned away and the director comes back for it later.
      */
     public static Restore restoreIdentity(Character bot) {
         if (departurePending(botId(bot)) && !writePendingDeparture(botId(bot))) {
@@ -480,6 +482,17 @@ public final class BotStore {
             });
             BotDebitJournal.applyTo(bot);   // ticket 63: debits the last shutdown could not write
         } catch (Exception e) {
+            if (BotDbGate.refusedIn(e)) {
+                // b272: a busy share is not a missing item table. Adopting the bot now would hand it empty tabs,
+                // and its inventory would then be written back from them at the next save - the stored items gone.
+                // The login is turned away instead: nothing was claimed or registered, and the director comes back
+                // for this bot on a later tick, when the share has room.
+                adoptedThisRun.remove(bot.getId());
+                log.warn("Bot {} ({}) could not load its holdings: the bots' share of the database pool stayed busy"
+                        + " ({}); the login is turned away and tried again later", bot.getId(), bot.getName(),
+                        e.getMessage());
+                return Restore.BUSY;
+            }
             // The row is still readable, but this bot's items are not. Let it run this boot with empty
             // tabs, but never write them: the item tables are rewritten tab by tab, so a save now would
             // wipe the stored items with the empty ones the bot is carrying. The write is failed, not

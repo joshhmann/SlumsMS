@@ -289,6 +289,38 @@ public final class BotDbGate {
         return e instanceof RefusedException;
     }
 
+    /**
+     * True when {@code e}, or any exception it was wrapped in, is a refusal. Stores wrap a failed read in their own
+     * {@code IllegalStateException} ({@code "Could not read which bots have buddies"}), and the login paths have to
+     * tell a busy share from a broken table after that wrap.
+     */
+    public static boolean refusedIn(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof RefusedException) {
+                return true;
+            }
+            if (t.getCause() == t) {
+                break;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The one line for stored state a store could not read or write because the bots' share was busy, and
+     * {@code false} when {@code e} is anything else - so the caller can tell a busy share from the table it is
+     * missing. Returns {@code true} once it has logged, and the caller then returns without spending its
+     * missing-migration warning (b272: a boot at 3,000 bots reported "is migration 014-bot-guilds applied?" for a
+     * table that was there).
+     */
+    public static boolean refusedNotMissing(SQLException e, Logger storeLog, String what) {
+        if (!refused(e)) {
+            return false;
+        }
+        storeLog.warn("{}: the bots' share of the database pool stayed busy ({})", what, e.getMessage());
+        return true;
+    }
+
     /** How many times {@link #write} asks before it reports the share as unavailable. */
     static final int WRITE_ATTEMPTS = 3;
 

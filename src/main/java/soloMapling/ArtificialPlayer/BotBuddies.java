@@ -200,6 +200,13 @@ public final class BotBuddies {
     // waits its turn, and BotDbGate.write asks again if the share was busy.
     /** Where the player-side writes run: never on the packet thread (a seam: tests run them in place). */
     private static volatile java.util.concurrent.Executor writer = ExecutorServiceManager::runBotDb;
+    /**
+     * b272: a login's buddy-list read that the bots' share of the pool refused is read again shortly, on a platform
+     * thread. Nothing is written from the unread list while it waits: every buddy write (a request, a decision, a
+     * removal) re-reads its pair from the table first, so a refused read costs this bot its list for a moment, never
+     * a stored row.
+     */
+    private static final LoginLoadRetry loginLoads = new LoginLoadRetry("buddy list", BotBuddies::readBuddies);
     /** One pair's writes land in order (a request, then the player removing the bot again). */
     private static final SerialWrites pairWrites = new SerialWrites(r -> writer.execute(r));
     private static final Deque<Long> worldOffers = new ArrayDeque<>();
@@ -634,21 +641,42 @@ public final class BotBuddies {
 
     /**
      * A bot joined the world: it loads its player buddies, shows online on their lists, and answers the requests that
-     * came while it was away. Off the caller's thread.
+     * came while it was away. Off the caller's thread, on a bot-db platform thread: the read asks the bots' share of
+     * the pool, and the share refuses a virtual thread instead of letting it wait (b272 - at 3,000 bots every login's
+     * buddy read was refused, and each bot spent the run with an empty list).
      */
     public static void onBotLogin(Character bot) {
         if (bot == null || !BotHelpers.isArtificial(bot.getId())) {
             return;
         }
-        ExecutorServiceManager.runAsync(() -> {
+        writer.execute(() -> {
             try {
                 for (Row request : loadBuddies(bot)) {
                     scheduleDecision(bot, request.playerId(), request.playerName());
                 }
+                loginLoads.done(bot.getId());
             } catch (RuntimeException e) {
+                if (BotDbGate.refusedIn(e)) {
+                    loginLoads.refused(bot.getId());
+                    log.warn("The buddy list of bot {} was not read: the bots' share of the database pool stayed busy"
+                            + " ({}); it is read again shortly, and until then this bot writes no buddy state",
+                            bot.getName(), e.getMessage());
+                    return;
+                }
                 log.warn("Could not load the buddies of bot {}", bot.getName(), e);
             }
         });
+    }
+
+    /** The retry's half of {@link #onBotLogin}: reads a refused buddy list again, for a bot that is still live. */
+    static void readBuddies(int botId) {
+        Character bot = liveBot(botId);
+        if (bot == null || bot.getBuddylist() == null) {
+            return; // gone or logged out meanwhile: its next login reads it
+        }
+        for (Row request : loadBuddies(bot)) {
+            scheduleDecision(bot, request.playerId(), request.playerName());
+        }
     }
 
     /** Puts the bot's player buddies on its list and shows it online to them; returns the requests to answer. */
@@ -896,9 +924,14 @@ public final class BotBuddies {
         return r;
     }
 
-    /** Tests: where the player-side writes run (null = a worker thread). */
+    /** Tests: where the writes and the login read run (null = a bot-db thread). */
     static void useWriterForTest(java.util.concurrent.Executor testWriter) {
-        writer = testWriter != null ? testWriter : ExecutorServiceManager::runAsync;
+        writer = testWriter != null ? testWriter : ExecutorServiceManager::runBotDb;
+    }
+
+    /** Tests: the queue of buddy reads the bots' share refused (b272). */
+    static LoginLoadRetry loginLoadsForTest() {
+        return loginLoads;
     }
 
     /** Test seams: a fake table, names, online players, judge and dice (null restores the real ones). */
