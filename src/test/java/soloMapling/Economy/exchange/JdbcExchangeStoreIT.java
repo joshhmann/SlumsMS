@@ -16,12 +16,14 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -34,7 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JdbcExchangeStoreIT {
 
     static final String URL = System.getProperty("slums.exchange.it.url");
-    static final long P = 1_000_000;
+    /** Inside ticket 113's hard window (2,500,000..10,000,000 mesos per 1,000 NX; 1,000 was from before it). */
+    static final long P = 4_000_000;
 
     Connection admin;
     AtomicLong now = new AtomicLong(1_800_000_000_000L);
@@ -43,7 +46,7 @@ class JdbcExchangeStoreIT {
     void setUp() throws Exception {
         Assumptions.assumeTrue(URL != null && !URL.isBlank(), "no scratch MySQL given");
         admin = DriverManager.getConnection(URL);
-        exec("DROP TABLE IF EXISTS exchange_ledger, exchange_escrow, exchange_fills, exchange_orders, accounts, characters, mapleroot_integration_migrations, inv_snapshot");
+        exec("DROP TABLE IF EXISTS exchange_ledger, exchange_escrow, exchange_fills, exchange_orders, exchange_desk, accounts, characters, mapleroot_integration_migrations, inv_snapshot");
         exec("CREATE TABLE inv_snapshot (character_id INT PRIMARY KEY, leaves INT NOT NULL) ENGINE=InnoDB");
         exec("CREATE TABLE accounts (id INT PRIMARY KEY, loggedin TINYINT NOT NULL DEFAULT 0, nxCredit INT DEFAULT NULL) ENGINE=InnoDB");
         exec("CREATE TABLE characters (id INT PRIMARY KEY, accountid INT NOT NULL, meso INT NOT NULL DEFAULT 0) ENGINE=InnoDB");
@@ -53,11 +56,17 @@ class JdbcExchangeStoreIT {
         runFile("038-nx-exchange.sql"); // twice: no change
         runFile("044-exchange-tickers.sql");
         runFile("044-exchange-tickers.sql"); // twice: no change
+        runFile("058-nx-desk.sql");
+        runFile("058-nx-desk.sql"); // twice: no change
     }
 
     @AfterEach
     void tearDown() throws Exception {
         if (admin != null) {
+            runFile("058-nx-desk.rollback.sql");
+            runFile("058-nx-desk.rollback.sql");
+            assertEquals(0, one("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() "
+                    + "AND table_name = 'exchange_desk'"), "058 rollback drops the desk's table");
             runFile("044-exchange-tickers.rollback.sql");
             runFile("044-exchange-tickers.rollback.sql");
             assertEquals(0, one("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() "
@@ -116,6 +125,125 @@ class JdbcExchangeStoreIT {
         return ex;
     }
 
+    /** The same, with the NX desk on (ticket 162 set B). */
+    Exchange deskExchange(JdbcExchangeStore.Connections c) throws Exception {
+        Exchange ex = new Exchange(new JdbcExchangeStore(c), ExchangeLiveTest.cfg(0, 99), a -> false, now::get);
+        ex.guard(ExchangeTest.engineGuard());
+        ex.siteReauth(SiteReauth.OFF);
+        ex.deskConfig(DeskConfig.defaults().on());
+        assertTrue(ex.recover().isEmpty());
+        return ex;
+    }
+
+    /**
+     * Ticket 162 against MySQL: the desk's R, its day anchor, its hourly history and its fill log live in
+     * exchange_desk (one row of JSON, written in the same transaction as the money), its inventory is two ordinary
+     * HOUSE buckets in exchange_escrow (owner -100), a fill posts the player's wallet legs straight through, the float
+     * the drift divides by is the players' NX and not the desk's, and a restart picks R up where it was.
+     */
+    @Test
+    void theDeskRatesAndFillsSurviveARestartInMysql() throws Exception {
+        long nx0 = totalNx(), meso0 = totalMeso();
+        JdbcExchangeStore store = new JdbcExchangeStore(() -> DriverManager.getConnection(URL));
+        Exchange ex = deskExchange(() -> DriverManager.getConnection(URL));
+        Desk d = ex.desk();
+        assertNotNull(d);
+        assertEquals(5_000_000, d.mid(), "no stored R and no book rate: NX's start price");
+        // staff fund the desk as `!exchange desk fund` does: a FUND posting from the house account's wallet
+        store.apply(new ExchangeStore.Batch(9000, now.get(), List.of(
+                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Ledger.Asset.NX, 1),
+                        Exchange.deskBucket(Ledger.Asset.NX), 5_000, 1, 0, 0),
+                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Ledger.Asset.MESO, 11),
+                        Exchange.deskBucket(Ledger.Asset.MESO), 40_000_000, 1, 0, 0)), List.of(), List.of()));
+        assertEquals(5_000, store.balance(Exchange.deskBucket(Ledger.Asset.NX)));
+        assertEquals(40_000_000, store.balance(Exchange.deskBucket(Ledger.Asset.MESO)));
+        assertEquals(95_000, one("SELECT nxCredit FROM accounts WHERE id=1"));
+        assertEquals(10_000_000, one("SELECT meso FROM characters WHERE id=11"));
+        assertEquals(100_000, store.nxFloat(), "the float is the players' NX (95,000 + 5,000), not the desk's 5,000");
+        assertEquals(nx0, totalNx(), "nothing minted by funding");
+        assertEquals(meso0, totalMeso());
+
+        // an offline player buys 1,000 NX at the quote: mesos from the character, NX into the account, one transaction
+        long nx1 = totalNx(), meso1 = totalMeso();
+        Exchange.Response pv = ex.preview(new Place("pv", 2, 12, Side.BUY, 0, 1_000, Ticker.NX));
+        assertTrue(pv.ok(), pv.toString());
+        assertEquals(5_100_000L, ((Number) pv.data().get("price")).longValue(), "held at the sell side");
+        Exchange.Response fill = ex.confirm("cf", 2, (String) pv.data().get("token"));
+        assertTrue(fill.ok(), fill.toString());
+        assertEquals(1_000, one("SELECT nxCredit FROM accounts WHERE id=2"));
+        assertEquals(44_900_000, one("SELECT meso FROM characters WHERE id=12"));
+        assertEquals(4_000, one("SELECT amount FROM exchange_escrow WHERE kind='HOUSE' AND owner_id=-100 "
+                + "AND asset='NX'"));
+        assertEquals(45_100_000, one("SELECT amount FROM exchange_escrow WHERE kind='HOUSE' AND owner_id=-100 "
+                + "AND asset='MESO'"));
+        assertEquals(1, one("SELECT COUNT(*) FROM exchange_desk WHERE 1"));
+        assertEquals(1, one("SELECT COUNT(*) FROM exchange_fills WHERE ticker='NX' AND buy_order=0 AND sell_order=0"),
+                "the desk's fill has no order ids");
+        assertEquals(5_000_000, one("SELECT JSON_EXTRACT(state_json, '$.mid') FROM exchange_desk WHERE id=1"),
+                "R is in the row, before the step");
+        assertEquals(nx1, totalNx());
+        assertEquals(meso1, totalMeso());
+
+        // the hour turns: the desk sold 1,000 NX of a 101,000 float (0.99%), so R steps up 7 bps
+        now.addAndGet(Desk.HOUR_MS);
+        assertEquals(7, ex.tickDesk());
+        long after = ex.desk().mid();
+        assertEquals(5_003_500, after);
+        assertEquals(after, one("SELECT JSON_EXTRACT(state_json, '$.mid') FROM exchange_desk WHERE id=1"),
+                "and the step is written");
+
+        // a restart: R, the fill log, the inventory and the official rate all come back
+        Exchange again = deskExchange(() -> DriverManager.getConnection(URL));
+        assertEquals(after, again.desk().mid(), "R comes back from exchange_desk");
+        assertEquals(after, again.officialRate(), "and it is NX's official rate");
+        assertEquals(1, again.desk().fillsOf(2, 20).size(), "and the desk's fill log");
+        assertEquals(4_000, again.deskInventory()[0]);
+        assertEquals(45_100_000, again.deskInventory()[1]);
+        assertEquals(nx1, totalNx());
+        assertEquals(meso1, totalMeso());
+        assertTrue(Exchange.reconcile(store.load(10)).isEmpty(), "reconciles after a restart");
+    }
+
+    /**
+     * Finding 1 end to end in MySQL: a quote held for character 12 while its player was offline, confirmed after
+     * logging in as character 23 of the same account, is refused. Before the confirm-time check the fill was written
+     * to character 12's row (move() checks ownership only, never the live character) while the live wallet paid
+     * character 23 in memory: one BUY took the mesos twice.
+     */
+    @Test
+    void aDeskConfirmForAnotherCharacterIsRefusedAndWritesNothing() throws Exception {
+        exec("INSERT INTO characters VALUES (23, 2, 50000000)");
+        JdbcExchangeStore store = new JdbcExchangeStore(() -> DriverManager.getConnection(URL));
+        DbWallet w = new DbWallet(2, 23);
+        java.util.concurrent.atomic.AtomicBoolean inGame = new java.util.concurrent.atomic.AtomicBoolean();
+        Exchange ex = new Exchange(store, ExchangeLiveTest.cfg(0, 99), a -> inGame.get(),
+                a -> inGame.get() && a == 2 ? w : null, now::get);
+        ex.guard(ExchangeTest.engineGuard());
+        ex.siteReauth(SiteReauth.OFF);
+        ex.deskConfig(DeskConfig.defaults().on());
+        assertTrue(ex.recover().isEmpty());
+        store.apply(new ExchangeStore.Batch(9000, now.get(), List.of(
+                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Ledger.Asset.NX, 1),
+                        Exchange.deskBucket(Ledger.Asset.NX), 5_000, 1, 0, 0),
+                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Ledger.Asset.MESO, 11),
+                        Exchange.deskBucket(Ledger.Asset.MESO), 40_000_000, 1, 0, 0)), List.of(), List.of()));
+        long nx0 = totalNx(), meso0 = totalMeso();
+        Response pv = ex.preview(new Place("pv", 2, 12, Side.BUY, 0, 1_000, Ticker.NX));
+        assertTrue(pv.ok(), pv.toString());
+        inGame.set(true);                       // the player logs in as another character, after the preview
+        exec("UPDATE accounts SET loggedin = 2 WHERE id = 2");
+        Response r = ex.confirm("cf", 2, (String) pv.data().get("token"));
+        assertEquals("LOG_OUT_FIRST", r.code(), r.toString());
+        assertEquals(50_000_000, one("SELECT meso FROM characters WHERE id=12"), "the previewed row is untouched");
+        assertEquals(50_000_000, w.meso, "and the live character's wallet");
+        assertEquals(0, one("SELECT COALESCE(nxCredit,0) FROM accounts WHERE id=2"));
+        assertEquals(0, w.nx, "no NX reached the live wallet");
+        assertEquals(0, w.saves, "nothing was saved");
+        assertEquals(nx0, totalNx());
+        assertEquals(meso0, totalMeso());
+        assertTrue(ex.desk().fillsOf(2, 20).isEmpty(), "no fill was recorded");
+    }
+
     @Test
     void placeFillCancelCollectConserveAndRecover() throws Exception {
         long nx0 = totalNx(), meso0 = totalMeso();
@@ -123,7 +251,7 @@ class JdbcExchangeStoreIT {
         Response sell = ex.place(new Place("s", 1, 11, Side.SELL, P, 2000));
         assertTrue(sell.ok(), sell.toString());
         assertEquals(98_000, one("SELECT nxCredit FROM accounts WHERE id=1"));
-        Response buy = ex.place(new Place("b", 2, 12, Side.BUY, 1_200_000, 1000));
+        Response buy = ex.place(new Place("b", 2, 12, Side.BUY, 4_800_000, 1000));
         assertTrue(buy.ok(), buy.toString());
         assertEquals(1, ((Number) buy.data().get("fills")).intValue());
         assertEquals("NOT_OWNER", ex.place(new Place("n", 3, 12, Side.BUY, P, 100)).code());
@@ -134,8 +262,8 @@ class JdbcExchangeStoreIT {
         assertEquals(2, ex.collectAll());
         assertEquals(1000, one("SELECT nxCredit FROM accounts WHERE id=2"), "NULL nxCredit counts as 0");
         assertEquals(99_000, one("SELECT nxCredit FROM accounts WHERE id=1"));
-        assertEquals(51_000_000, one("SELECT meso FROM characters WHERE id=11"));
-        assertEquals(49_000_000, one("SELECT meso FROM characters WHERE id=12"));
+        assertEquals(50_000_000 + P, one("SELECT meso FROM characters WHERE id=11"), "1000 NX at P, no fee");
+        assertEquals(50_000_000 - P, one("SELECT meso FROM characters WHERE id=12"));
         assertEquals(nx0, totalNx());
         assertEquals(meso0, totalMeso());
         Exchange again = exchange(() -> DriverManager.getConnection(URL));
@@ -181,8 +309,8 @@ class JdbcExchangeStoreIT {
     @Test
     void aCrashAtAnyStatementRollsBackEverything() throws Exception {
         Exchange setup = exchange(() -> DriverManager.getConnection(URL));
-        assertTrue(setup.place(new Place("s1", 1, 11, Side.SELL, 900_000, 300)).ok());
-        assertTrue(setup.place(new Place("s2", 1, 11, Side.SELL, 950_000, 500)).ok());
+        assertTrue(setup.place(new Place("s1", 1, 11, Side.SELL, 3_600_000, 300)).ok());
+        assertTrue(setup.place(new Place("s2", 1, 11, Side.SELL, 3_800_000, 500)).ok());
         long nx0 = totalNx(), meso0 = totalMeso(), ledger0 = one("SELECT COUNT(*) FROM exchange_ledger");
         AtomicInteger failAt = new AtomicInteger();
         AtomicInteger count = new AtomicInteger();
@@ -401,7 +529,7 @@ class JdbcExchangeStoreIT {
         assertTrue(ex.recover().isEmpty());
         Response buy = ex.place(new Place("live-b", 2, 12, Side.BUY, P, 2000));
         assertTrue(buy.ok(), buy.toString());
-        assertEquals(50_004_000 - 2_020_000, w.meso);
+        assertEquals(50_004_000 - 2_000 * P / 1000 - 2_000 * P / 1000 * 100 / 10_000, w.meso, "2,000 NX at P + 100 bps");
         assertEquals(w.meso, one("SELECT meso FROM characters WHERE id=12"), "database = memory");
         assertEquals(1, w.saves);
         assertEquals(meso0, totalMeso());
@@ -418,7 +546,8 @@ class JdbcExchangeStoreIT {
         assertEquals(2000, one("SELECT nxCredit FROM accounts WHERE id=2"));
         assertEquals(nx0, totalNx());
         assertEquals(meso0, totalMeso());
-        assertEquals(40_000, one("SELECT amount FROM exchange_escrow WHERE kind='FEES'"), "1% from each side");
+        assertEquals(2_000 * P / 1000 / 100 * 2, one("SELECT amount FROM exchange_escrow WHERE kind='FEES'"),
+                "1% from each side of 2,000 NX at P");
         long fill = ex.lastTrades(1).get(0).id();
         // a staff reversal while halted: the payouts were collected, so it draws from the wallets (offline only)
         ex.halt("test");
@@ -447,7 +576,7 @@ class JdbcExchangeStoreIT {
     @Test
     void aCrashAtAnyStatementOfALivePlaceLeavesDatabaseAndMemoryWhole() throws Exception {
         Exchange setup = exchange(() -> DriverManager.getConnection(URL));
-        assertTrue(setup.place(new Place("s1", 1, 11, Side.SELL, 900_000, 300)).ok());
+        assertTrue(setup.place(new Place("s1", 1, 11, Side.SELL, 3_600_000, 300)).ok());
         exec("UPDATE accounts SET loggedin = 2 WHERE id = 2");
         DbWallet w = new DbWallet(2, 12);
         long nx0 = totalNx(), meso0 = totalMeso(), ledger0 = one("SELECT COUNT(*) FROM exchange_ledger");

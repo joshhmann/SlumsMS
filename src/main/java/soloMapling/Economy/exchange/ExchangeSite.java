@@ -71,6 +71,8 @@ public final class ExchangeSite {
     public static final String BOOK = "exchange-book.json";
     public static final String TICKERS = "exchange-tickers.json";
     public static final String HISTORY = "exchange-history.json";
+    /** Ticket 162: the NX desk's file, written every tick while the desk is on (absent while it is off). */
+    public static final String DESK = "nx-desk.json";
 
     private ExchangeSite() {
     }
@@ -129,6 +131,15 @@ public final class ExchangeSite {
 
     /** Parses exchange-requests.json ({@code {"requests":[...]}} or a bare array). Throws on a broken document. */
     public static List<Request> requests(String json) {
+        return requests(json, false);
+    }
+
+    /**
+     * The same parse with the NX desk's rule (ticket 162): while the desk runs, an NX preview carries no price (a
+     * price on one is refused BAD_REQUEST by the exchange). With the desk off, an NX preview without a price is the
+     * "price" error it has always been, so the switch changes nothing the site sees.
+     */
+    public static List<Request> requests(String json, boolean nxDesk) {
         Object doc = Json.parse(json);
         Object rows = doc instanceof Map<?, ?> m ? m.get("requests") : doc;
         List<Request> out = new ArrayList<>();
@@ -178,10 +189,15 @@ public final class ExchangeSite {
                         n = num(r.get("nx") != null ? r.get("nx") : r.get("qty"));
                 side = OrderBook.Side.parse(r.get("side"));
                 boolean haveChar = (c != null && c > 0) || charName != null;
-                err = !haveChar ? "character" : side == null ? "side" : p == null || p <= 0 ? "price"
+                // ticket 162: the NX desk trades at its quote, so with the desk on an NX preview carries no price (a
+                // price on one is refused BAD_REQUEST by the exchange). Item tickers, and NX while the desk is off,
+                // still need one.
+                boolean nxTicker = Ticker.NX.equals(Ticker.norm(ticker));
+                boolean needsPrice = !nxTicker || !nxDesk;
+                err = !haveChar ? "character" : side == null ? "side" : needsPrice && (p == null || p <= 0) ? "price"
                         : n == null || n <= 0 ? "nx" : null;
                 character = c == null || c < 0 ? 0 : c;
-                price = p == null ? 0 : p;
+                price = p == null || p < 0 ? 0 : p;
                 nx = n == null ? 0 : n;
             } else if (err == null && type == Type.CANCEL) {
                 Long o = num(r.get("orderId"));
@@ -277,6 +293,9 @@ public final class ExchangeSite {
             case CONFIRM -> ex.confirmSite(r.id(), r.account(), r.token());
             case CANCEL -> ex.cancel(r.id(), r.account(), r.orderId());
             case MINE -> {
+                if (ex.desk() != null && Ticker.NX.equals(Ticker.norm(r.ticker()))) {
+                    yield ex.deskMine(r.id(), r.account());
+                }
                 try {
                     List<Map<String, Object>> rows = new ArrayList<>();
                     for (ExchangeStore.OrderRow o : ex.myOrders(r.account(), 50)) {
@@ -410,6 +429,14 @@ public final class ExchangeSite {
             long[] band = ex.nxBand();
             m.put("min_price", band[0]);
             m.put("max_price", band[1]);
+            // ticket 162 §4: with the desk on the NX row stays for its chart but its book is off, and the desk's
+            // quotes ride along so the site can show them next to the ticker. With the desk off this row is exactly
+            // the one 1.6.3 sends (no extra keys).
+            Desk d = ex.desk();
+            if (d != null) {
+                m.put("book", "off");
+                m.put("desk", deskQuotes(ex, d));
+            }
         }
         m.put("max_open", t.maxOpen());
         m.put("per_day", t.perDay());
@@ -519,6 +546,67 @@ public final class ExchangeSite {
             per.put(t.id(), e);
         }
         m.put("tickers", per);
+        return m;
+    }
+
+    /**
+     * The desk's public quotes, also inside the NX ticker row (ticket 162 §5): open or closed (and why), the official
+     * rate, both sides, what the desk holds and the smallest trade. Mesos per 1,000 NX.
+     */
+    public static Map<String, Object> deskQuotes(Exchange ex, Desk d) {
+        long[] inv = ex.deskInventory();
+        String why = ex.closeReason();
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("open", why == null);
+        m.put("closed_reason", why);
+        m.put("mid", d.mid());
+        m.put("buy", d.buy());
+        m.put("sell", d.sell());
+        m.put("desk_nx", inv[0]);
+        m.put("min_qty", d.config().minQty());
+        return m;
+    }
+
+    /**
+     * nx-desk.json (API.md): what the site's NX page reads every tick. Null while the desk is off
+     * ({@code -Dslums.exchange.desk} false), in which case the runner removes the file. Mesos per 1,000 NX everywhere.
+     */
+    public static Map<String, Object> desk(Exchange ex, long now) {
+        Desk d = ex.desk();
+        if (d == null) {
+            return null;
+        }
+        long[] inv = ex.deskInventory();
+        DeskConfig c = d.config();
+        String why = ex.closeReason();
+        Map<String, Object> m = head(now);
+        m.put("open", why == null);
+        m.put("closed_reason", why);
+        m.put("mid", d.mid());
+        m.put("buy", d.buy());
+        m.put("sell", d.sell());
+        m.put("spread_bps", c.spreadBps());
+        m.put("fee_bps", c.feeBps());
+        m.put("drift_bps_last_hour", d.lastStepBps());
+        m.put("day_cap_pct", c.dayCapPct());
+        m.put("moved_today_pct", Math.round(d.movedTodayPct() * 100.0) / 100.0);
+        m.put("floor", NxGuard.NX_LOWEST);
+        m.put("ceil", NxGuard.NX_HIGHEST);
+        m.put("desk_nx", inv[0]);
+        m.put("selling", inv[0] >= c.minQty());
+        m.put("min_qty", c.minQty());
+        List<Map<String, Object>> hist = new ArrayList<>();
+        for (Desk.Hour h : d.hours()) {
+            Map<String, Object> e = new LinkedHashMap<>();
+            e.put("hour", Exchange.iso(h.hour()));
+            e.put("mid", h.mid());
+            e.put("buy", h.buy());
+            e.put("sell", h.sell());
+            e.put("volume_nx", h.volumeNx());
+            e.put("fills", h.fills());
+            hist.add(e);
+        }
+        m.put("history", hist);
         return m;
     }
 

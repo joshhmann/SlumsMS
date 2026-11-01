@@ -183,6 +183,7 @@ public final class ExchangeService {
             ex.expire();
             ex.collectAll();
             ex.tickRegulars();
+            ex.tickDesk();
             if (answeredAny) {
                 BoardFiles.writeJson(outbox.resolve(ExchangeSite.RESPONSES),
                         ExchangeSite.responsesFile(new ArrayList<>(responses), now));
@@ -190,6 +191,15 @@ public final class ExchangeService {
             BoardFiles.writeJson(outbox.resolve(ExchangeSite.BOOK), ExchangeSite.book(ex, now));
             BoardFiles.writeJson(outbox.resolve(ExchangeSite.TICKERS), ExchangeSite.tickers(ex, now));
             BoardFiles.writeJson(outbox.resolve(ExchangeSite.HISTORY), ExchangeSite.history(ex, now));
+            // ticket 162: the desk's quotes (API.md's nx-desk.json); removed while the desk is off so a stale copy
+            // can never be read as live
+            Path deskFile = outbox.resolve(ExchangeSite.DESK);
+            Map<String, Object> desk = ExchangeSite.desk(ex, now);
+            if (desk == null) {
+                Files.deleteIfExists(deskFile);
+            } else {
+                BoardFiles.writeJson(deskFile, desk);
+            }
         }
 
         private boolean readRequests(long now, boolean force) throws IOException {
@@ -207,7 +217,8 @@ public final class ExchangeService {
             lastModified = mtime;
             lastSize = size;
             boolean any = false;
-            for (ExchangeSite.Request r : ExchangeSite.requests(Files.readString(f, StandardCharsets.UTF_8))) {
+            for (ExchangeSite.Request r : ExchangeSite.requests(Files.readString(f, StandardCharsets.UTF_8),
+                    ex.desk() != null)) {
                 if (!answered.add(r.id())) {
                     continue;
                 }

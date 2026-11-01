@@ -339,6 +339,15 @@ Auto-QA `t-xc-5` runs the same probe (`marketScroll`). Before 162-xtraders a tra
 (LEAF 70%, else one of the four item tickers): 27 bots on TEST held a Chaos Scroll and not one exchange order for CHAOS
 had ever been placed.
 
+## xd-1: the NX desk (1.6.3, ticket 162)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `xd-1` | Needs `-Dslums.exchange=true`, `-Dslums.exchange.desk=true` and a house account (`-Dslums.exchange.houseAccount`) whose desk holds stock: `!exchange desk fund nx 50000` and `!exchange desk fund meso 50000000`. Checks the desk is open (a closed desk SKIPs with the reason) and that your wallet can pay, then previews 1,000 NX on whichever side the desk can afford (BUY if it holds 1,000 NX, else SELL) at the desk's own quote. Stop trades the 1,000 NX back at the new quote: the spread is the only cost. `!qa do check` logs `XD1 PASS|FAIL ...` with the wallet, the desk's inventory and the mid | `@nx` alone: `NX desk: mid ..., buys at ..., sells at ...` and what it holds. `@nx confirm`: one line, `NX desk: 1,000 NX at <quote> mesos per NX, <mesos> mesos now`, NX and mesos moved at once, no order rests and `@nx orders` stays empty. `@nx buy 1000 4900000` (a price): refused, "no price: the desk's quote is the price". After the check: the NX moved by exactly 1,000 and the mesos by exactly 1,000 x quote, and the desk's inventory moved the other way |
+
+`!autoqa` has no desk check yet (see REPORT.md of s-nxdesk): the desk only trades when the house account has NX and mesos
+parked in it, so a nightly check would SKIP on most servers; xd-1 by hand is the check for now.
+
 ## pq-2: OPQ bots (1.5.2)
 
 | Test | What it stages | What to look for |

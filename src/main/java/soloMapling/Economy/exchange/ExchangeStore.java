@@ -99,14 +99,24 @@ public interface ExchangeStore {
      * only touch {@code liveCharacter}. Every other wallet leg still needs its account logged out.
      */
     record Batch(long id, long at, List<Ledger.Posting> postings, List<OrderRow> orders, List<FillRow> fills,
-                 long liveAccount, long liveCharacter, InventoryWriter inventory) {
+                 long liveAccount, long liveCharacter, InventoryWriter inventory, Desk.State desk) {
         public Batch(long id, long at, List<Ledger.Posting> postings, List<OrderRow> orders, List<FillRow> fills) {
-            this(id, at, postings, orders, fills, 0, 0, null);
+            this(id, at, postings, orders, fills, 0, 0, null, null);
         }
 
         public Batch(long id, long at, List<Ledger.Posting> postings, List<OrderRow> orders, List<FillRow> fills,
                      long liveAccount, long liveCharacter) {
-            this(id, at, postings, orders, fills, liveAccount, liveCharacter, null);
+            this(id, at, postings, orders, fills, liveAccount, liveCharacter, null, null);
+        }
+
+        public Batch(long id, long at, List<Ledger.Posting> postings, List<OrderRow> orders, List<FillRow> fills,
+                     long liveAccount, long liveCharacter, InventoryWriter inventory) {
+            this(id, at, postings, orders, fills, liveAccount, liveCharacter, inventory, null);
+        }
+
+        /** The same batch with the desk's new state written in the same transaction (ticket 162). */
+        public Batch withDesk(Desk.State state) {
+            return new Batch(id, at, postings, orders, fills, liveAccount, liveCharacter, inventory, state);
         }
     }
 
@@ -159,4 +169,41 @@ public interface ExchangeStore {
 
     /** Every ledger posting made for this fill (FILL rows, and REVERSE rows once a staff reversal ran). */
     List<Ledger.Posting> postingsOfFill(long fillId) throws StoreException;
+
+    /**
+     * Ticket 162: the NX desk's own state (R, the day's anchor, the hourly history, the last fills), or null when it
+     * has never been written. It changes with a fill or an hourly step, in the same {@link #apply} batch. A row that
+     * is there but will not decode is not "never written": it throws, naming the table, so the boot halts instead of
+     * silently starting a new R.
+     */
+    Desk.State loadDesk() throws StoreException;
+
+    /**
+     * A stored desk row's text as state (ticket 162): null when there is no row at all, {@link StoreException} when
+     * the row is there and will not decode — a bad row must halt the boot exactly like a missing table does, never
+     * restart R at a fresh rate nobody has seen.
+     */
+    static Desk.State deskRow(String json) throws StoreException {
+        if (json == null) {
+            return null;
+        }
+        Desk.State s = Desk.decode(json);
+        if (s == null) {
+            throw new StoreException(Failure.ERROR, "exchange_desk row id 1 has unreadable state_json (bad JSON, or "
+                    + "mid <= 0): fix or delete it");
+        }
+        return s;
+    }
+
+    /**
+     * What one offline wallet holds now: {@code accounts.nxCredit} for an NX bucket (its id is the account), a
+     * character's mesos for a meso one (its id is the character). Item wallets are not answered here.
+     */
+    long walletBalance(Ledger.Bucket wallet) throws StoreException;
+
+    /**
+     * The NX float the desk's drift is measured against: every NX in player wallets, escrow and payouts, but not the
+     * house's own HOUSE buckets (the desk's inventory is the counterparty, not the float). Read once an hour.
+     */
+    long nxFloat() throws StoreException;
 }

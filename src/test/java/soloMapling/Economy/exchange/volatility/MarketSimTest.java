@@ -2,14 +2,22 @@ package soloMapling.Economy.exchange.volatility;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import soloMapling.Economy.exchange.Desk;
+import soloMapling.Economy.exchange.DeskConfig;
 import soloMapling.Economy.exchange.Exchange;
+import soloMapling.Economy.exchange.Exchange.Response;
 import soloMapling.Economy.exchange.ExchangeConfig;
+import soloMapling.Economy.exchange.ExchangeStore;
 import soloMapling.Economy.exchange.ExchangeStore.FillRow;
 import soloMapling.Economy.exchange.FakeBotWallet;
 import soloMapling.Economy.exchange.Ledger.Asset;
 import soloMapling.Economy.exchange.Ledger.Bucket;
+import soloMapling.Economy.exchange.Ledger.Posting;
+import soloMapling.Economy.exchange.Ledger.Why;
 import soloMapling.Economy.exchange.LiveWallet;
 import soloMapling.Economy.exchange.MemoryExchangeStore;
+import soloMapling.Economy.exchange.NxGuard;
+import soloMapling.Economy.exchange.OrderBook;
 import soloMapling.Economy.exchange.Ticker;
 
 import java.util.ArrayList;
@@ -257,5 +265,147 @@ class MarketSimTest {
         for (long s = 1; s <= 3; s++) {
             simulate(s * 101, 72, true);
         }
+    }
+
+    // ---------------------------------------------------------------- ticket 162: the NX desk
+
+    /** One turnover level for the desk arm: what players trade an hour, and in trades of what size. */
+    record DeskArm(String name, long nxPerHour, long perTrade) {
+    }
+
+    /** What one desk arm did: R, the caps, the desk's own purse, and what was refused. */
+    record DeskRun(String name, int hours, int fills, long volumeNx, int stepCapHours, int dayCapHours, int dryHours,
+                   long firstR, long lastR, long minR, long maxR, Map<String, Integer> refused,
+                   List<long[]> weeks) {
+    }
+
+    /**
+     * Ticket 162, the desk arm: the real desk with set B ({@link DeskConfig#defaults()} on) for four weeks of game
+     * time, one hourly step an hour, over 34 accounts holding TEST's 1,399,350 NX between them (SELECT 2026-10-31).
+     * Each hour they trade {@code nxPerHour} in whole trades at the quote; the buy share falls as R rises over the
+     * 5,000,000 the population reckons NX is worth (60% buy at that, 8:1 the other way), so R finds its own level.
+     * Nobody tops the desk up, so it can run dry. Returns the R path, how many hours each cap bound, and the purse.
+     */
+    static DeskRun deskSimulate(String name, long nxPerHour, long perTrade, long seed) throws Exception {
+        int hours = 4 * 7 * 24;
+        long nxFloat = 1_399_350L;
+        int accounts = 34;
+        long fair = 5_000_000L;
+        MemoryExchangeStore store = new MemoryExchangeStore();
+        AtomicLong now = new AtomicLong(1_800_000_000_000L);
+        for (int i = 0; i < accounts; i++) {
+            long acct = 100 + i;
+            store.addAccount(acct, nxFloat / accounts + (i < nxFloat % accounts ? 1 : 0));
+            store.addCharacter(1_000 + i, acct, 400_000_000L);
+        }
+        long bank = 99, bankChar = 990;
+        store.addAccount(bank, 500_000);
+        store.addCharacter(bankChar, bank, 5_000_000_000L);
+        ExchangeConfig d = ExchangeConfig.defaults();
+        ExchangeConfig c = new ExchangeConfig(true, d.lotNx(), d.minNx(), d.maxNx(), d.minPrice(), d.maxPrice(), 0,
+                d.maxOpen(), d.perDay(), TimeUnit.SECONDS.toMillis(10), d.expiryMs(), 0, d.regularSpreadBps(),
+                d.regularNx(), d.rateWindowMs(), 3, d.pollSeconds(), bank, 60_000);
+        Exchange ex = new Exchange(store, c, a -> false, a -> null, now::get, Ticker.defaults(c));
+        DeskConfig deskCfg = DeskConfig.defaults().on();
+        ex.deskConfig(deskCfg);
+        assertTrue(ex.recover().isEmpty());
+        Desk desk = ex.desk();
+        assertEquals(fair, desk.mid(), "R starts at the engine's price: no stored rate, no book to take one from");
+        // the house's purse: the NX it bought off the players over 1.6.2, and mesos to buy more with
+        long deskNx = 150_000, deskMeso = 500_000_000L;
+        store.apply(new ExchangeStore.Batch(9000, now.get(), List.of(
+                new Posting(Why.FUND, Bucket.wallet(Asset.NX, bank), Exchange.deskBucket(Asset.NX), deskNx, bank, 0, 0),
+                new Posting(Why.FUND, Bucket.wallet(Asset.MESO, bankChar), Exchange.deskBucket(Asset.MESO), deskMeso,
+                        bank, 0, 0)), List.of(), List.of()));
+        long nx0 = store.totalNx(), meso0 = store.totalMeso();
+        Random rng = new Random(seed);
+        Map<String, Integer> refused = new TreeMap<>();
+        int fills = 0, stepCap = 0, dayCap = 0, dry = 0, seq = 0;
+        long volume = 0, minR = Long.MAX_VALUE, maxR = 0, firstR = desk.mid();
+        List<long[]> weeks = new ArrayList<>();
+        for (int h = 1; h <= hours; h++) {
+            long at = now.addAndGet(3_600_000L);
+            int n = (int) Math.max(1, Math.round(nxPerHour / (double) perTrade));
+            double dev = (desk.mid() - fair) / (double) fair;
+            double buyShare = Math.max(0.05, Math.min(0.95, 0.60 - dev * 8));
+            for (int i = 0; i < n; i++) {
+                boolean buy = rng.nextDouble() < buyShare;
+                long acct = 100 + (seq % accounts);
+                long nx = perTrade;
+                String rid = "s" + h + "-" + i;
+                Response pv = ex.preview(new Exchange.Place(rid, acct, 1_000 + (acct - 100),
+                        buy ? OrderBook.Side.BUY : OrderBook.Side.SELL, 0, nx, Ticker.NX));
+                if (!pv.ok()) {
+                    refused.merge(pv.code(), 1, Integer::sum);
+                    seq++;
+                    continue;
+                }
+                Response f = ex.confirm("d" + h + "-" + i, acct, (String) pv.data().get("token"));
+                seq++;
+                if (!f.ok()) {
+                    refused.merge(f.code(), 1, Integer::sum);
+                    continue;
+                }
+                fills++;
+                volume += nx;
+            }
+            long bps = ex.tickDesk();
+            if (Math.abs(bps) >= deskCfg.maxStepBps()) {
+                stepCap++;
+            }
+            if (Math.abs(desk.movedTodayPct()) >= deskCfg.dayCapPct() - 1e-9) {
+                dayCap++;
+            }
+            long[] inv = ex.deskInventory();
+            if (inv[0] < deskCfg.minQty() || inv[1] < 5_000_000L) {
+                dry++;
+            }
+            minR = Math.min(minR, desk.mid());
+            maxR = Math.max(maxR, desk.mid());
+            if (h % 168 == 0) {
+                weeks.add(new long[]{h, desk.mid(), desk.buy(), desk.sell(), inv[0], inv[1], fills, volume});
+            }
+        }
+        assertEquals(nx0, store.totalNx(), "NX conserved");
+        assertEquals(meso0, store.totalMeso(), "mesos conserved");
+        assertTrue(Exchange.reconcile(store.load(10)).isEmpty(), "reconciles: " + Exchange.reconcile(store.load(10)));
+        for (var b : store.balances().entrySet()) {
+            assertTrue(b.getValue() >= 0, b.getKey() + " negative");
+        }
+        assertTrue(minR >= NxGuard.NX_LOWEST && maxR <= NxGuard.NX_HIGHEST, "R stayed in the hard window: " + minR
+                + " .. " + maxR);
+        DeskRun run = new DeskRun(name, hours, fills, volume, stepCap, dayCap, dry, firstR, desk.mid(), minR, maxR,
+                refused, weeks);
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("SIM DESK %s: %,d NX an hour in %,d-NX trades, %d h, %d fills, %,d NX traded%n"
+                        + "SIM DESK %s refused %s%nSIM DESK %s R %,d -> %,d (min %,d max %,d); step cap bound %d h, "
+                        + "day cap %d h, desk dry %d h (a cap needs about %,d NX net in an hour: %.1f%% of the float)%n",
+                name, nxPerHour, perTrade, hours, fills, volume, name, refused, name, firstR, desk.mid(), minR, maxR,
+                stepCap, dayCap, dry, (long) (nxFloat * (double) deskCfg.maxStepBps() / deskCfg.driftBpsPerPct() / 100),
+                nxFloat * (double) deskCfg.maxStepBps() / deskCfg.driftBpsPerPct() / 100 / nxFloat * 100));
+        for (long[] w : weeks) {
+            sb.append(String.format("SIM DESK %s h%d: R %,d buy %,d sell %,d, purse %,d NX / %,d mesos, %,d fills, "
+                            + "%,d NX%n", name, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]));
+        }
+        System.out.println(sb);
+        return run;
+    }
+
+    /**
+     * The desk at three turnover levels for four weeks each. What the owner needs from this: at TEST's real turnover
+     * (a couple of trades an hour) the drift is a basis point or two an hour, so R is stable and the caps never bind;
+     * the caps only bite in a rush, and a rush is also what empties the desk's purse.
+     */
+    @Test
+    void theDeskHoldsItsRateOverFourWeeks() throws Exception {
+        DeskRun quiet = deskSimulate("TEST turnover", 2_000, 1_000, 11);
+        DeskRun busy = deskSimulate("busy", 20_000, 2_500, 12);
+        DeskRun rush = deskSimulate("rush", 200_000, 10_000, 13);
+        for (DeskRun r : List.of(quiet, busy, rush)) {
+            assertTrue(r.fills() > 100, r.name() + " trades: " + r.fills());
+            assertTrue(r.maxR() - r.minR() <= r.firstR() / 50, r.name() + " R stays within 2% over four weeks: "
+                    + r.minR() + " .. " + r.maxR());
+        }
+        assertTrue(rush.stepCapHours() > 0, "a rush is what the hourly step cap is for: " + rush.stepCapHours());
     }
 }

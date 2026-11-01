@@ -1,12 +1,15 @@
 package soloMapling.qa;
 
 import client.Character;
+import soloMapling.Economy.exchange.Desk;
 import soloMapling.Economy.exchange.Exchange;
 import soloMapling.Economy.exchange.ExchangeQa;
 import soloMapling.Economy.exchange.ExchangeService;
 import soloMapling.Economy.exchange.GameLiveWallet;
 import soloMapling.Economy.exchange.Ledger;
 import soloMapling.Economy.exchange.LiveWallet;
+import soloMapling.Economy.exchange.OrderBook;
+import soloMapling.Economy.exchange.Ticker;
 
 import java.util.List;
 import java.util.Map;
@@ -23,7 +26,7 @@ final class ExchangeScenarios {
     }
 
     static List<QaScenario> all() {
-        return List.of(new InGame(), new Leaf(), new Volatility(), new Scroll());
+        return List.of(new InGame(), new Leaf(), new Volatility(), new Scroll(), new DeskQuote());
     }
 
     /**
@@ -244,6 +247,120 @@ final class ExchangeScenarios {
             String line = "XC1 CHECK nx " + nx0 + " -> " + nx + ", meso " + meso0 + " -> " + meso + ", open orders "
                     + ex.openIdsOf(w.account()).size() + (ex.halted() ? ", HALTED " + ex.haltReason() : "");
             ctx.run().note("XC1", line);
+            return List.of(line);
+        }
+    }
+
+    /**
+     * xd-1 (1.6.3, ticket 162): the NX desk trades at one quote. The GM previews 1,000 NX on whichever side the desk
+     * can pay for and types {@code @nx confirm}; it fills at once and the NX and the mesos move by the quote, not by a
+     * book. {@code !qa do check} prints what moved, and stop trades the 1,000 NX back at the new quote, so the only
+     * cost is the spread. Needs {@code -Dslums.exchange.desk=true} and a house account with inventory in the desk:
+     * {@code !exchange desk fund nx 50000} and {@code !exchange desk fund meso 50000000}.
+     */
+    static final class DeskQuote implements QaScenario {
+        private OrderBook.Side side = OrderBook.Side.BUY;
+        private long qty, price, mesos, nx0, meso0, deskNx0, deskMeso0;
+
+        public String id() { return "xd-1"; }
+        public String title() { return "NX desk: @nx confirm fills 1,000 NX at the desk's quote; the wallet and the desk's inventory move by it"; }
+        public Set<QaLog.Topic> topics() { return Set.of(); }
+        public Set<String> claims(Character gm, String[] args) { return Set.of("nx-desk-test"); }
+
+        public List<String> stage(QaContext ctx) {
+            Exchange ex = ExchangeService.exchange();
+            if (ex == null) {
+                throw new QaRefusal("The exchange is off on this server (-Dslums.exchange=true).");
+            }
+            Desk desk = ex.desk();
+            if (desk == null) {
+                throw new QaRefusal("The NX desk is off (-Dslums.exchange.desk=true).");
+            }
+            if (ex.closeReason() != null) {
+                throw new QaRefusal("The NX desk is closed: " + ex.closeReason() + ".");
+            }
+            LiveWallet w = GameLiveWallet.of(ctx.gm());
+            if (w == null) {
+                throw new QaRefusal("Run this from your own logged-in character.");
+            }
+            long[] inv = ex.deskInventory();
+            qty = 1_000;
+            long m = desk.mesos(OrderBook.Side.BUY, qty, desk.sell());
+            side = inv[0] >= qty ? OrderBook.Side.BUY : inv[1] >= m ? OrderBook.Side.SELL : null;
+            if (side == null) {
+                throw new QaRefusal("The NX desk has nothing to trade with (it holds " + inv[0] + " NX and " + inv[1]
+                        + " mesos): !exchange desk fund nx 50000 and !exchange desk fund meso 50000000.");
+            }
+            price = desk.quote(side);
+            mesos = desk.mesos(side, qty, price);
+            long fee = desk.config().fee(mesos);
+            Ledger.Asset pays = side == OrderBook.Side.BUY ? Ledger.Asset.MESO : Ledger.Asset.NX;
+            long takes = side == OrderBook.Side.BUY ? mesos + fee : qty;
+            if (w.have(pays) < takes) {
+                throw new QaRefusal("You need " + takes + " " + (pays == Ledger.Asset.NX ? "NX" : "mesos")
+                        + " for " + qty + " NX at the desk's quote (you have " + w.have(pays) + ").");
+            }
+            nx0 = w.have(Ledger.Asset.NX);
+            meso0 = w.have(Ledger.Asset.MESO);
+            deskNx0 = inv[0];
+            deskMeso0 = inv[1];
+            Exchange.Response pv = ex.preview(new Exchange.Place("qa-xd1", w.account(), w.character(), side, 0, qty,
+                    Ticker.NX));
+            if (!pv.ok()) {
+                throw new QaRefusal("the desk's preview: " + pv.code() + " " + pv.message());
+            }
+            ctx.log("XD1 START side=" + side + " nx=" + qty + " price=" + price + " mid=" + desk.mid() + " mesos="
+                    + mesos + " fee=" + fee + " wallet nx=" + nx0 + " meso=" + meso0 + " desk nx=" + deskNx0
+                    + " meso=" + deskMeso0);
+            ctx.onStop("trade the " + qty + " NX back at the new quote", () -> {
+                LiveWallet back = GameLiveWallet.of(ctx.gmNow());
+                Exchange e = ExchangeService.exchange();
+                if (e == null || back == null || e.desk() == null) {
+                    ctx.run().note("CLEANUP", "GM offline or the desk gone: the " + qty + " NX stays traded");
+                    return;
+                }
+                OrderBook.Side undo = side == OrderBook.Side.BUY ? OrderBook.Side.SELL : OrderBook.Side.BUY;
+                Exchange.Response p = e.preview(new Exchange.Place("qa-xd1-back", back.account(), back.character(),
+                        undo, 0, qty, Ticker.NX));
+                Exchange.Response f = p.ok()
+                        ? e.confirm("qa-xd1-back-c", back.account(), (String) p.data().get("token")) : p;
+                ctx.run().note("CLEANUP", "XD1 back " + undo + " " + qty + " NX: " + (f.ok() ? "done" : f.code())
+                        + ", NX now " + back.have(Ledger.Asset.NX) + " (was " + nx0 + "), mesos now "
+                        + back.have(Ledger.Asset.MESO) + " (was " + meso0 + "; the spread is the cost)");
+            });
+            String per = Exchange.perNx(price);
+            return List.of(
+                    "The desk quotes " + Exchange.perNx(desk.buy()) + " to buy and " + Exchange.perNx(desk.sell())
+                            + " to sell (mesos per NX), mid " + Exchange.perNx(desk.mid()) + "; it holds " + deskNx0
+                            + " NX. Your preview holds " + qty + " NX at " + per + " mesos per NX.",
+                    "1) @nx confirm   -> " + (side == OrderBook.Side.BUY ? "you buy" : "you sell") + " " + qty
+                            + " NX at once for " + mesos + " mesos (no order rests, no book).",
+                    "2) @nx   -> the desk's quote and what it holds now.",
+                    "3) !qa do check   -> what moved in your wallet and in the desk.",
+                    "!qa stop trades the " + qty + " NX back at the new quote: you end where you started minus the "
+                            + "spread.");
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"check".equals(name)) {
+                throw new QaRefusal("xd-1 steps: check");
+            }
+            LiveWallet w = GameLiveWallet.of(ctx.gmNow());
+            Exchange ex = ExchangeService.exchange();
+            if (w == null || ex == null || ex.desk() == null) {
+                throw new QaRefusal("Log in and keep the exchange and the desk on.");
+            }
+            Desk desk = ex.desk();
+            long nx = w.have(Ledger.Asset.NX), meso = w.have(Ledger.Asset.MESO);
+            long[] inv = ex.deskInventory();
+            long fee = desk.config().fee(mesos);
+            long wantNx = side == OrderBook.Side.BUY ? qty : -qty;
+            long wantMeso = side == OrderBook.Side.BUY ? -(mesos + fee) : mesos - fee;
+            String line = "XD1 CHECK " + side + " " + qty + " NX at " + price + ": NX " + nx0 + " -> " + nx + " (want "
+                    + wantNx + "), mesos " + meso0 + " -> " + meso + " (want " + wantMeso + "); desk " + deskNx0
+                    + " NX/" + deskMeso0 + " mesos -> " + inv[0] + "/" + inv[1] + "; mid " + desk.mid() + "; "
+                    + ex.deskLine();
+            ctx.run().note(wantNx == nx - nx0 && wantMeso == meso - meso0 ? "XD1 PASS" : "XD1 FAIL", line);
             return List.of(line);
         }
     }

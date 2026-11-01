@@ -21,9 +21,10 @@ import java.util.TreeSet;
  * {@link #crashAfterSteps}) changes nothing, like a rolled-back transaction. It also models the game's side of a
  * wallet: {@link #login} loads an account's wallets into a session, the session spends, and {@link #logout} saves the
  * session's absolute values back, which is how the real server saves (and why the exchange only touches wallets of
- * offline accounts). Synchronized: tests call it from many threads.
+ * offline accounts). Synchronized: tests call it from many threads. Not final: a test plays a store with other
+ * checks (ExchangeDeskTest.JdbcLikeStore imitates {@link JdbcExchangeStore#move}'s ownership-only guard).
  */
-public final class MemoryExchangeStore implements ExchangeStore {
+public class MemoryExchangeStore implements ExchangeStore {
 
     /** One character's count of one item asset (the item tickers' wallet). */
     public record ItemKey(long character, Asset asset) {
@@ -42,6 +43,7 @@ public final class MemoryExchangeStore implements ExchangeStore {
         final Map<String, Long> requests = new HashMap<>();
         final List<FillRow> fills = new ArrayList<>();
         final Set<Long> fillIds = new HashSet<>();
+        Desk.State desk;                                         // ticket 162: the NX desk's own state
 
         State copy() {
             State s = new State();
@@ -57,6 +59,7 @@ public final class MemoryExchangeStore implements ExchangeStore {
             s.requests.putAll(requests);
             s.fills.addAll(fills);
             s.fillIds.addAll(fillIds);
+            s.desk = desk;
             return s;
         }
     }
@@ -249,6 +252,11 @@ public final class MemoryExchangeStore implements ExchangeStore {
     private int crashAfter = -1;
     private long ledgerSeq;
 
+    /** When set, reading the desk's state fails the way a missing migration 058 would; the boot must halt. */
+    public ExchangeStore.StoreException deskReadFailure;
+    /** When set, the stored desk row is this text (as the MySQL column holds it), so a corrupt row can be played. */
+    public String deskRowText;
+
     public synchronized void addAccount(long account, long nxCredit) {
         state.nx.put(account, nxCredit);
     }
@@ -315,6 +323,41 @@ public final class MemoryExchangeStore implements ExchangeStore {
     @Override
     public synchronized OrderRow order(long id) {
         return state.orders.get(id);
+    }
+
+    @Override
+    public synchronized Desk.State loadDesk() throws StoreException {
+        if (deskReadFailure != null) {
+            throw deskReadFailure;
+        }
+        if (deskRowText != null) {
+            return ExchangeStore.deskRow(deskRowText);   // a row that is there but will not decode: the boot halts
+        }
+        return state.desk;
+    }
+
+    @Override
+    public synchronized long walletBalance(Bucket wallet) {
+        if (wallet.asset().item()) {
+            return state.items.getOrDefault(new ItemKey(wallet.id(), wallet.asset()), 0L);
+        }
+        return (wallet.asset() == Asset.NX ? state.nx : state.meso).getOrDefault(wallet.id(), 0L);
+    }
+
+    /**
+     * The drift's denominator (ticket 162 §2): every NX a player holds — saved wallets, the live session's copy, order
+     * escrow and payouts — but not the house's own HOUSE buckets: the desk's inventory and the regulars' purses are the
+     * counterparty, not the float whose turnover moves R.
+     */
+    @Override
+    public synchronized long nxFloat() {
+        long t = total(Asset.NX);
+        for (var e : state.balances.entrySet()) {
+            if (e.getKey().asset() == Asset.NX && e.getKey().kind() == Kind.HOUSE) {
+                t -= e.getValue();
+            }
+        }
+        return t;
     }
 
     /** Every NX in wallets and exchange buckets (players' and the house's). */
@@ -551,6 +594,10 @@ public final class MemoryExchangeStore implements ExchangeStore {
                 throw new StoreException(Failure.ERROR, "duplicate fill " + f.id());
             }
             s.fills.add(f);
+            step();
+        }
+        if (batch.desk() != null) {
+            s.desk = batch.desk();
             step();
         }
         state = s;
