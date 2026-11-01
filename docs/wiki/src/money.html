@@ -27,6 +27,64 @@ stores and hired merchants) pay at least <b>3%</b>.</li>
 person, and check prices with <code>@price</code>: see <a href="shops.html">Gachapon, shops and trading</a>.</li>
 </ul>
 
+<h2>The Slums Exchange: NX for mesos</h2>
+<p>1.6.2 opened the <b>Slums Exchange</b>, an order book for NX and mesos, in game with <code>@nx</code> and on the
+website under <b>Slums Market &rarr; Exchange</b>. Someone with NX leaves a sell order, someone with mesos leaves a buy
+order, and the two meet at a price: both sides get what they asked for, and each pays a fee.</p>
+
+<h3>Placing an order</h3>
+<ul>
+<li>Prices are <b>mesos per 1 NX</b>. <code>@nx sell 1000 5000</code> offers 1,000 NX at 5,000 mesos each, and
+"<code>4.5k</code>" works as a price too.</li>
+<li>Orders are <b>100 to 50,000 NX</b>, in steps of 100.</li>
+<li>Nothing goes in until you say <code>@nx confirm</code>. <code>@nx orders</code> lists what you have open and
+<code>@nx cancel &lt;id&gt;</code> takes one back; what it held comes back to you.</li>
+</ul>
+
+<h3>What price you may ask</h3>
+<ul>
+<li>The <b>official rate</b> is the size-weighted average of the last 7 days' trades between players (at least 3 of them); until there
+are 3 it counts as <b>5,000 mesos per NX</b>.</li>
+<li>NX never changes hands outside <b>2,500 to 10,000</b> mesos per 1 NX.</li>
+<li>Inside that window, you may not <b>sell for less than half</b> the official rate or <b>buy for more than double</b>
+it. Asking more when you sell, or offering less when you buy, is fine: the order simply waits for a match.</li>
+<li>Each side pays a <b>1% fee</b> on the mesos, taken when the trade clears.</li>
+</ul>
+
+<h3>Limits and the website</h3>
+<ul>
+<li>There is <b>no daily limit</b> on how much NX you trade. You get <b>20 new orders a day</b> on each market, hold at most <b>5 open NX
+orders</b>, and leave 10 seconds between orders.</li>
+<li>An NX order that has not filled after <b>72 hours</b> expires.</li>
+<li>On the website you need a <b>sign-in from the last 12 hours</b>, and after a server restart it asks you to sign in
+again. Selling there asks for your password for that order, and so does buying more than <b>10,000,000</b> mesos'
+worth in 12 hours.</li>
+</ul>
+
+<h3>Other things on the exchange</h3>
+<p>Maple Leaves and Power Elixirs (up to 10,000 an order), Chaos Scroll 60%s and White Scrolls (up to 1,000) trade the
+same way at any price from 1 meso each to 1,000,000,000 each. The price band above is only for NX; item orders last 7
+days.</p>
+
+<h3>The regulars use it too</h3>
+<p>On the item tickers, about a third of them buy and sell what they find while hunting, and a few keep small standing
+orders 3%, 6% and 9% away from the going price so there is always something to trade against. Anything a regular is
+part of never counts when the official NX rate is worked out: only prices two players agreed between themselves
+do.</p>
+
+<h2>Slums Stamps</h2>
+<ul>
+<li>Stamps are earned with the <b>Daily Check-In</b> (<code>@daily</code>): <b>1 a day</b>, and <b>6</b> on days 7, 14,
+21 and 28, so <b>48 a cycle</b> of 28 days. You need to be level 10, and you keep your streak by claiming within 48
+hours.</li>
+<li>They belong to your <b>account</b>, not to one character, and cannot be traded. <code>@stamps</code> shows your
+balance and your next bonus day; <code>@points</code> shows the same balance.</li>
+<li><b>Rooty</b> in Base of Roots sells Donor NX cosmetics for <b>6 stamps</b> each, and the Donor Shop's <b>Rose
+Vac</b> and <b>Hyper Teleport Rock</b> for <b>40 stamps</b> each.</li>
+<li>Vote points and <b>Billion Coins</b> were turned into stamps when they became stamps: 6 stamps for each one you
+held.</li>
+</ul>
+
 <h2>Things that cost a lot</h2>
 <ul>
 <li>Job Master skips: 2nd job 4m, 3rd 75m, 4th 500m (see <a href="jobs.html">Jobs</a>).</li>
@@ -35,5 +93,5 @@ person, and check prices with <code>@price</code>: see <a href="shops.html">Gach
 <li>A 10k NX code from a regular: 50m (see <a href="shops.html">Gachapon, shops and trading</a>).</li>
 <li>Star Force at the Glowing Treasure: up to 50m a try.</li>
 </ul>
-<p class="src">Source: <code>docs/real-bots/economy-research.md</code> (headline findings, server calibration,
+<p class="src">Source: <code>docs/real-bots/economy-research.md</code> (exchange: <code>soloMapling/Economy/exchange/Exchange.java</code>, <code>NxGuard.java</code>, <code>tools/site/exchange_desk.py</code>; stamps: <code>SlumsStamps.java</code>, <code>scripts/npc/rooty.js</code>) (headline findings, server calibration,
 Cosmic mechanics: <code>Trade.getFee</code>, <code>FredrickProcessor</code>, star prices).</p>

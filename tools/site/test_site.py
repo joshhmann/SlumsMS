@@ -28,7 +28,8 @@ class SiteBuildTest(unittest.TestCase):
 
     def test_pages_exist(self):
         for rel in ["index.html", "404.html", "patch-notes/index.html", "patch-notes/1.5.0/index.html",
-                    "guide/index.html", "guide/getting-started.html", "guide/leveling.html", "assets/site.css"]:
+                    "guide/index.html", "guide/getting-started.html", "guide/leveling.html", "guide/goals.html",
+                    "assets/site.css"]:
             self.assertTrue(os.path.isfile(os.path.join(self.out, rel)), rel)
         self.assertFalse(os.path.exists(os.path.join(self.out, "guide", "changelog.html")))
 
@@ -115,6 +116,51 @@ class SiteBuildTest(unittest.TestCase):
             self.assertNotIn('class="src"', text, name)
             self.assertNotIn('class="owner"', text, name)
             self.assertNotIn("docs/", text, name)
+
+    def _guide_text(self, name):
+        with open(os.path.join(self.out, "guide", name), encoding="utf-8") as f:
+            return re.sub(r"\s+", " ", f.read())
+
+    def test_area_gates_are_the_162_rules(self):
+        """w21: 1.6.2 opened the Future, Twilight Perion and Grandis at level 120 or the 1st rebirth and the Arcane
+        River at the 2nd. The guide used to say Grandis and the Arcane River needed 3 rebirths and that the Lion
+        King's Castle needed 1; only the five boss doors still ask for 3."""
+        for name in self.guide:
+            text = self._guide_text(name)
+            self.assertNotIn("(3 rebirths)", text, name)
+            self.assertNotIn("with 3 rebirths also", text, name)
+            self.assertNotRegex(text, r"(?is)(grandis|arcane river)[^.]{0,80}?3 rebirths", name)
+            self.assertNotRegex(text, r"(?is)3 rebirths[^.]{0,80}?(grandis|arcane river)", name)
+        reb = self._guide_text("rebirths.html")
+        self.assertIn("Lion King's Castle</td><td>Nothing", reb)
+        self.assertIn("Level 120, <i>or</i> your 1st rebirth", reb)
+        self.assertIn("Your 2nd rebirth, at any level", reb)
+        self.assertIn("The boss doors of Magnus, Lucid, Will, Verus and Darknell", reb)
+        book = self._guide_text("guidebook.html")
+        self.assertIn("2nd rebirth: the Arcane River", book)
+        self.assertNotIn("2: Twilight Perion", book)
+        # the leveling list no longer tags a single map as rebirth 3, and it explains the level-120 gate
+        leveling = self._guide_text("leveling.html")
+        self.assertNotIn('class="tag">R3', leveling)
+        self.assertIn("<b>level 120</b> or with your <b>1st rebirth</b>", leveling)
+
+    def test_exchange_and_goals_are_documented(self):
+        """w21: 1.6.2 brought the Slums Exchange, Slums Stamps, 32 achievements and the Family perks. The public guide
+        carries them: the money page the exchange and the stamps, and there is a Goals and family page in the nav."""
+        money = self._guide_text("money.html")
+        self.assertIn("The Slums Exchange: NX for mesos", money)
+        self.assertIn("Slums Market", money)
+        self.assertIn("1% fee", money)
+        self.assertIn("2,500 to 10,000", money)
+        self.assertIn("Slums Stamps", money)
+        goals = self._guide_text("goals.html")
+        self.assertIn("Achievements: 32 goals", goals)
+        self.assertIn("@achievements all", goals)
+        self.assertIn("Family Bonding", goals)
+        self.assertIn("300 a day", goals)
+        with open(os.path.join(self.out, "guide", "index.html"), encoding="utf-8") as f:
+            home = f.read()
+        self.assertIn('href="goals"', home)
 
     def test_tarball_matches_output(self):
         with tarfile.open(self.tar) as tf:

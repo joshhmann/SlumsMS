@@ -1,0 +1,75 @@
+<!-- title: Goals and family | nav: 62 | blurb: Thirty-two achievements with a medal each, and the Family window's perks. -->
+<h2>Achievements: 32 goals, a medal for each</h2>
+<p>1.6.2 gave the game a wall of small goals. Each one you finish hands you a <b>medal</b> in the Equip tab of your
+inventory: no stats, just something to wear. You see a yellow line in the chat when one is earned, and the medal is
+listed on your character's card.</p>
+
+<h3>Seeing where you stand</h3>
+<ul>
+<li><code>@achievements</code> lists the goals you are still working on, with your progress: <code>[3/5]</code> and so
+on, plus "Achievements: 4 of 32 earned." and the ones you have.</li>
+<li><code>@achievements all</code> lists every goal, done or not.</li>
+<li>If your Equip tab is full when a medal is due, it waits: the list says "(medal waits for room)".</li>
+</ul>
+
+<h3>What is on the list</h3>
+<p>Four for the job advancements, four for levels (30, 70, 120 and your class's maximum), seven for the classic bosses
+(Mano, Stumpy, Mushmom, Jr. Balrog, Papulatus, Zakum, Horntail), two for fishing, four party quests (Kerning,
+Ludibrium, Orbis, Pirate), a wedding, 50 quests, a guild, the 7-day and 28-day check-in streaks, three for visiting
+Victoria Island, Ossyria and Aquarium, 10 trades, buying five times from player shops, and your first rebirth.</p>
+
+<h3>What counted before 1.6.2</h3>
+<p>The things the game already knows about your character count the next time you log in: your job, level, guild,
+wedding, rebirths. Bosses you killed, party quests you cleared, quests you did, fish you caught and check-in days from
+before the update do not: those start from zero.</p>
+
+<h2>Family</h2>
+<p>Families were in the game before 1.6.2, but the perks did nothing. Now they work, and the regulars can
+be your juniors.</p>
+
+<h3>Reputation</h3>
+<p>Family perks are paid for with <b>reputation</b>, which you earn by hunting:</p>
+<div class="scroll"><table>
+<tr><th>What</th><th>Reputation</th></tr>
+<tr><td>Each monster you kill</td><td>4</td></tr>
+<tr><td>Each boss you kill</td><td>20</td></tr>
+<tr><td>Each level you gain</td><td>200</td></tr>
+</table></div>
+<p>Your senior gets the reputation you earn, and so does their senior. If your senior is a lower level than you, they
+get half. Reputation is not shared with the whole family, only up the line you are in.</p>
+
+<h3>The perks</h3>
+<p>Open the <b>Family window</b> to see the pedigree, your reputation and the list. Each perk can be used <b>once a
+day</b>:</p>
+<div class="scroll"><table>
+<tr><th>Perk</th><th>Reputation</th><th>What it does</th></tr>
+<tr><td>Family Reunion</td><td>300</td><td>Teleports you to the family member you pick.</td></tr>
+<tr><td>Summon Family</td><td>500</td><td>Brings one family member to your map.</td></tr>
+<tr><td>My Drop Rate 1.5x, 15 min</td><td>700</td><td>1.5x drops for you.</td></tr>
+<tr><td>My EXP 1.5x, 15 min</td><td>800</td><td>1.5x EXP for you.</td></tr>
+<tr><td>Family Bonding, 30 min</td><td>1,000</td><td>2x drops and EXP, but needs six family members online below you in the
+pedigree.</td></tr>
+<tr><td>My Drop Rate 2x, 15 min</td><td>1,200</td><td>2x drops for you.</td></tr>
+<tr><td>My EXP 2x, 15 min</td><td>1,500</td><td>2x EXP for you.</td></tr>
+<tr><td>My Drop Rate 2x, 30 min</td><td>2,000</td><td>2x drops for you, for longer.</td></tr>
+<tr><td>My EXP 2x, 30 min</td><td>2,500</td><td>2x EXP for you, for longer.</td></tr>
+<tr><td>My Party Drop Rate 2x, 30 min</td><td>4,000</td><td>2x drops for everyone in your party.</td></tr>
+<tr><td>My Party EXP 2x, 30 min</td><td>5,000</td><td>2x EXP for everyone in your party.</td></tr>
+</table></div>
+<p>The family buffs do not stack with each other: take a 2x EXP bonus and it replaces a 1.5x one, it does not add to
+it. They do stack with EXP and drop coupons and with whatever the world is running. A buff keeps running through a
+server restart, and it runs out on time.</p>
+
+<h3>Juniors</h3>
+<ul>
+<li>You add a junior from the Family window. They have to be on the same map as you, above level 10, and within 20
+levels of you.</li>
+<li>A family only grows so wide: the game refuses to link two branches when the generations would add up past the
+limit.</li>
+<li><b>Regulars can be your juniors.</b> Ask one and it answers within 30 minutes; after that the offer is gone. A
+regular junior hunts with you and passes its reputation up to you, but at most 300 a day, so a regular that grinds all
+evening cannot pay for every perk.</li>
+</ul>
+
+<p class="src">Source: <code>soloMapling/achievements/achievements.yaml</code>, <code>AchievementsCommand.java</code>,
+<code>FamilyEntitlement.java</code>, <code>FamilyAddHandler.java</code>, <code>BotFamily.java</code>.</p>
