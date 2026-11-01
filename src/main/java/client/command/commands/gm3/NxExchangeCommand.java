@@ -28,7 +28,7 @@ public final class NxExchangeCommand {
     public static final int GM_LEVEL = 3;
     public static final int REVERSE_GM_LEVEL = 4;
     private static final Set<String> SUBS = Set.of("status", "book", "halt", "resume", "fills", "fund", "unfund",
-            "reverse");
+            "reverse", "cancel-nx", "desk");
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(NxExchangeCommand.class);
 
     private NxExchangeCommand() {
@@ -68,9 +68,53 @@ public final class NxExchangeCommand {
                 gm.yellowMessage("Exchange HALTED: " + reason + ". No new orders, fills, expiry or payouts.");
             }
             case "resume" -> {
-                ex.resume();
-                log.info("NX exchange resumed by {}", gm.getName());
+                Exchange.Response r = ex.resume();
+                log.info("NX exchange resumed by {}: {} {}", gm.getName(), r.code(), r.data());
                 gm.yellowMessage("Exchange running again.");
+                if (ex.desk() != null) {
+                    gm.yellowMessage(r.ok()
+                            ? "NX book off (desk): " + r.data().get("closed") + " NX orders cancelled, "
+                                + r.data().get("nxReturned") + " NX returned to their owners"
+                                + (r.data().get("openNx").equals(0) ? "" : ", " + r.data().get("openNx") + " still open")
+                            : "NX book not cleared: " + r.message() + " (" + r.code() + ")");
+                }
+            }
+            case "cancel-nx" -> {
+                Exchange.Response r = ex.cancelNxBook("cancel-nx");
+                log.info("NX exchange cancel-nx by {}: {} {}", gm.getName(), r.code(), r.data());
+                gm.yellowMessage(r.ok()
+                        ? "NX book: " + r.data().get("closed") + " orders cancelled, " + r.data().get("nxReturned")
+                            + " NX escrow returned, " + r.data().get("openNx") + " still open"
+                            + (r.data().get("failed").toString().equals("[]") ? ""
+                            : ", failed " + r.data().get("failed"))
+                        : "Not done: " + r.message() + " (" + r.code() + ")");
+            }
+            case "desk" -> {
+                String sub = params.length > 1 ? params[1].toLowerCase(Locale.ROOT) : "";
+                LiveWallet w = GameLiveWallet.of(gm);
+                if (w == null) {
+                    gm.yellowMessage("Log in a character of the house account on this map to move the desk's money.");
+                    return;
+                }
+                if (sub.equals("unfund")) {
+                    Exchange.Response r = ex.unfundDeskLive(w, false);
+                    log.info("NX desk unfunded by {}: {} {}", gm.getName(), r.code(), r.data());
+                    gm.yellowMessage(r.ok() ? "NX desk emptied: " + r.data() + " (it comes to this character)"
+                            : "Not done: " + r.message() + " (" + r.code() + ")");
+                    return;
+                }
+                Ledger.Asset asset = params.length > 2 && params[2].equalsIgnoreCase("nx") ? Ledger.Asset.NX
+                        : params.length > 2 && params[2].toLowerCase(Locale.ROOT).startsWith("meso")
+                        ? Ledger.Asset.MESO : null;
+                long amount = params.length > 3 ? parse(params[3], 0) : 0;
+                if (!sub.equals("fund") || asset == null || amount <= 0) {
+                    gm.yellowMessage("Use: !exchange desk fund <nx|meso> <amount> | !exchange desk unfund");
+                    return;
+                }
+                Exchange.Response r = ex.fundDeskLive(w, asset, amount, false);
+                log.info("NX desk funded {} {} by {}: {}", amount, asset, gm.getName(), r.code());
+                gm.yellowMessage(r.ok() ? "NX desk funded with " + amount + " " + asset + "."
+                        : "Not funded: " + r.message() + " (" + r.code() + ")");
             }
             case "fills" -> {
                 int n = params.length > 1 ? parse(params[1], 10) : 10;

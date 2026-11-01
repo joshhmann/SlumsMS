@@ -65,6 +65,25 @@ public final class ExchangeChat {
         String sub = params.length == 0 ? "" : params[0].toLowerCase(Locale.ROOT);
         switch (sub) {
             case "buy", "sell" -> {
+                if (!t.item() && ex.desk() != null) {
+                    Long nx = params.length > 1 ? amount(params[1]) : null;
+                    if (nx == null) {
+                        out.add("Use: @nx " + sub + " <NX>, e.g. @nx " + sub + " 1000 (the desk's quote is the price)");
+                        return out;
+                    }
+                    if (params.length > 2) {
+                        out.add("NX trades at the desk's quote now: @nx " + sub + " " + nx + " (no price)");
+                        return out;
+                    }
+                    Exchange.Response r = ex.preview(new Exchange.Place(rid(w), w.account(), w.character(),
+                            sub.equals("buy") ? Side.BUY : Side.SELL, 0, nx, t.id()));
+                    if (!r.ok()) {
+                        out.add("NX exchange: " + r.message() + " (" + r.code() + ")");
+                        return out;
+                    }
+                    out.addAll(deskLines(r, sub));
+                    return out;
+                }
                 Long nx = params.length > 1 ? amount(params[1]) : null;
                 Long price = params.length > 2 ? (t.item() ? amount(params[2]) : priceNx(params[2])) : null;
                 if (nx == null || price == null) {
@@ -85,6 +104,14 @@ public final class ExchangeChat {
                 Exchange.Response r = ex.confirmLatest(rid(w), w.account());
                 if (!r.ok()) {
                     out.add("NX exchange: " + r.message() + " (" + r.code() + ")");
+                    return out;
+                }
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> fill = (java.util.Map<String, Object>) r.data().get("fill");
+                if (fill != null) {
+                    out.add(String.format("NX desk: %,d NX at %s mesos per NX, %,d mesos now (mid %s).",
+                            num(fill.get("nx")), Exchange.perNx(num(fill.get("price"))), num(fill.get("mesos")),
+                            Exchange.perNx(num(r.data().get("mid")))));
                     return out;
                 }
                 Ticker ot = ex.ticker(String.valueOf(r.data().get("ticker")));
@@ -174,6 +201,18 @@ public final class ExchangeChat {
                     return out;
                 }
                 Long rate = ex.officialRate();
+                Desk desk = ex.desk();
+                if (desk != null) {
+                    long[] inv = ex.deskInventory();
+                    out.add(String.format("NX desk%s: mid %s, buys at %s, sells at %s (mesos per NX); it holds %,d NX "
+                            + "and %,d mesos.", ex.halted() ? " (STOPPED)" : "", Exchange.perNx(desk.mid()),
+                            Exchange.perNx(desk.buy()), Exchange.perNx(desk.sell()), inv[0], inv[1]));
+                    out.add("Fills at once, whole NX from 100; spread " + pct((int) desk.spreadBps()) + ", no fee. "
+                            + String.format(Locale.ROOT, "Moved today %.2f%%.", desk.movedTodayPct()));
+                    out.add("@nx buy <NX> | @nx sell <NX> | @nx confirm (no price: the desk's quote is the price)"
+                            + " | @nx tickers (items: " + itemIds(ex) + ")");
+                    return out;
+                }
                 long bid = ex.depth(Side.BUY, 1).isEmpty() ? 0 : ex.depth(Side.BUY, 1).get(0).price();
                 long ask = ex.depth(Side.SELL, 1).isEmpty() ? 0 : ex.depth(Side.SELL, 1).get(0).price();
                 out.add(String.format("NX exchange%s: best bid %s, best ask %s, rate %s (mesos per NX).",
@@ -201,6 +240,20 @@ public final class ExchangeChat {
             }
         }
         return ids.isEmpty() ? "none" : String.join(", ", ids);
+    }
+
+    /**
+     * Ticket 162: a desk preview holds the desk's quote (there is no price to type and no order to rest), so the lines
+     * say what the quote is and what {@code @nx confirm} will do with it.
+     */
+    static List<String> deskLines(Exchange.Response r, String sub) {
+        var d = r.data();
+        return List.of(
+                String.format("NX desk: %s %,d NX at %s mesos per NX = %,d mesos (mid %s).", sub, num(d.get("nx")),
+                        Exchange.perNx(num(d.get("price"))), num(d.get("mesos")),
+                        Exchange.perNx(num(d.get("mid")))),
+                String.format("The desk holds %,d NX; @nx confirm to trade at that quote (it re-quotes if it moved).",
+                        num(d.get("desk_nx"))));
     }
 
     static List<String> previewLines(Exchange.Response r, ExchangeConfig c) {

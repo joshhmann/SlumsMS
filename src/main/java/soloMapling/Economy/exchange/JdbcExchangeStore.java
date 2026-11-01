@@ -182,6 +182,9 @@ public final class JdbcExchangeStore implements ExchangeStore {
             for (OrderRow o : batch.orders()) {
                 writeOrder(con, o);
             }
+            if (batch.desk() != null) {
+                writeDesk(con, batch.at(), batch.desk());
+            }
             for (FillRow f : batch.fills()) {
                 try (PreparedStatement ps = con.prepareStatement(FILL_INSERT)) {
                     ps.setLong(1, f.id());
@@ -198,6 +201,73 @@ public final class JdbcExchangeStore implements ExchangeStore {
                 }
             }
             return null;
+        });
+    }
+
+    /** Ticket 162: the desk's state is one row (id 1) of JSON, written in the batch's own transaction. */
+    private static void writeDesk(Connection con, long at, Desk.State desk) throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement(
+                "INSERT INTO exchange_desk (id, state_json, updated_at) VALUES (1, ?, ?) "
+                        + "ON DUPLICATE KEY UPDATE state_json = VALUES(state_json), updated_at = VALUES(updated_at)")) {
+            ps.setString(1, Desk.encode(desk));
+            ps.setLong(2, at);
+            ps.executeUpdate();
+        }
+    }
+
+    @Override
+    public Desk.State loadDesk() throws StoreException {
+        return tx(con -> {
+            try (PreparedStatement ps = con.prepareStatement("SELECT state_json FROM exchange_desk WHERE id = 1")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? Desk.decode(rs.getString(1)) : null;
+                }
+            }
+        });
+    }
+
+    @Override
+    public long walletBalance(Bucket wallet) throws StoreException {
+        String sql = wallet.asset().item() ? null
+                : wallet.asset() == Asset.NX ? "SELECT COALESCE(nxCredit, 0) FROM accounts WHERE id = ?"
+                : "SELECT meso FROM characters WHERE id = ?";
+        if (sql == null) {
+            throw new StoreException(Failure.NOT_OWNER, wallet + ": an item wallet is not a stored balance");
+        }
+        return tx(con -> {
+            try (PreparedStatement ps = con.prepareStatement(sql)) {
+                ps.setLong(1, wallet.id());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? rs.getLong(1) : 0L;
+                }
+            }
+        });
+    }
+
+    /**
+     * The drift's denominator (ticket 162 §2): every NX a player holds — {@code accounts.nxCredit} plus the NX in
+     * exchange escrow and payouts — but not the house's own HOUSE buckets: the desk's inventory and the regulars'
+     * purses are the counterparty, not the float whose turnover moves R. A logged-in player's unsaved NX is not in it
+     * (the game holds that in memory); it is close enough for a rate.
+     */
+    @Override
+    public long nxFloat() throws StoreException {
+        return tx(con -> {
+            long t = 0;
+            try (PreparedStatement ps = con.prepareStatement("SELECT COALESCE(SUM(nxCredit), 0) FROM accounts");
+                 ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    t += rs.getLong(1);
+                }
+            }
+            try (PreparedStatement ps = con.prepareStatement(
+                    "SELECT COALESCE(SUM(amount), 0) FROM exchange_escrow WHERE asset = 'NX' AND kind <> 'HOUSE'");
+                 ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    t += rs.getLong(1);
+                }
+            }
+            return t;
         });
     }
 

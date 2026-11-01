@@ -154,6 +154,44 @@ public final class Exchange {
         signIns = s == null ? new SiteReauth.SignIns() : s;
     }
 
+    // ---------------------------------------------------------------- the NX desk (ticket 162)
+
+    /** The desk's knobs ({@link DeskConfig}); the desk itself is null while the switch is off. */
+    private volatile DeskConfig deskConfig = DeskConfig.fromSystem();
+    private Desk desk;
+
+    public DeskConfig deskConfig() {
+        return deskConfig;
+    }
+
+    /** Another switch and numbers (tests, the QA staging): call before {@link #recover}. */
+    public void deskConfig(DeskConfig c) {
+        deskConfig = c == null ? DeskConfig.defaults() : c;
+    }
+
+    /** The running desk, or null when {@code -Dslums.exchange.desk} is off (then nothing here changes anything). */
+    public synchronized Desk desk() {
+        return desk;
+    }
+
+    /** Is the desk trading right now (switched on, a house account named, not halted)? */
+    public synchronized boolean deskOpen() {
+        return desk != null && closeReason() == null;
+    }
+
+    /** Why the desk is not trading: null when it is, else "no house account" or "halted" (or "off" without a desk). */
+    public synchronized String closeReason() {
+        if (desk == null) {
+            return "off";
+        }
+        return config.houseAccount() <= 0 ? "no house account" : halted ? "halted" : null;
+    }
+
+    /** The desk's HOUSE bucket for an asset: its NX and its mesos (id {@link Desk#HOUSE}). */
+    public static Bucket deskBucket(Asset a) {
+        return Bucket.house(a, Desk.HOUSE);
+    }
+
     // ---------------------------------------------------------------- audit (1.6.2)
 
     private static final Logger AUDIT = LoggerFactory.getLogger("soloMapling.Economy.exchange.Audit");
@@ -458,10 +496,30 @@ public final class Exchange {
         nextFill = l.maxFillId() + 1;
         nextSeq = l.maxSeq() + 1;
         nextBatch = l.maxBatch() + 1;
+        // ticket 162: the desk takes over NX's official rate. Its R is stored; without one it starts from the rate the
+        // book published until now (the 7-day VWAP), else from NX's starting price.
+        desk = null;
+        String deskError = null;
+        Long officialNow = officialRate(Ticker.NX);
+        if (deskConfig.enabled()) {
+            try {
+                Desk.State stored = store.loadDesk();
+                desk = Desk.start(deskConfig, stored, officialNow, clock.getAsLong());
+                audit("desk start R=" + desk.mid() + " buy=" + desk.buy() + " sell=" + desk.sell()
+                        + (stored != null ? " (stored)" : officialNow != null ? " (from the book's rate)" : " (start)"));
+            } catch (StoreException e) {
+                // the desk cannot quote without its stored R: halt, so nothing trades at a rate nobody has seen
+                deskError = "desk state unreadable (" + e + "): is migration 058-nx-desk applied?";
+                log.error("NX exchange: {}", deskError);
+            }
+        }
         recovered = true;
         List<String> problems = new ArrayList<>(unknown);
         problems.addAll(reconcile(l));
-        if (!problems.isEmpty()) {
+        if (deskError != null) {
+            problems.add(deskError);
+            halt(deskError);
+        } else if (!problems.isEmpty()) {
             halt("reconcile: " + problems.size() + " mismatch(es), first: " + problems.get(0));
         } else {
             cancelClamped(clamped);
@@ -552,6 +610,9 @@ public final class Exchange {
         }
         if (halted) {
             return Response.error(rid, "HALTED", "the exchange is stopped: " + haltReason);
+        }
+        if (desk != null && Ticker.NX.equals(p.ticker())) {
+            return Response.error(rid, "BAD_REQUEST", deskBookOffMessage());
         }
         String bad = validate(p);
         if (bad != null) {
@@ -687,6 +748,9 @@ public final class Exchange {
         if (halted) {
             return Response.error(rid, "HALTED", "the exchange is stopped: " + haltReason);
         }
+        if (desk != null && Ticker.NX.equals(p.ticker())) {
+            return deskPreview(p, site);   // ticket 162: NX is the desk's; the book is off
+        }
         String bad = validate(p);
         if (bad != null) {
             return Response.error(rid, "BAD_REQUEST", bad);
@@ -792,11 +856,457 @@ public final class Exchange {
         if (x.place().account() != account) {
             return Response.error(rid, "TOKEN_EXPIRED", "that preview expired; preview the order again");
         }
+        if (desk != null && Ticker.NX.equals(x.place().ticker())) {
+            return deskFill(rid, x.place(), token, x.site());   // ticket 162: at the held quote, now
+        }
         Response r = place(x.place());
         return new Response(rid, r.ok(), r.code(), r.message(), r.data());
     }
 
-    // ---------------------------------------------------------------- b005 step-up (1.6.2)
+    // ---------------------------------------------------------------- the NX desk (ticket 162)
+
+    /** "the NX desk is closed: ..." with the reason the site shows ({@link #closeReason()}). */
+    private String deskClosedMessage() {
+        String why = closeReason();
+        return "no house account".equals(why)
+                ? "the NX desk is closed: no house account (-Dslums.exchange.houseAccount)"
+                : "the NX desk is closed: " + why;
+    }
+
+    /** Why an NX order is refused while the desk runs (ticket 162 §4: the book is off for NX only). */
+    private static String deskBookOffMessage() {
+        return "NX trades at the desk's quote now: no NX orders. Use @nx buy/sell in game or the site's NX page";
+    }
+
+    /** Which wallet leg the player pays from: NX from the account (a SELL to the desk), mesos from the character. */
+    private static Bucket walletOf(Place p, Side side) {
+        return side == Side.SELL ? Bucket.wallet(Asset.NX, p.account()) : Bucket.wallet(Asset.MESO, p.character());
+    }
+
+    /**
+     * A desk preview (ticket 162): the quote is held for {@link ExchangeConfig#confirmMs()} and the confirm fills the
+     * whole amount at it. Unlike the book's preview the request carries no price (a price is refused: the desk trades
+     * at its quote), and there is no queue and no partial fill. Nothing moves here.
+     */
+    private Response deskPreview(Place p, boolean site) {
+        String rid = p.requestId();
+        if (p.price() > 0) {
+            return Response.error(rid, "BAD_REQUEST", "the NX desk trades at its quote: send no price");
+        }
+        if (closeReason() != null) {
+            return Response.error(rid, "DESK_CLOSED", deskClosedMessage());
+        }
+        if (p.nx() < deskConfig.minQty()) {
+            return Response.error(rid, "MIN_QTY", "the desk trades whole NX from " + deskConfig.minQty() + " up");
+        }
+        Side side = p.side();
+        long now = clock.getAsLong();
+        long price = desk.quote(side);
+        long mesos;
+        try {
+            mesos = desk.mesos(side, p.nx(), price);
+        } catch (ArithmeticException e) {
+            return Response.error(rid, "BAD_REQUEST", "that is more NX than one trade can carry");
+        }
+        long fee = desk.config().fee(mesos);
+        if (mesos <= 0 || mesos > Integer.MAX_VALUE - fee) {
+            return Response.error(rid, "BAD_REQUEST", "that is more mesos than one trade can carry");
+        }
+        LiveWallet w = live.find(p.account());
+        if (w != null && w.character() != p.character()) {
+            return Response.error(rid, "LOG_OUT_FIRST", "you are logged in as another character: use that one, or log out");
+        }
+        if (w == null && presence.test(p.account())) {
+            return Response.error(rid, "LOG_OUT_FIRST", "log out of the game to trade with the desk");
+        }
+        long deskNx, deskMeso;
+        try {
+            deskNx = store.balance(deskBucket(Asset.NX));
+            deskMeso = store.balance(deskBucket(Asset.MESO));
+        } catch (StoreException e) {
+            return storeError(rid, e);
+        }
+        Response short_ = deskShort(rid, side, p.nx(), mesos, deskNx, deskMeso);
+        if (short_ != null) {
+            return short_;
+        }
+        Asset pays = side == Side.SELL ? Asset.NX : Asset.MESO;
+        long takes = side == Side.SELL ? p.nx() : mesos + fee;
+        long have;
+        try {
+            have = w != null ? w.have(pays) : store.walletBalance(walletOf(p, side));
+        } catch (StoreException e) {
+            return storeError(rid, e);
+        }
+        if (have < takes) {
+            return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + takes + " " + unitName(pays)
+                    + (pays == Asset.NX ? " on your account" : " on this character"));
+        }
+        long expires = now + config.confirmMs();
+        String t = holdDesk(p, side, price, site, expires);
+        Place held = new Place((site ? SITE_RID : "t-") + t, p.account(), p.character(), side, price, p.nx(),
+                Ticker.NX);
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("token", t);
+        data.put("expiresAt", iso(expires));
+        data.put("side", side.name());
+        data.put("nx", p.nx());
+        data.put("price", price);
+        data.put("mid", desk.mid());
+        // API.md: the total the player pays (BUY) or gets (SELL); fee 0 under the owner's set B
+        data.put("mesos", side == Side.BUY ? mesos + fee : mesos - fee);
+        data.put("desk_nx", deskNx);
+        if (site) {
+            data.put("passwordRequired", passwordRequired(held, now));
+        }
+        return Response.ok(rid, data);
+    }
+
+    /**
+     * DESK_EMPTY when the house cannot deliver its side of that trade (what it has comes back as data): its NX for a
+     * player's BUY, its mesos for a player's SELL. Nothing is minted.
+     */
+    private static Response deskShort(String rid, Side side, long nx, long mesos, long deskNx, long deskMeso) {
+        boolean short_ = side == Side.BUY ? deskNx < nx : deskMeso < mesos;
+        if (!short_) {
+            return null;
+        }
+        Map<String, Object> d = new LinkedHashMap<>();
+        d.put("desk_nx", deskNx);
+        d.put("desk_mesos", deskMeso);
+        return new Response(rid, false, "DESK_EMPTY", side == Side.BUY
+                ? "the desk has " + deskNx + " NX to sell; ask for less"
+                : "the desk has " + deskMeso + " mesos to buy with right now; try later", d);
+    }
+
+    /** Holds a desk quote: a fresh one-use token for {@code p} at {@code price}, kept until {@code expires}. */
+    private String holdDesk(Place p, Side side, long price, boolean site, long expires) {
+        long now = clock.getAsLong();
+        for (Iterator<Map.Entry<String, Pending>> it = pending.entrySet().iterator(); it.hasNext(); ) {
+            if (it.next().getValue().expiresAt() < now) {
+                it.remove();
+            }
+        }
+        byte[] b = new byte[12];
+        random.nextBytes(b);
+        StringBuilder token = new StringBuilder();
+        for (byte x : b) {
+            token.append(String.format("%02x", x));
+        }
+        String t = token.toString();
+        pending.put(t, new Pending(new Place((site ? SITE_RID : "t-") + t, p.account(), p.character(), side, price,
+                p.nx(), Ticker.NX), expires, site, 0));
+        latestToken.put(p.account(), t);
+        return t;
+    }
+
+    /**
+     * A desk confirm: the whole amount at the quote the preview held, at once. Nothing moves when it refuses:
+     * DESK_CLOSED (no house account, halted), QUOTE_MOVED (the hourly step moved the quote: a fresh quote and token
+     * come with it) or DESK_EMPTY. A token is one use only.
+     */
+    private Response deskFill(String rid, Place p, String token, boolean site) {
+        long now = clock.getAsLong();
+        pending.remove(token);
+        if (halted) {
+            return Response.error(rid, "HALTED", "the exchange is stopped: " + haltReason);
+        }
+        if (closeReason() != null) {
+            return Response.error(rid, "DESK_CLOSED", deskClosedMessage());
+        }
+        Side side = p.side();
+        long nx = p.nx(), price = p.price();
+        if (desk.quote(side) != price) {
+            return deskQuoteMoved(rid, p, price, site, now);
+        }
+        long mesos = desk.mesos(side, nx, price);
+        long fee = desk.config().fee(mesos);
+        long deskNx, deskMeso;
+        try {
+            deskNx = store.balance(deskBucket(Asset.NX));
+            deskMeso = store.balance(deskBucket(Asset.MESO));
+        } catch (StoreException e) {
+            return storeError(rid, e);
+        }
+        Response short_ = deskShort(rid, side, nx, mesos, deskNx, deskMeso);
+        if (short_ != null) {
+            return short_;
+        }
+        LiveWallet w = live.find(p.account());
+        return w == null ? deskFillOffline(rid, p, now, mesos, fee) : deskFillLive(rid, p, w, now, mesos, fee);
+    }
+
+    /** QUOTE_MOVED with the desk's quote now and a fresh token for it (the site shows them and asks to confirm again). */
+    private Response deskQuoteMoved(String rid, Place p, long held, boolean site, long now) {
+        Side side = p.side();
+        long price = desk.quote(side);
+        long expires = now + config.confirmMs();
+        String t = holdDesk(p, side, price, site, expires);
+        Map<String, Object> d = new LinkedHashMap<>();
+        d.put("price", price);
+        d.put("mid", desk.mid());
+        d.put("expiresAt", iso(expires));
+        d.put("token", t);
+        d.put("held", held);
+        return new Response(rid, false, "QUOTE_MOVED", "the desk's quote moved since your preview: "
+                + held + " is now " + price + " per 1,000 NX; confirm again", d);
+    }
+
+    /**
+     * One desk fill for a player who is not logged in: the money moves straight between wallets and the house's HOUSE
+     * buckets (NX from the account, mesos from or to the character), all in the batch's transaction, so a failure
+     * changes nothing.
+     */
+    private Response deskFillOffline(String rid, Place p, long now, long mesos, long fee) {
+        Side side = p.side();
+        Asset pays = side == Side.SELL ? Asset.NX : Asset.MESO;
+        long takes = side == Side.SELL ? p.nx() : mesos + fee;
+        long have;
+        try {
+            have = store.walletBalance(walletOf(p, side));
+        } catch (StoreException e) {
+            return storeError(rid, e);
+        }
+        if (have < takes) {
+            return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + takes + " " + unitName(pays)
+                    + (pays == Asset.NX ? " on your account" : " on this character"));
+        }
+        committed = false;
+        try {
+            commitFill(p, now, mesos, fee, 0, 0);
+        } catch (RuntimeException | StoreException e) {
+            if (committed) {
+                halt("desk fill " + rid + " failed after its commit: " + e);
+            }
+            log.error("NX exchange: desk fill {} failed", rid, e);
+            return Response.error(rid, "ERROR", "try again later");
+        }
+        return Response.ok(rid, fillData(p, mesos, now));
+    }
+
+    /**
+     * One desk fill for a logged-in player, under the character's save lock: check, save, take what it pays, commit,
+     * then give what it buys in memory (a failed commit gives the take back). Nothing is minted either way.
+     */
+    private Response deskFillLive(String rid, Place p, LiveWallet w, long now, long mesos, long fee) {
+        Side side = p.side();
+        Asset pays = side == Side.SELL ? Asset.NX : Asset.MESO;
+        long takes = side == Side.SELL ? p.nx() : mesos + fee;
+        Asset gets = side == Side.SELL ? Asset.MESO : Asset.NX;
+        long gives = side == Side.SELL ? mesos - fee : p.nx();
+        return w.locked(() -> {
+            if (!w.usable()) {
+                return Response.error(rid, "TRY_AGAIN",
+                        "you are changing channel, logging out or in the Cash Shop; try again in a moment");
+            }
+            if (!w.saveNow()) {
+                return Response.error(rid, "ERROR", "could not save your character first; try again later");
+            }
+            if (w.have(pays) < takes) {
+                return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + takes + " " + unitName(pays)
+                        + (pays == Asset.NX ? " on your account" : " on this character"));
+            }
+            if (w.room(gets, gives) < gives) {
+                return Response.error(rid, "BAD_REQUEST", "you cannot hold " + gives + " more " + unitName(gets)
+                        + " on this character");
+            }
+            if (!w.take(pays, takes)) {
+                return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + takes + " " + unitName(pays));
+            }
+            committed = false;
+            try {
+                commitFill(p, now, mesos, fee, w.account(), w.character());
+            } catch (RuntimeException | StoreException e) {
+                if (!committed) {
+                    giveBack(w, pays, takes, "a refused desk fill " + rid);
+                } else {
+                    halt("desk fill " + rid + " failed after its commit: " + e);
+                }
+                log.error("NX exchange: desk fill {} failed", rid, e);
+                return Response.error(rid, "ERROR", "try again later");
+            }
+            if (!w.give(gets, gives)) {
+                log.error("NX exchange: desk fill {} committed but {} {} could not be given to character {} "
+                        + "(account {}): staff must add it", rid, gives, gets, w.character(), w.account());
+                halt("could not give " + gives + " " + gets + " to character " + w.character());
+            }
+            w.tell("NX desk: " + (side == Side.BUY ? "bought" : "sold") + " " + p.nx() + " NX at " + p.price()
+                    + " mesos per 1,000 (" + (side == Side.BUY ? "-" : "+") + mesos + " mesos).");
+            return Response.ok(rid, fillData(p, mesos, now));
+        });
+    }
+
+    /**
+     * Writes one desk fill in the batch: the player's money leg to or from the desk's HOUSE bucket, the NX leg the
+     * other way, a fee when one is configured, the fill row (no order ids: the desk has no orders) and the desk's new
+     * state, in one transaction.
+     */
+    private long commitFill(Place p, long now, long mesos, long fee, long liveAccount, long liveCharacter)
+            throws StoreException {
+        Side side = p.side();
+        long nx = p.nx(), price = p.price();
+        long fillId = nextFill;
+        Bucket houseNx = deskBucket(Asset.NX), houseMeso = deskBucket(Asset.MESO);
+        Bucket playerMeso = Bucket.wallet(Asset.MESO, p.character()), playerNx = Bucket.wallet(Asset.NX, p.account());
+        List<Posting> postings = new ArrayList<>(3);
+        if (side == Side.BUY) {
+            postings.add(new Posting(Why.FILL, playerMeso, houseMeso, mesos, p.account(), 0, fillId));
+            if (fee > 0) {
+                postings.add(new Posting(Why.FILL, playerMeso, Bucket.fees(), fee, p.account(), 0, fillId));
+            }
+            postings.add(new Posting(Why.FILL, houseNx, playerNx, nx, p.account(), 0, fillId));
+        } else {
+            postings.add(new Posting(Why.FILL, playerNx, houseNx, nx, p.account(), 0, fillId));
+            postings.add(new Posting(Why.FILL, houseMeso, playerMeso, mesos - fee, p.account(), 0, fillId));
+            if (fee > 0) {
+                postings.add(new Posting(Why.FILL, houseMeso, Bucket.fees(), fee, p.account(), 0, fillId));
+            }
+        }
+        FillRow f = new FillRow(fillId, now, 0, 0, nx, price, mesos, false, false, Ticker.NX);
+        Desk.Fill recorded = new Desk.Fill(fillId, now, p.account(), side, nx, price, mesos);
+        desk.recordFill(fillId, now, p.account(), side, nx, price, mesos);
+        Batch batch = new Batch(nextBatch, now, postings, List.of(), List.of(f), liveAccount, liveCharacter)
+                .withDesk(desk.state());
+        try {
+            commit(batch, "desk fill " + side + " " + nx + "NX@" + price);
+        } catch (StoreException | RuntimeException e) {
+            desk.undoFill(recorded);   // nothing moved: the hour's volume and the next step must not count it
+            throw e;
+        }
+        committed = true;
+        nextFill++;
+        nextBatch++;
+        remember(List.of(f));
+        return fillId;
+    }
+
+    /** {@code {"fill":{nx,price,mesos,at}, "mid":R}} for every desk fill. */
+    private Map<String, Object> fillData(Place p, long mesos, long now) {
+        Map<String, Object> fill = new LinkedHashMap<>();
+        fill.put("nx", p.nx());
+        fill.put("price", p.price());
+        fill.put("mesos", mesos);
+        fill.put("at", iso(now));
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("fill", fill);
+        data.put("mid", desk.mid());
+        return data;
+    }
+
+    /** The site's {@code mine} for NX after the cutover: the account's NX, its last 20 desk fills, step-up amount. */
+    public synchronized Response deskMine(String rid, long account) {
+        LiveWallet w = live.find(account);
+        long nx;
+        try {
+            nx = w != null ? w.have(Asset.NX) : store.walletBalance(Bucket.wallet(Asset.NX, account));
+        } catch (StoreException e) {
+            return storeError(rid, e);
+        }
+        List<Map<String, Object>> fills = new ArrayList<>();
+        if (desk != null) {
+            for (Desk.Fill f : desk.fillsOf(account, 20)) {
+                Map<String, Object> e = new LinkedHashMap<>();
+                e.put("nx", f.nx());
+                e.put("price", f.price());
+                e.put("mesos", f.mesos());
+                e.put("side", f.side().name());
+                e.put("at", iso(f.at()));
+                fills.add(e);
+            }
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("nx", nx);
+        data.put("fills", fills);
+        data.put("orders", List.of());   // the NX book is off: nothing rests
+        data.put("stepUpFreeMesos", siteReauth.freeBuyMesos());
+        return Response.ok(rid, data);
+    }
+
+    /**
+     * Ticket 162's hourly step: the desk's drift from the hour's net flow against the NX float, capped by the step,
+     * the day and the hard window, then stored. Nothing while the desk is off, not recovered or halted.
+     */
+    public synchronized long tickDesk() {
+        if (!recovered || desk == null || halted) {
+            return 0;
+        }
+        long now = clock.getAsLong();
+        if (now - desk.lastTickAt() < Desk.HOUR_MS) {
+            return 0;
+        }
+        long floatNx;
+        try {
+            floatNx = store.nxFloat();
+        } catch (StoreException e) {
+            log.warn("NX exchange: desk step skipped, could not read the NX float", e);
+            return 0;
+        }
+        long bps = desk.tick(now, floatNx);
+        try {
+            commit(new Batch(nextBatch, now, List.of(), List.of(), List.of()).withDesk(desk.state()),
+                    "desk step " + bps + "bps R=" + desk.mid());
+            nextBatch++;
+        } catch (StoreException e) {
+            log.error("NX exchange: desk step not stored (R is {} in memory)", desk.mid(), e);
+        }
+        return bps;
+    }
+
+    /**
+     * Ticket 162 cutover: with the desk on the NX book is off, so every open NX order (a player's or a regular's) is
+     * cancelled and its escrow refunded through the normal cancel path. Idempotent: a second run finds none and closes
+     * nothing. Offline players' refunds land in their wallets on the next collect.
+     */
+    public synchronized Response cancelNxBook(String rid) {
+        if (!recovered) {
+            return Response.error(rid, "UNAVAILABLE", "exchange not started");
+        }
+        List<Long> ids = new ArrayList<>();
+        for (OrderRow r : rows.values()) {
+            if (Ticker.NX.equals(r.ticker())) {
+                ids.add(r.id());
+            }
+        }
+        ids.sort(Long::compare);
+        int closed = 0;
+        long nx = 0;
+        List<Long> failed = new ArrayList<>();
+        for (long id : ids) {
+            OrderRow r = rows.get(id);
+            if (r == null || !r.open()) {
+                continue;
+            }
+            long owner = r.regular() > 0 ? Regulars.owner((int) r.regular()) : r.account();
+            Response one = closeOrders("cancel-nx order #" + id, List.of(id), owner, OrderBook.Reason.CANCELLED);
+            if (one.ok()) {
+                closed++;
+                nx += r.side() == Side.SELL ? r.nxLeft() : 0;
+            } else {
+                failed.add(id);
+            }
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("closed", closed);
+        data.put("nxReturned", nx);
+        data.put("failed", failed);
+        data.put("openNx", openNxOrders());
+        audit("cancel-nx: closed " + closed + " NX orders, " + nx + " NX escrow returned"
+                + (failed.isEmpty() ? "" : ", failed " + failed));
+        return Response.ok(rid, data);
+    }
+
+    /** How many NX orders are still resting (everything while the desk is off; nothing after a cancel-nx). */
+    public synchronized int openNxOrders() {
+        int n = 0;
+        for (OrderRow r : rows.values()) {
+            if (Ticker.NX.equals(r.ticker()) && r.open()) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+
 
     /**
      * Does this site order need the password typed for it ({@link SiteReauth})? Every SELL (NX or items leave the
@@ -811,9 +1321,17 @@ public final class Exchange {
         if (p.side() == Side.SELL) {
             return true;
         }
-        Ticker t = tickers.get(p.ticker());
-        long cost = t == null ? Long.MAX_VALUE : t.buyTotal(config, p.nx(), p.price());
+        long cost = costOf(p);
         return freeBuysUsed(p.account(), now) + cost > r.freeBuyMesos();
+    }
+
+    /** What one order costs the account: the NX desk's total (mesos plus its fee) while the desk holds NX, else the book's. */
+    private long costOf(Place p) {
+        if (desk != null && Ticker.NX.equals(p.ticker())) {
+            return desk.total(p.side(), p.nx(), p.price());
+        }
+        Ticker t = tickers.get(p.ticker());
+        return t == null ? Long.MAX_VALUE : t.buyTotal(config, p.nx(), p.price());
     }
 
     private long freeBuysUsed(long account, long now) {
@@ -884,9 +1402,8 @@ public final class Exchange {
         }
         Response r = confirm(rid, account, token);
         if (r.ok() && !needs && x.place().side() == Side.BUY && siteReauth.stepUp()) {
-            Ticker t = tickers.get(x.place().ticker());
             freeBuys.computeIfAbsent(account, k -> new java.util.ArrayDeque<>())
-                    .addLast(new long[]{now, t.buyTotal(config, x.place().nx(), x.place().price())});
+                    .addLast(new long[]{now, costOf(x.place())});
         }
         return r;
     }
@@ -1477,29 +1994,78 @@ public final class Exchange {
                     + (config.houseAccount() <= 0 ? "none set: -Dslums.exchange.houseAccount" : config.houseAccount())
                     + ") funds the regulars");
         }
-        return w.locked(() -> {
-            if (!w.usable()) {
-                return Response.error("fund", "TRY_AGAIN", "changing channel or in the Cash Shop");
+        return w.locked(() -> fundBucketLocked(Bucket.house(asset, regular), "fund regular " + regular, w, asset, amount));
+    }
+
+    /**
+     * Funds the NX desk's HOUSE from the house account's live wallet ({@code !exchange desk fund nx|meso <amount>}):
+     * the only way the desk gets NX to sell or mesos to buy with. Nothing is minted.
+     */
+    public synchronized Response fundDeskLive(LiveWallet w, Asset asset, long amount, boolean qa) {
+        if (amount <= 0 || amount > Integer.MAX_VALUE || asset.item()) {
+            return Response.error("fund", "BAD_REQUEST", "amount");
+        }
+        if (!qa && (config.houseAccount() <= 0 || w.account() != config.houseAccount())) {
+            return Response.error("fund", "NOT_HOUSE", "only the house account ("
+                    + (config.houseAccount() <= 0 ? "none set: -Dslums.exchange.houseAccount" : config.houseAccount())
+                    + ") funds the NX desk");
+        }
+        return w.locked(() -> fundBucketLocked(deskBucket(asset), "fund the NX desk", w, asset, amount));
+    }
+
+    /**
+     * Takes the NX desk's whole HOUSE (NX and mesos) back to the house account's live character
+     * ({@code !exchange desk unfund}), which lands at once. The desk keeps trading at its R; with no NX left it just
+     * cannot sell until someone funds it again.
+     */
+    public synchronized Response unfundDeskLive(LiveWallet w, boolean qa) {
+        if (!qa && (config.houseAccount() <= 0 || w.account() != config.houseAccount())) {
+            return Response.error("unfund", "NOT_HOUSE", "only the house account takes the NX desk's money back");
+        }
+        List<Posting> postings = new ArrayList<>();
+        Map<String, Object> data = new LinkedHashMap<>();
+        try {
+            for (Asset a : Asset.values()) {
+                long have = store.balance(deskBucket(a));
+                data.put(a.name().toLowerCase(java.util.Locale.ROOT), have);
+                if (have > 0) {
+                    postings.add(new Posting(Why.FUND, deskBucket(a), a.perCharacter()
+                            ? Bucket.payout(a, w.character()) : Bucket.payout(a, w.account()), have, 0, 0, 0));
+                }
             }
-            if (!w.saveNow()) {
-                return Response.error("fund", "ERROR", "could not save first");
+            if (!postings.isEmpty()) {
+                commit(new Batch(nextBatch, clock.getAsLong(), postings, List.of(), List.of()), "unfund the NX desk");
+                nextBatch++;
             }
-            if (!w.take(asset, amount)) {
-                return Response.error("fund", "INSUFFICIENT_FUNDS", "not enough " + asset);
-            }
-            Bucket from = asset == Asset.NX ? Bucket.wallet(Asset.NX, w.account())
-                    : Bucket.wallet(Asset.MESO, w.character());
-            try {
-                commit(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.FUND, from,
-                        Bucket.house(asset, regular), amount, w.account(), 0, 0)), List.of(), List.of(), w.account(),
-                        w.character()), "fund regular " + regular);
-            } catch (StoreException e) {
-                giveBack(w, asset, amount, "a refused house funding");
-                return storeError("fund", e);
-            }
-            nextBatch++;
-            return Response.ok("fund", new LinkedHashMap<>());
-        });
+        } catch (StoreException e) {
+            return storeError("unfund", e);
+        }
+        collectLive(w);
+        return Response.ok("unfund", data);
+    }
+
+    /** The shared tail of a live funding: check, save, take, FUND post, commit (a refused commit gives the take back). */
+    private Response fundBucketLocked(Bucket to, String what, LiveWallet w, Asset asset, long amount) {
+        if (!w.usable()) {
+            return Response.error("fund", "TRY_AGAIN", "changing channel or in the Cash Shop");
+        }
+        if (!w.saveNow()) {
+            return Response.error("fund", "ERROR", "could not save first");
+        }
+        if (!w.take(asset, amount)) {
+            return Response.error("fund", "INSUFFICIENT_FUNDS", "not enough " + asset);
+        }
+        Bucket from = asset == Asset.NX ? Bucket.wallet(Asset.NX, w.account())
+                : Bucket.wallet(Asset.MESO, w.character());
+        try {
+            commit(new Batch(nextBatch, clock.getAsLong(), List.of(new Posting(Why.FUND, from, to, amount, w.account(),
+                    0, 0)), List.of(), List.of(), w.account(), w.character()), what);
+        } catch (StoreException e) {
+            giveBack(w, asset, amount, "a refused " + what);
+            return storeError("fund", e);
+        }
+        nextBatch++;
+        return Response.ok("fund", new LinkedHashMap<>());
     }
 
     /**
@@ -1688,6 +2254,9 @@ public final class Exchange {
         }
         if (w == null || !botAccount(p.account()) || w.account() != p.account() || w.character() != p.character()) {
             return Response.error(rid, "BAD_REQUEST", "not a trader bot's own wallet");
+        }
+        if (desk != null && Ticker.NX.equals(p.ticker())) {
+            return Response.error(rid, "BAD_REQUEST", deskBookOffMessage());
         }
         String bad = validate(p);
         if (bad != null) {
@@ -1902,8 +2471,8 @@ public final class Exchange {
      * for it (if its house can pay). Not while halted; nothing without a reference price. Returns orders placed.
      */
     public synchronized int tickRegulars() {
-        if (!recovered || halted || config.regulars() <= 0 || config.houseAccount() <= 0) {
-            return 0;   // owner 2026-10-28: no house account named = regulars idle
+        if (!recovered || halted || desk != null || config.regulars() <= 0 || config.houseAccount() <= 0) {
+            return 0;   // owner 2026-10-28: no house account named = regulars idle; ticket 162: no NX book under the desk
         }
         Long ref = officialRate();
         if (ref == null) {
@@ -1934,8 +2503,14 @@ public final class Exchange {
         return officialRate(Ticker.NX);
     }
 
-    /** A ticker's official rate: the VWAP of its player-to-player fills (see {@link OfficialRate}), or null. */
+    /**
+     * A ticker's official rate: the desk's R for NX while the desk runs (ticket 162: it replaces the VWAP for NX), else
+     * the VWAP of its player-to-player fills (see {@link OfficialRate}), or null.
+     */
     public synchronized Long officialRate(String ticker) {
+        if (desk != null && Ticker.NX.equals(ticker)) {
+            return desk.mid();
+        }
         Deque<FillRow> r = recent.get(ticker);
         return OfficialRate.vwap(r == null ? List.of() : new ArrayList<>(r), clock.getAsLong(), config.rateWindowMs(),
                 config.rateMinFills());
@@ -2069,10 +2644,24 @@ public final class Exchange {
         audit("HALT " + haltReason);
     }
 
-    public synchronized void resume() {
+    /**
+     * RESUME, and with the desk on (ticket 162 §4) the NX book is off, so resume also cancels every resting NX order
+     * and refunds its escrow ({@link #cancelNxBook}, idempotent: it finds none on a second run). Offline players'
+     * refunds reach their wallets on the next collect.
+     */
+    public synchronized Response resume() {
         halted = false;
         haltReason = "";
         audit("RESUME");
+        if (desk != null) {
+            return cancelNxBook("resume");
+        }
+        Map<String, Object> d = new LinkedHashMap<>();
+        d.put("closed", 0);
+        d.put("nxReturned", 0);
+        d.put("failed", List.of());
+        d.put("openNx", 0);
+        return Response.ok("resume", d);
     }
 
     public boolean halted() {
@@ -2233,6 +2822,9 @@ public final class Exchange {
                 + " a day per ticker, " + config.cooldownMs() / 1000 + " s apart, regulars "
                 + config.regulars() + (config.houseAccount() > 0 ? " (house account " + config.houseAccount() + ")"
                 : " (idle: no house account)"));
+        if (desk != null) {
+            out.add(deskLine());
+        }
         for (String id : openTickers) {
             Ticker t = tickers.get(id);
             if (t.item()) {
@@ -2240,6 +2832,29 @@ public final class Exchange {
             }
         }
         return out;
+    }
+
+    /** The desk's inventory as {NX, mesos} in its HOUSE buckets (zeros when the store cannot answer). */
+    public synchronized long[] deskInventory() {
+        try {
+            return new long[]{store.balance(deskBucket(Asset.NX)), store.balance(deskBucket(Asset.MESO))};
+        } catch (StoreException e) {
+            log.warn("NX exchange: could not read the desk's inventory", e);
+            return new long[]{0, 0};
+        }
+    }
+
+    /** The desk's status line ({@code !exchange status}): open or closed, R, its quotes, its inventory, today's move. */
+    public synchronized String deskLine() {
+        if (desk == null) {
+            return "NX desk: off (-Dslums.exchange.desk)";
+        }
+        long[] inv = deskInventory();
+        String why = closeReason();
+        return "NX desk: " + (why == null ? "open" : "CLOSED (" + why + ")") + ", R " + desk.mid() + " ("
+                + perNx(desk.mid()) + " mesos per NX), buy " + desk.buy() + " / sell " + desk.sell() + "; desk "
+                + inv[0] + " NX / " + inv[1] + " mesos; moved today " + String.format("%.2f", desk.movedTodayPct())
+                + "%, last step " + desk.lastStepBps() + " bps";
     }
 
     /** One ticker's status line ({@code !exchange status <ticker>}). */

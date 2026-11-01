@@ -153,6 +153,7 @@ public final class QaMenuCatalog {
         add("xc-2", v(), steps("check")); // 1.6.1 tickers: the LEAF book in game (@nx leaf), against a test regular
         add("xc-3", v(), steps("check")); // 1.6.1 volatility: a Leaf Rush changes the rate; a trader bot posts an order
         add("xc-5", v(), steps("check")); // 1.6.2: a trader that holds a Chaos or White Scroll lists it
+        add("xd-1", v(), steps("check")); // 1.6.3 desk: 1,000 NX fills at the desk's one quote (@nx confirm, no price)
         section("Gifts and prices");
         add("tr-4", v(), steps("gift", "gift potions", "gift scroll", "gift mesos"));
         add("tr-9", v(), steps()); // 1.6.2: ask the friend bot "got any pots?" in chat

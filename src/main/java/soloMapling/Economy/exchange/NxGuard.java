@@ -89,6 +89,11 @@ public record NxGuard(int minPct, int maxPct, long startPrice, long siteAuthMaxM
         return new long[]{Math.min(lo, max), Math.max(hi, min)};
     }
 
+    /** One NX price (mesos per 1,000 NX) inside the hard window: {@link #NX_LOWEST}..{@link #NX_HIGHEST}. */
+    public static long clamp(long price) {
+        return Math.max(NX_LOWEST, Math.min(NX_HIGHEST, price));
+    }
+
     /** The window alone: the hard limits on an NX order whatever the guard says (see {@link #NX_LOWEST}). */
     public static long[] window(long min, long max) {
         return new long[]{Math.min(Math.max(min, NX_LOWEST), max), Math.max(Math.min(max, NX_HIGHEST), min)};
