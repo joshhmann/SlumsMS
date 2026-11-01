@@ -15,6 +15,7 @@ import soloMapling.ArtificialPlayer.BotPartySystem.BotCommandParser;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyCommands;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotPartyQueue;
 import soloMapling.ArtificialPlayer.BotPartySystem.BotRecruitManager;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.server.BotTickService;
 
@@ -360,6 +361,20 @@ public class FollowerBot extends BotSM {
                 sayNode("Stay", player);
             }
             case PATROL -> onMenuSelect(0, player);
+            // 1.6.3 s-lanes: a bot friend told "lanes" takes the lane the group's spread gave it (PartyBotOrders)
+            case LANES -> {
+                followPhase = FollowPhase.STAY;
+                leaderLostSinceMs = 0;
+                GCMovement.stop(getChr());
+                java.awt.Point spot = CompanionStance.holdPoint(
+                        CompanionStance.of(getChr().getId(), getChr().getMapId()), getChr().getPosition());
+                if (spot != null) {
+                    java.awt.Point ground = getChr().getMap() == null ? null
+                            : GCMovement.groundPointBelow(getChr().getMap(), spot.x, spot.y);
+                    GCMovement.move(getChr(), spot.x, ground != null ? ground.y : spot.y);
+                }
+                sayNode("Stay", player);
+            }
             default -> {
             }
         }

@@ -3,6 +3,7 @@ package soloMapling.companions;
 import client.Character;
 import client.Client;
 import server.maps.MapleMap;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
 
 import java.awt.Point;
 import java.util.Set;
@@ -17,7 +18,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *       another map only follows; an alt inside a PQ whose owner left it does nothing there on its own.</li>
  *   <li><b>Not a town</b>: never in a town (no fighting, no looting in the Free Market or a town square).</li>
  *   <li><b>Nearby</b>: within {@link #RANGE_X_PX} px across and {@link #RANGE_Y_PX} px up/down of the owner (about one
- *       screen). Farther, it walks back first.</li>
+ *       screen). Farther, it walks back first. 1.6.3 s-lanes: an alt holding a LANES spot with map reach is not held
+ *       to this distance - it works its own lane across the map - but every other rule still applies to it.</li>
  *   <li><b>Owner active</b>: the owner moved, attacked, used a skill or item or chatted in the last
  *       {@link #idleMs()} ms (default 3 minutes; the client's own "player action" stamp). An idle owner's alts stop
  *       fighting and looting and just stand by them; they start again on the owner's next action.</li>
@@ -93,7 +95,9 @@ public final class OwnedAltGate {
         }
         Point a = alt.getPosition();
         Point o = owner.getPosition();
-        if (a == null || o == null || Math.abs(a.x - o.x) > RANGE_X_PX || Math.abs(a.y - o.y) > RANGE_Y_PX) {
+        boolean far = a == null || o == null || Math.abs(a.x - o.x) > RANGE_X_PX || Math.abs(a.y - o.y) > RANGE_Y_PX;
+        // 1.6.3 s-lanes: only the distance part is relaxed, and only for a lane held over the whole map
+        if (far && !CompanionStance.lanesWholeMap(alt.getId(), map.getId())) {
             return Why.TOO_FAR;
         }
         if (ownerIdle(owner, now)) {

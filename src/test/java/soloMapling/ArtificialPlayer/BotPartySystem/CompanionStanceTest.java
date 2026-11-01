@@ -23,6 +23,42 @@ class CompanionStanceTest {
         CompanionStance.forgetLeader(1);
     }
 
+    /** 1.6.3 s-lanes: the lane is a stance of its own, and only a whole-map lane relaxes the gate's distance. */
+    @Test
+    void aLaneIsAStanceWithItsOwnReach() {
+        String was = System.getProperty("slums.alts.lanes");
+        try {
+            CompanionStance.setAt(7, Mode.LANES, new Point(300, 40), 100, CompanionLanes.Reach.MAP);
+            CompanionStance.Stance s = CompanionStance.of(7, 100);
+            assertEquals(Mode.LANES, s.mode);
+            assertEquals(new Point(300, 40), s.spot);
+            assertEquals(CompanionLanes.Reach.MAP, s.reach);
+            assertEquals(new Point(300, 40), CompanionStance.holdPoint(s, new Point(0, 0)), "a lane is held, not walked");
+            assertTrue(CompanionStance.mayChase(s, new Point(300, 40)));
+            assertFalse(CompanionStance.mayChase(s, new Point(300 + CompanionStance.SENTRY_REACH_PX + 1, 40)),
+                    "it fights within reach of its lane, like a sentry");
+            assertEquals(Mode.FOLLOW, CompanionStance.of(7, 101).mode, "the lane belongs to the map it was given on");
+            CompanionStance.setAt(7, Mode.LANES, new Point(300, 40), 100, CompanionLanes.Reach.MAP);
+            // the switch is what lets a whole-map lane past the owned-alt gate's distance
+            System.clearProperty("slums.alts.lanes");
+            assertFalse(CompanionStance.lanesWholeMap(7, 100));
+            System.setProperty("slums.alts.lanes", "true");
+            assertTrue(CompanionStance.lanesWholeMap(7, 100));
+            CompanionStance.setAt(7, Mode.LANES, new Point(300, 40), 100, CompanionLanes.Reach.SCREEN);
+            assertFalse(CompanionStance.lanesWholeMap(7, 100), "a screen lane stays near its owner");
+            CompanionStance.set(7, Mode.SENTRY, new Point(300, 40), null, 100);
+            assertFalse(CompanionStance.lanesWholeMap(7, 100), "no other stance relaxes anything");
+            CompanionStance.setAt(7, Mode.LANES, null, 100, CompanionLanes.Reach.MAP);
+            assertEquals(Mode.FOLLOW, CompanionStance.of(7, 100).mode, "no spot: following");
+        } finally {
+            if (was == null) {
+                System.clearProperty("slums.alts.lanes");
+            } else {
+                System.setProperty("slums.alts.lanes", was);
+            }
+        }
+    }
+
     @Test
     void formationOffsetsAsUpstream() {
         Formation split = new Formation(Formation.Type.SPLIT, 60);

@@ -8,6 +8,7 @@ import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
 import soloMapling.ArtificialPlayer.BotGrindSystem.KsManners;
 import soloMapling.ArtificialPlayer.BotHelpers;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
 
 import java.awt.Point;
 import java.util.HashSet;
@@ -24,7 +25,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *       mob a population bot is on before the party, or one a real player outside the party stands by before the party
  *       touched it (the population bots' own KS-manners rule, {@link KsManners#ownerOf}), is left alone - and that
  *       holds for every mob its area attacks catch (BotAttackDriver's per-bot filter).</li>
- *   <li><b>By its owner</b>: only mobs within {@link #LEASH_X_PX} px across of the owner.</li>
+ *   <li><b>By its owner</b>: only mobs within {@link #LEASH_X_PX} px across of the owner - or, for an alt holding a
+ *       whole-map lane (1.6.3 s-lanes), of its lane.</li>
  * </ul>
  */
 public final class OwnedAltCombat {
@@ -194,14 +196,29 @@ public final class OwnedAltCombat {
                                  long now) {
         // audit (report A2): the owner leash holds for every mob a swing catches, area attacks included, not only for
         // the target it picks
-        return byOwner(m, owner) && mayHit(m, map, party, now) && engaged(m, owner, alt, party, now);
+        return byOwner(m, owner, alt) && mayHit(m, map, party, now) && engaged(m, owner, alt, party, now);
     }
 
     /** The mob is within the owner leash ({@link #LEASH_X_PX} across, {@link #LEASH_Y_PX} up or down). */
-    static boolean byOwner(Monster m, Character owner) {
+    static boolean byOwner(Monster m, Character owner, Character alt) {
         Point mp = m == null ? null : m.getPosition();
-        Point op = owner == null ? null : owner.getPosition();
+        Point op = leashFrom(owner, alt);
         return mp != null && op != null && Math.abs(mp.x - op.x) <= LEASH_X_PX && Math.abs(mp.y - op.y) <= LEASH_Y_PX;
+    }
+
+    /**
+     * Where an alt's fights are kept near: its owner, or - 1.6.3 s-lanes - the whole-map lane it holds, since that is
+     * where it stands. The lane only moves the leash's origin; whether the mob is the party's fight is unchanged.
+     */
+    private static Point leashFrom(Character owner, Character alt) {
+        if (alt != null && alt.getMap() != null
+                && CompanionStance.lanesWholeMap(alt.getId(), alt.getMapId())) {
+            Point lane = CompanionStance.of(alt.getId(), alt.getMapId()).spot;
+            if (lane != null) {
+                return lane;
+            }
+        }
+        return owner == null ? null : owner.getPosition();
     }
 
     /** The mob the alt goes for now: the nearest engaged one by its owner, or null (it follows instead). */
@@ -233,7 +250,7 @@ public final class OwnedAltCombat {
             if (mp == null || !m.isAlive() || !BotAttackDriver.botMayTarget(m)) {
                 continue;
             }
-            if (!byOwner(m, owner)) {
+            if (!byOwner(m, owner, alt)) {
                 continue;
             }
             if (!engaged(m, owner, alt, party, now) || skip.test(m) || !BotAttackDriver.onAttackableSurface(map, at, m)
