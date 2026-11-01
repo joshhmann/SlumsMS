@@ -456,6 +456,39 @@ class BotConversationFlowTest {
         }
     }
 
+    /**
+     * m02 fix round 3 (answer 4): one bot-started chat per player per hour, from any bot. Another bot's hello holds
+     * this bot's turn, and the switch off keeps the legacy greeting untouched.
+     */
+    @Test
+    void anotherBotsHelloHoldsThePlayersChatForTheHour() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            when(bot.activitySnapshot())
+                    .thenReturn(soloMapling.ArtificialPlayer.BotRoster.Activity.of("social", 0, null));
+            Character player = Character.getDefault(mock(client.Client.class));
+            player.setID(nextPlayer++);
+            player.setName("Josh");
+            player.setLevel(40);
+            SocialGate.noteBotChat(BotStore.BOT_ID_BASE + 5, player.getId(), System.currentTimeMillis());
+            assertFalse(BotConversation.greet(bot, player), "another bot said hi first: this one waits its turn");
+            assertFalse(BotConversation.isTalking(chr.getId(), player.getId()), "and no chat was opened");
+
+            System.clearProperty("solomapling.convo.planner");
+            assertTrue(BotConversation.greet(bot, player), "switch off: the legacy greeting has no per-player cap");
+            assertTrue(SocialGate.botChatAllowed(BotStore.BOT_ID_BASE + 5, player.getId(),
+                    System.currentTimeMillis()), "the legacy path records no bot-started chat");
+            waitFor(() -> !asked.isEmpty());
+            BotConversation.end(chr.getId(), player.getId());
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+            SocialGate.forgetBotChatsForTest();
+        }
+    }
+
     /** m02 stage B: with the planner on, the bot's own opening line is a planned move, not the free-chat prompt. */
     @Test
     void aBotThatStartsAChatPlansItsOpeningLine() throws Exception {

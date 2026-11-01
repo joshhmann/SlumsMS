@@ -53,6 +53,23 @@ class SocialGateTest {
         BotNoiseFilter.forgetAllForTest();
         BotWhispers.resetForTest();
         System.clearProperty("solomapling.chat.whisperPlayerGapMs");
+        System.clearProperty("solomapling.chat.botStartedPlayerGapMs");
+        SocialGate.forgetBotChatsForTest();
+    }
+
+    /** m02 fix round 3 (answer 4): one bot-started chat per player per hour, from any bot. */
+    @Test
+    void oneBotStartedChatPerPlayerPerHourFromAnyBot() {
+        long now = clock.get();
+        assertEquals(TimeUnit.HOURS.toMillis(1), SocialGate.botChatGapMs(), "an hour by default");
+        assertTrue(SocialGate.botChatAllowed(BOT_A, PLAYER, now), "nobody started one yet");
+        SocialGate.noteBotChat(BOT_A, PLAYER, now);
+        assertFalse(SocialGate.botChatAllowed(BOT_B, PLAYER, now + TimeUnit.MINUTES.toMillis(59)),
+                "a second bot inside the hour waits");
+        assertTrue(SocialGate.botChatAllowed(BOT_A, PLAYER, now + TimeUnit.MINUTES.toMillis(1)),
+                "the bot that started the chat carries its own on");
+        assertTrue(SocialGate.botChatAllowed(BOT_B, PLAYER, now + TimeUnit.HOURS.toMillis(1)), "the hour is up");
+        assertTrue(SocialGate.botChatAllowed(BOT_B, OTHER_PLAYER, now), "the cap is per player");
     }
 
     static Character player(int id) {
@@ -261,8 +278,7 @@ class SocialGateTest {
 
     @Test
     void theBusyServerBudgetIsAboutThreeTimesTheOldCaps() {
-        assertEquals(60, SocialGate.pairMinutes(Act.GREET),
-                "m02 stage B: the owner wants a bot-started chat about once per player per hour");
+        assertEquals(40, SocialGate.pairMinutes(Act.GREET), "per pair: m02's hourly cap is per player, not per pair");
         assertEquals(60, SocialGate.pairMinutes(Act.PARTY_INVITE));
         assertEquals(480, SocialGate.pairMinutes(Act.BUDDY_REQUEST));
         assertEquals(7, SocialGate.pairMinutes(Act.TAUNT));

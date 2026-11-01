@@ -78,6 +78,38 @@ class BotRecognitionTest {
         }
     }
 
+    /**
+     * m02 fix round 3 (answer 4): another bot's hello holds the player's next bot-started chat for an hour, and the
+     * per-player cap is read before this bot looks them up. Switch off, the legacy path has no such cap.
+     */
+    @Test
+    void anotherBotsHelloHoldsThePlayersBotStartedChatsForAnHour() {
+        FakeMemoryTable table = new FakeMemoryTable(false);
+        table.install();
+        client.Character chr = client.Character.getDefault(new client.BotClient(0, 0));
+        chr.setID(BotStore.BOT_ID_BASE + 9);
+        BotSM bot = mock(BotSM.class);
+        when(bot.getChr()).thenReturn(chr);
+        when(bot.activitySnapshot()).thenReturn(BotRoster.Activity.of("social", 0, null));
+        client.Character player = client.Character.getDefault(mock(client.Client.class));
+        player.setID(6161);
+        player.setName("Josh");
+        try {
+            System.setProperty("solomapling.convo.planner", "true");
+            SocialGate.noteBotChat(BotStore.BOT_ID_BASE + 3, player.getId(), System.currentTimeMillis());
+            assertFalse(BotRecognition.maybeGreetOnSight(bot, player), "another bot said hi first: this one waits");
+            assertEquals(0, table.pairReads.get(), "the cap is read before the bot looks them up");
+
+            System.clearProperty("solomapling.convo.planner");
+            BotRecognition.maybeGreetOnSight(bot, player);
+            assertTrue(table.pairReads.get() > 0, "switch off: the legacy greeting has no per-player cap");
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+            BotMemory.useConnectionSourceForTest(null);
+            SocialGate.forgetBotChatsForTest();
+        }
+    }
+
     @Test
     void theScriptedHelloIsShortCasualAndNeverQuotesANote() {
         Random rng = new Random(7);

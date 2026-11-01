@@ -959,6 +959,14 @@ public final class BotConversation {
         if (!freeForOwnChat(bot)) {
             return false;
         }
+        // m02 fix round 3 (the owner's answer 4): at most one bot-started chat per player per hour, from any bot, and
+        // the check is read before the memory below (the planner's view) or the pair's greet cooldown is spent
+        if (soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.planner()) {
+            if (!SocialGate.botChatAllowed(chr.getId(), player.getId(), now)) {
+                return false;
+            }
+            SocialGate.noteBotChat(chr.getId(), player.getId(), now);
+        }
         int slot = chr.getId() - BotStore.BOT_ID_BASE;
         ChatTriage.Result hello = new ChatTriage.Result(ChatTriage.Kind.GREETING, ChatTriage.Intent.NONE,
                 ChatTriage.Source.DEFAULT, ChatTriage.Con.NORMAL, ChatTriage.Source.DEFAULT);

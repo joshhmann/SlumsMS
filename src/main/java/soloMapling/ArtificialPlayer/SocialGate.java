@@ -552,7 +552,7 @@ public final class SocialGate {
     /*
      * One table for the per-pair cooldowns and world-wide hourly caps (1.6.0, about 3x the 1.5.x ones; the old system
      * properties still tune them). Before -> after:
-     *   per pair (minutes): greet 120 -> 40 -> 60 (m02 stage B: the owner's "about once per player per hour"), party invite 180 -> 60, buddy 1440 -> 480, taunt 20 -> 7, KS spree 15 -> 10 (owner),
+     *   per pair (minutes): greet 120 -> 40, party invite 180 -> 60, buddy 1440 -> 480, taunt 20 -> 7, KS spree 15 -> 10 (owner),
      *     help 15 (unchanged), defame 1440 (unchanged: it changes fame, and stays once a day per player world-wide)
      *   world per hour: taunts 20 -> 60, KS sprees 10 -> 30, party invites 6 -> 18
      *   unsolicited whisper per player (all bots): one per 10 min -> one per 200 s
@@ -564,7 +564,7 @@ public final class SocialGate {
     /** Per-pair cooldown, in minutes. */
     public static long pairMinutes(Act a) {
         long min = switch (a) {
-            case GREET -> 60; // m02 stage B: a bot starts a chat with a player about once per hour
+            case GREET -> 40; // per pair; m02's per-player hourly cap for bot-started chats is separate (planner only)
             case PARTY_INVITE -> 60;
             case BUDDY_REQUEST -> 480;
             case HELP -> 15;
@@ -605,6 +605,44 @@ public final class SocialGate {
     /** One unsolicited whisper per player (all bots together) per this many ms. */
     public static long whisperGapMs() {
         return Math.max(0, Long.getLong("solomapling.chat.whisperPlayerGapMs", 200_000));
+    }
+
+    /**
+     * m02 fix round 3 (the owner's answer 4): how long a player has to themselves after a bot starts a chat with them,
+     * before another bot may. Only the reply planner reads this, and it defaults to an hour.
+     */
+    public static long botChatGapMs() {
+        return Math.max(0, Long.getLong("solomapling.chat.botStartedPlayerGapMs", TimeUnit.HOURS.toMillis(1)));
+    }
+
+    /** The bot that last started a chat with a player, and when. */
+    private record BotChat(int botCharId, long at) {
+    }
+
+    /** playerId -> the last bot-started chat with them (any bot). */
+    private static final Map<Integer, BotChat> lastBotChat = new ConcurrentHashMap<>();
+
+    /**
+     * m02 fix round 3: whether {@code botCharId} may start a chat with this player now. At most one bot-started chat
+     * per player per {@link #botChatGapMs()}, from any bot, so a player is not greeted by five bots in one minute; the
+     * bot that started the last one may carry its own chat on.
+     */
+    public static boolean botChatAllowed(int botCharId, int playerId, long now) {
+        BotChat last = lastBotChat.get(playerId);
+        return last == null || last.botCharId() == botCharId || now - last.at() >= botChatGapMs();
+    }
+
+    /** The bot's opening line goes out: no other bot starts a chat with this player for {@link #botChatGapMs()}. */
+    public static void noteBotChat(int botCharId, int playerId, long now) {
+        if (lastBotChat.size() > 20_000) {
+            lastBotChat.values().removeIf(c -> now - c.at() >= botChatGapMs());
+        }
+        lastBotChat.put(playerId, new BotChat(botCharId, now));
+    }
+
+    /** Tests only: forget which bot last started a chat with which player. */
+    static void forgetBotChatsForTest() {
+        lastBotChat.clear();
     }
 
     /** Bot buddy requests per player per day (all bots), and per hour world-wide. */
