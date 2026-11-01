@@ -11,6 +11,7 @@ import time
 
 from PIL import Image, ImageChops, ImageDraw, ImageStat
 from qapipe import LABEL as QA_LABEL, QaPipe
+import testhost
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = {
@@ -94,9 +95,11 @@ def inside(path, base=ROOT):
 
 
 def test_host():
-    """The TEST server's address: SLUMS_TEST_HOST, default mapletest (192.168.0.111). TEST left 164 in 1.6.3."""
-    # until the 1.6.3 TEST cutover (o03 step 3) the played TEST is still on 164; flip to 192.168.0.111 then
-    return os.environ.get('SLUMS_TEST_HOST') or '192.168.0.164'
+    """The TEST server's address: SLUMS_TEST_HOST through the one guard (testhost.py), allowlisted to TEST's boxes."""
+    try:
+        return testhost.host()
+    except testhost.Refused as error:
+        raise Refusal(str(error)) from None
 
 
 def verify_config(path):
@@ -115,9 +118,18 @@ def verify_config(path):
             hosts.append(value)
         if key.lower() == 'port':
             ports.append(value)
-    wanted = test_host()
-    if hosts != [wanted] or ports != ['8489']:
-        raise Refusal('Refusing client config: require exactly %s port 8489.' % wanted)
+    try:
+        wanted = testhost.host()
+        for value in hosts:
+            testhost.host(value, source='config host')
+        for value in ports:
+            testhost.port(value, source='config port')
+    except testhost.Refused as error:
+        raise Refusal('Refusing client config: %s' % error) from None
+    if hosts != [wanted] or ports != [testhost.PORT]:
+        raise Refusal('Refusing client config: require exactly %s port %s, the config has %s port %s.'
+                      % (wanted, testhost.PORT, ' and '.join(hosts) or 'no host',
+                         ' and '.join(ports) or 'no port'))
 
 
 class Secrets:

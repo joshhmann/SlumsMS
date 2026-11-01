@@ -1,7 +1,10 @@
 """Tests for the 187 orchestrator (ticket 170). Run: python3 -m unittest discover -s tools/qa-runner -p 'test_*.py'"""
+import contextlib
 import datetime
+import io
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -222,16 +225,21 @@ class OrchestratorTest(unittest.TestCase):
 
 
 class TestHostTest(unittest.TestCase):
-    """o03: the orchestrator talks to TEST on its own box (mapletest), never to 164's live box."""
+    """o03: the orchestrator talks to TEST on its own box (mapletest), never to live, through testhost.py."""
+
+    def setting(self, value):
+        environ = {k: v for k, v in os.environ.items() if k != 'SLUMS_TEST_HOST'}
+        if value is not None:
+            environ['SLUMS_TEST_HOST'] = value
+        return mock.patch.dict(os.environ, environ, clear=True)
 
     def ssh(self, env):
-        with mock.patch.dict(os.environ, env, clear=False):
-            if 'SLUMS_TEST_HOST' not in env:
-                os.environ.pop('SLUMS_TEST_HOST', None)
+        name = env.get('SLUMS_TEST_HOST')
+        with self.setting(name):
             return qarunner.test_ssh('cmd')
 
     def test_the_default_box_is_164_until_the_cutover(self):
-        # o03: the played TEST stays on 164 until the 1.6.3 TEST cutover; DEFAULT_TEST_HOST flips to .111 then
+        # o03: the played TEST stays on 164 until the 1.6.3 TEST cutover; testhost.DEFAULT_HOST flips to .111 then
         argv = self.ssh({})
         self.assertEqual(argv[-2:], ['root@192.168.0.164', 'cmd'])
 
@@ -240,15 +248,28 @@ class TestHostTest(unittest.TestCase):
         self.assertEqual(argv[-2:], ['root@192.168.0.111', 'cmd'])
         self.assertIn(os.path.expanduser('~/.ssh/id_slums_lxc'), argv)
 
-    def test_slums_test_host_moves_the_orchestrator(self):
-        argv = self.ssh({'SLUMS_TEST_HOST': 'mapletest'})
-        self.assertEqual(argv[-2:], ['root@mapletest', 'cmd'])
-        self.assertIn('-i', argv)
-
     def test_the_old_shared_box_keeps_ssh_default_key(self):
         argv = self.ssh({'SLUMS_TEST_HOST': '192.168.0.164'})
         self.assertEqual(argv[-2:], ['root@192.168.0.164', 'cmd'])
         self.assertNotIn('-i', argv)
+
+    def test_a_box_outside_the_allowlist_stops_every_ssh_path(self):
+        for refused in ('mapletest', 'slumsms.asslorde.com', '10.0.0.9', ''):
+            with self.setting(refused):
+                with self.assertRaises(qarunner.TestHostRefused, msg=refused) as caught:
+                    qarunner.test_host()
+                self.assertIn(repr(refused), str(caught.exception), refused)
+                with self.assertRaises(qarunner.TestHostRefused, msg=refused):
+                    qarunner.test_ssh('cmd')
+                with self.assertRaises(qarunner.TestHostRefused, msg=refused):
+                    qarunner.SshFeed()
+                with self.assertRaises(qarunner.TestHostRefused, msg=refused):
+                    qarunner.read_deployed_commit(runner=lambda *a, **k: None)
+
+    def test_a_refused_box_stops_the_run_before_it_touches_anything(self):
+        with self.setting('slumsms.asslorde.com'), contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(2, qarunner.main([str(SCRIPT), '--dry-run']))
+        self.assertIn('slumsms.asslorde.com', err.getvalue())
 
     def test_the_deployed_commit_is_read_on_the_test_box(self):
         calls = []
@@ -263,10 +284,10 @@ class TestHostTest(unittest.TestCase):
                     stderr = ''
                 return Done()
 
-        with mock.patch.dict(os.environ, {'SLUMS_TEST_HOST': 'mapletest'}):
+        with self.setting('192.168.0.111'):
             commit = qarunner.read_deployed_commit(runner=Runner())
         self.assertEqual(commit, 'e3050a1d9')
-        self.assertEqual(calls[-1][-2], 'root@mapletest')
+        self.assertEqual(calls[-1][-2], 'root@192.168.0.111')
         self.assertEqual(calls[-1][-1], 'cat /opt/mapleroot-dev/persistence-test/Server/DEPLOYED_COMMIT')
 
     def test_the_feed_polls_on_the_test_box(self):
@@ -282,10 +303,32 @@ class TestHostTest(unittest.TestCase):
                     stderr = ''
                 return Done()
 
-        with mock.patch.dict(os.environ, {'SLUMS_TEST_HOST': 'mapletest'}):
-            qarunner.SshFeed(runner=Runner()).poll(0, [], ['COMBAT'], wait=1)
-        self.assertIn('root@mapletest', calls[-1])
+        with self.setting('192.168.0.111'):
+            feed = qarunner.SshFeed(runner=Runner())
+            feed.poll(0, [], ['COMBAT'], wait=1)
+        self.assertEqual('192.168.0.111', feed.host)
+        self.assertIn('root@192.168.0.111', calls[-1])
         self.assertIn(os.path.expanduser('~/.ssh/id_slums_lxc'), calls[-1])
+
+
+class WrapperTest(unittest.TestCase):
+    """tools/qa-runner/run is how the lane starts a script: `python3 -I`, which drops the script's own directory."""
+
+    def wrapper(self, setting):
+        environ = {k: v for k, v in os.environ.items() if k != 'SLUMS_TEST_HOST'}
+        environ['SLUMS_TEST_HOST'] = setting
+        return subprocess.run([str(REPO / 'tools/qa-runner/run'), str(SCRIPT), '--dry-run'],
+                              capture_output=True, text=True, timeout=120, env=environ)
+
+    def test_the_wrapper_plans_a_run_on_the_test_box(self):
+        done = self.wrapper('192.168.0.111')
+        self.assertEqual(0, done.returncode, done.stderr)
+        self.assertIn('script b140-bot-heal-column', done.stdout)
+
+    def test_the_wrapper_refuses_a_box_outside_the_allowlist(self):
+        done = self.wrapper('slumsms.asslorde.com')
+        self.assertEqual(2, done.returncode, done.stdout)
+        self.assertIn("SLUMS_TEST_HOST='slumsms.asslorde.com'", done.stderr)
 
 
 if __name__ == "__main__":

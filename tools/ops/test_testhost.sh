@@ -25,10 +25,19 @@ out=$(ssh_argv SLUMS_TEST_HOST=192.168.0.111)
 [[ "$out" == *"root@192.168.0.111"* ]] || fail "mapletest host: $out"
 [[ "$out" == *"/.ssh/id_slums_lxc"* ]] || fail "mapletest key: $out"
 
-# 2. SLUMS_TEST_HOST moves the tools (a name, as the Website lane's installer uses it).
-out=$(ssh_argv SLUMS_TEST_HOST=mapletest)
-[[ "$out" == *"root@mapletest"* ]] || fail "override by name: $out"
+# 2. SLUMS_TEST_HOST moves the tools, and only TEST's two boxes are accepted (testhost.py, the one guard).
+out=$(ssh_argv SLUMS_TEST_HOST=192.168.0.111)
+[[ "$out" == *"root@192.168.0.111"* ]] || fail "override host: $out"
 [[ "$out" == *"id_slums_lxc"* ]] || fail "override key: $out"
+for refused in mapletest slumsms.asslorde.com 10.0.0.9 ''; do
+    if out=$(env SLUMS_TEST_HOST="$refused" bash -c '. "$1/lib.sh"' _ "$here" 2>&1); then
+        fail "SLUMS_TEST_HOST='$refused' was accepted: $out"
+    fi
+    case "$refused" in
+        '') [[ "$out" == *"is empty"* ]] || fail "empty setting message: $out" ;;
+        *) [[ "$out" == *"$refused"* ]] || fail "refusal does not name '$refused': $out" ;;
+    esac
+done
 
 # 3. 164 is the one host that keeps ssh's default key (it is live's box now, but a tool can be pointed back at it).
 out=$(ssh_argv SLUMS_TEST_HOST=192.168.0.164)
@@ -46,15 +55,21 @@ out=$(SLUMS_TEST_HOST=192.168.0.111 QA_RUNS_ROOT="$d/runs" "$here/qa-run-collect
       --from 2026-10-31T00:00:00Z --to 2026-10-31T00:10:00Z --dry-run)
 [[ "$out" == *"root@192.168.0.111"* ]] || fail "qa-run-collect dry run: $out"
 [[ "$out" == *"id_slums_lxc"* ]] || fail "qa-run-collect key: $out"
-out=$(SLUMS_TEST_HOST=mapletest QA_RUNS_ROOT="$d/runs" "$here/qa-run-collect" \
+out=$(SLUMS_TEST_HOST=192.168.0.164 QA_RUNS_ROOT="$d/runs" "$here/qa-run-collect" \
       --run "$d/runs/2026-10-31/y-20261031T000000Z" --from 2026-10-31T00:00:00Z --to 2026-10-31T00:10:00Z --dry-run)
-[[ "$out" == *"root@mapletest"* ]] || fail "qa-run-collect override: $out"
+[[ "$out" == *"root@192.168.0.164"* ]] || fail "qa-run-collect override: $out"
+[[ "$out" != *"id_slums_lxc"* ]] || fail "qa-run-collect must not ask for the TEST key on 164: $out"
 
 # 6. deploy-test --dry-run names the host it would deploy to (no ssh, --since given).
 cd "$(git -C "$here" rev-parse --show-toplevel)"
 out=$("$here/deploy-test" --dry-run --since HEAD 2>&1)
 [[ "$out" == *"to root@192.168.0.164"* ]] || fail "deploy-test dry run: $out"
-out=$(SLUMS_TEST_HOST=mapletest "$here/deploy-test" --dry-run --since HEAD 2>&1)
-[[ "$out" == *"to root@mapletest"* ]] || fail "deploy-test override: $out"
+out=$(SLUMS_TEST_HOST=192.168.0.111 "$here/deploy-test" --dry-run --since HEAD 2>&1)
+[[ "$out" == *"to root@192.168.0.111"* ]] || fail "deploy-test override: $out"
+# a refused setting stops deploy-test before it sshs anywhere
+if out=$(SLUMS_TEST_HOST=slumsms.asslorde.com "$here/deploy-test" --dry-run --since HEAD 2>&1); then
+    fail "deploy-test accepted the live site: $out"
+fi
+[[ "$out" == *"slumsms.asslorde.com"* ]] || fail "deploy-test refusal does not name the value: $out"
 
 echo "PASS"
