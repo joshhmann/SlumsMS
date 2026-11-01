@@ -85,22 +85,19 @@ public final class BotPopulationDirector {
      * The pure decision of one tick.
      *
      * @param maxLogins how many may log in this tick (the boot fill passes the whole target)
-     */
-    static Plan plan(List<Candidate> roster, int target, int minuteOfDay, long now, int maxLogins, int maxLogouts,
-                     Random rng) {
-        return plan(roster, Map.of(), target, minuteOfDay, now, maxLogins, maxLogouts, rng);
-    }
-
-    /**
-     * As above, with the bot guild of each roster bot ({@code guildOf}: roster bot id to bot guild id; bots in no bot
-     * guild are left out). rc6 (owner): every bot guild keeps at least one member online. While the count is under
-     * the target, a bot guild with nobody online (after this tick's logouts) gets one of its members logged in ahead
-     * of everyone else, picked the same way as any login (usually someone whose play window is now). Never past the
-     * target, one login per empty guild, the same cooldown; the per-map cap still applies at login. Above the curve,
-     * the last online member of a guild is logged out only after everyone else who could go.
+     * @param guildOf   the bot guild of each roster bot (roster bot id to bot guild id; bots in no bot guild are left
+     *                  out). rc6 (owner): every bot guild keeps at least one member online. While the count is under
+     *                  the target, a bot guild with nobody online (after this tick's logouts) gets one of its members
+     *                  logged in ahead of everyone else, picked the same way as any login (usually someone whose play
+     *                  window is now). Never past the target, one login per empty guild, the same cooldown; the
+     *                  per-map cap still applies at login. Above the curve, the last online member of a guild is
+     *                  logged out only after everyone else who could go.
+     * @param onTheWay  163: logins already asked for and not yet in the world - the pace carries a few a second, so a
+     *                  fill takes minutes and every tick of it would plan the same shortfall again. Counting them
+     *                  keeps {@code online + on the way} under the target, and that under {@code BOT_POPULATION_PEAK}.
      */
     static Plan plan(List<Candidate> roster, Map<Integer, Integer> guildOf, int target, int minuteOfDay, long now,
-                     int maxLogins, int maxLogouts, Random rng) {
+                     int maxLogins, int onTheWay, int maxLogouts, Random rng) {
         List<Candidate> online = new ArrayList<>();
         List<Candidate> offline = new ArrayList<>();
         for (Candidate c : roster) {
@@ -158,7 +155,7 @@ public final class BotPopulationDirector {
         }
         List<Integer> logins = new ArrayList<>();
         // 3. Room under the target: one member of each bot guild with nobody online.
-        int room = Math.min(target - projected, maxLogins);
+        int room = Math.min(roomUnderTarget(target, projected, onTheWay), maxLogins);
         if (room > 0 && !guildOf.isEmpty()) {
             Map<Integer, Integer> guildOnline = guildsOnline(online, logouts, guildOf);
             Map<Integer, double[]> best = new java.util.TreeMap<>(); // guild -> {key, botId}
@@ -182,7 +179,7 @@ public final class BotPopulationDirector {
         int guildLogins = logins.size();
         // 4. Below the curve: log players in, weighted toward those whose usual window is now.
         if (projected < target - slack || (projected < target && !logouts.isEmpty())) {
-            int needed = Math.min(target - projected, maxLogins) - logins.size();
+            int needed = room - logins.size();
             List<double[]> keyed = new ArrayList<>(); // {key, botId}: weighted sampling without replacement
             for (Candidate c : eligible) {
                 if (!logins.contains(c.botId())) {
@@ -356,6 +353,43 @@ public final class BotPopulationDirector {
                 : Math.max(server.BOT_DIRECTOR_MAX_LOGINS_PER_TICK, paced);
     }
 
+    /**
+     * 163: what the target still has room for - the shortfall in the world less the logins already on their way to
+     * it. The planner sees only bots that are <em>in</em> the world, so a fill that takes minutes looks unfinished
+     * from every tick after the first, and each of those ticks queues its own budget of fresh bots. On 1.6.3's TEST
+     * boot that carried the world to 4,562 bots online (about 4,240 of them roster members on a target of 3,000)
+     * under a 3,500 {@code BOT_POPULATION_PEAK}.
+     */
+    static int roomUnderTarget(int target, int online, int onTheWay) {
+        return Math.max(0, target - online - Math.max(0, onTheWay));
+    }
+
+    /**
+     * Roster logins that are planned and still coming: queued for a bot-db thread or waiting in the pace. A login that
+     * the pace has started but that is still waiting for a bot-db thread is in both, so this errs high by at most the
+     * pace's in-flight cap (8) - a few bots, against a target of thousands.
+     */
+    static int loginsOnTheWay() {
+        LoginPace p = pace;
+        return queuedLogins.size() + (p == null ? 0 : p.size());
+    }
+
+    /** Whether one more bot keeps the world's bots at or under {@code BOT_POPULATION_PEAK} (0 = no cap). */
+    static boolean withinPopulationCap(int botsOnline, int onTheWay, int populationPeak) {
+        return populationPeak <= 0 || botsOnline + Math.max(0, onTheWay) <= populationPeak;
+    }
+
+    /**
+     * {@link #withinPopulationCap(int, int, int)} for the world as it is now: the hard stop before any spawn. The
+     * "{@code on their way}" term is the logins running right now, not the planner's queue: the queue is held under
+     * the director's target, and counting it here would refuse the arrivals the queue exists to deliver.
+     */
+    static boolean populationCapHasRoom() {
+        ServerConfig server = YamlConfig.config.server;
+        return server == null
+                || withinPopulationCap(BotChannels.onlineBots(), loggingIn.size(), server.BOT_POPULATION_PEAK);
+    }
+
     private static volatile ScheduledFuture<?> ticker;
     private static volatile boolean paused;
     private static volatile Plan lastPlan;
@@ -459,7 +493,7 @@ public final class BotPopulationDirector {
             List<Candidate> roster = candidates();
             int target = curve().target(directorPeak(), local);
             Plan plan = plan(roster, guildOfRoster(), target, local.getHour() * 60 + local.getMinute(), now, maxLogins,
-                    server.BOT_DIRECTOR_MAX_LOGOUTS_PER_TICK, ThreadLocalRandom.current());
+                    loginsOnTheWay(), server.BOT_DIRECTOR_MAX_LOGOUTS_PER_TICK, ThreadLocalRandom.current());
             lastPlan = plan;
             lastTickAt = now;
             // 1.6.0 towns: the busyness index (off at BOT_TOWN_PULL=0: dropped, nothing read)
@@ -756,6 +790,12 @@ public final class BotPopulationDirector {
     private static boolean logInClaimed(int botId) {
         BotRoster.Member member = BotRoster.member(botId);
         if (member == null || CharacterStorage.botLoggedIn(member.charId()) || BotShutdown.isQuiesced()) {
+            return false;
+        }
+        // 163: the hard cap. The director's target already leaves the environment its room, but a login planned while
+        // the world was quiet, a roster enrolment or a wave that grew after boot could still land over the cap.
+        if (!populationCapHasRoom()) {
+            log.debug("Roster bot {} login held back: the world is at its population cap", botId);
             return false;
         }
         // Ticket 57: the channel furthest below its share of the bots online; held until the bot is in it.

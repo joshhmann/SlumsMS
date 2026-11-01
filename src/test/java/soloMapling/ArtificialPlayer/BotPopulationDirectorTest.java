@@ -80,7 +80,7 @@ class BotPopulationDirectorTest {
                                         Random rng) {
             long now = when.toInstant().toEpochMilli();
             BotPopulationDirector.Plan plan = BotPopulationDirector.plan(candidates(), guildOf,
-                    curve.target(peak, when), when.getHour() * 60 + when.getMinute(), now, maxLogins, 25, rng);
+                    curve.target(peak, when), when.getHour() * 60 + when.getMinute(), now, maxLogins, 0, 25, rng);
             for (int id : plan.logouts()) {
                 assertFalse(pinned.contains(id), "a bot holding a commitment was logged out");
                 online[id] = false;
@@ -189,7 +189,7 @@ class BotPopulationDirectorTest {
             roster.add(new BotPopulationDirector.Candidate(i, false, true, justNow - 1000, justNow, 0, 1440, 60, true,
                     i < 10));
         }
-        BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, 20, 600, now, Integer.MAX_VALUE, 25,
+        BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, Map.of(), 20, 600, now, Integer.MAX_VALUE, 0, 25,
                 new Random(1));
         assertEquals(10, plan.logins().size());
         assertTrue(plan.logins().stream().allMatch(id -> id >= 10), "only the restarted players are back already");
@@ -206,7 +206,7 @@ class BotPopulationDirectorTest {
         for (int i = 10; i < 30; i++) {
             roster.add(new BotPopulationDirector.Candidate(i, false, true, 0, 0, 0, 1440, 60, true));
         }
-        BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, 10, 600, now, 25, 25, new Random(1));
+        BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, Map.of(), 10, 600, now, 25, 0, 25, new Random(1));
         assertEquals(10, plan.logouts().size(), "every overstayed session ends");
         assertEquals(10, plan.logins().size(), "and is replaced by someone else");
         assertTrue(plan.logins().stream().allMatch(id -> id >= 10));
@@ -250,11 +250,11 @@ class BotPopulationDirectorTest {
         }
         Map<Integer, Integer> guildOf = Map.of(100, 7, 101, 7, 102, 7);
         // 49 online of 50: inside the 2% slack, so without the guild rule nobody logs in
-        BotPopulationDirector.Plan none = BotPopulationDirector.plan(roster, 50, 720, now, 25, 25, new Random(3));
+        BotPopulationDirector.Plan none = BotPopulationDirector.plan(roster, Map.of(), 50, 720, now, 25, 0, 25, new Random(3));
         assertTrue(none.logins().isEmpty());
         int inWindow = 0;
         for (int seed = 0; seed < 200; seed++) {
-            BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, guildOf, 50, 720, now, 25, 25,
+            BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, guildOf, 50, 720, now, 25, 0, 25,
                     new Random(seed));
             assertEquals(1, plan.logins().size(), "one login, and never past the target");
             assertEquals(1, plan.guildLogins());
@@ -275,13 +275,13 @@ class BotPopulationDirectorTest {
         roster.add(offline(100, 0, 1440));
         roster.add(offline(101, 0, 1440));
         Map<Integer, Integer> guildOf = Map.of(100, 7, 0, 8, 101, 8);
-        BotPopulationDirector.Plan atTarget = BotPopulationDirector.plan(roster, guildOf, 50, 720, now, 25, 25,
+        BotPopulationDirector.Plan atTarget = BotPopulationDirector.plan(roster, guildOf, 50, 720, now, 25, 0, 25,
                 new Random(1));
         assertTrue(atTarget.logins().isEmpty(), "at the target: no room, no guild login");
-        BotPopulationDirector.Plan room = BotPopulationDirector.plan(roster, guildOf, 52, 720, now, 25, 25,
+        BotPopulationDirector.Plan room = BotPopulationDirector.plan(roster, guildOf, 52, 720, now, 25, 0, 25,
                 new Random(1));
         assertEquals(List.of(100), room.logins(), "guild 8 has bot 0 online; only guild 7 is empty");
-        BotPopulationDirector.Plan capped = BotPopulationDirector.plan(roster, guildOf, 52, 720, now, 0, 25,
+        BotPopulationDirector.Plan capped = BotPopulationDirector.plan(roster, guildOf, 52, 720, now, 0, 0, 25,
                 new Random(1));
         assertTrue(capped.logins().isEmpty(), "the per-tick login cap holds");
     }
@@ -293,7 +293,7 @@ class BotPopulationDirectorTest {
         roster.add(new BotPopulationDirector.Candidate(100, false, true, now - 60_000, now - 1000, 0, 1440, 60, false));
         roster.add(new BotPopulationDirector.Candidate(101, false, false, 0, 0, 0, 1440, 60, false));
         BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, Map.of(100, 7, 101, 7), 10, 720, now,
-                25, 25, new Random(1));
+                25, 0, 25, new Random(1));
         assertTrue(plan.logins().isEmpty(), plan.logins().toString());
     }
 
@@ -306,15 +306,15 @@ class BotPopulationDirectorTest {
         for (int i = 1; i <= 20; i++) {
             roster.add(onlineBot(i, now - 5_000 + i));
         }
-        BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, Map.of(0, 7), 15, 720, now, 25, 25,
+        BotPopulationDirector.Plan plan = BotPopulationDirector.plan(roster, Map.of(0, 7), 15, 720, now, 25, 0, 25,
                 new Random(1));
         assertEquals(6, plan.logouts().size());
         assertFalse(plan.logouts().contains(0), "guild 7's last member stays while others can go");
-        BotPopulationDirector.Plan all = BotPopulationDirector.plan(roster, Map.of(0, 7), 1, 720, now, 25, 25,
+        BotPopulationDirector.Plan all = BotPopulationDirector.plan(roster, Map.of(0, 7), 1, 720, now, 25, 0, 25,
                 new Random(1));
         assertEquals(20, all.logouts().size());
         assertFalse(all.logouts().contains(0));
-        BotPopulationDirector.Plan none = BotPopulationDirector.plan(roster, Map.of(0, 7), 0, 720, now, 25, 25,
+        BotPopulationDirector.Plan none = BotPopulationDirector.plan(roster, Map.of(0, 7), 0, 720, now, 25, 0, 25,
                 new Random(1));
         assertTrue(none.logouts().contains(0), "it still goes when the curve needs everyone gone");
     }
