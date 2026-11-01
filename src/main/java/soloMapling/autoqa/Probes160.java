@@ -3230,8 +3230,9 @@ final class Probes160 {
     /**
      * t-xc-1, while logged in: (1) a test regular funded from the pretend player's own mesos bids for 100 NX; (2)
      * {@code @nx sell 100 <bid>} + {@code @nx confirm} fills against it, and the mesos (less the 1% fee) land on the
-     * live character at once, no logout; the 100 NX left the live account; (3) {@code @nx buy 100 1000} + confirm
-     * rests and holds its mesos, {@code @nx cancel} gives them back exactly; (4) the regular is taken out, its house
+     * live character at once, no logout; the 100 NX left the live account; (3) {@code @nx buy 100 <band min>} +
+     * confirm rests and holds its mesos (b264: the effective band minimum, not the ticker's raw 1,000, which the hard
+     * window refuses), {@code @nx cancel} gives them back exactly; (4) the regular is taken out, its house
      * paid back. Net: NX unchanged, mesos down by exactly the two fees. An NX top-up for the sale is taken back.
      */
     static List<String> nxExchange(SyntheticPlayer p) throws Exception {
@@ -3296,8 +3297,11 @@ final class Probes160 {
             }
             // (3) a resting buy, then cancel: refunded exactly (the cooldown between orders first)
             Thread.sleep(cfg.cooldownMs() + 1_000);
+            // b264: at the effective band minimum, not the ticker's raw minimum: the hard window (2,500..10,000 per
+            // 1,000 NX) refuses a buy under 2,500,000, and the old price here was the config's 1,000
+            long restPrice = soloMapling.Economy.exchange.ExchangeQa.restingBuyPrice(ex);
             long m2 = me.getMeso();
-            sayAndHear(p, "@nx buy 100 " + soloMapling.Economy.exchange.ExchangeChat.typedNx(cfg.minPrice()), "^Preview: buy|\\([A-Z_]+\\)$", 8_000);
+            sayAndHear(p, "@nx buy 100 " + soloMapling.Economy.exchange.ExchangeChat.typedNx(restPrice), "^Preview: buy|\\([A-Z_]+\\)$", 8_000);
             String rest = sayAndHear(p, "@nx confirm", "^Order \\d+ placed|\\([A-Z_]+\\)$", 8_000);
             out.add("@nx buy confirm: " + rest);
             long held = m2 - me.getMeso();
@@ -3306,8 +3310,8 @@ final class Probes160 {
             if (om == null || !om.find()) {
                 bad.add("the resting buy was not placed: " + rest);
             } else {
-                if (held != cfg.buyTotal(100, cfg.minPrice())) {
-                    bad.add("the resting buy held " + held + " mesos, want " + cfg.buyTotal(100, cfg.minPrice()));
+                if (held != cfg.buyTotal(100, restPrice)) {
+                    bad.add("the resting buy held " + held + " mesos, want " + cfg.buyTotal(100, restPrice));
                 }
                 String c = sayAndHear(p, "@nx cancel " + om.group(1), "cancelled|\\([A-Z_]+\\)$", 8_000);
                 out.add("@nx cancel: " + c + "; mesos back " + (me.getMeso() - (m2 - held)));

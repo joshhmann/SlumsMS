@@ -51,6 +51,18 @@ public final class ExchangeQa {
         return new Staged(price, ((Number) bid.data().get("orderId")).longValue(), need);
     }
 
+    /**
+     * The price xc-1 / t-xc-1 rests its own NX buy at (b264): the effective band minimum the exchange accepts now,
+     * {@link Exchange#nxBand()}{@code [0]}. It used to be the ticker's raw configuration minimum
+     * ({@code ExchangeConfig.minPrice()}, 1,000 mesos per 1,000 NX), which is under the hard window
+     * ({@link NxGuard#NX_LOWEST}..{@link NxGuard#NX_HIGHEST}, 2,500..10,000 per 1,000 NX, owner 2026-10-31 ~19:50 UTC),
+     * so the place was refused with PRICE_BAND and the check failed at "the resting buy was not placed". The band
+     * minimum is clamp-aware (it is never under {@link NxGuard#NX_LOWEST}) and still the cheapest price the book takes.
+     */
+    public static long restingBuyPrice(Exchange ex) {
+        return ex.nxBand()[0];
+    }
+
     /** Cancels the test regular and pays its house (NX and mesos) back to {@code w}. */
     public static Map<String, Object> teardown(Exchange ex, LiveWallet w) {
         Exchange.Response r = ex.unfundHouseLive(REGULAR, w, true);
