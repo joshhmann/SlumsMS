@@ -18,7 +18,10 @@ server is a fork of MapleRoot/Cosmic (Java 21, Maven). The owner decides; you bu
    Approval for one thing never covers another. Live = unit `slumsms`, folder `/opt/mapleroot/MapleRoot Full
    Repack/Server`, DB container `buns-clean-db-1` (port 3309, schema `mapleroot`), patch files
    `/srv/slums-patch/manifest.json`, `/srv/slums-patch/layers`, `/srv/slums-patch/tauri/`.
-   Reading live logs, files and the unit is fine. Reading the live DB needs the owner's go too.
+   Reading live is fine (owner, 2026-11-01) to figure out live issues or pull playerbot and economy stats: logs,
+   files, the unit, and SELECT-only DB reads. Respect real players' privacy: never read, select, print or copy
+   passwords or password hashes (`accounts.password`, salts, PINs/PICs), session tokens, emails or IPs, and prefer
+   aggregates over individual players. Every change still needs the go above.
 2. **Test freely.** The test server, the RC and Test patch channels and anything under `/opt/mapleroot-dev` are yours
    to change, deploy and restart, but tell the owner before a restart if they might be playing or running auto-QA
    (a restart stops a running `!autoqa`).
