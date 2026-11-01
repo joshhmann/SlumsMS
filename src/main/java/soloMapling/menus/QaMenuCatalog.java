@@ -211,6 +211,7 @@ public final class QaMenuCatalog {
         add("jq-1", v(), steps("push"));
         section("Client and channels");
         add("cs-2", v(), steps());
+        add("pp-1", v(), steps("petpot")); // 1.6.3 b280: the pet's auto-potion, pouch, potions and key 91
         add("co-1", v(), steps());
         add("oa-1", v(), steps());
         add("oa-2", v(), steps("alts", "alts remove")); // 1.6.2 ticket 99: companion orders and sharing

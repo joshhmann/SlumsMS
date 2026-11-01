@@ -651,4 +651,29 @@ class QaScenarioStagingTest {
         world.npcPos = null;
         assertThrows(QaRefusal.class, () -> start("pq-1", 100000000));
     }
+
+    @Test
+    void pp1StagesThePetThePouchThePotionsTheKeyAndTheAlertAndNamesTheCaller() throws Exception {
+        start("pp-1", 100000000);
+
+        assertEquals(1, world.petPotStages, world.calls.toString());
+        assertTrue(world.calls.contains("petpot"), world.calls.toString());
+        String log = Files.readString(suite.runOf(1).logPath());
+        assertTrue(log.contains("PETPOT pet Brown Kitty (5000000) up, from CASH slot 5"), log);
+        assertTrue(log.contains("PETPOT key 91 bound to the red potion (was empty), keymap sent"), log);
+        assertTrue(log.contains("PETPOT HP alert 0.00 -> 0.50"), log);
+        assertTrue(suite.runOf(1).maps().isEmpty(), "pp-1 does not move the GM: the pet drinks where the mobs hit");
+    }
+
+    @Test
+    void pp1TakesNoUndoAtStopBecauseTheSetupIsOrdinaryPlayerThings() {
+        start("pp-1", 100000000);
+
+        suite.stop(1, "!qa stop");
+
+        assertTrue(world.calls.contains("petpot"), world.calls.toString());
+        assertFalse(world.calls.stream().anyMatch(c -> c.startsWith("take ")), "nothing is taken back: " + world.calls);
+        assertTrue(world.despawned.isEmpty(), world.calls.toString());
+    }
+
 }

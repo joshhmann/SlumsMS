@@ -69,7 +69,9 @@ public final class QaLog {
         MAP_CHANGE,     // ticket 170 QA event feed: a real player entered a map ("MAP <name> -> <mapId> ch <n>")
         CHAT,           // ticket 170 QA event feed: map chat said by a player or a bot, whispers to and from a player
         MECHANICS,      // ticket 170 QA event feed: every "RUN ..." line a mechanics run (KPQ) reports, any starter
-        STAGING;        // b140: a !qa scene staged for the caller ("STAGE FOLLOWER cid=..."), chars = the GM's id
+        STAGING,        // b140: a !qa scene staged for the caller ("STAGE FOLLOWER cid=..."), chars = the GM's id
+        PETPOT;         // b280: a pet's auto-potion request and whether it was refused, the server-side trigger
+                        //   (pp-1) - appended, bits are stable
 
         final long bit = 1L << ordinal(); // a long: 34 topics no longer fit an int
     }

@@ -239,6 +239,16 @@ build records no HP samples or packet traces. `qa-scripts/b140-bot-heal-column.y
 scene (spawn, chat waits, invite window), kept for the day the client driver has chat anchors.
 Scenario class: `soloMapling.qa.HealColumnScenarios`.
 
+## pp-1: pet auto-potion, the pouch, 100 red potions on key 91 and the server's own trigger (1.6.3, ticket s-petpotqa)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `pp-1` | A pet out (Brown Kitty 5000000 summoned, or given first when you have none), the Auto HP Potion Pouch (1812002) equipped on it at slot -24, 100 red potions (2000000) in USE, key 91 bound to the red potion (type 7), and the HP alert at 50%. Every step is idempotent and says what it did; a step that cannot be done says `REFUSED ...` and the rest still runs. `!qa do petpot` stages it again. Nothing is taken back at `!qa stop`: the pet, the pouch, the potions and the key are ordinary player things and stay. Runs 15 minutes | Take a mob hit below 50% HP. The pet drinks a red potion by itself, and the run log gets `PETPOT recv <name> slot <s> item 2000000 hp <hp>/<max> mp <mp>/<max> map <id>` (the client's request, `refused <reason>` appended when the server refused) and `PETPOT server <name> hp <hp>/<max> threshold <t> pouch yes map <id> fired` (the server's own trigger in `Character.applyHpMpChange`, which names `no-key`, `above-threshold`, `no-potions` or `refused <reason>` instead of `fired`). The feed gets the five `STAGE PETPOT` lines and both `PETPOT` lines. The player trail records every request as `petpot` with the item and the refusal, with or without a QA run |
+
+Both lines are behind the `PETPOT` QA topic, so they cost nothing when QA logging is off (live has neither).
+Scenario class: `soloMapling.qa.PetPotScenarios`; staging rules `soloMapling.qa.PetPotStaging` (tested without a
+database).
+
 ## ex-1: party bots join your boss expedition (1.6.0)
 
 | Test | What it stages | What to look for |

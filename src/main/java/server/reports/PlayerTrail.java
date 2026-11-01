@@ -57,7 +57,7 @@ public final class PlayerTrail {
         }
     }
 
-    /** A server-side event: kind is one of skill, attack, use, pickup, trade, shop, death, warp. */
+    /** A server-side event: kind is one of skill, attack, use, petpot, pickup, trade, shop, death, warp. */
     public static void event(Character chr, String kind, int id, String note) {
         PlayerTrail t = of(chr);
         if (t != null) {

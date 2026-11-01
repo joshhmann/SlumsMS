@@ -116,6 +116,7 @@ public final class QaScenarios {
         all.addAll(NxScenarios.all()); // 1.6.0: buy a 10k NX code from an NX merchant bot and redeem it (nx-1)
         all.addAll(MechanicsScenarios.all()); // 1.7.0 ticket 130: bots clear Kerning PQ stage 1 on their own (mx-1)
         all.addAll(HealColumnScenarios.all()); // 1.6.2 b140: a staged Bishop follower heals the GM (hc-1)
+        all.addAll(PetPotScenarios.all()); // 1.6.3 b280: the pet's auto-potion and the server's own trigger (pp-1)
         return List.copyOf(all);
     }
 

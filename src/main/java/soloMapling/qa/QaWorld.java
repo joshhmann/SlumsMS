@@ -518,4 +518,12 @@ public interface QaWorld {
     default List<String> v83Step(Character gm, String feature, String step) {
         return List.of("this world cannot run " + feature + " " + step);
     }
+
+    /**
+     * 1.6.3 pp-1: the pet auto-potion scene for the GM - a pet out, the Auto HP Potion Pouch on it, 100 red potions in
+     * USE, key 91 bound to them, HP alert at 50%. One line per step: what it did, or {@code REFUSED} and why.
+     */
+    default List<String> petPotStage(Character gm) {
+        return List.of("this world cannot stage a pet pot");
+    }
 }
