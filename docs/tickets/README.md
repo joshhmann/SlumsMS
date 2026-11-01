@@ -22,6 +22,12 @@ From `agent-runs/server/269-dbpool-forensics/AUDIT.md` and the fix branch `269-d
 |---|---|---|
 | [173](173-life-runtime-lock.md) | `LifeRuntime.accepted` takes the bot's monitor over a PlayerStorage read (same family as b267, no cycle today) | S4, after 1.6.2 |
 
+## Economy (after 1.6.3, owner 2026-11-01)
+
+| # | Ticket | Status |
+|---|---|---|
+| [175](175-economy-rework-flea-lessons.md) | Economy rework: lessons from Tarkov's flea market (ideas and questions, decides nothing) | later (book e01) |
+
 ## QA follow-ups (2026-10-31)
 
 | # | Ticket | Target |
