@@ -81,7 +81,7 @@
       var n = a.data && a.data.min_qty;
       return typeof n === "number" ? "The desk's smallest trade is " + fmt(n) + " NX." : "That's under the desk's smallest trade.";
     },
-    PRICES_STALE: "The NX prices are updating. Try again in a minute.",
+    PRICES_STALE: "The desk hasn't posted a fresh rate in the last two minutes. Try again in a moment.",
     ERROR: "Something went wrong in the game. Try again later."
   };
   function said(a, side) {

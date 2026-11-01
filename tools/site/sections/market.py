@@ -847,8 +847,8 @@ NX_MARK = "<!-- nx-desk -->"
 NX_PANEL = """<div class="xc-c" x-data="xdesk">
 <section class="xc-p xc-deskq" style="grid-area: nxq" x-show="$store.xc.tk === 'NX'"><h2>NX desk
 <small x-text="stamp"></small></h2>
-<p class="xc-alert" x-show="stale" x-cloak>Prices are updating: the desk sets a fresh rate every minute and this page
-will catch up in a moment. No trades until it does.</p>
+<p class="xc-alert" x-show="stale" x-cloak>Prices are updating. The desk hasn't posted a fresh rate in the last two
+minutes, so trading waits; this page will catch up in a moment.</p>
 <p class="xc-alert" x-show="qstate === 'error'" x-text="err" x-cloak></p>
 <p class="xc-alert" x-show="quote && quote.open === false" x-cloak>The NX desk is closed right now.
 <span x-text="whyClosed()"></span> No trades until it opens again.</p>
