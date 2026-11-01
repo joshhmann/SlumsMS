@@ -261,6 +261,7 @@ Not a step; what this section now says because the night itself went this way. (
   hand: `deploy-build-164.sh` skipped `data/site`. Both copy scripts carry it now and stop if it is missing.
 - **The `SLUMS_LOGIN_INSPECT_*` lines were not in the live unit**, not even commented, so step 8 says "add (or
   uncomment)".
+- **The guide pages were a release behind** the patch notes; section 4 makes refreshing them a step of every release.
 
 ## 4. Add a release's patch notes
 
@@ -269,10 +270,21 @@ Not a step; what this section now says because the night itself went this way. (
    Player-facing notes only: no QA lists, internal notes, hashes or test-server details.
 2. Run the build. The newest version becomes the home page's "latest patch" card and tops the patch notes list.
 3. Publish (step 3).
+4. **Refresh the player guide in the same release** (the owner's rule, 2026-11-01: a release is not done while the
+   guide still describes the one before it).
+   - Bring the generated pages' data over from the release branch (the exports under `docs/wiki/data/` that the game
+     fills; a release branch that ran ahead has newer ones than the copy here).
+   - Add the release's new features to the pages that describe them, in `docs/wiki/src/*.html`.
+   - Add a changelog row for this version to `docs/wiki/src/changelog.html`, the same version as
+     `docs/site/releases/<version>.md`.
+   - Then `python3 docs/wiki/build.py`. Check the row is in `docs/wiki/changelog.html`: the site's guide is that build,
+     and the release's version appears there or the guide is a release behind. `tools/site/test_deploy.py` checks it.
+   - Wrong in-game text: the guide says what the game says. Fix the page, or put public-only wording in
+     `docs/site/guide-fixes.json` / `docs/site/guide-overrides/`, and say so in the release note rather than leaving a
+     number the game does not show.
 
-The player guide is copied from the generated wiki in `docs/wiki/`. Refresh that first (`python3 docs/wiki/build.py`)
-when its sources change. Public-only text changes for it live in `docs/site/guide-fixes.json` and
-`docs/site/guide-overrides/`.
+The player guide is copied into the site from the generated wiki in `docs/wiki/`; `docs/site/guide-fixes.json` and
+`docs/site/guide-overrides/` hold public-only text changes for it.
 
 ## 5. The theme
 

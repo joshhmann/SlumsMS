@@ -265,5 +265,30 @@ class TestHostTest(DeployScriptTest):
         self.assertIn(f"on {self.HOST}:8192", unit)
 
 
+def newest_release():
+    """The highest version in docs/site/releases (1.6.2 > 1.6.0 > 1.5.6)."""
+    names = [n[:-3] for n in os.listdir(os.path.join(ROOT, "docs/site/releases")) if n.endswith(".md")]
+    return max(names, key=lambda n: tuple(int(p) for p in n.split(".")))
+
+
+class GuideTest(unittest.TestCase):
+    """owner's rule 2026-11-01: the guide is refreshed in the same release, so its changelog names the new version."""
+
+    def test_the_newest_release_is_in_the_guide_changelog(self):
+        version = newest_release()
+        with open(os.path.join(ROOT, "docs/wiki/changelog.html")) as f:
+            changelog = f.read()
+        self.assertIn(f"<td>{version}</td>", changelog,
+                      f"docs/site/releases/{version}.md has no row in docs/wiki/changelog.html: refresh the guide "
+                      "(docs/site/DEPLOY.md section 4)")
+
+    def test_the_release_steps_refresh_the_guide(self):
+        step = part(deploy_md(), "## 4. Add a release's patch notes", "## 5. The theme")
+        self.assertIn("Refresh the player guide", step)
+        self.assertIn("same release", step)
+        self.assertIn("docs/wiki/changelog.html", step)
+        self.assertIn("docs/wiki/build.py", step)
+
+
 if __name__ == "__main__":
     unittest.main()
