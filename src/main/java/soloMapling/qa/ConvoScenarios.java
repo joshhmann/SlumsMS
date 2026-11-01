@@ -30,7 +30,8 @@ final class ConvoScenarios {
 
     static List<QaScenario> all() {
         return List.of(new Cv1Actions(), new Cv2Haggle(), new Cv3Mood(), new Cv4Voices(), new Cv5Thread(), new Cv6Rate(),
-                new Cv7Bank(), new Cv8FollowUp(), new Cv9Hold(), new Cv10Meaning(), new Cv11PartyChat(), new Cv12DecideSplit());
+                new Cv7Bank(), new Cv8FollowUp(), new Cv9Hold(), new Cv10Meaning(), new Cv11PartyChat(), new Cv12DecideSplit(),
+                new Cv13Planner());
     }
 
     /** Replays the real classifier with confident wrong model answers; no player holdings or bot actors change. */
@@ -459,6 +460,63 @@ final class ConvoScenarios {
                 case "llm" -> world(ctx, "bank", new String[]{"off"});
                 case "bank" -> world(ctx, "bank", new String[]{"on"});
                 default -> throw new QaRefusal("cv-7 steps: llm, bank");
+            };
+        }
+    }
+
+    /**
+     * cv-13 (m02, owner 2026-10-31): the reply planner decides the move from where the bot is and what it is doing and
+     * the model only words it, so a bot standing in a town says it is in a town and a bot in a grind says what it is
+     * killing. The log shows the decision ({@code PLAN <bot> <move>}) before the line ({@code SAID}), so the checklist
+     * can read both. Needs {@code -Dsolomapling.convo.planner=true}.
+     */
+    static final class Cv13Planner extends ConvoScenario {
+        public String id() { return "cv-13"; }
+        public String title() { return "The reply planner: a bot's answer matches where it is (town vs grinding, m02)"; }
+        public String usage() { return "; then !qa do grind | town | party [line...]"; }
+
+        public int minutes(String[] args) { return 10; }
+
+        public List<String> stage(QaContext ctx) {
+            if (!soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.planner()) {
+                throw new QaRefusal("cv-13 needs the reply planner: start the server with "
+                        + "-Dsolomapling.convo.planner=true (it is off by default).");
+            }
+            if (ctx.gm().getMapId() != HENESYS && !ctx.world().warp(ctx.gm(), HENESYS)) {
+                throw new QaRefusal("Cannot warp to Henesys.");
+            }
+            int id = stage(ctx, "friend", false, null);
+            List<String> out = new ArrayList<>();
+            out.add(QaScenarios.who(ctx, id) + " is next to you in Henesys, a town with no monsters here.");
+            out.add("Say lines to it in map chat. The log shows the move the game chose (PLAN <bot> <move>) and the words:");
+            out.add("\"hey\" -> PLAN hello: a hello that names the town or what it is doing, and NEVER grinding.");
+            out.add("\"where should i train\" -> PLAN train_spot: a spot from the bot's own list for your level.");
+            out.add("\"what lvl r u\" -> PLAN level_talk: its level and the next goal, no begging, no trade push.");
+            out.add("\"what r u doing\" -> PLAN activity: the town or what it is doing there.");
+            out.add("!qa do grind warps you and a second bot to a map with mobs: a \"hey\" there is short and names the mob.");
+            out.add("!qa do town brings you back. !qa do party asks it for a party: the words must match the YES/NO it logged.");
+            out.add("Auto-QA judges the same rules from the transcript as t-pl-1.");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            return switch (name) {
+                case "grind" -> {
+                    int id = stage(ctx, "friend", true, null);
+                    List<String> out = new ArrayList<>();
+                    out.add(QaScenarios.who(ctx, id) + " is grinding next to you. Say \"hey\" in map chat: the plan is");
+                    out.add("still a hello, marked brief, and the line names the mob it is killing (never a town).");
+                    yield out;
+                }
+                case "town" -> {
+                    if (ctx.gm().getMapId() != HENESYS && !ctx.world().warp(ctx.gm(), HENESYS)) {
+                        throw new QaRefusal("Cannot warp to Henesys.");
+                    }
+                    ctx.log("warped back to Henesys (a town: no monsters)");
+                    yield List.of("Back in Henesys. Talk to the bot that is here; its answer must be about the town again.");
+                }
+                case "party" -> world(ctx, "party", args);
+                default -> throw new QaRefusal("cv-13 steps: grind, town, party [line...]");
             };
         }
     }

@@ -227,8 +227,11 @@ public final class StateOfMind {
         }
     }
 
-    /** Towns and hubs everyone knows: naming one in passing is world knowledge, not a claim. */
-    static final Set<Integer> TOWNS = Set.copyOf(new LinkedHashSet<>(ConvoEntities.MAP_ALIASES.values()).stream()
+    /**
+     * Towns and hubs everyone knows: naming one in passing is world knowledge, not a claim. Public because the
+     * auto-QA transcript check ({@code t-pl-1}) asks a town reply the same question the planner's facts do.
+     */
+    public static final Set<Integer> TOWNS = Set.copyOf(new LinkedHashSet<>(ConvoEntities.MAP_ALIASES.values()).stream()
             .filter(id -> id != 105050000).toList()); // Ant Tunnel is a dungeon, not a town
 
     /** Aliases that name an activity, not a place ("kpq later" is a plan, not a claim to be in Kerning). */
@@ -829,7 +832,7 @@ public final class StateOfMind {
      * Whether a line claims the bot is grinding right where it stands in a town - the b240 rule, asked of a line alone
      * (m02's replay check counts how often the old prompts let this through).
      */
-    static boolean claimsGrindingInTown(String text) {
+    public static boolean claimsGrindingInTown(String text) {
         return !activityIn(text, true, "town").ok();
     }
 

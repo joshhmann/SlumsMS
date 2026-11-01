@@ -42,7 +42,8 @@ class ConvoScenariosTest {
     @Test
     void everyChatScenarioIsRegistered() {
         List<String> ids = QaScenarios.all().stream().map(QaScenario::id).toList();
-        for (String id : List.of("cv-1", "cv-2", "cv-3", "cv-4", "cv-5", "cv-6", "cv-7", "cv-8", "cv-9", "cv-10", "cv-11", "cv-12")) {
+        for (String id : List.of("cv-1", "cv-2", "cv-3", "cv-4", "cv-5", "cv-6", "cv-7", "cv-8", "cv-9", "cv-10", "cv-11",
+                "cv-12", "cv-13")) {
             assertTrue(ids.contains(id), id);
         }
     }
@@ -181,6 +182,51 @@ class ConvoScenariosTest {
             soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.useForTest(null);
             soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide.useToneForTest(null);
             soloMapling.ArtificialPlayer.BotBrainSystem.ChatStats.resetForTest();
+        }
+    }
+
+    // cv-13 (m02): the planner decides the move, so the scenario is only meaningful with the switch on
+    @Test
+    void cv13RefusesToRunWithoutThePlannerSwitch() {
+        QaRefusal r = org.junit.jupiter.api.Assertions.assertThrows(QaRefusal.class, () -> start("cv-13", 100000000));
+        assertTrue(r.getMessage().contains("-Dsolomapling.convo.planner=true"), r.getMessage());
+        assertEquals(0, called("convobot"), "a refusal stages nothing: " + world.calls);
+    }
+
+    @Test
+    void cv13StagesATownBotAndAGrindingOneOnRequest() {
+        System.setProperty("solomapling.convo.planner", "true");
+        try {
+            world.mobs = 0; // a town has none: the grind step has to take you to a map that does
+            Character gm = start("cv-13", 200000000);
+            assertEquals(1, called("warp 100000000"), "a town first: " + world.calls);
+            assertEquals(1, called("convobot friend social"));
+            assertTrue(world.calls.stream().anyMatch(c -> c.startsWith("convo persona")), world.calls.toString());
+            suite.action(gm, "grind", new String[0]);
+            assertEquals(1, called("convobot friend training"), world.calls.toString());
+            assertEquals(1, called("warp " + QaScenarios.HENESYS_HUNTING_GROUND), "mobs next: " + world.calls);
+            suite.action(gm, "town", new String[0]);
+            assertEquals(2, called("warp 100000000"), world.calls.toString());
+            suite.action(gm, "party", new String[]{"wanna", "party?"});
+            assertEquals(1, called("convo party wanna party?"), world.calls.toString());
+            suite.stop(1, "!qa stop");
+            assertEquals(2, called("unconvobot"), "both bots leave at stop");
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+        }
+    }
+
+    @Test
+    void cv13UnknownStepNamesTheSteps() {
+        System.setProperty("solomapling.convo.planner", "true");
+        try {
+            Character gm = start("cv-13", 100000000);
+            QaRefusal r = org.junit.jupiter.api.Assertions.assertThrows(QaRefusal.class,
+                    () -> suite.action(gm, "dance", new String[0]));
+            assertTrue(r.getMessage().contains("cv-13 steps: grind, town, party"), r.getMessage());
+        } finally {
+            suite.stop(1, "!qa stop");
+            System.clearProperty("solomapling.convo.planner");
         }
     }
 }
