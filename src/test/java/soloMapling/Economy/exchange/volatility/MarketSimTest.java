@@ -391,6 +391,215 @@ class MarketSimTest {
         return run;
     }
 
+    /** What the bot arm did: the desk's R and purse, the bots' fills and purses, and where the caps bit. */
+    record BotRun(String name, int hours, int botFills, long botNx, int capHours, long firstR, long lastR, long minR,
+                  long maxR, long purseNx, long deskNx, long deskMeso, long botVolume, long peakBotNx, long peakWorldNx,
+                  Map<String, Integer> refused, List<long[]> weeks) {
+    }
+
+    /**
+     * Ticket 162/163, the bot arm (set B + 35% desk turns): the same desk and the same player flow as
+     * {@link #deskSimulate}, plus sixteen trader bots with their own mesos and no NX, whose turns reach the desk. Each
+     * hour the players trade first, then the roster ticks, then the desk steps. Checks: NX and mesos conserved (the
+     * bots' mesos are off the ledger, as on every bot trade), every bucket non-negative, the ledger reconciles, R
+     * inside the hard window, and no trader is ever paid more than its hourly allowance.
+     */
+    static BotRun deskBotSimulate(String name, long nxPerHour, long perTrade, long seed) throws Exception {
+        int hours = 4 * 7 * 24;
+        long nxFloat = 1_399_350L;
+        int accounts = 34;
+        long fair = 5_000_000L;
+        System.setProperty(MarketConfig.TRADERS_NX, "true");
+        MemoryExchangeStore store = new MemoryExchangeStore();
+        AtomicLong now = new AtomicLong(1_800_000_000_000L);
+        for (int i = 0; i < accounts; i++) {
+            long acct = 100 + i;
+            store.addAccount(acct, nxFloat / accounts + (i < nxFloat % accounts ? 1 : 0));
+            store.addCharacter(1_000 + i, acct, 400_000_000L);
+        }
+        long bank = 99, bankChar = 990;
+        store.addAccount(bank, 500_000);
+        store.addCharacter(bankChar, bank, 5_000_000_000L);
+        ExchangeConfig d = ExchangeConfig.defaults();
+        ExchangeConfig c = new ExchangeConfig(true, d.lotNx(), d.minNx(), d.maxNx(), d.minPrice(), d.maxPrice(), 0,
+                d.maxOpen(), d.perDay(), TimeUnit.SECONDS.toMillis(10), d.expiryMs(), 0, d.regularSpreadBps(),
+                d.regularNx(), d.rateWindowMs(), 3, d.pollSeconds(), bank, 60_000);
+        Exchange ex = new Exchange(store, c, a -> false, a -> null, now::get, Ticker.defaults(c));
+        ex.deskConfig(DeskConfig.defaults().on());
+        assertTrue(ex.recover().isEmpty());
+        Desk desk = ex.desk();
+        store.apply(new ExchangeStore.Batch(9000, now.get(), List.of(
+                new Posting(Why.FUND, Bucket.wallet(Asset.NX, bank), Exchange.deskBucket(Asset.NX), 150_000, bank, 0, 0),
+                new Posting(Why.FUND, Bucket.wallet(Asset.MESO, bankChar), Exchange.deskBucket(Asset.MESO),
+                        500_000_000L, bank, 0, 0)), List.of(), List.of()));
+        Random rng = new Random(seed);
+        MarketConfig cfg = MarketConfig.allOn().withTraders(16, 60, true);
+        MarketFlows flows = MarketFlows.get();
+        flows.clear();
+        List<MarketTraders.Candidate> cands = new ArrayList<>();
+        for (int i = 0; i < 400; i++) {
+            cands.add(new MarketTraders.Candidate(1_000_000_100L + i, i % 10 < 3 ? "ACHIEVER" : "SOCIALIZER"));
+        }
+        List<MarketTraders.Trader> list = MarketTraders.select(cands, 16);
+        Map<Long, FakeBotWallet> wallets = new HashMap<>();
+        for (MarketTraders.Trader t : list) {
+            wallets.put(t.id(), new FakeBotWallet(t.id(), 30_000_000L + rng.nextInt(120_000_000)));
+        }
+        MarketTraders.setTraderIds(wallets.keySet());
+        MarketTraders.Roster roster = new MarketTraders.Roster() {
+            public List<MarketTraders.Trader> traders() {
+                return list;
+            }
+
+            public LiveWallet walletOf(MarketTraders.Trader t) {
+                return wallets.get(t.id());
+            }
+        };
+        MarketEvents events = MarketEvents.forTest(cfg, now::get, s -> { });
+        MarketEvents.useForTest(events);
+        MarketNews news = MarketNews.forTest(now::get, s -> { }, true);
+        Map<MarketRumours.Claim, List<String>> lines = new java.util.EnumMap<>(MarketRumours.Claim.class);
+        for (MarketRumours.Claim cl : MarketRumours.Claim.values()) {
+            lines.put(cl, List.of(cl.node));
+        }
+        MarketRumours rumours = new MarketRumours(MarketRumours.fixed(lines));
+        FairValue fairValue = new FairValue(0.5, 0.3);
+        MarketTraders tr = new MarketTraders(new Random(seed + 1));
+        tr.use(fairValue, news);
+        long nx0 = store.totalNx();
+        long meso0 = store.totalMeso() + wallets.values().stream().mapToLong(w -> w.mesos).sum();
+        Map<String, Integer> refused = new TreeMap<>();
+        int fills = 0, botFills = 0, capHours = 0, seq = 0;
+        long botNx = 0, botVolume = 0, peakBot = 0, peakWorld = 0, minR = Long.MAX_VALUE, maxR = 0;
+        long firstR = desk.mid();
+        List<long[]> weeks = new ArrayList<>();
+        for (int h = 1; h <= hours; h++) {
+            long at = now.addAndGet(3_600_000L);
+            int n = (int) Math.max(1, Math.round(nxPerHour / (double) perTrade));
+            double dev = (desk.mid() - fair) / (double) fair;
+            double buyShare = Math.max(0.05, Math.min(0.95, 0.60 - dev * 8));
+            for (int i = 0; i < n; i++) {
+                boolean buy = rng.nextDouble() < buyShare;
+                long acct = 100 + (seq % accounts);
+                String rid = "s" + h + "-" + i;
+                Response pv = ex.preview(new Exchange.Place(rid, acct, 1_000 + (acct - 100),
+                        buy ? OrderBook.Side.BUY : OrderBook.Side.SELL, 0, perTrade, Ticker.NX));
+                seq++;
+                if (!pv.ok()) {
+                    refused.merge(pv.code(), 1, Integer::sum);
+                    continue;
+                }
+                Response f = ex.confirm("d" + h + "-" + i, acct, (String) pv.data().get("token"));
+                if (!f.ok()) {
+                    refused.merge(f.code(), 1, Integer::sum);
+                    continue;
+                }
+                fills++;
+            }
+            Map<String, Integer> before = new HashMap<>(tr.refusedByCode());
+            long purse = 0;
+            for (FakeBotWallet w : wallets.values()) {
+                purse += ex.botNx(w.account());
+            }
+            Map<Long, Long> seen = new HashMap<>();
+            for (FakeBotWallet w : wallets.values()) {
+                List<Desk.Fill> mine = desk.fillsOf(w.account(), 500);
+                seen.put(w.account(), mine.isEmpty() ? 0L : mine.get(0).fillId());
+            }
+            tr.tick(ex, at, roster, cfg, events, rumours);
+            long worldHour = 0;
+            for (FakeBotWallet w : wallets.values()) {
+                long was = seen.getOrDefault(w.account(), 0L), mine = 0;
+                for (Desk.Fill f : desk.fillsOf(w.account(), 500)) {
+                    if (f.fillId() > was) {
+                        botFills++;
+                        botVolume += f.nx();
+                        mine += f.nx();
+                    }
+                }
+                peakBot = Math.max(peakBot, mine);
+                worldHour += mine;
+            }
+            peakWorld = Math.max(peakWorld, worldHour);
+            int caps = 0;
+            for (var e : tr.refusedByCode().entrySet()) {
+                int was = before.getOrDefault(e.getKey(), 0);
+                if (e.getValue() > was) {
+                    refused.merge(e.getKey(), e.getValue() - was, Integer::sum);
+                    if ("BOT_CAP".equals(e.getKey()) || "MIN_QTY".equals(e.getKey())) {
+                        caps += e.getValue() - was;
+                    }
+                }
+            }
+            if (caps > 0) {
+                capHours++;
+            }
+            ex.tickDesk();
+            long[] inv = ex.deskInventory();
+            minR = Math.min(minR, desk.mid());
+            maxR = Math.max(maxR, desk.mid());
+            long purseNow = 0;
+            for (FakeBotWallet w : wallets.values()) {
+                purseNow += ex.botNx(w.account());
+                assertTrue(ex.botNx(w.account()) <= MarketConfig.tradersNxPerBotHour() * hours,
+                        "a bot's purse only grows by what the caps allow");
+            }
+            botNx = purseNow;
+            if (h % 168 == 0) {
+                weeks.add(new long[]{h, desk.mid(), desk.buy(), desk.sell(), inv[0], inv[1], botFills, botNx,
+                        purseNow});
+            }
+        }
+        long walletMeso = wallets.values().stream().mapToLong(w -> w.mesos).sum();
+        assertEquals(nx0, store.totalNx(), "NX conserved");
+        assertEquals(meso0, store.totalMeso() + walletMeso, "mesos conserved (bots' own buckets included)");
+        assertTrue(Exchange.reconcile(store.load(10)).isEmpty(), "reconciles: " + Exchange.reconcile(store.load(10)));
+        for (var b : store.balances().entrySet()) {
+            assertTrue(b.getValue() >= 0, b.getKey() + " negative");
+        }
+        assertTrue(minR >= NxGuard.NX_LOWEST && maxR <= NxGuard.NX_HIGHEST, "R stayed in the hard window: " + minR
+                + " .. " + maxR);
+        long[] inv = ex.deskInventory();
+        BotRun run = new BotRun(name, hours, botFills, botNx, capHours, firstR, desk.mid(), minR, maxR, botNx, inv[0],
+                inv[1], botVolume, peakBot, peakWorld, refused, weeks);
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("SIM BOTS %s: %d trader bots, %d desk fills by bots, %,d NX traded, %,d NX held; "
+                        + "R %,d -> %,d (min %,d max %,d); purse %,d NX / %,d mesos; caps refused in %d h%n"
+                        + "SIM BOTS %s peak %,d NX in one bot-hour, %,d NX in one world-hour (caps %,d / %,d)%n"
+                        + "SIM BOTS %s refused %s%n", name, list.size(), botFills, botVolume, botNx, firstR, desk.mid(),
+                minR, maxR, inv[0], inv[1], capHours, name, peakBot, peakWorld, MarketConfig.tradersNxPerBotHour(),
+                MarketConfig.tradersNxWorldHour(), name, refused));
+        for (long[] w : weeks) {
+            sb.append(String.format("SIM BOTS %s h%d: R %,d buy %,d sell %,d, purse %,d NX / %,d mesos, %,d bot fills, "
+                            + "bots hold %,d NX%n", name, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7]));
+        }
+        System.out.println(String.format("SIM BOTS %s desk turns %,d: walked away %,d, cut by the hourly allowance %d%n",
+                name, tr.deskTurns()[0], tr.deskTurns()[1], tr.deskTurns()[2]));
+        System.out.println(sb);
+        return run;
+    }
+
+    /**
+     * Brief item 5: bots take part in the desk's NX market for four weeks at TEST's real turnover. What to look for:
+     * they trade both ways, they never get past their hourly allowances, and their flow does not walk R out of its
+     * window.
+     */
+    @Test
+    void botsTakePartInTheDeskNxMarket() throws Exception {
+        BotRun run = deskBotSimulate("TEST turnover", 2_000, 1_000, 21);
+        BotRun busy = deskBotSimulate("busy", 20_000, 2_500, 22);
+        for (BotRun r : List.of(run, busy)) {
+            assertTrue(r.botFills() > 100, r.name() + ": trader bots reach the desk, " + r.botFills() + " fills");
+            assertTrue(r.peakBotNx() <= MarketConfig.tradersNxPerBotHour(), r.name() + ": one bot never traded past "
+                    + "its hour: " + r.peakBotNx());
+            assertTrue(r.peakWorldNx() <= MarketConfig.tradersNxWorldHour(), r.name() + ": the roster never traded "
+                    + "past the world's hour: " + r.peakWorldNx());
+        }
+        assertTrue(run.maxR() - run.minR() <= run.firstR() / 50, "R stays within 2% with bots in it: " + run.minR()
+                + " .. " + run.maxR());
+        System.clearProperty(MarketConfig.TRADERS_NX);
+    }
+
     /**
      * The desk at three turnover levels for four weeks each. What the owner needs from this: at TEST's real turnover
      * (a couple of trades an hour) the drift is a basis point or two an hour, so R is stable and the caps never bind;

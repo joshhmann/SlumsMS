@@ -62,6 +62,8 @@ public final class MarketTraders {
     private long seq;
     /** Actions taken (orders placed, cancels) and refused, for {@code !market traders}. */
     private long placed, cancelled, refused;
+    /** Desk turns attempted, and turns where the brain's read left the quote alone, for {@code !market traders}. */
+    private long deskTurns, deskWalks, deskClips;
     private final Deque<String> journal = new ArrayDeque<>();
     private final Map<String, Integer> refusedBy = new java.util.TreeMap<>();
 
@@ -262,10 +264,13 @@ public final class MarketTraders {
             }
         }
         Ticker nx = cfg.tradersNx() ? ex.ticker(Ticker.NX) : null;
-        if (nx != null && ex.open(nx.id())) {
+        // 1.6.3 (b260): with the desk running, NX trades at the desk and not on the book (placeBot refuses NX orders
+        // then), so the ticker joins the book's list only while there is no desk
+        boolean desk = nx != null && ex.desk() != null;
+        if (nx != null && !desk && ex.open(nx.id())) {
             items.add(nx); // 1.6.2: bots may buy NX with mesos and sell the NX they hold (off unless -D...traders.nx)
         }
-        if (items.isEmpty()) {
+        if (items.isEmpty() && !desk) {
             return 0;
         }
         Ticker tk = items.stream().filter(k -> "LEAF".equals(k.id())).findFirst().orElse(null);
@@ -275,9 +280,19 @@ public final class MarketTraders {
         // 1.6.2: trade what you hold. A bot holding a scroll (CHAOS, WS) offers that scroll this turn: until now the
         // dice alone decided, so the 27 CHAOS a bot already held never reached the book and no bot ever quoted one.
         Ticker held = heldScroll(items, w);
+        if (held == null && desk) {
+            // 1.6.3: a bot that holds NX offers it at the desk's buy quote; otherwise some turns are desk turns
+            long purse = ex.botNx(w.account());
+            if (purse > 0 || rng.nextInt(100) < DESK_TURN_PCT) {
+                Exchange.DeskBotQuote quote = ex.deskForBot(w.account());
+                if (quote != null) {
+                    return deskTurn(ex, t, w, nx, quote, now, cfg, news, events, rumours, guild);
+                }
+            }
+        }
         if (held != null) {
             tk = held;
-        } else if (nx != null && ex.botNx(w.account()) > 0 && rng.nextInt(100) < 70) {
+        } else if (nx != null && !desk && ex.botNx(w.account()) > 0 && rng.nextInt(100) < 70) {
             tk = nx; // NX a bot bought and has not sold: offer it back
         }
         MarketNews.Role role = news == null ? MarketNews.Role.NONE : news.role(guild, now);
@@ -332,6 +347,121 @@ public final class MarketTraders {
         }
         pending.put(t.id(), q);
         return done;
+    }
+
+    /**
+     * 1.6.3 (b260): one turn at the NX desk. The same brain decides with the same per-1,000-NX maths, lots and
+     * minimum, but the desk's quotes stand in for the book: its sell quote is what a bot pays, its buy quote what it
+     * gets, and the bot decides the side and the size while the desk decides the price: its turn takes the quote it was
+     * shown (a bot has no site to confirm on, and the desk does not take resting orders), in whole lots, inside its
+     * hourly allowance and the house's stock ({@link Exchange#deskForBot}, {@link Exchange#deskBot}). A bot therefore
+     * pays the desk's spread on a round trip, as any taker does; its mesos are its own off-ledger grind income and the
+     * hourly allowances bound the flow. Returns 1 when the desk filled.
+     */
+    private int deskTurn(Exchange ex, Trader t, LiveWallet w, Ticker nx, Exchange.DeskBotQuote d, long now,
+                         MarketConfig cfg, MarketNews news, MarketEvents events, MarketRumours rumours, int guild) {
+        deskTurns++;
+        long ref = d.mid(), hourAgo = 0, high2h = 0;
+        for (FillRow f : ex.lastTrades(Ticker.NX, 500)) {
+            if (f.buyerRegular() || f.sellerRegular() || f.price() <= 0) {
+                continue;
+            }
+            if (ref == d.mid()) {
+                ref = f.price();   // the rate the desk last filled at: the bot's idea of "now"
+            }
+            if (hourAgo == 0 && f.at() <= now - TickerHistory.HOUR_MS) {
+                hourAgo = f.price();
+            }
+            if (f.at() > now - 2 * TickerHistory.HOUR_MS) {
+                high2h = Math.max(high2h, f.price());
+            }
+        }
+        if (hourAgo == 0) {
+            hourAgo = ref;   // younger than an hour: the market is the quote in front of it
+        }
+        if (high2h == 0) {
+            high2h = ref;
+        }
+        long[] band = TraderBrain.band(ref);
+        long lo = Math.max(nx.minPrice(), Math.max(1, ref / 10)), hi = Math.min(nx.maxPrice(), ref * 10);
+        long[] window = ex.nxBand();
+        long bandLo = band[0], bandHi = band[1];
+        if (bandLo > 0) {
+            lo = Math.max(lo, bandLo);
+            hi = Math.min(hi, bandHi > 0 ? bandHi : hi);
+        }
+        if (window[0] > 0 && window[1] > 0) {
+            long a = Math.max(lo, window[0]), b = Math.min(hi, window[1]);
+            if (a <= b) {
+                lo = a;
+                hi = b;
+            } else {
+                lo = window[0];
+                hi = window[1];
+            }
+        }
+        double pressure = news == null ? 0 : news.pressure(Ticker.NX, now);
+        if (events != null) {
+            pressure += events.pressure(Ticker.NX, now, true);
+        }
+        if (rumours != null) {
+            pressure += rumours.pressure(Ticker.NX, now, cfg.actOnRumourPct(), t.seed());
+        }
+        Long fairValue = fairValues == null ? null : fairValues.fair(Ticker.NX);
+        long fair = fairValue != null && fairValue > 0 ? fairValue : fair(ex, nx, now, ref);
+        // the desk keeps a rate, not a book: its own fills are the only trades, so the hour-ago and 2 h-high are read
+        // off them (and are "now" until the desk has traded an hour's worth)
+        TraderBrain.View v = new TraderBrain.View(Ticker.NX, ref, d.buy(), d.sell(), hourAgo, high2h, fair, pressure,
+                lo, hi,
+                nx.maxQty(), ex.config().feeBps(), bandLo, bandHi, nx.per(), nx.lot(), nx.minQty());
+        TraderBrain.Holdings h = new TraderBrain.Holdings(w.have(soloMapling.Economy.exchange.Ledger.Asset.MESO),
+                ex.botNx(w.account()),
+                List.of(), 1, 1);
+        TraderBrain.Place p = null;
+        for (TraderBrain.Action a : TraderBrain.decide(t.archetype(), v, h, now, rng)) {
+            if (a instanceof TraderBrain.Cancel) {
+                continue;   // the desk has no orders to cancel
+            }
+            p = (TraderBrain.Place) a;
+            break;
+        }
+        if (p == null) {
+            deskWalks++;
+            return 0;
+        }
+        // the desk has no resting orders, so only a bot whose own limit already reaches the desk's quote trades: an
+        // aggressive read (momentum, panic, a whale) takes the quote, a passive one would have quoted inside the
+        // spread and is left alone rather than paying 2% for standing where the desk already stands
+        long price = p.side() == Side.BUY ? d.sell() : d.buy();
+        if (p.side() == Side.BUY ? p.price() < price : p.price() > price) {
+            deskWalks++;
+            return 0;
+        }
+        long qty = Math.min(p.qty(), v.maxQty());
+        long want = qty;
+        qty = Math.min(qty, d.left());
+        if (qty < want) {
+            deskClips++;
+        }
+        qty = p.side() == Side.SELL ? Math.min(qty, h.items())
+                : Math.min(qty, TraderBrain.maxAfford(h.mesos(), price, v.per(), v.feeBps()));
+        qty -= qty % nx.lot();
+        if (qty < nx.minQty()) {
+            deskWalks++;
+            return 0;
+        }
+        String rid = "tb-" + t.id() + "-d" + now + "-" + (++seq);
+        Exchange.Response r = ex.deskBot(rid, w, p.side(), qty);
+        if (r.ok()) {
+            placed++;
+            note(String.format("%s %s %s %,d NX at the desk @ %,d -> %,d mesos", t.id(), t.archetype(), p.side(), qty,
+                    price, r.data().get("fill") == null ? 0 : ((Map<?, ?>) r.data().get("fill")).get("mesos")));
+            return 1;
+        }
+        refused++;
+        refusedBy.merge(r.code(), 1, Integer::sum);
+        note(t.id() + " " + t.archetype() + " " + p.side() + " NX at the desk refused: " + r.code());
+        return 0;
     }
 
     private Exchange.Response place(Exchange ex, Trader t, LiveWallet w, String ticker, TraderBrain.Place p,
@@ -467,6 +597,13 @@ public final class MarketTraders {
     /** How deep a trader looks for the best in-band bid and ask. */
     static final int BOOK_LEVELS = 50;
 
+    /**
+     * 1.6.3 (b260): the share of a trader's turns that go to the NX desk while the desk runs and the flag is on. A
+     * bot holding NX goes every time (it wants its NX back into mesos at the rate the desk pays); the rest of the
+     * turns trade leaves and scrolls on the book as before, so the desk meets a mix of the roster, not one side.
+     */
+    static final int DESK_TURN_PCT = 35;
+
     static long fair(Exchange ex, Ticker tk, long now, long fallback) {
         return fair(ex, tk, now, fallback, p -> true);
     }
@@ -511,6 +648,14 @@ public final class MarketTraders {
 
     public synchronized long placedCount() {
         return placed;
+    }
+
+    /**
+     * How many turns went to the NX desk, how many of those left the quote alone, and how many were cut down by the
+     * hourly allowance.
+     */
+    public synchronized long[] deskTurns() {
+        return new long[]{deskTurns, deskWalks, deskClips};
     }
 
     /** Refused orders by the exchange's code (LIMIT_OPEN, COOLDOWN, INSUFFICIENT_FUNDS, ...). */
