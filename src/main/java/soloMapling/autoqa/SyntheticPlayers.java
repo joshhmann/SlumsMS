@@ -51,11 +51,17 @@ public final class SyntheticPlayers {
     public static final int FIRST_OBSERVER_SLOT = NAMES.length + 1;
     /**
      * Ticket 167: parallel runs get more lanes, each with its own two players (its first one a GM) so two checks can
-     * log in at once. Lane 1 is slots 1-2 (the players above); lanes 2-4 are slots 7-12, after the observers.
+     * log in at once. Lane 1 is slots 1-2 (the players above); lanes 2-10 are slots 7-24, after the observers.
+     * <p>
+     * 163 (owner 2026-11-01, "Could we bump the qa chars to 10?"): ten lanes, twenty characters. Slots 7-12 keep the
+     * names TEST already has ({@code AutoQaSeven}..{@code AutoQaTwelve}) because the seeding finds a character by
+     * account, so renaming them here would desync a default from the character that really exists; slots 13-24 are
+     * named after their slot. Every default name is 12 characters or fewer, the client's limit.
      */
-    public static final int MAX_LANES = 4;
+    public static final int MAX_LANES = 10;
     static final String[] LANE_NAMES = {"AutoQaSeven", "AutoQaEight", "AutoQaNine", "AutoQaTen", "AutoQaEleven",
-            "AutoQaTwelve"};
+            "AutoQaTwelve", "AutoQa13", "AutoQa14", "AutoQa15", "AutoQa16", "AutoQa17", "AutoQa18", "AutoQa19",
+            "AutoQa20", "AutoQa21", "AutoQa22", "AutoQa23", "AutoQa24"};
     public static final int FIRST_LANE2_SLOT = FIRST_OBSERVER_SLOT + OBSERVER_NAMES.length;
     public static final int GM_LEVEL = 3;
     static final int LEVEL = 70;
@@ -73,7 +79,7 @@ public final class SyntheticPlayers {
         return login(slot, CHANNEL);
     }
 
-    /** The default name of a slot: 1-2 auto-QA's players, 3-6 the social trace's observers, 7-12 lanes 2-4. */
+    /** The default name of a slot: 1-2 auto-QA's players, 3-6 the social trace's observers, 7-24 lanes 2-10. */
     public static String nameOf(int slot) {
         if (slot >= 1 && slot <= NAMES.length) {
             return NAMES[slot - 1];
@@ -103,7 +109,7 @@ public final class SyntheticPlayers {
         return lane == 1 ? logical : FIRST_LANE2_SLOT + 2 * (lane - 2) + (logical - 1);
     }
 
-    /** The lane a slot plays in: 1 for slots 1-2, 2-4 for slots 7-12, 0 for an observer or unknown slot. */
+    /** The lane a slot plays in: 1 for slots 1-2, 2-10 for slots 7-24, 0 for an observer or unknown slot. */
     public static int laneOfSlot(int slot) {
         if (slot >= 1 && slot <= NAMES.length) {
             return 1;
@@ -115,7 +121,7 @@ public final class SyntheticPlayers {
         return 0;
     }
 
-    /** True for a slot that a check can use (1-2, 7-12): an observer slot is not one. */
+    /** True for a slot that a check can use (1-2, 7-24): an observer slot is not one. */
     public static boolean isLaneSlot(int slot) {
         return laneOfSlot(slot) != 0;
     }
@@ -268,7 +274,8 @@ public final class SyntheticPlayers {
         return String.format("A0A0%04X", slot);
     }
 
-    private static int ensureAccount(String name) throws SQLException {
+    /** The account of a slot, made once and found afterwards: {@code autoqa<slot>}. */
+    static int ensureAccount(String name) throws SQLException {
         try (Connection con = DatabaseConnection.getConnection()) {
             try (PreparedStatement ps = con.prepareStatement("SELECT id FROM accounts WHERE name = ?")) {
                 ps.setString(1, name);
@@ -294,7 +301,8 @@ public final class SyntheticPlayers {
         }
     }
 
-    private static int ensureCharacter(int accountId, int world, int slot) throws SQLException {
+    /** The character of a slot on its account, made once and found afterwards. */
+    static int ensureCharacter(int accountId, int world, int slot) throws SQLException {
         int gm = isGmSlot(slot) ? GM_LEVEL : 0;
         int level = isObserverSlot(slot) ? OBSERVER_LEVEL : LEVEL;
         try (Connection con = DatabaseConnection.getConnection()) {
@@ -316,7 +324,7 @@ public final class SyntheticPlayers {
         }
         String name = nameOf(slot);
         for (int i = 0; Character.getIdByName(name) >= 0 || !BotNames.reserveForPlayer(name); i++) {
-            name = nameOf(slot).substring(0, 7) + (slot * 10 + i); // AutoQaO11, ... if a bot or someone holds it
+            name = fallbackName(slot, i);
         }
         SyntheticClient tmp = new SyntheticClient(slot, world, CHANNEL);
         tmp.setAccID(accountId);
@@ -352,6 +360,15 @@ public final class SyntheticPlayers {
     }
 
     /**
+     * The name a slot tries when a bot or a real player already holds a default one: {@code "AutoQaS10"} for slot 1,
+     * {@code "AutoQa1130"} for slot 13. The prefix is the first seven characters of the default name, so a fallback is
+     * never another slot's default name (the numeric defaults {@code AutoQa13}..{@code AutoQa24} included).
+     */
+    static String fallbackName(int slot, int i) {
+        return nameOf(slot).substring(0, 7) + (slot * 10 + i);
+    }
+
+    /**
      * rc6 inference checks: a synthetic player sends no movement packets, so without this it would stay wherever it
      * entered the map (a portal sits above its floor) and float there for every viewer and for the foothold sweep.
      * A real client falls onto the ground at once; this does the same on entry ({@code MapleMap.addPlayer}), before
@@ -371,10 +388,5 @@ public final class SyntheticPlayers {
     /** Where a synthetic player entering at {@code p} lands: {@code BotGround.settle}; null with no ground under it. */
     static java.awt.Point groundPoint(server.maps.FootholdTree footholds, java.awt.Point p) {
         return soloMapling.ArtificialPlayer.BotMovementSystem.BotGround.settle(footholds, p);
-    }
-
-    /** The names in use, for the docs and the report. */
-    static List<String> names() {
-        return List.of(NAMES);
     }
 }

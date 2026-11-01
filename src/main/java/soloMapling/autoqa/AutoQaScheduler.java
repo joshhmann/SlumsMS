@@ -36,7 +36,7 @@ final class AutoQaScheduler {
         return Boolean.parseBoolean(System.getProperty(LONGEST_FIRST_PROPERTY, "false"));
     }
 
-    /** The cap in force: {@code -Dslums.autoqa.parallel=<1..4>}, clamped, default 1. */
+    /** The cap in force: {@code -Dslums.autoqa.parallel=<1..10>}, clamped, default 1. */
     static int parallel() {
         return Math.max(1, Math.min(SyntheticPlayers.MAX_LANES, Integer.getInteger(PROPERTY, 1)));
     }
