@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AutoQaSchedulerTest {
 
     private final String saved = System.getProperty(AutoQaScheduler.PROPERTY);
+    private final String savedPacking = System.getProperty(AutoQaScheduler.LONGEST_FIRST_PROPERTY);
 
     @AfterEach
     void restore() {
@@ -25,6 +27,63 @@ class AutoQaSchedulerTest {
             System.clearProperty(AutoQaScheduler.PROPERTY);
         } else {
             System.setProperty(AutoQaScheduler.PROPERTY, saved);
+        }
+        if (savedPacking == null) {
+            System.clearProperty(AutoQaScheduler.LONGEST_FIRST_PROPERTY);
+        } else {
+            System.setProperty(AutoQaScheduler.LONGEST_FIRST_PROPERTY, savedPacking);
+        }
+    }
+
+    /** A check with a declared time budget, which is what longest-first packing weighs. */
+    private static Check budgeted(String id, int minutes, String... holds) {
+        Check.Builder b = Check.auto(id, "test " + id).minutes(minutes);
+        if (holds.length == 0) {
+            b.laneOnly();
+        } else {
+            b.holds(holds);
+        }
+        return b.build();
+    }
+
+    /** The wall clock of a whole run, in minutes, if the scheduler started checks on {@code cap} lanes. */
+    private static int wallClock(List<Check> checks, int cap) {
+        List<Integer> pending = new ArrayList<>();
+        for (int i = 0; i < checks.size(); i++) {
+            pending.add(i);
+        }
+        boolean[] free = new boolean[cap + 1];
+        Arrays.fill(free, true);
+        int[] ends = new int[cap + 1];
+        Integer[] held = new Integer[cap + 1];
+        Set<String> busy = new HashSet<>();
+        int now = 0;
+        while (true) {
+            AutoQaScheduler.Start start;
+            while ((start = AutoQaScheduler.pick(checks, pending, busy, free)) != null) {
+                Check c = checks.get(pending.remove(start.position()));
+                free[start.lane()] = false;
+                held[start.lane()] = checks.indexOf(c);
+                busy.addAll(AutoQaScheduler.keys(c));
+                ends[start.lane()] = now + c.minutes();
+            }
+            int next = Integer.MAX_VALUE;
+            for (int lane = 1; lane <= cap; lane++) {
+                if (!free[lane]) {
+                    next = Math.min(next, ends[lane]);
+                }
+            }
+            if (next == Integer.MAX_VALUE) {
+                return now;
+            }
+            for (int lane = 1; lane <= cap; lane++) {
+                if (!free[lane] && ends[lane] == next) {
+                    free[lane] = true;
+                    busy.removeAll(AutoQaScheduler.keys(checks.get(held[lane])));
+                    held[lane] = null;
+                }
+            }
+            now = next;
         }
     }
 
@@ -183,5 +242,79 @@ class AutoQaSchedulerTest {
         assertFalse(mapWideChecks.isEmpty(), "the catalogue still reads map-wide lines: " + mapWideChecks);
         assertFalse(propertyChecks.isEmpty(), "the catalogue still runs probes that set a global property: "
                 + propertyChecks);
+    }
+
+    /**
+     * Ticket 163: longest-first packing is off until asked, unreadable values read as off, and on one lane it never
+     * reorders anything (there is nothing to pack, so the run keeps the catalogue order it always had).
+     */
+    @Test
+    void longestFirstIsOffUntilAskedAndDoesNothingOnOneLane() {
+        System.clearProperty(AutoQaScheduler.LONGEST_FIRST_PROPERTY);
+        assertFalse(AutoQaScheduler.longestFirst(), "no property means the catalogue order");
+        for (String unset : List.of("", "nonsense")) {
+            System.setProperty(AutoQaScheduler.LONGEST_FIRST_PROPERTY, unset);
+            assertFalse(AutoQaScheduler.longestFirst(), "unreadable setting " + unset);
+        }
+        List<Check> checks = List.of(budgeted("t-zz-1", 2), budgeted("t-zz-2", 9));
+        boolean[] oneLane = {false, true};
+        assertEquals(0, AutoQaScheduler.pick(checks, new ArrayList<>(List.of(0, 1)), new HashSet<>(), oneLane).position(),
+                "one lane takes the catalogue order whatever the switch says");
+        System.setProperty(AutoQaScheduler.LONGEST_FIRST_PROPERTY, "true");
+        assertEquals(0, AutoQaScheduler.pick(checks, new ArrayList<>(List.of(0, 1)), new HashSet<>(), oneLane).position(),
+                "one lane still takes the catalogue order");
+    }
+
+    /**
+     * Ticket 163: with the switch on, a free lane takes the check with the longest declared budget (earliest first on
+     * a tie), because a long check left for last is what stretches the tail of the run. The keys and the world rule
+     * are untouched: reordering never lets two checks that share a key overlap.
+     */
+    @Test
+    void longestFirstTakesTheLongestFreeCheckAndKeepsTheWorldRule() {
+        System.setProperty(AutoQaScheduler.LONGEST_FIRST_PROPERTY, "true");
+        List<Check> checks = List.of(budgeted("t-zz-1", 3), budgeted("t-zz-2", 9), budgeted("t-zz-3", 9),
+                budgeted("t-zz-4", 5, "map:1"), budgeted("t-zz-5", 8, "map:1"));
+        List<Integer> pending = new ArrayList<>(List.of(0, 1, 2, 3, 4));
+        boolean[] free = {false, true, true, true};
+
+        assertEquals(1, AutoQaScheduler.pick(checks, pending, new HashSet<>(), free).position(),
+                "the 9-minute check starts first, not the first check in the list");
+        Set<String> busy = AutoQaScheduler.keys(checks.get(1));
+        pending.remove(1);
+        assertEquals(1, AutoQaScheduler.pick(checks, pending, busy, free).position(),
+                "the other 9-minute check; both 9s rank above the 8, the map:1 pair waits");
+
+        List<Check> withWorld = List.of(budgeted("t-zz-6", 20, Check.WORLD), budgeted("t-zz-7", 9));
+        AutoQaScheduler.Start world = AutoQaScheduler.pick(withWorld, new ArrayList<>(List.of(0, 1)),
+                new HashSet<>(), free);
+        assertEquals(0, world.position(), "an idle server starts the world check, longest or not");
+        assertNull(AutoQaScheduler.pick(withWorld, new ArrayList<>(List.of(0, 1)), AutoQaScheduler.keys(withWorld.get(0)),
+                free), "nothing starts beside a running world check, longest-first or not");
+        assertNull(AutoQaScheduler.pick(withWorld, new ArrayList<>(List.of(0, 1)), new HashSet<>(),
+                new boolean[] {false, false, false}), "no free lane, nothing starts");
+    }
+
+    /**
+     * Ticket 163, on the real catalogue: with the same declarations and the checks' own declared budgets, longest-first
+     * packing finishes the four-lane run well before the catalogue order does. The win is the tail: the world checks
+     * cannot overlap anything, so what is left has to be spread evenly over the lanes.
+     */
+    @Test
+    void longestFirstPacksTheRealCatalogueTighter() {
+        List<Check> run = new ArrayList<>();
+        for (Check c : AutoQaCatalog.all()) {
+            if (c.kind() != Check.Kind.MANUAL) {
+                run.add(c);
+            }
+        }
+        System.clearProperty(AutoQaScheduler.LONGEST_FIRST_PROPERTY);
+        int catalogueOrder = wallClock(run, 4);
+        System.setProperty(AutoQaScheduler.LONGEST_FIRST_PROPERTY, "true");
+        int packed = wallClock(run, 4);
+        assertTrue(packed < catalogueOrder, "longest-first must finish sooner: catalogue order " + catalogueOrder
+                + " min, longest-first " + packed + " min, " + run.size() + " checks");
+        assertTrue(catalogueOrder - packed >= 10, "the win is worth at least ten minutes of a four-lane run: "
+                + catalogueOrder + " -> " + packed + " min");
     }
 }
