@@ -1767,8 +1767,13 @@ final class Probes160 {
                 b = soloMapling.ArtificialPlayer.BotRebirthQa.pick(p.character());
             } catch (IllegalStateException e) {
                 why = e.getMessage();
+            }
+            if (b == null) {
+                // the deadline and the sleep are unconditional: a pick that ever returns null instead of throwing must
+                // not turn this into a busy loop on the QA thread
                 if (System.currentTimeMillis() >= deadline) {
-                    return List.of("SKIP no bot to stage after 2 min: " + why);
+                    return List.of("SKIP no bot to stage after 2 min: "
+                            + (why == null ? "no candidate was returned" : why));
                 }
                 Thread.sleep(3_000);
             }
