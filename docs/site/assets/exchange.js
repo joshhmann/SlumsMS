@@ -603,8 +603,8 @@
       },
       feeText: function () { var q = this.quote; return q && q.fee_bps ? (q.fee_bps / 100).toFixed(2) + "%" : "0%"; },
       capText: function () { var q = this.quote; return q ? "about " + q.day_cap_pct + "%" : ""; },
-      smallest: function () { var q = this.quote; return q ? "smallest " + fmt(q.min_qty) + " NX, in steps of 100" : ""; },
-      stepNx: function () { var q = this.quote; return q && q.min_qty ? q.min_qty : 100; },
+      smallest: function () { var q = this.quote; return q ? "smallest " + fmt(q.min_qty) + " NX, any whole number above it" : ""; },
+      stepNx: function () { return 1; },  // the desk takes any whole NX from min_qty up (API.md MIN_QTY)
       per: function () { var q = this.quote; return q ? (this.side === "BUY" ? q.sell : q.buy) : null; },
       priceText: function () {
         var each = this.per();

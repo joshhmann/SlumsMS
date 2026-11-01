@@ -192,3 +192,17 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DeskReviewTest(unittest.TestCase):
+    """Review of w23 (2026-11-01): the desk takes any whole NX from 100 (API.md MIN_QTY), and the guide doesn't say a
+    regular can never move the rate (the owner's sentence says the rate follows players and bots)."""
+
+    def test_no_steps_of_100_and_no_never(self):
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        for rel in ("docs/site/assets/exchange.js", "tools/site/sections/market.py", "docs/wiki/src/money.html"):
+            with open(os.path.join(root, rel), encoding="utf-8") as f:
+                text = " ".join(f.read().split())
+            self.assertNotIn("in steps of 100", text, rel)
+            self.assertNotIn("never moves the rate", text, rel)
+

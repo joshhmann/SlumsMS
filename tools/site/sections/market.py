@@ -993,7 +993,7 @@ NX_DESK = None  # build.py --nx: off | mock | on (None: the SLUMS_MARKET_NX_DESK
 # The rules list with the NX desk on (b-review s44): NX is no longer an order book, so its fee, size and band lines go,
 # and the desk gets its own line. Off, the 1.6.2 lines stay as they are.
 RULES_FEE = """<li><b>Fee:</b> <span x-text="feePct()"></span> of the mesos, paid by each side."""
-DESK_FEE = """<li><b>NX desk:</b> trades straight away at its own buy and sell price, 100 NX or more in steps of 100; no
+DESK_FEE = """<li><b>NX desk:</b> trades straight away at its own buy and sell price, 100 NX or more, any whole number; no
 fee: the gap between the two prices is the cost. Nothing waits in a book.</li>
 <li><b>Fee (items):</b> <span x-text="feePct()"></span> of the mesos, paid by each side."""
 RULES_LIST = '''<template x-for="t in list" :key="t.id"><li><b x-text="t.name + ':'"></b> <span x-text="sizeRule(t)">'''
