@@ -206,3 +206,12 @@ class DeskReviewTest(unittest.TestCase):
             self.assertNotIn("in steps of 100", text, rel)
             self.assertNotIn("never moves the rate", text, rel)
 
+    def test_regulars_trade_nx_within_limits(self):
+        # 1.6.3 b260 (163-botnx, release-1.6.3 d441c4588; on TEST since 2026-11-01 23:11 UTC): some regulars trade NX
+        # at the desk within hourly caps. If go/no-go ships it off, this line and this test go back together.
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        with open(os.path.join(root, "docs/wiki/src/money.html"), encoding="utf-8") as f:
+            text = " ".join(f.read().split())
+        self.assertIn("Some regulars trade NX at the desk too, within hourly limits", text)
+        self.assertNotIn("regulars don't trade NX", text)
+
