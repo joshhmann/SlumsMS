@@ -1,0 +1,58 @@
+# b241 (y40, KPQ): through the bonus stage the player kept getting the same per-mob message again and again until
+# everyone left (6c257d926: StagingChat shows each line at most once per stage - lines that differ only in a mob's
+# position, bag slots or an item count count as one - and says how many repeats it held back when the stage turns
+# over and when the run ends; every line still reaches the server log and the QA feed). Staged with the real command
+# !mechanics kpq me perfect stage5, which is the one path that shows the run's chat to the GM: the GM is walked
+# through the opened gates to stage 5, the bots clear it, and the party hunts the bonus stage and leaves.
+id: b241-kpq-bonus-messages-stop-on-leave
+title: KPQ run messages reach the leader once per stage and stop when he leaves
+covers: [b241]
+status: draft
+server: test
+needs: [gm, mechanics]
+notes: "!mechanics kpq me perfect stage5 needs -Dslums.mechanics=true, marks stages 1-4 cleared, walks the GM through each opened portal to stage 5 (103000804) and lets the bots clear it; the party then takes the bonus map 103000805 and leaves to 103000890. The run's own lines (per-mob fights, hand-ins, stalls) are yellow GM messages through StagingChat, so the frames are the proof: the same line must not appear twice in one stage, and one 'N repeat(s) held back this stage (the log has every line)' line appears as the stage turns over and as the run ends. Nothing else watches that chat - the lines are not on the QA feed."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: scene, do: gm, line: "!mechanics kpq me perfect stage5"}
+  - {id: stage5, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000804 ", char: me}, timeout_ms: 180000}
+  - {id: stage5-watch, do: sleep, ms: 4000, reason: "watch stage 5 after its first burst, before the bots finish"}
+  - {id: bonus, do: wait, armed_at: stage5, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000805 ", char: me}, timeout_ms: 240000}
+  - {id: bonus-watch, do: sleep, ms: 4000, reason: "watch the bonus stage after its first burst, before leaving"}
+  - {id: leave, do: wait, armed_at: bonus, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000890 ", char: me}, timeout_ms: 240000}
+  - {id: quiet, do: sleep, ms: 5000, reason: "the chat must stay empty once the run has ended"}
+  - {id: cleanup, do: gm, line: "!mechanics stop"}
+captures:
+  - {id: stage5-chat, burst: {fps: 3, ms: 5000, at: {signal: stage5}}}
+  - {id: stage5-late, burst: {fps: 2, ms: 5000, at: {step: stage5-watch}}}
+  - {id: bonus-chat, burst: {fps: 3, ms: 5000, at: {signal: bonus}}}
+  - {id: bonus-late, burst: {fps: 2, ms: 5000, at: {step: bonus-watch}}}
+  - {id: after-leave, burst: {fps: 2, ms: 5000, at: {signal: leave}}}
+  - {id: quiet-now, burst: {fps: 1, ms: 4000, at: {step: quiet}}}
+expect:
+  reviewer:
+    - see: "The run's yellow lines in stage 5 and in the bonus stage: each distinct line appears once (a per-mob fight line, a hand-in, a stall), never the same line three or four times"
+      in: [stage5-chat, stage5-late, bonus-chat, bonus-late]
+    - see: "One 'N repeat(s) held back this stage (the log has every line)' line as the stage turns over, and one as the run ends"
+      in: [stage5-late, bonus-late, after-leave]
+    - see: "After the party leaves for 103000890 the chat box stays empty: no further run message follows you out"
+      in: [after-leave, quiet-now]
+  checks:
+    - {check: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000804 ", char: me, min: 1}
+    - {check: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000805 ", char: me, min: 1}
+    - {check: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000890 ", char: me, min: 1}
+    - {check: client_alive}
+  judgment: "The client frames decide it: identical run lines in one stage are the bug, the held-back count line is the fix, and an empty chat box after the exit map is the 'stops when you leave' half. A run that never reaches the bonus map fails the check on 103000805 and is a lead on the staging, not on this card."

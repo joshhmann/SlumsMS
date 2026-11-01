@@ -1,0 +1,50 @@
+# b232 (y40, KPQ): a follower inside an instance did not leave with its leader - when the leader warped out the bot
+# stayed and said it "waits outside". fb7ef65b9: BotEventExit.GCFollow.leavesWithLeader sends a follower/owned alt
+# inside an instance its leader left through the event's own playerExit to the exit map. Staged with !qa run mx-5 and
+# then a GM warp out: the two owned alts stand next to the leader again on map 103000890 within a second or two.
+id: b232-kpq-alt-leaves-with-leader
+title: KPQ followers leave the instance with their leader
+covers: [b232]
+status: draft
+server: test
+needs: [gm, mechanics, owned_alt]
+notes: "mx-5 puts the GM and two owned alts (AutoQaAlt, AutoQaAltB) plus one bot into the live KPQ instance (stage 1 = 103000800) with the GM leading. !warp 103000890 takes ONLY the GM out; the alts must follow through the event's playerExit to the exit map within a second or two, which is the fix, so the burst starts on the warp step and runs 9 s. Needs the mechanics switch, owned alts enabled and level 21+."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: scene, do: gm, line: "!qa run mx-5"}
+  - {id: inside, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000800 ", char: me}, timeout_ms: 90000}
+  - {id: settle, do: sleep, ms: 3000, reason: "let the alts settle in the stage before the leader leaves"}
+  # only the GM is warped: whoever follows him was left inside before the fix
+  - {id: out, do: gm, line: "!warp 103000890"}
+  - {id: at-exit, do: wait, armed_at: out, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000890 ", char: me}, timeout_ms: 60000}
+  - {id: followers, do: sleep, ms: 4000, reason: "give the followers the same second to come through the exit"}
+  - {id: cleanup, do: gm, line: "!qa stop"}
+captures:
+  - {id: leader-warp, burst: {fps: 3, ms: 5000, at: {step: out}}}
+  - {id: exit-map, burst: {fps: 2, ms: 5000, at: {signal: at-exit}}}
+  - {id: after-stop, burst: {fps: 1, ms: 3000, at: {step: cleanup}}}
+expect:
+  reviewer:
+    - see: "You arrive on the KPQ exit map 103000890 and both alts (AutoQaAlt and AutoQaAltB) appear next to you within about 3 s - the same characters that were in the stage with you"
+      in: [leader-warp, exit-map]
+    - see: "No alt is left behind in the stage and no bot line says it is waiting outside or asks where you went"
+      in: [leader-warp, exit-map, after-stop]
+  checks:
+    - {check: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000800 ", char: me, min: 1}
+    - {check: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000890 ", char: me, min: 1}
+    - {check: client_alive}
+  judgment: "The alts are in frame with you on the exit map or they are not: the frames settle it; the server logs the exit map line but nothing per follower."

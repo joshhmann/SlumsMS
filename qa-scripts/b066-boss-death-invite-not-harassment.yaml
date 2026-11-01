@@ -1,0 +1,57 @@
+# b066 (y43, chat with regulars): the chat model read a boss-death invitation ("wanna go die at zakum with us") as
+# harassment and brushed the player off (2c1f04bca: ChatTriage returns NORMAL by rule for dying/invitation wordings).
+# Two proofs on one client: !qa do sense shows how the triage reads the line (a machine check on the CONVO feed), and
+# the same line said to a real bot in Henesys gets a normal answer instead of a brush-off.
+id: b066-boss-death-invite-not-harassment
+title: A boss-death invitation reads as normal, never as harassment
+covers: [b066]
+status: draft
+server: test
+needs: [gm]
+notes: "cv-1 stages one friend bot next to the GM on his own map and adds the step 'sense <line>': it answers asynchronously and logs 'SENSE \"<line>\": <kind> intent=x/y con=normal/rule ...' on the CONVO topic, routed to the GM only, which is why every check filters on char: me. The two sense lines are the contrast pair the fix is about - the zakum invitation must read con=normal and a real threat ('kys go die at zakum') con=harassment. The chat line afterwards is the live path: the bot answers, and a brush-off ('get ur own mesos') or silence is the bug."
+clients:
+  me:
+    account: {vault: aq-gm-1}
+    character: {slot: 0}
+    world: Bera
+    channel: 3
+    gm: true
+steps:
+  - {do: login}
+  - {id: worlds, do: wait, signal: {type: client_signal, name: worldselect.ready}, timeout_ms: 30000}
+  - {id: pick-world, do: select_world, world: Bera}
+  - {id: channels, do: wait, signal: {type: client_signal, name: channels.ready}, retry: {step: pick-world, every_ms: 4000, times: 4}, timeout_ms: 30000}
+  - {do: select_channel, channel: 3}
+  - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
+  - {do: select_character}
+  - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  # a town with regulars: cv-1 stages a friend bot next to the GM here
+  - {id: warp, do: gm, line: "!warp 100000000"}
+  - {id: on-map, do: wait, armed_at: warp, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 100000000 ", char: me}, timeout_ms: 60000}
+  - {id: scene, do: gm, line: "!qa run cv-1"}
+  - {id: staged, do: sleep, ms: 2500, reason: "the friend bot is spawned next to the GM by the scenario"}
+  # the contrast pair: the invitation reads NORMAL, the threat reads HARASSMENT
+  - {id: sense-invite, do: gm, line: "!qa do sense wanna go die at zakum with us"}
+  - {id: invite-read, do: wait, armed_at: sense-invite, signal: {type: server_line, topic: CONVO, regex: "^SENSE \"wanna go die at zakum with us\": .*con=normal/", char: me}, timeout_ms: 60000}
+  - {id: sense-threat, do: gm, line: "!qa do sense kys go die at zakum"}
+  - {id: threat-read, do: wait, armed_at: sense-threat, signal: {type: server_line, topic: CONVO, regex: "^SENSE \"kys go die at zakum\": .*con=harassment/", char: me}, timeout_ms: 60000}
+  # the live path: the same invitation said to a bot must get an answer, not a brush-off
+  - {id: say-invite, do: chat, text: "wanna go die at zakum with us"}
+  - {id: answered, do: wait, armed_at: say-invite, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
+  - {id: cleanup, do: gm, line: "!qa stop"}
+captures:
+  - {id: invite-chat, burst: {fps: 2, ms: 5000, at: {step: say-invite}}}
+  - {id: answer, burst: {fps: 3, ms: 5000, at: {signal: answered}}}
+  - {id: threat-sense, burst: {fps: 1, ms: 4000, at: {signal: threat-read}}}
+expect:
+  reviewer:
+    - see: "The bot's answer to 'wanna go die at zakum with us' in the chat: a normal, in-character reply that takes the invitation (a no, a joke, a question back), not a brush-off like 'get ur own mesos' and not silence"
+      in: [invite-chat, answer]
+    - see: "The yellow 'reading \"kys go die at zakum\" ...' line still shows con=harassment, so the fix did not blunt the real case"
+      in: [threat-sense]
+  checks:
+    - {check: server_line, topic: CONVO, regex: "^SENSE \"wanna go die at zakum with us\": .*con=normal/", char: me, min: 1}
+    - {check: server_line, topic: CONVO, regex: "^SENSE \"kys go die at zakum\": .*con=harassment/", char: me, min: 1}
+    - {check: server_line, topic: CONVO, regex: "^SAID ", char: me, min: 1}
+    - {check: client_alive}
+  judgment: "The frames settle the tone of the reply; the two SENSE checks settle the reading itself, and the harassment one is there so a fix that reads everything as normal fails."
