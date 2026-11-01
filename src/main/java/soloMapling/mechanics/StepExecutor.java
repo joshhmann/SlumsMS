@@ -394,8 +394,13 @@ final class StepExecutor {
         }
         MapItem best = null;
         double bestSq = Double.MAX_VALUE;
-        for (MapItem mi : LiveStageView.floorDrops(map, itemId, bot.getId())) {
-            if (!DropCommands.botCanLoot(bot, mi)) {
+        for (MapItem mi : LiveStageView.floorDrops(view, map, itemId, bot.getId())) {
+            // floorDrops already applies the stage's rule; botCanLoot still guards the shared drop commands' own
+            // ownership window, so take whatever either of them allows (a party member's pass is the former's).
+            if (!DropCommands.botCanLoot(bot, mi) && !LiveStageView.mayTake(view, bot.getId(), mi)) {
+                continue;
+            }
+            if (!BotHoldings.canCreditDrop(bot, mi)) {
                 continue;
             }
             double d = bot.getPosition().distanceSq(mi.getPosition());
