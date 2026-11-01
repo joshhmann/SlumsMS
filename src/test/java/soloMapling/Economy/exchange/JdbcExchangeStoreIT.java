@@ -204,6 +204,46 @@ class JdbcExchangeStoreIT {
         assertTrue(Exchange.reconcile(store.load(10)).isEmpty(), "reconciles after a restart");
     }
 
+    /**
+     * Finding 1 end to end in MySQL: a quote held for character 12 while its player was offline, confirmed after
+     * logging in as character 23 of the same account, is refused. Before the confirm-time check the fill was written
+     * to character 12's row (move() checks ownership only, never the live character) while the live wallet paid
+     * character 23 in memory: one BUY took the mesos twice.
+     */
+    @Test
+    void aDeskConfirmForAnotherCharacterIsRefusedAndWritesNothing() throws Exception {
+        exec("INSERT INTO characters VALUES (23, 2, 50000000)");
+        JdbcExchangeStore store = new JdbcExchangeStore(() -> DriverManager.getConnection(URL));
+        DbWallet w = new DbWallet(2, 23);
+        java.util.concurrent.atomic.AtomicBoolean inGame = new java.util.concurrent.atomic.AtomicBoolean();
+        Exchange ex = new Exchange(store, ExchangeLiveTest.cfg(0, 99), a -> inGame.get(),
+                a -> inGame.get() && a == 2 ? w : null, now::get);
+        ex.guard(ExchangeTest.engineGuard());
+        ex.siteReauth(SiteReauth.OFF);
+        ex.deskConfig(DeskConfig.defaults().on());
+        assertTrue(ex.recover().isEmpty());
+        store.apply(new ExchangeStore.Batch(9000, now.get(), List.of(
+                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Ledger.Asset.NX, 1),
+                        Exchange.deskBucket(Ledger.Asset.NX), 5_000, 1, 0, 0),
+                new Ledger.Posting(Ledger.Why.FUND, Ledger.Bucket.wallet(Ledger.Asset.MESO, 11),
+                        Exchange.deskBucket(Ledger.Asset.MESO), 40_000_000, 1, 0, 0)), List.of(), List.of()));
+        long nx0 = totalNx(), meso0 = totalMeso();
+        Response pv = ex.preview(new Place("pv", 2, 12, Side.BUY, 0, 1_000, Ticker.NX));
+        assertTrue(pv.ok(), pv.toString());
+        inGame.set(true);                       // the player logs in as another character, after the preview
+        exec("UPDATE accounts SET loggedin = 2 WHERE id = 2");
+        Response r = ex.confirm("cf", 2, (String) pv.data().get("token"));
+        assertEquals("LOG_OUT_FIRST", r.code(), r.toString());
+        assertEquals(50_000_000, one("SELECT meso FROM characters WHERE id=12"), "the previewed row is untouched");
+        assertEquals(50_000_000, w.meso, "and the live character's wallet");
+        assertEquals(0, one("SELECT COALESCE(nxCredit,0) FROM accounts WHERE id=2"));
+        assertEquals(0, w.nx, "no NX reached the live wallet");
+        assertEquals(0, w.saves, "nothing was saved");
+        assertEquals(nx0, totalNx());
+        assertEquals(meso0, totalMeso());
+        assertTrue(ex.desk().fillsOf(2, 20).isEmpty(), "no fill was recorded");
+    }
+
     @Test
     void placeFillCancelCollectConserveAndRecover() throws Exception {
         long nx0 = totalNx(), meso0 = totalMeso();
