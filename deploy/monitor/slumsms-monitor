@@ -65,6 +65,9 @@ DEFAULTS = {
     "DISK_MIN_FREE_PCT": "5",
     "BOTS_MIN_RATIO": "0.6",          # online bots below this share of the director target ...
     "BOTS_GRACE_MIN": "20",           # ... once the server has been up this long
+    "BOTS_STALE_MIN": "75",           # roster rows logged in before this boot are crash leftovers, not bots, once
+                                      # the server has been up this long (past the first hourly autosave, see
+                                      # roster_population)
     # Game log silence: a hung world loop stops writing while the login port still answers (unit + port both "up").
     "GAME_LOG_FILE": "",              # default: <SERVER_DIR>/BotLog.txt, the world loop's own activity log
     "LOG_SILENCE_MIN": "5",           # alert after the log has been quiet this long ...
@@ -469,6 +472,87 @@ def journal_lines(unit, since):
     return out.splitlines() if code == 0 else None
 
 
+# --- bot roster rows (bot population: which open rows are bots that are really in the world) ---
+#
+# A roster row is written by the hourly autosave (CharacterAutosaverTask), by a despawn and by the shutdown sweep;
+# a bot that logs in only changes its in-memory member until one of those writes (BotRoster.recordLogin). So after a
+# SIGKILL - no shutdown sweep, no logout - a row stays open with the previous run's LastLoginAt, and
+# "LastLoginAt > LastLogoutAt" counts bots that never came back (2026-11-01 03:22 UTC: 2,441 counted, 1,186 in world).
+#
+# ROSTER_OPEN_SQL returns the two timestamps of every open row instead of a count: the comparison against this boot
+# is then done here, in Python, where the boot time stays an int the monitor controls - the monitor's Db.query takes
+# one SQL string and no parameters, and interpolating anything into it would be the way to stop being injection-safe.
+ROSTER_OPEN_SQL = ("SELECT LastLoginAt, LastLogoutAt FROM botroster WHERE Status='ACTIVE' "
+                   "AND LastLoginAt > LastLogoutAt")
+
+
+def roster_population(rows, boot_ms):
+    """Splits the open roster rows by this boot: (since, before) where since counts the bots that logged in after it.
+
+    rows: [LastLoginAt, LastLogoutAt] in ms, as Db.query returns them. boot_ms: the unit's current start in ms, or
+    None when systemd does not know it (then nothing can be told apart and every row counts as "since").
+    """
+    since = before = 0
+    for row in rows:
+        try:
+            login = int(row[0])
+        except (IndexError, TypeError, ValueError):
+            continue
+        if boot_ms is not None and login < boot_ms:
+            before += 1
+        else:
+            since += 1
+    return since, before
+
+
+class Roster:
+    """The bot roster as the monitor sees it: online is what the checks judge, since/before is the split this boot
+    makes of the open rows, and state says whether that split could be trusted yet ("settled"), is still filling in
+    ("unsettled", both sides counted), or could not be made at all ("unknown", no boot time from systemd)."""
+
+    def __init__(self, online, since, before, state):
+        self.online, self.since, self.before, self.state = online, since, before, state
+
+
+def open_roster(db, info, stale_min):
+    """Counts the bots in the world, ignoring the open rows a crash left behind.
+
+    A row logged in before this boot is a crash leftover once the server has been up stale_min minutes: by then the
+    hourly autosave has rewritten every bot that came back, so only the rows logged in since count. Before that a bot
+    that logged in a minute ago still carries the previous run's login time, so both sides are counted (the total is
+    the population either way) and the callers say the split is not trusted yet.
+    """
+    up = info["up_seconds"] if info else None
+    if up is None:                      # systemd cannot say when this run started: nothing to compare against
+        return Roster(int(db.query("SELECT COUNT(*) FROM botroster WHERE Status='ACTIVE' "
+                                   "AND LastLoginAt > LastLogoutAt")[0][0]), 0, 0, "unknown")
+    since, before = roster_population(db.query(ROSTER_OPEN_SQL), int((time.time() - up) * 1000))
+    if up >= stale_min * 60:
+        return Roster(since, since, before, "settled")
+    return Roster(since + before, since, before, "unsettled")
+
+
+def roster_detail(r, target):
+    """The bot population check's detail: the count, the stale rows this boot unmasked, and the director target."""
+    if r.state == "settled" and r.before:
+        return "%d online (%d row%s logged in before this boot %s stale), director target %d" % (
+            r.online, r.before, "" if r.before == 1 else "s", "is" if r.before == 1 else "are", target)
+    if r.state == "unsettled":
+        return ("%d open rows: %d logged in since this boot, %d from before it (the roster rewrites them hourly), "
+                "director target %d" % (r.online, r.since, r.before, target))
+    return "%d online, director target %d" % (r.online, target)
+
+
+def roster_status(r):
+    """The status message's bot line: the same split, short enough for a Discord message."""
+    if r.state == "settled" and r.before:
+        return "%d (%d stale row%s from before this boot)" % (r.online, r.before, "" if r.before == 1 else "s")
+    if r.state == "unsettled" and r.before:
+        return "%d (%d open row%s from before this boot, not split yet)" % (
+            r.online, r.before, "" if r.before == 1 else "s")
+    return str(r.online)
+
+
 # ------------------------------------------------------------------------------------------------------ game log
 
 LAST_LINE_STAMP = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]")
@@ -862,19 +946,23 @@ def run_checks(t, cloud=None, checks=None):
             else:
                 target = director_target(cfg, peak, curve)
                 try:
-                    online = int(db.query("SELECT COUNT(*) FROM botroster WHERE Status='ACTIVE' "
-                                          "AND LastLoginAt > LastLogoutAt")[0][0])
+                    roster = open_roster(db, info, t.num("BOTS_STALE_MIN"))
                 except (RuntimeError, IndexError, ValueError) as e:
                     add("bots", "bot population", True, "bot count unavailable (%s)" % e, skipped=True)
                 else:
                     ratio = t.num("BOTS_MIN_RATIO")
-                    detail = "%d online, director target %d" % (online, target)
-                    ok = True
+                    detail = roster_detail(roster, target)
+                    ok, skipped = True, False
                     if tick_failed:
                         ok, detail = False, detail + "; %d director tick failures in 5 min" % tick_failed
-                    elif up_min > t.num("BOTS_GRACE_MIN") and online < target * ratio:
+                    elif up_min > t.num("BOTS_GRACE_MIN") and roster.online < target * ratio:
                         ok, detail = False, detail + " (below %.0f%%)" % (ratio * 100)
-                    add("bots", "bot population", ok, detail)
+                    elif roster.state == "unsettled":
+                        # Both sides are counted and the hourly autosave has not rewritten the returning bots yet, so
+                        # the total is the population but the split is not evidence: a passing reading is not a
+                        # recovery the on-call should act on, and cmd_check must not count it towards the alert.
+                        skipped = True
+                    add("bots", "bot population", ok, detail, skipped)
 
     # 9. LLM and Decide
     timeout = t.num("HTTP_TIMEOUT") or 5
@@ -1119,7 +1207,8 @@ def cmd_status(t, args):
     lines = ["**%s**" % t.get("STATUS_TITLE")]
     if answers:
         lines.append("Status: **Online**")
-        players = bots = None
+        players = None
+        bots = None
         db = Db(t)
         if t.get("DB_CONTAINER") and db.usable():
             try:
@@ -1128,13 +1217,12 @@ def cmd_status(t, args):
                     "SELECT COUNT(*) FROM accounts a WHERE a.loggedin = 2 AND NOT EXISTS "
                     "(SELECT 1 FROM characters c WHERE c.accountid = a.id AND c.id >= %d)" % BOT_ID_BASE)[0][0])
                 if t.get("STATUS_SHOW_BOTS") == "1":
-                    bots = int(db.query("SELECT COUNT(*) FROM botroster WHERE Status='ACTIVE' "
-                                        "AND LastLoginAt > LastLogoutAt")[0][0])
+                    bots = roster_status(open_roster(db, info, t.num("BOTS_STALE_MIN")))
             except (RuntimeError, IndexError, ValueError):
                 pass
         lines.append("Players online: %s" % ("?" if players is None else players))
         if bots is not None:
-            lines.append("Bots online: %d" % bots)
+            lines.append("Bots online: %s" % bots)
         lines.append("Version: %s" % read_version(t))
         lines.append("Uptime: %s" % human_duration(info["up_seconds"] or 0))
     elif up:
@@ -1172,13 +1260,54 @@ def cmd_status(t, args):
     return 0
 
 
-def news_entries(path):
-    data = load_json(path, None)
+class NewsEntries(list):
+    """The news entries, plus why there are none: why is "file" (no NEWS_FILE at all), "array" (a manifest without a
+    news array, what the publisher writes for a release that carries no news) or None (this is the real list)."""
+
+    why = None
+
+
+def news_entries(path, seed=False):
+    """The news entries in NEWS_FILE, newest first as the launcher lists them.
+
+    The publisher leaves the "news" key out of manifest.json when a release carries no news file (card b270), so a
+    missing or null key means "no news entries", not a broken file: the install's --seed then seeds 0 and goes on. A
+    news key that is there but is not a list is a broken file and still raises. seed=True is that install path, where
+    a path that has gone away is nothing to seed (install.sh checks -f first) rather than a hard error.
+    """
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        if not seed:
+            raise SystemExit("no news file at %s" % path)
+        entries = NewsEntries()
+        entries.why = "file"
+        return entries
+    except OSError as e:
+        raise SystemExit("unreadable news file %s (%s)" % (path, e.strerror or e))
+    except ValueError as e:
+        raise SystemExit("unreadable news file %s (%s)" % (path, e))
     if isinstance(data, dict):
-        data = data.get("news")
+        if data.get("news") is None:            # this release published no news file
+            entries = NewsEntries()
+            entries.why = "array"
+            return entries
+        data = data["news"]
+    elif not isinstance(data, list):
+        raise SystemExit("news file %s is a %s, not an array" % (path, type(data).__name__))
     if not isinstance(data, list):
-        raise SystemExit("no news array in %s" % path)
-    return [e for e in data if isinstance(e, dict) and e.get("title")]
+        raise SystemExit("news is a %s, not an array (in %s)" % (type(data).__name__, path))
+    return NewsEntries(e for e in data if isinstance(e, dict) and e.get("title"))
+
+
+def news_seed_message(path, entries):
+    """What --seed says: which "nothing" this was, so an install log shows a quiet release apart from a broken path."""
+    if entries.why == "file":
+        return "no news file at %s: seeded 0" % path
+    if entries.why == "array":
+        return "no news entries in %s (the manifest has no news array): seeded 0" % path
+    return "seeded %d news %s as already posted" % (len(entries), "entry" if len(entries) == 1 else "entries")
 
 
 def news_key(entry):
@@ -1190,7 +1319,7 @@ def cmd_news(t, args):
     path = args.file or t.get("NEWS_FILE")
     if not path:
         raise SystemExit("no news file (NEWS_FILE or --file)")
-    entries = news_entries(path)
+    entries = news_entries(path, seed=args.seed)
     state_path = os.path.join(t.state_dir, "news.json")
     state = load_json(state_path, None)
     if state is None or args.seed:
@@ -1198,7 +1327,7 @@ def cmd_news(t, args):
         state = {"posted": sorted({news_key(e) for e in entries} | set((state or {}).get("posted", [])))}
         if not args.dry_run:
             save_json(state_path, state)
-        print("seeded %d news entries as already posted" % len(entries))
+        print(news_seed_message(path, entries))
         return 0
     posted = set(state.get("posted", []))
     fresh = [e for e in entries if news_key(e) not in posted]
