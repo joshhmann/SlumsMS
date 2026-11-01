@@ -29,6 +29,11 @@ import java.util.concurrent.TimeUnit;
  * </ul>
  * Threads (a bot talking to the map, {@code player "-"}) are not replies to a player and are left out. The check SKIPs
  * when the planner switch is off or nothing was said in the window, so a run without the switch is a gap, not a pass.
+ * <p>
+ * Only rows written since this server process started are judged, still inside the 24 h window ({@link
+ * ChatQuality#bootMs()}). A deploy replaces the planner, so a line the old build worded says nothing about the build
+ * that is running: on TEST (2026-11-01) t-pl-1 failed on one reply from before the 1.6.3 deploy, and a check that
+ * cannot tell the two builds apart fails every run for a day after each deploy.
  */
 final class PlannerReplies {
 
@@ -97,19 +102,31 @@ final class PlannerReplies {
         return out;
     }
 
-    /** The verdict: SKIP without the planner or without replies, FAIL on any broken rule, else PASS with a count. */
-    static Check.Verdict judge(List<Row> rows, boolean plannerOn) {
+    /**
+     * The verdict: SKIP without the planner or without a reply since the server started, FAIL on any broken rule, else
+     * PASS with a count. Rows older than {@code bootMs} are dropped and counted first: they were said by whatever build
+     * ran before this process ({@code bootMs} of 0 means unknown, so every row counts).
+     */
+    static Check.Verdict judge(List<Row> rows, boolean plannerOn, long bootMs) {
         if (!plannerOn) {
             return Check.Verdict.skip("the reply planner is off (-Dsolomapling.convo.planner=true)");
         }
         List<Row> said = new ArrayList<>();
+        int before = 0;
         for (Row r : rows) {
-            if (r.toAPlayer()) {
+            if (bootMs > 0 && r.at() < bootMs) {
+                before++;
+            } else if (r.toAPlayer()) {
                 said.add(r);
             }
         }
+        String skipped = "  " + before + " transcript row(s) from before this server started were skipped";
         if (said.isEmpty()) {
-            return Check.Verdict.skip("no bot reply to a player in the last 24 h");
+            if (bootMs <= 0) {
+                return Check.Verdict.skip("no bot reply to a player in the last 24 h");
+            }
+            String why = "no bot reply to a player since this server started (" + Instant.ofEpochMilli(bootMs) + ")";
+            return before > 0 ? Check.Verdict.skip(why, skipped) : Check.Verdict.skip(why);
         }
         List<String> bad = new ArrayList<>();
         int planned = 0;
@@ -130,7 +147,12 @@ final class PlannerReplies {
         }
         bad.addAll(tooTalkative(said));
         List<String> ev = new ArrayList<>();
-        ev.add(said.size() + " replies to players in 24 h, " + planned + " planned, " + town + " in a town");
+        ev.add(said.size() + " replies to players "
+                + (bootMs > 0 ? "since this server started " + Instant.ofEpochMilli(bootMs) : "in the last 24 h")
+                + ", " + planned + " planned, " + town + " in a town");
+        if (before > 0) {
+            ev.add(skipped);
+        }
         for (int i = 0; i < Math.min(bad.size(), MAX_SHOWN); i++) {
             ev.add("  " + bad.get(i));
         }
@@ -174,12 +196,12 @@ final class PlannerReplies {
         return bad;
     }
 
-    /** The t-pl-1 expectation: reads the last 24 h of transcript now, judges it, no in-game steps. */
+    /** The t-pl-1 expectation: reads the last 24 h of transcript now, judges what this build said, no in-game steps. */
     static Check.Expect expectation() {
         return Expects.of("planned replies: no grinding claimed in a town, no literal {slot}, one bot-started chat "
                 + "per player an hour", r -> {
                     long now = System.currentTimeMillis();
-                    return judge(load(dir(), now - WINDOW_MS, now), ConvoSwitches.planner());
+                    return judge(load(dir(), now - WINDOW_MS, now), ConvoSwitches.planner(), ChatQuality.bootMs());
                 });
     }
 }
