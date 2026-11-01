@@ -897,6 +897,11 @@ class WorldTest(unittest.TestCase):
                              "SlumsBank is buying NX but has none to sell yet", "grid-area: nxq"):
                     self.assertEqual(line in flat, want, (mode, line))
                 self.assertIn("@submit.prevent=\"preview()\" @xc-price.window", flat)  # items keep their order form
+                # the rules list (s44 review): with the desk, NX has its own line and the order-book band and fee lines
+                # no longer talk about NX; off, 1.6.2's lines stay
+                self.assertEqual("NX desk:</b> trades straight away at its own buy and sell price" in flat, want, mode)
+                self.assertEqual("sells at half of it or more, buys at twice it or less" in flat, not want, mode)
+                self.assertEqual("list.filter(function (t) { return t.id !== 'NX'; })" in flat, want, mode)
                 if want:  # the item panels step aside on the desk's tab; the desk panels show only there
                     self.assertEqual(flat.count("""x-show="$store.xc.tk !== 'NX'">"""), 4, (mode, "item panels"))
                     self.assertEqual(flat.count("$store.xc.tk !== 'NX'"), 7, (mode, "candles, depth, book, trades, form"))

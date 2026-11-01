@@ -16,6 +16,8 @@ Environment=SLUMS_MARKET_UNTRADEABLE=/srv/slums-site-test/market/untradeable.jso
 Environment=SLUMS_MARKET_PORT=8195
 # the exchange is off unless switched on (live keeps it closed, b063); TEST runs it
 Environment=SLUMS_MARKET_EXCHANGE=on
+# 1.6.3 NX desk (s44): off | mock | on, filled in by install.sh from SLUMS_TEST_NX_DESK
+Environment=SLUMS_MARKET_NX_DESK=@NX_DESK@
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

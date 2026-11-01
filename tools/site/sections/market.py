@@ -985,6 +985,23 @@ def build_invites(mk):
 NX_DESK = None  # build.py --nx: off | mock | on (None: the SLUMS_MARKET_NX_DESK the site serves with)
 
 
+# The rules list with the NX desk on (b-review s44): NX is no longer an order book, so its fee, size and band lines go,
+# and the desk gets its own line. Off, the 1.6.2 lines stay as they are.
+RULES_FEE = """<li><b>Fee:</b> <span x-text="feePct()"></span> of the mesos, paid by each side."""
+DESK_FEE = """<li><b>NX desk:</b> trades straight away at its own buy and sell price, 100 NX or more in steps of 100; no
+fee: the gap between the two prices is the cost. Nothing waits in a book.</li>
+<li><b>Fee (items):</b> <span x-text="feePct()"></span> of the mesos, paid by each side."""
+RULES_LIST = '''<template x-for="t in list" :key="t.id"><li><b x-text="t.name + ':'"></b> <span x-text="sizeRule(t)">'''
+DESK_LIST = ('''<template x-for="t in list.filter(function (t) { return t.id !== 'NX'; })" :key="t.id"><li>'''
+             '''<b x-text="t.name + ':'"></b> <span x-text="sizeRule(t)">''')
+RULES_SAFETY = """empty your account. NX prices stay near the official rate: sells at half of it or more, buys at twice it or less.
+Prices are per NX. Until players have set an official rate, NX counts as 5,000 mesos per NX (the NX merchants'
+price), so sells start at 2,500 and buys stop at 10,000 mesos per NX.</li>"""
+DESK_SAFETY = """empty your account; the same goes for a trade with the NX desk. Selling NX on the website, or buying more than
+10,000,000 mesos' worth in 12 hours, asks for your password for that trade. The desk's prices always stay between 2,500
+and 10,000 mesos per NX.</li>"""
+
+
 def nx_mode():
     """The NX desk mode the page is built for: build.py --nx, else the env var market_app.py reads (off by default)."""
     return NX_DESK if NX_DESK is not None else exchange_desk.desk_mode()
@@ -1001,6 +1018,9 @@ def build_exchange(mk):
     if nx != "off":
         body = body.replace("{desk}", " data-nxdesk=\"" + nx + "\" :class=\"$store.xc.tk === 'NX' && 'xc-nx'\"")
         body = body.replace(NX_MARK, NX_PANEL)
+        for old, new in ((RULES_FEE, DESK_FEE), (RULES_LIST, DESK_LIST), (RULES_SAFETY, DESK_SAFETY)):
+            assert body.count(old) == 1, old[:40]
+            body = body.replace(old, new)
     else:
         body = body.replace("{desk}", "").replace(NX_MARK, "")  # off: 1.6.2's page, without the marker or the panel
     mk.page(f"{MARKET}/exchange.html", "Slums Exchange", body, "exchange",

@@ -574,7 +574,7 @@
       movedText: function () {
         var q = this.quote;
         if (!q) return "";
-        return pct(q.moved_today_pct) + " today (limit about " + q.day_cap_pct + "% each way)";
+        return pct(q.moved_today_pct) + " today (limit about " + q.day_cap_pct + "% each way).";
       },
       driftText: function () {
         var q = this.quote;

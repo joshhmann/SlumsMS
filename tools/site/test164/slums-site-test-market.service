@@ -6,6 +6,8 @@ Type=oneshot
 Nice=19
 IOSchedulingClass=idle
 WorkingDirectory=/opt/slums-site-test
+# the exchange page is rebuilt here every 2 minutes: same NX desk mode as the market service (install.sh)
+Environment=SLUMS_MARKET_NX_DESK=@NX_DESK@
 ExecStart=/usr/bin/flock -w 90 /run/lock/slums-site-test-build.lock /usr/bin/python3 tools/site/build.py --private --world --section market --out /srv/slums-site-test \
     --market-data /opt/mapleroot-dev/persistence-test/Server/data/market \
     --site-data /opt/mapleroot-dev/persistence-test/Server/data/site \

@@ -9,6 +9,10 @@
 # Never touches the shared nginx on that host, live's folders or units, the TEST game server or start-test.sh.
 set -euo pipefail
 TEST_HOST=${SLUMS_TEST_HOST:-192.168.0.111}
+# The 1.6.3 NX desk on the TEST site (s44): off (1.6.2's NX order book), mock (fixtures) or on (the game's desk).
+# It goes into the market service, the market rebuild and this install's build alike.
+NX_DESK=${SLUMS_TEST_NX_DESK:-off}
+case $NX_DESK in off|mock|on) ;; *) echo "SLUMS_TEST_NX_DESK must be off, mock or on, not '$NX_DESK'" >&2; exit 1 ;; esac
 case $TEST_HOST in
   ""|*[!0-9.]*) echo "SLUMS_TEST_HOST must be an IPv4 address, not '$TEST_HOST'" >&2; exit 1 ;;
 esac
@@ -71,11 +75,11 @@ rsync -a --delete --include '*.json' --exclude '*' "$DATA/" "$HOST:$DEST/hiddens
 ssh "$HOST" "echo $(git rev-parse --short HEAD) > $DEST/DEPLOYED_COMMIT
   sed 's/@TEST_HOST@/$TEST_HOST/g' $DEST/tools/site/test164/nginx.conf > /etc/slums-site-test/nginx.conf
   chmod 0644 /etc/slums-site-test/nginx.conf
-  for u in $(echo $UNITS); do sed 's/@TEST_HOST@/$TEST_HOST/g' $DEST/tools/site/test164/\$u > /etc/systemd/system/\$u
+  for u in $(echo $UNITS); do sed -e 's/@TEST_HOST@/$TEST_HOST/g' -e 's/@NX_DESK@/$NX_DESK/g' $DEST/tools/site/test164/\$u > /etc/systemd/system/\$u
     chmod 0644 /etc/systemd/system/\$u; done
   systemctl daemon-reload
   nginx -t -q -c /etc/slums-site-test/nginx.conf
-  cd $DEST && flock -w 300 /run/lock/slums-site-test-build.lock nice -n 19 python3 tools/site/build.py --private --world \
+  cd $DEST && flock -w 300 /run/lock/slums-site-test-build.lock nice -n 19 env SLUMS_MARKET_NX_DESK=$NX_DESK python3 tools/site/build.py --private --world \
     --out /srv/slums-site-test --no-tar --hs-data $DEST/hiddenstreet \
     --site-data /opt/mapleroot-dev/persistence-test/Server/data/site \
     --market-data /opt/mapleroot-dev/persistence-test/Server/data/market \
