@@ -11,7 +11,7 @@
 <tr><td><code>@gacha &lt;town&gt;</code></td><td>A gachapon machine's prizes and odds.</td></tr>
 <tr><td><code>@guildwar</code></td><td>Your guild's war score; <code>@guildwar peace</code> (master or jr. master) ends a war with a regular guild.</td></tr>
 <tr><td><code>@romance</code></td><td>Who you're with. Also <code>@romance on</code> / <code>off</code>, <code>wedding</code>, <code>breakup &lt;name&gt;</code>, <code>divorce</code>.</td></tr>
-<tr><td><code>@daily</code> / <code>@checkin</code></td><td>The Daily Check-In window.</td></tr>
+<tr><td><code>@daily</code> / <code>@checkin</code></td><td>The Daily Check-In window: a Slums Stamp, and six on days 7, 14, 21 and 28.</td></tr>
 </table></div>
 
 <h2>Info</h2>
@@ -24,7 +24,9 @@
 <tr><td><code>@time</code> / <code>@uptime</code></td><td>Server time / how long the server has been up.</td></tr>
 <tr><td><code>@online</code></td><td>Players online.</td></tr>
 <tr><td><code>@ranks</code></td><td>Player rankings.</td></tr>
-<tr><td><code>@points</code></td><td>Your point total.</td></tr>
+<tr><td><code>@points</code></td><td>Your Slums Stamps, the same number <code>@stamps</code> shows.</td></tr>
+<tr><td><code>@stamps</code></td><td>Your Slums Stamps, your check-in day and the next bonus day.</td></tr>
+<tr><td><code>@achievements</code></td><td>The goals you have left, with your progress; <code>@achievements all</code> lists every one. See <a href="goals.html">Goals and family</a>.</td></tr>
 <tr><td><code>@equiplv</code></td><td>Levels of your equipped items.</td></tr>
 <tr><td><code>@weekly</code></td><td>Your weekly boss attempts.</td></tr>
 <tr><td><code>@elb</code></td><td>Expedition leaderboard.</td></tr>
@@ -59,6 +61,7 @@
 <tr><td><code>@bank</code></td><td>Store or take out mesos.</td></tr>
 <tr><td><code>@bp</code> / <code>@backpack</code></td><td>Open the backpack / turn the backpack system on or off.</td></tr>
 <tr><td><code>@exchange</code></td><td>Trade ores and crystals for another kind (two for one).</td></tr>
+<tr><td><code>@nx</code></td><td>The NX exchange: <code>@nx sell 1000 5000</code>, <code>@nx buy</code>, <code>@nx confirm</code>, <code>@nx orders</code>, <code>@nx cancel &lt;id&gt;</code>, <code>@nx book</code>, <code>@nx tickers</code>. See <a href="money.html">Making mesos</a>.</td></tr>
 </table></div>
 
 <h2 id="quiet">Chat and the regulars</h2>
@@ -68,11 +71,12 @@
 <tr><td><code>@botdrama off</code> / <code>on</code></td><td>Off: no regular ever holds a grudge against you (no rivals, trash talk or KS wars).</td></tr>
 <tr><td><code>@romance on</code> / <code>off</code></td><td>On: a regular who really likes you may flirt, ask you out and propose (off by default).</td></tr>
 <tr><td><code>@quiet megaphones</code></td><td>Hide the regulars' megaphones (<code>@quiet megaphones off</code> shows them again).</td></tr>
-<tr><td><code>@invite</code></td><td>Make a one-use invite code for a friend (a level 30+ character, 2 a week). <code>@invite list</code> shows your codes.</td></tr>
+<tr><td><code>@invite</code></td><td>Make a sign-up code for a friend (a level 30+ character, 2 a week). One friend can use it, and it never expires. <code>@invite list</code> shows your codes.</td></tr>
 <tr><td><code>@quiet bots</code></td><td>Hide the regulars' chatter, and stop whispers, invites and buddy requests you didn't ask for (people you're talking to or partied with still show; <code>@quiet bots off</code> undoes it).</td></tr>
 <tr><td><code>@quiet all</code> / <code>@quiet off</code></td><td>Hide both / show everything again.</td></tr>
 <tr><td><code>@botme [name]</code></td><td>List your other characters, or bring one along as a party member (up to 5 companions).</td></tr>
 <tr><td><code>@dismiss &lt;name&gt;|all</code></td><td>Send a companion home, or all of them.</td></tr>
+<tr><td><code>@alts &lt;order&gt;</code></td><td>Tell your companions what to do: <code>@alts follow</code>, <code>@alts trade pots</code>, <code>@alts any upgrades?</code> and the rest. <code>@alts</code> alone lists them. The same orders work in party chat. See <a href="regulars.html">The town's regulars</a>.</td></tr>
 <tr><td><code>@worldchat</code></td><td>World chat on or off.</td></tr>
 <tr><td><code>@roll [n]</code></td><td>Roll 0 to n (default 100).</td></tr>
 </table></div>
@@ -82,7 +86,7 @@
 <div class="scroll"><table>
 <tr><th>Command</th><th>Does</th></tr>
 <tr><td><code>@gm &lt;message&gt;</code></td><td>Message the game masters.</td></tr>
-<tr><td><code>@bug &lt;text&gt;</code></td><td>Report a bug (<code>@reportbug</code> works too). You get a number back, like #12.</td></tr>
+<tr><td><code>@bug &lt;text&gt;</code></td><td>Report a bug (<code>@reportbug</code> works too). Your version, map and recent steps are attached for you, and you get a number back, like #12.</td></tr>
 <tr><td><code>@idea &lt;text&gt;</code></td><td>Suggest a feature or change. Same: you get a number back.</td></tr>
 <tr><td><code>@dispose</code></td><td>Unstick an NPC chat.</td></tr>
 <tr><td><code>@enableauth</code></td><td>Reset the PIC cooldown.</td></tr>
