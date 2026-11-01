@@ -15,7 +15,7 @@
 #             Needs the selector all; refused with --fast or --failed.
 #   --feature target the isolated bot-brain copy (/opt/mapleroot-dev/bot-life-160) instead of TEST.
 #
-# The request is appended on TEST: mapletest (root@$SLUMS_TEST_HOST, default 192.168.0.111), never live on 164.
+# The request is appended on TEST: mapletest (root@$SLUMS_TEST_HOST, default 164 until the 1.6.3 TEST cutover, then 192.168.0.111), never live on 164.
 #
 # Appends the request to the queue Server/data/autoqa/run-queue.txt (b016: one line "<id> TAB <UTC stamp> TAB <request>",
 # atomic append) and prints "queued (#n, position k)". The server takes the requests in order, each one 30 s or less

@@ -42,7 +42,7 @@ RUNS_ROOT = Path("/root/work/qa-runs")
 # TEST moved to its own box in 1.6.3 (mapletest, ssh alias `mapletest`); live, release staging and the patch site stay
 # on 192.168.0.164. SLUMS_TEST_HOST overrides the box (the same setting the Website lane's installer uses). 164 is the
 # one host that keeps ssh's default key.
-DEFAULT_TEST_HOST = "192.168.0.111"
+DEFAULT_TEST_HOST = "192.168.0.164"  # until the 1.6.3 TEST cutover (o03 step 3); then 192.168.0.111
 TEST_KEY = "~/.ssh/id_slums_lxc"
 FEED_URL = "http://127.0.0.1:8198/qa/events"
 FEED_SECRET_FILE = "/etc/slums-inspect-test/secret"

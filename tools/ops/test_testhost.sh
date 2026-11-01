@@ -16,11 +16,14 @@ ssh_argv() {
     ' _ "$here"
 }
 
-# 1. Default: the TEST box is mapletest (192.168.0.111) and is reached with its own key.
+# 1. Default until the 1.6.3 TEST cutover (o03 step 3): the played TEST on 164, default key. Flip with lib.sh.
 out=$(ssh_argv)
-[[ "$out" == *"root@192.168.0.111"* ]] || fail "default host: $out"
-[[ "$out" == *"/.ssh/id_slums_lxc"* ]] || fail "default key: $out"
+[[ "$out" == *"root@192.168.0.164"* ]] || fail "default host: $out"
 [[ "$out" == *"-o BatchMode=yes"* ]] || fail "BatchMode: $out"
+# mapletest (192.168.0.111) is reached with its own key.
+out=$(ssh_argv SLUMS_TEST_HOST=192.168.0.111)
+[[ "$out" == *"root@192.168.0.111"* ]] || fail "mapletest host: $out"
+[[ "$out" == *"/.ssh/id_slums_lxc"* ]] || fail "mapletest key: $out"
 
 # 2. SLUMS_TEST_HOST moves the tools (a name, as the Website lane's installer uses it).
 out=$(ssh_argv SLUMS_TEST_HOST=mapletest)
@@ -39,7 +42,7 @@ for tool in deploy-test autoqa-run test-status qa-run-collect; do
 done
 
 # 5. qa-run-collect --dry-run prints the TEST box it would read.
-out=$(QA_RUNS_ROOT="$d/runs" "$here/qa-run-collect" --run "$d/runs/2026-10-31/x-20261031T000000Z" \
+out=$(SLUMS_TEST_HOST=192.168.0.111 QA_RUNS_ROOT="$d/runs" "$here/qa-run-collect" --run "$d/runs/2026-10-31/x-20261031T000000Z" \
       --from 2026-10-31T00:00:00Z --to 2026-10-31T00:10:00Z --dry-run)
 [[ "$out" == *"root@192.168.0.111"* ]] || fail "qa-run-collect dry run: $out"
 [[ "$out" == *"id_slums_lxc"* ]] || fail "qa-run-collect key: $out"
@@ -50,7 +53,7 @@ out=$(SLUMS_TEST_HOST=mapletest QA_RUNS_ROOT="$d/runs" "$here/qa-run-collect" \
 # 6. deploy-test --dry-run names the host it would deploy to (no ssh, --since given).
 cd "$(git -C "$here" rev-parse --show-toplevel)"
 out=$("$here/deploy-test" --dry-run --since HEAD 2>&1)
-[[ "$out" == *"to root@192.168.0.111"* ]] || fail "deploy-test dry run: $out"
+[[ "$out" == *"to root@192.168.0.164"* ]] || fail "deploy-test dry run: $out"
 out=$(SLUMS_TEST_HOST=mapletest "$here/deploy-test" --dry-run --since HEAD 2>&1)
 [[ "$out" == *"to root@mapletest"* ]] || fail "deploy-test override: $out"
 

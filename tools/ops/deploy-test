@@ -5,7 +5,7 @@
 #   tools/ops/deploy-test [--feature] [--skip-build] [--dry-run] [--since <commit>] [--no-migrations]
 # --feature targets only /opt/mapleroot-dev/bot-life-160 (slums-life160 / mapleroot_life160); never shared TEST/live.
 #
-# What it touches, all on TEST (root@$SLUMS_TEST_HOST, default 192.168.0.111 = mapletest; never 164's live box):
+# What it touches, all on TEST (root@$SLUMS_TEST_HOST, default 164 until the 1.6.3 TEST cutover, then 192.168.0.111 = mapletest):
 #   /opt/mapleroot-dev/persistence-test/Server/   target/Cosmic.jar, scripts/**, src/main/** (non-.java), cashshop/
 #   docker container mapleroot-integration-db, schema mapleroot_persist  (migrations from database/migrations, ledger
 #   table mapleroot_integration_migrations; only ids not already in the ledger, in name order)

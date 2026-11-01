@@ -95,7 +95,8 @@ def inside(path, base=ROOT):
 
 def test_host():
     """The TEST server's address: SLUMS_TEST_HOST, default mapletest (192.168.0.111). TEST left 164 in 1.6.3."""
-    return os.environ.get('SLUMS_TEST_HOST') or '192.168.0.111'
+    # until the 1.6.3 TEST cutover (o03 step 3) the played TEST is still on 164; flip to 192.168.0.111 then
+    return os.environ.get('SLUMS_TEST_HOST') or '192.168.0.164'
 
 
 def verify_config(path):

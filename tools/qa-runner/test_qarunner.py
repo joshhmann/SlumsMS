@@ -230,8 +230,13 @@ class TestHostTest(unittest.TestCase):
                 os.environ.pop('SLUMS_TEST_HOST', None)
             return qarunner.test_ssh('cmd')
 
-    def test_the_default_box_is_mapletest_with_the_test_key(self):
+    def test_the_default_box_is_164_until_the_cutover(self):
+        # o03: the played TEST stays on 164 until the 1.6.3 TEST cutover; DEFAULT_TEST_HOST flips to .111 then
         argv = self.ssh({})
+        self.assertEqual(argv[-2:], ['root@192.168.0.164', 'cmd'])
+
+    def test_mapletest_is_reached_with_the_test_key(self):
+        argv = self.ssh({'SLUMS_TEST_HOST': '192.168.0.111'})
         self.assertEqual(argv[-2:], ['root@192.168.0.111', 'cmd'])
         self.assertIn(os.path.expanduser('~/.ssh/id_slums_lxc'), argv)
 

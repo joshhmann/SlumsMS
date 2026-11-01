@@ -164,7 +164,7 @@ class NewToolsTest(unittest.TestCase):
 
 
 class ClientEndpointTest(unittest.TestCase):
-    """o03: the QA client may point at TEST only, and TEST is mapletest (192.168.0.111) since 1.6.3."""
+    """o03: the QA client may point at TEST only: 164 until the 1.6.3 TEST cutover, then mapletest (192.168.0.111)."""
 
     def setUp(self):
         try:
@@ -180,16 +180,19 @@ class ClientEndpointTest(unittest.TestCase):
         return path
 
     def test_the_client_config_points_at_the_test_box(self):
+        # o03: the played TEST stays on 164 until the 1.6.3 TEST cutover (driver.test_host flips to .111 then)
         with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop('SLUMS_TEST_HOST', None)
+            self.driver.verify_config(self.config('host=192.168.0.164\nport=8489\n'))
+        with mock.patch.dict(os.environ, {'SLUMS_TEST_HOST': '192.168.0.111'}):
             self.driver.verify_config(self.config('host=192.168.0.111\nport=8489\n'))
 
-    def test_the_old_shared_box_and_live_are_refused(self):
+    def test_another_box_and_live_are_refused(self):
         with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop('SLUMS_TEST_HOST', None)
-            for text in ('host=192.168.0.164\nport=8489\n',      # 164 is live only now
-                         'host=192.168.0.111\nport=8485\n',      # live's login port
-                         'host=192.168.0.111\nport=8489\nhost=10.0.0.9\nport=8489\n'):
+            for text in ('host=192.168.0.111\nport=8489\n',      # not the TEST in use until the cutover
+                         'host=192.168.0.164\nport=8485\n',      # live's login port
+                         'host=192.168.0.164\nport=8489\nhost=10.0.0.9\nport=8489\n'):
                 with self.assertRaises(self.driver.Refusal, msg=text):
                     self.driver.verify_config(self.config(text))
 
