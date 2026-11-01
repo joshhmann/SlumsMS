@@ -30,6 +30,10 @@ tarkovs like restocking". How Tarkov's traders restock (as it has worked across 
   stock.
 - **Stock sizes per item**: big for basics, small for valuable items.
 - **Loyalty levels** unlock better items (SlumsMS has no trader loyalty today; not proposed).
+Owner, a few minutes later: "obviously if its like pots or ammo we should be generous but overall pool if its like
+higher rated items to be sold on the flea". So: potions and ammo get generous stock (they should almost never run
+out); higher-value items come from a small shared pool, so most of them reach players through the "flea" (the
+Buy/Sell board and the Slums Exchange) instead of the NPC.
 A SlumsMS version to decide with the owner (amounts are the open part: "im not sure how much"):
 - every NPC shop item gets a stock and a per-character limit per restock; basics (potions, ammo) large or effectively
   endless, valuable items small;
