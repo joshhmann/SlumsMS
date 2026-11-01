@@ -7,6 +7,8 @@
     python3 tools/site/build.py --private       # also Slums Street (database) and Slums Market, into dist/site-private/
                                                 # (on 164 those two sit behind the sign-in, LOGIN.md)
     python3 tools/site/build.py --section notes --out DIR   # rebuild one section inside an existing build
+    python3 tools/site/build.py --nx mock       # the NX desk's quote panel (1.6.3, ticket 162), as SLUMS_MARKET_NX_DESK:
+                                                # off (1.6.2's order book) | mock (fixtures) | on (the game's nx-desk.json)
     python3 -m http.server -d dist/site 8000    # preview
 
 Code: common.py (paths, layout, megaphone rail, inline markdown) and one module per section in sections/:
