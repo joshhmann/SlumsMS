@@ -1243,6 +1243,10 @@ public final class Exchange {
     /**
      * Ticket 162's hourly step: the desk's drift from the hour's net flow against the NX float, capped by the step,
      * the day and the hard window, then stored. Nothing while the desk is off, not recovered or halted.
+     *
+     * <p>A failed store write is logged, not thrown: R stays advanced in memory and goes out with the next batch that
+     * does commit (a fill, or the next hour's step), so the rate the desk quotes is never behind what it paid. A crash
+     * in between loses that step only; the next boot starts from the stored R and the day's anchor.
      */
     public synchronized long tickDesk() {
         if (!recovered || desk == null || halted) {
