@@ -7,6 +7,9 @@
   var root = (document.querySelector('script[src$="assets/ticker.js"]').getAttribute("src") || "").replace(/assets\/ticker\.js$/, "");
   var KEY = "slums-xtick2", DAY = 86400000;
   var nf = new Intl.NumberFormat("en-US");
+  // what the rail CALLS a ticker where its id would read wrong (owner 2026-11-01: "ELIXIR" gets taken for a plain
+  // Elixir, so the Power Elixir ticker shows as PELIXIR). The id stays the game's: the link and the request use it.
+  var LABEL = { ELIXIR: "PELIXIR" };
 
   function item(t, copy) {
     var c = t.change, cls = c === null || c === undefined ? "" : c > 0.005 ? "up" : c < -0.005 ? "down" : "";
@@ -15,7 +18,7 @@
     a.href = root + "market/exchange" + (t.id === "NX" ? "" : "#" + t.id.toLowerCase());
     if (copy) { a.setAttribute("aria-hidden", "true"); a.tabIndex = -1; }
     a.innerHTML = "<em></em> <b></b> <span></span>";
-    a.querySelector("em").textContent = t.id;
+    a.querySelector("em").textContent = LABEL[t.id] || t.id;
     a.querySelector("b").textContent = nf.format(t.last);
     var s = a.querySelector("span");
     s.textContent = cls === "up" ? "\u25b2 +" + c.toFixed(2) + "%" : cls === "down" ? "\u25bc " + c.toFixed(2) + "%" : c === null || c === undefined ? "" : "0.00%";

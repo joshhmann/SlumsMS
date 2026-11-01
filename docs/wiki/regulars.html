@@ -20,6 +20,8 @@
 <p>Bera is never empty. Its <b>regulars</b> train on the maps that suit their level, ride the boats and trains
 between continents, keep shops in the Free Market, shout on megaphones, and drift in and out through the day (busier
 in the evening and at weekends). Some move on for good; new faces turn up every day.</p>
+<p>After a server restart they come back slowly: the towns and maps fill up again over <b>about 25 minutes</b>.
+Nothing about them is lost while they're away, they are just logging back in.</p>
 
 <h2>Who you'll meet</h2>
 <ul>
@@ -131,6 +133,11 @@ number in front:</p>
 <tr><td><code>follow</code>, <code>stay</code>, <code>move here</code></td><td>Where it goes: with you, where it
 stands, or to the spot you're standing on.</td></tr>
 <tr><td><code>sentry</code>, <code>patrol</code></td><td>Guards a spot, or walks a route around it.</td></tr>
+<tr><td><code>lanes</code>, <code>lanes screen</code>, <code>lanes map</code></td><td>Each companion takes a spot of
+its own, spread out from the others instead of standing in one group. Plain <code>lanes</code> seats as many as it can
+on the screen you are on and sends the ones it can't fit across the map, and they tell you the split ("2 lanes here, 1
+across the map"). <code>lanes screen</code> keeps them all within a screen of you; <code>lanes map</code> spreads them
+over the whole map.</td></tr>
 <tr><td><code>formation split</code> / <code>spread</code> / <code>stack</code> / <code>left</code> / <code>right</code>
 / <code>random</code></td><td>How several of them spread out around you. <code>tight</code>, <code>loose</code> or a
 distance in pixels sets how far; <code>snap</code> puts them back in line.</td></tr>
@@ -163,8 +170,9 @@ a little colder and may tease you about it for an hour (not with <code>@botdrama
 party, and may tell their friends.</li>
 <li>Gifts come only from friends. Otherwise trade, and haggle: see <a href="shops.html">Gachapon, shops and
 trading</a>.</li>
-<li>They use the <a href="money.html">Slums Exchange</a> too: their orders sit a few percent either side of the
-official rate, and about a third of them buy and sell the leaves, elixirs and scrolls they find.</li>
+<li>They use the <a href="money.html">Slums Exchange</a> too: their item orders sit a few percent either side of the
+going price, and about a third of them buy and sell the leaves, elixirs and scrolls they find. NX is the bank's desk,
+not theirs.</li>
 <li>Too much chatter? See <a href="commands.html#quiet"><code>@quiet</code></a>. <code>@quiet bots</code> also
 stops whispers, invites and buddy requests you didn't ask for.</li>
 </ul>

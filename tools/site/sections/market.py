@@ -726,10 +726,10 @@ update: the patch notes will say when.</p>
 <span x-text="eventText(e)"></span></p></template></div>
 <nav class="xc-tabsbar" style="grid-area: tabs" aria-label="Tickers"><template x-for="t in list" :key="t.id">
 <button type="button" class="xc-tk" :class="cur && cur.id === t.id && 'on'" @click="pick(t.id)" :aria-pressed="cur && cur.id === t.id">
-<img :src="icon(t)" alt="" width="22" height="22" loading="lazy"><b x-text="t.id"></b>
+<img :src="icon(t)" alt="" width="22" height="22" loading="lazy"><b x-text="label(t)"></b>
 <span x-text="short(t.last)"></span><small :class="dirOf(t.change_24h_pct)" x-text="pct(t.change_24h_pct)"></small></button></template></nav>
 <header class="xc-tick" style="grid-area: tick" x-show="cur && cur.id !== 'NX'" x-cloak>
-<div class="xc-sym"><img :src="icon(cur)" alt="" width="36" height="36"><div><b x-text="cur && cur.id"></b>
+<div class="xc-sym"><img :src="icon(cur)" alt="" width="36" height="36"><div><b x-text="label(cur)"></b>
 <span x-text="cur && cur.name"></span></div></div>
 <div class="xc-last"><b x-text="fmt(cur && cur.last)">-</b><span :class="dir" x-text="pct(cur && cur.change_24h_pct)"></span>
 <small x-text="unit"></small></div>
@@ -794,9 +794,9 @@ to trade.</p>
 <p class="xc-alert" style="grid-area: form" x-show="reauth && $store.xc.tk !== 'NX'" x-cloak><span x-text="reauthText()"></span>
 <a :href="againUrl()">Sign in again</a> to trade.</p>
 <form class="xc-p xc-form" style="grid-area: form" x-show="data && !reauth && $store.xc.tk !== 'NX'" x-cloak @submit.prevent="preview()" @xc-price.window="price = $event.detail">
-<h2><span x-text="'New ' + meta.id + ' order'"></span> <small x-text="openCount() + ' of ' + lim(meta).max_open_per_ticker + ' open'"></small></h2>
-<div class="xc-side"><button type="button" class="buy" :class="side === 'BUY' && 'on'" @click="side = 'BUY'" x-text="'Buy ' + meta.id"></button>
-<button type="button" class="sell" :class="side === 'SELL' && 'on'" @click="side = 'SELL'" x-text="'Sell ' + meta.id"></button></div>
+<h2><span x-text="'New ' + label(meta) + ' order'"></span> <small x-text="openCount() + ' of ' + lim(meta).max_open_per_ticker + ' open'"></small></h2>
+<div class="xc-side"><button type="button" class="buy" :class="side === 'BUY' && 'on'" @click="side = 'BUY'" x-text="'Buy ' + label(meta)"></button>
+<button type="button" class="sell" :class="side === 'SELL' && 'on'" @click="side = 'SELL'" x-text="'Sell ' + label(meta)"></button></div>
 <label><span x-text="'Amount (' + meta.qty_label + ')'"></span>
 <input type="number" :min="meta.min_qty" :max="meta.max_qty" :step="meta.lot" x-model.number="qty" required></label>
 <label><span x-text="'Price (' + meta.unit_label + ')'"></span>
@@ -809,7 +809,7 @@ logged in to the game. Items you buy go into its bags the next time it's in game
 <button class="xc-go" :class="side === 'BUY' ? 'buy' : 'sell'" type="submit" :disabled="busy" x-text="'Preview ' + (side === 'BUY' ? 'buy' : 'sell')"></button>
 <p class="xc-msg" :class="msgClass" role="status" aria-live="polite" x-text="msg"></p>
 <div class="xc-preview" x-show="pv" x-cloak>
-<h3 x-text="pv && ((pv.side === 'SELL' ? 'Sell ' : 'Buy ') + fmt(pvQty()) + ' ' + (pv.ticker || 'NX') + ' at ' + fmt(pv.price))"></h3>
+<h3 x-text="pv && ((pv.side === 'SELL' ? 'Sell ' : 'Buy ') + fmt(pvQty()) + ' ' + label(pv.ticker || 'NX') + ' at ' + fmt(pv.price))"></h3>
 <dl>
 <dt>Set aside now</dt><dd x-text="pv && (fmt(pv.takes.amount) + ' ' + asset(pv.takes.asset))"></dd>
 <dt>Trades right away</dt><dd x-text="pv && ((pv.matchNow.qty || pv.matchNow.nx) ? fmt(pv.matchNow.qty || pv.matchNow.nx) + ' for ' + fmt(pv.matchNow.mesos) + ' mesos' : 'nothing yet')"></dd>
@@ -829,7 +829,7 @@ sign-in alone can't trade your NX or items away. It goes straight to the game's 
 <section class="xc-p" style="grid-area: orders" x-show="data" x-cloak><h2>My orders <small x-show="data && data.ordersAt" x-text="'as of ' + when(data && data.ordersAt)"></small></h2>
 <div class="xc-scroll"><table class="xc-book xc-mine"><thead><tr><th>#</th><th>Ticker</th><th>Side</th><th>Price</th><th>Amount</th>
 <th>Left</th><th>Status</th><th>Ends</th><th></th></tr></thead>
-<tbody><template x-for="o in orders()" :key="o.orderId"><tr><td x-text="o.orderId"></td><td x-text="o.ticker || 'NX'"></td>
+<tbody><template x-for="o in orders()" :key="o.orderId"><tr><td x-text="o.orderId"></td><td x-text="label(o.ticker || 'NX')"></td>
 <td :class="o.side === 'SELL' ? 'down' : 'up'" x-text="o.side === 'SELL' ? 'Sell' : 'Buy'"></td><td x-text="fmt(o.price)"></td><td x-text="fmt(q(o))"></td>
 <td x-text="fmt(qLeft(o))"></td><td x-text="status(o.status)"></td><td x-text="o.status === 'OPEN' ? when(o.expiresAt) : ''"></td>
 <td><button class="xc-ghost" type="button" x-show="o.status === 'OPEN'" @click="cancel(o)" :disabled="busy || reauth">Cancel</button></td></tr></template></tbody></table></div>
@@ -993,7 +993,7 @@ NX_DESK = None  # build.py --nx: off | mock | on (None: the SLUMS_MARKET_NX_DESK
 # The rules list with the NX desk on (b-review s44): NX is no longer an order book, so its fee, size and band lines go,
 # and the desk gets its own line. Off, the 1.6.2 lines stay as they are.
 RULES_FEE = """<li><b>Fee:</b> <span x-text="feePct()"></span> of the mesos, paid by each side."""
-DESK_FEE = """<li><b>NX desk:</b> trades straight away at its own buy and sell price, 100 NX or more in steps of 100; no
+DESK_FEE = """<li><b>NX desk:</b> trades straight away at its own buy and sell price, 100 NX or more, any whole number; no
 fee: the gap between the two prices is the cost. Nothing waits in a book.</li>
 <li><b>Fee (items):</b> <span x-text="feePct()"></span> of the mesos, paid by each side."""
 RULES_LIST = '''<template x-for="t in list" :key="t.id"><li><b x-text="t.name + ':'"></b> <span x-text="sizeRule(t)">'''

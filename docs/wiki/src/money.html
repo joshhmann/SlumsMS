@@ -28,49 +28,64 @@ person, and check prices with <code>@price</code>: see <a href="shops.html">Gach
 </ul>
 
 <h2>The Slums Exchange: NX for mesos</h2>
-<p>1.6.2 opened the <b>Slums Exchange</b>, an order book for NX and mesos, in game with <code>@nx</code> and on the
-website under <b>Slums Market &rarr; Exchange</b>. Someone with NX leaves a sell order, someone with mesos leaves a buy
-order, and the two meet at a price: both sides get what they asked for, and each pays a fee.</p>
+<p>Since 1.6.3, NX is bought and sold at <b>SlumsBank's NX desk</b>: the bank quotes one price to buy NX from you and
+one to sell you NX, in game with <code>@nx</code> and on the website under <b>Slums Market &rarr; Exchange</b>.
+SlumsBank sets buy and sell prices around a rate that drifts slowly with what players and bots buy and sell (capped
+per day).</p>
 
-<h3>Placing an order</h3>
+<h3>Trading at the quote</h3>
 <ul>
-<li>Prices are <b>mesos per 1 NX</b>. <code>@nx sell 1000 5000</code> offers 1,000 NX at 5,000 mesos each, and
-"<code>4.5k</code>" works as a price too.</li>
-<li>Orders are <b>100 to 50,000 NX</b>, in steps of 100.</li>
-<li>Nothing goes in until you say <code>@nx confirm</code>. <code>@nx orders</code> lists what you have open and
-<code>@nx cancel &lt;id&gt;</code> takes one back; what it held comes back to you.</li>
+<li>Prices are <b>mesos per 1 NX</b>, and the desk posts both. <code>@nx</code> on its own shows the rate and the two
+prices; <code>@nx buy 1000</code> or <code>@nx sell 1000</code> asks what 1,000 NX would cost. There is no price to
+type: <code>@nx confirm</code> does the trade.</li>
+<li>Trades are <b>instant at the quote</b>, in whole NX from <b>100</b> up. Nothing waits in a book, and there is no
+queue to join.</li>
+<li>The gap between the two prices is what the desk charges: <b>2% each side</b> of the rate, and <b>no fee</b> on top.
+A fill is a normal trade: buying NX takes the mesos from the character you name, selling puts them there, and NX is
+your account's.</li>
+<li>When 1.6.3 switched NX to the desk, every open NX order was <b>cancelled and refunded</b>: what it held went back
+to its owner. There are no more NX orders and no NX order book.</li>
 </ul>
 
-<h3>What price you may ask</h3>
+<h3>Where the rate goes</h3>
 <ul>
-<li>The <b>official rate</b> is the size-weighted average of the last 7 days' trades between players (at least 3 of them); until there
-are 3 it counts as <b>5,000 mesos per NX</b>.</li>
-<li>NX never changes hands outside <b>2,500 to 10,000</b> mesos per 1 NX.</li>
-<li>Inside that window, you may not <b>sell for less than half</b> the official rate or <b>buy for more than double</b>
-it. Asking more when you sell, or offering less when you buy, is fine: the order simply waits for a match.</li>
-<li>Each side pays a <b>1% fee</b> on the mesos, taken when the trade clears.</li>
+<li>The rate moves <b>at most 0.5% an hour and 20% a day</b>, and always stays between <b>2,500 and 10,000 mesos per
+NX</b>. Buying NX from the desk pushes it up and selling to it pushes it down; the day's limit is counted from the
+rate at the start of the day (UTC). The desk's rate is the official NX rate.</li>
+<li>A quote is held for <b>60 seconds</b>. If the rate moved in between you don't get the old price: you see the new
+one, and <code>@nx confirm</code> again.</li>
 </ul>
 
-<h3>Limits and the website</h3>
+<h3>What the desk holds, and when it closes</h3>
 <ul>
-<li>There is <b>no daily limit</b> on how much NX you trade. You get <b>20 new orders a day</b> on each market, hold at most <b>5 open NX
-orders</b>, and leave 10 seconds between orders.</li>
-<li>An NX order that has not filled after <b>72 hours</b> expires.</li>
-<li>On the website you need a <b>sign-in from the last 12 hours</b>, and after a server restart it asks you to sign in
-again. Selling there asks for your password for that order, and so does buying more than <b>10,000,000</b> mesos'
+<li>The desk only sells NX it owns and only buys with the mesos it has. <b>"SlumsBank is buying NX but has none to
+sell yet"</b> means exactly that: sell it some NX and buying opens up. <b>"The desk has no mesos to buy with right
+now"</b> is the other way round, so buying still works and selling waits.</li>
+<li>The desk can be <b>closed</b>, and its page and <code>@nx</code> then say so and take no trades. Items trade as
+usual.</li>
+</ul>
+
+<h3>On the website</h3>
+<ul>
+<li>You need a <b>sign-in from the last 12 hours</b>, and after a server restart it asks you to sign in again.</li>
+<li>Every sale asks for your <b>password</b> for that trade, and so does a buy of more than <b>10,000,000</b> mesos'
 worth in 12 hours.</li>
 </ul>
 
 <h3>Other things on the exchange</h3>
-<p>Maple Leaves and Power Elixirs (up to 10,000 an order), Chaos Scroll 60%s and White Scrolls (up to 1,000) trade the
-same way at any price from 1 meso each to 1,000,000,000 each. The price band above is only for NX; item orders last 7
-days.</p>
+<p>Maple Leaves, Power Elixirs (shown as <b>PELIXIR</b>; up to 10,000 an order), Chaos Scroll 60%s and White Scrolls (up
+to 1,000) keep their <b>order books</b>: post a buy or a sell at your own price and the game matches them, at any price
+from 1 meso each to 1,000,000,000 each. Each side pays a <b>1% fee</b> on the mesos when an item order trades. The
+2,500 to 10,000 window is only for NX, and item orders last 7 days.</p>
 
 <h3>The regulars use it too</h3>
 <p>On the item tickers, about a third of them buy and sell what they find while hunting, and a few keep small standing
-orders 3%, 6% and 9% away from the going price so there is always something to trade against. Anything a regular is
-part of never counts when the official NX rate is worked out: only prices two players agreed between themselves
-do.</p>
+orders 3%, 6% and 9% away from the going price so there is always something to trade against. For now the regulars don't trade NX at the desk:
+only players do.</p>
+
+<p class="note">The in-game <code>@nx</code> on its own has the desk's prices, but <code>@nx tickers</code> and
+<code>@nx book</code> still list NX as an order book with no prices until the next update. The PELIXIR ticker is
+called <code>elixir</code> in game: <code>@nx elixir sell 10 500k</code>.</p>
 
 <h2>Slums Stamps</h2>
 <ul>
@@ -93,5 +108,5 @@ held.</li>
 <li>A 10k NX code from a regular: 50m (see <a href="shops.html">Gachapon, shops and trading</a>).</li>
 <li>Star Force at the Glowing Treasure: up to 50m a try.</li>
 </ul>
-<p class="src">Source: <code>docs/real-bots/economy-research.md</code> (exchange: <code>soloMapling/Economy/exchange/Exchange.java</code>, <code>NxGuard.java</code>, <code>tools/site/exchange_desk.py</code>; stamps: <code>SlumsStamps.java</code>, <code>scripts/npc/rooty.js</code>) (headline findings, server calibration,
+<p class="src">Source: <code>docs/real-bots/economy-research.md</code> (exchange: <code>soloMapling/Economy/exchange/Exchange.java</code>, <code>Desk.java</code>, <code>DeskConfig.java</code>, <code>NxGuard.java</code>, <code>tools/site/exchange_desk.py</code>; stamps: <code>SlumsStamps.java</code>, <code>scripts/npc/rooty.js</code>) (headline findings, server calibration,
 Cosmic mechanics: <code>Trade.getFee</code>, <code>FredrickProcessor</code>, star prices).</p>

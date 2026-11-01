@@ -16,6 +16,14 @@
   var DESK_PW = "Type your password to confirm this trade.";
   var HOUR = 3600000, DAY = 24 * HOUR;
   var nf = new Intl.NumberFormat("en-US");
+  // what a ticker is CALLED on the page, where the game's id would read wrong (owner 2026-11-01: "ELIXIR" gets taken
+  // for a plain Elixir, so the Power Elixir ticker shows as PELIXIR). The id itself never changes: it is the game's
+  // file name, the API's ?ticker=, the order's ticker and the item's rule.
+  var TICKER_LABEL = { ELIXIR: "PELIXIR" };
+  function label(t) {  // a ticker object, or a bare id
+    var id = typeof t === "string" ? t : t && t.id;
+    return (id && TICKER_LABEL[id]) || id || "";
+  }
   function fmt(n) { return n === null || n === undefined ? "-" : nf.format(n); }
   function short(v) {
     if (v === null || v === undefined) return "-";
@@ -158,7 +166,7 @@
     var base = window.live(API + "book", 10);
     var init = base.init;
     return extend(base, {
-      fmt: fmt, short: short, when: when, clock: clock, pct: pct, dirOf: dirOf, icon: icon,
+      fmt: fmt, short: short, when: when, clock: clock, pct: pct, dirOf: dirOf, icon: icon, label: label,
       range: "3d", ranges: [["24h", DAY], ["3d", 3 * DAY], ["7d", 7 * DAY], ["30d", 30 * DAY]],
       candles: [], candlesFor: "",
       init: function () {
@@ -349,7 +357,7 @@
     var base = window.live(API + "me", 20);
     var init = base.init;
     return extend(base, {
-      fmt: fmt, when: when, lim: lim,
+      fmt: fmt, when: when, lim: lim, label: label,
       side: "BUY", qty: null, price: null, character: "", busy: false, msg: "", msgClass: "", pv: null, left: 0, clock: null,
       stale: false, staleGame: false, needPw: false, pw: "",
       init: function () {
@@ -500,7 +508,7 @@
   // the fee, the daily cap and the smallest trade all come from the desk's own fields.
   function xdesk() {
     return {
-      fmt: fmt, when: when, clock: clock, pct: pct,
+      fmt: fmt, when: when, clock: clock, pct: pct, label: label,
       quote: null, qstate: "loading", err: "", stale: false, stamp: "",
       hist: [], me: null,
       side: "BUY", nx: 1000, character: "",
@@ -595,8 +603,8 @@
       },
       feeText: function () { var q = this.quote; return q && q.fee_bps ? (q.fee_bps / 100).toFixed(2) + "%" : "0%"; },
       capText: function () { var q = this.quote; return q ? "about " + q.day_cap_pct + "%" : ""; },
-      smallest: function () { var q = this.quote; return q ? "smallest " + fmt(q.min_qty) + " NX, in steps of 100" : ""; },
-      stepNx: function () { var q = this.quote; return q && q.min_qty ? q.min_qty : 100; },
+      smallest: function () { var q = this.quote; return q ? "smallest " + fmt(q.min_qty) + " NX, any whole number above it" : ""; },
+      stepNx: function () { return 1; },  // the desk takes any whole NX from min_qty up (API.md MIN_QTY)
       per: function () { var q = this.quote; return q ? (this.side === "BUY" ? q.sell : q.buy) : null; },
       priceText: function () {
         var each = this.per();
