@@ -917,7 +917,8 @@ class WorldTest(unittest.TestCase):
                      'id: "NX", name: "NX desk"',
                      '"nx/quote"', '"nx/history?hours=168"', '"nx/me"', '"nx/preview"', '"nx/confirm"',
                      "DESK_CLOSED:", "DESK_EMPTY:", "QUOTE_MOVED:", "MIN_QTY:",
-                     "if (j.refreshing && tries < 6) setTimeout"):  # My NX reads again while the game answers
+                     "if (j.refreshing && tries < 6) setTimeout",
+                     "self.hold(a.data || {}); self.needPw = !!(a.data && a.data.passwordRequired);"):  # the held quote replaces "Asking..."  # My NX reads again while the game answers
             self.assertIn(line, js)
         self.assertNotIn("x-html", market.NX_PANEL.replace('x-html="chart()"', ""), "only our own chart SVG")
 

@@ -12,6 +12,7 @@
   // with the NX desk on (1.6.3, ticket 162) the NX tab is SlumsBank's quote panel (xdesk, market/nx/*) and NX has no
   // book: the term carries data-nxdesk and xbook leaves NX out of the tickers, so the item tabs keep theirs
   var DESK = !!document.querySelector("[data-nxdesk]");
+  var HELD = "Price held: confirm before the countdown ends.";  // replaces "Asking the desk for a quote..."
   var DESK_PW = "Type your password to confirm this trade.";
   var HOUR = 3600000, DAY = 24 * HOUR;
   var nf = new Intl.NumberFormat("en-US");
@@ -660,8 +661,11 @@
         this.ask("nx/preview", { side: this.side, nx: this.nx, character: this.character }, "Asking the desk for a quote...")
           .then(function (a) {
             if (!a) return;
-            if (a.ok) { self.hold(a.data || {}); return; }
-            if (a.code === "QUOTE_MOVED" && a.data) { self.hold(a.data); return; }  // the desk quoted afresh
+            if (a.ok) {  // the game says up front when this trade needs the password (passwordRequired)
+              self.hold(a.data || {}); self.needPw = !!(a.data && a.data.passwordRequired);
+              self.say(self.needPw ? DESK_PW : HELD, self.needPw ? false : true); return;
+            }
+            if (a.code === "QUOTE_MOVED" && a.data) { self.hold(a.data); self.say(HELD, true); return; }  // the desk quoted afresh
             if (a.code === "PASSWORD_REQUIRED" && a.data && a.data.token) {  // a sale, or a buy over the free amount
               self.hold(a.data); self.needPw = true; self.say(DESK_PW, false);
             }
