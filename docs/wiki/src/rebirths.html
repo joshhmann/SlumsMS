@@ -5,20 +5,22 @@ skills, and do it up to <b>3 times</b>.</p>
 <h2>How</h2>
 <ol>
 <li>Be <b>level 200</b> and fully advanced (4th job).</li>
-<li>Have the right <b>Essence Stone</b> for your next rebirth. It is used up.</li>
-<li>Talk to <b>Wyatt the Reborn</b> in Base of Roots. Choose to start again as a <b>Beginner</b> (Explorer),
+<li>Ask <b>Wyatt the Reborn</b> in Base of Roots to <b>make you an Essence Stone</b>. He makes the one your
+next rebirth needs, and if you are missing a part he tells you which one and where it drops.</li>
+<li>Bring him the stone (it is used up) and choose to start again as a <b>Beginner</b> (Explorer),
 <b>Noblesse</b> (Cygnus) or <b>Legend</b> (Aran).</li>
 </ol>
 
 <div class="scroll"><table>
-<tr><th>Rebirth</th><th>Stone</th><th>Made from</th></tr>
-<tr><td>1st</td><td>Blue Essence Stone</td><td>Zakum Diamond + Nine Spirit's Egg</td></tr>
-<tr><td>2nd</td><td>Red Essence Stone</td><td>Rock of Time + Von Leon's Seal</td></tr>
-<tr><td>3rd</td><td>Black Essence Stone</td><td>Cygnus Circlet + Cygnus Knight Emblem</td></tr>
+<tr><th>Rebirth</th><th>Stone</th><th>Wyatt makes it from</th><th>Where the parts come from</th></tr>
+<tr><td>1st</td><td>Blue Essence Stone</td><td>Zakum Diamond + Nine Spirit's Egg</td><td>Zakum, Horntail</td></tr>
+<tr><td>2nd</td><td>Red Essence Stone</td><td>Rock of Time + Von Leon's Seal</td><td>Pink Bean, Von Leon</td></tr>
+<tr><td>3rd</td><td>Black Essence Stone</td><td>Cygnus Circlet + Cygnus Knight Emblem</td><td>Cygnus; the emblem
+drops from the guards of the Cygnus Knights' stronghold or from Chief Alex's <b>Lost Emblem</b> quest</td></tr>
 </table></div>
-<p class="owner">The crafting script (<code>craft.js</code>) exists, but <code>@craft</code> is switched off in
-<code>CommandsExecutor</code> and no NPC opens it. How do players make Essence Stones on SlumsMS? (The old
-book says <code>@exchange</code>, but <code>@exchange</code> is an ore exchange.)</p>
+<p>For the Black stone he only needs to <b>see</b> the Cygnus Knight Emblem: he takes the Circlet and you keep the
+emblem. He will not make a second stone while you are holding one, and he asks you to free up a slot in your Etc tab
+first if it is full.</p>
 
 <h2>What you keep</h2>
 <ul>
@@ -34,13 +36,20 @@ it comes along at the level you left it.</li>
 
 <h2>Maps that need rebirths</h2>
 <div class="scroll"><table>
-<tr><th>Rebirths</th><th>Opens</th></tr>
-<tr><td>1</td><td>Lion King's Castle</td></tr>
-<tr><td>2</td><td>Twilight Perion (and Gate to the Future)</td></tr>
-<tr><td>3</td><td>Grandis and Arcane River (also through the Cotton Warper)</td></tr>
+<tr><th>Area</th><th>What it takes</th></tr>
+<tr><td>Lion King's Castle</td><td>Nothing. It is open training.</td></tr>
+<tr><td>The Future, Twilight Perion, and the lower parts of Grandis (Pantheon, the low streets of Savage Terminal,
+Sanctuary, Caravan Refuge, Fox Ridge, Cheong-woon Valley, Ristonia, Toolen City)</td><td>Level 120, <i>or</i> your 1st
+rebirth</td></tr>
+<tr><td>The rest of Grandis (Heliseum, Tyrant's Castle, the Fox Tree, Cernium, the rougher back streets of Savage
+Terminal)</td><td>Your 1st rebirth, at any level</td></tr>
+<tr><td>The Arcane River</td><td>Your 2nd rebirth, at any level</td></tr>
+<tr><td>The boss doors of Magnus, Lucid, Will, Verus and Darknell</td><td>Your 3rd rebirth as well as their
+quest</td></tr>
 </table></div>
-<p>Some gear for these areas also needs rebirths.</p>
+<p>The Cotton Warper in Henesys and Base of Roots, the Hyper Rock and the gates in the Temple of Time all go by the
+same rule, and say what you are short of when they turn you away.</p>
 <p class="src">Sources: <code>scripts/npc/rebirth.js</code> (level 200, items 4033446/4033442/4033450, max 3),
-<code>scripts/npc/craft.js</code> (recipes), <code>HyperTPHandler.java</code> (map gates),
-<code>scripts/npc/9010002.js</code>, <code>docs/tickets/30-bot-rebirth.md</code>, the old guide book
-(Key Binder note).</p>
+<code>soloMapling/rebirth/EssenceStones.java</code> (the stone recipes and their boss drops),
+<code>server/maps/AreaGates.java</code> and <code>scripts/portal/MagnusEnter.js</code> and the other boss-door scripts
+(the gates), <code>scripts/npc/9010002.js</code> (the Cotton Warper).</p>
