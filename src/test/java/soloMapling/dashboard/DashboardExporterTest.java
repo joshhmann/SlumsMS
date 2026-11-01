@@ -120,6 +120,9 @@ class DashboardExporterTest {
         Map<?, ?> health = (Map<?, ?>) live.get("health");
         assertEquals(100.0, ((Number) health.get("tickMsPerS")).doubleValue(), 0.01, "6 s over 60 s, the nested phase left out");
         assertEquals(2L, ((Number) health.get("gateUsed")).longValue());
+        // the dashboard's JS reads these names (tools/dashboard/web/app.js): 1.6.2 renamed the third from `overruns`
+        // to `refusals` when the gate stopped letting bot work through uncounted
+        assertEquals(Map.of("permits", 6L, "free", 4L, "refusals", 0L), numbersAsLongs((Map<?, ?>) health.get("gate")));
 
         Map<?, ?> economy = (Map<?, ?>) live.get("economy");
         assertEquals("derived", economy.get("source"));

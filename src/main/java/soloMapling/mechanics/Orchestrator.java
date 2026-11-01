@@ -149,6 +149,8 @@ public final class Orchestrator implements RunOrchestrator {
             }
         }
 
+        noteStrays(run, view, nowMs);
+
         if (view.cleared()) {
             long took = nowMs - run.stageStartedMs();
             run.note(nowMs, "stage " + run.currentStage() + " cleared in " + took / 1000 + " s ("
@@ -252,7 +254,7 @@ public final class Orchestrator implements RunOrchestrator {
     /**
      * A real leader (bot audit K4, K5). Only he can do the leader's part (the scripts check {@code isEventLeader}),
      * and he is never steered: when it is his turn (passes in, formation ready) one bot reminds him in party chat,
-     * 20 s after his turn came and every 40 s after, so a run with a player leader always says what it waits for. When
+     * after his turn came and again every little while ({@link StageSolver#leaderPromptTiming}), so a run with a player leader always says what it waits for. When
      * he is dead the bots stop where they are and one asks him to get up (his revive outside the PQ ends the run).
      */
     private void realLeader(RunState run, StageView view, StageSolver solver, Stage stage, RunMember leader,
@@ -284,8 +286,8 @@ public final class Orchestrator implements RunOrchestrator {
         Object since = mem.putIfAbsent("leaderTurnSince", nowMs);
         long turn = since == null ? nowMs : (Long) since;
         Object last = mem.get("leaderPromptAt");
-        boolean due = last == null ? nowMs - turn >= LEADER_PROMPT_FIRST_MS
-                : nowMs - (Long) last >= LEADER_PROMPT_EVERY_MS;
+        long[] timing = solver.leaderPromptTiming();
+        boolean due = last == null ? nowMs - turn >= timing[0] : nowMs - (Long) last >= timing[1];
         if (due && speaker != null) {
             mem.put("leaderPromptAt", nowMs);
             steps.put(speaker, new SolverStep.Say(prompt.get()));
@@ -401,6 +403,39 @@ public final class Orchestrator implements RunOrchestrator {
         int hi = Math.max(lo, after.bonusMaxSeconds());
         double f = Math.min(1.0, 0.6 * rnd.nextDouble() + 0.4 * persona.chaos());
         return (long) ((lo + (hi - lo) * f) * 1000);
+    }
+
+    /** How long a member may sit where the run cannot drive it before one note says so (a walk between stages fits). */
+    public static final long STRAY_GRACE_MS = 15_000;
+
+    /**
+     * One line for a member the run cannot drive: down, still on another map, or gone from the stage's map. Without
+     * it a stage that never finishes reads exactly like a stall with no cause (TEST 10-31: t-mx-2 stage 3 waited
+     * 19 minutes in silence, t-mx-5's second alt never asked Cloto and said nothing). Noted once per member and
+     * reason, after {@link #STRAY_GRACE_MS}, and again only if the member left and strayed once more.
+     */
+    static void noteStrays(RunState run, StageView view, long nowMs) {
+        Stage stage = run.stageData();
+        Map<String, Object> mem = run.stageMemory();
+        for (RunMember m : run.members()) {
+            int id = m.characterId();
+            int on = view.mapOf(id);
+            String why = !view.alive(id) ? "is down"
+                    : on != stage.mapId() ? "is on map " + on + (on == -1 ? " (not in the event)" : "") : null;
+            String key = "stray:" + id;
+            if (why == null) {
+                mem.remove(key);
+                mem.remove(key + ":noted");
+                continue;
+            }
+            if (mem.putIfAbsent(key, nowMs) == null || nowMs - (Long) mem.get(key) < STRAY_GRACE_MS) {
+                continue;
+            }
+            if (mem.putIfAbsent(key + ":noted", true) == null) {
+                run.note(nowMs, id + " " + why + ", not on stage " + stage.index() + "'s map " + stage.mapId()
+                        + ": the run cannot drive it");
+            }
+        }
     }
 
     @Override

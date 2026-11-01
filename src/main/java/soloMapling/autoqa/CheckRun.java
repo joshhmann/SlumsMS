@@ -21,6 +21,7 @@ public final class CheckRun {
     final Check check;
     final AutoQaWorld world;
     final long startMs;
+    final int lane;
     private final Map<String, Long> marks = new LinkedHashMap<>();
     private final Map<String, String> vars = new LinkedHashMap<>();
     private final Set<Integer> stagedBots = new LinkedHashSet<>();
@@ -32,8 +33,13 @@ public final class CheckRun {
     private long previousStepStartMs;
 
     CheckRun(Check check, AutoQaWorld world) {
+        this(check, world, 1);
+    }
+
+    CheckRun(Check check, AutoQaWorld world, int lane) {
         this.check = check;
         this.world = world;
+        this.lane = lane;
         this.startMs = world.now();
     }
 
@@ -41,9 +47,14 @@ public final class CheckRun {
         return world;
     }
 
+    /** The lane it runs on, and so which synthetic players {1} and {2} are (lane 1 = slots 1-2). */
+    public int lane() {
+        return lane;
+    }
+
     public AutoQaWorld.Actor actor(int slot) {
         return actors.computeIfAbsent(slot, s -> {
-            AutoQaWorld.Actor a = world.actor(s);
+            AutoQaWorld.Actor a = world.actor(SyntheticPlayers.laneSlot(lane, s));
             vars.put(s == 1 ? "me" : "p" + s, a.name());
             return a;
         });

@@ -103,6 +103,7 @@ public final class QaMenuCatalog {
         add("fh-2", v(), steps("stop"));
         add("cv-11", v(), steps(), "say <line>");
         add("cv-12", v(), steps());
+        add("cv-13", v(), steps("grind", "town", "party"), "party [line]");
         section("Player likeness (1.6.0)");
         add("lk-1", v(), steps("camp", "sample"));
         section("Social gate (1.6.0)");
@@ -151,6 +152,7 @@ public final class QaMenuCatalog {
         add("xc-1", v(), steps("check")); // 1.6.1: the NX exchange in game (@nx), against a test regular
         add("xc-2", v(), steps("check")); // 1.6.1 tickers: the LEAF book in game (@nx leaf), against a test regular
         add("xc-3", v(), steps("check")); // 1.6.1 volatility: a Leaf Rush changes the rate; a trader bot posts an order
+        add("xc-5", v(), steps("check")); // 1.6.2: a trader that holds a Chaos or White Scroll lists it
         section("Gifts and prices");
         add("tr-4", v(), steps("gift", "gift potions", "gift scroll", "gift mesos"));
         add("tr-9", v(), steps()); // 1.6.2: ask the friend bot "got any pots?" in chat

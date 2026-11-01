@@ -145,6 +145,7 @@ final class GCMovementDriver {
             long startedAt = System.nanoTime();
             try {
                 tick(entry);
+                traceAfterTick(entry); // ticket 157 follow-up: every tick, not only the ones that moved
             } finally {
                 BotPerformanceMonitor.recordMovementTick(System.nanoTime() - startedAt);
             }
@@ -295,11 +296,26 @@ final class GCMovementDriver {
         // throttled physics when mid-air/climbing or the map has no baked graph (never bake just to move
         // an unwatched bot). `active` is false here only when nobody can see the bot.
         if (!active && tryCoarseAdvance(entry, bot, target)) {
-            NavTrace.tick(entry, false, target);
             return;
         }
         stepMovementCore(entry, target != null ? target : bot.getPosition(), runAiTick);
-        NavTrace.tick(entry, active, target); // ticket 157: one read when off
+    }
+
+    /**
+     * The path trace's one tick, read after the tick finished whatever it did (t-nv-3, TEST 10-31). It used to be
+     * read only where the bot had a goal and walked, so a full-simulation bot that stood still - idle between mobs,
+     * held by a QA check, or just given up on a goal - kept no ring at all, and the QA check found "ring none" for a
+     * bot it had put on a watched map for 8 s. A stuck report of a bot that stops is exactly what a trace is for.
+     */
+    static void traceAfterTick(BotMovementState entry) {
+        if (entry == null) {
+            return;
+        }
+        Character bot = entry.bot;
+        if (bot == null) {
+            return; // the tick called stop()
+        }
+        NavTrace.tick(entry, ObserverTracker.isActiveMap(bot.getMapId()), entry.navTargetPos);
     }
 
     /*
@@ -467,8 +483,15 @@ final class GCMovementDriver {
      * MOVE_NO_PROGRESS_MS, abandon the move (clear target + nav, drop the callback) so an
      * unreachable / blocked / buggy goal can't loop forever. Any real progress resets the clock, so
      * long legitimate walks are never cut off. Follow/farm without a moveTarget are unaffected.
+     *
+     * Round 2 (t-mx-2): the give-up is neither silent nor costless any more. It records a GAVE_UP spot (so a stuck
+     * report shows it next to the other kinds) and counts the miss against the edge the bot was on, exactly like
+     * the parked-edge give-up in BotNavigationManager - the next plan then routes around the leg that did not work,
+     * instead of re-serving the same route, which is what made t-mx-2's stage 3 idle for 1164 s.
+     *
+     * Package-visible: MoveStallGiveUpTest drives this seam directly.
      */
-    private static boolean giveUpStalledMove(BotMovementState entry) {
+    static boolean giveUpStalledMove(BotMovementState entry) {
         if (entry.moveTarget == null || entry.inAir || entry.climbing) {
             return false;
         }
@@ -486,6 +509,12 @@ final class GCMovementDriver {
         if (now - entry.moveProgressAtMs <= MOVE_NO_PROGRESS_MS) {
             return false;
         }
+        BotNavigationGraph graph = entry.navGraph;
+        BotNavigationGraph.Edge edge = entry.navEdge;
+        if (edge != null && graph != null) {
+            NavEdgeLearning.failure(entry, graph, edge); // the leg did not work: make the next plan avoid it
+        }
+        NavStuckLog.record(NavStuckLog.Kind.GAVE_UP, entry.bot.getMap(), bp, graph, edge, NavTrace.capture(entry));
         entry.moveTarget = null;
         entry.moveTargetPrecise = false;
         entry.moveBestDist = Integer.MAX_VALUE;
@@ -515,12 +544,61 @@ final class GCMovementDriver {
         if (dx == 0 || followed == null) {
             return followed;
         }
+        BotNavigationGraph graph = null;
+        try {
+            graph = map == null ? null : BotNavigationGraphProvider.peekGraph(map);
+        } catch (RuntimeException e) {
+            // no graph: the map-area clamp alone, as before
+        }
+        return formationPlace(followed, dx, map, graph);
+    }
+
+    /*
+     * 1.6.2 (t-oa-1, TEST 2026-10-31): the place is also kept on the ledge the followed one stands on. Its owner on a
+     * 168 px step of Henesys Hunting Ground I, an alt's "right 60" place was past the step's edge; the ground under it
+     * was the floor 180 px below, so the alt "arrived" there and stood under its owner for good, unable to reach (or
+     * fight) the mobs its owner hit on the step. A ledge too narrow for the place puts the follower on the followed
+     * spot. A followed one on a rope, or a map whose graph is not built yet, keeps the map-area clamp alone.
+     */
+    static Point formationPlace(Point followed, int dx, server.maps.MapleMap map, BotNavigationGraph graph) {
+        if (dx == 0 || followed == null) {
+            return followed;
+        }
         int x = followed.x + dx;
         java.awt.Rectangle area = map == null ? null : map.getMapArea();
         if (area != null && area.width > 0) {
             x = Math.max(area.x + 10, Math.min(area.x + area.width - 10, x));
         }
-        return new Point(x, followed.y);
+        return new Point(onLedge(followed.x, x, ledgeOf(map, graph, followed)), followed.y);
+    }
+
+    /** How far inside a ledge's ends a formation place stays. */
+    static final int LEDGE_EDGE_PX = 10;
+
+    /** {@code x} kept on the ledge {@code [minX, maxX]} (null: no ledge known); a ledge too narrow: the followed x. */
+    static int onLedge(int followedX, int x, int[] ledge) {
+        if (ledge == null) {
+            return x;
+        }
+        int lo = ledge[0] + LEDGE_EDGE_PX;
+        int hi = ledge[1] - LEDGE_EDGE_PX;
+        if (lo > hi) {
+            return followedX;
+        }
+        return Math.max(lo, Math.min(hi, x));
+    }
+
+    /** The x span of the ground ledge (nav region) under {@code p}, or null (no graph, a rope, nothing under it). */
+    static int[] ledgeOf(server.maps.MapleMap map, BotNavigationGraph graph, Point p) {
+        if (map == null || graph == null) {
+            return null;
+        }
+        try {
+            BotNavigationGraph.Region r = graph.getRegion(graph.findRegionId(map, p));
+            return r == null || r.isRopeRegion ? null : new int[]{r.minX, r.maxX};
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /* Faithful port of BotManager.stepMovementCore (minus fidget). */
@@ -677,6 +755,7 @@ final class GCMovementDriver {
         tickFrozenAirborneWatchdog(entry);
         tickRopeStallWatchdog(entry);
         tickFallOffMapRecovery(entry); // ours: catch a live plummet the frozen-air watchdog above misses
+        tickPitRescue(entry); // b109: a bot in a pit with no way back to the exits is put back
         if (entry.inAir || entry.climbing || entry.graphWarmupFallback
                 || (entry.navEdge == null && entry.moveTarget == null)) {
             entry.stuckMs = 0;
@@ -868,6 +947,57 @@ final class GCMovementDriver {
         // the "glitchy" fall on tall maps). Drop the goal too so the brain re-decides a safe target next tick.
         entry.moveTarget = null;
         broadcastIfObserved(entry);
+    }
+
+    /** b109: how long a bot stands in a trap before the pit rescue puts it back; longer while a player is on the map. */
+    static final long PIT_RESCUE_MS = 3_000;
+    static final long PIT_RESCUE_WATCHED_MS = 20_000;
+
+    /**
+     * b109 (the dead-end check's pits on 12 maps): a bot standing on a platform with no walk, jump, drop, climb or
+     * in-map portal back to the map's exits (NavPits trap: the hollow inside the Ludibrium ticketing-place block, the
+     * Lith Harbor crates, the lower halves of Unbalanced / Twisted Time) can never leave by moving, and the planner
+     * refuses every route out. The planner no longer routes into one, but a bot can still land there (knocked back,
+     * an unstuck hop, a fall, warped onto a spawn point inside). After PIT_RESCUE_MS on the ground there it is put on
+     * the nearest platform with a way out, like the fall-off-map recovery. Nothing on swim maps (swimmers swim out)
+     * or while climbing. With a player on the map it waits PIT_RESCUE_WATCHED_MS first, as there is no walk to offer.
+     */
+    static boolean tickPitRescue(BotMovementState entry) {
+        Character bot = entry.bot;
+        MapleMap map = bot != null ? bot.getMap() : null;
+        Point pos = bot != null ? bot.getPosition() : null;
+        if (map == null || pos == null || entry.inAir || entry.climbing || map.isSwim()) {
+            entry.pitSinceMs = 0;
+            return false;
+        }
+        BotNavigationGraph graph = entry.navGraph != null && entry.navGraph.mapId == map.getId() ? entry.navGraph
+                : BotNavigationGraphProvider.peekGraph(map, entry.movementProfile);
+        if (graph == null || !NavPits.isTrap(graph, map, graph.findRegionId(map, pos))) {
+            entry.pitSinceMs = 0;
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        if (entry.pitSinceMs == 0) {
+            entry.pitSinceMs = now;
+            return false;
+        }
+        boolean watched = WatchGate.enabled() && WatchGate.watched(bot);
+        if (now - entry.pitSinceMs < (watched ? PIT_RESCUE_WATCHED_MS : PIT_RESCUE_MS)) {
+            return false;
+        }
+        Point out = NavPits.rescuePoint(graph, map, pos);
+        entry.pitSinceMs = 0;
+        if (out == null) {
+            return false;
+        }
+        NavStuckLog.record(NavStuckLog.Kind.PIT, map, pos, graph, entry.navEdge, NavTrace.capture(entry));
+        if (watched) {
+            WatchGate.noteSnappedWhileWatched(bot, "pit-rescue"); // a trap has no walk out
+        }
+        BotPhysicsEngine.teleportTo(entry, bot, out);
+        BotMovementManager.resetEntryStateAfterTeleport(entry);
+        broadcastIfObserved(entry);
+        return true;
     }
 
     /**

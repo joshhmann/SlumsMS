@@ -1,0 +1,26 @@
+# Maps that load on the server but crash the client on entry. Read by tools/data-align/map_routing.py (the seed is
+# always read; --client-crash adds another list) and listed in src/main/resources/soloMapling/map-routing.tsv as
+# kind "client-crash". One map id per line, '#' starts a comment; '!' in front of an id clears it, so a map another
+# list still carries stops being blocked.
+#
+# Round 3 (2026-10-31): 410000350 (Ristonia : Rampart Residences) is cleared below - client build 10721 (rc6) fixes it
+# and MIN_CLIENT_BUILD is 10721, so it is an ordinary map again even though the Client lane's audit file still lists
+# it. The five ids after it are that audit (/root/work/agent-runs/client/client-crash-maps.txt, 11352 maps scanned,
+# 5940 findings): an image the client's tables lack is fatal.
+!410000350	# cleared: rc6 client build 10721 fixes the crash; MIN_CLIENT_BUILD 10721 keeps older clients out
+211080700	# Rose Garden, last of the family; Obj/mario.img missing (+11 more in it)
+402000324	# Obj/mario.img missing (+2 more in it)
+814040000	# Star Planet : Star Arena 3F; Obj/starPlanet.img missing (+27 more in it)
+814041900	# Star Planet : Step Game Exit; Obj/starPlanet.img missing (+1 more in it)
+863010240	# Phantom Forest : Gollux: Abdomen; Obj/mario.img missing (+1 more in it)
+#
+# Rose Garden family (Client lane, 2026-10-31 14:36 UTC): the client dies on entry to every map past the entrance and
+# the cause is not missing art (under investigation client-side). CONFIRMED by the Client lane at ~14:41 UTC: the
+# entrance 211080000 "Gardener's Spot" loads fine, so the family routes there. 211061001 (Roof of the Fifth Tower), the
+# map before the entrance, also loads fine and stays ordinary.
+211080100	# Rose Garden : Abandoned Garden (reproduced on the client)
+211080200	# Rose Garden : Soul's Rest
+211080300	# Rose Garden : Castle Wall's Edge
+211080400	# Rose Garden : Hidden Garden 1
+211080500	# Rose Garden : Hidden Garden 2
+211080600	# Rose Garden : Hidden Garden 3

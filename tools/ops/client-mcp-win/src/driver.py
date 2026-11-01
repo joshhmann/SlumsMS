@@ -11,6 +11,7 @@ import time
 
 from PIL import Image, ImageChops, ImageDraw, ImageStat
 from qapipe import LABEL as QA_LABEL, QaPipe
+import testhost
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = {
@@ -93,6 +94,14 @@ def inside(path, base=ROOT):
     return resolved
 
 
+def test_host():
+    """The TEST server's address: SLUMS_TEST_HOST through the one guard (testhost.py), allowlisted to TEST's boxes."""
+    try:
+        return testhost.host()
+    except testhost.Refused as error:
+        raise Refusal(str(error)) from None
+
+
 def verify_config(path):
     """Require exactly one endpoint pair; never silently rewrite an unsafe target."""
     text = path.read_text(encoding='utf-8-sig')
@@ -109,8 +118,18 @@ def verify_config(path):
             hosts.append(value)
         if key.lower() == 'port':
             ports.append(value)
-    if hosts != ['192.168.0.164'] or ports != ['8489']:
-        raise Refusal('Refusing client config: require exactly 192.168.0.164 port 8489.')
+    try:
+        wanted = testhost.host()
+        for value in hosts:
+            testhost.host(value, source='config host')
+        for value in ports:
+            testhost.port(value, source='config port')
+    except testhost.Refused as error:
+        raise Refusal('Refusing client config: %s' % error) from None
+    if hosts != [wanted] or ports != [testhost.PORT]:
+        raise Refusal('Refusing client config: require exactly %s port %s, the config has %s port %s.'
+                      % (wanted, testhost.PORT, ' and '.join(hosts) or 'no host',
+                         ' and '.join(ports) or 'no port'))
 
 
 class Secrets:

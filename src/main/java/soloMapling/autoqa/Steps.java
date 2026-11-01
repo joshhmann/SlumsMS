@@ -91,7 +91,7 @@ public final class Steps {
         return of(cmd, r -> {
             AutoQaWorld.Actor gm = r.actor(1);
             long t = r.world.now();
-            gm.say(cmd);
+            gm.say(r.fill(cmd)); // {p2} and friends are per-lane names
             r.startedScenario(1);
             long deadline = t + 20_000;
             while (r.world.now() < deadline) {
@@ -155,6 +155,70 @@ public final class Steps {
     }
 
     /** Ends the check as FAIL with the timed-out line, also kept as an evidence note. */
+    /** How long a progress-guarded wait tolerates silence: {@code -Dslums.autoqa.kpqStallMin}, default 8, 0 = off. */
+    static long stallMs() {
+        return Math.max(0, Integer.getInteger("slums.autoqa.kpqStallMin", 8)) * 60_000L;
+    }
+
+    static String stallText() {
+        long ms = stallMs();
+        return ms <= 0 ? "a stall guard that is off" : "no progress for " + (ms / 60_000) + " min";
+    }
+
+    /**
+     * As {@link #waitFor(String, int)}, but a run that stops reporting ({@code progressRegex}, e.g. Kerning PQ's RUN
+     * lines) FAILs after {@code slums.autoqa.kpqStallMin} minutes instead of running its whole budget (ticket 167:
+     * the two KPQ checks each burned 15-30 min to the same timeout). It never shortens a run that keeps going, so
+     * every check that clears its stages in time still PASSes.
+     */
+    public static Step waitForWithProgress(String regex, int seconds, String progressRegex, String what) {
+        return of("wait up to " + seconds + " s for /" + regex + "/, or FAIL after " + stallText() + " without a "
+                        + what,
+                r -> awaitLineWithProgress(r, regex, seconds, r.previousStepStart(), progressRegex, what));
+    }
+
+    private static StepResult awaitLineWithProgress(CheckRun r, String regex, int seconds, long from,
+                                                    String progressRegex, String what) throws InterruptedException {
+        Pattern p = r.compile(regex);
+        Pattern progress = r.compile(progressRegex);
+        if (p == null || progress == null) {
+            return StepResult.fail("unknown placeholder in /" + (p == null ? regex : progressRegex)
+                    + "/ (no staged bot or variable)");
+        }
+        long deadline = r.world.now() + seconds * 1000L;
+        long stall = stallMs();
+        long last = r.world.now();
+        int seen = 0;
+        while (true) {
+            int count = 0;
+            for (AutoQaLine l : r.lines()) {
+                if (l.timeMs() < from) {
+                    continue;
+                }
+                if (p.matcher(l.text()).find()) {
+                    return StepResult.OK;
+                }
+                if (progress.matcher(l.text()).find()) {
+                    count++;
+                }
+            }
+            if (count != seen) {
+                seen = count;
+                last = r.world.now();
+            }
+            if (stall > 0 && r.world.now() - last >= stall) {
+                String line = "no " + what + " in " + (stall / 60_000) + " min (" + seen
+                        + " progress line(s) so far; stall guard " + stallText() + ", slums.autoqa.kpqStallMin)";
+                r.note(line);
+                return StepResult.fail(line);
+            }
+            if (r.world.now() >= deadline) {
+                return timeout(r, "/" + regex + "/", seconds, null);
+            }
+            r.world.sleep(Math.min(2000, Math.max(1, deadline - r.world.now())));
+        }
+    }
+
     private static StepResult timeout(CheckRun r, String what, int seconds, String detail) {
         String line = timedOut(what, seconds) + (detail == null ? "" : ": " + detail);
         r.note(line);

@@ -22,7 +22,8 @@ webhook URLs in /etc/slumsms-monitor/<target>.env (root-only, 0600, never in git
 goes to the local log only (/var/log/slumsms-monitor/<target>.log). State lives in /var/lib/slumsms-monitor/<target>/.
 
 Python 3 standard library plus PyYAML (for the server's config.yaml). Read-only towards the server: it runs systemctl
-show/is-active, journalctl, jstat, docker inspect/exec (SELECT only) and HTTP GETs; it never starts or stops anything.
+show/is-active, journalctl, jstat, docker inspect/exec (SELECT only), HTTP GETs and stats/reads the tail of the game
+log; it never starts or stops anything.
 """
 import argparse
 import datetime as dt
@@ -64,6 +65,11 @@ DEFAULTS = {
     "DISK_MIN_FREE_PCT": "5",
     "BOTS_MIN_RATIO": "0.6",          # online bots below this share of the director target ...
     "BOTS_GRACE_MIN": "20",           # ... once the server has been up this long
+    # Game log silence: a hung world loop stops writing while the login port still answers (unit + port both "up").
+    "GAME_LOG_FILE": "",              # default: <SERVER_DIR>/BotLog.txt, the world loop's own activity log
+    "LOG_SILENCE_MIN": "5",           # alert after the log has been quiet this long ...
+    "LOG_MIN_BYTES": "1024",          # ... i.e. grew less than this per minute (a hang trickles ~50 B/min)
+    "LOG_GRACE_MIN": "10",            # never judge a server that booted less than this ago (a restart resets)
     "LLM_URL": "http://192.168.0.17:8095/health",
     "DECIDE_URL": "http://192.168.0.17:8900/health",
     "HTTP_TIMEOUT": "5",
@@ -88,10 +94,18 @@ DEFAULTS = {
     "ANNOUNCE_MAX_AGE_MIN": "30",     # feed lines older than this are logged, not posted (monitor was down)
     "ANNOUNCE_EVENT_WINNERS": "1",    # also post "X beat the boss / found the treasure"
     "ANNOUNCE_GM_EVENTS": "1",        # also post events a GM started with !event start (0: scheduler only)
+    # Cloud chat spend (DeepSeek): the bot brain writes <SERVER_DIR>/data/convo/cloud-budget.json (CloudBudget.java).
+    "CLOUD_BUDGET_FILE": "",          # default: <SERVER_DIR>/data/convo/cloud-budget.json
+    "CLOUD_WARN_PCT": "80",           # warn once a day when this share of the daily cap is spent
+    "CLOUD_ENV_FILE": "/etc/slumsms/cloud-llm.env",  # root 0600, holds the API key (never read into messages)
+    "CLOUD_KEY_NAME": "SOLOMAPLING_LLM_CLOUD_API_KEY",
+    "CLOUD_BASE_URL": "",             # default: config.yaml BOT_LLM_CLOUD_BASE_URL, else https://api.deepseek.com
+    "BALANCE_MIN_USD": "5",           # alert when the account balance drops below this
+    "BALANCE_EVERY_MIN": "45",        # ask the provider for the balance this often (it costs one GET)
     # consecutive failed runs before a check alerts (timer runs every minute)
     "FAIL_AFTER_unit": "1", "FAIL_AFTER_login": "2", "FAIL_AFTER_errors": "1", "FAIL_AFTER_memory": "5",
     "FAIL_AFTER_db": "2", "FAIL_AFTER_disk": "1", "FAIL_AFTER_bots": "10", "FAIL_AFTER_llm": "1",
-    "FAIL_AFTER_decide": "1", "FAIL_AFTER_timers": "1",
+    "FAIL_AFTER_decide": "1", "FAIL_AFTER_timers": "1", "FAIL_AFTER_log": "2",
 }
 
 SERVER_CONFIG_DEFAULTS = {  # src/main/java/config/ServerConfig.java
@@ -106,6 +120,8 @@ SECRET_PATTERNS = [
     re.compile(r"https?://\S*discord(app)?\.com/api/webhooks/\S+", re.I),
     re.compile(r"/api/webhooks/\S+", re.I),
     re.compile(r"(password|passwd|pwd|token|secret)\s*[=:]\s*\S+", re.I),
+    re.compile(r"\bsk-[A-Za-z0-9_-]{16,}"),                         # provider keys (DeepSeek/OpenAI shape)
+    re.compile(r"[A-Za-z0-9_]*(?:api[_-]?key|access[_-]?key)\s*[=:]\s*\S+", re.I),
 ]
 
 
@@ -453,19 +469,227 @@ def journal_lines(unit, since):
     return out.splitlines() if code == 0 else None
 
 
+# ------------------------------------------------------------------------------------------------------ game log
+
+LAST_LINE_STAMP = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]")
+LOG_TAIL_BYTES = 8192
+
+
+def game_log_path(t):
+    """The file the world loop writes: GAME_LOG_FILE, else <SERVER_DIR>/BotLog.txt.
+
+    Not logs/cosmic-log.log: every other JVM that starts in the server folder rolls that file (log4j2
+    OnStartupTriggeringPolicy), so its size and mtime say nothing about the game process. BotLog.txt is written by
+    the world loop alone (soloMapling.BotLogger) and it rolls at 100 MB or midnight into logs/botlog/."""
+    return t.get("GAME_LOG_FILE") or (os.path.join(t.get("SERVER_DIR"), "BotLog.txt")
+                                      if t.get("SERVER_DIR") else "")
+
+
+def game_log_last_stamp(path):
+    """The "[YYYY-MM-DD HH:MM:SS]" of the log's own last timestamped line (the server's local clock), or None."""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - LOG_TAIL_BYTES))
+            tail = f.read().decode("utf-8", "replace")
+    except OSError:
+        return None
+    for line in reversed(tail.splitlines()):
+        m = LAST_LINE_STAMP.match(line.strip())
+        if m:
+            return m.group(1)
+    return None
+
+
+# ------------------------------------------------------------------------------------------------------ cloud chat
+
+def cloud_budget_path(t):
+    """The file CloudBudget.java writes: {day, spent, calls, cacheHitTokens, cacheMissTokens, capUsd}."""
+    return t.get("CLOUD_BUDGET_FILE") or os.path.join(t.get("SERVER_DIR"), "data", "convo", "cloud-budget.json")
+
+
+def read_cloud_budget(path):
+    """The spend so far today, or None when the file is missing or half written (a server writing it is not a fault)."""
+    if not path:
+        return None
+    data = load_json(path, None)
+    if not isinstance(data, dict):
+        return None
+    try:
+        return {"day": str(data.get("day") or ""), "spent": float(data.get("spent") or 0.0),
+                "cap": float(data.get("capUsd") or 0.0), "calls": int(data.get("calls") or 0)}
+    except (TypeError, ValueError):
+        return None
+
+
+def cloud_base_url(t):
+    """The provider root. The chat client's base may carry /v1; /user/balance sits at the root."""
+    base = (t.get("CLOUD_BASE_URL") or str(t.server_config().get("BOT_LLM_CLOUD_BASE_URL") or "")
+            or "https://api.deepseek.com").strip()
+    base = base.rstrip("/")
+    if base.endswith("/v1"):
+        base = base[:-3].rstrip("/")
+    return base or "https://api.deepseek.com"
+
+
+def fetch_balance(base, key, timeout):
+    """GET {base}/user/balance. Returns (usd or None, detail, outcome) with outcome answered|error|no-usd."""
+    req = urllib.request.Request(base + "/user/balance", headers={
+        "Authorization": "Bearer " + key, "Accept": "application/json", "User-Agent": "slumsms-monitor"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        return None, "HTTP %d" % e.code, "error"
+    except Exception as e:  # noqa: BLE001 - unreachable, timeout, bad JSON: all "the check failed"
+        return None, "unreachable (%s)" % type(e).__name__, "error"
+    infos = data.get("balance_infos") if isinstance(data, dict) else None
+    for info in infos or []:
+        if str(info.get("currency", "")).upper() == "USD":
+            try:
+                return float(info.get("total_balance")), "", "answered"
+            except (TypeError, ValueError):
+                return None, "USD balance is not a number", "error"
+    seen = ", ".join(sorted(str(i.get("currency")) for i in infos or [] if isinstance(i, dict)))
+    return None, "no USD balance" + (" (only %s)" % seen if seen else ""), "no-usd"
+
+
+def budget_tick(budget, warn_pct, state):
+    """Turns today's spend into at most one warning and one cap message a day, plus a recovery when the day rolls.
+
+    CloudBudget resets at 00:00 UTC (the servers are on UTC), so "today" in the file is the UTC day. state is the
+    "budget" part of <state>/cloud.json and is the only thing that keeps a message from repeating.
+    """
+    day, spent, cap, calls = budget["day"], budget["spent"], budget["cap"], budget["calls"]
+    results = []
+    if state.get("day") != day:
+        was, alerted = float(state.get("spent") or 0.0), bool(state.get("alerted")) and bool(state.get("day"))
+        told = "cap" if state.get("cap") else "warning"
+        state.clear()
+        state.update(day=day, spent=spent, calls=calls)
+        if alerted:
+            results.append(Result("cloud", "cloud budget", True,
+                                  "new day: $0.00 of $%.2f to spend (yesterday %s at $%.2f)"
+                                  % (cap, "hit the cap" if told == "cap" else "passed the warning", was),
+                                  managed=True, event="recover"))
+    state["spent"], state["calls"] = spent, calls
+    said = "$%.2f of $%.2f today (%d cloud calls)" % (spent, cap, calls)
+    if cap <= 0:
+        return results + [Result("cloud", "cloud budget", True,
+                                 "$%.2f today (%d cloud calls), no daily cap set" % (spent, calls), managed=True)]
+    pct = 100.0 * spent / cap
+    if spent >= cap:
+        if not state.get("cap"):
+            state.update(cap=True, warn=True, alerted=True)
+
+            def rollback(state=state):
+                state.update(cap=False, alerted=False)
+            results.append(Result("cloud", "cloud budget", False,
+                                  "$%.2f of $%.2f today: cap reached, bot replies fall back to the local model "
+                                  "until 00:00 UTC" % (spent, cap), managed=True, event="alert", rollback=rollback))
+        else:
+            results.append(Result("cloud", "cloud budget", False, said + ", over the cap", managed=True))
+    elif pct >= warn_pct:
+        if not state.get("warn"):
+            state.update(warn=True, alerted=True)
+
+            def rollback(state=state):
+                state.update(warn=False, alerted=False)
+            results.append(Result("cloud", "cloud budget", False,
+                                  "$%.2f of $%.2f today (%.0f%%, warning at %.0f%%)" % (spent, cap, pct, warn_pct),
+                                  managed=True, event="alert", rollback=rollback))
+        else:
+            results.append(Result("cloud", "cloud budget", False,
+                                  "$%.2f of $%.2f today (%.0f%%)" % (spent, cap, pct), managed=True))
+    else:
+        results.append(Result("cloud", "cloud budget", True, "%s (%.0f%%)" % (said, pct), managed=True))
+    return results
+
+
+def balance_tick(t, state, now=None):
+    """The provider account balance, asked at most every BALANCE_EVERY_MIN, with one alert per problem.
+
+    A failing endpoint is retried every tick until it has failed three times, so an outage is noticed in minutes;
+    after the alert it goes back to the normal interval. The API key is read in this process for the request header
+    and never put into a message.
+    """
+    now = time.time() if now is None else now
+    every = (t.num("BALANCE_EVERY_MIN") or 45) * 60
+    last = state.get("last_check") or 0
+    if last and now - last < every:
+        return [Result("balance", "cloud balance", True,
+                       "last check %s ago" % human_duration(now - last), managed=True)]
+    key_name = t.get("CLOUD_KEY_NAME") or "SOLOMAPLING_LLM_CLOUD_API_KEY"
+    env_file = t.get("CLOUD_ENV_FILE")
+    key = read_kv(env_file).get(key_name, "") if env_file else ""
+    if not key:
+        return [Result("balance", "cloud balance", True,
+                       "no %s%s" % (key_name, (" in " + env_file) if env_file else " (CLOUD_ENV_FILE not set)"),
+                       skipped=True, managed=True)]
+    usd, detail, outcome = fetch_balance(cloud_base_url(t), key, t.num("HTTP_TIMEOUT") or 5)
+    state["last_check"] = now
+    minimum = t.num("BALANCE_MIN_USD")
+    if outcome == "error":
+        state["fails"] = state.get("fails", 0) + 1
+        if state["fails"] < 3 or state.get("failing"):
+            state["last_check"] = 0 if state["fails"] < 3 else now
+            return [Result("balance", "cloud balance", False,
+                           "balance check failing: %s (%d in a row)" % (detail, state["fails"]), managed=True)]
+        state["failing"] = True
+
+        def rollback(state=state):
+            state.update(failing=False, last_check=0)
+        return [Result("balance", "cloud balance", False,
+                       "balance check failing: %s, %d checks in a row" % (detail, state["fails"]),
+                       managed=True, event="alert", rollback=rollback)]
+    if outcome == "no-usd":
+        state["fails"] = 0
+        return [Result("balance", "cloud balance", True, detail, skipped=True, managed=True)]
+    state["fails"], state["usd"] = 0, usd
+    results = []
+    if state.pop("failing", False):
+        results.append(Result("balance", "cloud balance", True,
+                              "answering again ($%.2f available)" % usd, managed=True, event="recover"))
+    if usd < minimum:
+        if not state.get("low"):
+            state["low"] = True
+
+            def rollback(state=state):
+                state.update(low=False, last_check=0)
+            results.append(Result("balance", "cloud balance", False,
+                                  "$%.2f left, below the $%.2f minimum" % (usd, minimum),
+                                  managed=True, event="alert", rollback=rollback))
+        else:
+            results.append(Result("balance", "cloud balance", False,
+                                  "$%.2f left, below the $%.2f minimum" % (usd, minimum), managed=True))
+    else:
+        if state.pop("low", False):
+            results.append(Result("balance", "cloud balance", True,
+                                  "$%.2f available again (minimum $%.2f)" % (usd, minimum),
+                                  managed=True, event="recover"))
+        results.append(Result("balance", "cloud balance", True,
+                              "$%.2f available (minimum $%.2f)" % (usd, minimum), managed=True))
+    return results
+
+
 # ----------------------------------------------------------------------------------------------------------- checks
 
 class Result:
-    def __init__(self, key, name, ok, detail, skipped=False):
+    """One check's outcome. managed=True: the check keeps its own alert bookkeeping (event alert|recover) and its
+    detail is already the message body, so cmd_check must not count runs or repeat it."""
+
+    def __init__(self, key, name, ok, detail, skipped=False, managed=False, event=None, rollback=None):
         self.key, self.name, self.ok, self.detail, self.skipped = key, name, ok, detail, skipped
+        self.managed, self.event, self.rollback = managed, event, rollback
 
 
-def run_checks(t):
+def run_checks(t, cloud=None, checks=None):
     results = []
     unit = t.get("UNIT")
     info = unit_info(unit)
     up = bool(info and info["active"] == "active")
     pid = info["pid"] if info else 0
+    login_state = None   # (ok, detail) of the port probe, for the game log check
 
     def add(key, name, ok, detail, skipped=False):
         results.append(Result(key, name, ok, scrub(detail), skipped))
@@ -485,9 +709,67 @@ def run_checks(t):
             add("login", "login port", True, "skipped (server down)", skipped=True)
         else:
             ok, detail = login_answers(t.get("LOGIN_HOST"), port)
+            login_state = (ok, detail)
             add("login", "login port", ok, "port %d %s" % (port, "answers (%s)" % detail if ok else detail))
 
-    # 3. journal error rate
+    # 3. game log silence while the login port answers: a hung world loop keeps the port open but stops the log,
+    #    so the unit and the port both look healthy (2026-10-31 Fads/PlayerStorage hang, 2026-11-01 pool livelock).
+    log_path = game_log_path(t)
+    silence = t.num("LOG_SILENCE_MIN") * 60
+    if log_path and silence > 0:
+        state = {} if checks is None else checks.setdefault("log", {})
+        now = time.time()
+
+        def restart_timer():
+            for key in ("log_size", "log_inode", "log_quiet_since"):
+                state.pop(key, None)
+
+        if unit and not up:
+            add("log", "game log", True, "skipped (server down)", skipped=True)
+        elif up and (info["up_seconds"] or 0) < t.num("LOG_GRACE_MIN") * 60:
+            restart_timer()
+            add("log", "game log", True, "server restarted %s ago, not judging the log yet"
+                % human_duration(info["up_seconds"] or 0))
+        else:
+            try:
+                st = os.stat(log_path)
+            except OSError:
+                restart_timer()
+                add("log", "game log", True, "no game log file at %s" % log_path)
+            else:
+                prev_size, prev_inode = state.get("log_size"), state.get("log_inode")
+                last_run = state.get("log_last_run") or now
+                minutes = max(1.0, (now - last_run) / 60.0)
+                # a rotation, a truncation or the first sample: start the timer from the file's own mtime
+                fresh = prev_size is None or st.st_size < prev_size or (
+                    prev_inode is not None and prev_inode != st.st_ino)
+                if fresh:
+                    quiet_since = min(st.st_mtime, now)
+                elif st.st_size - prev_size >= t.num("LOG_MIN_BYTES") * minutes:
+                    quiet_since = now
+                else:
+                    quiet_since = state.get("log_quiet_since", st.st_mtime)
+                state.update(log_inode=st.st_ino, log_size=st.st_size, log_last_run=now,
+                             log_quiet_since=quiet_since)
+                quiet = max(0.0, now - quiet_since)
+                if quiet < silence:
+                    add("log", "game log", True, "%s last grew %s ago, last line %s server time"
+                        % (log_path, human_duration(quiet), game_log_last_stamp(log_path) or "unknown"))
+                elif login_state is None:
+                    add("log", "game log", True, "game log silent since %s (%s), no login port configured to tell "
+                        "a hang from a stopped server" % (fmt_hms(quiet_since), human_duration(quiet)), skipped=True)
+                elif login_state[0]:
+                    add("log", "game log", False,
+                        "game log silent since %s (%s) while login:%d answers — world loop likely hung "
+                        "(log %s, last line %s server time)" % (fmt_hms(quiet_since), human_duration(quiet), port,
+                                                                log_path, game_log_last_stamp(log_path) or "unknown"))
+                else:
+                    add("log", "game log", True,
+                        "game log silent since %s (%s) and login:%d also down — server/host down "
+                        "(the login port check reports it)" % (fmt_hms(quiet_since), human_duration(quiet), port),
+                        skipped=True)
+
+    # 4. journal error rate
     if unit:
         window = int(t.num("ERROR_WINDOW_MIN")) or 5
         lines = journal_lines(unit, "-%dmin" % window)
@@ -499,7 +781,7 @@ def run_checks(t):
             add("errors", "error rate", len(errors) <= limit,
                 "%d ERROR/Exception lines in the last %d min (limit %d)" % (len(errors), window, limit))
 
-    # 4. memory
+    # 5. memory
     if up and pid:
         xmx = t.num("HEAP_MAX_MB") or proc_xmx_mb(pid)
         rss = proc_rss_mb(pid)
@@ -521,7 +803,7 @@ def run_checks(t):
         else:
             add("memory", "memory", True, "no -Xmx found", skipped=True)
 
-    # 5. DB container
+    # 6. DB container
     db = None
     container = t.get("DB_CONTAINER")
     if container:
@@ -539,7 +821,7 @@ def run_checks(t):
         if not ok:
             db = None
 
-    # 6. disk
+    # 7. disk
     paths = t.get("DISK_PATHS").split() + ([t.get("SERVER_DIR")] if t.get("SERVER_DIR") else [])
     seen, low, parts = set(), [], []
     for path in paths:
@@ -559,7 +841,7 @@ def run_checks(t):
     if parts:
         add("disk", "disk space", not low, "; ".join(low or parts))
 
-    # 7. bots vs the director target
+    # 8. bots vs the director target
     if up and pid:
         args = proc_args(pid)
         cfg = t.server_config()
@@ -594,7 +876,7 @@ def run_checks(t):
                         ok, detail = False, detail + " (below %.0f%%)" % (ratio * 100)
                     add("bots", "bot population", ok, detail)
 
-    # 8. LLM and Decide
+    # 9. LLM and Decide
     timeout = t.num("HTTP_TIMEOUT") or 5
     for key, name, url_key in (("llm", "bot chat LLM", "LLM_URL"), ("decide", "Decide", "DECIDE_URL")):
         url = t.get(url_key)
@@ -606,7 +888,7 @@ def run_checks(t):
             hostport = re.sub(r"^https?://([^/]+).*$", r"\1", url)
             add(key, name, ok, "%s %s%s" % (hostport, detail, "" if ok else " (bots fall back to scripted lines)"))
 
-    # 9. scheduled jobs
+    # 10. scheduled jobs
     timers = t.get("TIMERS").split()
     if timers:
         bad, parts = [], []
@@ -633,6 +915,21 @@ def run_checks(t):
             else:
                 parts.append("%s ok%s" % (base, (" (%s ago)" % human_duration(time.time() - last)) if last else ""))
         add("timers", "scheduled jobs", not bad, "; ".join(bad or parts))
+
+    # 11. cloud chat spend and account balance (state: <state>/cloud.json, see cmd_check)
+    if cloud is not None:
+        path = cloud_budget_path(t)
+        budget = read_cloud_budget(path)
+        managed = []
+        if budget is None:
+            managed.append(Result("cloud", "cloud budget", True, "no budget file (%s)" % path,
+                                  skipped=True, managed=True))
+        else:
+            managed.extend(budget_tick(budget, t.num("CLOUD_WARN_PCT") or 80, cloud.setdefault("budget", {})))
+        managed.extend(balance_tick(t, cloud.setdefault("balance", {})))
+        for r in managed:
+            r.detail = scrub(r.detail)
+            results.append(r)
 
     return results
 
@@ -703,13 +1000,21 @@ def fmt_since(ts):
     return dt.datetime.fromtimestamp(ts, dt.timezone.utc).strftime("%H:%M UTC")
 
 
+def fmt_hms(ts):
+    return dt.datetime.fromtimestamp(ts, dt.timezone.utc).strftime("%H:%M:%S UTC")
+
+
 def cmd_check(t, args):
     now = time.time()
-    results = run_checks(t)
+    cloud_path = os.path.join(t.state_dir, "cloud.json")
+    cloud = load_json(cloud_path, {})
+    if not isinstance(cloud, dict):
+        cloud = {}
     state_path = os.path.join(t.state_dir, "checks.json")
     state = load_json(state_path, {"checks": {}, "sent": []})
     checks = state.setdefault("checks", {})
-    alerts, recoveries, new_alert_keys = [], [], []
+    results = run_checks(t, cloud, checks)
+    alerts, recoveries, new_alert_keys, rollbacks = [], [], [], []
     remind = t.num("REMIND_MIN") * 60
 
     for r in results:
@@ -717,6 +1022,20 @@ def cmd_check(t, args):
             print("%-6s %-16s %s" % ("skip" if r.skipped else ("ok" if r.ok else "FAIL"), r.name, r.detail))
         s = checks.setdefault(r.key, {"fails": 0, "alerted": False})
         s["detail"], s["name"], s["last_run"] = r.detail, r.name, now
+        if r.managed:
+            # The cloud checks decide themselves what is worth a message (once a day for the budget, once per
+            # problem for the balance); here we only shape it and remember that it went out.
+            if r.event == "alert":
+                alerts.append("**ALERT** %s: %s" % (r.name, r.detail))
+                s["alerted"], s["last_alert"] = True, now
+                new_alert_keys.append(r.key)
+                if r.rollback:
+                    rollbacks.append(r.rollback)
+            elif r.event == "recover":
+                recoveries.append("**RECOVERED** %s: %s" % (r.name, r.detail))
+                s["alerted"] = False
+                s.pop("last_alert", None)
+            continue
         if r.skipped:
             continue  # neither a failure nor a recovery
         if r.ok:
@@ -758,6 +1077,8 @@ def cmd_check(t, args):
             # recovers during maintenance, no "recovered" message follows an alert nobody saw.
             for key in new_alert_keys:
                 checks[key]["alerted"] = False
+            for undo in rollbacks:  # an alert nobody saw is not used up: it can be sent again later
+                undo()
         elif len(sent) >= t.num("MAX_MESSAGES_PER_HOUR"):
             t.log("[alert, rate limited] " + scrub(text))
         else:
@@ -767,11 +1088,14 @@ def cmd_check(t, args):
             except RuntimeError:
                 for key in new_alert_keys:  # logged locally; try the new alerts again next run
                     checks[key]["alerted"] = False
+                for undo in rollbacks:
+                    undo()
         state["sent"] = sent
 
     state["last_run"] = now
     if not args.dry_run:
         save_json(state_path, state)
+        save_json(cloud_path, cloud)
         summary = {r.key: {"ok": r.ok, "skipped": r.skipped, "name": r.name, "detail": r.detail} for r in results}
         save_json(os.path.join(t.state_dir, "status.json"), {"at": int(now), "target": t.label, "checks": summary})
     return 0

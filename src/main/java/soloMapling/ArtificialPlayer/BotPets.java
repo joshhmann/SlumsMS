@@ -169,7 +169,7 @@ public final class BotPets {
         bot.addPet(pet);
         bot.setBotPetEquips(choice.magnet(), choice.pouch());
         MapleMap map = bot.getMap();
-        if (map != null && GCMovement.isMapObserved(map)) {
+        if (map != null && map.getCharacterById(bot.getId()) == bot && GCMovement.isMapObserved(map)) {
             // the bot is already on a watched map: its spawn packet went out without the pet
             map.broadcastMessage(bot, PacketCreator.showPet(bot, pet, false, false), false);
         }
@@ -215,12 +215,17 @@ public final class BotPets {
     // ---- following ----
 
     /**
-     * The bot's movement just went out to watchers (BotMovementManager, observed maps only): its pet trots
-     * along behind it. Throttled to {@link #MOVE_GAP_MS}; a stop goes out at once so the pet settles.
+     * The character's movement just went out to watchers (BotMovementManager, observed maps only): its pet trots
+     * along behind it. Throttled to {@link #MOVE_GAP_MS}; a stop goes out at once so the pet settles. Works for a
+     * bot's in-memory pet and for the real pet of a summoned alt (b239).
      */
     public static void follow(Character bot, int x, int y, int velX, int velY, int stance, int fh) {
         Pet pet = bot.getPet(0);
-        if (pet == null || !pet.isBotPet()) {
+        if (pet == null) {
+            // b239 (the owner, 10-31): a summoned @botme alt is a real DB character with a real pet, so this is not
+            // gated on isBotPet() - its pet hung in mid-air where it spawned. Nothing else reaches here: the one
+            // caller is BotMovementManager.sendMovementPacket, the server-side movement path for bots and alts; a
+            // player's own pet is moved by that player's client, which never comes through it.
             return;
         }
         long now = System.currentTimeMillis();

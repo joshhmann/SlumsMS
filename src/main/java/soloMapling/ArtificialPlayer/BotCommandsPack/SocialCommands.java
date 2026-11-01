@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static soloMapling.server.SoloMaplingUtilities.generateRandomNumber;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
+import soloMapling.ArtificialPlayer.BotConvo.RepeatGuard;
 
 /*
 Commands related to bots socializing with the player
@@ -19,6 +21,10 @@ public class SocialCommands {
     static boolean debugSkipDialog = false;
 
     public static void BotFullChat(Character fakechar, String message) {
+        message = SpeechGuard.check(fakechar, message); // b247
+        if (message == null || !RepeatGuard.claimMapLine(fakechar, message)) {
+            return; // b248: another bot said this on this map minutes ago
+        }
         fullChat(fakechar, message, soloMapling.ArtificialPlayer.BotConvo.MessyChat.forChat(fakechar, message));
     }
 
@@ -51,6 +57,12 @@ public class SocialCommands {
     }
 
     public static void BotSpeak(Character fakechar, String message) {
+        // b247: the one net under bot map chat - an unfilled {slot} is refilled from live state or the line is
+        // dropped; b248: two bots on one map never say the same line within RepeatGuard.MAP_SAME_LINE_MS
+        message = SpeechGuard.check(fakechar, message);
+        if (message == null || !RepeatGuard.claimMapLine(fakechar, message)) {
+            return;
+        }
         soloMapling.ArtificialPlayer.BotMessagingSystem.BotChatRouting.noteBotSpoke(fakechar, message); // ticket 19
         if (botChatTypingStyle) {
             BotChatbubbleTyping(fakechar, message, 150);
@@ -60,6 +72,10 @@ public class SocialCommands {
     }
 
     public static void BotChatbubble(Character fakechar, String message) {
+        message = SpeechGuard.check(fakechar, message); // b247
+        if (message == null || !RepeatGuard.claimMapLine(fakechar, message)) {
+            return; // b248: another bot said this on this map minutes ago
+        }
         soloMapling.ArtificialPlayer.BotConvo.SayDo.said(fakechar, message);
         String typed = soloMapling.ArtificialPlayer.BotConvo.MessyChat.forChat(fakechar, message); // 1.6.0 messy chat
         BotNoiseFilter.broadcastBotChat(fakechar, PacketCreator.getChatText(fakechar.getId(), typed, false, 1), typed); // Send message just bubble, no chat box
@@ -72,6 +88,10 @@ public class SocialCommands {
     // Deliberate blocking leaf primitive: the typing rhythm IS the effect and the
     // duration is data-driven (message length). Callers pick the thread.
     public static void BotChatbubbleTyping(Character fakechar, String message, int delayMillis, boolean showInChat) {
+        message = SpeechGuard.check(fakechar, message); // b247
+        if (message == null || !RepeatGuard.claimMapLine(fakechar, message)) {
+            return; // b248: another bot said this on this map minutes ago
+        }
         String meant = message;
         message = soloMapling.ArtificialPlayer.BotConvo.MessyChat.forChat(fakechar, message); // 1.6.0 messy chat
         StringBuilder displayedMessage = new StringBuilder();

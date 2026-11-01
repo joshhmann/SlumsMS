@@ -1,9 +1,11 @@
 """b170: the tools the 187 orchestrator plays a script with (login_credentials, click_anchor, select_*, qa_events).
 Fake screens, sender and pipe: no Windows calls."""
+import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
@@ -175,6 +177,79 @@ class NewToolsTest(unittest.TestCase):
                            ('qa_events', {'since': -1})):
             with self.assertRaises(self.driver.Refusal):
                 self.d.validate(name, args)
+
+
+class ClientEndpointTest(unittest.TestCase):
+    """o03: the QA client may point at TEST only: 164 until the 1.6.3 TEST cutover, then mapletest (192.168.0.111)."""
+
+    def setUp(self):
+        try:
+            import driver
+        except ImportError as error:
+            self.skipTest('driver import failed: %s' % error)
+        self.driver = driver
+        self.testhost = driver.testhost
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def config(self, text):
+        path = self.tmp / 'config.ini'
+        path.write_text(text, encoding='ascii')
+        return path
+
+    def setting(self, value):
+        """SLUMS_TEST_HOST=value for the block (None: unset)."""
+        environ = {k: v for k, v in os.environ.items() if k != 'SLUMS_TEST_HOST'}
+        if value is not None:
+            environ['SLUMS_TEST_HOST'] = value
+        return mock.patch.dict(os.environ, environ, clear=True)
+
+    def test_the_client_config_points_at_the_test_box(self):
+        # o03: the played TEST stays on 164 until the 1.6.3 TEST cutover (testhost.DEFAULT_HOST flips then)
+        with self.setting(None):
+            self.driver.verify_config(self.config('host=192.168.0.164\nport=8489\n'))
+        with self.setting('192.168.0.111'):
+            self.driver.verify_config(self.config('host=192.168.0.111\nport=8489\n'))
+        # the two boxes are the whole allowlist: TEST's own box is accepted beside the old one
+        with self.setting('192.168.0.164'):
+            self.driver.verify_config(self.config('host=192.168.0.164\nport=8489\n'))
+
+    def test_another_box_and_live_are_refused(self):
+        with self.setting(None):
+            for text in ('host=192.168.0.111\nport=8489\n',                                  # not the TEST in use yet
+                         'host=slumsms.asslorde.com\nport=8489\n',                          # the live site
+                         'host=10.0.0.9\nport=8489\n',                                      # any other address
+                         'host=\nport=8489\n',                                              # no host at all
+                         'host=192.168.0.164\nport=8485\n',                                 # live's login port
+                         'host=192.168.0.164\nport=8489\nhost=10.0.0.9\nport=8489\n'):     # two endpoints
+                with self.assertRaises(self.driver.Refusal, msg=text):
+                    self.driver.verify_config(self.config(text))
+
+    def test_slums_test_host_moves_the_guard(self):
+        with self.setting('192.168.0.111'):
+            self.driver.verify_config(self.config('host=192.168.0.111\nport=8489\n'))
+            with self.assertRaises(self.driver.Refusal):
+                self.driver.verify_config(self.config('host=192.168.0.164\nport=8489\n'))
+
+    def test_a_refused_setting_names_its_value_and_is_never_a_default(self):
+        for refused in ('slumsms.asslorde.com', '10.0.0.9', 'mapletest', ''):
+            with self.setting(refused):
+                with self.assertRaises(self.driver.Refusal, msg=refused) as caught:
+                    self.driver.test_host()
+                self.assertIn(repr(refused), str(caught.exception), refused)
+                with self.assertRaises(self.driver.Refusal, msg=refused):
+                    self.driver.verify_config(self.config('host=192.168.0.164\nport=8489\n'))
+
+    def test_the_guard_is_one_allowlist_and_one_port(self):
+        self.assertEqual(('192.168.0.164', '192.168.0.111'), self.testhost.TEST_HOSTS)
+        self.assertEqual('8489', self.testhost.PORT)
+        with self.setting(None):
+            self.assertEqual('192.168.0.164', self.driver.test_host())
+            for name in self.testhost.TEST_HOSTS:
+                self.assertEqual(name, self.testhost.host(name))
+            with self.assertRaises(self.testhost.Refused) as caught:
+                self.testhost.port('8485')
+            self.assertIn('8485', str(caught.exception))
+            self.assertIn("8485 is live's login port", str(caught.exception))
 
 
 if __name__ == '__main__':

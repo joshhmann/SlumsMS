@@ -5,6 +5,9 @@ import org.junit.jupiter.api.Test;
 import soloMapling.Economy.exchange.Exchange.Place;
 import soloMapling.Economy.exchange.Exchange.Response;
 import soloMapling.Economy.exchange.OrderBook.Side;
+import soloMapling.Economy.exchange.Ledger.Asset;
+import soloMapling.Economy.exchange.volatility.MarketTraders;
+import soloMapling.Economy.exchange.Ledger.Bucket;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -67,32 +70,48 @@ class NxGuardTest {
 
     @Test
     void withARateAnNxSellBelowHalfAndABuyAboveDoubleAreRefusedWithTheRange() {
-        rateAt(1_000_000);
-        assertEquals(500_000, ex.nxBand()[0]);
-        assertEquals(2_000_000, ex.nxBand()[1]);
-        Response dump = place(3, Side.SELL, 499_000, 1_000);
+        // a rate high in the window, where the relative floor (50%) still binds above the window's own floor
+        rateAt(7_000_000);
+        assertEquals(3_500_000, ex.nxBand()[0], "50% of the rate");
+        assertEquals(10_000_000, ex.nxBand()[1], "200% of 7,000,000 is 14,000,000: the window caps it");
+        Response dump = place(3, Side.SELL, 3_499_000, 1_000);
         assertEquals("PRICE_BAND", dump.code());
-        assertEquals(500_000L, dump.data().get("minPrice"));
-        assertEquals(2_000_000L, dump.data().get("maxPrice"));
+        assertEquals(3_500_000L, dump.data().get("minPrice"));
+        assertEquals(10_000_000L, dump.data().get("maxPrice"));
         // owner 2026-10-29: the text is per 1 NX, the data per 1,000 NX
-        assertEquals("an NX sell must ask at least 500 mesos per NX (the official rate is 1,000 mesos per NX)",
+        assertEquals("an NX sell must ask at least 3,500 mesos per NX (the official rate is 7,000 mesos per NX)",
                 dump.message());
         assertEquals(NX0, store.nx(3), "nothing left the account");
-        assertTrue(place(3, Side.SELL, 500_000, 100).ok(), "half the rate is still fine");
-        assertEquals("PRICE_BAND", place(4, Side.BUY, 2_001_000, 100).code());
-        assertTrue(place(4, Side.BUY, 2_000_000, 100).ok());
-        // a low BUY and a high SELL only rest
-        assertTrue(place(4, Side.BUY, 1_000, 100).ok());
-        assertTrue(place(3, Side.SELL, 100_000_000, 100).ok());
+        assertTrue(place(3, Side.SELL, 3_500_000, 100).ok(), "half the rate is still fine");
+        assertEquals("PRICE_BAND", place(4, Side.BUY, 10_001_000, 100).code(), "the window, not 200%, is the ceiling");
+        assertTrue(place(4, Side.BUY, 10_000_000, 100).ok());
+        // a BUY at the window floor and a SELL at its ceiling only rest (they are inside the window)
+        assertTrue(place(4, Side.BUY, 2_500_000, 100).ok());
+        assertTrue(place(3, Side.SELL, 9_999_999, 100).ok());
+    }
+
+    @Test
+    void withALowRateInsideTheWindowTheBuysCeilingIsStill200Percent() {
+        // rate 4,000,000: 50% is 2,000,000 (under the window floor, so the window holds) and 200% is 8,000,000
+        rateAt(4_000_000);
+        assertEquals(2_500_000, ex.nxBand()[0], "the window floor, not 50% of the rate");
+        assertEquals(8_000_000, ex.nxBand()[1], "200% of the rate, inside the window");
+        Response over = place(4, Side.BUY, 8_001_000, 100);
+        assertEquals("PRICE_BAND", over.code());
+        assertEquals(8_000_000L, over.data().get("maxPrice"));
+        assertEquals("an NX buy may bid at most 8,000 mesos per NX (the official rate is 4,000 mesos per NX)",
+                over.message());
+        assertTrue(place(4, Side.BUY, 8_000_000, 100).ok());
     }
 
     @Test
     void thePreviewIsRefusedTooSoTheSiteAndAtNxSeeTheRangeBeforeConfirming() {
-        rateAt(1_000_000);
+        rateAt(4_000_000);
         now.addAndGet(11_000);
         Response pv = ex.preview(new Place("p", 3, 13, Side.SELL, 10_000, 5_000, "NX"));
         assertEquals("PRICE_BAND", pv.code());
-        assertEquals(500_000L, pv.data().get("minPrice"));
+        assertEquals(2_500_000L, pv.data().get("minPrice"));
+        assertEquals(8_000_000L, pv.data().get("maxPrice"));
     }
 
     @Test
@@ -141,7 +160,7 @@ class NxGuardTest {
         }
         now.addAndGet(3 * 24 * H);
         assertEquals(4_000_000L, ex.officialRate(), "three days later the rate still stands");
-        assertEquals(2_000_000, ex.nxBand()[0]);
+        assertEquals(2_500_000, ex.nxBand()[0], "50% of the rate is 2,000,000, under the hard window's floor");
         // after a restart too (the window is rebuilt from the store)
         ex = new Exchange(store, c, store::online, store.finder(), now::get);
         try {
@@ -184,25 +203,163 @@ class NxGuardTest {
         assertEquals("1,235", Exchange.perNx(1_234_567), "display rounds to whole mesos per NX");
     }
 
+    // ---------------------------------------------------------------- the hard window (owner 2026-10-31 ~19:50 UTC)
+
+    @Test
+    void theRateCannotWalkPastTheHardCeilingOf10000MesosPerNx() {
+        // owner 2026-10-31 ~19:50 UTC: a HARD window, 2,500..10,000 mesos per NX, whatever the official rate does
+        rateAt(9_500_000);
+        assertEquals(9_500_000L, ex.officialRate());
+        assertEquals(4_750_000, ex.nxBand()[0], "the relative floor still applies inside the window");
+        assertEquals(10_000_000, ex.nxBand()[1], "200% of 9,500,000 is 19,000,000; the window is the wall");
+        // the 2026-10-31 probe: a fill at 9,900,000 used to let a 10,500,000 buy through
+        Response over = place(4, Side.BUY, 10_500_000, 100);
+        assertEquals("PRICE_BAND", over.code());
+        assertEquals(10_000_000L, over.data().get("maxPrice"));
+        assertEquals(9_500_000L, over.data().get("rate"));
+        // the ceiling itself still fills, and the rate it moves to stays inside the window
+        assertTrue(place(3, Side.SELL, 10_000_000, 100).ok(), "a sell at the ceiling is inside");
+        assertTrue(place(4, Side.BUY, 10_000_000, 100).ok(), "a buy at the ceiling is inside");
+        assertEquals(9_625_000L, ex.officialRate(), "the 7-day average of 9,500,000 x3 and 10,000,000");
+        assertTrue(ex.officialRate() <= NxGuard.NX_HIGHEST, "the rate itself stays inside the window");
+        assertEquals(10_000_000, ex.nxBand()[1], "and the band cannot go above it");
+    }
+
+    @Test
+    void anOrderOutsideTheHardWindowIsRefusedOnEitherSideEvenWithTheGuardOff() {
+        ex.guard(NxGuard.OFF);
+        assertEquals(2_500_000, ex.nxBand()[0], "the window is not a switch: OFF drops the relative band, not the wall");
+        assertEquals(10_000_000, ex.nxBand()[1]);
+        Response highSell = place(3, Side.SELL, 10_000_001, 100);
+        assertEquals("PRICE_BAND", highSell.code());
+        assertEquals(10_000_000L, highSell.data().get("maxPrice"));
+        assertEquals(2_500_000L, highSell.data().get("minPrice"));
+        assertEquals("an NX order must price NX from 2,500 to 10,000 mesos per NX (no official rate yet: NX counts as "
+                + "5,000 mesos per NX)", highSell.message());
+        assertEquals("PRICE_BAND", place(4, Side.BUY, 2_499_999, 100).code(), "a cheap buy is outside too");
+        assertEquals("PRICE_BAND", place(3, Side.SELL, 1_000, 100).code());
+        assertEquals("PRICE_BAND", place(4, Side.BUY, 20_000_000, 100).code());
+        assertEquals(NX0, store.nx(3), "a refused sell escrowed nothing");
+        assertTrue(place(3, Side.SELL, 2_500_000, 100).ok(), "the edges are inside");
+        assertTrue(place(4, Side.BUY, 10_000_000, 100).ok());
+    }
+
+    @Test
+    void aHouseRegularCannotQuoteOutsideTheWindow() throws Exception {
+        // the regulars are the house's own quotes and bypass priceBand, so placeOrder itself holds the window
+        ex.guard(NxGuard.OFF);
+        store.login(1, 11);
+        LiveWallet w = store.finder().find(1);
+        assertTrue(ex.fundHouseLive(1, w, Asset.MESO, 100_000_000, true).ok());
+        assertTrue(ex.fundHouseLive(1, w, Asset.NX, 10_000, true).ok());
+        now.addAndGet(11_000);
+        Response high = ex.placeRegularForQa(1, Side.BUY, 20_000_000, 1_000);
+        assertEquals("PRICE_BAND", high.code());
+        assertEquals(10_000_000L, high.data().get("maxPrice"));
+        assertEquals("PRICE_BAND", ex.placeRegularForQa(1, Side.SELL, 2_000_000, 1_000).code());
+        assertTrue(ex.placeRegularForQa(1, Side.BUY, 9_000_000, 1_000).ok(), "inside the window still rests");
+    }
+
     @Test
     void theBandIsOnlyForNxAndOffWhenSwitchedOff() {
+        // OFF drops the relative band; the hard window is not a switch (owner 2026-10-31 ~19:50 UTC)
         ex.guard(NxGuard.OFF);
-        assertTrue(place(3, Side.SELL, 1_000, 100).ok());
-        assertEquals(1_000, ex.nxBand()[0]);
+        assertEquals(2_500_000, ex.nxBand()[0]);
+        assertEquals(10_000_000, ex.nxBand()[1]);
+        assertEquals("PRICE_BAND", place(3, Side.SELL, 1_000, 100).code(), "outside the window");
+        assertTrue(place(3, Side.SELL, 2_500_000, 100).ok(), "inside it");
+        // and it is only NX: a Leaf bid at 1,000 is the ticker's business, not the NX window's
+        assertTrue(ex.place(new Place("leaf", 3, 13, Side.BUY, 1_000, 1, "LEAF")).ok());
     }
 
     @Test
     void theNxQaCheckSellsInsideTheBand() {
-        rateAt(1_000_000);
+        rateAt(4_000_000);
         store.login(3, 13);
         LiveWallet w = store.finder().find(3);
         now.addAndGet(11_000);
         ExchangeQa.Staged st = ExchangeQa.stage(ex, w);
-        assertTrue(st.bidPrice() >= 500_000, "staged at " + st.bidPrice());
+        assertTrue(st.bidPrice() >= NxGuard.NX_LOWEST, "staged inside the window, at " + st.bidPrice());
         now.addAndGet(11_000);
         assertTrue(ex.preview(new Place("q", 3, 13, Side.SELL, st.bidPrice(), ExchangeQa.NX, "NX")).ok());
         assertTrue(ex.confirmLatest("qc", 3).ok());
         assertEquals("OK", ExchangeQa.teardown(ex, w).get("code"));
+    }
+
+    @Test
+    void aBotQuotesInsideTheBandTheExchangeRefusesPlayersOn() {
+        // the traders' own anchor band is 50%..200% of NX's 5,000,000 fallback, i.e. the whole window; the official
+        // rate's band is narrower, so a bot's NX quotes must be too (owner 2026-10-31 ~20:05 UTC: "the bot clamp" uses
+        // the effective band)
+        var before = MarketTraders.view(ex, ex.ticker("NX"), now.get(), 0.5, null);
+        assertTrue(before.minPrice() == NxGuard.NX_LOWEST && before.maxPrice() == NxGuard.NX_HIGHEST,
+                before.minPrice() + ".." + before.maxPrice());
+        rateAt(4_000_000);
+        long[] band = ex.nxBand();
+        assertEquals(2_500_000L, band[0]);
+        assertEquals(8_000_000L, band[1]);
+        var after = MarketTraders.view(ex, ex.ticker("NX"), now.get(), 0.5, null);
+        assertTrue(after.minPrice() >= band[0] && after.maxPrice() <= band[1],
+                after.minPrice() + ".." + after.maxPrice());
+        assertEquals(8_000_000L, after.maxPrice(), "200% of the rate, not the window's ceiling");
+    }
+
+    // ---------------------------------------------------------------- open orders outside the window at boot
+
+    @SuppressWarnings("unchecked")
+    static java.util.Map<String, Object> nxTicker(Exchange ex, long now) {
+        List<java.util.Map<String, Object>> ts = (List<java.util.Map<String, Object>>) ExchangeSite
+                .tickers(ex, now).get("tickers");
+        for (java.util.Map<String, Object> t : ts) {
+            if ("NX".equals(t.get("id"))) {
+                return t;
+            }
+        }
+        throw new AssertionError("no NX ticker in " + ts);
+    }
+
+    @Test
+    void theSiteTickerCarriesTheBandAnNxOrderMayActuallyUse() {
+        // the site shows an NX range; before, it was the ticker's own 1,000..100,000,000, not the band (owner
+        // 2026-10-31 ~20:05 UTC)
+        java.util.Map<String, Object> nx = nxTicker(ex, now.get());
+        assertEquals(NxGuard.NX_LOWEST, ((Number) nx.get("min_price")).longValue(), "the window before any rate");
+        assertEquals(NxGuard.NX_HIGHEST, ((Number) nx.get("max_price")).longValue());
+        rateAt(7_000_000);
+        nx = nxTicker(ex, now.get());
+        assertEquals(3_500_000L, ((Number) nx.get("min_price")).longValue(), "50% of the rate, not the ticker's 1,000");
+        assertEquals(10_000_000L, ((Number) nx.get("max_price")).longValue(), "the window caps 200%");
+    }
+
+    @Test
+    void anOpenNxOrderOutsideTheWindowIsCancelledAndRefundedAtBoot() throws Exception {
+        // like TEST's order 2940: a SELL 1,000 NX at 100,000 per 1,000 NX, resting since before the hard window
+        Response r = place(3, Side.SELL, 4_000_000, 1_000);
+        long id = ((Number) r.data().get("orderId")).longValue();
+        store.reprice(id, 100_000);
+        Exchange again = new Exchange(store, ExchangeLiveTest.cfg(100, 0), store::online, store.finder(), now::get);
+        again.guard(NxGuard.defaults());
+        List<String> audit = new java.util.ArrayList<>();
+        again.auditSink(audit::add);
+        assertTrue(again.recover().isEmpty());
+        assertEquals(0, again.openOrders(), "nothing outside the window may rest");
+        assertEquals("CANCELLED", store.order(id).status());
+        assertEquals(1_000, store.balance(Bucket.payout(Asset.NX, 3)), "refunded to the payer's payout");
+        assertTrue(audit.stream().anyMatch(l -> l.contains("clamp cancel order #" + id)), audit.toString());
+    }
+
+    @Test
+    void anOpenNxOrderInsideTheWindowIsLeftAloneAtBoot() throws Exception {
+        Response r = place(3, Side.SELL, 4_000_000, 1_000);
+        long id = ((Number) r.data().get("orderId")).longValue();
+        Exchange again = new Exchange(store, ExchangeLiveTest.cfg(100, 0), store::online, store.finder(), now::get);
+        again.guard(NxGuard.defaults());
+        List<String> audit = new java.util.ArrayList<>();
+        again.auditSink(audit::add);
+        assertTrue(again.recover().isEmpty());
+        assertEquals(1, again.openOrders());
+        assertEquals("OPEN", store.order(id).status());
+        assertTrue(audit.stream().noneMatch(l -> l.contains("clamp cancel")), audit.toString());
     }
 
     // ---------------------------------------------------------------- no daily caps (owner 2026-10-29)
@@ -245,8 +402,8 @@ class NxGuardTest {
             assertTrue(siteBuy(4, 6_000_000, 20_000).ok(), "buy " + i + " (120m each)");
         }
         long rate = ex.officialRate();
-        assertEquals(rate * 2, ex.nxBand()[1]);
-        assertEquals("PRICE_BAND", siteBuy(4, rate * 2 + 1_000, 100).code(), "but never over 200% of the rate");
+        assertEquals(Math.min(rate * 2, NxGuard.NX_HIGHEST), ex.nxBand()[1], "200% of the rate, never past the window");
+        assertEquals("PRICE_BAND", siteBuy(4, ex.nxBand()[1] + 1_000, 100).code(), "but never over it");
     }
 
     @Test
@@ -254,9 +411,9 @@ class NxGuardTest {
         rateAt(4_000_000);
         Response dump = siteSell(3, 1_000_000, 1_000);
         assertEquals("PRICE_BAND", dump.code());
-        assertEquals("an NX sell must ask at least 2,000 mesos per NX (the official rate is 4,000 mesos per NX)",
+        assertEquals("an NX sell must ask at least 2,500 mesos per NX (the official rate is 4,000 mesos per NX)",
                 dump.message());
-        assertEquals(2_000_000L, dump.data().get("minPrice"));
+        assertEquals(2_500_000L, dump.data().get("minPrice"));
         assertEquals(8_000_000L, dump.data().get("maxPrice"));
         assertEquals(4_000_000L, dump.data().get("rate"));
         Response over = siteBuy(4, 8_001_000, 100);

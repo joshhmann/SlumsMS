@@ -108,8 +108,20 @@ public final class BotRecognition {
         if (bot == null || bot.getChr() == null || player == null || bot.getChr().getId() < BotStore.BOT_ID_BASE) {
             return false;
         }
+        if (!BotConversation.freeForOwnChat(bot)) {
+            // m02 stage B: a bot that is grinding or inside a party quest never opens a chat, and never spends the
+            // pair's greet budget trying to
+            return false;
+        }
         int slot = bot.getChr().getId() - BotStore.BOT_ID_BASE;
         long now = System.currentTimeMillis();
+        boolean planned = soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.planner();
+        // m02 fix round 3 (the owner's answer 4): any bot may start one chat per player per hour. Another bot's hello
+        // is not this bot's to repeat, and the cap is read before the memory below and before the pair's greet
+        // cooldown is spent, so a blocked hello costs nothing
+        if (planned && !SocialGate.botChatAllowed(bot.getChr().getId(), player.getId(), now)) {
+            return false;
+        }
         long pair = ((long) slot << 32) | (player.getId() & 0xffffffffL);
         List<BotMemory.Note> notes;
         boolean wary;
@@ -121,6 +133,9 @@ public final class BotRecognition {
         }
         boolean talking = BotConversation.isTalking(bot.getChr().getId(), player.getId());
         if (!talking && SocialInitiative.followUpOnSight(bot, player)) {
+            if (planned) {
+                SocialGate.noteBotChat(bot.getChr().getId(), player.getId(), now); // the morning question is a chat too
+            }
             return true; // 1.6.0 S6: a day later it asks about what they were after ("did u ever get that zhelm?")
         }
         if (!shouldGreetOnSight(notes, wary, talking, lastGreetOnSight.getOrDefault(pair, 0L), now,

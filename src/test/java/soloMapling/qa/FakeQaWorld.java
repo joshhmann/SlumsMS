@@ -118,6 +118,15 @@ class FakeQaWorld implements QaWorld {
         despawnBot(staged.botId());
     }
 
+    /** What hurtTo reports (a mocked GM has no max HP to take a share of). */
+    int hurtHp = 700;
+    boolean hurtFails;
+
+    @Override public int hurtTo(Character gm, int percent) {
+        calls.add("hurt " + percent);
+        return hurtFails ? -1 : hurtHp;
+    }
+
     @Override public String openPlayerShop(Character gm, String description, List<int[]> stock) {
         for (int[] s : stock) {
             inventory.merge(s[0], -1, Integer::sum);

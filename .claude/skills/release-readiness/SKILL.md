@@ -24,7 +24,8 @@ the release (derive the list from `git log <split>..HEAD`, not memory), record:
 result | verdict OK / OFF-ON-LIVE / OFF-ON-TEST / UNTESTED / UNKNOWN`.
 - Switch kinds: JVM properties (`Boolean.getBoolean`, `System.getProperty` with slums./solomapling./slumsms.), config
   fields (`ServerConfig.java`), yaml toggles (`EconomyConfig.getBool`), migrations, offline jobs/timers.
-- TEST truth is the running process, not the script: read `/proc/<pid>/cmdline` and remember config loads at boot.
+- TEST truth is the running process, not the script, on TEST's own box `mapletest` (192.168.0.111, key
+  `~/.ssh/id_slums_lxc`, `SLUMS_TEST_HOST` overrides): read `/proc/<pid>/cmdline` and remember config loads at boot.
 - Live truth: `docs/release/<v>.conf` plus earlier confs and deploy-steps; the rest is unknown until the owner checks.
 
 ## 4. Live-only unknowns: give the owner one command

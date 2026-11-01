@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -182,6 +183,68 @@ class StateOfMindFlowTest {
         assertTrue(BotStateOfMind.haggleWords("300k?"));
         assertTrue(BotStateOfMind.haggleWords("9k for it"));
         assertFalse(BotStateOfMind.haggleWords("lol im like 300k exp away from 50 tho"));
+    }
+
+    /** b240: a roster role is a plan. A bot whose role is grinding that stands in a town is not grinding there. */
+    @Test
+    void b240ATownTakesTheGrindOutOfThePromptedActivity() {
+        assertEquals("hanging out in town", BotStateOfMind.claimedActivity("grinding", true));
+        assertEquals("grinding", BotStateOfMind.claimedActivity("grinding", false));
+        assertEquals("running a shop in the Free Market",
+                BotStateOfMind.claimedActivity("running a shop in the Free Market", true));
+        assertEquals("hanging out in town", BotStateOfMind.claimedActivity("hanging out in town", true));
+        assertNull(BotStateOfMind.claimedActivity(null, true));
+    }
+
+    /** REVIEW-A2 item 2: a level snapshot is not something the bot remembers, and knowing one is not knowing them. */
+    /**
+     * Stage B (owner's step 5): a bot in Henesys told a level 200 player it knows "Path of Time, Lost Time (Platoon
+     * Chronos)" - the player's own level's spots, listed as the bot's. A level 40 bot only knows places its own level
+     * reaches.
+     */
+    @Test
+    void aBotOnlyKnowsPlacesItsOwnLevelReaches() {
+        assertTrue(BotStateOfMind.reaches(40, 40));
+        assertTrue(BotStateOfMind.reaches(40, 60), "twenty levels up is still a place it hears about");
+        assertFalse(BotStateOfMind.reaches(40, 200), "Platoon Chronos is not a level 40's place");
+        Character bot = character(BotStore.BOT_ID_BASE + 5, "NLord99", 40);
+        Character high = character(70_004, "Hero99", 200);
+        BotSM sm = mock(TownWandererBot.class);
+        when(sm.getChr()).thenReturn(bot);
+        List<String> highSpots = new java.util.ArrayList<>();
+        for (soloMapling.ArtificialPlayer.BotConvo.TrainingTips.Spot spot
+                : soloMapling.ArtificialPlayer.BotConvo.TrainingTips.spotsFor(200, high.getJob().getId(), 2)) {
+            if (spot.name() != null) {
+                highSpots.add(spot.name());
+            }
+        }
+        StateOfMind.Snapshot s = BotStateOfMind.capture(sm, high, null, false, null, null, true);
+        for (StateOfMind.Place place : s.knownPlaces()) {
+            assertFalse(highSpots.contains(place.name()),
+                    "a level 40 bot claims a level 200 spot it cannot know: " + place.name() + " in " + s.knownPlaces());
+        }
+    }
+
+    @Test
+    void theSnapshotDoesNotCountTheLevelSnapshotAsAMemory() {
+        FakeMemoryTable table = new FakeMemoryTable(false);
+        table.install();
+        BotMemory.useForTest(Runnable::run, () -> 100_000L, 0);
+        try {
+            int slot = 5;
+            int playerId = 70_001;
+            Character bot = character(BotStore.BOT_ID_BASE + slot, "NLord99", 35);
+            Character player = character(playerId, "Josh", 200);
+            BotMemory.progress(bot, player, 99_000L);
+            BotSM sm = mock(TownWandererBot.class);
+            when(sm.getChr()).thenReturn(bot);
+            StateOfMind.Snapshot s = BotStateOfMind.capture(sm, player, null, false, null, null, false);
+            assertTrue(s.notes().stream().noneMatch(n -> n.startsWith("level ")),
+                    "the level snapshot is not a note: " + s.notes());
+            assertFalse(s.met(), "standing in one chat with them is not knowing them: " + s.notes());
+        } finally {
+            BotMemory.useForTest(null, null, 0);
+        }
     }
 
     @Test

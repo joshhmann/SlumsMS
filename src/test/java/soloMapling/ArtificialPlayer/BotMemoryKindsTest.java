@@ -255,6 +255,25 @@ class BotMemoryKindsTest {
         assertEquals(3, BotMemory.cachedPairs());
     }
 
+    /** REVIEW-A2 item 2: the level snapshot is a slot - never a fact, never a second row. */
+    @Test
+    void aLevelSnapshotIsASlotNotAFactAndKeepsOneRow() {
+        BotMemory.episode(SLOT, PLAYER, BotMemory.Kind.NOTE, "asked me where to train", 2, "", clock.get() - HOUR);
+        Character bot = chr(BOT, "Nayrb");
+        for (int level = 36; level <= 40; level++) {
+            Character player = chr(PLAYER, "Josh");
+            when(player.getLevel()).thenReturn(level);
+            BotMemory.progress(bot, player, clock.get() + level * HOUR);
+        }
+        assertEquals(40, BotMemory.progressLevel(SLOT, PLAYER), "the newest level wins");
+        long rows = table.rows.stream().filter(r -> "PROGRESS".equals(r.get("Kind"))).count();
+        assertEquals(1, rows, "five level ups, one row: " + table.rows);
+        List<BotMemory.Note> facts = BotMemory.recallFacts(SLOT, PLAYER, clock.get() + 50 * HOUR, 10);
+        assertTrue(facts.stream().noneMatch(n -> n.text().startsWith("level ")),
+                "the level snapshot is not a remembered fact: " + facts);
+        assertEquals(List.of("asked me where to train"), facts.stream().map(BotMemory.Note::text).toList());
+    }
+
     @Test
     void withoutMigration030NotesArePlainAndSlotsLiveInMemory() {
         table = new FakeMemoryTable(true);

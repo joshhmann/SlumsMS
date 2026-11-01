@@ -65,7 +65,7 @@ final class Probes160 {
     /** Every probe name here, for the catalog test. */
     static final List<String> NAMES = List.of("ownedAlts", "townSample", "townVerdict", "townDressing", "hpMp4Byte",
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
-            "family", "tutorialIsland", "botRebirth", "botRebirthBoss", "essenceStone", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer", "botShopStock");
+            "family", "tutorialIsland", "botRebirth", "botRebirthBoss", "essenceStone", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "marketScroll", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer", "botShopStock");
 
     /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
     static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
@@ -98,6 +98,7 @@ final class Probes160 {
                 case "leafExchange" -> leafExchange(p);
                 case "marketVolatility" -> soloMapling.Economy.exchange.volatility.MarketQa.check(System.currentTimeMillis());
                 case "marketWar" -> soloMapling.Economy.exchange.volatility.MarketQa.warCheck(System.currentTimeMillis());
+                case "marketScroll" -> soloMapling.Economy.exchange.volatility.MarketQa.scrollCheck(System.currentTimeMillis());
                 case "family" -> family(p);
                 case "familyPerks" -> FamilyProbes.perks(p);
                 case "familyTravel" -> FamilyProbes.travel(p);
@@ -243,9 +244,13 @@ final class Probes160 {
         OwnedAltService svc = OwnedAltService.getInstance();
         List<String> out = new ArrayList<>();
         List<String> bad = new ArrayList<>();
+        // 163: the alts are per GM account (see altName): a name is global in the game, so one "AutoQaAlt" made by the
+        // first lane's t-oa-1 was handed to every other lane's, which then summoned a character it did not own.
+        String nameA = altName(gm.getAccountID(), 'A');
+        String nameB = altName(gm.getAccountID(), 'B');
         roomForCharacters(gm);
-        int altA = ensureCharacter(gm, ALT_A, out);
-        int altB = ensureCharacter(gm, ALT_B, out);
+        int altA = ensureCharacter(gm, nameA, out);
+        int altB = ensureCharacter(gm, nameB, out);
         if (altA < 0 || altB < 0) {
             return verdict(List.of("the QA account has no alts to call"), "", out);
         }
@@ -263,37 +268,37 @@ final class Probes160 {
         try {
             String list = sayAndHear(p, "@botme", "Available characters|No eligible|not available", 8000);
             out.add("@botme: " + list);
-            if (list == null || !list.contains(ALT_A)) {
-                bad.add("@botme does not list " + ALT_A);
+            if (list == null || !list.contains(nameA)) {
+                bad.add("@botme does not list " + nameA);
             }
-            String joined = sayAndHear(p, "@botme " + ALT_A, "(?i)has joined you|already online|create a party|lead a party"
+            String joined = sayAndHear(p, "@botme " + nameA, "(?i)has joined you|already online|create a party|lead a party"
                     + "|choose another|not available|unable|instance|closing|five", 15000);
-            out.add("@botme " + ALT_A + ": " + joined);
+            out.add("@botme " + nameA + ": " + joined);
             Character alt = online(altA);
             if (alt == null) {
-                bad.add(ALT_A + " is not in the world after @botme");
+                bad.add(nameA + " is not in the world after @botme");
                 return verdict(bad, "", out);
             }
             boolean owned = alt.isOwnedAlt() && alt.getOwnedAltOwner() != null && alt.getOwnedAltOwner().getId() == gm.getId();
             boolean sameMap = alt.getMapId() == gm.getMapId();
             boolean inParty = gm.getParty() != null && gm.getParty().getMemberById(altA) != null;
-            out.add(ALT_A + ": owned by " + gm.getName() + "=" + owned + ", map " + alt.getMapId() + " (owner "
+            out.add(nameA + ": owned by " + gm.getName() + "=" + owned + ", map " + alt.getMapId() + " (owner "
                     + gm.getMapId() + "), in the owner's party=" + inParty);
             if (!owned) {
-                bad.add(ALT_A + " is not marked as " + gm.getName() + "'s alt");
+                bad.add(nameA + " is not marked as " + gm.getName() + "'s alt");
             }
             if (!sameMap) {
-                bad.add(ALT_A + " joined on map " + alt.getMapId() + ", not the owner's " + gm.getMapId());
+                bad.add(nameA + " joined on map " + alt.getMapId() + ", not the owner's " + gm.getMapId());
             }
             if (!inParty) {
-                bad.add(ALT_A + " is not in " + gm.getName() + "'s party");
+                bad.add(nameA + " is not in " + gm.getName() + "'s party");
             }
             // 1.6.0.4: the alt follows its owner, and through a portal when the owner changes map
             boolean following = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isFollowing(alt)
                     && soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.followTarget(alt) == gm;
-            out.add(ALT_A + " follows " + gm.getName() + "=" + following);
+            out.add(nameA + " follows " + gm.getName() + "=" + following);
             if (!following) {
-                bad.add(ALT_A + " is not following " + gm.getName() + " after @botme");
+                bad.add(nameA + " is not following " + gm.getName() + " after @botme");
             } else {
                 String portal = followThroughPortal(gm, alt, out);
                 if (portal != null) {
@@ -303,10 +308,10 @@ final class Probes160 {
             // 1.6.1 ticket 13 (full alts): the core promise, not just the setup - a mob hits the alt, the alt fights
             // what its owner hits and damages it, loots a party drop into its own bag, and stops when its owner idles
             bad.addAll(altFightsLootsAndStops(p, gm, alt, out));
-            String dup = sayAndHear(p, "@botme " + ALT_A, "(?i)already online|has joined you", 8000);
-            out.add("@botme " + ALT_A + " again: " + dup);
+            String dup = sayAndHear(p, "@botme " + nameA, "(?i)already online|has joined you", 8000);
+            out.add("@botme " + nameA + " again: " + dup);
             if (dup == null || !dup.contains("already online")) {
-                bad.add("a second @botme " + ALT_A + " was not refused");
+                bad.add("a second @botme " + nameA + " was not refused");
             }
 
             // the cap: the alt and up to four reserved places fill five (a friend bot already following the GM takes
@@ -322,44 +327,44 @@ final class Probes160 {
             if (sixth) {
                 reserved.add(-900_005);
             }
-            String capped = sayAndHear(p, "@botme " + ALT_B, "(?i)up to five|has joined you|already online", 10000);
-            out.add("cap: reserved " + reserved.size() + " + " + ALT_A + ", room left=" + room + ", sixth place=" + sixth
-                    + ", @botme " + ALT_B + ": " + capped);
+            String capped = sayAndHear(p, "@botme " + nameB, "(?i)up to five|has joined you|already online", 10000);
+            out.add("cap: reserved " + reserved.size() + " + " + nameA + ", room left=" + room + ", sixth place=" + sixth
+                    + ", @botme " + nameB + ": " + capped);
             if (room || sixth) {
                 bad.add("the cap of 5 did not hold (reserved " + reserved.size() + ", room " + room + ", sixth " + sixth + ")");
             }
             if (capped == null || !capped.toLowerCase(Locale.ROOT).contains("up to five")) {
-                bad.add("@botme " + ALT_B + " past the cap was not refused with the five-companion line");
+                bad.add("@botme " + nameB + " past the cap was not refused with the five-companion line");
             }
             for (int id : reserved) {
                 svc.releaseCompanion(id);
             }
             reserved.clear();
             if (online(altB) != null) {
-                svc.dismiss(gm, ALT_B);
+                svc.dismiss(gm, nameB);
             }
 
             // the alt's state saves: a marker amount of mesos, then @dismiss
             int marker = 100_000 + (int) (System.currentTimeMillis() / 1000 % 800_000);
             alt.gainMeso(marker - alt.getMeso(), false);
-            String dismissed = sayAndHear(p, "@dismiss " + ALT_A, "(?i)saved and dismissed|not with you|unable", 15000);
-            out.add("@dismiss " + ALT_A + ": " + dismissed);
+            String dismissed = sayAndHear(p, "@dismiss " + nameA, "(?i)saved and dismissed|not with you|unable", 15000);
+            out.add("@dismiss " + nameA + ": " + dismissed);
             long saved = dbMeso(altA);
             boolean gone = online(altA) == null;
             boolean leftParty = gm.getParty() == null || gm.getParty().getMemberById(altA) == null;
             out.add("after @dismiss: in the world=" + !gone + ", in the party=" + !leftParty + ", saved mesos " + saved
                     + " (set " + marker + ")");
             if (!gone) {
-                bad.add(ALT_A + " is still in the world after @dismiss");
+                bad.add(nameA + " is still in the world after @dismiss");
             }
             if (!leftParty) {
-                bad.add(ALT_A + " is still in the party after @dismiss");
+                bad.add(nameA + " is still in the party after @dismiss");
             }
             if (saved != marker) {
-                bad.add(ALT_A + "'s mesos were not saved (database " + saved + ", want " + marker + ")");
+                bad.add(nameA + "'s mesos were not saved (database " + saved + ", want " + marker + ")");
             }
             if (soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.isEnabled(alt)) {
-                bad.add(ALT_A + " still has a movement driver after @dismiss");
+                bad.add(nameA + " still has a movement driver after @dismiss");
             }
         } finally {
             for (int id : reserved) {
@@ -378,12 +383,22 @@ final class Probes160 {
                 gm.changeMap(homeMap);
             }
         }
-        return verdict(bad, ALT_A + " joins the party on the owner's map and follows, through a portal too; on a field a"
+        return verdict(bad, nameA + " joins the party on the owner's map and follows, through a portal too; on a field a"
                 + " mob hits it, it damages the mob its owner hits, loots a party drop into its own bag and stops while its"
                 + " owner idles; a repeat is refused, the cap of 5 holds, @dismiss saves and removes it", out);
     }
 
     /** t-oa-1 (1.6.1): the field the fight checks run on (Henesys Hunting Ground I: a field, not a town). */
+    /**
+     * 163: the QA account's companion alt name for this GM. A character name is global in the game, and
+     * {@link #ensureCharacter} looks one up by name ({@code Character.getIdByName}), so a fixed "AutoQaAlt" was created
+     * once by the first lane to run t-oa-1 and then reused by every other lane, on an account that did not own it:
+     * {@code @botme} refused and the probe failed (cap-4 run 2026-10-31, lane AutoQaEleven). One alt per account.
+     */
+    static String altName(int accountId, char which) {
+        return "Qa" + accountId + which;
+    }
+
     static final int ALT_FIELD = 104_040_000;
     /** A Blue Snail: weak, and slow enough to land a touch before the alt kills it. */
     static final int ALT_MOB = 100_101;
@@ -593,12 +608,13 @@ final class Probes160 {
             if (m != null && m.isAlive()) {
                 field.killMonster(m, gm, false);
             }
+            java.awt.Point at = gm.getPosition();
+            int x = soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.stageMobX(field, at, side);
             m = server.life.LifeFactory.getMonster(ALT_MOB);
-            field.spawnMonsterOnGroundBelow(m, new java.awt.Point(gm.getPosition().x + side, gm.getPosition().y));
+            field.spawnMonsterOnGroundBelow(m, new java.awt.Point(x, at.y));
             staged.add(m);
             java.awt.Point mp = m.getPosition();
-            if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.onDifferentLedge(field,
-                    gm.getPosition().x, gm.getPosition().y, mp.x, mp.y)) {
+            if (!soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement.onDifferentLedge(field, at.x, at.y, mp.x, mp.y)) {
                 break;
             }
         }
@@ -1722,9 +1738,11 @@ final class Probes160 {
      * regulars, the event started as the recruiter does, Von Leon summoned as his NPC does (staged at 1% of his HP so
      * the check fits in minutes; the run's notes give the real fight's expected length), fought with the bot attack
      * driver through the map's boss rules; (3) the run must clear (the event's own
-     * monsterKilled / clearPQ) and the bot must hold Von Leon's item afterwards, earned in that run (the clear reward
-     * or the floor), never before it; (4) its decisions craft the 2nd key, it is reborn (rebirth 2) at level 1 with
-     * the rebirth checks of t-rb-1; (5) the bot, its items and the run's boss-log rows are put back.
+     * monsterKilled / clearPQ), name this bot as the one it handed Von Leon's item to (the clear reward or the floor),
+     * and the bot's own craft must then have spent that exact item on the key for its next rebirth, after the run
+     * began - a bag count or a key that appeared any other way is not accepted; (4) its decisions craft the 2nd key,
+     * it is reborn (rebirth 2) at level 1 with the rebirth checks of t-rb-1; (5) the bot, its items and the run's
+     * boss-log rows are put back.
      */
     static List<String> botRebirthBoss(SyntheticPlayer p) throws InterruptedException {
         if (!soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.enabled()) {
@@ -1737,10 +1755,28 @@ final class Probes160 {
             return List.of("SKIP -Dslums.botRebirth.liveRuns=false (every boss off screen)");
         }
         soloMapling.ArtificialPlayer.BotRebirthQa.Before b;
-        try {
-            b = soloMapling.ArtificialPlayer.BotRebirthQa.pick(p.character());
-        } catch (IllegalStateException e) {
-            return List.of("FAIL " + e.getMessage());
+        // 163: the candidate pool is the world's bots (no party, no rebirths, level 30-199), and a long run thins it as
+        // its other checks take bots into parties. Pick took the first empty moment as a failure, so at cap 1 (where
+        // t-rb-2 runs last, 19:11 UTC) it failed and at cap 4 (early, 16:12) it passed - a verdict that depended on
+        // check order. An unmet precondition is a SKIP, and the pool changes every tick, so wait for it first.
+        b = null;
+        String why = null;
+        long deadline = System.currentTimeMillis() + 120_000;
+        while (b == null) {
+            try {
+                b = soloMapling.ArtificialPlayer.BotRebirthQa.pick(p.character());
+            } catch (IllegalStateException e) {
+                why = e.getMessage();
+            }
+            if (b == null) {
+                // the deadline and the sleep are unconditional: a pick that ever returns null instead of throwing must
+                // not turn this into a busy loop on the QA thread
+                if (System.currentTimeMillis() >= deadline) {
+                    return List.of("SKIP no bot to stage after 2 min: "
+                            + (why == null ? "no candidate was returned" : why));
+                }
+                Thread.sleep(3_000);
+            }
         }
         int vlItem = soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBosses.Boss.VONLEON.clearItem;
         List<String> bad = new ArrayList<>();
@@ -1754,20 +1790,41 @@ final class Probes160 {
             ev.add(soloMapling.ArtificialPlayer.BotRebirthQa.stageVonLeon(b));
             int before = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
             if (before != 0) bad.add("held Von Leon's item before the run");
+            int craftReborns = b.bot().getReborns(); // staged at 1: the key this rebirth takes is the 2nd
+            int keyBefore = soloMapling.ArtificialPlayer.BotRebirthQa.keyAhead(b.bot());
+            long runAt = System.currentTimeMillis();
             var run = soloMapling.ArtificialPlayer.BotRebirthQa.runVonLeon(b, RB2_RUN_MS);
             ev.add("run: started " + run.started() + ", cleared " + run.cleared() + ", item by " + run.gotBy()
                     + ", " + run.result());
             ev.addAll(run.notes());
             if (!run.started()) bad.add("no Von Leon run formed: " + run.result());
             else if (!run.cleared()) bad.add("the Von Leon run did not clear: " + run.result());
-            int after = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
-            if (after != 1 || run.gotBy() == null) {
-                bad.add("Von Leon's item " + vlItem + ": " + after + " held, earned by " + run.gotBy());
-            }
+            if (run.gotBy() == null) bad.add("the run handed Von Leon's item " + vlItem + " to no one");
+            // t-rb-2 (round 2): neither "the item is in the bag" nor "the next key count went up" is the claim. A key
+            // arrives from another bot's clear, a GM grant or another route too. The pass needs this bot's own craft
+            // to have spent this item on the key for this rebirth, after this run began, and the run to name this bot
+            // as the one the item was handed to.
+            int afterRun = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
+            int keyAfterRun = soloMapling.ArtificialPlayer.BotRebirthQa.keyAhead(b.bot());
+            boolean spentEarly = soloMapling.ArtificialPlayer.BotRebirthQa.clearItemConsumed(b.bot(), vlItem,
+                    craftReborns, runAt);
+            ev.add("after the run: bag " + afterRun + " x " + vlItem + ", key " + keyBefore + " -> " + keyAfterRun
+                    + ", the bot's own craft spent " + vlItem + " on that key: " + spentEarly);
             if (bad.isEmpty()) {
+                // its decisions craft the key (the bot's own, or forced here as the walk does) and it is reborn
                 List<String> fin = soloMapling.ArtificialPlayer.BotRebirthQa.finishRebirth(b);
                 ev.addAll(fin);
-                bad.addAll(soloMapling.ArtificialPlayer.BotRebirthQa.check(b, 1));
+                int after = b.bot().getInventory(client.inventory.InventoryType.ETC).countById(vlItem);
+                boolean spent = soloMapling.ArtificialPlayer.BotRebirthQa.clearItemConsumed(b.bot(), vlItem,
+                        craftReborns, runAt);
+                ev.add("after its rebirth decisions: bag " + after + " x " + vlItem + ", the bot's own craft spent "
+                        + vlItem + " on rebirth " + (craftReborns + 1) + "'s key: " + spent);
+                if (!spent) {
+                    bad.add("Von Leon's item " + vlItem + " was not spent by this bot's own craft on rebirth "
+                            + (craftReborns + 1) + "'s key (bag " + after + ", key " + keyBefore + " -> " + keyAfterRun
+                            + ", earned by " + run.gotBy() + "); a key that appeared any other way is not the item");
+                }
+                bad.addAll(soloMapling.ArtificialPlayer.BotRebirthQa.check(b, craftReborns));
                 ev.add("after: " + soloMapling.ArtificialPlayer.BotRebirthQa.describe(b));
             }
         } finally {
@@ -1778,8 +1835,8 @@ final class Probes160 {
             bad.add("the bot was not put back");
         }
         return verdict(bad, "a level 200 regular went into a real Von Leon run (boss staged at 1% HP), the kill cleared"
-                + " the event, it came out with Von Leon's item from that kill, crafted its 2nd key and was reborn; then"
-                + " put back", ev);
+                + " the event and handed it Von Leon's item, its own craft spent that item on its 2nd key and it was"
+                + " reborn; then put back", ev);
     }
 
     // ── t-rb-3: a player makes an Essence Stone at Wyatt and is reborn with it (1.6.1, owner 2026-10-29) ─────────

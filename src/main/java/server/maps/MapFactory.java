@@ -22,6 +22,8 @@
 package server.maps;
 
 import constants.id.MapId;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import provider.Data;
 import provider.DataProvider;
 import provider.DataProviderFactory;
@@ -45,6 +47,8 @@ import java.util.regex.Pattern;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class MapFactory {
+    private static final Logger log = LogManager.getLogger(MapFactory.class);
+
     public record MapObjectProperties(Point pos, Map<String, String> tags) {
         public String getTag(String name) {
             return tags.get(name);
@@ -149,12 +153,22 @@ public class MapFactory {
 
         String mapName = getMapName(mapid);
         Data mapData = mapSource.getData(mapName);    // source.getData issue with giving nulls in rare ocasions found thanks to MedicOP
+        if (mapData == null) {
+            // s-maproute: no image for this id. MapManager redirects a known-broken id before it gets here, so this is
+            // a map id nobody has routed yet: refuse it instead of throwing an NPE four lines down.
+            log.warn("MapFactory: no image for map {} ({}), returning no map", mapid, mapName);
+            return null;
+        }
         Data infoData = mapData.getChildByPath("info");
 
         String link = DataTool.getString(infoData.getChildByPath("link"), "");
         if (!link.equals("")) { //nexon made hundreds of dojo maps so to reduce the size they added links.
             mapName = getMapName(Integer.parseInt(link));
             mapData = mapSource.getData(mapName);
+            if (mapData == null) {
+                log.warn("MapFactory: map {} links to {} which has no image, returning no map", mapid, link);
+                return null;
+            }
         }
         float monsterRate = 0;
         Data mobRate = infoData.getChildByPath("mobRate");

@@ -240,14 +240,7 @@ public final class GuildBossRuns {
                 joint.append(" + ").append(BotGuilds.guildName(ally));
             }
         }
-        List<Character> able = new ArrayList<>();
-        for (Character c : members) {
-            BotSM sm = CharacterStorage.getBotById(c.getId());
-            if (sm != null && BotGuilds.free(c) && BotRoster.member(c.getId() - BotStore.BOT_ID_BASE) != null
-                    && !withRealPlayer(c)) {
-                able.add(c);
-            }
-        }
+        List<Character> able = able(members);
         int minGroup = fast ? 2 : (int) GuildRules.prop("bossMinGroup", 3);
         Boss boss = wanted;
         if (boss == null) {
@@ -304,6 +297,100 @@ public final class GuildBossRuns {
             }
         }, 5, 5, TimeUnit.SECONDS);
         return null;
+    }
+
+    /** The members a run may take: online bots on the roster, free, not partied with a real player. */
+    private static List<Character> able(List<Character> members) {
+        List<Character> able = new ArrayList<>();
+        for (Character c : members) {
+            BotSM sm = CharacterStorage.getBotById(c.getId());
+            if (sm != null && BotGuilds.free(c) && BotRoster.member(c.getId() - BotStore.BOT_ID_BASE) != null
+                    && !withRealPlayer(c)) {
+                able.add(c);
+            }
+        }
+        return able;
+    }
+
+    // ── QA staging (!qa gu-5, t-gu-5) ──
+
+    /**
+     * What gu-5 stages for a fast run: the guild, and the offline roster members of it to log in first (empty when
+     * enough are online). Null when no bot guild can field a crew even with its offline members logged in.
+     */
+    public record QaCrew(String guild, List<Integer> logIn) {
+    }
+
+    /**
+     * t-gu-5 (TEST d4f103b0e): the scenario picked a guild by size and refused when it had 1 free member online, so
+     * the check skipped. This picks the bot guild that needs the fewest logins for a fast run ({@code wantedGuild},
+     * when named, is the only one tried; {@code wanted} the boss, null = any), counting only roster members.
+     */
+    public static QaCrew qaCrew(String wantedGuild, Boss wanted) {
+        List<String> names = new ArrayList<>();
+        List<List<Integer>> plans = new ArrayList<>();
+        for (GuildRow g : BotGuilds.botGuilds()) {
+            if (wantedGuild != null && !g.name().equalsIgnoreCase(wantedGuild)) {
+                continue;
+            }
+            int[] online = able(BotGuilds.onlineMembers(g.guildId())).stream().mapToInt(Character::getLevel).toArray();
+            List<int[]> offline = new ArrayList<>();
+            for (MemberRow m : BotGuilds.membersOf(g.guildId())) {
+                int botId = m.charId() - BotStore.BOT_ID_BASE;
+                if (!CharacterStorage.botLoggedIn(m.charId()) && BotRoster.member(botId) != null && !away(botId)) {
+                    offline.add(new int[]{m.charId(), m.level()});
+                }
+            }
+            names.add(g.name());
+            plans.add(crewToStage(online, offline, 2, wanted));
+        }
+        int best = fewestLogins(plans);
+        return best < 0 ? null : new QaCrew(names.get(best), plans.get(best));
+    }
+
+    /**
+     * The offline members ({charId, level}) to log in, highest level first, until the online able levels plus them
+     * can make a run of {@code minGroup} ({@code boss} null: any boss, else that one); empty when they already can,
+     * null when even all of them cannot. Pure.
+     */
+    static List<Integer> crewToStage(int[] onlineLevels, List<int[]> offline, int minGroup, Boss boss) {
+        List<int[]> pool = new ArrayList<>(offline);
+        pool.sort((a, b) -> Integer.compare(b[1], a[1]));
+        List<Integer> levels = new ArrayList<>();
+        for (int lv : onlineLevels) {
+            levels.add(lv);
+        }
+        List<Integer> added = new ArrayList<>();
+        for (int i = 0; ; i++) {
+            if (canRun(levels, minGroup, boss)) {
+                return added;
+            }
+            if (i >= pool.size()) {
+                return null;
+            }
+            added.add(pool.get(i)[0]);
+            levels.add(pool.get(i)[1]);
+        }
+    }
+
+    private static boolean canRun(List<Integer> levels, int minGroup, Boss boss) {
+        int[] lv = levels.stream().mapToInt(Integer::intValue).toArray();
+        if (boss == null) {
+            return GuildRules.pickBoss(lv, minGroup) != null;
+        }
+        return java.util.Arrays.stream(lv).filter(l -> l >= boss.minLevel()).count() >= minGroup;
+    }
+
+    /** The index of the plan with the fewest logins (null plans cannot run), or -1. Pure. */
+    static int fewestLogins(List<List<Integer>> plans) {
+        int best = -1;
+        for (int i = 0; i < plans.size(); i++) {
+            List<Integer> p = plans.get(i);
+            if (p != null && (best < 0 || p.size() < plans.get(best).size())) {
+                best = i;
+            }
+        }
+        return best;
     }
 
     /** The channel: one where a real member of the guild plays, else the caller's. */

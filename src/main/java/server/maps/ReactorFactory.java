@@ -26,6 +26,8 @@ import provider.DataProvider;
 import provider.DataProviderFactory;
 import provider.DataTool;
 import provider.wz.WZFiles;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import server.maps.ReactorStats.StateData;
 import tools.Pair;
 import tools.StringUtil;
@@ -34,10 +36,36 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ReactorFactory {
+    private static final Logger log = LoggerFactory.getLogger(ReactorFactory.class);
     private static final DataProvider data = DataProviderFactory.getDataProvider(WZFiles.REACTOR);
     private static final Map<Integer, ReactorStats> reactorStats = new HashMap<>();
+
+    /** The state value a reactor state gets when nothing can happen in it: see the no-event branch below. */
+    private static final int INERT_STATE = 999;
+
+    /** reactor id -> already warned, so an incomplete image logs once instead of once per map load. */
+    private static final Set<Integer> warnedInertStates = ConcurrentHashMap.newKeySet();
+
+    /**
+     * s-maproute round 4 (b253): a type-100 event ("waits for an item") whose data never names the item. Reactor 7492024
+     * - spawned by map 706030000, a landing spot in {@code soloMapling/map-routing.tsv} - is built entirely like that,
+     * so {@code DataTool.getIntConvert("0", event)} dereferenced a null and {@code MapFactory.loadMapFromWz} could not
+     * load the map at all. No item can satisfy such a state, so it becomes inert and the rest of the image loads.
+     */
+    private static boolean waitsForAnItemItsDataDoesNotName(int type, Data event) {
+        return type == 100 && event.getChildByPath("0") == null;
+    }
+
+    private static void warnInertState(int rid, int state) {
+        if (warnedInertStates.add(rid)) {
+            log.warn("reactor {}: its state {} waits for an item its data does not name, so that state stays inert",
+                    rid, state);
+        }
+    }
 
     public static final ReactorStats getReactorS(int rid) {
         ReactorStats stats = reactorStats.get(rid);
@@ -68,7 +96,10 @@ public class ReactorFactory {
                         Data reactorInfoData = reactorInfoData_.getChildByPath("0");
                         Pair<Integer, Integer> reactItem = null;
                         int type = DataTool.getIntConvert("type", reactorInfoData);
-                        if (type == 100) { //reactor waits for item
+                        if (waitsForAnItemItsDataDoesNotName(type, reactorInfoData)) {
+                            type = INERT_STATE;
+                            warnInertState(rid, i);
+                        } else if (type == 100) { //reactor waits for item
                             reactItem = new Pair<>(DataTool.getIntConvert("0", reactorInfoData), DataTool.getIntConvert("1", reactorInfoData, 1));
                             if (!areaSet) { //only set area of effect for item-triggered reactors once
                                 stats.setTL(DataTool.getPoint("lt", reactorInfoData));
@@ -79,7 +110,7 @@ public class ReactorFactory {
                         foundState = true;
                         stats.addState(i, type, reactItem, (byte) DataTool.getIntConvert("state", reactorInfoData), DataTool.getIntConvert("timeOut", reactorInfoData_, -1), (byte) (canTouch ? 2 : (DataTool.getIntConvert("2", reactorInfoData, 0) > 0 || reactorInfoData.getChildByPath("clickArea") != null || type == 9 ? 1 : 0)));
                     } else {
-                        stats.addState(i, 999, null, (byte) (foundState ? -1 : (i + 1)), 0, (byte) 0);
+                        stats.addState(i, INERT_STATE, null, (byte) (foundState ? -1 : (i + 1)), 0, (byte) 0);
                     }
                 }
                 reactorStats.put(infoId, stats);
@@ -127,7 +158,10 @@ public class ReactorFactory {
                                 } else {
                                     Pair<Integer, Integer> reactItem = null;
                                     int type = DataTool.getIntConvert("type", fknexon);
-                                    if (type == 100) { //reactor waits for item
+                                    if (waitsForAnItemItsDataDoesNotName(type, fknexon)) {
+                                        type = INERT_STATE;
+                                        warnInertState(rid, i);
+                                    } else if (type == 100) { //reactor waits for item
                                         reactItem = new Pair<>(DataTool.getIntConvert("0", fknexon), DataTool.getIntConvert("1", fknexon));
                                         if (!areaSet || loadArea) { //only set area of effect for item-triggered reactors once
                                             stats.setTL(DataTool.getPoint("lt", fknexon));

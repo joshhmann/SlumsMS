@@ -43,11 +43,22 @@ public final class QuestionCouponsSolver implements StageSolver {
     static final int LEADER_WAIT_PX = 150;
 
     /**
-     * How close (px, horizontally) a member who is done hunts next to the one it helps: inside the loot search
-     * ({@code StepExecutor.LOOT_SEARCH_PX}), so the coupons its kills drop are within the farmer's reach.
+     * How close (px) to the member it helps a member who is done hunts: only mobs within this of him (the
+     * {@code Fight} step's leash), the same as the loot search ({@code StepExecutor.LOOT_SEARCH_PX}), so the coupons
+     * its kills drop are within his reach. 1.6.2 (TEST 10-30, a 534 s player-led run): was 250 px across and 120 up,
+     * with an unleashed Fight: the helper walked to the nearest mob anywhere, came back past 250 px, and stopped
+     * swinging. It walks back only beyond {@link #HELP_RADIUS_PX} + {@link #HELP_SLACK_PX}.
      */
-    static final int HELP_RADIUS_PX = 250;
-    static final int HELP_RADIUS_Y = 120;
+    static final int HELP_RADIUS_PX = 600;
+    static final int HELP_SLACK_PX = 150;
+
+    /**
+     * 1.6.2: a planned near miss is handed in only by a member already this close (px across, and
+     * {@link #NEAR_NPC_Y} up/down) to the NPC; elsewhere it farms straight on to the answer (a wrong try used to cost
+     * a walk across the map to Cloto and back).
+     */
+    static final int NEAR_NPC_PX = 300;
+    static final int NEAR_NPC_Y = 150;
 
     @Override
     public String id() {
@@ -151,6 +162,9 @@ public final class QuestionCouponsSolver implements StageSolver {
             return new SolverStep.DropFor(plan.couponId(), coupons - right, 0);
         }
         int target = nextTarget(view.wrongTriesLeft(id), coupons, right);
+        if (target < right && !nearNpc(view, plan.npcId(), id)) {
+            target = right; // a near miss is shown only on the spot: no walk to Cloto for it
+        }
         if (coupons < target) {
             return new SolverStep.Fight(plan.mobId(), plan.couponId(), target);
         }
@@ -184,10 +198,20 @@ public final class QuestionCouponsSolver implements StageSolver {
         }
         int[] at = view.positionOf(id);
         int[] by = view.positionOf(farmer.characterId());
-        if (Math.abs(at[0] - by[0]) > HELP_RADIUS_PX || Math.abs(at[1] - by[1]) > HELP_RADIUS_Y) {
+        if (java.awt.Point.distance(at[0], at[1], by[0], by[1]) > HELP_RADIUS_PX + HELP_SLACK_PX) {
             return new SolverStep.MoveTo(by[0], by[1], "help " + farmer.characterId() + " with coupons");
         }
-        return new SolverStep.Fight(plan.mobId(), 0, 0);
+        return new SolverStep.Fight(plan.mobId(), 0, 0, by[0], by[1], HELP_RADIUS_PX);
+    }
+
+    /** {@code id} stands within {@link #NEAR_NPC_PX} of the NPC (true when the NPC's place is unknown). */
+    static boolean nearNpc(StageView view, int npcId, int id) {
+        var npc = view.npcPosition(npcId);
+        if (npc.isEmpty()) {
+            return true;
+        }
+        int[] at = view.positionOf(id);
+        return Math.abs(at[0] - npc.get()[0]) <= NEAR_NPC_PX && Math.abs(at[1] - npc.get()[1]) <= NEAR_NPC_Y;
     }
 
     /**
@@ -209,6 +233,17 @@ public final class QuestionCouponsSolver implements StageSolver {
             }
         }
         return false;
+    }
+
+    /**
+     * 1.6.2 (KPQ pace): a real leader hears it the moment every pass he needs is in his bag or at his feet, then every
+     * 30 s (was 20 s after, then every 40 s: on TEST a GM stood by with the passes lying there).
+     */
+    static final long PROMPT_EVERY_MS = 30_000;
+
+    @Override
+    public long[] leaderPromptTiming() {
+        return new long[]{0, PROMPT_EVERY_MS};
     }
 
     @Override

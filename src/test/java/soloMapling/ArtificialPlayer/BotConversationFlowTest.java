@@ -5,6 +5,7 @@ import client.Character;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrain;
 import soloMapling.ArtificialPlayer.BotBrainSystem.BotBrains;
 import soloMapling.ArtificialPlayer.BotBrainSystem.ChatDecide;
@@ -20,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -29,6 +31,9 @@ import static org.mockito.Mockito.when;
 
 /** Ticket 36/37's fast/slow path through {@link BotConversation}, with a fake brain, no Decide and a fake memory table. */
 class BotConversationFlowTest {
+
+    @TempDir
+    java.nio.file.Path tmp;
 
     private final List<List<BotBrain.Turn>> asked = new CopyOnWriteArrayList<>();
     private final List<String> said = new CopyOnWriteArrayList<>();
@@ -130,6 +135,164 @@ class BotConversationFlowTest {
         for (int i = 0; i < 200 && !done.getAsBoolean(); i++) {
             Thread.sleep(25);
         }
+    }
+
+    /** Brief step 4: when the model says nothing, the plan's script is delivered through the same guards. */
+    @Test
+    void aPlannedGreetingReachesThePlayerWhenTheModelSaysNothing() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        Optional<String> was = brainReply;
+        brainReply = Optional.empty();
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            // a real client, not a BotClient: a bot-to-bot pair plans nothing (BotTalk decides those)
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            assertTrue(BotConversation.say(bot, player, "hey", null, said::add));
+            waitFor(() -> !said.isEmpty());
+            assertEquals(1, said.size(), said.toString());
+            assertEquals(1, asked.size(), "the model is asked first; the plan answers when it says nothing");
+            soloMapling.ArtificialPlayer.BotConvo.ReplyPlanner.View view =
+                    soloMapling.ArtificialPlayer.BotConvo.BotReplyView.of(bot, player, chr.getId() - BotStore.BOT_ID_BASE,
+                            null, "hey", soloMapling.ArtificialPlayer.BotBrainSystem.ChatTriage.rules("hey"), false, false);
+            soloMapling.ArtificialPlayer.BotConvo.ReplyPlanner.Plan plan =
+                    soloMapling.ArtificialPlayer.BotConvo.ReplyPlanner.plan(view);
+            assertEquals(soloMapling.ArtificialPlayer.BotConvo.ReplyPlanner.Move.HELLO, plan.move());
+            java.util.Set<String> pool = new java.util.LinkedHashSet<>();
+            for (int seed = 0; seed < 400; seed++) {
+                String candidate = soloMapling.ArtificialPlayer.BotConvo.ReplyPlanner.line(view, plan,
+                        new java.util.Random(seed));
+                if (candidate != null) {
+                    pool.add(candidate);
+                }
+            }
+            assertTrue(pool.contains(said.get(0)),
+                    "the player hears one of the planned scripts, unchanged by delivery: " + said + " not in " + pool);
+            assertTrue(!soloMapling.ArtificialPlayer.BotConvo.SpeechGuard.hasSlot(said.get(0)),
+                    "so the delivery guard has no slot to fill: " + said);
+        } finally {
+            brainReply = was;
+            System.clearProperty("solomapling.convo.planner");
+        }
+    }
+
+    /**
+     * m02: the transcript row says which move worded the answer, so t-pl-1 (auto-QA) judges what the planner decided
+     * instead of guessing from the words. The move rides on the cue the delivery went through, and a chat the player
+     * started carries no {@code open}.
+     */
+    @Test
+    void aPlannedAnswerPutsItsMoveInTheTranscript() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        System.setProperty("solomapling.convo.quality", "true");
+        System.setProperty("solomapling.convo.transcriptDir", tmp.resolve("logs").toString());
+        System.setProperty("solomapling.convo.dataDir", tmp.resolve("data").toString());
+        Optional<String> was = brainReply;
+        brainReply = Optional.empty(); // the plan answers, so the delivered line is the planned one
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Planb");
+            when(bot.getChr()).thenReturn(chr);
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            assertTrue(BotConversation.say(bot, player, "hey", null, said::add));
+            waitFor(() -> !said.isEmpty());
+            java.nio.file.Path transcript =
+                    soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.transcriptFile(java.time.LocalDate.now());
+            java.util.List<String> mine = List.of(); // another test's delivery in flight must not be read as ours
+            for (int i = 0; i < 200 && mine.isEmpty(); i++) { // the row is written off the chat thread
+                mine = java.nio.file.Files.exists(transcript) ? java.nio.file.Files.readAllLines(transcript).stream()
+                        .filter(r -> r.contains("\"bot\":\"Planb\"")).toList() : List.of();
+                Thread.sleep(10);
+            }
+            assertEquals(1, mine.size(), mine.toString());
+            assertTrue(mine.get(0).contains("\"move\":\"hello\""), mine.get(0));
+            assertFalse(mine.get(0).contains("\"open\""), "the player spoke first, so this reply is not an opening: "
+                    + mine.get(0));
+        } finally {
+            brainReply = was;
+            System.clearProperty("solomapling.convo.planner");
+            System.clearProperty("solomapling.convo.transcriptDir");
+            System.clearProperty("solomapling.convo.dataDir");
+        }
+    }
+
+    /**
+     * m02: the greet path plans its own hello and says so in the QA log with "(it started the chat)", which is how
+     * t-pl-1 knows a row is a bot-started chat rather than an answer. Synchronous: the log is written before the
+     * model is asked, so the test does not depend on the delivery.
+     */
+    @Test
+    void aBotStartedChatIsPlannedAsOne() {
+        System.setProperty("solomapling.convo.planner", "true");
+        java.util.List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+        soloMapling.qa.QaLog.SinkHandle h = soloMapling.qa.QaLog.sink((topic, mapId, chars, message) -> {
+            if (message.startsWith("PLAN ")) {
+                lines.add(message);
+            }
+        });
+        h.topics(List.of(soloMapling.qa.QaLog.Topic.CONVO));
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            when(bot.activitySnapshot()).thenReturn(BotRoster.Activity.of("social", 0, null));
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            assertTrue(BotConversation.greet(bot, player), "a free social bot says hi on sight");
+            assertEquals(1, lines.size(), lines.toString());
+            assertTrue(lines.get(0).contains(" hello "), lines.get(0));
+            assertTrue(lines.get(0).endsWith("(it started the chat)"), lines.get(0));
+        } finally {
+            h.close();
+            System.clearProperty("solomapling.convo.planner");
+            SocialGate.forgetBotChatsForTest();
+        }
+    }
+
+    /**
+     * Stage B: the gates answer a party ask and the planner words their verdict. This wanderer is not a social bot, so
+     * {@code BotChatActions.party} declines; the prompt the model gets is the planned one and must not read as a yes.
+     */
+    @Test
+    void aRefusedPartyAskIsPlannedFromTheGatesVerdict() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            assertTrue(BotConversation.say(bot, player, "can i join ur pt", null, said::add));
+            waitFor(() -> !asked.isEmpty());
+            String system = asked.get(0).get(0).content();
+            assertTrue(system.contains("Answer their party ask with a no"), "the planned party prompt:\n" + system);
+            assertTrue(system.contains("Say no to the party"), "the gates' own words ride along:\n" + system);
+            assertFalse(system.contains("Say yes"), system);
+            assertTrue(system.length() < 1000, "a planned prompt is short: " + system.length() + " chars");
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+        }
+    }
+
+    /** REVIEW-A2 item 1: with the planner off, a chat end writes nothing new - the old path stays as it was. */
+    @Test
+    void endingAChatWithThePlannerOffWritesNoProgressRow() throws Exception {
+        FakeMemoryTable table = new FakeMemoryTable(false);
+        table.install();
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+        assertTrue(BotConversation.say(bot, player, "hey", null, said::add));
+        waitFor(() -> !said.isEmpty());
+        BotConversation.end(chr.getId(), player.getId());
+        assertFalse(table.rows.stream().anyMatch(r -> "PROGRESS".equals(r.get("Kind"))),
+                "the planner is off: no new memory row " + table.rows);
+        assertEquals(0, BotMemory.progressLevel(chr.getId() - BotStore.BOT_ID_BASE, player.getId()),
+                "nothing was recorded about the player");
     }
 
     @Test
@@ -323,6 +486,129 @@ class BotConversationFlowTest {
         assertTrue(system.contains("You know Josh from before") && system.contains("Nobody has said anything yet"), system);
         assertTrue(BotConversation.isTalking(chr.getId(), player.getId()), "the player's answer reaches the bot");
         assertTrue(!BotConversation.greet(bot, player), "never twice mid-chat");
+        BotConversation.end(chr.getId(), player.getId());
+    }
+
+    @Test
+    void aSecondHelloToTheSamePlayerIsSmallTalkNotAnotherGreeting() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+
+        assertTrue(BotConversation.say(bot, player, "hi", null, said::add));
+        waitFor(() -> said.size() == 1);
+        assertEquals(List.of("lol ya ant tunnel is ok"), said, "the first hello gets the brain");
+        assertEquals(1, asked.size());
+
+        assertTrue(BotConversation.say(bot, player, "hey", null, said::add), "the small talk answer goes out");
+        waitFor(() -> said.size() == 2);
+        assertEquals(2, said.size(), said.toString());
+        assertEquals(1, asked.size(), "b248: the second hello is small talk, not another greeting for the model");
+        assertTrue(ScriptedReplies.TALK.contains(said.get(1)), "small talk, not a greeting: " + said.get(1));
+        assertTrue(!ScriptedReplies.GREETING.contains(said.get(1)), "another hello: " + said.get(1));
+        BotConversation.end(chr.getId(), player.getId());
+    }
+
+    /**
+     * m02 stage B: a bot starts a chat with a player too, but only when it is free - never in the middle of a grind
+     * or a party quest, and never more than about once an hour per player.
+     */
+    @Test
+    void aBusyBotNeverStartsAChatWithAPlayer() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Grindr");
+            when(bot.getChr()).thenReturn(chr);
+            when(bot.activitySnapshot())
+                    .thenReturn(soloMapling.ArtificialPlayer.BotRoster.Activity.of("grind", 0, null));
+            Character player = character(nextPlayer++, "Josh");
+            assertFalse(BotConversation.greet(bot, player), "grinding: the bot does not open a chat");
+            assertFalse(BotConversation.isTalking(chr.getId(), player.getId()), "and no chat was opened");
+            when(bot.activitySnapshot())
+                    .thenReturn(soloMapling.ArtificialPlayer.BotRoster.Activity.of("opq", 0, null));
+            assertFalse(BotConversation.greet(bot, character(nextPlayer++, "Mika")), "a PQ is busy too");
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+        }
+    }
+
+    /**
+     * m02 fix round 3 (answer 4): one bot-started chat per player per hour, from any bot. Another bot's hello holds
+     * this bot's turn, and the switch off keeps the legacy greeting untouched.
+     */
+    @Test
+    void anotherBotsHelloHoldsThePlayersChatForTheHour() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            when(bot.activitySnapshot())
+                    .thenReturn(soloMapling.ArtificialPlayer.BotRoster.Activity.of("social", 0, null));
+            Character player = Character.getDefault(mock(client.Client.class));
+            player.setID(nextPlayer++);
+            player.setName("Josh");
+            player.setLevel(40);
+            SocialGate.noteBotChat(BotStore.BOT_ID_BASE + 5, player.getId(), System.currentTimeMillis());
+            assertFalse(BotConversation.greet(bot, player), "another bot said hi first: this one waits its turn");
+            assertFalse(BotConversation.isTalking(chr.getId(), player.getId()), "and no chat was opened");
+
+            System.clearProperty("solomapling.convo.planner");
+            assertTrue(BotConversation.greet(bot, player), "switch off: the legacy greeting has no per-player cap");
+            assertTrue(SocialGate.botChatAllowed(BotStore.BOT_ID_BASE + 5, player.getId(),
+                    System.currentTimeMillis()), "the legacy path records no bot-started chat");
+            waitFor(() -> !asked.isEmpty());
+            BotConversation.end(chr.getId(), player.getId());
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+            SocialGate.forgetBotChatsForTest();
+        }
+    }
+
+    /** m02 stage B: with the planner on, the bot's own opening line is a planned move, not the free-chat prompt. */
+    @Test
+    void aBotThatStartsAChatPlansItsOpeningLine() throws Exception {
+        System.setProperty("solomapling.convo.planner", "true");
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            when(bot.activitySnapshot())
+                    .thenReturn(soloMapling.ArtificialPlayer.BotRoster.Activity.of("social", 0, null));
+            // a real player, not the test's BotClient stand-in: the planner leaves bot-to-bot chat alone
+            Character player = Character.getDefault(mock(client.Client.class));
+            player.setID(nextPlayer++);
+            player.setName("Josh");
+            player.setLevel(40);
+            assertTrue(BotConversation.greet(bot, player));
+            waitFor(() -> !asked.isEmpty());
+            String system = asked.get(0).get(0).content();
+            assertTrue(system.contains("You are Walkr, a real person playing this game in 2008"),
+                    "the planned prompt: " + system);
+            assertTrue(system.contains("Say hi"), "the move is the instruction: " + system);
+            assertTrue(!system.contains("Nobody has said anything yet"),
+                    "not the free-chat opening prompt: " + system);
+            BotConversation.end(chr.getId(), player.getId());
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+        }
+    }
+
+    @Test
+    void aBotDoesNotGreetTheSamePlayerTwiceInTheGap() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+
+        assertTrue(BotConversation.greet(bot, player));
+        waitFor(() -> !said.isEmpty() || !asked.isEmpty());
+        BotConversation.end(chr.getId(), player.getId());
+        waitFor(() -> !BotConversation.isTalking(chr.getId(), player.getId()));
+
+        assertTrue(!BotConversation.greet(bot, player), "b248: not again inside the greeting gap");
         BotConversation.end(chr.getId(), player.getId());
     }
 }

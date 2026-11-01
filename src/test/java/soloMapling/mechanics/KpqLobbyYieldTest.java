@@ -59,7 +59,7 @@ class KpqLobbyYieldTest {
                 lines::add, null);
         assertFalse(a.run().ended(), lines.toString());
         if (lobby) {
-            KpqLobby.markLobbyRunForTest(a.instanceName());
+            KpqLobby.markLobbyRunForTest(a.instance());
         }
         return a;
     }
@@ -99,7 +99,7 @@ class KpqLobbyYieldTest {
     @Test
     void aStagedOrPlayerLedRunNeverYields() {
         Kpq k = kpqOn(9, MechanicsRunsInstancesTest.bots(9_720), 9_720);
-        KpqLobby.markLobbyRunForTest("some other run"); // the lobby has a run, just not this one
+        KpqLobby.markLobbyRunForTest(mock(EventInstanceManager.class)); // the lobby has a run, just not this one
         MechanicsRuns.Active a = run(k, false);
         assertFalse(KpqLobby.yieldFor(k.em(), MechanicsRunsInstancesTest.member(9_792, false)));
         assertFalse(a.run().ended());
@@ -123,6 +123,28 @@ class KpqLobbyYieldTest {
         when(k.em().getName()).thenReturn("LudiPQ");
         assertFalse(KpqLobby.yieldFor(k.em(), MechanicsRunsInstancesTest.member(9_795, false)));
         assertFalse(a.run().ended());
+    }
+
+    /**
+     * b255 (auto-QA 2026-10-31 10:00 and 15:41 UTC: t-mx-6 FAIL "no yield line", the check's other conditions all
+     * met, BotLog holding the yield): the same pretend player takes the same channel twice, so the second yield's line
+     * is byte-identical to the last one. A check that compares the text cannot see its own yield; the count can.
+     */
+    @Test
+    void aSecondYieldToTheSamePartyNameStillCounts() throws Exception {
+        Character player = MechanicsRunsInstancesTest.member(9_796, false);
+        Kpq first = kpqOn(7, MechanicsRunsInstancesTest.bots(9_700), 9_700);
+        run(first, true);
+        long before = KpqLobby.yieldCount();
+        assertTrue(KpqLobby.yieldFor(first.em(), player));
+        assertEquals(before + 1, KpqLobby.yieldCount());
+        String line = KpqLobby.lastYield();
+
+        Kpq second = kpqOn(7, MechanicsRunsInstancesTest.bots(9_701), 9_701);
+        run(second, true);
+        assertTrue(KpqLobby.yieldFor(second.em(), player), "a re-taken channel yields to the same party again");
+        assertEquals(before + 2, KpqLobby.yieldCount(), "the count is what tells the two yields apart");
+        assertEquals(line, KpqLobby.lastYield(), "and the text is the same");
     }
 
     @Test
@@ -161,16 +183,24 @@ class KpqLobbyYieldTest {
         }
     }
 
-    /** b153: a farmer whose count stands still for 3 minutes is reported once, again after it moves and stalls. */
+    /**
+     * b153: a farmer whose pace is under 2 coupons a minute over 90 s is reported, once until it speeds up. 1.6.2: was
+     * only a count that stood still for 3 minutes (t-mx-1's bots crept 1 coupon at a time and said nothing for long).
+     */
     @Test
-    void aStalledFarmerIsReportedOnce() {
+    void aSlowFarmerIsReportedWithinNinetySecondsOnceUntilItSpeedsUp() {
+        long w = StepExecutor.STALL_MS;
+        assertEquals(90_000L, w);
         StepExecutor.Beat beat = new StepExecutor.Beat();
         assertFalse(StepExecutor.stalled(beat, 4, 0));
-        assertFalse(StepExecutor.stalled(beat, 4, StepExecutor.STALL_MS - 1));
-        assertTrue(StepExecutor.stalled(beat, 4, StepExecutor.STALL_MS));
-        assertFalse(StepExecutor.stalled(beat, 4, StepExecutor.STALL_MS * 2), "once");
-        assertFalse(StepExecutor.stalled(beat, 5, StepExecutor.STALL_MS * 2), "it moved");
-        assertTrue(StepExecutor.stalled(beat, 5, StepExecutor.STALL_MS * 3));
+        assertFalse(StepExecutor.stalled(beat, 5, w - 1));
+        assertTrue(StepExecutor.stalled(beat, 6, w), "+2 in 90 s: slow");
+        assertEquals(2, beat.stallGain);
+        assertFalse(StepExecutor.stalled(beat, 7, 2 * w), "still slow: told once");
+        assertFalse(StepExecutor.stalled(beat, 12, 3 * w), "+5: at pace again");
+        assertTrue(StepExecutor.stalled(beat, 12, 4 * w), "slow again: told again");
+        assertFalse(StepExecutor.stalled(beat, 2, 4 * w + 10), "handed some in: a new window");
+        assertFalse(StepExecutor.stalled(beat, 6, 5 * w + 10), "+4 in the window: fine");
     }
 
     @Test

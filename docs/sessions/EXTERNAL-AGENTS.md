@@ -6,14 +6,17 @@ and for the person or session that starts it. It sits beside the lane kickoffs i
 
 ## 1. Read first (in this order)
 
+0. `/root/work/STATUS-<version>.md`: the live bug/task status exported from the release book. The "Status:" lines in
+   docs/tickets/*.md are NOT kept up to date. Take only a card whose status is `triaged` (unclaimed), and tell the
+   owner its id before you start.
 1. `AGENTS.md`: the hard rules (section 1) apply to you word for word, plus "Done means switched on and noted" (8).
 2. `docs/sessions/README.md` and your lane's kickoff file (`launcher.md`, `chat-model.md`, ...), if it has one.
 3. `docs/HANDOFF.md`, `docs/release/RUNBOOK.md` (your lane's steps) and the ticket for your task.
 4. The task brief the lane session gave you (section 3). If any of these disagree, the newest owner decision wins.
    The lane session tells you which one that is. Don't guess.
 
-Some branch names in older docs are stale. The current release is **1.6.2**: integration branch `release-1.6.2`,
-live still on 1.6.0.4. Use only the branch your brief names.
+Some branch names in older docs are stale. The current release is **1.6.3**: integration branch `release-1.6.3`,
+live on 1.6.2. Use only the branch your brief names.
 
 ## 2. Lanes and who you answer to
 
@@ -61,6 +64,9 @@ HARD RULES (from AGENTS.md; break one and you can do real damage):
 
 1. **Claim.** `git worktree list` first; create your own worktree from the base branch, copy `config.yaml` in
    (server: `cp config.example.yaml config.yaml` inside the worktree; tests need it). One agent per worktree.
+   **Before any work, disable pushing:** `git config extensions.worktreeConfig true && git config --worktree
+   remote.origin.pushurl DISABLED` (per-worktree only; `git remote set-url --push` writes the SHARED repo config and
+   blocks every worktree). A helper pushed to GitHub on 2026-10-31; pushing is never yours.
 2. **Cause before code.** Reproduce it or read the QA log of the failing run. Most QA "bugs" were staging problems.
    For a feature, commit a short plan in the ticket first (shape, files, tests, open questions).
 3. **Tests.** Every fix gets a test that fails before and passes after. Run it before your change and record that
@@ -81,6 +87,9 @@ HARD RULES (from AGENTS.md; break one and you can do real damage):
    `Co-Authored-By: DeepSeek <noreply@deepseek.com>`, Gemini `Co-Authored-By: Gemini 3.8 Flash <noreply@google.com>`,
    plus `Coordinated-By: <lane session name>`. Leave the worktree clean.
 8. **Hand back** (section 5) and stop. Don't start a second task on your own.
+9. **Proof is per card.** Your fix closes on its own proof, not on "the next full run": a fail-before unit test
+   for every fix; for S3+, list the covering auto-QA ids from `tools/ops/autoqa-proof <base>..<head>` in REPORT.md
+   so the lane runs only those. Never request a full release run.
 
 Claude subagents can't write files here (the harness refuses), so their hand-back is the reply text in the same
 shape. External CLI agents (codex, omp, agy) write REPORT.md.
@@ -95,6 +104,7 @@ The lane session reads this instead of watching you, so it has to be complete an
 2. **What changed:** branch, commit hashes, files, and the switch name with its default.
 3. **Proof:** commands you ran with their counts (`mvn: 4,412 tests, 0 failures`), the test that failed before,
    the auto-QA ids the lane session should run after it deploys. Anything you didn't run, say so. "Untested in a real client" if so.
+   - the card id(s) and a `CLOSER: <lane> PROOF: <test class / check ids / hands-on step>` line for each.
 4. **For the release book** (the lane session copies these in):
    - a Changes row: `feature, commits, sees: player|staff|owner, state, coverage (check id / test class / NONE)`;
    - a draft patch-notes line in plain player words, or "staff only, no line";
@@ -116,8 +126,9 @@ nohup codex --yolo exec -m gpt-6.1-sol -c model_reasoning_effort='"medium"' -C <
   -o /root/work/agent-runs/<lane>/<task-id>/final-message.md - < /root/work/agent-runs/<lane>/<task-id>/PROMPT.txt \
   > /root/work/agent-runs/<lane>/<task-id>/run.log 2>&1 &
 # DeepSeek through omp (pin the full model id):
-nohup omp -p --model opencode-go/deepseek-v4.1-flash --auto-approve --cwd <worktree> \
-  "$(cat /root/work/agent-runs/<lane>/<task-id>/PROMPT.txt)" > /root/work/agent-runs/<lane>/<task-id>/run.log 2>&1 &
+git config extensions.worktreeConfig true && git config --worktree remote.origin.pushurl DISABLED
+setsid nohup /root/.bun/bin/omp -p --model opencode-go/deepseek-v4.1-flash --auto-approve --cwd <worktree> \
+  "$(cat /root/work/agent-runs/<lane>/<task-id>/PROMPT.txt)" > /root/work/agent-runs/<lane>/<task-id>/run.log 2>&1 < /dev/null &
 # Gemini through agy:
 nohup agy -p "$(cat /root/work/agent-runs/<lane>/<task-id>/PROMPT.txt)" --dangerously-skip-permissions \
   --add-dir <worktree> --print-timeout 0 > /root/work/agent-runs/<lane>/<task-id>/run.log 2>&1 &
@@ -127,7 +138,11 @@ ps -eo pid,lstart,args | grep -E "codex exec|omp -p|agy -p"   # exactly one per 
 `PROMPT.txt` is short: "You are an external agent on the SlumsMS <lane> lane. Read
 /root/work/<worktree>/docs/sessions/EXTERNAL-AGENTS.md, then AGENTS.md, then BRIEF.md at <path>, and follow them.
 Write REPORT.md at <path> when done." If a permission check stops a Claude session from launching an auto-approved
-agent, it gives the owner the exact `!` line instead of working around it.
+agent, it gives the owner the exact `!` line instead of working around it. Never ask another session to launch it.
+
+`setsid` + `< /dev/null` detaches the helper from the launching session (a helper died mid-run on 2026-10-31
+with no cause found). Check `ps -o ppid= -p <pid>` is 1. Keep about 4 helpers running at once on 187 (each ends
+with a full mvn suite; 187 hit memory pressure with 5-6).
 
 ## 7. Lane details
 
@@ -236,7 +251,8 @@ Owner of the lane: Server Dev. Helpers hand back a branch; Server Dev reviews, m
 - **Ports:** credit the source in the commit and in `docs/PROVENANCE.md` under "## Later ports" (`nutnnut/Cosmic <sha>`,
   `Kiwiism/cosmic_agents <sha>`).
 - **One implementation:** owned alts and population bots share the same code. No alt-only copies.
-- **TEST:** you may read it: `ssh root@192.168.0.164`, `journalctl -u slums-persistence-test`, and SELECT-only queries
+- **TEST:** you may read it: `ssh -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111}` (mapletest, TEST's own
+  box since 1.6.3; 164 hosts live only), `journalctl -u slums-persistence-test`, and SELECT-only queries
   on the `mapleroot-integration-db` container, schema `mapleroot_persist`. Never print the DB password. Never deploy,
   restart or edit files on TEST, and never touch live.
 - **Only Server Dev does:** `tools/ops/deploy-test`, auto-QA runs, and merges into `release-1.6.2`.
@@ -248,3 +264,6 @@ Read REPORT.md, `git log` and `git diff --stat` against the base. Check nothing 
 yourself: player-visible behaviour, economy, live paths, load at 3,000 bots. Agents miss `config.yaml` in fresh
 worktrees and sometimes fake the fail-before test, so rerun it. Then the lane's own suite on the merged result,
 TEST and QA as usual. Book rows and owner questions go out through the lane session and the coordinator.
+- Merge only at the set merge times (about 15:00 and 03:00 UTC) unless the owner says otherwise. After a release
+  freeze, only items that pass the ticket 168 admission rule (security, data loss, crash, broken deploy path,
+  regression from the candidate, broken committed promise) or an owner exception go in.

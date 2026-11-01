@@ -1831,6 +1831,42 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         saunaTripDone = true;
     }
 
+    /**
+     * Where a party sends the bot before it discovers a map: the map of a GM / {@code !qa} staging hold
+     * ({@link #stagedMap}) when the party is bots only, else the party's map, else null. 1.6.2 t-gw-1 on TEST
+     * 2026-10-31: the war staged a grinder on the war map, then made its guild party (bots only) with its other member
+     * steered to the contest map, and the leader's map outranked the hold, so the staged bot walked off the war map
+     * and its guild killed nothing. A bot-only party (a guild's, a couple's) does not outrank a hold; a real player
+     * in the party still does (their map, and party EXP needs it), and a real world event still defers to the party.
+     */
+    static Steer steer(Character chr, Integer partyMap, boolean partyWithPlayer) {
+        int staged = stagedMap(chr);
+        if (staged > 0 && !partyWithPlayer) {
+            return new Steer(staged, true);
+        }
+        return partyMap == null ? null : new Steer(partyMap, false);
+    }
+
+    /** A decision made before map discovery: where to train, and whether a staging hold sent it there. */
+    record Steer(int mapId, boolean staged) {
+    }
+
+    /**
+     * The map a GM / {@code !qa} staging hold keeps this bot on, or -1 (not held, or the map is not one a bot of this
+     * level may enter). No event decision is counted ({@link soloMapling.worldevents.WorldEventSteer#mapFor}).
+     */
+    static int stagedMap(Character chr) {
+        if (chr == null || !soloMapling.worldevents.WorldEventSteer.isStagingHeld(chr.getId())) {
+            return -1;
+        }
+        int map = soloMapling.worldevents.WorldEventSteer.mapFor(chr.getId());
+        if (map <= 0 || !soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.mayEnter(map, chr)
+                || !soloMapling.ArtificialPlayer.BotMapCap.admit(chr, map)) {
+            return -1; // a gated or full map: the bot decides as usual rather than break the rule
+        }
+        return map;
+    }
+
     // Discover a field map near the current town (WZ-driven): level-scaled wander radius, weighted
     // toward level-appropriate + less-crowded maps, with a chance to chill at an easier map.
     private void doDecide() {
@@ -1845,15 +1881,15 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
             enterPhase(Phase.GRIND);
             return;
         }
-        // Party-aware: partied with a real player -> train on their map (or hold the current map
-        // while they're parked somewhere mobless). Deliberately skips the capacity/crowd weighting -
-        // the player chose this map, and party EXP needs same-map anyway.
-        Integer partyMap = partyTargetMapId();
-        if (partyMap != null) {
-            debugChat("DECIDE: party target -> map " + partyMap);
-            setTrainTarget(partyMap, Math.max(1, MapMobIndex.level(partyMap)));
+        // Staged first (a GM's hold) over a bot-only party, then party-aware: partied with a real player -> train on
+        // their map (or hold the current map while they're parked somewhere mobless). Both deliberately skip the
+        // capacity/crowd weighting.
+        Steer steer = steer(chr, partyTargetMapId(), partyWithPlayer());
+        if (steer != null) {
+            debugChat((steer.staged() ? "DECIDE: staged -> map " : "DECIDE: party target -> map ") + steer.mapId());
+            setTrainTarget(steer.mapId(), Math.max(1, MapMobIndex.level(steer.mapId())));
             firstTrip = false;
-            enterPhase(chr.getMapId() == partyMap ? Phase.GRIND : Phase.GO_TRAIN);
+            enterPhase(chr.getMapId() == steer.mapId() ? Phase.GRIND : Phase.GO_TRAIN);
             return;
         }
         // Ticket 21: answering a world event - train on the event map instead of our own pick.
@@ -2588,6 +2624,12 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         return null;
     }
 
+    /** Whether a real (non-bot, online) player is in this bot's party: their map outranks a GM's staging hold. */
+    private boolean partyWithPlayer() {
+        Party party = getChr().getParty();
+        return party != null && firstRealPartyMember(party) != null;
+    }
+
     private Character firstRealPartyMember(Party party) {
         for (PartyCharacter pc : party.getMembers()) {
             Character p = pc == null ? null : pc.getPlayer();
@@ -2742,6 +2784,8 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
                 chr.getMap().getCharacters().size(), drawMs, nowMs, chr.getWorldServer());
         // 1.6.1 volatility: trader bots also find Maple Leaves at the leaf's global drop chance (traders on only)
         soloMapling.Economy.exchange.volatility.MarketVolatility.offscreenLeafFinds(chr, elapsedMs);
+        // 1.6.2: and the scrolls the mobs on their map drop (trader bots; see the method for why WS has none)
+        soloMapling.Economy.exchange.volatility.MarketVolatility.offscreenScrollFinds(chr, elapsedMs);
         if (reward.isEmpty()) {
             return;
         }

@@ -11,6 +11,11 @@ public class ServerConfig {
     public String DB_USER;
     public String DB_PASS;
     public int INIT_CONNECTION_POOL_TIMEOUT;
+    //How long a thread waits for a pooled connection before its work fails (ms): a player login, a bot load, a
+    //write. 0 or less = 30000, Hikari's own default. b269 hard-coded 10 s here to make a wedged pool fail loudly;
+    //that is still the recommendation for live (10 s turned a busy boot fill's waits into refusals), but it is a
+    //config choice now, not a constant. Note the bot share of the pool waits this long per attempt (BotDbGate).
+    public int DB_CONNECTION_TIMEOUT_MS = 30000;
 
     //Login Configuration
     public int WORLDS;
@@ -122,6 +127,11 @@ public class ServerConfig {
     public String BOT_ROSTER_TIMEZONE = "";
     public int BOT_DIRECTOR_TICK_SECONDS = 30;
     public int BOT_DIRECTOR_MAX_LOGINS_PER_TICK = 25;
+    //b269 fix 6: the boot fill hands logins to the bot-db threads at a pace instead of all at once with no spread.
+    //In flight at once; two logins fit the bots' six-permit share, so eight keeps the queue warm without flooding it.
+    public int BOT_DIRECTOR_BOOT_FILL_IN_FLIGHT = 8;
+    //Starts a second. 8/s fills 3,000 bots in ~6 min; 0 = no rate limit (the 1.6.2 behaviour: queue everything).
+    public int BOT_DIRECTOR_BOOT_FILL_PER_SECOND = 8;
     public int BOT_DIRECTOR_MAX_LOGOUTS_PER_TICK = 25;
     public int BOT_ROSTER_SEED_MIN = 100;
     //1.4.2 (ticket 57): every bot online at once, environment and director together, at the curve's peak. The
@@ -219,6 +229,10 @@ public class ServerConfig {
     public double BOT_LLM_CLOUD_DAILY_BUDGET_USD = 1.0;
     //DeepSeek's peak prices for deepseek-flash (2026-10-22); off-peak is half, so this overestimates
     public double BOT_LLM_CLOUD_PRICE_IN_PER_MTOK = 0.30;
+    //What the provider charges for an input token it had already cached (DeepSeek's cache hit, reported as
+    //usage.prompt_cache_hit_tokens). Negative = a cached token costs the normal input price, so the day's spend reads
+    //exactly as it did before cache hits were read (the safe default; the owner fills the real price at release).
+    public double BOT_LLM_CLOUD_PRICE_IN_CACHED_PER_MTOK = -1;
     public double BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK = 1.20;
     //Extra request fields for the cloud as raw JSON, e.g. reasoning_effort: '"none"': thinking models spend max_tokens thinking and
     //answer nothing without it

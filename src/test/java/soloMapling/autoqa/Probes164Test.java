@@ -158,8 +158,11 @@ class Probes164Test {
         assertTrue(fresh.get(0).startsWith("FAIL 1 new one-way trap(s), not in the baseline: [3]"), fresh.toString());
         List<String> empty = Probes164.trapVerdict(new NavTrapQa.Traps(104000000, 3, 3, new TreeSet<>()), Map.of(1, ""));
         assertTrue(empty.get(0).contains("the world graph did not load"), empty.toString());
-        List<String> noBaseline = Probes164.trapVerdict(t, Map.of());
+        List<String> noBaseline = Probes164.trapVerdict(t, null);
         assertTrue(noBaseline.get(0).contains("baseline (soloMapling/nav-trap-maps.txt) is missing"), noBaseline.toString());
+        // b230: an empty baseline is a real one (no accepted traps), not a missing file
+        List<String> none = Probes164.trapVerdict(new NavTrapQa.Traps(104000000, 1471, 1471, new TreeSet<>()), Map.of());
+        assertTrue(none.get(0).startsWith("PASS "), none.toString());
     }
 
     @Test

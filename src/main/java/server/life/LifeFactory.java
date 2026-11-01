@@ -92,6 +92,15 @@ public class LifeFactory {
         }
     }
 
+    /** mob id -> already warned, so an image naming an unimplemented skill logs once instead of once per map load. */
+    private static final Set<Integer> warnedUnimplementedSkills = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    private static void warnUnimplementedMobSkill(int mid, int skillId, int skillLv) {
+        if (warnedUnimplementedSkills.add(mid)) {
+            log.warn("mob {}: skill {} level {} is not implemented here, so the mob loads without it", mid, skillId, skillLv);
+        }
+    }
+
     private static Pair<MonsterStats, List<MobAttackInfoHolder>> getMonsterStats(int mid) {
         Data monsterData = data.getData(StringUtil.getLeftPaddedStr(mid + ".img", '0', 11));
         Data monsterInfoData = monsterData.getChildByPath("info");
@@ -269,18 +278,28 @@ public class LifeFactory {
         while (monsterSkillInfoData.getChildByPath(Integer.toString(i)) != null) {
             int skillId = DataTool.getInt(i + "/skill", monsterSkillInfoData, 0);
             int skillLv = DataTool.getInt(i + "/level", monsterSkillInfoData, 0);
-            MobSkillType type = MobSkillType.from(skillId).orElseThrow();
-            skills.add(new MobSkillId(type, skillLv));
+            // s-maproute round 4 (b253): Mob.wz comes from a later client than this server speaks, and 470 of its mobs
+            // name a skill the server cannot run - an id MobSkillType does not carry (3501008's skill 201) or a level
+            // Skill.wz/MobSkill.img has no data for (2600030's skill 132 level 14). Both used to throw here, which took
+            // the whole map with them: 48 maps spawn such a mob and two of them (867120100, 867120900) are fallbacks in
+            // soloMapling/map-routing.tsv, so the QA check t-mp-1 died with "NoSuchElementException: No value present".
+            MobSkill skill = MobSkillType.from(skillId)
+                    .map(type -> MobSkillFactory.getMobSkill(type, skillLv).orElse(null))
+                    .orElse(null);
+            if (skill == null) {
+                warnUnimplementedMobSkill(mid, skillId, skillLv);
+            } else {
+                skills.add(skill.getId());
 
-            Data monsterSkillData = monsterData.getChildByPath("skill" + (i + 1));
-            if (monsterSkillData != null) {
-                int animationTime = 0;
-                for (Data effectEntry : monsterSkillData.getChildren()) {
-                    animationTime += DataTool.getIntConvert("delay", effectEntry, 0);
+                Data monsterSkillData = monsterData.getChildByPath("skill" + (i + 1));
+                if (monsterSkillData != null) {
+                    int animationTime = 0;
+                    for (Data effectEntry : monsterSkillData.getChildren()) {
+                        animationTime += DataTool.getIntConvert("delay", effectEntry, 0);
+                    }
+
+                    mi.setMobSkillAnimationTime(skill, animationTime);
                 }
-
-                MobSkill skill = MobSkillFactory.getMobSkillOrThrow(type, skillLv);
-                mi.setMobSkillAnimationTime(skill, animationTime);
             }
 
             i++;

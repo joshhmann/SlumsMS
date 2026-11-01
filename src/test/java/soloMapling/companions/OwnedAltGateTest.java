@@ -5,6 +5,8 @@ import client.Client;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import server.maps.MapleMap;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionLanes;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
 
 import java.awt.Point;
 
@@ -85,6 +87,50 @@ class OwnedAltGateTest {
         Character high = alt(f, 0);
         when(high.getPosition()).thenReturn(new Point(0, -OwnedAltGate.RANGE_Y_PX - 1));
         assertEquals(OwnedAltGate.Why.TOO_FAR, OwnedAltGate.check(owner(f, 0, NOW), high, NOW, 0));
+    }
+
+    /** 1.6.3 s-lanes: a whole-map lane is not held to the distance, and nothing else about the gate changes. */
+    @Test
+    void aWholeMapLaneWorksItsOwnLaneFarFromItsOwner() {
+        String was = System.getProperty("slums.alts.lanes");
+        MapleMap f = field(false);
+        Character owner = owner(f, 0, NOW);
+        Character alt = alt(f, OwnedAltGate.RANGE_X_PX + 700);
+        try {
+            assertEquals(OwnedAltGate.Why.TOO_FAR, OwnedAltGate.check(owner, alt, NOW, 0));
+            CompanionStance.setAt(2, CompanionStance.Mode.LANES, new Point(5_000, 0), 0,
+                    CompanionLanes.Reach.MAP);
+            assertEquals(OwnedAltGate.Why.TOO_FAR, OwnedAltGate.check(owner, alt, NOW, 0),
+                    "the switch is off: the stance does nothing");
+            System.setProperty("slums.alts.lanes", "true");
+            assertEquals(OwnedAltGate.Why.OPEN, OwnedAltGate.check(owner, alt, NOW, 0),
+                    "owner online, same map, a field, the owner active: the lane is held across the map");
+            CompanionStance.setAt(2, CompanionStance.Mode.LANES, new Point(5_000, 0), 0,
+                    CompanionLanes.Reach.SCREEN);
+            assertEquals(OwnedAltGate.Why.TOO_FAR, OwnedAltGate.check(owner, alt, NOW, 0),
+                    "a screen lane is still held to the distance");
+            CompanionStance.setAt(2, CompanionStance.Mode.LANES, new Point(5_000, 0), 0,
+                    CompanionLanes.Reach.MAP);
+            Character gone = owner(f, 0, NOW);
+            when(gone.isLoggedinWorld()).thenReturn(false);
+            assertEquals(OwnedAltGate.Why.OWNER_GONE, OwnedAltGate.check(gone, alt, NOW, 0), "still needs its owner");
+            assertEquals(OwnedAltGate.Why.OTHER_MAP,
+                    OwnedAltGate.check(owner(field(false), 0, NOW), alt, NOW, 0), "still needs the same map");
+            MapleMap town = field(true);
+            assertEquals(OwnedAltGate.Why.TOWN, OwnedAltGate.check(owner(town, 0, NOW), alt(town, 0), NOW, 0),
+                    "never in a town");
+            assertEquals(OwnedAltGate.Why.OWNER_IDLE, OwnedAltGate.check(owner(f, 0, NOW - OwnedAltGate.idleMs() - 1),
+                    alt, NOW, 0), "an idle owner stops it wherever it stands");
+            assertEquals(OwnedAltGate.Why.MAP_FULL, OwnedAltGate.check(owner, alt, NOW, OwnedAltGate.FIGHTING_PER_MAP),
+                    "and a map full of fighting alts still stops it");
+        } finally {
+            CompanionStance.forget(2);
+            if (was == null) {
+                System.clearProperty("slums.alts.lanes");
+            } else {
+                System.setProperty("slums.alts.lanes", was);
+            }
+        }
     }
 
     @Test

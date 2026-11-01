@@ -65,16 +65,24 @@ public final class AutoQaReport {
      */
     record Run(String trigger, long startedMs, long finishedMs, double timeScale, String commit,
                List<AutoQaRunner.CheckResult> results, Map<String, Map<String, Object>> carried, String carriedRun,
-               AutoQaRelease.Verdict release) {
+               AutoQaRelease.Verdict release, int parallel) {
 
         Run {
             carried = carried == null ? Map.of() : carried;
+            parallel = Math.max(1, parallel);
+        }
+
+        /** A release run on one lane (before ticket 167). */
+        Run(String trigger, long startedMs, long finishedMs, double timeScale, String commit,
+            List<AutoQaRunner.CheckResult> results, Map<String, Map<String, Object>> carried, String carriedRun,
+            AutoQaRelease.Verdict release) {
+            this(trigger, startedMs, finishedMs, timeScale, commit, results, carried, carriedRun, release, 1);
         }
 
         /** An ordinary (not release) run. */
         Run(String trigger, long startedMs, long finishedMs, double timeScale, String commit,
             List<AutoQaRunner.CheckResult> results, Map<String, Map<String, Object>> carried, String carriedRun) {
-            this(trigger, startedMs, finishedMs, timeScale, commit, results, carried, carriedRun, null);
+            this(trigger, startedMs, finishedMs, timeScale, commit, results, carried, carriedRun, null, 1);
         }
     }
 
@@ -276,6 +284,14 @@ public final class AutoQaReport {
         line.put("PASS", pass);
         line.put("FAIL", fail);
         line.put("SKIP", skip);
+        // ticket 167: how much wall clock the run took, how much of it was check time, and how many lanes overlapped
+        long checkMs = 0;
+        for (AutoQaRunner.CheckResult r : run.results()) {
+            checkMs += Math.max(0, r.finishedMs() - r.startedMs());
+        }
+        line.put("wallSeconds", Math.round((run.finishedMs() - run.startedMs()) / 1000.0));
+        line.put("checkSeconds", Math.round(checkMs / 1000.0));
+        line.put("parallel", run.parallel());
         if (!run.carried().isEmpty()) {
             // the ids, not just the count: a second --failed run must know these passed without being rerun
             line.put("carried", run.carried().size());
@@ -365,6 +381,11 @@ public final class AutoQaReport {
         b.append(line.get("trigger")).append(" at ").append(line.get("started")).append(": ")
                 .append(line.get("PASS")).append(" pass, ").append(line.get("FAIL")).append(" fail, ")
                 .append(line.get("SKIP")).append(" skip");
+        if (line.get("parallel") instanceof Number lanes && lanes.intValue() > 1) {
+            b.append(" on ").append(lanes).append(" lanes (")
+                    .append(line.get("wallSeconds")).append(" s wall, ")
+                    .append(line.get("checkSeconds")).append(" s of checks)");
+        }
         if (line.get("carried") instanceof Number n && n.intValue() > 0) {
             b.append(", ").append(n).append(" old (carried, not rerun)");
         }

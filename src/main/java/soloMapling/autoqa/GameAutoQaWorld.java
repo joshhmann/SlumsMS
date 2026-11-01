@@ -51,9 +51,7 @@ final class GameAutoQaWorld implements AutoQaWorld {
     synchronized void open() {
         if (unlisten == null) {
             unlisten = QaLog.listen((gmId, scenario, kind, message) -> {
-                SyntheticPlayer p = SyntheticPlayers.get(1);
-                SyntheticPlayer p2 = SyntheticPlayers.get(2);
-                if ((p != null && p.id() == gmId) || (p2 != null && p2.id() == gmId)) {
+                if (SyntheticPlayers.isLaneId(gmId)) { // any lane's GM, not just slot 1 (ticket 167)
                     add(new AutoQaLine(System.currentTimeMillis(), "qa", kind, message), gmId);
                 }
             });
@@ -89,6 +87,21 @@ final class GameAutoQaWorld implements AutoQaWorld {
     @Override
     public Actor actor(int slot) {
         return SyntheticPlayers.login(slot);
+    }
+
+    /**
+     * A probe's {@code actor(1)} / {@code actor(2)} mean the caller's own lane, not slot 1 / slot 2: lane 2's check
+     * must move and read its own players (ticket 167).
+     */
+    private Actor laneActor(SyntheticPlayer caller, int logical) {
+        int lane = caller == null ? 0 : SyntheticPlayers.laneOfSlot(caller.slot());
+        return actor(lane == 0 ? logical : SyntheticPlayers.laneSlot(lane, logical));
+    }
+
+    /** A remembered number ("meso", "nx3") belongs to one lane, so two lanes cannot read each other's wallet. */
+    private static String memoryKey(SyntheticPlayer caller, String what) {
+        int lane = caller == null ? 1 : SyntheticPlayers.laneOfSlot(caller.slot());
+        return "lane" + lane + ":" + what;
     }
 
     @Override
@@ -152,7 +165,8 @@ final class GameAutoQaWorld implements AutoQaWorld {
 
     @Override
     public List<String> probe(String what, Actor actor, String... a) {
-        Character me = actor instanceof SyntheticPlayer sp ? sp.character() : null;
+        SyntheticPlayer caller = actor instanceof SyntheticPlayer s ? s : null;
+        Character me = caller == null ? null : caller.character();
         try {
             return switch (what) {
                 case "guildless" -> guildless(me);
@@ -163,16 +177,17 @@ final class GameAutoQaWorld implements AutoQaWorld {
                 case "onMyMap" -> onMyMap(me, a[0], true);
                 case "notOnMyMap" -> onMyMap(me, a[0], false);
                 case "warp" -> warp(me, Integer.parseInt(a[0]));
-                case "warpPlayer" -> warp(((SyntheticPlayer) actor(Integer.parseInt(a[0]))).character(), Integer.parseInt(a[1]));
+                case "warpPlayer" -> warp(((SyntheticPlayer) laneActor(caller, Integer.parseInt(a[0]))).character(),
+                        Integer.parseInt(a[1]));
                 case "rememberMeso" -> {
-                    remembered.put("meso", (long) me.getMeso());
+                    remembered.put(memoryKey(caller, "meso"), (long) me.getMeso());
                     yield List.of("PASS meso " + me.getMeso());
                 }
-                case "mesoGained" -> mesoGained(me, Long.parseLong(a[0]), Long.parseLong(a[1]));
-                case "rememberWallet" -> rememberWallet(Integer.parseInt(a[0]));
-                case "walletDelta" -> walletDelta(Integer.parseInt(a[0]), Long.parseLong(a[1]), Long.parseLong(a[2]));
-                case "noteCode" -> noteCode(Integer.parseInt(a[0]), a[1]);
-                case "giveItem" -> giveItem(actor(Integer.parseInt(a[0])), Integer.parseInt(a[1]), Integer.parseInt(a[2]));
+                case "mesoGained" -> mesoGained(caller, me, Long.parseLong(a[0]), Long.parseLong(a[1]));
+                case "rememberWallet" -> rememberWallet(caller, Integer.parseInt(a[0]));
+                case "walletDelta" -> walletDelta(caller, Integer.parseInt(a[0]), Long.parseLong(a[1]), Long.parseLong(a[2]));
+                case "noteCode" -> noteCode(laneActor(caller, Integer.parseInt(a[0])), a[1]);
+                case "giveItem" -> giveItem(laneActor(caller, Integer.parseInt(a[0])), Integer.parseInt(a[1]), Integer.parseInt(a[2]));
                 case "channelSplit" -> channelSplit();
                 case "botGuilds" -> botGuilds();
                 case "clientGate" -> clientGate();
@@ -187,8 +202,8 @@ final class GameAutoQaWorld implements AutoQaWorld {
                 case "buddy" -> buddy(me, a[0], a[1]);
                 case "buddyRoom" -> buddyRoom(me, Integer.parseInt(a[0]));
                 case "buddyFresh" -> buddyFresh(me, a[0]);
-                case "engaged" -> engaged(actor(Integer.parseInt(a[0])));
-                case "notEngaged" -> notEngaged();
+                case "engaged" -> engaged(caller, laneActor(caller, Integer.parseInt(a[0])));
+                case "notEngaged" -> notEngaged(caller);
                 case "equipRoom" -> equipRoom(me, Integer.parseInt(a[0]));
                 case "certainBuddies" -> {
                     soloMapling.ArtificialPlayer.BotBuddies.certainFor(java.util.concurrent.TimeUnit.MINUTES.toMillis(
@@ -202,6 +217,9 @@ final class GameAutoQaWorld implements AutoQaWorld {
                     }
                     if (more == null) {
                         more = Probes164.probe(what, actor instanceof SyntheticPlayer sp3 ? sp3 : null, a);
+                    }
+                    if (more == null) {
+                        more = ProbesMaker.probe(what, actor instanceof SyntheticPlayer sp4 ? sp4 : null, a);
                     }
                     yield more != null ? more : List.of("FAIL no probe '" + what + "'");
                 }
@@ -246,7 +264,8 @@ final class GameAutoQaWorld implements AutoQaWorld {
             return List.of("PASS already in player guild " + me.getGuildId());
         }
         leaveGuild(me);
-        String name = "AutoQa" + (System.currentTimeMillis() / 1000 % 100000);
+        // keyed by the GM and the clock: two auto-QA lanes make their guilds in the same second
+        String name = "Qa" + (me.getId() % 100) + Long.toString(System.currentTimeMillis() / 1000, 36);
         int gid = Server.getInstance().createGuild(me.getId(), name);
         if (gid <= 0) {
             return List.of("FAIL could not create guild " + name);
@@ -282,8 +301,8 @@ final class GameAutoQaWorld implements AutoQaWorld {
         return List.of("PASS " + who.getName() + " now on " + who.getMapId());
     }
 
-    private List<String> mesoGained(Character me, long min, long max) {
-        Long before = remembered.get("meso");
+    private List<String> mesoGained(SyntheticPlayer caller, Character me, long min, long max) {
+        Long before = remembered.get(memoryKey(caller, "meso"));
         if (before == null) {
             return List.of("FAIL no meso remembered (rememberMeso first)");
         }
@@ -294,22 +313,22 @@ final class GameAutoQaWorld implements AutoQaWorld {
 
     // ── t-nx-1 / t-nx-2: a player's mesos and NX credit around buying an NX code ──
 
-    private List<String> rememberWallet(int slot) {
-        Character c = ((SyntheticPlayer) actor(slot)).character();
+    private List<String> rememberWallet(SyntheticPlayer caller, int slot) {
+        Character c = ((SyntheticPlayer) laneActor(caller, slot)).character();
         long meso = c.getMeso();
         long nx = c.getCashShop().getCash(1);
-        remembered.put("meso" + slot, meso);
-        remembered.put("nx" + slot, nx);
+        remembered.put(memoryKey(caller, "meso" + slot), meso);
+        remembered.put(memoryKey(caller, "nx" + slot), nx);
         return List.of("PASS " + c.getName() + " has " + meso + " mesos, " + nx + " NX credit");
     }
 
-    private List<String> walletDelta(int slot, long mesoWant, long nxWant) {
-        Long meso0 = remembered.get("meso" + slot);
-        Long nx0 = remembered.get("nx" + slot);
+    private List<String> walletDelta(SyntheticPlayer caller, int slot, long mesoWant, long nxWant) {
+        Long meso0 = remembered.get(memoryKey(caller, "meso" + slot));
+        Long nx0 = remembered.get(memoryKey(caller, "nx" + slot));
         if (meso0 == null || nx0 == null) {
             return List.of("FAIL no wallet remembered (rememberWallet first)");
         }
-        Character c = ((SyntheticPlayer) actor(slot)).character();
+        Character c = ((SyntheticPlayer) laneActor(caller, slot)).character();
         long meso = c.getMeso() - meso0;
         long nx = c.getCashShop().getCash(1) - nx0;
         return List.of((meso == mesoWant && nx == nxWant ? "PASS" : "FAIL") + " " + c.getName() + " mesos " + meso
@@ -317,8 +336,8 @@ final class GameAutoQaWorld implements AutoQaWorld {
     }
 
     /** The NX code in the newest note this bot left the player; "VAR code=..." hands it to the next steps. */
-    private List<String> noteCode(int slot, String botName) {
-        Character c = ((SyntheticPlayer) actor(slot)).character();
+    private List<String> noteCode(Actor who, String botName) {
+        Character c = ((SyntheticPlayer) who).character();
         java.util.regex.Pattern code = java.util.regex.Pattern.compile(AutoQaCatalog.NX_CODE);
         String found = null;
         for (model.Note n : new database.note.NoteDao().findAllByTo(c.getName())) {
@@ -763,11 +782,14 @@ final class GameAutoQaWorld implements AutoQaWorld {
      * rc6 triage: t-mr-1 leaves the pretend players engaged to each other, and every later romance check's proposal
      * was refused ("already engaged"). Breaks any engagement or marriage of an online pretend player the way the
      * client's inventory "break" does (RING_ACTION mode 3 on its token or ring).
+     * <p>
+     * Only the caller's own two players (ticket-167 follow-up): it used to sweep slots 1-2, which made lane 2 break
+     * lane 1's engagement instead of its own and proved nothing about the check that asked.
      */
-    private List<String> notEngaged() {
+    private List<String> notEngaged(SyntheticPlayer caller) {
         List<String> out = new ArrayList<>();
         boolean ok = true;
-        for (int slot = 1; slot <= SyntheticPlayers.NAMES.length; slot++) {
+        for (int slot : SyntheticPlayers.lanePair(caller == null ? 0 : caller.slot())) {
             SyntheticPlayer p = SyntheticPlayers.get(slot);
             Character c = p == null ? null : p.character();
             if (c == null || c.getPartnerId() <= 0) {
@@ -792,8 +814,10 @@ final class GameAutoQaWorld implements AutoQaWorld {
         return out;
     }
 
-    private List<String> engaged(Actor other) {
-        Character a = ((SyntheticPlayer) actor(1)).character();
+    /** Both of the caller's own players engaged to each other (not slot 1 and somebody: lane 2 has its own pair). */
+    private List<String> engaged(SyntheticPlayer caller, Actor other) {
+        Character a = ((SyntheticPlayer) actor(SyntheticPlayers.lanePair(caller == null ? 0 : caller.slot())[0]))
+                .character();
         Character b = ((SyntheticPlayer) other).character();
         boolean ok = a.getPartnerId() == b.getId() && b.getPartnerId() == a.getId();
         return List.of((ok ? "PASS " : "FAIL ") + a.getName() + " partner " + a.getPartnerId() + ", " + b.getName()

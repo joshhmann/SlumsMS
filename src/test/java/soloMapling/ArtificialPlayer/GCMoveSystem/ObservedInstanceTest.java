@@ -66,4 +66,14 @@ class ObservedInstanceTest {
         assertTrue(GCMovement.isMapObserved(botOn(ch1)));
         assertTrue(GCMovement.isMapObserved(botOn(ch2)), "ticket 157: a GM pin is by map id");
     }
+
+    @Test
+    void aBotRunsHoldOnFullPhysicsWithoutWatchingTheMap() {
+        int kpqStage1 = 103000800;
+        MapleMap stage = instance(kpqStage1);
+        assertFalse(ObserverTracker.isActiveMap(kpqStage1), "no player there: coarse movement");
+        GCMovement.holdFullPhysics(stage);
+        assertTrue(ObserverTracker.isActiveMap(kpqStage1), "b153: a bot-driven PQ map moves with full physics");
+        assertFalse(GCMovement.isMapObserved(botOn(stage)), "but it is not watched (no real player's rules)");
+    }
 }

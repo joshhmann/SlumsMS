@@ -3388,7 +3388,9 @@ public class PacketCreator {
         p.writeByte(0x0E);
         p.writeByte(0);
         p.writeInt(0);
-        p.writeString("#w" + talk);
+        // b105: the v83 slide-menu parser reads each "#n# name" entry up to the next '#'; a list that does not end
+        // with one makes it read past the string (client crash at 0x76B7C9), so the server closes the last entry.
+        p.writeString("#w" + talk + (talk.endsWith("#") ? "" : "#"));
         return p;
     }
 

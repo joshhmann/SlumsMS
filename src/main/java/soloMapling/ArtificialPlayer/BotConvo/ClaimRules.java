@@ -90,9 +90,9 @@ public final class ClaimRules {
 
     private static final Pattern GO_TO = Pattern.compile(ME + "(?:\\w+ )?(?:going|goin|gonna go|gonna head|heading|headed|"
             + "head(?:ing)? back|off|omw|on my way|walking|going back|goin back|gotta go|need to go|bout to go|about to go)"
-            + "(?: back)? (?:to |2 |towards )?(?:the |a )?([a-z0-9' ]{2,24})");
+            + "(?: back)? (?:to |2 |towards )?(?:the |a )?([a-z0-9' ]{2,40})");
     private static final Pattern GO_TO_ANYWHERE = Pattern.compile("\\b(?:going|goin|heading|headed|omw)(?: back)? (?:to|2) "
-            + "(?:the )?([a-z0-9' ]{2,24})");
+            + "(?:the )?([a-z0-9' ]{2,40})");
 
     private static final Pattern FOLLOW = Pattern.compile("\\b(follow me|this way|come with me|ill show (?:u|you)|"
             + "i'?ll show (?:u|you)|lead the way|ill lead|i'?ll lead|ill take (?:u|you)|i'?ll take (?:u|you) there)\\b");
@@ -142,7 +142,7 @@ public final class ClaimRules {
             + "i should (?:go to )?sleep)\\b");
 
     private static final Pattern TRAIN_AT = Pattern.compile("(?:^|\\bi'?m |\\bim |\\bi am |\\bgonna |\\bgoing to |\\bima |\\bbeen |\\bme |\\bstill |\\bjust )(?:training|grinding|"
-            + "leveling|lvling|hunting|farming|grind|train|lvl|level|camping)(?: \\w+)? (?:at|in|@) (?:the )?([a-z0-9' ]{2,24})");
+            + "leveling|lvling|hunting|farming|grind|train|lvl|level|camping)(?: \\w+)? (?:at|in|@) (?:the )?([a-z0-9' ]{2,40})");
 
     private static final Pattern GIFT = Pattern.compile("\\b(here take this|take this(?! portal| way| road)|have this|"
             + "free for (?:u|you)|gift for (?:u|you)|giving (?:u|you)(?! \\{price}| \\d)|dropped (?:it|some) for (?:u|you)|"
@@ -349,13 +349,41 @@ public final class ClaimRules {
             return -1;
         }
         String w = " " + words.trim().replaceAll("[^a-z0-9 ]", " ").replaceAll("\\s+", " ") + " ";
+        if (w.startsWith(" the ")) {
+            w = w.substring(4);
+        }
+        int alias = -1;
+        int aliasWords = 0;
         for (Map.Entry<String, Integer> e : PLACES) {
             if (w.startsWith(" " + e.getKey() + " ") || w.startsWith(" the " + e.getKey() + " ")) {
-                return e.getValue();
+                alias = e.getValue();
+                aliasWords = e.getKey().split(" ").length;
+                break;
             }
         }
-        return -1;
+        // A real map's full name that runs past the alias wins: "henesys hunting ground i" is 104040000, not the
+        // town Henesys (t-cv-1 judged "lvling at Henesys Hunting Ground I" as never going to 100000000).
+        String[] ws = w.trim().split(" ");
+        ConvoEntities.Names n = ConvoEntities.names();
+        if (n != null) {
+            for (int len = Math.min(6, ws.length); len > Math.max(1, aliasWords); len--) {
+                Integer id = n.maps().get(String.join(" ", java.util.Arrays.copyOfRange(ws, 0, len)));
+                if (id != null) {
+                    return id;
+                }
+            }
+        }
+        if (alias > 0 && ws.length > aliasWords && FIELD_AFTER_TOWN.matcher(
+                String.join(" ", java.util.Arrays.copyOfRange(ws, aliasWords, ws.length))).lookingAt()) {
+            return -1; // a field named after the town ("kerning city subway") the name table doesn't know: no claim
+        }
+        return alias;
     }
+
+    /** Words that make a town's name the name of a field next to it ("henesys hunting ground", "perion street"). */
+    private static final Pattern FIELD_AFTER_TOWN = Pattern.compile("(?:hunting ground|construction site|subway|"
+            + "dungeon|field|forest|street|tower|outskirts|swamp|road|east|west|north|south|hill|culvert|"
+            + "rocky|cave|deep|tree)\\b");
 
     /** The tails merchant ads end with ("hotties only", "dont waste my time"): not part of the item's name. */
     static final String AD_TAIL = "\\b(?:just trade me|trade me|you offer|pm me|no lowballs?|no noobs|no scammers|pros only|"

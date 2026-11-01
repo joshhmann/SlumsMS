@@ -1,5 +1,7 @@
 package soloMapling.ArtificialPlayer.GCMoveSystem;
 
+import client.BotClient;
+import client.Character;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import soloMapling.dashboard.DashboardMapExport;
@@ -7,6 +9,7 @@ import soloMapling.server.Json;
 import server.maps.Foothold;
 import server.maps.FootholdTree;
 import server.maps.MapleMap;
+import server.maps.Portal;
 
 import java.awt.Point;
 import java.io.ObjectOutputStream;
@@ -81,6 +84,115 @@ class NavPitsTest {
         assertEquals(0, NavPits.pits(graph, map).cardinality());
     }
 
+    // ── b109: traps, platforms with no way back to the map's exits ──────────────────────────────
+
+    /* A ledge with the map's exit on it, whose right end drops into a 200 px deep well no jump gets out of. */
+    private static final int[][] WELL = {
+            {1, -600, 300, -100, 300},  // the ledge, with the exit portal at x -500
+            {2, -100, 300, -100, 500},  // the well's left wall, down from the ledge's lip
+            {3, -100, 500, 100, 500},   // the well's floor
+            {4, 100, 500, 100, 300},    // the well's right wall
+    };
+
+    private static MapleMap wellMap(int id) {
+        MapleMap map = map(id, 900, WELL);
+        server.maps.GenericPortal exit = new server.maps.GenericPortal(Portal.MAP_PORTAL);
+        exit.setId(0);
+        exit.setName("out00");
+        exit.setPosition(new Point(-500, 300));
+        exit.setTargetMapId(100000000);
+        exit.setTarget("sp");
+        map.addPortal(exit);
+        return map;
+    }
+
+    @Test
+    void aWellWithNoWayBackToTheExitIsATrapThePlannerNeverRoutesInto() {
+        MapleMap map = wellMap(910000960);
+        BotNavigationGraph graph = BotNavigationGraphProvider.rebuildGraph(map);
+        int ledge = graph.regionIdByFootholdId.get(1);
+        int well = graph.regionIdByFootholdId.get(3);
+        assertTrue(graph.getOutgoing(ledge).stream().anyMatch(e -> e.toRegionId == well),
+                "fixture: the builder links the ledge to the well (the dead-end check's \"Pit\")");
+        assertTrue(graph.getOutgoing(well).stream().noneMatch(e -> e.toRegionId == ledge && !e.isMovementSkill()),
+                "fixture: nothing but a movement skill leaves the well");
+
+        assertTrue(NavPits.isTrap(graph, map, well));
+        assertTrue(NavPits.isPit(graph, map, well));
+        assertFalse(NavPits.isPit(graph, map, ledge));
+        assertFalse(NavProbe.probe(map, graph, new Point(-300, 300), new Point(0, 500), 0).reachable(),
+                "the planner never routes into the well");
+        assertFalse(GCMovement.reachableRegions(map, -300, 300).contains(well), "nor does walk reachability");
+    }
+
+    @Test
+    void aMapWithNoPortalToAnotherMapHasNoTraps() {
+        MapleMap map = map(910000961, 900, WELL); // no portals at all: nothing to measure a way out against
+        BotNavigationGraph graph = BotNavigationGraphProvider.rebuildGraph(map);
+        assertFalse(NavPits.isTrap(graph, map, graph.regionIdByFootholdId.get(3)));
+    }
+
+    @Test
+    void aSwimMapHasNoTraps() {
+        MapleMap map = wellMap(910000962);
+        map.setSwim(true);
+        BotNavigationGraph graph = BotNavigationGraphProvider.rebuildGraph(map);
+        assertFalse(NavPits.isTrap(graph, map, graph.regionIdByFootholdId.get(3)), "swimmers swim out");
+        assertEquals(Boolean.TRUE, NavDashboardData.geometry(map).get("swim"));
+    }
+
+    @Test
+    void aBotAlreadyInATrapIsPutBackOnThePlatformWithTheExit() {
+        MapleMap map = wellMap(910000963);
+        BotNavigationGraph graph = BotNavigationGraphProvider.rebuildGraph(map);
+        Character chr = Character.getDefault(new BotClient(0, 0));
+        chr.setID(7311);
+        chr.setMap(map);
+        chr.setPosition(new Point(0, 500));
+        BotMovementState entry = new BotMovementState(chr, null);
+        entry.movementProfile = BotMovementProfile.base();
+        entry.navGraph = graph;
+        entry.physX = 0;
+        entry.physY = 500;
+
+        assertFalse(GCMovementDriver.tickPitRescue(entry), "first seen in the trap: the clock starts");
+        assertFalse(GCMovementDriver.tickPitRescue(entry), "not yet");
+        entry.pitSinceMs -= GCMovementDriver.PIT_RESCUE_MS;
+        assertTrue(GCMovementDriver.tickPitRescue(entry), "put back after PIT_RESCUE_MS");
+        Point at = chr.getPosition();
+        int region = graph.findRegionId(map, at);
+        assertEquals(graph.regionIdByFootholdId.get(1), region, "on the ledge with the exit: " + at);
+        assertEquals(new Point(-100, 300), at, "the nearest point of it");
+        assertTrue(NavProbe.probe(map, graph, at, new Point(-500, 300), 0).reachable());
+        assertFalse(GCMovementDriver.tickPitRescue(entry), "out: nothing more to do");
+    }
+
+    @Test
+    void theExportedPitsAddTheTrapsWithTheSameRule() {
+        MapleMap map = wellMap(910000964);
+        BotNavigationGraph graph = BotNavigationGraphProvider.rebuildGraph(map);
+        Map<String, Object> g = NavDashboardData.graph(graph, dirs(), System.currentTimeMillis());
+        List<Integer> expected = NavPits.pits(graph, map).stream().boxed().toList();
+        assertEquals(List.of(graph.regionIdByFootholdId.get(3)), expected);
+        assertEquals(expected, NavDashboardData.pitRegions(910000964, g.get("regions"), g.get("edges"),
+                NavDashboardData.geometry(map)));
+        Map<String, Object> swim = new java.util.HashMap<>(NavDashboardData.geometry(map));
+        swim.put("swim", true);
+        assertEquals(List.of(), NavDashboardData.pitRegions(910000964, g.get("regions"), g.get("edges"), swim));
+    }
+
+    /* The dead-end check's region_at, ported: under or just above the point within the span +-20 px, else nearest. */
+    @Test
+    void regionAtPlacesAPointLikeTheDeadEndCheck() {
+        List<NavPits.Row> rows = List.of(new NavPits.Row(1, false, 0, 100, 200, 100),
+                new NavPits.Row(2, false, 0, 300, 200, 300), new NavPits.Row(3, true, 50, 0, 50, 300));
+        assertEquals(1, NavPits.regionAt(rows, 100, 90), "the platform under it");
+        assertEquals(1, NavPits.regionAt(rows, 100, 130), "a platform up to 40 px above it still counts");
+        assertEquals(2, NavPits.regionAt(rows, 100, 150), "further above: the one under it");
+        assertEquals(1, NavPits.regionAt(rows, 215, 90), "the span widened by 20 px");
+        assertEquals(2, NavPits.regionAt(rows, 400, 290), "outside every span: the nearest");
+    }
+
     // ── nav/pits.json (the Website lane's dead-end check) ──────────────────────────────────────
 
     @TempDir
@@ -96,13 +208,14 @@ class NavPitsTest {
         MapleMap map = map(910000952, 450, FOOTHOLDS);
         BotNavigationGraph graph = BotNavigationGraphProvider.rebuildGraph(map);
         Map<String, Object> g = NavDashboardData.graph(graph, dirs(), System.currentTimeMillis());
-        Object bounds = NavDashboardData.geometry(map).get("bounds");
+        Map<String, Object> geo = NavDashboardData.geometry(map);
         List<Integer> expected = NavPits.pits(graph, map).stream().boxed().toList();
         assertEquals(List.of(graph.regionIdByFootholdId.get(3)), expected);
-        assertEquals(expected, NavDashboardData.pitRegions(g.get("regions"), bounds));
-        assertEquals(List.of(), NavDashboardData.pitRegions(g.get("regions"), null), "no view bounds, no pits");
-        assertEquals(List.of(), NavDashboardData.pitRegions(g.get("regions"),
-                NavDashboardData.geometry(map(910000953, 700, FOOTHOLDS)).get("bounds")));
+        assertEquals(expected, NavDashboardData.pitRegions(910000952, g.get("regions"), g.get("edges"), geo));
+        assertEquals(List.of(), NavDashboardData.pitRegions(910000952, g.get("regions"), g.get("edges"), Map.of()),
+                "no view bounds, no pits");
+        assertEquals(List.of(), NavDashboardData.pitRegions(910000953, g.get("regions"), g.get("edges"),
+                NavDashboardData.geometry(map(910000953, 700, FOOTHOLDS))));
     }
 
     @Test

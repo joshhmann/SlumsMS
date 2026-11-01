@@ -40,7 +40,7 @@ final class GuildLines {
                     out = out.replace("{" + t.getKey() + "}", t.getValue());
                 }
             }
-            if (!out.matches(".*\\{[A-Z_]+}.*") && (ok == null || ok.test(out))) {
+            if (!out.matches(".*\\{[A-Za-z][A-Za-z0-9_]*}.*") && (ok == null || ok.test(out))) {
                 return out;
             }
         }

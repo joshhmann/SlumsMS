@@ -82,7 +82,10 @@ public final class BotRomance {
     private static final Set<Integer> optedIn = ConcurrentHashMap.newKeySet();
     private static volatile boolean loaded;
     private static volatile long loadTriedAt;
-    private static volatile Executor writer = ExecutorServiceManager::runAsync;
+    // 1.6.3 (b269 review): these writes hit the bots' share of the pool, and a virtual thread is refused there
+    // instead of waiting - which drops a player's choice that was already acknowledged. A bot-db platform thread
+    // waits its turn, and BotDbGate.write asks again if the share was busy.
+    private static volatile Executor writer = ExecutorServiceManager::runBotDb;
     private static final SerialWrites writes = new SerialWrites(r -> writer.execute(r));
     private static volatile LongSupplier clock = System::currentTimeMillis;
     private static volatile IntFunction<Character> bots = DramaKit::liveBot;
@@ -1169,9 +1172,18 @@ public final class BotRomance {
         boolean on = romanceOn(player.getId());
         if (bot == null) {
             if (on && roster.test(r.botId()) && !r.staged()
-                    && DramaKit.take("rm:showup:" + pair, now, TimeUnit.MINUTES.toMillis(30)) && rng.nextDouble() < 0.7
-                    && BotPopulationDirector.logInBounded(r.botId())) {
-                qa(player.getMapId(), "SHOW UP partner " + r.botCharId() + " logs in for " + player.getName());
+                    && DramaKit.free("rm:showup:" + pair, now) && rng.nextDouble() < 0.7) {
+                // b269 fix 1: a refused login is not "no". Only a login that was taken on spends the 30-minute token.
+                BotPopulationDirector.LoginAsk ask = BotPopulationDirector.askLogin(r.botId());
+                if (ask == BotPopulationDirector.LoginAsk.REFUSED) {
+                    qa(player.getMapId(), "SHOW UP partner " + r.botCharId()
+                            + " could not log in yet (the bots' login share is busy); asking again next step");
+                } else {
+                    DramaKit.take("rm:showup:" + pair, now, TimeUnit.MINUTES.toMillis(30));
+                    qa(player.getMapId(), "SHOW UP partner " + r.botCharId()
+                            + (ask == BotPopulationDirector.LoginAsk.QUEUED ? " starts logging in for " : " logs in for ")
+                            + player.getName());
+                }
             }
             neglectCheck(r, player, null, now);
             return;
@@ -1568,7 +1580,7 @@ public final class BotRomance {
         bots = testBots != null ? testBots : DramaKit::liveBot;
         players = testPlayers != null ? testPlayers : DramaKit::onlinePlayer;
         clock = testClock != null ? testClock : System::currentTimeMillis;
-        writer = testStore != null ? Runnable::run : ExecutorServiceManager::runAsync;
+        writer = testStore != null ? Runnable::run : ExecutorServiceManager::runBotDb;
         notesOn = testStore == null;
         roster = testStore != null ? id -> false : BotRoster::isMember;
         rows.clear();

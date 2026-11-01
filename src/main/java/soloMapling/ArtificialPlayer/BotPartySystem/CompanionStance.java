@@ -19,13 +19,20 @@ import java.util.function.IntConsumer;
  *   <li><b>MOVE_HERE</b>: walk to where the leader stood when told, then hold there as a sentry.</li>
  *   <li><b>SENTRY</b>: hold this spot; fight what comes within reach of it ({@link #SENTRY_REACH_PX}).</li>
  *   <li><b>PATROL</b>: walk back and forth {@link #PATROL_HALF_PX} px either side of the spot, fighting as it goes.</li>
+ *   <li><b>LANES</b> (1.6.3 s-lanes): hold a lane of its own - the spot {@link CompanionLanes} handed it, spread out
+ *       from its sibling companions instead of stacking on the leader - and fight within reach of it like a sentry.
+ *       The lane's reach ({@link CompanionLanes.Reach}) comes with it: within a screen of the leader by default, or
+ *       over the whole map, and only the second one lets an owned alt hold it beyond the gate's distance
+ *       ({@link #lanesWholeMap}).</li>
  * </ul>
- * None of this lets a companion leave its leader: an owned alt still fights only inside the activity gate
- * (OwnedAltGate: same map, about a screen away, the owner active), so a sentry or a patrol is never an autopilot.
+ * None of this lets a companion leave its leader on its own: an owned alt still fights only inside the activity gate
+ * (OwnedAltGate: owner online, same map, not a town, the owner active, about a screen away), and only a whole-map lane
+ * lifts the distance part of that - so a sentry or a patrol is never an autopilot, and a far lane only works the
+ * ground it was given.
  */
 public final class CompanionStance {
 
-    public enum Mode { FOLLOW, STAY, MOVE_HERE, SENTRY, PATROL }
+    public enum Mode { FOLLOW, STAY, MOVE_HERE, SENTRY, PATROL, LANES }
 
     /** How far either side of its spot a patrol walks. */
     public static final int PATROL_HALF_PX = 250;
@@ -39,16 +46,19 @@ public final class CompanionStance {
         public final Mode mode;
         public final Point spot;
         public final int mapId;
+        /** A LANES stance's reach (null for the other stances). */
+        public final CompanionLanes.Reach reach;
         volatile boolean headingRight = true;
 
-        Stance(Mode mode, Point spot, int mapId) {
+        Stance(Mode mode, Point spot, int mapId, CompanionLanes.Reach reach) {
             this.mode = mode;
             this.spot = spot;
             this.mapId = mapId;
+            this.reach = reach;
         }
     }
 
-    private static final Stance FOLLOWING = new Stance(Mode.FOLLOW, null, -1);
+    private static final Stance FOLLOWING = new Stance(Mode.FOLLOW, null, -1, null);
     private static final Map<Integer, Stance> stances = new ConcurrentHashMap<>();
     private static final Map<Integer, Formation> formations = new ConcurrentHashMap<>();
 
@@ -63,6 +73,7 @@ public final class CompanionStance {
             case MOVE_HERE -> Mode.MOVE_HERE;
             case SENTRY -> Mode.SENTRY;
             case PATROL -> Mode.PATROL;
+            case LANES -> Mode.LANES;
             default -> null;
         };
     }
@@ -84,9 +95,36 @@ public final class CompanionStance {
             stances.remove(botId);
             return FOLLOWING;
         }
-        Stance s = new Stance(mode, spot, mapId);
+        Stance s = new Stance(mode, spot, mapId, null);
         stances.put(botId, s);
         return s;
+    }
+
+    /**
+     * 1.6.3 s-lanes: sets a companion's own lane - {@code spot} on {@code mapId}, at {@code reach} - as handed out by
+     * {@link CompanionLanes}. A null spot leaves it following.
+     */
+    public static Stance setAt(int botId, Mode mode, Point spot, int mapId, CompanionLanes.Reach reach) {
+        if (mode == null || mode == Mode.FOLLOW || spot == null) {
+            stances.remove(botId);
+            return FOLLOWING;
+        }
+        Stance s = new Stance(mode, new Point(spot), mapId, reach);
+        stances.put(botId, s);
+        return s;
+    }
+
+    /**
+     * 1.6.3 s-lanes: true when this companion holds a LANES spot over the whole map and the lanes switch is on. The
+     * owned-alt activity gate then looks at everything but the distance to its owner (owner online, same map, not a
+     * town, owner active: all still required). No other stance relaxes anything.
+     */
+    public static boolean lanesWholeMap(int botId, int mapId) {
+        if (!CompanionSwitches.lanes()) {
+            return false;
+        }
+        Stance s = of(botId, mapId);
+        return s.mode == Mode.LANES && s.reach == CompanionLanes.Reach.MAP;
     }
 
     /** The companion's stance on {@code mapId}: following when none was given, or it was given on another map. */
@@ -142,7 +180,7 @@ public final class CompanionStance {
         return switch (s.mode) {
             case FOLLOW, PATROL -> true;
             case STAY -> false;
-            case SENTRY, MOVE_HERE -> s.spot == null || Math.abs(mob.x - s.spot.x) <= SENTRY_REACH_PX
+            case SENTRY, MOVE_HERE, LANES -> s.spot == null || Math.abs(mob.x - s.spot.x) <= SENTRY_REACH_PX
                     && Math.abs(mob.y - s.spot.y) <= SENTRY_REACH_PX;
         };
     }

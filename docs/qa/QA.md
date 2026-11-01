@@ -1,6 +1,6 @@
 # QA guide: auto-QA on the test server, client visual QA on the owner's PC, the owner's checklist
 
-Three layers, cheapest first. All of it runs against the TEST server (164, port 8489), so no go is needed, but tell
+Three layers, cheapest first. All of it runs against the TEST server (`mapletest`, 192.168.0.111, port 8489), so no go is needed, but tell
 the owner before anything that restarts the test server or starts the game on their PC.
 
 ## 1. Auto-QA (server side, "did it happen")
@@ -11,8 +11,8 @@ Pretend players (SyntheticClient) stage scenes with `!qa` and assert results; he
 tools/ops/autoqa-run smoke          # quick set; also: all | <id> | <family> | id,id,...
 tools/ops/autoqa-run --release all  # the launch check: FAILs on any FAIL or any SKIP off the allow-list
 tools/ops/test-status               # last run summary, health sweep, deployed commit, errors (--checks: every row)
-ssh root@192.168.0.164 cat /opt/mapleroot-dev/persistence-test/Server/data/autoqa/latest.json   # full results
-ssh root@192.168.0.164 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa/ | head'      # per-check logs
+ssh -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111} cat /opt/mapleroot-dev/persistence-test/Server/data/autoqa/latest.json   # full results
+ssh -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111} 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa/ | head'      # per-check logs
 ```
 - Scheduled: nightly 10:00 UTC (3 AM PDT) in the server, and 22:00 UTC (3 PM PDT) by cron on 164.
 - A request is picked up within 30 s; a run in progress is not interrupted. `all` takes about 20-30 minutes.
@@ -144,7 +144,17 @@ wrong. Run them with `tools/ops/autoqa-run bq,tm,gb,su,jb,nn`.
 | `t-jb-1` | `solomapling.jobErrand` | a fresh level-9 beginner (its tick running, the pretend player on its map) gains the EXP for level 10 the observed way; the errand's timeout is set to 240 s for the check and put back | `errand held=true`, then `ended=true arrived +1` (on the instructor's map) or `fell back +1`, and a 1st job |
 | `t-jb-2` | `solomapling.botSkillBooks` | a fresh level-135 4th-job bot: the first mastery book it wants and can read now is found; it must be kept from sale, then 3 copies are given and `BotSkillBooks.useAll` runs; another job's book is offered to `sellRefusal` | `before reading: kept for its skill plan`, `useAll: read >= 1`, the spare book `may be sold` (or only a SaleRules reason) |
 | `t-nn-1` (HALF) | `bot.nav.swimWallJump` | the server's own navigation and swim physics replay `SwimWallJumpBurstTest`'s scene (a detached swimmer pressed against a 600 px rock) on made-up map 990340299 with the live switches; nothing on a real map | `highest y on the rock's west face` under -600 and `furthest x` past 100; the look on a real client still needs eyes |
-| `t-nn-2` (HALF) | `bot.nav.blockedPosWatchdog` | replays `BlockedPosWatchdogTest`'s scene: the department store's (100000102) geometry loaded as made-up map 990340298 (its graph is built and cached once under that id; the real map's graph and learning are untouched), a bot parked at a launch gate, the nav cleared after every AI tick | `launch gate refused 40, gave up >= 3`; today's real GAVE_UP spots are listed for context |
+| `t-nn-2` (HALF) | `bot.nav.blockedPosWatchdog` | replays `BlockedPosWatchdogTest`'s scene: the department store's (100000102) geometry loaded as made-up map 990340298 (its graph is built and cached once under that id; the real map's graph and learning are untouched, and nothing is learned for a made-up id, so every replay reads the same), a bot parked at a launch gate, the nav cleared after every AI tick | `launch gate refused 40, gave up >= 3`; today's real GAVE_UP spots are listed for context |
+
+## Ticket s-maproute: map routing (`t-mp-1`)
+
+Probe `mapRouting` in `Probes164`; rules and table in `docs/ops/map-routing.md`.
+Run it with `tools/ops/autoqa-run mp-1`.
+
+| id | switch | what it does | PASS means |
+|---|---|---|---|
+| `t-mp-1` | `slums.maps.routing` (default on) | the table in the jar is loaded (`soloMapling/map-routing.tsv`), every blocked map's fallback is not blocked and really loads, Fountain Square's `in00` door routes back to the square, a character saved in 863010240 lands on 863010000, all seven Rose Garden maps past the entrance fall back to 211080000, Rampart Residences (410000350) is no longer blocked, and the image-less Storage Cellar still loads nothing | every reroute lands on a map the server has, no door leads into a map that fails to load or crashes the client. SKIPs only with routing off, which fails a release run |
+| `t-mp-1` (walk) | - | eyes only: walk Fountain Square's `in00`, a Gollux leg into the abdomen (863010240) and the Rose Garden's `east00` in a real client | the client stays up and the character is told it was taken back |
 
 ## Ticket 164 b224: checks tickets 156 and 157 promised (`gr`, `nv-2`, `nv-3`)
 
@@ -155,5 +165,13 @@ tickets promised". None may SKIP in a release run. Run them with `tools/ops/auto
 |---|---|---|---|
 | `t-gr-1` | 156 | a fresh lv-35 bot's state-of-mind snapshot vs the truth; the real checker on two true and three untrue claims; the real delivery path on an untrue scripted line. No chat model | the snapshot holds its level, map and the player; untrue claims rejected and counted; the scripted line swapped for a safe one |
 | `t-gr-2` | 156 | asked its level through the real chat path, a fresh bot answers with the model; then a forced untrue model draft goes through the reject and the retry. SKIPs without a live model (a release FAIL) | the reply states its real level and is grounded; the draft was rejected, retried and never said |
-| `t-nv-2` | 157 item 3 | one-way-in traps of the bots' world graph from Lith Harbor vs the committed baseline (`nav-trap-maps.txt`, 485 of 1,471 maps on 10-30) | no trap the baseline does not know |
+| `t-nv-2` | 157 item 3 | one-way-in traps of the bots' world graph from Lith Harbor vs the committed baseline (`nav-trap-maps.txt`: the accepted real traps, 0 since b230; intended one-way rides are not traps) | no trap the baseline does not know |
 | `t-nv-3` | 157 tools | the inspect API without the secret, its view of a fresh bot, kill calibration's report, a watched bot's nav trace ring | 403 without the secret, the view is the bot, calibration on and report-only, a ring of the bot's own ticks |
+
+## Ticket 112 decision 3: the bots' Maker batch (`t-mk-2`)
+
+Probe `makerBatch` in `ProbesMaker`. SKIPs when `-Dsolomapling.economy.maker.botBatch` is off (ON for live, so a release run may not SKIP).
+
+| id | ticket | what it does | PASS means |
+|---|---|---|---|
+| `t-mk-2` | 112 | a fresh lv-60 training bot gets 100 leftovers, two cheap junk equips, one junk equip whose fee is above its wallet (first in the bag) and exactly the two cheap fees in mesos; the real `BotMaker.townBatch` runs once | 1 crystal made, 2 equips disassembled through MakerService, mesos down by exactly the client's fee, the bad equip kept and the batch carried on past it, per-bot and world caps up by 3 operations (not by the crystals). The bot is despawned, its day forgotten, the world's units put back |

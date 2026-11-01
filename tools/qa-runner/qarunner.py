@@ -32,19 +32,46 @@ import uuid
 import zipfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # tools/qa-runner/run runs `python3 -I`, which drops it
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "qa-scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ops" / "client-mcp-win" / "src"))
 import qascript  # noqa: E402
+import qaverdict  # noqa: E402
+import testhost  # noqa: E402
 import yaml  # noqa: E402
 
 REPO = qascript.REPO
 RUNS_ROOT = Path("/root/work/qa-runs")
-TEST_HOST = "root@192.168.0.164"
+# TEST moved to its own box in 1.6.3 (mapletest, ssh alias `mapletest`); live, release staging and the patch site stay
+# on 192.168.0.164. The box comes from SLUMS_TEST_HOST through testhost.py, the one guard (allowlisted to TEST's two
+# boxes, port 8489); 164 is the one host that keeps ssh's default key. Nothing here reads the setting directly.
 FEED_URL = "http://127.0.0.1:8198/qa/events"
 FEED_SECRET_FILE = "/etc/slums-inspect-test/secret"
 DEPLOYED_COMMIT = "/opt/mapleroot-dev/persistence-test/Server/DEPLOYED_COMMIT"
 PLACEHOLDER = qascript.PLACEHOLDER
 # The client logs this once at login: the only place on the box that says which capabilities the client has.
 BUILD_STAMP_CAPS = re.compile(r"Build stamp: caps (0x[0-9A-Fa-f]{8})")
+
+
+class TestHostRefused(testhost.Refused):
+    """The TEST box the run would talk to is not one the QA tools may use (see testhost.Refused)."""
+
+
+def test_host(host=None):
+    """The TEST box's name or address, validated by testhost.py: SLUMS_TEST_HOST, default 164 until the cutover."""
+    try:
+        return testhost.host(host)
+    except testhost.Refused as error:
+        raise TestHostRefused(str(error)) from None
+
+
+def test_ssh(remote, host=None):
+    """The argv that runs `remote` as root on the TEST box, with its key unless the box is the old 164."""
+    name = test_host(host)
+    argv = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]
+    if testhost.uses_test_key(name):
+        argv += ["-o", "IdentitiesOnly=yes", "-i", os.path.expanduser(testhost.TEST_KEY)]
+    return argv + ["root@" + name, remote]
 
 
 class RunFailed(Exception):
@@ -66,10 +93,10 @@ def iso(t):
 # ── the feed ──────────────────────────────────────────────────────────────────────────────────────
 
 class SshFeed:
-    """GET /qa/events on TEST, run on 164 over ssh; the secret header is built there from the file."""
+    """GET /qa/events on TEST, run on the TEST box over ssh; the secret header is built there from the file."""
 
-    def __init__(self, host=TEST_HOST, runner=subprocess.run):
-        self.host = host
+    def __init__(self, host=None, runner=subprocess.run):
+        self.host = test_host(host)
         self.runner = runner
 
     def remote_command(self, query):
@@ -84,8 +111,8 @@ class SshFeed:
             q["chars"] = ",".join(str(c) for c in chars)
         if match:
             q["match"] = match
-        r = self.runner(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", self.host,
-                         self.remote_command(urlencode(q))], capture_output=True, text=True, timeout=60)
+        r = self.runner(test_ssh(self.remote_command(urlencode(q)), self.host),
+                        capture_output=True, text=True, timeout=60)
         if r.returncode != 0:
             raise RunFailed("feed poll failed: " + (r.stderr or "").strip()[:200], "error")
         answer = json.loads(r.stdout)
@@ -94,9 +121,8 @@ class SshFeed:
         return answer
 
 
-def read_deployed_commit(host=TEST_HOST, runner=subprocess.run):
-    r = runner(["ssh", "-o", "BatchMode=yes", host, "cat " + DEPLOYED_COMMIT], capture_output=True, text=True,
-               timeout=30)
+def read_deployed_commit(host=None, runner=subprocess.run):
+    r = runner(test_ssh("cat " + DEPLOYED_COMMIT, host), capture_output=True, text=True, timeout=30)
     commit = (r.stdout or "").strip()
     return commit if re.fullmatch(r"[0-9a-f]{7,40}", commit) else "unknown"
 
@@ -898,6 +924,27 @@ class Run:
         (self.folder / "manifest.json").write_text(json.dumps(self.manifest, indent=1), encoding="utf-8")
 
 
+def write_verdicts(folder, deployed_commit=None, publish_dir=None):
+    """Judge the run folder (ticket 166): verdicts/<t-id>.json beside the manifest, and in publish_dir when given
+    (TEST's data/autoqa/client-verdicts, which auto-QA reads on its next report write). Never fails a run: a folder
+    that cannot be judged just gets no records."""
+    try:
+        records = qaverdict.judge(folder, deployed_commit)
+    except (ValueError, OSError) as e:
+        print("no t-id verdict: %s" % e)
+        return []
+    folders = [Path(folder) / "verdicts"]
+    if publish_dir:
+        folders.append(Path(publish_dir))
+    for out in folders:
+        out.mkdir(parents=True, exist_ok=True)
+        for r in records:
+            (out / (r["id"] + ".json")).write_text(json.dumps(r, indent=1) + "\n", encoding="utf-8")
+    for r in records:
+        print("verdict %s %s (%s)" % (r["id"], r["status"], r["reason"]))
+    return records
+
+
 def plan(script_path):
     """A dry run: what would be sent and waited on, nothing touched."""
     doc = yaml.safe_load(Path(script_path).read_text(encoding="utf-8"))
@@ -913,6 +960,11 @@ def main(argv):
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__)
         return 0
+    try:
+        test_host()
+    except TestHostRefused as error:
+        print("refused: %s" % error, file=sys.stderr)
+        return 2
     script = argv[0]
     errors, warnings = qascript.validate_file(script)
     if errors:
@@ -927,6 +979,9 @@ def main(argv):
               commit=read_deployed_commit())
     manifest = run.run()
     print("%s %s -> %s" % (manifest["result"], run.run_id, run.folder))
+    publish_dir = argv[argv.index("--publish") + 1] if "--publish" in argv and argv.index("--publish") + 1 < len(
+        argv) else None
+    write_verdicts(run.folder, manifest.get("server", {}).get("commit"), publish_dir)
     return 0 if manifest["result"] == "PASS" else 1
 
 

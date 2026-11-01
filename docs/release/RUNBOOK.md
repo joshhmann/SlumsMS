@@ -8,8 +8,10 @@ checkout of the release branch on 187 (for 1.5.0: `/root/work/SlumsMS-150`). Hos
 1. Work on a branch from the current release (`151-<topic>` from `origin/release-1.5.0`), one worktree per task.
 2. `mvn -q -o test` green; add tests for every change.
 3. Merge into the next release branch (`release-1.5.1` from `release-1.5.0`), run the suite again.
-4. `tools/ops/deploy-test --dry-run`, then `tools/ops/deploy-test`. Tell the owner first if they may be playing or a
-   run is going (`tools/ops/test-status`).
+4. `tools/ops/deploy-test --dry-run`, then `tools/ops/deploy-test`. TEST is its own box since 1.6.3, `mapletest`
+   (192.168.0.111, ssh alias `mapletest`, key `~/.ssh/id_slums_lxc`); the TEST tools read `SLUMS_TEST_HOST`
+   (default 192.168.0.111) and 164 is live only. Tell the owner first if they may be playing or a run is going
+   (`tools/ops/test-status`).
 5. QA:
    - `tools/ops/autoqa-run all` (or wait for 10:00 / 22:00 UTC), then read `tools/ops/test-status` and triage per
      `.claude/skills/qa-triage/SKILL.md`.
@@ -27,8 +29,8 @@ tools/release/build                       # full suite + jar + BUILD.txt
 tools/release/stage <v>                   # needs docs/release/<v>.conf (copy 1.5.0.conf and edit)
 tools/release/rehearse <v>                # copy of live: deploy + smoke + rollback; must say PASS
 tools/release/stage-client <v> --build-dir 'Z:\...\build\Release'   # only if the client changed
-LAUNCHER_REPO=/root/work/launcher-publisher tools/release/publish-client <v> --source /srv/slums-staging/client-<v> --dry-run
-LAUNCHER_REPO=/root/work/launcher-publisher tools/release/release <v> --no-packs --dry-run      # pre-flight
+LAUNCHER_REPO=/root/work/launcher tools/release/publish-client <v> --source /srv/slums-staging/client-<v> --dry-run
+LAUNCHER_REPO=/root/work/launcher tools/release/release <v> --no-packs --dry-run      # pre-flight
 ```
 The rehearsal checks the stop time too: a 1.5.x stop should take well under a minute. The client must pass LIVE
 ENDPOINT (slumsms.asslorde.com:8485) and HASH-DIFF.
@@ -44,7 +46,7 @@ problem with the next action. Client publishes (step 2) and the patch notes stay
 
 1. **GO** `ssh root@192.168.0.164 bash /opt/mapleroot-deployments/v<v>/deploy.sh --phase stop-backup`
    (maintenance on, Cody's "going down" post, stop, DB + runtime backup)
-2. **GO** `LAUNCHER_REPO=/root/work/launcher-publisher tools/release/publish-client <v> --source /srv/slums-staging/client-<v> --release <v> --no-packs --news /srv/slums-staging/news-<v>.json --no-announce`
+2. **GO** `LAUNCHER_REPO=/root/work/launcher tools/release/publish-client <v> --source /srv/slums-staging/client-<v> --release <v> --no-packs --news /srv/slums-staging/news-<v>.json --no-announce`
    (skip if no client change)
 3. **GO** `ssh root@192.168.0.164 'bash /opt/mapleroot-deployments/v<v>/deploy.sh --phase apply-start && bash /opt/mapleroot-deployments/v<v>/deploy.sh --phase smoke'`
 4. **GO** `ssh root@192.168.0.164 /usr/local/bin/slumsms-monitor maintenance live end` (Cody's "back up" post)

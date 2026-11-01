@@ -187,7 +187,61 @@ class StateOfMindTest {
         passes("gonna grind stone golems after i sort my pots", s);
     }
 
-    // ── b102: the haggling loop (Zh3lmSader) ──
+    // ── b240: "regulars will say their grinding when they're in town" (the owner, TEST 10-31 playtest) ──
+
+    @Test
+    void b240AGrindingClaimInTownIsRejectedEvenWhenTheBotsRoleIsGrinding() {
+        // Orbis town, its roster role is grinding: standing here it is not grinding, and its own prompt says so
+        StateOfMind.Snapshot orbis = StateOfMind.builder().bot("devilyuna", 61, "hunter")
+                .here(new StateOfMind.Place(200000000, "Orbis", 200000000), List.of())
+                .doing("grinding", null)
+                .player("Admin", 70, "hermit", false).met(true, List.of()).build();
+        rejected(StateOfMind.Reason.ACTIVITY, "np man tbh i mostly grind garden of red ii anyway", orbis);
+        // the bonus stage of the owner's PQ run (103000890): no monsters there either
+        StateOfMind.Snapshot exit = StateOfMind.builder().bot("thunderfox", 35, "assassin")
+                .here(new StateOfMind.Place(103000890, "Kerning City PQ Exit", 103000000), List.of())
+                .doing("grinding", null)
+                .player("Admin", 70, "hermit", false).met(true, List.of()).build();
+        rejected(StateOfMind.Reason.ACTIVITY, "lolz 35 stil grinding hard for 70", exit);
+        // Henesys, the owner talking to a regular
+        StateOfMind.Snapshot hene = inHenesys().build();
+        rejected(StateOfMind.Reason.ACTIVITY, "good, now let me grind in peace pls", hene);
+        rejected(StateOfMind.Reason.ACTIVITY, "yea im training rn", hene);
+        rejected(StateOfMind.Reason.ACTIVITY, "still grinding hene tbh", hene);
+    }
+
+    @Test
+    void b240AskingAboutThePlayersGrindOrTalkOfALaterOneStillPasses() {
+        StateOfMind.Snapshot town = inHenesys().met(true, List.of()).build();
+        for (String line : List.of(
+                "u still grinding?",
+                "hows the grind at 70 goin",
+                "good luck grinding",
+                "keep grinding lol",
+                "grinding is so boring",
+                "gonna grind later",
+                "no grind today tbh")) {
+            passes(line, town);
+        }
+        StateOfMind.Snapshot field = StateOfMind.builder().bot("Xbow27", 41, "hunter")
+                .here(new StateOfMind.Place(HUNTING_GROUND, "Henesys Hunting Ground I", HENESYS), List.of("Slime"))
+                .doing("grinding", null).player("Josh", 75, "chief bandit", false).build();
+        passes("np man tbh i mostly grind garden of red ii anyway", field); // true where the monsters are
+        passes("lol nvm, jst keep grinding", field);
+    }
+
+    /** The same rule on a map-chat thread line, which has no chat snapshot (BotThreads.play applies it). */
+    @Test
+    void b240AMapChatThreadLineAlsoDropsAGrindClaimInTown() {
+        // cobramushy in Kerning City and BloodRulez in Sleepywood, 10-31: thread lines, not replies to a player
+        String line = "lvl 42 finally ^^ grind at lorangs is slow kekeke";
+        StateOfMind.Verdict v = StateOfMind.activityIn(line, true, null);
+        assertEquals(StateOfMind.Reason.ACTIVITY, v.reason(), v.toString());
+        assertTrue(StateOfMind.activityIn(line, false, null).ok(), "true where the monsters are");
+        assertTrue(StateOfMind.activityIn("lol ya the grind is real", true, null).ok());
+        assertTrue(StateOfMind.activityIn("or path of time, drakes if u liek slow grindz lolz!!!", true, null).ok());
+    }
+
 
     @Test
     void b102RepeatingThePriceOverAnOpenOfferIsRejected() {

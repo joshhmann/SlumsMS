@@ -198,6 +198,7 @@ public final class TalkPlanner {
                     : ra.hostile() ? "they are rivals: no favours asked" : offers.isEmpty() ? "nothing to ask for here"
                     : "wants nothing from them now";
             byeLine(p, who, minds, sense, bankFirst, chat, last, rng);
+            everyoneSpoke(p, who, minds, sense, bankFirst, rng);
             return p;
         }
         Offer offer = offers.get(ask);
@@ -281,7 +282,45 @@ public final class TalkPlanner {
             }
         }
         byeLine(p, who, minds, sense, bankFirst, chat, last, rng);
+        everyoneSpoke(p, who, minds, sense, bankFirst, rng);
         return p;
+    }
+
+    /**
+     * 1.6.2 t-bt-1 (TEST 2026-10-31, "only 2 of the group spoke"): every member of a group gets a line. A group does
+     * not all greet back (a quarter of the time the second listener stays quiet), the small talk and the bye pick by
+     * chattiness, and with nothing to ask for a quiet member could go through a whole staged group talk without a
+     * word, which failed a scene that was not broken. A member with no step gets one small-talk line; it has not
+     * spoken yet, so the line is never the same bot twice in a row (the talk's turn rule).
+     */
+    private static void everyoneSpoke(Plan p, List<Character> who, Map<Integer, Mind> minds, Sense sense,
+                                      boolean bankFirst, Random rng) {
+        if (!p.group) {
+            return;
+        }
+        Character opener = who.get(0);
+        for (Character c : who) {
+            if (hasStep(p, c)) {
+                continue;
+            }
+            Manner m = TalkBrain.manner(minds.get(c.getId()), sense.relation(c, opener));
+            Map<String, String> slots = new HashMap<>(sense.slots(c, opener));
+            if (p.topic != null) {
+                slots.put("about", p.topic);
+            }
+            add(p, c, opener, TalkIntent.smallTalk(m, opener.getId(), p.topic), slots, bankFirst, true, false,
+                    p.topic != null, rng);
+        }
+    }
+
+    /** Whether the plan gives this bot a line. */
+    static boolean hasStep(Plan p, Character c) {
+        for (Step s : p.steps) {
+            if (s.speaker == c || (s.speaker != null && c != null && s.speaker.getId() == c.getId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Most of the time someone says bye: in a pair the one who did not just speak, in a group whoever's turn it is. */

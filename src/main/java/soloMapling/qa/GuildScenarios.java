@@ -237,13 +237,13 @@ final class GuildScenarios {
         public int minutes(String[] args) { return 8; }
 
         public List<String> stage(QaContext ctx) {
-            String guild = botGuild(ctx, false);
             String boss = null;
             for (String a : ctx.args()) {
                 if (a.matches("(?i)gpq|zakum|pap|horntail")) {
                     boss = a.toLowerCase();
                 }
             }
+            String guild = crewReady(ctx, boss, () -> botGuild(ctx, false));
             List<String> out = new ArrayList<>(boss == null ? act(ctx, "bossrun", guild) : act(ctx, "bossrun", guild, boss));
             if (out.stream().anyMatch(l -> l.startsWith("no boss run"))) {
                 throw new QaRefusal(String.join("; ", out) + " (it needs 2+ online roster members of the guild at the"
@@ -257,6 +257,37 @@ final class GuildScenarios {
             out.add("of them while they gather (it always accepts, REAL) - it follows you in and fights as a follower.");
             return out;
         }
+    }
+
+    /**
+     * t-gu-5 (TEST d4f103b0e): the guild the run is staged with. The world names the bot guild that needs the fewest of
+     * its offline roster members logged in for a fast run (the named guild only, when one is named); those are logged
+     * in now and out again at stop. Before, the biggest guild was taken whoever of it was online, and the check
+     * skipped ("1 free roster members online"). A world that cannot say keeps the old pick.
+     */
+    static String crewReady(QaContext ctx, String boss, java.util.function.Supplier<String> fallback) {
+        String wanted = ctx.args().length > 0 && !ctx.args()[0].matches("(?i)\\d+|gpq|zakum|pap|horntail")
+                ? ctx.args()[0] : null;
+        List<String> answer = ctx.world().botGuildAction(ctx.gm(), "bossready",
+                new String[]{wanted == null ? "*" : wanted, boss == null ? "*" : boss});
+        String line = answer.isEmpty() ? "" : answer.get(0);
+        ctx.run().note("STEP", "bossready: " + line);
+        String[] parts = line.split("\\|");
+        if (parts.length >= 2 && "ready".equals(parts[0])) {
+            return parts[1];
+        }
+        if (parts.length >= 3 && "stage".equals(parts[0])) {
+            String[] ids = parts[2].split(",");
+            ctx.onStop("log the staged crew out", () -> {
+                List<String> out = ctx.world().botGuildAction(ctx.gmNow() != null ? ctx.gmNow() : ctx.gm(),
+                        "bossunstage", ids);
+                ctx.run().note("CLEANUP", "boss crew: " + String.join("; ", out));
+            });
+            List<String> out = ctx.world().botGuildAction(ctx.gm(), "bossstage", ids);
+            ctx.log("staged " + parts[1] + "'s crew: " + String.join("; ", out) + " (" + parts[2] + ")");
+            return parts[1];
+        }
+        return fallback.get();
     }
 
     /** gu-6: a bot in the GM's guild quits: it became the GM's rival, or nobody paid it attention for weeks. */

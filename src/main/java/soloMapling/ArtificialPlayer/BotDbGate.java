@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import soloMapling.server.ExecutorServiceManager;
 import tools.DatabaseConnection;
 
 import java.lang.reflect.InvocationTargetException;
@@ -24,11 +25,52 @@ import java.util.concurrent.atomic.AtomicLong;
  * them. So bot database work asks this gate first: it waits here, holding nothing, until there is room in the
  * bots' share, and {@link #PLAYER_RESERVE} connections always stay out of reach of bots.
  * <p>
+ * <b>The share is a hard cap (1.6.3; the live 3k livelock).</b> Bot work that cannot get room in time now fails with
+ * a {@link SQLException} instead of going to the pool uncounted as 1.6.0 and 1.6.1 let it. The uncounted path
+ * made the gate decorative exactly when it mattered: at {@code BOT_ROSTER_PEAK_ONLINE=3000} logins waited out
+ * the gate, then piled onto the pool anyway, so the pool sat with hundreds of borrowers and every login took
+ * tens of seconds. Hikari's {@code ConcurrentBag.requite} spins while it believes a borrower is waiting, and that
+ * spin fed on the pile-up (see the class notes in the ticket); with the cap the pool's borrower count is bounded
+ * by six, so the pool never sees a queue to spin on and players keep their four connections.
+ * <p>
  * A thread already inside the gate is not counted again: a nested request from it runs straight on the pool.
  * The nesting of a character load is paid for up front ({@link #CHARACTER_LOAD}); anything else nested is one
  * level deep at most, and counting it would let threads that each hold a permit wait on each other forever.
  * For the same reason a read taken under a lock other bot threads queue on (the store's and the roster's
  * one-time loads) goes straight to the pool, and no wait here is unbounded ({@link #acquire}).
+ * <p>
+ * <b>Virtual threads never wait here.</b> On Java 21 a virtual thread that blocks inside a {@code synchronized}
+ * block pins its carrier thread, and the gate cannot see monitors, so it cannot tell a safe wait from a pinning
+ * one. A wait would then cost a carrier for as long as the share is busy, and with enough of them the carriers
+ * that must run to give the permits back are gone. Bot work that has to wait for the share (a login, the
+ * autosave sweep) is therefore run on a platform thread ({@link soloMapling.server.ExecutorServiceManager#runBotDb}),
+ * and bot work on a virtual thread takes the non-blocking path: a permit now, or a failure the caller already
+ * handles.
+ * <p>
+ * <b>What the cap does not cover (b269 audit).</b> A login charges {@link #CHARACTER_LOAD} permits for the whole
+ * nested load (a second {@code hold} from the same thread is free), so the six-permit share holds two logins, not
+ * five; {@code BotPopulationDirector.LOGIN_SLOTS} never binds. Outside this gate there are still one-shot reads that
+ * go straight to the pool in eleven bot classes - the roster's and the store's one-time loads (they run under the
+ * locks other bot threads queue on, and counting them could deadlock), the yield store's read, and nine cache-miss
+ * reads (`MakerPlan`, `BotNames`, `BotRebirth` three times, `OffscreenBossRun`, `BotSellerCaps`, `FamilyQa`,
+ * `PlayerWealthIndex`, `LifeMemoryStore`). Each borrows one connection for one statement and none runs per tick, so
+ * the pool's borrower count stays bounded.
+ * <p>
+ * {@link #unmetered} is the shutdown exception, and it has no game-path caller: the shutdown save sweep and the
+ * roster, yield-cap and bond flushes that follow it in {@code Server}'s shutdown sequence, the budgeted writers of
+ * {@code BotStore.settleAndSaveAll} (the autosave sweep's last write of the process), and the QA world's reset.
+ * <p>
+ * A refused request fails, and a virtual thread that had nothing to show for it loses that write: bot memory stamps
+ * its notes' {@code LastUsedAt}/{@code FollowedUpAt} at debug level on a refusal, and a refused insert leaves the note
+ * in memory only. That is deliberate - making virtual threads wait here is what pinned carriers on 2026-11-01 - and the
+ * cure is the paced boot fill ({@code BotPopulationDirector.LoginPace}): refusals should be visible in the minute
+ * line, not routine.
+ * <p>
+ * Where losing the write is not acceptable the caller runs on a platform thread instead: the stores that hold a
+ * player's choices write from {@link soloMapling.server.ExecutorServiceManager#runBotDb}, a bot leaving the world
+ * saves from {@link soloMapling.server.ExecutorServiceManager#runBotLogout}, and {@link #write} retries a request that
+ * the share refused a few times before it gives up. A departure row that still will not write is kept and retried
+ * ({@code BotStore.saveThenSettle}), never settled away.
  */
 public final class BotDbGate {
 
@@ -49,7 +91,7 @@ public final class BotDbGate {
 
     static final int PERMITS = Math.max(CHARACTER_LOAD, DatabaseConnection.MAX_POOL_SIZE - PLAYER_RESERVE);
 
-    /** How long bot work waits for room before going to the pool uncounted (see {@link #acquire}). */
+    /** How long a platform thread waits for room in the bots' share before the work fails. */
     static final long MAX_WAIT_MS = 15_000;
 
     private static volatile long maxWaitMs = MAX_WAIT_MS;
@@ -60,8 +102,9 @@ public final class BotDbGate {
 
     private static final Semaphore permits = new Semaphore(PERMITS, true);
 
-    private static final AtomicInteger overruns = new AtomicInteger();
-    private static final AtomicLong lastOverrunWarning = new AtomicLong();
+    /** Bot work the share had no room for, and so never ran. */
+    private static final AtomicInteger refusals = new AtomicInteger();
+    private static final AtomicLong lastRefusalWarning = new AtomicLong();
 
     /** Permits the current thread holds; shared with the connections it opened, which give theirs back. */
     private static final ThreadLocal<AtomicInteger> held = ThreadLocal.withInitial(AtomicInteger::new);
@@ -83,15 +126,13 @@ public final class BotDbGate {
         if (mine.get() > 0) {
             return work.run();
         }
-        boolean counted = acquire(connections);
+        acquire(connections);
         mine.addAndGet(connections);
         try {
             return work.run();
         } finally {
             mine.addAndGet(-connections);
-            if (counted) {
-                permits.release(connections);
-            }
+            permits.release(connections);
         }
     }
 
@@ -137,9 +178,7 @@ public final class BotDbGate {
         if (mine.get() > 0) {
             return pool.get();
         }
-        if (!acquire(1)) {
-            return pool.get();
-        }
+        acquire(1);
         Connection con;
         try {
             con = pool.get();
@@ -156,14 +195,14 @@ public final class BotDbGate {
         return () -> connection(pool);
     }
 
-    /** Test seam: a shorter wait before going to the pool uncounted ({@code <= 0} restores the default). */
+    /** Test seam: a shorter wait before bot work fails ({@code <= 0} restores the default). */
     static void useMaxWaitForTest(long ms) {
         maxWaitMs = ms > 0 ? ms : MAX_WAIT_MS;
     }
 
-    /** For the admin dashboard (ticket 35): the bots' permits, how many are free now, and waits that gave up. */
+    /** For the admin dashboard (ticket 35): the bots' permits, how many are free now, and bot work refused. */
     public static int[] stats() {
-        return new int[]{PERMITS, permits.availablePermits(), overruns.get()};
+        return new int[]{PERMITS, permits.availablePermits(), refusals.get()};
     }
 
     /** Permits free right now (tests and the GM read-out). */
@@ -171,29 +210,137 @@ public final class BotDbGate {
         return permits.availablePermits();
     }
 
+    /** Once a minute in the log: this line is how a lane session tells a busy share from a wedged pool. */
+    private static final long STATS_LOG_INTERVAL_MS = 60_000;
+    private static final AtomicBoolean statsLogStarted = new AtomicBoolean();
+
     /**
-     * Waits for room in the bots' share. Gives up after {@link #MAX_WAIT_MS} and lets the caller go to the pool
-     * uncounted (returning false): on Java 21 a virtual thread that waits here inside a {@code synchronized}
-     * block pins its carrier, and with every carrier pinned the threads holding the permits can never run to
-     * give them back. The pool's own timeout is the backstop then, as it was before the gate.
+     * Starts the once-a-minute share/pool line; safe to call more than once. Bot work is the only thing this gate
+     * guards, so the bot director starts it when it starts.
      */
-    private static boolean acquire(int connections) throws SQLException {
+    static void startStatsLogging() {
+        if (!statsLogStarted.compareAndSet(false, true)) {
+            return;
+        }
+        ExecutorServiceManager.getScheduledExecutorService().scheduleAtFixedRate(BotDbGate::logStats,
+                STATS_LOG_INTERVAL_MS, STATS_LOG_INTERVAL_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private static void logStats() {
         try {
-            if (permits.tryAcquire(connections, maxWaitMs, TimeUnit.MILLISECONDS)) {
-                return true;
+            log.info("BotDbGate: {}", statsLine(stats(), DatabaseConnection.poolStats()));
+        } catch (RuntimeException e) {
+            log.debug("Bot DB share stats unavailable", e);
+        }
+    }
+
+    /** {@code stats()} is {permits, free, refusals}; {@code pool} is {@code DatabaseConnection.poolStats()}. */
+    static String statsLine(int[] stats, int[] pool) {
+        String share = (PERMITS - stats[1]) + " of " + PERMITS + " bot permits in use, " + stats[2]
+                + " refused so far; pool ";
+        if (pool == null) {
+            return share + "not started";
+        }
+        return share + "active=" + pool[0] + " idle=" + pool[1] + " total=" + pool[2] + " waiting=" + pool[3];
+    }
+
+    /**
+     * Takes {@code connections} of the bots' share, or throws: nothing here ever runs bot work on the pool
+     * uncounted.
+     * <p>
+     * A platform thread waits up to {@link #MAX_WAIT_MS} for room; a virtual thread does not wait at all. A
+     * virtual thread that blocked here inside a {@code synchronized} block would pin its carrier, and the gate
+     * cannot see monitors - see the class notes.
+     */
+    private static void acquire(int connections) throws SQLException {
+        if (firstTry(connections)) {
+            return;
+        }
+        if (!Thread.currentThread().isVirtual()) {
+            try {
+                if (permits.tryAcquire(connections, maxWaitMs, TimeUnit.MILLISECONDS)) {
+                    return;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new SQLException("Interrupted while waiting for a bot database connection", e);
             }
+        }
+        int refused = refusals.incrementAndGet();
+        long now = System.currentTimeMillis();
+        long last = lastRefusalWarning.get();
+        if (now - last >= OVERRUN_WARNING_INTERVAL_MS && lastRefusalWarning.compareAndSet(last, now)) {
+            log.warn("Bot database work found no room in the bots' share of the pool ({} connections, {} free) and"
+                    + " was refused; {} times so far this run", PERMITS, permits.availablePermits(), refused);
+        }
+        throw new RefusedException("The bots' share of the database pool (" + PERMITS + " connections, "
+                + PLAYER_RESERVE + " kept for players) is busy; bot work was refused rather than queued on the pool");
+    }
+
+    /** Bot work the share had no room for at the moment it was asked: the work never ran, so retrying it is safe. */
+    public static final class RefusedException extends SQLException {
+        public RefusedException(String message) {
+            super(message);
+        }
+    }
+
+    /** True when the work never ran because the bots' share was busy (see {@link #write}). */
+    public static boolean refused(SQLException e) {
+        return e instanceof RefusedException;
+    }
+
+    /** How many times {@link #write} asks before it reports the share as unavailable. */
+    static final int WRITE_ATTEMPTS = 3;
+
+    /** Between write attempts: whatever was holding the share has to finish. */
+    private static final long WRITE_RETRY_MS = 500;
+
+    /**
+     * Runs a write that must not be lost: a refusal is asked again a few times - each attempt waits for the share
+     * like any platform thread, up to {@link #MAX_WAIT_MS} - and only then reported to the caller.
+     * <p>
+     * For work on a platform thread ({@link soloMapling.server.ExecutorServiceManager#runBotDb},
+     * {@link soloMapling.server.ExecutorServiceManager#runBotLogout}) and for work a player or a bot owns: a refused
+     * read can be skipped, a refused write cannot, because the state it would record is gone by the time the caller
+     * hears about it. On a virtual thread there is nothing to wait with, so it runs once.
+     * <p>
+     * Retrying cannot duplicate anything: each attempt is one statement or one transaction (an upsert, a delete, the
+     * bot row's update-or-insert), so a refused attempt never ran and a failed one rolled back.
+     */
+    public static <T> T write(SqlWork<T> work) throws SQLException {
+        int attempts = Thread.currentThread().isVirtual() ? 1 : WRITE_ATTEMPTS;
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return work.run();
+            } catch (SQLException e) {
+                if (!refused(e) || attempt >= attempts) {
+                    throw e;
+                }
+                log.warn("Bot database share busy; asking again (attempt {} of {})", attempt + 1, attempts);
+            }
+            try {
+                Thread.sleep(WRITE_RETRY_MS);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new SQLException("Interrupted while waiting to retry a bot database write", ie);
+            }
+        }
+    }
+
+    /**
+     * One turn at the share, in queue order. {@code Semaphore.tryAcquire(int)} ignores the fair ordering the
+     * semaphore was built with (its javadoc says so), so a newcomer took room from threads that had been waiting:
+     * a burst of logins landing just before a permit came free went first every time, and the writer that had been
+     * waiting went on waiting. Asking with a zero timeout goes through the fair path - room goes to the longest
+     * waiter, or to nobody - and does not wait.
+     */
+    private static boolean firstTry(int connections) throws SQLException {
+        try {
+            return permits.tryAcquire(connections, 0, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new SQLException("Interrupted while waiting for a bot database connection", e);
         }
-        int missed = overruns.incrementAndGet();
-        long now = System.currentTimeMillis();
-        long last = lastOverrunWarning.get();
-        if (now - last >= OVERRUN_WARNING_INTERVAL_MS && lastOverrunWarning.compareAndSet(last, now)) {
-            log.warn("Bot database work waited {} ms for the bots' share of the pool ({} permits) and went to the"
-                    + " pool uncounted; {} times so far this run", maxWaitMs, PERMITS, missed);
-        }
-        return false;
     }
 
     /** Wraps a connection so closing it - once - also gives its permit back. */

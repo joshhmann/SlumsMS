@@ -90,9 +90,14 @@ public final class NavTrapQa {
         return new Traps(hub, reached.size(), back.size(), Collections.unmodifiableSortedSet(traps));
     }
 
-    /** The traps of the server's world graph (builds it on first use, a few seconds; TEST has it already). */
+    /**
+     * The traps of the server's world graph (builds it on first use, a few seconds; TEST has it already). b230: the
+     * search steps the way the planner does for some bot ({@link GCWorldGraph#waysOn}), so the intended one-way rides
+     * are not traps: Grandis and Arcane River (the Henesys teleporter and the Gate of Time go in, the Hyper Teleport
+     * Rock's out_of ranges in BotTransit.yaml bring a bot home) and Malaysia (the tour home goes back to the saved town).
+     */
     public static Traps worldTraps() {
-        return find(HUB, GCWorldGraph::neighbors);
+        return find(HUB, GCWorldGraph::waysOn);
     }
 
     /** Whether the world graph has been built (a probe on a fresh server builds it first). */
@@ -100,11 +105,14 @@ public final class NavTrapQa {
         return GCWorldGraph.isReady();
     }
 
-    /** The committed baseline of known traps (map id -> its comment, '' when none). */
+    /**
+     * The committed baseline of known traps (map id -> its comment, '' when none); null when the file is missing from
+     * the jar. Empty is a real answer since b230: the intended one-way rides are not traps any more.
+     */
     public static Map<Integer, String> baseline() {
         try (InputStream in = NavTrapQa.class.getResourceAsStream(BASELINE)) {
             if (in == null) {
-                return Map.of();
+                return null;
             }
             List<String> lines = new ArrayList<>();
             try (BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
@@ -114,7 +122,7 @@ public final class NavTrapQa {
             }
             return parse(lines);
         } catch (IOException e) {
-            return Map.of();
+            return null;
         }
     }
 

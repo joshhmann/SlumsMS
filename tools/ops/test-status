@@ -1,5 +1,6 @@
 #!/bin/bash
 # One-screen status of the TEST server: version, uptime, errors, bots, auto-QA and health. Read-only.
+# TEST is mapletest (root@$SLUMS_TEST_HOST, default 164 until the 1.6.3 TEST cutover, then 192.168.0.111); live on 164 is not read here.
 #
 #   tools/ops/test-status [--feature] [--since "30 min ago"] [--checks]
 #
@@ -7,6 +8,7 @@
 # carried row ("PASS(old, <run>, <commit>)": not rerun, never fresh evidence), each with the evidence it cites: the
 # commit TEST was deployed from, the QA log(s) and the time. --checks prints that line for every check.
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"   # TEST_HOST, test_ssh
 SINCE="1 hour ago"
 FEATURE=0
 CHECKS=0
@@ -20,7 +22,7 @@ while [ $# -gt 0 ]; do
  shift
 done
 # ssh joins its arguments into one string, so quote the value for the remote shell
-ssh root@192.168.0.164 "bash -s -- $(printf %q "$SINCE") $FEATURE $CHECKS" <<'REMOTE'
+test_ssh "bash -s -- $(printf %q "$SINCE") $FEATURE $CHECKS" <<'REMOTE'
 SINCE=$1; CHECKS=$3; U=slums-persistence-test; S=/opt/mapleroot-dev/persistence-test/Server
 if [ "$2" = 1 ]; then U=slums-life160; S=/opt/mapleroot-dev/bot-life-160/Server; fi
 echo "unit: $(systemctl is-active $U) since $(systemctl show $U -p ActiveEnterTimestamp --value)"

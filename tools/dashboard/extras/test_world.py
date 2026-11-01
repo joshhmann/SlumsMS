@@ -58,6 +58,12 @@ class CheckMapTest(unittest.TestCase):
         rows, _ = X.check_map(1, self.PORTALS, self.GRAPH, [(2, "in")], handled={3})
         self.assertEqual([[1, "pit_handled", "r3"]], rows)
 
+    def test_a_swim_map_gets_no_ground_graph_check(self):
+        # b109: swimmers do not use the ground graph (230030001, 230040400 listed "pits" a swimmer just swims out of)
+        self.assertEqual([], X.check_map(1, self.PORTALS, self.GRAPH, [(2, "in")], swim=True)[0])
+        closed = [["sp", 0, 10, 90, NO]]
+        self.assertEqual(["no_exit"], self.kinds(X.check_map(1, closed, self.GRAPH, [(2, "in")], swim=True)[0]))
+
     def test_no_arrivals_means_nothing_to_check(self):
         self.assertEqual([], X.check_map(1, self.PORTALS, self.GRAPH, [])[0])
 

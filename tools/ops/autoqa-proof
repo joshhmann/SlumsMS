@@ -1,0 +1,307 @@
+#!/usr/bin/env python3
+"""Turn a code change into the auto-QA checks that prove it.
+
+Reads src/main/resources/soloMapling/autoqa-coverage.tsv (the coverage map: check id, path glob, note) and prints,
+for the files a branch changed, the check ids that cover them plus a ready-to-run line:
+
+    tools/ops/autoqa-proof 0f280336c^..0f280336c
+    tools/ops/autoqa-proof --files src/main/java/soloMapling/mechanics/KpqStaging.java
+    tools/ops/autoqa-proof            # uncommitted changes in this worktree
+
+The last line of the default output can be pasted as is:
+`tools/ops/autoqa-run <ids>` (all 186 ids collapse to `all`). The tool never queues anything itself: it does not
+touch a server, and running the line is the operator's call (see docs/ops/qa-suite.md, "Proving one fix between
+merge times").
+
+What it says:
+  * a row per changed file: the checks it reaches, or "no check covers this file";
+  * the checks that need a -D switch on the server to do anything (they SKIP otherwise);
+  * checks listed in autoqa-release-skips.tsv, flagged manual-only: they cannot be proven headless, they need a
+    person and a real client (the map marks them with the reserved key "-", which no file matches);
+  * "docs only, no proof run needed" when every change is docs/notes, and "tests only" when every change is under
+    src/test or a tools/**/test_* file.
+
+Usage:
+    tools/ops/autoqa-proof <base>..<head>
+    tools/ops/autoqa-proof --files PATH [PATH...]
+    tools/ops/autoqa-proof [--map FILE] [--root DIR] [--json] [--quiet]
+
+Options:
+    --files PATH...  files to map, instead of a git range
+    --map FILE       coverage map to read (default: the repo's autoqa-coverage.tsv)
+    --root DIR       repo root to resolve paths against (default: the git toplevel above this script)
+    --json           machine-readable output
+    --quiet          print only the run line (or the docs/test-only notice)
+
+Exit codes: 0 the change maps to at least one check, or needs no auto-QA run (docs only, tests only);
+3 nothing covers the change (run the unit suite, then decide by hand); 1 bad usage, bad map, or git error.
+"""
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+
+DEFAULT_MAP = os.path.join("src", "main", "resources", "soloMapling", "autoqa-coverage.tsv")
+SKIPS = os.path.join("src", "main", "resources", "soloMapling", "autoqa-release-skips.tsv")
+
+
+def git(root, *args):
+    try:
+        out = subprocess.run(["git", "-C", root] + list(args), capture_output=True, check=True)
+    except FileNotFoundError:
+        sys.exit("autoqa-proof: git not found")
+    except subprocess.CalledProcessError as e:
+        sys.exit("autoqa-proof: git %s failed: %s" % (" ".join(args), e.stderr.decode("utf-8", "replace").strip()))
+    return out.stdout.decode("utf-8", "replace")
+
+
+def repo_root():
+    here = os.path.dirname(os.path.abspath(__file__))
+    return git(here, "rev-parse", "--show-toplevel").strip()
+
+
+def glob_to_regex(glob):
+    """* is one path segment, ** crosses segments, ? is one character."""
+    out = []
+    i = 0
+    while i < len(glob):
+        if glob.startswith("**/", i):
+            out.append("(?:[^/]+/)*")
+            i += 3
+        elif glob.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif glob[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif glob[i] == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(glob[i]))
+            i += 1
+    return re.compile("^" + "".join(out) + "$")
+
+
+class Map(object):
+    def __init__(self, path):
+        self.rows = []          # (checks:str or None for "all", key, note, regex or None)
+        with open(path, encoding="utf-8") as fh:
+            for n, line in enumerate(fh, 1):
+                line = line.rstrip("\n")
+                if not line.strip() or line.lstrip().startswith("#"):
+                    continue
+                parts = line.split("\t")
+                if len(parts) != 3:
+                    sys.exit("autoqa-proof: %s:%d: expected 3 TAB-separated columns, got %d"
+                             % (path, n, len(parts)))
+                check, key, note = parts
+                if not check or not key:
+                    sys.exit("autoqa-proof: %s:%d: empty check id or key" % (path, n))
+                if key == "-":
+                    # no file triggers this check: a person proves it on a real client
+                    self.rows.append((check, key, note, None))
+                elif key.startswith("-D"):
+                    if "=" not in key:
+                        sys.exit("autoqa-proof: %s:%d: switch %r needs a value (-Dprop=true)" % (path, n, key))
+                    self.rows.append((check, key, note, None))
+                else:
+                    self.rows.append((check, key, note, glob_to_regex(key)))
+
+    def switches(self):
+        return [(c, k, n) for c, k, n, _ in self.rows if k.startswith("-D")]
+
+    def match(self, path):
+        """[(checks, key, note)] for one repo-relative path."""
+        out = []
+        for check, key, note, rx in self.rows:
+            if rx is not None and rx.match(path):
+                out.append((check, key, note))
+        return out
+
+    def switches_for(self, ids):
+        out = []
+        for check, key, note in self.switches():
+            if set(ids) & set(check.split(",")):
+                out.append((key, note, [c for c in check.split(",") if c in ids]))
+        return out
+
+
+def read_skips(root):
+    skips = {}
+    path = os.path.join(root, SKIPS)
+    if not os.path.exists(path):
+        return skips
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.rstrip("\n")
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            parts = line.split("\t", 1)
+            if len(parts) == 2:
+                skips[parts[0].strip()] = parts[1].strip()
+    return skips
+
+
+def changed_from_range(root, rng):
+    raw = git(root, "diff", "--name-status", "-z", "--no-renames", rng).split("\0")
+    paths = []
+    for i in range(0, len(raw) - 1, 2):
+        status, path = raw[i], raw[i + 1]
+        if status and path:
+            paths.append((path, status[0]))
+    return paths
+
+
+def changed_from_worktree(root):
+    raw = git(root, "diff", "--name-status", "-z", "--no-renames", "HEAD").split("\0")
+    paths = []
+    for i in range(0, len(raw) - 1, 2):
+        status, path = raw[i], raw[i + 1]
+        if status and path:
+            paths.append((path, status[0]))
+    untracked = git(root, "ls-files", "--others", "--exclude-standard")
+    for path in untracked.split("\n"):
+        if path.strip():
+            paths.append((path, "?"))
+    return paths
+
+
+def id_sort(ids):
+    def key(c):
+        m = re.match(r"^t-([a-z0-9]+)-(\d+)$", c)
+        return (m.group(1), int(m.group(2))) if m else ("zz", 0)
+    return sorted(set(ids), key=key)
+
+
+def is_docs(path):
+    return path.startswith("docs/") or path.endswith(".md")
+
+
+def is_test(path):
+    return path.startswith("src/test/") or re.search(r"(^|/)test_[^/]*$", path) is not None
+
+
+def main(argv):
+    ap = argparse.ArgumentParser(add_help=True, description="Map a change to the auto-QA checks that prove it.")
+    ap.add_argument("range", nargs="?", help="git range, e.g. abc123^..def456")
+    ap.add_argument("--files", nargs="+", metavar="PATH")
+    ap.add_argument("--map")
+    ap.add_argument("--root")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--quiet", action="store_true")
+    args = ap.parse_args(argv)
+    if args.range and args.files:
+        ap.error("give a range or --files, not both")
+
+    root = args.root or repo_root()
+    map_path = args.map or os.path.join(root, DEFAULT_MAP)
+    if not os.path.exists(map_path):
+        sys.exit("autoqa-proof: no coverage map at %s (pass --map)" % map_path)
+    cov = Map(map_path)
+    skips = read_skips(root)
+
+    if args.files:
+        changed = [(p[2:] if p.startswith("./") else p, "?") for p in args.files]
+        label = "--files (%d)" % len(changed)
+    elif args.range:
+        changed = changed_from_range(root, args.range)
+        label = args.range
+    else:
+        changed = changed_from_worktree(root)
+        label = "uncommitted changes"
+
+    per_file = []
+    ids = []
+    unmapped = []
+    for path, status in changed:
+        hits = cov.match(path)
+        checks = []
+        for check, key, note in hits:
+            if check == "all":
+                checks.append("all")
+            else:
+                checks.extend(check.split(","))
+        checks = ["all"] if "all" in checks else id_sort(checks)
+        per_file.append({"path": path, "status": status, "checks": checks,
+                         "via": [[check, key, note] for check, key, note in hits]})
+        if not checks:
+            if not is_test(path) and not is_docs(path):
+                unmapped.append(path)
+        else:
+            ids.extend(checks)
+
+    every = "all" in ids
+    ids = ["all"] if every else id_sort(ids)
+    switches = [] if every else cov.switches_for(ids)
+    manual = [c for c in ids if c in skips]
+    docs_only = bool(changed) and all(is_docs(p) for p, _ in changed)
+    tests_only = bool(changed) and all(is_test(p) for p, _ in changed) and not docs_only
+
+    if args.json:
+        print(json.dumps({"range": label, "files": per_file, "checks": ids, "all": every,
+                          "unmapped": unmapped, "switches": [[k, n, c] for k, n, c in switches],
+                          "manual_only": manual, "docs_only": docs_only, "tests_only": tests_only},
+                         indent=2))
+    elif args.quiet:
+        if docs_only:
+            print("docs only, no proof run needed")
+        elif not ids:
+            print("no check covers this change")
+        else:
+            print("tools/ops/autoqa-run " + (",".join(ids) if not every else "all"))
+    else:
+        print("auto-QA proof for %s: %d file%s" % (label, len(changed), "" if len(changed) == 1 else "s"))
+        if not changed:
+            print("  (nothing changed)")
+        pad = min(max([len(f["path"]) for f in per_file] + [20]) + 2, 84)
+        for f in per_file:
+            if f["checks"] == ["all"]:
+                shown = "every check (runner/platform file)"
+            elif f["checks"]:
+                shown = ", ".join(f["checks"])
+            elif is_test(f["path"]):
+                shown = "unit test only (the suite covers it)"
+            elif is_docs(f["path"]):
+                shown = "docs"
+            else:
+                shown = "no check covers this file"
+            if len(f["path"]) + 2 > pad:
+                print("  " + f["path"])
+                print("  " + " " * 2 + shown)
+            else:
+                print("  %-*s %s" % (pad, f["path"], shown))
+        if docs_only:
+            print("\ndocs only, no proof run needed")
+        elif tests_only:
+            print("\ntests only, no auto-QA run needed (the unit suite is the proof)")
+        elif ids:
+            if every:
+                print("\nchecks: every check (186) - a runner or platform file changed")
+            else:
+                print("\nchecks: %d of 186" % len(ids))
+                for c in ids:
+                    tail = "  manual-only, needs a person and a real client" if c in skips else ""
+                    print("  %s%s" % (c, tail))
+        else:
+            print("\nno check covers this change: run the unit suite, then decide by hand")
+        for key, note, affected in switches:
+            print("\nneeds %s on the server for %s (%s)" % (key, ", ".join(affected), note))
+        if unmapped and ids:
+            print("\nnot covered by any check:")
+            for p in unmapped:
+                print("  " + p)
+        if ids:
+            print("\ntools/ops/autoqa-run " + (",".join(ids) if not every else "all"))
+
+    if not changed:
+        return 0
+    if docs_only or tests_only or ids:
+        return 0
+    return 3
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

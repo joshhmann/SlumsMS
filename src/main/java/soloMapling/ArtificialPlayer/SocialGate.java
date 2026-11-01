@@ -151,7 +151,10 @@ public final class SocialGate {
     private static final List<SocialCrew> crewSources = new CopyOnWriteArrayList<>(List.of(SocialCrew.GUILD));
 
     private static volatile SocialGateStore store = new SocialGateStore.Jdbc();
-    private static volatile Executor writer = ExecutorServiceManager::runAsync;
+    // 1.6.3 (b269 review): these writes hit the bots' share of the pool, and a virtual thread is refused there
+    // instead of waiting - which drops a player's choice that was already acknowledged. A bot-db platform thread
+    // waits its turn, and BotDbGate.write asks again if the share was busy.
+    private static volatile Executor writer = ExecutorServiceManager::runBotDb;
     private static final SerialWrites writes = new SerialWrites(r -> writer.execute(r));
     private static volatile LongSupplier clock = System::currentTimeMillis;
     /** Whether choices and ledger rows are written: on after the boot read started (or a test store), off without 031. */
@@ -442,6 +445,19 @@ public final class SocialGate {
         return rules(botId, playerId, Act.FLIRT).ok();
     }
 
+    /**
+     * Stage B (owner's step 5): whether a romance with this player may be spoken of at all - @romance on and not
+     * opted off, the switch the prompt needs. Unlike {@link #romanceAllowed(int, int)} a flirt-first unlock does not
+     * count: that buys a flirt, it does not make a relationship.
+     */
+    public static boolean romanceSpeakable(int playerId) {
+        try {
+            return !romanceOff(playerId) && romanceOn.test(playerId);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     public static boolean romanceOff(int playerId) {
         return romanceOff.contains(playerId);
     }
@@ -551,7 +567,7 @@ public final class SocialGate {
     /** Per-pair cooldown, in minutes. */
     public static long pairMinutes(Act a) {
         long min = switch (a) {
-            case GREET -> 40;
+            case GREET -> 40; // per pair; m02's per-player hourly cap for bot-started chats is separate (planner only)
             case PARTY_INVITE -> 60;
             case BUDDY_REQUEST -> 480;
             case HELP -> 15;
@@ -592,6 +608,44 @@ public final class SocialGate {
     /** One unsolicited whisper per player (all bots together) per this many ms. */
     public static long whisperGapMs() {
         return Math.max(0, Long.getLong("solomapling.chat.whisperPlayerGapMs", 200_000));
+    }
+
+    /**
+     * m02 fix round 3 (the owner's answer 4): how long a player has to themselves after a bot starts a chat with them,
+     * before another bot may. Only the reply planner reads this, and it defaults to an hour.
+     */
+    public static long botChatGapMs() {
+        return Math.max(0, Long.getLong("solomapling.chat.botStartedPlayerGapMs", TimeUnit.HOURS.toMillis(1)));
+    }
+
+    /** The bot that last started a chat with a player, and when. */
+    private record BotChat(int botCharId, long at) {
+    }
+
+    /** playerId -> the last bot-started chat with them (any bot). */
+    private static final Map<Integer, BotChat> lastBotChat = new ConcurrentHashMap<>();
+
+    /**
+     * m02 fix round 3: whether {@code botCharId} may start a chat with this player now. At most one bot-started chat
+     * per player per {@link #botChatGapMs()}, from any bot, so a player is not greeted by five bots in one minute; the
+     * bot that started the last one may carry its own chat on.
+     */
+    public static boolean botChatAllowed(int botCharId, int playerId, long now) {
+        BotChat last = lastBotChat.get(playerId);
+        return last == null || last.botCharId() == botCharId || now - last.at() >= botChatGapMs();
+    }
+
+    /** The bot's opening line goes out: no other bot starts a chat with this player for {@link #botChatGapMs()}. */
+    public static void noteBotChat(int botCharId, int playerId, long now) {
+        if (lastBotChat.size() > 20_000) {
+            lastBotChat.values().removeIf(c -> now - c.at() >= botChatGapMs());
+        }
+        lastBotChat.put(playerId, new BotChat(botCharId, now));
+    }
+
+    /** Tests only: forget which bot last started a chat with which player. */
+    static void forgetBotChatsForTest() {
+        lastBotChat.clear();
     }
 
     /** Bot buddy requests per player per day (all bots), and per hour world-wide. */
@@ -803,7 +857,7 @@ public final class SocialGate {
     /** Tests: a store, a writer and a clock (nulls restore the real ones); forgets everything in memory. */
     static void useForTest(SocialGateStore testStore, Executor testWriter, LongSupplier testClock) {
         store = testStore != null ? testStore : new SocialGateStore.Jdbc();
-        writer = testWriter != null ? testWriter : ExecutorServiceManager::runAsync;
+        writer = testWriter != null ? testWriter : ExecutorServiceManager::runBotDb;
         clock = testClock != null ? testClock : System::currentTimeMillis;
         storeOn = testStore != null;
         resetForTest();

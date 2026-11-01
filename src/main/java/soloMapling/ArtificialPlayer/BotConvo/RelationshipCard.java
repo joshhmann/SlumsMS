@@ -173,7 +173,7 @@ public final class RelationshipCard {
     /** The card for a live bot and player. Never throws: a part it cannot read is left out. */
     public static String of(Character bot, Character player, String activity, String thread, long now) {
         Data memory = memory(bot.getId(), player.getId(), player.getName(), now);
-        return build(new Data(player.getName(), memory.feeling(), memory.score(), memory.facts(), romance(bot, player),
+        return build(new Data(player.getName(), memory.feeling(), memory.score(), memory.facts(), status(bot, player),
                 guild(bot, player), mapName(bot), mobs(bot), null, worldEvent(bot), activity, thread, memory.episodes(),
                 memory.lastTopic(), memory.insideJoke()), now, ZoneId.systemDefault());
     }
@@ -219,25 +219,41 @@ public final class RelationshipCard {
                 topic, joke);
     }
 
+    /**
+     * Stage B (owner's step 5): the romance these two really have, or null. Spoken of only with @romance on and not
+     * opted off, whatever the store says - the owner's rule is one relationship, from the game and the switch.
+     */
     static String romance(Character bot, Character player) {
+        if (bot == null || player == null) {
+            return null;
+        }
         try {
             Romance r = BotRomance.with(player.getId(), bot.getId());
-            if (r != null) {
-                return switch (r.stage()) {
-                    case DATING -> "You're dating them";
-                    case ENGAGED -> "You're engaged to them";
-                    case MARRIED -> "You're married to them (in game)";
-                    case EX -> "They're your ex";
-                };
+            if (r == null || !soloMapling.ArtificialPlayer.SocialGate.romanceSpeakable(player.getId())) {
+                return null;
             }
-            Romance mine = BotRomance.ofBot(bot.getId());
-            if (mine != null) {
-                return "You're taken (with someone else)";
-            }
+            return switch (r.stage()) {
+                case DATING -> "You're dating them";
+                case ENGAGED -> "You're engaged to them";
+                case MARRIED -> "You're married to them (in game)";
+                case EX -> "They're your ex";
+            };
         } catch (RuntimeException | LinkageError e) {
             return null;
         }
-        return null;
+    }
+
+    /** The card's romance line: what these two have, else the bot's own partner - never a claim about them. */
+    static String status(Character bot, Character player) {
+        String pair = romance(bot, player);
+        if (pair != null) {
+            return pair;
+        }
+        try {
+            return BotRomance.ofBot(bot.getId()) != null ? "You're taken (with someone else)" : null;
+        } catch (RuntimeException | LinkageError e) {
+            return null;
+        }
     }
 
     static String guild(Character bot, Character player) {

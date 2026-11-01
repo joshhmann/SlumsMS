@@ -270,6 +270,57 @@ class TalkPlannerTest {
         }
     }
 
+    /**
+     * t-bt-1 on TEST 2026-10-31: "group: only 2 of the group spoke". A group does not all greet back, the small talk
+     * and the bye pick by chattiness, and with nothing to ask for the quietest member could go through a whole staged
+     * group talk without a word. The staged group is three speakers; every member gets a line.
+     */
+    @Test
+    void everyMemberOfAGroupSpeaks() {
+        Character a = chr(21, "Ann", 30);
+        Character b = chr(22, "Bob", 31);
+        Character c = chr(23, "Cat", 29);
+        FakeSense s = new FakeSense().mind(a, 0.8, 0.1, 0.5, Goal.COMPANY, 0.8, -1)
+                .mind(b, 0.8, 0.1, 0.5, Goal.COMPANY, 0.8, -1)
+                .mind(c, 0.05, 0.1, 0.0, Goal.NONE, 0, -1) // the quiet one: never picked by chattiness
+                .bond(a, b, new Relation("friend", 0.6, true));
+        for (int seed = 0; seed < 200; seed++) {
+            Plan p = TalkPlanner.plan(List.of(a, b, c), false, null, s, false, 0, new Random(seed));
+            assertTrue(p.group);
+            List<Character> spoke = new ArrayList<>();
+            for (Step st : p.steps) {
+                if (!spoke.contains(st.speaker)) {
+                    spoke.add(st.speaker);
+                }
+            }
+            assertEquals(3, spoke.size(), "seed " + seed + ": every member of the group speaks: " + p.steps.stream()
+                    .map(x -> x.speaker.getName() + ":" + x.intent.move()).toList());
+            Character prev = null;
+            for (Step st : p.steps) {
+                if (st.intent.move() == Move.SMALL_TALK && prev != null) {
+                    assertNotEquals(prev, st.speaker, "seed " + seed + ": no one speaks twice in a row");
+                }
+                prev = st.speaker;
+            }
+        }
+    }
+
+    /** A pair is unchanged: the coverage rule is for a group of three or more. */
+    @Test
+    void aPairHasNoExtraLine() {
+        Character a = chr(24, "Ann", 30);
+        Character b = chr(25, "Bob", 32);
+        FakeSense s = new FakeSense().mind(a, 0.1, 0.8, -0.2, Goal.NONE, 0, -1).mind(b, 0.1, 0.8, -0.2, Goal.NONE, 0, -1)
+                .bond(a, b, new Relation("rival", -0.6, true));
+        for (int seed = 0; seed < 20; seed++) {
+            Plan p = TalkPlanner.plan(List.of(a, b), false, null, s, false, 0, new Random(seed));
+            assertFalse(p.group);
+            for (Step st : p.steps) {
+                assertTrue(st.speaker == a || st.speaker == b);
+            }
+        }
+    }
+
     @Test
     void builtInLinesArePg13AndNeverClaimToBeAnAi() {
         for (String line : TalkLines.allBuiltIns()) {

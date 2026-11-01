@@ -112,6 +112,29 @@ class GuildScenariosTest {
         assertTrue(world.calls.contains("guild bossstop"));
     }
 
+    /** t-gu-5 (TEST d4f103b0e): the world's readiest guild is used, its offline crew logged in, and out at stop. */
+    @Test
+    void gu5LogsInTheCrewItNeedsAndLogsThemOutAtStop() {
+        world.guildAnswers.put("bossready", List.of("stage|Oldies|1000000041,1000000042"));
+        start("gu-5", 100000000);
+        assertTrue(world.calls.contains("guild bossready * *"));
+        assertTrue(world.calls.contains("guild bossstage 1000000041 1000000042"));
+        assertTrue(world.calls.contains("guild bossrun Oldies"), world.calls.toString());
+        suite.stop(1, "!qa stop");
+        int stop = world.calls.indexOf("guild bossstop");
+        int out = world.calls.indexOf("guild bossunstage 1000000041 1000000042");
+        assertTrue(stop >= 0 && out > stop, "the run ends, then its staged crew logs out: " + world.calls);
+    }
+
+    @Test
+    void gu5UsesAReadyGuildAsItIs() {
+        world.guildAnswers.put("bossready", List.of("ready|Oldies"));
+        start("gu-5", 100000000, "zakum");
+        assertTrue(world.calls.contains("guild bossready * zakum"));
+        assertTrue(world.calls.contains("guild bossrun Oldies zakum"));
+        assertTrue(world.calls.stream().noneMatch(c -> c.startsWith("guild bossstage")));
+    }
+
     @Test
     void gu5RefusesWhenTheRunCannotStart() {
         world.bossRunAnswer = List.of("no boss run: too few members online");

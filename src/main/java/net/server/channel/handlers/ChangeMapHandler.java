@@ -107,8 +107,10 @@ public final class ChangeMapHandler extends AbstractPacketHandler {
                     }
                 } else {
                     if (chr.isGM()) {
-                        MapleMap to = chr.getWarpMap(targetMapId);
-                        chr.changeMap(to, to.getPortal(0));
+                        MapleMap to = chr.getWarpMap(targetMapId);   // s-maproute: null when the door leads nowhere
+                        if (to != null) {
+                            chr.changeMap(to, to.getPortal(0));
+                        }
                     } else {
                         final int divi = chr.getMapId() / 100;
                         boolean warp = false;
@@ -141,7 +143,9 @@ public final class ChangeMapHandler extends AbstractPacketHandler {
                         }
                         if (warp) {
                             final MapleMap to = chr.getWarpMap(targetMapId);
-                            chr.changeMap(to, to.getPortal(0));
+                            if (to != null) {
+                                chr.changeMap(to, to.getPortal(0));
+                            }
                         }
                     }
                 }

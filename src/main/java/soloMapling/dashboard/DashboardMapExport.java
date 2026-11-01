@@ -95,8 +95,9 @@ public final class DashboardMapExport {
         System.exit(0); // WZ loading leaves non-daemon threads behind
     }
 
-    /** The map file's layout; a change rewrites every map once (157: portals gained their target portal, p[5]). */
-    static final String MAP_FORMAT = "f2";
+    /** The map file's layout; a change rewrites every map once (157: portals gained their target portal, p[5]; b109:
+     *  "swim" on swim maps, and pits.json gained the trap rule). */
+    static final String MAP_FORMAT = "f3";
 
     /** Where a map's geometry comes from; tests substitute one. */
     public interface Geometry {
@@ -202,7 +203,7 @@ public final class DashboardMapExport {
                     doc.put("stuckByDay", perDay);
                     AtomicFiles.writeJson(mapFile, doc);
                     mapsWritten++;
-                    List<Integer> pits = pits(nav, keys.get(mapId), built, geo.get("bounds"));
+                    List<Integer> pits = pits(nav, mapId, keys.get(mapId), built, geo);
                     state.put("m:" + mapId, Map.of("sig", mapSig.toString(), "pits", pits));
                     if (pits.isEmpty()) {
                         pitsByMap.remove(mapId);
@@ -228,7 +229,7 @@ public final class DashboardMapExport {
 
     /**
      * Ticket 157 follow-up (the Website lane's dead-end check): {@code nav/pits.json},
-     * {@code {"version":1, "maps": {"<mapId>": [regionId, ...]}}}, every region {@code NavPits} treats as a pit (the
+     * {@code {"version":1, "maps": {"<mapId>": [regionId, ...]}}}, every region {@code NavPits} treats as a pit, under the view or a trap (the
      * planner never routes into one, but the exported graphs still carry those edges). Only maps with a pit are
      * listed. Rewritten only when its content changes.
      */
@@ -252,27 +253,24 @@ public final class DashboardMapExport {
     }
 
     /** The union of a map's pit regions over its profiles' graphs (just built, else read back from the export). */
-    private static List<Integer> pits(Path nav, List<String> keys, Map<String, Map<String, Object>> built, Object bounds) {
-        if (bounds == null) {
-            return List.of();
-        }
+    private static List<Integer> pits(Path nav, int mapId, List<String> keys, Map<String, Map<String, Object>> built,
+                                      Map<String, Object> geo) {
         TreeSet<Integer> out = new TreeSet<>();
         for (String key : keys) {
-            Object regions = null;
-            Map<String, Object> g = built.get(key);
-            if (g != null) {
-                regions = g.get("regions");
-            } else {
+            Map<?, ?> g = built.get(key);
+            if (g == null) {
                 Path f = nav.resolve("graphs").resolve(key + ".json");
                 try {
                     if (Files.isRegularFile(f) && Json.parse(Files.readString(f, StandardCharsets.UTF_8)) instanceof Map<?, ?> m) {
-                        regions = m.get("regions");
+                        g = m;
                     }
                 } catch (IOException | RuntimeException e) {
-                    // no regions for this profile
+                    // no graph for this profile
                 }
             }
-            out.addAll(NavDashboardData.pitRegions(regions, bounds));
+            if (g != null) {
+                out.addAll(NavDashboardData.pitRegions(mapId, g.get("regions"), g.get("edges"), geo));
+            }
         }
         return List.copyOf(out);
     }

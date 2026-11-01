@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import server.expeditions.ExpeditionBossLog.BossLogEntry;
 import soloMapling.ArtificialPlayer.BotHoldings;
+import soloMapling.ArtificialPlayer.BotRebirthQa;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBosses.Boss;
 
 import java.lang.reflect.Field;
@@ -226,6 +227,29 @@ class RebirthKeysEarnedTest {
 
         assertEquals(BotRebirth.NPC_MAP, BotRebirth.tripMap(bot, System.currentTimeMillis()), "key crafted, to Wyatt");
         assertEquals(1, etc(bot, BotRebirth.keyItemFor(1)));
+    }
+
+    /**
+     * t-rb-2 (round 2 review): the probe may only pass on this character's own craft having spent Von Leon's item on
+     * its next key. A key count that went up, a bag count of 0 or another character's craft is not that evidence.
+     */
+    @Test
+    void theCraftThatSpentTheItemIsThisCharactersEvidenceForThatRebirth() {
+        Character bot = bot(BOT_ID, 412, 200, 1);
+        give(bot, Boss.PINKBEAN.clearItem);
+        give(bot, Boss.VONLEON.clearItem);
+        long since = System.currentTimeMillis();
+        assertEquals(BotRebirth.NPC_MAP, BotRebirth.tripMap(bot, System.currentTimeMillis()), "key crafted, to Wyatt");
+        assertEquals(0, etc(bot, Boss.VONLEON.clearItem), "the key took it");
+        assertEquals(1, etc(bot, BotRebirth.keyItemFor(1)));
+        assertTrue(BotRebirthQa.clearItemConsumed(bot, Boss.VONLEON.clearItem, 1, since),
+                "the craft recorded this bot, this rebirth and this item at the consume itself");
+        assertFalse(BotRebirthQa.clearItemConsumed(bot, Boss.VONLEON.clearItem, 2, since),
+                "a craft for another rebirth is not evidence for this one");
+        assertFalse(BotRebirthQa.clearItemConsumed(bot(BOT_ID + 3, 412, 200, 1), Boss.VONLEON.clearItem, 1, since),
+                "another character's craft cannot stand in for this character's");
+        assertFalse(BotRebirthQa.clearItemConsumed(bot, Boss.VONLEON.clearItem, 1, System.currentTimeMillis() + 1),
+                "a craft from before the run is not evidence for this run");
     }
 
     @Test

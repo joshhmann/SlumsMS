@@ -166,6 +166,18 @@ final class ObserverTracker {
         forcedFull.put(mapId, System.currentTimeMillis() + FORCE_TTL_MS);
     }
 
+    /*
+     * 1.6.2 (b153): hold this map's id at full LOD physics for a short window without making it "watched" (no real
+     * player is there: quest scripts, rewards and contact damage keep their unwatched rules). A bot-driven party quest
+     * calls it every run tick, so its bots walk to their mobs with real physics instead of the coarse planner.
+     */
+    static void holdFullPhysics(MapleMap map) {
+        if (map == null) {
+            return;
+        }
+        forcedLod.put(map.getId(), System.currentTimeMillis() + FORCE_TTL_MS);
+    }
+
     // Treat this map instance as observed (FULL) for a short window; its id is held at full LOD physics too.
     static void markObservedNow(MapleMap map) {
         if (map == null) {

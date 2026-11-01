@@ -110,14 +110,17 @@ public final class NavPortQa {
      * {@code BlockedPosWatchdogTest}'s scenario: a detached bot on the department store's top floor (x -8, y -128)
      * heading for the exit (300, 182), its motor not run, the nav cleared after every AI tick the way an incidental
      * clear does. The geometry is the real map's, loaded under {@link #WATCHDOG_MAP}, so its graph (built and cached
-     * once), learning and stuck-log entries sit under the made-up id and the real map's are never touched. Give-ups are counted where
-     * the watchdog consumes the parked count.
+     * once) sits under the made-up id and the real map's are never touched; the graph is isolated from learning
+     * ({@code NavEdgeLearning.isolated}), so each replay starts from an empty book and reads the same. Give-ups are
+     * counted where the watchdog consumes the parked count.
      */
     public static ParkedRun parkedBot(int ticks) {
         MapleMap map = BotNavigationMapLoader.loadMapGeometry(WATCHDOG_REAL_MAP, WATCHDOG_MAP);
-        if (BotNavigationGraphProvider.getGraph(map, BotMovementProfile.base()) == null) {
+        BotNavigationGraph graph = BotNavigationGraphProvider.getGraph(map, BotMovementProfile.base());
+        if (graph == null) {
             return new ParkedRun(0, 0, 0);   // no graph could be built
         }
+        graph.learningIsolated = true;       // see NavEdgeLearning.isolated: a replay must not teach the planner
         Character chr = Character.getDefault(new BotClient(0, 0));
         chr.setID(WATCHDOG_MAP);
         chr.setMap(map);

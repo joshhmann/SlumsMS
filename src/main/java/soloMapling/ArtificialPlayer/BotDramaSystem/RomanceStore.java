@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotDramaSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotDbGate;
+import soloMapling.ArtificialPlayer.BotStore;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -38,6 +39,18 @@ public interface RomanceStore {
     final class Jdbc implements RomanceStore {
         private static final Logger log = LoggerFactory.getLogger(Jdbc.class);
 
+        /** Where the rows go: the gate in front of the pool, unless a test says otherwise. */
+        private final BotStore.ConnectionSource connections;
+
+        public Jdbc() {
+            this(BotDbGate::connection);
+        }
+
+        /** Test seam (b269 review): the same write path in front of a mock pool. */
+        Jdbc(BotStore.ConnectionSource connections) {
+            this.connections = connections;
+        }
+
         static final String ALL = "SELECT CharacterId, BotId, Stage, StartedAt, TogetherAt, EndedAt, RingItemId, BotRingId"
                 + " FROM botromance";
         static final String UPSERT = "INSERT INTO botromance (CharacterId, BotId, Stage, StartedAt, TogetherAt, EndedAt,"
@@ -51,6 +64,20 @@ public interface RomanceStore {
         static final String OPT_OUT = "DELETE FROM botromanceopt WHERE CharacterId = ?";
 
         private volatile boolean warned;
+
+        /**
+         * A store call failed. A refusal from the bots' share of the pool is not a missing table and must not be
+         * remembered as one (b269): the migration warning would then be spent on a busy minute, and every later
+         * failure - including the real one - would drop to debug.
+         */
+        private void failed(SQLException e) {
+            if (BotDbGate.refused(e)) {
+                log.warn("Bot romance was not stored: the bots' share of the database pool stayed busy ({})",
+                        e.getMessage());
+                return;
+            }
+            missing(e);
+        }
 
         private void missing(SQLException e) {
             if (!warned) {
@@ -68,7 +95,7 @@ public interface RomanceStore {
         @Override
         public List<Romance> loadAll() {
             List<Romance> out = new ArrayList<>();
-            try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(ALL);
+            try (Connection con = connections.get(); PreparedStatement ps = con.prepareStatement(ALL);
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     Romance.Stage stage = Romance.Stage.parse(rs.getString("Stage"));
@@ -80,65 +107,80 @@ public interface RomanceStore {
                 }
                 return out;
             } catch (SQLException e) {
-                missing(e);
+                failed(e);
                 return noTable(e) ? out : null;
             }
         }
 
         @Override
         public void save(Romance r) {
-            try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(UPSERT)) {
-                ps.setInt(1, r.charId());
-                ps.setInt(2, r.botId());
-                ps.setString(3, r.stage().name());
-                ps.setLong(4, r.startedAt());
-                ps.setLong(5, r.togetherAt());
-                ps.setLong(6, r.endedAt());
-                ps.setInt(7, r.ringItemId());
-                ps.setInt(8, r.botRingId());
-                ps.executeUpdate();
+            try {
+                BotDbGate.write(() -> {
+                    try (Connection con = connections.get(); PreparedStatement ps = con.prepareStatement(UPSERT)) {
+                        ps.setInt(1, r.charId());
+                        ps.setInt(2, r.botId());
+                        ps.setString(3, r.stage().name());
+                        ps.setLong(4, r.startedAt());
+                        ps.setLong(5, r.togetherAt());
+                        ps.setLong(6, r.endedAt());
+                        ps.setInt(7, r.ringItemId());
+                        ps.setInt(8, r.botRingId());
+                        ps.executeUpdate();
+                    }
+                    return null;
+                });
             } catch (SQLException e) {
-                missing(e);
+                failed(e);
             }
         }
 
         @Override
         public void delete(int charId, int botId) {
-            try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(DELETE)) {
-                ps.setInt(1, charId);
-                ps.setInt(2, botId);
-                ps.executeUpdate();
+            try {
+                BotDbGate.write(() -> {
+                    try (Connection con = connections.get(); PreparedStatement ps = con.prepareStatement(DELETE)) {
+                        ps.setInt(1, charId);
+                        ps.setInt(2, botId);
+                        ps.executeUpdate();
+                    }
+                    return null;
+                });
             } catch (SQLException e) {
-                missing(e);
+                failed(e);
             }
         }
 
         @Override
         public Set<Integer> loadOptedIn() {
             Set<Integer> out = new HashSet<>();
-            try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(OPT_ALL);
+            try (Connection con = connections.get(); PreparedStatement ps = con.prepareStatement(OPT_ALL);
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     out.add(rs.getInt(1));
                 }
                 return out;
             } catch (SQLException e) {
-                missing(e);
+                failed(e);
                 return noTable(e) ? out : null;
             }
         }
 
         @Override
         public void setOptedIn(int charId, boolean in, long now) {
-            try (Connection con = BotDbGate.connection();
-                 PreparedStatement ps = con.prepareStatement(in ? OPT_IN : OPT_OUT)) {
-                ps.setInt(1, charId);
-                if (in) {
-                    ps.setLong(2, now);
-                }
-                ps.executeUpdate();
+            try {
+                BotDbGate.write(() -> {
+                    try (Connection con = connections.get();
+                         PreparedStatement ps = con.prepareStatement(in ? OPT_IN : OPT_OUT)) {
+                        ps.setInt(1, charId);
+                        if (in) {
+                            ps.setLong(2, now);
+                        }
+                        ps.executeUpdate();
+                    }
+                    return null;
+                });
             } catch (SQLException e) {
-                missing(e);
+                failed(e);
             }
         }
     }

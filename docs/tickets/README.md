@@ -1,5 +1,41 @@
 # SlumsMS tickets
 
+## 1.6.2 release closure (owner direction, 2026-10-31)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [168](168-finish-1.6.2-and-freeze-scope.md) | Finish 1.6.2 with fixed scope and explicit acceptance gates | Reconcile remaining promises, freeze additions, complete QA and prepare the owner go/no-go |
+
+Current status is in `/root/work/STATUS-1.6.2.md` and the release book; the older tables below are historical.
+
+## b269 pool forensics follow-ups (2026-11-01)
+
+From `agent-runs/server/269-dbpool-forensics/AUDIT.md` and the fix branch `269-dbpoolfix`. Documented, not changed.
+
+| # | Ticket | Severity |
+|---|---|---|
+| [174](174-roster-load-pool-get.md) | The roster and store snapshot reads bypass the bot share | S3 |
+
+## Lock-order follow-ups (2026-10-31)
+
+| # | Ticket | Priority |
+|---|---|---|
+| [173](173-life-runtime-lock.md) | `LifeRuntime.accepted` takes the bot's monitor over a PlayerStorage read (same family as b267, no cycle today) | S4, after 1.6.2 |
+
+## Economy (after 1.6.3, owner 2026-11-01)
+
+| # | Ticket | Status |
+|---|---|---|
+| [175](175-economy-rework-flea-lessons.md) | Economy rework: lessons from Tarkov's flea market (ideas and questions, decides nothing) | later (book e01) |
+
+## QA follow-ups (2026-10-31)
+
+| # | Ticket | Target |
+|---|---|---|
+| [169](169-botstory-qa-reference-adoption.md) | Borrow targeted QA diagnostics from BotStory | After 1.6.2; only minimal diagnostics/regressions for an existing blocker may enter the frozen release |
+| [170](170-cosmic-agents-qa-reference-adoption.md) | Borrow controlled QA fixtures from cosmic_agents | After 1.6.2; deduplicate shared BotStory tooling and preserve the release freeze |
+| [171](171-1.6.3-incremental-qa-and-formal-triage.md) | Incremental scripted QA with formal triage before fixes | 1.6.3 stabilization and balancing; required client proof and explicit map coverage |
+
 ## 1.5.1 technical review follow-ups (2026-10-24)
 
 Source review of 1.5.0 `06a724dfc`; all four tickets are open and need regression/runtime validation.

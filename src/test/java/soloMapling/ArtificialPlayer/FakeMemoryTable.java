@@ -6,9 +6,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -29,6 +31,8 @@ final class FakeMemoryTable {
     final AtomicLong nextId = new AtomicLong(1);
     /** How many times the pair was read from the "database" (cache misses). */
     final AtomicInteger pairReads = new AtomicInteger();
+    /** How many batched {@code BotId IN (...)} reads were issued. */
+    final AtomicInteger batchReads = new AtomicInteger();
     final boolean legacy;
 
     FakeMemoryTable(boolean legacy) {
@@ -50,6 +54,23 @@ final class FakeMemoryTable {
 
     private static long num(Object o) {
         return o == null ? 0 : ((Number) o).longValue();
+    }
+
+    /** The {@code ?} count inside the batched recent-notes read's {@code IN (...)} list (0 for any other statement). */
+    static int inListSize(String sql) {
+        int from = sql.indexOf("BotId IN (");
+        if (from < 0) {
+            return 0;
+        }
+        from += "BotId IN (".length();
+        int to = sql.indexOf(')', from);
+        int n = 0;
+        for (int i = from; i < to; i++) {
+            if (sql.charAt(i) == '?') {
+                n++;
+            }
+        }
+        return n;
     }
 
     private PreparedStatement statement(String sql) throws Exception {
@@ -144,6 +165,22 @@ final class FakeMemoryTable {
                             .forEach(r -> counts.merge((String) r.get("Kind"), 1, Integer::sum));
                     found = counts.entrySet().stream().map(e -> Map.<String, Object>of("Kind", e.getKey(), "N", e.getValue()))
                             .toList();
+                } else if (inListSize(sql) > 0) {
+                    batchReads.incrementAndGet();
+                    int n = inListSize(sql);
+                    Set<Integer> ids = new HashSet<>();
+                    for (int i = 1; i <= n; i++) {
+                        ids.add(((Number) bound.get(i)).intValue());
+                    }
+                    int hops = (int) num(bound.get(n + 1));
+                    found = rows.stream()
+                            .filter(r -> ids.contains(((Number) r.get("BotId")).intValue()) && num(r.get("Hops")) < hops)
+                            .sorted((x, y) -> {
+                                int byBot = Integer.compare(((Number) x.get("BotId")).intValue(),
+                                        ((Number) y.get("BotId")).intValue());
+                                return byBot != 0 ? byBot : Long.compare(num(y.get("CreatedAt")), num(x.get("CreatedAt")));
+                            })
+                            .map(HashMap::new).map(m -> (Map<String, Object>) m).toList();
                 } else if (sql.equals(BotMemory.RECENT_OF_BOT)) {
                     found = rows.stream()
                             .filter(r -> r.get("BotId").equals(bound.get(1)) && ((Number) r.get("Hops")).intValue() < (int) bound.get(2))

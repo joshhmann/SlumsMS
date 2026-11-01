@@ -32,9 +32,10 @@ produced 24 bogus errors once and a false "green" another time. A helper's "suit
 real run; if it ran builds in parallel, rerun.
 
 ## 5. Deploy to TEST and check it took
-`tools/ops/deploy-test` (it lists changed data files and migrations, restarts, fails on boot errors). Then confirm what
+`tools/ops/deploy-test` (it lists changed data files and migrations, restarts, fails on boot errors; TEST is on
+`mapletest`, 192.168.0.111, and `SLUMS_TEST_HOST` moves it). Then confirm what
 the change needs is actually live in the process, not just in files:
-`ssh root@192.168.0.164 'tr "\0" " " < /proc/$(systemctl show -p MainPID --value slums-persistence-test)/cmdline'`
+`ssh -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111} 'tr "\0" " " < /proc/$(systemctl show -p MainPID --value slums-persistence-test)/cmdline'`
 for JVM flags; config.yaml is read only at boot, so a config edit needs this restart too.
 
 ## 6. QA

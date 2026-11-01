@@ -204,6 +204,8 @@ run alongside.
 | `cv-9` `[line...]` | A friend bot next to you. `!qa do hold` says a line to it, unpins it and starts the wander a town wanderer's `ensureRoaming` starts (the walk that used to carry a chatting bot off). `!qa do sample` logs the distance again | `HOLD <bot>: <px> px from you, <s> s of hold left, with you\|WANDERED OFF (150 px)`. Every line must read "with you" for the 45 s after the last exchange: the conversation hold keeps it there (a third character does not push it away, personal space keeps the pair together). Auto-QA runs it as `t-cv-8` (five samples 5 s apart) |
 | `cv-10` | A friend bot in a party with you (ticket 85). Type in PARTY chat, or `!qa do say <line>` sends one for you | `CONVO PARTY CHAT <you>: "<line>" -> <bot> answers [1-name\|2-reply\|3-closest\|3-any]` then `CONVO PARTY SAY <bot>: <reply>` (the reply shows in party chat). A line naming the bot, or a reply to its last line, always gets an answer; a question or "guys" nearly always; plain chatter sometimes. One bot answers; at most 8 bot lines a minute. Auto-QA runs it as `t-cv-10` |
 
+| `cv-13` | The reply planner (`-Dsolomapling.convo.planner=true`, off by default; refuses without it). Warps you to Henesys (a town) and stages one social bot next to you. `!qa do grind` stages a second bot at the hunting ground and warps you there, `!qa do town` brings you back to Henesys, `!qa do party [line]` sends a party ask | Every planned reply logs `CONVO PLAN <bot> -> <you> <move>` and the line in `SAID`/the transcript: "hey" in town -> `hello`/`hello_back` naming the town or what it is doing, never grinding; "where should i train" -> `train_spot` with a spot from the bot's list; "what lvl r u" -> `level_talk` with its level and next goal, no begging; a hello while it grinds -> `hello` or `busy`, brief, naming the mob; a party ask -> `party_yes`/`party_no` matching what the game decided. Auto-QA reads the same rows back as `t-pl-1` |
+
 **Hanging around:** a bot in a conversation is held in place for 45 s after the last exchange (`BotConversation.HOLD_MS`, from the player's line, its reply, the typing time and a player who names the bot). Every ambient walk skips while `BotConversation.isHoldingChat` is true: the town wander (`BotWanderSystem`: an in-flight stroll is stopped and the dwell runs to the end of the hold), loiter (`TownLoiter`), fidget (`GCFidget`), `SocialBot`'s relocate, `TownWandererBot`/`HenesysBot` roaming, the training bot's town dwells, and personal space (`PersonalSpace.keepNow`: a partner keeps the pair 18-27 px apart, a third character no longer displaces the bot). Grinding combat is not held. It yields to a real reason to go: a shutdown quiesce, the logout curve, an event instance, or a drama scene (`heldByChat`).
 
 **`!rate`** (GM 1+, every server): `!rate good|bad [note]` rates the last line a bot said to you (10 min; a thread line
@@ -226,13 +228,15 @@ Gong, pick the party challenge, and watch the bots swing on floor 1, then on the
 
 | Test | What it stages | What to look for |
 |---|---|---|
-| `hc-1 [level]` | Warps you to the Henesys hunting ground (104040000, a map with mobs), spawns one Bishop (level 120 unless given, 1-200) next to you as a follower, and puts it in your party - the spawn `!bot trainhere bishop 120 1`, the follow and the party join a script cannot make without chat waits and an invite window. Refused when your party is full (6), the bot does not spawn, or the server runs without `-Dslums.bots.partysupport=true` (TEST and 1.6.2.conf set it). The feed gets one `STAGING` line naming it. `!qa stop` takes the bot out of the party and the world and disbands a party the run made. Runs 15 minutes | `STAGE FOLLOWER cid=<bot> job=BISHOP lv=<n> party=<id> gm=<you> id=<your id> map=104040000`; then `!hurt <you> 40` and the Bishop's `PARTY HEAL <bot> -> <you> ... sent SHOW_FOREIGN_EFFECT/1>map`, with the Heal column over the bot and your HP bar rising |
+| `hc-1 [level]` | Warps you to the Henesys hunting ground (104040000, a map with mobs), spawns one Bishop (level 120 unless given, 1-200) next to you as a follower, puts it in your party, and sets your own HP to 40% - the spawn `!bot trainhere bishop 120 1`, the follow, the party join and the `!hurt` a script cannot make without chat waits, an invite window or a character name. Refused when your party is full (6), the bot does not spawn, the hurt cannot be set, or the server runs without `-Dslums.bots.partysupport=true` (TEST and 1.6.2.conf set it). The feed gets two `STAGING` lines naming you. `!qa stop` takes the bot out of the party and the world and disbands a party the run made; your HP stays where the heal left it. Runs 15 minutes | `STAGE FOLLOWER cid=<bot> job=BISHOP lv=<n> party=<id> gm=<you> id=<your id> map=104040000`, `STAGE HURT cid=<your id> hp=<n>-><n> pct=40 map=104040000`; then the Bishop's `PARTY HEAL <bot> -> <you> ... sent SHOW_FOREIGN_EFFECT/1>map`, with the Heal column over the bot and your HP bar rising from about 40% |
 
 b140: a bot Bishop's party Heal must show the Heal column on a real client (1.6.2 sends the effect with the column's
-art). `qa-scripts/b140-bot-heal-column-staged.yaml` drives it: `!qa run hc-1`, waits for `MAP_CHANGE` and the
-`STAGING` line, hurts you, films from the hurt (10 fps for 5 s) and once more on the server's heal line, and checks
-the `SHOW_FOREIGN_EFFECT` packet and the rising HP samples. `qa-scripts/b140-bot-heal-column.yaml` is the by-hand
-version of the same scene (spawn, chat waits, invite window), kept for the day the client driver has chat anchors.
+art). `qa-scripts/b140-bot-heal-column-staged.yaml` drives it: `!qa run hc-1` (warp, follower, party and the GM at 40%
+HP, all server-side), waits on `MAP_CHANGE` and the two `STAGING` lines by char id only, films from the hurt (10 fps
+for 5 s) and once more on the server's heal line, and checks both `STAGING` lines and the heal line's
+`sent SHOW_FOREIGN_EFFECT/1>map`. Its captures are the two screenshot bursts and the client's chat log: today's QA
+build records no HP samples or packet traces. `qa-scripts/b140-bot-heal-column.yaml` is the by-hand version of the same
+scene (spawn, chat waits, invite window), kept for the day the client driver has chat anchors.
 Scenario class: `soloMapling.qa.HealColumnScenarios`.
 
 ## ex-1: party bots join your boss expedition (1.6.0)
@@ -324,6 +328,16 @@ Auto-QA t-xc-2 runs the same with AutoQaOne through the real `@nx leaf` command 
 
 Auto-QA t-xc-3 runs the same check (no player needed); t-xc-4 checks the guild-war news path the same way. The request named it t-mk-1, but mk-1 / t-mk-1 already belong
 to the 1.6.0 Market export.
+
+## xc-5: a trader that holds a scroll lists it (1.6.2, 162-xtraders)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `xc-5` | Needs `-Dslums.exchange=true`, `-Dslums.exchange.traders=true`, the CHAOS or WS ticker open and an online trader holding a Chaos or White Scroll (they find them hunting: one global row each at 1200/1,000,000 at a quarter of that rate (-Dslums.exchange.scrollFindRate, default 0.25), about 0.54 per trader-hour, so it may take a while - with no holder it SKIPs and says so). Reads every online holder's pick, then places and cancels one SELL of that scroll through the exchange from the trader's own holdings | the pick is the scroll the trader holds, never another ticker; the sell rests on the book as the bot's, its price is inside the ticker's band, exactly the quantity is escrowed and the cancel puts it straight back; no NX, no mesos and no scroll minted |
+
+Auto-QA `t-xc-5` runs the same probe (`marketScroll`). Before 162-xtraders a trader's ticker came from the dice only
+(LEAF 70%, else one of the four item tickers): 27 bots on TEST held a Chaos Scroll and not one exchange order for CHAOS
+had ever been placed.
 
 ## pq-2: OPQ bots (1.5.2)
 
@@ -429,11 +443,12 @@ Each run writes `logs/qa/<id>-<UTC yyyyMMddTHHmmssZ>.log` under the server's wor
 - `STEP` lines for `!qa do`.
 - At the end, `STOP`, one `CLEANUP` line per undo, and a `SUMMARY` with the event count per topic.
 
-Claude reads them on the test server:
+Claude reads them on the test server, which since 1.6.3 is `mapletest` (192.168.0.111, ssh alias `mapletest`, key
+`~/.ssh/id_slums_lxc`; `SLUMS_TEST_HOST` moves it, and 164 is live only):
 
 ```sh
-ssh root@192.168.0.164 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa/'
-ssh root@192.168.0.164 'cat /opt/mapleroot-dev/persistence-test/Server/logs/qa/fm-1-20261021T183005Z.log'
+ssh -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111} 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa/'
+ssh -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111} 'cat /opt/mapleroot-dev/persistence-test/Server/logs/qa/fm-1-20261021T183005Z.log'
 ```
 
 ## How it works
@@ -560,14 +575,28 @@ them (and undoes any LOD pin) itself. None of them is on the release allow-list.
   "hows ur day going": the draft must reach the model path, be rejected, retried with the model, and the retry pass or
   fall back (StateOfMind counters), and the untrue line is never said. SKIPs when the chat model is not live
   (`BotBrains`), which fails a release run: live answers with the model.
-- **t-nv-2 (ticket 157 item 3, "no trap maps"):** `NavTrapQa` searches the bots' world graph (`GCWorldGraph`:
-  walkable portals, curated scripted warps, BotTransit rides; no Hyper Rock) from Lith Harbor for one-way-in traps:
-  maps a bot can reach with no route back. FAILs on any trap not in the committed baseline
-  `src/main/resources/soloMapling/nav-trap-maps.txt` (generated from the WZ data: 485 of 1,471 reachable maps on
-  10-30, mostly Arcane River 450xxxxxx and Grandis 40xxxxxxx with one-way rides, plus Rien 140000000), or when the
-  graph did not load; lists baseline maps that now have a way back. `NavTrapQaTest` checks the baseline against the
-  WZ data where a checkout has it; after a deliberate data change regenerate it with
-  `mvn -o test -Dtest=NavTrapQaTest -Dwz-path=<wz> -DnavTrap.write=<baseline file>`.
+- **t-nv-2 (ticket 157 item 3, "no trap maps"):** `NavTrapQa` searches the bots' world graph from Lith Harbor for
+  one-way-in traps: maps a bot can reach with no route back. It steps the way the planner does for some bot
+  (`GCWorldGraph.waysOn`: walkable portals, curated scripted warps, BotTransit rides, the tours' way home to whichever
+  town was saved, and the Hyper Teleport Rock's jump home out of its `out_of` ranges; not the rock's jump in). FAILs on
+  any trap not in the committed baseline `src/main/resources/soloMapling/nav-trap-maps.txt` (the accepted real traps,
+  one reason each), or when the graph did not load; lists baseline maps that now have a way back. b230 (10-30) cut the
+  baseline from 485 to 0: 469 were intended one-way rides (Grandis and Arcane River, left by the rock; Malaysia, by the
+  tour home), 15 lacked a scripted way back the graph now has (Rien, Korean Folk Town's Black Mountain, Leafre's Cave of
+  Life) and one was a portal to a map with no Map.wz image (now no edge). `NavTrapQaTest` checks the baseline against
+  the WZ data where a checkout has it; after a deliberate data change regenerate it with
+  `mvn -o test -Dtest=NavTrapQaTest -Dwz-path=<wz> -DnavTrap.write=<baseline file>` and give every new map a reason.
+- **t-mp-1 (map routing, ticket s-maproute):** `MapRouting` and the jar. SKIPs when `-Dslums.maps.routing=false`. The
+  table must be loaded from `soloMapling/map-routing.tsv` (at least 40 routes, 30 blocked maps), every blocked map must
+  have a fallback that is not itself blocked and that `MapFactory.loadMapFromWz` really loads, Fountain Square's `in00`
+  door (410000300 -> Storage Cellar 993162016) must route back to the square, a character saved in 863010240 must land
+  on 863010000, every Rose Garden map past the entrance (211080100-211080700) must fall back to 211080000 while Roof
+  of the Fifth Tower (211061001) stays unblocked, 410000350 must NOT be blocked (client build 10721 fixed it), and the
+  Storage Cellar must still load nothing (a live image there means the table is stale). The bots' half is t-nv-2's
+  graph, which drops the same maps.
+- **t-mp-1, eyes part (map routing):** walk a door in a real client - Fountain Square's `in00`, a Gollux leg into the
+  abdomen (863010240) and the Rose Garden's `east00` - and check the client survives and the character is told it was
+  taken back.
 - **t-nv-3 (ticket 157's debug tools answer):** a fresh bot on HHG1 (pinned to full simulation for the check). The
   bot inspect API (`-Dslums.inspect`, port and secret file) must answer 403 to a request with no secret and one with a
   wrong one (the check never reads the secret), its `/bots/{cid}` view must be the bot (name, level, map), the pretend
@@ -809,6 +838,67 @@ Notes on what some checks prove:
 - **ga-2** checks each new machine NPC with the foothold rule and keeps it 40+ px from a portal.
 - **ch-1** reads `BotChannels.botsPerChannel()`: 5 channels, ch1-4 have bots, ch1 the busiest and ch5 the quietest, each within max(10, 25%) of its `BOT_CHANNEL_WEIGHTS` share.
 
+### Running checks in parallel (1.6.2, ticket 167)
+
+One run used to be one check at a time: 181 checks, 9578 s of check time (run `d4f103b0e`, 2026-10-30), and the two
+Kerning PQ checks alone were a quarter of it. Checks can now overlap on up to four lanes of synthetic players.
+
+- **Switch:** `-Dslums.autoqa.parallel=2..4` (default 1, clamped 1..4). 1 is today's serial run, in catalogue order,
+  with only `AutoQaOne` and `AutoQaTwo` logged in. The switch is read from the JVM (`AUTOQA_PARALLEL` in a release
+  conf, `start-test.sh` on TEST), not from `config.yaml`, so an old server's strict config can never trip on it.
+- **Who plays:** lane 1 keeps slots 1 (`AutoQaOne`, GM) and 2 (`AutoQaTwo`); lanes 2..4 get slots 7/8, 9/10, 11/12
+  (`AutoQaSeven` .. `AutoQaTwelve`), each lane's first player a GM so it can run `!qa`. The four observer slots 3..6
+  are untouched. Six extra characters exist on TEST only when a lane is used.
+- **What a check declares:** `Check.Builder.laneOnly()` when it only touches its own players, or
+  `.holds("map:<id>", "pq:<name>", "ch:<n>", ...)` for what it stages. **No declaration means `world`**: it runs alone,
+  exactly as every check did before. Leave the default when you are not sure, and annotate when evidence says the
+  check cannot be seen by another one.
+- **The rules** (`AutoQaScheduler`): a check starts when its keys are free and a lane is idle; a `world` check waits
+  for every lane to be empty and nothing starts beside it; checks that share a key never overlap; everything else may.
+  Results still come back in catalogue order, so two runs of the same build diff line by line.
+- **Logs:** two lanes that start the same scenario in the same second get two files — the second one's name carries
+  its GM id (`QaSuite` passes it as the suffix), so neither run overwrites the other's log. `QaLog` lines are
+  attributed per GM, so a check only ever reads its own lane's lines.
+- **Status:** `!autoqa status` lists every running check as `t-xx-n (lane k): <step>`. The report's run line gains
+  `parallel`, `wallSeconds` and `checkSeconds` (sum of the checks' own times), and its summary says
+  `on N lanes (W s wall, C s of checks)` when N > 1. Sum of check time divided by wall clock is the speed-up.
+- **What parallel cannot fix:** a check still has to wait for the game. Two checks that stage on the same map, or that
+  flip a world switch (`@botdrama`, `@romance`, `@quiet`, a guild war), stay serial. The catalogue's current split is
+  94 lane-only, 52 holding a map/PQ/market key and 40 holding the world (29 declared, plus the 11 manual checks
+  that never run unless asked and keep the default).
+- **Evidence that is the map's, not the check's:** if a check judges what bots do on a whole map (`MANNERS`, `TALLY`,
+  `WEALTH`, `TRADE SHOP`, `clumpsOnMyMap`) it holds that map, and if its probe sets a system property for the whole
+  server (`jobErrand` sets `JobErrand.TIMEOUT_PROP`, `familyPerks` sets `slums.family.bondingMin`) it holds the world.
+  Ticket 167's review found six lane-only checks that read map-wide lines (t-sp-1, t-cb-4, t-id-1, t-bs-1, t-wc-1,
+  t-vb-7) and two that set a global (t-jb-1, t-fy-2); all eight now hold the map or the world, and
+  `AutoQaSchedulerTest.checksThatReadMapWideLinesOrSetAGlobalPropertyDeclareIt` walks the catalogue so a new check
+  cannot slip back to `laneOnly()`. t-vb-7 holds the world because its staging and its storage/duey/trade steps act on
+  `AutoQaTwo` by name (lane 1's second player), not on the caller's lane.
+- **A probe's "both players" is the caller's lane:** `SyntheticPlayers.lanePair(slot)` / `partnerSlot(slot)` map a
+  caller to its own two players (`laneSlot`), and `engaged` / `notEngaged` / the family perks probe use them, so lane 2
+  never reads lane 1's player. Results are collected from the lanes into a synchronized list and rebuilt in catalogue
+  order (`AutoQaService.orderedByCatalogue`) before the report, the run line and the release verdict, so finishing
+  first never reorders the report.
+
+- **A stuck Kerning PQ run fails at 8 minutes** (`-Dslums.autoqa.kpqStallMin`, default 8, 0 = off): t-mx-1 and
+  t-mx-2 wait on the run's own `RUN` lines, so a run that stops reporting FAILs with "no stage cleared in 8 min"
+  instead of spending its 17/31-minute budget to the same timeout. The wait still passes the moment the verdict line
+  arrives, so a run whose stages clear is judged exactly as before.
+
+- **Longest-first packing** (1.6.3, ticket 163, `-Dslums.autoqa.longestFirst=true`, default off): with the switch on
+  and more than one lane, a free lane takes the pending check with the longest declared `.minutes(...)` budget instead
+  of the first one in catalogue order; ties keep the catalogue order. Nothing else changes — the keys, the world rule
+  and the catalogue-order report are the same, and at one lane the run order is untouched. Why: the packer used to
+  trail off behind whichever long check was left for last, and the world checks cannot overlap anything, so the
+  remaining work has to be spread evenly over the lanes. Replaying the 2026-10-31 run's own durations through the
+  scheduler (`latest.json`, 187 checks, 8331 s of checks) the four-lane wall clock falls from 4871 s to 4112 s and the
+  two-lane one from 6018 s to 5509 s. `AutoQaSchedulerTest.longestFirstPacksTheRealCatalogueTighter` walks the
+  catalogue with the checks' own budgets and fails if that gain disappears.
+
+Before trusting a parallel run, run the catalogue once at each setting on one build and diff the two reports: every
+check that passes alone must pass beside its neighbours, or its declaration is wrong and it needs the key it really
+uses. A check that fails only in parallel is the leak.
+
 ### 1.6.0 checks for features that shipped without one (owner 2026-10-27)
 
 Each is one probe in `soloMapling.autoqa.Probes160` (t-tw-1 two). A probe stages on the pretend players' own
@@ -832,6 +922,7 @@ line (`nothing could be judged here: SKIP OWNED_ALTS_ENABLED is off ...`). All r
 | t-xc-2 LEAF ticker | AutoQaOne (topped up to 20 tradeable Maple Leaves if short, taken back): the test regular, funded from its own mesos, bids for 10 leaves; `@nx leaf sell 10 <bid>` + confirm; after the cooldown `@nx leaf sell 10 <max>` + confirm, then `@nx cancel`; the regular is taken out | the sale takes exactly 10 leaves and fills, its mesos less 1% land at once; the resting sell takes 10 more and the cancel returns exactly those; the regular's 10 leaves come back; at the end the same leaves and exactly the two 1% fees fewer mesos; the exchange never halts | `-Dslums.exchange` off or LEAF closed |
 | t-xc-3 Market volatility | a secret 2-minute Leaf Rush, then an online trader bot's 1-leaf LEAF bid from its own mesos, cancelled | the leaf chance x3 during the Rush and back after; the bot's order rests on the book as the bot's; its mesos come back exactly | `-Dslums.market.events`, `-Dslums.exchange.traders` or `-Dslums.exchange` off |
 | t-xc-4 Guild war market news | war news on a private desk (no Cody notice, no banner) for an online trader's guild, then a resting 1-elixir bid from its own mesos, cancelled; the trader is one outside the 10 s order cooldown (the check waits it out once if every one is in it), and one short of 100,000 mesos is topped up for the check and exactly that is taken back; the evidence lists every trader's holdings | the trader's role reads AT_WAR_FRESH, ELIXIR pressure is above 0, its news action is an elixir buy; the bid rests on the book and the cancel succeeds | `-Dslums.exchange.traders` or `-Dslums.exchange` off, or ELIXIR closed |
+| t-xc-5 Scroll trading | an online trader that holds a Chaos or White Scroll: its pick this turn, then one SELL of that scroll through the exchange from its own holdings, cancelled | the pick is the held scroll (not the LEAF dice), the sell rests on the book inside the ticker's band, exactly its quantity is escrowed and the cancel returns it; SKIP with the measured find rate when no trader holds one | `-Dslums.exchange.traders` or `-Dslums.exchange` off, or no scroll ticker open |
 
 Not automated: how an owned alt's fight looks in a real client (its attack poses, the mob hit numbers, knockback),
 an alt's death in a real client, a boat catch-up (t-oa-1 follows through one walkable portal only),
@@ -926,6 +1017,23 @@ replaced by `{player}`. `latest.json` gets `chatQuality` (the headline, the scor
 chat 24h: 129 lines; relevance 100% (60 judged); stiff 0%; repeats 0%; unanswered 0/6 questions; say-do n/a backed (0 claims)
 ```
 
+#### Planned replies, daily (`PlannerReplies`, check `t-pl-1`)
+
+m02 (the reply planner) makes a decision before the model words anything: a `Move` (`hello`, `hello_back`,
+`small_talk`, `activity`, `train_spot`, `level_talk`, `busy`, `party_yes`, `party_no`) plus the facts it may use.
+Three of the planner's promises are judged from the same transcripts `t-cq-1` reads, over the last 24 h, with no
+in-game steps (the check `holds` the world and takes 2 minutes):
+
+| Rule | The row it reads | t-pl-1 FAILs when |
+|---|---|---|
+| A town is a town | `map`, `line` | A reply said on a town map (`StateOfMind.TOWNS`) claims the bot is grinding, training or farming right there (`StateOfMind.claimsGrindingInTown`) |
+| Filled before sent | `move`, `slots` | A reply the planner worded (the row has a `move`) reached a player with a literal `{slot}` in it (`slots=literal`) |
+| One bot chat an hour | `player`, `open`, `at` | One player heard from more than one bot that started the chat (`open`) inside any 60 minutes; the gap is `SocialGate.botChatGapMs()` (`-Dsolomapling.chat.botStartedPlayerGapMs`, 1 h) |
+
+Threads (a bot talking to the map, `player` `-`) are not replies to a player and are left out. The check SKIPs with
+the switch name when `solomapling.convo.planner` is off, and when no bot replied to a player in the window; a
+pre-m02 row carries no `move` or `open`, so the second and third rules only see what the planner itself wrote.
+
 #### Say-do: a bot does what it says (`BotConvo.ClaimRules`, `SayDo`, `ClaimActions`)
 
 The owner's goal. Every bot line (map chat and bubbles via `SocialCommands.BotFullChat`/`BotChatbubble`, reply
@@ -1005,11 +1113,15 @@ with lines from the test server's 2026-10-23 runs).
      FAILs when it runs out), `quietFor` (must stay empty), `mark`, `capture`, `fixture`, invites and chat;
    - `.expect(...)` from `Expects`: `has`, `atLeast`, `lacks`, `hasAfter`/`lacksBefore` around a mark, `inOrder`,
      `probe`, `rule`, `numbersWithin`, `judged`, `noEmoji`;
-   - `.minutes(n)` for the budget, and `.notNightly()` if a run leaves something behind.
+   - `.minutes(n)` for the budget, and `.notNightly()` if a run leaves something behind;
+   - `.laneOnly()` if it only touches its own two players, or `.holds(...)` for the map, PQ, channel or other
+     resource it stages (see "Running checks in parallel"). No declaration means `world`, and the check runs alone.
 2. A server fact the lines do not carry becomes a probe in `GameAutoQaWorld.probe`. Its first line is
    PASS/FAIL/SKIP, and `VAR name=value` lines set variables.
 3. `AutoQaCatalogTest` keeps the page order, checks that every `!qa run` scenario exists, and compiles every
    pattern. `AutoQaRunnerTest` drives the runner against a scripted world.
+4. Add the files the check proves to `src/main/resources/soloMapling/autoqa-coverage.tsv` (next section). The map is
+   pinned to the catalogue: a check with no row fails `AutoQaProofMapTest`.
 
 Patterns must match what the hook really writes (case, order, topic and note kind). `AutoQaCatalogPatternTest` feeds
 checks lines copied from the game's own format strings. Add a case there when you add or change a pattern. A
@@ -1020,4 +1132,90 @@ Tests: `GroundingAsSentTest` (synthetic grounding, sent positions), `ChatQuality
 `ClaimRulesTest`, `SayDoTest`, `BankClaimsTest`, `MerchantAdHonestyTest`, `FootholdCheckTest`, `SweepMathTest`, `HealthSweepTest`, `CoarseGroundTest`, `HenesysGroundWzTest` (needs wz/), `AutoQaRunnerTest`,
 `AutoQaReportTest`, `AutoQaCatalogTest`, `AutoQaCatalogPatternTest`, `LlmJudgeTest`, `SyntheticClientTest`,
 `Probes160Test`, `Probes164Test`, `AutoQaWaitTimeoutTest`, `AutoQaReleaseTest`, `NavTrapQaTest`, `SyntheticClientStatTest`, `DecideShadowSelfCheckTest`, `DailyCheckinRewindTest`, `SiteAuthQaTest`,
-`PlayerStorageTest`.
+`PlayerStorageTest`, `AutoQaSchedulerTest`, `AutoQaLanesTest`.
+
+- **t-mk-2 (ticket 112, the bots' Maker batch):** `ProbesMaker.makerBatch` stages one fresh lv-60 training bot with an empty bag
+  apart from 100 of a monster leftover, two cheap Maker-made junk equips and, first in the bag, a pricey one (fee more than
+  twice the cheap one); the wallet is exactly the two cheap fees. It calls `BotMaker.townBatch` once and checks the
+  made count, crystals, the gone equips, the meso drop (exactly the sum of `MakerItemFactory.getDisassemblyFee`), the pricey
+  equip kept (out of mesos, skipped) and both caps (`BotMaker.opsToday`, meter `makerbatch`) up by operations. SKIPs with
+  the flag name when `maker.botBatch` is off, and when the world cap has under 3 operations left. Cleanup despawns the bot, forgets its day and
+  gives the world meter's units back.
+
+### Proving one fix between merge times (ticket 164 b223)
+
+Auto-QA has 186 checks; a fix touches a handful of files. `tools/ops/autoqa-proof` turns the second into the first:
+it reads the coverage map and prints, for the files a branch changed, the check ids that prove them, ending in a line
+you can paste.
+
+```
+tools/ops/autoqa-proof 8c42275d9^..591127f79          # a commit range
+tools/ops/autoqa-proof                               # uncommitted changes in this worktree
+tools/ops/autoqa-proof --files src/main/java/soloMapling/mechanics/KpqStaging.java
+```
+
+Real output for the nav-traps branch:
+
+```
+auto-QA proof for 8c42275d9^..591127f79: 10 files
+  docs/ops/qa-suite.md                                                                 docs
+  src/main/java/soloMapling/ArtificialPlayer/BotTravelSystem/BotScriptedWarp.java      t-bt-2, t-nn-1, t-nn-2, t-nv-1, t-nv-3
+  src/main/java/soloMapling/ArtificialPlayer/GCMoveSystem/GCWorldGraph.java            t-bc-1, t-nn-1, t-nn-2, t-nv-1, t-nv-2, t-nv-3
+  src/main/java/soloMapling/autoqa/Probes164.java                                      t-gr-1, t-gr-2, t-nv-2, t-nv-3
+  src/main/resources/soloMapling/nav-trap-maps.txt                                     t-nv-2
+  src/test/java/soloMapling/autoqa/Probes164Test.java                                  unit test only (the suite covers it)
+  ...
+
+checks: 9 of 186
+  t-bc-1
+  t-bt-2
+  t-gr-1
+  t-gr-2
+  t-nn-1
+  t-nn-2
+  t-nv-1
+  t-nv-2
+  t-nv-3
+
+tools/ops/autoqa-run t-bc-1,t-bt-2,t-gr-1,t-gr-2,t-nn-1,t-nn-2,t-nv-1,t-nv-2,t-nv-3
+```
+
+Run that line on TEST (or hand it to the auto-QA queue) and the run's log is your proof. The tool never queues
+anything itself: it touches no server, and `tools/ops/autoqa-run` is still the only thing that talks to TEST
+(`mapletest`, 192.168.0.111; `SLUMS_TEST_HOST` overrides).
+
+What it says, per file: the checks it reaches, `docs` (a markdown file or `docs/`), `unit test only (the suite covers
+it)`, `every check (runner/platform file)` for the auto-QA runner itself, or `no check covers this file`. Three
+verdicts come in whole-change form:
+
+- `docs only, no proof run needed` — nothing to queue.
+- `tests only, no auto-QA run needed (the unit suite is the proof)` — the same.
+- `no check covers this change: run the unit suite, then decide by hand`, exit code 3 — a tool, a data file or a
+  script no check proves. Look at the check list for the nearest neighbour, or add a check (above) and a map row.
+
+Two more lines matter: `needs -Dslums.mechanics=true on the server for t-mx-1, ...` (the KPQ checks refuse and SKIP
+without the flag) and `manual-only, needs a person and a real client` for the ids in
+`src/main/resources/soloMapling/autoqa-release-skips.tsv` — those cannot be proven headless, so a mapped change to
+them still needs the owner's eyes.
+
+**The map** is one committed file, `src/main/resources/soloMapling/autoqa-coverage.tsv`: TAB-separated
+`check_id <TAB> key <TAB> note`. `check_id` is one id or a comma list, or `all` for runner/platform files every
+check needs. `key` is a path glob relative to the repo root (`**` crosses directories, `*` does not, `?` is one
+character), or `-D<property>=<value>` for a switch a check needs, or `-` for a check no file triggers (the 11
+manual-only ids). `note` says why the file belongs to those checks. Several rows may name the same check.
+
+`AutoQaProofMapTest` pins it: every catalogue id appears exactly once as a row (or in a list), every path glob
+matches at least one file in the worktree, the `-` rows are exactly the release skips, the KPQ files reach `t-mx-1`
+and `t-mx-2`, no path key claims `tools/release/*` or a docs page, and the printed id list still parses as a
+selector for `AutoQaService.select` / `tools/ops/autoqa-run`. So adding a check without a map row fails the build.
+`tools/ops/test_autoqa_proof.py` covers the tool itself (globs, the three verdicts, range mode on a throw-away repo,
+and that the printed line queues the same ids in `AUTOQA_LOCAL_DIR` mode):
+
+```
+python3 tools/ops/test_autoqa_proof.py
+```
+
+Write rows from evidence, not guesses: the `!qa` scenario and the probe a check drives tell you which files it
+really proves (a curated feature package such as `src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/**`),
+and a transitive "everything this class references" closure is useless because it marks every bot class as covered
+by every check.

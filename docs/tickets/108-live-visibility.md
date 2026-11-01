@@ -132,7 +132,7 @@ for 90 daily files.
 | Section | Contents |
 |---|---|
 | `population` | real players and bots online per channel; busiest 15 maps (map id, name, players, bots); session length histogram (under 10 min, 10-30, 30-60, 1-2 h, 2-4 h, over 4 h) and median for the window; distinct characters seen today |
-| `health` | tick ms per second (window avg and max), heap used/max, GC count and total/max pause in the window, CPU, threads; LLM queue depth, calls, failures, timeouts and avg latency per tier (local, Decide, cloud); DB save count, avg and max ms, pool active/waiting; `BotDbGate` overruns |
+| `health` | tick ms per second (window avg and max), heap used/max, GC count and total/max pause in the window, CPU, threads; LLM queue depth, calls, failures, timeouts and avg latency per tier (local, Decide, cloud); DB save count, avg and max ms, pool active/waiting; `BotDbGate` refusals (bot work the share had no room for) |
 | `failures` | per error signature: `sig`, logger, level, normalised message (at most 160 characters, with names and numbers stripped), count in the window, total, first seen, last seen, `rising` (window count at least 3x the 24 h average and at least 10), `new` (first seen in the last 24 h) |
 | `actions` | counts in the window and today: sign-ups, sign-ins, failed sign-ins, PQ starts/clears per PQ, boss runs/clears per boss, world events started/finished, trades (player-player, player-bot), board posts, price alerts sent, cash shop purchases and NX spent, Leaf shop purchases |
 | `economy` | the existing stats: `DashboardExporter` economy block (mesos in today, wealth percentiles), Track D market totals, NX rate, wealth index |

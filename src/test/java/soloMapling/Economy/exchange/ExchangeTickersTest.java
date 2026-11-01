@@ -208,7 +208,7 @@ class ExchangeTickersTest {
         Session s1 = store.login(1, 11);
         assertTrue(place(1, "LEAF", Side.SELL, 1_000, 10).ok());
         // an NX buy at a price that would cross never meets the leaf ask, and a CHAOS buy neither
-        Response nx = place(2, "NX", Side.BUY, 1_000_000, 100);
+        Response nx = place(2, "NX", Side.BUY, 5_000_000, 100);
         assertTrue(nx.ok());
         assertEquals("OPEN", nx.data().get("status"));
         Response chaos = place(2, "CHAOS", Side.BUY, 1_000_000, 1);
@@ -278,7 +278,7 @@ class ExchangeTickersTest {
                 "20 LEAF orders today");
         // ... but each ticker counts its own day: ELIXIR and NX still take orders
         assertTrue(e.place(new Place("o" + (n++), 1, 11, Side.BUY, 1_000, 1, "ELIXIR")).ok(), "per ticker, not all");
-        assertTrue(e.place(new Place("o" + (n++), 1, 11, Side.BUY, 100_000, 100, "NX")).ok());
+        assertTrue(e.place(new Place("o" + (n++), 1, 11, Side.BUY, 5_000_000, 100, "NX")).ok());
         now.addAndGet(86_400_001L);
         assertTrue(e.place(new Place("o" + (n++), 1, 11, Side.SELL, 2_000_000, 1, "LEAF")).ok(), "a new day");
     }
@@ -295,6 +295,9 @@ class ExchangeTickersTest {
         List<Map<String, Object>> ts = (List<Map<String, Object>>) j.get("tickers");
         Map<String, Object> nx = ts.get(0), leaf = ts.get(1);
         assertEquals("NX", nx.get("id"));
+        // the band an NX order may actually use (owner 2026-10-31 ~20:05 UTC), not the ticker's 1,000..100,000,000
+        assertEquals(NxGuard.NX_LOWEST, ((Number) nx.get("min_price")).longValue());
+        assertEquals(NxGuard.NX_HIGHEST, ((Number) nx.get("max_price")).longValue());
         assertEquals(1000, nx.get("max_open"), "NX keeps the exchange config's (the test's 1,000)");
         assertEquals(72L, nx.get("expiry_hours"));
         assertEquals(10, leaf.get("max_open"));
@@ -393,9 +396,9 @@ class ExchangeTickersTest {
         assertTrue(e.fundHouseLive(1, store.finder().find(9), Asset.MESO, 100_000_000, false).ok());
         assertTrue(e.fundHouseLive(1, store.finder().find(9), Asset.NX, 1_000, false).ok());
         store.logout(9);
-        assertTrue(e.place(new Place("a", 1, 11, Side.SELL, 1_000_000, 100)).ok());
+        assertTrue(e.place(new Place("a", 1, 11, Side.SELL, 5_000_000, 100)).ok());
         now.addAndGet(20_000);
-        assertTrue(e.place(new Place("b", 2, 12, Side.BUY, 1_200_000, 100)).ok());
+        assertTrue(e.place(new Place("b", 2, 12, Side.BUY, 6_000_000, 100)).ok());
         e.tickRegulars();
         assertTrue(e.depth("LEAF", Side.BUY, 5).isEmpty() && e.depth("LEAF", Side.SELL, 5).isEmpty());
     }
@@ -488,12 +491,12 @@ class ExchangeTickersTest {
         LiveWallet w = store.finder().find(1);
         // regular 1 (a configured one, not the QA test regular) bids, a player sells into it
         assertTrue(ex.fundHouseLive(1, w, Asset.MESO, 1_000_000, true).ok());
-        assertTrue(ex.placeRegularForQa(1, Side.BUY, 1_000_000, 100).ok());
+        assertTrue(ex.placeRegularForQa(1, Side.BUY, 5_000_000, 100).ok());
         now.addAndGet(20_000);
-        assertTrue(ex.preview(new Place("r1", 1, 11, Side.SELL, 1_000_000, 100, "NX")).ok());
+        assertTrue(ex.preview(new Place("r1", 1, 11, Side.SELL, 5_000_000, 100, "NX")).ok());
         assertTrue(ex.confirmLatest("r1c", 1).ok());
         Map<String, Object> t = publicOf("NX");
-        assertEquals(1_000_000L, ((Number) t.get("last")).longValue());
+        assertEquals(5_000_000L, ((Number) t.get("last")).longValue());
         assertEquals(1, candlesOf("NX").size());
         assertFalse(ex.isQaFill(ex.lastTrades("NX", 1).get(0).id()));
         // and a plain player-to-player leaf trade
@@ -504,7 +507,7 @@ class ExchangeTickersTest {
         assertTrue(ex.confirmLatest("r2c", 1).ok());
         assertEquals(P, ((Number) publicOf("LEAF").get("last")).longValue());
         ex = start();
-        assertEquals(1_000_000L, ((Number) publicOf("NX").get("last")).longValue(), "after a restart too");
+        assertEquals(5_000_000L, ((Number) publicOf("NX").get("last")).longValue(), "after a restart too");
         assertEquals(P, ((Number) publicOf("LEAF").get("last")).longValue());
     }
 

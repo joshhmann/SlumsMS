@@ -31,6 +31,14 @@ final class BotStateOfMind {
     private BotStateOfMind() {
     }
 
+    /** How far above or below the bot a level may be for that player's own training spots to be places it knows. */
+    static final int LEVEL_REACH = 25;
+
+    /** Whether a bot of {@code botLevel} could plausibly know the training spots of a player of {@code theirLevel}. */
+    static boolean reaches(int botLevel, int theirLevel) {
+        return Math.abs(theirLevel - botLevel) <= LEVEL_REACH;
+    }
+
     /**
      * The snapshot for {@code bot} answering {@code player}. {@code history}: the chat's turns (oldest first);
      * {@code spoken}: the bot already said something in this chat; {@code offer}: an open trade offer or null;
@@ -44,11 +52,14 @@ final class BotStateOfMind {
         StateOfMind.Builder b = StateOfMind.builder();
         b.bot(bot.getName(), bot.getLevel(), job(bot));
         int mapId = bot.getMapId();
+        List<String> mobs = List.of();
         if (safe(bot::getMap, null) != null) { // a bot always stands on a map; a staged one without it knows no place
-            b.here(new StateOfMind.Place(mapId, mapName(bot), region(mapId)), mobsOn(bot));
+            mobs = mobsOn(bot);
+            b.here(new StateOfMind.Place(mapId, mapName(bot), region(mapId)), mobs);
         }
         BotRoster.Activity doing = safe(sm::activitySnapshot, null);
-        String activity = BotChatPrompt.activityPhrase(doing == null ? null : doing.name());
+        String activity = claimedActivity(BotChatPrompt.activityPhrase(doing == null ? null : doing.name()),
+                mobs.isEmpty());
         String step = null;
         if (sm instanceof soloMapling.ArtificialPlayer.BotTypes.TrainingBot training
                 && soloMapling.ArtificialPlayer.BotLifeSystem.LifeRuntime.enabled()) {
@@ -81,7 +92,9 @@ final class BotStateOfMind {
                 List.<TrainingTips.Spot>of())) {
             b.knows(new StateOfMind.Place(spot.mapId(), spot.name(), region(spot.mapId())), spawnNames(spot.mapId()));
         }
-        if (worldTalk && player != null) {
+        if (worldTalk && player != null && reaches(bot.getLevel(), player.getLevel())) {
+            // stage B (owner's step 5): the asker's own level's spots are only "places you know" when their level is
+            // within reach of the bot's - a level 40 bot never claims Platoon Chronos for a level 200 player
             int pJob = safe(() -> player.getJob().getId(), 0);
             for (TrainingTips.Spot spot : safe(() -> TrainingTips.spotsFor(player.getLevel(), pJob, 2),
                     List.<TrainingTips.Spot>of())) {
@@ -104,6 +117,9 @@ final class BotStateOfMind {
             boolean known = spoken;
             try {
                 for (BotMemory.Note n : BotMemory.about(slot, player.getId())) {
+                    if (n.kind() == BotMemory.Kind.PROGRESS) {
+                        continue; // the level snapshot is the reply planner's fact, not something the bot remembers
+                    }
                     if (n.source() == BotMemory.Source.DIRECT) {
                         known = true;
                         notes.add(n.text());
@@ -202,6 +218,15 @@ final class BotStateOfMind {
         }
     }
 
+    /**
+     * b240 (the owner, 10-31): what the prompt may say the bot is doing right now. A roster role is a plan - a bot
+     * whose role is grinding is still standing in a town while it walks to its spot or sells, and "doing: grinding"
+     * next to "a town: no monsters here" is what made regulars say they were grinding in Henesys.
+     */
+    static String claimedActivity(String phrase, boolean town) {
+        return town && "grinding".equals(phrase) ? "hanging out in town" : phrase;
+    }
+
     private static String nameOf(int mapId) {
         try {
             String place = server.maps.MapFactory.loadPlaceName(mapId);
@@ -220,6 +245,11 @@ final class BotStateOfMind {
         } catch (RuntimeException | LinkageError e) {
             return -1;
         }
+    }
+
+    /** b240: the monsters a bot's map holds - alive now, then on its spawn list - as the snapshot lists them. */
+    public static List<String> monstersHere(Character bot) {
+        return bot == null ? List.of() : mobsOn(bot);
     }
 
     /** The monsters on the bot's map: the ones alive now, then the map's spawn list. */

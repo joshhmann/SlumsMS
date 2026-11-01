@@ -1,0 +1,152 @@
+# b269 fix branch — 269-dbpoolfix
+
+Findings are numbered as in `agent-runs/server/269-dbpool-forensics/AUDIT.md`. Commit 1 of this branch is the helper
+harness's work verbatim (`s-dbpool`, commandcode), so its diff stays reviewable against that harness's REPORT.md; every
+commit after it is one finding, with its own test.
+
+| Finding | State | Commit | What it does |
+|---|---|---|---|
+| F1 (blocker) | fixed | `b269 fix 1` | `BotPopulationDirector.askLogin` answers `LOGGED_IN` / `QUEUED` / `REFUSED`; the guild show-up spends its 2-hour token only when a login was taken on; the romance show-up spends its 30-minute token only then; a queued rage-quit return keeps its promise |
+| F6 (functional) | fixed | `b269 fix 6` | paced boot fill (`LoginPace`: 8 in flight, 8 a second), tick budget follows the pace |
+| F8 (high) | fixed | `b269 fix 8` | `BotDbGateLoadTest`'s gossip test builds plain `Character` doubles, so it needs no config.yaml |
+| Timeouts/observability | fixed | `b269 pool timeout and share log` | `connectionTimeout` 30 s → 10 s; one `BotDbGate: …` line a minute with the pool beside it |
+| F3/F4/F5 | documented | `b269 documented what the cap does not cover` | 3 permits a login, the ungated sites, and the silent-write rule, in `BotDbGate`'s class notes and below |
+
+## F1 — a refused or queued login is not "no"
+
+`BotPopulationDirector.logInBounded` answered a boolean. On a virtual thread (every `ExecutorServiceManager.runAsync`
+caller) it hands the login to the `bot-db-*` threads and answers `false` — "not in the world" — which is correct as a
+fact but wrong as an answer to "will it come?". Three callers read the `false` as a refusal and reacted by burning
+their own cooldown: `BotGuilds.showUp` spent the guild's 2-hour show-up token *before* even asking (so a refused
+show-up went silent for two hours), `BotRomance.tend` had the login attempt inside the `take` conjunction (inside the
+30-minute partner token), and `RageQuit.step` dropped the `returning` entry, so the rage-quitter's comeback line never
+fired for a login that was in fact on its way.
+
+Now `askLogin(botId)` says what happened: `LOGGED_IN`, `QUEUED` (a `bot-db` thread is logging it in now, it lands in a
+few hundred milliseconds) or `REFUSED` (nothing was started; ask again later). `logInBounded` keeps its historical
+boolean contract and is now a thin wrapper over it, and a queued login is deduplicated per bot (`queuedLogins`), so
+repeated asks cost nothing.
+
+- `BotGuilds.showUpNow`: the token is checked with the new `due()` and spent only when at least one member's login was
+  taken on; a refused member is skipped and the next one is asked, instead of the whole show-up ending.
+- `BotRomance.tend`: `DramaKit.free()` gates the ask, `take()` only after a `QUEUED`/`LOGGED_IN` answer; a refusal logs
+  "could not log in yet … asking again next step" instead of passing for "no".
+- `RageQuit.RealExit.comeBack`: returns true only for `LOGGED_IN`; `step()` keeps the `returning` entry while
+  `loginQueued(charId)` holds, so `onBotLogin` still says the comeback line when the queued login lands.
+- `RomanceWedding.java:157` and `GuildBossRuns.java:515` keep `logInBounded`: both run on a platform thread (a packet
+  handler and the boss-run tick), where the boolean cannot mean "queued".
+
+Test: `BotLoginAskTest` (3) — a virtual thread's ask is `QUEUED` in under a second and never `REFUSED`, `logInBounded`
+on a virtual thread still answers `false` for a queued login, a platform ask for a slot the roster does not hold is
+`REFUSED`. `GuildShowUpLoginTest` (3) — a refused show-up returns 0 and leaves the 2-hour token free (the next step may
+ask again), a show-up that was taken on holds for two hours, a refusal moves on to the next member, and another guild's
+number is never asked for.
+
+## F6 — the boot fill is paced, not a burst
+
+`BotPopulationDirector.start()` called `tick(Integer.MAX_VALUE)` and the tick scheduled every login with
+`spreadMs = 0`, so a boot fill handed all 3,000 logins to the `bot-db-*` threads at once; every login that could not
+take its three permits was refused, and the only retry was the director's 25-per-30-seconds budget — 50 a minute,
+slower than the fill, which is how a bad minute turned into an hour of half-populated world.
+
+Now `LoginPace` owns both halves of the pace: at most `BOT_DIRECTOR_BOOT_FILL_IN_FLIGHT` logins in flight (8) and at
+most `BOT_DIRECTOR_BOOT_FILL_PER_SECOND` starts a second (8; 0 = no rate limit, the 1.6.2 behaviour). Offering never
+blocks the tick — the plan is handed over and the pace drains it on the scheduler — and a bot is queued once however
+many ticks re-plan it. `loginBudget` lets a tick plan as much as the pace carries in a tick, so a refused login is
+retried at the pace it was made at rather than at 50 a minute. 8 a second fills 3,000 bots in about six minutes, and
+eight in flight keeps the queue warm without flooding the pool: two logins at a time fit the bots' six permits.
+
+The default therefore differs from 1.6.2 in two ways: logins no longer burst (concurrency cap) and they are no longer
+started back to back (rate). Setting `BOT_DIRECTOR_BOOT_FILL_PER_SECOND = 0` keeps only the concurrency cap.
+
+Test: `BootFillPaceTest` (4) — never more than the cap in flight, offering 500 logins while every slot is busy returns
+without waiting, a bot is queued once however many ticks plan it, and starts are spread at the configured rate. The
+pace is tested directly: a tick test would need the whole roster and config, and the tick does nothing but offer the
+plan to the pace.
+
+## F8 — the gossip batching test needs no config file
+
+`BotDbGateLoadTest#aPopulationTickReadsOnceHoweverManyBotsAreOnline` built 3,000 real characters with
+`Character.getDefault(new BotClient(0, 0))`, which initialises `CharsetConstants` and reads `config.yaml` through
+`YamlConfig`. On a checkout without that file the test errored with `ExceptionInInitializerError` (audited at
+`BotDbGateLoadTest.java:195`), so the claim that a gossip round is one read had no coverage in CI — it only passed on a
+machine that happened to have a config, and it also paid for item templates and charset setup that a statement count
+does not need.
+
+The test now builds `Character` doubles (`mock(Character.class)` with `getId()`/`getName()`), which is all
+`BotGossip.step` reads before it decides how much to fetch. Nothing else in the test touches config: the fake memory
+table answers through Mockito, and `BotDbGate` is exercised through its own seams.
+
+Test: `BotDbGateLoadTest#aPopulationTickReadsOnceHoweverManyBotsAreOnline` passes with `config.yaml` moved out of the
+working tree — 3,000 bots over 250 maps, one `BotId IN (...)` read (`FakeMemoryTable.batchReads == 1`).
+
+## Timeout and observability
+
+`DatabaseConnection.getConfig()` asked Hikari for its default 30-second `connectionTimeout`, so a wedged pool let
+borrowers — a player login among them — sit for half a minute before failing. It is 10 seconds now
+(`DatabaseConnection.java:79`): long enough for a healthy pool under the gate's six-permit cap, short enough that a jam
+fails loudly and quickly instead of freezing logins.
+
+`BotDbGate.startStatsLogging()` (started by the bot director) logs one line a minute:
+
+    BotDbGate: 2 of 6 bot permits in use, 0 refused so far; pool active=2 idle=8 total=10 waiting=0
+
+`statsLine(stats, pool)` renders it from `BotDbGate.stats()` (permits, free, refusals) and
+`DatabaseConnection.poolStats()` (active, idle, total, waiting), with `pool not started` before the pool exists. The
+gate wait stays 15 s and the pool stays at 10 connections: with the hard cap the share is the only thing bots queue on,
+and a longer wait would only keep a `bot-db` thread busy with work that is going to be refused anyway.
+
+Test: `BotDbGateTest#theMinuteLineShowsTheShareTheRefusalsAndThePool` — the line's numbers come from the two read-outs,
+and the pool-absent case says so.
+
+## F3, F4, F5 — what the cap does and does not cover
+
+Documented, not changed: the point of the gate is a hard cap plus no waiting on virtual threads, and each of these is
+either correct as it stands or is cured by the paced fill rather than by another mechanism.
+
+**F3 — a login charges three permits, and `LOGIN_SLOTS` never binds.** `BotPopulationDirector.logInNow` takes
+`LOGIN_SLOTS` (8) and then loads the bot through the gate; the load is one `hold(CHARACTER_LOAD = 3, …)` and every
+borrow nested inside it (`BotStore` item load, pet load) runs on the same thread, which the gate does not count again.
+So the six-permit share holds at most **two** logins at a time, and a third waits on the gate, not on `LOGIN_SLOTS`.
+The semaphore is a backstop for the paths that do not go through the gate (see F4); it is not the boot fill's pace.
+`LoginPace` is.
+
+**F4 — thirteen ungated borrow statements in eleven bot classes.** Verified by grep in this tree:
+
+    src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeMemoryStore.java:142
+    src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/MakerPlan.java:113
+    src/main/java/soloMapling/ArtificialPlayer/BotNames.java:305
+    src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotRebirth.java:472, 499, 539
+    src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/OffscreenBossRun.java:280
+    src/main/java/soloMapling/ArtificialPlayer/BotRoster.java:407
+    src/main/java/soloMapling/ArtificialPlayer/BotSellerCaps.java:183
+    src/main/java/soloMapling/ArtificialPlayer/BotStore.java:740
+    src/main/java/soloMapling/ArtificialPlayer/BotYieldStore.java:50
+    src/main/java/soloMapling/ArtificialPlayer/FamilyQa.java:140
+    src/main/java/soloMapling/ArtificialPlayer/PlayerWealthIndex.java:229
+
+Two of them are deliberate (the roster's and the store's one-time loads run under the locks other bot threads queue
+on, so counting them could deadlock; `BotYieldStore`'s read follows the same rule); the other nine are cache-miss reads
+that borrow one connection for one statement and never run per tick. `BotDbGate.unmetered` has exactly one caller,
+`BotStore.java:1034` inside the shutdown save sweep, which is why it is safe there: every bot is being written once and
+nothing else is running.
+
+**F5 — a refused write on a virtual thread is lost, and that is the design.** `BotMemory` runs its writes on
+`ExecutorServiceManager.runAsync` (virtual threads), so they take the non-blocking path:
+
+- `BotMemory.java:391` — followed-up stamps (`update(FOLLOWED_UP, …)`, debug on failure);
+- `BotMemory.java:635` — `writeConversationNotes` → `MemoryFacts.remember`; a refused `insert` warns and leaves the
+  note in memory only (`BotMemory.java:603-606`);
+- `BotMemory.java:773` — the age sweep's `delete`, debug on failure;
+- `BotMemory.java:991` — used-note stamps (`update(TOUCH, …)`), debug on failure.
+
+Making those block would put virtual threads back on the gate, which is what pinned carriers on 2026-11-01, so the
+answer is the paced fill: refusals are meant to be rare enough to count, and the minute line reports them. A future
+change that needs durability for one of these writes should move it to a `bot-db` thread
+(`ExecutorServiceManager.runBotDb`) rather than make the virtual thread wait.
+
+**Numbering note.** F2 (the load test's 1,000 ms budget is generous: the pre-fix run failed on the refusal/peak
+assertions, not on timing) and F7 (timeouts and the minute line) are not separate commits: F7 is the
+"timeout and observability" commit, and F2 needs no code change — the timing assertion is a smoke budget, and the
+assertions that actually separate the old gate from the new one are the refusal and peak counts, which do fail on the
+old gate (see AUDIT.md §3).

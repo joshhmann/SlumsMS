@@ -35,6 +35,8 @@ var expedName = "Scarga";
 var expedBoss = "Scarlion and Targa";
 var expedMap = "Spooky World";
 var expedItem = 4032246;
+var expedQuest = 4576; // "Off to the Fantasy Theme Park": its reward is the pass above
+const ExpeditionBots = Java.type('soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots');
 
 var list = "What would you like to do?#b\r\n\r\n#L1#View current Expedition members#l\r\n#L2#Start the fight!#l\r\n#L3#Stop the expedition.#l";
 
@@ -97,7 +99,8 @@ function action(mode, type, selection) {
         } else if (status == 1) {
             if (selection == 1) {
                 if (!cm.haveItem(expedItem)) {
-                    cm.sendOk("As the expedition leader, you must have on your inventory a #b#t" + expedItem + "##k to battle " + expedBoss + "!");
+                    // b075: say where the pass comes from (quest 4576 "Off to the Fantasy Theme Park", Lam 9270062)
+                    cm.sendOk("As the expedition leader, you must have a #b#t" + expedItem + "##k in your inventory to battle " + expedBoss + ".\r\n\r\n#bLam#k gives you one when you complete #b#y" + expedQuest + "##k.");
                     cm.dispose();
                     return;
                 }
@@ -154,8 +157,8 @@ function action(mode, type, selection) {
                 }
                 var min = exped.getMinSize();
                 var size = expedition.getMemberList().size();
-                if (size < min) {
-                    cm.sendOk("You need at least " + min + " players registered in your expedition.");
+                if (size < min) { // b075: say who is missing and why, not just the minimum
+                    cm.sendOk(ExpeditionBots.shortfall(player, expedition));
                     cm.dispose();
                     return;
                 }

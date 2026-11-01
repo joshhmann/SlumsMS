@@ -22,6 +22,30 @@ class CompanionSwitchesTest {
         assertFalse(fresh.OWNED_ALTS_INVITE_SUMMON_ENABLED);
     }
 
+    /** 1.6.3 s-lanes: the lanes order is opened by its own {@code -D}, off unless a server starts with it. */
+    @Test
+    void theLanesSwitchOpensTheLanesOrder() {
+        String was = System.getProperty("slums.alts.lanes");
+        try {
+            System.clearProperty("slums.alts.lanes");
+            assertFalse(CompanionSwitches.lanes());
+            assertFalse(CompanionSwitches.allowed(true).contains(Verb.LANES));
+            System.setProperty("slums.alts.lanes", "false");
+            assertFalse(CompanionSwitches.lanes(), "only true turns it on");
+            System.setProperty("slums.alts.lanes", "true");
+            assertTrue(CompanionSwitches.lanes());
+            assertTrue(CompanionSwitches.any());
+            assertTrue(CompanionSwitches.stances());
+            assertTrue(CompanionSwitches.allowed(true).contains(Verb.LANES));
+        } finally {
+            if (was == null) {
+                System.clearProperty("slums.alts.lanes");
+            } else {
+                System.setProperty("slums.alts.lanes", was);
+            }
+        }
+    }
+
     @Test
     void eachSwitchOpensItsOwnCommands() {
         ServerConfig c = YamlConfig.config.server;

@@ -19,11 +19,12 @@
 #   deployed-commit.txt  Server/DEPLOYED_COMMIT
 #   collect.json         what was pulled, when, from where, and anything that failed
 #
-# READ-ONLY on 164 and TEST ONLY: every remote command below is a read (journalctl, find, cat, python3 reading a
-# file). The TEST paths are fixed here; the live folder, unit and port are refused if they ever appear.
+# READ-ONLY on TEST ONLY (root@$SLUMS_TEST_HOST, default 164 until the 1.6.3 TEST cutover, then mapletest 192.168.0.111): every remote command below is a
+# read (journalctl, find, cat, python3 reading a file). The TEST paths are fixed here; the live folder, unit and port
+# are refused if they ever appear.
 set -euo pipefail
 
-HOST=root@192.168.0.164
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"   # TEST_HOST, test_ssh, TEST_SSH_OPTS
 UNIT=slums-persistence-test
 SERVER=/opt/mapleroot-dev/persistence-test/Server
 RUNS_ROOT=${QA_RUNS_ROOT:-/root/work/qa-runs}
@@ -40,7 +41,7 @@ while [ $# -gt 0 ]; do
         --checks) checks=${2:-}; shift 2 ;;
         --pad) pad=${2:-}; shift 2 ;;
         --dry-run) dry=1; shift ;;
-        -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
         *) die "unknown argument $1" ;;
     esac
 done
@@ -68,9 +69,9 @@ run_real=$(realpath -m "$run")
 case "$run_real/" in "$root_real"/*/*) ;; *) die "the run folder must be inside $RUNS_ROOT/<date>/" ;; esac
 out="$run_real/server"
 
-remote() {   # one read-only command on 164
-    if [ "$dry" = 1 ]; then echo "ssh $HOST $1"; return 0; fi
-    ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" "$1"
+remote() {   # one read-only command on TEST
+    if [ "$dry" = 1 ]; then echo "ssh ${TEST_SSH_OPTS[*]} root@$TEST_HOST $1"; return 0; fi
+    test_ssh "$1"
 }
 
 if [ "$dry" = 1 ]; then
@@ -133,11 +134,11 @@ elif ! remote "cat $SERVER/DEPLOYED_COMMIT" > "$out/deployed-commit.txt"; then
 fi
 
 [ "$dry" = 1 ] && exit 0
-python3 - "$out/collect.json" "$from" "$to" "$pad" "$chars" "$checks" "${failed[@]+"${failed[@]}"}" <<'PY'
+python3 - "$out/collect.json" "$from" "$to" "$pad" "$chars" "$checks" "$TEST_HOST" "${failed[@]+"${failed[@]}"}" <<'PY'
 import json, sys, datetime
-path, f, t, pad, chars, checks, *failed = sys.argv[1:]
+path, f, t, pad, chars, checks, host, *failed = sys.argv[1:]
 json.dump({"collected_utc": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-           "host": "192.168.0.164", "unit": "slums-persistence-test",
+           "host": host, "unit": "slums-persistence-test",
            "server": "/opt/mapleroot-dev/persistence-test/Server", "from_utc": f, "to_utc": t, "pad_s": int(pad),
            "chars": [int(c) for c in chars.split(",") if c], "checks": [c for c in checks.split(",") if c],
            "failed": failed}, open(path, "w"), indent=1)

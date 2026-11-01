@@ -53,16 +53,21 @@ everything. The agent writes scripts and reviews recordings; it never steers liv
 
 ### Stage hooks landed (branch 162-b140stage)
 
-- `!qa run hc-1` (`HealColumnScenarios`, `QaWorld.stageFollowerBot` / `unstageFollowerBot`) stages the b140 scene
-  server-side for the calling GM: the warp to 104040000, one Bishop follower (the `!bot trainhere` spawn + follow +
-  party join) and one `STAGING` feed line (`STAGE FOLLOWER cid=... job=BISHOP lv=... party=... gm=... id=... map=...`)
-  whose chars are the GM's id. `!qa stop` takes the bot out of the party and the world and disbands a party the run
-  made. It refuses without `-Dslums.bots.partysupport=true` (the party heal's switch) and with a full party.
+- `!qa run hc-1` (`HealColumnScenarios`, `QaWorld.stageFollowerBot` / `hurtTo` / `unstageFollowerBot`) stages the b140
+  scene server-side for the calling GM: the warp to 104040000, one Bishop follower (the `!bot trainhere` spawn + follow
+  + party join), the GM's own HP down to 40% (what `!hurt <name> 40` does, without needing the name), and two `STAGING`
+  feed lines (`STAGE FOLLOWER cid=... job=BISHOP lv=... party=... gm=... id=... map=...`,
+  `STAGE HURT cid=... hp=...->... pct=40 map=...`) whose chars are the GM's id. `!qa stop` takes the bot out of the
+  party and the world and disbands a party the run made. It refuses without `-Dslums.bots.partysupport=true` (the
+  party heal's switch), with a full party, and when the hurt cannot be set.
 - `qa-scripts/b140-bot-heal-column-staged.yaml` is the milestone script on that hook: built client signals for login,
-  server lines for everything after (`MAP_CHANGE`, `STAGING`, `COMBAT`), `!hurt`, the 10 fps burst from the hurt, a
-  second burst on the heal line, HP samples and a `SHOW_FOREIGN_EFFECT` packet check. No chat wait, no invite window.
-- The by-hand `qa-scripts/b140-bot-heal-column.yaml` stays for the day the driver can do chat and window anchors; the
-  two share captures and checks.
+  server lines for everything after (`MAP_CHANGE`, `STAGING` twice, `COMBAT`), all matched by char id (`char: me`) with
+  no character name anywhere, the 10 fps burst from the staged hurt, a second burst on the heal line, and the client's
+  own chat log. Checks are the feed lines only (`... sent SHOW_FOREIGN_EFFECT/1>map`): the build records no HP samples
+  and no packet traces. No chat wait, no invite window.
+- The by-hand `qa-scripts/b140-bot-heal-column.yaml` stays for the day the driver can do chat and window anchors (it
+  passes `${me.name}` to `!hurt` and `!bot remove`): the two share the reviewer lines and the two bursts, and the by-hand
+  one adds the HP samples and the `SHOW_FOREIGN_EFFECT` packet check the build cannot record yet.
 
 ## Lanes
 

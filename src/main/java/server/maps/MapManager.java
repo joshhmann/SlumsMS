@@ -19,6 +19,8 @@
 */
 package server.maps;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import scripting.event.EventInstanceManager;
 
 import java.util.HashMap;
@@ -28,6 +30,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class MapManager {
+    private static final Logger log = LogManager.getLogger(MapManager.class);
+
     private final int channel;
     private final int world;
     private EventInstanceManager event;
@@ -61,6 +65,15 @@ public class MapManager {
     private synchronized MapleMap loadMapFromWz(int mapid, boolean cache) {
         MapleMap map;
 
+        // s-maproute: nothing is substituted behind a direct getMap. A map id the server has no image for, or one
+        // the routing table blocks, is no map at all: a script that asked for it gets null instead of silently
+        // acting on Henesys (spawning mobs there, reporting another id). Callers that must land somewhere ask for
+        // getMapOrFallback.
+        if (MapRouting.blocked(mapid)) {
+            log.warn("map routing: map {} is blocked ({}), returning no map", mapid, MapRouting.kind(mapid));
+            return null;
+        }
+
         if (cache) {
             mapsRLock.lock();
             try {
@@ -76,7 +89,7 @@ public class MapManager {
 
         map = MapFactory.loadMapFromWz(mapid, world, channel, event);
 
-        if (cache) {
+        if (cache && map != null) {   // s-maproute: a null image must not be cached, or every later getMap NPEs
             mapsWLock.lock();
             try {
                 maps.put(mapid, map);
@@ -88,6 +101,7 @@ public class MapManager {
         return map;
     }
 
+    /** The map, or null when the server has no image for it or the routing table blocks it ({@link #getMapOrFallback}). */
     public MapleMap getMap(int mapid) {
         MapleMap map;
 
@@ -99,6 +113,21 @@ public class MapManager {
         }
 
         return (map != null) ? map : loadMapFromWz(mapid, true);
+    }
+
+    /**
+     * s-maproute: where a move to {@code mapid} has to end up - the routing table's fallback for a map that is
+     * blocked, else the map itself (still null when the server has no image for it). The login path and a map's own
+     * return map ask for this: they cannot stay nowhere.
+     */
+    public MapleMap getMapOrFallback(int mapid) {
+        int fallback = MapRouting.fallback(mapid);
+        if (fallback < 0) {
+            return getMap(mapid);
+        }
+
+        log.warn("map routing: map {} is blocked ({}), using {}", mapid, MapRouting.kind(mapid), fallback);
+        return getMap(fallback);
     }
 
     public void setEventInstanceManager(EventInstanceManager eim) {

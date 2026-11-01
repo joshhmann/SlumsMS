@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import server.life.Monster;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionLanes;
+import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
 
 import java.awt.Point;
 import java.util.ArrayList;
@@ -258,6 +260,38 @@ class OwnedAltCombatTest {
         assertTrue(OwnedAltCombat.driverMayFace(near, f, owner, alt, party, NOW));
         assertFalse(OwnedAltCombat.driverMayFace(far, f, owner, alt, party, NOW),
                 "within the alt's 700 px seek range, but past the owner leash");
+    }
+
+    /** 1.6.3 s-lanes: a whole-map lane moves the 650 px leash to the lane the alt stands on. */
+    @Test
+    void aLaneKeepsItsFightsAroundItself() {
+        String was = System.getProperty("slums.alts.lanes");
+        Monster nearLane = mob(2_100, OWNER);
+        MapleMap f = map(List.of(nearLane));
+        Character owner = at(f, OWNER, 0, false), alt = at(f, ALT, 2_000, true);
+        Set<Integer> party = OwnedAltCombat.partyIds(alt, owner);
+        try {
+            assertFalse(OwnedAltCombat.driverMayFace(nearLane, f, owner, alt, party, NOW),
+                    "without a lane the owner leash keeps it to the owner's area");
+            CompanionStance.setAt(ALT, CompanionStance.Mode.LANES, new Point(2_000, 0), 0,
+                    CompanionLanes.Reach.MAP);
+            assertFalse(OwnedAltCombat.driverMayFace(nearLane, f, owner, alt, party, NOW),
+                    "the lanes switch is off: no lane");
+            System.setProperty("slums.alts.lanes", "true");
+            assertTrue(OwnedAltCombat.driverMayFace(nearLane, f, owner, alt, party, NOW),
+                    "a whole-map lane fights the party's mobs around its own lane");
+            CompanionStance.setAt(ALT, CompanionStance.Mode.LANES, new Point(2_000, 0), 0,
+                    CompanionLanes.Reach.SCREEN);
+            assertFalse(OwnedAltCombat.driverMayFace(nearLane, f, owner, alt, party, NOW),
+                    "a screen lane is still leashed to its owner");
+        } finally {
+            CompanionStance.forget(ALT);
+            if (was == null) {
+                System.clearProperty("slums.alts.lanes");
+            } else {
+                System.setProperty("slums.alts.lanes", was);
+            }
+        }
     }
 
     @Test

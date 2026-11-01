@@ -103,6 +103,75 @@ public final class ExpeditionBots {
         return register(leader, exped, picked);
     }
 
+    /**
+     * b075 (live report #5): "Start the fight!" with too few members only said "You need at least 6 players
+     * registered", so a player whose party bots were too low, elsewhere or out of entries could not tell why they
+     * never joined. This is what the recruiter says instead: the count, each party bot that is not in and why, and
+     * how the rest can join. Reads only what {@link #autoJoin} (run on the same NPC step) already decided: no
+     * boss-log read, no order to a bot.
+     */
+    public static String shortfall(Character leader, Expedition exped) {
+        int have = exped.getMembers().size();
+        int need = exped.getMinSize();
+        StringBuilder sb = new StringBuilder("You need at least " + need + " members registered in your expedition;"
+                + " you have " + have + ".");
+        Party party = leader == null ? null : leader.getParty();
+        List<String> out = new ArrayList<>();
+        if (party != null && !BotHelpers.isBot(leader)) {
+            for (PartyCharacter pc : party.getMembers()) {
+                if (pc == null || pc.getId() == leader.getId()) {
+                    continue;
+                }
+                Character bot = pc.getPlayer();
+                if (bot == null) {
+                    if (BotHelpers.isArtificial(pc.getId())) {
+                        out.add(pc.getName() + " is not online.");
+                    }
+                    continue;
+                }
+                if (!BotHelpers.isBot(bot)) {
+                    continue; // a real player registers himself (said below)
+                }
+                String why = skip(exped.getType(), leader.getId(), factsOf(leader, exped, party, bot));
+                if (why == null && quotaFull.get(bot.getId()) == exped) {
+                    why = "quota";
+                } else if (why == null && busy.get(bot.getId()) == exped) {
+                    why = "busy";
+                }
+                if (why != null && !"member".equals(why)) {
+                    out.add(bot.getName() + " " + describe(why, exped.getType(), bot.getLevel()));
+                }
+            }
+        }
+        if (!out.isEmpty()) {
+            sb.append("\r\n\r\nNot joining:");
+            for (String line : out) {
+                sb.append("\r\n - ").append(line);
+            }
+        }
+        ExpeditionType type = exped.getType();
+        sb.append("\r\n\r\nYour party's bots and alts join you on their own when they stand here and are level ")
+                .append(type.getMinLevel()).append(type.getMaxLevel() < 255 ? "-" + type.getMaxLevel() : "+")
+                .append(" (a party holds 6). Other players join by talking to me.");
+        return sb.toString();
+    }
+
+    /** The player-facing words for a {@link #skip} reason. */
+    static String describe(String why, ExpeditionType type, int level) {
+        return switch (why) {
+            case "owner" -> "is another player's bot, so it cannot come with you.";
+            case "banned" -> "was expelled from this expedition.";
+            case "dead" -> "is dead.";
+            case "map" -> "is not on this map. Bring it here first.";
+            case "level" -> "is level " + level + "; this expedition needs level " + type.getMinLevel()
+                    + (type.getMaxLevel() < 255 ? " to " + type.getMaxLevel() : " or higher") + ".";
+            case "quest" -> "has not done the quest this expedition needs.";
+            case "quota" -> "has no entries left for this boss today.";
+            case "busy" -> "is busy and cannot follow you right now.";
+            default -> "cannot join (" + why + ").";
+        };
+    }
+
     /** Adds the picked bots up to the expedition's maximum size and tells the leader who came. */
     static List<String> register(Character leader, Expedition exped, List<Character> bots) {
         List<String> names = new ArrayList<>();

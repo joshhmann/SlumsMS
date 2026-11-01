@@ -23,7 +23,7 @@ final class ExchangeScenarios {
     }
 
     static List<QaScenario> all() {
-        return List.of(new InGame(), new Leaf(), new Volatility());
+        return List.of(new InGame(), new Leaf(), new Volatility(), new Scroll());
     }
 
     /**
@@ -55,6 +55,40 @@ final class ExchangeScenarios {
             }
             List<String> r = soloMapling.Economy.exchange.volatility.MarketQa.check(System.currentTimeMillis());
             ctx.run().note("XC3", String.join(" | ", r));
+            return r;
+        }
+    }
+
+    /**
+     * xc-5 (162-xtraders, owner 2026-10-31 "waking up chaos and WS"): a trader that holds a Chaos or White Scroll
+     * offers that scroll on its turn, and its sell rests, prices inside the band, escrows exactly what it holds and
+     * comes back on a cancel. {@code !qa do check} runs it again. With no online holder it refuses and says why (a
+     * trader finds scrolls hunting at the real drop chance, so this needs a while).
+     */
+    static final class Scroll implements QaScenario {
+        public String id() { return "xc-5"; }
+        public String title() { return "Scroll trading: a trader that holds a Chaos or White Scroll lists it"; }
+        public Set<QaLog.Topic> topics() { return Set.of(); }
+        public int minutes(String[] args) { return 10; }
+
+        public List<String> stage(QaContext ctx) {
+            List<String> r = soloMapling.Economy.exchange.volatility.MarketQa.scrollCheck(System.currentTimeMillis());
+            if (r.get(0).startsWith("SKIP")) {
+                throw new QaRefusal(r.get(0).substring(5));
+            }
+            r.forEach(l -> ctx.log("XC5 " + l));
+            List<String> out = new java.util.ArrayList<>(r);
+            out.add("Next: !market traders shows which bots hold a scroll and their last orders; !market act makes one "
+                    + "act now; watch the CHAOS/WS books for a bot's ask.");
+            return out;
+        }
+
+        public List<String> action(QaContext ctx, String name, String[] args) {
+            if (!"check".equals(name)) {
+                throw new QaRefusal("xc-5 steps: check");
+            }
+            List<String> r = soloMapling.Economy.exchange.volatility.MarketQa.scrollCheck(System.currentTimeMillis());
+            ctx.run().note("XC5", String.join(" | ", r));
             return r;
         }
     }

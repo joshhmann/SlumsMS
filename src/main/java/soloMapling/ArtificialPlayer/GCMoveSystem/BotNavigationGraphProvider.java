@@ -51,7 +51,7 @@ final class BotNavigationGraphProvider {
     //     inside an 8.93 x fs px/s band (no walkSpeed air cap; counter-strafe pins at the
     //     band edge) and no-input flight drags 1 x fs (100 x fs at terminal fall). Committed
     //     arcs still fly the launch key held, so constant-stepX arc sims stay exact.
-    static final int GRAPH_VERSION = 69; // 51: kinetic slippery model + snowshoes; 52: brake-to-stop landings; 53: glide-unless-edge stop policy (slipperyStopDir); 56: uncap straight-drop launch windows (full droppable span, no +/-20 fragmentation); 57: remove the (empirically wrong) 300px down-jump drop cap - down-jumps fall until landing; 58: rope-grab reach counts descent below the ledge (mid-rope jump-grabs from adjacent platforms); 59: fall-sim caps to map height not 1500ms - long single-fall descents (tall shafts: Ellinia tree, Perion) now generate DROP/JUMP/ROPE edges; 60: re-cap drops for organic descent - walk-offs capped at MAX_DROP_PX, down-jumps at the tighter DOWN_JUMP_MAX_DROP_PX, and down-jumps carry DOWN_JUMP_COST_PENALTY_MS so the pathfinder prefers ropes/walk-offs over plummeting an entire vertical map; 61: widened rope top-exit probe (BotPhysicsEngine.findTopExitLanding) - accept a step-off foothold slightly above/below the rope top and a few px off-axis, so uneven/slanted ladder heads mint a clean CLIMB step-off edge instead of only ballistic top jump-offs; 68: nutnnut/Cosmic graph v60-v67 merged onto ours v60-v61 - their 66 (ground walk follows the standing foothold's prev/next chain across a joined fork), 67 (skip phantom cross-region JUMP/FLASH_JUMP edges landing on the source region's own ground), 62 (rope-exit/transfer CLIMB edges carry a Y launch window with per-endpoint cost), 60/61/64/65 (TELEPORT + FLASH_JUMP skill edges with X launch windows; teleport landing SSOT BotPhysicsEngine.teleportLanding, down-teleport to the furthest platform, y-snap 75), keeping our 60 drop caps and 61 widened rope top-exit; their 63 (baked portal route buckets) is not ported; 69: nutnnut/Cosmic v68+v69+v71 walk-off DROP fixes (credit NutNNut) - a directional walk-off's landing is authored with the executor's walk-off sim from the runway anchor on the source region's own foothold (not a lip-pixel fall), and only when every live launch state (sub-pixel phase, carry, arrival speed) lands the same region (stableWalkOffLanding); their v70 zMass walls are not ported
+    static final int GRAPH_VERSION = 70; // 51: kinetic slippery model + snowshoes; 52: brake-to-stop landings; 53: glide-unless-edge stop policy (slipperyStopDir); 56: uncap straight-drop launch windows (full droppable span, no +/-20 fragmentation); 57: remove the (empirically wrong) 300px down-jump drop cap - down-jumps fall until landing; 58: rope-grab reach counts descent below the ledge (mid-rope jump-grabs from adjacent platforms); 59: fall-sim caps to map height not 1500ms - long single-fall descents (tall shafts: Ellinia tree, Perion) now generate DROP/JUMP/ROPE edges; 60: re-cap drops for organic descent - walk-offs capped at MAX_DROP_PX, down-jumps at the tighter DOWN_JUMP_MAX_DROP_PX, and down-jumps carry DOWN_JUMP_COST_PENALTY_MS so the pathfinder prefers ropes/walk-offs over plummeting an entire vertical map; 61: widened rope top-exit probe (BotPhysicsEngine.findTopExitLanding) - accept a step-off foothold slightly above/below the rope top and a few px off-axis, so uneven/slanted ladder heads mint a clean CLIMB step-off edge instead of only ballistic top jump-offs; 68: nutnnut/Cosmic graph v60-v67 merged onto ours v60-v61 - their 66 (ground walk follows the standing foothold's prev/next chain across a joined fork), 67 (skip phantom cross-region JUMP/FLASH_JUMP edges landing on the source region's own ground), 62 (rope-exit/transfer CLIMB edges carry a Y launch window with per-endpoint cost), 60/61/64/65 (TELEPORT + FLASH_JUMP skill edges with X launch windows; teleport landing SSOT BotPhysicsEngine.teleportLanding, down-teleport to the furthest platform, y-snap 75), keeping our 60 drop caps and 61 widened rope top-exit; their 63 (baked portal route buckets) is not ported; 69: nutnnut/Cosmic v68+v69+v71 walk-off DROP fixes (credit NutNNut) - a directional walk-off's landing is authored with the executor's walk-off sim from the runway anchor on the source region's own foothold (not a lip-pixel fall), and only when every live launch state (sub-pixel phase, carry, arrival speed) lands the same region (stableWalkOffLanding); their v70 zMass walls are not ported; 70 (b109, dead-end pits): ledges narrower than two edge insets get an anchor at every pixel (wall-bound notches get their jump out), regions narrower than the walk-off runway walk off from their far end, and a portal with no ground under it serves the floor up to 100 px above it
 
     // Drop caps for organic descent (re-added; v57 had removed the old single cap). A bot must
     // never plummet down a whole vertical map. Two distinct downward moves, treated differently:
@@ -1233,9 +1233,12 @@ final class BotNavigationGraphProvider {
         } else {
             launchX = Math.max(from.minX, endpoint.x - runwayPx);
         }
-        // Skip if region too small to fit a meaningful runway — no directional drop here.
+        // v70 (b109): a region narrower than the runway walks off from its far end instead of having no walk-off
+        // at all. A 2 px near-vertical foothold a jump lands on (610020006 r1, x 1182..1184 over 570 px) is left
+        // only by walking off its low end; without the edge every bot that landed there stayed. The walk-off sim
+        // below (every live launch state lands the same region) still decides whether the drop is real.
         int actualRunway = Math.abs(launchX - endpoint.x);
-        if (actualRunway < Math.min(runwayPx, 20)) {
+        if (actualRunway <= 0) {
             return;
         }
         Point startPoint = from.pointAt(launchX);
@@ -2541,6 +2544,9 @@ final class BotNavigationGraphProvider {
         return null;
     }
 
+    /** v70 (b109): how far above a portal with no ground under it the floor it serves may lie (a vRange). */
+    static final int PORTAL_UNDER_FLOOR_SNAP_PX = 100;
+
     private static void addPortalEdges(Portal portal,
                                        MapleMap map,
                                        Map<Integer, BotNavigationGraph.Region> regionsById,
@@ -2562,6 +2568,13 @@ final class BotNavigationGraphProvider {
         int snapUp = BotPhysicsEngine.cfg.MAX_SNAP_DROP;
         BotNavigationGraph.Region from = findRegionBelow(map, regionsById, regionIdByFootholdId,
                 new Point(portal.getPosition().x, portal.getPosition().y - snapUp));
+        if (from == null) {
+            // v70 (b109): a touch portal set under the floor it serves (410000350 up00 at y 379, 44 px under the
+            // floor at 335, hRange 2500 / vRange 100: walking onto that floor warps you up to inv00) has no ground
+            // below it. Take the floor just above it instead, so the bottom floor keeps its only way out.
+            from = findRegionBelow(map, regionsById, regionIdByFootholdId,
+                    new Point(portal.getPosition().x, portal.getPosition().y - PORTAL_UNDER_FLOOR_SNAP_PX));
+        }
         BotNavigationGraph.Region to = findRegionBelow(map, regionsById, regionIdByFootholdId,
                 new Point(targetPortal.getPosition().x, targetPortal.getPosition().y - snapUp));
         if (from == null || to == null) {
@@ -2704,6 +2717,14 @@ final class BotNavigationGraphProvider {
             for (int x = region.minX + edgeInset;
                  x <= region.maxX - edgeInset;
                  x += interiorSpacing) {
+                addAnchor(points, region.pointAt(x), 0);
+            }
+        } else {
+            // v70 (b109): a ledge no wider than two edge insets got anchors only at its two ends. Where both ends
+            // stand against a wall (a 5 px notch under a 12 px step, 105070200 r11; 105090000 r21) both launches are
+            // wall-blocked, so the notch had no way out and every bot that stepped into it stayed. Seed every pixel
+            // between the ends: at most 2 x edgeInset anchors, on few regions.
+            for (int x = region.minX + 1; x < region.maxX; x++) {
                 addAnchor(points, region.pointAt(x), 0);
             }
         }

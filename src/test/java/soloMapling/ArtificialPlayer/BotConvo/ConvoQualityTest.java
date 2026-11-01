@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import soloMapling.ArtificialPlayer.BotStore;
+import soloMapling.qa.QaLog;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -114,6 +115,71 @@ class ConvoQualityTest {
         } finally {
             System.clearProperty("solomapling.convo.transcriptDir");
             System.clearProperty("solomapling.convo.dataDir");
+        }
+    }
+
+    /**
+     * m02: t-pl-1 (auto-QA) judges the planner from the transcript, so the row says which move worded the line and
+     * whether the bot started the chat. A reply the planner did not word keeps no move, and an old row cannot pretend.
+     */
+    @Test
+    void theTranscriptSaysWhichMoveWordedTheLine() throws Exception {
+        System.setProperty("solomapling.convo.transcriptDir", dir.resolve("logs").toString());
+        System.setProperty("solomapling.convo.dataDir", dir.resolve("data").toString());
+        ConvoQuality.writeFilesForTest(true);
+        try {
+            Character bot = chr(BotStore.BOT_ID_BASE + 9, "Kimchi");
+            Character josh = chr(4010, "Pinky");
+            // greet(): the bot spoke first, so asked is null and the planner worded a hello
+            ConvoQuality.said(bot, josh, "hey, just chillin in henesys", new ConvoLines.Line("x", -1, "llm"), "LLM", LOWER,
+                    null, 700, "hello");
+            // ask(): the player spoke; no move given, so the row cannot claim one
+            ConvoQuality.said(bot, josh, "sure", new ConvoLines.Line("x", -1, "bank"), "SCRIPTED", LOWER, "can you help", 700);
+            ConvoQuality.flushForTest();
+            List<String> rows = java.nio.file.Files.readAllLines(ConvoQuality.transcriptFile(java.time.LocalDate.now()));
+            assertEquals(2, rows.size(), rows.toString());
+            assertTrue(rows.get(0).contains("\"move\":\"hello\""), rows.get(0));
+            assertTrue(rows.get(0).contains("\"open\":true"), rows.get(0));
+            assertTrue(rows.get(0).contains("\"slots\":\"none\""), rows.get(0));
+            assertTrue(!rows.get(1).contains("\"move\""), "an unplanned line carries no move: " + rows.get(1));
+            assertTrue(!rows.get(1).contains("\"open\""), "a reply is not an opening: " + rows.get(1));
+        } finally {
+            System.clearProperty("solomapling.convo.transcriptDir");
+            System.clearProperty("solomapling.convo.dataDir");
+        }
+    }
+
+    /**
+     * b247 triage (TEST 2026-10-31): a name the bot really said and a slot nobody filled both read {player} in the QA
+     * line, and two filled lines were misread as leaks. The tag says which, and the name still never reaches the line.
+     */
+    @Test
+    void theQaLineSaysWhetherASlotWasFilled() {
+        java.util.List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+        QaLog.SinkHandle h = QaLog.sink((topic, mapId, chars, message) -> {
+            if (message.startsWith("SAID ")) {
+                lines.add(message);
+            }
+        });
+        h.topics(java.util.List.of(QaLog.Topic.CONVO));
+        try {
+            Character bot = chr(BotStore.BOT_ID_BASE + 9, "Kimchi");
+            Character josh = chr(4009, "Pinky");
+            ConvoQuality.said(bot, josh, "hey Pinky, want to train?", new ConvoLines.Line("x", -1, "llm"), "LLM", LOWER,
+                    "yo", 700);
+            ConvoQuality.said(bot, josh, "hey {player}, want to train?", new ConvoLines.Line("x", -1, "llm"), "LLM",
+                    LOWER, "yo", 700);
+            ConvoQuality.said(bot, josh, "nice weather", new ConvoLines.Line("x", -1, "llm"), "LLM", LOWER, "hi", 700);
+        } finally {
+            h.close();
+        }
+        assertEquals(3, lines.size(), lines.toString());
+        assertTrue(lines.get(0).contains("slots=filled"), lines.get(0));
+        assertTrue(lines.get(0).endsWith("] hey {player}, want to train?"), lines.get(0));
+        assertTrue(lines.get(1).contains("slots=literal"), lines.get(1));
+        assertTrue(lines.get(2).contains("slots=none"), lines.get(2));
+        for (String l : lines) {
+            assertTrue(!l.toLowerCase().contains("pinky"), l);
         }
     }
 

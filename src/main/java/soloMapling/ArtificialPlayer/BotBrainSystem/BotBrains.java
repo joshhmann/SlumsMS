@@ -53,7 +53,8 @@ public final class BotBrains {
         if (sharedBudget == null && server != null && server.BOT_LLM_CLOUD_BASE_URL != null
                 && !server.BOT_LLM_CLOUD_BASE_URL.isBlank()) {
             sharedBudget = new CloudBudget(server.BOT_LLM_CLOUD_DAILY_BUDGET_USD,
-                    server.BOT_LLM_CLOUD_PRICE_IN_PER_MTOK, server.BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK,
+                    server.BOT_LLM_CLOUD_PRICE_IN_PER_MTOK, server.BOT_LLM_CLOUD_PRICE_IN_CACHED_PER_MTOK,
+                    server.BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK,
                     System::currentTimeMillis, java.time.ZoneId.systemDefault(), java.nio.file.Path.of(
                             soloMapling.ArtificialPlayer.BotConvo.ConvoSwitches.str("dataDir", "data/convo"),
                             "cloud-budget.json"));

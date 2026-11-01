@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
 
 /**
  * Ticket 49: bots as buddies. A player can add a bot by name (online or not), the bot answers like a person would
@@ -194,8 +195,11 @@ public final class BotBuddies {
     private static volatile IntFunction<Character> players = BotBuddies::onlinePlayerInWorld;
     private static volatile Judge judge = BotBuddies::familiarity;
     private static volatile java.util.function.DoubleSupplier rolls = () -> ThreadLocalRandom.current().nextDouble();
+    // 1.6.3 (b269 review): these writes hit the bots' share of the pool, and a virtual thread is refused there
+    // instead of waiting - which drops a player's choice that was already acknowledged. A bot-db platform thread
+    // waits its turn, and BotDbGate.write asks again if the share was busy.
     /** Where the player-side writes run: never on the packet thread (a seam: tests run them in place). */
-    private static volatile java.util.concurrent.Executor writer = ExecutorServiceManager::runAsync;
+    private static volatile java.util.concurrent.Executor writer = ExecutorServiceManager::runBotDb;
     /** One pair's writes land in order (a request, then the player removing the bot again). */
     private static final SerialWrites pairWrites = new SerialWrites(r -> writer.execute(r));
     private static final Deque<Long> worldOffers = new ArrayDeque<>();
@@ -822,8 +826,14 @@ public final class BotBuddies {
         lastBuddyChat.put(player.getId(), now);
         String botName = to.name();
         BotConversation.talk(brain, player, line,
-                reply -> player.sendPacket(PacketCreator.multiChat(botName,
-                        soloMapling.ArtificialPlayer.BotConvo.MessyChat.forWhisper(brain.getChr(), botName, player, reply), 0)));
+                reply -> {
+                    // b247: a buddy reply is player text too - no {slot} reaches it
+                    String safe = SpeechGuard.check(brain.getChr(), player, reply);
+                    if (safe != null) {
+                        player.sendPacket(PacketCreator.multiChat(botName,
+                                soloMapling.ArtificialPlayer.BotConvo.MessyChat.forWhisper(brain.getChr(), botName, player, safe), 0));
+                    }
+                });
     }
 
     // ── GM read-out ──
@@ -895,7 +905,7 @@ public final class BotBuddies {
     static void useForTest(Rows testRows, IntFunction<String> testNames, IntFunction<Character> testPlayers,
                            Judge testJudge, java.util.function.DoubleSupplier testRolls) {
         rows = testRows;
-        writer = testRows != null ? Runnable::run : ExecutorServiceManager::runAsync;
+        writer = testRows != null ? Runnable::run : ExecutorServiceManager::runBotDb;
         names = testNames;
         players = testPlayers != null ? testPlayers : BotBuddies::onlinePlayerInWorld;
         judge = testJudge != null ? testJudge : BotBuddies::familiarity;
@@ -971,26 +981,33 @@ public final class BotBuddies {
 
         @Override
         public void put(Row row) {
-            try (Connection con = connections.get()) {
-                boolean auto = con.getAutoCommit();
-                con.setAutoCommit(false);
-                try (PreparedStatement del = con.prepareStatement(DELETE_PAIR);
-                     PreparedStatement ins = con.prepareStatement(INSERT)) {
-                    del.setInt(1, row.botCharId());
-                    del.setInt(2, row.playerId());
-                    del.executeUpdate();
-                    ins.setInt(1, row.botCharId());
-                    ins.setInt(2, row.playerId());
-                    ins.setInt(3, row.pending());
-                    ins.setString(4, row.group());
-                    ins.executeUpdate();
-                    con.commit();
-                } catch (SQLException e) {
-                    con.rollback();
-                    throw e;
-                } finally {
-                    con.setAutoCommit(auto);
-                }
+            try {
+                // A buddy request the player has already been told about (b269): the write has to survive a busy
+                // share of the pool, so it is asked again rather than dropped.
+                BotDbGate.write(() -> {
+                    try (Connection con = connections.get()) {
+                        boolean auto = con.getAutoCommit();
+                        con.setAutoCommit(false);
+                        try (PreparedStatement del = con.prepareStatement(DELETE_PAIR);
+                             PreparedStatement ins = con.prepareStatement(INSERT)) {
+                            del.setInt(1, row.botCharId());
+                            del.setInt(2, row.playerId());
+                            del.executeUpdate();
+                            ins.setInt(1, row.botCharId());
+                            ins.setInt(2, row.playerId());
+                            ins.setInt(3, row.pending());
+                            ins.setString(4, row.group());
+                            ins.executeUpdate();
+                            con.commit();
+                        } catch (SQLException e) {
+                            con.rollback();
+                            throw e;
+                        } finally {
+                            con.setAutoCommit(auto);
+                        }
+                    }
+                    return null;
+                });
             } catch (SQLException e) {
                 throw new IllegalStateException("Could not write bot " + row.botCharId() + "'s row for "
                         + row.playerId(), e);
@@ -1065,10 +1082,16 @@ public final class BotBuddies {
         }
 
         private void delete(int characterId, int buddyId) {
-            try (Connection con = connections.get(); PreparedStatement ps = con.prepareStatement(DELETE_PAIR)) {
-                ps.setInt(1, characterId);
-                ps.setInt(2, buddyId);
-                ps.executeUpdate();
+            try {
+                BotDbGate.write(() -> {
+                    try (Connection con = connections.get();
+                         PreparedStatement ps = con.prepareStatement(DELETE_PAIR)) {
+                        ps.setInt(1, characterId);
+                        ps.setInt(2, buddyId);
+                        ps.executeUpdate();
+                    }
+                    return null;
+                });
             } catch (SQLException e) {
                 throw new IllegalStateException("Could not delete buddies row " + characterId + "/" + buddyId, e);
             }

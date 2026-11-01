@@ -109,7 +109,8 @@ public final class CombinationSolver implements StageSolver {
                     return off;
                 }
             }
-            return new SolverStep.Wait(500, exact ? "formation " + target + " settling" : "waiting for formation " + target);
+            return new SolverStep.Wait(500, exact ? "formation " + target + " settling"
+                    : "waiting for formation " + target + ": " + formationReport(view, target));
         }
         Integer mine = assign.get(id);
         if (mine != null) {
@@ -251,6 +252,35 @@ public final class CombinationSolver implements StageSolver {
     }
 
     /** Exactly the script's test: per position, how many members stand in it, equal to the combo's 0/1 mask. */
+    /**
+     * Who counts on which position right now, against the combo's mask (mx-2, TEST 2026-10-31: stage 3 spent 1164 s
+     * between a wrong check and the right one and the log said nothing at all; the leader was waiting for a formation
+     * that never became exact, and this is what the script compares). A member off the stage map says which map it is
+     * on, and one on the map but in no rectangle says where it stands.
+     */
+    static String formationReport(StageView view, int target) {
+        Stage stage = view.stage();
+        List<Integer> mask = stage.combos().get(target);
+        StringBuilder sb = new StringBuilder("wanted ").append(mask);
+        for (RunMember m : view.members()) {
+            int id = m.characterId();
+            int on = view.mapOf(id);
+            sb.append(' ').append(id);
+            if (on != stage.mapId()) {
+                sb.append(" on map ").append(on);
+                continue;
+            }
+            int at = positionIndexOf(view, id);
+            if (at >= 0) {
+                sb.append(" at ").append(stage.positions().get(at).id());
+                continue;
+            }
+            int[] p = view.positionOf(id);
+            sb.append(p == null ? " nowhere" : " off (" + p[0] + "," + p[1] + ")");
+        }
+        return sb.toString();
+    }
+
     static boolean formationExact(StageView view, int target) {
         Stage stage = view.stage();
         int[] count = new int[stage.positions().size()];

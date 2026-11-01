@@ -10,8 +10,20 @@ public sealed interface SolverStep {
     record MoveTo(int x, int y, String why) implements SolverStep {
     }
 
-    /** Fight a mob kind until {@code untilItemCount} of {@code itemId} is held (0 = until the map is clear). */
-    record Fight(int mobId, int itemId, int untilItemCount) implements SolverStep {
+    /**
+     * Fight a mob kind until {@code untilItemCount} of {@code itemId} is held (0 = until the map is clear). 1.6.2: with
+     * {@code leashPx} above 0, only mobs within that many px of ({@code nearX}, {@code nearY}) (a helper hunts by the
+     * member it helps, so its kills' drops land within his reach).
+     */
+    record Fight(int mobId, int itemId, int untilItemCount, int nearX, int nearY, int leashPx) implements SolverStep {
+        public Fight(int mobId, int itemId, int untilItemCount) {
+            this(mobId, itemId, untilItemCount, 0, 0, 0);
+        }
+
+        /** The mob at (x, y) is one this step may fight. */
+        public boolean onLeash(int x, int y) {
+            return leashPx <= 0 || java.awt.Point.distance(x, y, nearX, nearY) <= leashPx;
+        }
     }
 
     /** Pick up an item from the floor or a reactor drop. */

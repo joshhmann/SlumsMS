@@ -140,6 +140,26 @@ class MechanicsRunsInstancesTest {
         }
     }
 
+    /**
+     * t-mx-1 on TEST 2026-10-31: a CLEARED Kerning PQ frees its lobby, so the lobby's name ("Kerning0") goes back to
+     * the event manager while the old run still plays the prizes and bonus; the next party's instance takes that name
+     * and was told "this event instance already has a run". Runs are kept by the instance, not by the name.
+     */
+    @Test
+    void aNameFreedByAClearedInstanceStartsTheNextRun() {
+        MechanicsRuns runs = MechanicsRuns.get();
+        EventInstanceManager cleared = kpqOn(1, bots(9_600), 9_600);
+        MechanicsRuns.Active first = runs.start(cleared, KpqStageDataTest.kpq(), true, 0, 1, 0, true, lines::add, null);
+        assertFalse(first.run().ended(), lines.toString());
+        EventInstanceManager next = kpqOn(1, bots(9_700), 9_700); // same channel, same name: the lobby was freed
+        MechanicsRuns.Active second = runs.start(next, KpqStageDataTest.kpq(), true, 0, 1, 0, true, lines::add, null);
+        assertFalse(second.run().ended(), "a name freed by a cleared instance is not another run: " + lines);
+        assertSame(second, runs.runFor(next));
+        assertSame(first, runs.runFor(cleared));
+        runs.stop(first, "prizes are over");
+        assertSame(second, runs.runFor(next), "the old run ending does not evict the new one");
+    }
+
     /** K10 (bot audit): a broken NPC script is logged once in a row and abandons the run on the third failure. */
     @Test
     void aBrokenScriptIsLoggedOnceAndEndsTheRun() {

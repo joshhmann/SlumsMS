@@ -84,7 +84,7 @@ The stock commands still work for anything else:
 Copy the capture over, then summarize it per job:
 
 ```
-scp root@192.168.0.164:/opt/mapleroot-dev/persistence-test/Server/logs/attack-capture.tsv /tmp/
+scp -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111}:/opt/mapleroot-dev/persistence-test/Server/logs/attack-capture.tsv /tmp/
 python3 tools/attack-capture/attack_capture.py summary /tmp/attack-capture.tsv [--char NAME] [--job 512]
 ```
 

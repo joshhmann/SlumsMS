@@ -676,6 +676,16 @@ final class GameQaWorld implements QaWorld {
     }
 
     @Override
+    public int hurtTo(Character gm, int percent) {
+        if (gm == null || percent < 1 || percent > 99 || gm.getCurrentMaxHp() < 1) {
+            return -1;
+        }
+        // The !hurt command's own HP arithmetic, so a staged scene hurts exactly as a GM's command would.
+        gm.updateHp(client.command.commands.gm3.HurtCommand.hpFor(gm.getCurrentMaxHp(), percent));
+        return gm.getHp();
+    }
+
+    @Override
     public void despawnBot(int botId) {
         Character bot = BotHelpers.getCharFromChannelStorage(botId);
         if (bot == null) {
@@ -1097,6 +1107,29 @@ final class GameQaWorld implements QaWorld {
                     out.add(problem == null ? "boss run started at map " + entrance + " (you were warped there)"
                             : "no boss run: " + problem);
                 }
+            }
+            case "bossready" -> { // !qa gu-5: the guild to run with, and who of it to log in first
+                String wantedGuild = first == null || "*".equals(first) ? null : first;
+                var boss = args.length > 1 && !"*".equals(args[1])
+                        ? soloMapling.ArtificialPlayer.BotGuildSystem.GuildRules.boss(args[1]) : null;
+                var crew = soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.qaCrew(wantedGuild, boss);
+                out.add(crew == null ? "none" : crew.logIn().isEmpty() ? "ready|" + crew.guild()
+                        : "stage|" + crew.guild() + "|" + crew.logIn().stream().map(String::valueOf)
+                        .collect(java.util.stream.Collectors.joining(",")));
+            }
+            case "bossstage", "bossunstage" -> { // !qa gu-5: log the planned roster members in, and out again at stop
+                int done = 0;
+                for (String a : args) {
+                    if (!a.matches("\\d+")) {
+                        continue;
+                    }
+                    int botId = Integer.parseInt(a) - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE;
+                    boolean ok = "bossstage".equals(action)
+                            ? soloMapling.ArtificialPlayer.BotPopulationDirector.logInBounded(botId)
+                            : soloMapling.ArtificialPlayer.BotPopulationDirector.logOut(botId);
+                    done += ok ? 1 : 0;
+                }
+                out.add(("bossstage".equals(action) ? "logged in " : "logged out ") + done + " of " + args.length);
             }
             case "bossstop" -> out.add("stopped " + soloMapling.ArtificialPlayer.BotGuildSystem.GuildBossRuns.stop(gm.getName()) + " run(s)");
             case "kick", "kickcheck" -> {
@@ -1933,6 +1966,7 @@ final class GameQaWorld implements QaWorld {
             scripting.npc.NPCScriptManager.getInstance().action(gm.getClient(), (byte) 1, (byte) 0, selection);
             gm.getClient().removeClickedNPC();
         }
+        closeDialog(gm); // the dialog is this helper's window: leaving it open holds the player off (t-mb-1, 163)
         return true;
     }
 
@@ -2593,6 +2627,19 @@ final class GameQaWorld implements QaWorld {
         }
         if (chr.getTrade() != null) {
             server.Trade.cancelTrade(chr, server.Trade.TradeResult.PARTNER_CANCEL);
+        }
+        // 163: an NPC conversation left open is a window too. PlayerBusy calls it "NPC dialog" and holds the player
+        // off, so the check after the one that opened it lost its trade offer at cap 4: t-vb-6's job advance leaves
+        // Balrog's dialog open (npcScript answers the selections but never disposes) and the next check on that lane
+        // (t-mb-1, tr-8) had its megaphone answer dropped - "AutoQaSeven left before lorddy answered" 2 s after the
+        // claim (TEST 2026-10-31, lane 2 on 102000000). The storage half of this method has the same history (vb-7).
+        closeDialog(chr);
+    }
+
+    /** Ends an open NPC conversation on this character, if one is open (safe to call any time). */
+    static void closeDialog(Character chr) {
+        if (chr.getClient() != null && chr.getClient().getCM() != null) {
+            scripting.npc.NPCScriptManager.getInstance().dispose(chr.getClient());
         }
     }
 

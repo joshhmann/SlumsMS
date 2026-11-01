@@ -416,9 +416,16 @@ public final class BotGifts {
         }
     }
 
-    /** Forgets the in-memory gift time of this pair (QA re-tests); the stored row still counts after a restart. */
+    /**
+     * QA re-tests (tr-9): forgets this pair's gift time, including the stored row an earlier run left behind. The
+     * forget lives in memory, so the row is back after a restart: that is right for a real gift, and a QA rerun
+     * stages again.
+     */
     public static void forget(int botId, int playerId) {
-        lastGift.remove(key(botId, playerId));
+        // 0, not absent: lastGiftAt reads the store when the pair is not in memory, and the pair's row from an
+        // earlier run is still there (TEST 10-31: tr-9's first ask got ALREADY_THIS_WEEK from the 10-30 run's row,
+        // so the check could pass only once a week). The sentinel says "no gift", and this answers from memory.
+        lastGift.put(key(botId, playerId), 0L);
     }
 
     // ---- test seams ----

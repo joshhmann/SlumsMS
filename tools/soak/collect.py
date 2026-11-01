@@ -21,7 +21,7 @@ tsv = os.path.join(a.out, "metrics.tsv")
 HZ = os.sysconf("SC_CLK_TCK")
 COLS = ["utc", "uptime_s", "bots_online", "bots_target", "roster", "players", "lod_dynamic", "lod_active_maps",
         "heap_used_mb", "old_used_mb", "old_cap_mb", "young_gc", "young_gc_s", "full_gc", "full_gc_s", "conc_gc", "gc_ms_per_min",
-        "rss_mb", "cpu_pct", "threads", "pool_active", "pool_waiting", "gate_free", "gate_permits", "gate_overruns",
+        "rss_mb", "cpu_pct", "threads", "pool_active", "pool_waiting", "gate_free", "gate_permits", "gate_refusals",
         "tick_ms_per_s", "macro_calls_per_s", "macro_avg_ms", "movement_ms_per_s", "movement_avg_us", "pathfind_ms_per_s",
         "offscreen_ms_per_s", "observer_ms_per_s", "active_ms_per_s", "llm_fallbacks", "llm_fallback_reasons",
         "wheel_lag_lines", "wheel_lag_max_ms", "gate_warn_lines", "err_lines", "stuck_map_lines"]
@@ -81,7 +81,7 @@ while True:
         elif "wheel lag avg" in line:
             m = re.search(r"wheel lag avg (\d+)ms", line)
             if m: lag.append(int(m.group(1)))
-        elif "for the bots' share of the pool" in line:
+        elif "the bots' share of the pool" in line:
             gate += 1
         elif "got stuck when changing maps" in line:
             stuck += 1
@@ -108,7 +108,7 @@ while True:
                    gc_ms_per_min=h.get("gcMsPerMin"), threads=h.get("threads"),
                    pool_active=h.get("pool", {}).get("active"), pool_waiting=h.get("pool", {}).get("waiting"),
                    gate_free=h.get("gate", {}).get("free"), gate_permits=h.get("gate", {}).get("permits"),
-                   gate_overruns=h.get("gate", {}).get("overruns"), tick_ms_per_s=h.get("tickMsPerS"),
+                   gate_refusals=h.get("gate", {}).get("refusals"), tick_ms_per_s=h.get("tickMsPerS"),
                    macro_calls_per_s=pv("macro-tick", 4),
                    macro_avg_ms=(f"{ph['macro-tick'][5]/1000:.1f}" if "macro-tick" in ph else ""),
                    movement_ms_per_s=pv("movement-tick", 3), movement_avg_us=pv("movement-tick", 5),

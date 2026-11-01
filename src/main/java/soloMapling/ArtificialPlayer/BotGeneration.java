@@ -3,6 +3,8 @@ package soloMapling.ArtificialPlayer;
 import client.Character;
 import client.Client;
 import client.Job;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
 import soloMapling.ArtificialPlayer.BotBuffRequestSystem.BotBuffRequestHandler;
@@ -13,6 +15,7 @@ import soloMapling.server.SoloMaplingUtilities;
 import java.awt.*;
 import java.sql.SQLException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static soloMapling.ArtificialPlayer.BotClientHandler.getBotClient;
@@ -45,6 +48,11 @@ public class BotGeneration {
      * bots are placed, because a bot's slot no longer says anything about how many have been placed.
      */
     private static final AtomicInteger placedBots = new AtomicInteger();
+
+    private static final Logger log = LoggerFactory.getLogger(BotGeneration.class);
+
+    /** Set by the first dressing failure, which is logged in full; see {@link #logDressFailure}. */
+    private static final AtomicBoolean dressFailureLogged = new AtomicBoolean();
 
     public static int getBotsCreatedCount() {
         return placedBots.get();
@@ -161,7 +169,20 @@ public class BotGeneration {
         // again (decoration would re-roll level, job and appearance). The identity is applied before the
         // bot joins the map, so the spawn packet already carries the stored name instead of the
         // placeholder one. On-demand spawns never adopt: their slot is arrival order, not a plan position.
-        boolean adopted = BotStore.isPlanned(slot) && BotStore.restoreIdentity(bot);
+        // b269 round 3: a bot whose departure from an earlier session is still waiting for its row must not come
+        // back on the stale row it left (and must not be minted as a new bot either). restoreIdentity writes that
+        // departure first, once; when the bots' share of the pool refuses even that, the login is turned away as
+        // busy - the same answer the director gives a login the share is busy for - and the bot stays deferred for
+        // the autosave sweep. Nothing is written here and no slot is spent.
+        BotStore.Restore restore = BotStore.isPlanned(slot)
+                ? BotStore.restoreIdentity(bot)
+                : BotStore.Restore.NEVER_FILLED;
+        if (restore == BotStore.Restore.BUSY) {
+            log.info("Login of bot {} ({}) turned away: its departure from an earlier session is still waiting for"
+                    + " the bots' share of the pool", bot.getId(), bot.getName());
+            return -1;
+        }
+        boolean adopted = restore == BotStore.Restore.ADOPTED;
         // Ticket bot-persistence/05: one name per character, for good. An adopted bot keeps its stored name
         // unless an older bot or a real player holds it; the store records a rename with the bot's next save.
         bot.setName(adopted ? BotNames.claimStored(botId, bot.getName()) : BotNames.claimNew(botId));
@@ -187,19 +208,25 @@ public class BotGeneration {
         soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.onBotLogin(bot); // 1.5.0: its guild, before it shows on the map
         soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.onBotLogin(bot); // 1.5.0: a bot engaged or married to a player
         BotFamily.onBotLogin(bot); // 1.6.1 ticket 53: a player's family junior
-        placeBotOnMap(bot, placePos, placeMap);
+        // 1.6.2 rc: the look and the pet are in place *before* the bot joins the map, so its spawn packet (the only
+        // one a watching client ever gets about a bot) already carries them. See Dressing. The chair is a bag item,
+        // not part of the spawn packet, so it is still handed over after the store write, as it always was.
+        Dressing dressing = adopted
+                ? BotPets::attach
+                : b -> {
+                    switch (decorationFor(baseClass, minLevel)) {
+                        case RANDOM -> setBotVariables(b);
+                        case LEVEL_RANGE -> setBotVariablesInRange(b, minLevel, Math.max(minLevel, maxLevel));
+                        case CLASS -> setBotVariables(b, baseClass, minLevel, maxLevel, forcedJobId);
+                    }
+                    b.setFame(BotFame.forBot(botId, b.getLevel()));
+                    BotPets.attach(b); // 1.5.0 rc4: its pet, now that its level is known (drawn from its id)
+                };
+        joinMap(bot, placePos, placeMap, dressing);
         placedBots.incrementAndGet();
         if (adopted) {
             BotStore.restorePlacement(bot, placeMap);
         } else {
-            // Decorate before the drop-down plays so the bot arrives fully dressed
-            // (decoration is an in-memory cache lookup, takes microseconds).
-            switch (decorationFor(baseClass, minLevel)) {
-                case RANDOM -> setBotVariables(bot);
-                case LEVEL_RANGE -> setBotVariablesInRange(bot, minLevel, Math.max(minLevel, maxLevel));
-                case CLASS -> setBotVariables(bot, baseClass, minLevel, maxLevel, forcedJobId);
-            }
-            bot.setFame(BotFame.forBot(botId, bot.getLevel()));
             // A brand new bot is minted with the initial-creator grants and gets its store row right away,
             // so a restart between creation and its first save cannot re-mint it as somebody else.
             try {
@@ -215,7 +242,6 @@ public class BotGeneration {
         // 1.6.0 (ticket 92): ~1 in 20 hangout/explorer bots own a Fishing Chair; new ones get it now, existing ones at
         // this login (once: it is saved with the bag). After decoration and restore, so neither replaces the bag.
         soloMapling.fishing.BotFishingChairs.ensure(bot);
-        BotPets.attach(bot); // 1.5.0 rc4: its pet, now that its level is known (drawn from its id: nothing stored)
         // Choreography sleeps ~2.5-6s in total; play it on a virtual thread so
         // mass spawning isn't gated on each bot's arrival animation. Drop-down ->
         // turn-around ordering is preserved because it's one sequential task.
@@ -248,6 +274,61 @@ public class BotGeneration {
         fakechar.setPosition(pos);
         fakechar.setStance(5);
         map.addPlayer(fakechar);
+    }
+
+    /**
+     * Everything a bot's spawn packet has to carry, worked out before the bot joins its map.
+     *
+     * <p>1.6.2 rc (owner, 2026-10-31, "incomplete playerbots"): {@link MapleMap#addPlayer} broadcasts the spawn
+     * packet, and for a bot that packet is the <em>only</em> thing a watching client ever learns about its look,
+     * chair and pet (a bot's client is a shared headless {@link client.BotClient}). Decorating after the join sent
+     * the template's look - the source character's hair/face and no clothes - and nothing re-sent it, so a freshly
+     * minted bot stayed incomplete on screen until the client re-entered the map.
+     */
+    interface Dressing {
+        void apply(Character bot);
+    }
+
+    /**
+     * Puts a bot on its map, dressed first. See {@link Dressing}.
+     *
+     * <p>The map and the point are set before the dressing runs: a dress step that equips calls
+     * {@link Character#equipChanged()}, which needs a map to broadcast to (a freshly loaded template has none), and
+     * the pet is placed at the bot's point, not at the template's. Nothing is announced yet — the bot is not in the
+     * map, so no spawn packet has gone out — and {@link MapleMap#addPlayer} then sends the one packet that carries
+     * the finished look.
+     *
+     * <p>A dress step that throws must not strand the bot: it already carries the map, so leaving it out of the map
+     * would hand every system a character that believes it is somewhere it is not. The bot is added undressed
+     * instead (the spawn packet carries the template look, and the next player to enter the map sees it) and the
+     * failure is logged once, so a broken pool cannot spam a 13,000-bot boot.
+     */
+    static void joinMap(Character bot, Point pos, MapleMap map, Dressing dressing) {
+        if (bot.getMap() == map) {
+            bot.getMap().removePlayer(bot);
+        }
+        bot.setMap(map);
+        bot.setPosition(pos);
+        bot.setStance(5);
+        try {
+            dressing.apply(bot);
+        } catch (RuntimeException e) {
+            logDressFailure(bot, map, e);
+        } finally {
+            // Undressed is still visible and still part of the map; every caller after joinMap (store rows, roster,
+            // the spawn choreography) depends on the bot having joined cleanly.
+            map.addPlayer(bot);
+        }
+    }
+
+    /** First dressing failure in full, the rest at debug: see {@link #joinMap(Character, Point, MapleMap, Dressing)}. */
+    private static void logDressFailure(Character bot, MapleMap map, RuntimeException e) {
+        if (dressFailureLogged.compareAndSet(false, true)) {
+            log.warn("dressing bot {} on map {} failed; it joins the map undressed and keeps the template look "
+                    + "(later dressing failures are logged at debug)", bot.getId(), map.getId(), e);
+        } else {
+            log.debug("dressing bot {} on map {} failed; it joins the map undressed", bot.getId(), map.getId(), e);
+        }
     }
 
     /**
@@ -317,8 +398,10 @@ public class BotGeneration {
         BotSpotClaims.releaseAllFor(fakechar.getId());
 
         // Ticket 06: a bot's holdings now go into the store with it, so leaving the world costs it nothing.
-        // If the store cannot be written the bot is settled onto the map instead - while the map is still
-        // available - so what it accumulated is never silently destroyed.
+        // 1.6.3 (b269 review): a write that cannot be made keeps the bot and its ledger for the next sweep
+        // (BotStore.deferredDepartures); it is no longer settled onto the map, because a refused write handed a
+        // departed bot's value to the world while its stored row still claimed it. Only a bot with no stored row,
+        // whose value has nowhere else to live, is settled here.
         BotStore.saveThenSettle(fakechar);
         BotRoster.recordSessions(java.util.List.of(fakechar), System.currentTimeMillis(), true);
         BotConversation.endAllOf(fakechar.getId()); // a bot leaving mid-chat still writes down what it heard

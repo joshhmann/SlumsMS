@@ -399,8 +399,10 @@ public final class BotRoster {
         if (!loaded) {
             synchronized (LOAD_LOCK) {
                 if (!loaded) {
-                    // Straight to the pool, not through the gate: every spawning bot queues on LOAD_LOCK, and
-                    // a reader pinned here waiting for the gate can deadlock the carriers (see BotDbGate).
+                    // Straight to the pool, not through the gate: every spawning bot queues on LOAD_LOCK, so this
+                    // read is already serialised, and a login that paid a gate permit for it would nest a second
+                    // demand on top of the character load's. One unfenced read here is cheaper than that nesting;
+                    // it can take at most one connection, and the bots' share leaves players four (see BotDbGate).
                     BotStore.ConnectionSource source = connectionSource;
                     try (Connection con = source != null ? source.get() : DatabaseConnection.getConnection();
                          PreparedStatement ps = con.prepareStatement(SELECT_ALL);

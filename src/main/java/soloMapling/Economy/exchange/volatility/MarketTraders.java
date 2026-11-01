@@ -50,7 +50,7 @@ public final class MarketTraders {
 
     /** A ticker's price when it has never traded (until players set one): the trader's first anchor. */
     static final Map<String, Long> FALLBACK = Map.of("LEAF", 600_000L, "CHAOS", 20_000_000L, "WS", 10_000_000L,
-            "ELIXIR", 6_000L);
+            "ELIXIR", 6_000L, Ticker.NX, 5_000_000L);
     /** The NPC shops buy Maple Leaves at this: value traders anchor LEAF's fair value near it. */
     static final long LEAF_SHOP = 500_000L;
 
@@ -103,27 +103,60 @@ public final class MarketTraders {
      * patient ones (value, maker, some momentum), in a fixed cycle so every archetype shows up.
      */
     public static List<Trader> select(List<Candidate> roster, int count) {
+        return select(roster, count, false);
+    }
+
+    /**
+     * 1.6.2 (owner: more trader bots): with {@code allTypes} every Bartle type trades, so a share of the bots in the
+     * game is enough to fill the books (Killers and Achievers alone were about 40% of the roster). Explorers get the
+     * patient roles (value, momentum, maker), Socialisers the quoting ones (maker, panic, value), an unknown type the
+     * maker; the archetype cycle per type is unchanged, so the same bots keep the same style every boot.
+     */
+    public static List<Trader> select(List<Candidate> roster, int count, boolean allTypes) {
         List<Candidate> pool = new ArrayList<>();
         for (Candidate c : roster) {
-            if ("KILLER".equals(c.bartle()) || "ACHIEVER".equals(c.bartle())) {
+            if (allTypes || "KILLER".equals(c.bartle()) || "ACHIEVER".equals(c.bartle())) {
                 pool.add(c);
             }
         }
         pool.sort(java.util.Comparator.comparingLong(c -> mix(c.id())));
-        Archetype[] killer = {Archetype.MOMENTUM, Archetype.PANIC, Archetype.WHALE, Archetype.MOMENTUM,
-                Archetype.PANIC};
-        Archetype[] achiever = {Archetype.VALUE, Archetype.MAKER, Archetype.MOMENTUM, Archetype.MAKER,
-                Archetype.VALUE};
-        int k = 0, a = 0;
+        java.util.Map<String, Integer> next = new HashMap<>();
         List<Trader> out = new ArrayList<>();
         for (Candidate c : pool) {
             if (out.size() >= count) {
                 break;
             }
-            Archetype at = "KILLER".equals(c.bartle()) ? killer[k++ % killer.length] : achiever[a++ % achiever.length];
-            out.add(new Trader(c.id(), at, mix(c.id() * 31 + 7)));
+            Archetype[] cycle = CYCLE.getOrDefault(c.bartle(), CYCLE.get(""));
+            int i = next.merge(c.bartle() == null ? "" : c.bartle(), 1, Integer::sum) - 1;
+            out.add(new Trader(c.id(), cycle[i % cycle.length], mix(c.id() * 31 + 7)));
         }
         return out;
+    }
+
+    /** Each Bartle type's archetype cycle (a bot's style follows its type, and repeats in a fixed order). */
+    private static final Map<String, Archetype[]> CYCLE = Map.of(
+            "KILLER", new Archetype[]{Archetype.MOMENTUM, Archetype.PANIC, Archetype.WHALE, Archetype.MOMENTUM,
+                    Archetype.PANIC},
+            "ACHIEVER", new Archetype[]{Archetype.VALUE, Archetype.MAKER, Archetype.MOMENTUM, Archetype.MAKER,
+                    Archetype.VALUE},
+            "EXPLORER", new Archetype[]{Archetype.VALUE, Archetype.MOMENTUM, Archetype.MAKER},
+            "SOCIALIZER", new Archetype[]{Archetype.MAKER, Archetype.PANIC, Archetype.VALUE},
+            "", new Archetype[]{Archetype.MAKER, Archetype.VALUE});
+
+    /**
+     * 1.6.2: how many traders the roster should have now. A share ({@code -Dslums.exchange.traders.pct}) of the bots
+     * in the game, under the count as a hard cap; without a share, the count itself (the 1.6.1 behaviour: 16).
+     */
+    public static int target(List<Candidate> online, MarketConfig cfg) {
+        if (cfg.tradersPct() <= 0) {
+            return cfg.traderCount();
+        }
+        int cap = cfg.traderCount() > 0 ? cfg.traderCount() : MarketConfig.MAX_TRADERS;
+        if (online.isEmpty()) {
+            return 0; // nobody in the game, nobody trades
+        }
+        long want = Math.max(1, Math.round(online.size() * cfg.tradersPct() / 100.0));
+        return (int) Math.min(cap, want);
     }
 
     /**
@@ -133,6 +166,12 @@ public final class MarketTraders {
      * places are filled by {@link #select} from the other online candidates.
      */
     public static List<Trader> keepAndFill(List<Trader> previous, List<Candidate> online, int count) {
+        return keepAndFill(previous, online, count, false);
+    }
+
+    /** As {@link #keepAndFill(List, List, int)}, with {@code allTypes} as {@link #select(List, int, boolean)}. */
+    public static List<Trader> keepAndFill(List<Trader> previous, List<Candidate> online, int count,
+                                           boolean allTypes) {
         java.util.Set<Long> here = new java.util.HashSet<>();
         for (Candidate c : online) {
             here.add(c.id());
@@ -150,7 +189,7 @@ public final class MarketTraders {
                 rest.add(c);
             }
         }
-        out.addAll(select(rest, count - out.size()));
+        out.addAll(select(rest, count - out.size(), allTypes));
         return out;
     }
 
@@ -222,12 +261,24 @@ public final class MarketTraders {
                 items.add(k);
             }
         }
+        Ticker nx = cfg.tradersNx() ? ex.ticker(Ticker.NX) : null;
+        if (nx != null && ex.open(nx.id())) {
+            items.add(nx); // 1.6.2: bots may buy NX with mesos and sell the NX they hold (off unless -D...traders.nx)
+        }
         if (items.isEmpty()) {
             return 0;
         }
         Ticker tk = items.stream().filter(k -> "LEAF".equals(k.id())).findFirst().orElse(null);
         if (tk == null || rng.nextInt(100) >= 70) {
             tk = items.get(rng.nextInt(items.size()));
+        }
+        // 1.6.2: trade what you hold. A bot holding a scroll (CHAOS, WS) offers that scroll this turn: until now the
+        // dice alone decided, so the 27 CHAOS a bot already held never reached the book and no bot ever quoted one.
+        Ticker held = heldScroll(items, w);
+        if (held != null) {
+            tk = held;
+        } else if (nx != null && ex.botNx(w.account()) > 0 && rng.nextInt(100) < 70) {
+            tk = nx; // NX a bot bought and has not sold: offer it back
         }
         MarketNews.Role role = news == null ? MarketNews.Role.NONE : news.role(guild, now);
         if (role != MarketNews.Role.NONE && rng.nextInt(100) < 80) {
@@ -253,8 +304,9 @@ public final class MarketTraders {
             open.add(new TraderBrain.Open(r.id(), r.side(), r.price(), r.nxLeft(), r.placedAt()));
         }
         int left = Math.max(0, tk.perDay() - ex.placedToday(w.account(), tk.id()));
+        long heldNow = tk.item() ? w.have(tk.asset()) : ex.botNx(w.account());
         TraderBrain.Holdings h = new TraderBrain.Holdings(w.have(soloMapling.Economy.exchange.Ledger.Asset.MESO),
-                w.have(tk.asset()), open, left, tk.maxOpen());
+                heldNow, open, left, tk.maxOpen());
         List<TraderBrain.Action> acts = role == MarketNews.Role.NONE ? List.of() : TraderBrain.newsActions(role, v, h, rng);
         if (acts.isEmpty()) {
             acts = TraderBrain.decide(t.archetype(), v, h, now, rng);
@@ -370,8 +422,46 @@ public final class MarketTraders {
             hourAgo = trades.get(trades.size() - 1).price(); // younger than an hour: from the oldest we have
         }
         long fair = fairValue != null && fairValue > 0 ? fairValue : fair(ex, tk, now, fallback, in);
-        return new TraderBrain.View(tk.id(), ref, bid, ask, hourAgo, high2h, fair, pressure, tk.minPrice(),
-                tk.maxPrice(), tk.maxQty(), ex.config().feeBps(), band[0], band[1]);
+        long lo = tk.minPrice(), hi = tk.maxPrice();
+        if (Ticker.NX.equals(tk.id())) { // the bots quote inside the band the exchange refuses players on
+            long[] nx = ex.nxBand(); // hard window ∩ the relative band around the official rate (owner 2026-10-31)
+            long nxLo = Math.max(lo, nx[0]), nxHi = Math.min(hi, nx[1]);
+            if (nxLo > nxHi) { // the brain's own anchor is far from the official rate: the exchange's band wins
+                nxLo = nx[0];
+                nxHi = nx[1];
+            }
+            lo = nxLo;
+            hi = nxHi;
+        }
+        return new TraderBrain.View(tk.id(), ref, bid, ask, hourAgo, high2h, fair, pressure, lo, hi, tk.maxQty(),
+                ex.config().feeBps(), band[0], band[1], tk.per(), tk.lot(), tk.minQty());
+    }
+
+    /** The scroll tickers trader bots trade, in the order off-screen finds are rolled (1.6.2). */
+    static final java.util.List<String> SCROLL_IDS = java.util.List.of("CHAOS", "WS");
+
+    /** The scroll tickers trader bots trade (1.6.2); anything else they hold is still taken by the dice. */
+    private static final java.util.Set<String> SCROLLS = java.util.Set.copyOf(SCROLL_IDS);
+
+    /**
+     * The scroll this bot holds most of, among the open item tickers; null when it holds none (the dice pick, then).
+     * Leaves and potions are left to the dice on purpose: almost every trader holds some, and preferring them would
+     * only concentrate the whole market on LEAF.
+     */
+    static Ticker heldScroll(List<Ticker> open, LiveWallet w) {
+        Ticker best = null;
+        long most = 0;
+        for (Ticker k : open) {
+            if (!k.item() || !SCROLLS.contains(k.id())) {
+                continue;
+            }
+            long have = w.have(k.asset());
+            if (have > most) {
+                most = have;
+                best = k;
+            }
+        }
+        return best;
     }
 
     /** How deep a trader looks for the best in-band bid and ask. */
@@ -449,8 +539,34 @@ public final class MarketTraders {
         return n;
     }
 
+    // ---------------------------------------------------------------- off-screen scroll finds
+
+    private static final Map<Long, double[]> scrollOwed = new ConcurrentHashMap<>();
+
+    /**
+     * How many of the scroll at {@code slot} ({@link #SCROLL_IDS}) a trader bot finds while hunting off screen for
+     * {@code elapsedMs}: {@code perKill} is the summed chance out of 1,000,000 that one of its kills drops it (its
+     * map's mobs' real drop_data rows and global drops, the world's rate in), rolled at {@code killsPerMin}, and
+     * {@code findRate} is the owner's share of that real chance ({@link MarketConfig#scrollFindRate}: a quarter since
+     * 2026-10-31, 1 = the real rate, 0 = none). Fractions carry over per bot and scroll, so a rare drop lands
+     * eventually rather than never. The caller grants through the bot's yield caps and holdings.
+     */
+    public static int offscreenScroll(long botId, int slot, long elapsedMs, double killsPerMin, double perKill,
+                                      double findRate) {
+        if (elapsedMs <= 0 || perKill <= 0 || killsPerMin <= 0 || findRate <= 0 || slot < 0
+                || slot >= SCROLL_IDS.size()) {
+            return 0;
+        }
+        double[] owed = scrollOwed.computeIfAbsent(botId, k -> new double[SCROLL_IDS.size()]);
+        owed[slot] += killsPerMin * elapsedMs / 60_000.0 * perKill * findRate / 1_000_000.0;
+        int n = (int) Math.floor(owed[slot]);
+        owed[slot] -= n;
+        return n;
+    }
+
     static void clearForTest() {
         leafRemainder.clear();
+        scrollOwed.clear();
         traderIds.clear();
     }
 }

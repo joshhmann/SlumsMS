@@ -35,6 +35,7 @@ import static soloMapling.FreeMarket.ArtificialShopGenerator.generateItem;
 import static soloMapling.server.SoloMaplingUtilities.getRandomElement;
 import static soloMapling.server.SoloMaplingUtilities.random;
 import static soloMapling.server.SoloMaplingUtilities.rollChanceInverse;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
 
 public class NXMerchantBot extends BotSM {
     private NXState nxState = NXState.SETUP;
@@ -200,7 +201,11 @@ public class NXMerchantBot extends BotSM {
 
         public void whisper(int buyerId, String line) {
             Character b = onlineById(buyerId);
-            if (b != null) {
+            if (b == null) {
+                return;
+            }
+            line = SpeechGuard.check(getChr(), b, line); // b247: never a {slot}
+            if (line != null) {
                 b.sendPacket(PacketCreator.getWhisperReceive(getChr().getName(), Math.max(0, getChr().getClient().getChannel() - 1), false, line));
             }
         }

@@ -30,15 +30,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ExchangeTest {
 
     /**
-     * The guard for the engine's own tests: no NX price band (these tests trade around 1,000,000 per 1,000 NX, under
-     * the band of the 5,000,000 starting price; {@code NxGuardTest} covers the band), the site sign-in age on.
+     * The guard for the engine's own tests: the relative NX band off (these tests trade inside the hard window,
+     * 2,500,000..10,000,000 per 1,000 NX, which no switch removes; {@code NxGuardTest} covers the band), the site
+     * sign-in age on.
      */
     static NxGuard engineGuard() {
         return new NxGuard(0, 0, 0, NxGuard.defaults().siteAuthMaxMs());
     }
 
 
-    static final long P = 1_000_000; // 1m mesos per 1,000 NX
+    static final long P = 5_000_000; // 5m mesos per 1,000 NX, inside the hard window
     static final long NX0 = 100_000;
     static final long MESO0 = 50_000_000;
 
@@ -112,29 +113,29 @@ class ExchangeTest {
 
     @Test
     void placingABuyEscrowsTheMesosOfTheNamedCharacter() throws Exception {
-        Response r = place(2, Side.BUY, 1_250_000, 2000);
+        Response r = place(2, Side.BUY, 6_250_000, 2000);
         assertTrue(r.ok());
-        assertEquals(MESO0 - 2_500_000, store.meso(12));
-        assertEquals(2_500_000, store.balance(Bucket.escrow(Asset.MESO, orderId(r))));
+        assertEquals(MESO0 - 12_500_000, store.meso(12));
+        assertEquals(12_500_000, store.balance(Bucket.escrow(Asset.MESO, orderId(r))));
         conserved();
     }
 
     @Test
     void aFillSettlesBothSidesIntoPayoutsThenWallets() throws Exception {
         long sell = orderId(place(1, Side.SELL, P, 1000));
-        Response buy = place(2, Side.BUY, 1_200_000, 1000);
+        Response buy = place(2, Side.BUY, 6_000_000, 1000);
         assertEquals(1, ((Number) buy.data().get("fills")).intValue());
         assertEquals("FILLED", buy.data().get("status"));
         assertEquals("FILLED", store.order(sell).status());
-        // the buyer paid the maker's price; the 200k difference came back
+        // the buyer paid the maker's price; the 1m difference came back
         assertEquals(1000, store.balance(Bucket.payout(Asset.NX, 2)));
-        assertEquals(1_000_000, store.balance(Bucket.payout(Asset.MESO, 11)));
-        assertEquals(200_000, store.balance(Bucket.payout(Asset.MESO, 12)));
+        assertEquals(5_000_000, store.balance(Bucket.payout(Asset.MESO, 11)));
+        assertEquals(1_000_000, store.balance(Bucket.payout(Asset.MESO, 12)));
         conserved();
         assertEquals(2, ex.collectAll());
         assertEquals(NX0 + 1000, store.nx(2));
-        assertEquals(MESO0 - 1_000_000, store.meso(12));
-        assertEquals(MESO0 + 1_000_000, store.meso(11));
+        assertEquals(MESO0 - 5_000_000, store.meso(12));
+        assertEquals(MESO0 + 5_000_000, store.meso(11));
         assertEquals(NX0 - 1000, store.nx(1));
         assertTrue(store.accountsWithPayout().isEmpty());
         conserved();
@@ -143,16 +144,16 @@ class ExchangeTest {
 
     @Test
     void partialFillsAcrossManyOrdersConserve() throws Exception {
-        place(1, Side.SELL, 900_000, 300);
-        place(3, Side.SELL, 950_000, 500);
-        place(4, Side.SELL, 1_100_000, 1000);
-        Response big = place(2, Side.BUY, 1_000_000, 1500);
+        place(1, Side.SELL, 4_900_000, 300);
+        place(3, Side.SELL, 4_950_000, 500);
+        place(4, Side.SELL, 5_100_000, 1000);
+        Response big = place(2, Side.BUY, 5_000_000, 1500);
         assertEquals(2, ((Number) big.data().get("fills")).intValue());
         assertEquals(800L, big.data().get("filledNx"));
         assertEquals("OPEN", big.data().get("status"));
         assertEquals(700, ((Number) big.data().get("nxLeft")).longValue());
         conserved();
-        place(4, Side.SELL, 1_000_000, 1000); // takes the rest of the bid
+        place(4, Side.SELL, 5_000_000, 1000); // takes the rest of the bid
         conserved();
         ex.collectAll();
         conserved();
@@ -188,9 +189,7 @@ class ExchangeTest {
         int before = ex.openOrders();
         Response r = place(2, Side.SELL, P, 50_000 * 3); // over maxNx -> bad request
         assertEquals("BAD_REQUEST", r.code());
-        Response poor = ex.place(new Place("poor", 2, 12, Side.BUY, 100_000_000, 50_000)); // 5bn > int cap
-        assertEquals("BAD_REQUEST", poor.code());
-        Response tooMuch = ex.place(new Place("much", 2, 12, Side.BUY, 2_000_000, 40_000)); // 80m > 50m
+        Response tooMuch = ex.place(new Place("much", 2, 12, Side.BUY, 9_000_000, 40_000)); // 360m > 50m
         assertEquals("INSUFFICIENT_FUNDS", tooMuch.code());
         assertEquals(before, ex.openOrders());
         assertEquals(P, ex.bookForTest().best(Side.SELL), "the ask it would have hit is still there");
@@ -219,24 +218,24 @@ class ExchangeTest {
     @Test
     void limitsOpenOrdersPerDayAndCooldown() throws Exception {
         ex = start(cfg(0, 2, 3, 10_000, 0, 0));
-        assertTrue(place(1, Side.SELL, 2_000_000, 100).ok());
-        var cd = place(1, Side.SELL, 2_000_000, 100);
+        assertTrue(place(1, Side.SELL, P, 100).ok());
+        var cd = place(1, Side.SELL, P, 100);
         assertEquals("COOLDOWN", cd.code());
         assertTrue(cd.message().contains("wait 10 s before"), cd.message());
         now.addAndGet(4_000);
-        cd = place(1, Side.SELL, 2_000_000, 100);
+        cd = place(1, Side.SELL, P, 100);
         assertTrue(cd.message().contains("wait 6 s before"), "says how long is left: " + cd.message());
         now.addAndGet(6_000);
-        assertTrue(place(1, Side.SELL, 2_000_000, 100).ok());
+        assertTrue(place(1, Side.SELL, P, 100).ok());
         now.addAndGet(10_000);
-        assertEquals("LIMIT_OPEN", place(1, Side.SELL, 2_000_000, 100).code());
+        assertEquals("LIMIT_OPEN", place(1, Side.SELL, P, 100).code());
         ex.cancel("c", 1, ex.openIdsOf(1).get(0));
-        assertTrue(place(1, Side.SELL, 2_000_000, 100).ok());
+        assertTrue(place(1, Side.SELL, P, 100).ok());
         now.addAndGet(10_000);
         ex.cancel("c2", 1, ex.openIdsOf(1).get(0));
-        assertEquals("LIMIT_DAY", place(1, Side.SELL, 2_000_000, 100).code());
+        assertEquals("LIMIT_DAY", place(1, Side.SELL, P, 100).code());
         now.addAndGet(TimeUnit.DAYS.toMillis(1));
-        assertTrue(place(1, Side.SELL, 2_000_000, 100).ok());
+        assertTrue(place(1, Side.SELL, P, 100).ok());
     }
 
     @Test
@@ -256,11 +255,11 @@ class ExchangeTest {
 
     @Test
     void cancelReleasesOnceAndOnlyForTheOwner() throws Exception {
-        long id = orderId(place(2, Side.BUY, 1_500_000, 1000));
+        long id = orderId(place(2, Side.BUY, 5_500_000, 1000));
         assertEquals("NOT_FOUND", ex.cancel("c0", 1, id).code(), "someone else's order");
         assertTrue(ex.cancel("c1", 2, id).ok());
         assertEquals("NOT_FOUND", ex.cancel("c2", 2, id).code(), "double cancel");
-        assertEquals(1_500_000, store.balance(Bucket.payout(Asset.MESO, 12)));
+        assertEquals(5_500_000, store.balance(Bucket.payout(Asset.MESO, 12)));
         assertEquals("CANCELLED", store.order(id).status());
         conserved();
         ex.collectAll();
@@ -310,7 +309,7 @@ class ExchangeTest {
     @Test
     void haltStopsOrdersFillsExpiryAndPayoutsButNotCancels() throws Exception {
         long sell = orderId(place(1, Side.SELL, P, 1000));
-        long buy = orderId(place(3, Side.BUY, 900_000, 1000));
+        long buy = orderId(place(3, Side.BUY, 4_900_000, 1000));
         ex.halt("test");
         assertEquals("HALTED", place(2, Side.BUY, P, 1000).code());
         now.addAndGet(TimeUnit.DAYS.toMillis(10));
@@ -329,9 +328,9 @@ class ExchangeTest {
     /** A crash at any point inside a matching place leaves the store and the book exactly as before. */
     @Test
     void aCrashAtAnyStepChangesNothing() throws Exception {
-        place(1, Side.SELL, 900_000, 300);
-        place(3, Side.SELL, 950_000, 500);
-        place(4, Side.BUY, 800_000, 1000);
+        place(1, Side.SELL, 4_900_000, 300);
+        place(3, Side.SELL, 4_950_000, 500);
+        place(4, Side.BUY, 4_800_000, 1000);
         int ledger = store.ledger().size();
         List<OrderBook.Level> asks = ex.depth(Side.SELL, 10);
         List<OrderBook.Level> bids = ex.depth(Side.BUY, 10);
@@ -339,7 +338,7 @@ class ExchangeTest {
         Response ok;
         for (int stepAt = 0; ; stepAt++) {
             store.crashAfterSteps(stepAt);
-            Response r = ex.place(new Place("crash" + stepAt, 2, 12, Side.BUY, 1_000_000, 1000));
+            Response r = ex.place(new Place("crash" + stepAt, 2, 12, Side.BUY, P, 1000));
             if (r.ok()) {
                 ok = r;
                 break;
@@ -382,15 +381,15 @@ class ExchangeTest {
 
     @Test
     void restartRecoversTheBookAndKeepsIdsUnique() throws Exception {
-        place(1, Side.SELL, 1_100_000, 1000);
-        place(2, Side.BUY, 900_000, 1000);
-        place(3, Side.SELL, 1_000_000, 500);
-        place(4, Side.BUY, 1_000_000, 200);
+        place(1, Side.SELL, 5_300_000, 1000);
+        place(2, Side.BUY, 4_700_000, 1000);
+        place(3, Side.SELL, P, 500);
+        place(4, Side.BUY, P, 200);
         Exchange again = start(open());
         assertEquals(ex.openOrders(), again.openOrders());
         assertEquals(ex.depth(Side.SELL, 10), again.depth(Side.SELL, 10));
         ex = again;
-        assertTrue(place(4, Side.BUY, 1_100_000, 1300).ok());
+        assertTrue(place(4, Side.BUY, 5_100_000, 1300).ok());
         List<Long> fillIds = store.fills().stream().map(FillRow::id).toList();
         assertEquals(fillIds.size(), fillIds.stream().distinct().count());
         conserved();
@@ -415,21 +414,21 @@ class ExchangeTest {
      */
     @Test
     void spendingWhileEscrowedCannotDupe() throws Exception {
-        long buy = orderId(place(2, Side.BUY, P, 10_000)); // 10m mesos escrowed
+        long buy = orderId(place(2, Side.BUY, P, 2_000)); // 10m mesos escrowed
         MemoryExchangeStore.Session s = store.login(2);
         assertEquals(MESO0 - 10_000_000, s.meso.get(12L), "the game loads the wallet without the escrow");
         assertFalse(s.spendMeso(12, MESO0), "cannot spend the escrowed part");
         assertTrue(s.spendMeso(12, MESO0 - 10_000_000)); // spends everything it really has (an NPC sink)
         long spent = MESO0 - 10_000_000;
         // a seller fills the buy while the buyer is logged in: settlement never needs the buyer offline
-        assertTrue(place(1, Side.SELL, P, 10_000).ok());
+        assertTrue(place(1, Side.SELL, P, 2_000).ok());
         assertEquals("FILLED", store.order(buy).status());
         ex.collectAll(); // pays the offline seller, skips the logged-in buyer
-        assertEquals(10_000, store.balance(Bucket.payout(Asset.NX, 2)));
+        assertEquals(2_000, store.balance(Bucket.payout(Asset.NX, 2)));
         store.logout(2); // the game saves its (absolute) values
         assertEquals(0, store.meso(12));
         ex.collectAll();
-        assertEquals(NX0 + 10_000, store.nx(2));
+        assertEquals(NX0 + 2_000, store.nx(2));
         assertEquals(0, store.meso(12), "no mesos came back from nowhere");
         assertEquals(totalMeso - spent, store.totalMeso());
         assertEquals(totalNx, store.totalNx());
@@ -440,30 +439,30 @@ class ExchangeTest {
         ex = start(cfg(100, 1000, 100_000, 0, 0, 0)); // 1% from each side (owner 2026-10-28)
         place(1, Side.SELL, P, 1000);
         place(2, Side.BUY, P, 1000);
-        assertEquals(20_000, store.balance(Bucket.fees()), "1% from the seller and 1% from the buyer");
-        assertEquals(990_000, store.balance(Bucket.payout(Asset.MESO, 11)));
-        assertEquals(MESO0 - 1_010_000, store.meso(12), "the buyer paid the price plus its 1%");
+        assertEquals(100_000, store.balance(Bucket.fees()), "1% from the seller and 1% from the buyer");
+        assertEquals(4_950_000, store.balance(Bucket.payout(Asset.MESO, 11)));
+        assertEquals(MESO0 - 5_050_000, store.meso(12), "the buyer paid the price plus its 1%");
         conserved();
     }
 
     @Test
     void walletCapLeavesTheRestInPayout() throws Exception {
-        store.addCharacter(50, 4, 5000);
-        long id = orderId(ex.place(new Place("cap", 4, 50, Side.BUY, 1000, 1000))); // holds 1,000 mesos
+        store.addCharacter(50, 4, 300_000);
+        long id = orderId(ex.place(new Place("cap", 4, 50, Side.BUY, 2_500_000, 100))); // escrows 250,000
         store.addCharacter(50, 4, Integer.MAX_VALUE - 100); // earned in game meanwhile
         totalMeso = store.totalMeso();
         assertTrue(ex.cancel("c", 4, id).ok());
         ex.collectAll();
         assertEquals(Integer.MAX_VALUE, store.meso(50));
-        assertEquals(900, store.balance(Bucket.payout(Asset.MESO, 50)));
+        assertEquals(249_900, store.balance(Bucket.payout(Asset.MESO, 50)));
         conserved();
     }
 
     @Test
     void regularsQuoteFromAFundedHouseAndNeverMoveTheRateAlone() throws Exception {
         ex = start(cfg(0, 1000, 100_000, 0, 0, 2));
-        place(1, Side.SELL, 1_100_000, 1000);
-        place(2, Side.BUY, 900_000, 1000);
+        place(1, Side.SELL, 5_300_000, 1000);
+        place(2, Side.BUY, 4_700_000, 1000);
         ex = start(cfg(0, 1000, 100_000, 0, 0, 3));
         assertTrue(ex.fundHouse(3, 9, 19, Asset.NX, 10_000).ok());
         assertTrue(ex.fundHouse(3, 9, 19, Asset.MESO, 100_000_000).ok());
@@ -474,8 +473,8 @@ class ExchangeTest {
         totalNx = store.totalNx();
         totalMeso = store.totalMeso();
         assertEquals(0, ex.tickRegulars(), "no reference price yet: no quotes");
-        place(1, Side.SELL, 1_100_000, 1000);
-        place(2, Side.BUY, 900_000, 1000);
+        place(1, Side.SELL, 5_300_000, 1000);
+        place(2, Side.BUY, 4_700_000, 1000);
         assertEquals(0, ex.tickRegulars(), "unfunded house cannot quote");
         assertEquals("LOG_OUT_FIRST", fundWhileOnline());
         assertTrue(ex.fundHouse(1, 9, 19, Asset.NX, 10_000).ok());
@@ -484,15 +483,15 @@ class ExchangeTest {
         assertTrue(ex.fundHouse(2, 9, 19, Asset.MESO, 100_000_000).ok());
         assertEquals(4, ex.tickRegulars());
         assertEquals(0, ex.tickRegulars(), "quotes already resting");
-        assertEquals(1_000_000 + 30_000, ex.bookForTest().best(Side.SELL));
-        assertEquals(1_000_000 - 30_000, ex.bookForTest().best(Side.BUY));
+        assertEquals(5_000_000 + 150_000, ex.bookForTest().best(Side.SELL), "300 bps above the mid");
+        assertEquals(5_000_000 - 150_000, ex.bookForTest().best(Side.BUY), "300 bps below the mid");
         conserved();
         // a player taking a regular's ask trades, but never sets the official rate (owner 2026-10-28)
-        Exchange.Response cross = ex.place(new Place("p", 3, 13, Side.BUY, 1_030_000, 500));
+        Exchange.Response cross = ex.place(new Place("p", 3, 13, Side.BUY, 5_150_000, 500));
         assertTrue(cross.ok());
         assertEquals(1, ((Number) cross.data().get("fills")).intValue());
         assertEquals(null, ex.officialRate(), "a player-vs-regular fill does not count");
-        assertEquals(OfficialRate.vwap(List.of(new FillRow(1, now.get(), 1, 2, 500, 5_000_000, 0, true, true)),
+        assertEquals(OfficialRate.vwap(List.of(new FillRow(1, now.get(), 1, 2, 500, 5_150_000, 0, true, true)),
                 now.get(), 1000, 1), null);
         conserved();
     }
@@ -522,7 +521,7 @@ class ExchangeTest {
                     int op = rnd.nextInt(10);
                     if (op < 6) {
                         Response r = ex.place(new Place("t" + seed + "-" + i, acc, 10 + acc,
-                                rnd.nextBoolean() ? Side.BUY : Side.SELL, 900_000 + rnd.nextInt(200) * 1000L,
+                                rnd.nextBoolean() ? Side.BUY : Side.SELL, 4_900_000 + rnd.nextInt(200) * 1000L,
                                 100L * (1 + rnd.nextInt(20))));
                         if (r.ok()) {
                             fills.addAndGet(((Number) r.data().get("fills")).intValue());

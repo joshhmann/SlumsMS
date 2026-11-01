@@ -59,7 +59,11 @@ public final class BotCommandParser {
         /** Trade upgrades: hand over the spare gear that helps the player (and siblings). */
         TRADE_UPGRADES,
         /** Need pot(s) / ammo / rocks: whoever has spare offers some (arg "hp", "mp", "pots", "ammo", "rocks"). */
-        NEED
+        NEED,
+        // ── 1.6.3 s-lanes ──
+        /** Lanes: each companion takes a spot of its own, spread out ({@link CompanionLanes}); arg is the reach
+         * ("map" / "screen"), or null for the switch's default. */
+        LANES
     }
 
     /** The ticket 14 orders: what {@link #parse(String, List)} reads. */
@@ -72,6 +76,8 @@ public final class BotCommandParser {
     public static final Set<Verb> UPGRADE = EnumSet.of(Verb.UPGRADES, Verb.REQUEST, Verb.TRADE_UPGRADES);
     /** Supply sharing (COMPANION_SUPPLIES_ENABLED). */
     public static final Set<Verb> SUPPLY = EnumSet.of(Verb.NEED);
+    /** 1.6.3 s-lanes (-Dslums.alts.lanes=true): spreading the companions over lanes of their own. */
+    public static final Set<Verb> LANES = EnumSet.of(Verb.LANES);
 
     /** One party bot that can be told: its id and name, at its slot (1-based position in the list). */
     public record Target(int id, String name) {
@@ -115,7 +121,9 @@ public final class BotCommandParser {
             Map.entry("patrol", Verb.PATROL), Map.entry("roam", Verb.PATROL), Map.entry("wander", Verb.PATROL),
             Map.entry("sentry", Verb.SENTRY), Map.entry("guard", Verb.SENTRY), Map.entry("camp", Verb.SENTRY),
             Map.entry("defend", Verb.SENTRY), Map.entry("anchor", Verb.SENTRY),
-            Map.entry("move", Verb.MOVE_HERE));
+            Map.entry("move", Verb.MOVE_HERE),
+            // 1.6.3 s-lanes; "spread lanes" and "take lanes" are read in lanes(), not as a verb word
+            Map.entry("lanes", Verb.LANES));
 
     /** Words that may ride along with the command word without making the line something else. */
     private static final Set<String> FILLER = Set.of("me", "here", "there", "with", "us", "back", "on", "up",
@@ -261,6 +269,9 @@ public final class BotCommandParser {
         if (!BASE.containsAll(allowed)) {
             cmd = itemCommand(w, allowed, byName);
             if (cmd == null) {
+                cmd = lanes(w, allowed);
+            }
+            if (cmd == null) {
                 cmd = formation(w, allowed);
             }
         }
@@ -287,6 +298,41 @@ public final class BotCommandParser {
             return null;
         }
         return new Cmd(verb, null);
+    }
+
+    /** Words that carry no meaning of their own in a lanes order: "spread lanes over the whole map". */
+    private static final Set<String> LANE_WORDS = Set.of("over", "across", "the", "whole", "on", "out", "there");
+
+    /**
+     * 1.6.3 s-lanes: "lanes", "spread lanes", "take lanes", "bring lanes", and "lanes map" / "lanes screen" for how
+     * far out the lanes go ({@link CompanionLanes.Reach}). Only with the lanes switch on, else the line is chat.
+     */
+    private static Cmd lanes(List<String> w, Set<Verb> allowed) {
+        if (!allowed.contains(Verb.LANES)) {
+            return null;
+        }
+        int at;
+        if (w.get(0).equals("lanes") || w.get(0).equals("lane")) {
+            at = 0;
+        } else if (w.size() > 1 && (w.get(0).equals("spread") || w.get(0).equals("take")
+                || w.get(0).equals("bring")) && (w.get(1).equals("lanes") || w.get(1).equals("lane"))) {
+            at = 1;
+        } else {
+            return null;
+        }
+        CompanionLanes.Reach reach = null;
+        for (String word : w.subList(at + 1, w.size())) {
+            CompanionLanes.Reach r = CompanionLanes.Reach.parse(word);
+            if (r != null) {
+                if (reach != null && reach != r) {
+                    return null; // "lanes map screen" is not an order
+                }
+                reach = r;
+            } else if (!FILLER_MORE.contains(word) && !LANE_WORDS.contains(word)) {
+                return null;
+            }
+        }
+        return new Cmd(Verb.LANES, reach == null ? null : reach.name().toLowerCase(Locale.ROOT));
     }
 
     /**

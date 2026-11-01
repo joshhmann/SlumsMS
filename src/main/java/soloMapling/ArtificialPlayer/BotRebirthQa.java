@@ -459,6 +459,25 @@ public final class BotRebirthQa {
         return itemId < 0 ? 0 : bot.getInventory(InventoryType.ETC).countById(itemId);
     }
 
+    /**
+     * rb-2/t-rb-2: whether this bot's own craft spent {@code itemId} on the key for rebirth {@code reborns}, at or
+     * after {@code sinceMs}. {@link BotRebirth#craft} writes that record at the consume itself, with the bot's id,
+     * the rebirth the key is for and every item it took, so the check can only pass on the item this bot earned going
+     * into its own key. Round 2 review: "the bag is empty and the next key count went up" also passed when the key
+     * came from another bot's award, a GM grant or another route; a key is not the item.
+     */
+    public static boolean clearItemConsumed(Character bot, int itemId, int reborns, long sinceMs) {
+        BotRebirth.Crafted c = bot == null ? null : BotRebirth.lastCraft(bot.getId());
+        if (c == null || c.reborns() != reborns || c.atMs() < sinceMs) return false;
+        for (int id : c.consumed()) if (id == itemId) return true;
+        return false;
+    }
+
+    /** rb-2: how many of the key for the bot's next rebirth it carries right now. */
+    public static int keyAhead(Character bot) {
+        return count(bot, BotRebirth.keyItemFor(bot.getReborns()));
+    }
+
     private static String held(Character bot, int[] ids) {
         return ids.length < 2 ? "-" : count(bot, ids[0]) + "/" + count(bot, ids[1]);
     }

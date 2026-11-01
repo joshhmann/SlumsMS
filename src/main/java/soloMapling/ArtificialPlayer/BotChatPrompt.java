@@ -118,7 +118,25 @@ public final class BotChatPrompt {
      */
     public static String system(Context c, BotPersona.Persona persona, double chattiness, String card, String voiceLine,
                                 boolean worldFacts) {
+        // s-llmcache: DeepSeek (and every other provider that caches a repeated prompt prefix) bills the part of the
+        // prompt that is identical to the previous call at its cached price. So the blocks that never change between
+        // two messages go first - the typing and hard rules, this bot's persona, the world facts - and everything that
+        // belongs to this one message goes last: who the bot is right now, who it is talking to, what it remembers,
+        // what the game just did. Same text as before, only the order; the fixed blocks are the same for every message
+        // to the same bot, so the provider's cache covers them.
         StringBuilder s = new StringBuilder();
+        if (voiceLine != null) {
+            s.append(VOICE_BASE).append(' ').append(voiceLine).append(' ');
+        } else {
+            s.append(VOICE).append(' ');
+        }
+        s.append(NEVER).append(' ');
+        s.append("Do not bring up your map or what you are doing unless it fits the chat. ");
+        // stage B (owner's step 5): one typing style per prompt - the persona's own voice line replaces its style rules
+        s.append(BotPersona.describe(persona, chattiness, voiceLine == null)).append(' ');
+        if (worldFacts) {
+            s.append(WORLD_FACTS).append(' ');
+        }
         s.append("You are ").append(c.botName()).append(", a real person playing MapleStory in 2008. ");
         s.append("Right now you are a level ").append(c.level()).append(' ').append(c.job());
         if (c.map() != null) {
@@ -134,7 +152,6 @@ public final class BotChatPrompt {
         if (c.mood() != null && !c.mood().isEmpty()) {
             s.append("Mood: ").append(c.mood()).append(". ");
         }
-        s.append(BotPersona.describe(persona, chattiness)).append(' ');
         s.append("You are talking to ").append(c.playerName()).append(", a level ").append(c.playerLevel())
                 .append(' ').append(c.playerJob()).append(". ");
         List<String> memories = c.memories();
@@ -159,16 +176,6 @@ public final class BotChatPrompt {
         if (c.stock() != null && !c.stock().isEmpty()) {
             s.append(c.stock()).append(' ');
         }
-        if (worldFacts) {
-            s.append(WORLD_FACTS).append(' ');
-        }
-        if (voiceLine != null) {
-            s.append(VOICE_BASE).append(' ').append(voiceLine).append(' ');
-        } else {
-            s.append(VOICE).append(' ');
-        }
-        s.append(NEVER).append(' ');
-        s.append("Do not bring up your map or what you are doing unless it fits the chat.");
         if (c.outcome() != null && !c.outcome().isEmpty()) {
             // Last, where a small model pays the most attention: the words must match what the game did.
             s.append(" The game already did this, and your reply must say so: ").append(c.outcome());
@@ -192,18 +199,20 @@ public final class BotChatPrompt {
         }
     }
 
-    /** A mood for the prompt: wary of a player it flagged, focused while grinding, else one per bot per hour. */
-    public static String mood(int botSlot, String activity, boolean wary, long now) {
+    /**
+     * A mood for the prompt, when the game state gives one: wary of a player it flagged, focused while grinding.
+     * Stage B (owner's step 5, the precedence game state &gt; relationship &gt; persona &gt; mood): the per-hour dice
+     * are gone - "lazy, half afk" sat next to a hyper persona and "hyped" next to a wary bot. With no state behind a
+     * mood the persona speaks alone, and this returns null.
+     */
+    public static String mood(String activity, boolean wary) {
         if (wary) {
             return "wary of this player after how they acted before, short with them";
         }
         if ("grinding".equals(activity)) {
             return "focused on grinding, a bit distracted";
         }
-        String[] moods = {"in a good mood", "a bit bored", "tired but ok", "chill", "hyped about the game today",
-                "lazy, half afk"};
-        long hour = now / 3_600_000L;
-        return moods[(int) Math.floorMod(botSlot * 31L + hour, moods.length)];
+        return null;
     }
 
     private static final java.util.regex.Pattern WORLD_WORDS = java.util.regex.Pattern.compile(
@@ -285,7 +294,8 @@ public final class BotChatPrompt {
         };
     }
 
-    private static String jobName(int jobId) {
+    /** A job's name, lowercased, as the prompts say it ("beginner" when it has none). */
+    public static String jobName(int jobId) {
         String name = GameConstants.getJobName(jobId);
         return name == null || name.isBlank() ? "beginner" : name.toLowerCase();
     }

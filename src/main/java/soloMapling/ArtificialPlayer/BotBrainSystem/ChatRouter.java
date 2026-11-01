@@ -257,11 +257,16 @@ public final class ChatRouter implements BotBrain {
             in += CloudBudget.estimateTokens(t.content());
         }
         long out = reply.map(x -> CloudBudget.estimateTokens(x) + 4).orElse(4L);
+        long cached = 0;
         if (usage != null && usage.length >= 2 && usage[0] > 0) {
             in = usage[0];
             out = Math.max(1, usage[1]);
+            // s-llmcache: the input the provider already had cached (DeepSeek's prompt_cache_hit_tokens) is charged
+            // at the cache-hit price; no usage block or no such field = the whole input is a miss, as before.
+            cached = usage.length >= 3 ? Math.max(0, Math.min(usage[2], in)) : 0;
         }
-        budget.settle(reserved, in, out);
+        budget.settle(reserved, in, cached, out);
+        ChatStats.cloudTokens(cached, in - cached);
     }
 
     /**

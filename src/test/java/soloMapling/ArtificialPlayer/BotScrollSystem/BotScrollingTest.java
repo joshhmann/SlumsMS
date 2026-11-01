@@ -394,6 +394,36 @@ class BotScrollingTest {
         }
     }
 
+    /**
+     * t-gb-5 on TEST 2026-10-31: part A staged 7 slots on the 5-slot sword 1302000. The curve is what the sword costs
+     * to make again with its 5 slots, so stats past 5 sure passes looked priceless and a careful bot took the priced
+     * sure scroll. On the sword as it really is (5 slots, 5 left) the sure scroll at its price is declined.
+     */
+    @Test
+    void evPlannerDeclinesAPricedSureScrollOnASwordWithItsOwnSlots() throws Exception {
+        BotScrolling.useForTest(new BotScrolling.Facts() {
+            @Override public ScrollFacts scroll(int id) { return facts.scroll(id); }
+            @Override public List<Integer> reqs(int scrollId) { return List.of(); }
+            @Override public List<Integer> catalogFor(int equipItemId) { return List.of(S100, S60, S10, DARK70); }
+            @Override public int totalSlots(Equip equip) { return 5; }
+            @Override public boolean cash(int itemId) { return false; }
+            @Override public String name(int itemId) { return "Sword"; }
+            @Override public Integer marketValue(int itemId) {
+                return itemId == S60 ? Integer.valueOf(1_300_000) : itemId == S10 ? Integer.valueOf(450_000) : null;
+            }
+            @Override public Integer equipValue(Equip equip) { return 50_000; }
+        }, roller, (b, node, tokens, key) -> false, now::get);
+        System.setProperty("slums.scroll.ev", "true");
+        try {
+            Character bot = newBot(50);
+            sword(bot, (short) -11, 5);
+            give(bot, S100, 1);
+            assertNull(ScrollEvQa.evPriced(bot, Appetite.CAREFUL, S100, 100_000));
+        } finally {
+            System.clearProperty("slums.scroll.ev");
+        }
+    }
+
     @Test
     void aPassChangesTheStatsForRealAndUsesUpTheScroll() throws Exception {
         Character bot = newBot(50);

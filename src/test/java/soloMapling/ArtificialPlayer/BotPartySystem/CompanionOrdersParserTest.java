@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -64,6 +65,29 @@ class CompanionOrdersParserTest {
         chat("left"); // left/right/random need the word formation
         chat("i turned left");
         chat("formation");
+    }
+
+    /** 1.6.3 s-lanes: the lane order and its reach, read only when the lanes switch allows it. */
+    @Test
+    void lanesAndTheirReach() {
+        assertEquals(Verb.LANES, parse("lanes").verb());
+        assertNull(parse("lanes").arg(), "no word: the switch's default reach");
+        assertTrue(parse("lanes").everyone());
+        assertEquals(Verb.LANES, parse("spread lanes").verb());
+        assertEquals(Verb.LANES, parse("take lanes").verb());
+        assertEquals(Verb.LANES, parse("ok spread lanes now").verb());
+        assertEquals("map", parse("lanes map").arg());
+        assertEquals("map", parse("spread lanes over the whole map").arg());
+        assertEquals("screen", parse("lanes screen").arg());
+        assertEquals("screen", parse("lanes around here").arg());
+        assertEquals(List.of(CLEO), parse("cleo lanes").targets());
+        assertEquals(List.of(MAXX), parse("2 lanes map").targets());
+        assertEquals("map", parse("2 lanes map").arg());
+        assertEquals(Verb.LANES, parse("take lanes over the map").verb());
+        chat("lanes map screen"); // two reaches at once is not an order
+        chat("i run lanes at the mall");
+        assertTrue(BotCommandParser.parse("lanes", PARTY, EnumSet.copyOf(BotCommandParser.BASE)).isEmpty(),
+                "the lanes switch is what opens the order");
     }
 
     @Test
@@ -128,7 +152,7 @@ class CompanionOrdersParserTest {
     @Test
     void withTheSwitchesOffTheNewOrdersStayChat() {
         for (String line : List.of("patrol", "spread out", "trade pots", "show me your hat", "any upgrades?",
-                "need pots", "cleo sentry", "move here")) {
+                "need pots", "cleo sentry", "move here", "lanes", "spread lanes", "lanes map")) {
             assertTrue(BotCommandParser.parse(line, PARTY).isEmpty(), line);
         }
         // and each switch opens only its own set

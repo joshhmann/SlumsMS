@@ -45,6 +45,18 @@ ticket 112).
   switch `-Dslums.inspect` plus `-Dslums.inspect.port` and `-Dslums.inspect.secretFile`), plus `nav/pits.json` for the
   Website lane's dead-end check. Contract: docs/design/inspect-api.md. Not yet run on TEST; the site proxy and
   dashboard tables are the Website lane's.
+- 2026-10-31, branch `162-navpits` (bug b109, the dead-end check's 12 maps with unhandled pits). Graph v70 builds
+  the missing edges on five of them (wall-bound notches 105070200/105070400 r11 and 105090000 r21 get a jump out,
+  2 px near-vertical footholds on 610020006 walk off their low end, 410000350's bottom floor keeps its under-floor
+  touch portal up00). `NavPits` gains a second rule, traps: a region the exit area can reach but that leads back to no
+  portal to another map (same rule and `region_at` placement as `check_map`; skipped on swim maps and maps without such
+  a portal). The planner, walk reachability and idle safety never route into one, `nav/pits.json` lists them, and a
+  bot standing in one is put on the nearest platform with a way out after 3 s (20 s while a player is on the map;
+  stuck-log kind `PIT`). Traps on TEST's graphs: 104000000, 220000100, 220060201, 220060301, 222020100 (plus
+  200000301 r30, a sealed 5 px slot, and the below-view pits that were already handled). The map export marks swim
+  maps `"swim": true` and `slums-dashboard-extras` skips the ground-graph check there (230030001, 230040400); the
+  updated script must be copied to `/usr/local/bin/slums-dashboard-extras` on 164 to take effect. Tests:
+  NavDeadEndMapsTest (WZ), NavPitsTest, tools/dashboard/extras/test_world.py.
 
 ## Not adopted
 

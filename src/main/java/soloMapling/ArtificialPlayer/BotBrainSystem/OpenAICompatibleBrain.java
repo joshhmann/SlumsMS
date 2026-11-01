@@ -169,18 +169,19 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
     }
 
     /**
-     * A call's future that also carries that call's own token use ({prompt, completion}, -1 each when the response
-     * had no usage block or there was no response). Set before the future completes, so a callback can read it.
+     * A call's future that also carries that call's own token use ({prompt, completion, cached prompt}, -1 each when
+     * the response had no usage block or there was no response). Set before the future completes, so a callback can
+     * read it.
      */
     public static final class Metered<T> extends CompletableFuture<T> {
-        private volatile long[] usage = {-1, -1};
+        private volatile long[] usage = {-1, -1, -1};
 
         public long[] usage() {
             return usage.clone();
         }
 
         void complete(T value, long[] used) {
-            this.usage = used == null ? new long[]{-1, -1} : used.clone();
+            this.usage = used == null ? new long[]{-1, -1, -1} : used.clone();
             complete(value);
         }
     }
@@ -191,7 +192,7 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
     private static long[] takeCallUsage() {
         long[] u = CALL_USAGE.get();
         CALL_USAGE.remove();
-        return u == null ? new long[]{-1, -1} : u;
+        return u == null ? new long[]{-1, -1, -1} : u;
     }
 
     @Override
@@ -310,20 +311,29 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
     }
 
     private final java.util.concurrent.atomic.AtomicReference<long[]> lastUsage =
-            new java.util.concurrent.atomic.AtomicReference<>(new long[]{-1, -1});
+            new java.util.concurrent.atomic.AtomicReference<>(new long[]{-1, -1, -1});
 
-    /** {prompt_tokens, completion_tokens} from {@code usage}, -1 each when absent. */
+    /**
+     * {prompt_tokens, completion_tokens, prompt_cache_hit_tokens} from {@code usage}, -1 each when absent. DeepSeek
+     * reports the input tokens it had already cached as {@code prompt_cache_hit_tokens} (billed at its cache-hit
+     * price) and the rest as {@code prompt_cache_miss_tokens}; a provider with no such field, or a later non-cached
+     * prompt, simply reports no hits (0), which is how every call was billed before s-llmcache.
+     */
     static long[] usage(String responseBody) {
         try {
             if (Json.parse(responseBody) instanceof Map<?, ?> root && root.get("usage") instanceof Map<?, ?> u) {
                 long in = u.get("prompt_tokens") instanceof Number n ? n.longValue() : -1;
                 long out = u.get("completion_tokens") instanceof Number n ? n.longValue() : -1;
-                return new long[]{in, out};
+                long hit = u.get("prompt_cache_hit_tokens") instanceof Number n ? Math.max(0, n.longValue()) : 0;
+                if (hit > in && in >= 0) {
+                    hit = in;
+                }
+                return new long[]{in, out, hit};
             }
         } catch (RuntimeException ignored) {
             // no usage block
         }
-        return new long[]{-1, -1};
+        return new long[]{-1, -1, -1};
     }
 
     /** Ticket 59's bank generator: the reply text of a chat completion response body. */
@@ -331,7 +341,10 @@ public final class OpenAICompatibleBrain implements ChatRouter.Slotted {
         return replyText(responseBody);
     }
 
-    /** Ticket 59's bank generator and budget: {prompt_tokens, completion_tokens}, -1 when absent. */
+    /**
+     * Ticket 59's bank generator and budget: {prompt_tokens, completion_tokens, prompt_cache_hit_tokens}, -1 when
+     * absent (s-llmcache added the third; readers that only look at the first two are unaffected).
+     */
     public static long[] usageOf(String responseBody) {
         return usage(responseBody);
     }

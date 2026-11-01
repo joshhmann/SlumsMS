@@ -154,11 +154,20 @@ public final class GCMovement {
         st.following = false;
         st.farmAnchor = null;
         st.farmAnchorMapId = -1;
+        // Round 2 (t-mx-2): callers re-issue their target every few seconds (StepExecutor's occupy/moveNear every
+        // 4 s), and this re-armed the no-progress clock each time, so GCMovementDriver's 8 s give-up could never
+        // fire during a mechanics run: a bot whose route did not work repeated it silently, for as long as the run
+        // lasted (t-mx-2 stage 3 idled for 1164 s). Re-issuing the same point on the same map now keeps the clock.
+        boolean sameTarget = st.moveTarget != null && st.moveTarget.x == x && st.moveTarget.y == y
+                && st.moveTargetMapId == bot.getMapId();
         st.moveTarget = new Point(x, y);
+        st.moveTargetMapId = bot.getMapId();
         st.moveTargetPrecise = true;
         st.moveTargetSource = "gcmove";
-        st.moveBestDist = Integer.MAX_VALUE;
-        st.moveProgressAtMs = System.currentTimeMillis();
+        if (!sameTarget) {
+            st.moveBestDist = Integer.MAX_VALUE;
+            st.moveProgressAtMs = System.currentTimeMillis();
+        }
         if (onArrival != null) {
             ARRIVAL_CALLBACKS.put(bot.getId(), onArrival);
         } else {
@@ -788,6 +797,63 @@ public final class GCMovement {
         return false;
     }
 
+    /*
+     * 1.6.2 (t-oa-1, TEST 2026-10-31 07:14): the x to stage a mob at so it stands on the ledge of the one at
+     * {@code owner}, {@code dx} px to its side. Auto-QA's owned-alt probe spawned its "the owner's mob" on the ground
+     * under {@code owner.x + dx}; on a 100 px step of Henesys Hunting Ground I that ground is the floor 66 px below the
+     * step, another nav region, so the alt (which never fights across ledges) stood beside its owner and "following"
+     * for the whole 20 s and the check failed. The place is pulled back onto the owner's ledge and checked by the
+     * ground the spawn would land on; a ledge with no room puts the mob at the owner's own x. No graph: as before.
+     */
+    public static int stageMobX(MapleMap map, java.awt.Point owner, int dx) {
+        if (map == null || owner == null) {
+            return owner == null ? 0 : owner.x + dx;
+        }
+        BotNavigationGraph graph = null;
+        try {
+            graph = BotNavigationGraphProvider.peekGraph(map);
+        } catch (RuntimeException e) {
+            // no graph: as before
+        }
+        return stageMobX(map, owner, dx, graph);
+    }
+
+    /** {@link #stageMobX(MapleMap, java.awt.Point, int)} on an already-known graph ({@code null}: no ledge known). */
+    static int stageMobX(MapleMap map, java.awt.Point owner, int dx, BotNavigationGraph graph) {
+        int want = owner.x + dx;
+        int[] ledge = GCMovementDriver.ledgeOf(map, graph, owner);
+        if (ledge == null) {
+            return want;
+        }
+        int lo = ledge[0] + GCMovementDriver.LEDGE_EDGE_PX;
+        int hi = ledge[1] - GCMovementDriver.LEDGE_EDGE_PX;
+        if (lo > hi) {
+            return owner.x; // too narrow to stand a mob on: on the owner
+        }
+        // from the place asked for (kept on the ledge), a few px at a time towards the owner's own x: the first x
+        // whose ground is on the owner's own ledge, else the owner's own x
+        int step = want < owner.x ? 4 : -4;
+        for (int x = Math.max(lo, Math.min(hi, want)); ; x += Math.abs(x - owner.x) < 4 ? owner.x - x : step) {
+            if (onOwnLedge(map, graph, owner, x)) {
+                return x;
+            }
+            if (x == owner.x) {
+                return owner.x;
+            }
+        }
+    }
+
+    /** Would a mob staged at {@code x} on the owner's own y land on the owner's own ledge? */
+    private static boolean onOwnLedge(MapleMap map, BotNavigationGraph graph, java.awt.Point owner,
+                                      int x) {
+        int home = graph.findRegionId(map, owner);
+        if (home < 0) {
+            return false;
+        }
+        java.awt.Point landed = map.getGroundBelow(new java.awt.Point(x, owner.y));
+        return landed != null && graph.findRegionId(map, landed) == home;
+    }
+
     /** True while the bot is in the air (mid-jump or falling); false on the ground, on a rope or when not driven. */
     public static boolean isAirborne(Character bot) {
         BotMovementState st = bot == null ? null : STATES.get(bot.getId());
@@ -914,6 +980,15 @@ public final class GCMovement {
     }
 
     /*
+     * 1.6.2 (b153): full movement physics on this map for a short window (about 2 s), without counting it as watched.
+     * Unwatched bots otherwise move by the coarse planner, which lands them on the nearest floor under a goal it
+     * cannot plan to: a bot-only KPQ run's bots stood still under their Ligators for minutes (t-mx-1/t-mx-2).
+     */
+    public static void holdFullPhysics(MapleMap map) {
+        ObserverTracker.holdFullPhysics(map);
+    }
+
+    /*
      * Force mapId to FULL ("observed") immediately for a short window, regardless of the ~1s observer
      * poll - so visible movement / combat / broadcast resume the same tick a real player arrives,
      * instead of up to one poll later. Used by BotMapEntryResponder when a real player enters a map.
@@ -1001,6 +1076,36 @@ public final class GCMovement {
         return ra >= 0 && rb >= 0 && ra != rb;
     }
 
+    /** {@link #pathCostMs}: no walking route between the two points. */
+    public static final int UNREACHABLE = Integer.MAX_VALUE;
+
+    /*
+     * 1.6.2 (KPQ pace, b153/b204): what walking from (ax,ay) to (bx,by) costs in ms on the map's ALREADY-baked nav
+     * graph (peek only, never a build): the planner's walk-only optimal route (the same ledge is its walk; another
+     * ledge its ropes, jumps and falls), UNREACHABLE when the planner finds none. When the graph is not baked or a
+     * point is on no ledge it cannot tell and falls back to the straight distance at walking pace (never blanks a pick).
+     */
+    public static int pathCostMs(MapleMap map, int ax, int ay, int bx, int by) {
+        int straight = (int) Math.min(Integer.MAX_VALUE - 1L, Math.round(Point.distance(ax, ay, bx, by) * 8));
+        BotNavigationGraph g = map == null ? null : BotNavigationGraphProvider.peekGraph(map);
+        if (g == null) {
+            return straight;
+        }
+        try {
+            Point a = new Point(ax, ay);
+            Point b = new Point(bx, by);
+            int ra = g.findRegionId(map, a);
+            int rb = g.findRegionId(map, b);
+            if (ra < 0 || rb < 0) {
+                return straight;
+            }
+            int cost = BotNavigationManager.runSearch(g, map, a, ra, rb, b, null, true, false, 0L).cost();
+            return cost == Integer.MAX_VALUE ? UNREACHABLE : cost;
+        } catch (RuntimeException e) {
+            return straight;
+        }
+    }
+
     /* The set of region ids reachable from the ledge under (fromX,fromY) (empty if it's on none). */
     public static java.util.Set<Integer> reachableRegions(MapleMap map, int fromX, int fromY) {
         BotNavigationGraph g = BotNavigationGraphProvider.getGraph(map);
@@ -1019,7 +1124,8 @@ public final class GCMovement {
             int rid = queue.poll();
             for (BotNavigationGraph.Edge e : NavObservedEdges.outgoing(g, rid)) { // with baked and learned edges
                 // Skill edges (teleport / flash jump) only exist for some jobs - walk reachability ignores them.
-                if (e.toRegionId != rid && !e.isMovementSkill() && seen.add(e.toRegionId)) {
+                // b109: nor does it lead into a pit the planner refuses (a mob down there is out of reach).
+                if (e.toRegionId != rid && !e.isMovementSkill() && !NavPits.into(g, map, e) && seen.add(e.toRegionId)) {
                     queue.add(e.toRegionId);
                 }
             }

@@ -53,6 +53,7 @@ import java.util.function.IntFunction;
 import java.util.regex.Pattern;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotSpeak;
+import soloMapling.ArtificialPlayer.BotConvo.SpeechGuard;
 
 /**
  * 1.5.0 bot guilds and bots in players' guilds (owner grill 2026-10-21; ticket 50 B/C).
@@ -697,6 +698,10 @@ public final class BotGuilds {
         if (bot == null || line == null || line.isBlank() || bot.getGuildId() <= 0) {
             return;
         }
+        line = SpeechGuard.check(bot, line); // b247: never a {slot}
+        if (line == null) {
+            return;
+        }
         Server.getInstance().guildChat(bot.getGuildId(), bot.getName(), bot.getId(), line);
         qa(bot.getMapId(), "GUILD SAY " + bot.getName() + " [" + guildName(bot.getGuildId()) + "]: " + line);
     }
@@ -772,24 +777,47 @@ public final class BotGuilds {
             }
             return;
         }
-        if (isBotGuild(guildId) || !take("showup:" + guildId, now, TimeUnit.HOURS.toMillis(2))) {
+        if (isBotGuild(guildId)) {
             return;
         }
-        int n = 0;
+        showUpNow(guildId, channel, player, now);
+    }
+
+    /**
+     * The logins of a show-up. The 2-hour token is spent only once a login was actually taken on (b269 fix 1): the old
+     * code spent it first and then read {@code logInBounded} false — which on a virtual thread means "queued", and
+     * under the new gate means "refused, ask again" — as "no", so a refused show-up went silent for two hours.
+     * Returns how many logins were asked for and taken on.
+     */
+    static int showUpNow(int guildId, int channel, Character player, long now) {
+        if (!due("showup:" + guildId, now)) {
+            return 0;
+        }
+        int asked = 0;
         for (MemberRow m : membersOf(guildId)) {
-            if (n >= 2 || memoryOnly.contains(m.charId())) {
+            if (asked >= 2 || memoryOnly.contains(m.charId())) {
                 continue;
             }
             int botId = m.charId() - BotStore.BOT_ID_BASE;
-            if (BotRoster.member(botId) != null && BotPopulationDirector.logInBounded(botId)) {
-                n++;
-                Character bot = online.apply(m.charId());
-                if (bot != null && channelOf(bot) != channel && free(bot)) {
-                    BotChannels.moveToChannel(bot, channel);
-                }
-                qa(player.getMapId(), "SHOW UP " + m.name() + " logs in for " + player.getName());
+            if (BotRoster.member(botId) == null) {
+                continue;
             }
+            BotPopulationDirector.LoginAsk ask = BotPopulationDirector.askLogin(botId);
+            if (ask == null || ask == BotPopulationDirector.LoginAsk.REFUSED) {
+                continue; // refused: try the next member, and the next step if every member is refused
+            }
+            asked++;
+            Character bot = online.apply(m.charId());
+            if (bot != null && channelOf(bot) != channel && free(bot)) {
+                BotChannels.moveToChannel(bot, channel);
+            }
+            qa(player.getMapId(), "SHOW UP " + m.name() + (ask == BotPopulationDirector.LoginAsk.QUEUED
+                    ? " starts logging in for " : " logs in for ") + player.getName());
         }
+        if (asked > 0) {
+            take("showup:" + guildId, now, TimeUnit.HOURS.toMillis(2));
+        }
+        return asked;
     }
 
     /**
@@ -1850,6 +1878,12 @@ public final class BotGuilds {
         }
         nextAt.put(key, now + gapMs);
         return true;
+    }
+
+    /** Whether {@code key} is free now (no gap running), without taking it. */
+    static boolean due(String key, long now) {
+        Long next = nextAt.get(key);
+        return next == null || now >= next;
     }
 
     /** Not busy with something a party or channel change would break. */
