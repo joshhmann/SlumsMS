@@ -517,6 +517,7 @@ class Driver:
         self.sensitive_screen = True
         self.client.start()
         self.chat_primed = False
+        self.unhidden = False   # GM Hide is on again after a client start
         self.wait('login', 60)
         self.qa = QaPipe.connect(self.client.pids(), timeout=5) if self.qa_build() else None
         return {'state': self.state, 'pids': self.client.pids(), 'qa_pipe': bool(self.qa)}
@@ -765,8 +766,15 @@ class Driver:
             # went out as plain chat in the first scripted b140 run, 2026-10-31 09:25 UTC). login() always sent
             # !unhide first, which absorbed it; the scripted login (select_* steps) doesn't, so do the same here.
             self.chat_primed = True
-            self.command(CHAT_PRIMER)
+            # Exactly one !unhide per login: login() sends its own right after this primer; a scripted login
+            # (select_* steps) sends none, so the primer is that one !unhide there (it toggles GM Hide: never twice).
+            if line != '!unhide' and not getattr(self, 'unhidden', False):
+                self.command('!unhide')
+            else:
+                self.command(CHAT_PRIMER)
             time.sleep(CHAT_SETTLE)
+        if line == '!unhide':
+            self.unhidden = True
         self.endpoint()
         if not line or len(line) > 160 or any(ord(ch) < 32 for ch in line):
             raise Refusal('Chat line must be 1–160 printable characters, with no newlines.')

@@ -149,6 +149,28 @@ class NewToolsTest(unittest.TestCase):
         self.assertEqual([self.driver.CHAT_PRIMER], sent)
         self.assertTrue(d.chat_primed)
 
+    def test_a_scripted_login_still_unhides_exactly_once(self):
+        # Scripted runs log in through select_*; nothing else sends !unhide there, so the primer must (once), or the
+        # GM stays hidden and bots ignore its chat (b066/b100/b102 on TEST .111, 2026-11-01 18:15-18:25 UTC).
+        d = self.d
+        d.chat_primed = False
+        d.unhidden = False
+        sent = []
+        real = self.driver.Driver.command
+        def fake(line):
+            sent.append(line)
+            if line in ('!unhide', self.driver.CHAT_PRIMER):
+                if line == '!unhide':
+                    d.unhidden = True
+                return None
+        d.command = fake
+        d.endpoint = lambda: (_ for _ in ()).throw(RuntimeError('stop'))
+        try:
+            real(d, '!qa run cv-8')
+        except RuntimeError:
+            pass
+        self.assertEqual(['!unhide'], sent)
+
     def test_only_the_calibrated_character_slot_is_offered(self):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.select_character(4)
