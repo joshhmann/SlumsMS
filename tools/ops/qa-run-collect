@@ -19,7 +19,7 @@
 #   deployed-commit.txt  Server/DEPLOYED_COMMIT
 #   collect.json         what was pulled, when, from where, and anything that failed
 #
-# READ-ONLY on TEST ONLY (root@$SLUMS_TEST_HOST, default 164 until the 1.6.3 TEST cutover, then mapletest 192.168.0.111): every remote command below is a
+# READ-ONLY on TEST ONLY (root@$SLUMS_TEST_HOST, default mapletest 192.168.0.111 since the 1.6.3 cutover): every remote command below is a
 # read (journalctl, find, cat, python3 reading a file). The TEST paths are fixed here; the live folder, unit and port
 # are refused if they ever appear.
 set -euo pipefail

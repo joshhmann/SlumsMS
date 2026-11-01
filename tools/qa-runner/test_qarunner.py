@@ -238,10 +238,10 @@ class TestHostTest(unittest.TestCase):
         with self.setting(name):
             return qarunner.test_ssh('cmd')
 
-    def test_the_default_box_is_164_until_the_cutover(self):
-        # o03: the played TEST stays on 164 until the 1.6.3 TEST cutover; testhost.DEFAULT_HOST flips to .111 then
+    def test_the_default_box_is_mapletest_since_the_cutover(self):
+        # o03: TEST moved to mapletest (192.168.0.111) on 2026-11-01
         argv = self.ssh({})
-        self.assertEqual(argv[-2:], ['root@192.168.0.164', 'cmd'])
+        self.assertEqual(argv[-2:], ['root@192.168.0.111', 'cmd'])
 
     def test_mapletest_is_reached_with_the_test_key(self):
         argv = self.ssh({'SLUMS_TEST_HOST': '192.168.0.111'})

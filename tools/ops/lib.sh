@@ -4,7 +4,7 @@
 # ~/.ssh/id_slums_lxc). Live, release staging and the patch site stay on 192.168.0.164.
 #
 # The setting is SLUMS_TEST_HOST (same name as the Website lane's installer): a bare host or IP, default
-# 192.168.0.164 until the 1.6.3 TEST cutover (o03 step 3), then 192.168.0.111. Only TEST's two boxes are accepted, and
+# 192.168.0.111 (mapletest) since the 1.6.3 TEST cutover, 2026-11-01. Only TEST's two boxes are accepted, and
 # the check is testhost.py, the one guard every QA tool shares (tools/ops/client-mcp-win/src/testhost.py): a refused
 # value stops the tool here, before it sshes anywhere. 164 is the one host that keeps ssh's default key, so a tool can
 # still be pointed at the old shared box by name without asking for the TEST key.

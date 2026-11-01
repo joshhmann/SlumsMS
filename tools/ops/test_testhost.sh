@@ -16,9 +16,10 @@ ssh_argv() {
     ' _ "$here"
 }
 
-# 1. Default until the 1.6.3 TEST cutover (o03 step 3): the played TEST on 164, default key. Flip with lib.sh.
+# 1. Default since the 1.6.3 TEST cutover (o03, 2026-11-01): mapletest, with its own key.
 out=$(ssh_argv)
-[[ "$out" == *"root@192.168.0.164"* ]] || fail "default host: $out"
+[[ "$out" == *"root@192.168.0.111"* ]] || fail "default host: $out"
+[[ "$out" == *"id_slums_lxc"* ]] || fail "default key: $out"
 [[ "$out" == *"-o BatchMode=yes"* ]] || fail "BatchMode: $out"
 # mapletest (192.168.0.111) is reached with its own key.
 out=$(ssh_argv SLUMS_TEST_HOST=192.168.0.111)
@@ -63,7 +64,7 @@ out=$(SLUMS_TEST_HOST=192.168.0.164 QA_RUNS_ROOT="$d/runs" "$here/qa-run-collect
 # 6. deploy-test --dry-run names the host it would deploy to (no ssh, --since given).
 cd "$(git -C "$here" rev-parse --show-toplevel)"
 out=$("$here/deploy-test" --dry-run --since HEAD 2>&1)
-[[ "$out" == *"to root@192.168.0.164"* ]] || fail "deploy-test dry run: $out"
+[[ "$out" == *"to root@192.168.0.111"* ]] || fail "deploy-test dry run: $out"
 out=$(SLUMS_TEST_HOST=192.168.0.111 "$here/deploy-test" --dry-run --since HEAD 2>&1)
 [[ "$out" == *"to root@192.168.0.111"* ]] || fail "deploy-test override: $out"
 # a refused setting stops deploy-test before it sshs anywhere
