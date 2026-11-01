@@ -385,8 +385,10 @@ public class BotGeneration {
         BotSpotClaims.releaseAllFor(fakechar.getId());
 
         // Ticket 06: a bot's holdings now go into the store with it, so leaving the world costs it nothing.
-        // If the store cannot be written the bot is settled onto the map instead - while the map is still
-        // available - so what it accumulated is never silently destroyed.
+        // 1.6.3 (b269 review): a write that cannot be made keeps the bot and its ledger for the next sweep
+        // (BotStore.deferredDepartures); it is no longer settled onto the map, because a refused write handed a
+        // departed bot's value to the world while its stored row still claimed it. Only a bot with no stored row,
+        // whose value has nowhere else to live, is settled here.
         BotStore.saveThenSettle(fakechar);
         BotRoster.recordSessions(java.util.List.of(fakechar), System.currentTimeMillis(), true);
         BotConversation.endAllOf(fakechar.getId()); // a bot leaving mid-chat still writes down what it heard

@@ -59,6 +59,20 @@ public interface SocialGateStore {
 
         private volatile boolean warned;
 
+        /**
+         * A store call failed. A refusal from the bots' share of the pool is not a missing table and must not be
+         * remembered as one (b269): the migration warning would then be spent on a busy minute, and every later
+         * failure - including the real one - would drop to debug.
+         */
+        private void failed(SQLException e) {
+            if (BotDbGate.refused(e)) {
+                log.warn("A social gate choice was not stored: the bots' share of the database pool stayed busy ({})",
+                        e.getMessage());
+                return;
+            }
+            missing(e);
+        }
+
         private void missing(SQLException e) {
             if (!warned) {
                 warned = true;
@@ -96,53 +110,70 @@ public interface SocialGateStore {
                 }
                 return new Snapshot(opts, rows, false);
             } catch (SQLException e) {
-                missing(e);
+                failed(e);
                 return noTable(e) ? new Snapshot(List.of(), List.of(), true) : null;
             }
         }
 
         @Override
         public void saveOpt(Opt opt, long now) {
-            try (Connection con = BotDbGate.connection();
-                 PreparedStatement ps = con.prepareStatement(opt.isDefault() ? OPT_DELETE : OPT_UPSERT)) {
-                ps.setInt(1, opt.charId());
-                if (!opt.isDefault()) {
-                    ps.setBoolean(2, opt.quietMegaphones());
-                    ps.setBoolean(3, opt.quietBots());
-                    ps.setBoolean(4, opt.romanceOff());
-                    ps.setLong(5, now);
-                }
-                ps.executeUpdate();
+            try {
+                BotDbGate.write(() -> {
+                    try (Connection con = BotDbGate.connection();
+                         PreparedStatement ps = con.prepareStatement(opt.isDefault() ? OPT_DELETE : OPT_UPSERT)) {
+                        ps.setInt(1, opt.charId());
+                        if (!opt.isDefault()) {
+                            ps.setBoolean(2, opt.quietMegaphones());
+                            ps.setBoolean(3, opt.quietBots());
+                            ps.setBoolean(4, opt.romanceOff());
+                            ps.setLong(5, now);
+                        }
+                        ps.executeUpdate();
+                    }
+                    return null;
+                });
             } catch (SQLException e) {
-                missing(e);
+                failed(e);
             }
         }
 
         @Override
         public void saveLedger(SocialLedger.Row row) {
-            try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(LEDGER_UPSERT)) {
-                ps.setInt(1, row.playerId());
-                ps.setInt(2, row.botId());
-                ps.setFloat(3, (float) row.beef());
-                ps.setLong(4, row.beefAt());
-                ps.setFloat(5, (float) row.flirt());
-                ps.setLong(6, row.flirtAt());
-                String kind = row.lastKind() == null ? "" : row.lastKind();
-                ps.setString(7, kind.length() > 8 ? kind.substring(0, 8) : kind);
-                ps.executeUpdate();
+            try {
+                BotDbGate.write(() -> {
+                    try (Connection con = BotDbGate.connection();
+                         PreparedStatement ps = con.prepareStatement(LEDGER_UPSERT)) {
+                        ps.setInt(1, row.playerId());
+                        ps.setInt(2, row.botId());
+                        ps.setFloat(3, (float) row.beef());
+                        ps.setLong(4, row.beefAt());
+                        ps.setFloat(5, (float) row.flirt());
+                        ps.setLong(6, row.flirtAt());
+                        String kind = row.lastKind() == null ? "" : row.lastKind();
+                        ps.setString(7, kind.length() > 8 ? kind.substring(0, 8) : kind);
+                        ps.executeUpdate();
+                    }
+                    return null;
+                });
             } catch (SQLException e) {
-                missing(e);
+                failed(e);
             }
         }
 
         @Override
         public void deleteLedger(int playerId, int botId) {
-            try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(LEDGER_DELETE)) {
-                ps.setInt(1, playerId);
-                ps.setInt(2, botId);
-                ps.executeUpdate();
+            try {
+                BotDbGate.write(() -> {
+                    try (Connection con = BotDbGate.connection();
+                         PreparedStatement ps = con.prepareStatement(LEDGER_DELETE)) {
+                        ps.setInt(1, playerId);
+                        ps.setInt(2, botId);
+                        ps.executeUpdate();
+                    }
+                    return null;
+                });
             } catch (SQLException e) {
-                missing(e);
+                failed(e);
             }
         }
     }

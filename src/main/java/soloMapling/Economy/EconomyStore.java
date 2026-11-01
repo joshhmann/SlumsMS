@@ -67,6 +67,20 @@ public interface EconomyStore {
 
         private volatile boolean warned;
 
+        /**
+         * A store call failed. A refusal from the bots' share of the pool is not a missing table and must not be
+         * remembered as one (b269): the migration warning would then be spent on a busy minute, and every later
+         * failure - including the real one - would drop to debug.
+         */
+        private void failed(Exception e) {
+            if (e instanceof SQLException sql && BotDbGate.refused(sql)) {
+                log.warn("Economy data was not stored: the bots' share of the database pool stayed busy ({})",
+                        e.toString());
+                return;
+            }
+            missing(e);
+        }
+
         private void missing(Exception e) {
             if (!warned) {
                 warned = true;
@@ -89,7 +103,7 @@ public interface EconomyStore {
                 ps.setLong(7, s.at());
                 ps.executeUpdate();
             } catch (SQLException | RuntimeException e) {
-                missing(e);
+                failed(e);
             }
         }
 
@@ -109,7 +123,7 @@ public interface EconomyStore {
                     }
                 }
             } catch (SQLException | RuntimeException e) {
-                missing(e);
+                failed(e);
             }
             return out;
         }
@@ -120,7 +134,7 @@ public interface EconomyStore {
                 ps.setLong(1, beforeMs);
                 return ps.executeUpdate();
             } catch (SQLException | RuntimeException e) {
-                missing(e);
+                failed(e);
                 return 0;
             }
         }
@@ -136,20 +150,26 @@ public interface EconomyStore {
                     }
                 }
             } catch (SQLException | RuntimeException e) {
-                missing(e);
+                failed(e);
             }
             return out;
         }
 
         @Override
         public void saveMeter(LocalDate day, String meter, long amount) {
-            try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(METER_UPSERT)) {
-                ps.setDate(1, Date.valueOf(day));
-                ps.setString(2, meter);
-                ps.setLong(3, amount);
-                ps.executeUpdate();
+            try {
+                BotDbGate.write(() -> {
+                    try (Connection con = BotDbGate.connection();
+                         PreparedStatement ps = con.prepareStatement(METER_UPSERT)) {
+                        ps.setDate(1, Date.valueOf(day));
+                        ps.setString(2, meter);
+                        ps.setLong(3, amount);
+                        ps.executeUpdate();
+                    }
+                    return null;
+                });
             } catch (SQLException | RuntimeException e) {
-                missing(e);
+                failed(e);
             }
         }
 
@@ -162,21 +182,27 @@ public interface EconomyStore {
                     return rs.next() ? rs.getLong(1) : 0;
                 }
             } catch (SQLException | RuntimeException e) {
-                missing(e);
+                failed(e);
                 return 0;
             }
         }
 
         @Override
         public void saveGift(int botCharId, int playerId, long at, String what) {
-            try (Connection con = BotDbGate.connection(); PreparedStatement ps = con.prepareStatement(GIFT_UPSERT)) {
-                ps.setInt(1, botCharId);
-                ps.setInt(2, playerId);
-                ps.setLong(3, at);
-                ps.setString(4, what == null ? "" : what.length() > 64 ? what.substring(0, 64) : what);
-                ps.executeUpdate();
+            try {
+                BotDbGate.write(() -> {
+                    try (Connection con = BotDbGate.connection();
+                         PreparedStatement ps = con.prepareStatement(GIFT_UPSERT)) {
+                        ps.setInt(1, botCharId);
+                        ps.setInt(2, playerId);
+                        ps.setLong(3, at);
+                        ps.setString(4, what == null ? "" : what.length() > 64 ? what.substring(0, 64) : what);
+                        ps.executeUpdate();
+                    }
+                    return null;
+                });
             } catch (SQLException | RuntimeException e) {
-                missing(e);
+                failed(e);
             }
         }
     }

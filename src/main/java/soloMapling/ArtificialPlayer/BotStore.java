@@ -549,6 +549,9 @@ public final class BotStore {
      * of an earlier run's on-demand bot replaces that row instead of colliding with it.
      */
     static void recordFirstCreation(Character bot) throws SQLException {
+        // b269: a slot that is being (re)created must not be written later from the state of the bot that held it
+        // when it left, which would roll back what the new bot was given.
+        deferredDepartures.remove(botId(bot));
         applyInitialGrants(bot);
         // Real bots 05/06: a new bot of a stock job starts with the build of the level and job it was decorated with.
         try {
@@ -722,7 +725,7 @@ public final class BotStore {
      * a unit test swaps in.
      */
     @FunctionalInterface
-    interface ConnectionSource {
+    public interface ConnectionSource {
         Connection get() throws SQLException;
     }
 
@@ -778,9 +781,24 @@ public final class BotStore {
     }
 
     /**
-     * The durable exit for a bot leaving the world: its state goes into the store. If it cannot be
-     * written, the bot is settled onto the map it is standing on instead, so what it accumulated is never
-     * silently destroyed.
+     * Bots that left the world but whose departure row was not written (b269 review): the bot, with its ledger,
+     * is kept here and written by the next sweep. Settling holdings onto the map is the one thing this path must
+     * not do for a bot whose write was <em>refused</em>: the refusal means the work never ran, not that the store
+     * cannot hold it, and a settlement is irreversible - the map hands a bot's value to a world it has left, while
+     * its stored row keeps claiming it.
+     *
+     * <p>A debit is noted in {@link BotDebitJournal} the moment the departure is deferred, so a process that dies
+     * before the retry still cannot restore value the bot already paid away; a landed write clears the note through
+     * {@link #rowHoldsLedger}. Keyed by stored bot id.
+     */
+    private static final Map<Integer, Character> deferredDepartures = new ConcurrentHashMap<>();
+
+    /**
+     * The durable exit for a bot leaving the world: its state goes into the store. A departure the bots' share of the
+     * pool <em>refused</em> is held in memory and written by a later sweep ({@link #deferredDepartures}) - a refusal
+     * says nothing about whether the store would take it, and settling is irreversible. A write that was attempted
+     * and failed is settled onto the map the bot is standing on, because what its ledger holds is in no row and the
+     * bot is gone.
      *
      * <p>A bot that has given value away is the exception, since settling cannot return a debit: the value is
      * already in someone else's hands, and the stored row still claims it, so the delta may only ever be
@@ -791,33 +809,136 @@ public final class BotStore {
      * the row just written has to be what holds their value. A bot can change while its own write is in flight - casino
      * payouts and bot-owned shops run off the tick thread - so a delta can arrive after the state was captured
      * for that row. {@link #save(Character)} reports the stamp it saw at capture time, so a stamp that differs
-     * afterwards is exactly a delta the row does not record: it stays, and takes the same route as a failed
-     * write, rather than being settled onto the map on top of the row that already holds it.
+     * afterwards is exactly a delta the row does not record: it stays, and is held for the next write rather than
+     * being settled onto the map on top of the row that already holds it.
+     *
+     * <p>The write happens on a platform thread (b269 review): the gate refuses bot work on a virtual thread
+     * instead of letting it wait, and a despawn is usually called from one. A virtual caller is moved to
+     * {@link soloMapling.server.ExecutorServiceManager#callBotLogout} and parked there, so the wait happens where
+     * waiting is allowed and a busy share of the pool is not a lost departure.
      */
     public static void saveThenSettle(Character bot) {
+        if (botId(bot) < 1) {
+            return;   // no stored row: nothing a restart could restore, so nothing to defer or hand to the map
+        }
+        if (Thread.currentThread().isVirtual()) {
+            try {
+                soloMapling.server.ExecutorServiceManager.callBotLogout(() -> saveThenSettle(bot));
+                return;
+            } catch (java.util.concurrent.RejectedExecutionException e) {
+                // The logout pool is gone (shutdown in progress): the save is attempted below and, if the share is
+                // busy, kept for the shutdown sweep rather than lost.
+                log.warn("Bot {} ({}) left the world while the bot logout threads were already stopping",
+                        bot.getId(), bot.getName());
+            }
+        }
+        Departure departure = departure(bot);
+        if (departure == Departure.WRITTEN) {
+            return;
+        }
+        if (departure == Departure.REFUSED) {
+            deferDeparture(bot);
+            return;
+        }
+        // A write that was attempted and failed, for a bot that is leaving: what its ledger holds is in no row,
+        // and the bot is not coming back, so it is handed to its map rather than dropped with the bot. A debit is
+        // the other direction and has already been recorded above (see the javadoc).
+        log.warn("Could not save bot {} ({}), settling its holdings onto the map instead", bot.getId(),
+                bot.getName());
+        BotHoldings.settle(bot);
+    }
+
+    /** What one attempt at a departing bot's row came to. */
+    private enum Departure {
+        /** The bot's state is durable: the row was written, or a debit it may not lose is on record. */
+        WRITTEN,
+        /** The store was asked and would not take it. */
+        FAILED,
+        /** The bots' share of the pool was busy: nothing was attempted, so nothing may be settled. */
+        REFUSED
+    }
+
+    private static Departure departure(Character bot) {
         try {
             int captured = save(bot);
             if (rowHoldsLedger(bot, captured)) {
                 // The ledger exists to hand value back to the world if a bot dies holding it. Now that the
                 // value is durable, keeping the deltas would let a later settle hand out the same value twice.
                 // The comparison and the removal are one step, so a delta that arrived after the capture is kept
-                // and takes the changed route below instead of being dropped with a row that does not hold it.
-                return;
+                // and settled instead (below) rather than dropped with a row that does not hold it.
+                return Departure.WRITTEN;
             }
             log.warn("Bot {} ({}) changed while its row was being written, so that row does not record it",
                     bot.getId(), bot.getName());
+        } catch (BotDbGate.RefusedException refused) {
+            return Departure.REFUSED;
         } catch (Exception e) {
             log.warn("Could not save bot {} ({})", bot.getId(), bot.getName(), e);
         }
-        if (BotHoldings.hasUnpersistedDebit(bot) && recordDebit(bot)) {
-            return;
+        if (BotHoldings.hasUnpersistedDebit(bot)) {
+            try {
+                return recordDebit(bot) ? Departure.WRITTEN : Departure.FAILED;
+            } catch (BotDbGate.RefusedException refused) {
+                return Departure.REFUSED;
+            }
         }
-        // Nothing here can be written for this bot, and the value its deltas stand for has nowhere else to go:
-        // what it took in is handed to its map, while a debit - value already in someone else's hands - stays
-        // recorded as the row claims it (see the javadoc above).
-        log.warn("Could not save bot {} ({}), settling its holdings onto the map instead", bot.getId(),
-                bot.getName());
-        BotHoldings.settle(bot);
+        return Departure.FAILED;
+    }
+
+    /**
+     * Keeps a bot whose departure could not be attempted for the next sweep, with its ledger, instead of settling
+     * value onto a map the bot has left. Its debit - if any - goes into the journal now, because the process may
+     * never reach the retry and a restored row that still claims a paid-away value mints it.
+     */
+    private static void deferDeparture(Character bot) {
+        int id = botId(bot);
+        deferredDepartures.put(id, bot);
+        if (BotDebitJournal.record(List.of(bot)) < 0) {
+            log.error("Bot {} ({}) left the world without its row, and its debit could not be noted in the journal",
+                    bot.getId(), bot.getName());
+        }
+        log.warn("Bot {} ({}) could not be saved as it left the world (the bots' share of the pool was busy);"
+                + " keeping it ({} waiting) to be written by the next sweep rather than settling its holdings onto"
+                + " the map", bot.getId(), bot.getName(), deferredDepartures.size());
+    }
+
+    /**
+     * Writes the departures held from earlier sweeps. Called from the autosave sweep, which runs on a bot-db thread,
+     * so a busy share of the pool is waited out rather than refused.
+     *
+     * @return how many of the held departures are durable now
+     */
+    public static int retryDeferredDepartures() {
+        if (deferredDepartures.isEmpty()) {
+            return 0;
+        }
+        int written = 0;
+        for (Map.Entry<Integer, Character> entry : deferredDepartures.entrySet()) {
+            Character bot = entry.getValue();
+            Departure departure = departure(bot);
+            if (departure == Departure.REFUSED || !deferredDepartures.remove(entry.getKey(), bot)) {
+                continue;   // still busy, or a concurrent write already took the departure
+            }
+            if (departure == Departure.WRITTEN) {
+                written++;
+            } else {
+                // Same rule as the departure itself, one sweep later: the bot is gone and its ledger is in no row.
+                log.warn("Bot {} ({}) could not be saved on the retry either, settling its holdings onto the map",
+                        bot.getId(), bot.getName());
+                BotHoldings.settle(bot);
+            }
+        }
+        return written;
+    }
+
+    /** How many bots left the world without their row being written and are still waiting for one. */
+    public static int deferredDepartures() {
+        return deferredDepartures.size();
+    }
+
+    /** Test seam: forgets the held departures. */
+    static void forgetDeferredDeparturesForTest() {
+        deferredDepartures.clear();
     }
 
     /**
@@ -828,8 +949,10 @@ public final class BotStore {
      * is its stored claim destroyed instead of being left to be restored.
      *
      * @return true when some durable record of the debit now exists, so the ledger may be dropped
+     * @throws BotDbGate.RefusedException when the bots' share of the pool was busy: nothing was attempted, so this
+     *         is not a failure to settle on, and the caller has to try again instead
      */
-    private static boolean recordDebit(Character bot) {
+    private static boolean recordDebit(Character bot) throws BotDbGate.RefusedException {
         try {
             log.warn("Bot {} ({}) could not be saved and holds value its stored row still claims; retrying the"
                     + " write rather than settling the debit onto the map", bot.getId(), bot.getName());
@@ -839,6 +962,8 @@ public final class BotStore {
             }
             log.warn("The debit of bot {} ({}) changed while its retry was writing it, so that row does not"
                     + " record it", bot.getId(), bot.getName());
+        } catch (BotDbGate.RefusedException refused) {
+            throw refused;   // not a failed write: the share was busy, so the debit is still only in the ledger
         } catch (Exception retryFailed) {
             log.warn("The debit of bot {} ({}) could not be written on the retry either", bot.getId(),
                     bot.getName(), retryFailed);
@@ -857,6 +982,8 @@ public final class BotStore {
             log.warn("The debit of bot {} ({}) changed after its stored claim was taken down, so that row does"
                     + " not record it", bot.getId(), bot.getName());
             return true;
+        } catch (BotDbGate.RefusedException refused) {
+            throw refused;
         } catch (Exception destroyFailed) {
             log.warn("The debit of bot {} ({}) could not be written, not even by clearing its stored holdings:"
                     + " the stored row still claims value the bot already gave away", bot.getId(), bot.getName(),
@@ -912,6 +1039,7 @@ public final class BotStore {
      * discard would have dropped while the row above it does not hold it.
      */
     public static int saveAll(Collection<Character> characters) {
+        retryDeferredDepartures();
         return saveAll(characters, false);
     }
 
@@ -964,9 +1092,23 @@ public final class BotStore {
             log.warn("Could not save bot {} ({})", chr.getId(), chr.getName(), e);
         }
         if (lastWrite && BotHoldings.hasUnpersistedDebit(chr)) {
-            recordDebit(chr);
+            recordDebitQuietly(chr);
         }
         return false;
+    }
+
+    /**
+     * {@link #recordDebit(Character)} for the shutdown sweep, whose threads run outside the gate
+     * ({@link BotDbGate#unmetered}) and so have no refusal to absorb; one that arrives anyway is said out loud
+     * rather than thrown across a sweep that is already in its last accounting.
+     */
+    private static void recordDebitQuietly(Character chr) {
+        try {
+            recordDebit(chr);
+        } catch (BotDbGate.RefusedException refused) {
+            log.warn("Bot {} ({}) gave value away and its debit was not written: {}", chr.getId(), chr.getName(),
+                    refused.getMessage());
+        }
     }
 
 
@@ -1019,6 +1161,14 @@ public final class BotStore {
                 bots.add(chr);
             }
         }
+        // b269: bots that left the world earlier are in no world's storage, so no world sweep sees them. This is
+        // the process's last write, so they are added to it: what their held ledger records either lands now or is
+        // journaled with the rest.
+        for (Character departed : deferredDepartures.values()) {
+            if (isStoredBot(departed)) {
+                bots.add(departed);
+            }
+        }
         // Ticket 63: bots that owe a debit go first, so the ones the budget may cut off are the ones with nothing to lose.
         List<Character> ordered = new ArrayList<>(bots);
         ordered.sort(java.util.Comparator.comparing((Character c) -> !BotHoldings.hasUnpersistedDebit(c)));
@@ -1059,6 +1209,9 @@ public final class BotStore {
         }
         // Ticket 63: a bot not durably written (never dequeued, write still in flight, or failed) that has paid value
         // away is noted in a local journal, applied when it next loads. Cheap, so it runs even when the budget is spent.
+        if (!durable.isEmpty()) {
+            deferredDepartures.keySet().removeAll(durable);
+        }
         int journaled = 0;
         List<Character> unfinished = new ArrayList<>();
         for (Character chr : bots) {

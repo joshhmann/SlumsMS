@@ -618,7 +618,11 @@ public final class BotPopulationDirector {
     public enum LoginAsk {
         /** The bot is in the world; a caller may move it, party it, speak for it. */
         LOGGED_IN,
-        /** A bot-db thread is logging it in now: it is in within a few hundred milliseconds, so ask again later. */
+        /**
+         * A bot-db thread will log it in ({@link #loginQueued} says which bot): a free share reaches it within a few
+         * hundred milliseconds, a busy one later, and a login the share refuses is dropped without telling this
+         * caller - so ask again, and never read this as "it is here now".
+         */
         QUEUED,
         /** Nothing was started and nothing is on its way: the bots' login share is busy, or the server is stopping. */
         REFUSED

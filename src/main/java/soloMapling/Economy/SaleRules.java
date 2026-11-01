@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.ItemInformationProvider;
 import soloMapling.ArtificialPlayer.BotDbGate;
+import soloMapling.ArtificialPlayer.BotStore;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -36,6 +37,9 @@ public final class SaleRules {
     private static final Logger log = LoggerFactory.getLogger(SaleRules.class);
 
     private static volatile Set<Integer> bossOnly;
+    /** Where the drop table is read from; the gate in front of the pool, as every bot read is. */
+    private static volatile BotStore.ConnectionSource connections = BotDbGate::connection;
+
     private static volatile IntPredicate cashCheck = SaleRules::isCashItem;
     private static volatile IntPredicate tradeBlocked = SaleRules::isTradeBlocked;
 
@@ -105,15 +109,27 @@ public final class SaleRules {
 
     // ---- boss-only drops ----
 
-    /** Items only bosses drop. Read from drop_data once, on first use; the yaml list is added. */
+    /**
+     * Items only bosses drop. Read from drop_data once, on first use; the yaml list is added.
+     * <p>
+     * A read the bots' share of the pool refused is not an answer and is not cached (b269 review): caching it would
+     * leave the process treating every boss-only drop as sellable until a restart. That call gets economy.yaml's
+     * list alone, which is what a failed read falls back to anyway, and the next call reads the table again.
+     */
     public static Set<Integer> bossOnly() {
         Set<Integer> b = bossOnly;
         if (b == null) {
             synchronized (SaleRules.class) {
                 b = bossOnly;
                 if (b == null) {
-                    b = loadBossOnly();
-                    bossOnly = b;
+                    try {
+                        b = loadBossOnly();
+                        bossOnly = b;
+                    } catch (BotDbGate.RefusedException e) {
+                        log.warn("[Economy] boss-only drops not read yet ({}); economy.yaml's list applies until"
+                                + " the next sale", e.getMessage());
+                        return combineBossOnly(EconomyConfig.map("saleRules.bossOnly").keySet(), Set.of(), Set.of());
+                    }
                 }
             }
         }
@@ -126,12 +142,13 @@ public final class SaleRules {
      */
     static final Set<Integer> GM_SHOP_NPCS = Set.of(9001002, 11000);
 
-    private static Set<Integer> loadBossOnly() {
+    /** @throws BotDbGate.RefusedException when the share of the pool was busy: nothing was read, nothing may be cached */
+    private static Set<Integer> loadBossOnly() throws BotDbGate.RefusedException {
         Set<Integer> fromDrops = new HashSet<>();
         Set<Integer> npcSold = new HashSet<>();
         Map<Integer, Boolean> allBoss = new HashMap<>();   // item -> every dropper so far is a boss
         Map<Integer, Boolean> isBoss = new HashMap<>();
-        try (Connection con = BotDbGate.connection()) {
+        try (Connection con = connections.get()) {
             try (PreparedStatement ps = con.prepareStatement("SELECT itemid, dropperid FROM drop_data WHERE chance > 0");
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -148,6 +165,11 @@ public final class SaleRules {
             });
             npcSold.addAll(loadNpcSold(con));
         } catch (Exception | LinkageError e) {
+            // A busy pool is not a missing table: a failed read of drop_data is cached as "the yaml list is the
+            // whole rule", while a refused one says nothing about the table and is retried by the next caller.
+            if (e instanceof BotDbGate.RefusedException refused) {
+                throw refused;
+            }
             log.warn("[Economy] boss-only drops not read from drop_data ({}); only economy.yaml's list applies",
                     e.toString());
         }
@@ -224,6 +246,14 @@ public final class SaleRules {
     }
 
     // ---- test seams ----
+
+    /** Tests: where the drop table comes from, and forgets the cached boss-only set (null restores the gated pool). */
+    static void useConnectionSourceForTest(BotStore.ConnectionSource source) {
+        connections = source == null ? BotDbGate::connection : source;
+        synchronized (SaleRules.class) {
+            bossOnly = null;
+        }
+    }
 
     public static void useForTest(Set<Integer> testBossOnly, IntPredicate testCash, IntPredicate testBlocked) {
         bossOnly = testBossOnly;

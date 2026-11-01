@@ -146,7 +146,10 @@ public final class BotLogout {
             }
         }
         long beat = watched ? 1500 + ThreadLocalRandom.current().nextLong(1500) : 0;
-        ExecutorServiceManager.getScheduledExecutorService().schedule(() -> ExecutorServiceManager.runAsync(() -> {
+        // 1.6.3 (b269 review): a bot-logout thread, not a virtual one. The departure writes the bot's row, and the
+        // gate refuses bot work on a virtual thread rather than letting it wait - which turned a busy share of the
+        // pool into a settlement of the bot's holdings onto the map it had already left.
+        ExecutorServiceManager.getScheduledExecutorService().schedule(() -> ExecutorServiceManager.runBotLogout(() -> {
             long started = System.nanoTime();
             try {
                 if (chr.getParty() != null) {

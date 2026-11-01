@@ -2,6 +2,7 @@ package tools;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import config.ServerConfig;
 import config.YamlConfig;
 import database.note.NoteRowMapper;
 import org.jdbi.v3.core.Handle;
@@ -65,6 +66,28 @@ public class DatabaseConnection {
         return dbUrl;
     }
 
+    /** The pool's connection timeout when the config says nothing: Hikari's own 30 s, and what this pool ran on first. */
+    static final int DEFAULT_CONNECTION_TIMEOUT_MS = 30_000;
+
+    /** Hikari refuses a connection timeout under 250 ms. */
+    private static final int MIN_CONNECTION_TIMEOUT_MS = 250;
+
+    /**
+     * How long a thread waits for a connection from the pool before its work fails ({@code DB_CONNECTION_TIMEOUT_MS},
+     * {@link #DEFAULT_CONNECTION_TIMEOUT_MS} when unset). b269 hard-coded 10 s so that a wedged pool fails its
+     * borrowers loudly and quickly instead of letting a player login sit for half a minute; that is still the
+     * setting to use on live, but a busy boot fill is not a wedged pool and the choice belongs in config.
+     */
+    static int connectionTimeoutMs() {
+        ServerConfig server = YamlConfig.config == null ? null : YamlConfig.config.server;
+        return connectionTimeoutMs(server == null ? 0 : server.DB_CONNECTION_TIMEOUT_MS);
+    }
+
+    /** What the pool is told to wait, from the config value: unset keeps Hikari's default, a silly value is floored. */
+    static int connectionTimeoutMs(int configured) {
+        return configured <= 0 ? DEFAULT_CONNECTION_TIMEOUT_MS : Math.max(MIN_CONNECTION_TIMEOUT_MS, configured);
+    }
+
     private static HikariConfig getConfig() {
         HikariConfig config = new HikariConfig();
 
@@ -74,9 +97,7 @@ public class DatabaseConnection {
 
         final int initFailTimeoutSeconds = YamlConfig.config.server.INIT_CONNECTION_POOL_TIMEOUT;
         config.setInitializationFailTimeout(SECONDS.toMillis(initFailTimeoutSeconds));
-        // 10 s, not Hikari's 30 s (b269): a wedged pool must fail its borrowers loudly and quickly instead of
-        // letting a player login sit for half a minute behind whatever jammed it.
-        config.setConnectionTimeout(SECONDS.toMillis(10));
+        config.setConnectionTimeout(connectionTimeoutMs());
         config.setMaximumPoolSize(MAX_POOL_SIZE);
 
         config.addDataSourceProperty("cachePrepStmts", true);

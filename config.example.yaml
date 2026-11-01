@@ -5,3 +5,5 @@ server:
   DB_USER: slumsms
   DB_PASS: CHANGE_ME
   DB_URL_FORMAT: jdbc:mysql://%s:3306/slumsms
+  #How long a thread waits for a pooled connection before its work fails (ms). 0 = 30000 (Hikari's default).
+  DB_CONNECTION_TIMEOUT_MS: 30000

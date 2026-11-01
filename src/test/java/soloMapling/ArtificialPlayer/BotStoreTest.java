@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -386,6 +387,113 @@ class BotStoreTest {
         }
 
         verify(map).spawnMesoDrop(3_000, bot.getPosition(), bot, bot, true, (byte) 2, (short) 0);
+    }
+
+    @Test
+    void aDepartureThePoolRefusedIsKeptRatherThanSettledOntoTheMap() throws SQLException {
+        // b269 review: the despawn path ran on a virtual thread, so BotDbGate refused its write instead of letting
+        // it wait, and the refusal was answered by settling the bot's holdings onto the map - value handed to a
+        // world the bot had left, while its stored row kept claiming the same mesos for the next boot. A refusal
+        // means the work never ran, so the departure is kept and written by the next sweep instead.
+        Character bot = newBot(BOT_ID, "Waiter");
+        MapleMap map = mock(MapleMap.class);
+        bot.setMap(map);
+        BotHoldings.grantMeso(bot, 3_000);
+        assertTrue(BotHoldings.ledgerStamp(bot) != 0, "the ledger holds mesos the row does not");
+
+        java.util.concurrent.atomic.AtomicBoolean busy = new java.util.concurrent.atomic.AtomicBoolean(true);
+        Map<Integer, Object> durable = new HashMap<>();
+        Connection con = committingPool(durable);
+        BotStore.forgetDeferredDeparturesForTest();
+        BotStore.useConnectionSourceForTest(() -> {
+            if (busy.get()) {
+                throw new BotDbGate.RefusedException("The bots' share of the database pool is busy");
+            }
+            return con;
+        });
+        try {
+            BotStore.saveThenSettle(bot);
+
+            assertAll(
+                    () -> assertEquals(1, BotStore.deferredDepartures(),
+                            "a refused departure is kept for the next sweep, not forgotten"),
+                    () -> verify(map, never()).spawnMesoDrop(anyInt(), org.mockito.ArgumentMatchers.any(),
+                            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                            org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyByte(),
+                            org.mockito.ArgumentMatchers.anyShort()),
+                    () -> assertTrue(durable.isEmpty(), "nothing was written, so nothing may be settled"));
+
+            busy.set(false);
+            assertEquals(1, BotStore.retryDeferredDepartures(), "the retry writes the held departure");
+
+            assertAll(
+                    () -> assertEquals(0, BotStore.deferredDepartures(), "nothing is left waiting"),
+                    () -> assertEquals(bot.getMeso(), durable.get(updateColumns().indexOf("Meso") + 1),
+                            "the row a restart reads carries the mesos the bot held when it left"),
+                    () -> verify(map, never()).spawnMesoDrop(anyInt(), org.mockito.ArgumentMatchers.any(),
+                            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                            org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyByte(),
+                            org.mockito.ArgumentMatchers.anyShort()));
+        } finally {
+            BotStore.useConnectionSourceForTest(null);
+            BotStore.forgetDeferredDeparturesForTest();
+        }
+    }
+
+    @Test
+    void aDepartureFromAVirtualThreadDoesItsDatabaseWorkOnAPlatformThread() throws Exception {
+        // b269 review: the despawn path is a virtual thread (BotLogout schedules one), and the gate refuses bot
+        // work on virtual threads instead of letting it wait. The departure therefore hops to the bot-logout
+        // threads: its database work must not run on the virtual caller.
+        Character bot = newBot(BOT_ID, "Hopper");
+        bot.setMap(mock(MapleMap.class));
+        BotHoldings.grantMeso(bot, 3_000);
+        java.util.concurrent.atomic.AtomicBoolean virtualCaller = new java.util.concurrent.atomic.AtomicBoolean();
+        Map<Integer, Object> durable = new HashMap<>();
+        Connection con = committingPool(durable);
+        BotStore.forgetDeferredDeparturesForTest();
+        BotStore.useConnectionSourceForTest(() -> {
+            virtualCaller.set(Thread.currentThread().isVirtual());
+            return con;
+        });
+        try (ExecutorService virtual = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            virtual.submit(() -> {
+                BotStore.saveThenSettle(bot);
+                return null;
+            }).get(20, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            BotStore.useConnectionSourceForTest(null);
+            BotStore.forgetDeferredDeparturesForTest();
+        }
+        assertAll(
+                () -> assertFalse(virtualCaller.get(),
+                        "the departure's database work runs on a bot-logout thread, not on the virtual caller"),
+                () -> assertEquals(bot.getMeso(), durable.get(updateColumns().indexOf("Meso") + 1),
+                        "and the row was written"));
+    }
+
+    @Test
+    void aDepartureThatWasTriedAndFailedIsStillSettledOntoTheMap() throws SQLException {
+        // The other direction, unchanged: a write the store was asked for and would not take leaves the bot's
+        // ledger in no row, and the bot is gone, so the value goes to its map rather than vanishing with it.
+        Character bot = newBot(BOT_ID, "Unstored");
+        MapleMap map = mock(MapleMap.class);
+        bot.setMap(map);
+        BotHoldings.grantMeso(bot, 3_000);
+        BotStore.forgetDeferredDeparturesForTest();
+        BotStore.useConnectionSourceForTest(() -> {
+            throw new SQLException("Unknown table 'characters'");
+        });
+        try {
+            BotStore.saveThenSettle(bot);
+            assertAll(
+                    () -> assertEquals(0, BotStore.deferredDepartures(), "a failed write is not a held departure"),
+                    () -> verify(map).spawnMesoDrop(3_000, bot.getPosition(), bot, bot, true, (byte) 2,
+                            (short) 0));
+        } finally {
+            BotStore.useConnectionSourceForTest(null);
+            BotStore.forgetDeferredDeparturesForTest();
+        }
     }
 
     @Test

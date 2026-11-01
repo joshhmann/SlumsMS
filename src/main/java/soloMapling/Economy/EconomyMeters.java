@@ -52,7 +52,10 @@ public final class EconomyMeters {
     }
     private static volatile LocalDate day;
     private static volatile EconomyStore store = new EconomyStore.Jdbc();
-    private static volatile Executor writer = ExecutorServiceManager::runAsync;
+    // 1.6.3 (b269 review): these writes hit the bots' share of the pool, and a virtual thread is refused there
+    // instead of waiting - which drops a player's choice that was already acknowledged. A bot-db platform thread
+    // waits its turn, and BotDbGate.write asks again if the share was busy.
+    private static volatile Executor writer = ExecutorServiceManager::runBotDb;
     private static volatile Supplier<LocalDate> dayClock = LocalDate::now;
 
     private EconomyMeters() {
@@ -154,7 +157,7 @@ public final class EconomyMeters {
 
     public static void useForTest(EconomyStore testStore, Executor testWriter, Supplier<LocalDate> testDay) {
         store = testStore == null ? new EconomyStore.Jdbc() : testStore;
-        writer = testWriter == null ? ExecutorServiceManager::runAsync : testWriter;
+        writer = testWriter == null ? ExecutorServiceManager::runBotDb : testWriter;
         dayClock = testDay == null ? LocalDate::now : testDay;
         today.clear();
         day = null;
