@@ -64,6 +64,16 @@ class ExchangeDeskTest {
         return start(ExchangeLiveTest.cfg(100, house), cfg);
     }
 
+    /** The same, against another memory store (a double that behaves like the JDBC one). */
+    Exchange start(MemoryExchangeStore st, DeskConfig cfg) throws Exception {
+        Exchange e = new Exchange(st, ExchangeLiveTest.cfg(100, HOUSE), st::online, st.finder(), now::get);
+        e.guard(ExchangeTest.engineGuard());
+        e.siteReauth(SiteReauth.OFF);
+        e.deskConfig(cfg);
+        assertTrue(e.recover().isEmpty());
+        return e;
+    }
+
     Exchange start(ExchangeConfig ec, DeskConfig cfg) throws Exception {
         Exchange e = new Exchange(store, ec, store::online, store.finder(), now::get);
         e.guard(ExchangeTest.engineGuard());
@@ -71,6 +81,38 @@ class ExchangeDeskTest {
         e.deskConfig(cfg);
         assertTrue(e.recover().isEmpty());
         return e;
+    }
+
+    /**
+     * MemoryExchangeStore with JdbcExchangeStore.move's checks (ownership only): a meso leg for any character of the
+     * live account is written, never refused for not being the live one. The memory store itself refuses it with
+     * NOT_OWNER, which would hide finding 1.
+     */
+    static final class JdbcLikeStore extends MemoryExchangeStore {
+        @Override
+        public synchronized void apply(ExchangeStore.Batch b) throws ExchangeStore.StoreException {
+            try {
+                super.apply(b);
+            } catch (ExchangeStore.StoreException e) {
+                if (e.failure != ExchangeStore.Failure.NOT_OWNER) {
+                    throw e;
+                }
+                super.apply(new ExchangeStore.Batch(b.id(), b.at(), b.postings(), b.orders(), b.fills(),
+                        b.liveAccount(), mesoCharacter(b), b.inventory(), b.desk()));
+            }
+        }
+
+        /** The character the batch's meso wallet leg names: what move() writes into characters.meso. */
+        private static long mesoCharacter(ExchangeStore.Batch b) throws ExchangeStore.StoreException {
+            for (Posting p : b.postings()) {
+                for (Bucket w : List.of(p.from(), p.to())) {
+                    if (w.kind() == Ledger.Kind.WALLET && w.asset() == Asset.MESO) {
+                        return w.id();
+                    }
+                }
+            }
+            throw new ExchangeStore.StoreException(ExchangeStore.Failure.ERROR, "no player meso leg");
+        }
     }
 
     /** The test's config with a longer hold, so a preview can outlive an hourly step (QUOTE_MOVED). */
@@ -209,6 +251,86 @@ class ExchangeDeskTest {
         assertEquals(MESO0 - 2_550_000, s.meso.get(12L));
         assertEquals(NX0 + 500, store.nx(2), "the transaction saved it too");
         assertTrue(store.saves > 0, "the character was saved before the trade");
+        conserved(e);
+    }
+
+    /**
+     * Finding 1: the confirm repeats the preview's who-is-this check, as place() does. A quote held for character 12
+     * while its player was offline, confirmed after logging in as character 23 of the same account, is refused: the
+     * fill moves the previewed character's mesos, and the store writes the row the request names. MemoryExchangeStore
+     * happened to answer NOT_OWNER here; a JDBC store, which only checks ownership, would have written it.
+     */
+    @Test
+    void aConfirmForAnotherCharacterIsRefusedAndMovesNothing() throws Exception {
+        store.addCharacter(23, 2, MESO0);
+        Exchange e = start(deskCfg, HOUSE);
+        seedDesk(10_000, 20_000_000);
+        Response pv = preview(e, 2, Side.SELL, 1_000);
+        assertTrue(pv.ok(), pv.toString());
+        Session s = store.login(2, 23);
+        assertEquals(23, s.live, "another character of the account is the live one now");
+        Response r = e.confirm("c1", 2, (String) pv.data().get("token"));
+        assertEquals("LOG_OUT_FIRST", r.code(), r.toString());
+        assertTrue(r.message().contains("another character"), r.message());
+        assertEquals(NX0, store.nx(2), "the account's NX is untouched");
+        assertEquals(MESO0, store.meso(12), "the previewed character's mesos are untouched");
+        assertEquals(NX0, s.nx, "nothing reached the live wallet's NX");
+        assertEquals(MESO0, s.meso.get(23L), "nor the live character's mesos");
+        assertTrue(e.desk().fillsOf(2, 20).isEmpty(), "no fill was recorded");
+        conserved(e);
+    }
+
+    /**
+     * Finding 1 against a store that behaves like MySQL: {@link JdbcExchangeStore#move} checks ownership only (the NX
+     * bucket is the account, the meso character belongs to it) and never compares a leg to the live character, so the
+     * exchange's own check is the only thing between a mis-confirmed quote and minted money. Here the SELL would pay
+     * character 12's row and character 23's live wallet both: twice the mesos for one NX.
+     */
+    @Test
+    void aJdbcStoreWouldWriteTheWrongCharacterSoTheExchangeRefusesFirst() throws Exception {
+        JdbcLikeStore jdbc = new JdbcLikeStore();
+        for (long a = 1; a <= 3; a++) {
+            jdbc.addAccount(a, NX0);
+            jdbc.addCharacter(10 + a, a, MESO0);
+        }
+        jdbc.addCharacter(23, 2, MESO0);
+        jdbc.addAccount(HOUSE, 1_000_000);
+        jdbc.addCharacter(HOUSE_CHAR, HOUSE, 1_000_000_000);
+        Exchange e = start(jdbc, deskCfg);
+        jdbc.apply(new ExchangeStore.Batch(9000, now.get(), List.of(
+                new Posting(Why.FUND, Bucket.wallet(Asset.NX, 1), Exchange.deskBucket(Asset.NX), 5_000, 1, 0, 0),
+                new Posting(Why.FUND, Bucket.wallet(Asset.MESO, 11), Exchange.deskBucket(Asset.MESO),
+                        20_000_000, 1, 0, 0)), List.of(), List.of()));
+        Response pv = preview(e, 2, Side.SELL, 1_000);
+        assertTrue(pv.ok(), pv.toString());
+        Session s = jdbc.login(2, 23);
+        Response r = e.confirm("c1", 2, (String) pv.data().get("token"));
+        assertEquals("LOG_OUT_FIRST", r.code(), r.toString());
+        assertEquals(MESO0, jdbc.meso(12), "the previewed character's row was not written");
+        assertEquals(MESO0, s.meso.get(23L), "and the live character's wallet was not paid");
+        assertTrue(e.desk().fillsOf(2, 20).isEmpty(), "no fill was recorded");
+    }
+
+    /**
+     * Finding 2: the confirm's offline path repeats place()'s presence check. A player who logs in between the preview
+     * and the confirm has no live wallet yet while their character loads; a wallet write in that window is
+     * overwritten by the save that follows.
+     */
+    @Test
+    void aConfirmWhileTheAccountIsStillLoadingIsRefused() throws Exception {
+        Exchange e = start(deskCfg, HOUSE);
+        seedDesk(10_000, 20_000_000);
+        Response pv = preview(e, 2, Side.SELL, 1_000);
+        assertTrue(pv.ok(), pv.toString());
+        store.login(2);                       // logged in, character not loaded: no live wallet yet
+        assertNull(store.finder().find(2), "no live wallet yet");
+        assertTrue(store.online(2), "but the account is in game");
+        Response r = e.confirm("c1", 2, (String) pv.data().get("token"));
+        assertEquals("LOG_OUT_FIRST", r.code(), r.toString());
+        assertTrue(r.message().contains("log out"), r.message());
+        assertEquals(NX0, store.nx(2), "the account's NX is untouched");
+        assertEquals(MESO0, store.meso(12), "and the character's mesos");
+        assertTrue(e.desk().fillsOf(2, 20).isEmpty(), "no fill was recorded");
         conserved(e);
     }
 

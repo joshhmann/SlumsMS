@@ -1032,8 +1032,24 @@ public final class Exchange {
         if (short_ != null) {
             return short_;
         }
+        // A confirm is a write, so it repeats the preview's who-is-this checks, as place() does: the held quote was for
+        // the previewed character, and the fill moves that character's mesos (BUY) or the account's NX (SELL). With
+        // another character live, the store would write the row the request names while memory pays the live one.
         LiveWallet w = live.find(p.account());
-        return w == null ? deskFillOffline(rid, p, now, mesos, fee) : deskFillLive(rid, p, w, now, mesos, fee);
+        if (w != null) {
+            if (w.character() != p.character()) {
+                return Response.error(rid, "LOG_OUT_FIRST",
+                        "you are logged in as another character: use that one, or log out");
+            }
+            return deskFillLive(rid, p, w, now, mesos, fee);
+        }
+        // offline, but the account is logged in and its character has not loaded yet: a wallet write now is overwritten
+        // when it does (place() refuses the same window)
+        if (presence.test(p.account())) {
+            return Response.error(rid, "LOG_OUT_FIRST", "log out of the game to trade with the desk");
+        }
+        collectQuietly(p.account());
+        return deskFillOffline(rid, p, now, mesos, fee);
     }
 
     /** QUOTE_MOVED with the desk's quote now and a fresh token for it (the site shows them and asks to confirm again). */

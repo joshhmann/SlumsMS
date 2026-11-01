@@ -21,9 +21,10 @@ import java.util.TreeSet;
  * {@link #crashAfterSteps}) changes nothing, like a rolled-back transaction. It also models the game's side of a
  * wallet: {@link #login} loads an account's wallets into a session, the session spends, and {@link #logout} saves the
  * session's absolute values back, which is how the real server saves (and why the exchange only touches wallets of
- * offline accounts). Synchronized: tests call it from many threads.
+ * offline accounts). Synchronized: tests call it from many threads. Not final: a test plays a store with other
+ * checks (ExchangeDeskTest.JdbcLikeStore imitates {@link JdbcExchangeStore#move}'s ownership-only guard).
  */
-public final class MemoryExchangeStore implements ExchangeStore {
+public class MemoryExchangeStore implements ExchangeStore {
 
     /** One character's count of one item asset (the item tickers' wallet). */
     public record ItemKey(long character, Asset asset) {
