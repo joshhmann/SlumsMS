@@ -172,9 +172,28 @@ public interface ExchangeStore {
 
     /**
      * Ticket 162: the NX desk's own state (R, the day's anchor, the hourly history, the last fills), or null when it
-     * has never been written. It changes with a fill or an hourly step, in the same {@link #apply} batch.
+     * has never been written. It changes with a fill or an hourly step, in the same {@link #apply} batch. A row that
+     * is there but will not decode is not "never written": it throws, naming the table, so the boot halts instead of
+     * silently starting a new R.
      */
     Desk.State loadDesk() throws StoreException;
+
+    /**
+     * A stored desk row's text as state (ticket 162): null when there is no row at all, {@link StoreException} when
+     * the row is there and will not decode — a bad row must halt the boot exactly like a missing table does, never
+     * restart R at a fresh rate nobody has seen.
+     */
+    static Desk.State deskRow(String json) throws StoreException {
+        if (json == null) {
+            return null;
+        }
+        Desk.State s = Desk.decode(json);
+        if (s == null) {
+            throw new StoreException(Failure.ERROR, "exchange_desk row id 1 has unreadable state_json (bad JSON, or "
+                    + "mid <= 0): fix or delete it");
+        }
+        return s;
+    }
 
     /**
      * What one offline wallet holds now: {@code accounts.nxCredit} for an NX bucket (its id is the account), a

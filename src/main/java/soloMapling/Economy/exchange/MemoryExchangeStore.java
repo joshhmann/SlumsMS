@@ -254,6 +254,8 @@ public class MemoryExchangeStore implements ExchangeStore {
 
     /** When set, reading the desk's state fails the way a missing migration 058 would; the boot must halt. */
     public ExchangeStore.StoreException deskReadFailure;
+    /** When set, the stored desk row is this text (as the MySQL column holds it), so a corrupt row can be played. */
+    public String deskRowText;
 
     public synchronized void addAccount(long account, long nxCredit) {
         state.nx.put(account, nxCredit);
@@ -327,6 +329,9 @@ public class MemoryExchangeStore implements ExchangeStore {
     public synchronized Desk.State loadDesk() throws StoreException {
         if (deskReadFailure != null) {
             throw deskReadFailure;
+        }
+        if (deskRowText != null) {
+            return ExchangeStore.deskRow(deskRowText);   // a row that is there but will not decode: the boot halts
         }
         return state.desk;
     }

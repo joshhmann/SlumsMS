@@ -653,6 +653,31 @@ class ExchangeDeskTest {
         assertTrue(e.status().get(0).contains("HALTED"), e.status().get(0));
     }
 
+    /**
+     * Finding 4: a row that is there but will not decode is not "never written". Starting a fresh R over it would
+     * re-price everything nobody has seen; the boot halts instead, naming the table, like a missing migration does. A
+     * genuinely absent row is still a clean first start.
+     */
+    @Test
+    void aCorruptDeskRowHaltsInsteadOfRestartingR() throws Exception {
+        store.deskRowText = "{\"mid\":0,\"buy\":0,\"sell\":0}";   // a row that decodes to nothing usable
+        Exchange e = new Exchange(store, ExchangeLiveTest.cfg(100, HOUSE), store::online, store.finder(), now::get);
+        e.guard(ExchangeTest.engineGuard());
+        e.siteReauth(SiteReauth.OFF);
+        e.deskConfig(deskCfg);
+        List<String> problems = e.recover();
+        assertEquals(1, problems.size(), problems.toString());
+        assertTrue(problems.get(0).contains("exchange_desk"), problems.get(0));
+        assertTrue(problems.get(0).contains("unreadable state_json"), problems.get(0));
+        assertTrue(problems.get(0).contains("058-nx-desk"), "and still says which migration makes the table");
+        assertNull(e.desk(), "no desk: nothing trades at a fresh R");
+        assertTrue(e.halted(), "the boot halts, like a missing table");
+
+        store.deskRowText = null;              // no row at all: a first start, not a problem
+        Exchange fresh = start(deskCfg, HOUSE);
+        assertNotNull(fresh.desk(), "an absent row still starts the desk");
+    }
+
     @Test
     void theDeskStateRoundTripsThroughItsJson() {
         DeskConfig cfg = DeskConfig.defaults().on();

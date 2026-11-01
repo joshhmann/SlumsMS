@@ -220,7 +220,7 @@ public final class JdbcExchangeStore implements ExchangeStore {
         return tx(con -> {
             try (PreparedStatement ps = con.prepareStatement("SELECT state_json FROM exchange_desk WHERE id = 1")) {
                 try (ResultSet rs = ps.executeQuery()) {
-                    return rs.next() ? Desk.decode(rs.getString(1)) : null;
+                    return rs.next() ? ExchangeStore.deskRow(rs.getString(1)) : null;
                 }
             }
         });

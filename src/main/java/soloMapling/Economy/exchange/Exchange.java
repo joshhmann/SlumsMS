@@ -508,8 +508,10 @@ public final class Exchange {
                 audit("desk start R=" + desk.mid() + " buy=" + desk.buy() + " sell=" + desk.sell()
                         + (stored != null ? " (stored)" : officialNow != null ? " (from the book's rate)" : " (start)"));
             } catch (StoreException e) {
-                // the desk cannot quote without its stored R: halt, so nothing trades at a rate nobody has seen
-                deskError = "desk state unreadable (" + e + "): is migration 058-nx-desk applied?";
+                // the desk cannot quote without its stored R: halt, so nothing trades at a rate nobody has seen. Two
+                // causes: the table is missing (migration 058 not applied) or the row is there and will not decode.
+                deskError = "desk state unreadable (" + e + "): fix or delete exchange_desk row id 1, or apply "
+                        + "migration 058-nx-desk if the table is missing";
                 log.error("NX exchange: {}", deskError);
             }
         }
