@@ -14,7 +14,7 @@ announcements, for one or more game servers on 192.168.0.164. Python 3 standard 
 | memory | old gen above `HEAP_WARN_PCT` (92%) of `-Xmx` (jstat), or RSS above `RSS_WARN_PCT` (175%) of `-Xmx` | 5 runs |
 | database | the DB container is not running/healthy, or `SELECT 1` fails | 2 runs |
 | disk space | under `DISK_MIN_FREE_GB` (15) or `DISK_MIN_FREE_PCT` (5%) free on `/`, the server folder and `DISK_PATHS` | 1 run |
-| bot population | online bots (botroster: `LastLoginAt > LastLogoutAt`) under `BOTS_MIN_RATIO` (60%) of the director target, after `BOTS_GRACE_MIN` (20) minutes of uptime; or `[Director] tick failed` lines | 10 runs |
+| bot population | bots in the world, counted from the botroster rows open now (`LastLoginAt > LastLogoutAt`) whose `LastLoginAt` is after the unit's current start: rows from before this boot are what a crash leaves behind (the bots only write a logout at the shutdown sweep, the hourly autosave or a despawn), so they are counted apart and the detail line names them — `1186 online (1255 rows logged in before this boot are stale), director target 1600`. Until `BOTS_STALE_MIN` (75, past the first hourly autosave) minutes of uptime the two cannot be told apart: the total is counted and the run is a skip. Under `BOTS_MIN_RATIO` (60%) of the director target after `BOTS_GRACE_MIN` (20) minutes of uptime, or `[Director] tick failed` lines, is a failure | 10 runs |
 | bot chat LLM / Decide | `LLM_URL` (`192.168.0.17:8095/health`) or `DECIDE_URL` (`:8900/health`) not 2xx within 5 s, twice 3 s apart | 1 run |
 | scheduled jobs | a timer in `TIMERS` is not active, its last run failed, or it has not run for `TIMER_MAX_AGE_H` (26) hours | 1 run |
 | cloud budget | today's spend in `CLOUD_BUDGET_FILE` (`<server>/data/convo/cloud-budget.json`, written by `CloudBudget.java`) passes `CLOUD_WARN_PCT` (80%) of the daily cap, or reaches it | once a day per level |
@@ -94,7 +94,9 @@ Updated <t:...:R>
 
 Online means the unit is active and the login port answers. Players are real players only: accounts in game
 (`loggedin = 2`) that own no character with id >= 1000000000 (bots). `VERSION` comes from the target config (bump it
-with each deploy) or `VERSION_FILE`. `STATUS_SHOW_BOTS=1` adds a bots-online line. Nothing is read back from Discord.
+with each deploy) or `VERSION_FILE`. `STATUS_SHOW_BOTS=1` adds a bots-online line, split the same way as the check:
+`Bots online: 1186 (1255 stale rows from before this boot)`, or `Bots online: 2441 (1255 open rows from before this
+boot, not split yet)` inside the first `BOTS_STALE_MIN` minutes. Nothing is read back from Discord.
 
 ## News (ticket 46, `slumsms-monitor news <target>`)
 
@@ -103,6 +105,14 @@ Reads the launcher news (`NEWS_FILE`: the published `manifest.json` with its `ne
 `**title** (date)` + body. `install.sh --news` seeds the current entries as already posted and adds a
 `slumsms-news-<target>.path` unit, so publishing a new manifest (the publisher writes it last) posts the new entry.
 By hand: `slumsms-monitor news live --file /srv/slums-staging/news-1.4.0.json --dry-run`.
+
+The publisher omits the `news` key entirely when a release ships no news file (`tools/publish.mjs` passes `news`
+straight to `validateManifest`), so a manifest without it — or with `news: null` — is a normal state, not a broken
+file: `--seed` prints `no news entries in <path> (the manifest has no news array): seeded 0`, writes an empty
+`news.json` and exits 0, so an install is never stopped by a quiet release. A `news` key that is there but is not a
+list is a broken file and still fails. A `NEWS_FILE` that does not exist at all is an error for a normal run, and
+`no news file at <path>: seeded 0` for `--seed` (`install.sh` already checks `-f` before calling, so this is only the
+race).
 
 ## Public announcements (`announce`, `maintenance`, `announce-feed`)
 
