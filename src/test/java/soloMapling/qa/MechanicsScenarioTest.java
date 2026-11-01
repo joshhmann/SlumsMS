@@ -3,7 +3,10 @@ package soloMapling.qa;
 import client.command.commands.gm3.MechanicsCommand;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -100,5 +103,25 @@ class MechanicsScenarioTest {
         assertTrue(MechanicsScenarios.mx6Verdict("Kerning0 w1 ch 1", true, "yielded to AqClient's party", true, yield,
                 "Kerning0 w1 ch 1", false).contains("re-take"), "no backoff");
         assertTrue(MechanicsScenarios.all().stream().anyMatch(q -> q.id().equals("mx-6")));
+    }
+
+    /**
+     * 163: mx-5 leads the alts t-oa-1 keeps for the same GM account. The fixed "AutoQaAlt"/"AutoQaAltB" were made by
+     * whichever lane ran t-oa-1 first, so on every other account {@code @botme} refused and mx-5 could not stage
+     * (TEST 2026-11-01 19:14 UTC).
+     */
+    @Test
+    void mx5LeadsTheAltsTheQaAccountOwns() {
+        for (int account : new int[] {1, 11, 46}) {
+            List<String> names = MechanicsScenarios.mx5AltNames(account);
+            assertEquals(List.of(soloMapling.autoqa.QaAlts.altName(account, 'A'),
+                    soloMapling.autoqa.QaAlts.altName(account, 'B')), names);
+            assertEquals(2, new java.util.HashSet<>(names).size(), "the two alts are two characters: " + names);
+            for (String name : names) {
+                assertTrue(name.matches("[A-Za-z][A-Za-z0-9]{3,11}"), name);
+            }
+        }
+        assertNotEquals(MechanicsScenarios.mx5AltNames(46), MechanicsScenarios.mx5AltNames(47),
+                "another account's lane gets its own alts");
     }
 }
