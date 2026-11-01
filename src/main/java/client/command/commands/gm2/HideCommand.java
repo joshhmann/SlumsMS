@@ -25,7 +25,6 @@ package client.command.commands.gm2;
 
 import client.Character;
 import client.Client;
-import client.SkillFactory;
 import client.command.Command;
 
 public class HideCommand extends Command {
@@ -36,7 +35,11 @@ public class HideCommand extends Command {
     @Override
     public void execute(Client c, String[] params) {
         Character player = c.getPlayer();
-        SkillFactory.getSkill(9101004).getEffect(SkillFactory.getSkill(9101004).getMaxLevel()).applyTo(player);
-
+        // GM Hide skill 9101004 toggles, so sending !hide twice made the GM visible again. Hide only when visible.
+        if (player.isHidden()) {
+            player.yellowMessage("You are already hidden.");
+            return;
+        }
+        player.Hide(true);
     }
 }
