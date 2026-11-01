@@ -679,6 +679,9 @@ public final class BotConversation {
                 : " -> " + action.outcome().name().toLowerCase());
         final ReplyPlanner.Plan decided = plan;
         final ReplyPlanner.View seen = view;
+        // m02: every line the plan words carries its move into the transcript and the QA log (!qa cv-13, t-pl-1)
+        final Cue worded = cue.moved(plan);
+        planLog(bot, player, plan, false);
         List<BotBrain.Turn> prompt = BotChatPrompt.conversation(system, history, heard.transcript(), player.getName(),
                 heard.justSaid());
         qaPrompt(bot, player, session.priority, prompt);
@@ -725,22 +728,22 @@ public final class BotConversation {
             }
             if (reply.isPresent() && action.fits(reply.get())) {
                 if (!grounded(session, reply.get(), "llm")) {
-                    retryGrounded(session, prompt, reply.get(), asked, detail, cue, action, line);
+                    retryGrounded(session, prompt, reply.get(), asked, detail, worded, action, line);
                     return;
                 }
-                deliver(session, reply.get(), asked, ChatStats.Tier.LLM, detail, cue);
+                deliver(session, reply.get(), asked, ChatStats.Tier.LLM, detail, worded);
                 return;
             }
             if (reply.isPresent()) {
                 // The model ignored what the game did ("sure" to a declined party): the scripted line says it right.
                 deliver(session, bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(action.outcome()),
                         read, action.scripted()), asked, ChatStats.Tier.SCRIPTED, detail + ", llm reply did not fit: "
-                        + reply.get(), cue);
+                        + reply.get(), worded);
                 return;
             }
             if (action.scripted() != null) {
                 deliver(session, bank(session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.key(action.outcome()),
-                        read, action.scripted()), asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back", cue);
+                        read, action.scripted()), asked, ChatStats.Tier.SCRIPTED, detail + ", llm fell back", worded);
             } else if (fallback != null) {
                 fallback.run();
                 ChatStats.reply(ChatStats.Tier.SCRIPTED, System.currentTimeMillis() - asked, bot.getName(),
@@ -753,12 +756,12 @@ public final class BotConversation {
                         text -> SocialGate.fresh(bot.getId(), player.getId(), text));
                 if (planned != null) {
                     deliver(session, planned, asked, ChatStats.Tier.SCRIPTED, detail + ", planned "
-                            + decided.move().name().toLowerCase(java.util.Locale.ROOT), cue);
+                            + decided.move().name().toLowerCase(java.util.Locale.ROOT), worded);
                     return;
                 }
-                fallbackScript(session, recognise, triage, line, read, asked, detail, cue);
+                fallbackScript(session, recognise, triage, line, read, asked, detail, worded);
             } else {
-                fallbackScript(session, recognise, triage, line, read, asked, detail, cue);
+                fallbackScript(session, recognise, triage, line, read, asked, detail, worded);
             }
         });
     }
@@ -986,6 +989,7 @@ public final class BotConversation {
         }
         ReplyPlanner.View openView = planView;
         ReplyPlanner.Plan openPlan = planned;
+        planLog(chr, player, openPlan, true);
         startSweeper();
         Session session = new Session(bot, player, now);
         sessions.put(key, session);
@@ -994,6 +998,7 @@ public final class BotConversation {
             BotChatRouting.attend(player.getId(), chr.getId(), now);
         }
         Cue cue = new Cue(hello, BotChatActions.Outcome.NONE, null);
+        final Cue openCue = cue.moved(openPlan); // a planned hello carries its move; a bot-started chat has no "asked"
         ExecutorServiceManager.runAsync(() -> {
             try {
                 // 1.6.0 S5: the script first when the gate's unprompted-LLM budget is spent; never a repeated hello
@@ -1007,7 +1012,7 @@ public final class BotConversation {
                         end(chr.getId(), player.getId());
                         return;
                     }
-                    deliver(session, scripted, now, ChatStats.Tier.SCRIPTED, "recognised on sight", cue);
+                    deliver(session, scripted, now, ChatStats.Tier.SCRIPTED, "recognised on sight", openCue);
                     return;
                 }
                 session.mind = mindFor(session, List.of(), null, null, null);
@@ -1052,7 +1057,7 @@ public final class BotConversation {
                         return;
                     }
                     deliver(session, line, now, reply.isPresent() ? ChatStats.Tier.LLM : ChatStats.Tier.SCRIPTED,
-                            "recognised on sight" + (reply.isPresent() ? "" : ", llm fell back"), cue);
+                            "recognised on sight" + (reply.isPresent() ? "" : ", llm fell back"), openCue);
                 });
             } catch (RuntimeException | LinkageError e) {
                 log.warn("Bot greeting failed for {}", chr.getName(), e);
@@ -1102,6 +1107,20 @@ public final class BotConversation {
         soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.CONVO, bot.getMapId(), "PROMPT " + bot.getName() + " -> "
                 + player.getName() + " [" + priority.name().toLowerCase(java.util.Locale.ROOT) + "] "
                 + renderPrompt(prompt));
+    }
+
+    /**
+     * {@code !qa cv-13} (m02): the move the planner chose for this reply, before the words exist, so the checklist can
+     * compare what the game planned ("in a town: a hello that names the town, never grinding") with what was said.
+     * Guarded: nothing is built when no QA run is listening.
+     */
+    static void planLog(Character bot, Character player, ReplyPlanner.Plan plan, boolean opened) {
+        if (plan == null || !soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.CONVO)) {
+            return;
+        }
+        soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.CONVO, bot.getMapId(),
+                "PLAN " + bot.getName() + " -> " + player.getName() + " " + plan.move().name().toLowerCase(java.util.Locale.ROOT)
+                        + (plan.brief() ? " brief" : "") + (opened ? " (it started the chat)" : ""));
     }
 
     /** A prompt as one line: each turn as [role] text, newlines as \n. */
@@ -1157,10 +1176,25 @@ public final class BotConversation {
         }
     }
 
-    /** What a reply answers, for the face that goes with it. */
-    private record Cue(ChatTriage.Result triage, BotChatActions.Outcome outcome, String asked, String protect) {
+    /**
+     * What a reply answers, for the face that goes with it. {@code move} is the reply planner's move when it planned
+     * the words (m02): it goes into the transcript and the {@code !qa cv-13} log line, so a line can be judged
+     * against the move the game chose rather than guessed from its text.
+     */
+    private record Cue(ChatTriage.Result triage, BotChatActions.Outcome outcome, String asked, String protect,
+                       String move) {
         Cue(ChatTriage.Result triage, BotChatActions.Outcome outcome, String asked) {
-            this(triage, outcome, asked, null);
+            this(triage, outcome, asked, null, null);
+        }
+
+        Cue(ChatTriage.Result triage, BotChatActions.Outcome outcome, String asked, String protect) {
+            this(triage, outcome, asked, protect, null);
+        }
+
+        /** The same cue for a line the planner worded (a null plan changes nothing). */
+        Cue moved(ReplyPlanner.Plan plan) {
+            return plan == null ? this
+                    : new Cue(triage, outcome, asked, protect, plan.move().name().toLowerCase(java.util.Locale.ROOT));
         }
     }
 
@@ -1406,7 +1440,7 @@ public final class BotConversation {
                             ChatStats.reply(tier, System.currentTimeMillis() - asked, bot.getName(), fullDetail);
                             soloMapling.ArtificialPlayer.BotConvo.ConvoQuality.said(bot, player, line, said, tier.name(),
                                     persona, cue == null || cue.triage() == null ? null : cue.asked(),
-                                    System.currentTimeMillis() - asked);
+                                    System.currentTimeMillis() - asked, cue == null ? null : cue.move());
                         }
                     });
         }

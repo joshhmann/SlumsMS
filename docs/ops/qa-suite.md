@@ -204,6 +204,8 @@ run alongside.
 | `cv-9` `[line...]` | A friend bot next to you. `!qa do hold` says a line to it, unpins it and starts the wander a town wanderer's `ensureRoaming` starts (the walk that used to carry a chatting bot off). `!qa do sample` logs the distance again | `HOLD <bot>: <px> px from you, <s> s of hold left, with you\|WANDERED OFF (150 px)`. Every line must read "with you" for the 45 s after the last exchange: the conversation hold keeps it there (a third character does not push it away, personal space keeps the pair together). Auto-QA runs it as `t-cv-8` (five samples 5 s apart) |
 | `cv-10` | A friend bot in a party with you (ticket 85). Type in PARTY chat, or `!qa do say <line>` sends one for you | `CONVO PARTY CHAT <you>: "<line>" -> <bot> answers [1-name\|2-reply\|3-closest\|3-any]` then `CONVO PARTY SAY <bot>: <reply>` (the reply shows in party chat). A line naming the bot, or a reply to its last line, always gets an answer; a question or "guys" nearly always; plain chatter sometimes. One bot answers; at most 8 bot lines a minute. Auto-QA runs it as `t-cv-10` |
 
+| `cv-13` | The reply planner (`-Dsolomapling.convo.planner=true`, off by default; refuses without it). Warps you to Henesys (a town) and stages one social bot next to you. `!qa do grind` stages a second bot at the hunting ground and warps you there, `!qa do town` brings you back to Henesys, `!qa do party [line]` sends a party ask | Every planned reply logs `CONVO PLAN <bot> -> <you> <move>` and the line in `SAID`/the transcript: "hey" in town -> `hello`/`hello_back` naming the town or what it is doing, never grinding; "where should i train" -> `train_spot` with a spot from the bot's list; "what lvl r u" -> `level_talk` with its level and next goal, no begging; a hello while it grinds -> `hello` or `busy`, brief, naming the mob; a party ask -> `party_yes`/`party_no` matching what the game decided. Auto-QA reads the same rows back as `t-pl-1` |
+
 **Hanging around:** a bot in a conversation is held in place for 45 s after the last exchange (`BotConversation.HOLD_MS`, from the player's line, its reply, the typing time and a player who names the bot). Every ambient walk skips while `BotConversation.isHoldingChat` is true: the town wander (`BotWanderSystem`: an in-flight stroll is stopped and the dwell runs to the end of the hold), loiter (`TownLoiter`), fidget (`GCFidget`), `SocialBot`'s relocate, `TownWandererBot`/`HenesysBot` roaming, the training bot's town dwells, and personal space (`PersonalSpace.keepNow`: a partner keeps the pair 18-27 px apart, a third character no longer displaces the bot). Grinding combat is not held. It yields to a real reason to go: a shutdown quiesce, the logout curve, an event instance, or a drama scene (`heldByChat`).
 
 **`!rate`** (GM 1+, every server): `!rate good|bad [note]` rates the last line a bot said to you (10 min; a thread line
@@ -1013,6 +1015,23 @@ replaced by `{player}`. `latest.json` gets `chatQuality` (the headline, the scor
 ```
 chat 24h: 129 lines; relevance 100% (60 judged); stiff 0%; repeats 0%; unanswered 0/6 questions; say-do n/a backed (0 claims)
 ```
+
+#### Planned replies, daily (`PlannerReplies`, check `t-pl-1`)
+
+m02 (the reply planner) makes a decision before the model words anything: a `Move` (`hello`, `hello_back`,
+`small_talk`, `activity`, `train_spot`, `level_talk`, `busy`, `party_yes`, `party_no`) plus the facts it may use.
+Three of the planner's promises are judged from the same transcripts `t-cq-1` reads, over the last 24 h, with no
+in-game steps (the check `holds` the world and takes 2 minutes):
+
+| Rule | The row it reads | t-pl-1 FAILs when |
+|---|---|---|
+| A town is a town | `map`, `line` | A reply said on a town map (`StateOfMind.TOWNS`) claims the bot is grinding, training or farming right there (`StateOfMind.claimsGrindingInTown`) |
+| Filled before sent | `move`, `slots` | A reply the planner worded (the row has a `move`) reached a player with a literal `{slot}` in it (`slots=literal`) |
+| One bot chat an hour | `player`, `open`, `at` | One player heard from more than one bot that started the chat (`open`) inside any 60 minutes; the gap is `SocialGate.botChatGapMs()` (`-Dsolomapling.chat.botStartedPlayerGapMs`, 1 h) |
+
+Threads (a bot talking to the map, `player` `-`) are not replies to a player and are left out. The check SKIPs with
+the switch name when `solomapling.convo.planner` is off, and when no bot replied to a player in the window; a
+pre-m02 row carries no `move` or `open`, so the second and third rules only see what the planner itself wrote.
 
 #### Say-do: a bot does what it says (`BotConvo.ClaimRules`, `SayDo`, `ClaimActions`)
 

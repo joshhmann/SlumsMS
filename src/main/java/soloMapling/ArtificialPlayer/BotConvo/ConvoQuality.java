@@ -48,9 +48,12 @@ public final class ConvoQuality {
     /** A {@code {slot}} left in a line (b247: lower case too, {@code {player}}, {@code {map}}). */
     private static final java.util.regex.Pattern SLOT = java.util.regex.Pattern.compile("\\{[A-Za-z_]+}");
 
-    /** A line a bot said: to a player ({@code playerId} > 0) or in a thread on a map. */
+    /**
+     * A line a bot said: to a player ({@code playerId} > 0) or in a thread on a map. {@code move} is the reply
+     * planner's move when it worded the line (m02, {@code !qa cv-13}); {@code open} says the bot started the chat.
+     */
     public record Said(long at, int botId, String botName, int playerId, String asked, String line, String source,
-                       int bankId, String voice, String tier, long ms, int mapId) {
+                       int bankId, String voice, String tier, long ms, int mapId, String move, boolean open) {
     }
 
     private static final Map<Integer, Said> lastToPlayer = new ConcurrentHashMap<>();
@@ -174,19 +177,29 @@ public final class ConvoQuality {
     /** A bot line went out to a player: remembered for !rate, written to the transcript, logged for !qa. */
     public static void said(Character bot, Character player, String line, ConvoLines.Line source, String tier,
                             ConvoPersona persona, String asked, long ms) {
+        said(bot, player, line, source, tier, persona, asked, ms, null);
+    }
+
+    /**
+     * The same, with the reply planner's move (m02) so the transcript says which move the game planned for the line:
+     * the auto-QA transcript check ({@code t-pl-1}) judges the planned lines, and {@code !qa cv-13} looks for them.
+     */
+    public static void said(Character bot, Character player, String line, ConvoLines.Line source, String tier,
+                            ConvoPersona persona, String asked, long ms, String move) {
         String src = source == null ? "scripted" : source.fromBank() ? "bank" : source.source();
         // privacy (review 2026-10-22): the player's name never reaches a transcript, a rating or a QA line
         String name = player.getName();
+        boolean open = asked == null; // no line to answer: the bot started this chat (SocialGate caps those)
         asked = anonymise(asked, name);
         String rawLine = line;
         line = anonymise(line, name);
         Said s = new Said(System.currentTimeMillis(), bot.getId(), bot.getName(), player.getId(), asked, line, src,
                 source == null ? -1 : source.bankId(), persona == null ? null : persona.voice().label(),
-                tier.toLowerCase(Locale.ROOT), ms, player.getMapId());
+                tier.toLowerCase(Locale.ROOT), ms, player.getMapId(), move, open);
         lastToPlayer.put(player.getId(), s);
         long cutoff = s.at() - RATE_WINDOW_MS;   // past the !rate window a line is never rated again
         soloMapling.server.BoundedMaps.prune(lastToPlayer, 1_000, 5_000, old -> old.at() < cutoff);
-        transcript(s, player.getId());
+        transcript(s, player.getId(), slotsOf(rawLine, line));
         if (QaLog.on(QaLog.Topic.CONVO)) { // !qa cv-4, cv-6, cv-7
             // 163: a reply is about the player it answered, so it reaches only that player's run. As a map line it
             // reached every run watching the map (every lane's GM logs in at Henesys): t-cv-2's LLM judge graded
@@ -214,9 +227,9 @@ public final class ConvoQuality {
     public static void threadLine(Character bot, int mapId, String line, String source, String topic) {
         Said s = new Said(System.currentTimeMillis(), bot.getId(), bot.getName(), 0, "(thread: " + topic + ")", line,
                 "thread-" + source, -1, ConvoPersona.of(bot.getId() - soloMapling.ArtificialPlayer.BotStore.BOT_ID_BASE)
-                .voice().label(), "thread", 0, mapId);
+                .voice().label(), "thread", 0, mapId, null, false);
         lastThreadOnMap.put(mapId, s);
-        transcript(s, 0);
+        transcript(s, 0, slotsOf(line, line));
     }
 
     /**
@@ -268,7 +281,7 @@ public final class ConvoQuality {
         return playerId <= 0 ? "-" : Integer.toHexString((playerId * 0x9E3779B1) ^ 0x5bd1e995);
     }
 
-    private static void transcript(Said s, int playerId) {
+    private static void transcript(Said s, int playerId, String slots) {
         if (!writeFiles || !ConvoSwitches.on("quality")) {
             return;
         }
@@ -286,6 +299,14 @@ public final class ConvoQuality {
         m.put("voice", s.voice());
         m.put("ms", s.ms());
         m.put("map", s.mapId());
+        // m02: which move the planner chose, whether a {slot} survived into the line, and whether the bot spoke first
+        m.put("slots", slots);
+        if (s.move() != null) {
+            m.put("move", s.move());
+        }
+        if (s.open()) {
+            m.put("open", true);
+        }
         String row = Json.write(m) + "\n";
         Path f = transcriptFile(LocalDate.now());
         writer.execute(() -> append(f, row));

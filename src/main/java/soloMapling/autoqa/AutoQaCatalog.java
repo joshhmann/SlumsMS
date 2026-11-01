@@ -554,6 +554,13 @@ public final class AutoQaCatalog {
                 .expect(ChatQuality.expectation())
                 .build());
 
+        // m02 (owner 2026-10-31): the reply planner's own promises, read back from the same transcript - no grinding
+        // claimed in a town, no {slot} left in a planned line, and no player hearing from two bots inside an hour
+        c.add(Check.auto("t-pl-1", "Planned replies: town truth, filled slots, one bot chat an hour").holds(Check.WORLD)
+                .minutes(2)
+                .expect(PlannerReplies.expectation())
+                .build());
+
         // ── Gachapon and the rich ────────────────────────────────────────────────────────────────────────────
         c.add(Check.auto("t-ga-1", "Play a town machine").holds("map:100000000").minutes(4)
                 // the jackpot goes first: the notice keeps one per character per 60 s, so a rare won by an earlier
