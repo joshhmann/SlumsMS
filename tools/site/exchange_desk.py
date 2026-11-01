@@ -27,12 +27,20 @@ every request also carries "siteAuthAt", the session's sign-in time in epoch ms,
     POST /api/market/exchange/confirm       {token}
     POST /api/market/exchange/cancel        {orderId}
     POST /api/market/exchange/refresh       {}  ask the game for my orders again
+
+The NX desk (1.6.3, ticket 162; the game's side is docs/tickets/162-nx-forex.md and its API.md) adds five URLs under
+/api/market/exchange/nx/: quote, history, me, preview and confirm. They answer the game's own field names, and they
+exist only when SLUMS_MARKET_NX_DESK is mock or on (market_app.py): then the NX tab shows one buy price and one sell
+price instead of an order book. The game writes nx-desk.json to the outbox every exchange tick; mock mode reads a
+fixture of it instead and answers the trades from a file, without touching the inbox.
 """
+import datetime
 import json
+import math
 import os
 import secrets
 
-from market_service import Refused, iso, rows_of, write_atomic
+from market_service import Refused, characters, epoch, iso, rows_of, write_atomic
 
 REQUESTS, RESPONSES, BOOK = "exchange-requests.json", "exchange-responses.json", "exchange-book.json"
 TICKERS, HISTORY = "exchange-tickers.json", "exchange-history.json"
@@ -106,6 +114,140 @@ def nx_view(t):
 def nx_order(o):
     """An order (the game's "mine" answer, or a confirm answer) with its price per NX when it's an NX order."""
     return nx_prices(o) if isinstance(o, dict) and (o.get("ticker") or "NX") == "NX" else o
+
+
+# ── the NX desk (1.6.3, ticket 162): one quote, trades at it ──
+NX_DESK = "nx-desk.json"     # the game's quote, written to the outbox every exchange tick (API.md §1)
+DESK_STALE = 120             # older than this the site shows "prices are updating" and no trade form (API.md §4)
+DESK_HOURS = 168             # the hours the game keeps, and the most the site serves (a week)
+MODES = ("off", "mock", "on")
+MOCK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata", "nx-desk")
+DESK_FIELDS = ("schema", "generated_at", "open", "closed_reason", "mid", "buy", "sell", "spread_bps", "fee_bps",
+               "drift_bps_last_hour", "day_cap_pct", "moved_today_pct", "floor", "ceil", "desk_nx", "selling",
+               "min_qty", "history")
+# the desk's prices come per 1,000 NX like every other NX price; the browser gets them per NX (DESK_PRICE_KEYS also
+# covers the item tickers' keys, since an answer may carry either)
+DESK_PRICE_KEYS = PRICE_KEYS + ("mid", "buy", "sell", "floor", "ceil")
+DESK_STALE_MSG = "The NX prices are updating. Try again in a minute."
+
+
+def desk_mode(raw=None):
+    """SLUMS_MARKET_NX_DESK: off (1.6.2's order book, the default), mock (the fixtures) or on (the game's desk)."""
+    v = os.environ.get("SLUMS_MARKET_NX_DESK", "off") if raw is None else raw
+    v = v.strip().lower() if isinstance(v, str) else ""
+    if v not in MODES:
+        raise SystemExit(f"SLUMS_MARKET_NX_DESK must be off, mock or on, not {raw!r}")
+    return v
+
+
+def is_time(v):
+    """An ISO time with its zone ('2026-11-01T14:00:00Z'): a time whose age the site can measure."""
+    if not isinstance(v, str):
+        return False
+    try:
+        return datetime.datetime.fromisoformat(v.replace("Z", "+00:00")).tzinfo is not None
+    except ValueError:
+        return False
+
+
+def is_num(v):
+    """A real number: not a bool, and not the NaN or infinity json.load still accepts."""
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def desk_problems(d):
+    """What's wrong with the game's nx-desk.json (API.md §1), in words; [] for a good one."""
+    if not isinstance(d, dict):
+        return ["not a JSON object"]
+    out = [f"{k} is missing" for k in DESK_FIELDS if k not in d]
+    if d.get("schema") != 1:
+        out.append("schema is not 1")
+    if not is_time(d.get("generated_at")):
+        out.append("generated_at is not a time with its zone")
+    if not isinstance(d.get("open"), bool) or not isinstance(d.get("selling"), bool):
+        out.append("open and selling must be true or false")
+    if d.get("closed_reason") is not None and not isinstance(d.get("closed_reason"), str):
+        out.append("closed_reason must be null or a line of text")
+    for k in ("mid", "buy", "sell", "floor", "ceil", "desk_nx", "min_qty"):
+        if not isinstance(d.get(k), int) or isinstance(d.get(k), bool) or d[k] < 0:
+            out.append(f"{k} must be a whole number from 0 up")
+    for k in ("spread_bps", "fee_bps", "drift_bps_last_hour", "day_cap_pct", "moved_today_pct"):
+        if not is_num(d.get(k)):
+            out.append(f"{k} must be a number")
+    if not out:
+        if not d["floor"] <= d["mid"] <= d["ceil"]:
+            out.append("mid is outside floor to ceil")
+        if not d["buy"] <= d["mid"] <= d["sell"]:
+            out.append("buy is above mid, or mid is above sell")
+        if d["min_qty"] < 1:
+            out.append("min_qty is below 1")
+    if not isinstance(d.get("history"), list):
+        out.append("history must be a list of hours")
+    else:
+        for i, h in enumerate(d["history"]):
+            if not isinstance(h, dict) or not is_time(h.get("hour")) or any(
+                    not is_num(h.get(k)) for k in ("mid", "buy", "sell", "volume_nx", "fills")):
+                out.append(f"history[{i}] is not an hour with a mid, buy, sell, volume_nx and fills")
+                break
+    return out
+
+
+def nx_desk_prices(d):
+    """One desk row as the browser gets it: the NX prices per NX (a quote, an hour, a fill, an answer's fresh quote)."""
+    out = {k: per_nx(v) if k in DESK_PRICE_KEYS else v for k, v in d.items()}
+    for k in ("fill", "quote"):
+        if isinstance(out.get(k), dict):
+            out[k] = nx_desk_prices(out[k])
+    if isinstance(out.get("fills"), list):
+        out["fills"] = [nx_desk_prices(x) if isinstance(x, dict) else x for x in out["fills"]]
+    return out
+
+
+def expand(v, now):
+    """A mock fixture with its times filled in: "@-600" is 600 seconds before now (mock mode only, never on)."""
+    if isinstance(v, dict):
+        return {k: expand(x, now) for k, x in v.items()}
+    if isinstance(v, list):
+        return [expand(x, now) for x in v]
+    if isinstance(v, str) and v[:1] == "@" and v[1:].lstrip("+-").isdecimal():
+        return iso(int(now) + int(v[1:]))
+    return v
+
+
+class Mock:
+    """Mock mode's game, played from files in testdata/nx-desk/: the same code path as on, nothing near the inbox.
+
+    nx-desk.json is the quote and nx-desk-<variant>.json a state of the desk (closed, noselling, halted, stale, asked
+    for with ?variant=); answers.json holds one answer per request type, "<kind>.<variant>" when a state answers
+    differently. Times are written as "@<seconds from now>" so a fixture never goes stale."""
+
+    def __init__(self, folder=None):
+        self.folder, self.variant = folder or MOCK_DIR, ""
+
+    def _json(self, name):
+        try:
+            with open(os.path.join(self.folder, name), encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return None
+
+    def nx_desk(self, now):
+        name = "nx-desk" + (f"-{self.variant}" if self.variant else "") + ".json"
+        return expand(self._json(name), now)
+
+    def answer(self, kind, now, fields):
+        """The fixture's answer to one request, or None (the mock has no items, so no priced preview is answered)."""
+        if kind == "preview" and "price" in (fields or {}):
+            return None
+        a = self._json("answers.json")
+        if not isinstance(a, dict):
+            return None
+        for key in ((f"{kind}.{self.variant}", kind) if self.variant else (kind,)):
+            if isinstance(a.get(key), dict):
+                return expand(a[key], now)
+        return None
+
+
 META = tuple(NX) + ("max_open", "per_day", "expiry_hours", "fair", "bid", "ask", "last", "change_24h", "change_24h_pct", "high_24h", "low_24h", "volume_24h",
                     "turnover_24h", "fills_24h", "rate", "bids", "asks", "trades")
 
@@ -128,11 +270,13 @@ def whole(raw, what, lo, hi, step=1):
 class Desk:
     """Shares the market store's database, lock and folders (store: market_service.Store)."""
 
-    def __init__(self, store):
+    def __init__(self, store, mode="off", fixtures=None):
         self.store = store
+        self.mode = desk_mode("off" if mode is None else mode)
         store.db.executescript(SCHEMA)
         self.seen = None  # (mtime_ns, size) of the last exchange-responses.json read
         self.limits, self.events = {}, []
+        self.mock = Mock(fixtures) if self.mode == "mock" else None
 
     def q(self, sql, *args):
         return self.store.db.execute(sql, args).fetchall()
@@ -188,6 +332,8 @@ class Desk:
         self.q("UPDATE xreq SET answered=?, answer=? WHERE id=?", t, json.dumps(answer), rid)
 
     def export(self):
+        if self.mock:  # mock mode never writes the inbox: the game isn't there
+            return
         rows = self.q("SELECT body FROM xreq WHERE answered IS NULL AND created>=? ORDER BY created",
                       int(self.store.now()) - MAX_AGE)
         write_atomic(os.path.join(self.store.inbox, REQUESTS),
@@ -219,7 +365,12 @@ class Desk:
                     **fields)
         self.q("INSERT INTO xreq (id, account, type, body, created) VALUES (?, ?, ?, ?, ?)",
                rid, account, kind, json.dumps(body, separators=(",", ":")), t)
-        self.export()
+        if self.mock:
+            a = self.mock.answer(kind, t, fields)
+            if a is not None:
+                self._answer(dict(a, id=rid, account=account), t)
+        else:
+            self.export()
         return rid
 
     # ── what the URLs do (the caller holds store.lock and has synced) ──
@@ -293,13 +444,14 @@ class Desk:
         if row[0][0] is None:
             return {"pending": True}
         a = json.loads(row[0][1])
-        # NX prices in the answer per NX too: a preview's or an order's price, PRICE_BAND's range (NX only)
+        # NX prices in the answer per NX too: a preview's or an order's price, PRICE_BAND's range, the desk's quote,
+        # its fresh quote after QUOTE_MOVED, a fill and a "mine" answer's fills
         d = a.get("data") if isinstance(a, dict) else None
         if isinstance(d, dict):
             if isinstance(d.get("orders"), list):  # a "mine" answer
                 d = dict(d, orders=[nx_order(o) for o in d["orders"]])
             elif (d.get("ticker") or "NX") == "NX":
-                d = nx_prices(d)
+                d = nx_desk_prices(d)
             a = dict(a, data=d)
         return {"pending": False, "answer": a}
 
@@ -345,3 +497,59 @@ class Desk:
     def refresh(self, s):
         self.need_fresh(s)
         return {"id": self.ask(s, "mine")}
+
+    # ── the NX desk (1.6.3, ticket 162; API.md): one quote, and trades at that quote ──
+    def nx_file(self):
+        """The game's nx-desk.json, validated (mock mode: the fixture); refuses a missing, broken or stale one."""
+        raw = self.mock.nx_desk(self.store.now()) if self.mock else self._read(NX_DESK)
+        if raw is None or desk_problems(raw) or int(self.store.now()) - epoch(raw["generated_at"], 0) > DESK_STALE:
+            raise Refused(DESK_STALE_MSG, 503, "PRICES_STALE")
+        return raw
+
+    def nx_quote(self):
+        """The panel's quote: everything but the hours of history, prices per NX, and the file's age."""
+        d = self.nx_file()
+        q = nx_desk_prices({k: v for k, v in d.items() if k != "history"})
+        q["age_sec"] = int(self.store.now()) - int(epoch(d["generated_at"], 0))
+        return q
+
+    def nx_history(self, raw):
+        """The last hours of the game's hourly history, oldest first, prices per NX (?hours=, 1 to 168)."""
+        d = self.nx_file()
+        raw = "" if raw is None else str(raw).strip()
+        hours = whole(int(raw) if raw.isdecimal() else (None if raw else DESK_HOURS), "The hours", 1, DESK_HOURS)
+        return {"interval": "1h", "hours": hours, "generated_at": d["generated_at"],
+                "history": [nx_desk_prices(h) for h in d["history"][-hours:]]}
+
+    def nx_me(self, s):
+        """My NX at the desk: {nx, fills, stepUpFreeMesos} from the game's last "mine" answer, plus the site's reauth."""
+        if not s:
+            return {"state": "signedOut"}
+        a = s["a"]
+        mine = self.q("SELECT at, data, stale FROM xmine WHERE account=?", a)
+        if self.fresh(s) and (not mine or mine[0][2] or mine[0][0] < int(self.store.now()) - MINE_FRESH):
+            self.ask(s, "mine")
+            mine = self.q("SELECT at, data, stale FROM xmine WHERE account=?", a)
+        data = json.loads(mine[0][1]) if mine else {}
+        data = data if isinstance(data, dict) else {}
+        fills = data.get("fills") if isinstance(data.get("fills"), list) else None
+        return {"characters": characters(s),
+                "nx": data.get("nx") if isinstance(data.get("nx"), int) else None,
+                "fills": [nx_desk_prices(f) for f in fills if isinstance(f, dict)] if fills is not None else None,
+                "stepUpFreeMesos": data.get("stepUpFreeMesos") if isinstance(data.get("stepUpFreeMesos"), int)
+                else None,
+                "asOf": iso(mine[0][0]) if mine else None, "reauth": not self.fresh(s)}
+
+    def nx_preview(self, s, body, names):
+        """A quote for one trade: an NX preview with no price (API.md §2). The game answers with the held quote."""
+        self.need_fresh(s)
+        name = body.get("character")
+        if name not in names:
+            raise Refused("Pick one of your characters.")
+        side = body.get("side")
+        if side not in SIDES:
+            raise Refused("Pick buy or sell.")
+        if "price" in body:
+            raise Refused("The NX desk trades at its quote: a trade sends no price.")
+        qty = whole(body.get("nx", body.get("qty")), "The amount", 1, RULES["maxNx"])
+        return {"id": self.ask(s, "preview", characterName=name, side=side, nx=qty)}

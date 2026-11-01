@@ -1,0 +1,146 @@
+{
+  "confirm": {
+    "code": "",
+    "data": {
+      "fill": {
+        "at": "@0",
+        "mesos": 5100000,
+        "nx": 1000,
+        "price": 5100000
+      },
+      "mid": 5000000
+    },
+    "message": "",
+    "ok": true
+  },
+  "confirm.empty": {
+    "code": "DESK_EMPTY",
+    "data": {
+      "desk_nx": 300
+    },
+    "message": "",
+    "ok": false
+  },
+  "confirm.minqty": {
+    "code": "MIN_QTY",
+    "data": {
+      "min_qty": 1000
+    },
+    "message": "",
+    "ok": false
+  },
+  "confirm.moved": {
+    "code": "QUOTE_MOVED",
+    "data": {
+      "expiresAt": "@60",
+      "mid": 5050000,
+      "price": 5150000,
+      "token": "efefefefefefefefefefefef"
+    },
+    "message": "The price moved.",
+    "ok": false
+  },
+  "confirm.pw": {
+    "code": "PASSWORD_REQUIRED",
+    "data": {
+      "expiresAt": "@50",
+      "stepUpFreeMesos": 20000000
+    },
+    "message": "",
+    "ok": false
+  },
+  "mine": {
+    "code": "",
+    "data": {
+      "fills": [
+        {
+          "at": "@-3600",
+          "mesos": 5120000,
+          "nx": 1000,
+          "price": 5120000,
+          "side": "BUY"
+        },
+        {
+          "at": "@-7200",
+          "mesos": 9800000,
+          "nx": 2000,
+          "price": 4900000,
+          "side": "SELL"
+        },
+        {
+          "at": "@-108000",
+          "mesos": 2520000,
+          "nx": 500,
+          "price": 5040000,
+          "side": "BUY"
+        }
+      ],
+      "nx": 250000,
+      "stepUpFreeMesos": 20000000
+    },
+    "message": "",
+    "ok": true
+  },
+  "preview": {
+    "code": "",
+    "data": {
+      "desk_nx": 250000,
+      "expiresAt": "@60",
+      "mesos": 5100000,
+      "mid": 5000000,
+      "nx": 1000,
+      "price": 5100000,
+      "side": "BUY",
+      "token": "abababababababababababab"
+    },
+    "message": "",
+    "ok": true
+  },
+  "preview.closed": {
+    "code": "DESK_CLOSED",
+    "data": {},
+    "message": "The NX desk is closed right now.",
+    "ok": false
+  },
+  "preview.empty": {
+    "code": "DESK_EMPTY",
+    "data": {
+      "desk_nx": 300
+    },
+    "message": "The desk has none to sell right now.",
+    "ok": false
+  },
+  "preview.halted": {
+    "code": "HALTED",
+    "data": {},
+    "message": "Trading paused by a GM.",
+    "ok": false
+  },
+  "preview.minqty": {
+    "code": "MIN_QTY",
+    "data": {
+      "min_qty": 1000
+    },
+    "message": "The desk's smallest trade is 1,000 NX.",
+    "ok": false
+  },
+  "preview.moved": {
+    "code": "QUOTE_MOVED",
+    "data": {
+      "expiresAt": "@60",
+      "mid": 5050000,
+      "price": 5150000,
+      "token": "cdcdcdcdcdcdcdcdcdcdcdcd"
+    },
+    "message": "The price moved.",
+    "ok": false
+  },
+  "preview.pw": {
+    "code": "PASSWORD_REQUIRED",
+    "data": {
+      "stepUpFreeMesos": 20000000
+    },
+    "message": "Enter your game password to continue.",
+    "ok": false
+  }
+}

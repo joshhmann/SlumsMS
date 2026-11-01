@@ -9,6 +9,10 @@
 (function () {
   var ROOT = (document.querySelector("[data-mk-root]") || { dataset: { mkRoot: "../" } }).dataset.mkRoot;
   var API = ROOT + "api/market/exchange/";
+  // with the NX desk on (1.6.3, ticket 162) the NX tab is SlumsBank's quote panel (xdesk, market/nx/*) and NX has no
+  // book: the term carries data-nxdesk and xbook leaves NX out of the tickers, so the item tabs keep theirs
+  var DESK = !!document.querySelector("[data-nxdesk]");
+  var DESK_PW = "Type your password to confirm this trade.";
   var HOUR = 3600000, DAY = 24 * HOUR;
   var nf = new Intl.NumberFormat("en-US");
   function fmt(n) { return n === null || n === undefined ? "-" : nf.format(n); }
@@ -64,6 +68,20 @@
         : hi ? "of at most " + fmt(d.maxPrice) : "closer to it";
       return "NX trades near the official rate" + (d.rate ? " (" + fmt(d.rate) + ")" : "") + ": pick a price " + range + ".";
     },
+    // the NX desk (1.6.3): its own prices, its own refusals
+    DESK_CLOSED: "The NX desk is closed right now.",
+    DESK_EMPTY: function (a) {
+      var n = a.data && a.data.desk_nx;
+      return typeof n === "number" ? "SlumsBank has only " + fmt(n) + " NX to sell right now: try a smaller amount."
+        : "SlumsBank has no NX to sell right now.";
+    },
+    // the rate moved between the preview and the confirm; the answer carries the fresh quote to show and confirm
+    QUOTE_MOVED: "The rate moved while you were looking. Here is the new quote: check it and confirm again.",
+    MIN_QTY: function (a) {
+      var n = a.data && a.data.min_qty;
+      return typeof n === "number" ? "The desk's smallest trade is " + fmt(n) + " NX." : "That's under the desk's smallest trade.";
+    },
+    PRICES_STALE: "The NX prices are updating. Try again in a minute.",
     ERROR: "Something went wrong in the game. Try again later."
   };
   function said(a, side) {
@@ -95,6 +113,21 @@
           .catch(function () { setTimeout(ask, 3000); });
       })();
     });
+  }
+
+  // 1.6.2 b005: every site sell, and a site buy past the password-free amount, need the account's password for that
+  // one order. It goes to the sign-in service (/api/login/exchange-approve), which hands it to the game's sign-in
+  // check; then the confirm goes as usual. The box is emptied as soon as the password is sent.
+  function exchangeApprove(token, pw) {
+    return fetch(ROOT + "api/login/exchange-approve", { method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-Slums": "1" }, body: JSON.stringify({ token: token, pass: pw }) })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, error: "The server said no (" + r.status + ")." }; }); })
+      .catch(function () { return { ok: false, error: "Can't reach the server right now." }; });
+  }
+  // a held quote has to reach the game before it expires: stop taking a yes a few seconds early
+  function leftOf(iso) {
+    var t = iso ? new Date(iso).getTime() : NaN;
+    return isNaN(t) ? 0 : Math.max(0, Math.floor((t - Date.now()) / 1000) - 5);
   }
 
   function store() { return window.Alpine.store("xc"); }
@@ -159,7 +192,10 @@
           .then(function (j) { if (j && j.ok && j.ticker === store().tk) { self.candles = j.candles || []; self.candlesFor = j.ticker; } })
           .catch(function () { /* keep what we had */ });
       },
-      get list() { return (this.data && this.data.tickers) || []; },
+      get list() {  // the desk's tab is its own panel (xdesk), so NX has no book to show here
+        var ts = (this.data && this.data.tickers) || [];
+        return DESK ? ts.filter(function (t) { return t.id !== "NX"; }) : ts;
+      },
       get halted() { return !!(this.data && this.data.halted); },
       get cur() {
         var id = store().tk, l = this.list;
@@ -398,26 +434,20 @@
       },
       pvQty: function () { var p = this.pv; return p ? (p.qty !== undefined ? p.qty : p.nx) : 0; },
       asset: function (a) { return a === "NX" ? "NX" : a === "MESO" ? "mesos" : (this.meta.qty_label || "items"); },
-      // 1.6.2 b005: every site sell, and site buys past the password-free amount, need the account's password for
-      // that one order. It goes to the sign-in service (/api/login/exchange-approve), which hands it to the game's
-      // sign-in check; then the confirm goes as usual. The box is emptied as soon as the password is sent.
+      // 1.6.2 b005: the account's password for that one order (exchangeApprove), then the confirm as usual
       approve: function (token) {
         var self = this, pw = this.pw;
         this.pw = "";
         if (!pw) { this.say("Type your password to confirm this order.", false); return Promise.resolve(false); }
         this.busy = true;
         this.say("Checking your password...");
-        return fetch(ROOT + "api/login/exchange-approve", { method: "POST", credentials: "same-origin",
-          headers: { "Content-Type": "application/json", "X-Slums": "1" }, body: JSON.stringify({ token: token, pass: pw }) })
-          .then(function (r) { return r.json().catch(function () { return { ok: false, error: "The server said no (" + r.status + ")." }; }); })
-          .catch(function () { return { ok: false, error: "Can't reach the server right now." }; })
-          .then(function (j) {
-            self.busy = false;
-            if (j.ok) return true;
-            if (j.code === "TOKEN_EXPIRED" || j.code === "HALTED") { self.pv = null; clearInterval(self.clock); }
-            self.say(j.error || "That didn't work.", false);
-            return false;
-          });
+        return exchangeApprove(token, pw).then(function (j) {
+          self.busy = false;
+          if (j.ok) return true;
+          if (j.code === "TOKEN_EXPIRED" || j.code === "HALTED") { self.pv = null; clearInterval(self.clock); }
+          self.say(j.error || "That didn't work.", false);
+          return false;
+        });
       },
       confirm: function () {
         var self = this, pv = this.pv;
@@ -459,9 +489,284 @@
     });
   }
 
+  // The NX desk (1.6.3, ticket 162): SlumsBank's two prices in place of the NX tab's book. quote, history and me come
+  // from /api/market/exchange/nx/*, which serves the game's nx-desk.json; a trade is the same two steps as an order:
+  // preview (the desk holds that quote for 60 s) then confirm by its token. The game keeps its prices per 1,000 NX and
+  // exchange_desk.py converts them, so everything here is mesos per NX. Nothing is priced by this file: the spread,
+  // the fee, the daily cap and the smallest trade all come from the desk's own fields.
+  function xdesk() {
+    return {
+      fmt: fmt, when: when, clock: clock, pct: pct,
+      quote: null, qstate: "loading", err: "", stale: false, stamp: "",
+      hist: [], me: null,
+      side: "BUY", nx: 1000, character: "",
+      busy: false, msg: "", msgClass: "", pv: null, left: 0, needPw: false, pw: "",
+      staleSignIn: false, staleGame: false, timer: null, poller: null,
+      init: function () {
+        var self = this;
+        this.load();
+        this.loadHistory();
+        this.loadMe();
+        this.poller = setInterval(function () {  // the desk rewrites its file every minute
+          if (document.hidden) return;
+          self.load(); self.loadMe();
+        }, 30000);
+      },
+      destroy: function () { clearInterval(this.poller); clearInterval(this.timer); },
+
+      load: function () {
+        var self = this;
+        return fetch(API + "nx/quote", { credentials: "same-origin", cache: "no-store" })
+          .then(function (r) { return r.json().catch(function () { return { ok: false, error: "The server said no (" + r.status + ")." }; }); })
+          .then(function (j) {
+            if (j && j.ok) { self.quote = j; self.qstate = "ok"; self.stale = false; self.err = ""; self.stamp = "as of " + clock(j.generated_at); return; }
+            self.quote = null;
+            if (j && j.code === "PRICES_STALE") { self.qstate = "stale"; self.stale = true; self.stamp = ""; return; }
+            self.qstate = "error";
+            self.err = (j && j.error) || "The desk's prices didn't load. Try again in a bit.";
+          })
+          .catch(function () { self.qstate = "error"; self.err = "Can't reach the server right now."; });
+      },
+      loadHistory: function () {
+        var self = this;
+        fetch(API + "nx/history?hours=168", { credentials: "same-origin", cache: "no-store" })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (j) { if (j && j.ok && j.history) self.hist = j.history; })
+          .catch(function () { /* keep what we had */ });
+      },
+      loadMe: function () {
+        var self = this;
+        fetch(API + "nx/me", { credentials: "same-origin", cache: "no-store" })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (j) {
+            if (!j || !j.ok) return;
+            self.me = j;
+            if (j.state === "signedOut") return;
+            if (j.characters && j.characters.length && j.characters.indexOf(self.character) < 0) self.character = j.characters[0];
+          })
+          .catch(function () { /* keep what we had */ });
+      },
+
+      get signedIn() { return !!(this.me && this.me.state !== "signedOut"); },
+      get reauth() { return this.staleSignIn || !!(this.me && this.me.reauth); },
+      reauthText: function () {
+        return this.staleGame ? "The game restarted since you signed in, so for safety it needs a fresh sign-in."
+          : "For safety, trading needs a sign-in from the last 12 hours, so a copied cookie can't empty your account.";
+      },
+      againUrl: function () { return ROOT + "login/?again=1&next=" + encodeURIComponent(location.pathname); },
+      characters: function () { return (this.me && this.me.characters) || []; },
+      fills: function () { return (this.me && this.me.fills) || []; },
+      asOf: function () { return this.me && this.me.asOf ? "as of " + when(this.me.asOf) : ""; },
+      say: function (text, ok) { this.msg = text; this.msgClass = ok === true ? "ok" : ok === false ? "bad" : ""; },
+
+      // the panel's sentences: every number is the desk's
+      whyClosed: function () {
+        var r = this.quote && this.quote.closed_reason;
+        return r ? "(" + r + ")" : "";
+      },
+      movedText: function () {
+        var q = this.quote;
+        if (!q) return "";
+        return pct(q.moved_today_pct) + " today (limit about " + q.day_cap_pct + "% each way)";
+      },
+      driftText: function () {
+        var q = this.quote;
+        if (!q || typeof q.drift_bps_last_hour !== "number") return "";
+        var b = q.drift_bps_last_hour / 100;
+        return "Last hour " + (b > 0 ? "+" : b < 0 ? "" : "") + b.toFixed(2) + "%.";
+      },
+      gapText: function () {
+        var q = this.quote;
+        if (!q || !q.buy || !q.sell) return "";
+        var each = (q.spread_bps || 0) / 100;
+        return "The gap between the two prices is " + (((q.sell - q.buy) / q.buy) * 100).toFixed(2) + "% ("
+          + each.toFixed(2) + "% each side).";
+      },
+      feeText: function () { var q = this.quote; return q && q.fee_bps ? (q.fee_bps / 100).toFixed(2) + "%" : "0%"; },
+      capText: function () { var q = this.quote; return q ? "about " + q.day_cap_pct + "%" : ""; },
+      smallest: function () { var q = this.quote; return q ? "smallest " + fmt(q.min_qty) + " NX, in steps of 100" : ""; },
+      stepNx: function () { var q = this.quote; return q && q.min_qty ? q.min_qty : 100; },
+      per: function () { var q = this.quote; return q ? (this.side === "BUY" ? q.sell : q.buy) : null; },
+      priceText: function () {
+        var each = this.per();
+        if (!each || !this.nx) return "";
+        return "At " + fmt(each) + " mesos each: " + fmt(Math.round(this.nx * each)) + " mesos for "
+          + fmt(this.nx) + " NX" + (this.side === "BUY" ? " (you pay)." : " (you get).");
+      },
+      previewLabel: function () { return "Preview " + (this.side === "BUY" ? "buy" : "sell"); },
+      pvTitle: function () {
+        var pv = this.pv;
+        return pv ? (pv.side === "SELL" ? "Selling " : "Buying ") + fmt(this.nxOf(pv)) + " NX" : "";
+      },
+      nxOf: function (pv) { return pv ? (pv.nx !== undefined ? pv.nx : 0) : 0; },
+      leftText: function () {
+        return this.left > 0 ? "Confirm within " + this.left + " seconds: the rate moves." : "That quote ran out. Preview it again.";
+      },
+
+      // a write is a request to the game (exchange_desk.py): POST it, then ask answer/<id> until the game answers.
+      // Returns the game's answer as it came ({ok, code, message, data}) so the caller can tell QUOTE_MOVED apart.
+      ask: function (path, body, waiting) {
+        var self = this;
+        this.busy = true;
+        this.say(waiting);
+        return post(path, body).then(function (j) {
+          if (!j.ok) {
+            self.busy = false;
+            if (j.code === "REAUTH") self.staleSignIn = true;
+            self.say(j.error || "That didn't work.", false);
+            return null;
+          }
+          return answer(j.id, function () { self.say("Still waiting for the game..."); }).then(function (a) {
+            self.busy = false;
+            if (!a.ok) {
+              if (a.code === "REAUTH") { self.staleSignIn = true; self.staleGame = !!(a.data && a.data.game); }
+              if (a.code !== "PASSWORD_REQUIRED") self.say(said(a, body && body.side), false);
+            }
+            return a;
+          });
+        });
+      },
+      hold: function (d) {  // the quote to show and confirm (from the preview, or a QUOTE_MOVED answer)
+        // QUOTE_MOVED's fresh quote is only {price, mid, expiresAt, token}: the rest is the trade being made
+        var nx = d.nx !== undefined ? d.nx : (this.pv ? this.pv.nx : this.nx);
+        this.pv = { token: d.token, side: d.side || (this.pv && this.pv.side) || this.side, nx: nx,
+                    price: d.price, mid: d.mid,
+                    mesos: d.mesos !== undefined ? d.mesos
+                      : (typeof d.price === "number" ? Math.round(nx * d.price) : null),
+                    desk_nx: d.desk_nx !== undefined ? d.desk_nx : (this.quote ? this.quote.desk_nx : null),
+                    expiresAt: d.expiresAt };
+        this.startClock();
+      },
+      startClock: function () {
+        var self = this;
+        clearInterval(this.timer);
+        var tick = function () { self.left = leftOf(self.pv && self.pv.expiresAt); if (!self.left) clearInterval(self.timer); };
+        tick();
+        this.timer = setInterval(tick, 1000);
+      },
+      preview: function () {
+        var self = this;
+        this.pv = null; this.needPw = false; clearInterval(this.timer); this.left = 0;
+        this.ask("nx/preview", { side: this.side, nx: this.nx, character: this.character }, "Asking the desk for a quote...")
+          .then(function (a) {
+            if (!a) return;
+            if (a.ok) { self.hold(a.data || {}); return; }
+            if (a.code === "QUOTE_MOVED" && a.data) { self.hold(a.data); return; }  // the desk quoted afresh
+            if (a.code === "PASSWORD_REQUIRED" && a.data && a.data.token) {  // a sale, or a buy over the free amount
+              self.hold(a.data); self.needPw = true; self.say(DESK_PW, false);
+            }
+          });
+      },
+      approve: function (token) {  // b005: the account's password for that one trade, then the confirm as usual
+        var self = this, pw = this.pw;
+        this.pw = "";
+        if (!pw) { this.say("Type your password to confirm this trade.", false); return Promise.resolve(false); }
+        this.busy = true;
+        this.say("Checking your password...");
+        return exchangeApprove(token, pw).then(function (j) {
+          self.busy = false;
+          if (j.ok) return true;
+          if (j.code === "TOKEN_EXPIRED" || j.code === "HALTED" || j.code === "QUOTE_MOVED") { self.pv = null; clearInterval(self.timer); }
+          self.say(j.error || "That didn't work.", false);
+          return false;
+        });
+      },
+      confirm: function () {
+        var self = this, pv = this.pv;
+        if (!pv || this.left <= 0 || this.busy) return;
+        (this.needPw ? this.approve(pv.token) : Promise.resolve(true)).then(function (ok) { if (ok) self.place(pv); });
+      },
+      place: function (pv) {
+        var self = this;
+        clearInterval(this.timer);
+        this.ask("nx/confirm", { token: pv.token }, "Trading with the desk...").then(function (a) {
+          if (!a) return;
+          if (a.ok) {
+            var f = (a.data && a.data.fill) || {};
+            self.pv = null; self.needPw = false; self.left = 0;
+            self.say("Traded: " + fmt(f.nx) + " NX at " + fmt(f.price) + " mesos each for " + fmt(f.mesos) + " mesos.", true);
+            self.load(); self.loadMe(); self.loadHistory();
+            return;
+          }
+          if (a.code === "PASSWORD_REQUIRED") {  // the token still holds: ask for the password, keep the quote
+            self.pv = pv; self.needPw = true;
+            if (a.data && a.data.expiresAt) pv.expiresAt = a.data.expiresAt;
+            self.startClock();
+            self.say(DESK_PW, false);
+            return;
+          }
+          if (a.code === "QUOTE_MOVED" && a.data && a.data.token) { self.hold(a.data); return; }
+          self.pv = null; self.needPw = false;
+        });
+      },
+      drop: function () {
+        clearInterval(this.timer);
+        this.pv = null; this.needPw = false; this.pw = ""; this.left = 0; this.say("");
+        this.loadMe();
+      },
+
+      // 7 days of hourly rates: the line is the desk's mid, the band is what it bought and sold around it, and the
+      // shaded part is the day's cap (the rate at the start of the last day, plus and minus day_cap_pct)
+      chart: function () {
+        var W = 640, H = 260, L = 6, R = 70, T = 12, B = 22;
+        var hs = (this.hist || []).map(function (h) {
+          return { at: new Date(h.hour).getTime(), mid: h.mid, buy: h.buy, sell: h.sell };
+        }).filter(function (h) { return !isNaN(h.at) && typeof h.mid === "number"; });
+        if (!hs.length) return '<text class="xc-ax" x="' + W / 2 + '" y="' + H / 2 + '" text-anchor="middle">No hours yet</text>';
+        var now = Date.now(), x0 = hs[0].at, x1 = Math.max(now + HOUR, hs[hs.length - 1].at + HOUR);
+        var cap = (this.quote && this.quote.day_cap_pct) || 0, start = hs[0].mid, i;
+        for (i = 0; i < hs.length; i++) if (hs[i].at >= now - DAY) { start = hs[i].mid; break; }
+        var capLo = start * (1 - cap / 100), capHi = start * (1 + cap / 100);
+        var ps = [capLo, capHi];
+        hs.forEach(function (h) {
+          ps.push(h.mid);
+          if (typeof h.buy === "number") ps.push(h.buy);
+          if (typeof h.sell === "number") ps.push(h.sell);
+        });
+        var lo = Math.min.apply(null, ps), hi = Math.max.apply(null, ps), pad = (hi - lo) * 0.08 || hi * 0.02 || 1;
+        lo = Math.max(0, lo - pad); hi += pad;
+        function X(v) { return L + (v - x0) / (x1 - x0) * (W - L - R); }
+        function Y(v) { return T + (hi - v) / (hi - lo) * (H - B - T); }
+        var out = "";
+        for (i = 0; i <= 4; i++) {  // the price grid on the right, like a trading screen
+          var gv = lo + (hi - lo) * i / 4;
+          out += '<line class="xc-grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(gv).toFixed(1) + '" y2="' + Y(gv).toFixed(1) + '"/>'
+            + '<text class="xc-ax" x="' + (W - R + 6) + '" y="' + (Y(gv) + 4).toFixed(1) + '">' + short(gv) + '</text>';
+        }
+        // today's cap: a shaded band across the whole chart, behind everything else
+        out += '<rect class="xc-deskcap" x="' + L + '" y="' + Y(capHi).toFixed(1) + '" width="' + (W - L - R) + '" height="'
+          + Math.max(1, Y(capLo) - Y(capHi)).toFixed(1) + '"><title>From the rate a day ago, the desk can move '
+          + cap + '% each way</title></rect>';
+        var mids = hs.map(function (h) { return X(h.at).toFixed(1) + "," + Y(h.mid).toFixed(1); });
+        var sells = [], buys = [], band = typeof hs[0].buy === "number" && typeof hs[0].sell === "number";
+        hs.forEach(function (h) {
+          if (typeof h.buy !== "number" || typeof h.sell !== "number") { band = false; return; }
+          sells.push(X(h.at).toFixed(1) + "," + Y(h.sell).toFixed(1));
+          buys.push(X(h.at).toFixed(1) + "," + Y(h.buy).toFixed(1));
+        });
+        if (band) out += '<polygon class="xc-deskband" points="' + sells.concat(buys.reverse()).join(" ") + '"/>';
+        var first = hs[0].mid, last = hs[hs.length - 1].mid;
+        out += '<polyline class="xc-line ' + dirOf(last - first) + '" points="' + mids.join(" ") + '"/>';
+        out += '<circle class="xc-dot" cx="' + X(hs[hs.length - 1].at).toFixed(1) + '" cy="' + Y(last).toFixed(1)
+          + '" r="3"><title>' + fmt(last) + ' mesos each, ' + when(hs[hs.length - 1].hour) + '</title></circle>';
+        var ly = Y(last);
+        out += '<line class="xc-lastline ' + dirOf(last - first) + '" x1="' + L + '" x2="' + (W - R) + '" y1="' + ly.toFixed(1)
+          + '" y2="' + ly.toFixed(1) + '"/>'
+          + '<rect class="xc-tag ' + dirOf(last - first) + '" x="' + (W - R + 2) + '" y="' + (ly - 9).toFixed(1)
+          + '" width="' + (R - 4) + '" height="18" rx="3"/>'
+          + '<text class="xc-tagt" x="' + (W - R + 6) + '" y="' + (ly + 4).toFixed(1) + '">' + short(last) + '</text>'
+          + '<line class="xc-grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + (H - B) + '" y2="' + (H - B) + '"/>'
+          + '<text class="xc-ax" x="' + L + '" y="' + (H - 5) + '">' + when(new Date(x0).toISOString()) + '</text>'
+          + '<text class="xc-ax" x="' + (W - R) + '" y="' + (H - 5) + '" text-anchor="end">now</text>';
+        return out;
+      }
+    };
+  }
+
   document.addEventListener("alpine:init", function () {
     window.Alpine.store("xc", { tk: "NX", meta: null, limits: null, closed: false });
     window.Alpine.data("xbook", xbook);
     window.Alpine.data("xmine", xmine);
+    window.Alpine.data("xdesk", xdesk);
   });
 })();

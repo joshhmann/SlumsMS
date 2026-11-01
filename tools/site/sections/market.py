@@ -20,6 +20,7 @@ import shutil
 
 import check
 import common
+import exchange_desk
 from common import REPO, esc, layout, strf, write
 from sections import buddy
 from sections.database import fallback_icon, scrub
@@ -742,6 +743,7 @@ update: the patch notes will say when.</p>
 </dl>
 <small class="xc-upd" x-show="data" x-text="'updated ' + ago"></small>
 </header>
+<!-- nx-desk -->
 <section class="xc-p" style="grid-area: chart"><h2>Price, hourly candles <span class="xc-tabs">
 <template x-for="r in ranges" :key="r[0]"><button type="button" :class="range === r[0] && 'on'" @click="range = r[0]" x-text="r[0]"></button></template>
 </span></h2>
@@ -836,6 +838,87 @@ sign-in alone can't trade your NX or items away. It goes straight to the game's 
 <script src="{root}assets/live.js"></script><script src="{root}assets/exchange.js"></script>
 <script defer src="{root}assets/vendor/alpine-3.14.1.min.js"></script>"""
 
+# The NX desk (1.6.3, ticket 162): with the desk on, the NX tab is SlumsBank's quote rather than an order book. The
+# markup goes in at NX_MARK and the term gets .xc-nx (its own grid, site.css); exchange.js then leaves NX out of the
+# tickers, so the book, depth and order form stay for the item tickers. The numbers all come from the desk's
+# nx-desk.json (exchange_desk.py); nothing here is a price.
+NX_MARK = "<!-- nx-desk -->"
+NX_PANEL = """<div class="xc-c" x-data="xdesk">
+<section class="xc-p xc-deskq" style="grid-area: nxq"><h2>NX desk <small x-text="stamp"></small></h2>
+<p class="xc-alert" x-show="stale" x-cloak>Prices are updating: the desk sets a fresh rate every minute and this page
+will catch up in a moment. No trades until it does.</p>
+<p class="xc-alert" x-show="qstate === 'error'" x-text="err" x-cloak></p>
+<p class="xc-alert" x-show="quote && quote.open === false" x-cloak>The NX desk is closed right now.
+<span x-text="whyClosed()"></span> No trades until it opens again.</p>
+<p class="xc-alert" x-show="quote && quote.open && quote.selling === false" x-cloak>SlumsBank is buying NX but has none
+to sell yet: you can sell NX, not buy it.</p>
+<div class="xc-deskp" x-show="quote" x-cloak>
+<div class="xc-deskone buy"><span>Buy NX at</span><b x-text="fmt(quote && quote.sell)"></b><small>mesos each</small></div>
+<div class="xc-deskone sell"><span>Sell NX at</span><b x-text="fmt(quote && quote.buy)"></b><small>mesos each</small></div>
+</div>
+<p class="xc-deskrate" x-show="quote" x-cloak>Rate <b x-text="fmt(quote && quote.mid)"></b> mesos each.
+<span x-text="movedText()"></span> <span x-text="driftText()"></span></p>
+<p class="xc-note">SlumsBank sets buy and sell prices around a rate that drifts slowly with what players and bots buy
+and sell (capped per day).</p>
+<p class="xc-note" x-text="gapText()"></p>
+<p class="xc-note" x-show="!quote || !quote.fee_bps">No fee: the gap between the buy and sell price is the cost.</p>
+<p class="xc-note" x-show="quote && quote.fee_bps">On top of the gap there is a fee of
+<span x-text="feeText()"></span>, paid by each side.</p>
+</section>
+<form class="xc-p xc-form xc-deskform" style="grid-area: nxform" x-show="quote && quote.open !== false" x-cloak
+@submit.prevent="preview()">
+<h2>Trade at the quote <small x-text="smallest()"></small></h2>
+<p class="xc-alert" x-show="!signedIn" x-cloak>Sign in to trade.</p>
+<p class="xc-alert" x-show="reauth" x-cloak><span x-text="reauthText()"></span> <a :href="againUrl()">Sign in again</a>
+to trade.</p>
+<div class="xc-side"><button type="button" class="buy" :class="side === 'BUY' && 'on'"
+:disabled="quote && quote.selling === false" @click="side = 'BUY'">Buy NX</button>
+<button type="button" class="sell" :class="side === 'SELL' && 'on'" @click="side = 'SELL'">Sell NX</button></div>
+<label><span>Amount (NX)</span>
+<input type="number" :min="quote ? quote.min_qty : 100" :step="stepNx()" x-model.number="nx" required></label>
+<label x-show="characters().length"><span>Character</span>
+<select x-model="character"><template x-for="c in characters()" :key="c"><option :value="c" x-text="c"></option></template></select></label>
+<p class="xc-note" x-text="priceText()"></p>
+<button type="submit" class="xc-go" :class="side === 'BUY' ? 'buy' : 'sell'" :disabled="busy"
+x-text="previewLabel()"></button>
+<p class="xc-msg" :class="msgClass" x-text="msg"></p>
+<div class="xc-preview" x-show="pv" x-cloak>
+<h3 x-text="pvTitle()"></h3>
+<dl><dt>Price</dt><dd x-text="fmt(pv && pv.price) + ' mesos each'"></dd>
+<dt>Amount</dt><dd x-text="fmt(nxOf(pv)) + ' NX'"></dd>
+<dt x-text="pv && pv.side === 'SELL' ? 'You get' : 'You pay'"></dt><dd x-text="fmt(pv && pv.mesos) + ' mesos'"></dd>
+<dt>Rate</dt><dd x-text="fmt(pv && pv.mid) + ' mesos each'"></dd>
+<dt>In the desk</dt><dd x-text="fmt(pv && pv.desk_nx) + ' NX'"></dd></dl>
+<p class="xc-note" x-text="leftText()"></p>
+<div class="xc-pw" x-show="needPw"><label><span>Password</span>
+<input type="password" x-model="pw" autocomplete="current-password"></label>
+<p class="xc-note">Every NX sale, and a buy over the password-free amount, need your password for that one trade.</p></div>
+<button type="button" class="xc-go" :class="pv && pv.side === 'SELL' ? 'sell' : 'buy'"
+:disabled="busy || left <= 0" @click="confirm()" x-text="needPw ? 'Confirm with password' : 'Confirm'"></button>
+<button type="button" class="xc-ghost" @click="drop()">Never mind</button>
+</div>
+</form>
+<section class="xc-p" style="grid-area: nxchart" x-show="quote" x-cloak><h2>NX rate, hour by hour <small>7 days</small></h2>
+<svg class="xc-chart xc-deskchart" viewBox="0 0 640 260" preserveAspectRatio="none" role="img"
+aria-label="The NX desk's rate each hour for the last 7 days, with the buy and sell prices around it"
+x-html="chart()"></svg>
+<p class="xc-note">The line is the desk's rate each hour; the faint band is what it paid and charged around it. The
+shaded part is the day's limit: from where the rate was a day ago it can move <span x-text="capText()"></span>.</p></section>
+<section class="xc-p" style="grid-area: nxme" x-show="signedIn" x-cloak><h2>My NX <small x-text="asOf()"></small></h2>
+<p class="xc-deskbal">Your NX <b x-text="fmt(me && me.nx)"></b></p>
+<p class="xc-note" x-show="me && me.stepUpFreeMesos">A buy of up to <b x-text="fmt(me && me.stepUpFreeMesos)"></b> mesos
+doesn't ask for your password.</p>
+<div class="xc-scroll"><table class="xc-book xc-mine xc-deskbook"><thead><tr><th>When</th><th>Side</th><th>NX</th>
+<th>Price</th><th>Mesos</th></tr></thead>
+<tbody><template x-for="(f, i) in fills()" :key="i"><tr><td x-text="when(f.at)"></td>
+<td :class="f.side === 'SELL' ? 'down' : 'up'" x-text="f.side === 'SELL' ? 'Sell' : 'Buy'"></td>
+<td x-text="fmt(f.nx)"></td><td x-text="fmt(f.price)"></td><td x-text="fmt(f.mesos)"></td></tr></template>
+</tbody></table></div>
+<p class="xc-note" x-show="me && !fills().length">No desk trades yet.</p>
+<p class="xc-note">The desk trades instantly at its own prices: nothing rests in the book.</p>
+</section>
+</div>"""
+
 
 INVITES = """<h1>My invites</h1>
 <p class="lede">SlumsMS is friends only: a new player needs an invite code to make an account. Make one here and send
@@ -896,9 +979,28 @@ def build_invites(mk):
     mk.page(f"{MARKET}/invites.html", "My invites", INVITES, "invites", "Your invite codes for friends.")
 
 
+NX_DESK = None  # build.py --nx: off | mock | on (None: the SLUMS_MARKET_NX_DESK the site serves with)
+
+
+def nx_mode():
+    """The NX desk mode the page is built for: build.py --nx, else the env var market_app.py reads (off by default)."""
+    return NX_DESK if NX_DESK is not None else exchange_desk.desk_mode()
+
+
 def build_exchange(mk):
-    """The NX-meso exchange: a static shell that exchange.js (Alpine) fills from /api/market/exchange/."""
-    mk.page(f"{MARKET}/exchange.html", "Slums Exchange", EXCHANGE, "exchange",
+    """The exchange: a static shell that exchange.js (Alpine) fills from /api/market/exchange/.
+
+    With the NX desk on (mock/on) the NX tab is the desk's quote panel: NX_PANEL goes in at NX_MARK, the term gets
+    .xc-nx (its own grid) and data-nxdesk (exchange.js drops NX from the tickers), so the item tabs keep the book."""
+    nx = nx_mode()
+    body = EXCHANGE
+    if nx != "off":
+        body = (body.replace(NX_MARK, NX_PANEL)
+                .replace('<div class="xc-term" x-data x-show="!$store.xc.closed">',
+                         '<div class="xc-term xc-nx" data-nxdesk="' + nx + '" x-data x-show="!$store.xc.closed">'))
+    else:
+        body = body.replace(NX_MARK, "")  # off: 1.6.2's page, without the marker or the panel
+    mk.page(f"{MARKET}/exchange.html", "Slums Exchange", body, "exchange",
             "The stock market for NX, Maple Leaves, Chaos and White Scrolls and Power Elixirs.")
 
 

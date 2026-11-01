@@ -239,9 +239,12 @@ def main():
     ap.add_argument("--dashboard-web", help="the staff dashboard copied into admin/ (default: tools/dashboard/web)")
     ap.add_argument("--world", action="store_true", help="include World (live world, feed, rankings, economy)")
     ap.add_argument("--site-data", help="site export folder, Server/data/site (default: tools/site/site_sample.py's)")
+    ap.add_argument("--nx", choices=["off", "mock", "on"],
+                    help="the NX desk on the exchange page (default: SLUMS_MARKET_NX_DESK, else off)")
     args = ap.parse_args()
     global HS_DATA, MARKET_DATA, SITE_DATA, DASHBOARD_WEB
     HS_DATA, MARKET_DATA, SITE_DATA = args.hs_data, args.market_data, args.site_data
+    market.NX_DESK = args.nx
     DASHBOARD_WEB = args.dashboard_web
     out = args.out or os.path.join(REPO, "dist", "site-private" if args.private else "site")
     if args.section:

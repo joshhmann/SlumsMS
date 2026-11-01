@@ -874,6 +874,39 @@ class WorldTest(unittest.TestCase):
         self.assertIn("self.staleGame = !!(a.data && a.data.game)", js)
         self.assertIn("The game restarted since you signed in", js)
 
+    def test_the_nx_tab_is_a_quote_panel_when_the_desk_runs(self):
+        # 1.6.3 s44 (ticket 162): with the NX desk on, the NX tab is SlumsBank's quote panel; off, 1.6.2's order book
+        from sections import market
+        rate = ("SlumsBank sets buy and sell prices around a rate that drifts slowly with what players and bots buy "
+                "and sell (capped per day).")
+        nofee = "No fee: the gap between the buy and sell price is the cost."
+        tmp = tempfile.mkdtemp()
+        try:
+            for mode, want in (("off", False), ("mock", True), ("on", True)):
+                market.NX_DESK = mode
+                market.build_exchange(market.Market(market.load(self.market), {}, tmp))
+                with open(os.path.join(tmp, "market", "exchange.html"), encoding="utf-8") as f:
+                    page = f.read()
+                self.assertEqual('x-data="xdesk"' in page, want, mode)
+                self.assertEqual('data-nxdesk="' + mode + '"' in page, want, mode)
+                self.assertEqual("<!-- nx-desk -->" in page, False, mode)  # the marker never reaches the page
+                flat = " ".join(page.split())  # the templates wrap their lines
+                for line in (rate, nofee, "Buy NX at", "Sell NX at", "The NX desk is closed right now",
+                             "SlumsBank is buying NX but has none to sell yet", "grid-area: nxq"):
+                    self.assertEqual(line in flat, want, (mode, line))
+                # 1.6.2's NX book, depth and order form are only in the page as the item tabs' panels
+                self.assertIn('x-data="xbook"', page)
+        finally:
+            market.NX_DESK = None
+            shutil.rmtree(tmp)
+        with open(os.path.join(build.REPO, "docs", "site", "assets", "exchange.js"), encoding="utf-8") as f:
+            js = f.read()
+        for line in ('window.Alpine.data("xdesk", xdesk)', 'return t.id !== "NX"', 'var DESK_PW =',
+                     '"nx/quote"', '"nx/history?hours=168"', '"nx/me"', '"nx/preview"', '"nx/confirm"',
+                     "DESK_CLOSED:", "DESK_EMPTY:", "QUOTE_MOVED:", "MIN_QTY:"):
+            self.assertIn(line, js)
+        self.assertNotIn("x-html", market.NX_PANEL.replace('x-html="chart()"', ""), "only our own chart SVG")
+
     def test_market_sidebar_groups_and_my_trades(self):
         from sections import market
         mk = market.Market(market.load(self.market), {}, self.out)
