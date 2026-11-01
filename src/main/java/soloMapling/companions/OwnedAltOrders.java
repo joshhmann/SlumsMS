@@ -29,6 +29,8 @@ public final class OwnedAltOrders {
             "got it, camping here");
     private static final List<String> PATROL_LINES = List.of("k, ill walk around here", "ok patrolling",
             "got it, roaming here");
+    // 1.6.3 s-lanes: never said by this path (the lanes are handed out for the whole group, PartyBotOrders.lanes)
+    private static final List<String> LANES_LINES = List.of("k, this lane is mine", "ok, holding my lane");
 
     /** The alt's voice: party chat to its owner, a person's typing beat later. */
     public static void say(Character alt, String line) {
@@ -56,6 +58,9 @@ public final class OwnedAltOrders {
                 || alt.getOwnedAltOwner().getId() != player.getId()) {
             return false;
         }
+        if (verb == Verb.LANES) {
+            return false; // a lane is one spot of the group's spread: PartyBotOrders.lanes hands them out
+        }
         Verb v = verb == Verb.GRIND ? Verb.SENTRY : verb;
         CompanionStance.Mode mode = CompanionStance.modeOf(v);
         if (mode == null) {
@@ -73,6 +78,7 @@ public final class OwnedAltOrders {
             case MOVE_HERE -> MOVE_LINES;
             case SENTRY -> SENTRY_LINES;
             case PATROL -> PATROL_LINES;
+            case LANES -> LANES_LINES;
         }));
         return true;
     }

@@ -117,6 +117,10 @@ public final class PartyBotOrders {
             return;
         }
         Verb verb = order.verb();
+        if (verb == Verb.LANES) {
+            lanes(player, order, alts);
+            return;
+        }
         if (verb == Verb.FORMATION) {
             formation(player, order, alts);
             return;
@@ -147,6 +151,80 @@ public final class PartyBotOrders {
                 trainer.order(verb, player, order.everyone());
             }
         }
+    }
+
+    /**
+     * 1.6.3 s-lanes (-Dslums.alts.lanes=true): the companions spread out over lanes of their own instead of stacking
+     * on one sentry spot. {@link CompanionLanes} hands the lanes out from the map's mob spawn points for the whole
+     * roster on this map, left to right in party order, so a later targeted "lanes" takes a lane nobody else has;
+     * each ordered companion then holds its lane like a sentry. A lane belongs to the map it was given on - another
+     * map and the companion follows again - and a narrow map gives fewer lanes than companions (the rest follow).
+     * The lane's reach is the order's own word ("lanes map" / "lanes screen") or the switch's default.
+     */
+    private static void lanes(Character player, Order order, Map<Integer, Character> alts) {
+        if (player == null || !CompanionSwitches.lanes()) {
+            return;
+        }
+        CompanionLanes.Reach reach = CompanionLanes.Reach.parse(order.arg());
+        if (reach == null) {
+            reach = CompanionLanes.Reach.configured();
+        }
+        // the plan covers every companion standing on this map, not only the ones this order names: the spots stay
+        // each companion's own whichever way the order was given (party order decides who stands where)
+        List<Target> roster = new ArrayList<>();
+        Map<Integer, Character> companions = new HashMap<>();
+        for (Target t : slots(player, alts)) {
+            Character c = companion(t.id(), alts);
+            if (c != null && c.getMap() != null && c.getMap() == player.getMap()) {
+                roster.add(t);
+                companions.put(t.id(), c);
+            }
+        }
+        List<Target> who = order.everyone() ? roster : order.targets();
+        if (roster.isEmpty()) {
+            say(order.targets().isEmpty() ? -1 : order.targets().get(0).id(), alts, "no one of yours is on this map");
+            return;
+        }
+        List<java.awt.Point> spots = CompanionLanes.spots(player.getMap(), player.getPosition(), reach, roster.size());
+        if (spots.isEmpty()) {
+            say(roster.get(0).id(), alts, "no room for lanes here");
+            return;
+        }
+        int given = 0;
+        int speaker = -1;
+        for (Target t : who) {
+            Character c = companions.get(t.id());
+            int idx = roster.indexOf(t);
+            if (c == null || idx < 0 || idx >= spots.size()) {
+                continue; // not on this map, or no lane left for it: it keeps following
+            }
+            CompanionStance.setAt(c.getId(), CompanionStance.Mode.LANES, spots.get(idx), player.getMapId(), reach);
+            BotSM bot = getBotById(c.getId());
+            if (bot instanceof FollowerBot follower) {
+                follower.order(Verb.LANES, player, order.everyone());
+            }
+            if (speaker < 0) {
+                speaker = c.getId();
+            }
+            given++;
+        }
+        if (speaker < 0) {
+            return;
+        }
+        String lanes = given == 1 ? "1 lane" : given + " lanes";
+        say(speaker, alts, given < who.size()
+                ? "k, " + lanes + " (no room for more)"
+                : "k, " + lanes + (reach == CompanionLanes.Reach.MAP ? " across the map" : " spread out"));
+    }
+
+    /** The Character behind a party slot: an owned alt, or a party bot friend. */
+    private static Character companion(int id, Map<Integer, Character> alts) {
+        Character alt = alts.get(id);
+        if (alt != null) {
+            return alt;
+        }
+        BotSM bot = getBotById(id);
+        return bot == null ? null : bot.getChr();
     }
 
     /**

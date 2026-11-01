@@ -367,7 +367,8 @@ public final class OwnedAltCompanion {
             String weapon = weaponProblem(alt);
             s.skip.values().removeIf(until -> until <= now);
             // 1.6.2 ticket 99: a staying alt goes after nothing, a sentry only what comes near its spot
-            CompanionStance.Stance stance = CompanionSwitches.orders() ? CompanionStance.of(alt.getId(), alt.getMapId()) : null;
+            CompanionStance.Stance stance = CompanionSwitches.stances()
+                    ? CompanionStance.of(alt.getId(), alt.getMapId()) : null;
             Monster target = weapon == null
                     ? OwnedAltCombat.target(owner, alt, party, now, m -> s.skip.containsKey(m.getObjectId())
                     || !CompanionStance.mayChase(stance, m.getPosition())) : null;
@@ -414,10 +415,11 @@ public final class OwnedAltCompanion {
     /**
      * 1.6.2 ticket 99: an alt told to stay, move here, guard or patrol (CompanionStance) holds its spot instead of
      * following - only on the map it was told on, and only while its owner keeps it out (the gate still rules its
-     * fighting). True when it holds (it walks to its spot, or stands there).
+     * fighting). 1.6.3 s-lanes: an alt told "lanes" holds its own lane the same way. True when it holds (it walks to
+     * its spot, or stands there).
      */
     private static boolean holdStance(Character alt) {
-        if (!CompanionSwitches.orders()) {
+        if (!CompanionSwitches.stances()) {
             return false;
         }
         CompanionStance.Stance stance = CompanionStance.of(alt.getId(), alt.getMapId());

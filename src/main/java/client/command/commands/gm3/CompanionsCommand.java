@@ -28,7 +28,7 @@ public class CompanionsCommand extends Command {
         }
         gm.yellowMessage("Switches: orders " + CompanionSwitches.orders() + ", trades " + CompanionSwitches.trades()
                 + ", upgrades " + CompanionSwitches.upgrades() + ", supplies " + CompanionSwitches.supplies()
-                + ", invite summon " + CompanionSwitches.inviteSummon());
+                + ", invite summon " + CompanionSwitches.inviteSummon() + ", lanes " + CompanionSwitches.lanes());
         gm.yellowMessage(who.getName() + "'s formation: " + CompanionStance.formation(who.getId()).said());
         var slots = PartyBotOrders.slots(who);
         if (slots.isEmpty()) {
@@ -43,9 +43,12 @@ public class CompanionsCommand extends Command {
                 }
             }
             String kind = chr != null ? "alt" : "bot friend";
-            String stance = chr != null ? CompanionStance.of(t.id(), chr.getMapId()).mode.name() : "-";
+            var st = chr != null ? CompanionStance.of(t.id(), chr.getMapId()) : null;
+            String stance = st != null ? st.mode.name() : "-";
+            String lane = st != null && st.mode == CompanionStance.Mode.LANES && st.spot != null
+                    ? ", lane " + st.spot.x + "," + st.spot.y + " (" + st.reach + ")" : "";
             gm.yellowMessage((i + 1) + " " + t.name() + " (" + kind + "): stance " + stance + ", place "
-                    + GCMovement.followOffset(t.id()) + " px"
+                    + GCMovement.followOffset(t.id()) + " px" + lane
                     + (chr != null && BotGiveTrade.isBusy(chr) ? ", handing something over" : ""));
         }
     }
