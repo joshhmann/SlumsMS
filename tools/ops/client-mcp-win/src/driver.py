@@ -72,6 +72,10 @@ KEYS = {**{chr(c): (c, False) for c in range(ord('A'), ord('Z') + 1)},
 # The only key combinations: each opens a SlumsMS window, nothing that closes or leaves the game.
 COMBOS = {'CTRL+F10': (0x11, 0x79),   # the in-game settings window (slums.dll D3D9 host)
           'CTRL+F11': (0x11, 0x7A)}   # freeze / unfreeze the slums.dll HUD
+# The first chat line after a client start loses its first key, so command() sends this line first to absorb it.
+# Never a toggle: !unhide casts GM Hide, which toggles, and priming with it before login's own !unhide hid the GM
+# again (bots ignore hidden players: cv-13, 2026-11-01). !dispose only clears NPC/quest dialog state.
+CHAT_PRIMER = '!dispose'
 LOGIN_SETTLE = 2.0   # the field keeps loading (check-in window, UI) after it first matches; "!unhide" lost its "!"
 
 
@@ -757,7 +761,7 @@ class Driver:
             # went out as plain chat in the first scripted b140 run, 2026-10-31 09:25 UTC). login() always sent
             # !unhide first, which absorbed it; the scripted login (select_* steps) doesn't, so do the same here.
             self.chat_primed = True
-            self.command('!unhide')
+            self.command(CHAT_PRIMER)
             time.sleep(CHAT_SETTLE)
         self.endpoint()
         if not line or len(line) > 160 or any(ord(ch) < 32 for ch in line):

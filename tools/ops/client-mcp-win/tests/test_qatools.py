@@ -128,6 +128,27 @@ class NewToolsTest(unittest.TestCase):
         clicks = [event[1] for event in self.d.sender.events if event[0] == 'click']
         self.assertEqual(['bera'] * 3, clicks)
 
+    def test_the_chat_primer_never_toggles_gm_hide(self):
+        # !unhide casts GM Hide, which toggles: the primer used to send it before login's own !unhide, so the GM
+        # ended up hidden again and bots ignored it (cv-13, 2026-11-01).
+        self.assertNotIn('hide', self.driver.CHAT_PRIMER)
+        sent = []
+        d = self.d
+        d.chat_primed = False
+        real = self.driver.Driver.command
+        def fake(line, _real=real):
+            sent.append(line)
+            if line == self.driver.CHAT_PRIMER or d.chat_primed is False:
+                return _real(d, line) if line != self.driver.CHAT_PRIMER else None
+        d.command = fake
+        d.endpoint = lambda: (_ for _ in ()).throw(RuntimeError('stop'))
+        try:
+            real(d, '!unhide')
+        except RuntimeError:
+            pass
+        self.assertEqual([self.driver.CHAT_PRIMER], sent)
+        self.assertTrue(d.chat_primed)
+
     def test_only_the_calibrated_character_slot_is_offered(self):
         with self.assertRaises(self.driver.Refusal) as caught:
             self.d.select_character(4)
