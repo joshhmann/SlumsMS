@@ -215,15 +215,17 @@ final class ExchangeScenarios {
                 Map<String, Object> td = ExchangeQa.teardown(e, back);
                 ctx.run().note("CLEANUP", "XC1 test regular out: " + td);
             });
-            long cfgMin = ex.config().minPrice();
+            // b264: the resting buy is priced at the effective band minimum (the ticker's raw 1,000 is under the hard
+            // window's 2,500 per 1,000 NX and the exchange refuses it with PRICE_BAND)
+            long restMin = ExchangeQa.restingBuyPrice(ex);
             return List.of(
                     "A test regular (paid from your mesos: " + st.funded() + ") bids "
                             + soloMapling.Economy.exchange.Exchange.perNx(st.bidPrice()) + " mesos per NX for 100 NX.",
                     "1) @nx sell 100 " + soloMapling.Economy.exchange.ExchangeChat.typedNx(st.bidPrice()) + "   then   @nx confirm   -> it fills; "
                             + ExchangeQa.sellerGets(ex.config(), 100, st.bidPrice())
                             + " mesos arrive at once (no logout), 100 NX leave.",
-                    "2) wait 10 s, @nx buy 100 " + soloMapling.Economy.exchange.ExchangeChat.typedNx(cfgMin) + "   then   @nx confirm   -> it rests and holds "
-                            + ex.config().buyTotal(100, cfgMin) + " mesos.",
+                    "2) wait 10 s, @nx buy 100 " + soloMapling.Economy.exchange.ExchangeChat.typedNx(restMin) + "   then   @nx confirm   -> it rests and holds "
+                            + ex.config().buyTotal(100, restMin) + " mesos.",
                     "3) @nx orders, then @nx cancel <that order id>   -> the mesos come straight back.",
                     "!qa do check shows what moved. !qa stop takes the regular out: you end with the same NX and "
                             + "exactly two 1% fees fewer mesos.");
