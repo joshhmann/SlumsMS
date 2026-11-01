@@ -299,6 +299,16 @@ class TestNxDeskModeTest(DeployScriptTest):
             self.assertIn(f"s/@NX_DESK@/{want}/g", log, want)
             self.assertIn(f"env SLUMS_MARKET_NX_DESK={want} python3 tools/site/build.py", log, want)
 
+    def test_the_mock_fixtures_go_to_the_test_host(self):
+        """Mock mode reads tools/site/testdata/nx-desk/: the TEST copy must carry it (the first mock install on .111,
+        2026-11-01, answered 503 because testdata was left out), and nothing else from testdata."""
+        r = self.run_script(env={"SLUMS_TEST_NX_DESK": "mock"})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        line = next(l for l in self.copies().splitlines() if l.startswith("rsync") and "tools/site/ " in l)
+        self.assertIn("--include testdata/nx-desk/***", line)
+        self.assertIn("--exclude testdata/*", line)
+        self.assertLess(line.index("--include testdata/nx-desk/***"), line.index("--exclude testdata/*"))
+
     def test_a_wrong_mode_is_refused(self):
         r = self.run_script(env={"SLUMS_TEST_NX_DESK": "maybe"})
         self.assertNotEqual(r.returncode, 0)

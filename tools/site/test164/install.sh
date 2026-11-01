@@ -64,7 +64,9 @@ ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet $DEST/data $DEST
   install -d -m 700 /etc/slums-report-test; install -d -m 750 /var/lib/slums-report-test
   [ -s /etc/slums-report-test/salt ] || (umask 077; head -c 32 /dev/urandom > /etc/slums-report-test/salt)
   chmod 600 /etc/slums-report-test/salt"
-rsync -a --delete --exclude __pycache__ --exclude testdata tools/site/ "$HOST:$DEST/tools/site/"
+# testdata stays home, except the NX desk fixtures that SLUMS_TEST_NX_DESK=mock serves (live's copy never needs them)
+rsync -a --delete --exclude __pycache__ --include testdata/ --include 'testdata/nx-desk/***' --exclude 'testdata/*' \
+  tools/site/ "$HOST:$DEST/tools/site/"
 rsync -a --delete docs/site/ "$HOST:$DEST/docs/site/"
 rsync -a --delete docs/wiki/ "$HOST:$DEST/docs/wiki/"
 rsync -a --delete --exclude hiddenstreet/ data/site/ "$HOST:$DEST/data/site/"
