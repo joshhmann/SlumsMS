@@ -26,6 +26,7 @@ steps:
   - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
   - {id: scene, do: gm, line: "!qa run ti-1"}
   - {id: opened, do: sleep, ms: 3000, reason: "the window opens with the scenario's staging lines"}
   # ask re-opens the question the menu opened; its burst fires after that, with the box still up

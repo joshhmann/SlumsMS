@@ -25,6 +25,7 @@ steps:
   - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
   - {id: scene, do: gm, line: "!qa run mx-5"}
   - {id: inside, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000800 ", char: me}, timeout_ms: 90000}
   - {id: settle, do: sleep, ms: 5000, reason: "let the stage run a few seconds before the abort"}
