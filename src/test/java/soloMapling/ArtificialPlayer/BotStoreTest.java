@@ -355,10 +355,12 @@ class BotStoreTest {
             Character minted = newBot(slot + 1, "Placeholder");
 
             assertAll(
-                    () -> assertTrue(BotStore.restoreIdentity(again), "this slot has a row now"),
+                    () -> assertEquals(BotStore.Restore.ADOPTED, BotStore.restoreIdentity(again),
+                            "this slot has a row now"),
                     () -> assertTrue(BotStore.isAdoptedInThisRun(again.getId()),
                             "an adopted bot keeps what the store gave it, so nothing may re-roll it"),
-                    () -> assertFalse(BotStore.restoreIdentity(minted), "this slot was never filled"),
+                    () -> assertEquals(BotStore.Restore.NEVER_FILLED, BotStore.restoreIdentity(minted),
+                            "this slot was never filled"),
                     () -> assertFalse(BotStore.isAdoptedInThisRun(minted.getId()),
                             "only a bot minted this run may be given fresh state"));
         } finally {
@@ -470,6 +472,109 @@ class BotStoreTest {
                         "the departure's database work runs on a bot-logout thread, not on the virtual caller"),
                 () -> assertEquals(bot.getMeso(), durable.get(updateColumns().indexOf("Meso") + 1),
                         "and the row was written"));
+    }
+
+    @Test
+    void aBotWhoseDepartureIsStillWaitingIsNotLoggedInWhileTheShareIsBusy() throws SQLException {
+        // b269 round 3: the login path read the stored row of a bot that had left with an unwritten departure.
+        // The row a restart would read is the one it left with, so the login either came back on a stale row - and
+        // the held departure then landed on top of the new session - or, when the row looked absent, minted a new
+        // bot over a slot whose value was still on its way to the database. The login is turned away as busy
+        // instead: nothing restored, nothing minted, nothing written, the departure still held for the sweep.
+        Character previous = newBot(BOT_ID, "Leaver");
+        previous.setMap(mock(MapleMap.class));
+        Map<Integer, Object> durable = new HashMap<>();          // what a restart would read back
+        Connection created = mockPool(accepting());
+        Connection free = committingPool(durable);
+        java.util.concurrent.atomic.AtomicBoolean busy = new java.util.concurrent.atomic.AtomicBoolean();
+        BotStore.forgetDeferredDeparturesForTest();
+        BotStore.markHoldingsUnreadableForTest(BOT_ID, false);   // this class shares one JVM and one bot id
+        BotStore.useConnectionSourceForTest(() -> created);
+        try {
+            BotStore.recordFirstCreation(previous);          // the row the bot leaves with
+            BotHoldings.grantMeso(previous, 3_000);          // earned after that row: not in it yet
+            BotStore.useConnectionSourceForTest(() -> {
+                if (busy.get()) {
+                    throw new BotDbGate.RefusedException("The bots' share of the database pool is busy");
+                }
+                return free;
+            });
+            busy.set(true);
+            BotStore.saveThenSettle(previous);
+            assertEquals(1, BotStore.deferredDepartures(), "the departure is held, not settled onto the map");
+
+            Character again = newBot(BOT_ID, "Placeholder");
+            assertEquals(BotStore.Restore.BUSY, BotStore.restoreIdentity(again),
+                    "a bot whose departure is unwritten is not logged in: the stale row must not come back");
+
+            assertAll(
+                    () -> assertEquals(1, BotStore.deferredDepartures(), "and the departure stays held"),
+                    () -> assertTrue(durable.isEmpty(), "nothing was written while the share is busy"),
+                    () -> assertEquals(0, again.getMeso(),
+                            "and the stale row was not applied to it either"));
+
+            // The sweep the autosave runs writes the same departure; the login left it alone rather than settling
+            // the bot's value onto a map it has already left.
+            busy.set(false);
+            assertEquals(1, BotStore.retryDeferredDepartures(), "the sweep writes the held departure");
+            assertAll(
+                    () -> assertEquals(0, BotStore.deferredDepartures(), "nothing is left waiting"),
+                    () -> assertEquals(previous.getMeso(), durable.get(updateColumns().indexOf("Meso") + 1),
+                            "and the mesos the bot left with are in the row a restart reads"));
+        } finally {
+            BotStore.useConnectionSourceForTest(null);
+            BotStore.forgetDeferredDeparturesForTest();
+            BotStore.markHoldingsUnreadableForTest(BOT_ID, false);
+        }
+    }
+
+    @Test
+    void aBotWhoseDepartureIsStillWaitingComesBackFromTheRowThatDepartureWrote() throws SQLException {
+        // b269 round 3, the other direction: when the share frees up, the held departure is written first and the
+        // bot then restores from that fresh row - so it comes back with what it left with, once. Reading the row
+        // it left instead hands the mesos it earned back to it a second time when the departure lands.
+        int slot = BotStore.BOT_ID_BASE + 1078;
+        Character previous = newBot(slot, "Leaver");
+        previous.setMap(mock(MapleMap.class));
+        Map<Integer, Object> durable = new HashMap<>();
+        Connection created = mockPool(accepting());
+        Connection free = committingPool(durable);
+        java.util.concurrent.atomic.AtomicBoolean busy = new java.util.concurrent.atomic.AtomicBoolean();
+        BotStore.forgetDeferredDeparturesForTest();
+        BotStore.markHoldingsUnreadableForTest(slot, false);
+        BotStore.useConnectionSourceForTest(() -> created);
+        try {
+            BotStore.recordFirstCreation(previous);
+            int leftWith = previous.getMeso();
+            BotHoldings.grantMeso(previous, 3_000);
+            BotStore.useConnectionSourceForTest(() -> {
+                if (busy.get()) {
+                    throw new BotDbGate.RefusedException("The bots' share of the database pool is busy");
+                }
+                return free;
+            });
+            busy.set(true);
+            BotStore.saveThenSettle(previous);
+            assertEquals(1, BotStore.deferredDepartures(), "the departure is held");
+
+            Character again = newBot(slot, "Placeholder");
+            busy.set(false);
+            assertEquals(BotStore.Restore.ADOPTED, BotStore.restoreIdentity(again),
+                    "the departure is written first, so the fresh row is the one restored");
+
+            assertAll(
+                    () -> assertEquals(previous.getMeso(), again.getMeso(),
+                            "the bot comes back with what it left with, once"),
+                    () -> assertTrue(previous.getMeso() > leftWith,
+                            "which is more than the row it left claimed, so a stale read would be visible"),
+                    () -> assertEquals(0, BotStore.deferredDepartures(), "the departure was written, not re-read"),
+                    () -> assertEquals(previous.getMeso(), durable.get(updateColumns().indexOf("Meso") + 1),
+                            "and the row a restart reads carries it"));
+        } finally {
+            BotStore.useConnectionSourceForTest(null);
+            BotStore.forgetDeferredDeparturesForTest();
+            BotStore.markHoldingsUnreadableForTest(slot, false);
+        }
     }
 
     @Test

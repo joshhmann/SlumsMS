@@ -507,6 +507,13 @@ public final class BotPopulationDirector {
             // the tick's 25-per-30-seconds cap. The pace owns both the concurrency and the rate now.
             LoginPace pacer = pace();
             for (int botId : plan.logins()) {
+                // b269 round 3: a bot that left the world and whose departure is not written yet is not a login to
+                // start: it would read the stale row it left, and the departure would then land on the new session.
+                // The autosave sweep writes the departure and a later tick logs it in.
+                if (BotStore.departurePending(botId)) {
+                    log.debug("Roster bot {} is skipped for login: its departure is still waiting for a write", botId);
+                    continue;
+                }
                 pacer.offer(botId);
             }
         } catch (Exception e) {

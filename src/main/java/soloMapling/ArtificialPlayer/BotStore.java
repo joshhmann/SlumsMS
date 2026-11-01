@@ -408,13 +408,14 @@ public final class BotStore {
     /**
      * Adopts the stored bot of this id onto a freshly cloned character: identity, progression, look,
      * capacity, holdings and last-seen placement. Returns {@code false} when the slot has never been
-     * filled, which means the caller is holding a brand new bot that still needs to be minted.
+     * filled, which means the caller is holding a brand new bot that still needs to be minted, and when its
+     * departure is still waiting for a write (see {@link #restoreIdentity}).
      *
      * <p>Called after the bot has been put on the map, because the placement restore re-uses the map the
      * spawn wave chose.
      */
     public static boolean adopt(Character bot, MapleMap map) {
-        if (!restoreIdentity(bot)) {
+        if (restoreIdentity(bot) != Restore.ADOPTED) {
             return false;
         }
         Persisted stored = persistedFor(bot.getId());
@@ -423,15 +424,45 @@ public final class BotStore {
     }
 
     /**
-     * Applies the stored identity, progression, look, capacity and holdings to a freshly cloned bot.
-     * Returns {@code false} when the slot has never been filled. Split from the placement half so a caller
-     * can apply the identity <em>before</em> the bot is put on the map: the spawn packet carries the name
-     * the bot already has, so an adopted bot must not be broadcast under its placeholder name.
+     * What {@link #restoreIdentity} came to. A caller must tell "this slot was never filled" (mint a new bot) from
+     * "this bot's last departure is still waiting for its row" (start nothing): reading the second as the first
+     * mints a bot over the value the departed one still holds, and reading it as adopted restores a stale row.
      */
-    public static boolean restoreIdentity(Character bot) {
+    public enum Restore {
+        /** The stored row was applied: this is the bot that was here before. */
+        ADOPTED,
+        /** The slot has never been filled: the caller is holding a brand new bot that still has to be minted. */
+        NEVER_FILLED,
+        /**
+         * The bot left the world in an earlier session and its departure is still waiting for a write that was
+         * refused again just now (b269 round 3). Nothing was restored and nothing was minted: the login is turned
+         * away as busy and the bot stays deferred for the next sweep.
+         */
+        BUSY
+    }
+
+    /**
+     * Applies the stored identity, progression, look, capacity and holdings to a freshly cloned bot.
+     * Returns {@link Restore#NEVER_FILLED} when the slot has never been filled. Split from the placement half so a
+     * caller can apply the identity <em>before</em> the bot is put on the map: the spawn packet carries the name
+     * the bot already has, so an adopted bot must not be broadcast under its placeholder name.
+     *
+     * <p>A bot whose departure from an earlier session is still waiting for its row (b269 round 3) is written
+     * first, once, through the same platform-thread write the retry sweep uses: its row is then the fresh one, and
+     * the deferred departure cannot land on top of what the new session did. When even that write is refused, the
+     * login is answered {@link Restore#BUSY} - the bot is neither restored from the stale row it left nor minted as
+     * a new bot, which would hand the same value out twice.
+     */
+    public static Restore restoreIdentity(Character bot) {
+        if (departurePending(botId(bot)) && !writePendingDeparture(botId(bot))) {
+            log.warn("Bot {} ({}) was asked to log in before its departure was written and the bots' share of the"
+                    + " pool is still busy: the login is turned away and the departure stays deferred", bot.getId(),
+                    bot.getName());
+            return Restore.BUSY;
+        }
         Persisted stored = persistedFor(bot.getId());
         if (stored == null) {
-            return false;
+            return Restore.NEVER_FILLED;
         }
         stored.applyTo(bot);
         // 1.6.1 ticket 30: its rebirths (characters_rebirth; a bot has no characters row) and their EXP rate
@@ -483,7 +514,7 @@ public final class BotStore {
         if (unstocked.contains(botId(bot)) && !holdingsUnavailable.contains(bot.getId())) {
             stock(bot);
         }
-        return true;
+        return Restore.ADOPTED;
     }
 
     /*
@@ -934,6 +965,57 @@ public final class BotStore {
     /** How many bots left the world without their row being written and are still waiting for one. */
     public static int deferredDepartures() {
         return deferredDepartures.size();
+    }
+
+    /**
+     * Whether this bot left the world in an earlier session and its departure is still waiting for a write
+     * (b269 round 3). While this is true the bot's stored row is the one it left, not the one it left with: nothing
+     * may log it in (it would adopt the stale row and the departure would then land on top of the new session) and
+     * nothing may mint a new bot over the slot. Keyed by stored bot id, as {@link #deferredDepartures} is.
+     */
+    public static boolean departurePending(int botId) {
+        return deferredDepartures.containsKey(botId);
+    }
+
+    /**
+     * One attempt at a held departure, made before the bot may log in again (b269 round 3), through the same
+     * platform-thread write the retry sweep uses: the gate refuses bot work on a virtual thread instead of letting
+     * it wait, so a virtual caller is moved to the bot-logout threads as a departure is.
+     *
+     * @return true when the departure is no longer waiting: written, or - like the retry sweep does one sweep
+     *         later - tried and failed, which settles the holdings onto the map. False when the bots' share of the
+     *         pool was busy again: nothing was attempted, so nothing may be settled and nothing may be restored.
+     */
+    private static boolean writePendingDeparture(int botId) {
+        Character bot = deferredDepartures.get(botId);
+        if (bot == null) {
+            return true;
+        }
+        Departure result;
+        try {
+            Departure[] attempt = {Departure.REFUSED};
+            soloMapling.server.ExecutorServiceManager.callBotLogout(() -> attempt[0] = departure(bot));
+            result = attempt[0];
+        } catch (RuntimeException e) {
+            // The logout threads are gone (a shutdown in progress), or the wait was interrupted: nothing is known
+            // about the row, so the login is turned away rather than run on a departure that is not written.
+            log.warn("Could not write the held departure of bot {} ({})", bot.getId(), bot.getName(), e);
+            return false;
+        }
+        if (result == Departure.REFUSED) {
+            return false;
+        }
+        if (!deferredDepartures.remove(botId, bot)) {
+            return true;   // a concurrent sweep or login wrote it and took it off the map
+        }
+        if (result == Departure.FAILED) {
+            // Same rule as the retry sweep, one attempt earlier: the store was asked and would not take it, and
+            // the bot is gone, so its ledger goes to the map rather than vanishing with it.
+            log.warn("Could not save bot {} ({}) as it left the world, settling its holdings onto the map instead",
+                    bot.getId(), bot.getName());
+            BotHoldings.settle(bot);
+        }
+        return true;
     }
 
     /** Test seam: forgets the held departures. */

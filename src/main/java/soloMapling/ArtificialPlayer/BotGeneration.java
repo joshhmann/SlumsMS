@@ -169,7 +169,20 @@ public class BotGeneration {
         // again (decoration would re-roll level, job and appearance). The identity is applied before the
         // bot joins the map, so the spawn packet already carries the stored name instead of the
         // placeholder one. On-demand spawns never adopt: their slot is arrival order, not a plan position.
-        boolean adopted = BotStore.isPlanned(slot) && BotStore.restoreIdentity(bot);
+        // b269 round 3: a bot whose departure from an earlier session is still waiting for its row must not come
+        // back on the stale row it left (and must not be minted as a new bot either). restoreIdentity writes that
+        // departure first, once; when the bots' share of the pool refuses even that, the login is turned away as
+        // busy - the same answer the director gives a login the share is busy for - and the bot stays deferred for
+        // the autosave sweep. Nothing is written here and no slot is spent.
+        BotStore.Restore restore = BotStore.isPlanned(slot)
+                ? BotStore.restoreIdentity(bot)
+                : BotStore.Restore.NEVER_FILLED;
+        if (restore == BotStore.Restore.BUSY) {
+            log.info("Login of bot {} ({}) turned away: its departure from an earlier session is still waiting for"
+                    + " the bots' share of the pool", bot.getId(), bot.getName());
+            return -1;
+        }
+        boolean adopted = restore == BotStore.Restore.ADOPTED;
         // Ticket bot-persistence/05: one name per character, for good. An adopted bot keeps its stored name
         // unless an older bot or a real player holds it; the store records a rename with the bot's next save.
         bot.setName(adopted ? BotNames.claimStored(botId, bot.getName()) : BotNames.claimNew(botId));
