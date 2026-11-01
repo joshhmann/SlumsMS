@@ -103,7 +103,16 @@ public final class JobErrand {
                 return true;
             }
             List<Integer> route = GCMovement.route(bot, mapId);
-            return route != null && GCMovement.routeFare(bot.getMapId(), route, bot.getJob().getId()) <= bot.getMeso();
+            if (route == null) {
+                return false;
+            }
+            if (GCMovement.routeFare(bot.getMapId(), route, bot.getJob().getId()) <= bot.getMeso()) {
+                return true;
+            }
+            // b266: a fare the bot cannot pay does not block the errand — GCTravel replans over free hops when the
+            // purse is short (Trip.noFares), so the instructor is reachable when such a walk exists. A just-spawned
+            // level-8 bot holds no mesos, and the Victoria cab charges a Beginner 100.
+            return GCMovement.freeRoute(bot, mapId) != null;
         }
 
         @Override
