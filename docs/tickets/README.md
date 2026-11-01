@@ -14,6 +14,7 @@ Current status is in `/root/work/STATUS-1.6.2.md` and the release book; the olde
 |---|---|---|
 | [169](169-botstory-qa-reference-adoption.md) | Borrow targeted QA diagnostics from BotStory | After 1.6.2; only minimal diagnostics/regressions for an existing blocker may enter the frozen release |
 | [170](170-cosmic-agents-qa-reference-adoption.md) | Borrow controlled QA fixtures from cosmic_agents | After 1.6.2; deduplicate shared BotStory tooling and preserve the release freeze |
+| [171](171-1.6.3-incremental-qa-and-formal-triage.md) | Incremental scripted QA with formal triage before fixes | 1.6.3 stabilization and balancing; required client proof and explicit map coverage |
 
 ## 1.5.1 technical review follow-ups (2026-10-24)
 
