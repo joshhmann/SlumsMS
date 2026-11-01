@@ -20,4 +20,4 @@ Names are the SendMessage addresses (the owner renamed the first three on 2026-1
 
 Shared rules: AGENTS.md (hard rules; "Done means switched on and noted"); live needs the owner's go; no secrets;
 never `git stash`; the version notes are the source of truth, and each session updates them for what it owns.
-To start one: open a new Claude Code session in /root/work/SlumsMS-162-release and paste the kickoff file's text.
+To start one: open a new Claude Code session in the server release worktree named in /root/work/START-HERE.md (now /root/work/SlumsMS-163-release) and paste the kickoff file's text.
