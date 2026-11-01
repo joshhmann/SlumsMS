@@ -1169,9 +1169,18 @@ public final class BotRomance {
         boolean on = romanceOn(player.getId());
         if (bot == null) {
             if (on && roster.test(r.botId()) && !r.staged()
-                    && DramaKit.take("rm:showup:" + pair, now, TimeUnit.MINUTES.toMillis(30)) && rng.nextDouble() < 0.7
-                    && BotPopulationDirector.logInBounded(r.botId())) {
-                qa(player.getMapId(), "SHOW UP partner " + r.botCharId() + " logs in for " + player.getName());
+                    && DramaKit.free("rm:showup:" + pair, now) && rng.nextDouble() < 0.7) {
+                // b269 fix 1: a refused login is not "no". Only a login that was taken on spends the 30-minute token.
+                BotPopulationDirector.LoginAsk ask = BotPopulationDirector.askLogin(r.botId());
+                if (ask == BotPopulationDirector.LoginAsk.REFUSED) {
+                    qa(player.getMapId(), "SHOW UP partner " + r.botCharId()
+                            + " could not log in yet (the bots' login share is busy); asking again next step");
+                } else {
+                    DramaKit.take("rm:showup:" + pair, now, TimeUnit.MINUTES.toMillis(30));
+                    qa(player.getMapId(), "SHOW UP partner " + r.botCharId()
+                            + (ask == BotPopulationDirector.LoginAsk.QUEUED ? " starts logging in for " : " logs in for ")
+                            + player.getName());
+                }
             }
             neglectCheck(r, player, null, now);
             return;

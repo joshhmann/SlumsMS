@@ -37,7 +37,8 @@ import java.util.concurrent.TimeUnit;
  * commitment that comes up in the beat before still holds it.
  *
  * <p><b>The return.</b> While it is away, the director does not log it in ({@link #away}); when it is due, it is logged
- * in once ({@link BotPopulationDirector#logInBounded}) and says its line a few seconds after it lands
+ * in once ({@link BotPopulationDirector#askLogin}: "queued" keeps the promise, "refused" frees it) and says its line
+ * a few seconds after it lands
  * ({@link #onBotLogin}). A return that cannot log in is tried every minute for {@link #RETURN_TRY_MS} (6 h), then
  * forgotten (the director's normal logins take over). Memory only: a restart forgets who is away, and the bot simply
  * comes back with the director.
@@ -211,8 +212,8 @@ public final class RageQuit {
             if (ok) {
                 away.remove(a.charId());
                 back.add(a.name());
-            } else {
-                returning.remove(a.charId());
+            } else if (!BotPopulationDirector.loginQueued(a.charId() - BotStore.BOT_ID_BASE)) {
+                returning.remove(a.charId()); // not coming back after all; a queued login keeps its promise
             }
         }
         return back;
@@ -317,7 +318,14 @@ public final class RageQuit {
                 returning.remove(a.charId()); // logged in some other way meanwhile (a GM): no comeback line
                 return true;
             }
-            return BotPopulationDirector.logInBounded(a.charId() - BotStore.BOT_ID_BASE);
+            // b269 fix 1: "queued" is not "no". The bot is on its way in on a bot-db thread, so answer false without
+            // dropping the promise: step() keeps `returning` while the login is queued, and onBotLogin still says
+            // the comeback line when it lands.
+            BotPopulationDirector.LoginAsk ask = BotPopulationDirector.askLogin(a.charId() - BotStore.BOT_ID_BASE);
+            if (ask == BotPopulationDirector.LoginAsk.QUEUED) {
+                log.debug("Rage-quit return of {} is queued for a bot-db thread", a.name());
+            }
+            return ask == BotPopulationDirector.LoginAsk.LOGGED_IN;
         }
 
         private static int otherChannel(int ch) {

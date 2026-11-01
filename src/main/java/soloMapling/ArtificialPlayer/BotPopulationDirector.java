@@ -22,9 +22,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntFunction;
 
 /**
  * The population director (bot-persistence ticket 08): roster bots log in and out on a daily curve, the way
@@ -485,21 +488,91 @@ public final class BotPopulationDirector {
     }
 
     /**
+     * What {@link #askLogin} got its caller: the bot is in the world now, on its way in, or not coming at all.
+     * A caller that shows something to a player must not read {@code QUEUED} as "no" (b269 fix 1).
+     */
+    public enum LoginAsk {
+        /** The bot is in the world; a caller may move it, party it, speak for it. */
+        LOGGED_IN,
+        /** A bot-db thread is logging it in now: it is in within a few hundred milliseconds, so ask again later. */
+        QUEUED,
+        /** Nothing was started and nothing is on its way: the bots' login share is busy, or the server is stopping. */
+        REFUSED
+    }
+
+    /** Logins handed to the bot-db threads that have not started yet: one entry per bot. */
+    private static final Set<Integer> queuedLogins = ConcurrentHashMap.newKeySet();
+
+    private static volatile IntFunction<LoginAsk> askForTest;
+
+    /**
+     * Asks for one roster member to log in and says which of the three things happened (b269 fix 1: the plain
+     * boolean made every refused login look like "no, not now", and callers spent cooldowns on it). On a platform
+     * thread it logs the bot in now; on a virtual thread it hands the login to the bot-db threads and answers
+     * {@code QUEUED} at once, because a virtual thread that waits for the bots' share of the pool pins its carrier.
+     */
+    public static LoginAsk askLogin(int botId) {
+        IntFunction<LoginAsk> hook = askForTest;
+        if (hook != null) {
+            return hook.apply(botId);
+        }
+        if (BotShutdown.isQuiesced()) {
+            return LoginAsk.REFUSED; // 1.5.0 rehearsal: a boot fill queued behind the slots must not log in now
+        }
+        if (!Thread.currentThread().isVirtual()) {
+            return logInNow(botId) ? LoginAsk.LOGGED_IN : LoginAsk.REFUSED;
+        }
+        if (!queuedLogins.add(botId)) {
+            return LoginAsk.QUEUED; // the same login is already on its way: never queue it twice
+        }
+        try {
+            ExecutorServiceManager.runBotDb(() -> {
+                try {
+                    logInNow(botId);
+                } finally {
+                    queuedLogins.remove(botId);
+                }
+            });
+        } catch (RuntimeException e) {
+            queuedLogins.remove(botId); // the executor is gone (shutdown): nobody will run it
+            return LoginAsk.REFUSED;
+        }
+        return LoginAsk.QUEUED;
+    }
+
+    /** Whether this bot's login is waiting for a bot-db thread (b269 fix 1: a caller must not drop the promise). */
+    public static boolean loginQueued(int botId) {
+        return queuedLogins.contains(botId);
+    }
+
+    /** Tests: answers login asks without a real login (null restores the real one). */
+    public static void useLoginAskForTest(IntFunction<LoginAsk> testAsk) {
+        askForTest = testAsk;
+    }
+
+    /** Tests: how many logins are waiting for a bot-db thread, so a test can wait for its own to finish. */
+    public static int queuedLoginsForTest() {
+        return queuedLogins.size();
+    }
+
+    /**
      * Logs one roster member in through the director's login slots (at most a few loads at once, so the bots never
      * take the whole connection pool). Every login outside a GM command goes through here. Blocks the caller while it
-     * waits for a slot; true when the bot logged in.
+     * waits for a slot; true when the bot logged in. Prefer {@link #askLogin}: from a virtual thread this queues the
+     * login instead and answers false, which is its historical contract and still the one the director's own tick uses.
      */
     public static boolean logInBounded(int botId) {
         if (BotShutdown.isQuiesced()) {
             return false; // 1.5.0 rehearsal: a boot fill queued behind the slots must not log in during a shutdown
         }
         if (Thread.currentThread().isVirtual()) {
-            // 1.6.2 (live 3k DB livelock): a login waits for a login slot and then for the bots' share of the
-            // connection pool, and a virtual thread that waits inside a monitor pins its carrier. Hand the login
-            // to the bot-db threads and answer "not in yet"; the caller's bot is in a few hundred milliseconds.
-            ExecutorServiceManager.runBotDb(() -> logInBounded(botId));
-            return false;
+            return askLogin(botId) == LoginAsk.LOGGED_IN;
         }
+        return logInNow(botId);
+    }
+
+    /** The login itself, on a platform thread that may wait for a slot and for the pool. */
+    private static boolean logInNow(int botId) {
         try {
             LOGIN_SLOTS.acquire();
         } catch (InterruptedException e) {
