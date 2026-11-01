@@ -9,6 +9,7 @@ import soloMapling.ArtificialPlayer.BotPartySystem.CompanionLanes;
 import soloMapling.ArtificialPlayer.BotPartySystem.CompanionStance;
 
 import java.awt.Point;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -43,8 +44,12 @@ class OwnedAltGateTest {
     }
 
     static Character alt(MapleMap map, int x) {
+        return alt(2, map, x);
+    }
+
+    static Character alt(int id, MapleMap map, int x) {
         Character a = mock(Character.class);
-        when(a.getId()).thenReturn(2);
+        when(a.getId()).thenReturn(id);
         when(a.isOwnedAlt()).thenReturn(true);
         when(a.getMap()).thenReturn(map);
         when(a.getPosition()).thenReturn(new Point(x, 0));
@@ -125,6 +130,57 @@ class OwnedAltGateTest {
                     "and a map full of fighting alts still stops it");
         } finally {
             CompanionStance.forget(2);
+            if (was == null) {
+                System.clearProperty("slums.alts.lanes");
+            } else {
+                System.setProperty("slums.alts.lanes", was);
+            }
+        }
+    }
+
+    /**
+     * 1.6.3 s-lanes2: under the automatic rule only the companion the screen could not seat holds a lane wide enough
+     * to be let off the gate's distance; the ones holding a screen lane are not, and a lone companion never is.
+     */
+    @Test
+    void onlyTheCompanionTheScreenCouldNotSeatIsLetOffTheDistance() {
+        String was = System.getProperty("slums.alts.lanes");
+        MapleMap f = field(false);
+        Character owner = owner(f, 0, NOW);
+        List<Point> ground = List.of(new Point(-2500, 0), new Point(-500, 0), new Point(500, 0),
+                new Point(2500, 0));
+        try {
+            System.clearProperty("slums.alts.lanes");
+            List<CompanionLanes.Lane> plan = CompanionLanes.spreads(ground, new Point(0, 0),
+                    CompanionLanes.Reach.AUTO, 3, (a, b) -> false);
+            assertEquals(3, plan.size(), "2 lanes here, 1 across the map: " + plan);
+            assertEquals(CompanionLanes.Reach.MAP, plan.get(2).reach());
+            for (int i = 0; i < plan.size(); i++) {
+                CompanionStance.setAt(10 + i, CompanionStance.Mode.LANES, plan.get(i).spot(), 0, plan.get(i).reach());
+                Character alt = alt(10 + i, f, OwnedAltGate.RANGE_X_PX + 700);
+                assertEquals(OwnedAltGate.Why.TOO_FAR, OwnedAltGate.check(owner, alt, NOW, 0),
+                        "the switch is off: no lane relaxes anything");
+                System.setProperty("slums.alts.lanes", "true");
+                assertEquals(plan.get(i).reach() == CompanionLanes.Reach.MAP
+                                ? OwnedAltGate.Why.OPEN : OwnedAltGate.Why.TOO_FAR,
+                        OwnedAltGate.check(owner, alt, NOW, 0),
+                        "lane " + i + " (" + plan.get(i).reach() + "): only a whole-map lane is let off the distance");
+                CompanionStance.forget(10 + i);
+                System.clearProperty("slums.alts.lanes");
+            }
+            List<CompanionLanes.Lane> alone = CompanionLanes.spreads(ground, new Point(0, 0),
+                    CompanionLanes.Reach.AUTO, 1, (a, b) -> false);
+            assertEquals(CompanionLanes.Reach.SCREEN, alone.get(0).reach(), "one companion alone stays on screen");
+            CompanionStance.setAt(20, CompanionStance.Mode.LANES, alone.get(0).spot(), 0, alone.get(0).reach());
+            System.setProperty("slums.alts.lanes", "true");
+            assertEquals(OwnedAltGate.Why.TOO_FAR,
+                    OwnedAltGate.check(owner, alt(20, f, OwnedAltGate.RANGE_X_PX + 700), NOW, 0),
+                    "a lone companion's screen lane is still held to the distance");
+        } finally {
+            CompanionStance.forget(10);
+            CompanionStance.forget(11);
+            CompanionStance.forget(12);
+            CompanionStance.forget(20);
             if (was == null) {
                 System.clearProperty("slums.alts.lanes");
             } else {
