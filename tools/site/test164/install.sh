@@ -21,10 +21,14 @@ if [ "${1:-}" = "--remove" ]; then
   exit 0
 fi
 
-[ -e "$DATA/items.json" ] || { echo "missing $DATA/items.json" >&2; exit 1; }
+# data/site/extra-icon-items.txt too (sections/dbdata.py EXTRA_ICON_ITEMS), as the live build copy does: without it the
+# market's items with no Slums Street page show no icon
+for f in data/site/extra-icon-items.txt "$DATA/items.json"; do
+  [ -e "$f" ] || { echo "missing $f" >&2; exit 1; }
+done
 before=$(ssh "$HOST" 'cat /run/nginx.pid; find /etc/nginx -type f -print0 | sort -z | xargs -0 md5sum | md5sum')
 
-ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet $DEST/cache /srv/slums-site-test /etc/slums-site-test \
+ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet $DEST/data $DEST/cache /srv/slums-site-test /etc/slums-site-test \
   /var/lib/slums-login-test /var/lib/slums-market-test /var/log/slums-site-test \
   /var/lib/slums-site-test-web/{body,proxy,fastcgi,uwsgi,scgi}
   touch /var/lib/slums-login-test/revoked.txt
@@ -52,6 +56,7 @@ ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet $DEST/cache /srv
 rsync -a --delete --exclude __pycache__ --exclude testdata tools/site/ "$HOST:$DEST/tools/site/"
 rsync -a --delete docs/site/ "$HOST:$DEST/docs/site/"
 rsync -a --delete docs/wiki/ "$HOST:$DEST/docs/wiki/"
+rsync -a --delete --exclude hiddenstreet/ data/site/ "$HOST:$DEST/data/site/"
 rsync -a --delete --include '*.json' --exclude '*' "$DATA/" "$HOST:$DEST/hiddenstreet/"
 # the item, mob and NPC icons (cache/site-icons on 187, 63 MB, not in git): this copy builds Slums Street on 164
 [ -f cache/site-icons/manifest.json ] && rsync -a --delete cache/site-icons/ "$HOST:$DEST/cache/site-icons/" \

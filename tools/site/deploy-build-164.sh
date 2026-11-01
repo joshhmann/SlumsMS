@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Copy what the market and World rebuilds (every 2 min) need to 164 (/opt/slums-site-build). Run on 187 from the repo root.
 #   tools/site/deploy-build-164.sh [--dry-run]
-# Copies tools/site, docs/site, docs/wiki, the Hidden Street dataset and the icon cache. Nothing else on 164 changes; the timer
-# itself is installed by hand (docs/site/LAUNCH.md step 6). Needs the owner's go the first time.
+# Copies tools/site, docs/site, docs/wiki, data/site (the item icon list and the Hidden Street dataset) and the icon cache.
+# Nothing else on 164 changes; the timer itself is installed by hand (docs/site/LAUNCH.md step 6). Needs the owner's go the
+# first time.
 set -euo pipefail
 HOST=root@192.168.0.164
 DEST=/opt/slums-site-build
@@ -12,13 +13,16 @@ DRY=()
 cd "$(git rev-parse --show-toplevel)"
 # the icons too (cache/site-icons, not in git): a build without them writes Slums Street with empty icon slots, and
 # the --delete copy into /srv/slums-site then removes the live icons (2026-10-28 21:50 UTC)
-for f in tools/site/build.py docs/site/home.html "$DATA/items.json" cache/site-icons/manifest.json; do
+# data/site/extra-icon-items.txt too (sections/dbdata.py EXTRA_ICON_ITEMS): without it the build has three icons fewer
+# (the market's items with no Slums Street page), which is what release night 2026-11-01 shipped until it was copied by hand
+for f in tools/site/build.py docs/site/home.html data/site/extra-icon-items.txt "$DATA/items.json" cache/site-icons/manifest.json; do
   [ -e "$f" ] || { echo "missing $f" >&2; exit 1; }
 done
-ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet $DEST/cache"
+ssh "$HOST" "mkdir -p $DEST/tools $DEST/docs $DEST/hiddenstreet $DEST/data $DEST/cache"
 rsync -a --delete "${DRY[@]}" --exclude __pycache__ --exclude testdata tools/site/ "$HOST:$DEST/tools/site/"
 rsync -a --delete "${DRY[@]}" docs/site/ "$HOST:$DEST/docs/site/"
 rsync -a --delete "${DRY[@]}" docs/wiki/ "$HOST:$DEST/docs/wiki/"
+rsync -a --delete "${DRY[@]}" --exclude hiddenstreet/ data/site/ "$HOST:$DEST/data/site/"
 rsync -a --delete "${DRY[@]}" --include '*.json' --exclude '*' "$DATA/" "$HOST:$DEST/hiddenstreet/"
 rsync -a --delete "${DRY[@]}" cache/site-icons/ "$HOST:$DEST/cache/site-icons/"
 ssh "$HOST" "echo $(git rev-parse --short HEAD) > $DEST/DEPLOYED_COMMIT"
