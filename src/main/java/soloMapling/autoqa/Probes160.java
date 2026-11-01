@@ -67,12 +67,8 @@ final class Probes160 {
             "authFlow", "decideShadow", "customNpcCaps", "dailyCheckin", "starterChairs", "slumsStamps", "nxExchange",
             "family", "tutorialIsland", "botRebirth", "botRebirthBoss", "essenceStone", "achievements", "newerAreaCards", "leafExchange", "playerInvites", "siteInvites", "slumsChan", "marketVolatility", "marketWar", "marketScroll", "botTalk", "botCrew", "botSayDo", "bugReport", "achievementClear", "lazyPenguins", "trainingLadder", "familyPerks", "familyTravel", "familyOffer", "botShopStock");
 
-    /** t-oa-1: the QA account's two alts (made once, kept: the second one is for the cap). */
-    static final String ALT_A = "AutoQaAlt", ALT_B = "AutoQaAltB";
     /** t-oa-1: companion ids that are never characters, reserved to fill the cap and always released. */
     static final int[] FAKE_COMPANIONS = {-900_001, -900_002, -900_003, -900_004};
-    /** t-oa-1 / t-sc-3: character slots the QA account needs (AutoQaOne, two alts, a throwaway, vb-2's). */
-    static final int QA_SLOTS = 8;
     /** t-tw-1: the fill (bots / target, capped per map) a town index counts as at its target. */
     static final double TOWN_FULL = 0.9, TOWN_HOLD = 0.6;
 
@@ -176,20 +172,11 @@ final class Probes160 {
     }
 
     /**
-     * The pretend player's own account gets {@link #QA_SLOTS} character slots (in the database too: deleting a
+     * The pretend player's own account gets {@link QaAlts#QA_SLOTS} character slots (in the database too: deleting a
      * character reloads the slots from the account row, and vb-2 makes and deletes one after the alts exist).
      */
     private static void roomForCharacters(Character gm) throws Exception {
-        if (gm.getClient().getCharacterSlots() < QA_SLOTS) {
-            gm.getClient().setCharacterSlots((byte) QA_SLOTS);
-        }
-        try (Connection con = DatabaseConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement("UPDATE accounts SET characterslots = ? WHERE id = ? AND characterslots < ?")) {
-            ps.setInt(1, QA_SLOTS);
-            ps.setInt(2, gm.getAccountID());
-            ps.setInt(3, QA_SLOTS);
-            ps.executeUpdate();
-        }
+        QaAlts.liveHost(gm).roomForCharacters();
     }
 
     private static Character online(int characterId) {
@@ -212,20 +199,6 @@ final class Probes160 {
         }
     }
 
-    /** A beginner on the GM's account with this name, made now if missing; its id, or -1 (and why in {@code out}). */
-    private static int ensureCharacter(Character gm, String name, List<String> out) {
-        int id = Character.getIdByName(name);
-        if (id >= 0) {
-            return id;
-        }
-        int made = client.creator.novice.BeginnerCreator.createCharacter(gm.getClient(), name, 20000, 30000, 0, 0, 0,
-                0, 0, 0);
-        id = Character.getIdByName(name);
-        out.add(made == 0 ? "made " + name + " (" + id + ") on " + gm.getName() + "'s account"
-                : "could not make " + name + " (status " + made + ")");
-        return made == 0 ? id : -1;
-    }
-
     // ── t-oa-1: owned alts as companions ──────────────────────────────────────────────────────────
 
     /**
@@ -244,13 +217,14 @@ final class Probes160 {
         OwnedAltService svc = OwnedAltService.getInstance();
         List<String> out = new ArrayList<>();
         List<String> bad = new ArrayList<>();
-        // 163: the alts are per GM account (see altName): a name is global in the game, so one "AutoQaAlt" made by the
-        // first lane's t-oa-1 was handed to every other lane's, which then summoned a character it did not own.
-        String nameA = altName(gm.getAccountID(), 'A');
-        String nameB = altName(gm.getAccountID(), 'B');
-        roomForCharacters(gm);
-        int altA = ensureCharacter(gm, nameA, out);
-        int altB = ensureCharacter(gm, nameB, out);
+        // 163: the alts are per GM account (see QaAlts.altName): a name is global in the game, so one "AutoQaAlt" made
+        // by the first lane's t-oa-1 was handed to every other lane's, which then summoned a character it did not own.
+        // The same pair is what mx-5 leads into KPQ, made by the same path.
+        String nameA = QaAlts.altName(gm.getAccountID(), 'A');
+        String nameB = QaAlts.altName(gm.getAccountID(), 'B');
+        int[] alts = QaAlts.ensure(QaAlts.liveHost(gm), gm.getAccountID(), gm.getName(), out);
+        int altA = alts[0];
+        int altB = alts[1];
         if (altA < 0 || altB < 0) {
             return verdict(List.of("the QA account has no alts to call"), "", out);
         }
@@ -389,16 +363,6 @@ final class Probes160 {
     }
 
     /** t-oa-1 (1.6.1): the field the fight checks run on (Henesys Hunting Ground I: a field, not a town). */
-    /**
-     * 163: the QA account's companion alt name for this GM. A character name is global in the game, and
-     * {@link #ensureCharacter} looks one up by name ({@code Character.getIdByName}), so a fixed "AutoQaAlt" was created
-     * once by the first lane to run t-oa-1 and then reused by every other lane, on an account that did not own it:
-     * {@code @botme} refused and the probe failed (cap-4 run 2026-10-31, lane AutoQaEleven). One alt per account.
-     */
-    static String altName(int accountId, char which) {
-        return "Qa" + accountId + which;
-    }
-
     static final int ALT_FIELD = 104_040_000;
     /** A Blue Snail: weak, and slow enough to land a touch before the alt kills it. */
     static final int ALT_MOB = 100_101;
@@ -429,14 +393,14 @@ final class Probes160 {
             return bad;
         }
         if (alt.getMap() != gm.getMap()) {
-            bad.add(ALT_A + " is not on the field " + ALT_FIELD + " with its owner");
+            bad.add(alt.getName() + " is not on the field " + ALT_FIELD + " with its owner");
             return bad;
         }
         if (alt.getInventory(InventoryType.EQUIPPED).getItem((short) -11) == null) {
             Item sword = ItemInformationProvider.getInstance().getEquipById(ALT_SWORD);
             sword.setPosition((short) -11);
             alt.getInventory(InventoryType.EQUIPPED).addItemFromDB(sword);
-            out.add("staging: gave " + ALT_A + " a Sword (" + ALT_SWORD + "), it held no weapon");
+            out.add("staging: gave " + alt.getName() + " a Sword (" + ALT_SWORD + "), it held no weapon");
         }
         alt.updateHp(alt.getCurrentMaxHp());
         List<server.life.Monster> staged = new ArrayList<>();
@@ -462,7 +426,7 @@ final class Probes160 {
             out.add("mob on the alt: hits taken " + (st.hitsTaken() - hitsBefore) + ", damage " + st.damageTaken()
                     + ", HP " + hpBefore + " -> " + alt.getHp());
             if (!hurt) {
-                bad.add("no mob damaged " + ALT_A + " in 25 s (mobs spawned on it: " + staged.size() + ")");
+                bad.add("no mob damaged " + alt.getName() + " in 25 s (mobs spawned on it: " + staged.size() + ")");
             }
             // t-oa-1: a step's staged mobs still alive would stay the party's fight into the next step (or pull the
             // alt at the wrong mob); clear them first
@@ -473,10 +437,10 @@ final class Probes160 {
             long swingsBefore = soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).swings();
             boolean struck = altDamagesOwnersMob(field, gm, alt, staged, 80, 20_000);
             st = soloMapling.companions.OwnedAltCompanion.stats(alt.getId());
-            out.add("owner hit a mob: " + ALT_A + " damaged it=" + struck + ", swings " + (st.swings() - swingsBefore)
+            out.add("owner hit a mob: " + alt.getName() + " damaged it=" + struck + ", swings " + (st.swings() - swingsBefore)
                     + ", gate " + st.gate());
             if (!struck) {
-                bad.add(ALT_A + " did not damage the mob its owner hit within 20 s (gate " + st.gate() + ", doing: "
+                bad.add(alt.getName() + " did not damage the mob its owner hit within 20 s (gate " + st.gate() + ", doing: "
                         + st.doing() + ")");
             }
             clearStaged(field, gm, staged);
@@ -501,7 +465,7 @@ final class Probes160 {
                     break;
                 }
                 out.add("staging: the shell landed at " + shell.getPosition().x + "," + shell.getPosition().y
-                        + ", another ledge than " + ALT_A + " at " + alt.getPosition().x + "," + alt.getPosition().y
+                        + ", another ledge than " + alt.getName() + " at " + alt.getPosition().x + "," + alt.getPosition().y
                         + (standing ? "" : " (it was not standing)") + "; dropped again");
             }
             boolean looted = false;
@@ -510,13 +474,13 @@ final class Probes160 {
                 Thread.sleep(250);
                 looted = alt.getInventory(InventoryType.ETC).countById(ALT_LOOT) > shellsBefore;
             }
-            out.add("party drop: " + ALT_A + " Snail Shells " + shellsBefore + " -> "
+            out.add("party drop: " + alt.getName() + " Snail Shells " + shellsBefore + " -> "
                     + alt.getInventory(InventoryType.ETC).countById(ALT_LOOT) + ", pickups "
                     + (soloMapling.companions.OwnedAltCompanion.stats(alt.getId()).loots() - lootsBefore));
             if (!looted) {
                 // the auto-QA summary keeps only the first lines of evidence: say why in the failure itself
                 st = soloMapling.companions.OwnedAltCompanion.stats(alt.getId());
-                bad.add(ALT_A + " did not pick up the party drop into its own bag within 15 s (drop "
+                bad.add(alt.getName() + " did not pick up the party drop into its own bag within 15 s (drop "
                         + (shell == null ? "not spawned" : shell.isPickedUp() ? "taken by someone else"
                         : "still at " + shell.getPosition().x + "," + shell.getPosition().y) + ", alt at "
                         + alt.getPosition().x + "," + alt.getPosition().y + ", gate " + st.gate() + ", doing: "
@@ -539,7 +503,7 @@ final class Probes160 {
                     bad.add("the gate did not close for an idle owner (gate " + st.gate() + ")");
                 }
                 if (st.swings() > idleSwings || onIdleMob != null && onIdleMob > 0) {
-                    bad.add(ALT_A + " kept fighting while its owner was idle");
+                    bad.add(alt.getName() + " kept fighting while its owner was idle");
                 }
             } finally {
                 soloMapling.companions.OwnedAltGate.forceIdleForQa(gm.getId(), false);
@@ -547,10 +511,10 @@ final class Probes160 {
             clearStaged(field, gm, staged); // the idle check's mob is the owner's fight too: not the one judged next
             ownerActs(p);
             boolean resumed = altDamagesOwnersMob(field, gm, alt, staged, -80, 20_000);
-            out.add("owner active again: " + ALT_A + " fights again=" + resumed);
+            out.add("owner active again: " + alt.getName() + " fights again=" + resumed);
             if (!resumed) {
                 st = soloMapling.companions.OwnedAltCompanion.stats(alt.getId());
-                bad.add(ALT_A + " did not fight again once its owner was active (gate " + st.gate() + ", doing: "
+                bad.add(alt.getName() + " did not fight again once its owner was active (gate " + st.gate() + ", doing: "
                         + st.doing() + ", HP " + alt.getHp() + ", alt at " + alt.getPosition().x + ","
                         + alt.getPosition().y + ", owner at " + gm.getPosition().x + "," + gm.getPosition().y + ")");
             }
@@ -686,9 +650,9 @@ final class Probes160 {
         }
         long took = System.currentTimeMillis() - start;
         boolean arrived = alt.getMapId() == next.getId();
-        out.add("owner stepped " + home.getId() + " -> " + next.getId() + "; " + ALT_A + " " + (arrived
+        out.add("owner stepped " + home.getId() + " -> " + next.getId() + "; " + alt.getName() + " " + (arrived
                 ? "followed through the portal in " + took + " ms" : "is still on map " + alt.getMapId() + " after 90 s"));
-        return arrived ? null : ALT_A + " did not follow its owner through a portal to map " + next.getId() + " in 90 s";
+        return arrived ? null : alt.getName() + " did not follow its owner through a portal to map " + next.getId() + " in 90 s";
     }
 
     // ── t-tw-1: busy towns ───────────────────────────────────────────────────────────────────────

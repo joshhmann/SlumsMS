@@ -223,6 +223,17 @@ public final class KpqStaging {
                         + (reached == firstStage ? "" : " (a gate did not let you through: walk on from there)"));
             }
         }
+        // 163 (TEST 2026-11-01 19:19 UTC, "me perfect stage5"): the leader walked the opened gates to stage 5 and the
+        // bots and alts stayed on stage 1, so stage 5 was never cleared and no bonus came. The party follows its leader
+        // into the staged stage, in the same instance, or the staging is refused: a party short a member cannot clear.
+        if (withGm) {
+            List<Straggler> left = bringThePartyOn(eim, gm, line -> reporter.accept("RUN " + line));
+            if (!left.isEmpty()) {
+                cleanup(spawned);
+                return new Staged(null, List.of(), "the party is not on your stage: " + namesOfParty(left)
+                        + " stayed behind (a party short a member cannot clear, so the run would not clear either)");
+            }
+        }
         MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, perfect, budgetMs, firstStage, lastStage, true,
                 reporter, done -> {
             ExecutorServiceManager.getScheduledExecutorService().schedule(() -> {
@@ -321,6 +332,69 @@ public final class KpqStaging {
             }
         }
         return false;
+    }
+
+    /**
+     * A party member the leader's stage does not hold yet: its character, the map the leader is on, and the portal the
+     * gates land on there (a stage's {@code nextPortal} script warps to {@code st00}).
+     */
+    record Straggler(Character character, MapleMap to, server.maps.Portal portal) {
+    }
+
+    /**
+     * 163: the members of the instance that are not on the leader's map, in instance order. GM staging moves only the
+     * leader (he walks the gates himself, see {@link #leaderThroughGates}); the bots and alts were left behind on the
+     * instance's first map. Empty when the leader is not on a map of this instance (nothing to follow him to).
+     */
+    static List<Straggler> stragglers(EventInstanceManager eim, Character leader) {
+        List<Straggler> out = new ArrayList<>();
+        MapleMap to = leader == null ? null : leader.getMap();
+        if (eim == null || to == null || to.getEventInstance() != eim || leader.getId() <= 0) {
+            return out;
+        }
+        server.maps.Portal portal = to.getPortal("st00");
+        if (portal == null) {
+            portal = to.getPortal(0);
+        }
+        for (Character c : new ArrayList<>(eim.getPlayers())) {
+            if (c != null && c.getId() != leader.getId() && c.getMap() != to) {
+                out.add(new Straggler(c, to, portal));
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Takes the whole party up to the leader's map, the way the gates take him (same instance, landing where they land),
+     * and says so in {@code reporter} when it did. Returns the members the warp did not take off the leader's map: empty
+     * when nobody was behind or the party is with him now.
+     */
+    static List<Straggler> bringThePartyOn(EventInstanceManager eim, Character leader, Consumer<String> reporter) {
+        List<Straggler> behind = stragglers(eim, leader);
+        if (behind.isEmpty()) {
+            return List.of();
+        }
+        for (Straggler s : behind) {
+            s.character().changeMap(s.to(), s.portal());
+        }
+        List<Straggler> still = stragglers(eim, leader);
+        if (still.isEmpty() && reporter != null) {
+            reporter.accept("the party came up to your stage: " + namesOfParty(behind)
+                    + " (same instance, the gates' landing)");
+        }
+        return still;
+    }
+
+    /** Who a run line is about, in instance order ("sniperx, candyyy"). */
+    static String namesOfParty(List<Straggler> members) {
+        StringBuilder sb = new StringBuilder();
+        for (Straggler m : members) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(m.character().getName());
+        }
+        return sb.toString();
     }
 
     /** Who a refusal or a run line is about, in party order ("AqClientAlt1, AqClientAlt2"). */

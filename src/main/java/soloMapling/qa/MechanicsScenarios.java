@@ -1,6 +1,7 @@
 package soloMapling.qa;
 
 import client.Character;
+import soloMapling.autoqa.QaAlts;
 import soloMapling.mechanics.KpqStaging;
 import soloMapling.mechanics.Mechanics;
 import soloMapling.mechanics.MechanicsRuns;
@@ -439,9 +440,17 @@ final class MechanicsScenarios {
         c.silentPartyUpdate();
     }
 
-    /** mx-5: the QA account's two alts (t-oa-1 makes them) and the level they play KPQ at for this check. */
-    static final String[] MX5_ALTS = {"AutoQaAlt", "AutoQaAltB"};
+    /** mx-5: the level the QA alts play KPQ at for this check. */
     static final int MX5_ALT_LEVEL = 30;
+
+    /**
+     * 163: mx-5 leads the two alts t-oa-1 keeps for this GM's account (one pair per account, made on demand by
+     * {@code QaAlts}); the fixed "AutoQaAlt"/"AutoQaAltB" names were made by whichever lane ran t-oa-1 first, so
+     * {@code @botme} refused on any other account and mx-5 could not stage (TEST 2026-11-01 19:14 UTC).
+     */
+    static List<String> mx5AltNames(int accountId) {
+        return List.of(QaAlts.altName(accountId, 'A'), QaAlts.altName(accountId, 'B'));
+    }
 
     /**
      * mx-5 (1.6.2, bot audit K3/K4 and the coverage gap): the pretend player leads a party of his two owned alts and
@@ -518,7 +527,16 @@ final class MechanicsScenarios {
                     }
                 }
             });
-            for (String name : MX5_ALTS) {
+            List<String> made = new java.util.ArrayList<>();
+            int[] altIds = QaAlts.ensure(QaAlts.liveHost(gm), gm.getAccountID(), gm.getName(), made);
+            for (String line : made) {
+                ctx.run().note("MX5", line);
+            }
+            if (altIds[0] < 0 || altIds[1] < 0) {
+                throw new QaRefusal("the QA account has no alts to call: "
+                        + (made.isEmpty() ? "no reason given" : String.join("; ", made)));
+            }
+            for (String name : mx5AltNames(gm.getAccountID())) {
                 try {
                     Character alt = alts.summon(gm, name);
                     if (alt != null) {
@@ -529,7 +547,7 @@ final class MechanicsScenarios {
                         }
                     }
                 } catch (RuntimeException e) {
-                    throw new QaRefusal("@botme " + name + ": " + e.getMessage() + " (t-oa-1 makes the QA alts)");
+                    throw new QaRefusal("@botme " + name + ": " + e.getMessage());
                 }
             }
             sleep(2_000);
