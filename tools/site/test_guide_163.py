@@ -5,11 +5,17 @@ Run: python3 -m unittest discover -s tools/site -p 'test_*.py'
 """
 import os
 import re
+import shutil
+import subprocess
+import sys
+import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 WIKI = os.path.join(REPO, "docs", "wiki")
+ASSETS = os.path.join(REPO, "docs", "site", "assets")
+sys.path.insert(0, HERE)
 
 
 def flat(page):
@@ -125,6 +131,64 @@ class ChangelogGuideTest(unittest.TestCase):
         text = flat("changelog.html")
         for phrase in ("NX desk", "lanes"):
             self.assertIn(phrase, text)
+class PelixirLabelTest(unittest.TestCase):
+    """Owner, 2026-11-01: the Power Elixir ticker shows as PELIXIR, so nobody takes it for a plain Elixir. One display
+    map (TICKER_LABEL here, LABEL in the rail); the DATA id stays ELIXIR: the game's file, ?ticker=ELIXIR, an order's
+    ticker, the database."""
+
+    @classmethod
+    def setUpClass(cls):
+        from sections import market
+        cls.tmp = tempfile.mkdtemp(prefix="slums-pelixir-test-")
+        mk = market.Market(market.load(os.path.join(HERE, "testdata", "market-contract")), {}, cls.tmp)
+        market.build_exchange(mk)
+        with open(os.path.join(cls.tmp, "market", "exchange.html"), encoding="utf-8") as f:
+            cls.page = f.read()
+        with open(os.path.join(ASSETS, "exchange.js"), encoding="utf-8") as f:
+            cls.exchange = f.read()
+        with open(os.path.join(ASSETS, "ticker.js"), encoding="utf-8") as f:
+            cls.rail = f.read()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp)
+
+    def test_the_tabs_header_and_ticker_labels_read_the_display_map(self):
+        self.assertIn('<b x-text="label(t)"></b>', self.page)       # the tab strip
+        self.assertIn('<b x-text="label(cur)"></b>', self.page)     # the ticker header
+        self.assertNotIn('x-text="t.id"', self.page)                # no bare id on screen
+        self.assertNotIn('x-text="cur && cur.id"', self.page)
+        self.assertIn("'New ' + label(meta) + ' order'", self.page)
+        self.assertIn("'Buy ' + label(meta)", self.page)
+        self.assertIn("'Sell ' + label(meta)", self.page)
+        self.assertIn("label(o.ticker || 'NX')", self.page)         # my orders
+
+    def test_the_rail_calls_it_pelixir_and_still_links_by_id(self):
+        self.assertIn('a.querySelector("em").textContent = LABEL[t.id] || t.id;', self.rail)
+        self.assertIn('#" + t.id.toLowerCase()', self.rail)         # #elixir stays the id
+
+    def test_the_map_is_one_and_keeps_the_data_id(self):
+        self.assertEqual(re.findall(r'ELIXIR: "([A-Z]+)"', self.exchange), ["PELIXIR"])
+        self.assertEqual(re.findall(r'ELIXIR: "([A-Z]+)"', self.rail), ["PELIXIR"])
+        # requests carry the game's id, never the label
+        self.assertIn('fetch(API + "history?ticker=" + encodeURIComponent(id)', self.exchange)
+        self.assertIn("ticker: this.meta.id", self.exchange)
+        self.assertNotIn('"PELIXIR"', re.sub(r'ELIXIR: "PELIXIR"', "", self.exchange))   # only the map says it
+
+    def test_label_falls_back_to_the_id(self):
+        """Runs the page's own label() against a ticker, a bare id, an unknown id and nothing."""
+        block = self.exchange[self.exchange.index("var TICKER_LABEL"):]
+        block = block[:block.index("function fmt(")]
+        js = block + """
+          var out = [label({id: "ELIXIR"}), label("ELIXIR"), label({id: "LEAF"}), label("NX"), label(null), label("GOLD")];
+          console.log(JSON.stringify(out));"""
+        run = subprocess.run(["node", "-e", js], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(run.stdout.strip(), '["PELIXIR","PELIXIR","LEAF","NX","","GOLD"]')
+
+
+if __name__ == "__main__":
+    unittest.main()
 
 if __name__ == "__main__":
     unittest.main()
