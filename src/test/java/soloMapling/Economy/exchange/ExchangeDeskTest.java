@@ -680,12 +680,39 @@ class ExchangeDeskTest {
         assertTrue(e.status().stream().noneMatch(l -> l.contains("NX desk")), "status is unchanged");
         assertNull(ExchangeSite.desk(e, now.get()), "no nx-desk.json content (the runner deletes the file)");
         Map<String, Object> ticker = ExchangeSite.tickerJson(e, e.ticker(Ticker.NX), 5, 5);
-        assertEquals("on", ticker.get("book"), "the NX book is on");
+        assertFalse(ticker.containsKey("book"), "no book key: the row is exactly 1.6.3's");
+        assertFalse(ticker.containsKey("desk"), "and no desk block");
         assertNull(e.officialRate(), "no desk: the rate is the book's VWAP (none yet)");
         Response sell = e.place(new Place("o1", 3, 13, Side.SELL, 5_000_000, 1_000, Ticker.NX));
         assertTrue(sell.ok(), sell.toString());
         now.addAndGet(HOUR + 1);
         assertEquals(0, e.tickDesk(), "no drift while the desk is off");
+    }
+
+    /**
+     * Finding 3: with the switch off the site parses requests exactly as 1.6.3 did. The desk's no-price rule for an
+     * NX preview is part of the desk, so with the desk off a price-less NX preview is still the "price" error.
+     */
+    @Test
+    void theSwitchOffKeepsTheOldPriceParse() throws Exception {
+        Exchange e = start(DeskConfig.defaults(), HOUSE);
+        String body = "\"id\":\"a\",\"account\":2,\"type\":\"preview\",\"character\":12,\"side\":\"BUY\","
+                + "\"nx\":1000";
+        List<ExchangeSite.Request> off = ExchangeSite.requests(req(body), false);
+        assertEquals(1, off.size());
+        assertEquals("price", off.get(0).error(), "with the desk off an NX preview still needs its price");
+        assertEquals("price", ExchangeSite.requests(req(body)).get(0).error(), "the one-argument parse is the old one");
+
+        List<ExchangeSite.Request> priced = ExchangeSite.requests(req(body + ",\"price\":5000000"), false);
+        assertNull(priced.get(0).error(), "a priced NX preview parses as before");
+        Response pv = ExchangeSite.answer(e, priced.get(0), now.get());
+        assertTrue(pv.ok(), pv.toString());
+        assertEquals("OK", e.place(new Place("o1", 2, 12, Side.BUY, 5_000_000, 1_000, Ticker.NX)).code(),
+                "and the book takes the order, as before");
+
+        // with the desk on the same body is fine (the desk trades at its quote)
+        Exchange on = start(deskCfg, HOUSE);
+        assertNull(ExchangeSite.requests(req(body), on.desk() != null).get(0).error());
     }
 
     @Test
@@ -741,7 +768,7 @@ class ExchangeDeskTest {
 
     /** The site's answer to one request ({@code body} is the request's own fields). */
     Response site(Exchange e, String body) {
-        List<ExchangeSite.Request> rs = ExchangeSite.requests(req(body));
+        List<ExchangeSite.Request> rs = ExchangeSite.requests(req(body), e.desk() != null);
         assertEquals(1, rs.size());
         return ExchangeSite.answer(e, rs.get(0), now.get());
     }
@@ -751,7 +778,8 @@ class ExchangeDeskTest {
         Exchange e = start(deskCfg, HOUSE);
         seedDesk(10_000, 20_000_000);
         List<ExchangeSite.Request> reqs = ExchangeSite.requests(req(
-                "\"id\":\"a\",\"account\":2,\"type\":\"preview\",\"character\":12,\"side\":\"BUY\",\"nx\":1000"));
+                "\"id\":\"a\",\"account\":2,\"type\":\"preview\",\"character\":12,\"side\":\"BUY\",\"nx\":1000"),
+                true);
         assertNull(reqs.get(0).error(), "an NX preview needs no price");
         Response pv = ExchangeSite.answer(e, reqs.get(0), now.get());
         assertTrue(pv.ok(), pv.toString());

@@ -131,6 +131,15 @@ public final class ExchangeSite {
 
     /** Parses exchange-requests.json ({@code {"requests":[...]}} or a bare array). Throws on a broken document. */
     public static List<Request> requests(String json) {
+        return requests(json, false);
+    }
+
+    /**
+     * The same parse with the NX desk's rule (ticket 162): while the desk runs, an NX preview carries no price (a
+     * price on one is refused BAD_REQUEST by the exchange). With the desk off, an NX preview without a price is the
+     * "price" error it has always been, so the switch changes nothing the site sees.
+     */
+    public static List<Request> requests(String json, boolean nxDesk) {
         Object doc = Json.parse(json);
         Object rows = doc instanceof Map<?, ?> m ? m.get("requests") : doc;
         List<Request> out = new ArrayList<>();
@@ -180,10 +189,12 @@ public final class ExchangeSite {
                         n = num(r.get("nx") != null ? r.get("nx") : r.get("qty"));
                 side = OrderBook.Side.parse(r.get("side"));
                 boolean haveChar = (c != null && c > 0) || charName != null;
-                // ticket 162: the NX desk trades at its quote, so an NX preview carries no price (a price on one is
-                // refused BAD_REQUEST by the exchange). Item tickers still need one.
+                // ticket 162: the NX desk trades at its quote, so with the desk on an NX preview carries no price (a
+                // price on one is refused BAD_REQUEST by the exchange). Item tickers, and NX while the desk is off,
+                // still need one.
                 boolean nxTicker = Ticker.NX.equals(Ticker.norm(ticker));
-                err = !haveChar ? "character" : side == null ? "side" : !nxTicker && (p == null || p <= 0) ? "price"
+                boolean needsPrice = !nxTicker || !nxDesk;
+                err = !haveChar ? "character" : side == null ? "side" : needsPrice && (p == null || p <= 0) ? "price"
                         : n == null || n <= 0 ? "nx" : null;
                 character = c == null || c < 0 ? 0 : c;
                 price = p == null || p < 0 ? 0 : p;
@@ -419,10 +430,11 @@ public final class ExchangeSite {
             m.put("min_price", band[0]);
             m.put("max_price", band[1]);
             // ticket 162 §4: with the desk on the NX row stays for its chart but its book is off, and the desk's
-            // quotes ride along so the site can show them next to the ticker
+            // quotes ride along so the site can show them next to the ticker. With the desk off this row is exactly
+            // the one 1.6.3 sends (no extra keys).
             Desk d = ex.desk();
-            m.put("book", d != null ? "off" : "on");
             if (d != null) {
+                m.put("book", "off");
                 m.put("desk", deskQuotes(ex, d));
             }
         }

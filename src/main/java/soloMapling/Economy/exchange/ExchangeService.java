@@ -217,7 +217,8 @@ public final class ExchangeService {
             lastModified = mtime;
             lastSize = size;
             boolean any = false;
-            for (ExchangeSite.Request r : ExchangeSite.requests(Files.readString(f, StandardCharsets.UTF_8))) {
+            for (ExchangeSite.Request r : ExchangeSite.requests(Files.readString(f, StandardCharsets.UTF_8),
+                    ex.desk() != null)) {
                 if (!answered.add(r.id())) {
                     continue;
                 }
