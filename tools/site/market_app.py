@@ -2,12 +2,17 @@
 """Slums Market on Flask: the same service as market_service.py, the same URLs, cookie, JSON and status codes.
 
     python3 tools/site/market_app.py [--db PATH] [--inbox DIR] [--outbox DIR] [--items FILE] [--port 8095]
-                                     [--exchange on|off]
+                                     [--exchange on|off] [--nx off|mock|on]
 
 The Slums Exchange is off unless --exchange on (SLUMS_MARKET_EXCHANGE=on): the owner keeps it closed on live until
 both b005 guards are in (2026-10-29). Off, /api/market/exchange/book answers {"open": false} with no tickers, me
 answers {"open": false}, every other exchange URL 503 {"code": "CLOSED"}, nothing reaches the game, and the page shows
 only "not open yet" (b063).
+
+The NX tab is a quote panel only when --nx says so (SLUMS_MARKET_NX_DESK): off (the default, 1.6.2's order book, the
+desk's URLs 404), mock (the same code path, with fixtures from tools/site/testdata/nx-desk/ and no request ever put in
+the game's inbox) or on (the game's own desk, from the nx-desk.json it writes to the outbox; exchange_desk.py checks
+every field and calls a file older than 2 minutes stale).
 
 The first step of the 1.6.1 framework move (docs/site/STACK-PROPOSAL.md): Flask 3 from Ubuntu's python3-flask, no pip.
 The rules and the store (Store, Items, the limits, the game's inbox and outbox) are market_service.py's, imported as
@@ -33,7 +38,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from login_service import SESSION_COOKIE, Sessions, cookies  # noqa: E402
 import market_service as ms  # noqa: E402
-from exchange_desk import Desk  # noqa: E402
+import exchange_desk as xd  # noqa: E402
+from exchange_desk import Desk, desk_mode  # noqa: E402
 from market_service import MAX_BODY, Refused, characters  # noqa: E402
 
 
@@ -102,7 +108,6 @@ CLOSED = "The Slums Exchange isn't open yet."
 def closed_routes():
     """The exchange switched off: the same URLs, no tickers, no orders, nothing sent to the game."""
     bp = Blueprint("exchange", __name__, url_prefix="/api/market/exchange")
-    import exchange_desk as xd
 
     def closed(**_kw):
         return reply(503, {"ok": False, "code": "CLOSED", "error": CLOSED})
@@ -150,11 +155,58 @@ def exchange_routes(store, desk):
     return bp
 
 
+# The NX desk's URLs (1.6.3, ticket 162; exchange_desk.py's nx_* methods and the server's API.md). They exist only when
+# SLUMS_MARKET_NX_DESK is mock or on; off, they are 404 and the NX tab is 1.6.2's order book.
+NX_PREFIX = "/api/market/exchange/nx"
+
+
+def nx_routes(store, desk):
+    """The NX desk: one quote to read, and trades at that quote through the same pending-answer flow."""
+
+    bp = Blueprint("nxdesk", __name__, url_prefix=NX_PREFIX)
+
+    def variant():
+        """Mock mode: the state this request asks for (?variant=closed ...), as a safe file suffix; on has one state."""
+        if desk.mock is None:
+            return ""
+        raw = str(request.args.get("variant") or "").lower()
+        return "".join(c for c in raw if c in "abcdefghijklmnopqrstuvwxyz0123456789-_")[:24]
+
+    def run(fn, before=None):
+        with store.lock:
+            desk.sync()
+            if before:
+                before()
+            if desk.mock is not None:
+                desk.mock.variant = variant()
+            try:
+                return reply(200, dict(fn(), ok=True))
+            finally:
+                if desk.mock is not None:
+                    desk.mock.variant = ""
+
+    def read(fn):
+        return run(fn)
+
+    def write(fn):
+        body = write_body()
+        return run(lambda: fn(g.session, body), before=lambda: store.rate(g.session["a"]))
+
+    bp.add_url_rule("/quote", "quote", lambda: read(desk.nx_quote), methods=["GET"])
+    bp.add_url_rule("/history", "history", lambda: read(lambda: desk.nx_history(request.args.get("hours"))),
+                    methods=["GET"])
+    bp.add_url_rule("/me", "me", lambda: read(lambda: desk.nx_me(g.session)), methods=["GET"])
+    bp.add_url_rule("/preview", "post_preview",
+                    lambda: write(lambda s, b: desk.nx_preview(s, b, characters(s))), methods=["POST"])
+    bp.add_url_rule("/confirm", "post_confirm", lambda: write(desk.confirm), methods=["POST"])
+    return bp
+
+
 # URLs anyone may call: no session needed
 OPEN = {"/api/market/health"}
 
 
-def create_app(sessions, store, exchange=False):
+def create_app(sessions, store, exchange=False, nx="off"):
     app = Flask(__name__)
     app.json.sort_keys = False
 
@@ -181,7 +233,11 @@ def create_app(sessions, store, exchange=False):
 
     app.add_url_rule("/api/market/health", "health", lambda: reply(200, {"ok": True}), methods=["GET"])
     app.register_blueprint(market_routes(store))
-    app.register_blueprint(exchange_routes(store, Desk(store)) if exchange else closed_routes())
+    # one desk for both areas: the same store, lock, inbox and outbox
+    desk = Desk(store, nx)
+    app.register_blueprint(exchange_routes(store, desk) if exchange else closed_routes())
+    if desk.mode != "off":
+        app.register_blueprint(nx_routes(store, desk))
     return app
 
 
@@ -191,6 +247,7 @@ def main():
         ap.add_argument(a)
     ap.add_argument("--port", type=int)
     ap.add_argument("--exchange", choices=("on", "off"))
+    ap.add_argument("--nx", choices=xd.MODES)
     args = ap.parse_args()
     setting = ms.setting
     key_file = setting(args, "key_file", "SLUMS_LOGIN_KEY_FILE", "/etc/slums-login/key")
@@ -209,6 +266,7 @@ def main():
     untradeable = setting(args, "untradeable", "SLUMS_MARKET_UNTRADEABLE", "/srv/slums-site/market/untradeable.json")
     port = int(setting(args, "port", "SLUMS_MARKET_PORT", 8095))
     exchange = setting(args, "exchange", "SLUMS_MARKET_EXCHANGE", "off") == "on"
+    nx = desk_mode(setting(args, "nx", "SLUMS_MARKET_NX_DESK", "off"))
     store = ms.Store(db, inbox, outbox, ms.Items(items, untradeable))
     with store.lock:
         store.sync()
@@ -221,10 +279,10 @@ def main():
         def log_request(self, code="-", size="-"):  # no addresses or cookies in the log
             sys.stderr.write(f"{self.command} {urlsplit(self.path).path} {code}\n")
 
-    server = make_server("127.0.0.1", port, create_app(Sessions(key, revoked), store, exchange), threaded=True,
+    server = make_server("127.0.0.1", port, create_app(Sessions(key, revoked), store, exchange, nx), threaded=True,
                          request_handler=Quiet)
     print(f"market service (Flask) on 127.0.0.1:{port}, inbox {inbox}, outbox {outbox}, "
-          f"exchange {'on' if exchange else 'off'}", file=sys.stderr)
+          f"exchange {'on' if exchange else 'off'}, NX desk {nx}", file=sys.stderr)
     server.serve_forever()
 
 

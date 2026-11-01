@@ -245,7 +245,7 @@ class TestHostTest(DeployScriptTest):
         self.assertNotIn("192.168.0.164", log, "nothing about TEST goes to the old host")
         self.assertIn("/etc/slums-site-test/nginx.conf", log)
         self.assertRegex(log, rf"sed 's/@TEST_HOST@/{self.HOST}/g' \S*test164/nginx\.conf")
-        self.assertRegex(log, rf"sed 's/@TEST_HOST@/{self.HOST}/g' \S*test164/\$u")
+        self.assertRegex(log, rf"sed -e 's/@TEST_HOST@/{self.HOST}/g' -e 's/@NX_DESK@/\w+/g' \S*test164/\$u")
         self.assertIn(f"TEST site at http://{self.HOST}:8192/", r.stdout)
 
     def test_another_host_on_the_command_line_reaches_every_copy(self):
@@ -275,6 +275,35 @@ class TestHostTest(DeployScriptTest):
                          "the config names no other address of its own")
         unit = self.rendered("tools/site/test164/slums-site-test-web.service", self.HOST)
         self.assertIn(f"on {self.HOST}:8192", unit)
+
+
+class TestNxDeskModeTest(DeployScriptTest):
+    """1.6.3 s44: the NX desk mode on the TEST site is one setting (SLUMS_TEST_NX_DESK), and it must reach the market
+    service AND the 2-minute market rebuild (which rebuilds the exchange page), or the page flips back to the book."""
+
+    SCRIPT = "tools/site/test164/install.sh"
+    FILES = TestSiteInstallTest.FILES
+
+    def test_both_units_carry_the_mode_placeholder(self):
+        for unit in ("slums-market-test.service", "slums-site-test-market.service"):
+            with open(os.path.join(ROOT, "tools/site/test164", unit)) as f:
+                self.assertIn("Environment=SLUMS_MARKET_NX_DESK=@NX_DESK@", f.read(), unit)
+
+    def test_the_install_fills_in_the_mode_everywhere(self):
+        for env, want in (({}, "off"), ({"SLUMS_TEST_NX_DESK": "mock"}, "mock"), ({"SLUMS_TEST_NX_DESK": "on"}, "on")):
+            if os.path.exists(self.log):
+                os.remove(self.log)
+            r = self.run_script(env=env)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            log = self.copies()
+            self.assertIn(f"s/@NX_DESK@/{want}/g", log, want)
+            self.assertIn(f"env SLUMS_MARKET_NX_DESK={want} python3 tools/site/build.py", log, want)
+
+    def test_a_wrong_mode_is_refused(self):
+        r = self.run_script(env={"SLUMS_TEST_NX_DESK": "maybe"})
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("SLUMS_TEST_NX_DESK must be off, mock or on", r.stderr)
+        self.assertEqual(self.copies(), "", "nothing is copied with a wrong mode")
 
 
 def newest_release():

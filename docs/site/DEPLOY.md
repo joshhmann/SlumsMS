@@ -180,6 +180,10 @@ stopped from step 1 until nginx knows the 1.6.1 URLs (step 6). World shows numbe
      (`install -m 0644 tools/site/slums-market.service /etc/systemd/system/`): its ExecStart is `market_app.py` (same
      port 8095, URLs, cookie and database as `market_service.py`), and `SLUMS_MARKET_EXCHANGE=on`: the Slums Exchange
      opens (owner, 2026-10-30). The diff against the installed unit shows those two lines and the comment.
+   - The NX desk (1.6.3, ticket 162) is `SLUMS_MARKET_NX_DESK=off|mock|on`, off unless the unit sets it: `on` makes the
+     exchange's NX tab a quote panel read from `nx-desk.json` in the same outbox (`API.md`), `mock` the same panel off
+     the fixtures in `tools/site/testdata/nx-desk` with no game. A build with `--nx mock|on` bakes the mode into the
+     static page; the service needs the matching setting. Set it on TEST before the game writes the file.
    - `slums-login`: `install -m 0644 tools/site/login_service.py /opt/slums-login/` (a GM signed in over 12 h ago
      gets 401, so `/admin/` asks again).
    - `slums-report`: `install -m 0644 tools/site/report_service.py tools/site/report_export.py /opt/slums-report/`

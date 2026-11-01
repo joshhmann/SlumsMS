@@ -1,0 +1,117 @@
+{
+ "schema": 1,
+ "generated_at": "@0",
+ "open": true,
+ "closed_reason": null,
+ "mid": 5000000,
+ "buy": 4900000,
+ "sell": 5100000,
+ "spread_bps": 200,
+ "fee_bps": 0,
+ "drift_bps_last_hour": 12,
+ "day_cap_pct": 20,
+ "moved_today_pct": -11.4,
+ "floor": 2500000,
+ "ceil": 10000000,
+ "desk_nx": 0,
+ "selling": false,
+ "min_qty": 100,
+ "history": [
+  {
+   "hour": "@-43200",
+   "mid": 5068574,
+   "buy": 4967202,
+   "sell": 5169945,
+   "volume_nx": 23724,
+   "fills": 4
+  },
+  {
+   "hour": "@-39600",
+   "mid": 5065447,
+   "buy": 4964138,
+   "sell": 5166755,
+   "volume_nx": 22747,
+   "fills": 3
+  },
+  {
+   "hour": "@-36000",
+   "mid": 5061685,
+   "buy": 4960451,
+   "sell": 5162918,
+   "volume_nx": 21770,
+   "fills": 13
+  },
+  {
+   "hour": "@-32400",
+   "mid": 5057328,
+   "buy": 4956181,
+   "sell": 5158474,
+   "volume_nx": 20793,
+   "fills": 12
+  },
+  {
+   "hour": "@-28800",
+   "mid": 5052420,
+   "buy": 4951371,
+   "sell": 5153468,
+   "volume_nx": 19816,
+   "fills": 11
+  },
+  {
+   "hour": "@-25200",
+   "mid": 5047012,
+   "buy": 4946071,
+   "sell": 5147952,
+   "volume_nx": 18839,
+   "fills": 10
+  },
+  {
+   "hour": "@-21600",
+   "mid": 5041156,
+   "buy": 4940332,
+   "sell": 5141979,
+   "volume_nx": 17862,
+   "fills": 9
+  },
+  {
+   "hour": "@-18000",
+   "mid": 5034909,
+   "buy": 4934210,
+   "sell": 5135607,
+   "volume_nx": 16885,
+   "fills": 8
+  },
+  {
+   "hour": "@-14400",
+   "mid": 5028331,
+   "buy": 4927764,
+   "sell": 5128897,
+   "volume_nx": 15908,
+   "fills": 7
+  },
+  {
+   "hour": "@-10800",
+   "mid": 5021485,
+   "buy": 4921055,
+   "sell": 5121914,
+   "volume_nx": 14931,
+   "fills": 6
+  },
+  {
+   "hour": "@-7200",
+   "mid": 5014437,
+   "buy": 4914148,
+   "sell": 5114725,
+   "volume_nx": 13954,
+   "fills": 5
+  },
+  {
+   "hour": "@-3600",
+   "mid": 5007252,
+   "buy": 4907106,
+   "sell": 5107397,
+   "volume_nx": 12977,
+   "fills": 4
+  }
+ ]
+}

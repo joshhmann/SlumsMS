@@ -7,6 +7,8 @@
     python3 tools/site/build.py --private       # also Slums Street (database) and Slums Market, into dist/site-private/
                                                 # (on 164 those two sit behind the sign-in, LOGIN.md)
     python3 tools/site/build.py --section notes --out DIR   # rebuild one section inside an existing build
+    python3 tools/site/build.py --nx mock       # the NX desk's quote panel (1.6.3, ticket 162), as SLUMS_MARKET_NX_DESK:
+                                                # off (1.6.2's order book) | mock (fixtures) | on (the game's nx-desk.json)
     python3 -m http.server -d dist/site 8000    # preview
 
 Code: common.py (paths, layout, megaphone rail, inline markdown) and one module per section in sections/:
@@ -239,9 +241,12 @@ def main():
     ap.add_argument("--dashboard-web", help="the staff dashboard copied into admin/ (default: tools/dashboard/web)")
     ap.add_argument("--world", action="store_true", help="include World (live world, feed, rankings, economy)")
     ap.add_argument("--site-data", help="site export folder, Server/data/site (default: tools/site/site_sample.py's)")
+    ap.add_argument("--nx", choices=["off", "mock", "on"],
+                    help="the NX desk on the exchange page (default: SLUMS_MARKET_NX_DESK, else off)")
     args = ap.parse_args()
     global HS_DATA, MARKET_DATA, SITE_DATA, DASHBOARD_WEB
     HS_DATA, MARKET_DATA, SITE_DATA = args.hs_data, args.market_data, args.site_data
+    market.NX_DESK = args.nx
     DASHBOARD_WEB = args.dashboard_web
     out = args.out or os.path.join(REPO, "dist", "site-private" if args.private else "site")
     if args.section:
