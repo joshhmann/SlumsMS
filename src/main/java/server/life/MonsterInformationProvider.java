@@ -45,9 +45,18 @@ public class MonsterInformationProvider {
     // Author : LightPepsi
 
     private static final MonsterInformationProvider instance = new MonsterInformationProvider();
+    private static final java.util.concurrent.atomic.AtomicLong dropDataVersion = new java.util.concurrent.atomic.AtomicLong();
 
     public static MonsterInformationProvider getInstance() {
         return instance;
+    }
+
+    /**
+     * Moves whenever the drop data is reloaded, so tables derived from it (the exchange's scroll chances) know to
+     * build themselves again.
+     */
+    public static long dropDataVersion() {
+        return dropDataVersion.get();
     }
 
     private final Map<Integer, List<MonsterDropEntry>> drops = new java.util.concurrent.ConcurrentHashMap<>();
@@ -272,6 +281,7 @@ public class MonsterInformationProvider {
     }
 
     public final void clearDrops() {
+        dropDataVersion.incrementAndGet();
         drops.clear();
         hasNoMultiEquipDrops.clear();
         extraMultiEquipDrops.clear();
