@@ -16,6 +16,12 @@ From `agent-runs/server/269-dbpool-forensics/AUDIT.md` and the fix branch `269-d
 |---|---|---|
 | [172](172-roster-load-pool-get.md) | The roster and store snapshot reads bypass the bot share | S3 |
 
+## Lock-order follow-ups (2026-10-31)
+
+| # | Ticket | Priority |
+|---|---|---|
+| [171](171-life-runtime-lock.md) | `LifeRuntime.accepted` takes the bot's monitor over a PlayerStorage read (same family as b267, no cycle today) | S4, after 1.6.2 |
+
 ## QA follow-ups (2026-10-31)
 
 | # | Ticket | Target |
