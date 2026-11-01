@@ -35,6 +35,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * keeps them. Stepped by {@code LifeLearning}'s sweep (every 5 minutes). Knob: {@code -Dsolomapling.fads=false}.
  *
  * <p>For S4 gossip and S7 spice: {@link #listen} gets STARTED / JOINED / ENDED; {@link #active()} lists them.
+ *
+ * <p><b>Lock order (b267):</b> {@code lock} guards this class's maps only and is never held while the game is read.
+ * {@link #chairFor}, {@link #phraseFor} and {@link #spotFor} are called by threads that hold PlayerStorage's fair read
+ * lock, and {@link #step} is the only caller that reads the game (PlayerStorage, map players, life memory). So the step
+ * snapshots the game first and takes {@code lock} afterwards; a step that called the World under the lock could sit in
+ * a cycle with a login holding PlayerStorage and froze live 1.6.0.4 on 2026-10-31 22:46 UTC.
  */
 public final class Fads {
 
@@ -240,43 +246,185 @@ public final class Fads {
 
     // ── the step ──
 
-    /** One step at {@code now}: start a fad now and then, spread, count players, cool, end. */
+    /**
+     * One step at {@code now}: start a fad now and then, spread, count players, cool, end.
+     *
+     * <p>b267 (the 1.6.0.4 hang, 2026-10-31 22:46 UTC): the step never calls the game while holding {@link #lock}.
+     * PlayerStorage guards its maps with a <i>fair</i> {@code ReentrantReadWriteLock}, so one queued writer (a login or
+     * logout) stops every new reader; threads that hold that read lock call {@link #chairFor} / {@link #phraseFor} /
+     * {@link #spotFor}, which want {@code lock}. Reading the World under {@code lock} closed the cycle step(lock) ->
+     * PlayerStorage -> lock and parked 25 threads. So the step copies what it needs out of the game first
+     * ({@link #snapshot}, no lock held), then takes {@code lock} only to touch this class's own maps.
+     */
     public static void step(long now) {
         if (!enabled()) return;
-        List<Event> events = new ArrayList<>();
+        List<FadState> state = copyState();
         World w = world;
+        Snapshot snap = snapshot(w, state); // every game read happens here, with no lock held
+        List<Event> events = new ArrayList<>();
         synchronized (lock) {
-            ensureLoaded();
-            for (int channel : w.channels()) maybeStart(w, channel, now, events);
-            for (Fad f : List.copyOf(fads.values())) stepOne(w, f, now, events);
+            for (Start s : snap.starts) applyStart(s, now, events);
+            for (Fad f : List.copyOf(fads.values())) stepOne(snap, f, now, events);
         }
         for (Event e : events) tell(e);
         save();
     }
 
-    private static void maybeStart(World w, int channel, long now, List<Event> events) {
-        List<Fad> here = fads.values().stream().filter(f -> f.channel == channel).toList();
-        if (here.size() >= MAX_PER_CHANNEL || random.nextDouble() >= START_CHANCE) return;
-        List<Integer> bots = w.onlineBots(channel);
-        if (bots.isEmpty()) return;
-        int starter = -1;
-        for (int tries = 0; tries < 5 && starter < 0; tries++) {
-            int pick = bots.get(random.nextInt(bots.size()));
-            // Socializers start fads more often; anyone can.
-            if (random.nextDouble() < .3 + w.socialPull(pick)) starter = pick;
+    /** What the snapshot needs of this class, copied under the lock: memory and the fad file only, never the World. */
+    private record FadState(Kind kind, int channel, int value, List<Integer> followers) {
+    }
+
+    /** A fad the snapshot decided to start; applied under the lock afterwards. */
+    private record Start(Kind kind, int channel, int value, int starter) {
+    }
+
+    /** The key of a player count: a SPOT's map or a CHAIR's chair on one channel. */
+    private record Spot(Kind kind, int channel, int value) {
+    }
+
+    private static List<FadState> copyState() {
+        synchronized (lock) {
+            ensureLoaded();
+            List<FadState> out = new ArrayList<>(fads.size());
+            for (Fad f : fads.values()) out.add(new FadState(f.kind, f.channel, f.value, List.copyOf(f.followers)));
+            return out;
         }
-        if (starter < 0) return;
-        EnumSet<Kind> free = EnumSet.allOf(Kind.class);
-        here.forEach(f -> free.remove(f.kind));
-        List<Kind> kinds = new ArrayList<>(free);
-        Kind kind = kinds.get(random.nextInt(kinds.size()));
-        int value = switch (kind) {
-            case SPOT -> SPOTS[random.nextInt(SPOTS.length)];
-            case CHAIR -> CHAIRS[random.nextInt(CHAIRS.length)];
-            case PHRASE -> random.nextInt(PHRASES.size());
+    }
+
+    /**
+     * Everything {@link #stepOne} reads from the game, read once with no lock held: the channel, map and Socializer
+     * pull of every bot a spread may touch (the fad followers and their friends), the real-player count per fad, and
+     * the fads this step may start (decided by {@link #planStarts}, which also has no lock).
+     *
+     * <p>Complete for the step: a bot that joins during the step is a friend of a follower, so it is in here. A bot
+     * that is somehow missing reads as offline / no friends / no pull ({@link #channelOf} -1), which only ever skips a
+     * spread for one step; nothing here calls back into the game.
+     */
+    private static final class Snapshot {
+        final List<Start> starts;
+        final Map<Spot, Integer> players;
+        final Map<Integer, Integer> channelOf, mapOf;
+        final Map<Integer, Double> social;
+        final Map<Integer, List<Integer>> friends;
+
+        Snapshot(List<Start> starts, Map<Spot, Integer> players, Map<Integer, Integer> channelOf,
+                 Map<Integer, Integer> mapOf, Map<Integer, Double> social, Map<Integer, List<Integer>> friends) {
+            this.starts = starts;
+            this.players = players;
+            this.channelOf = channelOf;
+            this.mapOf = mapOf;
+            this.social = social;
+            this.friends = friends;
+        }
+
+        int players(Kind kind, int channel, int value) {
+            return players.getOrDefault(new Spot(kind, channel, value), 0);
+        }
+
+        int channelOf(int botId) {
+            return channelOf.getOrDefault(botId, -1);
+        }
+
+        int mapOf(int botId) {
+            return mapOf.getOrDefault(botId, -1);
+        }
+
+        double socialPull(int botId) {
+            return social.getOrDefault(botId, 0.0);
+        }
+
+        List<Integer> friendsOf(int botId) {
+            return friends.getOrDefault(botId, List.of());
+        }
+    }
+
+    private static Snapshot snapshot(World w, List<FadState> state) {
+        List<Integer> channels = w.channels();
+        Map<Integer, List<Integer>> online = new LinkedHashMap<>();
+        for (int channel : channels) online.put(channel, w.onlineBots(channel));
+        // The bots a spread may touch: the followers (the step's spreaders) and their friends (the joiners).
+        Map<Integer, List<Integer>> friends = new HashMap<>();
+        Set<Integer> bots = new LinkedHashSet<>();
+        for (FadState f : state) {
+            bots.addAll(f.followers);
+            for (int b : f.followers) friends.put(b, w.friendsOf(b));
+        }
+        friends.values().forEach(bots::addAll);
+        Map<Integer, Integer> channelOf = new HashMap<>(bots.size() * 2), mapOf = new HashMap<>(bots.size() * 2);
+        Map<Integer, Double> social = new HashMap<>(bots.size() * 2);
+        for (int b : bots) {
+            channelOf.put(b, w.channelOf(b));
+            mapOf.put(b, w.mapOf(b));
+            social.put(b, w.socialPull(b));
+        }
+        Map<Spot, Integer> players = new HashMap<>();
+        for (FadState f : state) players.put(new Spot(f.kind, f.channel, f.value), countPlayers(w, f));
+        List<Start> starts = planStarts(w, state, online);
+        for (Start s : starts) {
+            players.put(new Spot(s.kind, s.channel, s.value), countPlayers(w, s.kind, s.channel, s.value));
+        }
+        return new Snapshot(starts, players, channelOf, mapOf, social, friends);
+    }
+
+    private static int countPlayers(World w, FadState f) {
+        return countPlayers(w, f.kind, f.channel, f.value);
+    }
+
+    /** Real players taking part in a fad: standing at the spot, or sitting on the chair, on its channel. */
+    private static int countPlayers(World w, Kind kind, int channel, int value) {
+        return switch (kind) {
+            case SPOT -> w.playersAt(channel, value);
+            case CHAIR -> w.playersOnChair(channel, value);
+            case PHRASE -> 0;
         };
-        if (kind == Kind.SPOT && !sameIsland(w.mapOf(starter), value)) return; // the starter must be able to go
-        events.add(start(kind, channel, value, starter, now));
+    }
+
+    /**
+     * The fads this step starts: same draws, same order as the old in-lock version, but no lock held (so asking the
+     * world about a candidate starter here is safe). Applied later by {@link #applyStart}, which re-checks the room.
+     */
+    private static List<Start> planStarts(World w, List<FadState> state, Map<Integer, List<Integer>> online) {
+        Random rng = random;
+        List<Start> out = new ArrayList<>();
+        for (Map.Entry<Integer, List<Integer>> e : online.entrySet()) {
+            int channel = e.getKey();
+            EnumSet<Kind> free = EnumSet.allOf(Kind.class);
+            for (FadState f : state) if (f.channel == channel) free.remove(f.kind);
+            int here = MAX_PER_CHANNEL - free.size();
+            if (here >= MAX_PER_CHANNEL || rng.nextDouble() >= START_CHANCE) continue;
+            List<Integer> bots = e.getValue();
+            if (bots.isEmpty() || free.isEmpty()) continue;
+            int starter = -1;
+            for (int tries = 0; tries < 5 && starter < 0; tries++) {
+                int pick = bots.get(rng.nextInt(bots.size()));
+                // Socializers start fads more often; anyone can.
+                if (rng.nextDouble() < .3 + w.socialPull(pick)) starter = pick;
+            }
+            if (starter < 0) continue;
+            List<Kind> kinds = new ArrayList<>(free);
+            Kind kind = kinds.get(rng.nextInt(kinds.size()));
+            int value = switch (kind) {
+                case SPOT -> SPOTS[rng.nextInt(SPOTS.length)];
+                case CHAIR -> CHAIRS[rng.nextInt(CHAIRS.length)];
+                case PHRASE -> rng.nextInt(PHRASES.size());
+            };
+            // the starter must be able to go to the spot it starts
+            if (kind == Kind.SPOT && !sameIsland(w.mapOf(starter), value)) continue;
+            out.add(new Start(kind, channel, value, starter));
+        }
+        return out;
+    }
+
+    /** Starts a planned fad (callers hold the lock): skipped if the channel has no room for that kind any more. */
+    private static void applyStart(Start s, long now, List<Event> events) {
+        int here = 0;
+        for (Fad f : fads.values()) {
+            if (f.channel != s.channel) continue;
+            if (f.kind == s.kind) return;
+            here++;
+        }
+        if (here >= MAX_PER_CHANNEL) return;
+        events.add(start(s.kind, s.channel, s.value, s.starter, now));
     }
 
     /** Starts a fad with its starter as the first follower (callers hold the lock). */
@@ -314,33 +462,30 @@ public final class Fads {
         }
     }
 
-    private static void stepOne(World w, Fad f, long now, List<Event> events) {
+    /** One fad's step, from the snapshot (callers hold the lock; nothing here calls the game). */
+    private static void stepOne(Snapshot snap, Fad f, long now, List<Event> events) {
         double days = Math.max(0, now - f.steppedAt) / 86_400_000.0;
         f.steppedAt = now;
         f.heat *= Math.pow(.5, days / HALF_LIFE_DAYS);
         // Real players take part just by doing it: standing at the spot, sitting on the chair, on this channel.
-        int players = switch (f.kind) {
-            case SPOT -> w.playersAt(f.channel, f.value);
-            case CHAIR -> w.playersOnChair(f.channel, f.value);
-            case PHRASE -> 0;
-        };
+        int players = snap.players(f.kind, f.channel, f.value);
         if (players > 0) {
             f.playersSeen = Math.max(f.playersSeen, players);
             f.heat = Math.min(MAX_HEAT, f.heat + PLAYER_HEAT * Math.min(5, players));
         }
         // Spread along bonds: a few followers on the channel each tell a few friends.
         List<Integer> spreaders = new ArrayList<>();
-        for (int b : f.followers) if (w.channelOf(b) == f.channel) spreaders.add(b);
+        for (int b : f.followers) if (snap.channelOf(b) == f.channel) spreaders.add(b);
         Collections.shuffle(spreaders, random);
         double heat = Math.min(1, f.heat);
         for (int s : spreaders.subList(0, Math.min(SPREADERS_PER_STEP, spreaders.size()))) {
             int told = 0;
-            for (int friend : w.friendsOf(s)) {
+            for (int friend : snap.friendsOf(s)) {
                 if (f.followers.size() >= MAX_FOLLOWERS || told >= FRIENDS_PER_SPREADER) break;
-                if (friend == s || f.followers.contains(friend) || w.channelOf(friend) != f.channel) continue;
+                if (friend == s || f.followers.contains(friend) || snap.channelOf(friend) != f.channel) continue;
                 told++;
-                if (f.kind == Kind.SPOT && !sameIsland(w.mapOf(friend), f.value)) continue;
-                if (random.nextDouble() < JOIN_CHANCE * heat * (.5 + w.socialPull(friend))) {
+                if (f.kind == Kind.SPOT && !sameIsland(snap.mapOf(friend), f.value)) continue;
+                if (random.nextDouble() < JOIN_CHANCE * heat * (.5 + snap.socialPull(friend))) {
                     follow(f, friend);
                     joins++;
                     f.heat = Math.min(MAX_HEAT, f.heat + JOIN_HEAT);
