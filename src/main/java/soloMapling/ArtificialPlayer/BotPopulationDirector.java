@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
 
 /**
@@ -232,6 +233,127 @@ public final class BotPopulationDirector {
     /** Logouts planned but not yet started (spread across the tick): already gone as far as planning is concerned. */
     private static final java.util.Set<Integer> scheduledLogouts = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
+    private static volatile LoginPace pace;
+
+    /**
+     * Hands logins to the bot-db threads at a steady pace (b269 fix 6): never more than {@code inFlightCap} at once,
+     * never more than {@code perSecond} starts a second ({@code 0} = no rate limit). A bot is queued at most once, so
+     * a tick that re-plans a bot already waiting costs nothing, and offering never blocks the caller: the plan is
+     * handed over and the pace drains it on the scheduler.
+     */
+    static final class LoginPace {
+        private final int inFlightCap;
+        private final int perSecond;
+        private final IntConsumer start;
+        private final java.util.ArrayDeque<Integer> waiting = new java.util.ArrayDeque<>();
+        private final java.util.Set<Integer> known = new java.util.HashSet<>();
+        private int inFlight;
+        private long nextStartAt;
+        private boolean pumpScheduled;
+
+        LoginPace(int inFlightCap, int perSecond, IntConsumer start) {
+            this.inFlightCap = Math.max(1, inFlightCap);
+            this.perSecond = Math.max(0, perSecond);
+            this.start = start;
+        }
+
+        /** Queues one login. False when it is already queued or in flight. Never blocks. */
+        boolean offer(int botId) {
+            synchronized (this) {
+                if (!known.add(botId)) {
+                    return false;
+                }
+                waiting.addLast(botId);
+                pump();
+                return true;
+            }
+        }
+
+        /** A login finished (logged in or not): let the next one start. */
+        void done(int botId) {
+            synchronized (this) {
+                known.remove(botId);
+                if (inFlight > 0) {
+                    inFlight--;
+                }
+                pump();
+            }
+        }
+
+        /** Logins waiting or in flight now. */
+        int size() {
+            synchronized (this) {
+                return known.size();
+            }
+        }
+
+        private void pump() {
+            long now = System.currentTimeMillis();
+            while (!waiting.isEmpty() && inFlight < inFlightCap && now >= nextStartAt) {
+                int botId = waiting.pollFirst();
+                inFlight++;
+                nextStartAt = perSecond == 0 ? now : now + Math.max(1L, 1000L / perSecond);
+                try {
+                    start.accept(botId);
+                } catch (RuntimeException e) {
+                    known.remove(botId); // the bot-db executor is gone (shutdown): forget it, don't wedge the pace
+                    inFlight--;
+                }
+            }
+            if (waiting.isEmpty() || pumpScheduled) {
+                return;
+            }
+            if (perSecond == 0 && inFlight >= inFlightCap) {
+                return; // concurrency-only pacing resumes on done(), no timer needed
+            }
+            long wait = Math.max(1L, nextStartAt - now);
+            pumpScheduled = true;
+            ExecutorServiceManager.getScheduledExecutorService().schedule(() -> {
+                synchronized (LoginPace.this) {
+                    pumpScheduled = false;
+                    pump();
+                }
+            }, wait, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    private static LoginPace pace() {
+        LoginPace p = pace;
+        if (p == null) {
+            synchronized (BotPopulationDirector.class) {
+                p = pace;
+                if (p == null) {
+                    ServerConfig server = YamlConfig.config.server;
+                    p = new LoginPace(server.BOT_DIRECTOR_BOOT_FILL_IN_FLIGHT, server.BOT_DIRECTOR_BOOT_FILL_PER_SECOND,
+                            BotPopulationDirector::startPacedLogin);
+                    pace = p;
+                }
+            }
+        }
+        return p;
+    }
+
+    private static void startPacedLogin(int botId) {
+        ExecutorServiceManager.runBotDb(() -> {
+            try {
+                boundedLogIn(botId);
+            } finally {
+                pace().done(botId);
+            }
+        });
+    }
+
+    /**
+     * b269 fix 6: a tick may plan as many logins as the boot fill's pace carries in one tick, so a refusal is retried
+     * at the pace it was made at — 25 per 30 s (50 a minute) was slower than the fill and turned a bad minute into an
+     * hour of half-populated world.
+     */
+    private static int loginBudget(ServerConfig server) {
+        int paced = server.BOT_DIRECTOR_BOOT_FILL_PER_SECOND * Math.max(1, server.BOT_DIRECTOR_TICK_SECONDS);
+        return paced <= 0 ? server.BOT_DIRECTOR_MAX_LOGINS_PER_TICK
+                : Math.max(server.BOT_DIRECTOR_MAX_LOGINS_PER_TICK, paced);
+    }
+
     private static volatile ScheduledFuture<?> ticker;
     private static volatile boolean paused;
     private static volatile Plan lastPlan;
@@ -260,8 +382,9 @@ public final class BotPopulationDirector {
         startedAt = System.currentTimeMillis();
         tick(Integer.MAX_VALUE);
         long period = Math.max(5, server.BOT_DIRECTOR_TICK_SECONDS);
+        int budget = loginBudget(server);
         ticker = ExecutorServiceManager.getScheduledExecutorService()
-                .scheduleAtFixedRate(() -> tick(server.BOT_DIRECTOR_MAX_LOGINS_PER_TICK), period, period, TimeUnit.SECONDS);
+                .scheduleAtFixedRate(() -> tick(budget), period, period, TimeUnit.SECONDS);
         BotShutdown.onQuiesce(BotPopulationDirector::stop);
         log.info("Population director started: peak {} (roster peak {}, population cap {}), curve {}, tick {}s, channel"
                         + " weights {}", directorPeak(), server.BOT_ROSTER_PEAK_ONLINE, server.BOT_POPULATION_PEAK,
@@ -376,14 +499,12 @@ public final class BotPopulationDirector {
             soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.maybeStep(now); // ticket 58: a handful of couples
             soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.maybeStep(now); // 1.5.0: bot guilds
             soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.maybeStep(now); // 1.5.0: bot drama (romance, rivals, wars)
-            // Logins trickle in across the tick instead of landing together (the boot fill lands at once).
-            long spreadMs = maxLogins == Integer.MAX_VALUE ? 0 : TimeUnit.SECONDS.toMillis(server.BOT_DIRECTOR_TICK_SECONDS);
+            // Logins trickle in at a steady pace instead of landing together (b269 fix 6): a boot fill used to hand
+            // all 3,000 over at once with a zero spread, and a login that could not start was then only retried at
+            // the tick's 25-per-30-seconds cap. The pace owns both the concurrency and the rate now.
+            LoginPace pacer = pace();
             for (int botId : plan.logins()) {
-                long delay = spreadMs == 0 ? 0 : ThreadLocalRandom.current().nextLong(spreadMs);
-                // A login loads the bot from the database: run it on a bot-db thread, not the shared scheduler,
-                // because it may wait for the bots' share of the pool and a virtual thread must not (BotDbGate).
-                ExecutorServiceManager.getScheduledExecutorService()
-                        .schedule(() -> ExecutorServiceManager.runBotDb(() -> boundedLogIn(botId)), delay, TimeUnit.MILLISECONDS);
+                pacer.offer(botId);
             }
         } catch (Exception e) {
             log.warn("Population director tick failed", e);

@@ -7,7 +7,7 @@ commit after it is one finding, with its own test.
 | Finding | State | Commit | What it does |
 |---|---|---|---|
 | F1 (blocker) | fixed | `b269 fix 1` | `BotPopulationDirector.askLogin` answers `LOGGED_IN` / `QUEUED` / `REFUSED`; the guild show-up spends its 2-hour token only when a login was taken on; the romance show-up spends its 30-minute token only then; a queued rage-quit return keeps its promise |
-| F6 (functional) | open | — | paced boot fill |
+| F6 (functional) | fixed | `b269 fix 6` | paced boot fill (`LoginPace`: 8 in flight, 8 a second), tick budget follows the pace |
 | F8 (high) | open | — | make `BotDbGateLoadTest`'s gossip test initialise without config.yaml |
 | Timeouts/observability | open | — | `connectionTimeout` 10 s, minute `BotDbGate.stats()` log |
 | F3/F4/F5 | open | — | documented, not fixed (see the notes at the bottom) |
@@ -41,3 +41,25 @@ on a virtual thread still answers `false` for a queued login, a platform ask for
 `REFUSED`. `GuildShowUpLoginTest` (3) — a refused show-up returns 0 and leaves the 2-hour token free (the next step may
 ask again), a show-up that was taken on holds for two hours, a refusal moves on to the next member, and another guild's
 number is never asked for.
+
+## F6 — the boot fill is paced, not a burst
+
+`BotPopulationDirector.start()` called `tick(Integer.MAX_VALUE)` and the tick scheduled every login with
+`spreadMs = 0`, so a boot fill handed all 3,000 logins to the `bot-db-*` threads at once; every login that could not
+take its three permits was refused, and the only retry was the director's 25-per-30-seconds budget — 50 a minute,
+slower than the fill, which is how a bad minute turned into an hour of half-populated world.
+
+Now `LoginPace` owns both halves of the pace: at most `BOT_DIRECTOR_BOOT_FILL_IN_FLIGHT` logins in flight (8) and at
+most `BOT_DIRECTOR_BOOT_FILL_PER_SECOND` starts a second (8; 0 = no rate limit, the 1.6.2 behaviour). Offering never
+blocks the tick — the plan is handed over and the pace drains it on the scheduler — and a bot is queued once however
+many ticks re-plan it. `loginBudget` lets a tick plan as much as the pace carries in a tick, so a refused login is
+retried at the pace it was made at rather than at 50 a minute. 8 a second fills 3,000 bots in about six minutes, and
+eight in flight keeps the queue warm without flooding the pool: two logins at a time fit the bots' six permits.
+
+The default therefore differs from 1.6.2 in two ways: logins no longer burst (concurrency cap) and they are no longer
+started back to back (rate). Setting `BOT_DIRECTOR_BOOT_FILL_PER_SECOND = 0` keeps only the concurrency cap.
+
+Test: `BootFillPaceTest` (4) — never more than the cap in flight, offering 500 logins while every slot is busy returns
+without waiting, a bot is queued once however many ticks plan it, and starts are spread at the configured rate. The
+pace is tested directly: a tick test would need the whole roster and config, and the tick does nothing but offer the
+plan to the pace.

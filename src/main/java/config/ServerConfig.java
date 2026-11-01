@@ -122,6 +122,11 @@ public class ServerConfig {
     public String BOT_ROSTER_TIMEZONE = "";
     public int BOT_DIRECTOR_TICK_SECONDS = 30;
     public int BOT_DIRECTOR_MAX_LOGINS_PER_TICK = 25;
+    //b269 fix 6: the boot fill hands logins to the bot-db threads at a pace instead of all at once with no spread.
+    //In flight at once; two logins fit the bots' six-permit share, so eight keeps the queue warm without flooding it.
+    public int BOT_DIRECTOR_BOOT_FILL_IN_FLIGHT = 8;
+    //Starts a second. 8/s fills 3,000 bots in ~6 min; 0 = no rate limit (the 1.6.2 behaviour: queue everything).
+    public int BOT_DIRECTOR_BOOT_FILL_PER_SECOND = 8;
     public int BOT_DIRECTOR_MAX_LOGOUTS_PER_TICK = 25;
     public int BOT_ROSTER_SEED_MIN = 100;
     //1.4.2 (ticket 57): every bot online at once, environment and director together, at the curve's peak. The
