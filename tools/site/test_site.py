@@ -902,6 +902,7 @@ class WorldTest(unittest.TestCase):
                     self.assertEqual(flat.count("$store.xc.tk !== 'NX'"), 7, (mode, "candles, depth, book, trades, form"))
                 # 1.6.2's NX book, depth and order form are only in the page as the item tabs' panels
                 self.assertIn('x-data="xbook"', page)
+                self.assertNotIn("{desk}", page)  # the mode placeholder is always filled in
         finally:
             market.NX_DESK = None
             shutil.rmtree(tmp)
