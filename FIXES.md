@@ -10,7 +10,7 @@ commit after it is one finding, with its own test.
 | F6 (functional) | fixed | `b269 fix 6` | paced boot fill (`LoginPace`: 8 in flight, 8 a second), tick budget follows the pace |
 | F8 (high) | fixed | `b269 fix 8` | `BotDbGateLoadTest`'s gossip test builds plain `Character` doubles, so it needs no config.yaml |
 | Timeouts/observability | fixed | `b269 pool timeout and share log` | `connectionTimeout` 30 s → 10 s; one `BotDbGate: …` line a minute with the pool beside it |
-| F3/F4/F5 | open | — | documented, not fixed (see the notes at the bottom) |
+| F3/F4/F5 | documented | `b269 documented what the cap does not cover` | 3 permits a login, the ungated sites, and the silent-write rule, in `BotDbGate`'s class notes and below |
 
 ## F1 — a refused or queued login is not "no"
 
@@ -98,3 +98,55 @@ and a longer wait would only keep a `bot-db` thread busy with work that is going
 
 Test: `BotDbGateTest#theMinuteLineShowsTheShareTheRefusalsAndThePool` — the line's numbers come from the two read-outs,
 and the pool-absent case says so.
+
+## F3, F4, F5 — what the cap does and does not cover
+
+Documented, not changed: the point of the gate is a hard cap plus no waiting on virtual threads, and each of these is
+either correct as it stands or is cured by the paced fill rather than by another mechanism.
+
+**F3 — a login charges three permits, and `LOGIN_SLOTS` never binds.** `BotPopulationDirector.logInNow` takes
+`LOGIN_SLOTS` (8) and then loads the bot through the gate; the load is one `hold(CHARACTER_LOAD = 3, …)` and every
+borrow nested inside it (`BotStore` item load, pet load) runs on the same thread, which the gate does not count again.
+So the six-permit share holds at most **two** logins at a time, and a third waits on the gate, not on `LOGIN_SLOTS`.
+The semaphore is a backstop for the paths that do not go through the gate (see F4); it is not the boot fill's pace.
+`LoginPace` is.
+
+**F4 — thirteen ungated borrow statements in eleven bot classes.** Verified by grep in this tree:
+
+    src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeMemoryStore.java:142
+    src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/MakerPlan.java:113
+    src/main/java/soloMapling/ArtificialPlayer/BotNames.java:305
+    src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotRebirth.java:472, 499, 539
+    src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/OffscreenBossRun.java:280
+    src/main/java/soloMapling/ArtificialPlayer/BotRoster.java:407
+    src/main/java/soloMapling/ArtificialPlayer/BotSellerCaps.java:183
+    src/main/java/soloMapling/ArtificialPlayer/BotStore.java:740
+    src/main/java/soloMapling/ArtificialPlayer/BotYieldStore.java:50
+    src/main/java/soloMapling/ArtificialPlayer/FamilyQa.java:140
+    src/main/java/soloMapling/ArtificialPlayer/PlayerWealthIndex.java:229
+
+Two of them are deliberate (the roster's and the store's one-time loads run under the locks other bot threads queue
+on, so counting them could deadlock; `BotYieldStore`'s read follows the same rule); the other nine are cache-miss reads
+that borrow one connection for one statement and never run per tick. `BotDbGate.unmetered` has exactly one caller,
+`BotStore.java:1034` inside the shutdown save sweep, which is why it is safe there: every bot is being written once and
+nothing else is running.
+
+**F5 — a refused write on a virtual thread is lost, and that is the design.** `BotMemory` runs its writes on
+`ExecutorServiceManager.runAsync` (virtual threads), so they take the non-blocking path:
+
+- `BotMemory.java:391` — followed-up stamps (`update(FOLLOWED_UP, …)`, debug on failure);
+- `BotMemory.java:635` — `writeConversationNotes` → `MemoryFacts.remember`; a refused `insert` warns and leaves the
+  note in memory only (`BotMemory.java:603-606`);
+- `BotMemory.java:773` — the age sweep's `delete`, debug on failure;
+- `BotMemory.java:991` — used-note stamps (`update(TOUCH, …)`), debug on failure.
+
+Making those block would put virtual threads back on the gate, which is what pinned carriers on 2026-11-01, so the
+answer is the paced fill: refusals are meant to be rare enough to count, and the minute line reports them. A future
+change that needs durability for one of these writes should move it to a `bot-db` thread
+(`ExecutorServiceManager.runBotDb`) rather than make the virtual thread wait.
+
+**Numbering note.** F2 (the load test's 1,000 ms budget is generous: the pre-fix run failed on the refusal/peak
+assertions, not on timing) and F7 (timeouts and the minute line) are not separate commits: F7 is the
+"timeout and observability" commit, and F2 needs no code change — the timing assertion is a smoke budget, and the
+assertions that actually separate the old gate from the new one are the refusal and peak counts, which do fail on the
+old gate (see AUDIT.md §3).

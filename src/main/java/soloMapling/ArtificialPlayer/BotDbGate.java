@@ -46,6 +46,22 @@ import java.util.concurrent.atomic.AtomicLong;
  * autosave sweep) is therefore run on a platform thread ({@link soloMapling.server.ExecutorServiceManager#runBotDb}),
  * and bot work on a virtual thread takes the non-blocking path: a permit now, or a failure the caller already
  * handles.
+ * <p>
+ * <b>What the cap does not cover (b269 audit).</b> A login charges {@link #CHARACTER_LOAD} permits for the whole
+ * nested load (a second {@code hold} from the same thread is free), so the six-permit share holds two logins, not
+ * five; {@code BotPopulationDirector.LOGIN_SLOTS} never binds. Outside this gate there are still one-shot reads that
+ * go straight to the pool in eleven bot classes - the roster's and the store's one-time loads (they run under the
+ * locks other bot threads queue on, and counting them could deadlock), the yield store's read, and nine cache-miss
+ * reads (`MakerPlan`, `BotNames`, `BotRebirth` three times, `OffscreenBossRun`, `BotSellerCaps`, `FamilyQa`,
+ * `PlayerWealthIndex`, `LifeMemoryStore`). Each borrows one connection for one statement and none runs per tick, so
+ * the pool's borrower count stays bounded; {@link #unmetered} has exactly one caller, the shutdown save sweep
+ * (`BotStore.settleAndSaveAll`).
+ * <p>
+ * A refused request fails, and a virtual thread that had nothing to show for it loses that write: bot memory stamps
+ * its notes' {@code LastUsedAt}/{@code FollowedUpAt} at debug level on a refusal, and a refused insert leaves the note
+ * in memory only. That is deliberate - making virtual threads wait here is what pinned carriers on 2026-11-01 - and the
+ * cure is the paced boot fill ({@code BotPopulationDirector.LoginPace}): refusals should be visible in the minute
+ * line, not routine.
  */
 public final class BotDbGate {
 

@@ -219,8 +219,10 @@ public final class BotPopulationDirector {
     // ── live wiring ──────────────────────────────────────────────────────────────────────────────
 
     /**
-     * Logins in flight at once. Each one loads a bot from the database, and the pool is small (52 connections on
-     * the default config): an unbounded boot fill of a thousand logins starved it and every login timed out.
+     * Platform threads inside a login at once. A backstop, not the limiter: a login loads its bot through
+     * {@link BotDbGate}, which charges {@link BotDbGate#CHARACTER_LOAD} permits for the whole nested load, so with the
+     * default six-permit share at most two logins can be inside the pool at once and eight never binds. The pace of
+     * the boot fill is {@link LoginPace}, not this (b269).
      */
     private static final java.util.concurrent.Semaphore LOGIN_SLOTS = new java.util.concurrent.Semaphore(8);
 
