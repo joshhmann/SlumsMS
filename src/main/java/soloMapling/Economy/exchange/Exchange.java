@@ -1829,6 +1829,9 @@ public final class Exchange {
         int paid = 0;
         try {
             for (long account : store.accountsWithPayout()) {
+                if (botAccount(account)) {
+                    continue; // b260: a bot's purse is a PAYOUT bucket keyed by the bot's id and is never swept
+                }
                 LiveWallet w = live.find(account);
                 if (w != null ? collectLive(w) : collectQuietly(account)) {
                     paid++;
@@ -1840,8 +1843,14 @@ public final class Exchange {
         return paid;
     }
 
+    /**
+     * Pays an offline account's waiting payouts. A trader bot is never collected here (b260): its NX purse IS its
+     * PAYOUT bucket (see {@link #botNx}), so the collect that pays a player (PAYOUT NX → the account's wallet row)
+     * would take the purse out of the only row anything reads for a bot, stranding it; the bot's mesos and items come
+     * in through {@link #collectBot} instead.
+     */
     private boolean collectQuietly(long account) {
-        if (halted || presence.test(account)) {
+        if (halted || botAccount(account) || presence.test(account)) {
             return false;
         }
         try {

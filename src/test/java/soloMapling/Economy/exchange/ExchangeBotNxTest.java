@@ -128,4 +128,36 @@ class ExchangeBotNxTest {
             System.clearProperty(soloMapling.Economy.exchange.volatility.MarketConfig.TRADERS_NX);
         }
     }
+
+    /**
+     * b260 (S3): the sweep that pays offline accounts must leave a trader bot's NX alone. A bot's purse is its own
+     * PAYOUT bucket, keyed by the bot's id (not a character), and that is the only row anything reads for a bot's NX;
+     * the collect a player gets moves PAYOUT NX into the account's wallet row, which for a bot is a row nothing reads
+     * (no cash shop), so the purse would be stranded and the bot could never sell what it bought. The bot has an
+     * accounts row here, as a bot saved through the character tables would: that is what let the sweep go through,
+     * and on MySQL the same posting is built whether the row exists or not.
+     */
+    @Test
+    void aBotsNxPurseIsNeverSweptIntoAWalletRow() throws Exception {
+        assertTrue(ex.place(new Place("p1", ACC, CHR, Side.SELL, PRICE, NX0, "NX")).ok());
+        now.addAndGet(11_000);
+        assertTrue(ex.placeBot(new Place("b1", BOT, BOT, Side.BUY, PRICE, NX0, "NX"), bot).ok());
+        assertEquals(NX0, ex.botNx(BOT), "the bot holds the purse");
+        store.addAccount(BOT, 0);
+        store.addCharacter(BOT, BOT, 0);
+        long nx0 = store.totalNx();
+        int paid = ex.collectAll();
+
+        assertEquals(NX0, ex.botNx(BOT), "the sweep leaves a bot's purse where the bot reads it");
+        assertEquals(1, paid, "only the player's payout is paid off");
+        assertEquals(0, store.nx(BOT), "and puts nothing in a wallet row no bot reads");
+        assertEquals(NX0, store.balance(Ledger.Bucket.payout(Asset.NX, BOT)), "still the purse");
+        assertEquals(nx0, store.totalNx(), "nothing minted or lost");
+
+        // and the purse still buys the bot's next order: nothing is stranded
+        now.addAndGet(11_000);
+        assertTrue(ex.placeBot(new Place("b2", BOT, BOT, Side.SELL, PRICE + 500_000, NX0, "NX"), bot).ok(),
+                "the bot can still sell what it bought");
+        assertEquals(0, ex.botNx(BOT), "the escrow left the purse");
+    }
 }
