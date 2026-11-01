@@ -108,6 +108,18 @@ class TestSiteInstallTest(DeployScriptTest):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assert_copies_tree("data/site", f"root@{TestHostTest.HOST}:/opt/slums-site-test/data/site/")
 
+    def test_every_script_sent_to_the_test_host_parses(self):
+        """Release-night follow-up (2026-11-01): the unit list has a line break in it, and a loop over it inside the
+        script sent through ssh broke that script (it stopped after nginx.conf, before the units, the build and the
+        restarts). The stub ssh here runs bash -n on what it is asked to run, so the install fails if any remote
+        script doesn't parse."""
+        with open(os.path.join(self.bin, "ssh"), "w") as f:
+            f.write('#!/bin/bash\necho "ssh $*" >> "$FAKE_LOG"\nfor last; do :; done\n'
+                    'printf "%s" "$last" | bash -n || { echo "remote script does not parse" >&2; exit 2; }\n')
+        r = self.run_script()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn("does not parse", r.stderr)
+
     def test_a_missing_item_icon_list_stops_the_install(self):
         os.remove(os.path.join(self.root, "data/site/extra-icon-items.txt"))
         r = self.run_script()

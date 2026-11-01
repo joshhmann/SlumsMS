@@ -71,7 +71,7 @@ rsync -a --delete --include '*.json' --exclude '*' "$DATA/" "$HOST:$DEST/hiddens
 ssh "$HOST" "echo $(git rev-parse --short HEAD) > $DEST/DEPLOYED_COMMIT
   sed 's/@TEST_HOST@/$TEST_HOST/g' $DEST/tools/site/test164/nginx.conf > /etc/slums-site-test/nginx.conf
   chmod 0644 /etc/slums-site-test/nginx.conf
-  for u in $UNITS; do sed 's/@TEST_HOST@/$TEST_HOST/g' $DEST/tools/site/test164/\$u > /etc/systemd/system/\$u
+  for u in $(echo $UNITS); do sed 's/@TEST_HOST@/$TEST_HOST/g' $DEST/tools/site/test164/\$u > /etc/systemd/system/\$u
     chmod 0644 /etc/systemd/system/\$u; done
   systemctl daemon-reload
   nginx -t -q -c /etc/slums-site-test/nginx.conf
