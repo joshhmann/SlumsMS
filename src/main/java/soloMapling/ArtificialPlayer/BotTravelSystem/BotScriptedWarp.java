@@ -39,6 +39,12 @@ public final class BotScriptedWarp {
             new WarpEdge(222010300, "west00", 222010200, 5),
             // Leafre: Cave of Life - Entrance's out00 (hontale_morph2.js) -> Peak of the Big Nest, portal 4.
             new WarpEdge(240040700, "out00", 240040600, 4),
+            // b266: the instructors' doors. Henesys Park's in02 (enterAchter.js -> Bowman Instructional School,
+            // portal 9 "out02") and Ellinia's jobin00 (enterMagiclibrar.js -> Magic Library, portal 8) are both
+            // scripted, so the pure-movement graph saw no way into either school and the job errand declared the
+            // instructor unreachable. Their own ways out are plain portals, so these two inbound edges suffice.
+            new WarpEdge(100000200, "in02", 100000201, 9),
+            new WarpEdge(101000000, "jobin00", 101000003, 8),
     };
 
     private static final Map<Integer, List<WarpEdge>> BY_FROM = buildEdges();

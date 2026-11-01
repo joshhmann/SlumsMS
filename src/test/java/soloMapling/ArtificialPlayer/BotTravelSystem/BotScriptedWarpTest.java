@@ -13,7 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * b230 (auto-QA t-nv-2): the curated scripted warps that give Rien, Korean Folk Town's Black Mountain and Leafre's Cave
- * of Life their way back, each checked against the map's real portal and the script it runs.
+ * of Life their way back; b266: the two job instructors' doors. Each checked against the map's real portal and the
+ * script it runs.
  */
 class BotScriptedWarpTest {
 
@@ -21,6 +22,8 @@ class BotScriptedWarpTest {
             {140020200, 140020300}, // Rien: Snow-covered Field 3 -> the whale's dock (enterPort.js)
             {222010300, 222010200}, // Korean Folk Town: Fox Ridge -> Tiger Ridge (foxLaidy_map.js)
             {240040700, 240040600}, // Leafre: Cave of Life - Entrance -> Peak of the Big Nest (hontale_morph2.js)
+            {100000200, 100000201}, // b266: Henesys Park -> Bowman Instructional School (enterAchter.js)
+            {101000000, 101000003}, // b266: Ellinia -> Magic Library (enterMagiclibrar.js)
     };
 
     @Test

@@ -506,6 +506,14 @@ public final class GCMovement {
                 GCTravel.savedReturn(bot), bot.getLevel());
     }
 
+    /* As route(Character, int) over free hops only: the walk this bot can make with no mesos on it. GCTravel replans
+     * exactly this way when a fare can't be paid (Trip.noFares), so it is what such a bot really walks. Null when
+     * only paid transit connects the maps. */
+    public static List<Integer> freeRoute(Character bot, int toMapId) {
+        return GCWorldGraph.route(bot.getMapId(), toMapId, ROUTE_MAX_HOPS, soloMapling.ArtificialPlayer.BotTravelSystem.BotMapGates.rebirthsOf(bot), false,
+                GCTravel.savedReturn(bot), bot.getLevel());
+    }
+
     /* Ticket 59: for ms from now this bot's trips give up instead of warping (a walk a player asked for in chat). */
     public static void forbidWarps(Character bot, long ms) {
         if (bot != null) {
