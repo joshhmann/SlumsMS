@@ -1,7 +1,8 @@
 # Website QA for 1.6.0: the owner's part (TEST)
 
 Everything else is automatic (`tools/site/test164/qa.sh`). These need a person in game. Use the TEST client and the
-TEST site, **http://192.168.0.164:8192/**, on the home network. Mark each Pass / Issue / Fail.
+TEST site, **http://192.168.0.111:8192/** (`SLUMS_TEST_HOST`; it was 192.168.0.164 until 1.6.3), on the home
+network. Mark each Pass / Issue / Fail.
 
 1. **Sign in with your username and password.** On the site, open Slums Market. You land on the sign-in page: sign
    in with a TEST account's game username and password. You land in the market, signed in.

@@ -1,5 +1,5 @@
 [Unit]
-Description=SlumsMS TEST site on 192.168.0.164:8192 (its own nginx process, not the shared one)
+Description=SlumsMS TEST site on @TEST_HOST@:8192 (its own nginx process, not the shared one)
 After=network.target slums-login-test.service slums-market-test.service
 
 [Service]

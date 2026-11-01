@@ -78,7 +78,8 @@ find the new one.
 
 ## Testing and resetting
 
-- **TEST** (http://192.168.0.164:8192): sign in with a test account and try the triggers.
+- **TEST** (http://192.168.0.111:8192; `SLUMS_TEST_HOST`, 192.168.0.164 until 1.6.3): sign in with a test account
+  and try the triggers.
 - **To start over in one browser:** in the browser console, run `localStorage.removeItem("slums-secrets")`, then
   `sessionStorage.clear()`.
 - **The account's saved cards** are separate from the browser. To clear them for a test account on TEST, delete its

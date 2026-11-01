@@ -6,9 +6,11 @@ The shell scripts are run for real, with git, ssh and rsync replaced by stubs th
 sees the files a deploy would really copy (and nothing is sent anywhere).
 """
 import os
+import re
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -53,11 +55,12 @@ class DeployScriptTest(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp)
 
-    def run_script(self, script=None, *args):
-        env = dict(os.environ, PATH=self.bin + ":" + os.environ["PATH"], FAKE_ROOT=self.root, FAKE_LOG=self.log)
+    def run_script(self, script=None, *args, env=None):
+        full = dict(os.environ, PATH=self.bin + ":" + os.environ["PATH"], FAKE_ROOT=self.root, FAKE_LOG=self.log)
         for key in ("SLUMS_TEST_HOST", "SLUMS_HS_DATA"):
-            env.pop(key, None)
-        return subprocess.run(["bash", os.path.join(ROOT, script or self.SCRIPT), *args], cwd=self.root, env=env,
+            full.pop(key, None)
+        full.update(env or {})
+        return subprocess.run(["bash", os.path.join(ROOT, script or self.SCRIPT), *args], cwd=self.root, env=full,
                               capture_output=True, text=True, timeout=120)
 
     def copies(self):
@@ -103,7 +106,7 @@ class TestSiteInstallTest(DeployScriptTest):
     def test_the_item_icon_list_reaches_the_test_build_folder(self):
         r = self.run_script()
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assert_copies_tree("data/site", "root@192.168.0.164:/opt/slums-site-test/data/site/")
+        self.assert_copies_tree("data/site", f"root@{TestHostTest.HOST}:/opt/slums-site-test/data/site/")
 
     def test_a_missing_item_icon_list_stops_the_install(self):
         os.remove(os.path.join(self.root, "data/site/extra-icon-items.txt"))
@@ -190,6 +193,76 @@ class DeployDocTest(unittest.TestCase):
         note = part(deploy_md(), "Release night 2026-11-01", "## 4. Add a release")
         for fact in ("extra-icon-items.txt", "absolute_redirect off", "slums-report.conf"):
             self.assertIn(fact, note)
+
+
+class TestHostTest(DeployScriptTest):
+    """1.6.3: TEST moved to 192.168.0.111; the address is one setting (SLUMS_TEST_HOST), not a copy per file."""
+
+    SCRIPT = "tools/site/test164/install.sh"
+    FILES = TestSiteInstallTest.FILES
+    HOST = "192.168.0.111"
+
+    def host_default(self, rel):
+        with open(os.path.join(ROOT, rel)) as f:
+            m = re.search(r"SLUMS_TEST_HOST[^0-9\n]*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)", f.read())
+        self.assertTrue(m, f"{rel} has no SLUMS_TEST_HOST default")
+        return m.group(1)
+
+    def test_the_three_scripts_share_one_default_host(self):
+        for rel in ("tools/site/test164/install.sh", "tools/site/test164/qa.sh", "tools/site/test164/qa.py"):
+            self.assertEqual(self.host_default(rel), self.HOST, rel)
+
+    def qa_constants(self, **env):
+        full = dict(os.environ)
+        full.pop("SLUMS_TEST_HOST", None)
+        full.update(env)
+        out = subprocess.run([sys.executable, "-c", "import qa; print(qa.TEST_HOST, qa.HOST, qa.BASE)"],
+                             cwd=os.path.join(ROOT, "tools/site/test164"), env=full, capture_output=True, text=True,
+                             timeout=120)
+        return out.stdout.split()
+
+    def test_qa_asks_the_new_host_and_can_be_pointed_elsewhere(self):
+        self.assertEqual(self.qa_constants(), [self.HOST, "root@" + self.HOST, f"http://{self.HOST}:8192"])
+        self.assertEqual(self.qa_constants(SLUMS_TEST_HOST="10.9.8.7"),
+                         ["10.9.8.7", "root@10.9.8.7", "http://10.9.8.7:8192"])
+
+    def test_the_install_goes_to_the_new_host_and_writes_it_into_the_configs(self):
+        r = self.run_script()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        log = self.copies()
+        self.assertNotIn("192.168.0.164", log, "nothing about TEST goes to the old host")
+        self.assertIn("/etc/slums-site-test/nginx.conf", log)
+        self.assertRegex(log, rf"sed 's/@TEST_HOST@/{self.HOST}/g' \S*test164/nginx\.conf")
+        self.assertRegex(log, rf"sed 's/@TEST_HOST@/{self.HOST}/g' \S*test164/\$u")
+        self.assertIn(f"TEST site at http://{self.HOST}:8192/", r.stdout)
+
+    def test_another_host_on_the_command_line_reaches_every_copy(self):
+        r = self.run_script(None, env={"SLUMS_TEST_HOST": "10.9.8.7"})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("ssh root@10.9.8.7", self.copies())
+        self.assertRegex(self.copies(), r"sed 's/@TEST_HOST@/10\.9\.8\.7/g' \S*test164/nginx\.conf")
+
+    def test_a_name_instead_of_an_address_is_refused(self):
+        r = self.run_script(None, env={"SLUMS_TEST_HOST": "mapletest"})
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("SLUMS_TEST_HOST must be an IPv4 address", r.stderr)
+        self.assertNotIn("rsync", self.copies())
+
+    def rendered(self, rel, host):
+        with open(os.path.join(ROOT, rel)) as f:
+            return f.read().replace("@TEST_HOST@", host)
+
+    def test_the_configs_render_the_host_where_the_server_needs_it(self):
+        conf = self.rendered("tools/site/test164/nginx.conf", self.HOST)
+        self.assertIn(f"listen {self.HOST}:8192;", conf)
+        self.assertIn(f"allow {self.HOST};", conf)
+        addresses = [ln.strip() for ln in conf.splitlines() if re.match(r"\s*(listen|allow)\s+\d", ln)]
+        self.assertIn(f"listen {self.HOST}:8192;", addresses)
+        self.assertIn(f"allow {self.HOST};", addresses)
+        self.assertEqual([a for a in addresses if "127.0.0.1" not in a and self.HOST not in a], [],
+                         "the config names no other address of its own")
+        unit = self.rendered("tools/site/test164/slums-site-test-web.service", self.HOST)
+        self.assertIn(f"on {self.HOST}:8192", unit)
 
 
 if __name__ == "__main__":
