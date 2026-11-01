@@ -13,7 +13,7 @@ from sections import buddy
 # An item icon in front of each guide link, like the old fan-site menus (icons: docs/site/assets/icons, icons.py --chrome).
 GUIDE_ICONS = {"index.html": 4001126, "getting-started.html": 4031180, "rates.html": 9000000, "hubs.html": 5030000,
                "getting-around.html": 2030000, "jobs.html": 1302000, "leveling.html": 4000000, "travel.html": 4031045,
-               "rebirths.html": 2340000, "regulars.html": 5072000, "shops.html": 5220000, "commands.html": 5390000,
+               "rebirths.html": 2340000, "regulars.html": 5072000, "goals.html": 1142107, "shops.html": 5220000, "commands.html": 5390000,
                "money.html": 9000003, "faq.html": 2000005, "guidebook.html": 4161001, "patch-notes": 5071000}
 
 

@@ -28,7 +28,8 @@ class SiteBuildTest(unittest.TestCase):
 
     def test_pages_exist(self):
         for rel in ["index.html", "404.html", "patch-notes/index.html", "patch-notes/1.5.0/index.html",
-                    "guide/index.html", "guide/getting-started.html", "guide/leveling.html", "assets/site.css"]:
+                    "guide/index.html", "guide/getting-started.html", "guide/leveling.html", "guide/goals.html",
+                    "assets/site.css"]:
             self.assertTrue(os.path.isfile(os.path.join(self.out, rel)), rel)
         self.assertFalse(os.path.exists(os.path.join(self.out, "guide", "changelog.html")))
 
@@ -142,6 +143,24 @@ class SiteBuildTest(unittest.TestCase):
         leveling = self._guide_text("leveling.html")
         self.assertNotIn('class="tag">R3', leveling)
         self.assertIn("<b>level 120</b> or with your <b>1st rebirth</b>", leveling)
+
+    def test_exchange_and_goals_are_documented(self):
+        """w21: 1.6.2 brought the Slums Exchange, Slums Stamps, 32 achievements and the Family perks. The public guide
+        carries them: the money page the exchange and the stamps, and there is a Goals and family page in the nav."""
+        money = self._guide_text("money.html")
+        self.assertIn("The Slums Exchange: NX for mesos", money)
+        self.assertIn("Slums Market", money)
+        self.assertIn("1% fee", money)
+        self.assertIn("2,500 to 10,000", money)
+        self.assertIn("Slums Stamps", money)
+        goals = self._guide_text("goals.html")
+        self.assertIn("Achievements: 32 goals", goals)
+        self.assertIn("@achievements all", goals)
+        self.assertIn("Family Bonding", goals)
+        self.assertIn("300 a day", goals)
+        with open(os.path.join(self.out, "guide", "index.html"), encoding="utf-8") as f:
+            home = f.read()
+        self.assertIn('href="goals"', home)
 
     def test_tarball_matches_output(self):
         with tarfile.open(self.tar) as tf:
