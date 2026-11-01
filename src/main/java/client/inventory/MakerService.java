@@ -106,7 +106,7 @@ public class MakerService {
     public static final double STIMULANT_SUCCESS_PERCENT = 90.0;
     /** Leftover items per monster crystal (stock). */
     public static final int LEFTOVERS_PER_CRYSTAL = 100;
-    /** Quest 6033 (Maker 2): crafting this crystal after starting the test marks the quest's progress. */
+    /** Quest 6033 (Maker 2): making this crystal with the skill after starting the test marks the quest's progress. */
     public static final int MAKER_2_TEST_CRYSTAL = 4260003;
 
     /**
@@ -413,11 +413,32 @@ public class MakerService {
                     chr.getMap().broadcastMessage(chr, PacketCreator.showForeignMakerEffect(chr.getId(), makerSucceeded), false);
                 }
 
-                if (toCreate == MAKER_2_TEST_CRYSTAL && type == 3 && chr.getQuestStatus(6033) == 1) {
+                if (madeMaker2TestCrystal(toCreate, recipe, type) && chr.getQuestStatus(6033) == 1) {
                     chr.setQuestProgress(6033, 0, "1");
                 }
         }
         return createStatus;
+    }
+
+    /**
+     * Moren's Maker 2 test (quest 6033): the crystal counts however the Maker skill made it — from monster leftovers
+     * (type 3) or out of a disassembled equip (type 4), the owner's call on 2026-11-01. A type-4 recipe's gains are the
+     * crystals that equip breaks into, so this asks for at least one of them being 4260003. Another crystal tier, a
+     * bought crystal and a direct recipe craft never count: the test is that crystal, made with the skill.
+     */
+    static boolean madeMaker2TestCrystal(int toCreate, MakerItemFactory.MakerItemCreateEntry recipe, int type) {
+        if (type == 3) {
+            return toCreate == MAKER_2_TEST_CRYSTAL;
+        }
+        if (type != 4) {
+            return false;
+        }
+        for (Pair<Integer, Integer> gain : recipe.getGainItems()) {
+            if (gain.getLeft() == MAKER_2_TEST_CRYSTAL && gain.getRight() > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

@@ -2,6 +2,7 @@ package client.inventory;
 
 import client.Character;
 import client.Client;
+import client.QuestStatus;
 import client.Skill;
 import client.SkillFactory;
 import config.YamlConfig;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import server.MakerItemFactory;
 import server.MakerItemFactory.MakerItemCreateEntry;
+import server.quest.Quest;
 
 import java.lang.reflect.Field;
 import java.nio.file.Files;
@@ -27,11 +29,14 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 /**
  * Ticket 112 (owner 2026-10-30): the real Maker is back with stock rules. This pins the shared Maker path that the
@@ -236,6 +241,111 @@ class MakerServiceTest {
             int luck = MakerService.gemLuck(4250000);
             assertTrue(luck >= 0 && luck <= 2);
             assertTrue(MakerService.gemLuck(4250001) <= 1);
+        }
+    }
+
+    // --- Moren's Maker 2 test (quest 6033): the crystal counts from a disassembly too ------------------------------
+    // Owner, 2026-11-01: a 4260003 the Maker skill made counts whether it came from monster leftovers (type 3) or out
+    // of a disassembled equip (type 4), as long as 6033 was started first. A disassembly that never set the progress
+    // sent players to 6033.js holding a crystal Moren then refused ("go craft me one").
+
+    private static final int QUEST_6033 = 6033;
+    private static final int CRYSTAL_BELOW_TEST = 4260000;   // Basic Monster Crystal 1: a different tier
+    private static final int JUNK_EQUIP = 1002000;
+
+    /** Quest 6033's status and progress live on the character; its WZ data is not needed for either. */
+    private static Quest stubQuest() {
+        Quest quest = mock(Quest.class);
+        when(quest.getId()).thenReturn((short) QUEST_6033);
+        return quest;
+    }
+
+    private static Character explorerOn6033(Quest quest, QuestStatus.Status status) {
+        Character chr = explorer(1);
+        chr.gainMeso(10_000, false);
+        chr.updateQuestStatus(new QuestStatus(quest, status));
+        return chr;
+    }
+
+    /** The disassembly of one equipped junk item, breaking into these crystals. */
+    private static MakerItemCreateEntry junkDisassembly(int fee, int... crystals) {
+        List<tools.Pair<Integer, Integer>> gains = new ArrayList<>();
+        for (int crystal : crystals) {
+            gains.add(new tools.Pair<>(crystal, 1));
+        }
+        return MakerItemFactory.generateDisassemblyCrystalEntry(JUNK_EQUIP, fee, gains);
+    }
+
+    private static void disassemble(FakeHands h, MakerItemCreateEntry recipe) {
+        h.held.put(JUNK_EQUIP, 1);
+        short status = MakerService.getCreateStatus(h, recipe);
+        assertEquals(0, status, "the disassembly was refused");
+        MakerService.applyMakerResult(h, status, JUNK_EQUIP, recipe, JUNK_EQUIP, (short) 0, -1, new LinkedHashMap<>(), true, 4);
+    }
+
+    @Test
+    void aDisassemblyThatYieldsTheTestCrystalCountsWhileTheTestRuns() {
+        try (var quests = mockStatic(Quest.class)) {
+            Quest quest = stubQuest();
+            quests.when(() -> Quest.getInstance(anyInt())).thenReturn(quest);
+
+            FakeHands h = new FakeHands(explorerOn6033(quest, QuestStatus.Status.STARTED));
+            disassemble(h, junkDisassembly(200, CRYSTAL_BELOW_TEST, MakerService.MAKER_2_TEST_CRYSTAL));
+
+            assertEquals(1, h.given.get(MakerService.MAKER_2_TEST_CRYSTAL), "the disassembly gave the crystal");
+            assertEquals("1", h.chr.getQuest(quest).getProgress(0), "the crystal a disassembly gave passes Moren's test");
+        }
+    }
+
+    @Test
+    void aDisassemblyBeforeTheTestStartedDoesNotCount() {
+        try (var quests = mockStatic(Quest.class)) {
+            Quest quest = stubQuest();
+            quests.when(() -> Quest.getInstance(anyInt())).thenReturn(quest);
+
+            FakeHands h = new FakeHands(explorerOn6033(quest, QuestStatus.Status.NOT_STARTED));
+            disassemble(h, junkDisassembly(200, MakerService.MAKER_2_TEST_CRYSTAL));
+
+            assertEquals(1, h.given.get(MakerService.MAKER_2_TEST_CRYSTAL));
+            assertNotEquals("1", h.chr.getQuest(quest).getProgress(0), "a crystal from before the test proves nothing");
+        }
+    }
+
+    @Test
+    void aDisassemblyOfOtherCrystalsDoesNotCount() {
+        try (var quests = mockStatic(Quest.class)) {
+            Quest quest = stubQuest();
+            quests.when(() -> Quest.getInstance(anyInt())).thenReturn(quest);
+
+            FakeHands h = new FakeHands(explorerOn6033(quest, QuestStatus.Status.STARTED));
+            disassemble(h, junkDisassembly(200, CRYSTAL_BELOW_TEST));
+
+            assertEquals(1, h.given.get(CRYSTAL_BELOW_TEST));
+            assertNotEquals("1", h.chr.getQuest(quest).getProgress(0), "only 4260003 is Moren's test crystal");
+        }
+    }
+
+    @Test
+    void aLeftoverCrystalStillCountsForTheTest() {
+        try (var quests = mockStatic(Quest.class)) {
+            Quest quest = stubQuest();
+            quests.when(() -> Quest.getInstance(anyInt())).thenReturn(quest);
+
+            FakeHands h = new FakeHands(explorerOn6033(quest, QuestStatus.Status.STARTED));
+            h.held.put(LEFTOVER, MakerService.LEFTOVERS_PER_CRYSTAL);
+            MakerItemCreateEntry recipe = MakerItemFactory.generateLeftoverCrystalEntry(LEFTOVER, MakerService.MAKER_2_TEST_CRYSTAL);
+            short status = MakerService.getCreateStatus(h, recipe);
+            assertEquals(0, status);
+            MakerService.applyMakerResult(h, status, MakerService.MAKER_2_TEST_CRYSTAL, recipe, -1, (short) -1, -1, new LinkedHashMap<>(), true, 3);
+
+            assertEquals("1", h.chr.getQuest(quest).getProgress(0), "the type 3 path is unchanged");
+
+            FakeHands early = new FakeHands(explorerOn6033(quest, QuestStatus.Status.NOT_STARTED));
+            early.held.put(LEFTOVER, MakerService.LEFTOVERS_PER_CRYSTAL);
+            short earlyStatus = MakerService.getCreateStatus(early, recipe);
+            MakerService.applyMakerResult(early, earlyStatus, MakerService.MAKER_2_TEST_CRYSTAL, recipe, -1, (short) -1, -1, new LinkedHashMap<>(), true, 3);
+            assertEquals(1, early.given.get(MakerService.MAKER_2_TEST_CRYSTAL));
+            assertNotEquals("1", early.chr.getQuest(quest).getProgress(0), "a crystal from before the test proves nothing");
         }
     }
 
