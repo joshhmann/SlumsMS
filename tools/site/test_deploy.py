@@ -146,5 +146,51 @@ class NginxRedirectTest(unittest.TestCase):
         self.assertIn("8092", part, "the comment says what the redirect leaked: the server's own port")
 
 
+def flat(text):
+    return " ".join(text.split())
+
+
+def part(text, start, end):
+    """The slice of a document between two markers, whitespace flattened."""
+    return flat(text[text.index(start):text.index(end, text.index(start))])
+
+
+def deploy_md():
+    with open(os.path.join(ROOT, "docs/site/DEPLOY.md")) as f:
+        return f.read()
+
+
+class DeployDocTest(unittest.TestCase):
+    """audit: section 3b did not say what release night 2026-11-01 taught (backups, the report map, the icon list)."""
+
+    def test_step_1_backs_up_the_report_map_outside_conf_d(self):
+        step = part(deploy_md(), "1. Stop the rebuilds", "2. Code and build")
+        self.assertIn("/root/slums-report.conf.pre-161", step)
+        self.assertNotIn("conf.d/slums-report.conf.pre", step, "a copy inside conf.d is loaded as config")
+
+    def test_step_2_says_the_item_icon_list_is_copied(self):
+        self.assertIn("extra-icon-items.txt", part(deploy_md(), "2. Code and build", "3. Swap the site in"))
+
+    def test_step_5_installs_the_report_map_and_the_redirect_line(self):
+        step = part(deploy_md(), "5. nginx", "6. Start the rebuilds")
+        self.assertIn("slums-report.nginx.conf", step)
+        self.assertIn("conf.d/slums-report.conf", step)
+        self.assertIn("X-Forwarded-For", step)
+        self.assertIn("absolute_redirect off", step)
+
+    def test_step_8_adds_the_inspect_lines_when_the_unit_has_none(self):
+        step = part(deploy_md(), "8. Staff Bots page", "### Website rollback")
+        self.assertIn("SLUMS_LOGIN_INSPECT_", step)
+        self.assertIn("add (or uncomment)", step)
+
+    def test_the_rollback_restores_the_report_map(self):
+        self.assertIn("slums-report.conf.pre-161", part(deploy_md(), "### Website rollback", "## 4. Add a release"))
+
+    def test_the_release_night_note_names_what_went_differently(self):
+        note = part(deploy_md(), "Release night 2026-11-01", "## 4. Add a release")
+        for fact in ("extra-icon-items.txt", "absolute_redirect off", "slums-report.conf"):
+            self.assertIn(fact, note)
+
+
 if __name__ == "__main__":
     unittest.main()

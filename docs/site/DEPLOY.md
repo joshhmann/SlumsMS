@@ -146,10 +146,15 @@ stopped from step 1 until nginx knows the 1.6.1 URLs (step 6). World shows numbe
    for f in report_service.py report_export.py; do cp -p /opt/slums-report/$f{,.pre-161}; done
    for u in slums-market slums-login slums-report; do cp -p /etc/systemd/system/$u.service{,.pre-161}; done
    cp -p /etc/nginx/sites-available/slums-site{,.pre-161}
+   [ -e /etc/nginx/conf.d/slums-report.conf ] && cp -p /etc/nginx/conf.d/slums-report.conf /root/slums-report.conf.pre-161
    ```
+   The report form's file is backed up **outside** `conf.d`: a copy left in there (`slums-report.conf.pre-161`) is
+   loaded as a second config file and `nginx -t` stops on the duplicate `map`. `/root` is the place.
    Check: `systemctl is-active slums-site-market.timer slums-site-world.timer` says `inactive` twice.
 2. Code and build. On 187, `tools/site/deploy-build-164.sh` copies the 1.6.1 code, data and icon cache
-   (`cache/site-icons`) to `/opt/slums-site-build` on 164 (it builds nothing). Then on 164, check the staff dashboard
+   (`cache/site-icons`) to `/opt/slums-site-build` on 164 (it builds nothing). "Data" includes
+   `data/site/extra-icon-items.txt`, the market items with no Slums Street page (`sections/dbdata.py`
+   `EXTRA_ICON_ITEMS`); release night shipped without it and three icons had to be copied by hand. Then on 164, check the staff dashboard
    is there (`ls /srv/slums-dashboard/web/index.html`; admin/ is built from the installed dashboard, like TEST's
    `/srv/slums-dashboard-test/web`) and build into a new folder:
    ```
@@ -184,10 +189,17 @@ stopped from step 1 until nginx knows the 1.6.1 URLs (step 6). World shows numbe
      `127.0.0.1:8095/api/market/health` and `127.0.0.1:8093/api/report/health` all give `{"ok": true}`;
      `journalctl -u slums-market -n 3` says `market service (Flask) ... exchange on`; `ss -ltn | grep 8097` shows the
      staff reader. Signed in, a watch added on a database page shows on `/market/mine` (the watchlist survived).
-5. nginx: add part 3 of `tools/site/slums-login.nginx.conf` (clean URLs, `/admin/`, `/admin/data/`,
-   `/api/report/staff/`, `@signagain`) and the `try_files` line in `/database/` and `/market/`; `nginx -t && systemctl
-   reload nginx`. The download-pass part (`slums-pass.nginx.conf`, ticket 106, `satisfy any`) belongs to the patch
-   host's server block and is its own step in the launcher release.
+5. nginx, in three places (each is a paste of a numbered part of the file named):
+   - `tools/site/slums-login.nginx.conf` part 3 into the site's `server { }`: clean URLs, `/admin/`, `/admin/data/`,
+     `/api/report/staff/`, `@signagain`, and `absolute_redirect off;` at the server level (part 3a). Without that line
+     every clean-URL redirect (and `try_files`' own slash redirect) answers `http://<host>:8092/...`, the internal
+     port; it goes in the server block, not in a location. Add the `try_files` line to `/database/` and `/market/` too.
+   - `tools/site/slums-report.nginx.conf` part 1 (the `map` that keys the report limit on the right-most
+     `X-Forwarded-For` entry, audit W11) into `/etc/nginx/conf.d/slums-report.conf`: the visitor, not the front proxy.
+     That file also needs the server-level `absolute_redirect off;` if part 3a was not pasted into this block for some
+     reason; one line covers every location in the block.
+   Then `nginx -t && systemctl reload nginx`. The download-pass part (`slums-pass.nginx.conf`, ticket 106, `satisfy any`)
+   belongs to the patch host's server block and is its own step in the launcher release.
 6. Start the rebuilds again: `systemctl start slums-site-market.service slums-site-world.service` (one run each, now),
    then `systemctl start slums-site-market.timer slums-site-world.timer` (every 2 minutes). Checks:
    `systemctl is-failed slums-site-market.service slums-site-world.service` says `inactive` twice (not `failed`);
@@ -206,8 +218,9 @@ stopped from step 1 until nginx knows the 1.6.1 URLs (step 6). World shows numbe
    - a database page shows its icons; a test report sent from `/report/` shows server 1.6.2 in the staff Reports tab.
 8. Staff Bots page (ticket 157), only with the owner's go for bot inspect on live (the game's 1.6.2 deploy starts it
    with `-Dslums.inspect=true -Dslums.inspect.port=8098 -Dslums.inspect.secretFile=/etc/slums-inspect/secret`; that
-   file, made once by the owner, group `slums-login`, mode 0640). In `/etc/systemd/system/slums-login.service`
-   uncomment the two `SLUMS_LOGIN_INSPECT_*` lines and add `-/etc/slums-inspect` to `ReadOnlyPaths`, then
+   file, made once by the owner, group `slums-login`, mode 0640). In `/etc/systemd/system/slums-login.service` add
+   (or uncomment) the two `SLUMS_LOGIN_INSPECT_*` lines; the live unit had neither, only the repo's copy has them
+   commented out. Then add `-/etc/slums-inspect` to `ReadOnlyPaths`, and
    `systemctl daemon-reload && systemctl restart slums-login`. Checks: `journalctl -u slums-login -n 2` ends
    `bot inspect http://127.0.0.1:8098`; signed in as GM 3+, `/admin/bots` lists the busiest maps and opens a bot.
    Without the go, skip it: the Bots page then says bot inspect is off, and nothing else changes.
@@ -223,6 +236,7 @@ cp -p /opt/slums-login/login_service.py.pre-161 /opt/slums-login/login_service.p
 for f in report_service.py report_export.py; do cp -p /opt/slums-report/$f.pre-161 /opt/slums-report/$f; done
 for u in slums-market slums-login slums-report; do cp -p /etc/systemd/system/$u.service.pre-161 /etc/systemd/system/$u.service; done
 systemctl daemon-reload && systemctl restart slums-login slums-report slums-market
+cp -p /root/slums-report.conf.pre-161 /etc/nginx/conf.d/slums-report.conf && nginx -t
 cp -p /etc/nginx/sites-available/slums-site.pre-161 /etc/nginx/sites-available/slums-site && nginx -t && systemctl reload nginx
 systemctl start slums-site-market.timer slums-site-world.timer
 ```
@@ -235,6 +249,18 @@ The market alone: `cp -p /etc/systemd/system/slums-market.service.pre-161 /etc/s
 `systemctl daemon-reload && systemctl restart slums-market`. That runs market_service.py on the same database
 (watchlists, alerts, posts and cards are kept), from the 1.6.1 code in `/opt/slums-site-build`, which still has it.
 The exchange page then shows an error instead of "not open yet".
+
+### Release night 2026-11-01: what went differently
+
+Not a step; what this section now says because the night itself went this way. (Dates are UTC.)
+- **`conf.d/slums-report.conf` was edited on live but had no backup.** The copy was made inside `conf.d`, where a second
+  file is loaded as config. Step 1 now backs it up to `/root` and the rollback restores it.
+- **`absolute_redirect off;` was added by hand.** Every clean-URL redirect had been answering with `http://<host>:8092/`;
+  it is now part of part 3a, at the server level.
+- **Three market icons were missing** until `data/site/extra-icon-items.txt` was copied to `/opt/slums-site-build` by
+  hand: `deploy-build-164.sh` skipped `data/site`. Both copy scripts carry it now and stop if it is missing.
+- **The `SLUMS_LOGIN_INSPECT_*` lines were not in the live unit**, not even commented, so step 8 says "add (or
+  uncomment)".
 
 ## 4. Add a release's patch notes
 
