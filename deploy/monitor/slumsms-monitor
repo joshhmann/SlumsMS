@@ -22,7 +22,8 @@ webhook URLs in /etc/slumsms-monitor/<target>.env (root-only, 0600, never in git
 goes to the local log only (/var/log/slumsms-monitor/<target>.log). State lives in /var/lib/slumsms-monitor/<target>/.
 
 Python 3 standard library plus PyYAML (for the server's config.yaml). Read-only towards the server: it runs systemctl
-show/is-active, journalctl, jstat, docker inspect/exec (SELECT only) and HTTP GETs; it never starts or stops anything.
+show/is-active, journalctl, jstat, docker inspect/exec (SELECT only), HTTP GETs and stats/reads the tail of the game
+log; it never starts or stops anything.
 """
 import argparse
 import datetime as dt
@@ -64,6 +65,11 @@ DEFAULTS = {
     "DISK_MIN_FREE_PCT": "5",
     "BOTS_MIN_RATIO": "0.6",          # online bots below this share of the director target ...
     "BOTS_GRACE_MIN": "20",           # ... once the server has been up this long
+    # Game log silence: a hung world loop stops writing while the login port still answers (unit + port both "up").
+    "GAME_LOG_FILE": "",              # default: <SERVER_DIR>/BotLog.txt, the world loop's own activity log
+    "LOG_SILENCE_MIN": "5",           # alert after the log has been quiet this long ...
+    "LOG_MIN_BYTES": "1024",          # ... i.e. grew less than this per minute (a hang trickles ~50 B/min)
+    "LOG_GRACE_MIN": "10",            # never judge a server that booted less than this ago (a restart resets)
     "LLM_URL": "http://192.168.0.17:8095/health",
     "DECIDE_URL": "http://192.168.0.17:8900/health",
     "HTTP_TIMEOUT": "5",
@@ -99,7 +105,7 @@ DEFAULTS = {
     # consecutive failed runs before a check alerts (timer runs every minute)
     "FAIL_AFTER_unit": "1", "FAIL_AFTER_login": "2", "FAIL_AFTER_errors": "1", "FAIL_AFTER_memory": "5",
     "FAIL_AFTER_db": "2", "FAIL_AFTER_disk": "1", "FAIL_AFTER_bots": "10", "FAIL_AFTER_llm": "1",
-    "FAIL_AFTER_decide": "1", "FAIL_AFTER_timers": "1",
+    "FAIL_AFTER_decide": "1", "FAIL_AFTER_timers": "1", "FAIL_AFTER_log": "2",
 }
 
 SERVER_CONFIG_DEFAULTS = {  # src/main/java/config/ServerConfig.java
@@ -463,6 +469,38 @@ def journal_lines(unit, since):
     return out.splitlines() if code == 0 else None
 
 
+# ------------------------------------------------------------------------------------------------------ game log
+
+LAST_LINE_STAMP = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]")
+LOG_TAIL_BYTES = 8192
+
+
+def game_log_path(t):
+    """The file the world loop writes: GAME_LOG_FILE, else <SERVER_DIR>/BotLog.txt.
+
+    Not logs/cosmic-log.log: every other JVM that starts in the server folder rolls that file (log4j2
+    OnStartupTriggeringPolicy), so its size and mtime say nothing about the game process. BotLog.txt is written by
+    the world loop alone (soloMapling.BotLogger) and it rolls at 100 MB or midnight into logs/botlog/."""
+    return t.get("GAME_LOG_FILE") or (os.path.join(t.get("SERVER_DIR"), "BotLog.txt")
+                                      if t.get("SERVER_DIR") else "")
+
+
+def game_log_last_stamp(path):
+    """The "[YYYY-MM-DD HH:MM:SS]" of the log's own last timestamped line (the server's local clock), or None."""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - LOG_TAIL_BYTES))
+            tail = f.read().decode("utf-8", "replace")
+    except OSError:
+        return None
+    for line in reversed(tail.splitlines()):
+        m = LAST_LINE_STAMP.match(line.strip())
+        if m:
+            return m.group(1)
+    return None
+
+
 # ------------------------------------------------------------------------------------------------------ cloud chat
 
 def cloud_budget_path(t):
@@ -645,12 +683,13 @@ class Result:
         self.managed, self.event, self.rollback = managed, event, rollback
 
 
-def run_checks(t, cloud=None):
+def run_checks(t, cloud=None, checks=None):
     results = []
     unit = t.get("UNIT")
     info = unit_info(unit)
     up = bool(info and info["active"] == "active")
     pid = info["pid"] if info else 0
+    login_state = None   # (ok, detail) of the port probe, for the game log check
 
     def add(key, name, ok, detail, skipped=False):
         results.append(Result(key, name, ok, scrub(detail), skipped))
@@ -670,9 +709,67 @@ def run_checks(t, cloud=None):
             add("login", "login port", True, "skipped (server down)", skipped=True)
         else:
             ok, detail = login_answers(t.get("LOGIN_HOST"), port)
+            login_state = (ok, detail)
             add("login", "login port", ok, "port %d %s" % (port, "answers (%s)" % detail if ok else detail))
 
-    # 3. journal error rate
+    # 3. game log silence while the login port answers: a hung world loop keeps the port open but stops the log,
+    #    so the unit and the port both look healthy (2026-10-31 Fads/PlayerStorage hang, 2026-11-01 pool livelock).
+    log_path = game_log_path(t)
+    silence = t.num("LOG_SILENCE_MIN") * 60
+    if log_path and silence > 0:
+        state = {} if checks is None else checks.setdefault("log", {})
+        now = time.time()
+
+        def restart_timer():
+            for key in ("log_size", "log_inode", "log_quiet_since"):
+                state.pop(key, None)
+
+        if unit and not up:
+            add("log", "game log", True, "skipped (server down)", skipped=True)
+        elif up and (info["up_seconds"] or 0) < t.num("LOG_GRACE_MIN") * 60:
+            restart_timer()
+            add("log", "game log", True, "server restarted %s ago, not judging the log yet"
+                % human_duration(info["up_seconds"] or 0))
+        else:
+            try:
+                st = os.stat(log_path)
+            except OSError:
+                restart_timer()
+                add("log", "game log", True, "no game log file at %s" % log_path)
+            else:
+                prev_size, prev_inode = state.get("log_size"), state.get("log_inode")
+                last_run = state.get("log_last_run") or now
+                minutes = max(1.0, (now - last_run) / 60.0)
+                # a rotation, a truncation or the first sample: start the timer from the file's own mtime
+                fresh = prev_size is None or st.st_size < prev_size or (
+                    prev_inode is not None and prev_inode != st.st_ino)
+                if fresh:
+                    quiet_since = min(st.st_mtime, now)
+                elif st.st_size - prev_size >= t.num("LOG_MIN_BYTES") * minutes:
+                    quiet_since = now
+                else:
+                    quiet_since = state.get("log_quiet_since", st.st_mtime)
+                state.update(log_inode=st.st_ino, log_size=st.st_size, log_last_run=now,
+                             log_quiet_since=quiet_since)
+                quiet = max(0.0, now - quiet_since)
+                if quiet < silence:
+                    add("log", "game log", True, "%s last grew %s ago, last line %s server time"
+                        % (log_path, human_duration(quiet), game_log_last_stamp(log_path) or "unknown"))
+                elif login_state is None:
+                    add("log", "game log", True, "game log silent since %s (%s), no login port configured to tell "
+                        "a hang from a stopped server" % (fmt_hms(quiet_since), human_duration(quiet)), skipped=True)
+                elif login_state[0]:
+                    add("log", "game log", False,
+                        "game log silent since %s (%s) while login:%d answers — world loop likely hung "
+                        "(log %s, last line %s server time)" % (fmt_hms(quiet_since), human_duration(quiet), port,
+                                                                log_path, game_log_last_stamp(log_path) or "unknown"))
+                else:
+                    add("log", "game log", True,
+                        "game log silent since %s (%s) and login:%d also down — server/host down "
+                        "(the login port check reports it)" % (fmt_hms(quiet_since), human_duration(quiet), port),
+                        skipped=True)
+
+    # 4. journal error rate
     if unit:
         window = int(t.num("ERROR_WINDOW_MIN")) or 5
         lines = journal_lines(unit, "-%dmin" % window)
@@ -684,7 +781,7 @@ def run_checks(t, cloud=None):
             add("errors", "error rate", len(errors) <= limit,
                 "%d ERROR/Exception lines in the last %d min (limit %d)" % (len(errors), window, limit))
 
-    # 4. memory
+    # 5. memory
     if up and pid:
         xmx = t.num("HEAP_MAX_MB") or proc_xmx_mb(pid)
         rss = proc_rss_mb(pid)
@@ -706,7 +803,7 @@ def run_checks(t, cloud=None):
         else:
             add("memory", "memory", True, "no -Xmx found", skipped=True)
 
-    # 5. DB container
+    # 6. DB container
     db = None
     container = t.get("DB_CONTAINER")
     if container:
@@ -724,7 +821,7 @@ def run_checks(t, cloud=None):
         if not ok:
             db = None
 
-    # 6. disk
+    # 7. disk
     paths = t.get("DISK_PATHS").split() + ([t.get("SERVER_DIR")] if t.get("SERVER_DIR") else [])
     seen, low, parts = set(), [], []
     for path in paths:
@@ -744,7 +841,7 @@ def run_checks(t, cloud=None):
     if parts:
         add("disk", "disk space", not low, "; ".join(low or parts))
 
-    # 7. bots vs the director target
+    # 8. bots vs the director target
     if up and pid:
         args = proc_args(pid)
         cfg = t.server_config()
@@ -779,7 +876,7 @@ def run_checks(t, cloud=None):
                         ok, detail = False, detail + " (below %.0f%%)" % (ratio * 100)
                     add("bots", "bot population", ok, detail)
 
-    # 8. LLM and Decide
+    # 9. LLM and Decide
     timeout = t.num("HTTP_TIMEOUT") or 5
     for key, name, url_key in (("llm", "bot chat LLM", "LLM_URL"), ("decide", "Decide", "DECIDE_URL")):
         url = t.get(url_key)
@@ -791,7 +888,7 @@ def run_checks(t, cloud=None):
             hostport = re.sub(r"^https?://([^/]+).*$", r"\1", url)
             add(key, name, ok, "%s %s%s" % (hostport, detail, "" if ok else " (bots fall back to scripted lines)"))
 
-    # 9. scheduled jobs
+    # 10. scheduled jobs
     timers = t.get("TIMERS").split()
     if timers:
         bad, parts = [], []
@@ -819,7 +916,7 @@ def run_checks(t, cloud=None):
                 parts.append("%s ok%s" % (base, (" (%s ago)" % human_duration(time.time() - last)) if last else ""))
         add("timers", "scheduled jobs", not bad, "; ".join(bad or parts))
 
-    # 10. cloud chat spend and account balance (state: <state>/cloud.json, see cmd_check)
+    # 11. cloud chat spend and account balance (state: <state>/cloud.json, see cmd_check)
     if cloud is not None:
         path = cloud_budget_path(t)
         budget = read_cloud_budget(path)
@@ -903,16 +1000,20 @@ def fmt_since(ts):
     return dt.datetime.fromtimestamp(ts, dt.timezone.utc).strftime("%H:%M UTC")
 
 
+def fmt_hms(ts):
+    return dt.datetime.fromtimestamp(ts, dt.timezone.utc).strftime("%H:%M:%S UTC")
+
+
 def cmd_check(t, args):
     now = time.time()
     cloud_path = os.path.join(t.state_dir, "cloud.json")
     cloud = load_json(cloud_path, {})
     if not isinstance(cloud, dict):
         cloud = {}
-    results = run_checks(t, cloud)
     state_path = os.path.join(t.state_dir, "checks.json")
     state = load_json(state_path, {"checks": {}, "sent": []})
     checks = state.setdefault("checks", {})
+    results = run_checks(t, cloud, checks)
     alerts, recoveries, new_alert_keys, rollbacks = [], [], [], []
     remind = t.num("REMIND_MIN") * 60
 

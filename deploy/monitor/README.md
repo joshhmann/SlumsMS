@@ -9,6 +9,7 @@ announcements, for one or more game servers on 192.168.0.164. Python 3 standard 
 |---|---|---|
 | server process | the unit is not `active` | 1 run |
 | login port | no v83 hello packet from the login port (skipped while the unit is down) | 2 runs |
+| game log | `GAME_LOG_FILE` (`<server>/BotLog.txt`) grew less than `LOG_MIN_BYTES` (1 KB) per minute for `LOG_SILENCE_MIN` (5) minutes **while the login port answers**; a roll (new inode), a truncation or a restart resets the timer | 2 runs |
 | error rate | more than `ERROR_MAX` (60) `ERROR`/`Exception` journal lines in `ERROR_WINDOW_MIN` (5) minutes | 1 run |
 | memory | old gen above `HEAP_WARN_PCT` (92%) of `-Xmx` (jstat), or RSS above `RSS_WARN_PCT` (175%) of `-Xmx` | 5 runs |
 | database | the DB container is not running/healthy, or `SELECT 1` fails | 2 runs |
@@ -36,6 +37,18 @@ webhook down) is not used up and goes out later.
   dropped: `/user/balance` sits at the root). HTTP errors are retried every minute until the third in a row, the
   alert says only `HTTP 401` / `unreachable (...)`, never the URL; after the alert it goes back to the 45-minute
   interval. No key in the file = skipped, no request. An answer without a USD entry is skipped too.
+
+The game log check is the one for "up but frozen": twice in one week the login port answered while the world loop
+was stuck (a lock-order hang in `Fads`/`PlayerStorage`, a HikariCP pool livelock under 3,000 bots), so every other
+check stayed green. Two things make it work: it watches `BotLog.txt`, which only the world loop writes (`BotLogger`;
+`logs/cosmic-log.log` is rolled by any other JVM that starts in the server folder, so its size says nothing about
+the game), and it counts bytes, not lines — a hung server still trickles `[BotEquipChecker] Scan complete` from its
+own scheduler every 2.5 minutes, about 50 bytes a minute, against 300–900 KB/min when it is alive. The alert names
+the side that is silent: `game log silent since 22:47:03 UTC (7m) while login:8485 answers — world loop likely hung
+(log /opt/mapleroot/MapleRoot Full Repack/Server/BotLog.txt, last line 2026-10-31 22:47:12 server time)`. When the login port is
+down as well the log check stays quiet and says `server/host down`, because the unit and login checks already alert.
+A server that booted less than `LOG_GRACE_MIN` (10) minutes ago is not judged, so a restart is never a hang; no file
+at all is "ok, nothing to watch" (`GAME_LOG_FILE=`, `LOG_SILENCE_MIN=0` switch it off).
 
 The director target is computed like `BotPopulationCurve` does: peak and curve from the boot line
 `Population director started: peak N [(roster peak N, population cap N)], curve C, tick Ts` (cached per server start), weekend lift and timezone from
@@ -138,7 +151,8 @@ are sent with `allowed_mentions: none` anyway). Names from the server are one li
 Test without Discord: `python3 test_announce.py` (runs `mock-webhook.py`; rate cap, fallback rules, dedupe,
 maintenance, Cody's lines, the deploy hook). `python3 test_cloud.py` covers the cloud budget and balance checks with
 a fake budget file, a fake key file and a local `http.server` standing in for `/user/balance`: it never calls the
-real API.
+real API. `python3 test_log.py` covers the game log silence check with a back-dated log file and a local socket that
+answers like the login server (silent log + answering port, growing log, rolled log, closed port, restart grace).
 
 ## Configuration
 
