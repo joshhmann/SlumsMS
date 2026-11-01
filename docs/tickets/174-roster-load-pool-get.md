@@ -1,4 +1,4 @@
-# 172: The roster and store snapshot reads bypass the bot share
+# 174: The roster and store snapshot reads bypass the bot share
 
 **Status:** open — S3, documented by the b269 pool fix, not changed. Opened 2026-11-01 from
 `agent-runs/server/269-dbpool-forensics/AUDIT.md` (finding F4, branch `269-dbpoolfix`).

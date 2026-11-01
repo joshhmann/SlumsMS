@@ -1,4 +1,4 @@
-# 171: LifeRuntime.accepted takes the bot's monitor over a PlayerStorage read
+# 173: LifeRuntime.accepted takes the bot's monitor over a PlayerStorage read
 
 Found by the b267 review, 2026-10-31 (UTC). **S4, same family as b267, no cycle today.** Not a release gate:
 the b267 fix (fads reads the game outside its monitor, branch `162-fadslock`) does not depend on this.
