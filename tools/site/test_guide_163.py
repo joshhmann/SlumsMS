@@ -108,6 +108,16 @@ class RestartGuideTest(unittest.TestCase):
     def test_no_per_second_number_leaks_into_the_guide(self):
         for page in ("regulars.html", "faq.html"):
             self.assertNotIn("per second", flat(page))
+class MorenMakerGuideTest(unittest.TestCase):
+    """MakerService.madeMaker2TestCrystal: item 4260003, the crystal from monster leftovers or from disassembling, once
+    quest 6033 is started."""
+
+    def test_the_maker_section_names_the_crystal_and_both_paths(self):
+        text = flat("jobs.html")
+        self.assertIn("Intermediate Monster Crystal 1", text)
+        self.assertIn("a monster's leftovers", text)      # Maker 1 path
+        self.assertIn("taking an item apart", text)        # disassembly path (the 163-maker2 fix)
+        self.assertIn("before the quest started", text)    # only while quest 6033 is running
 
 if __name__ == "__main__":
     unittest.main()
