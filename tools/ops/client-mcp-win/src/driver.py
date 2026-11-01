@@ -716,6 +716,10 @@ class Driver:
         # No qa.drain() here: the orchestrator reads the pipe's log by position (qa_events) and must see everything.
         return {'vault': vault, 'entered': True}
 
+    # ui.json points only client scripts click (`do: click, anchor: ...`); the driver itself never does. The Daily
+    # Check-in window opens over the field at every login and hides the scene a script films (b008, 2026-11-01).
+    SCRIPT_ANCHORS = ('checkin_close',)
+
     def click_anchor(self, name):
         """Clicks one calibrated ui.json point (docs/qa/client-scripts/anchors.yaml). x,y never come from a script."""
         if name not in (self.ui.get('points') or {}):
