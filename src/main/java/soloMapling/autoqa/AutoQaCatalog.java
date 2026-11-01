@@ -1719,23 +1719,127 @@ public final class AutoQaCatalog {
      */
     private static final java.util.regex.Pattern loneK = java.util.regex.Pattern.compile("(?i) *k+ *[.!]* *");
 
+    /** What a bot says when it agrees to what the player asked (unchanged since rc6; the k moved to {@link #loneK}). */
+    private static final java.util.regex.Pattern yesWords =
+            java.util.regex.Pattern.compile("(?i)\\b(yes|sure|ok+|omw|coming|lets go)\\b");
+
+    /**
+     * What a bot declines with (b265 round 2, owner 2026-11-01: "widen the refusal"). Round 1 knew only
+     * no/nah/cant/can't/busy, so a decline that also carried a yes word ("maybe later ok", "not today sure") read as
+     * agreement. Every phrase below is quoted from a line a bot really says:
+     * <ul>
+     *   <li>{@code ScriptedReplies.java:46-57}: COME_NO/HELP_NO/GUIDE_NO/BUFF_NO/BUDDY_NO/PARTY_NO/FOLLOW_NO/TRADE_NO
+     *       ("cant rn sry", "nah im good here", "busy atm", "maybe later", "too far lol", "im kinda busy",
+     *       "too high lvl for me lol", "eh not rn", "not trading rn");</li>
+     *   <li>{@code TalkLines.java:78,93,99-101}: no_trade ("aw nah, cant afford it rn", "maybe later? not rn", "ill pass
+     *       this time", "nope, rip off"), reply_no ("aw ok, next time") and no_generic ("sorry, cant rn",
+     *       "aw not now", "maybe later?", "not happening");</li>
+     *   <li>{@code LfgParty.java:246} LATER and {@code ReplyPlanner.java:262} PARTY_NO ("not rn", "maybe later sry",
+     *       "no thx sry"); {@code ConvoActions.java:330-332} TOO_FAR_LINES ("too far lol", "nah too far rn");
+     *       {@code BotFameRequest.java:135} CANNOT_LINES ("cant fame rn, maybe later");</li>
+     *   <li>{@code ShopOfferDialogue.yaml:125} DeclineResponse ("Too low bro.", "Can't do that sorry.", "Lol no.",
+     *       "Nty.", "I'll pass on that offer.", "Nope. Try again.", "Hard pass.", "Bruh. No.");</li>
+     *   <li>{@code GuildDialogue.yaml:91-136} InviteNo/InviteNoHostile/AppNoFull/AppNoNotnow ("maybe later! im kinda
+     *       busy", "nah im ok, ty tho", "sorry we are full rn", "not right now, ask again some other time");
+     *       {@code AffinityDialogue.yaml:49-58} Refuse ("nah not with u", "no thx", "pass", "nope");
+     *       {@code ConversationDialogue.yaml:62} ("nty gl selling tho"); the afk/asleep lines at
+     *       {@code ConversationDialogue.yaml:155,2269} and {@code SocialBotDialogue.yaml:287}.</li>
+     * </ul>
+     * A refusal wins over a yes word in the same reply (the owner's rule: these read as a NO). Two families are
+     * deliberately left out because they are as often agreement as a decline: "im good" and "im fine" (only the
+     * word "no"/"nah" in front of them, as in "nah im good here", is read).
+     */
+    private static final java.util.regex.Pattern refusalWords = java.util.regex.Pattern.compile("(?i)\\b(?:"
+            + "no|nope|nah|naw|nty|pass|hard pass|ill pass"
+            + "|can'?t|cannot|wont|won'?t|cant do"
+            + "|later|later on|maybe later|next time|maybe next time|another time|some other time|come back later"
+            + "|not now|not rn|not today|not tonight|not right now|not happening|not interested|not worth it"
+            + "|busy|afk|asleep|sleeping|tired"
+            + "|too far|too high|too low"
+            + ")\\b");
+
+    /** Agreeing idioms that carry a refusal-looking word but are not a refusal ("no problem", "np"). */
+    private static final java.util.regex.Pattern agreeingIdioms = java.util.regex.Pattern.compile(
+            "(?i)\\b(?:no prob|no probs|no problem|not a problem|no worries|np|no doubt|not bad)\\b");
+
+    /** Saying goodbye is not declining ("cya later", "catch you later", "alright, later"). */
+    private static final java.util.regex.Pattern goodbyeIdioms = java.util.regex.Pattern.compile(
+            "(?i)\\b(?:cya|see (?:u|you)|catch (?:u|you)|catch yall|talk(?: to you)?|ttyl) (?:all )?(?:later|la+ter)\\b"
+                    + "|^\\W*(?:alright|ok|okay)?\\W*later\\W*$");
+
+    /** {@code ... -> come: NO (cant rn) -> COME_NO}: the decision the game made and what it then did. */
+    private static final java.util.regex.Pattern intentLine =
+            java.util.regex.Pattern.compile("(?i).*\\bINTENT\\b.*: (YES|NO) \\([^)]*\\) -> (.*)$");
+
+    /** The reply that follows an INTENT line (the shape {@code ConvoQuality.said} writes); null when none. */
+    private static String replyAfter(List<AutoQaLine> lines, int from) {
+        for (int j = from + 1; j < lines.size(); j++) {
+            AutoQaLine n = lines.get(j);
+            if (n.text().startsWith("CONVO SAID ")) {
+                return n.message().replaceFirst("^SAID \\S+ -> player \\S+ \\[[^]]*] ", "");
+            }
+        }
+        return null;
+    }
+
+    /** Whether a reply reads as agreement: a yes word (or a lone k) and no refusal word. */
+    static boolean saysYes(String said) {
+        if (said == null) {
+            return false;
+        }
+        return (yesWords.matcher(said).find() || loneK.matcher(said).matches()) && !refuses(said);
+    }
+
+    /** Whether a reply declines: any refusal word, once the agreeing and goodbye idioms are set aside. */
+    static boolean refuses(String said) {
+        if (said == null) {
+            return false;
+        }
+        String text = agreeingIdioms.matcher(goodbyeIdioms.matcher(said).replaceAll(" ")).replaceAll(" ");
+        return refusalWords.matcher(text).find();
+    }
+
+    /** The action happened ({@code COME_YES}, {@code PARTY_ACCEPTED} ...). */
+    private static boolean actedYes(String outcome) {
+        return outcome.endsWith("_YES") || outcome.endsWith("ACCEPTED");
+    }
+
+    /** The action was refused or failed ({@code COME_NO}, {@code PARTY_DECLINED} ...). */
+    private static boolean actedNo(String outcome) {
+        return outcome.endsWith("_NO") || outcome.endsWith("DECLINED");
+    }
+
+    /**
+     * t-cv-1's say-do rule (rc6, widened in b265): what a bot said after it decided must match what it did. A failure
+     * is either of:
+     * <ul>
+     *   <li>it decided NO and answered with a yes: "a NO was answered with a yes". Round 2 reads the declines the bots
+     *       actually use ({@link #refusalWords}) as a NO even when a yes word is in the same reply, so this arm only
+     *       fires on a real yes ("sure, omw" after {@code -> COME: NO (too far)});</li>
+     *   <li>it said yes and the thing did not happen, or it declined in words and the outcome of the same line says it
+     *       happened anyway ({@code -> COME: NO (...) -> COME_YES}): the act half is read from the outcome, so a
+     *       wider word list can only quieten the rule about words, never about acts.</li>
+     * </ul>
+     */
     static String refusalNeverSaysYes(CheckRun r) {
-        java.util.regex.Pattern yes = java.util.regex.Pattern.compile("(?i)\\b(yes|sure|ok+|omw|coming|lets go)\\b");
         List<AutoQaLine> lines = r.lines();
         for (int i = 0; i < lines.size(); i++) {
-            AutoQaLine l = lines.get(i);
-            if (l.text().matches("CONVO .*INTENT .*: NO \\(.*")) {
-                for (int j = i + 1; j < lines.size(); j++) {
-                    AutoQaLine n = lines.get(j);
-                    if (n.text().startsWith("CONVO SAID ")) {
-                        String said = n.message().replaceFirst("^SAID \\S+ -> player \\S+ \\[[^]]*] ", "");
-                        if ((yes.matcher(said).find() || loneK.matcher(said).matches())
-                                && !said.toLowerCase().matches(".*\\b(no|nah|cant|can't|busy)\\b.*")) {
-                            return "a NO was answered with a yes: " + said;
-                        }
-                        break;
-                    }
+            java.util.regex.Matcher m = intentLine.matcher(lines.get(i).text());
+            if (!m.matches()) {
+                continue;
+            }
+            boolean decidedYes = m.group(1).equalsIgnoreCase("YES");
+            String outcome = m.group(2).trim().replaceAll("\\W+$", "");
+            String said = replyAfter(lines, i);
+            if (!decidedYes) {
+                if (saysYes(said)) {
+                    return "a NO was answered with a yes: " + said;
                 }
+                if (actedYes(outcome)) {
+                    return "a NO still did the action: " + outcome + " (" + said + ")";
+                }
+            } else if (saysYes(said) && actedNo(outcome)) {
+                return "a YES was answered with a yes but nothing was done: " + said + " -> " + outcome;
             }
         }
         return null;
