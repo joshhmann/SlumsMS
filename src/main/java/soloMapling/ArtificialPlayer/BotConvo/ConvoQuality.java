@@ -188,7 +188,10 @@ public final class ConvoQuality {
         soloMapling.server.BoundedMaps.prune(lastToPlayer, 1_000, 5_000, old -> old.at() < cutoff);
         transcript(s, player.getId());
         if (QaLog.on(QaLog.Topic.CONVO)) { // !qa cv-4, cv-6, cv-7
-            QaLog.map(QaLog.Topic.CONVO, player.getMapId(), "SAID " + bot.getName() + " -> player " + hash(player.getId()) + " ["
+            // 163: a reply is about the player it answered, so it reaches only that player's run. As a map line it
+            // reached every run watching the map (every lane's GM logs in at Henesys): t-cv-2's LLM judge graded
+            // another lane's bots' haggles (cap-4 run 2026-10-31, trithug/Meso16/RiceHunter92 lines in its log).
+            QaLog.toPlayer(QaLog.Topic.CONVO, player.getId(), "SAID " + bot.getName() + " -> player " + hash(player.getId()) + " ["
                     + s.tier() + ", " + src + (s.bankId() >= 0 ? "#" + s.bankId() : "") + ", " + s.voice() + ", " + ms
                     + " ms, slots=" + slotsOf(rawLine, line) + "] " + line);
         }

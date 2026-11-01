@@ -174,6 +174,17 @@ public final class QaLog {
         dispatch(topic, 0, characterId, message);
     }
 
+    /**
+     * 163: a bot's reply to this player. It is about one player, so it reaches only the run that player (a GM)
+     * started - not every run watching the map, which is what a lane-count-independent QA run needs.
+     */
+    public static void toPlayer(Topic topic, int playerId, String message) {
+        if (playerId <= 0) {
+            return; // a reply to a non-player reaches no run: it would leak into every run on the map
+        }
+        owner(topic, playerId, message);
+    }
+
     /** A line for every run listening to the topic. */
     public static void any(Topic topic, String message) {
         dispatch(topic, 0, 0, message);

@@ -74,6 +74,23 @@ class QaLogTest {
     }
 
     @Test
+    void aSaidLineReachesOnlyTheRunOfThePlayerItNames() throws Exception {
+        // 163: every lane's GM logs in at Henesys, so a CONVO SAID line sent as a map line reached every run watching
+        // the map: t-cv-2's LLM judge graded another lane's bots' haggles (cap-4 run 2026-10-31). To the player only.
+        QaRun a = run("cv-2", 1, EnumSet.of(QaLog.Topic.CONVO), Set.of());
+        QaRun b = run("cv-7", 2, EnumSet.of(QaLog.Topic.CONVO), Set.of());
+        QaLog.attach(a);
+        QaLog.attach(b);
+        QaLog.toPlayer(QaLog.Topic.CONVO, 2, "SAID SomeBot -> player 6a5903f9 [reply-llm, reply-llm, v, 12 ms, slots=1] hi");
+        a.stop("test", Instant.parse("2026-10-21T18:31:05Z"));
+        b.stop("test", Instant.parse("2026-10-21T18:31:05Z"));
+
+        assertTrue(Files.readString(b.logPath()).contains("SAID SomeBot"));
+        assertFalse(Files.readString(a.logPath()).contains("SAID SomeBot"),
+                "a reply to gm 2 must not land in gm 1's log, whatever map it was on");
+    }
+
+    @Test
     void everyRateLimitsAKey() {
         assertTrue(QaLog.every("k", 60_000));
         assertFalse(QaLog.every("k", 60_000));
