@@ -135,6 +135,26 @@ Tests (fail before, pass after - each one was run against the base commit):
 - `BankClaimsTest.aTownBotNeverPicksALineThatSaysItTrainsHere` (the same bank, in Henesys and on the hunting ground)
 - `ReplyPlannerTest.aHelloOnAMobMapNamesTheMob`
 
+### A TRAIN_SPOT reply names a spot on the leveling path (same run, item 3)
+
+`toasttty` (lv 34) answered "where should i train" with `i train at swampy land in a deep forest`: map 105040000, which
+`LevelingPath.yaml` lists for no band at all. `BotReplyView.mySpot` took the bot's *current* map whenever the bot was
+grinding, so any grind map it wandered onto became a training claim, and the plan put it both in the facts ("you train
+at ...") and in the scripted fallback ("i train at ...").
+
+`mySpot` now asks the path: `TrainingTips.spotName(mapId, level, jobId)` returns what players call the map when the
+bot's own band (level and job group) trains there, else null - and then the bot uses the best spot for its level, as it
+already did in a town or when idle. `realSpot` is now `spotName(...) != null`, so there is one lookup. A tip is
+unaffected: `playerSpots` always came from `TrainingTips.spotsFor`, and the asker's band is still the only source for
+"try <spot>".
+
+- `TrainSpotReplyTest.aBotGrindingOffThePathStillNamesATrainingSpotFromItsOwnBand` (base: `Swampy Land in a Deep
+  Forest`)
+- `TrainSpotReplyTest.aTrainSpotReplyOnlyNamesSpotsOnThePath` (base: the fact `you train at Swampy Land in a Deep
+  Forest`, and an `i train at ...` script saying it)
+- `TrainSpotReplyTest.aBotGrindingOnAPathMapNamesThatMap` (a bot standing on 105040100 names it in the path's words,
+  "Hunting Ground in the Deep Forest", not the map title with its numeral)
+
 ## Stage B (not started)
 
 Party and PQ asks as planned moves, bot-started chats (about once per player per hour, only when not busy, respecting
