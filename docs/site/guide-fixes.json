@@ -17,6 +17,6 @@
     {"page": "travel.html", "find": "<tr><td>Haunted House door</td><td>Phantom Forest: Haunted House</td><td>portal st01</td><td>free</td><td>Haunted House: Foyer</td><td>short</td></tr>\n", "replace": ""},
     {"page": "guidebook.html", "find": "<b>Rebirths open maps:</b><br>1: Lion King&#x27;s Castle<br>2: Twilight Perion<br>3: Grandis and Arcane River<br><br>", "replace": "<b>Rebirths open maps:</b><br>Level 120 or 1 rebirth: the Future, Twilight Perion, lower Grandis<br>1st rebirth: the rest of Grandis<br>2nd rebirth: the Arcane River<br>3rd rebirth: the boss doors of Magnus, Lucid, Will, Verus and Darknell<br><br>"},
     {"page": "guidebook.html", "find": "<b>Stones are made from:</b><br>", "replace": "<b>Wyatt the Reborn makes them from:</b><br>"},
-    {"page": "guidebook.html", "find": "<p>The text of the guide book every new character gets (ETC tab, double-click). Two pages show at a time in game.</p>", "replace": "<p>This is the text planned for the in-game guide book (the book in game still shows the old text until a client update). Two pages show at a time in the book.</p>"}
+    {"page": "guidebook.html", "find": "<p>The text of the guide book every new character gets (ETC tab, double-click). Two pages show at a time in game.</p>", "replace": "<p>The text of the guide book every new character gets (ETC tab, double-click), with its rebirth page corrected: the book in game still lists the old rebirth rules until the next update. Two pages show at a time in game.</p>"}
   ]
 }
