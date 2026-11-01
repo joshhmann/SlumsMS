@@ -74,6 +74,16 @@ def test_ssh(remote, host=None):
     return argv + ["root@" + name, remote]
 
 
+
+def burst_label(run_id, index, cap_id):
+    """The worker's burst label: 1-40 of [A-Za-z0-9_-] (qapipe.LABEL). `<run id>-<capture id>` passed 40 with a long
+    script id and every burst was refused (b008, 2026-11-01), so the label is the run's UTC stamp, the capture's index
+    and as much of its id as fits. The run folder still maps it back to the capture id (burst_caps)."""
+    stamp = run_id.rsplit("-", 1)[-1]
+    head = "%s-%d-" % (stamp, index)
+    tail = re.sub(r"[^A-Za-z0-9_-]", "_", cap_id)[:40 - len(head)]
+    return (head + tail).rstrip("-_") or head.rstrip("-")
+
 class RunFailed(Exception):
     """A step or wait failed: the run is FAIL (a wait timed out) unless `error` says the runner broke."""
 
@@ -694,7 +704,7 @@ class Run:
         if body.get("delay_ms"):
             self.sleep(body["delay_ms"] / 1000)
         alias = cap.get("client") or next(iter(self.doc["clients"]))
-        label = "%s-%s" % (self.run_id, cap["id"])
+        label = burst_label(self.run_id, len(self.burst_caps), cap["id"])
         self.burst_caps[label] = cap["id"]
         self.worker.burst(alias, body["fps"], body["ms"], label)
         self.manifest["captures"].append({"id": cap["id"], "kind": kind, "client": alias,
