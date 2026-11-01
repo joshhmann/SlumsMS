@@ -377,9 +377,10 @@ public final class BotPopulationDirector {
             long spreadMs = maxLogins == Integer.MAX_VALUE ? 0 : TimeUnit.SECONDS.toMillis(server.BOT_DIRECTOR_TICK_SECONDS);
             for (int botId : plan.logins()) {
                 long delay = spreadMs == 0 ? 0 : ThreadLocalRandom.current().nextLong(spreadMs);
-                // A login loads the bot from the database: run it on a virtual thread, not the shared scheduler.
+                // A login loads the bot from the database: run it on a bot-db thread, not the shared scheduler,
+                // because it may wait for the bots' share of the pool and a virtual thread must not (BotDbGate).
                 ExecutorServiceManager.getScheduledExecutorService()
-                        .schedule(() -> ExecutorServiceManager.runAsync(() -> boundedLogIn(botId)), delay, TimeUnit.MILLISECONDS);
+                        .schedule(() -> ExecutorServiceManager.runBotDb(() -> boundedLogIn(botId)), delay, TimeUnit.MILLISECONDS);
             }
         } catch (Exception e) {
             log.warn("Population director tick failed", e);
@@ -491,6 +492,13 @@ public final class BotPopulationDirector {
     public static boolean logInBounded(int botId) {
         if (BotShutdown.isQuiesced()) {
             return false; // 1.5.0 rehearsal: a boot fill queued behind the slots must not log in during a shutdown
+        }
+        if (Thread.currentThread().isVirtual()) {
+            // 1.6.2 (live 3k DB livelock): a login waits for a login slot and then for the bots' share of the
+            // connection pool, and a virtual thread that waits inside a monitor pins its carrier. Hand the login
+            // to the bot-db threads and answer "not in yet"; the caller's bot is in a few hundred milliseconds.
+            ExecutorServiceManager.runBotDb(() -> logInBounded(botId));
+            return false;
         }
         try {
             LOGIN_SLOTS.acquire();

@@ -24,11 +24,27 @@ import java.util.concurrent.atomic.AtomicLong;
  * them. So bot database work asks this gate first: it waits here, holding nothing, until there is room in the
  * bots' share, and {@link #PLAYER_RESERVE} connections always stay out of reach of bots.
  * <p>
+ * <b>The share is a hard cap (1.6.2, live 3k livelock).</b> Bot work that cannot get room in time now fails with
+ * a {@link SQLException} instead of going to the pool uncounted as 1.6.0 and 1.6.1 let it. The uncounted path
+ * made the gate decorative exactly when it mattered: at {@code BOT_ROSTER_PEAK_ONLINE=3000} logins waited out
+ * the gate, then piled onto the pool anyway, so the pool sat with hundreds of borrowers and every login took
+ * tens of seconds. Hikari's {@code ConcurrentBag.requite} spins while it believes a borrower is waiting, and that
+ * spin fed on the pile-up (see the class notes in the ticket); with the cap the pool's borrower count is bounded
+ * by six, so the pool never sees a queue to spin on and players keep their four connections.
+ * <p>
  * A thread already inside the gate is not counted again: a nested request from it runs straight on the pool.
  * The nesting of a character load is paid for up front ({@link #CHARACTER_LOAD}); anything else nested is one
  * level deep at most, and counting it would let threads that each hold a permit wait on each other forever.
  * For the same reason a read taken under a lock other bot threads queue on (the store's and the roster's
  * one-time loads) goes straight to the pool, and no wait here is unbounded ({@link #acquire}).
+ * <p>
+ * <b>Virtual threads never wait here.</b> On Java 21 a virtual thread that blocks inside a {@code synchronized}
+ * block pins its carrier thread, and the gate cannot see monitors, so it cannot tell a safe wait from a pinning
+ * one. A wait would then cost a carrier for as long as the share is busy, and with enough of them the carriers
+ * that must run to give the permits back are gone. Bot work that has to wait for the share (a login, the
+ * autosave sweep) is therefore run on a platform thread ({@link soloMapling.server.ExecutorServiceManager#runBotDb}),
+ * and bot work on a virtual thread takes the non-blocking path: a permit now, or a failure the caller already
+ * handles.
  */
 public final class BotDbGate {
 
@@ -49,7 +65,7 @@ public final class BotDbGate {
 
     static final int PERMITS = Math.max(CHARACTER_LOAD, DatabaseConnection.MAX_POOL_SIZE - PLAYER_RESERVE);
 
-    /** How long bot work waits for room before going to the pool uncounted (see {@link #acquire}). */
+    /** How long a platform thread waits for room in the bots' share before the work fails. */
     static final long MAX_WAIT_MS = 15_000;
 
     private static volatile long maxWaitMs = MAX_WAIT_MS;
@@ -60,8 +76,9 @@ public final class BotDbGate {
 
     private static final Semaphore permits = new Semaphore(PERMITS, true);
 
-    private static final AtomicInteger overruns = new AtomicInteger();
-    private static final AtomicLong lastOverrunWarning = new AtomicLong();
+    /** Bot work the share had no room for, and so never ran. */
+    private static final AtomicInteger refusals = new AtomicInteger();
+    private static final AtomicLong lastRefusalWarning = new AtomicLong();
 
     /** Permits the current thread holds; shared with the connections it opened, which give theirs back. */
     private static final ThreadLocal<AtomicInteger> held = ThreadLocal.withInitial(AtomicInteger::new);
@@ -83,15 +100,13 @@ public final class BotDbGate {
         if (mine.get() > 0) {
             return work.run();
         }
-        boolean counted = acquire(connections);
+        acquire(connections);
         mine.addAndGet(connections);
         try {
             return work.run();
         } finally {
             mine.addAndGet(-connections);
-            if (counted) {
-                permits.release(connections);
-            }
+            permits.release(connections);
         }
     }
 
@@ -137,9 +152,7 @@ public final class BotDbGate {
         if (mine.get() > 0) {
             return pool.get();
         }
-        if (!acquire(1)) {
-            return pool.get();
-        }
+        acquire(1);
         Connection con;
         try {
             con = pool.get();
@@ -156,14 +169,14 @@ public final class BotDbGate {
         return () -> connection(pool);
     }
 
-    /** Test seam: a shorter wait before going to the pool uncounted ({@code <= 0} restores the default). */
+    /** Test seam: a shorter wait before bot work fails ({@code <= 0} restores the default). */
     static void useMaxWaitForTest(long ms) {
         maxWaitMs = ms > 0 ? ms : MAX_WAIT_MS;
     }
 
-    /** For the admin dashboard (ticket 35): the bots' permits, how many are free now, and waits that gave up. */
+    /** For the admin dashboard (ticket 35): the bots' permits, how many are free now, and bot work refused. */
     public static int[] stats() {
-        return new int[]{PERMITS, permits.availablePermits(), overruns.get()};
+        return new int[]{PERMITS, permits.availablePermits(), refusals.get()};
     }
 
     /** Permits free right now (tests and the GM read-out). */
@@ -172,28 +185,36 @@ public final class BotDbGate {
     }
 
     /**
-     * Waits for room in the bots' share. Gives up after {@link #MAX_WAIT_MS} and lets the caller go to the pool
-     * uncounted (returning false): on Java 21 a virtual thread that waits here inside a {@code synchronized}
-     * block pins its carrier, and with every carrier pinned the threads holding the permits can never run to
-     * give them back. The pool's own timeout is the backstop then, as it was before the gate.
+     * Takes {@code connections} of the bots' share, or throws: nothing here ever runs bot work on the pool
+     * uncounted.
+     * <p>
+     * A platform thread waits up to {@link #MAX_WAIT_MS} for room; a virtual thread does not wait at all. A
+     * virtual thread that blocked here inside a {@code synchronized} block would pin its carrier, and the gate
+     * cannot see monitors - see the class notes.
      */
-    private static boolean acquire(int connections) throws SQLException {
-        try {
-            if (permits.tryAcquire(connections, maxWaitMs, TimeUnit.MILLISECONDS)) {
-                return true;
+    private static void acquire(int connections) throws SQLException {
+        if (permits.tryAcquire(connections)) {
+            return;
+        }
+        if (!Thread.currentThread().isVirtual()) {
+            try {
+                if (permits.tryAcquire(connections, maxWaitMs, TimeUnit.MILLISECONDS)) {
+                    return;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new SQLException("Interrupted while waiting for a bot database connection", e);
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new SQLException("Interrupted while waiting for a bot database connection", e);
         }
-        int missed = overruns.incrementAndGet();
+        int refused = refusals.incrementAndGet();
         long now = System.currentTimeMillis();
-        long last = lastOverrunWarning.get();
-        if (now - last >= OVERRUN_WARNING_INTERVAL_MS && lastOverrunWarning.compareAndSet(last, now)) {
-            log.warn("Bot database work waited {} ms for the bots' share of the pool ({} permits) and went to the"
-                    + " pool uncounted; {} times so far this run", maxWaitMs, PERMITS, missed);
+        long last = lastRefusalWarning.get();
+        if (now - last >= OVERRUN_WARNING_INTERVAL_MS && lastRefusalWarning.compareAndSet(last, now)) {
+            log.warn("Bot database work found no room in the bots' share of the pool ({} connections, {} free) and"
+                    + " was refused; {} times so far this run", PERMITS, permits.availablePermits(), refused);
         }
-        return false;
+        throw new SQLException("The bots' share of the database pool (" + PERMITS + " connections, "
+                + PLAYER_RESERVE + " kept for players) is busy; bot work was refused rather than queued on the pool");
     }
 
     /** Wraps a connection so closing it - once - also gives its permit back. */

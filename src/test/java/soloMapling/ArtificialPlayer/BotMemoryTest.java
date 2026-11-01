@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,10 +33,13 @@ class BotMemoryTest {
     /** The botmemory table, as rows of column -> value. */
     private final List<Map<String, Object>> table = new ArrayList<>();
     private final AtomicLong nextId = new AtomicLong(1);
+    /** Pool connections the memory code asked for (1.6.2: a gossip round must not ask once per teller). */
+    private final AtomicInteger connections = new AtomicInteger();
 
     @BeforeEach
     void fakeTable() {
         BotMemory.useConnectionSourceForTest(() -> {
+            connections.incrementAndGet();
             Connection con = mock(Connection.class);
             when(con.prepareStatement(anyString())).thenAnswer(c -> statement(c.getArgument(0)));
             when(con.prepareStatement(anyString(), anyInt())).thenAnswer(c -> statement(c.getArgument(0)));
@@ -91,7 +95,9 @@ class BotMemoryTest {
             return keys;
         });
         when(ps.executeQuery()).thenAnswer(c -> {
-            Iterator<Map<String, Object>> rows = sql.equals(BotMemory.RECENT_OF_BOT)
+            Iterator<Map<String, Object>> rows = FakeMemoryTable.inListSize(sql) > 0
+                    ? inList(sql, bound).iterator()
+                    : sql.equals(BotMemory.RECENT_OF_BOT)
                     ? table.stream()
                     .filter(r -> r.get("BotId").equals(bound.get(1)) && ((Number) r.get("Hops")).intValue() < (int) bound.get(2))
                     .sorted((x, y) -> Long.compare(((Number) y.get("CreatedAt")).longValue(), ((Number) x.get("CreatedAt")).longValue()))
@@ -108,6 +114,41 @@ class BotMemoryTest {
             return rs;
         });
         return ps;
+    }
+
+    /** The rows a {@code BotId IN (...)} read returns: per bot, newest first, hops below the bound. */
+    private List<Map<String, Object>> inList(String sql, Map<Integer, Object> bound) {
+        int n = FakeMemoryTable.inListSize(sql);
+        java.util.Set<Integer> ids = new java.util.HashSet<>();
+        for (int i = 1; i <= n; i++) {
+            ids.add(((Number) bound.get(i)).intValue());
+        }
+        int hops = ((Number) bound.get(n + 1)).intValue();
+        return table.stream()
+                .filter(r -> ids.contains(((Number) r.get("BotId")).intValue())
+                        && ((Number) r.get("Hops")).intValue() < hops)
+                .sorted((x, y) -> {
+                    int byBot = Integer.compare(((Number) x.get("BotId")).intValue(),
+                            ((Number) y.get("BotId")).intValue());
+                    return byBot != 0 ? byBot
+                            : Long.compare(((Number) y.get("CreatedAt")).longValue(),
+                            ((Number) x.get("CreatedAt")).longValue());
+                })
+                .map(HashMap::new).map(m -> (Map<String, Object>) m).toList();
+    }
+
+    @Test
+    void aGossipRoundReadsEveryTellersNotesInOneQuery() {
+        for (int bot = 7; bot < 15; bot++) {
+            BotMemory.remember(bot, 1001, List.of("bot " + bot + " note"), BotMemory.Source.DIRECT, 0, 0, 100);
+        }
+        List<Integer> ids = java.util.stream.IntStream.range(7, 15).boxed().toList();
+        BotMemory.recentPassableFor(ids, 5); // warms the one-off "does this schema have Kind" probe
+        connections.set(0);
+        Map<Integer, List<BotMemory.Note>> notes = BotMemory.recentPassableFor(ids, 5);
+        assertEquals(1, connections.get(), "eight tellers, one round trip");
+        assertEquals(8, notes.size());
+        assertEquals("bot 7 note", notes.get(7).get(0).text());
     }
 
     @Test

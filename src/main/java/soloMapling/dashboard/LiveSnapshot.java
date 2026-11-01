@@ -264,7 +264,7 @@ final class LiveSnapshot {
             out.put("poolActive", h.pool()[0]);
         }
         if (h.gate() != null) {
-            out.put("gate", Map.of("permits", h.gate()[0], "free", h.gate()[1], "overruns", h.gate()[2]));
+            out.put("gate", Map.of("permits", h.gate()[0], "free", h.gate()[1], "refusals", h.gate()[2]));
             out.put("gateUsed", h.gate()[0] - h.gate()[1]);
         }
 
