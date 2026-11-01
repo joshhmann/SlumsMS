@@ -8,7 +8,7 @@ commit after it is one finding, with its own test.
 |---|---|---|---|
 | F1 (blocker) | fixed | `b269 fix 1` | `BotPopulationDirector.askLogin` answers `LOGGED_IN` / `QUEUED` / `REFUSED`; the guild show-up spends its 2-hour token only when a login was taken on; the romance show-up spends its 30-minute token only then; a queued rage-quit return keeps its promise |
 | F6 (functional) | fixed | `b269 fix 6` | paced boot fill (`LoginPace`: 8 in flight, 8 a second), tick budget follows the pace |
-| F8 (high) | open | — | make `BotDbGateLoadTest`'s gossip test initialise without config.yaml |
+| F8 (high) | fixed | `b269 fix 8` | `BotDbGateLoadTest`'s gossip test builds plain `Character` doubles, so it needs no config.yaml |
 | Timeouts/observability | open | — | `connectionTimeout` 10 s, minute `BotDbGate.stats()` log |
 | F3/F4/F5 | open | — | documented, not fixed (see the notes at the bottom) |
 
@@ -63,3 +63,19 @@ Test: `BootFillPaceTest` (4) — never more than the cap in flight, offering 500
 without waiting, a bot is queued once however many ticks plan it, and starts are spread at the configured rate. The
 pace is tested directly: a tick test would need the whole roster and config, and the tick does nothing but offer the
 plan to the pace.
+
+## F8 — the gossip batching test needs no config file
+
+`BotDbGateLoadTest#aPopulationTickReadsOnceHoweverManyBotsAreOnline` built 3,000 real characters with
+`Character.getDefault(new BotClient(0, 0))`, which initialises `CharsetConstants` and reads `config.yaml` through
+`YamlConfig`. On a checkout without that file the test errored with `ExceptionInInitializerError` (audited at
+`BotDbGateLoadTest.java:195`), so the claim that a gossip round is one read had no coverage in CI — it only passed on a
+machine that happened to have a config, and it also paid for item templates and charset setup that a statement count
+does not need.
+
+The test now builds `Character` doubles (`mock(Character.class)` with `getId()`/`getName()`), which is all
+`BotGossip.step` reads before it decides how much to fetch. Nothing else in the test touches config: the fake memory
+table answers through Mockito, and `BotDbGate` is exercised through its own seams.
+
+Test: `BotDbGateLoadTest#aPopulationTickReadsOnceHoweverManyBotsAreOnline` passes with `config.yaml` moved out of the
+working tree — 3,000 bots over 250 maps, one `BotId IN (...)` read (`FakeMemoryTable.batchReads == 1`).

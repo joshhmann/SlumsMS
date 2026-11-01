@@ -1,6 +1,5 @@
 package soloMapling.ArtificialPlayer;
 
-import client.BotClient;
 import client.Character;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -27,6 +26,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * The 1.6.0.4 livelock, as a test. Live on 2026-11-01 02:08 UTC booted 3,000 bots: every bot's database work queued
@@ -184,6 +185,10 @@ class BotDbGateLoadTest {
     /**
      * The population tick at 3,000 bots: one gossip round reads its tellers' notes in one statement, so the pool work
      * of a tick does not grow with how many bots are online.
+     *
+     * <p>Plain {@link Character} doubles rather than real characters on purpose: this is a count of statements, and a
+     * real {@code Character.getDefault} drags in the server config (charset, item templates) that a unit test has no
+     * business needing — the old version of this test only passed on a checkout that happened to have config.yaml.
      */
     @Test
     void aPopulationTickReadsOnceHoweverManyBotsAreOnline() {
@@ -192,10 +197,9 @@ class BotDbGateLoadTest {
         try {
             Map<Integer, List<Character>> byMap = new HashMap<>();
             for (int i = 0; i < BOTS; i++) {
-                Character c = Character.getDefault(new BotClient(0, 0));
-                c.setID(BotStore.BOT_ID_BASE + i + 1);
-                c.setName("bot" + (i + 1));
-                c.setLevel(35);
+                Character c = mock(Character.class);
+                when(c.getId()).thenReturn(BotStore.BOT_ID_BASE + i + 1);
+                when(c.getName()).thenReturn("bot" + (i + 1));
                 byMap.computeIfAbsent(100_000_000 + (i % 250), k -> new ArrayList<>()).add(c);
             }
             BotGossip.step(byMap, System.currentTimeMillis(), new Random(7));
