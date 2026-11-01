@@ -332,6 +332,15 @@ public final class BotChannels {
         return isSpreadSlot(slot) && !BotRoster.isMember(slot);
     }
 
+    /** Every bot online in this world, roster members and environment together (what the population cap counts). */
+    public static int onlineBots() {
+        int n = 0;
+        for (int perChannel : botsPerChannel()) {
+            n += perChannel;
+        }
+        return n;
+    }
+
     /** Bots online that are not roster members: the environment (and GM spawns). */
     public static int environmentOnline() {
         int n = 0;

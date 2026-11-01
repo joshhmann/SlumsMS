@@ -158,6 +158,10 @@ public final class BotRosterLifecycle {
 
     /** Makes a new character - a new player logging in for the first time - and enrols it. */
     static boolean create(int townMapId, int loLevel, int hiLevel, long now) {
+        // 163: an enrolment comes online at once, outside the director's login pace, so it counts against the cap.
+        if (!BotPopulationDirector.populationCapHasRoom()) {
+            return false;
+        }
         // Ticket 57: a new player picks a channel like everyone else - the one furthest below its share.
         int channel = BotChannels.reserve();
         int charId;
