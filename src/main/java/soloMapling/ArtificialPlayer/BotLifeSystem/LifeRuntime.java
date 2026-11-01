@@ -49,7 +49,9 @@ public final class LifeRuntime {
     private final boolean restored;
     private volatile int townDestination = HOME_TOWN;
     private volatile boolean dirty = true;
-    private long nextCheck, dueAt, lastAnnouncement, lastNeedSignature = Long.MIN_VALUE;
+    private long nextCheck, dueAt, lastNeedSignature = Long.MIN_VALUE;
+    /** Ticket 173: read and written outside the monitor now (the announce path no longer borrows it). */
+    private volatile long lastAnnouncement;
     private long lastRestock;
     public boolean restockReady(long now) { return lastRestock == 0 || now - lastRestock >= 300_000; }
     private volatile String phase = "INIT", fact = "no daily-life action has started";
@@ -769,16 +771,25 @@ public final class LifeRuntime {
         accepted(activity, now, true);
     }
 
-    /** As {@link #accepted(Activity, long)}; {@code announce} false keeps the bot quiet (a light host's switches). */
-    public synchronized void accepted(Activity activity, long now, boolean announce) {
+    /**
+     * As {@link #accepted(Activity, long)}; {@code announce} false keeps the bot quiet (a light host's switches).
+     *
+     * <p>Ticket 173: the monitor is a leaf. {@code friend(now)} and {@code townAccepted(now)} read the game
+     * ({@code PlayerStorage}'s fair lock, {@link TownPulse}, the towns), so both run before {@code this} is taken and
+     * the monitor covers only the accounting. Holding it over a PlayerStorage read is the family that parked live
+     * 1.6.0.4 for {@code Fads.step()} (b267): no cycle exists today, but a second caller of this method would make one.
+     */
+    public void accepted(Activity activity, long now, boolean announce) {
         Character requestPlayer = activity == Activity.HELP_FRIEND || activity == Activity.PARTY_QUEST ? friend(now) : null;
-        accepted.increment();
-        if (activity == Activity.RESTOCK) lastRestock = now;
-        activityCounts.computeIfAbsent(activity, a -> new LongAdder()).increment();
-        if (activity == Activity.HELP_FRIEND || activity == Activity.PARTY_QUEST) { friendId = 0; friendUntil = 0; }
-        // 1.6.0 S8: time with people fills the SOCIAL need (before, only a friend's ask did, so HANG_OUT always won).
-        if (Set.of(Activity.HANG_OUT, Activity.SHOW_OFF, Activity.HELP_FRIEND, Activity.PARTY_QUEST, Activity.FISH,
-                Activity.FREE_MARKET).contains(activity)) memory.talked(now);
+        synchronized (this) {
+            accepted.increment();
+            if (activity == Activity.RESTOCK) lastRestock = now;
+            activityCounts.computeIfAbsent(activity, a -> new LongAdder()).increment();
+            if (activity == Activity.HELP_FRIEND || activity == Activity.PARTY_QUEST) { friendId = 0; friendUntil = 0; }
+            // 1.6.0 S8: time with people fills the SOCIAL need (before, only a friend's ask did, so HANG_OUT always won).
+            if (Set.of(Activity.HANG_OUT, Activity.SHOW_OFF, Activity.HELP_FRIEND, Activity.PARTY_QUEST, Activity.FISH,
+                    Activity.FREE_MARKET).contains(activity)) memory.talked(now);
+        }
         if (activity == Activity.HANG_OUT || activity == Activity.SHOW_OFF) townAccepted(now);
         if ((activity == Activity.FREE_MARKET || activity == Activity.SELL) && pullTown > 0 && bot.getChr() != null
                 && bot.getChr().getMap() != null && LifeTowns.townOf(pullTown) != null
