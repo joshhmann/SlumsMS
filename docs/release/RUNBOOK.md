@@ -27,8 +27,8 @@ tools/release/build                       # full suite + jar + BUILD.txt
 tools/release/stage <v>                   # needs docs/release/<v>.conf (copy 1.5.0.conf and edit)
 tools/release/rehearse <v>                # copy of live: deploy + smoke + rollback; must say PASS
 tools/release/stage-client <v> --build-dir 'Z:\...\build\Release'   # only if the client changed
-LAUNCHER_REPO=/root/work/launcher-publisher tools/release/publish-client <v> --source /srv/slums-staging/client-<v> --dry-run
-LAUNCHER_REPO=/root/work/launcher-publisher tools/release/release <v> --no-packs --dry-run      # pre-flight
+LAUNCHER_REPO=/root/work/launcher tools/release/publish-client <v> --source /srv/slums-staging/client-<v> --dry-run
+LAUNCHER_REPO=/root/work/launcher tools/release/release <v> --no-packs --dry-run      # pre-flight
 ```
 The rehearsal checks the stop time too: a 1.5.x stop should take well under a minute. The client must pass LIVE
 ENDPOINT (slumsms.asslorde.com:8485) and HASH-DIFF.
@@ -44,7 +44,7 @@ problem with the next action. Client publishes (step 2) and the patch notes stay
 
 1. **GO** `ssh root@192.168.0.164 bash /opt/mapleroot-deployments/v<v>/deploy.sh --phase stop-backup`
    (maintenance on, Cody's "going down" post, stop, DB + runtime backup)
-2. **GO** `LAUNCHER_REPO=/root/work/launcher-publisher tools/release/publish-client <v> --source /srv/slums-staging/client-<v> --release <v> --no-packs --news /srv/slums-staging/news-<v>.json --no-announce`
+2. **GO** `LAUNCHER_REPO=/root/work/launcher tools/release/publish-client <v> --source /srv/slums-staging/client-<v> --release <v> --no-packs --news /srv/slums-staging/news-<v>.json --no-announce`
    (skip if no client change)
 3. **GO** `ssh root@192.168.0.164 'bash /opt/mapleroot-deployments/v<v>/deploy.sh --phase apply-start && bash /opt/mapleroot-deployments/v<v>/deploy.sh --phase smoke'`
 4. **GO** `ssh root@192.168.0.164 /usr/local/bin/slumsms-monitor maintenance live end` (Cody's "back up" post)
