@@ -14,6 +14,7 @@ import java.util.TreeSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -33,6 +34,7 @@ class TrainSpotReplyTest {
     private static final int PLAYER_JOB = 1000000; // warrior
     private static final int SWAMPY_LAND = 105040000; // "Swampy Land in a Deep Forest", not on the path
     private static final int DEEP_FOREST_HUNTING = 105040100; // path entry for the 27-35 band
+    private static final int HENESYS = 100000000;
 
     private static Character bot(int level, int jobId, int mapId, String mapName) {
         Character chr = mock(Character.class);
@@ -58,10 +60,23 @@ class TrainSpotReplyTest {
     }
 
     private static ReplyPlanner.View view(String mySpot) {
+        return view(mySpot, "where should i train");
+    }
+
+    private static ReplyPlanner.View view(String mySpot, String asked) {
         List<String> spots = BotReplyView.spots(PLAYER_LEVEL, PLAYER_JOB);
         return new ReplyPlanner.View("toasttty", BOT_LEVEL, "hunter", "deep forest", false, List.of("stirge"),
                 "grinding", false, false, "Slayer", PLAYER_LEVEL, "warrior", false, ReplyPlanner.Bond.STRANGER,
-                null, null, null, 0, spots, mySpot, false, "where should i train", ChatTriage.Kind.TALK,
+                null, null, null, 0, spots, mySpot, false, asked, ChatTriage.Kind.TALK,
+                ChatTriage.Intent.NONE, null);
+    }
+
+    /** The view of a lv 120 hunter answering a lv 22 warrior: the two bands are far apart on purpose. */
+    private static ReplyPlanner.View farApart(String asked) {
+        List<String> spots = BotReplyView.spots(22, 1000000);
+        return new ReplyPlanner.View("rockee", 120, "hunter", "leafre", false, List.of("skelegon"),
+                "grinding", false, false, "Newbie", 22, "warrior", false, ReplyPlanner.Bond.STRANGER,
+                null, null, null, 0, spots, "forgotten path of time", false, asked, ChatTriage.Kind.TALK,
                 ChatTriage.Intent.NONE, null);
     }
 
@@ -110,5 +125,72 @@ class TrainSpotReplyTest {
         }
         assertTrue(scripts.contains("i train at " + v.mySpot()),
                 () -> "the scripted fallback must name the bot's own spot: " + scripts);
+    }
+
+    /**
+     * m02 round 3, TEST transcript 2026-11-01: "that place has no mobs my level" was answered "u need like leafre or
+     * something" - no plan, so the model picked the place. A complaint about the mobs is a train ask: it gets a real
+     * spot for the asker's band.
+     */
+    @Test
+    void aComplaintThatTheMobsDoNotFitTheirLevelStillGetsAPathSpot() {
+        ReplyPlanner.View v = view(BotReplyView.mySpot(
+                bot(BOT_LEVEL, BOT_JOB, SWAMPY_LAND, "Swampy Land in a Deep Forest"), false, "grinding"),
+                "that place has no mobs my level");
+        ReplyPlanner.Plan p = ReplyPlanner.plan(v);
+        assertNotNull(p, "a complaint about the mobs is a train ask, not free chat");
+        assertEquals(ReplyPlanner.Move.TRAIN_SPOT, p.move());
+
+        String offered = v.playerSpots().get(0);
+        assertTrue(p.facts().contains("a real training spot for their level is " + offered), () -> p.facts().toString());
+        List<String> scripts = ReplyPlanner.scripts(v, ReplyPlanner.Move.TRAIN_SPOT);
+        assertTrue(scripts.contains("try " + offered), () -> "the offer must name the real spot: " + scripts);
+    }
+
+    /** The spot offered to somebody else is the asker's band's, never the bot's own list. */
+    @Test
+    void theOfferedSpotIsTheAskersBandNotTheBotsOwn() {
+        ReplyPlanner.View v = farApart("where should i train");
+        List<String> asker = BotReplyView.spots(22, 1000000);
+        List<String> botBand = BotReplyView.spots(120, 3100000);
+        assertEquals(asker, v.playerSpots(), "the tip is for the asker: their level and their job");
+        assertFalse(asker.equals(botBand), "the fixture needs the two bands to differ");
+
+        ReplyPlanner.Plan p = ReplyPlanner.plan(v);
+        assertEquals(ReplyPlanner.Move.TRAIN_SPOT, p.move());
+        String offered = v.playerSpots().get(0);
+        List<String> scripts = ReplyPlanner.scripts(v, ReplyPlanner.Move.TRAIN_SPOT);
+        for (String line : scripts) {
+            for (String mine : botBand) {
+                if (mine.equals(offered) || line.equals("i train at " + mine)) {
+                    continue; // the bot may say where it trains itself, never offer it to the asker
+                }
+                assertFalse(line.toLowerCase(Locale.ROOT).contains(mine.toLowerCase(Locale.ROOT)),
+                        () -> "offered the bot's own spot: " + line);
+            }
+        }
+    }
+
+    /** The view the game really builds: the tip's spots come from the asker's level and job, not the bot's. */
+    @Test
+    void theViewOffersTheAskersBandSpotsNotTheBotsOwn() {
+        System.setProperty("solomapling.convo.persona", "false"); // no roster read: the voice line is not the question
+        try {
+            Character botChr = bot(120, 3100000, 0, "Leafre");
+            soloMapling.ArtificialPlayer.BotSM bot = mock(soloMapling.ArtificialPlayer.BotTypes.TownWandererBot.class);
+            when(bot.getChr()).thenReturn(botChr);
+            Character player = bot(22, 1000000, HENESYS, "Henesys");
+            when(player.getName()).thenReturn("Newbie");
+
+            ReplyPlanner.View v = BotReplyView.of(bot, player, 1, "grinding", "where should i train",
+                    ChatTriage.rules("where should i train"), false, false);
+            assertNotNull(v);
+            assertEquals(BotReplyView.spots(22, 1000000), v.playerSpots(),
+                    "the tip is for the asker's level and job");
+            assertNotEquals(BotReplyView.spots(120, 3100000), v.playerSpots(),
+                    "a lv 120 bot must not hand its own band's spot to a lv 22 player");
+        } finally {
+            System.clearProperty("solomapling.convo.persona");
+        }
     }
 }

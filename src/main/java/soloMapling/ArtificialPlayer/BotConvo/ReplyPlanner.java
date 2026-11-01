@@ -589,7 +589,11 @@ public final class ReplyPlanner {
     private static final Pattern TRAIN_ASK = Pattern.compile(
             "\\b(where|wat|what|which|wut)\\b[^?]{0,20}\\b(train|trainin|training|grind|grindin|grinding|level|levelin|"
                     + "lvlin|lvl|spots?|maps?|pq)\\b|\\b(training spot|train spot|good spot|best spot)\\b|"
-                    + "\\b(where (?:should|do|can) i (?:go|train|grind))\\b|\\b(kpq|lpq|opq|cpq|ppq|hpq)\\b");
+                    + "\\b(where (?:should|do|can) i (?:go|train|grind))\\b|\\b(kpq|lpq|opq|cpq|ppq|hpq)\\b"
+                    // m02 round 3: "that place has no mobs my level" is a train ask too. With no plan it went to
+                    // free chat, and the model made a spot up ("u need like leafre or something").
+                    + "|\\b(?:no|not enough|aint|arent|nothing) (?:good |any )?(?:mobs?|monsters?)\\b"
+                    + "|\\bno (?:good )?(?:spots?|maps?)\\b|\\b(?:any|some) good (?:spots?|maps?)\\b");
 
     /** Where to train: a real spot the planner can name, or a party quest it would have to talk about. */
     static boolean trainingTalk(String line) {

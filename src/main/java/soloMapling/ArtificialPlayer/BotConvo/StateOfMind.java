@@ -919,6 +919,22 @@ public final class StateOfMind {
             + "doin|doing|up to|u at|you at|r u|are you|u train|you train|u grind)\\b|\\bwyd\\b|\\bwhere (r|are) (u|you)\\b");
 
     /**
+     * The factual answer to "what are you doing / where are you": the bot's place and what is on it, from the
+     * snapshot; null when the snapshot holds no place. The safe line and a flagged line that turns out to be only
+     * that question both answer with this (m02 round 3: TEST answered "what r u doing" with the con bank's
+     * "go train elsewhere ^^").
+     */
+    public static String activityAnswer(Snapshot s, String asked) {
+        if (s == null || s.here() == null || asked == null || !ASKS_DOING.matcher(words(asked)).find()) {
+            return null;
+        }
+        String place = s.here().name() == null ? "" : s.here().name().toLowerCase(Locale.ROOT);
+        String line = s.town() ? "just chillin in " + place + " rn" : !s.mobsHere().isEmpty()
+                ? "killing " + s.mobsHere().get(0).toLowerCase(Locale.ROOT) + "s here" : "just here in " + place;
+        return check(line, s).ok() ? line : null;
+    }
+
+    /**
      * A reply that the snapshot backs: the answer to an open offer, what it is doing when asked, else a short
      * neutral line. Always passes {@link #check}.
      */
@@ -932,13 +948,9 @@ public final class StateOfMind {
                     : "nah cant do " + price(o.offered()) + " for " + o.item() + ", " + price(o.asking())
                     + " is my price";
         }
-        if (s != null && s.here() != null && asked != null && ASKS_DOING.matcher(words(asked)).find()) {
-            String place = s.here().name() == null ? "" : s.here().name().toLowerCase(Locale.ROOT);
-            String line = s.town() ? "just chillin in " + place + " rn" : !s.mobsHere().isEmpty()
-                    ? "killing " + s.mobsHere().get(0).toLowerCase(Locale.ROOT) + "s here" : "just here in " + place;
-            if (check(line, s).ok()) {
-                return line;
-            }
+        String here = activityAnswer(s, asked);
+        if (here != null) {
+            return here;
         }
         if (asked != null && GREETING.matcher(words(asked)).find()) {
             return HELLO.get(rng.nextInt(HELLO.size()));

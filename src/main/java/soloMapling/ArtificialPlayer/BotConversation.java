@@ -1153,6 +1153,16 @@ public final class BotConversation {
                 BotMemory.remember(slot, player.getId(), List.of(note), BotMemory.Source.DIRECT, 0, 0, asked);
             }
         }
+        // m02 round 3 (TEST cv-13 2026-11-01): "what r u doing" was answered "go train elsewhere ^^" - the Decide
+        // model had called the player's line a con, and this branch sent the con key's bank line, which answers
+        // nothing. A line the rules did not flag, that only asks what the bot is doing, gets the real answer.
+        String answer = flaggedAnswer(session.mind, line, triage.conSource());
+        if (answer != null) {
+            deliver(session, answer, asked, ChatStats.Tier.SCRIPTED,
+                    kind + "/" + triage.conSource().name().toLowerCase() + (lone ? ", lone" : "") + ", answered the ask",
+                    new Cue(triage, BotChatActions.Outcome.NONE, line, null, "activity"));
+            return;
+        }
         if (triage.con() == ChatTriage.Con.HARASSMENT && ThreadLocalRandom.current().nextBoolean()) {
             ChatStats.reply(ChatStats.Tier.FLAGGED, System.currentTimeMillis() - asked, bot.getName(),
                     kind + "/" + triage.conSource().name().toLowerCase() + (lone ? ", lone" : "") + ", ignored");
@@ -1168,6 +1178,20 @@ public final class BotConversation {
                 kind + "/" + triage.conSource().name().toLowerCase() + (lone ? ", lone" : ""), new Cue(lone ? new ChatTriage.Result(triage.kind(),
                         triage.intent(), triage.intentSource(), ChatTriage.Con.NORMAL, triage.conSource(),
                         triage.conConfidence()) : triage, BotChatActions.Outcome.NONE, line));
+    }
+
+    /**
+     * m02 round 3: what a flagged line that is only asking what the bot is doing is answered with - the place the
+     * snapshot holds, else a plain "chatting with u rn" (true while replying). Null when the line is not that
+     * question, or when the rules themselves flagged it: a rule con ("kys", a phish) keeps the brush-off.
+     */
+    static String flaggedAnswer(soloMapling.ArtificialPlayer.BotConvo.StateOfMind.Snapshot mind, String line,
+                                ChatTriage.Source conSource) {
+        if (conSource == ChatTriage.Source.RULE) {
+            return null;
+        }
+        String place = soloMapling.ArtificialPlayer.BotConvo.StateOfMind.activityAnswer(mind, line);
+        return place != null ? place : ScriptedReplies.activityQuestion(line);
     }
 
     private static boolean botHasSpoken(Session session) {
