@@ -2,6 +2,8 @@ package soloMapling.ArtificialPlayer.BotTypes;
 
 import client.Character;
 import client.inventory.Item;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
@@ -11,6 +13,8 @@ import soloMapling.FreeMarket.FMItem;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -48,6 +52,13 @@ public class SellingMerchantBot extends BotSM {
     }
 
     private static final List<String> FLAVOR_NODES = List.of("ScamMessages", "BeggingMessages", "RWTMessages", "FunnyMessages");
+
+    // b271 (the selling half of the FMBot fix): the item pool does not know every item's value (getItemMarketValue
+    // returns null for an item its id, or its equip facts, do not price). Such an item is never stocked and never
+    // sold, and its id is warned about once per JVM so a live log names the item instead of repeating.
+    private static final Set<Integer> missingMarketValueIds = ConcurrentHashMap.newKeySet();
+    static final int MISSING_MARKET_VALUE_LOG_LIMIT = 1_000;
+    private static final Logger LOG = LoggerFactory.getLogger(SellingMerchantBot.class);
 
     public SellingMerchantBot(Character character) {
         super(character);
@@ -88,24 +99,73 @@ public class SellingMerchantBot extends BotSM {
             itemIndex = 0;
             loadItemList();
         }
-
-        FMItem currItem = getCurrentItem();
-        if (currItem == null) {
-            return;
+        if (itemsToSell == null || itemsToSell.isEmpty()) {
+            return;   // this generator produced nothing (e.g. dark scrolls below pool version 39)
         }
 
-        Item item = generateItem(currItem.getItemId(), 1, 1);
+        // b271: an item the pool cannot value is neither stocked nor sold, so walk on to the next one in this stock
+        // list (at most one pass, about four items). A list with nothing valued leaves the trade state as it was
+        // rather than offering a price nobody published.
+        for (int tried = 0; tried < itemsToSell.size(); tried++) {
+            FMItem currItem = itemsToSell.get(itemIndex);
+            if (currItem != null) {
+                Item item = generateItem(currItem.getItemId(), 1, 1);
+                Integer askingPrice = askingPriceFor(item);
+                if (askingPrice != null) {
+                    stock(item, askingPrice);
+                    return;
+                }
+            }
+            itemIndex++;
+            if (itemIndex >= itemsToSell.size()) {
+                itemIndex = 0;
+            }
+        }
+    }
+
+    /**
+     * b271: what this bot asks for {@code item}: its market value (a scroll at what it sells for now) times 0.9 through
+     * the FM price rules, exactly as it always did. {@code null} when the item pool has no value for it - the bot then
+     * neither stocks nor sells it, so nothing is ever offered at a price nobody published.
+     *
+     * @param item the item this bot would put in its trade window
+     * @return the mesos to ask, or null when the pool does not know the item's value
+     */
+    static Integer askingPriceFor(Item item) {
+        Integer rawValue = getItemMarketValue(item);
+        // 162: a scroll is offered at what it sells for now (ScrollMarketPrice), the yaml price when that is off
+        rawValue = soloMapling.Economy.ScrollMarketPrice.price(item.getItemId(), rawValue);
+        if (rawValue == null || rawValue <= 0) {
+            noteMissingMarketValue(item.getItemId());
+            return null;
+        }
+        return priceAdjustmentRules((int) (rawValue * 0.9));
+    }
+
+    /** Puts one valued item up for sale at {@code askingPrice} and turns the bot into a seller. */
+    private void stock(Item item, int askingPrice) {
         getTradeInventory().setItemForSaleMain(item);
         getTradeWants().resetTradeWants();
-        int rawValue = getItemMarketValue(item);
-        // 162: a scroll is offered at what it sells for now (ScrollMarketPrice), the yaml price when that is off
-        rawValue = soloMapling.Economy.ScrollMarketPrice.price(item.getItemId(), (Integer) rawValue);
-        int adjValue = priceAdjustmentRules((int) (rawValue * 0.9));
-        getTradeWants().setMesoWanted(adjValue);
+        getTradeWants().setMesoWanted(askingPrice);
         setTradeMode(BotTradeSM.TradeMode.SELLING);
 
         resetLastTradeResult();
         resetLastTradedCharacter();
+    }
+
+    /**
+     * b271: records that the item pool has no value for {@code itemId} and warns about it once per JVM (the set is
+     * bounded, so a bad item id cannot grow it without limit and the log cannot flood). The caller sells something
+     * else; the warning is what makes the next live log able to name the item.
+     *
+     * @return true when this call was the first for the id (and so logged)
+     */
+    static boolean noteMissingMarketValue(int itemId) {
+        if (missingMarketValueIds.size() >= MISSING_MARKET_VALUE_LOG_LIMIT || !missingMarketValueIds.add(itemId)) {
+            return false;
+        }
+        LOG.warn("Item {} has no known market value: selling merchant bots skip it (b271)", itemId);
+        return true;
     }
 
     private void advertise() {
