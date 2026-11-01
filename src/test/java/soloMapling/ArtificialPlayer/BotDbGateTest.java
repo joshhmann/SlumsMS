@@ -2,11 +2,13 @@ package soloMapling.ArtificialPlayer;
 
 import org.junit.jupiter.api.Test;
 import tools.DatabaseConnection;
+import soloMapling.ArtificialPlayer.BotStore.ConnectionSource;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -14,7 +16,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -227,6 +231,161 @@ class BotDbGateTest {
             BotDbGate.useMaxWaitForTest(0);
         }
         assertEquals(BotDbGate.PERMITS, BotDbGate.available());
+    }
+
+    @Test
+    void aWriteTheShareRefusedIsAskedForAgainAndThenReported() throws Exception {
+        // b269 review: a store write the gate refused used to be dropped with a warning. The caller of a
+        // player-facing write has already been told it happened, so the write asks again while the share is busy
+        // (three tries) and only then fails - and it fails as a refusal, so callers can tell "try later" from
+        // "the table is missing".
+        AtomicInteger attempts = new AtomicInteger();
+        ConnectionSource pool = () -> mock(Connection.class);
+        BotDbGate.useMaxWaitForTest(10);
+        try (ExecutorService other = Executors.newSingleThreadExecutor()) {
+            CountDownLatch holding = new CountDownLatch(1);
+            CountDownLatch done = new CountDownLatch(1);
+            Future<?> holder = other.submit(() -> BotDbGate.hold(BotDbGate.PERMITS, () -> {
+                holding.countDown();
+                try {
+                    done.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return null;
+            }));
+            holding.await();
+            try {
+                SQLException thrown = assertThrows(SQLException.class, () -> BotDbGate.write(() -> {
+                    attempts.incrementAndGet();
+                    return BotDbGate.connection(pool);
+                }));
+                assertAll(
+                        () -> assertEquals(BotDbGate.WRITE_ATTEMPTS, attempts.get(),
+                                "each refusal is asked again, and the work never runs"),
+                        () -> assertTrue(BotDbGate.refused(thrown),
+                                "a caller has to be able to tell a busy share from a store that said no"),
+                        () -> assertFalse(BotDbGate.refused(new SQLException("no such table"))));
+            } finally {
+                done.countDown();
+            }
+            holder.get(5, TimeUnit.SECONDS);
+        } finally {
+            BotDbGate.useMaxWaitForTest(0);
+        }
+        assertEquals(BotDbGate.PERMITS, BotDbGate.available(), "every permit came back");
+    }
+
+    @Test
+    void aWriteOnAFreeShareRunsOnce() throws SQLException {
+        AtomicInteger attempts = new AtomicInteger();
+        ConnectionSource pool = () -> mock(Connection.class);
+        assertEquals("done", BotDbGate.write(() -> {
+            attempts.incrementAndGet();
+            try (Connection con = BotDbGate.connection(pool)) {
+                return "done";
+            }
+        }));
+        assertEquals(1, attempts.get(), "a write that lands is not repeated");
+    }
+
+    @Test
+    void aVirtualThreadDoesNotAskAgain() throws Exception {
+        // A virtual thread must not sit out the retry: it pins its carrier while it sleeps, and the carrier is what
+        // hands the permits back. It asks once, is refused, and the caller decides.
+        AtomicInteger attempts = new AtomicInteger();
+        ConnectionSource pool = () -> mock(Connection.class);
+        BotDbGate.useMaxWaitForTest(10);
+        try (ExecutorService other = Executors.newSingleThreadExecutor()) {
+            CountDownLatch holding = new CountDownLatch(1);
+            CountDownLatch done = new CountDownLatch(1);
+            Future<?> holder = other.submit(() -> BotDbGate.hold(BotDbGate.PERMITS, () -> {
+                holding.countDown();
+                try {
+                    done.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return null;
+            }));
+            holding.await();
+            try (ExecutorService virtual = Executors.newVirtualThreadPerTaskExecutor()) {
+                Future<Boolean> refused = virtual.submit(() -> {
+                    try {
+                        BotDbGate.write(() -> {
+                            attempts.incrementAndGet();
+                            return BotDbGate.connection(pool);
+                        });
+                        return false;
+                    } catch (SQLException expected) {
+                        return BotDbGate.refused(expected);
+                    }
+                });
+                assertTrue(refused.get(5, TimeUnit.SECONDS), "the virtual thread was refused, not retried");
+                assertEquals(1, attempts.get(), "exactly one try, so no sleeping on a carrier");
+            } finally {
+                done.countDown();
+            }
+            holder.get(5, TimeUnit.SECONDS);
+        } finally {
+            BotDbGate.useMaxWaitForTest(0);
+        }
+        assertEquals(BotDbGate.PERMITS, BotDbGate.available(), "every permit came back");
+    }
+
+    @Test
+    void aBotWaitingForTheShareIsServedBeforeALaterArrival() throws Exception {
+        // b269 review: acquire's first try was Semaphore.tryAcquire(int), whose javadoc says it ignores the fair
+        // ordering the semaphore was built with. A newcomer could take the room a waiting thread had been promised.
+        // The first try now goes through the fair path with a zero timeout: room goes to the longest waiter.
+        BotDbGate.useMaxWaitForTest(5_000);
+        List<String> order = new CopyOnWriteArrayList<>();
+        CountDownLatch fiveHeld = new CountDownLatch(1);
+        CountDownLatch sixHeld = new CountDownLatch(1);
+        CountDownLatch oneFree = new CountDownLatch(1);
+        try (ExecutorService threads = Executors.newFixedThreadPool(4)) {
+            Future<?> five = threads.submit(() -> BotDbGate.hold(5, () -> {
+                fiveHeld.countDown();
+                await(oneFree);
+                return null;
+            }));
+            Future<?> one = threads.submit(() -> BotDbGate.hold(1, () -> {
+                sixHeld.countDown();
+                await(oneFree);
+                return null;
+            }));
+            assertTrue(fiveHeld.await(5, TimeUnit.SECONDS) && sixHeld.await(5, TimeUnit.SECONDS),
+                    "the share is fully taken");
+            assertEquals(0, BotDbGate.available(), "six permits, six held");
+
+            Future<?> waiting = threads.submit(() -> BotDbGate.hold(1, () -> {
+                order.add("waiting");
+                return null;
+            }));
+            Thread.sleep(200);   // queued on the share by now, in front of whatever comes next
+            oneFree.countDown();
+            five.get(5, TimeUnit.SECONDS);
+            Future<?> later = threads.submit(() -> BotDbGate.hold(1, () -> {
+                order.add("later");
+                return null;
+            }));
+            waiting.get(5, TimeUnit.SECONDS);
+            later.get(5, TimeUnit.SECONDS);
+            one.get(5, TimeUnit.SECONDS);
+        } finally {
+            BotDbGate.useMaxWaitForTest(0);
+        }
+        assertEquals(List.of("waiting", "later"), order,
+                "the thread that was already waiting got the room the release freed");
+        assertEquals(BotDbGate.PERMITS, BotDbGate.available(), "every permit came back");
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            latch.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     @Test

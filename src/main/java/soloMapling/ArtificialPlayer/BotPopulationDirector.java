@@ -507,6 +507,13 @@ public final class BotPopulationDirector {
             // the tick's 25-per-30-seconds cap. The pace owns both the concurrency and the rate now.
             LoginPace pacer = pace();
             for (int botId : plan.logins()) {
+                // b269 round 3: a bot that left the world and whose departure is not written yet is not a login to
+                // start: it would read the stale row it left, and the departure would then land on the new session.
+                // The autosave sweep writes the departure and a later tick logs it in.
+                if (BotStore.departurePending(botId)) {
+                    log.debug("Roster bot {} is skipped for login: its departure is still waiting for a write", botId);
+                    continue;
+                }
                 pacer.offer(botId);
             }
         } catch (Exception e) {
@@ -618,7 +625,11 @@ public final class BotPopulationDirector {
     public enum LoginAsk {
         /** The bot is in the world; a caller may move it, party it, speak for it. */
         LOGGED_IN,
-        /** A bot-db thread is logging it in now: it is in within a few hundred milliseconds, so ask again later. */
+        /**
+         * A bot-db thread will log it in ({@link #loginQueued} says which bot): a free share reaches it within a few
+         * hundred milliseconds, a busy one later, and a login the share refuses is dropped without telling this
+         * caller - so ask again, and never read this as "it is here now".
+         */
         QUEUED,
         /** Nothing was started and nothing is on its way: the bots' login share is busy, or the server is stopping. */
         REFUSED

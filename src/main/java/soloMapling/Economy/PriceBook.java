@@ -133,7 +133,10 @@ public final class PriceBook {
     private static final Map<Integer, Map<String, Long>> recentIps = new ConcurrentHashMap<>();
     private static final Set<String> pairsToday = ConcurrentHashMap.newKeySet();
     private static volatile EconomyStore store = new EconomyStore.Jdbc();
-    private static volatile Executor writer = ExecutorServiceManager::runAsync;
+    // 1.6.3 (b269 review): these writes hit the bots' share of the pool, and a virtual thread is refused there
+    // instead of waiting - which drops a player's choice that was already acknowledged. A bot-db platform thread
+    // waits its turn, and BotDbGate.write asks again if the share was busy.
+    private static volatile Executor writer = ExecutorServiceManager::runBotDb;
     private static volatile LongSupplier clock = System::currentTimeMillis;
     private static volatile ToLongFunction<Item> staticValue = PriceBook::staticValueOf;
     private static volatile ToLongFunction<Item> npcValue = PriceBook::npcValueOf;
@@ -661,7 +664,7 @@ public final class PriceBook {
     public static void useForTest(EconomyStore testStore, Executor testWriter, LongSupplier testClock,
                                   ToLongFunction<Item> testStatic) {
         store = testStore == null ? new EconomyStore.Jdbc() : testStore;
-        writer = testWriter == null ? ExecutorServiceManager::runAsync : testWriter;
+        writer = testWriter == null ? ExecutorServiceManager::runBotDb : testWriter;
         clock = testClock == null ? System::currentTimeMillis : testClock;
         staticValue = testStatic == null ? PriceBook::staticValueOf : testStatic;
         npcValue = testStatic == null ? PriceBook::npcValueOf : item -> 0L;

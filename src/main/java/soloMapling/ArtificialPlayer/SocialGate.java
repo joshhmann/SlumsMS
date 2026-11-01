@@ -151,7 +151,10 @@ public final class SocialGate {
     private static final List<SocialCrew> crewSources = new CopyOnWriteArrayList<>(List.of(SocialCrew.GUILD));
 
     private static volatile SocialGateStore store = new SocialGateStore.Jdbc();
-    private static volatile Executor writer = ExecutorServiceManager::runAsync;
+    // 1.6.3 (b269 review): these writes hit the bots' share of the pool, and a virtual thread is refused there
+    // instead of waiting - which drops a player's choice that was already acknowledged. A bot-db platform thread
+    // waits its turn, and BotDbGate.write asks again if the share was busy.
+    private static volatile Executor writer = ExecutorServiceManager::runBotDb;
     private static final SerialWrites writes = new SerialWrites(r -> writer.execute(r));
     private static volatile LongSupplier clock = System::currentTimeMillis;
     /** Whether choices and ledger rows are written: on after the boot read started (or a test store), off without 031. */
@@ -854,7 +857,7 @@ public final class SocialGate {
     /** Tests: a store, a writer and a clock (nulls restore the real ones); forgets everything in memory. */
     static void useForTest(SocialGateStore testStore, Executor testWriter, LongSupplier testClock) {
         store = testStore != null ? testStore : new SocialGateStore.Jdbc();
-        writer = testWriter != null ? testWriter : ExecutorServiceManager::runAsync;
+        writer = testWriter != null ? testWriter : ExecutorServiceManager::runBotDb;
         clock = testClock != null ? testClock : System::currentTimeMillis;
         storeOn = testStore != null;
         resetForTest();

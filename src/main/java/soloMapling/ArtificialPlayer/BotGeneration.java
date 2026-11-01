@@ -169,7 +169,20 @@ public class BotGeneration {
         // again (decoration would re-roll level, job and appearance). The identity is applied before the
         // bot joins the map, so the spawn packet already carries the stored name instead of the
         // placeholder one. On-demand spawns never adopt: their slot is arrival order, not a plan position.
-        boolean adopted = BotStore.isPlanned(slot) && BotStore.restoreIdentity(bot);
+        // b269 round 3: a bot whose departure from an earlier session is still waiting for its row must not come
+        // back on the stale row it left (and must not be minted as a new bot either). restoreIdentity writes that
+        // departure first, once; when the bots' share of the pool refuses even that, the login is turned away as
+        // busy - the same answer the director gives a login the share is busy for - and the bot stays deferred for
+        // the autosave sweep. Nothing is written here and no slot is spent.
+        BotStore.Restore restore = BotStore.isPlanned(slot)
+                ? BotStore.restoreIdentity(bot)
+                : BotStore.Restore.NEVER_FILLED;
+        if (restore == BotStore.Restore.BUSY) {
+            log.info("Login of bot {} ({}) turned away: its departure from an earlier session is still waiting for"
+                    + " the bots' share of the pool", bot.getId(), bot.getName());
+            return -1;
+        }
+        boolean adopted = restore == BotStore.Restore.ADOPTED;
         // Ticket bot-persistence/05: one name per character, for good. An adopted bot keeps its stored name
         // unless an older bot or a real player holds it; the store records a rename with the bot's next save.
         bot.setName(adopted ? BotNames.claimStored(botId, bot.getName()) : BotNames.claimNew(botId));
@@ -385,8 +398,10 @@ public class BotGeneration {
         BotSpotClaims.releaseAllFor(fakechar.getId());
 
         // Ticket 06: a bot's holdings now go into the store with it, so leaving the world costs it nothing.
-        // If the store cannot be written the bot is settled onto the map instead - while the map is still
-        // available - so what it accumulated is never silently destroyed.
+        // 1.6.3 (b269 review): a write that cannot be made keeps the bot and its ledger for the next sweep
+        // (BotStore.deferredDepartures); it is no longer settled onto the map, because a refused write handed a
+        // departed bot's value to the world while its stored row still claimed it. Only a bot with no stored row,
+        // whose value has nowhere else to live, is settled here.
         BotStore.saveThenSettle(fakechar);
         BotRoster.recordSessions(java.util.List.of(fakechar), System.currentTimeMillis(), true);
         BotConversation.endAllOf(fakechar.getId()); // a bot leaving mid-chat still writes down what it heard

@@ -427,7 +427,7 @@ public final class BotMemory {
 
     /**
      * {@link #recentPassable(int, int)} for many bots at once: one round trip for a whole gossip round instead of
-     * one per teller (1.6.2: at 3,000 bots the minute's twenty tellers each asked the pool for their own read, on the
+     * one per teller (1.6.3: at 3,000 bots the minute's twenty tellers each asked the pool for their own read, on the
      * thread that also drives the population tick). Bots are read in chunks so the statement stays small.
      *
      * @return notes per bot id, each bot's newest {@code limit} rows that can still be passed on (empty list absent)

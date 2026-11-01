@@ -82,7 +82,10 @@ public final class BotRomance {
     private static final Set<Integer> optedIn = ConcurrentHashMap.newKeySet();
     private static volatile boolean loaded;
     private static volatile long loadTriedAt;
-    private static volatile Executor writer = ExecutorServiceManager::runAsync;
+    // 1.6.3 (b269 review): these writes hit the bots' share of the pool, and a virtual thread is refused there
+    // instead of waiting - which drops a player's choice that was already acknowledged. A bot-db platform thread
+    // waits its turn, and BotDbGate.write asks again if the share was busy.
+    private static volatile Executor writer = ExecutorServiceManager::runBotDb;
     private static final SerialWrites writes = new SerialWrites(r -> writer.execute(r));
     private static volatile LongSupplier clock = System::currentTimeMillis;
     private static volatile IntFunction<Character> bots = DramaKit::liveBot;
@@ -1577,7 +1580,7 @@ public final class BotRomance {
         bots = testBots != null ? testBots : DramaKit::liveBot;
         players = testPlayers != null ? testPlayers : DramaKit::onlinePlayer;
         clock = testClock != null ? testClock : System::currentTimeMillis;
-        writer = testStore != null ? Runnable::run : ExecutorServiceManager::runAsync;
+        writer = testStore != null ? Runnable::run : ExecutorServiceManager::runBotDb;
         notesOn = testStore == null;
         roster = testStore != null ? id -> false : BotRoster::isMember;
         rows.clear();

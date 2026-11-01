@@ -11,6 +11,11 @@ public class ServerConfig {
     public String DB_USER;
     public String DB_PASS;
     public int INIT_CONNECTION_POOL_TIMEOUT;
+    //How long a thread waits for a pooled connection before its work fails (ms): a player login, a bot load, a
+    //write. 0 or less = 30000, Hikari's own default. b269 hard-coded 10 s here to make a wedged pool fail loudly;
+    //that is still the recommendation for live (10 s turned a busy boot fill's waits into refusals), but it is a
+    //config choice now, not a constant. Note the bot share of the pool waits this long per attempt (BotDbGate).
+    public int DB_CONNECTION_TIMEOUT_MS = 30000;
 
     //Login Configuration
     public int WORLDS;
