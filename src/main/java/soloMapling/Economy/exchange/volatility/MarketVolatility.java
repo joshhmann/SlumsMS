@@ -176,6 +176,10 @@ public final class MarketVolatility {
     /** The bots' abstract hunting pace (TrainingBot's KILLS_PER_MIN where no mob data gives a rate). */
     static final double KILLS_PER_MIN = 30.0;
 
+    /** b261: the scroll chances of every mob and map, kept across ticks (see {@link ScrollDropChances}). */
+    static final ScrollDropChances SCROLL_CHANCES = new ScrollDropChances(MarketTraders.SCROLL_IDS.stream()
+            .mapToInt(id -> soloMapling.Economy.exchange.Ledger.Asset.valueOf(id).itemId()).toArray());
+
     /**
      * Called from a bot's off-screen loot accrual: a trader bot (traders on) also finds Maple Leaves at the leaf's
      * own global drop chance on its map's continent (the table players roll; the bots' off-screen loot otherwise
@@ -229,7 +233,9 @@ public final class MarketVolatility {
      * row each (chance 1200/1,000,000 on every continent) and only the Chaos Scroll has per-mob rows, so the global
      * row is what a bot mostly finds; the White Scroll's other sources (gachapon, the check-in, the drop game) stay
      * player systems and are not used. Granted through the yield caps and holdings like any other off-screen find, so
-     * a bot with no loot budget left finds nothing; global rates are not touched. Never throws.
+     * a bot with no loot budget left finds nothing; global rates are not touched. The drop rows themselves are read
+     * once per mob and map ({@link ScrollDropChances}); the rates and the map's mob count are applied per call. Never
+     * throws.
      */
     public static void offscreenScrollFinds(Character bot, long elapsedMs) {
         try {
@@ -266,34 +272,12 @@ public final class MarketVolatility {
                 // no world (tests): rate 1
             }
             // the bot's kills split evenly over the mobs on its map, like its averaged off-screen loot
-            double share = 1.0 / mobs.size();
+            double[] perKill = scrollChancePerKill(mobs, bot.getMapId(), dropRate, bossRate, SCROLL_CHANCES);
             for (int slot = 0; slot < MarketTraders.SCROLL_IDS.size(); slot++) {
                 int itemId = soloMapling.Economy.exchange.Ledger.Asset.valueOf(
                         MarketTraders.SCROLL_IDS.get(slot)).itemId();
-                double perKill = 0;
-                for (int mobId : mobs) {
-                    boolean boss;
-                    try {
-                        server.life.Monster mm = server.life.LifeFactory.getMonster(mobId);
-                        boss = mm != null && mm.getStats() != null && mm.getStats().isBoss();
-                    } catch (RuntimeException e) {
-                        boss = false;
-                    }
-                    int rate = boss ? bossRate : dropRate;
-                    for (server.life.MonsterDropEntry de : server.life.MonsterInformationProvider.getInstance()
-                            .retrieveDrop(mobId)) {
-                        if (de.itemId == itemId && de.chance > 0 && de.questid == 0) {
-                            perKill += (double) de.chance * rate * share;
-                        }
-                    }
-                }
-                for (server.life.MonsterGlobalDropEntry de : server.life.MonsterInformationProvider.getInstance()
-                        .getRelevantGlobalDrops(bot.getMapId())) {
-                    if (de.itemId == itemId && de.chance > 0) {
-                        perKill += de.chance;
-                    }
-                }
-                int n = MarketTraders.offscreenScroll(bot.getId(), slot, elapsedMs, KILLS_PER_MIN, perKill, findRate);
+                int n = MarketTraders.offscreenScroll(bot.getId(), slot, elapsedMs, KILLS_PER_MIN, perKill[slot],
+                        findRate);
                 if (n <= 0) {
                     continue;
                 }
@@ -309,6 +293,26 @@ public final class MarketVolatility {
         } catch (RuntimeException e) {
             // a lost find, never a broken hunt
         }
+    }
+
+    /**
+     * b261: the scroll chance per kill of every slot ({@link MarketTraders#SCROLL_IDS} order) for a trader hunting a map
+     * with these mobs - each mob's summed drop chance scaled by the world's drop rate and the even share of the bot's
+     * kills, then the map's global rows - so the caller reads the drop data once per mob and map, not per tick.
+     */
+    static double[] scrollChancePerKill(List<Integer> mobs, int mapId, int dropRate, int bossRate,
+                                        ScrollDropChances chances) {
+        ScrollDropChances.Look look = chances.look(mapId, mobs);
+        double[] perKill = new double[look.global.length];
+        double share = 1.0 / mobs.size();
+        for (int slot = 0; slot < perKill.length; slot++) {
+            for (ScrollDropChances.Mob found : look.mobs) {
+                int rate = found.boss ? bossRate : dropRate;
+                perKill[slot] += found.chance[slot] * rate * share;
+            }
+            perKill[slot] += look.global[slot];
+        }
+        return perKill;
     }
 
     // ---------------------------------------------------------------- the game's roster of traders
