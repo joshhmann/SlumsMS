@@ -28,6 +28,8 @@ steps:
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   # hc-1 does the warp, the spawn, the party and the hurt server-side and says so on the feed; every wait below is
   # keyed by the caller's char id, the only thing the runner knows
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
   - {id: scene, do: gm, line: "!qa run hc-1"}
   - {id: on-map, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 104040000 ", char: me}, timeout_ms: 30000}
   - {id: staged, do: wait, armed_at: scene, signal: {type: server_line, topic: STAGING, regex: "^STAGE FOLLOWER cid=\\d+ job=BISHOP ", char: me}, timeout_ms: 30000}

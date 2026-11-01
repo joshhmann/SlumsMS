@@ -27,6 +27,8 @@ steps:
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
   # cv-13 warps the GM to Henesys and stages a friend bot beside him
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
   - {id: hop, do: gm, line: "!warp 100000100", note: "cv-13 warps the GM to Henesys; from Henesys itself that logs no MAP_CHANGE"}
   - {id: hopped, do: sleep, ms: 4000, reason: "let the market load before the scenario warps back"}
   - {id: scene, do: gm, line: "!qa run cv-13"}

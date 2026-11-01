@@ -7,7 +7,7 @@ covers: [b102]
 status: draft
 server: test
 needs: [gm]
-notes: "cv-2 stages a neutral bot next to the GM and gives it one Work Gloves (1082002); asking 'how much for the work gloves' logs TRADE QUOTE <bot> offers <player> <item> at <price> (band ...) - the same line auto-QA's t-cv-2 waits for. The staged bot is the only one on the map that carries the item, so a nameless line is enough (the runner does not know the bot's name; it is printed in the GM's yellow staging text). The three lines must be three different answers: a quote, an answer to the counter, and the band's last word - the same price line twice is the bug."
+notes: "cv-2 stages a neutral bot next to the GM and gives it one Work Gloves (1082002); asking 'how much for the work gloves' logs QUOTE <bot> (topic TRADE) offers <player> <item> at <price> (band ...) - the same line auto-QA's t-cv-2 waits for. The staged bot is the only one on the map that carries the item, so a nameless line is enough (the runner does not know the bot's name; it is printed in the GM's yellow staging text). The three lines must be three different answers: a quote, an answer to the counter, and the band's last word - the same price line twice is the bug."
 clients:
   me:
     account: {vault: aq-gm-1}
@@ -25,6 +25,8 @@ steps:
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
   - {id: hop, do: gm, line: "!warp 100000100", note: "the GM is usually saved in Henesys; a warp to the map it is on logs no MAP_CHANGE"}
   - {id: hopped, do: sleep, ms: 4000, reason: "let the market load before warping back"}
   - {id: warp, do: gm, line: "!warp 100000000"}
@@ -32,7 +34,7 @@ steps:
   - {id: scene, do: gm, line: "!qa run cv-2"}
   - {id: staged, do: sleep, ms: 3000, reason: "the neutral bot is given the work gloves by the scenario"}
   - {id: quote-ask, do: chat, text: "how much for the work gloves"}
-  - {id: quoted, do: wait, armed_at: quote-ask, signal: {type: server_line, topic: TRADE, regex: "^TRADE QUOTE ", char: me}, timeout_ms: 90000}
+  - {id: quoted, do: wait, armed_at: quote-ask, signal: {type: server_line, topic: TRADE, regex: "^QUOTE ", char: me}, timeout_ms: 90000}
   - {id: first-said, do: wait, armed_at: quote-ask, signal: {type: server_line, topic: CONVO, regex: "^SAID ", char: me}, timeout_ms: 90000}
   - {id: pause-1, do: sleep, ms: 3000, reason: "read the quote before countering"}
   - {id: counter, do: chat, text: "would u do 300k"}
@@ -52,7 +54,7 @@ expect:
     - see: "Three answers in a row that are NOT the same sentence: the quote, a real answer to 300k (accept, counter or a firm last price), then a third line that does not repeat the quote word for word"
       in: [counter-answer, push-answer]
   checks:
-    - {check: server_line, topic: TRADE, regex: "^TRADE QUOTE ", char: me, min: 1}
+    - {check: server_line, topic: TRADE, regex: "^QUOTE ", char: me, min: 1}
     - {check: server_line, topic: CONVO, regex: "^SAID ", char: me, min: 3}
     - {check: client_alive}
   judgment: "Whether the three lines differ is a judgement on the chat text: the frames show the three answers, the TRADE QUOTE line shows the price came from the band."

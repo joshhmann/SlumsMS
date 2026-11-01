@@ -28,6 +28,8 @@ steps:
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
   # mx-5 stages the alts, the party and the entry server-side; every wait below is keyed by the caller's char id
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
   - {id: scene, do: gm, line: "!qa run mx-5"}
   - {id: recruit, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000000 ", char: me}, timeout_ms: 60000}
   - {id: inside, do: wait, armed_at: scene, signal: {type: server_line, topic: MAP_CHANGE, regex: "^MAP \\S+ -> 103000800 ", char: me}, timeout_ms: 90000}

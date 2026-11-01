@@ -21,6 +21,8 @@ steps:
   - {id: chars, do: wait, signal: {type: client_signal, name: charselect.ready}, timeout_ms: 30000}
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
   - {id: run, do: gm, line: "!qa run ga-1"}
   - {id: market, do: wait, signal: {type: client_signal, name: field.ready, map_id: 100000100}, timeout_ms: 30000}
   - {id: spawn, do: gm, line: "!bot spawn thief 2"}

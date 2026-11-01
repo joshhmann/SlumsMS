@@ -26,6 +26,8 @@ steps:
   - {do: select_character}
   - {id: in-game, do: wait, signal: {type: client_signal, name: field.ready}, timeout_ms: 60000}
   - {id: checkin, do: click, anchor: checkin.close, note: "the Daily Check-in window covers the field after every login"}
+  - {id: prestop, do: gm, line: "!qa stop", note: "a card that failed before its cleanup leaves its scenario running; the next !qa run is refused"}
+  - {id: stopped, do: sleep, ms: 2000, reason: "let the stop land before the next GM command"}
   - {id: scene, do: gm, line: "!qa run cv-1"}
   - {id: staged, do: sleep, ms: 3000, reason: "the friend bot is spawned beside the GM by the scenario"}
   - {id: hello-1, do: chat, text: "hey"}
