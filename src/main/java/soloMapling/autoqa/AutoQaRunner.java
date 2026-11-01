@@ -21,7 +21,7 @@ import static soloMapling.autoqa.Check.Status;
  *   IDLE -> PREPARING -> (per lane: STEPPING -> ASSERTING -> CLEANING) -> FINISHED | ABORTED -> IDLE
  * </pre>
  * One check at a time by default ({@code -Dslums.autoqa.parallel=1}), or several at once on separate lanes of
- * synthetic players when the operator asks for it ({@code -Dslums.autoqa.parallel=2..4}); {@link AutoQaScheduler}
+ * synthetic players when the operator asks for it ({@code -Dslums.autoqa.parallel=2..10}); {@link AutoQaScheduler}
  * decides which check may start, so two checks that need the same map, instance or the whole world never overlap.
  * A check is SKIP when it is MANUAL, when it needs something the server lacks (a precondition refusal, a missing
  * LLM judge on a judge-only check), or when it is not nightly and the run is the nightly one. A step that fails ends

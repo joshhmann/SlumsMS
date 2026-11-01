@@ -841,14 +841,25 @@ Notes on what some checks prove:
 ### Running checks in parallel (1.6.2, ticket 167)
 
 One run used to be one check at a time: 181 checks, 9578 s of check time (run `d4f103b0e`, 2026-10-30), and the two
-Kerning PQ checks alone were a quarter of it. Checks can now overlap on up to four lanes of synthetic players.
+Kerning PQ checks alone were a quarter of it. Checks can now overlap on up to ten lanes of synthetic players.
 
-- **Switch:** `-Dslums.autoqa.parallel=2..4` (default 1, clamped 1..4). 1 is today's serial run, in catalogue order,
+- **Switch:** `-Dslums.autoqa.parallel=2..10` (default 1, clamped 1..10). 1 is today's serial run, in catalogue order,
   with only `AutoQaOne` and `AutoQaTwo` logged in. The switch is read from the JVM (`AUTOQA_PARALLEL` in a release
   conf, `start-test.sh` on TEST), not from `config.yaml`, so an old server's strict config can never trip on it.
-- **Who plays:** lane 1 keeps slots 1 (`AutoQaOne`, GM) and 2 (`AutoQaTwo`); lanes 2..4 get slots 7/8, 9/10, 11/12
-  (`AutoQaSeven` .. `AutoQaTwelve`), each lane's first player a GM so it can run `!qa`. The four observer slots 3..6
-  are untouched. Six extra characters exist on TEST only when a lane is used.
+- **Who plays:** lane 1 keeps slots 1 (`AutoQaOne`, GM) and 2 (`AutoQaTwo`); lanes 2..10 get slots 7/8, 9/10, 11/12,
+  13/14 .. 23/24, each lane's first player a GM so it can run `!qa`. Slots 7..12 keep the names TEST already has
+  (`AutoQaSeven` .. `AutoQaTwelve`), slots 13..24 are named after their slot (`AutoQa13` .. `AutoQa24`): the seeding
+  finds a character by account, so renaming the old ones would desync a default from the character that exists. Every
+  name is 12 characters or fewer, the client's limit. The four observer slots 3..6 are untouched. Eighteen extra
+  characters exist on TEST only when a lane is used, each on its own account `autoqa<slot>` and its own hwid, so two
+  lanes never share a character (a second login of one slot would log the first lane out).
+- **Ten lanes (1.6.3, ticket 163, owner 2026-11-01):** `SyntheticPlayers.MAX_LANES` is 10 and the property clamps to
+  it. The lane slots are the only table sized for the lanes: nothing else (map pools, alt names, probes) is indexed by
+  lane. `AutoQaTenLanesTest` holds the numbering (lane 10 is slots 23/24, no slot is both a lane's and an observer's,
+  twenty distinct names/accounts/hwids), `QaTenLaneLogTest` holds the routing at ten (`QaLog.toPlayer` reaches the one
+  run whose GM is that player, a line addressed to a lane's plain player reaches no run, a map line still reaches every
+  lane), and `AutoQaSeedingTest` holds that seeding a slot twice creates nothing twice. Turning it on: TEST's
+  `start-test.sh` sets the count; a release conf passes `-Dslums.autoqa.parallel=10`.
 - **What a check declares:** `Check.Builder.laneOnly()` when it only touches its own players, or
   `.holds("map:<id>", "pq:<name>", "ch:<n>", ...)` for what it stages. **No declaration means `world`**: it runs alone,
   exactly as every check did before. Leave the default when you are not sure, and annotate when evidence says the

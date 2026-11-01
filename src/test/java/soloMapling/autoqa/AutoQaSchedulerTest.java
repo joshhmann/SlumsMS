@@ -98,7 +98,7 @@ class AutoQaSchedulerTest {
     }
 
     @Test
-    void theLaneCountIsThePropertyClampedToOneToFour() {
+    void theLaneCountIsThePropertyClampedToOneToTen() {
         System.clearProperty(AutoQaScheduler.PROPERTY);
         assertEquals(1, AutoQaScheduler.parallel(), "no property means today's serial run");
         for (String unset : List.of("", "nonsense")) {
@@ -109,7 +109,7 @@ class AutoQaSchedulerTest {
         assertEquals(1, AutoQaScheduler.parallel());
         System.setProperty(AutoQaScheduler.PROPERTY, "3");
         assertEquals(3, AutoQaScheduler.parallel());
-        System.setProperty(AutoQaScheduler.PROPERTY, "9");
+        System.setProperty(AutoQaScheduler.PROPERTY, "99");
         assertEquals(SyntheticPlayers.MAX_LANES, AutoQaScheduler.parallel(), "clamped to the players that exist");
     }
 
