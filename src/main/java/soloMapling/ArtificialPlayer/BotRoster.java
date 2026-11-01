@@ -144,6 +144,14 @@ public final class BotRoster {
     private static final Map<Integer, Member> members = new ConcurrentHashMap<>();
     private static volatile boolean loaded;
     private static volatile BotStore.ConnectionSource connectionSource;
+    /**
+     * The roster's own connection for its one-time read (ticket 174), and never a pooled one: every spawning bot
+     * queues on {@link #LOAD_LOCK}, so the read must not be able to wait for a connection there. Closed at shutdown.
+     */
+    private static final DatabaseConnection.SnapshotConnection SNAPSHOT =
+            DatabaseConnection.newSnapshotConnection();
+    /** Test seam: points the snapshot read (not the writes) at a mock; null reads from {@link #SNAPSHOT}. */
+    private static volatile BotStore.ConnectionSource snapshotSource;
     private static int highestRosterSlot = BotStore.FIRST_ROSTER_SLOT - 1;
     /** The highest roster slot when the roster first loaded this boot (-1 until then): apvariants.fromSlot=auto. */
     private static volatile int bootHighestSlot = -1;
@@ -399,12 +407,15 @@ public final class BotRoster {
         if (!loaded) {
             synchronized (LOAD_LOCK) {
                 if (!loaded) {
-                    // Straight to the pool, not through the gate: every spawning bot queues on LOAD_LOCK, so this
-                    // read is already serialised, and a login that paid a gate permit for it would nest a second
-                    // demand on top of the character load's. One unfenced read here is cheaper than that nesting;
-                    // it can take at most one connection, and the bots' share leaves players four (see BotDbGate).
-                    BotStore.ConnectionSource source = connectionSource;
-                    try (Connection con = source != null ? source.get() : DatabaseConnection.getConnection();
+                    // The roster's own connection, not a pooled one and not the gate (ticket 174). Every spawning
+                    // bot queues on LOAD_LOCK while this runs, and on Java 21 a virtual thread blocked on a monitor
+                    // pins its carrier, so a borrow that had to wait for the pool here would hold those bots for up
+                    // to the pool's connection timeout while the threads that could free a connection were pinned.
+                    // A connection that is not in the pool cannot wait for one. It stays out of the gate too: a
+                    // login that paid a permit under this lock would nest a second demand on the character load's
+                    // (see BotDbGate).
+                    BotStore.ConnectionSource source = snapshotSource;
+                    try (Connection con = source != null ? source.get() : SNAPSHOT.get();
                          PreparedStatement ps = con.prepareStatement(SELECT_ALL);
                          ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
@@ -457,10 +468,15 @@ public final class BotRoster {
         return source != null ? source : BotDbGate::connection;
     }
 
-    /** Test seam: points the roster at a mock pool (null restores the real one) and forgets what it loaded. */
+    /**
+     * Test seam: points the roster at a mock pool (null restores the real one) and forgets what it loaded.
+     * The one-time read comes from {@code source} too: a test that swaps in a pool expects the roster to read
+     * from it, and its own connection only exists in a real run.
+     */
     static void useConnectionSourceForTest(BotStore.ConnectionSource source) {
         synchronized (LOAD_LOCK) {
             connectionSource = source;
+            snapshotSource = source;
             members.clear();
             pendingResume.clear();
             loginPlaces.clear();
@@ -468,6 +484,16 @@ public final class BotRoster {
             loaded = false;
             highestRosterSlot = BotStore.FIRST_ROSTER_SLOT - 1;
             bootHighestSlot = -1;
+        }
+    }
+
+    /**
+     * Test seam: points just the one-time read at a mock (null reads from the roster's own connection), leaving
+     * the writes where {@link #useConnectionSourceForTest} put them.
+     */
+    static void useSnapshotSourceForTest(BotStore.ConnectionSource source) {
+        synchronized (LOAD_LOCK) {
+            snapshotSource = source;
         }
     }
 }
