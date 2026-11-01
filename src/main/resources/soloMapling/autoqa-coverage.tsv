@@ -65,7 +65,7 @@ t-ev-1,t-ev-2,t-ev-3	src/main/java/soloMapling/ArtificialPlayer/BotCombatSystem/
 t-cv-1,t-pr-1,t-sg-1	src/main/java/soloMapling/ArtificialPlayer/BotCommandsPack/**	@commands bots answer
 t-sg-1,t-sg-2	src/main/java/soloMapling/ArtificialPlayer/BotCommandsPack/SocialCommands.java	called by scenario SocialGate
 t-mr-1	src/main/java/soloMapling/ArtificialPlayer/BotConversation.java	probe warpPlayer, engaged
-t-cv-1,t-cv-3,t-cv-5,t-cv-9,t-cq-1,t-bt-1,t-bt-3	src/main/java/soloMapling/ArtificialPlayer/BotConvo/**	conversation intent and sense
+t-cv-1,t-cv-3,t-cv-5,t-cv-9,t-cq-1,t-bt-1,t-bt-3,t-pl-1	src/main/java/soloMapling/ArtificialPlayer/BotConvo/**	conversation intent and sense, the reply planner
 t-gs-1,t-rv-5,t-dr-6,t-cr-1	src/main/java/soloMapling/ArtificialPlayer/BotConvo/BotThreads.java	called by scenario Gossip; called by scenario Beef
 t-cv-1,t-cv-2,t-cv-3,t-cv-4,t-cv-5,t-cv-6,t-cv-7,t-cv-8,t-cv-9,t-cv-10,t-cv-11,t-cv-12	src/main/java/soloMapling/ArtificialPlayer/BotConvo/ConvoIntent.java	called by scenario Convo
 t-cv-1,t-cv-2,t-cv-3,t-cv-4,t-cv-5,t-cv-6,t-cv-7,t-cv-8,t-cv-9,t-cv-10,t-cv-11,t-cv-12	src/main/java/soloMapling/ArtificialPlayer/BotConvo/ConvoSense.java	called by scenario Convo
