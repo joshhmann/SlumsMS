@@ -13,7 +13,7 @@ PC.
 2. **Make a new folder for every task** (`client-<topic>`, `launcher-<topic>`, `<tool>-<topic>`). Never build in or
    overwrite someone else's folder. Never touch `test-client\` (the owner's reference client).
 3. **Never close, kill or steal focus from the owner's programs.** Stop only processes you started, by PID.
-4. **The game runs only from a copy you made under `SlumsMS-dev`,** pointed at the TEST server (192.168.0.164, port
+4. **The game runs only from a copy you made under `SlumsMS-dev`,** pointed at the TEST server (192.168.0.111, port
    8489). Never point anything at live (port 8485, slumsms.asslorde.com) and never use the owner's accounts.
 5. **No secrets in output.** Access keys, the dev key, account passwords and signing keys are never printed, logged,
    committed or put in a prompt. If a build needs a key baked in, the owner runs that step.

@@ -43,7 +43,7 @@
   },
   "server": {
    "const": "test",
-   "description": "Always TEST (192.168.0.164:8489). The QA client build is refused by live."
+   "description": "Always TEST (SLUMS_TEST_HOST, default 192.168.0.111:8489). The QA client build is refused by live."
   },
   "needs": {
    "type": "array",

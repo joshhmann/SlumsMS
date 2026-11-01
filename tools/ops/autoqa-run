@@ -15,12 +15,15 @@
 #             Needs the selector all; refused with --fast or --failed.
 #   --feature target the isolated bot-brain copy (/opt/mapleroot-dev/bot-life-160) instead of TEST.
 #
+# The request is appended on TEST: mapletest (root@$SLUMS_TEST_HOST, default 192.168.0.111), never live on 164.
+#
 # Appends the request to the queue Server/data/autoqa/run-queue.txt (b016: one line "<id> TAB <UTC stamp> TAB <request>",
 # atomic append) and prints "queued (#n, position k)". The server takes the requests in order, each one 30 s or less
 # after the previous run ends (logged as "Auto-QA run request"); a run in progress is not interrupted and a second
 # request no longer replaces the first. Results: tools/ops/test-status. Never run it against TEST for a quick look:
 # every call is a real run request.
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"   # TEST_HOST, test_ssh
 SEL=""
 FLAGS=""
 BASE=/opt/mapleroot-dev/persistence-test
@@ -56,6 +59,6 @@ enqueue() {
 if [[ -n "${AUTOQA_LOCAL_DIR:-}" ]]; then
     enqueue "$AUTOQA_LOCAL_DIR" "$REQ"
 else
-    ssh root@192.168.0.164 "$(declare -f enqueue); enqueue '$BASE/Server/data/autoqa' '$REQ'"
+    test_ssh "$(declare -f enqueue); enqueue '$BASE/Server/data/autoqa' '$REQ'"
 fi
 echo "the test server starts it within 30 s of the earlier runs ending"

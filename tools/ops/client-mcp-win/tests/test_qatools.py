@@ -1,9 +1,11 @@
 """b170: the tools the 187 orchestrator plays a script with (login_credentials, click_anchor, select_*, qa_events).
 Fake screens, sender and pipe: no Windows calls."""
+import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
@@ -159,6 +161,43 @@ class NewToolsTest(unittest.TestCase):
                            ('qa_events', {'since': -1})):
             with self.assertRaises(self.driver.Refusal):
                 self.d.validate(name, args)
+
+
+class ClientEndpointTest(unittest.TestCase):
+    """o03: the QA client may point at TEST only, and TEST is mapletest (192.168.0.111) since 1.6.3."""
+
+    def setUp(self):
+        try:
+            import driver
+        except ImportError as error:
+            self.skipTest('driver import failed: %s' % error)
+        self.driver = driver
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def config(self, text):
+        path = self.tmp / 'config.ini'
+        path.write_text(text, encoding='ascii')
+        return path
+
+    def test_the_client_config_points_at_the_test_box(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('SLUMS_TEST_HOST', None)
+            self.driver.verify_config(self.config('host=192.168.0.111\nport=8489\n'))
+
+    def test_the_old_shared_box_and_live_are_refused(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('SLUMS_TEST_HOST', None)
+            for text in ('host=192.168.0.164\nport=8489\n',      # 164 is live only now
+                         'host=192.168.0.111\nport=8485\n',      # live's login port
+                         'host=192.168.0.111\nport=8489\nhost=10.0.0.9\nport=8489\n'):
+                with self.assertRaises(self.driver.Refusal, msg=text):
+                    self.driver.verify_config(self.config(text))
+
+    def test_slums_test_host_moves_the_guard(self):
+        with mock.patch.dict(os.environ, {'SLUMS_TEST_HOST': 'mapletest'}):
+            self.driver.verify_config(self.config('host=mapletest\nport=8489\n'))
+            with self.assertRaises(self.driver.Refusal):
+                self.driver.verify_config(self.config('host=192.168.0.111\nport=8489\n'))
 
 
 if __name__ == '__main__':

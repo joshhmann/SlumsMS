@@ -39,13 +39,31 @@ import yaml  # noqa: E402
 
 REPO = qascript.REPO
 RUNS_ROOT = Path("/root/work/qa-runs")
-TEST_HOST = "root@192.168.0.164"
+# TEST moved to its own box in 1.6.3 (mapletest, ssh alias `mapletest`); live, release staging and the patch site stay
+# on 192.168.0.164. SLUMS_TEST_HOST overrides the box (the same setting the Website lane's installer uses). 164 is the
+# one host that keeps ssh's default key.
+DEFAULT_TEST_HOST = "192.168.0.111"
+TEST_KEY = "~/.ssh/id_slums_lxc"
 FEED_URL = "http://127.0.0.1:8198/qa/events"
 FEED_SECRET_FILE = "/etc/slums-inspect-test/secret"
 DEPLOYED_COMMIT = "/opt/mapleroot-dev/persistence-test/Server/DEPLOYED_COMMIT"
 PLACEHOLDER = qascript.PLACEHOLDER
 # The client logs this once at login: the only place on the box that says which capabilities the client has.
 BUILD_STAMP_CAPS = re.compile(r"Build stamp: caps (0x[0-9A-Fa-f]{8})")
+
+
+def test_host():
+    """The TEST box's name or address: SLUMS_TEST_HOST, default mapletest (192.168.0.111)."""
+    return os.environ.get("SLUMS_TEST_HOST") or DEFAULT_TEST_HOST
+
+
+def test_ssh(remote, host=None):
+    """The argv that runs `remote` as root on the TEST box, with its key unless the box is the old 164."""
+    name = host or test_host()
+    argv = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]
+    if name != "192.168.0.164":
+        argv += ["-o", "IdentitiesOnly=yes", "-i", os.path.expanduser(TEST_KEY)]
+    return argv + ["root@" + name, remote]
 
 
 class RunFailed(Exception):
@@ -67,10 +85,10 @@ def iso(t):
 # ── the feed ──────────────────────────────────────────────────────────────────────────────────────
 
 class SshFeed:
-    """GET /qa/events on TEST, run on 164 over ssh; the secret header is built there from the file."""
+    """GET /qa/events on TEST, run on the TEST box over ssh; the secret header is built there from the file."""
 
-    def __init__(self, host=TEST_HOST, runner=subprocess.run):
-        self.host = host
+    def __init__(self, host=None, runner=subprocess.run):
+        self.host = host or test_host()
         self.runner = runner
 
     def remote_command(self, query):
@@ -85,8 +103,8 @@ class SshFeed:
             q["chars"] = ",".join(str(c) for c in chars)
         if match:
             q["match"] = match
-        r = self.runner(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", self.host,
-                         self.remote_command(urlencode(q))], capture_output=True, text=True, timeout=60)
+        r = self.runner(test_ssh(self.remote_command(urlencode(q)), self.host),
+                        capture_output=True, text=True, timeout=60)
         if r.returncode != 0:
             raise RunFailed("feed poll failed: " + (r.stderr or "").strip()[:200], "error")
         answer = json.loads(r.stdout)
@@ -95,9 +113,8 @@ class SshFeed:
         return answer
 
 
-def read_deployed_commit(host=TEST_HOST, runner=subprocess.run):
-    r = runner(["ssh", "-o", "BatchMode=yes", host, "cat " + DEPLOYED_COMMIT], capture_output=True, text=True,
-               timeout=30)
+def read_deployed_commit(host=None, runner=subprocess.run):
+    r = runner(test_ssh("cat " + DEPLOYED_COMMIT, host), capture_output=True, text=True, timeout=30)
     commit = (r.stdout or "").strip()
     return commit if re.fullmatch(r"[0-9a-f]{7,40}", commit) else "unknown"
 

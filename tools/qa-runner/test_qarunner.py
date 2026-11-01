@@ -1,10 +1,12 @@
 """Tests for the 187 orchestrator (ticket 170). Run: python3 -m unittest discover -s tools/qa-runner -p 'test_*.py'"""
 import datetime
 import json
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import qarunner  # noqa: E402
@@ -202,7 +204,7 @@ class OrchestratorTest(unittest.TestCase):
             self.assertTrue((run.folder / 'frames' / cap / '0001.png').exists(), cap)
         self.assertEqual(['ok', 'ok'], [cap['result'] for cap in m['captures'] if cap['kind'] == 'burst'])
 
-    def test_the_feed_secret_is_read_on_164_by_path(self):
+    def test_the_feed_secret_is_read_on_the_test_box_by_path(self):
         cmd = qarunner.SshFeed().remote_command("since=0&topics=COMBAT")
         self.assertIn("$(cat /etc/slums-inspect-test/secret)", cmd)
         self.assertIn("-H @-", cmd)
@@ -217,6 +219,68 @@ class OrchestratorTest(unittest.TestCase):
     def test_every_repo_script_has_a_plan(self):
         for f in sorted((REPO / "qa-scripts").glob("*.yaml")):
             self.assertIn("script ", qarunner.plan(f))
+
+
+class TestHostTest(unittest.TestCase):
+    """o03: the orchestrator talks to TEST on its own box (mapletest), never to 164's live box."""
+
+    def ssh(self, env):
+        with mock.patch.dict(os.environ, env, clear=False):
+            if 'SLUMS_TEST_HOST' not in env:
+                os.environ.pop('SLUMS_TEST_HOST', None)
+            return qarunner.test_ssh('cmd')
+
+    def test_the_default_box_is_mapletest_with_the_test_key(self):
+        argv = self.ssh({})
+        self.assertEqual(argv[-2:], ['root@192.168.0.111', 'cmd'])
+        self.assertIn(os.path.expanduser('~/.ssh/id_slums_lxc'), argv)
+
+    def test_slums_test_host_moves_the_orchestrator(self):
+        argv = self.ssh({'SLUMS_TEST_HOST': 'mapletest'})
+        self.assertEqual(argv[-2:], ['root@mapletest', 'cmd'])
+        self.assertIn('-i', argv)
+
+    def test_the_old_shared_box_keeps_ssh_default_key(self):
+        argv = self.ssh({'SLUMS_TEST_HOST': '192.168.0.164'})
+        self.assertEqual(argv[-2:], ['root@192.168.0.164', 'cmd'])
+        self.assertNotIn('-i', argv)
+
+    def test_the_deployed_commit_is_read_on_the_test_box(self):
+        calls = []
+
+        class Runner:
+            def __call__(self, argv, **kwargs):
+                calls.append(argv)
+
+                class Done:
+                    returncode = 0
+                    stdout = 'e3050a1d9\n'
+                    stderr = ''
+                return Done()
+
+        with mock.patch.dict(os.environ, {'SLUMS_TEST_HOST': 'mapletest'}):
+            commit = qarunner.read_deployed_commit(runner=Runner())
+        self.assertEqual(commit, 'e3050a1d9')
+        self.assertEqual(calls[-1][-2], 'root@mapletest')
+        self.assertEqual(calls[-1][-1], 'cat /opt/mapleroot-dev/persistence-test/Server/DEPLOYED_COMMIT')
+
+    def test_the_feed_polls_on_the_test_box(self):
+        calls = []
+
+        class Runner:
+            def __call__(self, argv, **kwargs):
+                calls.append(argv)
+
+                class Done:
+                    returncode = 0
+                    stdout = '{"ok": true}'
+                    stderr = ''
+                return Done()
+
+        with mock.patch.dict(os.environ, {'SLUMS_TEST_HOST': 'mapletest'}):
+            qarunner.SshFeed(runner=Runner()).poll(0, [], ['COMBAT'], wait=1)
+        self.assertIn('root@mapletest', calls[-1])
+        self.assertIn(os.path.expanduser('~/.ssh/id_slums_lxc'), calls[-1])
 
 
 if __name__ == "__main__":

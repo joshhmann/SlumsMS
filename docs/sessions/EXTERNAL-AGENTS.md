@@ -251,7 +251,8 @@ Owner of the lane: Server Dev. Helpers hand back a branch; Server Dev reviews, m
 - **Ports:** credit the source in the commit and in `docs/PROVENANCE.md` under "## Later ports" (`nutnnut/Cosmic <sha>`,
   `Kiwiism/cosmic_agents <sha>`).
 - **One implementation:** owned alts and population bots share the same code. No alt-only copies.
-- **TEST:** you may read it: `ssh root@192.168.0.164`, `journalctl -u slums-persistence-test`, and SELECT-only queries
+- **TEST:** you may read it: `ssh -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111}` (mapletest, TEST's own
+  box since 1.6.3; 164 hosts live only), `journalctl -u slums-persistence-test`, and SELECT-only queries
   on the `mapleroot-integration-db` container, schema `mapleroot_persist`. Never print the DB password. Never deploy,
   restart or edit files on TEST, and never touch live.
 - **Only Server Dev does:** `tools/ops/deploy-test`, auto-QA runs, and merges into `release-1.6.2`.

@@ -1,6 +1,7 @@
 -- exchange-test-cleanup.sql: remove the QA checks' test trades from the TEST exchange's price history.
 --
--- FOR REVIEW. NOT RUN. TEST ONLY: mapleroot_persist on mapleroot-integration-db (164, port 3307). Never live.
+-- FOR REVIEW. NOT RUN. TEST ONLY: mapleroot_persist on mapleroot-integration-db (TEST's box mapletest,
+-- 192.168.0.111, port 3307). Never live.
 -- Written 2026-10-29 (branch 161-exfix) after the website lane's TEST check (03:03 UTC): NX showed last 1,001,000
 -- and change_24h_pct +901, LEAF last 1,000-1,110 against a fair 500,000.
 --

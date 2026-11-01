@@ -1,8 +1,9 @@
 # Client visual QA through the Windows worker
 
 Read AGENTS.md, docs/ops/silvia-AGENTS.md and docs/qa/QA.md first. This driver operates only its owned
-`Z:\MSv83\SlumsMS-dev\client-mcp\client` copy and the dedicated TEST account. It accepts only
-192.168.0.164:8489. The isolated feature server is on **8491**, so this driver currently cannot be pointed at it.
+`Z:\MSv83\SlumsMS-dev\client-mcp\client` copy and the dedicated TEST account. It accepts only the TEST server,
+192.168.0.111:8489 since 1.6.3 (`SLUMS_TEST_HOST` overrides it, default 192.168.0.111; 164 is live only now). The
+isolated feature server is on **8491**, so this driver currently cannot be pointed at it.
 Do not loosen the endpoint guard as a workaround or replace shared 1.5.1 TEST just to run feature QA.
 
 ## Verified implementation

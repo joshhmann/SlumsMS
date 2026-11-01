@@ -1,6 +1,6 @@
 # QA guide: auto-QA on the test server, client visual QA on the owner's PC, the owner's checklist
 
-Three layers, cheapest first. All of it runs against the TEST server (164, port 8489), so no go is needed, but tell
+Three layers, cheapest first. All of it runs against the TEST server (`mapletest`, 192.168.0.111, port 8489), so no go is needed, but tell
 the owner before anything that restarts the test server or starts the game on their PC.
 
 ## 1. Auto-QA (server side, "did it happen")
@@ -11,8 +11,8 @@ Pretend players (SyntheticClient) stage scenes with `!qa` and assert results; he
 tools/ops/autoqa-run smoke          # quick set; also: all | <id> | <family> | id,id,...
 tools/ops/autoqa-run --release all  # the launch check: FAILs on any FAIL or any SKIP off the allow-list
 tools/ops/test-status               # last run summary, health sweep, deployed commit, errors (--checks: every row)
-ssh root@192.168.0.164 cat /opt/mapleroot-dev/persistence-test/Server/data/autoqa/latest.json   # full results
-ssh root@192.168.0.164 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa/ | head'      # per-check logs
+ssh -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111} cat /opt/mapleroot-dev/persistence-test/Server/data/autoqa/latest.json   # full results
+ssh -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111} 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa/ | head'      # per-check logs
 ```
 - Scheduled: nightly 10:00 UTC (3 AM PDT) in the server, and 22:00 UTC (3 PM PDT) by cron on 164.
 - A request is picked up within 30 s; a run in progress is not interrupted. `all` takes about 20-30 minutes.
