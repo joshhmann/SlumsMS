@@ -26,6 +26,9 @@ code {
 /* b263: explanation text folds behind a click. A native details/summary, so it works with no script, from the
    keyboard and with a screen reader; the ring comes from the site-wide :focus-visible rule above. */
 .help { margin: 0 0 10px; }
+/* The database pages and the docs already skin every details (.dbmain, .doc, .rp-ctx): a folded help block is a
+   disclosure, not a card, so it drops that box wherever it lands. */
+details.help, .dbmain details.help, .doc details.help, .rp-ctx details.help { padding: 0; border: 0; background: none; }
 .help > summary {
   display: inline-flex; align-items: center; gap: 7px; cursor: pointer; padding: 4px 11px;
   border: 1.5px solid var(--hair); border-radius: 999px; background: var(--surface); color: var(--muted);
