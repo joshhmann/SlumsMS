@@ -192,40 +192,50 @@ edges:
   # Sharp Cliff, Wolf Territory, the Forest of Dead Trees and the Lion King's Castle moor.
   - {name: Jeff's gate, from: 211040200, to: 211040300, via: npc, npc: 2030000, fare: 0, to_portal: 5, min_level: 50, sec: 20}
 
-  # ── Lion King's Castle: Desolate Moor's east00 runs in_lkc.js - rebirth 1 (BotMapGates gates the castle) ──
+  # ── Lion King's Castle: Desolate Moor's east00 runs in_lkc.js - open since 1.6.1 b040 (only Von Leon's wing keeps
+  # rebirth 1, BotMapGates) ──
   - {name: castle gate, from: 211060000, to: 211060010, via: portal, portal: east00, script: in_lkc, fare: 0, to_portal: west00, sec: 20}
 
-  # ── Temple of Time: Three Doors' portal2 runs arcaneriver.js - rebirth 3 - to Vanishing Journey ──
-  # (portal1, a plain portal, already leads on to Gate to the Future and so to Twilight Perion, rebirth 2.)
+  # ── Temple of Time: Three Doors' portal2 runs arcaneriver.js - rebirth 2 (owner 2026-10-29) - to Vanishing Journey ──
+  # (portal1, a plain portal, already leads on to Gate to the Future and so to Twilight Perion: level 120 or 1 rebirth.)
   - {name: Arcane River gate, from: 270000000, to: 450001003, via: portal, portal: portal2, script: arcaneriver, fare: 0, to_portal: 0, sec: 20}
 
-  # ── Henesys: MapleRoot's teleporter (9010002), free; its Grandis and Arcane menus need 3 rebirths ──
+  # ── Temple of Time: the Gate of Time (portal1, 270000000.10.js) opens a menu (npc/gateOfTime.js): the Future, as the
+  # plain portal already leads, lower Grandis at Pantheon or Leafre of the Past - level 120 (server.maps.AreaGates) ──
+  - {name: Gate of Time, from: 270000000, to: 400000000, via: portal, portal: portal1, script: "270000000.10", fare: 0, to_portal: 0, min_level: 120, sec: 20}
+  # owner 2026-10-29: the third choice, Leafre of the Past (Crack in Time; its fields are the Future's lv 124 maps)
+  - {name: Gate of Time, from: 270000000, to: 272000000, via: portal, portal: portal1, script: "270000000.10", fare: 0, to_portal: 0, min_level: 120, sec: 20}
+
+  # ── Henesys: MapleRoot's teleporter (9010002), free. Ticket 81: the Future and lower Grandis towns open at level 120
+  # (server.maps.AreaGates; a row is AND-only, so a reborn bot under 120 - lower Grandis opens at the 1st rebirth too,
+  # owner 2026-10-29 - goes by the Heliseum row and walks through the Dimensional Door to Pantheon); owner 2026-10-29: the upper
+  # Grandis town (Heliseum) needs 1 rebirth and Arcane River 2, at any level ──
   # The Knight Stronghold entry (271030000) is left out: no bot may enter it (HyperTP-restricted). Its boss menu
   # (Papulatus, Balrog, Spooky World, Krexel, Castellan, Zakum, Horntail) is left out too: those are free jumps
   # past the boats that no leveling-path map needs.
-  - {name: teleporter, from: 100000000, to: 400000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 401000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 402000600, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 410000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 402000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 410000416, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 402000500, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 410000200, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 410000300, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 271010000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 273000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450001000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450002000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450015060, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450003000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450005000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450006130, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450007040, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450016000, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450009100, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450011120, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450012300, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
-  - {name: teleporter, from: 100000000, to: 450011660, via: npc, npc: 9010002, fare: 0, min_rebirths: 3, sec: 30}
+  - {name: teleporter, from: 100000000, to: 400000000, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 401000000, via: npc, npc: 9010002, fare: 0, min_rebirths: 1, sec: 30}
+  - {name: teleporter, from: 100000000, to: 402000600, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000000, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 402000000, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000416, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 402000500, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000200, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 410000300, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 271010000, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 273000000, via: npc, npc: 9010002, fare: 0, min_level: 120, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450001000, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450002000, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450015060, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450003000, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450005000, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450006130, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450007040, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450016000, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450009100, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450011120, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450012300, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
+  - {name: teleporter, from: 100000000, to: 450011660, via: npc, npc: 9010002, fare: 0, min_rebirths: 2, sec: 30}
 
   # ── Fox Point Village: the fox god (3002015) lifts you up the Fox Tree for 1000 mesos (Beginners 100) ──
   - {name: Fox Tree lift, from: 410000002, to: 410000100, via: npc, npc: 3002015, fare: 1000, beginner_fare: 100, to_portal: 0, sec: 20}
@@ -272,7 +282,8 @@ edges:
 
 # ── The Hyper Teleport Rock (HyperTPHandler), as bots may use it ──
 # A player can teleport from the world map to any map except the restricted ones (Knight Stronghold), those its
-# rebirth gates close (LKC 1, Twilight Perion 2, Grandis/Arcane 3) and fields with the CANNOTVIPROCK limit; a player
+# rebirth gates close (Von Leon's wing 1, the Future 1 or level 120, lower Grandis 1 or level 120, deeper Grandis 1,
+# Arcane River 2) and fields with the CANNOTVIPROCK limit; a player
 # without the rock (5590001) may do it once every 5 minutes. Bots get a narrow version so they keep riding the
 # boats everywhere else:
 #   into:   maps a bot may teleport to from anywhere - only areas no script or portal reaches: Black Heaven.

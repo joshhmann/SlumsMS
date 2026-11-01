@@ -145,8 +145,10 @@ maps, so you will usually find company there. Maps are in rough order of popular
 <p class="note">Cygnus Knights follow the matching explorer route after the Ereve starter band (Dawn Warrior &rarr;
 warrior, Blaze Wizard &rarr; Fire/Poison, Wind Archer &rarr; bowman, Night Walker &rarr; thief, Thunder Breaker &rarr;
 brawler). A job with no list of its own in a band uses the "Any job" list.</p>
-<p>Some late maps need rebirths before you can enter (see <a href="rebirths.html">Rebirths</a>); they are marked
-<span class="tag">R1</span>/<span class="tag">R2</span>/<span class="tag">R3</span>.</p>"""]
+<p>Areas past the classic world have a gate: the Future, Twilight Perion and the lower parts of Grandis open at
+<b>level 120</b> or with your <b>1st rebirth</b>, the rest of Grandis needs the 1st rebirth, and the Arcane River needs
+the 2nd. Maps behind those gates are marked <span class="tag">R1</span> or <span class="tag">R2</span> (see
+<a href="rebirths.html">Rebirths</a>). Lion King's Castle is open training and asks for no rebirth.</p>"""]
     out.append('<h2>Party quests</h2><div class="scroll"><table><tr><th>Party quest</th><th>Levels</th></tr>')
     for pq in data.get("party_quests", []):
         lo, hi = pq["levels"]
@@ -262,8 +264,9 @@ Mushroom Shrine (Japan) for 3,000 mesos and brings you back, free, to the town y
 <h2>Orbis Station platforms</h2>
 <p>In Orbis Station, Isa the Station Guide sends you to the right platform (Ellinia boat, Ludibrium train, Leafre
 flight, Mu Lung crane, Ariant genie, Ereve ferry) for free.</p>
-<p class="owner">The Cotton Warper in Base of Roots also warps you to boss maps (and, with 3 rebirths, Grandis and
-Arcane River towns). Whether it has other menus on live is not checked here.</p>
+<p class="owner">The Cotton Warper in Henesys and Base of Roots has three menus: boss maps, Grandis towns and
+Arcane River &amp; Future towns. The area gates above still apply, and it prints the gate's refusal text before you
+pick a warp.</p>
 <p class="src">Source: <code>BotTransit.yaml</code> (ticket 03), which mirrors <code>scripts/npc</code> and
 <code>scripts/event</code>. Names: <code>docs/wiki/data/names.json</code>.</p>""")
     return "\n".join(out)
