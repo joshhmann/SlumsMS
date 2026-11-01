@@ -2,6 +2,7 @@ package soloMapling.mechanics;
 
 import client.Character;
 import scripting.event.EventInstanceManager;
+import server.life.Monster;
 import server.life.NPC;
 import server.maps.MapItem;
 import server.maps.MapObject;
@@ -152,7 +153,7 @@ final class LiveStageView implements StageView {
 
     @Override
     public int floorItems(int itemId, int forCharacterId) {
-        return floorDrops(map, itemId, forCharacterId).size();
+        return floorDrops(this, map, itemId, forCharacterId).size();
     }
 
     @Override
@@ -195,8 +196,11 @@ final class LiveStageView implements StageView {
         return mi.getDropper() instanceof Character c ? c.getId() : 0;
     }
 
-    /** Drops of {@code itemId} on the map that this character may take: its own, or anyone's. */
-    static List<MapItem> floorDrops(MapleMap map, int itemId, int forCharacterId) {
+    /**
+     * Drops of {@code itemId} on the map that this member may take: its own, a monster's drop by the game's party
+     * loot rule (a pass a fellow member's kill left), or a hand-over made for it.
+     */
+    static List<MapItem> floorDrops(StageView view, MapleMap map, int itemId, int forCharacterId) {
         List<MapItem> out = new ArrayList<>();
         if (map == null) {
             return out;
@@ -204,10 +208,24 @@ final class LiveStageView implements StageView {
         for (MapObject o : map.getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY,
                 List.of(MapObjectType.ITEM))) {
             if (o instanceof MapItem mi && !mi.isPickedUp() && mi.getMeso() == 0 && mi.getItemId() == itemId
-                    && PassHandover.mayTake(forCharacterId, mi.getOwnerId(), dropperOf(mi), mi.getDropType())) {
+                    && mayTake(view, forCharacterId, mi)) {
                 out.add(mi);
             }
         }
         return out;
+    }
+
+    /**
+     * Whether {@code memberId} may take {@code mi}. A monster's drop follows the game's loot rule
+     * ({@link QuestionCouponsSolver#mayTakeMobCoupon}: its own kill, a party member's, or anyone's once the ownership
+     * window ran out) — a KPQ pass is such a drop, and stage 5's leader needs the ones his party's kills left. A
+     * character's drop is a hand-over and only the member it was made for takes it ({@link PassHandover#mayTake}).
+     */
+    static boolean mayTake(StageView view, int memberId, MapItem mi) {
+        if (mi.getDropper() instanceof Monster) {
+            return mi.getDropType() == 2 || QuestionCouponsSolver.mayTakeMobCoupon(view, memberId, mi.getOwnerId(),
+                    mi.hasExpiredOwnershipTime());
+        }
+        return PassHandover.mayTake(memberId, mi.getOwnerId(), dropperOf(mi), mi.getDropType());
     }
 }

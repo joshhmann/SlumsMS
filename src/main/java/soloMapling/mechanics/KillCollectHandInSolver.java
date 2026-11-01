@@ -110,6 +110,10 @@ public final class KillCollectHandInSolver implements StageSolver {
         if (mobs > 0) {
             return new SolverStep.Fight(0, plan.itemId(), Integer.MAX_VALUE);
         }
+        if (view.floorItems(plan.itemId(), id) > 0) {
+            // A pass a monster left where it fell: fetch it and hand it over, never idle beside it (t-mx-2).
+            return new SolverStep.Loot(plan.itemId());
+        }
         if (leader.isPresent() && leader.get().characterId() != id) {
             int[] by = view.positionOf(leader.get().characterId());
             int[] at = view.positionOf(id);
