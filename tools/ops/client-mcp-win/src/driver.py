@@ -93,6 +93,11 @@ def inside(path, base=ROOT):
     return resolved
 
 
+def test_host():
+    """The TEST server's address: SLUMS_TEST_HOST, default mapletest (192.168.0.111). TEST left 164 in 1.6.3."""
+    return os.environ.get('SLUMS_TEST_HOST') or '192.168.0.111'
+
+
 def verify_config(path):
     """Require exactly one endpoint pair; never silently rewrite an unsafe target."""
     text = path.read_text(encoding='utf-8-sig')
@@ -109,8 +114,9 @@ def verify_config(path):
             hosts.append(value)
         if key.lower() == 'port':
             ports.append(value)
-    if hosts != ['192.168.0.164'] or ports != ['8489']:
-        raise Refusal('Refusing client config: require exactly 192.168.0.164 port 8489.')
+    wanted = test_host()
+    if hosts != [wanted] or ports != ['8489']:
+        raise Refusal('Refusing client config: require exactly %s port 8489.' % wanted)
 
 
 class Secrets:

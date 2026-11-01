@@ -8,8 +8,10 @@ checkout of the release branch on 187 (for 1.5.0: `/root/work/SlumsMS-150`). Hos
 1. Work on a branch from the current release (`151-<topic>` from `origin/release-1.5.0`), one worktree per task.
 2. `mvn -q -o test` green; add tests for every change.
 3. Merge into the next release branch (`release-1.5.1` from `release-1.5.0`), run the suite again.
-4. `tools/ops/deploy-test --dry-run`, then `tools/ops/deploy-test`. Tell the owner first if they may be playing or a
-   run is going (`tools/ops/test-status`).
+4. `tools/ops/deploy-test --dry-run`, then `tools/ops/deploy-test`. TEST is its own box since 1.6.3, `mapletest`
+   (192.168.0.111, ssh alias `mapletest`, key `~/.ssh/id_slums_lxc`); the TEST tools read `SLUMS_TEST_HOST`
+   (default 192.168.0.111) and 164 is live only. Tell the owner first if they may be playing or a run is going
+   (`tools/ops/test-status`).
 5. QA:
    - `tools/ops/autoqa-run all` (or wait for 10:00 / 22:00 UTC), then read `tools/ops/test-status` and triage per
      `.claude/skills/qa-triage/SKILL.md`.

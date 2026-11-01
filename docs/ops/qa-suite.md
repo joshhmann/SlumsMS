@@ -443,11 +443,12 @@ Each run writes `logs/qa/<id>-<UTC yyyyMMddTHHmmssZ>.log` under the server's wor
 - `STEP` lines for `!qa do`.
 - At the end, `STOP`, one `CLEANUP` line per undo, and a `SUMMARY` with the event count per topic.
 
-Claude reads them on the test server:
+Claude reads them on the test server, which since 1.6.3 is `mapletest` (192.168.0.111, ssh alias `mapletest`, key
+`~/.ssh/id_slums_lxc`; `SLUMS_TEST_HOST` moves it, and 164 is live only):
 
 ```sh
-ssh root@192.168.0.164 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa/'
-ssh root@192.168.0.164 'cat /opt/mapleroot-dev/persistence-test/Server/logs/qa/fm-1-20261021T183005Z.log'
+ssh -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111} 'ls -t /opt/mapleroot-dev/persistence-test/Server/logs/qa/'
+ssh -i ~/.ssh/id_slums_lxc root@${SLUMS_TEST_HOST:-192.168.0.111} 'cat /opt/mapleroot-dev/persistence-test/Server/logs/qa/fm-1-20261021T183005Z.log'
 ```
 
 ## How it works
@@ -1180,7 +1181,8 @@ tools/ops/autoqa-run t-bc-1,t-bt-2,t-gr-1,t-gr-2,t-nn-1,t-nn-2,t-nv-1,t-nv-2,t-n
 ```
 
 Run that line on TEST (or hand it to the auto-QA queue) and the run's log is your proof. The tool never queues
-anything itself: it touches no server, and `tools/ops/autoqa-run` is still the only thing that talks to 164.
+anything itself: it touches no server, and `tools/ops/autoqa-run` is still the only thing that talks to TEST
+(`mapletest`, 192.168.0.111; `SLUMS_TEST_HOST` overrides).
 
 What it says, per file: the checks it reaches, `docs` (a markdown file or `docs/`), `unit test only (the suite covers
 it)`, `every check (runner/platform file)` for the auto-QA runner itself, or `no check covers this file`. Three

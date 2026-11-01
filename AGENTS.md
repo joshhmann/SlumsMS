@@ -49,11 +49,16 @@ server is a fork of MapleRoot/Cosmic (Java 21, Maven). The owner decides; you bu
 | Name | What | Notes |
 |---|---|---|
 | 187 (this workstation, "openclaw") | where agents run; all git checkouts under `/root/work` | Codex CLI, Maven, node |
-| 164 (`root@192.168.0.164`, LXC "maplestory", 12 cores, 48 GB) | live server, test server, patch site, release staging | shared by live and test: keep test inside its CPU/memory caps |
+| 164 (`root@192.168.0.164`, LXC "maplestory", 12 cores, 48 GB) | live server, patch site, release staging | live only since 1.6.3: TEST moved to `mapletest` |
+| mapletest (`root@192.168.0.111`, ssh alias `mapletest`, key `~/.ssh/id_slums_lxc`) | TEST game server, its DB, test site (:8192) and dashboard (:8091) | TEST's own box since 1.6.3; same paths and ports as before. `SLUMS_TEST_HOST` overrides (default 192.168.0.111) |
 | Silvia (`crims@192.168.0.186`, Windows) | builds the client DLL and launcher exe; the owner plays here | see rule 5; Parsec is often running |
 | 192.168.0.17 | local LLM (Qwen `qwen9b`, `:8095/v1`, 2 slots) that writes live 1.6.0.4's bot replies, and the chat classifiers: GLiNER Decide (`:8900`, live today), the trained r7 model (`:8913`) and tone (`:8910`) | live uses it now: keep load light. With 1.6.2, live replies move to the DeepSeek 4.1 Flash API (like TEST) and the classifier to :8913/:8910; qwen9b and :8900 stay as the rollback |
 
-### Servers on 164
+### Servers
+TEST runs on `mapletest` (192.168.0.111, ssh alias `mapletest`, key `~/.ssh/id_slums_lxc`); live, release staging and
+the patch site stay on 164. The TEST tools (`tools/ops/deploy-test`, `autoqa-run`, `test-status`, `qa-run-collect`,
+`tools/qa-runner`) read `SLUMS_TEST_HOST` (default 192.168.0.111) and reach it with that key; 164 keeps ssh's default key.
+
 | | Live | Test | Soak |
 |---|---|---|---|
 | Unit | `slumsms` | `slums-persistence-test` (transient, started by `/opt/mapleroot-dev/persistence-test/start-test.sh`) | `slums-soak3k` (stopped) |
@@ -151,7 +156,8 @@ claude.ai pages are only readable by Claude.
 
 ### Which agent can do what
 
-Claude, Codex and DeepSeek agents on 187 can all use ssh to 164 (`root@192.168.0.164`) and to the owner's PC
+Claude, Codex and DeepSeek agents on 187 can all use ssh to 164 (`root@192.168.0.164`, live), to TEST
+(`root@192.168.0.111`, alias `mapletest`, key `~/.ssh/id_slums_lxc`) and to the owner's PC
 (`crims@192.168.0.186`, key `~/.ssh/id_rsprox_desktop`), git and the scripts here. Claude-only tools (claude.ai
 artifact pages, their databases) are not required for any step; use the repo files instead.
 
