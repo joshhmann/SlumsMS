@@ -132,6 +132,24 @@ class ExchangeDeskBotTest {
         conserved();
     }
 
+    /**
+     * 163-b260 proof: a bot's desk fill must be nameable from the audit alone. The desk keeps no orders, so the fill
+     * row has buyOrder=sellOrder=0 and the audit used to print {@code buy#0(acct=? char=?) sell#0(acct=? char=?)}:
+     * every bot desk fill looked unattributed, and a grep for {@code bot=} found only the book's LEAF lines.
+     */
+    @Test
+    void theAuditNamesTheTraderOnADeskFill() throws Exception {
+        List<String> audit = new java.util.ArrayList<>();
+        ex.auditSink(audit::add);
+
+        Response r = ex.deskBot("d1", bot, Side.BUY, 1_000);
+        assertTrue(r.ok(), String.valueOf(r.message()));
+
+        String line = audit.stream().filter(s -> s.contains("fill #")).reduce((a, b) -> b).orElseThrow();
+        assertTrue(line.contains("desk bot=" + BOT), line);
+        assertFalse(line.contains("acct=?"), line);
+    }
+
     @Test
     void aBotSellsItsPurseAtTheDeskBuyQuote() throws Exception {
         Response buy = ex.deskBot("d1", bot, Side.BUY, 1_000);
