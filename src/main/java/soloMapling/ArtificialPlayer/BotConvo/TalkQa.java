@@ -16,6 +16,7 @@ import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotStore;
 import soloMapling.ArtificialPlayer.BotTypeManager;
+import soloMapling.ArtificialPlayer.BotTypes.TrainingBot;
 import soloMapling.ArtificialPlayer.StageSpots;
 
 import java.awt.Point;
@@ -41,6 +42,16 @@ public final class TalkQa {
 
     /** Spawns {@code count} bots at the player's height next to them, as social bots (talkers) or training bots. */
     public static List<Character> spawn(Character player, int count, boolean training, int level) {
+        return spawn(player, count, training, level, false);
+    }
+
+    /**
+     * As {@link #spawn(Character, int, boolean, int)}; with {@code settleHere} a staged training bot is put to
+     * grinding on the map it was spawned on instead of setting off on its own first trip. A check that needs a bot
+     * free to move at once uses this: the bot's own first decision picks a map by level and the walk there can
+     * take longer than the check waits (t-bt-2 on TEST 11-02: the leader was still walking after 90 s).
+     */
+    public static List<Character> spawn(Character player, int count, boolean training, int level, boolean settleHere) {
         List<Character> out = new ArrayList<>();
         MapleMap map = player.getMap();
         int base = BotStore.nextDynamicSlots(count);
@@ -55,6 +66,9 @@ public final class TalkQa {
             BotTalk.qaHold(id, true); // the talk tick leaves staged bots to the check
             if (training) {
                 BotTypeManager.convertBotType(bot, BotTypeManager.BotType.TRAINING_BOT);
+                if (settleHere && CharacterStorage.getBotById(id) instanceof TrainingBot staged) {
+                    staged.settleHere();
+                }
             } else {
                 BotTypeManager.convertBotType(bot, BotTypeManager.BotType.SOCIAL_BOT);
                 StageSpots.pin(id); // it stays next to the player

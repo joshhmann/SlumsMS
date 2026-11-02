@@ -340,6 +340,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     private int pendingHomeMapId = -1;    // ticket 03: another region's hub, adopted as home once the bot arrives
     private boolean firstTrip = true;     // first decision to go train: maybe warp straight there (see FIRST_TRIP_TELEPORT_CHANCE)
     private boolean midSessionGrind = false; // next grind starts partially elapsed (warped/in-place first trip — see MID_SESSION_FLOOR_MS)
+    private volatile boolean stayPutOnly = false;  // QA staged crew: no discovery, stay free where it stands (see settleHere)
     private final List<Integer> shopQueue = new ArrayList<>(); // store maps still to visit this town stop
     private int shopTargetMapId = -1;     // the store currently being travelled to
     // Ticket 09: this town stop's restock - the shop NPC the bot walks to and buys at (null when none is pending).
@@ -1872,6 +1873,12 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     private void doDecide() {
         Character chr = getChr();
         finishResupply(); // ticket 09: a town stop never leaves with its restock undone
+        // QA staged crew (settleHere): no discovery, no trip - a check that needs the bot free must not watch it walk.
+        if (stayPutOnly) {
+            debugChat("DECIDE: staged here -> stay on map " + chr.getMapId());
+            stayHere(chr);
+            return;
+        }
         // Station-here handoff (FollowerBot's "Train here with me!"): grind the current map, skip
         // discovery entirely - the map BFS excludes its origin, so without this the bot always migrates.
         if (BotRecruitManager.consumeStationHere(chr.getId()) && MapMobIndex.level(chr.getMapId()) >= 0) {
@@ -2860,6 +2867,44 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         currentTrainMapId = mapId;
         currentMobLevel = mobLevel;
         TrainingMapChooser.reserve(mapId);
+    }
+
+    /**
+     * QA staging: keep this bot where it is, dropping any first trip already in flight - grinding on a map with
+     * mobs, staying put in town on one without. A staged crew (t-bt-2) is spawned where the QA player happens to
+     * stand, and its own first decision picks a map by level and walks there (the warp is skipped: the QA player
+     * observes the map). That walk can outlast a check's wait - one {@link #TRAVEL_TIMEOUT_MS} is two minutes and
+     * the watchdog only pushes the deadline out while the bot moves - so the crew read as "on its way somewhere
+     * (go_train)" while it was simply walking. GRIND and IN_TOWN are both free phases, so the check sees a bot it
+     * can move at once. A bot still in INIT is only pinned: its own init runs (home town, combat ticker) and the
+     * decision after it stays put.
+     *
+     * @return false when the bot has no map to stay on; the caller keeps its own plan.
+     */
+    public boolean settleHere() {
+        Character chr = getChr();
+        if (chr == null || chr.getMap() == null) {
+            return false;
+        }
+        stayPutOnly = true; // its own next decision stays here instead of discovering a map by level
+        if (phase == Phase.INIT) {
+            return true; // its own init still runs (home town, combat ticker); DECIDE then stays put through the pin
+        }
+        GCMovement.cancelTravel(chr); // an in-flight trip would otherwise walk the bot off this map again
+        stayHere(chr);
+        return true;
+    }
+
+    // Grind where the bot stands, or hold the map in town when there is nothing to fight here.
+    private void stayHere(Character chr) {
+        int here = chr.getMapId();
+        if (MapMobIndex.mobCount(here) > 0) {
+            setTrainTarget(here, Math.max(1, MapMobIndex.level(here)));
+            firstTrip = false;
+            enterPhase(Phase.GRIND);
+        } else {
+            enterPhase(Phase.IN_TOWN);
+        }
     }
 
     private void clearTrainTarget() {
