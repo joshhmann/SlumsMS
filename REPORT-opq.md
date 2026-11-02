@@ -87,3 +87,10 @@ starts. That gap is entry, not stage logic, and it is the largest thing this tic
 
 No new dependency store, no second config file, no table, no client asset. The row is one YAML line in `index.txt` and
 the switch is one system property. `docs/PROVENANCE.md` has the credit block for cosmic_agents `3c7e09435`.
+
+## Checks run
+
+`mvn -o test` on this worktree (8455 tests): one failure, `MechanicsDataFilesTest.theContentRowsLoadFromTheJarWithNoSourceTree`,
+which pins the exact list of content rows - it now expects `opq` too, and passes alone after the change. Then
+`mvn -o test -Dtest='soloMapling.mechanics.*Test,soloMapling.MechanicsDataFilesTest,soloMapling.ArtificialPlayer.**.*Test'`
+(3224 tests) green, which is every test that can see the changed engine pieces. `OpqSolversTest` is 14 of them.
