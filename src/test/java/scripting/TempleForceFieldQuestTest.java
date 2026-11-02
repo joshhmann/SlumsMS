@@ -9,6 +9,7 @@ import client.inventory.Inventory;
 import constants.inventory.ItemConstants;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import server.ItemInformationProvider;
@@ -69,14 +70,25 @@ public class TempleForceFieldQuestTest {
 
     @BeforeAll
     static void wiz() {
-        assumePresent("Quest.wz");
-        assumePresent("Item.wz");
         // Quest resolves the WZ directory in a static initializer, so the path has to be set before Quest loads.
         System.setProperty("wz-path", dir().toString());
         // ItemInformationProvider loads its card ids from the database; no MySQL here, so stub the connection and
         // let it read the rest (slot max, names) from the real WZ.
         db = mockStatic(DatabaseConnection.class);
         db.when(DatabaseConnection::getConnection).thenReturn(mock(Connection.class, RETURNS_DEEP_STUBS));
+    }
+
+    /**
+     * The WZ check lives here, not in {@link #wiz()}: an assumption that fails in {@code @BeforeAll} aborts the whole
+     * container and surefire reports {@code Tests run: 0}, which hides this class from the suite. Per test it aborts
+     * that one test, which is counted as skipped - the same pattern as {@code server.maps.ReactorLoadTest}.
+     * {@link #wiz()} still runs first (and {@link #closeDb()} still closes its static mock), because a container
+     * whose {@code @BeforeAll} succeeded runs its teardown even when every test aborts.
+     */
+    @BeforeEach
+    void requireWzData() {
+        assumePresent("Quest.wz");
+        assumePresent("Item.wz");
     }
 
     @AfterAll
