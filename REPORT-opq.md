@@ -194,7 +194,9 @@ tower's stages stay off for a server that only wanted Kerning), and `-Dslums.mec
 nothing spawns five bots behind an operator's back). `-Dslums.mechanics.opq.runs` caps how many runs are in flight (1).
 A channel that refused a start (`getEligibleParty` said no) is left alone for ten minutes rather than retried every
 minute. `OpqLobbyTest` pins the gate, the row it reads, the ten-minute back-off, and the structural reason Kerning's
-lobby cannot staff the tower (its picker returns an empty list for an empty lobby).
+lobby cannot staff the tower (its picker returns an empty list for an empty lobby). The Kerning path itself is proved
+untouched by the tests that already ran it: `KpqFullRunTest` plays Kerning end to end (29 tests) and `KpqStagingRoomTest`
+holds the staging's refusals, both green with the row-driven `start(Content, ...)` underneath.
 
 ## Open risks
 
