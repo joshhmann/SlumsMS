@@ -133,6 +133,23 @@ public class AbstractPlayerInteraction {
         getPlayer().getMap().warpEveryone(map);
     }
 
+    /**
+     * 1.6.4: moves exactly the players the caller names to a map instance - the expedition leader's "you may continue
+     * to the next stage" step (scripts/npc/9000004.js:79-81) hands over the event instance's own member list, which
+     * is not the same set as everyone standing on the leader's map. Members already on the target map stay put.
+     */
+    public void warpMembers(MapleMap map, List<Character> members) {
+        if (map == null || members == null) {
+            log.warn("warpMembers: no map or no members, nobody moves (player {})", getPlayer().getName());
+            return;
+        }
+        for (Character member : members) {
+            if (member != null && member.getMap() != map) {
+                member.changeMap(map, 0);
+            }
+        }
+    }
+
     public void warpParty(int id) {
         warpParty(id, 0);
     }

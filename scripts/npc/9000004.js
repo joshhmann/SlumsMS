@@ -65,7 +65,7 @@ function action(mode, type, selection) {
             }
         } else if (status == 1) {
             //if (cm.mobCount(600010000)==0) {
-            if (cm.mapMobCount() == 0) {
+            if (cm.countMonster() == 0) {
                 cm.sendOk("Good job! You've killed 'em!");
             } else {
                 cm.sendOk("What are you talking about? Kill those creatures!!");
@@ -74,7 +74,7 @@ function action(mode, type, selection) {
         } else if (status == 2) {
             cm.sendOk("You may continue to the next stage!");
         } else if (status == 3) {
-            cm.clear();
+            cm.getMap().clearMapObjects(); // drops, monsters and reactors, the way the stage ends
             eim.setProperty("leader" + nthtext + "mobcount", "done");
             var map = eim.getMapInstance(109020001);
             var members = eim.getPlayers();
