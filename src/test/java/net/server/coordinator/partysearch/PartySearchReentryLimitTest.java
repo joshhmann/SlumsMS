@@ -1,6 +1,7 @@
 package net.server.coordinator.partysearch;
 
 import client.Character;
+import config.ServerConfig;
 import config.YamlConfig;
 import org.junit.jupiter.api.Test;
 
@@ -55,6 +56,16 @@ class PartySearchReentryLimitTest {
     void reentryLimitIsPositive() {
         assertTrue(YamlConfig.config.server.PARTY_SEARCH_REENTRY_LIMIT > 0,
                 "a reentry limit of 0 expires a party leader on the first search that finds nobody, before they had a chance to find anyone");
+    }
+
+    @Test
+    void javaInitialiserIsPositiveWhateverTheConfigFileSays() {
+        // The effective value above can come from config.yaml, which is gitignored, so it proves nothing about a fresh
+        // checkout. This reads the field initialiser alone: 0 on the base commit, 10 after ticket 164, and it stays
+        // 10 when the key is missing from the yaml. ServerConfig declares no constructor (implicit public no-arg) and
+        // its initialisers only assign literals, new HashMaps and copy NAME_CHANGE_COOLDOWN - no I/O, no statics.
+        assertTrue(new ServerConfig().PARTY_SEARCH_REENTRY_LIMIT > 0,
+                "ServerConfig must give PARTY_SEARCH_REENTRY_LIMIT a usable value on its own, an absent config key leaves 0");
     }
 
     @Test
