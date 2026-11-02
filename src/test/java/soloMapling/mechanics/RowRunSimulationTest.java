@@ -41,7 +41,13 @@ class RowRunSimulationTest {
      * A wait streak longer than this while the party had something to do is a stall, not patience. The longest real one
      * on Orbis PQ is the pair of bots waiting out the leader's six drops and one talk.
      */
-    private static final int MAX_WAIT_STREAK = 12;
+    /**
+     * The longest a member may be idle in a row: four seconds of ticks. The point is a stall, not a turn - a full
+     * five-member Orbis party shares uneven work (one member carries a piece to a scar while the others hold, and the
+     * sealed room's surplus members stand clear of the platforms on purpose), and the engine's own abandon grace is
+     * 30 s, so anything under that is a party taking turns. Measured with five members: 24 ticks.
+     */
+    private static final int MAX_WAIT_STREAK = 40;
 
     // ---- what the scripts give the tower, so the fake can be as strict as they are ----------------------
 
@@ -108,6 +114,9 @@ class RowRunSimulationTest {
         return new Sim(run, world, order, ticks);
     }
 
+    /** Orbis PQ's own gate is five to six (OrbisPQ.js:27), so the simulated party is a full one. */
+    private static final int FIVE = 5;
+
     private static List<RunMember> party(int size) {
         List<RunMember> members = new ArrayList<>();
         for (int i = 1; i <= size; i++) {
@@ -120,7 +129,7 @@ class RowRunSimulationTest {
 
     @Test
     void aBotPartyPlaysOrbisPqFromTheEntranceToClearPq() {
-        Sim sim = play("OrbisPQ", party(3), 4_000);
+        Sim sim = play("OrbisPQ", party(FIVE), 4_000);
 
         assertEquals("cleared", sim.ended(), "the run must end on its own clear: " + sim.ended() + " after stage "
                 + sim.run().currentStage() + "; last steps " + tail(sim.steps(), 30));
@@ -134,7 +143,7 @@ class RowRunSimulationTest {
 
     @Test
     void everyOrbisStageIsEarnedByAStepAndNotByThePassageOfTime() {
-        Sim sim = play("OrbisPQ", party(3), 4_000);
+        Sim sim = play("OrbisPQ", party(FIVE), 4_000);
 
         // the steps only the party can produce: the altar, the levers, the music player, the scars, the base
         assertTrue(sim.steps().stream().anyMatch(s -> s.contains("PlaceItem[itemId=4001063, count=20, reactor=2006000")),
@@ -154,7 +163,7 @@ class RowRunSimulationTest {
 
     @Test
     void noMemberIdlesWhileThePartyHasSomethingToDo() {
-        Sim sim = play("OrbisPQ", party(3), 4_000);
+        Sim sim = play("OrbisPQ", party(FIVE), 4_000);
 
         assertTrue(sim.world().longestWaitStreak <= MAX_WAIT_STREAK, "longest run of Wait steps for one member: "
                 + sim.world().longestWaitStreak + " ticks (limit " + MAX_WAIT_STREAK + ")");
@@ -163,7 +172,9 @@ class RowRunSimulationTest {
             assertTrue(sim.steps().stream().anyMatch(l -> l.startsWith(s + ":") && !l.contains(":Wait[")),
                     "stage " + stage + " was worked by somebody, not waited out");
         }
-        assertTrue(sim.world().waits < sim.ticks(), "waits " + sim.world().waits + " of " + sim.ticks() + " ticks");
+        // waits counts per member per tick, so the honest share is under half of every member-tick the run had
+        assertTrue(sim.world().waits * 2 < sim.ticks() * FIVE, "waits " + sim.world().waits + " of "
+                + (sim.ticks() * FIVE) + " member-ticks: the party is working, not holding");
     }
 
     // ---- the negative: hold a rule false and the run must work the stage, not leave it -------------------
@@ -172,7 +183,7 @@ class RowRunSimulationTest {
     void aStageWhoseRuleIsNeverSatisfiedIsWorkedAndNeverAbandoned() {
         MechanicsModel.Content content = MechanicsRuns.contentFor("OrbisPQ");
         Orchestrator orchestrator = new Orchestrator(Orchestrator.allSolvers(), new Random(4L), 0, 0);
-        RunState run = orchestrator.start(content, MechanicsModel.Tier.NORMAL, party(3));
+        RunState run = orchestrator.start(content, MechanicsModel.Tier.NORMAL, party(FIVE));
         World world = new World(run);
         world.altarRefuses = true; // the altar never takes the twenty: the stage 1 rule cannot be met
         world.enterStage();
@@ -195,7 +206,7 @@ class RowRunSimulationTest {
     void aStageWhoseRuleIsSatisfiedLateStillAdvances() {
         MechanicsModel.Content content = MechanicsRuns.contentFor("OrbisPQ");
         Orchestrator orchestrator = new Orchestrator(Orchestrator.allSolvers(), new Random(5L), 0, 0);
-        RunState run = orchestrator.start(content, MechanicsModel.Tier.NORMAL, party(3));
+        RunState run = orchestrator.start(content, MechanicsModel.Tier.NORMAL, party(FIVE));
         World world = new World(run);
         world.altarDelayTicks = 400; // the altar only takes the stack after forty seconds of trying
         world.enterStage();

@@ -190,13 +190,31 @@ starts. That gap is entry, not stage logic, and it is the largest thing this tic
 No new dependency store, no second config file, no table, no client asset. The row is one YAML line in `index.txt` and
 the switch is one system property. `docs/PROVENANCE.md` has the credit block for cosmic_agents `3c7e09435`.
 
+## Corrections to what this branch had already shipped (2026-11-02 review)
+
+Four defects in rows this lane wrote were found by review, and the fixes are on the record rather than silently
+rewritten. Three are content rows, one is a doc citation that would have led the next reader to "fix" working code.
+
+| # | What was wrong | Why it mattered | What it says now |
+| --- | --- | --- | --- |
+| 1 | `horntail.yaml` stages 1-2 named `summonProperty: summoned` | **A run could never leave the waiting phase.** `BossPhasesSolver.java:62` asks `BossTargetRules.phase(...)`, which returns `WAITING_FOR_SUMMON` while the property is absent, and the solver's `Wait` at `:66-67` plus its abandon at `:82` both require the summon - so a bot Horntail run parked until the 120-minute timer. And nothing could ever set it: `scripts/reactor/2408003.js:30-34` writes it in `touch()`, the server runs `touch()` from a client touch packet (`TouchReactorHandler.java:43-44`), while a bot's click goes `StepExecutor` -> `Reactor.hitReactor` -> `onHit`/`act`, and that script defines only `touch`. Meanwhile the fight was already standing: `HorntailBattle.js:86-93` pre-spawns `8810000` at `(960,120)` in room 1 and `8810001` at `(-420,120)` in room 2 at setup. | Both stages drop `summonProperty`, next to a comment that says which line spawns the head. `BossPhasesSolverTest` pins that a head room with **no event properties at all** returns a `Fight` on tick 0, and `HorntailPhasesTest` pins that no Horntail stage names a summon property. Stage 3 keeps none, as before. |
+| 2 | the add family `8810019-8820023` was described as "no script and no server code spawns it" | The sentence is true about scripts and false about the fight: they arrive through the parts' own mob skill 200 - `Skill.wz/MobSkill.img.xml` levels 53-60, `MobSkill.java:286` `case SUMMON` -> `summonMonsters` (`:332-400`) - so a live wave of wyverns and cornians appears mid-fight. They are not statues either (the statues are `8820019-8820023`, Pink Bean's, on `270050100`). | The row says what spawns them, keeps them out of every `mobs:` list (killing one advances nothing), and `LiveStageView.partRole` returns `null` for them so `bossParts` drops them before the rules see them - they can neither become a target nor starve the solver into the 30 s abandon. `BossPhasesSolverTest.aSummonedAddWaveNeverBecomesATargetAndNeverStarvesTheFight` pins both halves. |
+| 3 | `zakum.yaml:9,:33` cited `MapleMap.java:4939-4947` for the arm shield and `makeMonsterReal` for the body chain | `:4939-4947` is Horntail's part-to-body fake damage in `spawnHorntailOnGroundBelow`. And the `8800000 -> 8800001 -> 8800002` chain is **not implemented in Java at all**: it is WZ data (`Mob.wz/8800000.img.xml` `revive` 0 = `8800001`, `8800001` -> `8800002`, `8800002` none) consumed by `Monster.killBy` (`Monster.java:899-973`, `:903` `getRevives()`, `:924-933` spawns the next phase). `makeMonsterReal` only un-fakes the body when the last arm dies (`MapleMap.java:1785-1810`, the un-fake at `:1803-1804`). | The shield citation is `MapleMap.java:1530-1541` `bossDamageBlocked`, enforced for a player at `:1631-1635` and for a bot at `BotAttackEffects.java:228-234`; the wake is `:1785-1810`; the chain is attributed to WZ `revive` + `Monster.killBy`. `docs/tickets/130-bots-play-mechanics.md` and `docs/PROVENANCE.md` carry the same correction, because a reader without `wz/` sees zero implementation and would "fix" a working fight. |
+| 4 | `opq.yaml` declared 3/6 players, level 51-70, 30 minutes | The gates were cosmic_agents' (`AgentOpqDefinition`), not our script's: `OrbisPQ.js:27` is `minPlayers = 5, maxPlayers = 6`, `:28` is `51-255`, `:37` is `eventTime = 45`. Our 3 let a party of three look complete, while the gate that actually decides is the script's `getEligibleParty` (`:104-112`: leader plus 5-6 members **on the recruit map** inside the band), which `startInstance` refuses on. | The row is 5/6, 51-255, 45 minutes, with the reason in the row. `exitMap` stays `200080101` and now says so: it is where a run **we** end sends a member, not the script's own `920011200` exit (`OrbisPQ.js:30`). The row's `sources` says the gates are ours and that upstream's are not copied - structure yes, gates no. `RowRunSimulationTest` plays OPQ with a full five-member party for the same reason. |
+
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8486 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-sim3.log`, exit 0). That is the number to compare against the rest of the release - 8455 before this
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8493 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-fixes.log`, exit 0). That is the number to compare against the rest of the release - 8455 before this
 branch's tests, 8461 after its first commit (`OpqSolversTest` 14, `OrbisPqLobbyStageTest` 4,
-`OrbisSealedRoomAreaTest` 2), 8479 once the lobby, the sealed room and the finale were added (`OpqSolversTest` 32), and
-8486 with the whole-row simulation (`RowRunSimulationTest` 7).
+`OrbisSealedRoomAreaTest` 2), 8479 once the lobby, the sealed room and the finale were added (`OpqSolversTest` 32), 8486
+with the whole-row simulation (`RowRunSimulationTest` 7), 8491 with the revive pause (`RevivePauseTest` 5), and 8493 once
+the corrections above added their two phase tests (`BossPhasesSolverTest` 15, `HorntailPhasesTest` 9).
+
+Two `mvn` runs in this lane died mid-flight and neither was a test failure: one because a `bash` call is auto-backgrounded
+and killed at 60 s (a whole-suite run needs ~27 minutes and `async: true, timeout: 0`), and one because the tree was
+edited while surefire was discovering tests (`TestEngine with ID 'junit-jupiter' failed to discover tests`). Freeze the
+tree for the whole run.
 
 Earlier in the branch the same command found one real breakage, and it is fixed: `MechanicsDataFilesTest
 .theContentRowsLoadFromTheJarWithNoSourceTree` pins the exact list of content rows and had to learn `opq`.

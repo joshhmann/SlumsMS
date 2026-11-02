@@ -139,8 +139,11 @@ class HorntailPhasesTest {
             assertNull(stage.nextPortal(), "the rooms are entered by map id, never by a portal name");
             assertEquals(0, stage.killTarget(), "no Horntail part is a kill target the script waits for");
         }
-        assertEquals("summoned", content.stages().get(0).summonProperty(), "reactor 2408003 sets it");
-        assertEquals("summoned", content.stages().get(1).summonProperty());
+        // no room waits for a summon: the setup pre-spawns each head (HorntailBattle.js:86-93), and the reactor that
+        // writes 'summoned' is a HUMAN touch path a bot's click cannot reach (2408003.js defines only touch(); a bot's
+        // click is Reactor.hitReactor -> onHit/act). Waiting on it was the bug that parked both head rooms forever.
+        assertNull(content.stages().get(0).summonProperty(), "8810000 is spawned at setup, not by a reactor");
+        assertNull(content.stages().get(1).summonProperty(), "8810001 is spawned at setup");
         assertNull(content.stages().get(2).summonProperty(), "reactor 2401000 sets no property at all");
         assertEquals("defeatedHead", content.stages().get(0).clear().eventProperty());
         assertEquals("1", content.stages().get(0).clear().equals());
@@ -150,9 +153,12 @@ class HorntailPhasesTest {
         assertEquals("1", content.stages().get(2).clear().equals());
         assertEquals(9, content.stages().get(2).mobs().size(), "eight parts and the body; no corpses, no intro");
         assertFalse(content.stages().get(2).mobs().contains(8810026), "the intro is never a stage mob");
+        // the add family arrives by the parts' own mob skill 200 (Skill.wz/MobSkill.img.xml 53-60, MobSkill.java:286
+        // SUMMON), so it is never in a mobs: list - killing one advances nothing. This is a DATA assertion about the
+        // row; LiveStageView.partRole is what keeps a summoned add out of the fight (BossPhasesSolverTest pins that).
         for (int add = 8810019; add <= 8820023; add++) {
             for (MechanicsModel.Stage stage : content.stages()) {
-                assertFalse(stage.mobs().contains(add), "the add family " + add + " is not in our scripts");
+                assertFalse(stage.mobs().contains(add), "the add family " + add + " is never a stage mob");
             }
         }
     }

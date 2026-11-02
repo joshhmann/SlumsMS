@@ -575,10 +575,13 @@ Two items the owner took from ticket 176 C's b087 gate and from phase B's risk l
 
 Five defects found reviewing A1-B; all fixed on the same branch, switches unchanged.
 
-- **The body is a chain, not one id.** `8800002` is `MobId.ZAKUM_3`, the third *phase* of the body, not map life: the
-  last arm's death calls `makeMonsterReal` on `8800000` (`MapleMap.java:1793-1810`), and the body becomes `8800001` and
-  then `8800002` as damage is forwarded, so "no `8800002` on the map" is the normal state for the first half of the
-  fight. The old rule ("the script's kill target is missing while arms stand → abandon") therefore ended every Zakum
+- **The body is a chain, not one id.** `8800002` is `MobId.ZAKUM_3`, the third *phase* of the body, not map life, so
+  "no `8800002` on the map" is the normal state for the first half of the fight. Where the chain lives matters, because
+  a reader looking for it in Java finds nothing: it is WZ data - `Mob.wz/8800000.img.xml` `revive` 0 = `8800001`,
+  `8800001` revive `8800002`, `8800002` none - consumed by `Monster.killBy` (`Monster.java:899-973`: `:903`
+  `final List<Integer> toSpawn = this.getRevives();`, `:924-933` spawns the next phase on the revive map). The map code
+  contributes one thing only: the last arm's death un-fakes the body `8800000` (`MapleMap.java:1785-1810`, the un-fake
+  at `:1803-1804`). `makeMonsterReal` spawns no body phase. The old rule ("the script's kill target is missing while arms stand → abandon") therefore ended every Zakum
   run at the summon. Now the candidates are the eight arms in data order and then the body family in the order its
   phases wake (`8800000`, `8800001`, `8800002`), never a body phase while an arm is up, whichever phase is standing;
   `Abandon` only when, after the summon, the room has carried no arm and no body phase of any id for a 30 s grace

@@ -31,6 +31,7 @@ class BossPhasesSolverTest {
     private static final int KILL_TARGET = 8800002;
     private static final int FIRST_ARM = 8800003;
     private static final int LAST_ARM = 8800010;
+    private static final int HORNTAIL_PREHEAD = 8810000;
 
     private final BossPhasesSolver solver = new BossPhasesSolver();
 
@@ -43,6 +44,53 @@ class BossPhasesSolverTest {
         assertInstanceOf(SolverStep.Wait.class, step);
         assertTrue(((SolverStep.Wait) step).why().contains("waiting for the boss to be summoned"), step.toString());
         assertFalse(step instanceof SolverStep.Done, "an unsummoned room is not a clear");
+    }
+
+    /**
+     * Room 1 of Horntail, as it really is: {@code HorntailBattle.js:86-89} spawns the pre-head 8810000 at setup and
+     * nothing writes a summon property, because the reactor that would ({@code 2408003.js}) only defines {@code touch()}
+     * and a bot's click runs {@code onHit}/{@code act}. The row used to name {@code summonProperty: summoned}, so the
+     * stage sat in {@code WAITING_FOR_SUMMON} - and its abandon needs the summon too - until the 120-minute timer.
+     */
+    @Test
+    void aHeadRoomFightsFromTheFirstTickWithNoSummonProperty() {
+        MechanicsModel.Stage room = MechanicsRuns.contentFor("HorntailBattle").stages().get(0);
+        assertNull(room.summonProperty(), "a row that waits for 'summoned' can never start: " + room.summonProperty());
+
+        // the setup's pre-head and the fake body the reactor adds; no event property is set at all
+        List<Part> parts = List.of(body(HORNTAIL_PREHEAD, true), body(8800000, false));
+        StageView view = new View(room, parts, Map.of());
+
+        SolverStep.Fight fight = assertInstanceOf(SolverStep.Fight.class, solver.next(view, member()),
+                "the head is standing, so the room is a fight from tick 0: " + solver.next(view, member()));
+        assertEquals(List.of(HORNTAIL_PREHEAD), fight.mobIds(), "the fake body is never a target");
+    }
+
+    /**
+     * The summoned add family 8810019-8820023 arrives mid-fight through the parts' own mob skill 200
+     * ({@code MobSkill.java:286} SUMMON), and it must never become a target nor push the solver into an abandon: a live
+     * add has no role in this fight, so {@code LiveStageView.bossParts} drops it before the rules see it.
+     */
+    @Test
+    void aSummonedAddWaveNeverBecomesATargetAndNeverStarvesTheFight() {
+        MechanicsModel.Stage room = MechanicsRuns.contentFor("HorntailBattle").stages().get(2);
+        List<Integer> listed = room.mobs();
+        for (int add = 8810019; add <= 8820023; add++) {
+            assertNull(LiveStageView.partRole(add, listed), "add " + add + " is not part of the fight");
+        }
+        assertEquals(BossTargetRules.Role.ARM, LiveStageView.partRole(8810002, listed));
+        assertEquals(BossTargetRules.Role.BODY, LiveStageView.partRole(8810018, listed));
+
+        // and with the wave on the map the solver still fights the parts, never Wait/Abandon
+        List<Part> parts = new ArrayList<>();
+        for (int id = 8810002; id <= 8810009; id++) {
+            parts.add(arm(id));
+        }
+        parts.add(body(8810018, true));
+        SolverStep.Fight fight = assertInstanceOf(SolverStep.Fight.class, solver.next(new View(room, parts, Map.of()),
+                member()));
+        assertFalse(fight.mobIds().stream().anyMatch(id -> id >= 8810019),
+                "a summoned add is never offered: " + fight.mobIds());
     }
 
     @Test

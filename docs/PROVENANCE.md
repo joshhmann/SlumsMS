@@ -263,8 +263,10 @@ Quest.wz, Map.wz and our scripts (`TempleRouteTest`).
 Ours: the rules are fed from our `StageView` (the live `EventInstanceManager` and map) and turned into one ordered
 candidate list per member by `BossPhasesSolver` (`solver: boss-phases`) instead of their `AgentBossDefinition` catalog;
 Zakum's body is ordered as the chain our server actually runs (their `BossTargetRules` sees one body at a time and has
-no chain, so the three phases `8800000 -> 8800001 -> 8800002` and the "any phase on the map is a target" rule are read
-from our `MapleMap.makeMonsterReal` rather than ported);
+no chain, so the three phases `8800000 -> 8800001 -> 8800002` and the "any phase on the map is a target" rule are ours
+and not ported: the chain is WZ `revive` in `Mob.wz/8800000.img.xml` (0 = `8800001`, `8800001` -> `8800002`, `8800002`
+none) consumed by `Monster.killBy` (`Monster.java:899-973`, `:903` `getRevives()`, `:924-933` spawns the next phase);
+`MapleMap.makeMonsterReal` only un-fakes the body `8800000` when the last arm dies, `MapleMap.java:1785-1810`);
 the arm order and the "eight arms before the body" rule come from our own scripts and map code
 (`scripts/reactor/2111001.js`, `MapleMap.java:4939-4947`, `:1786-1810`), the clear from the script's own
 `defeatedBoss=1`; `reachPx` is 0 for every part because our `MobHitboxIndex` has no vertical box origin, so every arm

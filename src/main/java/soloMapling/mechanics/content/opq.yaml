@@ -12,16 +12,25 @@ name: Orbis Party Quest
 kind: PQ
 eventScript: OrbisPQ
 recruitMap: 200080101
+# Where a member is sent when a run WE end ends, not the script's own exit: OrbisPQ.js:30 sends the party to 920011200
+# itself, so a run we end early puts the member back at Wonky's lobby where the party formed.
 exitMap: 200080101
-minPlayers: 3
+# The script's own gate, copied from it and never from upstream: OrbisPQ.js:27 minPlayers = 5 / maxPlayers = 6,
+# :28 minLevel = 51 / maxLevel = 255, :37 eventTime = 45 (minutes). cosmic_agents' AgentOpqDefinition says 51-70 and a
+# six-member party; its level cap is a foreign constant and was wrong here. The gate that decides whether an instance
+# opens is the script's own getEligibleParty (OrbisPQ.js:104-112: a leader plus 5-6 members standing on the recruit map
+# inside the level band), which startInstance refuses on - our 3 was letting a party of three look like a full one.
+minPlayers: 5
 maxPlayers: 6
 minLevel: 51
-maxLevel: 70
-timeLimitMinutes: 30
+maxLevel: 255
+timeLimitMinutes: 45
 flag: slums.mechanics.opq
 sources:
   - "scripts/event/OrbisPQ.js, scripts/npc/2013001.js, scripts/reactor/2006000.js, scripts/reactor/2006001.js: ours, the truth"
-  - "Level window 51-70: cosmic_agents Kiwiism/cosmic_agents 3c7e09435 AgentOpqDefinition MIN_LEVEL 51 / MAX_LEVEL 70"
+  - "Gates: our script only (OrbisPQ.js:27,28,37). cosmic_agents Kiwiism/cosmic_agents 3c7e09435 AgentOpqDefinition
+    gave the map, item and monster ids this row uses, and its MIN_LEVEL 51 / MAX_LEVEL 70 / PARTY_SIZE 6 are NOT copied:
+    its gate is its own fork's, and a port takes structure, never gates"
   - "Map ids, item ids, monster ids and the room exit portals: cosmic_agents AgentOpqDefinition (AGPL-3.0); the portal ids there are WZ portal ids, so this row warps stage to stage instead of naming portals"
   - "Stage order: entrance, walkway, storage, lobby, sealed room, lounge, levers, statue and garden (our script's stage numbers 0, 1, 2, 3, 4, 5, 6, 7+8). The statue and the garden are one stage here because only the second half has a property to watch (the scars are counted with getReactorByName(\"scar\" + i).getState(), scripts/npc/2013001.js:11-19, while statusStg8 is what scripts/reactor/2006001.js writes)"
   - "The lobby's day comes from the music reactor's own armed slot (scripts/event/OrbisPQ.js:162-163 setEventState(new Date().getDay()), Reactor.getReactItem(byte) reads it as a slot), so 4001056 + that is the pass; the three platforms of the sealed room are the map's own area nodes (MapFactory.java:273-279), not a table here"
