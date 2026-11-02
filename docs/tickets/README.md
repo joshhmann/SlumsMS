@@ -1,5 +1,13 @@
 # SlumsMS tickets
 
+## Promise audit (2026-11-01, pending triage)
+
+| # | Ticket | State |
+|---|---|---|
+| [177](177-promised-feature-code-audit.md) | Promised-feature implementation and acceptance audit | First server/QA pass; reconcile with release book |
+| [178](178-sibling-only-upgrade-handover.md) | Sibling-only upgrade offer cannot start a handover | Source-confirmed; coordinator + submitter triage required |
+| [179](179-qa-worker-loses-batched-ready-events.md) | Client readiness events lost between waits | Reproduced locally; coordinator + submitter triage required |
+
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 
 | # | Ticket | Purpose |
