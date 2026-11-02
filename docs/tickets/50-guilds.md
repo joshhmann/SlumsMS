@@ -33,8 +33,8 @@ Research: [docs/real-bots/social-systems-research.md](../real-bots/social-system
   - **What it did miss:** of the two `MatchCheckerType`s, only `GUILD_CREATION` had an expiry. `CPQ_CHALLENGE` was
     the one match type still created with nothing to cancel it, so an ignored challenge dialog held both party
     leaders out of every later match (`getMatchConfirmationLeaderid` never returned -1 again) until one of them
-    logged out. Ticket 164 added that timer (`NPCConversationManager.CPQ_CHALLENGE_TIMEOUT_MS`, 60 s, override
-    `slums.cpq.challengeTimeoutMs`).
+    logged out. Ticket 164 added that timer (`NPCConversationManager.java:1208-1243`,
+    `CPQ_CHALLENGE_TIMEOUT_MS`, 60 s, override `slums.cpq.challengeTimeoutMs`).
 - **Bots:**
   - A guild invite sent to a bot expires silently.
   - Guild chat (`MultiChat` type 2) is not routed to bots.

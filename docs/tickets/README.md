@@ -166,7 +166,8 @@ find), sort deliberate from broken, restore the broken ones with tests.
 
 See docs/real-bots/social-systems-research.md.
 
-1. 50A, the guild-creation fix (S): broken for players whenever a bot stands in the Guild HQ.
+1. 50A, the guild-creation fix (S): done in `ad0359efc` — bots are no longer eligible cofounders, so a bot in the
+   Guild HQ cannot block a creation, and an unanswered creation expires after 60 s.
 2. 56A, the FM buy cap (S): before real players open shops.
 3. 55 (S).
 4. 49, buddies (M).

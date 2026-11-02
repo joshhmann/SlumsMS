@@ -89,7 +89,7 @@ map, channel and storage). Buddy, guild and family online indicators therefore n
   - The unfinished half of the same paragraph was the CPQ challenge: `MatchCheckerType.CPQ_CHALLENGE` was the one
     match type created with no expiry, so a lobby challenge nobody answered kept both party leaders in
     `pooledCids` for the rest of the session. Ticket 164 added that timer
-    (`NPCConversationManager.java:1207-1242`, 60 s, override `slums.cpq.challengeTimeoutMs`).
+    (`NPCConversationManager.java:1208-1243`, 60 s, override `slums.cpq.challengeTimeoutMs`).
 - **Bots:**
   - A guild invite sent to a bot gets no answer and expires after the `InviteCoordinator` timeout. Harmless.
   - Guild chat (`MultiChat` type 2) is not routed to bots. Bots never join, found or chat in guilds.
