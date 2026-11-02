@@ -8,9 +8,15 @@ import net.packet.out.ShowNotesPacket;
 import net.server.Server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.DatabaseConnection;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 public class NoteService {
@@ -29,32 +35,50 @@ public class NoteService {
      */
     public static final int MAX_NOTES_PER_RECIPIENT = 100;
 
-    /** Answers "is this a character name the game knows". A seam so tests of the service never touch the database. */
+    /**
+     * What the characters table says about a name. Three answers, not two: a name the game knows, a name it does not,
+     * and "the table could not be read". The third is not a detail: a database fault must not be reported to the
+     * player as a misspelled name, and must not vanish either, so it leaves the service as
+     * {@link NoteSendResult#STORAGE_FAILED}. A seam, so tests of the service never touch the database.
+     */
     @FunctionalInterface
     public interface CharacterNameLookup {
-        boolean exists(String name);
+        Status lookup(String name);
+
+        enum Status { PRESENT, ABSENT, UNKNOWN }
     }
 
     /**
-     * The production lookup. {@link Character#getIdByName(String)} is the game's own name-to-id query (character
-     * creation uses it to refuse a taken name), so notes ask it instead of carrying SQL of their own. Caveat it
-     * inherits: it answers -1 both for "no such name" and for a database fault, which is not visible here, so a dead
-     * database turns a note into {@link NoteSendResult#RECEIVER_NOT_FOUND} rather than
-     * {@link NoteSendResult#STORAGE_FAILED}. The write that would follow fails too, so the sender is asked to check
-     * the name while the server is unavailable -- the least wrong of the two, and the reason is logged by the write.
+     * The production lookup: the game's own name-to-id query, {@code SELECT id FROM characters WHERE name = ?}, the
+     * same one character creation uses to refuse a taken name. It runs here rather than through
+     * {@link Character#getIdByName(String)} because that method answers -1 for "no such name" and for a failed
+     * connection alike (its catch prints the stack trace and returns -1), which would report a dead database as a
+     * bad name. Here the two are told apart: the exception is logged with the name, and the caller hears
+     * {@link CharacterNameLookup.Status#UNKNOWN}.
      */
-    public static final CharacterNameLookup CHARACTER_ROWS = name -> Character.getIdByName(name) >= 0;
+    public static final CharacterNameLookup CHARACTER_ROWS = name -> {
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT id FROM characters WHERE name = ?")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? CharacterNameLookup.Status.PRESENT : CharacterNameLookup.Status.ABSENT;
+            }
+        } catch (SQLException e) {
+            log.error("Failed to look up note recipient {} in the characters table", name, e);
+            return CharacterNameLookup.Status.UNKNOWN;
+        }
+    };
 
     private final NoteDao noteDao;
-    private final CharacterNameLookup characterExists;
+    private final CharacterNameLookup characterRows;
 
     public NoteService(NoteDao noteDao) {
         this(noteDao, CHARACTER_ROWS);
     }
 
-    public NoteService(NoteDao noteDao, CharacterNameLookup characterExists) {
-        this.noteDao = noteDao;
-        this.characterExists = characterExists;
+    public NoteService(NoteDao noteDao, CharacterNameLookup characterRows) {
+        this.noteDao = Objects.requireNonNull(noteDao, "noteDao");
+        this.characterRows = Objects.requireNonNull(characterRows, "characterRows");
     }
 
     /**
@@ -82,13 +106,26 @@ public class NoteService {
      * real character, does their inbox have room -- followed by the write itself, whose failure is the third
      * outcome. "Player online, use whisper" (client code 0) is none of them: the recipient being online or not never
      * stopped a note from being stored and shown.
+     * <p>
+     * A lookup that could not be answered is the fourth case and belongs with the third: a note is not written to a
+     * name nobody managed to check, the fault reaches the application log here, and the player is told nothing was
+     * their fault.
      */
     private NoteSendResult send(Note note) {
         try {
-            if (!characterExists.exists(note.to())) {
-                return NoteSendResult.RECEIVER_NOT_FOUND;
+            switch (characterRows.lookup(note.to())) {
+                case ABSENT -> {
+                    return NoteSendResult.RECEIVER_NOT_FOUND;
+                }
+                case UNKNOWN -> {
+                    log.error("Refusing note {}: the characters table could not be read, so {} was never checked",
+                            note, note.to());
+                    return NoteSendResult.STORAGE_FAILED;
+                }
+                case PRESENT -> {
+                }
             }
-            if (noteDao.findAllByTo(note.to()).size() >= MAX_NOTES_PER_RECIPIENT) {
+            if (noteDao.countInbox(note.to()) >= MAX_NOTES_PER_RECIPIENT) {
                 return NoteSendResult.INBOX_FULL;
             }
             noteDao.save(note);
