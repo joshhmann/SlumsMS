@@ -8652,23 +8652,7 @@ public class Character extends AbstractCharacterObject {
             }
 
             // Monster book stats
-            try (PreparedStatement ps = con.prepareStatement("SELECT SUM(Tier1) AS Total1, SUM(Tier2) AS Total2, SUM(Tier3) AS Total3, SUM(Tier4) AS Total4, SUM(Tier5) AS Total5, SUM(Tier6) AS Total6, SUM(Tier7) AS Total7, SUM(Tier8) AS Total8, SUM(Tier9) AS Total9 FROM `monsterbook_stats` WHERE accountid= ?")) {
-                ps.setInt(1, ret.getAccountID());
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) {
-                    ret.Tier1 = rs.getInt("Total1");
-                    ret.Tier2 = rs.getInt("Total2");
-                    ret.Tier3 = rs.getInt("Total3");
-                    ret.Tier4 = rs.getInt("Total4");
-                    ret.Tier5 = rs.getInt("Total5");
-                    ret.Tier6 = rs.getInt("Total6");
-                    ret.Tier7 = rs.getInt("Total7");
-                    ret.Tier8 = rs.getInt("Total8");
-                    ret.Tier9 = rs.getInt("Total9");
-                }
-                // rs.close();
-                // ps.close();
-            }
+            ret.loadTierProgress(con);
 
             if (channelserver) {
                 final Map<Integer, QuestStatus> loadedQuestStatus = new LinkedHashMap<>();
@@ -13520,180 +13504,216 @@ public class Character extends AbstractCharacterObject {
         return Tier9;
     }
 
-    //Adding Cards to Monster Book Tiers 
+    /** The counter of one tier, 1..9. */
+    private int tierValue(int tier) {
+        switch (tier) {
+            case 1: return Tier1;
+            case 2: return Tier2;
+            case 3: return Tier3;
+            case 4: return Tier4;
+            case 5: return Tier5;
+            case 6: return Tier6;
+            case 7: return Tier7;
+            case 8: return Tier8;
+            case 9: return Tier9;
+            default: throw new IllegalArgumentException("Monster Book has tiers 1..9, not " + tier);
+        }
+    }
+
+    private void setTierValue(int tier, int value) {
+        switch (tier) {
+            case 1: Tier1 = value; break;
+            case 2: Tier2 = value; break;
+            case 3: Tier3 = value; break;
+            case 4: Tier4 = value; break;
+            case 5: Tier5 = value; break;
+            case 6: Tier6 = value; break;
+            case 7: Tier7 = value; break;
+            case 8: Tier8 = value; break;
+            case 9: Tier9 = value; break;
+            default: throw new IllegalArgumentException("Monster Book has tiers 1..9, not " + tier);
+        }
+    }
+
+    /** Adds {@code points} to one tier counter (1..9); in memory only, see {@link #updateTier(int)}. */
+    public void addTier(int tier, int points) {
+        setTierValue(tier, tierValue(tier) + points);
+    }
+
+    //The nine named accessors below stay: scripts/lib.d.ts declares AddTier1..9 as script API.
     public void AddTier1(int points) {
-        this.Tier1 += points;
+        addTier(1, points);
     }
 
     public void AddTier2(int points) {
-        this.Tier2 += points;
+        addTier(2, points);
     }
 
     public void AddTier3(int points) {
-        this.Tier3 += points;
+        addTier(3, points);
     }
 
     public void AddTier4(int points) {
-        this.Tier4 += points;
+        addTier(4, points);
     }
 
     public void AddTier5(int points) {
-        this.Tier5 += points;
+        addTier(5, points);
     }
 
     public void AddTier6(int points) {
-        this.Tier6 += points;
+        addTier(6, points);
     }
 
     public void AddTier7(int points) {
-        this.Tier7 += points;
+        addTier(7, points);
     }
 
     public void AddTier8(int points) {
-        this.Tier8 += points;
+        addTier(8, points);
     }
 
     public void AddTier9(int points) {
-        this.Tier9 += points;
+        addTier(9, points);
     }
 
     public void ResetTiers(int points) {
-        this.Tier1 = points;
-        this.Tier2 = points;
-        this.Tier3 = points;
-        this.Tier4 = points;
-        this.Tier5 = points;
-        this.Tier6 = points;
-        this.Tier7 = points;
-        this.Tier8 = points;
-        this.Tier9 = points;
+        for (int tier = 1; tier <= 9; tier++) {
+            setTierValue(tier, points);
+        }
     }
 
-    //Update Tiers 
-    public void UpdateTier1() {
-        try {
-            Connection con = DatabaseConnection.getConnection();
-            try (PreparedStatement ps = con.prepareStatement("UPDATE `monsterbook_stats` SET Tier1  = ?  WHERE accountid = ?")) {
-                ps.setInt(1, Tier1);
-                ps.setInt(2, this.getAccountID());
-                ps.executeUpdate();
-            }
-            con.close();
+    /**
+     * Saves one tier counter (1..9) into {@code monsterbook_stats}. The row is upserted, not updated: the account's
+     * row was only ever created by {@code insertNewChar}, so an account older than that code - or whose character
+     * predates it - had no row at all and the old {@code UPDATE ... WHERE accountid = ?} silently changed nothing.
+     * {@code ON DUPLICATE KEY UPDATE} therefore needs {@code accountid} to be unique, which {@code INSERT IGNORE INTO
+     * monsterbook_stats (accountid)} in {@code insertNewChar} already relies on.
+     *
+     * <p>The row count is deliberately not used to detect failure: MySQL reports 0 affected rows when an upsert
+     * matches a row and stores the same value again, which is the normal case for a repeated save.
+     *
+     * @return false when the row could not be written, so the caller can undo the in-memory increment.
+     */
+    public boolean updateTier(int tier) {
+        String column = "Tier" + tier;
+        // A built-up column name, not a parameter: MySQL cannot bind a column name. tier is 1..9 (tierValue throws
+        // otherwise), so nothing else can reach the statement.
+        String query = "INSERT INTO `monsterbook_stats` (accountid, " + column + ") VALUES (?, ?)"
+                + " ON DUPLICATE KEY UPDATE " + column + " = VALUES(" + column + ")";
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setInt(1, this.getAccountID());
+            ps.setInt(2, tierValue(tier));
+            ps.executeUpdate();
+            return true;
         } catch (SQLException se) {
-            se.printStackTrace();
+            log.warn("Could not save Monster Book {} of account {}: {}", column, this.getAccountID(), se.getMessage());
+            return false;
         }
+    }
+
+    /**
+     * One card-completion's worth of tier progress: increments the counter and saves it. When the save fails the
+     * increment is taken back, because the card is at five copies and {@code MonsterBook.addCard} never fires this
+     * again - a counter that claims a tier the database does not have is a bonus the player would keep until a
+     * relogin and then lose, and a counter the database has and memory does not is a tier nobody is told about.
+     */
+    public boolean saveTierProgress(int tier, int points) {
+        addTier(tier, points);
+        if (updateTier(tier)) {
+            return true;
+        }
+        addTier(tier, -points);
+        return false;
+    }
+
+    /**
+     * Reads the nine tier counters of this account's {@code monsterbook_stats} row. A SUM over no rows is NULL, which
+     * {@code getInt} reads as 0 - indistinguishable from "no tiers yet" - so an account without a row also gets one
+     * here: the same {@code INSERT IGNORE} {@code insertNewChar} uses, which is a no-op when the row is already
+     * there and is only worth running when every counter came back 0.
+     */
+    void loadTierProgress(Connection con) throws SQLException {
+        int[] totals = new int[9];
+        try (PreparedStatement ps = con.prepareStatement("SELECT SUM(Tier1) AS Total1, SUM(Tier2) AS Total2,"
+                + " SUM(Tier3) AS Total3, SUM(Tier4) AS Total4, SUM(Tier5) AS Total5, SUM(Tier6) AS Total6,"
+                + " SUM(Tier7) AS Total7, SUM(Tier8) AS Total8, SUM(Tier9) AS Total9 FROM `monsterbook_stats`"
+                + " WHERE accountid= ?")) {
+            ps.setInt(1, getAccountID());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    for (int tier = 1; tier <= 9; tier++) {
+                        totals[tier - 1] = rs.getInt("Total" + tier);
+                    }
+                }
+            }
+        }
+
+        for (int tier = 1; tier <= 9; tier++) {
+            setTierValue(tier, totals[tier - 1]);
+        }
+
+        boolean noTiersYet = true;
+        for (int total : totals) {
+            if (total != 0) {
+                noTiersYet = false;
+                break;
+            }
+        }
+        if (noTiersYet) {
+            ensureStatsRow(con);
+        }
+    }
+
+    /**
+     * Gives the account a {@code monsterbook_stats} row to write into. Idempotent, so the next save is an upsert
+     * rather than another insert. A row this cheap is not worth failing a login over.
+     */
+    private void ensureStatsRow(Connection con) {
+        try (PreparedStatement ps = con.prepareStatement("INSERT IGNORE INTO monsterbook_stats (accountid) VALUES (?)")) {
+            ps.setInt(1, getAccountID());
+            ps.executeUpdate();
+        } catch (SQLException se) {
+            log.warn("Could not create the monsterbook_stats row of account {}: {}", getAccountID(), se.getMessage());
+        }
+    }
+
+    //The nine named savers below stay: scripts/lib.d.ts declares UpdateTier1..9 as script API.
+    public void UpdateTier1() {
+        updateTier(1);
     }
 
     public void UpdateTier2() {
-        try {
-            Connection con = DatabaseConnection.getConnection();
-            try (PreparedStatement ps = con.prepareStatement("UPDATE `monsterbook_stats` SET Tier2  = ? WHERE accountid = ?")) {
-                ps.setInt(1, Tier2);
-                ps.setInt(2, this.getAccountID());
-                ps.executeUpdate();
-            }
-            con.close();
-        } catch (SQLException se) {
-            se.printStackTrace();
-        }
+        updateTier(2);
     }
 
     public void UpdateTier3() {
-        try {
-            Connection con = DatabaseConnection.getConnection();
-            try (PreparedStatement ps = con.prepareStatement("UPDATE `monsterbook_stats` SET Tier3  = ? WHERE accountid = ?")) {
-                ps.setInt(1, Tier3);
-                ps.setInt(2, this.getAccountID());
-                ps.executeUpdate();
-            }
-            con.close();
-        } catch (SQLException se) {
-            se.printStackTrace();
-        }
+        updateTier(3);
     }
 
     public void UpdateTier4() {
-        try {
-            Connection con = DatabaseConnection.getConnection();
-            try (PreparedStatement ps = con.prepareStatement("UPDATE `monsterbook_stats` SET Tier4  = ? WHERE accountid = ?")) {
-                ps.setInt(1, Tier4);
-                ps.setInt(2, this.getAccountID());
-                ps.executeUpdate();
-            }
-            con.close();
-        } catch (SQLException se) {
-            se.printStackTrace();
-        }
+        updateTier(4);
     }
 
     public void UpdateTier5() {
-        try {
-            Connection con = DatabaseConnection.getConnection();
-            try (PreparedStatement ps = con.prepareStatement("UPDATE `monsterbook_stats` SET Tier5  = ? WHERE accountid = ?")) {
-                ps.setInt(1, Tier5);
-                ps.setInt(2, this.getAccountID());
-                ps.executeUpdate();
-            }
-            con.close();
-        } catch (SQLException se) {
-            se.printStackTrace();
-        }
+        updateTier(5);
     }
 
     public void UpdateTier6() {
-        try {
-            Connection con = DatabaseConnection.getConnection();
-            try (PreparedStatement ps = con.prepareStatement("UPDATE `monsterbook_stats` SET Tier6  = ? WHERE accountid = ?")) {
-                ps.setInt(1, Tier6);
-                ps.setInt(2, this.getAccountID());
-                ps.executeUpdate();
-            }
-            con.close();
-        } catch (SQLException se) {
-            se.printStackTrace();
-        }
+        updateTier(6);
     }
 
     public void UpdateTier7() {
-        try {
-            Connection con = DatabaseConnection.getConnection();
-            try (PreparedStatement ps = con.prepareStatement("UPDATE `monsterbook_stats` SET Tier7  = ? WHERE accountid = ?")) {
-                ps.setInt(1, Tier7);
-                ps.setInt(2, this.getAccountID());
-                ps.executeUpdate();
-            }
-            con.close();
-        } catch (SQLException se) {
-            se.printStackTrace();
-        }
+        updateTier(7);
     }
 
     public void UpdateTier8() {
-        try {
-            Connection con = DatabaseConnection.getConnection();
-            try (PreparedStatement ps = con.prepareStatement("UPDATE `monsterbook_stats` SET Tier8  = ? WHERE accountid = ?")) {
-                ps.setInt(1, Tier8);
-                ps.setInt(2, this.getAccountID());
-                ps.executeUpdate();
-            }
-            con.close();
-        } catch (SQLException se) {
-            se.printStackTrace();
-        }
+        updateTier(8);
     }
 
     public void UpdateTier9() {
-        try {
-            Connection con = DatabaseConnection.getConnection();
-            try (PreparedStatement ps = con.prepareStatement("UPDATE `monsterbook_stats` SET Tier9  = ?  WHERE accountid = ?")) {
-                ps.setInt(1, Tier9);
-                ps.setInt(2, this.getAccountID());
-                ps.executeUpdate();
-            }
-            con.close();
-        } catch (SQLException se) {
-            se.printStackTrace();
-        }
+        updateTier(9);
     }
 
     /*
@@ -13749,6 +13769,51 @@ public class Character extends AbstractCharacterObject {
         return getLinkedStats;
     }
 
+    /** The medal the Monster Book bonus is written onto. */
+    private static final int LINK_MEDAL = 1113232;
+
+    /** Whether the Monster Book has given this character anything to wear a medal for yet. */
+    private boolean hasCompletedATier() {
+        for (int tier = 1; tier <= 9; tier++) {
+            if (tierValue(tier) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The link medal holding the Monster Book stat rewrite: the one in the EQUIP tab, else the one being worn, else a
+     * new one. A new one is only granted to a character that has completed a tier, because the only other place the
+     * medal is ever created is the new-character starter set in {@code CharacterFactory} - before this, a character
+     * outside that path had no way to obtain the reward it had earned.
+     *
+     * <p>Synchronized so two threads cannot both find nothing and both grant a medal; a duplicate reward would be
+     * worse than a late one. A full inventory is reported by {@code addById} and leaves the grant owed, to be retried
+     * on the next tier completion or login, rather than dropping the reward on the floor.
+     */
+    private synchronized Equip findOrGrantLinkMedal() {
+        Equip linkEquip = (Equip) this.getInventory(InventoryType.EQUIP).findById(LINK_MEDAL);
+        if (linkEquip != null) {
+            return linkEquip;
+        }
+        linkEquip = (Equip) this.getInventory(InventoryType.EQUIPPED).findById(LINK_MEDAL);
+        if (linkEquip != null) {
+            return linkEquip;
+        }
+        if (!hasCompletedATier()) {
+            return null;
+        }
+        if (!InventoryManipulator.addById(this, LINK_MEDAL, (short) 1)) {
+            return null;
+        }
+        linkEquip = (Equip) this.getInventory(InventoryType.EQUIP).findById(LINK_MEDAL);
+        if (linkEquip == null) {
+            log.warn("Granted the Monster Book link medal to character {} but it is not in the EQUIP tab", getId());
+        }
+        return linkEquip;
+    }
+
     public void applyLinkStatsBoost() {
         equipchanged = true;
 
@@ -13778,13 +13843,12 @@ public class Character extends AbstractCharacterObject {
             equipMatk += eq.getMatk();
         }
 
-        Inventory equip = this.getInventory(InventoryType.EQUIP);
-        Inventory equipped = this.getInventory(InventoryType.EQUIPPED);
-        Equip linkEquip = (Equip) equip.findById(1113232);
-        if (linkEquip == null)
-            linkEquip = (Equip) equipped.findById(1113232);
+        Equip linkEquip = findOrGrantLinkMedal();
         if (linkEquip == null) {
-            System.out.println("Error: Unable to find link medal.");
+            if (hasCompletedATier()) {
+                log.warn("Character {} has completed Monster Book tiers but no link medal could be given; the bonus"
+                        + " will be retried on the next completion or login", getId());
+            }
             return;
         }
 

@@ -96,85 +96,16 @@ public final class MonsterBook {
 
             c.sendPacket(PacketCreator.addCard(false, cardid, qty + 1));
             c.sendPacket(PacketCreator.showGainCard());
-            if (isTier1(cardid)) { //Tier 1
-                if(cards.get(cardid) == 5){
-                    c.getPlayer().AddTier1(1);
-                    c.getPlayer().UpdateTier1();
+            // Cards stop at five copies, so a card reaching five is the one moment its tier can advance.
+            int completedTier = cards.get(cardid) == 5 ? tierOf(cardid) : 0;
+            if (completedTier != 0) {
+                if (c.getPlayer().saveTierProgress(completedTier, 1)) {
                     c.getPlayer().forceUpdateItem(eq);
                     c.getPlayer().applyLinkStatsBoost();
-                    c.getPlayer().dropMessage("Tier 1 card completed");
-                }
-            }
-            if (isTier2(cardid)) { //Tier 2
-                if(cards.get(cardid) == 5){
-                    c.getPlayer().AddTier2(1);
-                    c.getPlayer().UpdateTier2();
-                    c.getPlayer().forceUpdateItem(eq);
-                    c.getPlayer().applyLinkStatsBoost();
-                    c.getPlayer().dropMessage("Tier 2 card completed");
-                }
-            }
-            if (isTier3(cardid)) { //Tier 3
-                if(cards.get(cardid) == 5){
-                    c.getPlayer().AddTier3(1);
-                    c.getPlayer().UpdateTier3();
-                    c.getPlayer().forceUpdateItem(eq);
-                    c.getPlayer().applyLinkStatsBoost();
-                    c.getPlayer().dropMessage("Tier 3 card completed");
-                }
-            }
-            if (isTier4(cardid)) { //Tier 4
-                if(cards.get(cardid) == 5){
-                    c.getPlayer().AddTier4(1);
-                    c.getPlayer().UpdateTier4();
-                    c.getPlayer().forceUpdateItem(eq);
-                    c.getPlayer().applyLinkStatsBoost();
-                    c.getPlayer().dropMessage("Tier 4 card completed");
-                }
-            }
-            if (isTier5(cardid)) { //Tier 5
-                if(cards.get(cardid) == 5){
-                    c.getPlayer().AddTier5(1);
-                    c.getPlayer().UpdateTier5();
-                    c.getPlayer().forceUpdateItem(eq);
-                    c.getPlayer().applyLinkStatsBoost();
-                    c.getPlayer().dropMessage("Tier 5 card completed");
-                }
-            }
-            if (isTier6(cardid)) { //Tier 6
-                if(cards.get(cardid) == 5){
-                    c.getPlayer().AddTier6(1);
-                    c.getPlayer().UpdateTier6();
-                    c.getPlayer().forceUpdateItem(eq);
-                    c.getPlayer().applyLinkStatsBoost();
-                    c.getPlayer().dropMessage("Tier 6 card completed");
-                }
-            }
-            if (isTier7(cardid)) { //Tier 7
-                if(cards.get(cardid) == 5){
-                    c.getPlayer().AddTier7(1);
-                    c.getPlayer().UpdateTier7();
-                    c.getPlayer().forceUpdateItem(eq);
-                    c.getPlayer().applyLinkStatsBoost();
-                    c.getPlayer().dropMessage("Tier 7 card completed");
-                }
-            }
-            if (isTier8(cardid)) { //Tier 8
-                if(cards.get(cardid) == 5){
-                    c.getPlayer().AddTier8(1);
-                    c.getPlayer().UpdateTier8();
-                    c.getPlayer().forceUpdateItem(eq);
-                    c.getPlayer().applyLinkStatsBoost();
-                    c.getPlayer().dropMessage("Tier 8 card completed");
-                }
-            }
-            if (isTier9(cardid)) { //Tier 9
-                if(cards.get(cardid) == 5){
-                    c.getPlayer().AddTier9(1);
-                    c.getPlayer().UpdateTier9();
-                    c.getPlayer().forceUpdateItem(eq);
-                    c.getPlayer().applyLinkStatsBoost();
-                    c.getPlayer().dropMessage("Tier 9 card completed");
+                    c.getPlayer().dropMessage("Tier " + completedTier + " card completed");
+                } else {
+                    c.getPlayer().dropMessage("Tier " + completedTier
+                            + " card completed, but the progress could not be saved.");
                 }
             }
         } else {
@@ -212,6 +143,16 @@ public final class MonsterBook {
         lock.lock();
         try {
             return Collections.unmodifiableMap(cards);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** Whether this book holds the card at all - what a Monster Book cover has to be checked against. */
+    public boolean hasCard(int cardid) {
+        lock.lock();
+        try {
+            return cards.containsKey(cardid);
         } finally {
             lock.unlock();
         }
@@ -340,5 +281,37 @@ public final class MonsterBook {
     }
     public static boolean isTier9(int CardID) {
         return CardID >= 2388000 && CardID <= 2388600;
+    }
+
+    /** The tier a card belongs to, 1..9, or 0 when it belongs to none. */
+    public static int tierOf(int cardId) {
+        if (isTier1(cardId)) {
+            return 1;
+        }
+        if (isTier2(cardId)) {
+            return 2;
+        }
+        if (isTier3(cardId)) {
+            return 3;
+        }
+        if (isTier4(cardId)) {
+            return 4;
+        }
+        if (isTier5(cardId)) {
+            return 5;
+        }
+        if (isTier6(cardId)) {
+            return 6;
+        }
+        if (isTier7(cardId)) {
+            return 7;
+        }
+        if (isTier8(cardId)) {
+            return 8;
+        }
+        if (isTier9(cardId)) {
+            return 9;
+        }
+        return 0;
     }
 }

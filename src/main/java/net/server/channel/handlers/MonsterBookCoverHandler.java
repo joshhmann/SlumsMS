@@ -27,11 +27,18 @@ import net.packet.InPacket;
 import tools.PacketCreator;
 
 public final class MonsterBookCoverHandler extends AbstractPacketHandler {
+    /**
+     * 0 is the bare book. Any other cover must be a card the player actually owns: the old check only looked at the
+     * id's shape, so a player could choose a card they had never found, and a card with no {@code monstercarddata}
+     * row then threw while the character-info packet was built - before the character reached its map, inside a
+     * catch that only printed the stack trace.
+     */
     public final void handlePacket(InPacket p, Client c) {
         int id = p.readInt();
-        if (id == 0 || id / 10000 == 238) {
-            c.getPlayer().setMonsterBookCover(id);
-            c.sendPacket(PacketCreator.changeCover(id));
+        if (id != 0 && (id / 10000 != 238 || !c.getPlayer().getMonsterBook().hasCard(id))) {
+            return;
         }
+        c.getPlayer().setMonsterBookCover(id);
+        c.sendPacket(PacketCreator.changeCover(id));
     }
 }
