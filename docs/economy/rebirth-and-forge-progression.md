@@ -9,6 +9,14 @@ Implementation ticket: [normal equipment through 200, then forged rebirth progre
 Current implementation: [normal gear pilot and repeatable coverage checks](normal-200/README.md). The owner
 selected existing families plus late scrolling/accessory upgrades; no new 180/200 weapon tiers.
 
+Local implementation update for1.6.4: [candidate fixes and proof status](../release/1.6.4-gear-progression.md).
+The pirate input and forge enforcement findings below describe the original audit; both have local fixes now.
+The refreshed CSV catalogue reflects the corrected pirate chains, with no deployment claimed.
+
+Latest local follow-up: first Royal recipes now cost5M per piece and consume matching Sweetwater equipment,
+regional ETC and a weapon-only seal. Five armour+weapon costs30M. HP/MP carry through upgrades. Earlier
+fee/input figures below describe the original audit; refreshed CSVs and candidate notes contain current drafts.
+
 ## The full lists
 
 - [Every forge recipe, with exact quantities and named materials](forge-catalog/full-list.md): **357 recipes**,
@@ -135,8 +143,8 @@ chains and are not silently included in the five-piece armour total.
 | Royal Von Leon | 130 / 1 | 1.055B | 1.055B | 120M |
 | Class boss set | 140 / 2, with sword exception above | 1.725B | 2.780B | 320M |
 | Japanese class set | 150 / 3 | 2.845B | 5.625B | 700M |
-| AbsoLab | 160 / 3 | 2.400B | 8.025B* | 1.180B |
-| Arcane Umbra | 200 / 3 | 3.770B | 11.795B* | 1.660B |
+| AbsoLab | 160 / 3 | 2.400B | 8.025B | 1.180B |
+| Arcane Umbra | 200 / 3 | 3.770B | 11.795B | 1.660B |
 | Sealed Genesis weapon | 200 / 3; recipe declares 225 | — | — | 2.140B |
 | Genesis weapon | 200 / 3; recipe declares 250 | — | — | 2.620B |
 
@@ -148,11 +156,11 @@ For a warrior's five Arcane armour pieces plus Genesis 1H sword, the chain is **
 before those other costs. That is a much larger decision than “the final recipe costs 480M.” Calibrate those
 fees against measured human **net** meso income; do not infer a practical playtime from gross fixed-DPS models.
 
-*The pirate recipes currently differ: all five AbsoLab armour pieces consume **Amaterasu's Helm 1003601**, a
-warrior helmet, instead of their respective Susano-o pieces. A fully forged pirate AbsoLab set therefore
-requires five separate warrior-helmet chains; the extracted current fees are 5.900B through AbsoLab and
-9.670B through Arcane, not the other families' totals. These figures document the inconsistency, not a proposed
-pirate discount. Fixing it needs explicit recipe decisions and tests, not editing the report's numbers.*
+The initial pirate recipes consumed warrior Amaterasu's Helm for all five AbsoLab slots, producing the
+incorrect5.900B/9.670B cumulative totals. The local1.6.4 correction now consumes matching Susano-o pieces;
+all five families have8.025B through AbsoLab and11.795B through Arcane before weapons/materials. The old
+numbers remain in the original audit evidence, while this branch's refreshed catalogue reflects the fix.
+Existing inventories are not altered, and no deployed correction is claimed.
 
 ## Why two copies of the same item can have very different power
 

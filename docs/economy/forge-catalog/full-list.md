@@ -1,10 +1,8 @@
 # Full Nimble forge recipe list
 
-This is the complete **357-recipe repository catalogue**: 125 armour, 112 weapons (including Sealed Genesis and Genesis), 44 accessories and 76 refining recipes. Extracted from `scripts/json/*.json` in this worktree. No rates or recipes changed. See [the rebirth and forge plan](../rebirth-and-forge-progression.md) for interpretation and proposed balancing.
+This is the complete **357-recipe repository catalogue**: 125 armour, 112 weapons (including Sealed Genesis and Genesis), 44 accessories and 76 refining recipes. Extracted from `scripts/json/*.json` in this worktree. This catalogue reflects the local draft recipe fixes; no deployment is claimed. See [the rebirth and forge plan](../rebirth-and-forge-progression.md) for interpretation and proposed balancing.
 
 **Columns:** RB is the current code’s minimum rebirth count to equip; EqLv is the retained server equip level; CraftLv/Maker are declared recipe values, whose enforcement is not established by the data alone. RB 0 means absent from the explicit restricted lists, not proof of availability. A transfer input is consumed. Names are server String.wz names; recipe labels can differ. Fees exclude optional reagents/stimulants, materials and previous stages. Source/client verification is pending.
-
-The [complete loadout spreadsheet](complete-loadouts.csv) combines five matching armour pieces and one class weapon for all 112 class/stage combinations, with all prior equipment recipe fees and rolled-up materials.
 
 Every listed item has its own complete material row. The [CSV](recipes.csv) adds stat requirements, attack, slots and raw material JSON; [chain totals](chain-totals.csv) expand equipment inputs and prior forge fees; [materials](materials.csv) lists all distinct inputs and source leads; [equipment](equipment.csv) includes ordinary dropped candidates and all explicitly rebirth-restricted IDs.
 
@@ -12,11 +10,11 @@ Every listed item has its own complete material row. The [CSV](recipes.csv) adds
 
 | Item | RB | EqLv | CraftLv / Maker | Base mesos | Exact direct inputs |
 |---|---:|---:|---:|---:|---|
-| Royal Von Leon Warrior Helm (1004234) | 1 | 130 | 120 / 0 | 120,000,000 | 1 x Timeless Fennel (1002776) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Crocky's Helmet (4000625); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Warrior Suit (1052804) | 1 | 130 | 120 / 3 | 575,000,000 | 1 x Timeless Taragon (1052155) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Warrior Boots (1072972) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Grabbe (1072355) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Bearwolf's Morning Star (4000627); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Warrior Hands (1082613) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Bergamot (1082234) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Vulture's Shoulder Accessory (4000628); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Warrior Cape (1102713) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Moonlight (1102172) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Castle Golem Brick (4000629); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Warrior Helm (1004234) | 1 | 130 | 120 / 0 | 5,000,000 | 1 x Sweetwater Hat (1003976) [consumed equipment; transfer]; 100 x Crocky's Helmet (4000625) |
+| Royal Von Leon Warrior Suit (1052804) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Suit (1052669) [consumed equipment; transfer]; 100 x Reindeer's Spear (4000626) |
+| Royal Von Leon Warrior Boots (1072972) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Shoes (1072870) [consumed equipment; transfer]; 100 x Bearwolf's Morning Star (4000627) |
+| Royal Von Leon Warrior Hands (1082613) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Gloves (1082556) [consumed equipment; transfer]; 100 x Vulture's Shoulder Accessory (4000628) |
+| Royal Von Leon Warrior Cape (1102713) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Cape (1102623) [consumed equipment; transfer]; 100 x Castle Golem Brick (4000629) |
 
 ## gearSets — Warrior / Lionheart Set
 
@@ -62,11 +60,11 @@ Every listed item has its own complete material row. The [CSV](recipes.csv) adds
 
 | Item | RB | EqLv | CraftLv / Maker | Base mesos | Exact direct inputs |
 |---|---:|---:|---:|---:|---|
-| Royal Von Leon Magician Helm (1004235) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Coral (1002777) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Crocky's Helmet (4000625); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Mage Suit (1052805) | 1 | 130 | 120 / 3 | 575,000,000 | 1 x Timeless Myst Blue (1052156) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Mage Boots (1072973) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Cabatina (1072356) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Bearwolf's Morning Star (4000627); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Mage Hands (1082614) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Hermosa (1082235) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Vulture's Shoulder Accessory (4000628); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Mage Cape (1102714) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Moonlight (1102172) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Castle Golem Brick (4000629); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Magician Helm (1004235) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Hat (1003976) [consumed equipment; transfer]; 100 x Crocky's Helmet (4000625) |
+| Royal Von Leon Mage Suit (1052805) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Suit (1052669) [consumed equipment; transfer]; 100 x Reindeer's Spear (4000626) |
+| Royal Von Leon Mage Boots (1072973) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Shoes (1072870) [consumed equipment; transfer]; 100 x Bearwolf's Morning Star (4000627) |
+| Royal Von Leon Mage Hands (1082614) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Gloves (1082556) [consumed equipment; transfer]; 100 x Vulture's Shoulder Accessory (4000628) |
+| Royal Von Leon Mage Cape (1102714) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Cape (1102623) [consumed equipment; transfer]; 100 x Castle Golem Brick (4000629) |
 
 ## gearSets — Magician / Lionheart Set
 
@@ -112,11 +110,11 @@ Every listed item has its own complete material row. The [CSV](recipes.csv) adds
 
 | Item | RB | EqLv | CraftLv / Maker | Base mesos | Exact direct inputs |
 |---|---:|---:|---:|---:|---|
-| Royal Von Leon Sentinel Helm (1004236) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Rapido (1002778) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Crocky's Helmet (4000625); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Sentinel Suit (1052806) | 1 | 130 | 120 / 3 | 575,000,000 | 1 x Timeless Evernew (1052157) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Sentinel Boots (1072974) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Rontano (1072357) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Bearwolf's Morning Star (4000627); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Sentinel Hands (1082615) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Presto (1082236) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Vulture's Shoulder Accessory (4000628); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Sentinel Cape (1102715) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Moonlight (1102172) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Castle Golem Brick (4000629); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Sentinel Helm (1004236) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Hat (1003976) [consumed equipment; transfer]; 100 x Crocky's Helmet (4000625) |
+| Royal Von Leon Sentinel Suit (1052806) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Suit (1052669) [consumed equipment; transfer]; 100 x Reindeer's Spear (4000626) |
+| Royal Von Leon Sentinel Boots (1072974) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Shoes (1072870) [consumed equipment; transfer]; 100 x Bearwolf's Morning Star (4000627) |
+| Royal Von Leon Sentinel Hands (1082615) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Gloves (1082556) [consumed equipment; transfer]; 100 x Vulture's Shoulder Accessory (4000628) |
+| Royal Von Leon Sentinel Cape (1102715) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Cape (1102623) [consumed equipment; transfer]; 100 x Castle Golem Brick (4000629) |
 
 ## gearSets — Bowman / Lionheart Set
 
@@ -162,11 +160,11 @@ Every listed item has its own complete material row. The [CSV](recipes.csv) adds
 
 | Item | RB | EqLv | CraftLv / Maker | Base mesos | Exact direct inputs |
 |---|---:|---:|---:|---:|---|
-| Royal Von Leon Chaser Helm (1004237) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Chive (1002779) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Crocky's Helmet (4000625); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Chaser Suit (1052807) | 1 | 130 | 120 / 3 | 575,000,000 | 1 x Timeless Prinsid (1052158) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Chaser Boots (1072975) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Moonsteed (1072358) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Bearwolf's Morning Star (4000627); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Chaser Hands (1082616) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Lubav (1082237) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Vulture's Shoulder Accessory (4000628); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Chaser Cape (1102716) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Moonlight (1102172) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Castle Golem Brick (4000629); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Chaser Helm (1004237) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Hat (1003976) [consumed equipment; transfer]; 100 x Crocky's Helmet (4000625) |
+| Royal Von Leon Chaser Suit (1052807) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Suit (1052669) [consumed equipment; transfer]; 100 x Reindeer's Spear (4000626) |
+| Royal Von Leon Chaser Boots (1072975) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Shoes (1072870) [consumed equipment; transfer]; 100 x Bearwolf's Morning Star (4000627) |
+| Royal Von Leon Chaser Hands (1082616) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Gloves (1082556) [consumed equipment; transfer]; 100 x Vulture's Shoulder Accessory (4000628) |
+| Royal Von Leon Chaser Cape (1102716) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Cape (1102623) [consumed equipment; transfer]; 100 x Castle Golem Brick (4000629) |
 
 ## gearSets — Thief / Lionheart Set
 
@@ -212,11 +210,11 @@ Every listed item has its own complete material row. The [CSV](recipes.csv) adds
 
 | Item | RB | EqLv | CraftLv / Maker | Base mesos | Exact direct inputs |
 |---|---:|---:|---:|---:|---|
-| Royal Von Leon Skipper Helm (1004238) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Conrad Henkel (1002780) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Vulture's Shoulder Accessory (4000628); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Skipper Suit (1052808) | 1 | 130 | 120 / 3 | 575,000,000 | 1 x Timeless Burgunt (1052159) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Vulture's Shoulder Accessory (4000628); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Skipper Boots (1072976) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Faraon (1072359) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Vulture's Shoulder Accessory (4000628); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Skipper Hands (1082617) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Charlston (1082238) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Vulture's Shoulder Accessory (4000628); 1 x Von Leon's Seal (4001693) |
-| Royal Von Leon Skipper Cape (1102717) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Moonlight (1102172) [consumed equipment; transfer]; 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 400 x Vulture's Shoulder Accessory (4000628); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Skipper Helm (1004238) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Hat (1003976) [consumed equipment; transfer]; 100 x Crocky's Helmet (4000625) |
+| Royal Von Leon Skipper Suit (1052808) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Suit (1052669) [consumed equipment; transfer]; 100 x Reindeer's Spear (4000626) |
+| Royal Von Leon Skipper Boots (1072976) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Shoes (1072870) [consumed equipment; transfer]; 100 x Bearwolf's Morning Star (4000627) |
+| Royal Von Leon Skipper Hands (1082617) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Gloves (1082556) [consumed equipment; transfer]; 100 x Vulture's Shoulder Accessory (4000628) |
+| Royal Von Leon Skipper Cape (1102717) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Cape (1102623) [consumed equipment; transfer]; 100 x Castle Golem Brick (4000629) |
 
 ## gearSets — Pirate / Lionheart Set
 
@@ -242,11 +240,11 @@ Every listed item has its own complete material row. The [CSV](recipes.csv) adds
 
 | Item | RB | EqLv | CraftLv / Maker | Base mesos | Exact direct inputs |
 |---|---:|---:|---:|---:|---|
-| AbsoLab Pirate Fedora (1004426) | 3 | 160 | 150 / 3 | 480,000,000 | 1 x Amaterasu's Helm (1003601) [consumed equipment; transfer]; 4 x Star Rock (4021009); 4 x Moon Rock (4011007); 1 x Stone Cobweb Droplet (4001890); 100 x Battle Hound Broken Horn (4000727); 100 x Specter Wooden Shield (4000730); 100 x Red Speeyor Stalk (4000740); 100 x Dinoram Claw (4000743); 100 x Specter Ambassador Scythe (4000736); 100 x Wiggling Tail (4036147); 100 x Rainbow Flower2 (4034887); 100 x Destroyed Ice Wand (4009340); 100 x Unrelenting Flame (4023025); 100 x Scratched Cast Iron Plate (4036492); 100 x Cast Iron Plate (4036140) |
-| AbsoLab Pirate Suit (1052890) | 3 | 160 | 150 / 3 | 480,000,000 | 1 x Amaterasu's Helm (1003601) [consumed equipment; transfer]; 4 x Star Rock (4021009); 4 x Moon Rock (4011007); 1 x Stone Cobweb Droplet (4001890); 100 x Yellow Speeyor Torn Fur Coat (4000741); 100 x Dinodon Fang (4000744); 100 x Blue Speeyor Torn Fur Coat (4000739); 100 x Sparkling Specter Stone (4000729); 100 x Temporal Sand (4001674); 100 x Wiggling Tail (4036493); 100 x Cat's Eye (4031568); 100 x Banana (4034414); 100 x Orange Mushroom Doll (4036508); 100 x Unburning Flame (4036145); 100 x Soft Scrap Iron (4036146) |
-| AbsoLab Pirate Shoes (1073035) | 3 | 160 | 150 / 3 | 480,000,000 | 1 x Amaterasu's Helm (1003601) [consumed equipment; transfer]; 4 x Star Rock (4021009); 4 x Moon Rock (4011007); 1 x Stone Cobweb Droplet (4001890); 100 x Tamer Hardhat (4000728); 100 x Specter's Deadly Poison (4000731); 100 x Welding Goggles (4000733); 100 x Hard Back Horn (4000732); 100 x Dried Caterpillar (4009219); 100 x Device Button (4036494); 100 x Pink Jelly (4034658); 100 x Sparkling Flower (4033401); 100 x Yellow Butterfly (4032434); 100 x Mechanical Circuit (4033664); 100 x Slumbering Fragment (4033733) |
-| AbsoLab Pirate Gloves (1082640) | 3 | 160 | 150 / 3 | 480,000,000 | 1 x Amaterasu's Helm (1003601) [consumed equipment; transfer]; 4 x Star Rock (4021009); 4 x Moon Rock (4011007); 1 x Stone Cobweb Droplet (4001890); 100 x Specter's Sword Piece (4000734); 100 x Specter Cube (4000735); 100 x Specter Ambassador Scythe (4000736); 100 x Ragged Cloth (4000738); 100 x Spotted Wings (4009220); 100 x Device Part (4036495); 100 x Note Paper (4036021); 100 x Yellow Butterfly (4032434); 100 x Orange Mushroom Doll (4036508); 100 x Gold Shard (4036169); 100 x Vinegold Shard (4036170) |
-| AbsoLab Pirate Cape (1102797) | 3 | 160 | 150 / 3 | 480,000,000 | 1 x Amaterasu's Helm (1003601) [consumed equipment; transfer]; 4 x Star Rock (4021009); 4 x Moon Rock (4011007); 1 x Stone Cobweb Droplet (4001890); 100 x Broken Flask (4000737); 100 x Dry Mushroom (4034426); 100 x Gold Sand (4033907); 100 x Decent Crystal (4036348); 100 x Sparrow Egg (4009221); 100 x Decent Flint (4036452); 100 x Kobold's Sword (4034000); 100 x Peanut (4170023); 100 x Unrelenting Flame (4023025); 100 x Strange Key (4034867); 100 x Rainbow Flower4 (4034889) |
+| AbsoLab Pirate Fedora (1004426) | 3 | 160 | 150 / 3 | 480,000,000 | 1 x Susano-o's Helm (1003605) [consumed equipment; transfer]; 4 x Star Rock (4021009); 4 x Moon Rock (4011007); 1 x Stone Cobweb Droplet (4001890); 100 x Battle Hound Broken Horn (4000727); 100 x Specter Wooden Shield (4000730); 100 x Red Speeyor Stalk (4000740); 100 x Dinoram Claw (4000743); 100 x Specter Ambassador Scythe (4000736); 100 x Wiggling Tail (4036147); 100 x Rainbow Flower2 (4034887); 100 x Destroyed Ice Wand (4009340); 100 x Unrelenting Flame (4023025); 100 x Scratched Cast Iron Plate (4036492); 100 x Cast Iron Plate (4036140) |
+| AbsoLab Pirate Suit (1052890) | 3 | 160 | 150 / 3 | 480,000,000 | 1 x Susano-o's Armor (1052513) [consumed equipment; transfer]; 4 x Star Rock (4021009); 4 x Moon Rock (4011007); 1 x Stone Cobweb Droplet (4001890); 100 x Yellow Speeyor Torn Fur Coat (4000741); 100 x Dinodon Fang (4000744); 100 x Blue Speeyor Torn Fur Coat (4000739); 100 x Sparkling Specter Stone (4000729); 100 x Temporal Sand (4001674); 100 x Wiggling Tail (4036493); 100 x Cat's Eye (4031568); 100 x Banana (4034414); 100 x Orange Mushroom Doll (4036508); 100 x Unburning Flame (4036145); 100 x Soft Scrap Iron (4036146) |
+| AbsoLab Pirate Shoes (1073035) | 3 | 160 | 150 / 3 | 480,000,000 | 1 x Susano-o's Shoes (1072715) [consumed equipment; transfer]; 4 x Star Rock (4021009); 4 x Moon Rock (4011007); 1 x Stone Cobweb Droplet (4001890); 100 x Tamer Hardhat (4000728); 100 x Specter's Deadly Poison (4000731); 100 x Welding Goggles (4000733); 100 x Hard Back Horn (4000732); 100 x Dried Caterpillar (4009219); 100 x Device Button (4036494); 100 x Pink Jelly (4034658); 100 x Sparkling Flower (4033401); 100 x Yellow Butterfly (4032434); 100 x Mechanical Circuit (4033664); 100 x Slumbering Fragment (4033733) |
+| AbsoLab Pirate Gloves (1082640) | 3 | 160 | 150 / 3 | 480,000,000 | 1 x Susano-o's Gloves (1082476) [consumed equipment; transfer]; 4 x Star Rock (4021009); 4 x Moon Rock (4011007); 1 x Stone Cobweb Droplet (4001890); 100 x Specter's Sword Piece (4000734); 100 x Specter Cube (4000735); 100 x Specter Ambassador Scythe (4000736); 100 x Ragged Cloth (4000738); 100 x Spotted Wings (4009220); 100 x Device Part (4036495); 100 x Note Paper (4036021); 100 x Yellow Butterfly (4032434); 100 x Orange Mushroom Doll (4036508); 100 x Gold Shard (4036169); 100 x Vinegold Shard (4036170) |
+| AbsoLab Pirate Cape (1102797) | 3 | 160 | 150 / 3 | 480,000,000 | 1 x Susano-o's Cape (1102460) [consumed equipment; transfer]; 4 x Star Rock (4021009); 4 x Moon Rock (4011007); 1 x Stone Cobweb Droplet (4001890); 100 x Broken Flask (4000737); 100 x Dry Mushroom (4034426); 100 x Gold Sand (4033907); 100 x Decent Crystal (4036348); 100 x Sparrow Egg (4009221); 100 x Decent Flint (4036452); 100 x Kobold's Sword (4034000); 100 x Peanut (4170023); 100 x Unrelenting Flame (4023025); 100 x Strange Key (4034867); 100 x Rainbow Flower4 (4034889) |
 
 ## gearSets — Pirate / Arcane Umbra Set
 
@@ -262,14 +260,14 @@ Every listed item has its own complete material row. The [CSV](recipes.csv) adds
 
 | Item | RB | EqLv | CraftLv / Maker | Base mesos | Exact direct inputs |
 |---|---:|---:|---:|---:|---|
-| Royal Von Leon Saber (1302316) | 1 | 130 | 120 / 0 | 120,000,000 | 1 x Timeless Executioners (1302081) [consumed equipment; transfer]; 1 x Warrior Weapon Core (4036544); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 2 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 1 x Magic Powder (Purple) (4007005); 2 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
-| Royal Von Leon Axe (1312186) | 1 | 130 | 120 / 3 | 575,000,000 | 1 x Timeless Bardiche (1312037) [consumed equipment; transfer]; 1 x Warrior Weapon Core (4036544); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 2 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 1 x Magic Powder (Purple) (4007005); 2 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
-| Royal Von Leon Hammer (1322237) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Allargando (1322060) [consumed equipment; transfer]; 1 x Warrior Weapon Core (4036544); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 2 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 1 x Magic Powder (Purple) (4007005); 2 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
-| Royal Von Leon Sword (1402237) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Nibleheim (1402046) [consumed equipment; transfer]; 1 x Warrior Weapon Core (4036544); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 2 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 1 x Magic Powder (Purple) (4007005); 2 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
-| Royal Von Leon Two-Handed Axe (1412179) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Tabarzin (1412033) [consumed equipment; transfer]; 1 x Warrior Weapon Core (4036544); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 2 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 1 x Magic Powder (Purple) (4007005); 2 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
-| Royal Von Leon Two-Handed Hammer (1422186) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Bellocce (1422037) [consumed equipment; transfer]; 1 x Warrior Weapon Core (4036544); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 2 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 1 x Magic Powder (Purple) (4007005); 2 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
-| Royal Von Leon Spear (1432201) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Alchupiz (1432047) [consumed equipment; transfer]; 1 x Warrior Weapon Core (4036544); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 2 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 1 x Magic Powder (Purple) (4007005); 2 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
-| Royal Von Leon Hellslayer (1442255) | 1 | 130 | 120 / 3 | 120,000,000 | 1 x Timeless Diesra (1442063) [consumed equipment; transfer]; 1 x Warrior Weapon Core (4036544); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 2 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 1 x Magic Powder (Purple) (4007005); 2 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
+| Royal Von Leon Saber (1302316) | 1 | 130 | 120 / 0 | 5,000,000 | 1 x Sweetwater Sword (1302297) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Axe (1312186) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Axe (1312173) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Hammer (1322237) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Mace (1322223) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Sword (1402237) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Two-Handed Sword (1402220) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Two-Handed Axe (1412179) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Two-Handed Axe (1412152) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Two-Handed Hammer (1422186) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Maul (1422158) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Spear (1432201) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Spear (1432187) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Hellslayer (1442255) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Polearm (1442242) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
 
 ## weapons — Warrior / Lionheart
 
@@ -353,8 +351,8 @@ Every listed item has its own complete material row. The [CSV](recipes.csv) adds
 
 | Item | RB | EqLv | CraftLv / Maker | Base mesos | Exact direct inputs |
 |---|---:|---:|---:|---:|---|
-| Royal Von Leon Wand (1372208) | 1 | 130 | 120 / 0 | 120,000,000 | 1 x Timeless Enreal Tear (1372044) [consumed equipment; transfer]; 1 x Mage Weapon Core (4036545); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 2 x Magic Powder (Blue) (4007002); 1 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 2 x Magic Powder (Purple) (4007005); 1 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
-| Royal Von Leon Staff (1382246) | 1 | 130 | 120 / 3 | 575,000,000 | 1 x Timeless Aeas Hand (1382057) [consumed equipment; transfer]; 1 x Mage Weapon Core (4036545); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 2 x Magic Powder (Blue) (4007002); 1 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 2 x Magic Powder (Purple) (4007005); 1 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
+| Royal Von Leon Wand (1372208) | 1 | 130 | 120 / 0 | 5,000,000 | 1 x Sweetwater Wand (1372195) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Staff (1382246) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Staff (1382231) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
 
 ## weapons — Magician / Lionheart
 
@@ -402,8 +400,8 @@ Every listed item has its own complete material row. The [CSV](recipes.csv) adds
 
 | Item | RB | EqLv | CraftLv / Maker | Base mesos | Exact direct inputs |
 |---|---:|---:|---:|---:|---|
-| Royal Von Leon Bow (1452239) | 1 | 130 | 120 / 0 | 120,000,000 | 1 x Timeless Engaw (1452057) [consumed equipment; transfer]; 1 x Bowman Weapon Core (4036546); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 2 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 1 x Magic Powder (Green) (4007003); 2 x Magic Powder (Yellow) (4007004); 1 x Magic Powder (Purple) (4007005); 1 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
-| Royal Von Leon Crossbow (1462226) | 1 | 130 | 120 / 3 | 575,000,000 | 1 x Timeless Black Beauty (1462050) [consumed equipment; transfer]; 1 x Bowman Weapon Core (4036546); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 2 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 1 x Magic Powder (Green) (4007003); 2 x Magic Powder (Yellow) (4007004); 1 x Magic Powder (Purple) (4007005); 1 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
+| Royal Von Leon Bow (1452239) | 1 | 130 | 120 / 0 | 5,000,000 | 1 x Sweetwater Bow (1452226) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Crossbow (1462226) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Crossbow (1462213) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
 
 ## weapons — Bowman / Lionheart
 
@@ -451,8 +449,8 @@ Every listed item has its own complete material row. The [CSV](recipes.csv) adds
 
 | Item | RB | EqLv | CraftLv / Maker | Base mesos | Exact direct inputs |
 |---|---:|---:|---:|---:|---|
-| Royal Von Leon Dagger (1332261) | 1 | 130 | 120 / 0 | 120,000,000 | 1 x Timeless Killic (1332074) [consumed equipment; transfer]; 1 x Thief Weapon Core (4036547); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 1 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 2 x Magic Powder (Purple) (4007005); 1 x Magic Powder (Red) (4007006); 2 x Magic Powder (Black) (4007007) |
-| Royal Von Leon Guards (1472248) | 1 | 130 | 120 / 3 | 575,000,000 | 1 x Timeless Lampion (1472068) [consumed equipment; transfer]; 1 x Thief Weapon Core (4036547); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 1 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 2 x Magic Powder (Purple) (4007005); 1 x Magic Powder (Red) (4007006); 2 x Magic Powder (Black) (4007007) |
+| Royal Von Leon Dagger (1332261) | 1 | 130 | 120 / 0 | 5,000,000 | 1 x Sweetwater Knife (1332247) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Guards (1472248) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Steer (1472235) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
 
 ## weapons — Thief / Lionheart
 
@@ -500,8 +498,8 @@ Every listed item has its own complete material row. The [CSV](recipes.csv) adds
 
 | Item | RB | EqLv | CraftLv / Maker | Base mesos | Exact direct inputs |
 |---|---:|---:|---:|---:|---|
-| Royal Von Leon Claw (1482203) | 1 | 130 | 120 / 0 | 120,000,000 | 1 x Timeless Equinox (1482023) [consumed equipment; transfer]; 1 x Pirate Weapon Core (4036548); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 2 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 2 x Magic Powder (Purple) (4007005); 1 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
-| Royal Von Leon Pistol (1492213) | 1 | 130 | 120 / 3 | 575,000,000 | 1 x Timeless Blindness (1492023) [consumed equipment; transfer]; 1 x Pirate Weapon Core (4036548); 400 x Crocky's Helmet (4000625); 400 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693); 1 x Star Rock (4021009); 1 x Moon Rock (4011007); 1 x Magic Powder (Brown) (4007000); 1 x Magic Powder (White) (4007001); 1 x Magic Powder (Blue) (4007002); 2 x Magic Powder (Green) (4007003); 1 x Magic Powder (Yellow) (4007004); 2 x Magic Powder (Purple) (4007005); 1 x Magic Powder (Red) (4007006); 1 x Magic Powder (Black) (4007007) |
+| Royal Von Leon Claw (1482203) | 1 | 130 | 120 / 0 | 5,000,000 | 1 x Sweetwater Grip (1482189) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
+| Royal Von Leon Pistol (1492213) | 1 | 130 | 120 / 3 | 5,000,000 | 1 x Sweetwater Shooter (1492199) [consumed equipment; transfer]; 200 x Crocky's Helmet (4000625); 200 x Reindeer's Spear (4000626); 1 x Von Leon's Seal (4001693) |
 
 ## weapons — Pirate / Lionheart
 

@@ -1,0 +1,442 @@
+{
+  "status": "proposed tuning; not activated",
+  "base_chances": {
+    "weapon": 2100,
+    "armour": 2400,
+    "accessory": 800,
+    "scroll": 2000
+  },
+  "items": {
+    "1003984": {
+      "name": "Commerci Hat",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1052673": {
+      "name": "Commerci Suit",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1072874": {
+      "name": "Commerci Boots",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1082559": {
+      "name": "Commerci Gloves",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1102626": {
+      "name": "Commerci Cape",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1302299": {
+      "name": "Commerci Sword",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1312174": {
+      "name": "Commerci Axe",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1322224": {
+      "name": "Commerci Mace",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1332249": {
+      "name": "Commerci Knife",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1372196": {
+      "name": "Commerci Wand",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1382232": {
+      "name": "Commerci Staff",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1402222": {
+      "name": "Commerci Two-Handed Sword",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1412153": {
+      "name": "Commerci Two-Handed Axe",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1422159": {
+      "name": "Commerci Maul",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1432189": {
+      "name": "Commerci Spear",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1442243": {
+      "name": "Commerci Polearm",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1452227": {
+      "name": "Commerci Bow",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1462214": {
+      "name": "Commerci Crossbow",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1472236": {
+      "name": "Commerci Steer",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1482190": {
+      "name": "Commerci Grip",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1492200": {
+      "name": "Commerci Shooter",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1003976": {
+      "name": "Sweetwater Hat",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1052669": {
+      "name": "Sweetwater Suit",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1072870": {
+      "name": "Sweetwater Shoes",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1082556": {
+      "name": "Sweetwater Gloves",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1102623": {
+      "name": "Sweetwater Cape",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1302297": {
+      "name": "Sweetwater Sword",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1312173": {
+      "name": "Sweetwater Axe",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1322223": {
+      "name": "Sweetwater Mace",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1332247": {
+      "name": "Sweetwater Knife",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1372195": {
+      "name": "Sweetwater Wand",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1382231": {
+      "name": "Sweetwater Staff",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1402220": {
+      "name": "Sweetwater Two-Handed Sword",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1412152": {
+      "name": "Sweetwater Two-Handed Axe",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1422158": {
+      "name": "Sweetwater Maul",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1432187": {
+      "name": "Sweetwater Spear",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1442242": {
+      "name": "Sweetwater Polearm",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1452226": {
+      "name": "Sweetwater Bow",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1462213": {
+      "name": "Sweetwater Crossbow",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1472235": {
+      "name": "Sweetwater Steer",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1482189": {
+      "name": "Sweetwater Grip",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1492199": {
+      "name": "Sweetwater Shooter",
+      "kind": "equip",
+      "bindings": [
+        "equipTradeBlock"
+      ]
+    },
+    "1032191": {
+      "name": "Alien Fragment Earrings",
+      "kind": "equip",
+      "bindings": [
+        "tradeBlock"
+      ]
+    },
+    "1132230": {
+      "name": "Alien Fragment Belt",
+      "kind": "equip",
+      "bindings": [
+        "tradeBlock"
+      ]
+    },
+    "1113038": {
+      "name": "Alien Fragment Ring",
+      "kind": "equip",
+      "bindings": [
+        "tradeBlock"
+      ]
+    },
+    "2043001": {
+      "name": "Scroll for One-Handed Sword for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2043101": {
+      "name": "Scroll for One-Handed Axe for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2043201": {
+      "name": "Scroll for One-Handed BW for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2043301": {
+      "name": "Scroll for Dagger for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2043701": {
+      "name": "Scroll for Wand for Magic ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2043801": {
+      "name": "Scroll for Staff for Magic ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2044001": {
+      "name": "Scroll for Two-handed Sword for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2044101": {
+      "name": "Scroll for Two-handed Axe for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2044201": {
+      "name": "Scroll for Two-handed BW for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2044301": {
+      "name": "Scroll for Spear for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2044401": {
+      "name": "Scroll for Pole Arm for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2044501": {
+      "name": "Scroll for Bow for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2044601": {
+      "name": "Scroll for Crossbow for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2044701": {
+      "name": "Scroll for Claw for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2044801": {
+      "name": "Scroll for Knuckle for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2044901": {
+      "name": "Scroll for Gun for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2040804": {
+      "name": "Scroll for Gloves for ATT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2041013": {
+      "name": "Scroll for Cape for STR 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2041016": {
+      "name": "Scroll for Cape for INT 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2041019": {
+      "name": "Scroll for Cape for DEX 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2041022": {
+      "name": "Scroll for Cape for LUK 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2040501": {
+      "name": "Scroll for Overall Armor for DEX 60%",
+      "kind": "consume",
+      "bindings": []
+    },
+    "2040301": {
+      "name": "Scroll for Earring for INT 60%",
+      "kind": "consume",
+      "bindings": []
+    }
+  },
+  "pacing_basis": "Owner: base-rate progression, existing server 4x applied once; roughly 1\u20134 hours for the normal loadout at the actual rate. Model target about 4\u20136 hours at 1x and 300 eligible kills/hour; no guaranteed completion time."
+}

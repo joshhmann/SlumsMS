@@ -3,8 +3,8 @@
 Owner has assigned Codex to focus on this ticket and selected **existing equipment families, with late upgrades
 from scrolls and accessories**, instead of inventing level-180/200 weapon tiers. Related exported card: e10;
 its board state was not modified. Work branch `164-gear-progression-codex`, based on release-1.6.4 `c0e0a2cd7`,
-with the prior audit/ticket commits cherry-picked. Current work is preparatory tooling and concrete data proposals,
-not an implemented loot/combat change.
+with the prior audit/ticket commits cherry-picked. Current work includes a locally implemented loot migration/generator and forge fixes. Nothing is deployed;
+real-client combat/source proof and release admission remain pending.
 
 ## Candidate normal path
 
@@ -30,8 +30,10 @@ explicitly. Server presence is not proof of installed client art, equip animatio
 ## Concrete source proposal
 
 [pilot-source-proposal.csv](pilot-source-proposal.csv) contains **136 proposed monster/item pairs** for **68
-items**, with two different source mobs for each item. Base chances are deliberately unselected pending the stage
-acquisition budget and source/combat proof. Quantities are one. This is a review sheet, not an SQL migration.
+items**, with two different source mobs for each item. The source sheet preserves its original blank rate fields; the separate [policy](drop-policy.json) now supplies
+1x base chances and [generator](../../../tools/economy/gen_normal_drops.py) emits migration059 and its rollback.
+Quantities are one. SQL has not been applied to a project DB. The chosen budget is roughly1–4 hours at the
+actual4x rate, balancing the full normal set around4–6 hours at1x, not baking4x into stored chances.
 
 | Candidate reward stage | Proposed source mob IDs | Retained levels | Map evidence / area gate |
 |---|---|---|---|
@@ -40,7 +42,7 @@ acquisition budget and source/combat proof. Quantities are one. This is a review
 | Alien accessories | 8610010, 8610011, 8610012, 8610013, 8610014 | 177–184 | Advanced Knights A–E; Future maps |
 | 60% scroll supply | 8610005, 8610006, 8610007, 8610008, 8610009 | 168–176 | Official Knights A–E; Future maps |
 
-The builder verified each of these **20 mobs** is in its retained first map's life list, has a positive-EXP,
+The builder verified all **20 candidate mobs** (19 appear in the final pair roster) is in its retained first map's life list, has a positive-EXP,
 non-boss inventory entry and passes the existing RB0 area gate at level 120. It initially rejected Heretic Monk
 sources because their first maps are outside the lower-Grandis list; those were removed. This illustrates why
 region or raw mob level alone is not enough to establish an RB0 source. Portals, quests, spawn usability, client
@@ -99,10 +101,28 @@ not certify an overall versus coat+pants combination, gender/stat requirements, 
 Artifacts in `/root/work/agent-runs/server/164-gear-progression-codex/`: complete inventory/candidate/coverage CSVs,
 summary, fail-before/passing test output, graph update log, read-only pilot builder and checks. 17 Python tests
 pass (nine new normal-gear policy tests and eight earlier area-audit tests). Before implementation, the new tests
-failed because the audit module did not exist. No runtime Java/NPC script/WZ/SQL change, Maven build, game launch,
-TEST deployment, SSH or live access was performed for this preparatory slice.
+failed because the audit module did not exist. That first audit was preparatory. The subsequent local implementation and full validation are tracked in the
+[1.6.4 candidate notes](../../release/1.6.4-gear-progression.md). No game launch, TEST deployment, SSH or live
+access has been performed.
 
-## Next implementation slice
+## Local implementation and pacing
+
+`gen_normal_drops.py` validates the complete allowlist, unchanged binding flags, forge/RB exclusions, monster
+roles/levels, actual retained map placements and RB0 area gates. It leaves the global generator policy intact.
+Migration059 preserves older pairs and its rollback is locally tested on disposable MySQL. The23 policy/area
+tests plus four loadout-model tests currently pass. Forge checks and pirate inputs are fixed locally, with
+seven script/data tests that failed before where appropriate and now pass. No transfer formula or item stat
+was changed.
+
+The updated1x chances are weapon2100, armour2400, optional accessories800 and60% scrolls2000 per million.
+[Full-loadout model](loadout-acquisition-model.csv) covers32 five-armour-plus-weapon combinations at1x and4x,
+2,000 seeded trials each. At300 eligible kills/hour, it estimates mean5.05–5.33 hours at1x and1.28–1.34 hours
+at4x; the4x90% completion range is2.01–2.13 hours. At100 eligible kills/hour the latter times triple. These are
+model outputs excluding travel, kill-rate differences, competition, pickup loss and installed row deviations;
+they are not measured player times. The model changes source mob as items are collected and includes duplicate
+drops and simultaneous rolls. It does not count two sources as two rolls on one kill.
+
+## Remaining implementation and proof
 
 1. Verify source routes/client support and actual loot before emitting SQL; preview the explicit bound-item
    allowlist and effective per-item acquisition times under actual rates. Choose stage budgets and chances from

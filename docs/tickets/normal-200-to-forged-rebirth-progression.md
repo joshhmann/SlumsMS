@@ -1,6 +1,7 @@
 # Normal equipment through 200, then forged rebirth progression
 
 Status: implementation preparation assigned directly to Codex by the owner; release-book ID/board update still pending.
+Implementation target: **1.6.4**, owner direction in this conversation.
 Current branch/worktree: `164-gear-progression-codex`, `/root/work/SlumsMS-164-gear-progression-codex`, from release-1.6.4.
 Related exported card: e10 (export still says later; this conversation is the newer owner prioritization).
 CLOSER: Server Dev SlumsMS Main Session. PROOF: per-slice tests and data checks below, then the targeted
@@ -16,8 +17,11 @@ Audit branch: `area-balance-codex`; supporting commits `0bf622cf9`, `7a84c2191`,
 Owner selected **existing gear families, with late upgrades from scrolls and accessories**, rather than new
 level-180/200 weapon tiers. See [the first normal-path batch](../economy/normal-200/README.md), including the
 42 late gear candidates and 136 explicit proposed source pairs for 68 items. The repeatable audit and 17 passing
-Python tests establish policy coverage; rates, bindings integration, source/client verification and combat
-calibration are still pending. No runtime economy change is implemented.
+Python tests establish policy coverage; subsequent candidate now includes the explicit bound-item policy, migration059/rollback, script requirement
+checks and pirate recipe correction. See [candidate release notes](../release/1.6.4-gear-progression.md). The
+owner selected approximately1–4 hours at the actual4x rate using ordinary1x stored chances. The complete-set
+model and local tests are recorded there; installed-source/client/combat proof and release admission remain
+pending. No runtime change has been deployed.
 
 ## Problem and intended result
 
