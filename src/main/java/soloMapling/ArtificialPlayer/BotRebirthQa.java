@@ -14,6 +14,7 @@ import soloMapling.ArtificialPlayer.BotProgressionSystem.BotRealStats;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBossRuns;
 import soloMapling.ArtificialPlayer.BotProgressionSystem.RebirthBosses.Boss;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 import soloMapling.itemPool.EquipMetadataCache;
 
 import java.util.ArrayList;
@@ -92,6 +93,9 @@ public final class BotRebirthQa {
         }
     }
 
+    /** What a level 200 takes into a boss: one stack of MP potions (its casts cost 80 to 200 MP each). */
+    public static final int BOSS_MP_POTIONS = 200;
+
     /** Raises the bot to 200 on its build (it advances to 4th job as any bot does); false if it did not get there. */
     public static boolean raise(Before b) {
         Character bot = b.bot();
@@ -99,7 +103,22 @@ public final class BotRebirthQa {
             bot.setLevel(BotRebirth.REBIRTH_LEVEL);
             BotProgression.afterOffscreenLevels(bot, b.level());
             b.walletAtWalk().set(bot.getMeso()); // the 4th-job package (10m, NPC 2084000) is the raise's, not the rebirth's
+            body(bot);
             return bot.getLevel() == BotRebirth.REBIRTH_LEVEL && BotRebirth.fullyAdvanced(bot.getJob().getId());
+        }
+    }
+
+    /**
+     * t-rb-2: the 169 levels the raise skips do not bring the body with them. TEST 2026-11-02 left "HP 6730/6730
+     * MP 175/1495, holds HP pots 73 MP pots 0" and the run's stats read "80 swings 0 kills {0=80}": every cast went
+     * out as the weapon's plain swing for want of MP (Dark Impale 80, La Mancha Spear 200), so Von Leon never cleared.
+     * A player at 200 walks into a boss with full HP and MP and a stack of potions.
+     */
+    static void body(Character bot) {
+        BotVitals.rest(bot);
+        int want = BOSS_MP_POTIONS - stored(bot, constants.id.ItemId.MANA_ELIXIR);
+        if (want > 0) {
+            BotHoldings.grantItem(bot, new Item(constants.id.ItemId.MANA_ELIXIR, (short) 0, (short) Math.min(200, want)));
         }
     }
 
@@ -452,6 +471,17 @@ public final class BotRebirthQa {
         if (itemId < 0) return;
         for (Item held; (held = bot.getInventory(InventoryType.ETC).findById(itemId)) != null; ) {
             if (BotHoldings.consumeHeld(bot, held, held.getQuantity()) <= 0) return;
+        }
+    }
+
+    /* How many of one item the bot carries (the stash's potions are USE, a boss item is ETC). */
+    private static int stored(Character bot, int itemId) {
+        Inventory use = bot.getInventory(InventoryType.USE);
+        use.lockInventory();
+        try {
+            return use.countById(itemId);
+        } finally {
+            use.unlockInventory();
         }
     }
 

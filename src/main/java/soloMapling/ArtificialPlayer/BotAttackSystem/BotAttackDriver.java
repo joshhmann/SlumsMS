@@ -24,6 +24,7 @@ import soloMapling.ArtificialPlayer.BotMovementSystem.MovementCommands;
 import soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor;
 import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.ArtificialPlayer.BotSupplySystem.BotSupplies;
+import soloMapling.ArtificialPlayer.BotSupplySystem.BotVitals;
 import soloMapling.ArtificialPlayer.BotSupplySystem.SwingSupply;
 
 import java.awt.Point;
@@ -447,9 +448,14 @@ public final class BotAttackDriver {
         BotComboOrbs.afterStrike(bot, skillId); // after the packet: a finisher is drawn with the orbs it spends
         nextAttackByBot.put(bot.getId(), now + plan.busyMs(profile.cooldownMs)); // the pose's length (BotAttackTiming)
         startCooltime(bot, skillId, skillLevel, now);
-        if (extra != null && skillId == extra.profile().skillId) {
-            extraUsedByBot.computeIfAbsent(bot.getId(), k -> new ConcurrentHashMap<>()).put(skillId, now);
-            BotAranCombo.spend(bot, extra.comboCost());
+        if (extra != null) {
+            // Its interval runs from the pick, not from a paid cast: a swing the supply had to send as a plain attack
+            // must not make the extra ready again a moment later.
+            extraUsedByBot.computeIfAbsent(bot.getId(), k -> new ConcurrentHashMap<>())
+                    .put(extra.profile().skillId, now);
+            if (skillId == extra.profile().skillId) {
+                BotAranCombo.spend(bot, extra.comboCost());
+            }
         }
         if (profile == ultimate) { // firing the throttled full-map nuke starts its long cooldown
             nextUltimateByBot.put(bot.getId(), now + FULL_MAP_ULTIMATE_COOLDOWN_MS);
@@ -507,7 +513,7 @@ public final class BotAttackDriver {
     }
 
     /* The first extra that is ready to use now with a mob in its reach, or null. */
-    private static BotAttackConfig.Extra readyExtra(Character bot, List<BotAttackConfig.Extra> extras,
+    static BotAttackConfig.Extra readyExtra(Character bot, List<BotAttackConfig.Extra> extras,
                                                     boolean facingLeft, long now) {
         for (BotAttackConfig.Extra e : extras) {
             BotAttackProfile p = e.profile();
@@ -520,6 +526,12 @@ public final class BotAttackDriver {
                 continue;
             }
             if (e.comboCost() > 0 && BotAranCombo.combo(bot, now) < e.comboCost()) {
+                continue;
+            }
+            // t-rb-2: a cast the bot cannot pay for goes out as the weapon's plain swing (SwingSupply) and never
+            // starts its cooltime, so an unpayable extra would be picked again on every swing and keep the bot off
+            // the attack it can pay for (a level 200 Dark Knight on 175 MP swung plain attacks for a whole run).
+            if (!BotVitals.canPay(bot, BotVitals.mpCost(bot, p.skillId, packetLevel(bot, p)))) {
                 continue;
             }
             if (!mobsInReach(bot, p, facingLeft).isEmpty()) {

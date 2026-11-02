@@ -3015,7 +3015,7 @@ final class Probes160 {
         }
         Character me = p.character();
         int level = Math.max(15, Math.min(60, me.getLevel()));
-        List<Character> crew = soloMapling.ArtificialPlayer.BotConvo.TalkQa.spawn(me, 3, true, level);
+        List<Character> crew = soloMapling.ArtificialPlayer.BotConvo.TalkQa.spawn(me, 3, true, level, true);
         List<String> bad = new ArrayList<>();
         List<String> ev = new ArrayList<>();
         try {
@@ -3067,7 +3067,10 @@ final class Probes160 {
                 + " arrived there", ev);
     }
 
-    /** t-bt-2 / t-bt-3: how long fresh training bots get to settle (out of their first trip) before the check. */
+    /** t-bt-2 / t-bt-3: how long a staged training bot gets to settle before the check. A staged bot is told to
+     *  stay where it stands ({@code TalkQa.spawn}'s settleHere), so it is free at once; this stays as the guard for
+     *  a bot the staging could not settle (no map). Left alone, a fresh bot walks to the map its own first decision
+     *  picked, and that walk outlasts this wait: TRAVEL_TIMEOUT_MS alone is 120 s. */
     static final int FREE_WAIT_S = 90;
 
     /**
