@@ -58,7 +58,9 @@ public class PartySearchCoordinator {
 
     private int updateCount = 0;
 
-    private static final Map<Integer, Set<Integer>> mapNeighbors = fetchNeighbouringMaps();
+    //ticket 164: not final so PartySearchVicinityTest can install its own table and drive the public isInVicinity
+    //through the same wrapper production uses; the installer below is the only writer besides this initialiser.
+    private static Map<Integer, Set<Integer>> mapNeighbors = fetchNeighbouringMaps();
     private static final Map<Integer, Job> jobTable = instantiateJobTable();
 
     public PartySearchCoordinator() {
@@ -98,6 +100,19 @@ public class PartySearchCoordinator {
 
     public static boolean isInVicinity(int callerMapid, int calleeMapid) {
         return isInVicinity(mapNeighbors, callerMapid, calleeMapid);
+    }
+
+    /**
+     * ticket 164: swaps the neighbour table and returns the one that was installed before, so the caller can put it
+     * back. Exists only so PartySearchVicinityTest can drive the public {@link #isInVicinity(int, int)} - the wrapper
+     * production actually calls - with controlled data instead of an empty table (a JVM without Etc.wz loads no
+     * entries). Surefire gives every test class its own fork (pom.xml: forkCount 1, reuseForks false), so a table a
+     * failing test left behind cannot reach another class.
+     */
+    static Map<Integer, Set<Integer>> installNeighboursForTest(Map<Integer, Set<Integer>> table) {
+        Map<Integer, Set<Integer>> previous = mapNeighbors;
+        mapNeighbors = table;
+        return previous;
     }
 
     /**
