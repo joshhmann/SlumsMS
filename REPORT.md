@@ -1,7 +1,8 @@
 # PQ polish, ticket 130 follow-up - report (branch `164-pqpolish`, 1.6.4)
 
-Worktree `/root/work/164-pqpolish`, branch `164-pqpolish` off `origin/release-1.6.4`, one commit,
-`5d62de529` ("Say what a stalled KPQ bot is actually waiting for"). Nothing pushed, nothing merged, no deploy, no
+Worktree `/root/work/164-pqpolish`, branch `164-pqpolish` off `origin/release-1.6.4`, two commits:
+`5d62de529` ("Say what a stalled KPQ bot is actually waiting for", the fix and its tests) and `4c20f4b58`
+("Say what a stalled KPQ run was waiting for, in a report", this file). Nothing pushed, nothing merged, no deploy, no
 server touched: everything below is read from the TEST mechanics log and from the unit suite.
 
 The lane fixes two diagnostics that lied about a KPQ run on TEST. Neither changes what a bot does - both change what
