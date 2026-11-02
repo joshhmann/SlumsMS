@@ -47,6 +47,7 @@ stages:
     map: 240060000
     name: Horntail, the first head
     solver: boss-phases
+    timeLimitMinutes: 120
     # the reactor's property (2408003.js): before the touch the room holds no fight
     summonProperty: summoned
     mobs:
@@ -64,6 +65,7 @@ stages:
     map: 240060100
     name: Horntail, the second head
     solver: boss-phases
+    timeLimitMinutes: 120
     summonProperty: summoned
     mobs:
       - 8810001
@@ -79,6 +81,8 @@ stages:
     map: 240060200
     name: Horntail, the body
     solver: boss-phases
+    # the room's own clock: reactor 2401000 restarts the script's timer to 60 minutes when it is hit (2401000.js:33)
+    timeLimitMinutes: 60
     # no summonProperty: reactor 2401000 sets none. The room is empty before it is hit and a solver with nothing to hit
     # waits, which is the same behaviour, driven by the room itself.
     mobs:

@@ -522,6 +522,26 @@ the script's own property (`defeatedHead` 1 then 2, then `defeatedBoss` 1 - `Hor
 - **A latent ordering bug surfaced.** Content rows are read in file-name order, and two tests took "the first row" to
   mean KPQ; they now look the row up by id. Nothing in production depended on the order.
 
+## Boss lane: the attack floor and the per-stage clock (1.6.4, branch `164-bossfight`)
+
+Two items the owner took from ticket 176 C's b087 gate and from phase B's risk list.
+
+- **The damage floor** (`-Dslums.bossfight.damagefloor`, **off**). A bot ranks its attacks by the average line, which
+  is blind to a high-WDEF target: the skill with the top average can bottom out at the formula's floor (1, the clamp in
+  `BotCombatFormula.clamp`) while the other attack still does real damage. `BotCombatFormula.estimateMinimumDamage`
+  reads the same `Range` at its floor - no second damage model, no crit input (a crit only raises a line) - and
+  `BotSkillChoice.choose` gains a floor overload: with the switch on, a boss always prefers the higher floor, and an
+  ordinary mob only when the rule's own pick would do nothing, so a pack is unaffected. Off means the measurement is
+  never taken (`BotAttackDriver.minimumPerMob` is only called behind `BotSkillChoice.floorOn()`), which is byte for
+  byte today's behaviour. Semantics from BotStory `AgentAttackPlanScoringPolicy` (`81a3b1df`), credited in
+  `docs/PROVENANCE.md`.
+- **The per-stage clock.** A boss row's budget was the row's `timeLimitMinutes` counted from stage 1, but each boss
+  room has its own clock - Horntail's body room restarts the script's timer to 60 minutes when its reactor is hit
+  (`scripts/reactor/2401000.js:33`). `MechanicsModel.Stage` now carries its own `timeLimitMinutes` (0 = the row's),
+  parsed from the stage block, and `Orchestrator.budgetFor` counts a `kind: BOSS` run's spent time from
+  `RunState.stageStartedMs()`. Horntail's rooms carry 120, 120 and 60. PQ rows are untouched: they still use the row's
+  budget from the run's start.
+
 ## QA plan
 
 - **Unit:** every content YAML loads clean; answers/rectangles/items are re-read from our scripts and compared

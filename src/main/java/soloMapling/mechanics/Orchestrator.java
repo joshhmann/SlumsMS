@@ -109,6 +109,21 @@ public final class Orchestrator implements RunOrchestrator {
     }
 
     /** The highest stage (in order from 1) that has a solver, capped by {@code lastStage}; 0 when stage 1 has none. */
+    /**
+     * 1.6.4 boss lane: a boss row's budget is per stage. Each room has its own clock - Horntail's body room restarts
+     * the script's timer to 60 minutes when its reactor is hit ({@code scripts/reactor/2401000.js:33}) - so a run that
+     * spends its time in the head rooms is not cut off in a room it has only just entered. A stage without its own
+     * {@code timeLimitMinutes} falls back to the row's.
+     */
+    static long budgetFor(RunState run, StageView view) {
+        if (run.content().kind() != MechanicsModel.Kind.BOSS) {
+            return run.budgetMs();
+        }
+        Stage stage = view.stage();
+        int minutes = stage == null ? 0 : stage.timeLimitMinutes();
+        return minutes > 0 ? minutes * 60_000L : run.budgetMs();
+    }
+
     int lastPlayable(Content content) {
         int last = 0;
         for (Stage s : content.stages()) {
@@ -174,8 +189,10 @@ public final class Orchestrator implements RunOrchestrator {
             return steps; // the next stage's map is entered first; steps start next tick
         }
 
-        if (elapsed > run.budgetMs()) {
-            abort(run, "time budget of " + run.budgetMs() / 60_000 + " min ran out on stage " + run.currentStage());
+        long budget = budgetFor(run, view);
+        long spent = run.content().kind() == MechanicsModel.Kind.BOSS ? nowMs - run.stageStartedMs() : elapsed;
+        if (spent > budget) {
+            abort(run, "time budget of " + budget / 60_000 + " min ran out on stage " + run.currentStage());
             return steps;
         }
 
