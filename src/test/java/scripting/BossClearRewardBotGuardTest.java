@@ -106,8 +106,18 @@ class BossClearRewardBotGuardTest {
         return c;
     }
 
+    /** The map lookup four of the handlers do around the reward ({@code mob.getMap().killAllMonsters()}). */
+    public static final class FakeMap {
+        boolean monstersKilled;
+
+        public void killAllMonsters() {
+            monstersKilled = true;
+        }
+    }
+
     public static final class FakeMob {
         private final int id;
+        private final FakeMap map = new FakeMap();
 
         FakeMob(int id) {
             this.id = id;
@@ -115,6 +125,10 @@ class BossClearRewardBotGuardTest {
 
         public int getId() {
             return id;
+        }
+
+        public FakeMap getMap() {
+            return map;
         }
     }
 
@@ -164,11 +178,26 @@ class BossClearRewardBotGuardTest {
             "ScargaBattle.js, 9420544, 4001006, 30",
             "ShowaBattle.js, 9400300, 4001006, 1",
             "LatanicaBattle.js, 9420513, 4001006, 1",
-            "MahaBattle.js, 9001014, 4001006, 1"
+            "MahaBattle.js, 9001014, 4001006, 1",
+            // the rest of the class: every other clear handler whose loop handed a bot a reward
+            "ElementalBattle.js, 9300086, 4001006, 1",
+            "HardLotusBattle.js, 8240099, 4001126, 500",
+            "WillBattle.js, 8880302, 4001126, 500",
+            "CastellanBattle.js, 9400409, 4001126, 20",
+            "KrexelBattle.js, 9420522, 4001126, 20",
+            "DarknellBattle.js, 8645009, 4001126, 300",
+            "NDarknellBattle.js, 9995009, 4001126, 300",
+            "LucidBattle.js, 8880150, 4001126, 300",
+            "NLucidBattle.js, 9990150, 4001126, 300",
+            "MagnusBattle.js, 8880002, 4001126, 300",
+            "NVerusBattle.js, 9990415, 4001126, 300",
+            "NWillBattle.js, 9990301, 4001126, 300",
+            "VerusBattle.js, 8880415, 4001126, 300"
     })
     void aBotInThePartyDoesNotStopTheClearReward(String script, int mobId, int item, int quantity) throws Exception {
         FakeEim eim = new FakeEim();
         eim.props.put("defeatedBoss", 1); // Scarga only rewards on the first kill; the others ignore it
+        eim.props.put("boss", 1); // Elemental only rewards on the first kill; the others ignore it
         HeadlessBotClient botClient = new HeadlessBotClient();
         eim.players.add(bot(botClient)); // a bot's id usually sorts last, but the loop must not depend on that
         RecordingApi playerApi = new RecordingApi(mock(Client.class));

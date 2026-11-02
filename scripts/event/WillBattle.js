@@ -260,7 +260,8 @@ function monsterKilled(mob, eim) {
         eim.clearPQ();
         var party = eim.getPlayers();
         for (var i = 0; i < party.size(); i++) {
-            eim.getPlayers().get(i).getClient().getAbstractPlayerInteraction().gainItem(4001126, 500);
+            if (party.get(i).isBot()) continue; // 1.6.4 ticket 182: a bot has no client to hand leaves to (it threw and stopped the loop)
+            party.get(i).getClient().getAbstractPlayerInteraction().gainItem(4001126, 500);
         }
         var map = mob.getMap();
         map.killAllMonsters(); // This assumes killAllMonsters exists and takes a parameter
