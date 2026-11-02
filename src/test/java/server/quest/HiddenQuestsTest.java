@@ -5,6 +5,7 @@ import client.Character;
 import client.Job;
 import client.QuestStatus;
 import client.inventory.InventoryType;
+import client.inventory.Item;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,19 @@ class HiddenQuestsTest {
     private static final int OPEN_AUTO_START = 3140;    // not hidden, same autoStart and same granting act
     private static final int GRANTED_ITEM = 4032859;
 
+    // medal quests whose medal item exists nowhere obtainable, and whose act blocks grant nothing
+    private static final int MEDAL_29500 = 29500, MEDAL_1142003 = 1142003;
+    private static final int MEDAL_29915 = 29915, MEDAL_1142064 = 1142064;
+    private static final int MEDAL_29916 = 29916, MEDAL_1142014 = 1142014;
+    private static final int MEDAL_29917 = 29917, MEDAL_1142015 = 1142015;
+    private static final int MEDAL_29918 = 29918, MEDAL_1142016 = 1142016;
+    private static final int MEDAL_29919 = 29919, MEDAL_1142017 = 1142017;
+    private static final int MEDAL_29920 = 29920, MEDAL_1142018 = 1142018;
+    private static final int MEDAL_29921 = 29921, MEDAL_1142019 = 1142019;
+    private static final int MEDAL_29933 = 29933, MEDAL_1142030 = 1142030;
+
+    private static final int OPEN_MEDAL_QUEST = 3141;   // not hidden, same "own medal 1142064" requirement
+
     private static Path wzPath;
 
     @BeforeAll
@@ -58,6 +72,16 @@ class HiddenQuestsTest {
         for (int id : new int[]{NIGHT_WARRIOR, DARK_LORD, SAYRAM, HIDDEN_AUTO_START, OPEN_AUTO_START}) {
             check.append("<imgdir name=\"").append(id).append("\"><imgdir name=\"0\"><int name=\"npc\" value=\"")
                     .append(NPC).append("\"/></imgdir><imgdir name=\"1\"><int name=\"npc\" value=\"").append(NPC)
+                    .append("\"/></imgdir></imgdir>\n");
+        }
+        // medal quests ask only to talk to the NPC and to carry the medal
+        for (int[] medalQuest : new int[][]{{MEDAL_29915, MEDAL_1142064}, {MEDAL_29933, MEDAL_1142030},
+                {OPEN_MEDAL_QUEST, MEDAL_1142064}}) {
+            check.append("<imgdir name=\"").append(medalQuest[0])
+                    .append("\"><imgdir name=\"0\"><int name=\"npc\" value=\"").append(NPC).append("\"/>")
+                    .append("<imgdir name=\"item\"><imgdir name=\"0\"><int name=\"id\" value=\"").append(medalQuest[1])
+                    .append("\"/><int name=\"count\" value=\"1\"/></imgdir></imgdir></imgdir>")
+                    .append("<imgdir name=\"1\"><int name=\"npc\" value=\"").append(NPC)
                     .append("\"/></imgdir></imgdir>\n");
         }
         check.append("</imgdir>\n");
@@ -132,6 +156,38 @@ class HiddenQuestsTest {
                 31168, 31170}) {
             assertFalse(HiddenQuests.ids().contains(id), id + " must stay startable");
         }
+    }
+
+    @Test
+    void theUnwinnableMedalQuestsAreHidden() {
+        int[][] medalQuests = {
+                {MEDAL_29500, MEDAL_1142003}, {MEDAL_29915, MEDAL_1142064}, {MEDAL_29916, MEDAL_1142014},
+                {MEDAL_29917, MEDAL_1142015}, {MEDAL_29918, MEDAL_1142016}, {MEDAL_29919, MEDAL_1142017},
+                {MEDAL_29920, MEDAL_1142018}, {MEDAL_29921, MEDAL_1142019}, {MEDAL_29933, MEDAL_1142030}};
+        Character chr = character(Job.NIGHTLORD);
+        for (int[] medalQuest : medalQuests) {
+            int id = medalQuest[0];
+            assertTrue(HiddenQuests.ids().contains(id), id + " asks for medal " + medalQuest[1]
+                    + ", which nothing in the server hands out, so it must be hidden");
+            assertTrue(Quest.getInstance(id).isHiddenFor(chr), id + " must be hidden for every job");
+        }
+    }
+
+    @Test
+    void owningTheMedalDoesNotUnhideTheMedalQuest() {
+        Character chr = character(Job.NIGHTLORD);
+        // hand the character the medal itself: without the hide, the medal is the only thing canStart is missing
+        assertTrue(chr.getInventory(InventoryType.EQUIP).addItem(new Item(MEDAL_1142064, (short) 0, (short) 1)) >= 0,
+                "the fixture must be able to put the medal in the character's equip inventory");
+        assertEquals(1, chr.getInventory(InventoryType.EQUIP).countById(MEDAL_1142064));
+
+        Quest quest = Quest.getInstance(MEDAL_29915);
+        assertTrue(quest.isHiddenFor(chr));
+        assertFalse(quest.canStart(chr, NPC), "the hide, not the missing medal, must refuse this start");
+
+        // control: a quest with the same medal requirement that is not hidden starts for the same character
+        Quest open = Quest.getInstance(OPEN_MEDAL_QUEST);
+        assertTrue(open.canStart(chr, NPC), "owning the medal must be enough for a quest that is not hidden");
     }
 
     @Test

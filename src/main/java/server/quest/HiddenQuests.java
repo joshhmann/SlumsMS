@@ -11,12 +11,14 @@ import java.util.TreeMap;
  * player never begins a dead end. Nothing else changes: a player who already has one of these in progress keeps
  * it, can still complete it if they can, and can forfeit it from the quest log.
  *
- * <p>Two groups, both described in docs/tickets/82-finish-mapleroot-quest-chains.md:
+ * <p>Three groups (the first two are described in docs/tickets/82-finish-mapleroot-quest-chains.md):
  * <ul>
  *   <li>skill-book quests whose reward skill MapleRoot removed from Skill.wz (the player would do the whole quest
  *       for a skill that does not exist);</li>
  *   <li>MapleRoot's own unfinished chains (Von Leon, Henesys Ruins): steps that need an item nothing drops, an NPC
  *       that stands on no map, or that only follow such a step. Steps that work are not here.</li>
+ *   <li>medal quests that ask for a medal item nothing in the server hands out, and whose acts grant nothing
+ *       anyway.</li>
  * </ul>
  * To bring a quest back, remove it here once its content is finished.
  */
@@ -47,6 +49,14 @@ public final class HiddenQuests {
         hide(ALL_JOBS, 31110, 31111, 31114, 31115, 31116, 31117, 31118, 31122, 31123);
         hide(ALL_JOBS, 31132, 31133, 31134, 31135, 31141, 31142, 31143);
         hide(ALL_JOBS, 31158, 31159, 31160);
+
+        // --- medal quests whose medal item exists nowhere obtainable (no drop, shop, reactor, Maker, act or script) ---
+        // block 1 only asks to talk to the NPC and both act blocks are empty, so even a medal from a GM would grant
+        // nothing; refusing the start tells the player instead of failing silently on the item requirement
+        hide(ALL_JOBS, 29500);                      // medal 1142003
+        hide(ALL_JOBS, 29915);                      // medal 1142064
+        hide(ALL_JOBS, 29916, 29917, 29918, 29919, 29920, 29921);   // medals 1142014-1142019
+        hide(ALL_JOBS, 29933);                      // medal 1142030
     }
 
     private HiddenQuests() {
