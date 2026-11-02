@@ -32,9 +32,10 @@ class QuestScriptCoverageTest {
 
     /**
      * Stock Cosmic has no script for these either (tools/questcheck baseline). Not fixed here: 1028 (the Maple
-     * Island boat, handled by Shanks's NPC script), 2233 / 2234 (family Rep quests), 20015 (Cygnus intro).
+     * Island boat, handled by Shanks's NPC script), 20015 (Cygnus intro). 2233 / 2234 (family Rep quests) were on
+     * this list too until 1.6.4 gave them scripts/quest/2233.js and 2234.js, so they are now enforced below.
      */
-    private static final Set<Integer> STOCK_WITHOUT_SCRIPT = Set.of(1028, 2233, 2234, 20015);
+    private static final Set<Integer> STOCK_WITHOUT_SCRIPT = Set.of(1028, 20015);
 
     private static final Pattern BLOCK_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
     private static final Pattern LINE_COMMENT = Pattern.compile("//[^\\n]*");
