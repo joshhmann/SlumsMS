@@ -116,6 +116,10 @@ class SiteBuildTest(unittest.TestCase):
             page = f.read()
         self.assertIn("SlumsBank sets buy and sell prices around a rate that drifts slowly with what players and bots "
                       "buy and sell (capped per day).", " ".join(page.split()))
+        flat = " ".join(page.split())
+        # the final candidate's two additions (Coordinator, 2026-11-02 05:15 UTC)
+        self.assertIn("The Power Elixir ticker reads PELIXIR on the exchange", flat)
+        self.assertIn("Regulars in town no longer greet you with", flat)
 
     def test_wiki_notes_are_stripped(self):
         for name in self.guide:
