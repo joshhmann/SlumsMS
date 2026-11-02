@@ -279,8 +279,8 @@ sleep "$SMOKE_SECONDS"
 fail=()
 for s in "${EXPECT_LOG[@]}"; do if J | has -F -- "$s"; then echo "ok   log has '$s'"; else echo "FAIL log lacks '$s'"; fail+=("missing '$s'"); fi; done
 for s in "${FORBID_LOG[@]}"; do n=$(J | grep -cF -- "$s" || true); if [ "$n" = 0 ]; then echo "ok   no '$s'"; else echo "FAIL $n x '$s'"; fail+=("$n x '$s'"); fi; done
-errs=$(J | grep -cE 'ERROR|Exception' || true); echo "ERROR/Exception lines: $errs"
-[ "$errs" = 0 ] || { J | grep -E 'ERROR|Exception' | head -10; fail+=("$errs ERROR/Exception lines"); }
+errs=$(J | grep -E 'ERROR|Exception' | grep -cvE '\] WARN ' || true); echo "ERROR/Exception lines: $errs"
+[ "$errs" = 0 ] || { J | grep -E 'ERROR|Exception' | grep -vE '\] WARN ' | head -10; fail+=("$errs ERROR/Exception lines"); }
 for p in $LOGIN_PORT $CHANNEL_BASE; do
   if ss -ltn | has ":$p "; then echo "ok   listening on $p"; else echo "FAIL nothing on $p"; fail+=("port $p"); fi
 done

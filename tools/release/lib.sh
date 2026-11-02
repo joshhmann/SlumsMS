@@ -32,11 +32,11 @@ require_workstation() { on_host && die "run this on the workstation, not on $HOS
 rehearsal_cmd() {
   local cmd=$1 login=$2 chbase=$3 r=$4 f
   cmd=$(printf '%s' "$cmd" | sed -E "s/-Dmapleroot.login-port=[0-9]+/-Dmapleroot.login-port=$login/; s/-Dmapleroot.channel-base-port=[0-9]+/-Dmapleroot.channel-base-port=$chbase/; s/ -Dslums.attackcapture=[a-z]+//")
-  for f in slums.auth.port slums.auth.revoked slums.weblogin.dir solomapling.dashboard.dir slums.board.inbox \
+  for f in slums.auth.port slums.inspect.port slums.auth.revoked slums.weblogin.dir solomapling.dashboard.dir slums.board.inbox \
            slums.board.outbox slums.board.state slums.market.dir slums.site.dir slums.autoqa.dir; do
     cmd=$(printf '%s' "$cmd" | sed -E "s# -D$f=[^ ]*##g")
   done
-  local extra=" -Dslums.auth.port=$((login + 1000)) -Dslums.auth.revoked=$r/scratch/revoked.txt"
+  local extra=" -Dslums.auth.port=$((login + 1000)) -Dslums.inspect.port=$((login + 1001)) -Dslums.auth.revoked=$r/scratch/revoked.txt"
   extra+=" -Dslums.weblogin.dir=$r/scratch/weblogin -Dsolomapling.dashboard.dir=$r/scratch/dashboard"
   extra+=" -Dslums.board.inbox=$r/scratch/board/inbox -Dslums.board.outbox=$r/scratch/board/outbox"
   extra+=" -Dslums.board.state=$r/scratch/board/state.json -Dslums.market.dir=$r/scratch/market"

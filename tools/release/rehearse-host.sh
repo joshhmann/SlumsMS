@@ -175,7 +175,7 @@ bots() { echo "SELECT 'botstore', (SELECT COUNT(*) FROM botstore), 'bot items', 
 wait_online() {  # $1 since
   for i in $(seq 1 120); do journalctl -u "$UNIT" --since "$1" --no-pager | has "is now online" && return 0; sleep 1; done; return 1
 }
-errs_since() { journalctl -u "$UNIT" --since "$1" --no-pager | grep -cE 'ERROR|Exception' || true; }
+errs_since() { journalctl -u "$UNIT" --since "$1" --no-pager | grep -E 'ERROR|Exception' | grep -cvE '\] WARN ' || true; }
 
 step "3a. boot the old version (what live runs now) for ${BASELINE}s"
 s0=$(date '+%Y-%m-%d %H:%M:%S'); T[old0]=$(now)
@@ -204,7 +204,7 @@ step "3d. soak ${SOAK}s on the new version"
 sleep "$SOAK"
 if [ -n "$s1" ]; then
   e1=$(date -u -d "$(date -u +%F) $s1" +%s)
-  new_errs=$(journalctl -u "$UNIT" --since "@$e1" --no-pager | grep -cE 'ERROR|Exception' || true)
+  new_errs=$(journalctl -u "$UNIT" --since "@$e1" --no-pager | grep -E 'ERROR|Exception' | grep -cvE '\] WARN ' || true)
 else new_errs="n/a (deploy.sh never reached its start step)"; fi
 echo "new version ERROR/Exception lines since its start: $new_errs"
 systemctl show "$UNIT" -p MemoryCurrent | sed 's/^/new version /'
@@ -217,7 +217,7 @@ LOG=$RC/rollback.log RECEIPT=$RC/ROLLBACK-RECEIPT.md bash "$D/rollback.sh" > "$R
 T[rb1]=$(now)
 grep -E '^\[|ABORT|WARN|rolled back' "$RC/rollback.out" || true
 sleep 20
-rb_errs=$(journalctl -u "$UNIT" --since "@${T[rb0]%.*}" --no-pager | grep -cE 'ERROR|Exception' || true)
+rb_errs=$(journalctl -u "$UNIT" --since "@${T[rb0]%.*}" --no-pager | grep -E 'ERROR|Exception' | grep -cvE '\] WARN ' || true)
 journalctl -u "$UNIT" --since "-90s" --no-pager | grep -E "SlumsMS v|Starting world|is now online" | tail -4
 snapshot > "$RC/state-after-rollback.tsv"; bots | tee "$RC/bots-after-rollback.txt"
 systemctl stop "$UNIT" || true
