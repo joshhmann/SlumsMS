@@ -28,15 +28,6 @@ From `agent-runs/server/269-dbpool-forensics/AUDIT.md` and the fix branch `269-d
 |---|---|---|
 | [175](175-economy-rework-flea-lessons.md) | Economy rework: lessons from Tarkov's flea market (ideas and questions, decides nothing) | later (book e01) |
 
-## 1.6.4 content gaps (2026-11-01)
-
-From the 1.6.3/1.6.4 content and mechanics hunt, integration tip `6cea00b4e` (suite `10479 / 0 / 0 / 146`).
-State and environment traps: [HANDOFF-1.6.4-content-hunt.md](../HANDOFF-1.6.4-content-hunt.md).
-
-| # | Ticket | Status |
-|---|---|---|
-| [176](176-1.6.4-content-gaps.md) | Merge the built config template, close the five boss-audit defects, record the parked and owner-gated items | open, target 1.6.4; Part D needs the owner |
-
 ## QA follow-ups (2026-10-31)
 
 | # | Ticket | Target |
