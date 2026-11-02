@@ -38,18 +38,16 @@ function action(mode, type, selection) {
             if (cm.getPlayer().getLevel() < 25 || cm.getPlayer().getLevel() > 30 || !cm.isLeader()) {
                 cm.sendOk("You must be in the Level Range 25-30 and be the party leader.");
             } else {
-                if (!cm.start_PyramidSubway(-1)) {
-                    cm.sendOk("The Dusty Platform is currently full at the moment.");
-                }
+                // 1.6.4: the Kerberos pyramid run has no server-side party quest yet - no map of 910320100-910320304
+                // is started anywhere in src/main/java - so say so plainly instead of dying on a call the scripting
+                // API does not have, and take nothing from the player.
+                cm.sendOk("The Dusty Platform is closed for repairs. Nobody is running the pyramid this week, so there is nothing to take you into yet.");
             }
-            //todo
         } else if (selection == 2) {
             if (cm.haveItem(4001321)) {
-                if (cm.bonus_PyramidSubway(-1)) {
-                    cm.gainItem(4001321, -1);
-                } else {
-                    cm.sendOk("The Train 999 is currently full at the moment");
-                }
+                // 1.6.4: the bonus stage does not exist server-side either. Keep the Boarding Pass: the only thing
+                // this ever did here was spend it on a run that cannot start.
+                cm.sendOk("Train 999 is out of service at the moment. Your Boarding Pass is still in your inventory - nothing was used up.");
             } else {
                 cm.sendOk("You do not have the Boarding Pass.");
             }

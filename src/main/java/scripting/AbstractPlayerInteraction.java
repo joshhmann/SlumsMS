@@ -51,6 +51,7 @@ import server.life.*;
 import server.maps.MapObject;
 import server.maps.MapObjectType;
 import server.maps.MapleMap;
+import server.maps.Reactor;
 import server.partyquest.PartyQuest;
 import server.partyquest.Pyramid;
 import server.quest.Quest;
@@ -130,6 +131,23 @@ public class AbstractPlayerInteraction {
 
     public void warpMap(int map) {
         getPlayer().getMap().warpEveryone(map);
+    }
+
+    /**
+     * 1.6.4: moves exactly the players the caller names to a map instance - the expedition leader's "you may continue
+     * to the next stage" step (scripts/npc/9000004.js:79-81) hands over the event instance's own member list, which
+     * is not the same set as everyone standing on the leader's map. Members already on the target map stay put.
+     */
+    public void warpMembers(MapleMap map, List<Character> members) {
+        if (map == null || members == null) {
+            log.warn("warpMembers: no map or no members, nobody moves (player {})", getPlayer().getName());
+            return;
+        }
+        for (Character member : members) {
+            if (member != null && member.getMap() != map) {
+                member.changeMap(map, 0);
+            }
+        }
     }
 
     public void warpParty(int id) {
@@ -712,6 +730,16 @@ public class AbstractPlayerInteraction {
         return item;
     }
 
+    /**
+     * 1.6.4: the crafted item with the stats a monster drop would have rolled. The glove maker's stimulator branch
+     * (scripts/npc/2040020.js:257-266) has already taken the materials, the mesos and the stimulator by the time it
+     * asks for this, and the script tells the player the stimulator "gives it stats as though it had dropped from a
+     * monster", so the roll lands on the item the player paid for: that item id, one of it, randomized stats.
+     */
+    public Item gainRandomItem(int itemId) {
+        return gainItem(itemId, (short) 1, true, true);
+    }
+
     public void gainFame(int delta) {
         getPlayer().gainFame(delta);
     }
@@ -1062,6 +1090,42 @@ public class AbstractPlayerInteraction {
         spawnNpc(npcId, pos, getMap());
     }
 
+    /**
+     * 1.6.4: the Temple of Time summon has Kirston vanish the moment he accepts (scripts/npc/2141000.js:12), so the
+     * script asks the map to drop him for everyone on it - MapleMap.destroyNPC broadcasts both the controller and the
+     * object removal. A map or NPC that is not there is logged instead of thrown: the summon still has to start.
+     */
+    public void removeNpc(int mapId, int npcId) {
+        MapleMap map = getWarpMap(mapId);
+        if (map == null) {
+            log.warn("removeNpc: map {} does not exist, npc {} stays put (player {})", mapId, npcId, getPlayer().getName());
+            return;
+        }
+        if (!map.containsNPC(npcId)) {
+            log.warn("removeNpc: npc {} is not on map {}, nothing to remove (player {})", npcId, mapId, getPlayer().getName());
+            return;
+        }
+        map.destroyNPC(npcId);
+    }
+
+    /**
+     * 1.6.4: starts a reactor the way a player's hit would (scripts/npc/2141000.js:13 summons the boss reactor
+     * 2709000 on the Temple of Time map). Reactor.hitReactor(Client) is the same entry point a real hit takes.
+     */
+    public void forceStartReactor(int mapId, int reactorId) {
+        MapleMap map = getWarpMap(mapId);
+        if (map == null) {
+            log.warn("forceStartReactor: map {} does not exist, reactor {} not started (player {})", mapId, reactorId, getPlayer().getName());
+            return;
+        }
+        Reactor reactor = map.getReactorById(reactorId);
+        if (reactor == null) {
+            log.warn("forceStartReactor: reactor {} is not on map {}, not started (player {})", reactorId, mapId, getPlayer().getName());
+            return;
+        }
+        reactor.hitReactor(c);
+    }
+
     public void spawnMonster(int id, int x, int y) {
         Monster monster = LifeFactory.getMonster(id);
         monster.setPosition(new Point(x, y));
@@ -1082,6 +1146,16 @@ public class AbstractPlayerInteraction {
 
     public void displayGuide(int num) {
         c.sendPacket(PacketCreator.showInfo("UI/tutorial.img/" + num));
+    }
+
+    /**
+     * 1.6.4: the tutorial illustration step - the Evan quests (scripts/quest/22000.js and its neighbours) and the two
+     * Evan portals ask for it through qm.sendImage/pi.sendImage with a path like "UI/tutorial/evan/N/0". The client's
+     * SHOW_INFO opcode paints that path on screen, which is the same packet, and the same argument shape, that
+     * displayGuide already builds for guide images.
+     */
+    public void sendImage(String image) {
+        c.sendPacket(PacketCreator.showInfo(image));
     }
 
     public void goDojoUp() {
@@ -1151,6 +1225,50 @@ public class AbstractPlayerInteraction {
 
     public void playSound(String sound) {
         getPlayer().getMap().broadcastMessage(PacketCreator.environmentChange(sound, 4));
+    }
+
+    /**
+     * 1.6.4: the Cannoneer and metro cutscenes drive a client-side "direction" sequence - an NPC that stands and talks
+     * in sync with a scripted camera. This server has no such engine: net/opcodes/SendOpcode has no direction status,
+     * NPC value or direction info packet. These calls used to end the cutscene with a script error, taking the player's
+     * dialogue with them; they now record what the script asked for and let the step continue, so the player gets the
+     * NPC's next line instead of a dead dialog.
+     *
+     * <p>lockUI2 is deliberately not turned into lockUI(): the scripts that call it do not all unlock again
+     * (1096005.js never does), and a lock without a matching unlock leaves the player unable to walk, use a portal or
+     * open anything. A cutscene without its UI lock looks wrong; a player who cannot move is worse.
+     */
+    public void setDirectionStatus(boolean enabled) {
+        log.debug("setDirectionStatus({}): no direction engine to drive (player {})", enabled, getPlayer().getName());
+    }
+
+    public void lockUI2() {
+        log.debug("lockUI2(): cutscene UI lock not sent, no unlock path in the script (player {})", getPlayer().getName());
+    }
+
+    public void sendDirectionInfo(String effect, int duration, int a, int b, int c, int d) {
+        log.debug("sendDirectionInfo({}, {}, {}, {}, {}, {}): no direction engine (player {})",
+                effect, duration, a, b, c, d, getPlayer().getName());
+    }
+
+    public void sendDirectionInfo(int type, int value) {
+        log.debug("sendDirectionInfo({}, {}): no direction engine (player {})", type, value, getPlayer().getName());
+    }
+
+    public void setNPCValue(int npcOid, String value) {
+        log.debug("setNPCValue({}, {}): no per-NPC script values in this server (player {})", npcOid, value, getPlayer().getName());
+    }
+
+    public void updateInfo(String key, String value) {
+        log.debug("updateInfo({}, {}): no direction info to update (player {})", key, value, getPlayer().getName());
+    }
+
+    /**
+     * 1.6.4: watch the effect - the metro cutscene's "Effect/Direction2.img/metro/Im". showEffect is the same
+     * FIELD_EFFECT packet v83's showWZEffect sent, so this one needs no fail-safe.
+     */
+    public void showWZEffect(String effect) {
+        showEffect(effect);
     }
 
     public void environmentChange(String env, int mode) {
