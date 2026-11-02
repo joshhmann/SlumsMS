@@ -12,7 +12,7 @@ import static database.FamilyBotJuniorsMigrationIT.script;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Ticket 164: migration 058 gives NPC 9000055 ("Aramia", spawned in Henesys Game Park 100000203) the chip shop
+ * Ticket 164: migration 059 gives NPC 9000055 ("Aramia", spawned in Henesys Game Park 100000203) the chip shop
  * CasinoChipConfig describes, and its rollback takes back exactly what it inserted. Skipped unless
  * {@code -Dslums.family.it.url=jdbc:mysql://...} points at an empty scratch schema (never a game database: it makes its
  * own minimal shops/shopitems tables). Applies twice, rolls back twice, re-applies.
@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class CasinoChipShopMigrationIT {
 
     static final String URL = System.getProperty("slums.family.it.url");
-    static final String ID = "058-casino-chip-shop";
+    static final String ID = "059-casino-chip-shop";
 
     /** The predicate of Shop.NPC_SHOP_QUERY (package-private there): its own shop, never a GM shop. */
     static final String NPC_SHOP = "SELECT shopid FROM shops WHERE npcid = 9000055 AND shopid <> 1337"

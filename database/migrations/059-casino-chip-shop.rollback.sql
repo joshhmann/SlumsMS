@@ -10,12 +10,12 @@ CREATE TABLE IF NOT EXISTS mapleroot_integration_migration_rows (
 START TRANSACTION;
 DELETE FROM shopitems WHERE shopitemid IN (
   SELECT row_id FROM mapleroot_integration_migration_rows
-  WHERE migration_id = '058-casino-chip-shop' AND table_name = 'shopitems'
+  WHERE migration_id = '059-casino-chip-shop' AND table_name = 'shopitems'
 );
 DELETE FROM shops WHERE shopid IN (
   SELECT row_id FROM mapleroot_integration_migration_rows
-  WHERE migration_id = '058-casino-chip-shop' AND table_name = 'shops'
+  WHERE migration_id = '059-casino-chip-shop' AND table_name = 'shops'
 );
-DELETE FROM mapleroot_integration_migration_rows WHERE migration_id = '058-casino-chip-shop';
-DELETE FROM mapleroot_integration_migrations WHERE migration_id = '058-casino-chip-shop';
+DELETE FROM mapleroot_integration_migration_rows WHERE migration_id = '059-casino-chip-shop';
+DELETE FROM mapleroot_integration_migrations WHERE migration_id = '059-casino-chip-shop';
 COMMIT;

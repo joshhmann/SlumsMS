@@ -3,7 +3,7 @@
  * EnvironmentManager.spawnCasinoNpcs. Opens the chip shop where players buy and sell the four stamp chips
  * (4002000-4002003) at equal prices, a lossless meso exchange.
  *
- * Shop 9999001 must exist in the database (shops + shopitems): database/migrations/058-casino-chip-shop.sql inserts
+ * Shop 9999001 must exist in the database (shops + shopitems): database/migrations/059-casino-chip-shop.sql inserts
  * it. Without that row openShopNPC logs "Shop ID: 9999001 is missing from database." and opens GM shop 11000 instead.
  */
 function start() {

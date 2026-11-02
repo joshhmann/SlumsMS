@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Ticket 164: the Henesys Game Park NPC 9000055 was mute - spawned by EnvironmentManager.spawnCasinoNpcs, no
- * scripts/npc/armi.js, no shops row - so NPC talk logged "NPC 9000055 (9000055) is not coded". Migration 058 inserts
+ * scripts/npc/armi.js, no shops row - so NPC talk logged "NPC 9000055 (9000055) is not coded". Migration 059 inserts
  * the shop CasinoChipConfig describes.
  *
  * <p>The load-bearing invariant is that this file and {@link CasinoChipConfig} agree: {@code Shop.buy} charges the
@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CasinoChipShopMigrationTest {
 
     static final Path DIR = Path.of("database/migrations");
-    static final String ID = "058-casino-chip-shop";
+    static final String ID = "059-casino-chip-shop";
 
     /** One {@code SELECT shopid, itemid, price, pitch, position} row of the UNION ALL table. */
     static final Pattern ITEM_ROW = Pattern.compile(
@@ -59,7 +59,7 @@ class CasinoChipShopMigrationTest {
     @Test
     void insertsTheShopCasinoChipConfigNames() throws Exception {
         Matcher m = SHOP_ROW.matcher(sql());
-        assertTrue(m.find(), "058 inserts the shops row");
+        assertTrue(m.find(), "059 inserts the shops row");
         assertEquals(CasinoChipConfig.CASINO_SHOP_ID, Integer.parseInt(m.group(1)), "shop id");
         assertEquals(CasinoChipConfig.CASINO_NPC_ID, Integer.parseInt(m.group(2)), "NPC 9000055 owns the shop");
     }
