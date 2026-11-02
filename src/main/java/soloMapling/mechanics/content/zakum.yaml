@@ -12,8 +12,12 @@ name: Zakum (expedition)
 kind: BOSS
 eventScript: ZakumBattle
 recruitMap: 211042400
-exitMap: 280030000
-minPlayers: 1
+# exitMap is where a member is sent when the run ends (MechanicsRuns.endInstance), not the script's own exit
+# variable: the script sends everyone to 211042400 itself (ZakumBattle.js:159-162), so a run ended early by us goes to
+# the same place.
+exitMap: 211042400
+# the script's own gate (ZakumBattle.js:29). Bots join as party members, so the party still has to have six.
+minPlayers: 6
 maxPlayers: 30
 minLevel: 50
 maxLevel: 255
@@ -38,6 +42,11 @@ stages:
     map: 280030000
     name: Zakum
     solver: boss-phases
+    # the altar reactor's property (2111001.js:28): before the click only the fake body and the map's own 8800002 stand
+    # and neither is a target, so no body is offered until this is set.
+    summonProperty: summoned
+    # the part whose death the script turns into the clear; the solver ends the run with a reason if it is not there.
+    killTarget: 8800002
     # every part that can stand in the room, in the order the fight wants them: the arms, then the body's three forms
     mobs:
       - 8800003
