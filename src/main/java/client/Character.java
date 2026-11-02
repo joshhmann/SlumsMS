@@ -2910,11 +2910,11 @@ public class Character extends AbstractCharacterObject {
     }
 
     public boolean canHold(int itemid, int quantity) {
-        return client.getAbstractPlayerInteraction().canHold(itemid, quantity);
+        return getAbstractPlayerInteraction().canHold(itemid, quantity);
     }
 
     public boolean canHold(List<Pair<Item, InventoryType>> items) {
-        return client.getAbstractPlayerInteraction().canHold(items);
+        return getAbstractPlayerInteraction().canHold(items);
     }
 
     public boolean canHoldUniques(List<Integer> itemids) {
@@ -5708,8 +5708,13 @@ public class Character extends AbstractCharacterObject {
         return client;
     }
 
+    /**
+     * 1.6.1: pinned to this character. The client's own interaction reads its character back out of
+     * {@code client.getPlayer()}, which is null for a bot (all bots share one headless client) and for
+     * any test character built with {@code Character.getDefault} — every canHold/item check NPE'd there.
+     */
     public AbstractPlayerInteraction getAbstractPlayerInteraction() {
-        return client.getAbstractPlayerInteraction();
+        return new AbstractPlayerInteraction(client, this);
     }
 
     /**

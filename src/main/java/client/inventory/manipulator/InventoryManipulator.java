@@ -521,6 +521,11 @@ public class InventoryManipulator {
     }
 
     public static int checkSpaceProgressively(Client c, int itemid, int quantity, String owner, int usedSlots, boolean useProofInv) {
+        return checkSpaceProgressively(c.getPlayer(), itemid, quantity, owner, usedSlots, useProofInv);
+    }
+
+    /** 1.6.1: the bot-safe twin of checkSpaceProgressively(Client, ...). A bot shares one headless client whose getPlayer() is null. */
+    public static int checkSpaceProgressively(Character chr, int itemid, int quantity, String owner, int usedSlots, boolean useProofInv) {
         // return value --> bit0: if has space for this one;
         //                  value after: new slots filled;
         // assumption: equipments always have slotMax == 1.
@@ -529,7 +534,6 @@ public class InventoryManipulator {
 
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
         InventoryType type = !useProofInv ? ItemConstants.getInventoryType(itemid) : InventoryType.CANHOLD;
-        Character chr = c.getPlayer();
         Inventory inv = chr.getInventory(type);
 
         if (ii.isPickupRestricted(itemid)) {
@@ -581,7 +585,11 @@ public class InventoryManipulator {
     }
 
     public static void removeFromSlot(Client c, InventoryType type, short slot, short quantity, boolean fromDrop, boolean consume) {
-        Character chr = c.getPlayer();
+        removeFromSlot(c.getPlayer(), type, slot, quantity, fromDrop, consume);
+    }
+
+    /** 1.6.1: the bot-safe twin of removeFromSlot(Client, ...). A bot shares one headless client whose getPlayer() is null. */
+    public static void removeFromSlot(Character chr, InventoryType type, short slot, short quantity, boolean fromDrop, boolean consume) {
         Inventory inv = chr.getInventory(type);
         Item item = inv.getItem(slot);
         boolean allowZero = consume && ItemConstants.isRechargeable(item.getItemId());
@@ -596,7 +604,7 @@ public class InventoryManipulator {
                 inv.unlockInventory();
             }
 
-            announceModifyInventory(c, item, fromDrop, allowZero);
+            announceModifyInventory(chr, item, fromDrop, allowZero);
         } else {
             int petid = item.getPetId();
             if (petid > -1) { // thanks Vcoc for finding a d/c issue with equipped pets and pets remaining on DB here
@@ -608,30 +616,35 @@ public class InventoryManipulator {
 
                 inv.removeItem(slot, quantity, allowZero);
                 if (type != InventoryType.CANHOLD) {
-                    announceModifyInventory(c, item, fromDrop, allowZero);
+                    announceModifyInventory(chr, item, fromDrop, allowZero);
                 }
 
                 // thanks Robin Schulz for noticing pet issues when moving pets out of inventory
             } else {
                 inv.removeItem(slot, quantity, allowZero);
                 if (type != InventoryType.CANHOLD) {
-                    announceModifyInventory(c, item, fromDrop, allowZero);
+                    announceModifyInventory(chr, item, fromDrop, allowZero);
                 }
             }
         }
     }
 
-    private static void announceModifyInventory(Client c, Item item, boolean fromDrop, boolean allowZero) {
+    private static void announceModifyInventory(Character chr, Item item, boolean fromDrop, boolean allowZero) {
         if (item.getQuantity() == 0 && !allowZero) {
-            c.sendPacket(PacketCreator.modifyInventory(fromDrop, Collections.singletonList(new ModifyInventory(3, item))));
+            chr.sendPacket(PacketCreator.modifyInventory(fromDrop, Collections.singletonList(new ModifyInventory(3, item))));
         } else {
-            c.sendPacket(PacketCreator.modifyInventory(fromDrop, Collections.singletonList(new ModifyInventory(1, item))));
+            chr.sendPacket(PacketCreator.modifyInventory(fromDrop, Collections.singletonList(new ModifyInventory(1, item))));
         }
     }
 
     public static void removeById(Client c, InventoryType type, int itemId, int quantity, boolean fromDrop, boolean consume) {
+        removeById(c.getPlayer(), type, itemId, quantity, fromDrop, consume);
+    }
+
+    /** 1.6.1: the bot-safe twin of removeById(Client, ...). A bot shares one headless client whose getPlayer() is null. */
+    public static void removeById(Character chr, InventoryType type, int itemId, int quantity, boolean fromDrop, boolean consume) {
         int removeQuantity = quantity;
-        Inventory inv = c.getPlayer().getInventory(type);
+        Inventory inv = chr.getInventory(type);
         int slotLimit = type == InventoryType.EQUIPPED ? 128 : inv.getSlotLimit();
 
         for (short i = 0; i <= slotLimit; i++) {
@@ -639,12 +652,12 @@ public class InventoryManipulator {
             if (item != null) {
                 if (item.getItemId() == itemId || item.getCashId() == itemId) {
                     if (removeQuantity <= item.getQuantity()) {
-                        removeFromSlot(c, type, item.getPosition(), (short) removeQuantity, fromDrop, consume);
+                        removeFromSlot(chr, type, item.getPosition(), (short) removeQuantity, fromDrop, consume);
                         removeQuantity = 0;
                         break;
                     } else {
                         removeQuantity -= item.getQuantity();
-                        removeFromSlot(c, type, item.getPosition(), item.getQuantity(), fromDrop, consume);
+                        removeFromSlot(chr, type, item.getPosition(), item.getQuantity(), fromDrop, consume);
                     }
                 }
             }

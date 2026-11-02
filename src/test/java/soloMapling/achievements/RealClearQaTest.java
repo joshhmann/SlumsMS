@@ -1,6 +1,7 @@
 package soloMapling.achievements;
 
 import client.Character;
+import client.Client;
 import client.inventory.Inventory;
 import client.inventory.InventoryType;
 import net.server.channel.Channel;
@@ -68,7 +69,7 @@ class RealClearQaTest {
         List<String> ev = new ArrayList<>();
         List<String> bad;
         try (var inv = mockStatic(client.inventory.manipulator.InventoryManipulator.class)) {
-            inv.when(() -> client.inventory.manipulator.InventoryManipulator.removeById(any(), eq(InventoryType.EQUIP),
+            inv.when(() -> client.inventory.manipulator.InventoryManipulator.removeById(any(Client.class), eq(InventoryType.EQUIP),
                     eq(goal.medal()), anyInt(), anyBoolean(), anyBoolean())).thenAnswer(a -> {
                 hands.bag.remove(goal.medal());
                 return null;
