@@ -4,6 +4,8 @@ Owner request: make the entire equipment/crafting path visible before deciding h
 new areas and high-end rewards. This is an offline repository/data audit and a proposal, with no runtime,
 recipe, price, loot or gate changes. Worktree `SlumsMS-area-balance-codex`, branch `area-balance-codex`.
 
+Implementation ticket: [normal equipment through 200, then forged rebirth progression](../tickets/normal-200-to-forged-rebirth-progression.md).
+
 ## The full lists
 
 - [Every forge recipe, with exact quantities and named materials](forge-catalog/full-list.md): **357 recipes**,
@@ -37,7 +39,7 @@ transfer percentages or combat numbers.
 
 | Stage | Equipment progression | Combat calibration rule |
 |---|---|---|
-| RB0 | Classic and ordinary imported drops, progressing toward Muspell/Jaihin and Pensalir/Utgard | Normal obtainable gear supports training and the clears needed for RB1 |
+| RB0, levels 1–200 | A complete normal drop path, including meaningful 160–200 upgrades; the exact late item roster is still to be selected | Normal gear supports the entire first run and the clears needed for RB1; forging is not required |
 | RB1 | Retain usable dropped gear; gradually earn Royal Von Leon crafts | First relevant clears work in prior gear; later RB1 targets can assume the measured attainable Royal profile |
 | RB2 | Progress into the matching Lionheart / Dragon Tail / Falcon Wing / Raven Horn / Shark Tooth crafts | Earn initial materials in prior gear, then use the attainable RB2 crafted profile for its later content |
 | RB3 | Japanese sets → AbsoLab → Arcane; weapons eventually Sealed Genesis → Genesis | Separate bands within RB3, each earned using the previous tier; respect actual equip requirements and intended craft milestones |
