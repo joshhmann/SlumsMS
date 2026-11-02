@@ -252,7 +252,10 @@ public class FredrickProcessor {
                         ps.addBatch();
 
                         String msg = fredrickReminderMessage(cid.getRight() - 1);
-                        noteService.sendNormal(msg, "FREDRICK", cid.getLeft().getRight());
+                        // The reminder day has already been booked below; a refused note is the store-and-forward
+                        // player's one channel, so the loss has to be visible somewhere.
+                        NoteService.warnIfNotDelivered("Fredrick reminder", "FREDRICK", cid.getLeft().getRight(),
+                                noteService.sendNormal(msg, "FREDRICK", cid.getLeft().getRight()));
                     }
 
                     ps.executeBatch();

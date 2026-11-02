@@ -136,7 +136,10 @@ public final class CashOperationHandler extends AbstractPacketHandler {
                     c.sendPacket(PacketCreator.showCash(chr));
 
                     String noteMessage = chr.getName() + " has sent you a gift! Go check out the Cash Shop.";
-                    noteService.sendNormal(noteMessage, chr.getName(), recipient.get("name"));
+                    // The gift itself is already granted and paid for; the note is only the announcement. A refusal
+                    // there leaves the player nothing to act on, so it goes to the log rather than the world.
+                    NoteService.warnIfNotDelivered("cash shop gift", chr.getName(), recipient.get("name"),
+                            noteService.sendNormal(noteMessage, chr.getName(), recipient.get("name")));
 
                     Character receiver = c.getChannelServer().getPlayerStorage().getCharacterByName(recipient.get("name"));
                     if (receiver != null) {
@@ -331,7 +334,8 @@ public final class CashOperationHandler extends AbstractPacketHandler {
                                 cs.gainCash(toCharge, itemRing, chr.getWorld());
                                 cs.gift(partner.getId(), chr.getName(), text, eqp.getSN(), rings.getRight());
                                 chr.addCrushRing(Ring.loadFromDb(rings.getLeft()));
-                                noteService.sendWithFame(text, chr.getName(), partner.getName());
+                                NoteService.warnIfNotDelivered("crush ring", chr.getName(), partner.getName(),
+                                        noteService.sendWithFame(text, chr.getName(), partner.getName()));
                                 noteService.show(partner);
                             }
                         }
@@ -390,7 +394,8 @@ public final class CashOperationHandler extends AbstractPacketHandler {
                                 cs.gainCash(payment, -itemRing.getPrice());
                                 cs.gift(partner.getId(), chr.getName(), text, eqp.getSN(), rings.getRight());
                                 chr.addFriendshipRing(Ring.loadFromDb(rings.getLeft()));
-                                noteService.sendWithFame(text, chr.getName(), partner.getName());
+                                NoteService.warnIfNotDelivered("friendship ring", chr.getName(), partner.getName(),
+                                        noteService.sendWithFame(text, chr.getName(), partner.getName()));
                                 noteService.show(partner);
                             }
                         }

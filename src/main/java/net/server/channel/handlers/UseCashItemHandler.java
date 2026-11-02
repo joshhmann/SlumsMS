@@ -39,6 +39,7 @@ import constants.id.MapId;
 import constants.inventory.ItemConstants;
 import net.AbstractPacketHandler;
 import net.packet.InPacket;
+import net.packet.Packet;
 import net.packet.out.SendNoteSuccessPacket;
 import net.server.Server;
 import org.slf4j.Logger;
@@ -48,6 +49,7 @@ import server.Shop;
 import server.ShopFactory;
 import server.TimerManager;
 import server.maps.*;
+import service.NoteSendResult;
 import service.NoteService;
 import tools.PacketCreator;
 import tools.Pair;
@@ -384,10 +386,17 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
         } else if (itemType == 509) {
             String sendTo = p.readString();
             String msg = p.readString();
-            boolean sendSuccess = noteService.sendNormal(msg, player.getName(), sendTo);
-            if (sendSuccess) {
+            NoteSendResult result = noteService.sendNormal(msg, player.getName(), sendTo);
+            if (result.isOk()) {
                 remove(c, position, itemId);
                 c.sendPacket(new SendNoteSuccessPacket());
+            } else {
+                c.sendPacket(noteFailurePacket(result));
+                if (result == NoteSendResult.STORAGE_FAILED) {
+                    // No client code says "the server could not store this". Code 1 was sent above to unstick the
+                    // memo window, so the player is told here, in plain words, that nothing was lost on their side.
+                    player.dropMessage(1, "Your note could not be stored right now. Please try again in a moment.");
+                }
             }
         } else if (itemType == 510) {
             player.getMap().broadcastMessage(PacketCreator.musicChange("Jukebox/Congratulation"));
@@ -650,6 +659,23 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
     /** Whether this rock is a VIP Teleport Rock (5041000+): the only one that crosses continents. */
     static boolean isVipRock(int itemId) {
         return itemId / 1000 >= 5041;
+    }
+
+    /**
+     * The packet a failed note send answers with, coded as {@link PacketCreator#noteError(byte)} documents: 1 means
+     * "check the recipient's name", 2 means "the recipient's inbox is full". The recipient not being found is code 1
+     * outright. A storage failure has no code of its own, and of the three 1 is the least wrong: code 0 claims the
+     * recipient is online and code 2 claims their inbox is full -- both assert something about another player that a
+     * database fault knows nothing about, while 1 only asks the sender to re-check what they typed. The handler adds
+     * a neutral chat line for that case so the player is not left blaming the name for a server-side fault.
+     */
+    static Packet noteFailurePacket(NoteSendResult result) {
+        return PacketCreator.noteError(switch (result) {
+            case RECEIVER_NOT_FOUND -> (byte) 1;
+            case INBOX_FULL -> (byte) 2;
+            case STORAGE_FAILED -> (byte) 1;
+            case OK -> throw new IllegalArgumentException("a delivered note has no error to report");
+        });
     }
 
     /**

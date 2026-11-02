@@ -27,6 +27,7 @@ import net.AbstractPacketHandler;
 import net.packet.InPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import service.NoteSendResult;
 import service.NoteService;
 import tools.PacketCreator;
 
@@ -51,8 +52,8 @@ public final class NoteActionHandler extends AbstractPacketHandler {
                 c.sendPacket(PacketCreator.showCashInventory(c));
             }
 
-            boolean sendNoteSuccess = noteService.sendWithFame(message, c.getPlayer().getName(), charname);
-            if (sendNoteSuccess) {
+            NoteSendResult sendNoteResult = noteService.sendWithFame(message, c.getPlayer().getName(), charname);
+            if (sendNoteResult.isOk()) {
                 c.getPlayer().getCashShop().decreaseNotes();
             }
         } else if (action == 1) { // Discard notes in game
