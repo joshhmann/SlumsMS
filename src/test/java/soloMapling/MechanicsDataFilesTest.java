@@ -53,7 +53,7 @@ class MechanicsDataFilesTest {
     }
 
     @Test
-    void kpqLoadsFromTheJarWithNoSourceTree() throws IOException {
+    void theContentRowsLoadFromTheJarWithNoSourceTree() throws IOException {
         ClassLoader cl = new URLClassLoader(new URL[]{packagedJar().toUri().toURL()}, null);
         Path emptyWorkDir = Files.createDirectories(tmp.resolve("server"));
         DataFiles d = new DataFiles(null, emptyWorkDir, cl, tmp.resolve("extract"));
@@ -66,7 +66,7 @@ class MechanicsDataFilesTest {
         });
 
         assertEquals(List.of(), r.errors());
-        assertEquals(List.of("kpq"), r.content().stream().map(c -> c.id()).toList());
+        assertEquals(List.of("kpq", "zakum"), r.content().stream().map(c -> c.id()).toList());
         assertEquals(10, r.content().get(0).stage(1).orElseThrow().answer(1).orElseThrow());
         assertTrue(origins.stream().allMatch(o -> o == DataFiles.Origin.CLASSPATH), origins.toString());
     }
