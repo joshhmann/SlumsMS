@@ -147,7 +147,7 @@ public class NXMerchantBot extends BotSM {
         }
 
         public boolean saveNote(String buyerName, String text) {
-            return new NoteService(new NoteDao()).sendNormal(text, getChr().getName(), buyerName);
+            return new NoteService(new NoteDao()).sendNormal(text, getChr().getName(), buyerName).isOk();
         }
 
         public void showNotes(int buyerId) {

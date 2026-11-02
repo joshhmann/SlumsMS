@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import testutil.Mocks;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -25,12 +26,17 @@ class NoteServiceTest {
     @Mock
     private NoteDao noteDao;
 
+    /** Stands in for the character rows: the service's own tests must not reach the database. */
+    @Mock
+    private NoteService.CharacterNameLookup characterExists;
+
     private NoteService noteService;
 
     @BeforeEach
     void reset() {
         MockitoAnnotations.openMocks(this);
-        this.noteService = new NoteService(noteDao);
+        when(characterExists.exists(any())).thenReturn(true);
+        this.noteService = new NoteService(noteDao, characterExists);
     }
 
     @Test
@@ -39,9 +45,9 @@ class NoteServiceTest {
         String from = "from";
         String to = "to";
 
-        boolean success = noteService.sendNormal(message, from, to);
+        NoteSendResult result = noteService.sendNormal(message, from, to);
 
-        assertTrue(success);
+        assertEquals(NoteSendResult.OK, result);
         var noteCaptor = ArgumentCaptor.forClass(Note.class);
         verify(noteDao).save(noteCaptor.capture());
         var note = noteCaptor.getValue();
@@ -57,9 +63,9 @@ class NoteServiceTest {
         String from = "fameFrom";
         String to = "fameTo";
 
-        boolean success = noteService.sendWithFame(message, from, to);
+        NoteSendResult result = noteService.sendWithFame(message, from, to);
 
-        assertTrue(success);
+        assertEquals(NoteSendResult.OK, result);
         var noteCaptor = ArgumentCaptor.forClass(Note.class);
         verify(noteDao).save(noteCaptor.capture());
         var note = noteCaptor.getValue();
@@ -73,10 +79,80 @@ class NoteServiceTest {
     void sendFailure() {
         doThrow(daoException()).when(noteDao).save(any());
 
-        boolean success = noteService.sendNormal(string(), string(), string());
+        NoteSendResult result = noteService.sendNormal(string(), string(), string());
 
-        assertFalse(success);
+        assertEquals(NoteSendResult.STORAGE_FAILED, result);
         verify(noteDao).save(any());
+    }
+
+    /** A name no character has: the note must be refused before it is written, not after. */
+    @Test
+    void aRecipientThatDoesNotExistIsRefusedWithoutWriting() {
+        when(characterExists.exists("ghost")).thenReturn(false);
+
+        NoteSendResult result = noteService.sendNormal(string(), "sender", "ghost");
+
+        assertEquals(NoteSendResult.RECEIVER_NOT_FOUND, result);
+        verify(noteDao, never()).save(any());
+    }
+
+    /** The negative above only bites when the lookup actually runs: it must be asked about the recipient. */
+    @Test
+    void theLookupIsAskedAboutTheRecipient() {
+        noteService.sendNormal(string(), "sender", "to");
+
+        verify(characterExists).exists("to");
+    }
+
+    @Test
+    void anInboxAtTheCapIsRefusedWithoutWriting() {
+        when(noteDao.findAllByTo("full")).thenReturn(notes(NoteService.MAX_NOTES_PER_RECIPIENT));
+
+        NoteSendResult result = noteService.sendNormal(string(), "sender", "full");
+
+        assertEquals(NoteSendResult.INBOX_FULL, result);
+        verify(noteDao, never()).save(any());
+    }
+
+    /** One below the cap still goes through: the ceiling is a cap, not a fence at cap-minus-one. */
+    @Test
+    void anInboxBelowTheCapAcceptsTheNote() {
+        when(noteDao.findAllByTo("busy")).thenReturn(notes(NoteService.MAX_NOTES_PER_RECIPIENT - 1));
+
+        NoteSendResult result = noteService.sendNormal(string(), "sender", "busy");
+
+        assertEquals(NoteSendResult.OK, result);
+        verify(noteDao).save(any());
+    }
+
+    /** The gift note (fame +1) shares the send path, so the full-inbox refusal reaches it too. */
+    @Test
+    void aGiftNoteIsRefusedWhenTheInboxIsFull() {
+        when(noteDao.findAllByTo("full")).thenReturn(notes(NoteService.MAX_NOTES_PER_RECIPIENT));
+
+        NoteSendResult result = noteService.sendWithFame(string(), "sender", "full");
+
+        assertEquals(NoteSendResult.INBOX_FULL, result);
+        verify(noteDao, never()).save(any());
+    }
+
+    /** Counting the inbox means reading it; a refused read is a storage fault, not a full inbox. */
+    @Test
+    void anInboxThatCannotBeReadIsAStorageFault() {
+        when(noteDao.findAllByTo(any())).thenThrow(daoException());
+
+        NoteSendResult result = noteService.sendNormal(string(), "sender", "to");
+
+        assertEquals(NoteSendResult.STORAGE_FAILED, result);
+        verify(noteDao, never()).save(any());
+    }
+
+    private static List<Note> notes(int count) {
+        List<Note> list = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            list.add(new Note(i, "message", "from", "to", 100200300400L, 0));
+        }
+        return list;
     }
 
     @Test

@@ -388,7 +388,7 @@ public class GameBoardWorld implements BoardWorld {
     @Override
     public boolean note(String from, String toCharacter, String text) {
         String t = text.length() > 200 ? text.substring(0, 200) : text;
-        return new NoteService(new NoteDao()).sendNormal(t, from, toCharacter);
+        return new NoteService(new NoteDao()).sendNormal(t, from, toCharacter).isOk();
     }
 
     @Override
