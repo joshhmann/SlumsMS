@@ -148,6 +148,16 @@ public final class MonsterBook {
         }
     }
 
+    /** Whether this book holds the card at all - what a Monster Book cover has to be checked against. */
+    public boolean hasCard(int cardid) {
+        lock.lock();
+        try {
+            return cards.containsKey(cardid);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public int getTotalCards() {
         lock.lock();
         try {
