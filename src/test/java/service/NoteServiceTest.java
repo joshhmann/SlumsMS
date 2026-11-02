@@ -252,6 +252,21 @@ class NoteServiceTest {
     }
 
     /**
+     * The refusal has to leave a trace: six call sites (cash-shop gifts, couple/friendship ring, wedding invitation,
+     * Fredrick reminders, guild expulsion) send notes as a side effect and have no memo window to answer, so the log
+     * line is the only place a refused note shows up there. Silence is the behaviour this whole change is against.
+     */
+    @Test
+    void aRefusedNoteIsRecordedAndADeliveredOneIsNot() {
+        List<String> lines = captureNoteServiceLog(() -> {
+            NoteService.warnIfNotDelivered("cash shop gift", "sender", "receiver", NoteSendResult.INBOX_FULL);
+            NoteService.warnIfNotDelivered("cash shop gift", "sender", "receiver", NoteSendResult.OK);
+        });
+
+        assertEquals(List.of("WARN Note not delivered for cash shop gift: sender -> receiver (INBOX_FULL)"), lines);
+    }
+
+    /**
      * The lookup that could not be answered must be logged where the exception is, not only turned into a code:
      * before this, a database outage produced no slf4j line at all for the case it introduced.
      */

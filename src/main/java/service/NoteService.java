@@ -137,6 +137,18 @@ public class NoteService {
     }
 
     /**
+     * Record a note the game refused, for the callers whose note is a side effect -- a cash-shop gift, a guild
+     * expulsion, a Fredrick reminder. They have no memo window to answer and a player present at none of them, so
+     * without this line a refusal there would leave no trace anywhere: the recipient silently gets nothing. Never
+     * throws, so it can be dropped into those paths without changing what a player is charged.
+     */
+    public static void warnIfNotDelivered(String what, String from, String to, NoteSendResult result) {
+        if (!result.isOk()) {
+            log.warn("Note not delivered for {}: {} -> {} ({})", what, from, to, result);
+        }
+    }
+
+    /**
      * Show unread notes
      *
      * @param chr Note recipient
