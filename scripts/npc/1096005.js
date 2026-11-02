@@ -17,7 +17,7 @@ function action(mode, type, selection) {
         cm.sendDirectionInfo(4, 1096005);//else you will crash sending sendNext
         cm.sendNext("All right! Let's go!");
     } else if (status == 1) {
-        cm.removeNPC(579711);
+        cm.removeNpc(cm.getMapId(), 579711);
         cm.updateInfo("fire", "0");
         cm.playSound("cannonshooter/fire");
         cm.sendDirectionInfo("Effect/Direction4.img/effect/cannonshooter/flying/0", 7000, 0, 0, -1, -1);
