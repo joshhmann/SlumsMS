@@ -309,7 +309,7 @@ public class Client extends ChannelInboundHandlerAdapter {
             net.opcodes.RecvOpcode.USE_CHAIR, net.opcodes.RecvOpcode.CANCEL_CHAIR,
             net.opcodes.RecvOpcode.FACE_EXPRESSION, net.opcodes.RecvOpcode.QUEST_ACTION,
             net.opcodes.RecvOpcode.DISTRIBUTE_AP, net.opcodes.RecvOpcode.DISTRIBUTE_SP,
-            net.opcodes.RecvOpcode.USE_INNER_PORTAL, net.opcodes.RecvOpcode.USE_DOOR,
+            net.opcodes.RecvOpcode.USE_DOOR,
             net.opcodes.RecvOpcode.ITEM_PICKUP, net.opcodes.RecvOpcode.MESO_DROP,
             net.opcodes.RecvOpcode.USE_UPGRADE_SCROLL, net.opcodes.RecvOpcode.USE_SKILL_BOOK,
             net.opcodes.RecvOpcode.USE_TELEPORT_ROCK, net.opcodes.RecvOpcode.USE_RETURN_SCROLL,
