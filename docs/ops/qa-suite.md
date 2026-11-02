@@ -253,6 +253,21 @@ recruiter's member quest, and has a boss-log entry left; never past the maximum.
 <type>: owner|map|level|quest|quota|busy|full`. In game: party with your bots, talk to Adobis, make the expedition,
 and the yellow lines say `[Expedition] <bot> joined with you.`; inside, the followers fight next to you.
 
+## ex-2: a GM, party bots and his alt fight Zakum in the real expedition (1.6.4)
+
+| Test | What it stages | What to look for |
+|---|---|---|
+| `ex-2 <your alt's name>` | Warps you (level 50+, no party or leading one) to Adobis's map 211042400, stages 4 follower bots, summons your own alt (make one with `!qa do alts`) into your party, then makes the channel's Zakum expedition and starts `ZakumBattle`'s instance the way the recruiter does - which registers and warps everyone standing there to 280030000. Once two of you are in the room it clicks the Eye of Fire (reactor 2111001) with the same call `StepExecutor` uses. Samples once a second for 90 s and up to 150 s, then stops. Expedition, instance, alt and bots are undone at `!qa stop`. Runs 4 minutes | `EX2 START members=<n> bots=<n> alt=<name> mechanics=<b> slums.mechanics.boss=<v> ...`, per member per second `EX2 SEEN t=<s> <name> <kind> map=<id> held=<yes/no> run=<yes/no> target=<oid>/<mob> <mob name> reach=<yes/no> swings=<n> dmg=<n> doing=<run line>`, every 10 s `EX2 PARTS t=<s> <id:hp/maxHp ...>` and `EX2 RUN t=<s> stage=<n> cleared=<b> ended=<reason\|-> events=<k> \| <lines>`, `EX2 ALTAR t=<s> hit reactor 2111001 as <you>, <n> mob(s) on the map now`, then `EX2 PASS cleared ...`, `EX2 FAIL <reason>`, `EX2 END still fighting ...` or `EX2 BASELINE boss=off ...` |
+
+Run it twice from the same build: once with `-Dslums.mechanics.boss=true -Dslums.bossfight.damagefloor=true
+-Dslums.bossfight.deathcount=true` and once without, and compare the `EX2 SEEN swings/dmg` totals and the verdict. The
+`EX2 START` line records the switches, so the two logs label themselves. On a build that does not know a switch the
+value reads `unset`; `EX2 BASELINE` means `slums.mechanics.boss` was off, which is a comparable run, not a verdict.
+
+Owner 2026-11-02 (ticket 130 follow-up): `ex-1` stops at "the expedition exists". `ex-2` is the one that proves a fight
+happens at all, and its log is what the boss lane is judged on from the outside - target, reach, damage, and the run's
+own `Abandon`/`gave up` lines.
+
 ## nx-1: buy a 10k NX code for 50m (1.6.0)
 
 | Test | What it stages | What to look for |

@@ -1,5 +1,8 @@
 # Boss lane, ticket 130 - report (branch `164-bossfight`, 1.6.4)
 
+The `ex-2` QA scenario that proves a fight happens (and what it logs) has its own report: `REPORT-ex2.md`; it
+ships on this branch because this is the one branch that both has the boss switches and can run it.
+
 Worktree `/root/work/164-bossfight`, branch `164-bossfight` off `origin/release-1.6.4`. Nothing pushed, nothing merged,
 live server untouched. `GuildBossRuns` is untouched on purpose: its roll with the bots logged out is a different path
 and stays one (see `MechanicsRuns.onInstanceStarted`'s comment and the phase A1 section in

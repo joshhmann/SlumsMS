@@ -69,6 +69,21 @@ public final class BotAttackDriver {
     // botId -> epoch-ms of its last swing, kept only while the !qa attack log is on (its "gap" field: the cadence a
     // viewer sees, swing to swing).
     private static final Map<Integer, Long> lastSwingAtByBot = new ConcurrentHashMap<>();
+
+    /**
+     * ex-2: the last swing a bot committed, as the QA sampler reads it - the mob it was aimed at, that swing's
+     * reported damage, how many swings it has made and their total. Recorded only while the {@code ATTACK} QA topic is
+     * on (the same block that writes the {@code ATTACK} line), so it costs nothing on a server nobody is watching.
+     */
+    public record QaSwing(int mobOid, int mobId, Monster monster, int damage, int swings, long damageTotal, long atMs) {
+    }
+
+    private static final Map<Integer, QaSwing> qaLastSwingByBot = new ConcurrentHashMap<>();
+
+    /** ex-2: what this bot last swung at, or null when it has not swung with QA watching. Read-only. */
+    public static QaSwing qaLastSwing(int botId) {
+        return qaLastSwingByBot.get(botId);
+    }
     /*
      * 1.6.1 ticket 13 (owned alts): mobs a bot may swing at, per bot. An owned alt fights only mobs that are not a
      * stranger's (OwnedAltCombat), and that holds for every mob an AoE catches, not only the one it walked to. Empty for
@@ -438,6 +453,12 @@ public final class BotAttackDriver {
         BotAranCombo.afterStrike(bot, skillId, targets.size() * Math.max(1, plan.shots()));
         if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.ATTACK)) { // !qa bk-1
             Long last = lastSwingAtByBot.put(bot.getId(), now);
+            Monster first = targets.isEmpty() ? null : targets.get(0);
+            QaSwing before = qaLastSwingByBot.get(bot.getId());
+            qaLastSwingByBot.put(bot.getId(), new QaSwing(
+                    first == null ? 0 : first.getObjectId(), first == null ? 0 : first.getId(), first, reported,
+                    before == null ? 1 : before.swings() + 1, (before == null ? 0 : before.damageTotal()) + reported,
+                    now));
             soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.ATTACK, bot.getMapId(), bot.getName() + " "
                     + bot.getJob() + " skill " + skillId + " lv " + skillLevel + " route " + route + " action "
                     + plan.action() + " facing " + (plan.facingLeft() ? "left" : "right") + " speed " + plan.speed()

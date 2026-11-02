@@ -13,23 +13,37 @@ import constants.inventory.ItemConstants;
 import net.server.Server;
 import net.server.channel.Channel;
 import net.server.world.World;
+import scripting.event.EventInstanceManager;
+import scripting.event.EventManager;
 import server.ItemInformationProvider;
+import server.expeditions.Expedition;
+import server.expeditions.ExpeditionType;
+import server.life.Monster;
 import server.life.NPC;
 import server.maps.HiredMerchant;
 import server.maps.MapleMap;
 import server.maps.PlayerShop;
 import server.maps.PlayerShopItem;
 import server.maps.Portal;
+import server.maps.Reactor;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile;
 import soloMapling.ArtificialPlayer.BotGeneration;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
+import soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotSellerCaps;
 import soloMapling.ArtificialPlayer.BotStore;
 import soloMapling.ArtificialPlayer.BotTypeManager;
 import soloMapling.ArtificialPlayer.BotTypes.FMBot;
 import soloMapling.ArtificialPlayer.BotTownSystem.PersonalSpace;
+import soloMapling.companions.OwnedAltService;
 import soloMapling.itemPool.ItemDatabase;
+import soloMapling.mechanics.Mechanics;
+import soloMapling.mechanics.MechanicsHold;
+import soloMapling.mechanics.MechanicsRuns;
+import soloMapling.mechanics.RunState;
 import tools.PacketCreator;
 
 import java.awt.Point;
@@ -2773,5 +2787,207 @@ final class GameQaWorld implements QaWorld {
             out.add("VB TRADE offered=" + added + " itemDelta=" + (p2After - p2Before)
                     + " mesoDelta=" + (p2.character().getMeso() - p2Meso));
         });
+    }
+
+    // ---- 1.6.4 ex-2: the Zakum altar, entered through the real expedition ----
+
+    @Override
+    public List<Ex2Seen> ex2See(Character gm, List<Integer> charIds) {
+        EventInstanceManager eim = gm.getEventInstance();
+        MechanicsRuns.Active active = eim == null ? null : MechanicsRuns.get().runFor(eim);
+        RunState run = active == null ? null : active.run();
+        List<Ex2Seen> out = new ArrayList<>();
+        for (int id : charIds) {
+            Character c = BotHelpers.getCharFromChannelStorage(id);
+            if (c == null) {
+                c = online(id);
+            }
+            if (c == null) {
+                continue;
+            }
+            BotAttackDriver.QaSwing swing = BotAttackDriver.qaLastSwing(id);
+            Monster target = swing == null ? null : swing.monster();
+            boolean canSwing = false;
+            if (target != null && target.isAlive() && c.getMap() != null && c.getPosition() != null
+                    && target.getMap() == c.getMap()) {
+                BotAttackProfile profile = BotAttackDriver.primaryAttack(c);
+                if (profile != null) {
+                    canSwing = BotAttackDriver.canSwingFrom(c.getMap(), c.getPosition(), target,
+                            profile.reachX, profile.reachY);
+                }
+            }
+            out.add(new Ex2Seen(id, c.getName(), c.isOwnedAlt() ? "alt" : c.isBot() ? "bot" : "gm", c.getMapId(),
+                    MechanicsHold.committed(c), run != null && run.member(id) != null,
+                    target == null ? 0 : target.getObjectId(), target == null ? 0 : target.getId(),
+                    target == null ? "-" : target.getName(), canSwing,
+                    swing == null ? 0 : swing.swings(), swing == null ? 0 : swing.damageTotal(),
+                    lastRunLine(run, c.getName())));
+        }
+        return out;
+    }
+
+    /** The last mechanics-run line that names this character, or {@code -}. */
+    private static String lastRunLine(RunState run, String name) {
+        if (run == null || name == null) {
+            return "-";
+        }
+        for (int i = run.events().size() - 1; i >= 0; i--) {
+            String line = run.events().get(i).line();
+            if (line != null && line.contains(name)) {
+                return line.length() > 140 ? line.substring(0, 140) + "…" : line;
+            }
+        }
+        return "-";
+    }
+
+    @Override
+    public String ex2Parts(Character gm) {
+        MapleMap map = gm.getMap();
+        if (map == null) {
+            return "the GM has no map";
+        }
+        if (map.getId() != 280030000) {
+            return "the GM is on " + map.getId() + ", not 280030000";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (Monster m : map.getAllMonsters()) {
+            if (!m.isAlive()) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append(' ');
+            }
+            sb.append(m.getId()).append(':').append(m.getHp()).append('/').append(m.getMaxHp());
+        }
+        return sb.length() == 0 ? "empty" : sb.toString();
+    }
+
+    @Override
+    public String ex2Altar(Character gm) {
+        try {
+            MapleMap map = gm.getMap();
+            if (map == null) {
+                return "the GM has no map";
+            }
+            if (map.getId() != 280030000) {
+                return "the GM is on " + map.getId() + ", not 280030000";
+            }
+            Reactor altar = map.getReactorById(2111001);
+            if (altar == null) {
+                return "no reactor 2111001 on " + map.getId();
+            }
+            altar.hitReactor(gm.getClient());
+            int alive = 0;
+            for (Monster m : map.getAllMonsters()) {
+                if (m.isAlive()) {
+                    alive++;
+                }
+            }
+            return "hit reactor 2111001 as " + gm.getName() + ", " + alive + " mob(s) on the map now";
+        } catch (RuntimeException e) {
+            return "reactor 2111001 threw " + e.getClass().getSimpleName() + ": " + e.getMessage();
+        }
+    }
+
+    @Override
+    public boolean ex2StartZakum(Character gm) {
+        try {
+            Channel ch = gm.getClient().getChannelServer();
+            if (ch.getExpedition(ExpeditionType.ZAKUM) != null) {
+                return false;
+            }
+            EventManager em = gm.getClient().getEventManager("ZakumBattle");
+            if (em == null) {
+                return false;
+            }
+            Expedition exped = new Expedition(gm, ExpeditionType.ZAKUM, true, 0, 0);
+            if (!exped.addChannelExpedition(ch)) {
+                return false;
+            }
+            ExpeditionBots.autoJoin(gm, exped);
+            em.setProperty("leader", gm.getName());
+            em.setProperty("channel", String.valueOf(gm.getClient().getChannel()));
+            return em.startInstance(exped);
+        } catch (RuntimeException e) {
+            gm.yellowMessage("ex-2: the Zakum expedition could not start: " + e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public int ex2StageAlt(Character gm, String name) {
+        try {
+            Character alt = OwnedAltService.getInstance().summon(gm, name);
+            if (alt == null) {
+                return -1;
+            }
+            net.server.world.Party party = gm.getParty();
+            if (party != null) {
+                net.server.world.Party.joinParty(alt, party.getId(), true);
+            }
+            return alt.getId();
+        } catch (IllegalStateException e) {
+            gm.yellowMessage(e.getMessage() == null ? "ex-2: the alt could not be summoned" : e.getMessage());
+            return -1;
+        }
+    }
+
+    @Override
+    public void ex2DismissAlt(Character gm, String name) {
+        try {
+            OwnedAltService.getInstance().dismiss(gm, name);
+        } catch (RuntimeException e) {
+            gm.yellowMessage("ex-2: the alt could not be dismissed: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void ex2EndExpedition(Character gm) {
+        try {
+            EventInstanceManager eim = gm.getEventInstance();
+            if (eim != null && !eim.isEventDisposed()) {
+                eim.dispose();
+            }
+            Channel ch = gm.getClient() == null ? null : gm.getClient().getChannelServer();
+            Expedition exped = ch == null ? null : ch.getExpedition(ExpeditionType.ZAKUM);
+            if (exped != null) {
+                exped.removeChannelExpedition(ch);
+                exped.dispose(false);
+            }
+        } catch (RuntimeException e) {
+            gm.yellowMessage("ex-2: the expedition could not be ended cleanly: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public String ex2Run(Character gm) {
+        EventInstanceManager eim = gm.getEventInstance();
+        MechanicsRuns.Active active = eim == null ? null : MechanicsRuns.get().runFor(eim);
+        if (active == null) {
+            return "no run";
+        }
+        RunState run = active.run();
+        StringBuilder sb = new StringBuilder("stage=").append(run.currentStage())
+                .append(" cleared=").append(run.cleared())
+                .append(" ended=").append(run.endedBecause() == null ? "-" : run.endedBecause())
+                .append(" events=").append(run.events().size());
+        int from = Math.max(0, run.events().size() - 12);
+        for (int i = from; i < run.events().size(); i++) {
+            sb.append(" | ").append(run.events().get(i).line());
+        }
+        return sb.toString();
+    }
+
+    @Override
+    public String ex2Switches() {
+        return "mechanics=" + Mechanics.enabled()
+                + " slums.mechanics.boss=" + property("slums.mechanics.boss")
+                + " slums.bossfight.damagefloor=" + property("slums.bossfight.damagefloor")
+                + " slums.bossfight.deathcount=" + property("slums.bossfight.deathcount");
+    }
+
+    private static String property(String key) {
+        String value = System.getProperty(key);
+        return value == null ? "unset" : value;
     }
 }
