@@ -988,6 +988,11 @@ public class World {
                 if (operation == PartyOperation.DISBAND) {
                     chr.setParty(null);
                     chr.setMPC(null);
+                    // ticket 164: joining a party takes a player off the party search candidate list, and until now
+                    // only the leader leaving got added back (PartyOperationHandler). Everyone else whose party was
+                    // disbanded kept the "not available" state - getParty() == null but detached - until they
+                    // relogged, changed job or toggled the NPC flag.
+                    chr.updatePartySearchAvailability(true);
                 } else {
                     chr.setParty(party);
                     chr.setMPC(partychar);
