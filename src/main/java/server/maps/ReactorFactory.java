@@ -50,6 +50,9 @@ public class ReactorFactory {
     /** reactor id -> already warned, so an incomplete image logs once instead of once per map load. */
     private static final Set<Integer> warnedInertStates = ConcurrentHashMap.newKeySet();
 
+    /** reactor id -> already warned that Reactor.wz has no image for it at all. */
+    private static final Set<Integer> warnedMissingImages = ConcurrentHashMap.newKeySet();
+
     /**
      * s-maproute round 4 (b253): a type-100 event ("waits for an item") whose data never names the item. Reactor 7492024
      * - spawned by map 706030000, a landing spot in {@code soloMapling/map-routing.tsv} - is built entirely like that,
@@ -65,6 +68,31 @@ public class ReactorFactory {
             log.warn("reactor {}: its state {} waits for an item its data does not name, so that state stays inert",
                     rid, state);
         }
+    }
+
+    /**
+     * 15 reactor ids that maps really place have no image in Reactor.wz at all (3100, 1012001, 1012003-1012015).
+     * {@code MapFactory.loadMapFromWz} has no per-reactor catch, so one missing image used to take the whole map down
+     * with a NullPointerException; an empty stats loads the placement inert instead, the same way the runtime path
+     * already gives up on a missing image.
+     */
+    private static ReactorStats missingImageStats(int rid) {
+        if (warnedMissingImages.add(rid)) {
+            log.warn("reactor {}: Reactor.wz has no image for it, so it loads with no states and stays inert", rid);
+        }
+        return new ReactorStats();
+    }
+
+    /**
+     * The exact line {@code getReactorS} already uses for a state node with no event, moved into a method here so the
+     * map-load path cannot drift from it: {@link #INERT_STATE} instead of nothing, so {@code ReactorStats.getType}
+     * answers 999 instead of -1 and {@code Reactor.isActive()} stays true. Without it a map-loaded reactor whose state 0
+     * carries no event is dead - {@code hitReactor} returns before the script - which is the defect this fixes.
+     * No timeout is recorded, so {@code ReactorStats.getTimeout} answers -1 and no timeout task can dereference the
+     * state.
+     */
+    private static void addInertState(ReactorStats stats, byte state, boolean foundState) {
+        stats.addState(state, INERT_STATE, null, (byte) (foundState ? -1 : (state + 1)), 0, (byte) 0);
     }
 
     public static final ReactorStats getReactorS(int rid) {
@@ -129,6 +157,9 @@ public class ReactorFactory {
         if (stats == null) {
             int infoId = rid;
             Data reactorData = data.getData(StringUtil.getLeftPaddedStr(infoId + ".img", '0', 11));
+            if (reactorData == null) {
+                return missingImageStats(rid);
+            }
             Data link = reactorData.getChildByPath("info/link");
             if (link != null) {
                 infoId = DataTool.getIntConvert("info/link", reactorData);
@@ -141,11 +172,15 @@ public class ReactorFactory {
             }
             if (stats == null) {
                 reactorData = data.getData(StringUtil.getLeftPaddedStr(infoId + ".img", '0', 11));
+                if (reactorData == null) {
+                    return missingImageStats(infoId);
+                }
                 Data reactorInfoData = reactorData.getChildByPath("0");
                 stats = new ReactorStats();
                 List<StateData> statedatas = new ArrayList<>();
                 if (reactorInfoData != null) {
                     boolean areaSet = false;
+                    boolean foundState = false;
                     byte i = 0;
                     while (reactorInfoData != null) {
                         Data eventData = reactorInfoData.getChildByPath("event");
@@ -181,7 +216,15 @@ public class ReactorFactory {
                                     statedatas.add(new StateData(type, reactItem, skillids, nextState));
                                 }
                             }
-                            stats.addState(i, statedatas, timeOut);
+                            if (statedatas.isEmpty()) {
+                                // an event that only names a timeOut is not a state anyone can hit: same as no event
+                                addInertState(stats, i, foundState);
+                            } else {
+                                foundState = true;
+                                stats.addState(i, statedatas, timeOut);
+                            }
+                        } else {
+                            addInertState(stats, i, foundState);
                         }
                         i++;
                         reactorInfoData = reactorData.getChildByPath(Byte.toString(i));

@@ -126,24 +126,54 @@ function generateMapReactors(map) {
         }
     }
 
+    var sigilSlots = [["4skill0a", "4skill0b", "4fake1c", "4fake1d", "4skill0e"],
+        ["4fake0a", "4skill4b", "4skill3c", "4skill3d", "4skill3e"],
+        ["4skill1a", "4skill3b", "4skill4c", "4skill2d", "4skill2e"],
+        ["4skill2a", "4fake1b", "4skill0c", "4skill1d", "4fake1e"],
+        ["4skill3a", "4skill2b", "4skill1c", "4skill0d", "4fake0e"],
+        ["4skill4a", "4skill1b", "4fake0c", "4skill4d", "4skill1e"],
+        ["4fake1a", "4skill2c", "4skill4e"],
+        ["4fake0b", "4fake0d"]
+    ];
+
     var toDeploy = [];
 
-    toDeploy.push(getNameFromList(rndIndex[0], ["4skill0a", "4skill0b", "4fake1c", "4fake1d", "4skill0e"]));
-    toDeploy.push(getNameFromList(rndIndex[1], ["4fake0a", "4skill4b", "4skill3c", "4skill3d", "4skill3e"]));
-    toDeploy.push(getNameFromList(rndIndex[2], ["4skill1a", "4skill3b", "4skill4c", "4skill2d", "4skill2e"]));
-    toDeploy.push(getNameFromList(rndIndex[3], ["4skill2a", "4fake1b", "4skill0c", "4skill1d", "4fake1e"]));
-    toDeploy.push(getNameFromList(rndIndex[4], ["4skill3a", "4skill2b", "4skill1c", "4skill0d", "4fake0e"]));
-    toDeploy.push(getNameFromList(rndIndex[5], ["4skill4a", "4skill1b", "4fake0c", "4skill4d", "4skill1e"]));
-    toDeploy.push(getNameFromList(rndIndex[6], ["4fake1a", "4skill2c", "4skill4e"]));
-    toDeploy.push(getNameFromList(rndIndex[7], ["4fake0b", "4fake0d"]));
+    for (var i = 0; i < sigilSlots.length; i++) {
+        toDeploy.push(getNameFromList(rndIndex[i], sigilSlots[i]));
+    }
 
     var toRandomize = [];
+    var deployed = {};
 
     for (var i = 0; i < toDeploy.length; i++) {
         var react = map.getReactorByName(toDeploy[i]);
 
         react.setState(1);
+        deployed[toDeploy[i]] = 1;
         toRandomize.push(react);
+    }
+
+    // Map 610030400 places all 35 sigil tiles but only the 8 above are this run's puzzle. The others are decoys and
+    // must stay on the map yet answer no hit: their reactor scripts (6109016 and its siblings) count "glpq4"/"glpq5"
+    // too, so leaving them clickable lets a party finish the stage on a decoy. setAlive(false) sends no destroy
+    // packet and Reactor.hitReactor gives up on an inactive reactor before the script runs, so a decoy stays placed
+    // and looks exactly like it did at state 0. The flames and stirges on this map are separate switches driven by
+    // touch/untouch, which does not look at alive, so they are left alone.
+    var sigilTiles = {};
+    for (var i = 0; i < sigilSlots.length; i++) {
+        for (var j = 0; j < sigilSlots[i].length; j++) {
+            sigilTiles[sigilSlots[i][j]] = 1;
+        }
+    }
+
+    var placed = map.getReactors().iterator();
+    while (placed.hasNext()) {
+        var tile = placed.next();
+        var tileName = tile.getName();
+
+        if (sigilTiles[tileName] && !deployed[tileName]) {
+            tile.setAlive(false);
+        }
     }
 
     map.shuffleReactors(toRandomize);
