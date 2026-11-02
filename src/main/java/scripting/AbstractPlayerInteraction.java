@@ -1148,6 +1148,16 @@ public class AbstractPlayerInteraction {
         c.sendPacket(PacketCreator.showInfo("UI/tutorial.img/" + num));
     }
 
+    /**
+     * 1.6.4: the tutorial illustration step - the Evan quests (scripts/quest/22000.js and its neighbours) and the two
+     * Evan portals ask for it through qm.sendImage/pi.sendImage with a path like "UI/tutorial/evan/N/0". The client's
+     * SHOW_INFO opcode paints that path on screen, which is the same packet, and the same argument shape, that
+     * displayGuide already builds for guide images.
+     */
+    public void sendImage(String image) {
+        c.sendPacket(PacketCreator.showInfo(image));
+    }
+
     public void goDojoUp() {
         c.sendPacket(PacketCreator.dojoWarpUp());
     }
