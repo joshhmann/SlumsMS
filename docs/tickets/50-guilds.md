@@ -24,6 +24,17 @@ Research: [docs/real-bots/social-systems-research.md](../real-bots/social-system
   - So a player trying to create a guild with any bot standing in the Guild Headquarters (200000301) is stuck in
     the confirmation until someone leaves the map or logs out.
   - Not yet reproduced in game.
+  - **Corrected (ticket 164, 2026-11-01):** both claims above were true of stock Cosmic and are false on this tree
+    since 50A (`ad0359efc`). `Guild.getEligiblePlayersForGuild` skips bots (`Guild.java:834-837`, `BotHelpers.isBot`),
+    covered by `GuildCreationTest.botsOnTheGuildHqMapAreNotEligibleCofounders`; and `GuildOperationHandler` arms a
+    60 s timeout on the creation match (`GuildOperationHandler.java:52,58-62,138`, `expireGuildCreation` →
+    `MatchCheckerCoordinator.expireMatchConfirmation`). The same paragraph was wrong in
+    [social-systems-research.md](../real-bots/social-systems-research.md) for the same reason.
+  - **What it did miss:** of the two `MatchCheckerType`s, only `GUILD_CREATION` had an expiry. `CPQ_CHALLENGE` was
+    the one match type still created with nothing to cancel it, so an ignored challenge dialog held both party
+    leaders out of every later match (`getMatchConfirmationLeaderid` never returned -1 again) until one of them
+    logged out. Ticket 164 added that timer (`NPCConversationManager.CPQ_CHALLENGE_TIMEOUT_MS`, 60 s, override
+    `slums.cpq.challengeTimeoutMs`).
 - **Bots:**
   - A guild invite sent to a bot expires silently.
   - Guild chat (`MultiChat` type 2) is not routed to bots.

@@ -75,13 +75,21 @@ map, channel and storage). Buddy, guild and family online indicators therefore n
 - **Players:**
   - Stock code. Live has 0 guilds, 0 alliances and 0 characters with a guild.
   - Live config: `CREATE_GUILD_MIN_PARTNERS: 1` (Cosmic default 6), cost 1.5m, expansion 500k-5m.
-- **Likely player bug (FIX):**
+- **Likely player bug (FIX, fixed in 50A `ad0359efc`):**
   - `Guild.getEligiblePlayersForGuild` adds **every** character on Heracle's map (200000301) that is not in a party
     or guild, and bots count.
   - The leader's match confirmation goes to all of them and needs every one to accept. `MatchCheckerCoordinator`
     has no timeout, and bots never answer. So creating a guild hangs while any bot stands in the guild
     headquarters, and the match only clears when someone leaves or logs out.
   - Not reproduced in game. The code path is clear.
+  - **Corrected (ticket 164, 2026-11-01):** the two claims above describe stock Cosmic, not this tree.
+    `Guild.getEligiblePlayersForGuild` now skips bots (`Guild.java:834-837`) and `GuildOperationHandler` now expires
+    an unanswered creation after 60 s (`GuildOperationHandler.java:52,58-62,138`). Both landed in 50A
+    (`ad0359efc`), with `GuildCreationTest` covering them.
+  - The unfinished half of the same paragraph was the CPQ challenge: `MatchCheckerType.CPQ_CHALLENGE` was the one
+    match type created with no expiry, so a lobby challenge nobody answered kept both party leaders in
+    `pooledCids` for the rest of the session. Ticket 164 added that timer
+    (`NPCConversationManager.java:1207-1242`, 60 s, override `slums.cpq.challengeTimeoutMs`).
 - **Bots:**
   - A guild invite sent to a bot gets no answer and expires after the `InviteCoordinator` timeout. Harmless.
   - Guild chat (`MultiChat` type 2) is not routed to bots. Bots never join, found or chat in guilds.
