@@ -110,14 +110,20 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             medal = "<" + ii.getName(medalItem.getItemId()) + "> ";
         }
 
-        if (itemType == 504) { // VIP Teleport Rock
+        if (itemType == 504) { // Teleport Rock (5040000) / VIP Teleport Rock (5041000)
             String error1 = "Either the player could not be found or you were trying to teleport to an illegal location.";
-            boolean vip = p.readByte() == 1 && itemId / 1000 >= 5041; // Check if the rock is a VIP rock
+            boolean toPlayer = p.readByte() == 1 && isVipRock(itemId); // the VIP rock's second mode
             boolean success = false;
 
-            if (!vip) { // Non-VIP teleportation
+            if (toPlayer) {
+                player.dropMessage(1, "Teleporting to other players is not allowed.");
+            } else {
                 int mapId = p.readInt();
-                if (itemId / 1000 >= 5041 || mapId / 100000000 == player.getMapId() / 100000000) { // Check VIP or same continent
+                if (!savedTrockDestination(itemId, mapId, player.getTrockMaps(), player.getVipTrockMaps())) {
+                    player.dropMessage(1, error1);
+                } else if (!isVipRock(itemId) && mapId / 100000000 != player.getMapId() / 100000000) {
+                    player.dropMessage(1, "You cannot teleport between continents with this teleport rock.");
+                } else {
                     MapleMap targetMap = c.getChannelServer().getMapFactory().getMap(mapId);
                     if (targetMap != null && !FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit()) &&
                             (targetMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(mapId))) {
@@ -126,11 +132,7 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                     } else {
                         player.dropMessage(1, error1);
                     }
-                } else {
-                    player.dropMessage(1, "You cannot teleport between continents with this teleport rock.");
                 }
-            } else {
-                player.dropMessage(1, "Teleporting to other players is not allowed.");
             }
 
             if (success) {
@@ -640,6 +642,24 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             log.warn("NEW CASH ITEM TYPE: {}, packet: {}", itemType, p);
             c.sendPacket(PacketCreator.enableActions());
         }
+    }
+
+    /** Whether this rock is a VIP Teleport Rock (5041000+): the only one that crosses continents. */
+    static boolean isVipRock(int itemId) {
+        return itemId / 1000 >= 5041;
+    }
+
+    /**
+     * Whether the map the packet names is one of the character's saved rock entries. The client only ever offers an
+     * entry from that list (TrockAddMapHandler fills it), so a map outside it came from a forged packet -- the branch
+     * used to teleport wherever the packet said. A VIP rock reads the VIP list, a plain rock the plain one, and both
+     * are padded with MapId.NONE, which is not a map.
+     */
+    static boolean savedTrockDestination(int itemId, int mapId, List<Integer> plainMaps, List<Integer> vipMaps) {
+        if (mapId <= 0 || mapId == MapId.NONE) {
+            return false;
+        }
+        return (isVipRock(itemId) ? vipMaps : plainMaps).contains(mapId);
     }
 
     /**
