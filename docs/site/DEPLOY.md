@@ -267,6 +267,71 @@ Not a step; what this section now says because the night itself went this way. (
   uncomment)".
 - **The guide pages were a release behind** the patch notes; section 4 makes refreshing them a step of every release.
 
+## 3c. Release night for the 1.6.3 site (owner's go for each step)
+
+Smaller than 1.6.2's: since live's 1.6.2 build only the market service changed (`exchange_desk.py`, `market_app.py`:
+the NX desk's quote panel and its URLs), plus the guide, the patch notes and the PELIXIR label. The login and report
+services, their units and nginx are unchanged (the `absolute_redirect off;` line is on live since 2026-11-01).
+**Do this after the 1.6.3 game is up on live with the desk on** (`-Dslums.exchange.desk=true`, a house account): the
+game then writes `nx-desk.json` to the market outbox (`/var/lib/slums-market/outbox`). `S=<UTC stamp>`.
+
+1. Backups, rebuilds stopped (about 1 min):
+   ```
+   systemctl stop slums-site-market.timer slums-site-world.timer
+   cp -a /srv/slums-site /srv/slums-site.bak-$S
+   mv /opt/slums-site-build /opt/slums-site-build.pre-163 && cp -a /opt/slums-site-build.pre-163 /opt/slums-site-build
+   for u in slums-market slums-site-market; do cp -p /etc/systemd/system/$u.service /root/$u.service.pre-163; done
+   ```
+   Check: both timers `inactive`; `ls /opt/slums-site-build.pre-163/DEPLOYED_COMMIT`.
+2. Code and build (about 5 min). On 187: `tools/site/deploy-build-164.sh` (it now also copies `data/site/`, the item
+   icon list). On 164, build into a new folder with the desk on:
+   ```
+   cd /opt/slums-site-build && SLUMS_MARKET_NX_DESK=on python3 tools/site/build.py --private --world --no-tar \
+     --out /var/tmp/slums-site-163 \
+     --market-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/market" \
+     --site-data "/opt/mapleroot/MapleRoot Full Repack/Server/data/site" \
+     --hs-data /opt/slums-site-build/hiddenstreet --dashboard-web /srv/slums-dashboard/web
+   ```
+   Checks: it ends "check passed"; `grep -c 'data-nxdesk="on"' /var/tmp/slums-site-163/market/exchange.html` is 1; the
+   icon counts of `database/icons/{items,mobs,npcs}` match `/srv/slums-site` (4,971 / 1,627 / 3,415 on 2026-11-01).
+3. Swap the site in with two renames (seconds):
+   ```
+   cp -a /var/tmp/slums-site-163 /srv/slums-site.new-$S
+   mv /srv/slums-site /srv/slums-site.old-$S && mv /srv/slums-site.new-$S /srv/slums-site
+   ```
+   Check: `grep -c "1.6.3" /srv/slums-site/index.html` is 1 or more.
+4. The desk mode in both units, the market service restarted (about 1 min). Diff first: only the NX desk lines differ.
+   ```
+   cd /opt/slums-site-build
+   for u in slums-market slums-site-market; do diff /etc/systemd/system/$u.service tools/site/$u.service; done
+   install -m 0644 tools/site/slums-market.service tools/site/slums-site-market.service /etc/systemd/system/
+   systemctl daemon-reload && systemctl restart slums-market
+   ```
+   Checks: `curl -s 127.0.0.1:8095/api/market/health` is `{"ok":true}`; `journalctl -u slums-market -n 3` says
+   `exchange on`.
+5. Rebuilds on again: `systemctl start slums-site-market.service` (one run now), then
+   `systemctl start slums-site-market.timer slums-site-world.timer`. Check: the run is `inactive` (not failed) and
+   `grep -c 'data-nxdesk="on"' /srv/slums-site/market/exchange.html` is still 1 after it (the rebuild kept the mode).
+6. Checks through nginx (about 5 min, `B=http://127.0.0.1:8092`):
+   - signed out: `curl -s -o /dev/null -w '%{http_code}' $B/api/market/exchange/nx/quote` is 401;
+     `curl -sI $B/patch-notes/1.6.3/` is 200; `curl -sI $B/guide/money` is 200.
+   - signed in as a player (the owner, in a browser): Slums Market → Slums Exchange opens on NX with "Buy NX at" and
+     "Sell NX at", the tab strip shows PELIXIR, the help is folded; a **preview** of 100 NX shows a held price and a
+     countdown (and for a sale, the password box). The owner decides whether a real live trade is made; nothing is
+     confirmed for the check otherwise. LEAF/CHAOS/WS/PELIXIR still show their order books.
+   - `/guide/money` has the NX desk section; `/patch-notes/1.6.3/` is the newest on the home page.
+   Total about 15 minutes.
+
+### 1.6.3 website rollback
+- **The desk panel alone** (about 2 min; the site stays 1.6.3): set `SLUMS_MARKET_NX_DESK=off` in both units (or put
+  back `/root/slums-market.service.pre-163` and `/root/slums-site-market.service.pre-163`), `systemctl daemon-reload &&
+  systemctl restart slums-market && systemctl start slums-site-market.service`. The NX tab is 1.6.2's order book again
+  after that rebuild. Use this if the game's desk is off or misbehaves.
+- **The whole site** (about 3 min): stop both timers; `mv /srv/slums-site /srv/slums-site.163-failed-$S && cp -a
+  /srv/slums-site.bak-$S /srv/slums-site`; `mv /opt/slums-site-build /opt/slums-site-build.163-failed && mv
+  /opt/slums-site-build.pre-163 /opt/slums-site-build`; put back both units from `/root/*.pre-163`; daemon-reload,
+  restart slums-market, start the timers. Checks: market health ok; the home page's latest patch is 1.6.2.
+
 ## 4. Add a release's patch notes
 
 1. Write `docs/site/releases/<version>.md` (copy the last one for the format: front matter with `version`,

@@ -343,3 +343,19 @@ class GuideTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LiveNxDeskUnitsTest(unittest.TestCase):
+    """1.6.3 (s44): live's market service and its 2-minute market rebuild run the same NX desk mode, on. A mismatch
+    flips the exchange page back to the book within 2 minutes (TEST showed it, 2026-11-01)."""
+
+    def mode(self, unit):
+        with open(os.path.join(ROOT, "tools/site", unit)) as f:
+            found = re.findall(r"^Environment=SLUMS_MARKET_NX_DESK=(\w+)$", f.read(), re.M)
+        self.assertEqual(len(found), 1, unit)
+        return found[0]
+
+    def test_both_live_units_turn_the_desk_on(self):
+        self.assertEqual(self.mode("slums-market.service"), "on")
+        self.assertEqual(self.mode("slums-site-market.service"), "on")
+
