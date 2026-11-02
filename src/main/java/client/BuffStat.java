@@ -21,6 +21,14 @@
 */
 package client;
 
+/**
+ * Client-shipped buff masks. Debuffs do NOT live here: poison, seal, stun, darkness, weaken, confuse and friends
+ * are {@code client.Disease}, which owns a separate mask space of its own. Do not add a debuff to this enum --
+ * the debuff constants once duplicated here (CONFUSE 0x80000, STUN 0x2000000000000, POISON 0x4000000000000,
+ * SEAL 0x8000000000000, DARKNESS 0x10000000000000, WEAKEN 0x4000000000000000) matched the {@code Disease}
+ * constant of the same name bit for bit, so an effect written against the BuffStat copy was read by the client
+ * as the Disease one and silently never fired as intended.
+ */
 public enum BuffStat {
     //SLOW(0x1L),
     MORPH(0x2L),
@@ -41,7 +49,6 @@ public enum BuffStat {
     MESO_UP_BY_ITEM(0x10000L),
     GHOST_MORPH(0x20000L),
     AURA(0x40000L),
-    CONFUSE(0x80000L),
 
     // ------ COUPON feature ------
     COUPON_EXP1(0x100000L),
@@ -59,7 +66,6 @@ public enum BuffStat {
 
     HPREC(0x2000000L),
     MPREC(0x4000000L),
-    BERSERK_FURY(0x8000000L),
     DIVINE_BODY(0x10000000L),
     SPARK(0x20000000L),
     MAP_CHAIR(0x40000000L),
@@ -81,10 +87,6 @@ public enum BuffStat {
     HYPERBODYMP(0x400000000000L),
     INVINCIBLE(0x800000000000L),
     SOULARROW(0x1000000000000L),
-    STUN(0x2000000000000L),
-    POISON(0x4000000000000L),
-    SEAL(0x8000000000000L),
-    DARKNESS(0x10000000000000L),
     COMBO(0x20000000000000L),
     SUMMON(0x20000000000000L),
     WK_CHARGE(0x40000000000000L),
@@ -95,7 +97,6 @@ public enum BuffStat {
     PICKPOCKET(0x800000000000000L),
     MESOGUARD(0x1000000000000000L),
     EXP_INCREASE(0x2000000000000000L),
-    WEAKEN(0x4000000000000000L),
     MAP_PROTECTION(0x8000000000000000L),
 
     //all incorrect buffstats
