@@ -28,6 +28,26 @@ come from the local repository and retained `/root/work/bake/wz` XML. Installed 
 compatibility, deployed settings and real acquisition times remain unverified. A script reference can be a
 requirement or dialogue, not a reward. No planned drop row is not proof that an item has no source.
 
+## Owner-approved progression direction
+
+Owner follow-up: normal gear should carry the first run and scale into forged gear through later rebirths.
+Forging becomes part of the expected later progression, with attainable acquisition costs; it is not permanently
+optional prestige above a dropped-gear baseline. This approves the structure, not specific fees, quantities,
+transfer percentages or combat numbers.
+
+| Stage | Equipment progression | Combat calibration rule |
+|---|---|---|
+| RB0 | Classic and ordinary imported drops, progressing toward Muspell/Jaihin and Pensalir/Utgard | Normal obtainable gear supports training and the clears needed for RB1 |
+| RB1 | Retain usable dropped gear; gradually earn Royal Von Leon crafts | First relevant clears work in prior gear; later RB1 targets can assume the measured attainable Royal profile |
+| RB2 | Progress into the matching Lionheart / Dragon Tail / Falcon Wing / Raven Horn / Shark Tooth crafts | Earn initial materials in prior gear, then use the attainable RB2 crafted profile for its later content |
+| RB3 | Japanese sets → AbsoLab → Arcane; weapons eventually Sealed Genesis → Genesis | Separate bands within RB3, each earned using the previous tier; respect actual equip requirements and intended craft milestones |
+
+Do not make every map at the same rebirth count require its final crafted set. Entry content supplies the first
+upgrades; later encounters can expect them once the source and acquisition budget are established. Ordinary
+gear stays useful as forge input, as a bridge while pieces are earned, and for class changes. A milestone must
+never require the very item its own first clear awards. Account for actual transferred stats when defining the
+crafted reference loadout.
+
 ## Current restrictions and intended progression
 
 **Correction to the earlier equipment ladder:** equip level alone does not unlock most forged gear.
@@ -211,7 +231,9 @@ Keep three separate progress tracks with explicit handoffs:
 - **Rebirth milestones:** the existing three Essence Stones from a short, visible boss checklist. Do not stack a
   full expensive craft set on top as an unstated rebirth requirement. Balance each first clear against the prior
   obtainable set and a realistic two-to-five-person party, then check the class that has the least survivability.
-- **Prestige gear:** the forge chain and boss accessories, with tested carryover power and visible long-term goals.
+- **Forged progression:** the forge chain and boss accessories become the later-rebirth gear path, with tested
+  carryover power and visible stage goals. Attainable crafted profiles can become the baseline for later content
+  after their prior-tier acquisition route is proven; reserve the final refinements for prestige.
   Reduce requirement variety before simply raising global drops: retain the previous item, one appropriate boss
   trophy, one region resource and a calibrated meso fee as a possible simplified recipe structure. Optional extra
   materials can buy enhancement rather than block the basic piece. This is a proposal, not an approved edit.
@@ -223,7 +245,7 @@ rebirth. Offer a way to obtain a new family weapon without replaying every prior
 items can be traded or caught up before counting friend assistance as guaranteed access.
 
 For staged implementation: resolve data mistakes and craft checks; measure current rebirth/transfer outcomes;
-prove every source; choose the training/forge distinction and acquisition budgets; simulate per-class chains;
+prove every source; apply the approved normal-to-forged progression and choose acquisition budgets; simulate per-class chains;
 then tune ordinary mobs and first-clear bosses to those actual profiles. Keep existing gates/rates until a
 specific reviewed change replaces them. The owner still needs to select transfer policy and intended time to
 complete each stage; no economy choice was applied by this audit.

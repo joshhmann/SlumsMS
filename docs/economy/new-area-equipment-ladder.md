@@ -11,10 +11,13 @@ RB2, and Japanese/AbsoLab/Arcane/Genesis RB3. Level alone does not unlock them. 
 levels; every optional forged path is also conditional on its actual rebirth requirement. Crafted results
 can carry substantial stats from consumed inputs, beyond these raw base values.
 
-## Training baseline and optional upgrades
+## Training baseline and forged upgrades
 
-Use the cheaper path to calibrate ordinary enemies. Keep crafted/boss sets as rewarding alternatives and test
-an upgraded character separately. Do not require a set from a region before a character can survive earning it.
+Owner-approved direction: normal gear carries the first run and transitions into forged gear across rebirths.
+Use the cheaper previous-tier path for entry content and first material clears; later rebirth content can
+expect its attainable crafted tier once costs, sources and transferred stats are calibrated. Test each
+transition separately. The table below inventories candidates; the [approved stage rules](rebirth-and-forge-progression.md#owner-approved-progression-direction)
+govern which profile later content may expect. Do not require a set from a region before a character can survive earning it.
 All stages also need appropriate potions, accuracy, a usable main skill and affordable ammunition.
 
 | Character level / intended ordinary training band | Proposed dependable equipment baseline | Optional progression |
