@@ -88,6 +88,8 @@ final class StepExecutor {
         String warpTold;
         /** When this bot last hit the room's reactor, so the click is not spammed. */
         long lastReactorMs;
+        /** When this bot last put a stack on a reactor, and when it last said it is still gathering it. */
+        long lastPlaceMs;
         boolean stallTold;
         int stallGain;
         final Chase chase = new Chase();
@@ -109,6 +111,20 @@ final class StepExecutor {
             case SolverStep.DropFor d -> dropFor(view, bot, beat, d, now, log);
             case SolverStep.Say s -> say(view, bot, beat, s.line(), now);
             case SolverStep.HitReactor h -> hitReactor(bot, beat, h, now, log);
+            case SolverStep.HitReactorNamed h -> {
+                MapleMap named = bot.getMap();
+                server.maps.Reactor r = named == null || h.reactorName() == null
+                        ? null : named.getReactorByName(h.reactorName());
+                if (r == null) {
+                    if (now - beat.lastReactorMs > 10_000) {
+                        beat.lastReactorMs = now;
+                        log.accept(bot.getName() + ": no reactor \"" + h.reactorName() + "\" on map " + bot.getMapId());
+                    }
+                } else {
+                    hitReactorAt(bot, beat, r, h.reactorName(), now, log);
+                }
+            }
+            case SolverStep.PlaceItem p -> placeItem(bot, beat, p, now, log);
             case SolverStep.Occupy o -> occupy(bot, beat, o, now, log);
             case SolverStep.CheckAnswer c -> check(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.Converse c -> converse(run, orchestrator, bot, beat, c, now, log);
@@ -773,7 +789,7 @@ final class StepExecutor {
      */
     private static void hitReactor(Character bot, Beat beat, SolverStep.HitReactor h, long now, Consumer<String> log) {
         MapleMap map = bot.getMap();
-        server.maps.Reactor reactor = map == null ? null : map.getReactorById(h.reactorId());
+        server.maps.Reactor reactor = map == null ? null : reactorFor(map, String.valueOf(h.reactorId()));
         if (reactor == null) {
             if (now - beat.lastReactorMs > 10_000) {
                 beat.lastReactorMs = now;
@@ -781,6 +797,12 @@ final class StepExecutor {
             }
             return;
         }
+        hitReactorAt(bot, beat, reactor, String.valueOf(h.reactorId()), now, log);
+    }
+
+    /** The walk-and-click part, shared by {@link SolverStep.HitReactor} and {@link SolverStep.HitReactorNamed}. */
+    private static void hitReactorAt(Character bot, Beat beat, server.maps.Reactor reactor, String label, long now,
+                                     Consumer<String> log) {
         Point at = bot.getPosition();
         Point rp = reactor.getPosition();
         if (at != null && rp != null && (Math.abs(rp.x - at.x) > 45 || Math.abs(rp.y - at.y) > 60)) {
@@ -792,7 +814,77 @@ final class StepExecutor {
         }
         beat.lastReactorMs = now;
         reactor.hitReactor(bot.getClient());
-        log.accept(bot.getName() + ": hit reactor " + h.reactorId() + " on " + bot.getMapId());
+        log.accept(bot.getName() + ": hit reactor " + label + " on " + bot.getMapId());
+    }
+
+    /**
+     * Puts a stack on the ground at a reactor, the way a player drops it on the reactor: the server
+     * ({@code MapleMap.activateItemReactors}) takes the drop only when the item and the <em>whole quantity</em> match
+     * the reactor's react item and the drop lies inside the reactor's area, so the stack lands on the reactor's own
+     * position ({@link SolverStep.PlaceItem}) and goes down as one drop. Nothing to place yet is not an error.
+     */
+    private static void placeItem(Character bot, Beat beat, SolverStep.PlaceItem p, long now, Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null) {
+            return;
+        }
+        if (bot.getItemQuantity(p.itemId(), false) < p.count()) {
+            if (now - beat.lastPlaceMs > 10_000) {
+                beat.lastPlaceMs = now;
+                log.accept(bot.getName() + ": " + p.why() + " waits for " + p.count() + " x " + p.itemId());
+            }
+            return;
+        }
+        server.maps.Reactor reactor = reactorFor(map, p.reactor());
+        Point at = reactor != null && reactor.getPosition() != null
+                ? reactor.getPosition() : new Point(p.x(), p.y());
+        Point mine = bot.getPosition();
+        if (mine != null && (Math.abs(at.x - mine.x) > 45 || Math.abs(at.y - mine.y) > 60)) {
+            moveNear(bot, beat, at.x, at.y, 30, now);
+            return;
+        }
+        if (now - beat.lastPlaceMs < DROP_GAP_MS) {
+            return;
+        }
+        beat.lastPlaceMs = now;
+        int paid = BotHoldings.payOut(bot, p.itemId(), p.count(), bot, at, true);
+        log.accept("PLACE " + bot.getName() + " puts " + paid + " x " + p.itemId() + " on "
+                + (reactor != null ? p.reactor() : "(" + at.x + ", " + at.y + ")") + " - " + p.why());
+    }
+
+    /**
+     * The reactor a step names: by WZ name ({@code scar1}), or by id when the key is all digits ({@code 2006000}).
+     * By id it prefers one still untouched ({@code state 0}): OPQ's twenty cloud reactors share one id, so a hit
+     * means "the next cloud", not "the same cloud again"; once every one is used the first is returned so the hit
+     * still reaches the map's own guard.
+     */
+    static server.maps.Reactor reactorFor(MapleMap map, String key) {
+        if (map == null || key == null || key.isBlank()) {
+            return null;
+        }
+        boolean numeric = key.chars().allMatch(c -> c >= '0' && c <= '9');
+        if (!numeric) {
+            return map.getReactorByName(key);
+        }
+        int id;
+        try {
+            id = Integer.parseInt(key);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        server.maps.Reactor first = map.getReactorById(id);
+        if (first == null) {
+            return null;
+        }
+        if (first.getState() == 0) {
+            return first;
+        }
+        for (server.maps.MapObject o : map.getReactors()) {
+            if (o instanceof server.maps.Reactor r && r.getId() == id && r.getState() == 0) {
+                return r;
+            }
+        }
+        return first;
     }
 
     private static void enterPortal(Character bot, Beat beat, SolverStep.EnterPortal e, long now, Consumer<String> log) {

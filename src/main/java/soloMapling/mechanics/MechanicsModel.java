@@ -49,6 +49,12 @@ public final class MechanicsModel {
         KILL_FOR_ITEM,
         /** Pick up items from the floor or reactors (OPQ clouds, boxes). */
         COLLECT,
+        /**
+         * Put items on the ground inside a reactor's box (OPQ: the twenty clouds on Eak's altar, the Root of Life at
+         * the statue's base): the server matches the reactor's item and <em>quantity</em> exactly, so the stack must
+         * land whole and on the reactor ({@code MapleMap.activateItemReactors}).
+         */
+        PLACE_ITEM,
         /** Hand items to an NPC ({@code to}) to be checked. */
         HAND_IN,
         /** Give items to another member (drop for the leader to loot). */
@@ -139,16 +145,27 @@ public final class MechanicsModel {
     /**
      * One thing a role does. {@code count}, {@code item}, {@code mob}, {@code npc} are optional per kind. {@code at}
      * is the stand spot the objective is worked from when it matters (a boss part's band); {0, 0} is none.
+     * {@code reactor} names the reactor the objective works on (OPQ's levers, scars and altar): a WZ name such as
+     * {@code scar1}, or - all digits - a reactor id such as {@code 2006000}.
      */
     public record Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
-                            int npcId, String note, int atX, int atY) {
+                            int npcId, String note, int atX, int atY, String reactor) {
+        public Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
+                         int npcId, String note, int atX, int atY) {
+            this(id, kind, role, count, itemId, mobId, npcId, note, atX, atY, null);
+        }
+
         public Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
                          int npcId, String note) {
-            this(id, kind, role, count, itemId, mobId, npcId, note, 0, 0);
+            this(id, kind, role, count, itemId, mobId, npcId, note, 0, 0, null);
         }
 
         public boolean hasAt() {
             return atX != 0 || atY != 0;
+        }
+
+        public boolean hasReactor() {
+            return reactor != null && !reactor.isBlank();
         }
     }
 
@@ -239,7 +256,6 @@ public final class MechanicsModel {
                             double mobDamageMultiplier, int timeLimitMinutes, double botMistakeFactor) {
     }
 
-    /** One piece of content: a PQ, boss or JQ. {@code source} credits where the stage data was checked from. */
     /**
      * What happens after the last stage clears (1.6.1, KPQ): every member talks to {@code rewardNpc} on
      * {@code rewardMap} for the prize (the script then sends him to {@code bonusMap}), hunts there for a while and
@@ -249,16 +265,29 @@ public final class MechanicsModel {
                              int bonusMaxSeconds) {
     }
 
+    /**
+     * One piece of content: a PQ, boss or JQ. {@code sources} credit where the stage data was checked from.
+     * {@code flag} is the content's own switch when it has one (OPQ: {@code slums.mechanics.opq}): a row with a flag
+     * runs only when both {@code -Dslums.mechanics} and that flag are on, so one unfinished row can stay off while
+     * the rest of the package runs. Null means {@code -Dslums.mechanics} alone.
+     */
     public record Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
                           int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
                           List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers,
-                          AfterClear afterClear) {
+                          AfterClear afterClear, String flag) {
+
+        public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
+                       int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
+                       List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers, AfterClear afterClear) {
+            this(id, name, kind, eventScript, recruitMap, exitMap, minPlayers, maxPlayers, minLevel, maxLevel,
+                    timeLimitMinutes, sources, stages, tiers, afterClear, null);
+        }
 
         public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
                        int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
                        List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers) {
             this(id, name, kind, eventScript, recruitMap, exitMap, minPlayers, maxPlayers, minLevel, maxLevel,
-                    timeLimitMinutes, sources, stages, tiers, null);
+                    timeLimitMinutes, sources, stages, tiers, null, null);
         }
 
         public Optional<Stage> stage(int index) {

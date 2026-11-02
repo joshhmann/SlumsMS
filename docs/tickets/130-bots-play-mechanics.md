@@ -45,16 +45,18 @@ A piece of **content** (PQ, boss, JQ, expedition) is an ordered list of **stages
 |---|---|---|
 | map, npc | where it happens, the stage's NPC | 103000800, Cloto 9020001 |
 | **roles** | who does what; `who: LEADER / NON_LEADER / ANY`, `min`/`max` as a number or `party` / `party-1` | `leader` (1), `answerer` (party-1) |
-| **objectives** | per role, in order: TALK_NPC, KILL_FOR_ITEM, COLLECT, HAND_IN, GIVE_TO_LEADER, ANSWER, OCCUPY_POSITION, HIT_REACTOR, REACH, DEFEAT, ENTER_PORTAL, WAIT | ask -> farm coupons (count `answer`) -> hand in -> give pass to leader; leader hands in `party-1` passes |
+| **objectives** | per role, in order: TALK_NPC, KILL_FOR_ITEM, COLLECT, PLACE_ITEM, HAND_IN, GIVE_TO_LEADER, ANSWER, OCCUPY_POSITION, HIT_REACTOR, REACH, DEFEAT, ENTER_PORTAL, WAIT. A `PLACE_ITEM` names `item`, `count` and either a `reactor` (WZ name like `scar1`, or a numeric reactor id) or an `at` point: it drops the stack inside that reactor's box, because `MapleMap.activateItemReactors` matches the reactor's item **and** quantity | ask -> farm coupons (count `answer`) -> hand in -> give pass to leader; leader hands in `party-1` passes |
 | **positions** | rectangles to stand on / hang from (script coordinates), `rope: true` for ropes | (KPQ 2-4: the ropes and platforms from Cloto's script) |
 | **items** | items used, `cleanup` when the event takes them back | coupon 4001007, pass 4001008 |
 | **answers** | the puzzle's answer table, mirrored from our script | the 7 Cloto questions (10, 35, 20, 25, 25, 30, 8) |
 | **phases** | boss HP bands (100 -> 0, no overlap) and what the party does in each | (bosses only) |
-| **clear** | the event property the stage script sets on clear | `1stageclear` |
+| **clear** | the event property the stage script sets on clear, and `equals:` when the script writes the property before it means anything (OPQ writes `statusStg0..8 = -1` at setup) | `1stageclear` |
 | **solver** | which stage solver plays it | `question-coupons` |
 
-Content also carries players/levels/time limit, `sources:` (required: where the data was checked from, with credit)
-and optional `tiers:`.
+Content also carries players/levels/time limit, `sources:` (required: where the data was checked from, with credit),
+optional `tiers:`, and an optional `flag:` - the content's own system property, on top of `-Dslums.mechanics`, so a row
+that covers only part of a party quest (Orbis PQ: `slums.mechanics.opq`) cannot be switched on by the flag that switches
+Kerning PQ on. `Mechanics.enabledFor(Content)` is the gate; a row without `flag:` answers to `-Dslums.mechanics` alone.
 
 **The server is the truth.** A solver never trusts the YAML answer table at run time: it reads the live answer from
 the event instance (Cloto's `eim.gridCheck` entry, the `stg2Property` combination index, OPQ's reactor state). The

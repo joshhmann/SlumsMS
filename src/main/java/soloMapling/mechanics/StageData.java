@@ -241,7 +241,7 @@ public final class StageData {
             return null;
         }
         return new Content(id, name, kind, script, recruit, exit, minP, maxP, minL, maxL, time, List.copyOf(sources),
-                List.copyOf(stages), Map.copyOf(tiers), after);
+                List.copyOf(stages), Map.copyOf(tiers), after, opt(m, "flag"));
     }
 
     private static TierRules readTier(Tier t, Map<?, ?> m, int minL, int maxL, int time, List<String> p) {
@@ -359,6 +359,9 @@ public final class StageData {
                             at + "objective " + oid + ": KILL_FOR_ITEM needs item, mob and count");
                     case HAND_IN, GIVE_TO_LEADER, COLLECT -> require(item > 0 && count.isPresent(), p,
                             at + "objective " + oid + ": " + kind + " needs item and count");
+                    case PLACE_ITEM -> require(item > 0 && count.isPresent()
+                                    && (om.get("reactor") != null || om.get("at") != null), p,
+                            at + "objective " + oid + ": PLACE_ITEM needs item, count and a reactor or an at point");
                     case TALK_NPC -> require(onpc > 0 || npc > 0, p, at + "objective " + oid + ": TALK_NPC needs an npc");
                     default -> {
                     }
@@ -370,7 +373,7 @@ public final class StageData {
             if (oid != null && kind != null) {
                 int[] spot = atPoint(om.get("at"));
                 objectives.add(new Objective(oid, kind, role, count, item, mob, onpc > 0 ? onpc : npc, opt(om, "note"),
-                        spot[0], spot[1]));
+                        spot[0], spot[1], opt(om, "reactor")));
             }
         }
         if (objectives.isEmpty()) {

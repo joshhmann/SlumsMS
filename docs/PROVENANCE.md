@@ -297,3 +297,29 @@ Ours: the budget is armed from the `-Dslums.bossfight.deathcount` system propert
 and `BotHelpers` tests; the run ends through the event script's own `scheduledTimeout` with a fallback that moves
 everyone out and disposes the instance, instead of their client's death-count panel, which needs the `DEATH_COUNT`
 opcode only their patched client has. Their `set(int)` GM override is not ported.
+
+### Orbis PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00`
+
+| From theirs | Our files |
+| --- | --- |
+| `server.agents.capabilities.partyquest.opq.AgentOpqDefinition` (136 lines): the map ids, the item ids, the monster ids, the level window, the statue-scar table and the room exit portal ids | `soloMapling/mechanics/content/opq.yaml` (`minLevel`/`maxLevel`, the map and item ids of each stage) and `soloMapling/mechanics/OpqSubRoomSolver.EAK_MAP` |
+| `AgentOpqCoordinator.tickStatueRestoration` / `tickPieceCarrier` / the four-room split (`LOUNGE_SUBROOM_ENTRY_PORTALS`, one bot per side room) | `soloMapling/mechanics/OpqSubRoomSolver`: the same "the piece is in the room, Eak is elsewhere" split, but ours sends the whole party into one side room because the four rooms share the drop |
+| `AgentOpqCoordinator.MUSIC_PLAYER` / `ROOT_POT` / `hitNearestLegalReactor` (the item is dropped inside the reactor's box) | `SolverStep.PlaceItem` + `StepExecutor.placeItem`: the step carries the reactor (name or id) and the executor drops inside its box, because `MapleMap.activateItemReactors` matches the reactor's item *and* quantity |
+
+Where our server's scripts disagree, the scripts win and the row follows them:
+
+- **The altar takes exactly twenty in one drop.** `scripts/reactor/2006000.js:1-5` spawns Eak from the reactor's item
+  reaction, and `MapleMap.activateItemReactors` (`src/main/java/server/maps/MapleMap.java:2664-2679`) compares
+  `getReactItem().getRight() == item.getQuantity()`, so the stack has to land whole. Their coordinator never puts the
+  clouds on the altar at all (it only hits the reactors and then talks); ours places `20` in one stack.
+- **The storage room clears on an empty floor.** `scripts/npc/2013001.js` (map `920010300`) asks
+  `countMonsters() == 0 && countItems() == 0`, and `MapleMap.countItems()` counts mesos too, so our `opq-sweep` loots
+  with `Loot(0)` ("anything on the floor") instead of their reward-box-only pickup.
+- **The levers are a five-character string in `stage6_c`.** `scripts/npc/2013001.js` (map `920010700`) is the only
+  place that picks the combination and checks it; their coordinator keeps its own lever model. Ours reads the property
+  and clicks only the reactors named `"1"`..`"5"` whose state differs, shared out over the bots so no lever is toggled
+  twice.
+- **Three stages are not in the row.** The lobby (`920010400`) needs a script that sets `statusStg3` to `0`, which no
+  script in our tree does; the sealed room (`920010500`) needs `MapleMap.getNumPlayersInArea`, and `MapleMap.addArea`
+  has no caller, so its platform areas are always empty; the statue (`920010100`) needs the pieces those two stages
+  hand out. `REPORT.md` in this ticket folder names each of them with the exact line.

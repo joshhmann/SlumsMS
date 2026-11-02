@@ -75,6 +75,16 @@ public interface StageView {
         return stage().mapId();
     }
 
+    /**
+     * The event state of the reactor with this WZ name on the stage's map, or {@code -1} when the map has no such
+     * reactor. OPQ keeps its levers' on/off in it ({@code scripts/reactor/2002005.js}) and the stage script keeps the
+     * target the party must match in an event property ({@code stage6_c}), so a solver reads both and says which
+     * levers to change.
+     */
+    default int reactorState(String name) {
+        return -1;
+    }
+
     /** Live monsters on the stage's map, of the stage's {@code mobs} when it lists any. */
     default int liveMobs() {
         return 0;

@@ -25,6 +25,13 @@ public final class Mechanics {
      * the party quests.
      */
     public static final String BOSS_FLAG = "slums.mechanics.boss";
+
+    /**
+     * The Orbis PQ switch: {@code -Dslums.mechanics.opq} (default {@code false}). OPQ is its own row ({@code
+     * content/opq.yaml}, {@code flag: slums.mechanics.opq}) and its own switch, so the row can stay off while KPQ
+     * plays: the lobby, admission and stage code is one per quest, and OPQ is the newest and least walked of them.
+     */
+    public static final String OPQ_FLAG = "slums.mechanics.opq";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";
     public static final String DEFAULT_DIR = "src/main/java/soloMapling/mechanics/content";
 
@@ -38,6 +45,18 @@ public final class Mechanics {
     /** True when a real boss expedition may arm a run. */
     public static boolean bossesEnabled() {
         return Boolean.getBoolean(BOSS_FLAG);
+    }
+
+    /**
+     * True when this content may arm a run: {@code -Dslums.mechanics} plus, for a row that names one, its own flag
+     * ({@link MechanicsModel.Content#flag()}: {@code flag: slums.mechanics.opq}). Boss rows keep their own switch
+     * ({@link #bossesEnabled()}) and are asked before this.
+     */
+    public static boolean enabledFor(MechanicsModel.Content content) {
+        if (content == null || content.flag() == null || content.flag().isBlank()) {
+            return enabled();
+        }
+        return enabled() && Boolean.getBoolean(content.flag());
     }
 
     public static String dataDir() {

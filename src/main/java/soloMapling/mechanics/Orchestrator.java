@@ -51,13 +51,18 @@ public final class Orchestrator implements RunOrchestrator {
         return Map.of(qc.id(), qc);
     }
 
-    /** Every solver there is (1.6.1: KPQ end to end). */
+    /** Every solver there is (1.6.1: KPQ end to end; 1.6.4: the five Orbis PQ stages). */
     public static Map<String, StageSolver> allSolvers() {
         QuestionCouponsSolver qc = new QuestionCouponsSolver();
         CombinationSolver cb = new CombinationSolver();
         KillCollectHandInSolver kc = new KillCollectHandInSolver();
         BossPhasesSolver bp = new BossPhasesSolver();
-        return Map.of(qc.id(), qc, cb.id(), cb, kc.id(), kc, bp.id(), bp);
+        OpqCloudsSolver oc = new OpqCloudsSolver();
+        OpqSweepSolver os = new OpqSweepSolver();
+        OpqSubRoomSolver sr = new OpqSubRoomSolver();
+        OpqLeversSolver ol = new OpqLeversSolver();
+        return Map.of(qc.id(), qc, cb.id(), cb, kc.id(), kc, bp.id(), bp,
+                oc.id(), oc, os.id(), os, sr.id(), sr, ol.id(), ol);
     }
 
     @Override

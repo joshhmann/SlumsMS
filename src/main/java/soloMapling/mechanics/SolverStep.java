@@ -84,6 +84,24 @@ public sealed interface SolverStep {
     record HitReactor(int reactorId) implements SolverStep {
     }
 
+    /**
+     * Hit a reactor the map knows by name, not by id (OPQ stage 7: the five levers are reactors named {@code "1"} to
+     * {@code "5"} in {@code Map.wz/Map9/920010700.img}, and the script counts them by name:
+     * {@code 2013001.js} "getReactorByName(\"\" + i)").
+     */
+    record HitReactorNamed(String reactorName) implements SolverStep {
+    }
+
+    /**
+     * Put {@code count} of an item on the ground inside a reactor's box (OPQ, stages 1, 3, 9): the server matches a
+     * type-100 reactor's item and <em>quantity</em> exactly and needs the drop's position inside the reactor's area
+     * ({@code MapleMap.activateItemReactors}), so the stack lands on the reactor itself: {@code reactor} is its WZ
+     * name ({@code scar1}) or, all digits, its id ({@code 2006000}), and {@code x}/{@code y} is the fallback spot when
+     * the map has no such reactor. The whole stack goes down as one drop, because a count is matched, not a sum.
+     */
+    record PlaceItem(int itemId, int count, String reactor, int x, int y, String why) implements SolverStep {
+    }
+
     /** Say something in party chat (a try, a complaint, a callout). */
     record Say(String line) implements SolverStep {
     }

@@ -1,0 +1,229 @@
+# Ticket 164 Orbis PQ stage data (the tower of Orbis, "save Minerva"): the stages our bots can drive end to end.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData.
+#
+# The row is gated on its OWN switch (-Dslums.mechanics.opq=true as well as -Dslums.mechanics=true), so the Kerning
+# PQ lanes are untouched: see Mechanics.OPQ_FLAG and Mechanics.enabledFor(Content). It is asked for by
+# docs/tickets/164-pq-polish.md and REPORT.md in this ticket folder lists the stages left out and why.
+#
+# The server's own scripts are the truth, and every step below is checked against them:
+#   scripts/event/OrbisPQ.js (statusStg0..8 = -1 at start) and scripts/npc/2013001.js (Eak) / scripts/reactor/*.js.
+id: opq
+name: Orbis Party Quest
+kind: PQ
+eventScript: OrbisPQ
+recruitMap: 200080101
+exitMap: 200080101
+minPlayers: 3
+maxPlayers: 6
+minLevel: 51
+maxLevel: 70
+timeLimitMinutes: 30
+flag: slums.mechanics.opq
+sources:
+  - "scripts/event/OrbisPQ.js, scripts/npc/2013001.js, scripts/reactor/2006000.js, scripts/reactor/2006001.js: ours, the truth"
+  - "Level window 51-70: cosmic_agents Kiwiism/cosmic_agents 3c7e09435 AgentOpqDefinition MIN_LEVEL 51 / MAX_LEVEL 70"
+  - "Map ids, item ids, monster ids and the room exit portals: cosmic_agents AgentOpqDefinition (AGPL-3.0); the portal ids there are WZ portal ids, so this row warps stage to stage instead of naming portals"
+  - "Stage order: entrance, walkway, storage, lounge, levers (our script's stage numbers 0, 1, 2, 5, 6). The lobby (920010400), sealed room (920010500) and the statue (920010100) are left out: REPORT.md names the exact blocker of each"
+stages:
+  - stage: 1
+    map: 920010000
+    name: Clouds for Eak
+    npc: 2013001
+    solver: opq-clouds
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: carries the twenty cloud pieces and puts them on the altar, then talks to Eak
+      - id: sweeper
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: hits the cloud reactors and hands the pieces to the leader
+    items:
+      - id: 4001063
+        name: Cloud Piece
+        cleanup: true
+    objectives:
+      - id: clouds
+        kind: HIT_REACTOR
+        role: all
+        note: the twenty cloud reactors (id 2002001) drop one cloud piece each when hit
+      - id: altar
+        kind: PLACE_ITEM
+        role: leader
+        item: 4001063
+        count: 20
+        reactor: "2006000"
+        note: scripts/reactor/2006000.js spawns Eak only for a drop of exactly 20 pieces inside the altar's box
+      - id: open
+        kind: TALK_NPC
+        role: leader
+        npc: 2013001
+        note: clearStage(0, eim) sets statusStg0 = 1
+    clear:
+      eventProperty: statusStg0
+      equals: "1"
+  - stage: 2
+    map: 920010200
+    name: Statue pieces in the walkway
+    npc: 2013001
+    solver: kill-collect-hand-in
+    mobs: [9300045, 9300046, 9300047]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: hands 30 pieces to Eak (his npc is on the spawn platform, not the walkway)
+      - id: collector
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: fights the walkway monsters and drops the pieces by the leader
+    items:
+      - id: 4001050
+        name: Statue Piece
+        cleanup: true
+    objectives:
+      - id: hunt
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300045
+        item: 4001050
+        count: 30
+        note: 30 pieces pooled on the leader, one per monster kill (scripts/npc/2013001.js haveItem(4001050, 30))
+      - id: give-pieces
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001050
+        count: 1
+        note: drop them next to the leader, the leader loots them
+      - id: hand-pieces
+        kind: HAND_IN
+        role: leader
+        npc: 2013001
+        item: 4001050
+        count: 30
+        note: Eak takes 30 and clears stage 1 (statusStg1 = 1)
+    clear:
+      eventProperty: statusStg1
+      equals: "1"
+  - stage: 3
+    map: 920010300
+    name: The storage room
+    npc: 2013001
+    solver: opq-sweep
+    items:
+      - id: 4001045
+        name: Statue Piece
+        cleanup: true
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: talks to Eak once nothing is left on the floor
+      - id: sweeper
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: kills the room and picks up every drop, mesos included
+    objectives:
+      - id: sweep
+        kind: HIT_REACTOR
+        role: all
+        note: open the room's reward boxes; scripts/npc/2013001.js clears it only with countMonsters() == 0 and countItems() == 0, and countItems() counts mesos too
+      - id: empty-floor
+        kind: COLLECT
+        role: all
+        item: 4001045
+        count: 1
+        note: the solver loots with Loot(0), which means "anything on the floor", so nothing is left behind for the clear
+      - id: open
+        kind: TALK_NPC
+        role: leader
+        npc: 2013001
+        note: clearStage(2, eim) sets statusStg2 = 1 and gives the second piece
+    clear:
+      eventProperty: statusStg2
+      equals: "1"
+  - stage: 4
+    map: 920010601
+    name: The lounge room
+    npc: 2013001
+    solver: opq-subroom
+    mobs: [9300041, 9300042, 9300043]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: farms with the others, then warps back to the lounge (920010600) with 40 pieces
+      - id: collector
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: fights in the side room and drops the pieces by the leader
+    items:
+      - id: 4001052
+        name: Lounge Statue Piece
+        cleanup: true
+    objectives:
+      - id: hunt
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300041
+        item: 4001052
+        count: 40
+        note: the side rooms (920010601-604) hold the monsters; 40 pooled pieces (haveItem(4001052, 40))
+      - id: give-pieces
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001052
+        count: 1
+      - id: hand-pieces
+        kind: HAND_IN
+        role: leader
+        npc: 2013001
+        item: 4001052
+        count: 40
+        note: Eak takes 40 in the lounge itself and clears stage 5 (statusStg5 = 1)
+    clear:
+      eventProperty: statusStg5
+      equals: "1"
+  - stage: 5
+    map: 920010700
+    name: The five levers
+    npc: 2013001
+    solver: opq-levers
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: opens the stage (Eak picks the combination) and talks for the check
+      - id: puller
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: pushes its share of the five levers to match stage6_c
+    objectives:
+      - id: open
+        kind: TALK_NPC
+        role: leader
+        npc: 2013001
+        note: the first talk writes stage6_c (five characters, two of them '1') and sets statusStg6 = 0
+      - id: levers
+        kind: HIT_REACTOR
+        role: all
+        note: exactly two of the reactors named "1".."5" pushed on, and all five matching stage6_c
+      - id: check
+        kind: TALK_NPC
+        role: leader
+        npc: 2013001
+        note: clearStage(6, eim) sets statusStg6 = 1 and opens the box with the sixth piece
+    clear:
+      eventProperty: statusStg6
+      equals: "1"

@@ -244,6 +244,12 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public int reactorState(String name) {
+        server.maps.Reactor reactor = map == null || name == null ? null : map.getReactorByName(name);
+        return reactor == null ? -1 : reactor.getState();
+    }
+
+    @Override
     public Optional<FloorDrop> dropBy(int dropperId, int itemId) {
         MapItem mi = ownDrop(map, itemId, dropperId);
         return mi == null ? Optional.empty() : Optional.of(new FloorDrop(mi.getPosition().x, mi.getPosition().y,
@@ -273,7 +279,10 @@ final class LiveStageView implements StageView {
 
     /**
      * Drops of {@code itemId} on the map that this member may take: its own, a monster's drop by the game's party
-     * loot rule (a pass a fellow member's kill left), or a hand-over made for it.
+     * loot rule (a pass a fellow member's kill left), or a hand-over made for it. {@code itemId} 0 means "anything
+     * on the floor", mesos included: OPQ stage 3 ("storage") clears only when the map holds no monster <em>and no
+     * item at all</em> ({@code scripts/npc/2013001.js:920010300} "cm.getMap().countItems() == 0", and
+     * {@code MapleMap.countItems()} counts every {@code MapItem}), so the party must sweep mesos up too.
      */
     static List<MapItem> floorDrops(StageView view, MapleMap map, int itemId, int forCharacterId) {
         List<MapItem> out = new ArrayList<>();
@@ -282,7 +291,8 @@ final class LiveStageView implements StageView {
         }
         for (MapObject o : map.getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY,
                 List.of(MapObjectType.ITEM))) {
-            if (o instanceof MapItem mi && !mi.isPickedUp() && mi.getMeso() == 0 && mi.getItemId() == itemId
+            if (o instanceof MapItem mi && !mi.isPickedUp()
+                    && (itemId > 0 ? mi.getMeso() == 0 && mi.getItemId() == itemId : mi.getMeso() > 0 || mi.getItemId() > 0)
                     && mayTake(view, forCharacterId, mi)) {
                 out.add(mi);
             }

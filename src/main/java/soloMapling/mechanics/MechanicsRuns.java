@@ -351,7 +351,7 @@ public final class MechanicsRuns {
             String event = eim.getEm() == null ? null : eim.getEm().getName();
             Content content = contentFor(event);
             boolean boss = content != null && content.kind() == MechanicsModel.Kind.BOSS;
-            if (content == null || (boss ? !Mechanics.bossesEnabled() : !Mechanics.enabled())) {
+            if (content == null || (boss ? !Mechanics.bossesEnabled() : !Mechanics.enabledFor(content))) {
                 if (expedition && content == null && Mechanics.bossesEnabled()) {
                     log("[Mechanics] no boss content for " + keyOf(eim) + " (" + event + "): the expedition is left to"
                             + " its humans");
