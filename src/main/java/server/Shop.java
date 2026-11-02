@@ -38,7 +38,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 
@@ -330,6 +332,24 @@ public class Shop {
                         ret.addItem(new ShopItem((short) 1000, recharge, 0, 0));
                     }
                 }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return ret;
+    }
+
+    /**
+     * 1.6.4: every shop the database holds, shopid -> npcid, for the GM shop editor's pick list
+     * (scripts/npc/ShopEditor.js). One query for the pairs, not a Shop apiece: the editor only lists them.
+     */
+    public static Map<Integer, Integer> loadAllShopIds() {
+        Map<Integer, Integer> ret = new LinkedHashMap<>();
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT shopid, npcid FROM shops ORDER BY npcid, shopid");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                ret.put(rs.getInt("shopid"), rs.getInt("npcid"));
             }
         } catch (SQLException e) {
             e.printStackTrace();

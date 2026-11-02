@@ -597,6 +597,14 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getPlayer().changeJob(job);
     }
 
+    /**
+     * 1.6.4: the GM shop editor lists every shop it can manage (scripts/npc/ShopEditor.js:93) as
+     * #{shopid}# - #p{npcid}#, so the pair map is what it needs, not a Shop apiece.
+     */
+    public Map<Integer, Integer> getAllShopIds() {
+        return ShopFactory.getInstance().getAllShopIds();
+    }
+
     public String getJobName(int id) {
         return GameConstants.getJobName(id);
     }
