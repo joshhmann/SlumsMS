@@ -46,7 +46,7 @@ public final class ContentLobby {
      * {@code ContentLobbyTest} checks that for each of them. Kerning's {@code kpq} row is not here: it has
      * {@link KpqLobby}, which picks its party out of the bots already at Lakelis instead of spawning one.
      */
-    private static final List<String> ROWS = List.of("OrbisPQ");
+    private static final List<String> ROWS = List.of("OrbisPQ", "LudiPQ");
 
     private static final Set<EventInstanceManager> running = ConcurrentHashMap.newKeySet();
     private static final Map<String, Long> refusedUntil = new ConcurrentHashMap<>();

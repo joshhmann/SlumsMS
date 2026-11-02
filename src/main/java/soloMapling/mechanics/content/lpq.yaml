@@ -1,0 +1,388 @@
+# Ticket 164 Ludi PQ stage data (the Ludibrium PQ, "the tower's nine stages"): all nine stages, our scripts first.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData.
+#
+# The row is gated on its OWN switch (-Dslums.mechanics.lpq=true as well as -Dslums.mechanics=true), so the Kerning and
+# Orbis lanes are untouched: see Mechanics.enabledFor(Content). REPORT-opq.md lists what this row does not cover.
+#
+# The server's own scripts are the truth:
+#   scripts/event/LudiPQ.js (statusStg1..9 = -1 at start; clearPQ warps to 922011000) and scripts/npc/2040036.js-2040044.js
+#   (each stage's own talk checks haveItem(4001022, N) and calls clearStage), scripts/portal/lpq0..lpq7.js (the doors,
+#   which refuse until <N>stageclear is set) and scripts/npc/2040043.js (stage 8's nine boxes).
+id: lpq
+name: Ludibrium Party Quest
+kind: PQ
+eventScript: LudiPQ
+# the NPC a bot leader accepts the quest from: the Red Sign on 221024500 (scripts/npc/2040034.js)
+entryNpc: 2040034
+recruitMap: 221024500
+# Where a member is sent when a run WE end ends; LudiPQ.js's clearPQ sends the party to 922011000 itself.
+exitMap: 922010000
+# The script's own gate, copied from it and never from upstream: LudiPQ.js:26-27 minPlayers = 5 / maxPlayers = 6,
+# :28-29 minLevel = 35 / maxLevel = 255, :35 eventTime = 45 (minutes). cosmic_agents' AgentLpqDefinition says 35-50
+# with a six-member party; its level cap is a foreign fork's constant and was not copied (the Orbis 51-70 case again).
+minPlayers: 5
+maxPlayers: 6
+minLevel: 35
+maxLevel: 255
+timeLimitMinutes: 45
+flag: slums.mechanics.lpq
+sources:
+  - "scripts/event/LudiPQ.js, scripts/npc/2040036.js-2040044.js, scripts/portal/lpq0..lpq7.js, scripts/reactor/2202003.js: ours, the truth"
+  - "Gates: our script only (LudiPQ.js:26-29,35). cosmic_agents Kiwiism/cosmic_agents 3c7e09435 AgentLpqDefinition gave the structure (nine stages, one pass item, the NPC and count per stage) and its stage table matches ours; its MIN/MAX level and PARTY_SIZE were not copied"
+  - "Map, monster and reactor ids: our own Map.wz dump (Map.wz/Map/Map9/9220101*.img.xml), read for this row: 922010200 has no monsters at all, only eleven boxes (reactor 2202003) and a trap (2200002)"
+  - "Stage order: 922010100 passes (25), 922010200 boxes (15), 922010300 monsters and boxes (32), 922010400 five rooms (6), 922010500 six rooms (24), 922010600 the door (no count: its own script writes 6stageclear), 922010700 three bosses' passes (3), 922010800 the nine boxes, 922010900 the key (1)"
+  - "Stage 6 is a door, not a count: scripts/portal/lpq5.js:33-41 sets 6stageclear on the way through, so the row's solver takes that door by running its script (SolverStep.ScriptedPortal) instead of a plain warp"
+stages:
+  - stage: 1
+    map: 922010100
+    name: The passes of stage 1
+    npc: 2040036
+    solver: lpq-farm
+    nextPortal: next00
+    mobs: [9300006, 9300005]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: fights too, collects the passes and hands 25 to the stage NPC
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+        note: fights, loots the passes and drops them by the leader
+    items:
+      - id: 4001022
+        name: Pass of Dimension
+        cleanup: true
+    objectives:
+      - id: hunt
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300006
+        item: 4001022
+        count: 25
+        note: 10 x 9300006 and 15 x 9300005 on 922010100, one pass each
+      - id: give-pass
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001022
+        count: 1
+      - id: hand-passes
+        kind: HAND_IN
+        role: leader
+        npc: 2040036
+        item: 4001022
+        count: 25
+        note: 2040036 takes 25 and sets 1stageclear
+    clear:
+      eventProperty: 1stageclear
+      equals: "true"
+  - stage: 2
+    map: 922010200
+    name: The boxes of stage 2
+    npc: 2040037
+    solver: lpq-farm
+    nextPortal: next00
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+    items:
+      - id: 4001022
+        name: Pass of Dimension
+        cleanup: true
+    objectives:
+      - id: boxes
+        kind: HIT_REACTOR
+        role: all
+        reactor: "2202003"
+        note: "no monster lives on 922010200: eleven boxes (2202003) and a trap (2200002) hold the fifteen passes"
+      - id: give-pass
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001022
+        count: 1
+      - id: hand-passes
+        kind: HAND_IN
+        role: leader
+        npc: 2040037
+        item: 4001022
+        count: 15
+    clear:
+      eventProperty: 2stageclear
+      equals: "true"
+  - stage: 3
+    map: 922010300
+    name: Monsters and boxes
+    npc: 2040038
+    solver: lpq-farm
+    nextPortal: next00
+    mobs: [9300007]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+    items:
+      - id: 4001022
+        name: Pass of Dimension
+        cleanup: true
+    objectives:
+      - id: hunt
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300007
+        item: 4001022
+        count: 32
+        note: eight monsters of 922010300 and eight boxes (2201001); the passes come from both
+      - id: boxes
+        kind: HIT_REACTOR
+        role: all
+        reactor: "2201001"
+      - id: give-pass
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001022
+        count: 1
+      - id: hand-passes
+        kind: HAND_IN
+        role: leader
+        npc: 2040038
+        item: 4001022
+        count: 32
+    clear:
+      eventProperty: 3stageclear
+      equals: "true"
+  - stage: 4
+    map: 922010400
+    name: The five rooms
+    npc: 2040039
+    solver: lpq-farm
+    nextPortal: next00
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: takes a room like everyone else; the six passes are in the rooms, not on this map
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+    items:
+      - id: 4001022
+        name: Pass of Dimension
+        cleanup: true
+    objectives:
+      - id: rooms
+        kind: COLLECT
+        role: all
+        item: 4001022
+        count: 6
+        note: 922010401-405, one room per member (portals in01..in05); the map itself is empty
+      - id: give-pass
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001022
+        count: 1
+      - id: hand-passes
+        kind: HAND_IN
+        role: leader
+        npc: 2040039
+        item: 4001022
+        count: 6
+    clear:
+      eventProperty: 4stageclear
+      equals: "true"
+  - stage: 5
+    map: 922010500
+    name: The six rooms
+    npc: 2040040
+    solver: lpq-farm
+    nextPortal: next00
+    mobs: [9300013]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+    items:
+      - id: 4001022
+        name: Pass of Dimension
+        cleanup: true
+    objectives:
+      - id: rooms
+        kind: COLLECT
+        role: all
+        item: 4001022
+        count: 24
+        note: 922010501-506, one room per member (portals in01..in06); two 9300013 live on the map itself
+      - id: give-pass
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001022
+        count: 1
+      - id: hand-passes
+        kind: HAND_IN
+        role: leader
+        npc: 2040040
+        item: 4001022
+        count: 24
+    clear:
+      eventProperty: 5stageclear
+      equals: "true"
+  - stage: 6
+    map: 922010600
+    name: The door
+    npc: 2040041
+    solver: lpq-farm
+    nextPortal: next00
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: walks through the door with everyone else
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+    objectives:
+      - id: door
+        kind: ENTER_PORTAL
+        role: all
+        note: the stage's only task; scripts/portal/lpq5.js:33-41 writes 6stageclear on the way through, no NPC sets it
+    clear:
+      eventProperty: 6stageclear
+      equals: "true"
+  - stage: 7
+    map: 922010700
+    name: The three bosses' passes
+    npc: 2040042
+    solver: lpq-farm
+    nextPortal: next00
+    mobs: [9300169, 9300170, 9300171]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+    items:
+      - id: 4001022
+        name: Pass of Dimension
+        cleanup: true
+    objectives:
+      - id: hunt
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300169
+        item: 4001022
+        count: 3
+        note: the three bosses of 922010700 and three boxes (2201002) each hold a pass
+      - id: boxes
+        kind: HIT_REACTOR
+        role: all
+        reactor: "2201002"
+      - id: give-pass
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001022
+        count: 1
+      - id: hand-passes
+        kind: HAND_IN
+        role: leader
+        npc: 2040042
+        item: 4001022
+        count: 3
+    clear:
+      eventProperty: 7stageclear
+      equals: "true"
+  - stage: 8
+    map: 922010800
+    name: The nine boxes
+    npc: 2040043
+    solver: lpq-combo
+    nextPortal: next00
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: one of the five; asks the NPC for the check once the five stand right
+      - id: extra
+        who: NON_LEADER
+        min: 0
+        max: party-1
+        note: "the sixth member of a full party stands clear: the NPC wants exactly five on the boxes"
+    objectives:
+      - id: combo
+        kind: OCCUPY_POSITION
+        role: all
+        count: 5
+        note: the answer is the instance property stage8combo (nine characters, five ones), written by 2040043 when the stage opens; the nine areas are the map's own area nodes
+    clear:
+      eventProperty: 8stageclear
+      equals: "true"
+  - stage: 9
+    map: 922010900
+    name: The key
+    npc: 2040044
+    solver: lpq-farm
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: hands the key over; clearPQ then sends the party to 922011000
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+    items:
+      - id: 4001023
+        name: Key of Dimension
+        cleanup: true
+    objectives:
+      - id: key
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300006
+        item: 4001023
+        count: 1
+        note: 922010900 holds one 9300006 and one reactor (2201003), the Alishar fight; the loser leaves the key
+      - id: boxes
+        kind: HIT_REACTOR
+        role: all
+        reactor: "2201003"
+      - id: give-key
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001023
+        count: 1
+      - id: hand-key
+        kind: HAND_IN
+        role: leader
+        npc: 2040044
+        item: 4001023
+        count: 1
+    clear:
+      eventProperty: 9stageclear
+      equals: "true"

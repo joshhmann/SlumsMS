@@ -32,6 +32,9 @@ public final class Mechanics {
      * plays: the lobby, admission and stage code is one per quest, and OPQ is the newest and least walked of them.
      */
     public static final String OPQ_FLAG = "slums.mechanics.opq";
+
+    /** Ludi PQ's own switch, on top of {@code -Dslums.mechanics}: Row {@code flag:} value of {@code content/lpq.yaml}. */
+    public static final String LPQ_FLAG = "slums.mechanics.lpq";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";
     public static final String DEFAULT_DIR = "src/main/java/soloMapling/mechanics/content";
 

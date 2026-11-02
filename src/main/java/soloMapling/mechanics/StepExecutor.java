@@ -129,6 +129,7 @@ final class StepExecutor {
             case SolverStep.CheckAnswer c -> check(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.Converse c -> converse(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.EnterPortal e -> enterPortal(bot, beat, e, now, log);
+            case SolverStep.ScriptedPortal p -> scriptedPortal(bot, beat, p, now, log);
             case SolverStep.WarpTo w -> warp(view, bot, beat, w, now, log);
             case SolverStep.Wait w -> waitNote(bot, beat, w, now, log);
             case SolverStep.Done d -> {
@@ -885,6 +886,37 @@ final class StepExecutor {
             }
         }
         return first;
+    }
+
+    /**
+     * Walks to the door and runs its script, which decides whether it opens, where it sends the bot and what it
+     * writes on the way (Ludi PQ's stage-6 door sets {@code 6stageclear}). The outcome is logged once per try so a
+     * shut door is a visible note, not a silent stall.
+     */
+    private static void scriptedPortal(Character bot, Beat beat, SolverStep.ScriptedPortal p, long now,
+                                       Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        server.maps.Portal portal = map == null ? null : map.getPortal(p.portalName());
+        if (portal == null) {
+            if (now - beat.lastPortalMs > 10_000) {
+                beat.lastPortalMs = now;
+                log.accept(bot.getName() + ": no portal " + p.portalName() + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        Point at = bot.getPosition();
+        Point pos = portal.getPosition();
+        if (Math.abs(pos.x - at.x) > 20 || Math.abs(pos.y - at.y) > 60) {
+            moveNear(bot, beat, pos.x, pos.y, 10, now);
+            return;
+        }
+        if (now - beat.lastPortalMs < 2_000) {
+            return;
+        }
+        beat.lastPortalMs = now;
+        scripting.portal.PortalScriptManager.Outcome outcome =
+                scripting.portal.PortalScriptManager.getInstance().runPortalScript(portal, bot.getClient());
+        log.accept(bot.getName() + ": portal " + p.portalName() + " " + outcome);
     }
 
     private static void enterPortal(Character bot, Beat beat, SolverStep.EnterPortal e, long now, Consumer<String> log) {

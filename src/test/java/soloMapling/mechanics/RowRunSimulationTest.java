@@ -58,6 +58,15 @@ class RowRunSimulationTest {
     private static final int LOUNGE_PIECE = 4001052;
     private static final int ROOT_OF_LIFE = 4001055;
     private static final int EAK = 2013001;
+    private static final int LPQ_PASS = 4001022;
+    private static final int LPQ_KEY = 4001023;
+    private static final List<Integer> LPQ_TALK = List.of(2040036, 2040037, 2040038, 2040039, 2040040, 2040041,
+            2040042, 2040043, 2040044);
+    private static final Map<Integer, Integer> LPQ_STAGE_MOBS = Map.of(922010100, 25, 922010300, 8, 922010500, 24,
+            922010700, 3);
+    private static final Map<Integer, Integer> DOOR_TARGET = Map.of(922010100, 922010200, 922010200, 922010300,
+            922010300, 922010400, 922010400, 922010500, 922010500, 922010600, 922010600, 922010700, 922010700,
+            922010800, 922010800, 922010900);
     private static final int LOBBY_DAY = 3; // Wednesday: the pass is 4001056 + 3
     private static final int[] SCARS = {4001046, 4001049, 4001047, 4001044, 4001048, 4001045}; // scar1..scar6
 
@@ -159,6 +168,56 @@ class RowRunSimulationTest {
                 "the Root of Life ends the quest on the statue's base");
         assertTrue(sim.steps().stream().anyMatch(s -> s.contains("HitReactor[reactorId=2001016]")),
                 "Papa Pixie is spawned by the pot, not by waiting");
+    }
+
+    // ---- Ludi PQ: nine stages, one door, five boxes out of nine ---------------------------------------
+
+    @Test
+    void aLudiPartyPlaysAllNineStagesToTheKey() {
+        Sim sim = play("LudiPQ", party(FIVE), 4_000);
+
+        assertTrue(sim.run().ended(), "the run has to finish inside the tick budget: " + sim.ticks());
+        assertEquals("cleared", sim.run().endedBecause());
+        assertEquals(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9), sim.stageOrder(), "all nine stage maps, in order");
+        assertEquals(9, sim.run().lastStage());
+        assertEquals("true", sim.world().props.get("9stageclear"), "2040044 takes the key and clears the PQ");
+
+        // every stage was earned by a step, and the door of stage 6 is taken by running its script
+        for (int stage = 1; stage <= 9; stage++) {
+            int s = stage;
+            assertTrue(sim.world().applied.stream().anyMatch(l -> l.startsWith(s + ":")),
+                    "stage " + stage + " saw a step");
+            assertTrue(sim.world().applied.stream().anyMatch(l -> l.startsWith(s + ":") && !l.contains(":Wait[")),
+                    "stage " + stage + " was worked by somebody, not waited out");
+        }
+        assertTrue(sim.steps().stream().anyMatch(l -> l.startsWith("6:") && l.contains("ScriptedPortal[portalName=next00]")),
+                "stage 6's only clear is the door's own script (scripts/portal/lpq5.js:33-41)");
+        assertTrue(sim.steps().stream().anyMatch(l -> l.contains("HitReactor[reactorId=2202003]")),
+                "stage 2 has no monsters at all: its fifteen passes come out of the boxes");
+        assertTrue(sim.world().waits * 2 < sim.ticks() * FIVE, "waits " + sim.world().waits + " of "
+                + (sim.ticks() * FIVE) + " member-ticks");
+    }
+
+    @Test
+    void aLudiStageWhosePassCountIsNeverReachedIsWorkedAndNeverAbandoned() {
+        MechanicsModel.Content content = MechanicsRuns.contentFor("LudiPQ");
+        Orchestrator orchestrator = new Orchestrator(Orchestrator.allSolvers(), new Random(11L), 0, 0);
+        RunState run = orchestrator.start(content, MechanicsModel.Tier.NORMAL, party(FIVE));
+        World world = new World(run);
+        world.noPasses = true; // the monsters never drop one: stage 1's rule cannot be met
+        world.enterStage();
+
+        for (int i = 0; i < 900 && !run.ended(); i++) {
+            Map<Integer, SolverStep> steps = orchestrator.tick(run, world, world.now);
+            world.apply(steps);
+            world.now += TICK_MS;
+        }
+
+        assertFalse(run.ended(), "a stage that cannot clear yet is not a failure: " + run.endedBecause());
+        assertEquals(1, run.currentStage(), "and it never advances past the real stage");
+        assertTrue(world.applied.stream().noneMatch(l -> l.contains("Abandon")), "nobody gives up");
+        assertTrue(world.waits > 0, "and it waits with a reason (a pass count it cannot reach), never silently");
+        assertTrue(world.applied.stream().anyMatch(l -> l.startsWith("1:")), "the stage keeps being worked");
     }
 
     @Test
@@ -281,6 +340,7 @@ class RowRunSimulationTest {
         private long now = 1_000;
         private boolean passGiven;
         private boolean altarRefuses;
+        private boolean noPasses;
         private int altarDelayTicks;
         private int altarTicks;
         private int tick;
@@ -327,6 +387,30 @@ class RowRunSimulationTest {
                         reactors.put(String.valueOf(lever), 0); // every lever starts pushed off
                     }
                     npcs.put(EAK, new int[]{0, 0});
+                }
+                case 922010100, 922010300, 922010500, 922010700 -> {
+                    // the passes are held by the map's own monsters and boxes; the count is what the NPC asks for
+                    mobs = LPQ_STAGE_MOBS.getOrDefault(stageMap, 0);
+                    npcs.put(run.stageData().npcId(), new int[]{0, 0});
+                }
+                case 922010200 -> npcs.put(2040037, new int[]{0, 0}); // boxes only: no monster lives here
+                case 922010400 -> {
+                    mobs = 6; // one pass per room; the World counts fights, not rooms
+                    npcs.put(2040039, new int[]{0, 0});
+                }
+                case 922010600 -> npcs.put(2040041, new int[]{0, 0});
+                case 922010800 -> {
+                    // scripts/npc/2040043.js: nine area nodes (one per box) and the leader's combination
+                    List<Rectangle> boxes = new ArrayList<>();
+                    for (int i = 0; i < 9; i++) {
+                        boxes.add(new Rectangle(-600 + i * 130, -760, 90, 80));
+                    }
+                    areas = boxes;
+                    npcs.put(2040043, new int[]{0, 300});
+                }
+                case 922010900 -> {
+                    mobs = 1; // the Alishar fight: one key at the end of it
+                    npcs.put(2040044, new int[]{0, 0});
                 }
                 case 920010100 -> npcs.put(EAK, new int[]{-201, -956});
                 case 920010800 -> npcs.put(EAK, new int[]{137, 397});
@@ -375,6 +459,13 @@ class RowRunSimulationTest {
                 case SolverStep.MoveTo m -> spot.put(id, new int[]{m.x(), m.y()});
                 case SolverStep.WarpTo w -> at.put(id, w.mapId());
                 case SolverStep.EnterPortal p -> at.put(id, run.stageData().mapId());
+                case SolverStep.ScriptedPortal p -> {
+                    // Ludi PQ's doors (scripts/portal/lpq0..lpq7.js): the stage's own clear, then the next map
+                    if (run.stageData().mapId() == 922010600) {
+                        props.put("6stageclear", "true"); // scripts/portal/lpq5.js:33-41
+                    }
+                    at.put(id, DOOR_TARGET.getOrDefault(run.stageData().mapId(), run.stageData().mapId()));
+                }
                 case SolverStep.Fight f -> fight(id, f);
                 case SolverStep.Loot l -> loot(id, l.itemId());
                 case SolverStep.DropFor d -> {
@@ -464,6 +555,36 @@ class RowRunSimulationTest {
                 mobs = 2;
                 return;
             }
+            switch (stageMap) {
+                case 922010200 -> {
+                    if (key.equals("2202003")) {
+                        if (!noPasses) {
+                            give(id, LPQ_PASS, 1);
+                        } // eleven boxes hold the fifteen passes (and 2200002 is a trap)
+                    }
+                    return;
+                }
+                case 922010300 -> {
+                    if (key.equals("2201001")) {
+                        give(id, LPQ_PASS, 1);
+                    }
+                    return;
+                }
+                case 922010700 -> {
+                    if (key.equals("2201002")) {
+                        give(id, LPQ_PASS, 1);
+                    }
+                    return;
+                }
+                case 922010900 -> {
+                    if (key.equals("2201003")) {
+                        give(id, LPQ_KEY, 1);
+                    }
+                    return;
+                }
+                default -> {
+                }
+            }
             if (stageMap == 240060200 && key.equals("2401000")) {
                 // scripts/reactor/2401000.js: the intro is not a target, the eight parts and the body are
                 parts.clear();
@@ -514,6 +635,10 @@ class RowRunSimulationTest {
         }
 
         private void talk(int id, SolverStep.TalkNpc t) {
+            if (LPQ_TALK.contains(t.npcId())) {
+                lpqTalk(id, t);
+                return;
+            }
             switch (run.stageData().mapId()) {
                 case 920010000 -> {
                     if (state("2006000") > 0) {
@@ -578,6 +703,51 @@ class RowRunSimulationTest {
             }
         }
 
+        /** The nine Ludi PQ talks, straight out of scripts/npc/2040036.js-2040044.js. */
+        private void lpqTalk(int id, SolverStep.TalkNpc t) {
+            int stage = LPQ_TALK.indexOf(t.npcId()) + 1;
+            if (t.npcId() == 2040043) {
+                // stage 8: the first talk writes the combination, the second counts the boxes
+                if (props.get("stage8combo") == null) {
+                    props.put("stage8combo", "101011001");
+                    props.put("statusStg8", "0");
+                    return;
+                }
+                if (onTheBoxes()) {
+                    props.put("8stageclear", "true");
+                }
+                return;
+            }
+            if (t.itemId() <= 0 || t.count() <= 0) {
+                return;
+            }
+            if (heldOf(id, t.itemId()) >= t.count()) {
+                take(id, t.itemId(), t.count());
+                props.put(stage + "stageclear", "true"); // clearStage(stage) in 2040036..2040044
+            }
+        }
+
+        /** Exactly five members standing on the boxes the combination wants, as 2040043.js:120-150 counts them. */
+        private boolean onTheBoxes() {
+            String combo = props.get("stage8combo");
+            if (combo == null || combo.length() != 9) {
+                return false;
+            }
+            int onCombo = 0;
+            for (RunMember m : run.members()) {
+                int[] p = spot.get(m.characterId());
+                for (int a = 0; a < 9; a++) {
+                    if (areas.get(a).contains(p[0], p[1])) {
+                        if (combo.charAt(a) == '1') {
+                            onCombo++;
+                        }
+                        break;
+                    }
+                }
+            }
+            return onCombo == 5;
+        }
+
         private boolean onThePlatforms() {
             for (int i = 0; i < 3; i++) {
                 Rectangle r = areas.get(i);
@@ -623,6 +793,9 @@ class RowRunSimulationTest {
             }
             if (mobs > 0) {
                 mobs--;
+                if (noPasses) {
+                    return; // the drop tables give nothing: the stage can never clear
+                }
                 if (f.itemId() > 0) {
                     // one monster drops a few of its piece; Papa Pixie drops the one Root of Life
                     give(id, f.itemId(), f.itemId() == WALKWAY_PIECE ? 10 : f.itemId() == LOUNGE_PIECE ? 12 : 1);

@@ -1,4 +1,4 @@
-# Orbis PQ, ticket 164 - report (branch `164-opq`, 1.6.4)
+# Party quests, ticket 164 - report (branch `164-opq`, 1.6.4): Orbis PQ and Ludi PQ
 
 Worktree `/root/work/164-opq`, reset onto `0488c420e` (the `ex-2` auto-QA base) so the boss lane's engine is underneath.
 Nothing pushed, nothing merged, live server untouched. The whole row is behind its **own** switch: a run starts only with
@@ -61,6 +61,42 @@ Which piece goes on which scar is a permutation, not the piece's own number, and
 `4001046`, `scar2` `4001049`, `scar3` `4001047`, `scar4` `4001044`, `scar5` `4001048`, `scar6` `4001045`
 (`Reactor.wz/2008000-2008005.img.xml`, one item trigger each). cosmic_agents' `STATUE_SCAR_BY_ITEM` is the same pairing.
 
+## Ludi PQ: nine stages, one door, five boxes out of nine
+
+The row is `content/lpq.yaml`, nine stages, all in the engine's own vocabulary, with its own switch
+(`-Dslums.mechanics.lpq`, default OFF, on top of `-Dslums.mechanics`). Gates are our script's, not upstream's:
+recruit `221024500`, front door 2040034 (the Red Sign, `scripts/npc/2040034.js`), five to six members, level 35-255,
+45 minutes (`scripts/event/LudiPQ.js:26-29,35`).
+
+| Script stage | Map | Clear signal | What drives it |
+| --- | --- | --- | --- |
+| 1 | 922010100 | `1stageclear == "true"` | `lpq-farm`: 25 passes from the map's monsters, hand-in at 2040036 |
+| 2 | 922010200 | `2stageclear` | `lpq-farm`: **no monsters exist here** - eleven boxes (`2202003`) and a trap (`2200002`), 15 passes, hand-in at 2040037 |
+| 3 | 922010300 | `3stageclear` | `lpq-farm`: eight monsters **and** eight boxes (`2201001`), 32 passes, 2040038 |
+| 4 | 922010400 | `4stageclear` | `lpq-farm`: six passes **inside five rooms** (`922010401-405`, one room per member), 2040039 |
+| 5 | 922010500 | `5stageclear` | `lpq-farm`: twenty-four passes inside six rooms (`922010501-506`), 2040040 |
+| 6 | 922010600 | `6stageclear` | `lpq-farm` returns `ScriptedPortal("next00")`: the door's own script writes the property, nothing else does |
+| 7 | 922010700 | `7stageclear` | `lpq-farm`: three passes from the three bosses and three boxes (`2201002`), 2040042 |
+| 8 | 922010800 | `8stageclear` | `lpq-combo`: five members on the boxes the run's `stage8combo` names, 2040043 checks |
+| 9 | 922010900 | `9stageclear` | `lpq-farm`: the key (`4001023`, not a pass), hand-in at 2040044, then `clearPQ` sends the party to 922011000 |
+
+Three things are worth saying plainly:
+
+- **The generic solver was not enough twice, and the reason is data.** `kill-collect-hand-in` farms monsters and pools
+  passes; stage 2 has no monsters at all and stage 4/5 keep their passes in sub-rooms, so `lpq-farm` adds exactly those
+  two behaviours and delegates the rest to it. Everything else really is the generic path.
+- **A door can be the clear.** Stage 6's NPC only prints a hint; `scripts/portal/lpq5.js:33-41` writes `6stageclear`
+  on the way through. `GCPortals.enter` (what `EnterPortal` uses for bots) checks `PqGates` and then does a plain
+  `changeMap`, so a bot that "used the door" would never set it. The new `ScriptedPortal` step runs the portal's script
+  the way `KpqStaging` already does for a staged human leader, and logs the outcome. That is the one new primitive, and
+  it is not Ludi-specific: `PqGates` keeps every scripted door shut for bots, so Magatia, Ellin PQ and CWKPQ doors
+  with side effects get the same use out of it (map-empty and reactor-state clears were *not* needed - no LPQ stage
+  asks for one).
+- **Stage 8 is a different kind of answer.** `combination` matches a sequence the row declares; this one is written
+  into the instance by the NPC when the stage opens, so the row cannot hold it. `lpq-combo` reads
+  `stage8combo` + the map's nine `area` nodes each tick (`StageView.area(int)`), which is the same seam Orbis' sealed
+  room uses.
+
 ## Expedition rule: pause for revive (this is the report it lives in)
 
 The boss report is on `164-bossfight`, a different branch, so this one carries the rule. It is the answer to the lane
@@ -110,6 +146,11 @@ Two real defects fell out of it and are fixed in the same commit:
 2. **The lounge stage could never hand in.** `opq-subroom` talks to Eak in `920010600` while the stage's map is the side
    room `920010601`, and `extraMaps` did not name the lounge, so the orchestrator dropped the leader's `TalkNpc` as a
    step from a member on the wrong map and waited instead. The lounge is now one of that stage's maps.
+
+Ludi PQ has the same two cases: `aLudiPartyPlaysAllNineStagesToTheKey` walks all nine maps in order and asserts
+stage 6 was taken by `ScriptedPortal[portalName=next00]` and stage 2's passes came out of `2202003`, and
+`aLudiStageWhosePassCountIsNeverReachedIsWorkedAndNeverAbandoned` holds the pass drops at zero and requires that the
+run neither advances, abandons, nor goes silent.
 
 ## The two stages that were reported broken, verified rather than assumed
 
@@ -162,6 +203,16 @@ party with nothing to place. That is data, not code, and it is the one thing lef
    stage with `statusStg8` as its clear is the only shape the engine can express without a new clear type.
 7. **Papa Pixie is spawned by the pot, not by seeds.** `scripts/reactor/2001016.js` clears the garden and spawns
    `9300039` on any hit; placing the seeds (`4001074` on the pot reactors) is upstream's flavour step and is skipped.
+
+## Ludi PQ against upstream
+
+| Item | Ours (the truth) | cosmic_agents `AgentLpqDefinition` | Which wins |
+| --- | --- | --- | --- |
+| level band | 35-255 (`scripts/event/LudiPQ.js:28-29`) | `MIN_LEVEL 35` / `MAX_LEVEL 50` | ours: the same foreign-constant mistake the Orbis 51-70 cap nearly put in this branch |
+| party | 5-6 (`LudiPQ.js:26-27`) | six | ours |
+| stage counts | 25, 15, 32, 6, 24, -, 3, combo, 1 (`2040036.js-2040044.js`) | the same nine counts | agree - the only part copied from it is this table, cross-checked against our NPCs |
+| stage 6 | a door whose script writes `6stageclear` | no door stage | ours |
+| boxes / rooms | stage 2 is boxes only, stages 4-5 are rooms | modelled as "interact" | ours (our map data says where the passes are) |
 
 ## Entry: what starts an Orbis run
 
@@ -239,8 +290,10 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8499 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-lobby-final.log`, exit 0; the lobby's tests then became `ContentLobbyTest`, 8 of them, in the same range). That is the number to compare against the rest of the release - 8455 before this
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8515 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-lpq.log`, exit 0 - Ludi PQ's own commit; `LpqSolversTest` 12, two more simulation cases, and the
+shared row/data tests that walk every content file). Before it, on the Orbis-only tree: **8499 tests, 0 failures, 0
+errors, 137 skipped, BUILD SUCCESS** (`/tmp/opq-lobby-final.log`, exit 0; the lobby's tests then became `ContentLobbyTest`, 8 of them, in the same range). That is the number to compare against the rest of the release - 8455 before this
 branch's tests, 8461 after its first commit (`OpqSolversTest` 14, `OrbisPqLobbyStageTest` 4,
 `OrbisSealedRoomAreaTest` 2), 8479 once the lobby, the sealed room and the finale were added (`OpqSolversTest` 32), 8486
 with the whole-row simulation (`RowRunSimulationTest` 7), 8491 with the revive pause (`RevivePauseTest` 5), 8493 once

@@ -138,6 +138,20 @@ public sealed interface SolverStep {
     }
 
     /** Walk into a portal on the member's map (the stage's way on; its script's gate still decides). */
+    /**
+     * Take a door by <em>running the portal's own script</em>, the way a player does, instead of the plain
+     * {@link EnterPortal} warp. Ludi PQ needs it twice: its doors ({@code scripts/portal/lpq0..lpq7.js}) refuse until
+     * the stage's {@code Nstageclear} property is set, and the door out of stage 6 is what <em>writes</em> that
+     * property for stage 6 ({@code lpq5.js:33-41}) - a plain {@code changeMap} would leave the stage unclearable.
+     * {@code scripting.portal.PortalScriptManager.runPortalScript} is the entry point the staging already uses.
+     */
+    record ScriptedPortal(String portalName) implements SolverStep {
+        @Override
+        public String toString() {
+            return "ScriptedPortal[portalName=" + portalName + "]";
+        }
+    }
+
     record EnterPortal(String portalName) implements SolverStep {
     }
 
