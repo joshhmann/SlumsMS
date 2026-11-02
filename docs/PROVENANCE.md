@@ -252,3 +252,16 @@ transit edges gated by the exit's quest (`timeQuest.js`, run in a test) and Temp
 sub-quests, 3507's end and 3514 run through their own quest scripts (`BotQuestScript`), where upstream calls
 `forceStart`/`forceComplete` and grants the potion itself; 3521 is not driven; every number is checked against
 Quest.wz, Map.wz and our scripts (`TempleRouteTest`).
+
+### Expedition death count, 1.6.4 (branch `164-bossfight`, ticket 130 boss lane), BotStory `81a3b1df`
+
+| From theirs | Our files |
+| --- | --- |
+| `server.expeditions.ExpeditionDeathCount`: one atomic budget per run, charged on a player death, armed only when the mod is on, bots and companions never spend it, the death that spends the last one ends the run | `soloMapling/mechanics/ExpeditionDeathCount.java` |
+
+Ours: the budget is armed from the `-Dslums.bossfight.deathcount` system property (off by default) with a cap of
+`-Dslums.bossfight.deathcount.cap` (default 10) and a per-boss override, instead of their `config.yaml`
+`mods.DEATH_COUNTS` map; "who is a player" is our `Character.isBot()`/`isOwnedAlt()` pair instead of their BotClient
+and `BotHelpers` tests; the run ends through the event script's own `scheduledTimeout` with a fallback that moves
+everyone out and disposes the instance, instead of their client's death-count panel, which needs the `DEATH_COUNT`
+opcode only their patched client has. Their `set(int)` GM override is not ported.

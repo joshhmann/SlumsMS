@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 import scripting.AbstractPlayerInteraction;
 import scripting.event.scheduler.EventScriptScheduler;
 import server.ItemInformationProvider;
+import soloMapling.mechanics.ExpeditionDeathCount;
 import server.StatEffect;
 import server.ThreadManager;
 import server.TimerManager;
@@ -81,6 +82,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
  */
 public class EventInstanceManager {
     private static final Logger log = LoggerFactory.getLogger(EventInstanceManager.class);
+    /** How long a run with a spent death count waits before it ends, so the dying player's screen lands on it. */
+    private static final long DEATH_COUNT_END_DELAY_MS = 1500;
     private final Map<Integer, Character> chars = new HashMap<>();
     private int leaderId = -1;
     private final List<Monster> mobs = new LinkedList<>();
@@ -94,6 +97,11 @@ public class EventInstanceManager {
     private long timeStarted = 0;
     private long eventTime = 0;
     private Expedition expedition = null;
+    /**
+     * The death budget of this instance (ticket 130 phase 5 phase 1): one counter per run, armed when an expedition
+     * registers and charged by {@link #playerKilled(Character)}. Real fights only -- GuildBossRuns never arms it.
+     */
+    private final ExpeditionDeathCount deathCount = new ExpeditionDeathCount();
     private final List<Integer> mapIds = new LinkedList<>();
 
     private final Lock readLock;
@@ -443,6 +451,12 @@ public class EventInstanceManager {
     public void registerExpedition(Expedition exped) {
         expedition = exped;
         registerExpeditionTeam(exped, exped.getRecruitingMap().getId());
+        // ticket 130 phase 5 phase 1: a real run (a human-led party, bots included) may carry a death budget. It is
+        // armed from -Dslums.bossfight.deathcount, off by default; with the switch off this logs nothing and charges
+        // nothing, so the death path is exactly what it was before.
+        if (exped.getType() != null && deathCount.arm(ExpeditionDeathCount.configuredFor(exped.getType()))) {
+            log.info("[BossFight] {} run {} carries {} deaths for the party", exped.getType(), name, deathCount.left());
+        }
     }
 
     private void registerExpeditionTeam(Expedition exped, int recruitMap) {
@@ -605,12 +619,84 @@ public class EventInstanceManager {
     }
 
     public void playerKilled(final Character chr) {
+        chargeDeathCount(chr);
         ThreadManager.getInstance().newTask(() -> {
             try {
                 invokeScriptFunction("playerDead", EventInstanceManager.this, chr);
             } catch (ScriptException | NoSuchMethodException ex) {
             } // optional
         });
+    }
+
+    /** The death budget of this instance: armed for real runs only, and only when the switch is on. */
+    public ExpeditionDeathCount getDeathCount() {
+        return deathCount;
+    }
+
+    /**
+     * Spends one death of this instance's budget (ticket 130 phase 5 phase 1). Only humans are charged -- a bot or an
+     * owned alt dying is not the party's loss -- and only inside an armed, running instance, so with
+     * {@code -Dslums.bossfight.deathcount} off this returns at once and changes nothing.
+     */
+    private void chargeDeathCount(Character chr) {
+        if (!deathCount.isOn() || disposed || !ExpeditionDeathCount.counts(chr) || chr.getEventInstance() != this) {
+            return;
+        }
+
+        switch (deathCount.charge()) {
+            case SPENT -> {
+                int left = deathCount.left();
+                log.info("[BossFight] {} died in {}, {} left", chr.getName(), name, left);
+                dropMessage(5, "[Expedition] " + chr.getName() + " fell. " + deathsLeft(left) + " left.");
+            }
+            case EXHAUSTED -> {
+                log.info("[BossFight] {} died in {} with none left, the run ends", chr.getName(), name);
+                dropMessage(5, "[Expedition] " + chr.getName() + " fell with no deaths left. The expedition is over.");
+                TimerManager.getInstance().schedule(this::endForDeathCount, DEATH_COUNT_END_DELAY_MS);
+            }
+            case OFF -> {
+            }
+        }
+    }
+
+    private static String deathsLeft(int left) {
+        return left == 1 ? "1 death" : left + " deaths";
+    }
+
+    /**
+     * Ends a run whose death count ran out (ticket 130 phase 5 phase 1). The script's own end runs first -- for
+     * ZakumBattle.js that is {@code scheduledTimeout -> end -> dispose}, which walks everyone out and disposes the
+     * instance; a script without that entry point gets the party walked out here instead, so nobody is left standing
+     * in a dead instance.
+     */
+    private void endForDeathCount() {
+        if (disposed) {
+            return;
+        }
+
+        try {
+            invokeScriptFunction("scheduledTimeout", this);
+        } catch (Exception ex) {
+            log.warn("[BossFight] {} cannot end {} on its own, walking the party out", em.getName(), name, ex);
+        }
+
+        if (disposed) {
+            return;
+        }
+
+        for (Character p : getPlayers()) {
+            MapleMap cur = p.getMap();
+            unregisterPlayer(p);
+            if (cur == null) {
+                continue;
+            }
+
+            MapleMap back = p.getWarpMap(cur.getReturnMapId());
+            if (back != null) {
+                p.changeMap(back, back.getPortal(0));
+            }
+        }
+        dispose();
     }
 
     public void reviveMonster(final Monster mob) {

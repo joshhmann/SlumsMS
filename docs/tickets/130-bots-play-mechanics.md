@@ -439,6 +439,30 @@ proven on TEST: needs a t-mx-1/t-mx-2 run and a lobby run's STALL lines.
 
 Each phase stays behind `-Dslums.mechanics` (on TEST, off in the release conf) until the owner says go.
 
+## Boss lane: the death count (1.6.4, branch `164-bossfight`)
+
+Real expeditions are a path of their own. `GuildBossRuns` stays exactly as it is (a roll with the bots logged out);
+the fight a human-led party actually enters is driven by `soloMapling/mechanics/` and, on this branch, by
+`ExpeditionDeathCount`.
+
+Phase 1 of the boss lane is the per-instance death budget, ported from BotStory `server/expeditions/ExpeditionDeathCount.java`
+at `81a3b1df` (see `docs/PROVENANCE.md`):
+
+- one counter per event instance, armed from `-Dslums.bossfight.deathcount` (boolean, **off**) with
+  `-Dslums.bossfight.deathcount.cap` (int, default 10) and a per-boss override
+  `-Dslums.bossfight.deathcount.cap.<type>` (e.g. `.zakum`). No config.yaml key and no store: the count lives on the
+  instance and dies with it;
+- only humans count (`Character.isBot()` / `isOwnedAlt()` deaths are free), so bots can die and be revived without
+  spending the party's budget;
+- the death that spends the last one ends the run: a line to the party, then the script's own end path
+  (`scheduledTimeout`) at 1500 ms so the death animation is seen, and a fallback that moves everybody to the map's
+  return map and disposes the instance if the script does not;
+- with the switch off nothing is armed and the death path is what it is today.
+
+No client packet: BotStory has a `DEATH_COUNT` opcode because its client is patched; stock v83 has none, so the line
+is chat (type 5) and the server log. Tests: `ExpeditionDeathCountTest` (the counter) and
+`ExpeditionDeathCountRunTest` (a real `EventInstanceManager` and `playerKilled`), the latter written failing first.
+
 ## QA plan
 
 - **Unit:** every content YAML loads clean; answers/rectangles/items are re-read from our scripts and compared
