@@ -241,7 +241,7 @@ public final class StageData {
             return null;
         }
         return new Content(id, name, kind, script, recruit, exit, minP, maxP, minL, maxL, time, List.copyOf(sources),
-                List.copyOf(stages), Map.copyOf(tiers), after, opt(m, "flag"));
+                List.copyOf(stages), Map.copyOf(tiers), after, opt(m, "flag"), num(m, "entryNpc", 0, p));
     }
 
     private static TierRules readTier(Tier t, Map<?, ?> m, int minL, int maxL, int time, List<String> p) {

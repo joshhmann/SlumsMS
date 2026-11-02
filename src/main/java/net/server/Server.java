@@ -1043,6 +1043,7 @@ public class Server {
         soloMapling.Economy.exchange.volatility.MarketVolatility.startIfEnabled(); // 1.6.1 volatility: traders/events/rumours, off unless their -D flags
         soloMapling.Economy.board.SiteBoard.startIfEnabled(); // 1.6.0 site board + price alerts (file channel), off unless -Dslums.board=true
         soloMapling.mechanics.KpqLobby.startIfEnabled(); // 1.6.1 KPQ automation: bot-only lobby parties, off unless -Dslums.mechanics=true and -Dslums.mechanics.lobby=true
+        soloMapling.mechanics.OpqLobby.startIfEnabled(); // 1.6.4 OPQ automation: bot-only Orbis parties at Wonky, off unless -Dslums.mechanics.opq.lobby=true and the row's two flags
        // DamageSkin.loadDamageSkins();
     }
 

@@ -11,6 +11,8 @@ id: opq
 name: Orbis Party Quest
 kind: PQ
 eventScript: OrbisPQ
+# the NPC a bot leader accepts the quest from (KpqStaging/OpqLobby talk to it, never press the button)
+entryNpc: 2013000
 recruitMap: 200080101
 # Where a member is sent when a run WE end ends, not the script's own exit: OrbisPQ.js:30 sends the party to 920011200
 # itself, so a run we end early puts the member back at Wonky's lobby where the party formed.

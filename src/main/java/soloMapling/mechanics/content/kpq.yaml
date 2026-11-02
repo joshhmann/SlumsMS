@@ -8,6 +8,8 @@ id: kpq
 name: Kerning City Party Quest
 kind: PQ
 eventScript: KerningPQ
+# the NPC a bot leader accepts the quest from (KpqStaging/OpqLobby talk to it, never press the button)
+entryNpc: 9020000
 recruitMap: 103000000
 exitMap: 103000890
 minPlayers: 3

@@ -696,7 +696,7 @@ final class MechanicsScenarios {
                 while (!em.getInstances().isEmpty() && System.currentTimeMillis() < freeBy) {
                     sleep(500);
                 }
-                List<Character> lobbyBots = KpqStaging.spawnBots(recruit, 3, spawned);
+                List<Character> lobbyBots = KpqStaging.spawnBots(recruit, 3, spawned, KpqStaging.LAKELIS, 30, 35);
                 if (lobbyBots.size() < 3) {
                     throw new QaRefusal("only " + lobbyBots.size() + " of 3 lobby bots spawned");
                 }
@@ -716,7 +716,7 @@ final class MechanicsScenarios {
             }
             gm.changeMap(recruit, recruit.getPortal(0));
             net.server.world.Party.createParty(gm, false);
-            List<Character> mates = KpqStaging.spawnBots(recruit, 2, spawned);
+            List<Character> mates = KpqStaging.spawnBots(recruit, 2, spawned, KpqStaging.LAKELIS, 30, 35);
             for (Character c : mates) {
                 net.server.world.Party.joinParty(c, gm.getParty().getId(), true);
             }

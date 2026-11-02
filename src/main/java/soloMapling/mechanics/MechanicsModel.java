@@ -274,20 +274,34 @@ public final class MechanicsModel {
     public record Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
                           int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
                           List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers,
-                          AfterClear afterClear, String flag) {
+                          AfterClear afterClear, String flag,
+                          /**
+                           * The NPC a bot leading a party accepts the quest from (Lakelis {@code 9020000}, Wonky
+                           * {@code 2013000}); 0 when the row does not say. The staging talks to it instead of pressing
+                           * the event's own button, so a bot party goes in the way a player's does.
+                           */
+                          int entryNpc) {
+
+        public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
+                       int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
+                       List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers, AfterClear afterClear,
+                       String flag) {
+            this(id, name, kind, eventScript, recruitMap, exitMap, minPlayers, maxPlayers, minLevel, maxLevel,
+                    timeLimitMinutes, sources, stages, tiers, afterClear, flag, 0);
+        }
 
         public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
                        int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
                        List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers, AfterClear afterClear) {
             this(id, name, kind, eventScript, recruitMap, exitMap, minPlayers, maxPlayers, minLevel, maxLevel,
-                    timeLimitMinutes, sources, stages, tiers, afterClear, null);
+                    timeLimitMinutes, sources, stages, tiers, afterClear, null, 0);
         }
 
         public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
                        int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
                        List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers) {
             this(id, name, kind, eventScript, recruitMap, exitMap, minPlayers, maxPlayers, minLevel, maxLevel,
-                    timeLimitMinutes, sources, stages, tiers, null, null);
+                    timeLimitMinutes, sources, stages, tiers, null, null, 0);
         }
 
         public Optional<Stage> stage(int index) {
