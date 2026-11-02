@@ -1,7 +1,10 @@
 # Ticket 182: Papulatus, Scarga and Showa dereference a bot's headless client in the clear-reward loop (F01)
 
 **Status:** open for 1.6.4. Filed 2026-11-02 09:04 UTC (01:04 PST) from the 1.6.4 content hunt, where the boss /
-expedition audit (`/root/work/agent-runs/server/s-boss-audit/`, rows F01) rated it impact 4 and "FIX". Line numbers
+expedition audit (`/root/work/agent-runs/server/s-boss-audit/`, rows F01) rated it impact 4 and "FIX". **A lane exists:**
+branch `164-bossguard` (worktree `/root/work/SlumsMS-164-bossguard`), covering the three scripts here plus the
+`LatanicaBattle.js` / `MahaBattle.js` neighbours noted under "Why these three". A lane existing is not acceptance —
+nothing in the list below is met until its proof is recorded. Line numbers
 are as of `release-1.6.4` tip `c0e0a2cd7` unless a commit is named; the audit ran on `163-integration`, so a few
 `src/main/java` numbers differ there and should be found by grep rather than trusted.
 

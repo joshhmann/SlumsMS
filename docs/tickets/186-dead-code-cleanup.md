@@ -1,8 +1,10 @@
 # Ticket 186: three pieces of dead code, and F08 as filed is wrong
 
 **Status:** open for 1.6.4. Filed 2026-11-02 09:04 UTC (01:04 PST) from the 1.6.4 content hunt. Each item is
-independent and small; they share a ticket only because none of them is worth a card on its own. Line numbers as of
-`release-1.6.4` tip `c0e0a2cd7`.
+independent and small; they share a ticket only because none of them is worth a card on its own. **A lane exists:**
+branch `164-deadcode` (worktree `/root/work/SlumsMS-164-deadcode`), which took this ticket together with 185; a lane
+existing is not acceptance, and the criteria below stand unchanged. Line numbers as of `release-1.6.4` tip
+`c0e0a2cd7`.
 
 ## 1. `RedisJobQueue` is dead, and it is the only reason `jedis` is a dependency
 

@@ -16,7 +16,7 @@ boss/expedition audit `agent-runs/server/s-boss-audit/`. Story and environment t
 
 | # | Ticket | State |
 |---|---|---|
-| [181](181-config-template-gap.md) | The shipped config template omits 353 of 359 keys and every world, so a fresh install boots into 0-valued boot-critical fields | Fix finished and green on `164-configtemplate`; unmerged (S2) |
+| [181](181-config-template-gap.md) | The shipped config template omits 353 of 359 keys and every world, so a fresh install boots into 0-valued boot-critical fields | Merged at `1c168eff9`; forward-merge hazard to `release-1.6.4` remains (S2) |
 | [182](182-boss-clear-reward-bot-guard.md) | Papulatus, Scarga and Showa dereference a bot's headless client in the clear-reward loop | Source-confirmed, reachable; fix + test required (S3, F01) |
 | [183](183-expedition-attempt-logging.md) | The daily expedition-attempt ledger is never written, so the quota counts clears | Source-confirmed; needs the owner's switch decision (S3, F02) |
 | [184](184-expedition-hwid-reward-limit.md) | `EXPEDITION_HWID_LIMIT` reads 0 and nothing calls the limit, so "4 per machine per day" is enforced nowhere | Source-confirmed; arithmetic decision required (S3, F03) |

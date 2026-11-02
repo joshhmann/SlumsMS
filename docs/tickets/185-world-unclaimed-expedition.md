@@ -1,7 +1,9 @@
 # Ticket 185: `World.addUnclaimed` is a no-op and `removeUnclaimed` puts the same value back, so the unclaimed-reward ledger can never hold anything (F07)
 
 **Status:** open for 1.6.4. Filed 2026-11-02 09:04 UTC (01:04 PST) from the 1.6.4 content hunt (boss/expedition audit
-row F07, impact 2, "FIX"). Line numbers as of `release-1.6.4` tip `c0e0a2cd7`.
+row F07, impact 2, "FIX"). **A lane exists:** branch `164-deadcode` (worktree `/root/work/SlumsMS-164-deadcode`), which
+took this ticket together with 186; a lane existing is not acceptance, and the criteria below stand unchanged. Line
+numbers as of `release-1.6.4` tip `c0e0a2cd7`.
 
 ## The defect
 
