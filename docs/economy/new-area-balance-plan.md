@@ -81,6 +81,14 @@ Rates here are explicit modelling assumptions taken from the existing ticket-81 
 The fixed 141M damage/hour, 1,500-kill/hour cap is the project's existing comparison model. It omits job, defence,
 movement, spawn supply, buff uptime, party effects and potion use. Do not present its outputs as actual play rates.
 
+## Class equipment progression
+
+The companion [equipment ladder](new-area-equipment-ladder.md) specifies weapons for every supported class,
+armour IDs for all five families, shields/ammo/accessories, cumulative set bonuses and acquisition checks.
+It distinguishes the proposed ordinary dropped-gear path from expensive crafted sets, and records recipe
+levels separately from actual equip requirements. The evidence includes 392 named items and 1,249 planned
+source rows; active sources and client compatibility remain unverified.
+
 ## How to decide monster scaling versus equipment
 
 Use fixed, reproducible reference characters at levels **100, 110, 120, 130, 150, 170, 190 and 200**. Include a
