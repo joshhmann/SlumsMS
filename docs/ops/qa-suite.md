@@ -621,8 +621,11 @@ them (and undoes any LOD pin) itself. None of them is on the release allow-list.
   wrong one (the check never reads the secret), its `/bots/{cid}` view must be the bot (name, level, map), the pretend
   player is never served, `/positions` lists the bot; kill calibration (`-Dslums.killcalib`) reports version 1,
   report-only, with totals and buckets, and `!killcalib`'s header says on; the nav path trace (`-Dslums.navTrace`)
-  holds a ring of the bot's own ticks on its map (`NavTrace.qaRing`, which spends none of the hourly copy budget). A
-  tool that is off SKIPs the check naming its flag.
+  holds a ring on the bot's map. The check reads a trace of its own (`NavTrace.qaRing`, only where the QA suite runs,
+  one sample a read, freed with `NavTrace.qaRelease`): it spends none of the hourly copy budget, and it does not need
+  the bot to have a movement tick chain, which a bot the check has just spawned and placed may never get (TEST 11-01:
+  the shared ring was empty and the hour's 20 copies had gone to other bots' stuck reports). A tool that is off
+  SKIPs the check naming its flag.
 
 ### bt-1: bots talk to bots (1.6.1, ticket 114)
 
