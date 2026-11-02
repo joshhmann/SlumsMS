@@ -9,6 +9,7 @@ let level = 0;
 let job;
 let fee = 0;
 const JobMasterFees = Java.type('constants.game.JobMasterFees');
+const Job = Java.type('client.Job');
 
 // No regular expressions in server scripts: this GraalJS build has no regex engine ("No language for id regex").
 function mesos(n) {
@@ -77,6 +78,11 @@ function start() {
         fillJobs();
     }
 
+    // 1.6.4 ticket 164: fillJobs' "next job" branches build their id as currentJobId + 1, which for a job with no
+    // next tier still produces one: a SUPERGM (910) at level 70 was offered 911 and an EVAN (2001) at 120 was offered
+    // 2002, ids no Job entry backs. The list showed them with no name, and advancing failed after the fee was taken.
+    jobs = jobs.filter((id) => Job.getById(id) !== null);
+
     if (jobs.length === 0) {
         cm.sendOk("You are not eligible for a new job.");
         cm.dispose();
@@ -127,7 +133,12 @@ function action(m, t, s) {
 
 function jobAdvance() {
     if (job !== 700) {
-        cm.changeJobById(job);
+        // 1.6.4 ticket 164: changeJobById returns false when the id has no Job behind it and nothing was changed.
+        // Ignoring it handed out the rewards (50 Power Elixirs at least) and closed the dialog as if it worked.
+        if (!cm.changeJobById(job)) {
+            cm.sendOk(`#rThe job advancement failed.#k\r\n\r\nThis server has no job #b${job}#k to advance to, so you are still a #b${cm.getJobName(cm.getJobId())}#k.`);
+            return;
+        }
         cm.teachFourthJobMasteries(job); // the master levels the Leafre instructors give (4th jobs only)
     }
     giveRewards();
