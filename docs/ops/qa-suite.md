@@ -253,16 +253,26 @@ recruiter's member quest, and has a boss-log entry left; never past the maximum.
 <type>: owner|map|level|quest|quota|busy|full`. In game: party with your bots, talk to Adobis, make the expedition,
 and the yellow lines say `[Expedition] <bot> joined with you.`; inside, the followers fight next to you.
 
-## ex-2: a GM, party bots and his alt fight Zakum in the real expedition (1.6.4)
+## ex-2: a GM and party bots fight Zakum in the real expedition (1.6.4)
 
 | Test | What it stages | What to look for |
 |---|---|---|
-| `ex-2 <your alt's name>` | Warps you (level 50+, no party or leading one) to Adobis's map 211042400, stages 4 follower bots, summons your own alt (make one with `!qa do alts`) into your party, then makes the channel's Zakum expedition and starts `ZakumBattle`'s instance the way the recruiter does - which registers and warps everyone standing there to 280030000. Once two of you are in the room it clicks the Eye of Fire (reactor 2111001) with the same call `StepExecutor` uses. Samples once a second for 90 s and up to 150 s, then stops. Expedition, instance, alt and bots are undone at `!qa stop`. Runs 4 minutes | `EX2 START members=<n> bots=<n> alt=<name> mechanics=<b> slums.mechanics.boss=<v> ...`, per member per second `EX2 SEEN t=<s> <name> <kind> map=<id> held=<yes/no> run=<yes/no> target=<oid>/<mob> <mob name> reach=<yes/no> swings=<n> dmg=<n> doing=<run line>`, every 10 s `EX2 PARTS t=<s> <id:hp/maxHp ...>` and `EX2 RUN t=<s> stage=<n> cleared=<b> ended=<reason\|-> events=<k> \| <lines>`, `EX2 ALTAR t=<s> hit reactor 2111001 as <you>, <n> mob(s) on the map now`, then `EX2 PASS cleared ...`, `EX2 FAIL <reason>`, `EX2 END still fighting ...` or `EX2 BASELINE boss=off ...` |
+| `ex-2 [your alt's name]` | Warps you (level 50+, no party or leading one) to Adobis's map 211042400, stages 4 follower bots, summons your own alt (make one with `!qa do alts`) into your party when you name one, then makes the channel's Zakum expedition and starts `ZakumBattle`'s instance the way the recruiter does - which registers and warps everyone standing there to 280030000. Once two of you are in the room it clicks the Eye of Fire (reactor 2111001) with the same call `StepExecutor` uses. Samples once a second for 90 s and up to 150 s, then stops. Expedition, instance, alt and bots are undone at `!qa stop`. Runs 4 minutes | `EX2 START members=<n> bots=<n> alt=<name> mechanics=<b> slums.mechanics.boss=<v> ...`, per member per second `EX2 SEEN t=<s> <name> <kind> map=<id> held=<yes/no> run=<yes/no> target=<oid>/<mob> <mob name> reach=<yes/no> swings=<n> dmg=<n> doing=<run line>`, every 10 s `EX2 PARTS t=<s> <id:hp/maxHp ...>` and `EX2 RUN t=<s> stage=<n> cleared=<b> ended=<reason\|-> events=<k> \| <lines>`, `EX2 ALTAR t=<s> hit reactor 2111001 as <you>, <n> mob(s) on the map now`, then `EX2 PASS cleared ...`, `EX2 FAIL <reason>`, `EX2 END still fighting ...` or `EX2 BASELINE boss=off ...` |
 
 Run it twice from the same build: once with `-Dslums.mechanics.boss=true -Dslums.bossfight.damagefloor=true
 -Dslums.bossfight.deathcount=true` and once without, and compare the `EX2 SEEN swings/dmg` totals and the verdict. The
 `EX2 START` line records the switches, so the two logs label themselves. On a build that does not know a switch the
 value reads `unset`; `EX2 BASELINE` means `slums.mechanics.boss` was off, which is a comparable run, not a verdict.
+
+The alt is optional: with no name the run stages you and the follower bots only, which is exactly what auto-QA can
+make (it cannot create a named alt). That is how `t-ex-2` proves the room on every build: it runs `ex-2` with no
+argument, waits for the `EX2 CHECK` line, and asserts the things a regression would break - `members=<reached>/<staged>`
+equal and at least 2, a boss mob id targeted, `reach=yes` (a swing from where the bot stood could reach it),
+`swings>0`, `dmg>0`, `altar=yes`, and `lacks("Abandon")` / `lacks("could not be put in map")` over the whole log. The
+`EX2 CHECK` line is written in both switch settings, so a run with the lane off still reads honestly (`boss=no`,
+`swings=0`, then `EX2 BASELINE`); `t-ex-2` SKIPs in that setting rather than passing on a baseline, which is why
+`tools/ops/autoqa-proof` prints `needs -Dslums.mechanics.boss=true on the server for t-ex-2`. A release run therefore
+has to carry that switch, as it already carries `-Dslums.mechanics=true` for t-mx-1 to t-mx-6.
 
 Owner 2026-11-02 (ticket 130 follow-up): `ex-1` stops at "the expedition exists". `ex-2` is the one that proves a fight
 happens at all, and its log is what the boss lane is judged on from the outside - target, reach, damage, and the run's

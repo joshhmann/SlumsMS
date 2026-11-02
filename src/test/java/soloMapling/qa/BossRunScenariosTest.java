@@ -107,6 +107,42 @@ class BossRunScenariosTest {
         assertFalse(BossRunScenarios.bossOn(null));
     }
 
+    private static BossRunScenarios.Facts facts(int reached, int staged, boolean boss, boolean reach, long swings,
+                                                long damage, boolean altar, boolean abandoned, boolean stuck,
+                                                boolean bossOn) {
+        return new BossRunScenarios.Facts(reached, staged, boss, reach, swings, damage, altar, abandoned, stuck, bossOn);
+    }
+
+    @Test
+    void theCheckLineNamesEveryFactTheAutoQaCheckReads() {
+        String line = BossRunScenarios.check(facts(5, 5, true, true, 400, 90_000, true, false, false, true));
+        assertEquals("CHECK members=5/5 boss=yes reach=yes swings=400 dmg=90000 altar=yes abandoned=no stuck=no"
+                + " boss-on=yes", line);
+    }
+
+    @Test
+    void theCheckLineIsHonestAboutAFightThatDidNotHappen() {
+        String quiet = BossRunScenarios.check(facts(2, 5, false, false, 0, 0, false, true, true, false));
+        assertEquals("CHECK members=2/5 boss=no reach=no swings=0 dmg=0 altar=no abandoned=yes stuck=yes boss-on=no",
+                quiet);
+    }
+
+    @Test
+    void onlyZakumsOwnMobsCountAsABossTarget() {
+        assertTrue(BossRunScenarios.bossMob(8800000)); // the fake body the altar spawns
+        assertTrue(BossRunScenarios.bossMob(8800003));
+        assertTrue(BossRunScenarios.bossMob(8810010));
+        assertFalse(BossRunScenarios.bossMob(0)); // nothing chosen yet
+        assertFalse(BossRunScenarios.bossMob(9420513)); // an ordinary mob in the room
+        assertFalse(BossRunScenarios.bossMob(8810040)); // an arm's corpse, not a thing to fight
+    }
+
+    @Test
+    void theAltIsOptionalSoTheRunCanBeStagedWithoutOne() {
+        BossRunScenarios.Ex2ZakumRoom ex2 = new BossRunScenarios.Ex2ZakumRoom();
+        assertEquals("[your alt's name]", ex2.usage());
+    }
+
     @Test
     void ex2IsRegisteredWithTheMenuAndTheSuite() {
         assertTrue(QaScenarios.all().stream().anyMatch(s -> s.id().equals("ex-2")));

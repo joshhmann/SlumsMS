@@ -1168,6 +1168,19 @@ public final class AutoQaCatalog {
                         has("EX1 RESULT members=\\d+ min=\\d+ joined=([1-5])/\\1 outsider=out again=0"),
                         has("EX1 PASS "), noRefusal())
                 .build());
+        // 1.6.4 ex-2 (owner 2026-11-02): the boss room is proved on every build without an alt - a GM and the party
+        // bots the harness can stage go through Adobis's path; ex-2's own EX2 CHECK line carries what the window saw.
+        // With the boss lane off the run honestly reads EX2 BASELINE, so the check SKIPs rather than PASS on it.
+        c.add(Check.auto("t-ex-2", "A GM and party bots fight the real Zakum expedition").holds("pq:zakum").minutes(4)
+                .step(run("ex-2"), waitFor("EX2 CHECK members=", 160), bossLaneOn(), stop())
+                .expect(has("EX2 START members=[2-9]\\d* bots=[2-9]\\d* alt=none"),
+                        has("EX2 ALTAR t=\\d+ hit reactor 2111001 as \\S+, [1-9]\\d* mob"),
+                        has("EX2 CHECK members=([2-9]\\d*)/\\1 boss=yes reach=yes swings=[1-9]\\d* dmg=[1-9]\\d*"
+                                + " altar=yes abandoned=no stuck=no"),
+                        has("EX2 (PASS|END) "),
+                        lacks("Abandon"),
+                        lacks("could not be put in map"))
+                .build());
         // 1.6.0 nx-1 (owner: "does the meso -> NX path actually work?"): the plain player buys a 10k NX code from
         // an NX merchant bot for 50m, takes it by messenger and redeems it (twice: the second adds nothing); t-nx-2
         // ignores the messenger and redeems the copy the bot left in its notes
@@ -2140,6 +2153,18 @@ public final class AutoQaCatalog {
             }
         }
         return null;
+    }
+
+    /**
+     * The boss lane's switch, read where the check runs (the server JVM). With it off ex-2 still runs and reports
+     * {@code EX2 BASELINE}: that is a comparable run, not proof of a fight, so the check SKIPs instead of passing.
+     */
+    private static Check.Step bossLaneOn() {
+        return Steps.of("the boss lane is on (-Dslums.mechanics.boss=true)", r ->
+                Boolean.getBoolean("slums.mechanics.boss")
+                        ? Check.StepResult.OK
+                        : Check.StepResult.skip("the boss lane is off (-Dslums.mechanics.boss=true): the run read"
+                                + " EX2 BASELINE"));
     }
 
     /** True when the log has {@code GUILD SAY <bot> [<guild>]: <line>} for this bot and this guild-chat line. */
