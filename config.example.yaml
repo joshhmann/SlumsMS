@@ -1,10 +1,535 @@
-worlds: []
+# SlumsMS server template configuration.
+#
+# Copy this file to config.yaml (see README.md:10) and edit the database and
+# host settings. It is a complete template: EVERY field declared in
+# src/main/java/config/ServerConfig.java and src/main/java/config/WorldConfig.java
+# appears here exactly once, in the source's own field order.
+#
+# That completeness is a requirement, not a courtesy. YamlConfig.java:19-29 reads
+# this file with a plain YamlReader and no strictness, so a key that is missing
+# from config.yaml does NOT fall back to a documented default: the field keeps the
+# JVM default, which is 0 or false for every field without an inline initialiser.
+# A missing ITEM_EXPIRE_CHECK is 0 ms, and TimerManager.register throws on a 0
+# period inside MapleMap.addPlayer, which aborts the rest of the login.
+#
+# src/test/java/config/ConfigTemplateCompletenessTest.java fails when this file
+# stops listing a field, so a new ServerConfig/WorldConfig field cannot be added
+# without a value here.
+#
+# Values: where ServerConfig.java has an inline initialiser, the value below is
+# exactly that initialiser. Otherwise it is the value the stock Cosmic config
+# ships for the same key, or - for the keys stock does not have - a value derived
+# from the read-site, stated in the comment above the key. The keys marked
+# "0 breaks it" are the ones a 0 was measured to break.
+
+# One world entry. WorldConfigs.validate (Server.java:957) rejects an empty list,
+# a negative or out-of-range id, and a duplicate id; leave id out to use the
+# entry's position in this list. Add a second entry (with id: 1 for Bera) to run
+# two worlds, and raise server WORLDS to match.
+worlds:
+  - id: 0
+    flag: 0
+    server_message: "Welcome to Scania!"
+    event_message: "Scania!"
+    why_am_i_recommended: "Welcome to Scania!"
+    channels: 1
+    exp_rate: 3
+    meso_rate: 10
+    drop_rate: 4
+    boss_drop_rate: 3
+    quest_rate: 1
+    travel_rate: 10
+    fishing_rate: 10
+
 server:
-  CHARSET: US-ASCII
-  DB_HOST: 127.0.0.1
-  DB_USER: slumsms
-  DB_PASS: CHANGE_ME
-  DB_URL_FORMAT: jdbc:mysql://%s:3306/slumsms
-  # Max amount of times a party leader may persist on Party Search before the entry expires (ticket 164).
-  # ServerConfig gives the same value when the key is absent.
+
+  # Database Configuration
+  DB_URL_FORMAT: "jdbc:mysql://%s:3306/slumsms"
+  DB_HOST: "127.0.0.1"
+  DB_USER: "slumsms"
+  # CHANGE_ME is a placeholder: set your own password before starting the server.
+  DB_PASS: "CHANGE_ME"
+  INIT_CONNECTION_POOL_TIMEOUT: 90
+
+  # Login Configuration
+  WORLDS: 1
+  WLDLIST_SIZE: 21
+  CHANNEL_SIZE: 20
+  CHANNEL_LOAD: 100
+  CHANNEL_LOCKS: 20
+  RESPAWN_INTERVAL: 10000
+  PURGING_INTERVAL: 300000
+  RANKING_INTERVAL: 3600000
+  COUPON_INTERVAL: 3600000
+  UPDATE_INTERVAL: 777
+  ENABLE_PIC: true
+  ENABLE_PIN: true
+  BYPASS_PIC_EXPIRATION: 20
+  BYPASS_PIN_EXPIRATION: 15
+  AUTOMATIC_REGISTER: true
+  AUTO_REGISTER_MIN_PASSWORD_LENGTH: 6
+  AUTO_REGISTER_MAX_ACCOUNTS_PER_IP: 0
+  AUTO_REGISTER_IP_COOLDOWN_MINUTES: 1
+  DAILY_CHECKIN_ENABLED: false
+  TUTORIAL_ISLAND_PROMPT: true
+  DAMAGE_RANK_ENABLED: false
+  DAMAGE_RANK_MIN_BUILD: 10690
+  DAMAGE_RANK_MIN_MOB_HP: 5000000
+  DAILY_CHECKIN_MIN_LEVEL: 10
+  COLOR_PRISM_ENABLED: false
+  MIN_CLIENT_BUILD: 0
+  CLIENT_UPDATE_MESSAGE: "Your game is out of date: open the SlumsMS launcher to update."
+  MIN_CLIENT_BUILD_GM_BYPASS: false
+  CUSTOM_NPC_IDS: "9990000,2985-2999"
+  CUSTOM_NPC_MIN_BUILD: 10610
+  BCRYPT_MIGRATION: true
+  COLLECTIVE_CHARSLOT: false
+  DETERRED_MULTICLIENT: false
+
+  # Multiclient Coordinator Configuration
+  MAX_ALLOWED_ACCOUNT_HWID: 10
+  MAX_ACCOUNT_LOGIN_ATTEMPT: 15
+  LOGIN_ATTEMPT_DURATION: 120
+  LOGIN_MAX_SESSIONS_PER_IP: 8
+  LOGIN_MAX_CONNECTS_PER_IP: 30
+  LOGIN_CONNECT_WINDOW_SECONDS: 60
+
+  # Ip Configuration
+  HOST: "127.0.0.1"
+  LANHOST: "127.0.0.1"
+  LOCALHOST: "127.0.0.1"
+  GMSERVER: false
+  # Other configuration
+  SHUTDOWNHOOK: true
+  # no read-site in this tree (docs/design/divergence-ledger.md records the key as declared-never-read); false = today's behaviour
+  # SoloMapling: spawn the bot world automatically on server startup (cold boot).
+  SPAWN_BOTS_ON_STARTUP: false
+  BOT_DIRECTOR_ENABLED: true
+  # Ticket 13: real same-account characters as companions (foundation; opt in).
+  OWNED_ALTS_ENABLED: false
+  OWNED_ALTS_SUMMON_ENABLED: true
+  COMPANION_ORDERS_ENABLED: false
+  COMPANION_TRADES_ENABLED: false
+  COMPANION_UPGRADES_ENABLED: false
+  COMPANION_SUPPLIES_ENABLED: false
+  OWNED_ALTS_INVITE_SUMMON_ENABLED: false
+  MAP_ENTRY_TRICKLE: true
+  BOT_ROSTER_PEAK_ONLINE: 1200
+  BOT_ROSTER_CURVE: "0:0.45,3:0.25,6:0.15,9:0.25,12:0.45,15:0.6,18:0.85,20:1.0,22:0.8"
+  BOT_ROSTER_WEEKEND_LIFT: 1.1
+  BOT_ROSTER_TIMEZONE: ""
+  BOT_DIRECTOR_TICK_SECONDS: 30
+  BOT_DIRECTOR_MAX_LOGINS_PER_TICK: 25
+  BOT_DIRECTOR_BOOT_FILL_IN_FLIGHT: 8
+  BOT_DIRECTOR_BOOT_FILL_PER_SECOND: 8
+  BOT_DIRECTOR_MAX_LOGOUTS_PER_TICK: 25
+  BOT_ROSTER_SEED_MIN: 100
+  BOT_POPULATION_PEAK: 1600
+  BOT_ENVIRONMENT_SCALE: 0.5
+  BOT_FM_ENVIRONMENT_SCALE: 1.0
+  BOT_TOWN_DRESSING_SCALE: -1
+  BOT_LIFE_TOWN_WEIGHTS: "henesys:100"
+  BOT_TOWN_PULL: 0
+  BOT_TOWN_BUSY_TARGET: ""
+  BOT_TOWN_CHANNEL_WEIGHTS: "1:1.0,2:0.7,3:0.5,4:0.4,5:0.4"
+  BOT_TOWN_PLAYER_BOOST: 1.5
+  BOT_TOWN_MAP_MAX: 200
+  BOT_TOWN_PULL_PER_MIN: 3
+  BOT_TOWN_SHARE_MAX: 0.45
+  BOT_CHANNEL_WEIGHTS: "100,55,35,20,15"
+  BOT_MAP_CAP: 50
+  BOT_MAP_CAP_OVERRIDES: ""
+  WORLD_EVENT_MAP_MAX: 200
+  AUTOQA_ENABLED: false
+  AUTOQA_SWEEP_MINUTES: 5
+  AUTOQA_SWEEP_MAX_BOTS: 3000
+  AUTOQA_STUCK_MINUTES: 3
+  AUTOQA_CLUMP_RADIUS: 30
+  AUTOQA_CLUMP_MIN_BOTS: 5
+  AUTOQA_NIGHTLY_UTC_HOUR: 10
+  AUTOQA_JUDGE_MAX_CALLS: 40
+  BOT_POPULATION_SCALE: 1.0
+  BOT_ROSTER_SIZE_MULTIPLE: 3.0
+  BOT_ROSTER_NEW_PER_DAY: 40
+  BOT_ROSTER_VETERAN_FILL_BELOW: 0.5
+  BOT_ROSTER_VETERANS_PER_DAY: 300
+  BOT_ROSTER_QUIT_PER_DAY: 0.002
+  BOT_ROSTER_RETURN_PER_DAY: 0.01
+  BOT_LLM_BASE_URL: ""
+  BOT_LLM_API_KEY: ""
+  BOT_LLM_MODEL: ""
+  BOT_LLM_MAX_TOKENS: 40
+  BOT_LLM_TEMPERATURE: 1.0
+  BOT_LLM_TIMEOUT_MS: 7000
+  BOT_LLM_MAX_CONCURRENT: 2
+  BOT_LLM_PLAYER_MIN_INTERVAL_MS: 1500
+  BOT_LLM_EXTRA_BODY: {}
+  BOT_LLM_EXTRA_HEADERS: {}
+  BOT_LLM_NOTES_MODEL: ""
+  BOT_LLM_CLOUD_BASE_URL: ""
+  BOT_LLM_CLOUD_API_KEY: ""
+  BOT_LLM_CLOUD_MODEL: ""
+  BOT_LLM_CLOUD_TIMEOUT_MS: 6000
+  BOT_LLM_CLOUD_DAILY_BUDGET_USD: 1.0
+  BOT_LLM_CLOUD_PRICE_IN_PER_MTOK: 0.30
+  BOT_LLM_CLOUD_PRICE_IN_CACHED_PER_MTOK: -1
+  BOT_LLM_CLOUD_PRICE_OUT_PER_MTOK: 1.20
+  BOT_LLM_CLOUD_EXTRA_BODY: {}
+  # Extra HTTP headers for the cloud, e.g. OpenRouter's HTTP-Referer and X-Title.
+  BOT_LLM_CLOUD_EXTRA_HEADERS: {}
+  BOT_LLM_CLOUD_MODE: "overflow"
+  BOT_LLM_LOCAL_SLOW_MS: 2500
+  BOT_COMBAT_HUMAN: true
+  BOT_COMBAT_AOE_MIN_MOBS: 3
+  BOT_COMBAT_SLOPPINESS: 1.0
+  BOT_COMBAT_DEATHS: true
+  BOT_KS_MANNERS: true
+  BOT_SPREAD: true
+  BOT_MENU_WINDOW: true
+  BOT_DECIDE_URL: ""
+  BOT_DECIDE_TONE_URL: ""
+  BOT_DECIDE_MODEL: "decide"
+  BOT_DECIDE_TONE_MODEL: "decide"
+  BOT_DECIDE_TIMEOUT_MS: 600
+  BOT_DECIDE_ASK: 0.55
+
+  # Server Flags
+  USE_CUSTOM_KEYSET: false
+  USE_DEBUG: false
+  USE_DEBUG_SHOW_INFO_EQPEXP: false
+  USE_DEBUG_SHOW_RCVD_PACKET: false
+  USE_DEBUG_SHOW_RCVD_MVLIFE: false
+  USE_DEBUG_SHOW_PACKET: false
+  USE_SUPPLY_RATE_COUPONS: true
+  USE_IP_VALIDATION: false
+  USE_CHARACTER_ACCOUNT_CHECK: false
+  USE_MAXRANGE: true
+  USE_MAXRANGE_ECHO_OF_HERO: true
+  USE_MTS: false
+  USE_CPQ: true
+  USE_AUTOHIDE_GM: true
+  # no read-site: scripts/npc/buyback.js does not consult it, so the NPC works either way; false is what the 1.5.1 audit records (docs/design/mapleroot-npcs.md:288)
+  USE_BUYBACK_SYSTEM: false
+  USE_FIXED_RATIO_HPMP_UPDATE: false
+  USE_FAMILY_SYSTEM: true
+  GODLY_DROP_PERCENT: 1.5
+  GODLY_DROP_STATS: 3
+  GODLY_DROP_MIN_BONUS: 1
+  GODLY_DROP_MAX_BONUS: 5
+  USE_DUEY: true
+  USE_RANDOMIZE_HPMP_GAIN: true
+  USE_STORAGE_ITEM_SORT: true
+  USE_ITEM_SORT: true
+  USE_ITEM_SORT_BY_NAME: false
+  USE_PARTY_FOR_STARTERS: false
+  USE_AUTOASSIGN_STARTERS_AP: true
+  USE_AUTOASSIGN_SECONDARY_CAP: true
+  USE_STARTING_AP_4: false
+  USE_AUTOBAN: false
+  USE_AUTOBAN_LOG: true
+  USE_AUTOSAVE: true
+  USE_SERVER_AUTOASSIGNER: false
+  USE_REFRESH_RANK_MOVE: true
+  USE_ENFORCE_ADMIN_ACCOUNT: false
+  USE_ENFORCE_NOVICE_EXPRATE: false
+  USE_ENFORCE_HPMP_SWAP: false
+  USE_ENFORCE_MOB_LEVEL_RANGE: true
+  USE_ENFORCE_JOB_LEVEL_RANGE: false
+  USE_ENFORCE_JOB_SP_RANGE: false
+  USE_ENFORCE_ITEM_SUGGESTION: false
+  USE_ENFORCE_UNMERCHABLE_CASH: true
+  USE_ENFORCE_UNMERCHABLE_PET: true
+  USE_ENFORCE_MERCHANT_SAVE: true
+  USE_ENFORCE_MDOOR_POSITION: false
+  USE_SPAWN_CLEAN_MDOOR: false
+  # 0/false = drops appear at the moment the mob dies, the stock v83 behaviour (MapleMap.java:930,992,1104)
+  USE_SPAWN_LOOT_ON_ANIMATION: false
+  USE_SPAWN_RELEVANT_LOOT: true
+  USE_ERASE_PERMIT_ON_OPENSHOP: true
+  USE_ERASE_UNTRADEABLE_DROP: true
+  USE_ERASE_PET_ON_EXPIRATION: false
+  USE_BUFF_MOST_SIGNIFICANT: true
+  USE_BUFF_EVERLASTING: false
+  USE_MULTIPLE_SAME_EQUIP_DROP: true
+  # false = a town scroll behaves as stock and is not consumed on banish (UseItemHandler.java:81)
+  USE_BANISHABLE_TOWN_SCROLL: false
+  USE_ENABLE_FULL_RESPAWN: false
+  USE_ENABLE_CHAT_LOG: false
+  # Character.java:12953-13083 throw NotEnabledException with it off; the repo is a rebirth server (docs/real-bots/economy-research.md REBIRTH_*_RATE)
+  USE_REBIRTH_SYSTEM: true
+  USE_MAP_OWNERSHIP_SYSTEM: false
+  USE_FISHING_SYSTEM: false
+  USE_NPCS_SCRIPTABLE: true
+
+  # Events/PQs Configuration
+  USE_OLD_GMS_STYLED_PQ_NPCS: true
+  USE_ENABLE_SOLO_EXPEDITIONS: false
+  USE_ENABLE_DAILY_EXPEDITIONS: false
+  USE_ENABLE_RECALL_EVENT: false
+
+  # Announcement Configuration
+  USE_ANNOUNCE_SHOPITEMSOLD: false
+  USE_ANNOUNCE_CHANGEJOB: false
+  USE_ANNOUNCE_NX_COUPON_LOOT: false
+
+  # Cash Shop Configuration
+  USE_JOINT_CASHSHOP_INVENTORY: false
+  USE_CLEAR_OUTDATED_COUPONS: true
+  ALLOW_CASHSHOP_NAME_CHANGE: true
+  ALLOW_CASHSHOP_WORLD_TRANSFER: true
+
+  # Maker Configuration
+  USE_MAKER_PERMISSIVE_ATKUP: false
+  USE_MAKER_FEE_HEURISTICS: true
+
+  # Custom Configuration
+  # false = stock NPC scripts only; Probes160.java:1032 skips the custom-script probe
+  USE_ENABLE_CUSTOM_NPC_SCRIPT: false
+  # declared but never read (docs/design/divergence-ledger.md SY-007); false = Dalair keeps the Maker/level gate
+  USE_STARTER_MERGE: false
+
+  # Commands Configuration
+  BLOCK_GENERATE_CASH_ITEM: false
+  USE_WHOLE_SERVER_RANKING: false
+  EQUIP_EXP_RATE: 1.0
+  PQ_BONUS_EXP_RATE: 0.5
+  EXP_SPLIT_LEVEL_INTERVAL: 5
+  EXP_SPLIT_LEECH_INTERVAL: 5
+  EXP_SPLIT_MVP_MOD: 0.2
+  EXP_SPLIT_COMMON_MOD: 0.8
+  PARTY_BONUS_EXP_RATE: 1.0
+
+  # Miscellaneous Configuration
+  TIMEZONE: "GMT"
+  CHARSET: "US-ASCII"
+  USE_DISPLAY_NUMBERS_WITH_COMMA: true
+  USE_UNITPRICE_WITH_COMMA: true
+  MAX_MONITORED_BUFFSTATS: 5
+  MAX_AP: 32767
+  MAX_EVENT_LEVELS: 8
+  BLOCK_NPC_RACE_CONDT: 500
+  TOT_MOB_QUEST_REQUIREMENT: 0
+  MOB_REACTOR_REFRESH_TIME: 0
   PARTY_SEARCH_REENTRY_LIMIT: 10
+  NAME_CHANGE_COOLDOWN: 2592000000
+  WORLD_TRANSFER_COOLDOWN: 2592000000
+  INSTANT_NAME_CHANGE: false
+  # the rebirth NPC; PlayerLoggedinHandler.java:480 maps this id to the "Rebirth" menu entry, 0 would map NPC 0
+  REBIRTH_NPC_ID: 1300009
+
+  # Dangling Items/Locks Configuration
+  # 0 breaks it: a drop expires on the next sweep, so loot vanishes.
+  ITEM_EXPIRE_TIME: 180000
+  # 0 breaks it: a cash-shop kite expires immediately.
+  KITE_EXPIRE_TIME: 3600000
+  # 0 breaks it: the item monitor runs every tick instead of every 5 min.
+  ITEM_MONITOR_TIME: 300000
+  # 0 breaks it: the lock monitor times out at once.
+  LOCK_MONITOR_TIME: 30000
+
+  # Map Monitor Configuration
+  # 0 breaks it: TimerManager.java:97-98 throws IllegalArgumentException on a 0 period inside addPlayer, which aborts the rest of login.
+  ITEM_EXPIRE_CHECK: 10000
+  # 0 breaks it: every new drop evicts the oldest (MapleMap.java:1025).
+  ITEM_LIMIT_ON_MAP: 200
+  # 0 breaks it: IndexOutOfBoundsException at Character.java:2112-2113.
+  MAP_VISITED_SIZE: 5
+  # 0 breaks it: map environment damage runs on a 0 ms interval.
+  MAP_DAMAGE_OVERTIME_INTERVAL: 2500
+  # 0 breaks it: no environment damage is ever dealt.
+  MAP_DAMAGE_OVERTIME_COUNT: 2
+
+  # Channel Mob Disease Monitor Configuration
+  # 0 breaks it: the mob disease monitor never proc.
+  MOB_STATUS_MONITOR_PROC: 200
+  # 0 breaks it: the monitor closes the moment it opens.
+  MOB_STATUS_MONITOR_LIFE: 84
+  # 0 breaks it: aggro is dropped on the first update.
+  MOB_STATUS_AGGRO_PERSISTENCE: 2
+  # 0 breaks it: divide by zero at MonsterAggroCoordinator.java:98 and :105.
+  MOB_STATUS_AGGRO_INTERVAL: 5000
+  USE_AUTOAGGRO_NEARBY: false
+
+  # Some Gameplay Enhancing Configurations
+
+  # Scroll Configuration
+  USE_PERFECT_GM_SCROLL: true
+  USE_PERFECT_SCROLLING: false
+  USE_ENHANCED_CHSCROLL: false
+  USE_ENHANCED_CRAFTING: false
+  # false = the stock Clean Slate slot check (ItemInformationProvider.java:990-992)
+  USE_ENHANCED_CLEAN_SLATE: false
+  SCROLL_CHANCE_ROLLS: 1
+  CHSCROLL_STAT_RATE: 1
+  CHSCROLL_STAT_RANGE: 5
+
+  # Beginner Skills Configuration
+  USE_ULTRA_NIMBLE_FEET: false
+  USE_ULTRA_RECOVERY: false
+  USE_ULTRA_THREE_SNAILS: false
+
+  # Other Skills Configuration
+  USE_FULL_ARAN_SKILLSET: false
+  USE_FAST_REUSE_HERO_WILL: false
+  USE_ANTI_IMMUNITY_CRASH: false
+  USE_UNDISPEL_HOLY_SHIELD: false
+  USE_FULL_HOLY_SYMBOL: false
+
+  # Character Configuration
+  USE_ADD_SLOTS_BY_LEVEL: false
+  USE_ADD_RATES_BY_LEVEL: false
+  USE_STACK_COUPON_RATES: false
+  USE_PERFECT_PITCH: false
+  # exp multiplier applied to a 1x-reborn player, replacing the world rate (PlayerLoggedinHandler.java:436); 0 = the player earns no exp at all. Value: docs/real-bots/economy-research.md REBIRTH_*_RATE 3/2/1/1
+  REBIRTH_FIRST_RATE: 3
+  # same read-site; 0 = no exp for a twice-reborn player. Value: docs/real-bots/economy-research.md
+  REBIRTH_SECOND_RATE: 2
+  # same read-site; 0 = no exp. Value: docs/real-bots/economy-research.md
+  REBIRTH_THIRD_RATE: 1
+  # Character.java:13106 does setLevel(REBIRTH_RESET_LEVEL - 1) then levelUp(), so 0 would set level -1. Value: repo config dump /root/work/bake/test-config.yaml:288
+  REBIRTH_RESET_LEVEL: 10
+  # applied from level 200 on a thrice-reborn player (PlayerLoggedinHandler.java:441); 0 = no exp. Value: docs/real-bots/economy-research.md
+  REBIRTH_FINAL_RATE: 1
+  BOT_REBIRTH_ENABLED: false
+  BOT_REBIRTH_PER_DAY: 2
+  # cash item that auto-loots for its holder (MovePetHandler.java:76); 0 = no item can match. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:139
+  AUTOLOOT_ITEM_ID: 5590000
+  # the scripts/npc/106300x.js chest gate is "=== 1"; 1 pays JUMPQUEST_BASE_* on every completion with no cooldown or daily cap (docs/design/mapleroot-npcs.md:369), so the template ships it off and keeps the stock item prizes
+  JUMPQUEST_CUSTOM_EXP_MESOS_REWARD: 0
+  # exp paid by that gate; 0 = a 0-exp payout. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:141
+  JUMPQUEST_BASE_EXP_REWARD: 10000
+  # mesos paid by that gate; 0 = a 0-meso payout. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:141
+  JUMPQUEST_BASE_MESOS_REWARD: 100000
+
+  # Quest Configuration
+  USE_QUEST_RATE: false
+
+  # Quest Points Configuration
+  QUEST_POINT_REPEATABLE_INTERVAL: 25
+  QUEST_POINT_REQUIREMENT: 0
+  QUEST_POINT_PER_QUEST_COMPLETE: 0
+  QUEST_POINT_PER_EVENT_CLEAR: 0
+
+  # Guild Configuration
+  CREATE_GUILD_MIN_PARTNERS: 6
+  CREATE_GUILD_COST: 1500000
+  CHANGE_EMBLEM_COST: 5000000
+  EXPAND_GUILD_BASE_COST: 500000
+  EXPAND_GUILD_TIER_COST: 1000000
+  EXPAND_GUILD_MAX_COST: 5000000
+
+  # Family Configuration
+  FAMILY_REP_PER_KILL: 4
+  FAMILY_REP_PER_BOSS_KILL: 20
+  FAMILY_REP_PER_LEVELUP: 200
+  FAMILY_MAX_GENERATIONS: 1000
+
+  # Equipment Configuration
+  USE_EQUIPMNT_LVLUP_SLOTS: false
+  USE_EQUIPMNT_LVLUP_POWER: false
+  USE_EQUIPMNT_LVLUP_CASH: false
+  # false = Spikes/Cold Protection do not block banish (Character.java:1626)
+  USE_SPIKES_AVOID_BANISH: false
+  MAX_EQUIPMNT_LVLUP_STAT_UP: 10000
+  MAX_EQUIPMNT_STAT: 32767
+  USE_EQUIPMNT_LVLUP: 1
+
+  # Map-Chair Configuration
+  USE_CHAIR_EXTRAHEAL: false
+  CHAIR_EXTRA_HEAL_MULTIPLIER: 10
+  CHAIR_EXTRA_HEAL_MAX_DELAY: 21
+
+  # Player NPC Configuration
+  PLAYERNPC_INITIAL_X: 262
+  PLAYERNPC_INITIAL_Y: 262
+  PLAYERNPC_AREA_X: 320
+  PLAYERNPC_AREA_Y: 160
+  PLAYERNPC_AREA_STEPS: 4
+  PLAYERNPC_ORGANIZE_AREA: true
+  PLAYERNPC_AUTODEPLOY: true
+
+  # Pet Auto-Pot Configuration
+  USE_COMPULSORY_AUTOPOT: true
+  USE_EQUIPS_ON_AUTOPOT: true
+  PET_AUTOHP_RATIO: 0.99
+  PET_AUTOMP_RATIO: 0.99
+
+  # Pet & Mount Configuration
+  PET_EXHAUST_COUNT: 3
+  MOUNT_EXHAUST_COUNT: 1
+
+  # Pet Hunger Configuration
+  PETS_NEVER_HUNGRY: false
+  GM_PETS_NEVER_HUNGRY: true
+
+  # Event Configuration
+  EVENT_MAX_GUILD_QUEUE: 10
+  EVENT_LOBBY_DELAY: 10
+
+  # Dojo Configuration
+  USE_FAST_DOJO_UPGRADE: false
+  USE_DEADLY_DOJO: true
+  DOJO_ENERGY_ATK: 100
+  DOJO_ENERGY_DMG: 20
+
+  # Wedding Configuration
+  WEDDING_RESERVATION_DELAY: 3
+  WEDDING_RESERVATION_TIMEOUT: 10
+  WEDDING_RESERVATION_INTERVAL: 60
+  WEDDING_BLESS_EXP: 30000
+  WEDDING_GIFT_LIMIT: 1
+  WEDDING_BLESSER_SHOWFX: true
+
+  # Buyback Configuration
+  # false = buy-back is paid in NX (Character.java:7467-7523); docs/real-bots/economy-research.md records false as the live value
+  USE_BUYBACK_WITH_MESOS: false
+  # base buy-back fee; 0 would make it free. Value: repo config dump /root/work/bake/test-config.yaml
+  BUYBACK_FEE: 77.7
+  # fee added per level above 30 (Character.java:7466); 0 = a flat fee. Value: repo config dump
+  BUYBACK_LEVEL_STACK_FEE: 85.47
+  # multiplier applied only when USE_BUYBACK_WITH_MESOS is on (Character.java:7468); 0 would make it free. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:143
+  BUYBACK_MESO_MULTIPLIER: 5
+  # the window in which a dead player may buy back (Character.java:7511); 0 closes it instantly. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:142
+  BUYBACK_RETURN_MINUTES: 1
+  # wait between buy-backs (Character.java:7455); 0 removes the wait. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:142
+  BUYBACK_COOLDOWN_MINUTES: 1
+
+  # Login timeout by shavit
+  TIMEOUT_DURATION: 3600000
+
+  # Event End Timestamp
+  EVENT_END_TIMESTAMP: 1428897600000
+
+  # GM Security Configuration
+  MINIMUM_GM_LEVEL_TO_TRADE: 4
+  MINIMUM_GM_LEVEL_TO_USE_STORAGE: 4
+  MINIMUM_GM_LEVEL_TO_USE_DUEY: 4
+  MINIMUM_GM_LEVEL_TO_DROP: 4
+  # Custom NPC overrides. List of NPC IDs.
+  NPCS_SCRIPTABLE: {}
+  # per-HWID expedition entry limit, multiplied by the boss entry count (ExpeditionBossLog.java:345); 0 = no entries allowed. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:152
+  EXPEDITION_HWID_LIMIT: 4
+  # how many past sales @buyback lists (TransactionService.java:24); 0 = an empty list. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:140
+  MAXIMUM_TRANSACTIONS_FOR_BUYBACK: 5
+  # false = the plain locks, no tracker bookkeeping (TrackerReentrantLock.java:71)
+  USE_THREAD_TRACKER: false
+
+  # Starforce
+  # Math.min caps the meso cost (ItemInformationProvider.java:1130); 0 = every enhancement free. Value: docs/real-bots/economy-research.md
+  STARFORCE_MAX_MESO_COST: 50000000
+  # Math.min caps the trace cost (ItemInformationProvider.java:1145); 0 = every enhancement free. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:144
+  STARFORCE_MAX_SPELL_TRACE_COST: 150
+  # watk/matk gained per star (StarBoost.java:87); 0 = stars add no attack. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:144
+  STARFORCE_BOOST_PERCENTAGE: 0.2
+  # str/dex/luk/int gained per star, the stat twin of STARFORCE_BOOST_PERCENTAGE (StarBoost.java:88); 0 = stars add no stats. No repo or stock value for this key, so it mirrors the attack coefficient
+  STARFORCE_BOOST_PERCENTAGE2: 0.2
+
+  # BACKPACK
+  # bag search page size; 0 = nothing shown. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:145
+  BACKPACK_MAX_ITEMS_PER_PAGE: 8
+  # -1 = unlimited stack in the bag. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:145
+  BACKPACK_MAX_STORAGE_PER_ITEM: -1
+  # shortest search that runs; 0 would let an empty search scan everything. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:145
+  BACKPACK_MINIMUM_SEARCH_LENGTH: 3
+  # -1 = unlimited distinct items in the bag. Value: docs/tickets/68-mapleroot-vs-cosmic-audit.md:145
+  BACKPACK_MAX_UNIQUE_ITEMS: -1
