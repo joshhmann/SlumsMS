@@ -78,7 +78,9 @@ public class OPQBot extends BotSM {
 
     public OPQBot(Character character) {
         super(character);
-        dialoguePath = "OPQBotDialogue.yaml"; // TODO: add YAML or fall back gracefully
+        // No pack yet: readDialogueYaml reports the missing pack once and returns null, so OPQ
+        // keeps speaking its built-in lines instead of printing a stack trace per lookup.
+        dialoguePath = "OPQBotDialogue.yaml";
         botType = "OPQBot";
         this.orchestrator = OPQOrchestrator.getInstance();
         this.sharedContext = orchestrator.getSharedContext();
