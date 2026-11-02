@@ -3,7 +3,9 @@ package soloMapling.Economy.exchange;
 import soloMapling.Economy.exchange.Ledger.Asset;
 import soloMapling.Economy.exchange.OrderBook.Side;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -29,6 +31,10 @@ public final class ExchangeQa {
 
     /** Funds the test regular from {@code w} and rests its bid. Throws IllegalStateException with the reason. */
     public static Staged stage(Exchange ex, LiveWallet w) {
+        if (deskOn(ex)) {
+            throw new IllegalStateException("NX trades at the desk's quote now, so no test regular can bid on the NX "
+                    + "book (t-xc-1 trades at the desk instead)");
+        }
         if (ex.halted()) {
             throw new IllegalStateException("the exchange is halted: " + ex.haltReason());
         }
@@ -70,6 +76,152 @@ public final class ExchangeQa {
         out.put("code", r.code());
         return out;
     }
+
+    // ---------------------------------------------------------------- the NX desk (t-xc-1 / xc-1 with the desk on)
+
+    /**
+     * The desk check's size: one {@link DeskConfig#minQty()} of NX each way, so the round trip fits any desk that has
+     * one trade's stock. 100 NX at the start mid is 500,000 mesos.
+     */
+    public static final long DESK_NX = 100;
+
+    /** Whether NX trades at the desk (ticket 162 §4): then the NX book is off and only a preview+confirm moves NX. */
+    public static boolean deskOn(Exchange ex) {
+        return ex.desk() != null;
+    }
+
+    /** The wallet's NX and mesos and the desk's own inventory, as one moment of a desk round trip. */
+    public record Snapshot(long nx, long meso, long deskNx, long deskMeso) {
+        public static Snapshot of(Exchange ex, LiveWallet w) {
+            long[] inv = ex.deskInventory();
+            return new Snapshot(w.have(Asset.NX), w.have(Asset.MESO), inv[0], inv[1]);
+        }
+    }
+
+    /**
+     * What a BUY of {@code nx} NX at the desk and the SELL of the same NX straight back did: the two fills' own quotes
+     * and mesos, their fees, and the wallet and desk either side. {@link #problems()} is the ledger check: nothing
+     * minted, the same NX at both ends, and the spread (plus the desk's fees) the only thing the player paid.
+     */
+    public record DeskRound(long nx, long buyPrice, long buyMesos, long sellPrice, long sellMesos, long fees,
+                            Snapshot before, Snapshot after) {
+
+        /** The quote difference per 1,000 NX: what the round trip costs on that much NX, before fees. */
+        public long spreadPaidPerMille() {
+            return buyPrice - sellPrice;
+        }
+
+        /** Every way the round trip did not keep the books: empty when it did. */
+        public List<String> problems() {
+            List<String> bad = new ArrayList<>();
+            if (before.nx() != after.nx()) {
+                bad.add("NX " + before.nx() + " -> " + after.nx() + " (a BUY then a SELL of the same " + nx
+                        + " NX must give it all back)");
+            }
+            if (before.deskNx() != after.deskNx()) {
+                bad.add("the desk's NX " + before.deskNx() + " -> " + after.deskNx() + " (it must end where it started)");
+            }
+            long paid = before.meso() - after.meso();
+            long wantPaid = buyMesos - sellMesos + fees;
+            if (paid != wantPaid) {
+                bad.add("the round trip cost " + paid + " mesos, want the spread and the fees: " + wantPaid);
+            }
+            long deskGained = after.deskMeso() - before.deskMeso();
+            long wantGained = buyMesos - sellMesos;
+            if (deskGained != wantGained) {
+                bad.add("the desk gained " + deskGained + " mesos, want " + wantGained + " (nothing minted)");
+            }
+            if (paid - deskGained != fees) {
+                bad.add((paid - deskGained) + " mesos left the player and the desk together, want only the fees "
+                        + fees);
+            }
+            return bad;
+        }
+    }
+
+    /**
+     * The desk round trip as the two fills left it (newest first from {@link Desk#fillsOf}): a SELL of {@code nx} and,
+     * before it, a BUY of {@code nx}. The fees are {@link DeskConfig#fee} of each fill's mesos. Throws
+     * IllegalStateException with what was found when the desk did not record that pair.
+     */
+    public static DeskRound deskRound(Desk desk, long account, long nx, Snapshot before, Snapshot after) {
+        List<Desk.Fill> f = desk.fillsOf(account, 2);
+        if (f.size() < 2 || f.get(0).side() != Side.SELL || f.get(1).side() != Side.BUY
+                || f.get(0).nx() != nx || f.get(1).nx() != nx) {
+            throw new IllegalStateException("the desk recorded " + f + ", want a BUY then a SELL of " + nx + " NX");
+        }
+        long fees = desk.config().fee(f.get(1).mesos()) + desk.config().fee(f.get(0).mesos());
+        return new DeskRound(nx, f.get(1).price(), f.get(1).mesos(), f.get(0).price(), f.get(0).mesos(), fees, before,
+                after);
+    }
+
+    /**
+     * t-xc-1 with the desk on: preview+confirm a BUY of {@code nx} NX at the desk's sell quote, then the SELL of the
+     * same NX at its buy quote, and return what the two fills did. Throws IllegalStateException with the reason it
+     * cannot run (a closed desk, the desk short of stock, a wallet that cannot pay). Nothing rests: the desk fills at
+     * once, so there is no teardown.
+     */
+    public static DeskRound roundDesk(Exchange ex, LiveWallet w, long nx) {
+        Desk desk = ex.desk();
+        if (desk == null) {
+            throw new IllegalStateException("the NX desk is off (-Dslums.exchange.desk=true)");
+        }
+        if (ex.halted()) {
+            throw new IllegalStateException("the exchange is halted: " + ex.haltReason());
+        }
+        if (ex.closeReason() != null) {
+            throw new IllegalStateException("the NX desk is closed: " + ex.closeReason());
+        }
+        DeskConfig dc = desk.config();
+        long buyMesos, sellMesos;
+        try {
+            buyMesos = desk.mesos(Side.BUY, nx, desk.sell());
+            sellMesos = desk.mesos(Side.SELL, nx, desk.buy());
+        } catch (ArithmeticException e) {
+            throw new IllegalStateException("that is more NX than one desk trade can carry");
+        }
+        Snapshot before = Snapshot.of(ex, w);
+        if (before.deskNx() < nx) {
+            throw new IllegalStateException("the desk has " + before.deskNx() + " NX to sell, need " + nx
+                    + ": !exchange desk fund nx 50000");
+        }
+        if (before.deskMeso() + buyMesos < sellMesos) {
+            throw new IllegalStateException("the desk has " + before.deskMeso() + " mesos to buy the " + nx
+                    + " NX back, need " + sellMesos + ": !exchange desk fund meso 50000000");
+        }
+        long need = buyMesos + dc.fee(buyMesos);
+        if (before.meso() < need) {
+            throw new IllegalStateException("you need " + need + " mesos to buy " + nx + " NX at the desk's "
+                    + desk.sell() + " per 1,000 (you have " + before.meso() + ")");
+        }
+        deskTrade(ex, w, Side.BUY, nx);
+        deskTrade(ex, w, Side.SELL, nx);
+        return deskRound(desk, w.account(), nx, before, Snapshot.of(ex, w));
+    }
+
+    /** One desk preview+confirm, retried once at the fresh quote when the desk stepped in between. */
+    private static void deskTrade(Exchange ex, LiveWallet w, Side side, long nx) {
+        Exchange.Response last = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            String rid = "qa-desk-" + n.getAndIncrement();
+            Exchange.Response pv = ex.preview(new Exchange.Place(rid, w.account(), w.character(), side, 0, nx,
+                    Ticker.NX));
+            if (!pv.ok()) {
+                last = pv;
+                break;
+            }
+            last = ex.confirm(rid + "-c", w.account(), (String) pv.data().get("token"));
+            if (last.ok() || !"QUOTE_MOVED".equals(last.code())) {
+                break;
+            }
+        }
+        if (last == null || !last.ok()) {
+            throw new IllegalStateException("the desk's " + side + " of " + nx + " NX: "
+                    + (last == null ? "no answer" : last.code() + " " + last.message()));
+        }
+    }
+
+    private static final java.util.concurrent.atomic.AtomicLong n = new java.util.concurrent.atomic.AtomicLong();
 
     // ---------------------------------------------------------------- item tickers (xc-2 / t-xc-2: LEAF)
 
