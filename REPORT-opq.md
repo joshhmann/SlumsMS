@@ -35,8 +35,8 @@ The row covers **five of the script's nine stages**, and it stops where the towe
 | 4 sealed room | 920010500 | **out** | the clear needs `cm.getMap().getNumPlayersInArea(i)` over three platform areas; `MapleMap.getNumPlayersInArea` (`src/main/java/server/maps/MapleMap.java:4487`) reads `areas`, and the only writer, `MapleMap.addArea` (`MapleMap.java:3685`), has **no caller anywhere in `src/main/java`**. `areas` is always empty, so the "exactly 3 players on these platforms" check can never pass. |
 | 5 lounge | 920010600 + 601-604 | in the row (as 601) | - |
 | 6 on the way up | 920010700 | in the row | - |
-| 7 garden | 920010800 | **out** | it needs the sixth and seventh statue pieces, which only stage 3 and stage 4 hand out, and its boss (Papa Pixie 9300039) is spawned by a rule our scripts do not state. Nothing about it can be driven without those two stages first. |
-| 8 statue | 920010100 | **out** | `clearPQ()` and `statusStg8=1` happen only when the six scars are full (`scripts/npc/2013001.js:11-19`), so six pieces are needed and the same two blocked stages own two of them. |
+| 7 garden | 920010800 | **out** | it is where Papa Pixie (`9300039`) is fought for the Root of Life (`4001055`) the statue base takes (`scripts/reactor/2006001.js`), and the only way in is the statue stage's own `warpEventTeam(920010800)` once the six scars are full - so it sits downstream of the two blocked stages, not blocked on its own. What it needs beyond them is the Nependeath-pot rule (`scripts/reactor/2001000.js`, `2001001.js`), which our scripts state in full. |
+| 8 statue | 920010100 | **out** | six pieces must be in the six scars before Eak lets the team into the garden (`scripts/npc/2013001.js:11-19`), and two of the six come from the blocked stages (`4001046` lobby, `4001047` sealed). With them the stage is only walk up, drop each piece on its scar, drop the Root of Life on the base - the mechanic this ticket added. |
 
 So the last stage the row drives is **stage 5, the five levers**; clearing it opens the box that holds
 the piece for `scar2` (`scripts/npc/2013001.js`, map `920010700`), and the run then ends with the party still inside the tower
