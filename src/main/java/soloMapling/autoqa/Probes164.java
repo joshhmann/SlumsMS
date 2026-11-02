@@ -12,6 +12,7 @@ import soloMapling.ArtificialPlayer.GCMoveSystem.GCMovement;
 import soloMapling.ArtificialPlayer.GCMoveSystem.NavTrace;
 import soloMapling.ArtificialPlayer.GCMoveSystem.NavTrapQa;
 import soloMapling.inspect.BotInspectApi;
+import soloMapling.qa.QaSuite;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -522,6 +523,8 @@ final class Probes164 {
         }
         if (!NavTrace.enabled()) {
             off.add("nav path trace (-Dslums.navTrace=true)");
+        } else if (!QaSuite.isEnabled()) {
+            off.add("the check's own path trace (the QA suite, -Dslums.qa=true)");
         }
         int port = BotInspectApi.qaPort();
         if (port < 0) {
@@ -541,7 +544,17 @@ final class Probes164 {
             }
             Character bot = spawned.get(0);
             Probes162.place(bot, NV3_FIELD, null);
-            Thread.sleep(8_000); // a few seconds of full-physics ticks on the pinned field
+            // The check's own trace (t-nv-3, TEST 11-01): 8 s of the check's own samples, not a sleep. A bot it has
+            // just placed may have no movement tick chain at all (no shared ring), and the hour's copies belong to
+            // other bots, so NavTrace.qaRing keeps a ring of its own for the bot we are watching.
+            List<String> ring = null;
+            for (int i = 0; i < 160; i++) {
+                List<String> sampled = NavTrace.qaRing(bot);
+                if (sampled != null) {
+                    ring = sampled;
+                }
+                Thread.sleep(50);
+            }
             if (port >= 0) {
                 int noSecret = get(port, "/bots/" + bot.getId(), null);
                 int wrong = get(port, "/bots/" + bot.getId(), "not-the-secret-" + new Random().nextInt(1 << 20));
@@ -577,9 +590,9 @@ final class Probes164 {
             }
             if (NavTrace.enabled()) {
                 boolean observed = GCMovement.isMapObserved(bot);
-                List<String> ring = NavTrace.qaRing(bot);
                 ev.add("nav trace: " + NavTrace.describe() + "; bot on " + bot.getMapId() + " (full simulation "
-                        + observed + "), ring " + (ring == null ? "none" : ring.size() + " ticks, last: "
+                        + observed + ", movement " + (GCMovement.isEnabled(bot) ? "on" : "no tick chain")
+                        + "), the check's ring " + (ring == null ? "none" : ring.size() + " ticks, last: "
                         + ring.get(ring.size() - 1)));
                 if (!observed) {
                     bad.add("the pinned field " + NV3_FIELD + " is not on full simulation: the trace cannot be judged");
@@ -599,6 +612,9 @@ final class Probes164 {
             return Probes160.verdict(bad, "the inspect API refuses no secret and shows the bot as it is, kill "
                     + "calibration reports, and a watched bot keeps a path trace", ev);
         } finally {
+            for (Character c : spawned) {
+                NavTrace.qaRelease(c); // the check's own ring goes with the bot (t-nv-3)
+            }
             ev.add(TalkQa.teardown(spawned));
             Probes162.unpin(pinned);
         }

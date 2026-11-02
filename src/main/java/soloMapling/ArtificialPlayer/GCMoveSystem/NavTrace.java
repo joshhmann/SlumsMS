@@ -2,9 +2,13 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.Character;
 
+import soloMapling.qa.QaSuite;
+
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Ticket 157 (idea from nutnnut/Cosmic {@code BotPathLogger}, 77e0c5bc9; AGPL-3.0, credit NutNNut): the path trace on
@@ -20,6 +24,11 @@ import java.util.List;
  * allocates nothing. A bot that drops to coarse (LOD) movement lets its ring go, since coarse moves have no nav ticks.
  * Copies are capped per hour ({@code -Dslums.navTrace.perHour}, default 20) across the whole server, so a runaway map
  * cannot fill the stuck log.
+ *
+ * <p>A check that watches a bot reads a trace of its own ({@link #qaRing} where the QA suite runs, {@code -Dslums.qa}):
+ * its own ring, one sample a read, kept apart from the shared one. The shared ring only exists once the bot has ticked
+ * full physics, which a bot the check has just spawned and placed may never do - and the hour's copies belong to other
+ * bots' stuck reports anyway - so the check must not read either from the shared ring (t-nv-3, TEST 11-01).
  *
  * <p>Threading: a ring is written only by its bot's movement tick (one thread at a time, see BotMovementState) and
  * copied from that same tick when the stuck event fires there; {@link #capture(Character)} (the grind brain's rope
@@ -38,6 +47,9 @@ public final class NavTrace {
     private static int usedThisHour;
     private static long droppedTotal;
     private static long capturedTotal;
+
+    // The check's own rings (qaRing, t-nv-3): one per bot the QA suite watches, never part of the hourly copies.
+    private static final Map<Integer, Ring> QA_RINGS = new ConcurrentHashMap<>();
 
     private NavTrace() {
     }
@@ -170,7 +182,18 @@ public final class NavTrace {
 
     /**
      * Auto-QA t-nv-3 (ticket 157, b224): the bot's ring as it stands, without spending this hour's copy budget (a
-     * check reading it is not a stuck event). Null when tracing is off or the bot has no ring (not on full physics).
+     * check reading it is not a stuck event).
+     *
+     * <p>TEST 11-01 (run 4d3de9837): the check spawned a bot, pinned its field and read for 8 s, and got "ring none"
+     * while {@link #describe()} showed 20/20 of the hour's copies gone to other bots' stuck reports. Two reasons, and
+     * the check must depend on neither: the shared ring exists only once the bot has ticked full physics (a bot the
+     * check just placed may never move, so it has no tick chain at all), and had it existed, its copies are other
+     * bots'. Where the QA suite runs, a read with no shared ring keeps the check's own ring instead: one sample per
+     * read, per bot, capped by {@link #TICKS} like any other ring and spending none of the hourly copies. Live
+     * ({@code -Dslums.qa} off) never builds one.
+     *
+     * @return the shared ring when the bot has real nav ticks, else the check's own ring, else null (off, no QA suite,
+     *         no position)
      */
     public static List<String> qaRing(Character bot) {
         if (!enabled || bot == null) {
@@ -178,7 +201,37 @@ public final class NavTrace {
         }
         BotMovementState entry = GCMovement.stateOf(bot);
         Ring ring = entry == null ? null : entry.navTrace;
-        return ring == null || ring.size == 0 ? null : ring.lines();
+        if (ring != null && ring.size > 0) {
+            return ring.lines();
+        }
+        return qaOwn(bot, entry);
+    }
+
+    /** One sample into the check's own ring. Null where the QA suite does not run or the bot has no position. */
+    private static List<String> qaOwn(Character bot, BotMovementState entry) {
+        if (!QaSuite.isEnabled()) {
+            return null;
+        }
+        Point pos = bot.getPosition();
+        if (pos == null) {
+            return null;
+        }
+        Ring ring = QA_RINGS.computeIfAbsent(bot.getId(), id -> new Ring());
+        ring.add(System.currentTimeMillis(), bot.getMapId(), pos,
+                entry != null ? entry.navTargetPos : null,
+                entry != null ? entry.navEdge : null,
+                entry != null && entry.lastNavDecision != null ? entry.lastNavDecision : "qa-watch",
+                entry != null ? ((entry.inAir ? AIR : 0) | (entry.climbing ? ROPE : 0) | (entry.swimming ? SWIM : 0))
+                        : 0,
+                entry != null ? entry.moveDir : 0);
+        return ring.lines();
+    }
+
+    /** Drops a bot's check ring once the check is done with it (t-nv-3), so a QA run leaves nothing behind. */
+    public static void qaRelease(Character bot) {
+        if (bot != null) {
+            QA_RINGS.remove(bot.getId());
+        }
     }
 
     /** One copy from this hour's budget. */
@@ -213,5 +266,6 @@ public final class NavTrace {
         usedThisHour = 0;
         droppedTotal = 0;
         capturedTotal = 0;
+        QA_RINGS.clear();
     }
 }
