@@ -237,8 +237,7 @@ public class Shop {
             InventoryManipulator.removeFromSlot(c, type, (byte) slot, quantity, false);
             soloMapling.Economy.exchange.volatility.MarketFlows.consumed(item.getItemId(), quantity); // 1.6.1 fair value: a shop sink
 
-            ItemInformationProvider ii = ItemInformationProvider.getInstance();
-            int recvMesos = ii.getPrice(item.getItemId(), quantity);
+            int recvMesos = sellPayout(item.getItemId(), quantity);
             if (recvMesos > 0) {
                 c.getPlayer().gainMeso(recvMesos, false);
                 soloMapling.Economy.stats.EconomyCounters.recordNpcSell(recvMesos);
@@ -247,6 +246,16 @@ public class Shop {
         } else {
             c.sendPacket(PacketCreator.shopTransaction((byte) 0x5));
         }
+    }
+
+    /**
+     * What a shop pays for {@code quantity} of an item. Casino chips pay their face value
+     * ({@link soloMapling.Casino.CasinoChipConfig#sellValue}), not the stock chip WZ {@code info/price} (250/350/400/350
+     * for the four stamps), so the chip shop's exchange stays lossless; everything else pays the WZ price as before.
+     */
+    static int sellPayout(int itemId, int quantity) {
+        int face = soloMapling.Casino.CasinoChipConfig.sellValue(itemId, quantity);
+        return face >= 0 ? face : ItemInformationProvider.getInstance().getPrice(itemId, quantity);
     }
 
     public void recharge(Client c, short slot) {
