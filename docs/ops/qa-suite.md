@@ -1260,7 +1260,10 @@ by every check.
 ## 1.6.4 equipment progression: ng-8
 
 `!qa run ng-8` opens a hands-on checklist for Nimble's class weapon core exchange. It logs the state of
-`slums.forge.coreExchange` (default OFF), grants nothing and makes no automatic pass assertion. Bring a core,
+`slums.forge.coreexchange` (default OFF), grants nothing and makes no automatic pass assertion. Bring a core,
 exercise confirmation/cancellation, stale input and full inventory, then verify unchanged total cores/mesos.
-Check the disabled menu too. Auto-QA row `t-ng-8` is explicitly MANUAL; its presence is not evidence it ran.
+Check the disabled menu too. Auto-QA row `t-ng-8` is HALF: it stages one core on a synthetic player, runs the real exchange adapter in both
+  directions, verifies unchanged core total/mesos and restores the inventory. It does not automate the visible
+  NPC confirmation. The required `slums.forge.coreexchange=true` switch is off by default; no new release skip
+  allowance is added. Its registration is not evidence it has run on TEST.
 See [the full gear candidate checklist](../release/1.6.4-gear-progression.md) for normal drops, forging and combat.

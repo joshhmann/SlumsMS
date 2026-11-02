@@ -98,8 +98,6 @@ public final class AutoQaCatalog {
 
     static List<Check> build() {
         List<Check> c = new ArrayList<>();
-        c.add(Check.manual("t-ng-8", "Nimble class weapon core exchange",
-                "Run !qa run ng-8; verify the actual NPC confirmation, cancellation, inventory denial and disabled menu in a client."));
 
         // ── Bots remember you ────────────────────────────────────────────────────────────────────────────────
         c.add(Check.auto("t-af-1", "A friend bot acts like a friend").laneOnly().minutes(7)
@@ -1538,6 +1536,9 @@ public final class AutoQaCatalog {
                 .minutes(2)
                 .expect(probe("makerBatch"))
                 .build());
+        c.add(Check.half("t-ng-8", "Nimble class weapon core exchange",
+                "Run !qa run ng-8 in a client for the actual menu, confirmation, cancellation and inventory messages.")
+                .laneOnly().minutes(1).expect(probe("forgeCoreExchange")).build());
         return List.copyOf(c);
     }
 

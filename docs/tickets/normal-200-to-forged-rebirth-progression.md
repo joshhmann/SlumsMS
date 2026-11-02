@@ -21,7 +21,7 @@ material pairs. The normal full-set model targets1–4 active hours at the serve
 All237 main equipment forge recipes are simplified for the owner's8–12-hour target **per stage**, using matching
 previous equipment and regional resources, with trophies/cores required on weapons. The existing Genesis
 Fragment refining recipe is simplified too;44 accessory recipes remain unchanged. A free one-for-one class-core
-exchange is available behind `slums.forge.coreExchange` (default OFF). Normal/hard Lucid supply a non-quest trophy.
+exchange is available behind `slums.forge.coreexchange` (default OFF). Normal/hard Lucid supply a non-quest trophy.
 Requirements/input validation, pirate slot mapping, the Lionheart sword RB2 exception, HP/MP carryover and
 input-based enhancement refunds have local fixes and regression tests.
 
@@ -29,7 +29,7 @@ See [release candidate and exact numbers/proof](../release/1.6.4-gear-progressio
 [stage policy](../economy/forge-stages.json) and [238-recipe exact diff](../economy/forge-economy-diff.csv).
 Stored chances and recipe tuning implement the agreed direction; modeled hours are not player measurements.
 Both migrations passed disposable MySQL apply/rollback tests; neither is release-enabled. No TEST deployment,
-SSH, client launch or live action was performed. `!qa run ng-8` and MANUAL auto-QA row `t-ng-8` are registered;
+SSH, client launch or live action was performed. `!qa run ng-8` and HALF auto-QA row `t-ng-8` (real exchange adapter and staged-item cleanup) are registered;
 remaining acceptance checks stay open. Client/server combat calibration is still required to close this ticket.
 
 ## Problem and intended result

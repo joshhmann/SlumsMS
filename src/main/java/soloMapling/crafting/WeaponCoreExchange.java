@@ -8,7 +8,7 @@ import java.util.Set;
 /** Nimble's one-for-one class-core exchange. Never grants more cores than it consumes. */
 public final class WeaponCoreExchange {
     public static final Set<Integer> CORE_IDS=Set.of(4036544,4036545,4036546,4036547,4036548);
-    public static final String PROPERTY = "slums.forge.coreExchange";
+    public static final String PROPERTY = "slums.forge.coreexchange";
     public static boolean isEnabled() { return Boolean.getBoolean(PROPERTY); }
     private WeaponCoreExchange() { }
     public record Result(boolean made,String text) { }

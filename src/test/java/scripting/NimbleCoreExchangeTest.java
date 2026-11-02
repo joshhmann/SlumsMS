@@ -17,10 +17,10 @@ import static org.mockito.Mockito.*;
 
 class NimbleCoreExchangeTest {
     private String previous;
-    @BeforeEach void enable() { previous=System.getProperty("slums.forge.coreExchange");System.setProperty("slums.forge.coreExchange","true"); }
-    @AfterEach void restore() { if(previous==null) System.clearProperty("slums.forge.coreExchange");else System.setProperty("slums.forge.coreExchange",previous); }
+    @BeforeEach void enable() { previous=System.getProperty("slums.forge.coreexchange");System.setProperty("slums.forge.coreexchange","true"); }
+    @AfterEach void restore() { if(previous==null) System.clearProperty("slums.forge.coreexchange");else System.setProperty("slums.forge.coreexchange",previous); }
     @Test void disabledExchangeIsHiddenAndRejectsAnInjectedMenuChoice() throws Exception {
-        System.clearProperty("slums.forge.coreExchange");
+        System.clearProperty("slums.forge.coreexchange");
         Run r=new Run();r.bag.put(4036544,1);r.npc.invokeFunction("start");
         verify(r.cm).sendSimple(argThat(text->!text.contains("Exchange weapon cores")));
         r.npc.invokeFunction("action",1,0,2);

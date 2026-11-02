@@ -16,7 +16,7 @@ final class GearProgressionScenarios {
             ctx.log("CORE_EXCHANGE enabled=" + WeaponCoreExchange.isEnabled() + "; hands-on outcome required");
             return List.of(
                 "Bring one class weapon core to Nimble (9977779). No items or currency are granted by this checklist.",
-                "With slums.forge.coreExchange=true: exchange to another class, then back. Total cores and mesos must stay unchanged.",
+                "With slums.forge.coreexchange=true: exchange to another class, then back. Total cores and mesos must stay unchanged.",
                 "Cancel at confirmation; remove the selected input before confirming; fill the Etc inventory. Each denial must preserve inventory and mesos.",
                 "With the switch absent: the exchange is hidden and an injected selection is refused.",
                 "Record the actual client/build, screenshots and before/after inventory counts in t-ng-8; this scenario does not automatically pass it.");
