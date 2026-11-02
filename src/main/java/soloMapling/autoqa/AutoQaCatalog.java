@@ -1248,7 +1248,8 @@ public final class AutoQaCatalog {
                 .build());
         // NX exchange (ticket 113 round 2, -Dslums.exchange): place in game with @nx, fill against a test regular
         // funded from the player's own mesos, the payout lands online, a cancel refunds exactly
-        c.add(Check.auto("t-xc-1", "NX exchange: place in game, fill, payout online, cancel refunds").holds("market").minutes(2)
+        c.add(Check.auto("t-xc-1", "NX exchange: trade in game, payout online (book: sell into a test regular and "
+                + "cancel; desk: buy then sell at its quote, nothing minted)").holds("market").minutes(2)
                 .expect(probe("nxExchange"))
                 .build());
         // exchange tickers (ticket 113, owner 2026-10-28): the LEAF book in game: a sell escrows leaves out of the

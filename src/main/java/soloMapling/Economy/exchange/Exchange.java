@@ -2302,9 +2302,13 @@ public final class Exchange {
         if (!recovered || halted) {
             return Response.error("qa", "HALTED", "not running");
         }
-        Ticker t = tickers.get(Ticker.norm(ticker));
+        String norm = Ticker.norm(ticker);
+        Ticker t = tickers.get(norm);
         if (t == null || (t.item() && side == Side.SELL)) {
             return Response.error("qa", "BAD_REQUEST", "ticker/side");
+        }
+        if (desk != null && Ticker.NX.equals(norm)) {
+            return Response.error("qa", "BAD_REQUEST", deskBookOffMessage());
         }
         return placeOrder("qa-regular-" + regular + "-" + nextOrder, 0, 0, regular, t, side, price, nx,
                 clock.getAsLong(), null);

@@ -3212,6 +3212,9 @@ final class Probes160 {
         if (w == null || !w.locked(w::usable)) {
             return List.of("FAIL the pretend player has no usable live wallet");
         }
+        if (soloMapling.Economy.exchange.ExchangeQa.deskOn(ex)) {
+            return nxExchangeDesk(p, ex, w);
+        }
         var cfg = ex.config();
         long nxTop = 0;
         List<String> out = new ArrayList<>();
@@ -3304,6 +3307,87 @@ final class Probes160 {
         }
         return verdict(bad, "placed in game, filled against a regular, the payout landed online, a cancel refunded "
                 + "exactly, and only the two fees left", out);
+    }
+
+    /**
+     * t-xc-1 where the NX desk is on (TEST and live 1.6.3: {@code -Dslums.exchange.desk=true}): the NX book is off
+     * (ticket 162 §4), so there is no regular to fill against and no price to type. The check trades at the desk
+     * itself: {@code @nx buy 100} + {@code @nx confirm} buys {@link ExchangeQa#DESK_NX} NX at the desk's sell quote,
+     * {@code @nx sell 100} + confirm sells it straight back at its buy quote. Net: the wallet's NX and the desk's own
+     * NX are where they started, nothing was minted, and the player is down exactly the spread (plus the desk's fees,
+     * 0 for the owner's set B). Nothing rests, so there is no teardown and no cooldown to wait out.
+     */
+    static List<String> nxExchangeDesk(SyntheticPlayer p, soloMapling.Economy.exchange.Exchange ex,
+                                       soloMapling.Economy.exchange.LiveWallet w) throws Exception {
+        Character me = p.character();
+        soloMapling.Economy.exchange.Desk desk = ex.desk();
+        long nx = soloMapling.Economy.exchange.ExchangeQa.DESK_NX;
+        long[] inv = ex.deskInventory();
+        var dc = desk.config();
+        long buyMesos, sellMesos;
+        try {
+            buyMesos = desk.mesos(soloMapling.Economy.exchange.OrderBook.Side.BUY, nx, desk.sell());
+            sellMesos = desk.mesos(soloMapling.Economy.exchange.OrderBook.Side.SELL, nx, desk.buy());
+        } catch (ArithmeticException e) {
+            return List.of("SKIP " + nx + " NX is more than one desk trade can carry: " + e.getMessage());
+        }
+        if (inv[0] < nx) {
+            return List.of("SKIP the desk has " + inv[0] + " NX to sell, need " + nx
+                    + ": !exchange desk fund nx 50000");
+        }
+        if (inv[1] + buyMesos < sellMesos) {
+            return List.of("SKIP the desk has " + inv[1] + " mesos to buy the " + nx + " NX back, need " + sellMesos
+                    + ": !exchange desk fund meso 50000000");
+        }
+        soloMapling.Economy.exchange.ExchangeQa.Snapshot before =
+                soloMapling.Economy.exchange.ExchangeQa.Snapshot.of(ex, w);
+        long need = buyMesos + dc.fee(buyMesos);
+        if (before.meso() < need) {
+            return List.of("SKIP the pretend player has " + before.meso() + " mesos, need " + need + " to buy " + nx
+                    + " NX at the desk's " + desk.sell() + " per 1,000");
+        }
+        List<String> out = new ArrayList<>();
+        List<String> bad = new ArrayList<>();
+        out.add("the NX desk is on: the NX book is off, so the check trades at the desk (BUY then SELL of " + nx
+                + " NX, no order rests)");
+        out.add("before: " + before.nx() + " NX, " + before.meso() + " mesos; the desk holds " + before.deskNx()
+                + " NX, " + before.deskMeso() + " mesos; desk quotes buy " + desk.buy() + " / sell " + desk.sell()
+                + " per 1,000 (mid " + desk.mid() + ")");
+
+        String buyPv = sayAndHear(p, "@nx buy " + nx, "^NX desk: buy|\\([A-Z_]+\\)$", 8_000);
+        out.add("@nx buy " + nx + ": " + buyPv);
+        String bought = sayAndHear(p, "@nx confirm", "mesos now|\\([A-Z_]+\\)$", 8_000);
+        out.add("@nx confirm (buy): " + bought);
+        String sellPv = sayAndHear(p, "@nx sell " + nx, "^NX desk: sell|\\([A-Z_]+\\)$", 8_000);
+        out.add("@nx sell " + nx + ": " + sellPv);
+        String sold = sayAndHear(p, "@nx confirm", "mesos now|\\([A-Z_]+\\)$", 8_000);
+        out.add("@nx confirm (sell): " + sold);
+
+        soloMapling.Economy.exchange.ExchangeQa.Snapshot after =
+                soloMapling.Economy.exchange.ExchangeQa.Snapshot.of(ex, w);
+        soloMapling.Economy.exchange.ExchangeQa.DeskRound round;
+        try {
+            round = soloMapling.Economy.exchange.ExchangeQa.deskRound(desk, w.account(), nx, before, after);
+        } catch (IllegalStateException e) {
+            bad.add(e.getMessage());
+            return verdict(bad, "", out);
+        }
+        out.add("the fills: BUY " + nx + " NX at " + round.buyPrice() + " = " + round.buyMesos() + " mesos, SELL "
+                + nx + " NX at " + round.sellPrice() + " = " + round.sellMesos() + " mesos; fees " + round.fees());
+        out.add("after: " + after.nx() + " NX, " + after.meso() + " mesos; the desk holds " + after.deskNx()
+                + " NX, " + after.deskMeso() + " mesos");
+        for (String line : round.problems()) {
+            bad.add(line);
+        }
+        if (me.getMeso() != after.meso()) {
+            bad.add("the character's mesos (" + me.getMeso() + ") are not the wallet's (" + after.meso() + ")");
+        }
+        if (ex.halted()) {
+            bad.add("the exchange halted during the check: " + ex.haltReason());
+        }
+        return verdict(bad, "bought " + nx + " NX at the desk's quote in game, sold it straight back, no NX or meso "
+                + "minted, and only the spread (" + round.spreadPaidPerMille() + " mesos per 1,000 NX) plus "
+                + round.fees() + " mesos of fees left the wallet", out);
     }
 
     // ── t-xc-2: the LEAF ticker in game (ticket 113, tickers) ────────────────────────────────────

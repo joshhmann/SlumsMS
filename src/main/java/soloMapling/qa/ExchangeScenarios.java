@@ -2,6 +2,7 @@ package soloMapling.qa;
 
 import client.Character;
 import soloMapling.Economy.exchange.Desk;
+import soloMapling.Economy.exchange.DeskConfig;
 import soloMapling.Economy.exchange.Exchange;
 import soloMapling.Economy.exchange.ExchangeQa;
 import soloMapling.Economy.exchange.ExchangeService;
@@ -178,9 +179,14 @@ final class ExchangeScenarios {
 
     static final class InGame implements QaScenario {
         private long nx0, meso0;
+        private boolean desk;
+        private long deskBuy0, deskSell0, deskNx0, deskMeso0;
 
         public String id() { return "xc-1"; }
-        public String title() { return "NX exchange in game: @nx sell into a test regular, payout lands online, cancel refunds"; }
+        public String title() {
+            return "NX exchange in game: @nx sell into a test regular (or, with the desk on, buy then sell at the desk's "
+                    + "quote), payout lands online, cancel refunds";
+        }
         public Set<QaLog.Topic> topics() { return Set.of(); }
         public int minutes(String[] args) { return 15; }
         public Set<String> claims(Character gm, String[] args) { return Set.of("nx-exchange-test-regular"); }
@@ -196,6 +202,10 @@ final class ExchangeScenarios {
             }
             nx0 = w.have(Ledger.Asset.NX);
             meso0 = w.have(Ledger.Asset.MESO);
+            desk = ExchangeQa.deskOn(ex);
+            if (desk) {
+                return stageDesk(ctx, ex, w);
+            }
             if (nx0 < ExchangeQa.NX) {
                 throw new QaRefusal("You need at least " + ExchangeQa.NX + " NX credit to sell (you have " + nx0 + ").");
             }
@@ -244,10 +254,71 @@ final class ExchangeScenarios {
                 throw new QaRefusal("Log in and keep the exchange on.");
             }
             long nx = w.have(Ledger.Asset.NX), meso = w.have(Ledger.Asset.MESO);
-            String line = "XC1 CHECK nx " + nx0 + " -> " + nx + ", meso " + meso0 + " -> " + meso + ", open orders "
-                    + ex.openIdsOf(w.account()).size() + (ex.halted() ? ", HALTED " + ex.haltReason() : "");
+            long[] inv = ex.deskInventory();
+            String line = desk
+                    ? "XC1 CHECK desk nx " + nx0 + " -> " + nx + ", meso " + meso0 + " -> " + meso + " (the spread: "
+                            + (deskBuy0 - deskSell0) + " mesos per 1,000 NX), the desk " + deskNx0 + " -> " + inv[0]
+                            + " NX and " + deskMeso0 + " -> " + inv[1] + " mesos, open orders "
+                            + ex.openIdsOf(w.account()).size() + (ex.halted() ? ", HALTED " + ex.haltReason() : "")
+                    : "XC1 CHECK nx " + nx0 + " -> " + nx + ", meso " + meso0 + " -> " + meso + ", open orders "
+                            + ex.openIdsOf(w.account()).size() + (ex.halted() ? ", HALTED " + ex.haltReason() : "");
             ctx.run().note("XC1", line);
             return List.of(line);
+        }
+
+        /**
+         * The desk branch of {@link #stage}: the NX book is off under the desk (ticket 162 §4), so nothing rests and
+         * there is no regular to take out. The GM buys {@link ExchangeQa#DESK_NX} NX at the desk's sell quote and
+         * sells it straight back at its buy quote, so the same NX and (all but the spread) the same mesos come back.
+         */
+        private List<String> stageDesk(QaContext ctx, Exchange ex, LiveWallet w) {
+            Desk deskBook = ex.desk();
+            DeskConfig dc = deskBook.config();
+            long nx = ExchangeQa.DESK_NX;
+            long[] inv = ex.deskInventory();
+            long buyMesos, sellMesos;
+            try {
+                buyMesos = deskBook.mesos(OrderBook.Side.BUY, nx, deskBook.sell());
+                sellMesos = deskBook.mesos(OrderBook.Side.SELL, nx, deskBook.buy());
+            } catch (ArithmeticException e) {
+                throw new QaRefusal(nx + " NX is more than one desk trade can carry: " + e.getMessage());
+            }
+            if (inv[0] < nx) {
+                throw new QaRefusal("The desk has " + inv[0] + " NX to sell, need " + nx
+                        + ". Staff: !exchange desk fund nx 50000.");
+            }
+            if (inv[1] + buyMesos < sellMesos) {
+                throw new QaRefusal("The desk has " + inv[1] + " mesos to buy the " + nx + " NX back, need "
+                        + sellMesos + ". Staff: !exchange desk fund meso 50000000.");
+            }
+            long need = buyMesos + dc.fee(buyMesos); // the BUY's cost, fees included
+            if (meso0 < need) {
+                throw new QaRefusal("You need " + need + " mesos to buy " + nx + " NX at the desk's "
+                        + Exchange.perNx(deskBook.sell()) + " per 1,000 (you have " + meso0 + ").");
+            }
+            deskBuy0 = deskBook.buy();
+            deskSell0 = deskBook.sell();
+            deskNx0 = inv[0];
+            deskMeso0 = inv[1];
+            ctx.log("XC1 START desk nx=" + nx0 + " meso=" + meso0 + " buy=" + deskBuy0 + " sell=" + deskSell0
+                    + " deskNx=" + deskNx0 + " deskMeso=" + deskMeso0);
+            ctx.onStop("note that the desk check leaves nothing resting", () -> {
+                Exchange e = ExchangeService.exchange();
+                long[] now = e == null ? new long[]{-1, -1} : e.deskInventory();
+                ctx.run().note("CLEANUP", "XC1 desk: nothing to take out (the desk fills at once); the desk holds "
+                        + now[0] + " NX, " + now[1] + " mesos");
+            });
+            return List.of(
+                    "The NX desk is on, so the NX book is off: nothing rests and there is no test regular. You trade "
+                            + nx + " NX twice at the desk's own quote (buy " + Exchange.perNx(deskBuy0)
+                            + " / sell " + Exchange.perNx(deskSell0) + " mesos per 1,000 NX, mid "
+                            + Exchange.perNx(deskBook.mid()) + ").",
+                    "1) @nx buy " + nx + "   then   @nx confirm   -> " + nx + " NX arrive and " + buyMesos
+                            + " mesos leave (at once).",
+                    "2) @nx sell " + nx + "   then   @nx confirm   -> " + sellMesos + " mesos arrive and the NX leaves.",
+                    "!qa do check shows what moved: the same NX, the same desk inventory, and only the spread ("
+                            + (deskBuy0 - deskSell0) + " mesos per 1,000 NX) plus "
+                            + (dc.fee(buyMesos) + dc.fee(sellMesos)) + " mesos of fees gone.");
         }
     }
 
