@@ -305,6 +305,8 @@ opcode only their patched client has. Their `set(int)` GM override is not ported
 | `server.agents.capabilities.partyquest.opq.AgentOpqDefinition` (136 lines): the map ids, the item ids, the monster ids, the level window, the statue-scar table and the room exit portal ids | `soloMapling/mechanics/content/opq.yaml` (`minLevel`/`maxLevel`, the map and item ids of each stage) and `soloMapling/mechanics/OpqSubRoomSolver.EAK_MAP` |
 | `AgentOpqCoordinator.tickStatueRestoration` / `tickPieceCarrier` / the four-room split (`LOUNGE_SUBROOM_ENTRY_PORTALS`, one bot per side room) | `soloMapling/mechanics/OpqSubRoomSolver`: the same "the piece is in the room, Eak is elsewhere" split, but ours sends the whole party into one side room because the four rooms share the drop |
 | `AgentOpqCoordinator.MUSIC_PLAYER` / `ROOT_POT` / `hitNearestLegalReactor` (the item is dropped inside the reactor's box) | `SolverStep.PlaceItem` + `StepExecutor.placeItem`: the step carries the reactor (name or id) and the executor drops inside its box, because `MapleMap.activateItemReactors` matches the reactor's item *and* quantity |
+| `AgentOpqDefinition.STATUE_SCAR_BY_ITEM` / `STATUE_SCAR_POSITION` (the six-scar pairing and where the scars stand) | `OpqStatueSolver.SCAR_PIECE`: the same pairing, but taken from our own `Reactor.wz/2008000-2008005.img.xml`, where each scar carries exactly one item trigger; the positions are not copied because `PlaceItem` resolves the scar through `MapleMap.getReactorByName` and drops at its own position |
+| `AgentOpqDefinition.CENTER_PORTALS` / `ROOM_EXIT_PORTALS` / `LOUNGE_SUBROOM_ENTRY_PORTALS` (WZ portal **ids**, not names) | not used: our row warps stage to stage through `SolverStep.WarpTo`, because a WZ portal id cannot be looked up by name from the engine (`Orchestrator` accepts a solver's `WarpTo` on a map the stage does not own) |
 
 Where our server's scripts disagree, the scripts win and the row follows them:
 
@@ -315,6 +317,12 @@ Where our server's scripts disagree, the scripts win and the row follows them:
 - **The storage room clears on an empty floor.** `scripts/npc/2013001.js` (map `920010300`) asks
   `countMonsters() == 0 && countItems() == 0`, and `MapleMap.countItems()` counts mesos too, so our `opq-sweep` loots
   with `Loot(0)` ("anything on the floor") instead of their reward-box-only pickup.
+- **The statue and the garden are one stage.** Their coordinator keeps both in one tick machine as well, but ours has to
+  be one *row* stage: the scar condition is reactor state (`getReactorByName("scar" + i).getState()`), and the only
+  writable property is `statusStg8`, which `scripts/reactor/2006001.js` sets when the Root of Life reaches the base.
+- **The lobby's pass is armed, not listed.** `scripts/event/OrbisPQ.js:162-163` sets the `music` reactor's event state to
+  the weekday, and `Reactor.getReactItem(byte)` reads that as the slot, so our `opq-lobby` asks the reactor
+  (`StageView.reactorEventState`) instead of carrying seven one-line tables.
 - **The levers are a five-character string in `stage6_c`.** `scripts/npc/2013001.js` (map `920010700`) is the only
   place that picks the combination and checks it; their coordinator keeps its own lever model. Ours reads the property
   and clicks only the reactors named `"1"`..`"5"` whose state differs, shared out over the bots so no lever is toggled

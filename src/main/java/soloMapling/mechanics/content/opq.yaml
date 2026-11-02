@@ -23,7 +23,8 @@ sources:
   - "scripts/event/OrbisPQ.js, scripts/npc/2013001.js, scripts/reactor/2006000.js, scripts/reactor/2006001.js: ours, the truth"
   - "Level window 51-70: cosmic_agents Kiwiism/cosmic_agents 3c7e09435 AgentOpqDefinition MIN_LEVEL 51 / MAX_LEVEL 70"
   - "Map ids, item ids, monster ids and the room exit portals: cosmic_agents AgentOpqDefinition (AGPL-3.0); the portal ids there are WZ portal ids, so this row warps stage to stage instead of naming portals"
-  - "Stage order: entrance, walkway, storage, lounge, levers (our script's stage numbers 0, 1, 2, 5, 6). The lobby (920010400), sealed room (920010500) and the statue (920010100) are left out: REPORT.md names the exact blocker of each"
+  - "Stage order: entrance, walkway, storage, lobby, sealed room, lounge, levers, statue and garden (our script's stage numbers 0, 1, 2, 3, 4, 5, 6, 7+8). The statue and the garden are one stage here because only the second half has a property to watch (the scars are counted with getReactorByName(\"scar\" + i).getState(), scripts/npc/2013001.js:11-19, while statusStg8 is what scripts/reactor/2006001.js writes)"
+  - "The lobby's day comes from the music reactor's own armed slot (scripts/event/OrbisPQ.js:162-163 setEventState(new Date().getDay()), Reactor.getReactItem(byte) reads it as a slot), so 4001056 + that is the pass; the three platforms of the sealed room are the map's own area nodes (MapFactory.java:273-279), not a table here"
 stages:
   - stage: 1
     map: 920010000
@@ -150,6 +151,107 @@ stages:
       eventProperty: statusStg2
       equals: "1"
   - stage: 4
+    map: 920010400
+    name: The music player
+    npc: 2013001
+    solver: opq-lobby
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: talks to Eak once the day's pass sits on the music player, which is what opens the box and clears the stage
+      - id: fetcher
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: cycles the seven lp boxes until the day's pass drops and loots it
+    items:
+      - id: 4001056
+        name: Sunday's Ludibrium Pass
+        cleanup: true
+      - id: 4001057
+        name: Monday's Ludibrium Pass
+        cleanup: true
+      - id: 4001058
+        name: Tuesday's Ludibrium Pass
+        cleanup: true
+      - id: 4001059
+        name: Wednesday's Ludibrium Pass
+        cleanup: true
+      - id: 4001060
+        name: Thursday's Ludibrium Pass
+        cleanup: true
+      - id: 4001061
+        name: Friday's Ludibrium Pass
+        cleanup: true
+      - id: 4001062
+        name: Saturday's Ludibrium Pass
+        cleanup: true
+      - id: 4001046
+        name: Statue Piece
+        cleanup: true
+    objectives:
+      - id: fetch
+        kind: COLLECT
+        role: all
+        item: 4001056
+        count: 1
+        note: the day's pass, i.e. 4001056 + the music reactor's event state; the seven boxes named lp (reactor ids 2002004-2002010, act() { rm.dropItems(); }) hold them and which box holds which day is a reactordrops row, so the party cycles all seven
+      - id: place
+        kind: PLACE_ITEM
+        role: all
+        item: 4001056
+        count: 1
+        reactor: music
+        note: scripts/reactor/2008006.js sets statusStg3 = 0, and MapleMap.activateItemReactors only arms the reactor for the exact item, quantity 1 and a drop inside its box - a wrong day's pass does nothing at all
+      - id: open
+        kind: TALK_NPC
+        role: leader
+        npc: 2013001
+        note: at statusStg3 == 0 the talk force-hits stone3 (the third-piece box, 2013001.js:920010400), clears stage 3 and sets statusStg3 = 2
+    clear:
+      eventProperty: statusStg3
+      equals: "2"
+  - stage: 5
+    map: 920010500
+    name: The three platforms
+    npc: 2013001
+    solver: opq-sealed
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: opens the stage (Eak splits three at random) and talks for the check once the platforms hold the split
+      - id: stander
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: stands on the platform the split gives it, and stays off the platforms when the split is already full
+    items:
+      - id: 4001047
+        name: Statue Piece
+        cleanup: true
+    objectives:
+      - id: split
+        kind: TALK_NPC
+        role: leader
+        npc: 2013001
+        note: the first talk writes stage4_0..stage4_2 (a random split of three) and sets statusStg4 = 0
+      - id: platforms
+        kind: OCCUPY_POSITION
+        role: all
+        note: exactly stage4_i players inside area i, read from the map's own area nodes (MapFactory.java:273-279); the party of three is split 1/1/1 and everyone past three stands beside Eak
+      - id: check
+        kind: TALK_NPC
+        role: leader
+        npc: 2013001
+        note: clearStage(4, eim) sets statusStg4 = 1 and opens the box with the fourth piece
+    clear:
+      eventProperty: statusStg4
+      equals: "1"
+  - stage: 6
     map: 920010601
     name: The lounge room
     npc: 2013001
@@ -193,7 +295,7 @@ stages:
     clear:
       eventProperty: statusStg5
       equals: "1"
-  - stage: 5
+  - stage: 7
     map: 920010700
     name: The five levers
     npc: 2013001
@@ -226,4 +328,73 @@ stages:
         note: clearStage(6, eim) sets statusStg6 = 1 and opens the box with the sixth piece
     clear:
       eventProperty: statusStg6
+      equals: "1"
+
+  - stage: 8
+    map: 920010100
+    name: The statue and the garden
+    npc: 2013001
+    solver: opq-statue
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: talks to Eak once the six scars are full, which warps the whole team to the garden
+      - id: carrier
+        who: NON_LEADER
+        min: party-1
+        max: party-1
+        note: carries its share of the six pieces, drops them on the scars, and helps with Papa Pixie
+    items:
+      - id: 4001044
+        name: Statue Piece
+        cleanup: true
+      - id: 4001045
+        name: Statue Piece
+        cleanup: true
+      - id: 4001046
+        name: Statue Piece
+        cleanup: true
+      - id: 4001047
+        name: Statue Piece
+        cleanup: true
+      - id: 4001048
+        name: Statue Piece
+        cleanup: true
+      - id: 4001049
+        name: Statue Piece
+        cleanup: true
+      - id: 4001055
+        name: Root of Life
+        cleanup: true
+    objectives:
+      - id: pieces
+        kind: PLACE_ITEM
+        role: all
+        item: 4001044
+        count: 1
+        reactor: scar4
+        note: one piece on each of the six scars; scar-to-piece pairing is a permutation read from Reactor.wz/2008000-2008005.img.xml
+      - id: statue
+        kind: TALK_NPC
+        role: leader
+        npc: 2013001
+        note: isStatueComplete() is true only when all six scars report a state above zero; the talk warps the team to 920010800
+      - id: pixie
+        kind: DEFEAT
+        role: all
+        mob: 9300039
+        item: 4001055
+        count: 1
+        note: scripts/reactor/2001016.js clears the garden and spawns Papa Pixie; he is the only source of the Root of Life
+      - id: base
+        kind: PLACE_ITEM
+        role: all
+        item: 4001055
+        count: 1
+        reactor: minerva
+        note: scripts/reactor/2006001.js spawns Minerva, sets statusStg8 = 1 and calls clearPQ
+    clear:
+      eventProperty: statusStg8
       equals: "1"

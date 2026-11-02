@@ -51,7 +51,7 @@ public final class Orchestrator implements RunOrchestrator {
         return Map.of(qc.id(), qc);
     }
 
-    /** Every solver there is (1.6.1: KPQ end to end; 1.6.4: the five Orbis PQ stages). */
+    /** Every solver there is (1.6.1: KPQ end to end; 1.6.4: the Orbis PQ stages up to the statue). */
     public static Map<String, StageSolver> allSolvers() {
         QuestionCouponsSolver qc = new QuestionCouponsSolver();
         CombinationSolver cb = new CombinationSolver();
@@ -61,8 +61,16 @@ public final class Orchestrator implements RunOrchestrator {
         OpqSweepSolver os = new OpqSweepSolver();
         OpqSubRoomSolver sr = new OpqSubRoomSolver();
         OpqLeversSolver ol = new OpqLeversSolver();
-        return Map.of(qc.id(), qc, cb.id(), cb, kc.id(), kc, bp.id(), bp,
-                oc.id(), oc, os.id(), os, sr.id(), sr, ol.id(), ol);
+        OpqLobbySolver la = new OpqLobbySolver();
+        OpqSealedSolver se = new OpqSealedSolver();
+        OpqStatueSolver st = new OpqStatueSolver();
+        // Map.of caps at ten pairs; anything past that goes in a second immutable copy
+        Map<String, StageSolver> all = new java.util.HashMap<>(Map.of(qc.id(), qc, cb.id(), cb, kc.id(), kc,
+                bp.id(), bp, oc.id(), oc, os.id(), os, sr.id(), sr, ol.id(), ol));
+        all.put(la.id(), la);
+        all.put(se.id(), se);
+        all.put(st.id(), st);
+        return Map.copyOf(all);
     }
 
     @Override
@@ -223,7 +231,7 @@ public final class Orchestrator implements RunOrchestrator {
                 continue; // a real player is planned around, never steered
             }
             int on = view.mapOf(m.characterId());
-            if (on != stage.mapId()) {
+            if (on != stage.mapId() && !solver.extraMaps(view).contains(on)) {
                 // a boss run's rooms are separate maps with no knowable portal name: the solver says the map and the
                 // step warps straight into the instance's own copy of it (SolverStep.WarpTo). Every other content
                 // keeps walking through the portal an earlier stage opened.
@@ -451,6 +459,23 @@ public final class Orchestrator implements RunOrchestrator {
      * 19 minutes in silence, t-mx-5's second alt never asked Cloto and said nothing). Noted once per member and
      * reason, after {@link #STRAY_GRACE_MS}, and again only if the member left and strayed once more.
      */
+    /** A stage whose solver drives a second map (Orbis PQ's garden) is not a stray there. */
+    private static boolean runsThisMap(RunState run, StageView view, int mapId) {
+        StageSolver solver = builtins().get(run.stageData().solver());
+        return solver != null && solver.extraMaps(view).contains(mapId);
+    }
+
+    /** The shipped solvers, built once: they are stateless, and the static helpers below cannot see the instance map. */
+    private static volatile Map<String, StageSolver> builtins;
+
+    private static Map<String, StageSolver> builtins() {
+        Map<String, StageSolver> m = builtins;
+        if (m == null) {
+            builtins = m = allSolvers();
+        }
+        return m;
+    }
+
     static void noteStrays(RunState run, StageView view, long nowMs) {
         Stage stage = run.stageData();
         Map<String, Object> mem = run.stageMemory();
@@ -458,7 +483,8 @@ public final class Orchestrator implements RunOrchestrator {
             int id = m.characterId();
             int on = view.mapOf(id);
             String why = !view.alive(id) ? "is down"
-                    : on != stage.mapId() ? "is on map " + on + (on == -1 ? " (not in the event)" : "") : null;
+                    : on != stage.mapId() && !runsThisMap(run, view, on)
+                    ? "is on map " + on + (on == -1 ? " (not in the event)" : "") : null;
             String key = "stray:" + id;
             if (why == null) {
                 mem.remove(key);

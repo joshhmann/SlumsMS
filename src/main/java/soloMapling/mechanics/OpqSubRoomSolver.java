@@ -26,6 +26,12 @@ public final class OpqSubRoomSolver implements StageSolver {
         return ID;
     }
 
+    /** the sealed room is still this stage's business: its clear opened the box that holds our fourth piece */
+    @Override
+    public java.util.Set<Integer> extraMaps(StageView view) {
+        return java.util.Set.of(920010500);
+    }
+
     @Override
     public java.util.Optional<String> leaderPrompt(StageView view, RunMember leader) {
         int id = leader.characterId();
@@ -44,6 +50,10 @@ public final class OpqSubRoomSolver implements StageSolver {
             return new SolverStep.Done();
         }
         int id = member.characterId();
+        SolverStep sealedBox = OpqBoxes.take(view, id, OpqBoxes.SEALED);
+        if (sealedBox != null) {
+            return sealedBox; // the sealed room's clear opened the box that holds the fourth scar
+        }
         int have = view.itemCount(id, LOUNGE_PIECE);
         if (member.leader()) {
             if (have >= NEED) {

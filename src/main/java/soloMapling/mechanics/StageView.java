@@ -85,6 +85,25 @@ public interface StageView {
         return -1;
     }
 
+    /**
+     * The slot the map's event script armed the named item reactor with, or {@code -1}. Orbis PQ's lobby arms the
+     * reactor named {@code music} with {@code new Date().getDay()} ({@code scripts/event/OrbisPQ.js:162-163}) and the
+     * reactor takes {@code 4001056 + getEventState()} as its item ({@code Reactor.getReactItem(byte)}), so the pass the
+     * party has to fetch is the reactor's day, not the bot's own clock.
+     */
+    default int reactorEventState(String name) {
+        return -1;
+    }
+
+    /**
+     * The map's {@code index}th player area - the rectangles {@code MapFactory.java:273-279} loads from a map's
+     * {@code area} nodes and {@code MapleMap.getNumPlayersInArea} counts characters in - or {@code null} when the map
+     * has fewer. Orbis PQ's sealed room asks the script for exactly that count on three platforms.
+     */
+    default java.awt.Rectangle area(int index) {
+        return null;
+    }
+
     /** Live monsters on the stage's map, of the stage's {@code mobs} when it lists any. */
     default int liveMobs() {
         return 0;

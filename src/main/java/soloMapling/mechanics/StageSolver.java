@@ -17,6 +17,16 @@ public interface StageSolver {
     SolverStep next(StageView view, RunMember member);
 
     /**
+     * The maps this stage drives besides its own, if any. A stage is otherwise one map: a bot found anywhere else is
+     * walked through the portal an earlier stage opened (or waits). Orbis PQ's last stage needs this because the
+     * script sends the team to the garden and back before the statue's base can be armed, and neither map is a
+     * separate stage - only the base has a property to watch.
+     */
+    default java.util.Set<Integer> extraMaps(StageView view) {
+        return java.util.Set.of();
+    }
+
+    /**
      * The visible wrong tries a member with this persona shows on the stage's puzzle before the right {@code answer},
      * in the order it shows them (see {@link TryPlanner}). Planned once per member and stage by the orchestrator;
      * none by default.

@@ -4,9 +4,10 @@ Worktree `/root/work/164-opq`, reset onto `0488c420e` (the `ex-2` auto-QA base) 
 Nothing pushed, nothing merged, live server untouched. The whole row is behind its **own** switch: a run starts only with
 `-Dslums.mechanics=true` **and** `-Dslums.mechanics.opq=true`, so the Kerning PQ lanes behave exactly as they did.
 
-Nothing in the two stages this ticket was asked to unblock is behind that switch, or behind any switch: the lobby and the
-sealed room already work for a player who walks in, and this ticket changed neither - it added the two tests that keep them
-working and the paragraph below that says why they were reported broken.
+The row covers **all nine script stages**: the run starts in the entrance and ends with `clearPQ` when the Root of Life is
+put at the statue's base. Nothing in the two stages that were reported broken is behind that switch, or behind any switch:
+the lobby and the sealed room already worked for a player who walks in, and this ticket changed neither - it added the two
+tests that keep them working and the section below that says why they were reported broken.
 
 ## What ships
 
@@ -18,9 +19,13 @@ working and the paragraph below that says why they were reported broken.
 | `SolverStep.HitReactorNamed` | `SolverStep.java`, `StepExecutor.java` | OPQ's levers are reactors named `"1"`..`"5"` (`getReactorByName("" + i)`), not ids |
 | `Loot(0)` = the whole floor | `LiveStageView.floorDrops` | the storage room clears on `countItems() == 0`, and `countItems()` counts mesos too |
 | `StageView.reactorState(String)` | `StageView.java`, `LiveStageView.java` | the levers' on/off lives in reactor state, the target in `stage6_c` |
-| `content/opq.yaml` (5 stages) | `soloMapling/mechanics/content/opq.yaml`, listed in `index.txt` | entrance, walkway, storage, a lounge room, the levers - script stages 0, 1, 2, 5, 6, in our engine's 1..5 |
-| 4 solvers: `opq-clouds`, `opq-sweep`, `opq-subroom`, `opq-levers` | `soloMapling/mechanics/Opq*Solver.java`, registered in `Orchestrator.allSolvers()` | each is one script's own clear rule, nothing else |
-| `OpqSolversTest` (14 tests) | `src/test/java/soloMapling/mechanics/OpqSolversTest.java` | the fake room + the shipped row's shape |
+| `content/opq.yaml` (8 stages) | `soloMapling/mechanics/content/opq.yaml`, listed in `index.txt` | entrance, walkway, storage, lobby, sealed room, a lounge room, the levers, and the statue with the garden - script stages 0-8, in our engine's 1..8 |
+| `StageView.reactorEventState(String)` | `StageView.java`, `LiveStageView.java` | the lobby's pass is `4001056 + ` the slot the event script armed the `music` reactor with, not a table in the row |
+| `StageView.area(int)` | `StageView.java`, `LiveStageView.java` | the sealed room's three platforms are the map's own `area` nodes; the NPC counts players with `getNumPlayersInArea(i)` |
+| `StageSolver.extraMaps(StageView)` | `StageSolver.java`, `Orchestrator.java` (two sites) | a stage that drives a second map says so, so a bot in another room is not "behind" and is not walked out through a portal |
+| `OpqBoxes` | `soloMapling/mechanics/OpqBoxes.java` | a clear opens a box; the stage that follows fetches the piece before it leaves - `forceHitReactor` only opens it, the drop needs a hit |
+| 7 solvers: `opq-clouds`, `opq-sweep`, `opq-subroom`, `opq-levers`, `opq-lobby`, `opq-sealed`, `opq-statue` | `soloMapling/mechanics/Opq*Solver.java`, registered in `Orchestrator.allSolvers()` | each is one script's own clear rule, nothing else |
+| `OpqSolversTest` (32 tests) | `src/test/java/soloMapling/mechanics/OpqSolversTest.java` | the fake room + the shipped row's shape, one test per stage rule and a fail-before per stage |
 | `OrbisPqLobbyStageTest` (4 tests) | `src/test/java/scripting/reactor/OrbisPqLobbyStageTest.java` | the lobby: today's pass on the music player writes `statusStg3 = 0`, another day's matches nothing |
 | `OrbisSealedRoomAreaTest` (2 tests) | `src/test/java/server/maps/OrbisSealedRoomAreaTest.java` | the sealed room: three platforms count their own players, and without them the stage has no answer at all |
 
@@ -28,33 +33,31 @@ The walkway and the lounge reuse the existing `kill-collect-hand-in` solver: bot
 leader, he hands them to Eak" (`haveItem(4001050, 30)` / `haveItem(4001052, 40)`), which is exactly what that solver does
 for KPQ's passes.
 
-## Where the run stops, and which stage it is
+## Stage coverage: 9 of 9 script stages
 
-The row covers **five of the script's nine stages**, and it stops where the tower stops being buildable in this tree:
-
-| Script stage | Map | Status | The exact blocker |
+| Script stage | Map | Status | What clears it |
 | --- | --- | --- | --- |
-| 0 entrance | 920010000 | in the row | - |
-| 1 walkway | 920010200 | in the row | - |
-| 2 storage | 920010300 | in the row | - |
-| 3 lobby | 920010400 | out of the row - **the stage works**, see below | nothing blocks it; the row has no solver for "drop today's pass on the music player, then hit `stone3`" |
-| 4 sealed room | 920010500 | out of the row - **the stage works**, see below | nothing blocks it; the row has no solver that splits the party over the three platforms |
-| 5 lounge | 920010600 + 601-604 | in the row (as 601) | - |
-| 6 on the way up | 920010700 | in the row | - |
-| 7 garden | 920010800 | **out** | it is where Papa Pixie (`9300039`) is fought for the Root of Life (`4001055`) the statue base takes (`scripts/reactor/2006001.js`), and the only way in is the statue stage's `warpEventTeam(920010800)` once the six scars are full - so it sits downstream of the statue, not blocked on its own. What it needs beyond that is the Nependeath-pot rule (`scripts/reactor/2001000.js`, `2001001.js`), which our scripts state in full. |
-| 8 statue | 920010100 | **out** | six pieces must be in the six scars before Eak lets the team into the garden (`scripts/npc/2013001.js:11-19`). Four of the six already come out of the row (`4001044`, `4001045`, `4001048`, `4001049`); `4001046` and `4001047` come with stages 3 and 4, which work. The stage itself is then walk up, drop each piece on its scar, drop the Root of Life on the base - the mechanic this ticket added. |
+| 0 entrance | 920010000 | in the row (stage 1) | twenty cloud pieces dropped on the altar as one stack, then Eak's talk writes `statusStg0 = 1` |
+| 1 walkway | 920010200 | in the row (stage 2) | thirty `4001050` pooled on the leader, handed to Eak (`statusStg1 = 1`) |
+| 2 storage | 920010300 | in the row (stage 3) | no monster and no item left on the floor, then Eak (`statusStg2 = 1`) |
+| 3 lobby | 920010400 | in the row (stage 4) | the day's pass dropped on the reactor named `music` writes `statusStg3 = 0`, then Eak writes `2` |
+| 4 sealed room | 920010500 | in the row (stage 5) | exactly `stage4_0/1/2` players on the three platforms, then Eak (`statusStg4 = 1`) |
+| 5 lounge | 920010600 + 601-604 | in the row (stage 6) | forty `4001052` handed to Eak in the lounge (`statusStg5 = 1`) |
+| 6 on the way up | 920010700 | in the row (stage 7) | two of the five levers on and all five matching `stage6_c`, then Eak (`statusStg6 = 1`) |
+| 7 garden | 920010800 | in the row (stage 8) | the Nependeath pot spawns Papa Pixie, he drops the Root of Life `4001055` |
+| 8 statue | 920010100 | in the row (stage 8) | the six pieces on the six scars, then the Root of Life on the base reactor `minerva`: `scripts/reactor/2006001.js` sets `statusStg8 = 1` and calls `clearPQ` |
 
-So the last stage the row drives is **stage 5, the five levers**; clearing it opens the box that holds
-the piece for `scar2` (`scripts/npc/2013001.js`, map `920010700`), and the run then ends with the party still inside the tower
-holding four of the six pieces - `4001044` (walkway), `4001045` (storage), `4001048` (lounge) and `4001049` (levers). That is a
-designed stop, not a stall inside a stage, and it is why the row is off by default.
+Stages 7 and 8 are **one** row stage (`opq-statue`, map 920010100) because only the second half has a property to watch: the
+scars are counted with `getReactorByName("scar" + i).getState() >= 1` (`scripts/npc/2013001.js:11-19`) and there is no
+property for "the statue is built", while `statusStg8` is what ends the quest. So the solver drops the pieces, asks Eak to
+warp the team to the garden, fights Papa Pixie there, and carries the Root of Life back - `extraMaps` is what tells the
+orchestrator that a bot in the garden is not a stray.
 
-Two of the four stages left out are **not blocked by anything in the tree** - both were reported broken and both work, see
-the next section. They are out because a solver has not been written for them: the lobby wants "walk to the music player, drop
-the day's pass in its box, then hit `stone3`", and the sealed room wants "one bot on each of the three platforms". Neither
-needs a new engine feature - `PlaceItem` and `HitReactorNamed` above already cover both.
+Which piece goes on which scar is a permutation, not the piece's own number, and it is read from our WZ: `scar1` takes
+`4001046`, `scar2` `4001049`, `scar3` `4001047`, `scar4` `4001044`, `scar5` `4001048`, `scar6` `4001045`
+(`Reactor.wz/2008000-2008005.img.xml`, one item trigger each). cosmic_agents' `STATUE_SCAR_BY_ITEM` is the same pairing.
 
-## The two stages we stopped at, verified rather than assumed
+## The two stages that were reported broken, verified rather than assumed
 
 Both were reported as broken for humans and both are fine; the two tests below are what settles it, and the numbers are from
 our own WZ, not from upstream.
@@ -67,7 +70,8 @@ our own WZ, not from upstream.
 | "the drop always activates it" | `MapleMap.activateItemReactors` (`MapleMap.java:2664-2679`) needs the item **and** the quantity to equal the armed slot and the drop to sit inside the reactor's own box, so another day's pass matches nothing and does nothing | `Reactor.getArea()` (`Reactor.java:391`), `ReactorStats.getReactItem` (`ReactorStats.java:114`) |
 | "`areas` is always empty, so three players can never be counted" | `MapFactory` fills them: it reads the map's `area` nodes and calls `map.addMapleArea(...)`, which is `MapleMap.addMapleArea` (`MapleMap.java:3684`), the writer of the same list `getArea`/`getNumPlayersInArea` read | `MapFactory.java:273-279`; the three rects in `Map.wz/Map/Map9/920010500.img.xml` imgdirs 1-3 |
 
-Two tests keep it that way, and both fail if the chain breaks:
+Two tests keep it that way, and both fail if the chain breaks (they are in the branch's first commits and are part of
+the suite below):
 
 - `src/test/java/scripting/reactor/OrbisPqLobbyStageTest.java` runs the **shipped** `scripts/reactor/2008006.js` through the
   same Graal engine the server uses (`AbstractScriptManager.java:45`) over a stand-in `rm`, and asserts it leaves
@@ -99,11 +103,17 @@ party with nothing to place. That is data, not code, and it is the one thing lef
    four rooms share their drop, so our party enters one room (`920010601`) and the leader warps back to Eak in the lounge
    (`920010600`) with the forty pieces. This one is a deliberate difference, not a fix.
 
+6. **The statue and the garden are one stage here.** Our script keeps them as two (7 = "the team is in the garden",
+   8 = "the base is armed") but only the second has a property to watch, and the scar condition is reactor state. One
+   stage with `statusStg8` as its clear is the only shape the engine can express without a new clear type.
+7. **Papa Pixie is spawned by the pot, not by seeds.** `scripts/reactor/2001016.js` clears the garden and spawns
+   `9300039` on any hit; placing the seeds (`4001074` on the pot reactors) is upstream's flavour step and is skipped.
+
 ## Entry: what starts an Orbis run
 
 The run is armed by the generic seam, not by anything Orbis-specific: every party-question instance start calls
 `MechanicsRuns.onInstanceStarted(eim, false)` (`src/main/java/scripting/event/EventManager.java:647`, and again at `:723`),
-and `contentFor` matches the row by the event script's name `OrbisPQ` (`MechanicsRuns.java:377-388`). So the five stages
+and `contentFor` matches the row by the event script's name `OrbisPQ` (`MechanicsRuns.java:377-388`). So the eight stages
 are played by the bots the moment an `OrbisPQ` instance exists - and the row's own flag is what decides whether it is.
 
 What does **not** exist is the way in: `KpqStaging` (`src/main/java/soloMapling/mechanics/KpqStaging.java:28-35`) is
@@ -116,6 +126,11 @@ starts. That gap is entry, not stage logic, and it is the largest thing this tic
 - The walkway hand-in assumes Eak stands on `920010200`: `scripts/npc/2013001.js` has a `920010200` case, and
   cosmic_agents' `WALKWAY_EAK` is a point on that map, so the NPC has to be map data - [INFERENCE] from those two, not
   verified against WZ here.
+- The lobby's seven passes and the six statue pieces come out of the SQL `reactordrops` table, and the Root of Life out
+  of `mobdrops` (`ReactorScriptManager.java:93` is where the reactor rows are read). If a row is missing the party stalls
+  with a `Wait` note naming the item, not silently.
+- The box that a clear opens gets `OpqBoxes.GIVE_UP_MS` (60 s) of hitting before the run gives up on it and moves on, so a
+  box whose drop row is missing costs a minute, not the run.
 - `MobHitboxIndex`-style geometry is untouched: the solvers only move to points the data gives them, so a stage whose
   anchor is wrong will stall visibly (`Wait` notes) rather than teleport.
 
@@ -126,9 +141,10 @@ the switch is one system property. `docs/PROVENANCE.md` has the credit block for
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8461 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS**. That is the number to compare against the rest of the release - 8455 before this branch's six new tests
-(`OpqSolversTest` 14, `OrbisPqLobbyStageTest` 4, `OrbisSealedRoomAreaTest` 2 are part of the 8461).
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8479 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-final.log`, exit 0). That is the number to compare against the rest of the release - 8455 before this
+branch's tests, 8461 after its first commit (`OpqSolversTest` 14, `OrbisPqLobbyStageTest` 4,
+`OrbisSealedRoomAreaTest` 2), and 8479 once the lobby, the sealed room and the finale were added (`OpqSolversTest` 32).
 
 Earlier in the branch the same command found one real breakage, and it is fixed: `MechanicsDataFilesTest
 .theContentRowsLoadFromTheJarWithNoSourceTree` pins the exact list of content rows and had to learn `opq`.

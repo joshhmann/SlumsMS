@@ -250,6 +250,21 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public int reactorEventState(String name) {
+        server.maps.Reactor reactor = map == null || name == null ? null : map.getReactorByName(name);
+        return reactor == null ? -1 : reactor.getEventState();
+    }
+
+    @Override
+    public java.awt.Rectangle area(int index) {
+        if (map == null || index < 0) {
+            return null;
+        }
+        List<java.awt.Rectangle> areas = map.getAreas();
+        return index < areas.size() ? areas.get(index) : null;
+    }
+
+    @Override
     public Optional<FloorDrop> dropBy(int dropperId, int itemId) {
         MapItem mi = ownDrop(map, itemId, dropperId);
         return mi == null ? Optional.empty() : Optional.of(new FloorDrop(mi.getPosition().x, mi.getPosition().y,
