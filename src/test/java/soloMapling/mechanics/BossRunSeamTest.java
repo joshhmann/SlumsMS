@@ -37,7 +37,7 @@ import static org.mockito.Mockito.when;
 /**
  * Ticket 130 phase 5 phase A1: {@code EventManager.startInstance(int, Expedition, Character)} arms a Mechanics run for
  * a real boss expedition, behind {@code -Dslums.mechanics.boss} (default off). Before this, the expedition path never
- * called {@link MechanicsRuns#onPartyInstanceStarted}: a Zakum party with bots in it started a fight no bot joined.
+ * called {@link MechanicsRuns#onInstanceStarted}: a Zakum party with bots in it started a fight no bot joined.
  */
 class BossRunSeamTest {
 
@@ -149,7 +149,7 @@ class BossRunSeamTest {
         Character b = member(9_602, true);
         EventInstanceManager eim = expedition("ZakumBattle", List.of(leader, a, b), 9_600);
 
-        MechanicsRuns.Active run = MechanicsRuns.onExpeditionInstanceStarted(eim);
+        MechanicsRuns.Active run = MechanicsRuns.onInstanceStarted(eim, true);
 
         assertNotNull(run, "a BOSS row and the switch on: the expedition gets a run");
         assertEquals(run, MechanicsRuns.get().runFor(eim));
@@ -167,7 +167,7 @@ class BossRunSeamTest {
         Character leader = member(9_610, false);
         EventInstanceManager eim = expedition("ZakumBattle", List.of(leader, member(9_611, true)), 9_610);
 
-        assertNull(MechanicsRuns.onExpeditionInstanceStarted(eim));
+        assertNull(MechanicsRuns.onInstanceStarted(eim, true));
         assertNull(MechanicsRuns.get().runFor(eim), "default off: today's behaviour, byte for byte");
         assertTrue(capture.lines.isEmpty(), capture.lines.toString());
     }
@@ -178,7 +178,7 @@ class BossRunSeamTest {
         Character leader = member(9_620, false);
         EventInstanceManager eim = expedition("HorntailBattle", List.of(leader, member(9_621, true)), 9_620);
 
-        assertNull(MechanicsRuns.onExpeditionInstanceStarted(eim));
+        assertNull(MechanicsRuns.onInstanceStarted(eim, true));
         assertNull(MechanicsRuns.get().runFor(eim), "no row, no run: the humans fight it");
         assertEquals(1, capture.lines.size(), capture.lines.toString());
         assertTrue(capture.lines.get(0).contains("no boss content"), capture.lines.toString());

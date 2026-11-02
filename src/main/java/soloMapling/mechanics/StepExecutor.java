@@ -95,6 +95,9 @@ final class StepExecutor {
             case SolverStep.Wait w -> waitNote(bot, beat, w, now, log);
             case SolverStep.Done d -> {
             }
+            case SolverStep.Abandon a -> {
+                // the orchestrator ends the run on this reason before any executor sees it
+            }
         }
     }
 
@@ -231,8 +234,7 @@ final class StepExecutor {
         }
         Monster target = beat.chase.keep(map, now);
         if (target == null || !mayStillChase(bot, target, f, beat, now)) {
-            target = BotAttackDriver.pickTarget(bot, f.mobId(), m -> beat.chase.skipped(m.getObjectId(), now)
-                    || !f.onLeash(m.getPosition().x, m.getPosition().y), m -> takenByAnother(bot.getId(), m));
+            target = pickCandidate(bot, f, beat, now);
             beat.chase.picked(target, now);
         }
         if (target == null) {
@@ -261,6 +263,22 @@ final class StepExecutor {
         }
     }
 
+    /**
+     * The driver's pick for the step, trying its mob kinds in the order the step lists them (a boss: arms before the
+     * body, the nearest arm first). The first kind with a pickable mob wins; none left is null.
+     */
+    private Monster pickCandidate(Character bot, SolverStep.Fight f, Beat beat, long now) {
+        for (int mobId : f.mobIds()) {
+            Monster m = BotAttackDriver.pickTarget(bot, mobId, m2 -> beat.chase.skipped(m2.getObjectId(), now)
+                    || !f.onLeash(m2.getPosition().x, m2.getPosition().y), m2 -> takenByAnother(bot.getId(), m2));
+            if (m != null) {
+                return m;
+            }
+        }
+        return f.mobIds().isEmpty() ? BotAttackDriver.pickTarget(bot, 0, m2 -> beat.chase.skipped(m2.getObjectId(), now)
+                || !f.onLeash(m2.getPosition().x, m2.getPosition().y), m2 -> takenByAnother(bot.getId(), m2)) : null;
+    }
+
     /** {@link #TAKEN_PENALTY_MS} when another bot this executor drives goes for {@code m}, else 0. */
     private int takenByAnother(int botId, Monster m) {
         for (Map.Entry<Integer, Beat> e : beats.entrySet()) {
@@ -273,8 +291,7 @@ final class StepExecutor {
 
     /** The kept target is still one to chase: of the step's mob, not ruled out, and still the swing's to hit. */
     private static boolean mayStillChase(Character bot, Monster m, SolverStep.Fight f, Beat beat, long now) {
-        int mobId = f.mobId();
-        return m.isAlive() && (mobId <= 0 || m.getId() == mobId) && !beat.chase.skipped(m.getObjectId(), now)
+        return m.isAlive() && f.ofKind(m.getId()) && !beat.chase.skipped(m.getObjectId(), now)
                 && f.onLeash(m.getPosition().x, m.getPosition().y)
                 && now - beat.chase.pickedMs < Chase.REPICK_MS
                 && BotAttackDriver.pickable(bot, m);

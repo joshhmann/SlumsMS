@@ -112,7 +112,16 @@ public final class StageData {
     public static Result loadDir(Path dir) {
         List<Content> out = new ArrayList<>();
         List<String> errors = new ArrayList<>();
-        try (DirectoryStream<Path> files = Files.newDirectoryStream(dir, "*.yaml")) {
+        List<Path> files;
+        try (java.util.stream.Stream<Path> listing = Files.list(dir)) {
+            // sorted by name: a directory listing has no order, and "the first content row" must mean the same thing
+            // in every run (ClotoScriptForBotsTest reads kpq's first row that way)
+            files = listing.filter(p -> p.getFileName().toString().endsWith(".yaml")).sorted().toList();
+        } catch (IOException e) {
+            errors.add("cannot read " + dir + ": " + e.getMessage());
+            return new Result(List.copyOf(out), List.copyOf(errors));
+        }
+        try {
             for (Path f : files) {
                 try (Reader in = Files.newBufferedReader(f)) {
                     Result r = parse(in);
@@ -359,7 +368,9 @@ public final class StageData {
                 }
             }
             if (oid != null && kind != null) {
-                objectives.add(new Objective(oid, kind, role, count, item, mob, onpc > 0 ? onpc : npc, opt(om, "note")));
+                int[] spot = atPoint(om.get("at"));
+                objectives.add(new Objective(oid, kind, role, count, item, mob, onpc > 0 ? onpc : npc, opt(om, "note"),
+                        spot[0], spot[1]));
             }
         }
         if (objectives.isEmpty()) {
@@ -421,9 +432,17 @@ public final class StageData {
 
         Clear clear = null;
         if (m.get("clear") instanceof Map<?, ?> cm && cm.get("eventProperty") != null) {
-            clear = new Clear(String.valueOf(cm.get("eventProperty")));
-        } else {
-            p.add(at + "no clear: { eventProperty: ... }");
+            String prop = String.valueOf(cm.get("eventProperty")).trim();
+            String eq = cm.get("equals") == null ? null : String.valueOf(cm.get("equals")).trim();
+            if (!prop.isEmpty()) {
+                clear = new Clear(prop, eq == null || eq.isEmpty() ? null : eq);
+            }
+        }
+        if (clear == null) {
+            p.add(at + "no clear: { eventProperty: ... } (+ optional equals: value)");
+        }
+        if (clear == null) {
+            p.add(at + "no clear: { eventProperty: ... } (presence or + equals) or { mobs: [...] }");
         }
         String answerProperty = m.get("answerProperty") == null ? null : String.valueOf(m.get("answerProperty")).trim();
         List<List<Integer>> combos = new ArrayList<>();
@@ -499,6 +518,28 @@ public final class StageData {
             return null;
         }
         return String.valueOf(o).trim();
+    }
+
+    /** {@code at: [x, y]} or {@code at: "x, y"}: a stand spot; {0, 0} when it is not there or unreadable. */
+    private static int[] atPoint(Object o) {
+        if (o instanceof List<?> l && l.size() >= 2) {
+            return new int[]{parseInt(String.valueOf(l.get(0)), 0), parseInt(String.valueOf(l.get(1)), 0)};
+        }
+        if (o instanceof String str) {
+            String[] parts = str.split("[,;]");
+            if (parts.length >= 2) {
+                return new int[]{parseInt(parts[0], 0), parseInt(parts[1], 0)};
+            }
+        }
+        return new int[]{0, 0};
+    }
+
+    private static int parseInt(String s, int dflt) {
+        try {
+            return Integer.parseInt(s.trim());
+        } catch (NumberFormatException e) {
+            return dflt;
+        }
     }
 
     private static int num(Map<?, ?> m, String key, int dflt, List<String> p) {

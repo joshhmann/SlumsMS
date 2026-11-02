@@ -56,7 +56,8 @@ public final class Orchestrator implements RunOrchestrator {
         QuestionCouponsSolver qc = new QuestionCouponsSolver();
         CombinationSolver cb = new CombinationSolver();
         KillCollectHandInSolver kc = new KillCollectHandInSolver();
-        return Map.of(qc.id(), qc, cb.id(), cb, kc.id(), kc);
+        BossPhasesSolver bp = new BossPhasesSolver();
+        return Map.of(qc.id(), qc, cb.id(), cb, kc.id(), kc, bp.id(), bp);
     }
 
     @Override
@@ -215,7 +216,13 @@ public final class Orchestrator implements RunOrchestrator {
         // tries are planned for every bot first: one bot's plan (a combination leader's) shapes the others' steps
         for (RunMember m : run.members()) {
             if (m.bot() && !steps.containsKey(m.characterId())) {
-                steps.put(m.characterId(), solver.next(view, m));
+                SolverStep step = solver.next(view, m);
+                if (step instanceof SolverStep.Abandon a) {
+                    // the content itself says it cannot be finished: end the run on its reason, do not spin
+                    abort(run, a.why());
+                    return steps;
+                }
+                steps.put(m.characterId(), step);
             }
         }
         if (run.held()) {

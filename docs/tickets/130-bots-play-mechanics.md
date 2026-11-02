@@ -463,6 +463,35 @@ No client packet: BotStory has a `DEATH_COUNT` opcode because its client is patc
 is chat (type 5) and the server log. Tests: `ExpeditionDeathCountTest` (the counter) and
 `ExpeditionDeathCountRunTest` (a real `EventInstanceManager` and `playerKilled`), the latter written failing first.
 
+## Boss lane phases A1-A2: the run and the Zakum phases (1.6.4, branch `164-bossfight`)
+
+The real fight is a `kind: BOSS` content row driven by the same engine as KPQ: `Orchestrator` is the group brain,
+`RoleClaims` the roles, `StageView` the only read of the instance.
+
+- **A1, the seam.** `EventManager.startInstance(int, Expedition, Character)` calls
+  `MechanicsRuns.onInstanceStarted(eim, true)` after `eim.startEvent()` - the expedition's members are warped by the
+  script's `playerEntry` during it, so an earlier call drives nobody. One entry point serves the party quests too; the
+  content row's `kind` decides the switch: `kind: PQ` behind `-Dslums.mechanics`, `kind: BOSS` behind
+  `-Dslums.mechanics.boss` (**off**). No row for the script is not an error: one bot-log line and the expedition is left
+  to its humans. `GuildBossRuns` never reaches it.
+- **A2, `boss-phases` + `content/zakum.yaml`.** `BossTargetRules` (ported from BotStory `81a3b1df`) orders a member's
+  targets; `BossPhasesSolver` returns one `SolverStep.Fight` whose `mobIds` are an ordered candidate list, so a part the
+  member cannot reach falls through to the next instead of stalling it (widening `Fight` kept the single-id constructor,
+  so `kpq.yaml` is untouched). The rung is: the eight arms `8800003-8800010` while any is alive and never the body, then
+  the body `8800000`/`8800001`/`8800002`; a fake part is never a candidate; nothing standing but the map's own life is
+  `WAITING_FOR_SUMMON` - the human leader clicks the Eye of Fire altar (`scripts/reactor/2111001.js:28`) and the solver
+  waits (a `Wait`, so the run cannot abort on it).
+- **Clear is a property value.** `ZakumBattle.js:101` writes `defeatedBoss=0` at setup, so presence would clear the
+  room on its first tick. `clear:` gained `equals:` (presence stays the default for `kpq.yaml`); Zakum clears on
+  `defeatedBoss: 1`, which the script sets when `8800002` dies. One stage, one map, no `nextPortal`.
+- **The room is the expedition's, not the run's.** `MechanicsRuns.closeInstance` never ends an instance for a BOSS row
+  (chests still to spawn or loot); the script's `end()`/`dispose()` does. If the kill target `8800002` is absent at
+  runtime - it is the map's own WZ life, with no spawn site in our scripts or server code - the solver returns
+  `SolverStep.Abandon` and the orchestrator ends the run with that reason instead of fighting arms until the budget runs
+  out.
+- **Known, reported, not changed:** a human death unregisters (`ZakumBattle.js:140-160`) and `memberLost` aborts the
+  run, so one human death ends the bots' run. That is the owner's call, not this phase's.
+
 ## QA plan
 
 - **Unit:** every content YAML loads clean; answers/rectangles/items are re-read from our scripts and compared

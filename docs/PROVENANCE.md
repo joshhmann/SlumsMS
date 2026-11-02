@@ -253,6 +253,20 @@ sub-quests, 3507's end and 3514 run through their own quest scripts (`BotQuestSc
 `forceStart`/`forceComplete` and grants the potion itself; 3521 is not driven; every number is checked against
 Quest.wz, Map.wz and our scripts (`TempleRouteTest`).
 
+### Boss run and Zakum phases, 1.6.4 (branch `164-bossfight`, ticket 130 boss lane), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+| From theirs | Our files |
+| --- | --- |
+| `server.agents.capabilities.expedition.boss.AgentBossRunSession` (the run's phase machine: registering, fighting, post-clear, ended) | the phase shape only, as `MechanicsRuns` + `Orchestrator` stages; no session class is ported |
+| `server.agents.capabilities.expedition.boss.BossTargetRules` (144 lines): the boss fight's phases `WAITING_FOR_SUMMON`, `ARMS`, `TRANSITION`, `BODY`, `DONE`, the arm/body/add roles, the melee floor-arms-first tiers, the adds threshold, "a fake part is never a target", "a boss part needs a human engaged on it", and the immunity and reach filters | `soloMapling/mechanics/BossTargetRules.java` |
+
+Ours: the rules are fed from our `StageView` (the live `EventInstanceManager` and map) and turned into one ordered
+candidate list per member by `BossPhasesSolver` (`solver: boss-phases`) instead of their `AgentBossDefinition` catalog;
+the arm order and the "eight arms before the body" rule come from our own scripts and map code
+(`scripts/reactor/2111001.js`, `MapleMap.java:4939-4947`, `:1786-1810`), the clear from the script's own
+`defeatedBoss=1`; `reachPx` is 0 for every part because our `MobHitboxIndex` has no vertical box origin, so every arm
+lands in the floor tier; their Horntail catalog entry is not ported (deferred, its shape differs from the draft).
+
 ### Expedition death count, 1.6.4 (branch `164-bossfight`, ticket 130 boss lane), BotStory `81a3b1df`
 
 | From theirs | Our files |

@@ -496,7 +496,7 @@ public class EventManager {
                         // 1.6.4 boss lane (-Dslums.mechanics.boss, off by default): a real expedition (Zakum) with a
                         // BOSS content row hands its party's bots and owned alts to MechanicsRuns. GuildBossRuns is the
                         // roll with the bots logged out and never comes through here.
-                        soloMapling.mechanics.MechanicsRuns.onExpeditionInstanceStarted(eim);
+                        soloMapling.mechanics.MechanicsRuns.onInstanceStarted(eim, true);
                     } catch (ScriptException | NoSuchMethodException ex) {
                         log.error("Event script startInstance", ex);
                     }
@@ -644,7 +644,7 @@ public class EventManager {
 
                         eim.startEvent();
                         // 1.6.1 KPQ automation (-Dslums.mechanics): bots and owned alts in the party play the stages
-                        soloMapling.mechanics.MechanicsRuns.onPartyInstanceStarted(eim);
+                        soloMapling.mechanics.MechanicsRuns.onInstanceStarted(eim, false);
                     } catch (ScriptException | NoSuchMethodException ex) {
                         log.error("Event script startInstance", ex);
                     }
@@ -720,7 +720,7 @@ public class EventManager {
 
                         eim.startEvent();
                         // 1.6.1 KPQ automation (-Dslums.mechanics): bots and owned alts in the party play the stages
-                        soloMapling.mechanics.MechanicsRuns.onPartyInstanceStarted(eim);
+                        soloMapling.mechanics.MechanicsRuns.onInstanceStarted(eim, false);
                     } catch (ScriptException | NoSuchMethodException ex) {
                         log.error("Event script startInstance", ex);
                     }

@@ -136,9 +136,20 @@ public final class MechanicsModel {
         }
     }
 
-    /** One thing a role does. {@code count}, {@code item}, {@code mob}, {@code npc} are optional per kind. */
+    /**
+     * One thing a role does. {@code count}, {@code item}, {@code mob}, {@code npc} are optional per kind. {@code at}
+     * is the stand spot the objective is worked from when it matters (a boss part's band); {0, 0} is none.
+     */
     public record Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
-                            int npcId, String note) {
+                            int npcId, String note, int atX, int atY) {
+        public Objective(String id, ObjectiveKind kind, String role, Optional<Count> count, int itemId, int mobId,
+                         int npcId, String note) {
+            this(id, kind, role, count, itemId, mobId, npcId, note, 0, 0);
+        }
+
+        public boolean hasAt() {
+            return atX != 0 || atY != 0;
+        }
     }
 
     /** One puzzle answer: a question (or combination) and its answer, mirrored from the stage's script. */
@@ -149,8 +160,16 @@ public final class MechanicsModel {
     public record BossPhase(String id, int hpFromPct, int hpToPct, List<String> actions) {
     }
 
-    /** How a stage is cleared: the event property the stage script sets (KPQ: {@code 1stageclear}). */
-    public record Clear(String eventProperty) {
+    /**
+     * How a stage is cleared: the event property the stage script sets. Alone, the property's <em>presence</em> is the
+     * clear (KPQ: {@code 1stageclear}). With {@code equals}, the property must hold that value - a boss script sets its
+     * property to 0 at setup (Zakum: {@code defeatedBoss=0}, {@code scripts/event/ZakumBattle.js:101}), so presence alone
+     * would clear the stage on its first tick.
+     */
+    public record Clear(String eventProperty, String equals) {
+        public Clear(String eventProperty) {
+            this(eventProperty, null);
+        }
     }
 
     /**

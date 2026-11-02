@@ -102,6 +102,58 @@ final class LiveStageView implements StageView {
         return c == null ? -1 : c.getMapId();
     }
 
+    /**
+     * The boss parts standing on the stage map (ticket 130 phase 5). A part counts as fought by a human when a real
+     * player of the run is alive on the stage: this tree keeps no per-part damage ledger a rule could read, so "a human
+     * is in the fight at all" stands in for BotStory's engaged test (see the ticket's assumptions).
+     */
+    @Override
+    public List<BossTargetRules.Part> bossParts() {
+        if (map == null) {
+            return List.of();
+        }
+        List<Integer> listed = stage().mobs();
+        boolean humanIn = present.stream().anyMatch(m -> !m.bot() && alive(m.characterId()));
+        List<BossTargetRules.Part> out = new ArrayList<>();
+        for (Monster m : map.getAllMonsters()) {
+            if (m == null || !m.isAlive()) {
+                continue;
+            }
+            BossTargetRules.Role role = partRole(m.getId(), listed);
+            if (role == null) {
+                continue;
+            }
+            out.add(new BossTargetRules.Part(m.getId(), role, m.isFake(), role == BossTargetRules.Role.ADD || humanIn,
+                    m.isBuffed(client.status.MonsterStatus.WEAPON_IMMUNITY),
+                    m.isBuffed(client.status.MonsterStatus.MAGIC_IMMUNITY), 0));
+        }
+        return out;
+    }
+
+    @Override
+    public BossTargetRules.Member fighterOf(int characterId) {
+        Character c = chars.get(characterId);
+        soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile profile =
+                c == null ? null : soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackDriver.primaryAttack(c);
+        if (profile == null) {
+            return new BossTargetRules.Member(false, true);
+        }
+        return new BossTargetRules.Member(profile.route == soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.Route.MAGIC,
+                profile.route == soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.Route.CLOSE);
+    }
+
+    /** The fight's role of a live monster: an arm, the body, an add the stage lists, or null (not this fight). */
+    private static BossTargetRules.Role partRole(int mobId, List<Integer> listed) {
+        if (constants.id.MobId.isZakumArm(mobId)) {
+            return BossTargetRules.Role.ARM;
+        }
+        if (mobId == constants.id.MobId.ZAKUM_1 || mobId == constants.id.MobId.ZAKUM_2
+                || mobId == constants.id.MobId.ZAKUM_3) {
+            return BossTargetRules.Role.BODY;
+        }
+        return listed.contains(mobId) ? BossTargetRules.Role.ADD : null;
+    }
+
     @Override
     public int liveMobs() {
         if (map == null) {

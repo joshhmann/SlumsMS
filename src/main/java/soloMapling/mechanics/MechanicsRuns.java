@@ -327,19 +327,46 @@ public final class MechanicsRuns {
      * {@code EventManager} after a party instance starts; nothing happens with {@code -Dslums.mechanics} off, for an
      * event without stage data, a party without bots, or while staging starts its own run.
      */
-    public static void onPartyInstanceStarted(EventInstanceManager eim) {
-        if (!Mechanics.enabled() || eim == null || STAGING.get()) {
-            return;
+    /**
+     * An instance this server started for a party that holds bots or owned alts: the party quests (KPQ, at Lakelis) and
+     * the real boss expeditions (Zakum today, Horntail later).
+     *
+     * <p>One entry point, because the event script names the content ({@code KerningPQ}, {@code ZakumBattle}) and the
+     * data folder decides what it is: a {@code kind: PQ} row arms a run behind {@code -Dslums.mechanics}, a
+     * {@code kind: BOSS} row behind {@code -Dslums.mechanics.boss}. {@code expedition} only says which caller this is,
+     * so a boss expedition with no data can say so once instead of looking like a silent no-op.
+     *
+     * <p>The expedition call must come <em>after</em> {@code eim.startEvent()}: the members are warped by the script's
+     * {@code playerEntry} during it, so before that the instance holds nobody to drive.
+     *
+     * <p>{@code GuildBossRuns} never reaches this: it is the roll with the bots logged out, not a real fight.
+     *
+     * @return the run, or null when nothing was armed
+     */
+    public static Active onInstanceStarted(EventInstanceManager eim, boolean expedition) {
+        if (eim == null || STAGING.get()) {
+            return null;
         }
         try {
             String event = eim.getEm() == null ? null : eim.getEm().getName();
             Content content = contentFor(event);
-            if (content == null || eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
-                return;
+            boolean boss = content != null && content.kind() == MechanicsModel.Kind.BOSS;
+            if (content == null || (boss ? !Mechanics.bossesEnabled() : !Mechanics.enabled())) {
+                if (expedition && content == null && Mechanics.bossesEnabled()) {
+                    log("[Mechanics] no boss content for " + keyOf(eim) + " (" + event + "): the expedition is left to"
+                            + " its humans");
+                }
+                return null;
             }
-            get().start(eim, content, false, 0, line -> log("[Mechanics] " + keyOf(eim) + " " + line), null);
+            if (eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
+                return null;
+            }
+            // neither a PQ nor a boss room is the run's to end: the party or the expedition script owns, and ends, it
+            return get().start(eim, content, false, 0, 1, 0, false,
+                    line -> log("[Mechanics] " + keyOf(eim) + " " + line), null);
         } catch (RuntimeException e) {
             log("[Mechanics] could not start a run for " + keyOf(eim) + ": " + e);
+            return null;
         }
     }
 
@@ -369,42 +396,6 @@ public final class MechanicsRuns {
             contentCache = all;
         }
         return all;
-    }
-
-    /**
-     * The real-fight path (1.6.4, ticket 130 phase 5 phase A1): a party that started a boss <em>expedition</em> (Zakum
-     * today, Horntail later) hands its bots and owned alts to a run of their own, when the data folder has a
-     * {@code kind: BOSS} row for the event script and {@code -Dslums.mechanics.boss} is on.
-     *
-     * <p>Called from {@code EventManager.startInstance(int, Expedition, Character)} after the event starts, next to
-     * {@link #onPartyInstanceStarted} for the party quests. The distinction matters: an expedition is the real fight
-     * a human leads his party into, while {@code GuildBossRuns} is a roll with the bots logged out and never reaches
-     * this method.
-     *
-     * <p>No row is not an error: a boss we have no data for is left to its humans, with one line in the bot log.
-     *
-     * @return the run, or null when nothing was armed
-     */
-    public static Active onExpeditionInstanceStarted(EventInstanceManager eim) {
-        if (eim == null || STAGING.get() || !Mechanics.bossesEnabled()) {
-            return null;
-        }
-        try {
-            String event = eim.getEm() == null ? null : eim.getEm().getName();
-            Content content = contentFor(event);
-            if (content == null || content.kind() != MechanicsModel.Kind.BOSS) {
-                log("[Mechanics] no boss content for " + keyOf(eim) + " (" + event + "): the expedition is left to its"
-                        + " humans");
-                return null;
-            }
-            if (eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
-                return null;
-            }
-            return get().start(eim, content, false, 0, line -> log("[Mechanics] " + keyOf(eim) + " " + line), null);
-        } catch (RuntimeException e) {
-            log("[Mechanics] could not start a boss run for " + keyOf(eim) + ": " + e);
-            return null;
-        }
     }
 
     /** The run on this instance, or null. */
@@ -483,6 +474,12 @@ public final class MechanicsRuns {
     /** Ends the run's instance when {@link #shouldEndInstance} says so; reports what it did. */
     private void closeInstance(Active a) {
         EventInstanceManager eim = a.eim;
+        if (!eim.isEventDisposed() && a.run.content().kind() == MechanicsModel.Kind.BOSS) {
+            // a boss room belongs to its expedition script, not to this run: the chests are still to spawn or to loot
+            // when the run ends, and the script ends the instance on its own clock. Releasing the bots is all we do.
+            sendStrayAltsOut(a, eim);
+            return;
+        }
         boolean realInside = eim.getPlayers().stream().anyMatch(c -> !drivable(c));
         if (!shouldEndInstance(a.ownsInstance, a.run.cleared(), eim.isEventDisposed(), realInside)) {
             if (!a.run.cleared() && !eim.isEventDisposed()) {

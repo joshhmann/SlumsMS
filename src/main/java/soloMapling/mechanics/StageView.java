@@ -80,6 +80,20 @@ public interface StageView {
         return 0;
     }
 
+    /**
+     * The live monsters of a part-based boss fight on the stage's map, as {@link BossTargetRules} sees them (id, role,
+     * fake, whether a human fights it, its immunities). Empty for every stage that is not a boss, and empty in the fake
+     * views tests use.
+     */
+    default List<BossTargetRules.Part> bossParts() {
+        return List.of();
+    }
+
+    /** How this member hits (magic or not, melee or from afar): the target order's arms split by the member. */
+    default BossTargetRules.Member fighterOf(int characterId) {
+        return new BossTargetRules.Member(false, true);
+    }
+
     /** Whether a member is alive (1.6.2, bot audit K5: a dead leader stops the run's driving). */
     default boolean alive(int characterId) {
         return true;
@@ -121,7 +135,17 @@ public interface StageView {
         return members().stream().filter(RunMember::leader).findFirst();
     }
 
+    /**
+     * Whether the stage is clear: the property its data names is present, or - when the data also gives
+     * {@code equals} - holds that value. A boss script writes its property at setup (Zakum: {@code defeatedBoss=0}), so
+     * reading presence there would clear the stage before anyone fought.
+     */
     default boolean cleared() {
-        return stage().clear() != null && eventProperty(stage().clear().eventProperty()).isPresent();
+        MechanicsModel.Clear clear = stage().clear();
+        if (clear == null || clear.eventProperty() == null) {
+            return false;
+        }
+        Optional<String> value = eventProperty(clear.eventProperty());
+        return clear.equals() == null ? value.isPresent() : value.map(v -> v.trim().equals(clear.equals())).orElse(false);
     }
 }

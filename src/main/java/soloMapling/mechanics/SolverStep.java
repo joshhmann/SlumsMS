@@ -1,5 +1,7 @@
 package soloMapling.mechanics;
 
+import java.util.List;
+
 /**
  * The next thing a solver wants one member to do. Steps are intents: the bot's own movement (BotNav / GCMovement),
  * attack ({@code BotAttackDriver}) and NPC code carry them out, so a step never moves or hits anything itself.
@@ -15,9 +17,33 @@ public sealed interface SolverStep {
      * {@code leashPx} above 0, only mobs within that many px of ({@code nearX}, {@code nearY}) (a helper hunts by the
      * member it helps, so its kills' drops land within his reach).
      */
-    record Fight(int mobId, int itemId, int untilItemCount, int nearX, int nearY, int leashPx) implements SolverStep {
+    record Fight(List<Integer> mobIds, int itemId, int untilItemCount, int nearX, int nearY, int leashPx)
+            implements SolverStep {
+        public Fight {
+            mobIds = List.copyOf(mobIds);
+        }
+
+        /** One mob kind (the party quests): a list of one. 0 means "any". */
+        public Fight(int mobId, int itemId, int untilItemCount, int nearX, int nearY, int leashPx) {
+            this(mobId <= 0 ? List.of() : List.of(mobId), itemId, untilItemCount, nearX, nearY, leashPx);
+        }
+
         public Fight(int mobId, int itemId, int untilItemCount) {
             this(mobId, itemId, untilItemCount, 0, 0, 0);
+        }
+
+        public Fight(List<Integer> mobIds, int itemId, int untilItemCount) {
+            this(mobIds, itemId, untilItemCount, 0, 0, 0);
+        }
+
+        /** The first mob kind to try (0 for "any"): what the single-mob call sites mean. */
+        public int mobId() {
+            return mobIds.isEmpty() ? 0 : mobIds.get(0);
+        }
+
+        /** Whether a mob of this id is one this step fights. */
+        public boolean ofKind(int mobId) {
+            return mobIds.isEmpty() || mobIds.contains(mobId);
         }
 
         /** The mob at (x, y) is one this step may fight. */
@@ -81,7 +107,7 @@ public sealed interface SolverStep {
      * entry of {@code answers} (the selection; 0 for a plain next or yes). KPQ: Cloto's prize ([0]), Nella's exit
      * ([0]), Lakelis' "I want to participate" ([0]).
      */
-    record Converse(int npcId, java.util.List<Integer> answers, String why) implements SolverStep {
+    record Converse(int npcId, List<Integer> answers, String why) implements SolverStep {
     }
 
     /** Walk into a portal on the member's map (the stage's way on; its script's gate still decides). */
@@ -89,6 +115,13 @@ public sealed interface SolverStep {
     }
 
     /** Nothing left for this member on this stage. */
+    /**
+     * The step the content cannot go on with: the run ends with this reason instead of the member standing still or
+     * spinning. A solver uses it for a fact of the room it cannot fix (a missing kill target), not for a slow fight.
+     */
+    record Abandon(String why) implements SolverStep {
+    }
+
     record Done() implements SolverStep {
     }
 }
