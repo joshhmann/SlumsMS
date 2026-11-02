@@ -8,3 +8,11 @@ server:
   # Max amount of times a party leader may persist on Party Search before the entry expires (ticket 164).
   # ServerConfig gives the same value when the key is absent.
   PARTY_SEARCH_REENTRY_LIMIT: 10
+  # Rep the senior gains per kill (ticket 53); ServerConfig gives 4 when the key is absent.
+  FAMILY_REP_PER_KILL: 4
+  # Rep the senior gains per boss kill (ticket 53); ServerConfig gives 20 when the key is absent.
+  FAMILY_REP_PER_BOSS_KILL: 20
+  # Rep the senior gains per level-up (ticket 53); ServerConfig gives 200 when the key is absent.
+  FAMILY_REP_PER_LEVELUP: 200
+  # Generation cap for a merged family (ticket 53); ServerConfig gives 1000 when the key is absent.
+  FAMILY_MAX_GENERATIONS: 1000
