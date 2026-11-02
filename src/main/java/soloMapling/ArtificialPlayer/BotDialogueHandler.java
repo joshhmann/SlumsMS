@@ -10,11 +10,16 @@ import com.esotericsoftware.yamlbeans.YamlReader;
 import soloMapling.ArtificialPlayer.BotTypes.DiceBot;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotDialogue;
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.BotEmote;
+import static soloMapling.BotLogger.log;
 import static soloMapling.server.SoloMaplingUtilities.random;
 
 public class BotDialogueHandler {
@@ -128,22 +133,44 @@ public class BotDialogueHandler {
 
     }
 
+    // Packs reported once per path, so a bot whose YAML never existed does not repeat the line.
+    private static final Set<String> MISSING_PACKS_WARNED = ConcurrentHashMap.newKeySet();
+
     public static Map<String, Object> readDialogueYaml(String dialoguePack, String dialogueType, String dialogueNode) {
         String dialoguePackBase = "src/main/java/soloMapling/ArtificialPlayer/BotDialoguePack/";
         String filePath = String.format("%s%s", dialoguePackBase, dialoguePack);
 
+        File packFile = soloMapling.DataFiles.file(filePath);
+        if (!packFile.isFile()) {
+            warnMissingPack(packFile);
+            return null;
+        }
+
         Map<String, Object> dialogueConstructorNode = null;
         try {
-            YamlReader reader = new YamlReader(new FileReader(soloMapling.DataFiles.file(filePath)));
+            YamlReader reader = new YamlReader(new FileReader(packFile));
 
             // Read the root node
             Map<String, Object> root = (Map<String, Object>) reader.read();
             Map<String, Object> BotTypeNode = (Map<String, Object>) root.get(dialogueType);
             dialogueConstructorNode = (Map<String, Object>) BotTypeNode.get(dialogueNode);
+        } catch (FileNotFoundException e) {
+            // Raced away between the check and the open: still a missing pack, not an error.
+            warnMissingPack(packFile);
         } catch (IOException e) {
             e.printStackTrace();
         }
         return dialogueConstructorNode;
+    }
+
+    // A bot with no dialogue pack of its own (OPQBot, GachaBot) must not print a stack trace on
+    // every lookup: the missing pack is reported at most once and the caller gets null, which is
+    // the same "no dialogue" answer a bot without a pack has always produced. Any other
+    // IOException (unreadable file, bad YAML) keeps its stack trace - that one is a real error.
+    private static void warnMissingPack(File packFile) {
+        if (MISSING_PACKS_WARNED.add(packFile.getPath())) {
+            log("Dialogue pack not found: " + packFile.getPath() + " - using built-in bot lines instead");
+        }
     }
 
     public static DialogueConstructor getDialogueCon(String BotTypeDialoguePath, String BotType, String DialogueNodeName) {
