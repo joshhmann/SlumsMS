@@ -13,6 +13,15 @@ public sealed interface SolverStep {
     }
 
     /**
+     * Step into the next room (boss rows only, phase B): a boss run's stages live on different maps and no portal name
+     * in our data is knowable (the door script {@code hontale_BR.js} is not its WZ portal name), so the solver says the
+     * map and the executor warps straight into the instance's own map. Only ever across maps: a member already in the
+     * room is never moved, so nothing is teleported inside a fight.
+     */
+    record WarpTo(int mapId, String why) implements SolverStep {
+    }
+
+    /**
      * Fight a mob kind until {@code untilItemCount} of {@code itemId} is held (0 = until the map is clear). 1.6.2: with
      * {@code leashPx} above 0, only mobs within that many px of ({@code nearX}, {@code nearY}) (a helper hunts by the
      * member it helps, so its kills' drops land within his reach).

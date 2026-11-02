@@ -67,6 +67,8 @@ final class StepExecutor {
         String waitMsg;
         long waitSinceMs;
         long waitToldMs;
+        /** When this member was last put into another room, so a failed warp is retried rather than spammed. */
+        long lastWarpMs;
         boolean stallTold;
         int stallGain;
         final Chase chase = new Chase();
@@ -92,6 +94,7 @@ final class StepExecutor {
             case SolverStep.CheckAnswer c -> check(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.Converse c -> converse(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.EnterPortal e -> enterPortal(bot, beat, e, now, log);
+            case SolverStep.WarpTo w -> warp(view, bot, beat, w, now, log);
             case SolverStep.Wait w -> waitNote(bot, beat, w, now, log);
             case SolverStep.Done d -> {
             }
@@ -697,6 +700,28 @@ final class StepExecutor {
     }
 
     /** Walk into a portal on the bot's map; the portal's script gate (PqGates) still decides whether it opens. */
+    /**
+     * Put a member in the stage's map (a boss run's next room). The event's own instance is used, so the member stays in
+     * the instance; one line per bot and room says when it went through.
+     */
+    private static void warp(LiveStageView view, Character bot, Beat beat, SolverStep.WarpTo w, long now,
+                             Consumer<String> log) {
+        if (bot.getMapId() == w.mapId()) {
+            return;
+        }
+        if (now - beat.lastWarpMs < 2_000) {
+            return;
+        }
+        beat.lastWarpMs = now;
+        MapleMap target = view.mapFor(w.mapId());
+        if (target == null) {
+            log.accept(bot.getName() + ": no map " + w.mapId() + " in this instance (" + w.why() + ")");
+            return;
+        }
+        bot.changeMap(target, target.getPortal(0));
+        log.accept(bot.getName() + ": through to " + w.mapId() + " (" + w.why() + ")");
+    }
+
     private static void enterPortal(Character bot, Beat beat, SolverStep.EnterPortal e, long now, Consumer<String> log) {
         MapleMap map = bot.getMap();
         server.maps.Portal portal = map == null ? null : map.getPortal(e.portalName());

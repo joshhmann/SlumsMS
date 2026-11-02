@@ -202,6 +202,14 @@ public final class Orchestrator implements RunOrchestrator {
             }
             int on = view.mapOf(m.characterId());
             if (on != stage.mapId()) {
+                // a boss run's rooms are separate maps with no knowable portal name: the solver says the map and the
+                // step warps straight into the instance's own copy of it (SolverStep.WarpTo). Every other content
+                // keeps walking through the portal an earlier stage opened.
+                SolverStep into = solver.next(view, m);
+                if (into instanceof SolverStep.WarpTo) {
+                    steps.put(m.characterId(), into);
+                    continue;
+                }
                 // still behind: walk into the portal an earlier stage opened (its script's gate decides), else wait.
                 // Any earlier stage, not just the last: a run staged at a later stage walks through every one
                 Stage behind = run.content().stageOnMap(on).orElse(null);

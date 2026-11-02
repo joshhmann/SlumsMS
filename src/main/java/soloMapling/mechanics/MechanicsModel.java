@@ -180,18 +180,22 @@ public final class MechanicsModel {
      *   {@code positions} (in the script's order) that answer {@code i} wants occupied;</li>
      *   <li>{@code mobs}: the stage's monsters (KPQ stage 5's bosses drop the passes);</li>
      *   <li>{@code nextPortal}: the portal the stage opens on clear, which every member walks into.</li>
+     *   <li>{@code summonProperty} + {@code killTarget} (boss rows, phase B): the event property that says the room's
+     *   parts were summoned (null = no such gate), and the part whose death the script turns into the clear
+     *   (0 = none, and then nothing is abandoned for its absence).</li>
      * </ul>
      */
     public record Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                         List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
-                        List<List<Integer>> combos, List<Integer> mobs, String nextPortal) {
+                        List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
+                        int killTarget) {
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                      List<Answer> answers, List<BossPhase> phases, Clear clear) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
-                    List.of(), List.of(), null);
+                    List.of(), List.of(), null, null, 0);
         }
 
         /** How many positions a combination's answer occupies (KPQ: 3), or 0 for a stage without combos. */

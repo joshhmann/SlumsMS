@@ -150,8 +150,9 @@ class ClotoScriptForBotsTest {
         FakeEim eim = new FakeEim();
         FakePlayer bot = new FakePlayer(2);
         Map<Integer, Integer> items = new HashMap<>();
-        var stage = StageData.loadDir(java.nio.file.Path.of(Mechanics.DEFAULT_DIR)).content().get(0).stage(1)
-                .orElseThrow();
+        // by id, not by position: the folder holds one row per content and their order is the file names
+        var stage = StageData.loadDir(java.nio.file.Path.of(Mechanics.DEFAULT_DIR)).content().stream()
+                .filter(c -> "kpq".equals(c.id())).findFirst().orElseThrow().stage(1).orElseThrow();
 
         talk(bot, eim, items);
         int q = eim.grid.get(2);

@@ -2,3 +2,4 @@
 # (a folder cannot be listed inside the jar). Add every new content file here; StageDataTest checks the list.
 kpq.yaml
 zakum.yaml
+horntail.yaml

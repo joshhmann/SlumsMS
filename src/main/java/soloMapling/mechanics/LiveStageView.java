@@ -142,13 +142,30 @@ final class LiveStageView implements StageView {
                 profile.route == soloMapling.ArtificialPlayer.BotAttackSystem.BotAttackProfile.Route.CLOSE);
     }
 
-    /** The fight's role of a live monster: an arm, the body, an add the stage lists, or null (not this fight). */
-    private static BossTargetRules.Role partRole(int mobId, List<Integer> listed) {
-        if (constants.id.MobId.isZakumArm(mobId)) {
+    /** The event's own instance of another map (a boss run's next room), or null when the instance has none. */
+    MapleMap mapFor(int mapId) {
+        return eim.isEventDisposed() ? null : eim.getMapInstance(mapId);
+    }
+
+    /**
+     * The fight's role of a live monster: a part that shields the body, the body itself, an add the stage lists, or
+     * null (not this fight). Zakum's arms are 8800003-8810010 and its body 8800000-8800002; Horntail's parts are
+     * 8810002-8810009 under its body 8810018, its two pre-heads 8810000/8810001 are the single target of the first two
+     * rooms, and its corpse parts 8810010-8810017 and its summon animation 8810026 are never a target.
+     */
+    static BossTargetRules.Role partRole(int mobId, List<Integer> listed) {
+        if (constants.id.MobId.isDeadHorntailPart(mobId) || mobId == constants.id.MobId.SUMMON_HORNTAIL) {
+            return null;
+        }
+        if (constants.id.MobId.isZakumArm(mobId)
+                || (mobId >= constants.id.MobId.HORNTAIL_HEAD_A && mobId <= constants.id.MobId.HORNTAIL_TAIL)) {
             return BossTargetRules.Role.ARM;
         }
         if (mobId == constants.id.MobId.ZAKUM_1 || mobId == constants.id.MobId.ZAKUM_2
-                || mobId == constants.id.MobId.ZAKUM_3) {
+                || mobId == constants.id.MobId.ZAKUM_3
+                || mobId == constants.id.MobId.HORNTAIL_PREHEAD_LEFT
+                || mobId == constants.id.MobId.HORNTAIL_PREHEAD_RIGHT
+                || mobId == constants.id.MobId.HORNTAIL) {
             return BossTargetRules.Role.BODY;
         }
         return listed.contains(mobId) ? BossTargetRules.Role.ADD : null;

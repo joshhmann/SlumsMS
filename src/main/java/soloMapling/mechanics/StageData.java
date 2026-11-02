@@ -441,9 +441,6 @@ public final class StageData {
         if (clear == null) {
             p.add(at + "no clear: { eventProperty: ... } (+ optional equals: value)");
         }
-        if (clear == null) {
-            p.add(at + "no clear: { eventProperty: ... } (presence or + equals) or { mobs: [...] }");
-        }
         String answerProperty = m.get("answerProperty") == null ? null : String.valueOf(m.get("answerProperty")).trim();
         List<List<Integer>> combos = new ArrayList<>();
         int ones = -1;
@@ -486,9 +483,20 @@ public final class StageData {
             }
         }
         String nextPortal = m.get("nextPortal") == null ? null : String.valueOf(m.get("nextPortal")).trim();
+        String summonProperty = m.get("summonProperty") == null ? null
+                : String.valueOf(m.get("summonProperty")).trim();
+        int killTarget = 0;
+        if (m.get("killTarget") != null) {
+            try {
+                killTarget = Integer.parseInt(String.valueOf(m.get("killTarget")).trim());
+            } catch (NumberFormatException e) {
+                p.add(at + "killTarget: not a mob id: " + m.get("killTarget"));
+            }
+        }
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
-                answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal);
+                answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
+                summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, killTarget);
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----

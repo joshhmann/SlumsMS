@@ -265,7 +265,10 @@ candidate list per member by `BossPhasesSolver` (`solver: boss-phases`) instead 
 the arm order and the "eight arms before the body" rule come from our own scripts and map code
 (`scripts/reactor/2111001.js`, `MapleMap.java:4939-4947`, `:1786-1810`), the clear from the script's own
 `defeatedBoss=1`; `reachPx` is 0 for every part because our `MobHitboxIndex` has no vertical box origin, so every arm
-lands in the floor tier; their Horntail catalog entry is not ported (deferred, its shape differs from the draft).
+lands in the floor tier; their Horntail catalog entry (`agent-bosses/boss-rules.json`) is **not** ported: phase B's
+Horntail row is ours, read from `scripts/event/HorntailBattle.js`, `scripts/reactor/2408003.js`, `2401000.js`,
+`scripts/portal/hontale_BR.js` and `MapleMap.java:4908-4954,4939-4947`, and it reuses the same `BossTargetRules` port
+(the three rooms, the door gating and the `defeatedHead` count have no counterpart in their draft).
 
 ### Expedition death count, 1.6.4 (branch `164-bossfight`, ticket 130 boss lane), BotStory `81a3b1df`
 

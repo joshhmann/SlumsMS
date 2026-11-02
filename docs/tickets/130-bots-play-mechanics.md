@@ -492,6 +492,36 @@ The real fight is a `kind: BOSS` content row driven by the same engine as KPQ: `
 - **Known, reported, not changed:** a human death unregisters (`ZakumBattle.js:140-160`) and `memberLost` aborts the
   run, so one human death ends the bots' run. That is the owner's call, not this phase's.
 
+## Boss lane phase B: Horntail, three rooms (1.6.4, branch `164-bossfight`)
+
+Our Horntail, not BotStory's draft: three stages in `content/horntail.yaml`, all `solver: boss-phases`, each clearing on
+the script's own property (`defeatedHead` 1 then 2, then `defeatedBoss` 1 - `HorntailBattle.js:237-238`, `:187-194`).
+
+- **The rooms are entered by map id.** The door script is `scripts/portal/hontale_BR.js` but its WZ portal name is not in
+  the repo, and `StepExecutor` stalls silently on a wrong name. `SolverStep.WarpTo(mapId)` (boss rows only; emitted
+  before anything else when the member stands on another map) warps into the event instance's own map and logs one
+  line. It only ever moves across maps, so nothing is teleported inside a fight.
+- **Room 1 and 2** (`240060000`, `240060100`) hold nothing until a human touches reactor `2408003`, which spawns the fake
+  body, sets `summoned` and spawns the head `8810000` / `8810001` (`2408003.js:35,40,43`). The stage names
+  `summonProperty: summoned`, so no head is fought before the touch.
+- **Room 3** (`240060200`) is empty until reactor `2401000` is hit, which calls `MapleMap.spawnHorntailOnGroundBelow`:
+  intro `8810026`, body `8810018`, parts `8810002-8810009` (`MapleMap.java:4908-4954`), and restarts the timer to 60
+  minutes. That reactor sets no property, so the stage names none: an empty room is a `Wait`, which is the same
+  behaviour driven by the room itself.
+- **Parts before the body, add family absent.** A part's damage and heal are forwarded to the body
+  (`MapleMap.java:4939-4947`), so the eight parts come first and the body is only offered once none is left. The add
+  family `8810019-8820023` is not in our scripts or server code and is not stage data; the corpse parts
+  `8810010-8810017` and the intro `8810026` are never a role (`LiveStageView.partRole`).
+- **`summonProperty` and `killTarget` are data now.** A stage names the property that says its parts were summoned
+  (null = no gate) and the part whose death the script turns into the clear (0 = none; the solver only abandons for a
+  missing one when a stage names it). Zakum names both (`summoned`, `8800002`); Horntail names none of the latter.
+- **Two facts settled while doing this.** `exitMap` means "where a run ended by us sends a member"
+  (`MechanicsRuns.endInstance`), so Zakum's row now says `211042400` - the script sends everyone there itself
+  (`ZakumBattle.js:159-162`) - and `minPlayers` is the script's own gate (Zakum 6, Horntail 6), because bots join as
+  party members and the gate is about the party, not about who leads it.
+- **A latent ordering bug surfaced.** Content rows are read in file-name order, and two tests took "the first row" to
+  mean KPQ; they now look the row up by id. Nothing in production depended on the order.
+
 ## QA plan
 
 - **Unit:** every content YAML loads clean; answers/rectangles/items are re-read from our scripts and compared
