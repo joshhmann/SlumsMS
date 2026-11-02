@@ -22,7 +22,6 @@
 package client.inventory;
 
 import client.Character;
-import client.Client;
 import client.inventory.manipulator.InventoryManipulator;
 import constants.inventory.ItemConstants;
 import org.slf4j.Logger;
@@ -517,14 +516,13 @@ public class Inventory implements Iterable<Item> {
             }
         }
 
-        Client c = chr.getClient();
         for (Entry<Integer, List<Integer>> it : rcvItems.entrySet()) {
             int itemType = rcvTypes.get(it.getKey()) - 1;
 
             for (Integer itValue : it.getValue()) {
                 int usedSlots = typesSlotsUsed.get(itemType);
 
-                int result = InventoryManipulator.checkSpaceProgressively(c, it.getKey(), itValue, "", usedSlots, useProofInv);
+                int result = InventoryManipulator.checkSpaceProgressively(chr, it.getKey(), itValue, "", usedSlots, useProofInv);
                 boolean hasSpace = ((result % 2) != 0);
 
                 if (!hasSpace) {
@@ -600,7 +598,6 @@ public class Inventory implements Iterable<Item> {
             }
         }
 
-        Client c = chr.getClient();
         for (Entry<Long, List<Integer>> it : rcvItems.entrySet()) {
             int itemType = rcvTypes.get(it.getKey()) - 1;
             int itemId = (int) (it.getKey() >> 32L);
@@ -610,7 +607,7 @@ public class Inventory implements Iterable<Item> {
 
                 //System.out.print("inserting " + itemId.intValue() + " with type " + itemType + " qty " + it.getValue() + " owner '" + rcvOwners.get(it.getKey()) + "' current usedSlots:");
                 //for(Integer i : typesSlotsUsed) System.out.print(" " + i);
-                int result = InventoryManipulator.checkSpaceProgressively(c, itemId, itValue, rcvOwners.get(it.getKey()), usedSlots, useProofInv);
+                int result = InventoryManipulator.checkSpaceProgressively(chr, itemId, itValue, rcvOwners.get(it.getKey()), usedSlots, useProofInv);
                 boolean hasSpace = ((result % 2) != 0);
                 //System.out.print(" -> hasSpace: " + hasSpace + " RESULT : " + result + "\n");
 

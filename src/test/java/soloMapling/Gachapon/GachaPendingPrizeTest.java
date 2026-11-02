@@ -126,14 +126,14 @@ class GachaPendingPrizeTest {
             assertFalse(again.ok());
             assertEquals(first.prize(), again.prize(), "the same prize is offered again, not a fresh roll");
         }
-        inv.verify(() -> InventoryManipulator.removeById(any(), any(), anyInt(), anyInt(), anyBoolean(), anyBoolean()),
+        inv.verify(() -> InventoryManipulator.removeById(any(Client.class), any(), anyInt(), anyInt(), anyBoolean(), anyBoolean()),
                 never());
 
         room.set(true);
         GachaMachine.Result claimed = GachaMachine.playForPlayer(chr, henesys, GachaMachine.TICKET, "test", rng);
         assertTrue(claimed.ok());
         assertEquals(first.prize(), claimed.prize(), "the waiting prize is what the ticket finally pays out");
-        inv.verify(() -> InventoryManipulator.removeById(any(), any(), eq(GachaMachine.TICKET), eq(1), anyBoolean(),
+        inv.verify(() -> InventoryManipulator.removeById(any(Client.class), any(), eq(GachaMachine.TICKET), eq(1), anyBoolean(),
                 anyBoolean()), times(1));
         assertNull(GachaMachine.pendingPrize(chr, henesys), "claimed, so the next ticket rolls fresh");
     }
