@@ -244,25 +244,18 @@
             "name": "1H Sword - Lionheart Cutlass",
             "itemId": 1302152,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1302316,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4021009,
-                "amount": 2
-              },
-              {
-                "itemId": 4011007,
-                "amount": 2
               },
               {
                 "itemId": 4000642,
                 "amount": 200
               },
               {
-                "itemId": 4000643,
+                "itemId": 4000644,
                 "amount": 200
               },
               {
@@ -271,42 +264,10 @@
               },
               {
                 "itemId": 4036544,
-                "amount": 3
-              },
-              {
-                "itemId": 4007000,
-                "amount": 2
-              },
-              {
-                "itemId": 4007001,
-                "amount": 2
-              },
-              {
-                "itemId": 4007002,
-                "amount": 2
-              },
-              {
-                "itemId": 4007003,
-                "amount": 4
-              },
-              {
-                "itemId": 4007004,
-                "amount": 2
-              },
-              {
-                "itemId": 4007005,
-                "amount": 2
-              },
-              {
-                "itemId": 4007006,
-                "amount": 4
-              },
-              {
-                "itemId": 4007007,
-                "amount": 2
+                "amount": 1
               }
             ],
-            "cost": 200000000,
+            "cost": 6000000,
             "slots": 3,
             "stimulant": 4130002,
             "requiredLevel": 130,
@@ -323,19 +284,11 @@
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 2
-              },
-              {
-                "itemId": 4011007,
-                "amount": 2
-              },
-              {
                 "itemId": 4000642,
                 "amount": 200
               },
               {
-                "itemId": 4000643,
+                "itemId": 4000644,
                 "amount": 200
               },
               {
@@ -344,42 +297,10 @@
               },
               {
                 "itemId": 4036544,
-                "amount": 3
-              },
-              {
-                "itemId": 4007000,
-                "amount": 2
-              },
-              {
-                "itemId": 4007001,
-                "amount": 2
-              },
-              {
-                "itemId": 4007002,
-                "amount": 2
-              },
-              {
-                "itemId": 4007003,
-                "amount": 4
-              },
-              {
-                "itemId": 4007004,
-                "amount": 2
-              },
-              {
-                "itemId": 4007005,
-                "amount": 2
-              },
-              {
-                "itemId": 4007006,
-                "amount": 4
-              },
-              {
-                "itemId": 4007007,
-                "amount": 2
+                "amount": 1
               }
             ],
-            "cost": 200000000,
+            "cost": 6000000,
             "slots": 3,
             "stimulant": 4130003,
             "requiredLevel": 130,
@@ -389,25 +310,18 @@
             "name": "1H Mace - Lionheart Battle Hammer",
             "itemId": 1322096,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1322237,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4021009,
-                "amount": 2
-              },
-              {
-                "itemId": 4011007,
-                "amount": 2
               },
               {
                 "itemId": 4000642,
                 "amount": 200
               },
               {
-                "itemId": 4000643,
+                "itemId": 4000644,
                 "amount": 200
               },
               {
@@ -416,42 +330,10 @@
               },
               {
                 "itemId": 4036544,
-                "amount": 3
-              },
-              {
-                "itemId": 4007000,
-                "amount": 2
-              },
-              {
-                "itemId": 4007001,
-                "amount": 2
-              },
-              {
-                "itemId": 4007002,
-                "amount": 2
-              },
-              {
-                "itemId": 4007003,
-                "amount": 4
-              },
-              {
-                "itemId": 4007004,
-                "amount": 2
-              },
-              {
-                "itemId": 4007005,
-                "amount": 2
-              },
-              {
-                "itemId": 4007006,
-                "amount": 4
-              },
-              {
-                "itemId": 4007007,
-                "amount": 2
+                "amount": 1
               }
             ],
-            "cost": 200000000,
+            "cost": 6000000,
             "slots": 3,
             "stimulant": 4130004,
             "requiredLevel": 130,
@@ -461,25 +343,18 @@
             "name": "2H Sword - Lionheart Battle Scimitar",
             "itemId": 1402095,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1402237,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4021009,
-                "amount": 2
-              },
-              {
-                "itemId": 4011007,
-                "amount": 2
               },
               {
                 "itemId": 4000642,
                 "amount": 200
               },
               {
-                "itemId": 4000643,
+                "itemId": 4000644,
                 "amount": 200
               },
               {
@@ -488,42 +363,10 @@
               },
               {
                 "itemId": 4036544,
-                "amount": 3
-              },
-              {
-                "itemId": 4007000,
-                "amount": 2
-              },
-              {
-                "itemId": 4007001,
-                "amount": 2
-              },
-              {
-                "itemId": 4007002,
-                "amount": 2
-              },
-              {
-                "itemId": 4007003,
-                "amount": 4
-              },
-              {
-                "itemId": 4007004,
-                "amount": 2
-              },
-              {
-                "itemId": 4007005,
-                "amount": 2
-              },
-              {
-                "itemId": 4007006,
-                "amount": 4
-              },
-              {
-                "itemId": 4007007,
-                "amount": 2
+                "amount": 1
               }
             ],
-            "cost": 200000000,
+            "cost": 6000000,
             "slots": 3,
             "stimulant": 4130005,
             "requiredLevel": 130,
@@ -533,25 +376,18 @@
             "name": "2H Axe - Lionheart Battle Axe",
             "itemId": 1412065,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1412179,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4021009,
-                "amount": 2
-              },
-              {
-                "itemId": 4011007,
-                "amount": 2
               },
               {
                 "itemId": 4000642,
                 "amount": 200
               },
               {
-                "itemId": 4000643,
+                "itemId": 4000644,
                 "amount": 200
               },
               {
@@ -560,42 +396,10 @@
               },
               {
                 "itemId": 4036544,
-                "amount": 3
-              },
-              {
-                "itemId": 4007000,
-                "amount": 2
-              },
-              {
-                "itemId": 4007001,
-                "amount": 2
-              },
-              {
-                "itemId": 4007002,
-                "amount": 2
-              },
-              {
-                "itemId": 4007003,
-                "amount": 4
-              },
-              {
-                "itemId": 4007004,
-                "amount": 2
-              },
-              {
-                "itemId": 4007005,
-                "amount": 2
-              },
-              {
-                "itemId": 4007006,
-                "amount": 4
-              },
-              {
-                "itemId": 4007007,
-                "amount": 2
+                "amount": 1
               }
             ],
-            "cost": 200000000,
+            "cost": 6000000,
             "slots": 3,
             "stimulant": 4130006,
             "requiredLevel": 130,
@@ -605,25 +409,18 @@
             "name": "2H Mace - Lionheart Blast Maul",
             "itemId": 1422066,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1422186,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4021009,
-                "amount": 2
-              },
-              {
-                "itemId": 4011007,
-                "amount": 2
               },
               {
                 "itemId": 4000642,
                 "amount": 200
               },
               {
-                "itemId": 4000643,
+                "itemId": 4000644,
                 "amount": 200
               },
               {
@@ -632,42 +429,10 @@
               },
               {
                 "itemId": 4036544,
-                "amount": 3
-              },
-              {
-                "itemId": 4007000,
-                "amount": 2
-              },
-              {
-                "itemId": 4007001,
-                "amount": 2
-              },
-              {
-                "itemId": 4007002,
-                "amount": 2
-              },
-              {
-                "itemId": 4007003,
-                "amount": 4
-              },
-              {
-                "itemId": 4007004,
-                "amount": 2
-              },
-              {
-                "itemId": 4007005,
-                "amount": 2
-              },
-              {
-                "itemId": 4007006,
-                "amount": 4
-              },
-              {
-                "itemId": 4007007,
-                "amount": 2
+                "amount": 1
               }
             ],
-            "cost": 200000000,
+            "cost": 6000000,
             "slots": 3,
             "stimulant": 4130007,
             "requiredLevel": 130,
@@ -677,25 +442,18 @@
             "name": "Spear - Lionheart Fuscina",
             "itemId": 1432086,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1432201,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4021009,
-                "amount": 2
-              },
-              {
-                "itemId": 4011007,
-                "amount": 2
               },
               {
                 "itemId": 4000642,
                 "amount": 200
               },
               {
-                "itemId": 4000643,
+                "itemId": 4000644,
                 "amount": 200
               },
               {
@@ -704,42 +462,10 @@
               },
               {
                 "itemId": 4036544,
-                "amount": 3
-              },
-              {
-                "itemId": 4007000,
-                "amount": 2
-              },
-              {
-                "itemId": 4007001,
-                "amount": 2
-              },
-              {
-                "itemId": 4007002,
-                "amount": 2
-              },
-              {
-                "itemId": 4007003,
-                "amount": 4
-              },
-              {
-                "itemId": 4007004,
-                "amount": 2
-              },
-              {
-                "itemId": 4007005,
-                "amount": 2
-              },
-              {
-                "itemId": 4007006,
-                "amount": 4
-              },
-              {
-                "itemId": 4007007,
-                "amount": 2
+                "amount": 1
               }
             ],
-            "cost": 200000000,
+            "cost": 6000000,
             "slots": 3,
             "stimulant": 4130008,
             "requiredLevel": 130,
@@ -749,25 +475,18 @@
             "name": "Polearm - Lionheart Partisan",
             "itemId": 1442116,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1442255,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4021009,
-                "amount": 2
-              },
-              {
-                "itemId": 4011007,
-                "amount": 2
               },
               {
                 "itemId": 4000642,
                 "amount": 200
               },
               {
-                "itemId": 4000643,
+                "itemId": 4000644,
                 "amount": 200
               },
               {
@@ -776,42 +495,10 @@
               },
               {
                 "itemId": 4036544,
-                "amount": 3
-              },
-              {
-                "itemId": 4007000,
-                "amount": 2
-              },
-              {
-                "itemId": 4007001,
-                "amount": 2
-              },
-              {
-                "itemId": 4007002,
-                "amount": 2
-              },
-              {
-                "itemId": 4007003,
-                "amount": 4
-              },
-              {
-                "itemId": 4007004,
-                "amount": 2
-              },
-              {
-                "itemId": 4007005,
-                "amount": 2
-              },
-              {
-                "itemId": 4007006,
-                "amount": 4
-              },
-              {
-                "itemId": 4007007,
-                "amount": 2
+                "amount": 1
               }
             ],
-            "cost": 200000000,
+            "cost": 6000000,
             "slots": 3,
             "stimulant": 4130009,
             "requiredLevel": 130,
@@ -826,77 +513,30 @@
             "name": "1H Sword - Amaterasu's Nimbus Sword",
             "itemId": 1302229,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1302152,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 3
+                "itemId": 4000658,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 3
+                "itemId": 4000655,
+                "amount": 200
               },
               {
-                "itemId": 4000652,
-                "amount": 100
-              },
-              {
-                "itemId": 4000653,
-                "amount": 100
-              },
-              {
-                "itemId": 4000654,
-                "amount": 100
-              },
-              {
-                "itemId": 4036346,
-                "amount": 100
-              },
-              {
-                "itemId": 4033732,
+                "itemId": 4001879,
                 "amount": 1
               },
               {
                 "itemId": 4036544,
-                "amount": 6
-              },
-              {
-                "itemId": 4007000,
-                "amount": 4
-              },
-              {
-                "itemId": 4007001,
-                "amount": 4
-              },
-              {
-                "itemId": 4007002,
-                "amount": 4
-              },
-              {
-                "itemId": 4007003,
-                "amount": 8
-              },
-              {
-                "itemId": 4007004,
-                "amount": 4
-              },
-              {
-                "itemId": 4007005,
-                "amount": 4
-              },
-              {
-                "itemId": 4007006,
-                "amount": 8
-              },
-              {
-                "itemId": 4007007,
-                "amount": 4
+                "amount": 1
               }
             ],
-            "cost": 380000000,
+            "cost": 6500000,
             "slots": 3,
             "stimulant": 4130002,
             "requiredLevel": 140,
@@ -906,77 +546,30 @@
             "name": "1H Axe - Amaterasu's Axe of a Thousand Blades",
             "itemId": 1312118,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1312065,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 3
+                "itemId": 4000658,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 3
+                "itemId": 4000655,
+                "amount": 200
               },
               {
-                "itemId": 4000652,
-                "amount": 100
-              },
-              {
-                "itemId": 4000653,
-                "amount": 100
-              },
-              {
-                "itemId": 4000654,
-                "amount": 100
-              },
-              {
-                "itemId": 4036346,
-                "amount": 100
-              },
-              {
-                "itemId": 4033732,
+                "itemId": 4001879,
                 "amount": 1
               },
               {
                 "itemId": 4036544,
-                "amount": 6
-              },
-              {
-                "itemId": 4007000,
-                "amount": 4
-              },
-              {
-                "itemId": 4007001,
-                "amount": 4
-              },
-              {
-                "itemId": 4007002,
-                "amount": 4
-              },
-              {
-                "itemId": 4007003,
-                "amount": 8
-              },
-              {
-                "itemId": 4007004,
-                "amount": 4
-              },
-              {
-                "itemId": 4007005,
-                "amount": 4
-              },
-              {
-                "itemId": 4007006,
-                "amount": 8
-              },
-              {
-                "itemId": 4007007,
-                "amount": 4
+                "amount": 1
               }
             ],
-            "cost": 380000000,
+            "cost": 6500000,
             "slots": 3,
             "stimulant": 4130003,
             "requiredLevel": 140,
@@ -986,77 +579,30 @@
             "name": "1H Mace - Amaterasu's Golden Slice",
             "itemId": 1322164,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1322096,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 3
+                "itemId": 4000658,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 3
+                "itemId": 4000655,
+                "amount": 200
               },
               {
-                "itemId": 4000652,
-                "amount": 100
-              },
-              {
-                "itemId": 4000653,
-                "amount": 100
-              },
-              {
-                "itemId": 4000654,
-                "amount": 100
-              },
-              {
-                "itemId": 4036346,
-                "amount": 100
-              },
-              {
-                "itemId": 4033732,
+                "itemId": 4001879,
                 "amount": 1
               },
               {
                 "itemId": 4036544,
-                "amount": 6
-              },
-              {
-                "itemId": 4007000,
-                "amount": 4
-              },
-              {
-                "itemId": 4007001,
-                "amount": 4
-              },
-              {
-                "itemId": 4007002,
-                "amount": 4
-              },
-              {
-                "itemId": 4007003,
-                "amount": 8
-              },
-              {
-                "itemId": 4007004,
-                "amount": 4
-              },
-              {
-                "itemId": 4007005,
-                "amount": 4
-              },
-              {
-                "itemId": 4007006,
-                "amount": 8
-              },
-              {
-                "itemId": 4007007,
-                "amount": 4
+                "amount": 1
               }
             ],
-            "cost": 380000000,
+            "cost": 6500000,
             "slots": 3,
             "stimulant": 4130004,
             "requiredLevel": 140,
@@ -1066,77 +612,30 @@
             "name": "2H Sword - Amaterasu's Weeping Spirit Sword",
             "itemId": 1402153,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1402095,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 3
+                "itemId": 4000658,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 3
+                "itemId": 4000655,
+                "amount": 200
               },
               {
-                "itemId": 4000652,
-                "amount": 100
-              },
-              {
-                "itemId": 4000653,
-                "amount": 100
-              },
-              {
-                "itemId": 4000654,
-                "amount": 100
-              },
-              {
-                "itemId": 4036346,
-                "amount": 100
-              },
-              {
-                "itemId": 4033732,
+                "itemId": 4001879,
                 "amount": 1
               },
               {
                 "itemId": 4036544,
-                "amount": 6
-              },
-              {
-                "itemId": 4007000,
-                "amount": 4
-              },
-              {
-                "itemId": 4007001,
-                "amount": 4
-              },
-              {
-                "itemId": 4007002,
-                "amount": 4
-              },
-              {
-                "itemId": 4007003,
-                "amount": 8
-              },
-              {
-                "itemId": 4007004,
-                "amount": 4
-              },
-              {
-                "itemId": 4007005,
-                "amount": 4
-              },
-              {
-                "itemId": 4007006,
-                "amount": 8
-              },
-              {
-                "itemId": 4007007,
-                "amount": 4
+                "amount": 1
               }
             ],
-            "cost": 380000000,
+            "cost": 6500000,
             "slots": 3,
             "stimulant": 4130005,
             "requiredLevel": 140,
@@ -1146,77 +645,30 @@
             "name": "2H Axe - Amaterasu's Smoldering Spirit Axe",
             "itemId": 1412106,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1412065,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 3
+                "itemId": 4000658,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 3
+                "itemId": 4000655,
+                "amount": 200
               },
               {
-                "itemId": 4000652,
-                "amount": 100
-              },
-              {
-                "itemId": 4000653,
-                "amount": 100
-              },
-              {
-                "itemId": 4000654,
-                "amount": 100
-              },
-              {
-                "itemId": 4036346,
-                "amount": 100
-              },
-              {
-                "itemId": 4033732,
+                "itemId": 4001879,
                 "amount": 1
               },
               {
                 "itemId": 4036544,
-                "amount": 6
-              },
-              {
-                "itemId": 4007000,
-                "amount": 4
-              },
-              {
-                "itemId": 4007001,
-                "amount": 4
-              },
-              {
-                "itemId": 4007002,
-                "amount": 4
-              },
-              {
-                "itemId": 4007003,
-                "amount": 8
-              },
-              {
-                "itemId": 4007004,
-                "amount": 4
-              },
-              {
-                "itemId": 4007005,
-                "amount": 4
-              },
-              {
-                "itemId": 4007006,
-                "amount": 8
-              },
-              {
-                "itemId": 4007007,
-                "amount": 4
+                "amount": 1
               }
             ],
-            "cost": 380000000,
+            "cost": 6500000,
             "slots": 3,
             "stimulant": 4130006,
             "requiredLevel": 140,
@@ -1226,77 +678,30 @@
             "name": "2H Mace - Amaterasu's Mace of Ruin",
             "itemId": 1422109,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1422066,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 3
+                "itemId": 4000658,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 3
+                "itemId": 4000655,
+                "amount": 200
               },
               {
-                "itemId": 4000652,
-                "amount": 100
-              },
-              {
-                "itemId": 4000653,
-                "amount": 100
-              },
-              {
-                "itemId": 4000654,
-                "amount": 100
-              },
-              {
-                "itemId": 4036346,
-                "amount": 100
-              },
-              {
-                "itemId": 4033732,
+                "itemId": 4001879,
                 "amount": 1
               },
               {
                 "itemId": 4036544,
-                "amount": 6
-              },
-              {
-                "itemId": 4007000,
-                "amount": 4
-              },
-              {
-                "itemId": 4007001,
-                "amount": 4
-              },
-              {
-                "itemId": 4007002,
-                "amount": 4
-              },
-              {
-                "itemId": 4007003,
-                "amount": 8
-              },
-              {
-                "itemId": 4007004,
-                "amount": 4
-              },
-              {
-                "itemId": 4007005,
-                "amount": 4
-              },
-              {
-                "itemId": 4007006,
-                "amount": 8
-              },
-              {
-                "itemId": 4007007,
-                "amount": 4
+                "amount": 1
               }
             ],
-            "cost": 380000000,
+            "cost": 6500000,
             "slots": 3,
             "stimulant": 4130007,
             "requiredLevel": 140,
@@ -1306,77 +711,30 @@
             "name": "Spear - Amaterasu's Final Wind",
             "itemId": 1432140,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1432086,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 3
+                "itemId": 4000658,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 3
+                "itemId": 4000655,
+                "amount": 200
               },
               {
-                "itemId": 4000652,
-                "amount": 100
-              },
-              {
-                "itemId": 4000653,
-                "amount": 100
-              },
-              {
-                "itemId": 4000654,
-                "amount": 100
-              },
-              {
-                "itemId": 4036346,
-                "amount": 100
-              },
-              {
-                "itemId": 4033732,
+                "itemId": 4001879,
                 "amount": 1
               },
               {
                 "itemId": 4036544,
-                "amount": 6
-              },
-              {
-                "itemId": 4007000,
-                "amount": 4
-              },
-              {
-                "itemId": 4007001,
-                "amount": 4
-              },
-              {
-                "itemId": 4007002,
-                "amount": 4
-              },
-              {
-                "itemId": 4007003,
-                "amount": 8
-              },
-              {
-                "itemId": 4007004,
-                "amount": 4
-              },
-              {
-                "itemId": 4007005,
-                "amount": 4
-              },
-              {
-                "itemId": 4007006,
-                "amount": 8
-              },
-              {
-                "itemId": 4007007,
-                "amount": 4
+                "amount": 1
               }
             ],
-            "cost": 380000000,
+            "cost": 6500000,
             "slots": 3,
             "stimulant": 4130008,
             "requiredLevel": 140,
@@ -1386,77 +744,30 @@
             "name": "Polearm - Amaterasu's Pelting Rain",
             "itemId": 1442184,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1442116,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 3
+                "itemId": 4000658,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 3
+                "itemId": 4000655,
+                "amount": 200
               },
               {
-                "itemId": 4000652,
-                "amount": 100
-              },
-              {
-                "itemId": 4000653,
-                "amount": 100
-              },
-              {
-                "itemId": 4000654,
-                "amount": 100
-              },
-              {
-                "itemId": 4036346,
-                "amount": 100
-              },
-              {
-                "itemId": 4033732,
+                "itemId": 4001879,
                 "amount": 1
               },
               {
                 "itemId": 4036544,
-                "amount": 6
-              },
-              {
-                "itemId": 4007000,
-                "amount": 4
-              },
-              {
-                "itemId": 4007001,
-                "amount": 4
-              },
-              {
-                "itemId": 4007002,
-                "amount": 4
-              },
-              {
-                "itemId": 4007003,
-                "amount": 8
-              },
-              {
-                "itemId": 4007004,
-                "amount": 4
-              },
-              {
-                "itemId": 4007005,
-                "amount": 4
-              },
-              {
-                "itemId": 4007006,
-                "amount": 8
-              },
-              {
-                "itemId": 4007007,
-                "amount": 4
+                "amount": 1
               }
             ],
-            "cost": 380000000,
+            "cost": 6500000,
             "slots": 3,
             "stimulant": 4130009,
             "requiredLevel": 140,
@@ -1472,105 +783,30 @@
             "name": "1H Sword - Absolab Saber",
             "itemId": 1302344,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1302229,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 4
+                "itemId": 4000739,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 4
+                "itemId": 4000740,
+                "amount": 200
               },
               {
                 "itemId": 4001890,
                 "amount": 1
               },
               {
-                "itemId": 4000727,
-                "amount": 100
-              },
-              {
-                "itemId": 4000730,
-                "amount": 100
-              },
-              {
-                "itemId": 4000740,
-                "amount": 100
-              },
-              {
-                "itemId": 4000743,
-                "amount": 100
-              },
-              {
-                "itemId": 4000736,
-                "amount": 100
-              },
-              {
-                "itemId": 4036147,
-                "amount": 100
-              },
-              {
-                "itemId": 4034887,
-                "amount": 100
-              },
-              {
-                "itemId": 4009340,
-                "amount": 100
-              },
-              {
-                "itemId": 4023025,
-                "amount": 100
-              },
-              {
-                "itemId": 4036492,
-                "amount": 100
-              },
-              {
-                "itemId": 4036140,
-                "amount": 100
-              },
-              {
                 "itemId": 4036544,
-                "amount": 9
-              },
-              {
-                "itemId": 4007000,
-                "amount": 6
-              },
-              {
-                "itemId": 4007001,
-                "amount": 6
-              },
-              {
-                "itemId": 4007002,
-                "amount": 6
-              },
-              {
-                "itemId": 4007003,
-                "amount": 12
-              },
-              {
-                "itemId": 4007004,
-                "amount": 6
-              },
-              {
-                "itemId": 4007005,
-                "amount": 6
-              },
-              {
-                "itemId": 4007006,
-                "amount": 12
-              },
-              {
-                "itemId": 4007007,
-                "amount": 6
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 7000000,
             "slots": 3,
             "stimulant": 4130002,
             "requiredLevel": 150,
@@ -1580,105 +816,30 @@
             "name": "1H Axe - Absolab Axe",
             "itemId": 1312204,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1312118,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 4
+                "itemId": 4000739,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 4
+                "itemId": 4000740,
+                "amount": 200
               },
               {
                 "itemId": 4001890,
                 "amount": 1
               },
               {
-                "itemId": 4000727,
-                "amount": 100
-              },
-              {
-                "itemId": 4000730,
-                "amount": 100
-              },
-              {
-                "itemId": 4000740,
-                "amount": 100
-              },
-              {
-                "itemId": 4000743,
-                "amount": 100
-              },
-              {
-                "itemId": 4000736,
-                "amount": 100
-              },
-              {
-                "itemId": 4036147,
-                "amount": 100
-              },
-              {
-                "itemId": 4034887,
-                "amount": 100
-              },
-              {
-                "itemId": 4009340,
-                "amount": 100
-              },
-              {
-                "itemId": 4023025,
-                "amount": 100
-              },
-              {
-                "itemId": 4036492,
-                "amount": 100
-              },
-              {
-                "itemId": 4036140,
-                "amount": 100
-              }              ,
-              {
                 "itemId": 4036544,
-                "amount": 9
-              },
-              {
-                "itemId": 4007000,
-                "amount": 6
-              },
-              {
-                "itemId": 4007001,
-                "amount": 6
-              },
-              {
-                "itemId": 4007002,
-                "amount": 6
-              },
-              {
-                "itemId": 4007003,
-                "amount": 12
-              },
-              {
-                "itemId": 4007004,
-                "amount": 6
-              },
-              {
-                "itemId": 4007005,
-                "amount": 6
-              },
-              {
-                "itemId": 4007006,
-                "amount": 12
-              },
-              {
-                "itemId": 4007007,
-                "amount": 6
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 7000000,
             "slots": 3,
             "stimulant": 4130003,
             "requiredLevel": 150,
@@ -1688,105 +849,30 @@
             "name": "1H Mace - Absolab Bit Hammer",
             "itemId": 1322256,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1322164,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 4
+                "itemId": 4000739,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 4
+                "itemId": 4000740,
+                "amount": 200
               },
               {
                 "itemId": 4001890,
                 "amount": 1
               },
               {
-                "itemId": 4000727,
-                "amount": 100
-              },
-              {
-                "itemId": 4000730,
-                "amount": 100
-              },
-              {
-                "itemId": 4000740,
-                "amount": 100
-              },
-              {
-                "itemId": 4000743,
-                "amount": 100
-              },
-              {
-                "itemId": 4000736,
-                "amount": 100
-              },
-              {
-                "itemId": 4036147,
-                "amount": 100
-              },
-              {
-                "itemId": 4034887,
-                "amount": 100
-              },
-              {
-                "itemId": 4009340,
-                "amount": 100
-              },
-              {
-                "itemId": 4023025,
-                "amount": 100
-              },
-              {
-                "itemId": 4036492,
-                "amount": 100
-              },
-              {
-                "itemId": 4036140,
-                "amount": 100
-              }              ,
-              {
                 "itemId": 4036544,
-                "amount": 9
-              },
-              {
-                "itemId": 4007000,
-                "amount": 6
-              },
-              {
-                "itemId": 4007001,
-                "amount": 6
-              },
-              {
-                "itemId": 4007002,
-                "amount": 6
-              },
-              {
-                "itemId": 4007003,
-                "amount": 12
-              },
-              {
-                "itemId": 4007004,
-                "amount": 6
-              },
-              {
-                "itemId": 4007005,
-                "amount": 6
-              },
-              {
-                "itemId": 4007006,
-                "amount": 12
-              },
-              {
-                "itemId": 4007007,
-                "amount": 6
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 7000000,
             "slots": 3,
             "stimulant": 4130004,
             "requiredLevel": 150,
@@ -1796,105 +882,30 @@
             "name": "2H Sword - Absolab Broad Saber",
             "itemId": 1402260,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1402153,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 4
+                "itemId": 4000739,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 4
+                "itemId": 4000740,
+                "amount": 200
               },
               {
                 "itemId": 4001890,
                 "amount": 1
               },
               {
-                "itemId": 4000727,
-                "amount": 100
-              },
-              {
-                "itemId": 4000730,
-                "amount": 100
-              },
-              {
-                "itemId": 4000740,
-                "amount": 100
-              },
-              {
-                "itemId": 4000743,
-                "amount": 100
-              },
-              {
-                "itemId": 4000736,
-                "amount": 100
-              },
-              {
-                "itemId": 4036147,
-                "amount": 100
-              },
-              {
-                "itemId": 4034887,
-                "amount": 100
-              },
-              {
-                "itemId": 4009340,
-                "amount": 100
-              },
-              {
-                "itemId": 4023025,
-                "amount": 100
-              },
-              {
-                "itemId": 4036492,
-                "amount": 100
-              },
-              {
-                "itemId": 4036140,
-                "amount": 100
-              }              ,
-              {
                 "itemId": 4036544,
-                "amount": 9
-              },
-              {
-                "itemId": 4007000,
-                "amount": 6
-              },
-              {
-                "itemId": 4007001,
-                "amount": 6
-              },
-              {
-                "itemId": 4007002,
-                "amount": 6
-              },
-              {
-                "itemId": 4007003,
-                "amount": 12
-              },
-              {
-                "itemId": 4007004,
-                "amount": 6
-              },
-              {
-                "itemId": 4007005,
-                "amount": 6
-              },
-              {
-                "itemId": 4007006,
-                "amount": 12
-              },
-              {
-                "itemId": 4007007,
-                "amount": 6
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 7000000,
             "slots": 3,
             "stimulant": 4130005,
             "requiredLevel": 150,
@@ -1904,105 +915,30 @@
             "name": "2H Axe - Absolab Broad Axe",
             "itemId": 1412182,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1412106,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 4
+                "itemId": 4000739,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 4
+                "itemId": 4000740,
+                "amount": 200
               },
               {
                 "itemId": 4001890,
                 "amount": 1
               },
               {
-                "itemId": 4000727,
-                "amount": 100
-              },
-              {
-                "itemId": 4000730,
-                "amount": 100
-              },
-              {
-                "itemId": 4000740,
-                "amount": 100
-              },
-              {
-                "itemId": 4000743,
-                "amount": 100
-              },
-              {
-                "itemId": 4000736,
-                "amount": 100
-              },
-              {
-                "itemId": 4036147,
-                "amount": 100
-              },
-              {
-                "itemId": 4034887,
-                "amount": 100
-              },
-              {
-                "itemId": 4009340,
-                "amount": 100
-              },
-              {
-                "itemId": 4023025,
-                "amount": 100
-              },
-              {
-                "itemId": 4036492,
-                "amount": 100
-              },
-              {
-                "itemId": 4036140,
-                "amount": 100
-              }              ,
-              {
                 "itemId": 4036544,
-                "amount": 9
-              },
-              {
-                "itemId": 4007000,
-                "amount": 6
-              },
-              {
-                "itemId": 4007001,
-                "amount": 6
-              },
-              {
-                "itemId": 4007002,
-                "amount": 6
-              },
-              {
-                "itemId": 4007003,
-                "amount": 12
-              },
-              {
-                "itemId": 4007004,
-                "amount": 6
-              },
-              {
-                "itemId": 4007005,
-                "amount": 6
-              },
-              {
-                "itemId": 4007006,
-                "amount": 12
-              },
-              {
-                "itemId": 4007007,
-                "amount": 6
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 7000000,
             "slots": 3,
             "stimulant": 4130006,
             "requiredLevel": 150,
@@ -2012,105 +948,30 @@
             "name": "2H Mace - Absolab Broad Hammer",
             "itemId": 1422190,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1422109,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 4
+                "itemId": 4000739,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 4
+                "itemId": 4000740,
+                "amount": 200
               },
               {
                 "itemId": 4001890,
                 "amount": 1
               },
               {
-                "itemId": 4000727,
-                "amount": 100
-              },
-              {
-                "itemId": 4000730,
-                "amount": 100
-              },
-              {
-                "itemId": 4000740,
-                "amount": 100
-              },
-              {
-                "itemId": 4000743,
-                "amount": 100
-              },
-              {
-                "itemId": 4000736,
-                "amount": 100
-              },
-              {
-                "itemId": 4036147,
-                "amount": 100
-              },
-              {
-                "itemId": 4034887,
-                "amount": 100
-              },
-              {
-                "itemId": 4009340,
-                "amount": 100
-              },
-              {
-                "itemId": 4023025,
-                "amount": 100
-              },
-              {
-                "itemId": 4036492,
-                "amount": 100
-              },
-              {
-                "itemId": 4036140,
-                "amount": 100
-              }              ,
-              {
                 "itemId": 4036544,
-                "amount": 9
-              },
-              {
-                "itemId": 4007000,
-                "amount": 6
-              },
-              {
-                "itemId": 4007001,
-                "amount": 6
-              },
-              {
-                "itemId": 4007002,
-                "amount": 6
-              },
-              {
-                "itemId": 4007003,
-                "amount": 12
-              },
-              {
-                "itemId": 4007004,
-                "amount": 6
-              },
-              {
-                "itemId": 4007005,
-                "amount": 6
-              },
-              {
-                "itemId": 4007006,
-                "amount": 12
-              },
-              {
-                "itemId": 4007007,
-                "amount": 6
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 7000000,
             "slots": 3,
             "stimulant": 4130007,
             "requiredLevel": 150,
@@ -2120,105 +981,30 @@
             "name": "Spear - Absolab Piercing Spear",
             "itemId": 1432219,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1432140,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 4
+                "itemId": 4000739,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 4
+                "itemId": 4000740,
+                "amount": 200
               },
               {
                 "itemId": 4001890,
                 "amount": 1
               },
               {
-                "itemId": 4000727,
-                "amount": 100
-              },
-              {
-                "itemId": 4000730,
-                "amount": 100
-              },
-              {
-                "itemId": 4000740,
-                "amount": 100
-              },
-              {
-                "itemId": 4000743,
-                "amount": 100
-              },
-              {
-                "itemId": 4000736,
-                "amount": 100
-              },
-              {
-                "itemId": 4036147,
-                "amount": 100
-              },
-              {
-                "itemId": 4034887,
-                "amount": 100
-              },
-              {
-                "itemId": 4009340,
-                "amount": 100
-              },
-              {
-                "itemId": 4023025,
-                "amount": 100
-              },
-              {
-                "itemId": 4036492,
-                "amount": 100
-              },
-              {
-                "itemId": 4036140,
-                "amount": 100
-              }              ,
-              {
                 "itemId": 4036544,
-                "amount": 9
-              },
-              {
-                "itemId": 4007000,
-                "amount": 6
-              },
-              {
-                "itemId": 4007001,
-                "amount": 6
-              },
-              {
-                "itemId": 4007002,
-                "amount": 6
-              },
-              {
-                "itemId": 4007003,
-                "amount": 12
-              },
-              {
-                "itemId": 4007004,
-                "amount": 6
-              },
-              {
-                "itemId": 4007005,
-                "amount": 6
-              },
-              {
-                "itemId": 4007006,
-                "amount": 12
-              },
-              {
-                "itemId": 4007007,
-                "amount": 6
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 7000000,
             "slots": 3,
             "stimulant": 4130008,
             "requiredLevel": 150,
@@ -2228,105 +1014,30 @@
             "name": "Polearm - Absolab Hellslayer",
             "itemId": 1442276,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1442184,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 4
+                "itemId": 4000739,
+                "amount": 200
               },
               {
-                "itemId": 4011007,
-                "amount": 4
+                "itemId": 4000740,
+                "amount": 200
               },
               {
                 "itemId": 4001890,
                 "amount": 1
               },
               {
-                "itemId": 4000727,
-                "amount": 100
-              },
-              {
-                "itemId": 4000730,
-                "amount": 100
-              },
-              {
-                "itemId": 4000740,
-                "amount": 100
-              },
-              {
-                "itemId": 4000743,
-                "amount": 100
-              },
-              {
-                "itemId": 4000736,
-                "amount": 100
-              },
-              {
-                "itemId": 4036147,
-                "amount": 100
-              },
-              {
-                "itemId": 4034887,
-                "amount": 100
-              },
-              {
-                "itemId": 4009340,
-                "amount": 100
-              },
-              {
-                "itemId": 4023025,
-                "amount": 100
-              },
-              {
-                "itemId": 4036492,
-                "amount": 100
-              },
-              {
-                "itemId": 4036140,
-                "amount": 100
-              }              ,
-              {
                 "itemId": 4036544,
-                "amount": 9
-              },
-              {
-                "itemId": 4007000,
-                "amount": 6
-              },
-              {
-                "itemId": 4007001,
-                "amount": 6
-              },
-              {
-                "itemId": 4007002,
-                "amount": 6
-              },
-              {
-                "itemId": 4007003,
-                "amount": 12
-              },
-              {
-                "itemId": 4007004,
-                "amount": 6
-              },
-              {
-                "itemId": 4007005,
-                "amount": 6
-              },
-              {
-                "itemId": 4007006,
-                "amount": 12
-              },
-              {
-                "itemId": 4007007,
-                "amount": 6
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 7000000,
             "slots": 3,
             "stimulant": 4130009,
             "requiredLevel": 150,
@@ -2342,141 +1053,26 @@
             "name": "1H Sword - Arcane Umbra Saber",
             "itemId": 1302343,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1302344,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 5
-              },
-              {
-                "itemId": 4011007,
-                "amount": 5
-              },
-              {
-                "itemId": 4001890,
-                "amount": 1
-              },
-              {
-                "itemId": 4033732,
-                "amount": 1
+                "itemId": 4001878,
+                "amount": 8
               },
               {
                 "itemId": 4001894,
                 "amount": 1
               },
               {
-                "itemId": 4001893,
-                "amount": 1
-              },
-              {
-                "itemId": 4033427,
-                "amount": 100
-              },
-              {
-                "itemId": 4036143,
-                "amount": 100
-              },
-              {
-                "itemId": 4036151,
-                "amount": 100
-              },
-              {
-                "itemId": 4036491,
-                "amount": 100
-              },
-              {
-                "itemId": 4034914,
-                "amount": 100
-              },
-              {
-                "itemId": 4034915,
-                "amount": 100
-              },
-              {
-                "itemId": 4034916,
-                "amount": 100
-              },
-              {
-                "itemId": 4034917,
-                "amount": 100
-              },
-              {
-                "itemId": 4034918,
-                "amount": 100
-              },
-              {
-                "itemId": 4034919,
-                "amount": 100
-              },
-              {
-                "itemId": 4034920,
-                "amount": 100
-              },
-              {
-                "itemId": 4034930,
-                "amount": 100
-              },
-              {
-                "itemId": 4034950,
-                "amount": 100
-              },
-              {
-                "itemId": 4034951,
-                "amount": 100
-              },
-              {
-                "itemId": 4034946,
-                "amount": 100
-              },
-              {
-                "itemId": 4034948,
-                "amount": 100
-              },
-              {
-                "itemId": 4021022,
-                "amount": 100
-              },
-              {
                 "itemId": 4036544,
-                "amount": 12
-              },
-              {
-                "itemId": 4007000,
-                "amount": 8
-              },
-              {
-                "itemId": 4007001,
-                "amount": 8
-              },
-              {
-                "itemId": 4007002,
-                "amount": 8
-              },
-              {
-                "itemId": 4007003,
-                "amount": 16
-              },
-              {
-                "itemId": 4007004,
-                "amount": 8
-              },
-              {
-                "itemId": 4007005,
-                "amount": 8
-              },
-              {
-                "itemId": 4007006,
-                "amount": 16
-              },
-              {
-                "itemId": 4007007,
-                "amount": 8
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 8000000,
             "slots": 3,
             "stimulant": 4130002,
             "requiredLevel": 190,
@@ -2486,141 +1082,26 @@
             "name": "1H Axe - Arcane Umbra Axe",
             "itemId": 1312203,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1312204,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 5
-              },
-              {
-                "itemId": 4011007,
-                "amount": 5
-              },
-              {
-                "itemId": 4001890,
-                "amount": 1
-              },
-              {
-                "itemId": 4033732,
-                "amount": 1
+                "itemId": 4001878,
+                "amount": 8
               },
               {
                 "itemId": 4001894,
                 "amount": 1
               },
               {
-                "itemId": 4001893,
-                "amount": 1
-              },
-              {
-                "itemId": 4033427,
-                "amount": 100
-              },
-              {
-                "itemId": 4036143,
-                "amount": 100
-              },
-              {
-                "itemId": 4036151,
-                "amount": 100
-              },
-              {
-                "itemId": 4036491,
-                "amount": 100
-              },
-              {
-                "itemId": 4034914,
-                "amount": 100
-              },
-              {
-                "itemId": 4034915,
-                "amount": 100
-              },
-              {
-                "itemId": 4034916,
-                "amount": 100
-              },
-              {
-                "itemId": 4034917,
-                "amount": 100
-              },
-              {
-                "itemId": 4034918,
-                "amount": 100
-              },
-              {
-                "itemId": 4034919,
-                "amount": 100
-              },
-              {
-                "itemId": 4034920,
-                "amount": 100
-              },
-              {
-                "itemId": 4034930,
-                "amount": 100
-              },
-              {
-                "itemId": 4034950,
-                "amount": 100
-              },
-              {
-                "itemId": 4034951,
-                "amount": 100
-              },
-              {
-                "itemId": 4034946,
-                "amount": 100
-              },
-              {
-                "itemId": 4034948,
-                "amount": 100
-              },
-              {
-                "itemId": 4021022,
-                "amount": 100
-              },
-              {
                 "itemId": 4036544,
-                "amount": 12
-              },
-              {
-                "itemId": 4007000,
-                "amount": 8
-              },
-              {
-                "itemId": 4007001,
-                "amount": 8
-              },
-              {
-                "itemId": 4007002,
-                "amount": 8
-              },
-              {
-                "itemId": 4007003,
-                "amount": 16
-              },
-              {
-                "itemId": 4007004,
-                "amount": 8
-              },
-              {
-                "itemId": 4007005,
-                "amount": 8
-              },
-              {
-                "itemId": 4007006,
-                "amount": 16
-              },
-              {
-                "itemId": 4007007,
-                "amount": 8
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 8000000,
             "slots": 3,
             "stimulant": 4130003,
             "requiredLevel": 190,
@@ -2630,141 +1111,26 @@
             "name": "1H Mace - Arcane Umbra Hammer",
             "itemId": 1322255,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1322256,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 5
-              },
-              {
-                "itemId": 4011007,
-                "amount": 5
-              },
-              {
-                "itemId": 4001890,
-                "amount": 1
-              },
-              {
-                "itemId": 4033732,
-                "amount": 1
+                "itemId": 4001878,
+                "amount": 8
               },
               {
                 "itemId": 4001894,
                 "amount": 1
               },
               {
-                "itemId": 4001893,
-                "amount": 1
-              },
-              {
-                "itemId": 4033427,
-                "amount": 100
-              },
-              {
-                "itemId": 4036143,
-                "amount": 100
-              },
-              {
-                "itemId": 4036151,
-                "amount": 100
-              },
-              {
-                "itemId": 4036491,
-                "amount": 100
-              },
-              {
-                "itemId": 4034914,
-                "amount": 100
-              },
-              {
-                "itemId": 4034915,
-                "amount": 100
-              },
-              {
-                "itemId": 4034916,
-                "amount": 100
-              },
-              {
-                "itemId": 4034917,
-                "amount": 100
-              },
-              {
-                "itemId": 4034918,
-                "amount": 100
-              },
-              {
-                "itemId": 4034919,
-                "amount": 100
-              },
-              {
-                "itemId": 4034920,
-                "amount": 100
-              },
-              {
-                "itemId": 4034930,
-                "amount": 100
-              },
-              {
-                "itemId": 4034950,
-                "amount": 100
-              },
-              {
-                "itemId": 4034951,
-                "amount": 100
-              },
-              {
-                "itemId": 4034946,
-                "amount": 100
-              },
-              {
-                "itemId": 4034948,
-                "amount": 100
-              },
-              {
-                "itemId": 4021022,
-                "amount": 100
-              },
-              {
                 "itemId": 4036544,
-                "amount": 12
-              },
-              {
-                "itemId": 4007000,
-                "amount": 8
-              },
-              {
-                "itemId": 4007001,
-                "amount": 8
-              },
-              {
-                "itemId": 4007002,
-                "amount": 8
-              },
-              {
-                "itemId": 4007003,
-                "amount": 16
-              },
-              {
-                "itemId": 4007004,
-                "amount": 8
-              },
-              {
-                "itemId": 4007005,
-                "amount": 8
-              },
-              {
-                "itemId": 4007006,
-                "amount": 16
-              },
-              {
-                "itemId": 4007007,
-                "amount": 8
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 8000000,
             "slots": 3,
             "stimulant": 4130004,
             "requiredLevel": 190,
@@ -2774,141 +1140,26 @@
             "name": "2H Sword - Arcane Umbra Two-Handed Sword",
             "itemId": 1402259,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1402260,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 5
-              },
-              {
-                "itemId": 4011007,
-                "amount": 5
-              },
-              {
-                "itemId": 4001890,
-                "amount": 1
-              },
-              {
-                "itemId": 4033732,
-                "amount": 1
+                "itemId": 4001878,
+                "amount": 8
               },
               {
                 "itemId": 4001894,
                 "amount": 1
               },
               {
-                "itemId": 4001893,
-                "amount": 1
-              },
-              {
-                "itemId": 4033427,
-                "amount": 100
-              },
-              {
-                "itemId": 4036143,
-                "amount": 100
-              },
-              {
-                "itemId": 4036151,
-                "amount": 100
-              },
-              {
-                "itemId": 4036491,
-                "amount": 100
-              },
-              {
-                "itemId": 4034914,
-                "amount": 100
-              },
-              {
-                "itemId": 4034915,
-                "amount": 100
-              },
-              {
-                "itemId": 4034916,
-                "amount": 100
-              },
-              {
-                "itemId": 4034917,
-                "amount": 100
-              },
-              {
-                "itemId": 4034918,
-                "amount": 100
-              },
-              {
-                "itemId": 4034919,
-                "amount": 100
-              },
-              {
-                "itemId": 4034920,
-                "amount": 100
-              },
-              {
-                "itemId": 4034930,
-                "amount": 100
-              },
-              {
-                "itemId": 4034950,
-                "amount": 100
-              },
-              {
-                "itemId": 4034951,
-                "amount": 100
-              },
-              {
-                "itemId": 4034946,
-                "amount": 100
-              },
-              {
-                "itemId": 4034948,
-                "amount": 100
-              },
-              {
-                "itemId": 4021022,
-                "amount": 100
-              },
-              {
                 "itemId": 4036544,
-                "amount": 12
-              },
-              {
-                "itemId": 4007000,
-                "amount": 8
-              },
-              {
-                "itemId": 4007001,
-                "amount": 8
-              },
-              {
-                "itemId": 4007002,
-                "amount": 8
-              },
-              {
-                "itemId": 4007003,
-                "amount": 16
-              },
-              {
-                "itemId": 4007004,
-                "amount": 8
-              },
-              {
-                "itemId": 4007005,
-                "amount": 8
-              },
-              {
-                "itemId": 4007006,
-                "amount": 16
-              },
-              {
-                "itemId": 4007007,
-                "amount": 8
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 8000000,
             "slots": 3,
             "stimulant": 4130005,
             "requiredLevel": 190,
@@ -2918,141 +1169,26 @@
             "name": "2H Axe - Arcane Umbra Two-Handed Axe",
             "itemId": 1412181,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1412182,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 5
-              },
-              {
-                "itemId": 4011007,
-                "amount": 5
-              },
-              {
-                "itemId": 4001890,
-                "amount": 1
-              },
-              {
-                "itemId": 4033732,
-                "amount": 1
+                "itemId": 4001878,
+                "amount": 8
               },
               {
                 "itemId": 4001894,
                 "amount": 1
               },
               {
-                "itemId": 4001893,
-                "amount": 1
-              },
-              {
-                "itemId": 4033427,
-                "amount": 100
-              },
-              {
-                "itemId": 4036143,
-                "amount": 100
-              },
-              {
-                "itemId": 4036151,
-                "amount": 100
-              },
-              {
-                "itemId": 4036491,
-                "amount": 100
-              },
-              {
-                "itemId": 4034914,
-                "amount": 100
-              },
-              {
-                "itemId": 4034915,
-                "amount": 100
-              },
-              {
-                "itemId": 4034916,
-                "amount": 100
-              },
-              {
-                "itemId": 4034917,
-                "amount": 100
-              },
-              {
-                "itemId": 4034918,
-                "amount": 100
-              },
-              {
-                "itemId": 4034919,
-                "amount": 100
-              },
-              {
-                "itemId": 4034920,
-                "amount": 100
-              },
-              {
-                "itemId": 4034930,
-                "amount": 100
-              },
-              {
-                "itemId": 4034950,
-                "amount": 100
-              },
-              {
-                "itemId": 4034951,
-                "amount": 100
-              },
-              {
-                "itemId": 4034946,
-                "amount": 100
-              },
-              {
-                "itemId": 4034948,
-                "amount": 100
-              },
-              {
-                "itemId": 4021022,
-                "amount": 100
-              },
-              {
                 "itemId": 4036544,
-                "amount": 12
-              },
-              {
-                "itemId": 4007000,
-                "amount": 8
-              },
-              {
-                "itemId": 4007001,
-                "amount": 8
-              },
-              {
-                "itemId": 4007002,
-                "amount": 8
-              },
-              {
-                "itemId": 4007003,
-                "amount": 16
-              },
-              {
-                "itemId": 4007004,
-                "amount": 8
-              },
-              {
-                "itemId": 4007005,
-                "amount": 8
-              },
-              {
-                "itemId": 4007006,
-                "amount": 16
-              },
-              {
-                "itemId": 4007007,
-                "amount": 8
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 8000000,
             "slots": 3,
             "stimulant": 4130006,
             "requiredLevel": 190,
@@ -3062,141 +1198,26 @@
             "name": "2H Mace - Arcane Umbra Two-Handed Hammer",
             "itemId": 1422189,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1422190,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 5
-              },
-              {
-                "itemId": 4011007,
-                "amount": 5
-              },
-              {
-                "itemId": 4001890,
-                "amount": 1
-              },
-              {
-                "itemId": 4033732,
-                "amount": 1
+                "itemId": 4001878,
+                "amount": 8
               },
               {
                 "itemId": 4001894,
                 "amount": 1
               },
               {
-                "itemId": 4001893,
-                "amount": 1
-              },
-              {
-                "itemId": 4033427,
-                "amount": 100
-              },
-              {
-                "itemId": 4036143,
-                "amount": 100
-              },
-              {
-                "itemId": 4036151,
-                "amount": 100
-              },
-              {
-                "itemId": 4036491,
-                "amount": 100
-              },
-              {
-                "itemId": 4034914,
-                "amount": 100
-              },
-              {
-                "itemId": 4034915,
-                "amount": 100
-              },
-              {
-                "itemId": 4034916,
-                "amount": 100
-              },
-              {
-                "itemId": 4034917,
-                "amount": 100
-              },
-              {
-                "itemId": 4034918,
-                "amount": 100
-              },
-              {
-                "itemId": 4034919,
-                "amount": 100
-              },
-              {
-                "itemId": 4034920,
-                "amount": 100
-              },
-              {
-                "itemId": 4034930,
-                "amount": 100
-              },
-              {
-                "itemId": 4034950,
-                "amount": 100
-              },
-              {
-                "itemId": 4034951,
-                "amount": 100
-              },
-              {
-                "itemId": 4034946,
-                "amount": 100
-              },
-              {
-                "itemId": 4034948,
-                "amount": 100
-              },
-              {
-                "itemId": 4021022,
-                "amount": 100
-              },
-              {
                 "itemId": 4036544,
-                "amount": 12
-              },
-              {
-                "itemId": 4007000,
-                "amount": 8
-              },
-              {
-                "itemId": 4007001,
-                "amount": 8
-              },
-              {
-                "itemId": 4007002,
-                "amount": 8
-              },
-              {
-                "itemId": 4007003,
-                "amount": 16
-              },
-              {
-                "itemId": 4007004,
-                "amount": 8
-              },
-              {
-                "itemId": 4007005,
-                "amount": 8
-              },
-              {
-                "itemId": 4007006,
-                "amount": 16
-              },
-              {
-                "itemId": 4007007,
-                "amount": 8
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 8000000,
             "slots": 3,
             "stimulant": 4130007,
             "requiredLevel": 190,
@@ -3206,141 +1227,26 @@
             "name": "Spear - Arcane Umbra Spear",
             "itemId": 1432218,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1432219,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 5
-              },
-              {
-                "itemId": 4011007,
-                "amount": 5
-              },
-              {
-                "itemId": 4001890,
-                "amount": 1
-              },
-              {
-                "itemId": 4033732,
-                "amount": 1
+                "itemId": 4001878,
+                "amount": 8
               },
               {
                 "itemId": 4001894,
                 "amount": 1
               },
               {
-                "itemId": 4001893,
-                "amount": 1
-              },
-              {
-                "itemId": 4033427,
-                "amount": 100
-              },
-              {
-                "itemId": 4036143,
-                "amount": 100
-              },
-              {
-                "itemId": 4036151,
-                "amount": 100
-              },
-              {
-                "itemId": 4036491,
-                "amount": 100
-              },
-              {
-                "itemId": 4034914,
-                "amount": 100
-              },
-              {
-                "itemId": 4034915,
-                "amount": 100
-              },
-              {
-                "itemId": 4034916,
-                "amount": 100
-              },
-              {
-                "itemId": 4034917,
-                "amount": 100
-              },
-              {
-                "itemId": 4034918,
-                "amount": 100
-              },
-              {
-                "itemId": 4034919,
-                "amount": 100
-              },
-              {
-                "itemId": 4034920,
-                "amount": 100
-              },
-              {
-                "itemId": 4034930,
-                "amount": 100
-              },
-              {
-                "itemId": 4034950,
-                "amount": 100
-              },
-              {
-                "itemId": 4034951,
-                "amount": 100
-              },
-              {
-                "itemId": 4034946,
-                "amount": 100
-              },
-              {
-                "itemId": 4034948,
-                "amount": 100
-              },
-              {
-                "itemId": 4021022,
-                "amount": 100
-              },
-              {
                 "itemId": 4036544,
-                "amount": 12
-              },
-              {
-                "itemId": 4007000,
-                "amount": 8
-              },
-              {
-                "itemId": 4007001,
-                "amount": 8
-              },
-              {
-                "itemId": 4007002,
-                "amount": 8
-              },
-              {
-                "itemId": 4007003,
-                "amount": 16
-              },
-              {
-                "itemId": 4007004,
-                "amount": 8
-              },
-              {
-                "itemId": 4007005,
-                "amount": 8
-              },
-              {
-                "itemId": 4007006,
-                "amount": 16
-              },
-              {
-                "itemId": 4007007,
-                "amount": 8
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 8000000,
             "slots": 3,
             "stimulant": 4130008,
             "requiredLevel": 190,
@@ -3350,141 +1256,26 @@
             "name": "Polearm - Arcane Umbra Polearm",
             "itemId": 1442274,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1442276,
                 "amount": 1,
                 "processStarforce": true
               },
               {
-                "itemId": 4021009,
-                "amount": 5
-              },
-              {
-                "itemId": 4011007,
-                "amount": 5
-              },
-              {
-                "itemId": 4001890,
-                "amount": 1
-              },
-              {
-                "itemId": 4033732,
-                "amount": 1
+                "itemId": 4001878,
+                "amount": 8
               },
               {
                 "itemId": 4001894,
                 "amount": 1
               },
               {
-                "itemId": 4001893,
-                "amount": 1
-              },
-              {
-                "itemId": 4033427,
-                "amount": 100
-              },
-              {
-                "itemId": 4036143,
-                "amount": 100
-              },
-              {
-                "itemId": 4036151,
-                "amount": 100
-              },
-              {
-                "itemId": 4036491,
-                "amount": 100
-              },
-              {
-                "itemId": 4034914,
-                "amount": 100
-              },
-              {
-                "itemId": 4034915,
-                "amount": 100
-              },
-              {
-                "itemId": 4034916,
-                "amount": 100
-              },
-              {
-                "itemId": 4034917,
-                "amount": 100
-              },
-              {
-                "itemId": 4034918,
-                "amount": 100
-              },
-              {
-                "itemId": 4034919,
-                "amount": 100
-              },
-              {
-                "itemId": 4034920,
-                "amount": 100
-              },
-              {
-                "itemId": 4034930,
-                "amount": 100
-              },
-              {
-                "itemId": 4034950,
-                "amount": 100
-              },
-              {
-                "itemId": 4034951,
-                "amount": 100
-              },
-              {
-                "itemId": 4034946,
-                "amount": 100
-              },
-              {
-                "itemId": 4034948,
-                "amount": 100
-              },
-              {
-                "itemId": 4021022,
-                "amount": 100
-              },
-              {
                 "itemId": 4036544,
-                "amount": 12
-              },
-              {
-                "itemId": 4007000,
-                "amount": 8
-              },
-              {
-                "itemId": 4007001,
-                "amount": 8
-              },
-              {
-                "itemId": 4007002,
-                "amount": 8
-              },
-              {
-                "itemId": 4007003,
-                "amount": 16
-              },
-              {
-                "itemId": 4007004,
-                "amount": 8
-              },
-              {
-                "itemId": 4007005,
-                "amount": 8
-              },
-              {
-                "itemId": 4007006,
-                "amount": 16
-              },
-              {
-                "itemId": 4007007,
-                "amount": 8
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 8000000,
             "slots": 3,
             "stimulant": 4130009,
             "requiredLevel": 190,
@@ -3499,18 +1290,11 @@
             "name": "Sealed 1H Sword - Sealed Genesis Saber",
             "itemId": 1302354,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1302343,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4036539,
-                "amount": 1
-              },
-              {
-                "itemId": 4036544,
-                "amount": 15
               },
               {
                 "itemId": 4036535,
@@ -3527,9 +1311,13 @@
               {
                 "itemId": 4036538,
                 "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 40000000,
             "slots": 3,
             "stimulant": 4130002,
             "requiredLevel": 225,
@@ -3539,18 +1327,11 @@
             "name": "Sealed 1H Axe - Sealed Genesis Axe",
             "itemId": 1312212,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1312203,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4036539,
-                "amount": 1
-              },
-              {
-                "itemId": 4036544,
-                "amount": 15
               },
               {
                 "itemId": 4036535,
@@ -3567,9 +1348,13 @@
               {
                 "itemId": 4036538,
                 "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 40000000,
             "slots": 3,
             "stimulant": 4130003,
             "requiredLevel": 225,
@@ -3579,18 +1364,11 @@
             "name": "Sealed 1H Mace - Sealed Genesis Hammer",
             "itemId": 1322263,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1322255,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4036539,
-                "amount": 1
-              },
-              {
-                "itemId": 4036544,
-                "amount": 15
               },
               {
                 "itemId": 4036535,
@@ -3607,9 +1385,13 @@
               {
                 "itemId": 4036538,
                 "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 40000000,
             "slots": 3,
             "stimulant": 4130004,
             "requiredLevel": 225,
@@ -3619,18 +1401,11 @@
             "name": "Sealed 2H Sword - Sealed Genesis Two-Handed Sword",
             "itemId": 1402267,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1402259,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4036539,
-                "amount": 1
-              },
-              {
-                "itemId": 4036544,
-                "amount": 15
               },
               {
                 "itemId": 4036535,
@@ -3647,9 +1422,13 @@
               {
                 "itemId": 4036538,
                 "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 40000000,
             "slots": 3,
             "stimulant": 4130005,
             "requiredLevel": 225,
@@ -3659,18 +1438,11 @@
             "name": "Sealed 2H Axe - Sealed Genesis Two-Handed Axe",
             "itemId": 1412188,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1412181,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4036539,
-                "amount": 1
-              },
-              {
-                "itemId": 4036544,
-                "amount": 15
               },
               {
                 "itemId": 4036535,
@@ -3687,9 +1459,13 @@
               {
                 "itemId": 4036538,
                 "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 40000000,
             "slots": 3,
             "stimulant": 4130006,
             "requiredLevel": 225,
@@ -3699,18 +1475,11 @@
             "name": "Sealed 2H Mace - Sealed Genesis Two-Handed Hammer",
             "itemId": 1422196,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1422189,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4036539,
-                "amount": 1
-              },
-              {
-                "itemId": 4036544,
-                "amount": 15
               },
               {
                 "itemId": 4036535,
@@ -3727,9 +1496,13 @@
               {
                 "itemId": 4036538,
                 "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 40000000,
             "slots": 3,
             "stimulant": 4130007,
             "requiredLevel": 225,
@@ -3739,18 +1512,11 @@
             "name": "Sealed Spear - Sealed Genesis Spear",
             "itemId": 1432226,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1432218,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4036539,
-                "amount": 1
-              },
-              {
-                "itemId": 4036544,
-                "amount": 15
               },
               {
                 "itemId": 4036535,
@@ -3767,9 +1533,13 @@
               {
                 "itemId": 4036538,
                 "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 40000000,
             "slots": 3,
             "stimulant": 4130008,
             "requiredLevel": 225,
@@ -3779,18 +1549,11 @@
             "name": "Sealed Polearm - Sealed Genesis Polearm",
             "itemId": 1442284,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1442274,
                 "amount": 1,
                 "processStarforce": true
-              },
-              {
-                "itemId": 4036539,
-                "amount": 1
-              },
-              {
-                "itemId": 4036544,
-                "amount": 15
               },
               {
                 "itemId": 4036535,
@@ -3807,9 +1570,13 @@
               {
                 "itemId": 4036538,
                 "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 40000000,
             "slots": 3,
             "stimulant": 4130009,
             "requiredLevel": 225,
@@ -3824,45 +1591,30 @@
             "name": "1H Sword - Genesis Saber",
             "itemId": 1302355,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1302354,
                 "amount": 1,
                 "processStarforce": true
               },
               {
                 "itemId": 4036543,
-                "amount": 2
+                "amount": 1
               },
               {
                 "itemId": 4036540,
-                "amount": 2
-              },
-              {
-                "itemId": 4036535,
-                "amount": 4
-              },
-              {
-                "itemId": 4036536,
-                "amount": 4
-              },
-              {
-                "itemId": 4036537,
-                "amount": 4
-              },
-              {
-                "itemId": 4036538,
-                "amount": 4
-              },
-              {
-                "itemId": 4036544,
-                "amount": 20
+                "amount": 1
               },
               {
                 "itemId": 4036539,
-                "amount": 2
+                "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 50000000,
             "slots": 3,
             "stimulant": 4130002,
             "requiredLevel": 250,
@@ -3872,45 +1624,30 @@
             "name": "1H Axe - Genesis Axe",
             "itemId": 1312213,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1312212,
                 "amount": 1,
                 "processStarforce": true
               },
               {
                 "itemId": 4036543,
-                "amount": 2
+                "amount": 1
               },
               {
                 "itemId": 4036540,
-                "amount": 2
-              },
-              {
-                "itemId": 4036535,
-                "amount": 4
-              },
-              {
-                "itemId": 4036536,
-                "amount": 4
-              },
-              {
-                "itemId": 4036537,
-                "amount": 4
-              },
-              {
-                "itemId": 4036538,
-                "amount": 4
-              },
-              {
-                "itemId": 4036544,
-                "amount": 20
+                "amount": 1
               },
               {
                 "itemId": 4036539,
-                "amount": 2
+                "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 50000000,
             "slots": 3,
             "stimulant": 4130003,
             "requiredLevel": 250,
@@ -3920,45 +1657,30 @@
             "name": "1H Mace - Genesis Hammer",
             "itemId": 1322264,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1322263,
                 "amount": 1,
                 "processStarforce": true
               },
               {
                 "itemId": 4036543,
-                "amount": 2
+                "amount": 1
               },
               {
                 "itemId": 4036540,
-                "amount": 2
-              },
-              {
-                "itemId": 4036535,
-                "amount": 4
-              },
-              {
-                "itemId": 4036536,
-                "amount": 4
-              },
-              {
-                "itemId": 4036537,
-                "amount": 4
-              },
-              {
-                "itemId": 4036538,
-                "amount": 4
-              },
-              {
-                "itemId": 4036544,
-                "amount": 20
+                "amount": 1
               },
               {
                 "itemId": 4036539,
-                "amount": 2
+                "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 50000000,
             "slots": 3,
             "stimulant": 4130004,
             "requiredLevel": 250,
@@ -3968,45 +1690,30 @@
             "name": "2H Sword - Genesis Two-Handed Sword",
             "itemId": 1402268,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1402267,
                 "amount": 1,
                 "processStarforce": true
               },
               {
                 "itemId": 4036543,
-                "amount": 2
+                "amount": 1
               },
               {
                 "itemId": 4036540,
-                "amount": 2
-              },
-              {
-                "itemId": 4036535,
-                "amount": 4
-              },
-              {
-                "itemId": 4036536,
-                "amount": 4
-              },
-              {
-                "itemId": 4036537,
-                "amount": 4
-              },
-              {
-                "itemId": 4036538,
-                "amount": 4
-              },
-              {
-                "itemId": 4036544,
-                "amount": 20
+                "amount": 1
               },
               {
                 "itemId": 4036539,
-                "amount": 2
+                "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 50000000,
             "slots": 3,
             "stimulant": 4130005,
             "requiredLevel": 250,
@@ -4016,45 +1723,30 @@
             "name": "2H Axe - Genesis Two-Handed Axe",
             "itemId": 1412189,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1412188,
                 "amount": 1,
                 "processStarforce": true
               },
               {
                 "itemId": 4036543,
-                "amount": 2
+                "amount": 1
               },
               {
                 "itemId": 4036540,
-                "amount": 2
-              },
-              {
-                "itemId": 4036535,
-                "amount": 4
-              },
-              {
-                "itemId": 4036536,
-                "amount": 4
-              },
-              {
-                "itemId": 4036537,
-                "amount": 4
-              },
-              {
-                "itemId": 4036538,
-                "amount": 4
-              },
-              {
-                "itemId": 4036544,
-                "amount": 20
+                "amount": 1
               },
               {
                 "itemId": 4036539,
-                "amount": 2
+                "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 50000000,
             "slots": 3,
             "stimulant": 4130006,
             "requiredLevel": 250,
@@ -4064,45 +1756,30 @@
             "name": "2H Mace - Genesis Two-Handed Hammer",
             "itemId": 1422197,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1422196,
                 "amount": 1,
                 "processStarforce": true
               },
               {
                 "itemId": 4036543,
-                "amount": 2
+                "amount": 1
               },
               {
                 "itemId": 4036540,
-                "amount": 2
-              },
-              {
-                "itemId": 4036535,
-                "amount": 4
-              },
-              {
-                "itemId": 4036536,
-                "amount": 4
-              },
-              {
-                "itemId": 4036537,
-                "amount": 4
-              },
-              {
-                "itemId": 4036538,
-                "amount": 4
-              },
-              {
-                "itemId": 4036544,
-                "amount": 20
+                "amount": 1
               },
               {
                 "itemId": 4036539,
-                "amount": 2
+                "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 50000000,
             "slots": 3,
             "stimulant": 4130007,
             "requiredLevel": 250,
@@ -4112,45 +1789,30 @@
             "name": "Spear - Genesis Spear",
             "itemId": 1432227,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1432226,
                 "amount": 1,
                 "processStarforce": true
               },
               {
                 "itemId": 4036543,
-                "amount": 2
+                "amount": 1
               },
               {
                 "itemId": 4036540,
-                "amount": 2
-              },
-              {
-                "itemId": 4036535,
-                "amount": 4
-              },
-              {
-                "itemId": 4036536,
-                "amount": 4
-              },
-              {
-                "itemId": 4036537,
-                "amount": 4
-              },
-              {
-                "itemId": 4036538,
-                "amount": 4
-              },
-              {
-                "itemId": 4036544,
-                "amount": 20
+                "amount": 1
               },
               {
                 "itemId": 4036539,
-                "amount": 2
+                "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 50000000,
             "slots": 3,
             "stimulant": 4130008,
             "requiredLevel": 250,
@@ -4160,45 +1822,30 @@
             "name": "Polearm - Genesis Polearm",
             "itemId": 1442285,
             "quantity": 1,
-            "materials": [{
+            "materials": [
+              {
                 "itemId": 1442284,
                 "amount": 1,
                 "processStarforce": true
               },
               {
                 "itemId": 4036543,
-                "amount": 2
+                "amount": 1
               },
               {
                 "itemId": 4036540,
-                "amount": 2
-              },
-              {
-                "itemId": 4036535,
-                "amount": 4
-              },
-              {
-                "itemId": 4036536,
-                "amount": 4
-              },
-              {
-                "itemId": 4036537,
-                "amount": 4
-              },
-              {
-                "itemId": 4036538,
-                "amount": 4
-              },
-              {
-                "itemId": 4036544,
-                "amount": 20
+                "amount": 1
               },
               {
                 "itemId": 4036539,
-                "amount": 2
+                "amount": 1
+              },
+              {
+                "itemId": 4036544,
+                "amount": 1
               }
             ],
-            "cost": 480000000,
+            "cost": 50000000,
             "slots": 3,
             "stimulant": 4130009,
             "requiredLevel": 250,
@@ -4286,19 +1933,11 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 2
-      },
-      {
-        "itemId": 4011007,
-        "amount": 2
-      },
-      {
         "itemId": 4000642,
         "amount": 200
       },
       {
-        "itemId": 4000643,
+        "itemId": 4000644,
         "amount": 200
       },
       {
@@ -4306,43 +1945,11 @@
         "amount": 1
       },
       {
-        "itemId": 4036545 ,
-        "amount": 3
-      },
-      {
-        "itemId": 4007000,
-        "amount": 2
-      },
-      {
-        "itemId": 4007001,
-        "amount": 2
-      },
-      {
-        "itemId": 4007002,
-        "amount": 4
-      },
-      {
-        "itemId": 4007003,
-        "amount": 2
-      },
-      {
-        "itemId": 4007004,
-        "amount": 2
-      },
-      {
-        "itemId": 4007005,
-        "amount": 4
-      },
-      {
-        "itemId": 4007006,
-        "amount": 2
-      },
-      {
-        "itemId": 4007007,
-        "amount": 2
+        "itemId": 4036545,
+        "amount": 1
       }
     ],
-    "cost": 200000000,
+    "cost": 6000000,
     "slots": 3,
     "stimulant": 4130010,
     "requiredLevel": 130,
@@ -4359,19 +1966,11 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 2
-      },
-      {
-        "itemId": 4011007,
-        "amount": 2
-      },
-      {
         "itemId": 4000642,
         "amount": 200
       },
       {
-        "itemId": 4000643,
+        "itemId": 4000644,
         "amount": 200
       },
       {
@@ -4379,43 +1978,11 @@
         "amount": 1
       },
       {
-        "itemId": 4036545 ,
-        "amount": 3
-      },
-      {
-        "itemId": 4007000,
-        "amount": 2
-      },
-      {
-        "itemId": 4007001,
-        "amount": 2
-      },
-      {
-        "itemId": 4007002,
-        "amount": 4
-      },
-      {
-        "itemId": 4007003,
-        "amount": 2
-      },
-      {
-        "itemId": 4007004,
-        "amount": 2
-      },
-      {
-        "itemId": 4007005,
-        "amount": 4
-      },
-      {
-        "itemId": 4007006,
-        "amount": 2
-      },
-      {
-        "itemId": 4007007,
-        "amount": 2
+        "itemId": 4036545,
+        "amount": 1
       }
     ],
-    "cost": 200000000,
+    "cost": 6000000,
     "slots": 3,
     "stimulant": 4130011,
     "requiredLevel": 130,
@@ -4437,71 +2004,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 3
+        "itemId": 4000658,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 3
+        "itemId": 4000655,
+        "amount": 200
       },
       {
-        "itemId": 4000652,
-        "amount": 100
-      },
-      {
-        "itemId": 4000653,
-        "amount": 100
-      },
-      {
-        "itemId": 4000654,
-        "amount": 100
-      },
-      {
-        "itemId": 4036346,
-        "amount": 100
-      },
-      {
-        "itemId": 4033732,
+        "itemId": 4001879,
         "amount": 1
       },
       {
-        "itemId": 4036545 ,
-        "amount": 6
-      },
-      {
-        "itemId": 4007000,
-        "amount": 4
-      },
-      {
-        "itemId": 4007001,
-        "amount": 4
-      },
-      {
-        "itemId": 4007002,
-        "amount": 8
-      },
-      {
-        "itemId": 4007003,
-        "amount": 4
-      },
-      {
-        "itemId": 4007004,
-        "amount": 4
-      },
-      {
-        "itemId": 4007005,
-        "amount": 8
-      },
-      {
-        "itemId": 4007006,
-        "amount": 4
-      },
-      {
-        "itemId": 4007007,
-        "amount": 4
+        "itemId": 4036545,
+        "amount": 1
       }
     ],
-    "cost": 380000000,
+    "cost": 6500000,
     "slots": 3,
     "stimulant": 4130010,
     "requiredLevel": 140,
@@ -4518,71 +2037,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 3
+        "itemId": 4000658,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 3
+        "itemId": 4000655,
+        "amount": 200
       },
       {
-        "itemId": 4000652,
-        "amount": 100
-      },
-      {
-        "itemId": 4000653,
-        "amount": 100
-      },
-      {
-        "itemId": 4000654,
-        "amount": 100
-      },
-      {
-        "itemId": 4036346,
-        "amount": 100
-      },
-      {
-        "itemId": 4033732,
+        "itemId": 4001879,
         "amount": 1
       },
       {
-        "itemId": 4036545 ,
-        "amount": 6
-      },
-      {
-        "itemId": 4007000,
-        "amount": 4
-      },
-      {
-        "itemId": 4007001,
-        "amount": 4
-      },
-      {
-        "itemId": 4007002,
-        "amount": 8
-      },
-      {
-        "itemId": 4007003,
-        "amount": 4
-      },
-      {
-        "itemId": 4007004,
-        "amount": 4
-      },
-      {
-        "itemId": 4007005,
-        "amount": 8
-      },
-      {
-        "itemId": 4007006,
-        "amount": 4
-      },
-      {
-        "itemId": 4007007,
-        "amount": 4
+        "itemId": 4036545,
+        "amount": 1
       }
     ],
-    "cost": 380000000,
+    "cost": 6500000,
     "slots": 3,
     "stimulant": 4130011,
     "requiredLevel": 140,
@@ -4604,99 +2075,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 4
+        "itemId": 4000739,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 4
+        "itemId": 4000740,
+        "amount": 200
       },
       {
         "itemId": 4001890,
         "amount": 1
       },
       {
-        "itemId": 4000727,
-        "amount": 100
-      },
-      {
-        "itemId": 4000730,
-        "amount": 100
-      },
-      {
-        "itemId": 4000740,
-        "amount": 100
-      },
-      {
-        "itemId": 4000743,
-        "amount": 100
-      },
-      {
-        "itemId": 4000736,
-        "amount": 100
-      },
-      {
-        "itemId": 4036147,
-        "amount": 100
-      },
-      {
-        "itemId": 4034887,
-        "amount": 100
-      },
-      {
-        "itemId": 4009340,
-        "amount": 100
-      },
-      {
-        "itemId": 4023025,
-        "amount": 100
-      },
-      {
-        "itemId": 4036492,
-        "amount": 100
-      },
-      {
-        "itemId": 4036140,
-        "amount": 100
-      }              ,
-      {
-        "itemId": 4036545 ,
-        "amount": 9
-      },
-      {
-        "itemId": 4007000,
-        "amount": 6
-      },
-      {
-        "itemId": 4007001,
-        "amount": 6
-      },
-      {
-        "itemId": 4007002,
-        "amount": 12
-      },
-      {
-        "itemId": 4007003,
-        "amount": 6
-      },
-      {
-        "itemId": 4007004,
-        "amount": 6
-      },
-      {
-        "itemId": 4007005,
-        "amount": 12
-      },
-      {
-        "itemId": 4007006,
-        "amount": 6
-      },
-      {
-        "itemId": 4007007,
-        "amount": 6
+        "itemId": 4036545,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 7000000,
     "slots": 3,
     "stimulant": 4130010,
     "requiredLevel": 150,
@@ -4713,99 +2108,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 4
+        "itemId": 4000739,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 4
+        "itemId": 4000740,
+        "amount": 200
       },
       {
         "itemId": 4001890,
         "amount": 1
       },
       {
-        "itemId": 4000727,
-        "amount": 100
-      },
-      {
-        "itemId": 4000730,
-        "amount": 100
-      },
-      {
-        "itemId": 4000740,
-        "amount": 100
-      },
-      {
-        "itemId": 4000743,
-        "amount": 100
-      },
-      {
-        "itemId": 4000736,
-        "amount": 100
-      },
-      {
-        "itemId": 4036147,
-        "amount": 100
-      },
-      {
-        "itemId": 4034887,
-        "amount": 100
-      },
-      {
-        "itemId": 4009340,
-        "amount": 100
-      },
-      {
-        "itemId": 4023025,
-        "amount": 100
-      },
-      {
-        "itemId": 4036492,
-        "amount": 100
-      },
-      {
-        "itemId": 4036140,
-        "amount": 100
-      }              ,
-      {
-        "itemId": 4036545 ,
-        "amount": 9
-      },
-      {
-        "itemId": 4007000,
-        "amount": 6
-      },
-      {
-        "itemId": 4007001,
-        "amount": 6
-      },
-      {
-        "itemId": 4007002,
-        "amount": 12
-      },
-      {
-        "itemId": 4007003,
-        "amount": 6
-      },
-      {
-        "itemId": 4007004,
-        "amount": 6
-      },
-      {
-        "itemId": 4007005,
-        "amount": 12
-      },
-      {
-        "itemId": 4007006,
-        "amount": 6
-      },
-      {
-        "itemId": 4007007,
-        "amount": 6
+        "itemId": 4036545,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 7000000,
     "slots": 3,
     "stimulant": 4130011,
     "requiredLevel": 150,
@@ -4827,135 +2146,19 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 5
-      },
-      {
-        "itemId": 4011007,
-        "amount": 5
-      },
-      {
-        "itemId": 4001890,
-        "amount": 1
-      },
-      {
-        "itemId": 4033732,
-        "amount": 1
+        "itemId": 4001878,
+        "amount": 8
       },
       {
         "itemId": 4001894,
         "amount": 1
       },
       {
-        "itemId": 4001893,
+        "itemId": 4036545,
         "amount": 1
-      },
-      {
-        "itemId": 4033427,
-        "amount": 100
-      },
-      {
-        "itemId": 4036143,
-        "amount": 100
-      },
-      {
-        "itemId": 4036151,
-        "amount": 100
-      },
-      {
-        "itemId": 4036491,
-        "amount": 100
-      },
-      {
-        "itemId": 4034914,
-        "amount": 100
-      },
-      {
-        "itemId": 4034915,
-        "amount": 100
-      },
-      {
-        "itemId": 4034916,
-        "amount": 100
-      },
-      {
-        "itemId": 4034917,
-        "amount": 100
-      },
-      {
-        "itemId": 4034918,
-        "amount": 100
-      },
-      {
-        "itemId": 4034919,
-        "amount": 100
-      },
-      {
-        "itemId": 4034920,
-        "amount": 100
-      },
-      {
-        "itemId": 4034930,
-        "amount": 100
-      },
-      {
-        "itemId": 4034950,
-        "amount": 100
-      },
-      {
-        "itemId": 4034951,
-        "amount": 100
-      },
-      {
-        "itemId": 4034946,
-        "amount": 100
-      },
-      {
-        "itemId": 4034948,
-        "amount": 100
-      },
-      {
-        "itemId": 4021022,
-        "amount": 100
-      },
-      {
-        "itemId": 4036545 ,
-        "amount": 12
-      },
-      {
-        "itemId": 4007000,
-        "amount": 8
-      },
-      {
-        "itemId": 4007001,
-        "amount": 8
-      },
-      {
-        "itemId": 4007002,
-        "amount": 16
-      },
-      {
-        "itemId": 4007003,
-        "amount": 8
-      },
-      {
-        "itemId": 4007004,
-        "amount": 8
-      },
-      {
-        "itemId": 4007005,
-        "amount": 16
-      },
-      {
-        "itemId": 4007006,
-        "amount": 8
-      },
-      {
-        "itemId": 4007007,
-        "amount": 8
       }
     ],
-    "cost": 480000000,
+    "cost": 8000000,
     "slots": 3,
     "stimulant": 4130010,
     "requiredLevel": 190,
@@ -4972,135 +2175,19 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 5
-      },
-      {
-        "itemId": 4011007,
-        "amount": 5
-      },
-      {
-        "itemId": 4001890,
-        "amount": 1
-      },
-      {
-        "itemId": 4033732,
-        "amount": 1
+        "itemId": 4001878,
+        "amount": 8
       },
       {
         "itemId": 4001894,
         "amount": 1
       },
       {
-        "itemId": 4001893,
+        "itemId": 4036545,
         "amount": 1
-      },
-      {
-        "itemId": 4033427,
-        "amount": 100
-      },
-      {
-        "itemId": 4036143,
-        "amount": 100
-      },
-      {
-        "itemId": 4036151,
-        "amount": 100
-      },
-      {
-        "itemId": 4036491,
-        "amount": 100
-      },
-      {
-        "itemId": 4034914,
-        "amount": 100
-      },
-      {
-        "itemId": 4034915,
-        "amount": 100
-      },
-      {
-        "itemId": 4034916,
-        "amount": 100
-      },
-      {
-        "itemId": 4034917,
-        "amount": 100
-      },
-      {
-        "itemId": 4034918,
-        "amount": 100
-      },
-      {
-        "itemId": 4034919,
-        "amount": 100
-      },
-      {
-        "itemId": 4034920,
-        "amount": 100
-      },
-      {
-        "itemId": 4034930,
-        "amount": 100
-      },
-      {
-        "itemId": 4034950,
-        "amount": 100
-      },
-      {
-        "itemId": 4034951,
-        "amount": 100
-      },
-      {
-        "itemId": 4034946,
-        "amount": 100
-      },
-      {
-        "itemId": 4034948,
-        "amount": 100
-      },
-      {
-        "itemId": 4021022,
-        "amount": 100
-      },
-      {
-        "itemId": 4036545 ,
-        "amount": 12
-      },
-      {
-        "itemId": 4007000,
-        "amount": 8
-      },
-      {
-        "itemId": 4007001,
-        "amount": 8
-      },
-      {
-        "itemId": 4007002,
-        "amount": 16
-      },
-      {
-        "itemId": 4007003,
-        "amount": 8
-      },
-      {
-        "itemId": 4007004,
-        "amount": 8
-      },
-      {
-        "itemId": 4007005,
-        "amount": 16
-      },
-      {
-        "itemId": 4007006,
-        "amount": 8
-      },
-      {
-        "itemId": 4007007,
-        "amount": 8
       }
     ],
-    "cost": 480000000,
+    "cost": 8000000,
     "slots": 3,
     "stimulant": 4130011,
     "requiredLevel": 190,
@@ -5122,14 +2209,6 @@
         "processStarforce": true
       },
       {
-        "itemId": 4036539,
-        "amount": 1
-      },
-      {
-        "itemId": 4036545 ,
-        "amount": 15
-      },
-      {
         "itemId": 4036535,
         "amount": 1
       },
@@ -5144,9 +2223,13 @@
       {
         "itemId": 4036538,
         "amount": 1
+      },
+      {
+        "itemId": 4036545,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 40000000,
     "slots": 3,
     "stimulant": 4130010,
     "requiredLevel": 225,
@@ -5163,14 +2246,6 @@
         "processStarforce": true
       },
       {
-        "itemId": 4036539,
-        "amount": 1
-      },
-      {
-        "itemId": 4036545 ,
-        "amount": 15
-      },
-      {
         "itemId": 4036535,
         "amount": 1
       },
@@ -5185,9 +2260,13 @@
       {
         "itemId": 4036538,
         "amount": 1
+      },
+      {
+        "itemId": 4036545,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 40000000,
     "slots": 3,
     "stimulant": 4130011,
     "requiredLevel": 225,
@@ -5210,38 +2289,22 @@
       },
       {
         "itemId": 4036543,
-        "amount": 2
+        "amount": 1
       },
       {
         "itemId": 4036540,
-        "amount": 2
-      },
-      {
-        "itemId": 4036535,
-        "amount": 4
-      },
-      {
-        "itemId": 4036536,
-        "amount": 4
-      },
-      {
-        "itemId": 4036537,
-        "amount": 4
-      },
-      {
-        "itemId": 4036538,
-        "amount": 4
-      },
-      {
-        "itemId": 4036545 ,
-        "amount": 20
+        "amount": 1
       },
       {
         "itemId": 4036539,
-        "amount": 2
+        "amount": 1
+      },
+      {
+        "itemId": 4036545,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 50000000,
     "slots": 3,
     "stimulant": 4130010,
     "requiredLevel": 250,
@@ -5259,38 +2322,22 @@
       },
       {
         "itemId": 4036543,
-        "amount": 2
+        "amount": 1
       },
       {
         "itemId": 4036540,
-        "amount": 2
-      },
-      {
-        "itemId": 4036535,
-        "amount": 4
-      },
-      {
-        "itemId": 4036536,
-        "amount": 4
-      },
-      {
-        "itemId": 4036537,
-        "amount": 4
-      },
-      {
-        "itemId": 4036538,
-        "amount": 4
-      },
-      {
-        "itemId": 4036545 ,
-        "amount": 20
+        "amount": 1
       },
       {
         "itemId": 4036539,
-        "amount": 2
+        "amount": 1
+      },
+      {
+        "itemId": 4036545,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 50000000,
     "slots": 3,
     "stimulant": 4130011,
     "requiredLevel": 250,
@@ -5379,19 +2426,11 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 2
-      },
-      {
-        "itemId": 4011007,
-        "amount": 2
-      },
-      {
         "itemId": 4000642,
         "amount": 200
       },
       {
-        "itemId": 4000643,
+        "itemId": 4000644,
         "amount": 200
       },
       {
@@ -5399,43 +2438,11 @@
         "amount": 1
       },
       {
-        "itemId": 4036546 ,
-        "amount": 3
-      },
-      {
-        "itemId": 4007000,
-        "amount": 4
-      },
-      {
-        "itemId": 4007001,
-        "amount": 2
-      },
-      {
-        "itemId": 4007002,
-        "amount": 2
-      },
-      {
-        "itemId": 4007003,
-        "amount": 2
-      },
-      {
-        "itemId": 4007004,
-        "amount": 4
-      },
-      {
-        "itemId": 4007005,
-        "amount": 2
-      },
-      {
-        "itemId": 4007006,
-        "amount": 2
-      },
-      {
-        "itemId": 4007007,
-        "amount": 2
+        "itemId": 4036546,
+        "amount": 1
       }
     ],
-    "cost": 200000000,
+    "cost": 6000000,
     "slots": 3,
     "stimulant": 4130012,
     "requiredLevel": 130,
@@ -5452,19 +2459,11 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 2
-      },
-      {
-        "itemId": 4011007,
-        "amount": 2
-      },
-      {
         "itemId": 4000642,
         "amount": 200
       },
       {
-        "itemId": 4000643,
+        "itemId": 4000644,
         "amount": 200
       },
       {
@@ -5472,43 +2471,11 @@
         "amount": 1
       },
       {
-        "itemId": 4036546 ,
-        "amount": 3
-      },
-      {
-        "itemId": 4007000,
-        "amount": 4
-      },
-      {
-        "itemId": 4007001,
-        "amount": 2
-      },
-      {
-        "itemId": 4007002,
-        "amount": 2
-      },
-      {
-        "itemId": 4007003,
-        "amount": 2
-      },
-      {
-        "itemId": 4007004,
-        "amount": 4
-      },
-      {
-        "itemId": 4007005,
-        "amount": 2
-      },
-      {
-        "itemId": 4007006,
-        "amount": 2
-      },
-      {
-        "itemId": 4007007,
-        "amount": 2
+        "itemId": 4036546,
+        "amount": 1
       }
     ],
-    "cost": 200000000,
+    "cost": 6000000,
     "slots": 3,
     "stimulant": 4130013,
     "requiredLevel": 130,
@@ -5530,71 +2497,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 3
+        "itemId": 4000658,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 3
+        "itemId": 4000655,
+        "amount": 200
       },
       {
-        "itemId": 4000652,
-        "amount": 100
-      },
-      {
-        "itemId": 4000653,
-        "amount": 100
-      },
-      {
-        "itemId": 4000654,
-        "amount": 100
-      },
-      {
-        "itemId": 4036346,
-        "amount": 100
-      },
-      {
-        "itemId": 4033732,
+        "itemId": 4001879,
         "amount": 1
       },
       {
-        "itemId": 4036546 ,
-        "amount": 6
-      },
-      {
-        "itemId": 4007000,
-        "amount": 8
-      },
-      {
-        "itemId": 4007001,
-        "amount": 4
-      },
-      {
-        "itemId": 4007002,
-        "amount": 4
-      },
-      {
-        "itemId": 4007003,
-        "amount": 4
-      },
-      {
-        "itemId": 4007004,
-        "amount": 8
-      },
-      {
-        "itemId": 4007005,
-        "amount": 4
-      },
-      {
-        "itemId": 4007006,
-        "amount": 4
-      },
-      {
-        "itemId": 4007007,
-        "amount": 4
+        "itemId": 4036546,
+        "amount": 1
       }
     ],
-    "cost": 380000000,
+    "cost": 6500000,
     "slots": 3,
     "stimulant": 4130012,
     "requiredLevel": 140,
@@ -5611,71 +2530,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 3
+        "itemId": 4000658,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 3
+        "itemId": 4000655,
+        "amount": 200
       },
       {
-        "itemId": 4000652,
-        "amount": 100
-      },
-      {
-        "itemId": 4000653,
-        "amount": 100
-      },
-      {
-        "itemId": 4000654,
-        "amount": 100
-      },
-      {
-        "itemId": 4036346,
-        "amount": 100
-      },
-      {
-        "itemId": 4033732,
+        "itemId": 4001879,
         "amount": 1
       },
       {
-        "itemId": 4036546 ,
-        "amount": 6
-      },
-      {
-        "itemId": 4007000,
-        "amount": 8
-      },
-      {
-        "itemId": 4007001,
-        "amount": 4
-      },
-      {
-        "itemId": 4007002,
-        "amount": 4
-      },
-      {
-        "itemId": 4007003,
-        "amount": 4
-      },
-      {
-        "itemId": 4007004,
-        "amount": 8
-      },
-      {
-        "itemId": 4007005,
-        "amount": 4
-      },
-      {
-        "itemId": 4007006,
-        "amount": 4
-      },
-      {
-        "itemId": 4007007,
-        "amount": 4
+        "itemId": 4036546,
+        "amount": 1
       }
     ],
-    "cost": 380000000,
+    "cost": 6500000,
     "slots": 3,
     "stimulant": 4130013,
     "requiredLevel": 140,
@@ -5697,99 +2568,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 4
+        "itemId": 4000739,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 4
+        "itemId": 4000740,
+        "amount": 200
       },
       {
         "itemId": 4001890,
         "amount": 1
       },
       {
-        "itemId": 4000727,
-        "amount": 100
-      },
-      {
-        "itemId": 4000730,
-        "amount": 100
-      },
-      {
-        "itemId": 4000740,
-        "amount": 100
-      },
-      {
-        "itemId": 4000743,
-        "amount": 100
-      },
-      {
-        "itemId": 4000736,
-        "amount": 100
-      },
-      {
-        "itemId": 4036147,
-        "amount": 100
-      },
-      {
-        "itemId": 4034887,
-        "amount": 100
-      },
-      {
-        "itemId": 4009340,
-        "amount": 100
-      },
-      {
-        "itemId": 4023025,
-        "amount": 100
-      },
-      {
-        "itemId": 4036492,
-        "amount": 100
-      },
-      {
-        "itemId": 4036140,
-        "amount": 100
-      }              ,
-      {
-        "itemId": 4036546 ,
-        "amount": 9
-      },
-      {
-        "itemId": 4007000,
-        "amount": 12
-      },
-      {
-        "itemId": 4007001,
-        "amount": 6
-      },
-      {
-        "itemId": 4007002,
-        "amount": 6
-      },
-      {
-        "itemId": 4007003,
-        "amount": 6
-      },
-      {
-        "itemId": 4007004,
-        "amount": 12
-      },
-      {
-        "itemId": 4007005,
-        "amount": 6
-      },
-      {
-        "itemId": 4007006,
-        "amount": 6
-      },
-      {
-        "itemId": 4007007,
-        "amount": 6
+        "itemId": 4036546,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 7000000,
     "slots": 3,
     "stimulant": 4130012,
     "requiredLevel": 150,
@@ -5806,99 +2601,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 4
+        "itemId": 4000739,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 4
+        "itemId": 4000740,
+        "amount": 200
       },
       {
         "itemId": 4001890,
         "amount": 1
       },
       {
-        "itemId": 4000727,
-        "amount": 100
-      },
-      {
-        "itemId": 4000730,
-        "amount": 100
-      },
-      {
-        "itemId": 4000740,
-        "amount": 100
-      },
-      {
-        "itemId": 4000743,
-        "amount": 100
-      },
-      {
-        "itemId": 4000736,
-        "amount": 100
-      },
-      {
-        "itemId": 4036147,
-        "amount": 100
-      },
-      {
-        "itemId": 4034887,
-        "amount": 100
-      },
-      {
-        "itemId": 4009340,
-        "amount": 100
-      },
-      {
-        "itemId": 4023025,
-        "amount": 100
-      },
-      {
-        "itemId": 4036492,
-        "amount": 100
-      },
-      {
-        "itemId": 4036140,
-        "amount": 100
-      }              ,
-      {
-        "itemId": 4036546 ,
-        "amount": 9
-      },
-      {
-        "itemId": 4007000,
-        "amount": 12
-      },
-      {
-        "itemId": 4007001,
-        "amount": 6
-      },
-      {
-        "itemId": 4007002,
-        "amount": 6
-      },
-      {
-        "itemId": 4007003,
-        "amount": 6
-      },
-      {
-        "itemId": 4007004,
-        "amount": 12
-      },
-      {
-        "itemId": 4007005,
-        "amount": 6
-      },
-      {
-        "itemId": 4007006,
-        "amount": 6
-      },
-      {
-        "itemId": 4007007,
-        "amount": 6
+        "itemId": 4036546,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 7000000,
     "slots": 3,
     "stimulant": 4130013,
     "requiredLevel": 150,
@@ -5920,135 +2639,19 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 5
-      },
-      {
-        "itemId": 4011007,
-        "amount": 5
-      },
-      {
-        "itemId": 4001890,
-        "amount": 1
-      },
-      {
-        "itemId": 4033732,
-        "amount": 1
+        "itemId": 4001878,
+        "amount": 8
       },
       {
         "itemId": 4001894,
         "amount": 1
       },
       {
-        "itemId": 4001893,
+        "itemId": 4036546,
         "amount": 1
-      },
-      {
-        "itemId": 4033427,
-        "amount": 100
-      },
-      {
-        "itemId": 4036143,
-        "amount": 100
-      },
-      {
-        "itemId": 4036151,
-        "amount": 100
-      },
-      {
-        "itemId": 4036491,
-        "amount": 100
-      },
-      {
-        "itemId": 4034914,
-        "amount": 100
-      },
-      {
-        "itemId": 4034915,
-        "amount": 100
-      },
-      {
-        "itemId": 4034916,
-        "amount": 100
-      },
-      {
-        "itemId": 4034917,
-        "amount": 100
-      },
-      {
-        "itemId": 4034918,
-        "amount": 100
-      },
-      {
-        "itemId": 4034919,
-        "amount": 100
-      },
-      {
-        "itemId": 4034920,
-        "amount": 100
-      },
-      {
-        "itemId": 4034930,
-        "amount": 100
-      },
-      {
-        "itemId": 4034950,
-        "amount": 100
-      },
-      {
-        "itemId": 4034951,
-        "amount": 100
-      },
-      {
-        "itemId": 4034946,
-        "amount": 100
-      },
-      {
-        "itemId": 4034948,
-        "amount": 100
-      },
-      {
-        "itemId": 4021022,
-        "amount": 100
-      },
-      {
-        "itemId": 4036546 ,
-        "amount": 12
-      },
-      {
-        "itemId": 4007000,
-        "amount": 16
-      },
-      {
-        "itemId": 4007001,
-        "amount": 8
-      },
-      {
-        "itemId": 4007002,
-        "amount": 8
-      },
-      {
-        "itemId": 4007003,
-        "amount": 8
-      },
-      {
-        "itemId": 4007004,
-        "amount": 16
-      },
-      {
-        "itemId": 4007005,
-        "amount": 8
-      },
-      {
-        "itemId": 4007006,
-        "amount": 8
-      },
-      {
-        "itemId": 4007007,
-        "amount": 8
       }
     ],
-    "cost": 480000000,
+    "cost": 8000000,
     "slots": 3,
     "stimulant": 4130012,
     "requiredLevel": 190,
@@ -6065,135 +2668,19 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 5
-      },
-      {
-        "itemId": 4011007,
-        "amount": 5
-      },
-      {
-        "itemId": 4001890,
-        "amount": 1
-      },
-      {
-        "itemId": 4033732,
-        "amount": 1
+        "itemId": 4001878,
+        "amount": 8
       },
       {
         "itemId": 4001894,
         "amount": 1
       },
       {
-        "itemId": 4001893,
+        "itemId": 4036546,
         "amount": 1
-      },
-      {
-        "itemId": 4033427,
-        "amount": 100
-      },
-      {
-        "itemId": 4036143,
-        "amount": 100
-      },
-      {
-        "itemId": 4036151,
-        "amount": 100
-      },
-      {
-        "itemId": 4036491,
-        "amount": 100
-      },
-      {
-        "itemId": 4034914,
-        "amount": 100
-      },
-      {
-        "itemId": 4034915,
-        "amount": 100
-      },
-      {
-        "itemId": 4034916,
-        "amount": 100
-      },
-      {
-        "itemId": 4034917,
-        "amount": 100
-      },
-      {
-        "itemId": 4034918,
-        "amount": 100
-      },
-      {
-        "itemId": 4034919,
-        "amount": 100
-      },
-      {
-        "itemId": 4034920,
-        "amount": 100
-      },
-      {
-        "itemId": 4034930,
-        "amount": 100
-      },
-      {
-        "itemId": 4034950,
-        "amount": 100
-      },
-      {
-        "itemId": 4034951,
-        "amount": 100
-      },
-      {
-        "itemId": 4034946,
-        "amount": 100
-      },
-      {
-        "itemId": 4034948,
-        "amount": 100
-      },
-      {
-        "itemId": 4021022,
-        "amount": 100
-      },
-      {
-        "itemId": 4036546 ,
-        "amount": 12
-      },
-      {
-        "itemId": 4007000,
-        "amount": 16
-      },
-      {
-        "itemId": 4007001,
-        "amount": 8
-      },
-      {
-        "itemId": 4007002,
-        "amount": 8
-      },
-      {
-        "itemId": 4007003,
-        "amount": 8
-      },
-      {
-        "itemId": 4007004,
-        "amount": 16
-      },
-      {
-        "itemId": 4007005,
-        "amount": 8
-      },
-      {
-        "itemId": 4007006,
-        "amount": 8
-      },
-      {
-        "itemId": 4007007,
-        "amount": 8
       }
     ],
-    "cost": 480000000,
+    "cost": 8000000,
     "slots": 3,
     "stimulant": 4130013,
     "requiredLevel": 190,
@@ -6215,14 +2702,6 @@
         "processStarforce": true
       },
       {
-        "itemId": 4036539,
-        "amount": 1
-      },
-      {
-        "itemId": 4036546 ,
-        "amount": 15
-      },
-      {
         "itemId": 4036535,
         "amount": 1
       },
@@ -6237,9 +2716,13 @@
       {
         "itemId": 4036538,
         "amount": 1
+      },
+      {
+        "itemId": 4036546,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 40000000,
     "slots": 3,
     "stimulant": 4130012,
     "requiredLevel": 225,
@@ -6256,14 +2739,6 @@
         "processStarforce": true
       },
       {
-        "itemId": 4036539,
-        "amount": 1
-      },
-      {
-        "itemId": 4036546 ,
-        "amount": 15
-      },
-      {
         "itemId": 4036535,
         "amount": 1
       },
@@ -6278,9 +2753,13 @@
       {
         "itemId": 4036538,
         "amount": 1
+      },
+      {
+        "itemId": 4036546,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 40000000,
     "slots": 3,
     "stimulant": 4130013,
     "requiredLevel": 225,
@@ -6303,38 +2782,22 @@
       },
       {
         "itemId": 4036543,
-        "amount": 2
+        "amount": 1
       },
       {
         "itemId": 4036540,
-        "amount": 2
-      },
-      {
-        "itemId": 4036535,
-        "amount": 4
-      },
-      {
-        "itemId": 4036536,
-        "amount": 4
-      },
-      {
-        "itemId": 4036537,
-        "amount": 4
-      },
-      {
-        "itemId": 4036538,
-        "amount": 4
-      },
-      {
-        "itemId": 4036546 ,
-        "amount": 20
+        "amount": 1
       },
       {
         "itemId": 4036539,
-        "amount": 2
+        "amount": 1
+      },
+      {
+        "itemId": 4036546,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 50000000,
     "slots": 3,
     "stimulant": 4130012,
     "requiredLevel": 250,
@@ -6352,38 +2815,22 @@
       },
       {
         "itemId": 4036543,
-        "amount": 2
+        "amount": 1
       },
       {
         "itemId": 4036540,
-        "amount": 2
-      },
-      {
-        "itemId": 4036535,
-        "amount": 4
-      },
-      {
-        "itemId": 4036536,
-        "amount": 4
-      },
-      {
-        "itemId": 4036537,
-        "amount": 4
-      },
-      {
-        "itemId": 4036538,
-        "amount": 4
-      },
-      {
-        "itemId": 4036546 ,
-        "amount": 20
+        "amount": 1
       },
       {
         "itemId": 4036539,
-        "amount": 2
+        "amount": 1
+      },
+      {
+        "itemId": 4036546,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 50000000,
     "slots": 3,
     "stimulant": 4130013,
     "requiredLevel": 250,
@@ -6474,19 +2921,11 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 2
-      },
-      {
-        "itemId": 4011007,
-        "amount": 2
-      },
-      {
         "itemId": 4000642,
         "amount": 200
       },
       {
-        "itemId": 4000643,
+        "itemId": 4000644,
         "amount": 200
       },
       {
@@ -6494,43 +2933,11 @@
         "amount": 1
       },
       {
-        "itemId": 4036547 ,
-        "amount": 3
-      },
-      {
-        "itemId": 4007000,
-        "amount": 2
-      },
-      {
-        "itemId": 4007001,
-        "amount": 2
-      },
-      {
-        "itemId": 4007002,
-        "amount": 2
-      },
-      {
-        "itemId": 4007003,
-        "amount": 2
-      },
-      {
-        "itemId": 4007004,
-        "amount": 2
-      },
-      {
-        "itemId": 4007005,
-        "amount": 4
-      },
-      {
-        "itemId": 4007006,
-        "amount": 2
-      },
-      {
-        "itemId": 4007007,
-        "amount": 4
+        "itemId": 4036547,
+        "amount": 1
       }
     ],
-    "cost": 200000000,
+    "cost": 6000000,
     "slots": 3,
     "stimulant": 4130014,
     "requiredLevel": 130,
@@ -6547,19 +2954,11 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 2
-      },
-      {
-        "itemId": 4011007,
-        "amount": 2
-      },
-      {
         "itemId": 4000642,
         "amount": 200
       },
       {
-        "itemId": 4000643,
+        "itemId": 4000644,
         "amount": 200
       },
       {
@@ -6567,43 +2966,11 @@
         "amount": 1
       },
       {
-        "itemId": 4036547 ,
-        "amount": 3
-      },
-      {
-        "itemId": 4007000,
-        "amount": 2
-      },
-      {
-        "itemId": 4007001,
-        "amount": 2
-      },
-      {
-        "itemId": 4007002,
-        "amount": 2
-      },
-      {
-        "itemId": 4007003,
-        "amount": 2
-      },
-      {
-        "itemId": 4007004,
-        "amount": 2
-      },
-      {
-        "itemId": 4007005,
-        "amount": 4
-      },
-      {
-        "itemId": 4007006,
-        "amount": 2
-      },
-      {
-        "itemId": 4007007,
-        "amount": 4
+        "itemId": 4036547,
+        "amount": 1
       }
     ],
-    "cost": 200000000,
+    "cost": 6000000,
     "slots": 3,
     "stimulant": 4130015,
     "requiredLevel": 130,
@@ -6625,71 +2992,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 3
+        "itemId": 4000658,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 3
+        "itemId": 4000655,
+        "amount": 200
       },
       {
-        "itemId": 4000652,
-        "amount": 100
-      },
-      {
-        "itemId": 4000653,
-        "amount": 100
-      },
-      {
-        "itemId": 4000654,
-        "amount": 100
-      },
-      {
-        "itemId": 4036346,
-        "amount": 100
-      },
-      {
-        "itemId": 4033732,
+        "itemId": 4001879,
         "amount": 1
       },
       {
-        "itemId": 4036547 ,
-        "amount": 6
-      },
-      {
-        "itemId": 4007000,
-        "amount": 4
-      },
-      {
-        "itemId": 4007001,
-        "amount": 4
-      },
-      {
-        "itemId": 4007002,
-        "amount": 4
-      },
-      {
-        "itemId": 4007003,
-        "amount": 4
-      },
-      {
-        "itemId": 4007004,
-        "amount": 4
-      },
-      {
-        "itemId": 4007005,
-        "amount": 8
-      },
-      {
-        "itemId": 4007006,
-        "amount": 4
-      },
-      {
-        "itemId": 4007007,
-        "amount": 8
+        "itemId": 4036547,
+        "amount": 1
       }
     ],
-    "cost": 380000000,
+    "cost": 6500000,
     "slots": 3,
     "stimulant": 4130014,
     "requiredLevel": 140,
@@ -6706,71 +3025,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 3
+        "itemId": 4000658,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 3
+        "itemId": 4000655,
+        "amount": 200
       },
       {
-        "itemId": 4000652,
-        "amount": 100
-      },
-      {
-        "itemId": 4000653,
-        "amount": 100
-      },
-      {
-        "itemId": 4000654,
-        "amount": 100
-      },
-      {
-        "itemId": 4036346,
-        "amount": 100
-      },
-      {
-        "itemId": 4033732,
+        "itemId": 4001879,
         "amount": 1
       },
       {
-        "itemId": 4036547 ,
-        "amount": 6
-      },
-      {
-        "itemId": 4007000,
-        "amount": 4
-      },
-      {
-        "itemId": 4007001,
-        "amount": 4
-      },
-      {
-        "itemId": 4007002,
-        "amount": 4
-      },
-      {
-        "itemId": 4007003,
-        "amount": 4
-      },
-      {
-        "itemId": 4007004,
-        "amount": 4
-      },
-      {
-        "itemId": 4007005,
-        "amount": 8
-      },
-      {
-        "itemId": 4007006,
-        "amount": 4
-      },
-      {
-        "itemId": 4007007,
-        "amount": 8
+        "itemId": 4036547,
+        "amount": 1
       }
     ],
-    "cost": 380000000,
+    "cost": 6500000,
     "slots": 3,
     "stimulant": 4130015,
     "requiredLevel": 140,
@@ -6792,99 +3063,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 4
+        "itemId": 4000739,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 4
+        "itemId": 4000740,
+        "amount": 200
       },
       {
         "itemId": 4001890,
         "amount": 1
       },
       {
-        "itemId": 4000727,
-        "amount": 100
-      },
-      {
-        "itemId": 4000730,
-        "amount": 100
-      },
-      {
-        "itemId": 4000740,
-        "amount": 100
-      },
-      {
-        "itemId": 4000743,
-        "amount": 100
-      },
-      {
-        "itemId": 4000736,
-        "amount": 100
-      },
-      {
-        "itemId": 4036147,
-        "amount": 100
-      },
-      {
-        "itemId": 4034887,
-        "amount": 100
-      },
-      {
-        "itemId": 4009340,
-        "amount": 100
-      },
-      {
-        "itemId": 4023025,
-        "amount": 100
-      },
-      {
-        "itemId": 4036492,
-        "amount": 100
-      },
-      {
-        "itemId": 4036140,
-        "amount": 100
-      }              ,
-      {
-        "itemId": 4036547 ,
-        "amount": 9
-      },
-      {
-        "itemId": 4007000,
-        "amount": 6
-      },
-      {
-        "itemId": 4007001,
-        "amount": 6
-      },
-      {
-        "itemId": 4007002,
-        "amount": 6
-      },
-      {
-        "itemId": 4007003,
-        "amount": 6
-      },
-      {
-        "itemId": 4007004,
-        "amount": 6
-      },
-      {
-        "itemId": 4007005,
-        "amount": 12
-      },
-      {
-        "itemId": 4007006,
-        "amount": 6
-      },
-      {
-        "itemId": 4007007,
-        "amount": 12
+        "itemId": 4036547,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 7000000,
     "slots": 3,
     "stimulant": 4130014,
     "requiredLevel": 150,
@@ -6901,99 +3096,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 4
+        "itemId": 4000739,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 4
+        "itemId": 4000740,
+        "amount": 200
       },
       {
         "itemId": 4001890,
         "amount": 1
       },
       {
-        "itemId": 4000727,
-        "amount": 100
-      },
-      {
-        "itemId": 4000730,
-        "amount": 100
-      },
-      {
-        "itemId": 4000740,
-        "amount": 100
-      },
-      {
-        "itemId": 4000743,
-        "amount": 100
-      },
-      {
-        "itemId": 4000736,
-        "amount": 100
-      },
-      {
-        "itemId": 4036147,
-        "amount": 100
-      },
-      {
-        "itemId": 4034887,
-        "amount": 100
-      },
-      {
-        "itemId": 4009340,
-        "amount": 100
-      },
-      {
-        "itemId": 4023025,
-        "amount": 100
-      },
-      {
-        "itemId": 4036492,
-        "amount": 100
-      },
-      {
-        "itemId": 4036140,
-        "amount": 100
-      }              ,
-      {
-        "itemId": 4036547 ,
-        "amount": 9
-      },
-      {
-        "itemId": 4007000,
-        "amount": 6
-      },
-      {
-        "itemId": 4007001,
-        "amount": 6
-      },
-      {
-        "itemId": 4007002,
-        "amount": 6
-      },
-      {
-        "itemId": 4007003,
-        "amount": 6
-      },
-      {
-        "itemId": 4007004,
-        "amount": 6
-      },
-      {
-        "itemId": 4007005,
-        "amount": 12
-      },
-      {
-        "itemId": 4007006,
-        "amount": 6
-      },
-      {
-        "itemId": 4007007,
-        "amount": 12
+        "itemId": 4036547,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 7000000,
     "slots": 3,
     "stimulant": 4130015,
     "requiredLevel": 150,
@@ -7015,135 +3134,19 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 5
-      },
-      {
-        "itemId": 4011007,
-        "amount": 5
-      },
-      {
-        "itemId": 4001890,
-        "amount": 1
-      },
-      {
-        "itemId": 4033732,
-        "amount": 1
+        "itemId": 4001878,
+        "amount": 8
       },
       {
         "itemId": 4001894,
         "amount": 1
       },
       {
-        "itemId": 4001893,
+        "itemId": 4036547,
         "amount": 1
-      },
-      {
-        "itemId": 4033427,
-        "amount": 100
-      },
-      {
-        "itemId": 4036143,
-        "amount": 100
-      },
-      {
-        "itemId": 4036151,
-        "amount": 100
-      },
-      {
-        "itemId": 4036491,
-        "amount": 100
-      },
-      {
-        "itemId": 4034914,
-        "amount": 100
-      },
-      {
-        "itemId": 4034915,
-        "amount": 100
-      },
-      {
-        "itemId": 4034916,
-        "amount": 100
-      },
-      {
-        "itemId": 4034917,
-        "amount": 100
-      },
-      {
-        "itemId": 4034918,
-        "amount": 100
-      },
-      {
-        "itemId": 4034919,
-        "amount": 100
-      },
-      {
-        "itemId": 4034920,
-        "amount": 100
-      },
-      {
-        "itemId": 4034930,
-        "amount": 100
-      },
-      {
-        "itemId": 4034950,
-        "amount": 100
-      },
-      {
-        "itemId": 4034951,
-        "amount": 100
-      },
-      {
-        "itemId": 4034946,
-        "amount": 100
-      },
-      {
-        "itemId": 4034948,
-        "amount": 100
-      },
-      {
-        "itemId": 4021022,
-        "amount": 100
-      },
-      {
-        "itemId": 4036547 ,
-        "amount": 12
-      },
-      {
-        "itemId": 4007000,
-        "amount": 8
-      },
-      {
-        "itemId": 4007001,
-        "amount": 8
-      },
-      {
-        "itemId": 4007002,
-        "amount": 8
-      },
-      {
-        "itemId": 4007003,
-        "amount": 8
-      },
-      {
-        "itemId": 4007004,
-        "amount": 8
-      },
-      {
-        "itemId": 4007005,
-        "amount": 16
-      },
-      {
-        "itemId": 4007006,
-        "amount": 8
-      },
-      {
-        "itemId": 4007007,
-        "amount": 16
       }
     ],
-    "cost": 480000000,
+    "cost": 8000000,
     "slots": 3,
     "stimulant": 4130014,
     "requiredLevel": 190,
@@ -7160,135 +3163,19 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 5
-      },
-      {
-        "itemId": 4011007,
-        "amount": 5
-      },
-      {
-        "itemId": 4001890,
-        "amount": 1
-      },
-      {
-        "itemId": 4033732,
-        "amount": 1
+        "itemId": 4001878,
+        "amount": 8
       },
       {
         "itemId": 4001894,
         "amount": 1
       },
       {
-        "itemId": 4001893,
+        "itemId": 4036547,
         "amount": 1
-      },
-      {
-        "itemId": 4033427,
-        "amount": 100
-      },
-      {
-        "itemId": 4036143,
-        "amount": 100
-      },
-      {
-        "itemId": 4036151,
-        "amount": 100
-      },
-      {
-        "itemId": 4036491,
-        "amount": 100
-      },
-      {
-        "itemId": 4034914,
-        "amount": 100
-      },
-      {
-        "itemId": 4034915,
-        "amount": 100
-      },
-      {
-        "itemId": 4034916,
-        "amount": 100
-      },
-      {
-        "itemId": 4034917,
-        "amount": 100
-      },
-      {
-        "itemId": 4034918,
-        "amount": 100
-      },
-      {
-        "itemId": 4034919,
-        "amount": 100
-      },
-      {
-        "itemId": 4034920,
-        "amount": 100
-      },
-      {
-        "itemId": 4034930,
-        "amount": 100
-      },
-      {
-        "itemId": 4034950,
-        "amount": 100
-      },
-      {
-        "itemId": 4034951,
-        "amount": 100
-      },
-      {
-        "itemId": 4034946,
-        "amount": 100
-      },
-      {
-        "itemId": 4034948,
-        "amount": 100
-      },
-      {
-        "itemId": 4021022,
-        "amount": 100
-      },
-      {
-        "itemId": 4036547 ,
-        "amount": 12
-      },
-      {
-        "itemId": 4007000,
-        "amount": 8
-      },
-      {
-        "itemId": 4007001,
-        "amount": 8
-      },
-      {
-        "itemId": 4007002,
-        "amount": 8
-      },
-      {
-        "itemId": 4007003,
-        "amount": 8
-      },
-      {
-        "itemId": 4007004,
-        "amount": 8
-      },
-      {
-        "itemId": 4007005,
-        "amount": 16
-      },
-      {
-        "itemId": 4007006,
-        "amount": 8
-      },
-      {
-        "itemId": 4007007,
-        "amount": 16
       }
     ],
-    "cost": 480000000,
+    "cost": 8000000,
     "slots": 3,
     "stimulant": 4130015,
     "requiredLevel": 190,
@@ -7310,14 +3197,6 @@
         "processStarforce": true
       },
       {
-        "itemId": 4036539,
-        "amount": 1
-      },
-      {
-        "itemId": 4036547 ,
-        "amount": 15
-      },
-      {
         "itemId": 4036535,
         "amount": 1
       },
@@ -7332,9 +3211,13 @@
       {
         "itemId": 4036538,
         "amount": 1
+      },
+      {
+        "itemId": 4036547,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 40000000,
     "slots": 3,
     "stimulant": 4130014,
     "requiredLevel": 225,
@@ -7351,14 +3234,6 @@
         "processStarforce": true
       },
       {
-        "itemId": 4036539,
-        "amount": 1
-      },
-      {
-        "itemId": 4036547 ,
-        "amount": 15
-      },
-      {
         "itemId": 4036535,
         "amount": 1
       },
@@ -7373,9 +3248,13 @@
       {
         "itemId": 4036538,
         "amount": 1
+      },
+      {
+        "itemId": 4036547,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 40000000,
     "slots": 3,
     "stimulant": 4130015,
     "requiredLevel": 225,
@@ -7398,38 +3277,22 @@
       },
       {
         "itemId": 4036543,
-        "amount": 2
+        "amount": 1
       },
       {
         "itemId": 4036540,
-        "amount": 2
-      },
-      {
-        "itemId": 4036535,
-        "amount": 4
-      },
-      {
-        "itemId": 4036536,
-        "amount": 4
-      },
-      {
-        "itemId": 4036537,
-        "amount": 4
-      },
-      {
-        "itemId": 4036538,
-        "amount": 4
-      },
-      {
-        "itemId": 4036547 ,
-        "amount": 20
+        "amount": 1
       },
       {
         "itemId": 4036539,
-        "amount": 2
+        "amount": 1
+      },
+      {
+        "itemId": 4036547,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 50000000,
     "slots": 3,
     "stimulant": 4130014,
     "requiredLevel": 250,
@@ -7447,38 +3310,22 @@
       },
       {
         "itemId": 4036543,
-        "amount": 2
+        "amount": 1
       },
       {
         "itemId": 4036540,
-        "amount": 2
-      },
-      {
-        "itemId": 4036535,
-        "amount": 4
-      },
-      {
-        "itemId": 4036536,
-        "amount": 4
-      },
-      {
-        "itemId": 4036537,
-        "amount": 4
-      },
-      {
-        "itemId": 4036538,
-        "amount": 4
-      },
-      {
-        "itemId": 4036547 ,
-        "amount": 20
+        "amount": 1
       },
       {
         "itemId": 4036539,
-        "amount": 2
+        "amount": 1
+      },
+      {
+        "itemId": 4036547,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 50000000,
     "slots": 3,
     "stimulant": 4130015,
     "requiredLevel": 250,
@@ -7567,19 +3414,11 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 2
-      },
-      {
-        "itemId": 4011007,
-        "amount": 2
-      },
-      {
         "itemId": 4000642,
         "amount": 200
       },
       {
-        "itemId": 4000643,
+        "itemId": 4000644,
         "amount": 200
       },
       {
@@ -7588,42 +3427,10 @@
       },
       {
         "itemId": 4036548,
-        "amount": 3
-      },
-      {
-        "itemId": 4007000,
-        "amount": 2
-      },
-      {
-        "itemId": 4007001,
-        "amount": 2
-      },
-      {
-        "itemId": 4007002,
-        "amount": 2
-      },
-      {
-        "itemId": 4007003,
-        "amount": 4
-      },
-      {
-        "itemId": 4007004,
-        "amount": 2
-      },
-      {
-        "itemId": 4007005,
-        "amount": 4
-      },
-      {
-        "itemId": 4007006,
-        "amount": 2
-      },
-      {
-        "itemId": 4007007,
-        "amount": 2
+        "amount": 1
       }
     ],
-    "cost": 200000000,
+    "cost": 6000000,
     "slots": 3,
     "stimulant": 4130016,
     "requiredLevel": 130,
@@ -7640,19 +3447,11 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 2
-      },
-      {
-        "itemId": 4011007,
-        "amount": 2
-      },
-      {
         "itemId": 4000642,
         "amount": 200
       },
       {
-        "itemId": 4000643,
+        "itemId": 4000644,
         "amount": 200
       },
       {
@@ -7661,42 +3460,10 @@
       },
       {
         "itemId": 4036548,
-        "amount": 3
-      },
-      {
-        "itemId": 4007000,
-        "amount": 2
-      },
-      {
-        "itemId": 4007001,
-        "amount": 2
-      },
-      {
-        "itemId": 4007002,
-        "amount": 2
-      },
-      {
-        "itemId": 4007003,
-        "amount": 4
-      },
-      {
-        "itemId": 4007004,
-        "amount": 2
-      },
-      {
-        "itemId": 4007005,
-        "amount": 4
-      },
-      {
-        "itemId": 4007006,
-        "amount": 2
-      },
-      {
-        "itemId": 4007007,
-        "amount": 2
+        "amount": 1
       }
     ],
-    "cost": 200000000,
+    "cost": 6000000,
     "slots": 3,
     "stimulant": 4130017,
     "requiredLevel": 130,
@@ -7718,71 +3485,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 3
+        "itemId": 4000658,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 3
+        "itemId": 4000655,
+        "amount": 200
       },
       {
-        "itemId": 4000652,
-        "amount": 100
-      },
-      {
-        "itemId": 4000653,
-        "amount": 100
-      },
-      {
-        "itemId": 4000654,
-        "amount": 100
-      },
-      {
-        "itemId": 4036346,
-        "amount": 100
-      },
-      {
-        "itemId": 4033732,
+        "itemId": 4001879,
         "amount": 1
       },
       {
         "itemId": 4036548,
-        "amount": 6
-      },
-      {
-        "itemId": 4007000,
-        "amount": 4
-      },
-      {
-        "itemId": 4007001,
-        "amount": 4
-      },
-      {
-        "itemId": 4007002,
-        "amount": 4
-      },
-      {
-        "itemId": 4007003,
-        "amount": 8
-      },
-      {
-        "itemId": 4007004,
-        "amount": 4
-      },
-      {
-        "itemId": 4007005,
-        "amount": 8
-      },
-      {
-        "itemId": 4007006,
-        "amount": 4
-      },
-      {
-        "itemId": 4007007,
-        "amount": 4
+        "amount": 1
       }
     ],
-    "cost": 380000000,
+    "cost": 6500000,
     "slots": 3,
     "stimulant": 4130016,
     "requiredLevel": 140,
@@ -7799,71 +3518,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 3
+        "itemId": 4000658,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 3
+        "itemId": 4000655,
+        "amount": 200
       },
       {
-        "itemId": 4000652,
-        "amount": 100
-      },
-      {
-        "itemId": 4000653,
-        "amount": 100
-      },
-      {
-        "itemId": 4000654,
-        "amount": 100
-      },
-      {
-        "itemId": 4036346,
-        "amount": 100
-      },
-      {
-        "itemId": 4033732,
+        "itemId": 4001879,
         "amount": 1
       },
       {
         "itemId": 4036548,
-        "amount": 6
-      },
-      {
-        "itemId": 4007000,
-        "amount": 4
-      },
-      {
-        "itemId": 4007001,
-        "amount": 4
-      },
-      {
-        "itemId": 4007002,
-        "amount": 4
-      },
-      {
-        "itemId": 4007003,
-        "amount": 8
-      },
-      {
-        "itemId": 4007004,
-        "amount": 4
-      },
-      {
-        "itemId": 4007005,
-        "amount": 8
-      },
-      {
-        "itemId": 4007006,
-        "amount": 4
-      },
-      {
-        "itemId": 4007007,
-        "amount": 4
+        "amount": 1
       }
     ],
-    "cost": 380000000,
+    "cost": 6500000,
     "slots": 3,
     "stimulant": 4130017,
     "requiredLevel": 140,
@@ -7885,99 +3556,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 4
+        "itemId": 4000739,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 4
+        "itemId": 4000740,
+        "amount": 200
       },
       {
         "itemId": 4001890,
         "amount": 1
       },
       {
-        "itemId": 4000727,
-        "amount": 100
-      },
-      {
-        "itemId": 4000730,
-        "amount": 100
-      },
-      {
-        "itemId": 4000740,
-        "amount": 100
-      },
-      {
-        "itemId": 4000743,
-        "amount": 100
-      },
-      {
-        "itemId": 4000736,
-        "amount": 100
-      },
-      {
-        "itemId": 4036147,
-        "amount": 100
-      },
-      {
-        "itemId": 4034887,
-        "amount": 100
-      },
-      {
-        "itemId": 4009340,
-        "amount": 100
-      },
-      {
-        "itemId": 4023025,
-        "amount": 100
-      },
-      {
-        "itemId": 4036492,
-        "amount": 100
-      },
-      {
-        "itemId": 4036140,
-        "amount": 100
-      }              ,
-      {
         "itemId": 4036548,
-        "amount": 9
-      },
-      {
-        "itemId": 4007000,
-        "amount": 6
-      },
-      {
-        "itemId": 4007001,
-        "amount": 6
-      },
-      {
-        "itemId": 4007002,
-        "amount": 6
-      },
-      {
-        "itemId": 4007003,
-        "amount": 12
-      },
-      {
-        "itemId": 4007004,
-        "amount": 6
-      },
-      {
-        "itemId": 4007005,
-        "amount": 12
-      },
-      {
-        "itemId": 4007006,
-        "amount": 6
-      },
-      {
-        "itemId": 4007007,
-        "amount": 6
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 7000000,
     "slots": 3,
     "stimulant": 4130016,
     "requiredLevel": 150,
@@ -7994,99 +3589,23 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 4
+        "itemId": 4000739,
+        "amount": 200
       },
       {
-        "itemId": 4011007,
-        "amount": 4
+        "itemId": 4000740,
+        "amount": 200
       },
       {
         "itemId": 4001890,
         "amount": 1
       },
       {
-        "itemId": 4000727,
-        "amount": 100
-      },
-      {
-        "itemId": 4000730,
-        "amount": 100
-      },
-      {
-        "itemId": 4000740,
-        "amount": 100
-      },
-      {
-        "itemId": 4000743,
-        "amount": 100
-      },
-      {
-        "itemId": 4000736,
-        "amount": 100
-      },
-      {
-        "itemId": 4036147,
-        "amount": 100
-      },
-      {
-        "itemId": 4034887,
-        "amount": 100
-      },
-      {
-        "itemId": 4009340,
-        "amount": 100
-      },
-      {
-        "itemId": 4023025,
-        "amount": 100
-      },
-      {
-        "itemId": 4036492,
-        "amount": 100
-      },
-      {
-        "itemId": 4036140,
-        "amount": 100
-      }              ,
-      {
         "itemId": 4036548,
-        "amount": 9
-      },
-      {
-        "itemId": 4007000,
-        "amount": 6
-      },
-      {
-        "itemId": 4007001,
-        "amount": 6
-      },
-      {
-        "itemId": 4007002,
-        "amount": 6
-      },
-      {
-        "itemId": 4007003,
-        "amount": 12
-      },
-      {
-        "itemId": 4007004,
-        "amount": 6
-      },
-      {
-        "itemId": 4007005,
-        "amount": 12
-      },
-      {
-        "itemId": 4007006,
-        "amount": 6
-      },
-      {
-        "itemId": 4007007,
-        "amount": 6
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 7000000,
     "slots": 3,
     "stimulant": 4130017,
     "requiredLevel": 150,
@@ -8108,135 +3627,19 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 5
-      },
-      {
-        "itemId": 4011007,
-        "amount": 5
-      },
-      {
-        "itemId": 4001890,
-        "amount": 1
-      },
-      {
-        "itemId": 4033732,
-        "amount": 1
+        "itemId": 4001878,
+        "amount": 8
       },
       {
         "itemId": 4001894,
         "amount": 1
       },
       {
-        "itemId": 4001893,
-        "amount": 1
-      },
-      {
-        "itemId": 4033427,
-        "amount": 100
-      },
-      {
-        "itemId": 4036143,
-        "amount": 100
-      },
-      {
-        "itemId": 4036151,
-        "amount": 100
-      },
-      {
-        "itemId": 4036491,
-        "amount": 100
-      },
-      {
-        "itemId": 4034914,
-        "amount": 100
-      },
-      {
-        "itemId": 4034915,
-        "amount": 100
-      },
-      {
-        "itemId": 4034916,
-        "amount": 100
-      },
-      {
-        "itemId": 4034917,
-        "amount": 100
-      },
-      {
-        "itemId": 4034918,
-        "amount": 100
-      },
-      {
-        "itemId": 4034919,
-        "amount": 100
-      },
-      {
-        "itemId": 4034920,
-        "amount": 100
-      },
-      {
-        "itemId": 4034930,
-        "amount": 100
-      },
-      {
-        "itemId": 4034950,
-        "amount": 100
-      },
-      {
-        "itemId": 4034951,
-        "amount": 100
-      },
-      {
-        "itemId": 4034946,
-        "amount": 100
-      },
-      {
-        "itemId": 4034948,
-        "amount": 100
-      },
-      {
-        "itemId": 4021022,
-        "amount": 100
-      },
-      {
         "itemId": 4036548,
-        "amount": 12
-      },
-      {
-        "itemId": 4007000,
-        "amount": 8
-      },
-      {
-        "itemId": 4007001,
-        "amount": 8
-      },
-      {
-        "itemId": 4007002,
-        "amount": 8
-      },
-      {
-        "itemId": 4007003,
-        "amount": 16
-      },
-      {
-        "itemId": 4007004,
-        "amount": 8
-      },
-      {
-        "itemId": 4007005,
-        "amount": 16
-      },
-      {
-        "itemId": 4007006,
-        "amount": 8
-      },
-      {
-        "itemId": 4007007,
-        "amount": 8
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 8000000,
     "slots": 3,
     "stimulant": 4130016,
     "requiredLevel": 190,
@@ -8253,135 +3656,19 @@
         "processStarforce": true
       },
       {
-        "itemId": 4021009,
-        "amount": 5
-      },
-      {
-        "itemId": 4011007,
-        "amount": 5
-      },
-      {
-        "itemId": 4001890,
-        "amount": 1
-      },
-      {
-        "itemId": 4033732,
-        "amount": 1
+        "itemId": 4001878,
+        "amount": 8
       },
       {
         "itemId": 4001894,
         "amount": 1
       },
       {
-        "itemId": 4001893,
-        "amount": 1
-      },
-      {
-        "itemId": 4033427,
-        "amount": 100
-      },
-      {
-        "itemId": 4036143,
-        "amount": 100
-      },
-      {
-        "itemId": 4036151,
-        "amount": 100
-      },
-      {
-        "itemId": 4036491,
-        "amount": 100
-      },
-      {
-        "itemId": 4034914,
-        "amount": 100
-      },
-      {
-        "itemId": 4034915,
-        "amount": 100
-      },
-      {
-        "itemId": 4034916,
-        "amount": 100
-      },
-      {
-        "itemId": 4034917,
-        "amount": 100
-      },
-      {
-        "itemId": 4034918,
-        "amount": 100
-      },
-      {
-        "itemId": 4034919,
-        "amount": 100
-      },
-      {
-        "itemId": 4034920,
-        "amount": 100
-      },
-      {
-        "itemId": 4034930,
-        "amount": 100
-      },
-      {
-        "itemId": 4034950,
-        "amount": 100
-      },
-      {
-        "itemId": 4034951,
-        "amount": 100
-      },
-      {
-        "itemId": 4034946,
-        "amount": 100
-      },
-      {
-        "itemId": 4034948,
-        "amount": 100
-      },
-      {
-        "itemId": 4021022,
-        "amount": 100
-      },
-      {
         "itemId": 4036548,
-        "amount": 12
-      },
-      {
-        "itemId": 4007000,
-        "amount": 8
-      },
-      {
-        "itemId": 4007001,
-        "amount": 8
-      },
-      {
-        "itemId": 4007002,
-        "amount": 8
-      },
-      {
-        "itemId": 4007003,
-        "amount": 16
-      },
-      {
-        "itemId": 4007004,
-        "amount": 8
-      },
-      {
-        "itemId": 4007005,
-        "amount": 16
-      },
-      {
-        "itemId": 4007006,
-        "amount": 8
-      },
-      {
-        "itemId": 4007007,
-        "amount": 8
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 8000000,
     "slots": 3,
     "stimulant": 4130017,
     "requiredLevel": 190,
@@ -8403,14 +3690,6 @@
         "processStarforce": true
       },
       {
-        "itemId": 4036539,
-        "amount": 1
-      },
-      {
-        "itemId": 4036548,
-        "amount": 15
-      },
-      {
         "itemId": 4036535,
         "amount": 1
       },
@@ -8425,9 +3704,13 @@
       {
         "itemId": 4036538,
         "amount": 1
+      },
+      {
+        "itemId": 4036548,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 40000000,
     "slots": 3,
     "stimulant": 4130016,
     "requiredLevel": 225,
@@ -8444,14 +3727,6 @@
         "processStarforce": true
       },
       {
-        "itemId": 4036539,
-        "amount": 1
-      },
-      {
-        "itemId": 4036548,
-        "amount": 15
-      },
-      {
         "itemId": 4036535,
         "amount": 1
       },
@@ -8466,9 +3741,13 @@
       {
         "itemId": 4036538,
         "amount": 1
+      },
+      {
+        "itemId": 4036548,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 40000000,
     "slots": 3,
     "stimulant": 4130017,
     "requiredLevel": 225,
@@ -8491,38 +3770,22 @@
       },
       {
         "itemId": 4036543,
-        "amount": 2
+        "amount": 1
       },
       {
         "itemId": 4036540,
-        "amount": 2
-      },
-      {
-        "itemId": 4036535,
-        "amount": 4
-      },
-      {
-        "itemId": 4036536,
-        "amount": 4
-      },
-      {
-        "itemId": 4036537,
-        "amount": 4
-      },
-      {
-        "itemId": 4036538,
-        "amount": 4
-      },
-      {
-        "itemId": 4036548,
-        "amount": 20
+        "amount": 1
       },
       {
         "itemId": 4036539,
-        "amount": 2
+        "amount": 1
+      },
+      {
+        "itemId": 4036548,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 50000000,
     "slots": 3,
     "stimulant": 4130016,
     "requiredLevel": 250,
@@ -8540,38 +3803,22 @@
       },
       {
         "itemId": 4036543,
-        "amount": 2
+        "amount": 1
       },
       {
         "itemId": 4036540,
-        "amount": 2
-      },
-      {
-        "itemId": 4036535,
-        "amount": 4
-      },
-      {
-        "itemId": 4036536,
-        "amount": 4
-      },
-      {
-        "itemId": 4036537,
-        "amount": 4
-      },
-      {
-        "itemId": 4036538,
-        "amount": 4
-      },
-      {
-        "itemId": 4036548,
-        "amount": 20
+        "amount": 1
       },
       {
         "itemId": 4036539,
-        "amount": 2
+        "amount": 1
+      },
+      {
+        "itemId": 4036548,
+        "amount": 1
       }
     ],
-    "cost": 480000000,
+    "cost": 50000000,
     "slots": 3,
     "stimulant": 4130017,
     "requiredLevel": 250,

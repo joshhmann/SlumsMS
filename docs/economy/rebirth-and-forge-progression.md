@@ -1,21 +1,16 @@
 # Rebirth, equipment and Nimble's full forge progression
 
-Owner request: make the entire equipment/crafting path visible before deciding how to balance rebirths,
-new areas and high-end rewards. This is an offline repository/data audit and a proposal, with no runtime,
-recipe, price, loot or gate changes. Worktree `SlumsMS-area-balance-codex`, branch `area-balance-codex`.
+This document preserves the original offline audit. **Historical cost/input findings below are superseded by
+the current1.6.4 candidate** in [release notes](../release/1.6.4-gear-progression.md),
+[stage policy](forge-stages.json) and [exact recipe diff](forge-economy-diff.csv).
+The owner selected normal gear through200, then8–12 hours per forge stage, retaining actual input HP/MP.
+All237 main equipment recipes plus the existing Genesis Fragment refining recipe are simplified locally;
+requirements, pirate inputs, sword RB parity and refunds are fixed. No deployment or combat result is claimed.
 
-Implementation ticket: [normal equipment through 200, then forged rebirth progression](../tickets/normal-200-to-forged-rebirth-progression.md).
-
-Current implementation: [normal gear pilot and repeatable coverage checks](normal-200/README.md). The owner
-selected existing families plus late scrolling/accessory upgrades; no new 180/200 weapon tiers.
-
-Local implementation update for1.6.4: [candidate fixes and proof status](../release/1.6.4-gear-progression.md).
-The pirate input and forge enforcement findings below describe the original audit; both have local fixes now.
-The refreshed CSV catalogue reflects the corrected pirate chains, with no deployment claimed.
-
-Latest local follow-up: first Royal recipes now cost5M per piece and consume matching Sweetwater equipment,
-regional ETC and a weapon-only seal. Five armour+weapon costs30M. HP/MP carry through upgrades. Earlier
-fee/input figures below describe the original audit; refreshed CSVs and candidate notes contain current drafts.
+[Implementation ticket](../tickets/normal-200-to-forged-rebirth-progression.md).
+The refreshed catalogue below describes current candidate recipes; the later analysis retains original audit
+costs to explain the problem. Current cumulative Arcane-armour/Genesis-weapon fee including Fragment refining
+is286M for each supported class weapon, before optional enhancements.
 
 ## The full lists
 
@@ -29,7 +24,7 @@ fee/input figures below describe the original audit; refreshed CSVs and candidat
 - [Complete class loadouts](forge-catalog/complete-loadouts.csv): **112 five-armour-plus-weapon bundles**, one
   for every supported class weapon at every forge stage, with combined fees and full remaining material bills.
   Sealed/Genesis bundles retain Arcane armour. This removes the need to add six item chains by hand.
-- [All materials](forge-catalog/materials.csv): **581 distinct input IDs**, named and linked to the recipes that
+- [All materials](forge-catalog/materials.csv): **456 distinct input IDs**, named and linked to the recipes that
   use them, with planned-drop counts and literal script references as investigation leads.
 - [Equipment inventory](forge-catalog/equipment.csv): **443 equipment candidates**, combining the previous
   ordinary gear selection, every equipment recipe and all explicit rebirth-restricted IDs. This is the full
@@ -64,7 +59,7 @@ crafted reference loadout.
 ## Current restrictions and intended progression
 
 **Correction to the earlier equipment ladder:** equip level alone does not unlock most forged gear.
-`ItemConstants.rebirth1/2/3` contains **298 distinct equipment IDs**, and
+`ItemConstants.rebirth1/2/3` contains **299 distinct equipment IDs**, and
 `ItemInformationProvider.canWearEquipment` checks those restrictions before level/stat requirements.
 Royal Von Leon is generally RB1; the level-140 class boss sets RB2; Japanese sets and every later forge weapon/
 armour family RB3. The updated companion ladder now states this explicitly.
@@ -208,9 +203,9 @@ The full materials sheet is the exact per-ID inventory. Important recurring burd
   4001890, Spark of Determination 4001893, Shadow of Annihilation 4001894, class cores and later tokens. The
   script distinguishes normal/hard maps and random core outcomes. These are repository reward-path evidence;
   verify event reachability, claims, clear limits and actual drops before promising acquisition times.
-- Genesis Fragment 4036539 appears in the recipes, but the catalogue's scanned NPC/event/quest source leads and
-  planned 050/055 rows do not establish its award path. Historical/installed DB and other sources still need
-  checking. Do not declare Genesis reachable until that chain is proven.
+- Correction: Genesis Fragment4036539 already has a refining recipe in `refiningMaterials.json`. The original
+  source scan missed that recipe. The candidate simplifies it to four hard-boss tokens plus1M mesos; verify
+  actual boss access, claims and refining in TEST before declaring the endgame reachable.
 - Royal uses Von Leon's Seal; class boss recipes use Cygnus Circlet; later recipes require earlier and later boss
   items. A milestone boss must be beatable in its **previous** equipment tier before its reward can be used to
   justify the next tier. Verify this explicitly for a small friends party, including healer/support classes.
@@ -266,7 +261,7 @@ complete each stage; no economy choice was applied by this audit.
 ## Validation and limits
 
 The read-only generator is preserved in the evidence folder as `gear/full_forge.py`, with raw recipes, input
-hashes and `full-forge-checks.json`. Every one of the 357 outputs and 581 input IDs has a name and data in the
+hashes and `full-forge-checks.json`. Every one of the 357 outputs and456 current input IDs has a name and data in the
 retained server dump; all 281 recursive equipment recipe expansions are acyclic. The generator checks unique
 recipe outputs, exact recipe counts, one-output equipment recipes and the observed sword restriction exception.
 Additional catalogue consistency checks cover all direct quantities, CSV counts, chain fees and required family

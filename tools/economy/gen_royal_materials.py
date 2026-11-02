@@ -12,7 +12,8 @@ PAIRS=((8210000,4000625),(8210001,4000626),(8210003,4000627),(8210004,4000628),(
 
 def build(wz_path,repo):
     w=WzItems(wz_path)
-    inventory={int(r['mobid']):r for r in csv.DictReader((repo/'docs/economy/bb-drops/mobs.csv').open())}
+    with (repo/'docs/economy/bb-drops/mobs.csv').open() as handle:
+        inventory={int(r['mobid']):r for r in csv.DictReader(handle)}
     rows=[]
     for mob,item in PAIRS:
         if w.droppable(item) is not None:

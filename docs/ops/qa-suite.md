@@ -1256,3 +1256,11 @@ Write rows from evidence, not guesses: the `!qa` scenario and the probe a check 
 really proves (a curated feature package such as `src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/**`),
 and a transitive "everything this class references" closure is useless because it marks every bot class as covered
 by every check.
+
+## 1.6.4 equipment progression: ng-8
+
+`!qa run ng-8` opens a hands-on checklist for Nimble's class weapon core exchange. It logs the state of
+`slums.forge.coreExchange` (default OFF), grants nothing and makes no automatic pass assertion. Bring a core,
+exercise confirmation/cancellation, stale input and full inventory, then verify unchanged total cores/mesos.
+Check the disabled menu too. Auto-QA row `t-ng-8` is explicitly MANUAL; its presence is not evidence it ran.
+See [the full gear candidate checklist](../release/1.6.4-gear-progression.md) for normal drops, forging and combat.

@@ -39,6 +39,15 @@ class QaScenarioStagingTest {
     }
 
     @Test
+    void coreExchangeChecklistDoesNotChangeThePlayersInventory() throws Exception {
+        start("ng-8", 100000000);
+        assertTrue(world.calls.isEmpty(), world.calls.toString());
+        assertTrue(Files.readString(suite.runOf(1).logPath()).contains("hands-on outcome required"));
+        suite.stop(1, "checklist complete");
+        assertTrue(world.inventory.isEmpty());
+    }
+
+    @Test
     void fm1StocksAShopPastTheCapWithOneOverpricedItemAndCleansUp() throws Exception {
         for (int id : QaScenarios.FM_STOCK) {
             world.values.put(id, 1_500_000);

@@ -2285,7 +2285,7 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         equip.setMp(getShortMaxIfOverflow(equip.getMp() + equipItem.getMp()));
 
         InventoryManipulator.removeFromSlot(c, equipItem.getInventoryType(), equipItem.getPosition(), equipItem.getQuantity(), false);
-        gainItem(4000999, getShortMaxIfOverflow(getStarForceEquipSpellTraceBonus(equip)));
+        gainItem(4000999, getShortMaxIfOverflow(getStarForceEquipSpellTraceBonus(equipItem)));
 
         return equip;
     }

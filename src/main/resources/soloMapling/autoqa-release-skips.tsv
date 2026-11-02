@@ -13,3 +13,4 @@ t-cl-3	MANUAL: client crash and icons, eyes only
 t-cc-1	MANUAL: the login screen of a real client
 t-mr-2	MANUAL: the client's proposal window for a female proposer
 t-la-1	MANUAL: the Tauri launcher is a desktop app with its own checklist
+t-ng-8	MANUAL: Nimble core exchange needs a real NPC/client confirmation and inventory checks

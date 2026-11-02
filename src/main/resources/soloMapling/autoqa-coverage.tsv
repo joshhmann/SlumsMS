@@ -200,3 +200,8 @@ t-mp-1	src/main/java/server/maps/MapRouting.java	map routing: blocked/missing ma
 t-mp-1	src/main/resources/soloMapling/map-routing.tsv	the routing table
 t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketTraders.java	trader bots list the scrolls they hold (s-xtraders)
 t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketQa.java	probe marketScroll
+t-ng-8	src/main/java/soloMapling/crafting/WeaponCoreExchange.java	MANUAL: core exchange confirmation, cancellation, space and stale input
+t-ng-8	scripts/npc/9977779.js	MANUAL: Nimble core exchange menu
+t-ng-8	scripts/npc/interactions/WeaponCoreExchange.js	MANUAL: core exchange conversation
+t-ng-8	src/main/java/soloMapling/qa/GearProgressionScenarios.java	hands-on core exchange checklist
+t-ng-8	-Dslums.forge.coreExchange=true	core exchange is off by default

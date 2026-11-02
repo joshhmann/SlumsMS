@@ -281,6 +281,7 @@ function action(mode, type, selection) {
                                 playerInteraction.gainItem(4036535, 1);
                                 playerInteraction.gainItem(4310000, 8);
                                 playerInteraction.gainItem(4033732, 2);
+                                playerInteraction.gainItem(4001879, 2); // Non-quest forge trophy; fixed clear reward.
                                 playerInteraction.gainItem(2022282, 10);
                                 playerInteraction.gainItem(2022179, 10);
                                 playerInteraction.gainItem(2000005, 1000);
@@ -457,6 +458,7 @@ function action(mode, type, selection) {
 
                                 playerInteraction.gainItem(4000999, 800);
                                 playerInteraction.gainItem(4033732, 1);
+                                playerInteraction.gainItem(4001879, 1); // Non-quest forge trophy; fixed clear reward.
                                 playerInteraction.gainItem(2022282, 6);
                                 playerInteraction.gainItem(2022283, 6);
                                 playerInteraction.gainItem(2022179, 7);

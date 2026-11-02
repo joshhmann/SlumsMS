@@ -84,7 +84,7 @@ movement, spawn supply, buff uptime, party effects and potion use. Do not presen
 ## Full rebirth and forge catalogue
 
 The [rebirth/forge audit](rebirth-and-forge-progression.md) includes [every forge recipe](forge-catalog/full-list.md),
-with 357 outputs, 581 material inputs, current rebirth restrictions and cumulative equipment-chain fees. It also
+with 357 outputs,456 current material inputs, current rebirth restrictions and cumulative equipment-chain fees. It also
 records transfer power, apparent recipe errors and declared-versus-enforced craft requirements. Consult it
 before treating a raw item stat or equip level as a player’s obtainable progression profile.
 

@@ -111,8 +111,8 @@ access has been performed.
 roles/levels, actual retained map placements and RB0 area gates. It leaves the global generator policy intact.
 Migration059 preserves older pairs and its rollback is locally tested on disposable MySQL. The23 policy/area
 tests plus four loadout-model tests currently pass. Forge checks and pirate inputs are fixed locally, with
-seven script/data tests that failed before where appropriate and now pass. No transfer formula or item stat
-was changed.
+seven script/data tests that failed before where appropriate and now pass. The follow-up carries consumed actual HP/MP and corrects input-based refunds; item templates and existing
+attack/stat percentages remain unchanged.
 
 The updated1x chances are weapon2100, armour2400, optional accessories800 and60% scrolls2000 per million.
 [Full-loadout model](loadout-acquisition-model.csv) covers32 five-armour-plus-weapon combinations at1x and4x,
@@ -122,16 +122,16 @@ model outputs excluding travel, kill-rate differences, competition, pickup loss 
 they are not measured player times. The model changes source mob as items are collected and includes duplicate
 drops and simultaneous rolls. It does not count two sources as two rolls on one kill.
 
-## Remaining implementation and proof
+## Remaining proof
 
-1. Verify source routes/client support and actual loot before emitting SQL; preview the explicit bound-item
-   allowlist and effective per-item acquisition times under actual rates. Choose stage budgets and chances from
-   this concrete item/source roster; no values have been approved by this batch.
-2. Measure Pensalir, Commerci, partial/full Sweetwater and two/three Alien accessories on reference jobs, against
-   the proposed previous-tier source fights and the bosses that earn RB1. Record actual scrolled/crafted stats.
-3. Implement the selected normal loot/scroll changes with new migration/rollback and cache proof, then fix the
-   forge validation/data issues and calibrate the RB1 handoff against the measured late-RB0 profile.
+Local SQL/rollback generation and forge fixes are implemented. Both059/060 pass combined disposable MySQL
+apply/rollback tests, and repeated generation leaves SQL/recipe files unchanged. There are19 actual source mobs
+for the136 proposed pairs; the initial source-role audit checked20 candidates, one of which is unused.
 
-CLOSER: Server Dev SlumsMS Main Session. Preparatory proof: `test_normal_gear.py`, `test_audit_new_areas.py` and
-pilot data checks. Deployment and specific in-game proof IDs are not yet assigned or claimed complete. The
-coordinator still owns the release-book ID, schedule and board state.
+The owner selected1–4-hour normal acquisition at4x and8–12 hours per forge stage. Measure source routes,
+client support, actual ordinary drop coverage/cache, class kill rates, first boss clears and crafted power on
+TEST. Older quest-only pairs suppress insertion just like other older pairs, so compare the actual DB export.
+No monster damage change or real-client survivability claim is included in this candidate.
+
+[Current candidate, full numbers and targeted proof](../../release/1.6.4-gear-progression.md).
+CLOSER: Server Dev SlumsMS Main Session; Coordinator owns book tracking. No SSH, deployment or client launch.

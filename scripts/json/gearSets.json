@@ -124,27 +124,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000642,
-              "amount": 200
-            },
-            {
-              "itemId": 4000643,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 130,
@@ -161,27 +145,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000644,
-              "amount": 200
-            },
-            {
-              "itemId": 4000645,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 925000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 130,
@@ -198,27 +166,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000646,
-              "amount": 200
-            },
-            {
-              "itemId": 4000647,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 130,
@@ -235,27 +187,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
-              "itemId": 4000648,
-              "amount": 200
-            },
-            {
-              "itemId": 4000649,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "itemId": 4000647,
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 130,
@@ -272,27 +208,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
-              "itemId": 4000650,
-              "amount": 200
-            },
-            {
-              "itemId": 4000651,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "itemId": 4000648,
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 130,
@@ -314,35 +234,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000652,
+              "itemId": 4000658,
               "amount": 100
-            },
-            {
-              "itemId": 4000653,
-              "amount": 100
-            },
-            {
-              "itemId": 4000654,
-              "amount": 100
-            },
-            {
-              "itemId": 4036346,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 140,
@@ -359,35 +255,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
               "itemId": 4000655,
               "amount": 100
-            },
-            {
-              "itemId": 4000656,
-              "amount": 100
-            },
-            {
-              "itemId": 4000657,
-              "amount": 100
-            },
-            {
-              "itemId": 4034077,
-              "amount": 100
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
             }
           ],
-          "cost": 1325000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 140,
@@ -404,35 +276,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000658,
+              "itemId": 4000657,
               "amount": 100
-            },
-            {
-              "itemId": 4000704,
-              "amount": 100
-            },
-            {
-              "itemId": 4000705,
-              "amount": 100
-            },
-            {
-              "itemId": 4034137,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 140,
@@ -449,35 +297,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000707,
+              "itemId": 4000654,
               "amount": 100
-            },
-            {
-              "itemId": 4000709,
-              "amount": 100
-            },
-            {
-              "itemId": 4000706,
-              "amount": 100
-            },
-            {
-              "itemId": 4000734,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 140,
@@ -494,35 +318,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000710,
+              "itemId": 4000656,
               "amount": 100
-            },
-            {
-              "itemId": 4000712,
-              "amount": 100
-            },
-            {
-              "itemId": 4000711,
-              "amount": 100
-            },
-            {
-              "itemId": 4000735,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 140,
@@ -544,63 +344,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000727,
-              "amount": 100
-            },
-            {
-              "itemId": 4000730,
-              "amount": 100
-            },
-            {
-              "itemId": 4000740,
-              "amount": 100
-            },
-            {
-              "itemId": 4000743,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4036147,
-              "amount": 100
-            },
-            {
-              "itemId": 4034887,
-              "amount": 100
-            },
-            {
-              "itemId": 4009340,
-              "amount": 100
-            },
-            {
-              "itemId": 4023025,
-              "amount": 100
-            },
-            {
-              "itemId": 4036492,
-              "amount": 100
-            },
-            {
-              "itemId": 4036140,
+              "itemId": 4000739,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 150,
@@ -617,63 +365,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000741,
-              "amount": 100
-            },
-            {
-              "itemId": 4000744,
-              "amount": 100
-            },
-            {
-              "itemId": 4000739,
-              "amount": 100
-            },
-            {
-              "itemId": 4000729,
-              "amount": 100
-            },
-            {
-              "itemId": 4001674,
-              "amount": 100
-            },
-            {
-              "itemId": 4036493,
-              "amount": 100
-            },
-            {
-              "itemId": 4031568,
-              "amount": 100
-            },
-            {
-              "itemId": 4034414,
-              "amount": 100
-            },
-            {
-              "itemId": 4036508,
-              "amount": 100
-            },
-            {
-              "itemId": 4036145,
-              "amount": 100
-            },
-            {
-              "itemId": 4036146,
+              "itemId": 4000740,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 150,
@@ -690,64 +386,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000728,
-              "amount": 100
-            },
-            {
-              "itemId": 4000731,
-              "amount": 100
-            },
-            {
-              "itemId": 4000733,
-              "amount": 100
-            },
-            {
-              "itemId": 4000732,
-              "amount": 100
-            },
-            {
-              "itemId": 4009219,
-              "amount": 100
-            },
-            {
-              "itemId": 4036494,
-              "amount": 100
-            },
-            {
-              "itemId": 4034658,
-              "amount": 100
-            },
-            {
-              "itemId": 4033401,
-              "amount": 100
-            },
-            {
-              "itemId": 4032434,
-              "amount": 100
-            },
-            {
-              "itemId": 4033664,
-              "amount": 100
-            },
-            {
-              "itemId": 4033733,
+              "itemId": 4000741,
               "amount": 100
             }
-
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 150,
@@ -764,64 +407,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000734,
-              "amount": 100
-            },
-            {
-              "itemId": 4000735,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4000738,
-              "amount": 100
-            },
-            {
-              "itemId": 4009220,
-              "amount": 100
-            },
-            {
-              "itemId": 4036495,
-              "amount": 100
-            },
-            {
-              "itemId": 4036021,
-              "amount": 100
-            },
-            {
-              "itemId": 4032434,
-              "amount": 100
-            },
-            {
-              "itemId": 4036508,
-              "amount": 100
-            },
-            {
-              "itemId": 4036169,
-              "amount": 100
-            },
-            {
-              "itemId": 4036170,
+              "itemId": 4000743,
               "amount": 100
             }
-
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 150,
@@ -838,67 +428,14 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000737,
-              "amount": 100
-            },
-            {
-              "itemId": 4034426,
-              "amount": 100
-            },
-            {
-              "itemId": 4033907,
-              "amount": 100
-            },
-            {
-              "itemId": 4036348,
-              "amount": 100
-            },
-            {
-              "itemId": 4009221,
-              "amount": 100
-            },
-            {
-              "itemId": 4036452,
-              "amount": 100
-            },
-            {
-              "itemId": 4034000,
-              "amount": 100
-            },
-            {
-              "itemId": 4170023,
-              "amount": 100
-            },
-            {
-              "itemId": 4023025,
-              "amount": 100
-            },
-            {
-              "itemId": 4034867,
-              "amount": 100
-            },
-            {
-              "itemId": 4034889,
+              "itemId": 4000744,
               "amount": 100
             }
-
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130018,
-          "requiredLevel": 1,
+          "requiredLevel": 150,
           "requiredMakerLevel": 3
         }
       ]
@@ -917,99 +454,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4033427,
-              "amount": 100
-            },
-            {
-              "itemId": 4036143,
-              "amount": 100
-            },
-            {
-              "itemId": 4036151,
-              "amount": 100
-            },
-            {
-              "itemId": 4036491,
-              "amount": 100
-            },
-            {
-              "itemId": 4034914,
-              "amount": 100
-            },
-            {
-              "itemId": 4034915,
-              "amount": 100
-            },
-            {
-              "itemId": 4034916,
-              "amount": 100
-            },
-            {
-              "itemId": 4034917,
-              "amount": 100
-            },
-            {
-              "itemId": 4034918,
-              "amount": 100
-            },
-            {
-              "itemId": 4034919,
-              "amount": 100
-            },
-            {
-              "itemId": 4034920,
-              "amount": 100
-            },
-            {
-              "itemId": 4034930,
-              "amount": 100
-            },
-            {
-              "itemId": 4034950,
-              "amount": 100
-            },
-            {
-              "itemId": 4034951,
-              "amount": 100
-            },
-            {
-              "itemId": 4034946,
-              "amount": 100
-            },
-            {
-              "itemId": 4034948,
-              "amount": 100
-            },
-            {
-              "itemId": 4021022,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 190,
@@ -1026,102 +475,14 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036141,
-              "amount": 100
-            },
-            {
-              "itemId": 4036490,
-              "amount": 100
-            },
-            {
-              "itemId": 4036144,
-              "amount": 100
-            },
-            {
-              "itemId": 4036451,
-              "amount": 100
-            },
-            {
-              "itemId": 4034952,
-              "amount": 100
-            },
-            {
-              "itemId": 4034953,
-              "amount": 100
-            },
-            {
-              "itemId": 4034954,
-              "amount": 100
-            },
-            {
-              "itemId": 4034955,
-              "amount": 100
-            },
-            {
-              "itemId": 4034956,
-              "amount": 100
-            },
-            {
-              "itemId": 4034957,
-              "amount": 100
-            },
-            {
-              "itemId": 4034942,
-              "amount": 100
-            },
-            {
-              "itemId": 4034943,
-              "amount": 100
-            },
-            {
-              "itemId": 4034944,
-              "amount": 100
-            },
-            {
-              "itemId": 4034945,
-              "amount": 100
-            },
-            {
-              "itemId": 4034947,
-              "amount": 100
-            },
-            {
-              "itemId": 4034949,
-              "amount": 100
-            },
-            {
-              "itemId": 4031453,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 1850000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130021,
-          "requiredLevel": 1,
+          "requiredLevel": 190,
           "requiredMakerLevel": 3
         },
         {
@@ -1135,99 +496,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036453,
-              "amount": 100
-            },
-            {
-              "itemId": 4033658,
-              "amount": 100
-            },
-            {
-              "itemId": 4033665,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4034983,
-              "amount": 100
-            },
-            {
-              "itemId": 4034981,
-              "amount": 100
-            },
-            {
-              "itemId": 4034982,
-              "amount": 100
-            },
-            {
-              "itemId": 4034979,
-              "amount": 100
-            },
-            {
-              "itemId": 4034980,
-              "amount": 100
-            },
-            {
-              "itemId": 4034994,
-              "amount": 100
-            },
-            {
               "itemId": 4001878,
-              "amount": 100
-            },
-            {
-              "itemId": 4036096,
-              "amount": 100
-            },
-            {
-              "itemId": 4036097,
-              "amount": 100
-            },
-            {
-              "itemId": 4036098,
-              "amount": 100
-            },
-            {
-              "itemId": 4036099,
-              "amount": 100
-            },
-            {
-              "itemId": 4036100,
-              "amount": 100
-            },
-            {
-              "itemId": 4021040,
-              "amount": 100
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 190,
@@ -1244,99 +517,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036171,
-              "amount": 100
-            },
-            {
-              "itemId": 4036163,
-              "amount": 100
-            },
-            {
-              "itemId": 4036167,
-              "amount": 100
-            },
-            {
-              "itemId": 4036164,
-              "amount": 100
-            },
-            {
-              "itemId": 4034295,
-              "amount": 100
-            },
-            {
-              "itemId": 4034296,
-              "amount": 100
-            },
-            {
-              "itemId": 4036309,
-              "amount": 100
-            },
-            {
-              "itemId": 4033935,
-              "amount": 100
-            },
-            {
-              "itemId": 4033936,
-              "amount": 100
-            },
-            {
-              "itemId": 4036335,
-              "amount": 100
-            },
-            {
-              "itemId": 4036336,
-              "amount": 100
-            },
-            {
-              "itemId": 4036312,
-              "amount": 100
-            },
-            {
-              "itemId": 4009005,
-              "amount": 100
-            },
-            {
-              "itemId": 4036398,
-              "amount": 100
-            },
-            {
-              "itemId": 4036399,
-              "amount": 100
-            },
-            {
-              "itemId": 4036400,
-              "amount": 100
-            },
-            {
-              "itemId": 4031453,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 190,
@@ -1353,99 +538,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036168,
-              "amount": 100
-            },
-            {
-              "itemId": 4031929,
-              "amount": 100
-            },
-            {
-              "itemId": 4000590,
-              "amount": 100
-            },
-            {
-              "itemId": 4034156,
-              "amount": 100
-            },
-            {
-              "itemId": 4036401,
-              "amount": 100
-            },
-            {
-              "itemId": 4036402,
-              "amount": 100
-            },
-            {
-              "itemId": 4036403,
-              "amount": 100
-            },
-            {
-              "itemId": 4036404,
-              "amount": 100
-            },
-            {
-              "itemId": 4036405,
-              "amount": 100
-            },
-            {
-              "itemId": 4036406,
-              "amount": 100
-            },
-            {
-              "itemId": 4036407,
-              "amount": 100
-            },
-            {
-              "itemId": 4036456,
-              "amount": 100
-            },
-            {
-              "itemId": 4036457,
-              "amount": 100
-            },
-            {
-              "itemId": 4036446,
-              "amount": 100
-            },
-            {
-              "itemId": 4001889,
-              "amount": 100
-            },
-            {
-              "itemId": 4036444,
-              "amount": 100
-            },
-            {
-              "itemId": 4021040,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 190,
@@ -1580,27 +677,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000642,
-              "amount": 200
-            },
-            {
-              "itemId": 4000643,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 130,
@@ -1617,27 +698,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000644,
-              "amount": 200
-            },
-            {
-              "itemId": 4000645,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 925000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 130,
@@ -1654,27 +719,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000646,
-              "amount": 200
-            },
-            {
-              "itemId": 4000647,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 130,
@@ -1691,27 +740,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
-              "itemId": 4000648,
-              "amount": 200
-            },
-            {
-              "itemId": 4000649,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "itemId": 4000647,
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 130,
@@ -1728,27 +761,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
-              "itemId": 4000650,
-              "amount": 200
-            },
-            {
-              "itemId": 4000651,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "itemId": 4000648,
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 130,
@@ -1770,35 +787,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000652,
+              "itemId": 4000658,
               "amount": 100
-            },
-            {
-              "itemId": 4000653,
-              "amount": 100
-            },
-            {
-              "itemId": 4000654,
-              "amount": 100
-            },
-            {
-              "itemId": 4036346,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 140,
@@ -1815,35 +808,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
               "itemId": 4000655,
               "amount": 100
-            },
-            {
-              "itemId": 4000656,
-              "amount": 100
-            },
-            {
-              "itemId": 4000657,
-              "amount": 100
-            },
-            {
-              "itemId": 4034077,
-              "amount": 100
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
             }
           ],
-          "cost": 1325000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 140,
@@ -1860,35 +829,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000658,
+              "itemId": 4000657,
               "amount": 100
-            },
-            {
-              "itemId": 4000704,
-              "amount": 100
-            },
-            {
-              "itemId": 4000705,
-              "amount": 100
-            },
-            {
-              "itemId": 4034137,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 140,
@@ -1905,35 +850,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000707,
+              "itemId": 4000654,
               "amount": 100
-            },
-            {
-              "itemId": 4000709,
-              "amount": 100
-            },
-            {
-              "itemId": 4000706,
-              "amount": 100
-            },
-            {
-              "itemId": 4000734,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 140,
@@ -1950,35 +871,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000710,
+              "itemId": 4000656,
               "amount": 100
-            },
-            {
-              "itemId": 4000712,
-              "amount": 100
-            },
-            {
-              "itemId": 4000711,
-              "amount": 100
-            },
-            {
-              "itemId": 4000735,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 140,
@@ -2000,63 +897,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000727,
-              "amount": 100
-            },
-            {
-              "itemId": 4000730,
-              "amount": 100
-            },
-            {
-              "itemId": 4000740,
-              "amount": 100
-            },
-            {
-              "itemId": 4000743,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4036147,
-              "amount": 100
-            },
-            {
-              "itemId": 4034887,
-              "amount": 100
-            },
-            {
-              "itemId": 4009340,
-              "amount": 100
-            },
-            {
-              "itemId": 4023025,
-              "amount": 100
-            },
-            {
-              "itemId": 4036492,
-              "amount": 100
-            },
-            {
-              "itemId": 4036140,
+              "itemId": 4000739,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 150,
@@ -2073,63 +918,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000741,
-              "amount": 100
-            },
-            {
-              "itemId": 4000744,
-              "amount": 100
-            },
-            {
-              "itemId": 4000739,
-              "amount": 100
-            },
-            {
-              "itemId": 4000729,
-              "amount": 100
-            },
-            {
-              "itemId": 4001674,
-              "amount": 100
-            },
-            {
-              "itemId": 4036493,
-              "amount": 100
-            },
-            {
-              "itemId": 4031568,
-              "amount": 100
-            },
-            {
-              "itemId": 4034414,
-              "amount": 100
-            },
-            {
-              "itemId": 4036508,
-              "amount": 100
-            },
-            {
-              "itemId": 4036145,
-              "amount": 100
-            },
-            {
-              "itemId": 4036146,
+              "itemId": 4000740,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 150,
@@ -2146,63 +939,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000728,
-              "amount": 100
-            },
-            {
-              "itemId": 4000731,
-              "amount": 100
-            },
-            {
-              "itemId": 4000733,
-              "amount": 100
-            },
-            {
-              "itemId": 4000732,
-              "amount": 100
-            },
-            {
-              "itemId": 4009219,
-              "amount": 100
-            },
-            {
-              "itemId": 4036494,
-              "amount": 100
-            },
-            {
-              "itemId": 4034658,
-              "amount": 100
-            },
-            {
-              "itemId": 4033401,
-              "amount": 100
-            },
-            {
-              "itemId": 4032434,
-              "amount": 100
-            },
-            {
-              "itemId": 4033664,
-              "amount": 100
-            },
-            {
-              "itemId": 4033733,
+              "itemId": 4000741,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 150,
@@ -2219,63 +960,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000734,
-              "amount": 100
-            },
-            {
-              "itemId": 4000735,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4000738,
-              "amount": 100
-            },
-            {
-              "itemId": 4009220,
-              "amount": 100
-            },
-            {
-              "itemId": 4036495,
-              "amount": 100
-            },
-            {
-              "itemId": 4036021,
-              "amount": 100
-            },
-            {
-              "itemId": 4032434,
-              "amount": 100
-            },
-            {
-              "itemId": 4036508,
-              "amount": 100
-            },
-            {
-              "itemId": 4036169,
-              "amount": 100
-            },
-            {
-              "itemId": 4036170,
+              "itemId": 4000743,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 150,
@@ -2292,63 +981,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000737,
-              "amount": 100
-            },
-            {
-              "itemId": 4034426,
-              "amount": 100
-            },
-            {
-              "itemId": 4033907,
-              "amount": 100
-            },
-            {
-              "itemId": 4036348,
-              "amount": 100
-            },
-            {
-              "itemId": 4009221,
-              "amount": 100
-            },
-            {
-              "itemId": 4036452,
-              "amount": 100
-            },
-            {
-              "itemId": 4034000,
-              "amount": 100
-            },
-            {
-              "itemId": 4170023,
-              "amount": 100
-            },
-            {
-              "itemId": 4023025,
-              "amount": 100
-            },
-            {
-              "itemId": 4034867,
-              "amount": 100
-            },
-            {
-              "itemId": 4034889,
+              "itemId": 4000744,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 150,
@@ -2370,99 +1007,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4033427,
-              "amount": 100
-            },
-            {
-              "itemId": 4036143,
-              "amount": 100
-            },
-            {
-              "itemId": 4036151,
-              "amount": 100
-            },
-            {
-              "itemId": 4036491,
-              "amount": 100
-            },
-            {
-              "itemId": 4034914,
-              "amount": 100
-            },
-            {
-              "itemId": 4034915,
-              "amount": 100
-            },
-            {
-              "itemId": 4034916,
-              "amount": 100
-            },
-            {
-              "itemId": 4034917,
-              "amount": 100
-            },
-            {
-              "itemId": 4034918,
-              "amount": 100
-            },
-            {
-              "itemId": 4034919,
-              "amount": 100
-            },
-            {
-              "itemId": 4034920,
-              "amount": 100
-            },
-            {
-              "itemId": 4034930,
-              "amount": 100
-            },
-            {
-              "itemId": 4034950,
-              "amount": 100
-            },
-            {
-              "itemId": 4034951,
-              "amount": 100
-            },
-            {
-              "itemId": 4034946,
-              "amount": 100
-            },
-            {
-              "itemId": 4034948,
-              "amount": 100
-            },
-            {
-              "itemId": 4021022,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 190,
@@ -2479,99 +1028,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036141,
-              "amount": 100
-            },
-            {
-              "itemId": 4036490,
-              "amount": 100
-            },
-            {
-              "itemId": 4036144,
-              "amount": 100
-            },
-            {
-              "itemId": 4036451,
-              "amount": 100
-            },
-            {
-              "itemId": 4034952,
-              "amount": 100
-            },
-            {
-              "itemId": 4034953,
-              "amount": 100
-            },
-            {
-              "itemId": 4034954,
-              "amount": 100
-            },
-            {
-              "itemId": 4034955,
-              "amount": 100
-            },
-            {
-              "itemId": 4034956,
-              "amount": 100
-            },
-            {
-              "itemId": 4034957,
-              "amount": 100
-            },
-            {
-              "itemId": 4034942,
-              "amount": 100
-            },
-            {
-              "itemId": 4034943,
-              "amount": 100
-            },
-            {
-              "itemId": 4034944,
-              "amount": 100
-            },
-            {
-              "itemId": 4034945,
-              "amount": 100
-            },
-            {
-              "itemId": 4034947,
-              "amount": 100
-            },
-            {
-              "itemId": 4034949,
-              "amount": 100
-            },
-            {
-              "itemId": 4031453,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 1850000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 190,
@@ -2588,99 +1049,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036453,
-              "amount": 100
-            },
-            {
-              "itemId": 4033658,
-              "amount": 100
-            },
-            {
-              "itemId": 4033665,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4034983,
-              "amount": 100
-            },
-            {
-              "itemId": 4034981,
-              "amount": 100
-            },
-            {
-              "itemId": 4034982,
-              "amount": 100
-            },
-            {
-              "itemId": 4034979,
-              "amount": 100
-            },
-            {
-              "itemId": 4034980,
-              "amount": 100
-            },
-            {
-              "itemId": 4034994,
-              "amount": 100
-            },
-            {
               "itemId": 4001878,
-              "amount": 100
-            },
-            {
-              "itemId": 4036096,
-              "amount": 100
-            },
-            {
-              "itemId": 4036097,
-              "amount": 100
-            },
-            {
-              "itemId": 4036098,
-              "amount": 100
-            },
-            {
-              "itemId": 4036099,
-              "amount": 100
-            },
-            {
-              "itemId": 4036100,
-              "amount": 100
-            },
-            {
-              "itemId": 4021040,
-              "amount": 100
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 190,
@@ -2697,99 +1070,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036171,
-              "amount": 100
-            },
-            {
-              "itemId": 4036163,
-              "amount": 100
-            },
-            {
-              "itemId": 4036167,
-              "amount": 100
-            },
-            {
-              "itemId": 4036164,
-              "amount": 100
-            },
-            {
-              "itemId": 4034295,
-              "amount": 100
-            },
-            {
-              "itemId": 4034296,
-              "amount": 100
-            },
-            {
-              "itemId": 4036309,
-              "amount": 100
-            },
-            {
-              "itemId": 4033935,
-              "amount": 100
-            },
-            {
-              "itemId": 4033936,
-              "amount": 100
-            },
-            {
-              "itemId": 4036335,
-              "amount": 100
-            },
-            {
-              "itemId": 4036336,
-              "amount": 100
-            },
-            {
-              "itemId": 4036312,
-              "amount": 100
-            },
-            {
-              "itemId": 4009005,
-              "amount": 100
-            },
-            {
-              "itemId": 4036398,
-              "amount": 100
-            },
-            {
-              "itemId": 4036399,
-              "amount": 100
-            },
-            {
-              "itemId": 4036400,
-              "amount": 100
-            },
-            {
-              "itemId": 4031453,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 190,
@@ -2806,99 +1091,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036168,
-              "amount": 100
-            },
-            {
-              "itemId": 4031929,
-              "amount": 100
-            },
-            {
-              "itemId": 4000590,
-              "amount": 100
-            },
-            {
-              "itemId": 4034156,
-              "amount": 100
-            },
-            {
-              "itemId": 4036401,
-              "amount": 100
-            },
-            {
-              "itemId": 4036402,
-              "amount": 100
-            },
-            {
-              "itemId": 4036403,
-              "amount": 100
-            },
-            {
-              "itemId": 4036404,
-              "amount": 100
-            },
-            {
-              "itemId": 4036405,
-              "amount": 100
-            },
-            {
-              "itemId": 4036406,
-              "amount": 100
-            },
-            {
-              "itemId": 4036407,
-              "amount": 100
-            },
-            {
-              "itemId": 4036456,
-              "amount": 100
-            },
-            {
-              "itemId": 4036457,
-              "amount": 100
-            },
-            {
-              "itemId": 4036446,
-              "amount": 100
-            },
-            {
-              "itemId": 4001889,
-              "amount": 100
-            },
-            {
-              "itemId": 4036444,
-              "amount": 100
-            },
-            {
-              "itemId": 4021040,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 190,
@@ -3034,27 +1231,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000642,
-              "amount": 200
-            },
-            {
-              "itemId": 4000643,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 130,
@@ -3071,27 +1252,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000644,
-              "amount": 200
-            },
-            {
-              "itemId": 4000645,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 925000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 130,
@@ -3108,27 +1273,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000646,
-              "amount": 200
-            },
-            {
-              "itemId": 4000647,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 130,
@@ -3145,27 +1294,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
-              "itemId": 4000648,
-              "amount": 200
-            },
-            {
-              "itemId": 4000649,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "itemId": 4000647,
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 130,
@@ -3182,27 +1315,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
-              "itemId": 4000650,
-              "amount": 200
-            },
-            {
-              "itemId": 4000651,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "itemId": 4000648,
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 130,
@@ -3224,35 +1341,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000652,
+              "itemId": 4000658,
               "amount": 100
-            },
-            {
-              "itemId": 4000653,
-              "amount": 100
-            },
-            {
-              "itemId": 4000654,
-              "amount": 100
-            },
-            {
-              "itemId": 4036346,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 140,
@@ -3269,35 +1362,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
               "itemId": 4000655,
               "amount": 100
-            },
-            {
-              "itemId": 4000656,
-              "amount": 100
-            },
-            {
-              "itemId": 4000657,
-              "amount": 100
-            },
-            {
-              "itemId": 4034077,
-              "amount": 100
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
             }
           ],
-          "cost": 1325000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 140,
@@ -3314,35 +1383,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000658,
+              "itemId": 4000657,
               "amount": 100
-            },
-            {
-              "itemId": 4000704,
-              "amount": 100
-            },
-            {
-              "itemId": 4000705,
-              "amount": 100
-            },
-            {
-              "itemId": 4034137,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 140,
@@ -3359,35 +1404,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000707,
+              "itemId": 4000654,
               "amount": 100
-            },
-            {
-              "itemId": 4000709,
-              "amount": 100
-            },
-            {
-              "itemId": 4000706,
-              "amount": 100
-            },
-            {
-              "itemId": 4000734,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 140,
@@ -3404,35 +1425,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000710,
+              "itemId": 4000656,
               "amount": 100
-            },
-            {
-              "itemId": 4000712,
-              "amount": 100
-            },
-            {
-              "itemId": 4000711,
-              "amount": 100
-            },
-            {
-              "itemId": 4000735,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 140,
@@ -3454,63 +1451,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000727,
-              "amount": 100
-            },
-            {
-              "itemId": 4000730,
-              "amount": 100
-            },
-            {
-              "itemId": 4000740,
-              "amount": 100
-            },
-            {
-              "itemId": 4000743,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4036147,
-              "amount": 100
-            },
-            {
-              "itemId": 4034887,
-              "amount": 100
-            },
-            {
-              "itemId": 4009340,
-              "amount": 100
-            },
-            {
-              "itemId": 4023025,
-              "amount": 100
-            },
-            {
-              "itemId": 4036492,
-              "amount": 100
-            },
-            {
-              "itemId": 4036140,
+              "itemId": 4000739,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 150,
@@ -3527,63 +1472,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000741,
-              "amount": 100
-            },
-            {
-              "itemId": 4000744,
-              "amount": 100
-            },
-            {
-              "itemId": 4000739,
-              "amount": 100
-            },
-            {
-              "itemId": 4000729,
-              "amount": 100
-            },
-            {
-              "itemId": 4001674,
-              "amount": 100
-            },
-            {
-              "itemId": 4036493,
-              "amount": 100
-            },
-            {
-              "itemId": 4031568,
-              "amount": 100
-            },
-            {
-              "itemId": 4034414,
-              "amount": 100
-            },
-            {
-              "itemId": 4036508,
-              "amount": 100
-            },
-            {
-              "itemId": 4036145,
-              "amount": 100
-            },
-            {
-              "itemId": 4036146,
+              "itemId": 4000740,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 150,
@@ -3600,63 +1493,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000728,
-              "amount": 100
-            },
-            {
-              "itemId": 4000731,
-              "amount": 100
-            },
-            {
-              "itemId": 4000733,
-              "amount": 100
-            },
-            {
-              "itemId": 4000732,
-              "amount": 100
-            },
-            {
-              "itemId": 4009219,
-              "amount": 100
-            },
-            {
-              "itemId": 4036494,
-              "amount": 100
-            },
-            {
-              "itemId": 4034658,
-              "amount": 100
-            },
-            {
-              "itemId": 4033401,
-              "amount": 100
-            },
-            {
-              "itemId": 4032434,
-              "amount": 100
-            },
-            {
-              "itemId": 4033664,
-              "amount": 100
-            },
-            {
-              "itemId": 4033733,
+              "itemId": 4000741,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 150,
@@ -3673,63 +1514,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000734,
-              "amount": 100
-            },
-            {
-              "itemId": 4000735,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4000738,
-              "amount": 100
-            },
-            {
-              "itemId": 4009220,
-              "amount": 100
-            },
-            {
-              "itemId": 4036495,
-              "amount": 100
-            },
-            {
-              "itemId": 4036021,
-              "amount": 100
-            },
-            {
-              "itemId": 4032434,
-              "amount": 100
-            },
-            {
-              "itemId": 4036508,
-              "amount": 100
-            },
-            {
-              "itemId": 4036169,
-              "amount": 100
-            },
-            {
-              "itemId": 4036170,
+              "itemId": 4000743,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 150,
@@ -3746,63 +1535,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000737,
-              "amount": 100
-            },
-            {
-              "itemId": 4034426,
-              "amount": 100
-            },
-            {
-              "itemId": 4033907,
-              "amount": 100
-            },
-            {
-              "itemId": 4036348,
-              "amount": 100
-            },
-            {
-              "itemId": 4009221,
-              "amount": 100
-            },
-            {
-              "itemId": 4036452,
-              "amount": 100
-            },
-            {
-              "itemId": 4034000,
-              "amount": 100
-            },
-            {
-              "itemId": 4170023,
-              "amount": 100
-            },
-            {
-              "itemId": 4023025,
-              "amount": 100
-            },
-            {
-              "itemId": 4034867,
-              "amount": 100
-            },
-            {
-              "itemId": 4034889,
+              "itemId": 4000744,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 150,
@@ -3824,99 +1561,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4033427,
-              "amount": 100
-            },
-            {
-              "itemId": 4036143,
-              "amount": 100
-            },
-            {
-              "itemId": 4036151,
-              "amount": 100
-            },
-            {
-              "itemId": 4036491,
-              "amount": 100
-            },
-            {
-              "itemId": 4034914,
-              "amount": 100
-            },
-            {
-              "itemId": 4034915,
-              "amount": 100
-            },
-            {
-              "itemId": 4034916,
-              "amount": 100
-            },
-            {
-              "itemId": 4034917,
-              "amount": 100
-            },
-            {
-              "itemId": 4034918,
-              "amount": 100
-            },
-            {
-              "itemId": 4034919,
-              "amount": 100
-            },
-            {
-              "itemId": 4034920,
-              "amount": 100
-            },
-            {
-              "itemId": 4034930,
-              "amount": 100
-            },
-            {
-              "itemId": 4034950,
-              "amount": 100
-            },
-            {
-              "itemId": 4034951,
-              "amount": 100
-            },
-            {
-              "itemId": 4034946,
-              "amount": 100
-            },
-            {
-              "itemId": 4034948,
-              "amount": 100
-            },
-            {
-              "itemId": 4021022,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 190,
@@ -3933,99 +1582,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036141,
-              "amount": 100
-            },
-            {
-              "itemId": 4036490,
-              "amount": 100
-            },
-            {
-              "itemId": 4036144,
-              "amount": 100
-            },
-            {
-              "itemId": 4036451,
-              "amount": 100
-            },
-            {
-              "itemId": 4034952,
-              "amount": 100
-            },
-            {
-              "itemId": 4034953,
-              "amount": 100
-            },
-            {
-              "itemId": 4034954,
-              "amount": 100
-            },
-            {
-              "itemId": 4034955,
-              "amount": 100
-            },
-            {
-              "itemId": 4034956,
-              "amount": 100
-            },
-            {
-              "itemId": 4034957,
-              "amount": 100
-            },
-            {
-              "itemId": 4034942,
-              "amount": 100
-            },
-            {
-              "itemId": 4034943,
-              "amount": 100
-            },
-            {
-              "itemId": 4034944,
-              "amount": 100
-            },
-            {
-              "itemId": 4034945,
-              "amount": 100
-            },
-            {
-              "itemId": 4034947,
-              "amount": 100
-            },
-            {
-              "itemId": 4034949,
-              "amount": 100
-            },
-            {
-              "itemId": 4031453,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 1850000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 190,
@@ -4042,99 +1603,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036453,
-              "amount": 100
-            },
-            {
-              "itemId": 4033658,
-              "amount": 100
-            },
-            {
-              "itemId": 4033665,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4034983,
-              "amount": 100
-            },
-            {
-              "itemId": 4034981,
-              "amount": 100
-            },
-            {
-              "itemId": 4034982,
-              "amount": 100
-            },
-            {
-              "itemId": 4034979,
-              "amount": 100
-            },
-            {
-              "itemId": 4034980,
-              "amount": 100
-            },
-            {
-              "itemId": 4034994,
-              "amount": 100
-            },
-            {
               "itemId": 4001878,
-              "amount": 100
-            },
-            {
-              "itemId": 4036096,
-              "amount": 100
-            },
-            {
-              "itemId": 4036097,
-              "amount": 100
-            },
-            {
-              "itemId": 4036098,
-              "amount": 100
-            },
-            {
-              "itemId": 4036099,
-              "amount": 100
-            },
-            {
-              "itemId": 4036100,
-              "amount": 100
-            },
-            {
-              "itemId": 4021040,
-              "amount": 100
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 190,
@@ -4151,99 +1624,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036171,
-              "amount": 100
-            },
-            {
-              "itemId": 4036163,
-              "amount": 100
-            },
-            {
-              "itemId": 4036167,
-              "amount": 100
-            },
-            {
-              "itemId": 4036164,
-              "amount": 100
-            },
-            {
-              "itemId": 4034295,
-              "amount": 100
-            },
-            {
-              "itemId": 4034296,
-              "amount": 100
-            },
-            {
-              "itemId": 4036309,
-              "amount": 100
-            },
-            {
-              "itemId": 4033935,
-              "amount": 100
-            },
-            {
-              "itemId": 4033936,
-              "amount": 100
-            },
-            {
-              "itemId": 4036335,
-              "amount": 100
-            },
-            {
-              "itemId": 4036336,
-              "amount": 100
-            },
-            {
-              "itemId": 4036312,
-              "amount": 100
-            },
-            {
-              "itemId": 4009005,
-              "amount": 100
-            },
-            {
-              "itemId": 4036398,
-              "amount": 100
-            },
-            {
-              "itemId": 4036399,
-              "amount": 100
-            },
-            {
-              "itemId": 4036400,
-              "amount": 100
-            },
-            {
-              "itemId": 4031453,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 190,
@@ -4260,99 +1645,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036168,
-              "amount": 100
-            },
-            {
-              "itemId": 4031929,
-              "amount": 100
-            },
-            {
-              "itemId": 4000590,
-              "amount": 100
-            },
-            {
-              "itemId": 4034156,
-              "amount": 100
-            },
-            {
-              "itemId": 4036401,
-              "amount": 100
-            },
-            {
-              "itemId": 4036402,
-              "amount": 100
-            },
-            {
-              "itemId": 4036403,
-              "amount": 100
-            },
-            {
-              "itemId": 4036404,
-              "amount": 100
-            },
-            {
-              "itemId": 4036405,
-              "amount": 100
-            },
-            {
-              "itemId": 4036406,
-              "amount": 100
-            },
-            {
-              "itemId": 4036407,
-              "amount": 100
-            },
-            {
-              "itemId": 4036456,
-              "amount": 100
-            },
-            {
-              "itemId": 4036457,
-              "amount": 100
-            },
-            {
-              "itemId": 4036446,
-              "amount": 100
-            },
-            {
-              "itemId": 4001889,
-              "amount": 100
-            },
-            {
-              "itemId": 4036444,
-              "amount": 100
-            },
-            {
-              "itemId": 4021040,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 190,
@@ -4489,27 +1786,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000642,
-              "amount": 200
-            },
-            {
-              "itemId": 4000643,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 130,
@@ -4526,27 +1807,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000644,
-              "amount": 200
-            },
-            {
-              "itemId": 4000645,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 925000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 130,
@@ -4563,27 +1828,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000646,
-              "amount": 200
-            },
-            {
-              "itemId": 4000647,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 130,
@@ -4600,27 +1849,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
-              "itemId": 4000648,
-              "amount": 200
-            },
-            {
-              "itemId": 4000649,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "itemId": 4000647,
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 130,
@@ -4637,27 +1870,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
-              "itemId": 4000650,
-              "amount": 200
-            },
-            {
-              "itemId": 4000651,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "itemId": 4000648,
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 130,
@@ -4679,35 +1896,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000652,
+              "itemId": 4000658,
               "amount": 100
-            },
-            {
-              "itemId": 4000653,
-              "amount": 100
-            },
-            {
-              "itemId": 4000654,
-              "amount": 100
-            },
-            {
-              "itemId": 4036346,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 140,
@@ -4724,35 +1917,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
               "itemId": 4000655,
               "amount": 100
-            },
-            {
-              "itemId": 4000656,
-              "amount": 100
-            },
-            {
-              "itemId": 4000657,
-              "amount": 100
-            },
-            {
-              "itemId": 4034077,
-              "amount": 100
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
             }
           ],
-          "cost": 1325000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 140,
@@ -4769,35 +1938,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000658,
+              "itemId": 4000657,
               "amount": 100
-            },
-            {
-              "itemId": 4000704,
-              "amount": 100
-            },
-            {
-              "itemId": 4000705,
-              "amount": 100
-            },
-            {
-              "itemId": 4034137,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 140,
@@ -4814,35 +1959,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000707,
+              "itemId": 4000654,
               "amount": 100
-            },
-            {
-              "itemId": 4000709,
-              "amount": 100
-            },
-            {
-              "itemId": 4000706,
-              "amount": 100
-            },
-            {
-              "itemId": 4000734,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 140,
@@ -4859,35 +1980,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000710,
+              "itemId": 4000656,
               "amount": 100
-            },
-            {
-              "itemId": 4000712,
-              "amount": 100
-            },
-            {
-              "itemId": 4000711,
-              "amount": 100
-            },
-            {
-              "itemId": 4000735,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 140,
@@ -4909,63 +2006,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000727,
-              "amount": 100
-            },
-            {
-              "itemId": 4000730,
-              "amount": 100
-            },
-            {
-              "itemId": 4000740,
-              "amount": 100
-            },
-            {
-              "itemId": 4000743,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4036147,
-              "amount": 100
-            },
-            {
-              "itemId": 4034887,
-              "amount": 100
-            },
-            {
-              "itemId": 4009340,
-              "amount": 100
-            },
-            {
-              "itemId": 4023025,
-              "amount": 100
-            },
-            {
-              "itemId": 4036492,
-              "amount": 100
-            },
-            {
-              "itemId": 4036140,
+              "itemId": 4000739,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 150,
@@ -4982,63 +2027,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000741,
-              "amount": 100
-            },
-            {
-              "itemId": 4000744,
-              "amount": 100
-            },
-            {
-              "itemId": 4000739,
-              "amount": 100
-            },
-            {
-              "itemId": 4000729,
-              "amount": 100
-            },
-            {
-              "itemId": 4001674,
-              "amount": 100
-            },
-            {
-              "itemId": 4036493,
-              "amount": 100
-            },
-            {
-              "itemId": 4031568,
-              "amount": 100
-            },
-            {
-              "itemId": 4034414,
-              "amount": 100
-            },
-            {
-              "itemId": 4036508,
-              "amount": 100
-            },
-            {
-              "itemId": 4036145,
-              "amount": 100
-            },
-            {
-              "itemId": 4036146,
+              "itemId": 4000740,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 150,
@@ -5055,63 +2048,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000728,
-              "amount": 100
-            },
-            {
-              "itemId": 4000731,
-              "amount": 100
-            },
-            {
-              "itemId": 4000733,
-              "amount": 100
-            },
-            {
-              "itemId": 4000732,
-              "amount": 100
-            },
-            {
-              "itemId": 4009219,
-              "amount": 100
-            },
-            {
-              "itemId": 4036494,
-              "amount": 100
-            },
-            {
-              "itemId": 4034658,
-              "amount": 100
-            },
-            {
-              "itemId": 4033401,
-              "amount": 100
-            },
-            {
-              "itemId": 4032434,
-              "amount": 100
-            },
-            {
-              "itemId": 4033664,
-              "amount": 100
-            },
-            {
-              "itemId": 4033733,
+              "itemId": 4000741,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 150,
@@ -5128,63 +2069,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000734,
-              "amount": 100
-            },
-            {
-              "itemId": 4000735,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4000738,
-              "amount": 100
-            },
-            {
-              "itemId": 4009220,
-              "amount": 100
-            },
-            {
-              "itemId": 4036495,
-              "amount": 100
-            },
-            {
-              "itemId": 4036021,
-              "amount": 100
-            },
-            {
-              "itemId": 4032434,
-              "amount": 100
-            },
-            {
-              "itemId": 4036508,
-              "amount": 100
-            },
-            {
-              "itemId": 4036169,
-              "amount": 100
-            },
-            {
-              "itemId": 4036170,
+              "itemId": 4000743,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 150,
@@ -5201,63 +2090,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000737,
-              "amount": 100
-            },
-            {
-              "itemId": 4034426,
-              "amount": 100
-            },
-            {
-              "itemId": 4033907,
-              "amount": 100
-            },
-            {
-              "itemId": 4036348,
-              "amount": 100
-            },
-            {
-              "itemId": 4009221,
-              "amount": 100
-            },
-            {
-              "itemId": 4036452,
-              "amount": 100
-            },
-            {
-              "itemId": 4034000,
-              "amount": 100
-            },
-            {
-              "itemId": 4170023,
-              "amount": 100
-            },
-            {
-              "itemId": 4023025,
-              "amount": 100
-            },
-            {
-              "itemId": 4034867,
-              "amount": 100
-            },
-            {
-              "itemId": 4034889,
+              "itemId": 4000744,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 150,
@@ -5279,99 +2116,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4033427,
-              "amount": 100
-            },
-            {
-              "itemId": 4036143,
-              "amount": 100
-            },
-            {
-              "itemId": 4036151,
-              "amount": 100
-            },
-            {
-              "itemId": 4036491,
-              "amount": 100
-            },
-            {
-              "itemId": 4034914,
-              "amount": 100
-            },
-            {
-              "itemId": 4034915,
-              "amount": 100
-            },
-            {
-              "itemId": 4034916,
-              "amount": 100
-            },
-            {
-              "itemId": 4034917,
-              "amount": 100
-            },
-            {
-              "itemId": 4034918,
-              "amount": 100
-            },
-            {
-              "itemId": 4034919,
-              "amount": 100
-            },
-            {
-              "itemId": 4034920,
-              "amount": 100
-            },
-            {
-              "itemId": 4034930,
-              "amount": 100
-            },
-            {
-              "itemId": 4034950,
-              "amount": 100
-            },
-            {
-              "itemId": 4034951,
-              "amount": 100
-            },
-            {
-              "itemId": 4034946,
-              "amount": 100
-            },
-            {
-              "itemId": 4034948,
-              "amount": 100
-            },
-            {
-              "itemId": 4021022,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 190,
@@ -5388,99 +2137,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036141,
-              "amount": 100
-            },
-            {
-              "itemId": 4036490,
-              "amount": 100
-            },
-            {
-              "itemId": 4036144,
-              "amount": 100
-            },
-            {
-              "itemId": 4036451,
-              "amount": 100
-            },
-            {
-              "itemId": 4034952,
-              "amount": 100
-            },
-            {
-              "itemId": 4034953,
-              "amount": 100
-            },
-            {
-              "itemId": 4034954,
-              "amount": 100
-            },
-            {
-              "itemId": 4034955,
-              "amount": 100
-            },
-            {
-              "itemId": 4034956,
-              "amount": 100
-            },
-            {
-              "itemId": 4034957,
-              "amount": 100
-            },
-            {
-              "itemId": 4034942,
-              "amount": 100
-            },
-            {
-              "itemId": 4034943,
-              "amount": 100
-            },
-            {
-              "itemId": 4034944,
-              "amount": 100
-            },
-            {
-              "itemId": 4034945,
-              "amount": 100
-            },
-            {
-              "itemId": 4034947,
-              "amount": 100
-            },
-            {
-              "itemId": 4034949,
-              "amount": 100
-            },
-            {
-              "itemId": 4031453,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 1850000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 190,
@@ -5497,99 +2158,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036453,
-              "amount": 100
-            },
-            {
-              "itemId": 4033658,
-              "amount": 100
-            },
-            {
-              "itemId": 4033665,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4034983,
-              "amount": 100
-            },
-            {
-              "itemId": 4034981,
-              "amount": 100
-            },
-            {
-              "itemId": 4034982,
-              "amount": 100
-            },
-            {
-              "itemId": 4034979,
-              "amount": 100
-            },
-            {
-              "itemId": 4034980,
-              "amount": 100
-            },
-            {
-              "itemId": 4034994,
-              "amount": 100
-            },
-            {
               "itemId": 4001878,
-              "amount": 100
-            },
-            {
-              "itemId": 4036096,
-              "amount": 100
-            },
-            {
-              "itemId": 4036097,
-              "amount": 100
-            },
-            {
-              "itemId": 4036098,
-              "amount": 100
-            },
-            {
-              "itemId": 4036099,
-              "amount": 100
-            },
-            {
-              "itemId": 4036100,
-              "amount": 100
-            },
-            {
-              "itemId": 4021040,
-              "amount": 100
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 190,
@@ -5606,99 +2179,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036171,
-              "amount": 100
-            },
-            {
-              "itemId": 4036163,
-              "amount": 100
-            },
-            {
-              "itemId": 4036167,
-              "amount": 100
-            },
-            {
-              "itemId": 4036164,
-              "amount": 100
-            },
-            {
-              "itemId": 4034295,
-              "amount": 100
-            },
-            {
-              "itemId": 4034296,
-              "amount": 100
-            },
-            {
-              "itemId": 4036309,
-              "amount": 100
-            },
-            {
-              "itemId": 4033935,
-              "amount": 100
-            },
-            {
-              "itemId": 4033936,
-              "amount": 100
-            },
-            {
-              "itemId": 4036335,
-              "amount": 100
-            },
-            {
-              "itemId": 4036336,
-              "amount": 100
-            },
-            {
-              "itemId": 4036312,
-              "amount": 100
-            },
-            {
-              "itemId": 4009005,
-              "amount": 100
-            },
-            {
-              "itemId": 4036398,
-              "amount": 100
-            },
-            {
-              "itemId": 4036399,
-              "amount": 100
-            },
-            {
-              "itemId": 4036400,
-              "amount": 100
-            },
-            {
-              "itemId": 4031453,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 190,
@@ -5715,99 +2200,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036168,
-              "amount": 100
-            },
-            {
-              "itemId": 4031929,
-              "amount": 100
-            },
-            {
-              "itemId": 4000590,
-              "amount": 100
-            },
-            {
-              "itemId": 4034156,
-              "amount": 100
-            },
-            {
-              "itemId": 4036401,
-              "amount": 100
-            },
-            {
-              "itemId": 4036402,
-              "amount": 100
-            },
-            {
-              "itemId": 4036403,
-              "amount": 100
-            },
-            {
-              "itemId": 4036404,
-              "amount": 100
-            },
-            {
-              "itemId": 4036405,
-              "amount": 100
-            },
-            {
-              "itemId": 4036406,
-              "amount": 100
-            },
-            {
-              "itemId": 4036407,
-              "amount": 100
-            },
-            {
-              "itemId": 4036456,
-              "amount": 100
-            },
-            {
-              "itemId": 4036457,
-              "amount": 100
-            },
-            {
-              "itemId": 4036446,
-              "amount": 100
-            },
-            {
-              "itemId": 4001889,
-              "amount": 100
-            },
-            {
-              "itemId": 4036444,
-              "amount": 100
-            },
-            {
-              "itemId": 4021040,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 190,
@@ -5944,27 +2341,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000642,
-              "amount": 200
-            },
-            {
-              "itemId": 4000643,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 130,
@@ -5981,27 +2362,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000644,
-              "amount": 200
-            },
-            {
-              "itemId": 4000645,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 925000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 130,
@@ -6018,27 +2383,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
               "itemId": 4000646,
-              "amount": 200
-            },
-            {
-              "itemId": 4000647,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 130,
@@ -6055,27 +2404,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
-              "itemId": 4000648,
-              "amount": 200
-            },
-            {
-              "itemId": 4000649,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "itemId": 4000647,
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 130,
@@ -6092,27 +2425,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 2
-            },
-            {
-              "itemId": 4011007,
-              "amount": 2
-            },
-            {
-              "itemId": 4000650,
-              "amount": 200
-            },
-            {
-              "itemId": 4000651,
-              "amount": 200
-            },
-            {
-              "itemId": 4000659,
-              "amount": 1
+              "itemId": 4000648,
+              "amount": 100
             }
           ],
-          "cost": 200000000,
+          "cost": 6000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 130,
@@ -6134,35 +2451,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000652,
+              "itemId": 4000658,
               "amount": 100
-            },
-            {
-              "itemId": 4000653,
-              "amount": 100
-            },
-            {
-              "itemId": 4000654,
-              "amount": 100
-            },
-            {
-              "itemId": 4036346,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 140,
@@ -6179,35 +2472,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
               "itemId": 4000655,
               "amount": 100
-            },
-            {
-              "itemId": 4000656,
-              "amount": 100
-            },
-            {
-              "itemId": 4000657,
-              "amount": 100
-            },
-            {
-              "itemId": 4034077,
-              "amount": 100
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
             }
           ],
-          "cost": 1325000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 140,
@@ -6224,35 +2493,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000658,
+              "itemId": 4000657,
               "amount": 100
-            },
-            {
-              "itemId": 4000704,
-              "amount": 100
-            },
-            {
-              "itemId": 4000705,
-              "amount": 100
-            },
-            {
-              "itemId": 4034137,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 140,
@@ -6269,35 +2514,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000707,
+              "itemId": 4000654,
               "amount": 100
-            },
-            {
-              "itemId": 4000709,
-              "amount": 100
-            },
-            {
-              "itemId": 4000706,
-              "amount": 100
-            },
-            {
-              "itemId": 4000734,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 140,
@@ -6314,35 +2535,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 3
-            },
-            {
-              "itemId": 4011007,
-              "amount": 3
-            },
-            {
-              "itemId": 4000710,
+              "itemId": 4000656,
               "amount": 100
-            },
-            {
-              "itemId": 4000712,
-              "amount": 100
-            },
-            {
-              "itemId": 4000711,
-              "amount": 100
-            },
-            {
-              "itemId": 4000735,
-              "amount": 100
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
             }
           ],
-          "cost": 380000000,
+          "cost": 6500000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 140,
@@ -6364,63 +2561,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000727,
-              "amount": 100
-            },
-            {
-              "itemId": 4000730,
-              "amount": 100
-            },
-            {
-              "itemId": 4000740,
-              "amount": 100
-            },
-            {
-              "itemId": 4000743,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4036147,
-              "amount": 100
-            },
-            {
-              "itemId": 4034887,
-              "amount": 100
-            },
-            {
-              "itemId": 4009340,
-              "amount": 100
-            },
-            {
-              "itemId": 4023025,
-              "amount": 100
-            },
-            {
-              "itemId": 4036492,
-              "amount": 100
-            },
-            {
-              "itemId": 4036140,
+              "itemId": 4000739,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 150,
@@ -6437,63 +2582,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000741,
-              "amount": 100
-            },
-            {
-              "itemId": 4000744,
-              "amount": 100
-            },
-            {
-              "itemId": 4000739,
-              "amount": 100
-            },
-            {
-              "itemId": 4000729,
-              "amount": 100
-            },
-            {
-              "itemId": 4001674,
-              "amount": 100
-            },
-            {
-              "itemId": 4036493,
-              "amount": 100
-            },
-            {
-              "itemId": 4031568,
-              "amount": 100
-            },
-            {
-              "itemId": 4034414,
-              "amount": 100
-            },
-            {
-              "itemId": 4036508,
-              "amount": 100
-            },
-            {
-              "itemId": 4036145,
-              "amount": 100
-            },
-            {
-              "itemId": 4036146,
+              "itemId": 4000740,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 150,
@@ -6510,63 +2603,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000728,
-              "amount": 100
-            },
-            {
-              "itemId": 4000731,
-              "amount": 100
-            },
-            {
-              "itemId": 4000733,
-              "amount": 100
-            },
-            {
-              "itemId": 4000732,
-              "amount": 100
-            },
-            {
-              "itemId": 4009219,
-              "amount": 100
-            },
-            {
-              "itemId": 4036494,
-              "amount": 100
-            },
-            {
-              "itemId": 4034658,
-              "amount": 100
-            },
-            {
-              "itemId": 4033401,
-              "amount": 100
-            },
-            {
-              "itemId": 4032434,
-              "amount": 100
-            },
-            {
-              "itemId": 4033664,
-              "amount": 100
-            },
-            {
-              "itemId": 4033733,
+              "itemId": 4000741,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 150,
@@ -6583,63 +2624,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000734,
-              "amount": 100
-            },
-            {
-              "itemId": 4000735,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4000738,
-              "amount": 100
-            },
-            {
-              "itemId": 4009220,
-              "amount": 100
-            },
-            {
-              "itemId": 4036495,
-              "amount": 100
-            },
-            {
-              "itemId": 4036021,
-              "amount": 100
-            },
-            {
-              "itemId": 4032434,
-              "amount": 100
-            },
-            {
-              "itemId": 4036508,
-              "amount": 100
-            },
-            {
-              "itemId": 4036169,
-              "amount": 100
-            },
-            {
-              "itemId": 4036170,
+              "itemId": 4000743,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 150,
@@ -6656,63 +2645,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 4
-            },
-            {
-              "itemId": 4011007,
-              "amount": 4
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4000737,
-              "amount": 100
-            },
-            {
-              "itemId": 4034426,
-              "amount": 100
-            },
-            {
-              "itemId": 4033907,
-              "amount": 100
-            },
-            {
-              "itemId": 4036348,
-              "amount": 100
-            },
-            {
-              "itemId": 4009221,
-              "amount": 100
-            },
-            {
-              "itemId": 4036452,
-              "amount": 100
-            },
-            {
-              "itemId": 4034000,
-              "amount": 100
-            },
-            {
-              "itemId": 4170023,
-              "amount": 100
-            },
-            {
-              "itemId": 4023025,
-              "amount": 100
-            },
-            {
-              "itemId": 4034867,
-              "amount": 100
-            },
-            {
-              "itemId": 4034889,
+              "itemId": 4000744,
               "amount": 100
             }
           ],
-          "cost": 480000000,
+          "cost": 7000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 150,
@@ -6734,99 +2671,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4033427,
-              "amount": 100
-            },
-            {
-              "itemId": 4036143,
-              "amount": 100
-            },
-            {
-              "itemId": 4036151,
-              "amount": 100
-            },
-            {
-              "itemId": 4036491,
-              "amount": 100
-            },
-            {
-              "itemId": 4034914,
-              "amount": 100
-            },
-            {
-              "itemId": 4034915,
-              "amount": 100
-            },
-            {
-              "itemId": 4034916,
-              "amount": 100
-            },
-            {
-              "itemId": 4034917,
-              "amount": 100
-            },
-            {
-              "itemId": 4034918,
-              "amount": 100
-            },
-            {
-              "itemId": 4034919,
-              "amount": 100
-            },
-            {
-              "itemId": 4034920,
-              "amount": 100
-            },
-            {
-              "itemId": 4034930,
-              "amount": 100
-            },
-            {
-              "itemId": 4034950,
-              "amount": 100
-            },
-            {
-              "itemId": 4034951,
-              "amount": 100
-            },
-            {
-              "itemId": 4034946,
-              "amount": 100
-            },
-            {
-              "itemId": 4034948,
-              "amount": 100
-            },
-            {
-              "itemId": 4021022,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 190,
@@ -6843,99 +2692,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036141,
-              "amount": 100
-            },
-            {
-              "itemId": 4036490,
-              "amount": 100
-            },
-            {
-              "itemId": 4036144,
-              "amount": 100
-            },
-            {
-              "itemId": 4036451,
-              "amount": 100
-            },
-            {
-              "itemId": 4034952,
-              "amount": 100
-            },
-            {
-              "itemId": 4034953,
-              "amount": 100
-            },
-            {
-              "itemId": 4034954,
-              "amount": 100
-            },
-            {
-              "itemId": 4034955,
-              "amount": 100
-            },
-            {
-              "itemId": 4034956,
-              "amount": 100
-            },
-            {
-              "itemId": 4034957,
-              "amount": 100
-            },
-            {
-              "itemId": 4034942,
-              "amount": 100
-            },
-            {
-              "itemId": 4034943,
-              "amount": 100
-            },
-            {
-              "itemId": 4034944,
-              "amount": 100
-            },
-            {
-              "itemId": 4034945,
-              "amount": 100
-            },
-            {
-              "itemId": 4034947,
-              "amount": 100
-            },
-            {
-              "itemId": 4034949,
-              "amount": 100
-            },
-            {
-              "itemId": 4031453,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 1850000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130021,
           "requiredLevel": 190,
@@ -6952,99 +2713,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036453,
-              "amount": 100
-            },
-            {
-              "itemId": 4033658,
-              "amount": 100
-            },
-            {
-              "itemId": 4033665,
-              "amount": 100
-            },
-            {
-              "itemId": 4000736,
-              "amount": 100
-            },
-            {
-              "itemId": 4034983,
-              "amount": 100
-            },
-            {
-              "itemId": 4034981,
-              "amount": 100
-            },
-            {
-              "itemId": 4034982,
-              "amount": 100
-            },
-            {
-              "itemId": 4034979,
-              "amount": 100
-            },
-            {
-              "itemId": 4034980,
-              "amount": 100
-            },
-            {
-              "itemId": 4034994,
-              "amount": 100
-            },
-            {
               "itemId": 4001878,
-              "amount": 100
-            },
-            {
-              "itemId": 4036096,
-              "amount": 100
-            },
-            {
-              "itemId": 4036097,
-              "amount": 100
-            },
-            {
-              "itemId": 4036098,
-              "amount": 100
-            },
-            {
-              "itemId": 4036099,
-              "amount": 100
-            },
-            {
-              "itemId": 4036100,
-              "amount": 100
-            },
-            {
-              "itemId": 4021040,
-              "amount": 100
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130001,
           "requiredLevel": 190,
@@ -7061,99 +2734,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036171,
-              "amount": 100
-            },
-            {
-              "itemId": 4036163,
-              "amount": 100
-            },
-            {
-              "itemId": 4036167,
-              "amount": 100
-            },
-            {
-              "itemId": 4036164,
-              "amount": 100
-            },
-            {
-              "itemId": 4034295,
-              "amount": 100
-            },
-            {
-              "itemId": 4034296,
-              "amount": 100
-            },
-            {
-              "itemId": 4036309,
-              "amount": 100
-            },
-            {
-              "itemId": 4033935,
-              "amount": 100
-            },
-            {
-              "itemId": 4033936,
-              "amount": 100
-            },
-            {
-              "itemId": 4036335,
-              "amount": 100
-            },
-            {
-              "itemId": 4036336,
-              "amount": 100
-            },
-            {
-              "itemId": 4036312,
-              "amount": 100
-            },
-            {
-              "itemId": 4009005,
-              "amount": 100
-            },
-            {
-              "itemId": 4036398,
-              "amount": 100
-            },
-            {
-              "itemId": 4036399,
-              "amount": 100
-            },
-            {
-              "itemId": 4036400,
-              "amount": 100
-            },
-            {
-              "itemId": 4031453,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130000,
           "requiredLevel": 190,
@@ -7170,99 +2755,11 @@
               "processStarforce": true
             },
             {
-              "itemId": 4021009,
-              "amount": 5
-            },
-            {
-              "itemId": 4011007,
-              "amount": 5
-            },
-            {
-              "itemId": 4001890,
-              "amount": 1
-            },
-            {
-              "itemId": 4033732,
-              "amount": 1
-            },
-            {
-              "itemId": 4001894,
-              "amount": 1
-            },
-            {
-              "itemId": 4001893,
-              "amount": 1
-            },
-            {
-              "itemId": 4036168,
-              "amount": 100
-            },
-            {
-              "itemId": 4031929,
-              "amount": 100
-            },
-            {
-              "itemId": 4000590,
-              "amount": 100
-            },
-            {
-              "itemId": 4034156,
-              "amount": 100
-            },
-            {
-              "itemId": 4036401,
-              "amount": 100
-            },
-            {
-              "itemId": 4036402,
-              "amount": 100
-            },
-            {
-              "itemId": 4036403,
-              "amount": 100
-            },
-            {
-              "itemId": 4036404,
-              "amount": 100
-            },
-            {
-              "itemId": 4036405,
-              "amount": 100
-            },
-            {
-              "itemId": 4036406,
-              "amount": 100
-            },
-            {
-              "itemId": 4036407,
-              "amount": 100
-            },
-            {
-              "itemId": 4036456,
-              "amount": 100
-            },
-            {
-              "itemId": 4036457,
-              "amount": 100
-            },
-            {
-              "itemId": 4036446,
-              "amount": 100
-            },
-            {
-              "itemId": 4001889,
-              "amount": 100
-            },
-            {
-              "itemId": 4036444,
-              "amount": 100
-            },
-            {
-              "itemId": 4021040,
-              "amount": 100
+              "itemId": 4001878,
+              "amount": 4
             }
           ],
-          "cost": 480000000,
+          "cost": 8000000,
           "slots": 3,
           "stimulant": 4130018,
           "requiredLevel": 190,

@@ -1,6 +1,6 @@
 # Normal equipment through 200, then forged rebirth progression
 
-Status: implementation preparation assigned directly to Codex by the owner; release-book ID/board update still pending.
+Status: partial local implementation assigned directly to Codex; TEST/client combat proof and release-book ID/board update pending.
 Implementation target: **1.6.4**, owner direction in this conversation.
 Current branch/worktree: `164-gear-progression-codex`, `/root/work/SlumsMS-164-gear-progression-codex`, from release-1.6.4.
 Related exported card: e10 (export still says later; this conversation is the newer owner prioritization).
@@ -8,20 +8,29 @@ CLOSER: Server Dev SlumsMS Main Session. PROOF: per-slice tests and data checks 
 server/client acceptance checks in this ticket; the ticket is not closed by the preparatory audit.
 Requested by the owner in the area/gear balance discussion, 2026-11-02.
 Lanes: Server (lead: drops, crafting, rebirth, data and QA), Client (combat/equipment parity and real-client QA).
-Target release: coordinator to schedule; this ticket does not add work to the current release freeze.
+Target release:1.6.4, open for this owner-authorized balance work; coordinator owns admission and tracking.
 Related: [81: imported content](81-post-big-bang-content.md), [30: rebirth](30-bot-rebirth.md).
 Audit branch: `area-balance-codex`; supporting commits `0bf622cf9`, `7a84c2191`, `77ca3526e`, `7e2f5a7da`.
 
-## Current implementation slice
+## Current local implementation
 
-Owner selected **existing gear families, with late upgrades from scrolls and accessories**, rather than new
-level-180/200 weapon tiers. See [the first normal-path batch](../economy/normal-200/README.md), including the
-42 late gear candidates and 136 explicit proposed source pairs for 68 items. The repeatable audit and 17 passing
-Python tests establish policy coverage; subsequent candidate now includes the explicit bound-item policy, migration059/rollback, script requirement
-checks and pirate recipe correction. See [candidate release notes](../release/1.6.4-gear-progression.md). The
-owner selected approximately1–4 hours at the actual4x rate using ordinary1x stored chances. The complete-set
-model and local tests are recorded there; installed-source/client/combat proof and release admission remain
-pending. No runtime change has been deployed.
+Owner chose existing normal gear families through200, with late scroll/accessory upgrades. Migration059
+proposes136 pairs for68 items across19 actual mobs at stored1x chances; migration060 supplies missing LKC
+material pairs. The normal full-set model targets1–4 active hours at the server's existing4x multiplier.
+
+All237 main equipment forge recipes are simplified for the owner's8–12-hour target **per stage**, using matching
+previous equipment and regional resources, with trophies/cores required on weapons. The existing Genesis
+Fragment refining recipe is simplified too;44 accessory recipes remain unchanged. A free one-for-one class-core
+exchange is available behind `slums.forge.coreExchange` (default OFF). Normal/hard Lucid supply a non-quest trophy.
+Requirements/input validation, pirate slot mapping, the Lionheart sword RB2 exception, HP/MP carryover and
+input-based enhancement refunds have local fixes and regression tests.
+
+See [release candidate and exact numbers/proof](../release/1.6.4-gear-progression.md),
+[stage policy](../economy/forge-stages.json) and [238-recipe exact diff](../economy/forge-economy-diff.csv).
+Stored chances and recipe tuning implement the agreed direction; modeled hours are not player measurements.
+Both migrations passed disposable MySQL apply/rollback tests; neither is release-enabled. No TEST deployment,
+SSH, client launch or live action was performed. `!qa run ng-8` and MANUAL auto-QA row `t-ng-8` are registered;
+remaining acceptance checks stay open. Client/server combat calibration is still required to close this ticket.
 
 ## Problem and intended result
 
@@ -56,20 +65,18 @@ its first reward, with a realistic friends party and no unstated carry from stro
 
 See [combat/loot audit](../economy/new-area-balance-plan.md), [class ladder](../economy/new-area-equipment-ladder.md),
 [rebirth/forge analysis](../economy/rebirth-and-forge-progression.md) and [complete forge catalogue](../economy/forge-catalog/full-list.md).
-The catalogue covers 357 recipes, 581 distinct inputs, 443 scoped equipment candidates and 112 complete class
+The catalogue covers 357 recipes, 456 distinct inputs, 443 scoped equipment candidates and 112 complete class
 loadouts. [Loadout CSV](../economy/forge-catalog/complete-loadouts.csv) includes cumulative fees and rolled-up inputs.
 These are retained repository/XML facts, not deployed-state receipts.
 
 - Current explicit equip lists generally require RB1 for Royal, RB2 for level-140 class boss sets, and RB3 for
   Japanese/AbsoLab/Arcane/Genesis. Normal high-level loot cannot simply depend on those locked IDs.
-- Lionheart Battle Scimitar 1402095 is absent from the RB2 list. Verify intended policy before correcting it.
-- Every pirate AbsoLab armour recipe consumes warrior Amaterasu's Helm 1003601 instead of its matching pirate
-  piece. Preserve existing inventory and review compensation/transition needs before changing recipes.
-- Craft/Maker levels are declared but not consistently enforced in the inspected shared script path. Sealed
-  Genesis/Genesis declare craft levels 225/250 while both have raw equip level 200. Reproduce the intended gates.
+- Original Lionheart Battle Scimitar1402095 RB2 omission is fixed locally; all16 class boss weapons now require RB2.
+- Original pirate AbsoLab input bug is fixed locally: each slot consumes matching Susano-o gear; existing inventory is preserved.
+- Craft/Maker/RB gates are enforced locally. Sealed/Genesis craft at225/250 while raw equip level stays200; verify actual RB3 level-cap configuration on TEST.
 - Transfer adds old actual attack/stats, configured percentage bonuses and enhancement bonuses to the new base.
-  A dropped copy and a fully forged copy of the same ID can differ greatly. Five warrior Arcane armour pieces
-  plus a Genesis 1H sword have 14.415B cumulative base forge fees before materials/refining/enhancements.
+  A dropped copy and a fully forged copy of the same ID can differ greatly. The old warrior chain cost14.415B;
+  the local candidate costs286M across every class, including Fragment refining but excluding enhancements.
 - Player rebirth redistributes retained AP in the enabled reset path; the inspected path does not explicitly clear
   skills or reset HP/MP. Verify actual retention and re-equip behavior before defining rebirth combat profiles.
 - Frozen Rose's retained server PA/MA is 2310/2255 versus 900/900 in the retained client IMG. Human incoming
@@ -105,6 +112,10 @@ These are retained repository/XML facts, not deployed-state receipts.
    auto-QA. The assigned lanes own TEST deployment and client testing; live remains a separate owner action.
 
 ## Making future adjustments easy
+
+[Implemented local tuning workflow](../economy/gear-tuning-workflow.md): edit the normal-source/drop policy or
+forge-stage profile, validate/preview, review the diff, then have the lane install and prove it.
+
 
 Start with versioned CSV/JSON source data and an offline validator/generator, building on `tools/economy` and the
 existing recipe JSON. Provide one editable progression manifest keyed by item/mob ID, region/role, level/RB band,
@@ -153,17 +164,16 @@ and forge validation require measured TEST sessions, not just editing numbers.
 - [ ] No unintended classic-map/shared-ID, quest/card drop, set, starter 1–99, boss mechanic or gate regression.
       Rollback, release configuration, status and notes accompany the implementation.
 
-## Decisions still needed
+## Approved direction and remaining measurements
 
-- Intended hours/clear counts for each normal and forged stage, and whether boss trophies have a choice/catch-up
-  mechanism. Normal gear through 200 and the normal-to-forged structure are already approved.
-- Transfer policy: current cumulative actual-stat carryover, enhancement-only carryover or a bounded alternative.
-- Exact normal 160–200 item roster/representation, recipe simplification, numerical fees/rates/quantities,
-  intended craft milestones and handling of already-crafted items. No numbers were approved by this ticket.
+The owner selected existing normal families through200,1–4-hour normal acquisition at4x,8–12 hours per later
+forge stage, and consumed-equipment HP/MP carryover. The candidate's exact fees/materials/chances are recorded
+for review; further user confirmation of these same preferences is unnecessary. Actual source reachability,
+income, clear limits, class coverage and first-clear combat remain unmeasured. Item-level gates stay intact;
+no new180/200 base weapon tier, global rate, AP or monster attack change is included.
 
-Draft patch-note intent for the eventual release: “Build your equipment through level 200 from monster drops,
-then strengthen it through rebirth crafting with a clearer upgrade path.” Publish only after implementation.
+Draft player note: “Build your equipment through level200 from monster drops, then strengthen it through rebirth
+crafting with clearer requirements and simpler materials.” Publish only after the lane's proof and release admission.
 
-Ticket preparation is documentation only. No gameplay changes, remote actions, deployment, board publication
-or in-game validation were performed. The coordinator assigns the tracking ID, target version and child work;
-the lane can split data coverage, crafting fixes and paired combat work without losing this end-to-end acceptance.
+CLOSER: Server Dev SlumsMS Main Session. PROOF: regression/data/MySQL tests plus targeted server/client checks
+in the candidate release notes. Coordinator owns book ID/status; no board publication or deployment is claimed.
