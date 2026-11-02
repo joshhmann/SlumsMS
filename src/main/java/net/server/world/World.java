@@ -2284,15 +2284,16 @@ public class World {
     }
 
     public void addUnclaimed(ExpeditionBossLog.BossLogEntry boss, int cid) {
-        unclaimedRewards.compute(cid, (k, chrUnclaimed) -> chrUnclaimed);
+        unclaimedRewards.computeIfAbsent(cid, k -> new HashMap<>())
+                .merge(boss, (short) 1, (Short current, Short one) -> (short) (current + one));
     }
 
     public void removeUnclaimed(ExpeditionBossLog.BossLogEntry boss, int cid) {
         Map<ExpeditionBossLog.BossLogEntry, Short> chrUnclaimed = unclaimedRewards.get(cid);
         if (chrUnclaimed != null) {
-            Short unclaimedAmount = chrUnclaimed.get(boss);
-            if (unclaimedAmount != null) {
-                chrUnclaimed.put(boss, unclaimedAmount);
+            chrUnclaimed.remove(boss);
+            if (chrUnclaimed.isEmpty()) {
+                unclaimedRewards.remove(cid);
             }
         }
     }
