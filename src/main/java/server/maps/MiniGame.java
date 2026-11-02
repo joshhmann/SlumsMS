@@ -28,6 +28,7 @@ import net.server.Server;
 import tools.PacketCreator;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -226,6 +227,30 @@ public class MiniGame extends AbstractMapObject {
         inprogress = 1;
         ownerquit = false;
         visitorquit = false;
+
+        // A new game must not inherit the previous one's state: the board is only cleared inside the five-in-a-row
+        // branches of setPiece, so a game that ended by forfeit (GIVE_UP, or the visitor leaving in progress) left
+        // every stone in place and the next game could be won on those stones.
+        clearBoard();
+        // the round tally is reset when a series finishes normally, but a forfeit aborts the series mid-way with the
+        // partial tally intact: the next series would start at e.g. 1-0 and be decided a game early
+        ownerpoints = 0;
+        visitorpoints = 0;
+        // firstslot is the match-card first pick and loser the "who starts" flag of the game just played; both are
+        // written during a game and must start from the same values a freshly built room has
+        firstslot = 0;
+        loser = 1;
+    }
+
+    private void clearBoard() {
+        Arrays.fill(piece, 0);
+    }
+
+    /**
+     * Package-private test seam: the 15x15 board is addressed as {@code (move1, move2) -> piece[move2 * 15 + move1 + 1]}.
+     */
+    int getPiece(int move1, int move2) {
+        return piece[move2 * 15 + move1 + 1];
     }
 
     public void setQuitAfterGame(Character player, boolean quit) {
@@ -462,12 +487,7 @@ public class MiniGame extends AbstractMapObject {
                             this.minigameMatchVisitorWins(false);
                             this.setLoser(1);
                         }
-                        for (int y2 = 0; y2 < 15; y2++) {
-                            for (int x2 = 0; x2 < 15; x2++) {
-                                int slot2 = (y2 * 15 + x2 + 1);
-                                piece[slot2] = 0;
-                            }
-                        }
+                        clearBoard();
                     }
                 }
             }
@@ -481,12 +501,7 @@ public class MiniGame extends AbstractMapObject {
                             this.minigameMatchVisitorWins(false);
                             this.setLoser(1);
                         }
-                        for (int y2 = 0; y2 < 15; y2++) {
-                            for (int x2 = 0; x2 < 15; x2++) {
-                                int slot2 = (y2 * 15 + x2 + 1);
-                                piece[slot2] = 0;
-                            }
-                        }
+                        clearBoard();
                     }
                 }
             }
