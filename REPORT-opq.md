@@ -38,8 +38,10 @@ The row covers **five of the script's nine stages**, and it stops where the towe
 | 7 garden | 920010800 | **out** | it needs the sixth and seventh statue pieces, which only stage 3 and stage 4 hand out, and its boss (Papa Pixie 9300039) is spawned by a rule our scripts do not state. Nothing about it can be driven without those two stages first. |
 | 8 statue | 920010100 | **out** | `clearPQ()` and `statusStg8=1` happen only when the six scars are full (`scripts/npc/2013001.js:11-19`), so six pieces are needed and the same two blocked stages own two of them. |
 
-So the last stage the row drives is **stage 5, the five levers**; clearing it opens the box with the sixth piece and the
-run then ends with the party still inside the tower, holding five pieces. That is a designed stop, not a stall inside a
+So the last stage the row drives is **stage 5, the five levers**; clearing it opens the box that holds
+the piece for `scar2` (`scripts/npc/2013001.js`, map `920010700`), and the run then ends with the party still inside the tower
+holding four of the six pieces - `4001044` (walkway), `4001045` (storage), `4001048` (lounge) and `4001049` (levers); the
+two the blocked stages hand out are missing. That is a designed stop, not a stall inside a
 stage, and it is why the row is off by default. The two blockers above are the only things between this and the whole
 tower: nothing else in stages 3-4-7-8 needs a new engine feature, only the pieces those two stages hand out.
 
