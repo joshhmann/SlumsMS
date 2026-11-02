@@ -712,6 +712,16 @@ public class AbstractPlayerInteraction {
         return item;
     }
 
+    /**
+     * 1.6.4: the crafted item with the stats a monster drop would have rolled. The glove maker's stimulator branch
+     * (scripts/npc/2040020.js:257-266) has already taken the materials, the mesos and the stimulator by the time it
+     * asks for this, and the script tells the player the stimulator "gives it stats as though it had dropped from a
+     * monster", so the roll lands on the item the player paid for: that item id, one of it, randomized stats.
+     */
+    public Item gainRandomItem(int itemId) {
+        return gainItem(itemId, (short) 1, true, true);
+    }
+
     public void gainFame(int delta) {
         getPlayer().gainFame(delta);
     }
