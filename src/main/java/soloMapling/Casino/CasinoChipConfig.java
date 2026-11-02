@@ -15,7 +15,12 @@ import java.util.Map;
  * <p>Buying charges the face value (the {@code shops} price {@code Shop} reads, passed through
  * {@code MesoSinks.npcPrice}). Selling pays it back through {@link #sellValue}, because the stock chip WZ
  * {@code info/price} is 250/350/400/350 and {@code Shop.sell} would otherwise pay that instead: a chip bought for
- * 1,000,000 and sold back would return 350. The exchange is lossless mesos for mesos.
+ * 1,000,000 and sold back would return 350.
+ *
+ * <p>At the chip shop counter the exchange is lossless mesos for mesos. The quick-sell paths
+ * ({@code Character.sellAllItemsFromPosition}, reached from {@code quicksell.js} and the donation box) route through
+ * the same {@code Shop.sellPayout}, so they pay the face value too; the {@code @sell} GM command
+ * ({@code client.commands.SellitemsCommand}) still pays the stock WZ price and is not player-facing.
  */
 public class CasinoChipConfig {
 
