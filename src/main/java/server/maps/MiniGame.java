@@ -40,6 +40,11 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class MiniGame extends AbstractMapObject {
     private Character owner;
     private Character visitor;
+    /**
+     * Map the room was registered on, captured at construction (same pattern as HiredMerchant:99). The room must be
+     * taken off this map when it closes, and owner.getMap() is not a reliable stand-in for it later on.
+     */
+    private final MapleMap map;
     private final String password;
     private MiniGameType GameType = MiniGameType.UNDEFINED;
     private int piecetype;
@@ -76,6 +81,7 @@ public class MiniGame extends AbstractMapObject {
 
     public MiniGame(Character owner, String description, String password) {
         this.owner = owner;
+        this.map = (owner == null) ? null : owner.getMap();
         this.description = description;
         this.password = password;
     }
@@ -118,7 +124,13 @@ public class MiniGame extends AbstractMapObject {
     }
 
     public void closeRoom(boolean forceClose) {
-        owner.getMap().broadcastMessage(PacketCreator.removeMinigameBox(owner));
+        MapleMap roomMap = getRoomMap();
+        if (roomMap != null) {
+            // off the map first: a closing room must not be reachable by oid anymore, or a stale oid from a client
+            // reaches isOwner()/addVisitor() on an emptied MiniGame (owner == null).
+            roomMap.removeMapObject(this);
+            roomMap.broadcastMessage(PacketCreator.removeMinigameBox(owner));
+        }
 
         if (forceClose) {
             this.broadcastToOwner(PacketCreator.getMiniGameClose(false, 4));
@@ -132,6 +144,13 @@ public class MiniGame extends AbstractMapObject {
 
         owner.setMiniGame(null);
         owner = null;
+    }
+
+    private MapleMap getRoomMap() {
+        if (map != null) {
+            return map;
+        }
+        return (owner == null) ? null : owner.getMap();
     }
 
     public void removeVisitor(boolean forceClose, Character challenger) {
