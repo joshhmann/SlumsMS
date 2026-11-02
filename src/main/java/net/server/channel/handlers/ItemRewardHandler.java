@@ -37,6 +37,8 @@ import tools.Randomizer;
 
 import java.util.List;
 
+import static java.util.concurrent.TimeUnit.HOURS;
+
 /**
  * @author Jay Estrella
  * @author kevintjuh93
@@ -62,9 +64,9 @@ public final class ItemRewardHandler extends AbstractPacketHandler {
             if (Randomizer.nextInt(rewards.getLeft()) < reward.prob) {//Is it even possible to get an item with prob 1?
                 if (ItemConstants.getInventoryType(reward.itemid) == InventoryType.EQUIP) {
                     final Item item = ii.getEquipById(reward.itemid);
-                    if (reward.period != -1) {
-                        // TODO is this a bug, meant to be 60 * 60 * 1000?
-                        item.setExpiration(currentServerTime() + reward.period * 60 * 60 * 10);
+                    long expiration = rewardExpiration(currentServerTime(), reward.period);
+                    if (expiration != -1) {
+                        item.setExpiration(expiration);
                     }
                     InventoryManipulator.addFromDrop(c, item, false);
                 } else {
@@ -81,5 +83,22 @@ public final class ItemRewardHandler extends AbstractPacketHandler {
             }
         }
         c.sendPacket(PacketCreator.enableActions());
+    }
+
+    /**
+     * Expiration stamp (epoch millis) for an equip granted by a reward box, or -1 when the reward entry carries no
+     * {@code period} node (WZ default -1).
+     * <p>
+     * The WZ {@code reward/period} unit is HOURS. Both reward entries that ship with a period in the client data are
+     * written as whole days times 24 ({@code 0202.img.xml} items 02022503-02022524/02022550 hand out equip 1132010 with
+     * period 7200 = 300 days; {@code 0553.img.xml} item 05530000 hands out 4170012 with period 21600 = 900 days).
+     * Reading them as days instead would make the pig's egg cape expire in 7200 days (about 19.7 years), which is
+     * indistinguishable from permanent and would make the number meaningless.
+     */
+    static long rewardExpiration(long now, int period) {
+        if (period == -1) {
+            return -1;
+        }
+        return now + HOURS.toMillis(period);
     }
 }
