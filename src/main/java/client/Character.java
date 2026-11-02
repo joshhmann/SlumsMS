@@ -13769,6 +13769,51 @@ public class Character extends AbstractCharacterObject {
         return getLinkedStats;
     }
 
+    /** The medal the Monster Book bonus is written onto. */
+    private static final int LINK_MEDAL = 1113232;
+
+    /** Whether the Monster Book has given this character anything to wear a medal for yet. */
+    private boolean hasCompletedATier() {
+        for (int tier = 1; tier <= 9; tier++) {
+            if (tierValue(tier) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The link medal holding the Monster Book stat rewrite: the one in the EQUIP tab, else the one being worn, else a
+     * new one. A new one is only granted to a character that has completed a tier, because the only other place the
+     * medal is ever created is the new-character starter set in {@code CharacterFactory} - before this, a character
+     * outside that path had no way to obtain the reward it had earned.
+     *
+     * <p>Synchronized so two threads cannot both find nothing and both grant a medal; a duplicate reward would be
+     * worse than a late one. A full inventory is reported by {@code addById} and leaves the grant owed, to be retried
+     * on the next tier completion or login, rather than dropping the reward on the floor.
+     */
+    private synchronized Equip findOrGrantLinkMedal() {
+        Equip linkEquip = (Equip) this.getInventory(InventoryType.EQUIP).findById(LINK_MEDAL);
+        if (linkEquip != null) {
+            return linkEquip;
+        }
+        linkEquip = (Equip) this.getInventory(InventoryType.EQUIPPED).findById(LINK_MEDAL);
+        if (linkEquip != null) {
+            return linkEquip;
+        }
+        if (!hasCompletedATier()) {
+            return null;
+        }
+        if (!InventoryManipulator.addById(this, LINK_MEDAL, (short) 1)) {
+            return null;
+        }
+        linkEquip = (Equip) this.getInventory(InventoryType.EQUIP).findById(LINK_MEDAL);
+        if (linkEquip == null) {
+            log.warn("Granted the Monster Book link medal to character {} but it is not in the EQUIP tab", getId());
+        }
+        return linkEquip;
+    }
+
     public void applyLinkStatsBoost() {
         equipchanged = true;
 
@@ -13798,13 +13843,12 @@ public class Character extends AbstractCharacterObject {
             equipMatk += eq.getMatk();
         }
 
-        Inventory equip = this.getInventory(InventoryType.EQUIP);
-        Inventory equipped = this.getInventory(InventoryType.EQUIPPED);
-        Equip linkEquip = (Equip) equip.findById(1113232);
-        if (linkEquip == null)
-            linkEquip = (Equip) equipped.findById(1113232);
+        Equip linkEquip = findOrGrantLinkMedal();
         if (linkEquip == null) {
-            System.out.println("Error: Unable to find link medal.");
+            if (hasCompletedATier()) {
+                log.warn("Character {} has completed Monster Book tiers but no link medal could be given; the bonus"
+                        + " will be retried on the next completion or login", getId());
+            }
             return;
         }
 
