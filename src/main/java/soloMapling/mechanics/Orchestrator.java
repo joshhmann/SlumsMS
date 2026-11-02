@@ -171,10 +171,18 @@ public final class Orchestrator implements RunOrchestrator {
         }
         for (RunMember m : run.members()) {
             if (!present.contains(m.characterId())) {
-                memberLost(run, m.characterId(), "no longer in the stage");
+                memberLost(run, m.characterId(), "no longer in the stage", nowMs);
                 if (run.ended()) {
                     return steps;
                 }
+            }
+        }
+
+        // paused for a revive (ticket 130, owner 2026-11-02): nothing advances, nothing warps, every bot says who it
+        // is waiting for; the member's return ends the pause, and the window running out ends the run as it always did
+        if (run.waitingFor() != null) {
+            if (pausedStepsOrResume(run, view, steps, nowMs)) {
+                return steps;
             }
         }
 
@@ -509,13 +517,21 @@ public final class Orchestrator implements RunOrchestrator {
     }
 
     @Override
-    public void memberLost(Run r, int characterId, String why) {
+    public void memberLost(Run r, int characterId, String why, long nowMs) {
         RunState run = (RunState) r;
         RunMember lost = run.member(characterId);
+        int index = lost == null ? 0 : run.members().indexOf(lost);
         if (lost == null || !run.removeMember(characterId)) {
             return;
         }
-        run.note(run.startedMs(), characterId + " lost: " + why);
+        run.note(nowMs, characterId + " lost: " + why);
+        if (mayPauseForRevive(run, nowMs)) {
+            long window = RevivePause.windowMs(run.content());
+            run.waitFor(lost, index, why, nowMs, nowMs + window);
+            run.note(nowMs, "run held for " + window / 1_000 + " s: " + characterId + " may revive and walk back in"
+                    + " (-D" + RevivePause.FLAG + "=false ends the run instead)");
+            return;
+        }
         if (lost.leader()) {
             abort(run, "the leader left (" + why + ")");
             return;
@@ -529,6 +545,58 @@ public final class Orchestrator implements RunOrchestrator {
             return;
         }
         run.setClaims(RoleClaims.claim(run.stageData(), run.members()));
+    }
+
+    /**
+     * A boss run holds itself for a member that leaves so it can revive and walk back in (ticket 130, owner 2026-11-02);
+     * a party quest does not -- a KPQ or OPQ run whose member leaves ends exactly as it did before this existed.
+     */
+    static boolean mayPauseForRevive(RunState run, long nowMs) {
+        if (!RevivePause.on() || run.content().kind() != MechanicsModel.Kind.BOSS) {
+            return false;
+        }
+        if (RevivePause.windowMs(run.content()) <= 0 || run.waitingFor() != null) {
+            return false;
+        }
+        // a run already past its budget would only pause to end on the same tick: let today's path have it
+        int minutes = run.stageData().timeLimitMinutes();
+        long budget = minutes > 0 ? minutes * 60_000L : run.budgetMs();
+        return nowMs - run.stageStartedMs() <= budget;
+    }
+
+    /**
+     * While the run holds itself for a member: resume it if the member is back, end it if the window is over, and
+     * otherwise put a Wait naming that member in every bot's slot. Returns whether the caller should stop there (steps
+     * left as they are).
+     */
+    private boolean pausedStepsOrResume(RunState run, StageView view, Map<Integer, SolverStep> steps, long nowMs) {
+        RunState.Waiter waiter = run.waitingFor();
+        int id = waiter.member() == null ? 0 : waiter.member().characterId();
+        if (view.registered(id)) {
+            run.waiterReturned(nowMs);
+            run.setClaims(RoleClaims.claim(run.stageData(), run.members()));
+            run.note(nowMs, id + " is back after " + (nowMs - waiter.sinceMs()) / 1_000 + " s: the run resumes on stage "
+                    + run.currentStage());
+            return false;
+        }
+        if (nowMs >= waiter.deadlineMs()) {
+            abort(run, "the revive window of " + (waiter.deadlineMs() - waiter.sinceMs()) / 1_000 + " s ran out waiting"
+                    + " for " + who(view, id) + " (" + waiter.why() + ") - not a solver failure");
+            return true;
+        }
+        String why = "waiting for " + who(view, id) + " to come back from a revive (" + waiter.why() + ", "
+                + Math.max(1, (waiter.deadlineMs() - nowMs) / 1_000) + " s left)";
+        for (RunMember m : run.members()) {
+            if (m.bot()) {
+                steps.put(m.characterId(), new SolverStep.Wait(1_000, why));
+            }
+        }
+        return true;
+    }
+
+    /** "Zak (12)" for the log, "12" when the instance does not know the name. */
+    private static String who(StageView view, int characterId) {
+        return view.nameOf(characterId).map(n -> n + " (" + characterId + ")").orElse(String.valueOf(characterId));
     }
 
     @Override

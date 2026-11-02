@@ -58,6 +58,29 @@ Which piece goes on which scar is a permutation, not the piece's own number, and
 `4001046`, `scar2` `4001049`, `scar3` `4001047`, `scar4` `4001044`, `scar5` `4001048`, `scar6` `4001045`
 (`Reactor.wz/2008000-2008005.img.xml`, one item trigger each). cosmic_agents' `STATUE_SCAR_BY_ITEM` is the same pairing.
 
+## Expedition rule: pause for revive (this is the report it lives in)
+
+The boss report is on `164-bossfight`, a different branch, so this one carries the rule. It is the answer to the lane
+report's owner question 1 ("a human death unregisters the member, and the run then aborts"): **pause for revive**.
+
+`ZakumBattle.js` and `HorntailBattle.js` unregister a dead character so it can revive and walk back in, and
+`Orchestrator.memberLost` read that as "a member left" and aborted. Now, for a `kind: BOSS` row, it holds the run:
+
+| Piece | Behaviour |
+| --- | --- |
+| Switch | `-Dslums.bossfight.revivepause`, **on by default** (`RevivePause.on()`; safe to default on because the expiry path is exactly today's abort) |
+| Window | `-Dslums.bossfight.revivepause.ms`, default `300000` (five minutes: warp out, revive, walk back through the altar); one row may override it with `-Dslums.bossfight.revivepause.ms.<row id>`, e.g. `.zakumbattle=600000` |
+| While held | no stage advances, no member is warped, every bot in the instance gets `Wait` naming who it waits for (`waiting for Zak (12) to come back from a revive (no longer in the stage, 240 s left)`) |
+| Resume | the moment the character is registered with the instance again: it returns to its place in the member list, roles are re-claimed, and the run says `12 is back after 60 s: the run resumes on stage 1` |
+| Expiry | the run ends through the ordinary abort, saying `the revive window of 300 s ran out waiting for Zak (12) (no longer in the stage) - not a solver failure` |
+| Death cap | wins: `EventInstanceManager.endForDeathCount` ends the instance and `MechanicsRuns.tick` aborts on that before the orchestrator is asked, so a pause cannot outlive the cap |
+| Party quests | untouched: a KPQ or OPQ run whose member leaves ends as it always did, because the pause is `kind: BOSS` only |
+
+The stage's own clock (a boss room's budget) gives the pause back on resume: being held for a revive is not the party's
+time against the room. Tests: `RevivePauseTest` (5) - a member lost holds the run and it resumes, the same loss without
+the switch is today's abort, the window expiring ends the run with that line, the death cap's end wins over the pause,
+and a party quest still ends when a member leaves.
+
 ## A whole row, end to end, in simulation
 
 `src/test/java/soloMapling/mechanics/RowRunSimulationTest.java` drives the **real**

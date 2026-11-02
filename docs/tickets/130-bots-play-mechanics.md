@@ -465,6 +465,33 @@ No client packet: BotStory has a `DEATH_COUNT` opcode because its client is patc
 is chat (type 5) and the server log. Tests: `ExpeditionDeathCountTest` (the counter) and
 `ExpeditionDeathCountRunTest` (a real `EventInstanceManager` and `playerKilled`), the latter written failing first.
 
+## Boss lane: pause for revive (1.6.4, branch `164-opq`)
+
+The owner settled the open question of what a human death does to a boss run (2026-11-02): **hold the run for a revive,
+do not abort it**. The scripts unregister a dead character (`scripts/event/ZakumBattle.js:140-160`,
+`scripts/event/HorntailBattle.js:140-160`) so it can revive and walk back in, and `Orchestrator.memberLost` treated that
+as a member leaving - for a six-member expedition that is the `minPlayers` abort, i.e. one death ended everybody's run.
+
+- `RevivePause` (`soloMapling/mechanics/RevivePause.java`) carries the rule: `-Dslums.bossfight.revivepause`
+  (**default on**: the expiry path is today's behaviour, so a server that wants the old behaviour passes `=false`),
+  `-Dslums.bossfight.revivepause.ms` (default 300000) and a per-row override
+  `-Dslums.bossfight.revivepause.ms.<row id>`.
+- A `kind: BOSS` run whose member leaves records a `RunState.Waiter` (who, why, where it belonged in the list, when the
+  window closes) and stops: `tick` advances no stage, warps nobody, and puts a `Wait` naming that member in every bot's
+  slot. The member's return - `StageView.registered(id)`, which asks the instance, not the run's member list - ends the
+  pause and restores its place and its role claims; the stage clock gives the paused time back.
+- The window expiring ends the run through the ordinary `abort`, with a line that says it was the revive window and not a
+  solver failure. The death cap still wins: `EventInstanceManager.endForDeathCount` ends the instance and
+  `MechanicsRuns.tick` aborts on that before the orchestrator is asked.
+- Party quests keep today's rule on purpose. A KPQ or OPQ run whose member leaves still ends, because a stranger walking
+  off is not a revive.
+- The engine learns one read, `StageView.registered(int)` (and `StageView.nameOf(int)` for the log line), because a
+  paused run has already removed the member from `members()`.
+
+Tests: `RevivePauseTest` (5) - held then resumed, the switch off is today's abort, the window expiring, the death cap's
+end winning, and a PQ still ending on a member loss. Nothing about `BotDeaths.protectedFromDeath` changed: bots still do
+not die in an instance, which stays an open design question.
+
 ## Boss lane phases A1-A2: the run and the Zakum phases (1.6.4, branch `164-bossfight`)
 
 The real fight is a `kind: BOSS` content row driven by the same engine as KPQ: `Orchestrator` is the group brain,

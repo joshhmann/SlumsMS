@@ -155,6 +155,19 @@ public interface StageView {
         return false;
     }
 
+    /**
+     * Whether this character is registered with the event instance right now -- not whether it is one of the run's
+     * members: a boss run holding itself for a revive has removed that member, so {@link #members()} cannot answer this.
+     */
+    default boolean registered(int characterId) {
+        return members().stream().anyMatch(m -> m.characterId() == characterId);
+    }
+
+    /** The character's name, for lines that have to say who is being waited for; empty when it is not in the instance. */
+    default java.util.Optional<String> nameOf(int characterId) {
+        return java.util.Optional.empty();
+    }
+
     default int partySize() {
         return members().size();
     }

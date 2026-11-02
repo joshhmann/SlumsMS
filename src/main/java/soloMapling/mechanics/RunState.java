@@ -22,6 +22,13 @@ public final class RunState implements RunOrchestrator.Run {
     public record Event(long atMs, String line) {
     }
 
+    /**
+     * A member a boss run is holding itself for (ticket 130, pause for revive): who left, why, where it belonged in the
+     * member list, and when the window closes. Null when the run is not paused.
+     */
+    public record Waiter(RunMember member, int index, String why, long sinceMs, long deadlineMs) {
+    }
+
     private final Content content;
     private final Tier tier;
     private final long budgetMs;
@@ -42,6 +49,7 @@ public final class RunState implements RunOrchestrator.Run {
     private volatile long afterClearSinceMs;
     private final Map<Integer, Long> bonusUntil = new ConcurrentHashMap<>();
     private volatile boolean held;
+    private volatile Waiter waitingFor;
 
     RunState(Content content, Tier tier, List<RunMember> members, long budgetMs, int lastStage) {
         this.content = content;
@@ -195,6 +203,40 @@ public final class RunState implements RunOrchestrator.Run {
 
     boolean removeMember(int characterId) {
         return members.removeIf(m -> m.characterId() == characterId);
+    }
+
+    /** The member the run is holding itself for, or null (see {@link RevivePause}). */
+    public Waiter waitingFor() {
+        return waitingFor;
+    }
+
+    /** Holds the run for {@code lost} until {@code deadlineMs}: the bots wait, nothing advances, nothing warps. */
+    void waitFor(RunMember lost, int index, String why, long nowMs, long deadlineMs) {
+        waitingFor = new Waiter(lost, Math.max(0, index), why, nowMs, deadlineMs);
+    }
+
+    /**
+     * The waited-for member is back: it returns to the member list where it was, and the run goes on. Returns the
+     * pause, or null when there is none.
+     */
+    Waiter waiterReturned(long nowMs) {
+        Waiter w = waitingFor;
+        if (w == null || w.member() == null) {
+            return null;
+        }
+        List<RunMember> copy = new ArrayList<>(members);
+        copy.add(Math.min(w.index(), copy.size()), w.member());
+        members.clear();
+        members.addAll(copy);
+        waitingFor = null;
+        // the pause is not the party's time: the stage's own clock (a boss room's budget) gives it back
+        stageStartedMs += Math.max(0, nowMs - w.sinceMs());
+        return w;
+    }
+
+    /** Ends a pause without resuming (the window ran out, or the run is over). */
+    void clearWaiter() {
+        waitingFor = null;
     }
 
     void setStage(int s, long now) {

@@ -82,6 +82,18 @@ final class LiveStageView implements StageView {
         return List.copyOf(present);
     }
 
+    /** The instance's own players, whether or not the run still counts them as members (a paused run does not). */
+    @Override
+    public boolean registered(int characterId) {
+        return chars.containsKey(characterId);
+    }
+
+    @Override
+    public java.util.Optional<String> nameOf(int characterId) {
+        Character c = chars.get(characterId);
+        return c == null ? java.util.Optional.empty() : java.util.Optional.ofNullable(c.getName());
+    }
+
     @Override
     public String roleOf(int characterId) {
         return run.roleOf(characterId);

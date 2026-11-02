@@ -38,7 +38,7 @@ public interface RunOrchestrator {
     Map<Integer, SolverStep> tick(Run run, StageView view, long nowMs);
 
     /** A member left, died out of the PQ or disconnected: re-claim roles, or abandon if the party is too small. */
-    void memberLost(Run run, int characterId, String why);
+    void memberLost(Run run, int characterId, String why, long nowMs);
 
     /** Ends the run (timer, too few members, a ragequit) and lets the bots go back to their lives. */
     void abort(Run run, String why);
