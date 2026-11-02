@@ -51,6 +51,7 @@ import server.life.*;
 import server.maps.MapObject;
 import server.maps.MapObjectType;
 import server.maps.MapleMap;
+import server.maps.Reactor;
 import server.partyquest.PartyQuest;
 import server.partyquest.Pyramid;
 import server.quest.Quest;
@@ -1070,6 +1071,42 @@ public class AbstractPlayerInteraction {
 
     public void spawnNpc(int npcId, Point pos) {
         spawnNpc(npcId, pos, getMap());
+    }
+
+    /**
+     * 1.6.4: the Temple of Time summon has Kirston vanish the moment he accepts (scripts/npc/2141000.js:12), so the
+     * script asks the map to drop him for everyone on it - MapleMap.destroyNPC broadcasts both the controller and the
+     * object removal. A map or NPC that is not there is logged instead of thrown: the summon still has to start.
+     */
+    public void removeNpc(int mapId, int npcId) {
+        MapleMap map = getWarpMap(mapId);
+        if (map == null) {
+            log.warn("removeNpc: map {} does not exist, npc {} stays put (player {})", mapId, npcId, getPlayer().getName());
+            return;
+        }
+        if (!map.containsNPC(npcId)) {
+            log.warn("removeNpc: npc {} is not on map {}, nothing to remove (player {})", npcId, mapId, getPlayer().getName());
+            return;
+        }
+        map.destroyNPC(npcId);
+    }
+
+    /**
+     * 1.6.4: starts a reactor the way a player's hit would (scripts/npc/2141000.js:13 summons the boss reactor
+     * 2709000 on the Temple of Time map). Reactor.hitReactor(Client) is the same entry point a real hit takes.
+     */
+    public void forceStartReactor(int mapId, int reactorId) {
+        MapleMap map = getWarpMap(mapId);
+        if (map == null) {
+            log.warn("forceStartReactor: map {} does not exist, reactor {} not started (player {})", mapId, reactorId, getPlayer().getName());
+            return;
+        }
+        Reactor reactor = map.getReactorById(reactorId);
+        if (reactor == null) {
+            log.warn("forceStartReactor: reactor {} is not on map {}, not started (player {})", reactorId, mapId, getPlayer().getName());
+            return;
+        }
+        reactor.hitReactor(c);
     }
 
     public void spawnMonster(int id, int x, int y) {
