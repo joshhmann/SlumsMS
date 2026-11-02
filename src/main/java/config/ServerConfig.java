@@ -386,7 +386,11 @@ public class ServerConfig {
     public long BLOCK_NPC_RACE_CONDT;
     public int TOT_MOB_QUEST_REQUIREMENT;
     public int MOB_REACTOR_REFRESH_TIME;
-    public int PARTY_SEARCH_REENTRY_LIMIT;
+    //ticket 164: without an initialiser the JVM default 0 let a single empty search expire the leader, which then sat
+    //in the long-term waiting queue for 77 ticks (~12.8 min at the 10 s PartySearchTask). 10 is the value Cosmic and
+    //SoloMapling ship for this key: the max amount of times a party leader may persist on Party Search before the
+    //entry expires.
+    public int PARTY_SEARCH_REENTRY_LIMIT = 10;
     public long NAME_CHANGE_COOLDOWN;
     public long WORLD_TRANSFER_COOLDOWN = NAME_CHANGE_COOLDOWN;//Cooldown for world tranfers, default is same as name change (30 days).
     public boolean INSTANT_NAME_CHANGE;
