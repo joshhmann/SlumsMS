@@ -30,8 +30,8 @@ tests that keep them working and the section below that says why they were repor
 | `OrbisSealedRoomAreaTest` (2 tests) | `src/test/java/server/maps/OrbisSealedRoomAreaTest.java` | the sealed room: three platforms count their own players, and without them the stage has no answer at all |
 | `RowRunSimulationTest` (7 tests) | `src/test/java/soloMapling/mechanics/RowRunSimulationTest.java` | a whole row end to end through the real orchestrator: Orbis PQ's eight stages, Zakum's arm-then-body chain, Horntail's three rooms, and a stage whose rule is never met |
 | `Content.entryNpc` + `KpqStaging.start(Content, ...)` | `MechanicsModel.java`, `StageData.java`, `content/kpq.yaml`, `content/opq.yaml`, `KpqStaging.java` | one staging for every party quest: the front door (Lakelis / Wonky), the recruit map, the event script and the level band come from the row instead of four Kerning constants, so there is no Orbis twin of the staging to drift |
-| `OpqLobby` + `-Dslums.mechanics.opq.lobby` | `soloMapling/mechanics/OpqLobby.java`, registered at `net/server/Server.java` | bots assemble an Orbis party at Wonky on `200080101` and play the tower without a player; off unless all three flags are given |
-| `OpqLobbyTest` (6 tests) | `src/test/java/soloMapling/mechanics/OpqLobbyTest.java` | the three-switch gate, the row the lobby reads, the ten-minute back-off, and why Kerning's lobby structurally cannot staff the tower |
+| `ContentLobby` + `-Dslums.mechanics.<row>.lobby` | `soloMapling/mechanics/ContentLobby.java`, registered at `net/server/Server.java` | bots assemble a party for any row whose lobby is on: they spawn the row's `minPlayers` at its `entryNpc` on its `recruitMap` and hand it to the one staging. Orbis is a row in its list, not the reason it exists; off unless all three flags are given |
+| `ContentLobbyTest` (8 tests) | `src/test/java/soloMapling/mechanics/ContentLobbyTest.java` | row-parameterised over `ContentLobby.rows()`: the three-switch gate per row, the row each lobby reads, the ten-minute back-off per row and channel, and why Kerning's lobby structurally cannot staff these towers |
 
 The walkway and the lounge reuse the existing `kill-collect-hand-in` solver: both stages are "farm N, pool them on the
 leader, he hands them to Eak" (`haveItem(4001050, 30)` / `haveItem(4001052, 40)`), which is exactly what that solver does
@@ -178,23 +178,25 @@ Two seams, both generic:
    there is one staging in the tree, not two. The row gained one key for this: `entryNpc` (`kpq.yaml:9020000` Lakelis,
    `opq.yaml:2013000` Wonky) - the NPC a bot leader accepts from, because a bot cannot press a button.
 
-`OpqLobby` (`src/main/java/soloMapling/mechanics/OpqLobby.java`, registered at `net/server/Server.java` beside
-`KpqLobby.startIfEnabled()`) is what makes a bot party exist at the tower. It is **not** Kerning's lobby with a different
+`ContentLobby` (`src/main/java/soloMapling/mechanics/ContentLobby.java`, registered at `net/server/Server.java` beside
+`KpqLobby.startIfEnabled()`) is what makes a bot party exist at the tower, and at any other tower whose row is listed. It is **not** Kerning's lobby with a different
 map, and the difference is the point:
 
-| | Kerning's lobby (`KpqLobby`) | Orbis' lobby (`OpqLobby`) |
+| | Kerning's lobby (`KpqLobby`) | a staffed row's lobby (`ContentLobby`) |
 | --- | --- | --- |
 | Where the party comes from | picks bots already standing at Lakelis (`KpqLobby.pickParty` over `lobby.getAllPlayers()`), a population this fork keeps on `103000000` | **spawns** `content.minPlayers()` bots on the row's recruit map, at `entryNpc`, in the row's level band - the tower has no standing population to pick from |
 | When it runs | every 60 s | every 60 s |
 | What starts the quest | leader talks to Lakelis | same: `KpqStaging` talks to `content.entryNpc()` |
 | Yield to a human party | yes (`yieldForStaging`) | not applicable: an Orbis instance on the channel means `busy()` and it does not start |
 
-Three switches, all off unless given: `-Dslums.mechanics=true`, `-Dslums.mechanics.opq=true` (the row's own, so the
-tower's stages stay off for a server that only wanted Kerning), and `-Dslums.mechanics.opq.lobby=true` (this lobby, so
-nothing spawns five bots behind an operator's back). `-Dslums.mechanics.opq.runs` caps how many runs are in flight (1).
+Three switches per row, all off unless given: `-Dslums.mechanics=true`, `-Dslums.mechanics.opq=true` (the row's own, so
+the tower's stages stay off for a server that only wanted Kerning), and `-Dslums.mechanics.opq.lobby=true` (this lobby,
+so nothing spawns five bots behind an operator's back). The names are one formula, `slums.mechanics.<row id>.lobby`, and
+`slums.mechanics.<row id>.runs` caps how many runs of that row are in flight (1).
 A channel that refused a start (`getEligibleParty` said no) is left alone for ten minutes rather than retried every
-minute. `OpqLobbyTest` pins the gate, the row it reads, the ten-minute back-off, and the structural reason Kerning's
-lobby cannot staff the tower (its picker returns an empty list for an empty lobby). The Kerning path itself is proved
+minute. `ContentLobbyTest` pins the gate, the row, the ten-minute back-off and the structural reason Kerning's lobby cannot
+staff these towers - for **every** row in `ContentLobby.rows()`, so a row that joins the list without a front door or a
+party size fails there (its picker returns an empty list for an empty lobby). The Kerning path itself is proved
 untouched by the tests that already ran it: `KpqFullRunTest` plays Kerning end to end (29 tests) and `KpqStagingRoomTest`
 holds the staging's refusals, both green with the row-driven `start(Content, ...)` underneath.
 
@@ -210,7 +212,7 @@ holds the staging's refusals, both green with the row-driven `start(Content, ...
   box whose drop row is missing costs a minute, not the run.
 - `MobHitboxIndex`-style geometry is untouched: the solvers only move to points the data gives them, so a stage whose
   anchor is wrong will stall visibly (`Wait` notes) rather than teleport.
-- **The Orbis lobby has never been observed in game.** `OpqLobbyTest` pins its gate, its row and its back-off, and
+- **The lobby has never been observed in game.** `ContentLobbyTest` pins its gate, its rows and its back-off, and
   `KpqStaging` is the same code Kerning has used since 1.6.1, but nobody has watched five bots spawn at Wonky on
   `200080101`, form a party and walk into the tower. The first TEST deploy with the three flags is the evidence that is
   missing, and it is the only thing standing between this row and "proved".
@@ -238,12 +240,12 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 ## Checks run
 
 `mvn -o test` on this worktree, whole suite, nothing excluded: **8499 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-lobby-final.log`, exit 0; 8493 before this commit's six `OpqLobbyTest` tests). That is the number to compare against the rest of the release - 8455 before this
+SUCCESS** (`/tmp/opq-lobby-final.log`, exit 0; the lobby's tests then became `ContentLobbyTest`, 8 of them, in the same range). That is the number to compare against the rest of the release - 8455 before this
 branch's tests, 8461 after its first commit (`OpqSolversTest` 14, `OrbisPqLobbyStageTest` 4,
 `OrbisSealedRoomAreaTest` 2), 8479 once the lobby, the sealed room and the finale were added (`OpqSolversTest` 32), 8486
 with the whole-row simulation (`RowRunSimulationTest` 7), 8491 with the revive pause (`RevivePauseTest` 5), 8493 once
 the corrections above added their two phase tests (`BossPhasesSolverTest` 15, `HorntailPhasesTest` 9), and 8499 with the
-Orbis lobby (`OpqLobbyTest` 6).
+lobby (`ContentLobbyTest` 8, after the Orbis-shaped `OpqLobby` was generalised to every row).
 
 Two `mvn` runs in this lane died mid-flight and neither was a test failure: one because a `bash` call is auto-backgrounded
 and killed at 60 s (a whole-suite run needs ~27 minutes and `async: true, timeout: 0`), and one because the tree was
