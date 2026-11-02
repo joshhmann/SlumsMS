@@ -567,11 +567,33 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getPlayer().changeRebirthJobCerezeth(Job.getById(jobid));
     }
 
-    public void changeJobById(int a) {
-        getPlayer().changeJob(Job.getById(a));
+    /**
+     * 1.6.4: a quest script that advances to a job this server has no entry for (2570.js asks for 501 Cannoneer,
+     * 23011.js for 3200 Battle Mage) gets null from Job.getById, and Character.changeJob(null) is a silent return.
+     * The script has already handed out its items and called forceCompleteQuest by then, so the player finished a
+     * job-advance quest without changing job and nothing anywhere said why. Refusing here, loudly and with a false
+     * the caller can act on, keeps a wrong job id from looking like success. Adding those jobs to the enum is a
+     * content decision for the owner; this only stops the silent no-op.
+     *
+     * @return true when the player now has that job, false when no such job exists and nothing was changed
+     */
+    public boolean changeJobById(int a) {
+        Job job = Job.getById(a);
+        if (job == null) {
+            log.error("Script {} asked for job id {}, which this server has no Job for: {} keeps their job {} (npc {})",
+                    getScriptName(), a, getPlayer().getName(), getPlayer().getJob(), npc);
+            return false;
+        }
+        getPlayer().changeJob(job);
+        return true;
     }
 
     public void changeJob(Job job) {
+        if (job == null) {
+            log.error("Script {} asked to change to a null job: {} keeps their job {} (npc {})",
+                    getScriptName(), getPlayer().getName(), getPlayer().getJob(), npc);
+            return;
+        }
         getPlayer().changeJob(job);
     }
 
