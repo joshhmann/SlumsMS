@@ -26,10 +26,12 @@ public final class OpqSubRoomSolver implements StageSolver {
         return ID;
     }
 
-    /** the sealed room is still this stage's business: its clear opened the box that holds our fourth piece */
+    /** The side rooms hold the monsters; the sealed room's clear left our fourth piece behind, and Eak is in the lounge. */
     @Override
     public java.util.Set<Integer> extraMaps(StageView view) {
-        return java.util.Set.of(920010500);
+        // the sealed room (its clear opened our fourth piece) and the lounge itself, where Eak stands and the
+        // forty pieces are handed in (the monsters are in the side rooms 920010601-604, not there)
+        return java.util.Set.of(920010500, EAK_MAP);
     }
 
     @Override

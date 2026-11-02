@@ -28,6 +28,7 @@ tests that keep them working and the section below that says why they were repor
 | `OpqSolversTest` (32 tests) | `src/test/java/soloMapling/mechanics/OpqSolversTest.java` | the fake room + the shipped row's shape, one test per stage rule and a fail-before per stage |
 | `OrbisPqLobbyStageTest` (4 tests) | `src/test/java/scripting/reactor/OrbisPqLobbyStageTest.java` | the lobby: today's pass on the music player writes `statusStg3 = 0`, another day's matches nothing |
 | `OrbisSealedRoomAreaTest` (2 tests) | `src/test/java/server/maps/OrbisSealedRoomAreaTest.java` | the sealed room: three platforms count their own players, and without them the stage has no answer at all |
+| `RowRunSimulationTest` (7 tests) | `src/test/java/soloMapling/mechanics/RowRunSimulationTest.java` | a whole row end to end through the real orchestrator: Orbis PQ's eight stages, Zakum's arm-then-body chain, Horntail's three rooms, and a stage whose rule is never met |
 
 The walkway and the lounge reuse the existing `kill-collect-hand-in` solver: both stages are "farm N, pool them on the
 leader, he hands them to Eak" (`haveItem(4001050, 30)` / `haveItem(4001052, 40)`), which is exactly what that solver does
@@ -56,6 +57,33 @@ orchestrator that a bot in the garden is not a stray.
 Which piece goes on which scar is a permutation, not the piece's own number, and it is read from our WZ: `scar1` takes
 `4001046`, `scar2` `4001049`, `scar3` `4001047`, `scar4` `4001044`, `scar5` `4001048`, `scar6` `4001045`
 (`Reactor.wz/2008000-2008005.img.xml`, one item trigger each). cosmic_agents' `STATUE_SCAR_BY_ITEM` is the same pairing.
+
+## A whole row, end to end, in simulation
+
+`src/test/java/soloMapling/mechanics/RowRunSimulationTest.java` drives the **real**
+`Orchestrator`, the real solvers and a fake `StageView` in a 100 ms loop and plays
+three rows from entry to clear: Orbis PQ (eight stages), Zakum (one) and Horntail (three). It asserts that the stages
+advance one at a time in the row's declared order, that the run ends on its own clear, that no member sits on a map the
+stage does not drive, that no member idles more than twelve ticks while the party has work, and - the negative - that a
+stage whose rule can never be met is worked and never abandoned. The fake world writes a property **only** when the step
+that earns it is applied (the twenty clouds through `PlaceItem` on the altar, the levers through `HitReactorNamed`, the
+clear through `TalkNpc`), so a solver that returns a no-op passes nothing.
+
+What it proves: the orchestration - stage advance, role claims, map hand-offs, the box a clear opens, the two-map last
+stage - works for a whole row, and the solvers agree with each other across stages rather than only within one.
+What it does not prove: that a real `Character` can execute the steps (`StepExecutor` and its tests), that the maps hold
+the reactors and NPCs the row names, or that the SQL drop tables behind the passes, the pieces and the Root of Life exist.
+
+Two real defects fell out of it and are fixed in the same commit:
+
+1. **A row with no portals could never advance.** When a member was still on the previous stage's map, the orchestrator
+   walked it through `back.nextPortal()` or, with no portal to walk, waited - and Orbis PQ's row gives no `nextPortal`
+   because its rooms are entered by map id. The party would have stood on the entrance map until the 30-minute budget ran
+   out. Now a row that has no portal for that transition warps the member into the stage's room; Kerning PQ is untouched
+   because every one of its transitions has `nextPortal: next00`.
+2. **The lounge stage could never hand in.** `opq-subroom` talks to Eak in `920010600` while the stage's map is the side
+   room `920010601`, and `extraMaps` did not name the lounge, so the orchestrator dropped the leader's `TalkNpc` as a
+   step from a member on the wrong map and waited instead. The lounge is now one of that stage's maps.
 
 ## The two stages that were reported broken, verified rather than assumed
 
@@ -141,10 +169,11 @@ the switch is one system property. `docs/PROVENANCE.md` has the credit block for
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8479 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-final.log`, exit 0). That is the number to compare against the rest of the release - 8455 before this
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8486 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-sim3.log`, exit 0). That is the number to compare against the rest of the release - 8455 before this
 branch's tests, 8461 after its first commit (`OpqSolversTest` 14, `OrbisPqLobbyStageTest` 4,
-`OrbisSealedRoomAreaTest` 2), and 8479 once the lobby, the sealed room and the finale were added (`OpqSolversTest` 32).
+`OrbisSealedRoomAreaTest` 2), 8479 once the lobby, the sealed room and the finale were added (`OpqSolversTest` 32), and
+8486 with the whole-row simulation (`RowRunSimulationTest` 7).
 
 Earlier in the branch the same command found one real breakage, and it is fixed: `MechanicsDataFilesTest
 .theContentRowsLoadFromTheJarWithNoSourceTree` pins the exact list of content rows and had to learn `opq`.

@@ -240,13 +240,20 @@ public final class Orchestrator implements RunOrchestrator {
                     steps.put(m.characterId(), into);
                     continue;
                 }
-                // still behind: walk into the portal an earlier stage opened (its script's gate decides), else wait.
-                // Any earlier stage, not just the last: a run staged at a later stage walks through every one
+                // still behind: walk into the portal an earlier stage opened (its script's gate decides).
+                // Any earlier stage, not just the last: a run staged at a later stage walks through every one.
+                // A row that gives no portal for that transition (Orbis PQ's rooms are entered by map id) cannot be
+                // walked at all, so waiting there would pin the member on a map no script will move it from.
                 Stage behind = run.content().stageOnMap(on).orElse(null);
-                steps.put(m.characterId(), behind != null && behind.index() < stage.index()
-                        && behind.nextPortal() != null
-                        ? new SolverStep.EnterPortal(behind.nextPortal())
-                        : new SolverStep.Wait(1_000, "not on stage " + stage.index() + "'s map yet"));
+                if (behind != null && behind.index() < stage.index() && behind.nextPortal() != null) {
+                    steps.put(m.characterId(), new SolverStep.EnterPortal(behind.nextPortal()));
+                } else if (run.content().stageOnMap(on).isPresent()) {
+                    steps.put(m.characterId(), new SolverStep.WarpTo(stage.mapId(),
+                            "stage " + stage.index() + " is in this room"));
+                } else {
+                    steps.put(m.characterId(), new SolverStep.Wait(1_000,
+                            "not on stage " + stage.index() + "'s map yet"));
+                }
                 continue;
             }
             planTries(run, view, solver, m, factor, nowMs);
