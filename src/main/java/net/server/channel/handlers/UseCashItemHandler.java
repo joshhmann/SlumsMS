@@ -125,7 +125,10 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
                     player.dropMessage(1, "You cannot teleport between continents with this teleport rock.");
                 } else {
                     MapleMap targetMap = c.getChannelServer().getMapFactory().getMap(mapId);
-                    if (targetMap != null && !FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit()) &&
+                    String refusal = targetMap == null ? error1 : trockRefusal(player, mapId, targetMap);
+                    if (refusal != null) {
+                        player.dropMessage(1, refusal);
+                    } else if (!FieldLimit.CANNOTVIPROCK.check(targetMap.getFieldLimit()) &&
                             (targetMap.getForcedReturnId() == MapId.NONE || MapId.isMapleIsland(mapId))) {
                         player.forceChangeMap(targetMap, targetMap.getRandomPlayerSpawnpoint());
                         success = true;
@@ -660,6 +663,16 @@ public final class UseCashItemHandler extends AbstractPacketHandler {
             return false;
         }
         return (isVipRock(itemId) ? vipMaps : plainMaps).contains(mapId);
+    }
+
+    /**
+     * Why the rock may not take this character to {@code target}, or null when it may. The world-map teleport's rule
+     * (the jail, a running event, the dead, the rebirth and AreaGates gates, instance maps) is the rock's rule too,
+     * so it is asked here rather than copied.
+     */
+    static String trockRefusal(Character player, int mapId, MapleMap target) {
+        return HyperTPHandler.refusal(player.getMapId(), player.getEventInstance() != null, player.isAlive(),
+                mapId, target.getFieldLimit(), target.getForcedReturnId(), player.getReborns(), player.getLevel());
     }
 
     /**
