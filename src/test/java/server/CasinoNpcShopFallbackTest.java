@@ -14,8 +14,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 /**
  * Ticket 164: the restored {@code scripts/npc/9000055.js} only calls {@code cm.openShopNPC(9999001)}, and
  * {@code NPCConversationManager.openShopNPC} has no missing-shop branch of its own: with no {@code shops} row it logs
- * "Shop ID: 9999001 is missing from database." and opens GM shop 11000 instead. So the script without migration 058
- * is worse than the mute NPC it replaces - a player gets the GM stock - and 058 without the script leaves the NPC mute.
+ * "Shop ID: 9999001 is missing from database." and opens GM shop 11000 instead. So the script without migration 059
+ * is worse than the mute NPC it replaces - a player gets the GM stock - and 059 without the script leaves the NPC mute.
  * These two cases drive the real {@code openShopNPC} through ShopFactory's loader seam, no database.
  */
 class CasinoNpcShopFallbackTest {
@@ -45,7 +45,7 @@ class CasinoNpcShopFallbackTest {
     }
 
     @Test
-    void withMigration058sRowTheScriptOpensTheChipShop() {
+    void withMigration059sRowTheScriptOpensTheChipShop() {
         Shop chipShop = mock(Shop.class);
         Shop gmShop = mock(Shop.class);
         Client c = mock(Client.class);
