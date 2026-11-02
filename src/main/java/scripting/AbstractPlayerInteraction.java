@@ -1091,6 +1091,16 @@ public class AbstractPlayerInteraction {
     }
 
     /**
+     * 1.6.4: the Cannoneer tutorial portal spawns its NPC at a fixed spot (scripts/portal/cannon_tuto_07.js
+     * passed {@code spawnNPC(579711, 1096012, -51, -97, 0, true)} in stock). Only the position carries over: the stock
+     * call's object id, z and flip are client-side cutscene decoration, and spawnNpc already assigns the object id and
+     * broadcasts the spawn to the map.
+     */
+    public void spawnNpc(int npcId, int x, int y) {
+        spawnNpc(npcId, new Point(x, y));
+    }
+
+    /**
      * 1.6.4: the Temple of Time summon has Kirston vanish the moment he accepts (scripts/npc/2141000.js:12), so the
      * script asks the map to drop him for everyone on it - MapleMap.destroyNPC broadcasts both the controller and the
      * object removal. A map or NPC that is not there is logged instead of thrown: the summon still has to start.
@@ -1261,6 +1271,29 @@ public class AbstractPlayerInteraction {
 
     public void updateInfo(String key, String value) {
         log.debug("updateInfo({}, {}): no direction info to update (player {})", key, value, getPlayer().getName());
+    }
+
+    /**
+     * 1.6.4: same cutscene family as setDirectionStatus above, called by the Cannoneer and Resistance tutorial map
+     * scripts (scripts/map/onUserEnter/cannon_tuto_01.js:2, Resi_tutor50/70/80.js). A "direction" is a client-side
+     * camera script; the mode/stand-alone flags only tell the client whether the player may act during it. None of the
+     * three has a packet in this server, so they are recorded and skipped exactly like their siblings - the tutorial
+     * step still runs, it just does not play the camera.
+     */
+    public void setDirection(int direction) {
+        log.debug("setDirection({}): no direction engine to drive (player {})", direction, getPlayer().getName());
+    }
+
+    public void startDirection(String direction) {
+        log.debug("startDirection({}): no direction engine to drive (player {})", direction, getPlayer().getName());
+    }
+
+    public void setDirectionMode(boolean enabled) {
+        log.debug("setDirectionMode({}): no direction engine to drive (player {})", enabled, getPlayer().getName());
+    }
+
+    public void setStandAloneMode(boolean enabled) {
+        log.debug("setStandAloneMode({}): no cutscene stand-alone mode (player {})", enabled, getPlayer().getName());
     }
 
     /**
