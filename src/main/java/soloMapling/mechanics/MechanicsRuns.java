@@ -344,23 +344,67 @@ public final class MechanicsRuns {
     }
 
     private static volatile List<Content> contentCache;
+    private static volatile String contentCacheDir;
 
-    /** The stage data for an event script name ("KerningPQ"), or null. Loaded once. */
+    /** The stage data for an event script name ("KerningPQ"), or null. Loaded once per data folder. */
     public static Content contentFor(String eventScript) {
         if (eventScript == null) {
             return null;
         }
-        List<Content> all = contentCache;
-        if (all == null) {
-            all = StageData.load().content();
-            contentCache = all;
-        }
-        for (Content c : all) {
+        for (Content c : allContent()) {
             if (eventScript.equalsIgnoreCase(c.eventScript())) {
                 return c;
             }
         }
         return null;
+    }
+
+    /** Every content row the data folder holds, read once and re-read if the folder changes ({@code -Dslums.mechanics.dir}). */
+    private static List<Content> allContent() {
+        String dir = Mechanics.dataDir();
+        List<Content> all = contentCache;
+        if (all == null || !dir.equals(contentCacheDir)) {
+            all = StageData.load().content();
+            contentCacheDir = dir;
+            contentCache = all;
+        }
+        return all;
+    }
+
+    /**
+     * The real-fight path (1.6.4, ticket 130 phase 5 phase A1): a party that started a boss <em>expedition</em> (Zakum
+     * today, Horntail later) hands its bots and owned alts to a run of their own, when the data folder has a
+     * {@code kind: BOSS} row for the event script and {@code -Dslums.mechanics.boss} is on.
+     *
+     * <p>Called from {@code EventManager.startInstance(int, Expedition, Character)} after the event starts, next to
+     * {@link #onPartyInstanceStarted} for the party quests. The distinction matters: an expedition is the real fight
+     * a human leads his party into, while {@code GuildBossRuns} is a roll with the bots logged out and never reaches
+     * this method.
+     *
+     * <p>No row is not an error: a boss we have no data for is left to its humans, with one line in the bot log.
+     *
+     * @return the run, or null when nothing was armed
+     */
+    public static Active onExpeditionInstanceStarted(EventInstanceManager eim) {
+        if (eim == null || STAGING.get() || !Mechanics.bossesEnabled()) {
+            return null;
+        }
+        try {
+            String event = eim.getEm() == null ? null : eim.getEm().getName();
+            Content content = contentFor(event);
+            if (content == null || content.kind() != MechanicsModel.Kind.BOSS) {
+                log("[Mechanics] no boss content for " + keyOf(eim) + " (" + event + "): the expedition is left to its"
+                        + " humans");
+                return null;
+            }
+            if (eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
+                return null;
+            }
+            return get().start(eim, content, false, 0, line -> log("[Mechanics] " + keyOf(eim) + " " + line), null);
+        } catch (RuntimeException e) {
+            log("[Mechanics] could not start a boss run for " + keyOf(eim) + ": " + e);
+            return null;
+        }
     }
 
     /** The run on this instance, or null. */

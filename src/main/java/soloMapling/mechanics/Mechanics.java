@@ -18,6 +18,13 @@ public final class Mechanics {
 
     /** The switch. Off unless the server is started with {@code -Dslums.mechanics=true}. */
     public static final String FLAG = "slums.mechanics";
+
+    /**
+     * The boss switch: {@code -Dslums.mechanics.boss} (default {@code false}). Its own switch, not a value of
+     * {@link #FLAG}: a server may let bots fight real boss expeditions (Zakum, later Horntail) without handing them
+     * the party quests.
+     */
+    public static final String BOSS_FLAG = "slums.mechanics.boss";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";
     public static final String DEFAULT_DIR = "src/main/java/soloMapling/mechanics/content";
 
@@ -26,6 +33,11 @@ public final class Mechanics {
 
     public static boolean enabled() {
         return Boolean.getBoolean(FLAG);
+    }
+
+    /** True when a real boss expedition may arm a run. */
+    public static boolean bossesEnabled() {
+        return Boolean.getBoolean(BOSS_FLAG);
     }
 
     public static String dataDir() {
