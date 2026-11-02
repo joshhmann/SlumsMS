@@ -357,11 +357,12 @@ function fillJobs() {
     const currentJobId = cm.getJobId();
     const hasRequiredItem = cm.hasItem(4036541);
 
-    // 1.6.4 ticket 164: a rebirth rewinds the character to level 1 (Character.executeRebornAs: setLevel(0), then
-    // levelUp), which is why the rebirth helper (scripts/npc/rebirth.js) hands out Beginner / Noblesse / Legend at
-    // level 1 and this branch lets them re-pick the path there. A character that never rebirthed still has to reach
-    // level 8/10 for its first job like anyone else - it used to be able to become a Noblesse or a Legend here at 1.
-    if (level === 1 && cm.getChar().getReborns() > 0) {
+    // Kept divergence, not a defect: divergence-ledger SK-035 ("offers every advancement from level 1 to 5th job with
+    // no tests or items", status keep) and SK-044 ("Job Master lets a level-1 character swap Beginner / Noblesse /
+    // Legend", status keep, Class identity). A rebirth rewinds a character to level 1 (Character.executeRebornAs:
+    // setLevel(0), then levelUp) so it can re-pick its path, and the offer is deliberately open to every level-1
+    // character: do not narrow it with a rebirth condition.
+    if (level === 1) {
         jobs.push(...[0, 1000, 2000]);
         return;
     }

@@ -36,12 +36,15 @@ import static org.mockito.Mockito.when;
  * 1.6.4 ticket 164: the Job Master (scripts/npc/9010003.js) is driven here through its real Graal script and a fake
  * {@code cm}, so what players are actually offered is asserted, not the source text.
  *
- * <p>Two things went wrong. Its level-1 branch offered Beginner / Noblesse / Legend to anyone standing in Ellinia at
- * level 1, not only to the characters a rebirth had just rewound to level 1 (Character.executeRebornAs does
- * setLevel(0) then levelUp). And its 4th-job branch (currentJobId % 10 == 1 at level 120) offers
- * {@code currentJobId + 1} to whatever job the character has: a SUPERGM (910) at level 70 is offered 911 and an EVAN
- * (2001) at 120 is offered 2002, and neither id is a {@link Job} this server has, so the advancement failed while the
- * script took the fee, handed out the rewards and closed without a word.
+ * <p>What went wrong: the "next job" branches build their id as {@code currentJobId + 1}, and for a job whose line ends
+ * there that still produces one. A SUPERGM (910) at level 70 was offered 911 and an EVAN (2001) at level 120 was offered
+ * 2002, neither of which is a {@link Job} this server has, so the advancement failed while the script took the fee,
+ * handed out the rewards and closed without a word.
+ *
+ * <p>What did not: the level-1 offer of Beginner / Noblesse / Legend is a recorded owner decision (divergence-ledger
+ * SK-035 and SK-044, both "keep"). A rebirth rewinds a character to level 1 (Character.executeRebornAs does
+ * setLevel(0) then levelUp) so it can re-pick its path, and the offer is deliberately open to every level-1 character.
+ * {@link #aLevelOneCharacterIsStillOfferedBeginnerNoblesseAndLegend()} pins that.
  */
 class JobMasterOffersTest {
 
@@ -97,19 +100,14 @@ class JobMasterOffersTest {
     }
 
     @Test
-    void aLevelOneCharacterWhoNeverRebirthedIsNotOfferedAPath() throws Exception {
+    void aLevelOneCharacterIsStillOfferedBeginnerNoblesseAndLegend() throws Exception {
+        // Kept divergence: divergence-ledger SK-035 ("offers every advancement from level 1 to 5th job with no tests or
+        // items", keep) and SK-044 ("Job Master lets a level-1 character swap Beginner / Noblesse / Legend", keep).
+        // Deliberate, so this test pins it: do not add a rebirth condition or a level gate here.
         Invocable script = jobMaster(0, 1, 0, false);
         script.invokeFunction("start");
-        assertEquals(List.of(), lists, "a fresh level-1 Beginner in Ellinia must not be switched to Noblesse/Legend");
-        verify(cm).sendOk(contains("not eligible"));
-    }
-
-    @Test
-    void aRebirthedLevelOneCharacterStillPicksItsPath() throws Exception {
-        Invocable script = jobMaster(0, 1, 1, false);
-        script.invokeFunction("start");
         assertEquals(List.of(0, 1000, 2000), offered(),
-                "a rebirth rewinds the character to level 1 to pick its path again: that is what the branch is for");
+                "the broad level-1 offer is a recorded owner decision, not a defect");
     }
 
     @Test
