@@ -353,6 +353,15 @@ public final class BotVitals {
         return potions(c, forHp);
     }
 
+    /**
+     * Whether the bot could pay for a cast: it holds the MP now, or a potion it could drink for it. A swing it cannot
+     * pay for goes out as the weapon's plain attack (SwingSupply), so a rotation pick must not be made on that hope
+     * (t-rb-2: an extra picked and never paid for was picked again on every swing).
+     */
+    public static boolean canPay(Character bot, int cost) {
+        return cost <= 0 || bot.getMp() >= cost || potionCount(bot, false) > 0;
+    }
+
     /* How many HP (or MP) potions the bot holds. */
     public static int potionCount(Character bot, boolean forHp) {
         int n = 0;
