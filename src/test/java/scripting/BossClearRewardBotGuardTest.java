@@ -162,7 +162,9 @@ class BossClearRewardBotGuardTest {
     @CsvSource({
             "PapulatusBattle.js, 8500002, 4001126, 5",
             "ScargaBattle.js, 9420544, 4001006, 30",
-            "ShowaBattle.js, 9400300, 4001006, 1"
+            "ShowaBattle.js, 9400300, 4001006, 1",
+            "LatanicaBattle.js, 9420513, 4001006, 1",
+            "MahaBattle.js, 9001014, 4001006, 1"
     })
     void aBotInThePartyDoesNotStopTheClearReward(String script, int mobId, int item, int quantity) throws Exception {
         FakeEim eim = new FakeEim();

@@ -145,8 +145,10 @@ function monsterKilled(mob, eim) {
     if (isMaha(mob)) {
         eim.clearPQ();
         party = eim.getPlayers()
-        for (var i = 0; i < party.size(); i++)
-        eim.getPlayers().get(i).getClient().getAbstractPlayerInteraction().gainItem(4001006, 1);
+        for (var i = 0; i < party.size(); i++) {
+            if (party.get(i).isBot()) continue; // 1.6.4 ticket 182: a bot has no client to hand leaves to (it threw and stopped the loop)
+            party.get(i).getClient().getAbstractPlayerInteraction().gainItem(4001006, 1);
+        }
     }
 }
 
