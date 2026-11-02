@@ -1,4 +1,4 @@
-# 177: Player housing — architecture and first playable vertical slice
+# 180: Player housing — architecture and first playable vertical slice
 
 **Status:** idea, later (not 1.6.3; owner liked it 2026-11-02 ~02:40 UTC). Inspiration: MushMS's public housing post on
 r/mapleservers (a purchasable town house, a private instanced interior built from existing map assets, live
