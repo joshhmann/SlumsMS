@@ -50,6 +50,12 @@ public class MiniGame extends AbstractMapObject {
     private MiniGameType GameType = MiniGameType.UNDEFINED;
     private int piecetype;
     private int inprogress = 0;
+    /**
+     * Tie refusals, deliberately kept out of {@code inprogress}, which must keep meaning only "a match is running".
+     * Bit 1 is the owner's refusal and bit 2 the visitor's; {@link #isTieDenied} reads the <em>opponent's</em> bit,
+     * because the player asking for a tie is the one who needs to know whether the other side already said no.
+     */
+    private int tiedenied = 0;
     private final int[] piece = new int[250];
     private final List<Integer> list4x3 = new ArrayList<>();
     private final List<Integer> list5x4 = new ArrayList<>();
@@ -227,6 +233,9 @@ public class MiniGame extends AbstractMapObject {
         inprogress = 1;
         ownerquit = false;
         visitorquit = false;
+        // the old code wiped the tie bits as a side effect of assigning inprogress = 1; a new game must not start
+        // with the previous game's refusal still in place
+        tiedenied = 0;
 
         // A new game must not inherit the previous one's state: the board is only cleared inside the five-in-a-row
         // branches of setPiece, so a game that ended by forfeit (GIVE_UP, or the visitor leaving in progress) left
@@ -267,17 +276,17 @@ public class MiniGame extends AbstractMapObject {
 
     public void denyTie(Character chr) {
         if (this.isOwner(chr)) {
-            inprogress |= (1 << 1);
+            tiedenied |= (1 << 1);
         } else {
-            inprogress |= (1 << 2);
+            tiedenied |= (1 << 2);
         }
     }
 
     public boolean isTieDenied(Character chr) {
         if (this.isOwner(chr)) {
-            return ((inprogress >> 2) % 2) == 1;
+            return ((tiedenied >> 2) % 2) == 1;
         } else {
-            return ((inprogress >> 1) % 2) == 1;
+            return ((tiedenied >> 1) % 2) == 1;
         }
     }
 
