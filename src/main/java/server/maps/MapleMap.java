@@ -652,7 +652,7 @@ public class MapleMap {
 
 
     private byte dropItemsFromMonsterOnMap(List<MonsterDropEntry> dropEntry, Point pos, byte d, int chRate, byte droptype, int mobpos, Character chr, Monster mob) {
-        if (dropEntry.isEmpty()) {
+        if (dropEntry.isEmpty()) {   // thanks resinate
             return d;
         }
 
@@ -882,10 +882,9 @@ public class MapleMap {
         List<MonsterDropEntry> lootEntry = YamlConfig.config.server.USE_SPAWN_RELEVANT_LOOT ? mob.retrieveRelevantDrops() : mi.retrieveEffectiveDrop(mob.getId());
         sortDropEntries(lootEntry, dropEntry, visibleQuestEntry, otherQuestEntry, chr);     // thanks Articuno, Limit, Rohenn for noticing quest loots not showing up in only-quest item drops scenario
 
-        if (lootEntry.isEmpty()) {   // thanks resinate
-            return;
-        }
-
+        // no early return when lootEntry is empty: a mob with no drop rows of its own (the 268 post-Big-Bang mobs,
+        // ticket 81) must still roll the map's global drops, or it drops nothing whatsoever. The empty own list is
+        // already handled by dropItemsFromMonsterOnMap, which returns without rolling per-mob entries.
         registerMobItemDrops(droptype, mobpos, chRate, pos, dropEntry, visibleQuestEntry, otherQuestEntry, globalEntry, chr, mob);
     }
 
