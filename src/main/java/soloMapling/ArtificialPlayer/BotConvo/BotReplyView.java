@@ -170,16 +170,30 @@ public final class BotReplyView {
         }
     }
 
-    /** Where this bot trains: the map it is on when that is a grind map, else the best spot for its level. */
+    /**
+     * Where this bot trains: the map it is on when the leveling path trains it there, else the best spot for its level.
+     * Never a map off the path (the 1.6.3 cv-13 run had "i train at swampy land in a deep forest", map 105040000,
+     * which the path never lists for any level): the bot's own list is {@link TrainingTips}, so a line it words from
+     * this fact names a real spot for its band.
+     */
     static String mySpot(Character bot, boolean town, String activity) {
         if (!town && "grinding".equals(activity)) {
-            String here = RelationshipCard.mapName(bot);
+            String here = onMyPath(bot);
             if (here != null) {
                 return here;
             }
         }
         List<String> mine = spots(bot.getLevel(), bot.getJob().getId());
         return mine.isEmpty() ? null : mine.get(0);
+    }
+
+    /** What players call the map the bot stands on, when it is one the path trains a bot of its level and job on. */
+    private static String onMyPath(Character bot) {
+        try {
+            return TrainingTips.spotName(bot.getMapId(), bot.getLevel(), bot.getJob().getId());
+        } catch (RuntimeException | LinkageError e) {
+            return null; // path unreadable: the caller falls back to the best spot for the level
+        }
     }
 
     /**

@@ -501,6 +501,44 @@ class ReplyPlannerTest {
         assertTrue(facts(knownPlan).contains("they are your friend"), () -> facts(knownPlan).toString());
     }
 
+    /**
+     * cv-13 (hunting ground, 2026-11-01): "hey! lolz long time xd" was the planned answer to "hey" on a mob map, so the
+     * line named nothing at all. A hello on a mob map is short and names the mob: it is in the facts, the prompt asks
+     * for it, and every scripted hello carries it for when the model does not.
+     */
+    @Test
+    void aHelloOnAMobMapNamesTheMob() {
+        ReplyPlanner.View grinding = v().town(false).place("henesys hunting ground i")
+                .mobs(List.of("Orange Mushroom", "Slime")).activity("grinding").build();
+        ReplyPlanner.Plan plan = ReplyPlanner.plan(grinding);
+        assertNotNull(plan);
+        assertEquals(ReplyPlanner.Move.HELLO, plan.move());
+        assertTrue(facts(plan).contains("you are on henesys hunting ground i, killing Orange Mushroom, Slime"),
+                () -> facts(plan).toString());
+        assertTrue(ReplyPlanner.prompt(grinding, plan).contains("Name the mob you are killing (orange mushrooms)"),
+                ReplyPlanner.prompt(grinding, plan));
+        List<String> lines = ReplyPlanner.scripts(grinding, plan.move());
+        assertFalse(lines.isEmpty(), "a hello on a mob map has scripts");
+        for (String line : lines) {
+            assertTrue(line.contains("orange mushroom"), "\"" + line + "\" does not name the mob");
+            assertTrue(line.length() <= 40, "\"" + line + "\" is not one short line");
+        }
+
+        // the mob is a fact on a map whose own name is unknown too, and the ask comes with it
+        ReplyPlanner.View unnamed = v().town(false).place("").mobs(List.of("Stirge")).build();
+        ReplyPlanner.Plan mobOnly = ReplyPlanner.plan(unnamed);
+        assertNotNull(mobOnly);
+        assertTrue(facts(mobOnly).contains("you are killing Stirge here"), () -> facts(mobOnly).toString());
+        assertTrue(ReplyPlanner.prompt(unnamed, mobOnly).contains("stirges"), ReplyPlanner.prompt(unnamed, mobOnly));
+
+        // a town hello asks for no mob, and one with no monsters keeps the plain hellos
+        ReplyPlanner.View town = v().build();
+        ReplyPlanner.Plan townPlan = ReplyPlanner.plan(town);
+        assertNotNull(townPlan);
+        assertNull(townPlan.instruction(), "nothing to name in a town");
+        assertTrue(ReplyPlanner.scripts(town, townPlan.move()).stream().noneMatch(l -> l.contains("orange mushroom")));
+    }
+
     /** Owner's answer 8: the greeting knows how far the player has come since the two last talked. */
     @Test
     void aGreetingGratsTheLevelTheyGainedSinceTheLastTalk() {

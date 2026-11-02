@@ -102,7 +102,37 @@ public final class ConvoLines {
      * the bank has no acknowledgement left.
      */
     static ChatBank.Pick pickAcknowledgement(ChatBank bank, ChatBank.Query q, RecentLines.Window window, java.util.Random rng) {
-        return bank.pick(q, window, weights, rng, ConvoLines::acknowledgement);
+        return pickAcknowledgement(bank, q, window, rng, text -> true);
+    }
+
+    /** The same, with another rule to keep beside "is an acknowledgement". */
+    static ChatBank.Pick pickAcknowledgement(ChatBank bank, ChatBank.Query q, RecentLines.Window window,
+                                             java.util.Random rng, java.util.function.Predicate<String> ok) {
+        return bank.pick(q, window, weights, rng, text -> acknowledgement(text) && ok.test(text));
+    }
+
+    /**
+     * b240 at the door of the line bank: a bot standing in a town never picks a line that says it is training, grinding
+     * or farming here. cv-13 (Henesys, 2026-11-01) said "Yo AqClient, you training here too?" straight from the bank,
+     * through the greeting shortcut that answers before the planner runs; the checker would have swapped it, and the
+     * pick does not need to reach it. Every other map keeps the whole bank.
+     */
+    static java.util.function.Predicate<String> townGuard(Character bot) {
+        return inTown(bot) ? text -> !claimsActivityHere(text) : text -> true;
+    }
+
+    /** Whether a bank line claims the bot is at it where it stands, asked of a bot standing in a town. */
+    static boolean claimsActivityHere(String text) {
+        return text != null && StateOfMind.mayClaimActivity(text) && StateOfMind.claimsGrindingInTown(text);
+    }
+
+    /** Whether the bot stands on a town map (the {@link StateOfMind#TOWNS} the b240 rule reads). */
+    static boolean inTown(Character bot) {
+        try {
+            return bot != null && StateOfMind.TOWNS.contains(bot.getMapId());
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     /** Words a neutral acknowledgement may carry: it agrees, laughs or hesitates, and claims nothing about a topic. */
@@ -150,9 +180,10 @@ public final class ConvoLines {
                 ChatBank.Query q = new ChatBank.Query(key, tone, affinity(bot, player), persona.voice(),
                         situation(bot, whisper), slots, ChatBank.claimMask(claimsFor(key)));
                 RecentLines.Window window = new RecentLines.Window(player == null ? 0 : player.getId(), bot.getId());
+                java.util.function.Predicate<String> guard = townGuard(bot);
                 ChatBank.Pick pick = generic(key)
-                        ? pickAcknowledgement(bank, q, window, ThreadLocalRandom.current())
-                        : bank.pick(q, window, weights, ThreadLocalRandom.current());
+                        ? pickAcknowledgement(bank, q, window, ThreadLocalRandom.current(), guard)
+                        : bank.pick(q, window, weights, ThreadLocalRandom.current(), guard);
                 if (pick != null) {
                     RecentLines.used(player == null ? 0 : player.getId(), bot.getId(), pick.id());
                     return new Line(pick.text(), pick.id(), "bank");

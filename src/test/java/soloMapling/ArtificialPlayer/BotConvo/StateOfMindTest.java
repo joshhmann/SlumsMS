@@ -210,6 +210,26 @@ class StateOfMindTest {
         rejected(StateOfMind.Reason.ACTIVITY, "still grinding hene tbh", hene);
     }
 
+    /**
+     * cv-13 (Henesys, 2026-11-01): "Yo AqClient, you training here too?" went out of the line bank in town. The second
+     * person made the rule read it as a question about the player, but "here too" is the bot's own map, and the bot
+     * said it trains there as well.
+     */
+    @Test
+    void b240AskingThePlayerIfTheyTrainHereTooIsAClaimForTheBot() {
+        StateOfMind.Snapshot hene = inHenesys().met(true, List.of()).build();
+        assertTrue(StateOfMind.claimsGrindingInTown("Yo AqClient, you training here too?"), "the bank's cv-13 line");
+        rejected(StateOfMind.Reason.ACTIVITY, "oh ur grinding here too?", hene);
+        rejected(StateOfMind.Reason.ACTIVITY, "u farmin here as well lol", hene);
+        rejected(StateOfMind.Reason.ACTIVITY, "You Training Here Too", hene); // pack text is not all lowercase
+        // a question about them somewhere else, or a hook-up later, still passes in town
+        passes("u still grinding?", hene);
+        passes("wanna grind here later?", hene);
+        // and the same line is true where the monsters are
+        StateOfMind.Snapshot field = onHuntingGround(true).build();
+        passes("you training here too?", field);
+    }
+
     @Test
     void b240AskingAboutThePlayersGrindOrTalkOfALaterOneStillPasses() {
         StateOfMind.Snapshot town = inHenesys().met(true, List.of()).build();

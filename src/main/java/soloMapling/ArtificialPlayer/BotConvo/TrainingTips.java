@@ -82,13 +82,22 @@ public final class TrainingTips {
 
     /** Whether this map is one the leveling path trains a bot of this level and job on. */
     public static boolean realSpot(int mapId, int level, int jobId) {
+        return spotName(mapId, level, jobId) != null;
+    }
+
+    /**
+     * What players call this map, when the path trains a bot of this level and job on it; null when it is not on the
+     * bot's own list. The name is the path's, not the map's title ("Hunting Ground in the Deep Forest I" is "hunting
+     * ground in the deep forest"), so a line worded from it names a spot the SENSE check knows.
+     */
+    public static String spotName(int mapId, int level, int jobId) {
         LevelingPath.Path path = LevelingPath.path();
         for (LevelingPath.Entry e : path.candidates(path.bandIndex(level), jobId, 0.5)) {
             if (e.mapId() == mapId) {
-                return true;
+                return spotOf(e).name();
             }
         }
-        return false;
+        return null;
     }
 
     /** Words of a spot name that a line must carry to name it ("the", "of" and short words do not count). */

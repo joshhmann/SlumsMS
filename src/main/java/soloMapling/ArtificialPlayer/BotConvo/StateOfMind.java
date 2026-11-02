@@ -377,6 +377,19 @@ public final class StateOfMind {
     private static final Pattern GRIND_ANY = Pattern.compile("\\b(grinding|grindin|grind|grinds|sniping|farming|"
             + "hunting|leveling|lvling|training)\\b"
             + "(?!\\s+(is|was|sucks|sux|gets|takes|later|after|tmr|tomorrow|soon))");
+    /**
+     * cv-13 (Henesys, 2026-11-01): "Yo pinky, you training here too?" - the second person makes {@link #SECOND_PERSON}
+     * read it as a question about the player, but "here too" puts the bot at it as well, and "here" is the bot's own
+     * map. A training word, then "here", then "too"/"also": about the bot, whatever the person of the verb.
+     */
+    private static final Pattern HERE_TOO = Pattern.compile(
+            "\\b(?:train|trains|trainin|training|grind|grinds|grindin|grinding|farm|farms|farmin|farming|hunt|hunts|"
+            + "huntin|hunting|leveling|lvling|sniping|killing)\\b[^,.!;]{0,24}\\bhere\\b[^,.!;]{0,20}"
+            + "\\b(?:too|also|as well)\\b", Pattern.CASE_INSENSITIVE);
+    /** A cheap pre-screen for {@link #claimsGrindingInTown} on hot paths (the bank walks up to 4,000 rows per pick). */
+    private static final Pattern ACTIVITY_WORD = Pattern.compile("\\b(grind\\w*|snip\\w*|farm\\w*|hunt\\w*|level\\w*|"
+            + "lvl\\w*|train\\w*|killing)\\b", Pattern.CASE_INSENSITIVE);
+
     private static final Pattern FIRST_PERSON = Pattern.compile("\\b(i|im|me|my|myself|we|were|us)\\b|\\blet me\\b");
     private static final Pattern SECOND_PERSON = Pattern.compile("\\b(u|you|ya|ur|your|youre|yall|they|them|he|she|"
             + "his|her)\\b");
@@ -820,6 +833,11 @@ public final class StateOfMind {
             if (NOT_NOW.matcher(clause).find()) {
                 continue; // later, after this, tomorrow, earlier: not a claim to be at it now
             }
+            if (HERE_TOO.matcher(clause).find()) {
+                // "you training here too?": the "here too" is the bot's own map and puts it at it, not only the player
+                return new Verdict(Reason.ACTIVITY, "asks \"" + clause.trim() + "\" - here too means the bot is at it - "
+                        + "standing in " + (place == null || place.isBlank() ? "a map with no monsters" : place));
+            }
             if (claimsActivity(clause)) {
                 return new Verdict(Reason.ACTIVITY, "says \"" + clause.trim() + "\" standing in "
                         + (place == null || place.isBlank() ? "a map with no monsters" : place));
@@ -834,6 +852,15 @@ public final class StateOfMind {
      */
     public static boolean claimsGrindingInTown(String text) {
         return !activityIn(text, true, "town").ok();
+    }
+
+    /**
+     * A cheap first look for callers that test many lines: whether the text carries an activity word at all, in any
+     * case (pack text is not normalised), so the full {@link #claimsGrindingInTown} scan runs only on those. Says no
+     * more than that; a true answer here is still the full rule's to decide.
+     */
+    public static boolean mayClaimActivity(String text) {
+        return text != null && ACTIVITY_WORD.matcher(text).find();
     }
 
     /** Whether a clause says the bot itself is grinding, training, hunting or farming right now. */
@@ -892,6 +919,22 @@ public final class StateOfMind {
             + "doin|doing|up to|u at|you at|r u|are you|u train|you train|u grind)\\b|\\bwyd\\b|\\bwhere (r|are) (u|you)\\b");
 
     /**
+     * The factual answer to "what are you doing / where are you": the bot's place and what is on it, from the
+     * snapshot; null when the snapshot holds no place. The safe line and a flagged line that turns out to be only
+     * that question both answer with this (m02 round 3: TEST answered "what r u doing" with the con bank's
+     * "go train elsewhere ^^").
+     */
+    public static String activityAnswer(Snapshot s, String asked) {
+        if (s == null || s.here() == null || asked == null || !ASKS_DOING.matcher(words(asked)).find()) {
+            return null;
+        }
+        String place = s.here().name() == null ? "" : s.here().name().toLowerCase(Locale.ROOT);
+        String line = s.town() ? "just chillin in " + place + " rn" : !s.mobsHere().isEmpty()
+                ? "killing " + s.mobsHere().get(0).toLowerCase(Locale.ROOT) + "s here" : "just here in " + place;
+        return check(line, s).ok() ? line : null;
+    }
+
+    /**
      * A reply that the snapshot backs: the answer to an open offer, what it is doing when asked, else a short
      * neutral line. Always passes {@link #check}.
      */
@@ -905,13 +948,9 @@ public final class StateOfMind {
                     : "nah cant do " + price(o.offered()) + " for " + o.item() + ", " + price(o.asking())
                     + " is my price";
         }
-        if (s != null && s.here() != null && asked != null && ASKS_DOING.matcher(words(asked)).find()) {
-            String place = s.here().name() == null ? "" : s.here().name().toLowerCase(Locale.ROOT);
-            String line = s.town() ? "just chillin in " + place + " rn" : !s.mobsHere().isEmpty()
-                    ? "killing " + s.mobsHere().get(0).toLowerCase(Locale.ROOT) + "s here" : "just here in " + place;
-            if (check(line, s).ok()) {
-                return line;
-            }
+        String here = activityAnswer(s, asked);
+        if (here != null) {
+            return here;
         }
         if (asked != null && GREETING.matcher(words(asked)).find()) {
             return HELLO.get(rng.nextInt(HELLO.size()));

@@ -86,4 +86,34 @@ class BankClaimsTest {
             assertTrue(head.startsWith(ChatBank.HEADER_V2), "chatbank.bin was packed with the claim tags");
         }
     }
+
+    /**
+     * cv-13 (Henesys, 2026-11-01): "Yo AqClient, you training here too?" came out of the bank in town, through the
+     * greeting shortcut that answers before the planner runs. The door keeps the line anywhere it would be true and
+     * refuses it in a town.
+     */
+    @Test
+    void aTownBotNeverPicksALineThatSaysItTrainsHere() throws Exception {
+        ChatBank b = bank(ChatBank.HEADER_V2,
+                "1\tgreeting\tany\tany\tany\t-\tyo {player}, you training here too?",
+                "2\tgreeting\tany\tany\tany\t-\theya");
+        client.Character inTown = org.mockito.Mockito.mock(client.Character.class);
+        org.mockito.Mockito.when(inTown.getMapId()).thenReturn(100000000); // Henesys
+        client.Character inTheField = org.mockito.Mockito.mock(client.Character.class);
+        org.mockito.Mockito.when(inTheField.getMapId()).thenReturn(104040000); // Henesys Hunting Ground I
+        // the pack's own line for the key fills {player}, so the query carries it
+        ChatBank.Query greeting = new ChatBank.Query("greeting", null, "neutral", null, 0,
+                Map.of("player", "josh"), -1L);
+        Random town = new Random(5);
+        for (int i = 0; i < 60; i++) {
+            assertEquals(2, b.pick(greeting, null, null, town, ConvoLines.townGuard(inTown)).id(),
+                    "draw " + i + " in town");
+        }
+        Random field = new Random(5);
+        boolean sawHereToo = false;
+        for (int i = 0; i < 60 && !sawHereToo; i++) {
+            sawHereToo = b.pick(greeting, null, null, field, ConvoLines.townGuard(inTheField)).id() == 1;
+        }
+        assertTrue(sawHereToo, "where the monsters are, the line is true and stays");
+    }
 }

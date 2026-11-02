@@ -68,13 +68,15 @@ true). No `config.yaml` key, so no config change can stop a boot. TEST turns it 
 
 ## Tests
 
-- `ReplyPlannerTest` (21 tests): one test per branch and per precedence rule, the facts of each move, the bond and its
-  one memory, "never grinding in a town", scripts that say the same move, the third-bot rule, the switch default, the
-  `planReply` gate (off for every outcome; on for NONE only), and the prompt length with eight real persona voices
-  (median 830 characters, longest 904 - before this ticket about 3,800).
+- `ReplyPlannerTest` (35 tests, 36 with the cv-13 one below): one test per branch and per precedence rule, the facts of
+  each move, the bond and its one memory, "never grinding in a town", scripts that say the same move, the third-bot
+  rule, the switch default, the `planReply` gate (off for every outcome; on for NONE only), and the prompt length with
+  eight real persona voices (median 830 characters, longest 904 - before this ticket about 3,800).
 - `ReplyReplayTest` + `ReplyReplay` (the section-6 replay check): the four days are checked in as a fixture
   (`src/test/resources/chat/replies-to-players-2026-10-28-31.jsonl`, 768 rows: 565 llm, 108 bank, 95 scripted), re-read
   with the rule triage and the planner in the order they happened. `ReplyReplay.main` prints the tables below.
+- `StateOfMindTest`, `BankClaimsTest` and `ReplyPlannerTest` also carry the cv-13 fixes below (a "here too" claim, the
+  bank door in a town, and a hello that names the mob), each of them failing on the base commit.
 
 ## Replay: before and after
 
@@ -100,6 +102,58 @@ four-day column overstates what a player would meet. A third bot is kept off a s
 `ReplyPlanner.fresh`: a line two other bots said in the last ten minutes is passed over while another fits. That ring is
 the planner's own and deletable: the shared delivery-point guard belongs to s-chatguards (branch `162-chatguards` has no
 commits yet, so there was nothing to reuse at the time).
+
+## cv-13 wording fixes (2026-11-01)
+
+Two replies from the TEST run of 2026-11-01 17:33-17:34 UTC, found by the client lane's QA pass
+(`/root/work/agent-runs/client/evidence/m02-cv13-retry-20261101/qa-lines.txt`):
+
+- Henesys, town, "hey": `Yo AqClient, you training here too?`, `[scripted, bank#859]`, with **no** `CONVO PLAN` line
+  before it. The bank line says the bot trains where it stands, on a map with no monsters.
+- Henesys Hunting Ground I, "hey": planned `hello_back`, then `[llm] hey! lolz long time xd` - the mob the bot was
+  killing was neither in the facts nor asked for, so the line named nothing.
+
+Fixes, and why they are where they are:
+
+1. **The greeting shortcut is not the planner's**, so the bank door has to hold the rule: `BotConversation.ask()` answers
+   `GREETING` through `bank(...)`/`ConvoLines.line(...)` (before the planner) when the two greeted recently or the bot
+   already spoke. `ConvoLines.townGuard(bot)` is now passed into `ChatBank.pick` as another `Predicate<String>`, and it
+   refuses any row `StateOfMind.claimsGrindingInTown` rejects while the bot stands in `StateOfMind.TOWNS`; every other
+   map keeps the whole bank. The rule itself learned one shape it missed: `HERE_TOO` ("you training **here too**?"),
+   because "here" is the bot's own map and "too" puts it at it, whatever the person of the verb - `SECOND_PERSON` used to
+   read it as a question about the player. `StateOfMind.mayClaimActivity(text)` is the cheap pre-screen for that scan
+   (the bank walks up to 4,000 rows per pick); `GRIND_ANY` is deliberately not widened, so "i train at kerning subway"
+   stays a place, not a claim about here.
+2. **A hello on a map with monsters names the mob**: `plan(View)` for `HELLO`/`HELLO_BACK` now carries
+   `mobInstruction(v)` ("Name the mob you are killing (<mob>s) ..."), `place(v, f)` states the mob even when the map has
+   no name in `ConvoEntities` ("you are killing <mob> here"), and the scripts for both moves are `mobGreetings(...)` -
+   every one names the mob, and none of them is longer than 40 characters. Town greetings keep `greetingNow(...)`.
+
+Tests (fail before, pass after - each one was run against the base commit):
+
+- `StateOfMindTest.b240AskingThePlayerIfTheyTrainHereTooIsAClaimForTheBot`
+- `BankClaimsTest.aTownBotNeverPicksALineThatSaysItTrainsHere` (the same bank, in Henesys and on the hunting ground)
+- `ReplyPlannerTest.aHelloOnAMobMapNamesTheMob`
+
+### A TRAIN_SPOT reply names a spot on the leveling path (same run, item 3)
+
+`toasttty` (lv 34) answered "where should i train" with `i train at swampy land in a deep forest`: map 105040000, which
+`LevelingPath.yaml` lists for no band at all. `BotReplyView.mySpot` took the bot's *current* map whenever the bot was
+grinding, so any grind map it wandered onto became a training claim, and the plan put it both in the facts ("you train
+at ...") and in the scripted fallback ("i train at ...").
+
+`mySpot` now asks the path: `TrainingTips.spotName(mapId, level, jobId)` returns what players call the map when the
+bot's own band (level and job group) trains there, else null - and then the bot uses the best spot for its level, as it
+already did in a town or when idle. `realSpot` is now `spotName(...) != null`, so there is one lookup. A tip is
+unaffected: `playerSpots` always came from `TrainingTips.spotsFor`, and the asker's band is still the only source for
+"try <spot>".
+
+- `TrainSpotReplyTest.aBotGrindingOffThePathStillNamesATrainingSpotFromItsOwnBand` (base: `Swampy Land in a Deep
+  Forest`)
+- `TrainSpotReplyTest.aTrainSpotReplyOnlyNamesSpotsOnThePath` (base: the fact `you train at Swampy Land in a Deep
+  Forest`, and an `i train at ...` script saying it)
+- `TrainSpotReplyTest.aBotGrindingOnAPathMapNamesThatMap` (a bot standing on 105040100 names it in the path's words,
+  "Hunting Ground in the Deep Forest", not the map title with its numeral)
 
 ## Stage B (not started)
 
