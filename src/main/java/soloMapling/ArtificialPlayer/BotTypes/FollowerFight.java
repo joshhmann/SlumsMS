@@ -124,14 +124,22 @@ final class FollowerFight {
         Monster best = null;
         double bestSq = Double.MAX_VALUE;
         boolean reachGate = reachGateOn();
+        BotAttackProfile profile = null;
         for (Monster m : map.getAllMonsters()) {
             if (m == null || !m.isAlive() || m.getPosition() == null || !BotAttackDriver.botMayTarget(m)) {
                 continue;
             }
             // fix 2: a boss part it can never get into its swing's reach of costs STALL_MS of standing still and
-            // GIVE_UP_MS of skipping; the reach check runs for boss parts only, so ordinary mobs rank as they always did
-            if (reachGate && isBossPart(m) && !canGetInReach(bot, map, at, m)) {
-                continue;
+            // GIVE_UP_MS of skipping. The check runs for boss parts only and the swing profile is built once per tick
+            // and only when a boss part comes up, so ordinary mobs rank as they always did at the cost they always had;
+            // a part that fails falls through to the next-nearest in the same pass.
+            if (reachGate && isBossPart(m)) {
+                if (profile == null) {
+                    profile = BotAttackDriver.primaryAttack(bot);
+                }
+                if (!canGetInReach(map, at, m, profile)) {
+                    continue;
+                }
             }
             double d = at.distanceSq(m.getPosition());
             if (d < bestSq) {
@@ -149,16 +157,16 @@ final class FollowerFight {
 
     /**
      * Whether the follower can get into its own swing's reach of {@code m}, by the attack driver's own tests: the swing's
-     * box from where it stands ({@link BotAttackDriver#canSwingFrom}, the reach the driver itself faces with), else the
+     * box from where it stands ({@link BotAttackDriver#canSwingFrom}, which is the padded reach <em>and</em>
+     * {@link BotAttackDriver#onAttackableSurface}, the ledge rule the swing itself applies), else the
      * nav planner's route to it ({@link BotAttackDriver#pathCost}, the cost {@link BotAttackDriver#costTo} ranks by) -
      * {@link GCMovement#UNREACHABLE} when no walk gets there (a part hovering over a platform, or sealed off).
      */
-    static boolean canGetInReach(Character bot, MapleMap map, Point at, Monster m) {
+    static boolean canGetInReach(MapleMap map, Point at, Monster m, BotAttackProfile profile) {
         Point mp = m == null ? null : m.getPosition();
         if (mp == null) {
             return false;
         }
-        BotAttackProfile profile = BotAttackDriver.primaryAttack(bot);
         if (profile != null && BotAttackDriver.canSwingFrom(map, at, m, profile.reachX, profile.reachY)) {
             return true;
         }
