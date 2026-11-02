@@ -92,6 +92,13 @@ Three things are worth saying plainly:
   it is not Ludi-specific: `PqGates` keeps every scripted door shut for bots, so Magatia, Ellin PQ and CWKPQ doors
   with side effects get the same use out of it (map-empty and reactor-state clears were *not* needed - no LPQ stage
   asks for one).
+- **Where this departs from the plan and from upstream.** Seven of the nine stages run through `lpq-farm`, and the
+  farming, pooling and hand-in inside it *is* `KillCollectHandInSolver` unchanged; the two extra behaviours (boxes, rooms)
+  were cheaper as a small delegating solver than as a rewrite of the one KPQ's stage 5 shares - the generic solver has no
+  reactor path at all, and stage 2 has no monster to fight. `StageData` also wants one `mob:` per `KILL_FOR_ITEM`, so
+  stages with several monster ids (1: `9300006` and `9300005`, 7: the three bosses) name their primary one and list the
+  rest in the stage's `mobs:`, which is what the solver reads anyway. Upstream's `AgentLpqDefinition` matches our nine
+  counts and NPCs; its `MAX_LEVEL 50` and six-member party were not copied (table above).
 - **Stage 8 is a different kind of answer.** `combination` matches a sequence the row declares; this one is written
   into the instance by the NPC when the stage opens, so the row cannot hold it. `lpq-combo` reads
   `stage8combo` + the map's nine `area` nodes each tick (`StageView.area(int)`), which is the same seam Orbis' sealed
