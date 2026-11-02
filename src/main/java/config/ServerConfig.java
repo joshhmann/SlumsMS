@@ -479,10 +479,14 @@ public class ServerConfig {
     public int EXPAND_GUILD_MAX_COST;
 
     //Family Configuration
-    public int FAMILY_REP_PER_KILL;
-    public int FAMILY_REP_PER_BOSS_KILL;
-    public int FAMILY_REP_PER_LEVELUP;
-    public int FAMILY_MAX_GENERATIONS;
+    //owner 2026-10-25: rep per kill 4, per boss kill 20, per level-up 200, at most 1000 generations
+    //(docs/tickets/53-family.md:18-19). Initialised here because yamlbeans leaves an absent key at the Java
+    //default, and 0 is not a neutral value: it pays no reputation at all and turns the generation cap into a
+    //wall that refuses every join (FamilyAddHandler.java:71, AcceptFamilyHandler.java:105).
+    public int FAMILY_REP_PER_KILL = 4;
+    public int FAMILY_REP_PER_BOSS_KILL = 20;
+    public int FAMILY_REP_PER_LEVELUP = 200;
+    public int FAMILY_MAX_GENERATIONS = 1000;
 
     //Equipment Configuration
     public boolean USE_EQUIPMNT_LVLUP_SLOTS;
