@@ -6,6 +6,9 @@ recipe, price, loot or gate changes. Worktree `SlumsMS-area-balance-codex`, bran
 
 Implementation ticket: [normal equipment through 200, then forged rebirth progression](../tickets/normal-200-to-forged-rebirth-progression.md).
 
+Current implementation: [normal gear pilot and repeatable coverage checks](normal-200/README.md). The owner
+selected existing families plus late scrolling/accessory upgrades; no new 180/200 weapon tiers.
+
 ## The full lists
 
 - [Every forge recipe, with exact quantities and named materials](forge-catalog/full-list.md): **357 recipes**,

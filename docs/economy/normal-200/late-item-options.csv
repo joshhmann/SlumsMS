@@ -1,0 +1,43 @@
+itemid,name,slot,reqLevel,reqJob,reqSTR,reqDEX,reqINT,reqLUK,incPAD,incMAD,incSTR,incDEX,incINT,incLUK,incMHP,incMMP,incPDD,incMDD,incACC,incEVA,attackSpeed,tuc,setItemID,cash,quest,timeLimited,tradeBlock,equipTradeBlock,accountSharable,only,bossReward,rebirths,forge_output,planned_050_055_rows,historical_classic_droppers,active_source_verified,client_verified,exclusion_reasons,review_flags
+1003976,Sweetwater Hat,Cap,160,0,0,0,0,0,0,0,36,36,36,36,100,100,288,288,0,0,0,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1003984,Commerci Hat,Cap,150,0,0,0,0,0,0,0,25,25,25,25,0,0,210,210,0,0,0,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1052669,Sweetwater Suit,Longcoat,160,0,0,0,0,0,0,0,36,36,36,36,900,900,396,396,0,50,0,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1052673,Commerci Suit,Longcoat,150,0,0,0,0,0,0,0,25,25,25,25,0,0,300,300,0,0,0,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1072870,Sweetwater Shoes,Shoes,160,0,0,0,0,0,0,0,12,12,12,12,300,300,158,158,0,50,0,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1072874,Commerci Boots,Shoes,150,0,0,0,0,0,0,0,9,9,9,9,0,0,120,120,0,0,0,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1082556,Sweetwater Gloves,Glove,160,0,0,0,0,0,22,22,13,13,13,13,0,0,84,84,100,0,0,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1082559,Commerci Gloves,Glove,150,0,0,0,0,0,0,0,10,10,10,10,0,0,65,65,0,0,0,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1102623,Sweetwater Cape,Cape,160,0,0,0,0,0,0,0,13,13,13,13,330,330,154,154,0,0,0,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1102626,Commerci Cape,Cape,150,0,0,0,0,0,0,0,9,9,9,9,0,0,120,120,0,0,0,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1302297,Sweetwater Sword,Weapon,160,1,460,0,0,0,313,313,45,45,0,0,0,0,0,0,150,0,5,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1302299,Commerci Sword,Weapon,150,1,430,0,0,0,272,272,0,0,0,0,0,0,0,0,0,0,5,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1312173,Sweetwater Axe,Weapon,160,1,470,0,0,0,313,313,45,45,0,0,0,0,0,0,150,0,6,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1312174,Commerci Axe,Weapon,150,1,440,0,0,0,272,272,0,0,0,0,0,0,0,0,0,0,6,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1322223,Sweetwater Mace,Weapon,160,1,350,0,0,0,313,313,45,45,0,0,0,0,0,0,150,0,6,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1322224,Commerci Mace,Weapon,150,1,335,0,0,0,272,272,0,0,0,0,0,0,0,0,0,0,6,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1332247,Sweetwater Knife,Weapon,160,8,0,0,0,370,313,313,0,45,0,45,0,0,0,0,150,0,3,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1332249,Commerci Knife,Weapon,150,8,0,0,0,350,272,272,0,0,0,0,0,0,0,0,0,0,3,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1372195,Sweetwater Wand,Weapon,160,2,0,0,475,0,313,313,0,0,45,45,0,0,0,0,150,0,6,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1372196,Commerci Wand,Weapon,150,2,0,0,445,0,272,272,0,0,0,0,0,0,0,0,0,0,6,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1382231,Sweetwater Staff,Weapon,160,2,0,0,483,0,313,313,0,0,45,45,0,0,0,0,150,0,8,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1382232,Commerci Staff,Weapon,150,2,0,0,453,0,272,272,0,0,0,0,0,0,0,0,0,0,8,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1402220,Sweetwater Two-Handed Sword,Weapon,160,1,490,0,0,0,321,321,45,45,0,0,0,0,0,0,150,0,6,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1402222,Commerci Two-Handed Sword,Weapon,150,1,460,0,0,0,280,280,0,0,0,0,0,0,0,0,0,0,6,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1412152,Sweetwater Two-Handed Axe,Weapon,160,1,490,0,0,0,321,321,45,45,0,0,0,0,0,0,150,0,6,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1412153,Commerci Two-Handed Axe,Weapon,150,1,460,0,0,0,280,280,0,0,0,0,0,0,0,0,0,0,6,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1422158,Sweetwater Maul,Weapon,160,1,490,0,0,0,321,321,45,45,0,0,0,0,0,0,150,0,6,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1422159,Commerci Maul,Weapon,150,1,460,0,0,0,280,280,0,0,0,0,0,0,0,0,0,0,6,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1432187,Sweetwater Spear,Weapon,160,1,490,0,0,0,321,321,45,45,0,0,0,0,0,0,150,0,6,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1432189,Commerci Spear,Weapon,150,1,460,0,0,0,280,280,0,0,0,0,0,0,0,0,0,0,6,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1442242,Sweetwater Polearm,Weapon,160,1,490,0,0,0,321,321,45,45,0,0,0,0,0,0,150,0,0,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1442243,Commerci Polearm,Weapon,150,1,460,0,0,0,280,280,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1452226,Sweetwater Bow,Weapon,160,4,0,385,0,0,321,321,45,45,0,0,0,0,0,0,150,0,6,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1452227,Commerci Bow,Weapon,150,4,0,365,0,0,280,280,0,0,0,0,0,0,0,0,0,0,6,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1462213,Sweetwater Crossbow,Weapon,160,4,0,450,0,0,321,321,45,45,0,0,0,0,0,0,150,0,6,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1462214,Commerci Crossbow,Weapon,150,4,0,420,0,0,280,280,0,0,0,0,0,0,0,0,0,0,6,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1472235,Sweetwater Steer,Weapon,160,8,0,0,0,470,321,321,0,45,0,45,0,0,0,0,150,0,4,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1472236,Commerci Steer,Weapon,150,8,0,0,0,440,280,280,0,0,0,0,0,0,0,0,0,0,4,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1482189,Sweetwater Grip,Weapon,160,16,0,0,0,0,321,321,45,45,0,0,0,0,0,0,150,0,5,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1482190,Commerci Grip,Weapon,150,16,0,0,0,0,280,280,0,0,0,0,0,0,0,0,0,0,5,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1492199,Sweetwater Shooter,Weapon,160,16,0,0,0,0,321,321,45,45,0,0,0,0,0,0,150,0,5,20,328,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock
+1492200,Commerci Shooter,Weapon,150,16,0,0,0,0,280,280,0,0,0,0,0,0,0,0,0,0,5,15,0,0,0,0,0,1,0,0,0,0,False,0,,False,False,,equipTradeBlock

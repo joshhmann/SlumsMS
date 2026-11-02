@@ -1,11 +1,23 @@
 # Normal equipment through 200, then forged rebirth progression
 
-Status: draft for coordinator triage; no release-book number assigned or board state changed.
+Status: implementation preparation assigned directly to Codex by the owner; release-book ID/board update still pending.
+Current branch/worktree: `164-gear-progression-codex`, `/root/work/SlumsMS-164-gear-progression-codex`, from release-1.6.4.
+Related exported card: e10 (export still says later; this conversation is the newer owner prioritization).
+CLOSER: Server Dev SlumsMS Main Session. PROOF: per-slice tests and data checks below, then the targeted
+server/client acceptance checks in this ticket; the ticket is not closed by the preparatory audit.
 Requested by the owner in the area/gear balance discussion, 2026-11-02.
 Lanes: Server (lead: drops, crafting, rebirth, data and QA), Client (combat/equipment parity and real-client QA).
 Target release: coordinator to schedule; this ticket does not add work to the current release freeze.
 Related: [81: imported content](81-post-big-bang-content.md), [30: rebirth](30-bot-rebirth.md).
 Audit branch: `area-balance-codex`; supporting commits `0bf622cf9`, `7a84c2191`, `77ca3526e`, `7e2f5a7da`.
+
+## Current implementation slice
+
+Owner selected **existing gear families, with late upgrades from scrolls and accessories**, rather than new
+level-180/200 weapon tiers. See [the first normal-path batch](../economy/normal-200/README.md), including the
+42 late gear candidates and 136 explicit proposed source pairs for 68 items. The repeatable audit and 17 passing
+Python tests establish policy coverage; rates, bindings integration, source/client verification and combat
+calibration are still pending. No runtime economy change is implemented.
 
 ## Problem and intended result
 
@@ -118,7 +130,7 @@ and forge validation require measured TEST sessions, not just editing numbers.
 ## Acceptance criteria
 
 - [ ] Every supported class/weapon has a documented obtainable normal path through level 200, including useful
-      160–200 upgrades, consumables/ammo, appropriate armour/accessories and a way to meet stat requirements.
+      160–200 upgrades through existing equipment, scrolling and accessories, consumables/ammo, appropriate armour/accessories and a way to meet stat requirements.
 - [ ] RB0 can train the intended route and earn RB1 in normal gear. Each later first material/boss clear succeeds
       in prior-tier obtainable gear; no circular reward requirement or mandatory unannounced carry.
 - [ ] Every selected item/material source is verified against the installed data or exercised reward path, with
