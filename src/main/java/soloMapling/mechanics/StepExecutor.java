@@ -47,6 +47,20 @@ final class StepExecutor {
     static final int TAKEN_PENALTY_MS = 400 * 8;
 
     /** Per-bot pacing: when it last clicked, dropped, or was sent somewhere. */
+    /** How many warps in a row may fail before the run is ended and the bot's real map is reported. */
+    static final int WARP_TRIES = 3;
+
+    /** One warp that did not land: the beat's counter steps up; true once the run should stop retrying. */
+    static boolean warpGaveUp(Beat beat) {
+        beat.warpTries++;
+        return beat.warpTries >= WARP_TRIES;
+    }
+
+    /** A step that names a map other than the run's current room is a solver bug, and is never carried out. */
+    static boolean wrongRoom(SolverStep.WarpTo w, int stageMapId) {
+        return w.mapId() != stageMapId;
+    }
+
     static final class Beat {
         volatile long lastTalkMs;
         volatile boolean talking;
@@ -69,6 +83,11 @@ final class StepExecutor {
         long waitToldMs;
         /** When this member was last put into another room, so a failed warp is retried rather than spammed. */
         long lastWarpMs;
+        /** How many times in a row a warp was issued and did not take, and the last refusal it was told about. */
+        int warpTries;
+        String warpTold;
+        /** When this bot last hit the room's reactor, so the click is not spammed. */
+        long lastReactorMs;
         boolean stallTold;
         int stallGain;
         final Chase chase = new Chase();
@@ -89,7 +108,7 @@ final class StepExecutor {
             case SolverStep.TalkNpc t -> talk(run, orchestrator, view, bot, beat, t, now, log);
             case SolverStep.DropFor d -> dropFor(view, bot, beat, d, now, log);
             case SolverStep.Say s -> say(view, bot, beat, s.line(), now);
-            case SolverStep.HitReactor h -> log.accept(bot.getName() + ": reactor steps come in phase 2");
+            case SolverStep.HitReactor h -> hitReactor(bot, beat, h, now, log);
             case SolverStep.Occupy o -> occupy(bot, beat, o, now, log);
             case SolverStep.CheckAnswer c -> check(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.Converse c -> converse(run, orchestrator, bot, beat, c, now, log);
@@ -707,6 +726,17 @@ final class StepExecutor {
     private static void warp(LiveStageView view, Character bot, Beat beat, SolverStep.WarpTo w, long now,
                              Consumer<String> log) {
         if (bot.getMapId() == w.mapId()) {
+            beat.warpTries = 0;
+            return;
+        }
+        if (wrongRoom(w, view.stage().mapId())) {
+            // the run is on one room at a time: a step that names another map is a solver bug, not a bot problem
+            String told = "ask:" + w.mapId();
+            if (!told.equals(beat.warpTold)) {
+                beat.warpTold = told;
+                log.accept(bot.getName() + ": asked for map " + w.mapId() + " while stage "
+                        + view.stage().index() + " is map " + view.stage().mapId() + " (" + w.why() + ")");
+            }
             return;
         }
         if (now - beat.lastWarpMs < 2_000) {
@@ -719,7 +749,50 @@ final class StepExecutor {
             return;
         }
         bot.changeMap(target, target.getPortal(0));
-        log.accept(bot.getName() + ": through to " + w.mapId() + " (" + w.why() + ")");
+        if (bot.getMapId() == w.mapId()) {
+            beat.warpTries = 0;
+            log.accept(bot.getName() + ": through to " + w.mapId() + " (" + w.why() + ")");
+            return;
+        }
+        // the warp did not take: retry on the latch a few times, then say where the bot really is and end the run
+        // instead of retrying forever
+        String line = bot.getName() + " could not be put in map " + w.mapId()
+                + " (it is on " + bot.getMapId() + "): " + w.why();
+        if (warpGaveUp(beat)) {
+            log.accept(line + " - the run is ended");
+            view.endRun(line);
+            return;
+        }
+        log.accept(line + " - trying again");
+    }
+
+    /**
+     * Hits the room's reactor with the bot's own client, the way {@code ReactorHitHandler} does for a player: the
+     * script behind it decides what that means (Horntail's {@code 2401000} spawns the fight, and its own
+     * "no {@code 8810026} yet" guard makes a second click harmless).
+     */
+    private static void hitReactor(Character bot, Beat beat, SolverStep.HitReactor h, long now, Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        server.maps.Reactor reactor = map == null ? null : map.getReactorById(h.reactorId());
+        if (reactor == null) {
+            if (now - beat.lastReactorMs > 10_000) {
+                beat.lastReactorMs = now;
+                log.accept(bot.getName() + ": no reactor " + h.reactorId() + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        Point at = bot.getPosition();
+        Point rp = reactor.getPosition();
+        if (at != null && rp != null && (Math.abs(rp.x - at.x) > 45 || Math.abs(rp.y - at.y) > 60)) {
+            moveNear(bot, beat, rp.x, rp.y, 30, now);
+            return;
+        }
+        if (now - beat.lastReactorMs < 3_000) {
+            return;
+        }
+        beat.lastReactorMs = now;
+        reactor.hitReactor(bot.getClient());
+        log.accept(bot.getName() + ": hit reactor " + h.reactorId() + " on " + bot.getMapId());
     }
 
     private static void enterPortal(Character bot, Beat beat, SolverStep.EnterPortal e, long now, Consumer<String> log) {

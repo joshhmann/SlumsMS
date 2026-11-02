@@ -81,7 +81,7 @@ public sealed interface SolverStep {
     }
 
     /** Hit a reactor (box, lever). */
-    record HitReactor(int reactorOid) implements SolverStep {
+    record HitReactor(int reactorId) implements SolverStep {
     }
 
     /** Say something in party chat (a try, a complaint, a callout). */

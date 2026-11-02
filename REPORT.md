@@ -58,13 +58,14 @@ real expedition, a `boss-phases` solver with Zakum and Horntail rows, plus a dam
 | `OwnedAltInstanceFightTest` | 5 | the arm faced and targeted in an instance, an unengaged far mob refused, the box outside, the switch |
 | `FollowerFightReachTest` | 3 | an unreachable part skipped, a reachable part kept, an ordinary mob paying nothing |
 | `BossRunSeamTest` | 3 | the expedition seam on, off, and a boss with no row |
-| `BossPhasesSolverTest` | 9 | waits for the summon, eight arms, the last arm, the body, the fake body, the clear, the setup 0, a missing kill target, the shipped row |
+| `BossPhasesSolverTest` | 13 | waits for the summon, eight arms, the last arm, the body, the fake body, the clear, the setup 0, the arm-only room without a third phase, a middle body phase, the grace on an empty room, a waiting body phase, the reactor room, the shipped row |
+| `BossWarpGuardTest` | 4 | three tries then the run ends, a landing resets, another room's warp refused, `endRun` carries the reason |
 | `HorntailPhasesTest` | 9 | empty room before the reactor, parts after it, parts before body, corpse parts never, both doors, a member left behind, the win, the shipped row |
 | `BossStageBudgetTest` | 3 | a late body room is not cut off, its own hour ends the run, a stage limit applies from the stage's start |
 | `BotSkillChoiceFloorTest` | 6 | the flip on a boss, the switch off, a hurtable boss, a pack unaffected, an ordinary mob at the floor, the formula's floor |
 
-Full suite after both items: `mvn -o test` -> `Tests run: 8407, Failures: 0, Errors: 0, Skipped: 137`, BUILD SUCCESS
-(`/tmp/final.log`, exit 0). The one flake this lane hit, `OpenAICompatibleBrainTest.queuedCallsPastTheDeadlineFallBackInsteadOfWaiting`
+Full suite after the review round: `mvn -o test` -> `Tests run: 8416, Failures: 0, Errors: 0, Skipped: 137`, BUILD SUCCESS
+(`/tmp/final2.log`, exit 0; it was 8407 before the review round). The one flake this lane hit, `OpenAICompatibleBrainTest.queuedCallsPastTheDeadlineFallBackInsteadOfWaiting`
 under load, passes alone and did not recur.
 
 ## Auto-QA proof
@@ -90,6 +91,18 @@ No auto-QA check covers a boss room yet: the suite has no Zakum or Horntail scen
 | bl-5 | Damage floor on a high-defence target: **off** (`-Dslums.bossfight.damagefloor`) |
 | bl-6 | Boss rooms keep their own clock (Horntail 120/120/60 min): data, active only with bl-1 |
 
+## Review round (same branch, before handback)
+
+Five defects came back from review; all are fixed here, with every switch unchanged.
+
+| Defect | Fix |
+| --- | --- |
+| The Zakum body chain was modelled as one id. `8800002` is `MobId.ZAKUM_3`, the third phase of the body; the arms' last death wakes `8800000` and damage forwards it to `8800001` then `8800002`. So "no `8800002` while arms stand" is the normal state, and the old kill-target rule abandoned the run at the summon | The candidates are the eight arms in data order, then the body family in phase order (`8800000`, `8800001`, `8800002`), never a body phase while an arm is up, whichever phase is standing. `Abandon` only after a 30 s grace with no arm and no body phase of any id, naming the ids it saw. Fail-before: the new test returns `Abandon` under the old rule and `Fight` with the eight arms under the fix |
+| `WarpTo` did not confirm the landing | `bot.getMapId()` is checked after the change; the 2 s latch retries, `WARP_TRIES` (3) failures log the bot, the wanted map and the map it is really on and end the run. A `WarpTo` naming a map other than the current stage's is refused with one line |
+| Horntail's body room needs a reactor click, so a bot-only party burned its budget in an empty room | A stage may name `hitReactor:`; with no part alive the solver returns `SolverStep.HitReactor(2401000)` and the executor walks to it and clicks with the bot's own client (the reactor's own guard makes a repeat harmless) |
+| The four script-supplied-EIM `EventManager.startInstance` overloads armed nothing, silently | One line, once per instance, when such an overload starts a script a `kind: BOSS` row matches |
+| No test that a stranger's mob stays the stranger's inside an instance | `OwnedAltInstanceFightTest.insideAPartyQuestInstanceAStrangersMobIsNotTheAlts` pins it |
+
 ## Owner questions
 
 1. **A human death unregisters.** `ZakumBattle.js`/`HorntailBattle.js` unregister a dead member; `Orchestrator.memberLost`
@@ -98,9 +111,9 @@ No auto-QA check covers a boss room yet: the suite has no Zakum or Horntail scen
 2. **Alts inside an instance is now on by default.** It changes behaviour on a path that already worked (an alt in any
    event instance: KPQ, Dojo, a boss room). It was asked for as a fix rather than a feature, and the open-world box is
    untouched, but if you want it off for 1.6.4 the switch is one `System.setProperty` away.
-3. **Kill target `8800002`.** Zakum's `defeatedBoss=1` is set when `8800002` dies, and nothing in our scripts or server
-   spawns it - it is the map's own WZ life. If it is ever missing, the run abandons with a reason instead of spinning.
-   Worth one TEST run to confirm the map still carries it.
+3. **Zakum's body phases.** `defeatedBoss=1` is set when `8800002` dies, and that id only exists once the chain has
+   woken twice. The solver now treats any live body phase as the target and only gives up after a 30 s grace with no
+   part of any kind, so a slow chain is fine - but a TEST run is still the first time anyone sees it happen.
 4. **`at:` bands for boss parts** are supported end to end and unused, because no arm coordinates exist in our WZ map
    (only a filler mob and the reactor). BotStory has Horntail anchors only. Do we want fabricated anchors, or no bands?
 5. **Horntail adds** (`8810019-8820023`) exist in BotStory's catalog and in no script of ours. Confirm they are not
@@ -110,8 +123,11 @@ No auto-QA check covers a boss room yet: the suite has no Zakum or Horntail scen
 
 - Nothing in this lane has been run live. Both boss rows are gated off; a bot has never stood in 280030000 or 240060200
   on TEST (the only Zakum QA run on TEST stops at join: `logs/qa/ex-1-20261102T061732Z.log`).
-- The kill target dependency above (Zakum `8800002`, Horntail `8810026`/`8810018` as the map's own life via
-  `MapleMap.spawnHorntailOnGroundBelow`).
+- The body-chain dependency: Zakum's `8800002` and Horntail's `8810026`/`8810018` are spawned by map code, not by our
+  scripts (`MapleMap.spawnHorntailOnGroundBelow`, `MapleMap.bossDamageBlocked`), so the solver's parts list is only as
+  right as those two methods stay what they are.
+- A warp that does not land now ends the run. That is deliberate (a member that cannot be put in its room must not be
+  retried forever), but it makes a broken event instance visible as a run end rather than as a stuck bot.
 - `WarpTo` warps into the event's own map instance by id; a bot standing on a map the event never registered cannot be
   fixed by it (one log line, the bot is left).
 - The damage floor's cost is only paid with the switch on, but it builds two swing profiles per attack tick then; if the

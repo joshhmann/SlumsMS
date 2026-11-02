@@ -143,6 +143,12 @@ final class LiveStageView implements StageView {
     }
 
     /** The event's own instance of another map (a boss run's next room), or null when the instance has none. */
+    /** Ends the run from outside the orchestrator's tick (a member that could not be put into its room), with a note. */
+    void endRun(String why) {
+        run.note(run.startedMs(), "abort: " + why);
+        run.end(why);
+    }
+
     MapleMap mapFor(int mapId) {
         return eim.isEventDisposed() ? null : eim.getMapInstance(mapId);
     }

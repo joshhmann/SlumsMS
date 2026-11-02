@@ -542,6 +542,31 @@ Two items the owner took from ticket 176 C's b087 gate and from phase B's risk l
   `RunState.stageStartedMs()`. Horntail's rooms carry 120, 120 and 60. PQ rows are untouched: they still use the row's
   budget from the run's start.
 
+## Boss lane: the review round (1.6.4, branch `164-bossfight`)
+
+Five defects found reviewing A1-B; all fixed on the same branch, switches unchanged.
+
+- **The body is a chain, not one id.** `8800002` is `MobId.ZAKUM_3`, the third *phase* of the body, not map life: the
+  last arm's death calls `makeMonsterReal` on `8800000` (`MapleMap.java:1793-1810`), and the body becomes `8800001` and
+  then `8800002` as damage is forwarded, so "no `8800002` on the map" is the normal state for the first half of the
+  fight. The old rule ("the script's kill target is missing while arms stand → abandon") therefore ended every Zakum
+  run at the summon. Now the candidates are the eight arms in data order and then the body family in the order its
+  phases wake (`8800000`, `8800001`, `8800002`), never a body phase while an arm is up, whichever phase is standing;
+  `Abandon` only when, after the summon, the room has carried no arm and no body phase of any id for a 30 s grace
+  (`BossPhasesSolver.NOTHING_TO_HIT_GRACE_MS`), and the line names the ids it saw.
+- **A warp must confirm its landing.** `StepExecutor.warp` now checks `bot.getMapId()` after the change, retries on the
+  existing 2 s latch up to `WARP_TRIES` (3), and then logs the bot, the wanted map and the map it is really on and ends
+  the run; a `WarpTo` naming any map other than the current stage's is refused with one line as a solver bug.
+- **A bot opens Horntail's body room.** `2401000` is a click (`2401000.js:26-33`), so a bot-only party used to burn its
+  budget in an empty room. A stage may now name `hitReactor:`, and with no part alive the solver returns
+  `SolverStep.HitReactor(id)`; `StepExecutor` walks to the reactor and clicks it with the bot's own client, the way
+  `ReactorHitHandler` does for a player. The reactor's own "no `8810026` yet" guard makes a repeat harmless.
+- **A silently unarmed instance is visible.** The four script-supplied-`EventInstanceManager` overloads in
+  `EventManager` never arm a run; when one starts a script a `kind: BOSS` row matches they now print one line, once per
+  instance, instead of failing quietly.
+- **A stranger's mob stays the stranger's.** Pinned by test: an alt inside a PQ instance does not take a mob a real
+  player outside the party is hitting (`OwnedAltCombat.strangers`), on top of the two existing controls.
+
 ## QA plan
 
 - **Unit:** every content YAML loads clean; answers/rectangles/items are re-read from our scripts and compared

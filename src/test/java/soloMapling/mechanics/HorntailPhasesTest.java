@@ -39,11 +39,12 @@ class HorntailPhasesTest {
 
     @Test
     void theBodyRoomIsEmptyUntilTheReactorSpawnsItsParts() {
-        // 2401000.js: nothing in 240060200 at all until a human hits the reactor
+        // 2401000.js: nothing in 240060200 at all until the reactor is hit - so the bots hit it themselves, which is
+        // what lets a bot-only party get into the fight at all (its own "no 8810026 yet" guard makes a repeat harmless)
         SolverStep step = solver.next(new View(3, List.of(), Map.of()), member());
 
-        SolverStep.Wait wait = assertInstanceOf(SolverStep.Wait.class, step);
-        assertTrue(wait.why().contains("nothing it may hit"), wait.why());
+        SolverStep.HitReactor hit = assertInstanceOf(SolverStep.HitReactor.class, step);
+        assertEquals(2401000, hit.reactorId(), "the reactor that spawns the whole body room");
         assertFalse(step instanceof SolverStep.Done, "an empty room is not a win");
     }
 

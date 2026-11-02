@@ -618,6 +618,17 @@ public class EventInstanceManager {
         } // optional
     }
 
+    /** Whether the "started from its own script, so no Mechanics run" line was already said for this instance. */
+    private volatile boolean warnedUnattended;
+
+    boolean warnedUnattended() {
+        return warnedUnattended;
+    }
+
+    void markWarnedUnattended() {
+        warnedUnattended = true;
+    }
+
     public void playerKilled(final Character chr) {
         chargeDeathCount(chr);
         ThreadManager.getInstance().newTask(() -> {

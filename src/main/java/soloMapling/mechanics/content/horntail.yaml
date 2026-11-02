@@ -83,8 +83,9 @@ stages:
     solver: boss-phases
     # the room's own clock: reactor 2401000 restarts the script's timer to 60 minutes when it is hit (2401000.js:33)
     timeLimitMinutes: 60
-    # no summonProperty: reactor 2401000 sets none. The room is empty before it is hit and a solver with nothing to hit
-    # waits, which is the same behaviour, driven by the room itself.
+    # no summonProperty: reactor 2401000 sets none. The room is empty before it is hit, so the bots hit the reactor
+    # themselves (SolverStep.HitReactor); the reactor's own "no 8810026 yet" guard makes a second click harmless.
+    hitReactor: 2401000
     mobs:
       - 8810002
       - 8810003

@@ -110,6 +110,21 @@ class OwnedAltInstanceFightTest {
     }
 
     @Test
+    void insideAPartyQuestInstanceAStrangersMobIsNotTheAlts() {
+        // an alt in a PQ instance fights the party's fight, not a stranger's: a real player outside the party who is
+        // hitting the mob keeps it (the one KS rule, OwnedAltCombat.strangers), instance or not
+        Monster theirs = mob(300, 3);
+        MapleMap f = map(List.of(theirs));
+        Character owner = at(f, OWNER, 0, false);
+        Character alt = inInstance(at(f, ALT, 0, true));
+
+        assertFalse(OwnedAltCombat.driverMayFace(theirs, f, owner, alt, Set.of(OWNER, ALT), NOW),
+                "a stranger's mob is not the party's fight, even inside an instance");
+        assertSame(null, OwnedAltCombat.target(owner, alt, Set.of(OWNER, ALT), NOW),
+                "and the alt does not pick it either");
+    }
+
+    @Test
     void outsideAnInstanceTheOwnerBoxStillHolds() {
         Monster far = mob(900, OWNER);
         MapleMap f = map(List.of(far));

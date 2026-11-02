@@ -741,18 +741,41 @@ public class EventManager {
 
     //non-PQ method for starting instance
     public boolean startInstance(EventInstanceManager eim, String ldr) {
+        warnBossRowUnattended(eim);
         return startInstance(-1, eim, ldr);
     }
 
     public boolean startInstance(EventInstanceManager eim, Character ldr) {
+        warnBossRowUnattended(eim);
         return startInstance(-1, eim, ldr.getName(), ldr);
     }
 
     public boolean startInstance(int lobbyId, EventInstanceManager eim, String ldr) {
+        warnBossRowUnattended(eim);
         return startInstance(-1, eim, ldr, eim.getEm().getChannelServer().getPlayerStorage().getCharacterByName(ldr));  // things they make me do...
     }
 
+    /**
+     * A script that builds its own {@link EventInstanceManager} starts an instance this class never arms, so a boss row
+     * matching that script would be silently left to its humans. Say so, once per instance, instead of failing quietly.
+     */
+    private static void warnBossRowUnattended(EventInstanceManager eim) {
+        if (eim == null || eim.getEm() == null || !soloMapling.mechanics.Mechanics.bossesEnabled()
+                || eim.warnedUnattended()) {
+            return;
+        }
+        String event = eim.getEm().getName();
+        soloMapling.mechanics.MechanicsModel.Content content = soloMapling.mechanics.MechanicsRuns.contentFor(event);
+        if (content == null || content.kind() != soloMapling.mechanics.MechanicsModel.Kind.BOSS) {
+            return;
+        }
+        eim.markWarnedUnattended();
+        System.out.println("[Mechanics] " + event + " was started from its own script with an instance manager this"
+                + " class did not create: the boss row " + content.id() + " arms no run for it");
+    }
+
     public boolean startInstance(int lobbyId, EventInstanceManager eim, String ldr, Character leader) {
+        warnBossRowUnattended(eim);
         if (this.isDisposed()) {
             return false;
         }

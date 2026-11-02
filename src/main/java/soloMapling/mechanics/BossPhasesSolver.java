@@ -32,6 +32,19 @@ public final class BossPhasesSolver implements StageSolver {
     /** How far from an arm's own {@code at} spot a part still counts as the one to fight (its band). */
     static final int BAND_PX = 450;
 
+    /**
+     * How long a summoned fight may stand with no arm and no body phase of any id before the run is called off. The
+     * body is a chain (Zakum: {@code 8800000 -> 8800001 -> 8800002}, each waking when the one before it falls), so
+     * "the id the script waits for is not on the map" is the normal state for the first half of the fight.
+     */
+    static final long NOTHING_TO_HIT_GRACE_MS = 30_000;
+
+    /** Where the grace's start is remembered between ticks, in the stage's own scratch memory. */
+    private static final String K_NOTHING_SINCE = "bossNothingSince";
+
+    /** The body chain in the order its phases wake up: Zakum's three body ids. */
+    private static final List<Integer> BODY_FAMILY = List.of(8800000, 8800001, 8800002);
+
     @Override
     public String id() {
         return ID;
@@ -53,19 +66,29 @@ public final class BossPhasesSolver implements StageSolver {
         if (phase == BossTargetRules.Phase.WAITING_FOR_SUMMON) {
             return new SolverStep.Wait(1_000, "waiting for the boss to be summoned");
         }
-        int killTarget = view.stage().killTarget();
-        if (phase == BossTargetRules.Phase.ARMS && killTarget > 0
-                && parts.stream().noneMatch(p -> p.mobId() == killTarget)) {
-            // the data names the part whose death the script turns into the clear (Zakum: 8800002, which has no spawn
-            // site anywhere in scripts/ or the server - it is the map's own life). Without it the script never writes
-            // the clear property, so the run would fight arms until its time budget ran out.
-            return new SolverStep.Abandon("the kill target " + killTarget + " the script waits for is not on the map:"
-                    + " the instance can never be cleared, so the run is ended");
+        if (view.stage().hitReactor() > 0 && parts.isEmpty() && !view.cleared()) {
+            // the room's fight is behind a reactor (Horntail's 2401000 spawns the whole thing); with no part alive the
+            // click has not happened yet, and its own guard makes a repeat harmless, so a bot opens the room itself
+            return new SolverStep.HitReactor(view.stage().hitReactor());
         }
         List<Integer> order = order(view, parts, view.fighterOf(member.characterId()), phase);
         if (order.isEmpty()) {
+            // nothing it may hit: either a part is there but not hittable by this member (an arm while no human drives
+            // it, an immunity), which is a wait, or the room has no arm and no body phase at all after the summon,
+            // which is only a moment between phases until the grace runs out
+            if (nothingToHit(parts)) {
+                Object since = view.stageMemory().putIfAbsent(K_NOTHING_SINCE, view.nowMs());
+                long waiting = since instanceof Long start ? view.nowMs() - start : 0L;
+                if (summoned(view) && !view.cleared() && waiting >= NOTHING_TO_HIT_GRACE_MS) {
+                    return new SolverStep.Abandon("no arm and no body of " + view.stage().mobs()
+                            + " has been alive for " + NOTHING_TO_HIT_GRACE_MS / 1000
+                            + " s after the summon (saw " + ids(parts) + "): the instance can never be cleared,"
+                            + " so the run is ended");
+                }
+            }
             return new SolverStep.Wait(500, "nothing it may hit while the boss is in " + phase);
         }
+        view.stageMemory().remove(K_NOTHING_SINCE);
         int[] band = band(view, order.get(0));
         return new SolverStep.Fight(order, 0, 0, band[0], band[1], band[0] == 0 && band[1] == 0 ? 0 : BAND_PX);
     }
@@ -96,10 +119,42 @@ public final class BossPhasesSolver implements StageSolver {
                 continue;
             }
             List<Integer> ids = new ArrayList<>(tier.mobIds());
-            ids.sort((a, b) -> Integer.compare(dataOrder(view.stage().mobs(), a), dataOrder(view.stage().mobs(), b)));
+            if (tier.kind() == Kind.BODY) {
+                // the body is a chain, so its phases are ordered by when they wake, not by where the data lists them
+                ids.sort((a, b) -> Integer.compare(bodyRank(a), bodyRank(b)));
+            } else {
+                ids.sort((a, b) -> Integer.compare(dataOrder(view.stage().mobs(), a),
+                        dataOrder(view.stage().mobs(), b)));
+            }
             out.addAll(ids);
         }
         return List.copyOf(out);
+    }
+
+    /**
+     * Whether the room holds no arm and no body phase of any id at all - the fake body that waits for the arms counts
+     * as one, because it is a phase that will become real once the last arm falls.
+     */
+    private static boolean nothingToHit(List<BossTargetRules.Part> parts) {
+        return parts.stream().noneMatch(p -> p.role() == BossTargetRules.Role.ARM
+                || p.role() == BossTargetRules.Role.BODY);
+    }
+
+    /** The body chain's phase order: 8800000 first, then 8800001, then 8800002 (an unknown body id last). */
+    private static int bodyRank(int mobId) {
+        int rank = BODY_FAMILY.indexOf(mobId);
+        return rank < 0 ? Integer.MAX_VALUE : rank;
+    }
+
+    /** The ids of the parts a tick actually saw, for the abandon line. */
+    private static String ids(List<BossTargetRules.Part> parts) {
+        List<Integer> seen = new ArrayList<>();
+        for (BossTargetRules.Part p : parts) {
+            if (!seen.contains(p.mobId())) {
+                seen.add(p.mobId());
+            }
+        }
+        return seen.isEmpty() ? "no part at all" : seen.toString();
     }
 
     /** Where the data lists this part, so the stage's own order decides within a tier (last for an unlisted id). */

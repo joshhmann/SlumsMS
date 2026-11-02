@@ -107,15 +107,68 @@ class BossPhasesSolverTest {
         assertTrue(new View(List.of(), Map.of("defeatedBoss", "1")).cleared());
     }
 
-    /** 8800002 has no spawn site in our scripts or server code; without it the script never sets defeatedBoss. */
+    /**
+     * The body is a chain: 8800000 waits fake, the last arm's death calls {@code makeMonsterReal} on it
+     * ({@code MapleMap.java:1793-1810}), and it becomes 8800001 and then 8800002 as damage is forwarded. So "8800002 is
+     * not on the map" is the normal state for the first half of the fight and must never end the run.
+     */
     @Test
-    void aMissingKillTargetEndsTheRunInsteadOfSpinning() {
-        List<Part> parts = new ArrayList<>();
-        parts.add(arm(FIRST_ARM));
+    void armsStandingWithoutTheThirdBodyPhaseDoNotEndTheRun() {
+        List<Part> parts = armParts(8);
+        parts.add(body(BODY, false)); // the fake body waits, no 8800001 and no 8800002 exist yet
         StageView view = new View(parts, Map.of("summoned", "true"));
 
+        SolverStep.Fight fight = assertInstanceOf(SolverStep.Fight.class, solver.next(view, member()));
+        assertEquals(armIds(), fight.mobIds(), "the eight arms, and no verdict about the body that has not woken yet");
+    }
+
+    /** Whichever body phase is on the map is the target: the chain may be at any of the three when an arm falls. */
+    @Test
+    void theNextBodyPhaseIsTheTargetWhicheverPhaseItIs() {
+        StageView middle = new View(List.of(body(8800001, true)), Map.of("summoned", "true"));
+        assertEquals(List.of(8800001), assertInstanceOf(SolverStep.Fight.class, solver.next(middle, member())).mobIds(),
+                "8800001 is a target even though nothing named 8800002 stands on the map");
+
+        StageView twoPhases = new View(List.of(body(KILL_TARGET, true), body(BODY, true)), Map.of("summoned", "true"));
+        assertEquals(List.of(BODY, KILL_TARGET),
+                assertInstanceOf(SolverStep.Fight.class, solver.next(twoPhases, member())).mobIds(),
+                "two body phases at once are worked in the order they wake, not the order the data lists them");
+    }
+
+    /** An empty summoned room is a moment between phases until the grace runs out, then it is the run's end. */
+    @Test
+    void anEmptySummonedRoomEndsTheRunOnlyAfterTheGrace() {
+        View view = new View(List.of(), Map.of("summoned", "true"));
+        view.now = 1_000;
+
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()), "the first tick only starts the clock");
+        view.now = 1_000 + BossPhasesSolver.NOTHING_TO_HIT_GRACE_MS - 1;
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()), "still inside the grace");
+
+        view.now = 1_000 + BossPhasesSolver.NOTHING_TO_HIT_GRACE_MS;
         SolverStep.Abandon abandon = assertInstanceOf(SolverStep.Abandon.class, solver.next(view, member()));
-        assertTrue(abandon.why().contains(String.valueOf(KILL_TARGET)), abandon.why());
+        assertTrue(abandon.why().contains("saw no part at all"), abandon.why());
+    }
+
+    /** A fake body is a body phase of an id: the room is not empty, so the grace never ends the run under it. */
+    @Test
+    void aWaitingBodyPhaseIsNeverAnEmptyRoom() {
+        View view = new View(List.of(body(BODY, false)), Map.of("summoned", "true"));
+        view.now = BossPhasesSolver.NOTHING_TO_HIT_GRACE_MS * 10;
+
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()));
+    }
+
+    /** Horntail's body room is behind a reactor, so with nothing alive the bot clicks it instead of waiting. */
+    @Test
+    void anEmptyRoomBehindAReactorIsOpenedByTheBot() {
+        BossPhasesSolver horntail = new BossPhasesSolver();
+        View horntailRoom = new View(MechanicsRuns.contentFor("HorntailBattle").stageOnMap(240060200).orElseThrow(),
+                List.of(), Map.of());
+        SolverStep.HitReactor hit = assertInstanceOf(SolverStep.HitReactor.class,
+                horntail.next(horntailRoom, member()));
+
+        assertEquals(2401000, hit.reactorId(), "the reactor that spawns the whole fight");
     }
 
     @Test
@@ -173,13 +226,30 @@ class BossPhasesSolverTest {
     /** The shipped stage with nothing live on it but what the test puts there. */
     private static final class View implements StageView {
 
-        private final MechanicsModel.Stage stage = MechanicsRuns.contentFor("ZakumBattle").stages().get(0);
+        private final MechanicsModel.Stage stage;
         private final List<Part> parts;
         private final Map<String, String> props;
+        private final Map<String, Object> memory = new HashMap<>();
+        long now;
 
         View(List<Part> parts, Map<String, String> props) {
+            this(MechanicsRuns.contentFor("ZakumBattle").stages().get(0), parts, props);
+        }
+
+        View(MechanicsModel.Stage stage, List<Part> parts, Map<String, String> props) {
+            this.stage = stage;
             this.parts = parts;
             this.props = new HashMap<>(props);
+        }
+
+        @Override
+        public long nowMs() {
+            return now;
+        }
+
+        @Override
+        public Map<String, Object> stageMemory() {
+            return memory;
         }
 
         @Override

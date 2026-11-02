@@ -495,10 +495,13 @@ public final class StageData {
         }
         // 1.6.4 boss lane: a boss room's own clock. 0 = the row's timeLimitMinutes counts from the run's start.
         int stageMinutes = num(m, "timeLimitMinutes", 0, p);
+        // a room whose fight is behind a reactor nobody has to click by hand (Horntail's 2401000); 0 = no reactor
+        int hitReactor = num(m, "hitReactor", 0, p);
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
-                summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, killTarget, stageMinutes);
+                summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, killTarget, stageMinutes,
+                hitReactor);
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----
