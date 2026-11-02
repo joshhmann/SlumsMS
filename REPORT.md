@@ -113,3 +113,13 @@ mvn -o -q test -Dtest=QaMenuTest,AutoQaCatalogTest
 mvn -o test                                        # full suite
 ```
 
+Full suite result: `Tests run: 8375, Failures: 0, Errors: 0, Skipped: 137`, BUILD SUCCESS, 26:23, on the committed
+sources (`mvn -o test`, Java 21, this worktree).
+
+## Commits
+
+| Commit | What |
+|---|---|
+| `1fd2f786c` | the scenario, its world face, the swing record, the doc row, the 14 tests and this report's first version |
+| this commit | the report: the full-suite result above and the commit list itself |
+
