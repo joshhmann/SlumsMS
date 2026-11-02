@@ -10946,14 +10946,13 @@ public class Character extends AbstractCharacterObject {
                 return (-1);
             }
 
-            ItemInformationProvider ii = ItemInformationProvider.getInstance();
-            return (sellAllItemsFromPosition(ii, type, it.getPosition()));
+            return (sellAllItemsFromPosition(type, it.getPosition()));
         } finally {
             inv.unlockInventory();
         }
     }
 
-    public int sellAllItemsFromPosition(ItemInformationProvider ii, InventoryType type, short pos) {
+    public int sellAllItemsFromPosition(InventoryType type, short pos) {
         int mesoGain = 0;
 
         Inventory inv = getInventory(type);
@@ -10963,7 +10962,7 @@ public class Character extends AbstractCharacterObject {
                 if (inv.getItem(i) == null) {
                     continue;
                 }
-                mesoGain += standaloneSell(getClient(), ii, type, i, inv.getItem(i).getQuantity());
+                mesoGain += standaloneSell(getClient(), type, i, inv.getItem(i).getQuantity());
             }
         } finally {
             inv.unlockInventory();
@@ -10972,7 +10971,7 @@ public class Character extends AbstractCharacterObject {
         return (mesoGain);
     }
 
-    private int standaloneSell(Client c, ItemInformationProvider ii, InventoryType type, short slot, short quantity) {
+    private int standaloneSell(Client c, InventoryType type, short slot, short quantity) {
         if (quantity == 0xFFFF || quantity == 0) {
             quantity = 1;
         }
@@ -11002,7 +11001,7 @@ public class Character extends AbstractCharacterObject {
 
             if (quantity <= iQuant && iQuant > 0) {
                 InventoryManipulator.removeFromSlot(c, type, (byte) slot, quantity, false);
-                int recvMesos = ii.getPrice(itemid, quantity);
+                int recvMesos = Shop.sellPayout(itemid, quantity);   // chips pay face value, everything else the WZ price
                 if (recvMesos > 0) {
                     gainMeso(recvMesos, false);
                     return (recvMesos);
@@ -12910,7 +12909,6 @@ public class Character extends AbstractCharacterObject {
             return 0;   // worn gear is never quick-sold (the Donation Box passed the client's inventory number on)
         }
         int mesoGain = 0;
-        ItemInformationProvider ii = ItemInformationProvider.getInstance();
         Inventory inv = getInventory(type);
         List<Item> itemsToSell = new ArrayList<>();
         inv.lockInventory();
@@ -12939,7 +12937,7 @@ public class Character extends AbstractCharacterObject {
                 TransactionService.createTransactionItems(transactionId, transactionItems);
 
                 for (Item item : itemsToSell) {
-                    mesoGain += standaloneSell(getClient(), ii, type, item.getPosition(), item.getQuantity());
+                    mesoGain += standaloneSell(getClient(), type, item.getPosition(), item.getQuantity());
                 }
             }
         } catch (SQLException e) {

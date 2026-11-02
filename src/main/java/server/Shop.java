@@ -249,11 +249,15 @@ public class Shop {
     }
 
     /**
-     * What a shop pays for {@code quantity} of an item. Casino chips pay their face value
+     * What a sale of {@code quantity} of an item pays. Casino chips pay their face value
      * ({@link soloMapling.Casino.CasinoChipConfig#sellValue}), not the stock chip WZ {@code info/price} (250/350/400/350
      * for the four stamps), so the chip shop's exchange stays lossless; everything else pays the WZ price as before.
+     *
+     * <p>This is the one answer to that question: both the NPC shop counter ({@link #sell}) and the quick-sell paths
+     * ({@code Character.sellAllItemsFromPosition} / {@code sellAllPosLast}, i.e. quicksell.js and the donation box) go
+     * through it. The {@code @sell} GM command ({@code client.commands.SellitemsCommand}) still reads the WZ price.
      */
-    static int sellPayout(int itemId, int quantity) {
+    public static int sellPayout(int itemId, int quantity) {
         int face = soloMapling.Casino.CasinoChipConfig.sellValue(itemId, quantity);
         return face >= 0 ? face : ItemInformationProvider.getInstance().getPrice(itemId, quantity);
     }
