@@ -245,6 +245,20 @@ public final class Exchange {
         return botAccount(r.account()) ? "bot=" + r.character() : "acct=" + r.account() + " char=" + r.character();
     }
 
+    /**
+     * The trader behind a desk fill, read off the fill's own postings: the desk side is a house bucket, so the wallet
+     * leg carries the account ("bot=1004268377" for a trader bot, "acct=2" for a player). Before 163-b260 these fill
+     * lines said {@code buy#0(acct=? char=?)}, which hid every bot desk fill from the audit.
+     */
+    private static String deskWho(FillRow f, java.util.List<Posting> postings) {
+        for (Posting p : postings) {
+            if (p.fillId() == f.id() && p.account() > 0) {
+                return botAccount(p.account()) ? "bot=" + p.account() : "acct=" + p.account();
+            }
+        }
+        return "acct=?";
+    }
+
     /** Applies a batch and, once it is in the store, writes its audit line ({@code what}: place, cancel, ...). */
     private void commit(Batch b, String what) throws StoreException {
         store.apply(b);
@@ -267,9 +281,15 @@ public final class Exchange {
             OrderRow buy = byId.getOrDefault(f.buyOrder(), rows.get(f.buyOrder()));
             OrderRow sell = byId.getOrDefault(f.sellOrder(), rows.get(f.sellOrder()));
             sb.append(" | fill #").append(f.id()).append(' ').append(f.ticker()).append(' ').append(f.nx()).append('@')
-                    .append(f.price()).append(" mesos=").append(f.mesos()).append(" buy#").append(f.buyOrder())
-                    .append('(').append(who(buy)).append(") sell#").append(f.sellOrder()).append('(').append(who(sell))
-                    .append(')');
+                    .append(f.price()).append(" mesos=").append(f.mesos());
+            if (f.buyOrder() == 0 && f.sellOrder() == 0) {
+                // A desk fill: the desk keeps no orders, so the trader is the only identity and it lives on the
+                // postings ("bot=1004268377" for a trader bot, "acct=2" for a player), never on an order row.
+                sb.append(" desk ").append(deskWho(f, b.postings()));
+            } else {
+                sb.append(" buy#").append(f.buyOrder()).append('(').append(who(buy)).append(") sell#")
+                        .append(f.sellOrder()).append('(').append(who(sell)).append(')');
+            }
         }
         for (Posting p : b.postings()) {
             if (p.from().kind().external() || p.to().kind().external() || p.why() == Why.REVERSE
