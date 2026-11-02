@@ -34,6 +34,7 @@ import constants.inventory.ItemConstants;
 import constants.string.LanguageConstants;
 import net.server.Server;
 import net.server.channel.Channel;
+import net.server.coordinator.matchchecker.MatchCheckerCoordinator;
 import net.server.coordinator.matchchecker.MatchCheckerListenerFactory.MatchCheckerType;
 import net.server.guild.Alliance;
 import net.server.guild.Guild;
@@ -1204,12 +1205,41 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getPlayer().getMap().broadcastMessage(PacketCreator.getClock(time));
     }
 
-    private boolean sendCPQChallenge(String cpqType, int leaderid) {
+    /** SlumsMS (ticket 164): how long a CPQ challenge waits for the other party's leader before it is cancelled. */
+    static final long CPQ_CHALLENGE_TIMEOUT_MS = Long.getLong("slums.cpq.challengeTimeoutMs", 60_000L);
+
+    /**
+     * Cancels the challenger's CPQ challenge if that same match is still waiting for the other party's leader to
+     * answer. Nothing else ever expires a CPQ_CHALLENGE, and the coordinator refuses to pool a cid twice, so an
+     * ignored challenge dialog used to keep both party leaders out of every later match on the server.
+     */
+    static boolean expireCPQChallenge(MatchCheckerCoordinator coordinator, Character challenger, long matchId) {
+        if (!coordinator.expireMatchConfirmation(challenger.getId(), matchId)) {
+            return false;
+        }
+        log.info("CPQ challenge by {} timed out after {} ms waiting for the other party", challenger.getName(), CPQ_CHALLENGE_TIMEOUT_MS);
+        if (challenger.isLoggedinWorld()) {
+            challenger.dropMessage(1, "The CPQ challenge was cancelled because the other party's leader did not answer in time.");
+        }
+        return true;
+    }
+
+    boolean sendCPQChallenge(String cpqType, int leaderid) {
         Set<Integer> cpqLeaders = new HashSet<>();
         cpqLeaders.add(leaderid);
         cpqLeaders.add(getPlayer().getId());
 
-        return c.getWorldServer().getMatchCheckerCoordinator().createMatchConfirmation(MatchCheckerType.CPQ_CHALLENGE, c.getWorld(), getPlayer().getId(), cpqLeaders, cpqType);
+        MatchCheckerCoordinator coordinator = c.getWorldServer().getMatchCheckerCoordinator();
+        if (!coordinator.createMatchConfirmation(MatchCheckerType.CPQ_CHALLENGE, c.getWorld(), getPlayer().getId(), cpqLeaders, cpqType)) {
+            return false;
+        }
+
+        long matchId = coordinator.getMatchConfirmationId(getPlayer().getId());
+        if (matchId != -1) {
+            Character challenger = getPlayer();
+            TimerManager.getInstance().schedule(() -> expireCPQChallenge(coordinator, challenger, matchId), CPQ_CHALLENGE_TIMEOUT_MS);
+        }
+        return true;
     }
 
     public void answerCPQChallenge(boolean accept) {
