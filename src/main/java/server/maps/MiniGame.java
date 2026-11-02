@@ -295,6 +295,12 @@ public class MiniGame extends AbstractMapObject {
             return;
         }
 
+        if (visitor == null) {
+            // no opponent, so nothing to score or announce (Character.setMiniGamePoints and the result packet both
+            // dereference the visitor); the match is over, which minigameMatchFinish above already recorded
+            return;
+        }
+
         owner.setMiniGamePoints(visitor, 1, this.isOmok());
 
         if (visitorforfeits < 4 || !forfeit) {
@@ -315,6 +321,12 @@ public class MiniGame extends AbstractMapObject {
             return;
         }
 
+        if (visitor == null) {
+            // no opponent, so nothing to score or announce (Character.setMiniGamePoints and the result packet both
+            // dereference the visitor); the match is over, which minigameMatchFinish above already recorded
+            return;
+        }
+
         owner.setMiniGamePoints(visitor, 2, this.isOmok());
 
         if (ownerforfeits < 4 || !forfeit) {
@@ -332,6 +344,12 @@ public class MiniGame extends AbstractMapObject {
 
     public void minigameMatchDraw() {
         if (!minigameMatchFinish()) {
+            return;
+        }
+
+        if (visitor == null) {
+            // no opponent, so nothing to score or announce (Character.setMiniGamePoints and the result packet both
+            // dereference the visitor); the match is over, which minigameMatchFinish above already recorded
             return;
         }
 
@@ -423,25 +441,28 @@ public class MiniGame extends AbstractMapObject {
     }
 
     public void shuffleList() {
-        if (matchestowin == 6) {
-            Collections.shuffle(list4x3);
-        } else if (matchestowin == 10) {
-            Collections.shuffle(list5x4);
-        } else {
-            Collections.shuffle(list6x5);
-        }
+        Collections.shuffle(activeCardList());
     }
 
     public int getCardId(int slot) {
-        int cardid;
-        if (matchestowin == 6) {
-            cardid = list4x3.get(slot);
-        } else if (matchestowin == 10) {
-            cardid = list5x4.get(slot);
-        } else {
-            cardid = list6x5.get(slot);
+        if (!isValidCardSlot(slot)) {
+            return -1;    // the slot came off the wire; it must not index the card list
         }
-        return cardid;
+        return activeCardList().get(slot);
+    }
+
+    public boolean isValidCardSlot(int slot) {
+        return slot >= 0 && slot < activeCardList().size();
+    }
+
+    private List<Integer> activeCardList() {
+        if (matchestowin == 6) {
+            return list4x3;
+        }
+        if (matchestowin == 10) {
+            return list5x4;
+        }
+        return list6x5;
     }
 
     public int getMatchesToWin() {
@@ -482,6 +503,9 @@ public class MiniGame extends AbstractMapObject {
     }
 
     public void setPiece(int move1, int move2, int type, Character chr) {
+        if (move1 < 0 || move1 > 14 || move2 < 0 || move2 > 14 || type < 1 || type > 2) {
+            return;    // move1/move2/type come off the wire: only a 15x15 cell and a real piece may reach piece[]
+        }
         int slot = move2 * 15 + move1 + 1;
         if (piece[slot] == 0) {
             piece[slot] = type;
