@@ -319,7 +319,14 @@ Where our server's scripts disagree, the scripts win and the row follows them:
   place that picks the combination and checks it; their coordinator keeps its own lever model. Ours reads the property
   and clicks only the reactors named `"1"`..`"5"` whose state differs, shared out over the bots so no lever is toggled
   twice.
-- **Three stages are not in the row.** The lobby (`920010400`) needs a script that sets `statusStg3` to `0`, which no
-  script in our tree does; the sealed room (`920010500`) needs `MapleMap.getNumPlayersInArea`, and `MapleMap.addArea`
-  has no caller, so its platform areas are always empty; the statue (`920010100`) needs the pieces those two stages
-  hand out. `REPORT.md` in this ticket folder names each of them with the exact line.
+- **Three stages are not in the row.** The statue (`920010100`) needs six scar pieces, two of which come from the lobby
+  and the sealed room; the garden (`920010800`) is only reachable from the finished statue; and the lobby and the sealed
+  room themselves are left out for want of a solver, **not** for want of working code - `scripts/reactor/2008006.js` does
+  set `statusStg3 = 0` when the day's pass lands in the music player's box (`scripts/event/OrbisPQ.js:162-163` arms it),
+  and the sealed room's three platform areas come from the map file through `MapFactory.java:273-279`. Both are pinned by
+  `src/test/java/scripting/reactor/OrbisPqLobbyStageTest.java` and
+  `src/test/java/server/maps/OrbisSealedRoomAreaTest.java`; `REPORT-opq.md` names each stage with the exact line.
+- **Nothing in the lobby or sealed-room work comes from another project's code.** The seven pass ids (`4001056`-`4001062`,
+  in `Date().getDay()` order), the reactor id `2008006` and the three platform rectangles are read from our own
+  `Map.wz/Map/Map9/920010400.img.xml`, `Reactor.wz/2008006.img.xml` and `Map.wz/Map/Map9/920010500.img.xml`; they appear
+  only in the two tests above.
