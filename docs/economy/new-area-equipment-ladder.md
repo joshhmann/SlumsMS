@@ -5,6 +5,12 @@ checked against the retained server XML and repository recipes. No equipment sta
 were changed. A level band is a recommended calibration band, not a new entrance rule. Actual installed loot,
 client equipment support and player combat results remain unverified.
 
+**Rebirth correction:** see [the full rebirth/forge audit](rebirth-and-forge-progression.md) and
+[all 357 recipes](forge-catalog/full-list.md). Royal gear generally requires RB1, the level-140 class boss sets
+RB2, and Japanese/AbsoLab/Arcane/Genesis RB3. Level alone does not unlock them. The tables below give equip
+levels; every optional forged path is also conditional on its actual rebirth requirement. Crafted results
+can carry substantial stats from consumed inputs, beyond these raw base values.
+
 ## Training baseline and optional upgrades
 
 Use the cheaper path to calibrate ordinary enemies. Keep crafted/boss sets as rewarding alternatives and test
@@ -15,11 +21,11 @@ All stages also need appropriate potions, accuracy, a usable main skill and affo
 |---|---|---|
 | 100–119; classic reference and earliest imported maps | Level-90/100 class armour, level-95/100 weapon, modest ordinary scrolling; examples below | Existing classic boss accessories and stronger classic weapons if obtainable |
 | 120–129; entry LKC/Rose/lower imported maps after combat calibration | Keep the classic weapon; start four Eclectic armour pieces (equip level 120) | Classic level-110/120 weapon or crafted legacy input, after checking its source |
-| 130–139; middle imported tier | Four Muspell armour pieces plus class-correct Jaihin weapon (equip level 130) | Royal Von Leon (equip 130), conditional on affordability/material access |
-| 140–159; later Future/Grandis maps at their intended level | Pensalir armour/cape plus Utgard weapon (equip level 140); allow previous-tier gear during acquisition | Lionheart / Dragon Tail / Falcon Wing / Raven Horn / Shark Tooth at 140; Japanese class sets at 150 |
-| 160–179; deeper imported training | Upgraded Pensalir/Utgard; modest scrolling and consistent supply access | AbsoLab at 160; use as the stronger comparison profile, not an entrance requirement |
+| 130–139; middle imported tier | Four Muspell armour pieces plus class-correct Jaihin weapon (equip level 130) | Royal Von Leon (equip 130, RB1), conditional on affordability/material access |
+| 140–159; later Future/Grandis maps at their intended level | Pensalir armour/cape plus Utgard weapon (equip level 140); allow previous-tier gear during acquisition | Lionheart / Dragon Tail / Falcon Wing / Raven Horn / Shark Tooth at 140/RB2; Japanese class sets at 150/RB3 |
+| 160–179; deeper imported training | Upgraded Pensalir/Utgard; modest scrolling and consistent supply access | AbsoLab at 160/RB3; use as the stronger comparison profile, not an entrance requirement |
 | 180–199; upper imported tier | Demonstrated attainable previous-tier gear; reference encounters must pass with that profile | Gradually acquired AbsoLab and class set bonuses; do not silently assume a full set |
-| 200+ / rebirth tiers; Arcane and equivalent areas | Start from the prior tier's attainable profile and record actual HP/MP/build | Arcane Umbra at equip level 200; rebirth alone does not waive gear requirements or prove durability |
+| 200+ / rebirth tiers; Arcane and equivalent areas | Start from the prior tier's attainable profile and record actual HP/MP/build | Arcane Umbra at equip level 200/RB3; rebirth alone does not waive gear requirements or prove durability |
 
 **The dependable path above is a design requirement, not a claim that it is dependable today.** Existing plans
 classify Jaihin, Utgard and Pensalir as rare upgrades: selected ordinary rows have base chance 60 per million,
@@ -204,10 +210,11 @@ Sleepy Grobbler gross meso rate (13.55M/hour), even Royal armour alone represent
 expenses or materials; this is an illustration using an assumed rate, not actual player earnings. These recipes
 cannot be presumed to be a quick catch-up mechanism.
 
-Recipe `requiredLevel` is a crafting check, while item `reqLevel` is the equip requirement. Royal Von Leon
+Recipe `requiredLevel` is a declared crafting value, while item `reqLevel` is the equip requirement.
+The full forge audit found gaps in enforcement of declared craft/Maker levels; do not assume these are hard gates. Royal Von Leon
 recipes generally say 120 versus equip 130, class boss 130 versus 140, Japanese 140 versus 150, AbsoLab 150
 versus 160, Arcane 190 versus 200. Some recipes even specify level 1 (e.g. warrior AbsoLab cape and Arcane overall).
-Do not treat those exceptions as level-1 equipment. Recipes also have Maker/material checks; flagged legacy
+Do not treat those exceptions as level-1 equipment. Recipes also declare Maker levels and check materials; flagged legacy
 inputs select an equipment slot, so inspect the actual transfer outcome instead of assuming a fresh blank item.
 
 For each class, the next implementation batch should produce a small source sheet: chosen exact item IDs,

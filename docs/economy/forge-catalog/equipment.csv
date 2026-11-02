@@ -1,0 +1,444 @@
+itemid,name,rebirths_to_equip,equip_level,reqJob,PAD,MAD,has_forge_recipe,planned_050_055_rows,server_data_present,active_source_verified,client_verified
+1002323,Green Osfa Hat,0,90,8,0,0,False,7,True,False,False
+1002357,Zakum Helmet,0,50,0,0,0,False,0,True,False,False
+1002365,Red Oriental Fury Hat,0,90,2,0,0,False,8,True,False,False
+1002377,Green Valhalla Helmet,0,100,1,0,0,False,12,True,False,False
+1002402,Red Arlic Helmet,0,90,4,0,0,False,9,True,False,False
+1002643,Red Brave Hamal,0,90,16,0,0,False,8,True,False,False
+1003172,Lionheart Battle Helm,2,140,1,1,0,True,0,True,False,False
+1003173,Dragon Tail Mage Sallet,2,140,2,0,1,True,0,True,False,False
+1003174,Falcon Wing Sentinel Cap,2,140,4,1,0,True,0,True,False,False
+1003175,Raven Horn Chaser Hat,2,140,8,1,0,True,0,True,False,False
+1003176,Shark Tooth Skipper Hat,2,140,16,1,0,True,0,True,False,False
+1003601,Amaterasu's Helm,3,150,1,2,0,True,0,True,False,False
+1003602,Oyamatsumi's Helm,3,150,4,2,0,True,0,True,False,False
+1003603,Ame-no-Uzume's Helm,3,150,2,0,2,True,0,True,False,False
+1003604,Tsukuyomi's Helm,3,150,8,2,0,True,0,True,False,False
+1003605,Susano-o's Helm,3,150,16,2,0,True,0,True,False,False
+1004219,Eclectic Fennel,0,120,1,0,0,False,3,True,False,False
+1004220,Eclectic Coral,0,120,2,0,0,False,5,True,False,False
+1004221,Eclectic Rapid,0,120,4,0,0,False,6,True,False,False
+1004222,Eclectic Chive,0,120,8,0,0,False,6,True,False,False
+1004223,Eclectic Conrad Henkel,0,120,16,0,0,False,10,True,False,False
+1004224,Muspell Warrior Hat,0,130,1,0,0,False,26,True,False,False
+1004225,Muspell Magician Hat,0,130,2,0,0,False,24,True,False,False
+1004226,Muspell Bowman Hat,0,130,4,0,0,False,36,True,False,False
+1004227,Muspell Thief Hat,0,130,8,0,0,False,27,True,False,False
+1004228,Muspell Pirate Hat,0,130,16,0,0,False,30,True,False,False
+1004229,Pensalir Battle Helm,0,140,1,0,0,False,3,True,False,False
+1004230,Pensalir Mage Sallet,0,140,2,0,0,False,2,True,False,False
+1004231,Pensalir Sentinel Cap,0,140,4,0,0,False,4,True,False,False
+1004232,Pensalir Chaser Hat,0,140,8,0,0,False,4,True,False,False
+1004233,Pensalir Skipper Hat,0,140,16,0,0,False,5,True,False,False
+1004234,Royal Von Leon Warrior Helm,1,130,1,0,0,True,0,True,False,False
+1004235,Royal Von Leon Magician Helm,1,130,2,0,0,True,0,True,False,False
+1004236,Royal Von Leon Sentinel Helm,1,130,4,0,0,True,0,True,False,False
+1004237,Royal Von Leon Chaser Helm,1,130,8,0,0,True,0,True,False,False
+1004238,Royal Von Leon Skipper Helm,1,130,16,0,0,True,0,True,False,False
+1004422,AbsoLab Knight Helm,3,160,1,3,0,True,0,True,False,False
+1004423,AbsoLab Mage Crown,3,160,2,0,3,True,0,True,False,False
+1004424,AbsoLab Archer Hood,3,160,4,3,0,True,0,True,False,False
+1004425,AbsoLab Bandit Cap,3,160,8,3,0,True,0,True,False,False
+1004426,AbsoLab Pirate Fedora,3,160,16,3,0,True,0,True,False,False
+1004808,Arcane Umbra Knight Hat,3,200,1,7,0,True,0,True,False,False
+1004809,Arcane Umbra Mage Hat,3,200,2,0,7,True,0,True,False,False
+1004810,Arcane Umbra Archer Hat,3,200,4,7,0,True,0,True,False,False
+1004811,Arcane Umbra Thief Hat,3,200,8,7,0,True,0,True,False,False
+1004812,Arcane Umbra Pirate Hat,3,200,16,7,0,True,0,True,False,False
+1012285,Dark Premium Symbol,1,125,0,5,5,True,0,True,False,False
+1012411,White Premium Meister Symbol,2,160,0,5,5,True,0,True,False,False
+1012438,Sweetwater Tattoo,1,100,0,0,0,True,0,True,False,False
+1012632,Berserked,3,200,0,10,10,True,0,True,False,False
+1022211,Sweetwater Monocle,1,100,0,0,0,True,0,True,False,False
+1022246,Michaela's New Glasses,1,125,0,2,2,True,0,True,False,False
+1022277,Papulatus Mark,2,160,,1,1,True,0,True,False,False
+1022278,Magic Eyepatch,3,200,,3,3,True,0,True,False,False
+1032102,Rex's Perfect Green Earrings,1,125,0,1,1,True,0,True,False,False
+1032103,Rex's Perfect Red Earrings,1,125,0,1,1,True,0,True,False,False
+1032104,Rex's Perfect Blue Earrings,1,125,0,1,1,True,0,True,False,False
+1032200,Meister Earring,1,110,0,4,4,True,0,True,False,False
+1032220,Cracked Gollux Earrings,2,120,0,4,4,True,0,True,False,False
+1032221,Solid Gollux Earrings,2,145,0,5,5,True,0,True,False,False
+1032222,Reinforced Gollux Earrings,3,160,0,6,6,True,0,True,False,False
+1032223,Superior Gollux Earrings,3,200,0,10,10,True,0,True,False,False
+1040111,Green Commodore,0,90,1,0,0,False,8,True,False,False
+1040115,Green Osfa Suit,0,90,8,0,0,False,9,True,False,False
+1050088,Red Ades,0,90,4,0,0,False,11,True,False,False
+1050102,Green Varuna,0,98,2,0,0,False,12,True,False,False
+1052128,White Marquini,0,90,16,0,0,False,7,True,False,False
+1052314,Lionheart Battle Mail,2,140,1,2,0,True,0,True,False,False
+1052315,Dragon Tail Mage Robe,2,140,2,0,2,True,0,True,False,False
+1052316,Falcon Wing Sentinel Suit,2,140,4,2,0,True,0,True,False,False
+1052317,Raven Horn Chaser Armor,2,140,8,2,0,True,0,True,False,False
+1052318,Shark Tooth Skipper Coat,2,140,16,2,0,True,0,True,False,False
+1052509,Amaterasu's Armor,3,150,1,3,0,True,0,True,False,False
+1052510,Oyamatsumi's Armor,3,150,4,3,0,True,0,True,False,False
+1052511,Ame-no-Uzume's Armor,3,150,2,0,3,True,0,True,False,False
+1052512,Tsukuyomi's Armor,3,150,8,3,0,True,0,True,False,False
+1052513,Susano-o's Armor,3,150,16,3,0,True,0,True,False,False
+1052789,Eclectic Taragon,0,120,1,0,0,False,4,True,False,False
+1052790,Eclectic Myst Blue,0,120,2,0,0,False,3,True,False,False
+1052791,Eclectic Evernew,0,120,4,0,0,False,1,True,False,False
+1052792,Eclectic Prinsid,0,120,8,0,0,False,6,True,False,False
+1052793,Eclectic Burgunt,0,120,16,0,0,False,8,True,False,False
+1052794,Muspell Warrior Suit,0,130,1,0,0,False,27,True,False,False
+1052795,Muspell Magician Suit,0,130,2,0,0,False,21,True,False,False
+1052796,Muspell Bowman Suit,0,130,4,0,0,False,30,True,False,False
+1052797,Muspell Thief Suit,0,130,8,0,0,False,20,True,False,False
+1052798,Muspell Pirate Suit,0,130,16,0,0,False,29,True,False,False
+1052799,Pensalir Battle Mail,0,140,1,1,0,False,4,True,False,False
+1052800,Pensalir Mage Robe,0,140,2,0,1,False,3,True,False,False
+1052801,Pensalir Sentinel Suit,0,140,4,1,0,False,2,True,False,False
+1052802,Pensalir Chaser Armor,0,140,8,1,0,False,3,True,False,False
+1052803,Pensalir Skipper Coat,0,140,16,1,0,False,5,True,False,False
+1052804,Royal Von Leon Warrior Suit,1,130,1,0,0,True,0,True,False,False
+1052805,Royal Von Leon Mage Suit,1,130,2,0,0,True,0,True,False,False
+1052806,Royal Von Leon Sentinel Suit,1,130,4,0,0,True,0,True,False,False
+1052807,Royal Von Leon Chaser Suit,1,130,8,0,0,True,0,True,False,False
+1052808,Royal Von Leon Skipper Suit,1,130,16,0,0,True,0,True,False,False
+1052882,AbsoLab Knight Suit,3,160,1,5,0,True,0,True,False,False
+1052887,AbsoLab Mage Suit,3,160,2,0,5,True,0,True,False,False
+1052888,AbsoLab Archer Suit,3,160,4,5,0,True,0,True,False,False
+1052889,AbsoLab Bandit Suit,3,160,8,5,0,True,0,True,False,False
+1052890,AbsoLab Pirate Suit,3,160,16,5,0,True,0,True,False,False
+1053063,Arcane Umbra Knight Suit,3,200,1,9,0,True,0,True,False,False
+1053064,Arcane Umbra Mage Suit,3,200,2,0,9,True,0,True,False,False
+1053065,Arcane Umbra Archer Suit,3,200,4,9,0,True,0,True,False,False
+1053066,Arcane Umbra Thief Suit,3,200,8,9,0,True,0,True,False,False
+1053067,Arcane Umbra Pirate Suit,3,200,16,9,0,True,0,True,False,False
+1060100,Green Commodore Pants,0,90,1,0,0,False,6,True,False,False
+1060104,Green Osfa Pants,0,90,8,0,0,False,11,True,False,False
+1072192,Green Osfa Boots,0,90,8,0,0,False,8,True,False,False
+1072196,Emerald War Greave,0,90,1,0,0,False,13,True,False,False
+1072203,Red Ades Shoes,0,90,4,0,0,False,6,True,False,False
+1072206,Blue Neli Shoes,0,90,2,0,1,False,20,True,False,False
+1072315,Black Markintz,0,90,16,0,0,False,6,True,False,False
+1072485,Lionheart Battle Boots,2,140,1,1,0,True,0,True,False,False
+1072486,Dragon Tail Mage Shoes,2,140,2,0,1,True,0,True,False,False
+1072487,Falcon Wing Sentinel Boots,2,140,4,1,0,True,0,True,False,False
+1072488,Raven Horn Chaser Boots,2,140,8,1,0,True,0,True,False,False
+1072489,Shark Tooth Skipper Boots,2,140,16,1,0,True,0,True,False,False
+1072711,Amaterasu's Shoes,3,150,1,2,0,True,0,True,False,False
+1072712,Oyamatsumi's Shoes,3,150,4,2,0,True,0,True,False,False
+1072713,Ame-no-Uzume's Shoes,3,150,2,0,2,True,0,True,False,False
+1072714,Tsukuyomi's Shoes,3,150,8,2,0,True,0,True,False,False
+1072715,Susano-o's Shoes,3,150,16,2,0,True,0,True,False,False
+1072957,Eclectic Grabbe,0,120,1,0,0,False,3,True,False,False
+1072958,Eclectic Cabatina,0,120,2,0,1,False,4,True,False,False
+1072959,Eclectic Rontano,0,120,4,0,0,False,6,True,False,False
+1072960,Eclectic Moonsteed,0,120,8,0,0,False,10,True,False,False
+1072961,Eclectic Faraon,0,120,16,0,0,False,3,True,False,False
+1072962,Muspell Warrior Shoes,0,130,1,0,0,False,18,True,False,False
+1072963,Muspell Magician Shoes,0,130,2,0,0,False,27,True,False,False
+1072964,Muspell Bowman Shoes,0,130,4,0,0,False,11,True,False,False
+1072965,Muspell Thief Shoes,0,130,8,0,0,False,23,True,False,False
+1072966,Muspell Pirate Shoes,0,130,16,0,0,False,34,True,False,False
+1072967,Pensalir Battle Boots,0,140,1,1,0,False,7,True,False,False
+1072968,Pensalir Mage Boots,0,140,2,0,1,False,3,True,False,False
+1072969,Pensalir Sentinel Boots,0,140,4,1,0,False,4,True,False,False
+1072970,Pensalir Chaser Boots,0,140,8,1,0,False,6,True,False,False
+1072971,Pensalir Skipper Boots,0,140,16,1,0,False,3,True,False,False
+1072972,Royal Von Leon Warrior Boots,1,130,1,0,0,True,0,True,False,False
+1072973,Royal Von Leon Mage Boots,1,130,2,0,0,True,0,True,False,False
+1072974,Royal Von Leon Sentinel Boots,1,130,4,0,0,True,0,True,False,False
+1072975,Royal Von Leon Chaser Boots,1,130,8,0,0,True,0,True,False,False
+1072976,Royal Von Leon Skipper Boots,1,130,16,0,0,True,0,True,False,False
+1073030,AbsoLab Knight Shoes,3,160,1,5,0,True,0,True,False,False
+1073032,AbsoLab Mage Shoes,3,160,2,0,5,True,0,True,False,False
+1073033,AbsoLab Archer Shoes,3,160,4,5,0,True,0,True,False,False
+1073034,AbsoLab Bandit Shoes,3,160,8,5,0,True,0,True,False,False
+1073035,AbsoLab Pirate Shoes,3,160,16,5,0,True,0,True,False,False
+1073158,Arcane Umbra Knight Shoes,3,200,1,9,0,True,0,True,False,False
+1073159,Arcane Umbra Mage Shoes,3,200,2,0,9,True,0,True,False,False
+1073160,Arcane Umbra Archer Shoes,3,200,4,9,0,True,0,True,False,False
+1073161,Arcane Umbra Thief Shoes,3,200,8,9,0,True,0,True,False,False
+1073162,Arcane Umbra Pirate Shoes,3,200,16,9,0,True,0,True,False,False
+1082125,Red Focus,0,90,4,0,0,False,12,True,False,False
+1082128,Green Imperial,0,90,1,0,0,False,6,True,False,False
+1082131,Blue Sage,0,90,2,0,0,False,11,True,False,False
+1082135,Blue Anelin,0,100,8,0,0,False,12,True,False,False
+1082210,Red Martier,0,90,16,0,0,False,10,True,False,False
+1082295,Lionheart Battle Bracers,2,140,1,5,0,True,0,True,False,False
+1082296,Dragon Tail Mage Gloves,2,140,2,0,5,True,0,True,False,False
+1082297,Falcon Wing Sentinel Gloves,2,140,4,5,0,True,0,True,False,False
+1082298,Raven Horn Chaser Gloves,2,140,8,5,0,True,0,True,False,False
+1082299,Shark Tooth Skipper Gloves,2,140,16,5,0,True,0,True,False,False
+1082472,Amaterasu's Gloves,3,150,1,8,0,True,0,True,False,False
+1082473,Oyamatsumi's Gloves,3,150,4,8,0,True,0,True,False,False
+1082474,Ame-no-Uzume's Gloves,3,150,2,0,8,True,0,True,False,False
+1082475,Tsukuyomi's Gloves,3,150,8,8,0,True,0,True,False,False
+1082476,Susano-o's Gloves,3,150,16,8,0,True,0,True,False,False
+1082598,Eclectic Bergamot,0,120,1,0,0,False,7,True,False,False
+1082599,Eclectic Hermosa,0,120,2,0,0,False,7,True,False,False
+1082600,Eclectic Presto,0,120,4,0,0,False,12,True,False,False
+1082601,Eclectic Lubav,0,120,8,0,0,False,7,True,False,False
+1082602,Eclectic Charlston,0,120,16,0,0,False,3,True,False,False
+1082603,Muspell Warrior Gloves,0,130,1,0,0,False,36,True,False,False
+1082604,Muspell Magician Gloves,0,130,2,0,0,False,22,True,False,False
+1082605,Muspell Bowman Gloves,0,130,4,0,0,False,25,True,False,False
+1082606,Muspell Thief Gloves,0,130,8,0,0,False,22,True,False,False
+1082607,Muspell Pirate Gloves,0,130,16,0,0,False,32,True,False,False
+1082608,Pensalir Battle Gloves,0,140,1,2,0,False,6,True,False,False
+1082609,Pensalir Mage Gloves,0,140,2,0,2,False,5,True,False,False
+1082610,Pensalir Sentinel Gloves,0,140,4,2,0,False,5,True,False,False
+1082611,Pensalir Chaser Gloves,0,140,8,2,0,False,3,True,False,False
+1082612,Pensalir Skipper Gloves,0,140,16,2,0,False,0,True,False,False
+1082613,Royal Von Leon Warrior Hands,1,130,1,1,0,True,0,True,False,False
+1082614,Royal Von Leon Mage Hands,1,130,2,0,1,True,0,True,False,False
+1082615,Royal Von Leon Sentinel Hands,1,130,4,1,0,True,0,True,False,False
+1082616,Royal Von Leon Chaser Hands,1,130,8,1,0,True,0,True,False,False
+1082617,Royal Von Leon Skipper Hands,1,130,16,1,0,True,0,True,False,False
+1082636,AbsoLab Knight Gloves,3,160,1,5,0,True,0,True,False,False
+1082637,AbsoLab Mage Gloves,3,160,2,0,5,True,0,True,False,False
+1082638,AbsoLab Archer Gloves,3,160,4,5,0,True,0,True,False,False
+1082639,AbsoLab Bandit Gloves,3,160,8,5,0,True,0,True,False,False
+1082640,AbsoLab Pirate Gloves,3,160,16,5,0,True,0,True,False,False
+1082695,Arcane Umbra Knight Gloves,3,200,1,9,0,True,0,True,False,False
+1082696,Arcane Umbra Mage Gloves,3,200,2,0,9,True,0,True,False,False
+1082697,Arcane Umbra Archer Gloves,3,200,4,9,0,True,0,True,False,False
+1082698,Arcane Umbra Thief Gloves,3,200,8,9,0,True,0,True,False,False
+1082699,Arcane Umbra Pirate Gloves,3,200,16,9,0,True,0,True,False,False
+1092045,Maple Magician shield,0,64,2,0,0,False,0,True,False,False
+1092046,Maple Warrior shield,0,64,1,0,0,False,0,True,False,False
+1092047,Maple Thief shield,0,64,8,0,0,False,0,True,False,False
+1092049,Dragon Khanjar,0,120,8,15,0,False,0,True,False,False
+1102275,Lionheart Battle Cape,2,140,1,1,0,True,0,True,False,False
+1102276,Dragon Tail Mage Cape,2,140,2,0,1,True,0,True,False,False
+1102277,Falcon Wing Sentinel Cape,2,140,4,1,0,True,0,True,False,False
+1102278,Raven Horn Chaser Cape,2,140,8,1,0,True,0,True,False,False
+1102279,Shark Tooth Skipper Cape,2,140,16,1,0,True,0,True,False,False
+1102456,Amaterasu's Cape,3,150,1,2,0,True,0,True,False,False
+1102457,Oyamatsumi's Cape,3,150,4,2,0,True,0,True,False,False
+1102458,Ame-no-Uzume's Cape,3,150,2,0,2,True,0,True,False,False
+1102459,Tsukuyomi's Cape,3,150,8,2,0,True,0,True,False,False
+1102460,Susano-o's Cape,3,150,16,2,0,True,0,True,False,False
+1102713,Royal Von Leon Warrior Cape,1,130,1,0,0,True,0,True,False,False
+1102714,Royal Von Leon Mage Cape,1,130,2,0,0,True,0,True,False,False
+1102715,Royal Von Leon Sentinel Cape,1,130,4,0,0,True,0,True,False,False
+1102716,Royal Von Leon Chaser Cape,1,130,8,0,0,True,0,True,False,False
+1102717,Royal Von Leon Skipper Cape,1,130,16,0,0,True,0,True,False,False
+1102718,Pensalir Battle Cape,0,140,1,0,0,False,5,True,False,False
+1102719,Pensalir Mage Cape,0,140,2,0,0,False,5,True,False,False
+1102720,Pensalir Sentinel Cape,0,140,4,0,0,False,6,True,False,False
+1102721,Pensalir Chaser Cape,0,140,8,0,0,False,3,True,False,False
+1102722,Pensalir Skipper Cape,0,140,16,0,0,False,2,True,False,False
+1102775,AbsoLab Knight Cape,3,160,1,2,2,True,0,True,False,False
+1102794,AbsoLab Mage Cape,3,160,2,2,2,True,0,True,False,False
+1102795,AbsoLab Archer Cape,3,160,4,2,2,True,0,True,False,False
+1102796,AbsoLab Bandit Cape,3,160,8,2,2,True,0,True,False,False
+1102797,AbsoLab Pirate Cape,3,160,16,2,2,True,0,True,False,False
+1102940,Arcane Umbra Knight Cape,3,200,1,6,6,True,0,True,False,False
+1102941,Arcane Umbra Mage Cape,3,200,2,6,6,True,0,True,False,False
+1102942,Arcane Umbra Archer Cape,3,200,4,6,6,True,0,True,False,False
+1102943,Arcane Umbra Thief Cape,3,200,8,6,6,True,0,True,False,False
+1102944,Arcane Umbra Pirate Cape,3,200,16,6,6,True,0,True,False,False
+1112405,Lilin's Ring,2,90,0,3,3,True,0,True,False,False
+1112406,[NO SERVER NAME],1,,,0,0,False,0,False,False,False
+1112414,Lilin's Ring,1,35,0,2,2,True,0,True,False,False
+1112435,1st Unwelcome Guest Ring,3,47,0,0,0,False,0,True,False,False
+1112585,Angelic Blessing,3,30,0,0,0,False,0,True,False,False
+1112586,Dark Angelic Blessing,3,70,0,0,0,False,0,True,False,False
+1113063,Guardian's Meister Immortal Ring,1,125,0,0,0,True,0,True,False,False
+1113064,Berserker's Meister Immortal Ring,1,125,0,3,0,True,0,True,False,False
+1113072,Cracked Gollux Ring,1,120,0,2,2,True,0,True,False,False
+1113073,Solid Gollux Ring,2,140,0,4,4,True,0,True,False,False
+1113074,Reinforced Gollux Ring,2,160,0,5,5,True,0,True,False,False
+1113075,Superior Gollux Ring,3,200,0,8,8,True,0,True,False,False
+1113282,Noble Ifia's Ring,2,145,0,2,2,True,0,True,False,False
+1122000,Horntail Necklace,0,120,0,0,0,False,0,True,False,False
+1122263,Scholarly Pendant,1,70,0,1,1,True,0,True,False,False
+1122264,Cracked Engraved Gollux Pendant,2,120,0,3,3,True,0,True,False,False
+1122265,Solid Engraved Gollux Pendant,2,145,0,3,3,True,0,True,False,False
+1122266,Reinforced Engraved Gollux Pendant,3,160,0,3,3,True,0,True,False,False
+1122267,Superior Engraved Gollux Pendant,3,200,0,5,5,True,0,True,False,False
+1122274,Ifia's Necklace,1,100,0,1,1,True,0,True,False,False
+1122430,Source of Suffering,1,115,0,3,3,True,0,True,False,False
+1132002,Blue Belt,1,45,0,15,15,True,0,True,False,False
+1132003,Red Belt,2,60,0,20,20,True,0,True,False,False
+1132004,Black Belt,3,75,0,25,25,True,0,True,False,False
+1132243,Cracked Engraved Gollux Belt,3,120,0,0,0,True,0,True,False,False
+1132244,Solid Engraved Gollux Belt,3,130,0,10,10,True,0,True,False,False
+1132245,Reinforced Engraved Gollux Belt,3,140,0,20,20,True,0,True,False,False
+1132246,Superior Engraved Gollux Belt,3,150,0,35,35,True,0,True,False,False
+1142326,Legendary Collector,1,0,0,2,2,False,0,True,False,False
+1142500,Mystic Von Leon's Nightmare,1,75,0,2,2,False,0,True,False,False
+1142520,Magnus Annihilator,3,10,0,10,10,False,0,True,False,False
+1142558,Unleashed,3,10,0,8,8,False,0,True,False,False
+1142582,Exiled Spirit,0,,0,15,15,True,0,True,False,False
+1142583,Training in the Nightmare,1,,0,50,50,True,0,True,False,False
+1142584,Brutal Dark Angel,2,,0,100,100,True,0,True,False,False
+1142585,Lord of the Darkness,3,,0,150,150,True,0,True,False,False
+1142586,Conqueror of the Hell,3,,0,300,300,True,0,True,False,False
+1142635,Child of the Goddess,1,180,0,2,2,False,0,True,False,False
+1142802,Star World Traveler,3,30,0,6,6,False,0,True,False,False
+1142803,Andromeda VIP,3,30,0,7,7,False,0,True,False,False
+1142880,One Who Has Godly Control,3,100,0,8,8,False,0,True,False,False
+1143000,Butterfly Dreams,2,200,0,3,3,False,0,True,False,False
+1143102,Consuming Abyss,2,200,0,3,0,False,0,True,False,False
+1143139,Eternal Light,2,200,0,3,3,False,0,True,False,False
+1143141,Defying Destiny,2,200,0,3,3,False,0,True,False,False
+1302056,Sparta,0,100,1,130,130,False,7,True,False,False
+1302152,Lionheart Cutlass,2,140,1,242,242,True,0,True,False,False
+1302229,Amaterasu's Nimbus Sword,3,150,1,272,272,True,0,True,False,False
+1302314,Jaihin Saber,0,130,1,207,207,False,3,True,False,False
+1302315,Utgard Saber,0,140,1,242,242,False,3,True,False,False
+1302316,Royal Von Leon Saber,1,130,1,207,207,True,0,True,False,False
+1302343,Arcane Umbra Saber,3,200,1,425,425,True,0,True,False,False
+1302344,AbsoLab Saber,3,160,1,313,313,True,3,True,False,False
+1302354,Sealed Genesis Saber,3,200,1,550,550,True,0,True,False,False
+1302355,Genesis Saber,3,200,1,750,750,True,0,True,False,False
+1312030,Tomahawk,0,100,1,130,130,False,4,True,False,False
+1312065,Lionheart Champion Axe,2,140,1,242,242,True,0,True,False,False
+1312118,Amaterasu's Axe of a Thousand Blades,3,150,1,272,272,True,0,True,False,False
+1312184,Jaihin Axe,0,130,1,207,207,False,4,True,False,False
+1312185,Utgard Axe,0,140,1,242,242,False,5,True,False,False
+1312186,Royal Von Leon Axe,1,130,1,207,207,True,0,True,False,False
+1312203,Arcane Umbra Axe,3,200,1,425,425,True,0,True,False,False
+1312204,AbsoLab Axe,3,160,1,313,313,True,3,True,False,False
+1312212,Sealed Genesis Axe,3,200,1,550,550,True,0,True,False,False
+1312213,Genesis Axe,3,200,1,750,750,True,0,True,False,False
+1322045,Battle Hammer,0,100,1,130,130,False,7,True,False,False
+1322096,Lionheart Battle Hammer,2,140,1,242,242,True,0,True,False,False
+1322164,Amaterasu's Golden Slice,3,150,1,272,272,True,0,True,False,False
+1322235,Jaihin Hair,0,130,1,207,207,False,4,True,False,False
+1322236,Utgard Hair,0,140,1,242,242,False,2,True,False,False
+1322237,Royal Von Leon Hammer,1,130,1,207,207,True,0,True,False,False
+1322255,Arcane Umbra Hammer,3,200,1,425,425,True,0,True,False,False
+1322256,AbsoLab Bit Hammer,3,160,1,313,313,True,2,True,False,False
+1322263,Sealed Genesis Hammer,3,200,1,550,550,True,0,True,False,False
+1322264,Genesis Hammer,3,200,1,750,750,True,0,True,False,False
+1332052,Blood Dagger,0,100,8,130,130,False,9,True,False,False
+1332130,Raven Horn Baselard,2,140,8,242,242,True,0,True,False,False
+1332195,Tsukuyomi's Execution Sword,3,150,8,272,272,True,0,True,False,False
+1332259,Jaihin Dagger,0,130,8,207,207,False,8,True,False,False
+1332260,Utgard Dagger,0,140,8,242,242,False,5,True,False,False
+1332261,Royal Von Leon Dagger,1,130,8,207,207,True,0,True,False,False
+1332279,Arcane Umbra Dagger,3,200,8,425,425,True,0,True,False,False
+1332280,AbsoLab Blade Lord,3,160,8,313,313,True,4,True,False,False
+1332288,Sealed Genesis Dagger,3,200,8,550,550,True,0,True,False,False
+1332289,Genesis Dagger,3,200,8,750,750,True,0,True,False,False
+1372010,Dimon Wand,0,98,2,127,127,False,8,True,False,False
+1372084,Dragon Tail Arc Wand,2,140,2,242,242,True,0,True,False,False
+1372141,Ame-no-Uzume's Crooked Soul Staff,3,150,2,272,272,True,0,True,False,False
+1372206,Jaihin Wand,0,130,2,207,207,False,5,True,False,False
+1372207,Utgard Wand,0,140,2,242,242,False,4,True,False,False
+1372208,Royal Von Leon Wand,1,130,2,207,207,True,0,True,False,False
+1372222,AbsoLab Spellsong Wand,3,160,2,313,313,True,0,True,False,False
+1372228,Arcane Umbra Wand,3,200,2,425,425,True,0,True,False,False
+1372236,Sealed Genesis Wand,3,200,2,550,550,True,0,True,False,False
+1372237,Genesis Wand,3,200,2,750,750,True,0,True,False,False
+1382035,Blue Marine,0,95,2,124,124,False,9,True,False,False
+1382104,Dragon Tail War Staff,2,140,2,242,242,True,0,True,False,False
+1382170,Ame-no-Uzume's Sinister Spirit Hand,3,150,2,272,272,True,0,True,False,False
+1382244,Jaihin Staff,0,130,2,207,207,False,4,True,False,False
+1382245,Utgard Staff,0,140,2,242,242,False,0,True,False,False
+1382246,Royal Von Leon Staff,1,130,2,207,207,True,0,True,False,False
+1382259,AbsoLab Spellsong Staff,3,160,2,313,313,True,0,True,False,False
+1382265,Arcane Umbra Staff,3,200,2,425,425,True,0,True,False,False
+1382273,Sealed Genesis Staff,3,200,2,550,550,True,0,True,False,False
+1382274,Genesis Staff,3,200,2,750,750,True,0,True,False,False
+1402035,The Beheader,0,100,1,139,139,False,13,True,False,False
+1402095,Lionheart Battle Scimitar,0,140,1,249,249,True,0,True,False,False
+1402153,Amaterasu's Weeping Spirit Sword,3,150,1,280,280,True,0,True,False,False
+1402235,Jaihin Two-handed Sword,0,130,1,218,218,False,5,True,False,False
+1402236,Utgard Two-handed Sword,0,140,1,249,249,False,1,True,False,False
+1402237,Royal Von Leon Sword,1,130,1,218,218,True,0,True,False,False
+1402259,Arcane Umbra Two-handed Sword,3,200,1,444,444,True,0,True,False,False
+1402260,AbsoLab Broad Saber,3,160,1,321,321,True,1,True,False,False
+1402267,Sealed Genesis Two-Handed Sword,3,200,1,550,550,True,0,True,False,False
+1402268,Genesis Two-Handed Sword,3,200,1,750,750,True,0,True,False,False
+1412021,Tavar,0,100,1,139,139,False,7,True,False,False
+1412065,Lionheart Battle Axe,2,140,1,249,249,True,0,True,False,False
+1412106,Amaterasu's Smoldering Spirit Axe,3,150,1,280,280,True,0,True,False,False
+1412163,Jaihin Two-handed Axe,0,130,1,218,218,False,5,True,False,False
+1412164,Utgard Two-handed Axe,0,140,1,249,249,False,6,True,False,False
+1412177,AbsoLab Broad Axe,3,160,1,321,321,False,0,True,False,False
+1412179,Royal Von Leon Two-Handed Axe,1,130,1,218,218,True,0,True,False,False
+1412181,Arcane Umbra Two-Handed Axe,3,200,1,444,444,True,0,True,False,False
+1412182,AbsoLab Broad Axe,3,160,1,321,321,True,0,True,False,False
+1412188,Sealed Genesis Two-Handed Axe,3,200,1,550,550,True,0,True,False,False
+1412189,Genesis Two-Handed Axe,3,200,1,750,750,True,0,True,False,False
+1422027,Golden Smith Hammer,0,100,1,139,139,False,11,True,False,False
+1422066,Lionheart Blast Maul,2,140,1,249,249,True,0,True,False,False
+1422109,Amaterasu's Mace of Ruin,3,150,1,280,280,True,0,True,False,False
+1422170,Jaihin Two-handed Hammer,0,130,1,218,218,False,5,True,False,False
+1422171,Utgard Two-handed Hammer,0,140,1,249,249,False,2,True,False,False
+1422186,Royal Von Leon Two-Handed Hammer,1,130,1,218,218,True,0,True,False,False
+1422189,Arcane Umbra Two-Handed Hammer,3,200,1,444,444,True,0,True,False,False
+1422190,AbsoLab Broad Hammer,3,160,1,321,321,True,1,True,False,False
+1422196,Sealed Genesis Two-Handed Hammer,3,200,1,550,550,True,0,True,False,False
+1422197,Genesis Two-Handed Hammer,3,200,1,750,750,True,0,True,False,False
+1432030,Pinaka,0,100,1,139,139,False,11,True,False,False
+1432086,Lionheart Fuscina,2,140,1,249,249,True,0,True,False,False
+1432140,Amaterasu's Final Wind,3,150,1,280,280,True,0,True,False,False
+1432199,Jaihin Spear,0,130,1,218,218,False,3,True,False,False
+1432200,Utgard Spear,0,140,1,249,249,False,4,True,False,False
+1432201,Royal Von Leon Spear,1,130,1,218,218,True,0,True,False,False
+1432218,Arcane Umbra Spear,3,200,1,444,444,True,0,True,False,False
+1432219,AbsoLab Piercing Spear,3,160,1,321,321,True,6,True,False,False
+1432226,Sealed Genesis Spear,3,200,1,550,550,True,0,True,False,False
+1432227,Genesis Spear,3,200,1,750,750,True,0,True,False,False
+1442044,Zedbug,0,100,1,139,139,False,7,True,False,False
+1442116,Lionheart Partisan,2,140,1,249,249,True,0,True,False,False
+1442184,Amaterasu's Pelting Rain,3,150,1,280,280,True,0,True,False,False
+1442253,Jaihin Hellslayer,0,130,1,218,218,False,3,True,False,False
+1442254,Utgard Hellslayer,0,140,1,249,249,False,3,True,False,False
+1442255,Royal Von Leon Hellslayer,1,130,1,218,218,True,0,True,False,False
+1442268,AbsoLab Hellslayer,3,160,1,321,321,False,0,True,False,False
+1442274,Arcane Umbra Polearm,3,200,1,444,444,True,0,True,False,False
+1442276,AbsoLab Hellslayer,3,160,1,321,321,True,5,True,False,False
+1442284,Sealed Genesis Polearm,3,200,1,550,550,True,0,True,False,False
+1442285,Genesis Polearm,3,200,1,750,750,True,0,True,False,False
+1452019,White Nisrock,0,100,4,139,139,False,10,True,False,False
+1452111,Falcon Wing Composite Bow,2,140,4,249,249,True,0,True,False,False
+1452172,Oyamatsumi's Fire Spirit Bow,3,150,4,280,280,True,0,True,False,False
+1452237,Jaihin Bow,0,130,4,218,218,False,4,True,False,False
+1452238,Utgard  Bow,0,140,4,249,249,False,6,True,False,False
+1452239,Royal Von Leon Bow,1,130,4,218,218,True,0,True,False,False
+1452257,Arcane Umbra Bow,3,200,4,444,444,True,0,True,False,False
+1452258,AbsoLab Sureshot Bow,3,160,4,321,321,True,1,True,False,False
+1452265,Sealed Genesis Bow,3,200,4,550,550,True,0,True,False,False
+1452266,Genesis Bow,3,200,4,750,750,True,0,True,False,False
+1462015,White Neschere,0,100,4,139,139,False,8,True,False,False
+1462099,Falcon Wing Heavy Crossbow,2,140,4,249,249,True,0,True,False,False
+1462161,Oyamatsumi's Mind Expansion Bow,3,150,4,280,280,True,0,True,False,False
+1462224,Jaihin Crossbow,0,130,4,218,218,False,8,True,False,False
+1462225,Utgard Crossbow,0,140,4,249,249,False,4,True,False,False
+1462226,Royal Von Leon Crossbow,1,130,4,218,218,True,0,True,False,False
+1462243,Arcane Umbra Crossbow,3,200,4,444,444,True,0,True,False,False
+1462244,AbsoLab Crossbow,3,160,4,321,321,True,6,True,False,False
+1462251,Sealed Genesis Crossbow,3,200,4,550,550,True,0,True,False,False
+1462252,Genesis Crossbow,3,200,4,750,750,True,0,True,False,False
+1472053,Red Craven,0,100,8,139,139,False,10,True,False,False
+1472122,Raven Horn Metal Fist,2,140,8,249,249,True,0,True,False,False
+1472181,Tsukuyomi's Fist of Malice,3,150,8,280,280,True,0,True,False,False
+1472246,Jaihin Guards,0,130,8,218,218,False,2,True,False,False
+1472247,Utgard Guards,0,140,8,249,249,False,3,True,False,False
+1472248,Royal Von Leon Guards,1,130,8,218,218,True,0,True,False,False
+1472265,Arcane Umbra Guards,3,200,8,444,444,True,0,True,False,False
+1472266,AbsoLab Revenge Guards,3,160,8,321,321,True,1,True,False,False
+1472274,Sealed Genesis Guards,3,200,8,550,550,True,0,True,False,False
+1472275,Genesis Guards,3,200,8,750,750,True,0,True,False,False
+1482012,King Cent,0,100,16,139,139,False,9,True,False,False
+1482084,Shark Tooth Wild Talon,2,140,16,249,249,True,0,True,False,False
+1482142,Susano-o's Bloodstained Sword,3,150,16,280,280,True,0,True,False,False
+1482201,Jaihin Claw,0,130,16,218,218,False,6,True,False,False
+1482202,Utgard Claw,0,140,16,249,249,False,1,True,False,False
+1482203,Royal Von Leon Claw,1,130,16,218,218,True,0,True,False,False
+1482221,Arcane Umbra Knuckle,3,200,16,444,444,True,0,True,False,False
+1482222,AbsoLab Blast Knuckle,3,160,16,321,321,True,4,True,False,False
+1482231,Sealed Genesis Claw,3,200,16,550,550,True,0,True,False,False
+1482232,Genesis Claw,3,200,16,750,750,True,0,True,False,False
+1492012,Concerto,0,100,16,139,139,False,7,True,False,False
+1492085,Shark Tooth Sharpshooter,2,140,16,249,249,True,0,True,False,False
+1492154,Susano-o's Baleful Blaster,3,150,16,280,280,True,0,True,False,False
+1492211,Jaihin Pistol,0,130,16,218,218,False,2,True,False,False
+1492212,Utgard Pistol,0,140,16,249,249,False,4,True,False,False
+1492213,Royal Von Leon Pistol,1,130,16,218,218,True,0,True,False,False
+1492231,AbsoLab Point Gun,3,160,16,321,321,False,0,True,False,False
+1492235,Arcane Umbra Pistol,3,200,16,444,444,True,0,True,False,False
+1492236,AbsoLab Point Gun,3,160,16,321,321,True,7,True,False,False
+1492244,Sealed Genesis Pistol,3,200,16,550,550,True,0,True,False,False
+1492245,Genesis Pistol,3,200,16,750,750,True,0,True,False,False
+2070006,Ilbi Throwing-Stars,0,10,,27,0,False,0,True,False,False
+2330004,Shiny Bullet,0,90,,18,0,False,0,True,False,False
