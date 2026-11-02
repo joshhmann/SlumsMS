@@ -1227,6 +1227,50 @@ public class AbstractPlayerInteraction {
         getPlayer().getMap().broadcastMessage(PacketCreator.environmentChange(sound, 4));
     }
 
+    /**
+     * 1.6.4: the Cannoneer and metro cutscenes drive a client-side "direction" sequence - an NPC that stands and talks
+     * in sync with a scripted camera. This server has no such engine: net/opcodes/SendOpcode has no direction status,
+     * NPC value or direction info packet. These calls used to end the cutscene with a script error, taking the player's
+     * dialogue with them; they now record what the script asked for and let the step continue, so the player gets the
+     * NPC's next line instead of a dead dialog.
+     *
+     * <p>lockUI2 is deliberately not turned into lockUI(): the scripts that call it do not all unlock again
+     * (1096005.js never does), and a lock without a matching unlock leaves the player unable to walk, use a portal or
+     * open anything. A cutscene without its UI lock looks wrong; a player who cannot move is worse.
+     */
+    public void setDirectionStatus(boolean enabled) {
+        log.debug("setDirectionStatus({}): no direction engine to drive (player {})", enabled, getPlayer().getName());
+    }
+
+    public void lockUI2() {
+        log.debug("lockUI2(): cutscene UI lock not sent, no unlock path in the script (player {})", getPlayer().getName());
+    }
+
+    public void sendDirectionInfo(String effect, int duration, int a, int b, int c, int d) {
+        log.debug("sendDirectionInfo({}, {}, {}, {}, {}, {}): no direction engine (player {})",
+                effect, duration, a, b, c, d, getPlayer().getName());
+    }
+
+    public void sendDirectionInfo(int type, int value) {
+        log.debug("sendDirectionInfo({}, {}): no direction engine (player {})", type, value, getPlayer().getName());
+    }
+
+    public void setNPCValue(int npcOid, String value) {
+        log.debug("setNPCValue({}, {}): no per-NPC script values in this server (player {})", npcOid, value, getPlayer().getName());
+    }
+
+    public void updateInfo(String key, String value) {
+        log.debug("updateInfo({}, {}): no direction info to update (player {})", key, value, getPlayer().getName());
+    }
+
+    /**
+     * 1.6.4: watch the effect - the metro cutscene's "Effect/Direction2.img/metro/Im". showEffect is the same
+     * FIELD_EFFECT packet v83's showWZEffect sent, so this one needs no fail-safe.
+     */
+    public void showWZEffect(String effect) {
+        showEffect(effect);
+    }
+
     public void environmentChange(String env, int mode) {
         getPlayer().getMap().broadcastMessage(PacketCreator.environmentChange(env, mode));
     }
