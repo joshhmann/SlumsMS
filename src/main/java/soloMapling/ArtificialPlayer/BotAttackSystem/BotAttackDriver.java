@@ -336,8 +336,13 @@ public final class BotAttackDriver {
                 BotAttackProfile singleReady = ready(bot, single, now);
                 boolean sloppy = java.util.concurrent.ThreadLocalRandom.current().nextDouble()
                         < BotHabits.of(bot.getId()).sloppyNow();
+                // 1.6.4 boss lane: with the floor switch on, weigh the two attacks' guaranteed damage as well. Off by
+                // default, and read before the measurement, so a server that does not want it pays nothing for it.
+                boolean floorOn = BotSkillChoice.floorOn();
+                double singleFloor = floorOn ? minimumPerMob(bot, singleReady, weapon, nearest) : 0.0;
+                double aoeFloor = floorOn ? minimumPerMob(bot, packAttack, weapon, nearest) : 0.0;
                 BotSkillChoice.Pick pick = BotSkillChoice.choose(packAttack != null, inReach, nearest.isBoss(),
-                        BotCombatTuning.aoeMinMobs(), singleReady != null, sloppy);
+                        BotCombatTuning.aoeMinMobs(), singleReady != null, sloppy, singleFloor, aoeFloor, floorOn);
                 useAoe = pick.aoe();
                 if (soloMapling.qa.QaLog.on(soloMapling.qa.QaLog.Topic.COMBAT)) {
                     soloMapling.qa.QaLog.map(soloMapling.qa.QaLog.Topic.COMBAT, bot.getMapId(), "CHOICE " + bot.getName()
@@ -499,6 +504,20 @@ public final class BotAttackDriver {
      * the profile's default capped at the skill's maximum, since a level past it names an effect the
      * viewer's client does not have (MapleRoot's custom 4th-job skills stop at 10, below the default).
      */
+    /**
+     * The damage one mob of these stats is guaranteed to take from this attack: its floor after the mob's defence,
+     * no crit ({@link BotDamage.Swing#minimumPerMob}). Only called when {@code -Dslums.bossfight.damagefloor} is on,
+     * and 0 when there is nothing to weigh.
+     */
+    static double minimumPerMob(Character bot, BotAttackProfile profile, WeaponType weapon, Monster mob) {
+        if (bot == null || profile == null || mob == null || mob.getStats() == null) {
+            return 0.0;
+        }
+        BotDamage.Swing swing = BotDamage.swing(bot, profile.skillId, packetLevel(bot, profile), profile.route, weapon,
+                1, false);
+        return swing.minimumPerMob(mob.getStats(), Math.max(1, profile.numDamage));
+    }
+
     public static int packetLevel(Character bot, BotAttackProfile profile) {
         if (profile.skillId == 0) {
             return 0;

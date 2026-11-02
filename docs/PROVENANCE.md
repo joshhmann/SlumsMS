@@ -270,6 +270,18 @@ Horntail row is ours, read from `scripts/event/HorntailBattle.js`, `scripts/reac
 `scripts/portal/hontale_BR.js` and `MapleMap.java:4908-4954,4939-4947`, and it reuses the same `BossTargetRules` port
 (the three rooms, the door gating and the `defeatedHead` count have no counterpart in their draft).
 
+### Attack floor on a high-defence target, 1.6.4 (branch `164-bossfight`, ticket 130 boss lane), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+| From theirs | Our files |
+| --- | --- |
+| `server.agents.capabilities.combat.AgentAttackPlanScoringPolicy` (73 lines): score a plan by expected damage, but track `minimumKillsFullHpTargets` from `CombatFormulaProvider.estimateMinimumDamage`, and let a guaranteed kill (every target's minimum at or above its full HP) outrank the average | `soloMapling/ArtificialPlayer/BotAttackSystem/BotCombatFormula.estimateMinimumDamage` and the floor overload of `BotSkillChoice.choose` |
+
+Ours: the floor is read from the same `Range` the average already comes from (`Range.min()`, after the target's
+defence, no crit - a crit only raises a line), so there is no second damage model; their full scoring policy
+(useful-vs-raw DPS, cooldown tie-break, kill guarantee) is **not** ported, only its idea that a plan's minimum decides
+when the average is blind. The choice applies it as one extra rule behind `-Dslums.bossfight.damagefloor` (off by
+default): a boss always prefers the higher floor, an ordinary mob only when the rule's own pick would do nothing.
+
 ### Expedition death count, 1.6.4 (branch `164-bossfight`, ticket 130 boss lane), BotStory `81a3b1df`
 
 | From theirs | Our files |
