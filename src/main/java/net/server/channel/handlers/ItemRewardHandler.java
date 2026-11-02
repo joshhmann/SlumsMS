@@ -74,9 +74,7 @@ public final class ItemRewardHandler extends AbstractPacketHandler {
                 }
                 InventoryManipulator.removeById(c, InventoryType.USE, itemId, 1, false, false);
                 if (reward.worldmsg != null) {
-                    String msg = reward.worldmsg;
-                    msg.replaceAll("/name", c.getPlayer().getName());
-                    msg.replaceAll("/item", ii.getName(reward.itemid));
+                    String msg = rewardMessage(reward.worldmsg, c.getPlayer().getName(), ii.getName(reward.itemid));
                     Server.getInstance().broadcastMessage(c.getWorld(), PacketCreator.serverNotice(6, msg));
                 }
                 break;
@@ -100,5 +98,14 @@ public final class ItemRewardHandler extends AbstractPacketHandler {
             return -1;
         }
         return now + HOURS.toMillis(period);
+    }
+
+    /**
+     * Substitutes the two tokens the WZ {@code reward/worldMsg} template uses: {@code /name} becomes the winner's name
+     * and {@code /item} the granted item's name. {@link String#replace} is literal on purpose - the template is plain
+     * WZ text, and a player name is player-supplied data that must never be read as a regular expression.
+     */
+    static String rewardMessage(String template, String playerName, String itemName) {
+        return template.replace("/name", playerName).replace("/item", itemName);
     }
 }

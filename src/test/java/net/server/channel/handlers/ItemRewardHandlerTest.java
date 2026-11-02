@@ -42,4 +42,30 @@ class ItemRewardHandlerTest {
         // The 1.6.3 code computed period * 36000 ms, i.e. 3 days for this entry.
         assertNotEquals(NOW + TimeUnit.DAYS.toMillis(3), expiration);
     }
+
+    private static final String PIG_EGG =
+            "/name has obtained a /item from the Golden Pig's Egg.";
+
+    @Test
+    void bothTokensAreSubstituted() {
+        assertEquals("Alice has obtained a Blue Cape from the Golden Pig's Egg.",
+                ItemRewardHandler.rewardMessage(PIG_EGG, "Alice", "Blue Cape"));
+    }
+
+    @Test
+    void templateWithoutNameTokenIsBroadcastUnchanged() {
+        assertEquals("Bob has obtained a Red Potion from the Golden Pig's Egg.",
+                ItemRewardHandler.rewardMessage("Bob has obtained a /item from the Golden Pig's Egg.", "Bob", "Red Potion"));
+        assertEquals("A box was opened.", ItemRewardHandler.rewardMessage("A box was opened.", "Bob", "Red Potion"));
+    }
+
+    @Test
+    void playerNameWithRegexMetacharactersSurvivesIntact() {
+        // String.replaceAll would have treated "a.b*c" as a pattern (and "$"/"\\" as replacements) and thrown or
+        // corrupted the text; the literal replacement keeps the name byte for byte.
+        assertEquals("a.b*c has obtained a Blue Cape from the Golden Pig's Egg.",
+                ItemRewardHandler.rewardMessage(PIG_EGG, "a.b*c", "Blue Cape"));
+        assertEquals("$1\\2 has obtained a Blue Cape from the Golden Pig's Egg.",
+                ItemRewardHandler.rewardMessage(PIG_EGG, "$1\\2", "Blue Cape"));
+    }
 }
