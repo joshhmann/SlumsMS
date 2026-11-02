@@ -17,7 +17,16 @@ file does not describe the configuration the server reads:
   `DB_URL_FORMAT`, `DB_CONNECTION_TIMEOUT_MS`.
 - On the lane's base (`c589cf49d`) it was 10 lines and carried `PARTY_SEARCH_REENTRY_LIMIT` instead of
   `DB_CONNECTION_TIMEOUT_MS`.
-- `ServerConfig.java` has 358 fields. The template documents between six and seven of them.
+- `ServerConfig.java` declares **359** fields (`getDeclaredFields()` minus statics, and
+  `grep -cE '^\s+(public|private|protected)\s' src/main/java/config/ServerConfig.java` agree). The shipped template
+  sets exactly **6** keys under `server:` — `CHARSET`, `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_URL_FORMAT`,
+  `DB_CONNECTION_TIMEOUT_MS` — so **353 of 359** are unset, plus every field of the one `WorldConfig` (the template's
+  `worlds:` is an empty list).
+- Provenance of the "358" that appears in the lane's report: the real count is 359, and a type-token grep that cannot
+  span the space in `public Map<String, String>` gives 354, because it drops the five map fields at
+  `ServerConfig.java:219` (`BOT_LLM_EXTRA_BODY`), `:220` (`BOT_LLM_EXTRA_HEADERS`), `:239` (`BOT_LLM_CLOUD_EXTRA_BODY`),
+  `:241` (`BOT_LLM_CLOUD_EXTRA_HEADERS`) and `:565` (`NPCS_SCRIPTABLE`). So 358 is one short of the truth and must not be
+  copied forward; the lane's own test uses reflection and is not affected by either miscount.
 
 `src/main/java/config/YamlConfig.java:19-29` is the whole loader: `loadConfig()` at `:21` builds a plain
 `YamlReader` at `:22`, calls `reader.read(YamlConfig.class)` at `:23`, and its only error handling is two `catch`
@@ -77,11 +86,24 @@ join". The lane's template already carries the matching keys at `config.example.
 values, and the lane's own `ServerConfig.java` still has the four fields bare. So on `163-integration` this is at worst
 a small textual conflict, and **the lane's template is the file to keep**.
 
-One real gap when merging onto `release-1.6.4` rather than `163-integration`: this branch's template has a
-`DB_CONNECTION_TIMEOUT_MS: 30000` entry (with its long comment) that the lane's 535-line rewrite does not contain,
-because the lane never saw that key. The merged template must keep it; otherwise a fresh install silently takes the
-field's JVM default again, which is the very bug this ticket exists to close. Check it with
-`grep -n DB_CONNECTION_TIMEOUT_MS config.example.yaml` after the merge.
+One real gap when merging onto `release-1.6.4` rather than `163-integration`, and it is confirmed, not suspected:
+
+- The lane's rewritten `config.example.yaml` (`3e451ef3a:config.example.yaml`) has **zero** matches for
+  `connection_timeout` (`grep -n -i connection_timeout` → exit 1, no output). It lists 358 `server:` keys.
+- `DB_CONNECTION_TIMEOUT_MS` arrived in `1225800eb` ("Keep refused bot writes and departures instead of dropping them"),
+  which is **not** an ancestor of `3e451ef3a` (`git merge-base --is-ancestor 1225800eb 3e451ef3a` → exit 1). The lane
+  never saw the field.
+- Comparing this branch's 359 field names with the lane's 358 keys, `comm -23` (in the template's field set, missing
+  from the lane) is exactly `DB_CONNECTION_TIMEOUT_MS` and `comm -13` (in the lane, not a field) is empty. So the lane's
+  template is 359 − exactly that one field.
+
+So the merge worker must restore the key, not "check whether it is there": add `DB_CONNECTION_TIMEOUT_MS: 30000` to the
+merged `server:` section at the same value and in the same comment style as the current
+`config.example.yaml:8-9` ("How long a thread waits for a pooled connection before its work fails (ms). 0 = 30000
+(Hikari's default)."). With it restored, `ConfigTemplateCompletenessTest.everyServerFieldAppearsInTheTemplate` covers
+359/359 instead of passing with a hole — the test compares the template's keys against the reflected field names, so a
+missing key fails it, and that is the check to run. A second, cheapest confirmation after the merge:
+`grep -n DB_CONNECTION_TIMEOUT_MS config.example.yaml` returns one line.
 
 ## This bug class has hit the repo five times
 
@@ -118,7 +140,7 @@ From the lane report, each one is a decision the owner has to make; none of them
 
 ## For the release book
 
-- **Card:** Config | the shipped config template omits 351 of 358 keys and every world, so a fresh install boots into 0-valued boot-critical fields | S2 | lane Server | closer: merge `164-configtemplate` (`fc17b56c4`, `3e451ef3a`) and run `ConfigTemplateCompletenessTest` — 4/4 fail on the old template with `IllegalStateException: config.yaml has no 'worlds:' entries`, 4/4 pass on the new one, `config.*Test` 14/0.
+- **Card:** Config | the shipped config template omits 353 of 359 keys and every world, so a fresh install boots into 0-valued boot-critical fields | S2 | lane Server | closer: merge `164-configtemplate` (`fc17b56c4`, `3e451ef3a`), restore `DB_CONNECTION_TIMEOUT_MS` (see "Merge hazard"), and run `ConfigTemplateCompletenessTest` — 4/4 fail on the old template with `IllegalStateException: config.yaml has no 'worlds:' entries`, 4/4 pass on the new one, `config.*Test` 14/0.
 - **Patch notes (draft, player words):** "A fresh install now starts with a complete configuration, so a new server no longer dies on the first player's map entry or loses every drop." (staff-facing install note; it is not a player-visible change — use "staff only, no line" if the book prefers that)
 - **Confign line:** none — the template is a file, not a switch; nothing in `docs/release/1.6.4.conf` changes and `CONFIG_APPEND` stays empty.
 - **Test-tab row:** test: `ConfigTemplateCompletenessTest` | how: copy `config.example.yaml` to `config.yaml` and boot a clean server; a player logs in and changes map without a stack trace, and drops do not vanish on the next sweep.
