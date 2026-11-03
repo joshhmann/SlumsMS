@@ -36,6 +36,11 @@ public final class MechanicsRuns {
 
     private static final MechanicsRuns INSTANCE = new MechanicsRuns();
 
+    static {
+        // the bots' win and loss lines are a reader of the run's outcome record, like any other (RunOutcomes)
+        RunOutcomes.listen(RunChatter::onOutcome);
+    }
+
     public static MechanicsRuns get() {
         return INSTANCE;
     }
@@ -52,11 +57,19 @@ public final class MechanicsRuns {
         final boolean ownsInstance;
         /** How the run came to be and whether it holds a place in {@link RealRunPool}; released when the run ends. */
         final RealRunPool.Admission admission;
+        /** Unique per run: what its {@link RunOutcome} is keyed by. */
+        final String runId = java.util.UUID.randomUUID().toString();
+        final long startedAtMs = System.currentTimeMillis();
+        /** Who was in the run when it started, by what each is (a player, a bot, a player's owned alt). */
+        final List<RunOutcome.Participant> participants;
+        /** Set when this run's outcome has been written: a run has exactly one. */
+        final java.util.concurrent.atomic.AtomicBoolean recorded = new java.util.concurrent.atomic.AtomicBoolean();
         volatile ScheduledFuture<?> tick;
         volatile boolean finished;
 
         Active(RunState run, EventInstanceManager eim, Map<Integer, Character> bots, Consumer<String> reporter,
-               Consumer<Active> onEnd, boolean ownsInstance, RealRunPool.Admission admission) {
+               Consumer<Active> onEnd, boolean ownsInstance, RealRunPool.Admission admission,
+               List<RunOutcome.Participant> participants) {
             this.run = run;
             this.eim = eim;
             this.bots = bots;
@@ -64,6 +77,12 @@ public final class MechanicsRuns {
             this.onEnd = onEnd;
             this.ownsInstance = ownsInstance;
             this.admission = admission;
+            this.participants = List.copyOf(participants);
+        }
+
+        /** The id this run's {@link RunOutcome} will carry. */
+        public String runId() {
+            return runId;
         }
 
         /** How this run came to be (a lobby, a staging, a human's party): what its {@link RealRunPool.Admission} says. */
@@ -119,8 +138,6 @@ public final class MechanicsRuns {
         }
         return name;
     }
-    /** Picks the bots that speak about a run and their lines ({@link RunChatter}). */
-    private final Random chatRandom = new Random();
     private final Orchestrator orchestrator = new Orchestrator(Orchestrator.allSolvers(), new Random(), 0, 0);
     private final StepExecutor executor = new StepExecutor();
 
@@ -197,6 +214,7 @@ public final class MechanicsRuns {
                          int lastStage, boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd,
                          RealRunPool.Admission admission) {
         List<RunMember> members = new ArrayList<>();
+        List<RunOutcome.Participant> participants = new ArrayList<>();
         Map<Integer, Character> bots = new ConcurrentHashMap<>();
         for (Character c : eim.getPlayers()) {
             boolean bot = drivable(c);
@@ -204,6 +222,8 @@ public final class MechanicsRuns {
             members.add(new RunMember(c.getId(), leader, bot,
                     !bot || perfect ? MechanicsPersona.PERFECT : MechanicsPersona.forCharacter(c.getId()),
                     c.getJob() == null ? 0 : c.getJob().getId()));
+            participants.add(new RunOutcome.Participant(c.getId(), c.isOwnedAlt() ? RunOutcome.ParticipantKind.OWNED_ALT
+                    : bot ? RunOutcome.ParticipantKind.BOT : RunOutcome.ParticipantKind.PLAYER, leader));
             if (bot) {
                 bots.put(c.getId(), c);
             }
@@ -214,17 +234,19 @@ public final class MechanicsRuns {
         if (firstStage > 1 && !o.startAt(run, firstStage, System.currentTimeMillis())) {
             run.end("stage " + firstStage + " is not one this run plays (last " + run.lastStage() + ")");
         }
-        Active a = new Active(run, eim, bots, toQaLog(members, reporter), onEnd, ownsInstance, admission);
+        Active a = new Active(run, eim, bots, toQaLog(members, reporter), onEnd, ownsInstance, admission, participants);
         if (run.ended()) {
             a.finished = true;
             a.reporter.accept("RUN not started: " + run.endedBecause());
             closeInstance(a);
+            recordOutcome(a); // a run that never started is still a run, and an abandoned one
             return a;
         }
         if (active.putIfAbsent(eim, a) != null) {
             run.end("this event instance already has a run");
             a.finished = true;
             a.reporter.accept("RUN not started: " + run.endedBecause());
+            recordOutcome(a);
             return a;
         }
         try {
@@ -517,7 +539,7 @@ public final class MechanicsRuns {
         } catch (RuntimeException e) {
             log("[Mechanics] could not end " + keyOf(a.eim) + ": " + e);
         }
-        leaveOutcomeLines(a);
+        recordOutcome(a);
         RunState r = a.run;
         a.reporter.accept("RUN end " + r.content().id() + " in " + keyOf(a.eim) + ": " + r.endedBecause()
                 + (r.cleared() ? " after " + r.clearedAfterMs() / 1000 + " s, " + r.wrongShownTotal()
@@ -532,32 +554,19 @@ public final class MechanicsRuns {
     }
 
     /**
-     * 1.7.0 run chatter: leaves the win or loss line on the one or two bots that speak about this run ({@link
-     * RunChatter}). Nothing is said here: each bot says its line from its own macro tick, which {@link #finish} has
-     * just started again, inside the ambient chat budget. An owned alt has no such tick and never speaks.
+     * Writes this run's outcome ({@link RunOutcome}) once, however the run ended. Everything that has something to say
+     * about a run reads that record; the bots' win and loss lines are one of its readers ({@link
+     * RunChatter#onOutcome}, registered with {@link RunOutcomes#listen}). A run that cannot be described still ends.
      */
-    private void leaveOutcomeLines(Active a) {
+    private void recordOutcome(Active a) {
+        if (!a.recorded.compareAndSet(false, true)) {
+            return;
+        }
         try {
-            List<Integer> bots = new ArrayList<>();
-            for (Character bot : a.bots.values()) {
-                if (!bot.isOwnedAlt() && CharacterStorage.getBotById(bot.getId()) != null) {
-                    bots.add(bot.getId());
-                }
-            }
-            Map<Integer, soloMapling.ArtificialPlayer.BotRunOutcome.Pending> plan =
-                    RunChatter.plan(a.run, bots, System.currentTimeMillis(), chatRandom);
-            for (Map.Entry<Integer, soloMapling.ArtificialPlayer.BotRunOutcome.Pending> e : plan.entrySet()) {
-                BotSM brain = CharacterStorage.getBotById(e.getKey());
-                if (brain != null) {
-                    brain.runOutcome().set(e.getValue());
-                }
-            }
-            if (!plan.isEmpty()) {
-                log("[Mechanics] run " + keyOf(a.eim) + " ended " + a.run.ending() + ": " + plan.size()
-                        + " bot(s) will say it: " + plan.keySet());
-            }
+            RunOutcomes.record(RunOutcome.of(a.runId, keyOf(a.eim), a.run, a.admission.origin(), RunOutcome.Mode.REAL,
+                    a.startedAtMs, System.currentTimeMillis(), a.participants));
         } catch (RuntimeException e) {
-            log("[Mechanics] run chatter after " + keyOf(a.eim) + " threw: " + e);
+            log("[Mechanics] could not record the outcome of " + keyOf(a.eim) + ": " + e);
         }
     }
 

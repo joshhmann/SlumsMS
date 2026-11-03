@@ -87,6 +87,22 @@ class RunChatterTest {
         return run;
     }
 
+    /** What the run was, as MechanicsRuns writes it when the run ends (members as they are: bots and players). */
+    private static RunOutcome outcomeOf(RunState run) {
+        List<RunOutcome.Participant> participants = new ArrayList<>();
+        for (RunMember m : run.members()) {
+            participants.add(new RunOutcome.Participant(m.characterId(),
+                    m.bot() ? RunOutcome.ParticipantKind.BOT : RunOutcome.ParticipantKind.PLAYER, m.leader()));
+        }
+        return RunOutcome.of("test-run", "Kerning0 w1 ch 1", run, RealRunPool.Origin.KPQ_LOBBY, RunOutcome.Mode.REAL,
+                NOW - 60_000, NOW, participants);
+    }
+
+    /** The chatter reads the outcome and nothing else: this is the old call, through the record. */
+    private static Map<Integer, Pending> plan(RunState run, java.util.Collection<Integer> bots, long now, Random rng) {
+        return RunChatter.plan(outcomeOf(run), bots, now, rng);
+    }
+
     private static List<Integer> ids(List<RunMember> members) {
         return members.stream().filter(RunMember::bot).map(RunMember::characterId).toList();
     }
@@ -96,7 +112,7 @@ class RunChatterTest {
     @Test
     void aWonRunRecordsAWinLineThatNamesThePartyQuest() {
         List<RunMember> party = botParty();
-        Map<Integer, Pending> plan = RunChatter.plan(won(kpq(), party), ids(party), NOW, new Random(3));
+        Map<Integer, Pending> plan = plan(won(kpq(), party), ids(party), NOW, new Random(3));
 
         assertEquals(2, plan.size());
         Set<String> wins = new HashSet<>(BotRunOutcome.lines(Pool.WIN_PQ, "Kerning PQ", 99, new Random(0)));
@@ -110,7 +126,7 @@ class RunChatterTest {
     @Test
     void aLostRunRecordsALossLineThatNamesTheBoss() {
         List<RunMember> party = humanLedParty();
-        Map<Integer, Pending> plan = RunChatter.plan(lost(zakum(), party), ids(party), NOW, new Random(3));
+        Map<Integer, Pending> plan = plan(lost(zakum(), party), ids(party), NOW, new Random(3));
 
         assertEquals(2, plan.size());
         Set<String> losses = new HashSet<>(BotRunOutcome.lines(Pool.LOSS_BOSS, "Zakum", 99, new Random(0)));
@@ -123,18 +139,18 @@ class RunChatterTest {
     @Test
     void aRunTheHumanDisbandedOrThatNeverStartedRecordsNothing() {
         List<RunMember> party = botParty();
-        assertTrue(RunChatter.plan(disbanded(kpq(), party), ids(party), NOW, new Random(3)).isEmpty());
-        assertTrue(RunChatter.plan(disbanded(zakum(), humanLedParty()), ids(humanLedParty()), NOW, new Random(3)).isEmpty());
+        assertTrue(plan(disbanded(kpq(), party), ids(party), NOW, new Random(3)).isEmpty());
+        assertTrue(plan(disbanded(zakum(), humanLedParty()), ids(humanLedParty()), NOW, new Random(3)).isEmpty());
 
         RunState refused = new Orchestrator(Orchestrator.allSolvers(), new Random(1), 0, 0)
                 .start(kpq(), Tier.NORMAL, List.of(new RunMember(1, true, false, MechanicsPersona.PERFECT)));
         assertTrue(refused.ended());
-        assertTrue(RunChatter.plan(refused, List.of(), NOW, new Random(3)).isEmpty());
+        assertTrue(plan(refused, List.of(), NOW, new Random(3)).isEmpty());
 
         RunState expired = new Orchestrator(Orchestrator.allSolvers(), new Random(1), 0, 0)
                 .start(kpq(), Tier.NORMAL, party);
         new Orchestrator(Orchestrator.allSolvers(), new Random(1), 0, 0).abort(expired, "the event ended");
-        assertTrue(RunChatter.plan(expired, ids(party), NOW, new Random(3)).isEmpty(),
+        assertTrue(plan(expired, ids(party), NOW, new Random(3)).isEmpty(),
                 "an instance that expired is not the boss's doing");
     }
 
@@ -142,7 +158,7 @@ class RunChatterTest {
     void aRunStillGoingRecordsNothing() {
         List<RunMember> party = botParty();
         RunState going = new Orchestrator(Orchestrator.allSolvers(), new Random(1), 0, 0).start(kpq(), Tier.NORMAL, party);
-        assertTrue(RunChatter.plan(going, ids(party), NOW, new Random(3)).isEmpty());
+        assertTrue(plan(going, ids(party), NOW, new Random(3)).isEmpty());
     }
 
     // ---- who says it ------------------------------------------------------------------------------
@@ -165,7 +181,7 @@ class RunChatterTest {
     void theSameRandomSourceGivesTheSameSpeakersAndLines() {
         List<RunMember> party = botParty();
         RunState run = won(kpq(), party);
-        assertEquals(RunChatter.plan(run, ids(party), NOW, new Random(42)), RunChatter.plan(run, ids(party), NOW, new Random(42)));
+        assertEquals(plan(run, ids(party), NOW, new Random(42)), plan(run, ids(party), NOW, new Random(42)));
         assertEquals(RunChatter.speakers(ids(party), LEADER, new Random(5), 2),
                 RunChatter.speakers(new ArrayList<>(ids(party)).reversed(), LEADER, new Random(5), 2),
                 "the order the bots are listed in does not matter");
@@ -191,7 +207,7 @@ class RunChatterTest {
         assertEquals(List.of(LEADER + 1), RunChatter.speakers(List.of(LEADER + 1), LEADER, new Random(1), 2));
         assertEquals(List.of(), RunChatter.speakers(List.of(), LEADER, new Random(1), 2));
         List<RunMember> party = botParty();
-        assertTrue(RunChatter.plan(won(kpq(), party), List.of(), NOW, new Random(1)).isEmpty());
+        assertTrue(plan(won(kpq(), party), List.of(), NOW, new Random(1)).isEmpty());
     }
 
     @Test
@@ -199,7 +215,7 @@ class RunChatterTest {
         List<RunMember> party = botParty();
         RunState run = won(kpq(), party);
         for (int seed = 0; seed < 200; seed++) {
-            Map<Integer, Pending> plan = RunChatter.plan(run, ids(party), NOW, new Random(seed));
+            Map<Integer, Pending> plan = plan(run, ids(party), NOW, new Random(seed));
             List<String> lines = plan.values().stream().map(Pending::line).toList();
             assertEquals(2, new HashSet<>(lines).size(), lines.toString());
         }
@@ -237,12 +253,12 @@ class RunChatterTest {
         List<RunMember> party = botParty();
         assertTrue(Mechanics.chatterEnabled(), "-Dslums.mechanics.chatter defaults on");
         assertEquals("slums.mechanics.chatter", Mechanics.CHATTER_FLAG);
-        assertFalse(RunChatter.plan(won(kpq(), party), ids(party), NOW, new Random(1)).isEmpty());
+        assertFalse(plan(won(kpq(), party), ids(party), NOW, new Random(1)).isEmpty());
 
         System.setProperty(Mechanics.CHATTER_FLAG, "false");
         assertFalse(Mechanics.chatterEnabled());
-        assertTrue(RunChatter.plan(won(kpq(), party), ids(party), NOW, new Random(1)).isEmpty());
-        assertTrue(RunChatter.plan(lost(kpq(), party), ids(party), NOW, new Random(1)).isEmpty());
+        assertTrue(plan(won(kpq(), party), ids(party), NOW, new Random(1)).isEmpty());
+        assertTrue(plan(lost(kpq(), party), ids(party), NOW, new Random(1)).isEmpty());
 
         System.setProperty(Mechanics.CHATTER_FLAG, "FALSE");
         assertFalse(Mechanics.chatterEnabled(), "any spelling of false");
