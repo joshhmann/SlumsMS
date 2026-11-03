@@ -1,5 +1,11 @@
 # SlumsMS tickets
 
+## Marriage fixes (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [188](188-marriage-fixes-1-6-4.md) | Marriage fixes for 1.6.4 | Fix the chapel booking, ticket loss, divorce order and ring-missing crashes found by the two marriage audits |
+
 ## Promise audit (2026-11-01, pending triage)
 
 | # | Ticket | State |
