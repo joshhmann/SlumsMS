@@ -967,3 +967,114 @@ One commit for the four items rather than four: items 3 and 4 share the new `Exp
 `mvn -o test`: **`Tests run: 8586, Failures: 0, Errors: 0, Skipped: 138, BUILD SUCCESS`** (30:54). Round 5 closed at
 8577; round 7 adds nine tests (eight in `ExpeditionBotsTest`, one in `OwnedAltServiceTest`). The 138th skip is still
 `ContentRowWzIntegrityTest` on a machine without the dump.
+
+# What a held bot still does for itself (round 8, audit + one fix)
+
+Question: while `MechanicsRuns` holds a bot for a run, what does it keep doing on its own, and what has it stopped?
+The hold stops the bot's brain — `MechanicsRuns.holdAndSchedule` calls `BotTypeManager.manuallyStopBot`
+(`MechanicsRuns.java:204-215`) — so whatever the bot's own type ran in its tick is gone unless the pipeline replaces it.
+Six answers, each with what the code does and a verdict. One fix (buff upkeep), behind the boss switch.
+
+## 1. Buffs — wrong, fixed
+
+Who casts normally: the bot's own tick. `FollowerBot.supportParty` runs `BotPartySupport.tick` and
+`BotBuffDriver.selfBuff` (`FollowerBot.java:214-219`), `TrainingBot` does the same for a grinder
+(`TrainingBot.java:2164`), and `BotBuffDriver.maintain` recasts each class buff at a fraction of its WZ duration
+(`BotBuffDriver.java:139-160`, `LOOK_EVERY_MS` throttle). Nothing in the run replaces it: `StepExecutor` only walks
+and swings (`StepExecutor.java:269-330`), no step casts a buff (the `SolverStep` set has `Fight`, `Loot`, `Wait`,
+`HitReactor`, `WarpTo`, `ScriptedPortal`, `EnterPortal`, `Abandon`, `Done`). With the brain stopped, the last buffs the
+bot entered with lapse on their own timer and are never renewed — a human watches a Zakum fight where the bot's buff
+visuals disappear and never come back.
+
+Fix: `MechanicsRuns.upkeep(bots, nowMs)`, called once per run tick beside `keepPhysics`, runs exactly the loop the bot
+would run (`BotBuffDriver.selfBuff(bot, now, next, habits::rebuffLateNowMs, Pay.PARTY_BUFFS, rng)`), remembered per bot
+so the loop's own throttle still applies. Gated by `-Dslums.mechanics.boss` (`Mechanics.bossesEnabled()`), the same
+switch that arms the row. Tests: `MechanicsRunsBuffsTest` — `aRunKeepsEachHeldBotsOwnBuffsUpWhileTheBossSwitchIsOn`,
+`withTheBossSwitchOffARunCastsNothing`, `theBuffLoopIsHandedBackItsOwnTimerSoItDoesNotCastEveryTick`. Fail-before: the
+method did not exist, so the test cannot compile against the old tree (the same shape of fail-before as
+`spawnWaitSeconds` and `hitReactors`); there is no packet-level fail-before because a held bot had no cast path at all to
+observe.
+
+## 2. Potions — right, no change
+
+A held bot drinks like a follower, because neither path lives in the brain:
+- **HP.** Damage comes through `BotVitals.hurt` (`BotVitals.java:60-97`), which takes the hit off HP and immediately
+  calls `topUp` (`:262-286`) — HP potions under 75%/50%, MP under 30%. Touch damage still reaches a held bot:
+  `BotContactDamage.tickMobDamage` (`BotContactDamage.java:74-180`) is called by `GCMovementDriver.tick` *before* its
+  movement branches (`GCMovementDriver.java:216`), and `GCMovement.stop` only cancels follow/travel and clears the move
+  intent (`GCMovement.java:242-254`) — the movement state stays and keeps sampling mobs. Knockback and the 2.5 s
+  i-frames come with it.
+- **MP.** Every cast pays through `BotVitals.spend` (`:244-256`), which tops up MP potions on the spot;
+  `BotAttackDriver` checks `BotVitals.canPay` before a swing (`BotAttackDriver.java:574`).
+
+So "a bot that cannot drink potions, and would die the moment `protectedFromDeath` is removed" does not hold on this
+branch: it drinks on every hit and every cast. One real caveat, LOD and not the run: on a map no real player observes,
+`BotContactDamage` returns early (`isMapObserved`), so nothing hits the bot and it drinks no HP potions — the same as
+for any unobserved bot, and in these runs the leader is on the map.
+
+## 3. Death and revive — owner decision, unchanged
+
+`BotDeaths.protectedFromDeath` (`BotDeaths.java:74-90`) returns true for any bot with an event instance, so `rollsDeath`
+never fires inside a run (`:100-103`). A human next to them sees bots that do not fall, in a fight where the humans do.
+What *could* revive a bot: `StatEffect.partyBuffTargets` (`StatEffect.java:1951-1985`) is the Resurrection selection and
+does **not** filter bots — for a resurrection it takes the caster's party members that are not alive — so a real Bishop's
+Resurrection would reach a dead bot in the party. It never gets the chance: no bot in an instance is ever dead, and a bot
+that dies outside one revives on its own `lyingUntil` timer (`BotDeaths.die`, `:145+`). Nothing else revives a bot; no
+revive item is routed to one.
+
+Needs owner sanction before anyone touches it, for three reasons: it changes what a human sees (bots dying beside them
+is a parity statement, not a bug fix); the death penalty would hit the owned alt's real character (EXP loss on the
+player's account); and `ExpeditionDeathCount` spends the expedition's death limit on humans today, so a dying bot would
+start consuming it.
+
+## 4. Loot — right, no change
+
+A held bot picks up nothing. `BossPhasesSolver` never emits `Loot`, and `StepExecutor.fight` picks a drop up only when
+the step carries an item goal (`f.itemId() > 0 && bot.getItemQuantity(...) < f.untilItemCount()`,
+`StepExecutor.java:282-289`) — a boss `Fight` has none. Pet looting is a grind behaviour: `GrindLoot` asks
+`BotPets.petMayTake` (`GrindLoot.java:169`, `BotPets.java:307-317`) from the loot loop, which the hold stops. So no boss
+drop, meso or otherwise, can go to a bot while a run drives it; the humans take the drops. If a row ever wants a collect
+step, `Loot` is there to name one deliberately — that would be a row decision, not a bot habit.
+
+## 5. Aggro and knockback — as-is, worth knowing
+
+There is no aggro: each bot picks its own target (`BotAttackDriver.pickTarget`), so nothing pulls a boss onto a human —
+a boss's attention follows whoever the server's own rules give it. Where a bot stands is `Approach.fightSpot`
+(`Approach.java:170-177`), from `standBand` (`:67-73`): the mob's half-width plus the bot's own reach, ranged bots at
+`KITE_MIN_PX`, and `standX` refuses any spot inside *another* mob's body (`:93`) so bots do not stack inside a pack.
+`BossPhasesSolver` passes `Fight(order, 0, 0, band[0], band[1], ...)` with the band taken from an objective's `at`;
+our rows have none, so the band is 0 and the walk comes from `Approach` alone. A human sees the bot on the boss's
+flank at its own swing reach, taking touch hits and the odd knockback when the boss's touch box reaches that spot, and
+walking back — never inside the boss, never dragging it. Verdict: right, with one wart — `Fight`'s own
+`nearX`/`nearY`/`leashPx` are not read by `StepExecutor.fight`, so they are dead data for this solver.
+
+## 6. The human's view — a gap, proposal only (nothing added)
+
+What the leader is told today: `ExpeditionBots` says "X joined with you." per registered bot
+(`ExpeditionBots.java:186`), the new "is not at the altar and will not join" line, and `ExpeditionBots.shortfall` when
+the size check fails. Nothing anywhere says the bots are driving the fight. `EventManager.warnBossRowUnattended`
+(`EventManager.java:762-776`) prints to `System.out` and is about the *absence* of a run; `MechanicsRuns`' run log goes
+to the GM command or the QA reporter, not to a player. So the only signal a human gets is bots moving.
+
+Proposition (not implemented): one line at run start, to the party leader, from `MechanicsRuns.holdAndSchedule` right
+after the "RUN start" line — something like
+`[Expedition] 4 bots are running this fight with you (Zakum).` — behind the boss switch, once per run. It is worth it
+because "bots stand there" and "bots are driving" look identical from the player's chair, and the difference is exactly
+what a bug report needs to say.
+
+## What the audit did not find
+
+Nothing in these six needed a primitive the row engine cannot express: an empty room is `spawnWaitSeconds`, a target
+order is the row's `mobs:` list, a fake body is `Mob.fake()`/`partRole`, a revive chain is WZ `revive` plus the row's
+order, and a held bot's upkeep is a call in the run's tick. The engine (`Orchestrator`, `StageSolver`, `SolverStep`,
+`RoleClaims`, `BossPhasesSolver`, `BossTargetRules`, `RevivePause`) is untouched by this round; the only code change is
+`MechanicsRuns.upkeep` (item 1). A second engine beside the row engine was written and thrown away during this round —
+it is recorded here so nobody wonders what happened: it was reverted in full, and the reason it was wrong is that two
+engines spell "this room is won", "hold this bot" and "abandon this run" twice.
+
+## Suite and commit
+
+One commit: `MechanicsRuns.upkeep` + `MechanicsRunsBuffsTest` + this section.
+`mvn -o test`: **`Tests run: 8589, Failures: 0, Errors: 0, Skipped: 138, BUILD SUCCESS`** (31:44). Round 7 closed at
+8586; this round adds three (`MechanicsRunsBuffsTest`). The 138th skip is still `ContentRowWzIntegrityTest` here, because
+this machine has no `wz/` dump to check the rows against.

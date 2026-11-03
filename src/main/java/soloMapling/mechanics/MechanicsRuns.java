@@ -2,6 +2,8 @@ package soloMapling.mechanics;
 
 import client.Character;
 import scripting.event.EventInstanceManager;
+import soloMapling.ArtificialPlayer.BotAttackSystem.BotBuffDriver;
+import soloMapling.ArtificialPlayer.BotCombatSystem.BotHabits;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypeManager;
@@ -267,7 +269,36 @@ public final class MechanicsRuns {
             executor.execute(a.run, o, view, bot, e.getValue(), now, a.reporter);
         }
         keepPhysics(driven, GCMovement::holdFullPhysics);
+        upkeep(driven, now);
     }
+
+    /*
+     * R8 (bot audit, items 1/2): what a held bot still does for itself. The run stops the bot's brain
+     * (BotTypeManager.manuallyStopBot), so the self-buff loop its own type runs (FollowerBot.supportParty ->
+     * BotBuffDriver.selfBuff) stops with it and the bot fights the whole boss unbuffed - a human sees the buff visuals
+     * lapse and never come back. Its potions are not in that boat: HP potions are drunk by the damage path
+     * (BotVitals.hurt -> topUp, and BotContactDamage.tickMobDamage still runs for a held bot because
+     * GCMovement.stop only cancels follow/travel) and MP potions by the cast cost (BotVitals.spend -> topUp), so
+     * the only upkeep the run owes a bot is its buffs. Cheap: selfBuff holds its own timer and does nothing until one
+     * is due. Behind the boss switch (and the run can only exist with mechanics on), like the rest of the lane.
+     */
+    static void upkeep(List<Character> bots, long nowMs) {
+        if (!Mechanics.bossesEnabled()) {
+            return;
+        }
+        for (Character bot : bots) {
+            if (bot == null) {
+                continue;
+            }
+            long next = nextBuffLook.getOrDefault(bot.getId(), 0L);
+            nextBuffLook.put(bot.getId(), BotBuffDriver.selfBuff(bot, nowMs, next,
+                    () -> BotHabits.of(bot.getId()).rebuffLateNowMs(), BotBuffDriver.Pay.PARTY_BUFFS, upkeepRng));
+        }
+    }
+
+    /** Per bot, the next time its buff loop may look; the loop itself throttles, this only remembers across ticks. */
+    private static final Map<Integer, Long> nextBuffLook = new ConcurrentHashMap<>();
+    private static final Random upkeepRng = new Random();
 
     /*
      * 1.6.2 (b153): the maps a run's bots stand on keep full movement physics while the run drives them. With no real
