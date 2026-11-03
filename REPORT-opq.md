@@ -30,9 +30,11 @@ tests that keep them working and the section below that says why they were repor
 | `OpqSolversTest` (32 tests) | `src/test/java/soloMapling/mechanics/OpqSolversTest.java` | the fake room + the shipped row's shape, one test per stage rule and a fail-before per stage |
 | `OrbisPqLobbyStageTest` (4 tests) | `src/test/java/scripting/reactor/OrbisPqLobbyStageTest.java` | the lobby: today's pass on the music player writes `statusStg3 = 0`, another day's matches nothing |
 | `OrbisSealedRoomAreaTest` (2 tests) | `src/test/java/server/maps/OrbisSealedRoomAreaTest.java` | the sealed room: three platforms count their own players, and without them the stage has no answer at all |
-| `RowRunSimulationTest` (7 tests) | `src/test/java/soloMapling/mechanics/RowRunSimulationTest.java` | a whole row end to end through the real orchestrator: Orbis PQ's eight stages, Zakum's arm-then-body chain, Horntail's three rooms, and a stage whose rule is never met |
+| `RowRunSimulationTest` (16 tests) | `src/test/java/soloMapling/mechanics/RowRunSimulationTest.java` | a whole row end to end through the real orchestrator: Orbis PQ's eight stages, Zakum's arm-then-body chain, Horntail's three rooms, Ludi PQ's nine, Henesys PQ's six beds, LudiMaze's sixteen maps, the six Cafe areas, Pirate PQ's six maps, and a stage whose rule is never met |
 | `Content.entryNpc` + `KpqStaging.start(Content, ...)` | `MechanicsModel.java`, `StageData.java`, `content/kpq.yaml`, `content/opq.yaml`, `KpqStaging.java` | one staging for every party quest: the front door (Lakelis / Wonky), the recruit map, the event script and the level band come from the row instead of four Kerning constants, so there is no Orbis twin of the staging to drift |
 | `ContentLobby` + `-Dslums.mechanics.<row>.lobby` | `soloMapling/mechanics/ContentLobby.java`, registered at `net/server/Server.java` | bots assemble a party for any row whose lobby is on: they spawn the row's `minPlayers` at its `entryNpc` on its `recruitMap` and hand it to the one staging. Orbis is a row in its list, not the reason it exists; off unless all three flags are given |
+| `PirateQuestSolver` + `content/piratepq.yaml` (1 stage) | `soloMapling/mechanics/PirateQuestSolver.java`, `content/piratepq.yaml` | Pirate PQ: six maps on one stage, three medal sets in the guide's order, two rooms to empty, four by-id doors taking one key each, and a clear that is the rescued leader's talk (`PiratePQ.js:337-344` writes no property) |
+| `PiratePqSolversTest` (9 tests) | `src/test/java/soloMapling/mechanics/PiratePqSolversTest.java` | the fake ship: the row's gates and maps, the deck's empty-map passage, the guide's medal order, nineteen medals refused and twenty accepted, keys on the first shut door, three doors not a way through, the boss fought before the talk |
 | `ContentLobbyTest` (8 tests) | `src/test/java/soloMapling/mechanics/ContentLobbyTest.java` | row-parameterised over `ContentLobby.rows()`: the three-switch gate per row, the row each lobby reads, the ten-minute back-off per row and channel, and why Kerning's lobby structurally cannot staff these towers |
 
 The walkway and the lounge reuse the existing `kill-collect-hand-in` solver: both stages are "farm N, pool them on the
@@ -282,6 +284,45 @@ nobody has seen yet. Sixteen members' first ticks map the whole maze.
   three different maps and asserts the run ends `cleared`, that `EnterPortal` steps happened, that the exit's NPC was
   talked to, and that no property was invented (`props.isEmpty()`).
 
+## Pirate PQ: six maps, five doors, and a clear that is a conversation
+
+One stage over six maps, off its own switch (`-Dslums.mechanics.piratepq`, default off), one row
+(`content/piratepq.yaml`), `clear: { instance: true }`. `PiratePQ.js` is a chain rather than a count, so the row declares
+the maps (`maps:`) and one solver drives it (`pirate-quest`).
+
+| Map | What the script wants | Where it is written |
+|---|---|---|
+| `925100000` the deck | an empty map, then the passage | `scripts/portal/davy_next0.js` |
+| `925100100` the medals | 20 Rookie `4001120`, then 20 Rising `4001121`, then 20 Veteran `4001122`, in that order, to the guide `2094002` | `scripts/npc/2094002.js:47-78` sets `stage2` 1/2/3; `davy_next1.js` opens at `stage2 === "3"` |
+| `925100200` the guards | an empty map | `davy_next2.js` |
+| `925100300` the captains | an empty map | `davy_next3.js` |
+| `925100400` the four doors | one Old Metal Key `4001117` on each of `2519000`..`2519003` (`sMob1`..`sMob4`) **and** an empty map | `davy_next4.js`; the WZ: type 100, quantity 1, one key per door |
+| `925100500` the Lord Pirate | the boss down, then the rescued leader `2094001` talked to | `monsterKilled` spawns `2094001` at (777,140) and `2094001.js:45-58` calls `clearPQ()` |
+
+- **Two things the row had to express that no other row needed.** The doors are item reactors known by **id** (their WZ
+  names are `sMob1`..`sMob4`, not "door"), so stage 5 is the second user of `PlaceItemOn(reactorId, ...)` - the step HPQ
+  built - and the four doors get one key each, not four keys on one. And the guide's three medals are a **sequence**, so
+  the solver asks `stage2` which medal is wanted rather than the row naming one.
+- **The clear is a talk, not a property.** `clearPQ` (`PiratePQ.js:337-344`) writes nothing; the sole writer is the
+  rescued leader's talk. The row says `clear: { instance: true }`, and the solver talks only once the map is empty,
+  because that NPC is spawned by the boss's death.
+- **The keys are the map's own drops.** `4001117` is one of the instance's exclusives (`PiratePQ.js:73-76`) and
+  `925100400` has no box reactor, so keys come from `9300114/9300115/9300116` through the SQL `mobdrops` table - a row
+  there is invisible to every test in this branch. The run waits with a note naming the key, which is the only honest
+  thing it can do.
+- **Fail-before: three doors are not a way through.** `threeOpenDoorsAreNotAWayThrough` opens three of the four and gets
+  no `EnterPortal`; `davy_next4.js` asks all four. Without that gate the party would be walked into a boss room the
+  script never opened.
+- **Fail-before: nineteen medals are not a hand-in.** `theLeaderHandsInTwentyOfTheMedalTheGuideWantsAndNineteenIsNotEnough`
+  asserts the leader with 19 of the wanted medal never talks with an item, and with 20 talks with `4001120` x 20 - the
+  guide's own `haveItem` gate.
+- **End to end in simulation.** `aPiratePartyCrossesTheShipAndRescuesItsLeader` plays the row for up to 20,000 ticks and
+  asserts `cleared`, that the instance flag is the only clear, that `stage2` reached `"3"`, that all four doors left
+  state 0, that `PlaceItemOn` steps happened (keys on doors, not to an NPC), and that the rescued leader was talked to.
+  It is the test that caught the row's first wrong assumption: the World stocked a map once per stage, so the medals
+  room had nothing to kill - the ship is one stage over six maps and each map is stocked when the party first stands on
+  it.
+
 ## Expedition rule: pause for revive (this is the report it lives in)
 
 The boss report is on `164-bossfight`, a different branch, so this one carries the rule. It is the answer to the lane
@@ -448,6 +489,13 @@ holds the staging's refusals, both green with the row-driven `start(Content, ...
   box whose drop row is missing costs a minute, not the run.
 - `MobHitboxIndex`-style geometry is untouched: the solvers only move to points the data gives them, so a stage whose
   anchor is wrong will stall visibly (`Wait` notes) rather than teleport.
+- **Pirate PQ's keys and medals come out of the SQL drop tables.** `4001117` and the three medals are the instance's
+  exclusives, so they drop from `9300114`/`9300115`/`9300116`/the deck's monsters through `mobdrops` - a row there is
+  invisible to every test in this branch. A missing row costs the run a `Wait` note naming the item, not a wrong clear.
+- **Pirate PQ's row says 40 minutes; the script says four, restarted per stage.** `PiratePQ.js:39` is `eventTime = 4`,
+  and `changedMapInside` (`:241-268`) restarts it at six minutes on each of the four middle maps and eight on the boss.
+  The row's number is the whole-run budget `Orchestrator.budgetFor` uses, so it has to be the sum, not the script's
+  first value; a stage that stalls still ends by the script's own timer, not ours.
 - **The lobby has never been observed in game.** `ContentLobbyTest` pins its gate, its rows and its back-off, and
   `KpqStaging` is the same code Kerning has used since 1.6.1, but nobody has watched five bots spawn at Wonky on
   `200080101`, form a party and walk into the tower. The first TEST deploy with the three flags is the evidence that is
@@ -475,37 +523,11 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8552 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-maze.log`, exit 0 - LudiMaze PQ's own commit; `LudiMazeSolversTest` 10 and one simulation case, and
-both engine conditions carry a fail-before run against the old code first). Before it: **8541 tests, 0 failures, 0
-errors, 137 skipped, BUILD SUCCESS** (`/tmp/opq-cafe.log`, exit 0 - Cafe PQ's own commit; `CafePqSolversTest` 7 and two
-simulation cases, one of them the fail-before that shuts an area's monsters and floor down). Before it: **8532 tests, 0 failures, 0 errors, 137
-skipped, BUILD SUCCESS** (`/tmp/opq-instance2.log`, exit 0 - the instance-clear commit; `InstanceClearTest` 3 and the
-fail-before pair run against the old `cleared()` first, where two of them failed). Before it: **8529 tests, 0 failures, 0 errors, 137
-skipped, BUILD SUCCESS** (`/tmp/opq-hpq.log`, exit 0 - Henesys PQ's own commit; `HpqSolversTest` 11 and three simulation
-cases, one of which is the double-activation trap). Before it, on the Ludi-only head: **8515 tests, 0 failures, 0 errors, 137 skipped,
-BUILD SUCCESS** (`/tmp/opq-lpq.log`, exit 0; `LpqSolversTest` 12, two more simulation cases, and the shared row/data
-tests that walk every content file). Before it, on the Orbis-only tree: **8499 tests, 0 failures, 0
-errors, 137 skipped, BUILD SUCCESS** (`/tmp/opq-lobby-final.log`, exit 0; the lobby's tests then became `ContentLobbyTest`, 8 of them, in the same range). That is the number to compare against the rest of the release - 8455 before this
-branch's tests, 8461 after its first commit (`OpqSolversTest` 14, `OrbisPqLobbyStageTest` 4,
-`OrbisSealedRoomAreaTest` 2), 8479 once the lobby, the sealed room and the finale were added (`OpqSolversTest` 32), 8486
-with the whole-row simulation (`RowRunSimulationTest` 7), 8491 with the revive pause (`RevivePauseTest` 5), 8493 once
-the corrections above added their two phase tests (`BossPhasesSolverTest` 15, `HorntailPhasesTest` 9), and 8499 with the
-lobby (`ContentLobbyTest` 8, after the Orbis-shaped `OpqLobby` was generalised to every row).
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8562 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-pirate.log`, exit 0 - Pirate PQ's own commit; `PiratePqSolversTest` 9 and one more simulation case, which
+is ten more than 8552). The previous numbers on this branch, so the next one is comparable: 8552
+(`/tmp/opq-maze.log`, LudiMaze PQ), 8541 (`/tmp/opq-cafe.log`, Cafe PQ), 8532 (`/tmp/opq-instance2.log`, the instance
+clear), 8529 (`/tmp/opq-hpq.log`, Henesys PQ), 8515 (`/tmp/opq-lpq.log`, Ludi PQ).
 
-Two `mvn` runs in this lane died mid-flight and neither was a test failure: one because a `bash` call is auto-backgrounded
-and killed at 60 s (a whole-suite run needs ~27 minutes and `async: true, timeout: 0`), and one because the tree was
-edited while surefire was discovering tests (`TestEngine with ID 'junit-jupiter' failed to discover tests`). Freeze the
-tree for the whole run.
-
-One run of the suite (the instance-clear one, `/tmp/opq-instance.log`) reported one failure that is not this lane's and
-not a regression: `BotConversationFlowTest.aRefusedPartyAskIsPlannedFromTheGatesVerdict` failed on
-`assertTrue(system.contains("Say no to the party"))` - the conversation planner's prompt - and passes alone (22/22 each
-time), then passed in the whole suite on the next run. It is an order-dependent test in the conversation lane; this
-commit touches no conversation code. Recorded rather than re-run into silence.
-
-Earlier in the branch the same command found one real breakage, and it is fixed: `MechanicsDataFilesTest
-.theContentRowsLoadFromTheJarWithNoSourceTree` pins the exact list of content rows and had to learn `opq` (then `lpq`,
-then `hpq`). The Henesys PQ run also found a real defect before it ever shipped, in simulation rather than in game: three
-members holding the same seed dropped on the same bed inside the server's activation window and the instance's `stage`
-read `18` instead of `6` - see the Henesys PQ section's claim rule.
+Where the number is being read from: it is the surefire total of the whole tree at the commit this sentence is in, with
+the docs written first and the tree frozen while the suite ran (a `.md` edit cannot break surefire; a source edit could).

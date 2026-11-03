@@ -72,6 +72,10 @@ class RowRunSimulationTest {
     private static final int MAZE_PASS = 4001106;
     private static final int MAZE_SUMMONER = 8098000;
 
+    /** Pirate PQ: the ship's maps and the two NPCs that matter (scripts/portal/davy_next0..4.js, 2094002, 2094001). */
+    private static final List<Integer> SHIP_MAPS = List.of(925100000, 925100100, 925100200, 925100300, 925100400,
+            925100500);
+
     /**
      * The maze's passages, exactly as Map.wz/Map/Map8/8090500*.img.xml has them (each map's pt 2 portals and their
      * targets). Only 809050008's t001 reaches the exit.
@@ -282,6 +286,38 @@ class RowRunSimulationTest {
                 + " ticks (the 5000 ms activation, plus a margin)");
         assertTrue(sim.steps().stream().noneMatch(l -> l.contains("Wait[") && !l.contains("why=")),
                 "every wait says why");
+    }
+
+    /**
+     * Pirate PQ, end to end: the deck, three sets of twenty medals through the guide, two rooms emptied, four keys on
+     * four doors, and the Lord Pirate's room cleared by the rescued leader's talk. Every gate is the script's own, so a
+     * run that finishes is a run whose six maps, five passages and four doors agree with `PiratePQ.js` and its portals.
+     */
+    @Test
+    void aPiratePartyCrossesTheShipAndRescuesItsLeader() {
+        Sim sim = play("PiratePQ", party(THREE), 20_000);
+
+        assertTrue(sim.run().ended(), "the ship has to be finished inside the tick budget: " + sim.ticks()
+                + " ticks, stage " + sim.run().currentStage() + ", last steps " + tail(sim.steps(), 24));
+        assertEquals("cleared", sim.run().endedBecause());
+        assertEquals(925100000, sim.run().stageData().mapId(), "one stage, entered on the deck");
+        assertTrue(sim.world().instanceCleared, "PiratePQ.js:337-344 writes no property: the clear is the instance");
+        assertEquals("3", sim.world().props.get("stage2"),
+                "stage2 is the only property the ship writes (2094002.js:47-78), and no clear property was invented: "
+                        + sim.world().props);
+        assertTrue(sim.steps().stream().anyMatch(l -> l.contains("TalkNpc[")
+                        && l.contains(String.valueOf(PirateQuestSolver.GUIDE))),
+                "the medals go through the guide, twenty at a time");
+        assertTrue(sim.world().visited.containsAll(List.of(925100000, 925100100, 925100200, 925100300, 925100400,
+                925100500)), "the run crossed all six maps: " + sim.world().visited);
+        for (int door : PirateQuestSolver.DOORS) {
+            assertTrue(sim.world().state(String.valueOf(door)) > 0, "door " + door + " took its key");
+        }
+        assertTrue(sim.steps().stream().anyMatch(l -> l.contains("PlaceItemOn[")),
+                "and the keys were dropped on the doors, not handed to an NPC");
+        assertTrue(sim.steps().stream().anyMatch(l -> l.contains("TalkNpc[")
+                        && l.contains(String.valueOf(PirateQuestSolver.RESCUED))),
+                "the clear is the rescued leader's talk");
     }
 
     @Test
@@ -547,6 +583,9 @@ class RowRunSimulationTest {
         private final List<Pending> pending = new ArrayList<>();
         private final List<BossTargetRules.Part> parts = new ArrayList<>();
         private final List<String> applied = new ArrayList<>();
+
+        /** Every map a member stood on, in the order they first did: a run that finishes crossed them all. */
+        private final java.util.Set<Integer> visited = new java.util.LinkedHashSet<>();
         private final List<Integer> killed = new ArrayList<>();
         private final Map<Integer, Integer> streaks = new LinkedHashMap<>();
         private final Map<Integer, Integer> mapsAtStageStart = new LinkedHashMap<>();
@@ -630,6 +669,15 @@ class RowRunSimulationTest {
                         props.put("stage", "6"); // six beds planted and the Moon Bunny out on the hill
                     }
                 }
+                case 925100000, 925100100, 925100200, 925100300, 925100400, 925100500 -> {
+                    // the ship: six maps, each a kill and a door, and the guides that gate them
+                    mobs = 12;
+                    npcs.put(PirateQuestSolver.GUIDE, new int[]{0, 0});
+                    npcs.put(PirateQuestSolver.RESCUED, new int[]{0, 0});
+                    for (int door : PirateQuestSolver.DOORS) {
+                        reactors.put(String.valueOf(door), 0); // every door starts shut
+                    }
+                }
                 case 809050000 -> {
                     // the maze: no monsters of its own, the summoner reactor brings them (scripts/reactor/8098000.js)
                     mobs = 0;
@@ -684,6 +732,14 @@ class RowRunSimulationTest {
 
         void apply(Map<Integer, SolverStep> steps) {
             tick++;
+            for (int map : at.values()) {
+                visited.add(map);
+            }
+            if (!noRespawn && tick % 150 == 0 && (at.containsValue(925100100) || at.containsValue(925100400))) {
+                // the ship refills a room the party is still working (MapleMap's own respawn); the two rooms whose gate
+                // is a property or a set of doors, never "an empty map on the tick it was checked"
+                mobs = Math.max(mobs, 12);
+            }
             if (!noRespawn && run.stageData().mapId() == 910010000 && tick % 150 == 0) {
                 mobs = Math.max(mobs, 6); // respawnStages: the hill re-spawns every 15 s (HenesysPQ.js:131-138)
             }
@@ -716,10 +772,20 @@ class RowRunSimulationTest {
                 case SolverStep.MoveTo m -> spot.put(id, new int[]{m.x(), m.y()});
                 case SolverStep.WarpTo w -> at.put(id, w.mapId());
                 case SolverStep.EnterPortal p -> {
-                    // in the maze a portal is the passage: it leads to that map's own target (Map.wz/Map8/8090500*)
+                    // a portal is the passage: in the maze it is that map's own target (Map.wz/Map8/8090500*), on the
+                    // ship it is davy_nextN, whose gate the script itself checks
                     int here = at.getOrDefault(id, run.stageData().mapId());
-                    Integer target = MAZE.getOrDefault(here, Map.of()).get(p.portalName());
-                    at.put(id, target == null ? run.stageData().mapId() : target);
+                    Integer maze = MAZE.getOrDefault(here, Map.of()).get(p.portalName());
+                    if (maze != null) {
+                        at.put(id, maze);
+                    } else if (SHIP_MAPS.contains(here)) {
+                        int next = shipNext(here, p.portalName());
+                        if (next > 0) {
+                            at.put(id, next); // -1: the script's gate refused, and the member stays where it is
+                        }
+                    } else {
+                        at.put(id, run.stageData().mapId()); // any other row: the passage leads back to the stage
+                    }
                 }
                 case SolverStep.ScriptedPortal p -> {
                     // Ludi PQ's doors (scripts/portal/lpq0..lpq7.js): the stage's own clear, then the next map
@@ -914,6 +980,15 @@ class RowRunSimulationTest {
             assertTrue(heldOf(id, p.itemId()) >= p.count(), "dropping needs the seed in hand: " + id + " holds "
                     + heldOf(id, p.itemId()) + " of " + p.itemId());
             take(id, p.itemId(), p.count());
+            if (p.reactorId() >= 2519000 && p.reactorId() <= 2519003) {
+                // the ship's four doors: one Old Metal Key each, and the activation opens the door
+                if (p.itemId() == PirateQuestSolver.KEY && p.count() == 1) {
+                    pending.add(new Pending(p.reactorId(), p.itemId(), now + 5_000));
+                } else {
+                    drop(0, p.itemId(), p.count());
+                }
+                return;
+            }
             if (p.itemId() != HpqBedsSolver.seedFor(p.reactorId()) || p.count() != 1) {
                 drop(0, p.itemId(), p.count()); // the wrong seed, or the wrong quantity: it lands on the floor
                 return;
@@ -925,11 +1000,64 @@ class RowRunSimulationTest {
 
         private void activate(Pending p) {
             reactors.put(String.valueOf(p.reactorId()), 1);
+            if (PirateQuestSolver.DOORS.contains(p.reactorId())) {
+                return; // scripts/reactor/2519000.js only shows the clear effect: the door itself is open
+            }
             int stage = Integer.parseInt(props.getOrDefault("stage", "0")) + 1;
             props.put("stage", String.valueOf(stage)); // scripts/reactor/9108000.js:4-9
         }
 
+        /**
+         * The ship's five passages, each with the gate its own script applies: an empty map for the deck and the two
+         * middle rooms ({@code scripts/portal/davy_next0.js}, {@code _next2.js}, {@code _next3.js}), {@code stage2 === "3"}
+         * for the medals ({@code _next1.js}), and all four doors open on an empty map for the boss ({@code _next4.js},
+         * which also spawns him). Returns the map to move to, or -1 when the gate refuses.
+         */
+        private int shipNext(int from, String portalName) {
+            boolean empty = mobs == 0;
+            return switch (from) {
+                case 925100000 -> empty && "davy_next0".equals(portalName) ? stock(925100100) : -1;
+                case 925100100 -> "3".equals(props.get("stage2")) && "davy_next1".equals(portalName) ? stock(925100200) : -1;
+                case 925100200 -> empty && "davy_next2".equals(portalName) ? stock(925100300) : -1;
+                case 925100300 -> empty && "davy_next3".equals(portalName) ? stock(925100400) : -1;
+                case 925100400 -> {
+                    if (empty && "davy_next4".equals(portalName)
+                            && PirateQuestSolver.doorsOpen(this) == PirateQuestSolver.DOORS.size()) {
+                        mobs = 1; // the Lord Pirate is spawned on the way in (scripts/portal/davy_next4.js:40-70)
+                        yield 925100500;
+                    }
+                    yield -1;
+                }
+                default -> -1;
+            };
+        }
+
+        /** A map the party walks onto for the first time gets its own monsters; one stage, six maps, one stock each. */
+        private int stock(int map) {
+            if (!visited.contains(map)) {
+                mobs = map == 925100500 ? 1 : 12;
+            }
+            return map;
+        }
+
         private void talk(int id, SolverStep.TalkNpc t) {
+            if (t.npcId() == PirateQuestSolver.GUIDE) {
+                // scripts/npc/2094002.js:47-78: twenty of the medal it asks for right now, then stage2 goes up by one
+                int wanted = PirateQuestSolver.medalWanted(this);
+                if (wanted > 0 && heldOf(id, wanted) >= PirateQuestSolver.MEDAL_COUNT) {
+                    take(id, wanted, PirateQuestSolver.MEDAL_COUNT);
+                    int stage = Integer.parseInt(props.getOrDefault("stage2", "0")) + 1;
+                    props.put("stage2", String.valueOf(stage));
+                }
+                return;
+            }
+            if (t.npcId() == PirateQuestSolver.RESCUED) {
+                // scripts/npc/2094001.js:45-58: the Lord Pirate down, then clearPQ() on a plain talk
+                if (mobs == 0) {
+                    instanceCleared = true;
+                }
+                return;
+            }
             if (t.npcId() == MAZE_EXIT_NPC) {
                 // scripts/npc/9103000.js:57-73 - the whole team here and thirty passes in the leader's hand
                 if (missingFrom(at.getOrDefault(id, MAZE_EXIT_MAP)).isEmpty()

@@ -51,6 +51,9 @@ public final class Mechanics {
      */
     public static final String CAFE_FLAG = "slums.mechanics.cafepq";
 
+    /** Pirate PQ's own switch ({@code -Dslums.mechanics.piratepq}): one PQ, one switch. */
+    public static final String PIRATE_FLAG = "slums.mechanics.piratepq";
+
     /** LudiMaze PQ's own switch: one PQ, one row, one flag. */
     public static final String LUDIMAZE_FLAG = "slums.mechanics.ludimazepq";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";

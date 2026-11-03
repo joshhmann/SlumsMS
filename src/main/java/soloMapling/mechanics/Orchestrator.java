@@ -71,6 +71,7 @@ public final class Orchestrator implements RunOrchestrator {
         OpqStatueSolver st = new OpqStatueSolver();
         HpqBedsSolver hb = new HpqBedsSolver();
         CafeCouponsSolver cc = new CafeCouponsSolver();
+        PirateQuestSolver pq = new PirateQuestSolver();
         LudiMazeSolver lm = new LudiMazeSolver();
         // Map.of caps at ten pairs; anything past that goes in a second immutable copy
         Map<String, StageSolver> all = new java.util.HashMap<>(Map.of(qc.id(), qc, cb.id(), cb, kc.id(), kc,
@@ -82,6 +83,7 @@ public final class Orchestrator implements RunOrchestrator {
         all.put(lc.id(), lc);
         all.put(hb.id(), hb);
         all.put(cc.id(), cc);
+        all.put(pq.id(), pq);
         all.put(lm.id(), lm);
         return Map.copyOf(all);
     }

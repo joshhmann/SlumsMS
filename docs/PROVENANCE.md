@@ -353,6 +353,24 @@ Nothing else in the row comes from another project: the gates (`3`-`6` players, 
 `scripts/reactor/8098000.js`; and the frontier - each member starting on a random one of fifteen maps - is
 `LudiMazePQ.js:144-150`.
 
+### Pirate PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00`
+
+cosmic_agents was read for the *representation* of a ship PQ - a party moved through six rooms on one stage - and
+nothing else; it carries no Pirate PQ definition.
+
+| From theirs | Our files |
+| --- | --- |
+| `capabilities/partyquest/ppq/` (a coordinator that walks a party through a stage's rooms in order) | `soloMapling/mechanics/PirateQuestSolver`: the same shape - one stage, six maps, a chain of conditions - but every condition is one of our own scripts, and the ids are our WZ. Nothing of their instance's layout is copied |
+
+The gates are `scripts/event/PiratePQ.js:29-39` (`3`-`6` players, level `55`-`255`, entry `925100000`, exit
+`925100700`, recruit `251010404`, six maps, `eventTime` four minutes restarted per stage at `:241-268`); the exclusives
+are `:73-76` (`4001117`, `4001120`, `4001121`, `4001122`); the clear is `clearPQ` `:337-344`, which sets the instance's
+flag and writes no property. The chain is our scripts' own: `scripts/portal/davy_next0..4.js` (the five gates),
+`scripts/npc/2094002.js:47-78` (the three medal sets, in order, through `stage2`) and `scripts/npc/2094001.js:45-58`
+(the rescued leader's talk, the only writer of the clear); the four doors are item reactors `2519000`..`2519003` taking
+one `4001117` each, which is `Reactor.wz/2519000..2519003.img.xml` and `Map.wz/Map/Map9/925100400.img.xml` (names
+`sMob1`..`sMob4`), not anything from another project.
+
 Where our server's scripts disagree, the scripts win and the row follows them:
 
 - **The altar takes exactly twenty in one drop.** `scripts/reactor/2006000.js:1-5` spawns Eak from the reactor's item
