@@ -881,9 +881,10 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8590 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-ellin.log`, exit 0 - the tree of `0e5aa81c1`, Ellin's marble rule, `UseItemOnMob`, the reactor-state
-clear and the Ellin row; `EllinPqSolversTest` 3, `MapEmptyClearTest` 4).
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8592 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-cwkpq2.log`, exit 0 - the tree of `bbd102631`, CWKPQ's carried job, the two touch steps and the
+name-addressed reactor; `RunMemberJobTest` 2). 8590 before it (`/tmp/opq-ellin.log`, Ellin's marble rule, `UseItemOnMob`,
+the reactor-state clear and the Ellin row; `EllinPqSolversTest` 3, `MapEmptyClearTest` 4).
 One earlier full run of the same tree (`/tmp/opq-yulete.log`) had **one** failure,
 `BotConversationFlowTest.aRefusedPartyAskIsPlannedFromTheGatesVerdict`, which passes 22/22 alone and in the two full runs
 before it - the known conversation-lane order dependence, not this lane's - and the clean re-run above is the number that
