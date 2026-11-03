@@ -132,3 +132,193 @@ bad `branches:` are refused at load, each named.
 tested with a synthetic row and the `hontale_C.js` shape. The reactor read is `reactorState(String)` / `reactorState(int)`, which
 `LiveStageView` already implements against the stage's map; `holds()` itself is a default method on `StageView` and is
 exercised through fakes, not through a real map.
+
+## 4. Guild Quest (Sharenian Ruins): the world-queue start, the party rules, and the row
+
+Commits on `164-seams` (all on top of `c19adc3a06b59d2cbf931efceb6a2cd6c150ddc7`), oldest first after items 1-3:
+`3d8e7ee79` equip step, `3d934becc` composition, `1c7ce6586` queue seam, `1f7271226` queue staging, `cbc9fa7a0` stage-view
+reads, `30d8d61c0` + `fc3a279aa` population-bot reactor fix, `676f4ec09` unequip step, `7ea86c686` the row.
+
+### 4a. A bug fix first: a population bot's reactor and item-reactor scripts had no player
+
+**This is not "our feature". It is a defect on live content that our rows only made reachable.** Every population bot of a
+channel shares one headless `BotClient` whose `getPlayer()` is null. Every reactor hit, every item dropped into an item
+reactor and every NPC conversation hands the script *that* client, and the scripts reach the character through it:
+
+- `ReactorActionManager.dropItems` returns without dropping anything when `c.getPlayer()` is null
+  (`ReactorActionManager.java:157-159`) - a chest, an ellin stone, a Guild Quest rock hit by a bot gave nothing;
+- scripts whose first line is `rm.getPlayer().getEventInstance()` throw: `9208000.js:36` (statues), `9208007.js:27`
+  (spear altars), `9208009.js:26` (Ergoth's gate);
+- **the headline, in plain words:** `MapleMap.searchItemReactors` (`MapleMap.java:2683-2711`) walks the drops lying in an item
+  reactor's box and reads each drop's `getOwnerClient()`, which did `ownerClient.getPlayer().isAwayFromWorld()`. For an item
+  dropped by a population bot that is a `NullPointerException` - *thrown out of the scan, so the other items in that box were
+  never looked at and the reactor did not respond to them* (`Reactor.hitReactor` catches it and prints a stack trace, so the
+  server did not crash and nobody was told). Release-note sentence: *"Items dropped by bots on the ground could stop a
+  gate, chest or altar from reacting to the other items lying on it."* (The pickup rules were never affected: see below.)
+
+**Scope note (for ticket 168).** On `release-1.6.4` (origin `c0e0a2cd7`, local `6d18f961e`) the same three
+`activateItemReactors(mdrop, ....getClient())` sites exist (`MapleMap.java:1298`, `:2613`, `:5535`), `MapItem` takes
+`ownerClient = owner.getClient()` (`:57`, `:70`) and `BotCm` has no override, so population bots see the shared client there
+too. **It is a latent live defect; the fix is a bug fix, not part of the Guild Quest feature**, and can be admitted on its own.
+`164-seams` does not contain `6d18f961e`; the three sites are textually identical there and the catch-up merge must keep the
+binding (the lead does that merge).
+
+**The fix.** `BotClient.forScripts(bot)`: a per-action headless client whose `getPlayer()` is the bot, for a population bot
+only; anyone with a client of their own (a player, an owned alt) gets it back unchanged. Nothing is written to the shared
+client, so two bots acting at once never see each other's player. Its javadoc says, in bold: *scripts only; anything that
+sends a packet must use the bot's shared client ... do not reach for this because `getPlayer()` is null.*
+
+**Call-site discipline** (every site, touched or deliberately left alone):
+
+| Site | Decision | Why |
+|---|---|---|
+| `StepExecutor.hitReactorAt` | **bound** | the reactor's script reads its player |
+| `StepExecutor.touchReactor` | **bound** | same, for `touch` scripts |
+| `MapleMap.java:1298` `spawnItemDrop(.., chr, ..)` `activateItemReactors(mdrop, ..)` | **bound** | `ActivateItemReactor.run` calls `reactor.hitReactor(c)` 5 s later and the script asks `c` for its player |
+| `MapleMap.java:2613` `spawnItemDrop(dropper, owner, ..)` | **bound** | same |
+| `MapleMap.java:5535` `spawnItemDropNoExpire` (the path `BotHoldings.payOut`, i.e. `PlaceItem`, drops through) | **bound** - *missed in the first commit, found by the audit* | same |
+| `MapItem` constructors x3 (`ownerClient`) | **bound** | read back only by `getOwnerClient()` <- `searchItemReactors:2705`; this is the cached-client case that threw |
+| `NPCConversationManager.getActingClient()`, overridden in `BotCm` | **new accessor**, one caller: `scripts/npc/9040009.js:110` | the Gatekeeper schedules display hits (`delayedHitReactor(client, delay)`) that run the statue script later with that client |
+| `BotCm.getClient()` and the ~25 dialogue/packet sends in `NPCConversationManager`/`AbstractPlayerInteraction` | **left alone** (I had overridden `getClient()` first; reverted) | packets must go to the shared client |
+| `ReactorHitHandler`, `TouchReactorHandler` | left alone | human packets, own client |
+| `ReactorActionManager.hitReactor()` (`rm.hitReactor`) | left alone | uses the `c` the script was started with: already bound |
+| `MapleMap.java:5180` Monster Carnival guardian hit with the first player's client | left alone | carnival is humans only; bots never enter |
+| `GameQaWorld` GM paths, `OPQBot` `CustomReactor` | left alone | GM client / no client |
+| `BotCm.gainItem`'s `bot.getClient().getPlayer() == bot` | left alone | the bot's own client |
+| `Character.getClient()`, `bot.setClient` | untouched | the bound client is never stored on a character and never is the character's client |
+
+Caches re-audited: `ActivateItemReactor.c` lives 5 s and is used only for `reactor.hitReactor(c)`; `MapItem.ownerClient` only via
+`getOwnerClient`; **`Client.engines`** - `AbstractScriptManager.getInvocableScriptEngine(path, c)` caches *one script engine per
+path on the client*, so a fresh bound client per hit would have built a new Graal engine per hit (a slow-motion denial of service
+on our own server): the bound client delegates `get/set/removeScriptEngine` to the shared client, so only `getPlayer()` differs;
+`Reactor.delayedHitReactor`'s closure holds the client up to ~25 s (statue display), used only for the hit.
+
+**The three `MapleMap` lines are verified by reading, not by test** (the 5 s `ActivateItemReactor` is scheduled privately in the
+map). Each is `activateItemReactors(mdrop, BotClient.forScripts(<owner/chr>))` and each needs the bound client for the one reason
+above.
+
+**Presence and loot ownership - checked, owner question withdrawn.** `getOwnerClient()` now treats a population bot as present
+(`MapItem.java:190-198`: a bot's away flag is never cleared - only `PlayerLoggedinHandler` and `OwnedAltBackend` call
+`setEnteredChannelWorld` - so by the old rule it could never count as present). That does **not** touch who may loot: loot
+eligibility is `MapItem.canBePickedBy`/`hasClientsideOwnership`/`isFFADrop` (`MapItem.java:127-176`) off `character_ownerid`,
+`party_ownerid`, `type` and the 15 s `dropTime`, never off `ownerClient`; `getOwnerClient()` has exactly one caller in the tree
+(`MapleMap.searchItemReactors:2705`). So a human standing on a bot's drop may not take it in the 15 s window unless he is in its
+party, and may after, before and after the fix; the bot does not gain ownership it lacked. Exp/party sharing
+(`Monster.distributeExperience:714`, `giveExpToCharacter:844`) works from `Character` and party, never the client, and drop
+attribution is the six `new MapItem(...)` sites (`MapleMap.java:1281,1313,1331,1343,2592,5486`), all of which pass
+`owner.getClient()`, so for a player the constructor now yields the very client that was passed before.
+**No owner question is needed** (the "keep or revert to unowned" line does not apply).
+
+**Tests.** `BotClientBindingTest` (5), `ReactorScriptClientTest` (2), `MapItemOwnerClientTest` (4), `BotCmActingClientTest` (2).
+Fail-before, run against the previous commit's `BotClient`/`MapItem`: `MapItemOwnerClientTest` errors with
+`Cannot invoke "client.Character.isAwayFromWorld()" because the return value of "client.Client.getPlayer()" is null`; the
+engine-cache test gets `null` for an engine the shared client holds. **Alts and humans unaffected**, asserted by identity:
+the executor hits an alt and a player with *their own client object* (`ReactorScriptClientTest`), `MapItem` returns a player's
+and an alt's own client and their away flag still counts (`MapItemOwnerClientTest`), `getActingClient()` is `getClient()` for a
+player and `getClient()` is unchanged for a bot (`BotCmActingClientTest`), and the loot answers are the same on the pre-fix and
+the fixed `MapItem` (`whoMayLootABotsDrop...` passes on both; on the old one it errors only at the later `getOwnerClient` line).
+
+### 4b. Two steps: `EquipItem` and `UnequipItem` (the explicit halves of putting a protection on, and of paying it)
+
+- **`EquipItem(itemId, why)`** goes through the gear system (`BotGear.wear`): equip this id, verify it is worn, and if the bot
+  does not hold it a `Wait` that names the item. `BotGear.review` values by attack and would only wear a +10 magic-defence earring
+  through its sturdiness tie-break into an empty slot, so the step is its own entry reusing `wearableNow`/`apply`. Fail-before:
+  `EquipItemStepTest` 4 of 6 red while the executor ignored the step; `BotGearWearTest` (6) covers the gear move.
+- **`UnequipItem(itemId, why)`** takes a worn item off into the bag (`BotGear.takeOff`: `TAKEN_OFF`/`NOT_WORN`/`NO_ROOM`; a full
+  bag keeps it on), paced like equip; the log line is `UNEQUIP <bot> takes off <id> - <why>`, naming the member who gave it up. It
+  is never inside a generic step. Fail-before: two executor tests red while it ignored the step (`takingOffAsksTheGearSystemAndNamesWhoPaid`,
+  `aBagWithNoRoom...`); two gear tests cover `takeOff`.
+
+### 4c. The party rules the row carries
+
+- **`queue:`** (commits `1c7ce6586`, `1f7271226`): Guild Quest is entered through the event's world queue
+  (`9040000.js:54-91` registers the *guild*; `EventManager.java:959-976` starts the instance with the master alone inside). The row
+  names how to register and join; `LobbyWatch` polls every 5 s and `MechanicsRuns.onQueueInstanceStarted` arms the run when the
+  join window closes (`canJoin = 0`). `QueueStaging` stages it for a guild master who is a bot or a GM: guild checks, the queue
+  not full and nobody ahead, size 6-30. `QueueSeamTest` (11), `QueueStagingTest` (14).
+- **`composition:`** (`3d934becc`): a party-composition fact, like `minPlayers`. The maze's door `under30gate.js:25` admits only a
+  member of level <= 30 and its crown is the fourth piece of Sharen III's body (`9201001.js`/`9040003.js`), so a party of only
+  high-level members can never clear. The row says `junior: 10..30` (10 because the earring needs level 10); `Orchestrator.start`
+  refuses a party that does not fill the seats, and `QueueStaging` seats a low-level bot (through `KpqStaging.spawnBots` and
+  `BotGuilds.join`) or refuses with a clear line. **No stand-in and no hidden level override.** `CompositionSeatTest` (8).
+
+### 4d. The row: `content/guildquest.yaml`, flag `slums.mechanics.guildquest` (OFF unless switched on)
+
+| # | Stage | Solver | Clear |
+|---|---|---|---|
+| 1 | waiting room `990000000` | `gq-lobby`: read `entryTimestamp`, then the door's own script | party on `990000100` |
+| 2 | outskirts `990000100`/`200` | `gq-earring`: each member earns and **wears** his own Protector Rock 1032033 | party on `990000300` |
+| 3 | Gatekeeper `990000300` | `gq-statues`: the pattern is in `stage1combo`; one hitter, only while `stage1status` is `active`; the leader's click starts, one click submits | `stage1clear` |
+| 4 | spear hall `990000400` + 301/410/420/430/431/440 | `gq-spears`: four spears; the tower **and** the golem room are both mandatory | `speargate` at state 4 |
+| 5 | vassals `990000500` + 501/502 | `gq-vassals`: the combo's four offerings | `stage3clear` |
+| 6 | maze `990000600` + clothing rooms + 700 | `gq-maze`: junior alone in 640/641; marks 9/8/20; body dressed shoes-pants-top-crown; the Soul | `stage4clear` |
+| 7 | Ergoth's gate `990000800` + 900 | `gq-boss`: **the sacrifice**, Ergoth, the Rubian | instance cleared (`eim.clearPQ()`) |
+
+`afterClear`: reward NPC `9040001` on `990001100`. No stage sets `nextPortal`: the doors between the stages are pt-8 script portals
+that a plain `EnterPortal` plain-warps to 999999999, so each solver walks its members in from the previous stage's rooms (listed
+under `maps:`). A stage-by-stage `map-integrity` pass over all 28 maps is clean (`tools/ops/map-integrity --wz
+/root/work/SlumsMS-152-maps/wz`: 0 dead portals, 0 missing mobs/NPCs/reactors).
+
+**The sacrifice, in one paragraph for the release notes.** *Ergoth's gate only opens for one Protector Rock. The earring is
+"only 1", so nobody can carry a spare: one guild member has to give his earring to the gate. Without it that member is
+unprotected on the last two maps, where the air takes 30,000 HP, so he stays behind on the gate hall while the others go through
+and face Ergoth.* In the engine: the highest-id **bot** that is not the leader is the sacrificer (the leader loots and hands in
+on the boss map; if the leader is the party's only bot he pays; a party of players has nobody to steer, so nobody can pay and the
+stage says so); on 800 it takes the earring off (`UnequipItem`, log `UNEQUIP <name> takes off 1032033 - sacrifice: Ergoth's gate
+(kinggate, reactor 9208009) opens only for one 1032033 (Protector Rock, only 1) in its box, so <id> pays it and is unprotected on
+990000800 and 990000900 afterwards (decHP 30000)`), sets it in the gate's box (`PlaceItem`, count exactly 1; the server acts 5 s
+later) and sits out. Nobody else takes anything off, nobody enters 800/900 unprotected; both are asserted in `GqBossSolverTest`.
+
+**The EQUIP step, in one paragraph for the release notes.** *Every member earns his own Protector Rock from the glowing rocks of
+the first two maps and puts it on before he walks on: every map from the Gatekeeper's room on takes 30,000 HP a tick from a
+member without it.* In the engine: `gq-earring` has each member keep to one rock (by map object id: the rocks share two WZ ids)
+until it is spent, loot the drop, `EquipItem` it, and only then take the door; a member who cannot wear it ends the run with the
+reason, and a member found on the Gatekeeper's map without it does the same.
+
+**Finding - population bots are most likely never hurt by that decHP at all.** `World.runPlayerHpDecreaseSchedule`
+(`World.java:1808`) skips every character whose `isAwayFromWorld()` is set, and that flag is `true` by default and cleared only by
+a player's login and `OwnedAltBackend` - **not for a population bot**. Read, not run. So the earring is load-bearing for owned
+alts and players and belt-and-braces for population bots, and the sacrifice costs a population bot nothing in practice. The row
+nevertheless requires protection for every bot (safe if that ever changes, and the gate still needs one earring), and the
+sacrificer stays out of 800/900 either way. The tick interval/count (`MAP_DAMAGE_OVERTIME_*`) are not in `config.example.yaml`
+and are unknown. *Owner question (only one): do population bots keep farming an earring each, or does the row skip protection
+for them? Not decided here.*
+
+**Stage 2, the route I can prove.** The golem room (430) and the tower (440) are **not** alternatives: `speargate` (9208004) needs
+four spears (states 0-4 from four forced hits of the `spear1-4` altars, `9208007`), only four `9202001` spear reactors exist
+(three on 410, one on 431) and 431 is behind `metalgate` in the invincible-golem room 430. So 410 + 430/431 give the spears and 440
+is where they are placed. Population bots take contact damage with an HP floor of 1 (`BotContactDamage`) and only while a real
+player is on the map, so the golems are pathing obstacles for them; **owned alts die like players there** - recorded as a risk.
+
+**Behaviour change outside the row.** `Orchestrator.tick` reminded a real leader (and picked the bot that speaks) only while he
+stood on the stage's *first* map. A multi-map stage whose business ends elsewhere - the maze's leader leaves for 700, the boss
+stage ends on 900 - never prompted him. It now uses any map the stage drives (`MultiMapLeaderPromptTest`, red on the old code:
+no `Say`). It applies to every row with a player leader and a solver that implements `leaderPrompt`.
+
+### 4e. Drops the run depends on - every one **live table unverified** (seed data in `131-reactordrops-data.sql`, `152-drop-data.sql`)
+
+| Drop | From | Used by | If missing |
+|---|---|---|---|
+| 1032033 Protector Rock | reactors 9202000, 9202009 | every member, stage 2; the gate's one rock, stage 7 | `Wait` naming 1032033 |
+| 4001025 Longinus Spear | reactor 9202001 (x4) | stage 4 | `Wait`, then `Abandon` after 120 s (one-shot sources) |
+| 4001026 Key of the stone gate | mob 9300019 | stage 4 | same |
+| 4001037 Rusty Key | reactor 9202002 | stage 4 | same |
+| 4001027 / 4001028 | mobs 9300022 / 9300023 | stage 5 digits 0/1 | `Wait` naming mob and item |
+| 4001029 / 4001030 | reactors 9202003 / 9202004 | stage 5 digits 2/3 | `Wait` naming reactor and item |
+| 4001031..34 clothes | reactors 9202005..9202008 | stage 6 | `Wait` naming item |
+| 4001035 Mark of Evil | mobs 9300024, 9300027, 9300033 | stage 6 | `Wait` |
+| 4001036 Gargoyle token | mob 9300025 | stage 6 | `Wait` |
+| 4001024 Rubian | mob 9300028 (Ergoth) | stage 7 | `Wait` naming 4001024 |
+
+### 4f. Unproven (nothing below was run against a live server or a live DB)
+
+- All **navigation**: 410's upper floor, the golem room 430's route, 440's tower chain, 500's ropes, 620/631/641, the walk to the
+  maze rooms (the executor's own pathing, not the solvers').
+- The **live drop rows** above.
+- **Sacrifice death behaviour**: whether an alt or player without the earring dies on 800/900 and what `canRevive=1` does to him
+  afterwards (`GuildQuest.js:264-277`), and the damage tick (`MAP_DAMAGE_OVERTIME_*`).
+- **Combat**: that level 10-30 bots can kill 20 Devil Slimes, Jr. Gargoyles, a level-66 knight, a level-65 `9300019`, and a level
+  115 / 1,700,000 HP Ergoth. The row does not check DPS; nothing in the scripts does either.
+- **Owned alts at 430** (they die like players), and the level-10 floor (derived from the earring's `reqLevel`, not run).
+- `guild1F00`'s `gridCheck` landing spots on 600 for a bot with a second task; the 5 s item-reactor delay under load.
+- The five-hit count of the larder/clothes reactors (derived from `Reactor.java`; the solvers read the state and adapt).

@@ -599,6 +599,22 @@ Five defects found reviewing A1-B; all fixed on the same branch, switches unchan
 - **A stranger's mob stays the stranger's.** Pinned by test: an alt inside a PQ instance does not take a mob a real
   player outside the party is hitting (`OwnedAltCombat.strangers`), on top of the two existing controls.
 
+## Engine seams for the last party quests (1.6.4, branch `164-seams`; details and evidence in `REPORT-seams.md`)
+
+Row keys and steps these add to the stage data format (all optional; a row without them loads and runs as before):
+
+- `branches:` on a stage - `{when: {eventProperty[, equals] | reactor, state}, goto: N | end}`, first match wins (Pre-Horntail).
+- `onTimeLimit: end | advance` with a stage's own `timeLimitMinutes` - what the run does when that stage's clock runs out.
+- `queue:` - `{register: [answers], join: [answers], closedProperty, closedEquals, waitMinutes}`: the content is entered
+  through the event's world queue (Guild Quest), watched from the moment the world starts the instance, armed when the
+  join window closes.
+- `composition:` - seats the party must fill (`{id, min, minLevel, maxLevel, note}`): Guild Quest's maze needs one member of
+  level 30 or below. A fact about the party like `minPlayers`: the run refuses to start without it, and a high-level member
+  never stands in.
+- Steps: `HitReactorByOid`, `EquipItem` (through `BotGear`: verify it is worn, `Wait` naming the item if not held),
+  `UnequipItem` (the explicit half of a sacrifice).
+- A population bot's reactor script has a player behind its client (`BotClient.forScripts`): scripts only, never for a packet.
+
 ## QA plan
 
 - **Unit:** every content YAML loads clean; answers/rectangles/items are re-read from our scripts and compared
