@@ -5873,7 +5873,7 @@ public class Character extends AbstractCharacterObject {
     public Marriage getMarriageInstance() {
         EventInstanceManager eim = getEventInstance();
 
-        if (eim != null || !(eim instanceof Marriage)) {
+        if (eim instanceof Marriage) {
             return (Marriage) eim;
         } else {
             return null;
