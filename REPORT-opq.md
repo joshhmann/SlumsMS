@@ -1014,6 +1014,34 @@ party does not staff Adobis, a human or a party that already exists walks in. An
 lists `4001015` with the note that it only buys the better message and reward, because `scripts/npc/2032002.js:121-127`
 clears either way and no damage check exists.
 
+## Pre-Horntail PQ: read to the end, and it is not completable (no row)
+
+Read to the wrapper's end rather than trusting the earlier `[C]`/`[D]` marks, this quest cannot be finished here by a player
+or a bot, and the reason is not a missing engine primitive. Five findings, each one a wall:
+
+1. **The fifth mine has nothing to hit.** `HorntailPQ.js:113-123` resets `240050101`-`240050105` and primes
+   `passKey1`..`passKey4`; there is no `passKey5`. In WZ, `240050101` carries reactor `2408002` named `passKey1` at
+   `(1714,-267)` and `240050105` carries **no reactor at all**.
+2. **The reactor's default branch writes the wrong property.** `scripts/reactor/2408002.js:31-69` starts
+   `var vvpStage = -1` and only assigns 1..4 inside its four cases, so the `default:` at `:66-69` runs
+   `eim.setIntProperty("-1stageclear", 1)` and drops `new Item(-1, 0, 1)`. Map `240050105` is that default.
+3. **So `5stageclear` is never written.** The fifth door (`scripts/portal/hontale_Bopen.js:97-125`) reads
+   `eim.getProperty("5stageclear")`, and its only other path is the leader holding `4001092`.
+4. **`4001092` exists nowhere in the data.** `grep -rn 4001092 scripts/ src/main/java` returns the event's exclusive
+   items (`HorntailPQ.js:73`), the hand-in check (`2083001.js:114-123`) and the fifth door's check - and no drop, reactordrop
+   or reward. It cannot be obtained, so the check at `:105` can never be true.
+5. **The keys spawn where the party is not.** Each mine's key is spawned by `2408002.js:72-77` onto `240050100`'s
+   `keyDrop1`..`keyDrop4`, but a mine map has only two portals - `st00` (pt 1, target `999999999`) and `in00` (pt 7,
+   the forward door) - so a party on a mine cannot return to `240050100`. The mid-quest hand-in on `240050100`
+   (`2083001.js:100-112`, keys `4001087`..`4001091`) is therefore unreachable from inside the instance.
+
+**What that means for the row.** Four mines are drivable: each is one map whose reactor sets `Nstageclear`, which is a
+`{ eventProperty: "<N>stageclear" }` clear and a `HitReactor(2408002)`. They are not worth a row on their own, because the
+fifth room is a dead end in a 25-minute instance and the last two stages (`240050300`/`240050310`) need an item that does
+not exist. **The honest repair is a quest-design decision, not a port**: a `case 240050105` in the reactor with a real key
+id and stage number, a `passKey5` reactor in `240050105`'s WZ, and a way back to `240050100` (or the hand-in moved into
+the mine). Until someone decides which, this PQ has no row and both lanes should say so.
+
 ## A stage set that repeats: `loopTo:`
 
 BossRush PQ is the one event whose stages are not a sequence (`/root/work/PQ-UNFINISHED-REPORT.md:438-462`): its door
