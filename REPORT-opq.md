@@ -380,6 +380,22 @@ one row (`content/dellibattle.yaml`), `clear: { instance: true }`.
   (`DelliBattle.js:27`) and the staging hands `KpqStaging` a party of at least two, so a lobby would staff a party the
   script refuses to look at. A human party of two plays it with the row flag; no bot party is assembled.
 
+## The last three: Magatia, CWKPQ, GuildQuest - what a row would need
+
+Read, not attempted. Each of these needs something the branch does not have, and the difference between them is *where*
+the block is: one is volume, one is a fact about the party, one is a fact about the character.
+
+| Row | Its gates and shape | What a row would need | Where the block is |
+|---|---|---|---|
+| **Magatia PQ** (`MagatiaPQ_A.js`, `_Z.js`) | exactly **4** players (`minPlayers = 4, maxPlayers = 4`, `:27`), level 71-255, 45 min, entry `926110000`, exit `926110700`, recruit `261000021` (`:26-37`); **17 maps** reset at setup (`:139-157`); seven `statusStg1..7` int properties (`:127-133`), every one written by an NPC script; `changedMap` chains map to stage (`:421-430`); the escort turns into a fight (`yuleteTalked`/`yuletePassed`, `:311-355`, thirty monsters); stage 6's combination is generated per run (`generateStg6Combo`, `:188-214`) | seven stage solvers, one per NPC dialogue tree, plus a 4-member party the staging must be able to hit exactly | **volume.** Every primitive exists - `TalkNpc`, `Converse`, `CheckAnswer`, `eventProperty`, `Fight`, `WarpTo`, `maps:` - but this is seven rows' worth of work in one event, and the two variants differ only in map ids, so it is one row parameterised twice |
+| **CWKPQ** (`CWKPQ.js`) | 6-30 players (`:27`), level 90-255, entry `610030100`, maps to `610030800`, `eventTime = 2` minutes for the first stage (`:36`); stage 1 deploys **randomised job reactors** - `generateMapReactors` (`:98-135`) draws a set that covers all six job slots and plants fakes beside the real ones | the party must find, per member, which of eight reactors answers *its own job* | **a fact about the party.** `RunMember` carries no job, and nothing in the engine maps a reactor name (`4skill0a`, `4fake1c`) to a job slot. A bot cannot answer "which of these is mine", so it can neither sign in nor know when it is done |
+| **GuildQuest** (`GuildQuest.js`) | 6-30 players, level 1-255, entry `990000000`, 90 minutes (`:26-40`); `getEligibleParty` requires **every member to share the leader's `guildId`** (`:105-113`) | nothing the engine lacks - a party, a map set, map-empty clears | **a fact about the character.** Playerbots hold no guild. Verdict: not playable in this lane until bots can carry guild membership, which is a bot-model change, not a row |
+
+What this means for the branch: Magatia is the only one of the three that is *work* rather than a missing capability, and
+it should be taken as its own ticket with the same report discipline (one stage per commit, a fail-before per stage, a
+row per variant). CWKPQ and GuildQuest are recorded as verdicts, the way Amoria PQ, Holiday PQ and Elnath PQ already
+are - with the reason, so the next reader does not spend a day discovering it.
+
 ## Expedition rule: pause for revive (this is the report it lives in)
 
 The boss report is on `164-bossfight`, a different branch, so this one carries the rule. It is the answer to the lane
