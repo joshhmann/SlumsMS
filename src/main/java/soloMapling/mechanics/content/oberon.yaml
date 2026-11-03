@@ -8,7 +8,7 @@
 #  - entry: scripts/portal/TD_Boss_enter.js:4-5 names TD_Battle4 for a portal standing in 240070502, and :20 calls
 #    em.startInstance(party, map, 1) - a party, not an expedition;
 #  - the fight is one monster: 8220012 is the map instance's own life (Map.wz/Map/Map2/240070503.img.xml, mobTime -1 at
-#    201,234); nothing in scripts/ or src/ spawns it and Mob.wz/08220012.img.xml has no info/revive;
+#    201,234); nothing in scripts/ or src/ spawns it and Mob.wz/8220012.img.xml has no info/revive;
 #  - the clear is clearPQ -> eim.setEventCleared() with no property (TD_Battle4.js:225-228); timeout and playerExit both
 #    changeMap to 240070502 (:30), where this row ends a run.
 #
@@ -31,7 +31,7 @@ sources:
   - "scripts/portal/TD_Boss_enter.js:4-5,20 - the portal names the event from its own map and calls
     em.startInstance(party, map, 1)"
   - "Map.wz/Map/Map2/240070503.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is 8220012, mobTime -1, at
-    (201,234). Mob.wz/08220012.img.xml: no info/revive, so the fight is one form"
+    (201,234). Mob.wz/8220012.img.xml: no info/revive, so the fight is one form"
   - "BotStory 81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364, agent-bosses/boss-rules.json neo_oberon: targetPriority
     [8220012] - the same id our script states (:37). Its component model, focus/keepOut bands, ledges and stagePortal
     are fork-specific and are not imported"

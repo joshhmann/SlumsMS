@@ -1,0 +1,58 @@
+# Ticket 130 boss lane, branch 164-bossrows: Balrog (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room that the script fills by
+# itself, and the one boss in this batch whose body starts life as a fake.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 6-30 players, levels 50-255, one lobby (BalrogBattle.js:27-28,44);
+#  - 105100300 has no boss of its own: Map.wz/Map/Map1/105100300.img.xml holds NPC 1061018 and reactors 1058001-1058005.
+#    The fight is script spawn, all of it: afterSetup -> startBalrog -> spawnBalrog (:145-153) puts 8830000 at (412,258)
+#    as a FAKE body, 8830002 next to it, and the left claw 8830006; nothing in the row has to click a reactor;
+#  - the chain is WZ revive plus one script call: Mob.wz/8830006.img.xml revive/0 = 8830001 (revive/0 = 8830004) and
+#    Mob.wz/8830002.img.xml revive/0 = 8830005. 8830000 has NO revive: the script makes it real instead
+#    (BalrogBattle.js:262-265 makeMonsterReal) once the claw and the first body are down (count == 1 at :250-274 of the
+#    two unsealed forms, isUnsealedBalrog :241-244), and the body's own death schedules 8830003 ten seconds later;
+#  - the clear is clearPQ -> setEventCleared(BALROG) (monsterKilled count == 2 -> eim.clearPQ(), :250-274). "boss" is a
+#    counter ("0" at :122, then count+1) and is never a clear value -> instance: true.
+#
+# On listing 8830000 (R9 of /root/work/BOSS-ROW-DATA.md): a fake body is unkillable, and listing one would normally be a
+# bug. Here it is the opposite - the script turns THIS fake into the real body, so an order that omitted it could never
+# reach the clear. It is listed last, where it only becomes hittable after makeMonsterReal, and BossTargetRules skips it
+# while it is fake, so no Fight target list can contain it before that call. The simulation asserts exactly that.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: balrog
+name: Balrog (expedition)
+kind: BOSS
+eventScript: BalrogBattle
+recruitMap: 105100100
+exitMap: 105100100
+minPlayers: 6
+maxPlayers: 30
+minLevel: 50
+maxLevel: 255
+timeLimitMinutes: 60
+sources:
+  - "scripts/event/BalrogBattle.js (ours, the truth): minPlayers 6 / maxPlayers 30, levels 50-255 (:27-28), entryMap 105100300 and exitMap 105100100 (:29-30), clearMap 105100301 (:32), minMapId 105100300 / maxMapId 105100301 (:34-35), eventTime 60 (:41), maxLobbies 1 (:44), 'boss' seeded '0' (:122), releaseLeftClaw (:140-143), spawnBalrog: fake 8830000 + 8830002 + claw 8830006 (:145-153), spawnSealedBalrog (:155-158), isUnsealedBalrog (:241-244), isBalrogBody (:246-248), monsterKilled: first death makeMonsterReal(8830000), second death clearPQ (:250-274)"
+  - "Map.wz/Map/Map1/105100300.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is NPC 1061018 and reactors 1058001-1058005, no boss. Mob.wz/8830006.img.xml revive/0 = 8830001 and 8830001 -> 8830004, Mob.wz/8830002.img.xml revive/0 = 8830005, and Mob.wz/8830000.img.xml has no revive at all (the script's makeMonsterReal is what turns it into a body)"
+  - "BotStory 81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364, agent-bosses/boss-rules.json balrog: targetPriority lists the two unsealed forms and never 8830000. Only that ordering was consulted; our script states which ids exist and which one it makes real"
+stages:
+  - stage: 1
+    map: 105100300
+    name: Balrog
+    solver: boss-phases
+    # the fight is script spawn (spawnBalrog runs one second after setup), so the room stands empty from the instance's
+    # first tick until it lands. 60 s is a policy number (a spawn plus a respawn animation, with margin), not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 8830002
+      - 8830001
+      - 8830000
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 8830000
+        note: the fake body the script makes real (BalrogBattle.js:262-265); its death is the second half of the clear
+    # BalrogBattle.js:250-274 writes no property value the row can test; the instance's own flag is the clear.
+    clear:
+      instance: true

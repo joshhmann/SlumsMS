@@ -1,0 +1,53 @@
+# Ticket 130 boss lane, branch 164-bossrows: Elemental Thanatos (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room, two monsters, and a clear
+# that is the SECOND death, which is why this row reads the instance's flag and not the script's counter.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own party gate - 1-2 players, levels 100-255, seven lobbies (ElementalBattle.js:27-28,39) -
+#    plus a job gate the ROW CANNOT STATE: getEligibleParty (:91-114) drops every character whose job niche is not 2 at
+#    :101, i.e. magicians only. The engine has no job predicate and the row format has no field for one, so maxPlayers 2
+#    is the whole of what this row can say. A mixed party is refused by the script's own NPC, not by the row; bots are
+#    not job-filtered, so a bot party of non-magicians would be refused at entry in production and this row cannot see it.
+#    That is recorded in REPORT-bossrows.md as the row's one unprovable gate;
+#  - 922020100 holds both monsters as map life, mobTime -1: 9300086 at (-341,16) and 9300100 at (-584,29)
+#    (Map.wz/Map/Map9/922020100.img.xml). No reactor, no script spawn, and neither has info/revive, so there is no chain;
+#  - the clear is clearPQ -> setEventCleared() with no property (ElementalBattle.js:225-228), reached from monsterKilled
+#    (:235-248) only when the second of the two dies - "boss" is seeded "0" at :119 and becomes killed+1 at :245, so a row
+#    that cleared on "boss" == 1 would end one kill early. instance: true is the only honest clear.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: elemental
+name: Elemental Thanatos
+kind: BOSS
+eventScript: ElementalBattle
+recruitMap: 220050300
+exitMap: 220050300
+minPlayers: 1
+maxPlayers: 2
+minLevel: 100
+maxLevel: 255
+timeLimitMinutes: 20
+sources:
+  - "scripts/event/ElementalBattle.js (ours, the truth): minPlayers 1 / maxPlayers 2 and levels 100-255 (:27-28), entryMap 922020100 and exitMap 220050300 (:29-30), minMapId = maxMapId = 922020100 (:34-35), eventTime 20 (:37), maxLobbies 7 (:39), getEligibleParty's magician-only jobNiche check (:91-114, :101), 'boss' seeded '0' (:119), clearPQ sets the instance's flag (:225-228), isElemental = 9300086 || 9300100 (:230-233), monsterKilled clears on the second death (:235-248)"
+  - "scripts/npc/2041023.js:60,82 - the bathhouse NPC starts the event with em.startInstance(cm.getParty(), ...), so the entry is a party, not an expedition: no expedition leader is needed and bots would be refused by the job check"
+  - "Map.wz/Map/Map9/922020100.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is 9300086 at (-341,16) and 9300100 at (-584,29), mobTime -1, no reactor. Mob.wz/9300086.img.xml and Mob.wz/9300100.img.xml have no info/revive"
+stages:
+  - stage: 1
+    map: 922020100
+    name: Elemental Thanatos
+    solver: boss-phases
+    # both monsters are the map's own life and stand there before anyone enters, but the map instance is built at the
+    # instance's start; 60 s is a policy number (an instance build, with margin), not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 9300086
+      - 9300100
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 9300086
+        note: the first of the two; the instance clears when the second dies (ElementalBattle.js:235-248)
+    # ElementalBattle.js:225-228 writes no property; the instance's own flag is the clear.
+    clear:
+      instance: true

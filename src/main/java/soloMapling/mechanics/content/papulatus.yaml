@@ -1,0 +1,62 @@
+# Ticket 130 boss lane, branch 164-bossrows: Papulatus (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room, one chain, and the room is
+# opened by a reactor that a bot clicks for itself.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 1-6 players, levels 1-255, one lobby (PapulatusBattle.js:28-29,40). The script's
+#    levels are what getEligibleParty uses, whatever ExpeditionType.PAPULATUS says;
+#  - entry is the expedition NPC (scripts/npc/2041024.js:50,173 -> startInstance(expedition)): a bot cannot lead an
+#    expedition, so a run needs one human character to start it, exactly like Zakum;
+#  - 220080001 has no mobs of its own: Map.wz/Map/Map2/220080001.img.xml holds NPC 2041025 and reactor 2201004 only.
+#    The reactor is act()-based (scripts/reactor/2201004.js:22-29), so a bot's click reaches it (Reactor.java:242-246);
+#    it spawns 8500000 at (-410,-400) and sets "summoned"/"canEnter" as side effects;
+#  - the fight is a WZ revive chain, not script spawn: Mob.wz/8500000.img.xml revive/0 = 8500001, 8500001 -> 8500002, and
+#    8500002 has none. 8500002 is isPapulatus (PapulatusBattle.js:229-232), i.e. the form the script waits for;
+#  - the clear is clearPQ -> setEventCleared(PAPULATUS) (PapulatusBattle.js:223-227) after the last form dies
+#    (:234-242). No property decides it: "boss" is seeded "0" at :129 and never written again -> instance: true.
+#
+# Why there is no summonProperty even though the reactor writes one: the solver's summon gate is checked before the
+# reactor click, so a row that waited for "summoned" would wait for the click it is supposed to make. The chain's first
+# form arrives with the click, and spawnWaitSeconds covers the click-to-spawn window.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: papulatus
+name: Papulatus (expedition)
+kind: BOSS
+eventScript: PapulatusBattle
+recruitMap: 220080000
+exitMap: 220080000
+minPlayers: 1
+maxPlayers: 6
+minLevel: 1
+maxLevel: 255
+timeLimitMinutes: 45
+sources:
+  - "scripts/event/PapulatusBattle.js (ours, the truth): minPlayers 1 / maxPlayers 6 and levels 1-255 (:28-29), entryMap 220080001 and exitMap 220080000 (:30-31), minMapId = maxMapId = 220080001 (:35-36), eventTime 45 (:38), maxLobbies 1 (:40), 'boss' seeded '0' and never written (:129), clearPQ sets the instance's flag (:223-227), isPapulatus = 8500002 (:229-232), monsterKilled -> eim.clearPQ() (:234-242)"
+  - "scripts/reactor/2201004.js:22-29 - act() spawns 8500000 at (-410,-400), sets \"summoned\"/\"canEnter\" and changes the music; it is act()-based, so Reactor.java:242-246 sends a bot's click to it"
+  - "Map.wz/Map/Map2/220080001.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is NPC 2041025 and reactor 2201004, no mobs. Mob.wz/8500000.img.xml revive/0 = 8500001, Mob.wz/8500001.img.xml revive/0 = 8500002, Mob.wz/8500002.img.xml none"
+  - "scripts/npc/2041024.js:50,173 - the expedition NPC starts the event, so the party needs a human leader"
+  - "BotStory 81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364, agent-bosses/boss-rules.json papulatus: targetPriority [8500001, 8500002], neverTargetFakes. Only the ids were consulted and our chain states the same order from 8500000; their runtime spawns 8500000 as an add, ours does it from the reactor. Their component model, focus/keepOut bands, ledges and stagePortal are fork-specific and are not imported"
+stages:
+  - stage: 1
+    map: 220080001
+    name: Papulatus
+    solver: boss-phases
+    # the bot opens the room: 2201004 is clicked once (the solver remembers it per stage) and 8500000 arrives from that
+    # click, so the room may stand empty from the instance's first tick until the click has landed.
+    hitReactors: [2201004]
+    # 60 s is a policy number (the click, the spawn and the first form's death animation, with margin), not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 8500000
+      - 8500001
+      - 8500002
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 8500002
+        note: the last form of the revive chain, and the id isPapulatus waits for
+    # PapulatusBattle.js:223-227 writes no property; the instance's own flag is the clear.
+    clear:
+      instance: true

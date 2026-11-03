@@ -9,7 +9,7 @@
 #    from the map the portal stands in (240070302 -> TD_Battle2) and :20 calls em.startInstance(party, map, 1). It is a
 #    party, not an expedition, so nothing here needs an expedition leader;
 #  - the fight is one monster: 8220010 is the map instance's own life (Map.wz/Map/Map2/240070303.img.xml, mobTime -1 at
-#    -119,254). Nothing in scripts/ or src/ spawns it, and Mob.wz/08220010.img.xml has no info/revive, so there is no
+#    -119,254). Nothing in scripts/ or src/ spawns it, and Mob.wz/8220010.img.xml has no info/revive, so there is no
 #    chain and no second form;
 #  - the clear is clearPQ -> eim.setEventCleared() with no property (TD_Battle2.js:225-228); the script's own timeout and
 #    playerExit both changeMap to 240070302 (:30), which is where this row ends a run.
@@ -33,7 +33,7 @@ sources:
   - "scripts/portal/TD_Boss_enter.js:4-5,20 - the portal names the event from its own map and calls
     em.startInstance(party, map, 1), so the entry is a party lead by the human who clicks it"
   - "Map.wz/Map/Map2/240070303.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is 8220010, mobTime -1, at
-    (-119,254). Mob.wz/08220010.img.xml: no info/revive, so the fight is one form"
+    (-119,254). Mob.wz/8220010.img.xml: no info/revive, so the fight is one form"
   - "BotStory 81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364, agent-bosses/boss-rules.json neo_dunas: minLevel 70 and
     targetPriority [8220010]. Only the target list was consulted and our script states the same two numbers; its
     component model, focus/keepOut bands, ledges and stagePortal are fork-specific and are not imported"

@@ -13,6 +13,7 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -108,6 +109,44 @@ class RowRunSimulationTest {
     /** CastellanBattle.js:131-134 spawns 9400408 at setup; 9400409 is its {@code info/revive} and the clear (:227-240). */
     private static final int CASTELLAN_1 = 9400408;
     private static final int CASTELLAN_2 = 9400409;
+
+    // ---- the room-opened rows: every fight behind a reactor a bot clicks, or the script's own spawn ---------
+
+    /** scripts/reactor/2201004.js:28 spawns 8500000 in 220080001; Mob.wz revive 8500000 -> 8500001 -> 8500002. */
+    private static final int PAPULATUS_1 = 8500000;
+    private static final int PAPULATUS_2 = 8500001;
+    private static final int PAPULATUS_3 = 8500002;
+    /** scripts/reactor/5411001.js:28 spawns 9420521 in 541020800; Mob.wz/9420521.img.xml revive/0 = 9420522. */
+    private static final int KREXEL_1 = 9420521;
+    private static final int KREXEL_2 = 9420522;
+    /** scripts/reactor/8001000.js:23 spawns 9400112 in 801040100; revive 9400112 -> 9400113 -> 9400300. */
+    private static final int SHOWA_1 = 9400112;
+    private static final int SHOWA_2 = 9400113;
+    private static final int SHOWA_3 = 9400300;
+    /**
+     * BalrogBattle.js:145-153 spawns the fake body 8830000, 8830002 and the claw 8830006; the claw's line is
+     * Mob.wz/8830006.img.xml revive/0 = 8830001, and 8830000 is turned real by the script (:262-265), not by WZ.
+     */
+    private static final int BALROG_BODY = 8830000;
+    private static final int BALROG_1 = 8830001;
+    private static final int BALROG_2 = 8830002;
+    /** scripts/reactor/5511000.js summons 9420542 and 5511001.js summons 9420547, 3.2 s later, in 551030200. */
+    private static final int SCARGA_TARGA_1 = 9420542;
+    private static final int SCARGA_TARGA_2 = 9420543;
+    private static final int SCARGA_TARGA_3 = 9420544;
+    private static final int SCARGA_SCARLION_1 = 9420547;
+    private static final int SCARGA_SCARLION_2 = 9420548;
+    private static final int SCARGA_SCARLION_3 = 9420549;
+    /** ElementalBattle.js:230-233: the two monsters are the map's own life in 922020100. */
+    private static final int ELEMENTAL_1 = 9300086;
+    private static final int ELEMENTAL_2 = 9300100;
+    /** PinkBeanBattle.js:306-313 spawns 8820002, whose kills walk 8820003..8820006 and then the real 8820001. */
+    private static final int PINKBEAN_1 = 8820002;
+    private static final int PINKBEAN_2 = 8820003;
+    private static final int PINKBEAN_3 = 8820004;
+    private static final int PINKBEAN_4 = 8820005;
+    private static final int PINKBEAN_5 = 8820006;
+    private static final int PINKBEAN = 8820001;
 
     // ---- the loop --------------------------------------------------------------------------------------
 
@@ -545,15 +584,191 @@ class RowRunSimulationTest {
         assertTrue(sim.world().waits > 0, "the room really was empty for a while: " + tail(sim.steps(), 5));
     }
 
+    /**
+     * Papulatus is opened by a reactor a bot clicks: 220080001 holds no mobs at all, only reactor 2201004
+     * (scripts/reactor/2201004.js:22-29), which spawns 8500000. The chain 8500000 -> 8500001 -> 8500002 is WZ
+     * {@code info/revive}, and 8500002 is what {@code isPapulatus} waits for (PapulatusBattle.js:229-232).
+     */
+    @Test
+    void aBotPartyClicksPapulatusReactorAndWalksTheChainToTheClear() {
+        Sim sim = play("PapulatusBattle", party(6), 2_000);
+
+        assertOpenedRoomClear(sim, List.of(PAPULATUS_1, PAPULATUS_2, PAPULATUS_3), 2201004);
+    }
+
+    /** Krexel is the same shape: reactor 5411001 (scripts/reactor/5411001.js:22-29) spawns 9420521, revive 9420522. */
+    @Test
+    void aBotPartyClicksKrexelsReactorAndKillsBothForms() {
+        Sim sim = play("KrexelBattle", party(6), 2_000);
+
+        assertOpenedRoomClear(sim, List.of(KREXEL_1, KREXEL_2), 5411001);
+    }
+
+    /**
+     * Showa's chain is 9400112 -> 9400113 -> 9400300 (Mob.wz revive), opened by reactor 8001000. The bonus map
+     * 801040101 is deliberately not a second stage: clearPQ spawns the bonus mob in the same call that clears
+     * (ShowaBattle.js:196-207), so there is nothing for a bot to walk to.
+     */
+    @Test
+    void aBotPartyClicksShowasReactorAndWalksTheChainToTheClear() {
+        Sim sim = play("ShowaBattle", party(6), 2_000);
+
+        assertOpenedRoomClear(sim, List.of(SHOWA_1, SHOWA_2, SHOWA_3), 8001000);
+        assertTrue(sim.steps().stream().noneMatch(st -> st.contains("WarpTo[mapId=801040101]")),
+                "the bonus room is a drop, not a stage: " + tail(sim.steps(), 8));
+    }
+
+    /**
+     * Balrog's body starts life as a fake (BalrogBattle.js:145-153) and the script makes it real (:262-265). The row
+     * lists it last, and the fake is never a fight target: {@link BossTargetRules} skips unengaged fake parts, so the
+     * two unsealed forms die first and the body is only hittable after {@code makeMonsterReal}.
+     */
+    @Test
+    void aBotPartyNeverFightsBalrogsFakeBodyAndTheInstanceClearsItself() {
+        Sim sim = play("BalrogBattle", party(6), 2_000);
+
+        assertEquals("cleared", sim.ended(), "the script's second unsealed death is clearPQ: " + sim.ended()
+                + "; last steps " + tail(sim.steps(), 10));
+        assertEquals(BALROG_2, sim.world().killed.get(0), "the unsealed form in the room dies first");
+        assertTrue(sim.world().killed.containsAll(List.of(BALROG_BODY, BALROG_1)),
+                "and the body the script made real is fought as a body: " + sim.world().killed);
+        assertFalse(sim.world().foughtFake,
+                "8830000 is a fake body until the script makes it real: no Fight may ever name it while it is fake");
+        assertTrue(sim.steps().stream().noneMatch(st -> st.contains(":Abandon[")), tail(sim.steps(), 10));
+    }
+
+    /**
+     * Scarga is the two-reactor room: 5511000 brings Targa's half (9420542..44) and 5511001 brings Scarlion's
+     * (9420547..9420549), and {@code isScarga} counts only the two last forms (ScargaBattle.js:192-195). Both reactors
+     * must be clicked, in the row's order, before both halves can die.
+     */
+    @Test
+    void aBotPartyClicksBothScargaReactorsAndKillsBothHalves() {
+        Sim sim = play("ScargaBattle", party(6), 2_000);
+
+        assertOpenedRoomClear(sim, null, 5511000, 5511001); // two chains: asserted one at a time below
+        // the two halves are independent chains, so the kills interleave; what has to hold is each chain's own order
+        assertEquals(List.of(SCARGA_TARGA_1, SCARGA_TARGA_2, SCARGA_TARGA_3), targaKills(sim),
+                "Targa's half walks 9420542 -> 9420543 -> 9420544");
+        assertEquals(List.of(SCARGA_SCARLION_1, SCARGA_SCARLION_2, SCARGA_SCARLION_3), scarlionKills(sim),
+                "Scarlion's half walks 9420547 -> 9420548 -> 9420549");
+        assertEquals(java.util.Set.of(SCARGA_TARGA_1, SCARGA_TARGA_2, SCARGA_TARGA_3, SCARGA_SCARLION_1,
+                SCARGA_SCARLION_2, SCARGA_SCARLION_3), java.util.Set.copyOf(sim.world().killed),
+                "both halves died, six deaths: " + sim.world().killed);
+    }
+
+    /**
+     * Elemental Thanatos is two map-life monsters with no chain, and the script clears on the SECOND death
+     * (ElementalBattle.js:235-248) - which is why the row reads the instance's flag and not the {@code boss} counter.
+     */
+    @Test
+    void aBotPartyKillsBothElementalThanatosAndTheInstanceClearsItself() {
+        Sim sim = play("ElementalBattle", party(2), 2_000);
+
+        assertSingleRoomClear(sim, List.of(ELEMENTAL_1, ELEMENTAL_2));
+    }
+
+    /**
+     * Pink Bean walks the script's own wave order: 8820002 through 8820006 (PinkBeanBattle.js:259-304), then the real
+     * 8820001, whose death writes {@code defeatedBoss 1} in the same call that clears (:261). The statues and the fake
+     * body are never targets: they are not in the row, and {@code 8820000} is not even a map life.
+     */
+    @Test
+    void aBotPartyWalksPinkBeansWavesToTheDefeatedBossProperty() {
+        Sim sim = play("PinkBeanBattle", party(6), 2_000);
+
+        assertEquals("cleared", sim.ended(), "defeatedBoss == 1 is the clear: " + sim.ended()
+                + "; last steps " + tail(sim.steps(), 10));
+        assertEquals(List.of(PINKBEAN_1, PINKBEAN_2, PINKBEAN_3, PINKBEAN_4, PINKBEAN_5, PINKBEAN),
+                sim.world().killed, "the five statue forms, then the real Pink Bean");
+        assertEquals("1", sim.world().props.get("defeatedBoss"), "PinkBeanBattle.js:261 writes it with the clear");
+        for (int statue = 8820019; statue <= 8820023; statue++) {
+            int id = statue;
+            assertFalse(sim.world().killed.contains(id), "a statue is never a target: " + id);
+            assertTrue(sim.steps().stream().noneMatch(st -> st.contains(String.valueOf(id))),
+                    "a statue is never even named by a step: " + id);
+        }
+        assertTrue(sim.steps().stream().noneMatch(st -> st.contains("Fight[mobIds=[8820000")),
+                "8820000 is the script's fake and is not in the row: " + tail(sim.steps(), 8));
+    }
+
+    /**
+     * Delli's room holds the script's friendly monster 9300162, which must never be attacked. It is not a solver
+     * problem at all: a mob the row does not list gets no part, so it can never be chosen - this is the assertion that
+     * makes that true, and the reason Delli is blocked on a survive objective rather than on a friendly-mob primitive.
+     */
+    @Test
+    void aFriendlyMobTheRowDoesNotListNeverBecomesATarget() {
+        assertNull(LiveStageView.partRole(9300162, List.of()), "an unlisted monster is not a part at all");
+        assertNull(LiveStageView.partRole(9300162, List.of(9600000, 9600001)),
+                "and it stays out even when the room lists other monsters");
+        assertEquals(BossTargetRules.Role.ADD, LiveStageView.partRole(9600000, List.of(9600000, 9600001)),
+                "a listed monster is a target, which is why the row must not list the friendly one");
+    }
+
+    /**
+     * A row whose room is opened by a reactor: the same shape as {@link #assertSingleRoomClear}, except that the members
+     * that do not click do idle for the tick the click is in flight - the room is genuinely empty until the click lands,
+     * and the solver's idle step is a 500 ms Wait, not a stall. The rule the assertion keeps is the one that matters:
+     * once the fight has started, nobody waits again.
+     */
+    private static void assertOpenedRoomClear(Sim sim, List<Integer> deaths, int... reactorIds) {
+        assertRoomClear(sim, deaths, true);
+        assertReactorsHit(sim, reactorIds);
+    }
+
     /** The three things every one of these rows is: one stage, one map, the listed deaths in order, no wait, a clear. */
     private static void assertSingleRoomClear(Sim sim, List<Integer> deaths) {
+        assertRoomClear(sim, deaths, false);
+    }
+
+    private static void assertRoomClear(Sim sim, List<Integer> deaths, boolean idleBeforeTheFightIsAllowed) {
         assertEquals("cleared", sim.ended(), "the run must end on the script's instance clear: " + sim.ended()
                 + " after " + sim.ticks() + " ticks; last steps " + tail(sim.steps(), 10));
         assertTrue(sim.run().cleared(), "clear: {instance: true} is the script's setEventCleared()");
         assertEquals(List.of(1), sim.stageOrder(), "one map, no stage transitions");
-        assertEquals(deaths, sim.world().killed, "the fight's ids, in the order the chain wakes them");
-        assertEquals(0, sim.world().waits, "a healthy fight never waits: " + tail(sim.steps(), 10));
+        if (deaths != null) {
+            assertEquals(deaths, sim.world().killed, "the fight's ids, in the order the chain wakes them");
+        }
+        if (!idleBeforeTheFightIsAllowed) {
+            assertEquals(0, sim.world().waits, "a healthy fight never waits: " + tail(sim.steps(), 10));
+        } else {
+            int firstFight = -1;
+            for (int i = 0; i < sim.steps().size(); i++) {
+                if (sim.steps().get(i).contains("Fight[")) {
+                    firstFight = i;
+                    break;
+                }
+            }
+            assertTrue(firstFight >= 0, "the room's fight does happen: " + tail(sim.steps(), 10));
+            for (int i = firstFight + 1; i < sim.steps().size(); i++) {
+                assertFalse(sim.steps().get(i).contains(":Wait["),
+                        "nobody idles once the fight has started: " + sim.steps().get(i));
+            }
+        }
         assertTrue(sim.steps().stream().noneMatch(s -> s.contains(":Abandon[")), "no abandon: " + tail(sim.steps(), 10));
+    }
+
+    private static List<Integer> targaKills(Sim sim) {
+        return sim.world().killed.stream()
+                .filter(id -> id == SCARGA_TARGA_1 || id == SCARGA_TARGA_2 || id == SCARGA_TARGA_3).toList();
+    }
+
+    private static List<Integer> scarlionKills(Sim sim) {
+        return sim.world().killed.stream()
+                .filter(id -> id == SCARGA_SCARLION_1 || id == SCARGA_SCARLION_2 || id == SCARGA_SCARLION_3).toList();
+    }
+
+    /** The room's own reactors, clicked once each, in the row's order, and nothing else touched. */
+    private static void assertReactorsHit(Sim sim, int... reactorIds) {
+        List<String> hits = sim.steps().stream().filter(s -> s.contains("HitReactor[reactorId=")).toList();
+        List<String> expected = java.util.Arrays.stream(reactorIds)
+                .mapToObj(id -> "HitReactor[reactorId=" + id + "]").toList();
+        assertEquals(reactorIds.length, hits.size(), "each reactor is clicked exactly once: " + hits);
+        for (int i = 0; i < reactorIds.length; i++) {
+            assertTrue(hits.get(i).endsWith(expected.get(i)),
+                    "reactor " + i + " is " + reactorIds[i] + ", in the row's order: " + hits);
+        }
     }
 
     // ---- the fake world ---------------------------------------------------------------------------------
@@ -603,6 +818,11 @@ class RowRunSimulationTest {
         private int altarTicks;
         private int tick;
         private int waits;
+        private boolean foughtFake;
+        private int balrogDeaths;
+        private int elementalDeaths;
+        private boolean targaDown;
+        private boolean scarlionDown;
         private int longestWaitStreak;
 
         private record Drop(int ownerId, int itemId, int count) {
@@ -725,6 +945,21 @@ class RowRunSimulationTest {
                 case 240070603 -> parts.add(life(NIBELUNG_1));
                 case 914020000 -> parts.add(life(MAHA));
                 case 800040410 -> parts.add(life(CASTELLAN_1)); // the script's spawn, same effect on the room
+                // the room-opened rows: nothing stands here until a reactor is clicked (or, for Balrog and Pink
+                // Bean, until the script's own setup spawn lands). 220080001, 541020800, 801040100 and 551030200 hold
+                // a reactor and no mobs at all in the dump.
+                case 105100300 -> {
+                    // BalrogBattle.js:145-153: the fake body plus one unsealed form; the claw 8830006 is not in the
+                    // row, so the fight the row describes is the two unsealed forms and then the body made real.
+                    parts.add(new BossTargetRules.Part(BALROG_BODY, BossTargetRules.Role.BODY, true, false, false,
+                            false, 0));
+                    parts.add(life(BALROG_2));
+                }
+                case 922020100 -> {
+                    parts.add(life(ELEMENTAL_1)); // Map.wz/Map/Map9/922020100.img.xml, both mobTime -1
+                    parts.add(life(ELEMENTAL_2));
+                }
+                case 270050100 -> parts.add(life(PINKBEAN_1)); // startWave one second after setup (:93-96, :306-313)
                 default -> {
                 }
             }
@@ -878,6 +1113,39 @@ class RowRunSimulationTest {
                 // which is not the stage's map: the statue's stage drives both)
                 mobs = 2;
                 return;
+            }
+            // the room-opened rows: one click is the whole spawn (scripts/reactor/*.js act())
+            switch (stageMap) {
+                case 220080001 -> {
+                    if (key.equals("2201004")) {
+                        parts.add(life(PAPULATUS_1));
+                    }
+                    return;
+                }
+                case 541020800 -> {
+                    if (key.equals("5411001")) {
+                        parts.add(life(KREXEL_1));
+                    }
+                    return;
+                }
+                case 801040100 -> {
+                    if (key.equals("8001000")) {
+                        parts.add(life(SHOWA_1));
+                    }
+                    return;
+                }
+                case 551030200 -> {
+                    // 3.2 s of summonBossDelayed is instant here: the room only cares that each half arrives
+                    if (key.equals("5511000")) {
+                        parts.add(life(SCARGA_TARGA_1));
+                    }
+                    if (key.equals("5511001")) {
+                        parts.add(life(SCARGA_SCARLION_1));
+                    }
+                    return;
+                }
+                default -> {
+                }
             }
             switch (stageMap) {
                 case 922010200 -> {
@@ -1168,6 +1436,9 @@ class RowRunSimulationTest {
             for (int mobId : f.mobIds()) {
                 for (BossTargetRules.Part part : parts) {
                     if (part.mobId() == mobId) {
+                        if (part.fake()) {
+                            foughtFake = true; // the solver must never name an unkillable fake body
+                        }
                         killed.add(mobId);
                         parts.remove(part);
                         wake(part);
@@ -1217,7 +1488,47 @@ class RowRunSimulationTest {
                 case NIBELUNG_2 -> parts.add(life(NIBELUNG_3));
                 case NIBELUNG_3 -> instanceCleared = true;
                 case CASTELLAN_1 -> parts.add(life(CASTELLAN_2));
+                case PAPULATUS_1 -> parts.add(life(PAPULATUS_2));
+                case PAPULATUS_2 -> parts.add(life(PAPULATUS_3));
+                case PAPULATUS_3 -> instanceCleared = true;
+                case KREXEL_1 -> parts.add(life(KREXEL_2));
+                case KREXEL_2 -> instanceCleared = true;
+                case SHOWA_1 -> parts.add(life(SHOWA_2));
+                case SHOWA_2 -> parts.add(life(SHOWA_3));
+                case SHOWA_3 -> instanceCleared = true;
+                case BALROG_2, BALROG_1, BALROG_BODY -> {
+                    // BalrogBattle.js:250-274: the first unsealed death makes the fake body real, the second clears
+                    balrogDeaths++;
+                    if (balrogDeaths == 1) {
+                        replaceFakeBody(BALROG_BODY, BALROG_BODY);
+                        parts.add(life(BALROG_1));
+                    }
+                    if (balrogDeaths >= 2) {
+                        instanceCleared = true;
+                    }
+                }
+                case SCARGA_TARGA_1 -> parts.add(life(SCARGA_TARGA_2));
+                case SCARGA_TARGA_2 -> parts.add(life(SCARGA_TARGA_3));
+                case SCARGA_SCARLION_1 -> parts.add(life(SCARGA_SCARLION_2));
+                case SCARGA_SCARLION_2 -> parts.add(life(SCARGA_SCARLION_3));
+                case SCARGA_TARGA_3 -> targaDown = true;
+                case SCARGA_SCARLION_3 -> scarlionDown = true;
+                case PINKBEAN_1 -> parts.add(life(PINKBEAN_2));
+                case PINKBEAN_2 -> parts.add(life(PINKBEAN_3));
+                case PINKBEAN_3 -> parts.add(life(PINKBEAN_4));
+                case PINKBEAN_4 -> parts.add(life(PINKBEAN_5));
+                case PINKBEAN_5 -> parts.add(life(PINKBEAN)); // the fifteenth jr death spawns the real Pink Bean
+                case PINKBEAN -> props.put("defeatedBoss", "1"); // PinkBeanBattle.js:261, in the same call as clearPQ
                 default -> {
+                }
+            }
+            if (targaDown && scarlionDown) {
+                instanceCleared = true; // ScargaBattle.js:197-210: both last forms, then the clear
+            }
+            if (part.mobId() == ELEMENTAL_1 || part.mobId() == ELEMENTAL_2) {
+                elementalDeaths++;
+                if (elementalDeaths >= 2) {
+                    instanceCleared = true; // ElementalBattle.js:235-248: the second death is the clear
                 }
             }
             if (part.mobId() == CASTELLAN_2 || part.mobId() == MAHA || part.mobId() == DUNAS

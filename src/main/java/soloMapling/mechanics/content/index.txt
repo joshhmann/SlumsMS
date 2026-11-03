@@ -19,3 +19,10 @@ bergamot.yaml
 nibelung.yaml
 maha.yaml
 castellan.yaml
+papulatus.yaml
+krexel.yaml
+showa.yaml
+balrog.yaml
+scarga.yaml
+elemental.yaml
+pinkbean.yaml
