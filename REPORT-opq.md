@@ -439,23 +439,47 @@ So `int job` is one component with a convenience constructor, filled where the m
 gated by nothing new. It does not need a jobs *model*: it is what the character already is.
 
 What it does not solve by itself, and why no CWKPQ stage was attempted in this commit: the reactor-name-to-job mapping is
-in the script's own table (`4skill0a`..`4fake1e`, `:98-135`) and the sign-up is a reactor **touch**, not a hit - the
-`Master Guardians` listen for a touch packet, the same asymmetry that made Horntail's `summonProperty` unsettable by a
-bot (`2408003.js` `touch()` only). That is the next read, not a guess.
+in the script's own table (`4skill0a`..`4fake1e`, `:98-135`) and the sign-up is a reactor **touch**, not a hit.
 
-## EllinPQ: not unbuildable - the maps have content and the scripts have a clear
+**Click versus touch, and a correction to a defect this report was told about.** The asymmetry is real: `Reactor.hitReactor`
+runs `onHit`/`act` (`src/main/java/server/maps/Reactor.java:242-246`), while `touch`/`untouch` are dispatched only from a
+client packet (`src/main/java/net/server/channel/handlers/TouchReactorHandler.java:34-46` -> `ReactorScriptManager.touch`,
+`src/main/java/scripting/reactor/ReactorScriptManager.java:109-131`). `scripts/reactor/2408003.js:30-34` writes `summoned`
+inside `touch()`, so a bot click cannot set it.
 
-The owner's note asked whether `930000500`/`930000600` genuinely have no script. They do not: they are EllinPQ's stage 5
-and stage 6, and the event is fully scripted - `scripts/event/EllinPQ.js` (255 lines), 4-6 players, level 44-255,
-**adventurer jobs only** (`:93`), maps `930000000`-`930000800`, `eventTime` 30 minutes, front door `2133000`
-(`scripts/npc/2133000.js:51`). Its clears are: map-empty for stage 1 (`monsterKilled` `:246-250`), `statusStg4` for the
+But **the shipped Horntail row does not wait on `summoned`**, so it does not hang in room 1:
+`content/horntail.yaml` stages 1 and 2 say "no summonProperty" in as many words, for exactly this reason, and the fight
+does not need a summon - `scripts/event/HorntailBattle.js:87-93` spawns 8810000 in room 1 at (960,120) and 8810001 in room
+2 at (-420,120) **at setup**. Touching 2408003 on top of that would spawn a *second* head, because its `touch()` spawns
+unconditionally, so the row is right to leave the reactor alone. This is also recorded as correction 1 in "Corrections to
+what this branch had already shipped", where the row used to name `summonProperty: summoned` and was fixed.
+
+The hole is therefore real but **has no consumer on this branch yet**: `SolverStep.TouchReactor` should land with its first
+real user (CWKPQ's Master Guardians), not before it, or it is a step nothing calls.
+
+## REVERSAL: EllinPQ is not unbuildable - the maps have content and the scripts have a clear
+
+This report first carried "ElnathPQ: unstartable (quest 6192 has no start path)" as a verdict. **That verdict was wrong**,
+and it is withdrawn here rather than left to survive into a status file. `930000500` and `930000600` are EllinPQ's stage 5
+and stage 6 - not empty maps with no script - and the event is fully scripted.
+
+- `scripts/event/EllinPQ.js` (255 lines): `minPlayers = 4, maxPlayers = 6` (`:27`), `minLevel = 44, maxLevel = 255`
+  (`:28`), `entryMap = 930000000` (`:29`), `exitMap = 930000800` (`:30`), `recruitMap = 300030100` (`:31`),
+  `minMapId/maxMapId = 930000000/930000800` (`:34-35`), `eventTime = 30` minutes (`:37`).
+- The job gate is one line, `:93` - `Math.floor(ch.getJob().getId() / 1000) == 0`, "only adventurers". That is a **party
+  formation filter**, not an engine gap: the row's `minLevel` band plus a job check where the party is recruited, or a
+  mixed party left to fail at the script's own `getEligibleParty` - which is what happens to any human party containing a
+  non-adventurer today. No job model is invented for it.
+- Front door `2133000` (`scripts/npc/2133000.js:51`), 930000500's reactors shuffled at setup (`:118-120`) - the memory
+  puzzle, which is placements of reactors we already address by id, not of NPCs. Its clears are: map-empty for stage 1 (`monsterKilled` `:246-250`), `statusStg4` for the
 foundry, and the Poison Golem `9300182`'s death for the whole event (`:236-241` -> `clearPQ`). `930000500` is the room
 whose reactors are shuffled at setup (`:118-120`) - the memory puzzle, which is a per-run placement like Magatia's books but
 of reactors, and reactors we *can* address by id.
 
-So the honest status is: EllinPQ is a buildable row with one job gate (bots must be adventurers - they are spawned with a
-random job, so the lobby has to pick), and it is behind Magatia's seam only for the same reason anything with a puzzle is:
-the run has to remember placements. It is not "unwinnable for humans too", and no ticket is needed to say so.
+So the honest status is: EllinPQ is a buildable row. Its clears are the script's own - map-empty for stage 1
+(`monsterKilled`, `:246-250`) and the Poison Golem `9300182`'s death for the event (`:236-241` -> `clearPQ`) - and the one
+gate is adventurer-only jobs, which belongs in party formation. The verdict above is void, and nothing about EllinPQ needs
+a ticket saying it is impossible for humans either.
 
 ## Expedition rule: pause for revive (this is the report it lives in)
 
