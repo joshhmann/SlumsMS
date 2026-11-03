@@ -227,7 +227,7 @@ public final class Orchestrator implements RunOrchestrator {
         long budget = budgetFor(run, view);
         long spent = run.content().kind() == MechanicsModel.Kind.BOSS ? nowMs - run.stageStartedMs() : elapsed;
         if (spent > budget) {
-            abort(run, "time budget of " + budget / 60_000 + " min ran out on stage " + run.currentStage());
+            fail(run, "time budget of " + budget / 60_000 + " min ran out on stage " + run.currentStage());
             return steps;
         }
 
@@ -286,7 +286,7 @@ public final class Orchestrator implements RunOrchestrator {
                 SolverStep step = solver.next(view, m);
                 if (step instanceof SolverStep.Abandon a) {
                     // the content itself says it cannot be finished: end the run on its reason, do not spin
-                    abort(run, a.why());
+                    fail(run, a.why());
                     return steps;
                 }
                 steps.put(m.characterId(), step);
@@ -619,6 +619,18 @@ public final class Orchestrator implements RunOrchestrator {
         if (!run.ended()) {
             run.note(run.startedMs(), "abort: " + why);
             run.end(why);
+        }
+    }
+
+    /**
+     * As {@link #abort}, for a run the party played and could not finish: the run ends {@link RunState.Ending#LOST}, which
+     * is the one ending the bots say something sad about. Every other abort stays silent in chat.
+     */
+    public void fail(Run r, String why) {
+        RunState run = (RunState) r;
+        if (!run.ended()) {
+            run.note(run.startedMs(), "abort: " + why);
+            run.fail(why);
         }
     }
 

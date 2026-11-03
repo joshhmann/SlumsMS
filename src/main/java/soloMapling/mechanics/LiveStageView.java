@@ -158,7 +158,7 @@ final class LiveStageView implements StageView {
     /** Ends the run from outside the orchestrator's tick (a member that could not be put into its room), with a note. */
     void endRun(String why) {
         run.note(run.startedMs(), "abort: " + why);
-        run.end(why);
+        run.fail(why); // a bot that cannot reach its room is a run that tried and failed
     }
 
     MapleMap mapFor(int mapId) {
