@@ -1,0 +1,58 @@
+# Ticket 130 boss lane, branch 164-bossrows: Dunas (TD Battle 2, 1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One map, one fight, and the clear is
+# the script's own clearPQ(): TD_Battle2.js writes no event property at all, so the instance's flag is the whole signal.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 1-6 players, levels 70-255, one lobby (TD_Battle2.js:26-28,41);
+#  - entry is a portal and the human party leader's click starts it: scripts/portal/TD_Boss_enter.js:4-5 names the event
+#    from the map the portal stands in (240070302 -> TD_Battle2) and :20 calls em.startInstance(party, map, 1). It is a
+#    party, not an expedition, so nothing here needs an expedition leader;
+#  - the fight is one monster: 8220010 is the map instance's own life (Map.wz/Map/Map2/240070303.img.xml, mobTime -1 at
+#    -119,254). Nothing in scripts/ or src/ spawns it, and Mob.wz/08220010.img.xml has no info/revive, so there is no
+#    chain and no second form;
+#  - the clear is clearPQ -> eim.setEventCleared() with no property (TD_Battle2.js:225-228); the script's own timeout and
+#    playerExit both changeMap to 240070302 (:30), which is where this row ends a run.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: dunas
+name: Dunas (TD Battle 2)
+kind: BOSS
+eventScript: TD_Battle2
+recruitMap: 240070302
+exitMap: 240070302
+minPlayers: 1
+maxPlayers: 6
+minLevel: 70
+maxLevel: 255
+timeLimitMinutes: 10
+sources:
+  - "scripts/event/TD_Battle2.js (ours, the truth): minPlayers 1 / maxPlayers 6 and levels 70-255 (:26-28), entryMap
+    240070303 and exitMap 240070302 (:29-30), minMapId = maxMapId = 240070303 (:34-35), tdBossId 8220010 (:37),
+    eventTime 10 (:39), maxLobbies 1 (:41); clearPQ sets the instance's flag and nothing else (:225-228)"
+  - "scripts/portal/TD_Boss_enter.js:4-5,20 - the portal names the event from its own map and calls
+    em.startInstance(party, map, 1), so the entry is a party lead by the human who clicks it"
+  - "Map.wz/Map/Map2/240070303.img.xml (dump /root/work/SlumsMS-170-evan/wz): the map's life is 8220010, mobTime -1, at
+    (-119,254). Mob.wz/08220010.img.xml: no info/revive, so the fight is one form"
+  - "BotStory 81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364, agent-bosses/boss-rules.json neo_dunas: minLevel 70 and
+    targetPriority [8220010]. Only the target list was consulted and our script states the same two numbers; its
+    component model, focus/keepOut bands, ledges and stagePortal are fork-specific and are not imported"
+stages:
+  - stage: 1
+    map: 240070303
+    name: Dunas
+    solver: boss-phases
+    # the room's target is the instance's own life: it can stand empty for a moment while that life arrives, and the
+    # solver must not read that moment as an instance nobody can clear. 60 s is a policy number (two respawn animations
+    # and a map instance's build, with margin), not a WZ one.
+    spawnWaitSeconds: 60
+    mobs:
+      - 8220010
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 8220010
+        note: the only monster in the room; its death is the script's clearPQ
+    # TD_Battle2.js:225-228 writes no property: the instance's own flag is the clear.
+    clear:
+      instance: true

@@ -87,6 +87,28 @@ class RowRunSimulationTest {
             8810009};
     private static final int HORNTAIL_BODY = 8810018;
 
+    // ---- the seven single-room rows: map life, or (Castellan) the script's own setup spawn ------------------
+
+    /** TD_Battle2.js:37 in 240070303 ({@code Map.wz/Map/Map2/240070303.img.xml}, life at -119,254). */
+    private static final int DUNAS = 8220010;
+    /** TD_Battle3.js:37 in 240070403. */
+    private static final int AUFHEBEN = 8220011;
+    /** TD_Battle4.js:37 in 240070503. */
+    private static final int OBERON = 8220012;
+    /** TD_Battle1.js:37 is 7220005; 7220003 is the map's life and the other two are its {@code info/revive}. */
+    private static final int BERGAMOT_1 = 7220003;
+    private static final int BERGAMOT_2 = 7220004;
+    private static final int BERGAMOT_3 = 7220005;
+    /** TD_Battle5.js:37 is 8220015; 8220013 is the map's life and 8220014 its first revive. */
+    private static final int NIBELUNG_1 = 8220013;
+    private static final int NIBELUNG_2 = 8220014;
+    private static final int NIBELUNG_3 = 8220015;
+    /** MahaBattle.js:139-142 clears on this id in 914020000. */
+    private static final int MAHA = 9001014;
+    /** CastellanBattle.js:131-134 spawns 9400408 at setup; 9400409 is its {@code info/revive} and the clear (:227-240). */
+    private static final int CASTELLAN_1 = 9400408;
+    private static final int CASTELLAN_2 = 9400409;
+
     // ---- the loop --------------------------------------------------------------------------------------
 
     /** What one simulated run left behind, so a test can assert on it without a dozen locals. */
@@ -443,6 +465,97 @@ class RowRunSimulationTest {
                 "and the eight parts before the body");
     }
 
+    // ---- the seven single-room rows: entry, one map, the boss's death, the instance's clear -------------
+
+    /**
+     * Dunas ({@code scripts/event/TD_Battle2.js}:37 {@code tdBossId = 8220010}) is the map's life in 240070303, the
+     * fight is one kill, and the clear is the script's {@code clearPQ()} with no property behind it.
+     */
+    @Test
+    void aBotPartyKillsDunasAndTheInstanceClearsItself() {
+        Sim sim = play("TD_Battle2", party(6), 2_000);
+
+        assertSingleRoomClear(sim, List.of(DUNAS));
+    }
+
+    @Test
+    void aBotPartyKillsAufhebenAndTheInstanceClearsItself() {
+        Sim sim = play("TD_Battle3", party(6), 2_000);
+
+        assertSingleRoomClear(sim, List.of(AUFHEBEN));
+    }
+
+    @Test
+    void aBotPartyKillsOberonAndTheInstanceClearsItself() {
+        Sim sim = play("TD_Battle4", party(6), 2_000);
+
+        assertSingleRoomClear(sim, List.of(OBERON));
+    }
+
+    /**
+     * Bergamot is a WZ revive chain ({@code Mob.wz/07220003.img.xml} {@code info/revive}): 7220003 wakes 7220004 and
+     * 7220004 wakes 7220005, which is the script's {@code tdBossId} (TD_Battle1.js:37) and the only death that clears.
+     * The row lists all three in that order and the run walks them without waiting in between.
+     */
+    @Test
+    void aBotPartyWalksBergamotsReviveChainAndTheInstanceClearsItself() {
+        Sim sim = play("TD_Battle1", party(6), 2_000);
+
+        assertSingleRoomClear(sim, List.of(BERGAMOT_1, BERGAMOT_2, BERGAMOT_3));
+    }
+
+    /** Nibelung's chain is 8220013 -> 8220014 -> 8220015 (TD_Battle5.js:37 is the last form). */
+    @Test
+    void aBotPartyWalksNibelungsReviveChainAndTheInstanceClearsItself() {
+        Sim sim = play("TD_Battle5", party(6), 2_000);
+
+        assertSingleRoomClear(sim, List.of(NIBELUNG_1, NIBELUNG_2, NIBELUNG_3));
+    }
+
+    /** Maha is one character's instance (scripts/quest/21401.js:23-24), one map, one map-life boss. */
+    @Test
+    void oneBotKillsMahaAndTheInstanceClearsItself() {
+        Sim sim = play("MahaBattle", party(1), 2_000);
+
+        assertSingleRoomClear(sim, List.of(MAHA));
+    }
+
+    /**
+     * Castellan is the script's own spawn: {@code CastellanBattle.js:131-134} puts 9400408 on the ground at setup, and
+     * that death revives 9400409, the only id whose death reaches {@code clearPQ()} (:227-240).
+     */
+    @Test
+    void aBotPartyWalksCastellansTwoFormsAndTheInstanceClearsItself() {
+        Sim sim = play("CastellanBattle", party(6), 2_000);
+
+        assertSingleRoomClear(sim, List.of(CASTELLAN_1, CASTELLAN_2));
+    }
+
+    /**
+     * The reason the row declares {@code spawnWaitSeconds}: the room can stand empty while the instance's own life is
+     * still coming. Here it stays empty for 45 s - past the 30 s grace - and the run must be waiting, not abandoning
+     * an instance whose boss is on its way.
+     */
+    @Test
+    void aDunasRoomThatStandsEmptyForFortyFiveSecondsIsNotAbandonedAtThirty() {
+        Sim sim = play("TD_Battle2", party(6), 2_000, w -> w.spawnAfterMs(DUNAS, 45_000));
+
+        assertEquals("cleared", sim.ended(), "the boss arrived, died, and the instance cleared: " + sim.ended());
+        assertEquals(List.of(DUNAS), sim.world().killed);
+        assertTrue(sim.world().waits > 0, "the room really was empty for a while: " + tail(sim.steps(), 5));
+    }
+
+    /** The three things every one of these rows is: one stage, one map, the listed deaths in order, no wait, a clear. */
+    private static void assertSingleRoomClear(Sim sim, List<Integer> deaths) {
+        assertEquals("cleared", sim.ended(), "the run must end on the script's instance clear: " + sim.ended()
+                + " after " + sim.ticks() + " ticks; last steps " + tail(sim.steps(), 10));
+        assertTrue(sim.run().cleared(), "clear: {instance: true} is the script's setEventCleared()");
+        assertEquals(List.of(1), sim.stageOrder(), "one map, no stage transitions");
+        assertEquals(deaths, sim.world().killed, "the fight's ids, in the order the chain wakes them");
+        assertEquals(0, sim.world().waits, "a healthy fight never waits: " + tail(sim.steps(), 10));
+        assertTrue(sim.steps().stream().noneMatch(s -> s.contains(":Abandon[")), "no abandon: " + tail(sim.steps(), 10));
+    }
+
     // ---- the fake world ---------------------------------------------------------------------------------
 
     /**
@@ -473,6 +586,8 @@ class RowRunSimulationTest {
         private final List<Drop> floor = new ArrayList<>();
         private final List<Pending> pending = new ArrayList<>();
         private final List<BossTargetRules.Part> parts = new ArrayList<>();
+        /** Boss ids the map's life has not stood up yet, and the {@code now} they appear at. */
+        private final Map<Integer, Long> pendingSpawns = new LinkedHashMap<>();
         private final List<String> applied = new ArrayList<>();
         private final List<Integer> killed = new ArrayList<>();
         private final Map<Integer, Integer> streaks = new LinkedHashMap<>();
@@ -505,12 +620,19 @@ class RowRunSimulationTest {
             }
         }
 
+        /** "This id arrives after N ms": the room stands without it until then, as a script's setup spawn does. */
+        void spawnAfterMs(int mobId, long afterMs) {
+            parts.removeIf(p -> p.mobId() == mobId);
+            pendingSpawns.put(mobId, now + afterMs);
+        }
+
         // ---- the stage's own starting state, exactly what setup() leaves ---------------------------------
 
         void enterStage() {
             int stageMap = run.stageData().mapId();
             mobs = 0;
             parts.clear();
+            pendingSpawns.clear();
             areas = List.of();
             npcs.clear();
             passGiven = false;
@@ -596,9 +718,21 @@ class RowRunSimulationTest {
                     parts.add(new BossTargetRules.Part(stageMap == 240060000 ? HORNTAIL_HEAD_1 : HORNTAIL_HEAD_2,
                             BossTargetRules.Role.BODY, false, true, false, false, 0));
                 }
+                case 240070303 -> parts.add(life(DUNAS)); // Map.wz/Map/Map2/240070303.img.xml, life mobTime -1
+                case 240070403 -> parts.add(life(AUFHEBEN));
+                case 240070503 -> parts.add(life(OBERON));
+                case 240070203 -> parts.add(life(BERGAMOT_1)); // its two revives come from its death, not the map
+                case 240070603 -> parts.add(life(NIBELUNG_1));
+                case 914020000 -> parts.add(life(MAHA));
+                case 800040410 -> parts.add(life(CASTELLAN_1)); // the script's spawn, same effect on the room
                 default -> {
                 }
             }
+        }
+
+        /** A mob the map instance starts with: a listed, hit-able target with no role but its id. */
+        private static BossTargetRules.Part life(int mobId) {
+            return new BossTargetRules.Part(mobId, BossTargetRules.Role.ADD, false, true, false, false, 0);
         }
 
         // ---- applying one step: the script rule each step triggers ---------------------------------------
@@ -617,6 +751,12 @@ class RowRunSimulationTest {
                 if (p.firesAt() <= now) {
                     pending.remove(p);
                     activate(p); // MapleMap.activateItemReactors fires 5000 ms after the drop landed
+                }
+            }
+            for (Map.Entry<Integer, Long> spawn : List.copyOf(pendingSpawns.entrySet())) {
+                if (spawn.getValue() <= now) {
+                    pendingSpawns.remove(spawn.getKey());
+                    parts.add(life(spawn.getKey())); // the map's life stands up
                 }
             }
             for (Map.Entry<Integer, SolverStep> e : steps.entrySet()) {
@@ -1065,6 +1205,24 @@ class RowRunSimulationTest {
             }
             if (part.mobId() == HORNTAIL_BODY) {
                 props.put("defeatedBoss", "1");
+                return;
+            }
+            // The seven single-room rows: each death is either the clear the script writes, or the next form of a WZ
+            // revive chain (Monster.killBy copies getRevives() onto the map, server/life/Monster.java:903-963).
+            switch (part.mobId()) {
+                case BERGAMOT_1 -> parts.add(life(BERGAMOT_2));
+                case BERGAMOT_2 -> parts.add(life(BERGAMOT_3));
+                case BERGAMOT_3 -> instanceCleared = true;
+                case NIBELUNG_1 -> parts.add(life(NIBELUNG_2));
+                case NIBELUNG_2 -> parts.add(life(NIBELUNG_3));
+                case NIBELUNG_3 -> instanceCleared = true;
+                case CASTELLAN_1 -> parts.add(life(CASTELLAN_2));
+                default -> {
+                }
+            }
+            if (part.mobId() == CASTELLAN_2 || part.mobId() == MAHA || part.mobId() == DUNAS
+                    || part.mobId() == AUFHEBEN || part.mobId() == OBERON) {
+                instanceCleared = true; // clearPQ(): the script sets no property, so the instance is the whole clear
             }
         }
 

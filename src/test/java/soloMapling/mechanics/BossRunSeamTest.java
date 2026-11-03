@@ -65,7 +65,35 @@ class BossRunSeamTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        Files.writeString(dataDir.resolve("index.txt"), "zakum.yaml\n");
+        Files.writeString(dataDir.resolve("index.txt"), "zakum.yaml\ndunas.yaml\n");
+        Files.writeString(dataDir.resolve("dunas.yaml"), """
+                id: dunas
+                name: Dunas
+                kind: BOSS
+                eventScript: TD_Battle2
+                recruitMap: 240070302
+                exitMap: 240070302
+                minPlayers: 1
+                maxPlayers: 6
+                minLevel: 70
+                maxLevel: 255
+                timeLimitMinutes: 10
+                sources:
+                  - "scripts/event/TD_Battle2.js (ours: the party instance, minPlayers 1, no property on clear)"
+                stages:
+                  - stage: 1
+                    map: 240070303
+                    name: Dunas
+                    solver: boss-phases
+                    spawnWaitSeconds: 120
+                    mobs: [ 8220010 ]
+                    objectives:
+                      - id: boss
+                        kind: DEFEAT
+                        mob: 8220010
+                    clear:
+                      instance: true
+                """);
         Files.writeString(dataDir.resolve("zakum.yaml"), """
                 id: zakum
                 name: Zakum
@@ -170,6 +198,32 @@ class BossRunSeamTest {
         assertNull(MechanicsRuns.onInstanceStarted(eim, true));
         assertNull(MechanicsRuns.get().runFor(eim), "default off: today's behaviour, byte for byte");
         assertTrue(capture.lines.isEmpty(), capture.lines.toString());
+    }
+
+    @Test
+    void aTdBattleInstanceStaysInertWhileTheBossSwitchIsOff() {
+        EventInstanceManager eim = expedition("TD_Battle2",
+                List.of(member(9_630, false), member(9_631, true)), 9_630);
+
+        assertNull(MechanicsRuns.onInstanceStarted(eim, false),
+                "the switch is unset: a portal-entered party instance arms nothing");
+        assertNull(MechanicsRuns.get().runFor(eim), "default off: today's behaviour, byte for byte");
+        assertTrue(capture.lines.isEmpty(), capture.lines.toString());
+    }
+
+    @Test
+    void aTdBattleInstanceArmsARunForItsBotsWhenTheSwitchIsOn() {
+        System.setProperty(Mechanics.BOSS_FLAG, "true");
+        Character leader = member(9_640, false);
+        Character bot = member(9_641, true);
+        EventInstanceManager eim = expedition("TD_Battle2", List.of(leader, bot), 9_640);
+
+        MechanicsRuns.Active run = MechanicsRuns.onInstanceStarted(eim, false);
+
+        assertNotNull(run, "a party instance of a BOSS row is a run too: the kind decides, not the caller");
+        assertEquals(List.of(bot), run.bots());
+        assertEquals("dunas", MechanicsRuns.contentFor("TD_Battle2").id(), "the row the instance matched");
+        assertEquals(240070303, run.run().stageData().mapId());
     }
 
     @Test
