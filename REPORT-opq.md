@@ -1221,12 +1221,12 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8612 tests, 0 failures, 0 errors, 137 skipped,
-BUILD SUCCESS, `EXIT=0`, zero `<<< FAILURE` markers** (`/tmp/opq-loop.log`). That is the number this report treats as the
+`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8616 tests, 0 failures, 0 errors, 137 skipped,
+BUILD SUCCESS, `EXIT=0`, zero `<<< FAILURE` markers** (`/tmp/opq-br.log`). That is the number this report treats as the
 suite's proof. Two runs before it were also clean at 8609 each, which is what proved the `BotConversationFlowTest`
 selector fix rather than asserting it (`/tmp/opq-flake-A.log`, `/tmp/opq-flake-B.log`, both `EXIT=0`).
 
-The ladder, so the next number is comparable: 8612 (the `loopTo:` primitive) -> 8609 (the flake fix, twice) -> 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
+The ladder, so the next number is comparable: 8616 (the eight BossRush rows + `BossRushRowTest`) -> 8612 (the `loopTo:` primitive) -> 8609 (the flake fix, twice) -> 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
 one class) -> 8597 (`/tmp/opq-ellin4.log`, Ellin six of six) -> 8592 (`/tmp/opq-cwkpq2.log`) -> 8590 -> 8586 -> 8585 ->
 8582 -> 8577 -> 8573 -> 8567 -> 8562 -> 8552 -> 8541 -> 8532 -> 8529 -> 8515.
 
