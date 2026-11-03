@@ -66,7 +66,8 @@ class MechanicsDataFilesTest {
         });
 
         assertEquals(List.of(), r.errors());
-        assertEquals(List.of("kpq", "zakum", "horntail", "opq", "lpq", "hpq"),
+        assertEquals(List.of("kpq", "zakum", "horntail", "opq", "lpq", "hpq",
+                "cafepq1", "cafepq2", "cafepq3", "cafepq4", "cafepq5", "cafepq6"),
                 r.content().stream().map(c -> c.id()).toList());
         assertEquals(10, r.content().stream().filter(c -> "kpq".equals(c.id())).findFirst().orElseThrow()
                 .stage(1).orElseThrow().answer(1).orElseThrow());

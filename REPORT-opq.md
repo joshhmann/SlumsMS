@@ -200,8 +200,49 @@ The fail-before pair is in `InstanceClearTest`: `aRowWhoseFinalStageClearsOnTheI
 whose only clear is the flag: today the run ends `cleared`, before the change it never ends) and
 `aStageWithNoPropertyToReadWasNeverClearBefore`. Both were run against the old `cleared()` and both failed there - the
 message then is the whole defect: "the row's only stage clears on the instance's flag ==> expected: true but was: false".
-Nothing here is a row: the nine rows that want it are Cafe PQ, LudiMaze PQ, PiratePQ, Treasure PQ, DelliBattle and the
-three that need more than this anyway.
+Cafe PQ is now the first row to use it (below); LudiMaze PQ, PiratePQ, Treasure PQ and DelliBattle are the ones behind
+it.
+
+## Cafe PQ: six areas, six rows, one flag, and an NPC that pays
+
+Six separate events (`scripts/event/CafePQ_1.js` .. `_6.js`), identical skeleton, one stage each. Six rows
+(`content/cafepq1.yaml` .. `cafepq6.yaml`), ids `cafepq1`..`cafepq6`, `eventScript: CafePQ_N`, one solver
+(`cafepq-coupons`), each clearing on `clear: { instance: true }` - no property exists anywhere in those scripts.
+
+| area | maps (the script's own `eventMaps`) | coupons | row |
+|---|---|---|---|
+| 1 | 190000000, 190000001, 190000002 | 400 | `cafepq1` |
+| 2 | 191000000, 191000001 | 350 | `cafepq2` |
+| 3 | 192000000, 192000001 | 350 | `cafepq3` |
+| 4 | 195000000, 195010000, 195020000, 195030000 | 450 | `cafepq4` |
+| 5 | 196000000, 196010000 | 500 | `cafepq5` |
+| 6 | 197000000, 197010000 | 300 | `cafepq6` |
+
+Gates (`CafePQ_1.js:27-31,38`, identical in all six): 3-6 players, level 21-255, 45 minutes, front door and recruit map
+193000000 (the Computer, `scripts/npc/1052013.js`), exit the same. `CouponsNeeded` is `:39`; the drop per kill is
+`:251-259` (5 above level 40, 1 below, 3 above 65 in area 3 only). The coupons are spawned by hand on the floor at each
+kill (`:261-277`), exclusive to the instance, and every `eventMap` re-spawns every 15 s (`:131-138`).
+
+- **Six flags would be six ways to be half-on, so there is one.** All six rows carry `flag: slums.mechanics.cafepq`
+  (`Mechanics.CAFE_FLAG`), because the Computer asks *which* area from one menu on one map - a server that can play one
+  can play them all. Per row, as before: the lobby switch is `slums.mechanics.cafepqN.lobby` and the run cap is
+  `slums.mechanics.cafepqN.runs`, which are the knobs that actually differ. `ContentLobbyTest` had to learn this: its
+  row switch is now `content.flag()` when the row has one, and it still proves three flags are needed before bots form a
+  party, now for all nine staffed rows.
+- **The Computer pays, it does not charge.** `1052013.js:59` is `cm.gainItem(4001007, couponsNeeded)` - a *positive*
+  quantity, so the party keeps its coupons and is given the same number again. A row with a `HAND_IN` objective would
+  have the bots dropping coupons for an NPC that is handing them out, so the row states the count in a `COLLECT`
+  objective (the leader's own tally) and the talk carries no item at all: `TalkNpc(1052013, 0, 0)`, with the script's
+  own `haveItem` check as the gate. `theLeaderTalksToTheComputerOnlyWithTheWholeCountInHand` pins `itemId == 0` and
+  `count == 0`, and the simulation asserts no step ever reads `TalkNpc[1052013] with 400 x 4001007`.
+- **What the solver does, in order.** Leader with fewer than `couponsNeeded` → fight the area's monsters keeping the
+  coupon (`Fight(0, 4001007, need)`), loot any coupon on the floor, and otherwise wait for the 15 s respawn; a member
+  holding the whole count drops them by the leader (`PassHandover.give`); the leader with the whole count talks to the
+  Computer. A member in one of the area's *sibling* maps is not behind (`extraMaps` = the script's other `eventMaps`),
+  and a member on a foreign map walks back.
+- **Fail-before.** `aCafeAreaWithoutItsCouponsNeverAdvancesOnTheComputersTalk` shuts the area's monsters and floor down:
+  the leader reaches the Computer without the count, the script's `haveItem` refuses, the instance never clears and the
+  run does not end `cleared`. With the instance flag wired in, the six good runs all end `cleared`, one stage each.
 
 ## Expedition rule: pause for revive (this is the report it lives in)
 
@@ -396,9 +437,11 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8532 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-instance2.log`, exit 0 - the instance-clear commit; `InstanceClearTest` 3 and the fail-before pair
-run against the old `cleared()` first, where two of them failed). Before it: **8529 tests, 0 failures, 0 errors, 137
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8541 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-cafe.log`, exit 0 - Cafe PQ's own commit; `CafePqSolversTest` 7 and two simulation cases, one of
+them the fail-before that shuts an area's monsters and floor down). Before it: **8532 tests, 0 failures, 0 errors, 137
+skipped, BUILD SUCCESS** (`/tmp/opq-instance2.log`, exit 0 - the instance-clear commit; `InstanceClearTest` 3 and the
+fail-before pair run against the old `cleared()` first, where two of them failed). Before it: **8529 tests, 0 failures, 0 errors, 137
 skipped, BUILD SUCCESS** (`/tmp/opq-hpq.log`, exit 0 - Henesys PQ's own commit; `HpqSolversTest` 11 and three simulation
 cases, one of which is the double-activation trap). Before it, on the Ludi-only head: **8515 tests, 0 failures, 0 errors, 137 skipped,
 BUILD SUCCESS** (`/tmp/opq-lpq.log`, exit 0; `LpqSolversTest` 12, two more simulation cases, and the shared row/data

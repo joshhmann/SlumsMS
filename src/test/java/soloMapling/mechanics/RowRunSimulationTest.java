@@ -12,6 +12,7 @@ import java.util.OptionalInt;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -59,6 +60,11 @@ class RowRunSimulationTest {
     private static final int ROOT_OF_LIFE = 4001055;
     private static final int EAK = 2013001;
     private static final int HPQ_CAKE = 4001101;
+
+    /** Cafe PQ: the one coupon, and how many a kill drops (CafePQ_1.js:251-259, five for a level 40+ area). */
+    private static final int CAFE_COUPON = 4001007;
+    private static final int CAFE_DROP = 5;
+    private static final int COMPUTER = 1052013;
     private static final int LPQ_PASS = 4001022;
     private static final int LPQ_KEY = 4001023;
     private static final List<Integer> LPQ_TALK = List.of(2040036, 2040037, 2040038, 2040039, 2040040, 2040041,
@@ -96,6 +102,12 @@ class RowRunSimulationTest {
     }
 
     private static Sim play(String eventScript, List<RunMember> members, int maxTicks) {
+        return play(eventScript, members, maxTicks, world -> {
+        });
+    }
+
+    private static Sim play(String eventScript, List<RunMember> members, int maxTicks,
+                            java.util.function.Consumer<World> prepare) {
         MechanicsModel.Content content = MechanicsRuns.contentFor(eventScript);
         assertEquals(eventScript, content == null ? null : content.eventScript(),
                 "the row must be listed in content/index.txt");
@@ -104,6 +116,7 @@ class RowRunSimulationTest {
         assertFalse(run.ended(), "the party started: " + run.endedBecause());
         World world = new World(run);
         world.enterStage();
+        prepare.accept(world);
         List<Integer> order = new ArrayList<>();
         order.add(run.currentStage());
         int stage = run.currentStage();
@@ -123,6 +136,7 @@ class RowRunSimulationTest {
         }
         return new Sim(run, world, order, ticks);
     }
+
 
     /** Henesys PQ's own gate is three to six (HenesysPQ.js:27-28), so the smallest legal party plays the hill. */
     private static final int THREE = 3;
@@ -229,6 +243,49 @@ class RowRunSimulationTest {
                 + " ticks (the 5000 ms activation, plus a margin)");
         assertTrue(sim.steps().stream().noneMatch(l -> l.contains("Wait[") && !l.contains("why=")),
                 "every wait says why");
+    }
+
+    @Test
+    void everyOneOfTheSixCafeAreasPlaysToTheComputersClear() {
+        int[][] maps = {{190000000, 190000001, 190000002}, {191000000, 191000001}, {192000000, 192000001},
+                {195000000, 195010000, 195020000, 195030000}, {196000000, 196010000}, {197000000, 197010000}};
+        int[] needs = {400, 350, 350, 450, 500, 300};
+        for (int n = 1; n <= 6; n++) {
+            Sim sim = play("CafePQ_" + n, party(THREE), 12_000);
+
+            assertTrue(sim.run().ended(), "area " + n + " has to finish inside the tick budget: " + sim.ticks()
+                    + " ticks, stage " + sim.run().currentStage());
+            assertEquals("cleared", sim.run().endedBecause(), "area " + n);
+            assertEquals(maps[n - 1][0], sim.run().stageData().mapId(), "area " + n + " is one stage on its entry map");
+            assertTrue(sim.world().instanceCleared, "area " + n + " clears on the instance's own flag: nothing in"
+                    + " CafePQ_" + n + ".js writes a property");
+            assertTrue(sim.world().props.isEmpty(), "and no property was invented to stand in for it: "
+                    + sim.world().props);
+            assertTrue(sim.steps().stream().anyMatch(l -> l.startsWith("1:") && l.contains("TalkNpc[")
+                            && l.contains(String.valueOf(COMPUTER))),
+                    "the clear is the Computer's talk, and the script's own haveItem gate is what allows it");
+            // the script PAYS the party its coupons (1052013.js:59 is a positive gainItem), so the party must never
+            // hand them over: a hand-in here would ask the bots for the item the NPC is giving them
+            String handedIn = "with " + needs[n - 1] + " x " + CAFE_COUPON;
+            assertTrue(sim.steps().stream().noneMatch(l -> l.contains("TalkNpc[") && l.contains(handedIn)),
+                    "area " + n + " must not hand anything in: " + sim.steps());
+            assertTrue(sim.steps().stream().noneMatch(l -> l.contains("Wait[") && !l.contains("why=")),
+                    "every wait says why");
+        }
+    }
+
+    @Test
+    void aCafeAreaWithoutItsCouponsNeverAdvancesOnTheComputersTalk() {
+        // the fail-before for the instance clear: the leader reaches the Computer with 399 of 400 coupons, which the
+        // script's own haveItem gate refuses, so the instance never clears and the row cannot advance
+        Sim sim = play("CafePQ_1", party(THREE), 12_000, world -> {
+            world.mobs = 0;         // nothing alive, nothing on the floor, and nothing coming back
+            world.floor.clear();
+            world.noRespawn = true;
+        });
+
+        assertFalse(sim.world().instanceCleared, "a short party is not a clear");
+        assertNotEquals("cleared", sim.run().endedBecause(), "and the row must not claim one");
     }
 
     @Test
@@ -394,6 +451,17 @@ class RowRunSimulationTest {
      */
     private static final class World implements StageView {
 
+        /** {@code eim.setEventCleared()}: Cafe PQ's six areas write no property at all, only this. */
+        private boolean instanceCleared;
+
+        /** Takes the 15 s respawn away, so a test can leave an area with nothing left to kill or to pick up. */
+        private boolean noRespawn;
+
+        @Override
+        public boolean eventCleared() {
+            return instanceCleared;
+        }
+
         private final RunState run;
         private final Map<Integer, Integer> at = new LinkedHashMap<>();
         private final Map<Integer, int[]> spot = new LinkedHashMap<>();
@@ -489,6 +557,12 @@ class RowRunSimulationTest {
                         props.put("stage", "6"); // six beds planted and the Moon Bunny out on the hill
                     }
                 }
+                case 190000000, 191000000, 192000000, 195000000, 196000000, 197000000 -> {
+                    // a Cafe PQ area: its monsters drop the coupon by hand (CafePQ_1.js:261-277) and the Computer
+                    // waits on the area's entry map
+                    mobs = 40;
+                    npcs.put(COMPUTER, new int[]{0, 0});
+                }
                 case 922010800 -> {
                     // scripts/npc/2040043.js: nine area nodes (one per box) and the leader's combination
                     List<Rectangle> boxes = new ArrayList<>();
@@ -531,8 +605,13 @@ class RowRunSimulationTest {
 
         void apply(Map<Integer, SolverStep> steps) {
             tick++;
-            if (run.stageData().mapId() == 910010000 && tick % 150 == 0) {
+            if (!noRespawn && run.stageData().mapId() == 910010000 && tick % 150 == 0) {
                 mobs = Math.max(mobs, 6); // respawnStages: the hill re-spawns every 15 s (HenesysPQ.js:131-138)
+            }
+            if (!noRespawn && CafeAreas.mapsOf(run.stageData().mapId()).contains(run.stageData().mapId())
+                    && tick % 150 == 0) {
+                // CafePQ_*.js:131-138: every eventMap is re-spawned every 15 s, and the coupons come from kills
+                mobs = Math.max(mobs, 40);
             }
             for (Pending p : List.copyOf(pending)) {
                 if (p.firesAt() <= now) {
@@ -765,6 +844,15 @@ class RowRunSimulationTest {
                 return;
             }
             switch (run.stageData().mapId()) {
+                case 190000000, 191000000, 192000000, 195000000, 196000000, 197000000 -> {
+                    int need = CafeCouponsSolver.need(this);
+                    if (heldOf(id, CAFE_COUPON) >= need) {
+                        // scripts/npc/1052013.js:56-63: gainItem(4001007, +couponsNeeded) and then clearPQ() - the
+                        // NPC PAYS the party, so the coupons stay in hand and the clear rides the instance's flag
+                        give(id, CAFE_COUPON, need);
+                        instanceCleared = true;
+                    }
+                }
                 case 910010000 -> {
                     if (heldOf(id, HPQ_CAKE) >= 10) {
                         take(id, HPQ_CAKE, 10);
@@ -929,7 +1017,8 @@ class RowRunSimulationTest {
                 }
                 if (f.itemId() > 0) {
                     // one monster drops a few of its piece; Papa Pixie drops the one Root of Life
-                    give(id, f.itemId(), f.itemId() == WALKWAY_PIECE ? 10 : f.itemId() == LOUNGE_PIECE ? 12 : 1);
+                    give(id, f.itemId(), f.itemId() == WALKWAY_PIECE ? 10 : f.itemId() == LOUNGE_PIECE ? 12
+                            : f.itemId() == CAFE_COUPON ? CAFE_DROP : 1);
                 }
                 return;
             }

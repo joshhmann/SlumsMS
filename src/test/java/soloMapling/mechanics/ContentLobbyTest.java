@@ -55,8 +55,10 @@ class ContentLobbyTest {
 
     @Test
     void everyStaffedRowNamesAFrontDoorARecruitMapAndAParty() {
-        assertEquals(List.of("OrbisPQ", "LudiPQ", "HenesysPQ"), ContentLobby.rows(),
-                "three rows staff themselves: the tower, the Ludibrium nine and the primrose hill");
+        assertEquals(List.of("OrbisPQ", "LudiPQ", "HenesysPQ",
+                "CafePQ_1", "CafePQ_2", "CafePQ_3", "CafePQ_4", "CafePQ_5", "CafePQ_6"), ContentLobby.rows(),
+                "every row in the list staffs itself: the tower, the Ludibrium nine, the primrose hill and the six cafe"
+                        + " areas");
         for (Content content : staffedRows()) {
             assertEquals(MechanicsModel.Kind.PQ, content.kind(), content.id() + " is a party quest");
             assertTrue(content.entryNpc() > 0, content.id() + " needs an entryNpc: a bot talks to an NPC, it has no button");
@@ -73,6 +75,11 @@ class ContentLobbyTest {
 
     // ---- the gate ----------------------------------------------------------------------------------
 
+    /** The switch that turns the ROW on: the row's own {@code flag:}, which several rows may share. */
+    private static String rowSwitch(Content content) {
+        return content.flag() == null || content.flag().isBlank() ? MECHANICS + "." + content.id() : content.flag();
+    }
+
     @Test
     void aLobbyNeedsAllThreeSwitchesAndOrbisIsTheRowThatProvesIt() {
         for (Content content : staffedRows()) {
@@ -82,16 +89,16 @@ class ContentLobbyTest {
             System.setProperty(MECHANICS, "true");
             assertFalse(ContentLobby.enabledFor(content), content.id() + ": mechanics alone must not start a lobby");
 
-            System.setProperty(MECHANICS + "." + content.id(), "true");
+            System.setProperty(rowSwitch(content), "true");
             assertFalse(ContentLobby.enabledFor(content), content.id() + ": the row alone must not spawn a party");
 
             System.setProperty(lobby, "true");
-            System.clearProperty(MECHANICS + "." + content.id());
+            System.clearProperty(rowSwitch(content));
             assertFalse(ContentLobby.enabledFor(content),
                     content.id() + ": the lobby switch without the row's own switch is still off - a server that plays a"
                             + " row by hand never gets spawned bots");
 
-            System.setProperty(MECHANICS + "." + content.id(), "true");
+            System.setProperty(rowSwitch(content), "true");
             assertTrue(ContentLobby.enabledFor(content), content.id() + ": three flags, and then bots form a party");
 
             System.clearProperty(MECHANICS);

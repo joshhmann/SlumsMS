@@ -6,3 +6,9 @@ horntail.yaml
 opq.yaml
 lpq.yaml
 hpq.yaml
+cafepq1.yaml
+cafepq2.yaml
+cafepq3.yaml
+cafepq4.yaml
+cafepq5.yaml
+cafepq6.yaml

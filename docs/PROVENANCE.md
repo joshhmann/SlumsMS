@@ -325,6 +325,20 @@ Nothing else in the row comes from another project: the gates (`3`-`6` players, 
 `setup()` never initialises - `HenesysPQ.js:111-114`), the cakes are `4001101` x `10` from that same NPC, and the run-ender
 (any hit on the Moon Bunny `9300061`, `HenesysPQ.js:248-258`) is why no step in the row names it.
 
+### Cafe PQ stage data, 1.6.4 (branch `164-opq`, ticket 164): no outside source
+
+Nothing in Cafe PQ's six rows comes from another bot project. cosmic_agents and BotStory carry no Cafe PQ definition at
+all (no `cafe` file in either tree), and the dossier's suggestion to read the scripts first is what was followed: the
+gates (`3`-`6` players, level `21`-`255`, `45` minutes, recruit and front door `193000000`), the six areas' `eventMaps`
+and `couponsNeeded` counts read `400`/`350`/`350`/`450`/`500`/`300`, the per-kill drop (`:251-259`) and the clear
+(`clearPQ` sets the instance's flag and nothing else) are `scripts/event/CafePQ_1.js` .. `_6.js:27-31,36,38,39,131-138,
+239-249,251-277`, and the closer is `scripts/npc/1052013.js:56-63`.
+
+The one thing worth recording as a *correction* to the plan: `1052013.js:59` is `cm.gainItem(4001007, couponsNeeded)`, a
+positive quantity, so the Computer pays the party rather than charging it - the plan's "drop the coupons by the leader
+and hand them in" would have asked the bots for what the NPC is giving them. The rows therefore carry the count as a
+`COLLECT` objective and talk to the NPC with no item.
+
 Where our server's scripts disagree, the scripts win and the row follows them:
 
 - **The altar takes exactly twenty in one drop.** `scripts/reactor/2006000.js:1-5` spawns Eak from the reactor's item

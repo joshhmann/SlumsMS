@@ -42,6 +42,14 @@ public final class Mechanics {
      * -Dslums.mechanics.hpq.lobby} on top.
      */
     public static final String HPQ_FLAG = "slums.mechanics.hpq";
+
+    /**
+     * Cafe PQ's own switch, shared by its six rows: the six areas are one loop behind six doors (the Computer on
+     * 193000000 asks which area, {@code scripts/npc/1052013.js:44-56}), so a server that can play one can play them all,
+     * and a per-area switch would only make it possible to be half on. Each area still has its own lobby switch
+     * ({@code slums.mechanics.cafepqN.lobby}) and its own {@code .runs} count, which is the knob that actually differs.
+     */
+    public static final String CAFE_FLAG = "slums.mechanics.cafepq";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";
     public static final String DEFAULT_DIR = "src/main/java/soloMapling/mechanics/content";
 
