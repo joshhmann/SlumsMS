@@ -916,6 +916,27 @@ Two earlier hypotheses were falsified on the way and are recorded so nobody repe
 sessions an earlier test left behind), and a cross-class static leak is impossible as configured - `pom.xml:252-255` sets
 `forkCount 1` with `reuseForks false`, so each test class gets its own JVM.
 
+## BossRush's map inventory, as the client actually has it (and where the row stops)
+
+The report's layout line (`970030100 + band + 500*s + 100*k`, `[D]`) does not describe this client. Read out of
+`Map.wz/Map9`, the honour of a full inventory instead:
+
+- **28 blocks of twelve waves**: `97003<bb><ww>` for `bb` = `00`..`27` and `ww` = `00`..`11`. Block `00` is special (its
+  `00`..`09` and `20` are the hub, the entry and six rest spots `970030001`-`970030006`); every other block is twelve
+  waves, `01` = `970030100` which is the event's own `entryMap` (`scripts/event/BossRushPQ.js:29`).
+- **The waves do not advance the way the report reads them.** `scripts/portal/raid_stage.js:26-32` is
+  `if (mapId % 500 >= 100) next = mapId + 100; else next = 970030001 + floor((mapId-970030100)/500)` - the `+100` walks
+  the *block* digit, not the wave digit, so a five-block window (`970030100` -> `...200` -> `...300` -> `...400` ->
+  `...500`) ends at the window's rest spot, and the bands are the windows (`detectTeamLobby` picks band 0..7 from the
+  party's level, `scripts/npc/9000037.js:40-70`, and the starter calls `em.startInstance(i)` for `i < 8`, `:163-170`).
+- **Every map the row could name exists**: all 28 blocks × 12 waves are in WZ, plus `970030000`-`970030020` (hub, entry,
+  rest spots) and the four `9700327xx` blocks the finals live in.
+
+**Where the row stops:** mapping band -> window is the one arithmetic I have not read out of `BossRushPQ.js` itself (the
+report's version is flagged `[D]` and is contradicted above), and a 28-block row with one wrong window is worse than none -
+its whole point is that it repeats until the clock. So the generator is not written yet, and the next turn's first read is
+`BossRushPQ.js`'s band arithmetic, not a guess from the portal script.
+
 ## A stage set that repeats: `loopTo:`
 
 BossRush PQ is the one event whose stages are not a sequence (`/root/work/PQ-UNFINISHED-REPORT.md:438-462`): its door
