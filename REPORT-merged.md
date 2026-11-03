@@ -16,6 +16,7 @@ the base game's two, the boss lane's 27, and the party-quest lane's 17 - **46 ro
 | 5 | `164-altinvite` @ `3b546e834` | an owned alt answers its owner's family and guild invites (e02) |
 | 6 | `164-ex2` @ `0dd9dfc83` | the `ex-2` QA scenario, resolved to the later revision the tree already had (alt optional) |
 | 7 | `164-pqpolish` @ `d30a22702` | the STALL/OCCUPY labels: what a stalled PQ bot is waiting for |
+| 8 | `164-opq` again @ `d92443ce2` (catch-up) | the lane's last six commits: the Magatia row's climb, the empty-map clear, Ellin/CWKPQ costing and six-of-six, the CWKPQ coverage row, `graceMs`, the flake fix | merged on top of the pinned merge, one suite run on the result |
 
 `164-bossfight`, `164-ex2qa` and `164-bossproof` are ancestors of `164-bossrows`/`164-opq`, so merging them would
 have added nothing; `164-bossproof` in particular is already inside both lanes.
@@ -46,6 +47,35 @@ two branches had grown in different files, so the only textual collisions were d
 | 13 | `src/main/java/soloMapling/qa/QaScenarios.java` and `src/main/java/soloMapling/menus/QaMenuCatalog.java` | the older `ex-2` registration | kept the tree's, so `ex-2` stays one scenario with one usage line (`[your alt's name]`) |
 | 14 | `src/test/java/soloMapling/qa/BossRunScenariosTest.java` | assertions for the mandatory-alt revision | kept the tree's assertions (they cover the optional alt too) |
 
+Catch-up merge (`d92443ce2`), four conflicts:
+
+| # | File | What clashed | Resolution |
+| --- | --- | --- | --- |
+| 15 | `src/main/java/soloMapling/mechanics/MechanicsModel.java` | the lane appended `long graceMs` to `Stage`; this tree had already appended `spawnWaitSeconds`/`entryItems` | kept this tree's components and the lane's `graceMs` was deleted instead - see the spelling table; one order, no `graceMs` |
+| 16 | `src/main/java/soloMapling/mechanics/StageData.java` | same: the lane's `graceMs:` parse next to this tree's `spawnWaitSeconds` parse | `graceMs` parse dropped; `spawnWaitSeconds` stays the only empty-room knob |
+| 17 | `src/main/java/soloMapling/mechanics/BossPhasesSolver.java` | the lane's `graceMs(view)` helper vs this tree's `allowedEmptyMs(stage)` in the same `nothingToHit` branch | kept `allowedEmptyMs(stage)` (`max(30 s, spawnWaitSeconds*1000)`); `graceMs(view)` deleted |
+| 18 | `src/test/java/soloMapling/mechanics/LateSpawnGraceTest.java` (lane's new test) | it drove `graceMs: 240000` | rewritten to drive `spawnWaitSeconds: 240`, keeping its two real assertions (the deadline moves to the row's number; the abandon line quotes that number, not the 30 s constant) and gaining one for the floor |
+
+### The three defaults the catch-up merge could have broken
+
+`164-opq` forked before `164-bossrows`' round-9 commit that flipped three switches to OFF, so its copies of those files
+still defaulted them ON. None of the three files was touched by the lane's commits, so the merge resolved them to the
+bossrows side - but the defaults are asserted here rather than trusted, because a silent ON is a behaviour change on
+the branch that goes to TEST:
+
+| Switch | Default on the merged head | Test that pins it |
+| --- | --- | --- |
+| `slums.altfight.instanceleash` (`src/main/java/soloMapling/companions/OwnedAltCombat.java`) | **off** | `soloMapling.companions.OwnedAltInstanceFightTest.theInstanceLeashIsOffUnlessAServerTurnsItOn`, `assertFalse(OwnedAltCombat.instanceLeashOn(), "-Dslums.altfight.instanceleash is off by default")` |
+| `slums.bossfight.reach` (`src/main/java/soloMapling/ArtificialPlayer/BotTypes/FollowerFight.java`) | **off** | `soloMapling.ArtificialPlayer.BotTypes.FollowerFightReachTest.theReachGateIsOffUnlessAServerTurnsItOn`, `assertFalse(FollowerFight.reachGateOn(), "-Dslums.bossfight.reach is off by default")` |
+| `slums.bossfight.revivepause` (`src/main/java/soloMapling/mechanics/RevivePause.java`) | **off** | `soloMapling.mechanics.RevivePauseTest.theRevivePauseIsOffUnlessAServerTurnsItOn`, `assertFalse(RevivePause.on(), "-Dslums.bossfight.revivepause is off by default")` |
+
+The revive-pause default is the one worth reading twice, because the owner's decision is that revive-pause is **on**.
+The code default is off and that is authoritative: commit `b8a91143b` ("three switches default OFF") set it, and
+`333ddbda2` then corrected the ticket text to say "default off since round 9: every switch is off unless a brief says
+otherwise, and the release conf carries the `=true` line". So the owner's intent is carried by the release conf's
+`-Dslums.bossfight.revivepause=true` line, not by a code default, and TEST gets the rule as long as that line is in
+`start-test.sh` (see the deploy note). Chosen: bossrows side for all three; the test names above prove the defaults.
+
 Test-side follow-ups for the widened record: `BossPhasesSolverTest`'s two `Stage` builders and `MagatiaBooksSolversTest`
 now pass `maps`; `EllinPqSolversTest` asserts the reactor as `List.of(3002001)` instead of the scalar.
 
@@ -58,12 +88,19 @@ migrated - and the one dead field the boss lane had already deleted is not resur
 | --- | --- | --- | --- |
 | the reactor a stage is behind | boss rows: `hitReactors: [..]` (list); PQ rows: `hitReactor: <id>` (scalar) | `hitReactors` only | `EllinStoneSolver`, `ReactorCountSolver`, `ReactorStateSolver` read the list; `ellinpq.yaml` (two stages) and `magatiapq.yaml` (one) name `hitReactors: [<id>]` |
 | the mob whose death ends a stage | `killTarget` on the PQ side, deleted as dead by the boss side | gone | nothing read it and no row set it; the loader no longer parses it |
+| how long an empty boss room may stay empty | boss side: `spawnWaitSeconds` (int seconds, content fact, `max(30 s, n)` deadline); PQ lane's catch-up: `graceMs` (long ms, tolerance) | `spawnWaitSeconds` only; the tolerance stays the solver's | `BossPhasesSolver.allowedEmptyMs`; `LateSpawnGraceTest` rewritten to drive `spawnWaitSeconds: 240` |
 
 Because the scalar key is refused rather than ignored, a row that still carries it fails the row load with
 `hitReactor: the scalar spelling is gone; write hitReactors: [<id>]`, which is what `MechanicsDataFilesTest` asserts
 about the whole content directory.
 
 ## The rows, and the switch that arms each one
+
+Counted on the merged head, not assumed: **46 rows = 29 `kind: BOSS` + 17 `kind: PQ`**, 81 stages in all, 46 lines in
+`content/index.txt` and 46 `*.yaml` files next to it (the three source documents that disagree - 39, 36, 14+22 - were
+each written before the last lane's rows existed; the count above is `grep -l '^kind: BOSS'` over the directory).
+Seventeen rows carry a `flag:` of their own - sixteen party-quest rows and `zakum-chaos` (`slums.chaos.zakum`); `kpq`
+has none because the master switch is its gate.
 
 46 rows. `slums.mechanics=true` is the master switch for every party-quest row; boss rows need `slums.mechanics.boss=true`
 instead (they do not need `slums.mechanics`). A row with a `flag:` column also needs that flag. Nothing arms with
@@ -154,14 +191,20 @@ covered by unit tests only; `docs/ops/qa-suite.md` names the manual companion fo
 | --- | --- | --- |
 | Full suite, every switch unset | `mvn -o test` | see "Suite totals" below |
 | Row data + row simulation | `mvn -o test -Dtest='MechanicsDataFilesTest,StageDataTest,RowRunSimulationTest'` | green, 29 s |
-| Every row against the WZ dump | `mvn -o test -Dwz-path=/root/work/SlumsMS-152-maps/wz -Dtest=ContentRowWzIntegrityTest` | green: 46 rows, 78 maps, 127 mob ids, 7 reactor ids, 1 door item |
+| Every row against the WZ dump | `mvn -o test -Dwz-path=/root/work/SlumsMS-152-maps/wz -Dtest=ContentRowWzIntegrityTest` | green on the final head: `Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`; 46 rows, 78 maps, 127 mob ids, **10** reactor ids (`2201004, 2401000, 2618000, 3002001, 3009000, 5411000, 5411001, 5511000, 5511001, 8001000`), 1 door item (`4000381`) |
 | Whole-dump data sweep | `python3 tools/ops/map-integrity --wz /root/work/SlumsMS-152-maps/wz` | 11352 maps; 50 dead portals, 678 portal-name misses, 3363 mobs / 3930 NPCs / 143 reactors with no WZ entry, 3621 unnamed maps - all a property of the dump, not of this merge (exit 1) |
 | The same sweep over just the rows' maps | `... --map "$(row maps)"` | 78 maps scanned; every row map, mob, reactor and NPC exists; **2** portal-name misses (`610030800`'s `out00`, `925010300`'s `in03`) |
 | Paperwork | `tools/ops/helper-checkout /root/work/164-all` | see "Paperwork" below |
 
 ### Suite totals
 
-`mvn -o test`, every switch unset, on the pinned merge (head `01d3c60a3`):
+`mvn -o test`, every switch unset, on the final merged head (`1a574b84b`, 116 commits over `6d18f961e`):
+
+```
+Tests run: 8763, Failures: 0, Errors: 0, Skipped: 138     BUILD SUCCESS, EXIT=0, 1843 s
+```
+
+The pinned merge (head `01d3c60a3`, before the party-quest lane's last six commits) ran:
 
 ```
 Tests run: 8758, Failures: 0, Errors: 0, Skipped: 138     BUILD SUCCESS, EXIT=0, 1833 s
@@ -193,7 +236,12 @@ and this file.
 4. **The folded reactor list is unproven in a client.** Three PQ solvers now read `hitReactors.get(0)` where they read
    a scalar; the simulation tests cover them, no client has clicked the Ellin spine, the Ellin stone or Magatia's beaker
    from this branch.
-5. **The whole-dump `map-integrity` sweep is not gating anything.** Its 11352-map report is pre-existing noise over a
+5. **The catch-up merge's own six commits were proven by this suite, not by a client.** The Magatia row's climb, the
+   empty-map clear, the Ellin/CWKPQ costing and the six-of-six changes are covered by their own lane's tests, which now
+   run inside this tree; no client has entered Magatia's bookshelf or Ellin's haze from this branch.
+6. **`spawnWaitSeconds` as a leash is tested, not observed.** `LateSpawnGraceTest` proves the deadline and the message
+   for a four-minute wait; no bot has stood in Will's room waiting 240 s for the first target.
+7. **The whole-dump `map-integrity` sweep is not gating anything.** Its 11352-map report is pre-existing noise over a
    partial dump (thousands of maps have no `String.wz` name in it); only the per-row view is meaningful today.
 
 ## Deploy note
@@ -211,10 +259,15 @@ schema, so TEST's `config.yaml` needs **no change at all**. Add the flags to the
 -Dslums.mechanics.cafepq=true -Dslums.mechanics.ludimazepq=true -Dslums.mechanics.piratepq=true \
 -Dslums.mechanics.treasurepq=true -Dslums.mechanics.dellibattle=true -Dslums.mechanics.magatiapq=true \
 -Dslums.mechanics.ellinpq=true -Dslums.mechanics.cwkpq=true \
--Dslums.chaos.zakum=true
+-Dslums.chaos.zakum=true \
+-Dslums.bossfight.revivepause=true
 ```
 
-That is the full sweep: every one of the 46 rows armed, no lobby. Drop any line and its rows are inert; drop all of
+That is the full sweep: every one of the 46 rows armed, no lobby. The last line is not a row gate and is the only one
+that is a policy choice rather than content: `slums.bossfight.revivepause` defaults **off** in code (the owner's
+decision is that the pause is on, and the decision is carried by the release conf's `=true` line rather than by a code
+default - `RevivePause`'s javadoc and `333ddbda2` both say so), so without it a death in a boss run still ends the run
+the old way. Drop any line and its rows are inert; drop all of
 them and the server behaves exactly as it does today (`release-1.6.4`), because every switch defaults off.
 
 Two more flags belong with the sweep only if the auto-QA checks are wanted: `-Dslums.qa=true` (or
