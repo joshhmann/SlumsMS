@@ -28,3 +28,7 @@ bossrush5.yaml
 bossrush6.yaml
 bossrush7.yaml
 zakumpq.yaml
+nwill.yaml
+nlucid.yaml
+ndarknell.yaml
+nverus.yaml

@@ -70,7 +70,7 @@ class MechanicsDataFilesTest {
                 "cafepq1", "cafepq2", "cafepq3", "cafepq4", "cafepq5", "cafepq6", "ludimazepq", "piratepq", "treasurepq", "dellibattle",
             "magatiapq", "ellinpq", "cwkpq",
             "bossrush0", "bossrush1", "bossrush2", "bossrush3", "bossrush4", "bossrush5", "bossrush6", "bossrush7",
-            "zakumpq"),
+            "zakumpq", "nwill", "nlucid", "ndarknell", "nverus"),
                 r.content().stream().map(c -> c.id()).toList());
         assertEquals(10, r.content().stream().filter(c -> "kpq".equals(c.id())).findFirst().orElseThrow()
                 .stage(1).orElseThrow().answer(1).orElseThrow());

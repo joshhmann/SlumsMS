@@ -1149,6 +1149,41 @@ property, in full, after the display finishes - no screenshot, no guessing.
 
 Not built, and the reason is structural rather than a missing fact: the second row of that table is the whole item.
 
+## The four Normal-tier fights: the spawn was in the script all along, at five seconds
+
+The ledger carried them as blocked twice over - first "first target at 60/120/120/240 s, so a per-stage grace is missing",
+then "the spawns are missing from the scripts, which is not ours". Both are wrong, and the four scripts are one shape:
+
+| boss | script | room | spawn | mob | clear |
+|---|---|---|---|---|---|
+| Hard Will | `NWillBattle.js` | `450007441` | `:139-140` `eim.schedule("spawnMob1", spawnTimes[0])`, `spawnTimes = [5000]` (`:116`), spawn `:145-150` | `9990301` | `clearPQ` → `setEventCleared(NWILLSPIDER)` (`:242-252`) |
+| Hard Lucid | `NLucidBattle.js` | `450004751` | `:138-139`, spawn `:144-149` | `9990150` | `NLUCID` |
+| Hard Darknell | `NDarknellBattle.js` | `450012211` | `:139-140`, spawn `:145-150` | `9995009` | `NDARKNELL` |
+| Hard Verus | `NVerusBattle.js` | `450010101` | `:139-140`, spawn `:145-150` | `9990415` | `NVERUS` |
+
+So the delay is five seconds, the mob is script-spawned, all four `Mob.wz` entries exist, and all four rooms' `life` blocks
+in `Map.wz` are **empty** - nothing else can stand there. The primitive the ledger asked for (`graceMs:`) was not what they
+needed; four rows were.
+
+**Shipped**: `content/nwill.yaml`, `nlucid.yaml`, `ndarknell.yaml`, `nverus.yaml`, one stage each, `solver: boss-phases`,
+`killTarget` = the spawned mob, `mobs: [that id]`, `clear: { instance: true }` (the script's `setEventCleared`, not a
+property), gates from the script (1-6 players, level 200-255, `eventTime = 120`), and `graceMs: 15000` - three times the
+script's own delay, so the room waits the spawn out rather than abandoning it at the default thirty seconds. Each row also
+carries its own `flag:` on top of `-Dslums.mechanics.boss`; the lane gate moved from `bossesEnabled()` to
+`Mechanics.bossEnabledFor(Content)` so a row flag can narrow the lane and never open it (`BossRowFlagTest` 3).
+
+**Proved by simulation, which is the assertion that matters for these four**:
+`RowRunSimulationTest.assertLateSpawn` plays each row with the boss's arrival delayed five seconds and asserts the run
+reaches `cleared`, kills the one mob, and took **no `Abandon` step** while the room stood empty - plus that the wait really
+was a `Wait` step. Four tests, one per boss.
+
+**Integrity, not assurance**: `MechanicsRowWzIntegrityTest` reads every row in `index.txt` and checks each map and mob id
+against the dump (`-Dwz-path=…`, skip without it), with a negative control so a green run cannot be vacuous; and
+`tools/ops/map-integrity` over the eight maps these four rows name reports 8 maps scanned and zero problems of any kind.
+
+Two script warts left alone and reported rather than copied: each script's `eventTime = 120` sits next to a comment saying
+45 minutes (the value wins, and the row says 120), and `respawnStages(eim)` is defined three times in `NLucidBattle.js`.
+
 ## Boss rooms that take minutes to produce a target: `graceMs:`
 
 `BossPhasesSolver` used to hold one global rule: a summoned room with nothing the party may hit for 30 s was a room that

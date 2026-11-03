@@ -204,3 +204,7 @@ t-mp-1	src/main/resources/soloMapling/map-routing.tsv	the routing table
 t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketTraders.java	trader bots list the scrolls they hold (s-xtraders)
 t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketQa.java	probe marketScroll
 t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/cwkpq.yaml	the Crimsonwood Keep row: four rooms, the counting door and the host's summon chain
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/nwill.yaml	the Hard Will row: one room, the script's 5 s spawn, the instance's own clear flag
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/nlucid.yaml	the Hard Lucid row: one room, the script's 5 s spawn, the instance's own clear flag
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/ndarknell.yaml	the Hard Darknell row: one room, the script's 5 s spawn, the instance's own clear flag
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/nverus.yaml	the Hard Verus Hilla row: one room, the script's 5 s spawn, the instance's own clear flag

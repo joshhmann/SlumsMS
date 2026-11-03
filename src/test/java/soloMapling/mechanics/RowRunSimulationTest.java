@@ -165,6 +165,7 @@ class RowRunSimulationTest {
         int stage = run.currentStage();
         int ticks = 0;
         while (!run.ended() && ticks < maxTicks) {
+            world.tickSpawn();
             Map<Integer, SolverStep> steps = orchestrator.tick(run, world, world.now);
             world.apply(steps);
             if (run.currentStage() != stage) {
@@ -583,6 +584,52 @@ class RowRunSimulationTest {
                 "and the eight parts before the body");
     }
 
+    // ---- the four Normal-tier fights: one room, one mob, spawned five seconds after setup --------------
+
+    /**
+     * Hard Will, Hard Lucid, Hard Darknell and Hard Verus Hilla are the same script shape: one empty room, one mob
+     * spawned by `eim.schedule("spawnMob1", 5000)`, and a clear that is the script's own `setEventCleared`. What each
+     * test below has to prove is not that the mob dies - that is the solver's ordinary work - but that the solver
+     * <b>waits out the five seconds without abandoning the room</b>, which is the one thing a boss row can get wrong
+     * when its target is not there on the first tick.
+     */
+    @Test
+    void hardWillSpawnsFiveSecondsInAndTheRunWaitsForIt() {
+        assertLateSpawn("NWillBattle", 9990301);
+    }
+
+    @Test
+    void hardLucidSpawnsFiveSecondsInAndTheRunWaitsForIt() {
+        assertLateSpawn("NLucidBattle", 9990150);
+    }
+
+    @Test
+    void hardDarknellSpawnsFiveSecondsInAndTheRunWaitsForIt() {
+        assertLateSpawn("NDarknellBattle", 9995009);
+    }
+
+    @Test
+    void hardVerusSpawnsFiveSecondsInAndTheRunWaitsForIt() {
+        assertLateSpawn("NVerusBattle", 9990415);
+    }
+
+    /**
+     * The script's own delay is {@code spawnTimes = [5000]} and the row's grace is 15 s, so five seconds of an empty
+     * room must be a wait and not an abandon: the run reaches {@code Done}, kills the one mob, and no step it took was an
+     * {@code Abandon}.
+     */
+    private static void assertLateSpawn(String eventScript, int boss) {
+        Sim sim = play(eventScript, party(6), 2_000, w -> w.spawnAfter(5_000));
+
+        assertEquals("cleared", sim.ended(), eventScript + "'s clear is the script's own event flag: " + sim.ended());
+        assertEquals(List.of(1), sim.stageOrder(), "one map, no stage transitions");
+        assertTrue(sim.world().killed.contains(boss), "the mob the script spawns: " + sim.world().killed);
+        assertTrue(sim.steps().stream().noneMatch(s -> s.contains("Abandon")),
+                "an empty room for five seconds is a wait, not a fault: " + tail(sim.steps(), 12));
+        assertTrue(sim.steps().stream().anyMatch(s -> s.startsWith("1:") && s.contains("Wait")),
+                "and the wait is the step it took: " + tail(sim.steps(), 12));
+    }
+
     // ---- the fake world ---------------------------------------------------------------------------------
 
     /**
@@ -621,6 +668,15 @@ class RowRunSimulationTest {
         private final List<Drop> floor = new ArrayList<>();
         private final List<Pending> pending = new ArrayList<>();
         private final List<BossTargetRules.Part> parts = new ArrayList<>();
+
+        /**
+         * A boss the script brings in after setup ({@code eim.schedule("spawnMob1", 5000)} in the four Normal-tier
+         * fights): the parts stand in {@link #pendingParts} until this many milliseconds have passed, so a test can prove
+         * the solver waits the spawn out instead of abandoning the room.
+         */
+        private long spawnDelayMs;
+        private long spawnedAt;
+        private final List<BossTargetRules.Part> pendingParts = new ArrayList<>();
         private final List<String> applied = new ArrayList<>();
 
         /** Every map a member stood on, in the order they first did: a run that finishes crossed them all. */
@@ -773,7 +829,45 @@ class RowRunSimulationTest {
                             BossTargetRules.Role.BODY, false, true, false, false, 0));
                 }
                 default -> {
+                    // a room whose parts come from somewhere else keeps its own case: summoned by a click
+                    // (summonProperty) or opened by a reactor the solver must hit first
+                    if (run.content().kind() == MechanicsModel.Kind.BOSS && run.stageData().summonProperty() == null
+                            && run.stageData().hitReactor() == 0) {
+                        // a one-part boss: the row names the mob the script spawns, and nothing else stands in the room
+                        for (int mob : run.stageData().mobs()) {
+                            parts.add(new BossTargetRules.Part(mob, BossTargetRules.Role.BODY, false, true, false, false, 0));
+                        }
+                    }
                 }
+            }
+            if (spawnDelayMs > 0 && !parts.isEmpty()) {
+                pendingParts.clear();
+                pendingParts.addAll(parts);
+                parts.clear();
+                spawnedAt = now + spawnDelayMs;
+            }
+        }
+
+        /** The script's own clock: a delayed spawn lands when it is due, and only then. */
+        void tickSpawn() {
+            if (!pendingParts.isEmpty() && now >= spawnedAt) {
+                parts.addAll(pendingParts);
+                pendingParts.clear();
+            }
+        }
+
+        /**
+         * Makes the boss arrive {@code ms} after the room was entered. The parts are built at entry, so the ones already
+         * standing are moved back into the pending list: a world that only set a field would leave the boss in the room
+         * from the first tick and the test would prove nothing.
+         */
+        void spawnAfter(long ms) {
+            spawnDelayMs = ms;
+            if (!parts.isEmpty()) {
+                pendingParts.clear();
+                pendingParts.addAll(parts);
+                parts.clear();
+                spawnedAt = now + ms;
             }
         }
 
@@ -1324,6 +1418,11 @@ class RowRunSimulationTest {
                         killed.add(mobId);
                         parts.remove(part);
                         wake(part);
+                        // the script's own rule for a one-mob room: monsterKilled sees its boss die and calls clearPQ(),
+                        // which is setEventCleared - the instance flag, not a property
+                        if (mobId == run.stageData().killTarget() && run.stageData().clear().onInstance()) {
+                            instanceCleared = true;
+                        }
                         return;
                     }
                 }

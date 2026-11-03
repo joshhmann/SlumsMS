@@ -1,0 +1,59 @@
+# Ticket 164: Hard Verus Hilla (expedition), one room and one spawn (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true AND this row's own flag; the run drives the party's
+# bots and owned alts, and humans fight as they always did.
+#
+# A one-part boss is still a boss room: the script sets no property the clear could read, so the row clears on the
+# instance's own flag (NVerusBattle.js clearPQ -> setEventCleared(ExpeditionType.NVERUS)), which is exactly what
+# the script calls when the mob dies.
+#
+# The spawn is the script's, not WZ's: setup() schedules spawnMob1 at 5 s (NVerusBattle.js:139-140
+# `eim.schedule("spawnMob1", spawnTimes[0])` with `spawnTimes = [5000]`), and spawnMob1 calls
+# `map.spawnMonsterOnGroundBelow(em.getMonster(9990415), ...)` (:145-150). The room's WZ life is EMPTY (checked
+# in Map.wz), so nothing else can stand there. graceMs is 15 s - three times the script's delay - so the solver waits the
+# spawn out instead of abandoning: the default is 30 s, and this row says so out loud.
+id: nverus
+name: Hard Verus Hilla (expedition)
+kind: BOSS
+eventScript: NVerusBattle
+# the NPC that starts the expedition, standing on the recruit map (both checked in Map.wz/Npc.wz)
+entryNpc: 3003773
+recruitMap: 450011660
+# where a member is sent when the run ends (MechanicsRuns.endInstance): the script's own exitMap
+exitMap: 450011660
+# the script's own gate (NVerusBattle.js:29-30): 1-6 players, level 200-255, and the script's eventTime is the
+# authority for the clock (NVerusBattle.js:39 `eventTime = 120`).
+minPlayers: 1
+maxPlayers: 6
+minLevel: 200
+maxLevel: 255
+timeLimitMinutes: 120
+flag: slums.mechanics.nverus
+sources:
+  - "scripts/event/NVerusBattle.js (ours, the truth): gates :28-39, one room (minMapId == maxMapId == 450010101), the
+    5 s spawn at :139-140 and spawnMob1 at :145-150, the clear at clearPQ() -> setEventCleared(ExpeditionType.NVERUS),
+    and monsterKilled's own is-the-boss test (:243-252) which is where the kill becomes the win"
+  - "scripts/npc/3003773.js: the expedition starter (:29 getEventManager(\"NVerusBattle\"), :152 startInstance(expedition))"
+  - "Map.wz Map4/450010101.img.xml: the room's life block is empty, so the boss exists only after the script's spawn;
+    Map4/450011660.img.xml places NPC 3003773"
+  - "Mob.wz/9990415.img.xml: the mob id the script spawns (the 999xxxx family this server's scripts use for the
+    Normal-tier fights)"
+stages:
+  - stage: 1
+    map: 450010101
+    name: Hard Verus Hilla (expedition)
+    solver: boss-phases
+    # no summonProperty: nothing clicks an altar, the script's own schedule brings the boss in
+    killTarget: 9990415
+    mobs:
+      - 9990415
+    # the script's spawn is 5 s after setup; three times that is the abandon window, not the default 30 s
+    graceMs: 15000
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 9990415
+        note: "one part: the whole fight is this mob. No arms, no body phases - Mob.wz/9990415 has no revive chain."
+    clear:
+      instance: true
+    # no nextPortal: one map, no stage transition

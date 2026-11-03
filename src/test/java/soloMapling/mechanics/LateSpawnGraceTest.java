@@ -13,9 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * P15 from `/root/work/PQ-UNFINISHED-REPORT.md`: a boss room may take minutes to produce its first target, and a global
+ * P15 from `/root/work/PQ-UNFINISHED-REPORT.md`: a boss room may take time to produce its first target, and a global
  * 30-second grace abandoned fights that had not started. {@code graceMs:} is the stage's own answer, and the default is
  * unchanged for every row that does not name one.
+ *
+ * <p>The dossier's figure for the four Normal-tier fights - "first target at 60/120/120/240 s" - is wrong: their scripts
+ * schedule the spawn at <b>five seconds</b> (`NWillBattle.js:139-140` and its three siblings,
+ * `spawnTimes = [5000]`). So the primitive is not what those four needed; the rows are (see
+ * {@code RowRunSimulationTest.assertLateSpawn}). The test below stays because a script that really does take minutes is
+ * the reason the field exists, and a row must be able to say so.
  */
 class LateSpawnGraceTest {
 
@@ -36,7 +42,8 @@ class LateSpawnGraceTest {
                 timeLimitMinutes: 30
                 flag: slums.mechanics.late
                 sources:
-                  - "P15 in /root/work/PQ-UNFINISHED-REPORT.md: the Hard trio's first target arrives at 60-240 s"
+                  - "P15: a boss room whose target is not there on the first tick - the shape NWillBattle.js and its
+                    siblings would have had if their spawnTimes were minutes instead of 5000"
                 stages:
                   - stage: 1
                     map: 280030000
@@ -72,7 +79,7 @@ class LateSpawnGraceTest {
     void aRowCanSayItsBossTakesMinutesToAppear(@TempDir Path dir) throws Exception {
         MechanicsModel.Stage stage = bossRow(dir, "    graceMs: 240000\n").stages().get(0);
         assertEquals(240_000L, stage.graceMs(),
-                "Hard Will's first target is behind four minutes of scripted waiting, not thirty seconds");
+                "a room whose script waits four minutes must be able to say so instead of being abandoned at thirty");
     }
 
     @Test

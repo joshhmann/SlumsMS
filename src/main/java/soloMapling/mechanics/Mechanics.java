@@ -84,6 +84,20 @@ public final class Mechanics {
     }
 
     /**
+     * True when this boss row may arm a run: {@link #bossesEnabled()} plus, for a row that names one, its own flag
+     * ({@code flag: slums.mechanics.nwill}). The boss lane keeps its own switch rather than {@link #FLAG} so a server can
+     * let bots fight expeditions without handing them the party quests, and a row's own flag is the second key: the four
+     * Normal-tier fights share one script shape and one switch would be all or nothing.
+     */
+    public static boolean bossEnabledFor(MechanicsModel.Content content) {
+        if (!bossesEnabled()) {
+            return false;
+        }
+        return content == null || content.flag() == null || content.flag().isBlank()
+                || Boolean.getBoolean(content.flag());
+    }
+
+    /**
      * True when this content may arm a run: {@code -Dslums.mechanics} plus, for a row that names one, its own flag
      * ({@link MechanicsModel.Content#flag()}: {@code flag: slums.mechanics.opq}). Boss rows keep their own switch
      * ({@link #bossesEnabled()}) and are asked before this.
