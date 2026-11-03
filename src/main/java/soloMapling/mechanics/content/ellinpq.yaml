@@ -53,7 +53,7 @@ stages:
     map: 930000200
     name: The spine blocks the way
     solver: reactor-state
-    hitReactor: 3009000
+    hitReactors: [3009000]
     roles:
       - id: hitter
         who: ANY
@@ -140,7 +140,7 @@ stages:
     solver: ellin-stone
     # 3002001 is the only reactor on this map with a drop row (reactordrops: 4001163 at chance 1); the eight 3002002s
     # have none, so nothing has to touch them and the one-reactor-per-step resolution is not a limit here.
-    hitReactor: 3002001
+    hitReactors: [3002001]
     items:
       - id: 4001163
     roles:

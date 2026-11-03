@@ -22,7 +22,8 @@ public final class EllinStoneSolver implements StageSolver {
     static final int STONE = 4001163;
 
     static int reactor(StageView view) {
-        return view.stage().hitReactor() > 0 ? view.stage().hitReactor() : REACTOR;
+        java.util.List<Integer> named = view.stage().hitReactors();
+        return named.isEmpty() ? REACTOR : named.get(0);
     }
 
     static int npc(StageView view) {

@@ -58,7 +58,7 @@ public final class ReactorCountSolver implements StageSolver {
         if (view.mapOf(id) != stage.mapId()) {
             return new SolverStep.WarpTo(stage.mapId(), "back to the beaker");
         }
-        if (stage.hitReactor() <= 0) {
+        if (stage.hitReactors().isEmpty()) {
             return new SolverStep.Wait(1_500, "this stage names no reactor to hit, so its count cannot be raised");
         }
         int target = target(stage.clear());
@@ -73,6 +73,6 @@ public final class ReactorCountSolver implements StageSolver {
         if (now >= target) {
             return new SolverStep.Wait(1_500, "the counter is at " + now + " of " + target + ": the door is the script's");
         }
-        return new SolverStep.HitReactor(stage.hitReactor());
+        return new SolverStep.HitReactor(stage.hitReactors().get(0));
     }
 }

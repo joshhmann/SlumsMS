@@ -144,7 +144,7 @@ class EllinPqSolversTest {
                 "stage 4's clear is the arrival: 2133001.js:93-94 warps the team and writes nothing");
         assertEquals(930000600, c.stages().get(4).clear().partyOnMap(),
                 "stage 5's clear is the warp to the golem room (2133004.js:28-33)");
-        assertEquals(3002001, c.stages().get(4).hitReactor(), "one reactor, the only one with a drop row");
+        assertEquals(List.of(3002001), c.stages().get(4).hitReactors(), "one reactor, the only one with a drop row");
         assertEquals(2133004, c.stages().get(4).npcId());
         assertTrue(c.stages().get(5).clear().onInstance(), "stage 6 clears on the Poison Golem's clearPQ");
         assertEquals(44, c.minLevel(), "the level band comes from EllinPQ.js:28");

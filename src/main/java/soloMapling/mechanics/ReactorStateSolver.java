@@ -31,7 +31,7 @@ public final class ReactorStateSolver implements StageSolver {
         if (view.mapOf(id) != stage.mapId()) {
             return new SolverStep.WarpTo(stage.mapId(), "back to the reactor");
         }
-        if (stage.hitReactor() <= 0) {
+        if (stage.hitReactors().isEmpty()) {
             return new SolverStep.Wait(1_500, "this stage names no reactor to hit");
         }
         if (stage.clear() == null || stage.clear().reactorId() <= 0) {
@@ -41,6 +41,6 @@ public final class ReactorStateSolver implements StageSolver {
         if (now >= stage.clear().reactorState()) {
             return new SolverStep.Wait(1_500, "the reactor is at state " + now + ": the passage is the script's");
         }
-        return new SolverStep.HitReactor(stage.hitReactor());
+        return new SolverStep.HitReactor(stage.hitReactors().get(0));
     }
 }

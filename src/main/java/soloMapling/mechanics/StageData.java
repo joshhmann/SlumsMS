@@ -513,15 +513,6 @@ public final class StageData {
         String nextPortal = m.get("nextPortal") == null ? null : String.valueOf(m.get("nextPortal")).trim();
         String summonProperty = m.get("summonProperty") == null ? null
                 : String.valueOf(m.get("summonProperty")).trim();
-        // party-quest side: the mob whose death is the stage's end, for scripts that write no property at all
-        int killTarget = 0;
-        if (m.get("killTarget") != null) {
-            try {
-                killTarget = Integer.parseInt(String.valueOf(m.get("killTarget")).trim());
-            } catch (NumberFormatException e) {
-                p.add(at + "killTarget: not a mob id: " + m.get("killTarget"));
-            }
-        }
         // 1.6.4 boss rows: a room whose targets are the map's own life may stand empty while they arrive, and the row
         // says how long that is; 0 = no expectation (an empty room is the solver's 30 s grace and then an abandon).
         int spawnWait = num(m, "spawnWaitSeconds", 0, p);
@@ -556,11 +547,11 @@ public final class StageData {
         require(entryItems.stream().allMatch(id -> id > 0), p, at + "entryItems: item ids are positive");
         require(entryItems.stream().distinct().count() == entryItems.size(), p,
                 at + "entryItems: one of each is enough, so listing an item twice says nothing new");
-        // party-quest side: a room whose fight is behind one reactor nobody has to click by hand (Ellin PQ's spine and
-        // its stone, Magatia's beaker); 0 = no reactor
-        int hitReactor = num(m, "hitReactor", 0, p);
-        require(hitReactor == 0 || hitReactors.isEmpty(), p,
-                at + "hitReactor and hitReactors are the same fact twice; name one of them, not both");
+        // the party-quest rows name the same list with one entry (Ellin PQ's spine and its stone, Magatia's beaker);
+        // there is one spelling of the fact, so a row that still says hitReactor: is told where it went
+        if (m.get("hitReactor") != null) {
+            p.add(at + "hitReactor: the scalar spelling is gone; write hitReactors: [<id>]");
+        }
         // the other maps this stage legitimately spans (LudiMaze PQ: fifteen, one of which each member starts on)
         List<Integer> maps = new ArrayList<>();
         for (Object o : list(m, "maps")) {
@@ -579,7 +570,7 @@ public final class StageData {
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
                 summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, spawnWait, stageMinutes,
-                List.copyOf(hitReactors), List.copyOf(entryItems), killTarget, hitReactor, List.copyOf(maps));
+                List.copyOf(hitReactors), List.copyOf(entryItems), List.copyOf(maps));
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----

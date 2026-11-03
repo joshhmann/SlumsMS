@@ -267,14 +267,10 @@ public final class MechanicsModel {
      *   opened by one character ({@code scripts/portal/captinsg00.js:4} checks the player who clicks it, and nothing
      *   inside {@code LatanicaBattle.js} re-checks the rest). A run that lacks one is not refused: it waits, naming the
      *   item, until the row's own steps (or the bot's inventory) bring it - the row never warps past a door.</li>
-     *   <li>{@code killTarget} (party-quest side): the mob whose death ends a stage whose script writes no property at
-     *   all. Every boss row states its kill through {@code objectives} instead (and no row sets this today), but the
-     *   field is kept because the PQ branch's data and tests still speak it;</li>
-     *   <li>{@code hitReactor} and {@code hitReactors}: two spellings of "the reactor this stage is behind", one per
-     *   lane. The scalar is the party-quest side's - Ellin PQ's spine ({@code 3009000}) and its stone, Magatia's beaker
-     *   - read by {@code ReactorStateSolver}, {@code ReactorCountSolver} and {@code EllinStoneSolver}; the list is the
-     *   boss side's, and it can name more than one (Scarga's Targa and Scarlion). A stage names one spelling or the
-     *   other, never both: {@code StageData} refuses a row that sets both, because the two could then disagree;</li>
+     *   <li>{@code hitReactors} is the one spelling of "the reactor this stage is behind", for both lanes: the boss rows
+     *   list the ones they must click (Scarga's Targa and Scarlion), and the party-quest rows - Ellin PQ's spine
+     *   ({@code 3009000}) and its stone, Magatia's beaker - list one. The scalar {@code hitReactor} the party-quest lane
+     *   grew separately was folded into this list at the 1.6.4 merge, with the three solvers and two rows that read it;</li>
      *   <li>{@code maps} (party-quest side): every further map the stage legitimately covers, used by {@link #mapSet()}
      *   - LudiMaze PQ's one stage spans sixteen maps.</li>
      * </ul>
@@ -284,13 +280,13 @@ public final class MechanicsModel {
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
                         int spawnWaitSeconds, int timeLimitMinutes, List<Integer> hitReactors,
-                        List<Integer> entryItems, int killTarget, int hitReactor, List<Integer> maps) {
+                        List<Integer> entryItems, List<Integer> maps) {
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                      List<Answer> answers, List<BossPhase> phases, Clear clear) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
-                    List.of(), List.of(), null, null, 0, 0, List.of(), List.of(), 0, 0, List.of());
+                    List.of(), List.of(), null, null, 0, 0, List.of(), List.of(), List.of());
         }
 
         /**

@@ -75,7 +75,7 @@ stages:
     map: 926110200
     name: The beaker - three counted hits
     solver: reactor-count
-    hitReactor: 2618000
+    hitReactors: [2618000]
     roles:
       - id: hitter
         who: ANY
