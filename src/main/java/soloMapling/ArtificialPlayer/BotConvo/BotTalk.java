@@ -151,9 +151,9 @@ public final class BotTalk {
     private BotTalk() {
     }
 
-    /** The switch: {@code -Dslums.bottalk=true}. */
+    /** The switch: on unless {@code -Dslums.bottalk=false} (1.6.4: default on). */
     public static boolean on() {
-        return Boolean.getBoolean("slums.bottalk");
+        return !"false".equalsIgnoreCase(System.getProperty("slums.bottalk"));
     }
 
     static double num(String key, double fallback) {
@@ -276,7 +276,9 @@ public final class BotTalk {
                 greetedAt.values().removeIf(t -> now - t > GREET_PAIR_GAP_MS);
             }
         } finally {
-            cpuNanos.add(System.nanoTime() - began);
+            long spent = System.nanoTime() - began;
+            cpuNanos.add(spent);
+            soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor.recordSocialTick(spent);
             if (cpuBegan >= 0) {
                 threadCpuNanos.add(Math.max(0, threadCpuNow() - cpuBegan));
             }

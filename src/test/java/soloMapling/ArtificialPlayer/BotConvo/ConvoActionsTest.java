@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /** Ticket 59, owner decision 1: the bot's behaviour follows the words, and only through the gates. */
+@org.junit.jupiter.api.extension.ExtendWith(soloMapling.ArtificialPlayer.BotSocialSystem.SocialFlagsOff.class)
 class ConvoActionsTest {
 
     private final List<String> done = new CopyOnWriteArrayList<>();

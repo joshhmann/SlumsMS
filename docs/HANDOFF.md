@@ -25,8 +25,9 @@ thread holding the Fads monitor), then `-Dsolomapling.fads=true` on live.
 (fishing, medals, daily dungeon, Chaos bosses, chat routing, settings window, Evan trial). The two chat guards are
 stacked: `PlayerChatMeaning` (life-in-town: refusals, reports, warnings dropped first) then `ChatScope`
 (convo-scope); a relay addressed to the bot ("he said you should buff me") stays a request (owner, fresh-v2 review).
-The brain (`-Dslums.botlife.enabled=true -Dslums.botlife.execute=true`, plus `.preview` for `!botwhy`) has no
-config.yaml key; it is a JVM flag in TEST's `start-test.sh`. Fishing flags stay off on shared TEST. New 1.6.0 work
+The brain, bot talk and crews are ON by default since 1.6.4 (owner, 2026-11-03): `-Dslums.botlife.enabled`,
+`-Dslums.botlife.execute`, `-Dslums.bottalk` and `-Dslums.crews` now mean "off" only when set to `false` (the rollback). `-Dslums.botlife.preview` still gates `!botwhy` in QA.
+The brain has no config.yaml key; it is a JVM flag. Fishing flags stay off on shared TEST. New 1.6.0 work
 branches from `origin/release-1.6.0`.
 
 **Historical work split (superseded by the current direction below):** this bug-fix pass is finished. The owner will hand continuing **1.5.1 bug

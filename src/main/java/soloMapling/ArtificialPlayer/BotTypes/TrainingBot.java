@@ -822,7 +822,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
 
     public static boolean lifeExecutionEnabled() {
         return (LifeRuntime.enabled() || soloMapling.qa.QaSuite.isEnabled())
-                && Boolean.getBoolean("slums.botlife.execute");
+                && LifeRuntime.executeOn();
     }
 
     private boolean freeForLifeActivity() {

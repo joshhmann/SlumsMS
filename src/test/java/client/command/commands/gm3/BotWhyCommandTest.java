@@ -58,6 +58,8 @@ class BotWhyCommandTest {
     @Test
     void previewRequiresBothQaAndExplicitFlag() {
         String old = System.getProperty("slums.botlife.preview");
+        String oldBrain = System.getProperty("slums.botlife.enabled");
+        System.setProperty("slums.botlife.enabled", "false"); // the brain itself enables the command; test the preview gate alone
         try (var qa = mockStatic(QaSuite.class)) {
             System.clearProperty("slums.botlife.preview");
             qa.when(QaSuite::isEnabled).thenReturn(true);
@@ -69,6 +71,8 @@ class BotWhyCommandTest {
         } finally {
             if (old == null) System.clearProperty("slums.botlife.preview");
             else System.setProperty("slums.botlife.preview", old);
+            if (oldBrain == null) System.clearProperty("slums.botlife.enabled");
+            else System.setProperty("slums.botlife.enabled", oldBrain);
         }
     }
 
@@ -77,12 +81,17 @@ class BotWhyCommandTest {
         Client client = mock(Client.class);
         Character gm = mock(Character.class);
         when(client.getPlayer()).thenReturn(gm);
+        String oldBrain = System.getProperty("slums.botlife.enabled");
+        System.setProperty("slums.botlife.enabled", "false"); // the brain is on by default since 1.6.4
         try (var qa = mockStatic(QaSuite.class)) {
             qa.when(QaSuite::isEnabled).thenReturn(false);
             new BotWhyCommand().execute(client, new String[]{"FixtureBot"});
             verify(client).getPlayer();
             verifyNoMoreInteractions(client);
             verify(gm).yellowMessage("Bot life preview needs QA and -Dslums.botlife.preview=true.");
+        } finally {
+            if (oldBrain == null) System.clearProperty("slums.botlife.enabled");
+            else System.setProperty("slums.botlife.enabled", oldBrain);
         }
     }
 }

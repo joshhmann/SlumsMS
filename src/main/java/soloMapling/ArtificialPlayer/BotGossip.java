@@ -83,7 +83,12 @@ public final class BotGossip {
                 byMap.computeIfAbsent(chr.getMapId(), k -> new ArrayList<>()).add(chr);
             }
         }
-        step(byMap, now, ThreadLocalRandom.current());
+        long socialStarted = System.nanoTime();
+        try {
+            step(byMap, now, ThreadLocalRandom.current());
+        } finally {
+            soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor.recordSocialTick(System.nanoTime() - socialStarted);
+        }
     }
 
     /** One round over the online bots grouped by map; returns how many notes and reputations changed hands. */

@@ -403,11 +403,14 @@ public final class BotBonds {
             return;
         }
         lastStepAt = now;
+        long socialStarted = System.nanoTime();
         try {
             step(soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getAllBots().values().stream()
                     .map(soloMapling.ArtificialPlayer.BotSM::getChr).toList(), ThreadLocalRandom.current());
         } catch (RuntimeException e) {
             log.debug("Bot bonds step failed", e);
+        } finally {
+            soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor.recordSocialTick(System.nanoTime() - socialStarted);
         }
         if (now - lastFlushAt >= FLUSH_MS) {
             lastFlushAt = now;

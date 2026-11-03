@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static soloMapling.ArtificialPlayer.BotLifeSystem.LifeDecision.Activity;
 
+@org.junit.jupiter.api.extension.ExtendWith(soloMapling.ArtificialPlayer.BotSocialSystem.SocialFlagsOff.class)
 class RestockTripExecutorTest {
     @Test
     void usesOnlyTheExistingTripHookAndNeverClaimsAPurchase() {
@@ -32,7 +33,7 @@ class RestockTripExecutorTest {
     @Test
     void qaAndExecuteFlagAreBothRequired() {
         withFixture((bot, executor) -> {
-            System.clearProperty("slums.botlife.execute");
+            System.setProperty("slums.botlife.execute", "false");
             assertTrue(executor.start(Activity.RESTOCK).isEmpty());
             verify(bot, never()).startLifeRestockTrip();
         });

@@ -159,6 +159,20 @@ class BotPerformanceMonitorTest {
     }
 
     @Test
+    void socialTickIsItsOwnBackgroundPhaseCountedInTheTotal() {
+        BotPerformanceMonitor.report(); // baseline
+        BotPerformanceMonitor.recordSocialTick(3_000_000L);
+        BotPerformanceMonitor.record("social-tick", 2_000_000L);
+
+        Map<String, Line> lines = parse(BotPerformanceMonitor.report());
+        Line social = lines.get("BACKGROUND social-tick");
+        assertEquals(5_000_000L, social.nanos());
+        assertEquals(2L, social.samples());
+        assertFalse(social.nested(), "the social layer runs on the director and talk threads, outside any macro tick");
+        assertEquals(5_000_000L, lines.get("BACKGROUND total").nanos());
+    }
+
+    @Test
     void secondReadingRatesCoverOnlyTheSecondWindow() {
         BotPerformanceMonitor.report(); // baseline
 

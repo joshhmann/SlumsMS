@@ -90,8 +90,15 @@ public final class LifeRuntime {
         restored = memory.restored();
     }
 
+    /** The brain is ON unless {@code -Dslums.botlife.enabled=false} or {@code -Dslums.botlife.execute=false} (1.6.4: default on). */
     public static boolean enabled() {
-        return Boolean.getBoolean("slums.botlife.enabled") && Boolean.getBoolean("slums.botlife.execute");
+        return !"false".equalsIgnoreCase(System.getProperty("slums.botlife.enabled"))
+                && executeOn();
+    }
+
+    /** Whether the brain's choices are carried out ({@code -Dslums.botlife.execute=false} turns it off). */
+    public static boolean executeOn() {
+        return !"false".equalsIgnoreCase(System.getProperty("slums.botlife.execute"));
     }
 
     /**
