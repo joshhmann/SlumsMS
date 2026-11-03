@@ -44,7 +44,7 @@ final class ReplyCleaner {
 
     /**
      * Why a raw chat reply does not sound like a 2008 player, or null when it does: assistant phrasing, markdown,
-     * emojis, a paragraph or several lines, real-world references.
+     * emojis, a paragraph or more than one line, real-world references.
      */
     static String voiceProblem(String raw) {
         if (raw == null) {
@@ -52,7 +52,8 @@ final class ReplyCleaner {
         }
         String text = UNCLOSED_THINK.matcher(THINK_BLOCK.matcher(raw).replaceAll("")).replaceAll("").trim();
         long lines = text.lines().filter(l -> !l.isBlank()).count();
-        if (lines > 2) {
+        if (lines > 1) {
+            // social#4: clean() sends one line, so a second one would be dropped without a word: refuse the reply
             return "several lines";
         }
         String first = firstNonBlankLine(text).trim();
