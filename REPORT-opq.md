@@ -380,21 +380,82 @@ one row (`content/dellibattle.yaml`), `clear: { instance: true }`.
   (`DelliBattle.js:27`) and the staging hands `KpqStaging` a party of at least two, so a lobby would staff a party the
   script refuses to look at. A human party of two plays it with the row flag; no bot party is assembled.
 
-## The last three: Magatia, CWKPQ, GuildQuest - what a row would need
+## Magatia PQ: the read that corrects my own verdict
 
-Read, not attempted. Each of these needs something the branch does not have, and the difference between them is *where*
-the block is: one is volume, one is a fact about the party, one is a fact about the character.
+I said this was volume, not blockers. The read says otherwise, and the blocker is one line of stage 1.
 
-| Row | Its gates and shape | What a row would need | Where the block is |
-|---|---|---|---|
-| **Magatia PQ** (`MagatiaPQ_A.js`, `_Z.js`) | exactly **4** players (`minPlayers = 4, maxPlayers = 4`, `:27`), level 71-255, 45 min, entry `926110000`, exit `926110700`, recruit `261000021` (`:26-37`); **17 maps** reset at setup (`:139-157`); seven `statusStg1..7` int properties (`:127-133`), every one written by an NPC script; `changedMap` chains map to stage (`:421-430`); the escort turns into a fight (`yuleteTalked`/`yuletePassed`, `:311-355`, thirty monsters); stage 6's combination is generated per run (`generateStg6Combo`, `:188-214`) | seven stage solvers, one per NPC dialogue tree, plus a 4-member party the staging must be able to hit exactly | **volume.** Every primitive exists - `TalkNpc`, `Converse`, `CheckAnswer`, `eventProperty`, `Fight`, `WarpTo`, `maps:` - but this is seven rows' worth of work in one event, and the two variants differ only in map ids, so it is one row parameterised twice |
-| **CWKPQ** (`CWKPQ.js`) | 6-30 players (`:27`), level 90-255, entry `610030100`, maps to `610030800`, `eventTime = 2` minutes for the first stage (`:36`); stage 1 deploys **randomised job reactors** - `generateMapReactors` (`:98-135`) draws a set that covers all six job slots and plants fakes beside the real ones | the party must find, per member, which of eight reactors answers *its own job* | **a fact about the party.** `RunMember` carries no job, and nothing in the engine maps a reactor name (`4skill0a`, `4fake1c`) to a job slot. A bot cannot answer "which of these is mine", so it can neither sign in nor know when it is done |
-| **GuildQuest** (`GuildQuest.js`) | 6-30 players, level 1-255, entry `990000000`, 90 minutes (`:26-40`); `getEligibleParty` requires **every member to share the leader's `guildId`** (`:105-113`) | nothing the engine lacks - a party, a map set, map-empty clears | **a fact about the character.** Playerbots hold no guild. Verdict: not playable in this lane until bots can carry guild membership, which is a bot-model change, not a row |
+**The stage-1 blocker: twenty-six NPCs with one id.** `Map.wz/Map9/926110000.img.xml` holds **26 placements of NPC
+`2112013`** (`2112007` in the Z variant) and one reactor `d00`. Each placement rolls its own reward per instance
+(`scripts/npc/2112013.js:29-33`: `book = "stg1_b" + (cm.getNpcObjectId() % 26)`), consumes it when read (`:35-36`), and
+the one that rolls `3` sets `statusStg1 = 1` and hits `d00` (`:56-61`). A bot therefore has to read **each placement in
+turn** - and our engine cannot address one: `SolverStep.TalkNpc(int npcId, int itemId, int count)` resolves through
+`MapleMap.getNPCById` (`src/main/java/server/maps/MapleMap.java:2090-2101`), which returns the first NPC with that id, so
+every bot would re-read the same book for ever and the stage would never clear.
 
-What this means for the branch: Magatia is the only one of the three that is *work* rather than a missing capability, and
-it should be taken as its own ticket with the same report discipline (one stage per commit, a fail-before per stage, a
-row per variant). CWKPQ and GuildQuest are recorded as verdicts, the way Amoria PQ, Holiday PQ and Elnath PQ already
-are - with the reason, so the next reader does not spend a day discovering it.
+The minimal seam, in this branch's own shape, is two additions and nothing else:
+
+- `StageView.npcPlacements(int npcId)` -> the placements' `(objectId, x, y)`, from `MapleMap.getMapObjects()` filtered on
+  `MapObjectType.NPC` (the same list `getNPCById` walks);
+- `SolverStep.TalkNpcAt(int objectId, int npcId)` -> a `TalkNpc` that resolves the NPC by object id.
+
+That is the fifth time this lane has needed "address the one the data means": reactors by id (`PlaceItemOn`), reactors by
+name (`HitReactorNamed`), map sets (`maps:`), portals (`portalsOn`) - and now NPC placements. Until it exists, the row
+cannot be built honestly, so no row was built.
+
+**Which script writes each property, and which reads it** (a `grep` of `scripts/`, not a guess; Magatia's portals are
+`jnr*` in the A variant and `rnj*` in Z):
+
+| Property | Written by | Read by |
+|---|---|---|
+| `statusStg1` | `scripts/npc/2112007.js:59` / `2112013.js:61` (the book that rolls a pass) | `scripts/portal/jnr1_pt00.js`, `rnj1_pt00.js` (the way forward) |
+| `statusStg2` | `scripts/event/MagatiaPQ_A.js:425` (`monsterKilled`, room empty) | `scripts/portal/jnr1_out.js`, `rnj1_out.js` |
+| `statusStg3` | `scripts/reactor/2618000.js` | `scripts/portal/jnr2_out.js`, `rnj2_out.js` |
+| `statusStg4` | `scripts/npc/2112005.js:83` / `2112006.js:83` (the leader's two files) | `2112005.js:63` (opens `jnr3_out3` once set) |
+| `statusStg5` | `scripts/portal/jnr4_r1..r4.js` / `rnj4_r1..r4.js` | the same four portals |
+| `statusStg6` | `scripts/portal/jnr5_rp.js` | itself, plus the combo `generateStg6Combo` writes (`MagatiaPQ_A.js:188-214`) |
+| `statusStg7` | `scripts/npc/2112000.js:110,122` / `2112010.js:108,118` (Yulete, twice) | the Yulete NPC's own menu |
+
+So the row is **portal-driven**, like Orbis: each stage's clear is a property a portal or an NPC writes and the *next
+portal* reads, which is `ScriptedPortal`/`EnterPortal` plus one `TalkNpc` or `HitReactor` per stage. The one stage whose
+chain I could not trace end to end from the portal scripts alone is stage 3 (`jnr2_out` and reactor `2618000`) - say
+"unclear" rather than guess: it needs `scripts/reactor/2618000.js` and `scripts/portal/jnr2_out.js` read together, which
+is the first hour of the build, not a design question.
+
+- **The four-player requirement is exact**, `minPlayers = 4, maxPlayers = 4` (`MagatiaPQ_A.js:27`), and the row must
+  refuse a party of three and a party of five. Our staging spawns `minPlayers`, so a Magatia lobby is the first row whose
+  party size is a single number - the same `KpqStaging` path, one `if`-free consequence of the row.
+- **The variant pair is `_A.js` and `_Z.js`, not `_A`/`_B`** - Zenumist's own ids (`926100*`), the same seven stages.
+  One row parameterised twice, or two rows; the scripts are 462 lines each and differ in map ids and NPC ids only.
+
+## CWKPQ: the job is a member fact, and it is one component wide
+
+`scripts/event/CWKPQ.js:98-135` plants a randomised set of job reactors, fakes included, and the party has to find the one
+that answers its own member's job. The question was whether carrying the job on `RunMember` is small.
+
+It is small. `RunMember` is `record RunMember(int characterId, boolean leader, boolean bot, MechanicsPersona persona)`
+(`src/main/java/soloMapling/mechanics/RunMember.java:7`) built at exactly one site, `MechanicsRuns.java:162`, from a real
+`Character` - and `Character.getJob()` already exists, because `EllinPQ.js:93` filters on it (`Math.floor(job/1000) == 0`).
+So `int job` is one component with a convenience constructor, filled where the member is built, read by a solver, and
+gated by nothing new. It does not need a jobs *model*: it is what the character already is.
+
+What it does not solve by itself, and why no CWKPQ stage was attempted in this commit: the reactor-name-to-job mapping is
+in the script's own table (`4skill0a`..`4fake1e`, `:98-135`) and the sign-up is a reactor **touch**, not a hit - the
+`Master Guardians` listen for a touch packet, the same asymmetry that made Horntail's `summonProperty` unsettable by a
+bot (`2408003.js` `touch()` only). That is the next read, not a guess.
+
+## EllinPQ: not unbuildable - the maps have content and the scripts have a clear
+
+The owner's note asked whether `930000500`/`930000600` genuinely have no script. They do not: they are EllinPQ's stage 5
+and stage 6, and the event is fully scripted - `scripts/event/EllinPQ.js` (255 lines), 4-6 players, level 44-255,
+**adventurer jobs only** (`:93`), maps `930000000`-`930000800`, `eventTime` 30 minutes, front door `2133000`
+(`scripts/npc/2133000.js:51`). Its clears are: map-empty for stage 1 (`monsterKilled` `:246-250`), `statusStg4` for the
+foundry, and the Poison Golem `9300182`'s death for the whole event (`:236-241` -> `clearPQ`). `930000500` is the room
+whose reactors are shuffled at setup (`:118-120`) - the memory puzzle, which is a per-run placement like Magatia's books but
+of reactors, and reactors we *can* address by id.
+
+So the honest status is: EllinPQ is a buildable row with one job gate (bots must be adventurers - they are spawned with a
+random job, so the lobby has to pick), and it is behind Magatia's seam only for the same reason anything with a puzzle is:
+the run has to remember placements. It is not "unwinnable for humans too", and no ticket is needed to say so.
 
 ## Expedition rule: pause for revive (this is the report it lives in)
 
