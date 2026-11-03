@@ -50,17 +50,30 @@ public final class MechanicsRuns {
         final Consumer<Active> onEnd;
         /** The run's own staging or lobby started this instance: a run that ends short of the clear ends it too. */
         final boolean ownsInstance;
+        /** How the run came to be and whether it holds a place in {@link RealRunPool}; released when the run ends. */
+        final RealRunPool.Admission admission;
         volatile ScheduledFuture<?> tick;
         volatile boolean finished;
 
         Active(RunState run, EventInstanceManager eim, Map<Integer, Character> bots, Consumer<String> reporter,
-               Consumer<Active> onEnd, boolean ownsInstance) {
+               Consumer<Active> onEnd, boolean ownsInstance, RealRunPool.Admission admission) {
             this.run = run;
             this.eim = eim;
             this.bots = bots;
             this.reporter = reporter;
             this.onEnd = onEnd;
             this.ownsInstance = ownsInstance;
+            this.admission = admission;
+        }
+
+        /** How this run came to be (a lobby, a staging, a human's party): what its {@link RealRunPool.Admission} says. */
+        public RealRunPool.Origin origin() {
+            return admission.origin();
+        }
+
+        /** Whether this run holds a place in the real-run pool right now (false for a human's or a staged run). */
+        public boolean leased() {
+            return admission.leased();
         }
 
         public RunState run() {
@@ -156,6 +169,33 @@ public final class MechanicsRuns {
      */
     public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int firstStage,
                         int lastStage, boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd) {
+        // a caller that does not name an admission is a staged run (a GM, QA, a test): always real, never counted
+        return start(eim, content, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd,
+                RealRunPool.exempt(RealRunPool.Origin.STAGED));
+    }
+
+    /**
+     * As above, for a run admitted by {@link RealRunPool} ({@code admission}): the place it holds is given back when the
+     * run ends however it ends, and when this call refuses or fails to start it (a run that ends at its start, a second
+     * run on one instance, a throw) - a leaked place is a permanently smaller quota.
+     */
+    public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int firstStage,
+                        int lastStage, boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd,
+                        RealRunPool.Admission admission) {
+        Active a = null;
+        try {
+            a = begin(eim, content, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd, admission);
+            return a;
+        } finally {
+            if (a == null || a.finished) {
+                admission.release(); // refused, ended at its start, or threw: no run is left to give it back
+            }
+        }
+    }
+
+    private Active begin(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int firstStage,
+                         int lastStage, boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd,
+                         RealRunPool.Admission admission) {
         List<RunMember> members = new ArrayList<>();
         Map<Integer, Character> bots = new ConcurrentHashMap<>();
         for (Character c : eim.getPlayers()) {
@@ -174,7 +214,7 @@ public final class MechanicsRuns {
         if (firstStage > 1 && !o.startAt(run, firstStage, System.currentTimeMillis())) {
             run.end("stage " + firstStage + " is not one this run plays (last " + run.lastStage() + ")");
         }
-        Active a = new Active(run, eim, bots, toQaLog(members, reporter), onEnd, ownsInstance);
+        Active a = new Active(run, eim, bots, toQaLog(members, reporter), onEnd, ownsInstance, admission);
         if (run.ended()) {
             a.finished = true;
             a.reporter.accept("RUN not started: " + run.endedBecause());
@@ -367,12 +407,26 @@ public final class MechanicsRuns {
                 }
                 return null;
             }
-            if (eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
+            List<Character> inside = eim.getPlayers();
+            if (inside.stream().noneMatch(MechanicsRuns::drivable)) {
+                return null;
+            }
+            // a real player in the run decides it: his run is always real and takes no place in the pool. A party with
+            // nobody but bots in it (no production path reaches here: the lobbies stage through KpqStaging) is a bot-only
+            // run like a lobby's and asks the pool; a run it refuses is simply not made
+            boolean human = inside.stream().anyMatch(c -> !drivable(c));
+            RealRunPool.Admission admission = human
+                    ? RealRunPool.exempt(expedition ? RealRunPool.Origin.HUMAN_EXPEDITION : RealRunPool.Origin.HUMAN_PARTY)
+                    : RealRunPool.get().admit(RealRunPool.Origin.BOT_INSTANCE, content, 0);
+            if (!admission.granted()) {
+                if (admission.announce()) {
+                    log("[Mechanics] " + keyOf(eim) + " (" + event + "): no run: " + admission.why());
+                }
                 return null;
             }
             // neither a PQ nor a boss room is the run's to end: the party or the expedition script owns, and ends, it
             return get().start(eim, content, false, 0, 1, 0, false,
-                    line -> log("[Mechanics] " + keyOf(eim) + " " + line), null);
+                    line -> log("[Mechanics] " + keyOf(eim) + " " + line), null, admission);
         } catch (RuntimeException e) {
             log("[Mechanics] could not start a run for " + keyOf(eim) + ": " + e);
             return null;
@@ -432,6 +486,15 @@ public final class MechanicsRuns {
             return;
         }
         a.finished = true;
+        try {
+            endRun(a);
+        } finally {
+            // the one place a finished run's place in RealRunPool is given back, whatever the end above did or threw
+            a.admission.release();
+        }
+    }
+
+    private void endRun(Active a) {
         ScheduledFuture<?> t = a.tick;
         if (t != null) {
             t.cancel(false);
@@ -662,6 +725,10 @@ public final class MechanicsRuns {
         }
         if (out.isEmpty()) {
             out.add("no mechanics runs (bots held: " + MechanicsHold.count() + ")");
+        }
+        String pool = RealRunPool.get().describe(); // null while the pool is unlimited: status reads as it always did
+        if (pool != null) {
+            out.add(pool);
         }
         return out;
     }

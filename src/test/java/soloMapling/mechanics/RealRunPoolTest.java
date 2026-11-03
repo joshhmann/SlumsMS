@@ -45,8 +45,11 @@ class RealRunPoolTest {
         System.clearProperty(Mechanics.REAL_RUNS_FLAG);
     }
 
+    /** Loaded once: the row is read from the content folder, which is not what these tests are about. */
+    private static final Content KPQ = KpqStageDataTest.kpq();
+
     private static Content kpq() {
-        return KpqStageDataTest.kpq();
+        return KPQ;
     }
 
     // ---- the switch -------------------------------------------------------------------------------------
