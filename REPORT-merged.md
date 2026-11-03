@@ -31,9 +31,9 @@ two branches had grown in different files, so the only textual collisions were d
 
 | # | File | What clashed | Resolution |
 | --- | --- | --- | --- |
-| 1 | `src/main/java/soloMapling/mechanics/MechanicsModel.java` (record) | both sides appended components to `Stage` | one order, both sides' components: `..., summonProperty, spawnWaitSeconds, timeLimitMinutes, hitReactors, entryItems, killTarget, hitReactor, maps`. Convenience constructor extended in the same order; `killTarget` re-added because the PQ side's data and tests speak it |
-| 2 | `src/main/java/soloMapling/mechanics/MechanicsModel.java` (javadoc) | both sides documented their own fields | one `<li>` list with both; `hitReactor` and `hitReactors` documented as two spellings, one per lane, with the reason they both stay |
-| 3 | `src/main/java/soloMapling/mechanics/StageData.java` | the boss side parses `hitReactors`/`entryItems`; the PQ side parses `hitReactor`/`maps` | one `readStage` parses all five; a new guard refuses a row that names both spellings (`hitReactor and hitReactors are the same fact twice`); a single `new Stage(...)` emits every component |
+| 1 | `src/main/java/soloMapling/mechanics/MechanicsModel.java` (record) | both sides appended components to `Stage`, and both had a spelling of "the reactor this stage is behind" | one order, both sides' components: `..., summonProperty, spawnWaitSeconds, timeLimitMinutes, hitReactors, entryItems, maps`. The list is the one spelling of the reactor fact (see the next table); `killTarget` was dropped as dead, and the convenience constructor was updated to match |
+| 2 | `src/main/java/soloMapling/mechanics/MechanicsModel.java` (javadoc) | both sides documented their own fields | one `<li>` list with both sides' entries; the `hitReactors` bullet now says the party-quest rows name it with one entry |
+| 3 | `src/main/java/soloMapling/mechanics/StageData.java` | the boss side parses `hitReactors`/`entryItems`; the PQ side parses `hitReactor`/`maps` | one `readStage` parses every field both sides had, in one `new Stage(...)`; the scalar `hitReactor` key is refused with the spelling to use instead, so an old row cannot be silently ignored |
 | 4 | `src/main/java/soloMapling/mechanics/content/index.txt` | each branch appended its own rows | union in one order: 12 base rows, then the 27 boss rows in the boss branch's order, then the 7 PQ rows |
 | 5 | `src/test/java/soloMapling/MechanicsDataFilesTest.java` | the pinned id list, both sides | the same 46 ids in the same order; the test already compares sorted |
 | 6 | `src/main/resources/soloMapling/autoqa-coverage.tsv` | each side added its own rows | both lines kept (`t-ex-2` → the two Zakum rows, `t-mx-1..6` → `cwkpq.yaml`) |
@@ -47,7 +47,21 @@ two branches had grown in different files, so the only textual collisions were d
 | 14 | `src/test/java/soloMapling/qa/BossRunScenariosTest.java` | assertions for the mandatory-alt revision | kept the tree's assertions (they cover the optional alt too) |
 
 Test-side follow-ups for the widened record: `BossPhasesSolverTest`'s two `Stage` builders and `MagatiaBooksSolversTest`
-now pass `killTarget`, `hitReactor` and `maps` (zeros and empty lists - the same values the old constructors implied).
+now pass `maps`; `EllinPqSolversTest` asserts the reactor as `List.of(3002001)` instead of the scalar.
+
+### The duplicate spellings, folded (the "one spelling per fact" rule)
+
+The two lanes had each grown a spelling of the same stage fact. Both are now one field, with the other lane's consumers
+migrated - and the one dead field the boss lane had already deleted is not resurrected:
+
+| Fact | Before the merge | After | Consumers migrated |
+| --- | --- | --- | --- |
+| the reactor a stage is behind | boss rows: `hitReactors: [..]` (list); PQ rows: `hitReactor: <id>` (scalar) | `hitReactors` only | `EllinStoneSolver`, `ReactorCountSolver`, `ReactorStateSolver` read the list; `ellinpq.yaml` (two stages) and `magatiapq.yaml` (one) name `hitReactors: [<id>]` |
+| the mob whose death ends a stage | `killTarget` on the PQ side, deleted as dead by the boss side | gone | nothing read it and no row set it; the loader no longer parses it |
+
+Because the scalar key is refused rather than ignored, a row that still carries it fails the row load with
+`hitReactor: the scalar spelling is gone; write hitReactors: [<id>]`, which is what `MechanicsDataFilesTest` asserts
+about the whole content directory.
 
 ## The rows, and the switch that arms each one
 
@@ -85,6 +99,47 @@ Two extra switches sit on top of these and neither is a row gate: `slums.mechani
 run's win/loss line) and the per-row lobby, `slums.mechanics.<row>.lobby` (default **false**), with
 `slums.mechanics.<row>.runs` (default 1) for how many lobbies a row may start.
 
+## Nothing arms by itself (switch audit, defaults)
+
+Every switch the rows read is a JVM property with a **false** default (`Boolean.getBoolean`), and a row is armed only
+when its own gate is true, so a server started with none of them has no mechanics row at all - no lobby starts, no
+boss room is taken over, no expedition is touched. Checked row by row against `MechanicsRuns.onInstanceStarted`
+(`src/main/java/soloMapling/mechanics/MechanicsRuns.java:446-450`): a boss row is armed only when
+`Mechanics.bossesEnabled() && Mechanics.rowFlagOn(content)`, a party-quest row only when
+`Mechanics.enabled() && Mechanics.rowFlagOn(content)`.
+
+| Switch | Default | What it arms |
+| --- | --- | --- |
+| `slums.mechanics` | off | the party-quest rows: Kerning PQ directly, the others only together with their own flag |
+| `slums.mechanics.boss` | off | every boss row (all 29). Boss rows do **not** need `slums.mechanics`: the boss lane's own switch is enough, and that is deliberate - a server can let bots share boss fights without letting them run party quests |
+| `slums.mechanics.opq` / `.lpq` / `.hpq` / `.cafepq` / `.ludimazepq` / `.piratepq` / `.treasurepq` / `.dellibattle` / `.magatiapq` / `.ellinpq` / `.cwkpq` | off | the named row (`.cafepq` covers areas 1-6) |
+| `slums.chaos.zakum` | off | the `zakum-chaos` row, on top of `slums.mechanics.boss` |
+| `slums.mechanics.<row>.lobby` | off | the bot lobby for that row (needs the row itself armed first) |
+| `slums.mechanics.<row>.runs` | 1 | how many lobbies a row may run at once |
+| `slums.mechanics.chatter` | **on** | the run's win/loss chat line - the only default that is on, and it is chat only; it does nothing unless a row is armed |
+| `slums.mechanics.dir` | the packaged content directory | where rows load from (tests only) |
+
+The one row with no `flag:` of its own is `kpq` (the 1.6.1 base row); its switch *is* `slums.mechanics`. No merged row
+can arm on a default: with every switch unset the loader still reads all 46 rows (the shipped-directory load test,
+`MechanicsDataFilesTest.theContentRowsLoadFromTheJarWithNoSourceTree`, asserts the load reports no problems), and
+`MechanicsRuns` arms none of them.
+
+## Reproduce the proof
+
+```
+cd /root/work/164-all
+mvn -o test                                                        # the full suite, switches unset
+mvn -o test -Dtest='MechanicsDataFilesTest,StageDataTest,RowRunSimulationTest' -DfailIfNoTests=false
+mvn -o test -Dwz-path=/root/work/SlumsMS-152-maps/wz -Dtest=ContentRowWzIntegrityTest
+python3 tools/ops/map-integrity --wz /root/work/SlumsMS-152-maps/wz            # the whole dump
+python3 tools/ops/map-integrity --wz /root/work/SlumsMS-152-maps/wz --map "<the 46 rows' map ids>"
+tools/ops/autoqa-proof 6d18f961e..HEAD
+tools/ops/helper-checkout /root/work/164-all
+```
+
+The whole-dump sweep is not a gate for this branch (its report is mostly the dump's own gaps); the per-row invocation
+is the meaningful one, and `ContentRowWzIntegrityTest` is the same check inside the suite.
+
 ## What auto-QA covers (from `tools/ops/autoqa-proof 6d18f961e..HEAD`)
 
 `checks: every check (186) - a runner or platform file changed`, so the release run is `tools/ops/autoqa-run all`.
@@ -106,7 +161,16 @@ covered by unit tests only; `docs/ops/qa-suite.md` names the manual companion fo
 
 ### Suite totals
 
-Suite totals are filled in after the run; the number to beat is the boss branch's own 8575 (138 skipped).
+`mvn -o test`, every switch unset, on the pinned merge (head `01d3c60a3`):
+
+```
+Tests run: 8758, Failures: 0, Errors: 0, Skipped: 138     BUILD SUCCESS, EXIT=0, 1833 s
+```
+
+That is above the boss branch's own 8575 (138 skipped) and the party-quest branch's 8573 (137 skipped): the extra
+tests are the boss lane's row and solver tests arriving next to the party-quest lane's, which is what a union should
+look like. No `<<< FAILURE` marker anywhere, no re-run needed, and the order-dependent flake
+(`BotConversationFlowTest.aRefusedPartyAskIsPlannedFromTheGatesVerdict`) did not appear.
 
 ### Paperwork
 
@@ -126,10 +190,47 @@ and this file.
    They are in `Map.wz`, not in this merge, and neither is on a solver's path (the rows enter and leave those maps
    through other portals), but a player walking out of the Armory's back door or into Delli's room the wrong way gets
    nothing. Not fixed here: fixing them means editing the WZ dump, which is outside this branch.
-4. **`hitReactor` and `hitReactors` are still two fields.** The merge keeps both because the PQ solvers read the scalar
-   and six boss rows set the list; `StageData` now refuses a row that names both, so the two can never disagree. A
-   follow-up should make the PQ solvers read `hitReactors` and delete the scalar, with `ellinpq.yaml` and
-   `magatiapq.yaml` rewritten as one-element lists - the ticket's own "one spelling per fact" rule, deferred only
-   because it changes three solvers and two rows.
+4. **The folded reactor list is unproven in a client.** Three PQ solvers now read `hitReactors.get(0)` where they read
+   a scalar; the simulation tests cover them, no client has clicked the Ellin spine, the Ellin stone or Magatia's beaker
+   from this branch.
 5. **The whole-dump `map-integrity` sweep is not gating anything.** Its 11352-map report is pre-existing noise over a
    partial dump (thousands of maps have no `String.wz` name in it); only the per-row view is meaningful today.
+
+## Deploy note
+
+**Branch:** `164-all-merge` (this worktree, `/root/work/164-all`). Nothing was pushed; the owner pushes and deploys.
+
+The mechanics switches are **JVM flags**, not `config.yaml` keys - there is no `slums.mechanics*` key in any config
+schema, so TEST's `config.yaml` needs **no change at all**. Add the flags to the java line in TEST's
+`start-test.sh` (`/opt/mapleroot-dev/persistence-test/start-test.sh`), after the existing `-Dslums.*` ones:
+
+```
+-Dslums.mechanics=true \
+-Dslums.mechanics.boss=true \
+-Dslums.mechanics.opq=true -Dslums.mechanics.lpq=true -Dslums.mechanics.hpq=true \
+-Dslums.mechanics.cafepq=true -Dslums.mechanics.ludimazepq=true -Dslums.mechanics.piratepq=true \
+-Dslums.mechanics.treasurepq=true -Dslums.mechanics.dellibattle=true -Dslums.mechanics.magatiapq=true \
+-Dslums.mechanics.ellinpq=true -Dslums.mechanics.cwkpq=true \
+-Dslums.chaos.zakum=true
+```
+
+That is the full sweep: every one of the 46 rows armed, no lobby. Drop any line and its rows are inert; drop all of
+them and the server behaves exactly as it does today (`release-1.6.4`), because every switch defaults off.
+
+Two more flags belong with the sweep only if the auto-QA checks are wanted: `-Dslums.qa=true` (or
+`-Dslums.attackcapture=true`) for `t-ex-2` / `t-mx-1..6`, which are exactly the rows' own checks (see
+`docs/ops/qa-suite.md`).
+
+**Keep off:**
+- `slums.mechanics.<row>.lobby` - the bot lobbies take a whole party quest out of players' hands (one per row, and
+  `slums.mechanics.<row>.runs` above 1 multiplies that); turn one on per row only when the owner wants bots to start
+  that PQ by themselves.
+- the fishing, bot-life and Chaos-boss flags `docs/HANDOFF.md` and `docs/release/1.6.0-qa.md` already say stay off on
+  shared TEST; nothing in this branch needs them.
+- `slums.mechanics.dir` - tests only; on TEST the rows come from the jar.
+
+**What a player sees with the sweep on:** the Kerning, Orbis, Ludi, Henesys, Cafe, LudiMaze, Pirate, Treasure,
+DelliBattle, Magatia, Ellin and Crimsonwood party quests run with bots inside them, and a bot party shares Zakum,
+Horntail, Chaos Zakum, the five Twin Dragon caves, Maha, Castellan, Papulatus, Krexel, Showa, Balrog, Scarga,
+Elemental Thanatos, Pink Bean, Captain Latanica, Magnus, Will, Lucid, Verus Hilla, Darknell and the six GuardianNex
+caves instead of standing outside; every run that ends can leave one chat line (chatter is on by default, chat only).
