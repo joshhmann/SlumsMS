@@ -133,7 +133,16 @@ public final class KpqLobby {
             if (pick.isEmpty()) {
                 continue;
             }
-            if (start(content, here, pick)) {
+            // the pool decides before anything is made: a run it refuses gets no party, no word with Lakelis, no
+            // instance (-Dslums.mechanics.realruns unset: every run is admitted and none is leased, as it always was)
+            RealRunPool.Admission admission = RealRunPool.get().admit(RealRunPool.Origin.KPQ_LOBBY, content, 0);
+            if (!admission.granted()) {
+                if (admission.announce()) {
+                    log("[Mechanics] KPQ lobby: no run on channel " + ch.getId() + ": " + admission.why());
+                }
+                return; // the pool is world-wide: no other channel would be admitted either
+            }
+            if (start(content, here, pick, admission)) {
                 return; // one start a tick
             }
         }
@@ -333,7 +342,23 @@ public final class KpqLobby {
      * throws on the way disbands the party (a bot left in a half-made party was never free again), and the run's
      * slot is taken before the run starts (a run that ended on its first tick left its name behind for good).
      */
-    static boolean start(Content content, List<Character> here, List<Integer> pick) {
+    static boolean start(Content content, List<Character> here, List<Integer> pick, RealRunPool.Admission admission) {
+        EventInstanceManager[] slot = {null};
+        boolean ran = false;
+        try {
+            ran = begin(content, here, pick, admission, slot);
+            return ran;
+        } finally {
+            // a run that was not made gives its place in the pool back; one that is playing keeps it until
+            // MechanicsRuns.finish (a throw after the run took its instance leaves it playing, and holding its place)
+            if (!ran && (slot[0] == null || MechanicsRuns.get().runFor(slot[0]) == null)) {
+                admission.release();
+            }
+        }
+    }
+
+    private static boolean begin(Content content, List<Character> here, List<Integer> pick,
+                                 RealRunPool.Admission admission, EventInstanceManager[] slot) {
         List<Character> members = new ArrayList<>();
         for (int id : pick) {
             for (Character c : here) {
@@ -345,7 +370,6 @@ public final class KpqLobby {
         if (members.isEmpty()) {
             return false;
         }
-        EventInstanceManager[] slot = {null};
         try {
             Character leader = members.get(0);
             if (!Party.createParty(leader, true) || leader.getParty() == null) {
@@ -381,7 +405,7 @@ public final class KpqLobby {
                     line -> log("[Mechanics] lobby " + name + " " + line), done -> {
                         running.remove(eim);
                         disband(members);
-                    });
+                    }, admission);
             if (a.run().ended()) {
                 running.remove(eim);
                 disband(members);
@@ -420,7 +444,7 @@ public final class KpqLobby {
      */
     public static MechanicsRuns.Active startForQa(Content content, List<Character> bots) {
         List<Integer> ids = bots.stream().map(Character::getId).toList();
-        if (!start(content, bots, ids)) {
+        if (!start(content, bots, ids, RealRunPool.exempt(RealRunPool.Origin.STAGED))) { // QA: always real, never counted
             return null;
         }
         EventInstanceManager eim = bots.get(0).getEventInstance();

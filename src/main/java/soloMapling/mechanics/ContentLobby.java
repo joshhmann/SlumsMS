@@ -133,13 +133,23 @@ public final class ContentLobby {
                 continue;
             }
             int want = content.minPlayers();
+            // the pool decides before a single bot is spawned: a run it refuses is simply not made (unset: every run is
+            // admitted and none is leased, as it always was)
+            RealRunPool.Admission admission = RealRunPool.get().admit(RealRunPool.Origin.CONTENT_LOBBY, content, 0);
+            if (!admission.granted()) {
+                if (admission.announce()) {
+                    log("[Mechanics] " + content.name() + " lobby: no run on channel " + ch.getId() + ": " + admission.why());
+                }
+                return false; // the pool is world-wide: no other channel would be admitted either
+            }
             KpqStaging.Staged staged = KpqStaging.start(content, ch, null, false, want, true, 0, 1, 0,
                     line -> log("[Mechanics] " + content.id().toUpperCase(Locale.ROOT) + " " + line), done -> {
                         if (done.instance() != null) {
                             running.remove(done.instance());
                         }
-                    });
+                    }, admission);
             if (staged.active() == null) {
+                admission.release(); // KpqStaging gave it back already; this is the lobby's own belt for a run not made
                 refuse(key(content, ch), now);
                 log("[Mechanics] " + content.name() + " lobby: no run on channel " + ch.getId() + ": " + staged.error());
                 continue;

@@ -120,6 +120,35 @@ public final class KpqStaging {
     public static Staged start(Content content, Channel on, Character gm, boolean withGm, int bots, boolean perfect,
                                long budgetMs, int firstStage, int lastStage, Consumer<String> reporter,
                                Consumer<MechanicsRuns.Active> afterCleanup) {
+        // a GM's !mechanics and a QA scenario come this way: forced real, never counted in the pool, never refused
+        return start(content, on, gm, withGm, bots, perfect, budgetMs, firstStage, lastStage, reporter, afterCleanup,
+                RealRunPool.exempt(RealRunPool.Origin.STAGED));
+    }
+
+    /**
+     * As above for a run {@link RealRunPool} admitted ({@code admission}: the content lobbies). The place it holds is
+     * given back when this call does not end in a playing run - any refusal, any throw - and by the run itself when it
+     * ends ({@code MechanicsRuns.finish}).
+     */
+    public static Staged start(Content content, Channel on, Character gm, boolean withGm, int bots, boolean perfect,
+                               long budgetMs, int firstStage, int lastStage, Consumer<String> reporter,
+                               Consumer<MechanicsRuns.Active> afterCleanup, RealRunPool.Admission admission) {
+        boolean playing = false;
+        try {
+            Staged staged = stage(content, on, gm, withGm, bots, perfect, budgetMs, firstStage, lastStage, reporter,
+                    afterCleanup, admission);
+            playing = staged.active() != null && !staged.active().run().ended();
+            return staged;
+        } finally {
+            if (!playing) {
+                admission.release();
+            }
+        }
+    }
+
+    private static Staged stage(Content content, Channel on, Character gm, boolean withGm, int bots, boolean perfect,
+                                long budgetMs, int firstStage, int lastStage, Consumer<String> reporter,
+                                Consumer<MechanicsRuns.Active> afterCleanup, RealRunPool.Admission admission) {
         if (!Mechanics.enabled()) {
             return new Staged(null, List.of(), "mechanics is off (start the server with -D" + Mechanics.FLAG + "=true)");
         }
@@ -264,7 +293,7 @@ public final class KpqStaging {
                     afterCleanup.accept(done);
                 }
             }, DESPAWN_AFTER_MS, TimeUnit.MILLISECONDS);
-        });
+        }, admission);
         if (a.run().ended()) {
             cleanup(spawned);
             return new Staged(a, ours, a.run().endedBecause());
