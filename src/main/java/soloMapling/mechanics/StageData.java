@@ -209,6 +209,7 @@ public final class StageData {
             p.add("stage " + stages.get(stages.size() - 1).index()
                     + ": onTimeLimit: advance on the last stage has no next stage to go on to");
         }
+        checkBranchTargets(stages, p);
         Map<Tier, TierRules> tiers = new EnumMap<>(Tier.class);
         Object tierObj = m.get("tiers");
         if (tierObj instanceof Map<?, ?> tm) {
@@ -571,11 +572,120 @@ public final class StageData {
                 }
             }
         }
+        // the conditional ways on from this stage: the first whose condition holds when the stage clears wins
+        List<MechanicsModel.Branch> branches = readBranches(m, at, p);
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
                 summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, killTarget, stageMinutes,
-                hitReactor, List.copyOf(maps), graceMs, loopTo, onTimeLimit);
+                hitReactor, List.copyOf(maps), graceMs, loopTo, onTimeLimit, List.copyOf(branches));
+    }
+
+    /**
+     * {@code branches:} on a stage: a list of {@code {when: {...}, goto: N | end}}. {@code when:} is {@code
+     * {eventProperty: P}} (present), {@code {eventProperty: P, equals: V}} or {@code {reactor: name | id, state: N}}, and
+     * may be left out (always holds, so it must be the last entry). Whether {@code goto:} names a stage the row has is
+     * checked once every stage is read ({@link #checkBranchTargets}).
+     */
+    private static List<MechanicsModel.Branch> readBranches(Map<?, ?> m, String at, List<String> p) {
+        List<MechanicsModel.Branch> out = new ArrayList<>();
+        Object raw = m.get("branches");
+        if (raw == null) {
+            return out;
+        }
+        if (!(raw instanceof List<?> entries)) {
+            p.add(at + "branches: not a list");
+            return out;
+        }
+        boolean unconditionalSeen = false;
+        for (Object o : entries) {
+            if (!(o instanceof Map<?, ?> bm)) {
+                p.add(at + "branches: an entry that is not a map");
+                continue;
+            }
+            String property = null;
+            String equals = null;
+            String reactor = null;
+            int state = -1;
+            boolean ok = true;
+            if (bm.get("when") != null) {
+                if (!(bm.get("when") instanceof Map<?, ?> wm)) {
+                    p.add(at + "branches: when is not a map");
+                    continue;
+                }
+                property = opt(wm, "eventProperty").trim();
+                reactor = opt(wm, "reactor").trim();
+                property = property.isEmpty() ? null : property;
+                reactor = reactor.isEmpty() ? null : reactor;
+                if (property == null && reactor == null) {
+                    p.add(at + "branches: when needs an eventProperty or a reactor with a state");
+                    ok = false;
+                } else if (property != null && reactor != null) {
+                    p.add(at + "branches: when: pick one of eventProperty and reactor, not both");
+                    ok = false;
+                } else if (property != null) {
+                    String eq = opt(wm, "equals").trim();
+                    equals = eq.isEmpty() ? null : eq;
+                } else if (wm.get("state") == null) {
+                    p.add(at + "branches: when: a reactor needs its state");
+                    ok = false;
+                } else {
+                    state = num(wm, "state", -1, p);
+                    if (state < 0) {
+                        p.add(at + "branches: when: state must be 0 or more");
+                        ok = false;
+                    }
+                }
+            }
+            String target = opt(bm, "goto").trim();
+            int stage;
+            if (target.isEmpty()) {
+                p.add(at + "branches: an entry needs goto (a stage number, or end)");
+                continue;
+            } else if (target.equalsIgnoreCase("end")) {
+                stage = MechanicsModel.Branch.END;
+            } else {
+                try {
+                    stage = Integer.parseInt(target);
+                } catch (NumberFormatException e) {
+                    p.add(at + "branches: goto " + target + " is neither a stage number nor end");
+                    continue;
+                }
+                if (stage < 1) {
+                    p.add(at + "branches: goto " + target + " is not a stage number");
+                    continue;
+                }
+            }
+            if (unconditionalSeen) {
+                p.add(at + "branches: an entry after the one with no when is unreachable");
+            }
+            if (!ok) {
+                continue;
+            }
+            MechanicsModel.Branch b = new MechanicsModel.Branch(property, equals, reactor, state, stage);
+            unconditionalSeen |= b.unconditional();
+            out.add(b);
+        }
+        return out;
+    }
+
+    /** Every {@code goto:} names a stage the row has, and none names its own stage. */
+    private static void checkBranchTargets(List<Stage> stages, List<String> p) {
+        Set<Integer> have = new HashSet<>();
+        stages.forEach(s -> have.add(s.index()));
+        for (Stage s : stages) {
+            for (MechanicsModel.Branch b : s.branches()) {
+                if (b.end()) {
+                    continue;
+                }
+                if (b.stage() == s.index()) {
+                    p.add("stage " + s.index() + ": branches: goto " + b.stage() + " is the stage itself");
+                } else if (!have.contains(b.stage())) {
+                    p.add("stage " + s.index() + ": branches: goto " + b.stage() + " is not a stage of this row (1-"
+                            + stages.size() + ")");
+                }
+            }
+        }
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----

@@ -266,6 +266,40 @@ public interface StageView {
     }
 
     /**
+     * Whether a branch's condition holds of the room now ({@code branches:} on a stage): an event property present, or
+     * equal to a value, or a reactor - by WZ name, or by WZ id when the name is all digits - at exactly the state it
+     * names. A branch with no condition always holds. A reactor the map does not hold answers {@code -1} and so never
+     * matches (a state is 0 or more).
+     */
+    default boolean holds(MechanicsModel.Branch branch) {
+        if (branch.eventProperty() != null) {
+            Optional<String> value = eventProperty(branch.eventProperty());
+            return branch.equals() == null ? value.isPresent()
+                    : value.map(v -> v.trim().equals(branch.equals())).orElse(false);
+        }
+        if (branch.reactor() != null) {
+            String key = branch.reactor();
+            boolean byId = key.chars().allMatch(c -> c >= '0' && c <= '9');
+            int state = byId ? reactorState(Integer.parseInt(key)) : reactorState(key);
+            return state == branch.reactorState();
+        }
+        return true;
+    }
+
+    /**
+     * The first of the stage's branches that holds now, or null when none does (the run then goes to the next index, as
+     * a stage without branches always did).
+     */
+    default MechanicsModel.Branch branchTaken() {
+        for (MechanicsModel.Branch b : stage().branches()) {
+            if (holds(b)) {
+                return b;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Whether the stage is clear: the property its data names is present, or - when the data also gives
      * {@code equals} - holds that value, or - when the data says {@code instance: true} - once {@link #eventCleared()}. A boss script writes its property at setup (Zakum: {@code defeatedBoss=0}), so
      * reading presence there would clear the stage before anyone fought.

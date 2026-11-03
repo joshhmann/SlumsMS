@@ -31,6 +31,37 @@ public final class MechanicsModel {
      */
     public enum OnTimeLimit { END, ADVANCE }
 
+    /**
+     * One conditional way on from a stage ({@code branches:} on the stage in a row): when the stage clears and
+     * {@code when} holds of the room's state, the run goes to {@code stage} instead of the next index. The condition
+     * is one of two kinds a row can already read, never a script: an event property (present, or equal to
+     * {@code equals}) or a reactor, named ({@code light}) or by WZ id ({@code 2408001}, all digits), at exactly
+     * {@code reactorState}. No condition at all always holds, so an entry like that goes last. {@code stage} is a stage
+     * index of the row - at or before this one is a re-entry - or {@link #END}: the row is finished here, cleared.
+     * Pre-Horntail PQ is the case for both: {@code scripts/portal/hontale_C.js:30-41} picks one of two caves by a
+     * reactor's state, and {@code scripts/portal/hontale_Bopen.js:96-124} sends the party back to a room it has played.
+     */
+    public record Branch(String eventProperty, String equals, String reactor, int reactorState, int stage) {
+        /** The {@code goto:} that finishes the row. */
+        public static final int END = 0;
+
+        public boolean end() {
+            return stage == END;
+        }
+
+        public boolean unconditional() {
+            return eventProperty == null && reactor == null;
+        }
+
+        /** The condition in the words the history uses ("path = b", "reactor light at state 3"). */
+        public String describeWhen() {
+            if (eventProperty != null) {
+                return equals == null ? eventProperty + " is set" : eventProperty + " = " + equals;
+            }
+            return reactor == null ? "always" : "reactor " + reactor + " at state " + reactorState;
+        }
+    }
+
     /** PQ difficulty tiers (1.7.0 "PQ difficulties"); NORMAL is the stock PQ. */
     public enum Tier {
         NORMAL, HARD, EXPERT, MASTER;
@@ -274,7 +305,19 @@ public final class MechanicsModel {
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
                         int killTarget, int timeLimitMinutes, int hitReactor, List<Integer> maps, long graceMs,
-                        int loopTo, OnTimeLimit onTimeLimit) {
+                        int loopTo, OnTimeLimit onTimeLimit, List<Branch> branches) {
+
+        /** The stage as it was before {@code branches:}: it goes to the next index. */
+        public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
+                     List<Objective> objectives, List<Position> positions, List<ItemUse> items,
+                     List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
+                     List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
+                     int killTarget, int timeLimitMinutes, int hitReactor, List<Integer> maps, long graceMs,
+                     int loopTo, OnTimeLimit onTimeLimit) {
+            this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear,
+                    answerProperty, combos, mobs, nextPortal, summonProperty, killTarget, timeLimitMinutes, hitReactor,
+                    maps, graceMs, loopTo, onTimeLimit, List.of());
+        }
 
         /** The stage as it was before {@code onTimeLimit:}: the outcome is {@link OnTimeLimit#END}. */
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
@@ -285,14 +328,14 @@ public final class MechanicsModel {
                      int loopTo) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear,
                     answerProperty, combos, mobs, nextPortal, summonProperty, killTarget, timeLimitMinutes, hitReactor,
-                    maps, graceMs, loopTo, OnTimeLimit.END);
+                    maps, graceMs, loopTo, OnTimeLimit.END, List.of());
         }
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                      List<Answer> answers, List<BossPhase> phases, Clear clear) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
-                    List.of(), List.of(), null, null, 0, 0, 0, List.of(), 0L, 0, OnTimeLimit.END);
+                    List.of(), List.of(), null, null, 0, 0, 0, List.of(), 0L, 0, OnTimeLimit.END, List.of());
         }
 
         /**

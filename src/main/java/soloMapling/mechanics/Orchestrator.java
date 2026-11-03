@@ -249,9 +249,25 @@ public final class Orchestrator implements RunOrchestrator {
             long took = nowMs - run.stageStartedMs();
             run.note(nowMs, "stage " + run.currentStage() + " cleared in " + took / 1000 + " s ("
                     + run.wrongShownTotal() + " wrong tries shown)");
+            // a conditional way on (Pre-Horntail's lightbulb room picks one of two caves by a reactor's state,
+            // hontale_C.js:30-41): the first branch whose condition holds when the stage clears wins. A branch to a
+            // stage this run does not play (past lastStage) and `goto: end` both finish the row here.
+            MechanicsModel.Branch branch = view.branchTaken();
+            boolean rowEndsHere = false;
+            if (branch != null) {
+                if (branch.end() || branch.stage() > run.lastStage()) {
+                    run.note(nowMs, "stage " + run.currentStage() + ": " + branch.describeWhen() + ": the row ends here");
+                    rowEndsHere = true;
+                } else {
+                    run.note(nowMs, "stage " + run.currentStage() + ": " + branch.describeWhen() + ": on to stage "
+                            + branch.stage() + (branch.stage() <= run.currentStage() ? " (a room played before)" : ""));
+                    goToStage(run, branch.stage(), nowMs);
+                    return steps;
+                }
+            }
             // a looping stage sends the run back instead of forward (BossRush: the same waves until the clock stops
             // them); the budget check below is what ends such a run, and it ends it the way any over-time run ends
-            if (run.stageData().loopTo() > 0) {
+            if (!rowEndsHere && run.stageData().loopTo() > 0) {
                 int back = run.stageData().loopTo();
                 run.note(nowMs, "stage " + run.currentStage() + " cleared in " + took / 1000
                         + " s: looping back to stage " + back);
@@ -260,7 +276,7 @@ public final class Orchestrator implements RunOrchestrator {
                 run.setClaims(RoleClaims.claim(run.stageData(), run.members()));
                 return steps;
             }
-            if (run.currentStage() >= run.lastStage()) {
+            if (rowEndsHere || run.currentStage() >= run.lastStage()) {
                 run.markCleared(elapsed);
                 MechanicsModel.AfterClear after = run.content().afterClear();
                 if (after != null && run.lastStage() == run.content().stages().size()) {

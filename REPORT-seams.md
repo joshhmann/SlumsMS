@@ -85,3 +85,50 @@ has no shipped consumer yet - the one script that wants it, Guild Quest's strate
 the way `graceMs:` did. (c) The row-level clock is unchanged, so a row that declares room clocks *and* is slower than the
 script's real timers (which restart on entry) is still only as honest as its numbers.
 
+## 3. A stage whose successor depends on what the room says
+
+**The two scripts that need it** (both Pre-Horntail PQ, which stays unbuilt for the reasons in `REPORT-opq.md` - the engine
+shape is what this item is):
+
+- the lightbulb room reads a reactor: `scripts/portal/hontale_C.js:30-41` sends the leader's team to `240050300` when the
+  reactor named `light` (`2408001`, on `240050200`) is at state 1 and to `240050310` when it is at state 3, and refuses
+  ("Hit the Lightbulb to determine your fate!") at any other state - two rooms, one of which a given run never sees;
+- the fifth door goes back: `scripts/portal/hontale_Bopen.js:96-124` takes the party from the fifth mine `240050105` to the hub
+  `240050100` again, so a room is entered twice.
+
+**What it does.** A stage may carry `branches:`, a short list; each entry is a `when:` and a `goto:`.
+
+```yaml
+branches:
+  - when: { reactor: light, state: 1 }      # a reactor, by WZ name (or by WZ id when all digits), at exactly this state
+    goto: 8
+  - when: { eventProperty: path, equals: b }  # an event property: present, or equal to a value
+    goto: 9
+  - goto: end                                # no when: always holds, so it goes last; `end` = the row is finished here
+```
+
+When the stage clears (its own `clear:`, unchanged), the first entry whose `when:` holds wins: the run goes to that stage - at or
+before the current one is a re-entry - or, for `goto: end`, the row is finished there, **cleared**, through the same end-of-row
+path the last stage takes (including `afterClear`). None holding means index + 1, exactly as before. A branch to a stage this run
+does not play (past `lastStage`) finishes the row the same way instead of stranding it. The history says which branch fired
+(`stage 7: reactor light at state 3: on to stage 9`). It reads state a row can already read (`StageView.eventProperty`,
+`reactorState`); it interprets no script. `loopTo:` is unchanged and runs after the branches find nothing.
+
+Refused at load: a `goto` that is not a stage of the row, or the stage itself, or neither a number nor `end`; a missing `goto`;
+a `when` with neither an `eventProperty` nor a `reactor`, with both, or a reactor without a state (or a negative one); an entry
+after an unconditional one (unreachable).
+
+A re-entered room whose clear property is already set clears on its next tick: the row author owns making a loop terminate,
+and the run's clock is what stops one that does not, exactly as it stops `loopTo`.
+
+**Fail-before.** `BranchStageTest` (11). With `branches:` parsed and the orchestrator unchanged - the old code, which skips
+unknown keys - five fail for the right reason: a run whose room says `path = b` still walks `[1, 2, 3]` instead of `[1, 3, 4]`;
+a `goto: end` row still plays all four rooms (`[1, 2, 3, 4]`); a reactor at state 3 still goes to room 2; the first-match order
+and the beyond-`lastStage` end both read `index + 1`. The rest are guards and parse checks: a row without branches is
+unchanged, the state-1 light cave still works, a missing reactor matches nothing, a re-entry goes back and then on, and nine
+bad `branches:` are refused at load, each named.
+
+**Still unproven.** No shipped row uses it: the one quest that needs it (Pre-Horntail) is not completable, so the primitive is
+tested with a synthetic row and the `hontale_C.js` shape. The reactor read is `reactorState(String)` / `reactorState(int)`, which
+`LiveStageView` already implements against the stage's map; `holds()` itself is a default method on `StageView` and is
+exercised through fakes, not through a real map.
