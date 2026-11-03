@@ -559,6 +559,35 @@ public final class BotShops {
         }
     }
 
+    /** Test seam: the pool is process-wide, so a test starts from an empty one. */
+    public static void clearResalePoolForTest() {
+        synchronized (resale) {
+            resale.clear();
+        }
+    }
+
+    /**
+     * Ticket 181 (market#F-07): takes the first pooled item {@code accepts} takes out of the resale pool - what bot
+     * shops and merchant bots stock from - and hands it over, or answers null and leaves the pool exactly as it was when
+     * nothing in it is accepted. The predicate is the caller's own pricing rule, so an item it cannot price stays
+     * pooled instead of being taken and lost.
+     */
+    public static Item drawResale(java.util.function.Predicate<Item> accepts) {
+        if (accepts == null) {
+            return null;
+        }
+        synchronized (resale) {
+            for (java.util.Iterator<Resale> it = resale.iterator(); it.hasNext(); ) {
+                Resale r = it.next();
+                if (accepts.test(r.item())) {
+                    it.remove();
+                    return r.item();
+                }
+            }
+            return null;
+        }
+    }
+
     // ---- closing ----
 
     /** Closes a bot's shop; unsold items go back to it (online) or to the resale pool. What happened. */

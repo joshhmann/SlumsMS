@@ -8,7 +8,10 @@ import soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.ChatMessage;
 import soloMapling.ArtificialPlayer.BotMessagingSystem.MessageQueue;
 import soloMapling.ArtificialPlayer.BotSM;
+import soloMapling.ArtificialPlayer.BotSupportSwitches;
 import soloMapling.ArtificialPlayer.BotTradeSystem.BotTradeSM;
+import soloMapling.Economy.BotShops;
+import soloMapling.Economy.EconomyLedger;
 import soloMapling.FreeMarket.FMItem;
 
 import java.util.Collections;
@@ -60,6 +63,9 @@ public class SellingMerchantBot extends BotSM {
     static final int MISSING_MARKET_VALUE_LOG_LIMIT = 1_000;
     private static final Logger LOG = LoggerFactory.getLogger(SellingMerchantBot.class);
 
+    // ticket 181 (market#F-07): the mint ledger's name for this bot's stock, so a ledger line says where it came from.
+    static final String LEDGER_SOURCE = "merchant-bot";
+
     public SellingMerchantBot(Character character) {
         super(character);
         dialoguePath = "MerchantBotDialogue.yaml";
@@ -101,6 +107,11 @@ public class SellingMerchantBot extends BotSM {
         }
         if (itemsToSell == null || itemsToSell.isEmpty()) {
             return;   // this generator produced nothing (e.g. dark scrolls below pool version 39)
+        }
+
+        if (BotSupportSwitches.merchantBotsDrawFromPool()) {
+            stockFromPool();   // ticket 181 (market#F-07): what the bot economy already holds, never a fresh item
+            return;
         }
 
         // b271: an item the pool cannot value is neither stocked nor sold, so walk on to the next one in this stock
@@ -151,6 +162,34 @@ public class SellingMerchantBot extends BotSM {
 
         resetLastTradeResult();
         resetLastTradedCharacter();
+
+        // ticket 181 (market#F-07): every stock is a line in the mint ledger, so what a merchant bot puts up for sale is
+        // counted instead of invisible. Unconditional: with the switch off this counts the items the old path still
+        // generates, the number the owner needs before turning the switch on; with it on the stock comes from the pool,
+        // so the count is how much a merchant bot entering the market adds to it.
+        EconomyLedger.minted(EconomyLedger.ITEM, LEDGER_SOURCE);
+    }
+
+    /**
+     * Ticket 181 (market#F-07): stocks the next item out of the resale pool bot shops restock from, or stocks nothing
+     * while that pool holds nothing this bot can price (the trade state stays as it was, like a stock list with nothing
+     * valued). Nothing is generated here: the item already exists in the bot economy, so a trade by this bot moves it
+     * instead of minting it. See {@link BotShops#drawResale}.
+     */
+    private void stockFromPool() {
+        int[] askingPrice = {-1};
+        Item pooled = BotShops.drawResale(item -> {
+            Integer price = askingPriceFor(item);
+            if (price == null) {
+                return false;   // the pool cannot value it: leave it pooled for a bot that can
+            }
+            askingPrice[0] = price;
+            return true;
+        });
+        if (pooled == null) {
+            return;   // the pool is empty: nothing stocked, nothing made
+        }
+        stock(pooled, askingPrice[0]);
     }
 
     /**
@@ -173,8 +212,18 @@ public class SellingMerchantBot extends BotSM {
         if (itm == null) {
             return;
         }
-        String itemName = getItemName(itm.getItemId());
-        if (itemName != null && holdsForSale(itm.getItemId())) {
+        int itemId = itm.getItemId();
+        if (BotSupportSwitches.merchantBotsDrawFromPool()) {
+            // ticket 181 (market#F-07): pooled stock is not the stock list's item, and an empty pool leaves nothing up
+            // for sale, so the ad names what the window really holds - or is not said.
+            Item forSale = getTradeInventory() == null ? null : getTradeInventory().getMainItemForSale();
+            if (forSale == null) {
+                return;
+            }
+            itemId = forSale.getItemId();
+        }
+        String itemName = getItemName(itemId);
+        if (itemName != null && holdsForSale(itemId)) {
             String msg = buildSellingMessage(itemName);
             soloMapling.ArtificialPlayer.BotConvo.SayDo.withSource("ad", () -> SocialCommands.BotSpeak(getChr(), msg));
         }

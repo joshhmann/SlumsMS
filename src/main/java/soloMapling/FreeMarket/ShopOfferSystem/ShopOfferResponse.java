@@ -82,12 +82,13 @@ public class ShopOfferResponse {
         log("[ShopOfferSystem] AFK accept scheduled: " + itemName + " @ " + acceptedPrice + " for " + player.getName() + " (delay=" + (delay / 60000) + "min)");
 
         MethodScheduler.runAfterDelay(() -> {
-            shopItem.setPrice(Math.toIntExact(acceptedPrice));
+            int written = ShopOfferPriceFloor.write(shopItem, acceptedPrice,
+                    ShopOfferPriceFloor.friend(ownerId, player));
             shop.broadcast(PacketCreator.getPlayerShopItemUpdate(shop));
 
             if (player.isLoggedin()) {
                 notifyPrice(player, ownerName, ownerId,
-                        "Hey, I updated the price on " + itemName + " to " + formatPrice(acceptedPrice) + ". Come grab it! " + roomLabel
+                        "Hey, I updated the price on " + itemName + " to " + formatPrice(written) + ". Come grab it! " + roomLabel
                 );
             }
         }, delay);
@@ -113,12 +114,13 @@ public class ShopOfferResponse {
         log("[ShopOfferSystem] HiredMerchant AFK accept scheduled: " + itemName + " @ " + acceptedPrice + " for " + player.getName() + " (delay=" + (delay / 60000) + "min)");
 
         MethodScheduler.runAfterDelay(() -> {
-            shopItem.setPrice(Math.toIntExact(acceptedPrice));
+            int written = ShopOfferPriceFloor.write(shopItem, acceptedPrice,
+                    ShopOfferPriceFloor.friend(ownerId, player));
             if (broadcastUpdate != null) broadcastUpdate.run();
 
             if (player.isLoggedin()) {
                 notifyPrice(player, ownerName, ownerId,
-                        "Hey, I updated the price on " + itemName + " to " + formatPrice(acceptedPrice) + ". Come grab it! " + roomLabel
+                        "Hey, I updated the price on " + itemName + " to " + formatPrice(written) + ". Come grab it! " + roomLabel
                 );
             }
         }, delay);
@@ -141,13 +143,15 @@ public class ShopOfferResponse {
         String msg = getDialogueLine("AcceptResponse", offer, player);
         shopOwnerChat(shop, owner, msg);
 
-        offer.getShopItem().setPrice(Math.toIntExact(finalPrice));
+        // ticket 181 (market#F-03): the one writer of an accepted offer's price, floored under the switch
+        int written = ShopOfferPriceFloor.write(offer.getShopItem(), finalPrice,
+                ShopOfferPriceFloor.friend(owner.getId(), player));
         shop.broadcast(PacketCreator.getPlayerShopItemUpdate(shop));
 
         ShopOfferSystem.getInstance().lockItem(owner.getId(), offer.getItemIndex());
         ShopOfferSystem.getInstance().removeSession(player.getId());
 
-        log("[ShopOfferSystem] Accepted: " + offer.getItemName() + " @ " + finalPrice + " for " + player.getName());
+        log("[ShopOfferSystem] Accepted: " + offer.getItemName() + " @ " + written + " for " + player.getName());
     }
 
     private static void shopOwnerChat(PlayerShop shop, Character owner, String message) {
