@@ -281,8 +281,7 @@ a player's login and `OwnedAltBackend` - **not for a population bot**. Read, not
 alts and players and belt-and-braces for population bots, and the sacrifice costs a population bot nothing in practice. The row
 nevertheless requires protection for every bot (safe if that ever changes, and the gate still needs one earring), and the
 sacrificer stays out of 800/900 either way. The tick interval/count (`MAP_DAMAGE_OVERTIME_*`) are not in `config.example.yaml`
-and are unknown. *Owner question (only one): do population bots keep farming an earring each, or does the row skip protection
-for them? Not decided here.*
+and are unknown. *Owner answer: keep it uniform, and treat the skip in `World.java:1808` as a defect to be carded (below).*
 
 **Stage 2, the route I can prove.** The golem room (430) and the tower (440) are **not** alternatives: `speargate` (9208004) needs
 four spears (states 0-4 from four forced hits of the `spear1-4` altars, `9208007`), only four `9202001` spear reactors exist
@@ -290,10 +289,27 @@ four spears (states 0-4 from four forced hits of the `spear1-4` altars, `9208007
 is where they are placed. Population bots take contact damage with an HP floor of 1 (`BotContactDamage`) and only while a real
 player is on the map, so the golems are pathing obstacles for them; **owned alts die like players there** - recorded as a risk.
 
-**Behaviour change outside the row.** `Orchestrator.tick` reminded a real leader (and picked the bot that speaks) only while he
-stood on the stage's *first* map. A multi-map stage whose business ends elsewhere - the maze's leader leaves for 700, the boss
-stage ends on 900 - never prompted him. It now uses any map the stage drives (`MultiMapLeaderPromptTest`, red on the old code:
-no `Say`). It applies to every row with a player leader and a solver that implements `leaderPrompt`.
+**Behaviour change outside the row - which rows, and it is a correction, not a switch.** `Orchestrator.tick` handled a real
+(player) leader only while he stood on the stage's *first* map: the reminder to do the part only he can do, the choice of the bot
+that speaks, and the "the leader is down" freeze (`u died, we wait here for u`). It now uses any map the stage drives
+(`stage.mapSet()` or the solver's `extraMaps`). There is **no flag, no property and no switch** behind it: it applies whenever
+a run has a player leader. Stages with one map are byte-for-byte unchanged (`on == stage.mapId()` is still the only member of the set).
+Affected: stages with more than one map, in the shipped rows - `opq` 5/6/8, `lpq` (all 8 stages, `lpq-farm`), `cafepq1`-`6`
+stage 1, `ludimazepq`, `magatiapq` 4/5, `piratepq`, and the Guild Quest row. *Reminders:* only solvers that implement `leaderPrompt`,
+so of the existing rows only `opq` 6 (`opq-subroom`) and 8 (`opq-statue`) can newly prompt. *The freeze:* a player leader who
+dies on a secondary map of any of those stages now stops the bots where they are and gets one `@id u died` line; before, the
+bots carried on and his revive outside the PQ ended the run - the freeze is what the code's own comment says it should do
+("when he is dead the bots stop where they are"), so I read it as the same correction, but it is a visible change to rows I
+did not write: flagging it rather than burying it. `MultiMapLeaderPromptTest` (red on the old code: no `Say`) covers the reminder only.
+
+**Owner decision on protection (recorded as given):** *keep the requirement uniform - every member earns and wears a Protector
+Rock, population bots included, with no per-kind branch in the row.* Reasons: the row models the room, not a quirk of
+`isAwayFromWorld()` - if that flag ever changes, a row that skipped protection becomes a bot dying for a stale assumption; a
+conditional requirement is a second code path nobody will exercise (population bots are the only ones that would take it, and
+`BotDeaths` already suppresses their deaths, so the branch would be unobservable and untested); and the cost is a few minutes of
+content, the cheapest price for keeping the row honest. **The `decHP` finding above is a latent defect worth its own card:** if
+population bots are genuinely never damaged by `decHP`, that is a bug in `World.runPlayerHpDecreaseSchedule` (`World.java:1808`,
+the `isAwayFromWorld()` skip), not a reason to model around it. (Read, not run: nothing here exercised the tick.)
 
 ### 4e. Drops the run depends on - every one **live table unverified** (seed data in `131-reactordrops-data.sql`, `152-drop-data.sql`)
 
