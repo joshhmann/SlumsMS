@@ -101,6 +101,39 @@ public sealed interface SolverStep {
     }
 
     /**
+     * Put on the equip with this item id that the bot carries ({@link soloMapling.ArtificialPlayer.BotGearSystem.BotGear#wear}:
+     * the gear system's own wear rules and inventory move, with the choice made by the row). Guild Quest's maps from
+     * {@code 990000300} on take {@code decHP 30000} from whoever is not wearing the Protector Rock earring
+     * {@code 1032033} ({@code Character.doHurtHp}, {@code Character.java:3606-3609}): the gear review never puts it on
+     * by id and only does by the accident of a defence tie-break. The step names the item and is never taken for a
+     * teleport or a grant: a bot that does not carry it, or may not wear it yet, says so and nothing moves.
+     */
+    record EquipItem(int itemId, String why) implements SolverStep {
+    }
+
+    /**
+     * Take the worn equip with this item id off into the bag ({@link soloMapling.ArtificialPlayer.BotGearSystem.BotGear#takeOff},
+     * the gear system's own move the other way). Only for an item a later step has to drop from the bag: Guild Quest's Ergoth
+     * gate takes one Protector Rock {@code 1032033} dropped in its box ({@code Reactor.wz/9208009.img.xml}), the item is one
+     * per character, and {@link PlaceItem} drops from the bag, not the body. The member that gives its earring up is
+     * unprotected from then on and the row says so; nothing hides it.
+     */
+    record UnequipItem(int itemId, String why) implements SolverStep {
+    }
+
+    /**
+     * Hit the one reactor on the map that has this <em>map object id</em> ({@code Reactor.getObjectId()}), when neither
+     * its WZ id nor its name can tell it from its neighbours. Guild Quest's Gatekeeper puzzle is the case: its statues
+     * are twenty reactors of three ids, and the script names each one by {@code objectId % 1000}, zero-padded to three
+     * digits ({@code scripts/reactor/9208000.js:34-37}), into the event's {@code stage1combo} and {@code stage1guess}
+     * properties - so the pattern the party has to repeat is a list of object ids, and {@code reactorId} would hit
+     * whichever statue the map happens to list first. The object id is the map's own (it differs from one instance of
+     * the map to the next), so a solver reads it from {@link StageView#reactors()}, never from its row.
+     */
+    record HitReactorByOid(int objectId) implements SolverStep {
+    }
+
+    /**
      * Put {@code count} of an item on the ground inside a reactor's box (OPQ, stages 1, 3, 9): the server matches a
      * type-100 reactor's item and <em>quantity</em> exactly and needs the drop's position inside the reactor's area
      * ({@code MapleMap.activateItemReactors}), so the stack lands on the reactor itself: {@code reactor} is its WZ

@@ -21,6 +21,47 @@ public final class MechanicsModel {
     /** What sort of content a file describes. */
     public enum Kind { PQ, BOSS, JQ, EXPEDITION }
 
+    /**
+     * What the run does when a stage's own clock ({@code timeLimitMinutes:} on the stage) runs out, as the row declares
+     * it ({@code onTimeLimit:}). {@link #END} is what every script that times a room separately does
+     * ({@code scripts/event/PiratePQ.js:223-225}, {@code scripts/event/CWKPQ.js:246-248}: {@code scheduledTimeout} is
+     * {@code end(eim)}) and is the default; {@link #ADVANCE} is the way the one script whose timer is a phase change
+     * does it ({@code scripts/event/GuildQuest.js:203-222}: the first expiry closes the join window and starts the real
+     * clock): the run goes on to the next stage without a clear.
+     */
+    public enum OnTimeLimit { END, ADVANCE }
+
+    /**
+     * One conditional way on from a stage ({@code branches:} on the stage in a row): when the stage clears and
+     * {@code when} holds of the room's state, the run goes to {@code stage} instead of the next index. The condition
+     * is one of two kinds a row can already read, never a script: an event property (present, or equal to
+     * {@code equals}) or a reactor, named ({@code light}) or by WZ id ({@code 2408001}, all digits), at exactly
+     * {@code reactorState}. No condition at all always holds, so an entry like that goes last. {@code stage} is a stage
+     * index of the row - at or before this one is a re-entry - or {@link #END}: the row is finished here, cleared.
+     * Pre-Horntail PQ is the case for both: {@code scripts/portal/hontale_C.js:30-41} picks one of two caves by a
+     * reactor's state, and {@code scripts/portal/hontale_Bopen.js:96-124} sends the party back to a room it has played.
+     */
+    public record Branch(String eventProperty, String equals, String reactor, int reactorState, int stage) {
+        /** The {@code goto:} that finishes the row. */
+        public static final int END = 0;
+
+        public boolean end() {
+            return stage == END;
+        }
+
+        public boolean unconditional() {
+            return eventProperty == null && reactor == null;
+        }
+
+        /** The condition in the words the history uses ("path = b", "reactor light at state 3"). */
+        public String describeWhen() {
+            if (eventProperty != null) {
+                return equals == null ? eventProperty + " is set" : eventProperty + " = " + equals;
+            }
+            return reactor == null ? "always" : "reactor " + reactor + " at state " + reactorState;
+        }
+    }
+
     /** PQ difficulty tiers (1.7.0 "PQ difficulties"); NORMAL is the stock PQ. */
     public enum Tier {
         NORMAL, HARD, EXPERT, MASTER;
@@ -278,6 +319,12 @@ public final class MechanicsModel {
      *   - LudiMaze PQ's one stage spans sixteen maps.</li>
      *   <li>{@code loopTo} (realruns): the stage this one sends a run back to instead of forward - BossRush's waves
      *   repeat until the row's clock runs out. 0 = advance, which is every other row in the folder.</li>
+     *   <li>{@code onTimeLimit} (seams): what the run does when this stage's own {@code timeLimitMinutes} runs out -
+     *   {@link OnTimeLimit#END} (every script that times a room separately, and the default) or
+     *   {@link OnTimeLimit#ADVANCE} (GuildQuest's first expiry is the phase change that starts the real clock);</li>
+     *   <li>{@code branches} (seams): the conditional ways on from this stage once it clears ({@link Branch}), read
+     *   from the room's own properties and reactors - Pre-Horntail PQ picks one of two caves and can send a party back
+     *   to a room it has already played. Empty = always the next index.</li>
      * </ul>
      */
     public record Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
@@ -285,13 +332,15 @@ public final class MechanicsModel {
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
                         int spawnWaitSeconds, int timeLimitMinutes, List<Integer> hitReactors,
-                        List<Integer> entryItems, List<Integer> maps, int loopTo) {
+                        List<Integer> entryItems, List<Integer> maps, int loopTo, OnTimeLimit onTimeLimit,
+                        List<Branch> branches) {
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                      List<Answer> answers, List<BossPhase> phases, Clear clear) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
-                    List.of(), List.of(), null, null, 0, 0, List.of(), List.of(), List.of(), 0);
+                    List.of(), List.of(), null, null, 0, 0, List.of(), List.of(), List.of(), 0, OnTimeLimit.END,
+                    List.of());
         }
 
         /**
@@ -349,6 +398,45 @@ public final class MechanicsModel {
     }
 
     /**
+     * The world queue a content is entered through ({@code queue:} in a row), instead of {@code
+     * EventManager.startInstance(party, map)}. Guild Quest is the case: its door NPC ({@code scripts/npc/9040000.js:62-91})
+     * registers a <em>guild</em> with {@code em.addGuildToQueue} and the world starts the instance when the guild's turn
+     * comes ({@code EventManager.attemptStartGuildInstance} -> {@code startInstance(chr)}) with the guild's master alone
+     * inside; every other member then talks to the same NPC to be registered ({@code :54-65}), within the strategy time.
+     *
+     * <p>{@code register} and {@code join} are the answers a conversation with the row's {@code entryNpc} gives to take
+     * each of those two ways (the menu line, then yes); {@code closedProperty}/{@code closedEquals} is the event
+     * property that says the join window is over and the members are fixed ({@code GuildQuest.js:206-207} sets {@code
+     * canJoin} to 0 when the strategy time ends); {@code waitMinutes} is how long that takes ({@code GuildQuest.js:35}).
+     */
+    public record Queue(java.util.List<Integer> register, java.util.List<Integer> join, String closedProperty,
+                        String closedEquals, int waitMinutes) {
+        /** Whether this event property value means the join window is closed. */
+        public boolean closed(String value) {
+            return value != null && value.trim().equals(closedEquals);
+        }
+    }
+
+    /**
+     * A seat the party has to fill ({@code composition:} in a row), the way {@code minPlayers}/{@code maxPlayers} are
+     * the party's size: {@code min} members whose level is {@code minLevel}..{@code maxLevel} ({@code maxLevel} 0 = no
+     * cap). Guild Quest's door out of the four-room maze is the case: {@code scripts/portal/under30gate.js:25} lets a
+     * member through only at level 30 or below, so a party of high-level members - bots included - can never reach the
+     * crown, and the stage can never clear. The row says so as a fact; the run refuses to start without the seat filled
+     * and staging seats a member who fits or refuses with the line.
+     */
+    public record Seat(String id, int minLevel, int maxLevel, int min, String note) {
+        public boolean fits(int level) {
+            return level > 0 && level >= minLevel && (maxLevel <= 0 || level <= maxLevel);
+        }
+
+        /** "level 10-30" / "level 10+" for a line a person reads. */
+        public String describeLevels() {
+            return maxLevel > 0 ? "level " + minLevel + "-" + maxLevel : "level " + minLevel + "+";
+        }
+    }
+
+    /**
      * What happens after the last stage clears (1.6.1, KPQ): every member talks to {@code rewardNpc} on
      * {@code rewardMap} for the prize (the script then sends him to {@code bonusMap}), hunts there for a while and
      * leaves through {@code exitNpc}. Null when the content simply ends on its last clear.
@@ -372,7 +460,45 @@ public final class MechanicsModel {
                            * {@code 2013000}); 0 when the row does not say. The staging talks to it instead of pressing
                            * the event's own button, so a bot party goes in the way a player's does.
                            */
-                          int entryNpc) {
+                          int entryNpc,
+                          /** The seats the party must fill ({@link Seat}); empty for every row that asks nothing of it. */
+                          List<Seat> composition,
+                          /** The world queue this content is entered through, or null for every row that is not. */
+                          Queue queue) {
+
+        public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
+                       int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
+                       List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers, AfterClear afterClear,
+                       String flag, int entryNpc, List<Seat> composition) {
+            this(id, name, kind, eventScript, recruitMap, exitMap, minPlayers, maxPlayers, minLevel, maxLevel,
+                    timeLimitMinutes, sources, stages, tiers, afterClear, flag, entryNpc, composition, null);
+        }
+
+        public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
+                       int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
+                       List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers, AfterClear afterClear,
+                       String flag, int entryNpc) {
+            this(id, name, kind, eventScript, recruitMap, exitMap, minPlayers, maxPlayers, minLevel, maxLevel,
+                    timeLimitMinutes, sources, stages, tiers, afterClear, flag, entryNpc, List.of());
+        }
+
+        /**
+         * Why this party's levels do not fill the row's seats, or null when they do. A level of 0 ("not carried") fits
+         * nothing. Each seat counts the members that fit it on its own, so a row with two seats keeps them disjoint.
+         */
+        public String compositionProblem(java.util.Collection<Integer> levels) {
+            for (Seat seat : composition) {
+                long fitting = levels.stream().filter(l -> l != null && seat.fits(l)).count();
+                if (fitting < seat.min()) {
+                    return "the party does not fill the seat \"" + seat.id() + "\": it needs " + seat.min()
+                            + " member(s) of " + seat.describeLevels() + (seat.note() == null || seat.note().isBlank()
+                            ? "" : " (" + seat.note() + ")") + ", it has " + fitting + " (levels "
+                            + levels.stream().sorted().map(String::valueOf).collect(java.util.stream.Collectors.joining(", "))
+                            + ")";
+                }
+            }
+            return null;
+        }
 
         public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
                        int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,

@@ -171,6 +171,17 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         getClient().sendPacket(PacketCreator.getNPCTalk(npc, (byte) 0, text, "01 01", (byte) 0));
     }
 
+    /**
+     * The client a script hands on to something that will run <em>another</em> script for this player later - a reactor it
+     * schedules ({@code getReactorByOid(..).delayedHitReactor(cm.getActingClient(), ..)}, Guild Quest's Gatekeeper). It is
+     * {@link #getClient()} for a player; a conversation held for a population bot overrides it with a client that has the
+     * bot as its player (the shared headless client has none). {@link #getClient()} itself is never changed: the dialogue
+     * sends and everything else that uses it behave as before.
+     */
+    public Client getActingClient() {
+        return getClient();
+    }
+
     public void sendOk(String text) {
         getClient().sendPacket(PacketCreator.getNPCTalk(npc, (byte) 0, text, "00 00", (byte) 0));
     }

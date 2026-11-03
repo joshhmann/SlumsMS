@@ -108,6 +108,72 @@ public interface StageView {
     }
 
     /**
+     * One reactor standing on the stage's map, by everything a script can tell it apart with: the map's own object id
+     * (the key {@link SolverStep.HitReactorByOid} addresses it by), its WZ id, its WZ name ({@code ""} when it has
+     * none), its current state and where it stands.
+     */
+    record ReactorPlacement(int objectId, int reactorId, String name, int state, int x, int y) {
+    }
+
+    /**
+     * Every reactor on the stage's map, in the map's own order; empty when the map has none or is not in this instance.
+     * Guild Quest's twenty statues share three WZ ids and the script names them by object id, so a solver that has to
+     * hit one of them reads their object ids here.
+     */
+    default List<ReactorPlacement> reactors() {
+        return stage() == null ? List.of() : reactorsOn(stage().mapId());
+    }
+
+    /**
+     * Every reactor on one map of the instance (a stage that spans several maps - Guild Quest's spear hall is seven -
+     * is read room by room); the stage's own map answers {@link #reactors()}. Empty for a map the instance does not hold.
+     * A fake view that only knows the stage's map answers nothing for another.
+     */
+    default List<ReactorPlacement> reactorsOn(int mapId) {
+        return List.of();
+    }
+
+    /** Drops of this item lying on one map of the instance that this member may pick up (see {@link #floorItems}). */
+    default int floorItemsOn(int mapId, int itemId, int forCharacterId) {
+        return 0;
+    }
+
+    /** How many live monsters with this id stand on one map of the instance. */
+    default int mobsAliveOn(int mapId, int mobId) {
+        return 0;
+    }
+
+    /** Where an NPC stands on one map of the instance, as {x, y}, if it is there. */
+    default Optional<int[]> npcPositionOn(int mapId, int npcId) {
+        return Optional.empty();
+    }
+
+    /**
+     * The state of the reactor with this map <em>object id</em>, or {@code -1} when the map holds no reactor by that
+     * id: {@link #reactorState(int)} reads by WZ id, which names one reactor out of twenty for a map that stands them in
+     * rows.
+     */
+    default int reactorStateByOid(int objectId) {
+        return -1;
+    }
+
+    /**
+     * Whether this member has the item on its body (the equipped inventory), not merely in its bag. A map that hurts
+     * whoever is not wearing its protect item asks exactly this ({@code Character.doHurtHp}).
+     */
+    default boolean wearing(int characterId, int itemId) {
+        return false;
+    }
+
+    /**
+     * Why this member may not put the carried item on yet ("1032033 needs level 10, the bot is level 8"), or empty when
+     * it may (or when nothing can be said). The wear rules are the gear system's.
+     */
+    default Optional<String> cannotWear(int characterId, int itemId) {
+        return Optional.empty();
+    }
+
+    /**
      * The slot the map's event script armed the named item reactor with, or {@code -1}. Orbis PQ's lobby arms the
      * reactor named {@code music} with {@code new Date().getDay()} ({@code scripts/event/OrbisPQ.js:162-163}) and the
      * reactor takes {@code 4001056 + getEventState()} as its item ({@code Reactor.getReactItem(byte)}), so the pass the
@@ -237,6 +303,40 @@ public interface StageView {
      */
     default boolean eventCleared() {
         return false;
+    }
+
+    /**
+     * Whether a branch's condition holds of the room now ({@code branches:} on a stage): an event property present, or
+     * equal to a value, or a reactor - by WZ name, or by WZ id when the name is all digits - at exactly the state it
+     * names. A branch with no condition always holds. A reactor the map does not hold answers {@code -1} and so never
+     * matches (a state is 0 or more).
+     */
+    default boolean holds(MechanicsModel.Branch branch) {
+        if (branch.eventProperty() != null) {
+            Optional<String> value = eventProperty(branch.eventProperty());
+            return branch.equals() == null ? value.isPresent()
+                    : value.map(v -> v.trim().equals(branch.equals())).orElse(false);
+        }
+        if (branch.reactor() != null) {
+            String key = branch.reactor();
+            boolean byId = key.chars().allMatch(c -> c >= '0' && c <= '9');
+            int state = byId ? reactorState(Integer.parseInt(key)) : reactorState(key);
+            return state == branch.reactorState();
+        }
+        return true;
+    }
+
+    /**
+     * The first of the stage's branches that holds now, or null when none does (the run then goes to the next index, as
+     * a stage without branches always did).
+     */
+    default MechanicsModel.Branch branchTaken() {
+        for (MechanicsModel.Branch b : stage().branches()) {
+            if (holds(b)) {
+                return b;
+            }
+        }
+        return null;
     }
 
     /**

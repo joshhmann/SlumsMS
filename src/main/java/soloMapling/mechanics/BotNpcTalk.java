@@ -109,6 +109,17 @@ final class BotNpcTalk extends AbstractScriptManager {
             return bot;
         }
 
+        /**
+         * What a script that schedules a reactor hit for this bot hands on ({@code cm.getActingClient()}, Guild Quest's
+         * Gatekeeper, {@code scripts/npc/9040009.js:111}): the reactor's script runs later for that client, and a population
+         * bot's shared client has no player. {@link #getClient()} stays the shared client: every dialogue send and the rest of
+         * the conversation manager use it exactly as before. See {@link client.BotClient#forScripts}.
+         */
+        @Override
+        public client.Client getActingClient() {
+            return client.BotClient.forScripts(bot);
+        }
+
         @Override
         public int getMapId() {
             return bot.getMapId();

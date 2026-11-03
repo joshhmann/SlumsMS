@@ -272,6 +272,34 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public int floorItemsOn(int mapId, int itemId, int forCharacterId) {
+        return floorDrops(this, mapId == stage().mapId() ? map : mapInstance(mapId), itemId, forCharacterId).size();
+    }
+
+    @Override
+    public int mobsAliveOn(int mapId, int mobId) {
+        server.maps.MapleMap on = mapId == stage().mapId() ? map : mapInstance(mapId);
+        if (on == null) {
+            return 0;
+        }
+        int n = 0;
+        for (server.life.Monster m : on.getAllMonsters()) {
+            if (m != null && m.isAlive() && m.getId() == mobId) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    @Override
+    public Optional<int[]> npcPositionOn(int mapId, int npcId) {
+        server.maps.MapleMap on = mapId == stage().mapId() ? map : mapInstance(mapId);
+        NPC npc = on == null ? null : on.getNPCById(npcId);
+        Point p = npc == null ? null : npc.getPosition();
+        return p == null ? Optional.empty() : Optional.of(new int[]{p.x, p.y});
+    }
+
+    @Override
     public List<Integer> wrongTriesLeft(int characterId) {
         return run.wrongTriesLeft(characterId);
     }
@@ -312,6 +340,42 @@ final class LiveStageView implements StageView {
     @Override
     public int reactorState(int reactorId) {
         server.maps.Reactor reactor = map == null ? null : map.getReactorById(reactorId);
+        return reactor == null ? -1 : reactor.getState();
+    }
+
+    @Override
+    public boolean wearing(int characterId, int itemId) {
+        Character c = character(characterId);
+        return c != null && soloMapling.ArtificialPlayer.BotGearSystem.BotGear.wearing(c, itemId);
+    }
+
+    @Override
+    public Optional<String> cannotWear(int characterId, int itemId) {
+        Character c = character(characterId);
+        return c == null ? Optional.empty()
+                : Optional.ofNullable(soloMapling.ArtificialPlayer.BotGearSystem.BotGear.cannotWear(c, itemId));
+    }
+
+    @Override
+    public List<ReactorPlacement> reactorsOn(int mapId) {
+        server.maps.MapleMap on = mapId == stage().mapId() ? map : mapInstance(mapId);
+        if (on == null) {
+            return List.of();
+        }
+        List<ReactorPlacement> out = new java.util.ArrayList<>();
+        for (MapObject o : on.getReactors()) {
+            if (o instanceof server.maps.Reactor r) {
+                Point at = r.getPosition();
+                out.add(new ReactorPlacement(r.getObjectId(), r.getId(), r.getName() == null ? "" : r.getName(),
+                        r.getState(), at == null ? 0 : at.x, at == null ? 0 : at.y));
+            }
+        }
+        return out;
+    }
+
+    @Override
+    public int reactorStateByOid(int objectId) {
+        server.maps.Reactor reactor = map == null ? null : map.getReactorByOid(objectId);
         return reactor == null ? -1 : reactor.getState();
     }
 

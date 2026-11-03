@@ -4,15 +4,20 @@ package soloMapling.mechanics;
  * A party member as the orchestrator sees it: a bot (or a real player it plans around, never steers). Real players
  * get the first claim on every role ({@link RoleClaims}); the orchestrator never asks a solver for a player's step.
  */
-public record RunMember(int characterId, boolean leader, boolean bot, MechanicsPersona persona, int jobId) {
+public record RunMember(int characterId, boolean leader, boolean bot, MechanicsPersona persona, int jobId, int level) {
 
     /** The member's job id, or 0 when the caller did not say (every pre-1.6.4 call site). */
     public RunMember(int characterId, boolean leader, boolean bot, MechanicsPersona persona) {
-        this(characterId, leader, bot, persona, 0);
+        this(characterId, leader, bot, persona, 0, 0);
+    }
+
+    /** The member's level is not carried: 0, which fits no {@link MechanicsModel.Seat} a row asks the party to fill. */
+    public RunMember(int characterId, boolean leader, boolean bot, MechanicsPersona persona, int jobId) {
+        this(characterId, leader, bot, persona, jobId, 0);
     }
 
     public static RunMember player(int characterId, boolean leader) {
-        return new RunMember(characterId, leader, false, MechanicsPersona.PERFECT, 0);
+        return new RunMember(characterId, leader, false, MechanicsPersona.PERFECT, 0, 0);
     }
 
     /**

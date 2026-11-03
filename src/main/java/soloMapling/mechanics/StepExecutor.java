@@ -62,6 +62,17 @@ final class StepExecutor {
      */
     static final int TAKEN_PENALTY_MS = 400 * 8;
 
+    /**
+     * How the executor puts an item on a bot: the gear system's own move ({@link
+     * soloMapling.ArtificialPlayer.BotGearSystem.BotGear#wear}). A seam so a test can see what the step asked for without
+     * a bot that has item data; production always runs the default.
+     */
+    static volatile java.util.function.BiFunction<Character, Integer, soloMapling.ArtificialPlayer.BotGearSystem.BotGear.WearResult>
+            wearer = soloMapling.ArtificialPlayer.BotGearSystem.BotGear::wear;
+
+    /** One wear attempt per bot per this long: a refusal is not retried every tick. */
+    static final long EQUIP_GAP_MS = 3_000;
+
     /** Per-bot pacing: when it last clicked, dropped, or was sent somewhere. */
     /** How many warps in a row may fail before the run is ended and the bot's real map is reported. */
     static final int WARP_TRIES = 3;
@@ -100,6 +111,9 @@ final class StepExecutor {
         /** How many times in a row a warp was issued and did not take, and the last refusal it was told about. */
         int warpTries;
         String warpTold;
+        /** When this bot last tried to put an item on, and the refusal it was last heard saying. */
+        long lastEquipMs = Long.MIN_VALUE / 2;
+        String equipToldWhy;
         /** When this bot last hit the room's reactor, so the click is not spammed. */
         long lastReactorMs;
         /** When this bot last put a stack on a reactor, and when it last said it is still gathering it. */
@@ -147,6 +161,9 @@ final class StepExecutor {
                     hitReactorAt(bot, beat, r, h.reactorName(), now, log);
                 }
             }
+            case SolverStep.HitReactorByOid h -> hitReactorByOid(bot, beat, h, now, log);
+            case SolverStep.EquipItem e -> equipItem(bot, beat, e, now, log);
+            case SolverStep.UnequipItem u -> unequipItem(bot, beat, u, now, log);
             case SolverStep.PlaceItem p -> placeItem(bot, beat, p, now, log);
             case SolverStep.PlaceItemOn p -> placeItemOn(bot, beat, p, now, log);
             case SolverStep.Occupy o -> occupy(bot, beat, o, now, log);
@@ -995,6 +1012,78 @@ final class StepExecutor {
         hitReactorAt(bot, beat, reactor, String.valueOf(h.reactorId()), now, log);
     }
 
+    /**
+     * Puts the named item on ({@link SolverStep.EquipItem}) through the gear system's own move. One attempt per
+     * {@link #EQUIP_GAP_MS}; a success is a line, a refusal or an item the bot does not carry is a line naming the item
+     * and the reason - said once per distinct reason, so a bot that cannot wear it is heard once, not every tick.
+     */
+    private static void equipItem(Character bot, Beat beat, SolverStep.EquipItem e, long now, Consumer<String> log) {
+        if (now - beat.lastEquipMs < EQUIP_GAP_MS) {
+            return;
+        }
+        beat.lastEquipMs = now;
+        soloMapling.ArtificialPlayer.BotGearSystem.BotGear.WearResult r = wearer.apply(bot, e.itemId());
+        switch (r.outcome()) {
+            case WORN -> {
+                beat.equipToldWhy = null;
+                log.accept("EQUIP " + bot.getName() + " puts on " + e.itemId() + " - " + e.why());
+            }
+            case ALREADY_WORN -> beat.equipToldWhy = null;
+            case NOT_CARRIED, REFUSED -> {
+                if (!r.why().equals(beat.equipToldWhy)) {
+                    beat.equipToldWhy = r.why();
+                    log.accept(bot.getName() + " cannot put on " + e.itemId() + ": " + r.why() + " (" + e.why() + ")");
+                }
+            }
+        }
+    }
+
+    /** The seam {@link #wearer} has for taking an item off (tests); production runs the gear system's move. */
+    static volatile java.util.function.BiFunction<Character, Integer, soloMapling.ArtificialPlayer.BotGearSystem.BotGear.Off>
+            remover = soloMapling.ArtificialPlayer.BotGearSystem.BotGear::takeOff;
+
+    /**
+     * Takes the named worn item off into the bag ({@link SolverStep.UnequipItem}) through the gear system's own move; paced
+     * like {@link #equipItem}, a line when it went and a line naming the reason when it could not.
+     */
+    private static void unequipItem(Character bot, Beat beat, SolverStep.UnequipItem u, long now, Consumer<String> log) {
+        if (now - beat.lastEquipMs < EQUIP_GAP_MS) {
+            return;
+        }
+        beat.lastEquipMs = now;
+        soloMapling.ArtificialPlayer.BotGearSystem.BotGear.Off r = remover.apply(bot, u.itemId());
+        switch (r) {
+            case TAKEN_OFF -> log.accept("UNEQUIP " + bot.getName() + " takes off " + u.itemId() + " - " + u.why());
+            case NOT_WORN -> { }
+            case NO_ROOM -> {
+                String why = "no free equip slot to put " + u.itemId() + " in";
+                if (!why.equals(beat.equipToldWhy)) {
+                    beat.equipToldWhy = why;
+                    log.accept(bot.getName() + " cannot take off " + u.itemId() + ": " + why + " (" + u.why() + ")");
+                }
+            }
+        }
+    }
+
+    /**
+     * Hits the reactor with this map object id ({@link SolverStep.HitReactorByOid}): the one statue of twenty that the
+     * puzzle's script names by {@code objectId % 1000}. A map without it is said once per ten seconds, as for the other
+     * reactor steps, and nothing is hit.
+     */
+    private static void hitReactorByOid(Character bot, Beat beat, SolverStep.HitReactorByOid h, long now,
+                                        Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        server.maps.Reactor reactor = reactorByOid(map, h.objectId());
+        if (reactor == null) {
+            if (now - beat.lastReactorMs > 10_000) {
+                beat.lastReactorMs = now;
+                log.accept(bot.getName() + ": no reactor with object id " + h.objectId() + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        hitReactorAt(bot, beat, reactor, "#" + h.objectId(), now, log);
+    }
+
     /** The walk-and-click part, shared by {@link SolverStep.HitReactor} and {@link SolverStep.HitReactorNamed}. */
     private static void hitReactorAt(Character bot, Beat beat, server.maps.Reactor reactor, String label, long now,
                                      Consumer<String> log) {
@@ -1008,7 +1097,7 @@ final class StepExecutor {
             return;
         }
         beat.lastReactorMs = now;
-        reactor.hitReactor(bot.getClient());
+        reactor.hitReactor(client.BotClient.forScripts(bot)); // a population bot's script needs a player behind the client
         log.accept(bot.getName() + ": hit reactor " + label + " on " + bot.getMapId());
     }
 
@@ -1099,7 +1188,7 @@ final class StepExecutor {
             return;
         }
         beat.lastTouchMs = now;
-        scripting.reactor.ReactorScriptManager.getInstance().touch(bot.getClient(), reactor);
+        scripting.reactor.ReactorScriptManager.getInstance().touch(client.BotClient.forScripts(bot), reactor);
         log.accept("TOUCH reactor " + (reactorName != null ? reactorName : String.valueOf(reactorId))
                 + " (state " + reactor.getState() + ")");
     }
@@ -1185,6 +1274,14 @@ final class StepExecutor {
         int paid = BotHoldings.payOut(bot, p.itemId(), p.count(), bot, at == null ? mine : at, true);
         log.accept("PLACE-ON " + bot.getName() + " puts " + paid + " x " + p.itemId() + " on reactor "
                 + p.reactorId() + " (try " + tries + ") - " + p.why());
+    }
+
+    /**
+     * The reactor on this map whose <em>map object id</em> is {@code objectId}, or null. Unlike {@link #reactorFor} this
+     * names exactly one reactor even when a map stands twenty of one WZ id in a row ({@link SolverStep.HitReactorByOid}).
+     */
+    static server.maps.Reactor reactorByOid(MapleMap map, int objectId) {
+        return map == null ? null : map.getReactorByOid(objectId);
     }
 
     /**

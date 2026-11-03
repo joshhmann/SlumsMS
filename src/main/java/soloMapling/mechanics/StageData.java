@@ -10,6 +10,7 @@ import soloMapling.mechanics.MechanicsModel.ItemUse;
 import soloMapling.mechanics.MechanicsModel.Kind;
 import soloMapling.mechanics.MechanicsModel.Objective;
 import soloMapling.mechanics.MechanicsModel.ObjectiveKind;
+import soloMapling.mechanics.MechanicsModel.OnTimeLimit;
 import soloMapling.mechanics.MechanicsModel.Position;
 import soloMapling.mechanics.MechanicsModel.Role;
 import soloMapling.mechanics.MechanicsModel.Stage;
@@ -204,7 +205,11 @@ public final class StageData {
         }
         if (stages.isEmpty()) {
             p.add("no stages");
+        } else if (stages.get(stages.size() - 1).onTimeLimit() == OnTimeLimit.ADVANCE) {
+            p.add("stage " + stages.get(stages.size() - 1).index()
+                    + ": onTimeLimit: advance on the last stage has no next stage to go on to");
         }
+        checkBranchTargets(stages, p);
         Map<Tier, TierRules> tiers = new EnumMap<>(Tier.class);
         Object tierObj = m.get("tiers");
         if (tierObj instanceof Map<?, ?> tm) {
@@ -240,8 +245,118 @@ public final class StageData {
         if (id == null || name == null || kind == null) {
             return null;
         }
+        List<MechanicsModel.Seat> composition = readComposition(m, minP, maxP, minL, maxL, p);
+        MechanicsModel.Queue queue = readQueue(m, script, num(m, "entryNpc", 0, p), p);
         return new Content(id, name, kind, script, recruit, exit, minP, maxP, minL, maxL, time, List.copyOf(sources),
-                List.copyOf(stages), Map.copyOf(tiers), after, opt(m, "flag"), num(m, "entryNpc", 0, p));
+                List.copyOf(stages), Map.copyOf(tiers), after, opt(m, "flag"), num(m, "entryNpc", 0, p),
+                List.copyOf(composition), queue);
+    }
+
+    /**
+     * {@code queue:} - the content is entered through the event's world queue: {@code {register: [answers], join:
+     * [answers], closedProperty, closedEquals, waitMinutes}}. It needs the NPC that answers them ({@code entryNpc}) and
+     * the event script whose queue it is, so a row that names a queue and not those is refused here.
+     */
+    private static MechanicsModel.Queue readQueue(Map<?, ?> m, String script, int entryNpc, List<String> p) {
+        Object raw = m.get("queue");
+        if (raw == null) {
+            return null;
+        }
+        if (!(raw instanceof Map<?, ?> qm)) {
+            p.add("queue: not a map");
+            return null;
+        }
+        List<Integer> register = answers(qm.get("register"), "queue: register", p);
+        List<Integer> join = answers(qm.get("join"), "queue: join", p);
+        String property = opt(qm, "closedProperty").trim();
+        String equals = opt(qm, "closedEquals").trim();
+        int wait = num(qm, "waitMinutes", 0, p);
+        if (register.isEmpty() || join.isEmpty()) {
+            p.add("queue: needs register and join, each the answers that take that way through the entry NPC");
+        }
+        if (property.isEmpty() || equals.isEmpty()) {
+            p.add("queue: needs closedProperty and closedEquals, the event property that says the join window is over");
+        }
+        if (wait < 0) {
+            p.add("queue: waitMinutes must not be negative");
+        }
+        if (entryNpc <= 0) {
+            p.add("queue: needs the entryNpc that answers register and join");
+        }
+        if (script == null || script.isBlank()) {
+            p.add("queue: needs the eventScript whose world queue it is");
+        }
+        return new MechanicsModel.Queue(List.copyOf(register), List.copyOf(join), property, equals, wait);
+    }
+
+    private static List<Integer> answers(Object raw, String what, List<String> p) {
+        List<Integer> out = new ArrayList<>();
+        if (raw == null) {
+            return out;
+        }
+        if (!(raw instanceof List<?> l)) {
+            p.add(what + ": not a list of numbers");
+            return out;
+        }
+        for (Object o : l) {
+            try {
+                out.add(Integer.parseInt(String.valueOf(o).trim()));
+            } catch (NumberFormatException e) {
+                p.add(what + ": \"" + o + "\" is not a number");
+            }
+        }
+        return out;
+    }
+
+    /**
+     * {@code composition:} - the seats the party must fill: {@code {id, min, minLevel, maxLevel, note}}. A seat nobody
+     * the row admits could sit in, or more members than the party holds, is a row that could never start: refused here.
+     */
+    private static List<MechanicsModel.Seat> readComposition(Map<?, ?> m, int minP, int maxP, int minL, int maxL,
+                                                             List<String> p) {
+        List<MechanicsModel.Seat> out = new ArrayList<>();
+        Object raw = m.get("composition");
+        if (raw == null) {
+            return out;
+        }
+        if (!(raw instanceof List<?> seats)) {
+            p.add("composition: not a list");
+            return out;
+        }
+        Set<String> ids = new HashSet<>();
+        int needed = 0;
+        for (Object o : seats) {
+            if (!(o instanceof Map<?, ?> sm)) {
+                p.add("composition: a seat that is not a map");
+                continue;
+            }
+            String sid = str(sm, "id", p, true);
+            int min = num(sm, "min", 1, p);
+            int lo = num(sm, "minLevel", 1, p);
+            int hi = num(sm, "maxLevel", 0, p);
+            String at = "composition seat " + sid + ": ";
+            if (sid == null) {
+                continue;
+            }
+            if (!ids.add(sid)) {
+                p.add(at + "duplicate seat");
+            }
+            if (min < 1) {
+                p.add(at + "min must be 1 or more");
+            }
+            if (lo < 1 || (hi != 0 && hi < lo)) {
+                p.add(at + "levels: need 1 <= minLevel and (maxLevel 0, or at least minLevel)");
+            }
+            if ((hi != 0 && hi < minL) || lo > maxL) {
+                p.add(at + "no level the row admits (" + minL + "-" + maxL + ") fits this seat");
+            }
+            needed += Math.max(min, 0);
+            out.add(new MechanicsModel.Seat(sid, lo, hi, min, opt(sm, "note")));
+        }
+        if (needed > maxP) {
+            p.add("composition: the seats need " + needed + " members, more than maxPlayers " + maxP);
+        }
+        return out;
     }
 
     private static TierRules readTier(Tier t, Map<?, ?> m, int minL, int maxL, int time, List<String> p) {
@@ -520,6 +635,7 @@ public final class StageData {
         require(spawnWait == 0 || !mobs.isEmpty(), p,
                 at + "spawnWaitSeconds needs mobs: it is a statement about when the room's targets appear");
         // 1.6.4 boss lane: a boss room's own clock. 0 = the row's timeLimitMinutes counts from the run's start.
+        // onTimeLimit (below) says what the run does when this clock runs out.
         int stageMinutes = num(m, "timeLimitMinutes", 0, p);
         // a room whose fight is behind reactors nobody has to click by hand (Horntail's 2401000, Scarga's two), in the
         // order they must be clicked. A list, not a scalar: a room with two of them must have both opened before the
@@ -573,11 +689,135 @@ public final class StageData {
             p.add(at + "loopTo: must be a stage index at or before this one (" + index + ")");
             loopTo = 0;
         }
+        // what the run does when this stage's own clock runs out: end it (the scripts' end(eim), the default) or go on
+        OnTimeLimit onTimeLimit = OnTimeLimit.END;
+        if (m.get("onTimeLimit") != null) {
+            OnTimeLimit outcome = enumOf(OnTimeLimit.class, String.valueOf(m.get("onTimeLimit")), at + "onTimeLimit", p);
+            if (outcome != null) {
+                onTimeLimit = outcome;
+                if (outcome == OnTimeLimit.ADVANCE && stageMinutes <= 0) {
+                    p.add(at + "onTimeLimit: advance needs the stage's own timeLimitMinutes (there is no clock to run out)");
+                }
+                if (outcome == OnTimeLimit.ADVANCE && loopTo > 0) {
+                    p.add(at + "onTimeLimit: advance and loopTo both say where the run goes next: pick one");
+                }
+            }
+        }
+        // the conditional ways on from this stage: the first whose condition holds when the stage clears wins
+        List<MechanicsModel.Branch> branches = readBranches(m, at, p);
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
                 summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, spawnWait, stageMinutes,
-                List.copyOf(hitReactors), List.copyOf(entryItems), List.copyOf(maps), loopTo);
+                List.copyOf(hitReactors), List.copyOf(entryItems), List.copyOf(maps), loopTo, onTimeLimit,
+                List.copyOf(branches));
+    }
+
+    /**
+     * {@code branches:} on a stage: a list of {@code {when: {...}, goto: N | end}}. {@code when:} is {@code
+     * {eventProperty: P}} (present), {@code {eventProperty: P, equals: V}} or {@code {reactor: name | id, state: N}}, and
+     * may be left out (always holds, so it must be the last entry). Whether {@code goto:} names a stage the row has is
+     * checked once every stage is read ({@link #checkBranchTargets}).
+     */
+    private static List<MechanicsModel.Branch> readBranches(Map<?, ?> m, String at, List<String> p) {
+        List<MechanicsModel.Branch> out = new ArrayList<>();
+        Object raw = m.get("branches");
+        if (raw == null) {
+            return out;
+        }
+        if (!(raw instanceof List<?> entries)) {
+            p.add(at + "branches: not a list");
+            return out;
+        }
+        boolean unconditionalSeen = false;
+        for (Object o : entries) {
+            if (!(o instanceof Map<?, ?> bm)) {
+                p.add(at + "branches: an entry that is not a map");
+                continue;
+            }
+            String property = null;
+            String equals = null;
+            String reactor = null;
+            int state = -1;
+            boolean ok = true;
+            if (bm.get("when") != null) {
+                if (!(bm.get("when") instanceof Map<?, ?> wm)) {
+                    p.add(at + "branches: when is not a map");
+                    continue;
+                }
+                property = opt(wm, "eventProperty").trim();
+                reactor = opt(wm, "reactor").trim();
+                property = property.isEmpty() ? null : property;
+                reactor = reactor.isEmpty() ? null : reactor;
+                if (property == null && reactor == null) {
+                    p.add(at + "branches: when needs an eventProperty or a reactor with a state");
+                    ok = false;
+                } else if (property != null && reactor != null) {
+                    p.add(at + "branches: when: pick one of eventProperty and reactor, not both");
+                    ok = false;
+                } else if (property != null) {
+                    String eq = opt(wm, "equals").trim();
+                    equals = eq.isEmpty() ? null : eq;
+                } else if (wm.get("state") == null) {
+                    p.add(at + "branches: when: a reactor needs its state");
+                    ok = false;
+                } else {
+                    state = num(wm, "state", -1, p);
+                    if (state < 0) {
+                        p.add(at + "branches: when: state must be 0 or more");
+                        ok = false;
+                    }
+                }
+            }
+            String target = opt(bm, "goto").trim();
+            int stage;
+            if (target.isEmpty()) {
+                p.add(at + "branches: an entry needs goto (a stage number, or end)");
+                continue;
+            } else if (target.equalsIgnoreCase("end")) {
+                stage = MechanicsModel.Branch.END;
+            } else {
+                try {
+                    stage = Integer.parseInt(target);
+                } catch (NumberFormatException e) {
+                    p.add(at + "branches: goto " + target + " is neither a stage number nor end");
+                    continue;
+                }
+                if (stage < 1) {
+                    p.add(at + "branches: goto " + target + " is not a stage number");
+                    continue;
+                }
+            }
+            if (unconditionalSeen) {
+                p.add(at + "branches: an entry after the one with no when is unreachable");
+            }
+            if (!ok) {
+                continue;
+            }
+            MechanicsModel.Branch b = new MechanicsModel.Branch(property, equals, reactor, state, stage);
+            unconditionalSeen |= b.unconditional();
+            out.add(b);
+        }
+        return out;
+    }
+
+    /** Every {@code goto:} names a stage the row has, and none names its own stage. */
+    private static void checkBranchTargets(List<Stage> stages, List<String> p) {
+        Set<Integer> have = new HashSet<>();
+        stages.forEach(s -> have.add(s.index()));
+        for (Stage s : stages) {
+            for (MechanicsModel.Branch b : s.branches()) {
+                if (b.end()) {
+                    continue;
+                }
+                if (b.stage() == s.index()) {
+                    p.add("stage " + s.index() + ": branches: goto " + b.stage() + " is the stage itself");
+                } else if (!have.contains(b.stage())) {
+                    p.add("stage " + s.index() + ": branches: goto " + b.stage() + " is not a stage of this row (1-"
+                            + stages.size() + ")");
+                }
+            }
+        }
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----
