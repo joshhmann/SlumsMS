@@ -694,7 +694,7 @@ final class StepExecutor {
             log.accept(line);
         }
         if (what[1]) {
-            orchestrator.abort(run, "NPC " + npcId + "'s script failed " + MAX_SCRIPT_FAILURES + " times in a row for "
+            orchestrator.fail(run, "NPC " + npcId + "'s script failed " + MAX_SCRIPT_FAILURES + " times in a row for "
                     + bot.getName() + ": " + r.error());
         }
     }
