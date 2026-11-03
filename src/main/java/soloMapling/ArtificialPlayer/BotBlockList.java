@@ -2,9 +2,12 @@ package soloMapling.ArtificialPlayer;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 /**
  * Manages a block list for bots that are trading.
@@ -75,10 +78,15 @@ public class BotBlockList {
     }
 
     private static final BotBlockList botBlockList = new BotBlockList();
-    private final List<BlockEntry> blockList;
+
+    /**
+     * A concurrent set: a bot that declines a trade adds to it on the trade thread while other bots read and sweep
+     * it on their ticks. Entries are compared by identity, so two blocks of the same pair stay two entries, as they
+     * did in the list this replaced. Reads skip an expired entry whether or not a sweep has removed it yet.
+     */
+    private final Set<BlockEntry> blockList = ConcurrentHashMap.newKeySet();
 
     public BotBlockList() {
-        this.blockList = new ArrayList<>();
     }
 
     public static BotBlockList getInstance() {
@@ -86,7 +94,7 @@ public class BotBlockList {
     }
 
     /**
-     * Adds a trader to the block list for a specific bot.
+     * Adds a trader to the block list for a specific bot, sweeping expired entries out of the set first.
      *
      * @param botId                The ID of the bot creating the block
      * @param traderId             The ID of the trader to block
@@ -94,6 +102,8 @@ public class BotBlockList {
      * @return The created block entry
      */
     public BlockEntry addToBlockList(Integer botId, Integer traderId, long blockDurationSeconds) {
+        removeExpiredEntries();
+
         Instant now = Instant.now();
         Instant expirationTime = now.plusSeconds(blockDurationSeconds);
 
@@ -116,46 +126,31 @@ public class BotBlockList {
      */
     public boolean isBlocked(Integer botId, Integer traderId) {
         Instant now = Instant.now();
-
-        // Remove expired entries first
-        removeExpiredEntries();
-
-        // Check if trader is blocked
         return blockList.stream()
-                .anyMatch(entry -> entry.getBotId().equals(botId)
+                .anyMatch(entry -> !entry.isExpired(now) && entry.getBotId().equals(botId)
                         && entry.getTraderId().equals(traderId));
     }
 
     /**
-     * Gets the block entry for a specific bot and trader if it exists.
+     * Gets the block entry for a specific bot and trader if it exists. When the pair was blocked more than once,
+     * the earliest live block is returned.
      *
      * @param botId    The ID of the bot
      * @param traderId The ID of the trader
      * @return Optional containing the block entry if found, empty otherwise
      */
     public Optional<BlockEntry> getBlockEntry(Integer botId, Integer traderId) {
-        // Remove expired entries first
-        removeExpiredEntries();
-
-        return blockList.stream()
-                .filter(entry -> entry.getBotId().equals(botId)
-                        && entry.getTraderId().equals(traderId))
+        return liveEntries()
+                .filter(entry -> entry.getBotId().equals(botId) && entry.getTraderId().equals(traderId))
                 .findFirst();
     }
 
     /**
-     * Removes all expired block entries from the list.
+     * The sweep: removes every expired block entry from the set.
      */
     public void removeExpiredEntries() {
         Instant now = Instant.now();
-
-        Iterator<BlockEntry> iterator = blockList.iterator();
-        while (iterator.hasNext()) {
-            BlockEntry entry = iterator.next();
-            if (entry.isExpired(now)) {
-                iterator.remove();
-            }
-        }
+        blockList.removeIf(entry -> entry.isExpired(now));
     }
 
     /**
@@ -171,13 +166,12 @@ public class BotBlockList {
     }
 
     /**
-     * Gets all current block entries (expired entries are removed first).
+     * Gets all current block entries, oldest first (expired entries are left out).
      *
      * @return A list of all active block entries
      */
     public List<BlockEntry> getBlockList() {
-        removeExpiredEntries();
-        return new ArrayList<>(blockList);
+        return new ArrayList<>(liveEntries().toList());
     }
 
     /**
@@ -187,9 +181,7 @@ public class BotBlockList {
      * @return A list of all active block entries for the bot
      */
     public List<BlockEntry> getBlocksForBot(Integer botId) {
-        removeExpiredEntries();
-
-        return blockList.stream()
+        return liveEntries()
                 .filter(entry -> entry.getBotId().equals(botId))
                 .toList();
     }
@@ -201,9 +193,7 @@ public class BotBlockList {
      * @return A list of trader IDs blocked by the bot
      */
     public List<Integer> getBlockedTraders(Integer botId) {
-        removeExpiredEntries();
-
-        return blockList.stream()
+        return liveEntries()
                 .filter(entry -> entry.getBotId().equals(botId))
                 .map(BlockEntry::getTraderId)
                 .toList();
@@ -222,7 +212,15 @@ public class BotBlockList {
      * @return The count of non-expired block entries
      */
     public int getActiveBlockCount() {
-        removeExpiredEntries();
-        return blockList.size();
+        Instant now = Instant.now();
+        return (int) blockList.stream().filter(entry -> !entry.isExpired(now)).count();
+    }
+
+    /** A snapshot of the entries that have not expired, oldest block first. */
+    private Stream<BlockEntry> liveEntries() {
+        Instant now = Instant.now();
+        return blockList.stream()
+                .filter(entry -> !entry.isExpired(now))
+                .sorted(Comparator.comparing(BlockEntry::getBlockTime));
     }
 }
