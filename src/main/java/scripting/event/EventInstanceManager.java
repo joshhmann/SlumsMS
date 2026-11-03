@@ -1017,6 +1017,15 @@ public class EventInstanceManager {
         return (chr.getId() == getLeaderId());
     }
 
+    /**
+     * The maps this instance has been built on: every map id the script asked for through
+     * {@link #getInstanceMap(int)}, in the order it asked. A script that builds one instance per venue (GuardianNex and
+     * its six caves) carries no other mark of which venue this instance is; the run data does.
+     */
+    public List<Integer> instanceMapIds() {
+        return List.copyOf(mapIds);
+    }
+
     public final MapleMap getInstanceMap(final int mapid) {
         if (disposed) {
             return null;

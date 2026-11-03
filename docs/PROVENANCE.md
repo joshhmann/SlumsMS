@@ -387,10 +387,13 @@ Ours, and the reason the new primitive exists:
 Delli is deliberately absent: its win is the instance's own clock, and that room is owned by `164-opq` @ `ac08ce380`
 (`DelliHoldSolver`, `content/dellibattle.yaml`, `DelliBattleSolversTest`). No second spelling lives here.
 
-`GuardianNex` has no row on this branch either, and nothing was taken from anyone for it: the six caves are `GuardianNex.js`'s
-`eventBossIds` paired with `Map.wz`'s map life (`Map/Map2/240070010`-`240070060`), and the cave is chosen by the player's
-active quest in `scripts/portal/TD_neo_inTree.js:8-18`. Six rows need row selection by instance, which the arming seam
-does not have; see `REPORT-bossrows.md`.
+`GuardianNex` ships as six rows (`content/guardiannex1.yaml`-`guardiannex6.yaml`), and nothing was taken from anyone for
+them either: the six caves are `GuardianNex.js`'s `eventBossIds` paired with `Map.wz`'s map life
+(`Map/Map2/240070010`-`240070060`), the cave is chosen by the player's active quest in
+`scripts/portal/TD_neo_inTree.js:8-18`, and the quest ladder (70/73/77/81/85/90, NPC `2082004`) is
+`Quest.wz/Check.img.xml`'s. The one thing the rows needed from the engine was a way to tell six rows for one event
+script apart: `MechanicsRuns.contentFor(eventScript, instanceMapIds)`, fed by the map ids the script asked for through
+`EventInstanceManager.getInstanceMap`. Single-row scripts are unaffected. See `REPORT-bossrows.md`.
 
 Every id in every row is now re-checked against the dump by `ContentRowWzIntegrityTest` (`-Dwz-path`, else `wz`), so a
 dump that disagrees with a row fails a test instead of emptying a room.

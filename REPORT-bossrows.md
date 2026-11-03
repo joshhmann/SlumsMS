@@ -745,33 +745,56 @@ What this means for the proof: the fight half is simulated in full (the five tes
 **unproven by construction** - `StageView` has no view of a quest state, so no simulation can be made to fail or pass on
 it. It is recorded here rather than pretended.
 
-## GuardianNex: six caves, one script - refused, one primitive short
+## Row selection: a script one row owns, or a map that decides
 
-`scripts/event/GuardianNex.js` is the one room-of-bosses script left: `minPlayers 1` (`:1`), `timeLimit 15` (`:2`),
+GuardianNex forced the arming seam to get precise, and the rule is small: **one row for a script name wins outright,
+whatever map the instance is on; several rows mean the map the instance was built on decides; no evidence, or evidence
+that fits none or two of them, arms nothing and says so once.** `MechanicsRuns.contentFor(String, Collection<Integer>)`
+is that rule, fed by `EventInstanceManager.instanceMapIds()` (a new getter over the map ids the script itself asked for
+through `getInstanceMap`, `:1020-1025`), and `onInstanceStarted` uses it. Every row but GuardianNex's six is a single
+row per script, so nothing about them changed - which the seam tests pin one by one (`ZakumBattle`, `TD_Battle2`, and
+`contentFor(String)` still answers for every shipped row).
+
+Fail-before, `BossRunSeamTest.aScriptWithSeveralRowsIsSelectedByTheMapTheInstanceWasBuiltOn`, with two synthetic rows
+sharing `eventScript: GuardianNex` on maps `240070010` and `240070020`: before the change the instance built on
+`240070020` armed the *first* row (`expected: <240070020> but was: <240070010>`), after it arms its own, and an instance
+on a third map (`240070090`) arms nothing and logs `2 rows claim this script and none of them is built on this
+instance's map [240070090], so no row is armed rather than the wrong one`.
+
+The row's contribution is only that it says which map it is: `stage.mapId()`. When the `164-all-merge` tree lands, the
+match should be widened to the row's whole `mapSet()` - a one-line change here, not a second seam.
+
+## The six GuardianNex caves
+
+`scripts/event/GuardianNex.js` is one script for six caves: `minPlayers 1` (`:1`), `timeLimit 15` (`:2`),
 `exitMap 240070000` (`:4`), `eventMap 240070010` (`:5`), `eventBossIds` = `[7120100, 7120101, 7120102, 8120100,
 8120101, 8140510]` (`:6`). `setup(difficulty, lobbyId)` (`:10-19`) builds instance `Nex_<lobbyId>` and resets the cave
 that lobby names, `playerEntry` (`:25-28`) warps to `eventMap + 10 * nex`, and the clear is that cave's own boss dying
 (`monsterKilled` `:99-103` -> `clearPQ` `:94-97`, `stopEventTimer` + `setEventCleared`, so `{ instance: true }`).
 
-The six caves are real, and each holds its boss as map life - verified in the dump: `Map/Map2/240070010.img.xml` life
-`7120100`, `240070020` -> `7120101`, `240070030` -> `7120102`, `240070040` -> `8120100`, `240070050` -> `8120101`,
-`240070060` -> `8140510`; no reactors, no other mobs. The door is portal `scripts/portal/TD_neo_inTree.js`, which picks
-the cave from the player's *active quest* (`quests = [3719, 3724, 3730, 3736, 3742, 3748]`, `:8`), refuses if that quest
-already has progress (`:13`), and calls `nex.startInstance(i, pi.getPlayer())` (`:18`) - a single-character instance,
-like Maha. The quests are real too (`Quest.wz/Check.img.xml`: levels 70/73/77/81/85/90, NPC `2082004`).
+| Row | Map | Boss | Quest | Level | Simulation |
+| --- | --- | --- | --- | --- | --- |
+| `guardiannex1.yaml` | `240070010` | `7120100` | `3719` | 70 | `eachOfGuardianNexSixCavesArmsItsOwnRowAndFightsItsOwnBoss` |
+| `guardiannex2.yaml` | `240070020` | `7120101` | `3724` | 73 | same test |
+| `guardiannex3.yaml` | `240070030` | `7120102` | `3730` | 77 | same test |
+| `guardiannex4.yaml` | `240070040` | `8120100` | `3736` | 81 | same test |
+| `guardiannex5.yaml` | `240070050` | `8120101` | `3742` | 85 | same test |
+| `guardiannex6.yaml` | `240070060` | `8140510` | `3748` | 90 | same test |
 
-So the honest form is six rows, one per cave - and six rows cannot be armed. `MechanicsRuns.onInstanceStarted`
-(`:349-353`) picks the row by `contentFor(eim.getEm().getName())`, and that name is `GuardianNex` for all six caves;
-`contentFor` (`:377-386`) returns the first row whose `eventScript` matches. Six `eventScript: GuardianNex` rows would
-collapse onto the first one, and a party standing in cave `240070050` would be warped to cave `240070010` by the
-solver's own first step - a wrong-map bug, not coverage. A single row cannot help either: it can name exactly one
-`mapId`.
-
-**Missing primitive:** row selection by something the six caves differ in. The instance already carries both candidates
-- its own name (`Nex_<n>`, `GuardianNex.js:11`) and the map it was built on (`:14-15`) - but the arming seam only looks
-at the event script name. That is `MechanicsRuns.contentFor` plus a matching rule in `Content`, i.e. engine the merge
-should decide, not something to bolt on here. No GuardianNex row is shipped and none was faked: a row naming cave 0
-would be right for one quest and silently wrong for the other five.
+- Gates as the script writes them: `minPlayers 1`, 15 minutes, exit `240070000`. `maxPlayers` is nowhere in the script
+  and the instance takes one character (`startInstance(i, player)`), so the rows say `1`/`1` like `maha.yaml`.
+- Entry: portal `scripts/portal/TD_neo_inTree.js`, which takes the first quest of `[3719, 3724, 3730, 3736, 3742, 3748]`
+  the player has *active* (`:8-13`), refuses a quest that already has progress on its mob (`:13-16`), and starts the
+  instance (`:18`). Level ladder and NPC `2082004` from `Quest.wz/Check.img.xml`.
+- Spawn source: the map's own life, one entry per cave, `mobTime -1`
+  (`Map.wz/Map/Map2/240070010`-`240070060.img.xml`); no reactors, no script spawn, and `Mob.wz/<id>.img.xml` has no
+  `info/revive` for any of the six. So no `spawnWaitSeconds`: the room never waits on an arrival.
+- Clear: `monsterKilled` -> `clearPQ` -> `setEventCleared`, no property the row could read.
+- The quest is a **precondition, never written**: no run touches quest state, so a starter without the quest is refused
+  at the portal where the player sees it. The rows state this cave's `minLevel` (70/73/77/81/85/90) and say in the
+  header that the quest id is the real door.
+- The simulation walks all six caves through the real `Orchestrator`, asserting each run arms the row for its own map
+  and kills only that cave's boss - which is the whole point of the selection change.
 
 ## Content defects found, not ours to fix
 
@@ -808,26 +831,26 @@ Neither would become a row even with a spawn step: they need the *party* to plac
 
 It points at the dump with the switch every other WZ test already uses - `-Dwz-path`, else `wz`, through
 `WzTestData.assumePresent` - so on a machine without `wz/` it skips (reported skipped, never failed) and the suite stays
-green. Run here against `/root/work/SlumsMS-170-evan/wz`: **32 rows, 53 stage maps, 83 mobs, 7 reactors, 1 door item**,
+green. Run here against `/root/work/SlumsMS-170-evan/wz`: **38 rows, 59 stage maps, 89 mobs, 7 reactors, 1 door item**,
 all present; no typo was found, so no row changed.
 
 - maps: `103000800`-`103000804`, `105100300`, `190000000`, `191000000`, `192000000`, `195000000`, `196000000`,
   `197000000`, `220080001`, `240060000`, `240060100`, `240060200`, `240070203`, `240070303`, `240070403`, `240070503`,
   `240070603`, `270050100`, `280030000`, `401060100`, `450004751`, `450007441`, `450010101`, `450012211`, `541010100`,
-  `541020800`, `551030200`, `800040410`, `801040100`, `910010000`, `914020000`, `922020100`, and the PQ sets
-  `920010000`/`920010100`/`920010200`/`920010300`/`920010400`/`920010500`/`920010601`/`920010700` plus
-  `922010100`-`922010900` - 53 in all, the exact set the test prints
+  `541020800`, `551030200`, `800040410`, `801040100`, `910010000`, `914020000`, `922020100`, the six GuardianNex caves
+  `240070010`-`240070060`, and the PQ sets `920010000`/`920010100`/`920010200`/`920010300`/`920010400`/`920010500`/
+  `920010601`/`920010700` plus `922010100`-`922010900` - 59 in all, the exact set the test prints
 - reactors: `2201004`, `2401000`, `5411000`, `5411001`, `5511000`, `5511001`, `8001000`
 - door items: `4000381`
-- mobs: the 83 ids across the rows, from `7220003` through `9995009` (the test prints the full set).
+- mobs: the 89 ids across the rows, from `7120100` through `9995009` (the test prints the full set).
 
 ## Row data for the whole set
 
-`content/index.txt` now lists six more rows after round 2's, and `MechanicsDataFilesTest`'s pinned id list was extended
-in the same order: `latanica`, `magnus`, `nwill`, `nlucid`, `nverus`, `ndarknell` - thirty-two content rows in all,
-twenty-two of them `kind: BOSS`. Both files take the additions **appended at the end, in that order**, which is the
-order the integration on `164-opq` should keep: the two files are expected to conflict on their shared tail, and the
-resolution is this list after whatever `164-opq` has added.
+`content/index.txt` lists, in round order: round 1's seven, round 2's seven, round 3's six (`latanica`, `magnus`,
+`nwill`, `nlucid`, `nverus`, `ndarknell`), then round 5's six (`guardiannex1`..`guardiannex6`) - **thirty-eight content
+rows, twenty-eight of them `kind: BOSS`**. `MechanicsDataFilesTest`'s pinned id list carries the same order. Both files
+take additions **appended at the end, in that order**, which is the order the integration on `164-opq` should keep: the
+two files conflict on their shared tail, and the resolution is this list after whatever `164-opq` has added.
 
 ## Not established, and what would settle it
 
@@ -847,11 +870,10 @@ resolution is this list after whatever `164-opq` has added.
 - **The entry half of the five quest rows is unproven** (section above). A hand-run on a character with the quest
   would settle it; nothing in this suite can.
 
-## Suite (round 4 head)
+## Suite (round 5 head)
 
-`mvn -o test` on this head: **`Tests run: 8575, Failures: 0, Errors: 0, Skipped: 138, BUILD SUCCESS`** (29:31).
-Round 3 closed at 8574, so round 4 added exactly one: `ContentRowWzIntegrityTest`, which is the 138th skip on a machine
-without the dump (`mvn -o test -Dwz-path=/root/work/SlumsMS-170-evan/wz` runs it, 1 test, green). Round 3 itself added
-nine over round 2's 8565 - the entry-item solver test, the stage-data parse test, two whole-run `latanica` tests (with
-and without the item) and the five quest-instance simulations. The seven Delli tests the revert removed are gone from
-that count with the code they exercised.
+`mvn -o test` on this head: **`Tests run: 8577, Failures: 0, Errors: 0, Skipped: 138, BUILD SUCCESS`**. Round 4 closed
+at 8575; round 5 adds the selection fail-before in `BossRunSeamTest` and the six-cave simulation in
+`RowRunSimulationTest` (two tests). `ContentRowWzIntegrityTest` is the 138th skip on a machine without the dump - with
+`-Dwz-path=/root/work/SlumsMS-170-evan/wz` it runs and reports **38 rows, 59 maps, 89 mobs, 7 reactors, 1 door item**,
+green, the six new caves and six new boss ids included.

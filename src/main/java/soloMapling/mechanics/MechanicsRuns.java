@@ -12,6 +12,7 @@ import soloMapling.server.BotShutdown;
 import soloMapling.server.ExecutorServiceManager;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -349,13 +350,23 @@ public final class MechanicsRuns {
         }
         try {
             String event = eim.getEm() == null ? null : eim.getEm().getName();
-            Content content = contentFor(event);
-            boolean boss = content != null && content.kind() == MechanicsModel.Kind.BOSS;
-            if (content == null || (boss ? !Mechanics.bossesEnabled() : !Mechanics.enabledFor(content))) {
-                if (expedition && content == null && Mechanics.bossesEnabled()) {
+            List<Content> rows = rowsFor(event);
+            Content content = select(rows, eim.instanceMapIds());
+            if (content == null) {
+                if (rows.size() > 1) {
+                    if (Mechanics.enabled() || Mechanics.bossesEnabled()) {
+                        log("[Mechanics] " + keyOf(eim) + " (" + event + "): " + rows.size() + " rows claim this"
+                                + " script and none of them is built on this instance's map " + eim.instanceMapIds()
+                                + ", so no row is armed rather than the wrong one");
+                    }
+                } else if (expedition && Mechanics.bossesEnabled()) {
                     log("[Mechanics] no boss content for " + keyOf(eim) + " (" + event + "): the expedition is left to"
                             + " its humans");
                 }
+                return null;
+            }
+            if (content.kind() == MechanicsModel.Kind.BOSS ? !Mechanics.bossesEnabled()
+                    : !Mechanics.enabledFor(content)) {
                 return null;
             }
             if (eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
@@ -375,15 +386,56 @@ public final class MechanicsRuns {
 
     /** The stage data for an event script name ("KerningPQ"), or null. Loaded once per data folder. */
     public static Content contentFor(String eventScript) {
+        return select(rowsFor(eventScript), List.of());
+    }
+
+    /**
+     * The stage data for an event script name on an instance built on {@code instanceMaps}, or null.
+     *
+     * <p>One row per script is the rule and that row wins outright, whatever map the instance is on - every row in the
+     * folder but GuardianNex's six. A script that builds one instance per venue carries no mark of the venue other than
+     * the map it made ({@code GuardianNex.js:14-15} resets the cave the lobby names, and {@code playerEntry} warps to
+     * it), so when several rows claim the name, the one whose stage is that map is the row. No evidence, or evidence
+     * that fits none or two of them, is no row: {@link #onInstanceStarted} logs that once and arms nothing, because
+     * running the first match there would drive a party through the wrong cave.
+     */
+    public static Content contentFor(String eventScript, Collection<Integer> instanceMaps) {
+        return select(rowsFor(eventScript), instanceMaps);
+    }
+
+    /** Every row whose {@code eventScript} is this name, in folder order. */
+    static List<Content> rowsFor(String eventScript) {
+        List<Content> rows = new ArrayList<>();
         if (eventScript == null) {
-            return null;
+            return rows;
         }
         for (Content c : allContent()) {
             if (eventScript.equalsIgnoreCase(c.eventScript())) {
-                return c;
+                rows.add(c);
             }
         }
-        return null;
+        return rows;
+    }
+
+    /** One row means that row; several mean the instance's own map decides; nothing conclusive means no row. */
+    private static Content select(List<Content> rows, Collection<Integer> instanceMaps) {
+        if (rows.isEmpty()) {
+            return null;
+        }
+        if (rows.size() == 1) {
+            return rows.get(0);
+        }
+        Content chosen = null;
+        for (Content c : rows) {
+            if (c.stages().stream().noneMatch(stage -> instanceMaps.contains(stage.mapId()))) {
+                continue;
+            }
+            if (chosen != null) {
+                return null;
+            }
+            chosen = c;
+        }
+        return chosen;
     }
 
     /** Every content row the data folder holds, read once and re-read if the folder changes ({@code -Dslums.mechanics.dir}). */

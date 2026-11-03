@@ -765,7 +765,8 @@ public class EventManager {
             return;
         }
         String event = eim.getEm().getName();
-        soloMapling.mechanics.MechanicsModel.Content content = soloMapling.mechanics.MechanicsRuns.contentFor(event);
+        soloMapling.mechanics.MechanicsModel.Content content =
+                soloMapling.mechanics.MechanicsRuns.contentFor(event, eim.instanceMapIds());
         if (content == null || content.kind() != soloMapling.mechanics.MechanicsModel.Kind.BOSS) {
             return;
         }

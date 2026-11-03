@@ -169,6 +169,21 @@ class RowRunSimulationTest {
     /** NDarknellBattle.js:116-117 and :145-150: 9995009 at (57,29). */
     private static final int NDARKNELL = 9995009;
 
+    // ---- GuardianNex: one script, six caves, one boss each ------------------------------------------------
+
+    /**
+     * GuardianNex.js:5-6: the caves are {@code eventMap + 10 * lobbyId} and each lobby's boss is the map's own life
+     * (Map.wz/Map/Map2/240070010-240070060.img.xml, the only life entry, mobTime -1). The six rows share one event
+     * script, so the run is picked by the map the instance was built on.
+     */
+    private static final Map<Integer, Integer> NEX_CAVES = Map.of(
+            240070010, 7_120_100,
+            240070020, 7_120_101,
+            240070030, 7_120_102,
+            240070040, 8_120_100,
+            240070050, 8_120_101,
+            240070060, 8_140_510);
+
     // ---- the loop --------------------------------------------------------------------------------------
 
     /** What one simulated run left behind, so a test can assert on it without a dozen locals. */
@@ -190,7 +205,18 @@ class RowRunSimulationTest {
 
     private static Sim play(String eventScript, List<RunMember> members, int maxTicks,
                             java.util.function.Consumer<World> prepare) {
-        MechanicsModel.Content content = MechanicsRuns.contentFor(eventScript);
+        return play(MechanicsRuns.contentFor(eventScript), eventScript, members, maxTicks, prepare);
+    }
+
+    /** A script several rows share (GuardianNex's six caves): the row is the one built on {@code stageMap}. */
+    private static Sim play(int stageMap, String eventScript, List<RunMember> members, int maxTicks) {
+        return play(MechanicsRuns.contentFor(eventScript, List.of(stageMap)), eventScript, members, maxTicks,
+                world -> {
+                });
+    }
+
+    private static Sim play(MechanicsModel.Content content, String eventScript, List<RunMember> members,
+                            int maxTicks, java.util.function.Consumer<World> prepare) {
         assertEquals(eventScript, content == null ? null : content.eventScript(),
                 "the row must be listed in content/index.txt");
         Orchestrator orchestrator = new Orchestrator(Orchestrator.allSolvers(), new Random(20_261_102L), 0, 0);
@@ -794,6 +820,22 @@ class RowRunSimulationTest {
     }
 
     /** The three things every one of these rows is: one stage, one map, the listed deaths in order, no wait, a clear. */
+    /**
+     * GuardianNex is one script and six caves, so the six rows are only distinguishable by the map the instance was
+     * built on ({@code MechanicsRuns.contentFor(eventScript, instanceMapIds)}): each cave's row must be the one that
+     * arms, and its boss the one that dies.
+     */
+    @Test
+    void eachOfGuardianNexSixCavesArmsItsOwnRowAndFightsItsOwnBoss() {
+        for (Map.Entry<Integer, Integer> cave : new java.util.TreeMap<>(NEX_CAVES).entrySet()) {
+            Sim sim = play(cave.getKey(), "GuardianNex", party(1), 2_000);
+
+            assertEquals(cave.getKey(), sim.run().stageData().mapId(),
+                    "cave " + cave.getKey() + " must pick its own row, not the first row for the script");
+            assertRoomClear(sim, List.of(cave.getValue()), false);
+        }
+    }
+
     private static void assertSingleRoomClear(Sim sim, List<Integer> deaths) {
         assertRoomClear(sim, deaths, false);
     }
@@ -1036,6 +1078,8 @@ class RowRunSimulationTest {
                     parts.add(life(ELEMENTAL_2));
                 }
                 case 270050100 -> parts.add(life(PINKBEAN_1)); // startWave one second after setup (:93-96, :306-313)
+                case 240070010, 240070020, 240070030, 240070040, 240070050, 240070060 ->
+                        parts.add(life(NEX_CAVES.get(stageMap))); // GuardianNex: the cave's own life, mobTime -1
                 // 541010100 holds reactor 5411000 and no mobs: the click is what spawns Latanica
                 // scripts/event/MagnusBattle.js:91-92, NWillBattle.js:116-117, NLucidBattle.js:115-116,
                 // NVerusBattle.js:116-117, NDarknellBattle.js:116-117: each script's own spawnMob1, five seconds in.
@@ -1626,6 +1670,9 @@ class RowRunSimulationTest {
                 if (elementalDeaths >= 2) {
                     instanceCleared = true; // ElementalBattle.js:235-248: the second death is the clear
                 }
+            }
+            if (NEX_CAVES.containsValue(part.mobId())) {
+                instanceCleared = true; // GuardianNex.js:94-103: this cave's boss dying is the instance's clear
             }
             if (part.mobId() == CASTELLAN_2 || part.mobId() == MAHA || part.mobId() == DUNAS
                     || part.mobId() == AUFHEBEN || part.mobId() == OBERON) {

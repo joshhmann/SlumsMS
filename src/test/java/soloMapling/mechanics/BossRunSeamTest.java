@@ -226,6 +226,71 @@ class BossRunSeamTest {
         assertEquals(240070303, run.run().stageData().mapId());
     }
 
+    /** Two rows, one script (GuardianNex's six caves): the map the instance was built on has to decide. */
+    @Test
+    void aScriptWithSeveralRowsIsSelectedByTheMapTheInstanceWasBuiltOn() throws IOException {
+        System.setProperty(Mechanics.BOSS_FLAG, "true");
+        Path dir = dataDir.resolve("nex");
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve("index.txt"), "guardiannex1.yaml\nguardiannex2.yaml\n");
+        Files.writeString(dir.resolve("guardiannex1.yaml"), nexRow("guardiannex1", 240070010, 7_120_100));
+        Files.writeString(dir.resolve("guardiannex2.yaml"), nexRow("guardiannex2", 240070020, 7_120_101));
+        System.setProperty(Mechanics.DIR_PROPERTY, dir.toString());
+
+        EventInstanceManager first = expedition("GuardianNex",
+                List.of(member(9_700, false), member(9_701, true)), 9_700);
+        when(first.instanceMapIds()).thenReturn(List.of(240070010));
+        MechanicsRuns.Active one = MechanicsRuns.onInstanceStarted(first, false);
+        assertNotNull(one, "a row for this cave");
+        assertEquals(240070010, one.run().stageData().mapId(), "its own cave");
+
+        EventInstanceManager second = expedition("GuardianNex",
+                List.of(member(9_702, false), member(9_703, true)), 9_702);
+        when(second.instanceMapIds()).thenReturn(List.of(240070020));
+        MechanicsRuns.Active two = MechanicsRuns.onInstanceStarted(second, false);
+        assertNotNull(two, "the second row is not shadowed by the first");
+        assertEquals(240070020, two.run().stageData().mapId(),
+                "the cave the instance was built on decides, not the first row in the folder");
+
+        EventInstanceManager elsewhere = expedition("GuardianNex",
+                List.of(member(9_704, false), member(9_705, true)), 9_704);
+        when(elsewhere.instanceMapIds()).thenReturn(List.of(240070090));
+        assertNull(MechanicsRuns.onInstanceStarted(elsewhere, false), "two rows, neither on this map: arm nothing");
+        assertNull(MechanicsRuns.get().runFor(elsewhere));
+        assertTrue(capture.lines.stream().anyMatch(l -> l.contains("no row is armed")), capture.lines.toString());
+    }
+
+    /** A one-stage row for a cave, written the way the shipped GuardianNex rows are. */
+    private static String nexRow(String id, int map, int mob) {
+        return """
+                id: %s
+                name: %s
+                kind: BOSS
+                eventScript: GuardianNex
+                recruitMap: 240070000
+                exitMap: 240070000
+                minPlayers: 1
+                maxPlayers: 6
+                minLevel: 70
+                maxLevel: 255
+                timeLimitMinutes: 15
+                sources:
+                  - "scripts/event/GuardianNex.js (ours: one script, one instance per cave)"
+                stages:
+                  - stage: 1
+                    map: %d
+                    name: cave %d
+                    solver: boss-phases
+                    mobs: [ %d ]
+                    objectives:
+                      - id: boss
+                        kind: DEFEAT
+                        mob: %d
+                    clear:
+                      instance: true
+                """.formatted(id, id, map, map, mob, mob);
+    }
+
     @Test
     void aBossWithoutContentIsANoOpWithOneLine() {
         System.setProperty(Mechanics.BOSS_FLAG, "true");

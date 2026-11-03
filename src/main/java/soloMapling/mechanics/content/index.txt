@@ -32,3 +32,9 @@ nwill.yaml
 nlucid.yaml
 nverus.yaml
 ndarknell.yaml
+guardiannex1.yaml
+guardiannex2.yaml
+guardiannex3.yaml
+guardiannex4.yaml
+guardiannex5.yaml
+guardiannex6.yaml

@@ -705,15 +705,17 @@ all. Per-row script/gate/map/target/spawn/clear detail is in `REPORT-bossrows.md
   `content/index.txt` names and checks each id against the dump: the stage map is a `Map.wz` map, every `mobs` id is a
   `Mob.wz/<id>.img.xml`, every `hitReactors` id is a `Reactor.wz` entry, every `entryItems` id is in `Item.wz`, and no
   stage declares a negative `spawnWaitSeconds`. It uses `-Dwz-path`/`wz` through `WzTestData`, so it skips where the
-  dump is absent and the suite stays green. Against the 170-evan dump it checked 32 rows, 53 maps, 83 mobs, 7 reactors
+  dump is absent and the suite stays green. Against the 170-evan dump it checked 38 rows, 59 maps, 89 mobs, 7 reactors
   and 1 door item, and found no typo.
-- **GuardianNex is refused, one primitive short.** Six caves (`240070010 + 10 * n`), one script (`GuardianNex.js`,
-  `minPlayers 1`, 15 min, single-character `startInstance`), and the cave is chosen by which of quests
-  `3719/3724/3730/3736/3742/3748` the player has active (`scripts/portal/TD_neo_inTree.js:8-18`). Six rows are the
-  honest form, but `MechanicsRuns.onInstanceStarted` picks a row by the event manager name, which is `GuardianNex` for
-  all six, and `contentFor` returns the first match - so five of six rows would never arm and a party in cave 5 would be
-  warped to cave 0. Missing: row selection by instance name (`Nex_<n>`) or by the map the instance was built on, which
-  is a change to `MechanicsRuns.contentFor`, not a stage field. No row shipped, none faked.
+- **GuardianNex ships as six rows, because row selection learned to read the instance.** Six caves
+  (`240070010 + 10 * n`), one script (`GuardianNex.js`, `minPlayers 1`, 15 min, single-character `startInstance`), and
+  the cave is chosen by which of quests `3719/3724/3730/3736/3742/3748` the player has active
+  (`scripts/portal/TD_neo_inTree.js:8-18`). Six rows are the honest form, and they only work because
+  `MechanicsRuns.contentFor(String, Collection<Integer>)` now resolves a shared event script by the map the instance was
+  built on (`EventInstanceManager.instanceMapIds()`, over the ids the script itself asked for): one row for a script
+  still wins outright, several mean the map decides, and no evidence means no row and one log line instead of the wrong
+  cave. Fail-before: `BossRunSeamTest.aScriptWithSeveralRowsIsSelectedByTheMapTheInstanceWasBuiltOn` (two synthetic
+  rows, the second one's map armed the first row before the change). The quest is a precondition and never written.
 - **Two content defects belong to the maps, not to a row.** `CygnusBattle` (`271040100` holds only NPC `2143004`) and
   `VonLeonBattle` (`211070100` holds only NPC `2161005`) spawn nothing; the chains only continue in
   `MapleMap.afterBossKilled` (`8850000`-`8850003` -> `8850011` -> `8850012`; `8840000` -> `8847777`), so the first link
