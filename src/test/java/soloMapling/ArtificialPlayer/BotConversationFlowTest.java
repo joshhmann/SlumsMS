@@ -330,6 +330,8 @@ class BotConversationFlowTest {
         when(brain.isLive()).thenReturn(true);
         when(brain.reply(org.mockito.ArgumentMatchers.any(), anyInt(), org.mockito.ArgumentMatchers.any()))
                 .thenCallRealMethod();
+        when(brain.notes(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
         when(brain.complete(anyInt(), org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
             asked.add(call.getArgument(1));
             return answer;
@@ -351,6 +353,91 @@ class BotConversationFlowTest {
         answer.complete(Optional.of("ant tunnel is good at 35"));
         assertTrue(checked.await(5, java.util.concurrent.TimeUnit.SECONDS), "busy state checked at delivery");
         assertTrue(said.isEmpty(), said.toString());
+        BotConversation.end(bot.getChr().getId(), player.getId()); // an ended chat leaves no retry to land in
+    }
+
+    /**
+     * social#1/#3: a whisper the player's client cannot show (their trade window is up) is not said, does not enter
+     * the pair's history and leaves nothing in the whisper trail - the bot never remembers saying what the player
+     * never got - and it waits exactly one busy window before it gives up.
+     */
+    @Test
+    void aWhisperToABusyPlayerIsNotSaidNorRemembered() throws Exception {
+        System.setProperty("solomapling.chat.busyRetryMs", "80");
+        CompletableFuture<Optional<String>> answer = new CompletableFuture<>();
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        BotBrain brain = mock(BotBrain.class);
+        when(brain.isLive()).thenReturn(true);
+        when(brain.reply(org.mockito.ArgumentMatchers.any(), anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenCallRealMethod();
+        when(brain.notes(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+        when(brain.complete(anyInt(), org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
+            asked.add(call.getArgument(1));
+            return calls.getAndIncrement() == 0 ? answer : CompletableFuture.completedFuture(Optional.of("lol"));
+        });
+        BotBrains.useForTest(brain);
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            when(player.getTrade()).thenReturn(mock(server.Trade.class)); // the trade window stays up
+            assertTrue(BotConversation.say(bot, player, "where should i train at level 35?", null, said::add));
+            waitFor(() -> !asked.isEmpty());
+            answer.complete(Optional.of("ant tunnel is good at 35"));
+            Thread.sleep(400); // one 80 ms window, then the one retry is refused too: the line is dropped
+            assertTrue(said.isEmpty(), said.toString());
+            long now = System.currentTimeMillis();
+            assertTrue(soloMapling.ArtificialPlayer.BotConvo.WhisperTrail.of(chr.getId(), player.getId(), now)
+                            .earlier(now).stream().noneMatch(e -> e.text().contains("ant tunnel")),
+                    "the whisper trail must not say the player was told");
+            assertTrue(BotConversation.say(bot, player, "hey again", null, said::add));
+            waitFor(() -> asked.size() == 2);
+            assertEquals(2, asked.size());
+            assertTrue(asked.get(1).stream().noneMatch(
+                            t -> t.role() == BotBrain.Role.ASSISTANT && t.content().contains("ant tunnel")),
+                    "the next prompt must not claim the bot already answered: " + asked.get(1));
+            BotConversation.end(chr.getId(), player.getId());
+        } finally {
+            System.clearProperty("solomapling.chat.busyRetryMs");
+        }
+    }
+
+    /** social#1: the same whisper goes out once the busy window has passed - one retry, then it is said. */
+    @Test
+    void aWhisperToABusyPlayerGoesOutAfterTheBusyWindow() throws Exception {
+        System.setProperty("solomapling.chat.busyRetryMs", "80");
+        CompletableFuture<Optional<String>> answer = new CompletableFuture<>();
+        BotBrain brain = mock(BotBrain.class);
+        when(brain.isLive()).thenReturn(true);
+        when(brain.reply(org.mockito.ArgumentMatchers.any(), anyInt(), org.mockito.ArgumentMatchers.any()))
+                .thenCallRealMethod();
+        when(brain.notes(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+        when(brain.complete(anyInt(), org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
+            asked.add(call.getArgument(1));
+            return answer;
+        });
+        BotBrains.useForTest(brain);
+        try {
+            BotSM bot = mock(TownWandererBot.class);
+            Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+            when(bot.getChr()).thenReturn(chr);
+            Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
+            org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
+            java.util.concurrent.atomic.AtomicInteger busy = new java.util.concurrent.atomic.AtomicInteger();
+            when(player.getTrade()).thenAnswer(c -> busy.getAndIncrement() == 0 ? mock(server.Trade.class) : null);
+            assertTrue(BotConversation.say(bot, player, "where should i train at level 35?", null, said::add));
+            waitFor(() -> !asked.isEmpty());
+            answer.complete(Optional.of("ant tunnel is good at 35"));
+            waitFor(() -> !said.isEmpty());
+            assertEquals(List.of("ant tunnel is good at 35"), said, "said once the window passed, not dropped");
+            BotConversation.end(chr.getId(), player.getId());
+        } finally {
+            System.clearProperty("solomapling.chat.busyRetryMs");
+        }
     }
 
     @Test

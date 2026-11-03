@@ -55,6 +55,17 @@ public final class BotConversation {
      */
     static final long HOLD_MS = TimeUnit.SECONDS.toMillis(45);
 
+    /**
+     * social#1: how long a line waits for a player whose client cannot show it (a trade, a shop, an NPC dialog, an
+     * instance, AFK) before its one retry. A shop window or an NPC dialog is short; 20 s is long enough for one and
+     * short enough that the answer still reads as an answer. {@code -Dsolomapling.chat.busyRetryMs}.
+     */
+    static final long BUSY_RETRY_MS = TimeUnit.SECONDS.toMillis(20);
+
+    static long busyRetryMs() {
+        return Math.max(0, Long.getLong("solomapling.chat.busyRetryMs", BUSY_RETRY_MS));
+    }
+
     private record Key(int botId, int playerId) {
     }
 
@@ -1267,11 +1278,41 @@ public final class BotConversation {
      */
     private static void deliver(Session session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line saidIn,
                                 long asked, ChatStats.Tier tierIn, String detailIn, Cue cue) {
+        deliver(session, saidIn, asked, tierIn, detailIn, cue, false);
+    }
+
+    /**
+     * social#1/#3: the player-busy test runs before anything about this line is written or claimed. A player whose
+     * client is showing a trade, a shop, an NPC dialog or an instance cannot take the line, so the bot waits one
+     * {@link #busyRetryMs()} and tries the same line again; if they are still busy it is dropped outright. Nothing
+     * is written to the pair's history or the whisper trail and nothing is said-do claimed for a line that never
+     * reached the player, so the bot cannot remember saying what the player never got.
+     */
+    private static void deliver(Session session, soloMapling.ArtificialPlayer.BotConvo.ConvoLines.Line saidIn,
+                                long asked, ChatStats.Tier tierIn, String detailIn, Cue cue, boolean retried) {
         if (saidIn == null || saidIn.text() == null) {
+            return;
+        }
+        if (session.deliver != null && PlayerBusy.isBusy(session.player)) {
+            if (!retried) {
+                BotTiming.after(busyRetryMs(), () -> {
+                    if (liveSession(session)) {
+                        deliver(session, saidIn, asked, tierIn, detailIn, cue, true);
+                    }
+                });
+                return;
+            }
+            ChatStats.reply(ChatStats.Tier.IGNORED, System.currentTimeMillis() - asked, session.bot.getChr().getName(),
+                    "player busy");
             return;
         }
         Grounded g = groundForDelivery(session, saidIn, tierIn, detailIn, cue == null ? null : cue.asked());
         deliverChecked(session, g.said(), asked, g.tier(), g.detail(), cue);
+    }
+
+    /** Whether the pair's chat is still the one this session belongs to. */
+    private static boolean liveSession(Session session) {
+        return sessions.containsKey(new Key(session.bot.getChr().getId(), session.player.getId()));
     }
 
     /** What {@link #deliver} says after the grounding check: the line, its tier and the stats detail. */
@@ -1439,11 +1480,7 @@ public final class BotConversation {
                         }
                     })
                     .run(() -> {
-                        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(bot, player, part.text(), claimSource);
                         if (deliver != null) {
-                            if (PlayerBusy.isBusy(player)) {
-                                return;
-                            }
                             deliver.accept(part.text());
                         } else {
                             soloMapling.ArtificialPlayer.BotConvo.SayDo.withSource(claimSource, () -> BotSpeak(bot, part.text()));
@@ -1451,6 +1488,8 @@ public final class BotConversation {
                                 BotEmote(bot, face);
                             }
                         }
+                        // social#3: the promise is recorded only after the line actually reached the player
+                        soloMapling.ArtificialPlayer.BotConvo.SayDo.said(bot, player, part.text(), claimSource);
                         if ("brb".equals(part.text())) { // the timing's "brb": it really steps away until it answers
                             soloMapling.ArtificialPlayer.BotConvo.ClaimActions.start(bot,
                                     soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify("brb"));
