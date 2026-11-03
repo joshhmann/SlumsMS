@@ -6,6 +6,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import server.life.NPC;
+import server.quest.Quest;
 import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotLifeSystem.LifePlanner;
 
@@ -17,7 +18,13 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyByte;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -302,6 +309,51 @@ class BotQuestsTest {
         assertEquals(BotQuests.Visit.RECORDED, BotQuests.atNpc(atNpc, log, LifePlanner.Step.TURN_IN_QUEST, true, NOW));
         assertEquals(0, gate.completes);
         assertEquals(0, yield.mesosTaken);
+    }
+
+    // TEST 181 F4: the NPC said the bot cannot complete this turn-in, and the bot wrote COMPLETED into the quest map
+    // anyway - burning the real quest's daily slot and unlocking whatever depends on it. The bot's own log moves on;
+    // the quest map is left alone so the bot can go and earn it for real.
+    @Test
+    void aTurnInTheNpcRefusesLeavesTheQuestMapAlone() {
+        var log = new BotQuestLog();
+        BotQuests.consider(bot(FIELD, 15, null, null), log, true, TOWN, NOW);
+        Character atNpc = bot(TOWN, 15, new Point(0, 0), new Point(0, 0));
+        when(atNpc.botQuestState()).thenReturn(true); // the quest map is already filled: restore() is a no-op
+        BotQuests.atNpc(atNpc, log, LifePlanner.Step.TAKE_QUEST, true, NOW);
+        BotQuests.offscreenKills(log, FIELD, 30); // hunted offscreen: the real quest counted nothing
+        gate.canComplete = false;
+        Quest quest = mock(Quest.class); // no quest data is loaded here: the seam itself must stay shut
+        try (var quests = mockStatic(Quest.class)) {
+            quests.when(() -> Quest.getInstance(QUEST)).thenReturn(quest);
+            assertEquals(BotQuests.Visit.RECORDED,
+                    BotQuests.atNpc(atNpc, log, LifePlanner.Step.TURN_IN_QUEST, true, NOW));
+            verify(atNpc, never()).getQuestRemove(quest);
+            verify(atNpc, never()).setQuestAdd(any(), anyByte(), anyString());
+        }
+        assertEquals(List.of(QUEST), log.done(), "the bot's own log still moves on");
+        assertEquals(1, log.modelledDone());
+    }
+
+    // ...and the deliberate offscreen completion still fills the quest map: the real quest saw none of the kills, so
+    // nothing else would ever advance it.
+    @Test
+    void anOffscreenTurnInStillFillsTheQuestMap() {
+        var log = new BotQuestLog();
+        BotQuests.consider(bot(FIELD, 15, null, null), log, true, TOWN, NOW);
+        Character chr = bot(TOWN, 15, null, null);
+        when(chr.botQuestState()).thenReturn(true);
+        assertEquals(BotQuests.Visit.TAKEN_OFFSCREEN,
+                BotQuests.atNpc(chr, log, LifePlanner.Step.TAKE_QUEST, false, NOW));
+        BotQuests.offscreenKills(log, FIELD, 30);
+        Quest quest = mock(Quest.class);
+        try (var quests = mockStatic(Quest.class)) {
+            quests.when(() -> Quest.getInstance(QUEST)).thenReturn(quest);
+            assertEquals(BotQuests.Visit.RECORDED,
+                    BotQuests.atNpc(chr, log, LifePlanner.Step.TURN_IN_QUEST, false, NOW));
+            verify(chr).getQuestRemove(quest);
+            verify(chr).setQuestAdd(quest, (byte) QuestStatus.Status.COMPLETED.getId(), "");
+        }
     }
 
     @Test
