@@ -18,3 +18,4 @@ treasurepq.yaml
 dellibattle.yaml
 magatiapq.yaml
 ellinpq.yaml
+cwkpq.yaml

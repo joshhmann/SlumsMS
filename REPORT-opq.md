@@ -776,6 +776,42 @@ What the sign-up row still needs, beyond that chain:
    has a pirate), fakes in the never-target set, clear on the event's `glpq1` (`CWKPQ.js:150-160` seeds every `glpqN` to
    `"0"`; the sign-up sets `glpq1 = 1`).
 
+## CWKPQ ships: four rooms, and the flames that say why they are not one
+
+`content/cwkpq.yaml` is a row now (`flag: slums.mechanics.cwkpq`, 6-30 players, level 90-255, 20 minutes, front door
+`9201113` on the recruit map `610030020` - `scripts/npc/9201113.js:44` is the only script that starts the event).
+
+| # | map | room | solver | clear |
+|---|---|---|---|---|
+| 1 | `610030400` | the five job sigils | `cwkpq-sigils` | `glpq4 == "5"` (`6109016.js:5-12`) |
+| 2 | `610030300` | the door that counts five | `cwkpq-door` | `glpq3_p == "5"`, the exit's own condition (`glpqPortal3.js:4`) |
+| 3 | `610030500` | the Relic of Mastery | `cwkpq-sigils` (same class, the row names its five reactors) | `glpq5 == "5"` (`6109005.js:6-12`, `glpqPortal5.js:4`) |
+| 4 | `610030800` | the host, the Guardians and the four Twisted Masters | `cwkpq-boss` | `{ instance: true }`, reached only through `glpq6 == 3` (`9201115.js:80-91`) |
+
+Two solvers, not four, because the two counted rooms are the same shape: a list of reactors, a counter the scripts raise
+on `act()`, and a clear the row names. `CwkpqSigilSolver` reads its reactors from the stage's own `HIT_REACTOR`
+objectives, so stage 3 is a yaml entry rather than a second class, and its overshoot guard reads the counter the
+<b>row's</b> clear names - which is the real bug in this PQ family: `6109016.js:5` and `6109005.js:6` are both
+unguarded, so a sixth hit leaves the counter at 6 and a `== 5` clear can never match again.
+
+`CwkpqDoorSolver` is the one place the party has to take turns: `glpqPortal2.js:3-19` counts each passer into
+`glpq3_p` <b>and warps him back onto the same map</b>, so "one at a time" is not a schedule the solver imposes - it
+counts passes, and a member could pass twice. The two reactors of that room (`6109003`/`6109004`) raise `glpq3`, the
+other half of the exit's condition, so the solver works them first and only then sends anyone through the door; at five
+it waits, because `glpqPortal2.js:15` refuses a sixth pass.
+
+`CwkpqBossSolver` is `Converse(9201115, [0, 0])` between fights, three times over: `glpq6` 0 -> 1 spawns ten 9400594
+and twenty 9400582, 1 -> 2 spawns the four Twisted Masters (9400590 Margana, 9400591 Red Nirg, 9400592 Rellik,
+9400593 Hsalf), and 2 -> 3 is the host calling `clearPQ()`. The masters are **not** a tier of their own: the spawner
+decides when they exist, so the solver fights whatever is out and then asks again.
+
+**The flames are the one room this row does not model, and the reason is a line, not an opinion.** The eight flame
+reactors `6109021`..`6109027` answer `touch()` and each counts its own `glpq_fN` (`6109021.js:9-13`), but a sweep of
+every reader of `glpq_f` in `scripts/` finds **only the event's own seeds** (`CWKPQ.js:165-172`) - nothing checks them,
+no portal gates on them, and the map's `610030600` exit is `glpqPortal6`, which gates on `glpq6` alone
+(`glpqPortal6.js:4`). A stage with no writable clear cannot be a row stage, so the row does not claim one; if the keep
+ever starts reading those flags, the room is one `TouchReactorNamed` stage away.
+
 ## CWKPQ: the map data the row needs, read
 
 `Map.wz` is not in this tree, so the names came from the read-only dump at
