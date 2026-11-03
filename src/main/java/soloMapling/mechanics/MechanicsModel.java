@@ -187,7 +187,11 @@ public final class MechanicsModel {
      * LudiMaze PQ's final stage end that way, and {@code EventInstanceManager.isEventCleared()} is the only signal there
      * is. {@link #instance()} is that clear form - it is not an event property, it is the instance's own flag.
      */
-    public record Clear(String eventProperty, String equals, boolean onInstance) {
+    public record Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty) {
+        public Clear(String eventProperty, String equals, boolean onInstance) {
+            this(eventProperty, equals, onInstance, false);
+        }
+
         public Clear(String eventProperty) {
             this(eventProperty, null, false);
         }
@@ -202,6 +206,15 @@ public final class MechanicsModel {
          */
         public static Clear instance() {
             return new Clear(null, null, true);
+        }
+
+        /**
+         * The clear of a stage whose script never says "done" at all: the stage is over when the map holds nothing left
+         * to kill ({@code clear: { mapEmpty: true }}). Ellin PQ's first stage is the case - its passage portal refuses
+         * while {@code cm.getMap().getMonsters()} is non-empty and no property is ever written.
+         */
+        public static Clear emptyMap() {
+            return new Clear(null, null, false, true);
         }
     }
 

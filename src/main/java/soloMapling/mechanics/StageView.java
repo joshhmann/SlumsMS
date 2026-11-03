@@ -253,6 +253,10 @@ public interface StageView {
             // no property to read: the script only called eim.clearPQ() (Cafe PQ, Treasure PQ, LudiMaze PQ finales)
             return eventCleared();
         }
+        if (clear.mapEmpty()) {
+            // no property and no talk: the script's own passage refuses while the map has monsters (Ellin PQ stage 1)
+            return liveMobs() == 0;
+        }
         if (clear.eventProperty() == null) {
             return false;
         }

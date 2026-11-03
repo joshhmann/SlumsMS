@@ -443,9 +443,13 @@ public final class StageData {
         } else if (m.get("clear") instanceof Map<?, ?> cm && "true".equalsIgnoreCase(String.valueOf(cm.get("instance")))) {
             // a stage whose script writes no property and only calls eim.clearPQ(): the instance's own flag is the clear
             clear = Clear.instance();
+        } else if (m.get("clear") instanceof Map<?, ?> cm && "true".equalsIgnoreCase(String.valueOf(cm.get("mapEmpty")))) {
+            // a stage whose script never says "done": it is over when the map has nothing left to kill (Ellin PQ stage 1)
+            clear = Clear.emptyMap();
         }
         if (clear == null) {
-            p.add(at + "no clear: { eventProperty: ... } (+ optional equals: value), or { instance: true }");
+            p.add(at + "no clear: { eventProperty: ... } (+ optional equals: value), or { instance: true },"
+                    + " or { mapEmpty: true }");
         }
         String answerProperty = m.get("answerProperty") == null ? null : String.valueOf(m.get("answerProperty")).trim();
         List<List<Integer>> combos = new ArrayList<>();

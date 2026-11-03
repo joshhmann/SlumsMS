@@ -522,6 +522,28 @@ reading the placeholder. The one-line reason: `npcOid` is only set by the five-a
   `2618000`) is **unclear** from a read alone and will be marked as such rather than guessed. A one-stage row would end
   the run as "cleared" after stage 1 and tell a party the PQ was finished, so nothing is loaded until the set is whole.
 
+## A clear with no signal at all: `{ mapEmpty: true }`
+
+Until now a row could express exactly two clears: an event property (`{ eventProperty, equals }`) or the instance's own
+flag (`{ instance: true }`). Ellin PQ's first stage has neither - `scripts/portal/party6_stage.js:9-18` refuses the
+passage while `cm.getMap().getMonsters()` is non-empty, and the event writes no property anywhere - so a row for it could
+only have been written by guessing.
+
+`MechanicsModel.Clear` gained a fourth component (`mapEmpty`), a third YAML kind (`clear: { mapEmpty: true }`), and one
+line in `StageView.cleared()` (`liveMobs() == 0`). It is the tenth clear/address primitive of this shape.
+
+- **Fail-before.** `withoutTheNewKindThereIsNoClearToGiveIt` writes the same row with no `clear:` block and shows the
+  reader refuse it, with an error that now names `mapEmpty` among the three kinds - before this change the vocabulary had
+  no way to say it at all. `aRowWhoseStageClearsWhenTheMapIsEmptyAdvancesPastIt` reads `{ mapEmpty: true }` through the
+  real YAML reader and clears a three-monster room only when the monsters are gone;
+  `aMapEmptyStageIsNotClearedByAnInstanceFlagOrAProperty` shows the instance flag does not stand in for it.
+- **What it is not.** It is not "the stage is over when the party stops fighting": it asks the map, every tick, and a
+  re-spawn puts the stage back in play - which is exactly Ellin's first room, where the passage stays shut until the room
+  is empty.
+- **No row uses it yet.** Ellin PQ is the intended consumer and its row is not written (see the lane report), so this is
+  engine vocabulary with a fail-before and no product code path behind it. That is stated here rather than left to be
+  discovered.
+
 ## Magatia PQ: four stages driven, one held, two left alone
 
 `content/magatiapq.yaml` is the Alcadno variant (`eventScript: MagatiaPQ_A`), off `-Dslums.mechanics.magatiapq`, exactly
