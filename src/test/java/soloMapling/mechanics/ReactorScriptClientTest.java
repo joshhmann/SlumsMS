@@ -52,4 +52,41 @@ class ReactorScriptClientTest {
         assertSame(bot, hitWith.getValue().getPlayer(), "the script's rm.getPlayer() is the bot: " + log);
         assertNull(shared.getPlayer(), "and nothing was written to the shared client");
     }
+
+    @Test
+    void anOwnedAltAndARealPlayerStillHitThroughTheirOwnClient() {
+        // an owned alt: a private headless client whose player is the alt
+        BotClient own = new BotClient(0, 2);
+        Character alt = Character.getDefault(own);
+        alt.setID(1_000_000_000 + 1648);
+        alt.setName("Alty");
+        own.setPlayer(alt);
+        MapleMap map = mock(MapleMap.class);
+        alt.setMap(map);
+        alt.setPosition(new Point(100, 100));
+        Reactor rock = mock(Reactor.class);
+        when(rock.getPosition()).thenReturn(new Point(100, 100));
+        when(map.getReactorByName("rock")).thenReturn(rock);
+
+        new StepExecutor().execute(null, null, null, alt, new SolverStep.HitReactorNamed("rock"), NOW, new ArrayList<String>()::add);
+
+        verify(rock).hitReactor(own); // the very same client object: nothing was bound for it
+
+        // a real player's client is not a headless one at all
+        Client human = mock(Client.class);
+        Character player = mock(Character.class);
+        when(player.getClient()).thenReturn(human);
+        when(player.getName()).thenReturn("Human");
+        when(player.getId()).thenReturn(5);
+        when(player.getMap()).thenReturn(map);
+        when(player.getPosition()).thenReturn(new Point(100, 100));
+        Reactor lever = mock(Reactor.class);
+        when(lever.getPosition()).thenReturn(new Point(100, 100));
+        when(map.getReactorByName("lever")).thenReturn(lever);
+
+        new StepExecutor().execute(null, null, null, player, new SolverStep.HitReactorNamed("lever"), NOW + 20_000,
+                new ArrayList<String>()::add);
+
+        verify(lever).hitReactor(human);
+    }
 }

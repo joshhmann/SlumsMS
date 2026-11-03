@@ -58,6 +58,12 @@ public class BotClient extends Client {
      * channel, no socket, every packet dropped). It is made per action: nothing is written to the shared client, so two
      * bots acting at once never see each other's player.
      *
+     * <p>Only {@code getPlayer()} differs from the shared client. In particular the script-engine cache ({@code
+     * AbstractScriptManager.getInvocableScriptEngine(path, c)} keeps one engine per script path <em>on the client</em>) is the
+     * shared client's own, delegated, so a bound client neither builds a new Graal engine per hit nor splits the cache the
+     * shared client has always had. The bound client is for a script to read its player through; it is never sent a packet
+     * (the headless client drops them anyway), never stored on the character and never the character's own client.
+     *
      * <p>Anyone who has a client of their own - a real player, an owned alt - gets it back unchanged.
      */
     public static Client forScripts(Character bot) {
@@ -69,6 +75,21 @@ public class BotClient extends Client {
             @Override
             public Character getPlayer() {
                 return bot;
+            }
+
+            @Override
+            public void setScriptEngine(String name, javax.script.ScriptEngine e) {
+                own.setScriptEngine(name, e);
+            }
+
+            @Override
+            public javax.script.ScriptEngine getScriptEngine(String name) {
+                return own.getScriptEngine(name);
+            }
+
+            @Override
+            public void removeScriptEngine(String name) {
+                own.removeScriptEngine(name);
             }
         };
     }

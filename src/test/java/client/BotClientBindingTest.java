@@ -69,6 +69,24 @@ class BotClientBindingTest {
     }
 
     @Test
+    void theScriptEngineCacheIsTheSharedClientsSoNoEngineIsBuiltPerHit() {
+        BotClient shared = new BotClient(0, 2);
+        Character bot = population(shared);
+        javax.script.ScriptEngine engine = mock(javax.script.ScriptEngine.class);
+        shared.setScriptEngine("reactor/9208000.js", engine);
+
+        Client forScripts = BotClient.forScripts(bot);
+
+        assertSame(engine, forScripts.getScriptEngine("reactor/9208000.js"),
+                "AbstractScriptManager keeps one engine per script path on the CLIENT: a bound client reuses the shared one's");
+        javax.script.ScriptEngine other = mock(javax.script.ScriptEngine.class);
+        forScripts.setScriptEngine("reactor/9208001.js", other);
+        assertSame(other, shared.getScriptEngine("reactor/9208001.js"), "and what it caches is cached for everyone, as before");
+        forScripts.removeScriptEngine("reactor/9208001.js");
+        assertNull(shared.getScriptEngine("reactor/9208001.js"));
+    }
+
+    @Test
     void anyoneWithAClientOfTheirOwnGetsItBackUnchanged() {
         // an owned alt: a private headless client whose player is the alt (OwnedAltBackend)
         BotClient own = new BotClient(0, 2);

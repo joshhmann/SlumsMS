@@ -5532,7 +5532,7 @@ public class MapleMap {
         }
         droppedItemCount.incrementAndGet();
 
-        activateItemReactors(mdrop, owner.getClient());
+        activateItemReactors(mdrop, client.BotClient.forScripts(owner));
         return mdrop;
     }
 

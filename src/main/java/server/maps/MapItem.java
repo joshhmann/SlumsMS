@@ -54,7 +54,7 @@ public class MapItem extends AbstractMapObject {
         this.character_ownerid = owner.getId();
         this.party_ownerid = owner.getPartyId();
         this.partyDrop = this.party_ownerid != -1;
-        this.ownerClient = owner.getClient();
+        this.ownerClient = client.BotClient.forScripts(owner); // read back by searchItemReactors: a script needs its player
         this.meso = 0;
         this.type = type;
         this.playerDrop = playerDrop;
@@ -67,7 +67,7 @@ public class MapItem extends AbstractMapObject {
         this.character_ownerid = owner.getId();
         this.party_ownerid = owner.getPartyId();
         this.partyDrop = this.party_ownerid != -1;
-        this.ownerClient = owner.getClient();
+        this.ownerClient = client.BotClient.forScripts(owner);
         this.meso = 0;
         this.type = type;
         this.playerDrop = playerDrop;
@@ -81,7 +81,7 @@ public class MapItem extends AbstractMapObject {
         this.character_ownerid = owner.getId();
         this.party_ownerid = owner.getPartyId();
         this.partyDrop = this.party_ownerid != -1;
-        this.ownerClient = owner.getClient();
+        this.ownerClient = client.BotClient.forScripts(owner);
         this.meso = meso;
         this.type = type;
         this.playerDrop = playerDrop;
@@ -180,8 +180,20 @@ public class MapItem extends AbstractMapObject {
         return hasExpiredOwnershipTime();
     }
 
+    /**
+     * The client of the character who dropped this, when it is online and in the world - what {@code
+     * MapleMap.searchItemReactors} runs an item reactor's script with. A <b>population bot</b> is never marked "entered the
+     * channel" (only an owned alt is, {@code OwnedAltBackend}), so its away flag stays at its default and it would never
+     * count as present; its client here is the one {@link client.BotClient#forScripts} bound to it, and a bound client is
+     * present for as long as the bot is on a map. A real player and an owned alt are judged exactly as before.
+     */
     public final Client getOwnerClient() {
-        return (ownerClient.isLoggedIn() && !ownerClient.getPlayer().isAwayFromWorld()) ? ownerClient : null;
+        Character owner = ownerClient.getPlayer();
+        if (owner == null) {
+            return null; // a client with no player (the shared headless one): there is nobody for a script to run as
+        }
+        boolean present = !owner.isAwayFromWorld() || (ownerClient instanceof client.BotClient && !owner.isOwnedAlt());
+        return ownerClient.isLoggedIn() && present ? ownerClient : null;
     }
 
     public final int getMeso() {
