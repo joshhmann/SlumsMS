@@ -117,6 +117,10 @@ public final class Orchestrator implements RunOrchestrator {
         all.put(ho.id(), ho);
         all.put(lm.id(), lm);
         all.put(zm.id(), zm);
+        for (StageSolver gq : List.of(new GqLobbySolver(), new GqEarringSolver(), new GqStatuesSolver(),
+                new GqSpearsSolver(), new GqVassalsSolver(), new GqMazeSolver(), new GqBossSolver())) {
+            all.put(gq.id(), gq);
+        }
         return Map.copyOf(all);
     }
 
@@ -390,10 +394,20 @@ public final class Orchestrator implements RunOrchestrator {
             return steps; // no reminders to a real leader either: the formation is up for a screenshot
         }
         RunMember leader = view.leader().orElse(null);
-        if (leader != null && !leader.bot() && view.mapOf(leader.characterId()) == stage.mapId()) {
+        if (leader != null && !leader.bot() && onThisStage(view, solver, stage, leader.characterId())) {
             realLeader(run, view, solver, stage, leader, steps, nowMs);
         }
         return steps;
+    }
+
+    /**
+     * Whether the member stands on a map this stage drives: its own map, one of its {@code maps:}, or one its solver names.
+     * A real leader is prompted - and a bot speaks for the party - from anywhere in a multi-map stage, not only on its first
+     * map: Guild Quest's maze is done in rooms the leader leaves for 700, and its boss stage ends on 900.
+     */
+    private static boolean onThisStage(StageView view, StageSolver solver, Stage stage, int characterId) {
+        int on = view.mapOf(characterId);
+        return on == stage.mapId() || stage.mapSet().contains(on) || solver.extraMaps(view).contains(on);
     }
 
     /**
@@ -428,7 +442,7 @@ public final class Orchestrator implements RunOrchestrator {
                             Map<Integer, SolverStep> steps, long nowMs) {
         Map<String, Object> mem = run.stageMemory();
         int lid = leader.characterId();
-        Integer speaker = steps.keySet().stream().filter(id -> view.mapOf(id) == stage.mapId()).findFirst()
+        Integer speaker = steps.keySet().stream().filter(id -> onThisStage(view, solver, stage, id)).findFirst()
                 .orElse(null);
         if (!view.alive(lid)) {
             for (Map.Entry<Integer, SolverStep> e : steps.entrySet()) {

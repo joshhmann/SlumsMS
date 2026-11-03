@@ -28,3 +28,4 @@ bossrush5.yaml
 bossrush6.yaml
 bossrush7.yaml
 zakumpq.yaml
+guildquest.yaml
