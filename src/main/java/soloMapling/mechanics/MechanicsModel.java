@@ -393,6 +393,26 @@ public final class MechanicsModel {
     }
 
     /**
+     * The world queue a content is entered through ({@code queue:} in a row), instead of {@code
+     * EventManager.startInstance(party, map)}. Guild Quest is the case: its door NPC ({@code scripts/npc/9040000.js:62-91})
+     * registers a <em>guild</em> with {@code em.addGuildToQueue} and the world starts the instance when the guild's turn
+     * comes ({@code EventManager.attemptStartGuildInstance} -> {@code startInstance(chr)}) with the guild's master alone
+     * inside; every other member then talks to the same NPC to be registered ({@code :54-65}), within the strategy time.
+     *
+     * <p>{@code register} and {@code join} are the answers a conversation with the row's {@code entryNpc} gives to take
+     * each of those two ways (the menu line, then yes); {@code closedProperty}/{@code closedEquals} is the event
+     * property that says the join window is over and the members are fixed ({@code GuildQuest.js:206-207} sets {@code
+     * canJoin} to 0 when the strategy time ends); {@code waitMinutes} is how long that takes ({@code GuildQuest.js:35}).
+     */
+    public record Queue(java.util.List<Integer> register, java.util.List<Integer> join, String closedProperty,
+                        String closedEquals, int waitMinutes) {
+        /** Whether this event property value means the join window is closed. */
+        public boolean closed(String value) {
+            return value != null && value.trim().equals(closedEquals);
+        }
+    }
+
+    /**
      * A seat the party has to fill ({@code composition:} in a row), the way {@code minPlayers}/{@code maxPlayers} are
      * the party's size: {@code min} members whose level is {@code minLevel}..{@code maxLevel} ({@code maxLevel} 0 = no
      * cap). Guild Quest's door out of the four-room maze is the case: {@code scripts/portal/under30gate.js:25} lets a
@@ -437,7 +457,17 @@ public final class MechanicsModel {
                            */
                           int entryNpc,
                           /** The seats the party must fill ({@link Seat}); empty for every row that asks nothing of it. */
-                          List<Seat> composition) {
+                          List<Seat> composition,
+                          /** The world queue this content is entered through, or null for every row that is not. */
+                          Queue queue) {
+
+        public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
+                       int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
+                       List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers, AfterClear afterClear,
+                       String flag, int entryNpc, List<Seat> composition) {
+            this(id, name, kind, eventScript, recruitMap, exitMap, minPlayers, maxPlayers, minLevel, maxLevel,
+                    timeLimitMinutes, sources, stages, tiers, afterClear, flag, entryNpc, composition, null);
+        }
 
         public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
                        int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,

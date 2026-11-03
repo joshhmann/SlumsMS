@@ -371,6 +371,46 @@ public final class MechanicsRuns {
         }
     }
 
+    /**
+     * An instance the world queue just started ({@code EventManager.startInstance(lobby, chr, leader, difficulty)}, the
+     * path {@code attemptStartGuildInstance} takes): when the content row says it is entered through the queue
+     * ({@code queue:}) and its switch is on, a {@link LobbyWatch} arms the run once the join window closes. A staging
+     * call that starts and runs the instance itself holds this off ({@link #staging}); every other instance this
+     * server starts through that path - solo events, quests - has no queue row and is left exactly as it was.
+     *
+     * @return whether a watch was started
+     */
+    public static boolean onQueueInstanceStarted(EventInstanceManager eim) {
+        if (eim == null || STAGING.get()) {
+            return false;
+        }
+        try {
+            Content content = contentFor(eim.getEm() == null ? null : eim.getEm().getName());
+            if (content == null || content.queue() == null || !Mechanics.enabledFor(content)) {
+                return false;
+            }
+            LobbyWatch.begin(eim, content);
+            return true;
+        } catch (RuntimeException e) {
+            log("[Mechanics] could not watch a queue instance " + keyOf(eim) + ": " + e);
+            return false;
+        }
+    }
+
+    /**
+     * The join window of a queue-started instance has closed: the run is armed for the bots and owned alts the guild
+     * brought, exactly as {@link #onInstanceStarted} arms one for a party, except that the world owns the instance (the
+     * script ends it, not the run). Nothing is armed for a guild of humans only.
+     */
+    static Active armOnClosedLobby(EventInstanceManager eim, Content content) {
+        if (eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
+            log("[Mechanics] " + keyOf(eim) + ": no bot or alt joined the " + content.id() + " guild run, nothing to drive");
+            return null;
+        }
+        return get().start(eim, content, false, 0, 1, 0, false,
+                line -> log("[Mechanics] " + keyOf(eim) + " " + line), null);
+    }
+
     private static volatile List<Content> contentCache;
     private static volatile String contentCacheDir;
 

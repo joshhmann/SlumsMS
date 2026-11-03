@@ -569,6 +569,9 @@ public class EventManager {
                         }
 
                         eim.startEvent();
+                        // 1.6.4 seams: an instance the world queue starts (Guild Quest: attemptStartGuildInstance) is armed
+                        // for its bots once its join window closes - only for a content row that says it is queue-entered
+                        soloMapling.mechanics.MechanicsRuns.onQueueInstanceStarted(eim);
                     } catch (ScriptException | NoSuchMethodException ex) {
                         log.error("Event script startInstance", ex);
                     }

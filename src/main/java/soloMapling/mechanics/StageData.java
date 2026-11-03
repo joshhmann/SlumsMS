@@ -246,9 +246,66 @@ public final class StageData {
             return null;
         }
         List<MechanicsModel.Seat> composition = readComposition(m, minP, maxP, minL, maxL, p);
+        MechanicsModel.Queue queue = readQueue(m, script, num(m, "entryNpc", 0, p), p);
         return new Content(id, name, kind, script, recruit, exit, minP, maxP, minL, maxL, time, List.copyOf(sources),
                 List.copyOf(stages), Map.copyOf(tiers), after, opt(m, "flag"), num(m, "entryNpc", 0, p),
-                List.copyOf(composition));
+                List.copyOf(composition), queue);
+    }
+
+    /**
+     * {@code queue:} - the content is entered through the event's world queue: {@code {register: [answers], join:
+     * [answers], closedProperty, closedEquals, waitMinutes}}. It needs the NPC that answers them ({@code entryNpc}) and
+     * the event script whose queue it is, so a row that names a queue and not those is refused here.
+     */
+    private static MechanicsModel.Queue readQueue(Map<?, ?> m, String script, int entryNpc, List<String> p) {
+        Object raw = m.get("queue");
+        if (raw == null) {
+            return null;
+        }
+        if (!(raw instanceof Map<?, ?> qm)) {
+            p.add("queue: not a map");
+            return null;
+        }
+        List<Integer> register = answers(qm.get("register"), "queue: register", p);
+        List<Integer> join = answers(qm.get("join"), "queue: join", p);
+        String property = opt(qm, "closedProperty").trim();
+        String equals = opt(qm, "closedEquals").trim();
+        int wait = num(qm, "waitMinutes", 0, p);
+        if (register.isEmpty() || join.isEmpty()) {
+            p.add("queue: needs register and join, each the answers that take that way through the entry NPC");
+        }
+        if (property.isEmpty() || equals.isEmpty()) {
+            p.add("queue: needs closedProperty and closedEquals, the event property that says the join window is over");
+        }
+        if (wait < 0) {
+            p.add("queue: waitMinutes must not be negative");
+        }
+        if (entryNpc <= 0) {
+            p.add("queue: needs the entryNpc that answers register and join");
+        }
+        if (script == null || script.isBlank()) {
+            p.add("queue: needs the eventScript whose world queue it is");
+        }
+        return new MechanicsModel.Queue(List.copyOf(register), List.copyOf(join), property, equals, wait);
+    }
+
+    private static List<Integer> answers(Object raw, String what, List<String> p) {
+        List<Integer> out = new ArrayList<>();
+        if (raw == null) {
+            return out;
+        }
+        if (!(raw instanceof List<?> l)) {
+            p.add(what + ": not a list of numbers");
+            return out;
+        }
+        for (Object o : l) {
+            try {
+                out.add(Integer.parseInt(String.valueOf(o).trim()));
+            } catch (NumberFormatException e) {
+                p.add(what + ": \"" + o + "\" is not a number");
+            }
+        }
+        return out;
     }
 
     /**
