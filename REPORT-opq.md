@@ -776,6 +776,32 @@ What the sign-up row still needs, beyond that chain:
    has a pirate), fakes in the never-target set, clear on the event's `glpq1` (`CWKPQ.js:150-160` seeds every `glpqN` to
    `"0"`; the sign-up sets `glpq1 = 1`).
 
+## CWKPQ: the map data the row needs, read
+
+`Map.wz` is not in this tree, so the names came from the read-only dump at
+`/root/work/SlumsMS-152-maps/wz/Map.wz/Map/Map6/` (identical file in `/root/slums-nav-v70/wz`):
+
+| map | portal names | script | reactors and their names |
+|---|---|---|---|
+| `610030300` | `next00` at (215,-1107), `next01` at (-441,1535), both `pt 8` | `glpqPortal2`, `glpqPortal3` | five, unnamed |
+| `610030500` | `next00` at (1187,93); `in01`..`in05` | `glpqPortal5`, `glpqPortal00`..`04` | `5weapon0`..`5weapon4` |
+| `610030600` | `next00` at (1809,274); seven `sp`; six `h##_#` rope portals | `glpqPortal6` | `mob1` |
+
+Two consequences. Every CWKPQ exit is named **`next00`**, so no stage of this row needs a WZ-derived portal name in the
+row: `nextPortal: next00` is true on all three of these maps. And the Relic room's five reactors are named
+`5weapon0`..`5weapon4`, so `cwkpq-sigils` could address that room by name too - it addresses by id because the row's
+`HIT_REACTOR` objectives carry the ids and the shuffle cannot change them.
+
+## The reload flake: one hypothesis tested and falsified
+
+`BotConversationFlowTest` fails only inside a whole-suite run (`/tmp/opq-cwkpq3.log` one failure,
+`/tmp/opq-cwkpq4.log` two) and passes 22/22 alone. The obvious suspect is its `private static int nextPlayer = 2001`,
+whose comment says "sessions are static: every test talks to a fresh pair" - so the first thing tried was resetting it
+to 2001 in the class's own `@BeforeEach`. That made it **worse**: 13 of 22 failed, because the ids are static keys
+into static session maps and reusing them collides with the sessions an earlier test left behind. The hypothesis is
+therefore falsified and the reset is reverted, not shipped. What is established: the dependence is on state another
+test leaves, not on this class's own counter; the class is green alone and green in the exclusion run.
+
 ## CWKPQ verdict: no missing primitive, so the keep is a build and not a wall
 
 The earlier line in this report - "every exit a portal script reading the flag rather than a warp the orchestrator can

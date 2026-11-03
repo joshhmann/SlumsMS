@@ -59,10 +59,26 @@ class CwkpqSigilSolversTest {
                         min: 1
                         max: party
                     objectives:
-                      - id: sigils
+                      - id: sigil1
                         kind: HIT_REACTOR
                         role: all
                         reactor: "6109016"
+                      - id: sigil2
+                        kind: HIT_REACTOR
+                        role: all
+                        reactor: "6109017"
+                      - id: sigil3
+                        kind: HIT_REACTOR
+                        role: all
+                        reactor: "6109018"
+                      - id: sigil4
+                        kind: HIT_REACTOR
+                        role: all
+                        reactor: "6109019"
+                      - id: sigil5
+                        kind: HIT_REACTOR
+                        role: all
+                        reactor: "6109020"
                     clear:
                       eventProperty: glpq4
                 """.replace("                ", "").replace("      eventProperty: glpq4", "      eventProperty: glpq4\n      equals: " + equals));
@@ -142,6 +158,84 @@ class CwkpqSigilSolversTest {
         SolverStep.WarpTo w = assertInstanceOf(SolverStep.WarpTo.class,
                 new CwkpqSigilSolver().next(v, v.members().get(3)));
         assertEquals(610030400, w.mapId());
+    }
+
+    @Test
+    void theSameSolverServesTheRelicRoomBecauseTheRowNamesItsReactors(@TempDir Path dir) throws Exception {
+        // the Relic of Mastery room: glpq5, reactors 6109005..6109009, also unguarded act() counters to five
+        Files.writeString(dir.resolve("index.txt"), "cwk2.yaml\n");
+        Files.writeString(dir.resolve("cwk2.yaml"), """
+                id: cwk2
+                name: The Relic of Mastery
+                kind: PQ
+                eventScript: CWKPQ
+                entryNpc: 9000000
+                recruitMap: 610030020
+                exitMap: 610030020
+                minPlayers: 6
+                maxPlayers: 30
+                minLevel: 90
+                maxLevel: 255
+                timeLimitMinutes: 20
+                flag: slums.mechanics.cwkpq
+                sources:
+                  - "scripts/reactor/6109005.js act() counts glpq5 to five; scripts/event/CWKPQ.js:283-288 the 20 minute timer"
+                stages:
+                  - stage: 1
+                    map: 610030500
+                    name: The five weapons
+                    solver: cwkpq-sigils
+                    roles:
+                      - id: restorer
+                        who: ANY
+                        min: 1
+                        max: party
+                    objectives:
+                      - id: weapons
+                        kind: HIT_REACTOR
+                        role: all
+                        reactor: "6109005"
+                      - id: weapons2
+                        kind: HIT_REACTOR
+                        role: all
+                        reactor: "6109006"
+                      - id: weapons3
+                        kind: HIT_REACTOR
+                        role: all
+                        reactor: "6109007"
+                      - id: weapons4
+                        kind: HIT_REACTOR
+                        role: all
+                        reactor: "6109008"
+                      - id: weapons5
+                        kind: HIT_REACTOR
+                        role: all
+                        reactor: "6109009"
+                    clear:
+                      eventProperty: glpq5
+                      equals: 5
+                """);
+        StageData.Result result = StageData.loadIndexed(dir + "/", Path::of);
+        assertTrue(result.errors().isEmpty(), "the row must read cleanly: " + result.errors());
+        MechanicsModel.Stage relic = result.content().get(0).stages().get(0);
+        View v = new View(relic);
+        assertEquals(List.of(6109005, 6109006, 6109007, 6109008, 6109009), CwkpqSigilSolver.reactors(v),
+                "the room's own objectives are the reactor list - no second solver, no constants in Java");
+
+        CwkpqSigilSolver solver = new CwkpqSigilSolver();
+        List<Integer> hit = new ArrayList<>();
+        for (RunMember m : v.members()) {
+            hit.add(assertInstanceOf(SolverStep.HitReactor.class, solver.next(v, m)).reactorId());
+        }
+        assertEquals(List.of(6109005, 6109006, 6109007, 6109008, 6109009, 6109005), hit,
+                "five weapons, one member each, the sixth wrapping round");
+
+        v.props.put("glpq5", "5");
+        assertTrue(v.cleared(), "glpq5 == 5 is the room's clear");
+        View overshot = new View(relic);
+        overshot.props.put("glpq5", "6");
+        assertInstanceOf(SolverStep.Wait.class, solver.next(overshot, overshot.members().get(0)),
+                "and an overshoot waits instead of hitting a seventh time");
     }
 
     @Test
