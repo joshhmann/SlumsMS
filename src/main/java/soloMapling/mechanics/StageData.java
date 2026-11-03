@@ -10,6 +10,7 @@ import soloMapling.mechanics.MechanicsModel.ItemUse;
 import soloMapling.mechanics.MechanicsModel.Kind;
 import soloMapling.mechanics.MechanicsModel.Objective;
 import soloMapling.mechanics.MechanicsModel.ObjectiveKind;
+import soloMapling.mechanics.MechanicsModel.OnTimeLimit;
 import soloMapling.mechanics.MechanicsModel.Position;
 import soloMapling.mechanics.MechanicsModel.Role;
 import soloMapling.mechanics.MechanicsModel.Stage;
@@ -204,6 +205,9 @@ public final class StageData {
         }
         if (stages.isEmpty()) {
             p.add("no stages");
+        } else if (stages.get(stages.size() - 1).onTimeLimit() == OnTimeLimit.ADVANCE) {
+            p.add("stage " + stages.get(stages.size() - 1).index()
+                    + ": onTimeLimit: advance on the last stage has no next stage to go on to");
         }
         Map<Tier, TierRules> tiers = new EnumMap<>(Tier.class);
         Object tierObj = m.get("tiers");
@@ -521,7 +525,8 @@ public final class StageData {
                 p.add(at + "killTarget: not a mob id: " + m.get("killTarget"));
             }
         }
-        // 1.6.4 boss lane: a boss room's own clock. 0 = the row's timeLimitMinutes counts from the run's start.
+        // a room's own clock (1.6.4 boss lane; any kind of row since 1.6.4 seams). 0 = the row's timeLimitMinutes
+        // counts from the run's start. onTimeLimit (below) says what the run does when this clock runs out.
         int stageMinutes = num(m, "timeLimitMinutes", 0, p);
         // a room whose fight is behind a reactor nobody has to click by hand (Horntail's 2401000); 0 = no reactor
         int hitReactor = num(m, "hitReactor", 0, p);
@@ -552,11 +557,25 @@ public final class StageData {
             p.add(at + "loopTo: must be a stage index at or before this one (" + index + ")");
             loopTo = 0;
         }
+        // what the run does when this stage's own clock runs out: end it (the scripts' end(eim), the default) or go on
+        OnTimeLimit onTimeLimit = OnTimeLimit.END;
+        if (m.get("onTimeLimit") != null) {
+            OnTimeLimit outcome = enumOf(OnTimeLimit.class, String.valueOf(m.get("onTimeLimit")), at + "onTimeLimit", p);
+            if (outcome != null) {
+                onTimeLimit = outcome;
+                if (outcome == OnTimeLimit.ADVANCE && stageMinutes <= 0) {
+                    p.add(at + "onTimeLimit: advance needs the stage's own timeLimitMinutes (there is no clock to run out)");
+                }
+                if (outcome == OnTimeLimit.ADVANCE && loopTo > 0) {
+                    p.add(at + "onTimeLimit: advance and loopTo both say where the run goes next: pick one");
+                }
+            }
+        }
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
                 summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, killTarget, stageMinutes,
-                hitReactor, List.copyOf(maps), graceMs, loopTo);
+                hitReactor, List.copyOf(maps), graceMs, loopTo, onTimeLimit);
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----

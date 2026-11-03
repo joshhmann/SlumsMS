@@ -21,6 +21,16 @@ public final class MechanicsModel {
     /** What sort of content a file describes. */
     public enum Kind { PQ, BOSS, JQ, EXPEDITION }
 
+    /**
+     * What the run does when a stage's own clock ({@code timeLimitMinutes:} on the stage) runs out, as the row declares
+     * it ({@code onTimeLimit:}). {@link #END} is what every script that times a room separately does
+     * ({@code scripts/event/PiratePQ.js:223-225}, {@code scripts/event/CWKPQ.js:246-248}: {@code scheduledTimeout} is
+     * {@code end(eim)}) and is the default; {@link #ADVANCE} is the way the one script whose timer is a phase change
+     * does it ({@code scripts/event/GuildQuest.js:203-222}: the first expiry closes the join window and starts the real
+     * clock): the run goes on to the next stage without a clear.
+     */
+    public enum OnTimeLimit { END, ADVANCE }
+
     /** PQ difficulty tiers (1.7.0 "PQ difficulties"); NORMAL is the stock PQ. */
     public enum Tier {
         NORMAL, HARD, EXPERT, MASTER;
@@ -264,13 +274,25 @@ public final class MechanicsModel {
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
                         int killTarget, int timeLimitMinutes, int hitReactor, List<Integer> maps, long graceMs,
-                        int loopTo) {
+                        int loopTo, OnTimeLimit onTimeLimit) {
+
+        /** The stage as it was before {@code onTimeLimit:}: the outcome is {@link OnTimeLimit#END}. */
+        public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
+                     List<Objective> objectives, List<Position> positions, List<ItemUse> items,
+                     List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
+                     List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
+                     int killTarget, int timeLimitMinutes, int hitReactor, List<Integer> maps, long graceMs,
+                     int loopTo) {
+            this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear,
+                    answerProperty, combos, mobs, nextPortal, summonProperty, killTarget, timeLimitMinutes, hitReactor,
+                    maps, graceMs, loopTo, OnTimeLimit.END);
+        }
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                      List<Answer> answers, List<BossPhase> phases, Clear clear) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
-                    List.of(), List.of(), null, null, 0, 0, 0, List.of(), 0L, 0);
+                    List.of(), List.of(), null, null, 0, 0, 0, List.of(), 0L, 0, OnTimeLimit.END);
         }
 
         /**

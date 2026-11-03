@@ -170,18 +170,28 @@ public final class Orchestrator implements RunOrchestrator {
 
     /** The highest stage (in order from 1) that has a solver, capped by {@code lastStage}; 0 when stage 1 has none. */
     /**
-     * 1.6.4 boss lane: a boss row's budget is per stage. Each room has its own clock - Horntail's body room restarts
+     * A stage's own clock, in ms, or 0 when the stage declares none ({@code timeLimitMinutes:} on the stage).
+     *
+     * <p>1.6.4 boss lane: a boss row's budget is per stage. Each room has its own clock - Horntail's body room restarts
      * the script's timer to 60 minutes when its reactor is hit ({@code scripts/reactor/2401000.js:33}) - so a run that
-     * spends its time in the head rooms is not cut off in a room it has only just entered. A stage without its own
-     * {@code timeLimitMinutes} falls back to the row's.
+     * spends its time in the head rooms is not cut off in a room it has only just entered. The party quests that time
+     * their rooms separately do the same thing with the same timer ({@code scripts/event/PiratePQ.js:241-268}: six
+     * minutes a room; {@code scripts/event/CWKPQ.js:262-294}: ten, ten, ten, twenty, sixty), so the clock is a fact of
+     * the stage for every kind of row, not a boss rule.
+     */
+    static long stageClockMs(Stage stage) {
+        int minutes = stage == null ? 0 : stage.timeLimitMinutes();
+        return minutes > 0 ? minutes * 60_000L : 0L;
+    }
+
+    /**
+     * The budget the run is held to on this stage: the stage's own clock when it declares one, else the row's. A boss
+     * row counts either from the stage's start ({@link #tick}); a party quest counts the row's from the run's start
+     * and a stage's own from the stage's.
      */
     static long budgetFor(RunState run, StageView view) {
-        if (run.content().kind() != MechanicsModel.Kind.BOSS) {
-            return run.budgetMs();
-        }
-        Stage stage = view.stage();
-        int minutes = stage == null ? 0 : stage.timeLimitMinutes();
-        return minutes > 0 ? minutes * 60_000L : run.budgetMs();
+        long own = stageClockMs(view.stage());
+        return own > 0 ? own : run.budgetMs();
     }
 
     int lastPlayable(Content content) {
@@ -269,9 +279,25 @@ public final class Orchestrator implements RunOrchestrator {
         }
 
         long budget = budgetFor(run, view);
-        long spent = run.content().kind() == MechanicsModel.Kind.BOSS ? nowMs - run.stageStartedMs() : elapsed;
+        boolean ownClock = stageClockMs(view.stage()) > 0;
+        boolean boss = run.content().kind() == MechanicsModel.Kind.BOSS;
+        long spent = boss || ownClock ? nowMs - run.stageStartedMs() : elapsed;
         if (spent > budget) {
+            if (ownClock && view.stage().onTimeLimit() == MechanicsModel.OnTimeLimit.ADVANCE
+                    && run.currentStage() < run.lastStage()) {
+                // the row says this room's clock is a way on, not an end (GuildQuest.js:203-222): no clear is claimed
+                run.note(nowMs, "stage " + run.currentStage() + ": its own " + budget / 60_000
+                        + " min ran out; the row declares onTimeLimit: advance, so the run goes on to stage "
+                        + (run.currentStage() + 1) + " without a clear");
+                goToStage(run, run.currentStage() + 1, nowMs);
+                return steps;
+            }
             abort(run, "time budget of " + budget / 60_000 + " min ran out on stage " + run.currentStage());
+            return steps;
+        }
+        if (!boss && ownClock && elapsed > run.budgetMs()) {
+            // a room's clock sits inside the run's: the row's whole-run budget still ends a party quest
+            abort(run, "time budget of " + run.budgetMs() / 60_000 + " min ran out on stage " + run.currentStage());
             return steps;
         }
 
@@ -547,6 +573,14 @@ public final class Orchestrator implements RunOrchestrator {
             builtins = m = allSolvers();
         }
         return m;
+    }
+
+    /** The run moves to {@code stage} and starts it: tries cleared, roles claimed afresh, one history line. */
+    private static void goToStage(RunState run, int stage, long nowMs) {
+        run.setStage(stage, nowMs);
+        run.clearTries();
+        run.setClaims(RoleClaims.claim(run.stageData(), run.members()));
+        run.note(nowMs, "stage " + run.currentStage() + ": " + describe(run));
     }
 
     static void noteStrays(RunState run, StageView view, long nowMs) {

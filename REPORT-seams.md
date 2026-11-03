@@ -44,3 +44,44 @@ solver test that has to run the shipped `9208000.js` for that. (b) During the *d
 append to `stage1combo` (`9208000.js:41-44`: `!isRecentHitFromAttack()` is true for `hitReactor(client)`, which passes
 `wHit=false`), so a solver must never hit a statue before `stage1status` is `active`; that is a solver rule, recorded here
 because the step cannot know it.
+
+## 2. A stage clock, and the outcome the row declares for it
+
+**What already existed, and what did not.** `Stage.timeLimitMinutes` was already a row fact: the orchestrator honoured it for
+`kind: BOSS` rows only (`Orchestrator.budgetFor`: `if (kind != BOSS) return run.budgetMs()`), counting from the stage's own
+start, which is how Horntail's body room gets its hour (`scripts/reactor/2401000.js:33`). A party quest row that wrote it
+had it **read and ignored**: PiratePQ's own header says the script restarts the timer to six minutes in every room
+(`scripts/event/PiratePQ.js:241-268`, boss room eight) while the row's `timeLimitMinutes: 40` "is the whole run's", and
+CWKPQ restarts it to 10/10/10/20/60 minutes (`scripts/event/CWKPQ.js:262-294`). In both, expiry is `end(eim)`
+(`PiratePQ.js:223-225`, `CWKPQ.js:246-248`). And no row could say what the expiry *means* - end, or go on.
+
+**What it does now.**
+
+| Piece | Behaviour |
+|---|---|
+| `timeLimitMinutes:` on a stage | held by **every** kind of row (before: bosses only). The clock counts from the run's arrival in that stage, as the boss clock already did |
+| the run's own clock | still applies to a non-boss row whose stage declares one: a room's clock is a tighter limit inside the run's, never a looser one (a boss row keeps replacing it, exactly as before) |
+| `onTimeLimit: end` (default) | the run ends with `time budget of N min ran out on stage S` - the text the boss lane already produced - and the history line `abort: ...` |
+| `onTimeLimit: advance` | the run goes on to stage S+1 **without a clear**, and says so in its history: `stage S: its own N min ran out; the row declares onTimeLimit: advance, so the run goes on to stage S+1 without a clear`. The next stage's clock starts on arrival. The one script that times a room this way is `GuildQuest.js:203-222`: its first `scheduledTimeout` closes the join window and starts the real 90-minute clock instead of ending the event |
+| refused at load | `advance` without the stage's own `timeLimitMinutes` (no clock to run out), `advance` together with `loopTo`, `advance` on the last stage (nowhere to go), any other value |
+
+A row that names neither field behaves byte-for-byte as before: the stage clock only exists where a stage declares one, and no
+shipped party-quest row declares one (`grep -n "^    timeLimitMinutes"` finds Horntail's three boss rooms only). **No shipped row was
+changed**: PiratePQ and CWKPQ could now declare their room clocks, but that changes what those rows do and belongs to the
+session committing rows to `164-opq`.
+
+**Fail-before.** `StageClockTest` (10). With the field read and the orchestrator unchanged - the old code's behaviour for this
+fact - three of ten fail for the right reason: `aPartyQuestStageThatDeclaresAClockIsHeldToItNotToTheRowsOne` (a six-minute
+room still running at 6:01: *expected true but was false*), `aRoomThatDeclaresEndEndsTheRunWithTheReasonInTheHistory` (the
+same, through the history) and `aRoomThatDeclaresAdvanceSendsTheRunOnWhenItsClockRunsOutAndSaysSo` (*expected stage 2 but was
+1*: the declared outcome is read and nothing acts on it - the silent stall). The other seven are regression guards and parse
+checks: a stage with no clock keeps the row's whole-run clock, a longer room clock never outlives the row's, a clear on the same
+tick still wins, a boss row keeps exactly what it did (and `BossStageBudgetTest`, `RevivePauseTest`, `LoopStageTest`,
+`RowRunSimulationTest` stay green), the outcome parses in any case and defaults to `end`, and the four refusals above.
+
+**Still unproven.** (a) No live run: the orchestrator is driven with a fake `StageView`, as `BossStageBudgetTest` is. (b) `advance`
+has no shipped consumer yet - the one script that wants it, Guild Quest's strategy phase, is covered by the portal's own
+`entryTimestamp` gate in the row built on Item 4, so the primitive ships with its tests and waits for a row that needs it,
+the way `graceMs:` did. (c) The row-level clock is unchanged, so a row that declares room clocks *and* is slower than the
+script's real timers (which restart on entry) is still only as honest as its numbers.
+
