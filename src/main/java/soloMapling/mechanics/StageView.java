@@ -187,13 +187,28 @@ public interface StageView {
     }
 
     /**
+     * Whether the instance itself says the event is cleared ({@code EventInstanceManager.isEventCleared()}). The only
+     * signal a stage has when its script clears without writing a property.
+     */
+    default boolean eventCleared() {
+        return false;
+    }
+
+    /**
      * Whether the stage is clear: the property its data names is present, or - when the data also gives
-     * {@code equals} - holds that value. A boss script writes its property at setup (Zakum: {@code defeatedBoss=0}), so
+     * {@code equals} - holds that value, or - when the data says {@code instance: true} - once {@link #eventCleared()}. A boss script writes its property at setup (Zakum: {@code defeatedBoss=0}), so
      * reading presence there would clear the stage before anyone fought.
      */
     default boolean cleared() {
         MechanicsModel.Clear clear = stage().clear();
-        if (clear == null || clear.eventProperty() == null) {
+        if (clear == null) {
+            return false;
+        }
+        if (clear.onInstance()) {
+            // no property to read: the script only called eim.clearPQ() (Cafe PQ, Treasure PQ, LudiMaze PQ finales)
+            return eventCleared();
+        }
+        if (clear.eventProperty() == null) {
             return false;
         }
         Optional<String> value = eventProperty(clear.eventProperty());

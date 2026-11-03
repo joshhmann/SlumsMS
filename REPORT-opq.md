@@ -145,6 +145,12 @@ ten minutes, exit `910010300`, clear map `910010100` (`scripts/event/HenesysPQ.j
   could never advance. The fix is the per-bed claim in `stageMemory()` (`CLAIM_MS = 12 s`, re-takeable when it lapses),
   so the "never twice" rule is enforced twice over: by the claim before the drop and by `reactor.getState()` in the
   executor after it.
+- **The box, and what the WZ does *not* say.** An item reactor's hit box is its own `lt`/`rb` vectors
+  (`Reactor.wz/9108000.img.xml:18-19`: `lt(-19,-42)`, `rb(20,16)` around the bed), **not** a map `area` node -
+  `Reactor.wz` has no `area` anywhere, and only 28 of 11,352 maps carry map-level areas at all, which is why `PlaceItemOn`
+  drops on the reactor's own position instead of looking one up. The WZ also binds nothing: it says what each bed
+  *accepts* (one type-100 event, quantity 1), never which dropped seed goes where, so the solver picks the bed from the
+  seed it holds and the row states both sides per bed.
 - **Which facts came from the WZ, and which from the script.** The pairing (bed `9108000..9108005` takes
   `4001095..4001100`, one each) and the geometry (the beds, the `fullmoon` reactor at `(-183,-433)`, Growlie at
   `(429,83)`, the hill's six monster ids `9300062/3/4`, `9300081/2/3`) are read from the client's own
@@ -174,6 +180,28 @@ ten minutes, exit `910010300`, clear map `910010100` (`scripts/event/HenesysPQ.j
   "nine cakes are not a clear", "the moon bunny is never a target", and for the executor "a bed whose drop the server
   never takes is dropped on three times, never forty". The first is the one the simulation caught; the others are
   pinned as tests.
+
+## The clear that is not a property (nine rows, one accessor)
+
+Some finales write nothing. Cafe PQ's, Treasure PQ's and LudiMaze PQ's last stage only call `eim.clearPQ()`, and the only
+signal that exists is the instance's own flag. `StageView.cleared()` used to return false for any stage whose data named
+no property, so such a row could never advance past its last stage, however many times the instance said it was cleared:
+not a missing solver, a missing *question*. The fix is small and general:
+
+- `MechanicsModel.Clear` gained a third component (`onInstance`) and a factory `Clear.instance()`; a row writes
+  `clear: { instance: true }`, and `StageData` still refuses a clear that names neither (`no clear: { eventProperty: ... }
+  (+ optional equals: value), or { instance: true }`). The format doc (`docs/tickets/130-bots-play-mechanics.md`, the
+  `clear` row) says so.
+- `StageView.eventCleared()` is the new read (`default false` so every existing fake still compiles);
+  `LiveStageView.eventCleared()` is `eim.isEventCleared()`.
+- `StageView.cleared()` answers from it when the data says `onInstance`, before it looks at any property.
+
+The fail-before pair is in `InstanceClearTest`: `aRowWhoseFinalStageClearsOnTheInstanceAdvancesPastIt` (a one-stage row
+whose only clear is the flag: today the run ends `cleared`, before the change it never ends) and
+`aStageWithNoPropertyToReadWasNeverClearBefore`. Both were run against the old `cleared()` and both failed there - the
+message then is the whole defect: "the row's only stage clears on the instance's flag ==> expected: true but was: false".
+Nothing here is a row: the nine rows that want it are Cafe PQ, LudiMaze PQ, PiratePQ, Treasure PQ, DelliBattle and the
+three that need more than this anyway.
 
 ## Expedition rule: pause for revive (this is the report it lives in)
 
@@ -368,9 +396,11 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8529 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-hpq.log`, exit 0 - Henesys PQ's own commit; `HpqSolversTest` 11 and three simulation cases, one of
-which is the double-activation trap). Before it, on the Ludi-only head: **8515 tests, 0 failures, 0 errors, 137 skipped,
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8532 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-instance2.log`, exit 0 - the instance-clear commit; `InstanceClearTest` 3 and the fail-before pair
+run against the old `cleared()` first, where two of them failed). Before it: **8529 tests, 0 failures, 0 errors, 137
+skipped, BUILD SUCCESS** (`/tmp/opq-hpq.log`, exit 0 - Henesys PQ's own commit; `HpqSolversTest` 11 and three simulation
+cases, one of which is the double-activation trap). Before it, on the Ludi-only head: **8515 tests, 0 failures, 0 errors, 137 skipped,
 BUILD SUCCESS** (`/tmp/opq-lpq.log`, exit 0; `LpqSolversTest` 12, two more simulation cases, and the shared row/data
 tests that walk every content file). Before it, on the Orbis-only tree: **8499 tests, 0 failures, 0
 errors, 137 skipped, BUILD SUCCESS** (`/tmp/opq-lobby-final.log`, exit 0; the lobby's tests then became `ContentLobbyTest`, 8 of them, in the same range). That is the number to compare against the rest of the release - 8455 before this
@@ -384,6 +414,12 @@ Two `mvn` runs in this lane died mid-flight and neither was a test failure: one 
 and killed at 60 s (a whole-suite run needs ~27 minutes and `async: true, timeout: 0`), and one because the tree was
 edited while surefire was discovering tests (`TestEngine with ID 'junit-jupiter' failed to discover tests`). Freeze the
 tree for the whole run.
+
+One run of the suite (the instance-clear one, `/tmp/opq-instance.log`) reported one failure that is not this lane's and
+not a regression: `BotConversationFlowTest.aRefusedPartyAskIsPlannedFromTheGatesVerdict` failed on
+`assertTrue(system.contains("Say no to the party"))` - the conversation planner's prompt - and passes alone (22/22 each
+time), then passed in the whole suite on the next run. It is an order-dependent test in the conversation lane; this
+commit touches no conversation code. Recorded rather than re-run into silence.
 
 Earlier in the branch the same command found one real breakage, and it is fixed: `MechanicsDataFilesTest
 .theContentRowsLoadFromTheJarWithNoSourceTree` pins the exact list of content rows and had to learn `opq` (then `lpq`,

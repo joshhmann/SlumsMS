@@ -182,10 +182,26 @@ public final class MechanicsModel {
      * clear (KPQ: {@code 1stageclear}). With {@code equals}, the property must hold that value - a boss script sets its
      * property to 0 at setup (Zakum: {@code defeatedBoss=0}, {@code scripts/event/ZakumBattle.js:101}), so presence alone
      * would clear the stage on its first tick.
+     *
+     * <p>Some stages write no property at all and only call {@code eim.clearPQ()}: Cafe PQ's, Treasure PQ's and
+     * LudiMaze PQ's final stage end that way, and {@code EventInstanceManager.isEventCleared()} is the only signal there
+     * is. {@link #instance()} is that clear form - it is not an event property, it is the instance's own flag.
      */
-    public record Clear(String eventProperty, String equals) {
+    public record Clear(String eventProperty, String equals, boolean onInstance) {
         public Clear(String eventProperty) {
-            this(eventProperty, null);
+            this(eventProperty, null, false);
+        }
+
+        public Clear(String eventProperty, String equals) {
+            this(eventProperty, equals, false);
+        }
+
+        /**
+         * The clear of a stage whose script writes no property: cleared when the instance says it is
+         * ({@code clear: { instance: true }} in a row, {@link StageView#eventCleared()} in the engine).
+         */
+        public static Clear instance() {
+            return new Clear(null, null, true);
         }
     }
 

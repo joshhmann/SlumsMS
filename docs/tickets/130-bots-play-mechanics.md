@@ -50,7 +50,7 @@ A piece of **content** (PQ, boss, JQ, expedition) is an ordered list of **stages
 | **items** | items used, `cleanup` when the event takes them back | coupon 4001007, pass 4001008 |
 | **answers** | the puzzle's answer table, mirrored from our script | the 7 Cloto questions (10, 35, 20, 25, 25, 30, 8) |
 | **phases** | boss HP bands (100 -> 0, no overlap) and what the party does in each | (bosses only) |
-| **clear** | the event property the stage script sets on clear, and `equals:` when the script writes the property before it means anything (OPQ writes `statusStg0..8 = -1` at setup) | `1stageclear` |
+| **clear** | the event property the stage script sets on clear, and `equals:` when the script writes the property before it means anything (OPQ writes `statusStg0..8 = -1` at setup). `clear: { instance: true }` is the other form: a stage whose script writes **no** property and only calls `eim.clearPQ()`, so the clear is the instance's own flag (`EventInstanceManager.isEventCleared()`, `StageView.eventCleared()`) | `1stageclear`, or `instance: true` |
 | **solver** | which stage solver plays it | `question-coupons` |
 
 Content also carries players/levels/time limit, `sources:` (required: where the data was checked from, with credit),

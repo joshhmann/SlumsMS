@@ -440,9 +440,12 @@ public final class StageData {
             if (!prop.isEmpty()) {
                 clear = new Clear(prop, eq == null || eq.isEmpty() ? null : eq);
             }
+        } else if (m.get("clear") instanceof Map<?, ?> cm && "true".equalsIgnoreCase(String.valueOf(cm.get("instance")))) {
+            // a stage whose script writes no property and only calls eim.clearPQ(): the instance's own flag is the clear
+            clear = Clear.instance();
         }
         if (clear == null) {
-            p.add(at + "no clear: { eventProperty: ... } (+ optional equals: value)");
+            p.add(at + "no clear: { eventProperty: ... } (+ optional equals: value), or { instance: true }");
         }
         String answerProperty = m.get("answerProperty") == null ? null : String.valueOf(m.get("answerProperty")).trim();
         List<List<Integer>> combos = new ArrayList<>();

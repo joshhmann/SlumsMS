@@ -256,6 +256,11 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public boolean eventCleared() {
+        return eim != null && eim.isEventCleared();
+    }
+
+    @Override
     public int reactorState(String name) {
         server.maps.Reactor reactor = map == null || name == null ? null : map.getReactorByName(name);
         return reactor == null ? -1 : reactor.getState();
