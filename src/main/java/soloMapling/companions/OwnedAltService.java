@@ -325,6 +325,7 @@ public final class OwnedAltService {
             if (!entry.saved) {
                 backend.closing(entry.alt); // outside the monitor: the tick it waits for may call back into us
                 backend.leaveEvent(entry.alt); // K6: out of a PQ first, so it is saved in town and ends nobody's run
+                soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionDoor.leaveExpedition(entry.alt); // and out of its expedition's member list: a ghost there spends a boss-log entry in its name
                 backend.save(entry.alt);
                 entry.saved = true;
                 audit(entry, "save committed alt=" + id);

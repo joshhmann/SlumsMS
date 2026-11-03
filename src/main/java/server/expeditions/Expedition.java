@@ -131,19 +131,26 @@ public class Expedition {
     }
 
     private void scheduleRegistrationEnd() {
-        final Expedition exped = this;
         startTime = System.currentTimeMillis() + MINUTES.toMillis(type.getRegistrationMinutes());
+        schedule = TimerManager.getInstance().schedule(this::expireRegistration,
+                MINUTES.toMillis(type.getRegistrationMinutes()));
+    }
 
-        schedule = TimerManager.getInstance().schedule(() -> {
-            if (registering) {
-                exped.removeChannelExpedition(startMap.getChannelServer());
-                if (!silent) {
-                    startMap.broadcastMessage(PacketCreator.serverNotice(6, "[Expedition] The time limit has been reached. Expedition has been disbanded."));
-                }
-
-                dispose(false);
-            }
-        }, MINUTES.toMillis(type.getRegistrationMinutes()));
+    /**
+     * The registration window closing, on the timer and in a test alike: the expedition leaves its channel and is
+     * disposed, which is also what lets go of every bot {@code ExpeditionBots} registered in it. A leader who never
+     * starts (his party was too small, he walked off, the recruit map emptied) costs his bots the rest of the window
+     * and nothing more.
+     */
+    public void expireRegistration() {
+        if (!registering) {
+            return;
+        }
+        removeChannelExpedition(startMap.getChannelServer());
+        if (!silent) {
+            startMap.broadcastMessage(PacketCreator.serverNotice(6, "[Expedition] The time limit has been reached. Expedition has been disbanded."));
+        }
+        dispose(false);
     }
 
     public void dispose(boolean log) {
@@ -192,6 +199,7 @@ public class Expedition {
         if (registering) { // 1.6.0: party bots that reached the recruiter since the last NPC step go in too
             soloMapling.server.MapleRootSolo.runHook("expedition party bots",
                     () -> soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots.autoJoin(leader, this));
+            soloMapling.ArtificialPlayer.BotPartySystem.ExpeditionBots.warnNotAtTheAltar(this);
         }
         finishRegistration();
         registerExpeditionAttempt();

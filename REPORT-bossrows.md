@@ -877,3 +877,93 @@ at 8575; round 5 adds the selection fail-before in `BossRunSeamTest` and the six
 `RowRunSimulationTest` (two tests). `ContentRowWzIntegrityTest` is the 138th skip on a machine without the dump - with
 `-Dwz-path=/root/work/SlumsMS-170-evan/wz` it runs and reports **38 rows, 59 maps, 89 mobs, 7 reactors, 1 door item**,
 green, the six new caves and six new boss ids included.
+
+# The expedition door (round 7, same branch, `-Dslums.exped.door`)
+
+## What the friends were actually seeing
+
+"they don't do anything, they just stand there" is not the door. A party bot follows its human leader to
+`211042400`, `ExpeditionBots.autoJoin` registers it there, `EventInstanceManager.registerExpeditionTeam` accepts it
+because it is standing on the recruiting map, `playerEntry` warps it to `280030000`, and inside the room nothing drives
+it - the live server has no `mechanics` row for an expedition instance, and `BotDeaths.protectedFromDeath` makes the
+room harmless. So the audit's gap 1 is a real hole, but it is not the cause of the standing: the bots *are* inside. The
+content rows are the cause-side fix, and that is what rounds 1-5 shipped.
+
+This round is the door around that, all of it behind one switch, off by default.
+
+## 1. A held bot is never stranded - verified, no fix
+
+`ExpeditionBots.register` holds a bot at create time (`ExpeditionBots.java:184`, `ExpeditionHold.hold`), which is what
+keeps it from logging out mid-transition (`BotCommitments.inFlight`). The hold is released by exactly one thing:
+`ExpeditionBots.release(this)`, the last line of `Expedition.dispose(boolean)` (`Expedition.java:149-159`). All three
+routes reach it:
+
+- **The registration window expires.** `scheduleRegistrationEnd()` (`Expedition.java:133-147`) fires
+  `expireRegistration()` after the type's `registrationMinutes` (Zakum: 5), which removes the channel expedition and
+  calls `dispose(false)`.
+- **The leader can never start.** Same timer: the size check failing at the NPC (`scripts/npc/2030013.js:150-157`) does
+  not stop the clock, so the expedition is disposed and the hold released at five minutes.
+- **The run ends with the bot unregistered.** `EventInstanceManager.disposeExpedition()` (`:1387-1401`, reached from
+  `dispose(boolean)` at `:817`) calls `expedition.dispose(eventCleared)` - past the early return, so a failed run
+  releases too.
+
+So there was nothing to fix, and no test that could fail by design. What was missing was anything pinning it: the timer
+body lived inside a lambda, so it could not be called without waiting five minutes. It is now `Expedition.expireRegistration()`,
+the scheduling line is a method reference, and three tests call the three routes directly:
+`ExpeditionBotsTest.aBotIsLetGoWhenTheRegistrationWindowExpires`,
+`aBotHeldWhileTheLeaderCannotStartIsLetGoWhenTheWindowLapses`, `aBotTheRunLeftBehindIsFreeOnceTheRunStarts`.
+
+## 2. A party change while registering - already covered, no hook added
+
+The premise ("a bot added to the party after the expedition was made is outside") does not hold on this branch.
+`Expedition.start()` re-runs `autoJoin` inside its `if (registering)` block (`Expedition.java:198-202`), and every
+recruiter step re-runs it again through `AbstractPlayerInteraction.getExpedition(ExpeditionType)`
+(`AbstractPlayerInteraction.java:1205-1215`). So the start step *is* the party-change boundary, and a third hook would
+be a third spelling of one call. `ExpeditionBotsTest.aBotAddedToThePartyAfterTheExpeditionWasMadeJoinsAtTheStart` pins
+it - it fails without the hook (`solomapling.enabled` + `solomapling.template-id`, `MapleRootSolo.java:16-18`), which is
+also the reason this looked uncovered: in a plain test JVM the hook is switched off and does nothing.
+
+Found while proving it: `new Expedition(...)` throws on a leader whose `getName()` is unstubbed (a `ConcurrentHashMap`
+does not take null), and `verify(never()).dropMessage(6, contains(...))` needs `eq(6)`.
+
+## 3. Who is not coming
+
+`ExpeditionBots.warnNotAtTheAltar(Expedition)`, called from `Expedition.start()` right after the autoJoin hook, walks
+the bots this module registered (`ExpeditionHold.botsOf`), asks the recruiting map's player storage where each one is,
+and gives the leader one line per bot that is not standing there:
+`[Expedition] Clock4 is not at the altar and will not join.` It never warps anybody - a bot walking to the altar is
+follower travel and already works, and a faked warp would be a second answer to the same question. Nothing is said when
+there is nothing to say: `aBotAddedToThePartyAfterTheExpeditionWasMadeJoinsAtTheStart` (all present) and
+`withTheDoorShutTheLeaderHearsNothingAboutIt` both assert silence.
+`theStartNamesEachRegisteredBotThatIsNotAtTheAltarAndNothingElse` moves one bot off the altar and checks that exactly
+one name comes out, for that bot.
+
+## 4. A dismissed alt no longer lingers in the member list
+
+Confirmed, and it was the real bug of the four. A dismiss goes through `OwnedAltService.finish` -> `BotEventExit.leave`
+(`BotEventExit.java:23-27`), which returns immediately when the alt has no event instance and never touches
+`Expedition.members`. The id stayed there until the channel disposed the expedition: a ghost in the member list, and a
+`registerExpeditionAttempt` boss-log entry spent in the name of a character that had gone home.
+
+`ExpeditionDoor.leaveExpedition(Character)` removes the character from whichever channel expedition holds it
+(`exped.contains(chr)` -> `removeMember(chr)`), and `OwnedAltService.finish` calls it beside the existing
+`backend.leaveEvent` (`OwnedAltService.java:328`) - the one place dismiss, dismiss-all, login and disconnect all pass
+through. `ExpeditionBotsTest.aDismissedAltLeavesItsExpeditionAndAVanishedOneLeavesNothingElse` proves the exit path
+alone leaves the member behind and the door removes it; `OwnedAltServiceTest.aDismissedAltIsTakenOutOfItsExpedition`
+proves the wiring end to end; `withTheDoorShutADismissedAltStillLingers` pins the off state.
+
+## The switch
+
+`-Dslums.exped.door`, read only by `ExpeditionDoor.enabled()` (`soloMapling/ArtificialPlayer/BotPartySystem/ExpeditionDoor.java`),
+default off. It gates the two behaviour changes (3 and 4). Items 1 and 2 changed no behaviour, so there is nothing for a
+switch to gate; if the owner would rather have 4 unconditional - it is a correction, not a preference - the call site is
+one line in `OwnedAltService.finish`.
+
+## Commits and suite
+
+One commit for the four items rather than four: items 3 and 4 share the new `ExpeditionDoor` class and all four share
+`ExpeditionBotsTest`, so a per-item split would put a tree on the branch that does not compile.
+
+`mvn -o test`: **`Tests run: 8586, Failures: 0, Errors: 0, Skipped: 138, BUILD SUCCESS`** (30:54). Round 5 closed at
+8577; round 7 adds nine tests (eight in `ExpeditionBotsTest`, one in `OwnedAltServiceTest`). The 138th skip is still
+`ContentRowWzIntegrityTest` on a machine without the dump.

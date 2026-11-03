@@ -3,6 +3,8 @@ package soloMapling.ArtificialPlayer.BotPartySystem;
 import client.Character;
 import server.expeditions.Expedition;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -40,5 +42,16 @@ public final class ExpeditionHold {
 
     static void release(Expedition exped) {
         joined.values().removeIf(e -> e == exped);
+    }
+
+    /** The bots this expedition still holds, so the leader can be told which of them a start will leave behind. */
+    static List<Integer> botsOf(Expedition exped) {
+        List<Integer> ids = new ArrayList<>();
+        joined.forEach((id, e) -> {
+            if (e == exped) {
+                ids.add(id);
+            }
+        });
+        return ids;
     }
 }

@@ -722,6 +722,29 @@ all. Per-row script/gate/map/target/spawn/clear detail is in `REPORT-bossrows.md
   is never placed. The working path today is `RebirthBosses` + `RebirthBossRuns.fight` (`:591`, spawn `:605`). Evidence
   and line numbers in `REPORT-bossrows.md`.
 
+## The expedition door: one switch, four questions (branch `164-bossrows`, `-Dslums.exped.door`)
+
+Bots already get inside a boss expedition without any of this: the follower walks its leader to the altar, the leader
+talks to the recruiter, `ExpeditionBots.autoJoin` registers the bot, and `playerEntry` warps it in. What this round
+answers is the door around that, default off, one switch.
+
+- **A held bot is never stranded - checked, no leak.** `Expedition.dispose` always ends with
+  `ExpeditionBots.release(this)` (`Expedition.java:149-159`) and all three exits land there: the registration timer
+  (`scheduleRegistrationEnd` -> `expireRegistration`, `:133-147`), the leader never starting (same timer), the run
+  ending (`EventInstanceManager.disposeExpedition`, `:1387-1401`). The timer body moved out of its lambda so the
+  routes can be called in a test; three tests in `ExpeditionBotsTest` now pin them.
+- **A party change while registering - already covered.** `Expedition.start()` re-runs `autoJoin` inside
+  `if (registering)` (`Expedition.java:198-202`), and every recruiter step re-runs it
+  (`AbstractPlayerInteraction.getExpedition`, `:1205-1215`); no third hook was added.
+  `aBotAddedToThePartyAfterTheExpeditionWasMadeJoinsAtTheStart` pins it, and needs `solomapling.enabled` +
+  `solomapling.template-id` or the hook does nothing (`MapleRootSolo.java:16-18`).
+- **Who is not coming.** `ExpeditionBots.warnNotAtTheAltar` gives the leader one line per bot it registered that is not
+  standing on the recruiting map - `[Expedition] Clock4 is not at the altar and will not join.` - and never warps it:
+  a bot walking to the altar is follower travel, and a faked warp would be a second answer to the same question.
+- **A dismissed alt leaves the member list.** `BotEventExit.leave` (`:23-27`) never touched `Expedition.members`, so a
+  dismissed alt stayed a member until the channel disposed the expedition. `ExpeditionDoor.leaveExpedition` is called
+  from `OwnedAltService.finish` (`:328`), which dismiss, dismiss-all, login and disconnect all pass through.
+
 ## QA plan
 
 - **Unit:** every content YAML loads clean; answers/rectangles/items are re-read from our scripts and compared

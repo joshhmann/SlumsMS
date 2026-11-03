@@ -7,6 +7,7 @@ import net.server.world.PartyCharacter;
 import server.expeditions.Expedition;
 import server.expeditions.ExpeditionBossLog;
 import server.expeditions.ExpeditionType;
+import server.maps.MapleMap;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.ArtificialPlayer.BotSM;
 import soloMapling.ArtificialPlayer.BotTypes.FollowerBot;
@@ -245,6 +246,30 @@ public final class ExpeditionBots {
         ExpeditionHold.release(exped);
         quotaFull.values().removeIf(e -> e == exped);
         busy.values().removeIf(e -> e == exped);
+    }
+
+    /**
+     * 1.6.2 (b120, {@code -Dslums.exped.door}): the leader pressed "Start the fight!" and some of the bots he took on
+     * are no longer standing at the altar, so {@code EventInstanceManager.registerExpeditionTeam} is about to leave
+     * them out. Say so once each, by name - silence is what makes it look like the bots ignored him. Nothing is
+     * warped: a bot walking to the altar is follower travel, and a teleport would be a second, wrong answer.
+     */
+    public static void warnNotAtTheAltar(Expedition exped) {
+        if (!ExpeditionDoor.enabled() || exped == null || exped.getLeader() == null) {
+            return;
+        }
+        MapleMap altar = exped.getRecruitingMap();
+        if (altar == null) {
+            return;
+        }
+        for (int id : ExpeditionHold.botsOf(exped)) {
+            Character bot = altar.getWorldServer().getPlayerStorage().getCharacterById(id);
+            if (bot != null && bot.getMap() != null && bot.getMap().getId() == altar.getId()) {
+                continue; // it is coming
+            }
+            String name = exped.getMembers().getOrDefault(id, "A bot");
+            exped.getLeader().dropMessage(6, "[Expedition] " + name + " is not at the altar and will not join.");
+        }
     }
 
     // ── live reads ───────────────────────────────────────────────────────────
