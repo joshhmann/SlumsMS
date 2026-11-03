@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# helper-checkout: the paperwork check a helper runs before it stops, and the reviewer runs before merging.
+# Usage: tools/ops/helper-checkout [worktree]   (default: current directory)
+# Exit 0 = every check passed (WARN lines are for the reviewer); exit 1 = at least one FAIL.
+set -u
+W=${1:-.}
+cd "$W" || { echo "FAIL no such worktree: $W"; exit 1; }
+fails=0
+ok()   { echo "PASS $*"; }
+bad()  { echo "FAIL $*"; fails=$((fails + 1)); }
+warn() { echo "WARN $*"; }
+
+branch=$(git branch --show-current)
+[[ $branch =~ ^164- ]] && ok "branch $branch" || bad "branch '$branch' is not named 164-<topic>"
+
+if git merge-base --is-ancestor release-1.6.4 HEAD 2>/dev/null; then
+    ok "contains release-1.6.4"
+else
+    warn "does not contain the release-1.6.4 tip (older base): the reviewer merges it forward"
+fi
+base=$(git merge-base release-1.6.4 HEAD)
+n=$(git rev-list --count "$base"..HEAD 2>/dev/null || echo 0)
+[ "$n" -gt 0 ] && ok "$n commit(s) of its own" || bad "no commits of its own"
+
+dirty=$(git status --porcelain | grep -vE ' (REPORT[^ ]*\.md|config\.yaml)$')
+[ -z "$dirty" ] && ok "worktree clean" || bad "uncommitted changes: $(echo "$dirty" | head -3 | tr '\n' ' ')"
+
+[ "$(git config --worktree --get remote.origin.pushurl 2>/dev/null)" = DISABLED ] \
+    && ok "push guard on" || bad "push guard missing (git config --worktree remote.origin.pushurl DISABLED)"
+[ -z "$(git ls-remote origin "refs/heads/$branch" 2>/dev/null)" ] \
+    && ok "not pushed" || bad "branch $branch is on origin: helpers never push"
+
+missing=0
+for c in $(git rev-list --no-merges "$base"..HEAD); do
+    git log -1 --format=%B "$c" | grep -q '^Co-Authored-By: ' || { missing=$((missing + 1)); warn "commit $(git log -1 --format='%h %s' "$c" | cut -c1-70) has no Co-Authored-By trailer"; }
+done
+[ "$missing" -eq 0 ] && ok "every commit has a Co-Authored-By trailer" || bad "$missing commit(s) without a Co-Authored-By trailer"
+
+changed=$(git diff --name-only "$base"..HEAD)
+if echo "$changed" | grep -q '^src/main/'; then
+    echo "$changed" | grep -qE '^src/test/' && ok "tests changed with the code" \
+        || bad "src/main changed but no file under src/test: where is the fail-before test?"
+fi
+odd=$(echo "$changed" | grep -vE '^(src/|scripts/|database/|docs/|tools/|wz/|deploy/)' | grep -v '^$')
+[ -z "$odd" ] || warn "files outside the usual folders: $(echo "$odd" | head -5 | tr '\n' ' ')"
+echo "$changed" | grep -q '^database/migrations/' && warn "new migration(s): the release conf MIGRATIONS list must name them"
+echo "$changed" | grep -qE '(^|/)config\.yaml$' && bad "config.yaml is committed: it is untracked on purpose"
+
+secrets=$(git diff "$base"..HEAD | grep -E '^\+' | grep -iE 'BEGIN [A-Z ]*PRIVATE KEY|discord(app)?\.com/api/webhooks/|sk-[A-Za-z0-9]{20,}|password *[:=] *["'"'"'][^"'"'"'$]{4,}' | head -3)
+[ -z "$secrets" ] && ok "no secrets in the diff" || bad "possible secret in the diff: $(echo "$secrets" | cut -c1-80)"
+git diff "$base"..HEAD -- src/main/resources docs | grep -E '^\+' | grep -qiE 'maplestory|nexon|wizet|mapleroot|\bgms\b' \
+    && warn "added text names MapleStory/Nexon/Wizet/GMS/MapleRoot: fine internally, never in player-facing text"
+
+r=$( [ -f REPORT.md ] && echo REPORT.md || ls -t REPORT*.md 2>/dev/null | head -1 )
+if [ -z "$r" ]; then
+    bad "no REPORT.md in the worktree"
+else
+    lines=$(grep -cv '^\s*$' "$r")
+    [ "$lines" -le 25 ] && ok "$r is $lines lines" || warn "$r is $lines lines (aim for 20)"
+    grep -q "$branch" "$r" && ok "$r names the branch" || bad "$r does not name the branch $branch"
+    grep -qiE 'tests? run|[0-9]+ ?/ ?0 ?/ ?0|fail(ures)?:? *0' "$r" && ok "$r has suite counts" \
+        || bad "$r has no full-suite counts (tests run / failures / errors / skipped)"
+    grep -qiE 'fail(s|ed)?[- ]before|failed before' "$r" && ok "$r names the fail-before test" \
+        || bad "$r does not say which test failed before the fix"
+    grep -qiE 'economy' "$r" && ok "$r has an economy line" \
+        || bad "$r has no 'Economy:' line (write 'Economy: none' if nothing changed)"
+fi
+
+echo "---"
+[ "$fails" -eq 0 ] && { echo "CHECKOUT PASS ($branch)"; exit 0; }
+echo "CHECKOUT FAIL ($branch): $fails problem(s). Fix them, rerun, then stop."
+exit 1

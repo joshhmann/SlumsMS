@@ -259,7 +259,7 @@ Owner of the lane: Server Dev. Helpers hand back a branch; Server Dev reviews, m
 
 ## 8. Review before merge (the lane session)
 
-Read REPORT.md, `git log` and `git diff --stat` against the base. Check nothing was pushed
+First run `tools/ops/helper-checkout <worktree>` (helpers run it themselves before stopping; a FAIL goes back to the helper). Read REPORT.md, `git log` and `git diff --stat` against the base. Check nothing was pushed
 (`git ls-remote origin <branch>`), only files in scope changed, and the worktree is clean. Read the risky diffs
 yourself: player-visible behaviour, economy, live paths, load at 3,000 bots. Agents miss `config.yaml` in fresh
 worktrees and sometimes fake the fail-before test, so rerun it. Then the lane's own suite on the merged result,
