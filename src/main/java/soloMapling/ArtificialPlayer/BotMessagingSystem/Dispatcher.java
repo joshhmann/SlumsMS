@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 
 import static soloMapling.ArtificialPlayer.BotCommandsPack.SocialCommands.expirePlayerChatCommands;
 import static soloMapling.ArtificialPlayer.BotMessagingSystem.CharacterStorage.getBotById;
@@ -54,32 +55,40 @@ public class Dispatcher implements Runnable {
 
     //    @Override
     private void processMessages() {
+        drain(messageQueue, this::dispatch);
+    }
+
+    /**
+     * One pass over the waiting lines of the primary queue, handing each to {@code deliver}. Package-private so a
+     * test can run a pass over its own queue.
+     */
+    static void drain(MessageQueue queue, Consumer<ChatMessage> deliver) {
         // Every waiting line, not one per pass: at one line per 2 s pass, a burst of more than five lines outlives
         // the queue's 10 s expiry (QueueCleaner) and the tail is dropped before any bot sees it.
         ChatMessage message;
-        while ((message = messageQueue.getMessageNonBlocking("primary")) != null) {
-            dispatch(message);
+        while ((message = queue.getMessageNonBlocking("primary")) != null) {
+            try {
+                deliver.accept(message);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
     private void dispatch(ChatMessage message) {
-        try {
-            if (partyOrder(message)) {
-                return;
-            }
-            Collection<Character> chars_on_map = message.getMap().getCharacters();
-            final int[] botToCall = new int[1];  // Using an array to hold the bot ID
+        if (partyOrder(message)) {
+            return;
+        }
+        Collection<Character> chars_on_map = message.getMap().getCharacters();
+        final int[] botToCall = new int[1];  // Using an array to hold the bot ID
 
-            boolean characterFound = checkIfCharacterOnMap(chars_on_map, message, botToCall);
+        boolean characterFound = checkIfCharacterOnMap(chars_on_map, message, botToCall);
 
-            // Determine if the message is for any registered bot
-            if (characterFound) {
-                handleBotRunning(botToCall, message);
-            } else if (!routeWithoutExactName(chars_on_map, message)) {
-                handleMessageWithNoBotName(message);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        // Determine if the message is for any registered bot
+        if (characterFound) {
+            handleBotRunning(botToCall, message);
+        } else if (!routeWithoutExactName(chars_on_map, message)) {
+            handleMessageWithNoBotName(message);
         }
     }
 

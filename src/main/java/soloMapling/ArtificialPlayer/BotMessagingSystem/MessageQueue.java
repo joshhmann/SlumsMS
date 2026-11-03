@@ -47,7 +47,8 @@ public class MessageQueue {
         Dispatcher.getInstance();
     }
 
-    private MessageQueue() {
+    /** Package-private so a test can run its own queue; production uses {@link #getInstance()}. */
+    MessageQueue() {
         queues = new HashMap<>();
         queues.put(QueueType.PRIMARY, new LinkedBlockingQueue<>());
         queues.put(QueueType.SECONDARY, new LinkedBlockingQueue<>());
