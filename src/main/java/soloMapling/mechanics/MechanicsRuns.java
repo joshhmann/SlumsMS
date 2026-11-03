@@ -227,6 +227,12 @@ public final class MechanicsRuns {
                 () -> safeTick(a, use), TICK_MS, TICK_MS, TimeUnit.MILLISECONDS);
     }
 
+    /** "Zakum (expedition)" -> "Zakum": a row's name without its qualifier, for a line a player reads. */
+    static String shortName(String name) {
+        int cut = name == null ? -1 : name.indexOf(" (");
+        return cut > 0 ? name.substring(0, cut) : name;
+    }
+
     private void safeTick(Active a, Orchestrator o) {
         if (a.finished) {
             return;
