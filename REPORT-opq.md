@@ -1097,21 +1097,31 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8597 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-ellin4.log`, exit 0 - Ellin PQ six of six).
+`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8605 tests, 0 failures, 0 errors, 137 skipped,
+BUILD SUCCESS** (`/tmp/opq-full.log`, exit 0). That is the number this report treats as the suite's proof.
 
-The two commits after that run add `CwkpqSigilSolver` and its three tests, so the suite on this tree was re-measured:
-**8601 tests, 0 failures, 0 errors, 160 skipped, BUILD SUCCESS** with `-Dtest='!BotConversationFlowTest'`
-(`/tmp/opq-nocf.log`, exit 0), and `BotConversationFlowTest` **22/22** on its own (`-Dtest=BotConversationFlowTest`).
-That class is prompt-driven and order-dependent in a full run: `/tmp/opq-cwkpq3.log` (8593, one failure) and
-`/tmp/opq-cwkpq4.log` (killed by SIGTERM at 4746) both tripped it, on assertions about a refusal being spoken - nothing
-to do with the mechanics engine - and it passes alone. The excluded-class run is the honest number; it is not a suite
-with a hole in it.
+The ladder, so the next number is comparable: 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
+one class) -> 8597 (`/tmp/opq-ellin4.log`, Ellin six of six) -> 8592 (`/tmp/opq-cwkpq2.log`) -> 8590 -> 8586 -> 8585 ->
+8582 -> 8577 -> 8573 -> 8567 -> 8562 -> 8552 -> 8541 -> 8532 -> 8529 -> 8515.
 
-The ladder, so the next number is comparable: 8601 (CWKPQ's sigil stage) -> 8597 (`/tmp/opq-ellin4.log`, Ellin six of
-six) -> 8592 (`/tmp/opq-cwkpq2.log`, `RunMember.job` + `TouchReactor`) -> 8590 (`/tmp/opq-ellin.log`, Ellin's primitives)
--> 8586 (the Magatia boss room) -> 8585 (`/tmp/opq-mapempty.log`) -> 8582 (`/tmp/opq-magatiapq.log`) -> 8577 (the seam)
--> 8573 (`/tmp/opq-delli.log`) -> 8567 -> 8562 -> 8552 -> 8541 -> 8532 -> 8529 -> 8515.
+**The `BotConversationFlowTest` flake is still open, with three hypotheses tested.** It failed in two earlier full runs
+(`/tmp/opq-cwkpq3.log` 8593/1, `/tmp/opq-cwkpq4.log` two before a SIGTERM) and passes 22/22 alone.
+
+1. *Its own static id counter leaked.* Resetting `private static int nextPlayer = 2001` in the class's `@BeforeEach`
+   made it worse - 13 of 22 failed - because those ids key static session maps and reusing them collides with sessions an
+   earlier test in the same class left behind. Falsified, reverted.
+2. *Another test class leaves static state behind.* Impossible as stated: `pom.xml:252-255` is `forkCount 1` with
+   `reuseForks false`, so every test class gets its own JVM. Confirmed empirically: `soloMapling.ArtificialPlayer.*Test`
+   on its own is **694 tests, 0 failures, 8 skipped** (`/tmp/opq-bisect1.log`).
+3. What is left is timing inside the class: it drives replies through `CompletableFuture` with
+   `solomapling.chat.typingScale=0.01` and asserts on what a session said, so a full-suite run (many forked JVMs, a loaded
+   machine) can read the session before the reply lands. The fix is to await the futures the test already controls rather
+   than to sleep or retry - not done, and the reason the number above is reported with the caveat rather than as "the
+   flake is fixed".
+
+`tools/ops/map-integrity --wz /root/work/SlumsMS-152-maps/wz --map 610030300,610030400,610030500,610030600,610030800`
+reports the keep's five maps clean except one **pre-existing** client-data defect that this row does not touch:
+`610030800 out00` points at `610030010`'s portal `in00`, which does not exist.
 
 ## The Zenumist twin is not buildable: its stage-3 counter is never written
 
