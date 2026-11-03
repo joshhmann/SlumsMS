@@ -10,9 +10,12 @@ import java.util.Map;
  * {@code hpq-beds} (ticket 164, Henesys PQ stage 1): plant one primrose seed on each of the six beds.
  *
  * <p>The map {@code 910010000} carries six item reactors named {@code moonflower1..6}
- * ({@code Map.wz/Map/Map9/910010000.img.xml}), ids {@code 9108000..9108005}, and each one's own WZ event slot names the
- * seed it takes - {@code event/0: type 100, state 1, item 4001095..4001100, quantity 1} - so the pairing is the beds'
- * own data, straight out of the map, not a guess. {@code MapleMap.activateItemReactors} takes a drop only when the item
+ * ({@code Map.wz/Map/Map9/910010000.img.xml}), ids {@code 9108000..9108005}, and each one's own WZ state names the seed
+ * it takes - {@code Reactor.wz/9108000..9108005.img.xml:11-19}: one type-100 event, item {@code 4001095..4001100} in
+ * bed order, quantity 1, hit box {@code lt(-19,-42) rb(20,16)} around the reactor's own position. That is the
+ * <em>accept</em> side, and it is all the client data says: nothing in WZ binds a dropped seed to a bed, which is why
+ * this solver picks the bed by the seed it holds rather than trusting a binding - and why dropping at the bed's own
+ * position is all the placement that is needed (the box contains it). {@code MapleMap.activateItemReactors} takes a drop only when the item
  * <em>and</em> the whole quantity match and the drop lies inside that reactor's area, so the row names both per bed
  * ({@code PLACE_ITEM} with {@code reactor: "9108000"} and {@code item: 4001095}) and this solver drops exactly that
  * stack on exactly that bed ({@link SolverStep.PlaceItemOn}).

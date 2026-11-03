@@ -29,7 +29,7 @@ timeLimitMinutes: 10
 flag: slums.mechanics.hpq
 sources:
   - "scripts/event/HenesysPQ.js, scripts/npc/1012112.js, scripts/npc/1012114.js, scripts/reactor/9108000..9108005.js: ours, the truth"
-  - "The six beds' pairing is the reactors' own WZ, not a guess: Map.wz/Reactor.wz/9108000..9108005.img.xml, each event/0 = type 100, state 1, item 4001095..4001100, quantity 1. BotStory Incluwin/BotStory 81a3b1dfb AgentHpqDefinition.java:75-81 carries the same pairing and is credited for it, but the ids were read from our WZ"
+  - "The six beds' accept side is the reactors' own WZ, not a guess: Reactor.wz/9108000..9108005.img.xml:11-19, each a single state n=0 carrying one type-100 event - item 4001095..4001100 (sequential, bed n takes the n-th seed), quantity 1, hit box lt(-19,-42) rb(20,16) around the reactor's own position, consumed state at :83-86. The WZ binds no dropped seed to a bed, only what a bed accepts, so the row names both sides per bed and never relies on a binding. BotStory Incluwin/BotStory 81a3b1dfb AgentHpqDefinition.java:75-81 carries the same six pairs and is credited for the pairing"
   - "Map ids and life: our own Map.wz dump (Map.wz/Map/Map9/910010000.img.xml): the six beds (moonflower1..6), the fullmoon reactor 9101000 at (-183,-433) the sixth bed spawns the Moon Bunny on, Growlie at (429,83), and the map's six monsters 9300062/3/4 and 9300081/2/3"
   - "Stage 2's clear is a presence test: HenesysPQ.js:110-116 reads eim.getProperty(\"1stageclear\") != null, and setup (:111-114) initialises stage, bunnyCake and bunnyDamaged but never 1stageclear, so the presence test is safe"
   - "The Moon Bunny (9300061) is a friendly mob: friendlyKilled schedules bunnyDefeated, which ends the run (HenesysPQ.js:251-255). No step in this row names it"

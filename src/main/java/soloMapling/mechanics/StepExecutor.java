@@ -880,6 +880,10 @@ final class StepExecutor {
      *       that re-checked at once would read a failure that is really a delay.</li>
      *   <li><b>Bounded retries.</b> At most {@link #PLACE_ON_TRIES} drops per bed per bot; after that it says so and
      *       stops, instead of feeding a bed the server keeps refusing.</li>
+     *   <li><b>The drop lands in the box.</b> An item reactor's box is not a map {@code area} node: it is the
+     *       {@code lt}/{@code rb} vectors of its own state ({@code Reactor.wz/9108000.img.xml:18-19}, i.e.
+     *       {@code lt(-19,-42) rb(20,16)} for a bed), relative to the reactor's position - so dropping on the reactor
+     *       itself is inside it, and no area lookup is involved.</li>
      * </ul>
      */
     private static void placeItemOn(Character bot, Beat beat, SolverStep.PlaceItemOn p, long now, Consumer<String> log) {
