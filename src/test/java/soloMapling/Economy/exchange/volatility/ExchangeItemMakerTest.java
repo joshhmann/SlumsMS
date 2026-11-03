@@ -50,13 +50,13 @@ class ExchangeItemMakerTest {
         ExchangeCatalog.reset();
         store = new MemoryExchangeStore();
         store.addAccount(9, 0);           // the house account (cfg().houseAccount())
-        store.addCharacter(19, 9, 10_000_000);
+        store.addCharacter(19, 9, 30_000_000);
         now = new AtomicLong(NOW);
         ExchangeConfig c = cfg();
         engine = new Exchange(store, c, store::online, store.finder(), now::get, Ticker.fromSystem(c));
         engine.recover();
         rock = engine.ticker("E4006001");
-        store.addItems(19, rock.asset(), 40);
+        store.addItems(19, rock.asset(), 60);
         store.login(9, 19);
     }
 
@@ -69,7 +69,11 @@ class ExchangeItemMakerTest {
     }
 
     void fund(long amount, Asset asset) {
-        var r = engine.fundHouseLive(1, store.finder().find(9), asset, amount, false);
+        fund(1, amount, asset);
+    }
+
+    void fund(int regular, long amount, Asset asset) {
+        var r = engine.fundHouseLive(regular, store.finder().find(9), asset, amount, false);
         assertTrue(r.ok(), r.code() + " " + r.message());
     }
 
@@ -99,6 +103,23 @@ class ExchangeItemMakerTest {
         assertTrue(bid < 10_000 && ask > 10_000, "around the fair value, not at it: " + bid + " / " + ask);
         assertEquals(0, engine.tickRegulars(), "both sides already rest: the maker adds nothing");
         assertEquals(bid, engine.depth("E4006001", Side.BUY, 1).get(0).price(), "no second quote");
+    }
+
+    @Test
+    void everyFundedRegularQuotesItsOwnRung() {
+        for (int r = 1; r <= cfg().regulars(); r++) {
+            fund(r, 20, rock.asset());
+            fund(r, 5_000_000, Asset.MESO);
+        }
+        seedFairValue(10_000);
+        assertEquals(6, engine.tickRegulars(), "three regulars bid and ask, so the book shows a ladder");
+        assertEquals(List.of(9_700L, 9_400L, 9_100L), prices(Side.BUY), "best bid first, each rung 3% wider");
+        assertEquals(List.of(10_300L, 10_600L, 10_900L), prices(Side.SELL), "best ask first, each rung 3% wider");
+        assertEquals(0, engine.tickRegulars(), "every rung already rests");
+    }
+
+    List<Long> prices(Side side) {
+        return engine.depth("E4006001", side, 3).stream().map(l -> l.price()).toList();
     }
 
     private void seedFairValue(long fair) {

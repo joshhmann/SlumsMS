@@ -14,10 +14,15 @@
   band unchanged), `Exchange` (item maker, daily item-sell ceiling, item funding for the house), `ExchangeSite`
   (`category` per ticker), `Ledger`/`ExchangeStore`/both stores (`itemExposure`, registry assets), and
   `NxExchangeCommand` (`!exchange fund <regular> <nx|meso|ticker> <amount>`).
+- The owner's follow-ups folded in: the item maker quotes from every regular (`Regulars.quotes`, the same ±3/6/9%
+  ladder as NX), bot traders now offer the ETC they hold most as well as the scroll they hold most
+  (`MarketTraders.heldItem`), and `volatility/MarketEventPressure` feeds the world events into trader pressure
+  (invasion → USE up, treasure hunt → ETC down, a handout floods its item, a quest consumes the item it asks for).
 - Docs: ticket 270 §11, `113-nx-exchange.md`, `tickets/README.md`, `docs/economy/exchange-item-catalog.md`.
 
-**Proof:** `./mvnw -o -Dtest='soloMapling.Economy.**' test` — Tests run: 506, Failures: 0, Errors: 0, Skipped: 10
-(+8 `ExchangeCatalogTest`, +2 `volatility/ExchangeItemMakerTest`; 496 before the branch). Fail-before: on
+**Proof:** `./mvnw -o -Dtest='soloMapling.Economy.**' test` — Tests run: 512, Failures: 0, Errors: 0, Skipped: 10
+(+8 `ExchangeCatalogTest`, +3 `volatility/ExchangeItemMakerTest`, +5 `volatility/MarketEventPressureTest`; 496 before
+the branch). Fail-before: on
 `release-1.6.4` the new tests do not compile (`AssetRegistry`, `ExchangeCatalog`, `Ticker.fromSystem(config)`,
 `store.itemExposure`, `makerQuotes` absent), so the failure is a compile error rather than a red run.
 

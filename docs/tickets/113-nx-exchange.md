@@ -756,5 +756,8 @@ keep their ids and books (no migration), and two new guards come with it: a hous
 (`-Dslums.exchange.itemMaker=true`) so a new book is not an asks-only wall, and a per-account daily meso ceiling on
 item sells (`-Dslums.exchange.items.sellCapMesosPerDay`). The maker is funded from the house character with real
 items (`!exchange fund <regular> <ticker> <amount>`, accepted only while the maker is on), so its asks are items the
-server already had, never minted ones. See `docs/tickets/270-exchange-item-catalog.md` for the numbers, the anchor
+server already had, never minted ones. The maker quotes from every configured regular (the same ±3/6/9% ladder the NX
+book shows), the bot traders offer what they grind (the scroll they hold most, else the ETC they hold most) instead of
+only staff-funded stock, and `volatility/MarketEventPressure` lets the world events press on the item books the way the
+guild news presses on NX. See `docs/tickets/270-exchange-item-catalog.md` for the numbers, the anchor
 chain and the tests.

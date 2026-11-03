@@ -290,7 +290,7 @@ public final class MarketTraders {
         }
         // 1.6.2: trade what you hold. A bot holding a scroll (CHAOS, WS) offers that scroll this turn: until now the
         // dice alone decided, so the 27 CHAOS a bot already held never reached the book and no bot ever quoted one.
-        Ticker held = heldScroll(items, w);
+        Ticker held = heldItem(items, w);
         if (held == null && desk) {
             // 1.6.3: a bot that holds NX offers it at the desk's buy quote; otherwise some turns are desk turns
             long purse = ex.botNx(w.account());
@@ -321,6 +321,8 @@ public final class MarketTraders {
         if (events != null) {
             pressure += events.pressure(tk.id(), now, true);
         }
+        // ticket 270: the world events press on the item books too (an invasion burns potions, a handout floods its item)
+        pressure += MarketEventPressure.pressure(MarketEventPressure.running(now), tk, now);
         if (rumours != null) {
             pressure += rumours.pressure(tk.id(), now, cfg.actOnRumourPct(), t.seed());
         }
@@ -581,30 +583,40 @@ public final class MarketTraders {
     /**
      * The scroll tickers whose off-screen finds roll (1.6.2), in order. The find machinery keeps one counter and one
      * drop scan per slot, so it stays a short list even with the whole catalog on; every other scroll reaches the book
-     * the way a player's does, from bags a bot already has ({@link #heldScroll}).
+     * the way a player's does, from bags a bot already has ({@link #heldItem}).
      */
     static final java.util.List<String> SCROLL_IDS = java.util.List.of("CHAOS", "WS");
 
     /**
-     * The scroll this bot holds most of, among the open item tickers; null when it holds none (the dice pick, then).
-     * Ticket 270: any {@link AssetRegistry.Category#SCROLL} ticker counts, so the 17,516 Claw ATT 60% bots already
-     * carry can reach the book instead of only CHAOS and WS. Leaves and potions are left to the dice on purpose:
-     * almost every trader holds some, and preferring them would only concentrate the whole market on LEAF.
+     * The catalog item this bot holds most of, among the open item tickers; null when it holds none (the dice pick,
+     * then). Ticket 270: scrolls first, because the 17,516 Claw ATT 60% bots already carry can reach the book
+     * instead of only CHAOS and WS; otherwise the ETC a bot actually grinds -- Monster Cards, ores, feathers, rocks --
+     * so what it owns from hunting is what it lists (owner 2026-11-03: regulars source their stock by grinding, then
+     * sell it on the exchange or in their own shop). Leaves, potions and everything else stay on the dice: almost
+     * every trader holds leaves and potions, and preferring them would concentrate the whole market on LEAF.
      */
-    static Ticker heldScroll(List<Ticker> open, LiveWallet w) {
-        Ticker best = null;
-        long most = 0;
+    static Ticker heldItem(List<Ticker> open, LiveWallet w) {
+        Ticker scroll = null, goods = null;
+        long mostScroll = 0, mostGoods = 0;
         for (Ticker k : open) {
-            if (!k.item() || k.category() != AssetRegistry.Category.SCROLL) {
+            if (!k.item() || AssetRegistry.Category.LEAF.equals(k.category())) {
                 continue;
             }
             long have = w.have(k.asset());
-            if (have > most) {
-                most = have;
-                best = k;
+            if (have <= 0) {
+                continue;
+            }
+            if (AssetRegistry.Category.SCROLL.equals(k.category())) {
+                if (have > mostScroll) {
+                    mostScroll = have;
+                    scroll = k;
+                }
+            } else if (AssetRegistry.Category.ETC.equals(k.category()) && have > mostGoods) {
+                mostGoods = have;
+                goods = k;
             }
         }
-        return best;
+        return scroll != null ? scroll : goods;
     }
 
     /** How deep a trader looks for the best in-band bid and ask. */

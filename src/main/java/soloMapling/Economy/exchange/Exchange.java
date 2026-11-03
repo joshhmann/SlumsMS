@@ -2725,11 +2725,14 @@ public final class Exchange {
     }
 
     /**
-     * Ticket 270: the item maker. The regulars keep one small quote per side on every open item book at the fair value
-     * the volatility thread computed (bid at 1 - spread, ask at 1 + spread), so a player always has somebody to trade
-     * against and the book cannot drift to a price nothing will take. Their NX and mesos live in HOUSE buckets that
-     * only the house account can fund ({@code !exchange fund}), so this mints nothing; a quote it cannot pay for is
-     * simply not posted. A ticker with no fair value yet (no anchor, no fills) has no maker.
+     * Ticket 270: the item maker. Every regular keeps one small quote per side on every open item book at the fair
+     * value the volatility thread computed, each a rung wider than the last ({@link Regulars#quotes}: bid at
+     * 1 - i x spread, ask at 1 + i x spread), so an item book shows the same ladder of bids and asks the NX book does
+     * and a player always has somebody to trade against (owner 2026-11-03: more regulars interaction is fine -- it is
+     * what makes the room feel live). Their NX and mesos live in HOUSE buckets that only the house account can fund
+     * ({@code !exchange fund}), so this mints nothing; a quote it cannot pay for is simply not posted, which is why a
+     * regular the staff never funded contributes no rung. A ticker with no fair value yet (no anchor, no fills) has no
+     * maker.
      *
      * <p>LEAF is left out: the room already has its own two-sided book and a maker there would only crowd it.
      * Off unless {@code -Dslums.exchange.itemMaker=true}.
@@ -2763,14 +2766,11 @@ public final class Exchange {
             if (p == null || p.fair() <= 0) {
                 continue;
             }
-            long bid = clamp(t.minPrice(), t.maxPrice(), p.fair() - Math.max(1, p.fair() * config.regularSpreadBps() / 10_000));
-            long ask = clamp(t.minPrice(), t.maxPrice(), p.fair() + Math.max(1, p.fair() * config.regularSpreadBps() / 10_000));
-            if (bid >= ask) {
-                continue;
-            }
             looked++;
-            placed += makerQuote(t, 1, Side.BUY, bid, qty, now);
-            placed += makerQuote(t, 1, Side.SELL, ask, qty, now);
+            for (Regulars.Quote q : Regulars.quotes(p.fair(), config.regulars(), config.regularSpreadBps(), qty,
+                    t.minPrice(), t.maxPrice())) {
+                placed += makerQuote(t, q.regular(), q.side(), q.price(), q.nx(), now);
+            }
         }
         makerCursor = (makerCursor + Math.max(1, looked)) % n;
         return placed;
@@ -2827,11 +2827,6 @@ public final class Exchange {
                     + " filled or resting today, this order would add " + String.format("%,d", notional));
         }
         return null;
-    }
-
-    /** {@code clamp} for the maker's price band. */
-    private static long clamp(long lo, long hi, long v) {
-        return Math.max(lo, Math.min(hi, v));
     }
 
     // ---------------------------------------------------------------- reads
