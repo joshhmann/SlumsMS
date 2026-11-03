@@ -82,11 +82,6 @@ public class MobId {
         return mobId == ZAKUM_1 || mobId == CHAOS_ZAKUM_1;
     }
 
-    /**
-     * The arm ids that shield this body, as {@code {first, last}}, or {@code null} when the id is not a shielded body.
-     * One pair per altar, so the map's three Zakum predicates (shielded, un-fake on the last arm) read one mapping
-     * instead of repeating a hardcoded id next to a hardcoded range.
-     */
     /** The body this arm shields (8800000 or 8800100), or 0 when the id is not a Zakum arm. */
     public static int shieldedBodyOf(int armId) {
         if (isZakumArm(armId)) {
@@ -98,6 +93,11 @@ public class MobId {
         return 0;
     }
 
+    /**
+     * The arm ids that shield this body, as {@code {first, last}}, or {@code null} when the id is not a shielded body.
+     * One pair per altar, so the map's three Zakum predicates (shielded, un-fake on the last arm) read one mapping
+     * instead of repeating a hardcoded id next to a hardcoded range.
+     */
     public static int[] shieldingArms(int bodyId) {
         if (bodyId == ZAKUM_1) {
             return new int[]{ZAKUM_ARM_1, ZAKUM_ARM_8};
