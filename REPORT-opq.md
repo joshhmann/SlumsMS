@@ -544,11 +544,13 @@ line in `StageView.cleared()` (`liveMobs() == 0`). It is the tenth clear/address
   engine vocabulary with a fail-before and no product code path behind it. That is stated here rather than left to be
   discovered.
 
-## Magatia PQ: four stages driven, one held, two left alone
+## Magatia PQ: six of the seven script stages driven, and the seventh is a walk-out
 
 `content/magatiapq.yaml` is the Alcadno variant (`eventScript: MagatiaPQ_A`), off `-Dslums.mechanics.magatiapq`, exactly
-four players, level 71-255, 45 minutes, front door Juliet `2112003` on `261000021`. Its stages follow the seven script
-stages up to the point where a read stops being able to decide, and then hold rather than guess.
+four players, level 71-255, 45 minutes, front door Juliet `2112003` on `261000021`. Its six stages are the script's own
+first six, in order, each driven by a solver and each clearing on a signal the script actually writes; the seventh is a
+warp-out. The Zenumist twin (`MagatiaPQ_Z`, `92610xxx`, `rnj*` names, twins `9300139`/`9300140`) is the same shape with
+different ids and is not covered by this row.
 
 | # | Map | Rule | Written by | Solver |
 |---|---|---|---|---|
@@ -557,8 +559,8 @@ stages up to the point where a read stops being able to decide, and then hold ra
 | 3 | `926110200` | the beaker counts three hits, and only while its state is 6 | `2618000.js:27-41` (`statusStg3`) | `reactor-count` |
 | 4 | `926110200` + `926110201/202` | the leader hands over 4001134 **and** 4001135 | `2112005.js:72-87` (`statusStg4`) | `magatia-files` |
 | 5 | `926110300` + rooms `926110301-304` | the four rooms, and in each a ten-row climb whose column per row is the event's own `stage6_comb<room>` | `jnr4_r1..r4.js:3-15` (entry bits), `jnr5_rp.js:25-60` (`statusStg6 = 1` on row 9) | `magatia-climb` |
-| 6 | `926110400` | **held**: Yulete's room is reachable (`out00`), but the boss is summoned from `2112010.js` and fought with `9300151`/`9300152`, and no solver drives a summoned boss inside a PQ yet | clear is the script's own `statusStg7 == "1"` (`2112010.js:108-122`) | `hold` |
-| 7 | `926110500` | not modelled, and behind the held room | - | none |
+| 6 | `926110401` | Yulete summons the Frankenroid when the leader talks, then it is one fight; either form's death calls `clearPQ` | `2112010.js:99-127` (talk → `9300151` for a party that did not escort, `9300152` for one that did, `statusStg7` = 1/2), `MagatiaPQ_A.js:435-450` (death → `clearPQ`) | `summoned-boss` |
+| 7 | `926110500` | **nothing to do**: `2112011.js:57` only warps to `926110600`, and the run has already ended `"cleared"` at stage 6 | `2112011.js:57` | none - deliberately not a stage |
 
 - **The stage that was held is now driven, because reading the exit beat reading the write.** `statusStg5` is a
   four-bit "which rooms have we entered" mask that no script finishes, and an earlier version of this row cleared it on
@@ -568,11 +570,15 @@ stages up to the point where a read stops being able to decide, and then hold ra
   publishes, works out the row from the client's own portal heights (`ROW_Y`, ten values from
   `Map.wz/Map9/926110301.img.xml`), and takes that portal with `ScriptedPortal` - the only step that runs a portal's side
   effects for a bot.
-- **Why the boss room is still a hold, and why that is not a lie.** The orchestrator ends a run `"cleared"` at its **last
-  playable** stage, so a row that stopped after stage 5 would announce a finished PQ. Stage 6 exists, its clear is the
-  script's own (`statusStg7 == "1"`, written on the boss's death), and `HoldSolver` waits naming the reason - reachable in
-  principle, driven by nothing yet. What changed from the earlier version is only that the *unreachable* `== "done"` is
-  gone: an unreachable clear in a shipped row is exactly what the owner called out.
+- **The boss room is a talk, then a fight, then the instance's flag - and `statusStg7` is not a clear.** Reading
+  `2112010.js:99-127` and `MagatiaPQ_A.js:435-450` together settles it: talking to Yulete **summons** the Frankenroid
+  (`9300151` if the party skipped the escort, `9300152` if it did it) and writes `statusStg7` as 1 or 2, while the clear
+  is `clearPQ()` on either form's death - so the row's clear is `{ instance: true }` and `summoned-boss` needs no phase
+  table. Talking again takes the `state == -1` branch, which only speaks, so a bot cannot stack bosses. Both forms are
+  ordinary mobs on the room's ground; `boss-phases`' role/add targeting buys nothing here, and inventing a two-phase
+  table for a mob with no parts would be exactly the kind of field that is written before it is read.
+- **Stage 7 is a walk-out, so the row stops at six.** `scripts/npc/2112011.js:57` warps to `926110600` and nothing else
+  happens there; the orchestrator has already ended the run `"cleared"` on stage 6's instance flag.
 - **Three stage rules became three generic solvers**, because each is "the script decides, the bot keeps the condition
   true": `fight-room` (empty the room), `reactor-count` (hit until the row's counted clear is reached, reading the counter
   from the event rather than assuming), `magatia-files` (both documents to the leader, then to the NPC with **no** item in
@@ -598,7 +604,8 @@ adventurer-only at `:93` as a party-formation fact, door step `930000000`, stage
 | a clear that reads a **reactor's state** | stage 2's pond reactor `3002000` and spine `3009000` at state 4, with no event property involved | `clear: { reactorState: { id: 3009000, state: 4 } }` - `StageView.reactorState(int)` already exists and is in use by Henesys PQ and `magatia-climb` |
 | a step that **uses an item on a mob** | `UseItem(2270004)` on `9300174`, twenty times, to make `4001169` | `SolverStep.UseItemOnMob(int itemId, int mobId)`, executed as the client's own use-item packet against the mob (`InventoryHandler`-side path), with the drop arriving through the normal `Fight`/`Loot` flow |
 
-Then the row: stages 1-4 driven (`mapEmpty` for the first room - that is what the tenth clear kind was built for -,
+Then the row: stages 1-4 driven (`mapEmpty` for the first room - `clear: { mapEmpty: true }`, and Ellin is now its only
+intended consumer -,
 `reactorState` for the pond, `fight-room`/`Loot` for the rest), stage 5 (`930000500`, shuffled reactors) held with the
 reason named, stage 6 the Poison Golem `9300182` clearing on the instance's flag (`:230-241`).
 

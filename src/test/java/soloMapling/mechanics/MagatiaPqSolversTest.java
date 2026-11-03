@@ -38,7 +38,7 @@ class MagatiaPqSolversTest {
     }
 
     @Test
-    void theRowIsFivePlayableStagesThenAnHonestHold() {
+    void theRowIsSixStagesAndAllOfThemAreDriven() {
         MechanicsModel.Content c = row();
         assertEquals("MagatiaPQ_A", c.eventScript());
         assertEquals(4, c.minPlayers(), "MagatiaPQ_A.js:27: exactly four");
@@ -49,14 +49,15 @@ class MagatiaPqSolversTest {
         assertEquals(261000021, c.recruitMap());
 
         List<MechanicsModel.Stage> stages = c.stages();
-        assertEquals(6, stages.size(), "five of the seven stages are driven, and the sixth says why it is not");
+        assertEquals(6, stages.size(), "six of the seven script stages are driven; stage 7 is a walk-out");
         assertEquals(List.of("magatia-books", "fight-room", "reactor-count", "magatia-files",
-                        MagatiaClimbSolver.ID, HoldSolver.ID),
+                        MagatiaClimbSolver.ID, SummonedBossSolver.ID),
                 stages.stream().map(MechanicsModel.Stage::solver).toList());
-        assertEquals(List.of(926110001, 926110001, 926110200, 926110200, 926110300, 926110400),
+        assertEquals(List.of(926110001, 926110001, 926110200, 926110200, 926110300, 926110401),
                 stages.stream().map(MechanicsModel.Stage::mapId).toList());
-        assertEquals(List.of("statusStg1", "statusStg2", "statusStg3", "statusStg4", "statusStg6", "statusStg7"),
-                stages.stream().map(s -> s.clear().eventProperty()).toList());
+        assertEquals(List.of("statusStg1", "statusStg2", "statusStg3", "statusStg4", "statusStg6"),
+                stages.subList(0, 5).stream().map(s -> s.clear().eventProperty()).toList());
+        assertTrue(stages.get(5).clear().onInstance(), "the boss's death calls clearPQ, so the flag is the clear");
         assertEquals(List.of(926110301, 926110302, 926110303, 926110304), stages.get(4).maps(),
                 "the four rooms the climb is fought in");
         assertEquals("3", stages.get(2).clear().equals(), "the beaker counts to three (2618000.js:34-41)");
@@ -96,22 +97,34 @@ class MagatiaPqSolversTest {
     }
 
     @Test
-    void theBossRoomIsTheHoldAndItsClearIsTheScriptsOwn() {
+    void theBossRoomIsATalkThenAFightAndTheScriptsOwnClear() {
         MechanicsModel.Stage sixth = row().stages().get(5);
-        assertEquals("1", sixth.clear().equals(),
-                "2112010.js:108-122 writes statusStg7 on the boss's death - reachable, just not driven by a solver yet");
-        View v = new View(sixth, 926110400);
-        HoldSolver hold = new HoldSolver();
-        for (int tick = 0; tick < 5; tick++) {
-            SolverStep step = hold.next(v, member(true));
-            SolverStep.Wait w = assertInstanceOf(SolverStep.Wait.class, step,
-                    "a held stage waits, it never clears and never abandons: " + step);
-            assertTrue(w.why().contains("not modelled"), w.why());
-            assertTrue(w.why().contains("Yulete") || w.why().contains("not modelled"),
-                    "and it names the fact that is missing: " + w.why());
-        }
+        assertTrue(sixth.clear().onInstance(),
+                "MagatiaPQ_A.js:435-450: either Frankenroid's death shows the clear effect and calls clearPQ");
+        assertEquals(2112010, sixth.npcId(), "Yulete is the summoner");
+        assertEquals(List.of(9300151, 9300152), sixth.mobs(), "both forms are the same fight");
+        View v = new View(sixth, 926110401);
+        v.npc = true;
+        SummonedBossSolver solver = new SummonedBossSolver();
+
+        // an empty room: the leader talks to Yulete, everyone else waits for the boss to arrive
+        assertEquals(new SolverStep.TalkNpc(2112010, 0, 0),
+                solver.next(v, member(true)), "the talk is what summons");
+        SolverStep other = solver.next(v, member(false));
+        assertInstanceOf(SolverStep.Wait.class, other, "a non-leader never summons");
+        assertTrue(((SolverStep.Wait) other).why().contains("summon"), "and says what it is waiting for");
+
+        // with the boss on the floor everyone fights, and the fight does not care which form it is
+        v.mobs = 1;
+        assertEquals(new SolverStep.Fight(0, 0, 0), solver.next(v, member(true)));
+        assertEquals(new SolverStep.Fight(0, 0, 0), solver.next(v, member(false)));
+
+        // off the room's map, back in; and once the script clears it, done
+        v.at.replace(LEADER, 926110400);
+        assertInstanceOf(SolverStep.WarpTo.class, solver.next(v, member(true)));
+        v.at.replace(LEADER, 926110401);
         v.cleared = true;
-        assertInstanceOf(SolverStep.Done.class, hold.next(v, member(true)), "if the script ever clears it, we follow");
+        assertInstanceOf(SolverStep.Done.class, solver.next(v, member(true)));
     }
 
     @Test

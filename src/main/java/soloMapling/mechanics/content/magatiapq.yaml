@@ -155,19 +155,33 @@ stages:
       eventProperty: statusStg6
       equals: "1"
   - stage: 6
-    map: 926110400
-    name: "Yulete's room is not modelled: the boss is summoned from 2112010.js and fought with 9300151/9300152, and no row solver drives a summoned boss inside a PQ yet"
-    solver: hold
+    map: 926110401
+    name: Yulete summons the Frankenroid
+    npc: 2112010
+    solver: summoned-boss
+    summonProperty: statusStg7
+    mobs: [9300151, 9300152]
     roles:
-      - id: waiting
-        who: ANY
+      - id: leader
+        who: LEADER
         min: 1
-        max: party
+        max: 1
+        note: "2112010.js:99-127 only the talking member is the one that summons"
+      - id: fighter
+        who: NON_LEADER
+        min: 1
+        max: party-1
     objectives:
-      - id: not-modelled
-        kind: WAIT
+      - id: summon
+        kind: TALK_NPC
+        role: leader
+        npc: 2112010
+        note: "state 0 spawns 9300151, the escort branch spawns 9300152; talking again only speaks"
+      - id: frankenroid
+        kind: DEFEAT
         role: all
-        note: "the clear below is the script's own (2112010.js:108-122 writes statusStg7 on the boss's death)"
+        mob: 9300151
+        note: "MagatiaPQ_A.js:435-450: either form's death calls clearPQ, hence clear: { instance: true }"
     clear:
-      eventProperty: statusStg7
-      equals: "1"
+      # no property: the script ends the instance on the boss's death (MagatiaPQ_A.js:450)
+      instance: true
