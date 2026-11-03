@@ -577,7 +577,7 @@ public class ServerConfig {
     public int STARFORCE_MAX_MESO_COST;
     public int STARFORCE_MAX_SPELL_TRACE_COST;
     public double STARFORCE_BOOST_PERCENTAGE;
-    public double STARFORCE_BOOST_PERCENTAGE2;
+    public double STARFORCE_BOOST_PERCENTAGE2 = 0.2;
 
     // BACKPACK
     public int BACKPACK_MAX_ITEMS_PER_PAGE;
