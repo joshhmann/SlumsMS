@@ -2,6 +2,7 @@ package client.command;
 
 import client.Character;
 import client.Client;
+import client.command.commands.gm0.AltsCommand;
 import client.command.commands.gm0.BotMeCommand;
 import client.command.commands.gm0.DismissCommand;
 import org.junit.jupiter.api.Test;
@@ -101,6 +102,25 @@ class OwnedAltCommandsTest {
             when(service.bringHere(owner)).thenThrow(new IllegalStateException("Your alts can't join you inside an instance. Call them before you enter."));
             new BotMeCommand().execute(c, new String[]{"here"});
             verify(owner).yellowMessage("Your alts can't join you inside an instance. Call them before you enter.");
+        }
+    }
+    // AL-1 (ticket 183): a GM can drop a failed-save mark with !alts clear <id>, and players cannot.
+    @Test void aGmClearsAFailedSaveAndAPlayerCannot() {
+        Client c = mock(Client.class); Character owner = mock(Character.class); when(c.getPlayer()).thenReturn(owner);
+        var service = inline(mock(OwnedAltService.class));
+        when(service.clearFailed(30000)).thenReturn("Second's failed save is cleared. You can log in and call it again.");
+        try (MockedStatic<OwnedAltService> services = mockStatic(OwnedAltService.class)) {
+            services.when(OwnedAltService::getInstance).thenReturn(service);
+            new AltsCommand().execute(c, new String[]{"clear", "30000"});   // a player: rank 0
+            verify(owner).yellowMessage("You do not have permission to use this command.");
+            verify(service, never()).clearFailed(anyInt());
+            when(owner.gmLevel()).thenReturn(3);
+            new AltsCommand().execute(c, new String[]{"clear", "30000"});
+            verify(owner).yellowMessage("Second's failed save is cleared. You can log in and call it again.");
+            new AltsCommand().execute(c, new String[]{"clear"});
+            verify(owner).yellowMessage("Which character? !alts clear <id>.");
+            new AltsCommand().execute(c, new String[]{"clear", "Second"});
+            verify(owner).yellowMessage("!alts clear <id>: the id is a number, like !alts clear 30000.");
         }
     }
     @Test void summoningIntoAnExistingPartySaysNothingAboutCreatingOne() {

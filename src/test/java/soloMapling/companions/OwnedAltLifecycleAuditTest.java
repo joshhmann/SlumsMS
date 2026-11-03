@@ -83,7 +83,8 @@ class OwnedAltLifecycleAuditTest {
         assertEquals(3, db.saves.get());
         assertFalse(db.online.contains(2), "no ghost left standing in the world");
         assertTrue(s.hasCompanionRoom(1), "its companion slot is free again");
-        assertThrows(IllegalStateException.class, () -> s.beginLogin(2), "its login stays blocked for a GM");
+        // AL-1 (ticket 183): its login is not held for the life of the process any more - the mark goes at login.
+        try (var login = s.beginLogin(2)) { assertNotNull(login); }
         assertEquals(0, s.dismissAll(owner, false), "nothing more to dismiss");
         verify(owner).yellowMessage(contains("could not be saved"));
     }
