@@ -786,6 +786,14 @@ public class Guild {
         }
 
         Character sender = c.getPlayer();
+        if (soloMapling.companions.OwnedAltInvite.acceptsOwnerInvite(sender, mc)) {
+            // e02: an alt answers its own owner's invite - the invite has to exist before the answer is taken
+            if (!InviteCoordinator.createInvite(InviteType.GUILD, sender, sender.getGuildId(), mc.getId())) {
+                return GuildResponse.MANAGING_INVITE;
+            }
+            soloMapling.companions.OwnedAltInvite.acceptGuild(mc, sender);
+            return null;
+        }
         String altRefusal = soloMapling.companions.OwnedAltService.interactionRefusal(sender, mc, "answer a guild invitation");
         if (altRefusal != null) { // 1.6.0.4: an owned alt never answers; it is not a population bot either
             sender.yellowMessage(altRefusal);
