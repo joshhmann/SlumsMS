@@ -48,7 +48,7 @@ public final class ContentLobby {
      */
     private static final List<String> ROWS = List.of("OrbisPQ", "LudiPQ", "HenesysPQ",
             "CafePQ_1", "CafePQ_2", "CafePQ_3", "CafePQ_4", "CafePQ_5", "CafePQ_6", "LudiMazePQ",
-            "PiratePQ");
+            "PiratePQ", "TreasurePQ");
 
     private static final Set<EventInstanceManager> running = ConcurrentHashMap.newKeySet();
     private static final Map<String, Long> refusedUntil = new ConcurrentHashMap<>();

@@ -320,6 +320,26 @@ class RowRunSimulationTest {
                 "the clear is the rescued leader's talk");
     }
 
+    /**
+     * Treasure PQ end to end: the chest is the only source of a monster, and the monster's death is the clear. Two
+     * fail-befores live in `TreasurePqSolversTest`; this is the whole row through the real orchestrator.
+     */
+    @Test
+    void aTreasurePartyOpensTheChestAndKillsWhatItHolds() {
+        Sim sim = play("TreasurePQ", party(4), 2_000);
+
+        assertEquals("cleared", sim.ended(), "TreasurePQ.js:244-252 clears on the monster the chest holds: "
+                + sim.ended());
+        assertEquals(List.of(1), sim.stageOrder(), "one map, one stage");
+        assertTrue(sim.world().instanceCleared, "clearPQ (:232-237) sets the flag and nothing else");
+        assertTrue(sim.world().props.isEmpty(), "so no property was invented for it: " + sim.world().props);
+        assertTrue(sim.steps().stream().anyMatch(l -> l.contains("HitReactor[reactorId="
+                        + TreasureChestSolver.CHEST + "]")),
+                "the chest was hit: the map has no other way to produce a monster");
+        assertTrue(sim.steps().stream().anyMatch(l -> l.contains("Fight[")),
+                "and what the chest held was fought, not walked past");
+    }
+
     @Test
     void everyOneOfTheSixCafeAreasPlaysToTheComputersClear() {
         int[][] maps = {{190000000, 190000001, 190000002}, {191000000, 191000001}, {192000000, 192000001},
@@ -678,6 +698,11 @@ class RowRunSimulationTest {
                         reactors.put(String.valueOf(door), 0); // every door starts shut
                     }
                 }
+                case 674030000 -> {
+                    // the treasure room: no monsters of its own, the chest is the summon (scripts/reactor/6741001.js)
+                    mobs = 0;
+                    reactors.put(String.valueOf(TreasureChestSolver.CHEST), 0);
+                }
                 case 809050000 -> {
                     // the maze: no monsters of its own, the summoner reactor brings them (scripts/reactor/8098000.js)
                     mobs = 0;
@@ -856,6 +881,10 @@ class RowRunSimulationTest {
 
         private void hitReactor(int id, String key) {
             int stageMap = run.stageData().mapId();
+            if (key.equals(String.valueOf(TreasureChestSolver.CHEST)) && run.stageData().mapId() == TreasureChestSolver.MAP) {
+                mobs = Math.max(mobs, 1); // scripts/reactor/6741001.js: act() spawns 9400589, nothing else does
+                return;
+            }
             if (reactorSummons && key.equals(String.valueOf(MAZE_SUMMONER))) {
                 mobs = Math.max(mobs, 5); // scripts/reactor/8098000.js: the monsters the passes come from
                 return;
@@ -1242,6 +1271,10 @@ class RowRunSimulationTest {
                 mobs--;
                 if (noPasses) {
                     return; // the drop tables give nothing: the stage can never clear
+                }
+                if (run.stageData().mapId() == TreasureChestSolver.MAP && mobs == 0) {
+                    // TreasurePQ.js:244-252 watches 9400589 alone and calls clearPQ() on its death
+                    instanceCleared = true;
                 }
                 if (f.itemId() > 0) {
                     // one monster drops a few of its piece; Papa Pixie drops the one Root of Life

@@ -35,6 +35,8 @@ tests that keep them working and the section below that says why they were repor
 | `ContentLobby` + `-Dslums.mechanics.<row>.lobby` | `soloMapling/mechanics/ContentLobby.java`, registered at `net/server/Server.java` | bots assemble a party for any row whose lobby is on: they spawn the row's `minPlayers` at its `entryNpc` on its `recruitMap` and hand it to the one staging. Orbis is a row in its list, not the reason it exists; off unless all three flags are given |
 | `PirateQuestSolver` + `content/piratepq.yaml` (1 stage) | `soloMapling/mechanics/PirateQuestSolver.java`, `content/piratepq.yaml` | Pirate PQ: six maps on one stage, three medal sets in the guide's order, two rooms to empty, four by-id doors taking one key each, and a clear that is the rescued leader's talk (`PiratePQ.js:337-344` writes no property) |
 | `PiratePqSolversTest` (9 tests) | `src/test/java/soloMapling/mechanics/PiratePqSolversTest.java` | the fake ship: the row's gates and maps, the deck's empty-map passage, the guide's medal order, nineteen medals refused and twenty accepted, keys on the first shut door, three doors not a way through, the boss fought before the talk |
+| `TreasureChestSolver` + `content/treasurepq.yaml` (1 stage) | `soloMapling/mechanics/TreasureChestSolver.java`, `content/treasurepq.yaml` | Treasure PQ: one map, the chest `6741001` as the only source of a monster, and `eim.clearPQ()` as the only clear - the same two primitives as OPQ's boxes and Cafe PQ's clear, in forty lines |
+| `TreasurePqSolversTest` (4 tests) | `src/test/java/soloMapling/mechanics/TreasurePqSolversTest.java` | the row's gates, the chest hit before anything is fought, the fail-before that a chest-less row waits forever, and no roles to split |
 | `ContentLobbyTest` (8 tests) | `src/test/java/soloMapling/mechanics/ContentLobbyTest.java` | row-parameterised over `ContentLobby.rows()`: the three-switch gate per row, the row each lobby reads, the ten-minute back-off per row and channel, and why Kerning's lobby structurally cannot staff these towers |
 
 The walkway and the lounge reuse the existing `kill-collect-hand-in` solver: both stages are "farm N, pool them on the
@@ -323,6 +325,30 @@ the maps (`maps:`) and one solver drives it (`pirate-quest`).
   room had nothing to kill - the ship is one stage over six maps and each map is stocked when the party first stands on
   it.
 
+## Treasure PQ: one map, one chest, one monster - and the whole event is those three
+
+The shortest row on the branch, off its own switch (`-Dslums.mechanics.treasurepq`, default off), one row
+(`content/treasurepq.yaml`), `clear: { instance: true }`, four tests and one simulation case. It exists because it costs
+almost nothing and it exercises two primitives a second time.
+
+| Piece | Where it is written |
+|---|---|
+| gates: 4-6 players, level **140**-255, 45 minutes, entryMap `674030000`, exitMap and recruitMap `674030100`, clearMap `674030300` | `scripts/event/TreasurePQ.js:25-37` |
+| the only summon on the map | `scripts/reactor/6741001.js`: `act()` spawns `9400589` |
+| the only clear | `scripts/event/TreasurePQ.js:244-252` watches `9400589` alone and calls `clearPQ` (`:232-237`), which sets the instance's flag plus a ten-second warp to the bonus map |
+| the front door | `scripts/npc/9220018.js:50-80` (MV's Lair) - the row's `entryNpc` |
+
+- **`statusStg1` is a property nothing reads.** `setup` (`:115-125`) writes it as `"0"`; no other line in the file and no
+  NPC mentions it. A row that cleared on it would clear on setup, so the row clears on the instance's flag instead.
+- **Fail-before: without the chest there is nothing to kill.** `aRowWithoutTheChestNeverClearsBecauseTheMapHasNoOtherMonster`
+  removes the reactor from the view and the solver waits forever naming the chest - which is the row this event would be
+  with only a "kill what is out" rule, since `respawnStages` (`:131-134`) re-spawns a map that has nothing to spawn.
+- **Fail-before: the chest is hit before anything is fought.** `theChestIsHitBeforeAnythingExistsToFightAndItIsTheOnlyThingHit`
+  asserts the first step is `HitReactor(6741001)`, and that once a monster is out the chest is left alone (a second hit
+  would summon a second monster for nothing).
+- **End to end in simulation.** `aTreasurePartyOpensTheChestAndKillsWhatItHolds` plays the row and asserts the instance
+  clear, no invented property, the chest hit, and a `Fight` step - the monster the chest held was fought, not skipped.
+
 ## Expedition rule: pause for revive (this is the report it lives in)
 
 The boss report is on `164-bossfight`, a different branch, so this one carries the rule. It is the answer to the lane
@@ -523,9 +549,9 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8562 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-pirate.log`, exit 0 - Pirate PQ's own commit; `PiratePqSolversTest` 9 and one more simulation case, which
-is ten more than 8552). The previous numbers on this branch, so the next one is comparable: 8552
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8567 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-treasure.log`, exit 0 - Treasure PQ's own commit; `TreasurePqSolversTest` 4 and one simulation case).
+The previous numbers on this branch, so the next one is comparable: 8562 (`/tmp/opq-pirate.log`, Pirate PQ), 8552
 (`/tmp/opq-maze.log`, LudiMaze PQ), 8541 (`/tmp/opq-cafe.log`, Cafe PQ), 8532 (`/tmp/opq-instance2.log`, the instance
 clear), 8529 (`/tmp/opq-hpq.log`, Henesys PQ), 8515 (`/tmp/opq-lpq.log`, Ludi PQ).
 

@@ -56,7 +56,7 @@ class ContentLobbyTest {
     @Test
     void everyStaffedRowNamesAFrontDoorARecruitMapAndAParty() {
         assertEquals(List.of("OrbisPQ", "LudiPQ", "HenesysPQ",
-                "CafePQ_1", "CafePQ_2", "CafePQ_3", "CafePQ_4", "CafePQ_5", "CafePQ_6", "LudiMazePQ", "PiratePQ"),
+                "CafePQ_1", "CafePQ_2", "CafePQ_3", "CafePQ_4", "CafePQ_5", "CafePQ_6", "LudiMazePQ", "PiratePQ", "TreasurePQ"),
                 ContentLobby.rows(),
                 "every row in the list staffs itself: the tower, the Ludibrium nine, the primrose hill, the six cafe"
                         + " areas and the maze");

@@ -371,6 +371,14 @@ flag and writes no property. The chain is our scripts' own: `scripts/portal/davy
 one `4001117` each, which is `Reactor.wz/2519000..2519003.img.xml` and `Map.wz/Map/Map9/925100400.img.xml` (names
 `sMob1`..`sMob4`), not anything from another project.
 
+### Treasure PQ stage data, 1.6.4 (branch `164-opq`, ticket 164): no outside source
+
+Nothing in the row comes from another bot project - neither cosmic_agents nor BotStory carries a Treasure PQ definition.
+Every id is ours: the gates (4-6 players, level 140-255, 45 minutes, `674030000`/`674030100`/`674030300`) are
+`scripts/event/TreasurePQ.js:25-37`, the exclusive item `4032118` is `:59-62`, the front door is `scripts/npc/9220018.js:50-80`,
+the summon is `scripts/reactor/6741001.js`, and the clear is `clearPQ` (`:232-237`) reached only by `9400589`'s death
+(`:244-252`).
+
 Where our server's scripts disagree, the scripts win and the row follows them:
 
 - **The altar takes exactly twenty in one drop.** `scripts/reactor/2006000.js:1-5` spawns Eak from the reactor's item
