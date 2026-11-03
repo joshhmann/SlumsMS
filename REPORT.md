@@ -4,7 +4,8 @@ Branch `164-all-merge` in `/root/work/164-all`, built from `release-1.6.4` @ `6d
 (`b258879dd`, which already carries the release tip), `164-opq` (`90e40c1fd`, then the catch-up `d92443ce2`),
 `164-run-chatter` (`05b7db0c4`), `164-altinvite` (`3b546e834`), `164-ex2` (`0dd9dfc83`) and `164-pqpolish` (`d30a22702`).
 `164-bossfight`, `164-ex2qa` and `164-bossproof` were already ancestors, so they were declared redundant rather than
-merged. Head `1a574b84b`, 116 commits over the release tip. Nothing pushed, nothing deployed.
+merged. The merged code is `1a574b84b` (116 commits over the release tip) and that is the head the suite ran on; every commit
+after it touches reports only, and the row-integrity test was re-run on the final `HEAD`. Nothing pushed, nothing deployed.
 
 The one tree now carries all 46 mechanics rows (29 boss + 17 party quest), their solvers, the one PQ lobby, the
 run-chatter line and the alt-invite fix. Two lanes' spellings of the same stage facts were folded into one

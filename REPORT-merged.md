@@ -198,7 +198,8 @@ covered by unit tests only; `docs/ops/qa-suite.md` names the manual companion fo
 
 ### Suite totals
 
-`mvn -o test`, every switch unset, on the final merged head (`1a574b84b`, 116 commits over `6d18f961e`):
+`mvn -o test`, every switch unset, on the merged code head (`1a574b84b`, 116 commits over `6d18f961e`; every commit
+after it touches only reports, and the row-integrity test was re-run on the final `HEAD`):
 
 ```
 Tests run: 8763, Failures: 0, Errors: 0, Skipped: 138     BUILD SUCCESS, EXIT=0, 1843 s
