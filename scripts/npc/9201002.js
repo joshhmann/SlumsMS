@@ -30,6 +30,8 @@ var weddingIndoors;
 const YamlConfig = Java.type('config.YamlConfig');
 var weddingBlessingExp = YamlConfig.config.server.WEDDING_BLESS_EXP;
 
+var RingActionHandler = Java.type('net.server.channel.handlers.RingActionHandler');
+
 function isWeddingIndoors(mapid) {
     return mapid >= 680000100 && mapid <= 680000500;
 }
@@ -380,8 +382,6 @@ function action(mode, type, selection) {
                                         if (pid == player.getId()) {
                                             cm.sendOk("You have already confirmed your vows. All that is left is for your partner to confirm now.");
                                         } else {
-                                            eim.setIntProperty("weddingStage", 3);
-                                            Java.type("soloMapling.ArtificialPlayer.BotWorldGossip").onWedding(player, partner); // ticket 85: bots talk about it
                                             var cmPartner = partner.getAbstractPlayerInteraction();
 
                                             var playerItemId = detectPlayerItemid(player);
@@ -389,13 +389,22 @@ function action(mode, type, selection) {
 
                                             var marriageRingId = getRingId((playerItemId % 2 == 1) ? playerItemId : partnerItemId);
 
+                                            // The rings come first: if they cannot be made, nothing else happens (no tokens taken, no marriage ids, no stage
+                                            // change, no blessings) and the couple can try again. Only an explicit false is a failure.
+                                            if (RingActionHandler.giveMarriageRings(player, partner, marriageRingId) === false) {
+                                                cm.sendOk("Oh dear, the rings could not be made just now. Nothing was taken from you, so please talk to me again in a moment.");
+                                                break;
+                                            }
+
+                                            eim.setIntProperty("weddingStage", 3);
+
                                             cm.gainItem(playerItemId, -1);
                                             cmPartner.gainItem(partnerItemId, -1);
 
-                                            const RingActionHandler = Java.type('net.server.channel.handlers.RingActionHandler');
-                                            RingActionHandler.giveMarriageRings(player, partner, marriageRingId);
                                             player.setMarriageItemId(marriageRingId);
                                             partner.setMarriageItemId(marriageRingId);
+
+                                            Java.type("soloMapling.ArtificialPlayer.BotWorldGossip").onWedding(player, partner); // ticket 85: bots talk about it
 
                                             //var marriageId = eim.getIntProperty("weddingId");
                                             //player.sendPacket(Wedding.OnMarriageResult(marriageId, player, true));

@@ -32,6 +32,16 @@ final class MarriageNpcMocks {
     }
 
     public static final class Map0 {
+        public Pl partner;
+        public final List<String> messages = new ArrayList<>();
+
+        public Pl getCharacterById(int id) {
+            return partner;
+        }
+
+        public void dropMessage(int type, String text) {
+            messages.add(text);
+        }
     }
 
     /** Ordered record of what the script did. */
@@ -134,6 +144,37 @@ final class MarriageNpcMocks {
         public Object getMarriageRing() {
             return null;
         }
+
+        public int marriageItemId = -1;
+        public int exp;
+
+        public void setMarriageItemId(int id) {
+            marriageItemId = id;
+        }
+
+        public void gainExp(int amount) {
+            exp += amount;
+        }
+    }
+
+    /** Event instance of a running wedding. */
+    public static final class Eim {
+        public final Map<String, Integer> props = new HashMap<>();
+
+        public int getIntProperty(String key) {
+            return props.getOrDefault(key, -1);
+        }
+
+        public void setIntProperty(String key, Integer value) {
+            props.put(key, value);
+        }
+
+        public int gridSize() {
+            return 0;
+        }
+
+        public void schedule(String method, long delay) {
+        }
     }
 
     /** Channel. */
@@ -223,6 +264,7 @@ final class MarriageNpcMocks {
         final Pl player;
         final Client0 client;
         public int mapId = 680000000;
+        public Eim eim;
         public int meso = 10_000_000;
 
         Cm(Log log, Pl player, Client0 client) {
@@ -233,6 +275,10 @@ final class MarriageNpcMocks {
 
         public int getMapId() {
             return mapId;
+        }
+
+        public Eim getEventInstance() {
+            return eim;
         }
 
         public Client0 getClient() {
