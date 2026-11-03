@@ -186,7 +186,7 @@ class RunEndingTest {
         Orchestrator o = stageOneOnly();
         RunState run = o.start(kpq(), Tier.NORMAL, party());
 
-        o.fail(run, "NPC 2040034's script failed 5 times in a row");
+        o.fail(run, "NPC 2040034's script failed 3 times in a row");
 
         assertEquals(Ending.LOST, run.ending());
         assertTrue(run.events().stream().anyMatch(e -> e.line().startsWith("abort: NPC 2040034")),

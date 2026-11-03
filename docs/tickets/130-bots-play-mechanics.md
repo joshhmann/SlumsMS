@@ -745,6 +745,36 @@ answers is the door around that, default off, one switch.
   dismissed alt stayed a member until the channel disposed the expedition. `ExpeditionDoor.leaveExpedition` is called
   from `OwnedAltService.finish` (`:328`), which dismiss, dismiss-all, login and disconnect all pass through.
 
+## Run chatter (1.7.0, branch `164-run-chatter`)
+
+The owner asked (2026-11-03): "outcomes once bots exit out they say things like woo we beat or dang we tried but failed".
+When a run ends, the bots that played it say something about how it went. Switch `-Dslums.mechanics.chatter`
+(**default on**; `=false` records nothing and a run ends as silently as before). Chat only.
+
+- **The run never speaks.** `MechanicsRuns.finish` calls `RunChatter.plan`, which picks who speaks and what, and leaves one
+  `BotRunOutcome.Pending` in each speaker's `BotSM.runOutcome()` slot (a field on the bot, so it dies with the brain).
+  The bot says it from its own macro tick (`BotSM.updateState`, RUNNING: every bot type runs it) through
+  `SocialCommands.tryAmbientSpeak`, the ambient path `BotAmbientSpeak` already is: only where a real player can see the
+  map, inside `BotChatTuning.allowAmbient` (per-map gap, world lines a minute), through the say-do, `SpeechGuard` and
+  `RepeatGuard` nets. A refused line stays for the next tick; a line unsaid after `BotRunOutcome.TTL_MS` (2 min) is dropped.
+  Said once per run; a bot in two runs in a row gets a line for each (a later line replaces an unsaid earlier one).
+- **Who speaks.** The leader when it is a bot, plus one other bot at random: two at most (`RunChatter.MAX_SPEAKERS`), the
+  burst size `LevelUpGz` (0 to 2) and `BotChatter` (a pair) already use, and about what `allowAmbient` lets through a map.
+  A human leader speaks for himself: two random bots answer. The two get different lines (`RepeatGuard` drops a repeat).
+  **Owned alts never speak**: they are not in the population registry and have no macro tick, and their only voice is
+  `OwnedAltCompanion.say`, party chat to the owner; a public line would give an alt away.
+- **Which ends speak** (`RunState.ending()`): WON when the last stage to play cleared (`markCleared`, any later end of that
+  run included). LOST only through `RunState.fail`, called by `Orchestrator.fail` for the stage clock running out, a solver's
+  `Abandon`, an NPC whose script failed three times in a row, and `LiveStageView.endRun` (a bot that cannot be put in its
+  room). Every other end is SILENT: a GM stop or yield, the party falling below its minimum, the leader leaving, a member
+  lost and the revive window running out, the event closing, roles unfilled, an exception, shutdown, and a run that never
+  started. Not told apart, so silent: a wipe in a boss room (the scripts unregister a dead member, so it reads as a member
+  lost) and a script timer ending the instance (reads as "the event ended").
+- **Lines.** `BotDialoguePack/RunOutcomeDialogue.yaml`: `WinPq`, `WinBoss`, `LossPq`, `LossBoss`, ten lines each, with
+  `{CONTENT}` filled when the run ends: "Kerning PQ", "Ludi PQ", "Orbis PQ" (the names `LifePq` and LFG use), otherwise the
+  row's `name:` without its qualifier ("Zakum (expedition)" -> "Zakum", "Henesys Party Quest" -> "Henesys PQ").
+- Tests: `RunEndingTest`, `RunChatterTest`, `RunChatterRunsTest`, `BotRunOutcomeTest`, `BotRunOutcomeTickTest`.
+
 ## QA plan
 
 - **Unit:** every content YAML loads clean; answers/rectangles/items are re-read from our scripts and compared

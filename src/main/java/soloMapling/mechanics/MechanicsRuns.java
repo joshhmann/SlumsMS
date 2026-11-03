@@ -109,6 +109,8 @@ public final class MechanicsRuns {
         }
         return name;
     }
+    /** Picks the bots that speak about a run and their lines ({@link RunChatter}). */
+    private final Random chatRandom = new Random();
     private final Orchestrator orchestrator = new Orchestrator(Orchestrator.allSolvers(), new Random(), 0, 0);
     private final StepExecutor executor = new StepExecutor();
 
@@ -565,6 +567,7 @@ public final class MechanicsRuns {
         } catch (RuntimeException e) {
             log("[Mechanics] could not end " + keyOf(a.eim) + ": " + e);
         }
+        leaveOutcomeLines(a);
         RunState r = a.run;
         a.reporter.accept("RUN end " + r.content().id() + " in " + keyOf(a.eim) + ": " + r.endedBecause()
                 + (r.cleared() ? " after " + r.clearedAfterMs() / 1000 + " s, " + r.wrongShownTotal()
@@ -575,6 +578,36 @@ public final class MechanicsRuns {
             } catch (RuntimeException e) {
                 log("[Mechanics] cleanup after " + keyOf(a.eim) + " threw: " + e);
             }
+        }
+    }
+
+    /**
+     * 1.7.0 run chatter: leaves the win or loss line on the one or two bots that speak about this run ({@link
+     * RunChatter}). Nothing is said here: each bot says its line from its own macro tick, which {@link #finish} has
+     * just started again, inside the ambient chat budget. An owned alt has no such tick and never speaks.
+     */
+    private void leaveOutcomeLines(Active a) {
+        try {
+            List<Integer> bots = new ArrayList<>();
+            for (Character bot : a.bots.values()) {
+                if (!bot.isOwnedAlt() && CharacterStorage.getBotById(bot.getId()) != null) {
+                    bots.add(bot.getId());
+                }
+            }
+            Map<Integer, soloMapling.ArtificialPlayer.BotRunOutcome.Pending> plan =
+                    RunChatter.plan(a.run, bots, System.currentTimeMillis(), chatRandom);
+            for (Map.Entry<Integer, soloMapling.ArtificialPlayer.BotRunOutcome.Pending> e : plan.entrySet()) {
+                BotSM brain = CharacterStorage.getBotById(e.getKey());
+                if (brain != null) {
+                    brain.runOutcome().set(e.getValue());
+                }
+            }
+            if (!plan.isEmpty()) {
+                log("[Mechanics] run " + keyOf(a.eim) + " ended " + a.run.ending() + ": " + plan.size()
+                        + " bot(s) will say it: " + plan.keySet());
+            }
+        } catch (RuntimeException e) {
+            log("[Mechanics] run chatter after " + keyOf(a.eim) + " threw: " + e);
         }
     }
 
