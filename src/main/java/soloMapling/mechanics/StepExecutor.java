@@ -62,6 +62,17 @@ final class StepExecutor {
      */
     static final int TAKEN_PENALTY_MS = 400 * 8;
 
+    /**
+     * How the executor puts an item on a bot: the gear system's own move ({@link
+     * soloMapling.ArtificialPlayer.BotGearSystem.BotGear#wear}). A seam so a test can see what the step asked for without
+     * a bot that has item data; production always runs the default.
+     */
+    static volatile java.util.function.BiFunction<Character, Integer, soloMapling.ArtificialPlayer.BotGearSystem.BotGear.WearResult>
+            wearer = soloMapling.ArtificialPlayer.BotGearSystem.BotGear::wear;
+
+    /** One wear attempt per bot per this long: a refusal is not retried every tick. */
+    static final long EQUIP_GAP_MS = 3_000;
+
     /** Per-bot pacing: when it last clicked, dropped, or was sent somewhere. */
     /** How many warps in a row may fail before the run is ended and the bot's real map is reported. */
     static final int WARP_TRIES = 3;
@@ -102,6 +113,9 @@ final class StepExecutor {
         /** How many times in a row a warp was issued and did not take, and the last refusal it was told about. */
         int warpTries;
         String warpTold;
+        /** When this bot last tried to put an item on, and the refusal it was last heard saying. */
+        long lastEquipMs = Long.MIN_VALUE / 2;
+        String equipToldWhy;
         /** When this bot last hit the room's reactor, so the click is not spammed. */
         long lastReactorMs;
         /** When this bot last put a stack on a reactor, and when it last said it is still gathering it. */
@@ -150,6 +164,7 @@ final class StepExecutor {
                 }
             }
             case SolverStep.HitReactorByOid h -> hitReactorByOid(bot, beat, h, now, log);
+            case SolverStep.EquipItem e -> equipItem(bot, beat, e, now, log);
             case SolverStep.PlaceItem p -> placeItem(bot, beat, p, now, log);
             case SolverStep.PlaceItemOn p -> placeItemOn(bot, beat, p, now, log);
             case SolverStep.Occupy o -> occupy(bot, beat, o, now, log);
@@ -879,6 +894,32 @@ final class StepExecutor {
             return;
         }
         hitReactorAt(bot, beat, reactor, String.valueOf(h.reactorId()), now, log);
+    }
+
+    /**
+     * Puts the named item on ({@link SolverStep.EquipItem}) through the gear system's own move. One attempt per
+     * {@link #EQUIP_GAP_MS}; a success is a line, a refusal or an item the bot does not carry is a line naming the item
+     * and the reason - said once per distinct reason, so a bot that cannot wear it is heard once, not every tick.
+     */
+    private static void equipItem(Character bot, Beat beat, SolverStep.EquipItem e, long now, Consumer<String> log) {
+        if (now - beat.lastEquipMs < EQUIP_GAP_MS) {
+            return;
+        }
+        beat.lastEquipMs = now;
+        soloMapling.ArtificialPlayer.BotGearSystem.BotGear.WearResult r = wearer.apply(bot, e.itemId());
+        switch (r.outcome()) {
+            case WORN -> {
+                beat.equipToldWhy = null;
+                log.accept("EQUIP " + bot.getName() + " puts on " + e.itemId() + " - " + e.why());
+            }
+            case ALREADY_WORN -> beat.equipToldWhy = null;
+            case NOT_CARRIED, REFUSED -> {
+                if (!r.why().equals(beat.equipToldWhy)) {
+                    beat.equipToldWhy = r.why();
+                    log.accept(bot.getName() + " cannot put on " + e.itemId() + ": " + r.why() + " (" + e.why() + ")");
+                }
+            }
+        }
     }
 
     /**

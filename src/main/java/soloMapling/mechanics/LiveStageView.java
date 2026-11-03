@@ -317,6 +317,19 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public boolean wearing(int characterId, int itemId) {
+        Character c = character(characterId);
+        return c != null && soloMapling.ArtificialPlayer.BotGearSystem.BotGear.wearing(c, itemId);
+    }
+
+    @Override
+    public Optional<String> cannotWear(int characterId, int itemId) {
+        Character c = character(characterId);
+        return c == null ? Optional.empty()
+                : Optional.ofNullable(soloMapling.ArtificialPlayer.BotGearSystem.BotGear.cannotWear(c, itemId));
+    }
+
+    @Override
     public List<ReactorPlacement> reactors() {
         if (map == null) {
             return List.of();

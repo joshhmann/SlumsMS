@@ -101,6 +101,17 @@ public sealed interface SolverStep {
     }
 
     /**
+     * Put on the equip with this item id that the bot carries ({@link soloMapling.ArtificialPlayer.BotGearSystem.BotGear#wear}:
+     * the gear system's own wear rules and inventory move, with the choice made by the row). Guild Quest's maps from
+     * {@code 990000300} on take {@code decHP 30000} from whoever is not wearing the Protector Rock earring
+     * {@code 1032033} ({@code Character.doHurtHp}, {@code Character.java:3606-3609}): the gear review never puts it on
+     * by id and only does by the accident of a defence tie-break. The step names the item and is never taken for a
+     * teleport or a grant: a bot that does not carry it, or may not wear it yet, says so and nothing moves.
+     */
+    record EquipItem(int itemId, String why) implements SolverStep {
+    }
+
+    /**
      * Hit the one reactor on the map that has this <em>map object id</em> ({@code Reactor.getObjectId()}), when neither
      * its WZ id nor its name can tell it from its neighbours. Guild Quest's Gatekeeper puzzle is the case: its statues
      * are twenty reactors of three ids, and the script names each one by {@code objectId % 1000}, zero-padded to three

@@ -134,6 +134,22 @@ public interface StageView {
     }
 
     /**
+     * Whether this member has the item on its body (the equipped inventory), not merely in its bag. A map that hurts
+     * whoever is not wearing its protect item asks exactly this ({@code Character.doHurtHp}).
+     */
+    default boolean wearing(int characterId, int itemId) {
+        return false;
+    }
+
+    /**
+     * Why this member may not put the carried item on yet ("1032033 needs level 10, the bot is level 8"), or empty when
+     * it may (or when nothing can be said). The wear rules are the gear system's.
+     */
+    default Optional<String> cannotWear(int characterId, int itemId) {
+        return Optional.empty();
+    }
+
+    /**
      * The slot the map's event script armed the named item reactor with, or {@code -1}. Orbis PQ's lobby arms the
      * reactor named {@code music} with {@code new Date().getDay()} ({@code scripts/event/OrbisPQ.js:162-163}) and the
      * reactor takes {@code 4001056 + getEventState()} as its item ({@code Reactor.getReactItem(byte)}), so the pass the
