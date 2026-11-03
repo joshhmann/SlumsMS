@@ -97,6 +97,8 @@ stages:
     name: The marble hand-in
     npc: 2133001
     solver: ellin-marbles
+    # The monster the marble is spent on. A harder variant that used another flower changes this line, not the solver.
+    mobs: [9300174]
     roles:
       - id: leader
         who: LEADER

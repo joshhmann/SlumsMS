@@ -624,6 +624,24 @@ look complete is exactly what this report exists to avoid.
 The adventurer-only filter (`EllinPQ.js:93`) is recorded as a **party-formation fact**: `getEligibleParty` already
 refuses a mixed party at the door, and no job model was added.
 
+## What a difficulty variant would need from this engine
+
+Recorded as a finding for the difficulty/chaos plan, not as work: five places where a second variant of a row cannot be
+expressed today, each of which the plan has to decide rather than discover later.
+
+| # | Where it bites | Why a variant cannot be expressed | cite |
+|---|---|---|---|
+| 1 | `MechanicsModel.Content` is one row = one gate set | `minLevel`, `maxLevel`, `minPlayers`, `maxPlayers`, `timeLimitMinutes` are single ints on `Content`, so "the hard version is level 110+ and 6 players" means a **second row** with its own `eventScript` name and its own switch. That works for ROW data but not for a variant of the *same* script, because `MechanicsRuns.contentFor` keys rows by event script name - two rows cannot share one script | `src/main/java/soloMapling/mechanics/MechanicsModel.java:344-347`, `MechanicsRuns.java` (`contentFor`) |
+| 2 | `Stage` is single-valued | `mapId`, `timeLimitMinutes`, `mobs`, `killTarget`, `hitReactor` are one value each per stage; a chaos Zakum that summons a different body id or holds a different room has nowhere to put the second value. `tiers` exists on `Content` (`Map<Tier, TierRules>`) and is the closest thing, but it holds rules (damage floor, etc.), not stage identity | `src/main/java/soloMapling/mechanics/MechanicsModel.java:264-266` |
+| 3 | The clear signal is one `Clear` | a variant whose clear differs - a chaos boss that writes `defeatedChaosBoss`, a hard PQ whose property holds a different value - can only be another row, because `Clear` is a single record on the stage and `StageView.cleared()` reads exactly one of its five kinds | `src/main/java/soloMapling/mechanics/MechanicsModel.java:190-193`, `StageView.java:249-270` |
+| 4 | Boss ids live in Java in one place | `BossPhasesSolver.BODY_FAMILY = [8800000, 8800001, 8800002]` is a hardcoded Zakum body chain; a chaos Zakum's chain is a row fact and the solver cannot see it. This is the one place I would move to the row first (a `bodyChain:` on the stage) | `src/main/java/soloMapling/mechanics/BossPhasesSolver.java` (`BODY_FAMILY`) |
+| 5 | No reward split | rows can name items a party *fetches* (`items:`) and a clear, but nothing describes what a clear pays or how a variant scales it (EXP, drops, a chest). A chaos variant's reward table has no field to live in | `src/main/java/soloMapling/mechanics/MechanicsModel.java` (`ItemUse`, `Content` - no reward component) |
+
+Where I could, I moved the number into the row instead of the solver while writing this: `EllinMarblesSolver` now reads
+the hand-in count from the row's `HAND_IN`, the item it hands over from that objective, the marble to spend from the other
+`COLLECT`, and the monster to spend it on from the stage's `mobs:` (the constants are fallbacks only) - so a variant that
+wanted forty marbles on a different flower is a `ellinpq.yaml` change, not a code change.
+
 ## A clear with no signal at all 2: `{ partyOnMap: <mapId> }`
 
 The fifth kind, and the one Ellin PQ's marble stage needed. A stage that ends by **warping the team** writes nothing:
