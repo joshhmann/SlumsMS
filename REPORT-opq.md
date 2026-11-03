@@ -815,11 +815,16 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8573 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-delli.log`, exit 0 - DelliBattle's own commit; `DelliBattleSolversTest` 5 and one simulation case).
-The previous numbers on this branch, so the next one is comparable: 8567 (`/tmp/opq-treasure.log`, Treasure PQ), 8562
-(`/tmp/opq-pirate.log`, Pirate PQ), 8552 (`/tmp/opq-maze.log`, LudiMaze PQ), 8541 (`/tmp/opq-cafe.log`, Cafe PQ), 8532 (`/tmp/opq-instance2.log`, the instance
-clear), 8529 (`/tmp/opq-hpq.log`, Henesys PQ), 8515 (`/tmp/opq-lpq.log`, Ludi PQ).
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8586 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-confirm.log`, exit 0 - the tree of commit `255116fc2`, Magatia's boss room; `MagatiaPqSolversTest` 6).
+One earlier full run of the same tree (`/tmp/opq-yulete.log`) had **one** failure,
+`BotConversationFlowTest.aRefusedPartyAskIsPlannedFromTheGatesVerdict`, which passes 22/22 alone and in the two full runs
+before it - the known conversation-lane order dependence, not this lane's - and the clean re-run above is the number that
+counts.
+The ladder on this branch, so the next one is comparable: 8586 (the climb, `/tmp/opq-climb.log`), 8585 (the map-empty
+clear, `/tmp/opq-mapempty.log`), 8582 (Magatia PQ, `/tmp/opq-magatiapq.log`), 8577 (the NPC-placement seam,
+`/tmp/opq-magatia-seam.log`), 8573 (DelliBattle, `/tmp/opq-delli.log`), 8567 (Treasure PQ), 8562 (Pirate PQ), 8552
+(LudiMaze PQ), 8541 (Cafe PQ), 8532 (the instance clear), 8529 (Henesys PQ), 8515 (Ludi PQ).
 
 Where the number is being read from: it is the surefire total of the whole tree at the commit this sentence is in, with
 the docs written first and the tree frozen while the suite ran (a `.md` edit cannot break surefire; a source edit could).
