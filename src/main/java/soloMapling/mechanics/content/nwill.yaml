@@ -1,0 +1,52 @@
+# Ticket 130 boss lane, branch 164-bossrows (round 3): Normal Will (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room, and the script itself
+# brings the boss five seconds in.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 1-6 players, levels 200-256, one lobby (NWillBattle.js:29-30,41);
+#  - entry is the expedition NPC (scripts/npc/3003560.js:29,152 -> startInstance(expedition)): one human character has to
+#    start it. The expedition's gate on the party is member quest 31162 (ExpeditionBots.memberQuest, :217-228), which the
+#    row cannot and must not write - a bot without it is simply not added;
+#  - 450007441 has an empty life list (Map.wz/Map/Map4/450007441.img.xml: no mobs, no NPC, no reactor). The fight is the
+#    script's spawnMob1 (NWillBattle.js:145-150), five seconds after setup (:116-117);
+#  - 9990301 has no revive (Mob.wz/9990301.img.xml): one form, and it is also the clear target. The fork gives it a boss
+#    health override in LifeFactory, which is why a party of six can spend the whole 120 minutes on it;
+#  - the clear is clearPQ -> setEventCleared(NWILLSPIDER) (NWillBattle.js:231-234) when 9990301 dies (:236-250); "boss"
+#    is seeded "0" at :129 and never written again -> instance: true.
+#
+# There is no death limit in this script: playerDead is empty (:190), so fallenPlayers never counts anything.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: nwill
+name: Will (expedition)
+kind: BOSS
+eventScript: NWillBattle
+recruitMap: 450007240
+exitMap: 450007240
+minPlayers: 1
+maxPlayers: 6
+minLevel: 200
+maxLevel: 256
+timeLimitMinutes: 120
+sources:
+  - "scripts/event/NWillBattle.js (ours, the truth): minPlayers 1 / maxPlayers 6 (:29), levels 200-256 (:30), entryMap 450007441 and exitMap 450007240 (:31-32), recruitMap 450007240 (:33), minMapId = maxMapId = 450007441 (:36-37), eventTime 120 (:39), maxLobbies 1 (:41), 'boss' seeded '0' (:129), clearPQ sets the instance's flag (:231-234), isWill = 9990301 (:236-239), monsterKilled -> eim.clearPQ() (:241-250)"
+  - "scripts/event/NWillBattle.js:116-117,145-150 - the script's own spawnMob1 spawns 9990301 at (-1161,215) five seconds after setup; nothing else in the room brings a mob"
+  - "Map.wz/Map/Map4/450007441.img.xml (dump /root/work/SlumsMS-170-evan/wz): an empty life list. Mob.wz/9990301.img.xml has no info/revive"
+  - "scripts/npc/3003560.js:29,152 - the expedition NPC starts the event; ExpeditionBots.memberQuest(NWILLSPIDER) = quest 31162, so a joining bot must have started it (the row cannot write quest state)"
+stages:
+  - stage: 1
+    map: 450007441
+    name: Will
+    solver: boss-phases
+    # the spawn is five seconds in (:116), inside the solver's own 30 s grace, so no spawnWaitSeconds is claimed
+    mobs:
+      - 9990301
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 9990301
+        note: the only spawn, and the id isWill waits for
+    # NWillBattle.js:231-234 writes no property; the instance's own flag is the clear.
+    clear:
+      instance: true

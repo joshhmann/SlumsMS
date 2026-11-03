@@ -1,0 +1,51 @@
+# Ticket 130 boss lane, branch 164-bossrows (round 3): Normal Darknell (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room, and the script itself
+# brings the boss five seconds in.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 1-6 players, levels 200-255, one lobby (NDarknellBattle.js:29-30,41);
+#  - entry is the expedition NPC (scripts/npc/3003806.js:29,152 -> startInstance(expedition)): one human character has to
+#    start it. The expedition's gate on the party is member quest 31163 (ExpeditionBots.memberQuest, :217-228), which the
+#    row cannot and must not write - a bot without it is simply not added;
+#  - 450012211 has an empty life list (Map.wz/Map/Map4/450012211.img.xml: no mobs, no NPC, no reactor). The fight is the
+#    script's spawnMob1 (NDarknellBattle.js:145-150), five seconds after setup (:116-117);
+#  - 9995009 has no revive (Mob.wz/9995009.img.xml): one form, and it is also the clear target;
+#  - the clear is clearPQ -> setEventCleared(NDARKNELL) (NDarknellBattle.js:245-248) when 9995009 dies (:250-259);
+#    "boss" is seeded "0" at :129 and never written again -> instance: true.
+#
+# This is the only one of the five with a death limit: playerDead counts fallenPlayers and ends the instance at 10.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: ndarknell
+name: Darknell (expedition)
+kind: BOSS
+eventScript: NDarknellBattle
+recruitMap: 450012600
+exitMap: 450012600
+minPlayers: 1
+maxPlayers: 6
+minLevel: 200
+maxLevel: 255
+timeLimitMinutes: 120
+sources:
+  - "scripts/event/NDarknellBattle.js (ours, the truth): minPlayers 1 / maxPlayers 6 (:29), levels 200-255 (:30), entryMap 450012211 and exitMap 450012600 (:31-32), recruitMap 450012600 (:33), minMapId = maxMapId = 450012211 (:36-37), eventTime 120 (:39), maxLobbies 1 (:41), 'boss' seeded '0' (:129), clearPQ sets the instance's flag (:245-248), isDarknell = 9995009 (:250-253), monsterKilled -> eim.clearPQ() (:255-259)"
+  - "scripts/event/NDarknellBattle.js:116-117,145-150 - the script's own spawnMob1 spawns 9995009 at (57,29) five seconds after setup; nothing else in the room brings a mob"
+  - "Map.wz/Map/Map4/450012211.img.xml (dump /root/work/SlumsMS-170-evan/wz): an empty life list. Mob.wz/9995009.img.xml has no info/revive"
+  - "scripts/npc/3003806.js:29,152 - the expedition NPC starts the event; ExpeditionBots.memberQuest(NDARKNELL) = quest 31163, so a joining bot must have started it (the row cannot write quest state)"
+stages:
+  - stage: 1
+    map: 450012211
+    name: Darknell
+    solver: boss-phases
+    # the spawn is five seconds in (:116), inside the solver's own 30 s grace, so no spawnWaitSeconds is claimed
+    mobs:
+      - 9995009
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 9995009
+        note: the only spawn, and the id isDarknell waits for
+    # NDarknellBattle.js:245-248 writes no property; the instance's own flag is the clear.
+    clear:
+      instance: true

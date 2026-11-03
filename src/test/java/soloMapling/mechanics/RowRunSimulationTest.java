@@ -148,6 +148,27 @@ class RowRunSimulationTest {
     private static final int PINKBEAN_5 = 8820006;
     private static final int PINKBEAN = 8820001;
 
+    // ---- the door rows and the survive row -------------------------------------------------------------
+
+    /**
+     * scripts/reactor/5411000.js:24 spawns 9420513 in 541010100, and scripts/portal/captinsg00.js:4 is the only place
+     * that asks for 4000381 - the script never re-checks it inside the instance and never takes it.
+     */
+    private static final int LATANICA_DOOR_ITEM = 4000381;
+    private static final int LATANICA = 9420513;
+    // ---- the five 5 s spawns: the script's spawnMob1 is the only source, and its death is the clear ------
+
+    /** MagnusBattle.js:91-92 and :120-125: {@code spawnMonster(8880002, 2592, -1355)} five seconds in. */
+    private static final int MAGNUS = 8880002;
+    /** NWillBattle.js:116-117 and :145-150: 9990301 at (-1161,215). */
+    private static final int NWILL = 9990301;
+    /** NLucidBattle.js:115-116 and :144-149: 9990150 at (1058,48). */
+    private static final int NLUCID = 9990150;
+    /** NVerusBattle.js:116-117 and :145-150: 9990415 at (16,266). */
+    private static final int NVERUS = 9990415;
+    /** NDarknellBattle.js:116-117 and :145-150: 9995009 at (57,29). */
+    private static final int NDARKNELL = 9995009;
+
     // ---- the loop --------------------------------------------------------------------------------------
 
     /** What one simulated run left behind, so a test can assert on it without a dozen locals. */
@@ -693,9 +714,10 @@ class RowRunSimulationTest {
     }
 
     /**
-     * Delli's room holds the script's friendly monster 9300162, which must never be attacked. It is not a solver
-     * problem at all: a mob the row does not list gets no part, so it can never be chosen - this is the assertion that
-     * makes that true, and the reason Delli is blocked on a survive objective rather than on a friendly-mob primitive.
+     * Delli's room holds the script's friendly monster 9300162, which must never be attacked. The guarantee is that a
+     * mob the row does not list gets no part at all, so a row that stays inside its own target list can never order a
+     * friendly into a Fight. Delli's own row is not on this branch - the room's win is its script's timer, and that
+     * belongs to {@code DelliHoldSolver} on {@code 164-opq}.
      */
     @Test
     void aFriendlyMobTheRowDoesNotListNeverBecomesATarget() {
@@ -704,6 +726,60 @@ class RowRunSimulationTest {
                 "and it stays out even when the room lists other monsters");
         assertEquals(BossTargetRules.Role.ADD, LiveStageView.partRole(9600000, List.of(9600000, 9600001)),
                 "a listed monster is a target, which is why the row must not list the friendly one");
+    }
+
+    /**
+     * Round 3, fail-before for primitive A: without the White Essence the run cannot open Latanica's door, and the row
+     * says so instead of walking to the portal and being silently refused. scripts/portal/captinsg00.js:4 is the only
+     * check; the instance never asks again (LatanicaBattle.js getEligibleParty), so the row's declaration is the only
+     * thing that can make a dry run visible before a player is standing at the door.
+     */
+    @Test
+    void aRunWithoutTheWhiteEssenceWaitsAtLatanicasDoorAndNeverEnters() {
+        Sim sim = play("LatanicaBattle", party(6), 400);
+
+        assertNull(sim.ended(), "a run that cannot be let in is not ended: " + sim.ended());
+        assertTrue(sim.steps().stream().anyMatch(st -> st.contains(":Wait[") && st.contains("4000381")),
+                "the wait names the missing item: " + tail(sim.steps(), 6));
+        assertTrue(sim.steps().stream().noneMatch(st -> st.contains(":EnterPortal[")), "it does not walk to the door");
+        assertTrue(sim.steps().stream().noneMatch(st -> st.contains(":HitReactor[")), "and it does not click past it");
+        assertTrue(sim.steps().stream().noneMatch(st -> st.contains(":Fight[")), "and it does not fight");
+        assertTrue(sim.steps().stream().noneMatch(st -> st.contains(":Abandon[")), "and it is not a dead room either");
+        assertTrue(sim.world().killed.isEmpty(), "nothing dies in a run that never got in");
+    }
+
+    @Test
+    void aRunHoldingTheWhiteEssenceOpensLatanicasRoomAndClearsIt() {
+        Sim sim = play("LatanicaBattle", party(6), 2_000, w -> w.give(1, LATANICA_DOOR_ITEM, 1));
+
+        assertOpenedRoomClear(sim, List.of(LATANICA), 5411000);
+    }
+
+    // ---- the five 5 s spawns: the script's spawnMob1, inside the solver's grace ---------------------------------
+
+    @Test
+    void aBotPartyKillsMagnusFiveSecondsAfterSetup() {
+        assertRoomClear(play("MagnusBattle", party(6), 2_000), List.of(MAGNUS), true);
+    }
+
+    @Test
+    void aBotPartyKillsWillFiveSecondsAfterSetup() {
+        assertRoomClear(play("NWillBattle", party(6), 2_000), List.of(NWILL), true);
+    }
+
+    @Test
+    void aBotPartyKillsLucidFiveSecondsAfterSetup() {
+        assertRoomClear(play("NLucidBattle", party(6), 2_000), List.of(NLUCID), true);
+    }
+
+    @Test
+    void aBotPartyKillsVerusFiveSecondsAfterSetup() {
+        assertRoomClear(play("NVerusBattle", party(6), 2_000), List.of(NVERUS), true);
+    }
+
+    @Test
+    void aBotPartyKillsDarknellFiveSecondsAfterSetup() {
+        assertRoomClear(play("NDarknellBattle", party(6), 2_000), List.of(NDARKNELL), true);
     }
 
     /**
@@ -960,6 +1036,14 @@ class RowRunSimulationTest {
                     parts.add(life(ELEMENTAL_2));
                 }
                 case 270050100 -> parts.add(life(PINKBEAN_1)); // startWave one second after setup (:93-96, :306-313)
+                // 541010100 holds reactor 5411000 and no mobs: the click is what spawns Latanica
+                // scripts/event/MagnusBattle.js:91-92, NWillBattle.js:116-117, NLucidBattle.js:115-116,
+                // NVerusBattle.js:116-117, NDarknellBattle.js:116-117: each script's own spawnMob1, five seconds in.
+                case 401060100 -> pendingSpawns.put(MAGNUS, now + 5_000);
+                case 450007441 -> pendingSpawns.put(NWILL, now + 5_000);
+                case 450004751 -> pendingSpawns.put(NLUCID, now + 5_000);
+                case 450010101 -> pendingSpawns.put(NVERUS, now + 5_000);
+                case 450012211 -> pendingSpawns.put(NDARKNELL, now + 5_000);
                 default -> {
                 }
             }
@@ -1141,6 +1225,12 @@ class RowRunSimulationTest {
                     }
                     if (key.equals("5511001")) {
                         parts.add(life(SCARGA_SCARLION_1));
+                    }
+                    return;
+                }
+                case 541010100 -> {
+                    if (key.equals("5411000")) {
+                        parts.add(life(LATANICA));
                     }
                     return;
                 }
@@ -1519,6 +1609,12 @@ class RowRunSimulationTest {
                 case PINKBEAN_4 -> parts.add(life(PINKBEAN_5));
                 case PINKBEAN_5 -> parts.add(life(PINKBEAN)); // the fifteenth jr death spawns the real Pink Bean
                 case PINKBEAN -> props.put("defeatedBoss", "1"); // PinkBeanBattle.js:261, in the same call as clearPQ
+                case LATANICA -> instanceCleared = true; // LatanicaBattle.js:233-241 -> clearPQ, no property
+                case MAGNUS -> instanceCleared = true; // MagnusBattle.js:217-220, the 5 s spawn is the clear target
+                case NWILL -> instanceCleared = true; // NWillBattle.js:241-244
+                case NLUCID -> instanceCleared = true; // NLucidBattle.js:248-251
+                case NVERUS -> instanceCleared = true; // NVerusBattle.js:241-244
+                case NDARKNELL -> instanceCleared = true; // NDarknellBattle.js:255-258
                 default -> {
                 }
             }

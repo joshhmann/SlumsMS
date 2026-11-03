@@ -26,3 +26,9 @@ balrog.yaml
 scarga.yaml
 elemental.yaml
 pinkbean.yaml
+latanica.yaml
+magnus.yaml
+nwill.yaml
+nlucid.yaml
+nverus.yaml
+ndarknell.yaml

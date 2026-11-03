@@ -1,0 +1,52 @@
+# Ticket 130 boss lane, branch 164-bossrows (round 3): Normal Lucid (1.6.4).
+#
+# Read only when the server runs with -Dslums.mechanics.boss=true (off by default). One room, and the script itself
+# brings the boss five seconds in.
+#
+# What OUR scripts say the room is:
+#  - the gate is the script's own: 1-6 players, levels 200-256, one lobby (NLucidBattle.js:28-29,40);
+#  - entry is the expedition NPC (scripts/npc/9010100.js:29,152 -> startInstance(expedition)): one human character has to
+#    start it. The expedition's gate on the party is member quest 31161 (ExpeditionBots.memberQuest, :217-228), which the
+#    row cannot and must not write - a bot without it is simply not added;
+#  - 450004751 has an empty life list (Map.wz/Map/Map4/450004751.img.xml: no mobs, no NPC, no reactor). The fight is the
+#    script's spawnMob1 (NLucidBattle.js:144-149), five seconds after setup (:115-116);
+#  - 9990150 has no revive (Mob.wz/9990150.img.xml): one form, and it is also the clear target;
+#  - the clear is clearPQ -> setEventCleared(NLUCID) (NLucidBattle.js:238-241) when 9990150 dies (:243-254); "boss" is
+#    seeded "0" at :128 and never written again -> instance: true.
+#
+# Script defect worth knowing: afterSetup, respawnStages and playerEntry are each defined twice, identically
+# (NLucidBattle.js:151-157 and :159-165); the second definition wins. Nothing in the row depends on which one runs.
+#
+# The wz facts are from /root/work/SlumsMS-170-evan/wz, which is not version-pinned to this branch (docs/PROVENANCE.md).
+id: nlucid
+name: Lucid (expedition)
+kind: BOSS
+eventScript: NLucidBattle
+recruitMap: 450003600
+exitMap: 450003600
+minPlayers: 1
+maxPlayers: 6
+minLevel: 200
+maxLevel: 256
+timeLimitMinutes: 120
+sources:
+  - "scripts/event/NLucidBattle.js (ours, the truth): minPlayers 1 / maxPlayers 6 (:28), levels 200-256 (:29), entryMap 450004751 and exitMap 450003600 (:30-31), recruitMap 450003600 (:32), minMapId = maxMapId = 450004751 (:35-36), eventTime 120 (:38), maxLobbies 1 (:40), 'boss' seeded '0' (:128), clearPQ sets the instance's flag (:238-241), isLucid = 9990150 (:243-246), monsterKilled -> eim.clearPQ() (:248-254)"
+  - "scripts/event/NLucidBattle.js:115-116,144-149 - the script's own spawnMob1 spawns 9990150 at (1058,48) five seconds after setup; nothing else in the room brings a mob"
+  - "Map.wz/Map/Map4/450004751.img.xml (dump /root/work/SlumsMS-170-evan/wz): an empty life list. Mob.wz/9990150.img.xml has no info/revive"
+  - "scripts/npc/9010100.js:29,152 - the expedition NPC starts the event; ExpeditionBots.memberQuest(NLUCID) = quest 31161, so a joining bot must have started it (the row cannot write quest state)"
+stages:
+  - stage: 1
+    map: 450004751
+    name: Lucid
+    solver: boss-phases
+    # the spawn is five seconds in (:115), inside the solver's own 30 s grace, so no spawnWaitSeconds is claimed
+    mobs:
+      - 9990150
+    objectives:
+      - id: boss
+        kind: DEFEAT
+        mob: 9990150
+        note: the only spawn, and the id isLucid waits for
+    # NLucidBattle.js:238-241 writes no property; the instance's own flag is the clear.
+    clear:
+      instance: true
