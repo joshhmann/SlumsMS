@@ -16,6 +16,14 @@
 
 Current status is in `/root/work/STATUS-1.6.2.md` and the release book; the older tables below are historical.
 
+## Bot behaviour audit (owner direction, 2026-11-03)
+
+Read-only behaviour review of the population and owned-alt code paths. Documented, not changed.
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [181](181-bot-behaviour-audit-1-6-3.md) | Fix the 60 bot behaviour defects the 1.6.2 audit found | Two S1s first (a stall offer rewriting a listing below cost, merchant bots minting an item per sale), then 20 S2s by subsystem; every economy number is an owner question |
+
 ## Bot platform review (owner direction, 2026-11-01)
 
 Read-only architecture review of BotStory, nutnnut/Cosmic, SoloMapling and cosmic_agents. Documented, not changed.
