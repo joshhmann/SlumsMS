@@ -137,10 +137,15 @@ public final class ContentLobby {
             // admitted and none is leased, as it always was)
             RealRunPool.Admission admission = RealRunPool.get().admit(RealRunPool.Origin.CONTENT_LOBBY, content, 0);
             if (!admission.granted()) {
-                if (admission.announce()) {
-                    log("[Mechanics] " + content.name() + " lobby: no run on channel " + ch.getId() + ": " + admission.why());
+                // not made for real: no spawned bot, no party, no instance. Simulated when the row has real runs to be
+                // sampled from, with idle population bots of its level band to report it; otherwise it waits
+                SimulatedRuns.Attempt sim = SimulatedRuns.get().tryStart(RealRunPool.Origin.CONTENT_LOBBY, content,
+                        MechanicsModel.Tier.NORMAL, () -> SimulatedRuns.get().population(content), admission.why());
+                if (!sim.started() && admission.announce()) {
+                    log("[Mechanics] " + content.name() + " lobby: no run on channel " + ch.getId() + ": "
+                            + admission.why() + "; not simulated: " + sim.why());
                 }
-                return false; // the pool is world-wide: no other channel would be admitted either
+                return sim.started(); // one start a tick, a simulated one too; the pool is world-wide
             }
             KpqStaging.Staged staged = KpqStaging.start(content, ch, null, false, want, true, 0, 1, 0,
                     line -> log("[Mechanics] " + content.id().toUpperCase(Locale.ROOT) + " " + line), done -> {

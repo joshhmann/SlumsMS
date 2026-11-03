@@ -39,6 +39,7 @@ public final class MechanicsRuns {
     static {
         // the bots' win and loss lines are a reader of the run's outcome record, like any other (RunOutcomes)
         RunOutcomes.listen(RunChatter::onOutcome);
+        RunOutcomes.listen(RunSamples.get()::onOutcome); // the real runs a simulated one is sampled from
     }
 
     public static MechanicsRuns get() {
@@ -202,6 +203,10 @@ public final class MechanicsRuns {
         Active a = null;
         try {
             a = begin(eim, content, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd, admission);
+            if (!a.finished && !admission.origin().governed()) {
+                // a human's or a GM's run took no lease, but that row had a real pass now: it is not the stalest
+                RealRunPool.get().notePass(content.id(), a.run.tier());
+            }
             return a;
         } finally {
             if (a == null || a.finished) {
@@ -501,6 +506,7 @@ public final class MechanicsRuns {
         for (Active a : List.copyOf(active.values())) {
             stop(a, why);
         }
+        SimulatedRuns.get().stopAll(why); // a stop ends the simulated runs too, recorded abandoned: nobody reports them
     }
 
     private synchronized void finish(Active a) {
@@ -739,6 +745,7 @@ public final class MechanicsRuns {
         if (pool != null) {
             out.add(pool);
         }
+        out.addAll(SimulatedRuns.get().describe()); // empty unless the pool refused a run and it was simulated
         return out;
     }
 }

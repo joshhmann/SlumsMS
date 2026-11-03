@@ -137,8 +137,13 @@ public final class KpqLobby {
             // instance (-Dslums.mechanics.realruns unset: every run is admitted and none is leased, as it always was)
             RealRunPool.Admission admission = RealRunPool.get().admit(RealRunPool.Origin.KPQ_LOBBY, content, 0);
             if (!admission.granted()) {
-                if (admission.announce()) {
-                    log("[Mechanics] KPQ lobby: no run on channel " + ch.getId() + ": " + admission.why());
+                // not made for real: no party, no Lakelis, no instance. It is simulated when its content has real runs to
+                // be sampled from, and otherwise waits for the next tick (never faked)
+                SimulatedRuns.Attempt sim = SimulatedRuns.get().tryStart(RealRunPool.Origin.KPQ_LOBBY, content,
+                        MechanicsModel.Tier.NORMAL, () -> SimulatedRuns.party(pick), admission.why());
+                if (!sim.started() && admission.announce()) {
+                    log("[Mechanics] KPQ lobby: no run on channel " + ch.getId() + ": " + admission.why()
+                            + "; not simulated: " + sim.why());
                 }
                 return; // the pool is world-wide: no other channel would be admitted either
             }
@@ -151,6 +156,7 @@ public final class KpqLobby {
     static boolean free(Character c) {
         try {
             if (c.isOwnedAlt() || c.getParty() != null || c.getEventInstance() != null || c.getHp() <= 0
+                    || SimulatedRuns.get().busy(c.getId()) // named by a simulated run still in flight
                     || MechanicsHold.committed(c) || !bagRoom(c.getInventory(client.inventory.InventoryType.ETC)
                     .getNumFreeSlot())) {
                 return false;

@@ -664,6 +664,51 @@ This is the quota half, shipped **inert**, and the record every run's end writes
   yet**: the ring is lost on restart; the durable table is a numbered migration with its rollback, not written.
 - Tests: `RealRunPoolTest`, `MechanicsRunsPoolTest`, `RealRunAdmissionSitesTest`, `RunOutcomeTest`.
 
+### Simulated runs and rotation (same branch, second half)
+
+A bot-only run the pool refuses is **simulated instead of dropped**, behind the same switch: with `realruns` unset nothing is
+ever refused, so nothing is ever simulated (pinned with warm samples in hand). Switches: `-Dslums.mechanics.simruns=N`
+(simulated runs in flight, default 8; `0` = a refused run is simply not made), `-Dslums.mechanics.simfloor=N` (real runs a
+simulation needs, default 5, never below 1).
+
+- **What a simulated run is.** `SimulatedRuns.tryStart`, called by `KpqLobby.tick` and `ContentLobby.tickRow` where they used to
+  only log the refusal. No `EventInstanceManager`, no party, no word with Lakelis, no spawned bot, no `MechanicsHold`, no brain
+  stopped, no map kept at full physics, no tick: one scheduled task and one `RunOutcome` with `Mode.SIMULATED`, written after
+  the sampled duration. The bots' win and loss lines read that record like any other's. It **holds nobody**: it only names its
+  bots so no lobby puts them in a second run meanwhile (`SimulatedRuns.busy`, read by `KpqLobby.free`), and a bot that has
+  logged out by the end simply says nothing. Kerning names the bots its lobby picked; a content-lobby row has none standing at
+  its door, so the run borrows idle population bots of the row's level band (online, running, in no party or event, not an
+  owned alt, not held) and, with none, waits.
+- **It samples, it never invents.** `RunSamples` keeps the last 20 real runs per content and tier: `REAL`, `WON` or `LOST`, no
+  human, started by a lobby (not a GM's or QA's staged run, not a human's). Win or lose with the share of wins they had, then
+  the duration, stage and reason of one that ended that way. **Fewer than the floor: it waits** - `WAITING_FOR_SAMPLES`, the
+  lobby asks again next tick, nothing is made and nothing is faked. A simulated run is never a sample. Memory only: after a
+  restart every key is below the floor until played for real.
+- **Rotation.** A free place goes to the stalest content and tier that has asked in the last three minutes (last real pass
+  oldest; never real is oldest; ties: content id, then tier, so arrival order never matters). Real passes are a lease granted
+  or a human's or GM's run (`RealRunPool.notePass`). A staler key outranking the asker is why a free place can still be
+  refused ("a place is free but opq has waited longer for a real run"); the asker then simulates or waits. A cold content has
+  never been real, so it is first in line: waiting for samples is how it gets its real pass.
+- **Never promoted, never demoted.** A simulated run is simulated from its start to its end; a place freeing up does not touch
+  it, and a real run keeps its place whatever happens. A run with a human in it is never simulated (`NOT_ALLOWED`) and
+  never reaches the pool; `MechanicsRuns.stopAll` (`!mechanics stop`, QA) ends simulated runs too, recorded `ABANDONED`, which no
+  bot talks about.
+- **What a simulated run does NOT do, said loudly.** It makes no item, no mesos, gives no EXP and no quest point, fires no
+  achievement, writes no social memory and casts no trend vote. **It never touches the boss log: no `bosslog_*` attempt, no
+  completion, no leaderboard row, no daily or weekly entry used or refunded.** A player's entry quota and the public boss
+  board are only ever moved by a real run. (No party quest touches the boss log anyway; a boss row has no lobby, so no
+  simulated boss run exists. `BOT_INSTANCE`, the one site that can refuse a run whose instance already exists, is not
+  simulated: there is nothing to simulate, the instance is already there, and the refusal leaves it to its humans.) The only
+  trace of a simulated run is its `RunOutcome` (mode `SIMULATED`, with the real runs it was sampled from), one
+  `[Mechanics] simulated run ...` log line and the bots' chat.
+- **Unproven**: nothing ran on a server; the lobbies' scans, scheduler and chatter are proven against mocks and the real
+  tick/stop paths. The outcome ring and the samples are memory only. CPU/GC cost of a held run versus a pool of leases was not
+  measured. A content-lobby simulated run names population bots it never asked (their bags and lives are untouched, but they
+  will say "we beat Orbis PQ" wherever they stand: owner's call whether that is acceptable, or whether they should be
+  `away`). Tiers are always `NORMAL` on this base (`MechanicsRuns.begin` hard-codes it), so the tier half of the keys is
+  untested against real tiers.
+- Tests: `RealRunRotationTest`, `RunSamplesTest`, `SimulatedRunsTest`, `SimulatedRunSitesTest`.
+
 ## QA plan
 
 - **Unit:** every content YAML loads clean; answers/rectangles/items are re-read from our scripts and compared

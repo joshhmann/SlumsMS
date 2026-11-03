@@ -85,6 +85,21 @@ public final class Mechanics {
      * real player in it, and a GM's or QA's staged run, never counts against it and is never refused ({@link RealRunPool}).
      */
     public static final String REAL_RUNS_FLAG = "slums.mechanics.realruns";
+
+    /**
+     * How many simulated runs may be in flight at once: {@code -Dslums.mechanics.simruns=N} (default {@value #DEFAULT_SIM_RUNS}).
+     * A simulated run only exists where {@link #REAL_RUNS_FLAG} refused a bot-only run, so this is moot while that switch is
+     * unset. {@code 0}: nothing is simulated, a refused run is simply not made.
+     */
+    public static final String SIM_RUNS_FLAG = "slums.mechanics.simruns";
+    public static final int DEFAULT_SIM_RUNS = 8;
+
+    /**
+     * How many real bot-only runs of a content and tier a simulated run needs to be sampled from:
+     * {@code -Dslums.mechanics.simfloor=N} (default {@value #DEFAULT_SIM_FLOOR}). Below it the run waits; it is never faked.
+     */
+    public static final String SIM_FLOOR_FLAG = "slums.mechanics.simfloor";
+    public static final int DEFAULT_SIM_FLOOR = 5;
     public static final String DIR_PROPERTY = "slums.mechanics.dir";
     public static final String DEFAULT_DIR = "src/main/java/soloMapling/mechanics/content";
 
@@ -110,6 +125,28 @@ public final class Mechanics {
             return Integer.parseInt(raw.trim());
         } catch (NumberFormatException e) {
             return -1;
+        }
+    }
+
+    /** The most simulated runs in flight ({@link #SIM_RUNS_FLAG}); never negative. */
+    public static int simulatedRunCapacity() {
+        return nonNegative(SIM_RUNS_FLAG, DEFAULT_SIM_RUNS);
+    }
+
+    /** The real runs a simulated one needs to sample ({@link #SIM_FLOOR_FLAG}); at least 1, so nothing is invented from nothing. */
+    public static int simulatedFloor() {
+        return Math.max(1, nonNegative(SIM_FLOOR_FLAG, DEFAULT_SIM_FLOOR));
+    }
+
+    private static int nonNegative(String key, int fallback) {
+        String raw = System.getProperty(key);
+        if (raw == null || raw.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Math.max(0, Integer.parseInt(raw.trim()));
+        } catch (NumberFormatException e) {
+            return fallback;
         }
     }
 

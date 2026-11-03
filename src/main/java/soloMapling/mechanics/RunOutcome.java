@@ -31,11 +31,12 @@ import java.util.List;
  * @param stagesToPlay  the last stage the run was to play
  * @param humanAtStart  a real player was in the run when it started
  * @param humanAtEnd    a real player was still a member when it ended
+ * @param simulated     for a simulated run, the real runs its result was sampled from; null for a played one
  */
 public record RunOutcome(String runId, String instanceKey, String contentId, String contentName, Kind kind, Tier tier,
                          Result result, String reason, Mode mode, Origin origin, long startedAtMs, long endedAtMs,
                          int stageReached, int stagesToPlay, List<Participant> participants, boolean humanAtStart,
-                         boolean humanAtEnd) {
+                         boolean humanAtEnd, Basis simulated) {
 
     /** How the run ended, as far as anyone has something to say about it. */
     public enum Result {
@@ -59,6 +60,22 @@ public record RunOutcome(String runId, String instanceKey, String contentId, Str
     public RunOutcome {
         participants = List.copyOf(participants);
         reason = reason == null ? "" : reason;
+    }
+
+    /** A played run's outcome: nothing was sampled. */
+    public RunOutcome(String runId, String instanceKey, String contentId, String contentName, Kind kind, Tier tier,
+                      Result result, String reason, Mode mode, Origin origin, long startedAtMs, long endedAtMs,
+                      int stageReached, int stagesToPlay, List<Participant> participants, boolean humanAtStart,
+                      boolean humanAtEnd) {
+        this(runId, instanceKey, contentId, contentName, kind, tier, result, reason, mode, origin, startedAtMs,
+                endedAtMs, stageReached, stagesToPlay, participants, humanAtStart, humanAtEnd, null);
+    }
+
+    /**
+     * What a {@link Mode#SIMULATED} result was drawn from: how many real runs of the same content and tier, and the share of
+     * them that were won (the odds the win-or-lose draw was made with). Null for a played run.
+     */
+    public record Basis(int samples, double pWin) {
     }
 
     /** How long the run lasted, from its start to its end. */
@@ -110,6 +127,9 @@ public record RunOutcome(String runId, String instanceKey, String contentId, Str
                 + origin + (tier == Tier.NORMAL ? "" : " tier " + tier) + " in " + instanceKey + " after "
                 + durationMs() / 1000 + " s (stage " + stageReached + " of " + stagesToPlay + "), "
                 + ofKind(ParticipantKind.PLAYER).size() + " player(s), " + ofKind(ParticipantKind.BOT).size() + " bot(s), "
-                + ofKind(ParticipantKind.OWNED_ALT).size() + " owned alt(s): " + reason + " [" + runId + "]";
+                + ofKind(ParticipantKind.OWNED_ALT).size() + " owned alt(s): " + reason
+                + (simulated == null ? "" : " (sampled from " + simulated.samples() + " real runs, pWin "
+                + String.format(java.util.Locale.ROOT, "%.2f", simulated.pWin()) + ")")
+                + " [" + runId + "]";
     }
 }

@@ -2,6 +2,7 @@ package soloMapling.mechanics;
 
 import soloMapling.mechanics.MechanicsModel.Content;
 import soloMapling.mechanics.MechanicsModel.Stage;
+import soloMapling.mechanics.MechanicsModel.Tier;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -94,13 +95,22 @@ public final class RealRunPool {
         private final String why;
         private final boolean announce;
 
-        private Admission(boolean granted, Origin origin, Lease lease, RealRunPool pool, String why, boolean announce) {
+        private final boolean rotation;
+
+        private Admission(boolean granted, Origin origin, Lease lease, RealRunPool pool, String why, boolean announce,
+                          boolean rotation) {
             this.granted = granted;
             this.origin = origin;
             this.lease = lease;
             this.pool = pool;
             this.why = why;
             this.announce = announce;
+            this.rotation = rotation;
+        }
+
+        /** Whether a free place was refused because another content has waited longer, rather than because none is free. */
+        public boolean byRotation() {
+            return rotation;
         }
 
         public boolean granted() {
@@ -141,6 +151,8 @@ public final class RealRunPool {
     static final long LOG_GAP_MS = 10 * 60_000L;
     /** Added to a run's own clock before its lease may be reaped: the spawn, the walk to the NPC and the staging. */
     static final long TTL_MARGIN_MS = 2 * 60_000L;
+    /** How long an ask counts as "wants a real run": three lobby ticks (the lobbies tick once a minute). */
+    static final long WANT_WINDOW_MS = 3 * 60_000L;
 
     private static final RealRunPool INSTANCE = new RealRunPool(Mechanics::realRunCapacity, System::currentTimeMillis);
 
@@ -152,6 +164,8 @@ public final class RealRunPool {
     private final LongSupplier clock;
     private final List<Lease> leases = new ArrayList<>();
     private final Map<String, Long> lastAnnounced = new HashMap<>();
+    private final Map<RunKey, Long> lastReal = new HashMap<>();
+    private final Map<RunKey, Long> wanting = new HashMap<>();
 
     /** Tests build their own: a quota and a clock they control. */
     RealRunPool(IntSupplier capacity, LongSupplier clock) {
@@ -161,29 +175,104 @@ public final class RealRunPool {
 
     /** An always-real run that is never counted and never refused (a human's run, a GM's or QA's staged run). */
     public static Admission exempt(Origin origin) {
-        return new Admission(true, origin, null, null, null, false);
+        return new Admission(true, origin, null, null, null, false, false);
     }
 
     /**
-     * Asks whether a bot-only run of {@code content} may be made now, for the one that has a lease taken for it when
-     * the pool counts. {@code budgetMs} is the run's own time budget (0: the content's).
+     * Asks whether a bot-only run of {@code content} (at {@link Tier#NORMAL}) may be made now. See
+     * {@link #admit(Origin, Content, Tier, long)}.
      */
     public synchronized Admission admit(Origin origin, Content content, long budgetMs) {
+        return admit(origin, content, Tier.NORMAL, budgetMs);
+    }
+
+    /**
+     * Asks whether a bot-only run of {@code content} at {@code tier} may be made now, for the one that has a lease taken
+     * for it when the pool counts. {@code budgetMs} is the run's own time budget (0: the content's).
+     *
+     * <p><b>Rotation.</b> A free place does not simply go to whoever asks first. Every ask is remembered for
+     * {@link #WANT_WINDOW_MS}; a free place goes to the <em>stalest</em> of the {@link RunKey}s that have asked in that
+     * window - the one whose last real pass (a lease granted, or a human's or a GM's run, {@link #notePass}) is oldest -
+     * and any other asker is refused with that as the reason. A key that has never been real is the stalest of all. Ties
+     * break on content id, then tier ({@link #stalest}), so the order never depends on who asked first. This is what lets
+     * every row have a real pass eventually while the lobbies only ever ask one at a time.
+     */
+    public synchronized Admission admit(Origin origin, Content content, Tier tier, long budgetMs) {
         int cap = capacity.getAsInt();
         if (cap < 0) {
-            return new Admission(true, origin, null, null, null, false); // phase 1: nothing counted, nothing made
+            return new Admission(true, origin, null, null, null, false, false); // phase 1: nothing counted, nothing made
         }
         long now = clock.getAsLong();
         reap(now);
+        RunKey key = new RunKey(content.id(), tier);
+        wanting.values().removeIf(at -> now - at > WANT_WINDOW_MS);
+        wanting.put(key, now);
         if (leases.size() >= cap) {
             String why = cap == 0
                     ? "the real-run pool admits none (-D" + Mechanics.REAL_RUNS_FLAG + "=0)"
                     : "the real-run pool is full (" + leases.size() + " of " + cap + " held: " + holders(now) + ")";
-            return new Admission(false, origin, null, null, why, announceDue(origin, content, now));
+            return new Admission(false, origin, null, null, why, announceDue(origin, content, now), false);
         }
+        RunKey first = stalest(wanting.keySet(), k -> lastReal.getOrDefault(k, 0L));
+        if (!first.equals(key)) {
+            String why = "a place is free but " + first + " has waited longer for a real run (last real "
+                    + (lastReal.containsKey(first) ? (now - lastReal.get(first)) / 60_000 + " min ago" : "never") + ")";
+            return new Admission(false, origin, null, null, why, announceDue(origin, content, now), true);
+        }
+        wanting.remove(key);
+        lastReal.put(key, now);
         Lease lease = new Lease(content.id(), origin, now, now + ttlMs(content, budgetMs));
         leases.add(lease);
-        return new Admission(true, origin, lease, this, null, false);
+        return new Admission(true, origin, lease, this, null, false, false);
+    }
+
+    /**
+     * A content and tier: what rotation orders, and what a simulated run is sampled by. The unit "a row gets a real pass".
+     */
+    public record RunKey(String contentId, Tier tier) {
+        @Override
+        public String toString() {
+            return contentId + (tier == Tier.NORMAL ? "" : "/" + tier);
+        }
+    }
+
+    /**
+     * The key that has waited longest for a real run: the smallest {@code lastReal}, ties broken by content id, then
+     * tier. Pure: no clock, no order of arrival.
+     */
+    static RunKey stalest(java.util.Collection<RunKey> candidates, java.util.function.ToLongFunction<RunKey> lastReal) {
+        RunKey best = null;
+        for (RunKey k : candidates) {
+            if (best == null || compare(k, best, lastReal) < 0) {
+                best = k;
+            }
+        }
+        return best;
+    }
+
+    private static int compare(RunKey a, RunKey b, java.util.function.ToLongFunction<RunKey> lastReal) {
+        int byTime = Long.compare(lastReal.applyAsLong(a), lastReal.applyAsLong(b));
+        if (byTime != 0) {
+            return byTime;
+        }
+        int byContent = a.contentId().compareTo(b.contentId());
+        return byContent != 0 ? byContent : a.tier().compareTo(b.tier());
+    }
+
+    /**
+     * A real run that holds no lease started (a human's party, a GM's or QA's staged run): that row had a real pass now, so
+     * it is not the stalest. Nothing is tracked while the pool is unlimited.
+     */
+    public synchronized void notePass(String contentId, Tier tier) {
+        if (capacity.getAsInt() < 0) {
+            return;
+        }
+        lastReal.put(new RunKey(contentId, tier), clock.getAsLong());
+    }
+
+    /** When this key last had a real pass (a lease granted or a noted pass), or -1. Always -1 while the pool is unlimited. */
+    public synchronized long lastReal(RunKey key) {
+        return lastReal.getOrDefault(key, -1L);
     }
 
     private boolean announceDue(Origin origin, Content content, long now) {
@@ -270,5 +359,7 @@ public final class RealRunPool {
     synchronized void clearForTest() {
         leases.clear();
         lastAnnounced.clear();
+        lastReal.clear();
+        wanting.clear();
     }
 }
