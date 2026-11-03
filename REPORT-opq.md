@@ -1046,7 +1046,7 @@ chest names it in `hitReactor`, the ore chest preferred where a room has both.
 
 **Still not claimed:** a whole-row simulation. The ordering removes the arithmetic wall the earlier run hit (stage 17 with
 six ores, then one, then the 30-minute budget), but the simulation test is not yet green on this row, so the mines are
-"unit-tested and ordered", not "played end to end". The suite is green on this tree (8622 / 0 / 0 / 137, `/tmp/opq-tiers.log`,
+"unit-tested and ordered", not "played end to end". The suite is green on this tree (8622 / 0 / 0 / 137, `/tmp/opq-4boss.log`,
 zero `<<< FAILURE` markers), and `tools/ops/map-integrity` stays clean over all thirty maps.
 
 ## Pre-Horntail PQ: read to the end, and it is not completable (no row)
@@ -1180,6 +1180,8 @@ was a `Wait` step. Four tests, one per boss.
 **Integrity, not assurance**: `MechanicsRowWzIntegrityTest` reads every row in `index.txt` and checks each map and mob id
 against the dump (`-Dwz-path=…`, skip without it), with a negative control so a green run cannot be vacuous; and
 `tools/ops/map-integrity` over the eight maps these four rows name reports 8 maps scanned and zero problems of any kind.
+The whole-suite number is 8635 with 138 skipped rather than 137: the skip is `MechanicsRowWzIntegrityTest` doing its job in
+a checkout with no `wz/` folder to read.
 
 Two script warts left alone and reported rather than copied: each script's `eventTime = 120` sits next to a comment saying
 45 minutes (the value wins, and the row says 120), and `respawnStages(eim)` is defined three times in `NLucidBattle.js`.
@@ -1403,12 +1405,12 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8627 tests, 0 failures, 0 errors, 137 skipped,
+`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8635 tests, 0 failures, 0 errors, 137 skipped,
 BUILD SUCCESS, `EXIT=0`, zero `<<< FAILURE` markers** (`/tmp/opq-zak3.log`). That is the number this report treats as the
 suite's proof. Two runs before it were also clean at 8609 each, which is what proved the `BotConversationFlowTest`
 selector fix rather than asserting it (`/tmp/opq-flake-A.log`, `/tmp/opq-flake-B.log`, both `EXIT=0`).
 
-The ladder, so the next number is comparable: 8627 (HPQ/LPQ/OPQ's HARD band + `TierScaling` + `TierScalingTest`) -> 8622 (the ore-ordered Pre-Zakum row + `enoughOreRoomsComeBeforeTheBigChestToFeedIt`) -> 8621 (Pre-Zakum: 59 generated stages, `zakum-mines`, `zakum-hand-in` folded in) -> 8616 (the eight BossRush rows + `BossRushRowTest`) -> 8612 (the `loopTo:` primitive) -> 8609 (the flake fix, twice) -> 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
+The ladder, so the next number is comparable: 8635 (the four Normal-tier boss rows + `spawnAfter` + the row/WZ integrity pass) -> 8627 (HPQ/LPQ/OPQ's HARD band + `TierScaling` + `TierScalingTest`) -> 8622 (the ore-ordered Pre-Zakum row + `enoughOreRoomsComeBeforeTheBigChestToFeedIt`) -> 8621 (Pre-Zakum: 59 generated stages, `zakum-mines`, `zakum-hand-in` folded in) -> 8616 (the eight BossRush rows + `BossRushRowTest`) -> 8612 (the `loopTo:` primitive) -> 8609 (the flake fix, twice) -> 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
 one class) -> 8597 (`/tmp/opq-ellin4.log`, Ellin six of six) -> 8592 (`/tmp/opq-cwkpq2.log`) -> 8590 -> 8586 -> 8585 ->
 8582 -> 8577 -> 8573 -> 8567 -> 8562 -> 8552 -> 8541 -> 8532 -> 8529 -> 8515.
 
