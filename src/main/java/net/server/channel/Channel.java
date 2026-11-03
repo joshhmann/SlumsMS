@@ -99,8 +99,12 @@ public final class Channel {
 
     private final List<Integer> chapelReservationQueue = new LinkedList<>();
     private final List<Integer> cathedralReservationQueue = new LinkedList<>();
-    private ScheduledFuture<?> chapelReservationTask;
-    private ScheduledFuture<?> cathedralReservationTask;
+    /** A booked wedding whose couple has until WEDDING_RESERVATION_TIMEOUT to start the ceremony, and its timeout task. */
+    private record PendingWedding(BookedWedding wedding, ScheduledFuture<?> task) {
+    }
+
+    private PendingWedding chapelPending;
+    private PendingWedding cathedralPending;
 
     private Integer ongoingChapel = null;
     private Boolean ongoingChapelType = null;
@@ -764,7 +768,7 @@ public final class Channel {
         }
     }
 
-    public Pair<Boolean, Pair<Integer, Set<Integer>>> getNextWeddingReservation(boolean cathedral) {
+    public BookedWedding getNextWeddingReservation(boolean cathedral) {
         Integer ret;
 
         lock.lock();
@@ -790,7 +794,7 @@ public final class Channel {
         Pair<String, String> couple = new Pair<>(Character.getNameById(coupleId.getLeft()), Character.getNameById(coupleId.getRight()));
         wserv.dropMessage(6, couple.getLeft() + " and " + couple.getRight() + "'s wedding is going to be started at " + (cathedral ? "Cathedral" : "Chapel") + " on Channel " + channel + ".");
 
-        return new Pair<>(typeGuests.getLeft(), new Pair<>(ret, typeGuests.getRight()));
+        return new BookedWedding(typeGuests.getLeft(), ret, typeGuests.getRight(), coupleId.getLeft(), coupleId.getRight());
     }
 
     public boolean isWeddingReserved(Integer weddingId) {
@@ -911,9 +915,19 @@ public final class Channel {
         }
     }
 
-    public void setOngoingWedding(final boolean cathedral, Boolean premium, Integer weddingId, Set<Integer> guests) {
+    /**
+     * Opens the venue for {@code wedding} (null: nobody is due this slot). The couple has WEDDING_RESERVATION_TIMEOUT
+     * minutes to start the ceremony; see {@link #expireOngoingWedding}.
+     */
+    public void setOngoingWedding(final boolean cathedral, BookedWedding wedding) {
+        BookedWedding lapsed = takePendingWedding(cathedral);   // the previous couple never showed up and its timeout has not fired yet
+
         lock.lock();
         try {
+            Integer weddingId = (wedding != null) ? wedding.weddingId() : null;
+            Boolean premium = (wedding != null) ? wedding.premium() : null;
+            Set<Integer> guests = (wedding != null) ? wedding.guests() : null;
+
             if (cathedral) {
                 ongoingCathedral = weddingId;
                 ongoingCathedralType = premium;
@@ -928,35 +942,72 @@ public final class Channel {
         }
 
         ongoingStartTime = System.currentTimeMillis();
-        if (weddingId != null) {
-            ScheduledFuture<?> weddingTask = TimerManager.getInstance().schedule(() -> closeOngoingWedding(cathedral), MINUTES.toMillis(YamlConfig.config.server.WEDDING_RESERVATION_TIMEOUT));
+        if (wedding != null) {
+            synchronized (this) {   // the timeout task claims the pending wedding under this monitor, so it waits for the line below
+                ScheduledFuture<?> weddingTask = TimerManager.getInstance().schedule(() -> expireOngoingWedding(cathedral, wedding), MINUTES.toMillis(YamlConfig.config.server.WEDDING_RESERVATION_TIMEOUT));
 
-            if (cathedral) {
-                cathedralReservationTask = weddingTask;
-            } else {
-                chapelReservationTask = weddingTask;
+                if (cathedral) {
+                    cathedralPending = new PendingWedding(wedding, weddingTask);
+                } else {
+                    chapelPending = new PendingWedding(wedding, weddingTask);
+                }
             }
+        }
+
+        if (lapsed != null) {
+            WeddingTicketRefund.refund(getWorldServer(), cathedral, lapsed);
         }
     }
 
     public synchronized boolean acceptOngoingWedding(final boolean cathedral) {     // couple succeeded to show up and started the ceremony
-        if (cathedral) {
-            if (cathedralReservationTask == null) {
-                return false;
-            }
+        return takePendingWedding(cathedral) != null;
+    }
 
-            cathedralReservationTask.cancel(false);
-            cathedralReservationTask = null;
-        } else {
-            if (chapelReservationTask == null) {
-                return false;
-            }
-
-            chapelReservationTask.cancel(false);
-            chapelReservationTask = null;
+    /** Claims the wedding still waiting for its couple and stops its timeout; whoever gets it back owns what follows. */
+    private synchronized BookedWedding takePendingWedding(boolean cathedral) {
+        PendingWedding pending = cathedral ? cathedralPending : chapelPending;
+        if (pending == null) {
+            return null;
         }
 
-        return true;
+        if (cathedral) {
+            cathedralPending = null;
+        } else {
+            chapelPending = null;
+        }
+
+        pending.task().cancel(false);
+        return pending.wedding();
+    }
+
+    /**
+     * The WEDDING_RESERVATION_TIMEOUT task: the couple did not start the ceremony in time, so the venue is closed and
+     * the booking ticket goes back to them. Does nothing when the couple got in first or the slot has moved on.
+     */
+    void expireOngoingWedding(boolean cathedral, BookedWedding wedding) {
+        synchronized (this) {
+            PendingWedding pending = cathedral ? cathedralPending : chapelPending;
+            if (pending == null || pending.wedding() != wedding) {
+                return;
+            }
+
+            if (cathedral) {
+                cathedralPending = null;
+            } else {
+                chapelPending = null;
+            }
+        }
+
+        lock.lock();
+        try {
+            if (Integer.valueOf(wedding.weddingId()).equals(getOngoingWedding(cathedral))) {
+                closeOngoingWedding(cathedral);
+            }
+        } finally {
+            lock.unlock();
+        }
+
+        WeddingTicketRefund.refund(getWorldServer(), cathedral, wedding);
     }
 
     private static String getTimeLeft(long futureTime) {
@@ -1001,6 +1052,11 @@ public final class Channel {
         return MINUTES.toMillis((long) resSlot * YamlConfig.config.server.WEDDING_RESERVATION_INTERVAL);
     }
 
+    /**
+     * "Cathedral - 12 minutes, 3 seconds from now", "Chapel - RIGHT NOW" or, once the booked start time has passed but
+     * the reservation task has not reached the couple yet, "Cathedral - very soon" (never a time the text calls null).
+     * Null only when this channel holds no reservation for the wedding.
+     */
     public String getWeddingReservationTimeLeft(Integer weddingId) {
         if (weddingId == null) {
             return null;
@@ -1026,7 +1082,8 @@ public final class Channel {
                 return venue + " - RIGHT NOW";
             }
 
-            return venue + " - " + getTimeLeft(ongoingStartTime + MINUTES.toMillis((long) resStatus * YamlConfig.config.server.WEDDING_RESERVATION_INTERVAL)) + " from now";
+            String timeLeft = getTimeLeft(ongoingStartTime + MINUTES.toMillis((long) resStatus * YamlConfig.config.server.WEDDING_RESERVATION_INTERVAL));
+            return venue + " - " + (timeLeft != null ? timeLeft + " from now" : "very soon");
         } finally {
             lock.unlock();
         }
@@ -1092,13 +1149,13 @@ public final class Channel {
         log.debug(" ----- CH. {} -----", channel);
         log.debug(" ----- CATHEDRAL -----");
         log.debug("Current Queue: {}", cathedralReservationQueue);
-        log.debug("Cancel Task?: {}", cathedralReservationTask != null);
+        log.debug("Cancel Task?: {}", cathedralPending != null);
         log.debug("Ongoing wid: {}", ongoingCathedral);
         log.debug("Ongoing wid: {}, isPremium: {}", ongoingCathedral, ongoingCathedralType);
         log.debug("Guest list: {}", ongoingCathedralGuests);
         log.debug(" ----- CHAPEL -----");
         log.debug("Current Queue: {}", chapelReservationQueue);
-        log.debug("Cancel Task?: {}", chapelReservationTask != null);
+        log.debug("Cancel Task?: {}", chapelPending != null);
         log.debug("Ongoing wid: {}", ongoingChapel);
         log.debug("Ongoing wid: {}, isPremium: {}", ongoingChapel, ongoingChapelType);
         log.debug("Guest list: {}", ongoingChapelGuests);

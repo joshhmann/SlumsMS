@@ -580,14 +580,13 @@ public class DueyProcessor {
         }
     }
 
-    public static void dueyCreatePackage(Item item, int mesos, String sender, int recipientCid) {
+    /** @return whether the parcel and its item were stored (false for a bot recipient or a database failure) */
+    public static boolean dueyCreatePackage(Item item, int mesos, String sender, int recipientCid) {
         if (soloMapling.ArtificialPlayer.BotHelpers.isArtificial(recipientCid)) {
-            return; // bots never receive Duey parcels (e.g. a wedding invitation to a bot guest)
+            return false; // bots never receive Duey parcels (e.g. a wedding invitation to a bot guest)
         }
         int packageId = createPackage(mesos, null, sender, recipientCid, false);
-        if (packageId != -1) {
-            insertPackageItem(packageId, item);
-        }
+        return packageId != -1 && insertPackageItem(packageId, item);
     }
 
     public static void runDueyExpireSchedule() {
