@@ -1292,3 +1292,20 @@ the head that includes every commit in the table above).
 - **"Off means byte-identical" needed one more edit than the plan counted**: `MapleMap`'s un-fake block had to become a
   named method to be asked about two families, so the chaos-off bytes differ in shape while answering the same ids.
 - **Not honoured**: `mobDamageMultiplier` and `mobLevelBonus` (section 4). Everything reachable was built.
+
+## Round 12 housekeeping (same branch): two comments, and the release branch merged forward
+
+`12ae85ec9` moves two `MobId` javadocs onto the methods they describe (`shieldingArms` had lost its own paragraph to
+`shieldedBodyOf`); comment only, the shield tests are unchanged at 9/9. `8a16344cb` is `git merge release-1.6.4`: the
+release tip carried one commit since this branch's base (`6d18f961e`, which adds `tools/ops/helper-checkout` and edits one
+line of `docs/sessions/EXTERNAL-AGENTS.md`), so the merge was clean - **no conflicts, nothing resolved by hand**, and the
+branch now contains the release tip. Full suite on that head: **`Tests run: 8634, Failures: 0, Errors: 0, Skipped: 138,
+BUILD SUCCESS`** (37:23), all switches unset.
+
+One thing the merge turn should know: an earlier full run on this head failed once in
+`soloMapling.ArtificialPlayer.BotConversationFlowTest.aRefusedPartyAskIsPlannedFromTheGatesVerdict` (the prompt it read
+was a HELLO plan where it wanted the party verdict). It is not this branch's code: the same 412-test group is green on
+`1242af89a` and on the release tip in a scratch worktree, and green four times in a row on this head. That test reads
+`asked.get(0)` - the *first* prompt the shared fake brain receives - so it depends on which of the reply path's brain
+calls lands first, which is why a loaded JVM can see it and a quiet one cannot. Left alone: it is the conversation lane's
+test, and a green re-run was cheaper than an opinion about its design.
