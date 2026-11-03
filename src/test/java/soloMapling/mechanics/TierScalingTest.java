@@ -17,6 +17,7 @@ import java.util.Random;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -183,10 +184,12 @@ class TierScalingTest {
     @Test
     void aRowWithoutTheTierScalesNothing() {
         System.setProperty(TierScaling.FLAG, "true");
-        RunState run = run(MechanicsRuns.contentFor("KerningPQ"), Tier.HARD);
+        MechanicsModel.Content row = MechanicsRuns.contentFor("OrbisPQ");
+        assertTrue(row.rules(Tier.HARD).isEmpty(), "only kpq.yaml names a tier today");
+        RunState run = run(row, Tier.HARD);
         Monster listed = mob(1210102, 1_000);
 
-        assertNull(TierScaling.rulesFor(run), "kpq.yaml names no tiers, so HARD has no numbers to apply");
+        assertNull(TierScaling.rulesFor(run), "orbis.yaml names no tiers, so HARD has no numbers to apply");
         assertEquals(0, TierScaling.applyTo(run, room(run, List.of(listed))));
     }
 
