@@ -14,6 +14,15 @@ final class ProbesGear {
     private ProbesGear() { }
 
     static List<String> probe(String name, SyntheticPlayer player) {
+        if ("normalGearBridge".equals(name)) {
+            if (!soloMapling.crafting.NormalGearBridge.isEnabled())
+                return List.of("SKIP needs -D" + soloMapling.crafting.NormalGearBridge.PROPERTY + "=true");
+            try {
+                return soloMapling.crafting.NormalGearBridge.verifyActiveDrops();
+            } catch (Exception e) {
+                return List.of("FAIL normal bridge guide/drop verification: " + e.getClass().getSimpleName());
+            }
+        }
         if (!"forgeCoreExchange".equals(name)) return null;
         if (!WeaponCoreExchange.isEnabled()) {
             return List.of("SKIP needs -D" + WeaponCoreExchange.PROPERTY + "=true");

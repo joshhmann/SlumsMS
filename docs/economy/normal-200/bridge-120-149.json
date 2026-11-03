@@ -1,5 +1,5 @@
 {
-  "status": "proposal; no SQL or combat changes activated",
+  "status": "1.6.4 approved local loot/guide candidate; TEST and client/combat proof pending",
   "rate_policy": "drop-policy.json",
   "sources_per_item": 2,
   "bands": [

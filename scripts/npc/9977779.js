@@ -8,14 +8,16 @@ const MenuOption = {
     StringMap: {
         0 : "Crafting Equipment",
         1 : "Refining Minerals",
-        2 : "Exchange weapon cores"
+        2 : "Exchange weapon cores",
+        3 : "Normal equipment guide"
     },
     CraftingEquipment: 0,
     RefiningMinerals: 1,
-    CoreExchange: 2
+    CoreExchange: 2,
+    NormalGearGuide: 3
 }
 
-const selectionMenuOptions = [ MenuOption.CraftingEquipment, MenuOption.RefiningMinerals, MenuOption.CoreExchange ];
+const selectionMenuOptions = [ MenuOption.CraftingEquipment, MenuOption.RefiningMinerals, MenuOption.CoreExchange, MenuOption.NormalGearGuide ];
 
 let currentInteraction;
 let status;
@@ -44,6 +46,7 @@ function action(mode, type, selection) {
 
         for (let option of selectionMenuOptions) {
             if (option === MenuOption.CoreExchange && !Java.type('soloMapling.crafting.WeaponCoreExchange').isEnabled()) continue;
+            if (option === MenuOption.NormalGearGuide && !Java.type('soloMapling.crafting.NormalGearBridge').isEnabled()) continue;
             selStr += `\r\n#L${option}# ${MenuOption.StringMap[option]}#l`;
         }
 
@@ -51,6 +54,14 @@ function action(mode, type, selection) {
         return;
     } else if (status === 1) {
         switch (selection) {
+            case MenuOption.NormalGearGuide:
+                if (!Java.type('soloMapling.crafting.NormalGearBridge').isEnabled()) {
+                    cm.dispose();
+                    return;
+                }
+                load('scripts/npc/interactions/NormalGearGuide.js');
+                currentInteraction = new NormalGearGuideInteraction(cm);
+                break;
             case MenuOption.CraftingEquipment:
                 load('scripts/npc/interactions/CraftingEquipment.js');
                 currentInteraction = new CraftingEquipmentInteraction(cm);

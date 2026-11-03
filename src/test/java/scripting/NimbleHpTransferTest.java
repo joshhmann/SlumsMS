@@ -9,6 +9,26 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class NimbleHpTransferTest {
+    @Test void cleanSwordTransferIncludesFullAttackAndConfiguredPercentage() {
+        double attack=config.YamlConfig.config.server.STARFORCE_BOOST_PERCENTAGE;
+        double stats=config.YamlConfig.config.server.STARFORCE_BOOST_PERCENTAGE2;
+        try {
+            config.YamlConfig.config.server.STARFORCE_BOOST_PERCENTAGE=.2;
+            config.YamlConfig.config.server.STARFORCE_BOOST_PERCENTAGE2=0;
+            Equip old=mock(Equip.class,CALLS_REAL_METHODS);
+            old.setWatk((short)321);old.setStr((short)45);
+            NPCConversationManager cm=mock(NPCConversationManager.class);
+            when(cm.getStarForceEquipCraftingBonus(old)).thenCallRealMethod();
+            when(cm.getStarForceEquipLevelBonus(old,0)).thenCallRealMethod();
+            StarBoost bonus=cm.getStarForceEquipCraftingBonus(old);
+            assertEquals(386,bonus.getWatk(),"Full 321 attack plus ceil(20%) is carried");
+            assertEquals(45,bonus.getStr());
+            assertEquals(604,218+bonus.getWatk(),"Clean Royal sword before armour/set bonuses");
+        } finally {
+            config.YamlConfig.config.server.STARFORCE_BOOST_PERCENTAGE=attack;
+            config.YamlConfig.config.server.STARFORCE_BOOST_PERCENTAGE2=stats;
+        }
+    }
     private Equip transfer(int baseHp, int baseMp, int oldHp, int oldMp) {
         return transfer(baseHp,baseMp,oldHp,oldMp,false);
     }

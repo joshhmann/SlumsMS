@@ -39,8 +39,11 @@ confirmed rare Jaihin/Utgard weapon rates and sources above their equip levels; 
 under-equipped RB0 characters. See the [113-item bridge investigation and proposal](../economy/normal-200/bridge-120-149.md)
 and [editable manifest](../economy/normal-200/bridge-120-149.json). The source audit covers all 16 weapon types and
 five armour families, with 226 candidate pairs on 15 lower-Grandis mobs. It explicitly identifies one existing
-ordinary pair that needs a rate floor rather than insert-only SQL. This follow-up is **proposal/audit only**:
-loot migration, client/server combat calibration and player guidance are not implemented or activated.
+ordinary pair that needs a rate floor rather than insert-only SQL. With the owner's approval, migration 061,
+Nimble's read-only guide and the `t-ng-10` DB-rate probe are implemented locally. The guide defaults OFF behind
+`slums.gear.bridge`. TEST activation and client/server combat calibration remain pending. The separate
+[base/effective stat audit](../economy/normal-200/stat-audit.md) checks the mixed-era gear without silently
+changing legacy item stats or existing inventories.
 
 The earlier statement that this task performed no SSH/live action applies to its implementation checkpoint;
 the owner subsequently authorized read-only live player/data comparisons. No live write or deployment occurred.
