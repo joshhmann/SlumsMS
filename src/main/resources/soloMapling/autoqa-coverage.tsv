@@ -203,3 +203,4 @@ t-mp-1	src/main/java/server/maps/MapRouting.java	map routing: blocked/missing ma
 t-mp-1	src/main/resources/soloMapling/map-routing.tsv	the routing table
 t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketTraders.java	trader bots list the scrolls they hold (s-xtraders)
 t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketQa.java	probe marketScroll
+t-ex-2	src/main/java/soloMapling/mechanics/content/zakum-chaos.yaml	the Chaos Zakum row (same altar, one instance id over)

@@ -38,3 +38,4 @@ guardiannex3.yaml
 guardiannex4.yaml
 guardiannex5.yaml
 guardiannex6.yaml
+zakum-chaos.yaml

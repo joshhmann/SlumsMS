@@ -77,6 +77,17 @@ public final class Mechanics {
         return enabled() && Boolean.getBoolean(content.flag());
     }
 
+    /**
+     * True when a row that names its own switch ({@code flag: slums.chaos.zakum}) is allowed to arm: the flag is opt-in
+     * on top of whatever lane switch the row's kind already needs. A row without a flag is always allowed.
+     */
+    public static boolean rowFlagOn(MechanicsModel.Content content) {
+        if (content == null || content.flag() == null || content.flag().isBlank()) {
+            return true;
+        }
+        return Boolean.getBoolean(content.flag());
+    }
+
     public static String dataDir() {
         return System.getProperty(DIR_PROPERTY, DEFAULT_DIR);
     }

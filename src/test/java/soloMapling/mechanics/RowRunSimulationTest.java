@@ -82,6 +82,8 @@ class RowRunSimulationTest {
 
     private static final int ZAKUM_FAKE_BODY = 8800000;
     private static final int[] ZAKUM_ARMS = {8800003, 8800004, 8800005, 8800006, 8800007, 8800008, 8800009, 8800010};
+    private static final int CHAOS_FAKE_BODY = 8800100;
+    private static final int[] CHAOS_ARMS = {8800103, 8800104, 8800105, 8800106, 8800107, 8800108, 8800109, 8800110};
     private static final int HORNTAIL_HEAD_1 = 8810000;
     private static final int HORNTAIL_HEAD_2 = 8810001;
     private static final int[] HORNTAIL_PARTS = {8810002, 8810003, 8810004, 8810005, 8810006, 8810007, 8810008,
@@ -534,6 +536,25 @@ class RowRunSimulationTest {
         assertEquals(8800000, sim.world().killed.get(8), "the first body form is only offered once the eight arms fell");
         assertTrue(sim.world().applied.stream().noneMatch(s -> s.contains("HitReactor[reactorId=2111001]")),
                 "the altar is the human leader's click, so the bots never touch it");
+    }
+
+    /**
+     * Chaos Zakum is the same altar one instance id over: its own row ({@code zakum-chaos}), its own row-ordered body
+     * chain (8800100 -> 8800101 -> 8800102, which is exactly what Mob.wz's {@code revive} says) and its own clear.
+     */
+    @Test
+    void chaosZakumWalksItsOwnChainAndTheInstanceClearsItself() {
+        Sim sim = play("ChaosZakumBattle", party(6), 2_000);
+
+        assertEquals("cleared", sim.ended(), "the chaos clear is the script's defeatedBoss=1: " + sim.ended());
+        assertEquals(List.of(1), sim.stageOrder(), "one map, no stage transitions");
+        assertEquals("1", sim.world().props.get("defeatedBoss"));
+        assertTrue(sim.world().killed.containsAll(List.of(8800103, 8800110, 8800100, 8800101, 8800102)),
+                "every chaos arm, then the chaos body's three forms: " + sim.world().killed);
+        assertEquals(CHAOS_FAKE_BODY, sim.world().killed.get(8),
+                "the first chaos body form is only offered once the eight chaos arms fell");
+        assertTrue(sim.world().killed.stream().noneMatch(id -> id >= 8800000 && id <= 8800010),
+                "a chaos room never touches a normal part: " + sim.world().killed);
     }
 
     @Test
@@ -1045,6 +1066,15 @@ class RowRunSimulationTest {
                     parts.add(new BossTargetRules.Part(ZAKUM_FAKE_BODY, BossTargetRules.Role.BODY, true, false, false,
                             false, 0));
                     for (int arm : ZAKUM_ARMS) {
+                        parts.add(new BossTargetRules.Part(arm, BossTargetRules.Role.ARM, false, true, false, false, 0));
+                    }
+                }
+                case 280030001 -> {
+                    // the chaos altar: 2111001.js:30-38 spawns the chaos fake body and the eight chaos arms
+                    props.put("summoned", "true");
+                    parts.add(new BossTargetRules.Part(CHAOS_FAKE_BODY, BossTargetRules.Role.BODY, true, false, false,
+                            false, 0));
+                    for (int arm : CHAOS_ARMS) {
                         parts.add(new BossTargetRules.Part(arm, BossTargetRules.Role.ARM, false, true, false, false, 0));
                     }
                 }
@@ -1597,6 +1627,21 @@ class RowRunSimulationTest {
                 }
                 if (part.mobId() == 8800002) {
                     props.put("defeatedBoss", "1"); // ZakumBattle.js:199-205
+                }
+                return;
+            }
+            if (stageMap == 280030001) {
+                if (!parts.stream().anyMatch(p -> p.role() == BossTargetRules.Role.ARM)) {
+                    replaceFakeBody(CHAOS_FAKE_BODY, CHAOS_FAKE_BODY);
+                }
+                if (part.mobId() == 8800100) {
+                    parts.add(new BossTargetRules.Part(8800101, BossTargetRules.Role.BODY, false, true, false, false, 0));
+                }
+                if (part.mobId() == 8800101) {
+                    parts.add(new BossTargetRules.Part(8800102, BossTargetRules.Role.BODY, false, true, false, false, 0));
+                }
+                if (part.mobId() == 8800102) {
+                    props.put("defeatedBoss", "1"); // ChaosZakumBattle.js:200-215
                 }
                 return;
             }

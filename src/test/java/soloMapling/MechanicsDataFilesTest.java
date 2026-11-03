@@ -3,6 +3,8 @@ package soloMapling;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import soloMapling.mechanics.Mechanics;
+import soloMapling.mechanics.MechanicsModel;
+import soloMapling.mechanics.MechanicsRuns;
 import soloMapling.mechanics.StageData;
 
 import java.io.IOException;
@@ -17,6 +19,9 @@ import java.util.jar.JarOutputStream;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -72,11 +77,41 @@ class MechanicsDataFilesTest {
                 "papulatus", "krexel", "showa", "balrog", "scarga", "elemental", "pinkbean",
                 "latanica", "magnus", "nwill", "nlucid", "nverus", "ndarknell",
                 "guardiannex1", "guardiannex2", "guardiannex3", "guardiannex4", "guardiannex5",
-                "guardiannex6"),
+                "guardiannex6", "zakum-chaos"),
                 r.content().stream().map(c -> c.id()).toList());
         assertEquals(10, r.content().stream().filter(c -> "kpq".equals(c.id())).findFirst().orElseThrow()
                 .stage(1).orElseThrow().answer(1).orElseThrow());
         assertTrue(origins.stream().allMatch(o -> o == DataFiles.Origin.CLASSPATH), origins.toString());
+    }
+
+    /**
+     * Chaos Zakum (round 11, item 8): the row is opt-in twice over - the boss lane switch and its own
+     * {@code flag: slums.chaos.zakum} - so a server that has the lane on but chaos off arms nothing, and a row without a
+     * flag keeps arming exactly as before.
+     */
+    @Test
+    void theChaosRowNamesItsOwnSwitchAndTheNormalAltarDoesNot() {
+        MechanicsModel.Content chaos = MechanicsRuns.contentFor("ChaosZakumBattle");
+        assertNotNull(chaos, "zakum-chaos.yaml must be listed in content/index.txt");
+        assertEquals(MechanicsModel.Kind.BOSS, chaos.kind());
+        assertEquals("slums.chaos.zakum", chaos.flag());
+        assertEquals(280030001, chaos.stages().get(0).mapId());
+        assertEquals(11, chaos.stages().get(0).mobs().size(), "eight chaos arms and the body's three forms");
+        assertEquals(List.of(8800100, 8800101, 8800102),
+                chaos.stages().get(0).mobs().subList(8, 11), "the chain is spelled out in the row, in wake order");
+
+        MechanicsModel.Content normal = MechanicsRuns.contentFor("ZakumBattle");
+        assertTrue(normal.flag() == null || normal.flag().isBlank(), "the normal altar has no switch of its own");
+
+        System.clearProperty("slums.chaos.zakum");
+        assertFalse(Mechanics.rowFlagOn(chaos), "off by default");
+        assertTrue(Mechanics.rowFlagOn(normal), "a row with no flag is always allowed");
+        System.setProperty("slums.chaos.zakum", "true");
+        try {
+            assertTrue(Mechanics.rowFlagOn(chaos));
+        } finally {
+            System.clearProperty("slums.chaos.zakum");
+        }
     }
 
     @Test
