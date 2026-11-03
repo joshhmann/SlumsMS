@@ -455,9 +455,19 @@ public final class StageData {
                 clear = Clear.ofReactorState(rid, rstate);
             }
         }
+        if (clear == null && m.get("clear") instanceof Map<?, ?> pm && pm.get("partyOnMap") != null) {
+            // the party's arrival is the clear: the script warps the team and writes nothing (Ellin PQ's marble stage)
+            int target = num(pm, "partyOnMap", -1, p);
+            if (target > 0) {
+                clear = Clear.ofPartyOnMap(target);
+            } else {
+                p.add(at + "clear: partyOnMap must be a map id");
+            }
+        }
         if (clear == null) {
             p.add(at + "no clear: { eventProperty: ... } (+ optional equals: value), or { instance: true },"
-                    + " or { mapEmpty: true }, or { reactorState: { id: N, state: M } }");
+                    + " or { mapEmpty: true }, or { reactorState: { id: N, state: M } },"
+                    + " or { partyOnMap: mapId }");
         }
         String answerProperty = m.get("answerProperty") == null ? null : String.valueOf(m.get("answerProperty")).trim();
         List<List<Integer>> combos = new ArrayList<>();

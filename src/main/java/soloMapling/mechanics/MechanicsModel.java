@@ -188,13 +188,27 @@ public final class MechanicsModel {
      * is. {@link #instance()} is that clear form - it is not an event property, it is the instance's own flag.
      */
     public record Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty,
-                        int reactorId, int reactorState) {
+                        int reactorId, int reactorState, int partyOnMap) {
+        public Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty,
+                     int reactorId, int reactorState) {
+            this(eventProperty, equals, onInstance, mapEmpty, reactorId, reactorState, 0);
+        }
+
         public Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty) {
-            this(eventProperty, equals, onInstance, mapEmpty, 0, 0);
+            this(eventProperty, equals, onInstance, mapEmpty, 0, 0, 0);
+        }
+
+        /**
+         * A stage that ends when the <b>whole</b> party is standing on {@code mapId} - the way a stage that finishes by
+         * warping the team somewhere (Ellin PQ's marble hand-in, `2133001.js:93-94`) is cleared. Every registered member
+         * has to be there: a member still walking would otherwise fake a clear on the first arrival.
+         */
+        public static Clear ofPartyOnMap(int mapId) {
+            return new Clear(null, null, false, false, 0, 0, mapId);
         }
 
         public Clear(String eventProperty, String equals, boolean onInstance) {
-            this(eventProperty, equals, onInstance, false, 0, 0);
+            this(eventProperty, equals, onInstance, false, 0, 0, 0);
         }
 
         public Clear(String eventProperty) {
@@ -202,7 +216,7 @@ public final class MechanicsModel {
         }
 
         public Clear(String eventProperty, String equals) {
-            this(eventProperty, equals, false, false, 0, 0);
+            this(eventProperty, equals, false, false, 0, 0, 0);
         }
 
         /**

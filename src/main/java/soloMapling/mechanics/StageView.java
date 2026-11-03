@@ -261,6 +261,11 @@ public interface StageView {
             // the reactor itself is the signal (Ellin PQ stage 2: the spine at state 4, no property written)
             return reactorState(clear.reactorId()) >= clear.reactorState();
         }
+        if (clear.partyOnMap() > 0) {
+            // the whole party standing on the map the script warps them to (Ellin PQ: 2133001.js:93-94)
+            List<RunMember> all = members();
+            return !all.isEmpty() && all.stream().allMatch(m -> mapOf(m.characterId()) == clear.partyOnMap());
+        }
         if (clear.eventProperty() == null) {
             return false;
         }

@@ -624,6 +624,40 @@ look complete is exactly what this report exists to avoid.
 The adventurer-only filter (`EllinPQ.js:93`) is recorded as a **party-formation fact**: `getEligibleParty` already
 refuses a mixed party at the door, and no job model was added.
 
+## A clear with no signal at all 2: `{ partyOnMap: <mapId> }`
+
+The fifth kind, and the one Ellin PQ's marble stage needed. A stage that ends by **warping the team** writes nothing:
+`scripts/npc/2133001.js:93-94` takes the leader's twenty marbles and `warpEventTeam(930000500)`, and no event property
+changes hands. The row now says `clear: { partyOnMap: 930000500 }`; `StageView.cleared()` answers it when **every
+registered member** is on that map.
+
+"Every", not "any", is the whole design: a solver's `WarpTo` moves one member at a time, so "any" would let a stage clear
+halfway through its own hand-over. `PartyOnMapClearTest` (3) pins it - one member through the warp does not clear, a member
+still on the stage map holds it, every member there clears it, and an **empty** member list does not clear anything
+(nobody registered is not everybody arrived).
+
+## Ellin PQ: five of six stages driven, and the sixth is not our gap
+
+| Stage | Map | Rule | Clear |
+|---|---|---|---|
+| 1 | `930000100` | kill what is out | `{ mapEmpty: true }` (`party6_stage.js:9-18`) |
+| 2 | `930000200` | press the spine `3009000` to state 4 | `{ reactorState: { id: 3009000, state: 4 } }` |
+| 3 | `930000300` | the room empties, the leader talks | `statusStg4 == "1"` (`2133001.js:37-45`) |
+| 4 | `930000400` | `ellin-marbles`: talk once for ten `2270004`, throw them at `9300174`, loot `4001169`, hand twenty over | `{ partyOnMap: 930000500 }` |
+| 5 | `930000500` | **held**: the map has no server-side rule at all | - |
+| 6 | `930000600` | `fight-room`; the Poison Golem `9300182` is the PQ's end | `{ instance: true }` (`EllinPQ.js:239-241`) |
+
+- **Stage 4 is real, not a hold.** `EllinMarblesSolver` (`ellin-marbles`) is the marble loop: the leader's first talk is
+  what hands out the ten marbles (`2133001.js:47-60`), `UseItemOnMob(2270004, 9300174)` spends them (the rule lives once,
+  in `server/life/MonsterCatch.usePurifierMarble`), `Loot(4001169)` picks up what the flowers leave, and at twenty the
+  leader talks with the count - which warps the team and clears the stage by arrival.
+- **Stage 5 is unmodelled for a reason that is not ours to fix.** `EllinPQ.js:117-119` calls `map.shuffleReactors()` and
+  nothing else touches `930000500`: a sweep of `scripts/` finds exactly three references to that map (that reset, the warp
+  in `2133001.js:94`, and the `resetPQ` row). Its progression is the map's own client portals, and unlike Magatia's climb
+  there is **no property to read even in principle** - the shuffle is not published anywhere, so no amount of reading
+  turns it into a stage. The row holds there and says so in its own stage name.
+- **Zenumist stays uncovered**, and it is the same class of answer: the script that would advance it is missing a counter.
+
 ## CWKPQ, first half: the job is carried and the touch has a step
 
 Two of the three pieces are in; the sign-up row is not.
@@ -645,6 +679,11 @@ What the sign-up row still needs, and it is one chain of reads, not a design:
   `glpqPortal0.js:1-11` then gates the way to `610030200` on `glpq1`. The next hand must read what arms `mob0` before
   writing a stage, because a solver that touches job reactors and then expects `glpq1` would stall on a portal it never
   walks into.
+
+The sign-up's own reactor set is now pinned too: the eight deployed job reactors are the `6109016`-family, whose `act()`
+increments `glpq4` and shows the `4pt` clear effect at five (`scripts/reactor/6109016.js:1-11`), so the map's exit is a
+five-sigil count rather than a single sign-up. `scripts/portal/glpqPortalDummy.js` never touches `mob0` from any script
+(`mob0` appears in exactly one file in `scripts/`), which is why the row is not written on a guess.
 
 What the sign-up row still needs, beyond that chain:
 

@@ -37,7 +37,10 @@ class EllinPqSolversTest {
     static final class View implements StageView {
         private final MechanicsModel.Stage stage;
         final Map<Integer, Integer> at = new java.util.HashMap<>();
+        final Map<String, Integer> held = new java.util.HashMap<>();
         int spine = 0;
+        int mobs = 0;
+        boolean npc = false;
         boolean cleared;
 
         View(MechanicsModel.Stage stage) {
@@ -78,7 +81,7 @@ class EllinPqSolversTest {
 
         @Override
         public int itemCount(int characterId, int itemId) {
-            return 0;
+            return held.getOrDefault(characterId + ":" + itemId, 0);
         }
 
         @Override
@@ -89,6 +92,16 @@ class EllinPqSolversTest {
         @Override
         public int[] positionOf(int characterId) {
             return new int[]{0, 0};
+        }
+
+        @Override
+        public int liveMobs() {
+            return mobs;
+        }
+
+        @Override
+        public Optional<int[]> npcPosition(int npcId) {
+            return npc ? Optional.of(new int[]{0, 0}) : Optional.empty();
         }
 
         @Override
@@ -111,18 +124,22 @@ class EllinPqSolversTest {
     }
 
     @Test
-    void theRowDrivesThreeStagesAndHoldsTheMarbleOne() {
+    void theRowDrivesEveryStageButTheShuffledRooms() {
         MechanicsModel.Content c = row();
-        assertEquals(List.of(930000100, 930000200, 930000300, 930000400),
+        assertEquals(List.of(930000100, 930000200, 930000300, 930000400, 930000500, 930000600),
                 c.stages().stream().map(MechanicsModel.Stage::mapId).toList());
-        assertEquals(List.of(FightTheRoomSolver.ID, ReactorStateSolver.ID, SummonedBossSolver.ID, HoldSolver.ID),
+        assertEquals(List.of(FightTheRoomSolver.ID, ReactorStateSolver.ID, SummonedBossSolver.ID, EllinMarblesSolver.ID,
+                        HoldSolver.ID, FightTheRoomSolver.ID),
                 c.stages().stream().map(MechanicsModel.Stage::solver).toList());
         assertTrue(c.stages().get(0).clear().mapEmpty(), "stage 1 is the empty-map clear");
         assertEquals(3009000, c.stages().get(1).clear().reactorId(), "stage 2 clears on the spine's state");
         assertEquals(4, c.stages().get(1).clear().reactorState());
-        assertTrue(c.stages().get(3).clear().onInstance(), "the hold never clears on its own");
-        assertTrue(c.stages().get(3).name().contains("warp"), "and it says the clear is a warp: "
-                + c.stages().get(3).name());
+        assertEquals(930000500, c.stages().get(3).clear().partyOnMap(),
+                "stage 4's clear is the arrival: 2133001.js:93-94 warps the team and writes nothing");
+        assertEquals(0, c.stages().get(4).clear().partyOnMap(), "stage 5's hold is not an arrival");
+        assertTrue(c.stages().get(4).name().contains("shuffleReactors"),
+                "and it says the stage has no server-side rule: " + c.stages().get(4).name());
+        assertTrue(c.stages().get(5).clear().onInstance(), "stage 6 clears on the Poison Golem's clearPQ");
         assertEquals(44, c.minLevel(), "the level band comes from EllinPQ.js:28");
         assertEquals(30, c.timeLimitMinutes());
         assertEquals(4, c.minPlayers());
@@ -161,5 +178,37 @@ class EllinPqSolversTest {
         assertTrue(v.cleared(), "this fake answers 3009000");
         MechanicsModel.Clear other = MechanicsModel.Clear.ofReactorState(3002000, 4);
         assertFalse(other.reactorId() == 3009000, "and a different reactor is a different clear");
+    }
+
+    @Test
+    void theMarbleStageTradesTalkForMarblesAndMarblesForTheGolemPass() {
+        MechanicsModel.Stage stage = row().stages().get(3);
+        EllinMarblesSolver solver = new EllinMarblesSolver();
+        View v = new View(stage);
+        v.npc = true;
+
+        // a leader with no marbles talks once, and that talk is what hands him they ten
+        assertEquals(SolverStep.TalkNpc.class, solver.next(v, member(true)).getClass(), "the first talk gives the marbles");
+        v.held.put(LEADER + ":" + EllinMarblesSolver.MARBLE, 10);
+        v.mobs = 3;
+        SolverStep.UseItemOnMob use = assertInstanceOf(SolverStep.UseItemOnMob.class, solver.next(v, member(true)));
+        assertEquals(EllinMarblesSolver.MARBLE, use.itemId());
+        assertEquals(EllinMarblesSolver.FLOWER, use.mobId(), "the marble is for the poison flower and nothing else");
+
+        // nineteen is not the hand-in; twenty is, and the talk carries the count
+        v.held.put(LEADER + ":" + EllinMarblesSolver.GOLEM_MARBLE, 19);
+        assertEquals(SolverStep.UseItemOnMob.class, solver.next(v, member(true)).getClass(), "nineteen keeps working");
+        v.held.put(LEADER + ":" + EllinMarblesSolver.GOLEM_MARBLE, 20);
+        SolverStep.TalkNpc talk = assertInstanceOf(SolverStep.TalkNpc.class, solver.next(v, member(true)));
+        assertEquals(EllinMarblesSolver.GOLEM_MARBLE, talk.itemId());
+        assertEquals(20, talk.count());
+
+        // a member with twenty pools them on the leader rather than talking to Ellin himself
+        v.held.put(MEMBER + ":" + EllinMarblesSolver.GOLEM_MARBLE, 20);
+        assertEquals(SolverStep.DropFor.class, solver.next(v, member(false)).getClass());
+
+        // and a cleared stage is Done: `partyOnMap` answers through cleared()
+        v.cleared = true;
+        assertEquals(SolverStep.Done.class, solver.next(v, member(true)).getClass());
     }
 }
