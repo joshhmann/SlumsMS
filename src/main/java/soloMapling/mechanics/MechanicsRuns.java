@@ -168,7 +168,7 @@ public final class MechanicsRuns {
         }
         Orchestrator o = budgetMs > 0 || lastStage > 0
                 ? new Orchestrator(Orchestrator.allSolvers(), new Random(), budgetMs, lastStage) : orchestrator;
-        RunState run = o.start(content, Tier.NORMAL, members);
+        RunState run = o.start(content, TierScaling.requested(content), members);
         if (firstStage > 1 && !o.startAt(run, firstStage, System.currentTimeMillis())) {
             run.end("stage " + firstStage + " is not one this run plays (last " + run.lastStage() + ")");
         }

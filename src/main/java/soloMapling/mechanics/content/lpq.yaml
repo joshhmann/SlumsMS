@@ -32,6 +32,22 @@ sources:
   - "Map, monster and reactor ids: our own Map.wz dump (Map.wz/Map/Map9/9220101*.img.xml), read for this row: 922010200 has no monsters at all, only eleven boxes (reactor 2202003) and a trap (2200002)"
   - "Stage order: 922010100 passes (25), 922010200 boxes (15), 922010300 monsters and boxes (32), 922010400 five rooms (6), 922010500 six rooms (24), 922010600 the door (no count: its own script writes 6stageclear), 922010700 three bosses' passes (3), 922010800 the nine boxes, 922010900 the key (1)"
   - "Stage 6 is a door, not a count: scripts/portal/lpq5.js:33-41 sets 6stageclear on the way through, so the row's solver takes that door by running its script (SolverStep.ScriptedPortal) instead of a plain warp"
+# Difficulty tiers (1.7.0 "PQ difficulties"): NORMAL is the stock PQ and needs no entry - it is the gates above,
+# and a tier never moves them. HARD is transcribed verbatim from the proposal table in DIFFICULTY-CHAOS-PLAN.md
+# section 9 (lines ~797-908), which is stamped "proposal only, nothing merged, owner may overwrite any cell":
+# every number below is that table's LPQ HARD row, none of it invented here. EXPERT and MASTER are in the
+# same table and are deliberately NOT copied into this file: a row only carries the tiers it has been asked for,
+# and -Dslums.mechanics.tiers opens only the tiers a row actually names.
+# Omitted cells: none - the table's LPQ HARD row fills all seven fields.
+tiers:
+  HARD:
+    minLevel: 55
+    maxLevel: 79
+    mobLevelBonus: 20
+    mobHpMultiplier: 3.0
+    mobDamageMultiplier: 1.5
+    timeLimitMinutes: 55
+    botMistakeFactor: 1.25
 stages:
   - stage: 1
     map: 922010100
