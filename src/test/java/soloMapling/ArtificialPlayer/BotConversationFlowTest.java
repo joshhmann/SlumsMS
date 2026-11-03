@@ -719,13 +719,37 @@ class BotConversationFlowTest {
             assertFalse(BotConversation.isTalking(chr.getId(), player.getId()), "and no chat was opened");
 
             System.clearProperty("solomapling.convo.planner");
-            assertTrue(BotConversation.greet(bot, player), "switch off: the legacy greeting has no per-player cap");
-            assertTrue(SocialGate.botChatAllowed(BotStore.BOT_ID_BASE + 5, player.getId(),
-                    System.currentTimeMillis()), "the legacy path records no bot-started chat");
+            assertFalse(BotConversation.greet(bot, player),
+                    "social#6: the hour holds for the legacy greeting too - the cap is not part of the planner");
+            assertFalse(BotConversation.isTalking(chr.getId(), player.getId()), "and still no chat was opened");
+        } finally {
+            System.clearProperty("solomapling.convo.planner");
+            SocialGate.forgetBotChatsForTest();
+        }
+    }
+
+    /**
+     * social#6: at most one bot-started chat per player per hour is the rule, and it was only enforced while the
+     * planner switch was on (off by default), so with the switch off every bot in the map could greet the player.
+     */
+    @Test
+    void theHourlyCapHoldsWithThePlannerOff() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        when(bot.activitySnapshot()).thenReturn(BotRoster.Activity.of("social", 0, null));
+        Character player = character(nextPlayer++, "Josh");
+        try {
+            SocialGate.noteBotChat(BotStore.BOT_ID_BASE + 5, player.getId(), System.currentTimeMillis());
+            assertFalse(BotConversation.greet(bot, player), "another bot said hi: the hour holds with the switch off");
+            assertFalse(BotConversation.isTalking(chr.getId(), player.getId()), "and no chat was opened");
+            SocialGate.forgetBotChatsForTest();
+            assertTrue(BotConversation.greet(bot, player), "with the hour clear the greeting goes out");
+            assertFalse(SocialGate.botChatAllowed(BotStore.BOT_ID_BASE + 7, player.getId(),
+                    System.currentTimeMillis()), "and it is recorded, so the next bot waits its turn");
             waitFor(() -> !asked.isEmpty());
             BotConversation.end(chr.getId(), player.getId());
         } finally {
-            System.clearProperty("solomapling.convo.planner");
             SocialGate.forgetBotChatsForTest();
         }
     }
