@@ -8,6 +8,12 @@
 | [178](178-sibling-only-upgrade-handover.md) | Sibling-only upgrade offer cannot start a handover | Source-confirmed; coordinator + submitter triage required |
 | [179](179-qa-worker-loses-batched-ready-events.md) | Client readiness events lost between waits | Reproduced locally; coordinator + submitter triage required |
 
+## Improvement backlog (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [185](185-bot-alt-improvement-backlog-1-6-4.md) | Bot and alt improvement backlog | Improvements that need an owner decision or a later start; a menu, nothing started, no briefs |
+
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 
 | # | Ticket | Purpose |
