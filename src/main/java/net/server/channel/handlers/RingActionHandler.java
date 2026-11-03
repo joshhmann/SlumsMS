@@ -78,6 +78,10 @@ public final class RingActionHandler extends AbstractPacketHandler {
         final Character target = c.getChannelServer().getPlayerStorage().getCharacterByName(name);
         final Character source = c.getPlayer();
 
+        healOrphanedPartner(source);
+        if (target != null) {
+            healOrphanedPartner(target);
+        }
         // TODO: get the correct packet bytes for these popups
         if (source.isMarried()) {
             source.dropMessage(1, "You're already married!");
@@ -254,8 +258,12 @@ public final class RingActionHandler extends AbstractPacketHandler {
         chr.addMarriageRing(null);
     }
 
-    private static void resetRingId(Character player) {
-        int ringitemid = player.getMarriageRing().getItemId();
+    static void resetRingId(Character player) {
+        Ring marriageRing = player.getMarriageRing();
+        if (marriageRing == null) {
+            return; // marriage record without a ring (lost item / failed ring insert): nothing to unlink
+        }
+        int ringitemid = marriageRing.getItemId();
 
         Item it = player.getInventory(InventoryType.EQUIP).findById(ringitemid);
         if (it == null) {
@@ -308,7 +316,47 @@ public final class RingActionHandler extends AbstractPacketHandler {
         chr.setMarriageItemId(-1);
     }
 
+    /** A partner record with neither a ring nor an engagement token: the leftover of a break that died half way. */
+    static boolean isOrphanedPartner(int partnerId, int marriageItemId, Ring ring) {
+        return partnerId > 0 && marriageItemId <= 0 && ring == null;
+    }
+
+    /** Clears an orphaned partner record (see {@link #isOrphanedPartner}) so it no longer blocks a new proposal. */
+    private static void healOrphanedPartner(Character chr) {
+        if (!isOrphanedPartner(chr.getPartnerId(), chr.getMarriageItemId(), chr.getMarriageRing())) {
+            return;
+        }
+        try {
+            chr.getClient().getWorldServer().deleteRelationship(chr.getId(), chr.getPartnerId());
+        } catch (RuntimeException e) {
+            log.warn("Could not drop the orphaned relationship of {}", chr.getName(), e);
+        }
+        chr.setPartnerId(-1);
+    }
+
+    /**
+     * Ends a marriage record even when the wedding ring item is gone (no ring in the inventory, or none loaded).
+     * Used by {@code @romance divorce}.
+     */
+    public static void breakMarriageRecord(Character chr) {
+        try {
+            if (chr.getPartnerId() > 0) {
+                breakMarriage(chr);
+            }
+        } finally {
+            chr.sendPacket(PacketCreator.enableActions());
+        }
+    }
+
     public static void breakMarriageRing(Character chr, final int wItemId) {
+        try {
+            breakMarriageRingInner(chr, wItemId);
+        } finally {
+            chr.sendPacket(PacketCreator.enableActions());
+        }
+    }
+
+    private static void breakMarriageRingInner(Character chr, final int wItemId) {
         final InventoryType type = InventoryType.getByType((byte) (wItemId / 1000000));
         final Item wItem = chr.getInventory(type).findById(wItemId);
         final boolean weddingToken = (wItem != null && type == InventoryType.ETC && wItemId / 10000 == 403);
