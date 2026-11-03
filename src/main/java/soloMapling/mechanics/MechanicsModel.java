@@ -276,6 +276,8 @@ public final class MechanicsModel {
      *   grew separately was folded into this list at the 1.6.4 merge, with the three solvers and two rows that read it;</li>
      *   <li>{@code maps} (party-quest side): every further map the stage legitimately covers, used by {@link #mapSet()}
      *   - LudiMaze PQ's one stage spans sixteen maps.</li>
+     *   <li>{@code loopTo} (realruns): the stage this one sends a run back to instead of forward - BossRush's waves
+     *   repeat until the row's clock runs out. 0 = advance, which is every other row in the folder.</li>
      * </ul>
      */
     public record Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
@@ -283,13 +285,13 @@ public final class MechanicsModel {
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
                         int spawnWaitSeconds, int timeLimitMinutes, List<Integer> hitReactors,
-                        List<Integer> entryItems, List<Integer> maps) {
+                        List<Integer> entryItems, List<Integer> maps, int loopTo) {
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                      List<Answer> answers, List<BossPhase> phases, Clear clear) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
-                    List.of(), List.of(), null, null, 0, 0, List.of(), List.of(), List.of());
+                    List.of(), List.of(), null, null, 0, 0, List.of(), List.of(), List.of(), 0);
         }
 
         /**

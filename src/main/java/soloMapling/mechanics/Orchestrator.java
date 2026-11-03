@@ -88,6 +88,7 @@ public final class Orchestrator implements RunOrchestrator {
         CwkpqBossSolver cbo = new CwkpqBossSolver();
         HoldSolver ho = new HoldSolver();
         LudiMazeSolver lm = new LudiMazeSolver();
+        ZakumMinesSolver zm = new ZakumMinesSolver();
         // Map.of caps at ten pairs; anything past that goes in a second immutable copy
         Map<String, StageSolver> all = new java.util.HashMap<>(Map.of(qc.id(), qc, cb.id(), cb, kc.id(), kc,
                 bp.id(), bp, oc.id(), oc, os.id(), os, sr.id(), sr, ol.id(), ol));
@@ -115,6 +116,7 @@ public final class Orchestrator implements RunOrchestrator {
         all.put(cbo.id(), cbo);
         all.put(ho.id(), ho);
         all.put(lm.id(), lm);
+        all.put(zm.id(), zm);
         return Map.copyOf(all);
     }
 
@@ -240,6 +242,17 @@ public final class Orchestrator implements RunOrchestrator {
             long took = nowMs - run.stageStartedMs();
             run.note(nowMs, "stage " + run.currentStage() + " cleared in " + took / 1000 + " s ("
                     + run.wrongShownTotal() + " wrong tries shown)");
+            // a looping stage sends the run back instead of forward (BossRush: the same waves until the clock stops
+            // them); the budget check below is what ends such a run, and it ends it the way any over-time run ends
+            if (run.stageData().loopTo() > 0) {
+                int back = run.stageData().loopTo();
+                run.note(nowMs, "stage " + run.currentStage() + " cleared in " + took / 1000
+                        + " s: looping back to stage " + back);
+                run.setStage(back, nowMs);
+                run.clearTries();
+                run.setClaims(RoleClaims.claim(run.stageData(), run.members()));
+                return steps;
+            }
             if (run.currentStage() >= run.lastStage()) {
                 run.markCleared(elapsed);
                 MechanicsModel.AfterClear after = run.content().afterClear();

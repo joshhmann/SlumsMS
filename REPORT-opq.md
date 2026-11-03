@@ -916,6 +916,177 @@ Two earlier hypotheses were falsified on the way and are recorded so nobody repe
 sessions an earlier test left behind), and a cross-class static leak is impossible as configured - `pom.xml:252-255` sets
 `forkCount 1` with `reuseForks false`, so each test class gets its own JVM.
 
+## ZakumPQ: thirty rooms, one walk, and a chest that is worth two keys
+
+Shipped as `content/zakumpq.yaml` (generated, 59 stages) plus `ZakumMinesSolver` (`zakum-mines`) and one new step,
+`SolverStep.EnterPortalTo(int mapId)`.
+
+**Why the row is the route.** The mine is a hub with fifteen numbered doors (`280010000`, `in01`..`in15`) and a wing
+(`280011000`) behind two of them; every door's target is published in that room's own WZ portal block, so the walk is
+data. Each stage is one room and its clear is `partyOnMap: <the next stage's map>`, and the solver leaves through
+whichever door on its map leads there - which is why `EnterPortalTo` exists: a hub's doors are numbered and a mine's are
+named by direction, and neither name is the solver's business when the row already says where the party goes next. The
+hub therefore appears once per return, because walking back through it is what the party actually does: 59 stages,
+30 distinct maps.
+
+**The chest arithmetic, in the code that relies on it.** `reactordrops` gives `2112012`/`2112005` -> `4001015` (the key),
+`2112004`/`2112011` -> `4001016` (the ore) and `2112014` -> `4001018` (the document), all at chance 1. A chest yields on
+its fourth and fifth hit and is then inert for ever (`Reactor.java:246-315`: the end-state branch drops once, the
+following `-1`-type branch drops again and advances the state past the end), so the solver hits until the reactor answers
+`-1` instead of counting hits. The row's `hitReactor` prefers the one big chest (`2112014`, on `280011005`), then an ore
+chest, then a key chest, so the room the document is in is the room the solver opens the big chest in.
+
+**The hand-in has no gate beyond the document.** `scripts/npc/2032002.js:71-77` requires `4001018`; `:78` reads
+`haveItem(4001015, 30)` only to pick the message, `:124` takes the thirty keys when they are there, and `:127` clears the
+PQ either way. There is no damage, DPS or party-size check anywhere in the file. So the solver's hand-in stage abandons
+with "no document: the big chest on 280011005 was never opened" when the party arrives without one, and otherwise the
+leader talks.
+
+**Integrity**: `tools/ops/map-integrity --wz … --map <the row's 30 ids>` - 30 maps scanned, zero problems of any kind,
+`EXIT=0`. `ZakumPqSolversTest` (5 tests) pins the walk (every stage hands the party to the next stage's map, thirty
+distinct rooms, the big chest's room in the walk, the last stage is the instance clear), the chest loop, the floor sweep,
+the seven-ore rule and the leader-only hand-in.
+
+## BossRush's map inventory, as the client actually has it (and where the row stops)
+
+The report's layout line (`970030100 + band + 500*s + 100*k`, `[D]`) does not describe this client. Read out of
+`Map.wz/Map9`, the honour of a full inventory instead:
+
+- **28 blocks of twelve waves**: `97003<bb><ww>` for `bb` = `00`..`27` and `ww` = `00`..`11`. Block `00` is special (its
+  `00`..`09` and `20` are the hub, the entry and six rest spots `970030001`-`970030006`); every other block is twelve
+  waves, `01` = `970030100` which is the event's own `entryMap` (`scripts/event/BossRushPQ.js:29`).
+- **The waves do not advance the way the report reads them.** `scripts/portal/raid_stage.js:26-32` is
+  `if (mapId % 500 >= 100) next = mapId + 100; else next = 970030001 + floor((mapId-970030100)/500)` - the `+100` walks
+  the *block* digit, not the wave digit, so a five-block window (`970030100` -> `...200` -> `...300` -> `...400` ->
+  `...500`) ends at the window's rest spot, and the bands are the windows (`detectTeamLobby` picks band 0..7 from the
+  party's level, `scripts/npc/9000037.js:40-70`, and the starter calls `em.startInstance(i)` for `i < 8`, `:163-170`).
+- **Every map the row could name exists**: all 28 blocks × 12 waves are in WZ, plus `970030000`-`970030020` (hub, entry,
+  rest spots) and the four `9700327xx` blocks the finals live in.
+
+**The band -> window arithmetic, read out of both files.** `scripts/npc/9000037.js:162-166` is the whole of it:
+
+    var lobby = detectTeamLobby(eli), i;
+    for (i = lobby; i < 8; i++) {
+        if (em.startInstance(i, cm.getParty(), cm.getPlayer().getMap(), 1)) break;
+    }
+
+so the band is *literally the instance index*, retried upward until a free lobby answers. `BossRushPQ.js:136` stores it
+(`eim.setProperty("lobby", lobbyid)`) and `:146-148` warps to `entryMap + eim.getIntProperty("lobby")`, i.e.
+**`970030100 + band`**, which is why the client has twelve waves at every block: `970030100`..`970030111`. A band's five
+waves are therefore `970030100 + band + 100*k` for k = 0..4, and `raid_stage.js:26-32` sends the fifth
+(`(970030100 + band + 400) % 500`, which is 400+b and so ≥ 100 only for b ≤ 99 - always) one step further to
+`970030001 + floor((…-970030100)/500)` = **`970030001`**, the same rest spot for every band.
+
+**The rows are generated and committed** - eight of them, `mechanics/content/bossrush0.yaml`..`bossrush7.yaml`, five waves
+plus the rest spot each, the rest spot carrying `loopTo: 1` so the set repeats and the five-minute clock ends the run.
+`BossRushRowTest` is the generator's assertion rather than a transcription of what someone typed: the stage count, every
+emitted map id, `mapEmpty` on every wave, `loopTo: 1` on the last stage, and that no two bands share a wave map (the rest
+spot is deliberately shared, and the test says so). Test-side rather than build-side because the repo has no code
+generator and a checked-in YAML only a generator can reproduce rots the first time it is hand-edited.
+
+**The integrity pass is clean**: `tools/ops/map-integrity --wz … --map <41 ids>` reports 41 maps scanned, zero portals to a
+missing map, zero portals whose `tn` the target lacks, zero mobs/NPCs/reactors without WZ entries, zero bad return maps,
+zero maps with no string name, `EXIT=0`.
+
+## Pre-Zakum PQ: thirty rooms on a hub, and the row *is* the route
+
+The maze is not a maze of doors a solver has to know: every mine map publishes its doors as pt-1 portals in its own WZ
+block, the hub's are `in01`..`in15`, and `280011000` is a wing behind `071` and `101`. Read out of `Map.wz`, the thirty
+maps are `280010000`-`280010150` step ten plus `011`, `031`, `041`, `071`, `081`, `091`, `101`, and `280011000`-`280011006`;
+`tools/ops/map-integrity` is clean over all thirty (zero problems of any kind, `EXIT=0`).
+
+**The row is the walk.** `content/zakumpq.yaml` is generated: 59 stages, one per room *visit* - the walk is a depth-first
+tour of the door graph, so the hub appears once per return because walking back through it is what a party actually does -
+and each stage's clear is `partyOnMap` of the map the party walks into next. That one field is what lets the solver leave:
+`SolverStep.EnterPortalTo(mapId)` walks to whichever portal on the map leads to that id, so no door name and no route
+lives in Java. The last stage is the hand-in, `clear: { instance: true }`.
+
+`ZakumMinesSolver` (`zakum-mines`) has four decisions, all row-or-WZ driven: hit the stage's chest while it answers a
+state (`hitReactor`, the big chest preferred where one stands); loot the floor; put seven ores on `2112014` when it has
+them (fewer is a `Wait` that names the count); leave through the door to the next stage's map. The chest arithmetic is
+the report's, unchanged: a chest drops on its fourth and fifth hit and is inert for ever after (`Reactor.java:246-315`),
+which is why the solver hits until `reactorState` answers `-1` rather than counting. The hand-in is the leader's, needs
+`4001018`, and abandons with a reason if the big chest was never opened.
+
+**Two decisions worth stating.** The starter allows a party of one (`ZakumPQ.js:27`) and the row keeps `minPlayers: 1`,
+because that is the script's gate; the lobby's staging needs two, so `ZakumPQ` is *not* in `ContentLobby.ROWS` - a bot
+party does not staff Adobis, a human or a party that already exists walks in. And the thirty keys stay optional: the row
+lists `4001015` with the note that it only buys the better message and reward, because `scripts/npc/2032002.js:121-127`
+clears either way and no damage check exists.
+
+## Pre-Horntail PQ: read to the end, and it is not completable (no row)
+
+Read to the wrapper's end rather than trusting the earlier `[C]`/`[D]` marks, this quest cannot be finished here by a player
+or a bot, and the reason is not a missing engine primitive. Five findings, each one a wall:
+
+1. **The fifth mine has nothing to hit.** `HorntailPQ.js:113-123` resets `240050101`-`240050105` and primes
+   `passKey1`..`passKey4`; there is no `passKey5`. In WZ, `240050101` carries reactor `2408002` named `passKey1` at
+   `(1714,-267)` and `240050105` carries **no reactor at all**.
+2. **The reactor's default branch writes the wrong property.** `scripts/reactor/2408002.js:31-69` starts
+   `var vvpStage = -1` and only assigns 1..4 inside its four cases, so the `default:` at `:66-69` runs
+   `eim.setIntProperty("-1stageclear", 1)` and drops `new Item(-1, 0, 1)`. Map `240050105` is that default.
+3. **So `5stageclear` is never written.** The fifth door (`scripts/portal/hontale_Bopen.js:97-125`) reads
+   `eim.getProperty("5stageclear")`, and its only other path is the leader holding `4001092`.
+4. **`4001092` exists nowhere in the data.** `grep -rn 4001092 scripts/ src/main/java` returns the event's exclusive
+   items (`HorntailPQ.js:73`), the hand-in check (`2083001.js:114-123`) and the fifth door's check - and no drop, reactordrop
+   or reward. It cannot be obtained, so the check at `:105` can never be true.
+5. **The keys spawn where the party is not.** Each mine's key is spawned by `2408002.js:72-77` onto `240050100`'s
+   `keyDrop1`..`keyDrop4`, but a mine map has only two portals - `st00` (pt 1, target `999999999`) and `in00` (pt 7,
+   the forward door) - so a party on a mine cannot return to `240050100`. The mid-quest hand-in on `240050100`
+   (`2083001.js:100-112`, keys `4001087`..`4001091`) is therefore unreachable from inside the instance.
+
+**What that means for the row.** Four mines are drivable: each is one map whose reactor sets `Nstageclear`, which is a
+`{ eventProperty: "<N>stageclear" }` clear and a `HitReactor(2408002)`. They are not worth a row on their own, because the
+fifth room is a dead end in a 25-minute instance and the last two stages (`240050300`/`240050310`) need an item that does
+not exist. **The honest repair is a quest-design decision, not a port**: a `case 240050105` in the reactor with a real key
+id and stage number, a `passKey5` reactor in `240050105`'s WZ, and a way back to `240050100` (or the hand-in moved into
+the mine). Until someone decides which, this PQ has no row and both lanes should say so.
+
+## A stage set that repeats: `loopTo:`
+
+BossRush PQ is the one event whose stages are not a sequence (`/root/work/PQ-UNFINISHED-REPORT.md:438-462`): its door
+(`scripts/portal/raid_stage.js:28`) sends the party to the next wave while the map is empty, and the run ends when the
+five-minute clock does - there is no `clearPQ`, no property, no NPC. A row of N stages could not say that, because every
+stage was terminal-on-clear and the orchestrator ended a run at its last playable stage.
+
+So the primitive is a stage field rather than a solver: `loopTo: <stage index>` on the last stage of the set makes the
+orchestrator send the run **back** to that stage instead of forward, in the same branch that used to end the run. The
+clock is what ends such a run, and it ends it the way any over-time run ends - with the budget's own reason in the
+history. `LoopStageTest` (3) pins it: a row without the field keeps advancing (every other row on this branch), the
+field parses and refuses a forward or negative index, and a played row goes `1, 2, 1, 2, 1` and **never** reports
+`cleared`, ending on its own one-minute clock instead.
+
+**The row is not written yet.** Its layout is `970030100 + band + 500*s + 100*k` per the report, and generating 8 bands of
+waves from that needs every emitted map checked against the client (`-Dwz-path` integrity), which is the next turn's whole
+job rather than a line at the end of this one. The primitive is the part that had to exist first.
+
+## GuildQuest: both blockers are settled, and the pattern was never server-side
+
+Part 5 item 6 asks two questions of the scripts. Both are answered, and neither answer is "unknown".
+
+**The same-guild gate is satisfiable.** `scripts/event/GuildQuest.js:97-113` takes `guildId` from the *leader*
+(`:104-112`), then keeps members whose `getMapId() == recruitMap`, level in band and `getGuildId() == guildId`
+(`:116-124`). Playerbots hold real guilds (`BotGuilds.java:63`, `onBotLogin:325-349`, `attach:350-352`, `join:399-436`,
+`refill:1082`), so the gate is a party-assembly fact, not a wall.
+
+**The pattern is published, not painted.** The statues do the publishing: `scripts/npc/9040009.js:106-116` empty
+`stage1combo` and fires one `delayedHitReactor(client, 5000 + 3500*i)` per statue; each statue's `act()`
+(`scripts/reactor/9208000.js:34-51`) appends its **own object id modulo 1000**, zero-padded to three digits, and when the
+string reaches `3 * (stage + 3)` characters it flips `stage1status` to `active` and clears `stage1guess`. During
+`active` the same `act()` appends every statue a player hits (`:53-62`), and the Gatekeeper compares
+`stage1combo === stage1guess` (`9040009.js:79`). So the answer to "is the pattern readable" is yes: it is an event
+property, in full, after the display finishes - no screenshot, no guessing.
+
+**What it still needs** (so nobody starts this blind):
+
+| Needed | Why | Size |
+|---|---|---|
+| a **by-object-id** reactor step | the combo names statues by `objectId % 1000`, and `StepExecutor.hitReactorAt` resolves by `getReactorById` only; `HitReactorNamed` resolves by WZ name | ~1 step + 1 executor branch + `StageView` accessor, the same shape as `TalkNpcAt` was for Magatia's 26 books |
+| a **queue-started** run | this is the real blocker: `scripts/npc/9040000.js:73-91` registers the guild with `em.isQueueFull()` / `getQueueSize()`, and joining goes through `findLobby(cm.getPlayer().getGuildId())` - an instance this engine's `MechanicsRuns` cannot enter, because it starts instances with `EventManager.startInstance` and never joins a queue | the largest piece in Part 5 after ZakumPQ; it is a start-path seam, not a row |
+| five stage rows | Sharenian Ruins' stages, all keyed on `Nstageclear`-style properties | follows the two above |
+
+Not built, and the reason is structural rather than a missing fact: the second row of that table is the whole item.
+
 ## Boss rooms that take minutes to produce a target: `graceMs:`
 
 `BossPhasesSolver` used to hold one global rule: a summoned room with nothing the party may hit for 30 s was a room that
@@ -1135,10 +1306,12 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8605 tests, 0 failures, 0 errors, 137 skipped,
-BUILD SUCCESS** (`/tmp/opq-full.log`, exit 0). That is the number this report treats as the suite's proof.
+`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8621 tests, 0 failures, 0 errors, 137 skipped,
+BUILD SUCCESS, `EXIT=0`, zero `<<< FAILURE` markers** (`/tmp/opq-zak2.log`). That is the number this report treats as the
+suite's proof. Two runs before it were also clean at 8609 each, which is what proved the `BotConversationFlowTest`
+selector fix rather than asserting it (`/tmp/opq-flake-A.log`, `/tmp/opq-flake-B.log`, both `EXIT=0`).
 
-The ladder, so the next number is comparable: 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
+The ladder, so the next number is comparable: 8621 (Pre-Zakum: 59 generated stages, `zakum-mines`, `zakum-hand-in` folded in) -> 8616 (the eight BossRush rows + `BossRushRowTest`) -> 8612 (the `loopTo:` primitive) -> 8609 (the flake fix, twice) -> 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
 one class) -> 8597 (`/tmp/opq-ellin4.log`, Ellin six of six) -> 8592 (`/tmp/opq-cwkpq2.log`) -> 8590 -> 8586 -> 8585 ->
 8582 -> 8577 -> 8573 -> 8567 -> 8562 -> 8552 -> 8541 -> 8532 -> 8529 -> 8515.
 

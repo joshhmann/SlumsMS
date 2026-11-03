@@ -39,6 +39,12 @@ public final class MechanicsRuns {
 
     private static final MechanicsRuns INSTANCE = new MechanicsRuns();
 
+    static {
+        // the bots' win and loss lines are a reader of the run's outcome record, like any other (RunOutcomes)
+        RunOutcomes.listen(RunChatter::onOutcome);
+        RunOutcomes.listen(RunSamples.get()::onOutcome); // the real runs a simulated one is sampled from
+    }
+
     public static MechanicsRuns get() {
         return INSTANCE;
     }
@@ -53,17 +59,44 @@ public final class MechanicsRuns {
         final Consumer<Active> onEnd;
         /** The run's own staging or lobby started this instance: a run that ends short of the clear ends it too. */
         final boolean ownsInstance;
+        /** How the run came to be and whether it holds a place in {@link RealRunPool}; released when the run ends. */
+        final RealRunPool.Admission admission;
+        /** Unique per run: what its {@link RunOutcome} is keyed by. */
+        final String runId = java.util.UUID.randomUUID().toString();
+        final long startedAtMs = System.currentTimeMillis();
+        /** Who was in the run when it started, by what each is (a player, a bot, a player's owned alt). */
+        final List<RunOutcome.Participant> participants;
+        /** Set when this run's outcome has been written: a run has exactly one. */
+        final java.util.concurrent.atomic.AtomicBoolean recorded = new java.util.concurrent.atomic.AtomicBoolean();
         volatile ScheduledFuture<?> tick;
         volatile boolean finished;
 
         Active(RunState run, EventInstanceManager eim, Map<Integer, Character> bots, Consumer<String> reporter,
-               Consumer<Active> onEnd, boolean ownsInstance) {
+               Consumer<Active> onEnd, boolean ownsInstance, RealRunPool.Admission admission,
+               List<RunOutcome.Participant> participants) {
             this.run = run;
             this.eim = eim;
             this.bots = bots;
             this.reporter = reporter;
             this.onEnd = onEnd;
             this.ownsInstance = ownsInstance;
+            this.admission = admission;
+            this.participants = List.copyOf(participants);
+        }
+
+        /** The id this run's {@link RunOutcome} will carry. */
+        public String runId() {
+            return runId;
+        }
+
+        /** How this run came to be (a lobby, a staging, a human's party): what its {@link RealRunPool.Admission} says. */
+        public RealRunPool.Origin origin() {
+            return admission.origin();
+        }
+
+        /** Whether this run holds a place in the real-run pool right now (false for a human's or a staged run). */
+        public boolean leased() {
+            return admission.leased();
         }
 
         public RunState run() {
@@ -110,7 +143,6 @@ public final class MechanicsRuns {
         return name;
     }
     /** Picks the bots that speak about a run and their lines ({@link RunChatter}). */
-    private final Random chatRandom = new Random();
     private final Orchestrator orchestrator = new Orchestrator(Orchestrator.allSolvers(), new Random(), 0, 0);
     private final StepExecutor executor = new StepExecutor();
 
@@ -159,7 +191,8 @@ public final class MechanicsRuns {
      */
     public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int firstStage,
                         int lastStage, boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd) {
-        return start(eim, content, Tier.NORMAL, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd);
+        return start(eim, content, Tier.NORMAL, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd,
+                RealRunPool.exempt(RealRunPool.Origin.STAGED));
     }
 
     /**
@@ -171,7 +204,49 @@ public final class MechanicsRuns {
     public Active start(EventInstanceManager eim, Content content, Tier tier, boolean perfect, long budgetMs,
                         int firstStage, int lastStage, boolean ownsInstance, Consumer<String> reporter,
                         Consumer<Active> onEnd) {
+        return start(eim, content, tier, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd,
+                RealRunPool.exempt(RealRunPool.Origin.STAGED));
+    }
+
+    /**
+     * As above, for a run admitted by {@link RealRunPool} ({@code admission}): the place it holds is given back when the
+     * run ends however it ends, and when this call refuses or fails to start it (a run that ends at its start, a second
+     * run on one instance, a throw) - a leaked place is a permanently smaller quota.
+     */
+    public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int firstStage,
+                        int lastStage, boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd,
+                        RealRunPool.Admission admission) {
+        return start(eim, content, Tier.NORMAL, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd,
+                admission);
+    }
+
+    /**
+     * The one every overload goes through: {@code tier} reaches the run, {@code admission} is the place it holds.
+     */
+    public Active start(EventInstanceManager eim, Content content, Tier tier, boolean perfect, long budgetMs,
+                        int firstStage, int lastStage, boolean ownsInstance, Consumer<String> reporter,
+                        Consumer<Active> onEnd, RealRunPool.Admission admission) {
+        Active a = null;
+        try {
+            a = begin(eim, content, tier, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd,
+                    admission);
+            if (!a.finished && !admission.origin().governed()) {
+                // a human's or a GM's run took no lease, but that row had a real pass now: it is not the stalest
+                RealRunPool.get().notePass(content.id(), a.run.tier());
+            }
+            return a;
+        } finally {
+            if (a == null || a.finished) {
+                admission.release(); // refused, ended at its start, or threw: no run is left to give it back
+            }
+        }
+    }
+
+    private Active begin(EventInstanceManager eim, Content content, Tier tier, boolean perfect, long budgetMs,
+                         int firstStage, int lastStage, boolean ownsInstance, Consumer<String> reporter,
+                         Consumer<Active> onEnd, RealRunPool.Admission admission) {
         List<RunMember> members = new ArrayList<>();
+        List<RunOutcome.Participant> participants = new ArrayList<>();
         Map<Integer, Character> bots = new ConcurrentHashMap<>();
         for (Character c : eim.getPlayers()) {
             boolean bot = drivable(c);
@@ -179,6 +254,8 @@ public final class MechanicsRuns {
             members.add(new RunMember(c.getId(), leader, bot,
                     !bot || perfect ? MechanicsPersona.PERFECT : MechanicsPersona.forCharacter(c.getId()),
                     c.getJob() == null ? 0 : c.getJob().getId()));
+            participants.add(new RunOutcome.Participant(c.getId(), c.isOwnedAlt() ? RunOutcome.ParticipantKind.OWNED_ALT
+                    : bot ? RunOutcome.ParticipantKind.BOT : RunOutcome.ParticipantKind.PLAYER, leader));
             if (bot) {
                 bots.put(c.getId(), c);
             }
@@ -189,17 +266,19 @@ public final class MechanicsRuns {
         if (firstStage > 1 && !o.startAt(run, firstStage, System.currentTimeMillis())) {
             run.end("stage " + firstStage + " is not one this run plays (last " + run.lastStage() + ")");
         }
-        Active a = new Active(run, eim, bots, toQaLog(members, reporter), onEnd, ownsInstance);
+        Active a = new Active(run, eim, bots, toQaLog(members, reporter), onEnd, ownsInstance, admission, participants);
         if (run.ended()) {
             a.finished = true;
             a.reporter.accept("RUN not started: " + run.endedBecause());
             closeInstance(a);
+            recordOutcome(a); // a run that never started is still a run, and an abandoned one
             return a;
         }
         if (active.putIfAbsent(eim, a) != null) {
             run.end("this event instance already has a run");
             a.finished = true;
             a.reporter.accept("RUN not started: " + run.endedBecause());
+            recordOutcome(a);
             return a;
         }
         try {
@@ -448,12 +527,23 @@ public final class MechanicsRuns {
                     : !Mechanics.enabledFor(content)) {
                 return null;
             }
-            if (eim.getPlayers().stream().noneMatch(MechanicsRuns::drivable)) {
+            List<Character> inside = eim.getPlayers();
+            // a real player in the run decides it: his run is always real and takes no place in the pool. A party with
+            // nobody but bots in it (no production path reaches here: the lobbies stage through KpqStaging) is a bot-only
+            // run like a lobby's and asks the pool; a run it refuses is simply not made
+            boolean human = inside.stream().anyMatch(c -> !drivable(c));
+            RealRunPool.Admission admission = human
+                    ? RealRunPool.exempt(expedition ? RealRunPool.Origin.HUMAN_EXPEDITION : RealRunPool.Origin.HUMAN_PARTY)
+                    : RealRunPool.get().admit(RealRunPool.Origin.BOT_INSTANCE, content, 0);
+            if (!admission.granted()) {
+                if (admission.announce()) {
+                    log("[Mechanics] " + keyOf(eim) + " (" + event + "): no run: " + admission.why());
+                }
                 return null;
             }
             // neither a PQ nor a boss room is the run's to end: the party or the expedition script owns, and ends, it
             return get().start(eim, content, false, 0, 1, 0, false,
-                    line -> log("[Mechanics] " + keyOf(eim) + " " + line), null);
+                    line -> log("[Mechanics] " + keyOf(eim) + " " + line), null, admission);
         } catch (RuntimeException e) {
             log("[Mechanics] could not start a run for " + keyOf(eim) + ": " + e);
             return null;
@@ -547,6 +637,7 @@ public final class MechanicsRuns {
         for (Active a : List.copyOf(active.values())) {
             stop(a, why);
         }
+        SimulatedRuns.get().stopAll(why); // a stop ends the simulated runs too, recorded abandoned: nobody reports them
     }
 
     private synchronized void finish(Active a) {
@@ -554,6 +645,15 @@ public final class MechanicsRuns {
             return;
         }
         a.finished = true;
+        try {
+            endRun(a);
+        } finally {
+            // the one place a finished run's place in RealRunPool is given back, whatever the end above did or threw
+            a.admission.release();
+        }
+    }
+
+    private void endRun(Active a) {
         ScheduledFuture<?> t = a.tick;
         if (t != null) {
             t.cancel(false);
@@ -576,7 +676,7 @@ public final class MechanicsRuns {
         } catch (RuntimeException e) {
             log("[Mechanics] could not end " + keyOf(a.eim) + ": " + e);
         }
-        leaveOutcomeLines(a);
+        recordOutcome(a);
         RunState r = a.run;
         a.reporter.accept("RUN end " + r.content().id() + " in " + keyOf(a.eim) + ": " + r.endedBecause()
                 + (r.cleared() ? " after " + r.clearedAfterMs() / 1000 + " s, " + r.wrongShownTotal()
@@ -591,32 +691,19 @@ public final class MechanicsRuns {
     }
 
     /**
-     * 1.7.0 run chatter: leaves the win or loss line on the one or two bots that speak about this run ({@link
-     * RunChatter}). Nothing is said here: each bot says its line from its own macro tick, which {@link #finish} has
-     * just started again, inside the ambient chat budget. An owned alt has no such tick and never speaks.
+     * Writes this run's outcome ({@link RunOutcome}) once, however the run ended. Everything that has something to say
+     * about a run reads that record; the bots' win and loss lines are one of its readers ({@link
+     * RunChatter#onOutcome}, registered with {@link RunOutcomes#listen}). A run that cannot be described still ends.
      */
-    private void leaveOutcomeLines(Active a) {
+    private void recordOutcome(Active a) {
+        if (!a.recorded.compareAndSet(false, true)) {
+            return;
+        }
         try {
-            List<Integer> bots = new ArrayList<>();
-            for (Character bot : a.bots.values()) {
-                if (!bot.isOwnedAlt() && CharacterStorage.getBotById(bot.getId()) != null) {
-                    bots.add(bot.getId());
-                }
-            }
-            Map<Integer, soloMapling.ArtificialPlayer.BotRunOutcome.Pending> plan =
-                    RunChatter.plan(a.run, bots, System.currentTimeMillis(), chatRandom);
-            for (Map.Entry<Integer, soloMapling.ArtificialPlayer.BotRunOutcome.Pending> e : plan.entrySet()) {
-                BotSM brain = CharacterStorage.getBotById(e.getKey());
-                if (brain != null) {
-                    brain.runOutcome().set(e.getValue());
-                }
-            }
-            if (!plan.isEmpty()) {
-                log("[Mechanics] run " + keyOf(a.eim) + " ended " + a.run.ending() + ": " + plan.size()
-                        + " bot(s) will say it: " + plan.keySet());
-            }
+            RunOutcomes.record(RunOutcome.of(a.runId, keyOf(a.eim), a.run, a.admission.origin(), RunOutcome.Mode.REAL,
+                    a.startedAtMs, System.currentTimeMillis(), a.participants));
         } catch (RuntimeException e) {
-            log("[Mechanics] run chatter after " + keyOf(a.eim) + " threw: " + e);
+            log("[Mechanics] could not record the outcome of " + keyOf(a.eim) + ": " + e);
         }
     }
 
@@ -785,6 +872,11 @@ public final class MechanicsRuns {
         if (out.isEmpty()) {
             out.add("no mechanics runs (bots held: " + MechanicsHold.count() + ")");
         }
+        String pool = RealRunPool.get().describe(); // null while the pool is unlimited: status reads as it always did
+        if (pool != null) {
+            out.add(pool);
+        }
+        out.addAll(SimulatedRuns.get().describe()); // empty unless the pool refused a run and it was simulated
         return out;
     }
 }

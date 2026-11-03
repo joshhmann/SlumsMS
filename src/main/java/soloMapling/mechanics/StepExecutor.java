@@ -153,6 +153,7 @@ final class StepExecutor {
             case SolverStep.CheckAnswer c -> check(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.Converse c -> converse(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.EnterPortal e -> enterPortal(bot, beat, e, now, log);
+            case SolverStep.EnterPortalTo to -> enterPortalTo(bot, beat, to, now, log);
             case SolverStep.ScriptedPortal p -> scriptedPortal(bot, beat, p, now, log);
             case SolverStep.WarpTo w -> warp(view, bot, beat, w, now, log);
             case SolverStep.Wait w -> waitNote(bot, beat, w, now, log);
@@ -1276,6 +1277,34 @@ final class StepExecutor {
         if (!GCMovement.enterPortal(bot, portal)) {
             log.accept(bot.getName() + ": portal " + e.portalName() + " on " + from + " is still shut");
         }
+    }
+
+    /**
+     * Same walk as {@link #enterPortal}, but the portal is chosen by the map it leads to. A mine's doors are named by
+     * direction and a hub's by number, and the row's next stage already names the map, so the name is not the solver's
+     * business. Logs once per ten seconds when no portal on this map leads there, and once when the portal is shut.
+     */
+    private static void enterPortalTo(Character bot, Beat beat, SolverStep.EnterPortalTo step, long now,
+                                      Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null) {
+            return;
+        }
+        server.maps.Portal portal = null;
+        for (server.maps.Portal candidate : map.getPortals()) {
+            if (candidate.getTargetMapId() == step.mapId()) {
+                portal = candidate;
+                break;
+            }
+        }
+        if (portal == null) {
+            if (now - beat.lastPortalMs > 10_000) {
+                beat.lastPortalMs = now;
+                log.accept(bot.getName() + ": no portal on " + bot.getMapId() + " leads to " + step.mapId());
+            }
+            return;
+        }
+        enterPortal(bot, beat, new SolverStep.EnterPortal(portal.getName()), now, log);
     }
 
     // ---- movement ----

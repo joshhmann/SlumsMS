@@ -46,3 +46,12 @@ dellibattle.yaml
 magatiapq.yaml
 ellinpq.yaml
 cwkpq.yaml
+bossrush0.yaml
+bossrush1.yaml
+bossrush2.yaml
+bossrush3.yaml
+bossrush4.yaml
+bossrush5.yaml
+bossrush6.yaml
+bossrush7.yaml
+zakumpq.yaml

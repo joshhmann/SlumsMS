@@ -77,6 +77,29 @@ public final class Mechanics {
      * run as silently as they did before.
      */
     public static final String CHATTER_FLAG = "slums.mechanics.chatter";
+
+    /**
+     * The real-run quota: {@code -Dslums.mechanics.realruns=N} (ticket 164, phase 2 of {@code SIMULATED-RUNS-PLAN.md}). How
+     * many bot-only runs may play for real at once, world-wide. <b>Unset, empty, unparsable or negative: unlimited</b>,
+     * which is today's behaviour exactly (every bot-only run holds its bots and plays); {@code 0} admits none. A run with a
+     * real player in it, and a GM's or QA's staged run, never counts against it and is never refused ({@link RealRunPool}).
+     */
+    public static final String REAL_RUNS_FLAG = "slums.mechanics.realruns";
+
+    /**
+     * How many simulated runs may be in flight at once: {@code -Dslums.mechanics.simruns=N} (default {@value #DEFAULT_SIM_RUNS}).
+     * A simulated run only exists where {@link #REAL_RUNS_FLAG} refused a bot-only run, so this is moot while that switch is
+     * unset. {@code 0}: nothing is simulated, a refused run is simply not made.
+     */
+    public static final String SIM_RUNS_FLAG = "slums.mechanics.simruns";
+    public static final int DEFAULT_SIM_RUNS = 8;
+
+    /**
+     * How many real bot-only runs of a content and tier a simulated run needs to be sampled from:
+     * {@code -Dslums.mechanics.simfloor=N} (default {@value #DEFAULT_SIM_FLOOR}). Below it the run waits; it is never faked.
+     */
+    public static final String SIM_FLOOR_FLAG = "slums.mechanics.simfloor";
+    public static final int DEFAULT_SIM_FLOOR = 5;
     public static final String DIR_PROPERTY = "slums.mechanics.dir";
     public static final String DEFAULT_DIR = "src/main/java/soloMapling/mechanics/content";
 
@@ -90,6 +113,41 @@ public final class Mechanics {
     /** True unless {@code -Dslums.mechanics.chatter=false}: bots say something about the run they just left. */
     public static boolean chatterEnabled() {
         return !"false".equalsIgnoreCase(System.getProperty(CHATTER_FLAG, "true").trim());
+    }
+
+    /** The real-run quota, or a negative number for unlimited ({@link #REAL_RUNS_FLAG}). Read on every call. */
+    public static int realRunCapacity() {
+        String raw = System.getProperty(REAL_RUNS_FLAG);
+        if (raw == null || raw.isBlank()) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(raw.trim());
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    /** The most simulated runs in flight ({@link #SIM_RUNS_FLAG}); never negative. */
+    public static int simulatedRunCapacity() {
+        return nonNegative(SIM_RUNS_FLAG, DEFAULT_SIM_RUNS);
+    }
+
+    /** The real runs a simulated one needs to sample ({@link #SIM_FLOOR_FLAG}); at least 1, so nothing is invented from nothing. */
+    public static int simulatedFloor() {
+        return Math.max(1, nonNegative(SIM_FLOOR_FLAG, DEFAULT_SIM_FLOOR));
+    }
+
+    private static int nonNegative(String key, int fallback) {
+        String raw = System.getProperty(key);
+        if (raw == null || raw.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Math.max(0, Integer.parseInt(raw.trim()));
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 
     /** True when a real boss expedition may arm a run. */

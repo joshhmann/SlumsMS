@@ -136,7 +136,7 @@ class MagatiaBooksSolversTest {
         public MechanicsModel.Stage stage() {
             return new MechanicsModel.Stage(1, MAP, "the Alcadno bookshelf", NPC, MagatiaBooksSolver.ID, List.of(),
                     List.of(), List.of(), List.of(), List.of(), List.of(), new MechanicsModel.Clear("statusStg1", "1"),
-                    null, List.of(), List.of(), null, null, 0, 45, List.of(), List.of(), List.of());
+                    null, List.of(), List.of(), null, null, 0, 45, List.of(), List.of(), List.of(), 0);
         }
 
         @Override
