@@ -504,6 +504,12 @@ name, declared map sets and portals):
 | `BotNpcTalk.talkAt(bot, npcId, objectId)` | `BotNpcTalk.java` | `BotCm` now uses the five-argument `NPCConversationManager` ctor (`NPCConversationManager.java:112`), the one that carries `npcOid` |
 | `MagatiaBooksSolver` (`magatia-books`) | `MagatiaBooksSolver.java` | reads the shelf one unread standing at a time, claims each book in `stageMemory()` so two members never read the same one, and past 26 books says so (`Abandon`) instead of looping |
 
+**This is a shipped-behaviour change, not only a seam.** Until this commit every bot NPC talk ran the script with the
+three-argument `NPCConversationManager` constructor, so `cm.getNpcObjectId()` answered **0** for every bot, everywhere.
+Any script keyed on the object id - Magatia's 26 books, and whatever else is keyed that way and has not been met yet - was
+reading the placeholder. The one-line reason: `npcOid` is only set by the five-argument constructor
+(`NPCConversationManager.java:112-118`), and `BotCm` was calling the three-argument one.
+
 - **Fail-before.** `noNumberOfTriesToTheFirstBookEverClearsThisShelf` reads the first standing 200 times and the shelf
   never clears - which is the shipped behaviour of `TalkNpc` - then reads the same shelf one standing at a time and
   clears on the seventh. `theShelfIsReadOneBookAtATimeAndOnlyTheSeventhClearsIt` pins the order (1000..1006, seven reads,
@@ -515,6 +521,38 @@ name, declared map sets and portals):
   `statusStg5` -> `jnr4_r1..r4`, `statusStg6` -> `jnr5_rp`, `statusStg7` -> `2112000.js:110`). Stage 3 (`jnr2_out` +
   `2618000`) is **unclear** from a read alone and will be marked as such rather than guessed. A one-stage row would end
   the run as "cleared" after stage 1 and tell a party the PQ was finished, so nothing is loaded until the set is whole.
+
+## Magatia PQ: four stages driven, one held, two left alone
+
+`content/magatiapq.yaml` is the Alcadno variant (`eventScript: MagatiaPQ_A`), off `-Dslums.mechanics.magatiapq`, exactly
+four players, level 71-255, 45 minutes, front door Juliet `2112003` on `261000021`. Its stages follow the seven script
+stages up to the point where a read stops being able to decide, and then hold rather than guess.
+
+| # | Map | Rule | Written by | Solver |
+|---|---|---|---|---|
+| 1 | `926110001` | 26 standings of the bookshelf; the book that rolls 3 sets the pass | `2112013.js:29-32,56-61` | `magatia-books` |
+| 2 | `926110001` | the map has no monsters left | `MagatiaPQ_A.js:418-426` (`statusStg2`) | `fight-room` |
+| 3 | `926110200` | the beaker counts three hits, and only while its state is 6 | `2618000.js:27-41` (`statusStg3`) | `reactor-count` |
+| 4 | `926110200` + `926110201/202` | the leader hands over 4001134 **and** 4001135 | `2112005.js:72-87` (`statusStg4`) | `magatia-files` |
+| 5 | `926110300` | **held**: `statusStg5` is a four-bit mask the four room portals OR into and no script clears | `jnr4_r1..r4.js:3-15` seed it, nothing finishes it | `hold` |
+| 6-7 | `926110401`, `926110500` | not modelled: an escort with a respawn loop, four ten-digit combos compared by `jnr5_rp.js:25-63`, then Yulete's boss | `MagatiaPQ_A.js:432-450` | none - the row does not claim them |
+
+- **Why a hold and not a shorter row.** The orchestrator ends a run `"cleared"` at its **last playable** stage, so a row
+  that stopped after stage 4 would tell the party the PQ was finished and warp them out. Stage 5 therefore exists and
+  cannot clear: its clear is `statusStg5 == "done"`, a value no script writes (`:131` seeds `0`, the portals OR bits
+  `1,2,4,8`). `HoldSolver` waits, names the missing fact every three seconds, and never abandons - so the run ends on the
+  45-minute budget with that line in its history. That is the honest outcome, and it is what the owner asked for.
+- **Three stage rules became three generic solvers**, because each is "the script decides, the bot keeps the condition
+  true": `fight-room` (empty the room), `reactor-count` (hit until the row's counted clear is reached, reading the counter
+  from the event rather than assuming), `magatia-files` (both documents to the leader, then to the NPC with **no** item in
+  the step, because passing one id would make the leader hand a file over twice).
+- **The Zenumist twin is not covered.** `MagatiaPQ_Z` is byte-identical except for the `92610xxx` maps, the `rnj*`
+  reactor/portal names and the boss ids (`9300139`/`9300140` instead of `9300151`/`9300152`), so it needs its own row; a
+  row that claimed both would be wrong about every id it names.
+- **What is not tested here.** There is no simulation case for this row - seventeen maps, two side rooms and a
+  four-player fixed party make it the largest world `RowRunSimulationTest` would need, and the row's value is in its
+  stages' rules, which `MagatiaPqSolversTest` pins one by one. That gap is stated rather than papered over, and it is the
+  first thing to add when stage 5 is decided.
 
 ## Expedition rule: pause for revive (this is the report it lives in)
 

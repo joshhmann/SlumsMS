@@ -387,6 +387,15 @@ The gates (one to two players, level 120-255, six minutes, `925010300` with recr
 `scheduledTimeout` -> `clearPQ` (`:119-124`, `:208-211`); `friendlyKilled` (`:194-199`) is the only failure and
 `monsterKilled` (`:213`) is empty, which is why the row has no count of its own.
 
+### Magatia PQ stage data, 1.6.4 (branch `164-opq`, ticket 164): no outside source
+
+Nothing in the row comes from another bot project: cosmic_agents and BotStory carry no Magatia definition. The orders
+come from our scripts - the gates and property seeds from `scripts/event/MagatiaPQ_A.js:27-32,37,127-133,218-246`, the
+four modelled stages from `scripts/npc/2112013.js` (books), `MagatiaPQ_A.js:418-426` (empty room),
+`scripts/reactor/2618000.js:27-41` (beaker) and `scripts/npc/2112005.js:72-87` (both files). The index used to find them
+was this repository's own scan notes in `/root/work/.pqscan/our-pq-b.md`, which is our material, not another project's;
+every claim it gave was re-read in the script before being written into a row.
+
 Where our server's scripts disagree, the scripts win and the row follows them:
 
 - **The altar takes exactly twenty in one drop.** `scripts/reactor/2006000.js:1-5` spawns Eak from the reactor's item

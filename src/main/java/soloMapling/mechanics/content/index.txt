@@ -16,3 +16,4 @@ ludimazepq.yaml
 piratepq.yaml
 treasurepq.yaml
 dellibattle.yaml
+magatiapq.yaml

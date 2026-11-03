@@ -1,0 +1,151 @@
+# Ticket 164 Magatia PQ stage data, the Alcadno variant ("MagatiaPQ_A"). Our scripts first, the shape from
+# /root/work/.pqscan/our-pq-b.md, and every gate read again in the tree.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData.
+#
+# Off its own switch (-Dslums.mechanics.magatiapq=true on top of -Dslums.mechanics=true). REPORT-opq.md, "Magatia PQ".
+#
+#   scripts/event/MagatiaPQ_A.js:27-32,37 gates (4 players exactly, level 71-255, 45 minutes, recruitMap 261000021,
+#   entryMap 926110000, exit 926110700); :127-133 seeds statusStg1..7 = 0; :218-246 seeds the 26 book properties.
+#   The Zenumist twin (MagatiaPQ_Z) is byte-identical except for the 92610/92611 map prefix, the rnj/jnr names and the
+#   boss ids, so it needs its own row and is not covered by this one.
+#
+# FIVE of the PQ's seven stages are modelled. The other two are not, and the fifth stage below says why in the row rather
+# than guessing: a run of this row plays the books, empties the shelf's room, fills the beaker and carries both files to
+# Juliet, and then HOLDS - it never reports a clear it did not get.
+id: magatiapq
+name: Magatia PQ (Alcadno)
+kind: PQ
+eventScript: MagatiaPQ_A
+# scripts/npc/2112003.js:63-80 is Juliet, the front door on the recruit map.
+entryNpc: 2112003
+recruitMap: 261000021
+exitMap: 926110700
+minPlayers: 4
+maxPlayers: 4
+minLevel: 71
+maxLevel: 255
+timeLimitMinutes: 45
+flag: slums.mechanics.magatiapq
+sources:
+  - "scripts/event/MagatiaPQ_A.js is ours and is the truth: the gates (:27-32,37), the property seeds (:127-133, :218-246) and every clear writer (:418-426, :432-448)"
+  - "each stage's rule is one of our scripts: 2112013.js (the 26 books, keyed on cm.getNpcObjectId()), 2618000.js (the beaker's hit() counts to three), 2112005.js (both files to Juliet)"
+  - "the Zenumist twin MagatiaPQ_Z uses rnj* names and 92610xxx maps and is deliberately NOT covered: same shape, different ids, its own row"
+  - "stages 5-7 are not modelled (see the fifth stage's name); /root/work/.pqscan/our-pq-b.md was used as the index and the scripts were read for every claim"
+stages:
+  - stage: 1
+    map: 926110001
+    name: The Alcadno shelf - twenty-six books, one pass
+    npc: 2112013
+    solver: magatia-books
+    roles:
+      - id: reader
+        who: ANY
+        min: 1
+        max: party
+        note: "every member reads a different book; the standing's object id is what tells them apart"
+    objectives:
+      - id: books
+        kind: TALK_NPC
+        role: all
+        npc: 2112013
+        note: "26 standings of one NPC; the pass is the book that rolls 3 (2112013.js:56-61)"
+    clear:
+      eventProperty: statusStg1
+      equals: "1"
+  - stage: 2
+    map: 926110001
+    name: Empty the shelf's room
+    solver: fight-room
+    mobs: []
+    roles:
+      - id: fighter
+        who: ANY
+        min: 1
+        max: party
+        note: "no fetch and no NPC - the clear is the map being empty"
+    objectives:
+      - id: clear-room
+        kind: WAIT
+        role: all
+        note: "MagatiaPQ_A.js:418-426 sets statusStg2 = 1 when 926110001 has no monsters left and statusStg1 == 1"
+    clear:
+      eventProperty: statusStg2
+      equals: "1"
+  - stage: 3
+    map: 926110200
+    name: The beaker - three counted hits
+    solver: reactor-count
+    hitReactor: 2618000
+    roles:
+      - id: hitter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: beaker
+        kind: HIT_REACTOR
+        role: all
+        reactor: "2618000"
+        note: "2618000.js:27-41 counts only while the reactor's state is 6, and at three it kills the room and hits jnr2_door"
+    clear:
+      eventProperty: statusStg3
+      equals: "3"
+  - stage: 4
+    map: 926110200
+    name: Both files to Juliet
+    npc: 2112005
+    solver: magatia-files
+    maps: [926110201, 926110202]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: "2112005.js:73-76 only the event leader's pair is consumed"
+      - id: carrier
+        who: NON_LEADER
+        min: 1
+        max: party-1
+    items:
+      - id: 4001134
+      - id: 4001135
+    objectives:
+      - id: alcadno-file
+        kind: COLLECT
+        role: all
+        item: 4001134
+        count: 1
+      - id: zenumist-file
+        kind: COLLECT
+        role: all
+        item: 4001135
+        count: 1
+      - id: hand-files
+        kind: HAND_IN
+        role: leader
+        npc: 2112005
+        item: 4001134
+        count: 1
+        note: "the NPC wants both; the talk carries the pair's first id and the script's haveItem pair is the gate"
+    clear:
+      eventProperty: statusStg4
+      equals: "1"
+  - stage: 5
+    map: 926110300
+    name: "statusStg5 is a four-bit mask that jnr4_r1..r4 set and no script clears, so the way through the four rooms cannot be decided from a read - stages 6 (escort + four ten-digit combos) and 7 (Yulete's boss) are behind it and are equally unmodelled"
+    solver: hold
+    roles:
+      - id: waiting
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: not-modelled
+        kind: WAIT
+        role: all
+        note: "this stage never clears on purpose: the run must not report a PQ it did not finish"
+    clear:
+      # "done" is a value no script can write: the event seeds statusStg5 = 0 (:131) and the four room portals only OR
+      # bits 0..3 into it (jnr4_r1..r4.js:3-15). So this stage is honestly unwinnable until the rooms' rule is read.
+      eventProperty: statusStg5
+      equals: "done"
