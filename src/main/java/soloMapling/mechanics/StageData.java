@@ -245,8 +245,61 @@ public final class StageData {
         if (id == null || name == null || kind == null) {
             return null;
         }
+        List<MechanicsModel.Seat> composition = readComposition(m, minP, maxP, minL, maxL, p);
         return new Content(id, name, kind, script, recruit, exit, minP, maxP, minL, maxL, time, List.copyOf(sources),
-                List.copyOf(stages), Map.copyOf(tiers), after, opt(m, "flag"), num(m, "entryNpc", 0, p));
+                List.copyOf(stages), Map.copyOf(tiers), after, opt(m, "flag"), num(m, "entryNpc", 0, p),
+                List.copyOf(composition));
+    }
+
+    /**
+     * {@code composition:} - the seats the party must fill: {@code {id, min, minLevel, maxLevel, note}}. A seat nobody
+     * the row admits could sit in, or more members than the party holds, is a row that could never start: refused here.
+     */
+    private static List<MechanicsModel.Seat> readComposition(Map<?, ?> m, int minP, int maxP, int minL, int maxL,
+                                                             List<String> p) {
+        List<MechanicsModel.Seat> out = new ArrayList<>();
+        Object raw = m.get("composition");
+        if (raw == null) {
+            return out;
+        }
+        if (!(raw instanceof List<?> seats)) {
+            p.add("composition: not a list");
+            return out;
+        }
+        Set<String> ids = new HashSet<>();
+        int needed = 0;
+        for (Object o : seats) {
+            if (!(o instanceof Map<?, ?> sm)) {
+                p.add("composition: a seat that is not a map");
+                continue;
+            }
+            String sid = str(sm, "id", p, true);
+            int min = num(sm, "min", 1, p);
+            int lo = num(sm, "minLevel", 1, p);
+            int hi = num(sm, "maxLevel", 0, p);
+            String at = "composition seat " + sid + ": ";
+            if (sid == null) {
+                continue;
+            }
+            if (!ids.add(sid)) {
+                p.add(at + "duplicate seat");
+            }
+            if (min < 1) {
+                p.add(at + "min must be 1 or more");
+            }
+            if (lo < 1 || (hi != 0 && hi < lo)) {
+                p.add(at + "levels: need 1 <= minLevel and (maxLevel 0, or at least minLevel)");
+            }
+            if ((hi != 0 && hi < minL) || lo > maxL) {
+                p.add(at + "no level the row admits (" + minL + "-" + maxL + ") fits this seat");
+            }
+            needed += Math.max(min, 0);
+            out.add(new MechanicsModel.Seat(sid, lo, hi, min, opt(sm, "note")));
+        }
+        if (needed > maxP) {
+            p.add("composition: the seats need " + needed + " members, more than maxPlayers " + maxP);
+        }
+        return out;
     }
 
     private static TierRules readTier(Tier t, Map<?, ?> m, int minL, int maxL, int time, List<String> p) {

@@ -161,7 +161,7 @@ public final class MechanicsRuns {
             boolean leader = c.getId() == eim.getLeaderId();
             members.add(new RunMember(c.getId(), leader, bot,
                     !bot || perfect ? MechanicsPersona.PERFECT : MechanicsPersona.forCharacter(c.getId()),
-                    c.getJob() == null ? 0 : c.getJob().getId()));
+                    c.getJob() == null ? 0 : c.getJob().getId(), c.getLevel()));
             if (bot) {
                 bots.put(c.getId(), c);
             }

@@ -143,6 +143,13 @@ public final class Orchestrator implements RunOrchestrator {
                     + members.size());
             return run;
         }
+        String unseated = content.compositionProblem(members.stream().map(RunMember::level).toList());
+        if (unseated != null) {
+            // a row that asks something of the party (Guild Quest: one member of level 30 or below, under30gate.js:25)
+            // cannot be played by one that does not have it, and nothing here stands a member in for a missing one
+            run.end(unseated);
+            return run;
+        }
         run.setClaims(RoleClaims.claim(run.stageData(), run.members()));
         run.note(0, "start " + content.id() + " stage 1 with " + describe(run));
         return run;

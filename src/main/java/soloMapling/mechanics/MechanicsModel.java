@@ -393,6 +393,25 @@ public final class MechanicsModel {
     }
 
     /**
+     * A seat the party has to fill ({@code composition:} in a row), the way {@code minPlayers}/{@code maxPlayers} are
+     * the party's size: {@code min} members whose level is {@code minLevel}..{@code maxLevel} ({@code maxLevel} 0 = no
+     * cap). Guild Quest's door out of the four-room maze is the case: {@code scripts/portal/under30gate.js:25} lets a
+     * member through only at level 30 or below, so a party of high-level members - bots included - can never reach the
+     * crown, and the stage can never clear. The row says so as a fact; the run refuses to start without the seat filled
+     * and staging seats a member who fits or refuses with the line.
+     */
+    public record Seat(String id, int minLevel, int maxLevel, int min, String note) {
+        public boolean fits(int level) {
+            return level > 0 && level >= minLevel && (maxLevel <= 0 || level <= maxLevel);
+        }
+
+        /** "level 10-30" / "level 10+" for a line a person reads. */
+        public String describeLevels() {
+            return maxLevel > 0 ? "level " + minLevel + "-" + maxLevel : "level " + minLevel + "+";
+        }
+    }
+
+    /**
      * What happens after the last stage clears (1.6.1, KPQ): every member talks to {@code rewardNpc} on
      * {@code rewardMap} for the prize (the script then sends him to {@code bonusMap}), hunts there for a while and
      * leaves through {@code exitNpc}. Null when the content simply ends on its last clear.
@@ -416,7 +435,35 @@ public final class MechanicsModel {
                            * {@code 2013000}); 0 when the row does not say. The staging talks to it instead of pressing
                            * the event's own button, so a bot party goes in the way a player's does.
                            */
-                          int entryNpc) {
+                          int entryNpc,
+                          /** The seats the party must fill ({@link Seat}); empty for every row that asks nothing of it. */
+                          List<Seat> composition) {
+
+        public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
+                       int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
+                       List<String> sources, List<Stage> stages, Map<Tier, TierRules> tiers, AfterClear afterClear,
+                       String flag, int entryNpc) {
+            this(id, name, kind, eventScript, recruitMap, exitMap, minPlayers, maxPlayers, minLevel, maxLevel,
+                    timeLimitMinutes, sources, stages, tiers, afterClear, flag, entryNpc, List.of());
+        }
+
+        /**
+         * Why this party's levels do not fill the row's seats, or null when they do. A level of 0 ("not carried") fits
+         * nothing. Each seat counts the members that fit it on its own, so a row with two seats keeps them disjoint.
+         */
+        public String compositionProblem(java.util.Collection<Integer> levels) {
+            for (Seat seat : composition) {
+                long fitting = levels.stream().filter(l -> l != null && seat.fits(l)).count();
+                if (fitting < seat.min()) {
+                    return "the party does not fill the seat \"" + seat.id() + "\": it needs " + seat.min()
+                            + " member(s) of " + seat.describeLevels() + (seat.note() == null || seat.note().isBlank()
+                            ? "" : " (" + seat.note() + ")") + ", it has " + fitting + " (levels "
+                            + levels.stream().sorted().map(String::valueOf).collect(java.util.stream.Collectors.joining(", "))
+                            + ")";
+                }
+            }
+            return null;
+        }
 
         public Content(String id, String name, Kind kind, String eventScript, int recruitMap, int exitMap,
                        int minPlayers, int maxPlayers, int minLevel, int maxLevel, int timeLimitMinutes,
