@@ -1,0 +1,59 @@
+# Ticket 164 DelliBattle stage data ("Save Delli"): one room and one clock, nothing else. Our scripts first.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData.
+#
+# Off its own switch (-Dslums.mechanics.dellibattle=true on top of -Dslums.mechanics=true). REPORT-opq.md, "DelliBattle".
+#
+#   scripts/event/DelliBattle.js:26-36 gates (1-2 players, level 120-255, six minutes, entryMap 925010300, exitMap and
+#   recruitMap 925010200, minMapId = maxMapId = 925010300, seven lobbies), :96-106 setup (the timer plus a respawn every
+#   fifteen seconds), :119-124 scheduledTimeout (the ONLY clear: when the clock runs out it kills the room and calls
+#   clearPQ), :208-211 clearPQ (the instance's flag and nothing else), :194-199 friendlyKilled (Delli 9300162 dying ends
+#   the run), :213 monsterKilled is empty - killing anything advances nothing.
+id: dellibattle
+name: DelliBattle
+kind: PQ
+eventScript: DelliBattle
+# scripts/npc/2095000.js:48-70 is Delli's front door on the recruit map (and refuses on 925010400, where she escorts out).
+entryNpc: 2095000
+recruitMap: 925010200
+exitMap: 925010200
+minPlayers: 1
+maxPlayers: 2
+minLevel: 120
+maxLevel: 255
+# The script's own timer is SIX minutes (DelliBattle.js:34) and its `scheduledTimeout` is the clear. This number is the
+# whole run's budget, so it is deliberately longer: the run must be ended by the instance's flag at minute six, never by
+# our budget first.
+timeLimitMinutes: 8
+flag: slums.mechanics.dellibattle
+sources:
+  - "scripts/event/DelliBattle.js is ours and is the truth: the gates (:26-36), the respawn (:109-112), scheduledTimeout (:119-124) and clearPQ (:208-211)"
+  - "the clear is the server's clock, not anything the party does: monsterKilled (:213) is empty; only scheduledTimeout sets the flag"
+  - "the friendly 9300162 is the one way to fail (friendlyKilled, :194-199) and BotAttackDriver.botMayTarget already refuses WZ-friendly mobs, so Fight(0) cannot hit her"
+  - "cosmic_agents and BotStory carry no DelliBattle definition: every id here was read from our scripts, never from upstream"
+stages:
+  - stage: 1
+    map: 925010300
+    name: Hold the room until Delli's clock runs out
+    solver: delli-hold
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: this event has no hand-in and no NPC in the room; the leader is the member whose loss ends the run
+      - id: escort
+        who: NON_LEADER
+        min: 0
+        max: party-1
+        note: fights the room's monsters and never touches the friendly
+    objectives:
+      # Documentation, not a rule the solver reads: the room's three monster ids (Map.wz/Map9/925010300.img.xml life:
+      # 9300163, 9300164, 9300165, plus Delli herself at 9300162). Killing any of them advances nothing - monsterKilled
+      # (:213) is empty - which is exactly why the row's clear is the instance's clock and not a count.
+      - id: room
+        kind: DEFEAT
+        role: all
+        mob: 9300163
+        note: "one of the room's three monsters; the event clears when scheduledTimeout fires at six minutes, not here"
+    clear:
+      instance: true

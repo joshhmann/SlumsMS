@@ -57,6 +57,9 @@ public final class Mechanics {
     /** Treasure PQ's own switch ({@code -Dslums.mechanics.treasurepq}). */
     public static final String TREASURE_FLAG = "slums.mechanics.treasurepq";
 
+    /** DelliBattle's own switch ({@code -Dslums.mechanics.dellibattle}). */
+    public static final String DELLI_FLAG = "slums.mechanics.dellibattle";
+
     /** LudiMaze PQ's own switch: one PQ, one row, one flag. */
     public static final String LUDIMAZE_FLAG = "slums.mechanics.ludimazepq";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";

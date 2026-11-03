@@ -37,6 +37,8 @@ tests that keep them working and the section below that says why they were repor
 | `PiratePqSolversTest` (9 tests) | `src/test/java/soloMapling/mechanics/PiratePqSolversTest.java` | the fake ship: the row's gates and maps, the deck's empty-map passage, the guide's medal order, nineteen medals refused and twenty accepted, keys on the first shut door, three doors not a way through, the boss fought before the talk |
 | `TreasureChestSolver` + `content/treasurepq.yaml` (1 stage) | `soloMapling/mechanics/TreasureChestSolver.java`, `content/treasurepq.yaml` | Treasure PQ: one map, the chest `6741001` as the only source of a monster, and `eim.clearPQ()` as the only clear - the same two primitives as OPQ's boxes and Cafe PQ's clear, in forty lines |
 | `TreasurePqSolversTest` (4 tests) | `src/test/java/soloMapling/mechanics/TreasurePqSolversTest.java` | the row's gates, the chest hit before anything is fought, the fail-before that a chest-less row waits forever, and no roles to split |
+| `DelliHoldSolver` + `content/dellibattle.yaml` (1 stage) | `soloMapling/mechanics/DelliHoldSolver.java`, `content/dellibattle.yaml` | DelliBattle: the one row whose clear is the server's clock (`scheduledTimeout`), so the solver only works the room and names the clock while it waits - and the friendly is never a target |
+| `DelliBattleSolversTest` (5 tests) | `src/test/java/soloMapling/mechanics/DelliBattleSolversTest.java` | the gates, the budget longer than the script's timer, the hundred-tick proof that nothing the party does can clear it, the friendly never targeted, and the instance flag as the only end |
 | `ContentLobbyTest` (8 tests) | `src/test/java/soloMapling/mechanics/ContentLobbyTest.java` | row-parameterised over `ContentLobby.rows()`: the three-switch gate per row, the row each lobby reads, the ten-minute back-off per row and channel, and why Kerning's lobby structurally cannot staff these towers |
 
 The walkway and the lounge reuse the existing `kill-collect-hand-in` solver: both stages are "farm N, pool them on the
@@ -349,6 +351,35 @@ almost nothing and it exercises two primitives a second time.
 - **End to end in simulation.** `aTreasurePartyOpensTheChestAndKillsWhatItHolds` plays the row and asserts the instance
   clear, no invented property, the chest hit, and a `Fight` step - the monster the chest held was fought, not skipped.
 
+## DelliBattle: one room, one clock, and a clear no party can reach
+
+The one row on this branch whose clear is a **timer**, off its own switch (`-Dslums.mechanics.dellibattle`, default off),
+one row (`content/dellibattle.yaml`), `clear: { instance: true }`.
+
+| Piece | Where it is written |
+|---|---|
+| gates: **1-2 players**, level 120-255, six minutes, `entryMap` `925010300`, `exitMap` and `recruitMap` `925010200`, `minMapId == maxMapId` | `scripts/event/DelliBattle.js:26-36` |
+| the room re-spawns every 15 seconds | `:109-112` |
+| **the clear** | `:119-124` `scheduledTimeout` kills the room, shows the clear effect and calls `clearPQ` (`:208-211`), which sets the flag |
+| the only way to fail | `:194-199` `friendlyKilled` - Delli `9300162` dying ends the run |
+| nothing else counts | `:213` `monsterKilled` is empty |
+
+- **The party cannot advance this event, and the row says so instead of pretending.** `DelliHoldSolver` is two rules:
+  fight what is out, otherwise wait naming the clock. Every one of a hundred ticks in
+  `theRoomIsWorkedAndTheEventIsNeverAdvancedByKilling` is a `Wait`, which is the honest shape of a survival event.
+- **`timeLimitMinutes: 8`, not 6.** The row's number is the whole-run budget the orchestrator enforces; the script's own
+  six-minute timeout is what writes the flag. A row that copied the script's `6` could end the run on the budget one tick
+  before the flag existed. `theRowIsTheScriptsGatesAndABudgetLongerThanTheScriptsClock` pins the inequality.
+- **The friendly is safe by construction, not by a list.** `BotAttackDriver.botMayTarget` already refuses WZ-friendly
+  mobs (the same check that keeps HPQ's Moon Bunny alive), so `Fight(0)` cannot target `9300162`;
+  `theClerAndTheFriendlyAreNeverATarget` asserts the step asks for no mob id and no item.
+- **End to end in simulation.** `aDelliPartyHoldsTheRoomUntilTheScriptsClockClearsIt` runs the row for the full six
+  minutes of simulated time, asserts the instance flag is the clear, that no property was invented, and that the party
+  never sat still for longer than the 15-second respawn.
+- **No lobby row, and why.** `ContentLobby.rows()` does not list it: this event's own gate is one player
+  (`DelliBattle.js:27`) and the staging hands `KpqStaging` a party of at least two, so a lobby would staff a party the
+  script refuses to look at. A human party of two plays it with the row flag; no bot party is assembled.
+
 ## Expedition rule: pause for revive (this is the report it lives in)
 
 The boss report is on `164-bossfight`, a different branch, so this one carries the rule. It is the answer to the lane
@@ -549,10 +580,10 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8567 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-treasure.log`, exit 0 - Treasure PQ's own commit; `TreasurePqSolversTest` 4 and one simulation case).
-The previous numbers on this branch, so the next one is comparable: 8562 (`/tmp/opq-pirate.log`, Pirate PQ), 8552
-(`/tmp/opq-maze.log`, LudiMaze PQ), 8541 (`/tmp/opq-cafe.log`, Cafe PQ), 8532 (`/tmp/opq-instance2.log`, the instance
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8573 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-delli.log`, exit 0 - DelliBattle's own commit; `DelliBattleSolversTest` 5 and one simulation case).
+The previous numbers on this branch, so the next one is comparable: 8567 (`/tmp/opq-treasure.log`, Treasure PQ), 8562
+(`/tmp/opq-pirate.log`, Pirate PQ), 8552 (`/tmp/opq-maze.log`, LudiMaze PQ), 8541 (`/tmp/opq-cafe.log`, Cafe PQ), 8532 (`/tmp/opq-instance2.log`, the instance
 clear), 8529 (`/tmp/opq-hpq.log`, Henesys PQ), 8515 (`/tmp/opq-lpq.log`, Ludi PQ).
 
 Where the number is being read from: it is the surefire total of the whole tree at the commit this sentence is in, with

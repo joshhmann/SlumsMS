@@ -340,6 +340,25 @@ class RowRunSimulationTest {
                 "and what the chest held was fought, not walked past");
     }
 
+    /**
+     * DelliBattle end to end: the run must be ended by the instance's flag at minute six, not by our budget, and the
+     * party must never stand still with a monster in the room.
+     */
+    @Test
+    void aDelliPartyHoldsTheRoomUntilTheScriptsClockClearsIt() {
+        Sim sim = play("DelliBattle", party(2), 5_000);
+
+        assertEquals("cleared", sim.ended(), "the clear is scheduledTimeout, not a count: " + sim.ended()
+                + " after " + sim.ticks() + " ticks");
+        assertTrue(sim.world().instanceCleared, "clearPQ (:208-211)");
+        assertTrue(sim.world().props.isEmpty(), "no property was invented for it: " + sim.world().props);
+        assertTrue(sim.world().now >= 360_000, "the run lasted the script's six minutes: ended at " + sim.world().now
+                + " ms, " + sim.ticks() + " ticks");
+        assertTrue(sim.world().longestWaitStreak <= 160,
+                "an empty room may be waited in, but only until the 15 s respawn: "
+                        + sim.world().longestWaitStreak);
+    }
+
     @Test
     void everyOneOfTheSixCafeAreasPlaysToTheComputersClear() {
         int[][] maps = {{190000000, 190000001, 190000002}, {191000000, 191000001}, {192000000, 192000001},
@@ -698,6 +717,11 @@ class RowRunSimulationTest {
                         reactors.put(String.valueOf(door), 0); // every door starts shut
                     }
                 }
+                case 925010300 -> {
+                    // "Save Delli": the room re-spawns every 15 s (DelliBattle.js:109-112) and the event's own six-minute
+                    // timer is what clears it (:119-124) - nothing the party does advances it (:213 is empty)
+                    mobs = 10;
+                }
                 case 674030000 -> {
                     // the treasure room: no monsters of its own, the chest is the summon (scripts/reactor/6741001.js)
                     mobs = 0;
@@ -759,6 +783,14 @@ class RowRunSimulationTest {
             tick++;
             for (int map : at.values()) {
                 visited.add(map);
+            }
+            if (!noRespawn && tick % 150 == 0 && at.containsValue(925010300)) {
+                mobs = Math.max(mobs, 10); // respawnStages: Delli's room re-spawns every 15 s (DelliBattle.js:109-112)
+            }
+            if (!instanceCleared && now >= 360_000 && run.stageData().mapId() == 925010300) {
+                // scheduledTimeout: six minutes, kill the room, show the clear, clearPQ (DelliBattle.js:119-124)
+                mobs = 0;
+                instanceCleared = true;
             }
             if (!noRespawn && tick % 150 == 0 && (at.containsValue(925100100) || at.containsValue(925100400))) {
                 // the ship refills a room the party is still working (MapleMap's own respawn); the two rooms whose gate

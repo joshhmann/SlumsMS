@@ -46,6 +46,9 @@ public final class ContentLobby {
      * {@code ContentLobbyTest} checks that for each of them. Kerning's {@code kpq} row is not here: it has
      * {@link KpqLobby}, which picks its party out of the bots already at Lakelis instead of spawning one.
      */
+    // DelliBattle is deliberately absent: its own gate is ONE to two players (DelliBattle.js:27) and the staging hands
+    // `KpqStaging` a full party of at least two, so a lobby for it would staff a party the event's script refuses to
+    // look at. A human party of two plays it with -Dslums.mechanics.dellibattle; no bot party is assembled for it.
     private static final List<String> ROWS = List.of("OrbisPQ", "LudiPQ", "HenesysPQ",
             "CafePQ_1", "CafePQ_2", "CafePQ_3", "CafePQ_4", "CafePQ_5", "CafePQ_6", "LudiMazePQ",
             "PiratePQ", "TreasurePQ");

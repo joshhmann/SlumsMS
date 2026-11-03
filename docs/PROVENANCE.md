@@ -379,6 +379,14 @@ Every id is ours: the gates (4-6 players, level 140-255, 45 minutes, `674030000`
 the summon is `scripts/reactor/6741001.js`, and the clear is `clearPQ` (`:232-237`) reached only by `9400589`'s death
 (`:244-252`).
 
+### DelliBattle stage data, 1.6.4 (branch `164-opq`, ticket 164): no outside source
+
+Nothing in the row comes from another bot project - neither cosmic_agents nor BotStory carries a DelliBattle definition.
+The gates (one to two players, level 120-255, six minutes, `925010300` with recruit and exit `925010200`) are
+`scripts/event/DelliBattle.js:26-36`, the front door is `scripts/npc/2095000.js:48-70`, and the clear is the script's own
+`scheduledTimeout` -> `clearPQ` (`:119-124`, `:208-211`); `friendlyKilled` (`:194-199`) is the only failure and
+`monsterKilled` (`:213`) is empty, which is why the row has no count of its own.
+
 Where our server's scripts disagree, the scripts win and the row follows them:
 
 - **The altar takes exactly twenty in one drop.** `scripts/reactor/2006000.js:1-5` spawns Eak from the reactor's item
