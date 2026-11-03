@@ -126,6 +126,15 @@ public sealed interface SolverStep {
      * (`scripts/npc/2133001.js:60-84`). The rule itself is `server.life.MonsterCatch`; the step only says "try one now".
      * The monster has to be weak enough (below 40% HP) for the attempt to land, so a solver keeps fighting and re-tries.
      */
+    /**
+     * Touch a reactor - the {@code touch} callback, not {@code act}. A reacto r's {@code touch} is dispatched only from a
+     * client packet (`TouchReactorHandler.java:34-46`), so a bot standing on it does nothing; Crimsonwood Keep's sign-up
+     * is exactly this (`CWKPQ.js:98-135` hands each member a reactor by job class on touch), and Horntail's alternate head
+     * spawn (`2408003.js:30-34`) is the other.
+     */
+    record TouchReactor(int reactorId) implements SolverStep {
+    }
+
     record UseItemOnMob(int itemId, int mobId) implements SolverStep {
     }
 

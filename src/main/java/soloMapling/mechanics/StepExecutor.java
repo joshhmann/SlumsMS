@@ -50,6 +50,9 @@ final class StepExecutor {
     /** How often one bot may try a use-item on a monster (Ellin PQ's marble): the rule is HP-gated, so a spray is noise. */
     static final long USE_ON_MOB_GAP_MS = 1_000;
 
+    /** How often one bot may touch a reactor. */
+    static final long TOUCH_GAP_MS = 1_000;
+
     private final Map<Integer, Beat> beats = new ConcurrentHashMap<>();
 
     /**
@@ -106,6 +109,7 @@ final class StepExecutor {
         /** When this bot last dropped onto an item reactor, and how often it has dropped on each reactor id. */
         long lastPlaceOnMs;
         long lastUseOnMobMs;
+        long lastTouchMs;
         final java.util.Map<Integer, Integer> placeOnTries = new java.util.HashMap<>();
         boolean stallTold;
         int stallGain;
@@ -130,6 +134,7 @@ final class StepExecutor {
             case SolverStep.Say s -> say(view, bot, beat, s.line(), now);
             case SolverStep.HitReactor h -> hitReactor(bot, beat, h, now, log);
             case SolverStep.UseItemOnMob u -> useItemOnMob(bot, beat, u, now, log);
+            case SolverStep.TouchReactor t -> touchReactor(bot, beat, t, now, log);
             case SolverStep.HitReactorNamed h -> {
                 MapleMap named = bot.getMap();
                 server.maps.Reactor r = named == null || h.reactorName() == null
@@ -952,6 +957,32 @@ final class StepExecutor {
      * conditions. One attempt per {@link #USE_ON_MOB_GAP_MS} per bot, nearest-first, and the log says which monster and
      * whether it landed - a bot that kept spraying marbles at a healthy flower would look busy and change nothing.
      */
+    /**
+     * One touch of a reactor, rate-limited like a hit: the {@code touch} callback only fires from a client packet, so
+     * this calls {@code ReactorScriptManager.touch(client, reactor)} directly - the same entry point the packet handler
+     * uses - and leaves {@code act()} to {@link SolverStep.HitReactor}.
+     */
+    private static void touchReactor(Character bot, Beat beat, SolverStep.TouchReactor t, long now, Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null) {
+            return;
+        }
+        server.maps.Reactor reactor = map.getReactorById(t.reactorId());
+        if (reactor == null) {
+            if (now - beat.lastReactorMs > 10_000) {
+                beat.lastReactorMs = now;
+                log.accept(bot.getName() + ": no reactor " + t.reactorId() + " on map " + map.getId());
+            }
+            return;
+        }
+        if (now - beat.lastTouchMs < TOUCH_GAP_MS) {
+            return;
+        }
+        beat.lastTouchMs = now;
+        scripting.reactor.ReactorScriptManager.getInstance().touch(bot.getClient(), reactor);
+        log.accept("TOUCH reactor " + t.reactorId() + " (state " + reactor.getState() + ")");
+    }
+
     private static void useItemOnMob(Character bot, Beat beat, SolverStep.UseItemOnMob u, long now, Consumer<String> log) {
         MapleMap map = bot.getMap();
         if (map == null || bot.getItemQuantity(u.itemId(), false) <= 0) {

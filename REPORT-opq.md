@@ -624,6 +624,26 @@ look complete is exactly what this report exists to avoid.
 The adventurer-only filter (`EllinPQ.js:93`) is recorded as a **party-formation fact**: `getEligibleParty` already
 refuses a mixed party at the door, and no job model was added.
 
+## CWKPQ, first half: the job is carried and the touch has a step
+
+Two of the three pieces are in; the sign-up row is not.
+
+| Piece | What it is | Where |
+|---|---|---|
+| `RunMember.jobId` + `jobClass()` + `hasJob()` | the member's job id, carried from the real `Character` at its one construction site (`MechanicsRuns.java:162`, `c.getJob().getId()`), never inferred from a persona. `jobClass()` is the first digit of the id - `jobId / 100`, not `/ 1000`, because Maple job ids are three digits (`110` is a Fighter) | `RunMemberJobTest` 2 |
+| `SolverStep.TouchReactor(int)` | the `touch` callback, which is dispatched **only** from `TouchReactorHandler.java:34-46` and which `HitReactor` cannot reach (`hitReactor` runs `onHit`/`act`) | `StepExecutor.touchReactor` calls `ReactorScriptManager.touch(client, reactor)`, one touch a second per bot |
+
+What the sign-up row still needs, and it is now a small list rather than a read:
+
+1. A **name-addressed touch** (`TouchReactorNamed(String)`, the twin of `HitReactorNamed`) or a
+   `StageView.reactorNames(int)` accessor, because CWKPQ chooses its reactors by **name**: `CWKPQ.js:98-135` deploys eight
+   groups of `4skill<jobClass><slot>` / `4fake*` onto `610030400`, one per group, retrying until all six job values are
+   present, then `shuffleReactors` moves them. The name carries the answer (`4skill2d` is the magician's), which is why
+   nothing has to be guessed - but the engine cannot currently list or address a reactor by name for a touch.
+2. The row itself: stage 1 on `610030400`, solver `cwkpq-signup`, one member per job class from 1 to 4 (and 5 if the party
+   has a pirate), fakes in the never-target set, clear on the event's `glpq1` (`CWKPQ.js:150-160` seeds every `glpqN` to
+   `"0"`; the sign-up sets `glpq1 = 1`).
+
 ## Ellin PQ and CWKPQ: what each still needs, costed rather than guessed
 
 Neither is written. Both are fully read, and the pieces are named so the next hand does not have to re-derive them.
