@@ -199,6 +199,24 @@ class StageDataTest {
                 "a reactor is clicked once per stage");
     }
 
+    /**
+     * Round 3: a row can say what the run must have in hand to be let in (Latanica's door wants 4000381), and the
+     * declaration is checked here rather than inside a solver.
+     */
+    @Test
+    void aStageCanDeclareItsDoorItems() throws Exception {
+        String room = GOOD.replace("clear: { eventProperty: 1stageclear }",
+                "mobs: [ 9300163 ]\n    entryItems: [ 4000381 ]\n"
+                        + "    clear: { eventProperty: 1stageclear }");
+        StageData.Result r = StageData.parse(new StringReader(room));
+        assertEquals(List.of(), r.errors());
+        Stage s = r.content().get(0).stage(1).orElseThrow();
+        assertEquals(List.of(4000381), s.entryItems());
+        assertEquals(List.of(), kpq().stage(1).orElseThrow().entryItems(), "no door item means none is needed");
+        assertHas(errors(room.replace("4000381 ]", "x ]")), "entryItems: not an item id");
+        assertHas(errors(room.replace("4000381 ]", "0 ]")), "item ids are positive");
+    }
+
     @Test
     void aSpawnWaitIsAStatementAboutMobsTheRoomDoesNotHaveYet() throws Exception {
         String waiting = GOOD.replace("clear: { eventProperty: 1stageclear }",

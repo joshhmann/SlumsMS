@@ -512,11 +512,24 @@ public final class StageData {
         }
         require(hitReactors.stream().distinct().count() == hitReactors.size(), p,
                 at + "hitReactors: a reactor is clicked once per stage, so listing it twice says nothing new");
+        // 1.6.4 boss lane, round 3: what the run must have in hand before this stage's first step (Latanica's door,
+        // scripts/portal/captinsg00.js:4, refuses anyone without 4000381).
+        List<Integer> entryItems = new ArrayList<>();
+        for (Object o : list(m, "entryItems")) {
+            try {
+                entryItems.add(Integer.parseInt(String.valueOf(o).trim()));
+            } catch (NumberFormatException e) {
+                p.add(at + "entryItems: not an item id: " + o);
+            }
+        }
+        require(entryItems.stream().allMatch(id -> id > 0), p, at + "entryItems: item ids are positive");
+        require(entryItems.stream().distinct().count() == entryItems.size(), p,
+                at + "entryItems: one of each is enough, so listing an item twice says nothing new");
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
                 summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, spawnWait, stageMinutes,
-                List.copyOf(hitReactors));
+                List.copyOf(hitReactors), List.copyOf(entryItems));
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----

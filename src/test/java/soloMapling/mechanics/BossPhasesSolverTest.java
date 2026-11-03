@@ -333,12 +333,36 @@ class BossPhasesSolverTest {
         assertEquals(armIds().size() + 3, stage.mobs().size(), "eight arms and the body's three forms");
     }
 
+    /**
+     * Round 3, primitive A: a door that wants an item is a declaration, not a special case. The row says what the run
+     * must have in hand; without it the solver names the item and does nothing else - no reactor click, no fight, no
+     * abandon (Latanica's scripts/portal/captinsg00.js:4 refuses anyone without 4000381).
+     */
+    @Test
+    void aDoorItemTheRunDoesNotHoldIsAWaitThatNamesItAndTouchesNothingElse() {
+        MechanicsModel.Stage room = MechanicsRuns.contentFor("LatanicaBattle").stages().get(0);
+        assertEquals(List.of(4000381), room.entryItems(), "the row declares the door's item");
+        View empty = new View(room, List.of(), Map.of());
+
+        SolverStep.Wait wait = assertInstanceOf(SolverStep.Wait.class, solver.next(empty, member()));
+        assertTrue(wait.why().contains("4000381"), wait.why());
+        empty.now = 1_000 + BossPhasesSolver.NOTHING_TO_HIT_GRACE_MS * 4;
+        SolverStep later = solver.next(empty, member());
+        assertInstanceOf(SolverStep.Wait.class, later, "a dry run is not a room to give up on");
+        assertTrue(((SolverStep.Wait) later).why().contains("4000381"), "the wait keeps naming the item");
+
+        View holds = new View(room, List.of(), Map.of());
+        holds.hold(4000381, 1);
+        assertEquals(5411000, assertInstanceOf(SolverStep.HitReactor.class, solver.next(holds, member())).reactorId(),
+                "with the item in hand the row does what it was written to do");
+    }
+
     /** A copy of a shipped stage with a different reactor list, so the click rules can be pinned without a row. */
     private static MechanicsModel.Stage withReactors(MechanicsModel.Stage base, List<Integer> reactors, int spawnWait) {
         return new MechanicsModel.Stage(base.index(), base.mapId(), base.name(), base.npcId(), base.solver(),
                 base.roles(), base.objectives(), base.positions(), base.items(), base.answers(), base.phases(),
                 base.clear(), base.answerProperty(), base.combos(), base.mobs(), base.nextPortal(),
-                base.summonProperty(), spawnWait, base.timeLimitMinutes(), reactors);
+                base.summonProperty(), spawnWait, base.timeLimitMinutes(), reactors, base.entryItems());
     }
 
     /** Horntail's body room: no summon property, so a room with nothing alive is a fight the map brings, not a gate. */
@@ -394,6 +418,7 @@ class BossPhasesSolverTest {
         private final List<Part> parts;
         private final Map<String, String> props;
         private final Map<String, Object> memory = new HashMap<>();
+        private final Map<Integer, Integer> held = new HashMap<>();
         long now;
 
         View(List<Part> parts, Map<String, String> props) {
@@ -404,6 +429,11 @@ class BossPhasesSolverTest {
             this.stage = stage;
             this.parts = new ArrayList<>(parts);
             this.props = new HashMap<>(props);
+        }
+
+        /** What one member of the run is carrying, for the rows that declare {@code entryItems}. */
+        void hold(int itemId, int count) {
+            held.put(itemId, count);
         }
 
         @Override
@@ -438,7 +468,7 @@ class BossPhasesSolverTest {
 
         @Override
         public int itemCount(int characterId, int itemId) {
-            return 0;
+            return held.getOrDefault(itemId, 0);
         }
 
         @Override

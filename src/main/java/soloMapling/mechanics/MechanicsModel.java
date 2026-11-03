@@ -221,19 +221,25 @@ public final class MechanicsModel {
      *   <li>{@code hitReactors} (boss rows behind a reactor): the reactors a bot clicks to open the room, in the order
      *   they must be clicked. Empty = no reactor (the room brings its own fight). A room with two of them (Scarga's
      *   Targa and Scarlion) needs both clicked before either fight is worth starting.</li>
+     *   <li>{@code entryItems} (boss rows behind a door that wants an item, 164-bossrows round 3): item ids the run must
+     *   have in hand before the stage's first step. <em>One</em> member holding each is enough, because a party door is
+     *   opened by one character ({@code scripts/portal/captinsg00.js:4} checks the player who clicks it, and nothing
+     *   inside {@code LatanicaBattle.js} re-checks the rest). A run that lacks one is not refused: it waits, naming the
+     *   item, until the row's own steps (or the bot's inventory) bring it - the row never warps past a door.</li>
      * </ul>
      */
     public record Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                         List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
-                        int spawnWaitSeconds, int timeLimitMinutes, List<Integer> hitReactors) {
+                        int spawnWaitSeconds, int timeLimitMinutes, List<Integer> hitReactors,
+                        List<Integer> entryItems) {
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                      List<Answer> answers, List<BossPhase> phases, Clear clear) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
-                    List.of(), List.of(), null, null, 0, 0, List.of());
+                    List.of(), List.of(), null, null, 0, 0, List.of(), List.of());
         }
 
         /** How many positions a combination's answer occupies (KPQ: 3), or 0 for a stage without combos. */

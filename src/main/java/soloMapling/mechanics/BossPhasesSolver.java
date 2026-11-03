@@ -61,6 +61,14 @@ public final class BossPhasesSolver implements StageSolver {
             // hontale_BR.js is the script, not the WZ name), so the room is entered by map id. Only across maps.
             return new SolverStep.WarpTo(stageMap, "stage " + view.stage().index() + " is in this room");
         }
+        List<Integer> missing = missingEntryItems(view);
+        if (!missing.isEmpty()) {
+            // the row's door wants something in hand before anything in the room makes sense (Latanica's
+            // scripts/portal/captinsg00.js:4 refuses anyone without 4000381). The row does not warp past the door and
+            // does not click anything inside: it says what is missing and stands still until the item is there.
+            return new SolverStep.Wait(1_000, "the run has no entry item " + missing
+                    + " in hand, so stage " + view.stage().index() + " cannot be entered: " + view.stage().name());
+        }
         List<BossTargetRules.Part> parts = view.bossParts();
         BossTargetRules.Phase phase = BossTargetRules.phase(parts, summoned(view), view.cleared());
         if (phase == BossTargetRules.Phase.DONE) {
@@ -129,6 +137,23 @@ public final class BossPhasesSolver implements StageSolver {
             }
         }
         return new int[]{0, 0};
+    }
+
+    /**
+     * The row's {@code entryItems} that no member of the run is holding. One holder is enough: a party's door is
+     * opened by one character ({@code scripts/portal/captinsg00.js:4} checks the player who clicks it and the event
+     * script never re-checks the rest), so a run whose leader has the item is a run that can be inside the instance.
+     * Empty = the stage asks for nothing, which is every row but Latanica's.
+     */
+    static List<Integer> missingEntryItems(StageView view) {
+        List<Integer> missing = new ArrayList<>();
+        for (int itemId : view.stage().entryItems()) {
+            boolean held = view.members().stream().anyMatch(m -> view.itemCount(m.characterId(), itemId) > 0);
+            if (!held) {
+                missing.add(itemId);
+            }
+        }
+        return List.copyOf(missing);
     }
 
     /**
