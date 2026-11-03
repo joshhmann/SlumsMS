@@ -897,6 +897,44 @@ reason named, stage 6 the Poison Golem `9300182` clearing on the instance's flag
 `MechanicsRuns.java:162`, carried from the real `Character`, never inferred from persona). They must land together: the
 touch step's first real consumer is the sign-up, and the job is what decides which reactor a member belongs at.
 
+## The one flaky test, and what it actually was
+
+`BotConversationFlowTest.aRefusedPartyAskIsPlannedFromTheGatesVerdict` failed in loaded full-suite runs and passed
+alone. It was never a race in the product and never a static leak: the test read `asked.get(0)` - the **first** prompt the
+shared fake brain received in that test - and asserted that it was the party plan. The reply path may queue more than one
+brain call for one wave of chat (a greeting for the player, then the party ask), so under load the greeting landed first
+and the test inspected a HELLO plan while the verdict it wanted sat at index 1.
+
+The fix is in the selector, not in timing: `partyAsks()` returns the calls whose system prompt carries
+`"Answer their party ask"`, the test waits for exactly one of those, and `assertEquals(1, plans.size())` now pins the
+invariant that matters - **one** plan per party ask, other calls being chat rather than plans. No sleep, no retry, no
+ordering hack, no filter flag. Proved by two clean full runs: `8609 tests, 0 failures, 0 errors, 137 skipped`, `EXIT=0`,
+zero `<<< FAILURE` markers, `/tmp/opq-flake-A.log` and `/tmp/opq-flake-B.log`.
+
+Two earlier hypotheses were falsified on the way and are recorded so nobody repeats them: resetting the class's
+`private static int nextPlayer` in `@BeforeEach` fails 13 of 22 (those ids key static session maps, so reuse collides with
+sessions an earlier test left behind), and a cross-class static leak is impossible as configured - `pom.xml:252-255` sets
+`forkCount 1` with `reuseForks false`, so each test class gets its own JVM.
+
+## Boss rooms that take minutes to produce a target: `graceMs:`
+
+`BossPhasesSolver` used to hold one global rule: a summoned room with nothing the party may hit for 30 s was a room that
+could never be cleared, so the run ended (its own comment at `BossPhasesSolver.java:37-40`). P15 in
+`/root/work/PQ-UNFINISHED-REPORT.md` names the four bosses where that is wrong: Hard Will's, Hard Lucid's, Hard
+Darknell's and Hard Verus' first target arrives 60, 120, 120 and 240 seconds after the summon, behind scripted waiting -
+a 30-second grace ends fights that had not started yet.
+
+So the grace is the stage's own: `graceMs:` on a stage, 0 meaning "the solver's 30 s", read by
+`BossPhasesSolver.graceMs(StageView)` and quoted in the abandon line's seconds. `LateSpawnGraceTest` pins the four
+behaviours: a row without the field keeps 30 s, a row with `graceMs: 240000` gets four minutes, the solver reads the row
+and not the constant, and a summoned room inside its grace **waits** while past it the run ends with the row's own grace
+named.
+
+**No shipped row names `graceMs:` yet, and that is honest rather than accidental:** the four rows it exists for are blocked
+on the other half of the same finding - their spawns are missing from the scripts, which is not ours to fix - so the
+primitive ships with its test and its first consumer arrives with those rows. The alternative, naming it on a row whose
+first target is never late, would make the field look exercised when it is not.
+
 ## Expedition rule: pause for revive (this is the report it lives in)
 
 The boss report is on `164-bossfight`, a different branch, so this one carries the rule. It is the answer to the lane

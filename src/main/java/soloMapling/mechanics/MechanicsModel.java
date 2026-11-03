@@ -258,7 +258,10 @@ public final class MechanicsModel {
      *   (null = no such gate);</li>
      *   <li>{@code spawnWaitSeconds} (1.6.4 boss rows with no reactor and no summon property): how long the room may
      *   hold none of {@code mobs} and still be a fight the map's own life is about to bring in.
-     *   0 = no expectation, and then an empty room is abandoned after the solver's 30 s grace.</li>
+     *   0 = no expectation, and then an empty room is abandoned after the solver's 30 s floor. This is a fact about
+     *   the content ("this map brings its mobs in N seconds"), not a tolerance: the tolerance is the solver's, and it
+     *   never goes below 30 s ({@code BossPhasesSolver.allowedEmptyMs}) because a fight that gives up on an eight-second
+     *   gap is the livelock shape ticket 176 warns about. A row therefore raises the leash and cannot shorten it.</li>
      *   <li>{@code hitReactors} (boss rows behind a reactor): the reactors a bot clicks to open the room, in the order
      *   they must be clicked. Empty = no reactor (the room brings its own fight). A room with two of them (Scarga's
      *   Targa and Scarlion) needs both clicked before either fight is worth starting.</li>

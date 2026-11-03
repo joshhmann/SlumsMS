@@ -15,6 +15,7 @@ import soloMapling.ArtificialPlayer.BotTypes.TownWandererBot;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -256,6 +257,17 @@ class BotConversationFlowTest {
      * Stage B: the gates answer a party ask and the planner words their verdict. This wanderer is not a social bot, so
      * {@code BotChatActions.party} declines; the prompt the model gets is the planned one and must not read as a yes.
      */
+    /** The brain calls that carry the party verdict, in arrival order (see the note in the test that uses this). */
+    private List<List<BotBrain.Turn>> partyAsks() {
+        List<List<BotBrain.Turn>> asks = new ArrayList<>();
+        for (List<BotBrain.Turn> call : asked) {
+            if (!call.isEmpty() && call.get(0).content().contains("Answer their party ask")) {
+                asks.add(call);
+            }
+        }
+        return asks;
+    }
+
     @Test
     void aRefusedPartyAskIsPlannedFromTheGatesVerdict() throws Exception {
         System.setProperty("solomapling.convo.planner", "true");
@@ -266,8 +278,15 @@ class BotConversationFlowTest {
             Character player = org.mockito.Mockito.spy(character(nextPlayer++, "Josh"));
             org.mockito.Mockito.doReturn(mock(client.Client.class)).when(player).getClient();
             assertTrue(BotConversation.say(bot, player, "can i join ur pt", null, said::add));
-            waitFor(() -> !asked.isEmpty());
-            String system = asked.get(0).get(0).content();
+            // WHICH prompt carries the party verdict: the fake brain below answers every call with the same future, and
+            // the reply path may queue more than one call for a wave of chat (a greeting for the player, then the
+            // party ask). Reading asked.get(0) therefore asserted on whichever call happened to arrive first - green on
+            // a quiet machine, a HELLO plan under load. Select the prompt that carries the ask instead, and pin that
+            // exactly one plan was asked for it.
+            waitFor(() -> partyAsks().size() == 1);
+            List<List<BotBrain.Turn>> plans = partyAsks();
+            assertEquals(1, plans.size(), "exactly one plan is asked for one party ask; other calls are chat, not plans");
+            String system = plans.get(0).get(0).content();
             assertTrue(system.contains("Answer their party ask with a no"), "the planned party prompt:\n" + system);
             assertTrue(system.contains("Say no to the party"), "the gates' own words ride along:\n" + system);
             assertFalse(system.contains("Say yes"), system);
