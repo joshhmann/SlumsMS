@@ -158,4 +158,36 @@ class BotGearWearTest {
         assertTrue(result.why().contains("item data"), result.why());
         assertNull(bot.getInventory(InventoryType.EQUIPPED).getItem(EAR));
     }
+
+    // ---- taking it off: Ergoth's gate takes one rock out of the party's hands --------------------------------
+
+    @Test
+    void takeOffMovesTheWornPieceIntoTheBagAndTheLookIsRederived() {
+        Character bot = botCarryingTheRock(40);
+        BotGear.wear(bot, ROCK, data::get);
+        assertTrue(BotGear.wearing(bot, ROCK));
+
+        BotGear.Off off = BotGear.takeOff(bot, ROCK);
+
+        assertEquals(BotGear.Off.TAKEN_OFF, off);
+        assertFalse(BotGear.wearing(bot, ROCK), "off the body");
+        assertNotNull(bot.getInventory(InventoryType.EQUIP).findById(ROCK), "and in the bag, where a drop can take it from");
+        assertEquals(BotGear.Off.NOT_WORN, BotGear.takeOff(bot, ROCK), "a second ask has nothing to take off");
+        assertEquals(BotGear.Wear.WORN, BotGear.wear(bot, ROCK, data::get).outcome(), "and it can go back on");
+    }
+
+    @Test
+    void aFullBagKeepsThePieceOnAndSaysNoRoom() {
+        Character bot = botCarryingTheRock(40);
+        BotGear.wear(bot, ROCK, data::get);
+        short filler = 100;
+        while (bot.getInventory(InventoryType.EQUIP).getNextFreeSlot() >= 0) {
+            bot.getInventory(InventoryType.EQUIP).addItemFromDB(equip(1002000 + filler, bot.getInventory(InventoryType.EQUIP)
+                    .getNextFreeSlot(), 0));
+            filler++;
+        }
+
+        assertEquals(BotGear.Off.NO_ROOM, BotGear.takeOff(bot, ROCK));
+        assertTrue(BotGear.wearing(bot, ROCK), "nothing moved: a piece is never lost for want of a slot");
+    }
 }

@@ -112,6 +112,16 @@ public sealed interface SolverStep {
     }
 
     /**
+     * Take the worn equip with this item id off into the bag ({@link soloMapling.ArtificialPlayer.BotGearSystem.BotGear#takeOff},
+     * the gear system's own move the other way). Only for an item a later step has to drop from the bag: Guild Quest's Ergoth
+     * gate takes one Protector Rock {@code 1032033} dropped in its box ({@code Reactor.wz/9208009.img.xml}), the item is one
+     * per character, and {@link PlaceItem} drops from the bag, not the body. The member that gives its earring up is
+     * unprotected from then on and the row says so; nothing hides it.
+     */
+    record UnequipItem(int itemId, String why) implements SolverStep {
+    }
+
+    /**
      * Hit the one reactor on the map that has this <em>map object id</em> ({@code Reactor.getObjectId()}), when neither
      * its WZ id nor its name can tell it from its neighbours. Guild Quest's Gatekeeper puzzle is the case: its statues
      * are twenty reactors of three ids, and the script names each one by {@code objectId % 1000}, zero-padded to three

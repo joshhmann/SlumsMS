@@ -785,10 +785,7 @@ public final class BotGear {
                 if (free < 0 || body.getItem(slot) != off) {
                     return changed;
                 }
-                body.removeSlot(slot);
-                bot.unequippedItem(off);
-                off.setPosition(free);
-                carried.addItemFromDB(off);
+                moveToBag(bot, carried, body, slot, off, free);
                 changed = true;
             }
             for (Map.Entry<Short, Piece> e : after.entrySet()) {
@@ -822,6 +819,46 @@ public final class BotGear {
             if (changed && bot.getMap() != null) {
                 bot.equipChanged();   // the new look to the map, and the stat totals re-derived
             }
+        }
+    }
+
+    /* One worn piece off the body into a free bag slot: the move apply() makes for a piece a plan takes off. */
+    private static void moveToBag(Character bot, Inventory carried, Inventory body, short slot, Equip off, short free) {
+        body.removeSlot(slot);
+        bot.unequippedItem(off);
+        off.setPosition(free);
+        carried.addItemFromDB(off);
+    }
+
+    /* How taking one named piece off went (takeOff below). */
+    public enum Off { TAKEN_OFF, NOT_WORN, NO_ROOM }
+
+    /*
+     * Mechanics runs (Guild Quest's last gate): a bot takes off the worn equip with this item id into its bag - the move
+     * apply() makes for a piece a plan takes off, with the choice made by the caller. The Ergoth gate takes one Protector
+     * Rock out of the party's hands ({@code Reactor.wz/9208009.img.xml}: item 1032033 x1 dropped in its box) and the item is
+     * one per character, so the member that gives it up has to have it in its BAG first (PlaceItem drops from the bag, not
+     * from the body). Never throws.
+     */
+    public static Off takeOff(Character bot, int itemId) {
+        if (bot == null) {
+            return Off.NOT_WORN;
+        }
+        synchronized (bot) {
+            Inventory body = bot.getInventory(InventoryType.EQUIPPED);
+            Inventory carried = bot.getInventory(InventoryType.EQUIP);
+            if (!(body.findById(itemId) instanceof Equip worn)) {
+                return Off.NOT_WORN;
+            }
+            short free = carried.getNextFreeSlot();
+            if (free < 0) {
+                return Off.NO_ROOM;
+            }
+            moveToBag(bot, carried, body, worn.getPosition(), worn, free);
+            if (bot.getMap() != null) {
+                bot.equipChanged();   // the look to the map, the totals re-derived
+            }
+            return Off.TAKEN_OFF;
         }
     }
 

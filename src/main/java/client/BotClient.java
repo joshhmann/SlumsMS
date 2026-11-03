@@ -65,6 +65,11 @@ public class BotClient extends Client {
      * (the headless client drops them anyway), never stored on the character and never the character's own client.
      *
      * <p>Anyone who has a client of their own - a real player, an owned alt - gets it back unchanged.
+     *
+     * <p><b>Scripts only: anything that sends a packet must use the bot's shared client ({@code bot.getClient()}), or the
+     * packet gets a player it should not have.</b> Do not reach for this because {@code bot.getClient().getPlayer()} is null:
+     * that is the headless client doing what it was built to do. The call sites are listed in {@code REPORT-seams.md}; a new
+     * one needs a script on the other end that reads its player.
      */
     public static Client forScripts(Character bot) {
         Client own = bot == null ? null : bot.getClient();

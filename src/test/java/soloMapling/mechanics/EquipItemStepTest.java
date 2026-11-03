@@ -29,6 +29,7 @@ class EquipItemStepTest {
     @AfterEach
     void putTheRealGearBack() {
         StepExecutor.wearer = BotGear::wear;
+        StepExecutor.remover = BotGear::takeOff;
     }
 
     private static Character bot() {
@@ -110,5 +111,50 @@ class EquipItemStepTest {
         run(new StepExecutor(), bot(), NOW, log);
 
         assertTrue(log.isEmpty(), log.toString());
+    }
+
+    // ---- the other way: UnequipItem -------------------------------------------------------------------------
+
+    @Test
+    void takingOffAsksTheGearSystemAndNamesWhoPaid() {
+        List<Integer> asked = new ArrayList<>();
+        StepExecutor.remover = (b, id) -> {
+            asked.add(id);
+            return BotGear.Off.TAKEN_OFF;
+        };
+        List<String> log = new ArrayList<>();
+
+        new StepExecutor().execute(null, null, null, bot(), new SolverStep.UnequipItem(ROCK, "Ergoth's gate takes one rock"),
+                NOW, log::add);
+
+        assertEquals(List.of(ROCK), asked);
+        assertTrue(log.stream().anyMatch(l -> l.startsWith("UNEQUIP") && l.contains("Rocky") && l.contains(String.valueOf(ROCK))
+                && l.contains("Ergoth")), "the log says who gave the earring up and why: " + log);
+    }
+
+    @Test
+    void aBagWithNoRoomIsSaidOnceAndAnItemNotWornIsQuiet() {
+        AtomicInteger tries = new AtomicInteger();
+        StepExecutor.remover = (b, id) -> {
+            tries.incrementAndGet();
+            return BotGear.Off.NO_ROOM;
+        };
+        StepExecutor executor = new StepExecutor();
+        Character bot = bot();
+        List<String> log = new ArrayList<>();
+        SolverStep step = new SolverStep.UnequipItem(ROCK, "gate");
+
+        executor.execute(null, null, null, bot, step, NOW, log::add);
+        executor.execute(null, null, null, bot, step, NOW + 500, log::add);
+        executor.execute(null, null, null, bot, step, NOW + 5_000, log::add);
+
+        assertEquals(2, tries.get(), "paced");
+        assertEquals(1, log.size(), "said once: " + log);
+        assertTrue(log.get(0).contains("cannot take off") && log.get(0).contains("no free equip slot"), log.get(0));
+
+        StepExecutor.remover = (b, id) -> BotGear.Off.NOT_WORN;
+        List<String> quiet = new ArrayList<>();
+        new StepExecutor().execute(null, null, null, bot(), step, NOW, quiet::add);
+        assertTrue(quiet.isEmpty(), quiet.toString());
     }
 }

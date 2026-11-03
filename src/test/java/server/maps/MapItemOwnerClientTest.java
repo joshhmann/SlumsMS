@@ -1,6 +1,9 @@
 package server.maps;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
@@ -70,5 +73,36 @@ class MapItemOwnerClientTest {
         assertNull(drop.getOwnerClient(), "an alt that has not entered the world is away, exactly as before");
         when(alt.isAwayFromWorld()).thenReturn(false);
         assertSame(own, drop.getOwnerClient(), "an alt in the world: its own client, not a bound one");
+    }
+
+    // ---- the presence change does not touch who may loot ----------------------------------------------------
+
+    private static Character looter(int id, boolean partyOfTheOwner) {
+        Character c = mock(Character.class);
+        when(c.getId()).thenReturn(id);
+        when(c.getPartyId()).thenReturn(-1);
+        when(c.needQuestItem(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        when(c.isPartyMember(org.mockito.ArgumentMatchers.anyInt())).thenReturn(partyOfTheOwner);
+        return c;
+    }
+
+    @Test
+    void whoMayLootABotsDropIsDecidedByOwnerAndPartyAndTheClockNotByTheClientOrThePresenceTheFixChanged() {
+        // A meso drop skips the inventory-space check, so this is the ownership rule alone (MapItem.canBePickedBy).
+        Character bot = Character.getDefault(new BotClient(0, 2));
+        bot.setID(1_000_000_000 + 1649);
+        MapItem drop = new MapItem(100, new Point(0, 0), mock(MapObject.class), bot, bot.getClient(), (byte) 0, true);
+        drop.setDropTime(System.currentTimeMillis());
+
+        assertEquals(bot.getId(), drop.getOwnerId());
+        assertTrue(drop.canBePickedBy(looter(bot.getId(), false)), "the bot itself: yes, in the protection window");
+        assertFalse(drop.canBePickedBy(looter(77, false)), "a human who is not in its party: NOT during the protection window");
+        assertTrue(drop.canBePickedBy(looter(78, true)), "its party member: yes");
+
+        drop.setDropTime(System.currentTimeMillis() - 16_000);
+        assertTrue(drop.canBePickedBy(looter(77, false)), "after the 15 s window anyone: unchanged");
+
+        // and the answer is the same whether the owner-client lookup (the part that changed) finds the bot present or not
+        assertNotNull(drop.getOwnerClient());
     }
 }

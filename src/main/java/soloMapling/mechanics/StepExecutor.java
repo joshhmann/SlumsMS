@@ -165,6 +165,7 @@ final class StepExecutor {
             }
             case SolverStep.HitReactorByOid h -> hitReactorByOid(bot, beat, h, now, log);
             case SolverStep.EquipItem e -> equipItem(bot, beat, e, now, log);
+            case SolverStep.UnequipItem u -> unequipItem(bot, beat, u, now, log);
             case SolverStep.PlaceItem p -> placeItem(bot, beat, p, now, log);
             case SolverStep.PlaceItemOn p -> placeItemOn(bot, beat, p, now, log);
             case SolverStep.Occupy o -> occupy(bot, beat, o, now, log);
@@ -917,6 +918,33 @@ final class StepExecutor {
                 if (!r.why().equals(beat.equipToldWhy)) {
                     beat.equipToldWhy = r.why();
                     log.accept(bot.getName() + " cannot put on " + e.itemId() + ": " + r.why() + " (" + e.why() + ")");
+                }
+            }
+        }
+    }
+
+    /** The seam {@link #wearer} has for taking an item off (tests); production runs the gear system's move. */
+    static volatile java.util.function.BiFunction<Character, Integer, soloMapling.ArtificialPlayer.BotGearSystem.BotGear.Off>
+            remover = soloMapling.ArtificialPlayer.BotGearSystem.BotGear::takeOff;
+
+    /**
+     * Takes the named worn item off into the bag ({@link SolverStep.UnequipItem}) through the gear system's own move; paced
+     * like {@link #equipItem}, a line when it went and a line naming the reason when it could not.
+     */
+    private static void unequipItem(Character bot, Beat beat, SolverStep.UnequipItem u, long now, Consumer<String> log) {
+        if (now - beat.lastEquipMs < EQUIP_GAP_MS) {
+            return;
+        }
+        beat.lastEquipMs = now;
+        soloMapling.ArtificialPlayer.BotGearSystem.BotGear.Off r = remover.apply(bot, u.itemId());
+        switch (r) {
+            case TAKEN_OFF -> log.accept("UNEQUIP " + bot.getName() + " takes off " + u.itemId() + " - " + u.why());
+            case NOT_WORN -> { }
+            case NO_ROOM -> {
+                String why = "no free equip slot to put " + u.itemId() + " in";
+                if (!why.equals(beat.equipToldWhy)) {
+                    beat.equipToldWhy = why;
+                    log.accept(bot.getName() + " cannot take off " + u.itemId() + ": " + why + " (" + u.why() + ")");
                 }
             }
         }
