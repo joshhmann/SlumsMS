@@ -16,6 +16,8 @@ import java.util.OptionalInt;
 import java.util.Random;
 import java.util.Set;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import soloMapling.mechanics.MechanicsModel.Content;
 import soloMapling.mechanics.MechanicsModel.Stage;
@@ -25,13 +27,36 @@ import soloMapling.mechanics.MechanicsModel.Tier;
  * Ticket 130 (owner decision 2026-11-02, "pause for revive"): a human death in a boss expedition holds the run instead of
  * ending it. The scripts unregister a dead player so it can revive and walk back in
  * ({@code scripts/event/ZakumBattle.js:140-160}, {@code scripts/event/HorntailBattle.js:140-160}); the run reads that as
- * a member leaving, and until now that was the abort. {@link RevivePause} is the switch, on by default, five minutes of
- * window, and it is a boss rule only.
+ * a member leaving, and until now that was the abort. {@link RevivePause} is the switch - <b>off by default</b> since
+ * round 9, so every test that wants the rule turns it on explicitly - with five minutes of window, and it is a boss rule
+ * only.
  */
 class RevivePauseTest {
 
     private static final long START = 1_000_000L;
     private static final int HUMAN = 1;
+
+    @BeforeEach
+    void turnTheRuleOn() {
+        System.setProperty(RevivePause.FLAG, "true");
+    }
+
+    @AfterEach
+    void turnItOffAgain() {
+        System.clearProperty(RevivePause.FLAG);
+        System.clearProperty(RevivePause.WINDOW_PROPERTY);
+    }
+
+    /** Round 9: the rule is a switch like any other, so its default is OFF and the release conf carries the on line. */
+    @Test
+    void theRevivePauseIsOffUnlessAServerTurnsItOn() {
+        System.clearProperty(RevivePause.FLAG);
+        assertFalse(RevivePause.on(), "-Dslums.bossfight.revivepause is off by default");
+        System.setProperty(RevivePause.FLAG, "true");
+        assertTrue(RevivePause.on());
+        System.setProperty(RevivePause.FLAG, "FALSE");
+        assertFalse(RevivePause.on(), "and any spelling of false keeps it off");
+    }
 
     /** The shipped Horntail row: kind BOSS, three stages, six members minimum. */
     private static Content horntail() {
@@ -53,7 +78,7 @@ class RevivePauseTest {
 
     @Test
     void aMemberLostAtTheBossHoldsTheRunUntilItComesBack() {
-        assertTrue(RevivePause.on(), "-Dslums.bossfight.revivepause is on unless a server says otherwise");
+        assertTrue(RevivePause.on(), "this test turned -Dslums.bossfight.revivepause on");
         Orchestrator o = new Orchestrator(Orchestrator.allSolvers(), new Random(1), 0, 0);
         RunState run = o.start(horntail(), Tier.NORMAL, party());
         View view = new View(run);

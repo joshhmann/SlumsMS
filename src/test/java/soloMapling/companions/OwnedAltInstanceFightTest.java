@@ -2,6 +2,7 @@ package soloMapling.companions;
 
 import client.Character;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import scripting.event.EventInstanceManager;
 import server.life.Monster;
@@ -32,6 +33,12 @@ class OwnedAltInstanceFightTest {
     private static final long NOW = 50_000_000L;
     private static final int OWNER = 1, ALT = 2;
     private static final AtomicInteger oids = new AtomicInteger(500);
+
+    /** Round 9: the instance leash is a switch like any other, so a test that wants it turns it on. */
+    @BeforeEach
+    void switchOn() {
+        System.setProperty(OwnedAltCombat.INSTANCE_LEASH_SWITCH, "true");
+    }
 
     @AfterEach
     void switchBack() {
@@ -134,6 +141,19 @@ class OwnedAltInstanceFightTest {
         assertFalse(OwnedAltCombat.driverMayFace(far, f, owner, alt, Set.of(OWNER, ALT), NOW),
                 "in the open world the 650 px leash is unchanged");
         assertFalse(OwnedAltCombat.driverMayFace(far, f, owner, alt, Set.of(OWNER, ALT), NOW), "and it stays that way");
+    }
+
+    /** Round 9: off unless a server turns it on (the release conf carries the on line). */
+    @Test
+    void theInstanceLeashIsOffUnlessAServerTurnsItOn() {
+        System.clearProperty(OwnedAltCombat.INSTANCE_LEASH_SWITCH);
+        Monster arm = mob(900, OWNER);
+        MapleMap f = map(List.of(arm));
+        Character owner = at(f, OWNER, 0, false);
+        Character alt = inInstance(at(f, ALT, 0, true));
+        assertFalse(OwnedAltCombat.instanceLeashOn(), "-Dslums.altfight.instanceleash is off by default");
+        assertFalse(OwnedAltCombat.driverMayFace(arm, f, owner, alt, Set.of(OWNER, ALT), NOW),
+                "untouched, an instance still reads the owner's box");
     }
 
     @Test

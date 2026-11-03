@@ -216,6 +216,7 @@ public final class MechanicsRuns {
         }
         a.reporter.accept("RUN start " + content.id() + " stage " + run.currentStage() + " in " + keyOf(eim) + ": "
                 + Orchestrator.describe(run));
+        tellLeader(eim, content, bots.size());
         for (Character bot : bots.values()) {
             String full = fullBag(bot);
             if (full != null) {
@@ -225,6 +226,29 @@ public final class MechanicsRuns {
         Orchestrator use = o;
         a.tick = scheduler.get().scheduleWithFixedDelay(
                 () -> safeTick(a, use), TICK_MS, TICK_MS, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Round 9, item 6: a human in the room has no way to tell "the bots are running this fight" from "the bots are
+     * standing there broken" - the owner's own bug report was "they just stand there". One line at run start, to the
+     * party leader, behind the boss switch: who is driving and for which boss. Nothing per tick, nothing on a PQ run.
+     */
+    static void tellLeader(EventInstanceManager eim, Content content, int bots) {
+        if (content.kind() != MechanicsModel.Kind.BOSS || !Mechanics.bossesEnabled() || bots <= 0) {
+            return;
+        }
+        Character leader = eim.getPlayerById(eim.getLeaderId());
+        if (leader == null) {
+            return;
+        }
+        leader.dropMessage(6, "[Expedition] " + bots + (bots == 1 ? " bot is" : " bots are")
+                + " running this fight with you (" + shortName(content.name()) + ").");
+    }
+
+    /** "Zakum (expedition)" -> "Zakum": a row's name without its qualifier, for a line a player reads. */
+    static String shortName(String name) {
+        int cut = name == null ? -1 : name.indexOf(" (");
+        return cut > 0 ? name.substring(0, cut) : name;
     }
 
     private void safeTick(Active a, Orchestrator o) {
@@ -396,7 +420,8 @@ public final class MechanicsRuns {
                 }
                 return null;
             }
-            if (content.kind() == MechanicsModel.Kind.BOSS ? !Mechanics.bossesEnabled()
+            if (content.kind() == MechanicsModel.Kind.BOSS
+                    ? !(Mechanics.bossesEnabled() && Mechanics.rowFlagOn(content))
                     : !Mechanics.enabledFor(content)) {
                 return null;
             }

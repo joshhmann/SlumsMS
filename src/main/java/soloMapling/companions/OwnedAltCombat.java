@@ -44,15 +44,16 @@ public final class OwnedAltCombat {
     static final int LEASH_Y_PX = 250;
 
     /**
-     * 1.6.4 boss lane (ticket 130): {@code -Dslums.altfight.instanceleash}, on by default. Inside an event instance the
-     * leash is the party's own engagement rule, not the box around the owner: on the Zakum altar its arms stand far
-     * outside {@link #LEASH_X_PX} px and the alt stood still while its owner fought them. Outside an instance the box is
-     * exactly what it always was.
+     * 1.6.4 boss lane (ticket 130): {@code -Dslums.altfight.instanceleash}, <b>off by default</b> (round 9: a switch is
+     * off unless a brief says otherwise, and the release conf carries the on line). Turned on, an event instance reads
+     * the leash as the party's own engagement rule instead of the box around the owner: on the Zakum altar its arms
+     * stand far outside {@link #LEASH_X_PX} px and the alt otherwise stands still while its owner fights them. Outside
+     * an instance the box is exactly what it always was, switch or no switch.
      */
     public static final String INSTANCE_LEASH_SWITCH = "slums.altfight.instanceleash";
 
     static boolean instanceLeashOn() {
-        return !"false".equalsIgnoreCase(System.getProperty(INSTANCE_LEASH_SWITCH, "true").trim());
+        return Boolean.getBoolean(INSTANCE_LEASH_SWITCH);
     }
 
     // character id (owner or alt) -> mob object id -> when it last touched them
@@ -220,7 +221,7 @@ public final class OwnedAltCombat {
      * ({@link #engaged}), which is what "the party's fight" already means - a boss' arms stand far outside the box and
      * an alt that kept to it stood still through the whole fight (ticket 130 boss lane). Requirement: the mob is still
      * checked against {@link #mayHit} and {@link #engaged}, so an instance never makes a quiet mob the alt's.
-     * {@code -Dslums.altfight.instanceleash=false} keeps the box everywhere.
+     * {@code -Dslums.altfight.instanceleash=true} turns the instance rule on; unset, the box applies everywhere.
      */
     static boolean withinLeash(Monster m, Character owner, Character alt) {
         return byOwner(m, owner, alt) || (instanceLeashOn() && alt != null && alt.getEventInstance() != null);

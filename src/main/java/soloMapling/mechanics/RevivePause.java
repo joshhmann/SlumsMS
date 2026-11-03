@@ -11,8 +11,9 @@ import java.util.Locale;
  * reason naming who it is waiting for, and the run resumes the moment that member is back in the instance. If the window
  * runs out the run ends the way it ends today, saying it was the revive window and not a solver failure.
  *
- * <p>Switch {@code -Dslums.bossfight.revivepause} (default <b>on</b>: the expiry path is today's behaviour, so a server
- * that turns it off gets exactly what it had before). The window is {@code -Dslums.bossfight.revivepause.ms} (default
+ * <p>Switch {@code -Dslums.bossfight.revivepause} (default <b>off</b> since round 9: the expiry path is the behaviour a
+ * server has unless it turns the rule on, and the release conf carries the on line). The window is
+ * {@code -Dslums.bossfight.revivepause.ms} (default
  * {@value #DEFAULT_WINDOW_MS} ms, five minutes: enough to warp out, revive and walk back through the altar), and one row
  * may override it with {@code -Dslums.bossfight.revivepause.ms.<row id>} (for example
  * {@code -Dslums.bossfight.revivepause.ms.zakumbattle=600000}).
@@ -29,12 +30,12 @@ public final class RevivePause {
     }
 
     /**
-     * True unless the server turned it off. Read with a default of {@code "true"} rather than
-     * {@link Boolean#getBoolean}, which cannot express a switch that is on out of the box.
+     * <b>Off by default</b> (round 9: a switch is off unless a brief says otherwise, and the release conf carries the
+     * on line {@code -Dslums.bossfight.revivepause=true}). With it off, a member leaving a boss run ends the run exactly
+     * as it did before the rule existed.
      */
     public static boolean on() {
-        String value = System.getProperty(FLAG);
-        return value == null || value.isBlank() || !"false".equalsIgnoreCase(value.trim());
+        return Boolean.getBoolean(FLAG);
     }
 
     /** The window for this row's runs, in ms: its own override, else the shared one, else five minutes. */

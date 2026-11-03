@@ -4,6 +4,7 @@ import client.Character;
 import client.Job;
 import client.inventory.InventoryType;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import scripting.event.EventInstanceManager;
 import server.life.Monster;
@@ -18,7 +19,9 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyShort;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -35,6 +38,12 @@ class FollowerFightReachTest {
 
     private static final int ZAKUM_FAKE_BODY = 8800000; // a boss part by MapleMap.hasBossMechanics
     private static final int LIGATOR = 9300001;
+
+    /** Round 9: the reach gate is a switch like any other, so a test that wants it turns it on. */
+    @BeforeEach
+    void turnTheGateOn() {
+        System.setProperty(FollowerFight.REACH_SWITCH, "true");
+    }
 
     @AfterEach
     void restore() {
@@ -72,6 +81,15 @@ class FollowerFightReachTest {
         when(m.getPosition()).thenReturn(new Point(x, y));
         when(m.getStats()).thenReturn(stats);
         return m;
+    }
+
+    /** Round 9: off unless a server turns it on (the release conf carries the on line). */
+    @Test
+    void theReachGateIsOffUnlessAServerTurnsItOn() {
+        System.clearProperty(FollowerFight.REACH_SWITCH);
+        assertFalse(FollowerFight.reachGateOn(), "-Dslums.bossfight.reach is off by default");
+        System.setProperty(FollowerFight.REACH_SWITCH, "true");
+        assertTrue(FollowerFight.reachGateOn());
     }
 
     @Test

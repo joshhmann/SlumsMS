@@ -54,15 +54,17 @@ final class FollowerFight {
     static final long GIVE_UP_MS = 15_000;
 
     /**
-     * 1.6.4 boss lane (ticket 130, fix 2): {@code -Dslums.bossfight.reach}, on by default. A target it cannot get into
-     * its own swing's reach of - a boss part hovering over a platform, one sealed off the walk - is passed over instead
-     * of costing {@link #STALL_MS} of standing still and {@link #GIVE_UP_MS} of skipping. Only boss parts are checked,
-     * so grinding and party quests pay one {@code isBoss()}/{@code hasBossMechanics} test per candidate and no walk.
+     * 1.6.4 boss lane (ticket 130, fix 2): {@code -Dslums.bossfight.reach}, <b>off by default</b> (round 9: a switch is
+     * off unless a brief says otherwise, and the release conf carries the on line). Turned on, a target it cannot get
+     * into its own swing's reach of - a boss part hovering over a platform, one sealed off the walk - is passed over
+     * instead of costing {@link #STALL_MS} of standing still and {@link #GIVE_UP_MS} of skipping. Only boss parts are
+     * checked, so grinding and party quests pay one {@code isBoss()}/{@code hasBossMechanics} test per candidate and no
+     * walk.
      */
     static final String REACH_SWITCH = "slums.bossfight.reach";
 
     static boolean reachGateOn() {
-        return !"false".equalsIgnoreCase(System.getProperty(REACH_SWITCH, "true").trim());
+        return Boolean.getBoolean(REACH_SWITCH);
     }
 
     /** Per follower: what the fight remembers between ticks (the shared approach's last walk, a stalled target). */
