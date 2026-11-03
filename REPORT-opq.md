@@ -1014,6 +1014,33 @@ party does not staff Adobis, a human or a party that already exists walks in. An
 lists `4001015` with the note that it only buys the better message and reward, because `scripts/npc/2032002.js:121-127`
 clears either way and no damage check exists.
 
+## Pre-Zakum: the ore economy stalls an end-to-end run (found by simulation, not yet fixed)
+
+`zakum-mines` passes its unit tests and the integrity pass, but a whole-row simulation of it does **not** reach Adobis's
+hand-in, and the reason is arithmetic rather than a bug in one step:
+
+- the big chest wants **seven** `4001016` in one hand (`Reactor.wz/2112014`, `event/0` `0=4001016, 1=7`);
+- a chest yields **two** items and is then inert for ever, so seven ores need four ore rooms swept;
+- the ore reactors are only `2112004` (in `280010091`, `110`, `140`, `280011002`, `280011003`) and `2112011` (in
+  `280010041`, and in `280011005` - the big chest's own room), and the walk reaches `280011005` **before** the rooms that
+  hold the rest;
+- and loot is first-come, so in a three-member party the ore is spread across hands unless it is pooled.
+
+What the simulation did: `RowRunSimulationTest` driving the real orchestrator over the real row reached stage 17
+(`280011005`) with **six** ores in the leader's hand in one build and **one** in another, then stood there until the
+30-minute budget said "time budget of 30 min ran out on stage 17". Four solver variants were tried and reverted
+(loot-before-chest, ore pooled on the leader, one member striking the chest instead of three, the room's own ore chest
+swept first): none made seven ores deterministic, because the shortfall is in the row's **order** and in the chest's
+two-item yield, not in a branch.
+
+**State as shipped:** `377f926d0` plus the row correction below - every stage now carries `maps: [<the map its door
+leads to>]`, which is what a `partyOnMap` clear actually means, and every room that holds a chest now names it
+(`hitReactor`, preferring the ore chest where a room has both). The unit tests and the integrity pass are green. **What
+is missing is a decision, not code**: either the row orders the four ore rooms before `280011005` (a generator change),
+or the era's real intent is that the big chest asks seven and the maze yields fourteen across seven reactors - in which
+case the walk has to spend its time in the ore rooms, and the straightforward way to say that is `loopTo:` back to the
+first ore room until the leader holds seven. Until one of those is chosen, no simulation of the mines should be claimed.
+
 ## Pre-Horntail PQ: read to the end, and it is not completable (no row)
 
 Read to the wrapper's end rather than trusting the earlier `[C]`/`[D]` marks, this quest cannot be finished here by a player
