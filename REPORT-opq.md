@@ -585,6 +585,29 @@ stages up to the point where a read stops being able to decide, and then hold ra
   stages' rules, which `MagatiaPqSolversTest` pins one by one. That gap is stated rather than papered over, and it is the
   first thing to add when stage 5 is decided.
 
+## Ellin PQ and CWKPQ: what each still needs, costed rather than guessed
+
+Neither is written. Both are fully read, and the pieces are named so the next hand does not have to re-derive them.
+
+**Ellin PQ** (`scripts/event/EllinPQ.js`, 4-6 players `:27`, level 44-255 `:28`, 30 minutes `:37`, front door `2133000`,
+adventurer-only at `:93` as a party-formation fact, door step `930000000`, stages `930000100`..`930000700`, clear at
+`930000800`). Two primitives it needs, both general:
+
+| Primitive | Why | Shape |
+|---|---|---|
+| a clear that reads a **reactor's state** | stage 2's pond reactor `3002000` and spine `3009000` at state 4, with no event property involved | `clear: { reactorState: { id: 3009000, state: 4 } }` - `StageView.reactorState(int)` already exists and is in use by Henesys PQ and `magatia-climb` |
+| a step that **uses an item on a mob** | `UseItem(2270004)` on `9300174`, twenty times, to make `4001169` | `SolverStep.UseItemOnMob(int itemId, int mobId)`, executed as the client's own use-item packet against the mob (`InventoryHandler`-side path), with the drop arriving through the normal `Fight`/`Loot` flow |
+
+Then the row: stages 1-4 driven (`mapEmpty` for the first room - that is what the tenth clear kind was built for -,
+`reactorState` for the pond, `fight-room`/`Loot` for the rest), stage 5 (`930000500`, shuffled reactors) held with the
+reason named, stage 6 the Poison Golem `9300182` clearing on the instance's flag (`:230-241`).
+
+**CWKPQ** (`scripts/event/CWKPQ.js`, four sign-up reactors and their job map `:98-135`). Two pieces, as agreed: the
+**touch step** (`SolverStep.TouchReactor(int)`, because `touch`/`untouch` are dispatched only from
+`TouchReactorHandler.java:34-46`) and **`RunMember.job`** (one component, one construction site,
+`MechanicsRuns.java:162`, carried from the real `Character`, never inferred from persona). They must land together: the
+touch step's first real consumer is the sign-up, and the job is what decides which reactor a member belongs at.
+
 ## Expedition rule: pause for revive (this is the report it lives in)
 
 The boss report is on `164-bossfight`, a different branch, so this one carries the rule. It is the answer to the lane
