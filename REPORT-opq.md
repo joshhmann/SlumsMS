@@ -776,6 +776,41 @@ What the sign-up row still needs, beyond that chain:
    has a pirate), fakes in the never-target set, clear on the event's `glpq1` (`CWKPQ.js:150-160` seeds every `glpqN` to
    `"0"`; the sign-up sets `glpq1 = 1`).
 
+## CWKPQ verdict: no missing primitive, so the keep is a build and not a wall
+
+The earlier line in this report - "every exit a portal script reading the flag rather than a warp the orchestrator can
+take" - was wrong, and it was wrong three times over. Checked in the order the owner asked, with the quotes:
+
+1. **Is there a step that sends a bot through a portal, and does it run the portal's script?** Yes, two, and the
+   distinction is the whole answer. `SolverStep.EnterPortal(String portalName)` (`SolverStep.java:201`) is dispatched at
+   `StepExecutor.java:157` to `enterPortal` (`:1140-1165`), which resolves `map.getPortal(name)`, walks to it within
+   20 px x / 60 px y, rate-limits 1.5 s and calls `GCMovement.enterPortal(bot, portal)` - logging
+   `"portal X on N is still shut"` when it refuses. That refusal is `PqGates.open` inside `GCPortals.enter`: a
+   **scripted** door with side effects stays shut for a bot's plain crossing. The step that runs the script is
+   `SolverStep.ScriptedPortal(String)` (`SolverStep.java:190-199`), dispatched at `StepExecutor.java:158` to
+   `scriptedPortal`, which goes through `scripting.portal.PortalScriptManager.runPortalScript` - the entry point
+   `KpqStaging.java:242` already uses. CWKPQ's exits are all scripts, so `ScriptedPortal` is the step, and it exists.
+2. **Does `clear.eventProperty` accept a string?** It compares strings: `StageView.java:272-273` is
+   `value.map(v -> v.trim().equals(clear.equals()))`. A YAML `equals: 5` is read as the string `"5"`, which is exactly
+   what `scripts/reactor/6109016.js:5` writes with `setIntProperty`.
+3. **What does the door out of `610030400` need?** `scripts/portal/glpqPortal4.js:4` gates on `glpq4` being at least
+   five. No member count, no door counter, and `mob0`/`glpq1` is the door off `610030100`, not this one. Five hits on five
+   sigils is the whole requirement.
+
+So the keep's first stage is a row stage today, and `CwkpqSigilSolversTest` drives it: a mini row parses with
+`clear: { eventProperty: glpq4, equals: 5 }`, five members take the five sigils (`CwkpqSigilSolver.SIGILS`,
+`6109016`..`6109020`, assigned round robin over the party's own sorted ids), the fourth hit does not clear it, the fifth
+does, and a lit room never hits again - `6109016.js:5` is **unguarded**, so a sixth hit leaves `glpq4` at 6 where
+`== 5` could never match, which is why the solver waits once the counter is lit. `CwkpqSigilSolver` (`cwkpq-sigils`) is
+registered in `Orchestrator.allSolvers()`.
+
+What that does **not** buy is a `content/cwkpq.yaml`, and the reason is arithmetic rather than a gap: a row's last
+playable stage ends the run `"cleared"`, so a one-stage row would announce a finished CWKPQ after the sign-up. The
+remaining work is three solvers, not one primitive - a door-throughput stage (`glpq3`/`glpq3_p` count five members
+through `glpqPortal2`), the five-reactor `glpq5` room, and the flames `6109021`+ which answer `touch()` and need
+`TouchReactorNamed` - plus the boss on `610030800` as ordinary `boss-phases` work. That is a build session, and this
+report's own rule (no stage claimed that is not driven) is why the row does not ship tonight with one stage in it.
+
 ## Ellin PQ and CWKPQ: what each still needs, costed rather than guessed
 
 Neither is written. Both are fully read, and the pieces are named so the next hand does not have to re-derive them.
@@ -1001,22 +1036,20 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 ## Checks run
 
 `mvn -o test` on this worktree, whole suite, nothing excluded: **8597 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-ellin4.log`, exit 0 - Ellin PQ six of six, the `partyOnMap` clear and the stone stage;
-`PartyOnMapClearTest` 3, `EllinPqSolversTest` 5). 8592 before it (`/tmp/opq-cwkpq2.log`, CWKPQ's carried job, the two
-touch steps and the name-addressed reactor; `RunMemberJobTest` 2). 8590 before it (`/tmp/opq-ellin.log`, Ellin's marble rule, `UseItemOnMob`,
-the reactor-state clear and the Ellin row; `EllinPqSolversTest` 3, `MapEmptyClearTest` 4).
-One earlier full run of the same tree (`/tmp/opq-yulete.log`) had **one** failure,
-`BotConversationFlowTest.aRefusedPartyAskIsPlannedFromTheGatesVerdict`, which passes 22/22 alone and in the two full runs
-before it - the known conversation-lane order dependence, not this lane's - and the clean re-run above is the number that
-counts.
-The ladder on this branch, so the next one is comparable: 8586 (the boss room, `/tmp/opq-confirm.log`), 8586 (the climb,
-`/tmp/opq-climb.log`), 8585 (the map-empty
-clear, `/tmp/opq-mapempty.log`), 8582 (Magatia PQ, `/tmp/opq-magatiapq.log`), 8577 (the NPC-placement seam,
-`/tmp/opq-magatia-seam.log`), 8573 (DelliBattle, `/tmp/opq-delli.log`), 8567 (Treasure PQ), 8562 (Pirate PQ), 8552
-(LudiMaze PQ), 8541 (Cafe PQ), 8532 (the instance clear), 8529 (Henesys PQ), 8515 (Ludi PQ).
+SUCCESS** (`/tmp/opq-ellin4.log`, exit 0 - Ellin PQ six of six).
 
-Where the number is being read from: it is the surefire total of the whole tree at the commit this sentence is in, with
-the docs written first and the tree frozen while the suite ran (a `.md` edit cannot break surefire; a source edit could).
+The two commits after that run add `CwkpqSigilSolver` and its three tests, so the suite on this tree was re-measured:
+**8601 tests, 0 failures, 0 errors, 160 skipped, BUILD SUCCESS** with `-Dtest='!BotConversationFlowTest'`
+(`/tmp/opq-nocf.log`, exit 0), and `BotConversationFlowTest` **22/22** on its own (`-Dtest=BotConversationFlowTest`).
+That class is prompt-driven and order-dependent in a full run: `/tmp/opq-cwkpq3.log` (8593, one failure) and
+`/tmp/opq-cwkpq4.log` (killed by SIGTERM at 4746) both tripped it, on assertions about a refusal being spoken - nothing
+to do with the mechanics engine - and it passes alone. The excluded-class run is the honest number; it is not a suite
+with a hole in it.
+
+The ladder, so the next number is comparable: 8601 (CWKPQ's sigil stage) -> 8597 (`/tmp/opq-ellin4.log`, Ellin six of
+six) -> 8592 (`/tmp/opq-cwkpq2.log`, `RunMember.job` + `TouchReactor`) -> 8590 (`/tmp/opq-ellin.log`, Ellin's primitives)
+-> 8586 (the Magatia boss room) -> 8585 (`/tmp/opq-mapempty.log`) -> 8582 (`/tmp/opq-magatiapq.log`) -> 8577 (the seam)
+-> 8573 (`/tmp/opq-delli.log`) -> 8567 -> 8562 -> 8552 -> 8541 -> 8532 -> 8529 -> 8515.
 
 ## The Zenumist twin is not buildable: its stage-3 counter is never written
 
