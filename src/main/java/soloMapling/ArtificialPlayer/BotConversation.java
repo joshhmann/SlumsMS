@@ -69,9 +69,19 @@ public final class BotConversation {
     private record Key(int botId, int playerId) {
     }
 
+    /** social#5: where a turn was said. PUBLIC is map chat; PRIVATE is a whisper or buddy chat back. */
+    private enum Channel { PUBLIC, PRIVATE }
+
+    /**
+     * social#5: one turn of the pair's history, tagged with its channel. One store still holds both channels - a
+     * whisper and a map line are one conversation and one memory - but a prompt is built from the channel it serves.
+     */
+    private record Spoken(BotBrain.Turn turn, Channel channel) {
+    }
+
     /** History and idle expiry are shared across channels; pending replies keep their own destination. */
     private static final class ConversationState {
-        final List<BotBrain.Turn> history = new ArrayList<>();
+        final List<Spoken> history = new ArrayList<>();
         volatile long lastAt;
 
         ConversationState(long now) {
@@ -83,7 +93,7 @@ public final class BotConversation {
         final BotSM bot;
         final Character player;
         final ConversationState state;
-        final List<BotBrain.Turn> history;
+        final List<Spoken> history;
         /** Immutable for this reply, even if the player switches channels while it is being generated. */
         final Consumer<String> deliver;
         final soloMapling.ArtificialPlayer.BotBrainSystem.Priority priority;
@@ -110,6 +120,25 @@ public final class BotConversation {
             this.deliver = deliver;
             this.priority = priority;
         }
+
+        /** social#5: the channel this reply is delivered on; a consumer means it is not map chat. */
+        Channel channel() {
+            return deliver == null ? Channel.PUBLIC : Channel.PRIVATE;
+        }
+    }
+
+    /**
+     * social#5: this channel's turns, oldest first - all a reply on that channel may read. A whispered question is
+     * answered from the whispers; a map line still sees the map chat.
+     */
+    private static List<BotBrain.Turn> onChannel(List<Spoken> history, Channel channel) {
+        List<BotBrain.Turn> turns = new ArrayList<>(history.size());
+        for (Spoken spoken : history) {
+            if (spoken.channel() == channel) {
+                turns.add(spoken.turn());
+            }
+        }
+        return turns;
     }
 
     private static final Map<Key, Session> sessions = new ConcurrentHashMap<>();
@@ -191,7 +220,7 @@ public final class BotConversation {
             return 0;
         }
         synchronized (session.history) {
-            return (int) session.history.stream().filter(t -> t.role() == BotBrain.Role.USER).count();
+            return (int) session.history.stream().filter(t -> t.turn().role() == BotBrain.Role.USER).count();
         }
     }
 
@@ -220,15 +249,18 @@ public final class BotConversation {
         // 1.6.1: a whisper is read with the earlier whispers of this bot and this player (not the line itself)
         List<ChatDecide.Earlier> whisperContext = deliver == null ? List.of() : noteWhisper(bot, player, line, now);
         synchronized (session.history) {
-            if (heard.justSaid() != null && !alreadyInHistory(session.history, heard.justSaid())) {
+            // social#5: what the bot said in public dedupes against its public turns, not against a whisper
+            if (heard.justSaid() != null
+                    && !alreadyInHistory(onChannel(session.history, Channel.PUBLIC), heard.justSaid())) {
                 // the bot's public line (scripted or not) is a real turn of this chat: the player is answering it
-                session.history.add(BotBrain.Turn.assistant(heard.justSaid()));
+                session.history.add(new Spoken(BotBrain.Turn.assistant(heard.justSaid()), Channel.PUBLIC));
             }
-            session.history.add(BotBrain.Turn.user(line));
+            session.history.add(new Spoken(BotBrain.Turn.user(line), session.channel()));
             while (session.history.size() > HISTORY_TURNS) {
                 session.history.remove(0);
             }
-            history = new ArrayList<>(session.history);
+            // social#5: the reply reads its own channel only; the pair's one store still holds the other
+            history = onChannel(session.history, session.channel());
         }
         // Off the caller's thread: the first recall of a pair reads the database.
         ExecutorServiceManager.runAsync(() -> {
@@ -483,9 +515,11 @@ public final class BotConversation {
         if (session == null) {
             return;
         }
-        List<BotBrain.Turn> transcript;
+        List<BotBrain.Turn> transcript = new ArrayList<>();
         synchronized (session.history) {
-            transcript = new ArrayList<>(session.history);
+            for (Spoken spoken : session.history) {
+                transcript.add(spoken.turn()); // social#5: memory is about the player, not the channel they used
+            }
         }
         if (!transcript.isEmpty()) {
             BotMemory.writeConversationNotes(session.bot.getChr(), session.player, transcript);
@@ -1207,7 +1241,7 @@ public final class BotConversation {
 
     private static boolean botHasSpoken(Session session) {
         synchronized (session.history) {
-            return session.history.stream().anyMatch(t -> t.role() == BotBrain.Role.ASSISTANT);
+            return session.history.stream().anyMatch(t -> t.turn().role() == BotBrain.Role.ASSISTANT);
         }
     }
 
@@ -1433,7 +1467,7 @@ public final class BotConversation {
         }
         String claimSource = "reply-" + said.source();
         synchronized (session.history) {
-            session.history.add(BotBrain.Turn.assistant(line));
+            session.history.add(new Spoken(BotBrain.Turn.assistant(line), session.channel()));
         }
         Consumer<String> deliver = session.deliver;
         if (deliver != null) {
@@ -1442,7 +1476,9 @@ public final class BotConversation {
         }
         boolean firstLine;
         synchronized (session.history) {
-            firstLine = session.history.stream().filter(t -> t.role() == BotBrain.Role.ASSISTANT).count() <= 1;
+            firstLine = session.history.stream()
+                    .filter(t -> t.channel() == session.channel() && t.turn().role() == BotBrain.Role.ASSISTANT)
+                    .count() <= 1;
         }
         BotRoster.Activity doing = session.bot.activitySnapshot();
         boolean fighting = "grinding".equals(BotChatPrompt.activityPhrase(doing == null ? null : doing.name()))

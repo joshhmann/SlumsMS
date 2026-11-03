@@ -131,6 +131,50 @@ class BotConversationFlowTest {
         assertTrue(BotConversation.say(bot, player, line, null, said::add));
     }
 
+    /** A captured prompt as one searchable string. */
+    private static String text(List<BotBrain.Turn> prompt) {
+        StringBuilder out = new StringBuilder();
+        for (BotBrain.Turn turn : prompt) {
+            out.append(turn.role()).append(": ").append(turn.content()).append('\n');
+        }
+        return out.toString();
+    }
+
+    /**
+     * social#5: a whisper is answered from the whisper chat. One store holds both channels - the pair is one
+     * conversation - but the player's public line must not reach the prompt that writes a private answer, and the
+     * map-chat prompt must not lose it either.
+     */
+    @Test
+    void aWhisperIsAnsweredFromTheWhisperChatNotTheMapChat() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+        brainReply = Optional.empty(); // the map line gets no answer: only its turn is recorded
+        assertTrue(BotConversation.talk(bot, player, "i sold my zakum hat for 40m"));
+        waitFor(() -> asked.size() == 1);
+        assertEquals(1, asked.size());
+        CompletableFuture<Optional<String>> whisper = new CompletableFuture<>();
+        controlledReply = whisper;
+        assertTrue(BotConversation.say(bot, player, "u there", null, said::add));
+        waitFor(() -> asked.size() == 2);
+        assertEquals(2, asked.size());
+        String privatePrompt = text(asked.get(1));
+        assertTrue(privatePrompt.contains("u there"), privatePrompt);
+        assertFalse(privatePrompt.contains("zakum hat"),
+                "a private answer must not be written from the map chat: " + privatePrompt);
+        whisper.complete(Optional.empty());
+        controlledReply = null; // and the same pair's next map line still reads the map chat it had
+        assertTrue(BotConversation.talk(bot, player, "anyone else sell a zakum hat"));
+        waitFor(() -> asked.size() == 3);
+        assertEquals(3, asked.size());
+        String publicPrompt = text(asked.get(2));
+        assertTrue(publicPrompt.contains("i sold my zakum hat for 40m"),
+                "the map chat still sees the map chat: " + publicPrompt);
+        BotConversation.end(chr.getId(), player.getId());
+    }
+
     private void waitFor(java.util.function.BooleanSupplier done) throws InterruptedException {
         for (int i = 0; i < 200 && !done.getAsBoolean(); i++) {
             Thread.sleep(25);
