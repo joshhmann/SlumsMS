@@ -315,11 +315,11 @@ read from our scripts and our WZ dump.
 Nothing is taken from BotStory for `maha.yaml` or `castellan.yaml`: neither project carries a definition for them.
 
 Ours, and not portable from anywhere: every gate is the script's own (`TD_Battle*.js:26-28,39,41`;
-`CastellanBattle.js:28-29,39,41`; `MahaBattle.js` declares none at all and reads `minPlayers` at `:82`, `:96` and `:105`,
+`CastellanBattle.js:29-30,39,41`; `MahaBattle.js` declares none at all and reads `minPlayers` at `:82`, `:96` and `:105`,
 which is why its row states `minPlayers: 1 / maxPlayers: 1`); the entry paths are `scripts/portal/TD_Boss_enter.js:4-5,20`
 (party), `scripts/quest/21401.js:23-24` (one character) and `scripts/npc/9111058.js:35,173` (expedition); every clear is
 the script's `clearPQ` with no property, hence `clear: { instance: true }`; the spawn sites are the map's own life or the
-script's `setup()` (`CastellanBattle.js:129-134`). The `spawnWaitSeconds: 60` on these rows is a policy number - how long
+script's `setup()` (`CastellanBattle.js:133-134`). The `spawnWaitSeconds: 60` on these rows is a policy number - how long
 a room may stand empty while its boss appears - and is not measured data from any source.
 
 The WZ facts (map life, revive chains, `Quest.wz/Check.img.xml`'s `21401` block) come from the dump at

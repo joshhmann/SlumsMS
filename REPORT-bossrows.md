@@ -151,12 +151,12 @@ animation plus a map instance's build, with margin), never a WZ one; each yaml s
 ### `castellan.yaml` - Castellan (expedition)
 
 - **Script:** `scripts/event/CastellanBattle.js`.
-- **Gates:** `1..6` (`:28`), `1..255` (`:29`), `maxLobbies = 1` (`:41`), `eventTime = 45` (`:39`).
+- **Gates:** `1..6` (`:29`), `1..255` (`:30`), `maxLobbies = 1` (`:41`), `eventTime = 45` (`:39`).
 - **Maps:** entry and stage `800040410` (`:31`, `:36-37`); exit, recruit and clear `800040401` (`:32-34`).
 - **Kill targets and the revive chain:** `9400408` -> `9400409`, in that order, one stage. **Spawn source:** the map's
   own life list is empty (`Map.wz/Map/Map8/800040410.img.xml` has an empty `<imgdir name="life">`), so `9400408` is the
   script's spawn: `setup()` builds `LifeFactory.getMonster(9400408)` and drops it on the ground at `(466,142)`
-  (`:129-134`). `9400409` is its WZ revive (`Mob.wz/9400408.img.xml` `revive/0`), and it is `isCastellan` (`:227-230`).
+  (`:133-134`). `9400409` is its WZ revive (`Mob.wz/9400408.img.xml` `revive/0`), and it is `isCastellan` (`:227-230`).
 - **Entry:** the NPC's expedition - `scripts/npc/9111058.js:35` (`ExpeditionType.CASTELLAN`), `:50`, `:173`
   (`startInstance(expedition)`). **A bot cannot lead it** (`ExpeditionBots.autoJoin` returns `List.of()` for a bot
   leader), so this row is only drivable when a human has made the expedition; the expedition minimum is 1 while
@@ -191,5 +191,7 @@ extended in the same order, so a file added without its index line (or the rever
 
 ## Suite
 
-`mvn -q -o test` on `164-bossrows` at the head of this branch: see the commit message; the run reported
-`Tests run: <see commit>, Failures: 0, Errors: 0, Skipped: 0` and `BUILD SUCCESS`.
+`mvn -o test` on `164-bossrows` at the head of this branch: **`Tests run: 8554, Failures: 0, Errors: 0, Skipped: 137`,
+BUILD SUCCESS** (29 min). The seven rows' simulations are 8 of `RowRunSimulationTest`'s 22 (`party(6)` for the TD and
+Castellan rows, `party(1)` for Maha); each drives the real `Orchestrator` until the run ends and asserts the run reached
+`cleared`, one stage, the listed ids killed in order, no `Wait` and no `Abandon`, and every member on the stage's map.
