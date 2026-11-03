@@ -317,6 +317,28 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public List<ReactorPlacement> reactors() {
+        if (map == null) {
+            return List.of();
+        }
+        List<ReactorPlacement> out = new java.util.ArrayList<>();
+        for (MapObject o : map.getReactors()) {
+            if (o instanceof server.maps.Reactor r) {
+                Point at = r.getPosition();
+                out.add(new ReactorPlacement(r.getObjectId(), r.getId(), r.getName() == null ? "" : r.getName(),
+                        r.getState(), at == null ? 0 : at.x, at == null ? 0 : at.y));
+            }
+        }
+        return out;
+    }
+
+    @Override
+    public int reactorStateByOid(int objectId) {
+        server.maps.Reactor reactor = map == null ? null : map.getReactorByOid(objectId);
+        return reactor == null ? -1 : reactor.getState();
+    }
+
+    @Override
     public int reactorEventState(String name) {
         server.maps.Reactor reactor = map == null || name == null ? null : map.getReactorByName(name);
         return reactor == null ? -1 : reactor.getEventState();

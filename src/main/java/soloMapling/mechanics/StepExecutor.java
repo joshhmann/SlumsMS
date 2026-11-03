@@ -149,6 +149,7 @@ final class StepExecutor {
                     hitReactorAt(bot, beat, r, h.reactorName(), now, log);
                 }
             }
+            case SolverStep.HitReactorByOid h -> hitReactorByOid(bot, beat, h, now, log);
             case SolverStep.PlaceItem p -> placeItem(bot, beat, p, now, log);
             case SolverStep.PlaceItemOn p -> placeItemOn(bot, beat, p, now, log);
             case SolverStep.Occupy o -> occupy(bot, beat, o, now, log);
@@ -880,6 +881,25 @@ final class StepExecutor {
         hitReactorAt(bot, beat, reactor, String.valueOf(h.reactorId()), now, log);
     }
 
+    /**
+     * Hits the reactor with this map object id ({@link SolverStep.HitReactorByOid}): the one statue of twenty that the
+     * puzzle's script names by {@code objectId % 1000}. A map without it is said once per ten seconds, as for the other
+     * reactor steps, and nothing is hit.
+     */
+    private static void hitReactorByOid(Character bot, Beat beat, SolverStep.HitReactorByOid h, long now,
+                                        Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        server.maps.Reactor reactor = reactorByOid(map, h.objectId());
+        if (reactor == null) {
+            if (now - beat.lastReactorMs > 10_000) {
+                beat.lastReactorMs = now;
+                log.accept(bot.getName() + ": no reactor with object id " + h.objectId() + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        hitReactorAt(bot, beat, reactor, "#" + h.objectId(), now, log);
+    }
+
     /** The walk-and-click part, shared by {@link SolverStep.HitReactor} and {@link SolverStep.HitReactorNamed}. */
     private static void hitReactorAt(Character bot, Beat beat, server.maps.Reactor reactor, String label, long now,
                                      Consumer<String> log) {
@@ -1070,6 +1090,14 @@ final class StepExecutor {
         int paid = BotHoldings.payOut(bot, p.itemId(), p.count(), bot, at == null ? mine : at, true);
         log.accept("PLACE-ON " + bot.getName() + " puts " + paid + " x " + p.itemId() + " on reactor "
                 + p.reactorId() + " (try " + tries + ") - " + p.why());
+    }
+
+    /**
+     * The reactor on this map whose <em>map object id</em> is {@code objectId}, or null. Unlike {@link #reactorFor} this
+     * names exactly one reactor even when a map stands twenty of one WZ id in a row ({@link SolverStep.HitReactorByOid}).
+     */
+    static server.maps.Reactor reactorByOid(MapleMap map, int objectId) {
+        return map == null ? null : map.getReactorByOid(objectId);
     }
 
     /**

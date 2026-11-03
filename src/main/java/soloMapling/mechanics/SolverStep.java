@@ -101,6 +101,18 @@ public sealed interface SolverStep {
     }
 
     /**
+     * Hit the one reactor on the map that has this <em>map object id</em> ({@code Reactor.getObjectId()}), when neither
+     * its WZ id nor its name can tell it from its neighbours. Guild Quest's Gatekeeper puzzle is the case: its statues
+     * are twenty reactors of three ids, and the script names each one by {@code objectId % 1000}, zero-padded to three
+     * digits ({@code scripts/reactor/9208000.js:34-37}), into the event's {@code stage1combo} and {@code stage1guess}
+     * properties - so the pattern the party has to repeat is a list of object ids, and {@code reactorId} would hit
+     * whichever statue the map happens to list first. The object id is the map's own (it differs from one instance of
+     * the map to the next), so a solver reads it from {@link StageView#reactors()}, never from its row.
+     */
+    record HitReactorByOid(int objectId) implements SolverStep {
+    }
+
+    /**
      * Put {@code count} of an item on the ground inside a reactor's box (OPQ, stages 1, 3, 9): the server matches a
      * type-100 reactor's item and <em>quantity</em> exactly and needs the drop's position inside the reactor's area
      * ({@code MapleMap.activateItemReactors}), so the stack lands on the reactor itself: {@code reactor} is its WZ

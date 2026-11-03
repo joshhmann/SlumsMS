@@ -108,6 +108,32 @@ public interface StageView {
     }
 
     /**
+     * One reactor standing on the stage's map, by everything a script can tell it apart with: the map's own object id
+     * (the key {@link SolverStep.HitReactorByOid} addresses it by), its WZ id, its WZ name ({@code ""} when it has
+     * none), its current state and where it stands.
+     */
+    record ReactorPlacement(int objectId, int reactorId, String name, int state, int x, int y) {
+    }
+
+    /**
+     * Every reactor on the stage's map, in the map's own order; empty when the map has none or is not in this instance.
+     * Guild Quest's twenty statues share three WZ ids and the script names them by object id, so a solver that has to
+     * hit one of them reads their object ids here.
+     */
+    default List<ReactorPlacement> reactors() {
+        return List.of();
+    }
+
+    /**
+     * The state of the reactor with this map <em>object id</em>, or {@code -1} when the map holds no reactor by that
+     * id: {@link #reactorState(int)} reads by WZ id, which names one reactor out of twenty for a map that stands them in
+     * rows.
+     */
+    default int reactorStateByOid(int objectId) {
+        return -1;
+    }
+
+    /**
      * The slot the map's event script armed the named item reactor with, or {@code -1}. Orbis PQ's lobby arms the
      * reactor named {@code music} with {@code new Date().getDay()} ({@code scripts/event/OrbisPQ.js:162-163}) and the
      * reactor takes {@code 4001056 + getEventState()} as its item ({@code Reactor.getReactItem(byte)}), so the pass the
