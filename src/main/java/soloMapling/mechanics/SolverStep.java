@@ -135,6 +135,13 @@ public sealed interface SolverStep {
     record TouchReactor(int reactorId) implements SolverStep {
     }
 
+    /**
+     * Touch the reactor <b>named</b> this - the sign-up's own addressing. `CWKPQ.js:106-118` deploys its reactors by name
+     * (`4skill<jobClass><slot>`, and `4fake*` decoys), so the name is the only thing that says which member belongs where.
+     */
+    record TouchReactorNamed(String reactorName) implements SolverStep {
+    }
+
     record UseItemOnMob(int itemId, int mobId) implements SolverStep {
     }
 

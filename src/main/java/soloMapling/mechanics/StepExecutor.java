@@ -134,7 +134,8 @@ final class StepExecutor {
             case SolverStep.Say s -> say(view, bot, beat, s.line(), now);
             case SolverStep.HitReactor h -> hitReactor(bot, beat, h, now, log);
             case SolverStep.UseItemOnMob u -> useItemOnMob(bot, beat, u, now, log);
-            case SolverStep.TouchReactor t -> touchReactor(bot, beat, t, now, log);
+            case SolverStep.TouchReactor t -> touchReactor(bot, beat, t.reactorId(), null, now, log);
+            case SolverStep.TouchReactorNamed tn -> touchReactor(bot, beat, 0, tn.reactorName(), now, log);
             case SolverStep.HitReactorNamed h -> {
                 MapleMap named = bot.getMap();
                 server.maps.Reactor r = named == null || h.reactorName() == null
@@ -962,16 +963,19 @@ final class StepExecutor {
      * this calls {@code ReactorScriptManager.touch(client, reactor)} directly - the same entry point the packet handler
      * uses - and leaves {@code act()} to {@link SolverStep.HitReactor}.
      */
-    private static void touchReactor(Character bot, Beat beat, SolverStep.TouchReactor t, long now, Consumer<String> log) {
+    private static void touchReactor(Character bot, Beat beat, int reactorId, String reactorName, long now,
+                                     Consumer<String> log) {
         MapleMap map = bot.getMap();
         if (map == null) {
             return;
         }
-        server.maps.Reactor reactor = map.getReactorById(t.reactorId());
+        server.maps.Reactor reactor = reactorName != null ? map.getReactorByName(reactorName)
+                : map.getReactorById(reactorId);
         if (reactor == null) {
             if (now - beat.lastReactorMs > 10_000) {
                 beat.lastReactorMs = now;
-                log.accept(bot.getName() + ": no reactor " + t.reactorId() + " on map " + map.getId());
+                log.accept(bot.getName() + ": no reactor " + (reactorName != null ? "\"" + reactorName + "\""
+                        : String.valueOf(reactorId)) + " on map " + map.getId());
             }
             return;
         }
@@ -980,7 +984,8 @@ final class StepExecutor {
         }
         beat.lastTouchMs = now;
         scripting.reactor.ReactorScriptManager.getInstance().touch(bot.getClient(), reactor);
-        log.accept("TOUCH reactor " + t.reactorId() + " (state " + reactor.getState() + ")");
+        log.accept("TOUCH reactor " + (reactorName != null ? reactorName : String.valueOf(reactorId))
+                + " (state " + reactor.getState() + ")");
     }
 
     private static void useItemOnMob(Character bot, Beat beat, SolverStep.UseItemOnMob u, long now, Consumer<String> log) {

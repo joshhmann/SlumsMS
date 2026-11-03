@@ -633,7 +633,20 @@ Two of the three pieces are in; the sign-up row is not.
 | `RunMember.jobId` + `jobClass()` + `hasJob()` | the member's job id, carried from the real `Character` at its one construction site (`MechanicsRuns.java:162`, `c.getJob().getId()`), never inferred from a persona. `jobClass()` is the first digit of the id - `jobId / 100`, not `/ 1000`, because Maple job ids are three digits (`110` is a Fighter) | `RunMemberJobTest` 2 |
 | `SolverStep.TouchReactor(int)` | the `touch` callback, which is dispatched **only** from `TouchReactorHandler.java:34-46` and which `HitReactor` cannot reach (`hitReactor` runs `onHit`/`act`) | `StepExecutor.touchReactor` calls `ReactorScriptManager.touch(client, reactor)`, one touch a second per bot |
 
-What the sign-up row still needs, and it is now a small list rather than a read:
+A **name-addressed touch** also landed (below) - `4skill<jobClass><slot>` carries its own answer, so no accessor is
+needed to list reactors: `StageView.reactorState(name)` answers `-1` for a name the map does not hold, which is enough to
+probe `4skill<j>a`..`4skill<j>e`.
+
+What the sign-up row still needs, and it is one chain of reads, not a design:
+
+- `scripts/portal/glpqPortalDummy.js:1-20` is what actually sets `glpq1 = 1`, and it does so from **`mob0`'s reactor
+  state** (`if (react.getState() < 1) { forceHitReactor(1); ... glpq1 = 1; warp(610030100) }`), not from the job reactors
+  directly. So the chain is: eight `4skill*`/`4fake*` touches on `610030400` → whatever arms `mob0` → the dummy portal.
+  `glpqPortal0.js:1-11` then gates the way to `610030200` on `glpq1`. The next hand must read what arms `mob0` before
+  writing a stage, because a solver that touches job reactors and then expects `glpq1` would stall on a portal it never
+  walks into.
+
+What the sign-up row still needs, beyond that chain:
 
 1. A **name-addressed touch** (`TouchReactorNamed(String)`, the twin of `HitReactorNamed`) or a
    `StageView.reactorNames(int)` accessor, because CWKPQ chooses its reactors by **name**: `CWKPQ.js:98-135` deploys eight
