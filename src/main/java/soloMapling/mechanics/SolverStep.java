@@ -65,6 +65,14 @@ public sealed interface SolverStep {
     record Loot(int itemId) implements SolverStep {
     }
 
+    /**
+     * Talk to one particular standing of an NPC. The same NPC can stand in 26 places on one map, and the script reads
+     * {@code cm.getNpcObjectId()} to decide which one it is (Magatia's seven books): a plain {@link TalkNpc} always
+     * reaches the first.
+     */
+    record TalkNpcAt(int objectId, int npcId) implements SolverStep {
+    }
+
     /** Talk to an NPC, optionally holding {@code itemId} x {@code count} to hand in (0 = just talk). */
     record TalkNpc(int npcId, int itemId, int count) implements SolverStep {
     }

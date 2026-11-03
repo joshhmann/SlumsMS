@@ -121,6 +121,7 @@ final class StepExecutor {
             case SolverStep.Loot l -> loot(view, bot, beat, l.itemId(), now);
             case SolverStep.TakeBack t -> takeBack(view, bot, beat, t, now, log);
             case SolverStep.TalkNpc t -> talk(run, orchestrator, view, bot, beat, t, now, log);
+            case SolverStep.TalkNpcAt t -> talkAt(run, orchestrator, view, bot, beat, t, now, log);
             case SolverStep.DropFor d -> dropFor(view, bot, beat, d, now, log);
             case SolverStep.Say s -> say(view, bot, beat, s.line(), now);
             case SolverStep.HitReactor h -> hitReactor(bot, beat, h, now, log);
@@ -527,6 +528,58 @@ final class StepExecutor {
                         + (t.itemId() > 0 ? " with " + t.count() + " x " + t.itemId() : "")
                         + (r.ran() ? ": \"" + said + "\"" : " FAILED: " + r.error());
                 scriptResult(run, orchestrator, beat, bot, t.npcId(), r, line, log);
+            } finally {
+                beat.lastTalkMs = System.currentTimeMillis();
+                beat.talking = false;
+            }
+        });
+    }
+
+    /**
+     * One standing of an NPC, addressed by object id. The walk target is <b>that</b> placement's position, not the first
+     * one {@code getNPCById} happens to return, and the script is handed the object id so {@code cm.getNpcObjectId()}
+     * answers with the one the row meant.
+     */
+    private void talkAt(RunState run, Orchestrator orchestrator, LiveStageView view, Character bot, Beat beat,
+                        SolverStep.TalkNpcAt t, long now, Consumer<String> log) {
+        int[] npc = null;
+        for (StageView.NpcPlacement p : view.npcPlacements(t.npcId())) {
+            if (p.objectId() == t.objectId()) {
+                npc = new int[]{p.x(), p.y()};
+                break;
+            }
+        }
+        if (npc == null) {
+            if (now - beat.lastTalkMs > 10_000) {
+                beat.lastTalkMs = now;
+                log.accept(bot.getName() + ": no placement " + t.objectId() + " of NPC " + t.npcId()
+                        + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        Point at = bot.getPosition();
+        if (Math.abs(npc[0] - at.x) > NPC_REACH_X || Math.abs(npc[1] - at.y) > NPC_REACH_Y) {
+            int side = at.x < npc[0] ? -1 : 1;
+            moveNear(bot, beat, npc[0] + side * (NPC_REACH_X / 2), npc[1], NPC_REACH_X / 3, now);
+            return;
+        }
+        if (beat.talking || now - beat.lastTalkMs < TALK_GAP_MS) {
+            return;
+        }
+        beat.lastTalkMs = now;
+        beat.talking = true;
+        int npcId = t.npcId();
+        int objectId = t.objectId();
+        ExecutorServiceManager.getExecutorService().execute(() -> {
+            try {
+                BotNpcTalk.Result r = BotNpcTalk.INSTANCE.talkAt(bot, npcId, objectId);
+                String said = r.lastLine().replaceAll("#[a-zA-Z]", "").replace("\r\n", " ");
+                if (said.length() > 90) {
+                    said = said.substring(0, 90) + "...";
+                }
+                String line = "NPC " + bot.getName() + " -> " + npcId + "@" + objectId
+                        + (r.ran() ? ": \"" + said + "\"" : " FAILED: " + r.error());
+                scriptResult(run, orchestrator, beat, bot, npcId, r, line, log);
             } finally {
                 beat.lastTalkMs = System.currentTimeMillis();
                 beat.talking = false;

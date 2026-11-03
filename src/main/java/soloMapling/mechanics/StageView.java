@@ -70,6 +70,19 @@ public interface StageView {
         return Optional.empty();
     }
 
+    /** One standing of an NPC on a map: the object id the client would send, and where it stands. */
+    record NpcPlacement(int objectId, int x, int y) {
+    }
+
+    /**
+     * Every standing of an NPC on the stage map, in the map's own order - the same NPC id can stand in 26 places
+     * (Magatia's books) and the script reads {@code cm.getNpcObjectId()} to tell them apart, so addressing "the NPC" by
+     * id alone is addressing the first one only.
+     */
+    default java.util.List<NpcPlacement> npcPlacements(int npcId) {
+        return java.util.List.of();
+    }
+
     /** The map a member is on (a member may still be on the last stage's map, or already in the bonus). */
     default int mapOf(int characterId) {
         return stage().mapId();

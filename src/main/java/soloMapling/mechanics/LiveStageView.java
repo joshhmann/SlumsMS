@@ -285,6 +285,21 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public java.util.List<NpcPlacement> npcPlacements(int npcId) {
+        if (map == null || npcId <= 0) {
+            return java.util.List.of();
+        }
+        java.util.List<NpcPlacement> found = new java.util.ArrayList<>();
+        for (MapObject o : map.getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY,
+                List.of(MapObjectType.NPC))) {
+            if (o instanceof NPC npc && npc.getId() == npcId) {
+                found.add(new NpcPlacement(npc.getObjectId(), npc.getPosition().x, npc.getPosition().y));
+            }
+        }
+        return found;
+    }
+
+    @Override
     public boolean eventCleared() {
         return eim != null && eim.isEventCleared();
     }

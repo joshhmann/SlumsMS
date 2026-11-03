@@ -481,6 +481,41 @@ So the honest status is: EllinPQ is a buildable row. Its clears are the script's
 gate is adventurer-only jobs, which belongs in party formation. The verdict above is void, and nothing about EllinPQ needs
 a ticket saying it is impossible for humans either.
 
+## The fifth addressing seam: an NPC that stands in twenty-six places
+
+Magatia PQ's stage 1 is not a fetch and not a kill, and it is the first stage on the branch that cannot be driven by any
+existing step. `scripts/npc/2112013.js` (Alcadno's shelf; `2112007.js` is the Zenumist twin) is one NPC standing **26
+times** on `926110000`, and the script tells them apart by the click's object id:
+
+```
+var book = "stg1_b" + (cm.getNpcObjectId() % 26);   // :29-32, and the book that rolls the pass sets statusStg1 = 1 (:56-61)
+```
+
+`SolverStep.TalkNpc` resolves through `MapleMap.getNPCById` (`MapleMap.java:2090-2101`), which answers with the **first**
+standing, so a bot reads one book for ever; and `BotNpcTalk`'s stand-in `cm` was built with the three-argument
+`NPCConversationManager` constructor, which leaves `npcOid` at 0, so every bot talk would have read `stg1_b0` even with
+the right placement walked to. Both are fixed here, as the **fifth** seam of this shape (after reactors by id, reactors by
+name, declared map sets and portals):
+
+| Piece | Where | Why |
+| --- | --- | --- |
+| `StageView.NpcPlacement(objectId, x, y)` + `StageView.npcPlacements(int)` | `StageView.java` | every standing of an NPC on the stage map, in map order; `LiveStageView` builds it from `getMapObjectsInRange(NPC)` |
+| `SolverStep.TalkNpcAt(objectId, npcId)` + `StepExecutor.talkAt` | `SolverStep.java`, `StepExecutor.java` | walks to **that** standing and hands the script its object id |
+| `BotNpcTalk.talkAt(bot, npcId, objectId)` | `BotNpcTalk.java` | `BotCm` now uses the five-argument `NPCConversationManager` ctor (`NPCConversationManager.java:112`), the one that carries `npcOid` |
+| `MagatiaBooksSolver` (`magatia-books`) | `MagatiaBooksSolver.java` | reads the shelf one unread standing at a time, claims each book in `stageMemory()` so two members never read the same one, and past 26 books says so (`Abandon`) instead of looping |
+
+- **Fail-before.** `noNumberOfTriesToTheFirstBookEverClearsThisShelf` reads the first standing 200 times and the shelf
+  never clears - which is the shipped behaviour of `TalkNpc` - then reads the same shelf one standing at a time and
+  clears on the seventh. `theShelfIsReadOneBookAtATimeAndOnlyTheSeventhClearsIt` pins the order (1000..1006, seven reads,
+  no repeats); `twoMembersNeverReadTheSameBook` pins the claim; `aShelfWithNoBooksLeftSaysSoInsteadOfLooping` pins the
+  bound.
+- **What is still missing for the row.** Stage 1 is driveable now; the row itself is not written, because Magatia is seven
+  stages and five of them are portal-driven with properties our scripts write and read across `jnr*` portals
+  (`statusStg2` -> `jnr1_out`, `statusStg3` -> `jnr2_out` from `reactor/2618000.js`, `statusStg4` from `2112005.js:83`,
+  `statusStg5` -> `jnr4_r1..r4`, `statusStg6` -> `jnr5_rp`, `statusStg7` -> `2112000.js:110`). Stage 3 (`jnr2_out` +
+  `2618000`) is **unclear** from a read alone and will be marked as such rather than guessed. A one-stage row would end
+  the run as "cleared" after stage 1 and tell a party the PQ was finished, so nothing is loaded until the set is whole.
+
 ## Expedition rule: pause for revive (this is the report it lives in)
 
 The boss report is on `164-bossfight`, a different branch, so this one carries the rule. It is the answer to the lane
