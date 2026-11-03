@@ -12,6 +12,7 @@ migrations to deliver a new tuning pass.
 | Boss trophies and exchange | Actual NPC scripts plus `forge-source-contract.json` | Source audit and actual GraalJS regression tests; a contract does not create a reward |
 | HP/EXP overrides | Existing `mob-stat-overrides.tsv` | Existing override tests and rebuilt jar; measure class combat before choosing values |
 | Monster attack/accuracy/defence | Paired server/client data after investigation | Client lane verification; human damage cannot be inferred from a server-only edit |
+| Proposed 120–149 bridge | `normal-200/bridge-120-149.json` | `audit_bridge_progression.py --wz <WZ> --drop-export <six-column TSV> --output <folder>`; evidence/proposal only, no SQL |
 
 Paths above are relative to `docs/economy/`, except the existing runtime resource/scripts. Useful commands:
 

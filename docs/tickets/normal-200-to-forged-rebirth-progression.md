@@ -32,6 +32,19 @@ Both migrations passed disposable MySQL apply/rollback tests; neither is release
 SSH, client launch or live action was performed. `!qa run ng-8` and HALF auto-QA row `t-ng-8` (real exchange adapter and staged-item cleanup) are registered;
 remaining acceptance checks stay open. Client/server combat calibration is still required to close this ticket.
 
+## Follow-up: normal equipment before 150
+
+The owner's current request extends the investigation to the missing 120–149 bridge. A SELECT-only live export
+confirmed rare Jaihin/Utgard weapon rates and sources above their equip levels; the previous snapshot showed
+under-equipped RB0 characters. See the [113-item bridge investigation and proposal](../economy/normal-200/bridge-120-149.md)
+and [editable manifest](../economy/normal-200/bridge-120-149.json). The source audit covers all 16 weapon types and
+five armour families, with 226 candidate pairs on 15 lower-Grandis mobs. It explicitly identifies one existing
+ordinary pair that needs a rate floor rather than insert-only SQL. This follow-up is **proposal/audit only**:
+loot migration, client/server combat calibration and player guidance are not implemented or activated.
+
+The earlier statement that this task performed no SSH/live action applies to its implementation checkpoint;
+the owner subsequently authorized read-only live player/data comparisons. No live write or deployment occurred.
+
 ## Problem and intended result
 
 Friends report dying quickly in imported level-100+ areas. Existing treatment changes HP/EXP but not the full
