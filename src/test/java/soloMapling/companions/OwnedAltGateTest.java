@@ -196,8 +196,9 @@ class OwnedAltGateTest {
         assertEquals(3 * 60_000L, idle, "default: three minutes");
         assertEquals(OwnedAltGate.Why.OPEN, OwnedAltGate.check(owner(f, 0, NOW - idle + 1_000), alt(f, 0), NOW, 0));
         assertEquals(OwnedAltGate.Why.OWNER_IDLE, OwnedAltGate.check(owner(f, 0, NOW - idle - 1), alt(f, 0), NOW, 0));
-        assertNotNull(OwnedAltGate.Why.OWNER_IDLE.tell);
-        assertNull(OwnedAltGate.Why.TOO_FAR.tell, "the quiet reasons say nothing");
+        assertNotNull(OwnedAltGate.Why.OWNER_IDLE.tell("Alt2"));
+        assertNull(OwnedAltGate.Why.OPEN.tell("Alt2"), "an open gate has nothing to say");
+        assertNull(OwnedAltGate.Why.OWNER_GONE.tell("Alt2"), "and neither has a gone owner");
         // QA staging: the same rule without waiting three minutes
         OwnedAltGate.forceIdleForQa(1, true);
         assertEquals(OwnedAltGate.Why.OWNER_IDLE, OwnedAltGate.check(owner(f, 0, NOW), alt(f, 0), NOW, 0));
