@@ -140,6 +140,7 @@ public final class AllianceOperationHandler extends AbstractPacketHandler {
                 int guildid = p.readInt();
                 int allianceid = p.readInt();
                 if (chr.getGuild().getAllianceId() == 0 || chr.getGuild().getAllianceId() != allianceid) {
+                    c.sendPacket(PacketCreator.enableActions());
                     return;
                 }
 
@@ -160,6 +161,7 @@ public final class AllianceOperationHandler extends AbstractPacketHandler {
             }
             case 0x07: { // Change Alliance Leader
                 if (chr.getGuild().getAllianceId() == 0 || chr.getGuildId() < 1) {
+                    c.sendPacket(PacketCreator.enableActions());
                     return;
                 }
                 int victimid = p.readInt();
