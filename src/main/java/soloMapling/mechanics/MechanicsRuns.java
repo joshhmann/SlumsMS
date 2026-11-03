@@ -306,6 +306,14 @@ public final class MechanicsRuns {
         }
         keepPhysics(driven, GCMovement::holdFullPhysics);
         upkeep(driven, now);
+        scaleRoom(a);
+    }
+
+    /** 1.7.0 difficulties (item C): the tier's numbers reach the room, once per tick, behind their own switch. */
+    private static void scaleRoom(Active a) {
+        if (TierScaling.on()) {
+            TierScaling.applyTo(a.run, a.eim);
+        }
     }
 
     /*
