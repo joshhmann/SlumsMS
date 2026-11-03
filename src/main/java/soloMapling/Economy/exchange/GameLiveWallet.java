@@ -1,5 +1,7 @@
 package soloMapling.Economy.exchange;
 
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
+
 import client.BotClient;
 import client.Character;
 import client.Client;
@@ -111,7 +113,7 @@ public final class GameLiveWallet implements LiveWallet {
     }
 
     @Override
-    public long have(Ledger.Asset asset) {
+    public long have(Asset asset) {
         if (asset.item()) {
             Inventory inv = chr.getInventory(ItemConstants.getInventoryType(asset.itemId()));
             inv.lockInventory();
@@ -125,7 +127,7 @@ public final class GameLiveWallet implements LiveWallet {
                 inv.unlockInventory();
             }
         }
-        return asset == Ledger.Asset.NX ? chr.getCashShop().getCash(1) : chr.getMeso();
+        return asset == AssetRegistry.Asset.NX ? chr.getCashShop().getCash(1) : chr.getMeso();
     }
 
     /**
@@ -152,14 +154,14 @@ public final class GameLiveWallet implements LiveWallet {
     }
 
     @Override
-    public boolean take(Ledger.Asset asset, long amount) {
+    public boolean take(Asset asset, long amount) {
         if (amount < 0 || amount > Integer.MAX_VALUE) {
             return false;
         }
         if (asset.item()) {
             return takeItems(asset.itemId(), (int) amount);
         }
-        return asset == Ledger.Asset.NX ? chr.getCashShop().takeNxCredit((int) amount)
+        return asset == AssetRegistry.Asset.NX ? chr.getCashShop().takeNxCredit((int) amount)
                 : chr.takeMesoExact((int) amount);
     }
 
@@ -203,14 +205,14 @@ public final class GameLiveWallet implements LiveWallet {
     }
 
     @Override
-    public boolean give(Ledger.Asset asset, long amount) {
+    public boolean give(Asset asset, long amount) {
         if (amount < 0 || amount > Integer.MAX_VALUE) {
             return false;
         }
         if (asset.item()) {
             return giveItems(asset.itemId(), (int) amount);
         }
-        return asset == Ledger.Asset.NX ? chr.getCashShop().giveNxCredit((int) amount)
+        return asset == AssetRegistry.Asset.NX ? chr.getCashShop().giveNxCredit((int) amount)
                 : chr.giveMesoExact((int) amount);
     }
 
@@ -251,7 +253,7 @@ public final class GameLiveWallet implements LiveWallet {
     }
 
     @Override
-    public long room(Ledger.Asset asset, long want) {
+    public long room(Asset asset, long want) {
         if (!asset.item()) {
             return LiveWallet.super.room(asset, want);
         }

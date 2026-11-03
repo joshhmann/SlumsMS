@@ -42,7 +42,7 @@ From `agent-runs/server/269-dbpool-forensics/AUDIT.md` and the fix branch `269-d
 
 | # | Ticket | Status |
 |---|---|---|
-| [270](270-exchange-item-catalog.md) | The exchange item catalog: all scrolls, some use items, then ETC as tickers, plus the item maker and the sell cap | planned, 1.6.4, branch `164-excatalog`; the list is [docs/economy/exchange-item-catalog.md](../economy/exchange-item-catalog.md) |
+| [270](270-exchange-item-catalog.md) | The exchange item catalog: all scrolls, some use items, then ETC as tickers, plus the item maker and the sell cap | built, 1.6.4, branch `164-excatalog` (709 tickers, tests green, not deployed); the list is [docs/economy/exchange-item-catalog.md](../economy/exchange-item-catalog.md) |
 
 ## Economy (after 1.6.3, owner 2026-11-01)
 

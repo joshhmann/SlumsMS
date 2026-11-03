@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class FairValueTest {
 
     static final long NOW = 1_800_000_000_000L;
+    static final java.util.List<String> T = java.util.List.of("CHAOS", "WS", "ELIXIR", "LEAF");
 
     @Test
     void theFormulaFollowsDemandOverSupplyBetweenFloorAndCeiling() {
@@ -44,18 +45,18 @@ class FairValueTest {
         };
         FairValue f = new FairValue(0.5, 0.3);
         flows.add("LEAF", 100, 200, NOW);     // demand double the supply: raw = 500k x 1.5 = 750k
-        assertEquals(true, f.maybeUpdate(NOW, flows, src));
+        assertEquals(true, f.maybeUpdate(NOW, flows, src, T));
         assertEquals(750_000, f.fair("LEAF"));
-        assertEquals(false, f.maybeUpdate(NOW + 60_000, flows, src), "once an hour");
+        assertEquals(false, f.maybeUpdate(NOW + 60_000, flows, src, T), "once an hour");
         flows.add("LEAF", 0, 1_000, NOW + 3_600_000L);   // a demand spike: raw hits the 1.2m ceiling
-        f.maybeUpdate(NOW + 3_600_000L, flows, src);
+        f.maybeUpdate(NOW + 3_600_000L, flows, src, T);
         assertEquals(Math.round(750_000 + 0.3 * (1_200_000 - 750_000)), f.fair("LEAF"), "smoothed, not a jump");
         FairValue.Point p = f.point("ELIXIR");
         assertEquals(3_000, p.floor());
         assertEquals(3_600, p.ceiling(), "never under 1.2x the floor");
         assertEquals(3_000, p.fair());
         // the window is 24 h: old flows fall out
-        f.update(NOW + 26 * 3_600_000L, flows, src);
+        f.update(NOW + 26 * 3_600_000L, flows, src, T);
         assertEquals(0.0, f.point("LEAF").supply());
     }
 
@@ -93,7 +94,7 @@ class FairValueTest {
             }
         };
         FairValue f = new FairValue(0.5, 0.3);
-        f.update(NOW, flows, src);
+        f.update(NOW, flows, src, T);
         assertEquals(20_000_000L, f.fair("CHAOS"), "the anchor stands in for the 1-meso shop price");
         assertEquals(20_000_000L, f.point("CHAOS").floor());
         assertNull(f.fair("WS"), "no anchor: no fair value, never 1 meso");

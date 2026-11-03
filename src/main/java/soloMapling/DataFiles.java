@@ -77,6 +77,7 @@ public final class DataFiles {
             "soloMapling/itemPool/itemConfig/desirableEquips.yaml",
             "soloMapling/itemPool/itemConfig/gachaFiller.yaml",
             "soloMapling/itemPool/itemConfig/itemQuantities.yaml",
+            "soloMapling/itemPool/itemConfig/exchangeTickers.yaml", // ticket 270: only read when the catalog is on
             "soloMapling/mechanics/content/index.txt", // ticket 130 stage data (only read with -Dslums.mechanics=true)
             "soloMapling/mechanics/content/kpq.yaml",
             "soloMapling/server/npc_versions.yaml",

@@ -1,6 +1,6 @@
 package soloMapling.Economy.exchange;
 
-import soloMapling.Economy.exchange.Ledger.Asset;
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
 import soloMapling.Economy.exchange.OrderBook.Side;
 
 import java.util.ArrayList;

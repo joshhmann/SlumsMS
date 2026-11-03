@@ -1,5 +1,7 @@
 package soloMapling.Economy.exchange;
 
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
+
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -57,8 +59,8 @@ class ExchangeMigrationTest {
             assertTrue(rollback.contains("ALTER TABLE " + t + " DROP COLUMN ticker"), t);
         }
         // the longest asset name must fit the widened column
-        for (Ledger.Asset a : Ledger.Asset.values()) {
-            assertTrue(a.name().length() <= 8, a.name());
+        for (Asset a : AssetRegistry.all()) {
+            assertTrue(a.id().length() <= 8, a.id());
         }
         assertFalse(Pattern.compile("(?i)DROP\\s+TABLE|DELETE\\s+FROM\\s+exchange_").matcher(sql).find());
         assertFalse(Pattern.compile("(?i)DROP\\s+TABLE").matcher(rollback).find());

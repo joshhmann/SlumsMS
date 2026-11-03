@@ -1,8 +1,9 @@
 package soloMapling.Economy.exchange;
 
-import soloMapling.Economy.exchange.Ledger.Asset;
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
 import soloMapling.Economy.exchange.Ledger.Bucket;
 import soloMapling.Economy.exchange.Ledger.Kind;
+import soloMapling.Economy.exchange.OrderBook.Side;
 import soloMapling.Economy.exchange.Ledger.Posting;
 
 import java.util.ArrayList;
@@ -301,6 +302,28 @@ public class MemoryExchangeStore implements ExchangeStore {
 
     public synchronized long meso(long character) {
         return state.meso.getOrDefault(character, 0L);
+    }
+
+    @Override
+    public synchronized long itemExposure(long account, long since) {
+        long out = 0;
+        for (FillRow f : state.fills) {
+            if (f.at() < since) {
+                continue;
+            }
+            OrderRow sell = state.orders.get(f.sellOrder());
+            if (sell != null && sell.account() == account && sell.regular() == 0
+                    && !Ticker.NX.equals(f.ticker()) && !"MESO".equals(f.ticker())) {
+                out += f.mesos();
+            }
+        }
+        for (OrderRow o : state.orders.values()) {
+            if (o.open() && o.account() == account && o.regular() == 0 && o.side() == Side.SELL
+                    && !Ticker.NX.equals(o.ticker()) && !"MESO".equals(o.ticker())) {
+                out += o.nxLeft() * o.price();
+            }
+        }
+        return out;
     }
 
     @Override

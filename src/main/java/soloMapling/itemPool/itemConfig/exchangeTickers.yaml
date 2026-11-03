@@ -1,0 +1,6540 @@
+# Slums Exchange ticker catalog (ticket 270).
+#
+# Read at startup by soloMapling.Economy.exchange.ExchangeCatalog; a row registers an asset and offers a
+# ticker template. Which of them trade is -Dslums.exchange.catalog=scrolls,use,etc plus
+# -Dslums.exchange.tickers (unset = every open category). Caps come from the row; a row that leaves them
+# out takes its category's: scrolls 1 / 3 open / 10 a day (owner 2026-11-03), use and ETC 1,000-10,000 /
+# 10 open / 20 a day. A row whose anchor is 0 is registered but not quoted: players can still place orders,
+# which is how a dark ticker finds its price.
+#
+# anchor = mesos per item. Sources, in order: the item pool at version <= 55 (incl. darkscrolls.yaml,
+# version 39), else the 7-day board average when >= 1,000, else the median of the same slot and success
+# band, else the same slot scaled, else that band's default. See docs/tickets/270-exchange-item-catalog.md.
+
+tickers:
+
+  # ---- SCROLL
+
+  - id: S2049201
+    item_id: 2049201
+    name: "Dark Scroll for Accessory for STR 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049203
+    item_id: 2049203
+    name: "Dark Scroll for Accessory for DEX 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049205
+    item_id: 2049205
+    name: "Dark Scroll for Accessory for INT 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049207
+    item_id: 2049207
+    name: "Dark Scroll for Accessory for LUK 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049209
+    item_id: 2049209
+    name: "Dark Scroll for Accessory for HP 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049211
+    item_id: 2049211
+    name: "Dark Scroll for Accessory for MP 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049200
+    item_id: 2049200
+    name: "Dark Scroll for Accessory for STR 70% "
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049202
+    item_id: 2049202
+    name: "Dark Scroll for Accessory for DEX 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049204
+    item_id: 2049204
+    name: "Dark Scroll for Accessory for INT 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049206
+    item_id: 2049206
+    name: "Dark Scroll for Accessory for LUK 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049208
+    item_id: 2049208
+    name: "Dark Scroll for Accessory for HP 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049210
+    item_id: 2049210
+    name: "Dark Scroll for Accessory for MP 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041302
+    item_id: 2041302
+    name: "Scroll for Belts for STR 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041305
+    item_id: 2041305
+    name: "Scroll for Belts for INT 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041308
+    item_id: 2041308
+    name: "Scroll for Belts for DEX 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041311
+    item_id: 2041311
+    name: "Scroll for Belts for LUK 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041313
+    item_id: 2041313
+    name: "Dark Scroll for Belts for STR 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041315
+    item_id: 2041315
+    name: "Dark Scroll for Belts for INT 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041317
+    item_id: 2041317
+    name: "Dark Scroll for Belts for DEX 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041319
+    item_id: 2041319
+    name: "Dark Scroll for Belts for LUK 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041301
+    item_id: 2041301
+    name: "Scroll for Belts for STR 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041304
+    item_id: 2041304
+    name: "Scroll for Belts for INT 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041307
+    item_id: 2041307
+    name: "Scroll for Belts for DEX 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041310
+    item_id: 2041310
+    name: "Scroll for Belts for LUK 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041312
+    item_id: 2041312
+    name: "Dark Scroll for Belts for STR 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041314
+    item_id: 2041314
+    name: "Dark Scroll for Belts for INT 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041316
+    item_id: 2041316
+    name: "Dark Scroll for Belts for DEX 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041318
+    item_id: 2041318
+    name: "Dark Scroll for Belts for LUK 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041300
+    item_id: 2041300
+    name: "Scroll for Belts for STR 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041303
+    item_id: 2041303
+    name: "Scroll for Belts for INT 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041306
+    item_id: 2041306
+    name: "Scroll for Belts for DEX 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041309
+    item_id: 2041309
+    name: "Scroll for Belts for LUK 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040602
+    item_id: 2040602
+    name: "Scroll for Bottomwear for DEF 10%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040612
+    item_id: 2040612
+    name: "Scroll for Bottomwear for DEX 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040619
+    item_id: 2040619
+    name: "Scroll for Bottomwear for Jump 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040622
+    item_id: 2040622
+    name: "Scroll for Bottomwear for HP 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040627
+    item_id: 2040627
+    name: "Scroll for Bottomwear for DEX 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040605
+    item_id: 2040605
+    name: "Dark Scroll for Bottomwear for DEF 30%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040607
+    item_id: 2040607
+    name: "Dark Scroll for Bottomwear for Jump 30%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040609
+    item_id: 2040609
+    name: "Dark Scroll for Bottomwear for HP 30%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040611
+    item_id: 2040611
+    name: "Dark Scroll for Bottomwear for DEX 30%"
+    category: SCROLL
+    anchor: 4000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040626
+    item_id: 2040626
+    name: "Scroll for Bottomwear for DEX 30%"
+    category: SCROLL
+    anchor: 150000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040629
+    item_id: 2040629
+    name: "Scroll for Bottomwear for DEF 50%"
+    category: SCROLL
+    anchor: 150000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040601
+    item_id: 2040601
+    name: "Scroll for Bottomwear for DEF 60%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040613
+    item_id: 2040613
+    name: "Scroll for Bottomwear for DEX 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040618
+    item_id: 2040618
+    name: "Scroll for Bottomwear for Jump 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040621
+    item_id: 2040621
+    name: "Scroll for Bottomwear for HP 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040625
+    item_id: 2040625
+    name: "Scroll for Bottomwear for DEX 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040604
+    item_id: 2040604
+    name: "Dark Scroll for Bottomwear for DEF 70%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040606
+    item_id: 2040606
+    name: "Dark Scroll for Bottomwear for Jump 70%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040608
+    item_id: 2040608
+    name: "Dark Scroll for Bottomwear for HP 70%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040610
+    item_id: 2040610
+    name: "Dark Scroll for Bottomwear for DEX 70%"
+    category: SCROLL
+    anchor: 2500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040624
+    item_id: 2040624
+    name: "Scroll for Bottomwear for DEX 70%"
+    category: SCROLL
+    anchor: 150000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040600
+    item_id: 2040600
+    name: "Scroll for Bottomwear for DEF 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040614
+    item_id: 2040614
+    name: "Scroll for Bottomwear for DEX 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040617
+    item_id: 2040617
+    name: "Scroll for Bottomwear for Jump 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040620
+    item_id: 2040620
+    name: "Scroll for Bottomwear for HP 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040623
+    item_id: 2040623
+    name: "Scroll for Bottomwear for DEX 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040630
+    item_id: 2040630
+    name: "Scroll for Bottomwear for DEF 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044502
+    item_id: 2044502
+    name: "Scroll for Bow for ATT 10%"
+    category: SCROLL
+    anchor: 500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044505
+    item_id: 2044505
+    name: "Dark Scroll for Bow for ATT 30%"
+    category: SCROLL
+    anchor: 4300000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044513
+    item_id: 2044513
+    name: "Scroll for Bow for ATT 50%"
+    category: SCROLL
+    anchor: 4300000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044501
+    item_id: 2044501
+    name: "Scroll for Bow for ATT 60%"
+    category: SCROLL
+    anchor: 1500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044504
+    item_id: 2044504
+    name: "Dark Scroll for Bow for ATT 70%"
+    category: SCROLL
+    anchor: 1700000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044500
+    item_id: 2044500
+    name: "Scroll for Bow for ATT 100%"
+    category: SCROLL
+    anchor: 71000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044512
+    item_id: 2044512
+    name: "Scroll for Bow for ATT 100%"
+    category: SCROLL
+    anchor: 71000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041002
+    item_id: 2041002
+    name: "Scroll for Cape for Magic DEF 10%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041005
+    item_id: 2041005
+    name: "Scroll for Cape for Weapon DEF 10%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041008
+    item_id: 2041008
+    name: "Scroll for Cape for HP 10%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041011
+    item_id: 2041011
+    name: "Scroll for Cape for MP 10%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041014
+    item_id: 2041014
+    name: "Scroll for Cape for STR 10%"
+    category: SCROLL
+    anchor: 200000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041017
+    item_id: 2041017
+    name: "Scroll for Cape for INT 10%"
+    category: SCROLL
+    anchor: 330000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041020
+    item_id: 2041020
+    name: "Scroll for Cape for DEX 10%"
+    category: SCROLL
+    anchor: 300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041023
+    item_id: 2041023
+    name: "Scroll for Cape for LUK 10%"
+    category: SCROLL
+    anchor: 350000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041027
+    item_id: 2041027
+    name: "Dark Scroll for Cape for Magic DEF 30%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041029
+    item_id: 2041029
+    name: "Dark Scroll for Cape for Weapon DEF 30%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041031
+    item_id: 2041031
+    name: "Dark Scroll for Cape for HP 30%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041033
+    item_id: 2041033
+    name: "Dark Scroll for Cape for MP 30%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041035
+    item_id: 2041035
+    name: "Dark Scroll for Cape for STR 30%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041037
+    item_id: 2041037
+    name: "Dark Scroll for Cape for INT 30%"
+    category: SCROLL
+    anchor: 300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041039
+    item_id: 2041039
+    name: "Dark Scroll for Cape for DEX 30%"
+    category: SCROLL
+    anchor: 300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041041
+    item_id: 2041041
+    name: "Dark Scroll for Cape for LUK 30%"
+    category: SCROLL
+    anchor: 500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041068
+    item_id: 2041068
+    name: "Scroll for Cape for Magic Def. 50%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041069
+    item_id: 2041069
+    name: "Scroll for Cape for Weapon Def. 50%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041001
+    item_id: 2041001
+    name: "Scroll for Cape for Magic Def. 60%"
+    category: SCROLL
+    anchor: 1600000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041004
+    item_id: 2041004
+    name: "Scroll for Cape for Weapon DEF 60%"
+    category: SCROLL
+    anchor: 1600000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041007
+    item_id: 2041007
+    name: "Scroll for Cape for HP 60%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041010
+    item_id: 2041010
+    name: "Scroll for Cape for MP 60%"
+    category: SCROLL
+    anchor: 1600000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041013
+    item_id: 2041013
+    name: "Scroll for Cape for STR 60%"
+    category: SCROLL
+    anchor: 1500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041016
+    item_id: 2041016
+    name: "Scroll for Cape for INT 60%"
+    category: SCROLL
+    anchor: 1600000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041019
+    item_id: 2041019
+    name: "Scroll for Cape for DEX 60%"
+    category: SCROLL
+    anchor: 1600000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041022
+    item_id: 2041022
+    name: "Scroll for Cape for LUK 60%"
+    category: SCROLL
+    anchor: 1650000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041026
+    item_id: 2041026
+    name: "Dark Scroll for Cape for Magic DEF 70%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041028
+    item_id: 2041028
+    name: "Dark Scroll for Cape for Weapon DEF 70%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041030
+    item_id: 2041030
+    name: "Dark Scroll for Cape for HP 70%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041032
+    item_id: 2041032
+    name: "Dark Scroll for Cape for MP 70%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041034
+    item_id: 2041034
+    name: "Dark Scroll for Cape for STR 70%"
+    category: SCROLL
+    anchor: 300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041036
+    item_id: 2041036
+    name: "Dark Scroll for Cape for INT 70%"
+    category: SCROLL
+    anchor: 300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041038
+    item_id: 2041038
+    name: "Dark Scroll for Cape for DEX 70%"
+    category: SCROLL
+    anchor: 3000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041040
+    item_id: 2041040
+    name: "Dark Scroll for Cape for LUK 70%"
+    category: SCROLL
+    anchor: 1000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041000
+    item_id: 2041000
+    name: "Scroll for Cape for Magic DEF 100%"
+    category: SCROLL
+    anchor: 21000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041003
+    item_id: 2041003
+    name: "Scroll for Cape for Weapon DEF 100%"
+    category: SCROLL
+    anchor: 21000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041006
+    item_id: 2041006
+    name: "Scroll for Cape for HP 100%"
+    category: SCROLL
+    anchor: 21000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041009
+    item_id: 2041009
+    name: "Scroll for Cape for MP 100%"
+    category: SCROLL
+    anchor: 21000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041012
+    item_id: 2041012
+    name: "Scroll for Cape for STR 100%"
+    category: SCROLL
+    anchor: 21000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041015
+    item_id: 2041015
+    name: "Scroll for Cape for INT 100%"
+    category: SCROLL
+    anchor: 21000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041018
+    item_id: 2041018
+    name: "Scroll for Cape for DEX 100%"
+    category: SCROLL
+    anchor: 21000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041021
+    item_id: 2041021
+    name: "Scroll for Cape for LUK 100%"
+    category: SCROLL
+    anchor: 21000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041066
+    item_id: 2041066
+    name: "Scroll for Cape for Magic DEF 100%"
+    category: SCROLL
+    anchor: 21000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041067
+    item_id: 2041067
+    name: "Scroll for Cape for Weapon DEF 100%"
+    category: SCROLL
+    anchor: 21000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044702
+    item_id: 2044702
+    name: "Scroll for Claw for ATT 10%"
+    category: SCROLL
+    anchor: 500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044705
+    item_id: 2044705
+    name: "Dark Scroll for Claw for ATT 30%"
+    category: SCROLL
+    anchor: 4300000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044713
+    item_id: 2044713
+    name: "Scroll for Claw for ATT 50%"
+    category: SCROLL
+    anchor: 4300000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044701
+    item_id: 2044701
+    name: "Scroll for Claw for ATT 60%"
+    category: SCROLL
+    anchor: 1500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044704
+    item_id: 2044704
+    name: "Dark Scroll for Claw for ATT 70%"
+    category: SCROLL
+    anchor: 1700000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044700
+    item_id: 2044700
+    name: "Scroll for Claw for ATT 100%"
+    category: SCROLL
+    anchor: 71000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044712
+    item_id: 2044712
+    name: "Scroll for Claw for ATT 100%"
+    category: SCROLL
+    anchor: 71000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044602
+    item_id: 2044602
+    name: "Scroll for Crossbow for ATT 10%"
+    category: SCROLL
+    anchor: 500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044605
+    item_id: 2044605
+    name: "Dark Scroll for Crossbow for ATT 30%"
+    category: SCROLL
+    anchor: 4300000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044613
+    item_id: 2044613
+    name: "Scroll for Crossbow for ATT 50%"
+    category: SCROLL
+    anchor: 4300000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044601
+    item_id: 2044601
+    name: "Scroll for Crossbow for ATT 60%"
+    category: SCROLL
+    anchor: 1500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044604
+    item_id: 2044604
+    name: "Dark Scroll for Crossbow for ATT 70%"
+    category: SCROLL
+    anchor: 1700000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044600
+    item_id: 2044600
+    name: "Scroll for Crossbow for ATT 100%"
+    category: SCROLL
+    anchor: 71000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044612
+    item_id: 2044612
+    name: "Scroll for Crossbow for ATT 100%"
+    category: SCROLL
+    anchor: 71000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043302
+    item_id: 2043302
+    name: "Scroll for Dagger for ATT 10%"
+    category: SCROLL
+    anchor: 550000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043305
+    item_id: 2043305
+    name: "Dark Scroll for Dagger for ATT 30%"
+    category: SCROLL
+    anchor: 4600000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043313
+    item_id: 2043313
+    name: "Scroll for Dagger for ATT 50%"
+    category: SCROLL
+    anchor: 4600000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043301
+    item_id: 2043301
+    name: "Scroll for Dagger for ATT 60%"
+    category: SCROLL
+    anchor: 1600000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043304
+    item_id: 2043304
+    name: "Dark Scroll for Dagger for ATT 70%"
+    category: SCROLL
+    anchor: 1800000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043300
+    item_id: 2043300
+    name: "Scroll for Dagger for ATT 100%"
+    category: SCROLL
+    anchor: 77000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043312
+    item_id: 2043312
+    name: "Scroll for Dagger for ATT 100%"
+    category: SCROLL
+    anchor: 77000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040302
+    item_id: 2040302
+    name: "Scroll for Earring for INT 10%"
+    category: SCROLL
+    anchor: 1200000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040310
+    item_id: 2040310
+    name: "Scroll for Earring for DEF 10%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040318
+    item_id: 2040318
+    name: "Scroll for Earring for DEX 10%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040323
+    item_id: 2040323
+    name: "Scroll for Earring for LUK 10%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040328
+    item_id: 2040328
+    name: "Scroll for Earring for HP 10%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040305
+    item_id: 2040305
+    name: "Dark Scroll for Earring for INT 30%"
+    category: SCROLL
+    anchor: 4500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040307
+    item_id: 2040307
+    name: "Dark Scroll for Earring for DEX 30%"
+    category: SCROLL
+    anchor: 5000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040309
+    item_id: 2040309
+    name: "Dark Scroll for Earrings for DEF 30%"
+    category: SCROLL
+    anchor: 4800000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040322
+    item_id: 2040322
+    name: "Scroll for Earring for LUK 30%"
+    category: SCROLL
+    anchor: 4800000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040327
+    item_id: 2040327
+    name: "Scroll for Earring for HP 30%"
+    category: SCROLL
+    anchor: 4800000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040333
+    item_id: 2040333
+    name: "Scroll for Earring for INT 50%"
+    category: SCROLL
+    anchor: 4800000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040301
+    item_id: 2040301
+    name: "Scroll for Earring for INT 60%"
+    category: SCROLL
+    anchor: 1700000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040311
+    item_id: 2040311
+    name: "Scroll for Earring for DEF 60%"
+    category: SCROLL
+    anchor: 1700000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040317
+    item_id: 2040317
+    name: "Scroll for Earring for DEX 60%"
+    category: SCROLL
+    anchor: 1700000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040321
+    item_id: 2040321
+    name: "Scroll for Earring for LUK 60%"
+    category: SCROLL
+    anchor: 1700000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040326
+    item_id: 2040326
+    name: "Scroll for Earring for HP 60%"
+    category: SCROLL
+    anchor: 1700000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040304
+    item_id: 2040304
+    name: "Dark Scroll for Earring for INT 70%"
+    category: SCROLL
+    anchor: 1000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040306
+    item_id: 2040306
+    name: "Dark Scroll for Earring for DEX 70%"
+    category: SCROLL
+    anchor: 5500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040308
+    item_id: 2040308
+    name: "Dark Scroll for Earrings for DEF 70%"
+    category: SCROLL
+    anchor: 3200000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040320
+    item_id: 2040320
+    name: "Scroll for Earring for LUK 70%"
+    category: SCROLL
+    anchor: 3200000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040325
+    item_id: 2040325
+    name: "Scroll for Earring for HP 70%"
+    category: SCROLL
+    anchor: 3200000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040300
+    item_id: 2040300
+    name: "Scroll for Earring for INT 100%"
+    category: SCROLL
+    anchor: 220000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040312
+    item_id: 2040312
+    name: "Scroll for Earring for DEF 100%"
+    category: SCROLL
+    anchor: 220000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040316
+    item_id: 2040316
+    name: "Scroll for Earring for DEX 100%"
+    category: SCROLL
+    anchor: 220000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040319
+    item_id: 2040319
+    name: "Scroll for Earring for LUK 100%"
+    category: SCROLL
+    anchor: 220000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040324
+    item_id: 2040324
+    name: "Scroll for Earring for HP 100%"
+    category: SCROLL
+    anchor: 220000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040334
+    item_id: 2040334
+    name: "Scroll for Earring for INT 100%"
+    category: SCROLL
+    anchor: 220000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040200
+    item_id: 2040200
+    name: "Scroll for Eye Accessory for Accuracy 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040205
+    item_id: 2040205
+    name: "Scroll for Eye Accessory for INT 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040203
+    item_id: 2040203
+    name: "Dark Scroll for Eye Accessory for Accuracy 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040208
+    item_id: 2040208
+    name: "Dark Scroll for Eye Accessory for INT 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040201
+    item_id: 2040201
+    name: "Scroll for Eye Accessory for Accuracy 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040206
+    item_id: 2040206
+    name: "Scroll for Eye Accessory for INT 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040204
+    item_id: 2040204
+    name: "Dark Scroll for Eye Accessory for Accuracy 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040209
+    item_id: 2040209
+    name: "Dark Scroll for Eye Accessory for INT 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040202
+    item_id: 2040202
+    name: "Scroll for Eye Accessory for Accuracy 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040207
+    item_id: 2040207
+    name: "Scroll for Eye Accessory for INT 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040100
+    item_id: 2040100
+    name: "Scroll for Face Accessory for HP 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040105
+    item_id: 2040105
+    name: "Scroll for Face Accessory for Avoidability 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040103
+    item_id: 2040103
+    name: "Dark Scroll for Face Accessory for HP 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040108
+    item_id: 2040108
+    name: "Dark Scroll for Face Accessory for Avoidability 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040101
+    item_id: 2040101
+    name: "Scroll for Face Accessory for HP 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040106
+    item_id: 2040106
+    name: "Scroll for Face Accessory for Avoidability 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040104
+    item_id: 2040104
+    name: "Dark Scroll for Face Accessory for HP 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040109
+    item_id: 2040109
+    name: "Dark Scroll for Face Accessory for Avoidability 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040102
+    item_id: 2040102
+    name: "Scroll for Face Accessory for HP 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040107
+    item_id: 2040107
+    name: "Scroll for Face Accessory for Avoidability 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040802
+    item_id: 2040802
+    name: "Scroll for Gloves for DEX 10%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040805
+    item_id: 2040805
+    name: "Scroll for Gloves for ATT 10%"
+    category: SCROLL
+    anchor: 1200000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040816
+    item_id: 2040816
+    name: "Scroll for Gloves for Magic ATT 10%"
+    category: SCROLL
+    anchor: 650000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040825
+    item_id: 2040825
+    name: "Scroll for Gloves for HP 10%"
+    category: SCROLL
+    anchor: 650000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040809
+    item_id: 2040809
+    name: "Dark Scroll for Gloves for DEX 30%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040811
+    item_id: 2040811
+    name: "Dark Scroll for Gloves for ATT 30%"
+    category: SCROLL
+    anchor: 1600000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040813
+    item_id: 2040813
+    name: "Dark Scroll for Gloves for HP 30%"
+    category: SCROLL
+    anchor: 1600000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040815
+    item_id: 2040815
+    name: "Dark Scroll for Gloves for Magic ATT 30%"
+    category: SCROLL
+    anchor: 2500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040833
+    item_id: 2040833
+    name: "Scroll for Gloves for DEX 50%"
+    category: SCROLL
+    anchor: 1600000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040834
+    item_id: 2040834
+    name: "Scroll for Gloves for ATT 50%"
+    category: SCROLL
+    anchor: 1600000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040801
+    item_id: 2040801
+    name: "Scroll for Gloves for DEX 60%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040804
+    item_id: 2040804
+    name: "Scroll for Gloves for ATT 60%"
+    category: SCROLL
+    anchor: 3000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040817
+    item_id: 2040817
+    name: "Scroll for Gloves for Magic ATT 60%"
+    category: SCROLL
+    anchor: 1600000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040824
+    item_id: 2040824
+    name: "Scroll for Gloves for HP 60%"
+    category: SCROLL
+    anchor: 1600000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040808
+    item_id: 2040808
+    name: "Dark Scroll for Gloves for DEX 70%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040810
+    item_id: 2040810
+    name: "Dark Scroll for Gloves for ATT 70%"
+    category: SCROLL
+    anchor: 2000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040812
+    item_id: 2040812
+    name: "Dark Scroll for Gloves for HP 70%"
+    category: SCROLL
+    anchor: 1700000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040814
+    item_id: 2040814
+    name: "Dark Scroll for Gloves for Magic ATT 70%"
+    category: SCROLL
+    anchor: 1700000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040800
+    item_id: 2040800
+    name: "Scroll for Gloves for DEX 100%"
+    category: SCROLL
+    anchor: 100000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040803
+    item_id: 2040803
+    name: "Scroll for Gloves for ATT 100%"
+    category: SCROLL
+    anchor: 100000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040818
+    item_id: 2040818
+    name: "Scroll for Gloves for Magic ATT 100%"
+    category: SCROLL
+    anchor: 100000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040823
+    item_id: 2040823
+    name: "Scroll for Gloves for HP 100%"
+    category: SCROLL
+    anchor: 100000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040829
+    item_id: 2040829
+    name: "Scroll for Gloves for DEX 100%"
+    category: SCROLL
+    anchor: 100000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040830
+    item_id: 2040830
+    name: "Scroll for Gloves for ATT 100%"
+    category: SCROLL
+    anchor: 100000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044902
+    item_id: 2044902
+    name: "Scroll for Gun for ATT 10%"
+    category: SCROLL
+    anchor: 350000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044904
+    item_id: 2044904
+    name: "Scroll for Gun for ATT 30%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044910
+    item_id: 2044910
+    name: "Scroll for Gun for ATT 50%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044901
+    item_id: 2044901
+    name: "Scroll for Gun for ATT 60%"
+    category: SCROLL
+    anchor: 1000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044903
+    item_id: 2044903
+    name: "Scroll for Gun for ATT 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044900
+    item_id: 2044900
+    name: "Scroll for Gun for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044908
+    item_id: 2044908
+    name: "Scroll for Gun for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040002
+    item_id: 2040002
+    name: "Scroll for Helmet for DEF 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040005
+    item_id: 2040005
+    name: "Scroll for Helmet for HP 10%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040016
+    item_id: 2040016
+    name: "Scroll for Helmet for Accuracy 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040026
+    item_id: 2040026
+    name: "Scroll for Helmet for INT 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040031
+    item_id: 2040031
+    name: "Scroll for Helmet for DEX 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040009
+    item_id: 2040009
+    name: "Dark Scroll for Helmet for DEF 30%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040011
+    item_id: 2040011
+    name: "Dark Scroll for Helmet for HP 30%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040013
+    item_id: 2040013
+    name: "Dark Scroll for Helmet for INT 30%"
+    category: SCROLL
+    anchor: 300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040015
+    item_id: 2040015
+    name: "Dark Scroll for Helmet for Accuracy 30%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040030
+    item_id: 2040030
+    name: "Dark Scroll for Helmet for DEX 30%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040045
+    item_id: 2040045
+    name: "Scroll for Helmet for DEF 50%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040046
+    item_id: 2040046
+    name: "Scroll for Helmet for HP 50%"
+    category: SCROLL
+    anchor: 300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040001
+    item_id: 2040001
+    name: "Scroll for Helmet for DEF 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040004
+    item_id: 2040004
+    name: "Scroll for Helmet for HP 60%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040017
+    item_id: 2040017
+    name: "Scroll for Helmet for Accuracy 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040025
+    item_id: 2040025
+    name: "Scroll for Helmet for INT 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040029
+    item_id: 2040029
+    name: "Scroll for Helmet for DEX 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040008
+    item_id: 2040008
+    name: "Dark Scroll for Helmet for DEF 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040010
+    item_id: 2040010
+    name: "Dark Scroll for Helmet for HP 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040012
+    item_id: 2040012
+    name: "Dark Scroll for Helmet for INT 70%"
+    category: SCROLL
+    anchor: 1000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040014
+    item_id: 2040014
+    name: "Dark Scroll for Helmet for Accuracy 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040028
+    item_id: 2040028
+    name: "Dark Scroll for Helmet for DEX 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040000
+    item_id: 2040000
+    name: "Scroll for Helmet for DEF 100%"
+    category: SCROLL
+    anchor: 14000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040003
+    item_id: 2040003
+    name: "Scroll for Helmet for HP 100%"
+    category: SCROLL
+    anchor: 14000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040006
+    item_id: 2040006
+    name: "Scroll for Helmet for DEF 100%"
+    category: SCROLL
+    anchor: 14000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040018
+    item_id: 2040018
+    name: "Scroll for Helmet for Accuracy 100%"
+    category: SCROLL
+    anchor: 14000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040024
+    item_id: 2040024
+    name: "Scroll for Helmet for INT 100%"
+    category: SCROLL
+    anchor: 14000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040027
+    item_id: 2040027
+    name: "Scroll for Helmet for DEX 100%"
+    category: SCROLL
+    anchor: 14000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040041
+    item_id: 2040041
+    name: "Scroll for Helmet for DEF 100%"
+    category: SCROLL
+    anchor: 14000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040042
+    item_id: 2040042
+    name: "Scroll for Helmet for HP 100%"
+    category: SCROLL
+    anchor: 14000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044802
+    item_id: 2044802
+    name: "Scroll for Knuckle for ATT 10%"
+    category: SCROLL
+    anchor: 350000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044809
+    item_id: 2044809
+    name: "Scroll for Knuckle for Accuracy 10%"
+    category: SCROLL
+    anchor: 350000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044804
+    item_id: 2044804
+    name: "Scroll for Knuckle for ATT 30%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044808
+    item_id: 2044808
+    name: "Scroll for Knuckle for Accuracy 30%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044817
+    item_id: 2044817
+    name: "Scroll for Knuckles for ATT 50%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044801
+    item_id: 2044801
+    name: "Scroll for Knuckle for ATT 60%"
+    category: SCROLL
+    anchor: 1000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044807
+    item_id: 2044807
+    name: "Scroll for Knuckle for Accuracy 60%"
+    category: SCROLL
+    anchor: 1000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044803
+    item_id: 2044803
+    name: "Scroll for Knuckle for ATT 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044806
+    item_id: 2044806
+    name: "Scroll for Knuckle for Accuracy 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044800
+    item_id: 2044800
+    name: "Scroll for Knuckle for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044805
+    item_id: 2044805
+    name: "Scroll for Knuckle for Accuracy 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044815
+    item_id: 2044815
+    name: "Scroll for Knuckle for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043102
+    item_id: 2043102
+    name: "Scroll for One-Handed Axe for ATT 10%"
+    category: SCROLL
+    anchor: 350000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043114
+    item_id: 2043114
+    name: "Scroll for One-Handed Axe for Accuracy 10%"
+    category: SCROLL
+    anchor: 350000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043105
+    item_id: 2043105
+    name: "Dark Scroll for One-Handed Axe for ATT 30%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043113
+    item_id: 2043113
+    name: "Scroll for One-Handed Axe for Accuracy 30%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043120
+    item_id: 2043120
+    name: "Scroll for One-Handed Axe for ATT 50%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043101
+    item_id: 2043101
+    name: "Scroll for One-Handed Axe for ATT 60%"
+    category: SCROLL
+    anchor: 1000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043112
+    item_id: 2043112
+    name: "Scroll for One-Handed Axe for Accuracy 60%"
+    category: SCROLL
+    anchor: 1000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043104
+    item_id: 2043104
+    name: "Dark Scroll for One-Handed Axe for ATT 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043111
+    item_id: 2043111
+    name: "Scroll for One-Handed Axe for Accuracy 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043100
+    item_id: 2043100
+    name: "Scroll for One-Handed Axe for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043110
+    item_id: 2043110
+    name: "Scroll for One-Handed Axe for Accuracy 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043117
+    item_id: 2043117
+    name: "Scroll for One-Handed Axe for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043202
+    item_id: 2043202
+    name: "Scroll for One-Handed BW for ATT 10%"
+    category: SCROLL
+    anchor: 350000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043214
+    item_id: 2043214
+    name: "Scroll for One-Handed BW for Accuracy 10%"
+    category: SCROLL
+    anchor: 350000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043219
+    item_id: 2043219
+    name: "Scroll for One-Handed BW for Accuracy 15%"
+    category: SCROLL
+    anchor: 350000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043205
+    item_id: 2043205
+    name: "Dark Scroll for One-Handed BW for ATT 30%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043213
+    item_id: 2043213
+    name: "Scroll for One-Handed BW for Accuracy 30%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043220
+    item_id: 2043220
+    name: "Scroll for One-Handed BW for ATT 50%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043201
+    item_id: 2043201
+    name: "Scroll for One-Handed BW for ATT 60%"
+    category: SCROLL
+    anchor: 1000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043212
+    item_id: 2043212
+    name: "Scroll for One-Handed BW for Accuracy 60%"
+    category: SCROLL
+    anchor: 1000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043218
+    item_id: 2043218
+    name: "Scroll for One-Handed BW for Accuracy 65%"
+    category: SCROLL
+    anchor: 1000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043204
+    item_id: 2043204
+    name: "Dark Scroll for One-Handed BW for ATT 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043211
+    item_id: 2043211
+    name: "Scroll for One-Handed BW for Accuracy 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043200
+    item_id: 2043200
+    name: "Scroll for One-Handed BW for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043210
+    item_id: 2043210
+    name: "Scroll for One-Handed BW for Accuracy 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043217
+    item_id: 2043217
+    name: "Scroll for One-Handed BW for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043002
+    item_id: 2043002
+    name: "Scroll for One-Handed Sword for ATT 10%"
+    category: SCROLL
+    anchor: 450000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043008
+    item_id: 2043008
+    name: "Scroll for One-Handed Sword for Magic ATT 10%"
+    category: SCROLL
+    anchor: 450000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043019
+    item_id: 2043019
+    name: "Scroll for One-Handed Sword for Accuracy 10%"
+    category: SCROLL
+    anchor: 450000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043005
+    item_id: 2043005
+    name: "Dark Scroll for One-Handed Sword for ATT 30%"
+    category: SCROLL
+    anchor: 3800000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043007
+    item_id: 2043007
+    name: "Dark Scroll for One-Handed Sword for Magic ATT 30%"
+    category: SCROLL
+    anchor: 3800000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043018
+    item_id: 2043018
+    name: "Scroll for One-Handed Sword for Accuracy 30%"
+    category: SCROLL
+    anchor: 3800000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043022
+    item_id: 2043022
+    name: "Scroll for One-Handed Sword for ATT 50%"
+    category: SCROLL
+    anchor: 3800000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043001
+    item_id: 2043001
+    name: "Scroll for One-Handed Sword for ATT 60%"
+    category: SCROLL
+    anchor: 1300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043009
+    item_id: 2043009
+    name: "Scroll for One-Handed Sword for Magic ATT 60%"
+    category: SCROLL
+    anchor: 1300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043017
+    item_id: 2043017
+    name: "Scroll for One-Handed Sword for Accuracy 60%"
+    category: SCROLL
+    anchor: 1300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043004
+    item_id: 2043004
+    name: "Dark Scroll for One-Handed Sword for ATT 70%"
+    category: SCROLL
+    anchor: 1500000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043006
+    item_id: 2043006
+    name: "Dark Scroll for One-Handed Sword for Magic ATT 70%"
+    category: SCROLL
+    anchor: 1500000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043016
+    item_id: 2043016
+    name: "Scroll for One-Handed Sword for Accuracy 70%"
+    category: SCROLL
+    anchor: 1500000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043000
+    item_id: 2043000
+    name: "Scroll for One-Handed Sword for ATT 100%"
+    category: SCROLL
+    anchor: 62000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043010
+    item_id: 2043010
+    name: "Scroll for One-Handed Sword for Magic ATT 100%"
+    category: SCROLL
+    anchor: 62000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043015
+    item_id: 2043015
+    name: "Scroll for One-Handed Sword for Accuracy 100%"
+    category: SCROLL
+    anchor: 62000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043023
+    item_id: 2043023
+    name: "Scroll for One-Handed Sword for ATT 100%"
+    category: SCROLL
+    anchor: 62000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040502
+    item_id: 2040502
+    name: "Scroll for Overall Armor for DEX 10%"
+    category: SCROLL
+    anchor: 350000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040505
+    item_id: 2040505
+    name: "Scroll for Overall Armor for DEF 10%"
+    category: SCROLL
+    anchor: 680000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040514
+    item_id: 2040514
+    name: "Scroll for Overall Armor for INT 10%"
+    category: SCROLL
+    anchor: 1000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040517
+    item_id: 2040517
+    name: "Scroll for Overall Armor for LUK 10%"
+    category: SCROLL
+    anchor: 680000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040534
+    item_id: 2040534
+    name: "Scroll for Overall Armor for STR 10%"
+    category: SCROLL
+    anchor: 680000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040507
+    item_id: 2040507
+    name: "Scroll for Overall Armor for DEF 30%"
+    category: SCROLL
+    anchor: 2300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040509
+    item_id: 2040509
+    name: "Dark Scroll for Overall Armor for DEX 30%"
+    category: SCROLL
+    anchor: 2500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040511
+    item_id: 2040511
+    name: "Dark Scroll for Overall Armor for DEF 30%"
+    category: SCROLL
+    anchor: 2300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040519
+    item_id: 2040519
+    name: "Dark Scroll for Overall Armor for INT 30%"
+    category: SCROLL
+    anchor: 2300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040521
+    item_id: 2040521
+    name: "Dark Scroll for Overall Armor for LUK 30%"
+    category: SCROLL
+    anchor: 2000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040533
+    item_id: 2040533
+    name: "Scroll for Overall Armor for STR 30%"
+    category: SCROLL
+    anchor: 2300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040542
+    item_id: 2040542
+    name: "Scroll for Overall Armor for DEX 50%"
+    category: SCROLL
+    anchor: 2300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040543
+    item_id: 2040543
+    name: "Scroll for Overall Armor for DEF 50%"
+    category: SCROLL
+    anchor: 2300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040501
+    item_id: 2040501
+    name: "Scroll for Overall Armor for DEX 60%"
+    category: SCROLL
+    anchor: 900000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040504
+    item_id: 2040504
+    name: "Scroll for Overall Armor for DEF 60%"
+    category: SCROLL
+    anchor: 2000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040513
+    item_id: 2040513
+    name: "Scroll for Overall Armor for INT 60%"
+    category: SCROLL
+    anchor: 3000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040516
+    item_id: 2040516
+    name: "Scroll for Overall Armor for LUK 60%"
+    category: SCROLL
+    anchor: 2000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040532
+    item_id: 2040532
+    name: "Scroll for Overall Armor for STR 60%"
+    category: SCROLL
+    anchor: 2000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040508
+    item_id: 2040508
+    name: "Dark Scroll for Overall Armor for DEX 70%"
+    category: SCROLL
+    anchor: 600000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040510
+    item_id: 2040510
+    name: "Dark Scroll for Overall Armor for DEF 70%"
+    category: SCROLL
+    anchor: 1100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040518
+    item_id: 2040518
+    name: "Dark Scroll for Overall Armor for INT 70%"
+    category: SCROLL
+    anchor: 1200000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040520
+    item_id: 2040520
+    name: "Dark Scroll for Overall Armor for LUK 70%"
+    category: SCROLL
+    anchor: 1100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040531
+    item_id: 2040531
+    name: "Scroll for Overall Armor for STR 70%"
+    category: SCROLL
+    anchor: 1100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040500
+    item_id: 2040500
+    name: "Scroll for Overall Armor for DEX 100%"
+    category: SCROLL
+    anchor: 82000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040503
+    item_id: 2040503
+    name: "Scroll for Overall Armor for DEF 100%"
+    category: SCROLL
+    anchor: 82000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040512
+    item_id: 2040512
+    name: "Scroll for Overall Armor for INT 100%"
+    category: SCROLL
+    anchor: 82000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040515
+    item_id: 2040515
+    name: "Scroll for Overall Armor for LUK 100%"
+    category: SCROLL
+    anchor: 82000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040530
+    item_id: 2040530
+    name: "Scroll for Overall Armor for STR 100%"
+    category: SCROLL
+    anchor: 82000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040538
+    item_id: 2040538
+    name: "Scroll for Overall Armor for DEX 100%"
+    category: SCROLL
+    anchor: 82000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040539
+    item_id: 2040539
+    name: "Scroll for Overall Armor for DEF 100%"
+    category: SCROLL
+    anchor: 82000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2048002
+    item_id: 2048002
+    name: "Scroll for Pet Equip. for Speed 10%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2048005
+    item_id: 2048005
+    name: "Scroll for Pet Equip. for Jump 10%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2048001
+    item_id: 2048001
+    name: "Scroll for Pet Equip. for Speed 60%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2048004
+    item_id: 2048004
+    name: "Scroll for Pet Equip. for Jump 60%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2048010
+    item_id: 2048010
+    name: "Scroll for Pet Equip. for STR 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2048011
+    item_id: 2048011
+    name: "Scroll for Pet Equip. for INT 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2048012
+    item_id: 2048012
+    name: "Scroll for Pet Equip. for DEX 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2048013
+    item_id: 2048013
+    name: "Scroll for Pet Equip. for LUK 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2048000
+    item_id: 2048000
+    name: "Scroll for Pet Equip. for Speed 100%"
+    category: SCROLL
+    anchor: 7100          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2048003
+    item_id: 2048003
+    name: "Scroll for Pet Equip. for Jump 100%"
+    category: SCROLL
+    anchor: 7100          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044402
+    item_id: 2044402
+    name: "Scroll for Pole Arm for ATT 10%"
+    category: SCROLL
+    anchor: 450000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044414
+    item_id: 2044414
+    name: "Scroll for Pole Arm for Accuracy 10%"
+    category: SCROLL
+    anchor: 450000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044405
+    item_id: 2044405
+    name: "Dark Scroll for Pole Arm for ATT 30%"
+    category: SCROLL
+    anchor: 3800000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044413
+    item_id: 2044413
+    name: "Scroll for Pole Arm for Accuracy 30%"
+    category: SCROLL
+    anchor: 3800000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044420
+    item_id: 2044420
+    name: "Scroll for Pole Arm for ATT 50%"
+    category: SCROLL
+    anchor: 3800000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044401
+    item_id: 2044401
+    name: "Scroll for Pole Arm for ATT 60%"
+    category: SCROLL
+    anchor: 1300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044412
+    item_id: 2044412
+    name: "Scroll for Pole Arm for Accuracy 60%"
+    category: SCROLL
+    anchor: 1300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044404
+    item_id: 2044404
+    name: "Dark Scroll for Pole Arm for ATT 70%"
+    category: SCROLL
+    anchor: 1500000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044411
+    item_id: 2044411
+    name: "Scroll for Pole Arm for Accuracy 70%"
+    category: SCROLL
+    anchor: 1500000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044400
+    item_id: 2044400
+    name: "Scroll for Pole Arm for ATT 100%"
+    category: SCROLL
+    anchor: 62000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044410
+    item_id: 2044410
+    name: "Scroll for Pole Arm for Accuracy 100%"
+    category: SCROLL
+    anchor: 62000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044417
+    item_id: 2044417
+    name: "Scroll for Pole Arm for ATT 100%"
+    category: SCROLL
+    anchor: 62000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041102
+    item_id: 2041102
+    name: "Scroll for Rings for STR 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041105
+    item_id: 2041105
+    name: "Scroll for Rings for INT 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041108
+    item_id: 2041108
+    name: "Scroll for Rings for DEX 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041111
+    item_id: 2041111
+    name: "Scroll for Rings for LUK 10%"
+    category: SCROLL
+    anchor: 350000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041113
+    item_id: 2041113
+    name: "Dark Scroll for Rings for STR 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041115
+    item_id: 2041115
+    name: "Dark Scroll for Rings for INT 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041117
+    item_id: 2041117
+    name: "Dark Scroll for Rings for DEX 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041119
+    item_id: 2041119
+    name: "Dark Scroll for Rings for LUK 30%"
+    category: SCROLL
+    anchor: 900000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041101
+    item_id: 2041101
+    name: "Scroll for Rings for STR 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041104
+    item_id: 2041104
+    name: "Scroll for Rings for INT 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041107
+    item_id: 2041107
+    name: "Scroll for Rings for DEX 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041110
+    item_id: 2041110
+    name: "Scroll for Rings for LUK 60%"
+    category: SCROLL
+    anchor: 1200000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041112
+    item_id: 2041112
+    name: "Dark Scroll for Rings for STR 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041114
+    item_id: 2041114
+    name: "Dark Scroll for Rings for INT 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041116
+    item_id: 2041116
+    name: "Dark Scroll for Rings for DEX 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041118
+    item_id: 2041118
+    name: "Dark Scroll for Rings for LUK 70%"
+    category: SCROLL
+    anchor: 1000000          # sibling band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041100
+    item_id: 2041100
+    name: "Scroll for Ring for STR 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041103
+    item_id: 2041103
+    name: "Scroll for Rings for INT 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041106
+    item_id: 2041106
+    name: "Scroll for Rings for DEX 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2041109
+    item_id: 2041109
+    name: "Scroll for Rings for LUK 100%"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040902
+    item_id: 2040902
+    name: "Scroll for Shield for DEF 10%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040915
+    item_id: 2040915
+    name: "Scroll for Shield for Weapon ATT 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040920
+    item_id: 2040920
+    name: "Scroll for Shield for Magic ATT 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040925
+    item_id: 2040925
+    name: "Scroll for Shield for LUK 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040928
+    item_id: 2040928
+    name: "Scroll for Shield for HP 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040933
+    item_id: 2040933
+    name: "Scroll for Shield for STR 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040905
+    item_id: 2040905
+    name: "Dark Scroll for Shield for DEF 30%"
+    category: SCROLL
+    anchor: 4000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040907
+    item_id: 2040907
+    name: "Dark Scroll for Shield for LUK 30%"
+    category: SCROLL
+    anchor: 900000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040909
+    item_id: 2040909
+    name: "Dark Scroll for Shield for HP 30%"
+    category: SCROLL
+    anchor: 4000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040917
+    item_id: 2040917
+    name: "Dark Scroll for Shield for Weapon ATT 30%"
+    category: SCROLL
+    anchor: 4000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040922
+    item_id: 2040922
+    name: "Dark Scroll for Shield for Magic ATT 30%"
+    category: SCROLL
+    anchor: 5000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040932
+    item_id: 2040932
+    name: "Scroll for Shield for STR 30%"
+    category: SCROLL
+    anchor: 4000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040943
+    item_id: 2040943
+    name: "Scroll for Shield for DEF 50%"
+    category: SCROLL
+    anchor: 4000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040901
+    item_id: 2040901
+    name: "Scroll for Shield for DEF 60%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040914
+    item_id: 2040914
+    name: "Scroll for Shield for Weapon ATT 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040919
+    item_id: 2040919
+    name: "Scroll for Shield for Magic ATT 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040924
+    item_id: 2040924
+    name: "Scroll for Shield for LUK 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040927
+    item_id: 2040927
+    name: "Scroll for Shield for HP 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040931
+    item_id: 2040931
+    name: "Scroll for Shield for STR 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040904
+    item_id: 2040904
+    name: "Dark Scroll for Shield for DEF 70%"
+    category: SCROLL
+    anchor: 2700000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040906
+    item_id: 2040906
+    name: "Dark Scroll for Shield for LUK 70%"
+    category: SCROLL
+    anchor: 1300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040908
+    item_id: 2040908
+    name: "Dark Scroll for Shield for HP 70%"
+    category: SCROLL
+    anchor: 2700000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040916
+    item_id: 2040916
+    name: "Dark Scroll for Shield for Weapon ATT 70%"
+    category: SCROLL
+    anchor: 6000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040921
+    item_id: 2040921
+    name: "Dark Scroll for Shield for Magic ATT 70%"
+    category: SCROLL
+    anchor: 2700000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040930
+    item_id: 2040930
+    name: "Scroll for Shield for STR 70%"
+    category: SCROLL
+    anchor: 2700000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040900
+    item_id: 2040900
+    name: "Scroll for Shield for DEF 100%"
+    category: SCROLL
+    anchor: 140000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040918
+    item_id: 2040918
+    name: "Scroll for Shield for Magic ATT 100%"
+    category: SCROLL
+    anchor: 140000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040923
+    item_id: 2040923
+    name: "Scroll for Shield for LUK 100%"
+    category: SCROLL
+    anchor: 140000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040926
+    item_id: 2040926
+    name: "Scroll for Shield for HP 100%"
+    category: SCROLL
+    anchor: 140000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040929
+    item_id: 2040929
+    name: "Scroll for Shield for STR 100%"
+    category: SCROLL
+    anchor: 140000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040936
+    item_id: 2040936
+    name: "Scroll for Shield for DEF 100%"
+    category: SCROLL
+    anchor: 140000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040702
+    item_id: 2040702
+    name: "Scroll for Shoes for DEX 10%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040705
+    item_id: 2040705
+    name: "Scroll for Shoes for Jump 10%"
+    category: SCROLL
+    anchor: 500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040708
+    item_id: 2040708
+    name: "Scroll for Shoes for Speed 10%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040760
+    item_id: 2040760
+    name: "Scroll for Shoes for ATT 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040713
+    item_id: 2040713
+    name: "Dark Scroll for Shoes for DEX 30%"
+    category: SCROLL
+    anchor: 1300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040715
+    item_id: 2040715
+    name: "Dark Scroll for Shoes for Jump 30%"
+    category: SCROLL
+    anchor: 2500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040717
+    item_id: 2040717
+    name: "Dark Scroll for Shoes for Speed 30%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040755
+    item_id: 2040755
+    name: "Scroll for Shoes for DEX 50%"
+    category: SCROLL
+    anchor: 1300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040756
+    item_id: 2040756
+    name: "Scroll for Shoes for Jump 50%"
+    category: SCROLL
+    anchor: 1300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040757
+    item_id: 2040757
+    name: "Scroll for Shoes for Speed 50%"
+    category: SCROLL
+    anchor: 1300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040701
+    item_id: 2040701
+    name: "Scroll for Shoes for DEX 60%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040704
+    item_id: 2040704
+    name: "Scroll for Shoes for Jump 60%"
+    category: SCROLL
+    anchor: 1000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040707
+    item_id: 2040707
+    name: "Scroll for Shoes for Speed 60%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040759
+    item_id: 2040759
+    name: "Scroll for Shoes for ATT 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040712
+    item_id: 2040712
+    name: "Dark Scroll for Shoes for DEX 70%"
+    category: SCROLL
+    anchor: 450000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040714
+    item_id: 2040714
+    name: "Dark Scroll for Shoes for Jump 70%"
+    category: SCROLL
+    anchor: 750000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040716
+    item_id: 2040716
+    name: "Dark Scroll for Shoes for Speed 70%"
+    category: SCROLL
+    anchor: 150000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040700
+    item_id: 2040700
+    name: "Scroll for Shoes for DEX 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040703
+    item_id: 2040703
+    name: "Scroll for Shoes for Jump 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040706
+    item_id: 2040706
+    name: "Scroll for Shoes for Speed 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040740
+    item_id: 2040740
+    name: "Scroll for Shoes for DEX 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040741
+    item_id: 2040741
+    name: "Scroll for Shoes for Jump 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040742
+    item_id: 2040742
+    name: "Scroll for Shoes for Speed 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040758
+    item_id: 2040758
+    name: "Scroll for Shoes for ATT 100%"
+    category: SCROLL
+    anchor: 11000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044302
+    item_id: 2044302
+    name: "Scroll for Spear for ATT 10%"
+    category: SCROLL
+    anchor: 500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044314
+    item_id: 2044314
+    name: "Scroll for Spear for Accuracy 10%"
+    category: SCROLL
+    anchor: 500000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044305
+    item_id: 2044305
+    name: "Dark Scroll for Spear for ATT 30%"
+    category: SCROLL
+    anchor: 4300000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044313
+    item_id: 2044313
+    name: "Scroll for Spear for Accuracy 30%"
+    category: SCROLL
+    anchor: 4300000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044320
+    item_id: 2044320
+    name: "Scroll for Spear for ATT 50%"
+    category: SCROLL
+    anchor: 4300000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044301
+    item_id: 2044301
+    name: "Scroll for Spear for ATT 60%"
+    category: SCROLL
+    anchor: 1500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044312
+    item_id: 2044312
+    name: "Scroll for Spear for Accuracy 60%"
+    category: SCROLL
+    anchor: 1500000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044318
+    item_id: 2044318
+    name: "Scroll for Spears for Accuracy 65%"
+    category: SCROLL
+    anchor: 1500000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044304
+    item_id: 2044304
+    name: "Dark Scroll for Spear for ATT 70%"
+    category: SCROLL
+    anchor: 1700000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044311
+    item_id: 2044311
+    name: "Scroll for Spear for Accuracy 70%"
+    category: SCROLL
+    anchor: 1700000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044300
+    item_id: 2044300
+    name: "Scroll for Spear for ATT 100%"
+    category: SCROLL
+    anchor: 71000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044310
+    item_id: 2044310
+    name: "Scroll for Spear for Accuracy 100%"
+    category: SCROLL
+    anchor: 71000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044317
+    item_id: 2044317
+    name: "Scroll for Spear for ATT 100%"
+    category: SCROLL
+    anchor: 71000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049113
+    item_id: 2049113
+    name: "Normal Witch Scroll"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049114
+    item_id: 2049114
+    name: "Witch's Belt Scroll"
+    category: SCROLL
+    anchor: 50000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049100
+    item_id: 2049100
+    name: "Chaos Scroll 60%"
+    category: SCROLL
+    anchor: 50000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049000
+    item_id: 2049000
+    name: "Clean Slate Scroll 1%"
+    category: SCROLL
+    anchor: 1000000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049001
+    item_id: 2049001
+    name: "Clean Slate Scroll 3%"
+    category: SCROLL
+    anchor: 1000000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049002
+    item_id: 2049002
+    name: "Clean Slate Scroll 5%"
+    category: SCROLL
+    anchor: 1000000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2049003
+    item_id: 2049003
+    name: "Clean Slate Scroll 20%"
+    category: SCROLL
+    anchor: 1000000          # band default
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043802
+    item_id: 2043802
+    name: "Scroll for Staff for Magic ATT 10%"
+    category: SCROLL
+    anchor: 450000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043805
+    item_id: 2043805
+    name: "Dark Scroll for Staff for Magic ATT 30%"
+    category: SCROLL
+    anchor: 4000000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043813
+    item_id: 2043813
+    name: "Scroll for Staff for Magic Att. 50%"
+    category: SCROLL
+    anchor: 4000000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043801
+    item_id: 2043801
+    name: "Scroll for Staff for Magic ATT 60%"
+    category: SCROLL
+    anchor: 1400000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043804
+    item_id: 2043804
+    name: "Dark Scroll for Staff for Magic ATT 70%"
+    category: SCROLL
+    anchor: 1600000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043800
+    item_id: 2043800
+    name: "Scroll for Staff for Magic ATT 100%"
+    category: SCROLL
+    anchor: 66000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043812
+    item_id: 2043812
+    name: "Scroll for Staff for Magic ATT 100%"
+    category: SCROLL
+    anchor: 66000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040402
+    item_id: 2040402
+    name: "Scroll for Topwear for DEF 10%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040412
+    item_id: 2040412
+    name: "Scroll for Topwear for LUK 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040419
+    item_id: 2040419
+    name: "Scroll for Topwear for STR 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040422
+    item_id: 2040422
+    name: "Scroll for Topwear for HP 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040427
+    item_id: 2040427
+    name: "Scroll for Topwear for LUK 10%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040405
+    item_id: 2040405
+    name: "Dark Scroll for Topwear for DEF 30%"
+    category: SCROLL
+    anchor: 900000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040407
+    item_id: 2040407
+    name: "Dark Scroll for Topwear for STR 30%"
+    category: SCROLL
+    anchor: 300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040409
+    item_id: 2040409
+    name: "Dark Scroll for Topwear for HP 30%"
+    category: SCROLL
+    anchor: 900000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040411
+    item_id: 2040411
+    name: "Dark Scroll for Topwear for LUK 30%"
+    category: SCROLL
+    anchor: 1500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040426
+    item_id: 2040426
+    name: "Dark Scroll for Topwear for LUK 30%"
+    category: SCROLL
+    anchor: 900000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040429
+    item_id: 2040429
+    name: "Scroll for Topwear for DEF 50%"
+    category: SCROLL
+    anchor: 900000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040401
+    item_id: 2040401
+    name: "Scroll for Topwear for DEF 60%"
+    category: SCROLL
+    anchor: 100000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040413
+    item_id: 2040413
+    name: "Scroll for Topwear for LUK 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040418
+    item_id: 2040418
+    name: "Scroll for Topwear for STR 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040421
+    item_id: 2040421
+    name: "Scroll for Topwear for HP 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040425
+    item_id: 2040425
+    name: "Scroll for Topwear for LUK 60%"
+    category: SCROLL
+    anchor: 100000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040404
+    item_id: 2040404
+    name: "Dark Scroll for Topwear for DEF 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040406
+    item_id: 2040406
+    name: "Dark Scroll for Topwear for STR 70%"
+    category: SCROLL
+    anchor: 600000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040408
+    item_id: 2040408
+    name: "Dark Scroll for Topwear for HP 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040410
+    item_id: 2040410
+    name: "Dark Scroll for Topwear for LUK 70%"
+    category: SCROLL
+    anchor: 1900000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040424
+    item_id: 2040424
+    name: "Dark Scroll for Topwear for LUK 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040400
+    item_id: 2040400
+    name: "Scroll for Topwear for DEF 100%"
+    category: SCROLL
+    anchor: 32000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040414
+    item_id: 2040414
+    name: "Scroll for Topwear for LUK 100%"
+    category: SCROLL
+    anchor: 32000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040417
+    item_id: 2040417
+    name: "Scroll for Topwear for STR 100%"
+    category: SCROLL
+    anchor: 32000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040420
+    item_id: 2040420
+    name: "Scroll for Topwear for HP 100%"
+    category: SCROLL
+    anchor: 32000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040423
+    item_id: 2040423
+    name: "Scroll for Topwear for LUK 100%"
+    category: SCROLL
+    anchor: 32000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2040430
+    item_id: 2040430
+    name: "Scroll for Topwear for DEF 100%"
+    category: SCROLL
+    anchor: 32000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044102
+    item_id: 2044102
+    name: "Scroll for Two-handed Axe for ATT 10%"
+    category: SCROLL
+    anchor: 350000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044114
+    item_id: 2044114
+    name: "Scroll for Two-Handed Axe for Accuracy 10%"
+    category: SCROLL
+    anchor: 350000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044105
+    item_id: 2044105
+    name: "Dark Scroll for Two-handed Axe for ATT 30%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044113
+    item_id: 2044113
+    name: "Scroll for Two-Handed Axe for Accuracy 30%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044120
+    item_id: 2044120
+    name: "Scroll for Two-handed Axe for ATT 50%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044101
+    item_id: 2044101
+    name: "Scroll for Two-handed Axe for ATT 60%"
+    category: SCROLL
+    anchor: 1000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044112
+    item_id: 2044112
+    name: "Scroll for Two-Handed Axe for Accuracy 60%"
+    category: SCROLL
+    anchor: 1000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044104
+    item_id: 2044104
+    name: "Dark Scroll for Two-handed Axe for ATT 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044111
+    item_id: 2044111
+    name: "Scroll for Two-Handed Axe for Accuracy 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044100
+    item_id: 2044100
+    name: "Scroll for Two-handed Axe for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044110
+    item_id: 2044110
+    name: "Scroll for Two-Handed Axe for Accuracy 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044117
+    item_id: 2044117
+    name: "Scroll for Two-handed Axe for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044202
+    item_id: 2044202
+    name: "Scroll for Two-handed BW for ATT 10%"
+    category: SCROLL
+    anchor: 350000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044214
+    item_id: 2044214
+    name: "Scroll for Two-Handed BW for Accuracy 10%"
+    category: SCROLL
+    anchor: 350000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044205
+    item_id: 2044205
+    name: "Dark Scroll for Two-handed BW for ATT 30%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044213
+    item_id: 2044213
+    name: "Scroll for Two-Handed BW for Accuracy 30%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044220
+    item_id: 2044220
+    name: "Scroll for Two-handed BW for ATT 50%"
+    category: SCROLL
+    anchor: 2900000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044201
+    item_id: 2044201
+    name: "Scroll for Two-handed BW for ATT 60%"
+    category: SCROLL
+    anchor: 1000000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044212
+    item_id: 2044212
+    name: "Scroll for Two-Handed BW for Accuracy 60%"
+    category: SCROLL
+    anchor: 1000000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044204
+    item_id: 2044204
+    name: "Dark Scroll for Two-handed BW for ATT 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044211
+    item_id: 2044211
+    name: "Scroll for Two-Handed BW for Accuracy 70%"
+    category: SCROLL
+    anchor: 1200000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044200
+    item_id: 2044200
+    name: "Scroll for Two-handed BW for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044210
+    item_id: 2044210
+    name: "Scroll for Two-Handed BW for Accuracy 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044217
+    item_id: 2044217
+    name: "Scroll for Two-handed BW for ATT 100%"
+    category: SCROLL
+    anchor: 48000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044002
+    item_id: 2044002
+    name: "Scroll for Two-handed Sword for ATT 10%"
+    category: SCROLL
+    anchor: 450000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044014
+    item_id: 2044014
+    name: "Scroll for Two-Handed Sword for Accuracy 10%"
+    category: SCROLL
+    anchor: 450000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044005
+    item_id: 2044005
+    name: "Dark Scroll for Two-handed Sword for ATT 30%"
+    category: SCROLL
+    anchor: 3800000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044013
+    item_id: 2044013
+    name: "Dark Scroll for Two-Handed Sword for Accuracy 30%"
+    category: SCROLL
+    anchor: 3800000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044028
+    item_id: 2044028
+    name: "Scroll for Two-handed Sword for ATT 50%"
+    category: SCROLL
+    anchor: 3800000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044001
+    item_id: 2044001
+    name: "Scroll for Two-handed Sword for ATT 60%"
+    category: SCROLL
+    anchor: 1300000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044012
+    item_id: 2044012
+    name: "Scroll for Two-Handed Sword for Accuracy 60%"
+    category: SCROLL
+    anchor: 1300000          # sibling slot+band
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044004
+    item_id: 2044004
+    name: "Dark Scroll for Two-handed Sword for ATT 70%"
+    category: SCROLL
+    anchor: 1500000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044011
+    item_id: 2044011
+    name: "Dark Scroll for Two-Handed Sword for Accuracy 70%"
+    category: SCROLL
+    anchor: 1500000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044000
+    item_id: 2044000
+    name: "Scroll for Two-handed Sword for ATT 100%"
+    category: SCROLL
+    anchor: 62000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044010
+    item_id: 2044010
+    name: "Scroll for Two-Handed Sword for Accuracy 100%"
+    category: SCROLL
+    anchor: 62000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2044025
+    item_id: 2044025
+    name: "Scroll for Two-handed Sword for ATT 100%"
+    category: SCROLL
+    anchor: 62000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043702
+    item_id: 2043702
+    name: "Scroll for Wand for Magic ATT 10%"
+    category: SCROLL
+    anchor: 500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043705
+    item_id: 2043705
+    name: "Dark Scroll for Wand for Magic ATT 30%"
+    category: SCROLL
+    anchor: 4300000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043713
+    item_id: 2043713
+    name: "Scroll for Wand for Magic Att. 50%"
+    category: SCROLL
+    anchor: 4300000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043701
+    item_id: 2043701
+    name: "Scroll for Wand for Magic ATT 60%"
+    category: SCROLL
+    anchor: 1500000          # pool
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043704
+    item_id: 2043704
+    name: "Dark Scroll for Wand for Magic ATT 70%"
+    category: SCROLL
+    anchor: 1700000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043700
+    item_id: 2043700
+    name: "Scroll for Wand for Magic ATT 100%"
+    category: SCROLL
+    anchor: 71000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+  - id: S2043712
+    item_id: 2043712
+    name: "Scroll for Wand for Magic ATT 100%"
+    category: SCROLL
+    anchor: 71000          # sibling slot
+    max_qty: 1
+    max_open: 3
+    per_day: 10
+    min_price: 1
+    max_price: 1000000000
+
+  # ---- USE
+
+  - id: U2000000
+    item_id: 2000000
+    name: "Red Potion"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2000001
+    item_id: 2000001
+    name: "Orange Potion"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2000002
+    item_id: 2000002
+    name: "White Potion"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2000003
+    item_id: 2000003
+    name: "Blue Potion"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2000004
+    item_id: 2000004
+    name: "Elixir"
+    category: USE
+    anchor: 4000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2000005
+    item_id: 2000005
+    name: "Power Elixir"
+    category: USE
+    anchor: 9500          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2000006
+    item_id: 2000006
+    name: "Mana Elixir"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2001002
+    item_id: 2001002
+    name: "Red Bean Sundae"
+    category: USE
+    anchor: 3000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2012000
+    item_id: 2012000
+    name: "Drake's Blood"
+    category: USE
+    anchor: 20000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2012002
+    item_id: 2012002
+    name: "Sap of Ancient Tree"
+    category: USE
+    anchor: 20000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2020000
+    item_id: 2020000
+    name: "Salad"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2020001
+    item_id: 2020001
+    name: "Fried Chicken"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2020002
+    item_id: 2020002
+    name: "Cake"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2020012
+    item_id: 2020012
+    name: "Melting Cheese"
+    category: USE
+    anchor: 4000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2020013
+    item_id: 2020013
+    name: "Reindeer Milk"
+    category: USE
+    anchor: 4000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2020014
+    item_id: 2020014
+    name: "Sunrise Dew"
+    category: USE
+    anchor: 6000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2020015
+    item_id: 2020015
+    name: "Sunset Dew"
+    category: USE
+    anchor: 6000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2020016
+    item_id: 2020016
+    name: "Cheesecake"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2022000
+    item_id: 2022000
+    name: "Pure Water"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2022003
+    item_id: 2022003
+    name: "Unagi"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2022121
+    item_id: 2022121
+    name: "Gelt Chocolate"
+    category: USE
+    anchor: 2500000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2022179
+    item_id: 2022179
+    name: "Onyx Apple"
+    category: USE
+    anchor: 2500000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2022244
+    item_id: 2022244
+    name: "Smore"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2022245
+    item_id: 2022245
+    name: "Heartstopper"
+    category: USE
+    anchor: 1500000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2022273
+    item_id: 2022273
+    name: "Ssiws Cheese"
+    category: USE
+    anchor: 2000000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: U2022282
+    item_id: 2022282
+    name: "Naricain's Demon Elixir"
+    category: USE
+    anchor: 1000          # floor
+    min_price: 1
+    max_price: 1000000000
+  - id: U2050004
+    item_id: 2050004
+    name: "All Cure Potion"
+    category: USE
+    anchor: 7000          # pool
+    min_price: 1
+    max_price: 1000000000
+
+  # ---- ETC
+
+  - id: E4001017
+    item_id: 4001017
+    name: "Eye of Fire"
+    category: ETC
+    anchor: 5000000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4031179
+    item_id: 4031179
+    name: "Piece of Cracked Dimension"
+    category: ETC
+    anchor: 5000000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4005004
+    item_id: 4005004
+    name: "Dark Crystal"
+    category: ETC
+    anchor: 450000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4005000
+    item_id: 4005000
+    name: "Power Crystal"
+    category: ETC
+    anchor: 250000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4005001
+    item_id: 4005001
+    name: "Wisdom Crystal"
+    category: ETC
+    anchor: 250000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4005002
+    item_id: 4005002
+    name: "DEX Crystal"
+    category: ETC
+    anchor: 250000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4005003
+    item_id: 4005003
+    name: "LUK Crystal"
+    category: ETC
+    anchor: 250000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4021007
+    item_id: 4021007
+    name: "Diamond"
+    category: ETC
+    anchor: 120000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4021008
+    item_id: 4021008
+    name: "Black Crystal"
+    category: ETC
+    anchor: 120000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4011005
+    item_id: 4011005
+    name: "Orihalcon Plate"
+    category: ETC
+    anchor: 55000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4011006
+    item_id: 4011006
+    name: "Gold Plate"
+    category: ETC
+    anchor: 55000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4021004
+    item_id: 4021004
+    name: "Opal"
+    category: ETC
+    anchor: 55000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4021005
+    item_id: 4021005
+    name: "Sapphire"
+    category: ETC
+    anchor: 55000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4021006
+    item_id: 4021006
+    name: "Topaz"
+    category: ETC
+    anchor: 55000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4004004
+    item_id: 4004004
+    name: "Dark Crystal Ore"
+    category: ETC
+    anchor: 40000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4011002
+    item_id: 4011002
+    name: "Mithril Plate"
+    category: ETC
+    anchor: 35000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4011003
+    item_id: 4011003
+    name: "Adamantium Plate"
+    category: ETC
+    anchor: 35000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4011004
+    item_id: 4011004
+    name: "Silver Plate"
+    category: ETC
+    anchor: 35000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4021000
+    item_id: 4021000
+    name: "Garnet"
+    category: ETC
+    anchor: 35000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4021001
+    item_id: 4021001
+    name: "Amethyst"
+    category: ETC
+    anchor: 35000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4021002
+    item_id: 4021002
+    name: "AquaMarine"
+    category: ETC
+    anchor: 35000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4021003
+    item_id: 4021003
+    name: "Emerald"
+    category: ETC
+    anchor: 35000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4011000
+    item_id: 4011000
+    name: "Bronze Plate"
+    category: ETC
+    anchor: 25000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4011001
+    item_id: 4011001
+    name: "Steel Plate"
+    category: ETC
+    anchor: 25000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4004000
+    item_id: 4004000
+    name: "Power Crystal Ore"
+    category: ETC
+    anchor: 20000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4004001
+    item_id: 4004001
+    name: "Wisdom Crystal Ore"
+    category: ETC
+    anchor: 20000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4004002
+    item_id: 4004002
+    name: "DEX Crystal Ore"
+    category: ETC
+    anchor: 20000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4004003
+    item_id: 4004003
+    name: "LUK Crystal Ore"
+    category: ETC
+    anchor: 20000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4001019
+    item_id: 4001019
+    name: "Orbis Rock Scroll"
+    category: ETC
+    anchor: 10000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4001020
+    item_id: 4001020
+    name: "Eos Rock Scroll"
+    category: ETC
+    anchor: 10000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4006000
+    item_id: 4006000
+    name: "The Magic Rock"
+    category: ETC
+    anchor: 10000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4006001
+    item_id: 4006001
+    name: "The Summoning Rock"
+    category: ETC
+    anchor: 10000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4020007
+    item_id: 4020007
+    name: "Diamond Ore"
+    category: ETC
+    anchor: 10000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4020008
+    item_id: 4020008
+    name: "Black Crystal Ore"
+    category: ETC
+    anchor: 10000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4010005
+    item_id: 4010005
+    name: "Orihalcon Ore"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4010006
+    item_id: 4010006
+    name: "Gold Ore"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4020004
+    item_id: 4020004
+    name: "Opal Ore"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4020005
+    item_id: 4020005
+    name: "Sapphire Ore"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4020006
+    item_id: 4020006
+    name: "Topaz Ore"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4030010
+    item_id: 4030010
+    name: "Omok Piece : Octopus"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4030011
+    item_id: 4030011
+    name: "Omok Piece : Pig"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4030012
+    item_id: 4030012
+    name: "Monster Card"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4030013
+    item_id: 4030013
+    name: "Omok Piece : Bloctopus"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4030014
+    item_id: 4030014
+    name: "Omok Piece : Pink Teddy"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4030015
+    item_id: 4030015
+    name: "Omok Piece : Panda Teddy"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4030016
+    item_id: 4030016
+    name: "Omok Piece : Trixter"
+    category: ETC
+    anchor: 5000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4010002
+    item_id: 4010002
+    name: "Mithril Ore"
+    category: ETC
+    anchor: 3000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4010003
+    item_id: 4010003
+    name: "Adamantium Ore"
+    category: ETC
+    anchor: 3000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4010004
+    item_id: 4010004
+    name: "Silver Ore"
+    category: ETC
+    anchor: 3000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4020000
+    item_id: 4020000
+    name: "Garnet Ore"
+    category: ETC
+    anchor: 3000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4020001
+    item_id: 4020001
+    name: "Amethyst Ore"
+    category: ETC
+    anchor: 3000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4020002
+    item_id: 4020002
+    name: "AquaMarine Ore"
+    category: ETC
+    anchor: 3000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4020003
+    item_id: 4020003
+    name: "Emerald Ore"
+    category: ETC
+    anchor: 3000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4010000
+    item_id: 4010000
+    name: "Bronze Ore"
+    category: ETC
+    anchor: 2000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4010001
+    item_id: 4010001
+    name: "Steel Ore"
+    category: ETC
+    anchor: 2000          # pool
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000000
+    item_id: 4000000
+    name: "Blue Snail Shell"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000003
+    item_id: 4000003
+    name: "Tree Branch"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000004
+    item_id: 4000004
+    name: "Squishy Liquid"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000005
+    item_id: 4000005
+    name: "Leaf"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000010
+    item_id: 4000010
+    name: "Slime Bubble"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000011
+    item_id: 4000011
+    name: "Mushroom Spore"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000016
+    item_id: 4000016
+    name: "Red Snail Shell"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000017
+    item_id: 4000017
+    name: "Pig's Head"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000018
+    item_id: 4000018
+    name: "Firewood"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000020
+    item_id: 4000020
+    name: "Wild Boar Tooth"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000021
+    item_id: 4000021
+    name: "Leather"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000024
+    item_id: 4000024
+    name: "Fire Boar's Tooth"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000026
+    item_id: 4000026
+    name: "Lupin Doll"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000027
+    item_id: 4000027
+    name: "Wild Kargo Eye"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000028
+    item_id: 4000028
+    name: "Tauromacis Horn"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000032
+    item_id: 4000032
+    name: "Ligator Skin"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000033
+    item_id: 4000033
+    name: "Croco Skin"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000037
+    item_id: 4000037
+    name: "Bubbling's Huge Bubble"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000070
+    item_id: 4000070
+    name: "Cellion Tail"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000073
+    item_id: 4000073
+    name: "Solid Horn"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000176
+    item_id: 4000176
+    name: "Poisonous Mushroom"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000195
+    item_id: 4000195
+    name: "Seedling"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000196
+    item_id: 4000196
+    name: "Wooden Board"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000232
+    item_id: 4000232
+    name: "Kentaurus's Flame"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000233
+    item_id: 4000233
+    name: "Kentaurus's Marrow"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000234
+    item_id: 4000234
+    name: "Kentaurus's Skull"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000235
+    item_id: 4000235
+    name: "Manon's Tail"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000241
+    item_id: 4000241
+    name: "Birk's Chewed Grass"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000242
+    item_id: 4000242
+    name: "Dual Birk's Tiny Tail"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000243
+    item_id: 4000243
+    name: "Griffey Horn"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000244
+    item_id: 4000244
+    name: "Dragon Spirit"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000245
+    item_id: 4000245
+    name: "Dragon Scale"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000273
+    item_id: 4000273
+    name: "Old Neck Bone"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000274
+    item_id: 4000274
+    name: "Broken Horn"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000443
+    item_id: 4000443
+    name: "Cracked Hourglass"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000457
+    item_id: 4000457
+    name: "Red Helmet"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000458
+    item_id: 4000458
+    name: "Red Heart"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000459
+    item_id: 4000459
+    name: "Black Armor Fragment"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000469
+    item_id: 4000469
+    name: "Scarf"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000525
+    item_id: 4000525
+    name: "Kid Mannequin's Bunny Suit"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000526
+    item_id: 4000526
+    name: "Female Mannequin's Wig"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000527
+    item_id: 4000527
+    name: "Male Mannequin's Fedora"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000528
+    item_id: 4000528
+    name: "Latest Hits Compilation"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000529
+    item_id: 4000529
+    name: "Greatest Oldies"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000530
+    item_id: 4000530
+    name: "Blue Perfume"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000532
+    item_id: 4000532
+    name: "Yellow Perfume"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000539
+    item_id: 4000539
+    name: "Cherry Bubble"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000540
+    item_id: 4000540
+    name: "Melon Bubble"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000541
+    item_id: 4000541
+    name: "Mango Bubble"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000542
+    item_id: 4000542
+    name: "Yeti Keychain"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000543
+    item_id: 4000543
+    name: "Jr. Pepe Keychain"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000644
+    item_id: 4000644
+    name: "Mutant Slime Bubble"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000646
+    item_id: 4000646
+    name: "Mutant Tino Feather"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000647
+    item_id: 4000647
+    name: "Mutant Tiru Feather"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000648
+    item_id: 4000648
+    name: "Mutant Tiguru Feather"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4000712
+    item_id: 4000712
+    name: "Gravi Stonegar Guard"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4001000
+    item_id: 4001000
+    name: "Arwen's Glass Shoes"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4001006
+    item_id: 4001006
+    name: "Flaming Feather"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4001112
+    item_id: 4001112
+    name: "[Storybook] Indecipherable Book"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4001126
+    item_id: 4001126
+    name: "Maple Leaf"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4001356
+    item_id: 4001356
+    name: "Flint"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4003000
+    item_id: 4003000
+    name: "Screw"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4003004
+    item_id: 4003004
+    name: "Stiff Feather"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4003005
+    item_id: 4003005
+    name: "Soft Feather"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4007000
+    item_id: 4007000
+    name: "Magic Powder (Brown)"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4007001
+    item_id: 4007001
+    name: "Magic Powder (White)"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4007002
+    item_id: 4007002
+    name: "Magic Powder (Blue)"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4007003
+    item_id: 4007003
+    name: "Magic Powder (Green)"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4007004
+    item_id: 4007004
+    name: "Magic Powder (Yellow)"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4007005
+    item_id: 4007005
+    name: "Magic Powder (Purple)"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4007006
+    item_id: 4007006
+    name: "Magic Powder (Red)"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4007007
+    item_id: 4007007
+    name: "Magic Powder (Black)"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4010007
+    item_id: 4010007
+    name: "Lidium Ore"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4011007
+    item_id: 4011007
+    name: "Moon Rock"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4011008
+    item_id: 4011008
+    name: "Lidium"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4020009
+    item_id: 4020009
+    name: "Piece of Time"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4030000
+    item_id: 4030000
+    name: "Omok Piece : Slime"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4030009
+    item_id: 4030009
+    name: "Omok Table"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4031203
+    item_id: 4031203
+    name: "Halloween Candies"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4031348
+    item_id: 4031348
+    name: "Secret Spell Scroll"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4031906
+    item_id: 4031906
+    name: "Balrog Claw"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4032246
+    item_id: 4032246
+    name: "Spirit of Fantasy Theme Park"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130000
+    item_id: 4130000
+    name: "Gloves Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130001
+    item_id: 4130001
+    name: "Shoes Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130002
+    item_id: 4130002
+    name: "One-Handed Sword Forging Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130003
+    item_id: 4130003
+    name: "One-Handed Axe Forging Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130004
+    item_id: 4130004
+    name: "One-Handed Blunt Weapon Forging Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130006
+    item_id: 4130006
+    name: "Two-Handed Axe Forging Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130008
+    item_id: 4130008
+    name: "Spear Forging Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130009
+    item_id: 4130009
+    name: "Pole Arm Forging Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130010
+    item_id: 4130010
+    name: "Wand Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130011
+    item_id: 4130011
+    name: "Staff Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130012
+    item_id: 4130012
+    name: "Bow Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130013
+    item_id: 4130013
+    name: "Crossbow Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130014
+    item_id: 4130014
+    name: "Dagger Forging Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130015
+    item_id: 4130015
+    name: "Claw Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130016
+    item_id: 4130016
+    name: "Knuckler Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130017
+    item_id: 4130017
+    name: "Gun Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130018
+    item_id: 4130018
+    name: "Armor Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130020
+    item_id: 4130020
+    name: "Bottomwear Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130021
+    item_id: 4130021
+    name: "Overall Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4130022
+    item_id: 4130022
+    name: "Shield Production Stimulator"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4161016
+    item_id: 4161016
+    name: "[Storybook] Frozen Book of Ice"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4250000
+    item_id: 4250000
+    name: "Basic Diamond"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4260003
+    item_id: 4260003
+    name: "Intermediate Monster Crystal 1"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4260004
+    item_id: 4260004
+    name: "Intermediate Monster Crystal 2"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4260005
+    item_id: 4260005
+    name: "Intermediate Monster Crystal 3"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4260007
+    item_id: 4260007
+    name: "Advanced Monster Crystal 2"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000
+  - id: E4260008
+    item_id: 4260008
+    name: "Advanced Monster Crystal 3"
+    category: ETC
+    anchor: 0          # none
+    min_price: 1
+    max_price: 1000000000

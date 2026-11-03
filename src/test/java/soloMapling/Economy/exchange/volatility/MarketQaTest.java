@@ -1,11 +1,12 @@
 package soloMapling.Economy.exchange.volatility;
 
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import soloMapling.Economy.exchange.Exchange;
 import soloMapling.Economy.exchange.ExchangeConfig;
 import soloMapling.Economy.exchange.FakeBotWallet;
-import soloMapling.Economy.exchange.Ledger.Asset;
 import soloMapling.Economy.exchange.MemoryExchangeStore;
 import soloMapling.Economy.exchange.OrderBook.Side;
 import soloMapling.Economy.exchange.Ticker;

@@ -165,7 +165,7 @@ public class MarketCommand extends Command {
             return "not computed yet (hourly, with the volatility thread on)";
         }
         StringBuilder sb = new StringBuilder();
-        for (String t : FairValue.TICKERS) {
+        for (String t : f.tickers()) {
             FairValue.Point p = f.point(t);
             if (p != null) {
                 sb.append(sb.length() == 0 ? "" : "; ").append(String.format("%s %,d (floor %,d, ceiling %,d, 24h supply "

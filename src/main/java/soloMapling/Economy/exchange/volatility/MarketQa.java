@@ -3,7 +3,7 @@ package soloMapling.Economy.exchange.volatility;
 import soloMapling.Economy.exchange.Exchange;
 import soloMapling.Economy.exchange.ExchangeService;
 import soloMapling.Economy.exchange.ExchangeStore.OrderRow;
-import soloMapling.Economy.exchange.Ledger.Asset;
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
 import soloMapling.Economy.exchange.LiveWallet;
 import soloMapling.Economy.exchange.OrderBook.Side;
 import soloMapling.Economy.exchange.Ticker;

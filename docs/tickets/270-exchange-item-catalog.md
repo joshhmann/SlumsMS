@@ -1,6 +1,8 @@
 # Ticket 270: the exchange item catalog — all scrolls, some use items, then ETC
 
-**Status:** planned, 1.6.4. Branch `164-excatalog`, worktree `/root/work/SlumsMS-164-excatalog`. Nothing built yet.
+**Status:** implemented in `164-excatalog` (worktree `/root/work/SlumsMS-164-excatalog`), not merged, not deployed.
+The engine, the catalog file and the tests are in; §11 records what shipped and what it costs. §5 is now the record of
+the owner's numbers as given on 2026-11-03, and §10 keeps only the questions still open.
 Owner direction 2026-11-03 (Website session): "if i wanted to add all scrolls, some use items, then etc, provide me a
 full list, and then following the paperwork process to create a ticket you can start work on". Earlier the same
 session wrote "we should def add all scrolls in forsure", and before that (2026-11-02) asked for "etc items would be
@@ -19,12 +21,12 @@ question with options, and none of them is applied until the owner picks.
 Three item sets, one engine change, on 1.6.4 (open for new content and new capabilities, so the items themselves are
 in scope; the caps and anchors still need the owner's numbers).
 
-| Set | Ids | State today | What this ticket does |
+| Set | Ids | State today | What shipped |
 |---|---|---|---|
-| All scrolls | 518 tradeable of 756 (209 untradeable, 29 GM-only) | 107 anchored | registers every tradeable scroll; the other 411 need an anchor (§4) |
-| Some use items | 38 shortlisted | 16 anchored | registers the shortlist; ammo stays out (§3) |
-| ETC | 55 pool-priced | all 55 anchored | registers the 55; the 109 held-but-unpriced stay parked |
-| Engine | — | item tickers have no maker and no volume cap | item maker + per-account sell cap (§6) |
+| All scrolls | 518 tradeable of 756 (209 untradeable, 29 GM-only) | 121 with a pool price (107 before the dark pass) | all 518 registered: 121 pool, 397 derived (§4), 0 parked |
+| Some use items | 27 in the file (16 shortlisted + 11 that fill a real holder's bag) | 27 anchored | all 27 registered, ammo out (§3) |
+| ETC | 55 pool-priced + the ids players actually hold | 55 anchored | 164 registered: 55 pool, 109 unquoted guests |
+| Engine | — | item tickers had no maker and no volume cap | item maker + per-account sell cap (§6) |
 
 `FairValue` drops any ticker whose floor and anchor are both under `TOKEN_FLOOR` (`FairValue.java:101-107`), so an
 unpriced ticker is safe to register: it quotes nothing until it has a price. That is what "registered" means below.
@@ -42,16 +44,22 @@ unpriced ticker is safe to register: it quotes nothing until it has a price. Tha
 | ETC | `E` + item id | `E4006001` |
 | Already live | unchanged | `NX` `MESO` `LEAF` `CHAOS` `WS` `ELIXIR` |
 
-Counts (catalog §4):
+Counts as shipped (`exchangeTickers.yaml`, 709 rows; each row is one line with its caps):
 
-| class | ON today | NEEDS PRICE | DARK | SKIP |
+| class | in the file | anchored from the pool | derived anchor | anchor 0 (registered, unquoted) |
 |---|---|---|---|---|
-| scrolls | 107 | 136 | 275 | 238 (209 untradeable, 29 GM-only) |
-| use | 16 | 22 | 0 | 0 |
-| ETC | 55 | 109 | 0 | 145 (untradeable/quest) |
-| **total** | **178** | **267** | **275** | **383** |
+| scrolls | 518 | 121 | 397 | 0 |
+| use | 27 | 27 | 0 | 0 |
+| ETC | 164 | 55 | 0 | 109 |
+| **total** | **709** | **203** | **397** | **109** |
 
-**One ticker per item, legacy id wins.** `CHAOS` is already item 2049100 and `ELIXIR` is 2000005, so the registry
+The 238 skipped scrolls (209 `tradeBlock=1`, 29 "GM Scroll for ..." staff scrolls) stay out: they cannot be traded, and
+the GM ones are staff-only. The generated list with every id, price, holding and state is
+`docs/economy/exchange-item-catalog.md`.
+
+**One ticker per item, legacy id wins.** Three rows fold into a 1.6.3 book rather than opening a twin — `S2049100`
+(Chaos), `U2000005` (Power Elixir) and `E4001126` (Maple Leaf) — so the switch opens **706 new tickers**; `WS`
+(2340000) has no row at all. `CHAOS` is already item 2049100 and `ELIXIR` is 2000005, so the registry
 must resolve `S2049100` → `CHAOS` and `U2000005` → `ELIXIR` rather than create a second ticker for the same item.
 History, escrow and ledger rows keep the old ids; no migration.
 
@@ -166,23 +174,36 @@ acceptable (thin spread, price stays anchored) but the owner should see it befor
    `collectBotLocked`, both per account per UTC day.
 8. **Site**: `ExchangeSite` already iterates `ex.tickers()` (`:484/:509/:528`); add `category` to the payload and a
    category filter in the page. No migration.
-9. **`docs/release/1.6.4.conf`**: the conf line that turns the catalog on, with the owner's numbers from §5.
+9. **The conf line** for `docs/release/1.6.4.conf` (the cut creates that file from `1.6.3.conf`; this ticket does not
+   author a release conf). Append to that file's `UNIT_EDITS` jar line:
+
+   ```
+   -Dslums.exchange.catalog=scrolls,use,etc -Dslums.exchange.itemMaker=true -Dslums.exchange.items.sellCapMesosPerDay=20000000
+   ```
+   `-Dslums.exchange.tickers=...` keeps its 1.6.3 value and still narrows the set when it is set (an id the file does
+   not name stays off, legacy ids included), so the two switches compose instead of fighting.
 10. **Docs**: `docs/economy/exchange-item-catalog.md` (this commit), and a line in `docs/tickets/113-nx-exchange.md`
     pointing here.
 
 ## 7. Tests
 
-Unit (fail-before on `release-1.6.4`: the registry and the derived anchor do not exist, so the tests do not
-compile against it — record that as the failing state):
+`src/test/java/soloMapling/Economy/exchange/ExchangeCatalogTest.java` — 8 cases, all green in `164-excatalog`:
 
-- `AssetRegistryTest`: every id ≤ 8 chars; legacy ids unchanged; `S2049100` → `CHAOS`; unknown id → null.
-- `TickerCatalogTest`: category caps; per-ticker `-D` override wins; id/name derived from `ItemInformationProvider`
-  (`WzTestData.assumePresent`).
-- `FairValueAnchorTest`: pool → property → derived default → dark; ceiling = max(1.2×floor, 1.5×anchor); a dark
-  ticker publishes no point.
-- `ExchangeItemTickerTest`: place/fill/cancel on a scroll ticker through the existing path; ledger and escrow rows
-  carry the 8-char asset; the item-sell `LOG_IN_FIRST` rule is preserved.
-- `SellCapTest`: a second sell past the daily cap is refused, a buy is not, and the refusal is per account.
+- the file registers its rows, no id exceeds 8 characters, and `CHAOS`/`WS`/`ELIXIR`/`LEAF` keep their 1.6.3 ids
+  (one book per item, both directions of the lookup);
+- `-Dslums.exchange.catalog=scrolls` opens only scrolls, with the owner's caps (1 per order, 3 open, 10 a day) and the
+  pool anchor; the 1.6.3 item tickers stay on;
+- `=etc` opens only ETC, and an anchor-0 row is still listable at `min_price` 1;
+- `-Dslums.exchange.tickers` narrows the catalog as well as the legacy four;
+- with the catalog off the ticker list is byte-for-byte 1.6.3's, and the cap is off;
+- the site payload carries the category for a catalog row and for the legacy rows;
+- the ceiling refuses a 60M sell, allows 18M, refuses the next 6M that would cross 20M, and is per account (NX
+  untouched);
+- a fill counts against the ceiling (10 leaves filled = 6M used, 20 more fit, 4 more do not).
+
+The failing state on `release-1.6.4` is a compile failure (`AssetRegistry`, `ExchangeLimits`, `ExchangeCatalog`,
+`ExchangeStore.itemExposure` and the six-argument `Exchange` ctor do not exist there), which is why the tests live
+beside the code rather than before it.
 
 ## 8. Done when
 
@@ -201,10 +222,37 @@ compile against it — record that as the failing state):
 - Ammo and basic potions as tickers (dust prices under `TOKEN_FLOOR`).
 - Any live deployment, any `release-*` merge, any push.
 
-## 10. Open questions for the owner, in priority order
+## 10. Questions still open for the owner
 
-1. §5.1 which derived-default option (A recommended).
-2. §5.3 the daily meso cap (20M recommended).
-3. §5.4 the item maker (A recommended; without it the scroll tickers only ever show asks).
-4. §5.2 whether `maxPrice` for scrolls drops to 2× anchor.
-5. §5.5 whether ammo should be carried anyway, knowing the exchange cannot price under 1,000 mesos per unit.
+1. **`maxPrice` for scrolls**: rows ship with the engine's 1e9 ceiling (a plant is caught by `maxPrice` only when it
+   is tight). §5.2's option was 2× the anchor. Tightening it is one column in `exchangeTickers.yaml`.
+2. **The 109 anchor-0 ETC rows** (§2): they are registered and a player can place an order, but no quote appears until
+   they get a price. Price them by the §4 chain (sibling derivation) or leave them as a player-only list?
+
+## 11. What shipped (2026-11-03)
+
+| Piece | Where | Notes |
+|---|---|---|
+| Asset registry | `Economy/exchange/AssetRegistry.java` | `Asset(id, itemId, name, Category, anchor)`; categories `NX MESO LEAF SCROLL USE ETC ITEM`; constants kept as `Asset.NX` … `Asset.ELIXIR`; `of(id)` resolves a registered id, else a derived `S/U/E` id via `parseItemId`; throws above 8 characters; first registration of an item id wins, so the legacy four never get a twin |
+| Catalog reader | `Economy/exchange/ExchangeCatalog.java` + `itemPool/itemConfig/exchangeTickers.yaml` | 709 rows; `DataFiles.optional`, so a missing file is 1.6.3's behaviour with a warning; rows whose item id is already seeded are dropped |
+| Caps and switches | `Economy/exchange/ExchangeLimits.java` | `-Dslums.exchange.catalog` (plural or singular token), `-Dslums.exchange.itemMaker`, `-Dslums.exchange.regularItems` (default 5), `-Dslums.exchange.items.sellCapMesosPerDay` (default 0) |
+| Ticker build | `Ticker.fromSystem` | NX + 1.6.3 seeds narrowed by `-Dslums.exchange.tickers` + catalog rows the category switch opens, each through the per-ticker and item-wide overrides |
+| Fair value | `FairValue` | no hardcoded ticker list: `update(now, flows, src, tickers)` walks the exchange's tickers (CHAOS first, LEAF last); floor = NPC price (LEAF keeps `-Dslums.exchange.LEAF.anchor`, default 500,000); anchor = board value ≥ 1,000 else the row's anchor; ceiling = `max(board, anchor) × 1.5`; a floor and anchor both under 1,000 still publishes nothing |
+| Flow hooks | `MarketFlows.tickerOf(int)`, `MarketTraders.anchorOf(Ticker)`, `MarketTraders.heldScroll` | reverse lookup through the registry; an item ticker's fallback price is its own anchor; the off-screen scroll finder now prefers whatever scroll the bot holds most, not just CHAOS/WS |
+| Item maker | `Exchange.tickRegulars` → `makerQuotes`/`makerQuote` | with `-Dslums.exchange.itemMaker=true` each open item book gets one house-funded bid and ask at the fair value ∓ `regularSpreadBps`, `regularItems` units, LEAF skipped (it has players), order ids `maker-<regular>-<side>-<ticker>-<n>`. A bid's affordability is read from the HOUSE's MESO bucket, an ask's from the HOUSE's item bucket. The pass is budgeted (`MAKER_BOOKS_PER_TICK = 12` books, rotating cursor) so a catalog this size costs at most 24 house-bucket reads per tick instead of 1,400, and a full sweep is an hour at the default poll |
+| Maker funding | `Exchange.fundHouseLive`, `!exchange fund <regular> <nx|meso|ticker> <amount>` | the house cannot quote an ask without real items, so an item asset is accepted exactly when the maker is on (otherwise `BAD_REQUEST`, exactly 1.6.3's refusal); the character's bags are written in the same batch (`inventoryWriter`); the offline `fundHouse` still refuses item assets because there is no offline item wallet |
+| Sell cap | `Exchange.sellCap`, `ExchangeStore.itemExposure`, JDBC + memory stores | counts an account's item-sell fills since UTC midnight plus the mesos its open item sells still hope for; refused at `place()` with `ITEMS_CAP`; NX and MESO are not item sells |
+| Site payload | `ExchangeSite.tickerJson` | each ticker now carries `"category"` (`nx`, `meso`, `leaf`, `scroll`, `use`, `etc`, `item`) for the page's filter |
+| Ledger | `Ledger`, `Exchange`, `JdbcExchangeStore`, the wallets, `volatility/*` | `Ledger.Asset` enum deleted; the ledger reads and writes `Asset.id()`, and every read-back goes through `AssetRegistry.of(String)`, so 1.6.3 rows (`NX`, `LEAF`, `CHAOS`, `WS`, `ELIXIR`) and catalog rows (`S…`, `U…`, `E…`) resolve the same way |
+
+Tests: `ExchangeCatalogTest` (8 cases), `volatility/ExchangeItemMakerTest` (2 cases), plus the existing Economy suite.
+The maker test pins that the house refuses item funding with the maker off, that it holds 20 rocks and 5M mesos after
+funding, that one `tickRegulars()` posts a bid under and an ask over the seeded 10,000 fair value, and that a second
+pass adds nothing while both sides rest. The catalog test pins the file's shape (no
+twin book, every id ≤ 8), the scroll caps 1/3/10, the `etc` switch, the `tickers` narrowing, anchor-0 rows, the site's
+category key, and the daily ceiling both at placement (resting exposure) and after a fill.
+
+Migration: none. The four ledger columns are already `varchar(8)` and no legacy id changes.
+
+Not done, on purpose: the 238 untradeable and GM scrolls (§9), the 109 unpriced ETC rows' prices (§10), the website's
+category filter itself (the payload key is there; the page is the Website session's), any deploy.

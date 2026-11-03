@@ -1,6 +1,6 @@
 package soloMapling.Economy.exchange;
 
-import soloMapling.Economy.exchange.Ledger.Asset;
+import soloMapling.Economy.exchange.AssetRegistry.Asset;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -25,7 +25,12 @@ import java.util.Map;
  * <p>
  * Limits per ticker (owner 2026-10-28, raised for the item tickers; NX keeps {@link ExchangeConfig}'s): open orders
  * per account on this ticker, orders per account per 24 h on this ticker, and an order's life. Item tickers default to
- * 10 open, 20 a day each, 168 h (7 days), LEAF and ELIXIR orders up to 10,000 items, CHAOS and WS up to 1,000. Knobs:
+ * 10 open, 20 a day each, 168 h (7 days), LEAF and ELIXIR orders up to 10,000 items, CHAOS and WS up to 1,000.
+ * <p>
+ * Ticket 270 adds the item catalog: {@code -Dslums.exchange.catalog=scrolls,use,etc} opens the tickers in
+ * {@code itemConfig/exchangeTickers.yaml} (one row per item, its own caps and anchor, {@link ExchangeCatalog}). Their
+ * ids are {@code S}/{@code U}/{@code E} plus the item id, 8 characters at most because the ledger columns are
+ * {@code varchar(8)}; an item that already has a 1.6.3 ticker keeps that id instead of a second book. Knobs:
  * {@code -Dslums.exchange.items.maxOpen|perDay|expiryHours} (every item ticker) and
  * {@code -Dslums.exchange.<ticker>.maxOpen|perDay|expiryHours} (one). The 10 s cooldown stays per account across
  * every ticker.
@@ -40,15 +45,13 @@ public record Ticker(String id, Asset asset, String name, long per, long lot, lo
                      long maxPrice, String unit, String unitLabel, int maxOpen, int perDay, long expiryMs) {
 
     public static final String NX = "NX";
-    /** The item tickers' default largest order, by ticker. */
+    /** The 1.6.3 item tickers' largest order, by ticker; a catalog ticker takes its own row's cap. */
     static final Map<String, Long> ITEM_MAX = Map.of("LEAF", 10_000L, "CHAOS", 1_000L, "WS", 1_000L,
             "ELIXIR", 10_000L);
     /** The item tickers' default limits (owner 2026-10-28): 10 open, 20 a day per ticker, 7 days. */
     static final int ITEM_MAX_OPEN = 10;
     static final int ITEM_PER_DAY = 20;
     static final long ITEM_EXPIRY_MS = 168L * 3_600_000L;
-    static final Map<String, String> ITEM_NAME = Map.of("LEAF", "Maple Leaf", "CHAOS", "Chaos Scroll 60%",
-            "WS", "White Scroll", "ELIXIR", "Power Elixir");
     static final long ITEM_MAX_PRICE = 1_000_000_000L;
 
     public Ticker {
@@ -61,6 +64,16 @@ public record Ticker(String id, Asset asset, String name, long per, long lot, lo
 
     public boolean item() {
         return asset.item();
+    }
+
+    /** The item's category, for the caps and the site's filter. */
+    public AssetRegistry.Category category() {
+        return asset.category();
+    }
+
+    /** A starting price in mesos, 0 for none: the catalog's anchor (the price the order book starts from). */
+    public long anchor() {
+        return asset.anchor();
     }
 
     /** Mesos for {@code qty} units at {@code price}, rounded down. */
@@ -90,30 +103,39 @@ public record Ticker(String id, Asset asset, String name, long per, long lot, lo
                 c.maxPrice(), "1000nx", "mesos per 1,000 NX", c.maxOpen(), c.perDay(), c.expiryMs());
     }
 
-    /** An item ticker with its defaults (no JVM properties). */
+    /** A 1.6.3 item ticker with its defaults (no JVM properties). */
     public static Ticker itemDefault(Asset a) {
         if (!a.item()) {
             throw new IllegalArgumentException(a + " is not an item");
         }
-        String name = ITEM_NAME.get(a.name());
-        return new Ticker(a.name(), a, name, 1, 1, 1, ITEM_MAX.get(a.name()), 1, ITEM_MAX_PRICE, "item",
-                "mesos per " + name, ITEM_MAX_OPEN, ITEM_PER_DAY, ITEM_EXPIRY_MS);
+        String name = a.display();
+        long maxQty = ITEM_MAX.getOrDefault(a.id(), 1_000L);
+        return new Ticker(a.id(), a, name, 1, 1, 1, maxQty, 1, ITEM_MAX_PRICE, "item", "mesos per " + name,
+                ITEM_MAX_OPEN, ITEM_PER_DAY, ITEM_EXPIRY_MS);
     }
 
-    /** Every ticker with defaults: NX first, then the items in {@link Asset} order. */
+    /** Every 1.6.3 ticker with defaults: NX first, then the six item assets in registration order. */
     public static List<Ticker> defaults(ExchangeConfig c) {
         List<Ticker> out = new ArrayList<>();
         out.add(nx(c));
-        for (Asset a : Asset.values()) {
-            if (a.item()) {
+        for (Asset a : AssetRegistry.all()) {
+            if (a.item() && ITEM_MAX.containsKey(a.id())) {
                 out.add(itemDefault(a));
             }
         }
         return out;
     }
 
-    /** The open tickers from the JVM properties (see the class comment); NX is always there. */
+    /**
+     * The open tickers: NX, the 1.6.3 item tickers {@code -Dslums.exchange.tickers} names (all when it is unset),
+     * and every catalog ticker whose category {@code -Dslums.exchange.catalog} opens. Each keeps its defaults and
+     * then takes the per-ticker overrides {@code -Dslums.exchange.<id>.maxQty|minPrice|maxPrice|maxOpen|perDay|
+     * expiryHours}, and the item-wide ones {@code -Dslums.exchange.items.*}. A ticker whose overrides do not hold is
+     * left at its defaults.
+     */
     public static List<Ticker> fromSystem(ExchangeConfig c) {
+        List<Ticker> out = new ArrayList<>();
+        out.add(nx(c));
         String only = System.getProperty("slums.exchange.tickers");
         List<String> want = null;
         if (only != null && !only.isBlank()) {
@@ -122,28 +144,39 @@ public record Ticker(String id, Asset asset, String name, long per, long lot, lo
                 want.add(s.trim().toUpperCase(Locale.ROOT));
             }
         }
-        List<Ticker> out = new ArrayList<>();
-        for (Ticker t : defaults(c)) {
+        List<Ticker> all = new ArrayList<>(defaults(c));
+        if (ExchangeLimits.catalogOn()) {
+            for (Ticker t : ExchangeCatalog.templates().values()) {
+                if (ExchangeLimits.catalogHas(t.category())) {
+                    all.add(t);
+                }
+            }
+        }
+        for (Ticker t : all) {
             if (!t.item()) {
-                out.add(t);
                 continue;
             }
             if (want != null && !want.contains(t.id())) {
                 continue;
             }
-            String k = "slums.exchange." + t.id().toLowerCase(Locale.ROOT) + ".";
-            try {
-                String g = "slums.exchange.items.";
-                long expiryH = l(k + "expiryHours", l(g + "expiryHours", t.expiryMs() / 3_600_000L));
-                out.add(new Ticker(t.id(), t.asset(), t.name(), t.per(), t.lot(), t.minQty(),
-                        l(k + "maxQty", t.maxQty()), l(k + "minPrice", t.minPrice()), l(k + "maxPrice", t.maxPrice()),
-                        t.unit(), t.unitLabel(), (int) l(k + "maxOpen", l(g + "maxOpen", t.maxOpen())),
-                        (int) l(k + "perDay", l(g + "perDay", t.perDay())), Math.multiplyExact(expiryH, 3_600_000L)));
-            } catch (IllegalArgumentException | ArithmeticException e) {
-                out.add(t);
-            }
+            out.add(overrides(t));
         }
         return out;
+    }
+
+    /** A ticker with the JVM property overrides applied; itself when one does not hold. */
+    static Ticker overrides(Ticker t) {
+        String k = "slums.exchange." + t.id().toLowerCase(Locale.ROOT) + ".";
+        try {
+            String g = "slums.exchange.items.";
+            long expiryH = l(k + "expiryHours", l(g + "expiryHours", t.expiryMs() / 3_600_000L));
+            return new Ticker(t.id(), t.asset(), t.name(), t.per(), t.lot(), t.minQty(),
+                    l(k + "maxQty", t.maxQty()), l(k + "minPrice", t.minPrice()), l(k + "maxPrice", t.maxPrice()),
+                    t.unit(), t.unitLabel(), (int) l(k + "maxOpen", l(g + "maxOpen", t.maxOpen())),
+                    (int) l(k + "perDay", l(g + "perDay", t.perDay())), Math.multiplyExact(expiryH, 3_600_000L));
+        } catch (IllegalArgumentException | ArithmeticException e) {
+            return t;
+        }
     }
 
     /** The tickers by id, in order. */

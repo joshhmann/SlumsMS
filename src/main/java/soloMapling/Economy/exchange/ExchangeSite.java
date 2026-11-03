@@ -414,6 +414,8 @@ public final class ExchangeSite {
         m.put("id", t.id());
         m.put("name", t.name());
         m.put("item_id", t.item() ? t.asset().itemId() : null);
+        // ticket 270 §6.8: the site groups the tickers by category (scroll / use / etc); 1.6.3 rows gain one key
+        m.put("category", t.category() == null ? null : t.category().key());
         m.put("unit", t.unit());
         m.put("unit_label", t.unitLabel());
         m.put("per", t.per());

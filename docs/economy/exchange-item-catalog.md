@@ -1,10 +1,17 @@
 # Slums Exchange item catalog (proposal)
 
 Generated 2026-11-03 for ticket 270 from the item data in `/root/slums-nav-v70/wz` (v83), the item pool in
-`src/main/java/soloMapling/itemPool/itemConfig/*.yaml` (version 1), and a read-only snapshot of live `mapleroot`:
+`src/main/java/soloMapling/itemPool/itemConfig/*.yaml` at the live pool version 55 (so `darkscrolls.yaml`'s
+version-39 rows count, e.g. `2040305` Earring INT 30% = 4,500,000, `2041038` Cape DEX 70% = 3,000,000), and a
+read-only snapshot of live `mapleroot`:
 `pricesamples` over the last 7 days and `inventoryitems` split into player rows (characterid present in
 `characters`) and bot rows (characterid absent). Nothing here is behaviour; it is the list ticket 270 works from.
 Companion evidence: `agent-runs/server/exchange-items-audit/REPORT.md`.
+
+**Shipped:** the anchored rows below are the anchors the engine actually loads, one line each, in
+`src/main/java/soloMapling/itemPool/itemConfig/exchangeTickers.yaml` (709 rows, ticket 270 §11). The states below are
+still the audit's: "NEEDS PRICE" rows got a derived anchor from the ticket's §4 chain (sibling slot and tier), and the
+109 ETC rows with no anchor ship registered but unquoted.
 
 ## Ticker ids
 
