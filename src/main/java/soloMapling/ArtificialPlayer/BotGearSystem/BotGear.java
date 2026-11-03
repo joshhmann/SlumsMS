@@ -279,12 +279,35 @@ public final class BotGear {
             }
             return BotGear.bestSet(chr, extras, liveFacts(chr), worn -> liveValuer(chr, worn));
         }
+
+        @Override
+        public double holdingValue(Character chr, Equip candidate) {
+            if (chr == null || candidate == null || !EquipMetadataCache.isInitialized()) {
+                return 0;
+            }
+            return BotGear.holdingValue(chr, candidate, liveFacts(chr), worn -> liveValuer(chr, worn));
+        }
     };
 
     /* GearScoring.upgradeValue with its item data and yardstick handed in (tests). */
     static double upgradeValue(Character chr, Equip candidate, IntFunction<Known> facts,
                                Function<Map<Short, Piece>, Valuer> valuers) {
-        Plan plan = planWith(chr, List.of(candidate), facts, valuers);
+        return gain(chr, candidate, chr.getLevel(), facts, valuers);
+    }
+
+    /* GearScoring.holdingValue with its item data and yardstick handed in (tests). */
+    static double holdingValue(Character chr, Equip candidate, IntFunction<Known> facts,
+                               Function<Map<Short, Piece>, Valuer> valuers) {
+        Known known = candidate == null ? null : facts.apply(candidate.getItemId());
+        // the piece's own required level: a bot too low to wear it still finds out what it would bring
+        int level = known == null ? chr.getLevel() : Math.max(chr.getLevel(), known.reqLevel());
+        return gain(chr, candidate, level, facts, valuers);
+    }
+
+    /* upgradeValue and holdingValue differ only in the level they plan at. */
+    private static double gain(Character chr, Equip candidate, int level, IntFunction<Known> facts,
+                               Function<Map<Short, Piece>, Valuer> valuers) {
+        Plan plan = planWith(chr, List.of(candidate), level, facts, valuers);
         if (plan == null) {
             return 0;
         }
@@ -299,7 +322,7 @@ public final class BotGear {
     /* GearScoring.upgradeFraction with its item data and yardstick handed in (tests). */
     static double upgradeFraction(Character chr, Equip candidate, IntFunction<Known> facts,
                                   Function<Map<Short, Piece>, Valuer> valuers) {
-        Plan plan = planWith(chr, List.of(candidate), facts, valuers);
+        Plan plan = planWith(chr, List.of(candidate), chr.getLevel(), facts, valuers);
         if (plan == null || plan.before() <= 0) {
             return 0;
         }
@@ -314,7 +337,7 @@ public final class BotGear {
     /* GearScoring.bestSet with its item data and yardstick handed in (tests). */
     static Map<Short, Equip> bestSet(Character chr, java.util.Collection<Equip> extras, IntFunction<Known> facts,
                                      Function<Map<Short, Piece>, Valuer> valuers) {
-        Plan plan = planWith(chr, extras, facts, valuers);
+        Plan plan = planWith(chr, extras, chr.getLevel(), facts, valuers);
         if (plan == null) {
             return Map.of();
         }
@@ -338,7 +361,7 @@ public final class BotGear {
      */
     static final long PLAN_CACHE_MS = 60_000;
     private static final int PLAN_CACHE_SIZE = 4_096;
-    private record PlanKey(int charId, long signature, String optimizer, List<Integer> extras) {
+    private record PlanKey(int charId, long signature, String optimizer, int level, List<Integer> extras) {
     }
     private record Cached(Plan plan, long at) {
     }
@@ -356,8 +379,8 @@ public final class BotGear {
     }
 
     // What the character's own planner would wear from its gear plus these extras; read only.
-    private static Plan planWith(Character chr, java.util.Collection<Equip> extras, IntFunction<Known> facts,
-                                 Function<Map<Short, Piece>, Valuer> valuers) {
+    private static Plan planWith(Character chr, java.util.Collection<Equip> extras, int level,
+                                 IntFunction<Known> facts, Function<Map<Short, Piece>, Valuer> valuers) {
         synchronized (chr) {
             // a candidate it already carries is in "owned" already: never planned twice, never a plan of its own
             Inventory bag = chr.getInventory(InventoryType.EQUIP);
@@ -370,19 +393,19 @@ public final class BotGear {
                 }
             }
             long now = System.currentTimeMillis();
-            PlanKey key = new PlanKey(chr.getId(), GearMemo.signature(chr), optimizer(), freshIds);
+            PlanKey key = new PlanKey(chr.getId(), GearMemo.signature(chr), optimizer(), level, freshIds);
             Cached hit = planCache.get(key);
             if (hit != null && now - hit.at() < PLAN_CACHE_MS) {
                 return hit.plan();
             }
-            Plan plan = planNow(chr, fresh, facts, valuers);
+            Plan plan = planNow(chr, fresh, level, facts, valuers);
             planCache.put(key, new Cached(plan, now));
             return plan;
         }
     }
 
-    private static Plan planNow(Character chr, java.util.Collection<Equip> extras, IntFunction<Known> facts,
-                                Function<Map<Short, Piece>, Valuer> valuers) {
+    private static Plan planNow(Character chr, java.util.Collection<Equip> extras, int level,
+                                IntFunction<Known> facts, Function<Map<Short, Piece>, Valuer> valuers) {
         {
             Inventory carried = chr.getInventory(InventoryType.EQUIP);
             Inventory body = chr.getInventory(InventoryType.EQUIPPED);
@@ -408,7 +431,7 @@ public final class BotGear {
                     worn.put(slot, piece(equip, facts.apply(equip.getItemId())));
                 }
             }
-            Wearer wearer = new Wearer(chr.getJob().getJobNiche(), chr.getLevel(), chr.getFame(), chr.getStr(),
+            Wearer wearer = new Wearer(chr.getJob().getJobNiche(), level, chr.getFame(), chr.getStr(),
                     chr.getDex(), chr.getInt(), chr.getLuk(), Math.max(carried.getNumFreeSlot(), extras.size()));
             Piece held = worn.get(BotGearPlanner.WEAPON);
             int heldId = held != null ? held.itemId() : 0;

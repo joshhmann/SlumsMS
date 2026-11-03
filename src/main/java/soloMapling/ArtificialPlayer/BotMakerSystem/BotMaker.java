@@ -13,6 +13,7 @@ import constants.inventory.ItemConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.ItemInformationProvider;
+import soloMapling.ArtificialPlayer.BotGearSystem.GearScoring;
 import soloMapling.ArtificialPlayer.BotHelpers;
 import soloMapling.Economy.EconomyConfig;
 import soloMapling.Economy.EconomyMeters;
@@ -202,7 +203,7 @@ public final class BotMaker {
             return new Result(0, "no hands");
         }
         List<Op> ops = new ArrayList<>();
-        for (Equip e : junk(chr, MakerGearScore.live())) {
+        for (Equip e : junk(chr, GearScoring.live())) {
             short pos = e.getPosition();
             int id = e.getItemId();
             ops.add(() -> MakerService.disassemble(h, pos, id));
@@ -361,10 +362,11 @@ public final class BotMaker {
     }
 
     /*
-     * Junk to disassemble: carried (not worn) equips with a Maker disassembly recipe that would not be worn (no
-     * upgrade by the gear score), never cash, quest, locked, ring or rebirth items.
+     * Junk to disassemble: carried (not worn) equips with a Maker disassembly recipe that would bring nothing even to
+     * a bot who can wear them (holdingValue is asked at the piece's own level, so a piece a low bot cannot wear yet
+     * is kept), never cash, quest, locked, ring or rebirth items.
      */
-    static List<Equip> junk(Character chr, MakerGearScore score) {
+    static List<Equip> junk(Character chr, GearScoring score) {
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
         List<Equip> carried = new ArrayList<>();
         Inventory inv = chr.getInventory(InventoryType.EQUIP);
@@ -383,7 +385,7 @@ public final class BotMaker {
             int id = e.getItemId();
             if ((e.getFlag() & ItemConstants.LOCK) != 0 || e.getRingId() > 0 || ii.isCash(id) || ii.isQuestItem(id)
                     || soloMapling.ArtificialPlayer.BotProgressionSystem.BotRebirth.keeps(id)
-                    || !MakerService.canDisassemble(id) || score.upgradeValue(chr, e) > 0) {
+                    || !MakerService.canDisassemble(id) || score.holdingValue(chr, e) > 0) {
                 continue;
             }
             out.add(e);

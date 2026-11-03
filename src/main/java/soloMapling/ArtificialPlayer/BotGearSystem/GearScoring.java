@@ -28,6 +28,14 @@ public interface GearScoring {
     double upgradeFraction(Character chr, Equip candidate);
 
     /*
+     * upgradeValue for a piece the character cannot wear yet: the same question asked at the piece's own required
+     * level, so an equip above the character's level still scores what it would bring, and 0 means the piece would
+     * bring nothing even to someone who can wear it. The Maker junk test asks this: a piece too high to wear is not
+     * junk.
+     */
+    double holdingValue(Character chr, Equip candidate);
+
+    /*
      * The best loadout from what the character wears and carries plus the extras (another character's items, for
      * an offer): body slot to equip, only the slots that change. Empty when nothing would change.
      */
