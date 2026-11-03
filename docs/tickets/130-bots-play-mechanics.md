@@ -663,9 +663,43 @@ Round two of the same lane added seven more `kind: BOSS` rows - `papulatus`, `kr
   is evaluated inside a stage, i.e. only after the gate that needs the item. `delli` needs a survive-the-timer
   objective: `DelliBattle.js:119-123` clears when its own 6-minute timer expires, and killing the friendly `9300162`
   ends the instance (`:194-198`), so a `boss-phases` row would spend six minutes killing trash that is not the win
-  condition and could end the run with one stray hit. Both are recorded in `REPORT-bossrows.md` with the primitive each
-  needs. What *is* provable was pinned instead:
-  `RowRunSimulationTest.aFriendlyMobTheRowDoesNotListNeverBecomesATarget`.
+  condition and could end the run with one stray hit. `latanica`'s primitive was built in round three (below); `delli`
+  is not ours - `164-opq` @ `ac08ce380` ships `DelliHoldSolver` + `content/dellibattle.yaml` + `DelliBattleSolversTest`
+  for exactly that room, and two spellings of "won by staying alive" is worse than one. What *is* provable here was
+  pinned instead: `RowRunSimulationTest.aFriendlyMobTheRowDoesNotListNeverBecomesATarget`.
+
+## Boss lane: a door the row can name, and five quest spawns (1.6.4, branch `164-bossrows`)
+
+Round three built the entry-item primitive round two refused to fake, shipped `latanica` on it, then added the five
+quest-gated bosses: `latanica`, `magnus`, `nwill`, `nlucid`, `nverus`, `ndarknell` - twenty-two `kind: BOSS` rows in
+all. Per-row script/gate/map/target/spawn/clear detail is in `REPORT-bossrows.md`, the credits in
+`docs/PROVENANCE.md`. The primitive is additive: no new `SolverStep`, no portal special-cased, nothing changed in
+`Orchestrator`, `StageView` or the PQ engine.
+
+- **`entryItems:` - a door the run can see it is not through.** A stage may declare the items the run must have in hand
+  before its first step. `captinsg00.js:4` is the only place that asks for `4000381` and the instance never asks again,
+  so `latanica.yaml` declares it and `BossPhasesSolver` turns a run without it into
+  `Wait(1_000, "the run has no entry item [4000381] in hand, so stage 1 cannot be entered: Capt. Latanica")` - no `EnterPortal`, no reactor click, no `Fight`, and (importantly)
+  no `Abandon`: a dry run is not a dead room. It is one member's item, not everyone's, because the portal asks the player
+  who walks through and the item is not consumed. The check reads `StageView.itemCount`, so a collect step earlier in
+  the same stage would satisfy it - the primitive is "what must be in hand", not "when it was picked up".
+  Fail-before: `BossPhasesSolverTest.aDoorItemTheRunDoesNotHoldIsAWaitThatNamesItAndTouchesNothingElse` and, whole-run,
+  `RowRunSimulationTest.aRunWithoutTheWhiteEssenceWaitsAtLatanicasDoorAndNeverEnters`.
+- **A survive-the-stage objective was built and then reverted.** The same round carried `ObjectiveKind.SURVIVE` plus a
+  stage-level `neverTargets`, so `boss-phases` could hold Delli's room for the script's own clock and keep the friendly
+  `9300162` out of every `Fight`. It worked and is gone: `164-opq` @ `ac08ce380` owns that room as `DelliHoldSolver`,
+  which names the server's clock instead of keeping one. This branch carries no `SURVIVE`, no `neverTargets`, no
+  `delli.yaml` and no Delli test - the revert is recorded in `REPORT-bossrows.md` so nobody re-adds it by hand.
+- **The five quest instances are a precondition, not a gate.** `31166` (Magnus), `31162` / `31161` / `31164` / `31163`
+  (Will, Lucid, Verus, Darknell) are quest states checked by the expedition recruiters and, for bots, by
+  `ExpeditionBots.memberQuest` (skipped with reason `quest`); no instance script re-checks them and no run writes them.
+  The rows ship: a human with the quest gets a working boss, and one without is refused at the recruiter where they can
+  see it. Their simulated halves are the five 5 s spawn tests; the entry half is unproven by construction, because
+  `StageView` cannot see a quest state - said so in `REPORT-bossrows.md` instead of pretending.
+- **The 5 s spawn is inside the grace, so no row declares a wait.** `MagnusBattle.js:91-92`, `NWillBattle.js:116-117`,
+  `NLucidBattle.js:115-116`, `NVerusBattle.js:116-117` and `NDarknellBattle.js:116-117` spawn their only target five
+  seconds after setup, against a 30 s grace: a `spawnWaitSeconds` there would hide a regression rather than describe
+  the room.
 
 ## QA plan
 

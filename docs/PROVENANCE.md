@@ -339,7 +339,8 @@ them the row follows our script and the disagreement is written down.
 | `showa.targetPriority` = `[9400112, 9400113, 9400300, 9400122]` - the chain, plus one of the room's seven trash mobs | `content/showa.yaml` takes the chain `[9400112, 9400113, 9400300]` and drops `9400122`: the trash is respawned every 15 s by the script (`ShowaBattle.js:112-116`), so listing one of seven would put a kill in the row's order that the row cannot promise |
 | `pinkbean.neverTarget` = `[8820000, 8820019, 8820020, 8820021, 8820022, 8820023]` | `content/pinkbean.yaml` lists none of them, and `RowRunSimulationTest.aBotPartyWalksPinkBeansWavesToTheDefeatedBossProperty` asserts no statue reaches a `Fight` step. Their `targetPriority` is **not** used: theirs is `[8820006, 8820002, 8820005, 8820004, 8820003, 8820001]`, which is their runtime's focus order; ours is the order `PinkBeanBattle.js:306-313` waves them in (`8820002` -> ... -> `8820006`, then `8820001`) |
 | `papulatus.targetPriority` = `[8500001, 8500002]` | **not used**: our reactor spawns `8500000` (`scripts/reactor/2201004.js:28`), so our row starts the chain at `8500000`. Their `adds` (`8500000`, `8500003`, `8500004`) do not exist in our room |
-| `latanica.targetPriority` = `[9420513]` | not used - there is no `content/latanica.yaml`; the room is blocked on a consumable entry item (see `REPORT-bossrows.md`) |
+| `latanica.targetPriority` = `[9420513]` | not used: `content/latanica.yaml` (round 3) lists `9420513` because our
+`scripts/reactor/5411000.js:24` spawns exactly that id. The value coincides; the source is our script |
 
 Nothing is taken from BotStory for `krexel.yaml` or `elemental.yaml`: neither project carries a definition for them
 (`cosmic_agents` and `nuttnut/Cosmic` carry no boss targeting at all, and BotStory's 26 keys do not include Krexel or
@@ -359,6 +360,37 @@ measured data.
 
 The WZ facts (map life, revive chains) come from `/root/work/SlumsMS-170-evan/wz`, which is **not** version-pinned to
 this branch; each row's `sources:` names the file it relied on, and `REPORT-bossrows.md` lists them per id.
+
+### Boss row data for Latanica and the five quest instances, 1.6.4 (branch `164-bossrows`, ticket 130 boss lane): no outside source
+
+Nothing in round 3 comes from another bot project. None of these six has a definition in BotStory, cosmic_agents or the
+nuttnut fork, and none was needed: each row is the script read line by line.
+
+| From theirs | Our files |
+| --- | --- |
+| - (no definition of `latanica`, `magnus`, `nwill`, `nlucid`, `nverus` or `ndarknell` in any of the three) | - |
+
+Ours, and the reason the new primitive exists:
+
+- **The door item.** `scripts/portal/captinsg00.js:4` is the only place that asks for `4000381`, and
+  `LatanicaBattle.getEligibleParty` never asks again, so the row declares `entryItems: [ 4000381 ]` and the solver waits
+  on it rather than special-casing a portal script. The item is not consumed, so one member carrying it opens the door
+  for the party - which is what the portal does for the player who walks through it.
+- **The quest gate on the five.** `31166` (Magnus), `31162`/`31161`/`31164`/`31163` (Will, Lucid, Verus, Darknell) are
+  quest states checked by the expedition recruiters and by `ExpeditionBots.memberQuest`
+  (`:217-228`, `:283-284`), not by the instances. The rows state it as a precondition; no run writes quest state.
+- **The five 5 s spawns.** `MagnusBattle.js:91-92`/`:120-125`, `NWillBattle.js:116-117`/`:145-150`,
+  `NLucidBattle.js:115-116`/`:144-149`, `NVerusBattle.js:116-117`/`:145-150`, `NDarknellBattle.js:116-117`/`:145-150`
+  are the only sources; the WZ dump holds none of their targets as map life, so there is nothing for the room to stand
+  up before the script's own spawn.
+
+Delli is deliberately absent: its win is the instance's own clock, and that room is owned by `164-opq` @ `ac08ce380`
+(`DelliHoldSolver`, `content/dellibattle.yaml`, `DelliBattleSolversTest`). No second spelling lives here.
+
+The map and mob facts again come from `/root/work/SlumsMS-170-evan/wz`, **not** version-pinned to this branch:
+`Map/Map5/541010100` (reactor `5411000`, no mobs), `Map/Map4/401060100` (one NPC, `3004006`), `Map/Map4/450007441`,
+`450004751`, `450010101`, `450012211` (empty life), and `Mob/9420513`, `8880002`, `9990301`, `9990150`, `9990415`,
+`9995009` (no `info/revive`). `REPORT-bossrows.md` names each file per id.
 
 ### Orbis PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00`
 
