@@ -149,3 +149,6 @@ mvn -q -o test -Dtest='soloMapling.mechanics.*Test,MechanicsDataFilesTest,BotSki
 mvn -o test                     # full suite
 tools/ops/autoqa-proof          # the ids above, for the files this branch touches
 ```
+
+Economy: none. The boss rows and the chaos lane change no drop, meso, EXP or shop number; the tier executor
+only rescales a mob's HP when `-Dslums.mechanics.tiers` is on.

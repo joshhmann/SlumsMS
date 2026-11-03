@@ -473,8 +473,8 @@ do not abort it**. The scripts unregister a dead character (`scripts/event/Zakum
 as a member leaving - for a six-member expedition that is the `minPlayers` abort, i.e. one death ended everybody's run.
 
 - `RevivePause` (`soloMapling/mechanics/RevivePause.java`) carries the rule: `-Dslums.bossfight.revivepause`
-  (**default on**: the expiry path is today's behaviour, so a server that wants the old behaviour passes `=false`),
-  `-Dslums.bossfight.revivepause.ms` (default 300000) and a per-row override
+  (**default off** since round 9: every switch is off unless a brief says otherwise, and the release conf carries the
+  `=true` line), `-Dslums.bossfight.revivepause.ms` (default 300000) and a per-row override
   `-Dslums.bossfight.revivepause.ms.<row id>`.
 - A `kind: BOSS` run whose member leaves records a `RunState.Waiter` (who, why, where it belonged in the list, when the
   window closes) and stops: `tick` advances no stage, warps nobody, and puts a `Wait` naming that member in every bot's
