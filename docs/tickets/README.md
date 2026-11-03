@@ -8,6 +8,12 @@
 | [178](178-sibling-only-upgrade-handover.md) | Sibling-only upgrade offer cannot start a handover | Source-confirmed; coordinator + submitter triage required |
 | [179](179-qa-worker-loses-batched-ready-events.md) | Client readiness events lost between waits | Reproduced locally; coordinator + submitter triage required |
 
+## Possible overlaps (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [184](184-possible-overlaps-1-6-4.md) | Possible overlaps to revisit | Parking list of places where in-flight 1.6.4 work could collide, with how to check each and what to do; check before starting or merging |
+
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 
 | # | Ticket | Purpose |
