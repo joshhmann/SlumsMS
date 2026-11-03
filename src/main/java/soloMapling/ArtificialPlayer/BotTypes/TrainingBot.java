@@ -1580,10 +1580,17 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         }
     }
 
+    // train#F1: the town a town stop plans its shops in. A death respawns the bot into the dead map's return town
+    // (handleDeath), which is not always its home town: standing in a town with shops of its own, it shops there.
+    // Anywhere else (a field, a town without shops) the home town still plans the trip.
+    static int shopTown(int hereMapId, int homeMapId) {
+        return TOWN_SHOPS.containsKey(hereMapId) ? hereMapId : homeMapId;
+    }
+
     // Decide this town stop's store itinerary: nothing, just potions, just equips, or both in either order.
     private void buildShopPlan() {
         shopQueue.clear();
-        int[] shops = TOWN_SHOPS.get(homeMapId);
+        int[] shops = TOWN_SHOPS.get(shopTown(getChr().getMapId(), homeMapId));
         if (shops == null || rng.nextDouble() > SHOP_VISIT_CHANCE) {
             return; // unknown town, or skipping the shops this visit
         }
@@ -1626,7 +1633,7 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
         Character chr = getChr();
         resupplySite = null;
         saunaResupply = false;
-        ShopCatalog.Site site = BotShopping.siteFor(chr, homeMapId, needs);
+        ShopCatalog.Site site = BotShopping.siteFor(chr, shopTown(chr.getMapId(), homeMapId), needs);
         if (site == null) {
             BotSupplies.restock(chr);
             return false;
@@ -2468,6 +2475,9 @@ public class TrainingBot extends BotSM implements soloMapling.ArtificialPlayer.B
     private int hpPotsAtGrindStart = 0;
 
     private boolean supplyRetreat(Character chr) {
+        if (!BotSupplies.mayResupply(chr.getId(), now())) {
+            return false; // train#F2: its last trip bought nothing - grind it out rather than loop back to town
+        }
         BotSupplies.Shortage shortage = BotSupplies.shortage(chr);
         if (shortage == BotSupplies.Shortage.NONE && !recruitingNow() && runningLow(chr)) {
             return true; // 1.5.0 rc3: down to its own low-water mark of potions -> town to restock

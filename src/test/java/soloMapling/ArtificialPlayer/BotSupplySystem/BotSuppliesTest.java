@@ -431,7 +431,7 @@ class BotSuppliesTest {
         AtomicReference<SupplyNeeds> asked = new AtomicReference<>();
         BotResupply.install((bot, needs) -> {
             asked.set(needs);
-            return false;
+            return BotResupply.RestockOutcome.NOTHING;
         });
         BotSupplies.visitTown(mage);
         assertEquals(400, mage.getHp(), "rested to full");
@@ -445,7 +445,7 @@ class BotSuppliesTest {
     @Test
     void theDefaultHookBuysNothing() throws Exception {
         Character bot = bot(Job.WARRIOR, 30, 1000, 200);
-        assertFalse(BotResupply.request(bot, BotSupplies.needs(bot)));
+        assertEquals(BotResupply.RestockOutcome.NOTHING, BotResupply.request(bot, BotSupplies.needs(bot)));
         assertSame(BotResupply.NONE, BotResupply.installed());
     }
 }

@@ -213,12 +213,13 @@ public final class BotShopping {
 
     /*
      * BotResupply's hook: shop at the NPC the bot's town stop walked it to (headFor), on that map. Nowhere else: a bot
-     * buys only where it went to buy. False when it is not there or bought nothing.
+     * buys only where it went to buy. NOTHING when it is not there or bought nothing, PARTIAL when it bought some of
+     * what it went for and is still short, BOUGHT when it has its kit (train#F2).
      */
-    static boolean resupply(Character bot, SupplyNeeds needs) {
+    static BotResupply.RestockOutcome resupply(Character bot, SupplyNeeds needs) {
         ShopCatalog.Site site = siteFor(bot);
         if (site == null) {
-            return false;
+            return BotResupply.RestockOutcome.NOTHING;
         }
         Receipt receipt = shop(bot, site, needs);
         visits.incrementAndGet();
@@ -226,7 +227,7 @@ public final class BotShopping {
             log.info("[Shop] {} (lv {} {}) at npc {} on map {} ({} px away, {}): bought nothing ({} mesos, budget {})",
                     bot.getName(), bot.getLevel(), bot.getJob(), site.npcId(), site.mapId(), distance(bot, site),
                     observed(bot), bot.getMeso(), budget(bot));
-            return false;
+            return BotResupply.RestockOutcome.NOTHING;
         }
         mesosSpent.addAndGet(receipt.spent);
         itemsBought.addAndGet(receipt.items);
@@ -234,7 +235,16 @@ public final class BotShopping {
         log.info("[Shop] {} (lv {} {}) at npc {} on map {} ({} px away, {}): {} for {} mesos ({} left)", bot.getName(),
                 bot.getLevel(), bot.getJob(), site.npcId(), site.mapId(), distance(bot, site), observed(bot),
                 String.join(", ", receipt.lines()), receipt.spent, bot.getMeso());
-        return true;
+        return stillShort(bot) ? BotResupply.RestockOutcome.PARTIAL : BotResupply.RestockOutcome.BOUGHT;
+    }
+
+    /* Whether it bought something but is still short of what it went for (a bag or budget that ran out). */
+    private static boolean stillShort(Character bot) {
+        try {
+            return wantsShop(bot, BotSupplies.needs(bot));
+        } catch (LinkageError | RuntimeException noBotData) {
+            return false;   // no way to say it is short: take the trip as done
+        }
     }
 
     private static long distance(Character bot, ShopCatalog.Site site) {

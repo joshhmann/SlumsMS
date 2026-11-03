@@ -18,14 +18,22 @@ public final class BotResupply {
 
     private static final Logger log = LoggerFactory.getLogger(BotResupply.class);
 
+    /*
+     * What a trip to town did about the bot's needs (train#F2): the whole kit, some of it (a budget or a bag that ran
+     * out), or nothing at all - a bot with no mesos above its reserve, or a shop with nothing it can use. NOTHING is
+     * what has to be told apart from a restock: walking back for more straight away is the town -> shop -> train ->
+     * town loop (BotSupplies refuses the next trip for a while after one).
+     */
+    public enum RestockOutcome { BOUGHT, PARTIAL, NOTHING }
+
     @FunctionalInterface
     public interface Resupplier {
-        /* Restocks the bot from what it needs; true when it got something. */
-        boolean resupply(Character bot, SupplyNeeds needs);
+        /* Restocks the bot from what it needs: what the trip got done. */
+        RestockOutcome resupply(Character bot, SupplyNeeds needs);
     }
 
     /* The pre-09 hook: buys nothing. */
-    public static final Resupplier NONE = (bot, needs) -> false;
+    public static final Resupplier NONE = (bot, needs) -> RestockOutcome.NOTHING;
 
     private static volatile Resupplier handler = NONE;
 
@@ -38,17 +46,18 @@ public final class BotResupply {
         return handler;
     }
 
-    /* Offers the bot's needs to the installed resupplier; false when it got nothing (or the resupplier failed). */
-    public static boolean request(Character bot, SupplyNeeds needs) {
+    /* Offers the bot's needs to the installed resupplier; NOTHING when it got nothing (or the resupplier failed). */
+    public static RestockOutcome request(Character bot, SupplyNeeds needs) {
         try {
-            boolean got = handler.resupply(bot, needs);
+            RestockOutcome outcome = handler.resupply(bot, needs);
             if (log.isDebugEnabled()) {
-                log.debug("Resupply: bot {} ({}) {} -> {}", bot.getId(), bot.getName(), needs, got ? "restocked" : "nothing");
+                log.debug("Resupply: bot {} ({}) {} -> {}", bot.getId(), bot.getName(), needs,
+                        outcome != null ? outcome : RestockOutcome.NOTHING);
             }
-            return got;
+            return outcome != null ? outcome : RestockOutcome.NOTHING;
         } catch (RuntimeException e) {
             log.warn("Resupply failed for bot {} ({})", bot.getId(), bot.getName(), e);
-            return false;
+            return RestockOutcome.NOTHING;
         }
     }
 }
