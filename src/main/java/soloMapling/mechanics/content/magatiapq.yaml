@@ -132,7 +132,31 @@ stages:
       equals: "1"
   - stage: 5
     map: 926110300
-    name: "statusStg5 is a four-bit mask that jnr4_r1..r4 set and no script clears, so the way through the four rooms cannot be decided from a read - stages 6 (escort + four ten-digit combos) and 7 (Yulete's boss) are behind it and are equally unmodelled"
+    name: The four rooms and the ten-row climb
+    solver: magatia-climb
+    maps: [926110301, 926110302, 926110303, 926110304]
+    roles:
+      - id: climber
+        who: ANY
+        min: 1
+        max: party
+        note: every member climbs; the first to finish row 9 sets the event's own flag
+    objectives:
+      - id: rooms
+        kind: ENTER_PORTAL
+        role: all
+        note: "jnr4_r1..r4 OR one bit each into statusStg5 and warp into 926110301-304; the bits only stop re-entry"
+      - id: climb
+        kind: ENTER_PORTAL
+        role: all
+        note: "jnr5_rp.js compares pt<row><col>'s column with stage6_comb<room> and sets statusStg6 = 1 on row 9"
+    clear:
+      # The exit is the authority, not a writer: jnr5_rp.js:52-57 sets statusStg6 = 1 on the last row of any room.
+      eventProperty: statusStg6
+      equals: "1"
+  - stage: 6
+    map: 926110400
+    name: "Yulete's room is not modelled: the boss is summoned from 2112010.js and fought with 9300151/9300152, and no row solver drives a summoned boss inside a PQ yet"
     solver: hold
     roles:
       - id: waiting
@@ -143,9 +167,7 @@ stages:
       - id: not-modelled
         kind: WAIT
         role: all
-        note: "this stage never clears on purpose: the run must not report a PQ it did not finish"
+        note: "the clear below is the script's own (2112010.js:108-122 writes statusStg7 on the boss's death)"
     clear:
-      # "done" is a value no script can write: the event seeds statusStg5 = 0 (:131) and the four room portals only OR
-      # bits 0..3 into it (jnr4_r1..r4.js:3-15). So this stage is honestly unwinnable until the rooms' rule is read.
-      eventProperty: statusStg5
-      equals: "done"
+      eventProperty: statusStg7
+      equals: "1"

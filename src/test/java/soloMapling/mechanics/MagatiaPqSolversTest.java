@@ -38,7 +38,7 @@ class MagatiaPqSolversTest {
     }
 
     @Test
-    void theRowIsFourPlayableStagesThenAnHonestHold() {
+    void theRowIsFivePlayableStagesThenAnHonestHold() {
         MechanicsModel.Content c = row();
         assertEquals("MagatiaPQ_A", c.eventScript());
         assertEquals(4, c.minPlayers(), "MagatiaPQ_A.js:27: exactly four");
@@ -49,31 +49,66 @@ class MagatiaPqSolversTest {
         assertEquals(261000021, c.recruitMap());
 
         List<MechanicsModel.Stage> stages = c.stages();
-        assertEquals(5, stages.size(), "five of the seven stages are modelled, and the fifth says so");
-        assertEquals(List.of("magatia-books", "fight-room", "reactor-count", "magatia-files", HoldSolver.ID),
+        assertEquals(6, stages.size(), "five of the seven stages are driven, and the sixth says why it is not");
+        assertEquals(List.of("magatia-books", "fight-room", "reactor-count", "magatia-files",
+                        MagatiaClimbSolver.ID, HoldSolver.ID),
                 stages.stream().map(MechanicsModel.Stage::solver).toList());
-        assertEquals(List.of(926110001, 926110001, 926110200, 926110200, 926110300),
+        assertEquals(List.of(926110001, 926110001, 926110200, 926110200, 926110300, 926110400),
                 stages.stream().map(MechanicsModel.Stage::mapId).toList());
-        assertEquals(List.of("statusStg1", "statusStg2", "statusStg3", "statusStg4"),
-                stages.subList(0, 4).stream().map(s -> s.clear().eventProperty()).toList());
+        assertEquals(List.of("statusStg1", "statusStg2", "statusStg3", "statusStg4", "statusStg6", "statusStg7"),
+                stages.stream().map(s -> s.clear().eventProperty()).toList());
+        assertEquals(List.of(926110301, 926110302, 926110303, 926110304), stages.get(4).maps(),
+                "the four rooms the climb is fought in");
         assertEquals("3", stages.get(2).clear().equals(), "the beaker counts to three (2618000.js:34-41)");
         assertEquals(List.of(926110201, 926110202), stages.get(3).maps(),
                 "the two files come from the two side rooms");
     }
 
     @Test
-    void theFifthStageCannotClearBecauseNoScriptWritesTheValueItWants() {
-        MechanicsModel.Stage fifth = row().stages().get(4);
-        assertEquals("done", fifth.clear().equals(),
-                "statusStg5 is seeded 0 and the rooms only OR bits into it, so 'done' is unreachable by design");
-        View v = new View(fifth, 926110300);
+    void theClimbTakesTheColumnTheEventPublished() {
+        MechanicsModel.Stage climb = row().stages().get(4);
+        assertEquals("1", climb.clear().equals(), "jnr5_rp.js:52-57 sets statusStg6 = 1 on the last row");
+        View v = new View(climb, 926110301);
+        v.props.put(MagatiaClimbSolver.combKey(926110301), "3021130210");
+        v.at.replace(LEADER, 926110301);
+        MagatiaClimbSolver solver = new MagatiaClimbSolver();
+
+        // row 0's digit is 3, row 3's is 1, row 9's is 0 - the portal name IS the answer
+        for (int row : new int[]{0, 3, 9}) {
+            v.y = MagatiaClimbSolver.ROW_Y[row];
+            SolverStep.ScriptedPortal step = assertInstanceOf(SolverStep.ScriptedPortal.class,
+                    solver.next(v, member(true)), "row " + row);
+            assertEquals("pt" + row + "3021130210".charAt(row), step.portalName(), "row " + row);
+        }
+        // a member at the fail portal's height is back on row 0, not stuck
+        v.y = 120;
+        assertEquals("pt03", assertInstanceOf(SolverStep.ScriptedPortal.class,
+                solver.next(v, member(true))).portalName());
+        // from the hub the first step is the room door, which is what sets bit 0
+        v.at.replace(LEADER, 926110300);
+        assertEquals("pt00", assertInstanceOf(SolverStep.ScriptedPortal.class,
+                solver.next(v, member(true))).portalName());
+        // and with the combination not published yet, row 0 is the safe take that rolls it
+        v.at.replace(LEADER, 926110302);
+        v.props.remove(MagatiaClimbSolver.combKey(926110302));
+        assertEquals("pt00", assertInstanceOf(SolverStep.ScriptedPortal.class,
+                solver.next(v, member(true))).portalName());
+    }
+
+    @Test
+    void theBossRoomIsTheHoldAndItsClearIsTheScriptsOwn() {
+        MechanicsModel.Stage sixth = row().stages().get(5);
+        assertEquals("1", sixth.clear().equals(),
+                "2112010.js:108-122 writes statusStg7 on the boss's death - reachable, just not driven by a solver yet");
+        View v = new View(sixth, 926110400);
         HoldSolver hold = new HoldSolver();
         for (int tick = 0; tick < 5; tick++) {
             SolverStep step = hold.next(v, member(true));
             SolverStep.Wait w = assertInstanceOf(SolverStep.Wait.class, step,
                     "a held stage waits, it never clears and never abandons: " + step);
             assertTrue(w.why().contains("not modelled"), w.why());
-            assertTrue(w.why().contains("statusStg5"), "and it names the fact that is missing: " + w.why());
+            assertTrue(w.why().contains("Yulete") || w.why().contains("not modelled"),
+                    "and it names the fact that is missing: " + w.why());
         }
         v.cleared = true;
         assertInstanceOf(SolverStep.Done.class, hold.next(v, member(true)), "if the script ever clears it, we follow");
@@ -149,6 +184,7 @@ class MagatiaPqSolversTest {
         private final Map<String, String> props = new HashMap<>();
         private final Map<String, Object> memory = new HashMap<>();
         private int mobs;
+        private int y;
         private boolean cleared;
         private boolean npc;
 
@@ -196,7 +232,7 @@ class MagatiaPqSolversTest {
 
         @Override
         public int[] positionOf(int characterId) {
-            return new int[]{at.getOrDefault(characterId, stage.mapId()), 0};
+            return new int[]{at.getOrDefault(characterId, stage.mapId()), y};
         }
 
         @Override

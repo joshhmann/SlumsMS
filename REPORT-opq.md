@@ -556,14 +556,23 @@ stages up to the point where a read stops being able to decide, and then hold ra
 | 2 | `926110001` | the map has no monsters left | `MagatiaPQ_A.js:418-426` (`statusStg2`) | `fight-room` |
 | 3 | `926110200` | the beaker counts three hits, and only while its state is 6 | `2618000.js:27-41` (`statusStg3`) | `reactor-count` |
 | 4 | `926110200` + `926110201/202` | the leader hands over 4001134 **and** 4001135 | `2112005.js:72-87` (`statusStg4`) | `magatia-files` |
-| 5 | `926110300` | **held**: `statusStg5` is a four-bit mask the four room portals OR into and no script clears | `jnr4_r1..r4.js:3-15` seed it, nothing finishes it | `hold` |
-| 6-7 | `926110401`, `926110500` | not modelled: an escort with a respawn loop, four ten-digit combos compared by `jnr5_rp.js:25-63`, then Yulete's boss | `MagatiaPQ_A.js:432-450` | none - the row does not claim them |
+| 5 | `926110300` + rooms `926110301-304` | the four rooms, and in each a ten-row climb whose column per row is the event's own `stage6_comb<room>` | `jnr4_r1..r4.js:3-15` (entry bits), `jnr5_rp.js:25-60` (`statusStg6 = 1` on row 9) | `magatia-climb` |
+| 6 | `926110400` | **held**: Yulete's room is reachable (`out00`), but the boss is summoned from `2112010.js` and fought with `9300151`/`9300152`, and no solver drives a summoned boss inside a PQ yet | clear is the script's own `statusStg7 == "1"` (`2112010.js:108-122`) | `hold` |
+| 7 | `926110500` | not modelled, and behind the held room | - | none |
 
-- **Why a hold and not a shorter row.** The orchestrator ends a run `"cleared"` at its **last playable** stage, so a row
-  that stopped after stage 4 would tell the party the PQ was finished and warp them out. Stage 5 therefore exists and
-  cannot clear: its clear is `statusStg5 == "done"`, a value no script writes (`:131` seeds `0`, the portals OR bits
-  `1,2,4,8`). `HoldSolver` waits, names the missing fact every three seconds, and never abandons - so the run ends on the
-  45-minute budget with that line in its history. That is the honest outcome, and it is what the owner asked for.
+- **The stage that was held is now driven, because reading the exit beat reading the write.** `statusStg5` is a
+  four-bit "which rooms have we entered" mask that no script finishes, and an earlier version of this row cleared it on
+  `== "done"` - a value nothing can ever write. The authority is the portal out: `scripts/portal/jnr5_rp.js:25-60` takes
+  `pt<row><col>` from the portal's own name, reads or rolls the room's ten-digit `stage6_comb<room>`, and on row 9 sets
+  `statusStg6 = 1`. So the row's clear is `statusStg6 == "1"` and `magatia-climb` reads the combination the server
+  publishes, works out the row from the client's own portal heights (`ROW_Y`, ten values from
+  `Map.wz/Map9/926110301.img.xml`), and takes that portal with `ScriptedPortal` - the only step that runs a portal's side
+  effects for a bot.
+- **Why the boss room is still a hold, and why that is not a lie.** The orchestrator ends a run `"cleared"` at its **last
+  playable** stage, so a row that stopped after stage 5 would announce a finished PQ. Stage 6 exists, its clear is the
+  script's own (`statusStg7 == "1"`, written on the boss's death), and `HoldSolver` waits naming the reason - reachable in
+  principle, driven by nothing yet. What changed from the earlier version is only that the *unreachable* `== "done"` is
+  gone: an unreachable clear in a shipped row is exactly what the owner called out.
 - **Three stage rules became three generic solvers**, because each is "the script decides, the bot keeps the condition
   true": `fight-room` (empty the room), `reactor-count` (hit until the row's counted clear is reached, reading the counter
   from the event rather than assuming), `magatia-files` (both documents to the leader, then to the NPC with **no** item in
