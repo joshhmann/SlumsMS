@@ -896,6 +896,23 @@ public class Monster extends AbstractLoadedLife {
         return LootManager.retrieveRelevantDrops(this.getId(), lootChars);
     }
 
+    /** The mob a {@code revive} id names, or null when {@code Mob.wz} has no such id (the death still completes). */
+    Monster reviveTarget(int mid) {
+        return LifeFactory.getMonster(mid);
+    }
+
+    /** Ids already reported as absent from {@code Mob.wz}, so a busy map logs each bad revive id once. */
+    private static final java.util.Set<Integer> MISSING_REVIVES = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    private void warnMissingRevive(int mobId, String why) {
+        if (MISSING_REVIVES.add(mobId)) {
+            log.warn("monster {} revives into {} ({}): the spawn is skipped, the death of {} still completes",
+                    getId(), mobId, why, getObjectId());
+        } else {
+            log.debug("monster {} revives into missing {} ({})", getId(), mobId, why);
+        }
+    }
+
     public Character killBy(final Character killer) {
         distributeExperience(killer != null ? killer.getId() : 0);
 
@@ -922,7 +939,20 @@ public class Monster extends AbstractLoadedLife {
                     boolean aggro = lastController.getRight();
 
                     for (Integer mid : toSpawn) {
-                        final Monster mob = LifeFactory.getMonster(mid);
+                        final Monster mob;
+                        try {
+                            mob = reviveTarget(mid);
+                        } catch (RuntimeException broken) {
+                            // 1.6.4 (round 11): a `revive` id that is not in Mob.wz used to NPE here, inside the
+                            // TimerManager task, so the death was never finished - for the whole map, not just this
+                            // mob. Skip it, say so once per id, and let the rest of the death run.
+                            warnMissingRevive(mid, broken.toString());
+                            continue;
+                        }
+                        if (mob == null) {
+                            warnMissingRevive(mid, "not in Mob.wz");
+                            continue;
+                        }
                         mob.setPosition(getPosition());
                         mob.setFh(getFh());
                         mob.setParentMobOid(getObjectId());
