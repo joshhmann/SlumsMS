@@ -177,11 +177,12 @@ function action(mode, type, selection) {
                                         var player = cm.getPlayer();
                                         var resStatus = cserv.pushWeddingReservation(weddingId, cathedralWedding, weddingType, player.getId(), player.getPartnerId());
                                         if (resStatus > 0) {
-                                            cm.gainItem((weddingType) ? weddingEntryTicketPremium : weddingEntryTicketCommon, -1);
-
                                             var expirationTime = Channel.getRelativeWeddingTicketExpireTime(resStatus);
                                             cm.gainItem(weddingSendTicket, 15, false, true, expirationTime);
                                             partner.getAbstractPlayerInteraction().gainItem(weddingSendTicket, 15, false, true, expirationTime);
+
+                                            // the ticket is spent last: only once the reservation holds and both partners have their invitations
+                                            cm.gainItem((weddingType) ? weddingEntryTicketPremium : weddingEntryTicketCommon, -1);
 
                                             var placeTime = cserv.getWeddingReservationTimeLeft(weddingId);
 
