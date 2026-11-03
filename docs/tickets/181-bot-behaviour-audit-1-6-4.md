@@ -2,10 +2,10 @@
 
 Requested by the owner, 2026-11-03 (UTC and PT).
 
-Target: not a 1.6.3 release gate and it expands nothing in the 1.6.3 candidate; the audit finished after the 1.6.2
-switch set was closed, and this ticket is its tracking copy. Fixes enter a release only through the normal gate —
-ticket 168 for a frozen release, otherwise the next release's scope. Two items are marked as an economy choice and
-need the owner's decision before anyone writes code; a number is never chosen by an implementer.
+Target: 1.6.4. The owner opened 1.6.4 on 2026-11-02 09:22 UTC with bug fixes, balance, content and new capabilities
+in scope, so these fixes may enter 1.6.4 through the normal gate; the audit finished after the 1.6.2 switch set was
+closed, and this ticket is its tracking copy. The items marked as an economy choice still need the owner's decision
+before anyone writes code; a number is never chosen by an implementer.
 
 ## Goal
 
@@ -14,7 +14,11 @@ economy numbers, rates or caps on the authority of an audit.
 
 ## Review basis and limits
 
-Source read at **`c0e0a2cd7c2845985738cd4d077d0c5dd1b974df`** (`SlumsMS-163-release` tip when the audit closed).
+Source read at **`c0e0a2cd7c2845985738cd4d077d0c5dd1b974df`**, which is the audit pin and also the current
+`release-1.6.4` tip on origin (2026-11-01 23:52:03 -0800). The local `release-1.6.4` branch is one commit past it
+(`6d18f961e`), and that commit touches only `docs/sessions/EXTERNAL-AGENTS.md` and `tools/ops/helper-checkout`; the
+`src/` tree object is **`1ea3a3e42da2295843fe1037598fd8a5465bffda`** at both, so `src/` is byte-identical between the
+audit pin and 1.6.4 and every one of the 60 findings stands unchanged on 1.6.4, at the line the audit cites.
 Basis: six read-only audit documents and their merged copy under `/root/work/audit/` —
 `behaviour-train.md` (7 findings), `behaviour-market.md` (14), `behaviour-social.md` (11), `behaviour-life.md` (8),
 `behaviour-progress.md` (8), `behaviour-sweep.md` (12) — and `BEHAVIOUR.md`, which carries all 60: **2 S1, 20 S2,
@@ -38,6 +42,16 @@ Severity was re-graded uniformly, overriding the worker grades:
 - **down, unreachable today and not a loss:** `market#F-02` (S2 → S3); `market#F-01` was S3 in the source and stays
   S3 (unreachable — `src/main/java/soloMapling/ArtificialPlayer/BotTypes/FMBot.java:520` skips bot stalls).
 - **S1 unchanged:** `market#F-03`.
+
+## Status on 1.6.4
+
+All 60 findings are **PRESENT** on 1.6.4 — 0 FIXED, 0 CHANGED, 0 GONE — and every cited `path:line` still matches the
+code. None of them is addressed by any unmerged 1.6.4 lane either: the seven lanes the owner named — `164-bossfight`
+(13 own commits, 23 `src/main/java` files), `164-pqpolish` (3/1), `164-altinvite` (2/4), `164-ex2qa` (15/29),
+`164-opq` (50/81), `164-bossrows` (46/91) and `164-all-merge` (53/90) — touch **0 of the 60**, and all 57 cited files
+are byte-identical to this branch's base on every one of them; twelve further branches off the pin also touch none.
+Per-finding table and branch-by-branch evidence: `/root/work/audit/BEHAVIOUR-164.md`. Merging the lane branches
+therefore will not close a single finding, and the work order below stays as written.
 
 ## S1 — stop the bleeding
 

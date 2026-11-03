@@ -22,7 +22,7 @@ Read-only behaviour review of the population and owned-alt code paths. Documente
 
 | # | Ticket | Purpose |
 |---|---|---|
-| [181](181-bot-behaviour-audit-1-6-3.md) | Fix the 60 bot behaviour defects the 1.6.2 audit found | Two S1s first (a stall offer rewriting a listing below cost, merchant bots minting an item per sale), then 20 S2s by subsystem; every economy number is an owner question |
+| [181](181-bot-behaviour-audit-1-6-4.md) | Fix the 60 bot behaviour defects the 1.6.2 audit found | Two S1s first (a stall offer rewriting a listing below cost, merchant bots minting an item per sale), then 20 S2s by subsystem; every economy number is an owner question |
 
 ## Bot platform review (owner direction, 2026-11-01)
 
