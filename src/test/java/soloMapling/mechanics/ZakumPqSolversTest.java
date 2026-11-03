@@ -52,13 +52,35 @@ class ZakumPqSolversTest {
     }
 
     @Test
+    void enoughOreRoomsComeBeforeTheBigChestToFeedIt() {
+        // the big chest eats seven 4001016 and a chest yields two, so the walk has to pass four ore rooms before it
+        // stands in front of 2112014 - the room's own 2112011 is the fifth, and the order is the row's job
+        MechanicsModel.Content c = row();
+        int big = -1;
+        java.util.List<Integer> oreRoomsBefore = new java.util.ArrayList<>();
+        for (int i = 0; i < c.stages().size(); i++) {
+            MechanicsModel.Stage st = c.stages().get(i);
+            if (st.mapId() == 280_011_005) {
+                big = i;
+            }
+            if (big < 0 && (st.hitReactor() == 2_112_004 || st.hitReactor() == 2_112_011)) {
+                oreRoomsBefore.add(st.mapId());
+            }
+        }
+        assertTrue(big > 0, "the big chest's room is in the walk");
+        assertTrue(oreRoomsBefore.size() * 2 >= 7,
+                "four ore rooms yield eight ores before the big chest, and the walk has " + oreRoomsBefore.size()
+                        + ": " + oreRoomsBefore);
+    }
+
+    @Test
     void theChestIsHitUntilItAnswersMinusOne() {
         View v = new View();
         v.cleared = false;
         v.reactor = 0;
         SolverStep s = new ZakumMinesSolver().next(v, v.me);
         assertInstanceOf(SolverStep.HitReactor.class, s);
-        assertEquals(2_112_012, ((SolverStep.HitReactor) s).reactorId());
+        assertEquals(v.stage.hitReactor(), ((SolverStep.HitReactor) s).reactorId(), "the room's own chest");
         v.reactor = -1; // spent: the fifth hit was the last one that dropped anything
         SolverStep out = new ZakumMinesSolver().next(v, v.me);
         assertInstanceOf(SolverStep.EnterPortalTo.class, out, "a spent room is left through the next stage's door");
@@ -140,7 +162,9 @@ class ZakumPqSolversTest {
         @Override public List<RunMember> members() { return List.of(me); }
         @Override public Optional<RunMember> leader() { return leader ? Optional.of(me) : Optional.empty(); }
         @Override public int mapOf(int characterId) { return mapId; }
-        @Override public int reactorState(int reactorId) { return reactorId == 2_112_012 || reactorId == 2_112_014 ? reactor : -1; }
+        @Override public int reactorState(int reactorId) {
+            return reactorId > 0 && reactorId == stage.hitReactor() ? reactor : -1; // only this room's chest answers
+        }
         @Override public int itemCount(int characterId, int itemId) {
             return switch (itemId) {
                 case 400_1016 -> ore;

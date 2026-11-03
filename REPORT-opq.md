@@ -1033,13 +1033,20 @@ What the simulation did: `RowRunSimulationTest` driving the real orchestrator ov
 swept first): none made seven ores deterministic, because the shortfall is in the row's **order** and in the chest's
 two-item yield, not in a branch.
 
-**State as shipped:** `377f926d0` plus the row correction below - every stage now carries `maps: [<the map its door
-leads to>]`, which is what a `partyOnMap` clear actually means, and every room that holds a chest now names it
-(`hitReactor`, preferring the ore chest where a room has both). The unit tests and the integrity pass are green. **What
-is missing is a decision, not code**: either the row orders the four ore rooms before `280011005` (a generator change),
-or the era's real intent is that the big chest asks seven and the maze yields fourteen across seven reactors - in which
-case the walk has to spend its time in the ore rooms, and the straightforward way to say that is `loopTo:` back to the
-first ore room until the leader holds seven. Until one of those is chosen, no simulation of the mines should be claimed.
+**The decision, taken: the ore rooms come first.** The maze yields fourteen ores across seven reactors and the big chest
+wants seven, so nothing is missing from the world - only from the *order*. The row's walk is now generated with the ore
+rooms ahead of `280011005`: `280010110` (stage 2), `280010140` (4), `280011002` (13) and `280011003` (15) all precede the
+big chest at stage 23, which is eight ores - more than the seven it eats - before the room's own `2112011` is touched. A
+`loopTo:` was the other candidate and is wrong: the chest is single-use, so looping back would re-hit inert reactors.
+
+That is checked by a test rather than asserted in prose: `ZakumPqSolversTest.enoughOreRoomsComeBeforeTheBigChestToFeedIt`
+counts the ore rooms before the big chest's stage and refuses fewer than four. Every stage also carries
+`maps: [<the map its door leads to>]`, which is what a `partyOnMap` clear actually means, and every room that holds a
+chest names it in `hitReactor`, the ore chest preferred where a room has both.
+
+**Still not claimed:** a whole-row simulation. The ordering removes the arithmetic wall the earlier run hit (stage 17 with
+six ores, then one, then the 30-minute budget), but the simulation test is not yet green on this row, so the mines are
+"unit-tested and ordered", not "played end to end".
 
 ## Pre-Horntail PQ: read to the end, and it is not completable (no row)
 
