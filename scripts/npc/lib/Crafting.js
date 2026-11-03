@@ -114,10 +114,12 @@ const CraftingResult = {
         0: "Item crafted and enhanced successfully.",
         1: "Item crafted but failed enhancement.",
         2: "You can only use WATK and MATK Strengthening Gems on weapon items.",
-        3: "Item crafting failed."
+        3: "Item crafting failed.",
+        4: "You are not high enough level to craft this item."
     },
     Success: 0,
     SuccessWithoutEnhancement: 1,
     OddItemFault: 2,
-    Failed: 3
+    Failed: 3,
+    LevelTooLow: 4
 }
