@@ -861,3 +861,21 @@ clear, `/tmp/opq-mapempty.log`), 8582 (Magatia PQ, `/tmp/opq-magatiapq.log`), 85
 
 Where the number is being read from: it is the surefire total of the whole tree at the commit this sentence is in, with
 the docs written first and the tree frozen while the suite ran (a `.md` edit cannot break surefire; a source edit could).
+
+## The Zenumist twin is not buildable: its stage-3 counter is never written
+
+The twin looked like a copy with different ids, and the ids do differ as expected (`MagatiaPQ_Z.js:25-31,37`: entry
+`926100000`, exit `926100700`, recruit `261000011`, 4 players, level 71-255, 45 minutes; front door
+`2112004`; books `2112007` keyed on `cm.getNpcObjectId() % 26`; files to `2112006`; Yulete `2112000` summoning
+`9300139`/`9300140` and writing `statusStg7` 1/2). One id is not different, it is **missing**:
+
+- `scripts/portal/rnj2_out.js:2` refuses the way on until `getIntProperty("statusStg3") == 3`.
+- `scripts/reactor/2619000.js:27-31` - the Zenumist crystal that stands where the Alcadno beaker stands - has
+  `function hit() { rm.dropItems(); }` and an `act()` whose whole body is a comment. It never touches the counter.
+- A sweep of every `statusStg3` writer in `scripts/` finds exactly one that raises it: `2618000.js:32`, the Alcadno
+  beaker. The other hits are the `-1`/`0` seeds and two unrelated events (Orbis, Amoria, Ludi).
+
+So stage 3 of the Zenumist PQ cannot be passed **by a player either** - it is a defect in the Z scripts, not a gap in this
+engine, and the row is not written. The costed copy (`magatiapqz`, `92610xxx` band, the same six solvers) is one small
+change away the day `2619000.js` counts the way `2618000.js` does; writing it now would ship a row that stalls at stage 3
+with a "held" note that blames our engine for the script's missing line.
