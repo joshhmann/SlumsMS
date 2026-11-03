@@ -1,0 +1,124 @@
+# Ticket 164 Boss Rush PQ, level band 3 - GENERATED, do not hand-edit.
+# Layout from the scripts, not guessed: the band is the instance index the starter hands to startInstance
+# (scripts/npc/9000037.js:162-166, detectTeamLobby :40-70 turns the party's average level into a band 0..7), the
+# event stores it as "lobby" (scripts/event/BossRushPQ.js:136) and warps the party to entryMap + lobby (:146-148),
+# and each wave is that map + 100 while the map's last three digits are 500 or more
+# (scripts/portal/raid_stage.js:26-32), the fifth wave leading to the rest spot 970030001.
+# Client maps: 97003<band*100+wave> exists for every stage below (Map.wz/Map9, 28 blocks x 12 waves).
+id: bossrush3
+name: Boss Rush PQ (band 3)
+kind: PQ
+eventScript: BossRushPQ
+# scripts/npc/9000037.js:47-70 is the starter on the hub 970030000.
+entryNpc: 9000037
+recruitMap: 970030000
+exitMap: 970030000
+minPlayers: 1
+maxPlayers: 6
+minLevel: 1
+maxLevel: 255
+timeLimitMinutes: 5
+flag: slums.mechanics.bossrush
+sources:
+  - "scripts/event/BossRushPQ.js gates (:26-39), the lobby property (:136) and playerEntry (:146-148)"
+  - "scripts/portal/raid_stage.js:26-32 is the wave rule: +100 while the map id modulo 500 is 100 or more, else the rest spot 970030001"
+  - "scripts/npc/9000037.js:40-70 detectTeamLobby, :162-166 the startInstance(i) loop - the band IS the instance index"
+  - "the row is generated: eight bands of five waves plus a rest spot, loopTo 1, so the clock ends the run (PQ-UNFINISHED-REPORT.md:438-462)"
+stages:
+  - stage: 1
+    map: 970030103
+    name: Wave 1 of band 3
+    solver: fight-room
+    roles:
+      - id: fighter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: clear-the-wave
+        kind: WAIT
+        role: all
+        note: "raid_stage.js:28 opens the door while the map has no monsters"
+    clear:
+      mapEmpty: true
+  - stage: 2
+    map: 970030203
+    name: Wave 2 of band 3
+    solver: fight-room
+    roles:
+      - id: fighter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: clear-the-wave
+        kind: WAIT
+        role: all
+        note: "raid_stage.js:28 opens the door while the map has no monsters"
+    clear:
+      mapEmpty: true
+  - stage: 3
+    map: 970030303
+    name: Wave 3 of band 3
+    solver: fight-room
+    roles:
+      - id: fighter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: clear-the-wave
+        kind: WAIT
+        role: all
+        note: "raid_stage.js:28 opens the door while the map has no monsters"
+    clear:
+      mapEmpty: true
+  - stage: 4
+    map: 970030403
+    name: Wave 4 of band 3
+    solver: fight-room
+    roles:
+      - id: fighter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: clear-the-wave
+        kind: WAIT
+        role: all
+        note: "raid_stage.js:28 opens the door while the map has no monsters"
+    clear:
+      mapEmpty: true
+  - stage: 5
+    map: 970030503
+    name: Wave 5 of band 3
+    solver: fight-room
+    roles:
+      - id: fighter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: clear-the-wave
+        kind: WAIT
+        role: all
+        note: "raid_stage.js:28 opens the door while the map has no monsters"
+    clear:
+      mapEmpty: true
+  - stage: 6
+    map: 970030001
+    name: The rest spot of band 3
+    solver: fight-room
+    roles:
+      - id: resting
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: rest
+        kind: WAIT
+        role: all
+        note: "970030001 is where the fifth wave sends the party; nothing to kill, so it is cleared on arrival"
+    clear:
+      mapEmpty: true
+    loopTo: 1

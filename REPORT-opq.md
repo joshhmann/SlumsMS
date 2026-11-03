@@ -932,10 +932,30 @@ The report's layout line (`970030100 + band + 500*s + 100*k`, `[D]`) does not de
 - **Every map the row could name exists**: all 28 blocks × 12 waves are in WZ, plus `970030000`-`970030020` (hub, entry,
   rest spots) and the four `9700327xx` blocks the finals live in.
 
-**Where the row stops:** mapping band -> window is the one arithmetic I have not read out of `BossRushPQ.js` itself (the
-report's version is flagged `[D]` and is contradicted above), and a 28-block row with one wrong window is worse than none -
-its whole point is that it repeats until the clock. So the generator is not written yet, and the next turn's first read is
-`BossRushPQ.js`'s band arithmetic, not a guess from the portal script.
+**The band -> window arithmetic, read out of both files.** `scripts/npc/9000037.js:162-166` is the whole of it:
+
+    var lobby = detectTeamLobby(eli), i;
+    for (i = lobby; i < 8; i++) {
+        if (em.startInstance(i, cm.getParty(), cm.getPlayer().getMap(), 1)) break;
+    }
+
+so the band is *literally the instance index*, retried upward until a free lobby answers. `BossRushPQ.js:136` stores it
+(`eim.setProperty("lobby", lobbyid)`) and `:146-148` warps to `entryMap + eim.getIntProperty("lobby")`, i.e.
+**`970030100 + band`**, which is why the client has twelve waves at every block: `970030100`..`970030111`. A band's five
+waves are therefore `970030100 + band + 100*k` for k = 0..4, and `raid_stage.js:26-32` sends the fifth
+(`(970030100 + band + 400) % 500`, which is 400+b and so ≥ 100 only for b ≤ 99 - always) one step further to
+`970030001 + floor((…-970030100)/500)` = **`970030001`**, the same rest spot for every band.
+
+**The rows are generated and committed** - eight of them, `mechanics/content/bossrush0.yaml`..`bossrush7.yaml`, five waves
+plus the rest spot each, the rest spot carrying `loopTo: 1` so the set repeats and the five-minute clock ends the run.
+`BossRushRowTest` is the generator's assertion rather than a transcription of what someone typed: the stage count, every
+emitted map id, `mapEmpty` on every wave, `loopTo: 1` on the last stage, and that no two bands share a wave map (the rest
+spot is deliberately shared, and the test says so). Test-side rather than build-side because the repo has no code
+generator and a checked-in YAML only a generator can reproduce rots the first time it is hand-edited.
+
+**The integrity pass is clean**: `tools/ops/map-integrity --wz … --map <41 ids>` reports 41 maps scanned, zero portals to a
+missing map, zero portals whose `tn` the target lacks, zero mobs/NPCs/reactors without WZ entries, zero bad return maps,
+zero maps with no string name, `EXIT=0`.
 
 ## A stage set that repeats: `loopTo:`
 
