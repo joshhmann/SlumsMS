@@ -532,12 +532,12 @@ public class ServerConfig {
     public int DOJO_ENERGY_DMG;
 
     //Wedding Configuration
-    public int WEDDING_RESERVATION_DELAY;
-    public int WEDDING_RESERVATION_TIMEOUT;
-    public int WEDDING_RESERVATION_INTERVAL;
-    public int WEDDING_BLESS_EXP;
-    public int WEDDING_GIFT_LIMIT;
-    public boolean WEDDING_BLESSER_SHOWFX;
+    public int WEDDING_RESERVATION_DELAY = 3;       // Cosmic stock; was 0 when the key was missing
+    public int WEDDING_RESERVATION_TIMEOUT = 10;    // Cosmic stock
+    public int WEDDING_RESERVATION_INTERVAL = 60;   // Cosmic stock; 0 crashes World's fixed-rate timer at boot
+    public int WEDDING_BLESS_EXP = 30000;           // Cosmic stock: FLAT exp per bless count to each of the couple, not a multiplier
+    public int WEDDING_GIFT_LIMIT = 1;              // gifts per guest per wedding; Cosmic stock
+    public boolean WEDDING_BLESSER_SHOWFX = true;   // Cosmic stock
 
     //Buyback Configuration
     public boolean USE_BUYBACK_WITH_MESOS;
