@@ -446,10 +446,18 @@ public final class StageData {
         } else if (m.get("clear") instanceof Map<?, ?> cm && "true".equalsIgnoreCase(String.valueOf(cm.get("mapEmpty")))) {
             // a stage whose script never says "done": it is over when the map has nothing left to kill (Ellin PQ stage 1)
             clear = Clear.emptyMap();
+        } else if (m.get("clear") instanceof Map<?, ?> cm && cm.get("reactorState") instanceof Map<?, ?> rs
+                && rs.get("id") != null && rs.get("state") != null) {
+            // the reactor is the authority: Ellin PQ stage 2 clears when the spine reactor reaches state 4
+            int rid = num(rs, "id", -1, p);
+            int rstate = num(rs, "state", -1, p);
+            if (rid > 0 && rstate >= 0) {
+                clear = Clear.ofReactorState(rid, rstate);
+            }
         }
         if (clear == null) {
             p.add(at + "no clear: { eventProperty: ... } (+ optional equals: value), or { instance: true },"
-                    + " or { mapEmpty: true }");
+                    + " or { mapEmpty: true }, or { reactorState: { id: N, state: M } }");
         }
         String answerProperty = m.get("answerProperty") == null ? null : String.valueOf(m.get("answerProperty")).trim();
         List<List<Integer>> combos = new ArrayList<>();

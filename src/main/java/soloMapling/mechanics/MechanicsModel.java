@@ -187,9 +187,14 @@ public final class MechanicsModel {
      * LudiMaze PQ's final stage end that way, and {@code EventInstanceManager.isEventCleared()} is the only signal there
      * is. {@link #instance()} is that clear form - it is not an event property, it is the instance's own flag.
      */
-    public record Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty) {
+    public record Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty,
+                        int reactorId, int reactorState) {
+        public Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty) {
+            this(eventProperty, equals, onInstance, mapEmpty, 0, 0);
+        }
+
         public Clear(String eventProperty, String equals, boolean onInstance) {
-            this(eventProperty, equals, onInstance, false);
+            this(eventProperty, equals, onInstance, false, 0, 0);
         }
 
         public Clear(String eventProperty) {
@@ -197,7 +202,7 @@ public final class MechanicsModel {
         }
 
         public Clear(String eventProperty, String equals) {
-            this(eventProperty, equals, false);
+            this(eventProperty, equals, false, false, 0, 0);
         }
 
         /**
@@ -205,7 +210,7 @@ public final class MechanicsModel {
          * ({@code clear: { instance: true }} in a row, {@link StageView#eventCleared()} in the engine).
          */
         public static Clear instance() {
-            return new Clear(null, null, true);
+            return new Clear(null, null, true, false, 0, 0);
         }
 
         /**
@@ -214,7 +219,16 @@ public final class MechanicsModel {
          * while {@code cm.getMap().getMonsters()} is non-empty and no property is ever written.
          */
         public static Clear emptyMap() {
-            return new Clear(null, null, false, true);
+            return new Clear(null, null, false, true, 0, 0);
+        }
+
+        /**
+         * The clear of a stage whose authority is a <b>reactor's state</b>: Ellin PQ's second stage is over when the spine
+         * reactor {@code 3009000} is at state 4, and the event writes no property for it. Reaching a later state counts as
+         * well - the reactor only advances - so the comparison is {@code >=}.
+         */
+        public static Clear ofReactorState(int reactorId, int state) {
+            return new Clear(null, null, false, false, reactorId, state);
         }
     }
 

@@ -591,6 +591,15 @@ different ids and is not covered by this row.
   stages' rules, which `MagatiaPqSolversTest` pins one by one. That gap is stated rather than papered over, and it is the
   first thing to add when stage 5 is decided.
 
+## A clear that reads a reactor's state: `{ reactorState: { id, state } }`
+
+The third clear kind with no property behind it. Ellin PQ's second stage is over when the spine reactor `3009000` reaches
+state 4 and writes nothing; `Clear.ofReactorState(int,int)` + `StageView.cleared()`'s `reactorState(id) >= state` branch
+express it, `StageData` parses `reactorState: { id: N, state: M }` and names it in the no-clear error. `>=` rather than
+`==` because a reactor only advances, so a later state is still done - and an absent reactor answers `-1`, which can never
+look like a clear. `MapEmptyClearTest.aStageCanClearOnAReactorsStateInstead` is the fail-before (absent reactor, state 3,
+state 4, state 6). **No row uses it yet**; Ellin PQ's stage 2 is the intended consumer.
+
 ## Ellin PQ and CWKPQ: what each still needs, costed rather than guessed
 
 Neither is written. Both are fully read, and the pieces are named so the next hand does not have to re-derive them.

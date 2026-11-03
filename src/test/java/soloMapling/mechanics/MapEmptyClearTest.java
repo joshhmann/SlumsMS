@@ -141,10 +141,37 @@ class MapEmptyClearTest {
         assertFalse(v.cleared(), "monsters back on the map means the stage is not over");
     }
 
+    @Test
+    void aStageCanClearOnAReactorsStateInstead(@TempDir Path dir) throws Exception {
+        List<String> errors = new java.util.ArrayList<>();
+        // Ellin PQ stage 2: the spine reactor 3009000 at state 4, and the event writes no property for it
+        MechanicsModel.Content c = miniRow(dir, "    clear:\n      reactorState:\n        id: 3009000\n        state: 4\n",
+                errors);
+        MechanicsModel.Stage stage = c.stages().get(0);
+        assertEquals(3009000, stage.clear().reactorId(), "the row names the reactor the stage belongs to");
+        assertEquals(4, stage.clear().reactorState(), "and the state it is watching for");
+        assertFalse(stage.clear().onInstance() || stage.clear().mapEmpty(), "it is neither of the other two kinds");
+
+        View v = new View(stage, 5);
+        assertFalse(v.cleared(), "an absent reactor (-1) is not a clear, and nor are its early states");
+        v.reactor = 3;
+        assertFalse(v.cleared(), "state 3 is not 4");
+        v.reactor = 4;
+        assertTrue(v.cleared(), "state 4 is");
+        v.reactor = 6;
+        assertTrue(v.cleared(), "a later state counts too - the reactor only advances");
+    }
+
     private static final class View implements StageView {
         private final MechanicsModel.Stage stage;
         private int mobs;
+        private int reactor = -1;
         private boolean clearedOnInstance;
+
+        @Override
+        public int reactorState(int reactorId) {
+            return reactorId == 3009000 ? reactor : -1;
+        }
 
         View(MechanicsModel.Stage stage, int mobs) {
             this.stage = stage;

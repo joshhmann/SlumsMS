@@ -257,6 +257,10 @@ public interface StageView {
             // no property and no talk: the script's own passage refuses while the map has monsters (Ellin PQ stage 1)
             return liveMobs() == 0;
         }
+        if (clear.reactorId() > 0) {
+            // the reactor itself is the signal (Ellin PQ stage 2: the spine at state 4, no property written)
+            return reactorState(clear.reactorId()) >= clear.reactorState();
+        }
         if (clear.eventProperty() == null) {
             return false;
         }
