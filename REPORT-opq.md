@@ -694,6 +694,35 @@ still on the stage map holds it, every member there clears it, and an **empty** 
   is needed, and the row ends there (stage 7, `930000700`, is the post-clear room and is not a stage).
 - **Zenumist stays uncovered**, and it is the same class of answer: the script that would advance it is missing a counter.
 
+## CWKPQ: the stage map, read to the end, and the one thing that stops a row tonight
+
+Gates, from `scripts/event/CWKPQ.js:26-39`: `isPq`, **6-30 players**, level **90-255**, `entryMap 610030100`,
+`recruitMap`/`exitMap`/`clearMap 610030020`, `eventTime 2` minutes for the first stage, `maxLobbies 1`. Every stage flag is
+seeded `"0"` at setup (`:150-172`).
+
+| Stage | Flag | What raises it | Step kind |
+|---|---|---|---|
+| 1 (way in) | `glpq1` | `scripts/portal/glpqPortalDummy.js:8` after reactor `mob0`'s state is >= 1 | portal script + a reactor read |
+| 2 | `glpq2` | reactors `6109003`/`6109004` `act()` to five (`6109003.js:8-15`) | **hit** (`HitReactor(6109003)`) |
+| 3 | `glpq3` + `glpq3_p` | the same reactors' second counter, **plus** `glpqPortal2.js:7-19` counting party members through the door, five each | hit **and** a per-member portal pass |
+| 4 | `glpq4` | sigils `6109016`..`6109020` `act()` to five (`6109016.js:1-11` and twins) | **hit** |
+| 5 | `glpq5` | reactors `6109005`..`6109009` `act()` to five | **hit** |
+| 6 | `glpq6` + flames | `6109021`+ answer to **`touch()`**, each with its own `glpq_fN` | **touch** |
+| boss | the script's own clear | `boss-phases` on `610030800` | hit |
+
+**Why no row tonight, stated plainly:** it is a six-stage build across three distinct mechanics, and every stage's exit is
+a *portal script* that reads the flag (`glpqPortal0..5.js`), not a warp our orchestrator can take. The randomness the
+owner was worried about turned out **not** to be the blocker - the sigils and the five-count reactors are addressed by
+id, so `HitReactor(6109016)` reaches them whatever the shuffle did, and only the flames need a name. The blocker is
+scope: three solvers (sigil hit, party-passage counter, flame touch), six stages, and a portal-progression gate like
+Magatia's, against a branch that is being merged. Shipping stage 1 alone would end the run `"cleared"` at its last
+playable stage, which is the lie this report keeps refusing to tell.
+
+**What is deterministic, for the record:** the five sigil ids and the five `6109005..6109009` ids are fixed in the
+scripts, the counters are event properties, and `6109016.js:1-11` needs no job check at all - it increments `glpq4`
+whatever member hits it, so `RunMember.jobId` is *not* needed for stage 4 even though it is now carried. The job is only
+needed if a future stage wants to place members by class.
+
 ## CWKPQ: why the row is still not written, in two facts
 
 Both step kinds are needed on the same map, and that is the whole shape of the remaining work:
