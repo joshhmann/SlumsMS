@@ -329,8 +329,14 @@ public final class RingActionHandler extends AbstractPacketHandler {
         }
     }
 
-    public static void giveMarriageRings(Character player, Character partner, int marriageRingId) {
+    public static boolean giveMarriageRings(Character player, Character partner, int marriageRingId) {
         Pair<Integer, Integer> rings = Ring.createRing(marriageRingId, player, partner);
+        if (rings.getLeft() < 0 || rings.getRight() < 0) {
+            log.error("Could not create the wedding rings for {} and {}", player.getName(), partner.getName());
+            player.dropMessage(1, "The rings could not be made just now. Please talk to the officiant again.");
+            partner.dropMessage(1, "The rings could not be made just now. Please talk to the officiant again.");
+            return false;
+        }
         ItemInformationProvider ii = ItemInformationProvider.getInstance();
 
         Item ringObj = ii.getEquipById(marriageRingId);
@@ -351,6 +357,7 @@ public final class RingActionHandler extends AbstractPacketHandler {
         }
         soloMapling.achievements.Achievements.onWedding(player); // 1.6.1 ticket 93
         soloMapling.achievements.Achievements.onWedding(partner);
+        return true;
     }
 
     @Override
