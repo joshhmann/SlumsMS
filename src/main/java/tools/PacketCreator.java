@@ -2440,7 +2440,14 @@ public class PacketCreator {
         p.writeShort(items.size()); // item count
         for (ShopItem item : items) {
             p.writeInt(item.getItemId());
-            p.writeInt(item.getPrice());
+            if (ItemConstants.isRechargeable(item.getItemId())) {
+                // 1.6.4 b289: the shop hands over a whole slotMax stack and charges the WZ price/unitPrice
+                // expression for that stack (Shop.buy), so the counter shows the price actually paid.
+                int stackPrice = ii.getPrice(item.getItemId(), ii.getSlotMax(c.getPlayer(), item.getItemId()));
+                p.writeInt(stackPrice < 0 ? item.getPrice() : stackPrice);
+            } else {
+                p.writeInt(item.getPrice());
+            }
             p.writeInt(item.getPrice() == 0 ? item.getPitch() : 0); //Perfect Pitch
             p.writeInt(0); //Can be used x minutes after purchase
             p.writeInt(0); //Hmm
