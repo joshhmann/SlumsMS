@@ -916,6 +916,33 @@ Two earlier hypotheses were falsified on the way and are recorded so nobody repe
 sessions an earlier test left behind), and a cross-class static leak is impossible as configured - `pom.xml:252-255` sets
 `forkCount 1` with `reuseForks false`, so each test class gets its own JVM.
 
+## GuildQuest: both blockers are settled, and the pattern was never server-side
+
+Part 5 item 6 asks two questions of the scripts. Both are answered, and neither answer is "unknown".
+
+**The same-guild gate is satisfiable.** `scripts/event/GuildQuest.js:97-113` takes `guildId` from the *leader*
+(`:104-112`), then keeps members whose `getMapId() == recruitMap`, level in band and `getGuildId() == guildId`
+(`:116-124`). Playerbots hold real guilds (`BotGuilds.java:63`, `onBotLogin:325-349`, `attach:350-352`, `join:399-436`,
+`refill:1082`), so the gate is a party-assembly fact, not a wall.
+
+**The pattern is published, not painted.** The statues do the publishing: `scripts/npc/9040009.js:106-116` empty
+`stage1combo` and fires one `delayedHitReactor(client, 5000 + 3500*i)` per statue; each statue's `act()`
+(`scripts/reactor/9208000.js:34-51`) appends its **own object id modulo 1000**, zero-padded to three digits, and when the
+string reaches `3 * (stage + 3)` characters it flips `stage1status` to `active` and clears `stage1guess`. During
+`active` the same `act()` appends every statue a player hits (`:53-62`), and the Gatekeeper compares
+`stage1combo === stage1guess` (`9040009.js:79`). So the answer to "is the pattern readable" is yes: it is an event
+property, in full, after the display finishes - no screenshot, no guessing.
+
+**What it still needs** (so nobody starts this blind):
+
+| Needed | Why | Size |
+|---|---|---|
+| a **by-object-id** reactor step | the combo names statues by `objectId % 1000`, and `StepExecutor.hitReactorAt` resolves by `getReactorById` only; `HitReactorNamed` resolves by WZ name | ~1 step + 1 executor branch + `StageView` accessor, the same shape as `TalkNpcAt` was for Magatia's 26 books |
+| a **queue-started** run | this is the real blocker: `scripts/npc/9040000.js:73-91` registers the guild with `em.isQueueFull()` / `getQueueSize()`, and joining goes through `findLobby(cm.getPlayer().getGuildId())` - an instance this engine's `MechanicsRuns` cannot enter, because it starts instances with `EventManager.startInstance` and never joins a queue | the largest piece in Part 5 after ZakumPQ; it is a start-path seam, not a row |
+| five stage rows | Sharenian Ruins' stages, all keyed on `Nstageclear`-style properties | follows the two above |
+
+Not built, and the reason is structural rather than a missing fact: the second row of that table is the whole item.
+
 ## Boss rooms that take minutes to produce a target: `graceMs:`
 
 `BossPhasesSolver` used to hold one global rule: a summoned room with nothing the party may hit for 30 s was a room that
