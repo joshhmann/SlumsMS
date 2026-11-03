@@ -90,18 +90,25 @@ if (currItem != null) {
 `priceAdjustmentRules((int) (rawValue * 0.9))` (`:140`). Nothing counts what is created, no budget is charged, and the
 "market value" it prices against is the book these same sales feed.
 
-**Reachability.** The twenty are live at boot, not only on a GM command. Waves 2, 4 and 7 of
+**Reachability.** Boot can put the twenty there without any GM command. Waves 2, 4 and 7 of
 `environmentLoadStartup()` (`src/main/java/soloMapling/Environment/EnvironmentManager.java:110`) ask
 `spawnMerchBotsBatch` for 2+2+2, 3+2+3 and 2+2+2 selling merchants (`:134-136`, `:158-160`, `:183-185`), scaled by
 `BOT_FM_ENVIRONMENT_SCALE`, which is `1.0` in `src/main/java/config/ServerConfig.java:145` and overridden nowhere in
-`docs/release/1.6.3.conf`, so all 20 spawn on 910000000, spread over the channels. Boot reaches it from
+`docs/release/1.6.3.conf`, so all 20 spawn on 910000000 whenever the waves run. They run only from
 `src/main/java/soloMapling/server/MapleRootSolo.java:51-53` (`MethodScheduler.runAfterDelay(...)` under
-`-Dsolomapling.autopopulate`), and the live unit carries that flag (`docs/ops/lxc125-architecture.md:24`,
-`deploy/monitor/README.md:56`). Twenty is a floor: `!env spawnmerchantbots` re-runs
-`spawnMerchBotsInFMEntrance()` (`src/main/java/soloMapling/Environment/EnvironmentManager.java:619-645`, from
+`-Dsolomapling.autopopulate`), and the repository disagrees on whether the shipped unit carries that flag: the generic
+template `deploy/slumsms.service.example:11` ships `-Dsolomapling.enabled=false -Dsolomapling.autopopulate=false`,
+while `docs/ops/lxc125-architecture.md:24` records the unit with `autopopulate=true` — a page last updated 2026-10-20
+(`:3`) whose version row still says 1.3.1, so it is a stale record, not proof for 1.6.3; the monitor expects both flags
+on the live process (`deploy/monitor/README.md:56`, `deploy/monitor/slumsms-monitor:932`) and
+`docs/release/1.3.0.md:100` lists `true` as the deployment value against a `false` default. A boot census settles it
+(see "What needs a server to confirm"); with the flag off the waves do not run. Either way the mint code is reachable:
+`!env spawnmerchantbots` re-runs `spawnMerchBotsInFMEntrance()`
+(`src/main/java/soloMapling/Environment/EnvironmentManager.java:619-645`, from
 `src/main/java/client/command/commands/gm4/EnvironmentCommand.java:386`, command `env` registered at
 `src/main/java/client/command/CommandsExecutor.java:427`) for 20 more per run, and a finished NX merchant
-`convertBack()`s into one (`src/main/java/soloMapling/ArtificialPlayer/BotTypes/NXMerchantBot.java:249-252`).
+`convertBack()`s into one (`src/main/java/soloMapling/ArtificialPlayer/BotTypes/NXMerchantBot.java:249-252`) — so
+twenty is a floor wherever the flag is on, and a GM run reaches the same code with it off.
 
 **What a player sees.** Scrolls — v83's most economically load-bearing consumable — available without limit from
 NPC-like bots at a 10% discount to the published market, regenerating instantly. Scroll prices drift down until the
@@ -254,6 +261,7 @@ No measurement here was taken. Each row is a claim a read-only audit cannot sett
 |---|---|
 | F-03's real cost — how many stall sales come from an offer at all | One hour of `[ShopOfferSystem] Accepted:` prices against `BotShops.askFor`'s ask, joined on item id |
 | F-07's volume — scrolls entering from `SellingMerchantBot` versus `ScrollBudget`'s NPC buys | One day of item-mint lines grouped by source (needs Better systems #9 or a temporary counter) |
+| F-07's shipped population — twenty `SELLING_MERCHANT_BOT` on 910000000 in a unit started with the release flags | One bot-type count after a boot with `-Dsolomapling.autopopulate=true`: expected 20 from waves 2/4/7, plus 20 per `!env spawnmerchantbots` run; a count of 0 puts the S1 on the GM-command path only |
 | P1's reach — the share of bots wearing a 105xxxx overall | One population census with a counter where `getItem(SLOT_TOP) != null` and an `equipTopBottom` counter |
 | P2's coverage — the fraction of carried equips passing `MakerService.canDisassemble` | `townBatch` dry-run count with `maker.botBatch=true` on a copy |
 | P3's visibility — whether any surface renders `getRemainingSps()` | `@botinfo` whispered at a second-job bot |
