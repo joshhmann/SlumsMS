@@ -916,6 +916,37 @@ Two earlier hypotheses were falsified on the way and are recorded so nobody repe
 sessions an earlier test left behind), and a cross-class static leak is impossible as configured - `pom.xml:252-255` sets
 `forkCount 1` with `reuseForks false`, so each test class gets its own JVM.
 
+## ZakumPQ: thirty rooms, one walk, and a chest that is worth two keys
+
+Shipped as `content/zakumpq.yaml` (generated, 59 stages) plus `ZakumMinesSolver` (`zakum-mines`) and one new step,
+`SolverStep.EnterPortalTo(int mapId)`.
+
+**Why the row is the route.** The mine is a hub with fifteen numbered doors (`280010000`, `in01`..`in15`) and a wing
+(`280011000`) behind two of them; every door's target is published in that room's own WZ portal block, so the walk is
+data. Each stage is one room and its clear is `partyOnMap: <the next stage's map>`, and the solver leaves through
+whichever door on its map leads there - which is why `EnterPortalTo` exists: a hub's doors are numbered and a mine's are
+named by direction, and neither name is the solver's business when the row already says where the party goes next. The
+hub therefore appears once per return, because walking back through it is what the party actually does: 59 stages,
+30 distinct maps.
+
+**The chest arithmetic, in the code that relies on it.** `reactordrops` gives `2112012`/`2112005` -> `4001015` (the key),
+`2112004`/`2112011` -> `4001016` (the ore) and `2112014` -> `4001018` (the document), all at chance 1. A chest yields on
+its fourth and fifth hit and is then inert for ever (`Reactor.java:246-315`: the end-state branch drops once, the
+following `-1`-type branch drops again and advances the state past the end), so the solver hits until the reactor answers
+`-1` instead of counting hits. The row's `hitReactor` prefers the one big chest (`2112014`, on `280011005`), then an ore
+chest, then a key chest, so the room the document is in is the room the solver opens the big chest in.
+
+**The hand-in has no gate beyond the document.** `scripts/npc/2032002.js:71-77` requires `4001018`; `:78` reads
+`haveItem(4001015, 30)` only to pick the message, `:124` takes the thirty keys when they are there, and `:127` clears the
+PQ either way. There is no damage, DPS or party-size check anywhere in the file. So the solver's hand-in stage abandons
+with "no document: the big chest on 280011005 was never opened" when the party arrives without one, and otherwise the
+leader talks.
+
+**Integrity**: `tools/ops/map-integrity --wz … --map <the row's 30 ids>` - 30 maps scanned, zero problems of any kind,
+`EXIT=0`. `ZakumPqSolversTest` (5 tests) pins the walk (every stage hands the party to the next stage's map, thirty
+distinct rooms, the big chest's room in the walk, the last stage is the instance clear), the chest loop, the floor sweep,
+the seven-ore rule and the leader-only hand-in.
+
 ## BossRush's map inventory, as the client actually has it (and where the row stops)
 
 The report's layout line (`970030100 + band + 500*s + 100*k`, `[D]`) does not describe this client. Read out of
@@ -956,6 +987,32 @@ generator and a checked-in YAML only a generator can reproduce rots the first ti
 **The integrity pass is clean**: `tools/ops/map-integrity --wz … --map <41 ids>` reports 41 maps scanned, zero portals to a
 missing map, zero portals whose `tn` the target lacks, zero mobs/NPCs/reactors without WZ entries, zero bad return maps,
 zero maps with no string name, `EXIT=0`.
+
+## Pre-Zakum PQ: thirty rooms on a hub, and the row *is* the route
+
+The maze is not a maze of doors a solver has to know: every mine map publishes its doors as pt-1 portals in its own WZ
+block, the hub's are `in01`..`in15`, and `280011000` is a wing behind `071` and `101`. Read out of `Map.wz`, the thirty
+maps are `280010000`-`280010150` step ten plus `011`, `031`, `041`, `071`, `081`, `091`, `101`, and `280011000`-`280011006`;
+`tools/ops/map-integrity` is clean over all thirty (zero problems of any kind, `EXIT=0`).
+
+**The row is the walk.** `content/zakumpq.yaml` is generated: 59 stages, one per room *visit* - the walk is a depth-first
+tour of the door graph, so the hub appears once per return because walking back through it is what a party actually does -
+and each stage's clear is `partyOnMap` of the map the party walks into next. That one field is what lets the solver leave:
+`SolverStep.EnterPortalTo(mapId)` walks to whichever portal on the map leads to that id, so no door name and no route
+lives in Java. The last stage is the hand-in, `clear: { instance: true }`.
+
+`ZakumMinesSolver` (`zakum-mines`) has four decisions, all row-or-WZ driven: hit the stage's chest while it answers a
+state (`hitReactor`, the big chest preferred where one stands); loot the floor; put seven ores on `2112014` when it has
+them (fewer is a `Wait` that names the count); leave through the door to the next stage's map. The chest arithmetic is
+the report's, unchanged: a chest drops on its fourth and fifth hit and is inert for ever after (`Reactor.java:246-315`),
+which is why the solver hits until `reactorState` answers `-1` rather than counting. The hand-in is the leader's, needs
+`4001018`, and abandons with a reason if the big chest was never opened.
+
+**Two decisions worth stating.** The starter allows a party of one (`ZakumPQ.js:27`) and the row keeps `minPlayers: 1`,
+because that is the script's gate; the lobby's staging needs two, so `ZakumPQ` is *not* in `ContentLobby.ROWS` - a bot
+party does not staff Adobis, a human or a party that already exists walks in. And the thirty keys stay optional: the row
+lists `4001015` with the note that it only buys the better message and reward, because `scripts/npc/2032002.js:121-127`
+clears either way and no damage check exists.
 
 ## A stage set that repeats: `loopTo:`
 
@@ -1221,12 +1278,12 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8616 tests, 0 failures, 0 errors, 137 skipped,
-BUILD SUCCESS, `EXIT=0`, zero `<<< FAILURE` markers** (`/tmp/opq-br.log`). That is the number this report treats as the
+`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8621 tests, 0 failures, 0 errors, 137 skipped,
+BUILD SUCCESS, `EXIT=0`, zero `<<< FAILURE` markers** (`/tmp/opq-zak2.log`). That is the number this report treats as the
 suite's proof. Two runs before it were also clean at 8609 each, which is what proved the `BotConversationFlowTest`
 selector fix rather than asserting it (`/tmp/opq-flake-A.log`, `/tmp/opq-flake-B.log`, both `EXIT=0`).
 
-The ladder, so the next number is comparable: 8616 (the eight BossRush rows + `BossRushRowTest`) -> 8612 (the `loopTo:` primitive) -> 8609 (the flake fix, twice) -> 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
+The ladder, so the next number is comparable: 8621 (Pre-Zakum: 59 generated stages, `zakum-mines`, `zakum-hand-in` folded in) -> 8616 (the eight BossRush rows + `BossRushRowTest`) -> 8612 (the `loopTo:` primitive) -> 8609 (the flake fix, twice) -> 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
 one class) -> 8597 (`/tmp/opq-ellin4.log`, Ellin six of six) -> 8592 (`/tmp/opq-cwkpq2.log`) -> 8590 -> 8586 -> 8585 ->
 8582 -> 8577 -> 8573 -> 8567 -> 8562 -> 8552 -> 8541 -> 8532 -> 8529 -> 8515.
 

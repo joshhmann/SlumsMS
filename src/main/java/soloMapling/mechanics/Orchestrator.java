@@ -88,6 +88,7 @@ public final class Orchestrator implements RunOrchestrator {
         CwkpqBossSolver cbo = new CwkpqBossSolver();
         HoldSolver ho = new HoldSolver();
         LudiMazeSolver lm = new LudiMazeSolver();
+        ZakumMinesSolver zm = new ZakumMinesSolver();
         // Map.of caps at ten pairs; anything past that goes in a second immutable copy
         Map<String, StageSolver> all = new java.util.HashMap<>(Map.of(qc.id(), qc, cb.id(), cb, kc.id(), kc,
                 bp.id(), bp, oc.id(), oc, os.id(), os, sr.id(), sr, ol.id(), ol));
@@ -115,6 +116,7 @@ public final class Orchestrator implements RunOrchestrator {
         all.put(cbo.id(), cbo);
         all.put(ho.id(), ho);
         all.put(lm.id(), lm);
+        all.put(zm.id(), zm);
         return Map.copyOf(all);
     }
 

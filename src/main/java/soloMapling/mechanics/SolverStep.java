@@ -201,6 +201,18 @@ public sealed interface SolverStep {
     record EnterPortal(String portalName) implements SolverStep {
     }
 
+    /**
+     * The portal on this map that leads to a given map, whichever of the map's portals carries that target. A maze hub
+     * has fifteen doors and no reason for the solver to know which one is called {@code in07}: the row already says
+     * where the party goes next, so the target map id is the whole of the information.
+     */
+    record EnterPortalTo(int mapId) implements SolverStep {
+        @Override
+        public String toString() {
+            return "EnterPortalTo[mapId=" + mapId + "]";
+        }
+    }
+
     /** Nothing left for this member on this stage. */
     /**
      * The step the content cannot go on with: the run ends with this reason instead of the member standing still or
