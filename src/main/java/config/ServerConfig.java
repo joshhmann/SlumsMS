@@ -117,6 +117,21 @@ public class ServerConfig {
     public boolean COMPANION_SUPPLIES_ENABLED = false;
     // A party invite (party window or buddy menu) naming one of your own offline characters calls it as an alt.
     public boolean OWNED_ALTS_INVITE_SUMMON_ENABLED = false;
+
+    /**
+     * AL-4 (ticket 183): the owned-alt switches as one boot line, every name spelled as it is in the conf. The shipped
+     * 1.6.3 conf turned the six companion switches on but left OWNED_ALTS_ENABLED at its false default, so @botme was
+     * not available and t-oa-1 skipped itself; one line in the boot log says which way each switch actually went.
+     */
+    public String ownedAltSwitchesLine() {
+        return "Owned alts: OWNED_ALTS_ENABLED=" + OWNED_ALTS_ENABLED
+                + ", OWNED_ALTS_SUMMON_ENABLED=" + OWNED_ALTS_SUMMON_ENABLED
+                + ", COMPANION_ORDERS_ENABLED=" + COMPANION_ORDERS_ENABLED
+                + ", COMPANION_TRADES_ENABLED=" + COMPANION_TRADES_ENABLED
+                + ", COMPANION_UPGRADES_ENABLED=" + COMPANION_UPGRADES_ENABLED
+                + ", COMPANION_SUPPLIES_ENABLED=" + COMPANION_SUPPLIES_ENABLED
+                + ", OWNED_ALTS_INVITE_SUMMON_ENABLED=" + OWNED_ALTS_INVITE_SUMMON_ENABLED;
+    }
     //1.4.2 (perf): a player entering a map gets what is in view first; bots and drops outside the view follow
     //over the next ~1.5 s (server.maps.MapEntryPlacement). false = everything in one burst, as before.
     public boolean MAP_ENTRY_TRICKLE = true;
