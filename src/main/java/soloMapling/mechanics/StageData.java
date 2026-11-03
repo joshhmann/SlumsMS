@@ -546,11 +546,17 @@ public final class StageData {
             p.add(at + "graceMs: must not be negative");
             graceMs = 0;
         }
+        // a stage that sends the run back instead of forward: BossRush's waves repeat until the row's clock runs out
+        int loopTo = num(m, "loopTo", 0, p);
+        if (loopTo < 0 || loopTo > index) {
+            p.add(at + "loopTo: must be a stage index at or before this one (" + index + ")");
+            loopTo = 0;
+        }
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
                 summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, killTarget, stageMinutes,
-                hitReactor, List.copyOf(maps), graceMs);
+                hitReactor, List.copyOf(maps), graceMs, loopTo);
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----

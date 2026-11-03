@@ -916,6 +916,24 @@ Two earlier hypotheses were falsified on the way and are recorded so nobody repe
 sessions an earlier test left behind), and a cross-class static leak is impossible as configured - `pom.xml:252-255` sets
 `forkCount 1` with `reuseForks false`, so each test class gets its own JVM.
 
+## A stage set that repeats: `loopTo:`
+
+BossRush PQ is the one event whose stages are not a sequence (`/root/work/PQ-UNFINISHED-REPORT.md:438-462`): its door
+(`scripts/portal/raid_stage.js:28`) sends the party to the next wave while the map is empty, and the run ends when the
+five-minute clock does - there is no `clearPQ`, no property, no NPC. A row of N stages could not say that, because every
+stage was terminal-on-clear and the orchestrator ended a run at its last playable stage.
+
+So the primitive is a stage field rather than a solver: `loopTo: <stage index>` on the last stage of the set makes the
+orchestrator send the run **back** to that stage instead of forward, in the same branch that used to end the run. The
+clock is what ends such a run, and it ends it the way any over-time run ends - with the budget's own reason in the
+history. `LoopStageTest` (3) pins it: a row without the field keeps advancing (every other row on this branch), the
+field parses and refuses a forward or negative index, and a played row goes `1, 2, 1, 2, 1` and **never** reports
+`cleared`, ending on its own one-minute clock instead.
+
+**The row is not written yet.** Its layout is `970030100 + band + 500*s + 100*k` per the report, and generating 8 bands of
+waves from that needs every emitted map checked against the client (`-Dwz-path` integrity), which is the next turn's whole
+job rather than a line at the end of this one. The primitive is the part that had to exist first.
+
 ## GuildQuest: both blockers are settled, and the pattern was never server-side
 
 Part 5 item 6 asks two questions of the scripts. Both are answered, and neither answer is "unknown".

@@ -263,13 +263,14 @@ public final class MechanicsModel {
                         List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
-                        int killTarget, int timeLimitMinutes, int hitReactor, List<Integer> maps, long graceMs) {
+                        int killTarget, int timeLimitMinutes, int hitReactor, List<Integer> maps, long graceMs,
+                        int loopTo) {
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                      List<Answer> answers, List<BossPhase> phases, Clear clear) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
-                    List.of(), List.of(), null, null, 0, 0, 0, List.of(), 0L);
+                    List.of(), List.of(), null, null, 0, 0, 0, List.of(), 0L, 0);
         }
 
         /**
