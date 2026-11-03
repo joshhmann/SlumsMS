@@ -262,7 +262,7 @@ public final class MechanicsRuns {
         }
         Orchestrator o = budgetMs > 0 || lastStage > 0
                 ? new Orchestrator(Orchestrator.allSolvers(), new Random(), budgetMs, lastStage) : orchestrator;
-        RunState run = o.start(content, tier == null ? Tier.NORMAL : tier, members);
+        RunState run = o.start(content, tier == null ? TierScaling.requested(content) : tier, members);
         if (firstStage > 1 && !o.startAt(run, firstStage, System.currentTimeMillis())) {
             run.end("stage " + firstStage + " is not one this run plays (last " + run.lastStage() + ")");
         }
@@ -522,8 +522,10 @@ public final class MechanicsRuns {
                 }
                 return null;
             }
+            // one spelling of "this row may arm": a BOSS row asks the boss switch plus its own flag, anything else asks
+            // Mechanics.enabledFor - bossEnabledFor is that first pair, rowFlagOn is the flag half of it
             if (content.kind() == MechanicsModel.Kind.BOSS
-                    ? !(Mechanics.bossesEnabled() && Mechanics.rowFlagOn(content))
+                    ? !Mechanics.bossEnabledFor(content)
                     : !Mechanics.enabledFor(content)) {
                 return null;
             }

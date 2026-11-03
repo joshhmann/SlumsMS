@@ -37,7 +37,8 @@ class LateSpawnGraceTest {
                 timeLimitMinutes: 30
                 flag: slums.mechanics.late
                 sources:
-                  - "P15 in /root/work/PQ-UNFINISHED-REPORT.md: the Hard trio's first target arrives at 60-240 s"
+                  - "P15: a boss room whose target is not there on the first tick - the shape NWillBattle.js and its
+                    siblings would have had if their spawnTimes were minutes instead of 5000"
                 stages:
                   - stage: 1
                     map: 280030000

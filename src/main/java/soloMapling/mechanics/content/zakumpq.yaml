@@ -35,6 +35,8 @@ stages:
     name: "the hub: Adobis's cave"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010110
     items:
       - id: 4001015
         count: 30
@@ -56,12 +58,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010090
+      partyOnMap: 280010110
   - stage: 2
-    map: 280010090
-    name: "mine room 280010090"
+    map: 280010110
+    name: "mine room 280010110"
     solver: zakum-mines
-    hitReactors: [2112012]
+    hitReactors: [2112004]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -83,12 +87,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010091
+      partyOnMap: 280010000
   - stage: 3
-    map: 280010091
-    name: "mine room 280010091"
+    map: 280010000
+    name: "the hub: Adobis's cave"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010140
     items:
       - id: 4001015
         count: 30
@@ -110,12 +116,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010090
+      partyOnMap: 280010140
   - stage: 4
-    map: 280010090
-    name: "mine room 280010090"
+    map: 280010140
+    name: "mine room 280010140"
     solver: zakum-mines
-    hitReactors: [2112012]
+    hitReactors: [2112004]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -143,6 +151,8 @@ stages:
     name: "the hub: Adobis's cave"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010130
     items:
       - id: 4001015
         count: 30
@@ -164,12 +174,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010100
+      partyOnMap: 280010130
   - stage: 6
-    map: 280010100
-    name: "mine room 280010100"
+    map: 280010130
+    name: "mine room 280010130"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -191,12 +203,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010101
+      partyOnMap: 280010000
   - stage: 7
-    map: 280010101
-    name: "mine room 280010101"
+    map: 280010000
+    name: "the hub: Adobis's cave"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010010
     items:
       - id: 4001015
         count: 30
@@ -218,11 +232,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011000
+      partyOnMap: 280010010
   - stage: 8
-    map: 280011000
-    name: "the ore wing's door"
+    map: 280010010
+    name: "mine room 280010010"
     solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010011
     items:
       - id: 4001015
         count: 30
@@ -244,11 +261,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011001
+      partyOnMap: 280010011
   - stage: 9
-    map: 280011001
-    name: "mine room 280011001"
+    map: 280010011
+    name: "mine room 280010011"
     solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010070
     items:
       - id: 4001015
         count: 30
@@ -270,11 +290,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011000
+      partyOnMap: 280010070
   - stage: 10
-    map: 280011000
-    name: "the ore wing's door"
+    map: 280010070
+    name: "mine room 280010070"
     solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010071
     items:
       - id: 4001015
         count: 30
@@ -296,11 +319,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011002
+      partyOnMap: 280010071
   - stage: 11
-    map: 280011002
-    name: "mine room 280011002"
+    map: 280010071
+    name: "mine room 280010071"
     solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280011000
     items:
       - id: 4001015
         count: 30
@@ -327,6 +353,8 @@ stages:
     map: 280011000
     name: "the ore wing's door"
     solver: zakum-mines
+    maps:
+      - 280011002
     items:
       - id: 4001015
         count: 30
@@ -348,11 +376,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011003
+      partyOnMap: 280011002
   - stage: 13
-    map: 280011003
-    name: "mine room 280011003"
+    map: 280011002
+    name: "mine room 280011002"
     solver: zakum-mines
+    hitReactors: [2112004]
+    maps:
+      - 280011000
     items:
       - id: 4001015
         count: 30
@@ -379,6 +410,8 @@ stages:
     map: 280011000
     name: "the ore wing's door"
     solver: zakum-mines
+    maps:
+      - 280011003
     items:
       - id: 4001015
         count: 30
@@ -400,12 +433,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011004
+      partyOnMap: 280011003
   - stage: 15
-    map: 280011004
-    name: "mine room 280011004"
+    map: 280011003
+    name: "mine room 280011003"
     solver: zakum-mines
-    hitReactors: [2112012]
+    hitReactors: [2112004]
+    maps:
+      - 280011000
     items:
       - id: 4001015
         count: 30
@@ -432,6 +467,8 @@ stages:
     map: 280011000
     name: "the ore wing's door"
     solver: zakum-mines
+    maps:
+      - 280011001
     items:
       - id: 4001015
         count: 30
@@ -453,12 +490,13 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011005
+      partyOnMap: 280011001
   - stage: 17
-    map: 280011005
-    name: "mine room 280011005"
+    map: 280011001
+    name: "mine room 280011001"
     solver: zakum-mines
-    hitReactors: [2112014]
+    maps:
+      - 280011000
     items:
       - id: 4001015
         count: 30
@@ -485,6 +523,8 @@ stages:
     map: 280011000
     name: "the ore wing's door"
     solver: zakum-mines
+    maps:
+      - 280011004
     items:
       - id: 4001015
         count: 30
@@ -506,12 +546,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280011006
+      partyOnMap: 280011004
   - stage: 19
-    map: 280011006
-    name: "mine room 280011006"
+    map: 280011004
+    name: "mine room 280011004"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280011000
     items:
       - id: 4001015
         count: 30
@@ -538,6 +580,8 @@ stages:
     map: 280011000
     name: "the ore wing's door"
     solver: zakum-mines
+    maps:
+      - 280011006
     items:
       - id: 4001015
         count: 30
@@ -559,12 +603,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010101
+      partyOnMap: 280011006
   - stage: 21
-    map: 280010101
-    name: "mine room 280010101"
+    map: 280011006
+    name: "mine room 280011006"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280011000
     items:
       - id: 4001015
         count: 30
@@ -586,12 +632,13 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010100
+      partyOnMap: 280011000
   - stage: 22
-    map: 280010100
-    name: "mine room 280010100"
+    map: 280011000
+    name: "the ore wing's door"
     solver: zakum-mines
-    hitReactors: [2112012]
+    maps:
+      - 280011005
     items:
       - id: 4001015
         count: 30
@@ -613,12 +660,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      partyOnMap: 280011005
   - stage: 23
-    map: 280010000
-    name: "the hub: Adobis's cave"
+    map: 280011005
+    name: "mine room 280011005"
     solver: zakum-mines
-    hitReactors: [2112012]
+    hitReactors: [2112014]
+    maps:
+      - 280011000
     items:
       - id: 4001015
         count: 30
@@ -640,12 +689,13 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010110
+      partyOnMap: 280011000
   - stage: 24
-    map: 280010110
-    name: "mine room 280010110"
+    map: 280011000
+    name: "the ore wing's door"
     solver: zakum-mines
-    hitReactors: [2112012]
+    maps:
+      - 280010071
     items:
       - id: 4001015
         count: 30
@@ -667,12 +717,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      partyOnMap: 280010071
   - stage: 25
-    map: 280010000
-    name: "the hub: Adobis's cave"
+    map: 280010071
+    name: "mine room 280010071"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010070
     items:
       - id: 4001015
         count: 30
@@ -694,12 +746,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010120
+      partyOnMap: 280010070
   - stage: 26
-    map: 280010120
-    name: "mine room 280010120"
+    map: 280010070
+    name: "mine room 280010070"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010011
     items:
       - id: 4001015
         count: 30
@@ -721,12 +775,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      partyOnMap: 280010011
   - stage: 27
-    map: 280010000
-    name: "the hub: Adobis's cave"
+    map: 280010011
+    name: "mine room 280010011"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010010
     items:
       - id: 4001015
         count: 30
@@ -754,6 +810,8 @@ stages:
     name: "mine room 280010010"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -775,12 +833,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010011
+      partyOnMap: 280010000
   - stage: 29
-    map: 280010011
-    name: "mine room 280010011"
+    map: 280010000
+    name: "the hub: Adobis's cave"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010020
     items:
       - id: 4001015
         count: 30
@@ -802,12 +862,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010070
+      partyOnMap: 280010020
   - stage: 30
-    map: 280010070
-    name: "mine room 280010070"
+    map: 280010020
+    name: "mine room 280010020"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -829,12 +891,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010071
+      partyOnMap: 280010000
   - stage: 31
-    map: 280010071
-    name: "mine room 280010071"
+    map: 280010000
+    name: "the hub: Adobis's cave"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010030
     items:
       - id: 4001015
         count: 30
@@ -856,12 +920,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010070
+      partyOnMap: 280010030
   - stage: 32
-    map: 280010070
-    name: "mine room 280010070"
+    map: 280010030
+    name: "mine room 280010030"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010031
     items:
       - id: 4001015
         count: 30
@@ -883,12 +949,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010011
+      partyOnMap: 280010031
   - stage: 33
-    map: 280010011
-    name: "mine room 280010011"
+    map: 280010031
+    name: "mine room 280010031"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010030
     items:
       - id: 4001015
         count: 30
@@ -910,12 +978,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010010
+      partyOnMap: 280010030
   - stage: 34
-    map: 280010010
-    name: "mine room 280010010"
+    map: 280010030
+    name: "mine room 280010030"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -943,6 +1013,8 @@ stages:
     name: "the hub: Adobis's cave"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010040
     items:
       - id: 4001015
         count: 30
@@ -964,12 +1036,13 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010020
+      partyOnMap: 280010040
   - stage: 36
-    map: 280010020
-    name: "mine room 280010020"
+    map: 280010040
+    name: "mine room 280010040"
     solver: zakum-mines
-    hitReactors: [2112012]
+    maps:
+      - 280010041
     items:
       - id: 4001015
         count: 30
@@ -991,12 +1064,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010000
+      partyOnMap: 280010041
   - stage: 37
-    map: 280010000
-    name: "the hub: Adobis's cave"
+    map: 280010041
+    name: "mine room 280010041"
     solver: zakum-mines
-    hitReactors: [2112012]
+    hitReactors: [2112011]
+    maps:
+      - 280010050
     items:
       - id: 4001015
         count: 30
@@ -1018,12 +1093,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010030
+      partyOnMap: 280010050
   - stage: 38
-    map: 280010030
-    name: "mine room 280010030"
+    map: 280010050
+    name: "mine room 280010050"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010041
     items:
       - id: 4001015
         count: 30
@@ -1045,12 +1122,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010031
+      partyOnMap: 280010041
   - stage: 39
-    map: 280010031
-    name: "mine room 280010031"
+    map: 280010041
+    name: "mine room 280010041"
     solver: zakum-mines
-    hitReactors: [2112012]
+    hitReactors: [2112011]
+    maps:
+      - 280010040
     items:
       - id: 4001015
         count: 30
@@ -1072,12 +1151,13 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010030
+      partyOnMap: 280010040
   - stage: 40
-    map: 280010030
-    name: "mine room 280010030"
+    map: 280010040
+    name: "mine room 280010040"
     solver: zakum-mines
-    hitReactors: [2112012]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -1105,6 +1185,8 @@ stages:
     name: "the hub: Adobis's cave"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010060
     items:
       - id: 4001015
         count: 30
@@ -1126,65 +1208,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010040
+      partyOnMap: 280010060
   - stage: 42
-    map: 280010040
-    name: "mine room 280010040"
-    solver: zakum-mines
-    items:
-      - id: 4001015
-        count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
-      - id: 4001016
-        count: 7
-        note: "the ore the big chest eats"
-      - id: 4001018
-        count: 1
-        note: "the document out of 2112014"
-    roles:
-      - id: miner
-        who: ANY
-        min: 1
-        max: party
-    objectives:
-      - id: sweep
-        kind: WAIT
-        role: all
-        note: "the chests are hit until they answer -1, then the party walks out"
-    clear:
-      partyOnMap: 280010041
-  - stage: 43
-    map: 280010041
-    name: "mine room 280010041"
-    solver: zakum-mines
-    hitReactors: [2112011]
-    items:
-      - id: 4001015
-        count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
-      - id: 4001016
-        count: 7
-        note: "the ore the big chest eats"
-      - id: 4001018
-        count: 1
-        note: "the document out of 2112014"
-    roles:
-      - id: miner
-        who: ANY
-        min: 1
-        max: party
-    objectives:
-      - id: sweep
-        kind: WAIT
-        role: all
-        note: "the chests are hit until they answer -1, then the party walks out"
-    clear:
-      partyOnMap: 280010050
-  - stage: 44
-    map: 280010050
-    name: "mine room 280010050"
+    map: 280010060
+    name: "mine room 280010060"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -1206,12 +1237,71 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010041
+      partyOnMap: 280010000
+  - stage: 43
+    map: 280010000
+    name: "the hub: Adobis's cave"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010080
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010080
+  - stage: 44
+    map: 280010080
+    name: "mine room 280010080"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010081
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010081
   - stage: 45
-    map: 280010041
-    name: "mine room 280010041"
+    map: 280010081
+    name: "mine room 280010081"
     solver: zakum-mines
-    hitReactors: [2112011]
+    maps:
+      - 280010080
     items:
       - id: 4001015
         count: 30
@@ -1233,11 +1323,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010040
+      partyOnMap: 280010080
   - stage: 46
-    map: 280010040
-    name: "mine room 280010040"
+    map: 280010080
+    name: "mine room 280010080"
     solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -1265,6 +1358,8 @@ stages:
     name: "the hub: Adobis's cave"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010090
     items:
       - id: 4001015
         count: 30
@@ -1286,12 +1381,72 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010060
+      partyOnMap: 280010090
   - stage: 48
-    map: 280010060
-    name: "mine room 280010060"
+    map: 280010090
+    name: "mine room 280010090"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010091
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010091
+  - stage: 49
+    map: 280010091
+    name: "mine room 280010091"
+    solver: zakum-mines
+    hitReactors: [2112004]
+    maps:
+      - 280010090
+    items:
+      - id: 4001015
+        count: 30
+        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
+      - id: 4001016
+        count: 7
+        note: "the ore the big chest eats"
+      - id: 4001018
+        count: 1
+        note: "the document out of 2112014"
+    roles:
+      - id: miner
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: sweep
+        kind: WAIT
+        role: all
+        note: "the chests are hit until they answer -1, then the party walks out"
+    clear:
+      partyOnMap: 280010090
+  - stage: 50
+    map: 280010090
+    name: "mine room 280010090"
+    solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -1314,11 +1469,13 @@ stages:
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
       partyOnMap: 280010000
-  - stage: 49
+  - stage: 51
     map: 280010000
     name: "the hub: Adobis's cave"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010100
     items:
       - id: 4001015
         count: 30
@@ -1340,65 +1497,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010080
-  - stage: 50
-    map: 280010080
-    name: "mine room 280010080"
-    solver: zakum-mines
-    hitReactors: [2112012]
-    items:
-      - id: 4001015
-        count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
-      - id: 4001016
-        count: 7
-        note: "the ore the big chest eats"
-      - id: 4001018
-        count: 1
-        note: "the document out of 2112014"
-    roles:
-      - id: miner
-        who: ANY
-        min: 1
-        max: party
-    objectives:
-      - id: sweep
-        kind: WAIT
-        role: all
-        note: "the chests are hit until they answer -1, then the party walks out"
-    clear:
-      partyOnMap: 280010081
-  - stage: 51
-    map: 280010081
-    name: "mine room 280010081"
-    solver: zakum-mines
-    items:
-      - id: 4001015
-        count: 30
-        note: "the key: optional, it only buys the better message and reward (2032002.js:78-95)"
-      - id: 4001016
-        count: 7
-        note: "the ore the big chest eats"
-      - id: 4001018
-        count: 1
-        note: "the document out of 2112014"
-    roles:
-      - id: miner
-        who: ANY
-        min: 1
-        max: party
-    objectives:
-      - id: sweep
-        kind: WAIT
-        role: all
-        note: "the chests are hit until they answer -1, then the party walks out"
-    clear:
-      partyOnMap: 280010130
+      partyOnMap: 280010100
   - stage: 52
-    map: 280010130
-    name: "mine room 280010130"
+    map: 280010100
+    name: "mine room 280010100"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010101
     items:
       - id: 4001015
         count: 30
@@ -1420,12 +1526,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010140
+      partyOnMap: 280010101
   - stage: 53
-    map: 280010140
-    name: "mine room 280010140"
+    map: 280010101
+    name: "mine room 280010101"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010100
     items:
       - id: 4001015
         count: 30
@@ -1447,12 +1555,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010130
+      partyOnMap: 280010100
   - stage: 54
-    map: 280010130
-    name: "mine room 280010130"
+    map: 280010100
+    name: "mine room 280010100"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -1474,11 +1584,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010081
+      partyOnMap: 280010000
   - stage: 55
-    map: 280010081
-    name: "mine room 280010081"
+    map: 280010000
+    name: "the hub: Adobis's cave"
     solver: zakum-mines
+    hitReactors: [2112012]
+    maps:
+      - 280010120
     items:
       - id: 4001015
         count: 30
@@ -1500,12 +1613,14 @@ stages:
         role: all
         note: "the chests are hit until they answer -1, then the party walks out"
     clear:
-      partyOnMap: 280010080
+      partyOnMap: 280010120
   - stage: 56
-    map: 280010080
-    name: "mine room 280010080"
+    map: 280010120
+    name: "mine room 280010120"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30
@@ -1533,6 +1648,8 @@ stages:
     name: "the hub: Adobis's cave"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010150
     items:
       - id: 4001015
         count: 30
@@ -1560,6 +1677,8 @@ stages:
     name: "mine room 280010150"
     solver: zakum-mines
     hitReactors: [2112012]
+    maps:
+      - 280010000
     items:
       - id: 4001015
         count: 30

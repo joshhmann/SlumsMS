@@ -1014,6 +1014,41 @@ party does not staff Adobis, a human or a party that already exists walks in. An
 lists `4001015` with the note that it only buys the better message and reward, because `scripts/npc/2032002.js:121-127`
 clears either way and no damage check exists.
 
+## Pre-Zakum: the ore economy stalls an end-to-end run (found by simulation, not yet fixed)
+
+`zakum-mines` passes its unit tests and the integrity pass, but a whole-row simulation of it does **not** reach Adobis's
+hand-in, and the reason is arithmetic rather than a bug in one step:
+
+- the big chest wants **seven** `4001016` in one hand (`Reactor.wz/2112014`, `event/0` `0=4001016, 1=7`);
+- a chest yields **two** items and is then inert for ever, so seven ores need four ore rooms swept;
+- the ore reactors are only `2112004` (in `280010091`, `110`, `140`, `280011002`, `280011003`) and `2112011` (in
+  `280010041`, and in `280011005` - the big chest's own room), and the walk reaches `280011005` **before** the rooms that
+  hold the rest;
+- and loot is first-come, so in a three-member party the ore is spread across hands unless it is pooled.
+
+What the simulation did: `RowRunSimulationTest` driving the real orchestrator over the real row reached stage 17
+(`280011005`) with **six** ores in the leader's hand in one build and **one** in another, then stood there until the
+30-minute budget said "time budget of 30 min ran out on stage 17". Four solver variants were tried and reverted
+(loot-before-chest, ore pooled on the leader, one member striking the chest instead of three, the room's own ore chest
+swept first): none made seven ores deterministic, because the shortfall is in the row's **order** and in the chest's
+two-item yield, not in a branch.
+
+**The decision, taken: the ore rooms come first.** The maze yields fourteen ores across seven reactors and the big chest
+wants seven, so nothing is missing from the world - only from the *order*. The row's walk is now generated with the ore
+rooms ahead of `280011005`: `280010110` (stage 2), `280010140` (4), `280011002` (13) and `280011003` (15) all precede the
+big chest at stage 23, which is eight ores - more than the seven it eats - before the room's own `2112011` is touched. A
+`loopTo:` was the other candidate and is wrong: the chest is single-use, so looping back would re-hit inert reactors.
+
+That is checked by a test rather than asserted in prose: `ZakumPqSolversTest.enoughOreRoomsComeBeforeTheBigChestToFeedIt`
+counts the ore rooms before the big chest's stage and refuses fewer than four. Every stage also carries
+`maps: [<the map its door leads to>]`, which is what a `partyOnMap` clear actually means, and every room that holds a
+chest names it in `hitReactor`, the ore chest preferred where a room has both.
+
+**Still not claimed:** a whole-row simulation. The ordering removes the arithmetic wall the earlier run hit (stage 17 with
+six ores, then one, then the 30-minute budget), but the simulation test is not yet green on this row, so the mines are
+"unit-tested and ordered", not "played end to end". The suite is green on this tree (8622 / 0 / 0 / 137, `/tmp/opq-4boss.log`,
+zero `<<< FAILURE` markers), and `tools/ops/map-integrity` stays clean over all thirty maps.
+
 ## Pre-Horntail PQ: read to the end, and it is not completable (no row)
 
 Read to the wrapper's end rather than trusting the earlier `[C]`/`[D]` marks, this quest cannot be finished here by a player
@@ -1041,6 +1076,33 @@ fifth room is a dead end in a 25-minute instance and the last two stages (`24005
 not exist. **The honest repair is a quest-design decision, not a port**: a `case 240050105` in the reactor with a real key
 id and stage number, a `passKey5` reactor in `240050105`'s WZ, and a way back to `240050100` (or the hand-in moved into
 the mine). Until someone decides which, this PQ has no row and both lanes should say so.
+
+## Difficulty tiers: HPQ, LPQ and OPQ carry their HARD band, and the switch is the only way in
+
+`content/hpq.yaml`, `lpq.yaml` and `opq.yaml` now carry a `tiers:` block with **HARD only**, and every number in it is the
+HARD row of `DIFFICULTY-CHAOS-PLAN.md` section 9 (the table stamped "proposal only, nothing merged, owner may overwrite any
+cell"), typed in verbatim - nothing derived in the row and nothing derived in Java:
+
+| row | minLevel | maxLevel | mobLevelBonus | mobHpMultiplier | mobDamageMultiplier | minutes | botMistakeFactor |
+|---|---|---|---|---|---|---|---|
+| HPQ (`hpq.yaml`) | 30 | 54 | 20 | 6.0 | 1.5 | 15 | 1.25 |
+| LPQ (`lpq.yaml`) | 55 | 79 | 20 | 3.0 | 1.5 | 55 | 1.25 |
+| OPQ (`opq.yaml`) | 71 | 95 | 20 | 4.0 | 1.5 | 55 | 1.25 |
+
+EXPERT and MASTER are in the same table and are deliberately **not** copied: a row carries the tiers it was asked for, and
+a tier the row does not name cannot be requested. The NORMAL band is untouched in all three (10/255/10, 35/255/45,
+51/255/45) - a tier must not silently move the stock party quest's gates - and the tier's floor is the stock floor plus its
+own `mobLevelBonus`, so the band never starts below where its mobs are scaled for.
+
+`TierScaling` is the one gate: `rulesFor(content, tier)` answers null for anything above NORMAL while
+`-Dslums.mechanics.tiers` is off, and null for a tier the row does not name; `requested(content)` reads
+`-Dslums.mechanics.tier=<name>` and returns NORMAL unless both hold. `MechanicsRuns` now starts every run at
+`requested(content)` instead of a hardcoded NORMAL, which is what makes the HARD blocks reachable at all - and what keeps
+Kerning exactly as it was, since `kpq.yaml` still carries only the commented-out shape.
+
+What a tier still cannot do, unchanged and worth repeating from the plan: the instance clock is the event script's own
+`eventTime`, so a tier's `timeLimitMinutes` is this engine's budget and not the script's timer (plan f5), and `maxLevel` is
+advisory until something enforces a ceiling (f3).
 
 ## A stage set that repeats: `loopTo:`
 
@@ -1086,6 +1148,43 @@ property, in full, after the display finishes - no screenshot, no guessing.
 | five stage rows | Sharenian Ruins' stages, all keyed on `Nstageclear`-style properties | follows the two above |
 
 Not built, and the reason is structural rather than a missing fact: the second row of that table is the whole item.
+
+## The four Normal-tier fights: the spawn was in the script all along, at five seconds
+
+The ledger carried them as blocked twice over - first "first target at 60/120/120/240 s, so a per-stage grace is missing",
+then "the spawns are missing from the scripts, which is not ours". Both are wrong, and the four scripts are one shape:
+
+| boss | script | room | spawn | mob | clear |
+|---|---|---|---|---|---|
+| Hard Will | `NWillBattle.js` | `450007441` | `:139-140` `eim.schedule("spawnMob1", spawnTimes[0])`, `spawnTimes = [5000]` (`:116`), spawn `:145-150` | `9990301` | `clearPQ` → `setEventCleared(NWILLSPIDER)` (`:242-252`) |
+| Hard Lucid | `NLucidBattle.js` | `450004751` | `:138-139`, spawn `:144-149` | `9990150` | `NLUCID` |
+| Hard Darknell | `NDarknellBattle.js` | `450012211` | `:139-140`, spawn `:145-150` | `9995009` | `NDARKNELL` |
+| Hard Verus | `NVerusBattle.js` | `450010101` | `:139-140`, spawn `:145-150` | `9990415` | `NVERUS` |
+
+So the delay is five seconds, the mob is script-spawned, all four `Mob.wz` entries exist, and all four rooms' `life` blocks
+in `Map.wz` are **empty** - nothing else can stand there. The primitive the ledger asked for (`graceMs:`) was not what they
+needed; four rows were.
+
+**Shipped**: `content/nwill.yaml`, `nlucid.yaml`, `ndarknell.yaml`, `nverus.yaml`, one stage each, `solver: boss-phases`,
+`killTarget` = the spawned mob, `mobs: [that id]`, `clear: { instance: true }` (the script's `setEventCleared`, not a
+property), gates from the script (1-6 players, level 200-255, `eventTime = 120`), and `graceMs: 15000` - three times the
+script's own delay, so the room waits the spawn out rather than abandoning it at the default thirty seconds. Each row also
+carries its own `flag:` on top of `-Dslums.mechanics.boss`; the lane gate moved from `bossesEnabled()` to
+`Mechanics.bossEnabledFor(Content)` so a row flag can narrow the lane and never open it (`BossRowFlagTest` 3).
+
+**Proved by simulation, which is the assertion that matters for these four**:
+`RowRunSimulationTest.assertLateSpawn` plays each row with the boss's arrival delayed five seconds and asserts the run
+reaches `cleared`, kills the one mob, and took **no `Abandon` step** while the room stood empty - plus that the wait really
+was a `Wait` step. Four tests, one per boss.
+
+**Integrity, not assurance**: `MechanicsRowWzIntegrityTest` reads every row in `index.txt` and checks each map and mob id
+against the dump (`-Dwz-path=…`, skip without it), with a negative control so a green run cannot be vacuous; and
+`tools/ops/map-integrity` over the eight maps these four rows name reports 8 maps scanned and zero problems of any kind.
+The whole-suite number is 8635 with 138 skipped rather than 137: the skip is `MechanicsRowWzIntegrityTest` doing its job in
+a checkout with no `wz/` folder to read.
+
+Two script warts left alone and reported rather than copied: each script's `eventTime = 120` sits next to a comment saying
+45 minutes (the value wins, and the row says 120), and `respawnStages(eim)` is defined three times in `NLucidBattle.js`.
 
 ## Boss rooms that take minutes to produce a target: `graceMs:`
 
@@ -1306,12 +1405,12 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8621 tests, 0 failures, 0 errors, 137 skipped,
-BUILD SUCCESS, `EXIT=0`, zero `<<< FAILURE` markers** (`/tmp/opq-zak2.log`). That is the number this report treats as the
+`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8635 tests, 0 failures, 0 errors, 137 skipped,
+BUILD SUCCESS, `EXIT=0`, zero `<<< FAILURE` markers** (`/tmp/opq-zak3.log`). That is the number this report treats as the
 suite's proof. Two runs before it were also clean at 8609 each, which is what proved the `BotConversationFlowTest`
 selector fix rather than asserting it (`/tmp/opq-flake-A.log`, `/tmp/opq-flake-B.log`, both `EXIT=0`).
 
-The ladder, so the next number is comparable: 8621 (Pre-Zakum: 59 generated stages, `zakum-mines`, `zakum-hand-in` folded in) -> 8616 (the eight BossRush rows + `BossRushRowTest`) -> 8612 (the `loopTo:` primitive) -> 8609 (the flake fix, twice) -> 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
+The ladder, so the next number is comparable: 8635 (the four Normal-tier boss rows + `spawnAfter` + the row/WZ integrity pass) -> 8627 (HPQ/LPQ/OPQ's HARD band + `TierScaling` + `TierScalingTest`) -> 8622 (the ore-ordered Pre-Zakum row + `enoughOreRoomsComeBeforeTheBigChestToFeedIt`) -> 8621 (Pre-Zakum: 59 generated stages, `zakum-mines`, `zakum-hand-in` folded in) -> 8616 (the eight BossRush rows + `BossRushRowTest`) -> 8612 (the `loopTo:` primitive) -> 8609 (the flake fix, twice) -> 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
 one class) -> 8597 (`/tmp/opq-ellin4.log`, Ellin six of six) -> 8592 (`/tmp/opq-cwkpq2.log`) -> 8590 -> 8586 -> 8585 ->
 8582 -> 8577 -> 8573 -> 8567 -> 8562 -> 8552 -> 8541 -> 8532 -> 8529 -> 8515.
 
