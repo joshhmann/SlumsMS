@@ -109,6 +109,17 @@ final class BotNpcTalk extends AbstractScriptManager {
             return bot;
         }
 
+        /**
+         * What a script that hands "the client" on gets: a population bot's shared client has no player, and the scripts
+         * that schedule a reactor hit with it ({@code cm.getPlayer().getMap().getReactorByOid(..).delayedHitReactor(
+         * cm.getClient(), ..)}, Guild Quest's Gatekeeper, {@code scripts/npc/9040009.js:111}) run the reactor's script
+         * for that client later. See {@link client.BotClient#forScripts}.
+         */
+        @Override
+        public client.Client getClient() {
+            return client.BotClient.forScripts(bot);
+        }
+
         @Override
         public int getMapId() {
             return bot.getMapId();

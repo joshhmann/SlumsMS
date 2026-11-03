@@ -1295,7 +1295,7 @@ public class MapleMap {
         }, null);
 
         instantiateItemDrop(mdrop);
-        activateItemReactors(mdrop, chr.getClient());
+        activateItemReactors(mdrop, client.BotClient.forScripts(chr));
     }
 
     public final void spawnMesoDrop(final int meso, final Point position, final MapObject dropper, final Character owner, final boolean playerDrop, final byte droptype) {
@@ -2610,7 +2610,7 @@ public class MapleMap {
         }
 
         instantiateItemDrop(mdrop);
-        activateItemReactors(mdrop, owner.getClient());
+        activateItemReactors(mdrop, client.BotClient.forScripts(owner));
         return mdrop;
     }
 

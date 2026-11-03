@@ -954,7 +954,7 @@ final class StepExecutor {
             return;
         }
         beat.lastReactorMs = now;
-        reactor.hitReactor(bot.getClient());
+        reactor.hitReactor(client.BotClient.forScripts(bot)); // a population bot's script needs a player behind the client
         log.accept(bot.getName() + ": hit reactor " + label + " on " + bot.getMapId());
     }
 
@@ -1045,7 +1045,7 @@ final class StepExecutor {
             return;
         }
         beat.lastTouchMs = now;
-        scripting.reactor.ReactorScriptManager.getInstance().touch(bot.getClient(), reactor);
+        scripting.reactor.ReactorScriptManager.getInstance().touch(client.BotClient.forScripts(bot), reactor);
         log.accept("TOUCH reactor " + (reactorName != null ? reactorName : String.valueOf(reactorId))
                 + " (state " + reactor.getState() + ")");
     }

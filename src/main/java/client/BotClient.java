@@ -45,6 +45,34 @@ public class BotClient extends Client {
         return true;
     }
 
+    /**
+     * The client a script runs with when a <b>population bot</b> acts: its {@code getPlayer()} is the bot.
+     *
+     * <p>Every population bot shares its channel's one headless client ({@code BotClientHandler}), and that client has no
+     * player. A reactor hit, a reactor an item is dropped on and an NPC conversation all hand their script that client
+     * ({@code Reactor.hitReactor(c)}, {@code MapleMap.activateItemReactors}, {@code NPCConversationManager.getClient()}),
+     * and the scripts reach the character through it: {@code ReactorActionManager.dropItems} returns without a drop when
+     * {@code c.getPlayer()} is null ({@code ReactorActionManager.java:157-159}), and {@code rm.getPlayer().getEventInstance()}
+     * - the first line of Guild Quest's statues ({@code scripts/reactor/9208000.js:36}), spear altars and gate - throws.
+     * A client bound to the bot gives them the player they ask for and is otherwise the headless client (same world and
+     * channel, no socket, every packet dropped). It is made per action: nothing is written to the shared client, so two
+     * bots acting at once never see each other's player.
+     *
+     * <p>Anyone who has a client of their own - a real player, an owned alt - gets it back unchanged.
+     */
+    public static Client forScripts(Character bot) {
+        Client own = bot == null ? null : bot.getClient();
+        if (!(own instanceof BotClient) || own.getPlayer() != null) {
+            return own;
+        }
+        return new BotClient(own.getWorld(), own.getChannel()) {
+            @Override
+            public Character getPlayer() {
+                return bot;
+            }
+        };
+    }
+
     /*
      * Skip the DB write and SessionCoordinator registration a real login state
      * change performs. A headless client must never write login-state rows
