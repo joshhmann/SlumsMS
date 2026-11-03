@@ -218,19 +218,22 @@ public final class MechanicsModel {
      *   <li>{@code spawnWaitSeconds} (1.6.4 boss rows with no reactor and no summon property): how long the room may
      *   hold none of {@code mobs} and still be a fight the map's own life is about to bring in.
      *   0 = no expectation, and then an empty room is abandoned after the solver's 30 s grace.</li>
+     *   <li>{@code hitReactors} (boss rows behind a reactor): the reactors a bot clicks to open the room, in the order
+     *   they must be clicked. Empty = no reactor (the room brings its own fight). A room with two of them (Scarga's
+     *   Targa and Scarlion) needs both clicked before either fight is worth starting.</li>
      * </ul>
      */
     public record Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                         List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
-                        int spawnWaitSeconds, int timeLimitMinutes, int hitReactor) {
+                        int spawnWaitSeconds, int timeLimitMinutes, List<Integer> hitReactors) {
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                      List<Answer> answers, List<BossPhase> phases, Clear clear) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
-                    List.of(), List.of(), null, null, 0, 0, 0);
+                    List.of(), List.of(), null, null, 0, 0, List.of());
         }
 
         /** How many positions a combination's answer occupies (KPQ: 3), or 0 for a stage without combos. */

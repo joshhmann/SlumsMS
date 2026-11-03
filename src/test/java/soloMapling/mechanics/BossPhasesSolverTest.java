@@ -262,6 +262,61 @@ class BossPhasesSolverTest {
         assertEquals(2401000, hit.reactorId(), "the reactor that spawns the whole fight");
     }
 
+    /**
+     * Scarga's room has two reactors and each one brings half the fight: {@code scripts/reactor/5511000.js:5-9} summons
+     * Targa after 3.2 s and {@code scripts/reactor/5511001.js:5-9} summons Scarlion the same way. Clicking the second
+     * one only "while the room is empty" would never happen, because Targa is already standing by then - which is why
+     * the row's reactors are an ordered list and both are clicked before anything is fought.
+     */
+    @Test
+    void bothOfScargasReactorsAreClickedBeforeEitherHalfIsFought() {
+        MechanicsModel.Stage room = withReactors(horntailBodyRoom(), List.of(5511000, 5511001), 60);
+        View view = new View(room, List.of(), Map.of());
+
+        assertEquals(5511000, assertInstanceOf(SolverStep.HitReactor.class, solver.next(view, member())).reactorId(),
+                "the first reactor, first");
+        view.now += 100;
+
+        // Targa is on the map 3.2 s after the click, and the half it brings must not stop the second click
+        view.parts.add(add(9420542));
+        assertEquals(5511001, assertInstanceOf(SolverStep.HitReactor.class, solver.next(view, member())).reactorId(),
+                "the second reactor is clicked even though the first already brought its boss");
+        view.now += 3_200;
+
+        view.parts.add(add(9420547));
+        SolverStep.Fight fight = assertInstanceOf(SolverStep.Fight.class, solver.next(view, member()));
+        assertTrue(fight.mobIds().containsAll(List.of(9420542, 9420547)), fight.mobIds().toString());
+
+        // and neither reactor is ever clicked a second time: 2201004.js has no guard, so a repeat would double-spawn
+        view.now += 100;
+        assertInstanceOf(SolverStep.Fight.class, solver.next(view, member()));
+    }
+
+    /**
+     * The fail-before for the list: a row that names only the first of Scarga's two reactors leaves Targa's group as
+     * the whole fight, and once that group is down the instance can never be cleared. The run must end in an abandon,
+     * never in a clear.
+     */
+    @Test
+    void aRoomThatOpensOnlyHalfItsFightIsNeverCalledCleared() {
+        MechanicsModel.Stage room = withReactors(horntailBodyRoom(), List.of(5511000), 60);
+        View view = new View(room, List.of(), Map.of());
+
+        assertEquals(5511000, assertInstanceOf(SolverStep.HitReactor.class, solver.next(view, member())).reactorId());
+        view.parts.add(add(9420542));
+        view.now += 100;
+        assertInstanceOf(SolverStep.Fight.class, solver.next(view, member()), "Targa's group is all there is");
+
+        view.parts.clear();
+        view.now += 100;
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()), "the room is empty and the clock starts");
+        view.now += 60_100;
+        SolverStep step = solver.next(view, member());
+
+        assertFalse(step instanceof SolverStep.Done, "half a fight is not a clear");
+        assertInstanceOf(SolverStep.Abandon.class, step, "Scarlion's half never arrives, so the room is a stall");
+    }
+
     @Test
     void theShippedZakumRowIsOneBossStageWithAnEqualityClear() {
         MechanicsModel.Content content = MechanicsRuns.contentFor("ZakumBattle");
@@ -276,6 +331,24 @@ class BossPhasesSolverTest {
         assertEquals("defeatedBoss", stage.clear().eventProperty());
         assertEquals("1", stage.clear().equals());
         assertEquals(armIds().size() + 3, stage.mobs().size(), "eight arms and the body's three forms");
+    }
+
+    /** A copy of a shipped stage with a different reactor list, so the click rules can be pinned without a row. */
+    private static MechanicsModel.Stage withReactors(MechanicsModel.Stage base, List<Integer> reactors, int spawnWait) {
+        return new MechanicsModel.Stage(base.index(), base.mapId(), base.name(), base.npcId(), base.solver(),
+                base.roles(), base.objectives(), base.positions(), base.items(), base.answers(), base.phases(),
+                base.clear(), base.answerProperty(), base.combos(), base.mobs(), base.nextPortal(),
+                base.summonProperty(), spawnWait, base.timeLimitMinutes(), reactors);
+    }
+
+    /** Horntail's body room: no summon property, so a room with nothing alive is a fight the map brings, not a gate. */
+    private static MechanicsModel.Stage horntailBodyRoom() {
+        return MechanicsRuns.contentFor("HorntailBattle").stageOnMap(240060200).orElseThrow();
+    }
+
+    /** An ordinary listed fight target: every non-Zakum, non-Horntail id is an add (BOSS-ROW-DATA.md R3). */
+    private static Part add(int mobId) {
+        return new Part(mobId, BossTargetRules.Role.ADD, false, true, false, false, 0);
     }
 
     private static StageView summoned(List<Part> parts, boolean withKillTarget) {
@@ -329,7 +402,7 @@ class BossPhasesSolverTest {
 
         View(MechanicsModel.Stage stage, List<Part> parts, Map<String, String> props) {
             this.stage = stage;
-            this.parts = parts;
+            this.parts = new ArrayList<>(parts);
             this.props = new HashMap<>(props);
         }
 

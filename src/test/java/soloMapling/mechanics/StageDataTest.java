@@ -184,6 +184,22 @@ class StageDataTest {
     }
 
     @Test
+    void hitReactorsIsAListInTheOrderTheRoomMustBeOpened() throws Exception {
+        String opening = GOOD.replace("clear: { eventProperty: 1stageclear }",
+                "mobs: [ 9420542, 9420547 ]\n    hitReactors: [ 5511000, 5511001 ]\n"
+                        + "    clear: { eventProperty: 1stageclear }");
+        StageData.Result r = StageData.parse(new StringReader(opening));
+        assertEquals(List.of(), r.errors());
+        assertEquals(List.of(5511000, 5511001), r.content().get(0).stage(1).orElseThrow().hitReactors(),
+                "the order is the row's, not the file's");
+        assertEquals(List.of(), kpq().stage(1).orElseThrow().hitReactors(),
+                "a room with no reactor says so by having none");
+        assertHas(errors(opening.replace("5511001 ]", "5511001, x ]")), "hitReactors: not a reactor id");
+        assertHas(errors(opening.replace("[ 5511000, 5511001 ]", "[ 5511000, 5511000 ]")),
+                "a reactor is clicked once per stage");
+    }
+
+    @Test
     void aSpawnWaitIsAStatementAboutMobsTheRoomDoesNotHaveYet() throws Exception {
         String waiting = GOOD.replace("clear: { eventProperty: 1stageclear }",
                 "mobs: [ 8220010 ]\n    spawnWaitSeconds: 60\n    clear: { eventProperty: 1stageclear }");

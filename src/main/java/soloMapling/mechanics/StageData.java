@@ -499,13 +499,24 @@ public final class StageData {
                 at + "spawnWaitSeconds needs mobs: it is a statement about when the room's targets appear");
         // 1.6.4 boss lane: a boss room's own clock. 0 = the row's timeLimitMinutes counts from the run's start.
         int stageMinutes = num(m, "timeLimitMinutes", 0, p);
-        // a room whose fight is behind a reactor nobody has to click by hand (Horntail's 2401000); 0 = no reactor
-        int hitReactor = num(m, "hitReactor", 0, p);
+        // a room whose fight is behind reactors nobody has to click by hand (Horntail's 2401000, Scarga's two), in the
+        // order they must be clicked. A list, not a scalar: a room with two of them must have both opened before the
+        // fight it is about starts, and one step per reactor is what an ordered list says.
+        List<Integer> hitReactors = new ArrayList<>();
+        for (Object o : list(m, "hitReactors")) {
+            try {
+                hitReactors.add(Integer.parseInt(String.valueOf(o).trim()));
+            } catch (NumberFormatException e) {
+                p.add(at + "hitReactors: not a reactor id: " + o);
+            }
+        }
+        require(hitReactors.stream().distinct().count() == hitReactors.size(), p,
+                at + "hitReactors: a reactor is clicked once per stage, so listing it twice says nothing new");
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
                 summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, spawnWait, stageMinutes,
-                hitReactor);
+                List.copyOf(hitReactors));
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----

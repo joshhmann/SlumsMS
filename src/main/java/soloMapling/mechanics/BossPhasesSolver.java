@@ -42,6 +42,9 @@ public final class BossPhasesSolver implements StageSolver {
     /** Where the grace's start is remembered between ticks, in the stage's own scratch memory. */
     private static final String K_NOTHING_SINCE = "bossNothingSince";
 
+    /** Where a reactor the bot has already clicked is remembered, so a room with two of them clicks each exactly once. */
+    private static final String K_REACTOR = "bossReactorSince";
+
     /** The body chain in the order its phases wake up: Zakum's three body ids. */
     private static final List<Integer> BODY_FAMILY = List.of(8800000, 8800001, 8800002);
 
@@ -66,10 +69,20 @@ public final class BossPhasesSolver implements StageSolver {
         if (phase == BossTargetRules.Phase.WAITING_FOR_SUMMON) {
             return new SolverStep.Wait(1_000, "waiting for the boss to be summoned");
         }
-        if (view.stage().hitReactor() > 0 && parts.isEmpty() && !view.cleared()) {
-            // the room's fight is behind a reactor (Horntail's 2401000 spawns the whole thing); with no part alive the
-            // click has not happened yet, and its own guard makes a repeat harmless, so a bot opens the room itself
-            return new SolverStep.HitReactor(view.stage().hitReactor());
+        List<Integer> reactors = view.stage().hitReactors();
+        boolean opened = reactors.stream().anyMatch(id -> view.stageMemory().containsKey(K_REACTOR + id));
+        if (opened || parts.isEmpty()) {
+            // the room's fight is behind reactors the party opens itself (Horntail's 2401000, Scarga's 5511000+5511001,
+            // Krexel's 5411001, Papulatus' 2201004, Showa's 8001000). The first click happens while the room is empty;
+            // after that the rest follow even though the first reactor's boss may already stand, because Scarga's
+            // second reactor brings half the fight and a "click it only when the room looks empty" rule would never
+            // reach it. Once per stage: a reactor script is not written to be clicked twice (scripts/reactor/
+            // 2201004.js:22-29 has no guard at all), so the click is remembered in the stage's own scratch memory.
+            for (int reactorId : reactors) {
+                if (view.stageMemory().putIfAbsent(K_REACTOR + reactorId, view.nowMs()) == null) {
+                    return new SolverStep.HitReactor(reactorId);
+                }
+            }
         }
         List<Integer> order = order(view, parts, view.fighterOf(member.characterId()), phase);
         if (order.isEmpty()) {
