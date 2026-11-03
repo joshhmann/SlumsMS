@@ -405,6 +405,38 @@ class BotConversationFlowTest {
         }
     }
 
+    /**
+     * social#2: a reply that was being generated when the chat ended must not land in the next chat with the same
+     * player. The liveness gate compares the session (as the greet path already does) instead of testing that some
+     * session exists for the pair.
+     */
+    @Test
+    void aStaleReplyDoesNotLandInTheNextChatWithTheSamePlayer() throws Exception {
+        BotSM bot = mock(TownWandererBot.class);
+        Character chr = character(BotStore.BOT_ID_BASE + 40_000 + nextPlayer, "Walkr");
+        when(bot.getChr()).thenReturn(chr);
+        Character player = character(nextPlayer++, "Josh");
+        CompletableFuture<Optional<String>> stale = new CompletableFuture<>();
+        CompletableFuture<Optional<String>> fresh = new CompletableFuture<>();
+        controlledReply = stale;
+        assertTrue(BotConversation.say(bot, player, "first question", null, said::add));
+        waitFor(() -> asked.size() == 1);
+        BotConversation.end(chr.getId(), player.getId()); // that chat is over before its answer arrives
+        waitFor(() -> !BotConversation.isTalking(chr.getId(), player.getId()));
+        controlledReply = fresh;
+        assertTrue(BotConversation.say(bot, player, "second question", null, said::add));
+        waitFor(() -> asked.size() == 2);
+        assertEquals(2, asked.size());
+        stale.complete(Optional.of("stale answer"));
+        Thread.sleep(200);
+        assertTrue(said.stream().noneMatch(s -> s.contains("stale")),
+                "a dead chat's reply must not be delivered into the live one: " + said);
+        fresh.complete(Optional.of("fresh answer"));
+        waitFor(() -> !said.isEmpty());
+        assertEquals(List.of("fresh answer"), said, "only the live chat's own reply is delivered");
+        BotConversation.end(chr.getId(), player.getId());
+    }
+
     /** social#1: the same whisper goes out once the busy window has passed - one retry, then it is said. */
     @Test
     void aWhisperToABusyPlayerGoesOutAfterTheBusyWindow() throws Exception {

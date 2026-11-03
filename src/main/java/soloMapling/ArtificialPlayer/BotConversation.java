@@ -1310,9 +1310,14 @@ public final class BotConversation {
         deliverChecked(session, g.said(), asked, g.tier(), g.detail(), cue);
     }
 
-    /** Whether the pair's chat is still the one this session belongs to. */
+    /**
+     * social#2: whether the pair's chat is still THIS session, not merely some chat with the same player. A reply
+     * generated for a chat that has since ended and been reopened must not land in the new one, so identity (the
+     * shared {@link ConversationState}) is compared, as the greet path already does.
+     */
     private static boolean liveSession(Session session) {
-        return sessions.containsKey(new Key(session.bot.getChr().getId(), session.player.getId()));
+        Session live = sessions.get(new Key(session.bot.getChr().getId(), session.player.getId()));
+        return live != null && live.state == session.state;
     }
 
     /** What {@link #deliver} says after the grounding check: the line, its tier and the stats detail. */
@@ -1467,8 +1472,7 @@ public final class BotConversation {
         int face = deliver != null || cue == null ? ReplyEmote.NONE
                 : ReplyEmote.pick(cue.triage(), cue.outcome(), cue.asked(), line, ThreadLocalRandom.current());
         String fullDetail = detail + (said.fromBank() ? " bank#" + said.bankId() : "") + " plan=" + plan.kind();
-        BotTiming.Chain chain = BotTiming.chain()
-                .stopUnless(() -> sessions.containsKey(new Key(bot.getId(), player.getId())));
+        BotTiming.Chain chain = BotTiming.chain().stopUnless(() -> liveSession(session));
         java.util.List<soloMapling.ArtificialPlayer.BotConvo.HumanTiming.Part> parts = plan.parts();
         for (int i = 0; i < parts.size(); i++) {
             soloMapling.ArtificialPlayer.BotConvo.HumanTiming.Part part = parts.get(i);
