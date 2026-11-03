@@ -121,7 +121,31 @@ public interface StageView {
      * hit one of them reads their object ids here.
      */
     default List<ReactorPlacement> reactors() {
+        return stage() == null ? List.of() : reactorsOn(stage().mapId());
+    }
+
+    /**
+     * Every reactor on one map of the instance (a stage that spans several maps - Guild Quest's spear hall is seven -
+     * is read room by room); the stage's own map answers {@link #reactors()}. Empty for a map the instance does not hold.
+     * A fake view that only knows the stage's map answers nothing for another.
+     */
+    default List<ReactorPlacement> reactorsOn(int mapId) {
         return List.of();
+    }
+
+    /** Drops of this item lying on one map of the instance that this member may pick up (see {@link #floorItems}). */
+    default int floorItemsOn(int mapId, int itemId, int forCharacterId) {
+        return 0;
+    }
+
+    /** How many live monsters with this id stand on one map of the instance. */
+    default int mobsAliveOn(int mapId, int mobId) {
+        return 0;
+    }
+
+    /** Where an NPC stands on one map of the instance, as {x, y}, if it is there. */
+    default Optional<int[]> npcPositionOn(int mapId, int npcId) {
+        return Optional.empty();
     }
 
     /**

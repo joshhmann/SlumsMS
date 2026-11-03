@@ -273,6 +273,34 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public int floorItemsOn(int mapId, int itemId, int forCharacterId) {
+        return floorDrops(this, mapId == stage().mapId() ? map : mapInstance(mapId), itemId, forCharacterId).size();
+    }
+
+    @Override
+    public int mobsAliveOn(int mapId, int mobId) {
+        server.maps.MapleMap on = mapId == stage().mapId() ? map : mapInstance(mapId);
+        if (on == null) {
+            return 0;
+        }
+        int n = 0;
+        for (server.life.Monster m : on.getAllMonsters()) {
+            if (m != null && m.isAlive() && m.getId() == mobId) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    @Override
+    public Optional<int[]> npcPositionOn(int mapId, int npcId) {
+        server.maps.MapleMap on = mapId == stage().mapId() ? map : mapInstance(mapId);
+        NPC npc = on == null ? null : on.getNPCById(npcId);
+        Point p = npc == null ? null : npc.getPosition();
+        return p == null ? Optional.empty() : Optional.of(new int[]{p.x, p.y});
+    }
+
+    @Override
     public List<Integer> wrongTriesLeft(int characterId) {
         return run.wrongTriesLeft(characterId);
     }
@@ -330,12 +358,13 @@ final class LiveStageView implements StageView {
     }
 
     @Override
-    public List<ReactorPlacement> reactors() {
-        if (map == null) {
+    public List<ReactorPlacement> reactorsOn(int mapId) {
+        server.maps.MapleMap on = mapId == stage().mapId() ? map : mapInstance(mapId);
+        if (on == null) {
             return List.of();
         }
         List<ReactorPlacement> out = new java.util.ArrayList<>();
-        for (MapObject o : map.getReactors()) {
+        for (MapObject o : on.getReactors()) {
             if (o instanceof server.maps.Reactor r) {
                 Point at = r.getPosition();
                 out.add(new ReactorPlacement(r.getObjectId(), r.getId(), r.getName() == null ? "" : r.getName(),
