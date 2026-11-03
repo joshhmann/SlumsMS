@@ -7,7 +7,7 @@ session wrote "we should def add all scrolls in forsure", and before that (2026-
 good, but if theres more usable items", a ruthless/volatile market, categories and a guard against "users easily
 sellout and make billions of mesos".
 
-The list is `docs/economy/exchange-item-catalog.md` (generated 2026-11-03, 1,002 lines, every id with its price,
+The list is `docs/economy/exchange-item-catalog.md` (generated 2026-11-03, 938 lines, every id with its price,
 live holdings and state). The evidence behind it is `agent-runs/server/exchange-items-audit/REPORT.md` (live
 measurements, code map, findings F1–F11).
 
@@ -21,7 +21,7 @@ in scope; the caps and anchors still need the owner's numbers).
 
 | Set | Ids | State today | What this ticket does |
 |---|---|---|---|
-| All scrolls | 547 tradeable of 756 | 107 anchored | registers every tradeable scroll; the other 440 need an anchor (§4) |
+| All scrolls | 518 tradeable of 756 (209 untradeable, 29 GM-only) | 107 anchored | registers every tradeable scroll; the other 411 need an anchor (§4) |
 | Some use items | 38 shortlisted | 16 anchored | registers the shortlist; ammo stays out (§3) |
 | ETC | 55 pool-priced | all 55 anchored | registers the 55; the 109 held-but-unpriced stay parked |
 | Engine | — | item tickers have no maker and no volume cap | item maker + per-account sell cap (§6) |
@@ -46,9 +46,10 @@ Counts (catalog §4):
 
 | class | ON today | NEEDS PRICE | DARK | SKIP |
 |---|---|---|---|---|
-| scrolls | 107 | 136 | 304 | 209 (`tradeBlock=1`) |
+| scrolls | 107 | 136 | 275 | 238 (209 untradeable, 29 GM-only) |
 | use | 16 | 22 | 0 | 0 |
 | ETC | 55 | 109 | 0 | 145 (untradeable/quest) |
+| **total** | **178** | **267** | **275** | **383** |
 
 **One ticker per item, legacy id wins.** `CHAOS` is already item 2049100 and `ELIXIR` is 2000005, so the registry
 must resolve `S2049100` → `CHAOS` and `U2000005` → `ELIXIR` rather than create a second ticker for the same item.
@@ -71,8 +72,8 @@ From `agent-runs/server/exchange-items-audit/REPORT.md`, live, read-only:
 
 ## 4. The anchor chain (the crux of "all scrolls")
 
-440 tradeable scrolls have no pool price. Without a derived default, "all scrolls" means writing 440 price rows by
-hand or shipping a museum. The chain proposed:
+411 tradeable scrolls have no pool price (518 tradeable ids minus the 107 with an anchor). Without a derived default,
+"all scrolls" means writing 411 price rows by hand or shipping a museum. The chain proposed:
 
 ```
 anchor(ticker) = pool price            (itemPool/itemConfig/*.yaml, version 1)
@@ -96,16 +97,16 @@ actually pay.
 
 ## 5. Owner decisions (no number here is applied before the owner picks)
 
-### 5.1 A price for scrolls that have none (440 tradeable ids)
+### 5.1 A price for scrolls that have none (411 tradeable ids)
 
 | | Option | Effect |
 |---|---|---|
-| A | Copy the nearest priced sibling: same slot + same stat + same tier from `scrolls.yaml`, else the slot's median | data-driven, tracks the pool; 440 rows cost nothing to maintain |
+| A | Copy the nearest priced sibling: same slot + same stat + same tier from `scrolls.yaml`, else the slot's median | data-driven, tracks the pool; 411 rows cost nothing to maintain |
 | B | Flat by tier: 100% = 100,000, 60/70% = 1,000,000, 10–30% = 3,000,000 | simplest, but wrong for cheap slots (helm DEF) and good ones (glove ATT) alike |
 | C | Base price × tier multiplier from the owner (e.g. 500,000 × {1, 3, 10}) | one number to pick, uniform distortion |
 
 Recommended: **A, falling back to B** where the pool has no sibling. The catalog already carries slot, stat and tier
-per scroll, so A is a generator, not 440 decisions.
+per scroll, so A is a generator, not 411 decisions.
 
 ### 5.2 Scroll caps
 
@@ -196,7 +197,7 @@ compile against it — record that as the failing state):
 
 - Changing the existing LEAF / CHAOS / WS / ELIXIR prices or caps beyond §5.2.
 - The NX desk (ticket 162) and the merchant repricing path (`BotShops.askFor`).
-- Pricing the 109 held-but-unpriced ETC ids and the 304 dark scrolls by hand — that is data, and it follows §5.1.
+- Pricing the 109 held-but-unpriced ETC ids and the 275 dark scrolls by hand — that is data, and it follows §5.1.
 - Ammo and basic potions as tickers (dust prices under `TOKEN_FLOOR`).
 - Any live deployment, any `release-*` merge, any push.
 
