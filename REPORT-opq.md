@@ -694,6 +694,21 @@ still on the stage map holds it, every member there clears it, and an **empty** 
   is needed, and the row ends there (stage 7, `930000700`, is the post-clear room and is not a stage).
 - **Zenumist stays uncovered**, and it is the same class of answer: the script that would advance it is missing a counter.
 
+## CWKPQ: why the row is still not written, in two facts
+
+Both step kinds are needed on the same map, and that is the whole shape of the remaining work:
+
+| Reactors | What fires them | What they count |
+|---|---|---|
+| `6109016`..`6109020` (the five sigils) | **`act()`** - a hit, so `HitReactor(<id>)` already reaches them | `glpq4` + 1 each, and five shows the `4pt` clear effect (`6109016.js:1-11` and its four twins) |
+| `6109021`..`6109027`+ (the flames) | **`touch()`** - only from a client packet, which is why `TouchReactor` had to exist | their own `glpq_fN` flags, read by the boss room's rules |
+
+So CWKPQ's stages mix hit-addressed and touch-addressed reactors, on maps whose reactors are further shuffled and
+re-named per run by `CWKPQ.js:98-135`. Writing it stage by stage is a real build (the flame stage alone reads
+`6109021`..`6109027` plus whatever consumes `glpq_f0..f7`), which is why the engine pieces shipped ahead of the row rather
+than a half-row shipped with them. `HitReactor(id)` covers the sigils today; `TouchReactor(id)`/`TouchReactorNamed(name)`
+cover the flames.
+
 ## CWKPQ, first half: the job is carried and the touch has a step
 
 Two of the three pieces are in; the sign-up row is not.
