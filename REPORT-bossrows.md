@@ -1078,3 +1078,215 @@ One commit: `MechanicsRuns.upkeep` + `MechanicsRunsBuffsTest` + this section.
 `mvn -o test`: **`Tests run: 8589, Failures: 0, Errors: 0, Skipped: 138, BUILD SUCCESS`** (31:44). Round 7 closed at
 8586; this round adds three (`MechanicsRunsBuffsTest`). The 138th skip is still `ContentRowWzIntegrityTest` here, because
 this machine has no `wz/` dump to check the rows against.
+
+# Round 9 (same branch): the line a human gets, and three switches back to off
+
+## 1. The leader is told the bots are driving (item 6, shipped)
+
+Round 8 found the gap and, per that round's brief, proposed one line without adding it. This round adds it.
+
+`MechanicsRuns.holdAndSchedule` now calls `tellLeader(eim, content, bots.size())` on the line after the run's own
+`RUN start ...` report line — inside the branch that arms the run, so it fires once per instance and never per tick.
+
+```
+[Expedition] 4 bots are running this fight with you (Zakum).
+```
+
+`tellLeader` returns early unless all three hold: the row is `kind: BOSS`, `Mechanics.bossesEnabled()`
+(`-Dslums.mechanics.boss`) is on, and at least one bot was actually taken. The count is `bots.size()` — the bots the run
+holds and drives — not the party size, so two humans and two bots in a six-member Zakum party reads `2 bots`. Singular is
+spelled out (`1 bot is running this fight`). The row's own name is cut at its qualifier (`shortName`: `Zakum (expedition)`
+-> `Zakum`, `Dunas (TD Battle 2)` -> `Dunas`) because the leader should not have to parse our data model in chat. The
+message goes only to the leader (`eim.getLeaderId()`, `dropMessage(6, ...)`, the orange notice); nobody else sees it.
+
+Why it earns a line: the owner's own bug report was "they just stand there". A run that is driving and a run that never
+started look identical from a player's chair, and the difference is exactly what a bug report has to say.
+
+Tests (`soloMapling.mechanics.ExpeditionLineTest`):
+
+| test | what it pins |
+|---|---|
+| `theLeaderIsToldOnceHowManyBotsAreDrivingTheFight` | the line appears exactly once, with the row's short name |
+| `theCountIsTheHeldBotsAndNotThePartySize` | 2 bots among 6 members reads `2 bots`; the non-leader human gets nothing |
+| `withTheBossSwitchOffTheLeaderIsToldNothing` | `-Dslums.mechanics.boss` unset -> no message at all |
+| `aRowsQualifierIsNotReadOutLoud` | `shortName` cuts at `" ("` and leaves a plain name alone |
+
+## 2. Three defaults moved to off
+
+The rule is: a switch is off unless a brief says otherwise, and the release conf carries the turn-on line. Three switches
+from the boss lane were on by default because they were written that way while being tested; they are now off, with the
+behaviour unchanged for anyone who sets them.
+
+| switch | read at | was | now | behaviour with it on |
+|---|---|---|---|---|
+| `slums.altfight.instanceleash` | `OwnedAltCombat.instanceLeashOn()` (`OwnedAltCombat.java:55`) | on | **off** | inside an event instance an owned alt reads the leash as its party's engagement rule instead of the owner's 650 px box |
+| `slums.bossfight.reach` | `FollowerFight.reachGateOn()` (`FollowerFight.java:66`) | on | **off** | a follower skips a boss part it cannot get into its own swing's reach of, instead of standing and giving up |
+| `slums.bossfight.revivepause` (+ `.ms`, `.ms.<row id>`) | `RevivePause.on()` (`RevivePause.java:36`) | on | **off** | a boss run holds itself for a member who died and is walking back, instead of ending on the `minPlayers` abort |
+
+Each read is now `Boolean.getBoolean(...)`, so the switch is off when unset and only `true` (any case) turns it on. The
+javadoc of each says so, `RevivePause`'s class doc says so, and `docs/tickets/130-bots-play-mechanics.md` (the
+revive-pause bullet) says so.
+
+Tests updated so they set the property they exercise instead of inheriting it: `RevivePauseTest` sets
+`-Dslums.bossfight.revivepause=true` in a `@BeforeEach` (and clears it plus `.ms` in `@AfterEach`),
+`FollowerFightReachTest` sets `-Dslums.bossfight.reach=true` in a `@BeforeEach`,
+`OwnedAltInstanceFightTest` sets `-Dslums.altfight.instanceleash=true` in a `@BeforeEach`. The old
+`assertTrue(RevivePause.on(), "... on unless a server says otherwise")` in the first test is now an assertion that *this
+test* turned it on.
+
+One new test per switch pins the default itself, so it cannot drift back:
+
+| switch | pinning test |
+|---|---|
+| `slums.bossfight.revivepause` | `RevivePauseTest.theRevivePauseIsOffUnlessAServerTurnsItOn` (unset -> off, `true` -> on, `FALSE` -> off) |
+| `slums.bossfight.reach` | `FollowerFightReachTest.theReachGateIsOffUnlessAServerTurnsItOn` |
+| `slums.altfight.instanceleash` | `OwnedAltInstanceFightTest.theInstanceLeashIsOffUnlessAServerTurnsItOn` (also asserts an instance arm outside the box is *not* faced with the switch unset) |
+
+The whole suite below ran with none of the three properties set.
+
+## 3. Every switch in the boss lane, and its default
+
+| switch | default | what it turns on |
+|---|---|---|
+| `slums.mechanics` | off | any mechanics run at all (PQ and boss) |
+| `slums.mechanics.boss` | off | boss rows are armed; the leader line above needs it too |
+| `slums.bossfight.damagefloor` | off | the guaranteed minimum hit on a high-defence boss (`BotSkillChoice.FLOOR_SWITCH`) |
+| `slums.bossfight.reach` | **off** (round 9) | skip a boss part out of swing reach instead of stalling |
+| `slums.bossfight.revivepause` | **off** (round 9) | hold a boss run for a member walking back from a death |
+| `slums.altfight.instanceleash` | **off** (round 9) | an owned alt in an instance fights the party's target, not the owner's box |
+| `slums.exped.door` | off | the expedition door: name the bots a start leaves behind, drop a dismissed alt out of its expedition |
+
+The release conf carries the on lines for the lane; nothing in this branch turns any of them on for you.
+
+## 4. Suite
+
+`mvn -o test`, all seven properties above unset: **`Tests run: 8634, Failures: 0, Errors: 0, Skipped: 138, BUILD`
+**`SUCCESS`** (53:36). The 138th skip is `ContentRowWzIntegrityTest` (no `wz/` dump on this machine).
+
+## 5. What the merge turn should add to `docs/PROVENANCE.md`
+
+Not touched this round (the PQ branch has newer edits; the merge turn does the provenance pass). What I believe is
+missing there, checked line by line:
+
+- **nuttnut/Cosmic at the boss-row pin.** `docs/PROVENANCE.md:241` credits nuttnut/Cosmic at `77e0c5bc9` for the KPQ
+  stage flow. The boss-row work read the same repo at **`b684bf78588d50512bcd62db9bb7cb85e4f73829`** (the pin recorded in
+  `/root/work/BOSS-ROW-DATA.md`) and took nothing from it, so this is a "read, not taken" row at a different sha — the
+  sha differs, which is why the existing row does not cover it.
+- **The `Kiwiism` org name**: already present at `:18` and `:240` (`Kiwiism/cosmic_agents` @ `3c7e09435`). Nothing missing;
+  if the merge wants the full 40-character sha, it is `3c7e094357329932734a860e5a831d57add27a00`.
+- **SoloMapling beyond the header**: the header (`:5`) and the merge section (`:11-14`) name SoloMapling at
+  `47b61b5381118ebdc1064ddbd0b1c32f75778871`; there is no per-feature table row for the boss lane. I believe none is owed —
+  the rows, the solver and the world knowledge in `BossTargetRules` are ours, read off our scripts and the WZ dump — but
+  the merge turn should make that call rather than assume it.
+- **GuardianNex**: `:390-395` already carries the paragraph (six rows, `GuardianNex.js` `eventBossIds` + `Map.wz` map
+  life, the quest ladder from `Quest.wz/Check.img.xml`, nothing taken from any project). It is a paragraph rather than a
+  table row because there is no upstream to cite; if the merge wants it as a row, the "read" column is our own scripts and
+  dump, and the upstream column is empty.
+
+# Round 11 (same branch): Chaos Zakum end to end, and three engine questions answered
+
+One commit per item, each with its fail-before test: the test fails on the previous commit and passes on this one
+(`ZakumArmShieldTest` for the shield pair, `BossPhasesSolverTest.theBodyPhasesFollowTheRowsOwnOrderNotAHardcodedFamily` for
+the row-order sort - it is deterministic against the old hardcoded family, `ZakumAltarReactorTest` for the altar,
+`ChaosZakumBattleTest` for the script, `ChaosZakumNpcTest` for Adobis, `MonsterMissingReviveTest` for the death task,
+`DifficultyTierTest` for the tier, `TierScalingTest` for the numbers, and `MechanicsDataFilesTest` for the row and the
+KPQ block). Where the old code would not compile against the new shape (a switch that did not exist, a field that did not
+exist), the fail-before is the missing test itself, and it says so.
+
+**Economy: none.** Nothing here changes a drop, a meso, an EXP number or a shop; the only numbers touched are a mob's
+HP when a tier asks for it, and a boss log row. The switch is **`-Dslums.chaos.zakum`, default OFF**, and
+"off" is the part that matters: with it unset the altar reactor, Adobis, the run starter and the boss log all take the
+paths they took in round 10 - the only new bytes a chaos-off server can see are in `MobId`/`MapleMap` (helpers that answer
+exactly what the inline code answered) and in the row, which is never armed.
+
+## 1. What the row claims, and what the server actually does
+
+| claim (`content/zakum-chaos.yaml`) | what the server does with it | verdict |
+|---|---|---|
+| map `280030001`, one stage | the instance map the script resets (`ChaosZakumBattle.js` `resetPQ` on 280030001) | agrees |
+| `summonProperty: summoned` | `2111001.js` sets `summoned=true` and `canEnter=false` before it spawns anything, on both altars | agrees |
+| mobs `8800103..8800110` then `8800100/101/102`, in that order | `BossPhasesSolver` sorts every tier by the row's `mobs:` order (item 3); the arms are ARM role, the three bodies BODY | agrees |
+| the three bodies are a chain | WZ `revive`: `8800100` -> `8800101` -> `8800102`, and `8800102` names nothing (`wz/Mob.wz/880010*.img.xml`) | agrees - the row's order is the WZ order |
+| the body is shielded while its arms stand | `MapleMap.bossDamageBlocked` now asks `MobId.shieldingArms`, and a chaos arm wakes `8800100` only (`wakeBodyIfLastArm`) | agrees, and a chaos arm can never wake the normal body |
+| clear is `defeatedBoss: 1` | `ChaosZakumBattle.js` `isZakum` answers for `8800102` only, and that is what clears | agrees |
+| a clear is recorded | `ExpeditionType.typeToEntry` maps `CHAOS_ZAKUM` to `BossLogEntry.CHAOS_ZAKUM` (item 6) | agrees; before, a chaos clear was silently dropped |
+| the fight is 120+ and 6-30 members | the script's own globals, and `EventManager.startInstance` sees the row's party | agrees |
+| the row is opt-in | `Mechanics.rowFlagOn` gates `MechanicsRuns.onInstanceStarted` on `flag:` | agrees |
+
+Numbers left out on purpose: the row carries no HP/EXP of its own. They are WZ's (`900M/1000M/1500M`,
+`50M` EXP on the last form) and the engine reads them from the mob, so a row that repeated them could only go stale.
+
+## 2. Item A - a revive id `Mob.wz` does not have no longer kills the death task
+
+`Monster.killBy` schedules the revive spawn on the TimerManager, and inside that task `LifeFactory.getMonster` answers
+null for an id no `Mob.wz` entry has; the next `setPosition` NPE'd, the timer's wrapper swallowed it, and the death never
+finished - for the whole map, not just that mob. The lookup now goes through `Monster.reviveTarget`, a null is skipped,
+the id is named once at WARN (DEBUG after that) and the rest of the death runs (`MonsterMissingReviveTest`, 2 tests).
+The 8810120/8810121 pair is deliberately **not** special-cased: the guard is about a stale chain, whatever the mob.
+
+Environment honesty: this machine has no `wz/` dump, so `LifeFactory` cannot even initialise here, and the test reaches
+the null through `reviveTarget` rather than through `LifeFactory` itself. That is the same value `getMonster` returns in
+production for an absent id (`LifeFactory.getMonster` catches its own NPE and answers null), but it is a seam, not a WZ
+read, and it is named as one in the test's javadoc.
+
+## 3. Item B - a run carries its difficulty tier
+
+Plumbing only, no numbers: `MechanicsRuns.start(...)` takes a `Tier` (the old signature delegates with `NORMAL`), so
+`RunState.tier()` is the run's own; `Orchestrator.describe` names the tier in the `RUN start` line **only when it is not
+NORMAL**, so a stock run logs exactly the line it always logged; the run's clock comes from `rules(tier)`, which for
+NORMAL is the row's own minutes; and `KpqStaging.start(...)` hands `startInstance` `difficulty(tier)`, where NORMAL is 1 -
+the argument every party quest was started with before tiers existed. `DifficultyTierTest`, 5 tests.
+
+## 4. Item C - the tier's numbers reach the room, behind `-Dslums.mechanics.tiers`
+
+Off by default; on, the mobs the current stage **names**, on the stage's own map, get the tier's HP multiplier through
+`Monster.setOverrideStats` - the call the party quest scripts already use. Unlisted mobs, neighbours and corpses are left
+alone, the base is always the pre-override HP so a second tick cannot scale twice, and a respawn is scaled when it
+appears. `TierScalingTest`, 8 tests.
+
+**What I did not honour, and why.** `mobDamageMultiplier` stays inert: touch damage comes from the mob's WZ stats
+(`Monster.getPADamage()` answers `stats.getPADamage()`, `Monster.java:1845-1846`), so honouring it means deciding what a
+scaled touch hit does to knockback, death counts and the bots' kite bands - an owner decision. `mobLevelBonus` stays inert
+for the same reason: a level is not a number the HP curve gives back without inventing the curve. Both fields are carried
+by the row and read by nothing, and the class says so where a reader will find it.
+
+## 5. Item D - KPQ's HARD tier, as data
+
+`content/kpq.yaml` gains one `tiers:` block (`HARD: 41-65, +20 levels, x3.0 HP, x1.5 damage, 40 min, 1.25 mistakes`),
+cell for cell from `DIFFICULTY-CHAOS-PLAN.md` section 9, with the derivation in the comment above it and the note that
+every cell is the owner's to overwrite. NORMAL needs no entry; EXPERT and MASTER are deliberately absent because no
+number is settled and a tier the row does not name is never applied. `MechanicsDataFilesTest` pins the block as written
+so a typo fails, no other row is touched, and no script learns about tiers.
+
+## 6. Commits on `164-bossrows`
+
+| commit | what |
+|---|---|
+| `b8a91143b` | the leader is told bots are driving; three switches default OFF |
+| `fc2e25bf4` | chaos ids, the altar's own shield pair, the body chain read from the row |
+| `fee9c3ccf` | the altar reactor serves both Zakums |
+| `3407e94c9` | `ChaosZakumBattle`, the script the row and the NPC drive |
+| `fdacbc8ec` | a chaos clear lands in the boss log |
+| `223c6add7` | Adobis offers Chaos Zakum only when the switch is on |
+| `b249bf304` | the chaos row, and a row that names its own switch |
+| `9c0383abe` | a revive id `Mob.wz` does not have no longer kills the death task |
+| `a2fc00099` | a run carries its difficulty tier |
+| `b51dcc095` | a tier's numbers reach the room, behind their own switch |
+| `6cc9c18be` | KPQ's HARD tier, as data and as a proposal |
+| `f9aa7d73e` | the tier test names a row that has no tier (`orbis.yaml`) |
+
+## 7. Suite (round 11 head)
+
+`mvn -o test` with no switches set: **`Tests run: 8634, Failures: 0, Errors: 0, Skipped: 138, BUILD SUCCESS`** (53:36, on
+the head that includes every commit in the table above).
+
+## 8. Things in the plan I found to be wrong, and one I could not honour
+
+- **The plan's `8800100/01/02` "orbit" reading was right about the numbers and wrong about the shape written in the
+  row**: WZ gives the chain through `info/revive` on the first two forms, not through three independent pages, so the row
+  states the order and cites `revive`, which is also what `BossPhasesSolver` reads (item 3).
+- **`BossLogEntry` had no chaos slot at all** - the plan assumed an unused one was waiting. `19` was free, which is also
+  the packet's boss byte (index + 1).
+- **"Off means byte-identical" needed one more edit than the plan counted**: `MapleMap`'s un-fake block had to become a
+  named method to be asked about two families, so the chaos-off bytes differ in shape while answering the same ids.
+- **Not honoured**: `mobDamageMultiplier` and `mobLevelBonus` (section 4). Everything reachable was built.
