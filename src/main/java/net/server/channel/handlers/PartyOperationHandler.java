@@ -135,7 +135,17 @@ public final class PartyOperationHandler extends AbstractPacketHandler {
             }
             case 6: { // change leader
                 int newLeader = p.readInt();
+                if (party == null || !player.isPartyLeader()) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
+
                 PartyCharacter newLeadr = party.getMemberById(newLeader);
+                if (newLeadr == null) {
+                    c.sendPacket(PacketCreator.enableActions());
+                    return;
+                }
+
                 world.updateParty(party.getId(), PartyOperation.CHANGE_LEADER, newLeadr);
                 break;
             }
