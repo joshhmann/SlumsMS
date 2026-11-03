@@ -30,10 +30,17 @@ afterClear:
   exitNpc: 9020002
   bonusMinSeconds: 60
   bonusMaxSeconds: 150
-# Difficulty tiers (1.7.0 "PQ difficulties"): NORMAL is the stock PQ and needs no entry. Hard, Expert and Master
-# numbers are for the owner to decide (ticket 130, "Difficulty tiers"); the shape is:
-#   tiers:
-#     HARD: { minLevel: 40, mobLevelBonus: 20, mobHpMultiplier: 4, mobDamageMultiplier: 2.5, timeLimitMinutes: 25, botMistakeFactor: 1.25 }
+# Difficulty tiers (1.7.0 "PQ difficulties"): NORMAL is the stock PQ and needs no entry - it is this row's own bands and
+# clock, and a run at NORMAL is byte-identical to one before tiers existed. One tier is filled in, HARD, and every cell
+# is a PROPOSAL ONLY: the owner may overwrite any of them without touching code (StageData validates the shape, nothing
+# validates the numbers). Where they come from: /root/work/DIFFICULTY-CHAOS-PLAN.md section 9, "KPQ" - minLevel is the
+# stock 21 + 20, maxLevel the next tier's floor minus one, mobLevelBonus the same +20 so the mobs stay as far above the
+# band as they are today, mobHpMultiplier the server's own HP curve at the strongest normal mob (level 40 -> 5500/1900 =
+# 2.9, rounded to 3), timeLimitMinutes +25% of the script's 30, and mobDamageMultiplier/botMistakeFactor are the plan's
+# flat proposals (nothing in the tree measures incoming damage, and the mistake factor is read by Orchestrator only).
+# EXPERT and MASTER are deliberately absent: no number is settled, and a tier the row does not name is never applied.
+tiers:
+  HARD: { minLevel: 41, maxLevel: 65, mobLevelBonus: 20, mobHpMultiplier: 3.0, mobDamageMultiplier: 1.5, timeLimitMinutes: 40, botMistakeFactor: 1.25 }
 stages:
   - stage: 1
     map: 103000800
