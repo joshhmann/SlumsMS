@@ -326,6 +326,40 @@ The WZ facts (map life, revive chains, `Quest.wz/Check.img.xml`'s `21401` block)
 `/root/work/SlumsMS-170-evan/wz`, which is **not** version-pinned to this branch; each row's `sources:` names the file it
 relied on, and `REPORT-bossrows.md` lists them per id.
 
+### Boss row data for the reactor rooms and Pink Bean, 1.6.4 (branch `164-bossrows`, ticket 130 boss lane), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+Same rule as the round above: BotStory was read for the kill order and the never-target list, nothing else. Every row's
+maps, gates, reactor ids, spawn sites and clear signal come from our own scripts and the WZ dump; where we disagree with
+them the row follows our script and the disagreement is written down.
+
+| From theirs | Our files |
+| --- | --- |
+| `balrog_normal.targetPriority` = `[8830002, 8830001, 8830000]` and `neverTarget` = `[8830004, 8830005, 8830006]` | `content/balrog.yaml`'s `mobs:` in that order, and the same three ids left out. Independently confirmed from our script: `BalrogBattle.js:145-153` spawns `8830002` and the fake `8830000`, `Mob.wz/8830006.img.xml` revives `8830001`, and `:140-143` kills the left claw `8830006` on a timer, so it must not be fought |
+| `scarga.targetPriority` = `[9420542, 9420543, 9420544, 9420547, 9420548, 9420549]`, the order of the two chains | `content/scarga.yaml`'s `mobs:`, in that order. Also confirmed from WZ `info/revive` (`Mob.wz/9420542.img.xml` -> `9420543`, `9420547.img.xml` -> `9420548`) and from `scripts/reactor/5511000.js`/`5511001.js` spawning the first form of each chain |
+| `showa.targetPriority` = `[9400112, 9400113, 9400300, 9400122]` - the chain, plus one of the room's seven trash mobs | `content/showa.yaml` takes the chain `[9400112, 9400113, 9400300]` and drops `9400122`: the trash is respawned every 15 s by the script (`ShowaBattle.js:112-116`), so listing one of seven would put a kill in the row's order that the row cannot promise |
+| `pinkbean.neverTarget` = `[8820000, 8820019, 8820020, 8820021, 8820022, 8820023]` | `content/pinkbean.yaml` lists none of them, and `RowRunSimulationTest.aBotPartyWalksPinkBeansWavesToTheDefeatedBossProperty` asserts no statue reaches a `Fight` step. Their `targetPriority` is **not** used: theirs is `[8820006, 8820002, 8820005, 8820004, 8820003, 8820001]`, which is their runtime's focus order; ours is the order `PinkBeanBattle.js:306-313` waves them in (`8820002` -> ... -> `8820006`, then `8820001`) |
+| `papulatus.targetPriority` = `[8500001, 8500002]` | **not used**: our reactor spawns `8500000` (`scripts/reactor/2201004.js:28`), so our row starts the chain at `8500000`. Their `adds` (`8500000`, `8500003`, `8500004`) do not exist in our room |
+| `latanica.targetPriority` = `[9420513]` | not used - there is no `content/latanica.yaml`; the room is blocked on a consumable entry item (see `REPORT-bossrows.md`) |
+
+Nothing is taken from BotStory for `krexel.yaml` or `elemental.yaml`: neither project carries a definition for them
+(`cosmic_agents` and `nuttnut/Cosmic` carry no boss targeting at all, and BotStory's 26 keys do not include Krexel or
+Elemental Thanatos).
+
+Ours, and not portable from anywhere: the reactor ids and their order (`2201004`, `5411001`, `8001000`, `5511000` then
+`5511001`) are the scripts' `act()` bodies; the fact that each is clicked once per stage is our solver's rule, derived
+from those scripts being unguarded (`scripts/reactor/2201004.js:22-29` spawns on every `act()`); every clear is
+`clear: { instance: true }` because the scripts write `setEventCleared(...)` and no property our `StageView` can read
+(`PapulatusBattle.js:223-227`, `KrexelBattle.js:213-216`, `ShowaBattle.js:196-207`, `ScargaBattle.js:187-190`,
+`ElementalBattle.js:225-228`, `BalrogBattle.js:250-274`) - Pink Bean's `defeatedBoss == 1` (`:261`) is the one equality;
+the gates are `PapulatusBattle.js:28-29`, `KrexelBattle.js:28-29`, `ShowaBattle.js:29-30`, `BalrogBattle.js:27-28`,
+`ScargaBattle.js:29-30`, `ElementalBattle.js:27-28`, `PinkBeanBattle.js:27-28`; Showa's bonus map `801040101` is dropped
+rather than made a stage, because `clearPQ` spawns its mob inside the call that clears and the party never walks there;
+and `spawnWaitSeconds: 60` is again a policy number - how long an emptied room may stand while its boss appears - not
+measured data.
+
+The WZ facts (map life, revive chains) come from `/root/work/SlumsMS-170-evan/wz`, which is **not** version-pinned to
+this branch; each row's `sources:` names the file it relied on, and `REPORT-bossrows.md` lists them per id.
+
 ### Orbis PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00`
 
 | From theirs | Our files |

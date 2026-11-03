@@ -591,7 +591,8 @@ Five defects found reviewing A1-B; all fixed on the same branch, switches unchan
   existing 2 s latch up to `WARP_TRIES` (3), and then logs the bot, the wanted map and the map it is really on and ends
   the run; a `WarpTo` naming any map other than the current stage's is refused with one line as a solver bug.
 - **A bot opens Horntail's body room.** `2401000` is a click (`2401000.js:26-33`), so a bot-only party used to burn its
-  budget in an empty room. A stage may now name `hitReactor:`, and with no part alive the solver returns
+  budget in an empty room. A stage may now name `hitReactors:` (a list since `164-bossrows`, when Scarga needed two), and with no part
+alive the solver returns
   `SolverStep.HitReactor(id)`; `StepExecutor` walks to the reactor and clicks it with the bot's own client, the way
   `ReactorHitHandler` does for a player. The reactor's own "no `8810026` yet" guard makes a repeat harmless.
 - **A silently unarmed instance is visible.** The four script-supplied-`EventInstanceManager` overloads in
@@ -633,6 +634,38 @@ true }`, because none of their scripts writes a property a row could compare: `d
   `-Dslums.mechanics.boss`, not which `startInstance` overload called it, so a portal-entered party instance of a boss
   script is armed by the same flag: `BossRunSeamTest.aTdBattleInstanceStaysInertWhileTheBossSwitchIsOff` and
   `...ArmsARunForItsBotsWhenTheSwitchIsOn` pin both sides.
+
+## Boss lane: the reactor rooms, and the two rows that wait on a primitive (1.6.4, branch `164-bossrows`)
+
+Round two of the same lane added seven more `kind: BOSS` rows - `papulatus`, `krexel`, `showa`, `balrog`, `scarga`,
+`elemental`, `pinkbean` - and changed one field. Per-row script/gate/map/target/spawn/clear detail is in
+`REPORT-bossrows.md`, the credits in `docs/PROVENANCE.md`.
+
+- **`hitReactors` is a list, not one id.** Scarga's room needs `5511000` and `5511001`, and the row - not the solver -
+  decides which is clicked first, so `Stage.hitReactor()` became `Stage.hitReactors()`. The scalar spelling was
+  **removed** rather than kept beside it (one fact, one spelling); `content/horntail.yaml` is the only other row that
+  used it and now reads `hitReactors: [ 2401000 ]`. The double-click hazard is why the list is clicked once per stage:
+  the reactor scripts are unguarded (`scripts/reactor/2201004.js:22-29` spawns on every `act()`), so a second click is a
+  second boss. The solver clicks the first one while the room is empty, then the rest even though the first reactor's
+  boss is standing - that is Scarga, where Targa answering must not stop Scarlion's click.
+  Fail-before: `BossPhasesSolverTest.aRoomThatOpensOnlyHalfItsFightIsNeverCalledCleared` (one reactor, one chain, then an
+  empty room that abandons and never says `Done`) and `bothOfScargasReactorsAreClickedBeforeEitherHalfIsFought`.
+- **A click costs the other members one idle tick.** On the tick the click is emitted the room is still empty for
+  everybody else, so they take the solver's 500 ms `Wait`. That is honest idling, not a stall, and the reactor rows'
+  simulation assertion is therefore "nobody waits once the fight has started"
+  (`RowRunSimulationTest.assertOpenedRoomClear`) instead of the `waits == 0` the populated rooms keep.
+- **Pink Bean keeps its property clear.** `defeatedBoss == 1` is written by `monsterKilled` after the fifteenth junior
+  kill (`PinkBeanBattle.js:261`), so the equality first becomes true exactly at the clear. The five statues
+  `8820019`-`8820023` and the decoy `8820000` are not in `mobs:` at all, and the simulation asserts no statue reaches a
+  `Fight` step.
+- **Two rooms were refused rather than faked.** `latanica` needs a primitive that does not exist: the only entrance is
+  portal `captinsg00`, which refuses a player without item `4000381` (`scripts/portal/captinsg00.js:4`), and `ItemUse`
+  is evaluated inside a stage, i.e. only after the gate that needs the item. `delli` needs a survive-the-timer
+  objective: `DelliBattle.js:119-123` clears when its own 6-minute timer expires, and killing the friendly `9300162`
+  ends the instance (`:194-198`), so a `boss-phases` row would spend six minutes killing trash that is not the win
+  condition and could end the run with one stray hit. Both are recorded in `REPORT-bossrows.md` with the primitive each
+  needs. What *is* provable was pinned instead:
+  `RowRunSimulationTest.aFriendlyMobTheRowDoesNotListNeverBecomesATarget`.
 
 ## QA plan
 

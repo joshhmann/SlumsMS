@@ -102,7 +102,7 @@ Five defects came back from review; all are fixed here, with every switch unchan
 | --- | --- |
 | The Zakum body chain was modelled as one id. `8800002` is `MobId.ZAKUM_3`, the third phase of the body; the arms' last death wakes `8800000` and damage forwards it to `8800001` then `8800002`. So "no `8800002` while arms stand" is the normal state, and the old kill-target rule abandoned the run at the summon | The candidates are the eight arms in data order, then the body family in phase order (`8800000`, `8800001`, `8800002`), never a body phase while an arm is up, whichever phase is standing. `Abandon` only after a 30 s grace with no arm and no body phase of any id, naming the ids it saw. Fail-before: the new test returns `Abandon` under the old rule and `Fight` with the eight arms under the fix |
 | `WarpTo` did not confirm the landing | `bot.getMapId()` is checked after the change; the 2 s latch retries, `WARP_TRIES` (3) failures log the bot, the wanted map and the map it is really on and end the run. A `WarpTo` naming a map other than the current stage's is refused with one line |
-| Horntail's body room needs a reactor click, so a bot-only party burned its budget in an empty room | A stage may name `hitReactor:`; with no part alive the solver returns `SolverStep.HitReactor(2401000)` and the executor walks to it and clicks with the bot's own client (the reactor's own guard makes a repeat harmless) |
+| Horntail's body room needs a reactor click, so a bot-only party burned its budget in an empty room | A stage may name `hitReactors:` (a list since `164-bossrows`; `hitReactor: 2401000` here); with no part alive the solver returns `SolverStep.HitReactor(2401000)` and the executor walks to it and clicks with the bot's own client (the reactor's own guard makes a repeat harmless) |
 | The four script-supplied-EIM `EventManager.startInstance` overloads armed nothing, silently | One line, once per instance, when such an overload starts a script a `kind: BOSS` row matches |
 | No test that a stranger's mob stays the stranger's inside an instance | `OwnedAltInstanceFightTest.insideAPartyQuestInstanceAStrangersMobIsNotTheAlts` pins it |
 
@@ -137,7 +137,8 @@ Five defects came back from review; all are fixed here, with every switch unchan
   owner turns it on, a CPU check on TEST with a busy bot population is worth doing.
 - Per-stage budgets are per row, so a `kind: BOSS` row with several stages and no per-stage `timeLimitMinutes` silently
   inherits the row's minutes for each stage - that is the documented fallback, not a guess.
-- `Stage` grew two fields this lane (`summonProperty`, `killTarget`) and then a third (`timeLimitMinutes`); every YAML
+- `Stage` grew two fields this lane (`summonProperty`, `killTarget`) and then a third (`timeLimitMinutes`) (`killTarget`
+  was later removed and replaced by `spawnWaitSeconds` in `164-bossrows`); every YAML
   and test constructing it was updated, and the jar-only content path is tested by `MechanicsDataFilesTest`.
 
 ## Reproducing the checks
