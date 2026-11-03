@@ -102,6 +102,19 @@ public sealed interface SolverStep {
     record PlaceItem(int itemId, int count, String reactor, int x, int y, String why) implements SolverStep {
     }
 
+    /**
+     * Drop exactly {@code count} of {@code itemId} on the reactor with this <em>id</em>, and only there. Henesys PQ's
+     * six seed beds are {@code 9108000..9108005} and nothing in {@code scripts/} ever names them: the pairing lives in
+     * the reactors' own WZ event slots ({@code event/0: type 100, state 1, item, quantity 1}) and
+     * {@code MapleMap.activateItemReactors} takes a drop only when the item and the whole quantity match and the drop
+     * lies inside that reactor's area - so the bed has to be named by id, and a bed already planted must not be fed
+     * again: its script adds one to the instance's {@code stage} on every activation, and the stage clears at exactly
+     * {@code "6"}. The server fires that activation 5000 ms after the drop lands
+     * ({@code MapleMap.java:2665-2680}), which the executor honours as a settle delay rather than a failure.
+     */
+    record PlaceItemOn(int reactorId, int itemId, int count, String why) implements SolverStep {
+    }
+
     /** Say something in party chat (a try, a complaint, a callout). */
     record Say(String line) implements SolverStep {
     }

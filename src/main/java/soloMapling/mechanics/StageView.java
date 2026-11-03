@@ -86,6 +86,15 @@ public interface StageView {
     }
 
     /**
+     * The state of the reactor with this id on the stage's map, or {@code -1}. Henesys PQ's six seed beds share one
+     * script and one id range ({@code 9108000..9108005}) and none of them has a WZ name in {@code scripts/}, so a
+     * solver that must not plant the same bed twice reads them by id ({@link SolverStep.PlaceItemOn}).
+     */
+    default int reactorState(int reactorId) {
+        return -1;
+    }
+
+    /**
      * The slot the map's event script armed the named item reactor with, or {@code -1}. Orbis PQ's lobby arms the
      * reactor named {@code music} with {@code new Date().getDay()} ({@code scripts/event/OrbisPQ.js:162-163}) and the
      * reactor takes {@code 4001056 + getEventState()} as its item ({@code Reactor.getReactItem(byte)}), so the pass the

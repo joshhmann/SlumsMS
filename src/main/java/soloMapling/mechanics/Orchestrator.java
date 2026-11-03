@@ -51,7 +51,10 @@ public final class Orchestrator implements RunOrchestrator {
         return Map.of(qc.id(), qc);
     }
 
-    /** Every solver there is (1.6.1: KPQ end to end; 1.6.4: Orbis PQ end to end and Ludi PQ's nine stages). */
+    /**
+     * Every solver there is (1.6.1: KPQ end to end; 1.6.4: Orbis PQ end to end, Ludi PQ's nine stages, and
+     * Henesys PQ's seed beds).
+     */
     public static Map<String, StageSolver> allSolvers() {
         QuestionCouponsSolver qc = new QuestionCouponsSolver();
         CombinationSolver cb = new CombinationSolver();
@@ -66,6 +69,7 @@ public final class Orchestrator implements RunOrchestrator {
         LpqFarmSolver lf = new LpqFarmSolver();
         LpqComboSolver lc = new LpqComboSolver();
         OpqStatueSolver st = new OpqStatueSolver();
+        HpqBedsSolver hb = new HpqBedsSolver();
         // Map.of caps at ten pairs; anything past that goes in a second immutable copy
         Map<String, StageSolver> all = new java.util.HashMap<>(Map.of(qc.id(), qc, cb.id(), cb, kc.id(), kc,
                 bp.id(), bp, oc.id(), oc, os.id(), os, sr.id(), sr, ol.id(), ol));
@@ -74,6 +78,7 @@ public final class Orchestrator implements RunOrchestrator {
         all.put(st.id(), st);
         all.put(lf.id(), lf);
         all.put(lc.id(), lc);
+        all.put(hb.id(), hb);
         return Map.copyOf(all);
     }
 

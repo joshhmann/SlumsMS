@@ -35,6 +35,13 @@ public final class Mechanics {
 
     /** Ludi PQ's own switch, on top of {@code -Dslums.mechanics}: Row {@code flag:} value of {@code content/lpq.yaml}. */
     public static final String LPQ_FLAG = "slums.mechanics.lpq";
+
+    /**
+     * Henesys PQ's own switch, on top of {@code -Dslums.mechanics}: row {@code flag:} value of {@code content/hpq.yaml}.
+     * A row per switch keeps the hill off while the towers play, and the lobby reads it as {@code
+     * -Dslums.mechanics.hpq.lobby} on top.
+     */
+    public static final String HPQ_FLAG = "slums.mechanics.hpq";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";
     public static final String DEFAULT_DIR = "src/main/java/soloMapling/mechanics/content";
 

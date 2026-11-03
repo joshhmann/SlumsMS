@@ -1,4 +1,4 @@
-# Party quests, ticket 164 - report (branch `164-opq`, 1.6.4): Orbis PQ and Ludi PQ
+# Party quests, ticket 164 - report (branch `164-opq`, 1.6.4): Orbis PQ, Ludi PQ and Henesys PQ
 
 Worktree `/root/work/164-opq`, reset onto `0488c420e` (the `ex-2` auto-QA base) so the boss lane's engine is underneath.
 Nothing pushed, nothing merged, live server untouched. The whole row is behind its **own** switch: a run starts only with
@@ -16,6 +16,8 @@ tests that keep them working and the section below that says why they were repor
 | `Content.flag` + `Mechanics.enabledFor(Content)` | `soloMapling/mechanics/MechanicsModel.java`, `Mechanics.java`, `MechanicsRuns.java:354` | the row's own switch, so a half-covered party quest cannot be turned on by the flag that turns KPQ on |
 | `ObjectiveKind.PLACE_ITEM`, `Objective.reactor` | `MechanicsModel.java`, `StageData.java` | "put the item on the ground inside this reactor": the altar, the music player, the statue base and the levers all need it, and `MapleMap.activateItemReactors` matches item **and** quantity |
 | `SolverStep.PlaceItem` + `StepExecutor.placeItem` | `SolverStep.java`, `StepExecutor.java` | walks to the reactor's own position and drops `count` as **one stack** inside its box |
+| `SolverStep.PlaceItemOn` + `StageView.reactorState(int)` | `SolverStep.java`, `StageView.java`, `LiveStageView.java`, `StepExecutor.java` | an item reactor named by **id**, with the exact stack, the server's 5000 ms activation honoured and a bounded retry: Henesys PQ's six beds, and the same contract PiratePQ, Ellin PQ and Magatia PQ need |
+| `content/hpq.yaml` (2 stages) + `hpq-beds` | `soloMapling/mechanics/content/hpq.yaml`, `HpqBedsSolver.java` | Henesys PQ: six beds planted one drop at a time (`stage == "6"`), then ten cakes to Growlie (`1stageclear` present) |
 | `SolverStep.HitReactorNamed` | `SolverStep.java`, `StepExecutor.java` | OPQ's levers are reactors named `"1"`..`"5"` (`getReactorByName("" + i)`), not ids |
 | `Loot(0)` = the whole floor | `LiveStageView.floorDrops` | the storage room clears on `countItems() == 0`, and `countItems()` counts mesos too |
 | `StageView.reactorState(String)` | `StageView.java`, `LiveStageView.java` | the levers' on/off lives in reactor state, the target in `stage6_c` |
@@ -37,7 +39,7 @@ The walkway and the lounge reuse the existing `kill-collect-hand-in` solver: bot
 leader, he hands them to Eak" (`haveItem(4001050, 30)` / `haveItem(4001052, 40)`), which is exactly what that solver does
 for KPQ's passes.
 
-## Stage coverage: 9 of 9 script stages
+## Stage coverage: Orbis PQ, 9 of 9 script stages
 
 | Script stage | Map | Status | What clears it |
 | --- | --- | --- | --- |
@@ -60,6 +62,17 @@ orchestrator that a bot in the garden is not a stray.
 Which piece goes on which scar is a permutation, not the piece's own number, and it is read from our WZ: `scar1` takes
 `4001046`, `scar2` `4001049`, `scar3` `4001047`, `scar4` `4001044`, `scar5` `4001048`, `scar6` `4001045`
 (`Reactor.wz/2008000-2008005.img.xml`, one item trigger each). cosmic_agents' `STATUE_SCAR_BY_ITEM` is the same pairing.
+
+## Stage coverage: Henesys PQ, 2 of 2 script stages
+
+Henesys PQ's event script has two things that clear and one that ends the run; all three are in the row or pinned.
+
+| Script stage | Map | Status | What clears it |
+| --- | --- | --- | --- |
+| 1 the six beds | 910010000 | in the row (stage 1) | one seed per bed, dropped on the bed's own id; the sixth activation sets `stage = "6"` (`scripts/reactor/9108000.js:4-9`) |
+| 2 the rice cakes | 910010000 | in the row (stage 2) | ten `4001101` handed to Growlie 1012114: `1stageclear = true`, then `clearPQ` (`scripts/npc/1012114.js:12,66-76`) |
+| the run-ender | - | pinned, never emitted | any hit on the Moon Bunny `9300061` ends the run 5 s later (`HenesysPQ.js:248-258`) |
+| timer expiry after stage 1 | 910010200 -> 910010400 | **not modelled** | `scheduledTimeout` warps there only when the timer runs out with `1stageclear` set: a lost run, not a clear path |
 
 ## Ludi PQ: nine stages, one door, five boxes out of nine
 
@@ -103,6 +116,64 @@ Three things are worth saying plainly:
   into the instance by the NPC when the stage opens, so the row cannot hold it. `lpq-combo` reads
   `stage8combo` + the map's nine `area` nodes each tick (`StageView.area(int)`), which is the same seam Orbis' sealed
   room uses.
+
+## Henesys PQ: six beds, one drop per bed, and the server is five seconds late
+
+The row is `content/hpq.yaml`, two stages, both on the hill `910010000`, with its own switches
+(`-Dslums.mechanics.hpq` and `-Dslums.mechanics.hpq.lobby`, default OFF, on top of `-Dslums.mechanics`). Gates are our
+script's: recruit `100000200`, front door 1012112 (Tory, `scripts/npc/1012112.js`), three to six members, level 10-255,
+ten minutes, exit `910010300`, clear map `910010100` (`scripts/event/HenesysPQ.js:26-40,63-76`).
+
+| Script stage | Map | Clear signal | What drives it |
+| --- | --- | --- | --- |
+| 1 | 910010000 | `stage` (the property) `== "6"` | `hpq-beds`: kill the hill's leaves, then drop one seed on each of the six beds, by id |
+| 2 | 910010000 | `1stageclear` **present** (no value test) | `kill-collect-hand-in`: ten cakes from the ground, hand-in at 1012114 (Growlie) |
+
+- **The one new primitive, and what it unblocks.** `SolverStep.PlaceItemOn(reactorId, itemId, count, why)` plus
+  `StageView.reactorState(int)` and an executor that (a) never feeds a bed whose state has left zero, (b) waits
+  `ITEM_REACTOR_SETTLE_MS = 6500 ms` between drops, and (c) gives up after `PLACE_ON_TRIES = 3` per bed per member.
+  `PlaceItem` could not do this job: it takes a reactor *name* (the beds have none in `scripts/`, only the WZ names
+  `moonflower1..6`) and it re-drops on the 1.5 s `DROP_GAP_MS`, inside the server's own delay. The same step is what
+  PiratePQ (`sMob1-4` take `4001117`), Ellin PQ (`4001162` on the spine, `4001164` on the fountain) and Magatia PQ
+  need, so it was built once, for the id-and-exact-quantity contract `MapleMap.activateItemReactors` enforces
+  (`MapleMap.java:2665-2680`: item **and** whole quantity, drop inside `react.getArea()`, fires 5000 ms later).
+- **The server's five seconds is a delay, not a refusal.** `ITEM_REACTOR_SETTLE_MS` is the 5000 ms activation plus a
+  tick of margin; before it, a solver that re-checked would read "the bed did not take it" and drop again. Two drops
+  inside the window both activate, and since each bed's script does `stage = parseInt(stage) + 1` and the stage clears
+  at exactly `"6"` (`scripts/reactor/9108000.js:4-9`), that skips the clear for the rest of the run. The simulation
+  measured this the honest way: before the fix, three members holding the same seed produced `stage = 18`, and the row
+  could never advance. The fix is the per-bed claim in `stageMemory()` (`CLAIM_MS = 12 s`, re-takeable when it lapses),
+  so the "never twice" rule is enforced twice over: by the claim before the drop and by `reactor.getState()` in the
+  executor after it.
+- **Which facts came from the WZ, and which from the script.** The pairing (bed `9108000..9108005` takes
+  `4001095..4001100`, one each) and the geometry (the beds, the `fullmoon` reactor at `(-183,-433)`, Growlie at
+  `(429,83)`, the hill's six monster ids `9300062/3/4`, `9300081/2/3`) are read from the client's own
+  `Reactor.wz/9108000..9108005.img.xml` `event/0` slots (`type 100, state 1, quantity 1`) and
+  `Map.wz/Map/Map9/910010000.img.xml`, cross-checked against the read-only WZ tree beside the repo. BotStory's
+  `capabilities/partyquest/hpq/AgentHpqDefinition.java:75-81` carries the same six pairs (`SeedBed(seed, reactor, name)`)
+  and is credited for the pairing, but the row's numbers are the WZ's. Everything about *when* a stage clears, who clears it and what ends the run is our script's.
+- **A presence test is safe here, and that was checked rather than assumed.** `1stageclear` is written by
+  `scripts/npc/1012114.js:12` (`clearStage`) and read by presence at `:59`, and `setup()` initialises `level`, `stage`,
+  `bunnyCake` and `bunnyDamaged` - **not** `1stageclear` (`HenesysPQ.js:111-114`), so "present" cannot be true before
+  Growlie takes the cakes. `bunnyCake` is the opposite case: written and incremented (`HenesysPQ.js:254-262`) and read
+  by nothing, so the row does not model it.
+- **The bunny is never a target, at two levels.** `friendlyKilled` on `9300061` schedules `bunnyDefeated` and ends the
+  run five seconds later (`HenesysPQ.js:248-258`). At the hit, `BotAttackDriver.botMayTarget`
+  (`BotAttackDriver.java:836-840`) already refuses a `Mob.wz` `friendly` mob - the comment there names HPQ's bunny - so
+  the `Fight(0)` steps this row emits cannot reach it; and at the row, no step ever names `9300061`, which
+  `theMoonBunnyIsNeverHitOnTheHill` asserts over the whole simulated run as well as over every step. The bunny is not on
+  the hill during most of stage 1 anyway: the sixth bed spawns it (`scripts/reactor/9108000.js:10-14`).
+- **Where this departs.** Stage 2 hands its ten cakes in through the generic solver, although nothing is *killed* for
+  them - the cakes are the bunny's own drops picked off the ground, and the map's monsters only interrupt it. It fits
+  because the generic path is fight-then-loot-then-pool-then-hand-in and the row's `KILL_FOR_ITEM` names the cake; the
+  fiction is stated here rather than hidden in a solver of its own. Both stages sit on the same map, which the engine
+  allows (the stage, not the map, is the boundary). Not modelled on purpose: `910010200` (the map `respawnStages`
+  re-spawns and `scheduledTimeout` warps to only when the timer runs out *with* `1stageclear` set) and the bonus
+  `910010400` - both are timer-expiry paths, not clear paths.
+- **What the fail-before lines were.** "All six beds planted but a seventh activation in the window would skip `6`",
+  "nine cakes are not a clear", "the moon bunny is never a target", and for the executor "a bed whose drop the server
+  never takes is dropped on three times, never forty". The first is the one the simulation caught; the others are
+  pinned as tests.
 
 ## Expedition rule: pause for revive (this is the report it lives in)
 
@@ -297,9 +368,11 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8515 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-lpq.log`, exit 0 - Ludi PQ's own commit; `LpqSolversTest` 12, two more simulation cases, and the
-shared row/data tests that walk every content file). Before it, on the Orbis-only tree: **8499 tests, 0 failures, 0
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8529 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-hpq.log`, exit 0 - Henesys PQ's own commit; `HpqSolversTest` 11 and three simulation cases, one of
+which is the double-activation trap). Before it, on the Ludi-only head: **8515 tests, 0 failures, 0 errors, 137 skipped,
+BUILD SUCCESS** (`/tmp/opq-lpq.log`, exit 0; `LpqSolversTest` 12, two more simulation cases, and the shared row/data
+tests that walk every content file). Before it, on the Orbis-only tree: **8499 tests, 0 failures, 0
 errors, 137 skipped, BUILD SUCCESS** (`/tmp/opq-lobby-final.log`, exit 0; the lobby's tests then became `ContentLobbyTest`, 8 of them, in the same range). That is the number to compare against the rest of the release - 8455 before this
 branch's tests, 8461 after its first commit (`OpqSolversTest` 14, `OrbisPqLobbyStageTest` 4,
 `OrbisSealedRoomAreaTest` 2), 8479 once the lobby, the sealed room and the finale were added (`OpqSolversTest` 32), 8486
@@ -313,4 +386,7 @@ edited while surefire was discovering tests (`TestEngine with ID 'junit-jupiter'
 tree for the whole run.
 
 Earlier in the branch the same command found one real breakage, and it is fixed: `MechanicsDataFilesTest
-.theContentRowsLoadFromTheJarWithNoSourceTree` pins the exact list of content rows and had to learn `opq`.
+.theContentRowsLoadFromTheJarWithNoSourceTree` pins the exact list of content rows and had to learn `opq` (then `lpq`,
+then `hpq`). The Henesys PQ run also found a real defect before it ever shipped, in simulation rather than in game: three
+members holding the same seed dropped on the same bed inside the server's activation window and the instance's `stage`
+read `18` instead of `6` - see the Henesys PQ section's claim rule.

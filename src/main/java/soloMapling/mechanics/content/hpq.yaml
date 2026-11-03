@@ -1,0 +1,168 @@
+# Ticket 164 Henesys PQ stage data ("the primrose hill"): two stages, our scripts first.
+# Format: docs/tickets/130-bots-play-mechanics.md, "Stage data format". Loaded by soloMapling.mechanics.StageData.
+#
+# The row is gated on its OWN switch (-Dslums.mechanics.hpq=true as well as -Dslums.mechanics=true), so the Kerning,
+# Orbis and Ludi lanes are untouched. REPORT-opq.md, "Henesys PQ", lists what this row does not cover.
+#
+# The server's own scripts are the truth:
+#   scripts/event/HenesysPQ.js (minPlayers 3 / maxPlayers 6, minLevel 10 / maxLevel 255, eventTime 10, entryMap
+#   910010000, recruitMap 100000200, exitMap 910010300, clearMap 910010100; setup initialises stage/bunnyCake/
+#   bunnyDamaged and NOT 1stageclear), scripts/npc/1012114.js (Growlie: the rice-cake hand-in), scripts/npc/1012112.js
+#   (Tory, the front door on 100000200), scripts/reactor/9108000..9108005.js (the six beds).
+id: hpq
+name: Henesys Party Quest
+kind: PQ
+eventScript: HenesysPQ
+# The NPC a bot leader accepts the quest from: Tory on 100000200 (scripts/npc/1012112.js:44-90)
+entryNpc: 1012112
+recruitMap: 100000200
+# Where a member is sent when a run WE end ends; Growlie's own clearPQ warps the party to 910010100.
+exitMap: 910010300
+# The script's own gate, copied from it and never from upstream: HenesysPQ.js:27-31 minPlayers 3 / maxPlayers 6,
+# minLevel 10 / maxLevel 255, eventTime 10 minutes. BotStory's AgentHpqDefinition and cosmic_agents' AgentHpqDefinition
+# agree on the level band (10+) and the three-to-six party; their level caps were not copied.
+minPlayers: 3
+maxPlayers: 6
+minLevel: 10
+maxLevel: 255
+timeLimitMinutes: 10
+flag: slums.mechanics.hpq
+sources:
+  - "scripts/event/HenesysPQ.js, scripts/npc/1012112.js, scripts/npc/1012114.js, scripts/reactor/9108000..9108005.js: ours, the truth"
+  - "The six beds' pairing is the reactors' own WZ, not a guess: Map.wz/Reactor.wz/9108000..9108005.img.xml, each event/0 = type 100, state 1, item 4001095..4001100, quantity 1. BotStory Incluwin/BotStory 81a3b1dfb AgentHpqDefinition.java:75-81 carries the same pairing and is credited for it, but the ids were read from our WZ"
+  - "Map ids and life: our own Map.wz dump (Map.wz/Map/Map9/910010000.img.xml): the six beds (moonflower1..6), the fullmoon reactor 9101000 at (-183,-433) the sixth bed spawns the Moon Bunny on, Growlie at (429,83), and the map's six monsters 9300062/3/4 and 9300081/2/3"
+  - "Stage 2's clear is a presence test: HenesysPQ.js:110-116 reads eim.getProperty(\"1stageclear\") != null, and setup (:111-114) initialises stage, bunnyCake and bunnyDamaged but never 1stageclear, so the presence test is safe"
+  - "The Moon Bunny (9300061) is a friendly mob: friendlyKilled schedules bunnyDefeated, which ends the run (HenesysPQ.js:251-255). No step in this row names it"
+stages:
+  - stage: 1
+    map: 910010000
+    name: The six seed beds
+    npc: 1012114
+    solver: hpq-beds
+    mobs: [9300062, 9300063, 9300064, 9300081, 9300082, 9300083]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: plants a bed like everyone else; nothing is handed to an NPC at this stage
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+        note: fights the map's leaves and plants the seed it finds
+    items:
+      - id: 4001095
+        name: Primrose Seed (white)
+        cleanup: true
+      - id: 4001096
+        name: Primrose Seed (yellow)
+        cleanup: true
+      - id: 4001097
+        name: Primrose Seed (pink)
+        cleanup: true
+      - id: 4001098
+        name: Primrose Seed (red)
+        cleanup: true
+      - id: 4001099
+        name: Primrose Seed (blue)
+        cleanup: true
+      - id: 4001100
+        name: Primrose Seed (purple)
+        cleanup: true
+    objectives:
+      - id: bed-1
+        kind: PLACE_ITEM
+        role: all
+        reactor: "9108000"
+        item: 4001095
+        count: 1
+        note: "moonflower1; the reactor's own event slot wants exactly 4001095 x 1 inside its area"
+      - id: bed-2
+        kind: PLACE_ITEM
+        role: all
+        reactor: "9108001"
+        item: 4001096
+        count: 1
+        note: "moonflower2"
+      - id: bed-3
+        kind: PLACE_ITEM
+        role: all
+        reactor: "9108002"
+        item: 4001097
+        count: 1
+        note: "moonflower3"
+      - id: bed-4
+        kind: PLACE_ITEM
+        role: all
+        reactor: "9108003"
+        item: 4001098
+        count: 1
+        note: "moonflower4"
+      - id: bed-5
+        kind: PLACE_ITEM
+        role: all
+        reactor: "9108004"
+        item: 4001099
+        count: 1
+        note: "moonflower5"
+      - id: bed-6
+        kind: PLACE_ITEM
+        role: all
+        reactor: "9108005"
+        item: 4001100
+        count: 1
+        note: "moonflower6; its script spawns the Moon Bunny and turns the summons on (scripts/reactor/9108000.js:10-14)"
+      - id: seeds
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300062
+        item: 4001095
+        count: 1
+        note: "the seeds come from the map's own leaves, one colour each; this objective only records where they come from, the solver farms whichever colour the next empty bed wants"
+    clear:
+      eventProperty: stage
+      equals: "6"
+  - stage: 2
+    map: 910010000
+    name: Ten rice cakes for Growlie
+    npc: 1012114
+    solver: kill-collect-hand-in
+    mobs: [9300062, 9300063, 9300064, 9300081, 9300082, 9300083]
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+        note: hands the ten cakes to Growlie, who clears the quest himself
+      - id: collector
+        who: NON_LEADER
+        min: 0
+        max: party-1
+        note: "loots the cakes the Moon Bunny drops and drops them by the leader; never touches the bunny"
+    items:
+      - id: 4001101
+        name: Moon Bunny's Rice Cake
+        cleanup: true
+    objectives:
+      - id: cakes
+        kind: KILL_FOR_ITEM
+        role: all
+        mob: 9300062
+        item: 4001101
+        count: 10
+        note: "the cakes are not killed for: the Moon Bunny drops them as it pounds (HenesysPQ.js:249-259). The map's monsters only interrupt it, so the solver fights them and loots the cakes"
+      - id: give-cake
+        kind: GIVE_TO_LEADER
+        role: collector
+        item: 4001101
+        count: 1
+      - id: hand-cakes
+        kind: HAND_IN
+        role: leader
+        npc: 1012114
+        item: 4001101
+        count: 10
+        note: "Growlie takes ten cakes, writes 1stageclear and calls clearPQ himself (scripts/npc/1012114.js:66-76)"
+    clear:
+      eventProperty: 1stageclear

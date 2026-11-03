@@ -310,6 +310,21 @@ opcode only their patched client has. Their `set(int)` GM override is not ported
 | `AgentOpqDefinition.STATUE_SCAR_BY_ITEM` / `STATUE_SCAR_POSITION` (the six-scar pairing and where the scars stand) | `OpqStatueSolver.SCAR_PIECE`: the same pairing, but taken from our own `Reactor.wz/2008000-2008005.img.xml`, where each scar carries exactly one item trigger; the positions are not copied because `PlaceItem` resolves the scar through `MapleMap.getReactorByName` and drops at its own position |
 | `AgentOpqDefinition.CENTER_PORTALS` / `ROOM_EXIT_PORTALS` / `LOUNGE_SUBROOM_ENTRY_PORTALS` (WZ portal **ids**, not names) | not used: our row warps stage to stage through `SolverStep.WarpTo`, because a WZ portal id cannot be looked up by name from the engine (`Orchestrator` accepts a solver's `WarpTo` on a map the stage does not own) |
 
+### Henesys PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+BotStory was read for the seed-bed pairing only; the row's numbers are the client WZ's, and every gate is our script's.
+
+| From theirs | Our files |
+| --- | --- |
+| `capabilities/partyquest/hpq/AgentHpqDefinition.java:75-81` (`SEED_BEDS`: the six bed-to-seed pairs) | `soloMapling/mechanics/HpqBedsSolver.BEDS`: the same six pairs (`9108000`->`4001095` ... `9108005`->`4001100`), read from the beds' own WZ event slots instead (`Reactor.wz/9108000..9108005.img.xml`, `event/0`: `type 100, state 1, quantity 1`); the pairs appear in `HpqBedsSolver` and in `content/hpq.yaml`'s six `PLACE_ITEM` objectives, which is what the tests pin |
+| their per-bed "drop and retry" loop | not copied: our `SolverStep.PlaceItemOn` + `StepExecutor.placeItemOn` drop once per bed, honour `MapleMap.activateItemReactors`' 5000 ms delay (`MapleMap.java:2665-2680`) as `ITEM_REACTOR_SETTLE_MS`, refuse a bed whose state has left zero, and stop after `PLACE_ON_TRIES` |
+
+Nothing else in the row comes from another project: the gates (`3`-`6` players, level `10`-`255`, `10` minutes, recruit
+`100000200`, front door `1012112`) are `scripts/event/HenesysPQ.js:26-40`, the clear signals are
+`scripts/reactor/9108000.js:4-9` (the `stage` property) and `scripts/npc/1012114.js:12,66-76` (`1stageclear`, which
+`setup()` never initialises - `HenesysPQ.js:111-114`), the cakes are `4001101` x `10` from that same NPC, and the run-ender
+(any hit on the Moon Bunny `9300061`, `HenesysPQ.js:248-258`) is why no step in the row names it.
+
 Where our server's scripts disagree, the scripts win and the row follows them:
 
 - **The altar takes exactly twenty in one drop.** `scripts/reactor/2006000.js:1-5` spawns Eak from the reactor's item

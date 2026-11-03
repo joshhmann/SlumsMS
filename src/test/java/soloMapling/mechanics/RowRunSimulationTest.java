@@ -58,6 +58,7 @@ class RowRunSimulationTest {
     private static final int LOUNGE_PIECE = 4001052;
     private static final int ROOT_OF_LIFE = 4001055;
     private static final int EAK = 2013001;
+    private static final int HPQ_CAKE = 4001101;
     private static final int LPQ_PASS = 4001022;
     private static final int LPQ_KEY = 4001023;
     private static final List<Integer> LPQ_TALK = List.of(2040036, 2040037, 2040038, 2040039, 2040040, 2040041,
@@ -122,6 +123,9 @@ class RowRunSimulationTest {
         }
         return new Sim(run, world, order, ticks);
     }
+
+    /** Henesys PQ's own gate is three to six (HenesysPQ.js:27-28), so the smallest legal party plays the hill. */
+    private static final int THREE = 3;
 
     /** Orbis PQ's own gate is five to six (OrbisPQ.js:27), so the simulated party is a full one. */
     private static final int FIVE = 5;
@@ -196,6 +200,75 @@ class RowRunSimulationTest {
                 "stage 2 has no monsters at all: its fifteen passes come out of the boxes");
         assertTrue(sim.world().waits * 2 < sim.ticks() * FIVE, "waits " + sim.world().waits + " of "
                 + (sim.ticks() * FIVE) + " member-ticks");
+    }
+
+    // ---- Henesys PQ: six beds, one bunny, ten rice cakes ------------------------------------------------
+
+    @Test
+    void aHenesysPartyPlantsTheSixBedsAndFeedsGrowlie() {
+        Sim sim = play("HenesysPQ", party(THREE), 4_000);
+
+        assertTrue(sim.run().ended(), "the run has to finish inside the tick budget: " + sim.ticks()
+                + " ticks, stage " + sim.run().currentStage() + ", props " + sim.world().props);
+        assertEquals("cleared", sim.run().endedBecause());
+        assertEquals(List.of(1, 2), sim.stageOrder(), "the beds, then the cakes: both on the hill");
+        assertEquals("6", sim.world().props.get("stage"),
+                "six activations, one per bed: a seventh would skip \"6\" and the hill could never clear");
+        assertEquals("true", sim.world().props.get("1stageclear"), "1012114 takes ten cakes and clears the quest");
+
+        for (int bed = 9108000; bed <= 9108005; bed++) {
+            assertEquals(1, sim.world().reactors.get(String.valueOf(bed)), "bed " + bed + " blooms exactly once");
+        }
+        assertTrue(sim.steps().stream().anyMatch(l -> l.startsWith("1:") && l.contains("PlaceItemOn[")),
+                "stage 1 is earned by dropping seeds on the beds, not by waiting");
+        assertTrue(sim.steps().stream().anyMatch(l -> l.startsWith("2:") && l.contains("TalkNpc[")),
+                "stage 2 is Growlie's hand-in");
+        // the hill's waits are the server's: after every drop the activation lands 5000 ms later, so a member may sit
+        // up to that long before the bed blooms. What must not happen is an idle member while a bed waits for a seed.
+        assertTrue(sim.world().longestWaitStreak <= 60, "longest wait " + sim.world().longestWaitStreak
+                + " ticks (the 5000 ms activation, plus a margin)");
+        assertTrue(sim.steps().stream().noneMatch(l -> l.contains("Wait[") && !l.contains("why=")),
+                "every wait says why");
+    }
+
+    @Test
+    void theMoonBunnyIsNeverHitOnTheHill() {
+        Sim sim = play("HenesysPQ", party(THREE), 4_000);
+
+        assertEquals("cleared", sim.run().endedBecause());
+        assertFalse(sim.world().killed.contains(9300061),
+                "killing the bunny ends the run (HenesysPQ.js:251-255): no step may ever name it");
+        assertTrue(sim.steps().stream().noneMatch(l -> l.contains("mobId=9300061") || l.contains("9300061]")),
+                "not in a fight target either");
+    }
+
+    @Test
+    void aBedTheServerNeverTakesIsDroppedOnThreeTimesAndNeverForty() {
+        MechanicsModel.Content content = MechanicsRuns.contentFor("HenesysPQ");
+        Orchestrator orchestrator = new Orchestrator(Orchestrator.allSolvers(), new Random(7L), 0, 0);
+        RunState run = orchestrator.start(content, MechanicsModel.Tier.NORMAL, party(THREE));
+        World world = new World(run);
+        world.bedsRefuse = true; // the drops land and nothing activates: the beds never bloom
+        world.enterStage();
+        List<SolverStep.PlaceItemOn> drops = new ArrayList<>();
+
+        for (int i = 0; i < 1_200 && !run.ended(); i++) {
+            Map<Integer, SolverStep> steps = orchestrator.tick(run, world, world.now);
+            for (SolverStep step : steps.values()) {
+                if (step instanceof SolverStep.PlaceItemOn p) {
+                    drops.add(p);
+                }
+            }
+            world.apply(steps);
+            world.now += TICK_MS;
+        }
+
+        assertFalse(run.ended(), "a hill that never blooms is not a failure: " + run.endedBecause());
+        assertEquals(1, run.currentStage(), "and the run never advances past stage 1");
+        assertTrue(world.applied.stream().noneMatch(l -> l.contains("Abandon")), "nobody gives up");
+        assertTrue(drops.size() > 0, "the beds keep being tried");
+        assertTrue(drops.size() <= 3 * THREE * 6, "three drops per bed per member (" + StepExecutor.PLACE_ON_TRIES
+                + "), never an unbounded stream: " + drops.size());
     }
 
     @Test
@@ -330,6 +403,7 @@ class RowRunSimulationTest {
         private final Map<String, Integer> eventStates = new LinkedHashMap<>();
         private final Map<Integer, int[]> npcs = new LinkedHashMap<>();
         private final List<Drop> floor = new ArrayList<>();
+        private final List<Pending> pending = new ArrayList<>();
         private final List<BossTargetRules.Part> parts = new ArrayList<>();
         private final List<String> applied = new ArrayList<>();
         private final List<Integer> killed = new ArrayList<>();
@@ -341,6 +415,7 @@ class RowRunSimulationTest {
         private boolean passGiven;
         private boolean altarRefuses;
         private boolean noPasses;
+        private boolean bedsRefuse;
         private int altarDelayTicks;
         private int altarTicks;
         private int tick;
@@ -348,6 +423,10 @@ class RowRunSimulationTest {
         private int longestWaitStreak;
 
         private record Drop(int ownerId, int itemId, int count) {
+        }
+
+        /** A drop on an item reactor, waiting out the server's 5000 ms activation delay. */
+        private record Pending(int reactorId, int itemId, long firesAt) {
         }
 
         World(RunState run) {
@@ -399,6 +478,17 @@ class RowRunSimulationTest {
                     npcs.put(2040039, new int[]{0, 0});
                 }
                 case 922010600 -> npcs.put(2040041, new int[]{0, 0});
+                case 910010000 -> {
+                    // the primrose hill: six seed beds (Map.wz/Map/Map9/910010000.img.xml moonflower1..6) and Growlie
+                    for (int bed = 9108000; bed <= 9108005; bed++) {
+                        reactors.put(String.valueOf(bed), run.currentStage() == 1 ? 0 : 1);
+                    }
+                    mobs = 30; // respawnStages re-spawns the hill every 15 s (HenesysPQ.js:131-138)
+                    npcs.put(1012114, new int[]{429, 83});
+                    if (run.currentStage() == 2) {
+                        props.put("stage", "6"); // six beds planted and the Moon Bunny out on the hill
+                    }
+                }
                 case 922010800 -> {
                     // scripts/npc/2040043.js: nine area nodes (one per box) and the leader's combination
                     List<Rectangle> boxes = new ArrayList<>();
@@ -441,6 +531,15 @@ class RowRunSimulationTest {
 
         void apply(Map<Integer, SolverStep> steps) {
             tick++;
+            if (run.stageData().mapId() == 910010000 && tick % 150 == 0) {
+                mobs = Math.max(mobs, 6); // respawnStages: the hill re-spawns every 15 s (HenesysPQ.js:131-138)
+            }
+            for (Pending p : List.copyOf(pending)) {
+                if (p.firesAt() <= now) {
+                    pending.remove(p);
+                    activate(p); // MapleMap.activateItemReactors fires 5000 ms after the drop landed
+                }
+            }
             for (Map.Entry<Integer, SolverStep> e : steps.entrySet()) {
                 SolverStep step = e.getValue();
                 applied.add(run.currentStage() + ":" + e.getKey() + ":" + shortName(step));
@@ -476,6 +575,7 @@ class RowRunSimulationTest {
                 case SolverStep.HitReactor h -> hitReactor(id, String.valueOf(h.reactorId()));
                 case SolverStep.HitReactorNamed h -> hitReactor(id, h.reactorName());
                 case SolverStep.PlaceItem p -> place(id, p);
+                case SolverStep.PlaceItemOn p -> placeOn(id, p);
                 case SolverStep.TalkNpc t -> talk(id, t);
                 case SolverStep.Occupy o -> spot.put(id, new int[]{o.x() + o.w() / 2, o.y() + o.h() / 2});
                 default -> {
@@ -515,6 +615,11 @@ class RowRunSimulationTest {
 
         private int state(String name) {
             return reactors.getOrDefault(name, -1);
+        }
+
+        @Override
+        public int reactorState(int reactorId) {
+            return reactors.getOrDefault(String.valueOf(reactorId), -1);
         }
 
         private void hitReactor(int id, String key) {
@@ -634,12 +739,38 @@ class RowRunSimulationTest {
             }
         }
 
+        /** Henesys PQ's seed beds: the reactor's own WZ slot decides whether the drop is taken at all. */
+        private void placeOn(int id, SolverStep.PlaceItemOn p) {
+            assertTrue(heldOf(id, p.itemId()) >= p.count(), "dropping needs the seed in hand: " + id + " holds "
+                    + heldOf(id, p.itemId()) + " of " + p.itemId());
+            take(id, p.itemId(), p.count());
+            if (p.itemId() != HpqBedsSolver.seedFor(p.reactorId()) || p.count() != 1) {
+                drop(0, p.itemId(), p.count()); // the wrong seed, or the wrong quantity: it lands on the floor
+                return;
+            }
+            if (!bedsRefuse) {
+                pending.add(new Pending(p.reactorId(), p.itemId(), now + 5_000));
+            }
+        }
+
+        private void activate(Pending p) {
+            reactors.put(String.valueOf(p.reactorId()), 1);
+            int stage = Integer.parseInt(props.getOrDefault("stage", "0")) + 1;
+            props.put("stage", String.valueOf(stage)); // scripts/reactor/9108000.js:4-9
+        }
+
         private void talk(int id, SolverStep.TalkNpc t) {
             if (LPQ_TALK.contains(t.npcId())) {
                 lpqTalk(id, t);
                 return;
             }
             switch (run.stageData().mapId()) {
+                case 910010000 -> {
+                    if (heldOf(id, HPQ_CAKE) >= 10) {
+                        take(id, HPQ_CAKE, 10);
+                        props.put("1stageclear", "true"); // scripts/npc/1012114.js:66-76, then clearPQ
+                    }
+                }
                 case 920010000 -> {
                     if (state("2006000") > 0) {
                         props.put("statusStg0", "1"); // clearStage(0)

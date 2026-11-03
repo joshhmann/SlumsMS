@@ -17,7 +17,8 @@ import soloMapling.mechanics.MechanicsModel.Content;
  *
  * <p>Every assertion here is row-parameterised - it runs for each event script name in {@link ContentLobby#rows()} - so
  * a row that joins the list without a content row, a front door, a recruit map or a party size fails here rather than at
- * boot. Orbis PQ is the row that exists today; Ludibrium joins the same loop when its content lands.
+ * boot. Three rows join the loop today - Orbis PQ, Ludibrium's nine stages and Henesys PQ - and a fourth joins it by
+ * being added to {@link ContentLobby#rows()} once its content row lands.
  *
  * <p>What is tested is the gate (three switches per row, all off by default), the row each lobby reads, the ten-minute
  * back-off, and the reason Kerning's lobby - which stays exactly as it was - cannot staff these towers. Nothing here runs
@@ -54,7 +55,8 @@ class ContentLobbyTest {
 
     @Test
     void everyStaffedRowNamesAFrontDoorARecruitMapAndAParty() {
-        assertFalse(staffedRows().isEmpty(), "a lobby with no rows does nothing");
+        assertEquals(List.of("OrbisPQ", "LudiPQ", "HenesysPQ"), ContentLobby.rows(),
+                "three rows staff themselves: the tower, the Ludibrium nine and the primrose hill");
         for (Content content : staffedRows()) {
             assertEquals(MechanicsModel.Kind.PQ, content.kind(), content.id() + " is a party quest");
             assertTrue(content.entryNpc() > 0, content.id() + " needs an entryNpc: a bot talks to an NPC, it has no button");

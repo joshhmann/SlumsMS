@@ -37,6 +37,16 @@ final class StepExecutor {
     static final long TALK_GAP_MS = 2_500;
     static final long DROP_GAP_MS = 1_500;
 
+    /**
+     * The gap between two drops on the same item reactor: the server's own 5000 ms activation delay
+     * ({@code MapleMap.activateItemReactors}, {@code MapleMap.java:2665-2680}) plus a margin for the tick, so a
+     * solver never reads a drop that has simply not fired yet as a refusal.
+     */
+    static final long ITEM_REACTOR_SETTLE_MS = 5_000 + 1_500;
+
+    /** How many drops one bot gives a single item reactor before it says the bed will not take it. */
+    static final int PLACE_ON_TRIES = 3;
+
     private final Map<Integer, Beat> beats = new ConcurrentHashMap<>();
 
     /**
@@ -90,6 +100,9 @@ final class StepExecutor {
         long lastReactorMs;
         /** When this bot last put a stack on a reactor, and when it last said it is still gathering it. */
         long lastPlaceMs;
+        /** When this bot last dropped onto an item reactor, and how often it has dropped on each reactor id. */
+        long lastPlaceOnMs;
+        final java.util.Map<Integer, Integer> placeOnTries = new java.util.HashMap<>();
         boolean stallTold;
         int stallGain;
         final Chase chase = new Chase();
@@ -125,6 +138,7 @@ final class StepExecutor {
                 }
             }
             case SolverStep.PlaceItem p -> placeItem(bot, beat, p, now, log);
+            case SolverStep.PlaceItemOn p -> placeItemOn(bot, beat, p, now, log);
             case SolverStep.Occupy o -> occupy(bot, beat, o, now, log);
             case SolverStep.CheckAnswer c -> check(run, orchestrator, bot, beat, c, now, log);
             case SolverStep.Converse c -> converse(run, orchestrator, bot, beat, c, now, log);
@@ -851,6 +865,73 @@ final class StepExecutor {
         int paid = BotHoldings.payOut(bot, p.itemId(), p.count(), bot, at, true);
         log.accept("PLACE " + bot.getName() + " puts " + paid + " x " + p.itemId() + " on "
                 + (reactor != null ? p.reactor() : "(" + at.x + ", " + at.y + ")") + " - " + p.why());
+    }
+
+    /**
+     * Puts an exact stack on the item reactor with this id ({@link SolverStep.PlaceItemOn}) - Henesys PQ's seed beds.
+     * Three rules the plain {@link #placeItem} does not need:
+     *
+     * <ul>
+     *   <li><b>Never twice.</b> A planted bed's script adds one to the instance's {@code stage}
+     *       ({@code scripts/reactor/9108000.js:6-8}) and the stage clears at exactly {@code "6"}, so a second drop on
+     *       the same bed would skip the clear for good. A bed whose state is above zero is left alone.</li>
+     *   <li><b>The server is late on purpose.</b> {@code MapleMap.activateItemReactors} fires 5000 ms after the drop
+     *       lands ({@code MapleMap.java:2665-2680}), so the next drop waits {@link #ITEM_REACTOR_SETTLE_MS}: a solver
+     *       that re-checked at once would read a failure that is really a delay.</li>
+     *   <li><b>Bounded retries.</b> At most {@link #PLACE_ON_TRIES} drops per bed per bot; after that it says so and
+     *       stops, instead of feeding a bed the server keeps refusing.</li>
+     * </ul>
+     */
+    private static void placeItemOn(Character bot, Beat beat, SolverStep.PlaceItemOn p, long now, Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null) {
+            return;
+        }
+        server.maps.Reactor reactor = map.getReactorById(p.reactorId());
+        if (reactor == null) {
+            if (now - beat.lastPlaceOnMs > 10_000) {
+                beat.lastPlaceOnMs = now;
+                log.accept(bot.getName() + ": no reactor " + p.reactorId() + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        if (reactor.getState() > 0) {
+            if (now - beat.lastPlaceOnMs > 10_000) {
+                beat.lastPlaceOnMs = now;
+                log.accept(bot.getName() + ": bed " + p.reactorId() + " is already planted (state "
+                        + reactor.getState() + ")");
+            }
+            return;
+        }
+        if (bot.getItemQuantity(p.itemId(), false) < p.count()) {
+            if (now - beat.lastPlaceOnMs > 10_000) {
+                beat.lastPlaceOnMs = now;
+                log.accept(bot.getName() + ": " + p.why() + " waits for " + p.count() + " x " + p.itemId());
+            }
+            return;
+        }
+        if (now - beat.lastPlaceOnMs < ITEM_REACTOR_SETTLE_MS) {
+            return; // the previous drop is still inside the server's 5 s activation window
+        }
+        Point at = reactor.getPosition();
+        Point mine = bot.getPosition();
+        if (at != null && mine != null && (Math.abs(at.x - mine.x) > 45 || Math.abs(at.y - mine.y) > 60)) {
+            moveNear(bot, beat, at.x, at.y, 30, now);
+            return;
+        }
+        int tries = beat.placeOnTries.merge(p.reactorId(), 1, Integer::sum);
+        if (tries > PLACE_ON_TRIES) {
+            if (now - beat.lastPlaceOnMs > 30_000) {
+                beat.lastPlaceOnMs = now;
+                log.accept(bot.getName() + ": giving up on bed " + p.reactorId() + " after " + PLACE_ON_TRIES
+                        + " drops it did not take");
+            }
+            return;
+        }
+        beat.lastPlaceOnMs = now;
+        int paid = BotHoldings.payOut(bot, p.itemId(), p.count(), bot, at == null ? mine : at, true);
+        log.accept("PLACE-ON " + bot.getName() + " puts " + paid + " x " + p.itemId() + " on reactor "
+                + p.reactorId() + " (try " + tries + ") - " + p.why());
     }
 
     /**
