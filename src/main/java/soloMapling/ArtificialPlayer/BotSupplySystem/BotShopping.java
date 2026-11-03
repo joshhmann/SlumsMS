@@ -34,8 +34,9 @@ import java.util.function.Function;
  * A purchase follows Shop.buy and Shop.recharge exactly, minus the packets:
  *  - an item sold for mesos costs its listed price per unit, bought at most a stack (the client's quantity cap) per
  *    transaction, and only when it fits (InventoryManipulator.checkSpace, here BotHoldings.canHold);
- *  - a star or bullet is sold a full stack at a time (getSlotMax with the bot's Claw/Gun Mastery) for its listed price;
- *  - a recharge refills a held stack to that size for ceil(unitPrice x missing).
+ *  - a star or bullet is sold a full stack at a time (getSlotMax with the bot's Claw/Gun Mastery) for what the
+ *    counter charges for that stack (b289: ItemInformationProvider getPrice, the same expression a sale pays back);
+ *  - a recharge refills a held stack to that size for the same derivation over the missing stars.
  * Mesos leave through BotHoldings.spendMeso and items arrive through BotHoldings.grantItem / rechargeHeld, so the ledger
  * sees both and the store's normal sweep writes them. Buying is a meso sink: none of it passes the ticket 15 yield caps.
  *
@@ -393,13 +394,14 @@ public final class BotShopping {
         return best;
     }
 
-    // A star or bullet listing's price buys a whole stack; anything else is per unit.
+    // A star or bullet stack costs what the counter charges for it; anything else is its price per unit.
     private static double unitCost(Character bot, ShopCatalog.Listing l) {
         if (!ItemConstants.isRechargeable(l.itemId())) {
             return l.price();
         }
         int stack = SupplyData.get().slotMax(bot, l.itemId());
-        return stack > 0 ? (double) l.price() / stack : Double.MAX_VALUE;
+        int stackPrice = stack > 0 ? SupplyData.get().price(l.itemId(), stack) : -1;
+        return stackPrice >= 0 ? (double) stackPrice / stack : Double.MAX_VALUE;
     }
 
     private static int stackOf(Character bot, WeaponType weapon, ShopCatalog.Site site) {
@@ -446,14 +448,18 @@ public final class BotShopping {
         }
     }
 
-    /* Shop.recharge: refill the stack to its full size for ceil(unitPrice x missing). */
+    /* Shop.recharge: refill the stack to its full size for what the counter charges to recharge it. */
     private static void recharge(Character bot, Item stack, long[] budget, Receipt receipt) {
         int full = SupplyData.get().slotMax(bot, stack.getItemId());
         int missing = full - stack.getQuantity();
         if (missing <= 0 || stack.getQuantity() < 0) {
             return;
         }
-        int price = (int) Math.ceil(SupplyData.get().unitPrice(stack.getItemId()) * missing);
+        // b289: the same derivation Shop.recharge uses, the whole price plus the unit price of the missing stars.
+        int price = SupplyData.get().price(stack.getItemId(), missing);
+        if (price < 0) {
+            return;   // no price data: the counter cannot charge for the refill
+        }
         if (price > budget[0] || !BotHoldings.spendMeso(bot, price)) {
             return;
         }
@@ -484,7 +490,12 @@ public final class BotShopping {
         long cost = 0;
         while (want > 0) {
             int qty = rechargeable ? stack : Math.min(want, stack);
-            long price = rechargeable ? l.price() : (long) l.price() * qty;   // exact: a float total undercharges
+            // b289: a star or bullet stack costs what the counter charges for that stack, the same expression
+            // Shop.buy uses (the whole price plus the unit price of each star), never its listed price.
+            long price = rechargeable ? SupplyData.get().price(l.itemId(), qty) : (long) l.price() * qty;   // exact: a float total undercharges
+            if (price < 0) {
+                break;   // no price data for this stack: the counter cannot sell it
+            }
             if (!rechargeable && price > budget[0]) {
                 qty = (int) Math.min(qty, budget[0] / l.price());
                 price = (long) l.price() * qty;
