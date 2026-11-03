@@ -89,10 +89,8 @@ final class StepExecutor {
         long moveIssuedMs;
         int farmHave = -1;
         long farmSinceMs;
-        /** The puzzle position this bot is walking to, since when, and when it last said it had not got there. */
-        String occupyAt;
-        long occupySinceMs;
-        long occupyToldMs;
+        /** The puzzle position this bot is walking to, and when it last got closer to it. */
+        final OccupyWatch occupy = new OccupyWatch();
         /** The wait message this bot has been sitting on, since when, and when it last said it. */
         String waitMsg;
         long waitSinceMs;
@@ -184,9 +182,101 @@ final class StepExecutor {
      */
     static final long OCCUPY_NOTE_MS = 30_000L;
 
-    /** Whether a stander that has been walking to {@code o.id()} since {@code sinceMs} should say so now. */
+    /**
+     * How much closer (px) a stander must get to its position for the clock to start again. The rope rectangles are
+     * 4 px wide and 150-222 px tall ({@code content/kpq.yaml:144-147}), so a climber crossing one covers 30+ px
+     * between two notes at 30 s apart: anything under this is standing still, which is what the note is about.
+     */
+    static final int OCCUPY_PROGRESS_PX = 30;
+
+    /**
+     * A gap this long between two ticks of the same walk means the bot was doing something else in between (standing
+     * on the position, so the solver answered with a Wait; or sent off it), so the next tick is a new walk.
+     */
+    static final long OCCUPY_GAP_MS = 10_000L;
+
+    /** Whether a stander that has made no progress since {@code sinceMs} should say so now (once per window). */
     static boolean occupyDueForNote(long sinceMs, long toldMs, long now) {
         return now - sinceMs >= OCCUPY_NOTE_MS && now - toldMs >= OCCUPY_NOTE_MS;
+    }
+
+    /**
+     * One stander's walk to one puzzle position. The old note fired on "has not arrived in 30 s", and on TEST that
+     * was 58% false (of 1,513 OCCUPY lines, 873 were followed within 30 s by {@code WAIT <same bot> ... on <same
+     * position>}, median 5 s later - 1,157 counting later ones too - and 478 of those came under 30 s after the bot
+     * had already said it stood on the very position: the clock reset only on a change of position id, so a second
+     * walk to the same rope re-used the first walk's clock).
+     *
+     * <p>Two things fix that. A walk is contiguous: {@link #sinceStepMs} is the last tick this watch was asked about,
+     * so a gap (the bot stood on the position and the solver answered with a Wait, or was sent elsewhere) starts a new
+     * walk. And the clock is progress, as {@link Chase} uses for fights: it restarts whenever the bot is
+     * {@link #OCCUPY_PROGRESS_PX} px nearer, so a climbing bot is never reported. The note fires only when neither
+     * has happened for {@link #OCCUPY_NOTE_MS}.
+     */
+    static final class OccupyWatch {
+        String positionId;
+        /** Distance to the aim point at the last progress, and when that was. */
+        int bestPx = -1;
+        long sinceMs;
+        long toldMs;
+        /** When this walk began (for the line) and when the watch was last asked about it (for continuity). */
+        long startedMs;
+        long sinceStepMs;
+
+        /**
+         * No progress for {@link #OCCUPY_NOTE_MS} toward {@code o}: true once per window. A gap of more than
+         * {@link #OCCUPY_GAP_MS} between two calls means the bot was not walking here in between, so this is a new
+         * walk.
+         */
+        boolean due(SolverStep.Occupy o, Point at, long now) {
+            int px = distanceTo(o, at);
+            boolean contiguous = now - sinceStepMs <= OCCUPY_GAP_MS && sinceStepMs <= now;
+            if (!o.positionId().equals(positionId) || !contiguous) {
+                start(o, px, now);
+                return false;
+            }
+            sinceStepMs = now;
+            if (px <= bestPx - OCCUPY_PROGRESS_PX || px >= bestPx + OCCUPY_PROGRESS_PX) {
+                // Clearly closer (climbing) or clearly further (walked away, then sent back): a new walk either way.
+                start(o, px, now);
+                return false;
+            }
+            if (!occupyDueForNote(sinceMs, toldMs, now)) {
+                return false;
+            }
+            toldMs = now;
+            return true;
+        }
+
+        private void start(SolverStep.Occupy o, int px, long now) {
+            positionId = o.positionId();
+            bestPx = px;
+            startedMs = now;
+            sinceMs = now;
+            sinceStepMs = now;
+            toldMs = 0;
+        }
+
+        /** How long this walk has gone on, for the line. */
+        long walkMs(long now) {
+            return now - startedMs;
+        }
+
+        /** Arrived: the next walk to this position starts from zero. */
+        void arrived() {
+            positionId = null;
+            bestPx = -1;
+            startedMs = 0;
+            sinceStepMs = 0;
+            toldMs = 0;
+        }
+
+        private static int distanceTo(SolverStep.Occupy o, Point at) {
+            if (at == null) {
+                return Integer.MAX_VALUE / 2;
+            }
+            return (int) Math.hypot(at.x - o.x(), at.y - o.y());
+        }
     }
 
     /** Whether a member sitting on the same wait since {@code sinceMs} should say it now (once a minute after 30 s). */
@@ -249,6 +339,27 @@ final class StepExecutor {
         return tell;
     }
 
+    /**
+     * The target a Fight step is counted against, as a line should print it. A collector on KPQ stage 5 gets
+     * {@code Fight(0, 4001008, Integer.MAX_VALUE)} ({@link KillCollectHandInSolver}), meaning "fight while the park
+     * has monsters", and printing the sentinel made 180 of 186 TEST STALL lines read {@code on 0/2147483647 x
+     * 4001008} (2026-11-01 00:31 -> 11-02 03:16; 181 of 186 counting any held count) - a requirement no one can
+     * read as anything but broken. The count
+     * the collector is really held to is the leader's {@code HAND_IN count 10}
+     * ({@code content/kpq.yaml:311-316}), which is his own step, not this one's.
+     */
+    static String fightTargetLabel(SolverStep.Fight f) {
+        if (f.itemId() <= 0) {
+            return "";
+        }
+        return f.untilItemCount() == Integer.MAX_VALUE ? "all" : Integer.toString(f.untilItemCount());
+    }
+
+    /** One STALL line: how many the bot holds against what its step is counted against, then the reason. */
+    static String stallLine(String name, int held, SolverStep.Fight f, String why) {
+        return "STALL " + name + " on " + held + "/" + fightTargetLabel(f) + " x " + f.itemId() + ": " + why;
+    }
+
     /** What a stalled farmer's bag and floor look like, for the STALL line. */
     private static String stallWhy(LiveStageView view, Character bot, int itemId) {
         try {
@@ -286,9 +397,8 @@ final class StepExecutor {
         }
         Point at = bot.getPosition();
         if (f.itemId() > 0 && stalled(beat, bot.getItemQuantity(f.itemId(), false), now)) {
-            log.accept("STALL " + bot.getName() + " on " + beat.farmHave + "/" + f.untilItemCount() + " x " + f.itemId()
-                    + ": +" + beat.stallGain + " in " + STALL_MS / 1000 + " s (under 2 a minute): "
-                    + stallWhy(view, bot, f.itemId()));
+            log.accept(stallLine(bot.getName(), beat.farmHave, f, "+" + beat.stallGain + " in " + STALL_MS / 1000
+                    + " s (under 2 a minute): " + stallWhy(view, bot, f.itemId())));
         }
         if (f.itemId() > 0 && bot.getItemQuantity(f.itemId(), false) < f.untilItemCount()) {
             MapItem drop = nearestMobDrop(view, map, bot, f.itemId(), at);
@@ -726,16 +836,11 @@ final class StepExecutor {
     private static void occupy(Character bot, Beat beat, SolverStep.Occupy o, long now, Consumer<String> log) {
         Point at = bot.getPosition();
         if (at != null && o.inside(at.x, at.y)) {
-            beat.occupyAt = null;
+            beat.occupy.arrived();
             return; // there: hold still (the formation is checked by the leader)
         }
-        if (!o.positionId().equals(beat.occupyAt)) { // a new position: the stall clock starts again
-            beat.occupyAt = o.positionId();
-            beat.occupySinceMs = now;
-            beat.occupyToldMs = 0;
-        } else if (occupyDueForNote(beat.occupySinceMs, beat.occupyToldMs, now)) {
-            beat.occupyToldMs = now;
-            log.accept(occupyStallLine(bot, o, at, now - beat.occupySinceMs));
+        if (beat.occupy.due(o, at, now)) {
+            log.accept(occupyStallLine(bot, o, at, beat.occupy.walkMs(now), now - beat.occupy.sinceMs));
         }
         Point target = new Point(o.x(), o.y());
         if (beat.moveTarget == null || !beat.moveTarget.equals(target) || now - beat.moveIssuedMs > 4_000) {
@@ -745,9 +850,19 @@ final class StepExecutor {
         }
     }
 
-    private static String occupyStallLine(Character bot, SolverStep.Occupy o, Point at, long forMs) {
-        return "OCCUPY " + bot.getName() + " has not reached position " + o.positionId() + " in " + (forMs + 500) / 1_000
-                + " s: at " + (at == null ? "nowhere" : at.x + "," + at.y) + ", wants " + o.x() + "," + o.y()
+    private static String occupyStallLine(Character bot, SolverStep.Occupy o, Point at, long walkMs, long stalledMs) {
+        return occupyStallLine(bot.getName(), o, at, walkMs, stalledMs);
+    }
+
+    /**
+     * {@code OCCUPY <bot> has not got closer to <pos> for <stalled> s (walking <walk> s): at x,y, wants x,y}. It only
+     * fires when the bot is still not making progress at the deadline, and the two times are the pair a reader needs:
+     * how long it has been stuck, and how long it has been trying at all.
+     */
+    static String occupyStallLine(String name, SolverStep.Occupy o, Point at, long walkMs, long stalledMs) {
+        return "OCCUPY " + name + " has not got closer to " + o.positionId() + " for "
+                + (stalledMs + 500) / 1_000 + " s (walking " + (walkMs + 500) / 1_000 + " s): at "
+                + (at == null ? "nowhere" : at.x + "," + at.y) + ", wants " + o.x() + "," + o.y()
                 + (o.rope() ? " (a rope)" : "");
     }
 
