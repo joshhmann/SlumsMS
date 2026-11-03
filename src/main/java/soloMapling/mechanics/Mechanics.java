@@ -77,6 +77,14 @@ public final class Mechanics {
      * run as silently as they did before.
      */
     public static final String CHATTER_FLAG = "slums.mechanics.chatter";
+
+    /**
+     * The real-run quota: {@code -Dslums.mechanics.realruns=N} (ticket 164, phase 2 of {@code SIMULATED-RUNS-PLAN.md}). How
+     * many bot-only runs may play for real at once, world-wide. <b>Unset, empty, unparsable or negative: unlimited</b>,
+     * which is today's behaviour exactly (every bot-only run holds its bots and plays); {@code 0} admits none. A run with a
+     * real player in it, and a GM's or QA's staged run, never counts against it and is never refused ({@link RealRunPool}).
+     */
+    public static final String REAL_RUNS_FLAG = "slums.mechanics.realruns";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";
     public static final String DEFAULT_DIR = "src/main/java/soloMapling/mechanics/content";
 
@@ -90,6 +98,19 @@ public final class Mechanics {
     /** True unless {@code -Dslums.mechanics.chatter=false}: bots say something about the run they just left. */
     public static boolean chatterEnabled() {
         return !"false".equalsIgnoreCase(System.getProperty(CHATTER_FLAG, "true").trim());
+    }
+
+    /** The real-run quota, or a negative number for unlimited ({@link #REAL_RUNS_FLAG}). Read on every call. */
+    public static int realRunCapacity() {
+        String raw = System.getProperty(REAL_RUNS_FLAG);
+        if (raw == null || raw.isBlank()) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(raw.trim());
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     /** True when a real boss expedition may arm a run. */
