@@ -157,6 +157,18 @@ public final class MechanicsRuns {
      */
     public Active start(EventInstanceManager eim, Content content, boolean perfect, long budgetMs, int firstStage,
                         int lastStage, boolean ownsInstance, Consumer<String> reporter, Consumer<Active> onEnd) {
+        return start(eim, content, Tier.NORMAL, perfect, budgetMs, firstStage, lastStage, ownsInstance, reporter, onEnd);
+    }
+
+    /**
+     * As above at a difficulty tier (1.7.0 "PQ difficulties"): the tier is the run's own ({@link RunState#tier()}), so
+     * every rule lookup ({@link Content#rules(Tier)}), the {@code RUN start} line and anything the tier scales can read
+     * it from the run instead of from a field each row would have to carry. {@link Tier#NORMAL} is the stock PQ and
+     * the default of the shorter overload, so a caller that never heard of tiers starts exactly what it started before.
+     */
+    public Active start(EventInstanceManager eim, Content content, Tier tier, boolean perfect, long budgetMs,
+                        int firstStage, int lastStage, boolean ownsInstance, Consumer<String> reporter,
+                        Consumer<Active> onEnd) {
         List<RunMember> members = new ArrayList<>();
         Map<Integer, Character> bots = new ConcurrentHashMap<>();
         for (Character c : eim.getPlayers()) {
@@ -170,7 +182,7 @@ public final class MechanicsRuns {
         }
         Orchestrator o = budgetMs > 0 || lastStage > 0
                 ? new Orchestrator(Orchestrator.allSolvers(), new Random(), budgetMs, lastStage) : orchestrator;
-        RunState run = o.start(content, Tier.NORMAL, members);
+        RunState run = o.start(content, tier == null ? Tier.NORMAL : tier, members);
         if (firstStage > 1 && !o.startAt(run, firstStage, System.currentTimeMillis())) {
             run.end("stage " + firstStage + " is not one this run plays (last " + run.lastStage() + ")");
         }

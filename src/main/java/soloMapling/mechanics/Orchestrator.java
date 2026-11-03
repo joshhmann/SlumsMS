@@ -87,7 +87,10 @@ public final class Orchestrator implements RunOrchestrator {
     @Override
     public RunState start(Content content, Tier tier, List<RunMember> members) {
         int last = lastPlayable(content);
-        long budget = budgetMs > 0 ? budgetMs : Math.max(1, content.timeLimitMinutes()) * 60_000L;
+        // the clock is the tier's: rules(NORMAL) is the row's own minutes, a named tier may shorten or lengthen it
+        long budget = budgetMs > 0 ? budgetMs
+                : Math.max(1, content.rules(tier == null ? Tier.NORMAL : tier)
+                        .orElse(content.rules(Tier.NORMAL).orElseThrow()).timeLimitMinutes()) * 60_000L;
         RunState run = new RunState(content, tier, members, budget, Math.max(1, last));
         if (last < 1) {
             run.end("no stage of " + content.id() + " has a solver yet");
@@ -621,6 +624,10 @@ public final class Orchestrator implements RunOrchestrator {
 
     static String describe(RunState run) {
         StringBuilder sb = new StringBuilder();
+        if (run.tier() != MechanicsModel.Tier.NORMAL) {
+            // only the non-stock tiers are named, so a NORMAL run logs exactly the line it always logged
+            sb.append("tier ").append(run.tier()).append("; ");
+        }
         for (RunMember m : run.members()) {
             if (sb.length() > 0) {
                 sb.append(", ");

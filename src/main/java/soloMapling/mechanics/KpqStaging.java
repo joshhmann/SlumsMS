@@ -50,6 +50,15 @@ public final class KpqStaging {
     private KpqStaging() {
     }
 
+    /**
+     * The number the event script's {@code setup(difficulty, leaderId)} receives: {@link MechanicsModel.Tier#NORMAL} is
+     * 1, which is the argument every party quest was started with before tiers existed, so a NORMAL run is byte-identical
+     * on the script side.
+     */
+    static int difficulty(MechanicsModel.Tier tier) {
+        return (tier == null ? MechanicsModel.Tier.NORMAL : tier).ordinal() + 1;
+    }
+
     /** The shipped KPQ stage data, or null (the reason goes to {@code why}). */
     static Content kpq(Consumer<String> why) {
         StageData.Result r = StageData.load();
@@ -120,6 +129,19 @@ public final class KpqStaging {
     public static Staged start(Content content, Channel on, Character gm, boolean withGm, int bots, boolean perfect,
                                long budgetMs, int firstStage, int lastStage, Consumer<String> reporter,
                                Consumer<MechanicsRuns.Active> afterCleanup) {
+        return start(content, MechanicsModel.Tier.NORMAL, on, gm, withGm, bots, perfect, budgetMs, firstStage, lastStage,
+                reporter, afterCleanup);
+    }
+
+    /**
+     * As above at a difficulty tier. The tier reaches the three places that must agree on it: the party quest's own
+     * {@code setup(difficulty, leaderId)} (through {@code startInstance}, where NORMAL is 1 and the stock call),
+     * {@link MechanicsRuns#start} so the run itself knows which rules apply, and the row's level band through
+     * {@link Content#rules(MechanicsModel.Tier)}.
+     */
+    public static Staged start(Content content, MechanicsModel.Tier tier, Channel on, Character gm, boolean withGm,
+                               int bots, boolean perfect, long budgetMs, int firstStage, int lastStage,
+                               Consumer<String> reporter, Consumer<MechanicsRuns.Active> afterCleanup) {
         if (!Mechanics.enabled()) {
             return new Staged(null, List.of(), "mechanics is off (start the server with -D" + Mechanics.FLAG + "=true)");
         }
@@ -200,7 +222,7 @@ public final class KpqStaging {
         }
         if (withGm) {
             // the GM leads: staging presses Lakelis' button for him (a GM tool), the same call the script makes
-            started = MechanicsRuns.staging(() -> em.startInstance(party, recruit, 1));
+            started = MechanicsRuns.staging(() -> em.startInstance(party, recruit, difficulty(tier)));
         } else {
             // a bot leads: it talks to Lakelis itself, through his own script ("I want to participate")
             BotNpcTalk.Result r = MechanicsRuns.staging(() -> BotNpcTalk.INSTANCE.converse(leader, content.entryNpc(),
@@ -256,7 +278,8 @@ public final class KpqStaging {
                         + " stayed behind (a party short a member cannot clear, so the run would not clear either)");
             }
         }
-        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, perfect, budgetMs, firstStage, lastStage, true,
+        MechanicsRuns.Active a = MechanicsRuns.get().start(eim, content, tier, perfect, budgetMs, firstStage, lastStage,
+                true,
                 reporter, done -> {
             ExecutorServiceManager.getScheduledExecutorService().schedule(() -> {
                 cleanup(ours);
