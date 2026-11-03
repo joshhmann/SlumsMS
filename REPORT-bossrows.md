@@ -1274,6 +1274,8 @@ so a typo fails, no other row is touched, and no script learns about tiers.
 | `b51dcc095` | a tier's numbers reach the room, behind their own switch |
 | `6cc9c18be` | KPQ's HARD tier, as data and as a proposal |
 | `f9aa7d73e` | the tier test names a row that has no tier (`orbis.yaml`) |
+| `e62972957` | the round-9 and round-11 chapters, with the suite count |
+| `333ddbda2` | the revive-pause default in the ticket, and `REPORT.md`'s economy line |
 
 ## 7. Suite (round 11 head)
 
