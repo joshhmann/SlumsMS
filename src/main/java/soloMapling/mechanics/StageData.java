@@ -491,14 +491,12 @@ public final class StageData {
         String nextPortal = m.get("nextPortal") == null ? null : String.valueOf(m.get("nextPortal")).trim();
         String summonProperty = m.get("summonProperty") == null ? null
                 : String.valueOf(m.get("summonProperty")).trim();
-        int killTarget = 0;
-        if (m.get("killTarget") != null) {
-            try {
-                killTarget = Integer.parseInt(String.valueOf(m.get("killTarget")).trim());
-            } catch (NumberFormatException e) {
-                p.add(at + "killTarget: not a mob id: " + m.get("killTarget"));
-            }
-        }
+        // 1.6.4 boss rows: a room whose targets are the map's own life may stand empty while they arrive, and the row
+        // says how long that is; 0 = no expectation (an empty room is the solver's 30 s grace and then an abandon).
+        int spawnWait = num(m, "spawnWaitSeconds", 0, p);
+        require(spawnWait >= 0, p, at + "spawnWaitSeconds must not be negative: " + spawnWait);
+        require(spawnWait == 0 || !mobs.isEmpty(), p,
+                at + "spawnWaitSeconds needs mobs: it is a statement about when the room's targets appear");
         // 1.6.4 boss lane: a boss room's own clock. 0 = the row's timeLimitMinutes counts from the run's start.
         int stageMinutes = num(m, "timeLimitMinutes", 0, p);
         // a room whose fight is behind a reactor nobody has to click by hand (Horntail's 2401000); 0 = no reactor
@@ -506,7 +504,7 @@ public final class StageData {
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
-                summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, killTarget, stageMinutes,
+                summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, spawnWait, stageMinutes,
                 hitReactor);
     }
 

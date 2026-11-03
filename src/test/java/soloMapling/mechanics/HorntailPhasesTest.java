@@ -137,7 +137,6 @@ class HorntailPhasesTest {
         for (MechanicsModel.Stage stage : content.stages()) {
             assertEquals(BossPhasesSolver.ID, stage.solver());
             assertNull(stage.nextPortal(), "the rooms are entered by map id, never by a portal name");
-            assertEquals(0, stage.killTarget(), "no Horntail part is a kill target the script waits for");
         }
         // no room waits for a summon: the setup pre-spawns each head (HorntailBattle.js:86-93), and the reactor that
         // writes 'summoned' is a HUMAN touch path a bot's click cannot reach (2408003.js defines only touch(); a bot's

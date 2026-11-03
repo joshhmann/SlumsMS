@@ -75,13 +75,14 @@ public final class BossPhasesSolver implements StageSolver {
         if (order.isEmpty()) {
             // nothing it may hit: either a part is there but not hittable by this member (an arm while no human drives
             // it, an immunity), which is a wait, or the room has no arm and no body phase at all after the summon,
-            // which is only a moment between phases until the grace runs out
+            // which is only a moment between phases until the row's own deadline runs out
             if (nothingToHit(parts)) {
+                long allowed = allowedEmptyMs(view.stage());
                 Object since = view.stageMemory().putIfAbsent(K_NOTHING_SINCE, view.nowMs());
                 long waiting = since instanceof Long start ? view.nowMs() - start : 0L;
-                if (summoned(view) && !view.cleared() && waiting >= NOTHING_TO_HIT_GRACE_MS) {
+                if (summoned(view) && !view.cleared() && waiting >= allowed) {
                     return new SolverStep.Abandon("no arm and no body of " + view.stage().mobs()
-                            + " has been alive for " + NOTHING_TO_HIT_GRACE_MS / 1000
+                            + " has been alive for " + allowed / 1000
                             + " s after the summon (saw " + ids(parts) + "): the instance can never be cleared,"
                             + " so the run is ended");
                 }
@@ -91,6 +92,17 @@ public final class BossPhasesSolver implements StageSolver {
         view.stageMemory().remove(K_NOTHING_SINCE);
         int[] band = band(view, order.get(0));
         return new SolverStep.Fight(order, 0, 0, band[0], band[1], band[0] == 0 && band[1] == 0 ? 0 : BAND_PX);
+    }
+
+    /**
+     * How long this room may hold no arm and no body phase before the run is called off: the solver's
+     * {@link #NOTHING_TO_HIT_GRACE_MS}, or the wait the row declares with {@code spawnWaitSeconds} when that is longer.
+     * A row declares it when its targets are the map's own life (the seven {@code 164-bossrows} single-room rows), where
+     * an empty room at the instance's first tick says nothing about whether the fight can be won; a row that declares
+     * nothing keeps the grace, so a stall still costs its instance no more than that.
+     */
+    static long allowedEmptyMs(MechanicsModel.Stage stage) {
+        return Math.max(NOTHING_TO_HIT_GRACE_MS, stage == null ? 0 : stage.spawnWaitSeconds() * 1000L);
     }
 
     /**

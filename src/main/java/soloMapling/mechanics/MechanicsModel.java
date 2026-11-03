@@ -213,16 +213,18 @@ public final class MechanicsModel {
      *   {@code positions} (in the script's order) that answer {@code i} wants occupied;</li>
      *   <li>{@code mobs}: the stage's monsters (KPQ stage 5's bosses drop the passes);</li>
      *   <li>{@code nextPortal}: the portal the stage opens on clear, which every member walks into.</li>
-     *   <li>{@code summonProperty} + {@code killTarget} (boss rows, phase B): the event property that says the room's
-     *   parts were summoned (null = no such gate), and the part whose death the script turns into the clear
-     *   (0 = none, and then nothing is abandoned for its absence).</li>
+     *   <li>{@code summonProperty} (boss rows, phase B): the event property that says the room's parts were summoned
+     *   (null = no such gate);</li>
+     *   <li>{@code spawnWaitSeconds} (1.6.4 boss rows with no reactor and no summon property): how long the room may
+     *   hold none of {@code mobs} and still be a fight the map's own life is about to bring in.
+     *   0 = no expectation, and then an empty room is abandoned after the solver's 30 s grace.</li>
      * </ul>
      */
     public record Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                         List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
-                        int killTarget, int timeLimitMinutes, int hitReactor) {
+                        int spawnWaitSeconds, int timeLimitMinutes, int hitReactor) {
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,

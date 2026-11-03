@@ -184,6 +184,20 @@ class StageDataTest {
     }
 
     @Test
+    void aSpawnWaitIsAStatementAboutMobsTheRoomDoesNotHaveYet() throws Exception {
+        String waiting = GOOD.replace("clear: { eventProperty: 1stageclear }",
+                "mobs: [ 8220010 ]\n    spawnWaitSeconds: 60\n    clear: { eventProperty: 1stageclear }");
+        StageData.Result r = StageData.parse(new StringReader(waiting));
+        assertEquals(List.of(), r.errors());
+        assertEquals(60, r.content().get(0).stage(1).orElseThrow().spawnWaitSeconds());
+        assertEquals(0, kpq().stage(1).orElseThrow().spawnWaitSeconds(),
+                "a row that declares no expectation says 0, and the solver keeps its 30 s grace");
+        assertHas(errors(waiting.replace("spawnWaitSeconds: 60", "spawnWaitSeconds: -1")),
+                "spawnWaitSeconds must not be negative");
+        assertHas(errors(waiting.replace("    mobs: [ 8220010 ]\n", "")), "spawnWaitSeconds needs mobs");
+    }
+
+    @Test
     void switchedOffByDefault() {
         assertFalse(Mechanics.enabled(), "ticket 130 scaffold must stay off unless -Dslums.mechanics=true");
     }

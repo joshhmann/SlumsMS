@@ -198,6 +198,49 @@ class BossPhasesSolverTest {
         assertTrue(abandon.why().contains("saw no part at all"), abandon.why());
     }
 
+    /**
+     * Branch {@code 164-bossrows}: seven rows are one room whose targets are the map's own life, with no summon
+     * property and no reactor - so the room can stand empty while the instance's life is still coming, and "nothing to
+     * hit" there says nothing about whether the fight can be won. {@code TD_Battle2} declares how long with
+     * {@code spawnWaitSeconds: 60}; the abandon must use that, not the 30 s grace alone.
+     */
+    @Test
+    void aRoomThatDeclaresItsSpawnWaitIsNotAbandonedAtTheGrace() {
+        MechanicsModel.Stage dunas = MechanicsRuns.contentFor("TD_Battle2").stages().get(0);
+        assertEquals(BossPhasesSolver.ID, dunas.solver());
+        assertEquals(60, dunas.spawnWaitSeconds(), "the row states the wait; the solver does not guess it");
+        View view = new View(dunas, List.of(), Map.of());
+
+        view.now = 1_000;
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()), "the first empty tick starts the clock");
+        view.now = 1_000 + BossPhasesSolver.NOTHING_TO_HIT_GRACE_MS;
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()),
+                "past the 30 s grace but inside the row's 60 s: the boss has simply not stood up yet");
+        view.now = 46_000;
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()), "the boss arrives at 45 s: no abandon");
+
+        view.now = 61_000;
+        SolverStep.Abandon abandon = assertInstanceOf(SolverStep.Abandon.class, solver.next(view, member()),
+                "60 s of an empty room is the end the row declared");
+        assertTrue(abandon.why().contains("60 s"), abandon.why());
+    }
+
+    /**
+     * The other side of the same rule: a row that declares nothing keeps today's 30 s, because its parts are the
+     * script's own spawn and an empty room after the summon really is an instance nobody can clear.
+     */
+    @Test
+    void aRoomWithNoDeclaredSpawnWaitStillAbandonsAtTheGrace() {
+        MechanicsModel.Stage zakum = MechanicsRuns.contentFor("ZakumBattle").stages().get(0);
+        assertEquals(0, zakum.spawnWaitSeconds(), "Zakum's parts come from the altar, not from the map's life");
+        View view = new View(zakum, List.of(), Map.of("summoned", "true"));
+
+        view.now = 1_000;
+        assertInstanceOf(SolverStep.Wait.class, solver.next(view, member()));
+        view.now = 1_000 + BossPhasesSolver.NOTHING_TO_HIT_GRACE_MS;
+        assertInstanceOf(SolverStep.Abandon.class, solver.next(view, member()), "no declaration, no extra time");
+    }
+
     /** A fake body is a body phase of an id: the room is not empty, so the grace never ends the run under it. */
     @Test
     void aWaitingBodyPhaseIsNeverAnEmptyRoom() {
