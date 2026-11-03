@@ -39,6 +39,17 @@ public final class BossPhasesSolver implements StageSolver {
      */
     static final long NOTHING_TO_HIT_GRACE_MS = 30_000;
 
+    /**
+     * The grace this stage allows before "nothing to hit" becomes "this instance can never be cleared": the row's own
+     * {@code graceMs:} when it names one, else {@link #NOTHING_TO_HIT_GRACE_MS}. Hard Will/Lucid/Darknell/Verus keep
+     * their first target behind 60/120/120/240 seconds of scripted waiting, so a global 30 s abandoned fights that had
+     * not started yet (P15 in /root/work/PQ-UNFINISHED-REPORT.md).
+     */
+    static long graceMs(StageView view) {
+        long named = view.stage().graceMs();
+        return named > 0 ? named : NOTHING_TO_HIT_GRACE_MS;
+    }
+
     /** Where the grace's start is remembered between ticks, in the stage's own scratch memory. */
     private static final String K_NOTHING_SINCE = "bossNothingSince";
 
@@ -79,9 +90,10 @@ public final class BossPhasesSolver implements StageSolver {
             if (nothingToHit(parts)) {
                 Object since = view.stageMemory().putIfAbsent(K_NOTHING_SINCE, view.nowMs());
                 long waiting = since instanceof Long start ? view.nowMs() - start : 0L;
-                if (summoned(view) && !view.cleared() && waiting >= NOTHING_TO_HIT_GRACE_MS) {
+                long grace = graceMs(view);
+                if (summoned(view) && !view.cleared() && waiting >= grace) {
                     return new SolverStep.Abandon("no arm and no body of " + view.stage().mobs()
-                            + " has been alive for " + NOTHING_TO_HIT_GRACE_MS / 1000
+                            + " has been alive for " + grace / 1000
                             + " s after the summon (saw " + ids(parts) + "): the instance can never be cleared,"
                             + " so the run is ended");
                 }

@@ -539,11 +539,18 @@ public final class StageData {
                 p.add(at + "maps: \"" + o + "\" is not a map id");
             }
         }
+        // P15 (ticket 164): how long a boss room may sit with nothing to hit before the run gives up on it. 0 = the
+        // solver's own default (30 s), which is what every row that does not name one keeps.
+        long graceMs = num(m, "graceMs", 0, p);
+        if (graceMs < 0) {
+            p.add(at + "graceMs: must not be negative");
+            graceMs = 0;
+        }
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
                 summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, killTarget, stageMinutes,
-                hitReactor, List.copyOf(maps));
+                hitReactor, List.copyOf(maps), graceMs);
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----
