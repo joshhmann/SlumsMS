@@ -8,6 +8,12 @@
 | [178](178-sibling-only-upgrade-handover.md) | Sibling-only upgrade offer cannot start a handover | Source-confirmed; coordinator + submitter triage required |
 | [179](179-qa-worker-loses-batched-ready-events.md) | Client readiness events lost between waits | Reproduced locally; coordinator + submitter triage required |
 
+## Other-repo bot audit (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [186](186-external-bot-repo-adoption-1-6-4.md) | Adopt ideas from the other-repo bot audit | BotStory, nutnnut/Cosmic, SoloMapling, cosmic_agents: 12 ranked candidates, 7 measurements first; nothing started, boss fights stay with the boss lane |
+
 ## 1.6.2 release closure (owner direction, 2026-10-31)
 
 | # | Ticket | Purpose |
