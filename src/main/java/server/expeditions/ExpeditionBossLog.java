@@ -55,7 +55,9 @@ public class ExpeditionBossLog {
         NWILLSPIDER(15, 10, 12, 24, false),
         NVERUS(16, 10, 12, 24, false),
         NDARKNELL(17, 10, 12, 24, false),
-        MAGNUS(18, 10, 8, 24, false);
+        MAGNUS(18, 10, 8, 24, false),
+        /** 1.6.4 (branch 164-bossrows): Chaos Zakum is its own expedition, so it is its own log entry. */
+        CHAOS_ZAKUM(19, 5, 25, 24, false);
 
         private final int entries;
         private final int ordinal;
