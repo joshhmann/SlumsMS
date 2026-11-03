@@ -1,3 +1,9 @@
+## Alt marriage (owner direction, 2026-11-03)
+
+| # | Ticket | Purpose |
+|---|---|---|
+| [189](189-alt-marriage-1-6-4.md) | Marriage with your own alts for 1.6.4 | Guards and deletion guard (stage 1), proxy marriage with fee behind `-Dslums.ownedalts.marry` (stage 2), alt-versus-regular bonuses open (stage 3) |
+
 # SlumsMS tickets
 
 ## Promise audit (2026-11-01, pending triage)
