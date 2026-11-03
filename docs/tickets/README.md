@@ -1,5 +1,13 @@
 # SlumsMS tickets
 
+## Server-code audit (owner direction, 2026-11-03)
+
+Read-only audit of the server code (eleven lanes). Documented, not changed.
+
+| # | Ticket | State |
+|---|---|---|
+| [182](182-server-code-audit-1-6-4.md) | Fix the server-code defects the audit-164 audit found | Owner decisions (a)-(e) answered; cards b289-b298, then cardless impact-4 set, migration 059, config validation |
+
 ## Promise audit (2026-11-01, pending triage)
 
 | # | Ticket | State |
