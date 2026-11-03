@@ -44,6 +44,7 @@ public final class RunState implements RunOrchestrator.Run {
     private volatile long unfilledSinceMs;
     private volatile String endedBecause;
     private volatile boolean cleared;
+    private volatile boolean failed;
     private volatile long clearedAfterMs = -1;
     private final Map<String, Object> stageMemory = new ConcurrentHashMap<>();
     private volatile long afterClearSinceMs;
@@ -295,6 +296,37 @@ public final class RunState implements RunOrchestrator.Run {
         if (endedBecause == null) {
             endedBecause = why;
         }
+    }
+
+    /**
+     * Ends the run because the party played it and could not finish it (the stage's clock ran out, the content said it
+     * cannot be cleared, a bot could not be put where the stage is). The first reason to end a run wins, as with
+     * {@link #end}; only a run that this call ended counts as failed, so a run that ended for any other reason first
+     * (a member left, the event closed) is never turned into a loss by a later failure.
+     */
+    void fail(String why) {
+        if (endedBecause == null) {
+            failed = true;
+            endedBecause = why;
+        }
+    }
+
+    /** How a run ended, for whoever has something to say about it (the bots' run chatter). */
+    public enum Ending {
+        /** The last stage to play was cleared. */
+        WON,
+        /** The party played it and failed ({@link #fail}). */
+        LOST,
+        /** Nothing worth saying: stopped, disbanded, a member left, the event closed, the server stopping, never started. */
+        SILENT
+    }
+
+    /** What the run's end means to the bots in it. {@link Ending#SILENT} while the run is still going. */
+    public Ending ending() {
+        if (cleared) {
+            return Ending.WON;
+        }
+        return failed && endedBecause != null ? Ending.LOST : Ending.SILENT;
     }
 
     void markCleared(long afterMs) {

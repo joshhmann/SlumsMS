@@ -38,22 +38,33 @@ public class SocialCommands {
 
     /** Idle/ambient speech shares the per-map and world budgets; dropped lines are never queued. */
     public static void BotAmbientSpeak(Character bot, String message) {
+        tryAmbientSpeak(bot, message);
+    }
+
+    /**
+     * {@link #BotAmbientSpeak} saying whether the line was let through the ambient budget (true) or dropped by it, the
+     * wedding rule or the say-do rule (false), for a caller that keeps its line and tries again on its next tick (the
+     * run chatter's pending outcome) instead of losing it to a busy moment.
+     */
+    public static boolean tryAmbientSpeak(Character bot, String message) {
         // rc6 (QA t-we-1): at a bot wedding the crowd talks about the wedding, the couple says only its vows
         String line = soloMapling.ArtificialPlayer.BotCoupleSystem.BotWeddings.ambientLine(bot, message);
         if (line == null) {
-            return;
+            return false;
         }
         // rc6 say-do: a line that claims an action ("brb pots", "gtg", "going to orbis") is said only by a bot that
         // then does it (ClaimActions); otherwise it is dropped and the bot stays quiet this time
         java.util.List<soloMapling.ArtificialPlayer.BotConvo.ClaimRules.Claim> claims =
                 soloMapling.ArtificialPlayer.BotConvo.ClaimRules.classify(line);
         if (!soloMapling.ArtificialPlayer.BotConvo.ClaimActions.canBack(bot, claims)) {
-            return;
+            return false;
         }
         if (soloMapling.ArtificialPlayer.BotChatTuning.allowAmbient(bot)) {
             BotSpeak(bot, line);
             soloMapling.ArtificialPlayer.BotConvo.ClaimActions.start(bot, claims);
+            return true;
         }
+        return false;
     }
 
     public static void BotSpeak(Character fakechar, String message) {

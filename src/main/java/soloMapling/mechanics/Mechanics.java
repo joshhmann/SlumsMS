@@ -68,6 +68,15 @@ public final class Mechanics {
 
     /** LudiMaze PQ's own switch: one PQ, one row, one flag. */
     public static final String LUDIMAZE_FLAG = "slums.mechanics.ludimazepq";
+
+    /**
+     * The run chatter switch: {@code -Dslums.mechanics.chatter} (default <b>{@code true}</b>, the owner asked for it,
+     * 2026-11-03: "outcomes once bots exit out they say things like woo we beat or dang we tried but failed"). When a
+     * run ends, the bots that played it leave themselves a win or a loss line to say on their own tick
+     * ({@link RunChatter}). It is chat only; {@code -Dslums.mechanics.chatter=false} records nothing and the bots end a
+     * run as silently as they did before.
+     */
+    public static final String CHATTER_FLAG = "slums.mechanics.chatter";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";
     public static final String DEFAULT_DIR = "src/main/java/soloMapling/mechanics/content";
 
@@ -76,6 +85,11 @@ public final class Mechanics {
 
     public static boolean enabled() {
         return Boolean.getBoolean(FLAG);
+    }
+
+    /** True unless {@code -Dslums.mechanics.chatter=false}: bots say something about the run they just left. */
+    public static boolean chatterEnabled() {
+        return !"false".equalsIgnoreCase(System.getProperty(CHATTER_FLAG, "true").trim());
     }
 
     /** True when a real boss expedition may arm a run. */
