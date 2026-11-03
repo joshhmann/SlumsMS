@@ -264,9 +264,7 @@ under `maps:`). A stage-by-stage `map-integrity` pass over all 28 maps is clean 
 unprotected on the last two maps, where the air takes 30,000 HP, so he stays behind on the gate hall while the others go through
 and face Ergoth.* In the engine: the highest-id **bot** that is not the leader is the sacrificer (the leader loots and hands in
 on the boss map; if the leader is the party's only bot he pays; a party of players has nobody to steer, so nobody can pay and the
-stage says so); on 800 it takes the earring off (`UnequipItem`, log `UNEQUIP <name> takes off 1032033 - sacrifice: Ergoth's gate
-(kinggate, reactor 9208009) opens only for one 1032033 (Protector Rock, only 1) in its box, so <id> pays it and is unprotected on
-990000800 and 990000900 afterwards (decHP 30000)`), sets it in the gate's box (`PlaceItem`, count exactly 1; the server acts 5 s
+stage says so); on 800 it takes the earring off (`UnequipItem`, log `UNEQUIP <id> takes off 1032033 - sacrifice: Ergoth's gate wants the only 1032033; <id> is unprotected from here on`; the full account, decHP 30000 on 990000800 and 990000900, is the row header and `GqBossSolver`'s javadoc), sets it in the gate's box (`PlaceItem`, count exactly 1; the server acts 5 s
 later) and sits out. Nobody else takes anything off, nobody enters 800/900 unprotected; both are asserted in `GqBossSolverTest`.
 
 **The EQUIP step, in one paragraph for the release notes.** *Every member earns his own Protector Rock from the glowing rocks of

@@ -195,9 +195,8 @@ public final class GqBossSolver implements StageSolver {
         if (here != M800) {
             return null;
         }
-        String why = "sacrifice: Ergoth's gate (" + KING_GATE + ", reactor " + KING_GATE_REACTOR + ") opens only for one "
-                + GqProtection.EARRING + " (Protector Rock, only 1) in its box, so " + id + " pays it and is unprotected on "
-                + "990000800 and 990000900 afterwards (decHP 30000)";
+        // short on purpose: this is the run log's line; the full account (decHP 30000 on 800/900) is the class javadoc and the row
+        String why = "sacrifice: Ergoth's gate wants the only " + GqProtection.EARRING + "; " + id + " is unprotected from here on";
         if (view.wearing(id, GqProtection.EARRING)) {
             return new SolverStep.UnequipItem(GqProtection.EARRING, why);
         }

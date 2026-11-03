@@ -375,8 +375,9 @@ class GqBossSolverTest {
         assertEquals(List.of(6), w.unequippedBy, "one member took his earring off, and it is the sacrificer");
         assertEquals(List.of(6), w.placedBy, "and the same member set that one earring in the gate");
         assertEquals(1, w.log.size());
-        assertTrue(w.log.get(0).contains("decHP 30000") && w.log.get(0).contains("sacrifice")
-                && w.log.get(0).contains("kinggate"), "the line says what was paid and why: " + w.log.get(0));
+        assertTrue(w.log.get(0).contains("sacrifice") && w.log.get(0).contains("only 1032033")
+                && w.log.get(0).contains("6 is unprotected from here on"), "the line says what was paid and by whom: " + w.log.get(0));
+        assertTrue(w.log.get(0).length() < 120, "and it is short: " + w.log.get(0));
         assertFalse(w.reached900.contains(6), "the one who paid does not follow the party into the boss hall");
         assertTrue(w.reached900.containsAll(List.of(1, 2, 3, 4, 5)), "everyone else did: " + w.reached900);
         assertEquals(List.of(1), w.talked, "the leader handed in the Rubian, once");
@@ -510,13 +511,13 @@ class GqBossSolverTest {
         assertEquals("kinggate", place.reactor());
         assertEquals(261, place.x());
         assertEquals(83, place.y());
-        assertTrue(place.why().contains("only 1") && place.why().contains("decHP 30000"));
+        assertTrue(place.why().contains("sacrifice") && place.why().contains("unprotected"), place.why());
     }
 
     private static void UnequipStep(SolverStep s) {
         SolverStep.UnequipItem u = assertInstanceOf(SolverStep.UnequipItem.class, s);
         assertEquals(EARRING, u.itemId());
-        assertTrue(u.why().contains("sacrifice") && u.why().contains("decHP 30000"), u.why());
+        assertTrue(u.why().contains("sacrifice") && u.why().contains("only 1032033") && u.why().contains("unprotected"), u.why());
     }
 
     @Test
