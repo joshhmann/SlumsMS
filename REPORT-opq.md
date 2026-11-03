@@ -897,6 +897,25 @@ reason named, stage 6 the Poison Golem `9300182` clearing on the instance's flag
 `MechanicsRuns.java:162`, carried from the real `Character`, never inferred from persona). They must land together: the
 touch step's first real consumer is the sign-up, and the job is what decides which reactor a member belongs at.
 
+## The one flaky test, and what it actually was
+
+`BotConversationFlowTest.aRefusedPartyAskIsPlannedFromTheGatesVerdict` failed in loaded full-suite runs and passed
+alone. It was never a race in the product and never a static leak: the test read `asked.get(0)` - the **first** prompt the
+shared fake brain received in that test - and asserted that it was the party plan. The reply path may queue more than one
+brain call for one wave of chat (a greeting for the player, then the party ask), so under load the greeting landed first
+and the test inspected a HELLO plan while the verdict it wanted sat at index 1.
+
+The fix is in the selector, not in timing: `partyAsks()` returns the calls whose system prompt carries
+`"Answer their party ask"`, the test waits for exactly one of those, and `assertEquals(1, plans.size())` now pins the
+invariant that matters - **one** plan per party ask, other calls being chat rather than plans. No sleep, no retry, no
+ordering hack, no filter flag. Proved by two clean full runs: `8609 tests, 0 failures, 0 errors, 137 skipped`, `EXIT=0`,
+zero `<<< FAILURE` markers, `/tmp/opq-flake-A.log` and `/tmp/opq-flake-B.log`.
+
+Two earlier hypotheses were falsified on the way and are recorded so nobody repeats them: resetting the class's
+`private static int nextPlayer` in `@BeforeEach` fails 13 of 22 (those ids key static session maps, so reuse collides with
+sessions an earlier test left behind), and a cross-class static leak is impossible as configured - `pom.xml:252-255` sets
+`forkCount 1` with `reuseForks false`, so each test class gets its own JVM.
+
 ## Boss rooms that take minutes to produce a target: `graceMs:`
 
 `BossPhasesSolver` used to hold one global rule: a summoned room with nothing the party may hit for 30 s was a room that
