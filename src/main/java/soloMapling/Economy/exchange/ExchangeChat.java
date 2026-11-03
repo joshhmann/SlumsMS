@@ -128,6 +128,57 @@ public final class ExchangeChat {
                             fmt(num(r.data().get("filledNx"))), r.data().get("status")));
                 }
             }
+            case "dump" -> {
+                if (!t.item() && ex.desk() != null) {
+                    out.add("NX trades at the desk's quote now: @nx sell <NX> (the desk always buys).");
+                    return out;
+                }
+                Long asked = params.length > 1 ? amount(params[1]) : null;
+                if (params.length > 2 || (params.length > 1 && asked == null)) {
+                    out.add("Use: @nx " + tk + "dump [qty] — sells into the bids at once, e.g. @nx " + tk + "dump");
+                    return out;
+                }
+                long held = w.have(t.asset());
+                long qty = asked == null ? held : asked;
+                if (qty <= 0) {
+                    out.add(t.item() ? "You hold no tradeable " + t.name() + " in this character's bags."
+                            : "You have no NX to sell.");
+                    return out;
+                }
+                List<OrderBook.Level> bids = t.item() ? ex.depth(t.id(), Side.BUY, 20) : ex.depth(Side.BUY, 20);
+                long bidsQty = 0;
+                for (OrderBook.Level l : bids) {
+                    bidsQty += l.nx();
+                }
+                if (bidsQty <= 0) {
+                    out.add("No bids: nothing is buying " + (t.item() ? t.name() : "NX") + " right now. A dump would "
+                            + "rest unsold; @nx " + tk + "sell <qty> <price> places one anyway.");
+                    return out;
+                }
+                long take = Math.min(Math.min(qty, held), Math.min(bidsQty, t.maxQty()));
+                if (t.lot() > 1) {
+                    take -= take % t.lot();
+                }
+                if (take < t.minQty()) {
+                    out.add(t.item() ? "A dump is at least " + t.minQty() + " " + t.name() + " (and at most "
+                            + t.maxQty() + " an order)."
+                            : "A dump is at least " + t.minQty() + " NX in steps of " + t.lot() + ".");
+                    return out;
+                }
+                long price = marketPrice(bids, take);
+                Exchange.Response r = ex.place(new Exchange.Place(rid(w), w.account(), w.character(), Side.SELL,
+                        price, take, t.id()));
+                if (!r.ok()) {
+                    out.add("NX exchange: " + r.message() + " (" + r.code() + ")");
+                    return out;
+                }
+                out.addAll(dumpLines(r, t));
+                if (take < Math.min(qty, held)) {
+                    out.add("The bids took " + (t.item() ? t.amount(take) : fmt(take) + " NX") + " of the "
+                            + (t.item() ? t.amount(Math.min(qty, held)) : fmt(Math.min(qty, held)) + " NX")
+                            + " you offered; run it again as the book fills.");
+                }
+            }
             case "cancel" -> {
                 Long id = params.length > 1 ? amount(params[1]) : null;
                 if (id == null) {
@@ -197,7 +248,7 @@ public final class ExchangeChat {
                     out.add("Orders " + t.minQty() + ".." + t.maxQty() + ". Selling takes tradeable copies from this "
                             + "character's bags. Fee " + pct(ex.config().feeBps()) + " of the mesos from each side.");
                     out.add("@nx " + tk + "sell <qty> <price> | @nx " + tk + "buy <qty> <price> | @nx confirm | "
-                            + "@nx orders | @nx cancel <id> | @nx " + tk + "book");
+                            + "@nx " + tk + "dump [qty] | @nx orders | @nx cancel <id> | @nx " + tk + "book");
                     return out;
                 }
                 Long rate = ex.officialRate();
@@ -210,7 +261,7 @@ public final class ExchangeChat {
                     out.add("Fills at once, whole NX from 100; spread " + pct((int) desk.spreadBps()) + ", no fee. "
                             + String.format(Locale.ROOT, "Moved today %.2f%%.", desk.movedTodayPct()));
                     out.add("@nx buy <NX> | @nx sell <NX> | @nx confirm (no price: the desk's quote is the price)"
-                            + " | @nx tickers (items: " + itemIds(ex) + ")");
+                            + " | @nx dump [NX] | @nx tickers (items: " + itemIds(ex) + ")");
                     return out;
                 }
                 long bid = ex.depth(Side.BUY, 1).isEmpty() ? 0 : ex.depth(Side.BUY, 1).get(0).price();
@@ -225,8 +276,8 @@ public final class ExchangeChat {
                         + " mesos per NX; orders of 100 to 50,000 NX in steps of 100.");
                 out.add("You have " + ex.openIdsOf(w.account()).size() + " open order(s). Fee "
                         + pct(ex.config().feeBps()) + " of the mesos from each side.");
-                out.add("@nx sell <NX> <price> | @nx buy <NX> <price> | @nx confirm | @nx orders | @nx cancel <id>"
-                        + " | @nx book | @nx tickers (items: " + itemIds(ex) + ")");
+                out.add("@nx sell <NX> <price> | @nx buy <NX> <price> | @nx confirm | @nx dump [NX] | @nx orders"
+                        + " | @nx cancel <id> | @nx book | @nx tickers (items: " + itemIds(ex) + ")");
             }
         }
         return out;
@@ -357,6 +408,40 @@ public final class ExchangeChat {
     }
 
     /** 1000, 1,000, 1.2m, 500k; null when it is not a whole positive number. */
+    /**
+     * The price a market sell of {@code qty} has to ask to clear the bids in {@code bids} now: the price of the deepest
+     * level it reaches (every better bid fills at its own, higher, price). 0 when the bids do not add up to {@code qty}.
+     */
+    static long marketPrice(List<OrderBook.Level> bids, long qty) {
+        long sum = 0;
+        for (OrderBook.Level l : bids) {
+            sum += l.nx();
+            if (sum >= qty) {
+                return l.price();
+            }
+        }
+        return 0;
+    }
+
+    /** What a dump did: it filled the bids it crossed; any rest waits at the lowest price it crossed. */
+    static List<String> dumpLines(Exchange.Response r, Ticker t) {
+        var d = r.data();
+        long nx = num(d.get("nx"));
+        long filled = num(d.get("filledNx"));
+        String price = t.item() ? fmt(num(d.get("price"))) : Exchange.perNx(num(d.get("price")));
+        String all = t.item() ? t.amount(nx) : fmt(nx) + " NX";
+        List<String> out = new ArrayList<>();
+        if (filled >= nx) {
+            out.add("Dumped " + all + ": every bid it crossed took all of it.");
+        } else {
+            out.add(String.format("Dumped %s: %s sold, %s rests at %s.", all,
+                    t.item() ? t.amount(filled) : fmt(filled) + " NX",
+                    t.item() ? t.amount(nx - filled) : fmt(nx - filled) + " NX", price));
+        }
+        out.add("Order " + d.get("orderId") + ". @nx cancel " + d.get("orderId") + " takes back what rests.");
+        return out;
+    }
+
     static Long amount(String s) {
         if (s == null) {
             return null;

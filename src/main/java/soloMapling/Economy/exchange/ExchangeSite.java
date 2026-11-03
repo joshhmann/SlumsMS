@@ -56,9 +56,10 @@ import java.util.Map;
  * <p>
  * Tickers (owner 2026-10-28): preview, book and trades take an optional {@code "ticker"} ("NX" when absent; also
  * LEAF, CHAOS, WS, ELIXIR) and preview takes {@code "qty"} as another name for {@code "nx"}. An item ticker's price is
- * mesos per one item. Selling items needs the player in game (LOG_IN_FIRST from the site while offline: items leave
- * the bags only through the live character); buying from the site is fine, the items wait until that character is
- * in game. Two more public outbox files (shapes in docs/tickets/113, "Tickers"): {@link #TICKERS}, every ticker's
+ * mesos per one item. Selling items from the site is fine (ticket 270, owner 2026-11-03: "sell from site item
+ * wallet"): the order names the character, which must be logged out, and its bags are read and written in the order's
+ * own transaction; with {@code -Dslums.exchange.siteItems=false} the old answer returns (LOG_IN_FIRST). Buying from the
+ * site is fine too, the items wait until that character is in game. Two more public outbox files (shapes in docs/tickets/113, "Tickers"): {@link #TICKERS}, every ticker's
  * summary, depth and last trades, and {@link #HISTORY}, hourly OHLC candles per ticker for 30 days.
  */
 public final class ExchangeSite {

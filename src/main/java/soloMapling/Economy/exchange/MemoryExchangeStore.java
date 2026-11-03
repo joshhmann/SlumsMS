@@ -636,9 +636,11 @@ public class MemoryExchangeStore implements ExchangeStore {
 
     private void walletGuard(State s, Bucket b, long account) throws StoreException {
         if (b.asset().item()) {
-            // like the MySQL store: an item wallet is the live character's bags, written with its inventory
-            if (live <= 0 || account != live || b.id() != liveCharacter || !liveInventory) {
-                throw new StoreException(Failure.NOT_OWNER, b + ": items move only through the live character");
+            // like the MySQL store: an item wallet is one character's bags, written with its inventory — the live
+            // character's, or (ticket 270) an offline character's for a site sell
+            boolean bag = live <= 0 && b.id() == liveCharacter;
+            if (!liveInventory || b.id() != liveCharacter || (!bag && (live <= 0 || account != live))) {
+                throw new StoreException(Failure.NOT_OWNER, b + ": items move only through a character's bags");
             }
         }
         if (live > 0 && account == live) {

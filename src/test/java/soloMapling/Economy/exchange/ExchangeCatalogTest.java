@@ -105,6 +105,12 @@ class ExchangeCatalogTest {
         assertEquals(3, glove.maxOpen());
         assertEquals(10, glove.perDay());
         assertEquals(1_200_000, glove.anchor(), "the item pool's price");
+        assertEquals(2_400_000, glove.maxPrice(), "a scroll may be asked at most twice its anchor (owner 2026-11-03)");
+        for (Ticker x : ts) {
+            if (x.id().startsWith("S") && x.category() == AssetRegistry.Category.SCROLL && x.anchor() > 0) {
+                assertTrue(x.maxPrice() <= 2 * x.anchor(), x.id() + " asks at most 2 x its anchor");
+            }
+        }
         assertNotNull(find(ts, "S2040804"));
         assertNull(find(ts, "U2000004"), "use items are a separate category");
         assertNull(find(ts, "E4006001"), "ETC is a separate category");

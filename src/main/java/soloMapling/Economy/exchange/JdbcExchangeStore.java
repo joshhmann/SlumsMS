@@ -147,17 +147,27 @@ public final class JdbcExchangeStore implements ExchangeStore {
                 }
             }
             boolean items = false;
+            // an offline bag batch holds no save lock: its account is the one on its legs (its order, escrow, payout)
+            long bagAccount = 0;
+            if (batch.liveAccount() <= 0 && batch.inventory() != null) {
+                for (Posting p : batch.postings()) {
+                    bagAccount = p.account();
+                }
+            }
             for (Posting p : batch.postings()) {
                 for (Bucket b : new Bucket[]{p.from(), p.to()}) {
                     if (b.kind() != Kind.WALLET) {
                         continue;
                     }
                     if (b.asset().item()) {
-                        // ticker items: only the live character's bags, written whole below in this transaction
-                        if (batch.liveAccount() <= 0 || p.account() != batch.liveAccount()
-                                || b.id() != batch.liveCharacter() || batch.inventory() == null) {
-                            throw new StoreException(Failure.NOT_OWNER, b + ": items move only through the live "
-                                    + "character");
+                        // ticker items: only one character's bags, written whole below in this transaction — the live
+                        // character's under its save lock, or (ticket 270) an offline character's for a site sell,
+                        // whose account must be logged out (the lock below refuses it otherwise)
+                        long owner = batch.liveAccount() > 0 ? batch.liveAccount() : bagAccount;
+                        if (batch.inventory() == null || b.id() != batch.liveCharacter()
+                                || owner <= 0 || p.account() != owner) {
+                            throw new StoreException(Failure.NOT_OWNER, b + ": items move only through the "
+                                    + "character's own bags");
                         }
                         items = true;
                     }
@@ -173,9 +183,10 @@ public final class JdbcExchangeStore implements ExchangeStore {
                 post(con, batch.id(), batch.at(), p);
             }
             if (items) {
-                if (!Long.valueOf(batch.liveAccount()).equals(characterAccount(con, batch.liveCharacter()))) {
+                long owner = batch.liveAccount() > 0 ? batch.liveAccount() : bagAccount;
+                if (!Long.valueOf(owner).equals(characterAccount(con, batch.liveCharacter()))) {
                     throw new StoreException(Failure.NOT_OWNER, "character " + batch.liveCharacter()
-                            + " is not on account " + batch.liveAccount());
+                            + " is not on account " + owner);
                 }
                 batch.inventory().write(con);
             }

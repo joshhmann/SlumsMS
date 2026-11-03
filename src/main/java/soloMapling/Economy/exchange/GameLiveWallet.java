@@ -144,7 +144,8 @@ public final class GameLiveWallet implements LiveWallet {
                 && expiration <= 0;
     }
 
-    private static boolean cashItem(int itemId) {
+    /** Cash and untradeable-by-data items are refused as an asset class (also used by {@link OfflineBag}). */
+    static boolean cashItem(int itemId) {
         try {
             ItemInformationProvider ii = ItemInformationProvider.getInstance();
             return ii.isCash(itemId) || ii.isUntradeableRestricted(itemId);

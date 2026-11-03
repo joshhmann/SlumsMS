@@ -15,6 +15,7 @@ import java.util.Set;
  *   -Dslums.exchange.regularItems=5                 units per item-maker quote (default 5)
  *   -Dslums.exchange.items.sellCapMesosPerDay=0     mesos one account may take from item sells per UTC day
  *                                                   (0 = no cap; the owner's number is 20,000,000)
+ *   -Dslums.exchange.siteItems=false                refuse item sells placed from the site (default: allowed)
  * </pre>
  * The cap counts the mesos an account's item sell orders have filled since UTC midnight plus the mesos its open item
  * sell orders still hope for, so it binds at placement and again at collection. It is per account (not per
@@ -26,6 +27,7 @@ public final class ExchangeLimits {
     public static final String ITEM_MAKER = "slums.exchange.itemMaker";
     public static final String REGULAR_ITEMS = "slums.exchange.regularItems";
     public static final String SELL_CAP = "slums.exchange.items.sellCapMesosPerDay";
+    public static final String SITE_ITEMS = "slums.exchange.siteItems";
 
     /** A buy's mesos hold must fit a character's mesos (2,147,483,647), so the biggest single buy is this. */
     public static final long MAX_BUY_MESOS = Integer.MAX_VALUE;
@@ -59,6 +61,15 @@ public final class ExchangeLimits {
     /** True when any category is on (the catalog file is then read once at startup). */
     public static boolean catalogOn() {
         return !catalog().isEmpty();
+    }
+
+    /**
+     * Item sells from the site (a character that is not logged in) — on unless switched off. The site has asked the
+     * game for the character's bags since 1.6.2, so this only changes where the sell is placed from.
+     */
+    public static boolean siteItems() {
+        String v = System.getProperty(SITE_ITEMS);
+        return v == null || v.isBlank() || Boolean.parseBoolean(v.trim());
     }
 
     public static boolean itemMaker() {

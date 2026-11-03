@@ -137,6 +137,11 @@ public final class ExchangeCatalog {
         int perDay = (int) Math.max(1, num(row.get("per_day"), caps[2]));
         long minPrice = Math.max(1, num(row.get("min_price"), MIN_PRICE));
         long maxPrice = Math.max(minPrice, num(row.get("max_price"), MAX_PRICE));
+        if (cat == Category.SCROLL && anchor > 0) {
+            // ticket 270 §5.2 (owner 2026-11-03): a scroll may be asked at most twice its anchor, so a planted
+            // order cannot print a price the board then treats as real. -Dslums.exchange.<id>.maxPrice still wins.
+            maxPrice = Math.max(minPrice, Math.min(maxPrice, 2 * anchor));
+        }
         Asset a = AssetRegistry.register(id, itemId, name, cat, anchor);
         try {
             return new Ticker(a.id(), a, a.display(), 1, 1, 1, maxQty, minPrice, maxPrice, "item",

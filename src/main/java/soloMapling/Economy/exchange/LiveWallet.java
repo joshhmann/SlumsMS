@@ -33,9 +33,27 @@ public interface LiveWallet {
         Finder NONE = account -> null;
     }
 
+    /**
+     * Finds the bags of an account's character that is <b>not</b> in the game (ticket 270: the site's item sell), or
+     * null. The live wallet is always tried first, so this only runs for a character that is logged out.
+     */
+    interface Bags {
+        LiveWallet find(long account, long character);
+
+        Bags NONE = (account, character) -> null;
+    }
+
     long account();
 
     long character();
+
+    /**
+     * True for bags the batch writes for a character that is <b>not</b> logged in (ticket 270: the site's item sell).
+     * Such a batch holds no save lock and requires the account logged out, where a live wallet requires it logged in.
+     */
+    default boolean offline() {
+        return false;
+    }
 
     /** Runs {@code body} holding the character's save lock. */
     <T> T locked(Supplier<T> body);

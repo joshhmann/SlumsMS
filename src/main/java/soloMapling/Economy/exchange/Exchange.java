@@ -383,6 +383,8 @@ public final class Exchange {
     private final ExchangeConfig config;
     private final Presence presence;
     private final LiveWallet.Finder live;
+    /** Ticket 270: the bags of a character that is not in the game, for the site's item sell. */
+    private LiveWallet.Bags bags = OfflineBag::open;
     private final LongSupplier clock;
     /** Open buy order id -> its FEEHOLD balance (rebuilt from the store at recovery). */
     private final Map<Long, Long> feeHold = new HashMap<>();
@@ -445,6 +447,11 @@ public final class Exchange {
         this.tickers = java.util.Collections.unmodifiableMap(all);
         this.openTickers = java.util.Collections.unmodifiableSet(on);
         this.books = newBooks();
+    }
+
+    /** Another source of offline bags (tests). */
+    public void bags(LiveWallet.Bags b) {
+        bags = b == null ? LiveWallet.Bags.NONE : b;
     }
 
     private Map<String, OrderBook> newBooks() {
@@ -699,11 +706,15 @@ public final class Exchange {
             }
             return placeLive(p, t, w, now);
         }
-        if (t.item() && p.side() == Side.SELL) {
-            return Response.error(rid, "LOG_IN_FIRST", itemsInGame(t));
-        }
         if (presence.test(p.account())) {
             return Response.error(rid, "LOG_OUT_FIRST", "log out of the game to place an order");
+        }
+        if (t.item() && p.side() == Side.SELL) {
+            LiveWallet bag = ExchangeLimits.siteItems() ? bags.find(p.account(), p.character()) : null;
+            if (bag == null) {
+                return Response.error(rid, "LOG_IN_FIRST", itemsInGame(t));
+            }
+            return placeBag(rid, p, t, bag, now);
         }
         collectQuietly(p.account());
         return placeOrder(rid, p.account(), p.character(), 0, t, p.side(), p.price(), p.nx(), now, null);
@@ -778,6 +789,39 @@ public final class Exchange {
         }
     }
 
+    /**
+     * A sell from a character's bags while it is not in the game (ticket 270, the site's item sell): the bags are read
+     * from the database, the escrow is taken out of them in memory, and the reduced bags are written in the order's own
+     * transaction — so the database holds the items either in the bags or in the escrow, never both. A refused write
+     * leaves memory changes unapplied (the bag object is dropped), and a fill's mesos are swept into the character's
+     * row at once ({@link #collectQuietly}), because it may not log in again soon.
+     */
+    private Response placeBag(String rid, Place p, Ticker t, LiveWallet bag, long now) {
+        Asset a = t.asset();
+        long amount = p.nx();
+        return bag.locked(() -> {
+            if (!bag.usable() || !bag.take(a, amount)) {
+                return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + amount + " " + unitName(a)
+                        + " in those bags (tradeable copies only)");
+            }
+            Response placed;
+            committed = false;
+            try {
+                placed = placeOrder(rid, p.account(), p.character(), 0, t, p.side(), p.price(), p.nx(), now, bag);
+            } catch (RuntimeException e) {
+                if (committed) {
+                    halt("place " + rid + " failed after its commit: " + e);
+                }
+                log.error("NX exchange: place {} failed", rid, e);
+                return Response.error(rid, "ERROR", "try again later");
+            }
+            if (placed.ok()) {
+                collectQuietly(p.account());
+            }
+            return placed;
+        });
+    }
+
     // ---------------------------------------------------------------- confirm step (owner 2026-10-28)
 
     /**
@@ -821,15 +865,18 @@ public final class Exchange {
         if (w != null && w.character() != p.character()) {
             return Response.error(rid, "LOG_OUT_FIRST", "you are logged in as another character: use that one, or log out");
         }
-        if (w == null && tk.item() && p.side() == Side.SELL) {
-            return Response.error(rid, "LOG_IN_FIRST", itemsInGame(tk));
-        }
         if (w == null && presence.test(p.account())) {
             return Response.error(rid, "LOG_OUT_FIRST", "log out of the game to place an order");
         }
+        LiveWallet bag = w == null && tk.item() && p.side() == Side.SELL && ExchangeLimits.siteItems()
+                ? bags.find(p.account(), p.character()) : null;
+        if (w == null && tk.item() && p.side() == Side.SELL && bag == null) {
+            return Response.error(rid, "LOG_IN_FIRST", itemsInGame(tk));
+        }
         Asset a = p.side() == Side.SELL ? tk.asset() : Asset.MESO;
         long takes = p.side() == Side.SELL ? p.nx() : tk.buyTotal(config, p.nx(), p.price());
-        if (w != null && w.have(a) < takes) {
+        LiveWallet funds = w == null ? bag : w;
+        if (funds != null && funds.have(a) < takes) {
             return Response.error(rid, "INSUFFICIENT_FUNDS", "you need " + takes + " " + unitName(a));
         }
         long hold = p.side() == Side.BUY ? tk.cost(p.nx(), p.price()) : 0;
@@ -1769,8 +1816,10 @@ public final class Exchange {
             release(c, postings, holds);
         }
         List<OrderRow> touched = touchedRows(r, now, book);
+        // an offline bag batch writes a logged-out character's bags, so it holds no login: the store locks the
+        // account row and requires it logged out, exactly as it does for a site buy
         Batch batch = w == null ? new Batch(nextBatch, now, postings, touched, fills)
-                : new Batch(nextBatch, now, postings, touched, fills, w.account(), w.character(),
+                : new Batch(nextBatch, now, postings, touched, fills, w.offline() ? 0 : w.account(), w.character(),
                 w.inventoryWriter());
         try {
             commit(batch, "place");

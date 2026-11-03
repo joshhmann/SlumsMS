@@ -118,9 +118,15 @@ per scroll, so A is a generator, not 411 decisions.
 
 ### 5.2 Scroll caps
 
-Today `Ticker.ITEM_MAX_OPEN` = 10 and `ITEM_PER_DAY` = 20 for every item ticker. Proposed for scrolls:
-`maxQty=1`, `maxOpen=3`, `perDay=10` — a player's median holding is 1–5 per scroll id, so this costs nothing
-legitimate and turns a 300-unit CHAOS dump into a 30-day operation. Keep 1e9 `maxPrice` or tighten to 2× anchor.
+Today `Ticker.ITEM_MAX_OPEN` = 10 and `ITEM_PER_DAY` = 20 for every item ticker. For scrolls: `maxQty=1`,
+`maxOpen=3`, `perDay=10` (owner 2026-11-03: "scroll caps yeah limit first") — a player's median holding is 1–5 per
+scroll id, so this costs nothing legitimate and turns a 300-unit CHAOS dump into a 30-day operation.
+
+`maxPrice` is **2× the row's anchor**, applied in `ExchangeCatalog.row` and written into every scroll row of
+`exchangeTickers.yaml` (`-Dslums.exchange.<id>.maxPrice` still overrides it). That bounds what a planted order can
+print, which is the number the board then treats as a real sale. The three 1.6.3 scroll books (`CHAOS`, `WS` and a
+market price the owner set) keep their own bounds: CHAOS/WS already rest asks above 2× their fallback anchor, and
+tightening a live book retroactively would strand them.
 
 ### 5.3 A per-account extraction cap
 
@@ -224,10 +230,12 @@ beside the code rather than before it.
 
 ## 10. Questions still open for the owner
 
-1. **`maxPrice` for scrolls**: rows ship with the engine's 1e9 ceiling (a plant is caught by `maxPrice` only when it
-   is tight). §5.2's option was 2× the anchor. Tightening it is one column in `exchangeTickers.yaml`.
-2. **The 109 anchor-0 ETC rows** (§2): they are registered and a player can place an order, but no quote appears until
+1. **The 109 anchor-0 ETC rows** (§2): they are registered and a player can place an order, but no quote appears until
    they get a price. Price them by the §4 chain (sibling derivation) or leave them as a player-only list?
+
+Decided and applied since the first draft, for the record: the scroll cap (§5.2) ships as `maxQty 1 / maxOpen 3 /
+perDay 10` with `maxPrice` at 2× the anchor, the item-sell ceiling is 20,000,000 mesos per account per UTC day, the
+item maker is on, ammo is out, and the site sells items from an offline character's bags (below).
 
 ## 11. What shipped (2026-11-03)
 
@@ -245,10 +253,16 @@ beside the code rather than before it.
 | Maker funding | `Exchange.fundHouseLive`, `!exchange fund <regular> <nx|meso|ticker> <amount>` | the house cannot quote an ask without real items, so an item asset is accepted exactly when the maker is on (otherwise `BAD_REQUEST`, exactly 1.6.3's refusal); the character's bags are written in the same batch (`inventoryWriter`); the offline `fundHouse` still refuses item assets because there is no offline item wallet |
 | Sell cap | `Exchange.sellCap`, `ExchangeStore.itemExposure`, JDBC + memory stores | counts an account's item-sell fills since UTC midnight plus the mesos its open item sells still hope for; refused at `place()` with `ITEMS_CAP`; NX and MESO are not item sells |
 | Site payload | `ExchangeSite.tickerJson` | each ticker now carries `"category"` (`nx`, `meso`, `leaf`, `scroll`, `use`, `etc`, `item`) for the page's filter |
+| Site item sell | `Exchange.place`/`preview` + `LiveWallet.Bags` + `OfflineBag` (new) + both stores | owner 2026-11-03: "sell from site item wallet". An item sell placed from the site for a character that is **logged out** reads that character's `inventoryitems`, takes the escrow in memory, and writes the reduced bags in the order's own transaction (`ItemFactory.INVENTORY.saveItems`, the same write a character save does); a fill's mesos are swept into the character row at once. The accounts row is locked and must be `loggedin = 0`, so a login racing the sell refuses with ONLINE/MOVED. Bags are taken from, never paid into (item payouts still wait for a live character), and cash items are refused as a class. `-Dslums.exchange.siteItems=false` restores the 1.6.3 answer (LOG_IN_FIRST) |
+| Market sell | `ExchangeChat` `@nx <ticker> dump [qty]` | sells into the bids at once at the price of the deepest level it needs (every better bid fills at its own price), capped by the ticker's `maxQty`, the bid depth and what the bags hold; nothing rests past that. A player can clear what the book is bidding for, not liquidate a hoard in one click |
+| Scroll ask cap | `ExchangeCatalog.row` + `exchangeTickers.yaml` | a scroll row's `maxPrice` is 2× its anchor (§5.2) |
 | Ledger | `Ledger`, `Exchange`, `JdbcExchangeStore`, the wallets, `volatility/*` | `Ledger.Asset` enum deleted; the ledger reads and writes `Asset.id()`, and every read-back goes through `AssetRegistry.of(String)`, so 1.6.3 rows (`NX`, `LEAF`, `CHAOS`, `WS`, `ELIXIR`) and catalog rows (`S…`, `U…`, `E…`) resolve the same way |
 
 Tests: `ExchangeCatalogTest` (8 cases), `volatility/ExchangeItemMakerTest` (3 cases),
-`volatility/MarketEventPressureTest` (5 cases), plus the existing Economy suite.
+`volatility/MarketEventPressureTest` (5 cases), `volatility/SiteItemSellTest` (5 cases: the site sell places from an
+offline character's bags and takes exactly the copies it sells, a short bag refuses with INSUFFICIENT_FUNDS and takes
+nothing, the switch restores LOG_IN_FIRST, a fill pays the offline seller in the same place, and a dump fills the bids
+it crosses at their prices while a book with no bids places nothing), plus the existing Economy suite.
 The maker test pins that the house refuses item funding with the maker off, that it holds 20 rocks and 5M mesos after
 funding, that one `tickRegulars()` posts a bid under and an ask over the seeded 10,000 fair value, that a second
 pass adds nothing while both sides rest, and that funding three regulars yields the whole ladder
@@ -261,4 +275,5 @@ category key, and the daily ceiling both at placement (resting exposure) and aft
 Migration: none. The four ledger columns are already `varchar(8)` and no legacy id changes.
 
 Not done, on purpose: the 238 untradeable and GM scrolls (§9), the 109 unpriced ETC rows' prices (§10), the website's
-category filter itself (the payload key is there; the page is the Website session's), any deploy.
+category filter and its item-sell buttons (the payload and the engine are ready; the page is the Website session's),
+`1.6.4.conf`'s flags (the release prep's), any deploy.
