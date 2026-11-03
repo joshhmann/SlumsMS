@@ -120,6 +120,15 @@ public sealed interface SolverStep {
      * {@code "6"}. The server fires that activation 5000 ms after the drop lands
      * ({@code MapleMap.java:2665-2680}), which the executor honours as a settle delay rather than a failure.
      */
+    /**
+     * Use one {@code itemId} on a monster of this kind ({@code mobId}) - Ellin PQ's purifier marble on a Poison Flower
+     * {@code 9300174}, which is how the party makes the twenty marbles {@code 4001169} the stage wants
+     * (`scripts/npc/2133001.js:60-84`). The rule itself is `server.life.MonsterCatch`; the step only says "try one now".
+     * The monster has to be weak enough (below 40% HP) for the attempt to land, so a solver keeps fighting and re-tries.
+     */
+    record UseItemOnMob(int itemId, int mobId) implements SolverStep {
+    }
+
     record PlaceItemOn(int reactorId, int itemId, int count, String why) implements SolverStep {
     }
 

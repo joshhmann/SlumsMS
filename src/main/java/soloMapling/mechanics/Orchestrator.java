@@ -80,6 +80,7 @@ public final class Orchestrator implements RunOrchestrator {
         MagatiaFilesSolver mf = new MagatiaFilesSolver();
         MagatiaClimbSolver mc = new MagatiaClimbSolver();
         SummonedBossSolver sb = new SummonedBossSolver();
+        ReactorStateSolver rs = new ReactorStateSolver();
         HoldSolver ho = new HoldSolver();
         LudiMazeSolver lm = new LudiMazeSolver();
         // Map.of caps at ten pairs; anything past that goes in a second immutable copy
@@ -101,6 +102,7 @@ public final class Orchestrator implements RunOrchestrator {
         all.put(mf.id(), mf);
         all.put(mc.id(), mc);
         all.put(sb.id(), sb);
+        all.put(rs.id(), rs);
         all.put(ho.id(), ho);
         all.put(lm.id(), lm);
         return Map.copyOf(all);

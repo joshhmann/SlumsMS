@@ -600,6 +600,30 @@ express it, `StageData` parses `reactorState: { id: N, state: M }` and names it 
 look like a clear. `MapEmptyClearTest.aStageCanClearOnAReactorsStateInstead` is the fail-before (absent reactor, state 3,
 state 4, state 6). **No row uses it yet**; Ellin PQ's stage 2 is the intended consumer.
 
+## Ellin PQ: the marble rule moved, and the stage that needed a fifth clear kind
+
+Four things landed for Ellin, and the row is honest about the two stages it cannot drive.
+
+| Piece | What it is | Where |
+|---|---|---|
+| `server/life/MonsterCatch` | the purifier-marble rule, extracted from the packet handler so a bot and a player catch a Poison Flower under the same conditions (`POISON_FLOWER` below `(maxHp/10)*4`), instead of a second copy in the executor | `UseCatchItemHandler`'s `EPQ_PURIFICATION_MARBLE` case now calls it |
+| `SolverStep.UseItemOnMob(itemId, mobId)` | "try one now", nearest monster of that kind, one attempt per second per bot, logging `USE-ITEM`/`USE-ITEM-MISS` with the monster's HP | `StepExecutor.useItemOnMob` |
+| `{ reactorState: { id, state } }` | the clear for a stage whose finish line is a reactor, not a property or a flag | see the section above |
+| `ReactorStateSolver` (`reactor-state`) | presses the stage's reactor until the state the row's clear names | Ellin stage 2 |
+
+The row (`content/ellinpq.yaml`, `eventScript: EllinPQ`, front door `2133000`, recruit `300030100`, level 44-255, 4-6
+players, 30 minutes, `-Dslums.mechanics.ellinpq`) drives three of the seven script stages - empty the forest
+(`{ mapEmpty: true }`, `party6_stage.js:9-18`), open the spine (`{ reactorState: { id: 3009000, state: 4 } }`,
+`party6_stage.js:19-28`), and Ellin's first talk (`statusStg4 = 1`, `2133001.js:37-45`) - and **holds on the marble
+stage**, whose name says why: `2133001.js:93-94` takes the leader's twenty `4001169` and warps the team to `930000500`,
+so the stage's clear is a **warp**, and none of the four clear kinds (property, instance flag, empty map, reactor state)
+can see it. Stages 5-6 are behind it. The marble rule and the step are built and the row does not use them yet: the
+missing piece is a clear that can read "the party arrived on the next stage's map", and inventing one to make the row
+look complete is exactly what this report exists to avoid.
+
+The adventurer-only filter (`EllinPQ.js:93`) is recorded as a **party-formation fact**: `getEligibleParty` already
+refuses a mixed party at the door, and no job model was added.
+
 ## Ellin PQ and CWKPQ: what each still needs, costed rather than guessed
 
 Neither is written. Both are fully read, and the pieces are named so the next hand does not have to re-derive them.

@@ -1,0 +1,107 @@
+# Ticket 164 Ellin PQ ("Forest of Poison Haze") stage data. Our scripts are the truth; every gate and every clear was
+# read in the tree (REPORT-opq.md, "Ellin PQ").
+#
+# Off its own switch (-Dslums.mechanics.ellinpq=true on top of -Dslums.mechanics=true).
+#
+#   scripts/event/EllinPQ.js:27,28,37 gates: 4-6 players, level 44-255, 30 minutes; :107 the instance name is
+#   "Ellin"+lobbyid; :93 refuses a party member whose job is not an adventurer
+#   (Math.floor(job/1000) == 0) - a PARTY-FORMATION fact, not a job model: a mixed party is simply turned away at the door.
+#   scripts/npc/2133000.js:51 is Ellin, the front door on the recruit map.
+#
+# FOUR of the seven stages are driven and the fifth is held with its reason in the row: a run of this row empties the
+# forest, opens the spine, talks Ellin through and makes the twenty marbles, then stops honestly instead of announcing a
+# PQ it did not finish.
+id: ellinpq
+name: Ellin PQ (Forest of Poison Haze)
+kind: PQ
+eventScript: EllinPQ
+entryNpc: 2133000
+recruitMap: 300030100
+exitMap: 930000800
+minPlayers: 4
+maxPlayers: 6
+minLevel: 44
+maxLevel: 255
+timeLimitMinutes: 30
+flag: slums.mechanics.ellinpq
+sources:
+  - "scripts/event/EllinPQ.js is ours and is the truth: the gates (:27,28,37), the adventurer-only filter (:93) and the clear (:230-241)"
+  - "the passage rules are scripts/portal/party6_stage.js: the first room needs an empty map (:9-18), the second needs the spine reactor at state 4 (:19-28)"
+  - "the marbles are scripts/npc/2133001.js:60-84 - Ellin hands out ten 2270004, the party weakens 9300174 and uses one to make a 4001169"
+  - "stage 5 (930000500, the shuffled reactors) is not modelled and the row says so rather than guessing"
+stages:
+  - stage: 1
+    map: 930000100
+    name: Empty the deteriorated forest
+    solver: fight-room
+    roles:
+      - id: fighter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: clear-room
+        kind: WAIT
+        role: all
+        note: "party6_stage.js:9-18 refuses the passage while the map has monsters, and nothing writes a property"
+    clear:
+      mapEmpty: true
+  - stage: 2
+    map: 930000200
+    name: The spine blocks the way
+    solver: reactor-state
+    hitReactor: 3009000
+    roles:
+      - id: hitter
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: spine
+        kind: HIT_REACTOR
+        role: all
+        reactor: "3009000"
+        note: "party6_stage.js:19-28 opens at spine state 4; 3009000.js:11-13 shows the clear effect there"
+    clear:
+      reactorState:
+        id: 3009000
+        state: 4
+  - stage: 3
+    map: 930000300
+    name: Ellin explains the haze
+    npc: 2133001
+    solver: summoned-boss
+    roles:
+      - id: leader
+        who: LEADER
+        min: 1
+        max: 1
+      - id: listener
+        who: NON_LEADER
+        min: 1
+        max: party-1
+    objectives:
+      - id: talk
+        kind: TALK_NPC
+        role: leader
+        npc: 2133001
+        note: "2133001.js:37-45 sets statusStg4 = 1 on the first talk"
+    clear:
+      eventProperty: statusStg4
+      equals: "1"
+  - stage: 4
+    map: 930000400
+    name: "the marble stage is not modelled: its clear is a warp, not a signal - 2133001.js:93-94 takes the leader's twenty 4001169 and warps the team to 930000500, so no clear kind (property, instance flag, empty map, reactor state) can see it, and stage 5's shuffled reactor room has no rule in the tree either"
+    solver: hold
+    roles:
+      - id: waiting
+        who: ANY
+        min: 1
+        max: party
+    objectives:
+      - id: not-modelled
+        kind: WAIT
+        role: all
+        note: "the marble rule itself is built (server.life.MonsterCatch + SolverStep.UseItemOnMob); what is missing is a clear that can read 'the party arrived on the next stage's map'"
+    clear:
+      instance: true

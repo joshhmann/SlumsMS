@@ -63,6 +63,9 @@ public final class Mechanics {
     /** Magatia PQ's own switch ({@code -Dslums.mechanics.magatiapq}). */
     public static final String MAGATIA_FLAG = "slums.mechanics.magatiapq";
 
+    /** Ellin PQ's own switch ({@code -Dslums.mechanics.ellinpq}). */
+    public static final String ELLIN_FLAG = "slums.mechanics.ellinpq";
+
     /** LudiMaze PQ's own switch: one PQ, one row, one flag. */
     public static final String LUDIMAZE_FLAG = "slums.mechanics.ludimazepq";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";

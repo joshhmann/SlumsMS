@@ -47,6 +47,9 @@ final class StepExecutor {
     /** How many drops one bot gives a single item reactor before it says the bed will not take it. */
     static final int PLACE_ON_TRIES = 3;
 
+    /** How often one bot may try a use-item on a monster (Ellin PQ's marble): the rule is HP-gated, so a spray is noise. */
+    static final long USE_ON_MOB_GAP_MS = 1_000;
+
     private final Map<Integer, Beat> beats = new ConcurrentHashMap<>();
 
     /**
@@ -102,6 +105,7 @@ final class StepExecutor {
         long lastPlaceMs;
         /** When this bot last dropped onto an item reactor, and how often it has dropped on each reactor id. */
         long lastPlaceOnMs;
+        long lastUseOnMobMs;
         final java.util.Map<Integer, Integer> placeOnTries = new java.util.HashMap<>();
         boolean stallTold;
         int stallGain;
@@ -125,6 +129,7 @@ final class StepExecutor {
             case SolverStep.DropFor d -> dropFor(view, bot, beat, d, now, log);
             case SolverStep.Say s -> say(view, bot, beat, s.line(), now);
             case SolverStep.HitReactor h -> hitReactor(bot, beat, h, now, log);
+            case SolverStep.UseItemOnMob u -> useItemOnMob(bot, beat, u, now, log);
             case SolverStep.HitReactorNamed h -> {
                 MapleMap named = bot.getMap();
                 server.maps.Reactor r = named == null || h.reactorName() == null
@@ -939,6 +944,45 @@ final class StepExecutor {
      *       itself is inside it, and no area lookup is involved.</li>
      * </ul>
      */
+    /**
+     * One attempt at using a use-item on a monster of a given kind - Ellin PQ's purifier marble on a Poison Flower.
+     *
+     * <p>The rule is not re-implemented here: {@code server.life.MonsterCatch.usePurifierMarble} is the same call the
+     * client's {@code USE_CATCH_ITEM} handler makes, so a bot and a player catch the same monsters under the same
+     * conditions. One attempt per {@link #USE_ON_MOB_GAP_MS} per bot, nearest-first, and the log says which monster and
+     * whether it landed - a bot that kept spraying marbles at a healthy flower would look busy and change nothing.
+     */
+    private static void useItemOnMob(Character bot, Beat beat, SolverStep.UseItemOnMob u, long now, Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null || bot.getItemQuantity(u.itemId(), false) <= 0) {
+            return;
+        }
+        if (now - beat.lastUseOnMobMs < USE_ON_MOB_GAP_MS) {
+            return;
+        }
+        server.life.Monster prey = null;
+        long best = Long.MAX_VALUE;
+        for (server.maps.MapObject mo : map.getMonsters()) {
+            if (mo instanceof server.life.Monster m && m.getId() == u.mobId() && m.getHp() > 0) {
+                java.awt.Point mp = m.getPosition();
+                long d = (long) (mp.x - bot.getPosition().x) * (mp.x - bot.getPosition().x)
+                        + (long) (mp.y - bot.getPosition().y) * (mp.y - bot.getPosition().y);
+                if (d < best) {
+                    best = d;
+                    prey = m;
+                }
+            }
+        }
+        if (prey == null) {
+            return;
+        }
+        beat.lastUseOnMobMs = now;
+        boolean caught = server.life.MonsterCatch.usePurifierMarble(bot.getClient(), bot, prey);
+        log.accept((caught ? "USE-ITEM " : "USE-ITEM-MISS ") + u.itemId() + " on mob " + prey.getId()
+                + " (hp " + prey.getHp() + "/" + prey.getMaxHp() + ")"
+                + (caught ? ": caught, one marble gained" : ": too healthy, not caught"));
+    }
+
     private static void placeItemOn(Character bot, Beat beat, SolverStep.PlaceItemOn p, long now, Consumer<String> log) {
         MapleMap map = bot.getMap();
         if (map == null) {

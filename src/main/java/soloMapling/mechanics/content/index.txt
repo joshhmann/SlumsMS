@@ -17,3 +17,4 @@ piratepq.yaml
 treasurepq.yaml
 dellibattle.yaml
 magatiapq.yaml
+ellinpq.yaml
