@@ -40,6 +40,7 @@ class EllinPqSolversTest {
         final Map<String, Integer> held = new java.util.HashMap<>();
         int spine = 0;
         int mobs = 0;
+        int floor = 0;
         boolean npc = false;
         boolean cleared;
 
@@ -95,6 +96,11 @@ class EllinPqSolversTest {
         }
 
         @Override
+        public int floorItems(int itemId, int forCharacterId) {
+            return floor == itemId ? 1 : 0;
+        }
+
+        @Override
         public int liveMobs() {
             return mobs;
         }
@@ -129,16 +135,17 @@ class EllinPqSolversTest {
         assertEquals(List.of(930000100, 930000200, 930000300, 930000400, 930000500, 930000600),
                 c.stages().stream().map(MechanicsModel.Stage::mapId).toList());
         assertEquals(List.of(FightTheRoomSolver.ID, ReactorStateSolver.ID, SummonedBossSolver.ID, EllinMarblesSolver.ID,
-                        HoldSolver.ID, FightTheRoomSolver.ID),
+                        EllinStoneSolver.ID, FightTheRoomSolver.ID),
                 c.stages().stream().map(MechanicsModel.Stage::solver).toList());
         assertTrue(c.stages().get(0).clear().mapEmpty(), "stage 1 is the empty-map clear");
         assertEquals(3009000, c.stages().get(1).clear().reactorId(), "stage 2 clears on the spine's state");
         assertEquals(4, c.stages().get(1).clear().reactorState());
         assertEquals(930000500, c.stages().get(3).clear().partyOnMap(),
                 "stage 4's clear is the arrival: 2133001.js:93-94 warps the team and writes nothing");
-        assertEquals(0, c.stages().get(4).clear().partyOnMap(), "stage 5's hold is not an arrival");
-        assertTrue(c.stages().get(4).name().contains("shuffleReactors"),
-                "and it says the stage has no server-side rule: " + c.stages().get(4).name());
+        assertEquals(930000600, c.stages().get(4).clear().partyOnMap(),
+                "stage 5's clear is the warp to the golem room (2133004.js:28-33)");
+        assertEquals(3002001, c.stages().get(4).hitReactor(), "one reactor, the only one with a drop row");
+        assertEquals(2133004, c.stages().get(4).npcId());
         assertTrue(c.stages().get(5).clear().onInstance(), "stage 6 clears on the Poison Golem's clearPQ");
         assertEquals(44, c.minLevel(), "the level band comes from EllinPQ.js:28");
         assertEquals(30, c.timeLimitMinutes());
@@ -208,6 +215,33 @@ class EllinPqSolversTest {
         assertEquals(SolverStep.DropFor.class, solver.next(v, member(false)).getClass());
 
         // and a cleared stage is Done: `partyOnMap` answers through cleared()
+        v.cleared = true;
+        assertEquals(SolverStep.Done.class, solver.next(v, member(true)).getClass());
+    }
+
+    @Test
+    void theStoneIsTheLeadersAndTheWarpIsTheClear() {
+        MechanicsModel.Stage stage = row().stages().get(4);
+        EllinStoneSolver solver = new EllinStoneSolver();
+        View v = new View(stage);
+        v.npc = true;
+
+        // the leader works the reactor until the stone is on the floor, then picks it up, then shows it
+        assertEquals(SolverStep.HitReactor.class, solver.next(v, member(true)).getClass(), "hit 3002001 first");
+        v.floor = EllinStoneSolver.STONE;
+        assertEquals(SolverStep.Loot.class, solver.next(v, member(true)).getClass(), "then loot the one drop");
+        v.held.put(LEADER + ":" + EllinStoneSolver.STONE, 1);
+        SolverStep.TalkNpc talk = assertInstanceOf(SolverStep.TalkNpc.class, solver.next(v, member(true)));
+        assertEquals(2133004, talk.npcId());
+        assertEquals(0, talk.itemId(), "the NPC checks haveItem itself; handing the item id over would consume it");
+
+        // eight members never race the single drop: only the leader loots or hits
+        v.held.remove(LEADER + ":" + EllinStoneSolver.STONE);
+        v.floor = EllinStoneSolver.STONE;
+        assertEquals(SolverStep.Wait.class, solver.next(v, member(false)).getClass(),
+                "a member does not take the drop the leader needs");
+
+        // and the stage is over by arrival on 930000600
         v.cleared = true;
         assertEquals(SolverStep.Done.class, solver.next(v, member(true)).getClass());
     }

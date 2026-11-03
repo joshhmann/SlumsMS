@@ -82,6 +82,7 @@ public final class Orchestrator implements RunOrchestrator {
         SummonedBossSolver sb = new SummonedBossSolver();
         ReactorStateSolver rs = new ReactorStateSolver();
         EllinMarblesSolver em = new EllinMarblesSolver();
+        EllinStoneSolver es = new EllinStoneSolver();
         HoldSolver ho = new HoldSolver();
         LudiMazeSolver lm = new LudiMazeSolver();
         // Map.of caps at ten pairs; anything past that goes in a second immutable copy
@@ -105,6 +106,7 @@ public final class Orchestrator implements RunOrchestrator {
         all.put(sb.id(), sb);
         all.put(rs.id(), rs);
         all.put(em.id(), em);
+        all.put(es.id(), es);
         all.put(ho.id(), ho);
         all.put(lm.id(), lm);
         return Map.copyOf(all);

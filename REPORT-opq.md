@@ -637,6 +637,14 @@ expressed today, each of which the plan has to decide rather than discover later
 | 4 | Boss ids live in Java in one place | `BossPhasesSolver.BODY_FAMILY = [8800000, 8800001, 8800002]` is a hardcoded Zakum body chain; a chaos Zakum's chain is a row fact and the solver cannot see it. This is the one place I would move to the row first (a `bodyChain:` on the stage) | `src/main/java/soloMapling/mechanics/BossPhasesSolver.java` (`BODY_FAMILY`) |
 | 5 | No reward split | rows can name items a party *fetches* (`items:`) and a clear, but nothing describes what a clear pays or how a variant scales it (EXP, drops, a chest). A chaos variant's reward table has no field to live in | `src/main/java/soloMapling/mechanics/MechanicsModel.java` (`ItemUse`, `Content` - no reward component) |
 
+**One more finding from the same source, for the boss lane rather than this one.** The Pre-Zakum farm stage is the same
+mechanism and **not** `KILL_FOR_ITEM`: `reactordrops` gives `4001015` at `chance 1` from `2112005` and `2112012`, and
+`4001018` from `2112014`, all present on the `2800100*` maps. A stage that farms there is `HitReactor` + `Loot`, and the
+row must be written that way if it is written at all. Unverified and left as a question: whether one Pre-Zakum reactor
+yields thirty hits' worth of `4001015` (it depends on that reactor's state count in `Reactor.wz`, which is not in this
+tree) - if it does not, the stage needs several reactors or a raised hit cap, and which of those it is cannot be
+decided from here.
+
 Where I could, I moved the number into the row instead of the solver while writing this: `EllinMarblesSolver` now reads
 the hand-in count from the row's `HAND_IN`, the item it hands over from that objective, the marble to spend from the other
 `COLLECT`, and the monster to spend it on from the stage's `mobs:` (the constants are fallbacks only) - so a variant that
@@ -654,7 +662,7 @@ halfway through its own hand-over. `PartyOnMapClearTest` (3) pins it - one membe
 still on the stage map holds it, every member there clears it, and an **empty** member list does not clear anything
 (nobody registered is not everybody arrived).
 
-## Ellin PQ: five of six stages driven, and the sixth is not our gap
+## Ellin PQ: all six stages driven
 
 | Stage | Map | Rule | Clear |
 |---|---|---|---|
@@ -662,18 +670,28 @@ still on the stage map holds it, every member there clears it, and an **empty** 
 | 2 | `930000200` | press the spine `3009000` to state 4 | `{ reactorState: { id: 3009000, state: 4 } }` |
 | 3 | `930000300` | the room empties, the leader talks | `statusStg4 == "1"` (`2133001.js:37-45`) |
 | 4 | `930000400` | `ellin-marbles`: talk once for ten `2270004`, throw them at `9300174`, loot `4001169`, hand twenty over | `{ partyOnMap: 930000500 }` |
-| 5 | `930000500` | **held**: the map has no server-side rule at all | - |
+| 5 | `930000500` | `ellin-stone`: the leader hits reactor `3002001`, loots the one drop, shows it | `{ partyOnMap: 930000600 }` (`2133004.js:28-33`) |
 | 6 | `930000600` | `fight-room`; the Poison Golem `9300182` is the PQ's end | `{ instance: true }` (`EllinPQ.js:239-241`) |
 
 - **Stage 4 is real, not a hold.** `EllinMarblesSolver` (`ellin-marbles`) is the marble loop: the leader's first talk is
   what hands out the ten marbles (`2133001.js:47-60`), `UseItemOnMob(2270004, 9300174)` spends them (the rule lives once,
   in `server/life/MonsterCatch.usePurifierMarble`), `Loot(4001169)` picks up what the flowers leave, and at twenty the
   leader talks with the count - which warps the team and clears the stage by arrival.
-- **Stage 5 is unmodelled for a reason that is not ours to fix.** `EllinPQ.js:117-119` calls `map.shuffleReactors()` and
-  nothing else touches `930000500`: a sweep of `scripts/` finds exactly three references to that map (that reset, the warp
-  in `2133001.js:94`, and the `resetPQ` row). Its progression is the map's own client portals, and unlike Magatia's climb
-  there is **no property to read even in principle** - the shuffle is not published anywhere, so no amount of reading
-  turns it into a stage. The row holds there and says so in its own stage name.
+- **Stage 5 was held and is now driven - the hold was the wrong call and the data is why.** I had concluded from
+  `scripts/` alone that `930000500` had no server-side rule. It has one, and it is not in `scripts/`: the map holds NPC
+  `2133004`, one `3002001` reactor and eight `3002002` decorations, and the **stock `reactordrops` table has exactly one
+  row** for those ids - `reactorid 3002001 -> itemid 4001163, chance 1, questid -1`, with nothing at all for `3002002`.
+  `chance` is a denominator (`ReactorActionManager.java:241`, `Math.random() < dropRate / (double) chance`, and
+  `Character.dropRate` is 1), so chance 1 is a guaranteed drop, and `scripts/reactor/3002001.js`'s four lines are
+  `showClearEffect` + `rm.dropItems()`. `EllinStoneSolver` (`ellin-stone`) is therefore: leader hits `3002001` -> loots
+  `4001163` -> shows it to `2133004`, which warps the team to `930000600` (`2133004.js:28-33`) - the `partyOnMap` clear
+  this report already had. The eight `3002002`s never need touching, so the executor resolving one reactor per step is not
+  a limit here. **The lesson is worth more than the stage: a PQ's drop rule can live entirely in the database**, and a
+  `scripts/`-only read cannot see it. Only the leader loots, deliberately: it is one drop on the floor and the NPC refuses
+  anyone who is not the event leader.
+- **Stage 6 is the last stage, and it ends the PQ, not the room.** `930000600` holds the Poison Golem `9300182`;
+  `EllinPQ.js:236-241` calls `clearPQ()` on its death, so the clear is `{ instance: true }` - no `partyOnMap` second kind
+  is needed, and the row ends there (stage 7, `930000700`, is the post-clear room and is not a stage).
 - **Zenumist stays uncovered**, and it is the same class of answer: the script that would advance it is missing a counter.
 
 ## CWKPQ, first half: the job is carried and the touch has a step

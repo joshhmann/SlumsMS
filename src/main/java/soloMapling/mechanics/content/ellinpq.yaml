@@ -135,19 +135,38 @@ stages:
       partyOnMap: 930000500
   - stage: 5
     map: 930000500
-    name: "not modelled: this stage has no server-side rule at all - EllinPQ.js:117-119 only calls map.shuffleReactors() and no script in scripts/ references 930000500 except that reset and the warp in 2133001.js:94, so what moves the party on is the map's own client portals and, unlike Magatia's climb, there is no property to read even in principle"
-    solver: hold
+    name: The Purple Stone of Magic
+    npc: 2133004
+    solver: ellin-stone
+    # 3002001 is the only reactor on this map with a drop row (reactordrops: 4001163 at chance 1); the eight 3002002s
+    # have none, so nothing has to touch them and the one-reactor-per-step resolution is not a limit here.
+    hitReactor: 3002001
+    items:
+      - id: 4001163
     roles:
-      - id: waiting
-        who: ANY
+      - id: leader
+        who: LEADER
         min: 1
-        max: party
+        max: 1
+        note: "2133004.js:22-33 takes the stone from the leader only and refuses anyone else"
+      - id: watcher
+        who: NON_LEADER
+        min: 1
+        max: party-1
     objectives:
-      - id: not-modelled
-        kind: WAIT
-        role: all
+      - id: stone
+        kind: COLLECT
+        role: leader
+        item: 4001163
+        count: 1
+        note: "reactor 3002001's act() calls rm.dropItems(); the drop table gives 4001163 at chance 1"
+      - id: show-stone
+        kind: TALK_NPC
+        role: leader
+        npc: 2133004
     clear:
-      eventProperty: statusStg5
+      # 2133004.js:28-33 warps the whole team to 930000600 and writes no property: the arrival is the clear
+      partyOnMap: 930000600
   - stage: 6
     map: 930000600
     name: The Poison Golem
