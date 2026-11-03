@@ -77,6 +77,28 @@ function hasWeddingRing(player) {
     return false;
 }
 
+// Where and when this couple's wedding is booked, e.g. "Cathedral on Channel 2 - 12 minutes, 3 seconds from now".
+// A reservation lives in one channel's queue and the ceremony can only start there, so the channel is always named.
+// Returns null when no channel holds the reservation; the time text never says "null".
+function describeReservation(weddingId) {
+    var channels = cm.getClient().getWorldServer().getChannels();
+    for (var i = 0; i < channels.size(); i++) {
+        var ch = channels.get(i);
+        for (var v = 0; v < 2; v++) {
+            var inCathedral = (v == 0);
+            if (ch.getWeddingReservationStatus(weddingId, inCathedral) >= 0) {
+                var left = ch.getWeddingReservationTimeLeft(weddingId);
+                var when = (left == null) ? "" : String(left).replace(/^[^-]*- /, "");
+                if (when == "" || when.indexOf("null") >= 0) {
+                    when = "very soon";
+                }
+                return (inCathedral ? "Cathedral" : "Chapel") + " on Channel " + ch.getId() + " - " + when;
+            }
+        }
+    }
+    return null;
+}
+
 function start() {
     weddingIndoors = isWeddingIndoors(cm.getMapId());
     status = -1;
@@ -134,7 +156,10 @@ function action(mode, type, selection) {
 
                             if (weddingId > 0) {
                                 if (cserv.isWeddingReserved(weddingId)) {    // registration check
-                                    var placeTime = cserv.getWeddingReservationTimeLeft(weddingId);
+                                    var placeTime = describeReservation(weddingId);
+                                    if (placeTime == null) {
+                                        placeTime = "next free slot";
+                                    }
                                     cm.sendOk("Your wedding is set to start at the #r" + placeTime + "#k. Get formally dressed and don't be late!");
                                 } else {
                                     var partner = wserv.getPlayerStorage().getCharacterById(cm.getPlayer().getPartnerId());
@@ -184,7 +209,10 @@ function action(mode, type, selection) {
                                             // the ticket is spent last: only once the reservation holds and both partners have their invitations
                                             cm.gainItem((weddingType) ? weddingEntryTicketPremium : weddingEntryTicketCommon, -1);
 
-                                            var placeTime = cserv.getWeddingReservationTimeLeft(weddingId);
+                                            var placeTime = describeReservation(weddingId);
+                                            if (placeTime == null) {
+                                                placeTime = "next free slot";
+                                            }
 
                                             var wedType = weddingType ? "Premium" : "Regular";
                                             cm.sendOk("You both have received 15 Wedding Tickets, to be given to your guests. #bDouble-click the ticket#k to send it to someone. Invitations can only be sent #rbefore the wedding start time#k. Your #b" + wedType + " wedding#k is set to start at the #r" + placeTime + "#k. Get formally dressed and don't be late!");
