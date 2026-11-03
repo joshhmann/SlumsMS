@@ -1522,17 +1522,20 @@ public class MapleMap {
      * this a bot's killing blow on Von Leon or Cygnus skipped the next phase, so the event never cleared.
      */
     public static boolean hasBossMechanics(int mobId) {
-        return mobId == MobId.ZAKUM_1 || mobId == 8850011 || mobId == 8880002 || mobId == 8840000
+        return MobId.isShieldedZakumBody(mobId) || mobId == 8850011 || mobId == 8880002 || mobId == 8840000
                 || mobId >= 8880000 && mobId <= 8880010 || mobId == 8240098 || mobId == 8240099
                 || mobId >= 8850000 && mobId <= 8850004;
     }
 
     /** Zakum's body takes no damage while an arm is up (true: this hit does nothing). */
     public boolean bossDamageBlocked(final Monster monster) {
-        if (monster.getId() == MobId.ZAKUM_1) {
+        // one mapping for both altars: the body id names its own eight arms, so chaos Zakum (8800100 shielded by
+        // 8800103-8800110) needs no second branch here (constants/id/MobId.java:shieldingArms)
+        int[] arms = MobId.shieldingArms(monster.getId());
+        if (arms != null) {
             for (MapObject object : getMapObjects()) {
                 Monster mons = getMonsterByOid(object.getObjectId());
-                if (mons != null && mons.getId() >= MobId.ZAKUM_ARM_1 && mons.getId() <= MobId.ZAKUM_ARM_8) {
+                if (mons != null && mons.getId() >= arms[0] && mons.getId() <= arms[1]) {
                     return true;
                 }
             }
@@ -1782,32 +1785,7 @@ public class MapleMap {
                         }
                     }
 
-                    if (MobId.isZakumArm(monster.getId())) {
-                        boolean makeZakReal = true;
-                        Collection<MapObject> objects = getMapObjects();
-                        for (MapObject object : objects) {
-                            Monster mons = getMonsterByOid(object.getObjectId());
-                            if (mons != null) {
-                                if (MobId.isZakumArm(mons.getId())) {
-                                    makeZakReal = false;
-                                    break;
-                                }
-                            }
-                        }
-                        if (makeZakReal) {
-                            MapleMap map = chr.getMap();
-
-                            for (MapObject object : objects) {
-                                Monster mons = map.getMonsterByOid(object.getObjectId());
-                                if (mons != null) {
-                                    if (mons.getId() == MobId.ZAKUM_1) {
-                                        makeMonsterReal(mons);
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    wakeBodyIfLastArm(monster, chr.getMap());
 
                     Character dropOwner = monster.killBy(chr);
                     if (soloMapling.ArtificialPlayer.BotMegaphoneSystem.WorldEventMegaphones.isNotableBoss(
@@ -2464,6 +2442,33 @@ public class MapleMap {
 
         spawnedMonstersOnMap.incrementAndGet();
         addSelfDestructive(monster);
+    }
+
+    /**
+     * A dying arm wakes its own altar's body once no arm of that altar is left: normal arms (8800003-8800010) wake
+     * 8800000, chaos arms (8800103-8800110) wake 8800100. One body-to-arms mapping drives it
+     * ({@code MobId.shieldingArms}), so a second altar needs no second branch.
+     */
+    void wakeBodyIfLastArm(final Monster dyingArm, final MapleMap armsMap) {
+        int shieldedBody = MobId.shieldedBodyOf(dyingArm.getId());
+        if (shieldedBody <= 0) {
+            return;
+        }
+        int[] arms = MobId.shieldingArms(shieldedBody);
+        Collection<MapObject> objects = getMapObjects();
+        for (MapObject object : objects) {
+            Monster mons = getMonsterByOid(object.getObjectId());
+            if (mons != null && mons.getId() >= arms[0] && mons.getId() <= arms[1]) {
+                return; // this altar still has an arm standing
+            }
+        }
+        for (MapObject object : objects) {
+            Monster mons = armsMap.getMonsterByOid(object.getObjectId());
+            if (mons != null && mons.getId() == shieldedBody) {
+                makeMonsterReal(mons);
+                return;
+            }
+        }
     }
 
     public void makeMonsterReal(final Monster monster) {

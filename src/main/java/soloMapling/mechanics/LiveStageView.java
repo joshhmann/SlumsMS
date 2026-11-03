@@ -175,12 +175,11 @@ final class LiveStageView implements StageView {
         if (constants.id.MobId.isDeadHorntailPart(mobId) || mobId == constants.id.MobId.SUMMON_HORNTAIL) {
             return null;
         }
-        if (constants.id.MobId.isZakumArm(mobId)
+        if (constants.id.MobId.isAnyZakumArm(mobId)
                 || (mobId >= constants.id.MobId.HORNTAIL_HEAD_A && mobId <= constants.id.MobId.HORNTAIL_TAIL)) {
             return BossTargetRules.Role.ARM;
         }
-        if (mobId == constants.id.MobId.ZAKUM_1 || mobId == constants.id.MobId.ZAKUM_2
-                || mobId == constants.id.MobId.ZAKUM_3
+        if (constants.id.MobId.isAnyZakumBody(mobId)
                 || mobId == constants.id.MobId.HORNTAIL_PREHEAD_LEFT
                 || mobId == constants.id.MobId.HORNTAIL_PREHEAD_RIGHT
                 || mobId == constants.id.MobId.HORNTAIL) {

@@ -357,6 +357,45 @@ class BossPhasesSolverTest {
                 "with the item in hand the row does what it was written to do");
     }
 
+    /**
+     * Round 10 (Chaos Zakum): the body's phase order comes from the row's own {@code mobs:} list, not from a hardcoded
+     * normal-Zakum family. A chaos row (8800100 -> 8800101 -> 8800102) had no rank in the old family and fell back to
+     * the order the parts happened to arrive in.
+     */
+    @Test
+    void theBodyPhasesFollowTheRowsOwnOrderNotAHardcodedFamily() {
+        List<Integer> chaosIds = List.of(8800100, 8800101, 8800102);
+        MechanicsModel.Stage chaosRow = withMobs(zakumRoom(), chaosIds);
+        List<Part> chaosParts = List.of(body(8800102, true), body(8800100, true), body(8800101, true));
+        View view = new View(chaosRow, chaosParts, Map.of("summoned", "true", "defeatedBoss", "0"));
+        BossTargetRules.Member melee = new BossTargetRules.Member(false, true);
+
+        assertEquals(chaosIds, BossPhasesSolver.order(view, chaosParts, melee, BossTargetRules.Phase.BODY),
+                "three chaos body phases, in the row's wake order");
+
+        // the deterministic half: a row naming a chaos body before a normal one must be obeyed, which the old
+        // bodyRank (8800001 ranks 1, an unknown id ranked last) could not do
+        MechanicsModel.Stage mixed = withMobs(zakumRoom(), List.of(8800100, 8800001));
+        List<Part> mixedParts = List.of(body(8800001, true), body(8800100, true));
+        View mixedView = new View(mixed, mixedParts, Map.of("summoned", "true", "defeatedBoss", "0"));
+        assertEquals(List.of(8800100, 8800001),
+                BossPhasesSolver.order(mixedView, mixedParts, melee, BossTargetRules.Phase.BODY));
+    }
+
+    /** The shipped Zakum room, so a test can rewrite only what the row names. */
+    private static MechanicsModel.Stage zakumRoom() {
+        return MechanicsRuns.contentFor("ZakumBattle").stages().get(0);
+    }
+
+    /** A copy of a stage with a different {@code mobs:} list. */
+    private static MechanicsModel.Stage withMobs(MechanicsModel.Stage base, List<Integer> mobs) {
+        return new MechanicsModel.Stage(base.index(), base.mapId(), base.name(), base.npcId(), base.solver(),
+                base.roles(), base.objectives(), base.positions(), base.items(), base.answers(), base.phases(),
+                base.clear(), base.answerProperty(), base.combos(), mobs, base.nextPortal(),
+                base.summonProperty(), base.spawnWaitSeconds(), base.timeLimitMinutes(), base.hitReactors(),
+                base.entryItems());
+    }
+
     /** A copy of a shipped stage with a different reactor list, so the click rules can be pinned without a row. */
     private static MechanicsModel.Stage withReactors(MechanicsModel.Stage base, List<Integer> reactors, int spawnWait) {
         return new MechanicsModel.Stage(base.index(), base.mapId(), base.name(), base.npcId(), base.solver(),

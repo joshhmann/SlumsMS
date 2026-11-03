@@ -45,9 +45,6 @@ public final class BossPhasesSolver implements StageSolver {
     /** Where a reactor the bot has already clicked is remembered, so a room with two of them clicks each exactly once. */
     private static final String K_REACTOR = "bossReactorSince";
 
-    /** The body chain in the order its phases wake up: Zakum's three body ids. */
-    private static final List<Integer> BODY_FAMILY = List.of(8800000, 8800001, 8800002);
-
     @Override
     public String id() {
         return ID;
@@ -169,13 +166,11 @@ public final class BossPhasesSolver implements StageSolver {
                 continue;
             }
             List<Integer> ids = new ArrayList<>(tier.mobIds());
-            if (tier.kind() == Kind.BODY) {
-                // the body is a chain, so its phases are ordered by when they wake, not by where the data lists them
-                ids.sort((a, b) -> Integer.compare(bodyRank(a), bodyRank(b)));
-            } else {
-                ids.sort((a, b) -> Integer.compare(dataOrder(view.stage().mobs(), a),
-                        dataOrder(view.stage().mobs(), b)));
-            }
+            // every tier, body included, follows the row's own `mobs:` order: a row lists the body chain in wake order
+            // (zakum.yaml: 8800000, 8800001, 8800002; zakum-chaos.yaml: 8800100, 8800101, 8800102), which is how the
+            // chaos ids stop depending on a hardcoded normal-Zakum family
+            ids.sort((a, b) -> Integer.compare(dataOrder(view.stage().mobs(), a),
+                    dataOrder(view.stage().mobs(), b)));
             out.addAll(ids);
         }
         return List.copyOf(out);
@@ -188,12 +183,6 @@ public final class BossPhasesSolver implements StageSolver {
     private static boolean nothingToHit(List<BossTargetRules.Part> parts) {
         return parts.stream().noneMatch(p -> p.role() == BossTargetRules.Role.ARM
                 || p.role() == BossTargetRules.Role.BODY);
-    }
-
-    /** The body chain's phase order: 8800000 first, then 8800001, then 8800002 (an unknown body id last). */
-    private static int bodyRank(int mobId) {
-        int rank = BODY_FAMILY.indexOf(mobId);
-        return rank < 0 ? Integer.MAX_VALUE : rank;
     }
 
     /** The ids of the parts a tick actually saw, for the abandon line. */
