@@ -50,6 +50,24 @@ public final class Mechanics {
      * ({@code slums.mechanics.cafepqN.lobby}) and its own {@code .runs} count, which is the knob that actually differs.
      */
     public static final String CAFE_FLAG = "slums.mechanics.cafepq";
+
+    /** Pirate PQ's own switch ({@code -Dslums.mechanics.piratepq}): one PQ, one switch. */
+    public static final String PIRATE_FLAG = "slums.mechanics.piratepq";
+
+    /** Treasure PQ's own switch ({@code -Dslums.mechanics.treasurepq}). */
+    public static final String TREASURE_FLAG = "slums.mechanics.treasurepq";
+
+    /** DelliBattle's own switch ({@code -Dslums.mechanics.dellibattle}). */
+    public static final String DELLI_FLAG = "slums.mechanics.dellibattle";
+
+    /** Magatia PQ's own switch ({@code -Dslums.mechanics.magatiapq}). */
+    public static final String MAGATIA_FLAG = "slums.mechanics.magatiapq";
+
+    /** Ellin PQ's own switch ({@code -Dslums.mechanics.ellinpq}). */
+    public static final String ELLIN_FLAG = "slums.mechanics.ellinpq";
+
+    /** LudiMaze PQ's own switch: one PQ, one row, one flag. */
+    public static final String LUDIMAZE_FLAG = "slums.mechanics.ludimazepq";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";
     public static final String DEFAULT_DIR = "src/main/java/soloMapling/mechanics/content";
 

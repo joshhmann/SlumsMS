@@ -77,7 +77,9 @@ class MechanicsDataFilesTest {
                 "papulatus", "krexel", "showa", "balrog", "scarga", "elemental", "pinkbean",
                 "latanica", "magnus", "nwill", "nlucid", "nverus", "ndarknell",
                 "guardiannex1", "guardiannex2", "guardiannex3", "guardiannex4", "guardiannex5",
-                "guardiannex6", "zakum-chaos"),
+                "guardiannex6", "zakum-chaos",
+                "ludimazepq", "piratepq", "treasurepq", "dellibattle",
+                "magatiapq", "ellinpq", "cwkpq"),
                 r.content().stream().map(c -> c.id()).toList());
         assertEquals(10, r.content().stream().filter(c -> "kpq".equals(c.id())).findFirst().orElseThrow()
                 .stage(1).orElseThrow().answer(1).orElseThrow());

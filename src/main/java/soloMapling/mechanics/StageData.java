@@ -443,9 +443,31 @@ public final class StageData {
         } else if (m.get("clear") instanceof Map<?, ?> cm && "true".equalsIgnoreCase(String.valueOf(cm.get("instance")))) {
             // a stage whose script writes no property and only calls eim.clearPQ(): the instance's own flag is the clear
             clear = Clear.instance();
+        } else if (m.get("clear") instanceof Map<?, ?> cm && "true".equalsIgnoreCase(String.valueOf(cm.get("mapEmpty")))) {
+            // a stage whose script never says "done": it is over when the map has nothing left to kill (Ellin PQ stage 1)
+            clear = Clear.emptyMap();
+        } else if (m.get("clear") instanceof Map<?, ?> cm && cm.get("reactorState") instanceof Map<?, ?> rs
+                && rs.get("id") != null && rs.get("state") != null) {
+            // the reactor is the authority: Ellin PQ stage 2 clears when the spine reactor reaches state 4
+            int rid = num(rs, "id", -1, p);
+            int rstate = num(rs, "state", -1, p);
+            if (rid > 0 && rstate >= 0) {
+                clear = Clear.ofReactorState(rid, rstate);
+            }
+        }
+        if (clear == null && m.get("clear") instanceof Map<?, ?> pm && pm.get("partyOnMap") != null) {
+            // the party's arrival is the clear: the script warps the team and writes nothing (Ellin PQ's marble stage)
+            int target = num(pm, "partyOnMap", -1, p);
+            if (target > 0) {
+                clear = Clear.ofPartyOnMap(target);
+            } else {
+                p.add(at + "clear: partyOnMap must be a map id");
+            }
         }
         if (clear == null) {
-            p.add(at + "no clear: { eventProperty: ... } (+ optional equals: value), or { instance: true }");
+            p.add(at + "no clear: { eventProperty: ... } (+ optional equals: value), or { instance: true },"
+                    + " or { mapEmpty: true }, or { reactorState: { id: N, state: M } },"
+                    + " or { partyOnMap: mapId }");
         }
         String answerProperty = m.get("answerProperty") == null ? null : String.valueOf(m.get("answerProperty")).trim();
         List<List<Integer>> combos = new ArrayList<>();
@@ -491,6 +513,15 @@ public final class StageData {
         String nextPortal = m.get("nextPortal") == null ? null : String.valueOf(m.get("nextPortal")).trim();
         String summonProperty = m.get("summonProperty") == null ? null
                 : String.valueOf(m.get("summonProperty")).trim();
+        // party-quest side: the mob whose death is the stage's end, for scripts that write no property at all
+        int killTarget = 0;
+        if (m.get("killTarget") != null) {
+            try {
+                killTarget = Integer.parseInt(String.valueOf(m.get("killTarget")).trim());
+            } catch (NumberFormatException e) {
+                p.add(at + "killTarget: not a mob id: " + m.get("killTarget"));
+            }
+        }
         // 1.6.4 boss rows: a room whose targets are the map's own life may stand empty while they arrive, and the row
         // says how long that is; 0 = no expectation (an empty room is the solver's 30 s grace and then an abandon).
         int spawnWait = num(m, "spawnWaitSeconds", 0, p);
@@ -525,11 +556,30 @@ public final class StageData {
         require(entryItems.stream().allMatch(id -> id > 0), p, at + "entryItems: item ids are positive");
         require(entryItems.stream().distinct().count() == entryItems.size(), p,
                 at + "entryItems: one of each is enough, so listing an item twice says nothing new");
+        // party-quest side: a room whose fight is behind one reactor nobody has to click by hand (Ellin PQ's spine and
+        // its stone, Magatia's beaker); 0 = no reactor
+        int hitReactor = num(m, "hitReactor", 0, p);
+        require(hitReactor == 0 || hitReactors.isEmpty(), p,
+                at + "hitReactor and hitReactors are the same fact twice; name one of them, not both");
+        // the other maps this stage legitimately spans (LudiMaze PQ: fifteen, one of which each member starts on)
+        List<Integer> maps = new ArrayList<>();
+        for (Object o : list(m, "maps")) {
+            try {
+                int other = Integer.parseInt(String.valueOf(o).trim());
+                if (other > 0 && other != mapId) {
+                    maps.add(other);
+                } else if (other == mapId) {
+                    p.add(at + "maps: names the stage's own map " + mapId + " again (drop it)");
+                }
+            } catch (NumberFormatException e) {
+                p.add(at + "maps: \"" + o + "\" is not a map id");
+            }
+        }
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
                 summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, spawnWait, stageMinutes,
-                List.copyOf(hitReactors), List.copyOf(entryItems));
+                List.copyOf(hitReactors), List.copyOf(entryItems), killTarget, hitReactor, List.copyOf(maps));
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----

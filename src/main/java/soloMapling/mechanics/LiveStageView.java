@@ -109,6 +109,35 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public java.util.Map<String, Integer> portalsOn(int mapId) {
+        server.maps.MapleMap target = mapInstance(mapId);
+        if (target == null) {
+            return java.util.Map.of();
+        }
+        java.util.Map<String, Integer> out = new java.util.LinkedHashMap<>();
+        for (server.maps.Portal p : target.getPortals()) {
+            // only portals that lead somewhere: a spawn point (type 0) and a hidden one (type 1) are not exits
+            if (p != null && p.getName() != null && !p.getName().isBlank() && p.getTargetMapId() != -1
+                    && p.getTargetMapId() != 999999999) {
+                out.putIfAbsent(p.getName(), p.getTargetMapId());
+            }
+        }
+        return out;
+    }
+
+    /** This instance's own copy of a map, or null when the instance does not hold that map. */
+    private server.maps.MapleMap mapInstance(int mapId) {
+        if (eim == null || mapId <= 0) {
+            return null;
+        }
+        try {
+            return eim.getMapInstance(mapId);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    @Override
     public int mapOf(int characterId) {
         Character c = chars.get(characterId);
         return c == null ? -1 : c.getMapId();
@@ -252,6 +281,21 @@ final class LiveStageView implements StageView {
         NPC npc = map == null ? null : map.getNPCById(npcId);
         Point p = npc == null ? null : npc.getPosition();
         return p == null ? Optional.empty() : Optional.of(new int[]{p.x, p.y});
+    }
+
+    @Override
+    public java.util.List<NpcPlacement> npcPlacements(int npcId) {
+        if (map == null || npcId <= 0) {
+            return java.util.List.of();
+        }
+        java.util.List<NpcPlacement> found = new java.util.ArrayList<>();
+        for (MapObject o : map.getMapObjectsInRange(new Point(0, 0), Double.POSITIVE_INFINITY,
+                List.of(MapObjectType.NPC))) {
+            if (o instanceof NPC npc && npc.getId() == npcId) {
+                found.add(new NpcPlacement(npc.getObjectId(), npc.getPosition().x, npc.getPosition().y));
+            }
+        }
+        return found;
     }
 
     @Override

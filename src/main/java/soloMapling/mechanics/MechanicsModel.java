@@ -187,13 +187,36 @@ public final class MechanicsModel {
      * LudiMaze PQ's final stage end that way, and {@code EventInstanceManager.isEventCleared()} is the only signal there
      * is. {@link #instance()} is that clear form - it is not an event property, it is the instance's own flag.
      */
-    public record Clear(String eventProperty, String equals, boolean onInstance) {
+    public record Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty,
+                        int reactorId, int reactorState, int partyOnMap) {
+        public Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty,
+                     int reactorId, int reactorState) {
+            this(eventProperty, equals, onInstance, mapEmpty, reactorId, reactorState, 0);
+        }
+
+        public Clear(String eventProperty, String equals, boolean onInstance, boolean mapEmpty) {
+            this(eventProperty, equals, onInstance, mapEmpty, 0, 0, 0);
+        }
+
+        /**
+         * A stage that ends when the <b>whole</b> party is standing on {@code mapId} - the way a stage that finishes by
+         * warping the team somewhere (Ellin PQ's marble hand-in, `2133001.js:93-94`) is cleared. Every registered member
+         * has to be there: a member still walking would otherwise fake a clear on the first arrival.
+         */
+        public static Clear ofPartyOnMap(int mapId) {
+            return new Clear(null, null, false, false, 0, 0, mapId);
+        }
+
+        public Clear(String eventProperty, String equals, boolean onInstance) {
+            this(eventProperty, equals, onInstance, false, 0, 0, 0);
+        }
+
         public Clear(String eventProperty) {
             this(eventProperty, null, false);
         }
 
         public Clear(String eventProperty, String equals) {
-            this(eventProperty, equals, false);
+            this(eventProperty, equals, false, false, 0, 0, 0);
         }
 
         /**
@@ -201,7 +224,25 @@ public final class MechanicsModel {
          * ({@code clear: { instance: true }} in a row, {@link StageView#eventCleared()} in the engine).
          */
         public static Clear instance() {
-            return new Clear(null, null, true);
+            return new Clear(null, null, true, false, 0, 0);
+        }
+
+        /**
+         * The clear of a stage whose script never says "done" at all: the stage is over when the map holds nothing left
+         * to kill ({@code clear: { mapEmpty: true }}). Ellin PQ's first stage is the case - its passage portal refuses
+         * while {@code cm.getMap().getMonsters()} is non-empty and no property is ever written.
+         */
+        public static Clear emptyMap() {
+            return new Clear(null, null, false, true, 0, 0);
+        }
+
+        /**
+         * The clear of a stage whose authority is a <b>reactor's state</b>: Ellin PQ's second stage is over when the spine
+         * reactor {@code 3009000} is at state 4, and the event writes no property for it. Reaching a later state counts as
+         * well - the reactor only advances - so the comparison is {@code >=}.
+         */
+        public static Clear ofReactorState(int reactorId, int state) {
+            return new Clear(null, null, false, false, reactorId, state);
         }
     }
 
@@ -226,6 +267,16 @@ public final class MechanicsModel {
      *   opened by one character ({@code scripts/portal/captinsg00.js:4} checks the player who clicks it, and nothing
      *   inside {@code LatanicaBattle.js} re-checks the rest). A run that lacks one is not refused: it waits, naming the
      *   item, until the row's own steps (or the bot's inventory) bring it - the row never warps past a door.</li>
+     *   <li>{@code killTarget} (party-quest side): the mob whose death ends a stage whose script writes no property at
+     *   all. Every boss row states its kill through {@code objectives} instead (and no row sets this today), but the
+     *   field is kept because the PQ branch's data and tests still speak it;</li>
+     *   <li>{@code hitReactor} and {@code hitReactors}: two spellings of "the reactor this stage is behind", one per
+     *   lane. The scalar is the party-quest side's - Ellin PQ's spine ({@code 3009000}) and its stone, Magatia's beaker
+     *   - read by {@code ReactorStateSolver}, {@code ReactorCountSolver} and {@code EllinStoneSolver}; the list is the
+     *   boss side's, and it can name more than one (Scarga's Targa and Scarlion). A stage names one spelling or the
+     *   other, never both: {@code StageData} refuses a row that sets both, because the two could then disagree;</li>
+     *   <li>{@code maps} (party-quest side): every further map the stage legitimately covers, used by {@link #mapSet()}
+     *   - LudiMaze PQ's one stage spans sixteen maps.</li>
      * </ul>
      */
     public record Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
@@ -233,13 +284,26 @@ public final class MechanicsModel {
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
                         int spawnWaitSeconds, int timeLimitMinutes, List<Integer> hitReactors,
-                        List<Integer> entryItems) {
+                        List<Integer> entryItems, int killTarget, int hitReactor, List<Integer> maps) {
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                      List<Answer> answers, List<BossPhase> phases, Clear clear) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
-                    List.of(), List.of(), null, null, 0, 0, List.of(), List.of());
+                    List.of(), List.of(), null, null, 0, 0, List.of(), List.of(), 0, 0, List.of());
+        }
+
+        /**
+         * Every map this stage legitimately covers: its own first, then the ones its data declares ({@code maps:}).
+         * LudiMaze PQ's one stage spans sixteen maps - {@code playerEntry} drops each member on a random one of
+         * fifteen ({@code LudiMazePQ.js:144-150}) and the goal is the sixteenth - so a member standing on any of them is
+         * where the stage means it to be, not a stray to be dragged to the leader.
+         */
+        public java.util.Set<Integer> mapSet() {
+            java.util.Set<Integer> out = new java.util.LinkedHashSet<>();
+            out.add(mapId);
+            out.addAll(maps);
+            return out;
         }
 
         /** How many positions a combination's answer occupies (KPQ: 3), or 0 for a stage without combos. */

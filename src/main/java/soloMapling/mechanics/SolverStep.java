@@ -65,6 +65,14 @@ public sealed interface SolverStep {
     record Loot(int itemId) implements SolverStep {
     }
 
+    /**
+     * Talk to one particular standing of an NPC. The same NPC can stand in 26 places on one map, and the script reads
+     * {@code cm.getNpcObjectId()} to decide which one it is (Magatia's seven books): a plain {@link TalkNpc} always
+     * reaches the first.
+     */
+    record TalkNpcAt(int objectId, int npcId) implements SolverStep {
+    }
+
     /** Talk to an NPC, optionally holding {@code itemId} x {@code count} to hand in (0 = just talk). */
     record TalkNpc(int npcId, int itemId, int count) implements SolverStep {
     }
@@ -112,6 +120,31 @@ public sealed interface SolverStep {
      * {@code "6"}. The server fires that activation 5000 ms after the drop lands
      * ({@code MapleMap.java:2665-2680}), which the executor honours as a settle delay rather than a failure.
      */
+    /**
+     * Use one {@code itemId} on a monster of this kind ({@code mobId}) - Ellin PQ's purifier marble on a Poison Flower
+     * {@code 9300174}, which is how the party makes the twenty marbles {@code 4001169} the stage wants
+     * (`scripts/npc/2133001.js:60-84`). The rule itself is `server.life.MonsterCatch`; the step only says "try one now".
+     * The monster has to be weak enough (below 40% HP) for the attempt to land, so a solver keeps fighting and re-tries.
+     */
+    /**
+     * Touch a reactor - the {@code touch} callback, not {@code act}. A reacto r's {@code touch} is dispatched only from a
+     * client packet (`TouchReactorHandler.java:34-46`), so a bot standing on it does nothing; Crimsonwood Keep's sign-up
+     * is exactly this (`CWKPQ.js:98-135` hands each member a reactor by job class on touch), and Horntail's alternate head
+     * spawn (`2408003.js:30-34`) is the other.
+     */
+    record TouchReactor(int reactorId) implements SolverStep {
+    }
+
+    /**
+     * Touch the reactor <b>named</b> this - the sign-up's own addressing. `CWKPQ.js:106-118` deploys its reactors by name
+     * (`4skill<jobClass><slot>`, and `4fake*` decoys), so the name is the only thing that says which member belongs where.
+     */
+    record TouchReactorNamed(String reactorName) implements SolverStep {
+    }
+
+    record UseItemOnMob(int itemId, int mobId) implements SolverStep {
+    }
+
     record PlaceItemOn(int reactorId, int itemId, int count, String why) implements SolverStep {
     }
 

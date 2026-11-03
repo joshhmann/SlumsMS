@@ -39,3 +39,10 @@ guardiannex4.yaml
 guardiannex5.yaml
 guardiannex6.yaml
 zakum-chaos.yaml
+ludimazepq.yaml
+piratepq.yaml
+treasurepq.yaml
+dellibattle.yaml
+magatiapq.yaml
+ellinpq.yaml
+cwkpq.yaml

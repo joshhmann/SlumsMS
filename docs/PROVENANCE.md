@@ -442,6 +442,63 @@ positive quantity, so the Computer pays the party rather than charging it - the 
 and hand them in" would have asked the bots for what the NPC is giving them. The rows therefore carry the count as a
 `COLLECT` objective and talk to the NPC with no item.
 
+### LudiMaze PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00`
+
+cosmic_agents was read for the *representation* of a maze PQ and nothing else.
+
+| From theirs | Our files |
+| --- | --- |
+| `capabilities/partyquest/lmpq/` (a sixteen-room maze with one goal, a coordinator that walks rooms) | `soloMapling/mechanics/LudiMazeSolver`: the same shape - a stage over many maps, a goal map, a walk between them - but the graph is read from our client data at run time (`StageView.portalsOn(int)` over `Map.wz/Map/Map8/8090500*.img.xml`) and kept per instance in `stageMemory()`. Their arm layout is their instance's; nothing of it is copied, and our maze's passages are fixed, not shuffled |
+
+Nothing else in the row comes from another project: the gates (`3`-`6` players, level `51`-`255`, `15` minutes, recruit
+`220000000`, front door Rolly `9103001`, exit `809050017`) are `scripts/event/LudiMazePQ.js:27-32,37`; the clear is
+`9103000.js:66-73` (`clearPQ` and nothing else); the pass and its count are `9103000.js:62` and
+`scripts/reactor/8098000.js`; and the frontier - each member starting on a random one of fifteen maps - is
+`LudiMazePQ.js:144-150`.
+
+### Pirate PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00`
+
+cosmic_agents was read for the *representation* of a ship PQ - a party moved through six rooms on one stage - and
+nothing else; it carries no Pirate PQ definition.
+
+| From theirs | Our files |
+| --- | --- |
+| `capabilities/partyquest/ppq/` (a coordinator that walks a party through a stage's rooms in order) | `soloMapling/mechanics/PirateQuestSolver`: the same shape - one stage, six maps, a chain of conditions - but every condition is one of our own scripts, and the ids are our WZ. Nothing of their instance's layout is copied |
+
+The gates are `scripts/event/PiratePQ.js:29-39` (`3`-`6` players, level `55`-`255`, entry `925100000`, exit
+`925100700`, recruit `251010404`, six maps, `eventTime` four minutes restarted per stage at `:241-268`); the exclusives
+are `:73-76` (`4001117`, `4001120`, `4001121`, `4001122`); the clear is `clearPQ` `:337-344`, which sets the instance's
+flag and writes no property. The chain is our scripts' own: `scripts/portal/davy_next0..4.js` (the five gates),
+`scripts/npc/2094002.js:47-78` (the three medal sets, in order, through `stage2`) and `scripts/npc/2094001.js:45-58`
+(the rescued leader's talk, the only writer of the clear); the four doors are item reactors `2519000`..`2519003` taking
+one `4001117` each, which is `Reactor.wz/2519000..2519003.img.xml` and `Map.wz/Map/Map9/925100400.img.xml` (names
+`sMob1`..`sMob4`), not anything from another project.
+
+### Treasure PQ stage data, 1.6.4 (branch `164-opq`, ticket 164): no outside source
+
+Nothing in the row comes from another bot project - neither cosmic_agents nor BotStory carries a Treasure PQ definition.
+Every id is ours: the gates (4-6 players, level 140-255, 45 minutes, `674030000`/`674030100`/`674030300`) are
+`scripts/event/TreasurePQ.js:25-37`, the exclusive item `4032118` is `:59-62`, the front door is `scripts/npc/9220018.js:50-80`,
+the summon is `scripts/reactor/6741001.js`, and the clear is `clearPQ` (`:232-237`) reached only by `9400589`'s death
+(`:244-252`).
+
+### DelliBattle stage data, 1.6.4 (branch `164-opq`, ticket 164): no outside source
+
+Nothing in the row comes from another bot project - neither cosmic_agents nor BotStory carries a DelliBattle definition.
+The gates (one to two players, level 120-255, six minutes, `925010300` with recruit and exit `925010200`) are
+`scripts/event/DelliBattle.js:26-36`, the front door is `scripts/npc/2095000.js:48-70`, and the clear is the script's own
+`scheduledTimeout` -> `clearPQ` (`:119-124`, `:208-211`); `friendlyKilled` (`:194-199`) is the only failure and
+`monsterKilled` (`:213`) is empty, which is why the row has no count of its own.
+
+### Magatia PQ stage data, 1.6.4 (branch `164-opq`, ticket 164): no outside source
+
+Nothing in the row comes from another bot project: cosmic_agents and BotStory carry no Magatia definition. The orders
+come from our scripts - the gates and property seeds from `scripts/event/MagatiaPQ_A.js:27-32,37,127-133,218-246`, the
+four modelled stages from `scripts/npc/2112013.js` (books), `MagatiaPQ_A.js:418-426` (empty room),
+`scripts/reactor/2618000.js:27-41` (beaker) and `scripts/npc/2112005.js:72-87` (both files). The index used to find them
+was this repository's own scan notes in `/root/work/.pqscan/our-pq-b.md`, which is our material, not another project's;
+every claim it gave was re-read in the script before being written into a row.
+
 Where our server's scripts disagree, the scripts win and the row follows them:
 
 - **The altar takes exactly twenty in one drop.** `scripts/reactor/2006000.js:1-5` spawns Eak from the reactor's item

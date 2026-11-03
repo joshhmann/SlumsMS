@@ -393,7 +393,7 @@ class BossPhasesSolverTest {
                 base.roles(), base.objectives(), base.positions(), base.items(), base.answers(), base.phases(),
                 base.clear(), base.answerProperty(), base.combos(), mobs, base.nextPortal(),
                 base.summonProperty(), base.spawnWaitSeconds(), base.timeLimitMinutes(), base.hitReactors(),
-                base.entryItems());
+                base.entryItems(), base.killTarget(), base.hitReactor(), base.maps());
     }
 
     /** A copy of a shipped stage with a different reactor list, so the click rules can be pinned without a row. */
@@ -401,7 +401,8 @@ class BossPhasesSolverTest {
         return new MechanicsModel.Stage(base.index(), base.mapId(), base.name(), base.npcId(), base.solver(),
                 base.roles(), base.objectives(), base.positions(), base.items(), base.answers(), base.phases(),
                 base.clear(), base.answerProperty(), base.combos(), base.mobs(), base.nextPortal(),
-                base.summonProperty(), spawnWait, base.timeLimitMinutes(), reactors, base.entryItems());
+                base.summonProperty(), spawnWait, base.timeLimitMinutes(), reactors, base.entryItems(),
+                base.killTarget(), base.hitReactor(), base.maps());
     }
 
     /** Horntail's body room: no summon property, so a room with nothing alive is a fight the map brings, not a gate. */

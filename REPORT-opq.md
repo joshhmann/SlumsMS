@@ -30,9 +30,15 @@ tests that keep them working and the section below that says why they were repor
 | `OpqSolversTest` (32 tests) | `src/test/java/soloMapling/mechanics/OpqSolversTest.java` | the fake room + the shipped row's shape, one test per stage rule and a fail-before per stage |
 | `OrbisPqLobbyStageTest` (4 tests) | `src/test/java/scripting/reactor/OrbisPqLobbyStageTest.java` | the lobby: today's pass on the music player writes `statusStg3 = 0`, another day's matches nothing |
 | `OrbisSealedRoomAreaTest` (2 tests) | `src/test/java/server/maps/OrbisSealedRoomAreaTest.java` | the sealed room: three platforms count their own players, and without them the stage has no answer at all |
-| `RowRunSimulationTest` (7 tests) | `src/test/java/soloMapling/mechanics/RowRunSimulationTest.java` | a whole row end to end through the real orchestrator: Orbis PQ's eight stages, Zakum's arm-then-body chain, Horntail's three rooms, and a stage whose rule is never met |
+| `RowRunSimulationTest` (16 tests) | `src/test/java/soloMapling/mechanics/RowRunSimulationTest.java` | a whole row end to end through the real orchestrator: Orbis PQ's eight stages, Zakum's arm-then-body chain, Horntail's three rooms, Ludi PQ's nine, Henesys PQ's six beds, LudiMaze's sixteen maps, the six Cafe areas, Pirate PQ's six maps, and a stage whose rule is never met |
 | `Content.entryNpc` + `KpqStaging.start(Content, ...)` | `MechanicsModel.java`, `StageData.java`, `content/kpq.yaml`, `content/opq.yaml`, `KpqStaging.java` | one staging for every party quest: the front door (Lakelis / Wonky), the recruit map, the event script and the level band come from the row instead of four Kerning constants, so there is no Orbis twin of the staging to drift |
 | `ContentLobby` + `-Dslums.mechanics.<row>.lobby` | `soloMapling/mechanics/ContentLobby.java`, registered at `net/server/Server.java` | bots assemble a party for any row whose lobby is on: they spawn the row's `minPlayers` at its `entryNpc` on its `recruitMap` and hand it to the one staging. Orbis is a row in its list, not the reason it exists; off unless all three flags are given |
+| `PirateQuestSolver` + `content/piratepq.yaml` (1 stage) | `soloMapling/mechanics/PirateQuestSolver.java`, `content/piratepq.yaml` | Pirate PQ: six maps on one stage, three medal sets in the guide's order, two rooms to empty, four by-id doors taking one key each, and a clear that is the rescued leader's talk (`PiratePQ.js:337-344` writes no property) |
+| `PiratePqSolversTest` (9 tests) | `src/test/java/soloMapling/mechanics/PiratePqSolversTest.java` | the fake ship: the row's gates and maps, the deck's empty-map passage, the guide's medal order, nineteen medals refused and twenty accepted, keys on the first shut door, three doors not a way through, the boss fought before the talk |
+| `TreasureChestSolver` + `content/treasurepq.yaml` (1 stage) | `soloMapling/mechanics/TreasureChestSolver.java`, `content/treasurepq.yaml` | Treasure PQ: one map, the chest `6741001` as the only source of a monster, and `eim.clearPQ()` as the only clear - the same two primitives as OPQ's boxes and Cafe PQ's clear, in forty lines |
+| `TreasurePqSolversTest` (4 tests) | `src/test/java/soloMapling/mechanics/TreasurePqSolversTest.java` | the row's gates, the chest hit before anything is fought, the fail-before that a chest-less row waits forever, and no roles to split |
+| `DelliHoldSolver` + `content/dellibattle.yaml` (1 stage) | `soloMapling/mechanics/DelliHoldSolver.java`, `content/dellibattle.yaml` | DelliBattle: the one row whose clear is the server's clock (`scheduledTimeout`), so the solver only works the room and names the clock while it waits - and the friendly is never a target |
+| `DelliBattleSolversTest` (5 tests) | `src/test/java/soloMapling/mechanics/DelliBattleSolversTest.java` | the gates, the budget longer than the script's timer, the hundred-tick proof that nothing the party does can clear it, the friendly never targeted, and the instance flag as the only end |
 | `ContentLobbyTest` (8 tests) | `src/test/java/soloMapling/mechanics/ContentLobbyTest.java` | row-parameterised over `ContentLobby.rows()`: the three-switch gate per row, the row each lobby reads, the ten-minute back-off per row and channel, and why Kerning's lobby structurally cannot staff these towers |
 
 The walkway and the lounge reuse the existing `kill-collect-hand-in` solver: both stages are "farm N, pool them on the
@@ -244,6 +250,653 @@ kill (`:261-277`), exclusive to the instance, and every `eventMap` re-spawns eve
   the leader reaches the Computer without the count, the script's `haveItem` refuses, the instance never clears and the
   run does not end `cleared`. With the instance flag wired in, the six good runs all end `cleared`, one stage each.
 
+## LudiMaze PQ: sixteen maps, one stage, and a graph the client already publishes
+
+One stage spanning sixteen maps, off its own switch (`-Dslums.mechanics.ludimazepq`, default off), one row
+(`content/ludimazepq.yaml`), `clear: { instance: true }`. Three engine conditions had to exist before the maze could be
+driven at all, and each has a fail-before:
+
+1. **A declared map set, not a single map.** `playerEntry` warps each member to `809050000 + rand(0..14)`
+   (`LudiMazePQ.js:144-150`), so fifteen maps are legitimate ground for one stage. `MechanicsModel.Stage` gained
+   `maps:` (a list) and `mapSet()`, `StageData` parses it, and the orchestrator's wrong-map branch and its
+   `runsThisMap` both ask the whole set. Fail-before: `aMemberOnADeclaredMapIsDrivenByTheSolverAndNotTreatedAsAStray`,
+   run against the old single-map branch, gets `Wait[why=not on stage 1's map yet]` for a member standing on a declared
+   map - which is how fourteen members would have been dragged to the leader's map and the maze bypassed by accident.
+2. **`isEventTeamTogether()`.** `9103000.js:57-61` refuses the leader while one member is missing, so
+   `StageView.missingFrom(mapId)` / `teamTogether(mapId)` answer it over the members the instance still holds
+   (`registered` + `alive`), and the solver's `Wait` names who is missing. No count of members the instance has let go.
+3. **The instance flag for the clear.** `9103000.js:66-73` calls `clearPQ()` and writes nothing; the row says
+   `clear: { instance: true }` (the accessor from `1596fec0d`).
+
+**The correction that matters: the maze is not shuffled.** The plan said "per-instance shuffled maze search", but
+`LudiMazePQ.js:120-127` calls `shuffleReactors()`, which moves *reactors*; the passages are `pt 2` portals named
+`t000`..`t003` whose targets are fixed in the client data (`Map.wz/Map/Map8/8090500*.img.xml`). Pinned from the dump and
+in `LudiMazeSolversTest`: map `8090500NN` leads to `NN+4`, `NN+7`, `NN+12` - except that `809050008`'s `t001` reaches the
+exit `809050015`, and only that one passage in the whole maze does. What *is* random is the start map. So the search is
+real but tiny: `ludimaze` reads the portals it can see into a graph kept in `stageMemory()` (per instance, discarded when
+the stage changes), walks the shortest route over what the party has learned, and explores the first passage to a map
+nobody has seen yet. Sixteen members' first ticks map the whole maze.
+
+- **The pass and the summoner.** The maps hold no monsters of their own; `scripts/reactor/8098000.js` summons them
+  (ids scaled by distance from `809050005`) and they drop `4001106`. The exit wants thirty in the leader's hand
+  (`9103000.js:62`), so the solver hits the summoner, fights, and - when the leader is still short at the exit - walks
+  back through the exit's own `t000` to farm rather than idling at the goal.
+- **Bounded, and named.** If the graph cannot reach the exit the solver maps what it has and, past `GIVE_UP_MS` (12 of
+  the script's 15 minutes), abandons the run with the map set and the time in the reason:
+  `aPartyThatCannotReachTheExitSaysWhatItMappedAndAbandonsInsideTheBudget` builds a two-map maze with no way out.
+- **End to end in simulation.** `aSplitLudiMazePartyFindsTheExitAndClearsOnTheInstanceFlag` starts three members on
+  three different maps and asserts the run ends `cleared`, that `EnterPortal` steps happened, that the exit's NPC was
+  talked to, and that no property was invented (`props.isEmpty()`).
+
+## Pirate PQ: six maps, five doors, and a clear that is a conversation
+
+One stage over six maps, off its own switch (`-Dslums.mechanics.piratepq`, default off), one row
+(`content/piratepq.yaml`), `clear: { instance: true }`. `PiratePQ.js` is a chain rather than a count, so the row declares
+the maps (`maps:`) and one solver drives it (`pirate-quest`).
+
+| Map | What the script wants | Where it is written |
+|---|---|---|
+| `925100000` the deck | an empty map, then the passage | `scripts/portal/davy_next0.js` |
+| `925100100` the medals | 20 Rookie `4001120`, then 20 Rising `4001121`, then 20 Veteran `4001122`, in that order, to the guide `2094002` | `scripts/npc/2094002.js:47-78` sets `stage2` 1/2/3; `davy_next1.js` opens at `stage2 === "3"` |
+| `925100200` the guards | an empty map | `davy_next2.js` |
+| `925100300` the captains | an empty map | `davy_next3.js` |
+| `925100400` the four doors | one Old Metal Key `4001117` on each of `2519000`..`2519003` (`sMob1`..`sMob4`) **and** an empty map | `davy_next4.js`; the WZ: type 100, quantity 1, one key per door |
+| `925100500` the Lord Pirate | the boss down, then the rescued leader `2094001` talked to | `monsterKilled` spawns `2094001` at (777,140) and `2094001.js:45-58` calls `clearPQ()` |
+
+- **Two things the row had to express that no other row needed.** The doors are item reactors known by **id** (their WZ
+  names are `sMob1`..`sMob4`, not "door"), so stage 5 is the second user of `PlaceItemOn(reactorId, ...)` - the step HPQ
+  built - and the four doors get one key each, not four keys on one. And the guide's three medals are a **sequence**, so
+  the solver asks `stage2` which medal is wanted rather than the row naming one.
+- **The clear is a talk, not a property.** `clearPQ` (`PiratePQ.js:337-344`) writes nothing; the sole writer is the
+  rescued leader's talk. The row says `clear: { instance: true }`, and the solver talks only once the map is empty,
+  because that NPC is spawned by the boss's death.
+- **The keys are the map's own drops.** `4001117` is one of the instance's exclusives (`PiratePQ.js:73-76`) and
+  `925100400` has no box reactor, so keys come from `9300114/9300115/9300116` through the SQL `mobdrops` table - a row
+  there is invisible to every test in this branch. The run waits with a note naming the key, which is the only honest
+  thing it can do.
+- **Fail-before: three doors are not a way through.** `threeOpenDoorsAreNotAWayThrough` opens three of the four and gets
+  no `EnterPortal`; `davy_next4.js` asks all four. Without that gate the party would be walked into a boss room the
+  script never opened.
+- **Fail-before: nineteen medals are not a hand-in.** `theLeaderHandsInTwentyOfTheMedalTheGuideWantsAndNineteenIsNotEnough`
+  asserts the leader with 19 of the wanted medal never talks with an item, and with 20 talks with `4001120` x 20 - the
+  guide's own `haveItem` gate.
+- **End to end in simulation.** `aPiratePartyCrossesTheShipAndRescuesItsLeader` plays the row for up to 20,000 ticks and
+  asserts `cleared`, that the instance flag is the only clear, that `stage2` reached `"3"`, that all four doors left
+  state 0, that `PlaceItemOn` steps happened (keys on doors, not to an NPC), and that the rescued leader was talked to.
+  It is the test that caught the row's first wrong assumption: the World stocked a map once per stage, so the medals
+  room had nothing to kill - the ship is one stage over six maps and each map is stocked when the party first stands on
+  it.
+
+## Treasure PQ: one map, one chest, one monster - and the whole event is those three
+
+The shortest row on the branch, off its own switch (`-Dslums.mechanics.treasurepq`, default off), one row
+(`content/treasurepq.yaml`), `clear: { instance: true }`, four tests and one simulation case. It exists because it costs
+almost nothing and it exercises two primitives a second time.
+
+| Piece | Where it is written |
+|---|---|
+| gates: 4-6 players, level **140**-255, 45 minutes, entryMap `674030000`, exitMap and recruitMap `674030100`, clearMap `674030300` | `scripts/event/TreasurePQ.js:25-37` |
+| the only summon on the map | `scripts/reactor/6741001.js`: `act()` spawns `9400589` |
+| the only clear | `scripts/event/TreasurePQ.js:244-252` watches `9400589` alone and calls `clearPQ` (`:232-237`), which sets the instance's flag plus a ten-second warp to the bonus map |
+| the front door | `scripts/npc/9220018.js:50-80` (MV's Lair) - the row's `entryNpc` |
+
+- **`statusStg1` is a property nothing reads.** `setup` (`:115-125`) writes it as `"0"`; no other line in the file and no
+  NPC mentions it. A row that cleared on it would clear on setup, so the row clears on the instance's flag instead.
+- **Fail-before: without the chest there is nothing to kill.** `aRowWithoutTheChestNeverClearsBecauseTheMapHasNoOtherMonster`
+  removes the reactor from the view and the solver waits forever naming the chest - which is the row this event would be
+  with only a "kill what is out" rule, since `respawnStages` (`:131-134`) re-spawns a map that has nothing to spawn.
+- **Fail-before: the chest is hit before anything is fought.** `theChestIsHitBeforeAnythingExistsToFightAndItIsTheOnlyThingHit`
+  asserts the first step is `HitReactor(6741001)`, and that once a monster is out the chest is left alone (a second hit
+  would summon a second monster for nothing).
+- **End to end in simulation.** `aTreasurePartyOpensTheChestAndKillsWhatItHolds` plays the row and asserts the instance
+  clear, no invented property, the chest hit, and a `Fight` step - the monster the chest held was fought, not skipped.
+
+## DelliBattle: one room, one clock, and a clear no party can reach
+
+The one row on this branch whose clear is a **timer**, off its own switch (`-Dslums.mechanics.dellibattle`, default off),
+one row (`content/dellibattle.yaml`), `clear: { instance: true }`.
+
+| Piece | Where it is written |
+|---|---|
+| gates: **1-2 players**, level 120-255, six minutes, `entryMap` `925010300`, `exitMap` and `recruitMap` `925010200`, `minMapId == maxMapId` | `scripts/event/DelliBattle.js:26-36` |
+| the room re-spawns every 15 seconds | `:109-112` |
+| **the clear** | `:119-124` `scheduledTimeout` kills the room, shows the clear effect and calls `clearPQ` (`:208-211`), which sets the flag |
+| the only way to fail | `:194-199` `friendlyKilled` - Delli `9300162` dying ends the run |
+| nothing else counts | `:213` `monsterKilled` is empty |
+
+- **The party cannot advance this event, and the row says so instead of pretending.** `DelliHoldSolver` is two rules:
+  fight what is out, otherwise wait naming the clock. Every one of a hundred ticks in
+  `theRoomIsWorkedAndTheEventIsNeverAdvancedByKilling` is a `Wait`, which is the honest shape of a survival event.
+- **`timeLimitMinutes: 8`, not 6.** The row's number is the whole-run budget the orchestrator enforces; the script's own
+  six-minute timeout is what writes the flag. A row that copied the script's `6` could end the run on the budget one tick
+  before the flag existed. `theRowIsTheScriptsGatesAndABudgetLongerThanTheScriptsClock` pins the inequality.
+- **The friendly is safe by construction, not by a list.** `BotAttackDriver.botMayTarget` already refuses WZ-friendly
+  mobs (the same check that keeps HPQ's Moon Bunny alive), so `Fight(0)` cannot target `9300162`;
+  `theClerAndTheFriendlyAreNeverATarget` asserts the step asks for no mob id and no item.
+- **End to end in simulation.** `aDelliPartyHoldsTheRoomUntilTheScriptsClockClearsIt` runs the row for the full six
+  minutes of simulated time, asserts the instance flag is the clear, that no property was invented, and that the party
+  never sat still for longer than the 15-second respawn.
+- **No lobby row, and why.** `ContentLobby.rows()` does not list it: this event's own gate is one player
+  (`DelliBattle.js:27`) and the staging hands `KpqStaging` a party of at least two, so a lobby would staff a party the
+  script refuses to look at. A human party of two plays it with the row flag; no bot party is assembled.
+
+## Magatia PQ: the read that corrects my own verdict
+
+I said this was volume, not blockers. The read says otherwise, and the blocker is one line of stage 1.
+
+**The stage-1 blocker: twenty-six NPCs with one id.** `Map.wz/Map9/926110000.img.xml` holds **26 placements of NPC
+`2112013`** (`2112007` in the Z variant) and one reactor `d00`. Each placement rolls its own reward per instance
+(`scripts/npc/2112013.js:29-33`: `book = "stg1_b" + (cm.getNpcObjectId() % 26)`), consumes it when read (`:35-36`), and
+the one that rolls `3` sets `statusStg1 = 1` and hits `d00` (`:56-61`). A bot therefore has to read **each placement in
+turn** - and our engine cannot address one: `SolverStep.TalkNpc(int npcId, int itemId, int count)` resolves through
+`MapleMap.getNPCById` (`src/main/java/server/maps/MapleMap.java:2090-2101`), which returns the first NPC with that id, so
+every bot would re-read the same book for ever and the stage would never clear.
+
+The minimal seam, in this branch's own shape, is two additions and nothing else:
+
+- `StageView.npcPlacements(int npcId)` -> the placements' `(objectId, x, y)`, from `MapleMap.getMapObjects()` filtered on
+  `MapObjectType.NPC` (the same list `getNPCById` walks);
+- `SolverStep.TalkNpcAt(int objectId, int npcId)` -> a `TalkNpc` that resolves the NPC by object id.
+
+That is the fifth time this lane has needed "address the one the data means": reactors by id (`PlaceItemOn`), reactors by
+name (`HitReactorNamed`), map sets (`maps:`), portals (`portalsOn`) - and now NPC placements. Until it exists, the row
+cannot be built honestly, so no row was built.
+
+**Which script writes each property, and which reads it** (a `grep` of `scripts/`, not a guess; Magatia's portals are
+`jnr*` in the A variant and `rnj*` in Z):
+
+| Property | Written by | Read by |
+|---|---|---|
+| `statusStg1` | `scripts/npc/2112007.js:59` / `2112013.js:61` (the book that rolls a pass) | `scripts/portal/jnr1_pt00.js`, `rnj1_pt00.js` (the way forward) |
+| `statusStg2` | `scripts/event/MagatiaPQ_A.js:425` (`monsterKilled`, room empty) | `scripts/portal/jnr1_out.js`, `rnj1_out.js` |
+| `statusStg3` | `scripts/reactor/2618000.js` | `scripts/portal/jnr2_out.js`, `rnj2_out.js` |
+| `statusStg4` | `scripts/npc/2112005.js:83` / `2112006.js:83` (the leader's two files) | `2112005.js:63` (opens `jnr3_out3` once set) |
+| `statusStg5` | `scripts/portal/jnr4_r1..r4.js` / `rnj4_r1..r4.js` | the same four portals |
+| `statusStg6` | `scripts/portal/jnr5_rp.js` | itself, plus the combo `generateStg6Combo` writes (`MagatiaPQ_A.js:188-214`) |
+| `statusStg7` | `scripts/npc/2112000.js:110,122` / `2112010.js:108,118` (Yulete, twice) | the Yulete NPC's own menu |
+
+So the row is **portal-driven**, like Orbis: each stage's clear is a property a portal or an NPC writes and the *next
+portal* reads, which is `ScriptedPortal`/`EnterPortal` plus one `TalkNpc` or `HitReactor` per stage. The one stage whose
+chain I could not trace end to end from the portal scripts alone is stage 3 (`jnr2_out` and reactor `2618000`) - say
+"unclear" rather than guess: it needs `scripts/reactor/2618000.js` and `scripts/portal/jnr2_out.js` read together, which
+is the first hour of the build, not a design question.
+
+- **The four-player requirement is exact**, `minPlayers = 4, maxPlayers = 4` (`MagatiaPQ_A.js:27`), and the row must
+  refuse a party of three and a party of five. Our staging spawns `minPlayers`, so a Magatia lobby is the first row whose
+  party size is a single number - the same `KpqStaging` path, one `if`-free consequence of the row.
+- **The variant pair is `_A.js` and `_Z.js`, not `_A`/`_B`** - Zenumist's own ids (`926100*`), the same seven stages.
+  One row parameterised twice, or two rows; the scripts are 462 lines each and differ in map ids and NPC ids only.
+
+## CWKPQ: the job is a member fact, and it is one component wide
+
+`scripts/event/CWKPQ.js:98-135` plants a randomised set of job reactors, fakes included, and the party has to find the one
+that answers its own member's job. The question was whether carrying the job on `RunMember` is small.
+
+It is small. `RunMember` is `record RunMember(int characterId, boolean leader, boolean bot, MechanicsPersona persona)`
+(`src/main/java/soloMapling/mechanics/RunMember.java:7`) built at exactly one site, `MechanicsRuns.java:162`, from a real
+`Character` - and `Character.getJob()` already exists, because `EllinPQ.js:93` filters on it (`Math.floor(job/1000) == 0`).
+So `int job` is one component with a convenience constructor, filled where the member is built, read by a solver, and
+gated by nothing new. It does not need a jobs *model*: it is what the character already is.
+
+What it does not solve by itself, and why no CWKPQ stage was attempted in this commit: the reactor-name-to-job mapping is
+in the script's own table (`4skill0a`..`4fake1e`, `:98-135`) and the sign-up is a reactor **touch**, not a hit.
+
+**Click versus touch, and a correction to a defect this report was told about.** The asymmetry is real: `Reactor.hitReactor`
+runs `onHit`/`act` (`src/main/java/server/maps/Reactor.java:242-246`), while `touch`/`untouch` are dispatched only from a
+client packet (`src/main/java/net/server/channel/handlers/TouchReactorHandler.java:34-46` -> `ReactorScriptManager.touch`,
+`src/main/java/scripting/reactor/ReactorScriptManager.java:109-131`). `scripts/reactor/2408003.js:30-34` writes `summoned`
+inside `touch()`, so a bot click cannot set it.
+
+But **the shipped Horntail row does not wait on `summoned`**, so it does not hang in room 1:
+`content/horntail.yaml` stages 1 and 2 say "no summonProperty" in as many words, for exactly this reason, and the fight
+does not need a summon - `scripts/event/HorntailBattle.js:87-93` spawns 8810000 in room 1 at (960,120) and 8810001 in room
+2 at (-420,120) **at setup**. Touching 2408003 on top of that would spawn a *second* head, because its `touch()` spawns
+unconditionally, so the row is right to leave the reactor alone. This is also recorded as correction 1 in "Corrections to
+what this branch had already shipped", where the row used to name `summonProperty: summoned` and was fixed.
+
+The hole is therefore real but **has no consumer on this branch yet**: `SolverStep.TouchReactor` should land with its first
+real user (CWKPQ's Master Guardians), not before it, or it is a step nothing calls.
+
+## REVERSAL: EllinPQ is not unbuildable - the maps have content and the scripts have a clear
+
+This report first carried "ElnathPQ: unstartable (quest 6192 has no start path)" as a verdict. **That verdict was wrong**,
+and it is withdrawn here rather than left to survive into a status file. `930000500` and `930000600` are EllinPQ's stage 5
+and stage 6 - not empty maps with no script - and the event is fully scripted.
+
+- `scripts/event/EllinPQ.js` (255 lines): `minPlayers = 4, maxPlayers = 6` (`:27`), `minLevel = 44, maxLevel = 255`
+  (`:28`), `entryMap = 930000000` (`:29`), `exitMap = 930000800` (`:30`), `recruitMap = 300030100` (`:31`),
+  `minMapId/maxMapId = 930000000/930000800` (`:34-35`), `eventTime = 30` minutes (`:37`).
+- The job gate is one line, `:93` - `Math.floor(ch.getJob().getId() / 1000) == 0`, "only adventurers". That is a **party
+  formation filter**, not an engine gap: the row's `minLevel` band plus a job check where the party is recruited, or a
+  mixed party left to fail at the script's own `getEligibleParty` - which is what happens to any human party containing a
+  non-adventurer today. No job model is invented for it.
+- Front door `2133000` (`scripts/npc/2133000.js:51`), 930000500's reactors shuffled at setup (`:118-120`) - the memory
+  puzzle, which is placements of reactors we already address by id, not of NPCs. Its clears are: map-empty for stage 1 (`monsterKilled` `:246-250`), `statusStg4` for the
+foundry, and the Poison Golem `9300182`'s death for the whole event (`:236-241` -> `clearPQ`). `930000500` is the room
+whose reactors are shuffled at setup (`:118-120`) - the memory puzzle, which is a per-run placement like Magatia's books but
+of reactors, and reactors we *can* address by id.
+
+So the honest status is: EllinPQ is a buildable row. Its clears are the script's own - map-empty for stage 1
+(`monsterKilled`, `:246-250`) and the Poison Golem `9300182`'s death for the event (`:236-241` -> `clearPQ`) - and the one
+gate is adventurer-only jobs, which belongs in party formation. The verdict above is void, and nothing about EllinPQ needs
+a ticket saying it is impossible for humans either.
+
+## The fifth addressing seam: an NPC that stands in twenty-six places
+
+Magatia PQ's stage 1 is not a fetch and not a kill, and it is the first stage on the branch that cannot be driven by any
+existing step. `scripts/npc/2112013.js` (Alcadno's shelf; `2112007.js` is the Zenumist twin) is one NPC standing **26
+times** on `926110000`, and the script tells them apart by the click's object id:
+
+```
+var book = "stg1_b" + (cm.getNpcObjectId() % 26);   // :29-32, and the book that rolls the pass sets statusStg1 = 1 (:56-61)
+```
+
+`SolverStep.TalkNpc` resolves through `MapleMap.getNPCById` (`MapleMap.java:2090-2101`), which answers with the **first**
+standing, so a bot reads one book for ever; and `BotNpcTalk`'s stand-in `cm` was built with the three-argument
+`NPCConversationManager` constructor, which leaves `npcOid` at 0, so every bot talk would have read `stg1_b0` even with
+the right placement walked to. Both are fixed here, as the **fifth** seam of this shape (after reactors by id, reactors by
+name, declared map sets and portals):
+
+| Piece | Where | Why |
+| --- | --- | --- |
+| `StageView.NpcPlacement(objectId, x, y)` + `StageView.npcPlacements(int)` | `StageView.java` | every standing of an NPC on the stage map, in map order; `LiveStageView` builds it from `getMapObjectsInRange(NPC)` |
+| `SolverStep.TalkNpcAt(objectId, npcId)` + `StepExecutor.talkAt` | `SolverStep.java`, `StepExecutor.java` | walks to **that** standing and hands the script its object id |
+| `BotNpcTalk.talkAt(bot, npcId, objectId)` | `BotNpcTalk.java` | `BotCm` now uses the five-argument `NPCConversationManager` ctor (`NPCConversationManager.java:112`), the one that carries `npcOid` |
+| `MagatiaBooksSolver` (`magatia-books`) | `MagatiaBooksSolver.java` | reads the shelf one unread standing at a time, claims each book in `stageMemory()` so two members never read the same one, and past 26 books says so (`Abandon`) instead of looping |
+
+**This is a shipped-behaviour change, not only a seam.** Until this commit every bot NPC talk ran the script with the
+three-argument `NPCConversationManager` constructor, so `cm.getNpcObjectId()` answered **0** for every bot, everywhere.
+Any script keyed on the object id - Magatia's 26 books, and whatever else is keyed that way and has not been met yet - was
+reading the placeholder. The one-line reason: `npcOid` is only set by the five-argument constructor
+(`NPCConversationManager.java:112-118`), and `BotCm` was calling the three-argument one.
+
+- **Fail-before.** `noNumberOfTriesToTheFirstBookEverClearsThisShelf` reads the first standing 200 times and the shelf
+  never clears - which is the shipped behaviour of `TalkNpc` - then reads the same shelf one standing at a time and
+  clears on the seventh. `theShelfIsReadOneBookAtATimeAndOnlyTheSeventhClearsIt` pins the order (1000..1006, seven reads,
+  no repeats); `twoMembersNeverReadTheSameBook` pins the claim; `aShelfWithNoBooksLeftSaysSoInsteadOfLooping` pins the
+  bound.
+- **What is still missing for the row.** Stage 1 is driveable now; the row itself is not written, because Magatia is seven
+  stages and five of them are portal-driven with properties our scripts write and read across `jnr*` portals
+  (`statusStg2` -> `jnr1_out`, `statusStg3` -> `jnr2_out` from `reactor/2618000.js`, `statusStg4` from `2112005.js:83`,
+  `statusStg5` -> `jnr4_r1..r4`, `statusStg6` -> `jnr5_rp`, `statusStg7` -> `2112000.js:110`). Stage 3 (`jnr2_out` +
+  `2618000`) is **unclear** from a read alone and will be marked as such rather than guessed. A one-stage row would end
+  the run as "cleared" after stage 1 and tell a party the PQ was finished, so nothing is loaded until the set is whole.
+
+## A clear with no signal at all: `{ mapEmpty: true }`
+
+Until now a row could express exactly two clears: an event property (`{ eventProperty, equals }`) or the instance's own
+flag (`{ instance: true }`). Ellin PQ's first stage has neither - `scripts/portal/party6_stage.js:9-18` refuses the
+passage while `cm.getMap().getMonsters()` is non-empty, and the event writes no property anywhere - so a row for it could
+only have been written by guessing.
+
+`MechanicsModel.Clear` gained a fourth component (`mapEmpty`), a third YAML kind (`clear: { mapEmpty: true }`), and one
+line in `StageView.cleared()` (`liveMobs() == 0`). It is the tenth clear/address primitive of this shape.
+
+- **Fail-before.** `withoutTheNewKindThereIsNoClearToGiveIt` writes the same row with no `clear:` block and shows the
+  reader refuse it, with an error that now names `mapEmpty` among the three kinds - before this change the vocabulary had
+  no way to say it at all. `aRowWhoseStageClearsWhenTheMapIsEmptyAdvancesPastIt` reads `{ mapEmpty: true }` through the
+  real YAML reader and clears a three-monster room only when the monsters are gone;
+  `aMapEmptyStageIsNotClearedByAnInstanceFlagOrAProperty` shows the instance flag does not stand in for it.
+- **What it is not.** It is not "the stage is over when the party stops fighting": it asks the map, every tick, and a
+  re-spawn puts the stage back in play - which is exactly Ellin's first room, where the passage stays shut until the room
+  is empty.
+- **No row uses it yet.** Ellin PQ is the intended consumer and its row is not written (see the lane report), so this is
+  engine vocabulary with a fail-before and no product code path behind it. That is stated here rather than left to be
+  discovered.
+
+## Magatia PQ: six of the seven script stages driven, and the seventh is a walk-out
+
+`content/magatiapq.yaml` is the Alcadno variant (`eventScript: MagatiaPQ_A`), off `-Dslums.mechanics.magatiapq`, exactly
+four players, level 71-255, 45 minutes, front door Juliet `2112003` on `261000021`. Its six stages are the script's own
+first six, in order, each driven by a solver and each clearing on a signal the script actually writes; the seventh is a
+warp-out. The Zenumist twin (`MagatiaPQ_Z`, `92610xxx`, `rnj*` names, twins `9300139`/`9300140`) is the same shape with
+different ids and is not covered by this row.
+
+| # | Map | Rule | Written by | Solver |
+|---|---|---|---|---|
+| 1 | `926110001` | 26 standings of the bookshelf; the book that rolls 3 sets the pass | `2112013.js:29-32,56-61` | `magatia-books` |
+| 2 | `926110001` | the map has no monsters left | `MagatiaPQ_A.js:418-426` (`statusStg2`) | `fight-room` |
+| 3 | `926110200` | the beaker counts three hits, and only while its state is 6 | `2618000.js:27-41` (`statusStg3`) | `reactor-count` |
+| 4 | `926110200` + `926110201/202` | the leader hands over 4001134 **and** 4001135 | `2112005.js:72-87` (`statusStg4`) | `magatia-files` |
+| 5 | `926110300` + rooms `926110301-304` | the four rooms, and in each a ten-row climb whose column per row is the event's own `stage6_comb<room>` | `jnr4_r1..r4.js:3-15` (entry bits), `jnr5_rp.js:25-60` (`statusStg6 = 1` on row 9) | `magatia-climb` |
+| 6 | `926110401` | Yulete summons the Frankenroid when the leader talks, then it is one fight; either form's death calls `clearPQ` | `2112010.js:99-127` (talk → `9300151` for a party that did not escort, `9300152` for one that did, `statusStg7` = 1/2), `MagatiaPQ_A.js:435-450` (death → `clearPQ`) | `summoned-boss` |
+| 7 | `926110500` | **nothing to do**: `2112011.js:57` only warps to `926110600`, and the run has already ended `"cleared"` at stage 6 | `2112011.js:57` | none - deliberately not a stage |
+
+- **The stage that was held is now driven, because reading the exit beat reading the write.** `statusStg5` is a
+  four-bit "which rooms have we entered" mask that no script finishes, and an earlier version of this row cleared it on
+  `== "done"` - a value nothing can ever write. The authority is the portal out: `scripts/portal/jnr5_rp.js:25-60` takes
+  `pt<row><col>` from the portal's own name, reads or rolls the room's ten-digit `stage6_comb<room>`, and on row 9 sets
+  `statusStg6 = 1`. So the row's clear is `statusStg6 == "1"` and `magatia-climb` reads the combination the server
+  publishes, works out the row from the client's own portal heights (`ROW_Y`, ten values from
+  `Map.wz/Map9/926110301.img.xml`), and takes that portal with `ScriptedPortal` - the only step that runs a portal's side
+  effects for a bot.
+- **The boss room is a talk, then a fight, then the instance's flag - and `statusStg7` is not a clear.** Reading
+  `2112010.js:99-127` and `MagatiaPQ_A.js:435-450` together settles it: talking to Yulete **summons** the Frankenroid
+  (`9300151` if the party skipped the escort, `9300152` if it did it) and writes `statusStg7` as 1 or 2, while the clear
+  is `clearPQ()` on either form's death - so the row's clear is `{ instance: true }` and `summoned-boss` needs no phase
+  table. Talking again takes the `state == -1` branch, which only speaks, so a bot cannot stack bosses. Both forms are
+  ordinary mobs on the room's ground; `boss-phases`' role/add targeting buys nothing here, and inventing a two-phase
+  table for a mob with no parts would be exactly the kind of field that is written before it is read.
+- **Stage 7 is a walk-out, so the row stops at six.** `scripts/npc/2112011.js:57` warps to `926110600` and nothing else
+  happens there; the orchestrator has already ended the run `"cleared"` on stage 6's instance flag.
+- **Three stage rules became three generic solvers**, because each is "the script decides, the bot keeps the condition
+  true": `fight-room` (empty the room), `reactor-count` (hit until the row's counted clear is reached, reading the counter
+  from the event rather than assuming), `magatia-files` (both documents to the leader, then to the NPC with **no** item in
+  the step, because passing one id would make the leader hand a file over twice).
+- **The Zenumist twin is not covered.** `MagatiaPQ_Z` is byte-identical except for the `92610xxx` maps, the `rnj*`
+  reactor/portal names and the boss ids (`9300139`/`9300140` instead of `9300151`/`9300152`), so it needs its own row; a
+  row that claimed both would be wrong about every id it names.
+- **What is not tested here.** There is no simulation case for this row - seventeen maps, two side rooms and a
+  four-player fixed party make it the largest world `RowRunSimulationTest` would need, and the row's value is in its
+  stages' rules, which `MagatiaPqSolversTest` pins one by one. That gap is stated rather than papered over, and it is the
+  first thing to add when stage 5 is decided.
+
+## A clear that reads a reactor's state: `{ reactorState: { id, state } }`
+
+The third clear kind with no property behind it. Ellin PQ's second stage is over when the spine reactor `3009000` reaches
+state 4 and writes nothing; `Clear.ofReactorState(int,int)` + `StageView.cleared()`'s `reactorState(id) >= state` branch
+express it, `StageData` parses `reactorState: { id: N, state: M }` and names it in the no-clear error. `>=` rather than
+`==` because a reactor only advances, so a later state is still done - and an absent reactor answers `-1`, which can never
+look like a clear. `MapEmptyClearTest.aStageCanClearOnAReactorsStateInstead` is the fail-before (absent reactor, state 3,
+state 4, state 6). **No row uses it yet**; Ellin PQ's stage 2 is the intended consumer.
+
+## Ellin PQ: the marble rule moved, and the stage that needed a fifth clear kind
+
+Four things landed for Ellin, and the row is honest about the two stages it cannot drive.
+
+| Piece | What it is | Where |
+|---|---|---|
+| `server/life/MonsterCatch` | the purifier-marble rule, extracted from the packet handler so a bot and a player catch a Poison Flower under the same conditions (`POISON_FLOWER` below `(maxHp/10)*4`), instead of a second copy in the executor | `UseCatchItemHandler`'s `EPQ_PURIFICATION_MARBLE` case now calls it |
+| `SolverStep.UseItemOnMob(itemId, mobId)` | "try one now", nearest monster of that kind, one attempt per second per bot, logging `USE-ITEM`/`USE-ITEM-MISS` with the monster's HP | `StepExecutor.useItemOnMob` |
+| `{ reactorState: { id, state } }` | the clear for a stage whose finish line is a reactor, not a property or a flag | see the section above |
+| `ReactorStateSolver` (`reactor-state`) | presses the stage's reactor until the state the row's clear names | Ellin stage 2 |
+
+The row (`content/ellinpq.yaml`, `eventScript: EllinPQ`, front door `2133000`, recruit `300030100`, level 44-255, 4-6
+players, 30 minutes, `-Dslums.mechanics.ellinpq`) drives three of the seven script stages - empty the forest
+(`{ mapEmpty: true }`, `party6_stage.js:9-18`), open the spine (`{ reactorState: { id: 3009000, state: 4 } }`,
+`party6_stage.js:19-28`), and Ellin's first talk (`statusStg4 = 1`, `2133001.js:37-45`) - and **holds on the marble
+stage**, whose name says why: `2133001.js:93-94` takes the leader's twenty `4001169` and warps the team to `930000500`,
+so the stage's clear is a **warp**, and none of the four clear kinds (property, instance flag, empty map, reactor state)
+can see it. Stages 5-6 are behind it. The marble rule and the step are built and the row does not use them yet: the
+missing piece is a clear that can read "the party arrived on the next stage's map", and inventing one to make the row
+look complete is exactly what this report exists to avoid.
+
+The adventurer-only filter (`EllinPQ.js:93`) is recorded as a **party-formation fact**: `getEligibleParty` already
+refuses a mixed party at the door, and no job model was added.
+
+## What a difficulty variant would need from this engine
+
+Recorded as a finding for the difficulty/chaos plan, not as work: five places where a second variant of a row cannot be
+expressed today, each of which the plan has to decide rather than discover later.
+
+| # | Where it bites | Why a variant cannot be expressed | cite |
+|---|---|---|---|
+| 1 | `MechanicsModel.Content` is one row = one gate set | `minLevel`, `maxLevel`, `minPlayers`, `maxPlayers`, `timeLimitMinutes` are single ints on `Content`, so "the hard version is level 110+ and 6 players" means a **second row** with its own `eventScript` name and its own switch. That works for ROW data but not for a variant of the *same* script, because `MechanicsRuns.contentFor` keys rows by event script name - two rows cannot share one script | `src/main/java/soloMapling/mechanics/MechanicsModel.java:344-347`, `MechanicsRuns.java` (`contentFor`) |
+| 2 | `Stage` is single-valued | `mapId`, `timeLimitMinutes`, `mobs`, `killTarget`, `hitReactor` are one value each per stage; a chaos Zakum that summons a different body id or holds a different room has nowhere to put the second value. `tiers` exists on `Content` (`Map<Tier, TierRules>`) and is the closest thing, but it holds rules (damage floor, etc.), not stage identity | `src/main/java/soloMapling/mechanics/MechanicsModel.java:264-266` |
+| 3 | The clear signal is one `Clear` | a variant whose clear differs - a chaos boss that writes `defeatedChaosBoss`, a hard PQ whose property holds a different value - can only be another row, because `Clear` is a single record on the stage and `StageView.cleared()` reads exactly one of its five kinds | `src/main/java/soloMapling/mechanics/MechanicsModel.java:190-193`, `StageView.java:249-270` |
+| 4 | Boss ids live in Java in one place | `BossPhasesSolver.BODY_FAMILY = [8800000, 8800001, 8800002]` is a hardcoded Zakum body chain; a chaos Zakum's chain is a row fact and the solver cannot see it. This is the one place I would move to the row first (a `bodyChain:` on the stage) | `src/main/java/soloMapling/mechanics/BossPhasesSolver.java` (`BODY_FAMILY`) |
+| 5 | No reward split | rows can name items a party *fetches* (`items:`) and a clear, but nothing describes what a clear pays or how a variant scales it (EXP, drops, a chest). A chaos variant's reward table has no field to live in | `src/main/java/soloMapling/mechanics/MechanicsModel.java` (`ItemUse`, `Content` - no reward component) |
+
+**One more finding from the same source, for the boss lane rather than this one.** The Pre-Zakum farm stage is the same
+mechanism and **not** `KILL_FOR_ITEM`: `reactordrops` gives `4001015` at `chance 1` from `2112005` and `2112012`, and
+`4001018` from `2112014`, all present on the `2800100*` maps. A stage that farms there is `HitReactor` + `Loot`, and the
+row must be written that way if it is written at all. Unverified and left as a question: whether one Pre-Zakum reactor
+yields thirty hits' worth of `4001015` (it depends on that reactor's state count in `Reactor.wz`, which is not in this
+tree) - if it does not, the stage needs several reactors or a raised hit cap, and which of those it is cannot be
+decided from here.
+
+Where I could, I moved the number into the row instead of the solver while writing this: `EllinMarblesSolver` now reads
+the hand-in count from the row's `HAND_IN`, the item it hands over from that objective, the marble to spend from the other
+`COLLECT`, and the monster to spend it on from the stage's `mobs:` (the constants are fallbacks only) - so a variant that
+wanted forty marbles on a different flower is a `ellinpq.yaml` change, not a code change.
+
+## A clear with no signal at all 2: `{ partyOnMap: <mapId> }`
+
+The fifth kind, and the one Ellin PQ's marble stage needed. A stage that ends by **warping the team** writes nothing:
+`scripts/npc/2133001.js:93-94` takes the leader's twenty marbles and `warpEventTeam(930000500)`, and no event property
+changes hands. The row now says `clear: { partyOnMap: 930000500 }`; `StageView.cleared()` answers it when **every
+registered member** is on that map.
+
+"Every", not "any", is the whole design: a solver's `WarpTo` moves one member at a time, so "any" would let a stage clear
+halfway through its own hand-over. `PartyOnMapClearTest` (3) pins it - one member through the warp does not clear, a member
+still on the stage map holds it, every member there clears it, and an **empty** member list does not clear anything
+(nobody registered is not everybody arrived).
+
+## Ellin PQ: all six stages driven
+
+| Stage | Map | Rule | Clear |
+|---|---|---|---|
+| 1 | `930000100` | kill what is out | `{ mapEmpty: true }` (`party6_stage.js:9-18`) |
+| 2 | `930000200` | press the spine `3009000` to state 4 | `{ reactorState: { id: 3009000, state: 4 } }` |
+| 3 | `930000300` | the room empties, the leader talks | `statusStg4 == "1"` (`2133001.js:37-45`) |
+| 4 | `930000400` | `ellin-marbles`: talk once for ten `2270004`, throw them at `9300174`, loot `4001169`, hand twenty over | `{ partyOnMap: 930000500 }` |
+| 5 | `930000500` | `ellin-stone`: the leader hits reactor `3002001`, loots the one drop, shows it | `{ partyOnMap: 930000600 }` (`2133004.js:28-33`) |
+| 6 | `930000600` | `fight-room`; the Poison Golem `9300182` is the PQ's end | `{ instance: true }` (`EllinPQ.js:239-241`) |
+
+- **Stage 4 is real, not a hold.** `EllinMarblesSolver` (`ellin-marbles`) is the marble loop: the leader's first talk is
+  what hands out the ten marbles (`2133001.js:47-60`), `UseItemOnMob(2270004, 9300174)` spends them (the rule lives once,
+  in `server/life/MonsterCatch.usePurifierMarble`), `Loot(4001169)` picks up what the flowers leave, and at twenty the
+  leader talks with the count - which warps the team and clears the stage by arrival.
+- **Stage 5 was held and is now driven - the hold was the wrong call and the data is why.** I had concluded from
+  `scripts/` alone that `930000500` had no server-side rule. It has one, and it is not in `scripts/`: the map holds NPC
+  `2133004`, one `3002001` reactor and eight `3002002` decorations, and the **stock `reactordrops` table has exactly one
+  row** for those ids - `reactorid 3002001 -> itemid 4001163, chance 1, questid -1`, with nothing at all for `3002002`.
+  `chance` is a denominator (`ReactorActionManager.java:241`, `Math.random() < dropRate / (double) chance`, and
+  `Character.dropRate` is 1), so chance 1 is a guaranteed drop, and `scripts/reactor/3002001.js`'s four lines are
+  `showClearEffect` + `rm.dropItems()`. `EllinStoneSolver` (`ellin-stone`) is therefore: leader hits `3002001` -> loots
+  `4001163` -> shows it to `2133004`, which warps the team to `930000600` (`2133004.js:28-33`) - the `partyOnMap` clear
+  this report already had. The eight `3002002`s never need touching, so the executor resolving one reactor per step is not
+  a limit here. **The lesson is worth more than the stage: a PQ's drop rule can live entirely in the database**, and a
+  `scripts/`-only read cannot see it. Only the leader loots, deliberately: it is one drop on the floor and the NPC refuses
+  anyone who is not the event leader.
+- **Stage 6 is the last stage, and it ends the PQ, not the room.** `930000600` holds the Poison Golem `9300182`;
+  `EllinPQ.js:236-241` calls `clearPQ()` on its death, so the clear is `{ instance: true }` - no `partyOnMap` second kind
+  is needed, and the row ends there (stage 7, `930000700`, is the post-clear room and is not a stage).
+- **Zenumist stays uncovered**, and it is the same class of answer: the script that would advance it is missing a counter.
+
+## CWKPQ: the stage map, read to the end, and the one thing that stops a row tonight
+
+Gates, from `scripts/event/CWKPQ.js:26-39`: `isPq`, **6-30 players**, level **90-255**, `entryMap 610030100`,
+`recruitMap`/`exitMap`/`clearMap 610030020`, `eventTime 2` minutes for the first stage, `maxLobbies 1`. Every stage flag is
+seeded `"0"` at setup (`:150-172`).
+
+| Stage | Flag | What raises it | Step kind |
+|---|---|---|---|
+| 1 (way in) | `glpq1` | `scripts/portal/glpqPortalDummy.js:8` after reactor `mob0`'s state is >= 1 | portal script + a reactor read |
+| 2 | `glpq2` | reactors `6109003`/`6109004` `act()` to five (`6109003.js:8-15`) | **hit** (`HitReactor(6109003)`) |
+| 3 | `glpq3` + `glpq3_p` | the same reactors' second counter, **plus** `glpqPortal2.js:7-19` counting party members through the door, five each | hit **and** a per-member portal pass |
+| 4 | `glpq4` | sigils `6109016`..`6109020` `act()` to five (`6109016.js:1-11` and twins) | **hit** |
+| 5 | `glpq5` | reactors `6109005`..`6109009` `act()` to five | **hit** |
+| 6 | `glpq6` + flames | `6109021`+ answer to **`touch()`**, each with its own `glpq_fN` | **touch** |
+| boss | the script's own clear | `boss-phases` on `610030800` | hit |
+
+**Why no row tonight, stated plainly:** it is a six-stage build across three distinct mechanics, and every stage's exit is
+a *portal script* that reads the flag (`glpqPortal0..5.js`), not a warp our orchestrator can take. The randomness the
+owner was worried about turned out **not** to be the blocker - the sigils and the five-count reactors are addressed by
+id, so `HitReactor(6109016)` reaches them whatever the shuffle did, and only the flames need a name. The blocker is
+scope: three solvers (sigil hit, party-passage counter, flame touch), six stages, and a portal-progression gate like
+Magatia's, against a branch that is being merged. Shipping stage 1 alone would end the run `"cleared"` at its last
+playable stage, which is the lie this report keeps refusing to tell.
+
+**What is deterministic, for the record:** the five sigil ids and the five `6109005..6109009` ids are fixed in the
+scripts, the counters are event properties, and `6109016.js:1-11` needs no job check at all - it increments `glpq4`
+whatever member hits it, so `RunMember.jobId` is *not* needed for stage 4 even though it is now carried. The job is only
+needed if a future stage wants to place members by class.
+
+## CWKPQ: why the row is still not written, in two facts
+
+Both step kinds are needed on the same map, and that is the whole shape of the remaining work:
+
+| Reactors | What fires them | What they count |
+|---|---|---|
+| `6109016`..`6109020` (the five sigils) | **`act()`** - a hit, so `HitReactor(<id>)` already reaches them | `glpq4` + 1 each, and five shows the `4pt` clear effect (`6109016.js:1-11` and its four twins) |
+| `6109021`..`6109027`+ (the flames) | **`touch()`** - only from a client packet, which is why `TouchReactor` had to exist | their own `glpq_fN` flags, read by the boss room's rules |
+
+So CWKPQ's stages mix hit-addressed and touch-addressed reactors, on maps whose reactors are further shuffled and
+re-named per run by `CWKPQ.js:98-135`. Writing it stage by stage is a real build (the flame stage alone reads
+`6109021`..`6109027` plus whatever consumes `glpq_f0..f7`), which is why the engine pieces shipped ahead of the row rather
+than a half-row shipped with them. `HitReactor(id)` covers the sigils today; `TouchReactor(id)`/`TouchReactorNamed(name)`
+cover the flames.
+
+## CWKPQ, first half: the job is carried and the touch has a step
+
+Two of the three pieces are in; the sign-up row is not.
+
+| Piece | What it is | Where |
+|---|---|---|
+| `RunMember.jobId` + `jobClass()` + `hasJob()` | the member's job id, carried from the real `Character` at its one construction site (`MechanicsRuns.java:162`, `c.getJob().getId()`), never inferred from a persona. `jobClass()` is the first digit of the id - `jobId / 100`, not `/ 1000`, because Maple job ids are three digits (`110` is a Fighter) | `RunMemberJobTest` 2 |
+| `SolverStep.TouchReactor(int)` | the `touch` callback, which is dispatched **only** from `TouchReactorHandler.java:34-46` and which `HitReactor` cannot reach (`hitReactor` runs `onHit`/`act`) | `StepExecutor.touchReactor` calls `ReactorScriptManager.touch(client, reactor)`, one touch a second per bot |
+
+A **name-addressed touch** also landed (below) - `4skill<jobClass><slot>` carries its own answer, so no accessor is
+needed to list reactors: `StageView.reactorState(name)` answers `-1` for a name the map does not hold, which is enough to
+probe `4skill<j>a`..`4skill<j>e`.
+
+What the sign-up row still needs, and it is one chain of reads, not a design:
+
+- `scripts/portal/glpqPortalDummy.js:1-20` is what actually sets `glpq1 = 1`, and it does so from **`mob0`'s reactor
+  state** (`if (react.getState() < 1) { forceHitReactor(1); ... glpq1 = 1; warp(610030100) }`), not from the job reactors
+  directly. So the chain is: eight `4skill*`/`4fake*` touches on `610030400` → whatever arms `mob0` → the dummy portal.
+  `glpqPortal0.js:1-11` then gates the way to `610030200` on `glpq1`. The next hand must read what arms `mob0` before
+  writing a stage, because a solver that touches job reactors and then expects `glpq1` would stall on a portal it never
+  walks into.
+
+The sign-up's own reactor set is now pinned too: the eight deployed job reactors are the `6109016`-family, whose `act()`
+increments `glpq4` and shows the `4pt` clear effect at five (`scripts/reactor/6109016.js:1-11`), so the map's exit is a
+five-sigil count rather than a single sign-up. `scripts/portal/glpqPortalDummy.js` never touches `mob0` from any script
+(`mob0` appears in exactly one file in `scripts/`), which is why the row is not written on a guess.
+
+What the sign-up row still needs, beyond that chain:
+
+1. A **name-addressed touch** (`TouchReactorNamed(String)`, the twin of `HitReactorNamed`) or a
+   `StageView.reactorNames(int)` accessor, because CWKPQ chooses its reactors by **name**: `CWKPQ.js:98-135` deploys eight
+   groups of `4skill<jobClass><slot>` / `4fake*` onto `610030400`, one per group, retrying until all six job values are
+   present, then `shuffleReactors` moves them. The name carries the answer (`4skill2d` is the magician's), which is why
+   nothing has to be guessed - but the engine cannot currently list or address a reactor by name for a touch.
+2. The row itself: stage 1 on `610030400`, solver `cwkpq-signup`, one member per job class from 1 to 4 (and 5 if the party
+   has a pirate), fakes in the never-target set, clear on the event's `glpq1` (`CWKPQ.js:150-160` seeds every `glpqN` to
+   `"0"`; the sign-up sets `glpq1 = 1`).
+
+## CWKPQ ships: four rooms, and the flames that say why they are not one
+
+`content/cwkpq.yaml` is a row now (`flag: slums.mechanics.cwkpq`, 6-30 players, level 90-255, 20 minutes, front door
+`9201113` on the recruit map `610030020` - `scripts/npc/9201113.js:44` is the only script that starts the event).
+
+| # | map | room | solver | clear |
+|---|---|---|---|---|
+| 1 | `610030400` | the five job sigils | `cwkpq-sigils` | `glpq4 == "5"` (`6109016.js:5-12`) |
+| 2 | `610030300` | the door that counts five | `cwkpq-door` | `glpq3_p == "5"`, the exit's own condition (`glpqPortal3.js:4`) |
+| 3 | `610030500` | the Relic of Mastery | `cwkpq-sigils` (same class, the row names its five reactors) | `glpq5 == "5"` (`6109005.js:6-12`, `glpqPortal5.js:4`) |
+| 4 | `610030800` | the host, the Guardians and the four Twisted Masters | `cwkpq-boss` | `{ instance: true }`, reached only through `glpq6 == 3` (`9201115.js:80-91`) |
+
+Two solvers, not four, because the two counted rooms are the same shape: a list of reactors, a counter the scripts raise
+on `act()`, and a clear the row names. `CwkpqSigilSolver` reads its reactors from the stage's own `HIT_REACTOR`
+objectives, so stage 3 is a yaml entry rather than a second class, and its overshoot guard reads the counter the
+<b>row's</b> clear names - which is the real bug in this PQ family: `6109016.js:5` and `6109005.js:6` are both
+unguarded, so a sixth hit leaves the counter at 6 and a `== 5` clear can never match again.
+
+`CwkpqDoorSolver` is the one place the party has to take turns: `glpqPortal2.js:3-19` counts each passer into
+`glpq3_p` <b>and warps him back onto the same map</b>, so "one at a time" is not a schedule the solver imposes - it
+counts passes, and a member could pass twice. The two reactors of that room (`6109003`/`6109004`) raise `glpq3`, the
+other half of the exit's condition, so the solver works them first and only then sends anyone through the door; at five
+it waits, because `glpqPortal2.js:15` refuses a sixth pass.
+
+`CwkpqBossSolver` is `Converse(9201115, [0, 0])` between fights, three times over: `glpq6` 0 -> 1 spawns ten 9400594
+and twenty 9400582, 1 -> 2 spawns the four Twisted Masters (9400590 Margana, 9400591 Red Nirg, 9400592 Rellik,
+9400593 Hsalf), and 2 -> 3 is the host calling `clearPQ()`. The masters are **not** a tier of their own: the spawner
+decides when they exist, so the solver fights whatever is out and then asks again.
+
+**The flames are the one room this row does not model, and the reason is a line, not an opinion.** The eight flame
+reactors `6109021`..`6109027` answer `touch()` and each counts its own `glpq_fN` (`6109021.js:9-13`), but a sweep of
+every reader of `glpq_f` in `scripts/` finds **only the event's own seeds** (`CWKPQ.js:165-172`) - nothing checks them,
+no portal gates on them, and the map's `610030600` exit is `glpqPortal6`, which gates on `glpq6` alone
+(`glpqPortal6.js:4`). A stage with no writable clear cannot be a row stage, so the row does not claim one; if the keep
+ever starts reading those flags, the room is one `TouchReactorNamed` stage away.
+
+## CWKPQ: the map data the row needs, read
+
+`Map.wz` is not in this tree, so the names came from the read-only dump at
+`/root/work/SlumsMS-152-maps/wz/Map.wz/Map/Map6/` (identical file in `/root/slums-nav-v70/wz`):
+
+| map | portal names | script | reactors and their names |
+|---|---|---|---|
+| `610030300` | `next00` at (215,-1107), `next01` at (-441,1535), both `pt 8` | `glpqPortal2`, `glpqPortal3` | five, unnamed |
+| `610030500` | `next00` at (1187,93); `in01`..`in05` | `glpqPortal5`, `glpqPortal00`..`04` | `5weapon0`..`5weapon4` |
+| `610030600` | `next00` at (1809,274); seven `sp`; six `h##_#` rope portals | `glpqPortal6` | `mob1` |
+
+Two consequences. Every CWKPQ exit is named **`next00`**, so no stage of this row needs a WZ-derived portal name in the
+row: `nextPortal: next00` is true on all three of these maps. And the Relic room's five reactors are named
+`5weapon0`..`5weapon4`, so `cwkpq-sigils` could address that room by name too - it addresses by id because the row's
+`HIT_REACTOR` objectives carry the ids and the shuffle cannot change them.
+
+## The reload flake: one hypothesis tested and falsified
+
+`BotConversationFlowTest` fails only inside a whole-suite run (`/tmp/opq-cwkpq3.log` one failure,
+`/tmp/opq-cwkpq4.log` two) and passes 22/22 alone. The obvious suspect is its `private static int nextPlayer = 2001`,
+whose comment says "sessions are static: every test talks to a fresh pair" - so the first thing tried was resetting it
+to 2001 in the class's own `@BeforeEach`. That made it **worse**: 13 of 22 failed, because the ids are static keys
+into static session maps and reusing them collides with the sessions an earlier test left behind. The hypothesis is
+therefore falsified and the reset is reverted, not shipped. What is established: the dependence is on state another
+test leaves, not on this class's own counter; the class is green alone and green in the exclusion run.
+
+## CWKPQ verdict: no missing primitive, so the keep is a build and not a wall
+
+The earlier line in this report - "every exit a portal script reading the flag rather than a warp the orchestrator can
+take" - was wrong, and it was wrong three times over. Checked in the order the owner asked, with the quotes:
+
+1. **Is there a step that sends a bot through a portal, and does it run the portal's script?** Yes, two, and the
+   distinction is the whole answer. `SolverStep.EnterPortal(String portalName)` (`SolverStep.java:201`) is dispatched at
+   `StepExecutor.java:157` to `enterPortal` (`:1140-1165`), which resolves `map.getPortal(name)`, walks to it within
+   20 px x / 60 px y, rate-limits 1.5 s and calls `GCMovement.enterPortal(bot, portal)` - logging
+   `"portal X on N is still shut"` when it refuses. That refusal is `PqGates.open` inside `GCPortals.enter`: a
+   **scripted** door with side effects stays shut for a bot's plain crossing. The step that runs the script is
+   `SolverStep.ScriptedPortal(String)` (`SolverStep.java:190-199`), dispatched at `StepExecutor.java:158` to
+   `scriptedPortal`, which goes through `scripting.portal.PortalScriptManager.runPortalScript` - the entry point
+   `KpqStaging.java:242` already uses. CWKPQ's exits are all scripts, so `ScriptedPortal` is the step, and it exists.
+2. **Does `clear.eventProperty` accept a string?** It compares strings: `StageView.java:272-273` is
+   `value.map(v -> v.trim().equals(clear.equals()))`. A YAML `equals: 5` is read as the string `"5"`, which is exactly
+   what `scripts/reactor/6109016.js:5` writes with `setIntProperty`.
+3. **What does the door out of `610030400` need?** `scripts/portal/glpqPortal4.js:4` gates on `glpq4` being at least
+   five. No member count, no door counter, and `mob0`/`glpq1` is the door off `610030100`, not this one. Five hits on five
+   sigils is the whole requirement.
+
+So the keep's first stage is a row stage today, and `CwkpqSigilSolversTest` drives it: a mini row parses with
+`clear: { eventProperty: glpq4, equals: 5 }`, five members take the five sigils (`CwkpqSigilSolver.SIGILS`,
+`6109016`..`6109020`, assigned round robin over the party's own sorted ids), the fourth hit does not clear it, the fifth
+does, and a lit room never hits again - `6109016.js:5` is **unguarded**, so a sixth hit leaves `glpq4` at 6 where
+`== 5` could never match, which is why the solver waits once the counter is lit. `CwkpqSigilSolver` (`cwkpq-sigils`) is
+registered in `Orchestrator.allSolvers()`.
+
+What that does **not** buy is a `content/cwkpq.yaml`, and the reason is arithmetic rather than a gap: a row's last
+playable stage ends the run `"cleared"`, so a one-stage row would announce a finished CWKPQ after the sign-up. The
+remaining work is three solvers, not one primitive - a door-throughput stage (`glpq3`/`glpq3_p` count five members
+through `glpqPortal2`), the five-reactor `glpq5` room, and the flames `6109021`+ which answer `touch()` and need
+`TouchReactorNamed` - plus the boss on `610030800` as ordinary `boss-phases` work. That is a build session, and this
+report's own rule (no stage claimed that is not driven) is why the row does not ship tonight with one stage in it.
+
+## Ellin PQ and CWKPQ: what each still needs, costed rather than guessed
+
+Neither is written. Both are fully read, and the pieces are named so the next hand does not have to re-derive them.
+
+**Ellin PQ** (`scripts/event/EllinPQ.js`, 4-6 players `:27`, level 44-255 `:28`, 30 minutes `:37`, front door `2133000`,
+adventurer-only at `:93` as a party-formation fact, door step `930000000`, stages `930000100`..`930000700`, clear at
+`930000800`). Two primitives it needs, both general:
+
+| Primitive | Why | Shape |
+|---|---|---|
+| a clear that reads a **reactor's state** | stage 2's pond reactor `3002000` and spine `3009000` at state 4, with no event property involved | `clear: { reactorState: { id: 3009000, state: 4 } }` - `StageView.reactorState(int)` already exists and is in use by Henesys PQ and `magatia-climb` |
+| a step that **uses an item on a mob** | `UseItem(2270004)` on `9300174`, twenty times, to make `4001169` | `SolverStep.UseItemOnMob(int itemId, int mobId)`, executed as the client's own use-item packet against the mob (`InventoryHandler`-side path), with the drop arriving through the normal `Fight`/`Loot` flow |
+
+Then the row: stages 1-4 driven (`mapEmpty` for the first room - `clear: { mapEmpty: true }`, and Ellin is now its only
+intended consumer -,
+`reactorState` for the pond, `fight-room`/`Loot` for the rest), stage 5 (`930000500`, shuffled reactors) held with the
+reason named, stage 6 the Poison Golem `9300182` clearing on the instance's flag (`:230-241`).
+
+**CWKPQ** (`scripts/event/CWKPQ.js`, four sign-up reactors and their job map `:98-135`). Two pieces, as agreed: the
+**touch step** (`SolverStep.TouchReactor(int)`, because `touch`/`untouch` are dispatched only from
+`TouchReactorHandler.java:34-46`) and **`RunMember.job`** (one component, one construction site,
+`MechanicsRuns.java:162`, carried from the real `Character`, never inferred from persona). They must land together: the
+touch step's first real consumer is the sign-up, and the job is what decides which reactor a member belongs at.
+
 ## Expedition rule: pause for revive (this is the report it lives in)
 
 The boss report is on `164-bossfight`, a different branch, so this one carries the rule. It is the answer to the lane
@@ -410,6 +1063,13 @@ holds the staging's refusals, both green with the row-driven `start(Content, ...
   box whose drop row is missing costs a minute, not the run.
 - `MobHitboxIndex`-style geometry is untouched: the solvers only move to points the data gives them, so a stage whose
   anchor is wrong will stall visibly (`Wait` notes) rather than teleport.
+- **Pirate PQ's keys and medals come out of the SQL drop tables.** `4001117` and the three medals are the instance's
+  exclusives, so they drop from `9300114`/`9300115`/`9300116`/the deck's monsters through `mobdrops` - a row there is
+  invisible to every test in this branch. A missing row costs the run a `Wait` note naming the item, not a wrong clear.
+- **Pirate PQ's row says 40 minutes; the script says four, restarted per stage.** `PiratePQ.js:39` is `eventTime = 4`,
+  and `changedMapInside` (`:241-268`) restarts it at six minutes on each of the four middle maps and eight on the boss.
+  The row's number is the whole-run budget `Orchestrator.budgetFor` uses, so it has to be the sum, not the script's
+  first value; a stage that stalls still ends by the script's own timer, not ours.
 - **The lobby has never been observed in game.** `ContentLobbyTest` pins its gate, its rows and its back-off, and
   `KpqStaging` is the same code Kerning has used since 1.6.1, but nobody has watched five bots spawn at Wonky on
   `200080101`, form a party and walk into the tower. The first TEST deploy with the three flags is the evidence that is
@@ -437,35 +1097,46 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8541 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-cafe.log`, exit 0 - Cafe PQ's own commit; `CafePqSolversTest` 7 and two simulation cases, one of
-them the fail-before that shuts an area's monsters and floor down). Before it: **8532 tests, 0 failures, 0 errors, 137
-skipped, BUILD SUCCESS** (`/tmp/opq-instance2.log`, exit 0 - the instance-clear commit; `InstanceClearTest` 3 and the
-fail-before pair run against the old `cleared()` first, where two of them failed). Before it: **8529 tests, 0 failures, 0 errors, 137
-skipped, BUILD SUCCESS** (`/tmp/opq-hpq.log`, exit 0 - Henesys PQ's own commit; `HpqSolversTest` 11 and three simulation
-cases, one of which is the double-activation trap). Before it, on the Ludi-only head: **8515 tests, 0 failures, 0 errors, 137 skipped,
-BUILD SUCCESS** (`/tmp/opq-lpq.log`, exit 0; `LpqSolversTest` 12, two more simulation cases, and the shared row/data
-tests that walk every content file). Before it, on the Orbis-only tree: **8499 tests, 0 failures, 0
-errors, 137 skipped, BUILD SUCCESS** (`/tmp/opq-lobby-final.log`, exit 0; the lobby's tests then became `ContentLobbyTest`, 8 of them, in the same range). That is the number to compare against the rest of the release - 8455 before this
-branch's tests, 8461 after its first commit (`OpqSolversTest` 14, `OrbisPqLobbyStageTest` 4,
-`OrbisSealedRoomAreaTest` 2), 8479 once the lobby, the sealed room and the finale were added (`OpqSolversTest` 32), 8486
-with the whole-row simulation (`RowRunSimulationTest` 7), 8491 with the revive pause (`RevivePauseTest` 5), 8493 once
-the corrections above added their two phase tests (`BossPhasesSolverTest` 15, `HorntailPhasesTest` 9), and 8499 with the
-lobby (`ContentLobbyTest` 8, after the Orbis-shaped `OpqLobby` was generalised to every row).
+`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8605 tests, 0 failures, 0 errors, 137 skipped,
+BUILD SUCCESS** (`/tmp/opq-full.log`, exit 0). That is the number this report treats as the suite's proof.
 
-Two `mvn` runs in this lane died mid-flight and neither was a test failure: one because a `bash` call is auto-backgrounded
-and killed at 60 s (a whole-suite run needs ~27 minutes and `async: true, timeout: 0`), and one because the tree was
-edited while surefire was discovering tests (`TestEngine with ID 'junit-jupiter' failed to discover tests`). Freeze the
-tree for the whole run.
+The ladder, so the next number is comparable: 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
+one class) -> 8597 (`/tmp/opq-ellin4.log`, Ellin six of six) -> 8592 (`/tmp/opq-cwkpq2.log`) -> 8590 -> 8586 -> 8585 ->
+8582 -> 8577 -> 8573 -> 8567 -> 8562 -> 8552 -> 8541 -> 8532 -> 8529 -> 8515.
 
-One run of the suite (the instance-clear one, `/tmp/opq-instance.log`) reported one failure that is not this lane's and
-not a regression: `BotConversationFlowTest.aRefusedPartyAskIsPlannedFromTheGatesVerdict` failed on
-`assertTrue(system.contains("Say no to the party"))` - the conversation planner's prompt - and passes alone (22/22 each
-time), then passed in the whole suite on the next run. It is an order-dependent test in the conversation lane; this
-commit touches no conversation code. Recorded rather than re-run into silence.
+**The `BotConversationFlowTest` flake is still open, with three hypotheses tested.** It failed in two earlier full runs
+(`/tmp/opq-cwkpq3.log` 8593/1, `/tmp/opq-cwkpq4.log` two before a SIGTERM) and passes 22/22 alone.
 
-Earlier in the branch the same command found one real breakage, and it is fixed: `MechanicsDataFilesTest
-.theContentRowsLoadFromTheJarWithNoSourceTree` pins the exact list of content rows and had to learn `opq` (then `lpq`,
-then `hpq`). The Henesys PQ run also found a real defect before it ever shipped, in simulation rather than in game: three
-members holding the same seed dropped on the same bed inside the server's activation window and the instance's `stage`
-read `18` instead of `6` - see the Henesys PQ section's claim rule.
+1. *Its own static id counter leaked.* Resetting `private static int nextPlayer = 2001` in the class's `@BeforeEach`
+   made it worse - 13 of 22 failed - because those ids key static session maps and reusing them collides with sessions an
+   earlier test in the same class left behind. Falsified, reverted.
+2. *Another test class leaves static state behind.* Impossible as stated: `pom.xml:252-255` is `forkCount 1` with
+   `reuseForks false`, so every test class gets its own JVM. Confirmed empirically: `soloMapling.ArtificialPlayer.*Test`
+   on its own is **694 tests, 0 failures, 8 skipped** (`/tmp/opq-bisect1.log`).
+3. What is left is timing inside the class: it drives replies through `CompletableFuture` with
+   `solomapling.chat.typingScale=0.01` and asserts on what a session said, so a full-suite run (many forked JVMs, a loaded
+   machine) can read the session before the reply lands. The fix is to await the futures the test already controls rather
+   than to sleep or retry - not done, and the reason the number above is reported with the caveat rather than as "the
+   flake is fixed".
+
+`tools/ops/map-integrity --wz /root/work/SlumsMS-152-maps/wz --map 610030300,610030400,610030500,610030600,610030800`
+reports the keep's five maps clean except one **pre-existing** client-data defect that this row does not touch:
+`610030800 out00` points at `610030010`'s portal `in00`, which does not exist.
+
+## The Zenumist twin is not buildable: its stage-3 counter is never written
+
+The twin looked like a copy with different ids, and the ids do differ as expected (`MagatiaPQ_Z.js:25-31,37`: entry
+`926100000`, exit `926100700`, recruit `261000011`, 4 players, level 71-255, 45 minutes; front door
+`2112004`; books `2112007` keyed on `cm.getNpcObjectId() % 26`; files to `2112006`; Yulete `2112000` summoning
+`9300139`/`9300140` and writing `statusStg7` 1/2). One id is not different, it is **missing**:
+
+- `scripts/portal/rnj2_out.js:2` refuses the way on until `getIntProperty("statusStg3") == 3`.
+- `scripts/reactor/2619000.js:27-31` - the Zenumist crystal that stands where the Alcadno beaker stands - has
+  `function hit() { rm.dropItems(); }` and an `act()` whose whole body is a comment. It never touches the counter.
+- A sweep of every `statusStg3` writer in `scripts/` finds exactly one that raises it: `2618000.js:32`, the Alcadno
+  beaker. The other hits are the `-1`/`0` seeds and two unrelated events (Orbis, Amoria, Ludi).
+
+So stage 3 of the Zenumist PQ cannot be passed **by a player either** - it is a defect in the Z scripts, not a gap in this
+engine, and the row is not written. The costed copy (`magatiapqz`, `92610xxx` band, the same six solvers) is one small
+change away the day `2619000.js` counts the way `2618000.js` does; writing it now would ship a row that stalls at stage 3
+with a "held" note that blames our engine for the script's missing line.

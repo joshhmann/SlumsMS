@@ -47,6 +47,12 @@ final class StepExecutor {
     /** How many drops one bot gives a single item reactor before it says the bed will not take it. */
     static final int PLACE_ON_TRIES = 3;
 
+    /** How often one bot may try a use-item on a monster (Ellin PQ's marble): the rule is HP-gated, so a spray is noise. */
+    static final long USE_ON_MOB_GAP_MS = 1_000;
+
+    /** How often one bot may touch a reactor. */
+    static final long TOUCH_GAP_MS = 1_000;
+
     private final Map<Integer, Beat> beats = new ConcurrentHashMap<>();
 
     /**
@@ -102,6 +108,8 @@ final class StepExecutor {
         long lastPlaceMs;
         /** When this bot last dropped onto an item reactor, and how often it has dropped on each reactor id. */
         long lastPlaceOnMs;
+        long lastUseOnMobMs;
+        long lastTouchMs;
         final java.util.Map<Integer, Integer> placeOnTries = new java.util.HashMap<>();
         boolean stallTold;
         int stallGain;
@@ -121,9 +129,13 @@ final class StepExecutor {
             case SolverStep.Loot l -> loot(view, bot, beat, l.itemId(), now);
             case SolverStep.TakeBack t -> takeBack(view, bot, beat, t, now, log);
             case SolverStep.TalkNpc t -> talk(run, orchestrator, view, bot, beat, t, now, log);
+            case SolverStep.TalkNpcAt t -> talkAt(run, orchestrator, view, bot, beat, t, now, log);
             case SolverStep.DropFor d -> dropFor(view, bot, beat, d, now, log);
             case SolverStep.Say s -> say(view, bot, beat, s.line(), now);
             case SolverStep.HitReactor h -> hitReactor(bot, beat, h, now, log);
+            case SolverStep.UseItemOnMob u -> useItemOnMob(bot, beat, u, now, log);
+            case SolverStep.TouchReactor t -> touchReactor(bot, beat, t.reactorId(), null, now, log);
+            case SolverStep.TouchReactorNamed tn -> touchReactor(bot, beat, 0, tn.reactorName(), now, log);
             case SolverStep.HitReactorNamed h -> {
                 MapleMap named = bot.getMap();
                 server.maps.Reactor r = named == null || h.reactorName() == null
@@ -534,6 +546,58 @@ final class StepExecutor {
         });
     }
 
+    /**
+     * One standing of an NPC, addressed by object id. The walk target is <b>that</b> placement's position, not the first
+     * one {@code getNPCById} happens to return, and the script is handed the object id so {@code cm.getNpcObjectId()}
+     * answers with the one the row meant.
+     */
+    private void talkAt(RunState run, Orchestrator orchestrator, LiveStageView view, Character bot, Beat beat,
+                        SolverStep.TalkNpcAt t, long now, Consumer<String> log) {
+        int[] npc = null;
+        for (StageView.NpcPlacement p : view.npcPlacements(t.npcId())) {
+            if (p.objectId() == t.objectId()) {
+                npc = new int[]{p.x(), p.y()};
+                break;
+            }
+        }
+        if (npc == null) {
+            if (now - beat.lastTalkMs > 10_000) {
+                beat.lastTalkMs = now;
+                log.accept(bot.getName() + ": no placement " + t.objectId() + " of NPC " + t.npcId()
+                        + " on map " + bot.getMapId());
+            }
+            return;
+        }
+        Point at = bot.getPosition();
+        if (Math.abs(npc[0] - at.x) > NPC_REACH_X || Math.abs(npc[1] - at.y) > NPC_REACH_Y) {
+            int side = at.x < npc[0] ? -1 : 1;
+            moveNear(bot, beat, npc[0] + side * (NPC_REACH_X / 2), npc[1], NPC_REACH_X / 3, now);
+            return;
+        }
+        if (beat.talking || now - beat.lastTalkMs < TALK_GAP_MS) {
+            return;
+        }
+        beat.lastTalkMs = now;
+        beat.talking = true;
+        int npcId = t.npcId();
+        int objectId = t.objectId();
+        ExecutorServiceManager.getExecutorService().execute(() -> {
+            try {
+                BotNpcTalk.Result r = BotNpcTalk.INSTANCE.talkAt(bot, npcId, objectId);
+                String said = r.lastLine().replaceAll("#[a-zA-Z]", "").replace("\r\n", " ");
+                if (said.length() > 90) {
+                    said = said.substring(0, 90) + "...";
+                }
+                String line = "NPC " + bot.getName() + " -> " + npcId + "@" + objectId
+                        + (r.ran() ? ": \"" + said + "\"" : " FAILED: " + r.error());
+                scriptResult(run, orchestrator, beat, bot, npcId, r, line, log);
+            } finally {
+                beat.lastTalkMs = System.currentTimeMillis();
+                beat.talking = false;
+            }
+        });
+    }
+
     private void dropFor(LiveStageView view, Character bot, Beat beat, SolverStep.DropFor d, long now,
                          Consumer<String> log) {
         if (now - beat.lastDropMs < DROP_GAP_MS) {
@@ -886,6 +950,75 @@ final class StepExecutor {
      *       itself is inside it, and no area lookup is involved.</li>
      * </ul>
      */
+    /**
+     * One attempt at using a use-item on a monster of a given kind - Ellin PQ's purifier marble on a Poison Flower.
+     *
+     * <p>The rule is not re-implemented here: {@code server.life.MonsterCatch.usePurifierMarble} is the same call the
+     * client's {@code USE_CATCH_ITEM} handler makes, so a bot and a player catch the same monsters under the same
+     * conditions. One attempt per {@link #USE_ON_MOB_GAP_MS} per bot, nearest-first, and the log says which monster and
+     * whether it landed - a bot that kept spraying marbles at a healthy flower would look busy and change nothing.
+     */
+    /**
+     * One touch of a reactor, rate-limited like a hit: the {@code touch} callback only fires from a client packet, so
+     * this calls {@code ReactorScriptManager.touch(client, reactor)} directly - the same entry point the packet handler
+     * uses - and leaves {@code act()} to {@link SolverStep.HitReactor}.
+     */
+    private static void touchReactor(Character bot, Beat beat, int reactorId, String reactorName, long now,
+                                     Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null) {
+            return;
+        }
+        server.maps.Reactor reactor = reactorName != null ? map.getReactorByName(reactorName)
+                : map.getReactorById(reactorId);
+        if (reactor == null) {
+            if (now - beat.lastReactorMs > 10_000) {
+                beat.lastReactorMs = now;
+                log.accept(bot.getName() + ": no reactor " + (reactorName != null ? "\"" + reactorName + "\""
+                        : String.valueOf(reactorId)) + " on map " + map.getId());
+            }
+            return;
+        }
+        if (now - beat.lastTouchMs < TOUCH_GAP_MS) {
+            return;
+        }
+        beat.lastTouchMs = now;
+        scripting.reactor.ReactorScriptManager.getInstance().touch(bot.getClient(), reactor);
+        log.accept("TOUCH reactor " + (reactorName != null ? reactorName : String.valueOf(reactorId))
+                + " (state " + reactor.getState() + ")");
+    }
+
+    private static void useItemOnMob(Character bot, Beat beat, SolverStep.UseItemOnMob u, long now, Consumer<String> log) {
+        MapleMap map = bot.getMap();
+        if (map == null || bot.getItemQuantity(u.itemId(), false) <= 0) {
+            return;
+        }
+        if (now - beat.lastUseOnMobMs < USE_ON_MOB_GAP_MS) {
+            return;
+        }
+        server.life.Monster prey = null;
+        long best = Long.MAX_VALUE;
+        for (server.maps.MapObject mo : map.getMonsters()) {
+            if (mo instanceof server.life.Monster m && m.getId() == u.mobId() && m.getHp() > 0) {
+                java.awt.Point mp = m.getPosition();
+                long d = (long) (mp.x - bot.getPosition().x) * (mp.x - bot.getPosition().x)
+                        + (long) (mp.y - bot.getPosition().y) * (mp.y - bot.getPosition().y);
+                if (d < best) {
+                    best = d;
+                    prey = m;
+                }
+            }
+        }
+        if (prey == null) {
+            return;
+        }
+        beat.lastUseOnMobMs = now;
+        boolean caught = server.life.MonsterCatch.usePurifierMarble(bot.getClient(), bot, prey);
+        log.accept((caught ? "USE-ITEM " : "USE-ITEM-MISS ") + u.itemId() + " on mob " + prey.getId()
+                + " (hp " + prey.getHp() + "/" + prey.getMaxHp() + ")"
+                + (caught ? ": caught, one marble gained" : ": too healthy, not caught"));
+    }
+
     private static void placeItemOn(Character bot, Beat beat, SolverStep.PlaceItemOn p, long now, Consumer<String> log) {
         MapleMap map = bot.getMap();
         if (map == null) {

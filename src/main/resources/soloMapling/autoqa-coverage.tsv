@@ -204,3 +204,4 @@ t-mp-1	src/main/resources/soloMapling/map-routing.tsv	the routing table
 t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketTraders.java	trader bots list the scrolls they hold (s-xtraders)
 t-xc-5	src/main/java/soloMapling/Economy/exchange/volatility/MarketQa.java	probe marketScroll
 t-ex-2	src/main/java/soloMapling/mechanics/content/zakum-chaos.yaml	the Chaos Zakum row (same altar, one instance id over)
+t-mx-1,t-mx-2,t-mx-3,t-mx-4,t-mx-5,t-mx-6	src/main/java/soloMapling/mechanics/content/cwkpq.yaml	the Crimsonwood Keep row: four rooms, the counting door and the host's summon chain
