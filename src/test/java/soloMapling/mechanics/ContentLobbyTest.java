@@ -56,9 +56,10 @@ class ContentLobbyTest {
     @Test
     void everyStaffedRowNamesAFrontDoorARecruitMapAndAParty() {
         assertEquals(List.of("OrbisPQ", "LudiPQ", "HenesysPQ",
-                "CafePQ_1", "CafePQ_2", "CafePQ_3", "CafePQ_4", "CafePQ_5", "CafePQ_6"), ContentLobby.rows(),
-                "every row in the list staffs itself: the tower, the Ludibrium nine, the primrose hill and the six cafe"
-                        + " areas");
+                "CafePQ_1", "CafePQ_2", "CafePQ_3", "CafePQ_4", "CafePQ_5", "CafePQ_6", "LudiMazePQ"),
+                ContentLobby.rows(),
+                "every row in the list staffs itself: the tower, the Ludibrium nine, the primrose hill, the six cafe"
+                        + " areas and the maze");
         for (Content content : staffedRows()) {
             assertEquals(MechanicsModel.Kind.PQ, content.kind(), content.id() + " is a party quest");
             assertTrue(content.entryNpc() > 0, content.id() + " needs an entryNpc: a bot talks to an NPC, it has no button");

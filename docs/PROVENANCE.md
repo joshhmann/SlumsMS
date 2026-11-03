@@ -339,6 +339,20 @@ positive quantity, so the Computer pays the party rather than charging it - the 
 and hand them in" would have asked the bots for what the NPC is giving them. The rows therefore carry the count as a
 `COLLECT` objective and talk to the NPC with no item.
 
+### LudiMaze PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00`
+
+cosmic_agents was read for the *representation* of a maze PQ and nothing else.
+
+| From theirs | Our files |
+| --- | --- |
+| `capabilities/partyquest/lmpq/` (a sixteen-room maze with one goal, a coordinator that walks rooms) | `soloMapling/mechanics/LudiMazeSolver`: the same shape - a stage over many maps, a goal map, a walk between them - but the graph is read from our client data at run time (`StageView.portalsOn(int)` over `Map.wz/Map/Map8/8090500*.img.xml`) and kept per instance in `stageMemory()`. Their arm layout is their instance's; nothing of it is copied, and our maze's passages are fixed, not shuffled |
+
+Nothing else in the row comes from another project: the gates (`3`-`6` players, level `51`-`255`, `15` minutes, recruit
+`220000000`, front door Rolly `9103001`, exit `809050017`) are `scripts/event/LudiMazePQ.js:27-32,37`; the clear is
+`9103000.js:66-73` (`clearPQ` and nothing else); the pass and its count are `9103000.js:62` and
+`scripts/reactor/8098000.js`; and the frontier - each member starting on a random one of fifteen maps - is
+`LudiMazePQ.js:144-150`.
+
 Where our server's scripts disagree, the scripts win and the row follows them:
 
 - **The altar takes exactly twenty in one drop.** `scripts/reactor/2006000.js:1-5` spawns Eak from the reactor's item

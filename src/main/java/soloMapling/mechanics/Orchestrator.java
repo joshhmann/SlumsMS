@@ -71,6 +71,7 @@ public final class Orchestrator implements RunOrchestrator {
         OpqStatueSolver st = new OpqStatueSolver();
         HpqBedsSolver hb = new HpqBedsSolver();
         CafeCouponsSolver cc = new CafeCouponsSolver();
+        LudiMazeSolver lm = new LudiMazeSolver();
         // Map.of caps at ten pairs; anything past that goes in a second immutable copy
         Map<String, StageSolver> all = new java.util.HashMap<>(Map.of(qc.id(), qc, cb.id(), cb, kc.id(), kc,
                 bp.id(), bp, oc.id(), oc, os.id(), os, sr.id(), sr, ol.id(), ol));
@@ -81,6 +82,7 @@ public final class Orchestrator implements RunOrchestrator {
         all.put(lc.id(), lc);
         all.put(hb.id(), hb);
         all.put(cc.id(), cc);
+        all.put(lm.id(), lm);
         return Map.copyOf(all);
     }
 
@@ -250,7 +252,7 @@ public final class Orchestrator implements RunOrchestrator {
                 continue; // a real player is planned around, never steered
             }
             int on = view.mapOf(m.characterId());
-            if (on != stage.mapId() && !solver.extraMaps(view).contains(on)) {
+            if (!stage.mapSet().contains(on) && !solver.extraMaps(view).contains(on)) {
                 // a boss run's rooms are separate maps with no knowable portal name: the solver says the map and the
                 // step warps straight into the instance's own copy of it (SolverStep.WarpTo). Every other content
                 // keeps walking through the portal an earlier stage opened.
@@ -488,7 +490,7 @@ public final class Orchestrator implements RunOrchestrator {
     /** A stage whose solver drives a second map (Orbis PQ's garden) is not a stray there. */
     private static boolean runsThisMap(RunState run, StageView view, int mapId) {
         StageSolver solver = builtins().get(run.stageData().solver());
-        return solver != null && solver.extraMaps(view).contains(mapId);
+        return solver != null && (view.stage().mapSet().contains(mapId) || solver.extraMaps(view).contains(mapId));
     }
 
     /** The shipped solvers, built once: they are stateless, and the static helpers below cannot see the instance map. */

@@ -172,6 +172,38 @@ public interface StageView {
         return members().stream().anyMatch(m -> m.characterId() == characterId);
     }
 
+    /**
+     * The map-to-map portals of {@code mapId}, by portal name (the name a step walks into, {@code SolverStep
+     * .EnterPortal}) to the map it leads to; empty when the map has none or is not in this instance. LudiMaze PQ's
+     * sixteen maps are joined only by these ({@code Map.wz/Map/Map8/8090500*.img.xml}, {@code pt 2} portals named
+     * {@code t000}..{@code t003}), so a solver that has to find its way there reads them rather than assuming a layout.
+     */
+    default java.util.Map<String, Integer> portalsOn(int mapId) {
+        return java.util.Map.of();
+    }
+
+    /**
+     * The members still in this instance that are standing somewhere other than {@code mapId}: empty when everyone is
+     * there. The scripts' {@code isEventTeamTogether()} is exactly this question ({@code scripts/npc/9103000.js:57-61}
+     * refuses the leader while one member is missing), so a solver that needs the party on one map asks it instead of
+     * counting members the instance has already let go.
+     */
+    default java.util.List<Integer> missingFrom(int mapId) {
+        java.util.List<Integer> missing = new java.util.ArrayList<>();
+        for (RunMember m : members()) {
+            int id = m.characterId();
+            if (registered(id) && alive(id) && mapOf(id) != mapId) {
+                missing.add(id);
+            }
+        }
+        return missing;
+    }
+
+    /** {@code isEventTeamTogether()}: no member of this instance is anywhere else. */
+    default boolean teamTogether(int mapId) {
+        return missingFrom(mapId).isEmpty();
+    }
+
     /** The character's name, for lines that have to say who is being waited for; empty when it is not in the instance. */
     default java.util.Optional<String> nameOf(int characterId) {
         return java.util.Optional.empty();

@@ -109,6 +109,35 @@ final class LiveStageView implements StageView {
     }
 
     @Override
+    public java.util.Map<String, Integer> portalsOn(int mapId) {
+        server.maps.MapleMap target = mapInstance(mapId);
+        if (target == null) {
+            return java.util.Map.of();
+        }
+        java.util.Map<String, Integer> out = new java.util.LinkedHashMap<>();
+        for (server.maps.Portal p : target.getPortals()) {
+            // only portals that lead somewhere: a spawn point (type 0) and a hidden one (type 1) are not exits
+            if (p != null && p.getName() != null && !p.getName().isBlank() && p.getTargetMapId() != -1
+                    && p.getTargetMapId() != 999999999) {
+                out.putIfAbsent(p.getName(), p.getTargetMapId());
+            }
+        }
+        return out;
+    }
+
+    /** This instance's own copy of a map, or null when the instance does not hold that map. */
+    private server.maps.MapleMap mapInstance(int mapId) {
+        if (eim == null || mapId <= 0) {
+            return null;
+        }
+        try {
+            return eim.getMapInstance(mapId);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    @Override
     public int mapOf(int characterId) {
         Character c = chars.get(characterId);
         return c == null ? -1 : c.getMapId();

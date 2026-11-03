@@ -50,6 +50,9 @@ public final class Mechanics {
      * ({@code slums.mechanics.cafepqN.lobby}) and its own {@code .runs} count, which is the knob that actually differs.
      */
     public static final String CAFE_FLAG = "slums.mechanics.cafepq";
+
+    /** LudiMaze PQ's own switch: one PQ, one row, one flag. */
+    public static final String LUDIMAZE_FLAG = "slums.mechanics.ludimazepq";
     public static final String DIR_PROPERTY = "slums.mechanics.dir";
     public static final String DEFAULT_DIR = "src/main/java/soloMapling/mechanics/content";
 

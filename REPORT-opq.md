@@ -244,6 +244,44 @@ kill (`:261-277`), exclusive to the instance, and every `eventMap` re-spawns eve
   the leader reaches the Computer without the count, the script's `haveItem` refuses, the instance never clears and the
   run does not end `cleared`. With the instance flag wired in, the six good runs all end `cleared`, one stage each.
 
+## LudiMaze PQ: sixteen maps, one stage, and a graph the client already publishes
+
+One stage spanning sixteen maps, off its own switch (`-Dslums.mechanics.ludimazepq`, default off), one row
+(`content/ludimazepq.yaml`), `clear: { instance: true }`. Three engine conditions had to exist before the maze could be
+driven at all, and each has a fail-before:
+
+1. **A declared map set, not a single map.** `playerEntry` warps each member to `809050000 + rand(0..14)`
+   (`LudiMazePQ.js:144-150`), so fifteen maps are legitimate ground for one stage. `MechanicsModel.Stage` gained
+   `maps:` (a list) and `mapSet()`, `StageData` parses it, and the orchestrator's wrong-map branch and its
+   `runsThisMap` both ask the whole set. Fail-before: `aMemberOnADeclaredMapIsDrivenByTheSolverAndNotTreatedAsAStray`,
+   run against the old single-map branch, gets `Wait[why=not on stage 1's map yet]` for a member standing on a declared
+   map - which is how fourteen members would have been dragged to the leader's map and the maze bypassed by accident.
+2. **`isEventTeamTogether()`.** `9103000.js:57-61` refuses the leader while one member is missing, so
+   `StageView.missingFrom(mapId)` / `teamTogether(mapId)` answer it over the members the instance still holds
+   (`registered` + `alive`), and the solver's `Wait` names who is missing. No count of members the instance has let go.
+3. **The instance flag for the clear.** `9103000.js:66-73` calls `clearPQ()` and writes nothing; the row says
+   `clear: { instance: true }` (the accessor from `1596fec0d`).
+
+**The correction that matters: the maze is not shuffled.** The plan said "per-instance shuffled maze search", but
+`LudiMazePQ.js:120-127` calls `shuffleReactors()`, which moves *reactors*; the passages are `pt 2` portals named
+`t000`..`t003` whose targets are fixed in the client data (`Map.wz/Map/Map8/8090500*.img.xml`). Pinned from the dump and
+in `LudiMazeSolversTest`: map `8090500NN` leads to `NN+4`, `NN+7`, `NN+12` - except that `809050008`'s `t001` reaches the
+exit `809050015`, and only that one passage in the whole maze does. What *is* random is the start map. So the search is
+real but tiny: `ludimaze` reads the portals it can see into a graph kept in `stageMemory()` (per instance, discarded when
+the stage changes), walks the shortest route over what the party has learned, and explores the first passage to a map
+nobody has seen yet. Sixteen members' first ticks map the whole maze.
+
+- **The pass and the summoner.** The maps hold no monsters of their own; `scripts/reactor/8098000.js` summons them
+  (ids scaled by distance from `809050005`) and they drop `4001106`. The exit wants thirty in the leader's hand
+  (`9103000.js:62`), so the solver hits the summoner, fights, and - when the leader is still short at the exit - walks
+  back through the exit's own `t000` to farm rather than idling at the goal.
+- **Bounded, and named.** If the graph cannot reach the exit the solver maps what it has and, past `GIVE_UP_MS` (12 of
+  the script's 15 minutes), abandons the run with the map set and the time in the reason:
+  `aPartyThatCannotReachTheExitSaysWhatItMappedAndAbandonsInsideTheBudget` builds a two-map maze with no way out.
+- **End to end in simulation.** `aSplitLudiMazePartyFindsTheExitAndClearsOnTheInstanceFlag` starts three members on
+  three different maps and asserts the run ends `cleared`, that `EnterPortal` steps happened, that the exit's NPC was
+  talked to, and that no property was invented (`props.isEmpty()`).
+
 ## Expedition rule: pause for revive (this is the report it lives in)
 
 The boss report is on `164-bossfight`, a different branch, so this one carries the rule. It is the answer to the lane
@@ -437,9 +475,11 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, nothing excluded: **8541 tests, 0 failures, 0 errors, 137 skipped, BUILD
-SUCCESS** (`/tmp/opq-cafe.log`, exit 0 - Cafe PQ's own commit; `CafePqSolversTest` 7 and two simulation cases, one of
-them the fail-before that shuts an area's monsters and floor down). Before it: **8532 tests, 0 failures, 0 errors, 137
+`mvn -o test` on this worktree, whole suite, nothing excluded: **8552 tests, 0 failures, 0 errors, 137 skipped, BUILD
+SUCCESS** (`/tmp/opq-maze.log`, exit 0 - LudiMaze PQ's own commit; `LudiMazeSolversTest` 10 and one simulation case, and
+both engine conditions carry a fail-before run against the old code first). Before it: **8541 tests, 0 failures, 0
+errors, 137 skipped, BUILD SUCCESS** (`/tmp/opq-cafe.log`, exit 0 - Cafe PQ's own commit; `CafePqSolversTest` 7 and two
+simulation cases, one of them the fail-before that shuts an area's monsters and floor down). Before it: **8532 tests, 0 failures, 0 errors, 137
 skipped, BUILD SUCCESS** (`/tmp/opq-instance2.log`, exit 0 - the instance-clear commit; `InstanceClearTest` 3 and the
 fail-before pair run against the old `cleared()` first, where two of them failed). Before it: **8529 tests, 0 failures, 0 errors, 137
 skipped, BUILD SUCCESS** (`/tmp/opq-hpq.log`, exit 0 - Henesys PQ's own commit; `HpqSolversTest` 11 and three simulation

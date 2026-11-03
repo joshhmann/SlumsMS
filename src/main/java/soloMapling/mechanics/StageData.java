@@ -503,11 +503,25 @@ public final class StageData {
         int stageMinutes = num(m, "timeLimitMinutes", 0, p);
         // a room whose fight is behind a reactor nobody has to click by hand (Horntail's 2401000); 0 = no reactor
         int hitReactor = num(m, "hitReactor", 0, p);
+        // the other maps this stage legitimately spans (LudiMaze PQ: fifteen, one of which each member starts on)
+        List<Integer> maps = new ArrayList<>();
+        for (Object o : list(m, "maps")) {
+            try {
+                int other = Integer.parseInt(String.valueOf(o).trim());
+                if (other > 0 && other != mapId) {
+                    maps.add(other);
+                } else if (other == mapId) {
+                    p.add(at + "maps: names the stage's own map " + mapId + " again (drop it)");
+                }
+            } catch (NumberFormatException e) {
+                p.add(at + "maps: \"" + o + "\" is not a map id");
+            }
+        }
         return new Stage(index, mapId, name, npc, solver, List.copyOf(roles), List.copyOf(objectives),
                 List.copyOf(positions), List.copyOf(items), List.copyOf(answers), List.copyOf(phases), clear,
                 answerProperty, List.copyOf(combos), List.copyOf(mobs), nextPortal,
                 summonProperty == null || summonProperty.isEmpty() ? null : summonProperty, killTarget, stageMinutes,
-                hitReactor);
+                hitReactor, List.copyOf(maps));
     }
 
     // ---- small readers (yamlbeans gives every scalar as a String) ----

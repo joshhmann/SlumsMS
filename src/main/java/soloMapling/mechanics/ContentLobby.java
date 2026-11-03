@@ -47,7 +47,7 @@ public final class ContentLobby {
      * {@link KpqLobby}, which picks its party out of the bots already at Lakelis instead of spawning one.
      */
     private static final List<String> ROWS = List.of("OrbisPQ", "LudiPQ", "HenesysPQ",
-            "CafePQ_1", "CafePQ_2", "CafePQ_3", "CafePQ_4", "CafePQ_5", "CafePQ_6");
+            "CafePQ_1", "CafePQ_2", "CafePQ_3", "CafePQ_4", "CafePQ_5", "CafePQ_6", "LudiMazePQ");
 
     private static final Set<EventInstanceManager> running = ConcurrentHashMap.newKeySet();
     private static final Map<String, Long> refusedUntil = new ConcurrentHashMap<>();

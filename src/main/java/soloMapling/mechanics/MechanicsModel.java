@@ -222,13 +222,26 @@ public final class MechanicsModel {
                         List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                         List<Answer> answers, List<BossPhase> phases, Clear clear, String answerProperty,
                         List<List<Integer>> combos, List<Integer> mobs, String nextPortal, String summonProperty,
-                        int killTarget, int timeLimitMinutes, int hitReactor) {
+                        int killTarget, int timeLimitMinutes, int hitReactor, List<Integer> maps) {
 
         public Stage(int index, int mapId, String name, int npcId, String solver, List<Role> roles,
                      List<Objective> objectives, List<Position> positions, List<ItemUse> items,
                      List<Answer> answers, List<BossPhase> phases, Clear clear) {
             this(index, mapId, name, npcId, solver, roles, objectives, positions, items, answers, phases, clear, null,
-                    List.of(), List.of(), null, null, 0, 0, 0);
+                    List.of(), List.of(), null, null, 0, 0, 0, List.of());
+        }
+
+        /**
+         * Every map this stage legitimately covers: its own first, then the ones its data declares ({@code maps:}).
+         * LudiMaze PQ's one stage spans sixteen maps - {@code playerEntry} drops each member on a random one of
+         * fifteen ({@code LudiMazePQ.js:144-150}) and the goal is the sixteenth - so a member standing on any of them is
+         * where the stage means it to be, not a stray to be dragged to the leader.
+         */
+        public java.util.Set<Integer> mapSet() {
+            java.util.Set<Integer> out = new java.util.LinkedHashSet<>();
+            out.add(mapId);
+            out.addAll(maps);
+            return out;
         }
 
         /** How many positions a combination's answer occupies (KPQ: 3), or 0 for a stage without combos. */

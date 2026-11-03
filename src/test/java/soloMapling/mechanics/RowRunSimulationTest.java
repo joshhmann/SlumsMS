@@ -65,6 +65,45 @@ class RowRunSimulationTest {
     private static final int CAFE_COUPON = 4001007;
     private static final int CAFE_DROP = 5;
     private static final int COMPUTER = 1052013;
+
+    /** LudiMaze PQ: the exit map, its NPC, and the item the maze's monsters drop (LudiMazePQ.js:73, 9103000.js:62). */
+    private static final int MAZE_EXIT_MAP = 809050015;
+    private static final int MAZE_EXIT_NPC = 9103000;
+    private static final int MAZE_PASS = 4001106;
+    private static final int MAZE_SUMMONER = 8098000;
+
+    /**
+     * The maze's passages, exactly as Map.wz/Map/Map8/8090500*.img.xml has them (each map's pt 2 portals and their
+     * targets). Only 809050008's t001 reaches the exit.
+     */
+    private static final Map<Integer, Map<String, Integer>> MAZE = mazeGraph();
+
+    private static Map<Integer, Map<String, Integer>> mazeGraph() {
+        Map<Integer, Map<String, Integer>> maze = new java.util.HashMap<>();
+        int[][] steps = {
+                {809050004, 809050007, 809050012}, {809050005, 809050008, 809050013},
+                {809050006, 809050009, 809050014}, {809050007, 809050010, 809050000},
+                {809050008, 809050011, 809050001}, {809050009, 809050012, 809050002},
+                {809050010, 809050013, 809050003}, {809050011, 809050014, 809050004},
+                {809050012, 809050015, 809050005}, {809050013, 809050001, 809050006},
+                {809050014, 809050002, 809050007}, {809050000, 809050003, 809050008},
+                {809050001, 809050004, 809050009}, {809050002, 809050005, 809050010},
+                {809050003, 809050006, 809050011}};
+        String[][] names = {{"t001", "t002", "t003"}, {"t000", "t001", "t002"}, {"t000", "t001", "t002"},
+                {"t000", "t001", "t002"}, {"t000", "t001", "t002"}, {"t000", "t001", "t002"},
+                {"t001", "t002", "t003"}, {"t000", "t001", "t002"}, {"t000", "t001", "t002"},
+                {"t000", "t001", "t002"}, {"t000", "t001", "t002"}, {"t000", "t001", "t002"},
+                {"t001", "t002", "t003"}, {"t000", "t001", "t002"}, {"t000", "t001", "t002"}};
+        for (int i = 0; i < 15; i++) {
+            Map<String, Integer> exits = new java.util.LinkedHashMap<>();
+            for (int k = 0; k < 3; k++) {
+                exits.put(names[i][k], steps[i][k]);
+            }
+            maze.put(809050000 + i, exits);
+        }
+        maze.put(MAZE_EXIT_MAP, Map.of("t000", 809050008));
+        return maze;
+    }
     private static final int LPQ_PASS = 4001022;
     private static final int LPQ_KEY = 4001023;
     private static final List<Integer> LPQ_TALK = List.of(2040036, 2040037, 2040038, 2040039, 2040040, 2040041,
@@ -274,6 +313,32 @@ class RowRunSimulationTest {
         }
     }
 
+    /**
+     * LudiMaze PQ end to end: a party that starts split over three maps ({@code LudiMazePQ.js:144-150}) farms the
+     * summoner's monsters, walks the client's passages to the exit and clears on the instance's flag once the whole team
+     * stands there with thirty passes ({@code scripts/npc/9103000.js:57-73}).
+     */
+    @Test
+    void aSplitLudiMazePartyFindsTheExitAndClearsOnTheInstanceFlag() {
+        Sim sim = play("LudiMazePQ", party(THREE), 20_000, world -> {
+            // playerEntry drops each member on a random map: three different ones, as a real run does
+            world.at.put(2, 809050002);
+            world.at.put(3, 809050011);
+        });
+
+        assertTrue(sim.run().ended(), "the run has to finish: " + sim.ticks() + " ticks, stage "
+                + sim.run().currentStage());
+        assertEquals("cleared", sim.run().endedBecause(), "9103000 calls clearPQ(): the instance's flag is the clear");
+        assertTrue(sim.world().instanceCleared, "and nothing else wrote a clear");
+        assertTrue(sim.world().props.isEmpty(), "no property was invented for the maze: " + sim.world().props);
+        assertTrue(sim.steps().stream().anyMatch(l -> l.contains("EnterPortal[")),
+                "a party that starts split has to walk the passages, not wait for the leader");
+        assertTrue(sim.steps().stream().anyMatch(l -> l.contains("9103000")),
+                "and the clear is the exit's NPC with the passes: " + sim.steps());
+        assertTrue(sim.steps().stream().noneMatch(l -> l.contains("Wait[") && !l.contains("why=")),
+                "every wait says why");
+    }
+
     @Test
     void aCafeAreaWithoutItsCouponsNeverAdvancesOnTheComputersTalk() {
         // the fail-before for the instance clear: the leader reaches the Computer with 399 of 400 coupons, which the
@@ -457,6 +522,14 @@ class RowRunSimulationTest {
         /** Takes the 15 s respawn away, so a test can leave an area with nothing left to kill or to pick up. */
         private boolean noRespawn;
 
+        /** The maze's summoner reactor: hitting it is what brings monsters, and they drop the pass. */
+        private boolean reactorSummons;
+
+        @Override
+        public Map<String, Integer> portalsOn(int mapId) {
+            return MAZE.getOrDefault(mapId, Map.of());
+        }
+
         @Override
         public boolean eventCleared() {
             return instanceCleared;
@@ -557,6 +630,12 @@ class RowRunSimulationTest {
                         props.put("stage", "6"); // six beds planted and the Moon Bunny out on the hill
                     }
                 }
+                case 809050000 -> {
+                    // the maze: no monsters of its own, the summoner reactor brings them (scripts/reactor/8098000.js)
+                    mobs = 0;
+                    reactorSummons = true;
+                    npcs.put(MAZE_EXIT_NPC, new int[]{0, 0});
+                }
                 case 190000000, 191000000, 192000000, 195000000, 196000000, 197000000 -> {
                     // a Cafe PQ area: its monsters drop the coupon by hand (CafePQ_1.js:261-277) and the Computer
                     // waits on the area's entry map
@@ -636,7 +715,12 @@ class RowRunSimulationTest {
             switch (step) {
                 case SolverStep.MoveTo m -> spot.put(id, new int[]{m.x(), m.y()});
                 case SolverStep.WarpTo w -> at.put(id, w.mapId());
-                case SolverStep.EnterPortal p -> at.put(id, run.stageData().mapId());
+                case SolverStep.EnterPortal p -> {
+                    // in the maze a portal is the passage: it leads to that map's own target (Map.wz/Map8/8090500*)
+                    int here = at.getOrDefault(id, run.stageData().mapId());
+                    Integer target = MAZE.getOrDefault(here, Map.of()).get(p.portalName());
+                    at.put(id, target == null ? run.stageData().mapId() : target);
+                }
                 case SolverStep.ScriptedPortal p -> {
                     // Ludi PQ's doors (scripts/portal/lpq0..lpq7.js): the stage's own clear, then the next map
                     if (run.stageData().mapId() == 922010600) {
@@ -698,11 +782,18 @@ class RowRunSimulationTest {
 
         @Override
         public int reactorState(int reactorId) {
+            if (reactorSummons && reactorId == MAZE_SUMMONER) {
+                return 0; // the maze's summoner stands on every map but three (scripts/reactor/8098000.js:3)
+            }
             return reactors.getOrDefault(String.valueOf(reactorId), -1);
         }
 
         private void hitReactor(int id, String key) {
             int stageMap = run.stageData().mapId();
+            if (reactorSummons && key.equals(String.valueOf(MAZE_SUMMONER))) {
+                mobs = Math.max(mobs, 5); // scripts/reactor/8098000.js: the monsters the passes come from
+                return;
+            }
             if (key.equals(String.valueOf(CLOUD_REACTOR)) && stageMap == 920010000) {
                 give(id, CLOUD, 1); // the cloud piece falls out of the reactor
                 return;
@@ -839,6 +930,15 @@ class RowRunSimulationTest {
         }
 
         private void talk(int id, SolverStep.TalkNpc t) {
+            if (t.npcId() == MAZE_EXIT_NPC) {
+                // scripts/npc/9103000.js:57-73 - the whole team here and thirty passes in the leader's hand
+                if (missingFrom(at.getOrDefault(id, MAZE_EXIT_MAP)).isEmpty()
+                        && heldOf(id, MAZE_PASS) >= LudiMazeSolver.NEED) {
+                    take(id, MAZE_PASS, LudiMazeSolver.NEED);
+                    instanceCleared = true;
+                }
+                return;
+            }
             if (LPQ_TALK.contains(t.npcId())) {
                 lpqTalk(id, t);
                 return;
@@ -1091,9 +1191,10 @@ class RowRunSimulationTest {
         void assertMapsHold(int stage) {
             MechanicsModel.Stage data = run.stageData();
             StageSolver solver = Orchestrator.allSolvers().get(data.solver());
-            List<Integer> shared = new ArrayList<>();
-            shared.add(data.mapId());
-            shared.addAll(solver.extraMaps(this));
+            List<Integer> shared = new ArrayList<>(data.mapSet());
+            if (solver != null) {
+                shared.addAll(solver.extraMaps(this));
+            }
             for (RunMember m : run.members()) {
                 List<Integer> allowed = new ArrayList<>(shared);
                 allowed.add(mapsAtStageStart.getOrDefault(m.characterId(), data.mapId()));
