@@ -745,6 +745,82 @@ What this means for the proof: the fight half is simulated in full (the five tes
 **unproven by construction** - `StageView` has no view of a quest state, so no simulation can be made to fail or pass on
 it. It is recorded here rather than pretended.
 
+## GuardianNex: six caves, one script - refused, one primitive short
+
+`scripts/event/GuardianNex.js` is the one room-of-bosses script left: `minPlayers 1` (`:1`), `timeLimit 15` (`:2`),
+`exitMap 240070000` (`:4`), `eventMap 240070010` (`:5`), `eventBossIds` = `[7120100, 7120101, 7120102, 8120100,
+8120101, 8140510]` (`:6`). `setup(difficulty, lobbyId)` (`:10-19`) builds instance `Nex_<lobbyId>` and resets the cave
+that lobby names, `playerEntry` (`:25-28`) warps to `eventMap + 10 * nex`, and the clear is that cave's own boss dying
+(`monsterKilled` `:99-103` -> `clearPQ` `:94-97`, `stopEventTimer` + `setEventCleared`, so `{ instance: true }`).
+
+The six caves are real, and each holds its boss as map life - verified in the dump: `Map/Map2/240070010.img.xml` life
+`7120100`, `240070020` -> `7120101`, `240070030` -> `7120102`, `240070040` -> `8120100`, `240070050` -> `8120101`,
+`240070060` -> `8140510`; no reactors, no other mobs. The door is portal `scripts/portal/TD_neo_inTree.js`, which picks
+the cave from the player's *active quest* (`quests = [3719, 3724, 3730, 3736, 3742, 3748]`, `:8`), refuses if that quest
+already has progress (`:13`), and calls `nex.startInstance(i, pi.getPlayer())` (`:18`) - a single-character instance,
+like Maha. The quests are real too (`Quest.wz/Check.img.xml`: levels 70/73/77/81/85/90, NPC `2082004`).
+
+So the honest form is six rows, one per cave - and six rows cannot be armed. `MechanicsRuns.onInstanceStarted`
+(`:349-353`) picks the row by `contentFor(eim.getEm().getName())`, and that name is `GuardianNex` for all six caves;
+`contentFor` (`:377-386`) returns the first row whose `eventScript` matches. Six `eventScript: GuardianNex` rows would
+collapse onto the first one, and a party standing in cave `240070050` would be warped to cave `240070010` by the
+solver's own first step - a wrong-map bug, not coverage. A single row cannot help either: it can name exactly one
+`mapId`.
+
+**Missing primitive:** row selection by something the six caves differ in. The instance already carries both candidates
+- its own name (`Nex_<n>`, `GuardianNex.js:11`) and the map it was built on (`:14-15`) - but the arming seam only looks
+at the event script name. That is `MechanicsRuns.contentFor` plus a matching rule in `Content`, i.e. engine the merge
+should decide, not something to bolt on here. No GuardianNex row is shipped and none was faked: a row naming cave 0
+would be right for one quest and silently wrong for the other five.
+
+## Content defects found, not ours to fix
+
+Two boss scripts are machines for a fight that cannot start, because the *map* is missing the first link. That is not a
+row's problem and not something the content engine can paper over - `SolverStep` has no spawn (`BOSS-ROW-DATA.md` B1),
+and the pair is exactly why.
+
+- **Cygnus (`scripts/event/CygnusBattle.js`).** `setup` (`:118-138`) creates instance `Cygnus<lobby>`, resets
+  `271040100` (`:132`) and starts the timer; it spawns nothing, and `respawnStages` is empty (`:140`).
+  `Map/Map2/271040100.img.xml` holds one life entry, NPC `2143004`, and no mobs. The Cygnus chain lives in
+  `MapleMap.afterBossKilled`: a guard `8850000`-`8850003` dying spawns `8850011` (`:1609-1618`), `8850004` dying spawns
+  `8850012` (`:1620-1626`), and `beforeBossDamage` (`:1546`) continues the phases after that. So the machine only
+  *continues* a chain that must already be alive, and nothing in the script, the map or `src/` puts a guard or
+  `8850011` there. The working path today is the rebirth system: `RebirthBosses.CYGNUS` (`:53-54`, `summonMob 8850011`
+  at `(-104, 115)`) driven by `RebirthBossRuns.fight` (`:591`, the spawn at `:605`
+  `room.spawnMonsterOnGroundBelow(r.boss.summonMob, r.boss.summonX, r.boss.summonY)`).
+- **Von Leon (`scripts/event/VonLeonBattle.js`).** Same shape: `setup` (`:120-138`) names the instance, resets
+  `211070100` (`:132`) and starts the timer, spawning nothing; `Map/Map2/211070100.img.xml` holds one life entry, NPC
+  `2161005`, and no mobs. `MapleMap.afterBossKilled:1594-1600` turns `8840000`'s death into `8847777`, and `8847777` is
+  the script's clear (`isVonleon` `:241-244`, `monsterKilled` `:249-252`); nothing spawns `8840000`. Working path:
+  `RebirthBosses.VONLEON` (`:51-52`, `summonMob 8840000` at `(49, -181)`) through the same `RebirthBossRuns.fight`.
+
+Neither would become a row even with a spawn step: they need the *party* to place the boss, which is what
+`RebirthBossRuns` already does. Recorded so that "Cygnus and Von Leon are blocked" reads as a map fact, and so nobody
+"fixes" it by having a row summon a boss into a room the script never fills.
+
+## A row-data integrity test, against the dump
+
+`src/test/java/soloMapling/mechanics/ContentRowWzIntegrityTest.java` reads every row that `content/index.txt` names
+(`StageData.load()`) and checks each number against the dump: the stage map is a `Map.wz/Map/Map<k>/<id>.img.xml`, every
+`mobs` id is `Mob.wz/<id>.img.xml`, every `hitReactors` id is a `Reactor.wz` entry, every `entryItems` id appears as
+`name="<%08d>"` in its `Item.wz/<category>/<%04d>.img.xml` bag, and no stage declares a negative `spawnWaitSeconds`
+(zero is the model's "no expectation", so it cannot be required to be positive).
+
+It points at the dump with the switch every other WZ test already uses - `-Dwz-path`, else `wz`, through
+`WzTestData.assumePresent` - so on a machine without `wz/` it skips (reported skipped, never failed) and the suite stays
+green. Run here against `/root/work/SlumsMS-170-evan/wz`: **32 rows, 53 stage maps, 83 mobs, 7 reactors, 1 door item**,
+all present; no typo was found, so no row changed.
+
+- maps: `103000800`-`103000804`, `105100300`, `190000000`, `191000000`, `192000000`, `195000000`, `196000000`,
+  `197000000`, `220080001`, `240060000`, `240060100`, `240060200`, `240070203`, `240070303`, `240070403`, `240070503`,
+  `240070603`, `270050100`, `280030000`, `401060100`, `450004751`, `450007441`, `450010101`, `450012211`, `541010100`,
+  `541020800`, `551030200`, `800040410`, `801040100`, `910010000`, `914020000`, `922020100`, and the PQ sets
+  `920010000`/`920010100`/`920010200`/`920010300`/`920010400`/`920010500`/`920010601`/`920010700` plus
+  `922010100`-`922010900` - 53 in all, the exact set the test prints
+- reactors: `2201004`, `2401000`, `5411000`, `5411001`, `5511000`, `5511001`, `8001000`
+- door items: `4000381`
+- mobs: the 83 ids across the rows, from `7220003` through `9995009` (the test prints the full set).
+
 ## Row data for the whole set
 
 `content/index.txt` now lists six more rows after round 2's, and `MechanicsDataFilesTest`'s pinned id list was extended
@@ -771,9 +847,11 @@ resolution is this list after whatever `164-opq` has added.
 - **The entry half of the five quest rows is unproven** (section above). A hand-run on a character with the quest
   would settle it; nothing in this suite can.
 
-## Suite (round 3 head)
+## Suite (round 4 head)
 
-`mvn -q -o test` on this head: **Tests run: 8574, Failures: 0, Errors: 0, Skipped: 137, BUILD SUCCESS** (30:17).
-Round 2 was 8565, so round 3 added nine - the entry-item solver test, the stage-data parse test, two whole-run
-`latanica` tests (with and without the item) and the five quest-instance simulations. The seven Delli tests that the
-revert removed are gone from that count with the code they exercised.
+`mvn -o test` on this head: **`Tests run: 8575, Failures: 0, Errors: 0, Skipped: 138, BUILD SUCCESS`** (29:31).
+Round 3 closed at 8574, so round 4 added exactly one: `ContentRowWzIntegrityTest`, which is the 138th skip on a machine
+without the dump (`mvn -o test -Dwz-path=/root/work/SlumsMS-170-evan/wz` runs it, 1 test, green). Round 3 itself added
+nine over round 2's 8565 - the entry-item solver test, the stage-data parse test, two whole-run `latanica` tests (with
+and without the item) and the five quest-instance simulations. The seven Delli tests the revert removed are gone from
+that count with the code they exercised.

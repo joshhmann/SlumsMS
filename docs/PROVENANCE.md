@@ -387,6 +387,14 @@ Ours, and the reason the new primitive exists:
 Delli is deliberately absent: its win is the instance's own clock, and that room is owned by `164-opq` @ `ac08ce380`
 (`DelliHoldSolver`, `content/dellibattle.yaml`, `DelliBattleSolversTest`). No second spelling lives here.
 
+`GuardianNex` has no row on this branch either, and nothing was taken from anyone for it: the six caves are `GuardianNex.js`'s
+`eventBossIds` paired with `Map.wz`'s map life (`Map/Map2/240070010`-`240070060`), and the cave is chosen by the player's
+active quest in `scripts/portal/TD_neo_inTree.js:8-18`. Six rows need row selection by instance, which the arming seam
+does not have; see `REPORT-bossrows.md`.
+
+Every id in every row is now re-checked against the dump by `ContentRowWzIntegrityTest` (`-Dwz-path`, else `wz`), so a
+dump that disagrees with a row fails a test instead of emptying a room.
+
 The map and mob facts again come from `/root/work/SlumsMS-170-evan/wz`, **not** version-pinned to this branch:
 `Map/Map5/541010100` (reactor `5411000`, no mobs), `Map/Map4/401060100` (one NPC, `3004006`), `Map/Map4/450007441`,
 `450004751`, `450010101`, `450012211` (empty life), and `Mob/9420513`, `8880002`, `9990301`, `9990150`, `9990415`,
