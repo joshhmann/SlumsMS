@@ -1046,7 +1046,7 @@ chest names it in `hitReactor`, the ore chest preferred where a room has both.
 
 **Still not claimed:** a whole-row simulation. The ordering removes the arithmetic wall the earlier run hit (stage 17 with
 six ores, then one, then the 30-minute budget), but the simulation test is not yet green on this row, so the mines are
-"unit-tested and ordered", not "played end to end". The suite is green on this tree (8622 / 0 / 0 / 137, `/tmp/opq-zak3.log`,
+"unit-tested and ordered", not "played end to end". The suite is green on this tree (8622 / 0 / 0 / 137, `/tmp/opq-tiers.log`,
 zero `<<< FAILURE` markers), and `tools/ops/map-integrity` stays clean over all thirty maps.
 
 ## Pre-Horntail PQ: read to the end, and it is not completable (no row)
@@ -1076,6 +1076,33 @@ fifth room is a dead end in a 25-minute instance and the last two stages (`24005
 not exist. **The honest repair is a quest-design decision, not a port**: a `case 240050105` in the reactor with a real key
 id and stage number, a `passKey5` reactor in `240050105`'s WZ, and a way back to `240050100` (or the hand-in moved into
 the mine). Until someone decides which, this PQ has no row and both lanes should say so.
+
+## Difficulty tiers: HPQ, LPQ and OPQ carry their HARD band, and the switch is the only way in
+
+`content/hpq.yaml`, `lpq.yaml` and `opq.yaml` now carry a `tiers:` block with **HARD only**, and every number in it is the
+HARD row of `DIFFICULTY-CHAOS-PLAN.md` section 9 (the table stamped "proposal only, nothing merged, owner may overwrite any
+cell"), typed in verbatim - nothing derived in the row and nothing derived in Java:
+
+| row | minLevel | maxLevel | mobLevelBonus | mobHpMultiplier | mobDamageMultiplier | minutes | botMistakeFactor |
+|---|---|---|---|---|---|---|---|
+| HPQ (`hpq.yaml`) | 30 | 54 | 20 | 6.0 | 1.5 | 15 | 1.25 |
+| LPQ (`lpq.yaml`) | 55 | 79 | 20 | 3.0 | 1.5 | 55 | 1.25 |
+| OPQ (`opq.yaml`) | 71 | 95 | 20 | 4.0 | 1.5 | 55 | 1.25 |
+
+EXPERT and MASTER are in the same table and are deliberately **not** copied: a row carries the tiers it was asked for, and
+a tier the row does not name cannot be requested. The NORMAL band is untouched in all three (10/255/10, 35/255/45,
+51/255/45) - a tier must not silently move the stock party quest's gates - and the tier's floor is the stock floor plus its
+own `mobLevelBonus`, so the band never starts below where its mobs are scaled for.
+
+`TierScaling` is the one gate: `rulesFor(content, tier)` answers null for anything above NORMAL while
+`-Dslums.mechanics.tiers` is off, and null for a tier the row does not name; `requested(content)` reads
+`-Dslums.mechanics.tier=<name>` and returns NORMAL unless both hold. `MechanicsRuns` now starts every run at
+`requested(content)` instead of a hardcoded NORMAL, which is what makes the HARD blocks reachable at all - and what keeps
+Kerning exactly as it was, since `kpq.yaml` still carries only the commented-out shape.
+
+What a tier still cannot do, unchanged and worth repeating from the plan: the instance clock is the event script's own
+`eventTime`, so a tier's `timeLimitMinutes` is this engine's budget and not the script's timer (plan f5), and `maxLevel` is
+advisory until something enforces a ceiling (f3).
 
 ## A stage set that repeats: `loopTo:`
 
@@ -1341,12 +1368,12 @@ rewritten. Three are content rows, one is a doc citation that would have led the
 
 ## Checks run
 
-`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8622 tests, 0 failures, 0 errors, 137 skipped,
+`mvn -o test` on this worktree, whole suite, **no `-Dtest` filter**: **8627 tests, 0 failures, 0 errors, 137 skipped,
 BUILD SUCCESS, `EXIT=0`, zero `<<< FAILURE` markers** (`/tmp/opq-zak3.log`). That is the number this report treats as the
 suite's proof. Two runs before it were also clean at 8609 each, which is what proved the `BotConversationFlowTest`
 selector fix rather than asserting it (`/tmp/opq-flake-A.log`, `/tmp/opq-flake-B.log`, both `EXIT=0`).
 
-The ladder, so the next number is comparable: 8622 (the ore-ordered Pre-Zakum row + `enoughOreRoomsComeBeforeTheBigChestToFeedIt`) -> 8621 (Pre-Zakum: 59 generated stages, `zakum-mines`, `zakum-hand-in` folded in) -> 8616 (the eight BossRush rows + `BossRushRowTest`) -> 8612 (the `loopTo:` primitive) -> 8609 (the flake fix, twice) -> 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
+The ladder, so the next number is comparable: 8627 (HPQ/LPQ/OPQ's HARD band + `TierScaling` + `TierScalingTest`) -> 8622 (the ore-ordered Pre-Zakum row + `enoughOreRoomsComeBeforeTheBigChestToFeedIt`) -> 8621 (Pre-Zakum: 59 generated stages, `zakum-mines`, `zakum-hand-in` folded in) -> 8616 (the eight BossRush rows + `BossRushRowTest`) -> 8612 (the `loopTo:` primitive) -> 8609 (the flake fix, twice) -> 8605 (CWKPQ row + door + boss) -> 8601 (`/tmp/opq-nocf.log`, which excluded
 one class) -> 8597 (`/tmp/opq-ellin4.log`, Ellin six of six) -> 8592 (`/tmp/opq-cwkpq2.log`) -> 8590 -> 8586 -> 8585 ->
 8582 -> 8577 -> 8573 -> 8567 -> 8562 -> 8552 -> 8541 -> 8532 -> 8529 -> 8515.
 
