@@ -24,7 +24,7 @@ Basis: six read-only audit documents and their merged copy under `/root/work/aud
 is source reading, and every S1 and S2 quotation below was re-read against the tree at that sha. The six documents
 were deduped against `/root/work/audit/AUDIT.md` (24 findings) and
 [163](163-bot-audit-1-6-2.md) (58), so nothing here re-reports either; the nearest overlap is 163's
-`BotMaker.java:155-215` batch dead-end, which is a different defect from P2 below. `BEHAVIOUR.md` §"Refuted — do not
+`src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/BotMaker.java:155-215` batch dead-end, which is a different defect from P2 below. `BEHAVIOUR.md` §"Refuted — do not
 re-report" is the record of what was checked and cleared (24 findings plus 34 files read clean); do not reopen those.
 
 Coverage note: the four owned-alt files were read and cleared (`OwnedAltCombat`, `OwnedAltLoot`, `OwnedAltOrders`,
@@ -33,10 +33,11 @@ defects are 163's (`OwnedAltService`, `OwnedAltBackend`, `OwnedAltCompanion`).
 
 Severity was re-graded uniformly, overriding the worker grades:
 
-- **down, bot-side loss only:** `prog#P1` and `prog#P2` (S1 → S2), `social#1` (S1 → S2). The audit header says four
-  worker S1s were re-graded; three carry the marker, and `market#F-03` stayed S1.
+- **down, bot-side loss:** `prog#P1` and `prog#P2` (S1 → S2), `social#1` (S1 → S2).
 - **up, player-visible economy break:** `market#F-07` (S2 → S1), `market#F-08` and `market#F-14` (S3 → S2).
-- **down, unreachable today:** `market#F-02` (S2 → S3).
+- **down, unreachable today and not a loss:** `market#F-02` (S2 → S3); `market#F-01` was S3 in the source and stays
+  S3 (unreachable — `src/main/java/soloMapling/ArtificialPlayer/BotTypes/FMBot.java:520` skips bot stalls).
+- **S1 unchanged:** `market#F-03`.
 
 ## S1 — stop the bleeding
 
@@ -87,8 +88,20 @@ if (currItem != null) {
 
 `generateItem` builds a brand-new item on every trade visit; `stock` lists it at
 `priceAdjustmentRules((int) (rawValue * 0.9))` (`:140`). Nothing counts what is created, no budget is charged, and the
-"market value" it prices against is the book these same sales feed. `EnvironmentManager.java:624-640` spawns
-7 + 7 + 6 = 20 `SELLING_MERCHANT_BOT` in FM entrance 910000000 on every boot.
+"market value" it prices against is the book these same sales feed.
+
+**Reachability.** The twenty are live at boot, not only on a GM command. Waves 2, 4 and 7 of
+`environmentLoadStartup()` (`src/main/java/soloMapling/Environment/EnvironmentManager.java:110`) ask
+`spawnMerchBotsBatch` for 2+2+2, 3+2+3 and 2+2+2 selling merchants (`:134-136`, `:158-160`, `:183-185`), scaled by
+`BOT_FM_ENVIRONMENT_SCALE`, which is `1.0` in `src/main/java/config/ServerConfig.java:145` and overridden nowhere in
+`docs/release/1.6.3.conf`, so all 20 spawn on 910000000, spread over the channels. Boot reaches it from
+`src/main/java/soloMapling/server/MapleRootSolo.java:51-53` (`MethodScheduler.runAfterDelay(...)` under
+`-Dsolomapling.autopopulate`), and the live unit carries that flag (`docs/ops/lxc125-architecture.md:24`,
+`deploy/monitor/README.md:56`). Twenty is a floor: `!env spawnmerchantbots` re-runs
+`spawnMerchBotsInFMEntrance()` (`src/main/java/soloMapling/Environment/EnvironmentManager.java:619-645`, from
+`src/main/java/client/command/commands/gm4/EnvironmentCommand.java:386`, command `env` registered at
+`src/main/java/client/command/CommandsExecutor.java:427`) for 20 more per run, and a finished NX merchant
+`convertBack()`s into one (`src/main/java/soloMapling/ArtificialPlayer/BotTypes/NXMerchantBot.java:249-252`).
 
 **What a player sees.** Scrolls — v83's most economically load-bearing consumable — available without limit from
 NPC-like bots at a 10% discount to the published market, regenerating instantly. Scroll prices drift down until the
@@ -112,50 +125,50 @@ Grouped as the audit groups them. Detail, quotes and proofs: `/root/work/audit/B
 
 | id | path:line | mechanism | fix |
 |---|---|---|---|
-| `train#F1` | `.../ArtificialPlayer/BotTypes/TrainingBot.java:747`, `:752`, `:1585`, `:1630` | Death respawns into the map's return town, but the town stop plans shops from `homeMapId`, so the bot buys in another region or buys nothing. | Take `chr.getMapId()` as the shopping town when it has a `TOWN_SHOPS` entry, falling back to `homeMapId`. |
-| `train#F2` | `.../BotSupplySystem/BotShopping.java:499-503`, `BotSupplies.java:161-171` | A restock that bought nothing returns nothing, so a bot below ~200×level mesos loops town→shop→train→town. | `RestockOutcome{BOUGHT, PARTIAL, NOTHING}`; on `NOTHING`, refuse a resupply trip for 10 minutes. |
+| `train#F1` | `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:747`, `:752`, `:1585`, `:1630` | Death respawns into the map's return town, but the town stop plans shops from `homeMapId`, so the bot buys in another region or buys nothing. | Take `chr.getMapId()` as the shopping town when it has a `TOWN_SHOPS` entry, falling back to `homeMapId`. |
+| `train#F2` | `src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotShopping.java:499-503`, `src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotSupplies.java:161-171` | A restock that bought nothing returns nothing, so a bot below ~200×level mesos loops town→shop→train→town. | `RestockOutcome{BOUGHT, PARTIAL, NOTHING}`; on `NOTHING`, refuse a resupply trip for 10 minutes. |
 
 ### Market
 
 | id | path:line | mechanism | fix |
 |---|---|---|---|
-| `market#F-04` | `.../FreeMarket/ShopOfferSystem/ShopOfferSystem.java:25`, `:123` | `lockedItems` is only added to — one accepted offer silences that stall slot for the life of the JVM. | `PendingOffers` keyed `(ownerId, index)` with release on close, sale and timeout. |
-| `market#F-05` | `.../ShopOfferResponse.java:84-93` | The AFK accept fires 5–30 minutes later against a captured listing it never reserved or re-checked. | Hold the item on accept; the scheduled task verifies item id, owner and index, else tells the player it is gone. |
-| `market#F-08` | `.../ArtificialPlayer/BotTypes/FMBot.java:714` | `makeRoom` searches the bag by item id, so a pre-existing copy of the purchase is destroyed. | Track the purchased slot, or tag the purchase, and match on that. |
-| `market#F-14` | `.../ArtificialPlayer/BotScrollSystem/BotScrolling.java:574` | "Unknown value" and "worthless" are one branch, so an unvalued equip is destroyed. | Destroy only when `value != null && value <= 0`; keep and count on `null`. |
+| `market#F-04` | `src/main/java/soloMapling/FreeMarket/ShopOfferSystem/ShopOfferSystem.java:25`, `:123` | `lockedItems` is only added to — one accepted offer silences that stall slot for the life of the JVM. | `PendingOffers` keyed `(ownerId, index)` with release on close, sale and timeout. |
+| `market#F-05` | `src/main/java/soloMapling/FreeMarket/ShopOfferSystem/ShopOfferResponse.java:84-93` | The AFK accept fires 5–30 minutes later against a captured listing it never reserved or re-checked. | Hold the item on accept; the scheduled task verifies item id, owner and index, else tells the player it is gone. |
+| `market#F-08` | `src/main/java/soloMapling/ArtificialPlayer/BotTypes/FMBot.java:714` | `makeRoom` searches the bag by item id, so a pre-existing copy of the purchase is destroyed. | Track the purchased slot, or tag the purchase, and match on that. |
+| `market#F-14` | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:574` | "Unknown value" and "worthless" are one branch, so an unvalued equip is destroyed. | Destroy only when `value != null && value <= 0`; keep and count on `null`. |
 
 ### Social
 
 | id | path:line | mechanism | fix |
 |---|---|---|---|
-| `social#1` + `#3` | `.../ArtificialPlayer/BotConversation.java:1389-1391`, `:1440-1447` | The busy check drops the line after `SayDo.said` and after the history and whisper trail are written, so the bot remembers saying what the player never got. | Busy check above both writes; write history and `SayDo` only when delivery ran; retry once after the busy window. |
-| `social#2` | `.../BotConversation.java:1430` vs `:1046` | The liveness stop tests that *a* session exists for the pair, not that it is *this* session, so a stale reply lands in a new conversation. | Capture the session and compare identity, as `:1046` already does. |
-| `social#4` | `.../BotBrainSystem/ReplyCleaner.java:55` vs `:123` | Validation permits two lines; `clean()` sends the first non-blank one only. | Pick one: reject two lines, or join them in `clean()`. |
-| `social#5` | `.../BotConversation.java:61`, `BotChatPrompt.java:258` | Whisper and map chat share one history, so a whisper is answered in public and the prompt's last user turn can be the wrong channel's. | Tag turns with the channel and build the prompt from the channel being served. |
-| `social#6` | `.../BotConversation.java:1007`, `.../BotConvo/ConvoSwitches.java:32` | The one-chat-start-per-player-per-hour cap only runs when `ConvoSwitches.planner()` is on, which is off by default. | Apply the cap unconditionally in `start()`; the switch governs planning, not the ceiling. |
+| `social#1` + `#3` | `src/main/java/soloMapling/ArtificialPlayer/BotConversation.java:1389-1391`, `:1440-1447` | The busy check drops the line after `SayDo.said` and after the history and whisper trail are written, so the bot remembers saying what the player never got. | Busy check above both writes; write history and `SayDo` only when delivery ran; retry once after the busy window. |
+| `social#2` | `src/main/java/soloMapling/ArtificialPlayer/BotConversation.java:1430` vs `:1046` | The liveness stop tests that *a* session exists for the pair, not that it is *this* session, so a stale reply lands in a new conversation. | Capture the session and compare identity, as `:1046` already does. |
+| `social#4` | `src/main/java/soloMapling/ArtificialPlayer/BotBrainSystem/ReplyCleaner.java:55` vs `:123` | Validation permits two lines; `clean()` sends the first non-blank one only. | Pick one: reject two lines, or join them in `clean()`. |
+| `social#5` | `src/main/java/soloMapling/ArtificialPlayer/BotConversation.java:61`, `src/main/java/soloMapling/ArtificialPlayer/BotChatPrompt.java:258` | Whisper and map chat share one history, so a whisper is answered in public and the prompt's last user turn can be the wrong channel's. | Tag turns with the channel and build the prompt from the channel being served. |
+| `social#6` | `src/main/java/soloMapling/ArtificialPlayer/BotConversation.java:1007`, `src/main/java/soloMapling/ArtificialPlayer/BotConvo/ConvoSwitches.java:32` | The one-chat-start-per-player-per-hour cap only runs when `ConvoSwitches.planner()` is on, which is off by default. | Apply the cap unconditionally in `start()`; the switch governs planning, not the ceiling. |
 
 ### Life and quests
 
 | id | path:line | mechanism | fix |
 |---|---|---|---|
-| `life#F1` | `.../BotTypes/TrainingBot.java:1319` | A dwell's only exit consults `freeForAutomaticLifeActivity`, false for any party holding a real player, online or not. | A hard deadline that does not consult the predicate, or test presence rather than membership. |
-| `life#F2` | `.../BotTypes/TrainingBot.java:3036` | `LifeTownSlots.release(getChr().getId())` runs above the null guard, so an NPE skips the rest of teardown and leaks the reservation. | `Character chr = getChr(); if (chr == null) return;` at the top. |
-| `life#F4` | `.../BotQuestSystem/BotQuests.java:489-491`, `:571-576` | "Cannot complete" is written into the quest map as COMPLETED, permanently, and burns the day's slot. | Make `record` a pure log call; only write the quest map after the gate returns true. |
+| `life#F1` | `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:1319` | A dwell's only exit consults `freeForAutomaticLifeActivity`, false for any party holding a real player, online or not. | A hard deadline that does not consult the predicate, or test presence rather than membership. |
+| `life#F2` | `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:3036` | `LifeTownSlots.release(getChr().getId())` runs above the null guard, so an NPE skips the rest of teardown and leaks the reservation. | `Character chr = getChr(); if (chr == null) return;` at the top. |
+| `life#F4` | `src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuests.java:489-491`, `:571-576` | "Cannot complete" is written into the quest map as COMPLETED, permanently, and burns the day's slot. | Make `record` a pure log call; only write the quest map after the gate returns true. |
 
 ### Progression and gear
 
 | id | path:line | mechanism | fix |
 |---|---|---|---|
-| `prog#P1` | `.../BotDecoratorSystem/BotEquipChecker.java:101-104`, `BotDecorateEquips.java:47-53`, `BotCustomization.java:86-89` | A `SLOT_LONGCOAT` overall leaves `hasTop`/`hasPants` false, so the bot reads naked, is given coat and pants, and the overall is removed and discarded. | `isNaked` also tests the overall slot; decoration fills only empty slots and bags what it replaces. |
-| `prog#P2` | `.../BotMakerSystem/BotMaker.java:386`, `.../BotGearSystem/BotGear.java:285-297` | The junk test scores against today's wear set, so anything above the bot's level scores 0 and is disassembled (`maker.botBatch` is off by default). | `GearScoring.holdingValue` — value at the piece's own `reqLevel` — as the junk predicate. |
-| `prog#P3` | `.../BotProgressionSystem/BotProgression.java:283`, `:377`, `client/Character.java:7691` | SP is credited to the current job's book but the bot reads and writes only `getRemainingSps()[0]`, so ~270 points at level 120 are unusable. | One owner of the five books: capture sums, apply writes the current book and zeroes the rest. |
+| `prog#P1` | `src/main/java/soloMapling/ArtificialPlayer/BotDecoratorSystem/BotEquipChecker.java:101-104`, `src/main/java/soloMapling/ArtificialPlayer/BotDecoratorSystem/BotDecorateEquips.java:47-53`, `src/main/java/soloMapling/ArtificialPlayer/BotCustomization.java:86-89` | A `SLOT_LONGCOAT` overall leaves `hasTop`/`hasPants` false, so the bot reads naked, is given coat and pants, and the overall is removed and discarded. | `isNaked` also tests the overall slot; decoration fills only empty slots and bags what it replaces. |
+| `prog#P2` | `src/main/java/soloMapling/ArtificialPlayer/BotMakerSystem/BotMaker.java:386`, `src/main/java/soloMapling/ArtificialPlayer/BotGearSystem/BotGear.java:285-297` | The junk test scores against today's wear set, so anything above the bot's level scores 0 and is disassembled (`maker.botBatch` is off by default). | `GearScoring.holdingValue` — value at the piece's own `reqLevel` — as the junk predicate. |
+| `prog#P3` | `src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotProgression.java:283`, `:377`, `src/main/java/client/Character.java:7691` | SP is credited to the current job's book but the bot reads and writes only `getRemainingSps()[0]`, so ~270 points at level 120 are unusable. | One owner of the five books: capture sums, apply writes the current book and zeroes the rest. |
 
 ### Cross-cutting
 
 | id | path:line | mechanism | fix |
 |---|---|---|---|
-| `sweep#B1` | `.../ArtificialPlayer/BotBlockList.java:78`, `:81`, `:101`, `:152-156`, `:169` | A plain `ArrayList` in a static singleton, written on the trade thread and iterated on the bot tick — `ConcurrentModificationException` mid-trade. | `Set<BlockKey>` on `ConcurrentHashMap.newKeySet()`, expiry on read plus a sweep. |
-| `sweep#R1` | `.../BotMessagingSystem/Dispatcher.java:60`, `:81-83` | A message is dequeued, then a dispatch throw is printed and swallowed — the player's line is gone. | Deliver before dequeueing permanently, or re-queue once with a counter; log through the repo logger. |
+| `sweep#B1` | `src/main/java/soloMapling/ArtificialPlayer/BotBlockList.java:78`, `:81`, `:101`, `:152-156`, `:169` | A plain `ArrayList` in a static singleton, written on the trade thread and iterated on the bot tick — `ConcurrentModificationException` mid-trade. | `Set<BlockKey>` on `ConcurrentHashMap.newKeySet()`, expiry on read plus a sweep. |
+| `sweep#R1` | `src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/Dispatcher.java:60`, `:81-83` | A message is dequeued, then a dispatch throw is printed and swallowed — the player's line is gone. | Deliver before dequeueing permanently, or re-queue once with a counter; log through the repo logger. |
 
 ## S3 — debt, leaks and dead answers
 
@@ -163,46 +176,47 @@ Grouped as the audit groups them. Detail, quotes and proofs: `/root/work/audit/B
 
 | id | file:line | claim |
 |---|---|---|
-| `train#F3` | `.../BotProgressionSystem/BotProgression.java:185-191` | Offscreen level-ups never call `BotSkillBooks.soon`; the observed path does. |
-| `train#F4` | `.../ArtificialPlayer/OffscreenProgression.java:35-43` | EXP above `LEVEL_CAP` is banked, so the bot reports a level it can never reach. |
-| `train#F5` | `.../ArtificialPlayer/OffscreenCombat.java:88-96` | The pace cache key omits `mobsOnMap` and the map's EXP multiplier. |
-| `train#F6` | `.../BotTypes/TrainingBot.java:1981`, `:2865-2869` | `Math.max(1, level)` erases the "no mobs here" sentinel, making the `currentMobLevel > 0` guard dead. |
-| `train#F7` | `.../ArtificialPlayer/TrainingMapChooser.java:134` vs `:155`, `:187` | Three definitions of "one more bot fits"; `saturated()` exists in two of five strategies. |
-| `market#F-01` | `src/main/java/server/maps/HiredMerchant.java:929-975` | `botBuy` never credits a bot seller; unreachable today because `FMBot.java:520` skips bot stalls. |
+| `train#F3` | `src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotProgression.java:185-191` | Offscreen level-ups never call `BotSkillBooks.soon`; the observed path does. |
+| `train#F4` | `src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/OffscreenProgression.java:35-43` | EXP above `LEVEL_CAP` is banked, so the bot reports a level it can never reach. |
+| `train#F5` | `src/main/java/soloMapling/ArtificialPlayer/BotAttackSystem/OffscreenCombat.java:88-96` | The pace cache key omits `mobsOnMap` and the map's EXP multiplier. |
+| `train#F6` | `src/main/java/soloMapling/ArtificialPlayer/BotTypes/TrainingBot.java:1981`, `:2865-2869` | `Math.max(1, level)` erases the "no mobs here" sentinel, making the `currentMobLevel > 0` guard dead. |
+| `train#F7` | `src/main/java/soloMapling/ArtificialPlayer/BotGrindSystem/TrainingMapChooser.java:134` vs `:155`, `:187` | Three definitions of "one more bot fits"; `saturated()` exists in two of five strategies. |
+| `market#F-01` | `src/main/java/server/maps/HiredMerchant.java:929-975` | `botBuy` never credits a bot seller; unreachable today because `src/main/java/soloMapling/ArtificialPlayer/BotTypes/FMBot.java:520` skips bot stalls. |
 | `market#F-02` | `src/main/java/server/maps/HiredMerchant.java:932` | `botBuy` lacks `buy`'s bundles/exist guards and casts quantity to `(short)`; both callers pass 1. |
-| `market#F-06` | `.../Economy/MesoSinks.java:89` | The price book samples gross while the seller nets price minus fee, so every fair value drifts up by the tax. |
-| `market#F-09` | `.../Economy/BotBotTrade.java:444` | A failed `takeBack` is log-only: the seller keeps both mesos and item, the buyer is refunded. |
-| `market#F-10` | `.../BotTypes/FMBotWallet.java:27` | 10,000,000 mesos per bot per day are minted outside the ledger (~1.5e10/day fleet-wide). |
-| `market#F-11` | `.../BotTypes/FMBot.java:555` | Bot→bot purchases bypass the buyer's wealth and stock caps. |
-| `market#F-12` | `.../Economy/BotShops.java:275` | A refused resale listing is destroyed instead of re-pooled. |
-| `market#F-13` | `.../Economy/BotDirectTrade.java:311-320` | A direct-trade sale credits the wallet without `noteMesoEarned`, so the ledger is blind to it. |
-| `social#7` | `.../BotMessagingSystem/MapChatLog.java:100` → `BotChatPrompt.java:249` | Third parties' real names can enter another player's reply prompt. |
-| `social#8` | `.../BotBrainSystem/DecideShadow.java` | The shadow judge has no budget, is given the wrong text, and defaults to keeping it. |
-| `social#9` | `.../BotBrainSystem/ChatDecide.java` (`takeBudget`) | The decide budget is 8/s world-wide with no per-player share and a silent fallback to scripted rules. |
-| `social#10` | `.../ArtificialPlayer/BotRecognition.java:34`, `:148` | `lastGreetOnSight` is never pruned; only `resetForTest` clears it. |
-| `social#11` | `.../ArtificialPlayer/AffinityReactions.java:638` vs `:606` | The tone judge is live for romance, shadow for reply quality, and a third dead copy still exists. |
-| `life#F3` | `.../BotLifeSystem/LifeActivityQueue.java:159` | A reentrant `finish` delivers one activity's end record as the next activity's. |
-| `life#F5` | `.../BotQuestSystem/BotQuests.java:321` | `ranked` refuses any quest with an off-map mob, so the scorer's detour pricing is unreachable. |
-| `life#F6` | `BotQuestLog.java:149`, `LifeMemory.java:504`, `TrendIndex.java:138` | Three different definitions of "a day" in three files. |
-| `life#F7` | `.../ArtificialPlayer/BotTalk.java:540-545` | A 90-second say-do promise, refreshed on every talk, starves the life tick of a popular bot. |
-| `life#F8` | `LifeRuntime.java:236`, `:404`; `BotWanderSystem.java:37`, `:211` | Duplicated `FREE_PHASES` literals and a 400 ms poll per town bot. |
-| `prog#P4` | `.../BotScrollSystem/BotScrolling.java:306-308` | The EV scroll planner is handed constants instead of the gear facts. |
-| `prog#P5` | `.../BotJobSystem/JobErrand.java` (`mayAdvance`) | A graph route search runs inside `synchronized (bot)` on the progression path. |
-| `prog#P6` | `.../BotDecoratorSystem/BotDecorationQueue.java` (`decorateBot`) | The deferred queue re-dresses bots that are already dressed, blind to what they wear. |
-| `prog#P7` | `.../BotSkillPlan.java` (`Entry`) | No prerequisite model: entry order is the only guarantee a prerequisite precedes its skill. |
-| `prog#P8` | `.../BotDecoratorSystem/BotDecorate.java:63-78` | The census branch roll is discarded for every bot born below the branch level. |
-| `sweep#B2` | `.../BotMegaphoneSystem/MegaReactions.java:63`, `:159` | `playerLast` is written for every megaphone and never pruned, while `botLast` is pruned at `:152`. |
+| `market#F-06` | `src/main/java/soloMapling/Economy/MesoSinks.java:89` | The price book samples gross while the seller nets price minus fee, so every fair value drifts up by the tax. |
+| `market#F-09` | `src/main/java/soloMapling/Economy/BotBotTrade.java:444` | A failed `takeBack` is log-only: the seller keeps both mesos and item, the buyer is refunded. |
+| `market#F-10` | `src/main/java/soloMapling/ArtificialPlayer/BotTypes/FMBotWallet.java:27` | 10,000,000 mesos per bot per day are minted outside the ledger (~1.5e10/day fleet-wide). |
+| `market#F-11` | `src/main/java/soloMapling/ArtificialPlayer/BotTypes/FMBot.java:555` | Bot→bot purchases bypass the buyer's wealth and stock caps. |
+| `market#F-12` | `src/main/java/soloMapling/Economy/BotShops.java:275` | A refused resale listing is destroyed instead of re-pooled. |
+| `market#F-13` | `src/main/java/soloMapling/Economy/BotDirectTrade.java:311-320` | A direct-trade sale credits the wallet without `noteMesoEarned`, so the ledger is blind to it. |
+| `social#7` | `src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/MapChatLog.java:100` → `src/main/java/soloMapling/ArtificialPlayer/BotChatPrompt.java:249` | Third parties' real names can enter another player's reply prompt. |
+| `social#8` | `src/main/java/soloMapling/ArtificialPlayer/BotConvo/DecideShadow.java` | The shadow judge has no budget, is given the wrong text, and defaults to keeping it. |
+| `social#9` | `src/main/java/soloMapling/ArtificialPlayer/BotBrainSystem/ChatDecide.java` (`takeBudget`) | The decide budget is 8/s world-wide with no per-player share and a silent fallback to scripted rules. |
+| `social#10` | `src/main/java/soloMapling/ArtificialPlayer/BotRecognition.java:34`, `:148` | `lastGreetOnSight` is never pruned; only `resetForTest` clears it. |
+| `social#11` | `src/main/java/soloMapling/ArtificialPlayer/BotAffinitySystem/AffinityReactions.java:638` vs `:606` | The tone judge is live for romance, shadow for reply quality, and a third dead copy still exists. |
+| `life#F3` | `src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeActivityQueue.java:159` | A reentrant `finish` delivers one activity's end record as the next activity's. |
+| `life#F5` | `src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuests.java:321` | `ranked` refuses any quest with an off-map mob, so the scorer's detour pricing is unreachable. |
+| `life#F6` | `src/main/java/soloMapling/ArtificialPlayer/BotQuestSystem/BotQuestLog.java:149`, `src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeMemory.java:504`, `src/main/java/soloMapling/ArtificialPlayer/TrendIndex.java:138` | Three different definitions of "a day" in three files. |
+| `life#F7` | `src/main/java/soloMapling/ArtificialPlayer/BotConvo/BotTalk.java:540-545` | A 90-second say-do promise, refreshed on every talk, starves the life tick of a popular bot. |
+| `life#F8` | `src/main/java/soloMapling/ArtificialPlayer/BotLifeSystem/LifeRuntime.java:236`, `:404`; `src/main/java/soloMapling/ArtificialPlayer/BotWanderSystem/BotWanderSystem.java:37`, `:211` | Duplicated `FREE_PHASES` literals and a 400 ms poll per town bot. |
+| `prog#P4` | `src/main/java/soloMapling/ArtificialPlayer/BotScrollSystem/BotScrolling.java:306-308` | The EV scroll planner is handed constants instead of the gear facts. |
+| `prog#P5` | `src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/JobErrand.java` (`mayAdvance`) | A graph route search runs inside `synchronized (bot)` on the progression path. |
+| `prog#P6` | `src/main/java/soloMapling/ArtificialPlayer/BotDecoratorSystem/BotDecorationQueue.java` (`decorateBot`) | The deferred queue re-dresses bots that are already dressed, blind to what they wear. |
+| `prog#P7` | `src/main/java/soloMapling/ArtificialPlayer/BotProgressionSystem/BotSkillPlan.java` (`Entry`) | No prerequisite model: entry order is the only guarantee a prerequisite precedes its skill. |
+| `prog#P8` | `src/main/java/soloMapling/ArtificialPlayer/BotDecoratorSystem/BotDecorate.java:63-78` | The census branch roll is discarded for every bot born below the branch level. |
+| `sweep#B2` | `src/main/java/soloMapling/ArtificialPlayer/BotMegaphoneSystem/MegaReactions.java:63`, `:159` | `playerLast` is written for every megaphone and never pruned, while `botLast` is pruned at `:152`. |
 | `sweep#B3` | `src/main/java/soloMapling/achievements/AchievementService.java:286-288` | Cache overflow calls `cache.clear()`, dropping every character's rows at once. |
-| `sweep#B4` | `.../BotFamilySystem/BotFamily.java:78`, `:278`, `:300`, `:305` | `pairAsked` gains an entry per pair and loses one only in the QA-only forget path. |
-| `sweep#B5` | `.../BotGuildSystem/BotGuilds.java:93`, `:1312`, `:1929-1933` | `nextAt` keys accumulate per player, guild and pair; exactly one removal site exists. |
-| `sweep#B6` | `.../BotMessagingSystem/MapChatLog.java:40`, `:65`, `:81`, `:204` | `byMap` is keyed by channel and map and never drops a map's deque. |
+| `sweep#B4` | `src/main/java/soloMapling/ArtificialPlayer/BotFamily.java:78`, `:278`, `:300`, `:305` | `pairAsked` gains an entry per pair and loses one only in the QA-only forget path. |
+| `sweep#B5` | `src/main/java/soloMapling/ArtificialPlayer/BotGuildSystem/BotGuilds.java:93`, `:1312`, `:1929-1933` | `nextAt` keys accumulate per player, guild and pair; exactly one removal site exists. |
+| `sweep#B6` | `src/main/java/soloMapling/ArtificialPlayer/BotMessagingSystem/MapChatLog.java:40`, `:65`, `:81`, `:204` | `byMap` is keyed by channel and map and never drops a map's deque. |
 | `sweep#B7` | `src/main/java/soloMapling/Gachapon/BotGacha.java:55`, `:118`, `:245-246` | The day and walk registries are cleared only by test hooks. |
-| `sweep#R2` | `.../ArtificialPlayer/BotVitals.java:50-51`, `:489-491` vs `BotGeneration.java:435-436` | Locks and regen carry are released only from `BotAttackDriver.clearBot`, which despawn does not call. |
-| `sweep#R3` | `.../BotChatterSystem/BotChatter.java:274`, `:317`, `:331` | `ENGAGED` self-heals on a stale deadline; `COOLDOWN` has no equivalent cleanup. |
-| `sweep#R4` | `.../ArtificialPlayer/BotMenus.java:46`, `:62`, `:151-152` | An open menu holds the player id and a `BiConsumer` until the player closes or logs out. |
-| `sweep#D1` | `.../BotBrainSystem/BotNoiseFilter.java:105` | `namesViewer` has no callers. |
+| `sweep#R2` | `src/main/java/soloMapling/ArtificialPlayer/BotSupplySystem/BotVitals.java:50-51`, `:489-491` vs `src/main/java/soloMapling/ArtificialPlayer/BotGeneration.java:435-436` | Locks and regen carry are released only from `BotAttackDriver.clearBot`, which despawn does not call. |
+| `sweep#R3` | `src/main/java/soloMapling/ArtificialPlayer/BotChatterSystem/BotChatter.java:274`, `:317`, `:331` | `ENGAGED` self-heals on a stale deadline; `COOLDOWN` has no equivalent cleanup. |
+| `sweep#R4` | `src/main/java/soloMapling/ArtificialPlayer/BotMenus.java:46`, `:62`, `:151-152` | An open menu holds the player id and a `BiConsumer` until the player closes or logs out. |
+| `sweep#D1` | `src/main/java/soloMapling/ArtificialPlayer/BotMegaphoneSystem/BotNoiseFilter.java:105` | `namesViewer` has no callers. |
 
-Paths beginning `.../` are under `src/main/java/soloMapling/`.
+Paths in these tables are repo-relative. Where a row names one file and then `:line` segments, the segments belong to
+that file.
 
 ## Systems worth changing, not just fixes
 
@@ -226,7 +240,7 @@ the switch-only proposals it dropped, is in `BEHAVIOUR.md` §"Better systems". F
    rather than a missed `synchronized`. ~0.5 day.
    *Cheapest experiment:* the two-thread add/sweep test (B1's proof) — it throws today.
 4. **One owned-lifetime sweep for static maps.** `BoundedMaps.prune(map, soft, hard, predicate)` (already used by
-   `BotEpisodes.java:173` and `BotFameRequest.java:128`) applied to `playerLast`, `pairAsked`, `nextAt`, `byMap`,
+   `src/main/java/soloMapling/ArtificialPlayer/BotEpisodes.java:173` and `src/main/java/soloMapling/ArtificialPlayer/BotFameRequest.java:128`) applied to `playerLast`, `pairAsked`, `nextAt`, `byMap`,
    `COOLDOWN`, `openByPlayer` and the gacha registries; `removeBotFromServer` becomes the single documented exit.
    B2 and B4–B7, R3 and R4 are one defect with six names — a map keyed on an id with no owner to remove it — and the
    seventh omission is invisible in review because there is no place to look. ~1.5 days.
