@@ -300,6 +300,32 @@ and `BotHelpers` tests; the run ends through the event script's own `scheduledTi
 everyone out and disposes the instance, instead of their client's death-count panel, which needs the `DEATH_COUNT`
 opcode only their patched client has. Their `set(int)` GM override is not ported.
 
+### Boss row data for the TD battles, Maha and Castellan, 1.6.4 (branch `164-bossrows`, ticket 130 boss lane), BotStory `81a3b1dfb3b6ec1619be4ced43ae0a8b6882b364`
+
+BotStory was read for one thing only: the recorded kill order of the revive chains, and the min-level/target entries that
+our own scripts already state. No component model, focus/keepOut band, ledge list or `stagePortal` is taken from it - the
+rows are `solver: boss-phases` stages over our own `StageView`, and their maps, gates, spawn sites and clear signals are
+read from our scripts and our WZ dump.
+
+| From theirs | Our files |
+| --- | --- |
+| `agent-bosses/boss-rules.json` `neo_bergamot.targetPriority` = `[7220003, 7220004, 7220005]` and `neo_nibelung.targetPriority` = `[8220013, 8220014, 8220015]`, the only upstream entries that record a chain's order | `content/bergamot.yaml` and `content/nibelung.yaml`'s `mobs:` lists, in that order; the order itself is confirmed independently from WZ `info/revive` (`Mob.wz/7220003.img.xml` -> `7220004` -> `7220005`, `Mob.wz/8220013.img.xml` -> `8220014` -> `8220015`) as consumed by `Monster.killBy` (`Monster.java:903-963`), so the yaml quotes the dump and only the ordering was cross-checked against them |
+| `neo_dunas` (`minLevel` 70, `targetPriority` `[8220010]`), `neo_aufheben` (`minLevel` 70, `[8220011]`), `neo_oberon` (`[8220012]`) | `content/dunas.yaml`, `content/aufheben.yaml`, `content/oberon.yaml`: the same numbers, but each is our script's own (`TD_Battle2/3/4.js:28`, `:37`), so nothing new is imported - the agreement is recorded because the dossier proposed the comparison |
+
+Nothing is taken from BotStory for `maha.yaml` or `castellan.yaml`: neither project carries a definition for them.
+
+Ours, and not portable from anywhere: every gate is the script's own (`TD_Battle*.js:26-28,39,41`;
+`CastellanBattle.js:28-29,39,41`; `MahaBattle.js` declares none at all and reads `minPlayers` at `:82`, `:96` and `:105`,
+which is why its row states `minPlayers: 1 / maxPlayers: 1`); the entry paths are `scripts/portal/TD_Boss_enter.js:4-5,20`
+(party), `scripts/quest/21401.js:23-24` (one character) and `scripts/npc/9111058.js:35,173` (expedition); every clear is
+the script's `clearPQ` with no property, hence `clear: { instance: true }`; the spawn sites are the map's own life or the
+script's `setup()` (`CastellanBattle.js:129-134`). The `spawnWaitSeconds: 60` on these rows is a policy number - how long
+a room may stand empty while its boss appears - and is not measured data from any source.
+
+The WZ facts (map life, revive chains, `Quest.wz/Check.img.xml`'s `21401` block) come from the dump at
+`/root/work/SlumsMS-170-evan/wz`, which is **not** version-pinned to this branch; each row's `sources:` names the file it
+relied on, and `REPORT-bossrows.md` lists them per id.
+
 ### Orbis PQ stage data, 1.6.4 (branch `164-opq`, ticket 164), cosmic_agents `3c7e094357329932734a860e5a831d57add27a00`
 
 | From theirs | Our files |

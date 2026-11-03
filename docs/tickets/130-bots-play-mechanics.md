@@ -541,9 +541,10 @@ the script's own property (`defeatedHead` 1 then 2, then `defeatedBoss` 1 - `Hor
   (`MapleMap.java:4939-4947`), so the eight parts come first and the body is only offered once none is left. The add
   family `8810019-8820023` is not in our scripts or server code and is not stage data; the corpse parts
   `8810010-8810017` and the intro `8810026` are never a role (`LiveStageView.partRole`).
-- **`summonProperty` and `killTarget` are data now.** A stage names the property that says its parts were summoned
-  (null = no gate) and the part whose death the script turns into the clear (0 = none; the solver only abandons for a
-  missing one when a stage names it). Zakum names both (`summoned`, `8800002`); Horntail names none of the latter.
+- **`summonProperty` is data now.** A stage names the property that says its parts were summoned (null = no gate).
+  Zakum names it; Horntail names none. The old `killTarget` field is gone (`164-bossrows`): nothing read it, and what
+  it was meant to say - "the room may legitimately stand empty until the boss arrives" - is now `spawnWaitSeconds`
+  (see the next section).
 - **Two facts settled while doing this.** `exitMap` means "where a run ended by us sends a member"
   (`MechanicsRuns.endInstance`), so Zakum's row now says `211042400` - the script sends everyone there itself
   (`ZakumBattle.js:159-162`) - and `minPlayers` is the script's own gate (Zakum 6, Horntail 6), because bots join as
@@ -598,6 +599,40 @@ Five defects found reviewing A1-B; all fixed on the same branch, switches unchan
   instance, instead of failing quietly.
 - **A stranger's mob stays the stranger's.** Pinned by test: an alt inside a PQ instance does not take a mob a real
   player outside the party is hitting (`OwnedAltCombat.strangers`), on top of the two existing controls.
+
+## Boss lane: seven single-room rows and the spawn wait (1.6.4, branch `164-bossrows`)
+
+Seven `kind: BOSS` rows landed in one branch, every one of them one stage on one map clearing on `clear: { instance:
+true }`, because none of their scripts writes a property a row could compare: `dunas` (TD Battle 2), `aufheben` (3),
+`oberon` (4), `bergamot` (1), `nibelung` (5), `maha`, `castellan`. Per-row script/gate/map/target/spawn/clear detail is in
+`REPORT-bossrows.md`, the credits in `docs/PROVENANCE.md`.
+
+- **Why they used to abandon themselves in 30 s.** The abandon branch fires when the room has carried no `ARM` and no
+  `BODY` part for `NOTHING_TO_HIT_GRACE_MS`, and `LiveStageView.partRole` gives every non-Zakum/Horntail id the role
+  `ADD` - so `nothingToHit()` was true from tick one in all seven rooms, whose boss is the map's own life (or, for
+  Castellan, the script's `setup()` spawn). The fix is row data, not a wider grace: a stage may now say
+  `spawnWaitSeconds:`, and `BossPhasesSolver.allowedEmptyMs` allows `max(30 s, that)`. Zero (the default) is exactly the
+  old behaviour, so a genuinely dead instance still ends at the grace instead of burning its clock. The fail-before
+  pair is `BossPhasesSolverTest.aRoomThatDeclaresItsSpawnWaitIsNotAbandonedAtTheGrace` /
+  `aRoomWithNoDeclaredSpawnWaitStillAbandonsAtTheGrace`, and the whole-run version is
+  `RowRunSimulationTest.aDunasRoomThatStandsEmptyForFortyFiveSecondsIsNotAbandonedAtThirty`.
+- **`killTarget` is gone.** Deleting it beat wiring it in: ordering could only duplicate `mobs:` order, and "the id whose
+  death is the clear" is what `clear:` already says, so wiring it would have been a third spelling of one fact plus the
+  second dead field the ticket forbids. The temporal part of what it meant is `spawnWaitSeconds`.
+- **A chain is one stage, in revive order.** `bergamot` (`7220003 -> 7220004 -> 7220005`), `nibelung`
+  (`8220013 -> 8220014 -> 8220015`) and `castellan` (`9400408 -> 9400409`) list every form in the stage that holds them:
+  the scripts have one room and no per-form property, so a stage boundary would invent a room the server does not have,
+  and the solver must never look for a form its predecessor has not woken. `Monster.killBy`
+  (`Monster.java:903-963`) is what spawns the next one, from WZ `info/revive`.
+- **Who can start one.** The five TD rows are portal + party (`scripts/portal/TD_Boss_enter.js`), so a human party
+  leader's click is enough. `maha` is a quest instance for one character (`scripts/quest/21401.js:23-24`), hence
+  `minPlayers 1 / maxPlayers 1` and a level bar (120) read from `Quest.wz/Check.img.xml` because the script declares
+  none. `castellan` needs the NPC's expedition and a bot cannot lead an expedition, so that row only ever runs when a
+  human made the expedition - recorded, not worked around.
+- **The switch still decides.** `kind` is what `MechanicsRuns.onInstanceStarted` tests against
+  `-Dslums.mechanics.boss`, not which `startInstance` overload called it, so a portal-entered party instance of a boss
+  script is armed by the same flag: `BossRunSeamTest.aTdBattleInstanceStaysInertWhileTheBossSwitchIsOff` and
+  `...ArmsARunForItsBotsWhenTheSwitchIsOn` pin both sides.
 
 ## QA plan
 
