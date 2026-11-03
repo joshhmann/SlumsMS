@@ -25,10 +25,22 @@ function act() {
         rm.getPlayer().getEventInstance().setProperty("canEnter", "false");
     }
     rm.changeMusic("Bgm06/FinalFight");
-    rm.spawnFakeMonster(8800000);
-    for (i = 8800003; i < 8800011; i++) {
-        rm.spawnMonster(i);
+    // The same reactor id stands on both altars, so the map decides which boss it summons: 280030001 is Chaos Zakum's
+    // Altar (its own row is content/zakum-chaos.yaml, behind -Dslums.chaos.zakum). Keeping one script for both keeps the
+    // normal altar's lines untouched.
+    if (rm.getReactor().getMap().getId() == 280030001) {
+        rm.spawnFakeMonster(8800100);
+        for (i = 8800103; i < 8800111; i++) {
+            rm.spawnMonster(i);
+        }
+        rm.createMapMonitor(280030001, "ps00");
+        rm.mapMessage(5, "Chaos Zakum is summoned by the force of Eye of Fire.");
+    } else {
+        rm.spawnFakeMonster(8800000);
+        for (i = 8800003; i < 8800011; i++) {
+            rm.spawnMonster(i);
+        }
+        rm.createMapMonitor(280030000, "ps00");
+        rm.mapMessage(5, "Zakum is summoned by the force of Eye of Fire.");
     }
-    rm.createMapMonitor(280030000, "ps00");
-    rm.mapMessage(5, "Zakum is summoned by the force of Eye of Fire.");
 }
