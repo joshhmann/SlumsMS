@@ -44,37 +44,37 @@ must stay true: `ModeSwitch.enabled()` is false without `LifeRuntime.reachesAllB
 Rollback order if something is wrong (least to most disruptive): `-Dslums.modeswitch=false` (bots stay training
 bots; minds and bonds keep working), then `-Dslums.intents=false`, then `-Dslums.socialacts=false` (no acts, no
 gifts, no arguments; memories and minds still load), then `-Dslums.botlife.execute=false` (the whole daily-life
-brain off, back to 1.6.0 behaviour). No switch needs a migration rollback; 059 and 060 are additive columns that
+brain off, back to 1.6.0 behaviour). No switch needs a migration rollback; 062 and 063 are additive columns that
 an older jar ignores.
 
-## 3. Before the jar: migrations 059 and 060
+## 3. Before the jar: migrations 062 and 063
 
 Both must be in the release conf `MIGRATIONS` list and applied **before** the new jar starts. They are additive and
 idempotent; an older jar runs fine on a migrated database.
 
-- `059-bot-relationship-axes`: ten columns each on `botbond` and `botaffinity` (Familiarity, Trust, Affection,
-  Respect, Attraction, Rivalry, Resentment, Obligation, Stage, HasAxes). Ledger id `059-bot-relationship-axes`.
-- `060-bot-memory-social`: six columns on `botmemory` (SubjectType, Location, Confidence, Valence, Provenance,
-  OtherParticipant). Ledger id `060-bot-memory-social`.
+- `062-bot-relationship-axes`: ten columns each on `botbond` and `botaffinity` (Familiarity, Trust, Affection,
+  Respect, Attraction, Rivalry, Resentment, Obligation, Stage, HasAxes). Ledger id `062-bot-relationship-axes`.
+- `063-bot-memory-social`: six columns on `botmemory` (SubjectType, Location, Confidence, Valence, Provenance,
+  OtherParticipant). Ledger id `063-bot-memory-social`.
 
 Release conf line (add to the existing list, keeping the file stems, no `.sql`):
 
 ```
-MIGRATIONS=(... 059-bot-relationship-axes 060-bot-memory-social)
+MIGRATIONS=(... 062-bot-relationship-axes 063-bot-memory-social)
 ```
 
 Apply on TEST (schema `mapleroot_persist`, container `mapleroot-integration-db`, port 3307):
 
 ```
-docker exec -i mapleroot-integration-db mysql -uroot -p"$DB_PASS" mapleroot_persist < database/migrations/059-bot-relationship-axes.sql
-docker exec -i mapleroot-integration-db mysql -uroot -p"$DB_PASS" mapleroot_persist < database/migrations/060-bot-memory-social.sql
+docker exec -i mapleroot-integration-db mysql -uroot -p"$DB_PASS" mapleroot_persist < database/migrations/062-bot-relationship-axes.sql
+docker exec -i mapleroot-integration-db mysql -uroot -p"$DB_PASS" mapleroot_persist < database/migrations/063-bot-memory-social.sql
 ```
 
 Run each twice; the second run must change nothing (`DO 0` branches). Then check the ledger:
 
 ```sql
 SELECT migration_id, applied_at FROM mapleroot_integration_migrations
- WHERE migration_id IN ('059-bot-relationship-axes', '060-bot-memory-social');
+ WHERE migration_id IN ('062-bot-relationship-axes', '063-bot-memory-social');
 ```
 
 Two rows, one per migration. Without them the server still boots, but bonds lose their axes on every restart and
@@ -149,7 +149,7 @@ any SKIP that is not on the client-only allow-list, so it is registered in the s
 Schema `mapleroot_persist`, container `mapleroot-integration-db`, port 3307. Never run anything but SELECT here.
 
 ```sql
--- 059: axes are being written, not just derived
+-- 062: axes are being written, not just derived
 SELECT COUNT(*) AS bonds, SUM(HasAxes) AS with_axes, FROM_UNIXTIME(MAX(UpdatedAt)/1000) AS last_write FROM botbond;
 SELECT Stage, COUNT(*) FROM botbond GROUP BY Stage ORDER BY Stage;
 SELECT COUNT(*) AS affinities, SUM(HasAxes) AS with_axes FROM botaffinity;
@@ -157,7 +157,7 @@ SELECT COUNT(*) AS affinities, SUM(HasAxes) AS with_axes FROM botaffinity;
 -- the axes stay in range
 SELECT MIN(Trust), MAX(Trust), MIN(Familiarity), MAX(Familiarity), MIN(Rivalry), MAX(Rivalry) FROM botbond;
 
--- 060: bots remember each other, with a place, a confidence and a valence
+-- 063: bots remember each other, with a place, a confidence and a valence
 SELECT SubjectType, COUNT(*) FROM botmemory GROUP BY SubjectType;
 SELECT Provenance, COUNT(*) FROM botmemory GROUP BY Provenance;
 SELECT COUNT(*) AS bot_notes, SUM(Location IS NOT NULL) AS with_place,
@@ -272,10 +272,10 @@ PT), the map, the two character names and the counters before and after, and han
 
 - Feature off, keep the data: `-Dslums.modeswitch=false` (or the other flags in section 2). Nothing to undo in the
   database; minds and bonds simply stop changing.
-- Old jar: 059 and 060 are additive with defaults, so the previous jar runs on the migrated schema. Roll the jar
+- Old jar: 062 and 063 are additive with defaults, so the previous jar runs on the migrated schema. Roll the jar
   back with the normal `deploy-test`/deploy-script path, not by editing the DB.
 - Migration rollback (only if a migration itself was wrong, and only with the game stopped and a backup taken):
-  `059-bot-relationship-axes.rollback.sql` drops the ten columns from both tables; `060-bot-memory-social.rollback.sql`
+  `062-bot-relationship-axes.rollback.sql` drops the ten columns from both tables; `063-bot-memory-social.rollback.sql`
   drops the six from `botmemory`. Both lose the social data they hold.
 
 ## 9. Not verified here

@@ -3,7 +3,7 @@
 -- involved, so bots remember each other, recall by relevance and keep to what they saw or were told. Adds six
 -- columns to botmemory, all with defaults, so every existing row stays valid and an older jar runs fine on a migrated
 -- database (it never names them). Stop the game and take a backup first, as for every migration here. Applying it
--- twice changes nothing (ledger id '060-bot-memory-social'). Without it the server still runs: new notes keep those
+-- twice changes nothing (ledger id '063-bot-memory-social'). Without it the server still runs: new notes keep those
 -- six fields in memory only and read back with the defaults of their source (it also needs 030's Kind/Weight columns).
 --
 -- SubjectType:      PLAYER (every older row) or BOT (the note is about another bot; AboutCharacterId is then that bot's
@@ -62,4 +62,4 @@ PREPARE add_other FROM @ddl;
 EXECUTE add_other;
 DEALLOCATE PREPARE add_other;
 
-INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('060-bot-memory-social');
+INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('063-bot-memory-social');

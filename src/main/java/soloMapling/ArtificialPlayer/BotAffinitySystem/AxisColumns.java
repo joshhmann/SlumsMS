@@ -12,7 +12,7 @@ import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Ticket 271 stage 2, migration 059: the ten columns the axes and the stage live in on {@code botbond} and
+ * Ticket 271 stage 2, migration 062: the ten columns the axes and the stage live in on {@code botbond} and
  * {@code botaffinity} (eight FLOAT axes, {@code Stage} TINYINT, {@code HasAxes} TINYINT), and how the stores cope
  * when the migration is not applied: they ask once whether the columns exist ({@link Availability}, again 10 minutes
  * after a "no", as {@code BotMemory.hasKinds} does for migration 030) and, without them, read and write the older six
@@ -104,10 +104,10 @@ final class AxisColumns {
                 known = true;
                 return true;
             } catch (SQLException e) {
-                if (e.getErrorCode() == 1054 || "42S22".equals(e.getSQLState())) { // unknown column: 059 not applied
+                if (e.getErrorCode() == 1054 || "42S22".equals(e.getSQLState())) { // unknown column: 062 not applied
                     known = false;
                     checkedAt = now;
-                    log.info("{} has no axis columns (migration 059 not applied): relationship axes are derived from the"
+                    log.info("{} has no axis columns (migration 062 not applied): relationship axes are derived from the"
                             + " score at every load", table);
                 }
                 return false; // anything else (table missing, share busy): ask again next time

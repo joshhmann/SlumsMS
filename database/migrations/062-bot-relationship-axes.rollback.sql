@@ -1,4 +1,4 @@
--- Stop the game first and take a backup. Removes what 059 added: the ten axis and stage columns of botbond and
+-- Stop the game first and take a backup. Removes what 062 added: the ten axis and stage columns of botbond and
 -- botaffinity. Scores, kinds and hostile counts stay, so the server goes on with the older one-number relationships
 -- (the axes are lost; they are derived from the score again at the next load). Applying it twice changes nothing.
 SET @present = EXISTS (SELECT 1 FROM information_schema.COLUMNS
@@ -15,4 +15,4 @@ PREPARE drop_botaffinity_axes FROM @ddl;
 EXECUTE drop_botaffinity_axes;
 DEALLOCATE PREPARE drop_botaffinity_axes;
 
-DELETE FROM mapleroot_integration_migrations WHERE migration_id='059-bot-relationship-axes';
+DELETE FROM mapleroot_integration_migrations WHERE migration_id='062-bot-relationship-axes';

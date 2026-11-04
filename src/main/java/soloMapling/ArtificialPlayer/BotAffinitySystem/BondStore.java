@@ -45,7 +45,7 @@ public interface BondStore {
         static final String DELETE = "DELETE FROM botbond WHERE BotId = ? AND OtherId = ?";
 
         private volatile boolean warned;
-        /** Whether migration 059's columns are there (asked once; see {@link AxisColumns}). */
+        /** Whether migration 062's columns are there (asked once; see {@link AxisColumns}). */
         final AxisColumns.Availability axisColumns = new AxisColumns.Availability("botbond");
 
         private void missing(SQLException e) {

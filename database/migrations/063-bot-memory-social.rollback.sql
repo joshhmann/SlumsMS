@@ -1,4 +1,4 @@
--- Stop the game first and take a backup. Removes what 060 added: botmemory's SubjectType, Location, Confidence,
+-- Stop the game first and take a backup. Removes what 063 added: botmemory's SubjectType, Location, Confidence,
 -- Valence, Provenance and OtherParticipant columns. The notes themselves stay (a note about another bot stays too,
 -- as a plain note keyed by that bot's character id); what the columns held is lost and every note reads with the
 -- defaults of its source again. Applying it twice changes nothing.
@@ -44,4 +44,4 @@ PREPARE drop_subject FROM @ddl;
 EXECUTE drop_subject;
 DEALLOCATE PREPARE drop_subject;
 
-DELETE FROM mapleroot_integration_migrations WHERE migration_id='060-bot-memory-social';
+DELETE FROM mapleroot_integration_migrations WHERE migration_id='063-bot-memory-social';

@@ -35,14 +35,14 @@ public final class FakeMemoryTable {
     /** How many batched {@code BotId IN (...)} reads were issued. */
     final AtomicInteger batchReads = new AtomicInteger();
     final boolean legacy;
-    /** Migration 030 applied but not 060: the social columns are unknown (MySQL error 1054). */
+    /** Migration 030 applied but not 063: the social columns are unknown (MySQL error 1054). */
     boolean withoutSocial;
 
     public FakeMemoryTable(boolean legacy) {
         this.legacy = legacy;
     }
 
-    /** A database with migration 030 but not 060. */
+    /** A database with migration 030 but not 063. */
     static FakeMemoryTable without060() {
         FakeMemoryTable t = new FakeMemoryTable(false);
         t.withoutSocial = true;

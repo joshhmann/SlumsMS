@@ -63,7 +63,7 @@ social bots lose their `LifeMemory` is stale: `LifeMemoryStore` saves it for eve
 1. **Identity.** Add a `SocialMind` (12 traits, 9 emotions, 8 needs as small floats with a timestamp, decayed on read) to
    `LifeMemory`, saved in `botlifeprofile` (JSON, versioned, about 120 B per bot), exposed through `SocialSelf`.
 2. **Relationships.** An 8-float vector inside `Bond` and `Tie`; `score` stays as the derived summary, so `state()`,
-   crews, `Reputation`, `GuildRules`, couples are untouched. New columns by migration 059 (+ rollback). Events plug into
+   crews, `Reputation`, `GuildRules`, couples are untouched. New columns by migration 062 (+ rollback). Events plug into
    `BondEvent` / `BondRules.apply`. Bonds form in the background tier too, not only on observed maps.
 3. **Memory.** Extend `botmemory` (subject type so a bot can be the subject, location, confidence, emotional weight);
    relevance scoring in `BotMemory.pick`/`RECALL_ORDER`; `BotThreads` and `BotTalk` read it; world news gets a transmission
@@ -136,12 +136,12 @@ the dashboard.
 | 0 | Flags on by default, `SocialSim`, `social-tick` phase | unit + full suite | done (`cea8d6671`) |
 | 0b | Mode switching | unit, gate, multi-day policy simulation, full suite | done (this branch), TEST run pending |
 | 1 | `SocialMind` (traits, emotions, needs), decay, persistence | decay and restart round-trip tests | built (`164-social-mind`); TEST persistence check pending; no decision reads it yet |
-| 2 | 8-axis bonds, migration 059, background formation | axis table, directedness, hysteresis, eviction, restart and legacy-row round trips, background tier, simulated-days tests | built (`164-social-bonds`, `f03304844`); migration 059 not yet applied on TEST; no decision reads the axes yet |
-| 3 | Memory extension (migration 060), relevance recall, knowledge boundaries, memory in bot-bot talk | knowledge-boundary tests | built (`164-social-memory`): subject type, place, confidence, valence, provenance, other party; `BotMemory.recall(.., Query, ..)` and `remember(..)` writer; repeats merge; world news only from witnesses or tellers; circle-restricted counts; `BotThreads`/`BotTalk` prompts carry the partner's real memories. Unit-tested only; TEST not run |
+| 2 | 8-axis bonds, migration 062, background formation | axis table, directedness, hysteresis, eviction, restart and legacy-row round trips, background tier, simulated-days tests | built (`164-social-bonds`, `f03304844`); migration 062 not yet applied on TEST; no decision reads the axes yet |
+| 3 | Memory extension (migration 063), relevance recall, knowledge boundaries, memory in bot-bot talk | knowledge-boundary tests | built (`164-social-memory`): subject type, place, confidence, valence, provenance, other party; `BotMemory.recall(.., Query, ..)` and `remember(..)` writer; repeats merge; world news only from witnesses or tellers; circle-restricted counts; `BotThreads`/`BotTalk` prompts carry the partner's real memories. Unit-tested only; TEST not run |
 | 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests, utility ordering, Alice/Bob/Clara scene, 3-day 12-bot simulation | built (`164-social-acts`): section 9; unit and simulation tests only, TEST not run |
 | 5 | Intentions (memory in `BotThreads`/`BotTalk` prompts moved to Stage 3) | dialogue-to-intention test | built (`164-social-intents`, `81a7faa31`): see section 8; unit-tested only; performer is a seam, wired to `SocialActions.perform` by Stage 4 (section 9); TEST not run |
 | 6 | Social LOD, loop breaker, metrics in dashboard and inspect | perf measurement | 6a built (`164-social-observe`): `SocialBudget` loop breaker (per-pair cooldown, per-bot, per-map and global rates, A-B turn limit, failed-act backoff; hooked into `BotTalk`), `social` block in `live.json`, mode/mind/bonds in `/bots/{cid}`, mode and mind lines in `!botwhy`; unit tests only, no perf measurement and no TEST run yet. 6b social LOD planned **6b:** 6b social LOD built (`164-social-lod`: tier/hold, 5-minute maintenance, catch-up bounds, flag-off tests, full suite); loop breaker and dashboard metrics planned |
-| 7 | 20-bot Henesys pilot, TEST (mapletest) live check | real execution evidence | built (`164-social-pilot`): section 10; routine, groups, pilot selection, hold, counters; a 7-day, 20-bot harness asserts the ten pilot criteria in a fake world; nothing run on TEST or in a client **Auto-QA and runbook:** auto-QA and runbook written (`164-social-qa`): `Probes164Social` with `t-ms-1` (all three modes, switches both ways, swap refusals under 5%, no bot over 3 an hour, via the new `ModeSwitch.switchesLastHour` accessor), `t-sm-1` (minds finite, mood in [-1,1], events moved off the seeds) and `t-sa-1` (three act kinds, error and refusal shares, turn cap), each SKIPping with a reason; `t-pi-1` reads `SocialPilot` through a reflection seam and is registered with the pilot. Runbook `docs/qa/social-test-runbook.md` (migrations 059/060 before the jar, SELECT-only checks, restart survival of the `mind` key, yield per bot hour before/after the mode switch, Henesys walkthrough, rollback) and `docs/release/1.6.4-social-conf-notes.md`. The pilot itself is still planned |
+| 7 | 20-bot Henesys pilot, TEST (mapletest) live check | real execution evidence | built (`164-social-pilot`): section 10; routine, groups, pilot selection, hold, counters; a 7-day, 20-bot harness asserts the ten pilot criteria in a fake world; nothing run on TEST or in a client **Auto-QA and runbook:** auto-QA and runbook written (`164-social-qa`): `Probes164Social` with `t-ms-1` (all three modes, switches both ways, swap refusals under 5%, no bot over 3 an hour, via the new `ModeSwitch.switchesLastHour` accessor), `t-sm-1` (minds finite, mood in [-1,1], events moved off the seeds) and `t-sa-1` (three act kinds, error and refusal shares, turn cap), each SKIPping with a reason; `t-pi-1` reads `SocialPilot` through a reflection seam and is registered with the pilot. Runbook `docs/qa/social-test-runbook.md` (migrations 062/063 before the jar, SELECT-only checks, restart survival of the `mind` key, yield per bot hour before/after the mode switch, Henesys walkthrough, rollback) and `docs/release/1.6.4-social-conf-notes.md`. The pilot itself is still planned |
 
 Nothing here has run in a real client or on TEST yet.
 
@@ -169,7 +169,7 @@ Nothing here has run in a real client or on TEST yet.
   the stored previous stage, entered at a higher threshold than it is left at (thresholds in `Stage`'s javadoc), one rung
   per event, never raised by time. ESTRANGED needs a friend-level edge that then fell with resentment, not one that faded;
   a friendship that merely faded drops to ACQUAINTANCE. The legacy `AffinityState` derivation is unchanged.
-- **Persistence**: migration 059 adds ten columns (eight axes, `Stage`, `HasAxes`) to `botbond` and `botaffinity`,
+- **Persistence**: migration 062 adds ten columns (eight axes, `Stage`, `HasAxes`) to `botbond` and `botaffinity`,
   idempotently, with a rollback. Rows with `HasAxes = 0` (every older row) get axes and stage derived from score, kind and
   hostile. Without the migration the stores probe once (again after 10 minutes), fall back to the older six columns and
   derive at every load. Writes stay in the 3-minute batched flush.
@@ -183,7 +183,7 @@ Nothing here has run in a real client or on TEST yet.
   views; `!botwhy` shows a `Stages:` line.
 
 Proof: `RelationAxesTest`, `BotBondsAxesTest`, `TieAxesTest`, `AxisColumnsTest`, `BotBondsSimulatedDaysTest`. Not done: no
-database run of migration 059 (no MySQL in the unit tests; the JDBC mapping is tested against mocked result sets and the
+database run of migration 062 (no MySQL in the unit tests; the JDBC mapping is tested against mocked result sets and the
 SQL by string checks), nothing on TEST, no decision reads the axes yet.
 
 ## 8. Stage 5 as built: persisted intentions
@@ -316,7 +316,7 @@ sampling of `BotBonds.step` replayed over ids with the same caps and 12 other ma
 | 2 | friendships by repeated interaction | 75 directed edges reached FRIEND with 6..44 NEAR+SPEND_TIME+CONVERSE first (median 16); of the most-interacting quarter of pairs 72% are friends, of the least 0% | harness only (the fake replays `BotBonds` sampling); TEST: bond stages in `/bots/{cid}` after a few hours |
 | 3 | conflicting personalities, different acts | the most agreeable/patient and the most impulsive/disagreeable pilot bot choose different acts in 2 of 4 fixed situations (GREET or APOLOGIZE against ARGUE); ARGUE actors' mean agreeableness 0.52, APOLOGIZE actors' 0.57 | harness only (utilities of the real acts) |
 | 4 | relationships change after events | 4 scripted events (gift, two stolen mobs, a PQ): affection +0.48 after the gift, resentment +0.22 and +0.40 and trust down after the thefts; 3 changed the stage | harness only |
-| 5 | agents remember | 21 apologies, each decided from an earlier remembered fight read back through `BotMemory.recall` | the SQL path of migration 060 on a real database: TEST |
+| 5 | agents remember | 21 apologies, each decided from an earlier remembered fight read back through `BotMemory.recall` | the SQL path of migration 063 on a real database: TEST |
 | 6 | bots start conversations | 718 CONVERSE by 20 different bots across 102 pairs (695 greetings) | real lines (`BotTalk.run`, the model): TEST |
 | 7 | emotion and memory change decisions | ARGUE utility 0.25 calm -> 0.61 angry, SPEND_TIME 0.09 met -> 0.76 lonely; a remembered open fight makes APOLOGIZE legal (0.78) and changes the choice from ARGUE to APOLOGIZE | harness only |
 | 8 | a familiar player against a stranger | after the first visit 3 bots treat the player as a friend; on later visits the bots there read FRIEND, a warm prompt line and a card of shared memories for the familiar player, "you don't really know them" and no line for the stranger | harness covers the state, the prompt line and the card; the chosen act (`AffinityReactions.pickFriendly`/`pickSideEye`) is package-private and needs a `BotSM`; real players and a client: TEST |

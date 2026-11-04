@@ -3,7 +3,7 @@
 -- but is rivals" instead of one -100..100 score. Adds ten columns to each of the two tables, all with defaults, so every
 -- existing row stays valid and an older jar runs fine on a migrated database (it never names them). Stop the game and
 -- take a backup first, as for every migration here. Applying it twice changes nothing (ledger id
--- '059-bot-relationship-axes'). Without it the server still runs: the stores ask once whether the columns exist, and
+-- '062-bot-relationship-axes'). Without it the server still runs: the stores ask once whether the columns exist, and
 -- without them read and write the older columns only, deriving the axes from the score at every load.
 --
 -- Familiarity, Respect, Attraction, Rivalry, Resentment, Trust, Affection, Obligation: the eight axes as of UpdatedAt
@@ -36,4 +36,4 @@ PREPARE add_botaffinity_axes FROM @ddl;
 EXECUTE add_botaffinity_axes;
 DEALLOCATE PREPARE add_botaffinity_axes;
 
-INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('059-bot-relationship-axes');
+INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('062-bot-relationship-axes');

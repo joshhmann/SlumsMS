@@ -51,12 +51,12 @@ import java.util.function.LongSupplier;
  *
  * <p>Without migration 030 the columns are missing: notes are stored as plain notes and the slots live in memory only.
  *
- * <p><b>Stage 3 (ticket 271, migration 060).</b> A note's subject is a real player or another bot
+ * <p><b>Stage 3 (ticket 271, migration 063).</b> A note's subject is a real player or another bot
  * ({@link SubjectType}; a bot subject is keyed by its character id, so the same cap, LRU and age sweep apply), and a
  * note carries a place, a confidence, a valence, a {@link Provenance} and a second participant. {@link #remember(int,
  * int, Kind, String, double, int, Provenance, double, int, long)} is the writer for code (never the LLM);
  * {@link #recall(int, int, Query, long, int)} picks by relevance ({@link #score}); a repeat of a similar significant
- * note merges into one with a count instead of filling the pair ({@link #consolidateOrInsert}). Without migration 060
+ * note merges into one with a count instead of filling the pair ({@link #consolidateOrInsert}). Without migration 063
  * the new fields are kept in memory only and old rows read with the defaults of their source.
  */
 public final class BotMemory {
@@ -65,7 +65,7 @@ public final class BotMemory {
 
     public enum Source { DIRECT, HEARSAY }
 
-    /** Who a note is about (migration 060 column {@code SubjectType}). A bot's id is at least {@link BotStore#BOT_ID_BASE}. */
+    /** Who a note is about (migration 063 column {@code SubjectType}). A bot's id is at least {@link BotStore#BOT_ID_BASE}. */
     public enum SubjectType {
         PLAYER, BOT;
 
@@ -86,7 +86,7 @@ public final class BotMemory {
     }
 
     /**
-     * How the bot came to know it (migration 060 column {@code Provenance}): OBJECTIVE is a fact the game itself
+     * How the bot came to know it (migration 063 column {@code Provenance}): OBJECTIVE is a fact the game itself
      * recorded, WITNESSED something the bot was part of or saw, REPORTED something it was told (always
      * {@link Source#HEARSAY}), BELIEF the bot's own conclusion.
      */
@@ -182,10 +182,10 @@ public final class BotMemory {
      * One remembered thing. {@code weight} 1..10 is how much it matters; {@code tag} ("" for none) marks a goal or item
      * to follow up ({@code item:zhelm}, {@code goal:4th job}); {@code followedUpAt} is when a bot did (0 = not yet).
      *
-     * <p>Stage 3 (migration 060): {@code subjectType} (the subject is a real player or another bot),
+     * <p>Stage 3 (migration 063): {@code subjectType} (the subject is a real player or another bot),
      * {@code locationMapId} (where it happened, 0 = unknown), {@code confidence} 0..1 (how sure the bot is),
      * {@code valence} -1..1 (how it felt: bad to good, its size is how much it stuck), {@code provenance} and
-     * {@code otherId} (a second character involved, 0 = none). A row from before 060 reads with the defaults of its
+     * {@code otherId} (a second character involved, 0 = none). A row from before 063 reads with the defaults of its
      * source: confidence 0.9 for DIRECT and 0.5 / hops for HEARSAY, WITNESSED or REPORTED, valence 0, no place.
      */
     public record Note(long id, int botId, int aboutCharId, String text, Source source, int fromBotId, int hops,
@@ -207,7 +207,7 @@ public final class BotMemory {
             otherId = Math.max(0, otherId);
         }
 
-        /** A note as written before migration 060: the defaults of its source for every new field. */
+        /** A note as written before migration 063: the defaults of its source for every new field. */
         public Note(long id, int botId, int aboutCharId, String text, Source source, int fromBotId, int hops,
                     long createdAt, long lastUsedAt, Kind kind, int weight, String tag, long followedUpAt) {
             this(id, botId, aboutCharId, text, source, fromBotId, hops, createdAt, lastUsedAt, kind, weight, tag,
@@ -262,7 +262,7 @@ public final class BotMemory {
     static final String INSERT_KINDS = "INSERT INTO botmemory (BotId, AboutCharacterId, Note, Source, FromBotId, Hops, "
             + "CreatedAt, LastUsedAt, Kind, Weight, Tag, FollowedUpAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     static final String PROBE_KINDS = "SELECT Kind, Weight, Tag, FollowedUpAt FROM botmemory WHERE 1 = 0";
-    /** Migration 060: the same insert with the subject type, place, confidence, valence, provenance and other party. */
+    /** Migration 063: the same insert with the subject type, place, confidence, valence, provenance and other party. */
     static final String INSERT_SOCIAL = "INSERT INTO botmemory (BotId, AboutCharacterId, Note, Source, FromBotId, Hops, "
             + "CreatedAt, LastUsedAt, Kind, Weight, Tag, FollowedUpAt, SubjectType, Location, Confidence, Valence, "
             + "Provenance, OtherParticipant) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -336,7 +336,7 @@ public final class BotMemory {
     /** Whether migration 030's columns exist: null = not known yet. */
     private static volatile Boolean kinds;
     private static volatile long kindsCheckedAt;
-    /** Whether migration 060's columns exist: null = not known yet. */
+    /** Whether migration 063's columns exist: null = not known yet. */
     private static volatile Boolean social;
     private static volatile long socialCheckedAt;
     private static volatile long lastPruneAt;
@@ -1404,7 +1404,7 @@ public final class BotMemory {
     }
 
     /**
-     * Whether migration 060's columns exist (and 030's, which they sit on). Asked once (again 10 minutes after a "no"):
+     * Whether migration 063's columns exist (and 030's, which they sit on). Asked once (again 10 minutes after a "no"):
      * without them notes keep their subject type, place, confidence, valence, provenance and other party in memory only
      * and read back with the defaults of their source.
      */
@@ -1421,10 +1421,10 @@ public final class BotMemory {
             social = true;
             return true;
         } catch (SQLException e) {
-            if (e.getErrorCode() == 1054 || "42S22".equals(e.getSQLState())) { // unknown column: 060 not applied
+            if (e.getErrorCode() == 1054 || "42S22".equals(e.getSQLState())) { // unknown column: 063 not applied
                 social = false;
                 socialCheckedAt = clock.getAsLong();
-                log.info("botmemory has no SubjectType column (migration 060 not applied): the new note fields are kept in memory only");
+                log.info("botmemory has no SubjectType column (migration 063 not applied): the new note fields are kept in memory only");
             }
             return false;
         } catch (RuntimeException e) {
@@ -1463,7 +1463,7 @@ public final class BotMemory {
         }
         Source source = Source.valueOf(rs.getString("Source"));
         int about = rs.getInt("AboutCharacterId");
-        SubjectType subject = null; // null: from the id (a pre-060 row)
+        SubjectType subject = null; // null: from the id (a pre-063 row)
         int location = 0;
         double confidence = Double.NaN; // NaN: the default of the source
         double valence = 0;

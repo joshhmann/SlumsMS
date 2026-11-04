@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Ticket 271 Stage 3: structured social memory. The new columns (migration 060) and the server staying up without
+ * Ticket 271 Stage 3: structured social memory. The new columns (migration 063) and the server staying up without
  * them, bots as the subject of a note, the writer API, scored recall, and consolidation of repeats.
  */
 class BotMemorySocialTest {
@@ -94,7 +94,7 @@ class BotMemorySocialTest {
 
     @Test
     void rowsFromBeforeMigration060ReadWithDefaultsAndNewNotesRoundTrip() {
-        // a row as migration 060 leaves the existing ones: the new columns hold their defaults / NULL
+        // a row as migration 063 leaves the existing ones: the new columns hold their defaults / NULL
         Map<String, Object> old = new HashMap<>();
         old.put("Id", 500L);
         old.put("BotId", SLOT);
@@ -132,19 +132,19 @@ class BotMemorySocialTest {
         assertEquals("BOT", table.rows.get(1).get("SubjectType"));
     }
 
-    // ── the server without migration 060 (and without 030) ──
+    // ── the server without migration 063 (and without 030) ──
 
     @Test
     void withoutMigration060NotesAreStoredAsBeforeAndTheNewFieldsLiveInMemoryOnly() {
         table = FakeMemoryTable.without060();
         table.install();
         assertTrue(BotMemory.hasKinds());
-        assertFalse(BotMemory.hasSocial(), "060 not applied");
+        assertFalse(BotMemory.hasSocial(), "063 not applied");
         Note stored = remember(BOT_B, Kind.PARTY, "partied with me", 0.6, 101000000, Provenance.WITNESSED, 0.7, BOT_C,
                 clock.get());
         assertNotNull(stored);
         assertEquals(1, table.rows.size());
-        assertFalse(table.rows.get(0).containsKey("SubjectType"), "the 030 insert never names the 060 columns");
+        assertFalse(table.rows.get(0).containsKey("SubjectType"), "the 030 insert never names the 063 columns");
         assertEquals("PARTY", table.rows.get(0).get("Kind"));
         // in memory, until the cache forgets it
         Note cached = BotMemory.about(SLOT, BOT_B).get(0);
@@ -522,7 +522,7 @@ class BotMemorySocialTest {
     @Test
     void migration060IsGuardedLedgeredIdempotentAndRollsBack() throws Exception {
         Path dir = Path.of("database/migrations");
-        String id = "060-bot-memory-social";
+        String id = "063-bot-memory-social";
         String sql = Files.readString(dir.resolve(id + ".sql"));
         String rollback = Files.readString(dir.resolve(id + ".rollback.sql"));
         for (String col : List.of("SubjectType", "Location", "Confidence", "Valence", "Provenance", "OtherParticipant")) {

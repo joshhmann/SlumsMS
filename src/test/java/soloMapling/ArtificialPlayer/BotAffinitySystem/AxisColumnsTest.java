@@ -27,13 +27,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Migration 059 and the JDBC stores' two modes (axis columns present, or an unmigrated database): the SQL, the row
+ * Migration 062 and the JDBC stores' two modes (axis columns present, or an unmigrated database): the SQL, the row
  * mapping against a mocked result set, the "do the columns exist" probe, and the migration scripts.
  */
 class AxisColumnsTest {
 
     static final Path DIR = Path.of("database/migrations");
-    static final String ID = "059-bot-relationship-axes";
+    static final String ID = "062-bot-relationship-axes";
     static final String[] NEW = {"Familiarity", "Trust", "Affection", "Respect", "Attraction", "Rivalry", "Resentment",
             "Obligation", "Stage", "HasAxes"};
 
@@ -81,7 +81,7 @@ class AxisColumnsTest {
         for (String legacy : new String[]{BondStore.Jdbc.SELECT_LEGACY, BondStore.Jdbc.UPSERT_LEGACY,
                 AffinityStore.Jdbc.SELECT_LEGACY, AffinityStore.Jdbc.UPSERT_LEGACY}) {
             for (String col : NEW) {
-                assertFalse(legacy.contains(col), col + " must not be named when 059 is not applied: " + legacy);
+                assertFalse(legacy.contains(col), col + " must not be named when 062 is not applied: " + legacy);
             }
             assertTrue(legacy.contains("Score") && legacy.contains("Kind") && legacy.contains("Hostile")
                     && legacy.contains("UpdatedAt"));
