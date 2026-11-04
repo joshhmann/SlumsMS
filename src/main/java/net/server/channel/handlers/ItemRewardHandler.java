@@ -87,11 +87,14 @@ public final class ItemRewardHandler extends AbstractPacketHandler {
      * Expiration stamp (epoch millis) for an equip granted by a reward box, or -1 when the reward entry carries no
      * {@code period} node (WZ default -1).
      * <p>
-     * The WZ {@code reward/period} unit is HOURS. Both reward entries that ship with a period in the client data are
-     * written as whole days times 24 ({@code 0202.img.xml} items 02022503-02022524/02022550 hand out equip 1132010 with
-     * period 7200 = 300 days; {@code 0553.img.xml} item 05530000 hands out 4170012 with period 21600 = 900 days).
-     * Reading them as days instead would make the pig's egg cape expire in 7200 days (about 19.7 years), which is
-     * indistinguishable from permanent and would make the number meaningless.
+     * The WZ {@code reward/period} unit is HOURS. The one entry in the shipped client data that this method can
+     * actually reach is {@code Item.wz/Consume/0202.img.xml} items 02022503-02022524/02022550: their reward 0 grants
+     * equip 1132010 with period 7200, i.e. 300 days. 1132010 / 1000000 = 1, so it is an EQUIP and the gate above is
+     * what sends it here. Unreachable, but corroborating the same "whole days times 24" shape, is
+     * {@code Item.wz/Cash/0553.img.xml} item 05530000 (4170012, period 21600): 4170012 / 1000000 = 4, an ETC item,
+     * so it takes the addById branch and its period is never consulted - it is not evidence for this method's unit,
+     * only for how the field is written. Reading the field as days would make the pig's egg cape expire in 7200 days
+     * (about 19.7 years), which is indistinguishable from permanent and would make the number meaningless.
      */
     static long rewardExpiration(long now, int period) {
         if (period == -1) {
