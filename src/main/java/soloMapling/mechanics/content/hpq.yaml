@@ -33,7 +33,7 @@ sources:
   - "Map ids and life: our own Map.wz dump (Map.wz/Map/Map9/910010000.img.xml): the six beds (moonflower1..6), the fullmoon reactor 9101000 at (-183,-433) the sixth bed spawns the Moon Bunny on, Growlie at (429,83), and the map's six monsters 9300062/3/4 and 9300081/2/3"
   - "Stage 2's clear is a presence test: HenesysPQ.js:110-116 reads eim.getProperty(\"1stageclear\") != null, and setup (:111-114) initialises stage, bunnyCake and bunnyDamaged but never 1stageclear, so the presence test is safe"
   - "The Moon Bunny (9300061) is a friendly mob: friendlyKilled schedules bunnyDefeated, which ends the run (HenesysPQ.js:251-255). No step in this row names it"
-# Difficulty tiers (1.7.0 "PQ difficulties"): NORMAL is the stock PQ and needs no entry - it is the gates above,
+# Difficulty tiers (1.6.4 "PQ difficulties"): NORMAL is the stock PQ and needs no entry - it is the gates above,
 # and a tier never moves them. HARD is transcribed verbatim from the proposal table in DIFFICULTY-CHAOS-PLAN.md
 # section 9 (lines ~797-908), which is stamped "proposal only, nothing merged, owner may overwrite any cell":
 # every number below is that table's HPQ HARD row, none of it invented here. EXPERT and MASTER are in the

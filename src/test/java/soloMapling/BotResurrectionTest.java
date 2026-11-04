@@ -20,7 +20,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 1.7.0 item 3: a dead bot must be reachable by the thing that revives players. The selection already reaches it -
+ * 1.6.4 item 3: a dead bot must be reachable by the thing that revives players. The selection already reaches it -
  * {@code StatEffect.partyBuffTargets} asks the map's players for {@code !isAlive()} when the effect is a resurrection
  * and filters nobody for bots - and the HP change already applies, so the gap was {@code BotDeaths}: the bot stayed a
  * corpse afterwards (no hits, no acting, and the run could not drive it). That is the line this pins.

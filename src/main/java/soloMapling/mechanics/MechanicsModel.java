@@ -62,7 +62,7 @@ public final class MechanicsModel {
         }
     }
 
-    /** PQ difficulty tiers (1.7.0 "PQ difficulties"); NORMAL is the stock PQ. */
+    /** PQ difficulty tiers (1.6.4 "PQ difficulties"); NORMAL is the stock PQ. */
     public enum Tier {
         NORMAL, HARD, EXPERT, MASTER;
 

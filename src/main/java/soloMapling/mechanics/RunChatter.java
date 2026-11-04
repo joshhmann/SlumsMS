@@ -22,7 +22,7 @@ import java.util.Random;
 import static soloMapling.BotLogger.log;
 
 /**
- * 1.7.0 run chatter (owner 2026-11-03: "outcomes once bots exit out they say things like woo we beat or dang we tried
+ * 1.6.4 run chatter (owner 2026-11-03: "outcomes once bots exit out they say things like woo we beat or dang we tried
  * but failed etc"). When a run ends, the bots that played it say something about how it went: a win line when it
  * cleared, a loss line when it was played and failed, nothing otherwise ({@link RunState#ending()}).
  *

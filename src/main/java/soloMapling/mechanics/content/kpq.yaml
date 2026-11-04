@@ -30,7 +30,7 @@ afterClear:
   exitNpc: 9020002
   bonusMinSeconds: 60
   bonusMaxSeconds: 150
-# Difficulty tiers (1.7.0 "PQ difficulties"): NORMAL is the stock PQ and needs no entry - it is this row's own bands and
+# Difficulty tiers (1.6.4 "PQ difficulties"): NORMAL is the stock PQ and needs no entry - it is this row's own bands and
 # clock, and a run at NORMAL is byte-identical to one before tiers existed. One tier is filled in, HARD, and every cell
 # is a PROPOSAL ONLY: the owner may overwrite any of them without touching code (StageData validates the shape, nothing
 # validates the numbers). Where they come from: /root/work/DIFFICULTY-CHAOS-PLAN.md section 9, "KPQ" - minLevel is the

@@ -22,7 +22,7 @@ import server.expeditions.ExpeditionType;
  * <p>{@link Boss#botsRunIt}: Von Leon and Cygnus are one room, summoned by the room's NPC, and runnable by 1-6: bots
  * form those runs themselves ({@link RebirthBossRuns}). Zakum (the Eye of Fire on the altar, eight arms first),
  * Horntail (two head rooms, then the body's parts) and Pink Bean (the statue stage and its Jr. bosses) need a
- * player's hand on their stages (ticket 130's mechanics work, 1.7.0): bots join a real player's expedition for them
+ * player's hand on their stages (ticket 130's mechanics work, 1.6.4): bots join a real player's expedition for them
  * on screen, and otherwise run them off screen ({@link OffscreenBossRun}) on the same rules and drop rows.
  */
 public final class RebirthBosses {

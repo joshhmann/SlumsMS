@@ -24,7 +24,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * 1.7.0 "PQ difficulties", round 11 item B: the plumbing only. A run carries its tier, the tier is the row's {@code
+ * 1.6.4 "PQ difficulties", round 11 item B: the plumbing only. A run carries its tier, the tier is the row's {@code
  * tiers:} block through {@link MechanicsModel.Content#rules(Tier)}, the party quest's own {@code setup(difficulty,
  * leaderId)} gets the tier as a number, and the {@code RUN start} line names it - all of it with {@link Tier#NORMAL}
  * staying byte-identical to what runs today. No numbers, no scaling: that is the executor's job, behind its own switch.

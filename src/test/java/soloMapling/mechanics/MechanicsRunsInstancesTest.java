@@ -42,7 +42,7 @@ class MechanicsRunsInstancesTest {
         when(c.getId()).thenReturn(id);
         when(c.isBot()).thenReturn(bot);
         when(c.getName()).thenReturn("m" + id);
-        // 1.7.0: the run reads a member's liveness (a mortal bot can die), so a healthy harness member has HP
+        // 1.6.4: the run reads a member's liveness (a mortal bot can die), so a healthy harness member has HP
         when(c.getHp()).thenReturn(100);
         when(c.getMaxHp()).thenReturn(100);
         when(c.getCurrentMaxHp()).thenReturn(100);

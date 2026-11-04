@@ -60,7 +60,7 @@ public final class BotDeaths {
     }
 
     /**
-     * 1.7.0: whether a bot may die at all - {@code -Dslums.bots.immortal}. <b>Off by default</b>: a bot is mortal, and a
+     * 1.6.4: whether a bot may die at all - {@code -Dslums.bots.immortal}. <b>Off by default</b>: a bot is mortal, and a
      * lethal hit in an event instance kills it like a player, so a boss room can show whether the bots survive. On, the
      * 1.5.0 rule comes back untouched: no bot ever dies inside an instance.
      */
@@ -92,7 +92,7 @@ public final class BotDeaths {
      * Re-checked at roll time (eligibility is only set at grind start): a bot that has since partied with or is
      * following a real player, is in an event, or is held by GM staging (cb-3 does not hold) never dies.
      *
-     * <p>1.7.0: the event clause is now the immortality switch's, not a fact of instances - inside a boss room
+     * <p>1.6.4: the event clause is now the immortality switch's, not a fact of instances - inside a boss room
      * {@link #diesOutright} decides anyway, and the party/follow clauses stay the open world's own.
      */
     static boolean protectedFromDeath(Character bot) {
@@ -185,7 +185,7 @@ public final class BotDeaths {
         // One line per death so a soak can count them (the world cap is WORLD_PER_10_MIN).
         log.info("[BotDeaths] {}{} (lv {}) died on map {}", bot.getName(), bot.isOwnedAlt() ? " (owned alt)" : "",
                 bot.getLevel(), bot.getMapId());
-        // 1.7.0: a bot death spends a death of an armed expedition's budget, like a human's does
+        // 1.6.4: a bot death spends a death of an armed expedition's budget, like a human's does
         scripting.event.EventInstanceManager eim = bot.getEventInstance();
         if (eim != null) {
             try {
@@ -209,7 +209,7 @@ public final class BotDeaths {
     }
 
     /**
-     * 1.7.0: something brought a dead bot back - a Bishop's Resurrection, a revive item, an admin - so it stops being a
+     * 1.6.4: something brought a dead bot back - a Bishop's Resurrection, a revive item, an admin - so it stops being a
      * corpse: it may take hits again and a run drives it again. Called from {@code StatEffect}'s resurrection branch;
      * a bot that was not dead is left alone.
      */

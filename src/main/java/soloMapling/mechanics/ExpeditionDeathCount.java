@@ -13,7 +13,7 @@ import static soloMapling.BotLogger.log;
  * The death budget of one event instance (ticket 130, phase 5, phase 1), ported from BotStory
  * {@code server/expeditions/ExpeditionDeathCount.java} (reviewed at sha 81a3b1df).
  *
- * <p>One counter per instance, charged on every <b>human or bot</b> death (1.7.0: bots are mortal by default, and a
+ * <p>One counter per instance, charged on every <b>human or bot</b> death (1.6.4: bots are mortal by default, and a
  * budget a bot party could spend for free would measure nothing - the owner wants to see whether the bots survive, which
  * is meaningless if their deaths cost the run nothing). An owned alt's death is not charged: it is the player's own
  * character, and its death penalty is already the player's. When the budget runs out the instance ends: the party hears

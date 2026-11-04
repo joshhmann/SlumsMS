@@ -25,7 +25,7 @@ import soloMapling.ArtificialPlayer.BotRunOutcome.Slot;
 import soloMapling.ArtificialPlayer.BotSM;
 
 /**
- * 1.7.0 run chatter on the live side: {@link MechanicsRuns} ends a run and leaves the line on the bots' own slots; it
+ * 1.6.4 run chatter on the live side: {@link MechanicsRuns} ends a run and leaves the line on the bots' own slots; it
  * says nothing itself. Mocked instances and brains, as {@link MechanicsRunsInstancesTest}.
  */
 class RunChatterRunsTest {

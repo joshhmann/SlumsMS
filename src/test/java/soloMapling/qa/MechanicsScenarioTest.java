@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** 1.7.0 ticket 130: mx-1's verdict line, its refusal while mechanics is off, and !mechanics kpq's arguments. */
+/** 1.6.4 ticket 130: mx-1's verdict line, its refusal while mechanics is off, and !mechanics kpq's arguments. */
 class MechanicsScenarioTest {
 
     @Test

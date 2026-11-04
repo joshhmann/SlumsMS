@@ -196,7 +196,7 @@ public final class MechanicsRuns {
     }
 
     /**
-     * As above at a difficulty tier (1.7.0 "PQ difficulties"): the tier is the run's own ({@link RunState#tier()}), so
+     * As above at a difficulty tier (1.6.4 "PQ difficulties"): the tier is the run's own ({@link RunState#tier()}), so
      * every rule lookup ({@link Content#rules(Tier)}), the {@code RUN start} line and anything the tier scales can read
      * it from the run instead of from a field each row would have to carry. {@link Tier#NORMAL} is the stock PQ and
      * the default of the shorter overload, so a caller that never heard of tiers starts exactly what it started before.
@@ -395,7 +395,7 @@ public final class MechanicsRuns {
     }
 
     /**
-     * 1.7.0: a bot the run has lost - it died, or was walked out - is not driven any more, so its brain goes back to it.
+     * 1.6.4: a bot the run has lost - it died, or was walked out - is not driven any more, so its brain goes back to it.
      * Without this the hold would leave a live, revived bot standing in the room for the rest of the instance, which is
      * exactly the "they just stand there" a player reports. The one exception is the member a paused run is waiting
      * for: that one stays held until it is back or the run ends, because the pause is what is keeping it in the run.
@@ -421,7 +421,7 @@ public final class MechanicsRuns {
         }
     }
 
-    /** 1.7.0 difficulties (item C): the tier's numbers reach the room, once per tick, behind their own switch. */
+    /** 1.6.4 difficulties (item C): the tier's numbers reach the room, once per tick, behind their own switch. */
     private static void scaleRoom(Active a) {
         if (TierScaling.on()) {
             TierScaling.applyTo(a.run, a.eim);

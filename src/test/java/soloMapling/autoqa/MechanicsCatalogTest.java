@@ -6,7 +6,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** 1.7.0 ticket 130: t-mx-1 against the lines mx-1 and the run write (MechanicsScenarios, MechanicsRuns). */
+/** 1.6.4 ticket 130: t-mx-1 against the lines mx-1 and the run write (MechanicsScenarios, MechanicsRuns). */
 class MechanicsCatalogTest {
 
     static final String HINT = "STAGE told GM: 4 bots are in Kerning PQ stage 1 (Kerning1). They ask Cloto, farm"

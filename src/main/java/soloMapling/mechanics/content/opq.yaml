@@ -36,7 +36,7 @@ sources:
   - "Map ids, item ids, monster ids and the room exit portals: cosmic_agents AgentOpqDefinition (AGPL-3.0); the portal ids there are WZ portal ids, so this row warps stage to stage instead of naming portals"
   - "Stage order: entrance, walkway, storage, lobby, sealed room, lounge, levers, statue and garden (our script's stage numbers 0, 1, 2, 3, 4, 5, 6, 7+8). The statue and the garden are one stage here because only the second half has a property to watch (the scars are counted with getReactorByName(\"scar\" + i).getState(), scripts/npc/2013001.js:11-19, while statusStg8 is what scripts/reactor/2006001.js writes)"
   - "The lobby's day comes from the music reactor's own armed slot (scripts/event/OrbisPQ.js:162-163 setEventState(new Date().getDay()), Reactor.getReactItem(byte) reads it as a slot), so 4001056 + that is the pass; the three platforms of the sealed room are the map's own area nodes (MapFactory.java:273-279), not a table here"
-# Difficulty tiers (1.7.0 "PQ difficulties"): NORMAL is the stock PQ and needs no entry - it is the gates above,
+# Difficulty tiers (1.6.4 "PQ difficulties"): NORMAL is the stock PQ and needs no entry - it is the gates above,
 # and a tier never moves them. HARD is transcribed verbatim from the proposal table in DIFFICULTY-CHAOS-PLAN.md
 # section 9 (lines ~797-908), which is stamped "proposal only, nothing merged, owner may overwrite any cell":
 # every number below is that table's OPQ HARD row, none of it invented here. EXPERT and MASTER are in the

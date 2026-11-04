@@ -18,7 +18,7 @@ import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 /**
- * 1.7.0 run chatter (owner 2026-11-03: "outcomes once bots exit out they say things like woo we beat or dang we tried
+ * 1.6.4 run chatter (owner 2026-11-03: "outcomes once bots exit out they say things like woo we beat or dang we tried
  * but failed"): what a bot has to say about the content run it just left, and how it says it.
  *
  * <p>The run ends on the server tick, and chat has its own pacing, so the run says nothing: it leaves one

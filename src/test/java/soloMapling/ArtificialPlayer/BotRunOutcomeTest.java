@@ -28,7 +28,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * 1.7.0 run chatter, the bot's side: the phrase pool of {@code RunOutcomeDialogue.yaml} and the one slot a bot keeps for
+ * 1.6.4 run chatter, the bot's side: the phrase pool of {@code RunOutcomeDialogue.yaml} and the one slot a bot keeps for
  * what it has to say about the run it just left. The run's side (who speaks, win or loss) is {@code RunChatterTest}.
  */
 class BotRunOutcomeTest {

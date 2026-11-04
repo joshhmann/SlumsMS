@@ -22,7 +22,7 @@ import soloMapling.mechanics.MechanicsModel.Content;
 import soloMapling.mechanics.MechanicsModel.Tier;
 
 /**
- * 1.7.0 run chatter, the run's side: which bots of a run that ended say something, and what. The speaker rule is the
+ * 1.6.4 run chatter, the run's side: which bots of a run that ended say something, and what. The speaker rule is the
  * leader plus one other bot picked with the random source it is given, so every assertion here is deterministic.
  */
 class RunChatterTest {

@@ -59,7 +59,7 @@ class ExpeditionDeathCountTest {
 
         assertTrue(ExpeditionDeathCount.counts(human));
         assertTrue(ExpeditionDeathCount.counts(bot),
-                "1.7.0: bots are mortal, so a wiped bot party must spend the budget too");
+                "1.6.4: bots are mortal, so a wiped bot party must spend the budget too");
         assertFalse(ExpeditionDeathCount.counts(alt), "an owned alt's death penalty is its player's own");
         assertFalse(ExpeditionDeathCount.counts(null));
     }

@@ -16,7 +16,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 1.7.0 item 4: with the death count armed ({@code -Dslums.bossfight.deathcount}, off by default) a bot's death spends
+ * 1.6.4 item 4: with the death count armed ({@code -Dslums.bossfight.deathcount}, off by default) a bot's death spends
  * the party's budget. The owner's reason: "to see if they can survive" is meaningless if their deaths are free, and the
  * counter's whole point is the party's resilience.
  *

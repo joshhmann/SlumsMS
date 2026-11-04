@@ -630,7 +630,7 @@ public class EventInstanceManager {
     }
 
     /**
-     * 1.7.0: a bot died in this instance. With the death count armed it spends the party's budget the way a human's
+     * 1.6.4: a bot died in this instance. With the death count armed it spends the party's budget the way a human's
      * death does - a bot party that wipes must not be free to a human's expedition. The script's {@code playerDead} is
      * not run for a bot: unregistering is the scripts' way of letting a human walk back in, and a bot's corpse is the
      * run's own business ({@code Orchestrator} reads it as a member lost).

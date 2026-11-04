@@ -10,7 +10,7 @@ import soloMapling.mechanics.MechanicsModel.TierRules;
 import java.util.List;
 
 /**
- * 1.7.0 "PQ difficulties": which tier a run is played at, and how that tier's numbers reach the room.
+ * 1.6.4 "PQ difficulties": which tier a run is played at, and how that tier's numbers reach the room.
  *
  * <p>NORMAL is the stock party quest and is what the engine has always played: {@code Content.rules(NORMAL)} answers the
  * row's own gates even when the file carries no {@code tiers:} block. Any tier above it is opt-in twice over - the server

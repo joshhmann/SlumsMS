@@ -77,7 +77,7 @@ public final class BotVitals {
             // 1.6.0 world events: on an invasion map a heavy hit (under half its max HP left) may kill too
             boolean lethal = bot.getHp() - damage <= 0
                     || soloMapling.worldevents.WorldEvents.swarmed(bot, (long) bot.getHp() - damage);
-            // 1.7.0: in an event instance a mortal bot dies outright, like a player; the roll is the open world's rule
+            // 1.6.4: in an event instance a mortal bot dies outright, like a player; the roll is the open world's rule
             if (lethal && (soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.diesOutright(bot)
                     || soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.rollsDeath(bot))) {
                 soloMapling.ArtificialPlayer.BotCombatSystem.BotDeaths.die(bot); // 1.5.0 rc3: a rare real death
@@ -477,7 +477,7 @@ public final class BotVitals {
     }
 
     /*
-     * 1.7.0: a dead bot stays dead. Its HP is 0 and its brain is stopped, but a regen carry (OffscreenSupplies), a heal
+     * 1.6.4: a dead bot stays dead. Its HP is 0 and its brain is stopped, but a regen carry (OffscreenSupplies), a heal
      * hand-out (BotPartySupport.castHeal) or a potion path can still call in with a positive number - and a bot healed
      * from 0 would stand up while BotDeaths still has it down (no hits, no acting, no run driving it). The one thing
      * that takes it out of that state is a resurrection, which goes through Character.applyHpMpChange and then

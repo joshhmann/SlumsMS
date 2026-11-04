@@ -18,7 +18,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 1.7.0, owner 2026-11-03: bots "should not be immortal, but should be toggleable for testing to see if they can
+ * 1.6.4, owner 2026-11-03: bots "should not be immortal, but should be toggleable for testing to see if they can
  * survive". So a lethal hit inside an event instance kills a bot like it kills a player, and
  * {@code -Dslums.bots.immortal=true} buys back the 1.5.0 rule that no bot ever dies in an instance.
  *

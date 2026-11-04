@@ -247,7 +247,7 @@ public final class Orchestrator implements RunOrchestrator {
                     return steps;
                 }
             } else if (m.bot() && !view.alive(m.characterId())) {
-                // 1.7.0: a mortal bot lies dead where it fell and stays registered (a bot never unregisters), so the
+                // 1.6.4: a mortal bot lies dead where it fell and stays registered (a bot never unregisters), so the
                 // run has lost it. A human's death is not this: the leader's is realLeader's wait below and every
                 // player's is the script's playerDead -> unregisterPlayer, which is the old "no longer in the stage".
                 memberLost(run, m.characterId(), "died", nowMs);
@@ -712,7 +712,7 @@ public final class Orchestrator implements RunOrchestrator {
     private boolean pausedStepsOrResume(RunState run, StageView view, Map<Integer, SolverStep> steps, long nowMs) {
         RunState.Waiter waiter = run.waitingFor();
         int id = waiter.member() == null ? 0 : waiter.member().characterId();
-        // 1.7.0: back means registered AND alive - a bot lies dead in the room still registered, and a corpse is not a
+        // 1.6.4: back means registered AND alive - a bot lies dead in the room still registered, and a corpse is not a
         // returning member (the script unregisters a dead human, so for one of those the two tests agree)
         if (view.registered(id) && view.alive(id)) {
             run.waiterReturned(nowMs);

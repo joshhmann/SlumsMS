@@ -15,7 +15,7 @@ import java.util.Locale;
 import static soloMapling.BotLogger.log;
 
 /*
- * 1.7.0 ticket 130 (bots play the mechanics; KPQ automation ships in 1.6.1), TEST only: registered when
+ * 1.6.4 ticket 130 (bots play the mechanics; KPQ automation ships in 1.6.1), TEST only: registered when
  * -Dslums.mechanics=true.
  *   !mechanics kpq [me] [bots] [perfect] [stageN] [toN]
  *                                         stage a Kerning PQ run: fresh bots (4, or 3 with "me") on Kerning City's PQ

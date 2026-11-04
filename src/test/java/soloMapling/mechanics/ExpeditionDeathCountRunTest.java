@@ -158,7 +158,7 @@ class ExpeditionDeathCountRunTest {
         eim.playerKilled(human);
         assertEquals(9, eim.getDeathCount().left());
 
-        // 1.7.0: bots are mortal, so their deaths are the party's loss - the whole point of the counter
+        // 1.6.4: bots are mortal, so their deaths are the party's loss - the whole point of the counter
         eim.botKilled(bot);
         eim.botKilled(bot);
         assertEquals(7, eim.getDeathCount().left(), "each bot death spends one");

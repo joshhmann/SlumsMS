@@ -24,7 +24,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
- * 1.7.0 run chatter: the bot's own macro tick is where it says what it has to say about a run, for every bot type
+ * 1.6.4 run chatter: the bot's own macro tick is where it says what it has to say about a run, for every bot type
  * (they all run {@link BotSM#updateState()}), and a bot with nothing pending is untouched by it.
  */
 class BotRunOutcomeTickTest {

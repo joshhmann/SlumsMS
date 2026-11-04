@@ -178,7 +178,7 @@ public abstract class BotSM implements EventSubscriber {
 
     private final BotEventBuffer eventBuffer;
 
-    // 1.7.0 run chatter: the line this bot has to say about the content run it just left. Set once when the run ends
+    // 1.6.4 run chatter: the line this bot has to say about the content run it just left. Set once when the run ends
     // (MechanicsRuns), said by this bot's own tick below; the run never speaks for it.
     private final BotRunOutcome.Slot runOutcome = new BotRunOutcome.Slot();
 
@@ -300,7 +300,7 @@ public abstract class BotSM implements EventSubscriber {
                     break;
                 }
                 BotIdleStandingUpdate(getChr());
-                BotRunOutcome.tick(this); // 1.7.0: what it has to say about the run it just left, if anything
+                BotRunOutcome.tick(this); // 1.6.4: what it has to say about the run it just left, if anything
 //                if (!checkMainPlayersOnMap()) {
 //                    state = BotState.PAUSE;
 //                    log("Moving to PAUSE: " + getChr().getName());

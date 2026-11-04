@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 1.7.0, owner 2026-11-03: bots are mortal by default, so a boss run has to know what to do with a dead one. The two
+ * 1.6.4, owner 2026-11-03: bots are mortal by default, so a boss run has to know what to do with a dead one. The two
  * failures to prevent are a run that keeps billing after losing a body (the dead bot's role claim holds a jaws/pass
  * stage hostage until the budget runs out) and a run that waits forever on a corpse because "back" was asked as
  * "registered" and a dead bot never unregisters.

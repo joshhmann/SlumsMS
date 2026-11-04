@@ -15,7 +15,7 @@ import java.util.Set;
 import static soloMapling.qa.QaLog.Topic.PQ;
 
 /**
- * 1.7.0 ticket 130 (bots play the mechanics), {@code mx-1}: four fresh bots form a party on Kerning City's PQ map,
+ * 1.6.4 ticket 130 (bots play the mechanics), {@code mx-1}: four fresh bots form a party on Kerning City's PQ map,
  * start the Kerning PQ as Lakelis starts it, and clear stage 1 on their own: the answerers ask Cloto (our
  * {@code scripts/npc/9020001.js}), farm exactly their answer in Ligator coupons (with a persona's 0-2 visible wrong
  * hand-ins first), trade them for passes and drop the passes by the leader, who hands them in. Pass = the stage's
@@ -163,7 +163,7 @@ final class MechanicsScenarios {
         }
 
         public String title() {
-            return "Bots play the mechanics: four bots clear Kerning PQ stage 1 on their own (1.7.0)";
+            return "Bots play the mechanics: four bots clear Kerning PQ stage 1 on their own (1.6.4)";
         }
 
         public String usage() {

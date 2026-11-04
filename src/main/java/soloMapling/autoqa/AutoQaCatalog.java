@@ -1394,7 +1394,7 @@ public final class AutoQaCatalog {
                 .step(run("nv-1"), waitFor("NV1 DONE ", 4 * 60))
                 .expect(has("NV1 DONE maps=[1-9]"), lacks("NV1 ERROR "))
                 .build());
-        // 1.7.0 ticket 130 (bots play the mechanics, phase 1): four fresh bots start Kerning PQ and clear stage 1 on
+        // 1.6.4 ticket 130 (bots play the mechanics, phase 1): four fresh bots start Kerning PQ and clear stage 1 on
         // their own (Cloto's question, Ligator coupons, passes to the leader) within the limit; mx-1 says PASS only
         // when the stage's clear property was set in time. Off without -Dslums.mechanics=true: the refusal SKIPs.
         c.add(Check.auto("t-mx-1", "Four bots clear Kerning PQ stage 1 on their own").holds("pq:kpq").minutes(18)

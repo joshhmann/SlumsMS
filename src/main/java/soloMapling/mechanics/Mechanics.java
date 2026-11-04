@@ -1,7 +1,7 @@
 package soloMapling.mechanics;
 
 /**
- * Ticket 130 (1.7.0 headline "Bots play the mechanics"): bots run party quests, bosses and other content that needs
+ * Ticket 130 (1.6.4 headline "Bots play the mechanics"): bots run party quests, bosses and other content that needs
  * logic (stage puzzles, coupons and passes, platforms and ropes, NPC questions, jump puzzles, boss phases).
  *
  * <p>Everything in this package is switched off behind {@code -Dslums.mechanics} (default {@code false}). With it
