@@ -307,6 +307,7 @@ public final class SocialIntents {
         }
         retryAt.remove(intentId);
         count("kept", in.kind());
+        SocialPilot.onIntent(in.actor(), true);
         safe(() -> consequences.kept(in, now));
         return true;
     }
@@ -426,6 +427,7 @@ public final class SocialIntents {
         }
         retryAt.remove(in.id());
         count("broken", in.kind());
+        SocialPilot.onIntent(in.actor(), false);
         safe(() -> consequences.broken(ended, now));
         return new Step(in.id(), in.kind(), "broken", "deadline passed");
     }

@@ -95,6 +95,17 @@ public final class ModeSwitch {
      * {@code roll2} the choice between the two non-training modes; both are uniform in [0, 1).
      */
     public static Mode decide(Inputs in, double roll, double roll2) {
+        return decide(in, roll, roll2, soloMapling.ArtificialPlayer.BotSocialSystem.SocialRoutine.ModeBias.NONE);
+    }
+
+    /**
+     * As {@link #decide(Inputs, double, double)} with the daily routine's bias (ticket 181 stage 7): the pull from
+     * training toward a social or town mode is scaled by {@code bias.towardTown()}, the pull back by
+     * {@code bias.towardTraining()}; both are bounded and neutral at 1, and {@code ModeBias.NONE} is exactly the
+     * unbiased policy. The bias only scales a score, so a bot whose needs are strong still clears the threshold either way.
+     */
+    public static Mode decide(Inputs in, double roll, double roll2,
+                              soloMapling.ArtificialPlayer.BotSocialSystem.SocialRoutine.ModeBias bias) {
         if (in.inModeMs() < in.dwellMs() || in.switchesLastHour() >= MAX_PER_HOUR) return null;
         switch (in.current()) {
             case TRAINING -> {
@@ -102,7 +113,7 @@ public final class ModeSwitch {
                 // progression goal or a grinder's blend holds the bot at its work.
                 double pull = 0.55 * in.social() + 0.25 * in.fatigue() + 0.20 * in.boredom();
                 double weight = 0.5 + in.socialite() + 0.5 * Math.max(0, in.socialPull());
-                double score = pull * weight - 0.6 * in.progress() - 0.3 * in.grinder();
+                double score = pull * weight * bias.towardTown() - 0.6 * in.progress() - 0.3 * in.grinder();
                 if (score > THRESHOLD && roll < Math.min(MAX_CHANCE, score)) {
                     return in.explorer() > in.socialite() && in.socialPull() < 0.5 ? Mode.TOWN : Mode.SOCIAL;
                 }
@@ -110,7 +121,7 @@ public final class ModeSwitch {
             case SOCIAL, TOWN -> {
                 // Company need met and something to do: a progression goal, a bored grinder.
                 double back = 0.6 * in.progress() + 0.3 * in.boredom() + 0.2 * (1 - in.social());
-                double score = back * (0.5 + in.grinder()) - 0.5 * in.social() * (0.5 + in.socialite());
+                double score = back * (0.5 + in.grinder()) * bias.towardTraining() - 0.5 * in.social() * (0.5 + in.socialite());
                 if (score > THRESHOLD && roll < Math.min(MAX_CHANCE, score)) return Mode.TRAINING;
                 if (roll2 < 0.3) {
                     if (in.current() == Mode.SOCIAL && in.boredom() > 0.7 && in.explorer() > in.socialite()) {
@@ -193,7 +204,8 @@ public final class ModeSwitch {
         Inputs in = inputs(current, now - s.since, dwellFor(chr.getId()), s.lastHour(now), snap, runtime.memory());
         evaluations.increment();
         Random rng = SocialSim.random(chr.getId(), "mode-switch");
-        Mode target = decide(in, rng.nextDouble(), rng.nextDouble());
+        Mode target = decide(in, rng.nextDouble(), rng.nextDouble(),
+                soloMapling.ArtificialPlayer.BotSocialSystem.SocialRoutine.modeBias(chr.getId(), now)); // stage 7: the daily routine, pilot bots only
         if (target == null) return false;
         String why = blocker(bot, runtime, now);
         if (why != null) {

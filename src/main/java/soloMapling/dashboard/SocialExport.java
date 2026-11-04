@@ -7,6 +7,7 @@ import soloMapling.ArtificialPlayer.BotSocialSystem.SocialActions;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialBudget;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialIntents;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialMetrics;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot;
 import soloMapling.ArtificialPlayer.GCMoveSystem.BotPerformanceMonitor;
 
 import java.util.LinkedHashMap;
@@ -48,6 +49,7 @@ final class SocialExport {
         out.put("socialTick", socialTick(now, phases));
         out.put("bonds", SocialMetrics.bondTotals());
         out.put("intents", intents());
+        out.put("pilot", pilot());
         Map<String, Object> minds = new LinkedHashMap<>();
         minds.put("memoriesLoaded", LifeMemoryStore.size());
         out.put("minds", minds);
@@ -76,6 +78,14 @@ final class SocialExport {
         m.put("enabled", SocialActions.enabled());
         m.put("counters", new LinkedHashMap<>(SocialMetrics.actCounters()));
         m.put("open", new LinkedHashMap<>(SocialActions.openState()));
+        return m;
+    }
+
+    /** Ticket 181 stage 7: the Henesys pilot's switch and counters ({@link SocialPilot#stats()}). */
+    private static Map<String, Object> pilot() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("enabled", SocialPilot.enabled());
+        m.put("stats", new LinkedHashMap<>(SocialPilot.stats()));
         return m;
     }
 

@@ -183,6 +183,7 @@ final class SocialActs {
     }
 
     static void remember(int actor, int subject, BotMemory.Kind kind, String text, double valence, int mapId, long now) {
+        SocialPilot.onMemory(actor);
         SocialActions.world().remember(actor, subject, kind, text, valence, mapId, now);
     }
 

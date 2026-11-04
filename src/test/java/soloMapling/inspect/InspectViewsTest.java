@@ -73,7 +73,7 @@ class InspectViewsTest {
         Map<String, Object> doc = InspectViews.bot(bot(4, "cy", 7, 8), null, 42);
         assertEquals(List.of("ok", "at", "cid", "name", "level", "job", "jobId", "kind", "ownedAlt", "doing",
                 "lifePhase", "map", "channel", "x", "y", "lod", "tick", "nav", "grinding", "gear", "bartle", "goals",
-                "plan", "memory", "mode", "mind", "bonds", "learning", "why"), List.copyOf(doc.keySet()));
+                "plan", "memory", "mode", "mind", "bonds", "group", "learning", "why"), List.copyOf(doc.keySet()));
         assertEquals(1_000_000_004, doc.get("cid"));
         assertEquals("HUNTER", doc.get("job"));
         assertEquals("bot", doc.get("kind"));

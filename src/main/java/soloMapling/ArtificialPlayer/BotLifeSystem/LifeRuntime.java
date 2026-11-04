@@ -131,6 +131,9 @@ public final class LifeRuntime {
         var next = planNext;
         if (next != null && next.step().activity == Activity.HANG_OUT && planDestination > 0) return source(planDestination, LifeTowns.Source.PLAN);
         if (townDestination != HOME_TOWN) return source(townDestination, LifeTowns.Source.FRIEND);
+        // 1.6.4 stage 7: a pilot bot goes where its daily routine and friend group gather (memory only; 0 for everyone else)
+        int pilot = me == null ? 0 : soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot.destination(me.getId(), now);
+        if (pilot > 0) return source(pilot, LifeTowns.Source.PILOT);
         if (pullTown > 0) return source(pullTown, LifeTowns.Source.PULL);
         Character chr = bot.getChr();
         // 1.6.0 S9: a hangout fad this bot follows on its channel (friends first, then the plan, then the fad)

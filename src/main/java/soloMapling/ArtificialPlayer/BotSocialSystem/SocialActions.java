@@ -278,6 +278,9 @@ public final class SocialActions {
             }
             SocialMetrics.countAct(kind, !out.happened() ? "refused" : out.landed() ? "ok"
                     : out.reason().startsWith("rejected") ? "rejected" : "failed");
+            if (out.happened()) {
+                SocialPilot.onAct(actorCharId, kind, out.landed()); // stage 7: pilot counters (memory only)
+            }
             java.util.function.Consumer<ActEvent> watch = observer;
             if (watch != null && out.happened()) {
                 watch.accept(new ActEvent(now, actorCharId, targetCharId, kind, out));
@@ -368,7 +371,7 @@ public final class SocialActions {
             if (c.since(kind) < SocialBudget.cooldownMs(budgetKey(kind))) {
                 continue; // inside the pair's gap for this act: the budget would hold it back, so it is not a choice
             }
-            double u = a.utility(c);
+            double u = a.utility(c) + SocialGroups.adjust(kind, c.actor().id(), c.target().id(), c.now()); // stage 7: friend groups
             out.add(new Scored(kind, c.target().id(), u, u + amp * (rng.nextDouble() * 2 - 1)));
         }
         return out;

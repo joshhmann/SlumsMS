@@ -131,6 +131,10 @@ public final class SocialDecider {
         }
         List<SocialWorld.Body> sorted = new ArrayList<>(near);
         sorted.sort((a, b) -> Integer.compare(me.dx(a), me.dx(b)));
+        SocialGroups.Group group = SocialGroups.enabled() ? SocialGroups.groupOf(id, now) : null; // stage 7: friends first
+        if (group != null) {
+            sorted.sort(java.util.Comparator.comparingInt(b -> group.has(b.id()) ? 0 : 1)); // stable: still nearest first
+        }
         List<Integer> out = new ArrayList<>(CANDIDATES);
         for (SocialWorld.Body o : sorted) {
             if (o.player() || o.id() == id) {

@@ -6,7 +6,7 @@ import soloMapling.ArtificialPlayer.BotAffinitySystem.BondEvent;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds;
 import soloMapling.ArtificialPlayer.BotAffinitySystem.Stage;
 import soloMapling.ArtificialPlayer.BotSocialSystem.SocialActions.ActEvent;
-import soloMapling.ArtificialPlayer.BotSocialSystem.SocialTestKit.FakeFlows;
+import soloMapling.ArtificialPlayer.BotSocialSystem.SocialTestKit.SimFlows;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -32,49 +32,6 @@ class SocialSimulationTest extends SocialActTestBase {
     static final int BOTS = 12;
     static final int STEPS = 3 * 24 * 60; // one minute each
     static final long MIN = 60_000L;
-
-    /** The wrapped flows with the effects bot-talk's own finish step has: a chat leaves a THREAD bond, a party a PARTY bond. */
-    final class SimFlows extends FakeFlows {
-        /** Stories there are to tell: news turns up every few hours, a rumor with every stolen mob; each is told once. */
-        int news, rumors;
-
-        SimFlows(SocialTestKit.FakeWorld world) {
-            super(world);
-            blockers.put(SocialActKind.ASK_HELP, "nobody is grinding in this fake world");
-            blockers.put(SocialActKind.OFFER_HELP, "nobody is grinding in this fake world");
-        }
-
-        @Override
-        public String blocker(SocialActKind kind, int actorId, int targetId, long now) {
-            if (kind == SocialActKind.SHARE_INFO) {
-                return news > 0 ? null : "nothing to tell";
-            }
-            if (kind == SocialActKind.SPREAD_RUMOR) {
-                return rumors > 0 ? null : "no rumor to pass on";
-            }
-            return super.blocker(kind, actorId, targetId, now);
-        }
-
-        @Override
-        public Flow run(SocialActKind kind, int actorId, int targetId, long now) {
-            if (kind == SocialActKind.SHARE_INFO && news > 0) {
-                news--;
-            } else if (kind == SocialActKind.SPREAD_RUMOR && rumors > 0) {
-                rumors--;
-            }
-            Flow f = super.run(kind, actorId, targetId, now);
-            if (f.ok() && kind == SocialActKind.CONVERSE) {
-                BotBonds.together(actorId, targetId, BondEvent.THREAD);
-            }
-            return f;
-        }
-
-        @Override
-        public Flow accept(SocialActions.Invite invite, long now) {
-            BotBonds.together(invite.from(), invite.to(), BondEvent.PARTY);
-            return super.accept(invite, now);
-        }
-    }
 
     private static int id(int i) {
         return SocialTestKit.BASE + 1 + i;

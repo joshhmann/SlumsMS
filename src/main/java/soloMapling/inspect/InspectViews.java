@@ -75,6 +75,7 @@ public final class InspectViews {
         m.put("mode", sm == null ? null : safe(() -> SocialMetrics.mode(sm)));
         m.put("mind", safe(() -> SocialMetrics.mindView(chr.getId(), now)));
         m.put("bonds", safe(() -> SocialMetrics.bondsView(chr.getId())));
+        m.put("group", safe(() -> soloMapling.ArtificialPlayer.BotSocialSystem.SocialGroups.view(chr.getId(), now)));
         m.put("learning", safe(() -> LifeLearning.describe(chr.getId(), chr.getLevel(), now)));
         m.put("why", sm == null || !BotWhyCommand.isEnabled() ? null
                 : safe(() -> BotWhyCommand.inspectionLines(sm, now)));

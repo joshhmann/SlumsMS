@@ -234,6 +234,12 @@ public class TownWandererBot extends BotSM {
                 options.add(m);
             }
         }
+        // 1.6.4 stage 7: a pilot bot drifts to the gathering place its routine and friend group prefer at this hour
+        int preferred = soloMapling.ArtificialPlayer.BotSocialSystem.SocialPilot.destination(getChr().getId(),
+                soloMapling.ArtificialPlayer.BotSocialSystem.SocialSim.now());
+        if (preferred > 0 && options.contains(preferred)) {
+            return preferred;
+        }
         return options.isEmpty() ? -1 : options.get(rng.nextInt(options.size()));
     }
 

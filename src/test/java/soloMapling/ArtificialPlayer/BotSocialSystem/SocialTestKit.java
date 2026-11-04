@@ -55,6 +55,23 @@ final class SocialTestKit {
             return b;
         }
 
+        /** A bot (or player, below {@link #BASE}) on one of several maps, as a stationary body. */
+        Body put(int id, String name, int mapId, int x, int y) {
+            Body b = new Body(id, name, 1L << 32 | mapId, mapId, x, y, 30, id < BASE);
+            bodies.put(id, b);
+            return b;
+        }
+
+        /** Moves a body to another map (the same body, new place); false when it is not in the world. */
+        boolean moveTo(int id, int mapId, int x, int y) {
+            Body b = bodies.get(id);
+            if (b == null) {
+                return false;
+            }
+            bodies.put(id, new Body(b.id(), b.name(), 1L << 32 | mapId, mapId, x, y, b.level(), b.player()));
+            return true;
+        }
+
         void place(int id, int x, int y) {
             Body b = bodies.get(id);
             bodies.put(id, new Body(b.id(), b.name(), b.mapKey(), b.mapId(), x, y, b.level(), b.player()));
@@ -216,6 +233,49 @@ final class SocialTestKit {
         @Override
         public void release(SocialActions.Invite invite) {
             released.add(invite);
+        }
+    }
+
+    /** The wrapped flows with the effects bot-talk's own finish step has: a chat leaves a THREAD bond, a party a PARTY bond. */
+    static final class SimFlows extends FakeFlows {
+        /** Stories there are to tell: news turns up every few hours, a rumor with every stolen mob; each is told once. */
+        int news, rumors;
+
+        SimFlows(SocialTestKit.FakeWorld world) {
+            super(world);
+            blockers.put(SocialActKind.ASK_HELP, "nobody is grinding in this fake world");
+            blockers.put(SocialActKind.OFFER_HELP, "nobody is grinding in this fake world");
+        }
+
+        @Override
+        public String blocker(SocialActKind kind, int actorId, int targetId, long now) {
+            if (kind == SocialActKind.SHARE_INFO) {
+                return news > 0 ? null : "nothing to tell";
+            }
+            if (kind == SocialActKind.SPREAD_RUMOR) {
+                return rumors > 0 ? null : "no rumor to pass on";
+            }
+            return super.blocker(kind, actorId, targetId, now);
+        }
+
+        @Override
+        public Flow run(SocialActKind kind, int actorId, int targetId, long now) {
+            if (kind == SocialActKind.SHARE_INFO && news > 0) {
+                news--;
+            } else if (kind == SocialActKind.SPREAD_RUMOR && rumors > 0) {
+                rumors--;
+            }
+            Flow f = super.run(kind, actorId, targetId, now);
+            if (f.ok() && kind == SocialActKind.CONVERSE) {
+                BotBonds.together(actorId, targetId, BondEvent.THREAD);
+            }
+            return f;
+        }
+
+        @Override
+        public Flow accept(SocialActions.Invite invite, long now) {
+            BotBonds.together(invite.from(), invite.to(), BondEvent.PARTY);
+            return super.accept(invite, now);
         }
     }
 
