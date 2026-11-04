@@ -605,4 +605,10 @@ class BotBotGiftTest {
             return 0.5;
         }
     }
+
+    @Test
+    void defaultValueCapIsTenThousandMesos() {   // owner 2026-11-04, Round 6 #17 (was 100,000)
+        System.clearProperty("slums.botgifts.valueCap");
+        assertEquals(10_000L, BotBotGift.limits().valueCap());
+    }
 }

@@ -107,6 +107,9 @@ public final class BotBotGift {
      * gifts one receiver may get per day, how many happen world-wide per hour, and the most one gift may be worth at
      * NPC prices.
      */
+    /** Most a bot-to-bot gift may be worth, in mesos (owner 2026-11-04, Round 6 #17: lowered from 100,000). */
+    public static final long DEFAULT_VALUE_CAP = 10_000L;
+
     public record Limits(long giverCooldownMs, long pairCooldownMs, int receiverPerDay, int perHour, long valueCap) {
     }
 
@@ -213,7 +216,7 @@ public final class BotBotGift {
                 minutes("slums.botgifts.pair.cooldownMin", 24 * 60),
                 (int) Math.max(0, Math.min(50, Integer.getInteger("slums.botgifts.receiver.perDay", 3))),
                 (int) Math.max(0, Math.min(200, Integer.getInteger("slums.botgifts.perHour", 15))),
-                Math.max(0, Long.getLong("slums.botgifts.valueCap", 100_000L)));
+                Math.max(0, Long.getLong("slums.botgifts.valueCap", DEFAULT_VALUE_CAP)));
     }
 
     private static long minutes(String key, int fallback) {
