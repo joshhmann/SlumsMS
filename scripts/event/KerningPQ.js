@@ -74,12 +74,33 @@ function setEventExclusives(eim) {
     eim.setExclusiveItems(itemSet);
 }
 
+function tierLevel(eim) {   //the tier this run is played at: 1 unless the server runs tiers and the row names one
+    var TierScaling = Java.type('soloMapling.mechanics.TierScaling');
+    if (!TierScaling.on()) {
+        return 1;   //tiers off: every run is NORMAL, byte for byte, however it was started
+    }
+    var MechanicsRuns = Java.type('soloMapling.mechanics.MechanicsRuns');
+    var eventName = (typeof em === 'undefined' || em == null) ? "" : em.getName();   //the owner of this script
+    var tier = TierScaling.requested(MechanicsRuns.contentFor(eventName));   //NORMAL unless the row names the tier
+    var rowLevel = tier.ordinal() + 1;
+    var startedLevel = eim.getIntProperty("level");    //what startInstance was handed for this instance
+    var level = (startedLevel > rowLevel) ? startedLevel : rowLevel;
+    return (level >= 2) ? 2 : 1;   //this script defines rewards for level 1 and level 2 only
+}
+
 function setEventRewards(eim) {
     var itemSet, itemQty, evLevel, expStages;
 
-    evLevel = 1;    //Rewards at clear PQ
+    // The difficulty this instance was started at (setup's `level`; NORMAL is 1 and pays exactly what this script
+    // always paid). A tier changes only HOW MUCH of each item the clear pays: the ids are the same at every level, and the
+    // clear-stage EXP below is shared by both, because "harder pays more experience" is the hidden bonus the owner
+    // rejected. Reading it through TierScaling keeps one gate: with -Dslums.mechanics.tiers off this is always level 1.
+    evLevel = (tierLevel(eim) >= 2) ? 2 : 1;
     itemSet = [1032009, 1032004, 1032005, 1032006, 1032007, 1032010, 1032002, 1002026, 1002089, 1002090, 2000003, 2000001, 2000002, 2000006, 2022003, 2022000, 2000004, 4003000, 4010000, 4010001, 4010002, 4010003, 4010004, 4010005, 4010006, 4010007, 4020000, 4020001, 4020002, 4020003, 4020004, 4020005, 4020006, 4020007, 4020008];
     itemQty = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 80, 80, 80, 50, 5, 15, 15, 30, 15, 15, 15, 15, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 3, 3];
+    if (evLevel == 2) {   //HARD: the same ids, twice the quantity - the only thing a tier may move
+        itemQty = [2,2,2,2,2,2,2,2,2,2,160,160,160,100,10,30,30,60,30,30,30,30,16,16,16,16,16,16,16,16,16,16,16,6,6];
+    }
     eim.setEventRewards(evLevel, itemSet, itemQty);
 
     expStages = [100, 200, 400, 800, 1500];    //bonus exp given on CLEAR stage signal
