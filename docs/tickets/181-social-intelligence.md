@@ -30,9 +30,9 @@ change.
 | 0b | Mode switching (`ModeSwitch`, `BotRoster.resumeChoice`) | done on the branch; TEST run and an auto-QA check pending |
 | 1 | `SocialMind`: traits, emotions, needs, decay, persistence | built on branch `164-social-mind` `43c1128c4` (model, persistence, event hooks; not yet read by any decision, that is Stage 4); TEST persistence check pending |
 | 2 | 8-axis `Bond`/`Tie`, migration 059, background bond formation | planned |
-| 3 | `botmemory` extension, relevance recall, knowledge boundaries | planned |
+| 3 | `botmemory` extension (migration 060), relevance recall, knowledge boundaries, memory in bot-bot talk | built on branch `164-social-memory`; unit-tested, not run on TEST or in a client |
 | 4 | `SocialAction` registry, missing actions, gifts, emotion and memory into the decision model | planned |
-| 5 | Persisted intentions; memory in bot-bot prompts | planned |
+| 5 | Persisted intentions (memory in bot-bot prompts moved to Stage 3) | planned |
 | 6 | Social LOD, loop breaker, metrics | planned |
 | 7 | Henesys pilot and live verification | planned |
 
