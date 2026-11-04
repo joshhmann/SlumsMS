@@ -71,9 +71,19 @@ function action(m, t, s) {
             } else {
                 cm.gainMeso(-sfmesocost);
                 cm.gainItem(4000999, -spelltracecost);
-                cm.StarForceEquip(cm.getSFItem(slot));
+                let result = cm.StarForceEquip(cm.getSFItem(slot));
+                if (result == null) {
+                    cm.sendOk("The enhancement failed and the item was destroyed.");
+                    cm.dispose();
+                    return;
+                }
                 newStar = cm.getSFItem(slot).getLevel();
-                cm.sendOk('Complete');
+                if (newStar <= currentStar) {
+                    // a success always adds a star; at 0 stars a fail keeps the star count, so compare, not guess
+                    cm.sendOk("The enhancement failed. The item is now " + newStar + " stars.");
+                } else {
+                    cm.sendOk('Complete');
+                }
                 cm.sendMessageToPlayer("Current starforce level of item: " + newStar);
                 status = 0;
             }

@@ -1654,6 +1654,7 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
                 double boom = getBoom(nEquip); //boom chances
                 if (ItemConstants.SuperiorItemIds.contains(nEquip.getItemId())) {
                     if (rollSuccessChance(boom)) {
+                        destroyStarForceEquip(nEquip);
                         return null;
                     }
                     if (rollSuccessChance(prop)) {
@@ -1661,7 +1662,8 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
                         nEquip.setUpgradeSlots((byte) (nEquip.getUpgradeSlots() - 1));
                         nEquip.setLevel((byte) (nEquip.getLevel() + 1));
                         scrollSuccess = Equip.ScrollResult.SUCCESS;
-                    } else {
+                    } else if (nEquip.getLevel() > 0) {
+                        // 1.6.4: a failed superior enhancement loses the star; never below 0 stars.
                         nEquip.setUpgradeSlots((byte) (nEquip.getUpgradeSlots() + 1));
                         nEquip.setLevel((byte) (nEquip.getLevel() - 1));
                         improveSuperiorEquips(nEquip, true);
@@ -1676,7 +1678,8 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
                         nEquip.setUpgradeSlots((byte) (nEquip.getUpgradeSlots() - 1));
                         nEquip.setLevel((byte) (nEquip.getLevel() + 1));
                         scrollSuccess = Equip.ScrollResult.SUCCESS;
-                    } else if ((nEquip.getLevel() % 1) != 0) {
+                    } else if (nEquip.getLevel() > 0) {
+                        // 1.6.4: was (getLevel() % 1) != 0, which is never true, so a fail cost only the fee.
                         nEquip.setLevel((byte) (nEquip.getLevel() - 1));
                         nEquip.setUpgradeSlots((byte) (nEquip.getUpgradeSlots() + 1));
                         improveEquipStats(nEquip, true);
@@ -1690,6 +1693,23 @@ public class NPCConversationManager extends AbstractPlayerInteraction {
         c.sendPacket(PacketCreator.modifyInventory(true, mods));
         c.getPlayer().getMap().broadcastMessage(PacketCreator.getScrollEffect(c.getPlayer().getId(), scrollSuccess, false, false));
         return equip;
+    }
+
+    /** A superior boom: the item is destroyed, so the slot is emptied and the client is told (1.6.4). */
+    private void destroyStarForceEquip(Equip nEquip) {
+        Inventory equipInventory = c.getPlayer().getInventory(InventoryType.EQUIP);
+        equipInventory.lockInventory();
+        try {
+            equipInventory.removeItem(nEquip.getPosition());
+        } finally {
+            equipInventory.unlockInventory();
+        }
+
+        final List<ModifyInventory> mods = new ArrayList<>();
+        mods.add(new ModifyInventory(3, nEquip));
+        c.sendPacket(PacketCreator.modifyInventory(true, mods));
+        c.getPlayer().getMap().broadcastMessage(PacketCreator.getScrollEffect(c.getPlayer().getId(), Equip.ScrollResult.CURSE, false, false));
+        log.info("Star Force boom destroyed item {} ({} stars) for character {}", nEquip.getItemId(), nEquip.getLevel(), c.getPlayer().getName());
     }
 
     private static void applyStatAdditions(Equip nEquip, StarBoost boost, boolean fail) {
