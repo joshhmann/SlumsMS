@@ -33,7 +33,7 @@ change.
 | 3 | `botmemory` extension (migration 060), relevance recall, knowledge boundaries, memory in bot-bot talk | built on branch `164-social-memory`; unit-tested, not run on TEST or in a client |
 | 4 | `SocialAction` registry, missing actions, gifts, emotion and memory into the decision model | planned |
 | 5 | Persisted intentions: `SocialIntent`/`IntentBook`/`SocialIntents` inside `LifeMemory`, dialogue-to-intention, kept/broken consequences, commitment clause, counters, `!botwhy` line | built on branch `164-social-intents` (`81a7faa31`); unit-tested; the performer is a seam (`SocialIntents.performer`, not wired until Stage 4 is merged); TEST not run |
-| 6 | Social LOD, loop breaker, metrics | 6a built on branch `164-social-observe`: `SocialBudget` loop breaker hooked into `BotTalk` (greet, chat, ask acts), social metrics in `live.json`, `/bots/{cid}` and `!botwhy` (`docs/design/inspect-api.md`); 6b social LOD planned; no migration; not run on TEST |
+| 6 | Social LOD, loop breaker, metrics | 6a built on branch `164-social-observe`: `SocialBudget` loop breaker hooked into `BotTalk` (greet, chat, ask acts), social metrics in `live.json`, `/bots/{cid}` and `!botwhy` (`docs/design/inspect-api.md`); 6b social LOD planned; no migration; not run on TEST **6b:** 6b social LOD built on branch `164-social-lod` (`SocialLod`: ACTIVE/BACKGROUND/DORMANT, 30 s hold, 5-minute background maintenance, one bounded login catch-up; `-Dslums.sociallod=false` is the rollback). Loop breaker and dashboard metrics still planned; TEST run pending |
 | 7 | Henesys pilot and live verification | planned |
 
 ## Acceptance (from the brief)
@@ -45,5 +45,5 @@ it has run; the audit file says what has and has not.
 
 ## Switches
 
-`slums.botlife.enabled`, `slums.botlife.execute`, `slums.bottalk`, `slums.crews`, `slums.modeswitch`, `slums.socialbudget`, `slums.intents`:
+`slums.botlife.enabled`, `slums.botlife.execute`, `slums.bottalk`, `slums.crews`, `slums.modeswitch`, `slums.socialbudget`, `slums.intents`, `slums.sociallod`:
 all `-D` JVM properties, on unless set to `false`. None is a `config.yaml` key.
