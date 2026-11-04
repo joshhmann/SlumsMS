@@ -246,6 +246,13 @@ public final class Orchestrator implements RunOrchestrator {
                 if (run.ended()) {
                     return steps;
                 }
+            } else if (!view.alive(m.characterId())) {
+                // 1.7.0: a mortal bot lies dead where it fell, still registered - and a human's death is read here
+                // too, on the tick before the script unregisters him. Either way the run has lost a member.
+                memberLost(run, m.characterId(), "died", nowMs);
+                if (run.ended()) {
+                    return steps;
+                }
             }
         }
 
@@ -704,7 +711,9 @@ public final class Orchestrator implements RunOrchestrator {
     private boolean pausedStepsOrResume(RunState run, StageView view, Map<Integer, SolverStep> steps, long nowMs) {
         RunState.Waiter waiter = run.waitingFor();
         int id = waiter.member() == null ? 0 : waiter.member().characterId();
-        if (view.registered(id)) {
+        // 1.7.0: back means registered AND alive - a bot lies dead in the room still registered, and a corpse is not a
+        // returning member (the script unregisters a dead human, so for one of those the two tests agree)
+        if (view.registered(id) && view.alive(id)) {
             run.waiterReturned(nowMs);
             run.setClaims(RoleClaims.claim(run.stageData(), run.members()));
             run.note(nowMs, id + " is back after " + (nowMs - waiter.sinceMs()) / 1_000 + " s: the run resumes on stage "
