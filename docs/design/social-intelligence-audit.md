@@ -27,7 +27,8 @@ action registry, and a social LOD. Build that layer inside the existing systems;
 | 4 | Identity today | Bartle-based `SocialProfile` + `LifeProfile` (7 channels) + canned `BotPersona`; one derived mood scalar; 6 derived needs, none stored. No real emotions. |
 | 5 | Decision to action | `LifeExecutor`, `ConvoActions`, `BotTalk.act` call the existing party, trade, movement, buddy systems. Server-authoritative, LLM-voices-only already holds (`ConvoGates`, `ReplyPlanner`). |
 | 6 | Persistence | `botbond` (3-minute batch), `botmemory` (write-through, LRU 16,384 pairs), `botaffinity`, `botlifeprofile` (JSON, versioned), `botcouple`. Highest migration 058. Emotions and needs persisted nowhere. |
-| 7 | World APIs | `GCMovement.move/follow/teleportTo`, `BotSpeak/BotChatbubble/BotEmote`, `botSitChair`, `LfgParty`, `BotBotTrade`. No single "walk to bot X, face, talk" helper; no bot-to-bot item gift (`BotGifts` gives to players only). |
+| 7 | World APIs | `GCMovement.move/follow/teleportTo`, `BotSpeak/BotChatbubble/BotEmote`, `botSitChair`, `LfgParty`, `BotBotTrade`. No single "walk to bot X, face, talk" helper. A bot-to-bot gift now exists (`BotBotGift`, Stage 4); `BotGifts` still
+gives to players only. |
 | 8 | Bot-bot without a player | Yes: `BotTalk` (needs 2+ bots on a map), `BotGossip`, couples, bond events. `BotThreads` and `BotChatter` need a watching player. |
 | 9 | Offscreen | Bots stay online; unobserved, the macro tick drops to 60-120 s and movement goes coarse (`ObserverTracker`). The social layer now has its own LOD (Stage 6b, `BotSocialSystem/SocialLod`): ACTIVE / BACKGROUND / DORMANT, 5-minute background maintenance, one bounded catch-up per login. |
 | 10 | Scheduling | `BotTickService` (one driver, virtual threads, governor stretches all periods up to 4x), bot DB access capped at 6 permits (`BotDbGate`; virtual threads drop writes rather than wait). |
@@ -42,7 +43,8 @@ action registry, and a social LOD. Build that layer inside the existing systems;
 | 2 Relationships | PARTIAL | Directed `Bond` (bot-bot) and `Tie` (bot-player) exist; one scalar -100..100 plus `kind`/`hostile` counters, 4 derived states. No 8 axes, no player-to-bot edge, no hysteresis. |
 | 3 Memory | PARTIAL | `botmemory`: DIRECT/HEARSAY, kind, weight, half-life decay, 10-note cap, LLM merge. Subject is a real player only; no location, confidence, relevance recall. |
 | 4 Reasoning | PARTIAL | `TalkBrain` uses traits, bond, mood, goal; no emotion or memory input. |
-| 5 Actions | PARTIAL | Bespoke flows (greet, chat, party, trade, help, gossip, spat, crush, couple, wedding, guild beef). No registry. Missing: compliment, bot-bot gift, apologize/reconcile, avoid, spend-time-together. |
+| 5 Actions | PARTIAL | Bespoke flows (greet, chat, party, trade, help, gossip, spat, crush, couple, wedding, guild beef). No registry. Missing: compliment, apologize/reconcile, avoid, spend-time-together (bot-to-bot gifts exist as `BotBotGift`, not yet
+reachable from a decision). |
 | 6 LLM | PARTIAL | Memory reaches player chats only; `BotThreads`/`BotTalk` do not read `BotMemory`. `BotCommitments` is only a tick keep-awake; promises are judged after the fact by `SayDo`/`TalkPromises`, never scheduled. |
 | 7 Routines, groups | PARTIAL | Crews, guilds, couples, `Reputation`, `Fads`. Schedule = login window and session length only. |
 | 8 LOD, guards, observability | PARTIAL | Movement LOD, `BotTalk`/`SocialGate` budgets, `SocialTrace`; social LOD built in Stage 6b (`SocialLod`, tiers, counters in `stats()` and a 10-minute info line). No generic bot-bot loop breaker, no social metrics in the dashboard yet. |
@@ -78,8 +80,15 @@ social bots lose their `LifeMemory` is stale: `LifeMemoryStore` saves it for eve
 7. **Test seam.** `SocialSim` (one clock, per-(bot, purpose) seeded RNG) for all new code.
 8. **Gifts (owner, non-economic).** A gift is an affinity effect, or gear that fits the receiver's job and level, or gear
    that fits every job (earrings and similar), or a usable; chosen by the receiver's `SocialMind` needs, with a per-pair
-   cooldown. The item comes from the giver's own holdings, so nothing is minted. Needs the bot-to-bot item hand-over
-   that does not exist yet (Stage 4).
+   cooldown. The item comes from the giver's own holdings, so nothing is minted.
+   Built as `AP/BotSocialSystem/BotBotGift`: `choose(giver, receiver, minds, now)` returns a plan (equip, potions or a
+   gesture with no item) and `give(plan)` performs it. The equip side reuses `GearUpgrades.spares` and the optimizer's
+   own `Scorer` for "the receiver would wear it, the giver would not"; potions come from `BotVitals.potionStacks` with
+   `SupplyNeeds.LOW_POTIONS` and a giver that keeps a trip's worth; a gift records `BondEvent.GIFT` for the receiver
+   only (the `BotBonds.onTrade` precedent) and pushes `SocialProfile.Push.GIFTED` plus a memory note. The transfer is
+   `BotHoldings`' primitives under its own locks, not `BotBotTrade.swap` (that one prices in mesos). Limits are one
+   `Limits` record from `-D` properties (giver 6 h, pair 24 h, 3 a day per receiver, 15 an hour world-wide, 100k mesos
+   at NPC prices), flag `-Dslums.botgifts` on by default. Not yet called by the brain or the talk planner.
 
 ## 5. Modes: training, social, town (Stage 0b, done)
 
@@ -129,7 +138,7 @@ the dashboard.
 | 1 | `SocialMind` (traits, emotions, needs), decay, persistence | decay and restart round-trip tests | built (`164-social-mind`); TEST persistence check pending; no decision reads it yet |
 | 2 | 8-axis bonds, migration 059, background formation | axis table, directedness, hysteresis, eviction, restart and legacy-row round trips, background tier, simulated-days tests | built (`164-social-bonds`, `f03304844`); migration 059 not yet applied on TEST; no decision reads the axes yet |
 | 3 | Memory extension (migration 060), relevance recall, knowledge boundaries, memory in bot-bot talk | knowledge-boundary tests | built (`164-social-memory`): subject type, place, confidence, valence, provenance, other party; `BotMemory.recall(.., Query, ..)` and `remember(..)` writer; repeats merge; world news only from witnesses or tellers; circle-restricted counts; `BotThreads`/`BotTalk` prompts carry the partner's real memories. Unit-tested only; TEST not run |
-| 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests | planned |
+| 4 | `SocialAction` registry, missing actions, gifts, emotion/memory into `TalkBrain` and `LifeDecision` | per-action outcome tests | gifts done (`164-social-gift`, `BotBotGift`); registry and decision wiring planned |
 | 5 | Intentions (memory in `BotThreads`/`BotTalk` prompts moved to Stage 3) | dialogue-to-intention test | built (`164-social-intents`, `81a7faa31`): see section 8; unit-tested only; performer is an unwired seam until Stage 4 merges; TEST not run |
 | 6 | Social LOD, loop breaker, metrics in dashboard and inspect | perf measurement | 6a built (`164-social-observe`): `SocialBudget` loop breaker (per-pair cooldown, per-bot, per-map and global rates, A-B turn limit, failed-act backoff; hooked into `BotTalk`), `social` block in `live.json`, mode/mind/bonds in `/bots/{cid}`, mode and mind lines in `!botwhy`; unit tests only, no perf measurement and no TEST run yet. 6b social LOD planned **6b:** 6b social LOD built (`164-social-lod`: tier/hold, 5-minute maintenance, catch-up bounds, flag-off tests, full suite); loop breaker and dashboard metrics planned |
 | 7 | 20-bot Henesys pilot, TEST (mapletest) live check | real execution evidence | planned |
