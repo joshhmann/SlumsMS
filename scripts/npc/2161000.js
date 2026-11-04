@@ -19,14 +19,6 @@ var expedMap = "Audience Room";
 var list = "What would you like to do?#b\r\n\r\n#L1#View current Expedition members#l\r\n#L2#Start the fight!#l\r\n#L3#Stop the expedition.#l";
 
 function start() {
-    // 1.6.4 (owner 2026-11-04): the corridor is open, the fight keeps rebirth 1 (HyperTPHandler.vonLeonRefusal)
-    var reborns = Java.type('config.YamlConfig').config.server.USE_REBIRTH_SYSTEM ? cm.getPlayer().getReborns() : 0;
-    var refusal = Java.type('net.server.channel.handlers.HyperTPHandler').vonLeonRefusal(reborns);
-    if (refusal != null) {
-        cm.sendOk(refusal);
-        cm.dispose();
-        return;
-    }
     if (cm.isQuestStarted(3171) || cm.isQuestCompleted(3171)) {
         action(1, 0, 0);
     } else {
@@ -34,6 +26,11 @@ function start() {
         cm.dispose();
         return;
     }
+}
+
+function vonLeonRefusal() {
+    var reborns = Java.type('config.YamlConfig').config.server.USE_REBIRTH_SYSTEM ? cm.getPlayer().getReborns() : 0;
+    return Java.type('net.server.channel.handlers.HyperTPHandler').vonLeonRefusal(reborns);
 }
 
 function action(mode, type, selection) {
@@ -53,6 +50,9 @@ function action(mode, type, selection) {
         if (status == 0) {
             if (player.getLevel() < exped.getMinLevel() || player.getLevel() > exped.getMaxLevel()) { //Don't fit requirement, thanks Conrad
                 cm.sendOk(player.getLevel() < exped.getMinLevel() ? "You need to be at least level " + exped.getMinLevel() + " to battle " + expedBoss + "." : "You need to be level " + exped.getMaxLevel() + " or lower to battle " + expedBoss + ".");
+                cm.dispose();
+            } else if (vonLeonRefusal() != null) { // 1.6.4 (owner 2026-11-04): the corridor is open, the fight keeps rebirth 1
+                cm.sendOk(vonLeonRefusal());
                 cm.dispose();
             } else if (expedition == null) { //Start an expedition
                 cm.sendSimple("#e#b<Expedition: " + expedName + ">\r\n#k#n" + em.getProperty("party") + "\r\n\r\nWould you like to assemble a team to take on #r" + expedBoss + "#k?\r\n#b#L1#Lets get this going!#l\r\n\#L2#No, I think I'll wait a bit...#l");
