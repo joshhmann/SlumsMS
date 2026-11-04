@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,11 +31,13 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import testutil.PropsRestored;
 
 /**
  * Ticket 156 through {@link BotConversation}: the prompt carries the snapshot, a reply that fails the check is asked
  * for once more, a second miss falls back to a safe line, and the switches turn both parts off.
  */
+@ExtendWith(PropsRestored.class)
 class StateOfMindFlowTest {
 
     private final List<List<BotBrain.Turn>> asked = new CopyOnWriteArrayList<>();

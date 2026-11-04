@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +20,7 @@ import java.time.ZoneOffset;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /*
  * NN-011, the parked-at-a-launch-gate watchdog (runtime part of nutnnut/Cosmic 43b9f06c8, AGPL-3.0. Credit:
@@ -32,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * has a launch gate somewhere else on the shelf. The motor is not run, so the bot stays parked at the gate, and
  * the nav is cleared after every tick the way an incidental clear does.
  */
+@ExtendWith(PropsRestored.class)
 class BlockedPosWatchdogTest {
 
     private static final int DEPT_STORE = 100000102;

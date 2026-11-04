@@ -1,6 +1,7 @@
 package soloMapling.ArtificialPlayer;
 
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,10 +11,12 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 // The name check behind character creation, the login name check and cash-shop name changes refuses a name a stored
 // roster bot holds (SoloMapling 4fc53172, carried over in the persistence-fork merge). Bots have no characters rows,
 // so the check goes through BotNames, which is loaded from the botstore roster.
+@ExtendWith(PropsRestored.class)
 class BotNameCreationCheckTest {
 
     private String enabled;

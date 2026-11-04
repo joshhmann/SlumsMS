@@ -1,5 +1,6 @@
 package server.life;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -13,12 +14,14 @@ import java.sql.SQLException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mockStatic;
+import testutil.PropsRestored;
 
 /**
  * 1.5.1: MapleRoot read info/exp with no default, so a mob without an exp node (Nett's Pyramid, Amoria and Ellin PQ,
  * Golden Pig, ghost-map mobs) threw, getMonster returned null and MapFactory failed the whole map. Cosmic defaults
  * a missing exp to the stats' current value (0). Runs on a tiny fake WZ tree, so it needs no real game data.
  */
+@ExtendWith(PropsRestored.class)
 class LifeFactoryMissingExpTest {
 
     private static final int NO_EXP_MOB = 9999001;

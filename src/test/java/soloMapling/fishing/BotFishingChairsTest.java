@@ -3,6 +3,7 @@ package soloMapling.fishing;
 import client.BotClient;
 import client.Character;
 import client.inventory.InventoryType;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import soloMapling.ArtificialPlayer.BotLifeSystem.SocialProfile;
 import soloMapling.ArtificialPlayer.BotStore;
@@ -11,8 +12,10 @@ import java.util.EnumMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import testutil.PropsRestored;
 
 /** 1.6.0 (owner, 2026-10-26; ticket 92): about 1 in 20 hangout/explorer bots own a Fishing Chair. */
+@ExtendWith(PropsRestored.class)
 class BotFishingChairsTest {
     private static final int SLOTS = 200_000;
 

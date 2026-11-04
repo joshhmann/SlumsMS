@@ -1,5 +1,6 @@
 package soloMapling.ArtificialPlayer.GCMoveSystem;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import server.maps.MapRouting;
@@ -12,12 +13,14 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /**
  * s-maproute: the bots' world graph and the player's routing table are one policy. A bot may not plan a step into a
  * map a player cannot enter (Map.wz has no image, or the client crashes on it): the graph drops the edge, so the
  * planner never sends a bot somewhere the player path reroutes away from.
  */
+@ExtendWith(PropsRestored.class)
 class GCWorldGraphRoutingTest {
 
     private static final int FOUNTAIN_SQUARE = 410000300;

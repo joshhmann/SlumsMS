@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /**
  * Auto-QA t-mx-2 (Round 2): stage 3 of the KPQ run idled for 1164 s. The route the leader's formation needed was
@@ -33,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * silently for as long as the run lasted. The fix keeps the clock on an identical re-issue, and makes the give-up
  * count: it records a GAVE_UP spot and marks the leg the bot was on as failed, so the next plan routes around it.
  */
+@ExtendWith(PropsRestored.class)
 class MoveStallGiveUpTest {
 
     private static final int KPQ_STAGE3 = 103000802; // the map the 1164 s run was stuck on

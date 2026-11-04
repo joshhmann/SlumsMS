@@ -3,6 +3,7 @@ package soloMapling.ArtificialPlayer.BotLifeSystem;
 import client.Character;
 import net.server.PlayerStorage;
 import net.server.world.World;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import server.maps.MapleMap;
@@ -16,6 +17,7 @@ import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
+import testutil.PropsRestored;
 
 /**
  * Ticket 173, found by the b267 review: the three-arg {@code LifeRuntime.accepted} was {@code synchronized} and called
@@ -30,6 +32,7 @@ import static org.mockito.Mockito.*;
  * friend is read before the monitor is taken, so {@code prompt()} answers while the read still waits. The deadline is
  * 5 s so a loaded build machine cannot fail it; the old code never returns at all while the read is held.
  */
+@ExtendWith(PropsRestored.class)
 class LifeRuntimeLockOrderTest {
 
     private final String enabled = System.getProperty("slums.botlife.enabled");

@@ -2,6 +2,7 @@ package soloMapling.ArtificialPlayer.GCMoveSystem;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import server.maps.MapleMap;
@@ -15,11 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /**
  * 1.4.1, "bots tend to get stuck on top of ladders". Real map data: Wild Boar Land (107000400) has a rope whose
  * step-off foothold sits just below the rope head, the shape that parked bots there for good. Skipped without wz/.
  */
+@ExtendWith(PropsRestored.class)
 class RopeTopStallTest {
 
     private static final int MAP = 107000400;

@@ -8,9 +8,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import soloMapling.mechanics.MechanicsModel.Content;
+import testutil.PropsRestored;
 
 /**
  * Ticket 164, the last piece of the PQ lane: bots start a party quest themselves, for any row whose lobby is switched on.
@@ -24,6 +26,7 @@ import soloMapling.mechanics.MechanicsModel.Content;
  * back-off, and the reason Kerning's lobby - which stays exactly as it was - cannot staff these towers. Nothing here runs
  * a channel.
  */
+@ExtendWith(PropsRestored.class)
 class ContentLobbyTest {
 
     private static final String MECHANICS = "slums.mechanics";

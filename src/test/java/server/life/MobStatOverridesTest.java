@@ -1,5 +1,6 @@
 package server.life;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mockStatic;
+import testutil.PropsRestored;
 
 /**
  * Ticket 81 (draft): max HP and EXP come from soloMapling/mob-stat-overrides.tsv, applied after LifeFactory's own
@@ -27,6 +29,7 @@ import static org.mockito.Mockito.mockStatic;
  * Sun Spirit (8644001, lv 200, 264,616,000 HP in the WZ: HP and EXP rows), Skelegon (8190003, Leafre: EXP x1.4 only)
  * and a mob with no row.
  */
+@ExtendWith(PropsRestored.class)
 class MobStatOverridesTest {
 
     private static final int SUN_SPIRIT = 8644001;

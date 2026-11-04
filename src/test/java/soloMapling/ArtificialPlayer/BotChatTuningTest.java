@@ -1,5 +1,6 @@
 package soloMapling.ArtificialPlayer;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -12,7 +13,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import testutil.PropsRestored;
 
+@ExtendWith(PropsRestored.class)
 class BotChatTuningTest {
     @AfterEach void cleanup() {
         for (String key : List.of("townMultiplier", "huntingMultiplier", "dungeonMultiplier",

@@ -1,5 +1,6 @@
 package soloMapling.mechanics;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import soloMapling.WzTestData;
@@ -13,6 +14,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /**
  * Every row in {@code content/} against the real WZ, skipped without {@code -Dwz-path} (or a {@code wz/} folder).
@@ -22,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * parser test, which is why this one reads the dump. It covers every row rather than the newest four, so the check keeps
  * working as rows are added: the list comes from {@code index.txt}, not from a hardcoded set.
  */
+@ExtendWith(PropsRestored.class)
 class MechanicsRowWzIntegrityTest {
 
     @BeforeAll

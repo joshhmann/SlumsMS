@@ -1,5 +1,6 @@
 package server.life;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -11,7 +12,9 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import testutil.PropsRestored;
 
+@ExtendWith(PropsRestored.class)
 class MobSkillFactoryTest {
 
     @TempDir

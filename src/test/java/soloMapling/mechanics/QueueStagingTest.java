@@ -20,6 +20,7 @@ import java.util.function.Supplier;
 
 import client.Character;
 import net.server.channel.Channel;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ import scripting.event.EventInstanceManager;
 import scripting.event.EventManager;
 import server.maps.MapleMap;
 import soloMapling.mechanics.MechanicsModel.Content;
+import testutil.PropsRestored;
 
 /**
  * The staging half of the queue seam: a guild goes through Guild Quest's door the way {@code scripts/npc/9040000.js} does
@@ -35,6 +37,7 @@ import soloMapling.mechanics.MechanicsModel.Content;
  * registered (registering starts an instance that would have to be ended again). The door and the seater are fakes here;
  * the NPC's own conversation is {@link QueueStaging.NpcDoor}, which runs the shipped script for a bot.
  */
+@ExtendWith(PropsRestored.class)
 class QueueStagingTest {
 
     @TempDir

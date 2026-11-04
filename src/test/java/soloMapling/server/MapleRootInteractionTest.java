@@ -2,6 +2,7 @@ package soloMapling.server;
 
 import client.BotClient;
 import client.Character;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import soloMapling.server.EventMessageSystem.*;
 import tools.DatabaseConnection;
@@ -11,7 +12,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import testutil.PropsRestored;
 
+@ExtendWith(PropsRestored.class)
 class MapleRootInteractionTest {
     @Test
     void disabledHooksDoNothingAndEnabledFailuresDoNotInterruptPlayers() {

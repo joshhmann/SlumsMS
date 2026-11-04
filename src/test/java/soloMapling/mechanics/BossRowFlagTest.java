@@ -1,5 +1,6 @@
 package soloMapling.mechanics;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -7,6 +8,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
 /**
  * A boss row can be switched off on its own, on top of the boss lane's own switch.
@@ -15,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * may want three of them. {@link Mechanics#bossEnabledFor} is the second key, and it must not be looser than
  * {@code bossesEnabled()}: a row flag can only ever narrow, never open a lane.
  */
+@ExtendWith(PropsRestored.class)
 class BossRowFlagTest {
 
     @AfterEach

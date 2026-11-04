@@ -1,12 +1,15 @@
 package net.server.task;
 
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Timestamp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import testutil.PropsRestored;
 
+@ExtendWith(PropsRestored.class)
 class RankingLoginTaskTest {
 
     @Test
