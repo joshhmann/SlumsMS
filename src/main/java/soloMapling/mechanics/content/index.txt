@@ -44,6 +44,7 @@ piratepq.yaml
 treasurepq.yaml
 dellibattle.yaml
 magatiapq.yaml
+magatiapqz.yaml
 ellinpq.yaml
 cwkpq.yaml
 bossrush0.yaml

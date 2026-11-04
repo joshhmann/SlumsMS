@@ -9,9 +9,10 @@
 #   The Zenumist twin (MagatiaPQ_Z) is byte-identical except for the 92610/92611 map prefix, the rnj/jnr names and the
 #   boss ids, so it needs its own row and is not covered by this one.
 #
-# FIVE of the PQ's seven stages are modelled. The other two are not, and the fifth stage below says why in the row rather
-# than guessing: a run of this row plays the books, empties the shelf's room, fills the beaker and carries both files to
-# Juliet, and then HOLDS - it never reports a clear it did not get.
+# SIX stages are modelled and they reach the script's own clear: the twenty-six books, the shelf's empty room, the
+# beaker's three counted hits, both files carried to Juliet, the four rooms and the ten-row climb, and Yulete's summons -
+# whose death runs the script's clearPQ, so the row ends on the instance clear rather than on a property it invented. The
+# maps past 926110401 are the script's own walk-out and are not stages.
 id: magatiapq
 name: Magatia PQ (Alcadno)
 kind: PQ
@@ -72,7 +73,10 @@ stages:
       eventProperty: statusStg2
       equals: "1"
   - stage: 3
-    map: 926110200
+    # 926110100 is the room that holds the three 2618000 beakers and the 2618006 door; 926110200 holds only the three
+    # door reactors (2618001/2618002/2618007) and is stage 4's room. A stage that names a map without its reactor can
+    # never clear: reactor-count only warps to the stage's own map and then hits a reactor that is not there.
+    map: 926110100
     name: The beaker - three counted hits
     solver: reactor-count
     hitReactors: [2618000]

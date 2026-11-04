@@ -380,6 +380,73 @@ one row (`content/dellibattle.yaml`), `clear: { instance: true }`.
   (`DelliBattle.js:27`) and the staging hands `KpqStaging` a party of at least two, so a lobby would staff a party the
   script refuses to look at. A human party of two plays it with the row flag; no bot party is assembled.
 
+## Magatia: the wrong room, the net that would have caught it, and the Zenumist row
+
+Three things came out of the Zenumist pass, in the order they were found.
+
+**The Zenumist "missing counter" does not exist.** The claim was that `statusStg3` is only ever raised by the Alcadno
+beaker (`scripts/reactor/2618000.js:31-32`) and that the Zenumist twin (`scripts/reactor/2619000.js:27-29`, whose `act()`
+is a comment) never writes it. The second half is true and the conclusion is wrong: `2619000` is a **quest** reactor that
+stands on `926120100`, a map neither band includes, and its only route is `scripts/npc/2111000.js:34` for quest 3310.
+Both bands use reactor `2618000` - the three `beaker1..3` - and its script picks the door by band
+(`:39` `isAlcadno == 0 ? "rnj2_door" : "jnr2_door"`). Every property the Zenumist portals and NPCs read has a writer, and
+`diff` of the two event scripts differs only in the map prefix, the portal names, the spawn NPC ids and the boss ids. So
+nothing was patched, and the promised "minimal script fix" would have edited a Carson quest reactor to satisfy a party
+quest.
+
+**The real defect was in our own Alcadno row.** `content/magatiapq.yaml` stage 3 named `map: 926110200` while asking for
+`hitReactors: [2618000]`. The three beakers and the `2618006` door stand on **`926110100`**; `926110200` holds only the
+three door reactors `2618001`/`2618002`/`2618007` and is stage 4's room. `ReactorCountSolver` only warps to the stage's
+own map (`:66`) and then returns `HitReactor(...)` (`:80`), so the stage could never clear, and `926110100` never appeared
+in the row at all - the party never entered the room. Fixed: stage 3 is now `926110100`, stage 4 keeps `926110200` with its
+two box rooms, and the stage carries a comment naming both rooms' reactors and the rule that a stage which names a map
+without its reactor can never clear.
+
+**Why no test caught it, and the net that now does.** `MagatiaPqSolversTest` built its fake view with a hand-picked map
+(`new View(stage, 926110200)`), which agreed with the row instead of with the client, and `reactor-count` reads an event
+property and never asks where the reactor stands - so a wrong room was invisible to every per-solver test we own. Two
+answers, both in the tree:
+
+- the fake now takes `stage.mapId()`, the pinned map list is corrected, and
+  `theBeakerStageStandsInTheRoomThatHoldsTheBeakers` asserts the room, that the *other* room is stage 4's, and that the
+  room is on the route;
+- `MechanicsRowWzIntegrityTest.everyStageThatNamesAReactorHasItOnItsOwnGround` reads **every** row and asks `Map.wz`:
+  each reactor a stage names (`hitReactors`, the clear's `reactorId`, an objective's numeric `reactor:`) must stand on the
+  stage's `map:` or one of its `maps:`. Named reactors are skipped - a name cannot be looked up in a map image. Cached per
+  map, with a negative control (`12345678` must be found nowhere).
+
+Fail-before, with the old map restored for one run:
+
+    every reactor a stage names must stand on that stage's ground: [magatiapq stage 3: reactor 2618000 is named but
+    stands on none of [926110200] (that ground holds [2618001, 2618002, 2618007])]
+
+and green with the fix. A scan of the same class over every row (matching `maps:` to the following keys, not just the
+stage's own map) found **86 reactor references and, after this fix, zero mismatches**: the old rows were right, this one
+was not, and the wrong room survived because the check did not exist.
+
+**The Zenumist row.** `content/magatiapqz.yaml`, its own switch `-Dslums.mechanics.magatiapqz`, one line in
+`content/index.txt`, the `MechanicsDataFilesTest` pin, and the six solvers the Alcadno row already registers (so
+`Orchestrator.allSolvers()` is untouched). Reused from the Alcadno row **verbatim in shape**: the six stage rules in the
+same order (`magatia-books`, `fight-room`, `reactor-count`, `magatia-files`, `magatia-climb`, `summoned-boss`), the clear
+kinds and their numbers (`statusStg1`/`Stg2`/`Stg3 == "3"`/`Stg4`/`Stg6`, then the instance clear), the 26-book stage's
+objective, the beaker's `2618000`, the four climb rooms and the ten-row climb, and the `HAND_IN` of the file pair
+`4001134`+`4001135`. The band's **own ids** were needed for: the prefix (`92610xxx`), the maps of the first two stages
+(the books stand on the entry map `926100000` here, where Alcadno's stand in the shelf room itself), the books NPC
+`2112007`, the files NPC `2112006` (Romeo, vs `2112005`/Juliet), the summon NPC `2112000`, the boss pair
+`9300139`/`9300140` (vs `9300151`/`9300152`), the box rooms `926100201-202`, the climb rooms `926100301-304`, the boss
+room `926100401`, the front door `2112004`, the recruit map `261000011` and the flag. Three rooms stay out in both bands
+because the script walks through them: `926100203` (Yulete's first meeting), `926100500` (NPC `2112001`) and `926100600`
+(`2112018`'s reward talk).
+
+Two differences worth naming rather than hiding. The files NPC in each band also takes an optional **letter**
+(`4001131` here, `4001130` in Alcadno, `2112006.js:54-62` / `2112005.js:54-62`) that only sets `npcShocked` and a
+message; it is not a gate, so the row does not model it - a bot simply never sees that line of dialogue. And the band
+leaves `maxLobbies` and the per-band stage clock to the script, as the Alcadno row does.
+
+**Not done, deliberately.** No whole-row simulation of either Magatia band. The harness would have to declare the same
+reactor-placement table that the `Map.wz` check now reads from the dump, and the general net covers all rows where a
+bespoke sim covers two; that trade is recorded here so the gap is a known one, not an oversight.
+
 ## Magatia PQ: the read that corrects my own verdict
 
 I said this was volume, not blockers. The read says otherwise, and the blocker is one line of stage 1.

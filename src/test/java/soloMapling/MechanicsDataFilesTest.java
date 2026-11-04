@@ -79,7 +79,7 @@ class MechanicsDataFilesTest {
                 "guardiannex1", "guardiannex2", "guardiannex3", "guardiannex4", "guardiannex5",
                 "guardiannex6", "zakum-chaos",
                 "ludimazepq", "piratepq", "treasurepq", "dellibattle",
-                "magatiapq", "ellinpq", "cwkpq",
+                "magatiapq", "magatiapqz", "ellinpq", "cwkpq",
                 "bossrush0", "bossrush1", "bossrush2", "bossrush3", "bossrush4", "bossrush5", "bossrush6",
                 "bossrush7", "zakumpq", "guildquest"),
                 r.content().stream().map(c -> c.id()).toList());

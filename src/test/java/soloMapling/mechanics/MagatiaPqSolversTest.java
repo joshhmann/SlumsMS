@@ -12,6 +12,7 @@ import java.util.OptionalInt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,6 +31,12 @@ class MagatiaPqSolversTest {
     private static MechanicsModel.Content row() {
         MechanicsModel.Content c = MechanicsRuns.contentFor("MagatiaPQ_A");
         assertNotNull(c, "content/magatiapq.yaml must be listed in content/index.txt");
+        return c;
+    }
+
+    private static MechanicsModel.Content zenumist() {
+        MechanicsModel.Content c = MechanicsRuns.contentFor("MagatiaPQ_Z");
+        assertNotNull(c, "content/magatiapqz.yaml must be listed in content/index.txt");
         return c;
     }
 
@@ -53,7 +60,9 @@ class MagatiaPqSolversTest {
         assertEquals(List.of("magatia-books", "fight-room", "reactor-count", "magatia-files",
                         MagatiaClimbSolver.ID, SummonedBossSolver.ID),
                 stages.stream().map(MechanicsModel.Stage::solver).toList());
-        assertEquals(List.of(926110001, 926110001, 926110200, 926110200, 926110300, 926110401),
+        // 926110100 is the beaker room; the list used to name 926110200 twice, which sent the counted stage into the
+        // room that holds only the three door reactors and made the stage unclearable
+        assertEquals(List.of(926110001, 926110001, 926110100, 926110200, 926110300, 926110401),
                 stages.stream().map(MechanicsModel.Stage::mapId).toList());
         assertEquals(List.of("statusStg1", "statusStg2", "statusStg3", "statusStg4", "statusStg6"),
                 stages.subList(0, 5).stream().map(s -> s.clear().eventProperty()).toList());
@@ -144,7 +153,7 @@ class MagatiaPqSolversTest {
     @Test
     void theBeakerIsHitUntilTheCountTheRowNamesIsReached() {
         MechanicsModel.Stage stage = row().stages().get(2);
-        View v = new View(stage, 926110200);
+        View v = new View(stage, stage.mapId());
         ReactorCountSolver solver = new ReactorCountSolver();
 
         assertEquals(3, ReactorCountSolver.target(stage.clear()));
@@ -162,10 +171,65 @@ class MagatiaPqSolversTest {
         assertInstanceOf(SolverStep.Done.class, solver.next(v, member(true)));
     }
 
+    /**
+     * The room, not just the reactor. The beaker stage stands where the three {@code 2618000} beakers and the
+     * {@code 2618006} door are, {@code 926110100}; the row used to send it to {@code 926110200}, whose reactors are the
+     * three doors {@code 2618001}/{@code 2618002}/{@code 2618007}, and a stage on a map without its reactor cannot clear
+     * no matter how long it is given. A room no stage names is a room the party never enters, so the route is checked too.
+     */
+    /**
+     * The Zenumist band is the Alcadno row with its own ids, and this pins exactly which ids differ: the prefix
+     * (92610 vs 92611), the books NPC and its room (2112007 on the entry map, where Alcadno's stands in the shelf room
+     * itself), the files NPC (2112006/Romeo vs 2112005/Juliet) and the summon NPC and boss pair (2112000 with
+     * 9300139/9300140 vs 2112010 with 9300151/9300152). Everything else - the six stage rules, the counts, the clear
+     * kinds - is the twin's, because `diff` of the two event scripts shows nothing else that matters.
+     */
+    @Test
+    void theZenumistRowIsTheAlcadnoShapeWithTheBandsOwnIds() {
+        MechanicsModel.Content z = zenumist();
+        assertEquals("MagatiaPQ_Z", z.eventScript());
+        assertEquals(2112004, z.entryNpc(), "scripts/npc/2112004.js is Romeo, the front door");
+        assertEquals(261000011, z.recruitMap());
+        assertEquals(926100700, z.exitMap());
+        assertEquals(4, z.minPlayers(), "MagatiaPQ_Z.js:27: exactly four");
+        assertEquals(4, z.maxPlayers());
+        assertEquals(71, z.minLevel());
+        assertEquals(255, z.maxLevel());
+        assertEquals(45, z.timeLimitMinutes());
+        assertEquals("slums.mechanics.magatiapqz", z.flag(), "its own switch, off by default");
+
+        List<MechanicsModel.Stage> stages = z.stages();
+        assertEquals(6, stages.size());
+        assertEquals(row().stages().stream().map(MechanicsModel.Stage::solver).toList(),
+                stages.stream().map(MechanicsModel.Stage::solver).toList(),
+                "the same six rules in the same order as the Alcadno row");
+        assertEquals(List.of(926100000, 926100001, 926100100, 926100200, 926100300, 926100401),
+                stages.stream().map(MechanicsModel.Stage::mapId).toList());
+        assertEquals(List.of(2112007, 2112006, 2112000),
+                List.of(stages.get(0).npcId(), stages.get(3).npcId(), stages.get(5).npcId()),
+                "the books, the files and the summon are the band's own NPCs");
+        assertEquals(List.of(9300139, 9300140), stages.get(5).mobs(), "Yulete's two forms");
+        assertEquals(926100201, stages.get(3).maps().get(0), "the shuffled box rooms are the 9261002xx ones");
+        assertEquals(2618000, stages.get(2).hitReactors().get(0), "the beaker is the same reactor in both bands");
+        assertEquals(926100100, stages.get(2).mapId(), "and it stands in this band's beaker room");
+        assertTrue(stages.get(5).clear().onInstance(), "the script's clearPQ ends the run, not a property");
+    }
+
+    @Test
+    void theBeakerStageStandsInTheRoomThatHoldsTheBeakers() {
+        List<MechanicsModel.Stage> stages = row().stages();
+        assertEquals(926110100, stages.get(2).mapId(), "the beakers and 2618006 are on 926110100");
+        assertNotEquals(926110200, stages.get(2).mapId(), "926110200 holds only 2618001/2618002/2618007");
+        assertEquals(926110200, stages.get(3).mapId(), "which is stage 4's room, Juliet's");
+        assertTrue(stages.stream().anyMatch(s -> s.mapId() == 926110100), "the beaker room is on the route");
+        assertEquals(926110100, new View(stages.get(2), stages.get(2).mapId()).mapOf(LEADER),
+                "and the view follows the row rather than a guess");
+    }
+
     @Test
     void bothFilesGoToJulietFromTheLeaderAndNobodyElse() {
         MechanicsModel.Stage stage = row().stages().get(3);
-        View v = new View(stage, 926110200);
+        View v = new View(stage, stage.mapId());
         MagatiaFilesSolver solver = new MagatiaFilesSolver();
         v.npc = true;
 
