@@ -26,13 +26,11 @@ var sel;
 actionx = {"Mental": false, "Physical": false};
 
 function start() {
-    if (cm.isQuestStarted(6192)) {
-        if (cm.getParty() == null) {
-            cm.sendOk("Form a party to start this instance.");
-            cm.dispose();
-            return;
-        }
-
+    // 1.6.4 (owner: delete the dead quest 6192 gate): a party member at level 80+ starts the El Nath PQ, except a 2nd-job
+    // warrior (110/120/130), who still needs this NPC for the 3rd job advancement and always gets that dialogue.
+    var job = cm.getPlayer().getJob().getId();
+    var needsThirdJob = job == 110 || job == 120 || job == 130;
+    if (cm.getParty() != null && cm.getPlayer().getLevel() >= 80 && !needsThirdJob) {
         var em = cm.getEventManager("ElnathPQ");
         if (em == null) {
             cm.sendOk("The El Nath PQ has encountered an error.");
@@ -62,7 +60,7 @@ function start() {
             return;
         }
 
-        cm.sendNext("Hi there.");
+        cm.sendNext("Hi there. To try the El Nath party quest, form a party and talk to me again.");
         cm.dispose();
         return;
     }
