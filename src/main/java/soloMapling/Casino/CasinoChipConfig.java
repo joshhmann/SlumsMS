@@ -8,7 +8,7 @@ import java.util.Map;
  *
  * <p>Chips are ETC stamp items repurposed as casino currency. The shop is database rows, not code: NPC
  * {@link #CASINO_NPC_ID} into map 100000203 (Henesys Game Park) and shop {@link #CASINO_SHOP_ID} are created by
- * {@code database/migrations/059-casino-chip-shop.sql}, which inserts exactly {@link #getChips()} below; change chip
+ * {@code database/migrations/064-casino-chip-shop.sql}, which inserts exactly {@link #getChips()} below; change chip
  * values here and in that migration together, or {@code CasinoChipShopMigrationTest} fails. The NPC's
  * {@code scripts/npc/9000055.js} opens the shop by id.
  *

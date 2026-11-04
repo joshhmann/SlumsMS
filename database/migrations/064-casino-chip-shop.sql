@@ -15,7 +15,7 @@
 -- (CasinoNpcShopFallbackTest). This row without that script leaves the NPC mute ("is not coded").
 --
 -- No existing row changes. Stop the game and take a backup first, as for every migration here. Applying it twice
--- changes nothing (ledger id '059-casino-chip-shop'; the shops row is inserted only when shop 9999001 is free and no
+-- changes nothing (ledger id '064-casino-chip-shop'; the shops row is inserted only when shop 9999001 is free and no
 -- shop already serves NPC 9000055, and each item only when that shop does not already sell it). A shop that an
 -- operator created by hand before this migration is left alone and stays theirs: only rows this script inserted are
 -- recorded in mapleroot_integration_migration_rows and deleted by the rollback.
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS mapleroot_integration_migration_rows (
   PRIMARY KEY (migration_id, table_name, row_id)
 ) ENGINE=InnoDB;
 
-SET @apply = NOT EXISTS (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id = '059-casino-chip-shop');
+SET @apply = NOT EXISTS (SELECT 1 FROM mapleroot_integration_migrations WHERE migration_id = '064-casino-chip-shop');
 
 -- The game must be stopped: snapshot existing ids so only this insert is owned.
 CREATE TEMPORARY TABLE migration_shops_before (id bigint PRIMARY KEY);
@@ -46,7 +46,7 @@ WHERE @apply
   AND NOT EXISTS (SELECT 1 FROM shops s WHERE s.shopid = 9999001)
   AND NOT EXISTS (SELECT 1 FROM shops s WHERE s.npcid = 9000055);
 INSERT INTO mapleroot_integration_migration_rows (migration_id, table_name, row_id)
-SELECT '059-casino-chip-shop', 'shops', s.shopid FROM shops s
+SELECT '064-casino-chip-shop', 'shops', s.shopid FROM shops s
 WHERE @apply AND s.shopid = 9999001
   AND NOT EXISTS (SELECT 1 FROM migration_shops_before b WHERE b.id = s.shopid);
 INSERT INTO shopitems (shopid, itemid, price, pitch, position)
@@ -61,10 +61,10 @@ WHERE @apply
   AND EXISTS (SELECT 1 FROM shops s WHERE s.shopid = r.shopid)
   AND NOT EXISTS (SELECT 1 FROM shopitems i WHERE i.shopid = r.shopid AND i.itemid = r.itemid);
 INSERT INTO mapleroot_integration_migration_rows (migration_id, table_name, row_id)
-SELECT '059-casino-chip-shop', 'shopitems', i.shopitemid FROM shopitems i
+SELECT '064-casino-chip-shop', 'shopitems', i.shopitemid FROM shopitems i
 WHERE @apply AND i.shopid = 9999001
   AND NOT EXISTS (SELECT 1 FROM migration_shopitems_before b WHERE b.id = i.shopitemid);
-INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('059-casino-chip-shop');
+INSERT IGNORE INTO mapleroot_integration_migrations(migration_id) VALUES ('064-casino-chip-shop');
 COMMIT;
 DROP TEMPORARY TABLE migration_shopitems_before;
 DROP TEMPORARY TABLE migration_shops_before;

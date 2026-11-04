@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CasinoChipShopMigrationTest {
 
     static final Path DIR = Path.of("database/migrations");
-    static final String ID = "059-casino-chip-shop";
+    static final String ID = "064-casino-chip-shop";
 
     /** One {@code SELECT shopid, itemid, price, pitch, position} row of the UNION ALL table. */
     static final Pattern ITEM_ROW = Pattern.compile(
@@ -59,7 +59,7 @@ class CasinoChipShopMigrationTest {
     @Test
     void insertsTheShopCasinoChipConfigNames() throws Exception {
         Matcher m = SHOP_ROW.matcher(sql());
-        assertTrue(m.find(), "059 inserts the shops row");
+        assertTrue(m.find(), "064 inserts the shops row");
         assertEquals(CasinoChipConfig.CASINO_SHOP_ID, Integer.parseInt(m.group(1)), "shop id");
         assertEquals(CasinoChipConfig.CASINO_NPC_ID, Integer.parseInt(m.group(2)), "NPC 9000055 owns the shop");
     }
