@@ -810,6 +810,9 @@ class WorldTest(unittest.TestCase):
         self.assertIn('reveal("shh")', js)
         self.assertRegex(js, r'getDay\(\) === 0\) setTimeout\(function \(\) \{ reveal\("sunday", true\)')
         self.assertIn('every: { src: "wink2.webp"', js)
+        from sections import market
+        with open(os.path.join(os.path.dirname(market.__file__), "market.py"), encoding="utf-8") as f:
+            self.assertIn("Three more come as rewards", f.read())  # My cards' intro counts the third reward
 
     def test_board_post_shows_the_items_price(self):
         # w09: picking an item for a post shows its price; summary.json carries the day's low/high, sales and date
