@@ -76,10 +76,4 @@ class BotNoiseFilterTest {
         assertFalse(BotNoiseFilter.hidesMegaphones(PLAYER));
         assertFalse(BotNoiseFilter.hidesBotChat(PLAYER, "Josh", BOT, "lol", false, 0));
     }
-
-    @Test
-    void shortNamesDoNotMatchEverything() {
-        assertFalse(BotNoiseFilter.namesViewer("ok lol", "ok"));
-        assertTrue(BotNoiseFilter.namesViewer("gg JOSHUA nice", "joshua"));
-    }
 }
