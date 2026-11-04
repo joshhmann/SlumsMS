@@ -33,7 +33,7 @@ change.
 | 3 | `botmemory` extension, relevance recall, knowledge boundaries | planned |
 | 4 | `SocialAction` registry, missing actions, gifts, emotion and memory into the decision model | planned |
 | 5 | Persisted intentions; memory in bot-bot prompts | planned |
-| 6 | Social LOD, loop breaker, metrics | planned |
+| 6 | Social LOD, loop breaker, metrics | 6b social LOD built on branch `164-social-lod` (`SocialLod`: ACTIVE/BACKGROUND/DORMANT, 30 s hold, 5-minute background maintenance, one bounded login catch-up; `-Dslums.sociallod=false` is the rollback). Loop breaker and dashboard metrics still planned; TEST run pending |
 | 7 | Henesys pilot and live verification | planned |
 
 ## Acceptance (from the brief)
@@ -45,5 +45,5 @@ it has run; the audit file says what has and has not.
 
 ## Switches
 
-`slums.botlife.enabled`, `slums.botlife.execute`, `slums.bottalk`, `slums.crews`, `slums.modeswitch`: all `-D` JVM
+`slums.botlife.enabled`, `slums.botlife.execute`, `slums.bottalk`, `slums.crews`, `slums.modeswitch`, `slums.sociallod`: all `-D` JVM
 properties, on unless set to `false`. None is a `config.yaml` key.

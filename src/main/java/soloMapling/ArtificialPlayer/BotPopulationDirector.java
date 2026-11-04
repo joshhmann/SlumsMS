@@ -534,6 +534,7 @@ public final class BotPopulationDirector {
             soloMapling.ArtificialPlayer.BotPartySystem.BotPartyChat.maybeStep(now); // ticket 85: bot-only parties chat
             soloMapling.ArtificialPlayer.BotAffinitySystem.BotBonds.maybeStep(now); // 1.6.0 S2: bot-to-bot bonds
             soloMapling.ArtificialPlayer.BotLifeSystem.ModeSwitch.maybeLogSummary(now, log); // 1.6.4: mode census and counters
+            soloMapling.ArtificialPlayer.BotSocialSystem.SocialLod.maybeStep(now, CharacterStorage.getAllBots().values()); // 1.6.4 S6b: tier census and slow maintenance
             soloMapling.ArtificialPlayer.BotCoupleSystem.BotCouples.maybeStep(now); // ticket 58: a handful of couples
             soloMapling.ArtificialPlayer.BotGuildSystem.BotGuilds.maybeStep(now); // 1.5.0: bot guilds
             soloMapling.ArtificialPlayer.BotDramaSystem.BotDrama.maybeStep(now); // 1.5.0: bot drama (romance, rivals, wars)
